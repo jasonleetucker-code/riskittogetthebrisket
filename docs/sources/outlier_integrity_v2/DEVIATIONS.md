@@ -56,3 +56,40 @@ reviewer; neither changes a gate, and both were found on exploratory boards.
 * **B2 supporting evidence** "payload count < 0.6 × trailing-5 median" needs a payload-count
   history that is not recorded yet; supporting evidence is recorded only as counts and is
   never sufficient, as registered.
+
+## Status at Stage 1, second unit (Layer C, Layer D wiring, transparency)
+
+Same rules as above: **no acceptance criterion, gate, population, seed or metric has
+changed**, and nothing below was chosen by looking at a V_HELDOUT, I_INDEPENDENT or
+R_REGRESSION_PIN board. The only board built with Layer C on was E_DEV
+`dynasty_export_20260930_130404` (a development smoke: 0 Layer C drops at the provisional
+`tau_C`, 146 incumbent drops not made, 36 votes stamped `kept_dissent`). Before Layer C
+was written, `origin/main` was merged into the branch (merge `cf88b11783`), because PR
+#1817 had landed `_two_way_alt_center` (the second filter call site) and the D4 code.
+
+| id | registered text | implementation | reason |
+|---|---|---|---|
+| C15 | §3.3 guard 4: "≥ 2 consecutive accepted observations of this source for this player within τ_c of u_o" | The last two entries of the source's accepted-observation window, each within `tau_c` of `u_o`, where `tau_c` is the source's B4 threshold for the band of its own prior median. While the `tau_c` table is empty (before Stage 2) the registered floor `ln 1.5` is used. | The floor is the smallest value any frozen `tau_c` can take (`tau_c = max(ln 1.5, …)`), so it never exempts a vote that a frozen threshold would not. No history = not confirmed (the registered cold-start rule). |
+| C16 | Architecture §3: "PR #1817's `_two_way_alt_center` … routes through the V2 dispatcher" | `_two_way_alt_center` takes an `outlier_filter`; with V2 on it is Layer C on the alt family's scope curve, with the alt votes' own family-capped weights, **no translation lineage and no persistence history** (cold start). | An alt-family panel has no row-level translation metadata and no player history of its own; inventing either would be guessing. Cold start without lineage is the stricter reading for a vote and the looser one for a reference pair; it is recorded so the reviewer can weigh it. Travis Hunter is the only row it reaches. |
+| C17 | §3.3 guard 1: "≥ 3 providers on the row" | Layer C is asked on every non-pick row with ≥ 2 votes; guard 1 is enforced inside the rule. | Rows with two providers can still carry a `kept_dissent` stamp (transparency); no drop is possible below three providers. |
+| C18 | §3.3: "Remove vote o" (stamp shape not stated) | A Layer C drop keeps the incumbent filter's existing shape (`hampelDropped: true`, `droppedSources`), plus `integrity = {status: rejected_tail, primaryReason: extreme_uncorroborated_tail, category: rejected_by_integrity_rule, layerC: {...}}` and `row.outlierIntegrityReasons`. Kept dissent stays `status: voting` with primary reason `kept_dissent`. | Every existing consumer of a filter drop (confidence evidence, census, explainers, B11 seats) reads it unchanged, so Layer D sees a C drop exactly as it sees an incumbent drop today (§3.4: "behave like today's filter drops"). |
+| C19 | §3.3 guard 2: "≥ 2 providers other than o's, each within ln 2 of another of them, not formed solely by a translated vote and its own declared translation backbone" | Satisfied iff two votes of two different providers (neither o's) lie within `ln 2` of each other and are not lineage-linked. Lineage: a vote stamped `sharedMarketTranslated` is linked to every key of the bridges that seeded the build's shared-market ladder (`bridge_ladder.contributors`); a `rookie_ladder_translation_*` vote to its `ROOKIE_LADDER_PAIRS` reference; a coverage-aligned family vote to its `levelSource`. Compared at provider level. | "Each within ln 2 of another" is satisfiable iff such a pair exists. Lineage is read only from declared, stamped provenance -- never from numerical similarity -- and can only remove a reference, i.e. only reduce drops. Two translated votes of different providers (FantasyPros IDP, DLF IDP) are independent ordinals and do form a reference. |
+| C20 | §3.3 guard 5: "o's family holds < 0.5 of the row's family-capped weight" | Weights are the row's freshness/health-adjusted weights passed through the existing `cap_family_weights`. In the B11 lost-evidence replay, a withheld observation (weight 0 on the row) is seated at its base registry weight. | The replay asks "what would the panel have decided while the source still voted", so the withheld source is weighed as a voter. The cap owner is consumed, never changed. |
+| C21 | §3.5: `tau_C` selected on E_DEV from {ln 4, ln 5, ln 6} | Provisional `tau_C = ln 6` in `config/sources/outlier_integrity_v2.json` until the Stage 2 freeze. | The largest registered grid point (fewest drops), consistent with the other provisional constants. |
+| C22 | Architecture §3 / §9: reason codes "added to PR #1831's `src/sources/voting_status.py`" | #1831 is still not on `main`. The codes and categories stay in `source_integrity.REASON_CATEGORY`; the contract carries `sourceIntegrity.votingCategories` (per source: observation counts by §10 category and by primary reason, plus the source-level state from the existing `sourceVotingEligibility`). The frontend's one source-voting label module (`frontend/lib/source-voting-status.js`, #1846) labels the categories; the per-row explainer shows them. | Coordinate, never fork: when #1831 lands, its `_row_tallies` already keys not-voting rows by `excludedReason` / `outlier_filter`, and the frontend label map resolves every V2 code by prefix. |
+
+Layer D: `src/api/confidence.py` and `config/confidence/gate_v1.json` are byte-identical to
+`main` (pinned by test). The only confidence-relevant wiring is §3.4's: the B11
+lost-evidence replay asks Layer C through the same per-row context as the vote (one
+dispatcher), and D-1 (`integrity_holds_as_withheld`) is unchanged and separately evaluated.
+
+### Not implemented in this unit (named)
+
+* **Stage 2 threshold freeze** (`FROZEN_THRESHOLDS.json`), **Stage 3** R constraints and the
+  §6 comparison boards (A–D, A′–D′, B″–C″, now buildable because D4 code is on the branch),
+  the regression-set tests on the 31 IDP votes and the D4 set (they are R data; the
+  registration orders them after the freeze), and every V / I evaluation.
+* **Performance (criterion 11)**: on E_DEV `20260930_130404`, warm builds measured
+  ~1.6–1.8x the incumbent build with V2 on (Layer C itself ~0.05 s of ~1.6 s; the rest is
+  Layers A/B: identity grading, the evidence re-parse and the segment screen's snapshot
+  copy). Criterion 11 (≤ 1.25x) currently fails and is open.

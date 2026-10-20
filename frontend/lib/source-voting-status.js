@@ -97,6 +97,86 @@ const NOT_VOTING_REASON_LABELS = Object.freeze({
   zero_weight: "Carried no weight",
 });
 
+// ── Outlier integrity v2: observation categories (owner directive
+// 2026-10-20 §10) ──────────────────────────────────────────────────────────
+//
+// The backend (src/api/source_integrity.py) stamps every observation it
+// tested with a `category` and a `primaryReason`; this map only LABELS them.
+// It decides nothing and never upgrades or downgrades a category.  A
+// legitimate dissent ("valid_but_disagreeing") is still a voting observation
+// and must never read as corrupt or invalid.  Held observations read as
+// "held pending confirmation", never as corrupt.
+
+export const INTEGRITY_CATEGORY_LABELS = Object.freeze({
+  voting_normally: "Voting normally",
+  valid_but_disagreeing: "Voting — disagrees with other sources",
+  invalid_player_identity: "Not voting — could not confirm this is the same player",
+  source_format_error: "Not voting — the source file was malformed",
+  normalization_scale_error: "Not voting — the source's scale could not be converted reliably",
+  stale_source: "Not voting — too old, or the download was unusable",
+  broken_feed: "Not voting — the feed capture was broken",
+  missing_observation: "No observation from this source",
+  temporarily_held_by_policy: "Held pending confirmation or by policy",
+  rejected_by_integrity_rule:
+    "Set aside — extreme and uncorroborated by any other provider, with no history yet",
+});
+
+// Reason code (or the prefix before ":" / "@") → category, the label-side
+// mirror of `REASON_CATEGORY` in src/api/source_integrity.py (parity pinned
+// by tests/api/test_outlier_integrity_v2_layer_c.py).  Used only to LABEL a
+// reason that arrives without its category (e.g. a `notVotingRows` key).
+export const INTEGRITY_REASON_CATEGORY = Object.freeze({
+  voting: "voting_normally",
+  voting_name_only_identity: "voting_normally",
+  kept_dissent: "valid_but_disagreeing",
+  segment_break_unproven: "valid_but_disagreeing",
+  identity_contradicted: "invalid_player_identity",
+  source_format_error: "source_format_error",
+  normalization_untranslated: "normalization_scale_error",
+  normalization_dependency_unavailable: "normalization_scale_error",
+  normalization_scale_error: "normalization_scale_error",
+  normalization_direction_error: "normalization_scale_error",
+  withheld_no_bridge: "normalization_scale_error",
+  freshness_or_health_zero_weight: "stale_source",
+  broken_feed: "broken_feed",
+  held_pending_confirmation: "temporarily_held_by_policy",
+  identity_unresolved: "temporarily_held_by_policy",
+  dlf_offense_only_vote: "temporarily_held_by_policy",
+  dlf_values_rank_hill_vote: "temporarily_held_by_policy",
+  policy_vote_hold: "temporarily_held_by_policy",
+  extreme_uncorroborated_tail: "rejected_by_integrity_rule",
+});
+
+/** The category of a reason code (exact, else its prefix), or null. */
+export function integrityReasonCategory(code) {
+  const c = text(code);
+  if (!c) return null;
+  if (INTEGRITY_REASON_CATEGORY[c]) return INTEGRITY_REASON_CATEGORY[c];
+  for (const sep of [":", "@"]) {
+    const head = c.split(sep, 1)[0];
+    if (INTEGRITY_REASON_CATEGORY[head]) return INTEGRITY_REASON_CATEGORY[head];
+  }
+  return null;
+}
+
+/** Plain label for a category; an unknown category is shown as itself. */
+export function integrityCategoryLabel(category) {
+  const c = text(category);
+  if (!c) return null;
+  return INTEGRITY_CATEGORY_LABELS[c] || c;
+}
+
+/**
+ * Label for one observation's integrity block (`sourceRankMeta[k].integrity`):
+ * the backend's own category first, else the category of its primary reason.
+ * Null when the observation carries no block (V2 off) — nothing is assumed.
+ */
+export function integrityLabel(integrity) {
+  if (!integrity || typeof integrity !== "object") return null;
+  const category = text(integrity.category) || integrityReasonCategory(integrity.primaryReason);
+  return category ? integrityCategoryLabel(category) : null;
+}
+
 function finite(n) {
   return typeof n === "number" && Number.isFinite(n);
 }
@@ -195,7 +275,9 @@ export function coverageLabel(coverage) {
 }
 
 export function notVotingReasonLabel(reason) {
-  return NOT_VOTING_REASON_LABELS[reason] || String(reason);
+  if (NOT_VOTING_REASON_LABELS[reason]) return NOT_VOTING_REASON_LABELS[reason];
+  const category = integrityReasonCategory(reason);
+  return category ? integrityCategoryLabel(category) : String(reason);
 }
 
 function lastUpdatedText(iso, basis) {

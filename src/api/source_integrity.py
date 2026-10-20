@@ -47,8 +47,10 @@ row-estimated scale:
     confirmation (not rejected), and released by reproduction, corroboration or
     a cap.
 
-Layer C (legitimate disagreement) and Layer D (confidence) are not in this
-module; D is the unchanged ``src/api/confidence.py``.
+Layer C (legitimate disagreement) is ``src/api/outlier_policy.assess_row_layer_c``
+(the outlier-policy owner, beside V1); this module supplies its history input
+(``persistence_confirmed``), its per-vote stamps (``layer_c_stamp``) and its
+census. Layer D (confidence) is the unchanged ``src/api/confidence.py``.
 
 Missing is never zero
 ---------------------
@@ -90,7 +92,7 @@ from pathlib import Path
 from typing import Any
 
 POLICY_VERSION = "outlier-integrity-v2"
-LAYERS_IMPLEMENTED = ("A", "B0", "B1", "B2", "B3", "B4")
+LAYERS_IMPLEMENTED = ("A", "B0", "B1", "B2", "B3", "B4", "C")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 THRESHOLDS_PATH = REPO_ROOT / "config" / "sources" / "outlier_integrity_v2.json"
@@ -146,6 +148,10 @@ STATUS_REFUSED = "refused"
 STATUS_WITHHELD = "withheld"
 STATUS_QUARANTINED = "quarantined"
 STATUS_HELD = "held"
+#: Layer C: removed by the narrow cold-start tail rule. Still an ACCEPTED
+#: observation for the history lane (DEVIATIONS.md C11): C is not an integrity
+#: verdict, and a contrarian's persistence must be able to accumulate.
+STATUS_REJECTED_TAIL = "rejected_tail"
 
 REASON_VOTING = "voting"
 REASON_NAME_ONLY = "voting_name_only_identity"
@@ -157,6 +163,8 @@ REASON_UNTRANSLATED = "normalization_untranslated"
 REASON_DEPENDENCY = "normalization_dependency_unavailable"
 REASON_PROVENANCE = "broken_feed:payload_provenance_conflict"
 REASON_HELD_DISCONTINUITY = "held_pending_confirmation:observation_discontinuity"
+REASON_KEPT_DISSENT = "kept_dissent"
+REASON_TAIL = "extreme_uncorroborated_tail"
 ALERT_HOLD_CAP = "hold_released_at_cap"
 
 CATEGORY_VOTING = "voting_normally"
@@ -174,7 +182,7 @@ CATEGORY_RULE = "rejected_by_integrity_rule"
 REASON_CATEGORY: dict[str, str] = {
     REASON_VOTING: CATEGORY_VOTING,
     REASON_NAME_ONLY: CATEGORY_VOTING,
-    "kept_dissent": CATEGORY_DISSENT,
+    REASON_KEPT_DISSENT: CATEGORY_DISSENT,
     REASON_SEGMENT_BREAK_UNPROVEN: CATEGORY_DISSENT,
     "identity_contradicted": CATEGORY_IDENTITY,
     "source_format_error": CATEGORY_FORMAT,
@@ -188,7 +196,9 @@ REASON_CATEGORY: dict[str, str] = {
     "held_pending_confirmation": CATEGORY_HELD,
     "identity_unresolved": CATEGORY_HELD,
     "dlf_offense_only_vote": CATEGORY_HELD,
-    "extreme_uncorroborated_tail": CATEGORY_RULE,
+    REASON_TAIL: CATEGORY_RULE,
+    "dlf_values_rank_hill_vote": CATEGORY_HELD,
+    "policy_vote_hold": CATEGORY_HELD,
 }
 
 #: Primary-reason precedence (architecture §9): identity > format / feed >
@@ -334,6 +344,9 @@ class IntegrityThresholds:
     rho_min: float = 0.0
     tau_gross: float = math.log(4.0)
     k_c: float = 8.0
+    #: Layer C guard 3 (``tau_C``): provisional = the LARGEST registered grid
+    #: point (ln 6, fewest drops) until the Stage 2 freeze; never below ln 4.
+    tau_c_big: float = math.log(6.0)
     tau_board: Mapping[str, float] = field(default_factory=dict)
     tau_c: Mapping[str, Mapping[str, float]] = field(default_factory=dict)
 
@@ -356,6 +369,7 @@ class IntegrityThresholds:
             "rhoMin": self.rho_min,
             "tauGross": round(self.tau_gross, 6),
             "kC": self.k_c,
+            "tauCLayerC": round(self.tau_c_big, 6),
             "tauBoardCells": len(self.tau_board),
             "tauCSources": len(self.tau_c),
         }
@@ -377,9 +391,13 @@ def load_thresholds(path: Path | None = None) -> IntegrityThresholds:
         v = sel.get(key, default)
         return v if v is None or isinstance(v, (int, float)) else default
 
-    tau_gross = sel.get("tau_gross")
-    if isinstance(tau_gross, str) and tau_gross.startswith("ln "):
-        tau_gross = math.log(float(tau_gross[3:]))
+    def _ln(raw: Any) -> Any:
+        if isinstance(raw, str) and raw.startswith("ln "):
+            return math.log(float(raw[3:]))
+        return raw
+
+    tau_gross = _ln(sel.get("tau_gross"))
+    tau_c_big = _ln(sel.get("tau_C"))
     return IntegrityThresholds(
         status=str(raw.get("status") or base.status),
         tau_age=_num("tau_age", base.tau_age),
@@ -388,6 +406,11 @@ def load_thresholds(path: Path | None = None) -> IntegrityThresholds:
         rho_min=float(_num("rho_min", base.rho_min)),
         tau_gross=float(tau_gross) if isinstance(tau_gross, (int, float)) else base.tau_gross,
         k_c=float(_num("k_c", base.k_c)),
+        tau_c_big=(
+            max(math.log(4.0), float(tau_c_big))
+            if isinstance(tau_c_big, (int, float))
+            else base.tau_c_big
+        ),
         tau_board=dict(sel.get("tau_board") or {}),
         tau_c={str(k): dict(v) for k, v in (sel.get("tau_c") or {}).items()},
     )
@@ -403,6 +426,31 @@ def vote_coordinate(value: Any, asset_class: Any) -> float | None:
     from src.api import outlier_policy as _v1  # noqa: PLC0415
 
     return _v1.rank_coordinate(value, _v1.scope_curve(asset_class))
+
+
+def memoized_provider_of(fn: Callable[[str], str]) -> Callable[[str], str]:
+    """A per-build memo of a provider lookup (the lineage registry is read once
+    per source instead of once per vote pair). Same answers, never shared
+    across builds."""
+    cache: dict[str, str] = {}
+
+    def _provider_of(key: str) -> str:
+        got = cache.get(key)
+        if got is None:
+            got = cache[key] = fn(key)
+        return got
+
+    return _provider_of
+
+
+def _count(value: Any) -> int | None:
+    """A non-negative integer count, or ``None`` when absent / unreadable --
+    never a fabricated 0."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(float(value)) or value < 0:
+        return None
+    return int(value)
 
 
 def implied_rank(u: float) -> float:
@@ -520,7 +568,7 @@ def format_findings(source: str, census: Mapping[str, Any] | None) -> list[Board
                     {"rankValuePairs": len(pairs), "discordantRows": bad},
                 )
             )
-    non_numeric = int(census.get("nonNumericValueRows") or 0)
+    non_numeric = _count(census.get("nonNumericValueRows"))
     if non_numeric:
         # Never an exclusion: those cells were never observations. Reported so
         # "the vendor published nothing" and "we could not read it" differ.
@@ -530,7 +578,7 @@ def format_findings(source: str, census: Mapping[str, Any] | None) -> list[Board
                 REASON_FORMAT_NON_NUMERIC,
                 "source",
                 False,
-                {"rows": int(census.get("rows") or 0), "nonNumericRows": non_numeric},
+                {"rows": _count(census.get("rows")), "nonNumericRows": non_numeric},
             )
         )
     return out
@@ -685,11 +733,21 @@ class IntegrityHistory:
 
     @classmethod
     def from_json(cls, raw: Mapping[str, Any] | None) -> IntegrityHistory | None:
+        """The folded state, or ``None`` when it is absent or malformed (an
+        unreadable count is not a zero: the build then runs without history
+        and says so)."""
         if not isinstance(raw, Mapping) or raw.get("schema") != "oiv2-source-rank-history/v1":
+            return None
+        boards = _count(raw.get("boards"))
+        pending_raw = raw.get("pending") or {}
+        if boards is None or any(
+            not isinstance(v, Mapping) or _count(v.get("fetches")) is None
+            for v in pending_raw.values()
+        ):
             return None
         return cls(
             as_of=raw.get("asOf"),
-            boards=int(raw.get("boards") or 0),
+            boards=boards,
             segments={
                 k: tuple(float(x) for x in v) for k, v in (raw.get("segments") or {}).items()
             },
@@ -701,7 +759,7 @@ class IntegrityHistory:
                 k: PendingHold(
                     u=float(v["u"]),
                     first_held_at=v.get("firstHeldAt"),
-                    fetches=int(v.get("fetches") or 0),
+                    fetches=int(v["fetches"]),
                     last_hash=str(v.get("lastHash") or ""),
                 )
                 for k, v in (raw.get("pending") or {}).items()
@@ -1027,6 +1085,11 @@ class IntegrityBuild:
     segment_stats: dict[str, dict[str, Any]] = field(default_factory=dict)
     segment_medians: dict[str, float] = field(default_factory=dict)
     ranking_passes: int = 1
+    #: Layer C census: ``{source: {"dropped": n, "keptDissent": n}}`` and the
+    #: guard that kept each guard-3 candidate.
+    layer_c_counts: dict[str, dict[str, int]] = field(default_factory=dict)
+    layer_c_kept_because: dict[str, int] = field(default_factory=dict)
+    layer_c_rows: int = 0
 
     def count_identity(self, source: str, verdict: str) -> None:
         bucket = self.identity_counts.setdefault(source, {})
@@ -1034,6 +1097,18 @@ class IntegrityBuild:
 
     def count_vote(self, reason: str) -> None:
         self.vote_counts[reason] = self.vote_counts.get(reason, 0) + 1
+
+    def count_layer_c(self, verdict: Any) -> None:
+        """Fold one row's Layer C verdict (``outlier_policy.LayerCVerdict``)."""
+        self.layer_c_rows += 1
+        for source in verdict.dropped:
+            bucket = self.layer_c_counts.setdefault(source, {})
+            bucket["dropped"] = bucket.get("dropped", 0) + 1
+        for source in verdict.dissent:
+            bucket = self.layer_c_counts.setdefault(source, {})
+            bucket["keptDissent"] = bucket.get("keptDissent", 0) + 1
+        for why in verdict.kept_because.values():
+            self.layer_c_kept_because[why] = self.layer_c_kept_because.get(why, 0) + 1
 
     def vote_exclusion(self, source: str, asset_class: str, pos: str) -> str | None:
         """The hard board-level reason excluding this vote, if any (B0 / B3 /
@@ -1049,11 +1124,23 @@ class IntegrityBuild:
         primary, _others = primary_reason(codes)
         return primary
 
+    def layer_c_summary(self) -> dict[str, Any]:
+        from src.api import outlier_policy as _op  # noqa: PLC0415
+
+        return {
+            "constants": _op.layer_c_constants(self.thresholds.tau_c_big),
+            "rowsAssessed": self.layer_c_rows,
+            "bySource": {
+                k: dict(sorted(v.items())) for k, v in sorted(self.layer_c_counts.items())
+            },
+            "keptBecause": dict(sorted(self.layer_c_kept_because.items())),
+        }
+
     def summary(self) -> dict[str, Any]:
         return {
             "version": POLICY_VERSION,
             "layers": list(LAYERS_IMPLEMENTED),
-            "layerC": "not_in_this_module",
+            "layerC": self.layer_c_summary(),
             "flags": flag_snapshot(),
             "thresholds": self.thresholds.to_stamp(),
             "historyLane": {
@@ -1204,6 +1291,74 @@ def row_continuity_holds(
     return held
 
 
+def persistence_confirmed(
+    history: IntegrityHistory | None,
+    thresholds: IntegrityThresholds,
+    source: str,
+    player_key: str | None,
+    u: float,
+) -> bool:
+    """Layer C guard 4: the source's last ``C_PERSISTENCE_MIN`` (2) ACCEPTED
+    observations of this player both sit within ``tau_c`` of ``u``.
+
+    ``tau_c`` is the source's B4 continuity threshold for the depth band of its
+    own prior median (never the new value's band). Until the Stage 2 freeze the
+    ``tau_c`` table is empty and the registered floor ``ln 1.5`` is used: the
+    strictest persistence test any frozen ``tau_c`` can produce, so it never
+    exempts a vote a frozen threshold would not (DEVIATIONS.md C15). No history,
+    or fewer than two accepted observations: not confirmed (cold start).
+    """
+    from src.api import outlier_policy as _op  # noqa: PLC0415
+
+    if history is None or not player_key or not math.isfinite(u):
+        return False
+    got = history.observations.get(f"{source}|{player_key}")
+    if not got or len(got) < _op.C_PERSISTENCE_MIN:
+        return False
+    recent = got[-_op.C_PERSISTENCE_MIN :]
+    tau = thresholds.tau_c_for(source, depth_band(_median(got)))
+    if tau is None:
+        tau = B4_MIN_TAU_C
+    return all(abs(u - x) <= tau for x in recent)
+
+
+def layer_c_stamp(
+    existing: Mapping[str, Any] | None,
+    source: str,
+    verdict: Any,
+) -> dict[str, Any] | None:
+    """The integrity block of one vote after Layer C, or ``None`` when Layer C
+    has nothing to add (the vote keeps its existing ``voting`` block).
+
+    Dropped -> ``rejected_tail`` / ``extreme_uncorroborated_tail`` (category
+    "rejected by a justified integrity rule"; the vote is an accepted
+    observation for the history lane). Kept further than ``ln 2`` from every
+    other provider -> still ``voting``, primary reason ``kept_dissent``
+    (category "valid but disagreeing" -- never an invalid category).
+    """
+    detail = verdict.details.get(source)
+    if source in verdict.dropped:
+        return integrity_stamp(
+            STATUS_REJECTED_TAIL,
+            [REASON_TAIL],
+            layerC=dict(detail) if detail else None,
+        )
+    if source not in verdict.dissent:
+        return None
+    base = dict(existing) if isinstance(existing, Mapping) else {}
+    codes = [REASON_KEPT_DISSENT, str(base.get("primaryReason") or REASON_VOTING)]
+    codes += [str(c) for c in base.get("otherReasons") or ()]
+    out = integrity_stamp(
+        STATUS_VOTING,
+        [c for c in codes if c != REASON_VOTING],
+        layerC=dict(detail) if detail else None,
+        keptBecause=verdict.kept_because.get(source),
+    )
+    if base.get("identity"):
+        out["identity"] = base["identity"]
+    return out
+
+
 def stamp_segment_advisories(
     players_array: Sequence[Mapping[str, Any]],
     advisories: Mapping[tuple[str, str, str], str],
@@ -1227,6 +1382,128 @@ def stamp_segment_advisories(
                 integ["advisory"] = reason
                 n += 1
     return n
+
+
+# ── Transparency census (directive §10) ────────────────────────────────────
+
+#: ``sourceVotingEligibility[*].status`` (the existing per-source owner) →
+#: directive §10 category. ``disabled_by_override`` is the user's own choice,
+#: not a source fault, and keeps its own name.
+ELIGIBILITY_CATEGORY: dict[str, str | None] = {
+    "voting": CATEGORY_VOTING,
+    "withheld": CATEGORY_STALE,
+    "policy_held": CATEGORY_HELD,
+    "seasonal_inactive": CATEGORY_HELD,
+    "private_not_voting": CATEGORY_HELD,
+    "no_observations": CATEGORY_MISSING,
+    "disabled_by_override": None,
+}
+#: Observation states that are not a directive §10 category: reported under
+#: their own name, never folded into an invalid category.
+PASSTHROUGH_SUPERSEDED = "superseded_by_family"
+PASSTHROUGH_OTHER_FILTER = "outlier_filter_challenger"
+
+
+def observation_category(meta: Mapping[str, Any]) -> tuple[str, str]:
+    """``(category, reason)`` for one ``sourceRankMeta`` entry, read from what
+    the pipeline stamped -- never inferred. The integrity block wins (it was
+    written by the layer that tested the observation); otherwise the existing
+    exclusion stamps; otherwise the observation voted normally."""
+    integ = meta.get("integrity")
+    if isinstance(integ, Mapping) and integ.get("primaryReason"):
+        reason = str(integ["primaryReason"])
+        return str(integ.get("category") or reason_category(reason) or reason), reason
+    excluded = meta.get("excludedReason")
+    if excluded:
+        reason = str(excluded)
+        return reason_category(reason) or reason, reason
+    if meta.get("supersededBy"):
+        return PASSTHROUGH_SUPERSEDED, PASSTHROUGH_SUPERSEDED
+    if meta.get("hampelDropped"):
+        # Dropped by a filter challenger that took precedence over Layer C:
+        # named as such, never as an integrity fault.
+        return PASSTHROUGH_OTHER_FILTER, PASSTHROUGH_OTHER_FILTER
+    return CATEGORY_VOTING, REASON_VOTING
+
+
+def voting_category_census(
+    players_array: Iterable[Mapping[str, Any]],
+    eligibility: Mapping[str, Mapping[str, Any]] | None,
+) -> dict[str, Any]:
+    """Per source: the directive §10 category of every observation on the
+    board, and the source-level state from ``sourceVotingEligibility``.
+
+    ``rows`` counts observations by category; ``reasons`` by primary reason.
+    A source with no observation on the board appears only through its
+    eligibility entry (``missing_observation`` / held / stale) -- an absent
+    observation is counted as missing evidence, never as a zero vote.
+    """
+    per_source: dict[str, dict[str, Any]] = {}
+
+    def _entry(source: str) -> dict[str, Any]:
+        return per_source.setdefault(source, {"rows": {}, "reasons": {}})
+
+    for row in players_array:
+        if not isinstance(row, Mapping):
+            continue
+        rank_meta = row.get("sourceRankMeta") or {}
+        for source, meta in rank_meta.items():
+            if not isinstance(meta, Mapping):
+                continue
+            category, reason = observation_category(meta)
+            e = _entry(str(source))
+            e["rows"][category] = e["rows"].get(category, 0) + 1
+            e["reasons"][reason] = e["reasons"].get(reason, 0) + 1
+        # Observations refused or withheld BEFORE ranking (Layer A identity,
+        # B2 provenance without a CSV copy) never reach ``sourceRankMeta``;
+        # their verdict lives on the row's ``sourceIntegrity`` block.
+        for source, integ in (row.get("sourceIntegrity") or {}).items():
+            if source in rank_meta or not isinstance(integ, Mapping):
+                continue
+            if not integ.get("status") or not integ.get("primaryReason"):
+                continue
+            reason = str(integ["primaryReason"])
+            category = str(integ.get("category") or reason_category(reason) or reason)
+            e = _entry(str(source))
+            e["rows"][category] = e["rows"].get(category, 0) + 1
+            e["reasons"][reason] = e["reasons"].get(reason, 0) + 1
+    for source, info in (eligibility or {}).items():
+        if not isinstance(info, Mapping):
+            continue
+        status = str(info.get("status") or "")
+        e = _entry(str(source))
+        e["sourceStatus"] = status or None
+        e["sourceCategory"] = ELIGIBILITY_CATEGORY.get(status, status or None)
+        if info.get("reason"):
+            e["sourceReason"] = info.get("reason")
+    out: dict[str, Any] = {}
+    for source in sorted(per_source):
+        e = per_source[source]
+        out[source] = {
+            **{k: v for k, v in e.items() if k not in ("rows", "reasons")},
+            "rows": dict(sorted(e["rows"].items())),
+            "reasons": dict(sorted(e["reasons"].items())),
+        }
+    totals: dict[str, int] = {}
+    for e in out.values():
+        for k, v in e["rows"].items():
+            totals[k] = totals.get(k, 0) + v
+    return {
+        "categories": [
+            CATEGORY_VOTING,
+            CATEGORY_DISSENT,
+            CATEGORY_IDENTITY,
+            CATEGORY_FORMAT,
+            CATEGORY_NORMALIZATION,
+            CATEGORY_STALE,
+            CATEGORY_BROKEN_FEED,
+            CATEGORY_MISSING,
+            CATEGORY_HELD,
+            CATEGORY_RULE,
+        ],
+        "totals": dict(sorted(totals.items())),
+        "sources": out,
+    }
 
 
 # ── History override (replay) and lane loading ─────────────────────────────
@@ -1292,8 +1569,9 @@ def board_vote_rows(
 ) -> dict[int, tuple[str, str, dict[str, float]]]:
     """``{row index: (asset class, position, {source: u})}`` over every non-pick
     row, from the votes the ranking pass stamped. Integrity-excluded votes are
-    left out; votes the per-row filter dropped are kept (they are observations,
-    and the filter is not an integrity verdict)."""
+    left out; votes the per-row filter dropped (incumbent, or Layer C's
+    ``rejected_tail``) are kept (they are observations, and the filter is not
+    an integrity verdict)."""
     out: dict[int, tuple[str, str, dict[str, float]]] = {}
     for idx, row in enumerate(players_array):
         if not isinstance(row, Mapping) or row.get("assetClass") == "pick":
@@ -1305,7 +1583,10 @@ def board_vote_rows(
             if not isinstance(meta, Mapping):
                 continue
             integ = meta.get("integrity")
-            if isinstance(integ, Mapping) and integ.get("status") != STATUS_VOTING:
+            if isinstance(integ, Mapping) and integ.get("status") not in (
+                STATUS_VOTING,
+                STATUS_REJECTED_TAIL,
+            ):
                 continue
             if meta.get("excludedReason"):
                 continue
@@ -1360,6 +1641,9 @@ def rank_with_segment_screen(
         players_by_name.update(by_name0)
         integrity.vote_counts.clear()
         integrity.alerts.clear()
+        integrity.layer_c_counts.clear()
+        integrity.layer_c_kept_because.clear()
+        integrity.layer_c_rows = 0
         result = rank_once()
         integrity.ranking_passes = 2
     stamp_segment_advisories(players_array, integrity.segment_advisories)
@@ -1457,7 +1741,7 @@ def advance(history: IntegrityHistory | None, record: Mapping[str, Any]) -> Inte
         source = str(key).split("|", 1)[0]
         status = obs.get("status")
         u = float(obs.get("u"))
-        if status == STATUS_VOTING:
+        if status in (STATUS_VOTING, STATUS_REJECTED_TAIL):
             observations[key] = (tuple(observations.get(key, ())) + (u,))[-HISTORY_WINDOW:]
             if obs.get("team"):
                 teams[key] = str(obs["team"])

@@ -1,14 +1,40 @@
 {
   "schema": "oiv2-thresholds/v1",
   "status": "provisional_stage1",
-  "note": "Outlier-integrity-v2 thresholds (docs/sources/OUTLIER_INTEGRITY_V2_PREREGISTRATION.md section 3.5). PROVISIONAL until Stage 2: each selectable constant sits at the MOST CONSERVATIVE point of its registered grid (fewest refusals, quarantines and holds), and the tables that can only be estimated on the exploratory population (tau_board, tau_c) are empty, so the layers that need them abstain and say so. Stage 2 replaces this block with the values selected on E_DEV / E_BASELINE only and commits docs/sources/outlier_integrity_v2/FROZEN_THRESHOLDS.json; no value here was chosen by looking at V, I or R boards. Read only while outlier_integrity_v2 is on.",
+  "note": "Outlier-integrity-v2 thresholds (docs/sources/OUTLIER_INTEGRITY_V2_PREREGISTRATION.md section 3.5). PROVISIONAL until Stage 2: each selectable constant sits at the MOST CONSERVATIVE point of its registered grid (fewest refusals, quarantines and holds), and the tables that can only be estimated on the exploratory population (tau_board, tau_c) are empty; tau_C (Layer C guard 3) sits at ln 6, the largest registered grid point and the fewest drops,, so the layers that need them abstain and say so. Stage 2 replaces this block with the values selected on E_DEV / E_BASELINE only and commits docs/sources/outlier_integrity_v2/FROZEN_THRESHOLDS.json; no value here was chosen by looking at V, I or R boards. Read only while outlier_integrity_v2 is on.",
   "grids": {
-    "tau_age": [1, 1.5, 2],
-    "epsilon_b2": [0.01, 0.02, 0.05],
-    "n_min": [10, 20],
-    "rho_min": [0.0, 0.3],
-    "tau_gross": ["ln 3", "ln 4"],
-    "k_c": [4, 6, 8]
+    "tau_age": [
+      1,
+      1.5,
+      2
+    ],
+    "epsilon_b2": [
+      0.01,
+      0.02,
+      0.05
+    ],
+    "n_min": [
+      10,
+      20
+    ],
+    "rho_min": [
+      0.0,
+      0.3
+    ],
+    "tau_gross": [
+      "ln 3",
+      "ln 4"
+    ],
+    "k_c": [
+      4,
+      6,
+      8
+    ],
+    "tau_C": [
+      "ln 4",
+      "ln 5",
+      "ln 6"
+    ]
   },
   "selected": {
     "tau_age": 2,
@@ -17,6 +43,7 @@
     "rho_min": 0.0,
     "tau_gross": "ln 4",
     "k_c": 8,
+    "tau_C": "ln 6",
     "tau_board": {},
     "tau_c": {}
   }

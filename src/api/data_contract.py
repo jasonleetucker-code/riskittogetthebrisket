@@ -8476,6 +8476,7 @@ def _two_way_alt_center(
     anchor_keys: Collection[str],
     family_cap: bool,
     base_weights: Mapping[str, float],
+    outlier_filter: Callable[[Sequence[tuple[str, float, float]]], list[str]] | None = None,
 ) -> tuple[float | None, list[str], list[str]]:
     """``(center, surviving sources, outlier-dropped sources)``: the incumbent
     blend of these votes, by the blend loop's own owners in its order —
@@ -8483,11 +8484,18 @@ def _two_way_alt_center(
     family-head selection under its rollback), then the hierarchical anchor
     blend (anchor + ``_ALPHA_SHRINKAGE`` x (subgroup - anchor)) for an IDP
     family, the flat blend otherwise.  The default-OFF challengers (joint /
-    rank-space / n3 outlier filters, sparse estimator) are not mirrored."""
+    rank-space / n3 outlier filters, sparse estimator) are not mirrored.
+
+    ``outlier_filter`` (``None`` = the incumbent) is outlier-integrity-v2's
+    Layer C dispatcher when ``outlier_integrity_v2`` is on: the alt value is
+    then filtered by the same policy as every real row, never by the
+    incumbent statistic.  It decides its own minimum panel."""
     if not votes:
         return None, [], []
     dropped: list[str] = []
-    if len(votes) >= _HAMPEL_MIN_N:
+    if outlier_filter is not None:
+        dropped = list(outlier_filter(votes))
+    elif len(votes) >= _HAMPEL_MIN_N:
         _kept, dropped = _hampel_filter_per_player(
             [(k, v) for k, v, _w in votes], k=_HAMPEL_K, min_n=_HAMPEL_MIN_N
         )
@@ -8533,6 +8541,7 @@ def _apply_two_way_player_boost(
     family_cap: bool | None = None,
     base_weights: Mapping[str, float] | None = None,
     single_lineage_retention: bool = True,
+    outlier_filter: Callable[[Sequence[tuple[str, float, float]], str], list[str]] | None = None,
 ) -> None:
     """For players in ``_TWO_WAY_PLAYERS``, compute what their value
     would be under the alt-position family and use max(offense, alt)
@@ -8811,6 +8820,13 @@ def _apply_two_way_player_boost(
                 anchor_keys=anchor_keys,
                 family_cap=family_cap,
                 base_weights=base_weights,
+                outlier_filter=(
+                    None
+                    if outlier_filter is None
+                    else lambda _v, _ac=alt_asset_class_for_family[alt_is_idp]: outlier_filter(
+                        _v, _ac
+                    )
+                ),
             )
             families = sorted({correlation_group_for(k) for k in [*surviving, *withheld]})
             evidence: dict[str, Any] = {
@@ -12585,6 +12601,18 @@ def _compute_unified_rankings(
     # released family's vote use F.
     _signals_xwalk_v2 = _feature_flags.is_enabled("signals_idp_xwalk_v2")
     _xwalk_level_source = _family_level_source(bridge_ladder, bridge_assessments)
+    # outlier-integrity-v2 Layer C (default OFF): the DECLARED translation
+    # backbone of the shared-market crosswalk -- every key of the bridges that
+    # seeded this build's ladder.  A vote translated onto that ladder and the
+    # backbone it was translated through are one lineage, so the pair may not
+    # serve as Layer C's corroborated reference.  Read only by Layer C.
+    _v2_ladder_contributors = set(getattr(bridge_ladder, "contributors", ()) or ())
+    _v2_shared_market_backbone = frozenset(
+        k
+        for _a in bridge_assessments
+        if getattr(getattr(_a, "descriptor", None), "bridge_key", None) in _v2_ladder_contributors
+        for k in _a.descriptor.keys
+    )
     _xwalk_reference_withheld = _signals_xwalk_v2 and _family_reference_withheld(
         bridge_ladder,
         bridge_assessments,
@@ -13281,6 +13309,7 @@ def _compute_unified_rankings(
     if _integrity is not None:
         from src.api import source_integrity as _si  # noqa: PLC0415
 
+        _v2_provider_of = _si.memoized_provider_of(_integrity_provider_of)
         _integrity_votes = _source_integrity_vote_exclusions(
             players_array, row_source_ranks, row_source_meta, _integrity
         )
@@ -13367,6 +13396,96 @@ def _compute_unified_rankings(
     _outlier_policy_on = _outlier_policy_active()
     if _outlier_policy_on:
         from src.api import outlier_policy as _outlier_policy  # noqa: PLC0415
+    # outlier-integrity-v2 Layer C (master ``outlier_integrity_v2``, default
+    # OFF; src/api/outlier_policy.py ``assess_row_layer_c``; preregistration
+    # docs/sources/OUTLIER_INTEGRITY_V2_PREREGISTRATION.md section 3.3).  It
+    # takes V1's slot in the challenger chain (V1 and V2 are mutually
+    # exclusive: ``source_integrity.v2_active`` raises when both are on), so
+    # every challenger above still takes precedence.  ``_v2_layer_c_context``
+    # is the ONE dispatcher: the per-row slot, the B11 lost-evidence replay and
+    # the two-way alt-family center all ask it, so they never disagree.
+    _v2_layer_c_on = (
+        _integrity is not None
+        and not _joint_challenger
+        and not _rank_space_challenger
+        and not _rank_space_per_vote
+        and not _idp_hampel_n3
+    )
+    if _v2_layer_c_on:
+        from src.api import outlier_policy as _outlier_policy  # noqa: PLC0415, F811
+
+        _rookie_ladder_ref = {rk: ref for rk, ref, _u in ROOKIE_LADDER_PAIRS}
+
+        def _v2_family_of(_k: str) -> str:
+            return family_by_key.get(_k) or correlation_group_for(_k)
+
+        def _v2_layer_c_context(
+            row_idx: int,
+            asset_class: Any,
+            weight_of: Callable[[str], float],
+        ) -> Any:
+            """Layer C's view of ONE row: scope curve, provider / family
+            identity, declared translation lineage, the source's own accepted
+            history, and the family-capped weights of any panel."""
+            metas = row_source_meta.get(row_idx, {})
+
+            def _backbone_providers(k: str) -> set[str]:
+                m = metas.get(k) or {}
+                keys: set[str] = set()
+                if m.get("sharedMarketTranslated"):
+                    keys |= set(_v2_shared_market_backbone)
+                if str(m.get("method") or "").startswith("rookie_ladder_translation_"):
+                    ref = _rookie_ladder_ref.get(k)
+                    if ref:
+                        keys.add(ref)
+                if m.get("levelSource"):
+                    keys.add(str(m["levelSource"]))
+                return {_v2_provider_of(x) for x in keys}
+
+            def _linked(a: str, b: str) -> bool:
+                return _v2_provider_of(b) in _backbone_providers(a)
+
+            pk = _integrity_keys.get(row_idx)
+
+            def _persist(k: str, u: float) -> bool:
+                return _si.persistence_confirmed(
+                    _integrity.history, _integrity.thresholds, k, pk, u
+                )
+
+            def _weights_for(keys: Sequence[str]) -> Mapping[str, float]:
+                return cap_family_weights(
+                    {k: weight_of(k) for k in keys}, base=blend_weight_by_source
+                )[0]
+
+            return _outlier_policy.LayerCContext(
+                curve=_outlier_policy.scope_curve(asset_class),
+                provider_of=_v2_provider_of,
+                family_of=_v2_family_of,
+                linked=_linked,
+                persistence_confirmed=_persist if pk else None,
+                tau_c_big=_integrity.thresholds.tau_c_big,
+                weights_for=_weights_for,
+            )
+
+        def _v2_alt_outlier_filter(
+            votes: Sequence[tuple[str, float, float]], alt_asset_class: str
+        ) -> list[str]:
+            """Layer C for #1817's two-way alt-family center: the alt votes on
+            the alt family's scope curve, family-capped at their own weights.
+            No row-level translation metadata or player history exists for an
+            alt-family panel, so it is judged cold-start without lineage
+            (DEVIATIONS.md C16)."""
+            ctx = _outlier_policy.LayerCContext(
+                curve=_outlier_policy.scope_curve(alt_asset_class),
+                provider_of=_v2_provider_of,
+                family_of=_v2_family_of,
+                tau_c_big=_integrity.thresholds.tau_c_big,
+            )
+            weights = cap_family_weights({k: w for k, _v, w in votes}, base=blend_weight_by_source)[
+                0
+            ]
+            return list(ctx.assess([(k, v) for k, v, _w in votes], weights).dropped)
+
     # IDP deep-tail native-value challenger ``idp-deep-tail-native-v1``
     # (default OFF, shadow only; docs/valuation/evidence/
     # idp-deep-tail-native-2026-10-18/PREREGISTRATION.md): an IDP row's
@@ -13953,7 +14072,7 @@ def _compute_unified_rankings(
                 player_key=_integrity_keys.get(row_idx),
                 integrity=_integrity,
                 source_hashes=_integrity_hashes,
-                provider_of=_integrity_provider_of,
+                provider_of=_v2_provider_of,
             )
             if _held:
                 for _hk, _hstamp in _held.items():
@@ -13988,6 +14107,16 @@ def _compute_unified_rankings(
         if _outlier_policy_on:
             # The policy needs a vote plus two other families; it checks them.
             _hampel_min_n = 1 + _outlier_policy.MIN_OTHER_FAMILIES
+        _v2c = None
+        if _v2_layer_c_on and not row_is_pick:
+            # Layer C checks its own provider guards; it runs on every row
+            # with two or more votes so kept dissent is stamped everywhere.
+            _hampel_min_n = 2
+            _v2c = _v2_layer_c_context(
+                row_idx,
+                players_array[row_idx].get("assetClass"),
+                lambda _k: row_weight.get(_k, blend_weight_by_source.get(_k, 1.0)),
+            )
         if not row_is_pick and len(all_value_pairs) >= _hampel_min_n:
             if _joint_challenger:
                 # Evidence weights after the family cap, so correlated members
@@ -14029,6 +14158,21 @@ def _compute_unified_rankings(
                     min_n=_HAMPEL_MIN_N,
                     min_threshold=_HAMPEL_MIN_THRESHOLD,
                 )
+            elif _v2c is not None:
+                _cv = _v2c.assess([(k, v) for k, v, _ in all_value_pairs])
+                kept_pairs = [(k, v) for k, v, _ in all_value_pairs if k in set(_cv.kept)]
+                hampel_dropped_keys = list(_cv.dropped)
+                _integrity.count_layer_c(_cv)
+                for _ck in [*_cv.dropped, *_cv.dissent]:
+                    _cm = row_source_meta[row_idx].setdefault(_ck, {})
+                    _cstamp = _si.layer_c_stamp(_cm.get("integrity"), _ck, _cv)
+                    if _cstamp is not None:
+                        _cm["integrity"] = _cstamp
+                if _cv.reasons or _cv.dissent:
+                    players_array[row_idx]["outlierIntegrityReasons"] = {
+                        **{k: r for k, r in _cv.dissent.items()},
+                        **{k: r for k, r in _cv.reasons.items()},
+                    }
             elif _outlier_policy_on:
                 _row_class_key = str(players_array[row_idx].get("assetClass") or "")
                 _ov = _outlier_policy.assess_row(
@@ -14077,7 +14221,9 @@ def _compute_unified_rankings(
                 outlier_test_applies=not row_is_pick,
                 exact_replay=not _joint_challenger,
                 replay=(
-                    _outlier_policy.replay_dropped(
+                    _v2c.replay()
+                    if _v2c is not None
+                    else _outlier_policy.replay_dropped(
                         curve=_outlier_policy.scope_curve(players_array[row_idx].get("assetClass")),
                         family_of=lambda _k: family_by_key.get(_k) or correlation_group_for(_k),
                         board_excluded=(outlier_board_exclusions or {}).get(
@@ -15090,6 +15236,7 @@ def _compute_unified_rankings(
         family_cap=_family_cap_applied,
         base_weights=blend_weight_by_source,
         single_lineage_retention=not _sparse_limited_evidence,
+        outlier_filter=_v2_alt_outlier_filter if _v2_layer_c_on else None,
     )
     # ── Confidence describes the value that SHIPPED (B11) ──
     #
@@ -16312,7 +16459,7 @@ def build_api_data_contract(
             players_array,
             players_by_name,
             integrity_build,
-            provider_of=_integrity_provider_of,
+            provider_of=_source_integrity.memoized_provider_of(_integrity_provider_of),
             dependency_of=scale_integrity_lost,
         )
     elif _outlier_policy_active():
@@ -16756,6 +16903,15 @@ def build_api_data_contract(
         contract_payload["outlierPolicy"] = outlier_policy_stamp
     if integrity_build is not None:
         contract_payload["sourceIntegrity"] = integrity_build.summary()
+        # Directive §10 transparency: every observation's category, read from
+        # the stamps the layers wrote, plus the source-level state from the
+        # existing ``sourceVotingEligibility`` owner (policy holds, stale,
+        # missing).  Decides nothing.
+        contract_payload["sourceIntegrity"]["votingCategories"] = (
+            _source_integrity.voting_category_census(
+                players_array, contract_payload.get("sourceVotingEligibility")
+            )
+        )
     if seasonal_policy_error:
         contract_payload["sourceSeasonalState"]["policyError"] = seasonal_policy_error
         contract_payload["sourceSeasonalState"]["basis"] = (

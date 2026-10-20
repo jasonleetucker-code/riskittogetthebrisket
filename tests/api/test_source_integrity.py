@@ -959,7 +959,15 @@ def test_named_residual_a_wrong_value_with_no_identity_or_format_signature_passe
     csvs["fantasyCalc.csv"] = "\n".join([head] + body) + "\n"
     on = _build(ALL_ON, csvs=csvs)
     meta = _rows(on)["Off Vet 010"]["sourceRankMeta"]["fantasyCalc"]
-    assert meta["integrity"]["status"] == si.STATUS_VOTING
+    # No A or B verdict: the observation reaches Layer C (which, since it is
+    # now implemented, may set it aside as an extreme uncorroborated tail --
+    # a rule category, never an identity / format / normalization fault).
+    assert meta["integrity"]["status"] in (si.STATUS_VOTING, si.STATUS_REJECTED_TAIL)
+    assert meta["integrity"]["category"] in (
+        si.CATEGORY_VOTING,
+        si.CATEGORY_DISSENT,
+        si.CATEGORY_RULE,
+    )
 
 
 def test_decisions_do_not_depend_on_the_hash_seed():

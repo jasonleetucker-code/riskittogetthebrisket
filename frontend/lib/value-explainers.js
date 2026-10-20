@@ -35,6 +35,7 @@
 // docs/sources/SOURCE_FRESHNESS_WEIGHTING.md (methodology record).
 
 import { RANKING_SOURCES } from "./dynasty-data";
+import { integrityLabel } from "./source-voting-status";
 
 // ── Source keys that are published on the contract but never vote ──────
 // Mirrors ``_NON_VOTING_SOURCE_CSV_KEYS`` in src/api/data_contract.py
@@ -314,7 +315,25 @@ export const SOURCE_EXCLUSION_LABELS = {
   superseded_by_family: "not voting — superseded by its provider family",
 };
 
+function integrityCategoryOf(m) {
+  const integ = m?.integrity;
+  if (!integ || typeof integ !== "object") return null;
+  return typeof integ.category === "string" && integ.category ? integ.category : null;
+}
+
+/**
+ * Display text for an observation the per-row filter set aside.  With
+ * outlier-integrity-v2 on, the backend names WHY (e.g. an extreme value no
+ * other provider corroborates); otherwise the incumbent's generic wording.
+ */
+export function sourceDroppedLabel(item) {
+  return item?.integrityLabel || "dropped as an outlier";
+}
+
 export function sourceExclusionLabel(item) {
+  if (item?.integrityLabel && item?.integrityCategory !== "voting_normally") {
+    return item.integrityLabel;
+  }
   const reason = item?.excludedReason || null;
   if (reason === "superseded_by_family" && item?.supersededBy) {
     return `not voting — superseded by ${sourceLabel(item.supersededBy)} (same provider family)`;
@@ -378,6 +397,12 @@ export function rowSourceFreshness(row, rawData) {
       excludedReason: excluded ? exclusionReasonFor(key, m, excludedSet) : null,
       supersededBy: excluded && m?.supersededBy ? String(m.supersededBy) : null,
       outlierDropped,
+      // Outlier integrity v2 (default OFF): the backend's own category for
+      // this observation, labelled by the one map in source-voting-status.js.
+      // Absent (null) whenever the backend stamped no integrity block.
+      integrityCategory: integrityCategoryOf(m),
+      integrityLabel: integrityLabel(m?.integrity),
+      dissent: integrityCategoryOf(m) === "valid_but_disagreeing",
       // Family cap: correlated members of one provider family share one
       // provider's vote, so a fresh member can still carry < its base.
       familyShared: Number.isFinite(Number(m?.familyAdjustment)) && Number(m.familyAdjustment) < 1,
