@@ -577,9 +577,36 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
     display: none;
   }
 }
-.ds-table__row--interactive:focus-visible {
+.ds-table__row--interactive:focus-visible,
+.ds-table__row--interactive:has(.ds-table__disclosure:focus-visible) {
   outline: none;
   box-shadow: inset var(--focus-ring);
+}
+/* DataTable `isRowExpanded`: the row's disclosure toggle.  Visually hidden
+   (the ROW is the visible control and paints the focus ring above), but
+   IN FLOW rather than `.ds-visually-hidden`'s absolute positioning: an
+   absolutely positioned descendant whose containing block sits outside a
+   `maxHeight` scroller is not scrolled by it, so focusing it would scroll
+   the page instead of bringing the row into view.  The -1px margin nets
+   its 1px box to zero width, so frozen column widths do not move. */
+.ds-table__disclosure {
+  display: inline-block;
+  width: 1px;
+  height: 1px;
+  margin: 0 -1px 0 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+/* In-prose link (WCAG 1.4.1): a link inside running text must differ from
+   it by more than colour.  globals.css resets every <a> to
+   `text-decoration: none`, so a prose link opts back in with this class. */
+.ds-link {
+  text-decoration-line: underline;
 }
 
 /* ══ Tabs ═══════════════════════════════════════════════════════════════ */

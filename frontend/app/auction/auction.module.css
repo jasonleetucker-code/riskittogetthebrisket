@@ -146,6 +146,12 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-tertiary);
+  /* Own surface, not the legacy globals.css `th` paint: that rule fills
+     every header cell with the retired terminal navy, so the PSI ink token
+     above landed on #132141 at 2.61:1 (axe 1.4.3, CQ-30).  The panel
+     surface is what the ds DataTable header uses, and --text-tertiary is
+     validated AA on it. */
+  background: var(--surface-1);
   padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--border-strong);
   white-space: nowrap;
