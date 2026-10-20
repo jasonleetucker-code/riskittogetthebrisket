@@ -79,7 +79,12 @@ def test_all_conditions_pass_only_with_reviewer_evidence():
             "idpCoverage": {"DT": 200, "DE": 200, "LB": 200, "CB": 200, "S": 200},
             "s1": {"familyTopsWithin5pct": False, "curvesWithin5pct": False},
         },
-        "tier2": {"ran": True, "equal": True, "publicationBetween": False},
+        "tier2": {
+            "ran": True,
+            "equal": True,
+            "publicationBetween": False,
+            "candidateEqual": True,
+        },
     }
     without = P.evaluate_decision(findings)
     assert without["verdict"] == "INSUFFICIENT"
@@ -98,7 +103,14 @@ def test_roster_inputs_reject_as_league_scoped():
 
 def test_a_browser_computed_value_fails_condition_1():
     d = P.evaluate_decision(
-        {"tier0": {"ran": True, "serverLeagueValueQuery": False, "leagueValueModulePresent": True}}
+        {
+            "tier0": {
+                "ran": True,
+                "serverLeagueValueQuery": False,
+                "leagueValueModulePresent": True,
+                "crawlComplete": True,
+            }
+        }
     )
     assert d["conditions"]["c1_server_observation"] == P.FAIL
     assert d["verdict"] == "REJECT"
@@ -320,8 +332,10 @@ def test_tier0_is_bounded_and_same_origin():
 
 def test_tier1b_candidates_never_guess_a_required_variable():
     ops = P.analyse_bundle({"a": MAIN_JS, "b": CHUNK_JS})["_operations"]
-    names = [n for n, _ in P.tier1b_candidates(ops)]
+    names = [n for n, _ in P.tier1b_candidates(ops, allow_league_footprint=True)]
     assert names == ["SyntheticIdpDynasty", "SyntheticLeagueValues"]  # no mutation, no $userId
+    # Without owner decision 6 the league-shaped query is not a candidate.
+    assert [n for n, _ in P.tier1b_candidates(ops)] == ["SyntheticIdpDynasty"]
 
 
 # ── end to end (synthetic) ───────────────────────────────────────────────
@@ -361,9 +375,11 @@ def test_native_probe_end_to_end_records_nothing_and_stays_insufficient(tmp_path
         monotonic=lambda: float(next(clock)),
     )
     assert rep["status"] == "COMPLETE"
-    assert rep["tier1b"]["attempted"] == 2 and rep["tier1b"]["ok"] == 2
+    # Only the non-league query: the league-shaped one needs owner decision 6.
+    assert rep["tier1b"]["attempted"] == 1 and rep["tier1b"]["ok"] == 1
     assert rep["tier1c"] == {"ran": False, "skipped": "owner_decision_6_not_given"}
-    assert rep["tier2"]["equal"] is True and rep["tier2"]["compared"] == 2
+    assert rep["tier2"]["equal"] is True and rep["tier2"]["compared"] == 1
+    assert rep["tier2"]["candidateEqual"] is None  # no candidate was ever queried
     assert rep["appsyncRequests"] == len(calls) <= P.MAX_APPSYNC_REQUESTS
     assert rep["decision"]["verdict"] == "INSUFFICIENT"
     assert _snapshot(store) == before
@@ -428,3 +444,316 @@ def test_the_cli_prints_only_an_error_class(monkeypatch, capsys):
 def test_signals_constants_used_by_the_probe_exist():
     assert S.APPSYNC_URL.startswith("https://")
     assert P.WEBAPP_ORIGIN.startswith("https://")
+
+
+# ── review findings (PR #1860): a refusal ends the run ───────────────────
+
+LEAGUE_OPS = {
+    "SyntheticLeagueList": {"document": "query L { leagues { id } }", "variables": ""},
+    "SyntheticLeagueValue": {
+        "document": "query V($season: Int) { leagueValue(season: $season) { v } }",
+        "variables": "($season: Int)",
+    },
+}
+UNAUTHORIZED = (200, {}, json.dumps({"errors": [{"errorType": "Unauthorized"}]}).encode())
+
+
+@pytest.mark.parametrize(
+    "refusal",
+    [(401, {}, b""), (403, {}, b""), (429, {"retry-after": "1"}, b""), UNAUTHORIZED],
+)
+@pytest.mark.parametrize("refuse_on_call", [1, 2])
+def test_a_refusal_in_tier1b_sends_nothing_more_on_the_owner_session(
+    tmp_path, refusal, refuse_on_call
+):
+    store = _store(tmp_path)
+    before = _snapshot(store)
+    ok_post, _ = _post_factory()
+    calls, slept = [], []
+
+    def post(url, headers, body, timeout):
+        calls.append(body)
+        if len(calls) == refuse_on_call:
+            return refusal
+        return ok_post(url, headers, body, timeout)
+
+    clock = iter(range(0, 10**6, 5))
+    rep = P.run_native_probe(
+        now_fn=lambda: NOW,
+        show=_show(),
+        auth_store=store,
+        http_get=_get_factory()[0],
+        http_post=post,
+        sleep=slept.append,
+        monotonic=lambda: float(next(clock)),
+        league_ops=LEAGUE_OPS,
+        allow_league_footprint=True,
+    )
+    assert len(calls) == refuse_on_call  # nothing after the refusal: no 1c, no Tier 2
+    assert slept == []
+    assert rep["status"] == "STOPPED"
+    assert rep["stop"]["tier"] == "tier1b"
+    assert rep["tier1c"]["ran"] is False and rep["tier2"]["ran"] is False
+    assert rep["appsyncRequests"] == refuse_on_call
+    assert rep["decision"]["verdict"] != "ADMIT"
+    assert _snapshot(store) == before
+    pub = P.public_projection(rep)
+    assert pub["status"] == "STOPPED" and pub["stop"]["tier"] == "tier1b"
+
+
+def test_a_refusal_in_tier1c_skips_tier2(tmp_path):
+    ok_post, _ = _post_factory()
+    calls, slept = [], []
+
+    def post(url, headers, body, timeout):
+        calls.append(body)
+        if "leagues" in json.loads(body)["query"]:
+            return (429, {}, b"")
+        return ok_post(url, headers, body, timeout)
+
+    clock = iter(range(0, 10**6, 5))
+    rep = P.run_native_probe(
+        now_fn=lambda: NOW,
+        show=_show(),
+        auth_store=_store(tmp_path),
+        http_get=_get_factory()[0],
+        http_post=post,
+        sleep=slept.append,
+        monotonic=lambda: float(next(clock)),
+        league_ops=LEAGUE_OPS,
+        allow_league_footprint=True,
+    )
+    n = len(calls)
+    assert json.loads(calls[-1])["query"].startswith("query L")
+    assert rep["status"] == "STOPPED" and rep["stop"]["tier"] == "tier1c"
+    assert rep["stop"]["reason"] == "rate_limited"
+    assert rep["tier1c"]["ok"] is False and rep["tier2"]["ran"] is False
+    assert slept == [] and rep["appsyncRequests"] == n
+
+
+def test_the_cli_exit_code_marks_a_stopped_probe(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr(
+        P,
+        "run_native_probe",
+        lambda **k: {"mode": "native_probe", "status": "STOPPED", "stop": {"tier": "tier1b"}},
+    )
+    monkeypatch.setattr(SA.SignalsStore, "open", classmethod(lambda cls, d: None))
+    assert P.main(["--mode", "native-probe", "--app-dir", str(tmp_path)]) == 4
+    assert json.loads(capsys.readouterr().out)["status"] == "STOPPED"
+
+
+# ── review findings: league-scoped reads are gated (owner decision 6) ────
+
+LEAGUE_SHAPED_OPS = {
+    "MyLeagueValues": "query MyLeagueValues { myLeagues { id teams { leagueValue } } }",
+    "RosterValues": "query RosterValues($season: Int) { rosterValues(season: $season) { v } }",
+    "UserDynasty": "query UserDynasty { me { dynastyValue } }",
+    "AccountIdp": "query AccountIdp { account { idpValues { v } } }",
+}
+
+
+def test_league_scoped_queries_are_not_tier1b_candidates_without_the_gate():
+    ops = P.analyse_bundle({"a": MAIN_JS, "b": CHUNK_JS} | LEAGUE_SHAPED_OPS)["_operations"]
+    default = [n for n, _ in P.tier1b_candidates(ops)]
+    assert default == ["SyntheticIdpDynasty"]
+    gated = [n for n, _ in P.tier1b_candidates(ops, allow_league_footprint=True)]
+    assert set(LEAGUE_SHAPED_OPS) | {"SyntheticLeagueValues"} <= set(gated)
+
+
+def test_without_the_gate_no_league_shaped_document_is_ever_sent(tmp_path):
+    post, calls = _post_factory()
+    clock = iter(range(0, 10**6, 5))
+    P.run_native_probe(
+        now_fn=lambda: NOW,
+        show=_show(),
+        auth_store=_store(tmp_path),
+        http_get=_get_factory()[0],
+        http_post=post,
+        sleep=lambda s: None,
+        monotonic=lambda: float(next(clock)),
+    )
+    assert calls and all("league" not in c["query"].lower() for c in calls)
+
+
+# ── review findings: an incomplete crawl is UNKNOWN, never FAIL ──────────
+
+
+def test_an_incomplete_bundle_crawl_leaves_condition_1_unknown():
+    for t0 in (
+        {"ran": True, "serverLeagueValueQuery": False, "crawlComplete": False},
+        {"ran": True, "serverLeagueValueQuery": False},  # completeness unrecorded
+    ):
+        d = P.evaluate_decision({"tier0": t0})
+        assert d["conditions"]["c1_server_observation"] == P.UNKNOWN
+        assert d["verdict"] == "INSUFFICIENT"
+
+
+@pytest.mark.parametrize("failure", ["status", "oserror"])
+def test_a_failed_chunk_get_marks_the_crawl_incomplete(failure):
+    get, _ = _get_factory()
+
+    def flaky(url, headers, timeout):
+        if url.endswith("/assets/chunk-a.js"):
+            if failure == "oserror":
+                raise OSError("synthetic")
+            return (503, {}, b"")
+        return get(url, headers, timeout)
+
+    t0 = P.run_bundle_mode(flaky)["tier0"]
+    assert t0["failedChunks"] == 1 and t0["crawlComplete"] is False
+    assert t0["serverLeagueValueQuery"] is True  # main.js still carries one
+    full = P.run_bundle_mode(get)["tier0"]
+    assert full["failedChunks"] == 0 and full["crawlComplete"] is True
+    assert P.run_bundle_mode(_get_factory(extra_chunks=80)[0])["tier0"]["crawlComplete"] is False
+
+
+def test_relative_chunk_references_are_followed():
+    files = {
+        ORIGIN + "/": INDEX,
+        ORIGIN + "/assets/main.js": b'import("./chunk-rel.js");',
+        ORIGIN + "/assets/chunk-rel.js": CHUNK_JS.encode(),
+    }
+    seen = []
+
+    def get(url, headers, timeout):
+        seen.append(url)
+        return (200, {}, files.get(url, b"//synthetic"))
+
+    t0 = P.run_bundle_mode(get)["tier0"]
+    assert ORIGIN + "/assets/chunk-rel.js" in seen
+    assert t0["operationCounts"]["query"] == 2
+
+
+def test_an_incomplete_crawl_skips_tier1c_with_its_own_reason(tmp_path):
+    get, _ = _get_factory()
+    post, _ = _post_factory()
+
+    def no_league(url, headers, timeout):
+        st, h, body = get(url, headers, timeout)
+        body = body.replace(b"leagueValues", b"xValues").replace(b"LeagueValues", b"XValues")
+        if url.endswith("/assets/chunk-a.js"):
+            return (503, {}, b"")
+        return st, h, body
+
+    clock = iter(range(0, 10**6, 5))
+    rep = P.run_native_probe(
+        now_fn=lambda: NOW,
+        show=_show(),
+        auth_store=_store(tmp_path),
+        http_get=no_league,
+        http_post=post,
+        sleep=lambda s: None,
+        monotonic=lambda: float(next(clock)),
+        league_ops=LEAGUE_OPS,
+        allow_league_footprint=True,
+    )
+    assert rep["tier0"]["serverLeagueValueQuery"] is False
+    assert rep["tier1c"] == {"ran": False, "skipped": "bundle_crawl_incomplete"}
+    assert rep["decision"]["conditions"]["c1_server_observation"] == P.UNKNOWN
+
+
+# ── review findings: Tier 2 determinism is about the candidate ───────────
+
+
+def _many_value_queries(n: int) -> bytes:
+    return "".join(
+        f"const v{i}=`query SynVal{i:02d}($season: Int!) "
+        f"{{ idpValues{i}(season: $season) {{ items {{ value }} }} }}`;"
+        for i in range(n)
+    ).encode()
+
+
+def test_tier2_re_queries_every_candidate_op_even_after_a_full_tier1b(tmp_path):
+    get, _ = _get_factory()
+
+    def big(url, headers, timeout):
+        st, h, body = get(url, headers, timeout)
+        if url.endswith("/assets/chunk-a.js"):
+            body += _many_value_queries(20)
+        return st, h, body
+
+    post, calls = _post_factory()
+    ops = {f"SyntheticLeagueOp{i}": dict(LEAGUE_OPS["SyntheticLeagueValue"]) for i in range(8)}
+    clock = iter(range(0, 10**6, 5))
+    rep = P.run_native_probe(
+        now_fn=lambda: NOW,
+        show=_show(),
+        auth_store=_store(tmp_path),
+        http_get=big,
+        http_post=post,
+        sleep=lambda s: None,
+        monotonic=lambda: float(next(clock)),
+        league_ops=ops,
+        allow_league_footprint=True,
+    )
+    assert rep["status"] == "COMPLETE"
+    assert rep["tier1c"]["ok"] is True
+    t2 = rep["tier2"]
+    assert t2["candidateOps"] == 8 and t2["candidateCompared"] == 8
+    assert t2["candidateEqual"] is True
+    assert rep["appsyncRequests"] == len(calls) <= P.MAX_APPSYNC_REQUESTS
+
+
+def test_c4_needs_the_candidate_re_compared_not_other_operations():
+    base = {
+        "tier0": {"ran": True, "serverLeagueValueQuery": True, "crawlComplete": True},
+        "tier1c": {"ran": True, "ok": True},
+    }
+    only_1b = {"ran": True, "equal": True, "publicationBetween": False, "candidateEqual": None}
+    d = P.evaluate_decision({**base, "tier2": only_1b})
+    assert d["conditions"]["c4_deterministic"] == P.UNKNOWN
+    legacy = {"ran": True, "equal": True, "publicationBetween": False}
+    assert P.evaluate_decision({**base, "tier2": legacy})["conditions"]["c4_deterministic"] == (
+        P.UNKNOWN
+    )
+    differs = {"ran": True, "equal": False, "publicationBetween": False, "candidateEqual": False}
+    assert P.evaluate_decision({**base, "tier2": differs})["conditions"]["c4_deterministic"] == (
+        P.FAIL
+    )
+    no_1c = {"tier0": base["tier0"], "tier2": {**only_1b, "candidateEqual": True}}
+    assert P.evaluate_decision(no_1c)["conditions"]["c4_deterministic"] == P.UNKNOWN
+
+
+def test_an_errored_tier2_answer_does_not_count_as_equal(tmp_path):
+    ok_post, _ = _post_factory()
+    phase = []
+
+    def post(url, headers, body, timeout):
+        if phase and "league" in json.loads(body)["query"].lower():
+            return 200, {}, json.dumps({"data": None, "errors": [{"errorType": "X"}]}).encode()
+        return ok_post(url, headers, body, timeout)
+
+    clock = iter(range(0, 10**6, 5))
+    rep = P.run_native_probe(
+        now_fn=lambda: NOW,
+        show=_show(),
+        auth_store=_store(tmp_path),
+        http_get=_get_factory()[0],
+        http_post=post,
+        sleep=lambda s: phase.append(s),
+        monotonic=lambda: float(next(clock)),
+        league_ops=LEAGUE_OPS,
+        allow_league_footprint=True,
+    )
+    t2 = rep["tier2"]
+    assert t2["candidateCompared"] == 0 and t2["candidateEqual"] is None
+    assert rep["decision"]["conditions"]["c4_deterministic"] == P.UNKNOWN
+
+
+def test_a_non_query_ops_file_stops_before_any_appsync_request(tmp_path):
+    post, calls = _post_factory()
+    bad = {"SyntheticLeagueList": {"document": "query L{a},mutation M{b}", "variables": ""}}
+    rep = P.run_native_probe(
+        now_fn=lambda: NOW,
+        show=_show(),
+        auth_store=_store(tmp_path),
+        http_get=_get_factory()[0],
+        http_post=post,
+        sleep=lambda s: None,
+        league_ops=bad,
+        allow_league_footprint=True,
+    )
+    assert calls == []
+    assert rep["status"] == "STOPPED"
+    assert rep["stop"] == {"tier": "tier1c", "reason": "refused_non_query_document"}
+    assert rep["appsyncRequests"] == 0

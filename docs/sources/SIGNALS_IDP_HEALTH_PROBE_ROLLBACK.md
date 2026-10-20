@@ -67,7 +67,10 @@ preregistration, not an edit.
 | `native-probe` | box, deployed script, `main` only | P → 0 → P → 1b (≤ 15) → [1c (≤ 8)] → wait ≥ 120 s → P → 2 (≤ 15). At most 30 AppSync requests and 10 minutes. |
 
 **Safety (§3.2).** `NonRecordingAppSync` never renews, never denies and never
-records a failure. Any refusal is a stop and nothing else happens. The token
+records a failure. Any refusal is a stop and nothing else happens: a 401/403,
+an `Unauthorized` field error, a 429, a transport error or an exhausted budget
+in any tier ends the whole run as `STOPPED` (exit 4, `stop.tier` /
+`stop.reason`), and no later tier sends anything on the owner's session. The token
 is read only through `signals_auth.peek_fresh_access_token`, which works only
 if the token is already fresh for the whole window; it never writes and takes
 no lock. Mutation and subscription documents are refused before sending.
@@ -78,7 +81,19 @@ both services idle. Any failure is `BLOCKED` (exit 3) and nothing is sent.
 
 **Tier 1c** (a league-list read that widens the authenticated footprint) runs
 only with `allow_league_footprint` (owner decision 6) and an operator-authored
-private `data/sources/signals/reports/native_probe_ops.json`.
+private `data/sources/signals/reports/native_probe_ops.json`. Without that gate
+Tier 1b also skips every bundle operation whose name or document mentions a
+league, roster, team, user, account, owner, manager, franchise, `me` or `my`.
+Request budget for Tier 1c, and for re-querying it in Tier 2, is reserved
+before Tier 1b runs.
+
+**Decision evidence.** Condition 1 is `FAIL` only when the bundle crawl was
+complete (`tier0.crawlComplete`: not truncated, no failed chunk GET); a partial
+crawl that saw no league-value query leaves it `UNKNOWN`. Condition 4 is
+decided only by the candidate: Tier 2 re-sends the Tier 1c operations first, and
+`tier2.candidateEqual` is `true` only when every one of them answered usably on
+both passes with identical content. Re-queries of other operations, or errored
+answers, never decide it.
 
 **Review-only conditions.** Decision conditions 6–8 (dynasty value rather than
 projection, lineage, licence) can only be supplied in

@@ -29,10 +29,15 @@ Hard safety requirements (plan §3.2)
   fresh for the whole window, read through
   ``signals_auth.peek_fresh_access_token`` (read-only, no lock, no write).
 * Mutation and subscription documents are refused before anything is sent.
+* Any :class:`ProbeStop` (a refusal, a 429, a transport error, an exhausted
+  budget) ends the WHOLE run: status ``STOPPED`` (exit 4), and nothing
+  further — no Tier 1c, no Tier 2 — is sent on the owner's session.
 * No new infrastructure: no unit, no timer; a failed preflight is BLOCKED.
 * Tier 1c (a league-list read, which widens the authenticated footprint)
   runs only with ``--allow-league-footprint`` (owner decision 6) and an
-  operator-authored private ops file; it is otherwise ``skipped``.
+  operator-authored private ops file; it is otherwise ``skipped``.  Tier 1b
+  never sends a league / roster / team / user / account-shaped bundle
+  operation unless that same gate is given.
 
 Privacy: stdout carries only :func:`public_projection` (allowlisted paths,
 identifier-shaped leaves, guarded by ``signals_health.assert_public_safe``).
@@ -149,7 +154,13 @@ def evaluate_decision(
     t2 = findings.get("tier2") or {}
     cond: dict[str, str] = dict.fromkeys(DECISION_CONDITIONS, UNKNOWN)
 
-    if t0.get("ran") and t0.get("serverLeagueValueQuery") is False:
+    # "Not seen" is a FAIL only when the crawl saw every chunk it found
+    # (not truncated, no failed GET); otherwise it is unknown, not absent.
+    if (
+        t0.get("ran")
+        and t0.get("serverLeagueValueQuery") is False
+        and t0.get("crawlComplete") is True
+    ):
         cond["c1_server_observation"] = FAIL
     elif t0.get("serverLeagueValueQuery") and t1c.get("ok"):
         cond["c1_server_observation"] = PASS
@@ -172,8 +183,17 @@ def evaluate_decision(
         elif t1c.get("scoringInputs") or t1c.get("settingsInputs"):
             cond["c3_scoring_only_inputs"] = PASS
 
-    if t2.get("ran") and t2.get("publicationBetween") is False:
-        cond["c4_deterministic"] = PASS if t2.get("equal") else FAIL
+    # Condition 4 is about the CANDIDATE (the Tier 1c operations): evidence
+    # about other operations never decides it, and it is only PASS when every
+    # candidate operation was re-compared with a usable answer both times.
+    cand_equal = t2.get("candidateEqual")
+    if (
+        t1c.get("ok")
+        and t2.get("ran")
+        and t2.get("publicationBetween") is False
+        and cand_equal is not None
+    ):
+        cond["c4_deterministic"] = PASS if cand_equal is True else FAIL
 
     s1 = t1c.get("s1") if t1c.get("ok") else None
     if isinstance(s1, Mapping) and s1.get("familyTopsWithin5pct") is not None:
@@ -314,6 +334,8 @@ class _ScriptSrc(html.parser.HTMLParser):
 
 
 _CHUNK_REF = re.compile(r"""["'`](/?(?:assets|static/js|_next/static)/[A-Za-z0-9_./-]+\.js)["'`]""")
+#: Lazy chunks referenced relative to the referencing chunk (``./x.js``).
+_REL_CHUNK_REF = re.compile(r"""["'`](\.{1,2}/[A-Za-z0-9_./-]+\.js)["'`]""")
 _OP_DEF = re.compile(
     r"\b(query|mutation|subscription)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(\([^)]*\))?\s*\{"
 )
@@ -367,6 +389,7 @@ def fetch_bundle(
     queue = [urllib.parse.urljoin(origin + "/", s) for s in parser.srcs]
     seen: set[str] = set()
     truncated = False
+    failed = 0
     while queue:
         url = queue.pop(0)
         if url in seen or not _same_origin(url, origin):
@@ -379,16 +402,27 @@ def fetch_bundle(
             st, _h, js = http_get(url, headers, S.HTTP_TIMEOUT_SECONDS)
         except (OSError, S.BodyTooLarge):
             gets += 1
+            failed += 1
             continue
         gets += 1
         total += len(js)
         if st != 200:
+            failed += 1
             continue
         text = js.decode("utf-8", "replace")
         texts[url] = text
         for ref in _CHUNK_REF.findall(text):
             queue.append(urllib.parse.urljoin(origin + "/", ref))
-    return {"ok": True, "gets": gets, "bytes": total, "truncated": truncated, "texts": texts}
+        for ref in _REL_CHUNK_REF.findall(text):
+            queue.append(urllib.parse.urljoin(url, ref))
+    return {
+        "ok": True,
+        "gets": gets,
+        "bytes": total,
+        "truncated": truncated,
+        "failedChunks": failed,
+        "texts": texts,
+    }
 
 
 def _extract_document(text: str, start: int) -> str:
@@ -466,13 +500,26 @@ def required_variables(var_decl: str) -> list[str]:
     ]
 
 
-def tier1b_candidates(ops: Mapping[str, Mapping[str, Any]]) -> list[tuple[str, dict[str, Any]]]:
+#: Operations that read the owner's leagues, rosters, teams, user or account
+#: widen the authenticated footprint (owner decision 6).  Deliberately broad:
+#: an over-exclusion only costs Tier 1b evidence, never a footprint.
+_FOOTPRINT_SCOPED = re.compile(
+    r"(?i)league|roster|team|user|account|owner|manager|franchise|\bme\b|\bmy"
+)
+
+
+def tier1b_candidates(
+    ops: Mapping[str, Mapping[str, Any]], *, allow_league_footprint: bool = False
+) -> list[tuple[str, dict[str, Any]]]:
     out = []
     for name in sorted(ops):
         o = ops[name]
         if o.get("type") != "query":
             continue
-        if not re.search(r"(?i)value|dynasty|idp", name + str(o.get("document") or "")):
+        text = name + str(o.get("document") or "")
+        if not re.search(r"(?i)value|dynasty|idp", text):
+            continue
+        if not allow_league_footprint and _FOOTPRINT_SCOPED.search(text):
             continue
         if any(v not in SAFE_FILL for v in required_variables(str(o.get("variables") or ""))):
             continue
@@ -567,7 +614,8 @@ def s1_from_items(items: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
 def tier1c_findings(run: Mapping[str, Any], ops: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     results = run.get("results") or {}
-    if not results or not all(r.get("ok") for r in results.values()):
+    complete = len(results) == len(ops) and not run.get("stop")
+    if not complete or not all(r.get("ok") for r in results.values()):
         return {"ran": True, "ok": False, "stop": run.get("stop")}
     var_text = " ".join(
         str(o.get("variables") or "") + str(o.get("document") or "")[:400] for o in ops.values()
@@ -669,7 +717,12 @@ def run_bundle_mode(http_get: S.HttpGet = S.urllib_get) -> dict[str, Any]:
         return {"mode": "bundle", "tier0": {"ran": True, "ok": False, "reason": b.get("reason")}}
     t0 = analyse_bundle(b["texts"])
     t0.update(
-        ok=True, gets=b["gets"], megabytes=round(b["bytes"] / 1e6, 1), truncated=b["truncated"]
+        ok=True,
+        gets=b["gets"],
+        megabytes=round(b["bytes"] / 1e6, 1),
+        truncated=b["truncated"],
+        failedChunks=b["failedChunks"],
+        crawlComplete=not b["truncated"] and b["failedChunks"] == 0,
     )
     return {"mode": "bundle", "tier0": t0}
 
@@ -713,8 +766,43 @@ def run_native_probe(
         return report
 
     bundle = run_bundle_mode(http_get)
-    report["tier0"] = bundle["tier0"]
-    ops = (bundle["tier0"] or {}).get("_operations") or {}
+    t0 = bundle["tier0"] or {}
+    report["tier0"] = t0
+    ops = t0.get("_operations") or {}
+
+    def _stop(tier: str, outcome: str, requests: int) -> dict[str, Any]:
+        # Any refusal / rate limit / transport failure is terminal for the
+        # whole run: nothing further is sent on the owner's session.
+        report["status"] = "STOPPED"
+        report["stop"] = {"tier": tier, "reason": _ident(outcome)}
+        for later in ("tier1c", "tier2"):
+            report.setdefault(later, {"ran": False, "skipped": "probe_stopped"})
+        report["appsyncRequests"] = requests
+        report["decision"] = evaluate_decision(report, review)
+        return report
+
+    # Tier 1c is planned BEFORE 1b so request budget is reserved for it and
+    # for re-querying it in Tier 2 (condition 4 is about the candidate).
+    skip_1c = None
+    if not t0.get("serverLeagueValueQuery"):
+        skip_1c = (
+            "no_server_league_value_query"
+            if t0.get("crawlComplete") is True
+            else "bundle_crawl_incomplete"
+        )
+    elif not allow_league_footprint:
+        skip_1c = "owner_decision_6_not_given"
+    elif not league_ops:
+        skip_1c = "no_private_ops_file"
+    listed: list[tuple[str, dict[str, Any]]] = []
+    if skip_1c is None:
+        listed = [(n, dict(o)) for n, o in sorted((league_ops or {}).items())]
+        listed = listed[: TIER_BUDGETS["1c"]]
+        try:
+            for _n, o in listed:
+                assert_read_only(str(o.get("document") or ""))
+        except ProbeStop as exc:
+            return _stop("tier1c", exc.outcome, 0)
 
     token = _pf("before_1b")
     if token is None:
@@ -722,8 +810,9 @@ def run_native_probe(
         report["decision"] = evaluate_decision(report, review)
         return report
     client = NonRecordingAppSync(token, http_post=http_post, deadline=deadline, clock=monotonic)
-    cands = tier1b_candidates(ops)
-    r1b = run_ops(client, cands, now=now_fn(), budget=TIER_BUDGETS["1b"])
+    cands = tier1b_candidates(ops, allow_league_footprint=allow_league_footprint)
+    budget_1b = min(TIER_BUDGETS["1b"], MAX_APPSYNC_REQUESTS - 2 * len(listed))
+    r1b = run_ops(client, cands, now=now_fn(), budget=budget_1b)
     report["tier1b"] = {
         "ran": True,
         "candidates": len(cands),
@@ -735,23 +824,21 @@ def run_native_probe(
             k: {kk: v[kk] for kk in ("ok", "keys", "sha256")} for k, v in r1b["results"].items()
         },
     }
+    if r1b["stop"]:
+        return _stop("tier1b", r1b["stop"], client.requests)
 
     r1c = None
-    if not (bundle["tier0"] or {}).get("serverLeagueValueQuery"):
-        report["tier1c"] = {"ran": False, "skipped": "no_server_league_value_query"}
-    elif not allow_league_footprint:
-        report["tier1c"] = {"ran": False, "skipped": "owner_decision_6_not_given"}
-    elif not league_ops:
-        report["tier1c"] = {"ran": False, "skipped": "no_private_ops_file"}
+    if skip_1c is not None:
+        report["tier1c"] = {"ran": False, "skipped": skip_1c}
     else:
-        listed = [(n, dict(o)) for n, o in sorted(league_ops.items())]
-        for _n, o in listed:
-            assert_read_only(str(o.get("document") or ""))
         r1c = run_ops(client, listed, now=now_fn(), budget=TIER_BUDGETS["1c"])
-        report["tier1c"] = tier1c_findings(r1c, league_ops)
+        report["tier1c"] = tier1c_findings(r1c, dict(listed))
+        if r1c["stop"]:
+            return _stop("tier1c", r1c["stop"], client.requests)
 
     board_before = _idp_content_sha(store_root)
     remaining = deadline - monotonic()
+    r2_stop = None
     if remaining < DETERMINISM_GAP_SECONDS + 60:
         report["tier2"] = {"ran": False, "skipped": "wall_clock"}
     else:
@@ -761,32 +848,81 @@ def run_native_probe(
             report["tier2"] = {"ran": False, "skipped": "preflight_failed"}
         else:
             client._token = token
-            again = [(n, o) for n, o in cands if n in r1b["results"]]
-            if r1c is not None:
-                again += [(n, dict(o)) for n, o in sorted((league_ops or {}).items())]
-            r2 = run_ops(client, again, now=now_fn(), budget=TIER_BUDGETS["2"])
-            first = {**r1b["results"], **((r1c or {}).get("results") or {})}
-            changed = sum(
-                1 for n, r in r2["results"].items() if first.get(n, {}).get("sha256") != r["sha256"]
+            report["tier2"], r2_stop = _tier2(
+                client,
+                listed,
+                r1c,
+                cands,
+                r1b,
+                now=now_fn(),
+                board_before=board_before,
+                store_root=store_root,
             )
-            board_after = _idp_content_sha(store_root)
-            report["tier2"] = {
-                "ran": True,
-                "compared": len(r2["results"]),
-                "equal": changed == 0 and bool(r2["results"]),
-                "changedOps": changed,
-                "publicationBetween": (
-                    None
-                    if board_before is None or board_after is None
-                    else board_before != board_after
-                ),
-                "stop": r2["stop"],
-                "_boardSha12": [(board_before or "")[:12], (board_after or "")[:12]],
-            }
     report["appsyncRequests"] = client.requests
+    if r2_stop:
+        return _stop("tier2", r2_stop, client.requests)
     report["status"] = "COMPLETE"
     report["decision"] = evaluate_decision(report, review)
     return report
+
+
+def _tier2(
+    client: NonRecordingAppSync,
+    listed: Sequence[tuple[str, Mapping[str, Any]]],
+    r1c: Mapping[str, Any] | None,
+    cands: Sequence[tuple[str, Mapping[str, Any]]],
+    r1b: Mapping[str, Any],
+    *,
+    now: datetime,
+    board_before: str | None,
+    store_root: Path | None,
+) -> tuple[dict[str, Any], str | None]:
+    """Re-send the candidate (Tier 1c) operations FIRST, then the Tier 1b
+    ones.  Only answers usable on both passes are compared; an errored or
+    missing answer is never "equal"."""
+    first_c = (r1c or {}).get("results") or {}
+    again_c = [(n, o) for n, o in listed if n in first_c]
+    r2c = run_ops(client, again_c, now=now, budget=TIER_BUDGETS["2"])
+    r2b: dict[str, Any] = {"results": {}, "stop": None}
+    if not r2c["stop"]:
+        again_b = [(n, o) for n, o in cands if n in r1b["results"]]
+        # Never ask the client for more than it has left: the hard cap is a
+        # backstop, not a planned stop.
+        left = min(TIER_BUDGETS["2"] - len(r2c["results"]), client.max_requests - client.requests)
+        r2b = run_ops(client, again_b, now=now, budget=max(0, left))
+
+    def _pairs(first: Mapping[str, Any], second: Mapping[str, Any]) -> dict[str, bool]:
+        return {
+            n: first[n]["sha256"] == r["sha256"]
+            for n, r in second.items()
+            if n in first and first[n].get("ok") and r.get("ok")
+        }
+
+    cand = _pairs(first_c, r2c["results"])
+    other = _pairs(r1b["results"], r2b["results"])
+    both = list(cand.values()) + list(other.values())
+    if not all(cand.values()):
+        cand_equal: bool | None = False
+    elif listed and len(cand) == len(listed):
+        cand_equal = True
+    else:
+        cand_equal = None
+    board_after = _idp_content_sha(store_root)
+    return {
+        "ran": True,
+        "compared": len(r2c["results"]) + len(r2b["results"]),
+        "comparedOk": len(both),
+        "equal": bool(both) and all(both),
+        "changedOps": sum(1 for eq in both if not eq),
+        "candidateOps": len(listed),
+        "candidateCompared": len(cand),
+        "candidateEqual": cand_equal,
+        "publicationBetween": (
+            None if board_before is None or board_after is None else board_before != board_after
+        ),
+        "stop": r2c["stop"] or r2b["stop"],
+        "_boardSha12": [(board_before or "")[:12], (board_after or "")[:12]],
+    }, (r2c["stop"] or r2b["stop"])
 
 
 def _idp_content_sha(store_root: Path | None) -> str | None:
@@ -804,6 +940,8 @@ PUBLIC_PATHS: tuple[str, ...] = (
     "status",
     "decisionRuleSha256",
     "appsyncRequests",
+    "stop.tier",
+    "stop.reason",
     "preflight.*.*",
     "tier0.ran",
     "tier0.ok",
@@ -811,6 +949,8 @@ PUBLIC_PATHS: tuple[str, ...] = (
     "tier0.gets",
     "tier0.megabytes",
     "tier0.truncated",
+    "tier0.failedChunks",
+    "tier0.crawlComplete",
     "tier0.operationCounts.*",
     "tier0.leagueValueModulePresent",
     "tier0.idpBranchPresent",
@@ -837,6 +977,10 @@ PUBLIC_PATHS: tuple[str, ...] = (
     "tier2.compared",
     "tier2.equal",
     "tier2.changedOps",
+    "tier2.comparedOk",
+    "tier2.candidateOps",
+    "tier2.candidateCompared",
+    "tier2.candidateEqual",
     "tier2.publicationBetween",
     "tier2.stop",
     "decision.ruleSha256",
@@ -937,7 +1081,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"error": type(exc).__name__}), flush=True)
         return 1
     print(json.dumps(public, sort_keys=True), flush=True)
-    return 0 if public.get("status") != "BLOCKED" else 3
+    status = public.get("status")
+    return 3 if status == "BLOCKED" else (4 if status == "STOPPED" else 0)
 
 
 __all__ = ["PublicLeak", "evaluate_decision", "main"]
