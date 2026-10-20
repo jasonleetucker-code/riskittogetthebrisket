@@ -375,6 +375,60 @@ describe("review, analyze and result", () => {
     await user.click(screen.getByRole("button", { name: "Done" }));
   });
 
+  // Launch gate 8 (WCAG 2.4.3): the pressed button unmounts with the
+  // result, so each action must move focus somewhere sensible — never
+  // leave it on <body>.  Driven by keyboard (Enter on the focused button).
+  it("focus after Edit trade / New trade / Start over lands on the step the reader was sent back to", async () => {
+    const user = userEvent.setup();
+    await buildTwoTeamTrade(user);
+    const press = async (name) => {
+      screen.getByRole("button", { name }).focus();
+      await user.keyboard("{Enter}");
+    };
+    await press("Analyze trade");
+    await screen.findByTestId("advisor-result");
+    expect(screen.getByRole("heading", { name: "Is this trade fair?" })).toHaveFocus();
+
+    await press("Edit trade");
+    await waitFor(() => expect(screen.getByRole("heading", { name: /Build your trade/ })).toHaveFocus());
+    expect(document.activeElement).not.toBe(document.body);
+
+    await press("Analyze trade");
+    await screen.findByTestId("advisor-result");
+    await press("New trade");
+    await waitFor(() => expect(screen.getByRole("heading", { name: /Build your trade/ })).toHaveFocus());
+    expect(within(screen.getByTestId("advisor-panel-0")).getByText("Nothing added yet.")).toBeInTheDocument();
+
+    await addFrom(user, 0, ["Alpha Quarterback"]);
+    await addFrom(user, 1, ["Bravo Star"]);
+    await press("Analyze trade");
+    await screen.findByTestId("advisor-result");
+    await press("Start over");
+    await waitFor(() => expect(screen.getByRole("heading", { name: /Which team is yours\?/ })).toHaveFocus());
+    expect(screen.getByRole("combobox", { name: "Your team" })).toHaveValue("");
+    expect(screen.queryByTestId("advisor-panel-0")).toBeNull();
+  });
+
+  it("focus after Remove moves to the next asset, then the previous one, then that team's Add button", async () => {
+    const user = userEvent.setup();
+    await setupTwoTeams(user);
+    await addFrom(user, 0, ["Alpha Quarterback", "Alpha Runner", "Alpha Receiver"]);
+    const panel = () => screen.getByTestId("advisor-panel-0");
+    const remove = async (label) => {
+      within(panel())
+        .getByRole("button", { name: `Remove ${label}` })
+        .focus();
+      await user.keyboard("{Enter}");
+    };
+    await remove("Alpha Quarterback");
+    await waitFor(() => expect(within(panel()).getByRole("button", { name: "Remove Alpha Runner" })).toHaveFocus());
+    await remove("Alpha Receiver"); // the last one: focus steps back
+    await waitFor(() => expect(within(panel()).getByRole("button", { name: "Remove Alpha Runner" })).toHaveFocus());
+    await remove("Alpha Runner"); // none left: the team's Add button
+    await waitFor(() => expect(within(panel()).getByRole("button", { name: "+ Add player or pick" })).toHaveFocus());
+    expect(within(panel()).getByText("Nothing added yet.")).toBeInTheDocument();
+  });
+
   it("Back from a result returns to the builder with the legs intact", async () => {
     const user = userEvent.setup();
     const view = await setupTwoTeams(user);

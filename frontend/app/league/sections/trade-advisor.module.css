@@ -10,7 +10,15 @@
   color: var(--text-primary);
   display: grid;
   gap: var(--space-4);
-  padding: var(--space-3);
+  /* Phone (UX-2): the shell's fixed 44x44 screenshot button sits 10px above
+     the bottom nav at the right edge (globals.css .screenshot-fab).  At the
+     end of the page it covered the last control in the row — "Start over"
+     on a result, the right edge of "Analyze trade" while building — and a
+     fixed control at the page end can never be scrolled out of the way.
+     The extra bottom reserve (space-10, 64px > 44px + 10px) lets the last
+     row scroll clear of it.  Reset by the 768px rule below, where the
+     button moves to the corner and the action row no longer spans it. */
+  padding: var(--space-3) var(--space-3) calc(var(--space-3) + var(--space-10));
   min-width: 0;
   border-top: 1px solid var(--border-strong);
 }
@@ -39,6 +47,15 @@
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
+}
+/* Step headings take programmatic focus (tabIndex -1) after Edit trade,
+   New trade and Start over, so keyboard and screen-reader users land on
+   the step they were sent back to instead of <body>. */
+.stepTitle:focus {
+  outline: none;
+}
+.stepTitle:focus-visible {
+  box-shadow: var(--focus-ring);
 }
 
 .stepEyebrow {

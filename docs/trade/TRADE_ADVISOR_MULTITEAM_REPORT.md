@@ -31,7 +31,8 @@
 > owner's approval review:
 >
 > - **CI:** all four PRs are red or unmergeable (section H).
-> - **Accessibility (gate 8):** public keyboard focus is lost after edit / remove / reset.
+> - **Accessibility (gate 8):** the public focus loss after edit / remove / reset is fixed on
+>   #1866 (Lane D round 2, below); mobile-390/430 (WebKit) are still not run locally.
 > - **Abuse controls (gate 7):** there is no admission or concurrency bound on either analyze
 >   route.
 > - **Engine snapshot consistency:** the scarcity bundle is read once per team instead of once
@@ -402,8 +403,11 @@ per process.
 - The private multi-team War Room rolls back independently with
   `RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0` + restart. `/trade` then shows the static 3+-team
   panel, and 2-team analysis is untouched.
-- **Known rollback weakness (R2-9):** the League Hub treats any probe state other than
-  `disabled` as "advisor available".
+- **R2-9 (fixed on #1866, Lane D round 2):** the League Hub offers the advisor only when the
+  server's probe says `ready`; `disabled`, `unknown` (a closed launch gate's 503 `not_ready`, a
+  backend outage) and a missing bootstrap all leave `/league` exactly as main. Caveat: the
+  probe is a Next fetch cached for 60 s (`revalidate`), so a rollback can serve the advisor
+  landing for up to that window plus one request after the restart.
 
 ## Fairness-threshold research conclusion
 
@@ -540,11 +544,11 @@ implemented in Lanes A–D. Examples:
 | R2-4 | Slow value refinement through the binary oracle | **Owner** acceptance |
 | R2-5 | No admission / concurrency bound or compute timeout (saturates at about 12–14 rps; `/api/health` 0.7–1.4 s at 32 concurrent) | **Open → Lane C**; limit size → **owner** |
 | R2-6 | `responseFloorMs` unset (200 ms measured) | **Owner** launch input |
-| R2-7 / E2-F2 | The service worker caches the advisor GET lists despite `no-store` (`sw.js` NEVER_CACHE lacks the prefix) | **Open → Lane D.** Add the prefix, bump `CACHE_VERSION`, add an e2e check with the service worker allowed |
+| R2-7 / E2-F2 | The service worker caches the advisor GET lists despite `no-store` (`sw.js` NEVER_CACHE lacks the prefix) | **Fixed on #1866 (Lane D round 2):** `/api/public/league/trade-advisor` in NEVER_CACHE, `CACHE_VERSION` v10; vitest runs the real `sw.js` and proves no `respondWith` / `caches.open` / `put` for the advisor GETs. No browser check with the service worker allowed (the advisor cannot be served in CI) |
 | R2-8 / E2-F3 | App-shell chunks on every page ship q = 0.78, package-model code and the source list (pre-existing on `main`) | **Open**, follow-up, owner confirmation |
-| R2-9 | The hub treats any probe state other than `disabled` as available. A backend error with the flag OFF, or the flag ON with the gate closed, makes the advisor the landing tab | **Open → Lane D.** Switch on `ready` only, like the landing page and sitemap |
+| R2-9 | The hub treats any probe state other than `disabled` as available. A backend error with the flag OFF, or the flag ON with the gate closed, makes the advisor the landing tab | **Fixed on #1866 (Lane D round 2):** `ready` only (hub state + metadata); vitest SSR + client cases for 503 `not_ready`, no answer and no bootstrap |
 | R2-10 | `_source_permission_record_exists` accepts any existing repo file (e.g. README.md) | **Open → Lane C.** Validate the record's shape and coverage |
-| R2-11 / E3 | Public keyboard focus falls to `<body>` after Edit trade, Remove, New trade and Start over (6 / 6 multi-step flows, desktop and mobile) | **Open → Lane D.** Launch gate 8 |
+| R2-11 / E3 | Public keyboard focus falls to `<body>` after Edit trade, Remove, New trade and Start over (6 / 6 multi-step flows, desktop and mobile) | **Fixed on #1866 (Lane D round 2):** Edit / New trade → "Build your trade" heading, Start over → "Which team is yours?" heading, Remove → next asset's Remove, else previous, else that team's Add. Keyboard spec assertions are now hard and target-specific; 12 / 12 public keyboard tests pass locally (desktop-1366 + mobile-chromium) |
 | R2-12 / E2-F5 | The site-wide public limiter keys on the exact IP (one IPv6 /64 reads the GET lists without limit), and its 429 copy differs from the advisor's | **Open → Lane C** |
 
 ### Independent review 3 — integration, not passed, fixable
@@ -552,10 +556,10 @@ implemented in Lanes A–D. Examples:
 | ID | Finding | Resolution |
 |---|---|---|
 | CI-1 | #1883 Validate PR fails `check_decision_coercions`. The new coercion is `trade-logic.js:892` (`Number(v) \|\| 0` in the 3+-side branch of `valueAdjustmentFromSideArrays`), plus one stale baseline entry | **Open → Lane B** |
-| CI-2 | #1866 E2E fails the skip ceiling, 82 > 70: 12 skips from `league-trade-advisor.spec.js` live tests that skip whenever the advisor is off | **Open → Lane D.** Register them only under an env opt-in, as the E-3 spec already does |
+| CI-2 | #1866 E2E fails the skip ceiling, 82 > 70: 12 skips from `league-trade-advisor.spec.js` live tests that skip whenever the advisor is off | **Fixed on #1866 (Lane D round 2):** the 6 serving-dependent tests (mocked flows included — the hub's server-side probe decides whether the advisor renders, and the launch gate cannot open in CI) register only under `E2E_ADVISOR_E2E=1`. CI registers 2 instead of 14 (−12 skips → 70, main's count); `E2E_MAX_SKIPPED` unchanged |
 | CI-3 | #1882 and #1861 are dirty against `main` and have never run full CI | **Open → Lanes A, C.** Merge `main`; keep one consistent flag count across the stack |
 | UX-1 | = R2-11 | Lane D |
-| UX-2 | The floating feedback / camera button covers "Start over" in the 390 px public result | **Open → Lane D** |
+| UX-2 | The floating feedback / camera button covers "Start over" in the 390 px public result | **Fixed on #1866 (Lane D round 2):** phone bottom reserve on the advisor root; the live spec hit-tests "Analyze trade" and "Start over" at the page end. Before: `button.screenshot-fab` covered Analyze on mobile-chromium (390 px); after: clear on 2/3/4 teams |
 | UX-3 | `/trade` (pre-existing): focus lost after Remove; "Owned pick" badge contrast 4.48:1 | **Open**, pre-existing; recorded as annotations in the private keyboard spec |
 | UX-4 | `trade-stack-withdrawn.test.js` was loosened from an exact key set to a `/stack/` blocklist at 3+ teams | **Open → Lane B.** Restore an explicit allowlist (CLAUDE.md treats that file as a methodology guard) |
 | RECORDS-1 | The Lane B `WORK_CLAIMS` row names the wrong branch and omits files Lane B touched | **Open → coordinator** |
@@ -585,7 +589,7 @@ implemented in Lanes A–D. Examples:
 | 5 | Privacy | **Partly.** Values, perspective, storage and errors pass. F-1, F-2 and F-3 are open |
 | 6 | Source permission resolved | **No** (OD-3) |
 | 7 | Performance and abuse controls | **No.** Floor measured but unset; no admission bound or timeout |
-| 8 | Accessibility and mobile E2E | **No.** Public focus management fails; mobile-390/430 not run locally |
+| 8 | Accessibility and mobile E2E | **Partly.** Public focus management fixed and passing on desktop-1366 + mobile-chromium (390 px); mobile-390/430 (WebKit) not runnable locally |
 | 9 | Independent review complete | **Done, none passed** (3 reviews, findings above) |
 | 10 | CI and deploy verification green | **No** (section H) |
 | 11 | Owner approves launch | **Not requested.** Blocked by 6–10 |
@@ -637,5 +641,5 @@ repository data (`exports/archive/`, `exports/latest/`) or is labelled synthetic
 - **NEXT_ACTION:**
   - Lanes A and C merge `main` and fix R1-1 / R1-2.
   - Lane B fixes CI-1 and H-1.
-  - Lane D fixes CI-2, the focus management, R2-7 and R2-9.
+  - Lane D: CI-2, the focus management, R2-7, R2-9 and UX-2 are fixed (round 2); CI to confirm.
   - The owner rules on OD-F1–F6 and OD-3.

@@ -198,3 +198,32 @@ describe("advisor flag ON — the new hub routing", () => {
     expect(nav.replace).not.toHaveBeenCalled();
   });
 });
+
+// R2-9: only a CONFIRMED "ready" offers the advisor.  A closed launch gate
+// (503 advisor_unavailable/not_ready), a backend outage (no answer) or no
+// bootstrap at all must leave /league exactly as main — never land a
+// visitor on unfinished functionality.
+describe("advisor not confirmed served — /league is exactly main", () => {
+  const NOT_READY = classifyTeamsResult({ status: 503, data: fixture("error.not-ready") });
+  const NO_ANSWER = classifyTeamsResult({ status: 0, data: null });
+  it.each([
+    ["503 not_ready (launch gate closed)", NOT_READY],
+    ["no answer from the backend", NO_ANSWER],
+    ["no bootstrap at all", null],
+  ])("%s: Overview lands, labelled Home, no advisor tab (SSR and client)", async (_, boot) => {
+    if (boot) expect(boot.state).toBe("unknown");
+    const html = await ssr(<LeagueClient initialContract={contract} initialAdvisor={boot} />);
+    expect(html).toContain('data-testid="overview-markup"');
+    expect(html).toMatch(/role="tab"[^>]*>Home</);
+    expect(html).not.toContain("Trade Advisor");
+    expect(html).not.toContain("Which team is yours?");
+
+    render(<LeagueClient initialContract={contract} initialAdvisor={boot} />);
+    expect(tabLabels()).toContain("Home");
+    expect(tabLabels()).not.toContain("Trade Advisor");
+    expect(screen.getByTestId("overview-markup")).toBeInTheDocument();
+    // No browser probe of the advisor either: the hub never asks.
+    const advisorCalls = fetch.mock.calls.filter(([u]) => String(u).includes("trade-advisor"));
+    expect(advisorCalls).toEqual([]);
+  });
+});

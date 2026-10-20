@@ -26,8 +26,27 @@ const { advisorServed } = require("../helpers/advisor");
 //
 // What cannot be mocked from the browser is the SERVER's own read of
 // /api/public/league/trade-advisor/teams, which decides whether the hub
-// offers the advisor at all.  "landing" ALWAYS runs and asserts the right
-// landing for whatever the backend says.
+// offers the advisor at all (only a confirmed "ready" does).  That read
+// needs the flag ON and the launch gate OPEN, and the gate's inputs —
+// measured response floor, owner-approved fairness version (the bands are
+// PROVISIONAL today), source-permission record — are owner-reserved, so no
+// CI stack can serve the advisor.  "landing" ALWAYS runs and asserts the
+// right landing for whatever the backend says (in CI: exactly main).
+//
+// Every other test here — the mocked flows included, because the mocks
+// only replace the BROWSER's requests after the hub has offered the
+// advisor — needs a serving stack.  They are registered only when
+// E2E_ADVISOR_E2E=1 (CI-2: as `test.skip` they added 6 skips per project,
+// 12 in all, and broke the stack-death-reporter's skip ceiling of 70 for
+// no coverage).  Opted in, a stack that does not serve the advisor FAILS
+// them rather than skipping: the opt-in is a claim that it does.  The same
+// UI flows (2/3/4 teams, every result, 409/429/503, focus, Back, the
+// session cache, the fairness-only wording) run in CI as vitest component
+// tests over the same fixtures: frontend/__tests__/components/trade-advisor.test.jsx.
+// To run them locally: boot a throwaway backend process with the flag on
+// and the launch gate opened in that process only (described in
+// docs/trade/advisor_evidence/PERFORMANCE.md) — never a committed config
+// change — then set E2E_ADVISOR_E2E=1.
 //
 // Team identities are whatever the page offers, so tests pick teams and
 // assets by position, never by name.  Set ADVISOR_SCREENSHOT_DIR to keep
@@ -37,6 +56,11 @@ const FIX = path.resolve(__dirname, "..", "..", "..", "frontend", "__tests__", "
 const fixture = (name) => JSON.parse(fs.readFileSync(path.join(FIX, `${name}.json`), "utf8"));
 const SHOTS = process.env.ADVISOR_SCREENSHOT_DIR || "";
 const NOT_SERVED = "the backend does not serve the advisor (flag brisket_trade_advisor off, launch gate closed, or route absent)";
+// Opt-in for every test that needs a stack serving the advisor (see header).
+const ADVISOR_E2E = process.env.E2E_ADVISOR_E2E === "1";
+async function requireServed(request) {
+  expect(await advisorServed(request), `E2E_ADVISOR_E2E=1 but ${NOT_SERVED}`).toBe(true);
+}
 
 test.use({ serviceWorkers: "block" });
 
@@ -204,6 +228,30 @@ async function shot(page, testInfo, name) {
   await page.screenshot({ path: path.join(SHOTS, `${testInfo.project.name}-${name}.png`), fullPage: true });
 }
 
+// UX-2: at the END of the page (where a fixed control can never be
+// scrolled away) nothing fixed — the shell's screenshot button, the bottom
+// nav — may sit on top of `locator`.  Hit-tests the control's centre and
+// four inset corners.
+async function notOccludedAtPageEnd(page, locator, what) {
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect(locator).toBeInViewport();
+  const covered = await locator.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const pts = [
+      [r.left + r.width / 2, r.top + r.height / 2],
+      [r.left + 3, r.top + 3],
+      [r.right - 3, r.top + 3],
+      [r.left + 3, r.bottom - 3],
+      [r.right - 3, r.bottom - 3],
+    ];
+    return pts
+      .map(([x, y]) => document.elementFromPoint(x, y))
+      .filter((hit) => !hit || !(hit === el || el.contains(hit)))
+      .map((hit) => (hit ? `${hit.tagName.toLowerCase()}.${hit.className}` : "nothing"));
+  });
+  expect(covered, `${what} is covered at the end of the page`).toEqual([]);
+}
+
 async function noHorizontalScroll(page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow, "horizontal page scroll").toBeLessThanOrEqual(1);
@@ -241,195 +289,200 @@ test.describe("Brisket Trade Advisor", () => {
     expect(privateHits, `private endpoints touched: ${privateHits.join(", ")}`).toEqual([]);
   });
 
-  test("two-team flow (mocked): build, review, analyze, every result, edit and Back", async ({ page, request }) => {
-    test.skip(!(await advisorServed(request)), NOT_SERVED);
-    test.setTimeout(180_000);
-    const results = [fixture("analyze.not-fair-two-team"), fixture("analyze.fair-two-team"), fixture("analyze.unable-asset")];
-    const privateHits = watchPrivate(page);
-    const { posts } = await mockAdvisor(page, { analyze: (n) => ({ status: 200, body: results[Math.min(n - 1, results.length - 1)] }) });
-    await openAdvisor(page);
-    await buildTwoTeamTrade(page);
-    const summary = page.getByTestId("advisor-summary");
-    await expect(summary).toContainText("Alpha Quarterback →");
-    await expect(summary).toContainText("Bravo Star ←");
-    await noHorizontalScroll(page);
-
-    for (const expected of results) {
-      await page.getByRole("button", { name: "Analyze trade" }).click();
-      const result = page.getByTestId("advisor-result");
-      await expect(result.getByTestId("advisor-overall-label")).toHaveText(expected.overall.label);
-      await expect(result.getByText(expected.overall.reasonText, { exact: true }).first()).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Is this trade fair?" })).toBeFocused();
-      await expect(result.getByRole("tab")).toHaveCount(2);
-      await expect(result).not.toContainText(/accept|decline|recommend/i);
-      await noHorizontalScroll(page);
-      if (expected === results[0]) {
-        // Back from a result returns to the builder with the legs intact.
-        // The result's history entry is pushed after the result renders;
-        // wait for it, or Back can leave the app entirely.
-        await expect(page).toHaveURL(/step=result/);
-        await page.goBack();
-        await expect(page.getByTestId("advisor-panel-0")).toContainText("Alpha Quarterback");
-        await page.goForward();
-        await expect(result.getByTestId("advisor-overall-label")).toHaveText(expected.overall.label);
-      }
-      await page.getByRole("button", { name: "Edit trade" }).click();
-    }
-    // The body carries identities and routing only.
-    for (const body of posts) {
-      expect(Object.keys(body).sort()).toEqual(["assets", "perspectiveRosterId", "teams"]);
-      for (const leg of body.assets) expect(Object.keys(leg).sort()).toEqual(["from", "id", "to"]);
-    }
-    const html = await page.content();
-    expect(html).not.toMatch(/rankDerivedValue|aria-posinset|aria-setsize/);
-    expect(privateHits).toEqual([]);
-
-    const axe = await new AxeBuilder({ page }).include('[data-testid="trade-advisor"]').withTags(["wcag2a", "wcag2aa"]).analyze();
-    expect(axe.violations.map((v) => v.id)).toEqual([]);
-  });
-
-  test("three-team builder (mocked): preconditions, routing, every team's result; 409 and 429 recover", async ({ page, request }) => {
-    test.skip(!(await advisorServed(request)), NOT_SERVED);
-    test.setTimeout(180_000);
-    const answers = [
-      { status: 409, body: fixture("error.stale-assets") },
-      { status: 429, body: { ...fixture("error.rate-limited"), retryAfterSeconds: 2 }, headers: { "retry-after": "2" } },
-      { status: 200, body: fixture("analyze.three-team-fair") },
-    ];
-    await mockAdvisor(page, { analyze: (n) => answers[Math.min(n - 1, answers.length - 1)] });
-    await openAdvisor(page);
-    await buildTwoTeamTrade(page);
-
-    await page.getByRole("button", { name: "Analyze trade" }).click();
-    await expect(page.getByText("Rosters changed")).toBeVisible();
-    await page.getByRole("button", { name: "Analyze trade" }).click();
-    await expect(page.getByTestId("advisor-cooldown")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Analyze trade" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Analyze trade" })).toBeEnabled({ timeout: 10_000 });
-
-    await chooseCount(page, 3);
-    await expect(page.getByText(/more than two teams yet/)).toHaveCount(0);
-    await chooseTeam(page, "Team C", 2);
-    await addAssets(page, 2, ["Charlie Back"]);
-    await expect(page.getByRole("button", { name: "Analyze trade" })).toBeDisabled();
-    for (const [label, idx] of [["Alpha Quarterback", 0], ["Bravo Star", 1], ["Charlie Back", 0]]) {
-      const select = page.getByRole("combobox", { name: `Send ${label} to` });
-      const values = await select.locator("option:not([disabled])").evaluateAll((os) => os.map((o) => o.value));
-      await select.selectOption(values[Math.min(idx, values.length - 1)]);
-    }
-    await noHorizontalScroll(page);
-    await page.getByRole("button", { name: "Analyze trade" }).click();
-    const result = page.getByTestId("advisor-result");
-    await expect(result.getByTestId("advisor-overall-label")).toHaveText("FAIR TRADE");
-    await expect(result.getByText(fixture("analyze.three-team-fair").overall.note)).toBeVisible();
-    await expect(result.getByRole("tab")).toHaveCount(3);
-    await expect(result.getByRole("button", { name: "Try again" })).toHaveCount(0);
-  });
-
-  for (const n of [2, 3, 4]) {
-    test(`live ${n}-team trade: the real server judges every team; perspective switch; value-free; mobile-safe`, async ({ page, request }, testInfo) => {
-      test.skip(!(await advisorServed(request)), NOT_SERVED);
-      test.setTimeout(240_000);
+  // Registered only against a stack that serves the advisor (see header).
+  if (ADVISOR_E2E) {
+    test("two-team flow (mocked): build, review, analyze, every result, edit and Back", async ({ page, request }) => {
+      await requireServed(request);
+      test.setTimeout(180_000);
+      const results = [fixture("analyze.not-fair-two-team"), fixture("analyze.fair-two-team"), fixture("analyze.unable-asset")];
       const privateHits = watchPrivate(page);
-      const responses = [];
-      page.on("response", async (res) => {
-        if (res.url().includes("/api/public/league/trade-advisor/")) {
-          try {
-            responses.push({ url: res.url(), status: res.status(), body: await res.json(), cache: res.headers()["cache-control"] || "" });
-          } catch {
-            /* non-JSON */
-          }
-        }
-      });
+      const { posts } = await mockAdvisor(page, { analyze: (n) => ({ status: 200, body: results[Math.min(n - 1, results.length - 1)] }) });
       await openAdvisor(page);
-      await chooseTeam(page, "Your team", 0);
-      await expect(page.getByRole("heading", { name: /Select (trade partner|the other teams)/ })).toBeVisible();
-      if (n > 2) await chooseCount(page, n);
-      const slots = ["Trade partner", "Team C", "Team D"].slice(0, n - 1);
-      for (let i = 0; i < slots.length; i += 1) await chooseTeam(page, slots[i], i + 1);
-      const labels = [];
-      for (let i = 0; i < n; i += 1) {
-        labels.push(await addLiveAssets(page, i, { players: i === 0 && n > 2 ? 3 : 2, pick: i === 1 }));
-      }
-      await expect(page.getByRole("button", { name: "Analyze trade" })).toBeDisabled({ timeout: 1_000 }).catch(() => {});
-      if (n > 2) await routeLive(page, labels);
-      const analyze = page.getByRole("button", { name: "Analyze trade" });
-      await expect(analyze).toBeEnabled();
+      await buildTwoTeamTrade(page);
+      const summary = page.getByTestId("advisor-summary");
+      await expect(summary).toContainText("Alpha Quarterback →");
+      await expect(summary).toContainText("Bravo Star ←");
       await noHorizontalScroll(page);
-      await shot(page, testInfo, `${n}team-1-review`);
 
-      await analyze.click();
-      const result = page.getByTestId("advisor-result");
-      await expect(result).toBeVisible({ timeout: 60_000 });
-      await expect(page.getByRole("heading", { name: "Is this trade fair?" })).toBeFocused();
-      const overall = (await result.getByTestId("advisor-overall-label").textContent()).trim();
-      expect(["FAIR TRADE", "NOT FAIR", "UNABLE TO DETERMINE"]).toContain(overall);
-      const rows = result.getByTestId("advisor-team-results").getByRole("listitem");
-      await expect(rows).toHaveCount(n);
-      const tabs = result.getByRole("tab");
-      await expect(tabs).toHaveCount(n);
-      await expect(result).not.toContainText(/\b(accept|decline|recommend\w*|should|approve|deny)\b/i);
-      await noHorizontalScroll(page);
-      await shot(page, testInfo, `${n}team-2-result`);
-
-      // Perspective switch: every team's own row of the SAME response.
-      const posts = () => responses.filter((r) => r.url.endsWith("/analyze")).length;
-      const before = posts();
-      for (let i = n - 1; i >= 0; i -= 1) {
-        await tabs.nth(i).click();
-        await expect(tabs.nth(i)).toHaveAttribute("aria-selected", "true");
-        const label = (await result.getByTestId("advisor-team-verdict-label").textContent()).trim();
-        expect(["FAIR FOR THIS TEAM", "NOT FAIR FOR THIS TEAM", "UNABLE TO DETERMINE"]).toContain(label);
+      for (const expected of results) {
+        await page.getByRole("button", { name: "Analyze trade" }).click();
+        const result = page.getByTestId("advisor-result");
+        await expect(result.getByTestId("advisor-overall-label")).toHaveText(expected.overall.label);
+        await expect(result.getByText(expected.overall.reasonText, { exact: true }).first()).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Is this trade fair?" })).toBeFocused();
+        await expect(result.getByRole("tab")).toHaveCount(2);
+        await expect(result).not.toContainText(/accept|decline|recommend/i);
+        await noHorizontalScroll(page);
+        if (expected === results[0]) {
+          // Back from a result returns to the builder with the legs intact.
+          // The result's history entry is pushed after the result renders;
+          // wait for it, or Back can leave the app entirely.
+          await expect(page).toHaveURL(/step=result/);
+          await page.goBack();
+          await expect(page.getByTestId("advisor-panel-0")).toContainText("Alpha Quarterback");
+          await page.goForward();
+          await expect(result.getByTestId("advisor-overall-label")).toHaveText(expected.overall.label);
+        }
+        await page.getByRole("button", { name: "Edit trade" }).click();
       }
-      await tabs.nth(n - 1).click();
-      await shot(page, testInfo, `${n}team-3-perspective`);
-      expect(posts()).toBe(before);
-
-      // Every advisor response this page saw is value-free and uncached.
-      const analyzed = responses.filter((r) => r.url.endsWith("/analyze"));
-      expect(analyzed).toHaveLength(1);
-      expect(analyzed[0].status).toBe(200);
-      expect(analyzed[0].cache).toMatch(/no-store/);
-      expect(analyzed[0].body.teams).toHaveLength(n);
-      for (const r of responses) assertValueFree(r.body);
-      // The page itself carries no board value either.
-      expect(await page.content()).not.toMatch(/rankDerivedValue|"gap"|"band"|aria-posinset/);
+      // The body carries identities and routing only.
+      for (const body of posts) {
+        expect(Object.keys(body).sort()).toEqual(["assets", "perspectiveRosterId", "teams"]);
+        for (const leg of body.assets) expect(Object.keys(leg).sort()).toEqual(["from", "id", "to"]);
+      }
+      const html = await page.content();
+      expect(html).not.toMatch(/rankDerivedValue|aria-posinset|aria-setsize/);
       expect(privateHits).toEqual([]);
 
       const axe = await new AxeBuilder({ page }).include('[data-testid="trade-advisor"]').withTags(["wcag2a", "wcag2aa"]).analyze();
-      expect(axe.violations.map((v) => `${v.id}: ${v.nodes.map((x) => x.target.join(" ")).join(" | ")}`)).toEqual([]);
+      expect(axe.violations.map((v) => v.id)).toEqual([]);
+    });
 
-      // Edit keeps the trade; Start over clears it.
-      await page.getByRole("button", { name: "Edit trade" }).click();
-      await expect(page.getByTestId("advisor-panel-0")).toContainText(labels[0][0]);
+    test("three-team builder (mocked): preconditions, routing, every team's result; 409 and 429 recover", async ({ page, request }) => {
+      await requireServed(request);
+      test.setTimeout(180_000);
+      const answers = [
+        { status: 409, body: fixture("error.stale-assets") },
+        { status: 429, body: { ...fixture("error.rate-limited"), retryAfterSeconds: 2 }, headers: { "retry-after": "2" } },
+        { status: 200, body: fixture("analyze.three-team-fair") },
+      ];
+      await mockAdvisor(page, { analyze: (n) => answers[Math.min(n - 1, answers.length - 1)] });
+      await openAdvisor(page);
+      await buildTwoTeamTrade(page);
+
       await page.getByRole("button", { name: "Analyze trade" }).click();
-      await expect(result).toBeVisible({ timeout: 60_000 });
-      await page.getByRole("button", { name: "Start over" }).click();
-      await expect(page.getByRole("combobox", { name: "Your team" })).toHaveValue("");
+      await expect(page.getByText("Rosters changed")).toBeVisible();
+      await page.getByRole("button", { name: "Analyze trade" }).click();
+      await expect(page.getByTestId("advisor-cooldown")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Analyze trade" })).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Analyze trade" })).toBeEnabled({ timeout: 10_000 });
+
+      await chooseCount(page, 3);
+      await expect(page.getByText(/more than two teams yet/)).toHaveCount(0);
+      await chooseTeam(page, "Team C", 2);
+      await addAssets(page, 2, ["Charlie Back"]);
+      await expect(page.getByRole("button", { name: "Analyze trade" })).toBeDisabled();
+      for (const [label, idx] of [["Alpha Quarterback", 0], ["Bravo Star", 1], ["Charlie Back", 0]]) {
+        const select = page.getByRole("combobox", { name: `Send ${label} to` });
+        const values = await select.locator("option:not([disabled])").evaluateAll((os) => os.map((o) => o.value));
+        await select.selectOption(values[Math.min(idx, values.length - 1)]);
+      }
+      await noHorizontalScroll(page);
+      await page.getByRole("button", { name: "Analyze trade" }).click();
+      const result = page.getByTestId("advisor-result");
+      await expect(result.getByTestId("advisor-overall-label")).toHaveText("FAIR TRADE");
+      await expect(result.getByText(fixture("analyze.three-team-fair").overall.note)).toBeVisible();
+      await expect(result.getByRole("tab")).toHaveCount(3);
+      await expect(result.getByRole("button", { name: "Try again" })).toHaveCount(0);
+    });
+
+    for (const n of [2, 3, 4]) {
+      test(`live ${n}-team trade: the real server judges every team; perspective switch; value-free; mobile-safe`, async ({ page, request }, testInfo) => {
+        await requireServed(request);
+        test.setTimeout(240_000);
+        const privateHits = watchPrivate(page);
+        const responses = [];
+        page.on("response", async (res) => {
+          if (res.url().includes("/api/public/league/trade-advisor/")) {
+            try {
+              responses.push({ url: res.url(), status: res.status(), body: await res.json(), cache: res.headers()["cache-control"] || "" });
+            } catch {
+              /* non-JSON */
+            }
+          }
+        });
+        await openAdvisor(page);
+        await chooseTeam(page, "Your team", 0);
+        await expect(page.getByRole("heading", { name: /Select (trade partner|the other teams)/ })).toBeVisible();
+        if (n > 2) await chooseCount(page, n);
+        const slots = ["Trade partner", "Team C", "Team D"].slice(0, n - 1);
+        for (let i = 0; i < slots.length; i += 1) await chooseTeam(page, slots[i], i + 1);
+        const labels = [];
+        for (let i = 0; i < n; i += 1) {
+          labels.push(await addLiveAssets(page, i, { players: i === 0 && n > 2 ? 3 : 2, pick: i === 1 }));
+        }
+        await expect(page.getByRole("button", { name: "Analyze trade" })).toBeDisabled({ timeout: 1_000 }).catch(() => {});
+        if (n > 2) await routeLive(page, labels);
+        const analyze = page.getByRole("button", { name: "Analyze trade" });
+        await expect(analyze).toBeEnabled();
+        await noHorizontalScroll(page);
+        await notOccludedAtPageEnd(page, analyze, "Analyze trade");
+        await shot(page, testInfo, `${n}team-1-review`);
+
+        await analyze.click();
+        const result = page.getByTestId("advisor-result");
+        await expect(result).toBeVisible({ timeout: 60_000 });
+        await expect(page.getByRole("heading", { name: "Is this trade fair?" })).toBeFocused();
+        const overall = (await result.getByTestId("advisor-overall-label").textContent()).trim();
+        expect(["FAIR TRADE", "NOT FAIR", "UNABLE TO DETERMINE"]).toContain(overall);
+        const rows = result.getByTestId("advisor-team-results").getByRole("listitem");
+        await expect(rows).toHaveCount(n);
+        const tabs = result.getByRole("tab");
+        await expect(tabs).toHaveCount(n);
+        await expect(result).not.toContainText(/\b(accept|decline|recommend\w*|should|approve|deny)\b/i);
+        await noHorizontalScroll(page);
+        await notOccludedAtPageEnd(page, result.getByRole("button", { name: "Start over" }), "Start over");
+        await shot(page, testInfo, `${n}team-2-result`);
+
+        // Perspective switch: every team's own row of the SAME response.
+        const posts = () => responses.filter((r) => r.url.endsWith("/analyze")).length;
+        const before = posts();
+        for (let i = n - 1; i >= 0; i -= 1) {
+          await tabs.nth(i).click();
+          await expect(tabs.nth(i)).toHaveAttribute("aria-selected", "true");
+          const label = (await result.getByTestId("advisor-team-verdict-label").textContent()).trim();
+          expect(["FAIR FOR THIS TEAM", "NOT FAIR FOR THIS TEAM", "UNABLE TO DETERMINE"]).toContain(label);
+        }
+        await tabs.nth(n - 1).click();
+        await shot(page, testInfo, `${n}team-3-perspective`);
+        expect(posts()).toBe(before);
+
+        // Every advisor response this page saw is value-free and uncached.
+        const analyzed = responses.filter((r) => r.url.endsWith("/analyze"));
+        expect(analyzed).toHaveLength(1);
+        expect(analyzed[0].status).toBe(200);
+        expect(analyzed[0].cache).toMatch(/no-store/);
+        expect(analyzed[0].body.teams).toHaveLength(n);
+        for (const r of responses) assertValueFree(r.body);
+        // The page itself carries no board value either.
+        expect(await page.content()).not.toMatch(/rankDerivedValue|"gap"|"band"|aria-posinset/);
+        expect(privateHits).toEqual([]);
+
+        const axe = await new AxeBuilder({ page }).include('[data-testid="trade-advisor"]').withTags(["wcag2a", "wcag2aa"]).analyze();
+        expect(axe.violations.map((v) => `${v.id}: ${v.nodes.map((x) => x.target.join(" ")).join(" | ")}`)).toEqual([]);
+
+        // Edit keeps the trade; Start over clears it.
+        await page.getByRole("button", { name: "Edit trade" }).click();
+        await expect(page.getByTestId("advisor-panel-0")).toContainText(labels[0][0]);
+        await page.getByRole("button", { name: "Analyze trade" }).click();
+        await expect(result).toBeVisible({ timeout: 60_000 });
+        await page.getByRole("button", { name: "Start over" }).click();
+        await expect(page.getByRole("combobox", { name: "Your team" })).toHaveValue("");
+      });
+    }
+
+    test("navigation: Back across tabs, the landing button, and Overview back-links", async ({ page, request }) => {
+      await requireServed(request);
+      await mockAdvisor(page);
+      await page.goto(pageUrl("/"));
+      const hub = page.getByRole("link", { name: "Go to League Hub" });
+      if (await hub.count()) {
+        await hub.first().click();
+        await expect(page.getByRole("heading", { level: 1, name: "Brisket Trade Advisor" })).toBeVisible({ timeout: 30_000 });
+      } else {
+        await openAdvisor(page);
+      }
+      const width = page.viewportSize()?.width ?? 1366;
+      if (width <= 768) {
+        await page.getByLabel("Select league section").selectOption({ label: "Overview" });
+      } else {
+        await page.getByRole("tab", { name: "Overview", exact: true }).first().click();
+      }
+      await expect(page).toHaveURL(/tab=overview/);
+      await page.goBack();
+      await expect(page).not.toHaveURL(/tab=/);
+      await expect(page.getByRole("heading", { level: 1, name: "Brisket Trade Advisor" })).toBeVisible();
+      await noHorizontalScroll(page);
     });
   }
-
-  test("navigation: Back across tabs, the landing button, and Overview back-links", async ({ page, request }) => {
-    test.skip(!(await advisorServed(request)), NOT_SERVED);
-    await mockAdvisor(page);
-    await page.goto(pageUrl("/"));
-    const hub = page.getByRole("link", { name: "Go to League Hub" });
-    if (await hub.count()) {
-      await hub.first().click();
-      await expect(page.getByRole("heading", { level: 1, name: "Brisket Trade Advisor" })).toBeVisible({ timeout: 30_000 });
-    } else {
-      await openAdvisor(page);
-    }
-    const width = page.viewportSize()?.width ?? 1366;
-    if (width <= 768) {
-      await page.getByLabel("Select league section").selectOption({ label: "Overview" });
-    } else {
-      await page.getByRole("tab", { name: "Overview", exact: true }).first().click();
-    }
-    await expect(page).toHaveURL(/tab=overview/);
-    await page.goBack();
-    await expect(page).not.toHaveURL(/tab=/);
-    await expect(page.getByRole("heading", { level: 1, name: "Brisket Trade Advisor" })).toBeVisible();
-    await noHorizontalScroll(page);
-  });
 });

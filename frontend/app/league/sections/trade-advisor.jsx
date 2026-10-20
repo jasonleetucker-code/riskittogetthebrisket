@@ -28,7 +28,7 @@ import {
   tradeKey,
 } from "@/lib/trade-advisor";
 import { fetchAdvisorAssets, postAdvisorAnalyze } from "@/lib/trade-advisor-client";
-import { TeamCountControl, teamOptions } from "./trade-advisor-shell.jsx";
+import { BUILD_STEP_HEADING_ID, TeamCountControl, teamOptions } from "./trade-advisor-shell.jsx";
 import { AdvisorTeamPanel } from "./_advisor-team-panel.jsx";
 import { AdvisorSummary } from "./_advisor-summary.jsx";
 import { AdvisorResult } from "./_advisor-result.jsx";
@@ -97,6 +97,30 @@ export default function TradeAdvisorBuilder({
   const inTrade = useMemo(() => new Set(state.legs.map((l) => l.id)), [state.legs]);
   const stale = useMemo(() => new Set(state.staleIds), [state.staleIds]);
   const maxTeams = (limits && limits.maxTeams) || MAX_TEAMS;
+  // Focus after Remove (launch gate 8 / WCAG 2.4.3): the pressed button
+  // unmounts with its leg.  Focus moves to the next asset's Remove in the
+  // same team, else the previous one, else that team's "+ Add" button.
+  // Element registry, filled by each panel's callback refs: "remove:<id>"
+  // and "add:<rosterId>" → the button (null once unmounted).  Refs, not
+  // DOM attributes: the advisor publishes no asset-keyed attribute.
+  const focusTargets = useRef(new Map()).current;
+  const removeFocusRef = useRef(null);
+  const removeAsset = (id) => {
+    const leg = state.legs.find((l) => l.id === id);
+    if (leg) {
+      const own = state.legs.filter((l) => l.from === leg.from);
+      const i = own.findIndex((l) => l.id === id);
+      const next = own[i + 1] || own[i - 1] || null;
+      removeFocusRef.current = next ? `remove:${next.id}` : `add:${leg.from}`;
+    }
+    dispatch({ type: "REMOVE_ASSET", id });
+  };
+  useEffect(() => {
+    const key = removeFocusRef.current;
+    if (!key) return;
+    removeFocusRef.current = null;
+    focusTargets.get(key)?.focus();
+  }, [state.legs, focusTargets]);
 
   // 429 countdown.
   useEffect(() => {
@@ -192,7 +216,7 @@ export default function TradeAdvisorBuilder({
 
       <section className={styles.step} aria-labelledby="advisor-step-build">
         <div className={styles.stepHead}>
-          <h2 className={styles.stepTitle} id="advisor-step-build">
+          <h2 className={styles.stepTitle} id={BUILD_STEP_HEADING_ID} tabIndex={-1}>
             <span className={styles.stepEyebrow}>Step 3</span>
             Build your trade
           </h2>
@@ -225,7 +249,8 @@ export default function TradeAdvisorBuilder({
                 teamCount={state.teamCount}
                 staleIds={stale}
                 onAdd={() => openSheet(rid)}
-                onRemove={(id) => dispatch({ type: "REMOVE_ASSET", id })}
+                onRemove={removeAsset}
+                focusTargets={focusTargets}
                 onRoute={(id, to) => dispatch({ type: "SET_DESTINATION", id, to })}
               />
             ),

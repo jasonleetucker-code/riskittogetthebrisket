@@ -42,6 +42,10 @@ import styles from "./trade-advisor.module.css";
 
 const TradeAdvisorBuilder = lazy(() => import("./trade-advisor.jsx"));
 
+// Focus targets after leaving a result (see `pendingFocusRef`).
+export const TEAM_STEP_HEADING_ID = "advisor-step-team";
+export const BUILD_STEP_HEADING_ID = "advisor-step-build";
+
 // Lists older than this are refetched when the tab becomes visible again.
 const LIST_MAX_AGE_MS = 5 * 60 * 1000;
 
@@ -106,6 +110,12 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
   // pre-restore state and strip `?team=` / `?step=result` from the URL.
   const [restored, setRestored] = useState(false);
   const lastResultRef = useRef(null);
+  // Where keyboard focus goes after leaving a result (launch gate 8 /
+  // WCAG 2.4.3): the button that was pressed unmounts with the result, so
+  // without this focus falls to <body>.  "build" = the Build-your-trade
+  // heading (Edit trade, New trade: the teams are kept); "team" = the
+  // Which-team-is-yours heading (Start over: everything is cleared).
+  const pendingFocusRef = useRef(null);
   const teams = boot.status === "ready" ? boot.data.teams : [];
 
   const loadTeams = useCallback(
@@ -220,11 +230,24 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
   const onLeaveResult = useCallback(
     (type) => {
       if (type === "START_OVER") lastResultRef.current = null;
+      pendingFocusRef.current = type === "START_OVER" ? TEAM_STEP_HEADING_ID : BUILD_STEP_HEADING_ID;
       dispatch({ type });
       navigate({ step: null, ...(type === "START_OVER" ? { team: null } : {}) });
     },
     [navigate],
   );
+
+  // Runs after the commit that replaced the result: both headings are in
+  // the DOM by then (the builder chunk is already loaded — it rendered the
+  // result).  A target that is not there yet stays pending.
+  useEffect(() => {
+    const target = pendingFocusRef.current;
+    if (!target || state.phase === "result") return;
+    const el = document.getElementById(target);
+    if (!el) return;
+    pendingFocusRef.current = null;
+    el.focus();
+  }, [state]);
 
   const refreshLists = useCallback(() => {
     setEpoch((e) => e + 1);
@@ -268,7 +291,7 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
 
       <section className={styles.step} aria-labelledby="advisor-step-team">
         <div className={styles.stepHead}>
-          <h2 className={styles.stepTitle} id="advisor-step-team">
+          <h2 className={styles.stepTitle} id={TEAM_STEP_HEADING_ID} tabIndex={-1}>
             <span className={styles.stepEyebrow}>Step 1</span>
             Which team is yours?
           </h2>

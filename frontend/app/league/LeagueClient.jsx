@@ -190,12 +190,17 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
   const normalizedInitialTab = normalizeTabKey(initialTab);
 
   // Is the Brisket Trade Advisor served?  The server read the advisor's
-  // teams endpoint: "disabled" (flag off → 503 advisor_unavailable/disabled,
-  // or 404) means the hub behaves exactly as before the advisor — Overview
-  // lands, no advisor tab.  "unknown" (no answer) stays optimistic and the
-  // shell asks from the browser, calling `markAdvisorUnavailable` if the
-  // answer is "disabled".
-  const [advisorAvailable, setAdvisorAvailable] = useState(initialAdvisor?.state !== "disabled");
+  // teams endpoint, and ONLY a confirmed "ready" offers the advisor (R2-9):
+  // "disabled" (flag off → 503 advisor_unavailable/disabled, or 404),
+  // "unknown" (no answer, or 503 not_ready while the launch gate is closed)
+  // and a missing bootstrap all mean the hub behaves exactly as before the
+  // advisor — Overview lands, no advisor tab.  An off flag, a closed launch
+  // gate or a backend outage must never turn unfinished functionality into
+  // the public landing tab.  Same rule as the landing page and the sitemap
+  // (./advisor-bootstrap.js `advisorConfirmedServed`).  While served, a
+  // later "disabled" answer from the browser still withdraws the tab
+  // (`markAdvisorUnavailable`).
+  const [advisorAvailable, setAdvisorAvailable] = useState(initialAdvisor?.state === "ready");
   const markAdvisorUnavailable = useCallback(() => setAdvisorAvailable(false), []);
 
   // The tab the visitor asked for (URL, or the server's view of it on the

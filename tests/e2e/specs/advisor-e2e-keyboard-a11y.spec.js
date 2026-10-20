@@ -19,8 +19,9 @@
  *     sheet, review, result, each perspective.
  *   - Focus management: the sheet takes focus and traps Tab; Escape / Done
  *     returns focus to the button that opened it; the result moves focus to
- *     its heading; Edit / New trade / Start over never strand focus on
- *     <body>.
+ *     its heading; Edit trade / New trade land on the Build-your-trade
+ *     heading, Start over on the Which-team-is-yours heading, and Remove on
+ *     the neighbouring asset's Remove button (launch gate 8).
  *   - Hydration readiness: nothing stays aria-busy, no React hydration error
  *     or uncaught page error at any step.
  *   - Error recovery (browser-side faults injected on the analyze request,
@@ -144,10 +145,12 @@ async function tabTo(page, locator, { max = 80, back = false } = {}) {
   );
 }
 
-// Soft: a stranded focus is a WCAG 2.4.3 defect worth reporting, but the
-// rest of the flow should still be exercised (the test still fails).
-async function expectFocusNotLost(page, what) {
-  expect.soft(await focused(page), `${what}: focus fell to <body>`).not.toBe("body");
+// Launch gate 8 (WCAG 2.4.3): after Edit trade / Remove / New trade / Start
+// over the pressed control unmounts, and focus must land on the named
+// target — never on <body>.  Hard assertions since the Lane D fix.
+async function expectFocusOn(page, locator, what) {
+  expect(await focused(page), `${what}: focus fell to <body>`).not.toBe("body");
+  await expect(locator, `${what}: focus target`).toBeFocused();
 }
 
 // Combobox: ArrowDown opens on the current/first enabled option, ArrowDown
@@ -455,7 +458,7 @@ if (LIVE)
         await tabTo(page, result.getByRole("button", { name: "Edit trade" }));
         await page.keyboard.press("Enter");
         await expect(page.getByTestId("advisor-panel-0")).toContainText(labels[0][0]);
-        await expectFocusNotLost(page, "after Edit trade");
+        await expectFocusOn(page, page.getByRole("heading", { name: /Build your trade/ }), "after Edit trade");
         await shot(page, testInfo, step(7, "edit"));
         // Remove your team's last asset: it was routed to the last team,
         // which also receives from every other team, so every team still both
@@ -465,7 +468,12 @@ if (LIVE)
         await tabTo(page, removeBtn);
         await page.keyboard.press("Enter");
         await expect(page.getByTestId("advisor-panel-0")).not.toContainText(removed);
-        await expectFocusNotLost(page, "after Remove");
+        // Focus steps back to the previous asset's Remove in the same team.
+        await expectFocusOn(
+          page,
+          page.getByRole("button", { name: `Remove ${labels[0][labels[0].length - 2]}` }),
+          "after Remove",
+        );
         await expect(analyze).toBeEnabled();
         await tabTo(page, analyze);
         {
@@ -482,7 +490,7 @@ if (LIVE)
           await tabTo(page, result.getByRole("button", { name: "New trade" }));
           await page.keyboard.press("Enter");
           await expect(page.getByTestId("advisor-panel-0")).toContainText("Nothing added yet.");
-          await expectFocusNotLost(page, "after New trade");
+          await expectFocusOn(page, page.getByRole("heading", { name: /Build your trade/ }), "after New trade");
           await shot(page, testInfo, step(9, "new-trade"));
         }
         // 10. Start over (from a result) clears everything.  Back to two
@@ -497,7 +505,7 @@ if (LIVE)
         await tabTo(page, result.getByRole("button", { name: "Start over" }));
         await page.keyboard.press("Enter");
         await expect(page.getByRole("combobox", { name: "Your team" })).toHaveValue("");
-        await expectFocusNotLost(page, "after Start over");
+        await expectFocusOn(page, page.getByRole("heading", { name: /Which team is yours\?/ }), "after Start over");
         await shot(page, testInfo, step(10, "start-over"));
 
         expect(seen.privateHits, "no private endpoint touched").toEqual([]);

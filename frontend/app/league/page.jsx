@@ -105,9 +105,10 @@ const fetchSection = cache(async function fetchSection(section) {
 // The Brisket Trade Advisor's team list — public, value-free identities
 // (roster id, manager and team names).  Read on EVERY /league render, in
 // parallel with the overview section, because it answers two questions at
-// once: whether the advisor tab exists at all (flag off → 503
-// advisor_unavailable/disabled, or 404 → the hub lands on Overview exactly
-// as before), and the real team picker for the first paint.  Classified
+// once: whether the advisor tab exists at all (only a confirmed "ready"
+// offers it; flag off, a closed launch gate, a 404 or no answer → the hub
+// lands on Overview exactly as before), and the real team picker for the
+// first paint.  Classified
 // and ALLOWLISTED by `classifyTeamsResult` before it becomes a prop, so
 // nothing beyond those identities can reach the RSC payload.  The read and
 // classification are ./advisor-bootstrap.js's (one owner, shared with the
@@ -128,7 +129,7 @@ export async function generateMetadata({ searchParams } = {}) {
     normalizeTabKey(rawTab) === PIECE_OF_SHIT_RANKINGS_TAB;
   if (!isPieceOfShitRankings && resolveTab(rawTab) === TRADE_ADVISOR_TAB) {
     const advisor = await fetchAdvisorBootstrap();
-    if (advisor.state !== "disabled") {
+    if (advisor.state === "ready") {
       const title = `${TRADE_ADVISOR_TITLE} — Risk It To Get The Brisket`;
       const description = TRADE_ADVISOR_SUBTITLE;
       return {
@@ -231,8 +232,8 @@ export default async function LeagueRoute({ searchParams }) {
   // ``/league?tab=activity`` is in the sitemap — skipping SSR would show
   // crawlers and first paint a spinner for no measured gain.
   //
-  // The advisor bootstrap runs in parallel with the section fetches; when
-  // it says "disabled" the landing resolves to Overview, which is always
+  // The advisor bootstrap runs in parallel with the section fetches; unless
+  // it says "ready" the landing resolves to Overview, which is always
   // fetched anyway.
   const advisorPromise = fetchAdvisorBootstrap();
   const landing = sectionForTab(normalizeTabKey(rawTab));

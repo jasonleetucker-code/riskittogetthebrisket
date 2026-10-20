@@ -24,6 +24,7 @@ export function AdvisorTeamPanel({
   onAdd,
   onRemove,
   onRoute,
+  focusTargets = null,
 }) {
   const name = teamLabel(team) || slotName(index);
   const isYou = index === 0;
@@ -70,6 +71,7 @@ export function AdvisorTeamPanel({
                 className={styles.removeBtn}
                 onClick={() => onRemove(leg.id)}
                 aria-label={`Remove ${leg.label}`}
+                ref={(el) => focusTargets?.set(`remove:${leg.id}`, el)}
               >
                 Remove
               </Button>
@@ -88,7 +90,12 @@ export function AdvisorTeamPanel({
           ))}
         </ul>
       )}
-      <Button className={styles.addBtn} onClick={onAdd} aria-haspopup="dialog">
+      <Button
+        className={styles.addBtn}
+        onClick={onAdd}
+        aria-haspopup="dialog"
+        ref={(el) => focusTargets?.set(`add:${rosterId}`, el)}
+      >
         + Add player or pick
       </Button>
       {teamCount > 2 ? (
