@@ -516,12 +516,17 @@ _OVERRIDES_RESPONSE_CACHE: dict = {}
 _OVERRIDES_ENCODE_LOCKS: dict = {}
 _OVERRIDES_RESPONSE_CACHE_MAX = 16
 # Byte bound (prod memory-pressure follow-up, 2026-10-20).  The count cap
-# alone allowed 16 entries of raw+gzip bytes: measured 6.5 MB per delta
-# entry and 17.3 MB per ``view=full`` entry, so ~105 / ~280 MB worst case
-# for a client posting distinct ``tep_multiplier`` values.  Normal traffic
-# (the stock body per league, delta and full) is a few entries and well
-# under this budget, so the stock bodies are never evicted by it.
-_OVERRIDES_RESPONSE_CACHE_MAX_BYTES = 64 * 1024 * 1024
+# alone allowed 16 entries of raw+gzip bytes: measured 6.26-6.5 MiB per delta
+# entry and 16.6-17.3 MiB per ``view=full`` entry, so ~105 / ~280 MB worst
+# case for a client posting distinct ``tep_multiplier`` values.  The budget is
+# sized so that 15 resident delta entries of up to ~8.5 MiB stay under it:
+# for delta bodies (the frontend default) the 16-entry COUNT cap still binds
+# first, so a cycle of distinct delta bodies thrashes at exactly the same
+# point it did before (16), and the byte budget only bites on full-view
+# bodies (~7 resident, worst case ~145 MiB instead of ~280 MB).  Eviction is
+# rebuild-on-next-request (0.9-1.3 s CPU per body measured), never a wrong
+# answer.
+_OVERRIDES_RESPONSE_CACHE_MAX_BYTES = 128 * 1024 * 1024
 latest_data_source: dict = {
     "type": "",
     "path": "",

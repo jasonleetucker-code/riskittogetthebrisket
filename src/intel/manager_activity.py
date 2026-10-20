@@ -101,10 +101,19 @@ PAYLOAD_TTL_SECONDS = 10 * 60
 # measured ~46 KB on average, so the old 8192 cap allowed ~380 MB of raw
 # payloads -- and expiry was LAZY (an entry left only when the SAME key was
 # re-read past its TTL, or at the cap), so every week of every league any
-# looked-up manager plays in stayed resident until the cap filled.  2048 is
-# more than two full-budget requests (CALL_BUDGET = 900 puts at most), so a
-# request never evicts its own entries; worst case ~95 MB.
-_MEMO_MAX_ENTRIES = 2048
+# looked-up manager plays in stayed resident until the cap filled.  The sweep
+# below fixes the lazy expiry; the cap bounds the LIVE set.
+#
+# The cap is sized in units of one full-budget request (CALL_BUDGET puts at
+# most), not as a free constant: a memo hit is free while a miss spends
+# budget, so a cap below the live working set of the requests in flight can
+# turn a request that a warmer memo would have completed into a
+# ``budgetExhausted`` / partial-coverage answer (never a wrong value -- the
+# payload labels it).  Four full-budget requests fit without evicting each
+# other (3600 entries, worst case ~165 MB); a fifth concurrent heavy request,
+# or more than 3600 live keys, is where the cap starts costing completeness.
+_MEMO_HEAVY_REQUEST_HEADROOM = 4
+_MEMO_MAX_ENTRIES = CALL_BUDGET * _MEMO_HEAVY_REQUEST_HEADROOM
 #: Expired entries are swept on a put at most this often (seconds of the
 #: caller's clock), or whenever the memo is at its cap.
 _MEMO_SWEEP_INTERVAL_SECONDS = 60.0

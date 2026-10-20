@@ -47,11 +47,27 @@ def test_memo_ttl_answers_unchanged(clean_memo):
     assert ma._memo_get(("week", "L1", "3"), 1300.0) is None, "expired entry never served"
 
 
-def test_memo_cap_is_bounded_and_fits_two_full_budget_requests():
-    assert ma._MEMO_MAX_ENTRIES <= 2048
-    # One request puts at most CALL_BUDGET entries, so two concurrent
-    # full-budget requests never evict each other's entries.
-    assert ma._MEMO_MAX_ENTRIES >= 2 * ma.CALL_BUDGET
+def test_memo_cap_is_bounded_and_sized_in_full_budget_requests():
+    # Bounded: well under half the old 8192 (~380 MB at ~46 KB per entry).
+    assert ma._MEMO_MAX_ENTRIES <= 4096
+    # Sized in units of one full-budget request (CALL_BUDGET puts at most),
+    # so the cap tracks the budget instead of drifting from it.
+    assert ma._MEMO_MAX_ENTRIES == ma.CALL_BUDGET * ma._MEMO_HEAVY_REQUEST_HEADROOM
+    assert ma._MEMO_HEAVY_REQUEST_HEADROOM >= 4
+
+
+def test_memo_four_concurrent_full_budget_requests_never_evict_each_other(clean_memo):
+    # Four requests in flight, each putting a full CALL_BUDGET of distinct
+    # keys with its own start clock: every entry stays readable, so none of
+    # them can be pushed into budgetExhausted by another's puts.
+    ttl = ma.WEEK_TTL_COMPLETED_SECONDS
+    for r in range(ma._MEMO_HEAVY_REQUEST_HEADROOM):
+        for i in range(ma.CALL_BUDGET):
+            ma._memo_put(("week", f"L{r}", str(i)), {"r": r, "i": i}, ttl, 1000.0 + r)
+    assert len(ma._memo) == ma._MEMO_HEAVY_REQUEST_HEADROOM * ma.CALL_BUDGET
+    for r in range(ma._MEMO_HEAVY_REQUEST_HEADROOM):
+        for i in (0, ma.CALL_BUDGET // 2, ma.CALL_BUDGET - 1):
+            assert ma._memo_get(("week", f"L{r}", str(i)), 1010.0) == {"r": r, "i": i}
 
 
 def test_memo_sweep_drops_only_entries_no_running_request_can_read(clean_memo):
@@ -207,7 +223,7 @@ def test_overrides_memo_byte_budget_admits_the_stock_working_set(overrides_cache
     # (raw + gzip).  Stock traffic = one body per league x {delta, full}.
     stock = 2 * (int(6.5 * mb) + int(17.3 * mb))
     assert stock < server._OVERRIDES_RESPONSE_CACHE_MAX_BYTES
-    assert server._OVERRIDES_RESPONSE_CACHE_MAX_BYTES <= 64 * mb
+    assert server._OVERRIDES_RESPONSE_CACHE_MAX_BYTES <= 128 * mb
     for i, size in enumerate([6.5, 17.3, 6.5]):
         server._OVERRIDES_RESPONSE_CACHE[("stock", i)] = (b"r" * int(size * mb), b"", 1)
     server._evict_overrides_cache_if_oversized(("stock", 3))
@@ -225,6 +241,23 @@ def test_overrides_memo_is_byte_bounded(overrides_cache):
             17 * mb
         ), "never more than the budget plus the entry being stored"
     assert len(server._OVERRIDES_RESPONSE_CACHE) < 16
+
+
+def test_overrides_memo_delta_cycle_thrash_point_unchanged(overrides_cache):
+    # Review finding on the first 64 MiB budget: ~12 distinct delta bodies in
+    # rotation thrashed it (240/240 rebuilds) where the 16-entry cap alone
+    # needed 16.  With the budget sized for 15 resident delta entries of up
+    # to ~8.5 MiB, the COUNT cap binds first again for delta traffic.
+    server = overrides_cache
+    mb = 1024 * 1024
+    for size in (6.26, 6.5, 8.0):
+        server._OVERRIDES_RESPONSE_CACHE.clear()
+        for i in range(server._OVERRIDES_RESPONSE_CACHE_MAX - 1):
+            server._OVERRIDES_RESPONSE_CACHE[("delta", i)] = (b"r" * int(size * mb), b"", 1)
+        server._evict_overrides_cache_if_oversized(("delta", "new"))
+        assert (
+            len(server._OVERRIDES_RESPONSE_CACHE) == server._OVERRIDES_RESPONSE_CACHE_MAX - 1
+        ), f"15 resident delta bodies of {size} MiB are not evicted by the byte budget"
 
 
 def test_overrides_memo_count_cap_still_applies(overrides_cache):
