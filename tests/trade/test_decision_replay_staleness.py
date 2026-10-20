@@ -126,3 +126,10 @@ def test_knowledge_cutoff_keeps_a_later_correction_out(ledger, monkeypatch):
     assert default["decision"]["headline"] == "YES"
     assert bounded["decision"]["headline"] == "NO"
     assert bounded["leakageGuards"]["knowledgeCutoff"] == AT.isoformat()
+
+
+def test_naive_cutoff_is_refused_even_with_no_resolvable_asset(ledger):
+    with pytest.raises(Exception, match="UTC-aware"):
+        dr.replay_asset_only(
+            [{"name": "Nobody"}], [], AT, ledger_path=ledger, knowledge_cutoff=datetime(2026, 10, 1)
+        )

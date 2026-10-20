@@ -36,7 +36,7 @@ Pure apart from the read-only ledger query; it executes nothing.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -92,6 +92,11 @@ def replay_asset_only(
     if max_age_days is not None:
         guards["max_age_days"] = max_age_days
     if knowledge_cutoff is not None:
+        # Refused up front (not only inside the ledger read, which is skipped
+        # when no asset key resolves) and stamped in UTC like the ledger does.
+        if knowledge_cutoff.tzinfo is None:
+            raise asof.ObservationError("knowledge_cutoff must be UTC-aware")
+        knowledge_cutoff = knowledge_cutoff.astimezone(timezone.utc)
         guards["knowledge_cutoff"] = knowledge_cutoff
     items = [("sending", dict(x)) for x in sending] + [("receiving", dict(x)) for x in receiving]
     keyed = [asset_key_for(x) for _, x in items]
