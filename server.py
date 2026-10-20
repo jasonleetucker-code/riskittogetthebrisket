@@ -9286,6 +9286,16 @@ async def get_roster_intelligence(request: Request):
             },
         )
 
+    # Measure the rosters the site SERVES.  ``/api/data`` — where every
+    # page, including /rosters' own team picker and portfolio, gets its
+    # team list — splices the live Sleeper teams overlay over the baked
+    # block.  Reading only the baked block made the Team Strength ladder
+    # lag every membership change by up to one scrape interval, and
+    # indefinitely when a scrape failed: on 2026-10-20 dynasty_main
+    # roster 12 lost its owner, /api/data listed "Team 12", and the
+    # ladder still ranked the departed manager (E2E run 39348160535).
+    contract, roster_membership = await _contract_with_live_rosters(contract, league_cfg)
+
     # The league's DECLARED size, not the roster count: a snapshot
     # missing one roster must not shrink every weakness threshold.
     declared_teams = _roster_intelligence.declared_team_count(league_cfg.key)
@@ -9314,8 +9324,48 @@ async def get_roster_intelligence(request: Request):
             },
         )
 
+    payload["rosterMembership"] = roster_membership
     # Private roster intelligence — never cached by a shared proxy.
     return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
+
+
+async def _contract_with_live_rosters(
+    contract: dict[str, Any], league_cfg: Any
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """``contract`` with its ``sleeper.teams`` replaced by the live teams
+    overlay — the same membership ``/api/data`` serves for the loaded
+    league — plus a ``{source, asOf}`` stamp naming which one was used.
+
+    Only ``teams`` is replaced; every NFL-wide map and league-config field
+    stays the baked block's, exactly as ``/api/data``'s ``live-merge``
+    path does.  A shallow copy: ``latest_contract_data`` is a shared
+    global and must never be mutated.  Any overlay failure degrades to the
+    baked teams with ``source: "contract"`` — the ladder is still correct
+    for the moment that block describes, and the stamp says which moment.
+    Callers must already have proven the contract is for ``league_cfg``.
+    """
+    baked = {"source": "contract", "asOf": None}
+    sleeper = contract.get("sleeper") if isinstance(contract, dict) else None
+    if not isinstance(sleeper, dict):
+        return contract, baked
+    id_map = sleeper.get("idToPlayer")
+    try:
+        overlay = await run_in_threadpool(
+            lambda: _sleeper_overlay.fetch_sleeper_teams_overlay(
+                sleeper_league_id=league_cfg.sleeper_league_id,
+                id_to_player=id_map if isinstance(id_map, dict) else {},
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — degrade to the baked rosters, never 500
+        log.warning("live rosters overlay failed for %s: %s", league_cfg.key, exc)
+        return contract, baked
+    teams = overlay.get("teams") if isinstance(overlay, dict) else None
+    if not isinstance(teams, list) or not teams:
+        return contract, baked
+    return (
+        {**contract, "sleeper": {**sleeper, "teams": teams}},
+        {"source": "live_overlay", "asOf": overlay.get("overlayFetchedAt")},
+    )
 
 
 @app.get("/api/matchup/intel")
