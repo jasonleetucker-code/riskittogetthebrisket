@@ -515,6 +515,13 @@ _OVERLAY_PER_FETCH_KEYS = frozenset({"overlayFetchedAt", "tradeWindowStart", "tr
 _OVERRIDES_RESPONSE_CACHE: dict = {}
 _OVERRIDES_ENCODE_LOCKS: dict = {}
 _OVERRIDES_RESPONSE_CACHE_MAX = 16
+# Byte bound (prod memory-pressure follow-up, 2026-10-20).  The count cap
+# alone allowed 16 entries of raw+gzip bytes: measured 6.5 MB per delta
+# entry and 17.3 MB per ``view=full`` entry, so ~105 / ~280 MB worst case
+# for a client posting distinct ``tep_multiplier`` values.  Normal traffic
+# (the stock body per league, delta and full) is a few entries and well
+# under this budget, so the stock bodies are never evicted by it.
+_OVERRIDES_RESPONSE_CACHE_MAX_BYTES = 64 * 1024 * 1024
 latest_data_source: dict = {
     "type": "",
     "path": "",
@@ -4899,15 +4906,27 @@ def _overrides_encode_lock(cache_key) -> asyncio.Lock:
     return lock
 
 
+def _overrides_cache_bytes() -> int:
+    """Raw + gzip bytes held by the overrides memo."""
+    return sum(
+        len(e[0] or b"") + len(e[1] or b"") for e in list(_OVERRIDES_RESPONSE_CACHE.values())
+    )
+
+
 def _evict_overrides_cache_if_oversized(keep_key) -> None:
-    """Bound the overrides memo.  Key space is normally tiny (one stock
-    body × active leagues); the cap only guards against a client
-    spraying distinct bodies.  Held locks are preserved for the same
-    reason as ``_evict_overlay_cache_if_oversized``."""
-    if len(_OVERRIDES_RESPONSE_CACHE) < _OVERRIDES_RESPONSE_CACHE_MAX:
+    """Bound the overrides memo by entry count AND bytes.  Key space is
+    normally tiny (one stock body × active leagues); the caps only guard
+    against a client spraying distinct bodies.  Eviction is the same
+    clear-all-but-``keep_key`` it always was; an evicted body is rebuilt
+    byte-identically on its next request.  Held locks are preserved for
+    the same reason as ``_evict_overlay_cache_if_oversized``."""
+    if (
+        len(_OVERRIDES_RESPONSE_CACHE) < _OVERRIDES_RESPONSE_CACHE_MAX
+        and _overrides_cache_bytes() < _OVERRIDES_RESPONSE_CACHE_MAX_BYTES
+    ):
         return
-    for k in [k for k in _OVERRIDES_RESPONSE_CACHE if k != keep_key]:
-        del _OVERRIDES_RESPONSE_CACHE[k]
+    for k in [k for k in list(_OVERRIDES_RESPONSE_CACHE) if k != keep_key]:
+        _OVERRIDES_RESPONSE_CACHE.pop(k, None)
     for k in [k for k, lk in _OVERRIDES_ENCODE_LOCKS.items() if not lk.locked()]:
         del _OVERRIDES_ENCODE_LOCKS[k]
 
@@ -15987,6 +16006,14 @@ async def get_league_player_impact(request: Request, season: str = "", playerId:
         computed = _player_impact_cache.get(key)
         if computed is None:
             computed = _player_impact.compute_season(snapshot, target)
+            # A snapshot refresh moves ``generated_at``, so this league's
+            # entries from an older generation can never be looked up again;
+            # drop them instead of letting them occupy the cap (~8.7 MB each,
+            # memory follow-up 2026-10-20).  Other leagues' entries stay.
+            for stale in [
+                k for k in list(_player_impact_cache) if k[0] == key[0] and k[1] != key[1]
+            ]:
+                _player_impact_cache.pop(stale, None)
             while len(_player_impact_cache) >= _PLAYER_IMPACT_CACHE_MAX:
                 _player_impact_cache.pop(next(iter(_player_impact_cache)))
             _player_impact_cache[key] = computed
