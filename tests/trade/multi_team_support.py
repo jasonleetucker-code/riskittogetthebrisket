@@ -380,3 +380,54 @@ def structure_replays(snap: tl.TradeSnapshot, *, sides: int) -> list[dict[str, A
             continue
         out.append({"teams": teams, "legs": legs, "timestamp": trade.get("timestamp")})
     return out
+
+
+# ── Pinned league scarcity (R1-2) ──────────────────────────────────────────
+
+#: LABELLED fixed positional scarcity (waiver scarcity per position; the only
+#: component capacity reads).  Invented for tests, never a measured value.
+PINNED_WAIVER_SCARCITY = {
+    "QB": 0.8,
+    "RB": 0.45,
+    "WR": 0.3,
+    "TE": 0.6,
+    "DL": 0.2,
+    "LB": 0.25,
+    "DB": 0.15,
+}
+
+
+def pin_league_scarcity(monkeypatch) -> list[str | None]:
+    """Answer every capacity scarcity read with the LABELLED fixed components;
+    returns the list of league keys read (one entry per read).
+
+    Why tests pin it (R1-2).  Unpinned, the read goes
+    ``roster_capacity.league_scarcity`` -> ``gameplan.get_league_bundle`` ->
+    ``load_league_inputs`` -> ``team_strength.load_or_compute_team_strength``,
+    which (the suite redirects the persisted snapshot to an empty root) falls
+    to the LIVE Sleeper compute and caches the answer — success OR failure —
+    in the process-global ``team_strength._live_compute_cache`` for 120 s.
+    Under pytest-xdist that cache is whatever an earlier test in the same
+    worker left in it, and its TTL can lapse part-way through a test, so two
+    calls that must agree (the route vs the direct engine call, a determinism
+    re-run) could read "scarcity available" and "unavailable" — and a hard-gate
+    test reached the network.  Pinning the one read removes both the shared
+    process state and the network from the comparison; the production read
+    path itself is covered by ``test_analyze_multi_team``'s once-per-request
+    tests, which patch the same seam.
+    """
+    from src.league_intel.replacement import ScarcityComponents
+    from src.trade import roster_capacity
+
+    fixed = {
+        pos: ScarcityComponents(pos, None, None, w, None, None, None)
+        for pos, w in PINNED_WAIVER_SCARCITY.items()
+    }
+    reads: list[str | None] = []
+
+    def _pinned(league_key, contract):
+        reads.append(league_key)
+        return dict(fixed), None
+
+    monkeypatch.setattr(roster_capacity, "_league_scarcity", _pinned)
+    return reads

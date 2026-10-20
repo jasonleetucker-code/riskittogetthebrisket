@@ -115,6 +115,7 @@ __all__ = [
     "RosterCapacity",
     "assess_roster_capacity",
     "build_capacity_context",
+    "league_scarcity",
     "capacity_context_for_team",
     "counterparty_capacity_block",
     "counterparty_context_resolver",
@@ -441,12 +442,34 @@ def _asset_key(asset: RosterAsset) -> str:
     return _norm(asset.player_id) or _norm(asset.name)
 
 
+#: ``(scarcity, note)`` as :func:`league_scarcity` returns it.
+ScarcityReading = tuple[Mapping[str, Any] | None, str | None]
+
+
+def league_scarcity(
+    league_key: str | None,
+    contract: Mapping[str, Any] | None,
+) -> ScarcityReading:
+    """The league's positional scarcity for capacity, or ``(None, reason)``.
+
+    The ONE read capacity makes (``src.draft.context._league_scarcity``, which
+    routes through the shared gameplan bundle).  A caller evaluating several
+    teams of ONE request — the N-team engine — reads it once here and hands
+    the same reading to every team's :func:`build_capacity_context`, because
+    the bundle's inputs are re-loaded on every call (and can fall to the live
+    team-strength fallback, TTL-cached for 120 s), so per-team reads could
+    score teams of the same trade against different scarcity (R1-1).
+    """
+    return _league_scarcity(league_key, contract)
+
+
 def build_capacity_context(
     contract: Mapping[str, Any] | None,
     league_key: str | None,
     team: Mapping[str, Any] | None,
     *,
     roster_settings: Mapping[str, Any] | None = None,
+    scarcity_reading: ScarcityReading | None = None,
 ) -> CapacityContext:
     """Assemble the per-(team, board) constants.
 
@@ -454,6 +477,10 @@ def build_capacity_context(
     worth having — the counts are the load-bearing part — so a missing board,
     missing starter slots or missing scarcity each produce a note, not an
     exception.
+
+    ``scarcity_reading`` is a :func:`league_scarcity` result the caller
+    already holds for this league and board (one read per request); ``None``
+    (the default) reads it here, exactly as before.
     """
     notes: list[str] = []
     roster_limit = league_roster_limit(league_key, roster_settings)
@@ -538,7 +565,9 @@ def build_capacity_context(
     except Exception:  # noqa: BLE001 — an optional rule must not fail capacity
         slot_eligibility = None
 
-    scarcity, scarcity_note = _league_scarcity(league_key, contract)
+    scarcity, scarcity_note = (
+        scarcity_reading if scarcity_reading is not None else league_scarcity(league_key, contract)
+    )
     if scarcity_note:
         notes.append(scarcity_note)
 

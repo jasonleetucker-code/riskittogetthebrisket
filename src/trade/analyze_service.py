@@ -81,14 +81,16 @@ def simulate_for_team(
     stage: StageHook | None = None,
     include_roster_capacity: bool = True,
     unverifiable_asset_ids: Sequence[str] = (),
+    scarcity_reading: tuple[Any, Any] | None = None,
 ) -> dict[str, Any]:
     """Posture + ``simulate_trade`` + the ``teamContext`` stamp for one team.
 
     ``posture_resolver(contract, league_key, team, *, build_if_missing)``
     defaults to ``trade_simulator.competitive_posture_for``; tests pin it.
-    ``include_roster_capacity`` / ``unverifiable_asset_ids`` pass straight to
-    ``simulate_trade`` (the N-team engine's market-fairness mode and ownership
-    evidence); their defaults leave the output byte-identical.
+    ``include_roster_capacity`` / ``unverifiable_asset_ids`` /
+    ``scarcity_reading`` pass straight to ``simulate_trade`` (the N-team
+    engine's market-fairness mode, ownership evidence and once-per-request
+    scarcity read); their defaults leave the output byte-identical.
     """
     stage = stage or _no_stage
     resolver = posture_resolver or trade_simulator.competitive_posture_for
@@ -117,6 +119,7 @@ def simulate_for_team(
             competitive_posture=dict(posture) if isinstance(posture, Mapping) else posture,
             include_roster_capacity=include_roster_capacity,
             unverifiable_asset_ids=list(unverifiable_asset_ids or ()),
+            scarcity_reading=scarcity_reading,
         )
     if for_analysis:
         result["teamContext"] = {
@@ -258,14 +261,37 @@ def _team_stage(stage: StageHook, rid: int) -> StageHook:
     return lambda name: stage(f"team:{rid}:{name}")
 
 
+#: Every per-leg ``valueState`` the N-team payload can carry.  Only
+#: ``priced`` carries a number; consumers must treat any state they do not
+#: recognise as NOT priced (fail closed).
+VALUE_STATES = ("priced", "unpriced", "off_board", "not_held", "quarantined", "stale")
+
+
 def _value_entry(asset: Mapping[str, Any] | None) -> tuple[Any, str]:
-    from src.trade.trade_decision import asset_is_priced  # noqa: PLC0415
+    """``(value, valueState)`` for one leg's resolved asset.
+
+    States: ``off_board`` (not resolved), ``unpriced`` (no positive canonical
+    value), ``quarantined`` (the pipeline's quarantine verdict), ``stale``
+    (the confidence owner's freshness axis reads ``low``), ``priced``.  The
+    three evidence states are read through ``trade_decision.asset_evidence_codes``
+    — the same codes, in the same order, the decision's evidence gates raise —
+    so a value the decision withholds as untrustworthy is never presented as
+    ``priced`` (R1-L2 / E-1 F2).  Every non-``priced`` state carries
+    ``value: None``: the number is withheld, never 0, and it never enters a
+    raw total.
+    """
+    from src.trade.trade_decision import asset_evidence_codes  # noqa: PLC0415
 
     if asset is None:
         return None, "off_board"
-    if asset_is_priced(asset):
-        return asset["value"], "priced"
-    return None, "unpriced"
+    codes = asset_evidence_codes(dict(asset))
+    if "unpriced_assets" in codes:
+        return None, "unpriced"
+    if "quarantined_values" in codes:
+        return None, "quarantined"
+    if "stale_values" in codes:
+        return None, "stale"
+    return asset["value"], "priced"
 
 
 def _match_assets(
@@ -405,7 +431,7 @@ def analyze_trade_n(
     with the ledger raises :class:`ConservationViolation` — never published.
     Writes nothing (the private route records the decision receipts).
     """
-    from src.trade import team_verdicts  # noqa: PLC0415
+    from src.trade import roster_capacity, team_verdicts  # noqa: PLC0415
     from src.trade.trade_ledger import pick_label, player_label, team_flows  # noqa: PLC0415
 
     if mode not in MODES:
@@ -421,6 +447,16 @@ def analyze_trade_n(
         resolver = posture_resolver
     else:
         resolver = _PostureMemo(snap)
+    # R1-1: ONE scarcity read per request, shared by every team (the posture
+    # bundle's ``_PostureMemo`` twin).  Re-reading it per team could score
+    # teams of one trade against different scarcity — the gameplan inputs are
+    # re-loaded on every call and can fall to the TTL-cached live fallback.
+    # Market fairness builds no capacity, so it reads nothing.
+    scarcity_reading = (
+        roster_capacity.league_scarcity(snap.league_key, snap.contract)
+        if include_capacity
+        else None
+    )
     goals = dict(team_goals or {})
     unverifiable = set(ledger.unverifiable_asset_ids)
     n_teams = len(ledger.teams)
@@ -460,6 +496,7 @@ def analyze_trade_n(
             stage=tstage,
             include_roster_capacity=include_capacity,
             unverifiable_asset_ids=mine,
+            scarcity_reading=scarcity_reading,
         )
         comparables: Any = None
         comparables_state: dict[str, Any] | None = None
