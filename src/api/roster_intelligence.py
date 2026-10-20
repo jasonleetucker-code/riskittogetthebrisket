@@ -67,7 +67,11 @@ import time
 from collections import Counter
 from typing import Any, Collection, Mapping, Sequence
 
-from src.api.data_contract import contract_roster_pools, contract_slot_eligibility
+from src.api.data_contract import (
+    contract_roster_pools,
+    contract_slot_eligibility,
+    roster_pool_key,
+)
 from src.roster_intel.age_portfolio import (
     build_age_portfolio,
     build_youth_curve,
@@ -371,16 +375,29 @@ def build_league_roster_intelligence(
 
 
 def _team_names(contract: Mapping[str, Any] | None) -> dict[str, str]:
-    """``{ownerId: teamName}`` from the contract's sleeper block."""
+    """``{rosterPoolKey: teamName}`` from the contract's sleeper block.
+
+    Keyed by :func:`roster_pool_key` — the SAME key
+    :func:`contract_roster_pools` gives each pool — never by ``ownerId``
+    alone.  An ownerless (orphaned) roster carries ``ownerId: ""``; its
+    pool is keyed positionally, so an ownerId-keyed name map left it
+    ranked on the ladder under a blank label while every other surface
+    listed it as ``"Team <roster_id>"`` (2026-10-20, dynasty_main
+    roster 12).
+    """
     out: dict[str, str] = {}
     sleeper = (contract or {}).get("sleeper")
     if not isinstance(sleeper, Mapping):
         return out
-    for team in sleeper.get("teams") or []:
+    teams = sleeper.get("teams")
+    if not isinstance(teams, list):
+        return out
+    # ``enumerate`` BEFORE the isinstance skip — the index is part of the
+    # key and must match the builder's (see ``roster_pool_key``).
+    for index, team in enumerate(teams):
         if isinstance(team, Mapping):
-            oid = str(team.get("ownerId") or "")
-            if oid:
-                out[oid] = str(team.get("name") or team.get("sleeperTeamName") or "")
+            key = roster_pool_key(teams, index, team)
+            out[key] = str(team.get("name") or team.get("sleeperTeamName") or "")
     return out
 
 
