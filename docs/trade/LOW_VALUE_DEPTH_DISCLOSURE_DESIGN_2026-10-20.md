@@ -17,7 +17,7 @@ Part 0, `docs/trade/NTEAM_TRADE_ENGINE_SPEC.md` §2.8, §4).
 
 **Evidence:** `docs/trade/evidence/low_value_depth_disclosure_2026-10-20/disclosure_shadow.json`,
 produced by `scripts/low_value_depth_disclosure_shadow.py` (aggregate-only, NFL names only;
-checked with `assert_aggregate_only`). One run, ~40 s locally, on
+checked with `assert_aggregate_only`). One run, ~50 s locally, on
 `exports/archive/dynasty_export_20261020_052241.zip` — the same board as the research.
 
 Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
@@ -27,13 +27,17 @@ Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
 **Recommended trigger: rule A-guarded ("the result depends on the low-value depth").** For each
 team, take the low-value depth pieces it *receives* (never its single most valuable piece).
 Remove them, re-run the same package model and the same fairness band, and see whether that
-team's fairness result changes. If it does, and the trade also holds at least one piece that is
-not low-value depth, the note is shown.
+team's fairness result changes. If it does, and that team's own legs (what it receives plus what
+it gives) hold at least one piece that is not low-value depth, the note is shown.
 - **Private surfaces:** the note fires when the team's fairness *region* changes
   (against / fair / in favour).
-- **Public calculator:** it fires only when the team's result is **FAIR** and would be NOT FAIR
-  without those pieces. It never appears on a NOT FAIR result, so it can never reveal which way a
-  NOT FAIR trade leans.
+- **Public calculator: recommended no note (V4).** Any public variant leaks what the owner
+  standard forbids. Because FAIR / NOT FAIR results are public, a user can build trades that are
+  FAIR with an asset X and NOT FAIR without it; the note then fires exactly when X is low-value
+  depth. Repeating this down the public market rank order reconstructs each position's cutoff
+  `min(R_pos, S_pos)`: the replacement anchor or the lowest-starter line, whichever is lower
+  (§9 R2). The note also often tells which team is behind within a FAIR result (§9 R1). A FAIR-only public variant is documented below as an
+  **owner option** with these leaks stated plainly; it is not recommended.
 
 **Interim piece threshold ("floor"):** a player is low-value depth only when his value is below
 **both**:
@@ -43,10 +47,13 @@ not low-value depth, the note is shown.
 A pick is low-value depth below the league-wide replacement level. Under this threshold no
 lineup starter can ever be called low-value depth. It also makes the rule nearly insensitive to
 which replacement definition is used, which matters while the IDP anchors are under review.
+**The floor was introduced in this workstream, after the prereg threshold's anchor sensitivity
+had been measured.** It was not preregistered, and its robustness advantage is a post-hoc
+comparison (§5.3, OD-2).
 
 **Fire rates** (current anchors, floor threshold; full tables in §5):
 
-| case | A-guarded (private) | public FAIR-only | naive rule (rejected) |
+| case | A-guarded (private) | public FAIR-only (owner option, leaks; not recommended) | naive rule (rejected) |
 |---|---:|---:|---:|
 | filler-caused flips (sweeteners cross a fairness region) | 61.2% | 3.8% | 66.8% |
 | filler that turns an unfair result into FAIR ("made fair") | 89.5% | 89.5% | 86.0% |
@@ -54,7 +61,7 @@ which replacement definition is used, which matters while the IDP anchors are un
 | starter-sweetener cases | 1.3% | 0.1% | 12.8% |
 | all-starter trades + starter / depth sweeteners (control) | 0.0% | 0.0% | 13.7% / 22.4% |
 | realistic 2-team calculator trades | 1.9% | 0.9% | 32.9% |
-| own-league completed trades, team sides (today's values) | 8.0% | 3.3% | 28.0% |
+| own-league completed trades, team sides (today's values) | 5.3% | 3.0% | 25.8% |
 
 **Anchor sensitivity:** under the floor, filler-flip sensitivity is 61.2 / 58.5 / 58.3% for the
 current, healthy-only and LI-5 replacement definitions. "Made fair" is 89.5 / 88.7 / 88.7%.
@@ -67,7 +74,8 @@ Under the prereg threshold (below the anchor, lineup starters excluded) it is 87
 - the rule;
 - the threshold;
 - whether picks are included;
-- the public variant, and the two residual information bits it carries;
+- whether there is any public note (recommended: none, V4), given that every public variant
+  measured leaks the replacement anchors (R2) and within-FAIR direction (R1);
 - default visibility;
 - the copy;
 - which surfaces go first;
@@ -136,7 +144,9 @@ Each asset in a trade gets exactly one of three classes.
 
 ### 2.3 The quantities the rule reads
 
-All of these are read from the existing owners. None is re-implemented.
+In the implementation, all of these are read from the existing owners and none is
+re-implemented. (The shadow script re-implements the utility and adjusted totals and checks them
+against the canonical dispatch; §5.)
 
 - **Received and given packages.** For team `i` in a 2-, 3- or 4-team trade: `Rcv_i` (assets
   team `i` receives) and `Gv_i` (assets it gives), from the canonical ledger.
@@ -152,7 +162,9 @@ All of these are read from the existing owners. None is re-implemented.
 - **Top piece.** `top(Rcv_i)` is the highest-valued received piece; ties go to the
   lowest canonical asset id.
 - **LVD extras.** `E_i = { a ∈ Rcv_i : class(a) = LVD, a ≠ top(Rcv_i) }`.
-- **Guard.** `mixed = ∃ a ∈ Rcv_i ∪ Gv_i with class(a) = not-LVD`.
+- **Guard.** `mixed = ∃ a ∈ Rcv_i ∪ Gv_i with class(a) = not-LVD`. It is team-local: only team
+  `i`'s own legs count (in a 2-team trade they are the whole trade; in a 3–4-team trade they are
+  not). The shadow script implements exactly this.
 
 ## 3. Candidate trigger rules (deterministic, server-side)
 
@@ -179,7 +191,7 @@ fires_i  ⇔  E_i ≠ ∅
          ∧  mixed
 ```
 
-**Public, `A_guarded_publicFairOnly`:**
+**Public, `A_guarded_publicFairOnly`** (owner option only; not recommended, see §9):
 ```
 fires_i  ⇔  E_i ≠ ∅
          ∧  band_i = fair
@@ -189,23 +201,34 @@ fires_i  ⇔  E_i ≠ ∅
 
 **Why each element is there:**
 - **"Depends on":** the note appears only when the low-value depth decides the result.
-  - Filler that does not move the result produces no note: 0.0–0.2% sweetener-attributable fires
-    on filler cases that do not flip (§5.1).
+  - Filler sweeteners that do not move the result rarely cause a note. On filler cases that do
+    not flip, `A_guarded` still fires on 9.3% (9.0–16.1% across the six variants), but only
+    0.0–0.2% is attributable to the sweeteners. The rest comes from low-value pieces already in
+    the base package, where the base result itself depends on them (§5.1).
   - Depth and starter sweeteners almost never trigger it (1.1–1.8%).
 - **The top piece is never removed.** The market convention concerns *extra* pieces (M2). A
   1-for-1 of two low-value players is not a padding question.
-- **The guard** suppresses trades made only of LVD pieces: two benches swapping filler. Without
-  it, 40% of the unsweetened low-tier base trades fired; with it, 26.8%. This guard was added
+- **The guard** suppresses a team whose own legs are all LVD pieces: two benches swapping
+  filler. Without it, 40% of the unsweetened low-tier base trades fired; with it, 26.8%. This
+  guard was added
   *after* seeing those base trades. It is reported separately (`A_dependence` vs `A_guarded`) so
   the owner can drop it.
 - **Received side only.** A piece team `i` gives is a piece another team receives, and is
   evaluated there. In 2-team trades the two evaluations cover both directions.
-- **Public variant: FAIR only.** Removing received pieces can only move a team *against* itself,
-  because the package utility is monotone (S6: "an added piece never hurts"). So a NOT FAIR →
-  FAIR counterfactual would reveal that the NOT FAIR result leans *toward* that team, and
-  direction is never public (spec §4.3, privacy M4). A FAIR result plus a note reveals no
-  direction for the actual result. The public case that matters most is exactly "FAIR, but made
-  fair by padding", which is research §0 question 4 (Hurts vs Egbuka + Hodgins).
+- **Public variant (owner option): FAIR only.** Removing received pieces can only move a team
+  *against* itself, because the package utility is monotone (S6: "an added piece never hurts").
+  So a NOT FAIR → FAIR counterfactual would reveal that the NOT FAIR result leans *toward* that
+  team, and the lean of a NOT FAIR result is never public (spec §4.3, privacy M4). Restricting
+  to FAIR results avoids that, but it does **not** make the note direction-free:
+  - a note implies `gap_i < ΔU(E_i) − t`, where `ΔU(E_i) = U(Rcv_i) − U(Rcv_i \ E_i)` and `t` is
+    the fairness threshold of the counterfactual package;
+  - when `ΔU(E_i) < t` (small extras in a large package) this means team `i` is **behind**
+    within the FAIR band; in a 2-team trade a note on one row therefore says which side leads;
+  - this is a within-FAIR direction and gap signal (§9 R1), and the note is also a per-asset
+    oracle for the replacement anchors (§9 R2). That is why no public note is recommended.
+
+  The public case the variant was meant for is "FAIR, but made fair by padding", research §0
+  question 4 (Hurts vs Egbuka + Hodgins).
 
 ### 3.2 Rule B, share of value in low-value depth (alternative)
 
@@ -229,6 +252,9 @@ fires_i  ⇔  |Rcv_i| > |Gv_i|  ∧  ∃ a ∈ (the |Rcv_i| − |Gv_i| lowest-va
 - It is the most sensitive rule: 91.6% of filler-caused flips.
 - It is also the least specific: 23–24% of depth and starter cases, and 77% of filler cases that
   did not move the result.
+- It is not a safe public variant either. In any k-for-(k+1) trade whose lowest piece is X it
+  fires exactly when X is LVD, so it is the same per-asset oracle as rule A's public variant,
+  without even needing a FAIR result (§9 R2).
 
 ### 3.4 Comparator: the rejected naive rule
 
@@ -306,12 +332,16 @@ when Team Context is ON and the roster-capacity block reports ≥ 1 forced drop 
 > **Why this note appears.** It appears only when removing these pieces would change this
 > side's fairness result. The values, the result and the fairness threshold shown above are
 > unchanged. Depth like this has real value: many of these players start in some weeks. In
-> real trades, though, managers tend to give extra pieces less credit than their listed value,
-> most of all pieces that could be replaced from the waiver wire.
+> real trades, though, managers tend to give extra pieces less credit than their listed value.
 >
 > You can hide depth notes in Settings.
 
-### 4.2 Public (Fair / Not Fair calculator, per-team row, shown only when that team is FAIR)
+### 4.2 Public (owner option only; recommended: no public note)
+
+Fair / Not Fair calculator, per-team row, shown only when that team is FAIR. **Not
+recommended:** whatever the copy says, the *firing* of this note leaks the replacement anchors
+and within-FAIR direction (§9 R1, R2). The strings are written out so the owner can decide with
+the exact text in front of them.
 
 **Label:** `Depth note`
 
@@ -321,14 +351,15 @@ when Team Context is ON and the roster-capacity block reports ≥ 1 forced drop 
 
 **Learn more** (`public.depth.learn_more`):
 
-> `Lower-value depth is a player or pick that managers in this league can usually replace without a trade. These pieces still have real value and are counted in full. In real trades, managers often give extra pieces like these less credit than their listed value. This note is for information only and does not change the result above.`
+> `Lower-value depth is a player or pick that managers in this league can usually replace without a trade. These pieces still have real value and are counted in full. In real trades, managers often give extra pieces like these less credit than they are counted at here. This note is for information only and does not change the result above.`
 
 **The public copy deliberately says nothing about dependence.** It does not say the result
 "depends on" or "relies on" the pieces, because that is closeness wording. The trigger's
-semantics still carry that bit; see §9 R1.
+semantics still carry that information, and more; see §9 R1.
 
-The public copy names no pieces. The trade's legs are already on screen, and naming the pieces
-would turn the note into a per-asset classification read-out (§9 R2).
+The public copy names no pieces, but **that does not protect the classification**. In a 1-for-2
+the received extra is the only candidate, so whether the note fires is already a per-asset
+read-out; repeated over assets it reconstructs the replacement anchors (§9 R2).
 
 ### 4.3 Placement and accessibility
 
@@ -338,7 +369,7 @@ would turn the note into a per-asset classification read-out (§9 R2).
 | War Room (`TradeWarRoom`) | Inside the "Market fairness" section (spec C4 keeps "Market fairness" and "Decision" separate). Never in the Decision headline |
 | Trade Finder | A small `Depth note` chip on the candidate card with the sentence in a tooltip and popover. It never changes card order |
 | Trade History | On the Current Grade row only |
-| Public advisor | Under the team row's `reasonText`, as a collapsed `<details>` labelled `Depth note`. Never inside the FAIR badge and never in the overall row |
+| Public advisor (only if OD-4 adopts a public note) | Under the team row's `reasonText`, as a collapsed `<details>` labelled `Depth note`. Never inside the FAIR badge and never in the overall row |
 
 **Accessibility:**
 - The note is `role="note"`, tied to its team or side with `aria-describedby`, and placed after
@@ -352,14 +383,17 @@ would turn the note into a per-asset classification read-out (§9 R2).
 
 ### 4.4 Worked examples (today's board; values are the canonical values already shown in the private UI)
 
-| # | trade (side A for side B) | GEOM_78 result | LVD pieces (floor) | private | public |
+"Favours the team receiving side B" is the evidence's `favours: B`: side B's package is the
+larger one, so the team that *receives* it is ahead.
+
+| # | trade (side A for side B) | GEOM_78 result | LVD pieces (floor) | private | public (owner option, not recommended) |
 |---|---|---|---|---|---|
 | 1 | Jalen Hurts (5,919) for Emeka Egbuka (5,197) + Isaiah Hodgins (897) | +22 **fair** | Hodgins | **shown** to the team receiving Egbuka + Hodgins: *"Part of your side of this result comes from lower-value depth (Isaiah Hodgins). It counts in full here, but trade partners often give depth like this less credit than its listed value."* To the team receiving Hurts: the *`you_send`* variant, naming Hodgins | **shown** on the team receiving Egbuka + Hodgins: FAIR FOR THIS TEAM + *"Part of what this team receives is lower-value depth. It is counted in full in this result, but trade partners often give depth like this less credit."* |
-| 2 | Hurts for Egbuka + Hodgins, Frank Gore, Khalil Herbert, Mason Tipton (~900 each) | −1,300 **unfair toward B** | the four fillers | **shown** (`you_receive` names all four): without them B is behind, so the "in favour" result depends on them | **not shown**: NOT FAIR, and a note could only reveal the lean |
+| 2 | Hurts for Egbuka + Hodgins, Frank Gore, Khalil Herbert, Mason Tipton (~900 each) | −1,300 **unfair; favours the team receiving side B** | the four fillers | **shown** (`you_receive` names all four): without them the team receiving side B would be behind, so its "in favour" result depends on them | **not shown**: NOT FAIR, and a note could only reveal the lean |
 | 3 | Jahmyr Gibbs (9,864) for Bryce Young (5,493) + Tucker Kraft (5,439) | +129 fair | none | not shown | not shown |
 | 4 | Garrett Wilson (6,472) for Jake Ferguson (3,529) + Travis Kelce (3,490) | +221 fair | none: Kelce is usable depth, far above the TE floor | not shown (**the naive rule fired here**) | not shown |
-| 5 | Denzel Boston (4,204) for David Bailey (DL 3,475) + Jadon Canady (DB 1,124) + Zakee Wheatley (DB 1,125) | −832 unfair toward B | Canady, Wheatley (below the DB floor, 1,335) | **shown** (`you_receive`, two DB names) | not shown (NOT FAIR) |
-| 6 | 2027 Pick 1.04 (5,090) for 2027 Pick 1.12 (3,942) + 2029 Late 4th (1,325) + 2029 Mid 4th (1,452) | −791 unfair toward B | both 2029 4ths (below `R_*` 1,687) | **shown** | not shown (NOT FAIR) |
+| 5 | Denzel Boston (4,204) for David Bailey (DL 3,475) + Jadon Canady (DB 1,124) + Zakee Wheatley (DB 1,125) | −832 unfair; favours the team receiving side B | Canady, Wheatley (below the DB floor, 1,335) | **shown** (`you_receive`, two DB names) | not shown (NOT FAIR) |
+| 6 | 2027 Pick 1.04 (5,090) for 2027 Pick 1.12 (3,942) + 2029 Late 4th (1,325) + 2029 Mid 4th (1,452) | −791 unfair; favours the team receiving side B | both 2029 4ths (below `R_*` 1,687) | **shown** | not shown (NOT FAIR) |
 
 Further non-firing checks, where the naive rule fires but rule A does not:
 - Gibbs for six ~2,950 starters / usable depth (−564, fair);
@@ -373,8 +407,22 @@ Under the floor threshold, every example gives the same answer for all three anc
 Unless stated otherwise:
 - the figures are the share of cases on which the rule fires for either team;
 - the current anchors are used, with the floor threshold;
-- every rule is computed from the same verdict function (`geom_q078_v1` exact utility and the
-  shared `fairness_bands` classifier on adjusted totals).
+- every rule is computed from the same verdict function.
+
+**What the verdict function reuses, and what it re-implements.** Only the band classifier,
+`fairness_bands.classify`, is the canonical function. The package utility is the research `owa`
+(q = 0.78 hard-coded) and the adjusted totals are the research re-implementation
+`P2.adjusted`. So the script checks **every** incumbent evaluation against the canonical
+`src/valuation_math/package_model.py` dispatch for the active model (`geom_q078_v1`) and aborts on
+any mismatch (`packageModelParity` in the evidence):
+- **648,080** evaluations checked;
+- the utility gap equals `geom_utility`'s to a relative float tolerance of 1e-9;
+- the adjusted totals equal `adjusted_pair_totals`' within 0.5, because the canonical dispatch
+  rounds the adjustment to a whole number and the research form does not;
+- read on the canonical whole-number adjusted gap, the band agrees on 648,022 evaluations and
+  differs on 58 (0.009%), all at a band edge, from that rounding alone.
+
+The War Room population also re-runs the served engine (§5.5), which agrees on 180 / 180 steps.
 
 ### 5.1 Filler-flip study
 
@@ -383,7 +431,7 @@ exactly:
 - incumbent flips per class and category equal `shadow_replay.json`;
 - the naive rule fires 6,586 / 2,118 / 1,249, equal to the committed counts.
 
-| group (cases) | A_guarded | public FAIR-only | B_share25 | C_extraPieces | naive_B |
+| group (cases) | A_guarded | public FAIR-only (owner option) | B_share25 | C_extraPieces | naive_B |
 |---|---:|---:|---:|---:|---:|
 | filler, flip (9,273) | **61.2** | 3.8 | 65.8 | 91.6 | 66.8 |
 | filler, made fair (399) | **89.5** | **89.5** | 19.3 | 91.7 | 86.0 |
@@ -407,6 +455,10 @@ exactly:
 | floor | 65.8 | **42.1** | 100.0 | 56.4 |
 | prereg | 87.3 | 81.9 | 100.0 | 88.1 |
 
+The picks column is 100% by construction, not by evidence: the pick line `R_*` is exactly the
+line the study used to label pick filler, and picks have no starter clamp. So every pick filler
+sweetener is LVD, and removing the LVD extras restores the base result the flip came from.
+
 The floor's lower IDP sensitivity is deliberate. The study's IDP "filler" includes DBs
 1,335–2,156 and LBs 1,474–2,149 that sit above the lowest league starter. Investigation B found
 those anchors are set by injured or non-producing free agents, and that 19 of 35 DB starters sit
@@ -420,7 +472,7 @@ Population: the research's S5a population, same seed. Assets come from the top-5
 | | all | FAIR results (429) | NOT FAIR (1,571) |
 |---|---:|---:|---:|
 | A_guarded, floor | 1.9 | 4.4 | 1.3 |
-| public FAIR-only, floor | 0.9 | 4.4 | 0.0 |
+| public FAIR-only, floor (owner option) | 0.9 | 4.4 | 0.0 |
 | A_guarded, prereg | 17.2 | 32.2 | 13.2 |
 | naive_B | 32.9 | 33.3 | 32.7 |
 
@@ -457,22 +509,30 @@ lowest starter binds. They differ only at QB (1,923 / 1,648 / 1,661) and RB (1,6
 IDP review approves, the floor moves by at most a few points of sensitivity. The prereg
 threshold moves by about 9 points and changes calculator exposure by about a third.
 
+**Post-hoc disclosure.** The floor threshold was introduced in this workstream, after the prereg
+threshold's anchor sensitivity had been measured, and was chosen partly *because* it is less
+sensitive. It was not preregistered. The comparison above is therefore an argument for the
+floor's construction (the lowest starter binds at five of seven positions on every anchor set),
+not an independent test of it.
+
 ### 5.4 Own-league completed trades
 
 Population:
 - 107 trades: 104 with two teams, 3 with three teams;
-- 213 team sides, valued with **today's** board.
+- 217 team sides, valued with **today's** board.
 
-63 sides are **not evaluated** because they contain an unpriced piece, mostly completed 2026
-picks. They are never priced at zero.
+85 sides are **not evaluated**, never priced at zero and never dropped:
+- 63 contain an unpriced piece, mostly completed 2026 picks;
+- 18 contain a quarantined piece (UNKNOWN, §2.2);
+- 4 are one-sided: the team gives or receives nothing, so there is no gap to classify.
 
 | rule | current | healthy | LI-5 |
 |---|---:|---:|---:|
-| A_guarded (floor) | 8.0 | 6.7 | 6.7 |
-| public FAIR-only (floor) | 3.3 | 2.0 | 2.0 |
-| naive_B | 28.0 | 28.0 | 28.0 |
+| A_guarded (floor) | 5.3 | 3.8 | 3.8 |
+| public FAIR-only (floor; owner option) | 3.0 | 1.5 | 1.5 |
+| naive_B | 25.8 | 25.8 | 25.8 |
 
-All shares are of the 150 evaluated sides.
+All shares are of the 132 evaluated sides.
 
 ### 5.5 Real-roster War Room trades (`/api/trade/analyze` sampling, same seed)
 
@@ -487,7 +547,7 @@ All shares are of the 150 evaluated sides.
 |---|---:|---:|---:|---:|
 | A_guarded, floor | 0.0 | 57.8 | 28.9 | 20.0 |
 | A_guarded, prereg | 0.0 | 95.6 | 100.0 | 100.0 |
-| public FAIR-only, floor | 0.0 | 2.2 | 0.0 | 0.0 |
+| public FAIR-only, floor (owner option) | 0.0 | 2.2 | 0.0 | 0.0 |
 
 **Why the floor rate falls as fillers are added.**
 - The War Room's fillers are §3 filler, below the current anchor. Many are IDP between the floor
@@ -506,10 +566,15 @@ All shares are of the 150 evaluated sides.
 
 | option | private surfaces | public |
 |---|---|---|
-| **V1 (recommended)** | shown by default, with a persistent per-user `Hide depth notes` (the existing per-user settings store) | the `Depth note` label is visible; the sentence is behind the expand; anonymous hide stored in `localStorage` only (per-viewer convenience, try/catch, renders correctly without it) |
+| V1 | shown by default, with a persistent per-user `Hide depth notes` (the existing per-user settings store) | the `Depth note` label is visible; the sentence is behind the expand; anonymous hide stored in `localStorage` only (per-viewer convenience, try/catch, renders correctly without it) |
 | V2 | shown by default | shown expanded by default |
 | V3 | off by default; opt in under Settings | off by default; opt in per visit |
-| V4 | private only; the public calculator never shows the note | — |
+| **V4 (recommended)** | as V1: shown by default, with the persistent per-user `Hide depth notes` | **never shown** |
+
+**Why V4.** Every public variant leaks the replacement anchors and within-FAIR direction through
+*when* it fires (§9 R1, R2), and the owner standard (§5) forbids revealing replacement anchors.
+Visibility settings cannot fix that: a hidden-by-default note still fires for anyone who expands
+it. V1–V3's public column applies only if the owner explicitly accepts the leak (OD-4).
 
 ## 7. API and contract sketch (no code in this PR)
 
@@ -551,7 +616,7 @@ def team_depth_disclosure(received, given, lines, *, utility, classify_band) -> 
 | Private calculator | the calculator already posts its packages to `/api/trade/analyze` for the War Room panel; for a team-less hypothetical, a thin read-only `POST /api/trade/depth-disclosure` (league key + asset ids per side) calls the same owner | same shape |
 | Trade Finder | `finder.py` post-ranking decoration of the returned candidates only | `candidate.depthDisclosure` |
 | Trade History | `src/api/trade_history_asof.py`, Current Grade only | `currentGrade.depthDisclosure` |
-| Public advisor | `team_verdicts` computes it; `public_advisor.reduce_fairness` receives only the enum | `teams[i].depthNote` |
+| Public advisor (only if OD-4 accepts the leak; not recommended) | `team_verdicts` computes it; `public_advisor.reduce_fairness` receives only the enum | `teams[i].depthNote` |
 
 **Private shape:**
 ```jsonc
@@ -567,7 +632,8 @@ def team_depth_disclosure(received, given, lines, *, utility, classify_band) -> 
 It carries no line, anchor, gap or counterfactual value. Private numbers stay where the UI
 already shows them.
 
-**Public shape:** one new nullable enum per team row, nothing else.
+**Public shape** (only if OD-4 accepts the leak; under the recommended V4 no public field is
+added): one new nullable enum per team row, nothing else.
 ```jsonc
 {"rosterId": 3, "result": "FAIR", "label": "FAIR FOR THIS TEAM",
  "reasonCode": "within_fairness_threshold", "reasonText": "…", "unavailableAssetIds": [],
@@ -582,7 +648,7 @@ to the table text and never builds text.
 | item | value |
 |---|---|
 | private flag | `low_value_depth_disclosure`, default **OFF**; when OFF, `depthDisclosure = {state: "not_evaluated", reason: "disabled"}` |
-| public flag | `low_value_depth_disclosure_public`, default **OFF**; needs the advisor launch gate as well; when OFF, `depthNote: null` |
+| public flag | not built under the recommended V4. Only if OD-4 accepts the leak: `low_value_depth_disclosure_public`, default **OFF**; needs the advisor launch gate as well; when OFF, `depthNote: null` |
 | config | `config/trade/depth_disclosure.json`: `{"version": "lvd_disclosure_v1", "threshold": "floor", "includePicks": true, "guard": true, "replacementSource": "displacement.waiver_values_by_position", "copyVersion": "…"}`. Every entry is an owner-approved choice; none is tuned to agreement |
 | rollback | `RISKIT_FEATURE_LOW_VALUE_DEPTH_DISCLOSURE=0` (and `…_PUBLIC=0`) + restart. Because nothing reads the field back, rollback is display-only by construction |
 
@@ -606,9 +672,10 @@ robust to anchor revisions.
 | Owner, structure | AST: `depth_disclosure.py` defines no numeric threshold and calls `package_model` / `fairness_bands` only through the injected callables; no second band or utility |
 | Invariance (the core promise) | flag ON vs OFF: every analyze, analyze-multi, finder, trade-history and public response is byte-identical **except** the new field; finder candidate order and scores identical; `rankDerivedValue` untouched (extends `tests/api/test_canonical_value_invariance.py`) |
 | Locality / permutation | the per-team note depends only on that team's legs; permuting teams or assets yields an identical note (N ≤ 4 exhaustive, as spec I10) |
-| Semantics | worked examples 1–6 on a fixture board (`tests/archive_fixtures.newest_complete_raw_payload()`), asserting the invariant (fires / does not fire), never live counts; monotonicity: removing received pieces never moves a team in its own favour (guards the public no-direction argument) |
-| Public privacy | `depthNote` is a `Literal` in the outbound model and `null` unless `result == "FAIR"` (direction test); copy strings are in `assert_advisor_payload_value_free`'s fixed tables; schema introspection finds no new numeric or free-text field; forbidden-word scan covers `public.depth.*`; no key in the advisor blocklist; e2e: no line or anchor value appears in RSC / `__NEXT_DATA__` / network bodies |
-| Parity | for the same ledger and snapshot, public `depthNote` ⇔ private `team_depth_disclosure(...).public_fair_only` (mirrors spec I11 for fairness) |
+| Semantics | worked examples 1–6 on a fixture board (`tests/archive_fixtures.newest_complete_raw_payload()`), asserting the invariant (fires / does not fire), never live counts; monotonicity: removing received pieces never moves a team in its own favour (guards the NOT FAIR no-lean argument) |
+| Public absence (recommended V4) | the public advisor's outbound model and every public response carry no depth field, enum or copy key (schema introspection + e2e body scan); the private owner is never imported by the public path |
+| Public privacy (only if OD-4 adopts a public note) | `depthNote` is a `Literal` in the outbound model and `null` unless `result == "FAIR"` (direction test); copy strings are in `assert_advisor_payload_value_free`'s fixed tables; schema introspection finds no new numeric or free-text field; forbidden-word scan covers `public.depth.*`; no key in the advisor blocklist; e2e: no line or anchor value appears in RSC / `__NEXT_DATA__` / network bodies |
+| Parity (only if OD-4 adopts a public note) | for the same ledger and snapshot, public `depthNote` ⇔ private `team_depth_disclosure(...).public_fair_only` (mirrors spec I11 for fairness) |
 | Missing data | an unpriced piece gives `not_evaluated: unknown_piece`, never shown and never a zero; lines unavailable (no rosters / foreign-league contract) gives `lines_unavailable`, never the default league's lines |
 | Frontend | renders outside the verdict badge; `role="note"`; `aria-expanded` on Learn more; the hide preference persists (private) and the page renders correctly without `localStorage` (public); the note component imports no valuation library (bundle check extends `check-public-bundle-privacy.mjs`) |
 | Performance | ≤ 1 extra utility + band evaluation per team (≤ 4) plus a cached `DepthLines` per board generation; assert the analyze p95 does not move beyond noise |
@@ -626,30 +693,46 @@ robust to anchor revisions.
 
 ## 9. Privacy review (public payload)
 
-| check | result |
+**Verdict: no public variant measured here meets the owner standard (§5: no replacement anchors,
+gaps or formulas revealed). The recommendation is no public note (V4).** The review below is of
+the FAIR-only public variant, kept as an owner option with its leaks stated plainly.
+
+| check | result for the FAIR-only public variant |
 |---|---|
-| Numbers | none: one nullable enum, no float, no new integer key |
-| Anchors, gaps, formulas | none in payload or copy; the learn-more text describes the concept in words only |
+| Numbers in the payload | none: one nullable enum, no float, no new integer key |
+| Anchors, gaps, formulas in payload or copy | none written; the learn-more text describes the concept in words only |
+| Anchors, gaps, formulas **inferable from when the note fires** | **yes: R2 reconstructs the replacement anchors; R1 bounds the gap** |
 | Personalization / roster capacity / strategy | none. Team Context is off on the public path; the lines are league-wide aggregates (best unrostered by position, lowest starter across all twelve lineups); no manager's roster count, cap state, posture or needs enters the public trigger |
-| Direction of an imbalance (M4) | never: the note exists only on FAIR results |
+| Lean of a NOT FAIR result (M4) | not revealed: the note exists only on FAIR results |
+| Direction *within* a FAIR result | **revealed** in many cases (R1) |
 | Value-free ordering (M2) | unchanged; the note adds no ordering |
 | Permutation / perspective invariance (M6) | holds by locality |
 
-**Residual R1, closeness bit.** A FAIR result with a note implies "this team would not be fair
-without its lower-value depth". That is a categorical statement that the result sits near the
-band edge on that side.
-- The copy contains no closeness wording, but the bit is conveyed by when the note appears.
-- **Owner decision OD-4.** The alternatives are a structure-only public note (rule C, which
-  carries no closeness bit but fires on about a quarter of depth and starter trades) or no
-  public note.
+**Residual R1, within-FAIR direction and gap.** A FAIR result with a note implies "this team would
+not be fair without its lower-value depth", i.e. `gap_i < ΔU(E_i) − t` (§3.1).
+- When `ΔU(E_i) < t` (small extras in a large package) team `i` is **behind** within the FAIR
+  band. In a 2-team trade a note on one row therefore says which side leads.
+- In every case it is an upper bound on the team's gap, conveyed by when the note appears; the
+  copy has no closeness wording, but that does not remove the information.
 
-**Residual R2, coarse asset-class bit.** By building FAIR trades, a public user can learn whether
-a given asset is lower-value depth in this league.
-- This is a single above/below bit against a line the user cannot see, at the rate limiter's
-  pace.
-- The note names no pieces.
-- It is comparable to the existing `evaluable` bit. The owner decides whether it is acceptable
-  (OD-4).
+**Residual R2, replacement-anchor reconstruction.** This is the severe one, and it is not "a
+single bit".
+- Public FAIR / NOT FAIR results are visible, so a user can construct pairs of trades that are
+  NOT FAIR without an asset X and FAIR with it (X added as the receiving team's extra piece next
+  to a non-LVD top piece, which also satisfies the guard).
+- On such a pair the note fires **if and only if X is low-value depth**. That is a per-asset
+  oracle for "is `value(X) < min(R_pos, S_pos)`?".
+- Iterating over assets of one position in public market-rank order (a binary search needs only
+  a handful of probes) finds the boundary, to the resolution of that ordering: each position's
+  cutoff `min(R_pos, S_pos)`, the league's replacement anchor or lowest-starter line, which the
+  owner forbade revealing. For picks it reveals `R_*`.
+- "Names no pieces" does not help: in a 1-for-2 the received extra is the only candidate.
+- Rate limiting slows this; it does not prevent it.
+- Rule C is the same oracle, more directly: in any k-for-(k+1) trade whose lowest received piece
+  is X, it fires exactly when X is LVD, with no FAIR result needed. It is not a safe public
+  alternative.
+
+**OD-4.** No public note (V4), unless the owner explicitly accepts R1 and R2 as stated above.
 
 ## 10. Rollout plan and owner decisions
 
@@ -658,21 +741,21 @@ a given asset is lower-value depth in this league.
 | gate | content |
 |---|---|
 | G1 | owner approves the rule, threshold, picks, copy and visibility (this document) |
-| G2 | implement the owner module and fields behind both flags, default OFF; L0/L1 during coding, L2 at the PR; the invariance and privacy suites are mandatory |
+| G2 | implement the owner module and the private fields behind the private flag, default OFF (the public flag and field only if OD-4 accepts the leak); L0/L1 during coding, L2 at the PR; the invariance and privacy (or public-absence) suites are mandatory |
 | G3 | shadow in production: the flag stays OFF for display while an aggregate-only counter records the would-fire rate per surface; no user-visible change. A short owner-chosen window |
 | G4 | owner reviews the production fire rates against §5 and approves private activation |
 | G5 | private flag ON (calculator + War Room first, then Trade Finder and Trade History if approved) |
-| G6 | public flag ON only after the advisor launch gate (spec §6.3) passes **and** the owner accepts residuals R1 and R2 |
+| G6 | under the recommended V4: none (no public note). Only if the owner explicitly accepts R1 and R2 (the replacement-anchor leak included): public flag ON after the advisor launch gate (spec §6.3) passes |
 
 **Owner decisions requested:**
 
 | # | decision | recommendation |
 |---|---|---|
 | OD-1 | trigger rule | **A-guarded** (verdict dependence + guard); alternatives B (share ≥ 25%) and C (extra pieces) measured in §5 |
-| OD-2 | interim piece threshold | **floor** `min(R_pos, S_pos)`: anchor-robust, never flags a starter; prereg is more sensitive but anchor-sensitive |
-| OD-3 | include picks (line `R_*`) | **yes**: rule A catches 100% of pick-class filler flips, and M2 found the extra-piece discount strongest for picks (0.105 vs 0.174 for offense players at 1,000–2,499) |
-| OD-4 | public variant and residuals R1 and R2 | **FAIR-only per team**, accept R1 and R2; alternatives: structure-only (rule C, trade-level) or no public note (V4) |
-| OD-5 | default visibility | **V1** (§6) |
+| OD-2 | interim piece threshold | **floor** `min(R_pos, S_pos)`: anchor-robust, never flags a starter; prereg is more sensitive but anchor-sensitive. Disclosure: the floor was introduced in this workstream after the prereg threshold's anchor sensitivity was seen; it was not preregistered (§5.3) |
+| OD-3 | include picks (line `R_*`) | **yes**, on the strength of M2, which found the extra-piece discount strongest for picks (0.105 vs 0.174 for offense players at 1,000–2,499). Rule A's 100% on pick-class filler flips is **not** evidence: it is tautological, because `R_*` is the study's own pick filler line (§5.1) |
+| OD-4 | any public note | **no public note (V4)**. The FAIR-only public variant leaks the replacement anchors (R2, a per-asset oracle) and within-FAIR direction (R1), which the owner standard forbids; it is available only if the owner explicitly accepts both leaks. Rule C is the same oracle and is not an alternative (§9) |
+| OD-5 | default visibility | **V4** (§6): private shown by default with a per-user hide; no public note |
 | OD-6 | exact copy | §4 as written |
 | OD-7 | first surfaces | private calculator + War Room; Trade Finder and Trade History in a second step |
 | OD-8 | replacement source when investigation B lands | re-run §5 with the approved level, then decide; keep the floor clamp |
@@ -697,6 +780,11 @@ a given asset is lower-value depth in this league.
   only how often the note would appear.
 - **QB anchor.** The floor's only remaining anchor sensitivity is QB, where the current anchor is
   a player Sleeper lists as injured or inactive (§5.2).
+- **Post-hoc threshold.** The floor was chosen in this workstream after the prereg threshold's
+  anchor sensitivity was seen (§5.3). Its robustness is partly by construction.
+- **Verdict re-implementation.** The shadow verdict uses the research utility and adjusted-total
+  code, checked against the canonical dispatch on all 648,080 evaluations; the band read on the
+  canonical whole-number adjusted gap differs on 58 of them, from rounding alone (§5).
 
 ## Completion result
 
@@ -710,6 +798,9 @@ a given asset is lower-value depth in this league.
 - **EVIDENCE:**
   - `scripts/low_value_depth_disclosure_shadow.py` reproduces the committed flip-study counts
     exactly and agrees with the served asset-only lens on 180 / 180 War Room steps;
+  - every one of its 648,080 incumbent evaluations matches the canonical `package_model`
+    dispatch for `geom_q078_v1` (utility gap to float tolerance, adjusted totals within the
+    canonical whole-number rounding);
   - output in `docs/trade/evidence/low_value_depth_disclosure_2026-10-20/disclosure_shadow.json`;
   - `bash scripts/format_python_changes.sh` is GREEN.
 - **UNRESOLVED:**

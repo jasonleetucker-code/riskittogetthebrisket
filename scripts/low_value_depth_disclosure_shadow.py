@@ -9,15 +9,24 @@ script only MEASURES how often each candidate trigger rule would fire.
 
 Design record: ``docs/trade/LOW_VALUE_DEPTH_DISCLOSURE_DESIGN_2026-10-20.md``.
 
-Everything is reused, never re-implemented:
+What is reused, and what is re-implemented and verified:
 
 * board, rosters, optimal lineups and replacement anchors —
   ``low_value_asset_shadow_replay.build_context`` (one contract build of the
-  newest archive, today's code);
+  newest archive, today's code; the anchors come from the canonical owners
+  ``waiver_values_by_position`` and ``faab_engine.resolve_anchors``);
 * the §3 classification (genuine starter / usable depth / expendable filler) —
   ``classify_assets``;
-* the verdict — ``low_value_asset_shadow_replay.verdict`` (``geom_q078_v1`` exact
-  utility, the shared ``fairness_bands`` classifier on adjusted totals);
+* the verdict — ``low_value_asset_shadow_replay.verdict``.  Only the band
+  classifier, ``fairness_bands.classify``, is the canonical function.  The package
+  utility is the research ``owa`` (q = 0.78 hard-coded) and the adjusted totals
+  are the research re-implementation ``P2.adjusted``; neither is the canonical
+  dispatch.  So EVERY incumbent evaluation is checked against the canonical
+  ``src/valuation_math/package_model.py`` dispatch for the active model
+  (``geom_q078_v1``): the utility gap must equal ``geom_utility``'s to float
+  tolerance, and the adjusted totals must equal ``adjusted_pair_totals``'s to
+  within that function's whole-number rounding of the adjustment (0.5).  The run
+  aborts otherwise; the count checked is reported as ``packageModelParity``;
 * the naive comparator rule ("fire when B_currency_replacement changes the
   verdict") — the frozen treatment in ``low_value_asset_treatments``.
 
@@ -74,6 +83,7 @@ S = _load("low_value_asset_shadow_replay")  # board / anchors / classification /
 T = S.T  # frozen treatments (the naive comparator)
 P2 = S.P2  # assert_aggregate_only, structure_bin, orient
 
+from src.valuation_math import fairness_bands  # noqa: E402
 from src.valuation_math import package_model as pm  # noqa: E402
 
 INCUMBENT = S.INCUMBENT  # GEOM_78
@@ -99,13 +109,16 @@ RULE_TEXT = {
     "fairness REGION (disfavoured / fair / favoured) under geom_q078_v1 + fairness_bands",
     "A_dependence_public": "as A_dependence, but only a change of the public FAIR / NOT FAIR "
     "state counts (fair <-> not fair; a change of direction alone does not)",
-    "A_guarded": "A_dependence, and the trade also holds >= 1 piece that is NOT low-value depth "
-    "(a trade made only of low-value pieces never fires) - the guard was added after the "
-    "unsweetened low-tier bases were seen firing (design §3.4), and is reported separately",
+    "A_guarded": "A_dependence, and the team's own legs (what it receives plus what it gives, "
+    "Rcv_i U Gv_i) hold >= 1 piece that is NOT low-value depth (a team whose legs are all "
+    "low-value pieces never fires) - the guard was added after the unsweetened low-tier bases "
+    "were seen firing (design §3.1), and is reported separately",
     "A_guarded_public": "A_guarded with A_dependence_public's FAIR / NOT FAIR change",
     "A_guarded_publicFairOnly": "A_guarded_public restricted to a team whose result is FAIR and "
     "becomes NOT FAIR without its LVD extras (never fires on a NOT FAIR result, so the "
-    "disclosure cannot reveal which way a NOT FAIR trade leans - privacy M4)",
+    "disclosure cannot reveal which way a NOT FAIR trade leans - privacy M4).  OWNER OPTION "
+    "ONLY, not recommended: when it fires it still leaks within-FAIR direction and, used as a "
+    "per-asset oracle, the replacement anchors (design §9 R1/R2)",
     "B_share25": "the received package has >= 2 pieces and its LVD pieces other than the top "
     f"piece carry >= {SHARE_PRIOR:.0%} of its raw priced value (X is a PRIOR, not tuned)",
     "C_extraPieces": "the received package has more pieces than the package given in return, "
@@ -161,13 +174,16 @@ def make_lvd(ctx: dict, anchors: dict[str, float], mode: str):
     * floor  — LVD iff value < min(R_pos, lowest league starter at the position).
       Every lineup starter is >= that floor, so no starter can be LVD.
 
-    Missing is never zero: no row, no value, or a position with no anchor -> None.
+    Missing is never zero: no row, no value, a quarantined row, or a position with no
+    anchor -> None (UNKNOWN, design §2.2).
     """
     low = ctx["lowest_starter"]
     starters, rostered = ctx["starters"], ctx["rostered"]
 
     def lvd(r):
         if r is None or not isinstance(r.get("value"), (int, float)) or r["value"] <= 0:
+            return None
+        if r.get("quarantined"):
             return None
         if r["cls"] == "pick":
             return r["value"] < anchors["*"]
@@ -191,8 +207,45 @@ def make_lvd(ctx: dict, anchors: dict[str, float], mode: str):
 # ── rules ─────────────────────────────────────────────────────────────────
 
 
+#: Parity of every incumbent evaluation with the canonical package-model dispatch.
+PARITY: Counter = Counter()
+_UTILITY_RTOL = 1e-9  # relative float tolerance on the utility gap
+_ADJUSTED_TOL = 0.5 + 1e-6  # the canonical adjustment is a whole number (js_round)
+
+
+def _check_parity(R, G, v) -> None:
+    """Abort unless the research verdict ``v`` matches the canonical dispatch on (R, G)."""
+    a, b = [r["value"] for r in R], [r["value"] for r in G]
+    mid = pm.active_model_id()
+    q = pm.PACKAGE_MODELS[mid]["q"]
+    cgap = pm.geom_utility(a, q) - pm.geom_utility(b, q)
+    scale = max(1.0, sum(a), sum(b))
+    if abs(cgap - v["gap"]) > _UTILITY_RTOL * scale:
+        raise AssertionError(f"utility gap {v['gap']} != canonical {cgap}")
+    xa, xb, _va, _vb = pm.adjusted_pair_totals(a, b, model_id=mid)
+    if abs(xa - v["adjA"]) > _ADJUSTED_TOL or abs(xb - v["adjB"]) > _ADJUSTED_TOL:
+        raise AssertionError(f"adjusted {(v['adjA'], v['adjB'])} != canonical {(xa, xb)}")
+    PARITY["checked"] += 1
+    # Informational: the band read on the canonical (whole-number) adjusted gap.
+    clvl = fairness_bands.classify(xa - xb, max(xa, xb))["level"]
+    PARITY["bandAgrees" if clvl == v["level"] else "bandDiffersOnlyByRounding"] += 1
+
+
 def _ord(R, G, rep, treatment=INCUMBENT):
-    return S.verdict(treatment, [S._asset(r) for r in R], [S._asset(r) for r in G], rep)["ord"]
+    v = S.verdict(treatment, [S._asset(r) for r in R], [S._asset(r) for r in G], rep)
+    if treatment == INCUMBENT:
+        _check_parity(R, G, v)
+    return v["ord"]
+
+
+def _asset_id(r) -> str:
+    """Canonical asset id for the top-piece tie-break: player id, else the board name."""
+    return f"player:{r['pid']}" if r.get("pid") else f"name:{r['name']}"
+
+
+def top_piece(R):
+    """The highest-valued received piece; ties go to the lowest asset id (design §2.3)."""
+    return min(R, key=lambda r: (-r["value"], _asset_id(r)))
 
 
 def evaluate_team(R, G, lvd, rep_naive) -> dict:
@@ -205,7 +258,7 @@ def evaluate_team(R, G, lvd, rep_naive) -> dict:
     if any(f is None for f in flags) or not R or not G:
         return dict.fromkeys(RULES)
     o = _ord(R, G, rep_naive)
-    top = max(R, key=lambda r: r["value"])
+    top = top_piece(R)
     extras = [r for r in R if r is not top and lvd(r)]
     out = {}
     if extras:
@@ -474,28 +527,44 @@ def own_league_trades(raw: dict, ctx: dict, lvd_by_variant: dict) -> dict:
         for s in ss:
             got = [look(x) for x in s.get("got") or []]
             gave = [look(x) for x in s.get("gave") or []]
-            if got and gave:
-                sides.append((got, gave))
+            sides.append((got, gave))
     out = {}
     for vname, lvd in lvd_by_variant.items():
         c = Counter()
         for got, gave in sides:
+            if not got or not gave:
+                # a give-only / receive-only side has no gap to classify: counted, not dropped
+                c["notEvaluated_oneSided"] += 1
+                continue
             if any(r is None for r in got + gave):
                 c["notEvaluated_unpricedPiece"] += 1
                 continue
+            if any(r.get("quarantined") for r in got + gave):
+                c["notEvaluated_quarantinedPiece"] += 1  # UNKNOWN (design §2.2)
+                continue
             ev = evaluate_team(got, gave, lvd, rep)
+            if any(ev[r] is None for r in RULES):
+                c["notEvaluated_unclassifiablePiece"] += 1
+                continue
             c["evaluated"] += 1
             for r in RULES:
                 c[r] += bool(ev[r])
         out[vname] = {
             "teamSidesEvaluated": c["evaluated"],
-            "teamSidesNotEvaluated_unpricedPiece": c["notEvaluated_unpricedPiece"],
+            "teamSidesNotEvaluated": {
+                "oneSided": c["notEvaluated_oneSided"],
+                "unpricedPiece": c["notEvaluated_unpricedPiece"],
+                "quarantinedPiece": c["notEvaluated_quarantinedPiece"],
+                "unclassifiablePiece": c["notEvaluated_unclassifiablePiece"],
+            },
             "firePct": {r: _pct(c[r], c["evaluated"]) for r in RULES},
         }
     return {
         "population": "every team side (got vs gave) of the own-league trades in the newest "
         "archive's sleeper.trades, valued with TODAY's board (not at-the-time values); a side "
-        "with any unpriced piece is NOT evaluated (never priced at zero)",
+        "is NOT evaluated (never priced at zero, never dropped) when it gives or receives "
+        "nothing, or holds an unpriced, quarantined or unclassifiable piece; firePct is of the "
+        "evaluated sides",
         "trades": len(trades),
         "tradesByTeamCount": dict(shape),
         "teamSides": len(sides),
@@ -680,6 +749,7 @@ def worked_examples(ctx, lvd_by_variant) -> list:
             out.append({"case": lbl, "skipped": "asset not priced on this board"})
             continue
         v = S.verdict(INCUMBENT, [S._asset(r) for r in A], [S._asset(r) for r in B], rep)
+        _check_parity(A, B, v)
         e = {
             "case": lbl,
             "A": [f"{r['name']} ({r['pos'] or 'pick'}, {r['value']:.0f}, {r['cat']})" for r in A],
@@ -776,9 +846,12 @@ def main() -> int:
             "anchor['*']",
             "floor": "players - value < min(anchor[pos], lowest league starter at pos); pick: value "
             "< anchor['*']",
-            "missing": "no value, no position or no anchor for the position = unclassifiable -> "
-            "the rule is NOT evaluated (no disclosure), never treated as zero or as low",
+            "missing": "no value, quarantined, no position or no anchor for the position = "
+            "unclassifiable (UNKNOWN) -> the rule is NOT evaluated (no disclosure), never "
+            "treated as zero or as low",
         },
+        "topPieceTieBreak": "highest value; ties go to the lowest canonical asset id (the "
+        "player id, else the board name)",
         "thresholdsByAnchorSet": thresholds(ctx, sets),
         "lvdCensus": lvd_census(ctx, variants),
         "P1_fillerFlipStudy": flips,
@@ -786,6 +859,20 @@ def main() -> int:
         "P3_ownLeagueTrades": own,
         "P4_warRoom": wr,
         "workedExamples": worked_examples(ctx, variants),
+        "packageModelParity": {
+            "modelId": pm.active_model_id(),
+            "incumbentEvaluationsChecked": PARITY["checked"],
+            "utilityGapTolerance": f"relative {_UTILITY_RTOL:g} of the larger raw side",
+            "adjustedTotalTolerance": "0.5 (adjusted_pair_totals rounds the adjustment to a "
+            "whole number, js_round)",
+            "bandAgreesOnCanonicalAdjustedGap": PARITY["bandAgrees"],
+            "bandDiffersOnlyByRounding": PARITY["bandDiffersOnlyByRounding"],
+            "note": "every incumbent (GEOM_78) evaluation in every population was checked: the "
+            "research utility gap equals package_model.geom_utility's and the research adjusted "
+            "totals equal package_model.adjusted_pair_totals' within the tolerances above; any "
+            "mismatch aborts the run.  The band comparison is informational (it reads "
+            "fairness_bands.classify on the canonical whole-number adjusted gap)",
+        },
         "timingsSec": {**timings, "total": round(time.time() - t0, 1)},
     }
     assert pm.active_model_id() == pm.GEOM_Q078_V1
