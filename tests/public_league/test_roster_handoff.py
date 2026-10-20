@@ -80,12 +80,31 @@ def test_every_current_owner_in_the_committed_snapshot_has_a_configured_name():
         "rosterData"
     ]["teams"]
     configured = set(owner_names._load_mapping().values())
+    # An ownerless roster (a manager left the league on Sleeper) has no
+    # owner to name; it is checked separately below rather than counted as
+    # a missing name.
     unnamed = [
         (t["roster_id"], t["ownerId"], t["name"])
         for t in teams
-        if not owner_names.owner_name_for_user_id(t["ownerId"]) and t["name"] not in configured
+        if t["ownerId"]
+        and not owner_names.owner_name_for_user_id(t["ownerId"])
+        and t["name"] not in configured
     ]
     assert unnamed == []
+
+
+def test_an_ownerless_roster_in_the_committed_snapshot_keeps_its_roster_name():
+    """A roster with no owner is published as ``Team <roster_id>``, never as
+    another manager's name and never blank."""
+    teams = json.loads((REPO / "data/sleeper_last_good.json").read_text(encoding="utf-8"))[
+        "rosterData"
+    ]["teams"]
+    configured = set(owner_names._load_mapping().values())
+    for t in teams:
+        if t["ownerId"]:
+            continue
+        assert t["name"] == f"Team {t['roster_id']}", t
+        assert t["name"] not in configured, t
 
 
 def test_john_does_not_inherit_joels_favorite_team():
