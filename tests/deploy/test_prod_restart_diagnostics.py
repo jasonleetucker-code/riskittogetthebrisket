@@ -371,3 +371,28 @@ def test_workflow_runs_this_script_over_strict_ssh_and_propagates_its_status():
     )
     runnable = [ln for ln in step["run"].splitlines() if not ln.lstrip().startswith("#")]
     assert not any("|| true" in ln for ln in runnable)
+
+
+def test_full_run_surfaces_the_watchdogs_cgroup_snapshots(stub_env, tmp_path):
+    """The watchdog's pre-restart cgroup snapshots (dynasty-healthcheck.sh
+    cgroup_snapshot) are the dead cgroup's only surviving counters, so the
+    diagnostic must print them whole and count them; a snapshot-shaped line
+    carrying a non-numeric value must still be dropped."""
+    snap = (
+        "2026-10-19T08:42:15.150001+00:00 vps dynasty-healthcheck.sh[902]: [healthcheck] "
+        "snapshot mem reason=pre-restart cur=2791728742 peak=2791728742 high=2684354560 "
+        "max=3221225472 ev_high=781 ev_max=0 ev_oom=0 ev_oom_kill=0\n"
+        "2026-10-19T08:42:15.160001+00:00 vps dynasty-healthcheck.sh[902]: [healthcheck] "
+        "snapshot psi_memory reason=pre-restart some_avg10=91.50 some_avg60=80.25 "
+        "some_total=812345678 full_avg10=88.00 full_avg60=71.23 full_total=793685741\n"
+        "2026-10-19T08:42:15.170001+00:00 vps dynasty-healthcheck.sh[902]: [healthcheck] "
+        f"snapshot mem reason=pre-restart cur={SECRET}9\n"
+    )
+    fixtures = Path(stub_env["FIXTURES"])
+    (fixtures / "healthcheck.txt").write_text(HEALTHCHECK_JOURNAL + snap)
+    res = _full_run(stub_env)
+    assert res.returncode == 0, res.stderr
+    assert SECRET not in res.stdout + res.stderr
+    assert "ev_high=781 ev_max=0 ev_oom=0 ev_oom_kill=0" in res.stdout
+    assert "full_total=793685741" in res.stdout
+    assert "cgroup_snapshots=1 " in res.stdout
