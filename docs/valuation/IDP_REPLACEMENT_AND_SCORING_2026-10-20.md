@@ -1,7 +1,7 @@
 # IDP replacement anchors and league-specific IDP scoring (2026-10-20)
 
-**Status: RESEARCH — COMPLETE (investigation B).** Nothing in this workstream changes a value, a source weight,
-a vote, a curve, a replacement anchor or any served behaviour. Every alternative below was computed in shadow
+**Status: RESEARCH — COMPLETE (investigation B); independent-review fixes applied.** Nothing in this
+workstream changes a value, a source weight, a vote, a curve, a replacement anchor or any served behaviour. Every alternative below was computed in shadow
 and fed to the canonical consumers' own pure functions; nothing was written back.
 
 **Authority:** `docs/owner/LOW_VALUE_ASSET_OWNER_DECISIONS_2026-10-20.md` §3. Prior evidence it extends (not
@@ -16,37 +16,59 @@ Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
 
 ## 0. Owner summary
 
-**Verdict: both — but they are different sizes and need different owners.**
+**Verdict: replacement methodology.** The waiver anchor is a measured, actionable methodology defect. A
+league-specific *valuation* defect is **not established**: the DB scoring mismatch is an unconfirmed hypothesis,
+and the headline IDP correlation gap is explained by range restriction and IDP noise.
 
 1. **Replacement methodology: the main, actionable cause of the anomaly.**
    - The waiver anchor is the single highest-valued unrostered player at each position.
    - It counts injured players and non-producing rookies. In this league that matters: it is best ball with no IR
      and no taxi, so an injured player fills one of 58 spots and scores nothing.
-   - Value does not order the wire at IDP. Among unrostered players, the rank correlation between value and
-     points per game is about zero (DL 0.09, LB −0.21, DB 0.21; every CI spans 0).
-   - The worst case is DB. The anchor (2,156, an injured player) sits above **26 of the 35** DBs in the
+   - Value is not shown to order the IDP wire. Among unrostered players, the rank correlation between value and
+     points per game is not distinguishable from zero (DL 0.09, LB −0.21, DB 0.21; n 36 / 21 / 27, CIs about
+     ±0.34 to ±0.41).
+   - The worst case is DB. The anchor (2,156, a player listed Out) sits above **26 of the 35** DBs in the
      value-optimal lineups.
-2. **League-specific valuation: real, but narrow. It is mostly DB, not "IDP".**
+2. **League-specific valuation at DB: an unconfirmed hypothesis, not a finding.**
    - This card pays big plays: one pass defended is worth 3.98 solo tackles, one tackle for loss 3.19.
-   - The pre-season board ranks DBs the way a tackle-heavy card would. Against 2025 production it agreed better
-     with the tackle-heavy reference than with this card (paired difference −0.134, CI [−0.239, −0.041]).
-   - Within DBs, the higher a player's tackle share, the more the board values him relative to his production
-     under this card (ρ −0.56, CI [−0.70, −0.41]).
-   - DL and LB show no such mismatch.
-3. **The headline 0.45 vs 0.77 gap is mostly inherent IDP volatility, not a defect in the consensus.**
-   - Take the same players (priced pre-season, with 2025 history). Their 2025 production, scored under this
-     card, predicts 2026 production no better than pre-season value does: IDP 0.41 vs 0.40, against offense
-     0.74 vs 0.68.
-   - No single IDP source beats the consensus.
-   - BDVM's league-scored projection does not beat it significantly either: IDP 0.44 vs 0.39, difference CI
-     [−0.07, +0.16].
+   - Only one card-alignment test points to a DB mismatch, and it is **in-sample**: the pre-season board (built after the 2025
+     season) against 2025 production, paired difference −0.134 [−0.239, −0.041]. Both out-of-sample 2026 tests
+     have CIs spanning 0 (−0.078 [−0.178, +0.015]; −0.064 [−0.149, +0.021]).
+   - Multiplicity: that is 1 of 12 alignment cells in the hypothesised direction, uncorrected. The in-sample IDP
+     and DL cells are nominally significant the *opposite* way (+0.065, +0.048). After a Holm correction across
+     the 12 cells nothing is significant (DB adjusted p 0.084).
+   - Confound: big-play points are much less stable year to year than tackle points (IDP 0.35 vs 0.67; DB 0.24
+     vs 0.38). At DB, the tackle-heavy reference card's 2025 production predicts *this card's* 2026 production at
+     least as well as this card's own 2025 production does (0.374 vs 0.309; difference +0.066 [−0.059, +0.195]).
+     A board that rationally discounts noisy big plays would therefore show the same signature in the alignment
+     test and in the tackle-share residual (ρ −0.56) without any mis-valuation.
+   - For the same DBs, 2025 production under this card does not predict 2026 better than pre-season value
+     (0.323 vs 0.342).
+3. **The headline 0.45 vs 0.77 gap reflects range restriction and IDP noise; it does not establish a valuation
+   defect.**
+   - Range restriction: across all IDPs with both seasons, 2025 → 2026 ppg correlates at 0.682 (n 568). Among
+     the 229 priced pre-season it is 0.413 (offense: 0.824 → 0.738). Priced IDPs are a narrow slice of
+     production, so every predictor's correlation is compressed.
+   - Noise: in that priced set, pre-season value (0.402) and 2025 league-scored production (0.413) predict 2026
+     equally; big-play scoring, which this card weights heavily, is the least repeatable component.
+   - Pre-season, no single IDP source beats the consensus. On today's in-season board idpTradeCalc's point
+     estimate is above it (IDP 0.501 vs 0.474, difference +0.027 [−0.016, +0.071]; DB 0.439 vs 0.384,
+     +0.055 [−0.031, +0.135]), not significantly except at LB (+0.071 [+0.001, +0.140], uncorrected).
+   - BDVM's league-scored projection does not beat the consensus significantly (IDP 0.44 vs 0.39, difference
+     CI [−0.07, +0.16]), and it is built from 2023–25 realized PPG under this card, so it largely overlaps the
+     last-season-production predictor rather than adding an independent one.
+   - None of this rules a valuation defect out either; it means none is demonstrated.
 
 **Recommendation (§9):**
-- **Methodology:** a gated anchor change for the displacement owner: healthy-only, banded over the top three.
-  Sequence it after the forced-drop correction (investigation A).
-- **Scarcity:** an owner decision on a latent wiring finding. The served positional scarcity multiplier is
-  inert (1.0 everywhere).
-- **DB:** evidence collection only. No value, weight or vote change.
+- **Methodology:** consolidate, do not add. Route the displacement anchor through the canonical replacement owner
+  (LI-5's waiver tier, which is exactly the "banded top three" rule tested here) with a health filter, as part of
+  the C2-REPL-01 consolidation. Gated, owner-approved, and sequenced after the forced-drop correction
+  (investigation A).
+- **Scarcity:** coupled to the above. Feeding free agents to LI-5 is what activates the currently inert
+  scarcity multiplier (1.0 everywhere), so it is either a separately flagged effect of the same PR or an
+  explicitly later step, and an owner decision either way.
+- **DB:** evidence collection only, with pre-registered out-of-sample, multiplicity-corrected tests that must
+  beat the rational-discounting explanation. No value, weight or vote change.
 
 ## Contents
 
@@ -69,9 +91,9 @@ Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
 | pre-season board | the served 2026-08-25 golden board (`data/ops/v1-27/…`). Per-source pre-season ranks come from a today's-code replay of the 2026-08-25 archive. Ranks are source inputs, so methodology drift does not move them. |
 | production | Sleeper weekly stat lines for 2026 weeks 1–6 and 2025 weeks 1–18. Both seasons are scored under the current card by the canonical scorer (`compute_weekly_points`). |
 | scorer check | 3,299 / 3,299 player-weeks match Sleeper's own points (max difference 0.004) |
-| rosters and rules | live Sleeper rosters, league settings and transactions (aggregate counts only) |
+| rosters and rules | live Sleeper rosters (2026-10-20 snapshot; the review re-run reused it via `--roster-max-age-s`), league settings and transactions (aggregate counts only) |
 | BDVM | `fetch_and_build_baseline`: 2023–25 nflverse realized PPG under this card, plus rookie draft-slot priors. `run_valuation` was run in memory and no snapshot was written. It is a league-scored pre-season fundamental, so 2026 production is out of sample for it. |
-| statistics | Spearman rank correlation; 95% CIs from 1,000 player-level bootstrap resamples. Differences use paired bootstrap on the same players, or independent bootstrap for offense vs IDP. |
+| statistics | Spearman rank correlation; 95% CIs from 1,000 player-level bootstrap resamples. Differences use paired bootstrap on the same players, or independent bootstrap for offense vs IDP. Paired differences also carry a two-sided bootstrap p-value; the 12-cell card-alignment family is Holm- and Bonferroni-corrected (§7.1). |
 
 ## 2. Item 1: injured and non-producing free agents in the anchors
 
@@ -104,9 +126,13 @@ The rule lives in `src/draft/displacement.py:276` (`waiver_values_by_position`):
 
 - Six of the seven anchors are set by an injured player or a non-producing rookie. WR is the exception.
 - Most of the top-valued free agents were dropped by a manager this season.
-- Among unrostered players, value and production are almost unrelated at IDP (Spearman: DL 0.09, LB −0.21,
-  DB 0.21; every CI spans 0). WR is the only position where value orders the wire (0.45).
-- The best-producing healthy unrostered DB ranks **34th by value** among unrostered DBs.
+- Among unrostered players, the relationship between value and production at IDP is not distinguishable from
+  zero (Spearman: DL 0.09 [−0.25, 0.43], n 36; LB −0.21 [−0.58, 0.24], n 21; DB 0.21 [−0.21, 0.60], n 27). The
+  samples are small, so this is an absence of evidence that value orders the wire, not proof that it cannot. WR
+  is the only position where value orders the wire (0.45 [0.07, 0.72], n 27).
+- At DB, the highest-scoring healthy unrostered player (13.7 ppg) ranks **34th of 37** by value among
+  board-priced unrostered DBs (`valueRankOfTopPpgHealthyFA`). The best-valued healthy DB who clears the P10
+  startable bar ranks 2nd (`valueRankOfBestProducingHealthyFA`; Keionte Scott, 1,917, who sets both A1 and A4).
 
 ### 2.2 Alternative anchors, in shadow
 
@@ -120,9 +146,13 @@ season-to-date points.
 |---|---:|---:|---:|---:|
 | A0 served: best unrostered | 2,156 | 26/35 | 30/34 | 9/100 |
 | A1 best healthy | 1,917 | 19/35 | 28/34 | 17/100 |
+| A1s best healthy, strict rule | 1,917 | 19/35 | 28/34 | 17/100 |
 | A2 3rd-best healthy | 1,436 | 3/35 | 14/34 | 54/100 |
 | A3 LI-5 banded top-3, all | 1,994 | 23/35 | 29/34 | 12/100 |
 | **A3h LI-5 banded top-3, healthy** | **1,754** | **12/35** | 22/34 | 28/100 |
+| **A3hs LI-5 banded top-3, healthy, strict rule** | **1,754** | **12/35** | 22/34 | 28/100 |
+| A4 best production-qualified (P10 bar) | 1,917 | 19/35 | 28/34 | 17/100 |
+| A4b best production-qualified (P25 bar) | 229 | 0/35 | 0/34 | 100/100 |
 | A5 LI-5 best-ball starter (rosters) | 1,384 | 2/35 | 10/34 | 64/100 |
 | D board price of wire-level production (diagnostic) | 1,588 | 9/35 | 18/34 | 36/100 |
 
@@ -134,9 +164,11 @@ season-to-date points.
 | A1 best healthy | 1,918 | 7/37 | 2,149 | 6/35 |
 | A2 3rd-best healthy | 1,740 | 1/37 | 1,793 | 3/35 |
 | **A3h banded healthy** | **1,812** | 3/37 | **1,946** | 3/35 |
+| **A3hs banded healthy, strict rule** | **1,812** | 3/37 | **1,946** | 3/35 |
 | A5 best-ball starter | 1,668 | 1/37 | 1,628 | 1/35 |
+| D board price of wire-level production (diagnostic) | 1,724 | 1/37 | 1,401 | 0/35 |
 
-**Offense** (A0 → A3h):
+**Offense** (A0 → A3h; A3hs is identical):
 
 | pos | A0 | A3h | note |
 |---|---:|---:|---|
@@ -145,18 +177,31 @@ season-to-date points.
 | WR | 1,802 | 1,583 | |
 | TE | 2,061 | 1,769 | |
 
+**Two health rules.** A1 and A3h use the prior lane's shadow rule (`low_value_asset_idp_anomaly.is_healthy`),
+which treats a missing `status` as healthy when the player has an NFL team. A1s and A3hs use the rule
+recommended in §9 (`is_healthy_strict`): an NFL team, an explicit `status` of `Active`, and no unavailable
+injury designation, so a missing or unrecognised status is unknown and excluded. In this snapshot the two rules
+give **identical anchors at every position**: no board-priced free agent passes one and fails the other
+(`healthyLooseButNotStrict` is 0 everywhere), because Sleeper's directory gave every board-priced free agent
+an explicit status. The strict rule is still the one to adopt, because the difference only appears when
+the feed degrades.
+
 **Reading:**
 - **Healthy-only fixes the cause but not the noise.** A1 still leaves 19 of 35 DB starters below the anchor,
   and A1 equals A0 at DL and LB, where the anchors are healthy rookies who do not produce.
 - **Healthy and banded (A3h)** is the smallest change that removes most of the anomaly at every IDP position
   while staying a waiver concept. The banding is LI-5's own rule: the mean of ranks 1–3.
-- **Production-qualified (A4) is not viable as a served rule:**
-  - it is hindsight;
+- **Production-qualified (A4) is not viable as a served rule.** It is computable in season (season-to-date
+  stats exist), so hindsight is not the objection. The objections are:
+  - instability: it swings with the bar. At DB a P10 bar sets it at 1,917 and a P25 bar at 229 (one qualifying
+    priced free agent, Christian Izien);
   - it is undefined at four of seven positions (QB, RB, WR, LB), because the wire there has no startable
     producer;
-  - it swings with the bar: at DB a P10 bar sets it at 1,917, a P25 bar at 229.
-- **The diagnostic D anchor converges with A3h at IDP.** It is the board's own price of wire-level production:
-  DB 1,588, DL 1,724, LB 1,401.
+  - circular evaluation: its qualifier uses the same weeks 1–6 production as the "production starters below"
+    column, so that column flatters A4 by construction.
+- **The diagnostic D anchor does not converge with A3h.** It is the board's own price of wire-level production:
+  DB 1,588 vs A3h 1,754; DL 1,724 vs 1,812; LB 1,401 vs 1,946. It sits below A3h at all three IDP positions,
+  by 166 at DB, 88 at DL and 545 at LB, so it is a direction check, not a corroborating estimate.
 
 ## 3. Item 2: availability and eligibility of waiver replacements
 
@@ -178,8 +223,8 @@ season-to-date points.
 | pos | priced unrostered | healthy now | status mix (not healthy) |
 |---|---:|---:|---|
 | DL | 45 | 34 | IR 7, Out 2, PUP 1, NA 1 |
-| LB | 33 | 27 | PUP 1, Out 1, IR 1, Questionable 1 (plus 3 listed "Active" with no team) |
-| DB | 37 | 23 | Out 8, IR 6, Questionable 1 |
+| LB | 33 | 27 | PUP 1, Out 1, IR 1, plus 3 listed "Active" with no team (1 Questionable counts as healthy) |
+| DB | 37 | 23 | Out 8, IR 6 (1 Questionable counts as healthy) |
 
 **Eligibility:**
 - The slot rules come from the canonical owner (`slot_eligible_positions`):
@@ -253,7 +298,7 @@ so replacement is closer to a starter.
 | 2025 | 0.60 | 0.41 | 0.46 | 0.30 | 0.71 | 0.71 | **0.89** |
 | 2026 (weeks 1–6) | 0.47 | 0.37 | 0.54 | 0.27 | 0.73 | 0.67 | **0.80** |
 
-**Wire depth today** (2026 weeks 1–6, hindsight). All healthy unrostered players with at least 3 games,
+**Wire depth today** (2026 weeks 1–6, season to date). All healthy unrostered players with at least 3 games,
 including players the board does not price:
 
 | pos | healthy unrostered | at least P10 of production starters | at least median starter | 3rd-best free agent / median starter |
@@ -313,19 +358,43 @@ and against last season.
    | DL / LB / DB | 0.39 / 0.47 / 0.34 | 0.36 / 0.42 / 0.32 | all CIs span 0 |
 
    Last season's production *under this exact card* predicts this season no better than canonical value does.
-   **IDP season-to-season predictability is inherently low, whatever the predictor.**
-3. **Per source** (pre-season inputs vs 2026 ppg; consensus measured on the same players):
+   Two things compress this, and they must be read together:
+   - **Range restriction.** Across *all* IDPs with both seasons, 2025 → 2026 ppg correlates at 0.682 (n 568;
+     DL 0.62, LB 0.72, DB 0.64). Restricted to the 229 priced pre-season it is 0.413. Offense loses much less
+     (0.824, n 331 → 0.738, n 237). Priced IDPs cover a narrow band of production, so every predictor is
+     compressed there; the low figure is not "volatility whatever the predictor".
+   - **Noise in what this card pays for.** For nearly the same players (n 228), tackle points per game repeat at 0.67
+     year to year and big-play points at 0.35 (DB 0.38 vs 0.24) (§7.1, stability control).
+3. **Per source** (vs 2026 ppg; consensus measured on the same players; paired difference source − consensus).
+
+   Pre-season inputs (no hindsight):
 
    | | idpTradeCalc | draftSharksIdp | idpShowCombined | fantasyProsIdp |
    |---|---|---|---|---|
    | IDP overall (source / consensus) | 0.39 / 0.43 | 0.38 / 0.45 | 0.42 / 0.44 | 0.38 / 0.39 |
+   | IDP difference | −0.050 [−0.079, −0.021] | −0.070 [−0.141, +0.014] | −0.019 [−0.052, +0.012] | −0.009 [−0.096, +0.075] |
    | DB (source / consensus) | 0.26 / 0.30 | 0.26 / 0.41 | 0.30 / 0.34 | 0.10 / 0.26 |
 
-   **No single IDP source predicts this league's production better than the consensus.**
+   Today's sources (in-season board, hindsight):
 
-**Answer.** The 0.45 vs 0.77 gap is real and robust. Most of it is inherent IDP volatility: no available
-predictor does materially better, whether a source, last season's league-scored production or BDVM (§7). It is
-not a consensus-aggregation defect. The one position-specific exception is DB (§7).
+   | | idpTradeCalc | draftSharksIdp | idpShowCombined | fantasyProsIdp |
+   |---|---|---|---|---|
+   | IDP overall (source / consensus) | 0.50 / 0.47 | 0.36 / 0.44 | 0.41 / 0.47 | 0.38 / 0.42 |
+   | IDP difference | +0.027 [−0.016, +0.071] | −0.084 [−0.149, −0.022] | −0.059 [−0.117, −0.001] | −0.035 [−0.139, +0.066] |
+   | LB difference | +0.071 [+0.001, +0.140] | −0.134 [−0.234, −0.048] | −0.036 [−0.117, +0.028] | −0.090 [−0.241, +0.057] |
+   | DB (source / consensus) | 0.44 / 0.38 | 0.23 / 0.36 | 0.29 / 0.36 | 0.10 / 0.29 |
+   | DB difference | +0.055 [−0.031, +0.135] | −0.133 [−0.279, +0.004] | −0.069 [−0.198, +0.065] | −0.186 [−0.389, +0.016] |
+
+   - **Pre-season, no single IDP source predicts this league's production better than the consensus.**
+   - **In season, idpTradeCalc's point estimate is above the consensus** at IDP overall, LB and DB. Only LB is
+     nominally significant (uncorrected, one of many cells). It is an in-season, hindsight-era comparison, not
+     a basis for a weight change.
+
+**Answer.** The 0.45 vs 0.77 gap is real and robust to depth, rostered-only and hindsight checks. It reflects
+range restriction among priced IDPs plus genuine noise in IDP production, especially in the big-play scoring
+this card emphasises. No available pre-season predictor does materially better, whether a source, last season's
+league-scored production or BDVM (§7.2, which overlaps the last-season predictor). Neither the gap nor these
+comparisons establishes a valuation defect, and they do not rule one out.
 
 ## 7. Item 6: does the canonical IDP consensus reflect this league's scoring?
 
@@ -338,11 +407,16 @@ fundamental concept.
 Does value rank players more like this card's production or like the tackle-heavy reference's? The figure is
 the paired difference ρ(value, ppg on this card) − ρ(value, ppg on the reference).
 
-| board → production | IDP | DL | LB | DB |
-|---|---|---|---|---|
-| pre-season → 2025 | +0.065 [+0.015, +0.117] | +0.048 | +0.062 | **−0.134 [−0.239, −0.041]** |
-| pre-season → 2026 | −0.004 | −0.010 | −0.029 | −0.078 [−0.178, +0.015] |
-| today → 2026 | −0.017 | +0.001 | −0.019 | −0.064 [−0.149, +0.021] |
+| board → production | sample | IDP | DL | LB | DB |
+|---|---|---|---|---|---|
+| pre-season → 2025 | **in-sample** (board built after 2025) | +0.065 [+0.015, +0.117] | +0.048 [+0.001, +0.109] | +0.062 [−0.008, +0.138] | −0.134 [−0.239, −0.041] |
+| pre-season → 2026 | out-of-sample (no hindsight) | −0.004 [−0.047, +0.040] | −0.010 [−0.082, +0.060] | −0.029 [−0.089, +0.030] | −0.078 [−0.178, +0.015] |
+| today → 2026 | 2026 production; board updated in season | −0.017 [−0.055, +0.019] | +0.001 [−0.048, +0.046] | −0.019 [−0.058, +0.021] | −0.064 [−0.149, +0.021] |
+
+**Multiplicity** (`valueVsCard_multiplicity`): 12 cells. Three have a 95% CI excluding 0, all in-sample: DB
+−0.134 in the hypothesised direction, and IDP +0.065 and DL +0.048 the opposite way. Holm-adjusted p across the
+family: DB 0.084, IDP 0.099, DL 0.49, the rest ≥ 0.74; **none survives**. No Bonferroni interval
+(level 1 − 0.05/12) excludes 0 (DB in-sample [−0.301, +0.002]).
 
 **Residual vs tackle share** (pre-season value, 2025 production): Spearman between (ppg rank − value rank) and
 tackle share.
@@ -353,9 +427,34 @@ tackle share.
 | DL | −0.22 | [−0.43, 0.00] |
 | LB | −0.16 | [−0.35, +0.05] |
 
-- **DL and LB:** the consensus is neutral or slightly league-aligned.
-- **DB:** the consensus ranks like a tackle-heavy card. It values tackle-heavy safeties above the
-  coverage corners this card pays for.
+**Stability control** (`perCardYearToYearStability_control`; same players: priced pre-season, ≥ 8 games in
+2025 and ≥ 3 in 2026). How stable is each card's ordering of the same players from 2025 to 2026, and which
+card's 2025 production best predicts *this* card's 2026 production?
+
+| | IDP (n 228) | DL (n 63) | LB (n 84) | DB (n 81) |
+|---|---:|---:|---:|---:|
+| this card, 2025 → 2026 | 0.411 | 0.364 | 0.415 | 0.309 |
+| reference card, 2025 → 2026 | 0.501 | 0.335 | 0.478 | 0.345 |
+| this − reference stability | −0.091 [−0.166, −0.021] | +0.030 [−0.090, +0.146] | −0.063 [−0.169, +0.043] | −0.036 [−0.198, +0.125] |
+| this card's 2026, predicted by the reference card's 2025 | 0.435 | 0.348 | 0.410 | 0.374 |
+| reference − this card's 2025, as predictor (paired) | +0.024 [−0.043, +0.085] | −0.016 [−0.100, +0.056] | −0.005 [−0.100, +0.087] | +0.066 [−0.059, +0.195] |
+| tackle points per game, 2025 → 2026 | 0.665 | 0.439 | 0.545 | 0.377 |
+| big-play points per game, 2025 → 2026 | 0.346 | 0.303 | 0.429 | 0.242 |
+
+- Big-play scoring, which this card emphasises, repeats less than tackle scoring at every position, and by the
+  widest margin at IDP overall (0.35 vs 0.67) and DB (0.24 vs 0.38).
+- At DB, the reference card's 2025 production predicts this card's 2026 production at least as well as this
+  card's own 2025 production does (point estimate higher; CI spans 0).
+- So the alignment signature and the tackle-share residual are **what a board that rationally discounts noisy
+  big plays would produce**. A board that tracks a tackle-heavier ordering can be the better *forecast* of this
+  card's future production. The residual (ρ −0.56) is measured against in-sample 2025 production, where
+  big-play-driven seasons are exactly the ones expected to regress.
+
+**Reading:**
+- **DL and LB:** no mismatch; the in-sample cells lean slightly toward this card.
+- **DB:** the only supporting cell is in-sample, does not survive a multiplicity correction, is not replicated
+  out of sample, and is confounded with rational discounting of unstable big-play scoring. **The DB mismatch is
+  an unconfirmed hypothesis.**
 
 ### 7.2 BDVM
 
@@ -371,14 +470,19 @@ BDVM was run in memory: 864 priced. It is pre-season and league-scored, with 202
 
 - Rank agreement between BDVM and canonical: IDP 0.37, against offense 0.84.
 - **The two concepts disagree far more at IDP, yet neither predicts this season's IDP production better.**
-- **Even a league-scored projection cannot predict DB well.** The DB-order mismatch in §7.1 is real, but
-  correcting it would not by itself make DB values predictive.
+- **Even a league-scored projection cannot predict DB well** (0.32, identical to canonical).
+- **BDVM is not an independent predictor here.** Its projection is built from 2023–25 realized PPG under this
+  card plus rookie priors, so it largely re-uses the information in the last-season-production predictor of
+  §6. Its failure to beat canonical value and that predictor's failure are not two separate pieces of evidence.
 - BDVM's dynasty trade value is a poor short-term predictor, as expected: it prices long horizons.
 
 **Answer.**
-- The consensus does not reflect this league's scoring at **DB**: a measurable mismatch in the startable range.
-- It broadly does at DL and LB.
-- It is weakly predictive everywhere at IDP, for reasons no league-scored alternative tested here removes.
+- Whether the consensus reflects this league's scoring at **DB** is **unresolved**: one in-sample signal that
+  does not survive multiplicity correction or replicate out of sample, and that rational discounting of noisy
+  big plays would also produce.
+- There is no mismatch at DL or LB.
+- IDP value is weakly predictive of next-season production, as is every alternative tested here, for reasons
+  covered in §6 (range restriction and noise).
 
 ## 8. Item 7: how the anchor moves each consumer
 
@@ -418,7 +522,7 @@ drop is the roster's own cheapest legal cut.
 |---|---:|---:|---:|---:|---:|---:|
 | A1 best healthy | 1/12 | −51 | 614 | 1.1 | 2/12 | −226 |
 | A2 3rd-best healthy | 6/12 | −440 | 1,897 | 7.0 | 9/12 | −635 |
-| **A3h banded healthy** | 4/12 | −246 | 1,872 | 3.9 | 5/12 | −269 |
+| **A3h banded healthy** (A3hs strict: identical) | 4/12 | −246 | 1,872 | 3.9 | 5/12 | −269 |
 | A5 best-ball starter | 5/12 | −343 | 1,872 | 5.9 | 8/12 | −290 |
 
 - Baseline mean forced-drop cost is 1,023 (net +1) and 2,128 (net +2).
@@ -438,44 +542,71 @@ drop is the roster's own cheapest legal cut.
 
   The position-agnostic ladder `W(k)` top five falls from 2,156 to 2,149 at the top, and from 1,923 to 1,895 at
   the fifth.
-- **FAAB:** `V_repl` 1,687 → 1,655 with a healthy-only live pool, so a player at 2,200 moves from 50.9% to 54.2%
-  of the budget ceiling. A production-qualified pool would collapse `V_repl` to 901, which is not viable.
-  **FAAB is barely affected, because it is position-agnostic.**
+- **FAAB:** served `V_repl` is 1,687, and that figure is **guardrail-capped**: the raw 50/50 blend of the
+  12th-best unrostered player (1,839) and the format line (1,573) is 1,706, and the engine widens it down to
+  `V_allin` 2,387 − the 700 minimum band. With a healthy-only live pool (shadow or strict rule, identical) the
+  12th best is 1,737, the blend is 1,655 and no cap applies, so a player at 2,200 moves from 50.9% to 54.2% of
+  the budget ceiling. A production-qualified pool would collapse `V_repl` to 901 (its live-pool figure is 229),
+  which is not viable. **FAAB is barely affected, because it is position-agnostic and has its own anchor.**
 - **LI-5 scarcity:** inert today. Wiring free agents into the gameplan bundle would activate a 0.85–1.15×
-  multiplier on every cut cost: a served change, and an owner decision of its own.
+  multiplier on every cut cost: a served change, and an owner decision of its own. Routing the anchor through
+  LI-5 (§9 recommendation 1) supplies exactly those free agents, so the two are coupled.
 
 ## 9. Conclusion, recommendation, gates and what must not be done
 
-**Conclusion: both.**
+**Conclusion: replacement methodology. A league-specific valuation defect is not established.**
 
-| issue | scope | evidence | owner |
+| issue | status | evidence | owner |
 |---|---|---|---|
-| **Replacement methodology** (primary) | the waiver anchor at every position; worst at DB | §2: injured and non-producing players set 6 of 7 anchors; value does not order the IDP wire; DB anchor above 26/35 starters; §5: DB is the flattest position | displacement owner (`src/draft/displacement.py`), consumed by roster capacity and Perfect Draft |
-| **League-specific valuation** (secondary, narrow) | DB order in the startable range | §4, §7.1: −0.134 alignment toward the tackle-heavy card; residual vs tackle share −0.56 | value pipeline / league-intel. **Not** a source-weight question |
-| **Not a defect** | the headline IDP correlation gap | §6: the same-player predictor test, per-source results and BDVM are all no better | — (inherent volatility; disclose, don't fix) |
+| **Replacement methodology** | measured defect; actionable | §2: injured and non-producing players set 6 of 7 anchors; value is not shown to order the IDP wire; DB anchor above 26/35 starters; §5: DB is the flattest position | the canonical replacement owner (LI-5, `src/league_intel/replacement.py`), consolidated under C2-REPL-01; consumed by the displacement anchor and through it roster capacity, Perfect Draft and Droppability |
+| **League-specific valuation at DB** | unconfirmed hypothesis | §7.1: one in-sample cell (−0.134); out-of-sample CIs span 0; nothing survives Holm across 12 cells; confounded with rational discounting of unstable big plays (stability control); residual vs tackle share −0.56 is in-sample | none until confirmed. **Not** a source-weight question |
+| **Headline IDP correlation gap** | not a demonstrated defect | §6: range restriction (0.682 all IDPs vs 0.413 priced) plus big-play noise; no pre-season predictor does better; BDVM overlaps the last-season predictor | — (disclose, don't fix) |
 
 **Recommendations, each with what it requires:**
 
-1. **Candidate anchor rule: A3h, healthy-only and banded.** The mean of the top three unrostered players at the
-   position who are on an NFL team and not Out, IR, PUP, Doubtful, Suspended or NA, using Sleeper's injury
-   status.
-   - Owner: `waiver_values_by_position`. One rule, so every consumer moves together, with no consumer-local
-     anchor.
-   - Requires:
-     - a gated PR with the shadow above re-run on the then-current board;
-     - adversarial tests: an injury flip, a thin wire, a missing status counted as unknown, never healthy;
-     - **sequencing after investigation A's forced-drop correction**, then before/after verdict comparisons on
-       Trade Calculator Team Context, War Room, Finder and Perfect Draft.
+1. **Consolidate the waiver anchor into the canonical replacement owner; do not add a sixth implementation.**
+   - The candidate rule A3h is exactly LI-5's waiver tier: `compute_replacement_levels` takes
+     `_banded_value(fa_pool, 1, band)` with `DEFAULT_BAND = 2` (`src/league_intel/replacement.py:440–452`), the
+     mean of free-agent ranks 1–3. The only change is a health filter on the free agents LI-5 is given.
+   - Replacement level is already recorded as **DUPLICATED — 5 implementations in 3 units** (manifest row
+     `C2-REPL-01`, CE-09; target "one service; domain views are consumers"; `C2-DROP-01` says displacement
+     "consumes the shared replacement owner"). So the recommendation is: route
+     `src/draft/displacement.py::waiver_values_by_position` through LI-5's waiver tier, with the strict health
+     rule (§2.2: NFL team, explicit `Active` status, no unavailable injury designation; a missing status is
+     unknown, never healthy), **as part of the C2-REPL-01 consolidation**. A health-filtered banded rule written
+     inside `displacement.py` would be a sixth implementation and is out.
+   - **Who moves.** Everything that reads the displacement anchor moves together: roster capacity and its
+     consumers (Trade Calculator Team Context, War Room, Trade Finder, Angle, suggestions, Analyze Trade, trade
+     simulator), Perfect Draft (server and client) and Droppability. **FAAB does not**: it has its own
+     position-agnostic `V_repl` (`src/trade/faab_engine.py:326`, `resolve_anchors`: the format line blended
+     50/50 with the live pool's 12th best). **Perfect Waivers does not**: it prices cuts with no anchor
+     (`effective_cut_cost(asset, {}, None)`). Whether FAAB's live pool should also exclude injured players is a
+     separate, small question (§8.2: 1,706 raw → 1,655).
+   - **Coupled with recommendation 2.** Giving LI-5 free agents is what creates the waiver tier, hence
+     `waiver_scarcity`, hence a live 0.85–1.15× scarcity multiplier on every cut cost. Sequencing must handle
+     both, either:
+     - one gated PR with **two separately flagged effects** (anchor on its flag; scarcity on its own flag, held
+       off until its own owner decision), or
+     - explicit ordering: the anchor first with the scarcity multiplier explicitly pinned inert, scarcity later.
+   - Requires: a gated PR with the shadow above re-run on the then-current board; adversarial tests (an injury
+     flip, a thin wire, a missing status counted as unknown, the scarcity flag off leaving multipliers at 1.0);
+     **sequencing after investigation A's forced-drop correction**; then before/after verdict comparisons on
+     Trade Calculator Team Context, War Room, Finder and Perfect Draft.
    - It changes served recommendations, so the exact production impact goes to the owner before activation
-     (owner decision §2 and §6).
-   - Not production-qualified: hindsight-dependent and undefined at most positions.
+     (owner decision §2 and §6). Both effects remain owner-approved and gated.
+   - Not production-qualified (A4): unstable in the bar, undefined at four positions, and its evaluation here is
+     circular.
 2. **Latent scarcity wiring.** Either record "scarcity multiplier intentionally inert" in the displacement and
-   gameplan owners, or wire LI-5 free agents into `get_league_bundle`.
+   gameplan owners, or let LI-5's free-agent tier feed it.
    - The second is a served change and needs an owner decision.
-   - Do not activate it silently, and not in the same PR as recommendation 1.
-3. **DB league-scoring mismatch: evidence first.**
-   - Re-run this script after week 17 and on the 2027 pre-season board. The DB alignment result must hold on
-     out-of-sample 2026 production; today its CI spans 0.
+   - It is coupled to recommendation 1 (above): it must not switch on silently as a side effect of the anchor
+     consolidation.
+3. **DB league-scoring hypothesis: evidence first.**
+   - Re-run this script after week 17 and on the 2027 pre-season board. A confirmatory test must be
+     out-of-sample, pre-registered (cells named in advance), multiplicity-corrected, and must beat the
+     rational-discounting explanation: for example, a DB ordering re-weighted toward this card must predict this
+     card's *future* production better than the canonical ordering and better than the tackle-heavier ordering.
+     Today the reverse point estimate holds (§7.1 stability control).
    - Any remedy is a separately named, league-scored lens (BDVM is the existing concept) shown beside the
      canonical value. It is not a mutation of `rankDerivedValue`.
    - It would need the full methodology sequence (fit → backtest → validate → compare → human approval). The
@@ -486,11 +617,13 @@ drop is the roster's own cheapest legal cut.
 **What must NOT be done:**
 - no automatic lowering of IDP values;
 - no change to source weights, votes, families, curves or Hill constants to "fix" IDP correlation:
-  - no source beats the consensus;
+  - pre-season, no source beats the consensus, and the in-season idpTradeCalc edge is a hindsight-era point
+    estimate;
   - league-scored alternatives do not predict better;
-- no page-local or consumer-local anchor: one owner;
-- no production-qualified (hindsight) anchor;
-- no stacking of the anchor change on top of investigation A's release-charge changes in one activation;
+- no new replacement-level implementation: one owner (LI-5), consumed, never re-derived per consumer or page;
+- no production-qualified (A4) anchor;
+- no stacking of the anchor change on top of investigation A's release-charge changes in one activation, and no
+  silent activation of the scarcity multiplier through it;
 - no reading of an injured player's absence from the anchor as "zero value": he keeps his canonical value as an
   asset;
 - no use of the league-aware overlay or BDVM numbers under a canonical field name.
@@ -498,14 +631,20 @@ drop is the roster's own cheapest legal cut.
 ## 10. Limits and UNRESOLVED
 
 **Limits:**
-- **2026 has only six weeks** (at least 3 games for ppg). Production lines and wire depth use hindsight.
+- **2026 has only six weeks** (at least 3 games for ppg). Production lines and wire depth use season-to-date
+  data.
 - **2025 is "this card applied to 2025 stat lines",** not what the league scored then: it was a 10-team format
   with `bonus_rec_te` 0.35.
+- **The pre-season board was built after the 2025 season,** so any pre-season → 2025 comparison is in-sample.
 - **Today's board already knows the season.** The served pre-season board is the no-hindsight comparison.
 - **Anchors, injury statuses and rosters are a 2026-10-20 snapshot.** Statuses change weekly; banding damps this
-  but does not remove it.
-- **The tackle-heavy reference card is illustrative.** The DB conclusion rests on the alignment *direction* and on
-  the tackle-share residual, not on that card's exact weights.
+  but does not remove it. The JSON was regenerated against the same roster snapshot
+  (`--roster-max-age-s`); every pre-existing number reproduced exactly.
+- **The two health rules agree today only because the feed is complete;** the strict rule matters when it is not.
+- **The tackle-heavy reference card is illustrative.** The DB hypothesis rests on the alignment *direction* and
+  on the tackle-share residual, not on that card's exact weights.
+- **Bootstrap p-values use 1,000 resamples** (resolution about 0.001), and only the 12-cell alignment family is
+  multiplicity-corrected; the per-source cells are reported uncorrected.
 - **BDVM was run without the play-by-play supplement.** That affects offense reception bands, not IDP.
 - **The capacity shadow uses one neutral trade shape per roster;** other shapes stress other rungs.
 - **Bootstrap CIs resample players** and ignore within-team clustering.
@@ -513,7 +652,9 @@ drop is the roster's own cheapest legal cut.
   served charge.
 
 **UNRESOLVED:**
-- owner decision on recommendation 1, after investigation A lands;
+- owner decision on recommendation 1 (consolidation into LI-5 with a health filter), after investigation A
+  lands, and on how its coupling with recommendation 2 is sequenced;
 - owner decision on recommendation 2;
-- the DB alignment needs a confirmatory re-run at season end and on the 2027 pre-season board;
-- this document has had no independent review yet.
+- the DB hypothesis needs the confirmatory, pre-registered re-run at season end and on the 2027 pre-season board;
+- the independent review (ACCEPT WITH FIXES) findings are applied here; the fixes themselves have not been
+  re-reviewed.

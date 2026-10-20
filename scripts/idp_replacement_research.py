@@ -101,6 +101,8 @@ MIN_GAMES_PRIOR = 8  # 2025 full-season ppg
 BOOT = 1000
 SEED = 20261020
 TOP_N = 10
+#: the card-alignment family: 3 board/production pairings x 4 groups (IDP, DL, LB, DB)
+ALIGN_FAMILY_M = 12
 BANDS = (("lt2000", 0, 2000), ("2000to3999", 2000, 4000), ("4000plus", 4000, 1e9))
 
 #: Sleeper raw stat keys that score as TACKLES; every other ``idp_*`` key on the
@@ -190,8 +192,21 @@ def diff_ci(a: tuple, b: tuple, *, boot: int = BOOT, seed: int = SEED) -> dict |
     return {"diff": round(_rho(ax, ay) - _rho(bx, by), 3), "ci95": [round(lo, 3), round(hi, 3)]}
 
 
-def paired_diff_ci(x, y1, y2, *, boot: int = BOOT, seed: int = SEED) -> dict | None:
-    """rho(x, y1) - rho(x, y2) on the SAME players, paired bootstrap 95% CI."""
+def _boot_p(d: list[float]) -> float:
+    """Two-sided percentile-bootstrap p-value for H0: difference = 0."""
+    arr = np.asarray(d, float)
+    tail = min(int((arr <= 0).sum()), int((arr >= 0).sum()))
+    return round(min(1.0, (2 * tail + 1) / (len(arr) + 1)), 4)
+
+
+def paired_diff_ci(
+    x, y1, y2, *, boot: int = BOOT, seed: int = SEED, family_m: int | None = None
+) -> dict | None:
+    """rho(x, y1) - rho(x, y2) on the SAME players, paired bootstrap 95% CI.
+
+    Also returns a two-sided bootstrap p-value; with ``family_m`` the
+    Bonferroni-adjusted interval (level 1 - 0.05 / m) for a family of m tests.
+    """
     if len(x) < 12:
         return None
     x, y1, y2 = (np.asarray(v, float) for v in (x, y1, y2))
@@ -203,11 +218,49 @@ def paired_diff_ci(x, y1, y2, *, boot: int = BOOT, seed: int = SEED) -> dict | N
         if v == v:
             d.append(v)
     lo, hi = np.percentile(d, [2.5, 97.5])
-    return {
+    out = {
         "n": len(x),
         "diff": round(_rho(x, y1) - _rho(x, y2), 3),
         "ci95": [round(lo, 3), round(hi, 3)],
+        "pBoot": _boot_p(d),
     }
+    if family_m:
+        a = 100 * 0.05 / family_m / 2
+        blo, bhi = np.percentile(d, [a, 100 - a])
+        out[f"ciBonferroni_m{family_m}"] = [round(float(blo), 3), round(float(bhi), 3)]
+    return out
+
+
+def paired_rho_diff_ci(x1, y1, x2, y2, *, boot: int = BOOT, seed: int = SEED) -> dict | None:
+    """rho(x1, y1) - rho(x2, y2) on the SAME players (paired bootstrap 95% CI)."""
+    if len(x1) < 12:
+        return None
+    x1, y1, x2, y2 = (np.asarray(v, float) for v in (x1, y1, x2, y2))
+    rng = np.random.default_rng(seed + 13)
+    d = []
+    for _ in range(boot):
+        i = rng.integers(0, len(x1), len(x1))
+        v = _rho(x1[i], y1[i]) - _rho(x2[i], y2[i])
+        if v == v:
+            d.append(v)
+    lo, hi = np.percentile(d, [2.5, 97.5])
+    return {
+        "n": len(x1),
+        "diff": round(_rho(x1, y1) - _rho(x2, y2), 3),
+        "ci95": [round(float(lo), 3), round(float(hi), 3)],
+        "pBoot": _boot_p(d),
+    }
+
+
+def holm(pvals: dict[str, float]) -> dict[str, float]:
+    """Holm step-down adjusted p-values (family-wise error control)."""
+    order = sorted(pvals, key=lambda k: pvals[k])
+    m = len(order)
+    out, running = {}, 0.0
+    for i, k in enumerate(order):
+        running = max(running, min(1.0, (m - i) * pvals[k]))
+        out[k] = round(running, 4)
+    return out
 
 
 def spearman_brown(r: float | None) -> float | None:
@@ -217,6 +270,23 @@ def spearman_brown(r: float | None) -> float | None:
 
 
 # ── source locations (traced at run time so the citations cannot drift) ─────
+
+
+def is_healthy_strict(meta: dict) -> bool:
+    """The RECOMMENDED health rule (doc §9, recommendation 1): an NFL team, an
+    EXPLICIT ``status == "Active"``, and no unavailable injury designation.
+
+    Differs from the shadow rule ``IA.is_healthy`` (prior lane) only in that a
+    missing or unrecognised ``status`` is UNKNOWN and therefore excluded, never
+    healthy.  Sleeper publishes no ``injury_status`` for an undesignated active
+    player, so an absent injury designation on an explicitly Active player is
+    not a missing status.
+    """
+    return (
+        bool(meta.get("team"))
+        and meta.get("status") == "Active"
+        and meta.get("injury_status") not in IA.UNAVAILABLE_INJURY
+    )
 
 
 def locate(path: str, pattern: str) -> str:
@@ -279,6 +349,13 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
     ap.add_argument("--weeks", type=int, default=None, help="2026 weeks 1..N (default: scored)")
     ap.add_argument("--cache-dir", type=Path, default=Path("/tmp/idp_replacement_cache"))
     ap.add_argument("--no-bdvm", action="store_true", help="skip the in-memory BDVM run")
+    ap.add_argument(
+        "--roster-max-age-s",
+        type=float,
+        default=0,
+        help="reuse cached live rosters younger than this (default 0: always refetch); "
+        "set it to reproduce a run against the same roster snapshot",
+    )
     args = ap.parse_args()
     t0 = time.time()
 
@@ -332,7 +409,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
     weeks_n = args.weeks or int(settings.get("last_scored_leg") or 6)
     weeks = list(range(1, weeks_n + 1))
     pdb = fetch.get(f"{SLEEPER}/players/nfl", max_age_s=7 * 86400)
-    rosters = fetch.get(f"{SLEEPER}/league/{league_id}/rosters", max_age_s=0)
+    rosters = fetch.get(f"{SLEEPER}/league/{league_id}/rosters", max_age_s=args.roster_max_age_s)
     matchups = {w: fetch.get(f"{SLEEPER}/league/{league_id}/matchups/{w}") for w in weeks}
     stats = {
         SEASON: {w: fetch.get(f"{SLEEPER}/stats/nfl/regular/{SEASON}/{w}") for w in weeks},
@@ -353,6 +430,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
         return pdb.get(sid) or {}
 
     healthy = {sid: IA.is_healthy(meta(sid)) for sid in set(board) | live_ids}
+    healthy_strict = {sid: is_healthy_strict(meta(sid)) for sid in set(board) | live_ids}
 
     # ── league-scored production under both cards, 2026 YTD and 2025 ──────
     pts: dict[tuple[int, str], dict[str, dict[int, float]]] = defaultdict(lambda: defaultdict(dict))
@@ -456,6 +534,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
                 "name": b["name"],
                 "value": b["value"],
                 "healthy": healthy.get(sid, False),
+                "healthyStrict": healthy_strict.get(sid, False),
                 "games": games(SEASON, sid),
                 "ppg": ppg(SEASON, sid),
                 "rookie": meta(sid).get("years_exp") == 0,
@@ -466,8 +545,8 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
     for lst in fa_pool.values():
         lst.sort(key=lambda d: -d["value"])
 
-    def producing(d: dict, pos: str) -> bool:
-        line = prod_floor.get(pos)
+    def producing(d: dict, pos: str, bar: dict | None = None) -> bool:
+        line = (bar if bar is not None else prod_floor).get(pos)
         return bool(d["healthy"] and d["ppg"] is not None and line is not None and d["ppg"] >= line)
 
     rostered_by_pos: dict[str, list[str]] = defaultdict(list)
@@ -485,9 +564,12 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
     for pos in POSITIONS:
         pool = fa_pool.get(pos) or []
         hp = [d for d in pool if d["healthy"]]
+        hps = [d for d in pool if d["healthyStrict"]]
         prodq = [d for d in pool if producing(d, pos)]
+        prodq25 = [d for d in pool if producing(d, pos, prod_line)]
         top3 = pool[:3]
         top3h = hp[:3]
+        top3hs = hps[:3]
         # production-equivalent (diagnostic): the board's median value for
         # rostered players producing at the wire's 3rd-best healthy rate
         wire_ppgs = sorted((d["ppg"] for d in hp if d["ppg"] is not None), reverse=True)
@@ -502,12 +584,17 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
             "A0_current_served": (served[pos]["waiverBestUnrostered_PRIMARY"], None),
             "A0_current_liveRosters": (pick(pool)["value"] if pool else None, pick(pool)),
             "A1_bestHealthy": (pick(hp)["value"] if hp else None, pick(hp)),
+            "A1s_bestHealthy_strictRule": (pick(hps)["value"] if hps else None, pick(hps)),
             "A2_3rdBestHealthy": (pick(hp, 3)["value"] if len(hp) >= 3 else None, pick(hp, 3)),
             "A2b_6thBestHealthy": (pick(hp, 6)["value"] if len(hp) >= 6 else None, pick(hp, 6)),
             "A3_li5BandedTop3_all": (statistics.fmean(d["value"] for d in top3) if top3 else None, None),
             "A3h_li5BandedTop3_healthy": (
                 statistics.fmean(d["value"] for d in top3h) if top3h else None, None),
+            "A3hs_li5BandedTop3_healthyStrictRule": (
+                statistics.fmean(d["value"] for d in top3hs) if top3hs else None, None),
             "A4_bestProductionQualified": (pick(prodq)["value"] if prodq else None, pick(prodq)),
+            "A4b_bestProductionQualified_P25bar": (
+                pick(prodq25)["value"] if prodq25 else None, pick(prodq25)),
             "A5_li5_bestBallStarter_rosters": (served[pos]["li5_bestBallStarter"], None),
             "A5b_li5_starterMedianMarginal_rosters": (served[pos]["li5_starterMedianMarginal"], None),
             "D_productionEquivalentValue_diagnostic": (
@@ -554,6 +641,20 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
         }
         for pos in POSITIONS
     }
+
+    def _top_ppg_fa(pool: list[dict]) -> dict:
+        """Value rank (among all board-priced unrostered at the position) of the
+        healthy free agent with the HIGHEST season-to-date ppg."""
+        cand = [(d["ppg"], -i) for i, d in enumerate(pool) if d["healthy"] and d["ppg"] is not None]
+        if not cand:
+            return {"valueRankOfTopPpgHealthyFA": None}
+        p, neg_i = max(cand)
+        return {
+            "valueRankOfTopPpgHealthyFA": -neg_i + 1,
+            "topPpgHealthyFA_ppg": _r(p, 2),
+            "unrosteredBoardPricedAtPosition": len(pool),
+        }
+
     q1_census = {}
     for pos in POSITIONS:
         top = (fa_pool.get(pos) or [])[:TOP_N]
@@ -568,6 +669,12 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
             "productionFloorPpg_P10ofProductionStarters": _r(prod_floor.get(pos), 2),
             "valueRankOfBestProducingHealthyFA": next(
                 (i + 1 for i, d in enumerate(fa_pool.get(pos) or []) if producing(d, pos)), None),
+            **_top_ppg_fa(fa_pool.get(pos) or []),
+            "healthyLooseButNotStrict": sum(
+                1 for d in fa_pool.get(pos) or [] if d["healthy"] and not d["healthyStrict"]),
+            "healthyLooseButNotStrict_statuses": dict(Counter(
+                str(meta(d["sid"]).get("status")) for d in fa_pool.get(pos) or []
+                if d["healthy"] and not d["healthyStrict"])),
         }  # fmt: skip
     # spearman(value, ppg) among unrostered (does value order the wire?)
     q1_wire_order = {}
@@ -921,8 +1028,71 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
             align[f"{label}:{g}"] = {
                 "rhoVsLeagueCard": spearman_ci(xs, y1),
                 "rhoVsTackleHeavyRef": spearman_ci(xs, y2),
-                "leagueMinusRef_paired": paired_diff_ci(xs, y1, y2),
+                "leagueMinusRef_paired": paired_diff_ci(xs, y1, y2, family_m=ALIGN_FAMILY_M),
             }
+    pv = {k: v["leagueMinusRef_paired"]["pBoot"] for k, v in align.items()
+          if v["leagueMinusRef_paired"]}  # fmt: skip
+    holm_p = holm(pv)
+    bkey = f"ciBonferroni_m{ALIGN_FAMILY_M}"
+    align_mult = {
+        "familySize": len(align),
+        "method": "two-sided percentile-bootstrap p per cell (1,000 resamples, so p >= 0.001); "
+        f"Holm step-down across the family; Bonferroni interval at level 1 - 0.05/{ALIGN_FAMILY_M}",
+        "nominallySignificant_ci95ExcludesZero": {
+            k: v["leagueMinusRef_paired"]["diff"] for k, v in align.items()
+            if v["leagueMinusRef_paired"] and (v["leagueMinusRef_paired"]["ci95"][0] > 0
+                                                or v["leagueMinusRef_paired"]["ci95"][1] < 0)},
+        "holmAdjustedP": holm_p,
+        "significantAfterHolm_p_lt_0.05": sorted(k for k, p in holm_p.items() if p < 0.05),
+        "bonferroniIntervalExcludesZero": sorted(
+            k for k, v in align.items() if v["leagueMinusRef_paired"]
+            and (v["leagueMinusRef_paired"][bkey][0] > 0 or v["leagueMinusRef_paired"][bkey][1] < 0)),
+        "outOfSampleCells": "today_2026ytd and preseason_2026ytd; preseason_2025 is IN-sample "
+        "(the 2026-08-25 board was built after the 2025 season it is compared with)",
+    }  # fmt: skip
+
+    # per-card year-to-year stability control.  How stable is each card's ordering
+    # of the SAME players from 2025 to 2026?  If this card's (big-play-heavy)
+    # ordering is less stable than the tackle-heavy card's, a board that
+    # rationally discounts noisy big-play stats would show the same signature in
+    # the alignment test and the tackle-share residual with no mis-valuation.
+    def per_game(season: int, sid: str, part: str):
+        c = comp[season].get(sid)
+        g_ = games(season, sid)
+        return (c or {}).get(part, 0.0) / g_ if c is not None and g_ else None
+
+    card_stab = {}
+    for g in ("idp", *IDP):
+        rows_s = []
+        for sid, v in pre_vals.items():
+            if v is None or spos(sid) not in groups[g]:
+                continue
+            l25, l26 = ppg(PRIOR, sid), ppg(SEASON, sid)
+            r25, r26 = ppg(PRIOR, sid, "tackleHeavyRef"), ppg(SEASON, sid, "tackleHeavyRef")
+            parts = [
+                per_game(se, sid, pt) for pt in ("tackle", "bigPlay") for se in (PRIOR, SEASON)
+            ]
+            if None in (l25, l26, r25, r26, *parts):
+                continue
+            rows_s.append((v, l25, l26, r25, r26, *parts))
+        if len(rows_s) < 12:
+            continue
+        v_, l25, l26, r25, r26, t25, t26, b25, b26 = (list(c) for c in zip(*rows_s))
+        card_stab[g] = {
+            "n": len(rows_s),
+            "leagueCard_ppg2025_vs_ppg2026": spearman_ci(l25, l26),
+            "tackleHeavyRef_ppg2025_vs_ppg2026": spearman_ci(r25, r26),
+            "leagueMinusRefStability_paired": paired_rho_diff_ci(l25, l26, r25, r26),
+            "predictLeagueCard2026_from_leagueCard2025": spearman_ci(l25, l26),
+            "predictLeagueCard2026_from_refCard2025": spearman_ci(r25, l26),
+            "refCardMinusLeagueCard2025_asPredictorOfLeague2026_paired": paired_diff_ci(
+                l26, r25, l25),
+            "valuePreseason_vs_leagueCard2026": spearman_ci(v_, l26),
+            "tacklePtsPerGame_2025_vs_2026": spearman_ci(t25, t26),
+            "bigPlayPtsPerGame_2025_vs_2026": spearman_ci(b25, b26),
+            "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026; "
+            "points per game under THIS card split into tackle and big-play components",
+        }  # fmt: skip
     # residual (ppg rank - value rank) against tackle share, 2025, preseason values
     resid = {}
     for pos in IDP:
@@ -986,6 +1156,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
                     res[k] = {
                         "source": spearman_ci(xs, ys),
                         "consensusSameSet": spearman_ci(xc, ys),
+                        "sourceMinusConsensus_paired": paired_diff_ci(ys, xs, xc),
                     }
             out[g] = res
         return out
@@ -1061,7 +1232,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
     )
 
     shadow_names = ("A0_current_served", "A1_bestHealthy", "A2_3rdBestHealthy",
-                    "A3h_li5BandedTop3_healthy",
+                    "A3h_li5BandedTop3_healthy", "A3hs_li5BandedTop3_healthyStrictRule",
                     "A5_li5_bestBallStarter_rosters")  # fmt: skip
     teams = sl.get("teams") or []
     base_ctx0 = build_capacity_context(contract, LEAGUE, teams[0] if teams else None,
@@ -1167,8 +1338,11 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
                      and b["pos"] in POSITIONS), reverse=True)  # fmt: skip
     healthy_fa = sorted((b["value"] for s, b in board.items() if s not in live_ids
                          and b["pos"] in POSITIONS and healthy.get(s)), reverse=True)  # fmt: skip
+    healthy_fa_s = sorted((b["value"] for s, b in board.items() if s not in live_ids
+                           and b["pos"] in POSITIONS and healthy_strict.get(s)), reverse=True)  # fmt: skip
     q7_pd["waiverLadderTop5"] = {"all": [_r(v) for v in all_fa[:5]],
-                                 "healthyOnly": [_r(v) for v in healthy_fa[:5]]}  # fmt: skip
+                                 "healthyOnly": [_r(v) for v in healthy_fa[:5]],
+                                 "healthyOnlyStrictRule": [_r(v) for v in healthy_fa_s[:5]]}  # fmt: skip
 
     # FAAB V_repl: available pool all / healthy / healthy-producing
     excluded = set(faab_engine.FaabConfig().get("anchors", "excludedPositions", []) or [])
@@ -1181,10 +1355,14 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
         "all_unrostered_served": [r["value"] for n, r in rows.items() if r["cls"] != "pick"
                                   and (r["pos"] or "") not in excluded and n not in ctx["rostered"]],
         "healthy_unrostered": [d["value"] for p in POSITIONS for d in fa_pool.get(p) or [] if d["healthy"]],
+        "healthyStrict_unrostered": [d["value"] for p in POSITIONS for d in fa_pool.get(p) or []
+                                     if d["healthyStrict"]],
         "healthy_productionQualified": [d["value"] for p in POSITIONS for d in fa_pool.get(p) or []
                                         if producing(d, p)],
     }  # fmt: skip
     q7_faab = {}
+    faab_w = faab_engine.FaabConfig().num("anchors", "replacementLivePoolWeight", 0.5)
+    faab_w = max(0.0, min(1.0, faab_w))
     for pname, av in pools.items():
         a = faab_engine.resolve_anchors(
             bvals_all,
@@ -1193,6 +1371,12 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
         )
         q7_faab[pname] = {
             "vRepl": _r(a.v_repl),
+            "vReplRawBlendBeforeGuardrail": _r(
+                faab_w * a.live_pool_repl + (1 - faab_w) * a.format_repl
+                if a.live_pool_repl is not None and a.format_repl is not None
+                else None
+            ),
+            "guardrailWidened_vReplCappedAt_vAllinMinusMinBand": a.widened,
             "livePoolRepl_12th": _r(a.live_pool_repl),
             "formatRepl": _r(a.format_repl),
             "vAllin": _r(a.v_allin),
@@ -1250,12 +1434,18 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
         "Q1_anchors": {
             "definitions": {
                 "A0": "served rule: best unrostered rankDerivedValue (snapshot rosters / live)",
-                "A1": "best unrostered that is HEALTHY now (NFL team, active, not Out/IR/PUP/"
-                "Doubtful/Sus)",
+                "A1": "best unrostered that is HEALTHY now under the shadow rule IA.is_healthy "
+                "(NFL team, status not Inactive/IR/PUP, injury status not IR/Out/PUP/Doubtful/Sus/"
+                "NA/DNR/COV; a missing status passes)",
+                "A1s/A3hs": "A1 / A3h under the RECOMMENDED strict rule is_healthy_strict: NFL "
+                "team AND explicit status 'Active' AND no unavailable injury designation; a "
+                "missing or unrecognised status is unknown and excluded",
                 "A2": "k-th best healthy unrostered (k = 3, 6)",
                 "A3": "LI-5 banded waiver tier: mean of the top 3 unrostered (all / healthy)",
                 "A4": "best-valued healthy unrostered whose season-to-date ppg >= P10 of the "
-                "league's production-optimal starters at the position (hindsight)",
+                "league's production-optimal starters at the position (A4b: P25 bar).  It uses "
+                "weeks 1..N, the same data as the 'production starters below' metric, so that "
+                "metric is circular for A4",
                 "A5": "LI-5 roster tiers from shadow_replay (bestBallStarter = mean of the two "
                 "lowest teams' marginal starters; starter = median marginal starter)",
                 "D": "diagnostic: median value of rostered players producing within +-15% of "
@@ -1287,6 +1477,8 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
         "Q5_correlation": q5,
         "Q6_leagueScoringAlignment": {
             "valueVsCard": align,
+            "valueVsCard_multiplicity": align_mult,
+            "perCardYearToYearStability_control": card_stab,
             "residualVsTackleShare_preseason_2025": resid,
             "bdvm": q6_bdvm,
         },

@@ -133,10 +133,11 @@
  "Q1_anchors": {
   "definitions": {
    "A0": "served rule: best unrostered rankDerivedValue (snapshot rosters / live)",
-   "A1": "best unrostered that is HEALTHY now (NFL team, active, not Out/IR/PUP/Doubtful/Sus)",
+   "A1": "best unrostered that is HEALTHY now under the shadow rule IA.is_healthy (NFL team, status not Inactive/IR/PUP, injury status not IR/Out/PUP/Doubtful/Sus/NA/DNR/COV; a missing status passes)",
+   "A1s/A3hs": "A1 / A3h under the RECOMMENDED strict rule is_healthy_strict: NFL team AND explicit status 'Active' AND no unavailable injury designation; a missing or unrecognised status is unknown and excluded",
    "A2": "k-th best healthy unrostered (k = 3, 6)",
    "A3": "LI-5 banded waiver tier: mean of the top 3 unrostered (all / healthy)",
-   "A4": "best-valued healthy unrostered whose season-to-date ppg >= P10 of the league's production-optimal starters at the position (hindsight)",
+   "A4": "best-valued healthy unrostered whose season-to-date ppg >= P10 of the league's production-optimal starters at the position (A4b: P25 bar).  It uses weeks 1..N, the same data as the 'production starters below' metric, so that metric is circular for A4",
    "A5": "LI-5 roster tiers from shadow_replay (bestBallStarter = mean of the two lowest teams' marginal starters; starter = median marginal starter)",
    "D": "diagnostic: median value of rostered players producing within +-15% of the 3rd-best healthy free agent's ppg (the board's price of wire production)"
   },
@@ -169,6 +170,23 @@
      "anchorAboveLowestCanonicalStarter": false
     },
     "A1_bestHealthy": {
+     "value": 1648,
+     "setBy": {
+      "name": "Drew Lock",
+      "value": 1648,
+      "injuryStatus": null,
+      "status": "Active",
+      "rookie": false,
+      "wk1_6Games": 2,
+      "wk1_6Ppg": null
+     },
+     "canonicalStartersValuedBelowAnchor": "0/23",
+     "productionStartersValuedBelowAnchor": "1/21",
+     "rosteredValuedAboveAnchor": "45/60",
+     "rosteredSurplusOverAnchorSum": 126819,
+     "anchorAboveLowestCanonicalStarter": false
+    },
+    "A1s_bestHealthy_strictRule": {
      "value": 1648,
      "setBy": {
       "name": "Drew Lock",
@@ -224,7 +242,20 @@
      "rosteredSurplusOverAnchorSum": 138202,
      "anchorAboveLowestCanonicalStarter": false
     },
+    "A3hs_li5BandedTop3_healthyStrictRule": {
+     "value": 1410,
+     "setBy": null,
+     "canonicalStartersValuedBelowAnchor": "0/23",
+     "productionStartersValuedBelowAnchor": "0/21",
+     "rosteredValuedAboveAnchor": "50/60",
+     "rosteredSurplusOverAnchorSum": 138202,
+     "anchorAboveLowestCanonicalStarter": false
+    },
     "A4_bestProductionQualified": {
+     "value": null,
+     "setBy": null
+    },
+    "A4b_bestProductionQualified_P25bar": {
      "value": null,
      "setBy": null
     },
@@ -295,6 +326,23 @@
      "rosteredSurplusOverAnchorSum": 138512,
      "anchorAboveLowestCanonicalStarter": false
     },
+    "A1s_bestHealthy_strictRule": {
+     "value": 1605,
+     "setBy": {
+      "name": "Riley Nowakowski",
+      "value": 1605,
+      "injuryStatus": null,
+      "status": "Active",
+      "rookie": true,
+      "wk1_6Games": 6,
+      "wk1_6Ppg": 0.22
+     },
+     "canonicalStartersValuedBelowAnchor": "0/35",
+     "productionStartersValuedBelowAnchor": "3/33",
+     "rosteredValuedAboveAnchor": "71/95",
+     "rosteredSurplusOverAnchorSum": 138512,
+     "anchorAboveLowestCanonicalStarter": false
+    },
     "A2_3rdBestHealthy": {
      "value": 1449,
      "setBy": {
@@ -347,7 +395,20 @@
      "rosteredSurplusOverAnchorSum": 146064,
      "anchorAboveLowestCanonicalStarter": false
     },
+    "A3hs_li5BandedTop3_healthyStrictRule": {
+     "value": 1502,
+     "setBy": null,
+     "canonicalStartersValuedBelowAnchor": "0/35",
+     "productionStartersValuedBelowAnchor": "2/33",
+     "rosteredValuedAboveAnchor": "77/95",
+     "rosteredSurplusOverAnchorSum": 146064,
+     "anchorAboveLowestCanonicalStarter": false
+    },
     "A4_bestProductionQualified": {
+     "value": null,
+     "setBy": null
+    },
+    "A4b_bestProductionQualified_P25bar": {
      "value": null,
      "setBy": null
     },
@@ -423,6 +484,23 @@
      "rosteredSurplusOverAnchorSum": 180334,
      "anchorAboveLowestCanonicalStarter": true
     },
+    "A1s_bestHealthy_strictRule": {
+     "value": 1802,
+     "setBy": {
+      "name": "Jerry Jeudy",
+      "value": 1802,
+      "injuryStatus": null,
+      "status": "Active",
+      "rookie": false,
+      "wk1_6Games": 6,
+      "wk1_6Ppg": 5.57
+     },
+     "canonicalStartersValuedBelowAnchor": "2/48",
+     "productionStartersValuedBelowAnchor": "9/52",
+     "rosteredValuedAboveAnchor": "86/144",
+     "rosteredSurplusOverAnchorSum": 180334,
+     "anchorAboveLowestCanonicalStarter": true
+    },
     "A2_3rdBestHealthy": {
      "value": 1432,
      "setBy": {
@@ -475,7 +553,20 @@
      "rosteredSurplusOverAnchorSum": 201551,
      "anchorAboveLowestCanonicalStarter": true
     },
+    "A3hs_li5BandedTop3_healthyStrictRule": {
+     "value": 1583,
+     "setBy": null,
+     "canonicalStartersValuedBelowAnchor": "1/48",
+     "productionStartersValuedBelowAnchor": "4/52",
+     "rosteredValuedAboveAnchor": "107/144",
+     "rosteredSurplusOverAnchorSum": 201551,
+     "anchorAboveLowestCanonicalStarter": true
+    },
     "A4_bestProductionQualified": {
+     "value": null,
+     "setBy": null
+    },
+    "A4b_bestProductionQualified_P25bar": {
      "value": null,
      "setBy": null
     },
@@ -551,6 +642,23 @@
      "rosteredSurplusOverAnchorSum": 79016,
      "anchorAboveLowestCanonicalStarter": true
     },
+    "A1s_bestHealthy_strictRule": {
+     "value": 1855,
+     "setBy": {
+      "name": "Ben Sinnott",
+      "value": 1855,
+      "injuryStatus": null,
+      "status": "Active",
+      "rookie": false,
+      "wk1_6Games": 6,
+      "wk1_6Ppg": 0.42
+     },
+     "canonicalStartersValuedBelowAnchor": "2/27",
+     "productionStartersValuedBelowAnchor": "3/25",
+     "rosteredValuedAboveAnchor": "50/60",
+     "rosteredSurplusOverAnchorSum": 79016,
+     "anchorAboveLowestCanonicalStarter": true
+    },
     "A2_3rdBestHealthy": {
      "value": 1716,
      "setBy": {
@@ -603,6 +711,15 @@
      "rosteredSurplusOverAnchorSum": 83504,
      "anchorAboveLowestCanonicalStarter": true
     },
+    "A3hs_li5BandedTop3_healthyStrictRule": {
+     "value": 1769,
+     "setBy": null,
+     "canonicalStartersValuedBelowAnchor": "1/27",
+     "productionStartersValuedBelowAnchor": "3/25",
+     "rosteredValuedAboveAnchor": "55/60",
+     "rosteredSurplusOverAnchorSum": 83504,
+     "anchorAboveLowestCanonicalStarter": true
+    },
     "A4_bestProductionQualified": {
      "value": 1608,
      "setBy": {
@@ -619,6 +736,10 @@
      "rosteredValuedAboveAnchor": "60/60",
      "rosteredSurplusOverAnchorSum": 92815,
      "anchorAboveLowestCanonicalStarter": false
+    },
+    "A4b_bestProductionQualified_P25bar": {
+     "value": null,
+     "setBy": null
     },
     "A5_li5_bestBallStarter_rosters": {
      "value": 1834,
@@ -692,6 +813,23 @@
      "rosteredSurplusOverAnchorSum": 32087,
      "anchorAboveLowestCanonicalStarter": true
     },
+    "A1s_bestHealthy_strictRule": {
+     "value": 1918,
+     "setBy": {
+      "name": "Derrick Moore",
+      "value": 1918,
+      "injuryStatus": null,
+      "status": "Active",
+      "rookie": true,
+      "wk1_6Games": 5,
+      "wk1_6Ppg": 1.7
+     },
+     "canonicalStartersValuedBelowAnchor": "7/37",
+     "productionStartersValuedBelowAnchor": "18/30",
+     "rosteredValuedAboveAnchor": "36/105",
+     "rosteredSurplusOverAnchorSum": 32087,
+     "anchorAboveLowestCanonicalStarter": true
+    },
     "A2_3rdBestHealthy": {
      "value": 1740,
      "setBy": {
@@ -744,6 +882,15 @@
      "rosteredSurplusOverAnchorSum": 36473,
      "anchorAboveLowestCanonicalStarter": true
     },
+    "A3hs_li5BandedTop3_healthyStrictRule": {
+     "value": 1812,
+     "setBy": null,
+     "canonicalStartersValuedBelowAnchor": "3/37",
+     "productionStartersValuedBelowAnchor": "13/30",
+     "rosteredValuedAboveAnchor": "47/105",
+     "rosteredSurplusOverAnchorSum": 36473,
+     "anchorAboveLowestCanonicalStarter": true
+    },
     "A4_bestProductionQualified": {
      "value": 1409,
      "setBy": {
@@ -760,6 +907,10 @@
      "rosteredValuedAboveAnchor": "81/105",
      "rosteredSurplusOverAnchorSum": 62149,
      "anchorAboveLowestCanonicalStarter": false
+    },
+    "A4b_bestProductionQualified_P25bar": {
+     "value": null,
+     "setBy": null
     },
     "A5_li5_bestBallStarter_rosters": {
      "value": 1668,
@@ -833,6 +984,23 @@
      "rosteredSurplusOverAnchorSum": 45860,
      "anchorAboveLowestCanonicalStarter": true
     },
+    "A1s_bestHealthy_strictRule": {
+     "value": 2149,
+     "setBy": {
+      "name": "Kaleb Elarms-Orr",
+      "value": 2149,
+      "injuryStatus": null,
+      "status": "Active",
+      "rookie": true,
+      "wk1_6Games": 6,
+      "wk1_6Ppg": 2.79
+     },
+     "canonicalStartersValuedBelowAnchor": "6/35",
+     "productionStartersValuedBelowAnchor": "12/39",
+     "rosteredValuedAboveAnchor": "37/77",
+     "rosteredSurplusOverAnchorSum": 45860,
+     "anchorAboveLowestCanonicalStarter": true
+    },
     "A2_3rdBestHealthy": {
      "value": 1793,
      "setBy": {
@@ -885,7 +1053,20 @@
      "rosteredSurplusOverAnchorSum": 53703,
      "anchorAboveLowestCanonicalStarter": true
     },
+    "A3hs_li5BandedTop3_healthyStrictRule": {
+     "value": 1946,
+     "setBy": null,
+     "canonicalStartersValuedBelowAnchor": "3/35",
+     "productionStartersValuedBelowAnchor": "9/39",
+     "rosteredValuedAboveAnchor": "41/77",
+     "rosteredSurplusOverAnchorSum": 53703,
+     "anchorAboveLowestCanonicalStarter": true
+    },
     "A4_bestProductionQualified": {
+     "value": null,
+     "setBy": null
+    },
+    "A4b_bestProductionQualified_P25bar": {
      "value": null,
      "setBy": null
     },
@@ -961,6 +1142,23 @@
      "rosteredSurplusOverAnchorSum": 11248,
      "anchorAboveLowestCanonicalStarter": true
     },
+    "A1s_bestHealthy_strictRule": {
+     "value": 1917,
+     "setBy": {
+      "name": "Keionte Scott",
+      "value": 1917,
+      "injuryStatus": null,
+      "status": "Active",
+      "rookie": true,
+      "wk1_6Games": 6,
+      "wk1_6Ppg": 10.69
+     },
+     "canonicalStartersValuedBelowAnchor": "19/35",
+     "productionStartersValuedBelowAnchor": "28/34",
+     "rosteredValuedAboveAnchor": "17/100",
+     "rosteredSurplusOverAnchorSum": 11248,
+     "anchorAboveLowestCanonicalStarter": true
+    },
     "A2_3rdBestHealthy": {
      "value": 1436,
      "setBy": {
@@ -1013,6 +1211,15 @@
      "rosteredSurplusOverAnchorSum": 14950,
      "anchorAboveLowestCanonicalStarter": true
     },
+    "A3hs_li5BandedTop3_healthyStrictRule": {
+     "value": 1754,
+     "setBy": null,
+     "canonicalStartersValuedBelowAnchor": "12/35",
+     "productionStartersValuedBelowAnchor": "22/34",
+     "rosteredValuedAboveAnchor": "28/100",
+     "rosteredSurplusOverAnchorSum": 14950,
+     "anchorAboveLowestCanonicalStarter": true
+    },
     "A4_bestProductionQualified": {
      "value": 1917,
      "setBy": {
@@ -1029,6 +1236,23 @@
      "rosteredValuedAboveAnchor": "17/100",
      "rosteredSurplusOverAnchorSum": 11248,
      "anchorAboveLowestCanonicalStarter": true
+    },
+    "A4b_bestProductionQualified_P25bar": {
+     "value": 229,
+     "setBy": {
+      "name": "Christian Izien",
+      "value": 229,
+      "injuryStatus": null,
+      "status": "Active",
+      "rookie": false,
+      "wk1_6Games": 4,
+      "wk1_6Ppg": 13.71
+     },
+     "canonicalStartersValuedBelowAnchor": "0/35",
+     "productionStartersValuedBelowAnchor": "0/34",
+     "rosteredValuedAboveAnchor": "100/100",
+     "rosteredSurplusOverAnchorSum": 132070,
+     "anchorAboveLowestCanonicalStarter": false
     },
     "A5_li5_bestBallStarter_rosters": {
      "value": 1384,
@@ -1069,7 +1293,10 @@
     "healthyAndProductionQualified": 0,
     "medianPpgWhenPlayed": 10.45,
     "productionFloorPpg_P10ofProductionStarters": 12.24,
-    "valueRankOfBestProducingHealthyFA": null
+    "valueRankOfBestProducingHealthyFA": null,
+    "valueRankOfTopPpgHealthyFA": null,
+    "healthyLooseButNotStrict": 0,
+    "healthyLooseButNotStrict_statuses": {}
    },
    "RB": {
     "top10UnrosteredByValue": 10,
@@ -1080,7 +1307,12 @@
     "healthyAndProductionQualified": 0,
     "medianPpgWhenPlayed": 1.04,
     "productionFloorPpg_P10ofProductionStarters": 6.95,
-    "valueRankOfBestProducingHealthyFA": null
+    "valueRankOfBestProducingHealthyFA": null,
+    "valueRankOfTopPpgHealthyFA": 21,
+    "topPpgHealthyFA_ppg": 5.38,
+    "unrosteredBoardPricedAtPosition": 37,
+    "healthyLooseButNotStrict": 0,
+    "healthyLooseButNotStrict_statuses": {}
    },
    "WR": {
     "top10UnrosteredByValue": 10,
@@ -1091,7 +1323,12 @@
     "healthyAndProductionQualified": 0,
     "medianPpgWhenPlayed": 3.87,
     "productionFloorPpg_P10ofProductionStarters": 9.05,
-    "valueRankOfBestProducingHealthyFA": null
+    "valueRankOfBestProducingHealthyFA": null,
+    "valueRankOfTopPpgHealthyFA": 9,
+    "topPpgHealthyFA_ppg": 8.01,
+    "unrosteredBoardPricedAtPosition": 54,
+    "healthyLooseButNotStrict": 0,
+    "healthyLooseButNotStrict_statuses": {}
    },
    "TE": {
     "top10UnrosteredByValue": 10,
@@ -1102,7 +1339,12 @@
     "healthyAndProductionQualified": 0,
     "medianPpgWhenPlayed": 1.0,
     "productionFloorPpg_P10ofProductionStarters": 3.61,
-    "valueRankOfBestProducingHealthyFA": 12
+    "valueRankOfBestProducingHealthyFA": 12,
+    "valueRankOfTopPpgHealthyFA": 21,
+    "topPpgHealthyFA_ppg": 6.38,
+    "unrosteredBoardPricedAtPosition": 24,
+    "healthyLooseButNotStrict": 0,
+    "healthyLooseButNotStrict_statuses": {}
    },
    "DL": {
     "top10UnrosteredByValue": 10,
@@ -1113,7 +1355,12 @@
     "healthyAndProductionQualified": 0,
     "medianPpgWhenPlayed": 6.3,
     "productionFloorPpg_P10ofProductionStarters": 8.33,
-    "valueRankOfBestProducingHealthyFA": 16
+    "valueRankOfBestProducingHealthyFA": 16,
+    "valueRankOfTopPpgHealthyFA": 40,
+    "topPpgHealthyFA_ppg": 10.16,
+    "unrosteredBoardPricedAtPosition": 45,
+    "healthyLooseButNotStrict": 0,
+    "healthyLooseButNotStrict_statuses": {}
    },
    "LB": {
     "top10UnrosteredByValue": 10,
@@ -1124,7 +1371,12 @@
     "healthyAndProductionQualified": 0,
     "medianPpgWhenPlayed": 1.4,
     "productionFloorPpg_P10ofProductionStarters": 11.37,
-    "valueRankOfBestProducingHealthyFA": null
+    "valueRankOfBestProducingHealthyFA": null,
+    "valueRankOfTopPpgHealthyFA": 14,
+    "topPpgHealthyFA_ppg": 10.9,
+    "unrosteredBoardPricedAtPosition": 33,
+    "healthyLooseButNotStrict": 0,
+    "healthyLooseButNotStrict_statuses": {}
    },
    "DB": {
     "top10UnrosteredByValue": 10,
@@ -1135,7 +1387,12 @@
     "healthyAndProductionQualified": 1,
     "medianPpgWhenPlayed": 8.53,
     "productionFloorPpg_P10ofProductionStarters": 10.34,
-    "valueRankOfBestProducingHealthyFA": 2
+    "valueRankOfBestProducingHealthyFA": 2,
+    "valueRankOfTopPpgHealthyFA": 34,
+    "topPpgHealthyFA_ppg": 13.71,
+    "unrosteredBoardPricedAtPosition": 37,
+    "healthyLooseButNotStrict": 0,
+    "healthyLooseButNotStrict_statuses": {}
    }
   },
   "spearmanValueVsPpgAmongUnrostered": {
@@ -4630,7 +4887,8 @@
      "ci95": [
       -0.006,
       0.126
-     ]
+     ],
+     "pBoot": 0.0709
     },
     "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026"
    },
@@ -4657,7 +4915,8 @@
      "ci95": [
       -0.086,
       0.111
-     ]
+     ],
+     "pBoot": 0.8641
     },
     "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026"
    },
@@ -4684,7 +4943,8 @@
      "ci95": [
       -0.369,
       0.302
-     ]
+     ],
+     "pBoot": 0.8941
     },
     "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026"
    },
@@ -4711,7 +4971,8 @@
      "ci95": [
       -0.131,
       0.071
-     ]
+     ],
+     "pBoot": 0.6703
     },
     "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026"
    },
@@ -4738,7 +4999,8 @@
      "ci95": [
       -0.14,
       0.053
-     ]
+     ],
+     "pBoot": 0.3866
     },
     "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026"
    },
@@ -4765,7 +5027,8 @@
      "ci95": [
       -0.081,
       0.267
-     ]
+     ],
+     "pBoot": 0.2747
     },
     "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026"
    },
@@ -4792,7 +5055,8 @@
      "ci95": [
       -0.171,
       0.111
-     ]
+     ],
+     "pBoot": 0.7023
     },
     "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026"
    },
@@ -4819,7 +5083,8 @@
      "ci95": [
       -0.22,
       0.103
-     ]
+     ],
+     "pBoot": 0.5085
     },
     "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026"
    },
@@ -4846,7 +5111,8 @@
      "ci95": [
       -0.208,
       0.172
-     ]
+     ],
+     "pBoot": 0.8322
     },
     "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026"
    }
@@ -4869,6 +5135,15 @@
        0.72,
        0.813
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 334,
+      "diff": 0.023,
+      "ci95": [
+       0.007,
+       0.038
+      ],
+      "pBoot": 0.003
      }
     },
     "ktcTradesSfTep": {
@@ -4887,6 +5162,15 @@
        0.72,
        0.813
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 334,
+      "diff": -0.006,
+      "ci95": [
+       -0.02,
+       0.007
+      ],
+      "pBoot": 0.3626
      }
     },
     "otcffbSf": {
@@ -4905,6 +5189,15 @@
        0.726,
        0.813
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 334,
+      "diff": 0.034,
+      "ci95": [
+       0.01,
+       0.058
+      ],
+      "pBoot": 0.003
      }
     },
     "pfkDynasty": {
@@ -4923,6 +5216,15 @@
        0.727,
        0.812
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 326,
+      "diff": 0.043,
+      "ci95": [
+       0.02,
+       0.067
+      ],
+      "pBoot": 0.001
      }
     },
     "fantasyNavigatorSf": {
@@ -4941,6 +5243,15 @@
        0.716,
        0.81
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 323,
+      "diff": -0.029,
+      "ci95": [
+       -0.061,
+       -0.001
+      ],
+      "pBoot": 0.043
      }
     },
     "idpTradeCalc": {
@@ -4959,6 +5270,15 @@
        0.725,
        0.815
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 320,
+      "diff": -0.035,
+      "ci95": [
+       -0.058,
+       -0.013
+      ],
+      "pBoot": 0.001
      }
     },
     "fantasyProsSf": {
@@ -4977,6 +5297,15 @@
        0.713,
        0.805
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 313,
+      "diff": -0.009,
+      "ci95": [
+       -0.031,
+       0.012
+      ],
+      "pBoot": 0.4206
      }
     },
     "flockFantasySf": {
@@ -4995,6 +5324,15 @@
        0.728,
        0.821
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 294,
+      "diff": -0.034,
+      "ci95": [
+       -0.058,
+       -0.012
+      ],
+      "pBoot": 0.003
      }
     },
     "fantasyCalc": {
@@ -5013,6 +5351,15 @@
        0.682,
        0.788
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 302,
+      "diff": 0.085,
+      "ci95": [
+       0.061,
+       0.114
+      ],
+      "pBoot": 0.001
      }
     },
     "dynastyDaddySf": {
@@ -5031,6 +5378,15 @@
        0.687,
        0.792
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 295,
+      "diff": 0.064,
+      "ci95": [
+       0.038,
+       0.093
+      ],
+      "pBoot": 0.001
      }
     },
     "draftSharks": {
@@ -5049,6 +5405,15 @@
        0.724,
        0.818
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 298,
+      "diff": -0.115,
+      "ci95": [
+       -0.161,
+       -0.073
+      ],
+      "pBoot": 0.001
      }
     },
     "idpShowCombined": {
@@ -5067,6 +5432,15 @@
        0.713,
        0.817
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 267,
+      "diff": -0.072,
+      "ci95": [
+       -0.101,
+       -0.043
+      ],
+      "pBoot": 0.001
      }
     },
     "yahooBoone": {
@@ -5085,6 +5459,15 @@
        0.687,
        0.796
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 278,
+      "diff": 0.006,
+      "ci95": [
+       -0.017,
+       0.027
+      ],
+      "pBoot": 0.6064
      }
     },
     "fantasyProsFitzmaurice": {
@@ -5103,6 +5486,15 @@
        0.669,
        0.798
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 246,
+      "diff": -0.02,
+      "ci95": [
+       -0.045,
+       0.004
+      ],
+      "pBoot": 0.0969
      }
     },
     "dlfSf": {
@@ -5121,6 +5513,15 @@
        0.647,
        0.789
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 229,
+      "diff": -0.04,
+      "ci95": [
+       -0.074,
+       -0.006
+      ],
+      "pBoot": 0.031
      }
     },
     "dynastyNerdsSfTep": {
@@ -5139,6 +5540,15 @@
        0.68,
        0.806
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 232,
+      "diff": -0.054,
+      "ci95": [
+       -0.075,
+       -0.033
+      ],
+      "pBoot": 0.001
      }
     },
     "dlfRookieSf": {
@@ -5157,6 +5567,15 @@
        0.379,
        0.78
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 36,
+      "diff": 0.017,
+      "ci95": [
+       -0.09,
+       0.123
+      ],
+      "pBoot": 0.7423
      }
     }
    },
@@ -5177,6 +5596,15 @@
        0.374,
        0.56
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 334,
+      "diff": 0.027,
+      "ci95": [
+       -0.016,
+       0.071
+      ],
+      "pBoot": 0.2488
      }
     },
     "draftSharksIdp": {
@@ -5195,6 +5623,15 @@
        0.331,
        0.538
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 289,
+      "diff": -0.084,
+      "ci95": [
+       -0.149,
+       -0.022
+      ],
+      "pBoot": 0.003
      }
     },
     "idpShowCombined": {
@@ -5213,6 +5650,15 @@
        0.373,
        0.568
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 270,
+      "diff": -0.059,
+      "ci95": [
+       -0.117,
+       -0.001
+      ],
+      "pBoot": 0.049
      }
     },
     "fantasyProsIdp": {
@@ -5231,6 +5677,15 @@
        0.298,
        0.523
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 228,
+      "diff": -0.035,
+      "ci95": [
+       -0.139,
+       0.066
+      ],
+      "pBoot": 0.4605
      }
     }
    },
@@ -5251,6 +5706,15 @@
        0.391,
        0.807
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": 0.064,
+      "ci95": [
+       -0.016,
+       0.154
+      ],
+      "pBoot": 0.1309
      }
     },
     "ktcTradesSfTep": {
@@ -5269,6 +5733,15 @@
        0.391,
        0.807
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": 0.065,
+      "ci95": [
+       0.01,
+       0.148
+      ],
+      "pBoot": 0.007
      }
     },
     "fantasyNavigatorSf": {
@@ -5287,6 +5760,15 @@
        0.415,
        0.794
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 36,
+      "diff": -0.039,
+      "ci95": [
+       -0.106,
+       0.017
+      ],
+      "pBoot": 0.1928
      }
     },
     "pfkDynasty": {
@@ -5305,6 +5787,15 @@
        0.391,
        0.807
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": 0.063,
+      "ci95": [
+       -0.004,
+       0.147
+      ],
+      "pBoot": 0.0709
      }
     },
     "otcffbSf": {
@@ -5323,6 +5814,15 @@
        0.391,
        0.807
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": -0.012,
+      "ci95": [
+       -0.05,
+       0.019
+      ],
+      "pBoot": 0.5405
      }
     },
     "yahooBoone": {
@@ -5341,6 +5841,15 @@
        0.398,
        0.793
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 36,
+      "diff": -0.011,
+      "ci95": [
+       -0.063,
+       0.032
+      ],
+      "pBoot": 0.7223
      }
     },
     "dynastyDaddySf": {
@@ -5359,6 +5868,15 @@
        0.391,
        0.807
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": 0.019,
+      "ci95": [
+       -0.039,
+       0.088
+      ],
+      "pBoot": 0.6124
      }
     },
     "idpTradeCalc": {
@@ -5377,6 +5895,15 @@
        0.398,
        0.793
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 36,
+      "diff": -0.029,
+      "ci95": [
+       -0.095,
+       0.021
+      ],
+      "pBoot": 0.3047
      }
     },
     "fantasyCalc": {
@@ -5395,6 +5922,15 @@
        0.391,
        0.807
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": 0.078,
+      "ci95": [
+       0.009,
+       0.172
+      ],
+      "pBoot": 0.007
      }
     },
     "fantasyProsSf": {
@@ -5413,6 +5949,15 @@
        0.376,
        0.813
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 35,
+      "diff": -0.035,
+      "ci95": [
+       -0.089,
+       0.008
+      ],
+      "pBoot": 0.1249
      }
     },
     "flockFantasySf": {
@@ -5431,6 +5976,15 @@
        0.38,
        0.801
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 34,
+      "diff": 0.017,
+      "ci95": [
+       -0.03,
+       0.075
+      ],
+      "pBoot": 0.5445
      }
     },
     "idpShowCombined": {
@@ -5449,6 +6003,15 @@
        0.352,
        0.792
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 34,
+      "diff": -0.141,
+      "ci95": [
+       -0.273,
+       -0.021
+      ],
+      "pBoot": 0.007
      }
     },
     "fantasyProsFitzmaurice": {
@@ -5467,6 +6030,15 @@
        0.352,
        0.792
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 34,
+      "diff": -0.018,
+      "ci95": [
+       -0.076,
+       0.034
+      ],
+      "pBoot": 0.5345
      }
     },
     "dlfSf": {
@@ -5485,6 +6057,15 @@
        0.336,
        0.768
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 33,
+      "diff": -0.055,
+      "ci95": [
+       -0.143,
+       0.016
+      ],
+      "pBoot": 0.1329
      }
     },
     "dynastyNerdsSfTep": {
@@ -5503,6 +6084,15 @@
        0.295,
        0.754
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 31,
+      "diff": -0.027,
+      "ci95": [
+       -0.104,
+       0.039
+      ],
+      "pBoot": 0.3886
      }
     },
     "draftSharks": {
@@ -5521,6 +6111,15 @@
        0.339,
        0.775
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 33,
+      "diff": -0.034,
+      "ci95": [
+       -0.135,
+       0.059
+      ],
+      "pBoot": 0.4286
      }
     }
    },
@@ -5541,6 +6140,15 @@
        0.726,
        0.866
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 90,
+      "diff": -0.009,
+      "ci95": [
+       -0.027,
+       0.01
+      ],
+      "pBoot": 0.3387
      }
     },
     "ktcCrowdSfTep": {
@@ -5559,6 +6167,15 @@
        0.721,
        0.869
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 89,
+      "diff": 0.022,
+      "ci95": [
+       0.001,
+       0.045
+      ],
+      "pBoot": 0.039
      }
     },
     "ktcTradesSfTep": {
@@ -5577,6 +6194,15 @@
        0.721,
        0.869
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 89,
+      "diff": 0.004,
+      "ci95": [
+       -0.018,
+       0.023
+      ],
+      "pBoot": 0.7283
      }
     },
     "fantasyNavigatorSf": {
@@ -5595,6 +6221,15 @@
        0.713,
        0.87
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 85,
+      "diff": -0.045,
+      "ci95": [
+       -0.098,
+       -0.005
+      ],
+      "pBoot": 0.033
      }
     },
     "pfkDynasty": {
@@ -5613,6 +6248,15 @@
        0.717,
        0.866
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 86,
+      "diff": 0.016,
+      "ci95": [
+       -0.013,
+       0.042
+      ],
+      "pBoot": 0.2408
      }
     },
     "idpTradeCalc": {
@@ -5631,6 +6275,15 @@
        0.697,
        0.865
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 85,
+      "diff": -0.076,
+      "ci95": [
+       -0.124,
+       -0.035
+      ],
+      "pBoot": 0.001
      }
     },
     "flockFantasySf": {
@@ -5649,6 +6302,15 @@
        0.709,
        0.867
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 83,
+      "diff": -0.048,
+      "ci95": [
+       -0.084,
+       -0.021
+      ],
+      "pBoot": 0.001
      }
     },
     "fantasyProsSf": {
@@ -5667,6 +6329,15 @@
        0.707,
        0.859
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 87,
+      "diff": -0.012,
+      "ci95": [
+       -0.047,
+       0.024
+      ],
+      "pBoot": 0.4685
      }
     },
     "fantasyCalc": {
@@ -5685,6 +6356,15 @@
        0.715,
        0.863
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 86,
+      "diff": 0.044,
+      "ci95": [
+       0.016,
+       0.078
+      ],
+      "pBoot": 0.005
      }
     },
     "dynastyDaddySf": {
@@ -5703,6 +6383,15 @@
        0.709,
        0.864
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 84,
+      "diff": 0.02,
+      "ci95": [
+       -0.011,
+       0.056
+      ],
+      "pBoot": 0.2208
      }
     },
     "idpShowCombined": {
@@ -5721,6 +6410,15 @@
        0.705,
        0.867
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 77,
+      "diff": -0.089,
+      "ci95": [
+       -0.144,
+       -0.041
+      ],
+      "pBoot": 0.001
      }
     },
     "draftSharks": {
@@ -5739,6 +6437,15 @@
        0.7,
        0.872
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 80,
+      "diff": -0.051,
+      "ci95": [
+       -0.093,
+       -0.016
+      ],
+      "pBoot": 0.009
      }
     },
     "yahooBoone": {
@@ -5757,6 +6464,15 @@
        0.74,
        0.879
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 81,
+      "diff": -0.007,
+      "ci95": [
+       -0.03,
+       0.013
+      ],
+      "pBoot": 0.5265
      }
     },
     "fantasyProsFitzmaurice": {
@@ -5775,6 +6491,15 @@
        0.691,
        0.87
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 74,
+      "diff": -0.037,
+      "ci95": [
+       -0.076,
+       -0.007
+      ],
+      "pBoot": 0.015
      }
     },
     "dlfSf": {
@@ -5793,6 +6518,15 @@
        0.67,
        0.879
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 68,
+      "diff": -0.052,
+      "ci95": [
+       -0.109,
+       0.0
+      ],
+      "pBoot": 0.0549
      }
     },
     "dynastyNerdsSfTep": {
@@ -5811,6 +6545,15 @@
        0.668,
        0.875
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 68,
+      "diff": -0.076,
+      "ci95": [
+       -0.122,
+       -0.042
+      ],
+      "pBoot": 0.001
      }
     }
    },
@@ -5831,6 +6574,15 @@
        0.726,
        0.856
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 139,
+      "diff": 0.023,
+      "ci95": [
+       0.002,
+       0.046
+      ],
+      "pBoot": 0.029
      }
     },
     "ktcTradesSfTep": {
@@ -5849,6 +6601,15 @@
        0.726,
        0.856
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 139,
+      "diff": -0.027,
+      "ci95": [
+       -0.06,
+       -0.001
+      ],
+      "pBoot": 0.029
      }
     },
     "otcffbSf": {
@@ -5867,6 +6628,15 @@
        0.725,
        0.857
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 139,
+      "diff": 0.008,
+      "ci95": [
+       -0.02,
+       0.03
+      ],
+      "pBoot": 0.5265
      }
     },
     "pfkDynasty": {
@@ -5885,6 +6655,15 @@
        0.736,
        0.864
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 134,
+      "diff": -0.025,
+      "ci95": [
+       -0.07,
+       0.01
+      ],
+      "pBoot": 0.1868
      }
     },
     "fantasyNavigatorSf": {
@@ -5903,6 +6682,15 @@
        0.721,
        0.855
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 135,
+      "diff": -0.065,
+      "ci95": [
+       -0.11,
+       -0.027
+      ],
+      "pBoot": 0.001
      }
     },
     "idpTradeCalc": {
@@ -5921,6 +6709,15 @@
        0.733,
        0.865
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 131,
+      "diff": -0.033,
+      "ci95": [
+       -0.068,
+       -0.004
+      ],
+      "pBoot": 0.029
      }
     },
     "flockFantasySf": {
@@ -5939,6 +6736,15 @@
        0.735,
        0.87
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 120,
+      "diff": -0.073,
+      "ci95": [
+       -0.124,
+       -0.036
+      ],
+      "pBoot": 0.001
      }
     },
     "fantasyProsSf": {
@@ -5957,6 +6763,15 @@
        0.676,
        0.841
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 125,
+      "diff": -0.037,
+      "ci95": [
+       -0.066,
+       -0.012
+      ],
+      "pBoot": 0.003
      }
     },
     "draftSharks": {
@@ -5975,6 +6790,15 @@
        0.723,
        0.866
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 123,
+      "diff": -0.073,
+      "ci95": [
+       -0.124,
+       -0.035
+      ],
+      "pBoot": 0.001
      }
     },
     "fantasyCalc": {
@@ -5993,6 +6817,15 @@
        0.647,
        0.818
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 120,
+      "diff": 0.06,
+      "ci95": [
+       0.031,
+       0.093
+      ],
+      "pBoot": 0.001
      }
     },
     "dynastyDaddySf": {
@@ -6011,6 +6844,15 @@
        0.641,
        0.822
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 119,
+      "diff": 0.025,
+      "ci95": [
+       -0.016,
+       0.071
+      ],
+      "pBoot": 0.2188
      }
     },
     "idpShowCombined": {
@@ -6029,6 +6871,15 @@
        0.706,
        0.859
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 104,
+      "diff": -0.1,
+      "ci95": [
+       -0.158,
+       -0.046
+      ],
+      "pBoot": 0.001
      }
     },
     "yahooBoone": {
@@ -6047,6 +6898,15 @@
        0.605,
        0.823
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 100,
+      "diff": 0.012,
+      "ci95": [
+       -0.02,
+       0.044
+      ],
+      "pBoot": 0.4486
      }
     },
     "fantasyProsFitzmaurice": {
@@ -6065,6 +6925,15 @@
        0.608,
        0.831
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 94,
+      "diff": -0.023,
+      "ci95": [
+       -0.068,
+       0.009
+      ],
+      "pBoot": 0.1728
      }
     },
     "dlfSf": {
@@ -6083,6 +6952,15 @@
        0.638,
        0.834
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 89,
+      "diff": -0.069,
+      "ci95": [
+       -0.124,
+       -0.018
+      ],
+      "pBoot": 0.005
      }
     },
     "dynastyNerdsSfTep": {
@@ -6101,6 +6979,15 @@
        0.671,
        0.858
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 90,
+      "diff": -0.068,
+      "ci95": [
+       -0.109,
+       -0.033
+      ],
+      "pBoot": 0.001
      }
     }
    },
@@ -6121,6 +7008,15 @@
        0.624,
        0.831
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 69,
+      "diff": 0.05,
+      "ci95": [
+       -0.018,
+       0.126
+      ],
+      "pBoot": 0.1469
      }
     },
     "ktcCrowdSfTep": {
@@ -6139,6 +7035,15 @@
        0.632,
        0.832
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 69,
+      "diff": 0.021,
+      "ci95": [
+       -0.009,
+       0.055
+      ],
+      "pBoot": 0.1828
      }
     },
     "ktcTradesSfTep": {
@@ -6157,6 +7062,15 @@
        0.632,
        0.832
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 69,
+      "diff": -0.012,
+      "ci95": [
+       -0.051,
+       0.022
+      ],
+      "pBoot": 0.4665
      }
     },
     "idpTradeCalc": {
@@ -6175,6 +7089,15 @@
        0.636,
        0.85
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 68,
+      "diff": -0.047,
+      "ci95": [
+       -0.104,
+       -0.007
+      ],
+      "pBoot": 0.023
      }
     },
     "otcffbSf": {
@@ -6193,6 +7116,15 @@
        0.63,
        0.834
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 68,
+      "diff": 0.015,
+      "ci95": [
+       -0.012,
+       0.046
+      ],
+      "pBoot": 0.2707
      }
     },
     "fantasyNavigatorSf": {
@@ -6211,6 +7143,15 @@
        0.604,
        0.831
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 67,
+      "diff": -0.062,
+      "ci95": [
+       -0.13,
+       -0.01
+      ],
+      "pBoot": 0.017
      }
     },
     "fantasyProsSf": {
@@ -6229,6 +7170,15 @@
        0.614,
        0.832
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 66,
+      "diff": -0.083,
+      "ci95": [
+       -0.152,
+       -0.028
+      ],
+      "pBoot": 0.001
      }
     },
     "draftSharks": {
@@ -6247,6 +7197,15 @@
        0.666,
        0.852
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 62,
+      "diff": -0.038,
+      "ci95": [
+       -0.105,
+       0.029
+      ],
+      "pBoot": 0.2647
      }
     },
     "fantasyCalc": {
@@ -6265,6 +7224,15 @@
        0.597,
        0.823
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 59,
+      "diff": 0.059,
+      "ci95": [
+       0.015,
+       0.12
+      ],
+      "pBoot": 0.003
      }
     },
     "flockFantasySf": {
@@ -6283,6 +7251,15 @@
        0.641,
        0.851
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 57,
+      "diff": -0.111,
+      "ci95": [
+       -0.196,
+       -0.042
+      ],
+      "pBoot": 0.001
      }
     },
     "yahooBoone": {
@@ -6301,6 +7278,15 @@
        0.609,
        0.831
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 61,
+      "diff": -0.06,
+      "ci95": [
+       -0.137,
+       -0.003
+      ],
+      "pBoot": 0.035
      }
     },
     "dynastyDaddySf": {
@@ -6319,6 +7305,15 @@
        0.646,
        0.87
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 55,
+      "diff": -0.013,
+      "ci95": [
+       -0.103,
+       0.049
+      ],
+      "pBoot": 0.8042
      }
     },
     "idpShowCombined": {
@@ -6337,6 +7332,15 @@
        0.614,
        0.843
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 52,
+      "diff": -0.133,
+      "ci95": [
+       -0.225,
+       -0.06
+      ],
+      "pBoot": 0.001
      }
     },
     "dynastyNerdsSfTep": {
@@ -6355,6 +7359,15 @@
        0.476,
        0.801
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 43,
+      "diff": -0.125,
+      "ci95": [
+       -0.214,
+       -0.045
+      ],
+      "pBoot": 0.001
      }
     },
     "fantasyProsFitzmaurice": {
@@ -6373,6 +7386,15 @@
        0.537,
        0.841
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 44,
+      "diff": -0.048,
+      "ci95": [
+       -0.105,
+       0.006
+      ],
+      "pBoot": 0.0929
      }
     },
     "dlfSf": {
@@ -6391,6 +7413,15 @@
        0.431,
        0.814
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 39,
+      "diff": -0.103,
+      "ci95": [
+       -0.214,
+       -0.009
+      ],
+      "pBoot": 0.029
      }
     }
    },
@@ -6411,6 +7442,15 @@
        0.158,
        0.531
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 108,
+      "diff": 0.004,
+      "ci95": [
+       -0.059,
+       0.066
+      ],
+      "pBoot": 0.954
      }
     },
     "draftSharksIdp": {
@@ -6429,6 +7469,15 @@
        0.2,
        0.587
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 94,
+      "diff": -0.037,
+      "ci95": [
+       -0.137,
+       0.073
+      ],
+      "pBoot": 0.5345
      }
     },
     "idpShowCombined": {
@@ -6447,6 +7496,15 @@
        0.316,
        0.679
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 73,
+      "diff": -0.157,
+      "ci95": [
+       -0.291,
+       -0.05
+      ],
+      "pBoot": 0.003
      }
     },
     "fantasyProsIdp": {
@@ -6465,6 +7523,15 @@
        0.15,
        0.589
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 63,
+      "diff": -0.06,
+      "ci95": [
+       -0.215,
+       0.095
+      ],
+      "pBoot": 0.4905
      }
     }
    },
@@ -6485,6 +7552,15 @@
        0.505,
        0.736
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 117,
+      "diff": 0.071,
+      "ci95": [
+       0.001,
+       0.14
+      ],
+      "pBoot": 0.043
      }
     },
     "idpShowCombined": {
@@ -6503,6 +7579,15 @@
        0.447,
        0.72
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 105,
+      "diff": -0.036,
+      "ci95": [
+       -0.117,
+       0.028
+      ],
+      "pBoot": 0.2547
      }
     },
     "draftSharksIdp": {
@@ -6521,6 +7606,15 @@
        0.444,
        0.711
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 93,
+      "diff": -0.134,
+      "ci95": [
+       -0.234,
+       -0.048
+      ],
+      "pBoot": 0.003
      }
     },
     "fantasyProsIdp": {
@@ -6539,6 +7633,15 @@
        0.356,
        0.655
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 87,
+      "diff": -0.09,
+      "ci95": [
+       -0.241,
+       0.057
+      ],
+      "pBoot": 0.2348
      }
     }
    },
@@ -6559,6 +7662,15 @@
        0.221,
        0.544
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 109,
+      "diff": 0.055,
+      "ci95": [
+       -0.031,
+       0.135
+      ],
+      "pBoot": 0.1828
      }
     },
     "draftSharksIdp": {
@@ -6577,6 +7689,15 @@
        0.181,
        0.54
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 102,
+      "diff": -0.133,
+      "ci95": [
+       -0.279,
+       0.004
+      ],
+      "pBoot": 0.0609
      }
     },
     "idpShowCombined": {
@@ -6595,6 +7716,15 @@
        0.154,
        0.524
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 92,
+      "diff": -0.069,
+      "ci95": [
+       -0.198,
+       0.065
+      ],
+      "pBoot": 0.2967
      }
     },
     "fantasyProsIdp": {
@@ -6613,6 +7743,15 @@
        0.077,
        0.463
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 78,
+      "diff": -0.186,
+      "ci95": [
+       -0.389,
+       0.016
+      ],
+      "pBoot": 0.0729
      }
     }
    }
@@ -6635,6 +7774,15 @@
        0.715,
        0.807
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 320,
+      "diff": 0.037,
+      "ci95": [
+       0.022,
+       0.052
+      ],
+      "pBoot": 0.001
      }
     },
     "ktcTradesSfTep": {
@@ -6653,6 +7801,15 @@
        0.715,
        0.807
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 320,
+      "diff": 0.016,
+      "ci95": [
+       0.004,
+       0.029
+      ],
+      "pBoot": 0.017
      }
     },
     "otcffbSf": {
@@ -6671,6 +7828,15 @@
        0.717,
        0.809
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 320,
+      "diff": 0.05,
+      "ci95": [
+       0.024,
+       0.075
+      ],
+      "pBoot": 0.001
      }
     },
     "pfkDynasty": {
@@ -6689,6 +7855,15 @@
        0.708,
        0.804
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 312,
+      "diff": 0.059,
+      "ci95": [
+       0.037,
+       0.086
+      ],
+      "pBoot": 0.001
      }
     },
     "idpTradeCalc": {
@@ -6707,6 +7882,15 @@
        0.705,
        0.804
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 314,
+      "diff": -0.081,
+      "ci95": [
+       -0.106,
+       -0.057
+      ],
+      "pBoot": 0.001
      }
     },
     "fantasyNavigatorSf": {
@@ -6725,6 +7909,15 @@
        0.709,
        0.804
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 307,
+      "diff": 0.003,
+      "ci95": [
+       -0.023,
+       0.027
+      ],
+      "pBoot": 0.8641
      }
     },
     "fantasyProsSf": {
@@ -6743,6 +7936,15 @@
        0.696,
        0.796
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 305,
+      "diff": 0.011,
+      "ci95": [
+       -0.01,
+       0.033
+      ],
+      "pBoot": 0.3147
      }
     },
     "flockFantasySf": {
@@ -6761,6 +7963,15 @@
        0.7,
        0.807
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 288,
+      "diff": -0.015,
+      "ci95": [
+       -0.041,
+       0.006
+      ],
+      "pBoot": 0.1948
      }
     },
     "fantasyCalc": {
@@ -6779,6 +7990,15 @@
        0.665,
        0.781
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 291,
+      "diff": 0.1,
+      "ci95": [
+       0.071,
+       0.132
+      ],
+      "pBoot": 0.001
      }
     },
     "dynastyDaddySf": {
@@ -6797,6 +8017,15 @@
        0.677,
        0.789
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 286,
+      "diff": 0.075,
+      "ci95": [
+       0.045,
+       0.108
+      ],
+      "pBoot": 0.001
      }
     },
     "draftSharks": {
@@ -6815,6 +8044,15 @@
        0.708,
        0.809
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 294,
+      "diff": -0.094,
+      "ci95": [
+       -0.142,
+       -0.056
+      ],
+      "pBoot": 0.001
      }
     },
     "idpShowCombined": {
@@ -6833,6 +8071,15 @@
        0.688,
        0.804
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 267,
+      "diff": -0.053,
+      "ci95": [
+       -0.081,
+       -0.026
+      ],
+      "pBoot": 0.003
      }
     },
     "yahooBoone": {
@@ -6851,6 +8098,15 @@
        0.668,
        0.787
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 273,
+      "diff": 0.024,
+      "ci95": [
+       -0.0,
+       0.053
+      ],
+      "pBoot": 0.0549
      }
     },
     "fantasyProsFitzmaurice": {
@@ -6869,6 +8125,15 @@
        0.643,
        0.781
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 245,
+      "diff": 0.002,
+      "ci95": [
+       -0.022,
+       0.028
+      ],
+      "pBoot": 0.9341
      }
     },
     "dlfSf": {
@@ -6887,6 +8152,15 @@
        0.622,
        0.77
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 229,
+      "diff": -0.017,
+      "ci95": [
+       -0.051,
+       0.014
+      ],
+      "pBoot": 0.2847
      }
     },
     "dynastyNerdsSfTep": {
@@ -6905,6 +8179,15 @@
        0.65,
        0.79
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 232,
+      "diff": -0.032,
+      "ci95": [
+       -0.053,
+       -0.01
+      ],
+      "pBoot": 0.007
      }
     },
     "dlfRookieSf": {
@@ -6923,6 +8206,15 @@
        0.274,
        0.79
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 35,
+      "diff": 0.085,
+      "ci95": [
+       -0.031,
+       0.231
+      ],
+      "pBoot": 0.1668
      }
     },
     "flockFantasySfRookies": {
@@ -6941,6 +8233,15 @@
        0.422,
        0.83
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 26,
+      "diff": -0.154,
+      "ci95": [
+       -0.348,
+       -0.023
+      ],
+      "pBoot": 0.013
      }
     }
    },
@@ -6961,6 +8262,15 @@
        0.334,
        0.518
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 327,
+      "diff": -0.05,
+      "ci95": [
+       -0.079,
+       -0.021
+      ],
+      "pBoot": 0.005
      }
     },
     "draftSharksIdp": {
@@ -6979,6 +8289,15 @@
        0.356,
        0.54
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 285,
+      "diff": -0.07,
+      "ci95": [
+       -0.141,
+       0.014
+      ],
+      "pBoot": 0.0889
      }
     },
     "idpShowCombined": {
@@ -6997,6 +8316,15 @@
        0.332,
        0.531
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 272,
+      "diff": -0.019,
+      "ci95": [
+       -0.052,
+       0.012
+      ],
+      "pBoot": 0.2587
      }
     },
     "fantasyProsIdp": {
@@ -7015,6 +8343,15 @@
        0.268,
        0.485
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 226,
+      "diff": -0.009,
+      "ci95": [
+       -0.096,
+       0.075
+      ],
+      "pBoot": 0.8342
      }
     }
    },
@@ -7035,6 +8372,15 @@
        0.295,
        0.778
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 35,
+      "diff": 0.111,
+      "ci95": [
+       0.022,
+       0.232
+      ],
+      "pBoot": 0.005
      }
     },
     "ktcTradesSfTep": {
@@ -7053,6 +8399,15 @@
        0.295,
        0.778
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 35,
+      "diff": 0.104,
+      "ci95": [
+       0.025,
+       0.226
+      ],
+      "pBoot": 0.007
      }
     },
     "idpTradeCalc": {
@@ -7071,6 +8426,15 @@
        0.295,
        0.778
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 35,
+      "diff": -0.119,
+      "ci95": [
+       -0.219,
+       -0.036
+      ],
+      "pBoot": 0.001
      }
     },
     "fantasyNavigatorSf": {
@@ -7089,6 +8453,15 @@
        0.313,
        0.763
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 34,
+      "diff": -0.016,
+      "ci95": [
+       -0.074,
+       0.032
+      ],
+      "pBoot": 0.5504
      }
     },
     "pfkDynasty": {
@@ -7107,6 +8480,15 @@
        0.295,
        0.778
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 35,
+      "diff": 0.102,
+      "ci95": [
+       0.018,
+       0.223
+      ],
+      "pBoot": 0.013
      }
     },
     "yahooBoone": {
@@ -7125,6 +8507,15 @@
        0.295,
        0.778
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 35,
+      "diff": 0.019,
+      "ci95": [
+       -0.026,
+       0.079
+      ],
+      "pBoot": 0.3606
      }
     },
     "otcffbSf": {
@@ -7143,6 +8534,15 @@
        0.295,
        0.778
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 35,
+      "diff": 0.017,
+      "ci95": [
+       -0.014,
+       0.05
+      ],
+      "pBoot": 0.2807
      }
     },
     "fantasyCalc": {
@@ -7161,6 +8561,15 @@
        0.295,
        0.778
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 35,
+      "diff": 0.12,
+      "ci95": [
+       0.034,
+       0.25
+      ],
+      "pBoot": 0.003
      }
     },
     "dynastyDaddySf": {
@@ -7179,6 +8588,15 @@
        0.295,
        0.778
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 35,
+      "diff": 0.054,
+      "ci95": [
+       -0.001,
+       0.125
+      ],
+      "pBoot": 0.0589
      }
     },
     "idpShowCombined": {
@@ -7197,6 +8615,15 @@
        0.299,
        0.784
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 34,
+      "diff": -0.115,
+      "ci95": [
+       -0.242,
+       -0.008
+      ],
+      "pBoot": 0.035
      }
     },
     "flockFantasySf": {
@@ -7215,6 +8642,15 @@
        0.283,
        0.757
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 33,
+      "diff": 0.045,
+      "ci95": [
+       -0.008,
+       0.122
+      ],
+      "pBoot": 0.1089
      }
     },
     "fantasyProsSf": {
@@ -7233,6 +8669,15 @@
        0.299,
        0.784
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 34,
+      "diff": -0.012,
+      "ci95": [
+       -0.048,
+       0.018
+      ],
+      "pBoot": 0.4525
      }
     },
     "fantasyProsFitzmaurice": {
@@ -7251,6 +8696,15 @@
        0.299,
        0.784
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 34,
+      "diff": 0.009,
+      "ci95": [
+       -0.039,
+       0.06
+      ],
+      "pBoot": 0.7263
      }
     },
     "dlfSf": {
@@ -7269,6 +8723,15 @@
        0.283,
        0.757
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 33,
+      "diff": -0.026,
+      "ci95": [
+       -0.102,
+       0.032
+      ],
+      "pBoot": 0.4326
      }
     },
     "dynastyNerdsSfTep": {
@@ -7287,6 +8750,15 @@
        0.244,
        0.733
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 31,
+      "diff": 0.004,
+      "ci95": [
+       -0.053,
+       0.061
+      ],
+      "pBoot": 0.9101
      }
     },
     "draftSharks": {
@@ -7305,6 +8777,15 @@
        0.231,
        0.747
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 32,
+      "diff": -0.006,
+      "ci95": [
+       -0.105,
+       0.09
+      ],
+      "pBoot": 0.8442
      }
     }
    },
@@ -7325,6 +8806,15 @@
        0.705,
        0.851
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 88,
+      "diff": -0.0,
+      "ci95": [
+       -0.021,
+       0.021
+      ],
+      "pBoot": 0.982
      }
     },
     "ktcCrowdSfTep": {
@@ -7343,6 +8833,15 @@
        0.699,
        0.858
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 87,
+      "diff": 0.031,
+      "ci95": [
+       0.004,
+       0.06
+      ],
+      "pBoot": 0.029
      }
     },
     "ktcTradesSfTep": {
@@ -7361,6 +8860,15 @@
        0.699,
        0.858
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 87,
+      "diff": 0.013,
+      "ci95": [
+       -0.006,
+       0.034
+      ],
+      "pBoot": 0.1648
      }
     },
     "fantasyNavigatorSf": {
@@ -7379,6 +8887,15 @@
        0.693,
        0.853
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 83,
+      "diff": -0.02,
+      "ci95": [
+       -0.059,
+       0.012
+      ],
+      "pBoot": 0.2108
      }
     },
     "pfkDynasty": {
@@ -7397,6 +8914,15 @@
        0.705,
        0.852
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 84,
+      "diff": 0.027,
+      "ci95": [
+       0.002,
+       0.054
+      ],
+      "pBoot": 0.033
      }
     },
     "idpTradeCalc": {
@@ -7415,6 +8941,15 @@
        0.694,
        0.851
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 84,
+      "diff": -0.089,
+      "ci95": [
+       -0.14,
+       -0.046
+      ],
+      "pBoot": 0.001
      }
     },
     "flockFantasySf": {
@@ -7433,6 +8968,15 @@
        0.698,
        0.855
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 82,
+      "diff": -0.04,
+      "ci95": [
+       -0.079,
+       -0.01
+      ],
+      "pBoot": 0.009
      }
     },
     "fantasyProsSf": {
@@ -7451,6 +8995,15 @@
        0.693,
        0.849
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 87,
+      "diff": 0.001,
+      "ci95": [
+       -0.034,
+       0.043
+      ],
+      "pBoot": 0.984
      }
     },
     "fantasyCalc": {
@@ -7469,6 +9022,15 @@
        0.702,
        0.854
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 85,
+      "diff": 0.053,
+      "ci95": [
+       0.026,
+       0.088
+      ],
+      "pBoot": 0.001
      }
     },
     "dynastyDaddySf": {
@@ -7487,6 +9049,15 @@
        0.69,
        0.852
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 83,
+      "diff": 0.032,
+      "ci95": [
+       0.002,
+       0.072
+      ],
+      "pBoot": 0.043
      }
     },
     "idpShowCombined": {
@@ -7505,6 +9076,15 @@
        0.702,
        0.863
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 77,
+      "diff": -0.083,
+      "ci95": [
+       -0.135,
+       -0.041
+      ],
+      "pBoot": 0.001
      }
     },
     "yahooBoone": {
@@ -7523,6 +9103,15 @@
        0.73,
        0.869
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 81,
+      "diff": 0.002,
+      "ci95": [
+       -0.026,
+       0.027
+      ],
+      "pBoot": 0.8262
      }
     },
     "draftSharks": {
@@ -7541,6 +9130,15 @@
        0.686,
        0.861
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 80,
+      "diff": -0.04,
+      "ci95": [
+       -0.082,
+       -0.006
+      ],
+      "pBoot": 0.025
      }
     },
     "fantasyProsFitzmaurice": {
@@ -7559,6 +9157,15 @@
        0.686,
        0.865
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 74,
+      "diff": -0.032,
+      "ci95": [
+       -0.07,
+       0.001
+      ],
+      "pBoot": 0.0609
      }
     },
     "dlfSf": {
@@ -7577,6 +9184,15 @@
        0.665,
        0.875
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 68,
+      "diff": -0.047,
+      "ci95": [
+       -0.101,
+       -0.0
+      ],
+      "pBoot": 0.0509
      }
     },
     "dynastyNerdsSfTep": {
@@ -7595,6 +9211,15 @@
        0.662,
        0.87
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 68,
+      "diff": -0.07,
+      "ci95": [
+       -0.118,
+       -0.034
+      ],
+      "pBoot": 0.001
      }
     }
    },
@@ -7615,6 +9240,15 @@
        0.715,
        0.854
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 134,
+      "diff": 0.038,
+      "ci95": [
+       0.016,
+       0.069
+      ],
+      "pBoot": 0.001
      }
     },
     "ktcTradesSfTep": {
@@ -7633,6 +9267,15 @@
        0.715,
        0.854
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 134,
+      "diff": 0.005,
+      "ci95": [
+       -0.012,
+       0.021
+      ],
+      "pBoot": 0.5944
      }
     },
     "otcffbSf": {
@@ -7651,6 +9294,15 @@
        0.731,
        0.861
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 133,
+      "diff": 0.029,
+      "ci95": [
+       0.012,
+       0.051
+      ],
+      "pBoot": 0.003
      }
     },
     "pfkDynasty": {
@@ -7669,6 +9321,15 @@
        0.717,
        0.857
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 129,
+      "diff": -0.006,
+      "ci95": [
+       -0.048,
+       0.029
+      ],
+      "pBoot": 0.7822
      }
     },
     "idpTradeCalc": {
@@ -7687,6 +9348,15 @@
        0.724,
        0.858
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 131,
+      "diff": -0.091,
+      "ci95": [
+       -0.144,
+       -0.046
+      ],
+      "pBoot": 0.001
      }
     },
     "fantasyNavigatorSf": {
@@ -7705,6 +9375,15 @@
        0.717,
        0.853
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 128,
+      "diff": -0.027,
+      "ci95": [
+       -0.06,
+       -0.0
+      ],
+      "pBoot": 0.049
      }
     },
     "flockFantasySf": {
@@ -7723,6 +9402,15 @@
        0.698,
        0.859
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 118,
+      "diff": -0.061,
+      "ci95": [
+       -0.107,
+       -0.025
+      ],
+      "pBoot": 0.001
      }
     },
     "fantasyProsSf": {
@@ -7741,6 +9429,15 @@
        0.674,
        0.838
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 123,
+      "diff": -0.014,
+      "ci95": [
+       -0.039,
+       0.009
+      ],
+      "pBoot": 0.2248
      }
     },
     "draftSharks": {
@@ -7759,6 +9456,15 @@
        0.717,
        0.859
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 121,
+      "diff": -0.051,
+      "ci95": [
+       -0.09,
+       -0.018
+      ],
+      "pBoot": 0.003
      }
     },
     "fantasyCalc": {
@@ -7777,6 +9483,15 @@
        0.63,
        0.819
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 113,
+      "diff": 0.074,
+      "ci95": [
+       0.037,
+       0.118
+      ],
+      "pBoot": 0.001
      }
     },
     "dynastyDaddySf": {
@@ -7795,6 +9510,15 @@
        0.64,
        0.816
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 114,
+      "diff": 0.034,
+      "ci95": [
+       -0.004,
+       0.074
+      ],
+      "pBoot": 0.0649
      }
     },
     "idpShowCombined": {
@@ -7813,6 +9537,15 @@
        0.681,
        0.85
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 104,
+      "diff": -0.086,
+      "ci95": [
+       -0.14,
+       -0.039
+      ],
+      "pBoot": 0.001
      }
     },
     "yahooBoone": {
@@ -7831,6 +9564,15 @@
        0.611,
        0.824
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 97,
+      "diff": 0.023,
+      "ci95": [
+       -0.013,
+       0.058
+      ],
+      "pBoot": 0.1928
      }
     },
     "dlfSf": {
@@ -7849,6 +9591,15 @@
        0.619,
        0.825
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 89,
+      "diff": -0.055,
+      "ci95": [
+       -0.105,
+       -0.007
+      ],
+      "pBoot": 0.023
      }
     },
     "fantasyProsFitzmaurice": {
@@ -7867,6 +9618,15 @@
        0.603,
        0.833
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 93,
+      "diff": -0.005,
+      "ci95": [
+       -0.045,
+       0.032
+      ],
+      "pBoot": 0.8302
      }
     },
     "dynastyNerdsSfTep": {
@@ -7885,6 +9645,15 @@
        0.658,
        0.849
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 90,
+      "diff": -0.055,
+      "ci95": [
+       -0.094,
+       -0.022
+      ],
+      "pBoot": 0.001
      }
     }
    },
@@ -7905,6 +9674,15 @@
        0.611,
        0.821
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 64,
+      "diff": 0.072,
+      "ci95": [
+       0.01,
+       0.145
+      ],
+      "pBoot": 0.021
      }
     },
     "ktcCrowdSfTep": {
@@ -7923,6 +9701,15 @@
        0.601,
        0.83
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 64,
+      "diff": 0.04,
+      "ci95": [
+       0.007,
+       0.086
+      ],
+      "pBoot": 0.015
      }
     },
     "ktcTradesSfTep": {
@@ -7941,6 +9728,15 @@
        0.601,
        0.83
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 64,
+      "diff": 0.007,
+      "ci95": [
+       -0.024,
+       0.039
+      ],
+      "pBoot": 0.6364
      }
     },
     "idpTradeCalc": {
@@ -7959,6 +9755,15 @@
        0.605,
        0.833
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 64,
+      "diff": -0.129,
+      "ci95": [
+       -0.214,
+       -0.051
+      ],
+      "pBoot": 0.003
      }
     },
     "otcffbSf": {
@@ -7977,6 +9782,15 @@
        0.611,
        0.828
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 64,
+      "diff": 0.034,
+      "ci95": [
+       0.001,
+       0.073
+      ],
+      "pBoot": 0.045
      }
     },
     "draftSharks": {
@@ -7995,6 +9809,15 @@
        0.617,
        0.838
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 61,
+      "diff": -0.014,
+      "ci95": [
+       -0.077,
+       0.044
+      ],
+      "pBoot": 0.6384
      }
     },
     "fantasyNavigatorSf": {
@@ -8013,6 +9836,15 @@
        0.594,
        0.832
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 62,
+      "diff": -0.042,
+      "ci95": [
+       -0.1,
+       0.003
+      ],
+      "pBoot": 0.0809
      }
     },
     "fantasyProsSf": {
@@ -8031,6 +9863,15 @@
        0.576,
        0.822
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 61,
+      "diff": -0.073,
+      "ci95": [
+       -0.142,
+       -0.016
+      ],
+      "pBoot": 0.005
      }
     },
     "fantasyCalc": {
@@ -8049,6 +9890,15 @@
        0.542,
        0.804
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 58,
+      "diff": 0.088,
+      "ci95": [
+       0.032,
+       0.161
+      ],
+      "pBoot": 0.001
      }
     },
     "yahooBoone": {
@@ -8067,6 +9917,15 @@
        0.565,
        0.812
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 60,
+      "diff": -0.039,
+      "ci95": [
+       -0.107,
+       0.017
+      ],
+      "pBoot": 0.2328
      }
     },
     "flockFantasySf": {
@@ -8085,6 +9944,15 @@
        0.581,
        0.833
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 55,
+      "diff": -0.078,
+      "ci95": [
+       -0.146,
+       -0.024
+      ],
+      "pBoot": 0.005
      }
     },
     "dynastyDaddySf": {
@@ -8103,6 +9971,15 @@
        0.592,
        0.852
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 54,
+      "diff": 0.022,
+      "ci95": [
+       -0.069,
+       0.101
+      ],
+      "pBoot": 0.5884
      }
     },
     "idpShowCombined": {
@@ -8121,6 +9998,15 @@
        0.572,
        0.832
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 52,
+      "diff": -0.107,
+      "ci95": [
+       -0.194,
+       -0.035
+      ],
+      "pBoot": 0.001
      }
     },
     "dynastyNerdsSfTep": {
@@ -8139,6 +10025,15 @@
        0.427,
        0.785
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 43,
+      "diff": -0.09,
+      "ci95": [
+       -0.191,
+       -0.001
+      ],
+      "pBoot": 0.047
      }
     },
     "fantasyProsFitzmaurice": {
@@ -8157,6 +10052,15 @@
        0.501,
        0.831
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 44,
+      "diff": -0.025,
+      "ci95": [
+       -0.076,
+       0.021
+      ],
+      "pBoot": 0.3027
      }
     },
     "dlfSf": {
@@ -8175,6 +10079,15 @@
        0.379,
        0.805
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 39,
+      "diff": -0.074,
+      "ci95": [
+       -0.184,
+       0.021
+      ],
+      "pBoot": 0.1269
      }
     }
    },
@@ -8195,6 +10108,15 @@
        0.104,
        0.469
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 105,
+      "diff": -0.041,
+      "ci95": [
+       -0.088,
+       -0.002
+      ],
+      "pBoot": 0.039
      }
     },
     "draftSharksIdp": {
@@ -8213,6 +10135,15 @@
        0.134,
        0.536
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 92,
+      "diff": 0.065,
+      "ci95": [
+       -0.069,
+       0.2
+      ],
+      "pBoot": 0.3047
      }
     },
     "idpShowCombined": {
@@ -8231,6 +10162,15 @@
        0.156,
        0.555
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 74,
+      "diff": -0.007,
+      "ci95": [
+       -0.051,
+       0.035
+      ],
+      "pBoot": 0.7602
      }
     },
     "fantasyProsIdp": {
@@ -8249,6 +10189,15 @@
        0.044,
        0.512
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 62,
+      "diff": 0.033,
+      "ci95": [
+       -0.12,
+       0.192
+      ],
+      "pBoot": 0.5964
      }
     }
    },
@@ -8269,6 +10218,15 @@
        0.494,
        0.715
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 116,
+      "diff": -0.001,
+      "ci95": [
+       -0.048,
+       0.046
+      ],
+      "pBoot": 0.9321
      }
     },
     "idpShowCombined": {
@@ -8287,6 +10245,15 @@
        0.443,
        0.705
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 105,
+      "diff": -0.024,
+      "ci95": [
+       -0.074,
+       0.016
+      ],
+      "pBoot": 0.2308
      }
     },
     "draftSharksIdp": {
@@ -8305,6 +10272,15 @@
        0.449,
        0.711
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 93,
+      "diff": -0.137,
+      "ci95": [
+       -0.257,
+       -0.03
+      ],
+      "pBoot": 0.009
      }
     },
     "fantasyProsIdp": {
@@ -8323,6 +10299,15 @@
        0.346,
        0.66
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 87,
+      "diff": -0.08,
+      "ci95": [
+       -0.224,
+       0.052
+      ],
+      "pBoot": 0.2647
      }
     }
    },
@@ -8343,6 +10328,15 @@
        0.131,
        0.462
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 106,
+      "diff": -0.042,
+      "ci95": [
+       -0.111,
+       0.024
+      ],
+      "pBoot": 0.2228
      }
     },
     "draftSharksIdp": {
@@ -8361,6 +10355,15 @@
        0.239,
        0.562
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 100,
+      "diff": -0.146,
+      "ci95": [
+       -0.325,
+       0.047
+      ],
+      "pBoot": 0.1289
      }
     },
     "idpShowCombined": {
@@ -8379,6 +10382,15 @@
        0.157,
        0.512
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 93,
+      "diff": -0.047,
+      "ci95": [
+       -0.122,
+       0.028
+      ],
+      "pBoot": 0.2248
      }
     },
     "fantasyProsIdp": {
@@ -8397,6 +10409,15 @@
        0.06,
        0.46
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 77,
+      "diff": -0.166,
+      "ci95": [
+       -0.377,
+       0.016
+      ],
+      "pBoot": 0.0749
      }
     }
    }
@@ -8419,6 +10440,15 @@
        0.764,
        0.846
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 308,
+      "diff": -0.035,
+      "ci95": [
+       -0.053,
+       -0.019
+      ],
+      "pBoot": 0.001
      }
     },
     "ktcTradesSfTep": {
@@ -8437,6 +10467,15 @@
        0.764,
        0.846
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 308,
+      "diff": -0.009,
+      "ci95": [
+       -0.022,
+       0.002
+      ],
+      "pBoot": 0.1349
      }
     },
     "otcffbSf": {
@@ -8455,6 +10494,15 @@
        0.755,
        0.845
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 309,
+      "diff": 0.026,
+      "ci95": [
+       0.008,
+       0.047
+      ],
+      "pBoot": 0.009
      }
     },
     "pfkDynasty": {
@@ -8473,6 +10521,15 @@
        0.738,
        0.831
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 300,
+      "diff": 0.033,
+      "ci95": [
+       0.012,
+       0.057
+      ],
+      "pBoot": 0.005
      }
     },
     "idpTradeCalc": {
@@ -8491,6 +10548,15 @@
        0.753,
        0.841
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 303,
+      "diff": -0.002,
+      "ci95": [
+       -0.028,
+       0.022
+      ],
+      "pBoot": 0.8921
      }
     },
     "fantasyNavigatorSf": {
@@ -8509,6 +10575,15 @@
        0.753,
        0.845
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 299,
+      "diff": 0.029,
+      "ci95": [
+       0.007,
+       0.053
+      ],
+      "pBoot": 0.009
      }
     },
     "fantasyProsSf": {
@@ -8527,6 +10602,15 @@
        0.727,
        0.824
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 286,
+      "diff": 0.033,
+      "ci95": [
+       0.014,
+       0.053
+      ],
+      "pBoot": 0.001
      }
     },
     "flockFantasySf": {
@@ -8545,6 +10629,15 @@
        0.733,
        0.831
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 282,
+      "diff": 0.031,
+      "ci95": [
+       0.009,
+       0.058
+      ],
+      "pBoot": 0.007
      }
     },
     "fantasyCalc": {
@@ -8563,6 +10656,15 @@
        0.722,
        0.828
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 261,
+      "diff": 0.03,
+      "ci95": [
+       0.008,
+       0.053
+      ],
+      "pBoot": 0.007
      }
     },
     "dynastyDaddySf": {
@@ -8581,6 +10683,15 @@
        0.715,
        0.823
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 263,
+      "diff": 0.02,
+      "ci95": [
+       -0.008,
+       0.05
+      ],
+      "pBoot": 0.1768
      }
     },
     "draftSharks": {
@@ -8599,6 +10710,15 @@
        0.768,
        0.853
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 265,
+      "diff": -0.071,
+      "ci95": [
+       -0.112,
+       -0.035
+      ],
+      "pBoot": 0.001
      }
     },
     "idpShowCombined": {
@@ -8617,6 +10737,15 @@
        0.708,
        0.814
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 256,
+      "diff": 0.053,
+      "ci95": [
+       0.029,
+       0.08
+      ],
+      "pBoot": 0.001
      }
     },
     "yahooBoone": {
@@ -8635,6 +10764,15 @@
        0.697,
        0.815
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 243,
+      "diff": -0.001,
+      "ci95": [
+       -0.024,
+       0.021
+      ],
+      "pBoot": 0.996
      }
     },
     "fantasyProsFitzmaurice": {
@@ -8653,6 +10791,15 @@
        0.666,
        0.801
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 219,
+      "diff": 0.006,
+      "ci95": [
+       -0.017,
+       0.032
+      ],
+      "pBoot": 0.6404
      }
     },
     "dlfSf": {
@@ -8671,6 +10818,15 @@
        0.654,
        0.789
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 218,
+      "diff": 0.036,
+      "ci95": [
+       0.003,
+       0.069
+      ],
+      "pBoot": 0.027
      }
     },
     "dynastyNerdsSfTep": {
@@ -8689,6 +10845,15 @@
        0.665,
        0.8
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 216,
+      "diff": 0.027,
+      "ci95": [
+       0.004,
+       0.051
+      ],
+      "pBoot": 0.015
      }
     }
    },
@@ -8709,6 +10874,15 @@
        0.57,
        0.727
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 291,
+      "diff": -0.054,
+      "ci95": [
+       -0.084,
+       -0.026
+      ],
+      "pBoot": 0.001
      }
     },
     "draftSharksIdp": {
@@ -8727,6 +10901,15 @@
        0.528,
        0.692
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 247,
+      "diff": -0.159,
+      "ci95": [
+       -0.235,
+       -0.079
+      ],
+      "pBoot": 0.001
      }
     },
     "idpShowCombined": {
@@ -8745,6 +10928,15 @@
        0.522,
        0.709
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 245,
+      "diff": -0.02,
+      "ci95": [
+       -0.053,
+       0.011
+      ],
+      "pBoot": 0.2068
      }
     },
     "fantasyProsIdp": {
@@ -8763,6 +10955,15 @@
        0.392,
        0.617
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 225,
+      "diff": 0.153,
+      "ci95": [
+       0.07,
+       0.243
+      ],
+      "pBoot": 0.001
      }
     }
    },
@@ -8783,6 +10984,15 @@
        0.528,
        0.86
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 36,
+      "diff": -0.055,
+      "ci95": [
+       -0.149,
+       0.025
+      ],
+      "pBoot": 0.1888
      }
     },
     "ktcTradesSfTep": {
@@ -8801,6 +11011,15 @@
        0.528,
        0.86
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 36,
+      "diff": -0.032,
+      "ci95": [
+       -0.104,
+       0.033
+      ],
+      "pBoot": 0.2867
      }
     },
     "idpTradeCalc": {
@@ -8819,6 +11038,15 @@
        0.58,
        0.871
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": -0.057,
+      "ci95": [
+       -0.149,
+       0.021
+      ],
+      "pBoot": 0.1588
      }
     },
     "fantasyNavigatorSf": {
@@ -8837,6 +11065,15 @@
        0.536,
        0.869
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 35,
+      "diff": 0.002,
+      "ci95": [
+       -0.043,
+       0.054
+      ],
+      "pBoot": 0.98
      }
     },
     "pfkDynasty": {
@@ -8855,6 +11092,15 @@
        0.58,
        0.871
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": -0.026,
+      "ci95": [
+       -0.097,
+       0.034
+      ],
+      "pBoot": 0.4146
      }
     },
     "yahooBoone": {
@@ -8873,6 +11119,15 @@
        0.58,
        0.871
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": -0.027,
+      "ci95": [
+       -0.078,
+       0.019
+      ],
+      "pBoot": 0.2408
      }
     },
     "otcffbSf": {
@@ -8891,6 +11146,15 @@
        0.58,
        0.871
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": -0.02,
+      "ci95": [
+       -0.054,
+       -0.001
+      ],
+      "pBoot": 0.045
      }
     },
     "fantasyCalc": {
@@ -8909,6 +11173,15 @@
        0.528,
        0.856
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 36,
+      "diff": -0.025,
+      "ci95": [
+       -0.104,
+       0.055
+      ],
+      "pBoot": 0.5185
      }
     },
     "dynastyDaddySf": {
@@ -8927,6 +11200,15 @@
        0.528,
        0.86
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 36,
+      "diff": 0.003,
+      "ci95": [
+       -0.065,
+       0.077
+      ],
+      "pBoot": 0.9401
      }
     },
     "idpShowCombined": {
@@ -8945,6 +11227,15 @@
        0.58,
        0.871
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": -0.007,
+      "ci95": [
+       -0.082,
+       0.068
+      ],
+      "pBoot": 0.7722
      }
     },
     "flockFantasySf": {
@@ -8963,6 +11254,15 @@
        0.58,
        0.871
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": -0.002,
+      "ci95": [
+       -0.071,
+       0.058
+      ],
+      "pBoot": 0.9341
      }
     },
     "fantasyProsSf": {
@@ -8981,6 +11281,15 @@
        0.58,
        0.871
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": -0.01,
+      "ci95": [
+       -0.071,
+       0.043
+      ],
+      "pBoot": 0.7183
      }
     },
     "fantasyProsFitzmaurice": {
@@ -8999,6 +11308,15 @@
        0.483,
        0.848
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 34,
+      "diff": -0.012,
+      "ci95": [
+       -0.082,
+       0.054
+      ],
+      "pBoot": 0.7542
      }
     },
     "dlfSf": {
@@ -9017,6 +11335,15 @@
        0.528,
        0.86
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 36,
+      "diff": -0.001,
+      "ci95": [
+       -0.071,
+       0.071
+      ],
+      "pBoot": 0.952
      }
     },
     "dynastyNerdsSfTep": {
@@ -9035,6 +11362,15 @@
        0.423,
        0.842
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 33,
+      "diff": 0.009,
+      "ci95": [
+       -0.05,
+       0.072
+      ],
+      "pBoot": 0.7982
      }
     },
     "draftSharks": {
@@ -9053,6 +11389,15 @@
        0.396,
        0.844
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 32,
+      "diff": -0.039,
+      "ci95": [
+       -0.146,
+       0.063
+      ],
+      "pBoot": 0.4406
      }
     }
    },
@@ -9073,6 +11418,15 @@
        0.778,
        0.902
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 84,
+      "diff": -0.005,
+      "ci95": [
+       -0.026,
+       0.015
+      ],
+      "pBoot": 0.6484
      }
     },
     "ktcCrowdSfTep": {
@@ -9091,6 +11445,15 @@
        0.774,
        0.905
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 83,
+      "diff": -0.019,
+      "ci95": [
+       -0.043,
+       0.006
+      ],
+      "pBoot": 0.1648
      }
     },
     "ktcTradesSfTep": {
@@ -9109,6 +11472,15 @@
        0.774,
        0.905
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 83,
+      "diff": 0.0,
+      "ci95": [
+       -0.017,
+       0.016
+      ],
+      "pBoot": 0.9341
      }
     },
     "fantasyNavigatorSf": {
@@ -9127,6 +11499,15 @@
        0.737,
        0.892
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 82,
+      "diff": 0.03,
+      "ci95": [
+       0.004,
+       0.06
+      ],
+      "pBoot": 0.031
      }
     },
     "pfkDynasty": {
@@ -9145,6 +11526,15 @@
        0.74,
        0.893
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 80,
+      "diff": -0.005,
+      "ci95": [
+       -0.033,
+       0.02
+      ],
+      "pBoot": 0.7183
      }
     },
     "idpTradeCalc": {
@@ -9163,6 +11553,15 @@
        0.775,
        0.902
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 82,
+      "diff": 0.007,
+      "ci95": [
+       -0.026,
+       0.042
+      ],
+      "pBoot": 0.7203
      }
     },
     "flockFantasySf": {
@@ -9181,6 +11580,15 @@
        0.721,
        0.885
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 79,
+      "diff": 0.018,
+      "ci95": [
+       -0.009,
+       0.055
+      ],
+      "pBoot": 0.2547
      }
     },
     "fantasyProsSf": {
@@ -9199,6 +11607,15 @@
        0.761,
        0.899
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 82,
+      "diff": 0.016,
+      "ci95": [
+       -0.01,
+       0.044
+      ],
+      "pBoot": 0.2707
      }
     },
     "fantasyCalc": {
@@ -9217,6 +11634,15 @@
        0.802,
        0.912
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 76,
+      "diff": 0.001,
+      "ci95": [
+       -0.026,
+       0.031
+      ],
+      "pBoot": 0.9221
      }
     },
     "dynastyDaddySf": {
@@ -9235,6 +11661,15 @@
        0.772,
        0.903
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 75,
+      "diff": -0.028,
+      "ci95": [
+       -0.081,
+       0.015
+      ],
+      "pBoot": 0.2208
      }
     },
     "idpShowCombined": {
@@ -9253,6 +11688,15 @@
        0.769,
        0.906
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 75,
+      "diff": 0.034,
+      "ci95": [
+       -0.003,
+       0.081
+      ],
+      "pBoot": 0.0669
      }
     },
     "yahooBoone": {
@@ -9271,6 +11715,15 @@
        0.749,
        0.903
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 72,
+      "diff": -0.041,
+      "ci95": [
+       -0.078,
+       -0.012
+      ],
+      "pBoot": 0.003
      }
     },
     "draftSharks": {
@@ -9289,6 +11742,15 @@
        0.768,
        0.903
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 72,
+      "diff": -0.007,
+      "ci95": [
+       -0.037,
+       0.028
+      ],
+      "pBoot": 0.6583
      }
     },
     "fantasyProsFitzmaurice": {
@@ -9307,6 +11769,15 @@
        0.749,
        0.904
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 66,
+      "diff": -0.009,
+      "ci95": [
+       -0.038,
+       0.019
+      ],
+      "pBoot": 0.5205
      }
     },
     "dlfSf": {
@@ -9325,6 +11796,15 @@
        0.728,
        0.9
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 62,
+      "diff": 0.024,
+      "ci95": [
+       -0.017,
+       0.075
+      ],
+      "pBoot": 0.3287
      }
     },
     "dynastyNerdsSfTep": {
@@ -9343,6 +11823,15 @@
        0.72,
        0.896
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 62,
+      "diff": 0.017,
+      "ci95": [
+       -0.015,
+       0.06
+      ],
+      "pBoot": 0.3646
      }
     }
    },
@@ -9363,6 +11852,15 @@
        0.776,
        0.894
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 131,
+      "diff": -0.052,
+      "ci95": [
+       -0.088,
+       -0.025
+      ],
+      "pBoot": 0.001
      }
     },
     "ktcTradesSfTep": {
@@ -9381,6 +11879,15 @@
        0.776,
        0.894
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 131,
+      "diff": -0.009,
+      "ci95": [
+       -0.025,
+       0.006
+      ],
+      "pBoot": 0.2288
      }
     },
     "otcffbSf": {
@@ -9399,6 +11906,15 @@
        0.778,
        0.894
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 130,
+      "diff": -0.021,
+      "ci95": [
+       -0.046,
+       -0.0
+      ],
+      "pBoot": 0.047
      }
     },
     "pfkDynasty": {
@@ -9417,6 +11933,15 @@
        0.755,
        0.885
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 125,
+      "diff": -0.002,
+      "ci95": [
+       -0.043,
+       0.049
+      ],
+      "pBoot": 0.9181
      }
     },
     "idpTradeCalc": {
@@ -9435,6 +11960,15 @@
        0.776,
        0.891
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 127,
+      "diff": -0.018,
+      "ci95": [
+       -0.051,
+       0.021
+      ],
+      "pBoot": 0.3427
      }
     },
     "fantasyNavigatorSf": {
@@ -9453,6 +11987,15 @@
        0.774,
        0.891
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 127,
+      "diff": 0.006,
+      "ci95": [
+       -0.022,
+       0.032
+      ],
+      "pBoot": 0.6484
      }
     },
     "flockFantasySf": {
@@ -9471,6 +12014,15 @@
        0.773,
        0.893
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 117,
+      "diff": -0.025,
+      "ci95": [
+       -0.074,
+       0.011
+      ],
+      "pBoot": 0.2048
      }
     },
     "fantasyProsSf": {
@@ -9489,6 +12041,15 @@
        0.725,
        0.867
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 113,
+      "diff": 0.013,
+      "ci95": [
+       -0.009,
+       0.041
+      ],
+      "pBoot": 0.2647
      }
     },
     "draftSharks": {
@@ -9507,6 +12068,15 @@
        0.766,
        0.901
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 107,
+      "diff": -0.024,
+      "ci95": [
+       -0.058,
+       0.006
+      ],
+      "pBoot": 0.1269
      }
     },
     "fantasyCalc": {
@@ -9525,6 +12095,15 @@
        0.718,
        0.875
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 100,
+      "diff": -0.038,
+      "ci95": [
+       -0.081,
+       -0.003
+      ],
+      "pBoot": 0.039
      }
     },
     "dynastyDaddySf": {
@@ -9543,6 +12122,15 @@
        0.715,
        0.868
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 103,
+      "diff": -0.045,
+      "ci95": [
+       -0.101,
+       0.002
+      ],
+      "pBoot": 0.0569
      }
     },
     "idpShowCombined": {
@@ -9561,6 +12149,15 @@
        0.725,
        0.87
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 97,
+      "diff": 0.023,
+      "ci95": [
+       -0.013,
+       0.063
+      ],
+      "pBoot": 0.2228
      }
     },
     "yahooBoone": {
@@ -9579,6 +12176,15 @@
        0.681,
        0.869
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 83,
+      "diff": -0.047,
+      "ci95": [
+       -0.102,
+       -0.005
+      ],
+      "pBoot": 0.025
      }
     },
     "dlfSf": {
@@ -9597,6 +12203,15 @@
        0.68,
        0.86
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 83,
+      "diff": -0.007,
+      "ci95": [
+       -0.037,
+       0.026
+      ],
+      "pBoot": 0.6703
      }
     },
     "fantasyProsFitzmaurice": {
@@ -9615,6 +12230,15 @@
        0.668,
        0.855
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 82,
+      "diff": -0.048,
+      "ci95": [
+       -0.092,
+       -0.01
+      ],
+      "pBoot": 0.015
      }
     },
     "dynastyNerdsSfTep": {
@@ -9633,6 +12257,15 @@
        0.693,
        0.87
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 82,
+      "diff": 0.015,
+      "ci95": [
+       -0.01,
+       0.05
+      ],
+      "pBoot": 0.3187
      }
     }
    },
@@ -9653,6 +12286,15 @@
        0.722,
        0.912
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 58,
+      "diff": -0.008,
+      "ci95": [
+       -0.064,
+       0.053
+      ],
+      "pBoot": 0.7942
      }
     },
     "ktcCrowdSfTep": {
@@ -9671,6 +12313,15 @@
        0.722,
        0.912
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 58,
+      "diff": -0.02,
+      "ci95": [
+       -0.056,
+       0.01
+      ],
+      "pBoot": 0.1648
      }
     },
     "ktcTradesSfTep": {
@@ -9689,6 +12340,15 @@
        0.722,
        0.912
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 58,
+      "diff": -0.021,
+      "ci95": [
+       -0.057,
+       0.004
+      ],
+      "pBoot": 0.1109
      }
     },
     "idpTradeCalc": {
@@ -9707,6 +12367,15 @@
        0.721,
        0.915
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 57,
+      "diff": -0.101,
+      "ci95": [
+       -0.195,
+       -0.03
+      ],
+      "pBoot": 0.005
      }
     },
     "otcffbSf": {
@@ -9725,6 +12394,15 @@
        0.722,
        0.912
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 58,
+      "diff": -0.002,
+      "ci95": [
+       -0.031,
+       0.029
+      ],
+      "pBoot": 0.8741
      }
     },
     "draftSharks": {
@@ -9743,6 +12421,15 @@
        0.681,
        0.914
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 54,
+      "diff": -0.02,
+      "ci95": [
+       -0.091,
+       0.045
+      ],
+      "pBoot": 0.5265
      }
     },
     "fantasyNavigatorSf": {
@@ -9761,6 +12448,15 @@
        0.715,
        0.916
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 55,
+      "diff": -0.028,
+      "ci95": [
+       -0.077,
+       0.006
+      ],
+      "pBoot": 0.1229
      }
     },
     "fantasyProsSf": {
@@ -9779,6 +12475,15 @@
        0.685,
        0.912
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 54,
+      "diff": -0.039,
+      "ci95": [
+       -0.093,
+       0.002
+      ],
+      "pBoot": 0.0729
      }
     },
     "fantasyCalc": {
@@ -9797,6 +12502,15 @@
        0.613,
        0.904
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 49,
+      "diff": -0.008,
+      "ci95": [
+       -0.064,
+       0.05
+      ],
+      "pBoot": 0.7862
      }
     },
     "yahooBoone": {
@@ -9815,6 +12529,15 @@
        0.632,
        0.904
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 51,
+      "diff": -0.016,
+      "ci95": [
+       -0.062,
+       0.024
+      ],
+      "pBoot": 0.4466
      }
     },
     "flockFantasySf": {
@@ -9833,6 +12556,15 @@
        0.624,
        0.901
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 49,
+      "diff": -0.029,
+      "ci95": [
+       -0.092,
+       0.018
+      ],
+      "pBoot": 0.2288
      }
     },
     "dynastyDaddySf": {
@@ -9851,6 +12583,15 @@
        0.594,
        0.901
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 49,
+      "diff": -0.054,
+      "ci95": [
+       -0.131,
+       0.012
+      ],
+      "pBoot": 0.1149
      }
     },
     "idpShowCombined": {
@@ -9869,6 +12610,15 @@
        0.603,
        0.913
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 47,
+      "diff": -0.039,
+      "ci95": [
+       -0.1,
+       0.017
+      ],
+      "pBoot": 0.1389
      }
     },
     "dynastyNerdsSfTep": {
@@ -9887,6 +12637,15 @@
        0.444,
        0.862
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 39,
+      "diff": -0.03,
+      "ci95": [
+       -0.09,
+       0.026
+      ],
+      "pBoot": 0.2488
      }
     },
     "fantasyProsFitzmaurice": {
@@ -9905,6 +12664,15 @@
        0.504,
        0.886
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": -0.021,
+      "ci95": [
+       -0.088,
+       0.031
+      ],
+      "pBoot": 0.4106
      }
     },
     "dlfSf": {
@@ -9923,6 +12691,15 @@
        0.503,
        0.892
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 37,
+      "diff": -0.055,
+      "ci95": [
+       -0.18,
+       0.051
+      ],
+      "pBoot": 0.3766
      }
     }
    },
@@ -9943,6 +12720,15 @@
        0.574,
        0.797
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 90,
+      "diff": -0.024,
+      "ci95": [
+       -0.063,
+       0.01
+      ],
+      "pBoot": 0.1449
      }
     },
     "draftSharksIdp": {
@@ -9961,6 +12747,15 @@
        0.542,
        0.787
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 79,
+      "diff": -0.169,
+      "ci95": [
+       -0.314,
+       -0.039
+      ],
+      "pBoot": 0.013
      }
     },
     "idpShowCombined": {
@@ -9979,6 +12774,15 @@
        0.601,
        0.861
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 65,
+      "diff": -0.007,
+      "ci95": [
+       -0.037,
+       0.028
+      ],
+      "pBoot": 0.6523
      }
     },
     "fantasyProsIdp": {
@@ -9997,6 +12801,15 @@
        0.396,
        0.758
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 61,
+      "diff": 0.138,
+      "ci95": [
+       -0.014,
+       0.296
+      ],
+      "pBoot": 0.0729
      }
     }
    },
@@ -10017,6 +12830,15 @@
        0.605,
        0.822
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 103,
+      "diff": -0.025,
+      "ci95": [
+       -0.071,
+       0.017
+      ],
+      "pBoot": 0.2767
      }
     },
     "idpShowCombined": {
@@ -10035,6 +12857,15 @@
        0.546,
        0.805
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 94,
+      "diff": -0.029,
+      "ci95": [
+       -0.075,
+       0.011
+      ],
+      "pBoot": 0.2048
      }
     },
     "draftSharksIdp": {
@@ -10053,6 +12884,15 @@
        0.508,
        0.784
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 75,
+      "diff": -0.195,
+      "ci95": [
+       -0.36,
+       -0.063
+      ],
+      "pBoot": 0.005
      }
     },
     "fantasyProsIdp": {
@@ -10071,6 +12911,15 @@
        0.4,
        0.732
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 83,
+      "diff": 0.076,
+      "ci95": [
+       -0.025,
+       0.175
+      ],
+      "pBoot": 0.1189
      }
     }
    },
@@ -10091,6 +12940,15 @@
        0.33,
        0.652
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 98,
+      "diff": -0.05,
+      "ci95": [
+       -0.124,
+       0.018
+      ],
+      "pBoot": 0.1748
      }
     },
     "draftSharksIdp": {
@@ -10109,6 +12967,15 @@
        0.262,
        0.619
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 93,
+      "diff": -0.082,
+      "ci95": [
+       -0.247,
+       0.086
+      ],
+      "pBoot": 0.3367
      }
     },
     "idpShowCombined": {
@@ -10127,6 +12994,15 @@
        0.275,
        0.642
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 86,
+      "diff": -0.091,
+      "ci95": [
+       -0.189,
+       -0.0
+      ],
+      "pBoot": 0.0509
      }
     },
     "fantasyProsIdp": {
@@ -10145,6 +13021,15 @@
        0.095,
        0.516
       ]
+     },
+     "sourceMinusConsensus_paired": {
+      "n": 81,
+      "diff": 0.167,
+      "ci95": [
+       0.016,
+       0.345
+      ],
+      "pBoot": 0.027
      }
     }
    }
@@ -10175,6 +13060,11 @@
      "ci95": [
       -0.055,
       0.019
+     ],
+     "pBoot": 0.3686,
+     "ciBonferroni_m12": [
+      -0.07,
+      0.043
      ]
     }
    },
@@ -10201,6 +13091,11 @@
      "ci95": [
       -0.048,
       0.046
+     ],
+     "pBoot": 0.9361,
+     "ciBonferroni_m12": [
+      -0.074,
+      0.067
      ]
     }
    },
@@ -10227,6 +13122,11 @@
      "ci95": [
       -0.058,
       0.021
+     ],
+     "pBoot": 0.4186,
+     "ciBonferroni_m12": [
+      -0.075,
+      0.041
      ]
     }
    },
@@ -10253,6 +13153,11 @@
      "ci95": [
       -0.149,
       0.021
+     ],
+     "pBoot": 0.1469,
+     "ciBonferroni_m12": [
+      -0.187,
+      0.062
      ]
     }
    },
@@ -10279,6 +13184,11 @@
      "ci95": [
       0.015,
       0.117
+     ],
+     "pBoot": 0.009,
+     "ciBonferroni_m12": [
+      -0.01,
+      0.14
      ]
     }
    },
@@ -10305,6 +13215,11 @@
      "ci95": [
       0.001,
       0.109
+     ],
+     "pBoot": 0.049,
+     "ciBonferroni_m12": [
+      -0.019,
+      0.137
      ]
     }
    },
@@ -10331,6 +13246,11 @@
      "ci95": [
       -0.008,
       0.138
+     ],
+     "pBoot": 0.0829,
+     "ciBonferroni_m12": [
+      -0.035,
+      0.171
      ]
     }
    },
@@ -10357,6 +13277,11 @@
      "ci95": [
       -0.239,
       -0.041
+     ],
+     "pBoot": 0.007,
+     "ciBonferroni_m12": [
+      -0.301,
+      0.002
      ]
     }
    },
@@ -10383,6 +13308,11 @@
      "ci95": [
       -0.047,
       0.04
+     ],
+     "pBoot": 0.7922,
+     "ciBonferroni_m12": [
+      -0.06,
+      0.055
      ]
     }
    },
@@ -10409,6 +13339,11 @@
      "ci95": [
       -0.082,
       0.06
+     ],
+     "pBoot": 0.7962,
+     "ciBonferroni_m12": [
+      -0.14,
+      0.089
      ]
     }
    },
@@ -10435,6 +13370,11 @@
      "ci95": [
       -0.089,
       0.03
+     ],
+     "pBoot": 0.3586,
+     "ciBonferroni_m12": [
+      -0.108,
+      0.058
      ]
     }
    },
@@ -10461,8 +13401,353 @@
      "ci95": [
       -0.178,
       0.015
+     ],
+     "pBoot": 0.0989,
+     "ciBonferroni_m12": [
+      -0.234,
+      0.042
      ]
     }
+   }
+  },
+  "valueVsCard_multiplicity": {
+   "familySize": 12,
+   "method": "two-sided percentile-bootstrap p per cell (1,000 resamples, so p >= 0.001); Holm step-down across the family; Bonferroni interval at level 1 - 0.05/12",
+   "nominallySignificant_ci95ExcludesZero": {
+    "preseason_2025:idp": 0.065,
+    "preseason_2025:DL": 0.048,
+    "preseason_2025:DB": -0.134
+   },
+   "holmAdjustedP": {
+    "preseason_2025:DB": 0.084,
+    "preseason_2025:idp": 0.099,
+    "preseason_2025:DL": 0.49,
+    "preseason_2025:LB": 0.7461,
+    "preseason_2026ytd:DB": 0.7912,
+    "today_2026ytd:DB": 1.0,
+    "preseason_2026ytd:LB": 1.0,
+    "today_2026ytd:idp": 1.0,
+    "today_2026ytd:LB": 1.0,
+    "preseason_2026ytd:idp": 1.0,
+    "preseason_2026ytd:DL": 1.0,
+    "today_2026ytd:DL": 1.0
+   },
+   "significantAfterHolm_p_lt_0.05": [],
+   "bonferroniIntervalExcludesZero": [],
+   "outOfSampleCells": "today_2026ytd and preseason_2026ytd; preseason_2025 is IN-sample (the 2026-08-25 board was built after the 2025 season it is compared with)"
+  },
+  "perCardYearToYearStability_control": {
+   "idp": {
+    "n": 228,
+    "leagueCard_ppg2025_vs_ppg2026": {
+     "n": 228,
+     "rho": 0.411,
+     "ci95": [
+      0.298,
+      0.517
+     ]
+    },
+    "tackleHeavyRef_ppg2025_vs_ppg2026": {
+     "n": 228,
+     "rho": 0.501,
+     "ci95": [
+      0.391,
+      0.599
+     ]
+    },
+    "leagueMinusRefStability_paired": {
+     "n": 228,
+     "diff": -0.091,
+     "ci95": [
+      -0.166,
+      -0.021
+     ],
+     "pBoot": 0.015
+    },
+    "predictLeagueCard2026_from_leagueCard2025": {
+     "n": 228,
+     "rho": 0.411,
+     "ci95": [
+      0.298,
+      0.517
+     ]
+    },
+    "predictLeagueCard2026_from_refCard2025": {
+     "n": 228,
+     "rho": 0.435,
+     "ci95": [
+      0.324,
+      0.538
+     ]
+    },
+    "refCardMinusLeagueCard2025_asPredictorOfLeague2026_paired": {
+     "n": 228,
+     "diff": 0.024,
+     "ci95": [
+      -0.043,
+      0.085
+     ],
+     "pBoot": 0.5065
+    },
+    "valuePreseason_vs_leagueCard2026": {
+     "n": 228,
+     "rho": 0.41,
+     "ci95": [
+      0.302,
+      0.508
+     ]
+    },
+    "tacklePtsPerGame_2025_vs_2026": {
+     "n": 228,
+     "rho": 0.665,
+     "ci95": [
+      0.572,
+      0.746
+     ]
+    },
+    "bigPlayPtsPerGame_2025_vs_2026": {
+     "n": 228,
+     "rho": 0.346,
+     "ci95": [
+      0.217,
+      0.46
+     ]
+    },
+    "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026; points per game under THIS card split into tackle and big-play components"
+   },
+   "DL": {
+    "n": 63,
+    "leagueCard_ppg2025_vs_ppg2026": {
+     "n": 63,
+     "rho": 0.364,
+     "ci95": [
+      0.105,
+      0.576
+     ]
+    },
+    "tackleHeavyRef_ppg2025_vs_ppg2026": {
+     "n": 63,
+     "rho": 0.335,
+     "ci95": [
+      0.076,
+      0.561
+     ]
+    },
+    "leagueMinusRefStability_paired": {
+     "n": 63,
+     "diff": 0.03,
+     "ci95": [
+      -0.09,
+      0.146
+     ],
+     "pBoot": 0.6244
+    },
+    "predictLeagueCard2026_from_leagueCard2025": {
+     "n": 63,
+     "rho": 0.364,
+     "ci95": [
+      0.105,
+      0.576
+     ]
+    },
+    "predictLeagueCard2026_from_refCard2025": {
+     "n": 63,
+     "rho": 0.348,
+     "ci95": [
+      0.094,
+      0.563
+     ]
+    },
+    "refCardMinusLeagueCard2025_asPredictorOfLeague2026_paired": {
+     "n": 63,
+     "diff": -0.016,
+     "ci95": [
+      -0.1,
+      0.056
+     ],
+     "pBoot": 0.7123
+    },
+    "valuePreseason_vs_leagueCard2026": {
+     "n": 63,
+     "rho": 0.39,
+     "ci95": [
+      0.17,
+      0.582
+     ]
+    },
+    "tacklePtsPerGame_2025_vs_2026": {
+     "n": 63,
+     "rho": 0.439,
+     "ci95": [
+      0.206,
+      0.63
+     ]
+    },
+    "bigPlayPtsPerGame_2025_vs_2026": {
+     "n": 63,
+     "rho": 0.303,
+     "ci95": [
+      0.054,
+      0.533
+     ]
+    },
+    "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026; points per game under THIS card split into tackle and big-play components"
+   },
+   "LB": {
+    "n": 84,
+    "leagueCard_ppg2025_vs_ppg2026": {
+     "n": 84,
+     "rho": 0.415,
+     "ci95": [
+      0.228,
+      0.569
+     ]
+    },
+    "tackleHeavyRef_ppg2025_vs_ppg2026": {
+     "n": 84,
+     "rho": 0.478,
+     "ci95": [
+      0.293,
+      0.63
+     ]
+    },
+    "leagueMinusRefStability_paired": {
+     "n": 84,
+     "diff": -0.063,
+     "ci95": [
+      -0.169,
+      0.043
+     ],
+     "pBoot": 0.2408
+    },
+    "predictLeagueCard2026_from_leagueCard2025": {
+     "n": 84,
+     "rho": 0.415,
+     "ci95": [
+      0.228,
+      0.569
+     ]
+    },
+    "predictLeagueCard2026_from_refCard2025": {
+     "n": 84,
+     "rho": 0.41,
+     "ci95": [
+      0.216,
+      0.574
+     ]
+    },
+    "refCardMinusLeagueCard2025_asPredictorOfLeague2026_paired": {
+     "n": 84,
+     "diff": -0.005,
+     "ci95": [
+      -0.1,
+      0.087
+     ],
+     "pBoot": 0.9001
+    },
+    "valuePreseason_vs_leagueCard2026": {
+     "n": 84,
+     "rho": 0.47,
+     "ci95": [
+      0.286,
+      0.614
+     ]
+    },
+    "tacklePtsPerGame_2025_vs_2026": {
+     "n": 84,
+     "rho": 0.545,
+     "ci95": [
+      0.369,
+      0.679
+     ]
+    },
+    "bigPlayPtsPerGame_2025_vs_2026": {
+     "n": 84,
+     "rho": 0.429,
+     "ci95": [
+      0.219,
+      0.614
+     ]
+    },
+    "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026; points per game under THIS card split into tackle and big-play components"
+   },
+   "DB": {
+    "n": 81,
+    "leagueCard_ppg2025_vs_ppg2026": {
+     "n": 81,
+     "rho": 0.309,
+     "ci95": [
+      0.097,
+      0.493
+     ]
+    },
+    "tackleHeavyRef_ppg2025_vs_ppg2026": {
+     "n": 81,
+     "rho": 0.345,
+     "ci95": [
+      0.124,
+      0.541
+     ]
+    },
+    "leagueMinusRefStability_paired": {
+     "n": 81,
+     "diff": -0.036,
+     "ci95": [
+      -0.198,
+      0.125
+     ],
+     "pBoot": 0.6623
+    },
+    "predictLeagueCard2026_from_leagueCard2025": {
+     "n": 81,
+     "rho": 0.309,
+     "ci95": [
+      0.097,
+      0.493
+     ]
+    },
+    "predictLeagueCard2026_from_refCard2025": {
+     "n": 81,
+     "rho": 0.374,
+     "ci95": [
+      0.153,
+      0.556
+     ]
+    },
+    "refCardMinusLeagueCard2025_asPredictorOfLeague2026_paired": {
+     "n": 81,
+     "diff": 0.066,
+     "ci95": [
+      -0.059,
+      0.195
+     ],
+     "pBoot": 0.3007
+    },
+    "valuePreseason_vs_leagueCard2026": {
+     "n": 81,
+     "rho": 0.38,
+     "ci95": [
+      0.18,
+      0.547
+     ]
+    },
+    "tacklePtsPerGame_2025_vs_2026": {
+     "n": 81,
+     "rho": 0.377,
+     "ci95": [
+      0.173,
+      0.555
+     ]
+    },
+    "bigPlayPtsPerGame_2025_vs_2026": {
+     "n": 81,
+     "rho": 0.242,
+     "ci95": [
+      0.03,
+      0.429
+     ]
+    },
+    "note": "same players: priced pre-season, >= 8 games in 2025 and >= 3 in 2026; points per game under THIS card split into tackle and big-play components"
    }
   },
   "residualVsTackleShare_preseason_2025": {
@@ -10539,7 +13824,8 @@
      "ci95": [
       0.004,
       0.139
-     ]
+     ],
+     "pBoot": 0.039
     },
     "bdvmVsCanonicalAgreement": {
      "n": 292,
@@ -10581,7 +13867,8 @@
      "ci95": [
       -0.074,
       0.157
-     ]
+     ],
+     "pBoot": 0.4785
     },
     "bdvmVsCanonicalAgreement": {
      "n": 267,
@@ -10623,7 +13910,8 @@
      "ci95": [
       -0.275,
       0.207
-     ]
+     ],
+     "pBoot": 0.8222
     },
     "bdvmVsCanonicalAgreement": {
      "n": 34,
@@ -10665,7 +13953,8 @@
      "ci95": [
       -0.027,
       0.164
-     ]
+     ],
+     "pBoot": 0.1508
     },
     "bdvmVsCanonicalAgreement": {
      "n": 78,
@@ -10707,7 +13996,8 @@
      "ci95": [
       -0.127,
       0.061
-     ]
+     ],
+     "pBoot": 0.5005
     },
     "bdvmVsCanonicalAgreement": {
      "n": 115,
@@ -10749,7 +14039,8 @@
      "ci95": [
       0.009,
       0.267
-     ]
+     ],
+     "pBoot": 0.039
     },
     "bdvmVsCanonicalAgreement": {
      "n": 65,
@@ -10791,7 +14082,8 @@
      "ci95": [
       -0.032,
       0.34
-     ]
+     ],
+     "pBoot": 0.1009
     },
     "bdvmVsCanonicalAgreement": {
      "n": 81,
@@ -10833,7 +14125,8 @@
      "ci95": [
       -0.283,
       0.067
-     ]
+     ],
+     "pBoot": 0.2348
     },
     "bdvmVsCanonicalAgreement": {
      "n": 99,
@@ -10875,7 +14168,8 @@
      "ci95": [
       -0.231,
       0.246
-     ]
+     ],
+     "pBoot": 0.9461
     },
     "bdvmVsCanonicalAgreement": {
      "n": 87,
@@ -10918,6 +14212,15 @@
     "WR": 1432
    },
    "A3h_li5BandedTop3_healthy": {
+    "DB": 1754,
+    "DL": 1812,
+    "LB": 1946,
+    "QB": 1410,
+    "RB": 1502,
+    "TE": 1769,
+    "WR": 1583
+   },
+   "A3hs_li5BandedTop3_healthyStrictRule": {
     "DB": 1754,
     "DL": 1812,
     "LB": 1946,
@@ -10988,6 +14291,22 @@
      "eccSumMean": 0
     },
     "A3h_li5BandedTop3_healthy": {
+     "teamsWhoseForcedDropChanged": 4,
+     "forcedDropCostMean": 777,
+     "deltaCostVsCurrent_mean": -246,
+     "deltaCostVsCurrent_maxAbs": 1872,
+     "deltaFinderFactor_meanAbs": 3.88,
+     "dropsByPosition": {
+      "DL": 2,
+      "DB": 7,
+      "WR": 1,
+      "LB": 1,
+      "RB": 1
+     },
+     "dropsAssumedWaiver": 4,
+     "eccSumMean": 0
+    },
+    "A3hs_li5BandedTop3_healthyStrictRule": {
      "teamsWhoseForcedDropChanged": 4,
      "forcedDropCostMean": 777,
      "deltaCostVsCurrent_mean": -246,
@@ -11088,6 +14407,22 @@
      "dropsAssumedWaiver": 6,
      "eccSumMean": 0
     },
+    "A3hs_li5BandedTop3_healthyStrictRule": {
+     "teamsWhoseForcedDropChanged": 5,
+     "forcedDropCostMean": 1860,
+     "deltaCostVsCurrent_mean": -269,
+     "deltaCostVsCurrent_maxAbs": 1543,
+     "deltaFinderFactor_meanAbs": 4.59,
+     "dropsByPosition": {
+      "DL": 4,
+      "DB": 16,
+      "WR": 1,
+      "LB": 2,
+      "RB": 1
+     },
+     "dropsAssumedWaiver": 6,
+     "eccSumMean": 0
+    },
     "A5_li5_bestBallStarter_rosters": {
      "teamsWhoseForcedDropChanged": 8,
      "forcedDropCostMean": 1838,
@@ -11129,6 +14464,13 @@
      ]
     ],
     "A3h_li5BandedTop3_healthy": [
+     [
+      "Andrew Mukuba",
+      "DB",
+      "board"
+     ]
+    ],
+    "A3hs_li5BandedTop3_healthyStrictRule": [
      [
       "Andrew Mukuba",
       "DB",
@@ -11293,6 +14635,43 @@
      "surplusSum": 26321
     }
    },
+   "A3hs_li5BandedTop3_healthyStrictRule": {
+    "DB": {
+     "rookies": 21,
+     "positiveSurplus": 6,
+     "surplusSum": 4304
+    },
+    "DL": {
+     "rookies": 24,
+     "positiveSurplus": 5,
+     "surplusSum": 5617
+    },
+    "LB": {
+     "rookies": 18,
+     "positiveSurplus": 6,
+     "surplusSum": 9048
+    },
+    "QB": {
+     "rookies": 10,
+     "positiveSurplus": 6,
+     "surplusSum": 8014
+    },
+    "RB": {
+     "rookies": 20,
+     "positiveSurplus": 12,
+     "surplusSum": 15153
+    },
+    "TE": {
+     "rookies": 18,
+     "positiveSurplus": 9,
+     "surplusSum": 7495
+    },
+    "WR": {
+     "rookies": 38,
+     "positiveSurplus": 22,
+     "surplusSum": 26321
+    }
+   },
    "A5_li5_bestBallStarter_rosters": {
     "DB": {
      "rookies": 21,
@@ -11344,12 +14723,21 @@
      1917,
      1910,
      1895
+    ],
+    "healthyOnlyStrictRule": [
+     2149,
+     1918,
+     1917,
+     1910,
+     1895
     ]
    }
   },
   "faabVRepl": {
    "all_unrostered_served": {
     "vRepl": 1687,
+    "vReplRawBlendBeforeGuardrail": 1706,
+    "guardrailWidened_vReplCappedAt_vAllinMinusMinBand": true,
     "livePoolRepl_12th": 1839,
     "formatRepl": 1573,
     "vAllin": 2387,
@@ -11363,6 +14751,23 @@
    },
    "healthy_unrostered": {
     "vRepl": 1655,
+    "vReplRawBlendBeforeGuardrail": 1655,
+    "guardrailWidened_vReplCappedAt_vAllinMinusMinBand": false,
+    "livePoolRepl_12th": 1737,
+    "formatRepl": 1573,
+    "vAllin": 2387,
+    "objectiveCeilingPctOfBudget": {
+     "1800": 0.0,
+     "2200": 54.2,
+     "2600": 100.0,
+     "3000": 100.0,
+     "4000": 100.0
+    }
+   },
+   "healthyStrict_unrostered": {
+    "vRepl": 1655,
+    "vReplRawBlendBeforeGuardrail": 1655,
+    "guardrailWidened_vReplCappedAt_vAllinMinusMinBand": false,
     "livePoolRepl_12th": 1737,
     "formatRepl": 1573,
     "vAllin": 2387,
@@ -11376,6 +14781,8 @@
    },
    "healthy_productionQualified": {
     "vRepl": 901,
+    "vReplRawBlendBeforeGuardrail": 901,
+    "guardrailWidened_vReplCappedAt_vAllinMinusMinBand": false,
     "livePoolRepl_12th": 229,
     "formatRepl": 1573,
     "vAllin": 2387,
@@ -11410,5 +14817,5 @@
    }
   }
  },
- "timingsSec": 204.8
+ "timingsSec": 317.5
 }
