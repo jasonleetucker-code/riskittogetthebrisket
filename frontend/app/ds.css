@@ -309,6 +309,24 @@
 .ds-panel--collapsed .ds-panel__disclosure-glyph {
   transform: rotate(-90deg);
 }
+
+/* ══ Hydration gate (components/ds/useHydrated.js) ═════════════════════
+   Server-rendered Tabs / SegmentedControl / panel disclosures render
+   disabled + aria-busy until React attaches their handlers.  The progress
+   cursor is immediate; the dimming waits 400ms so a fast page never
+   flashes, and a slow one plainly reads "not ready yet".  A 0s step, not
+   motion — nothing to switch off under prefers-reduced-motion. */
+.ds-tabs[aria-busy="true"] .ds-tab,
+.ds-segmented[aria-busy="true"] .ds-segmented__option,
+.ds-panel__disclosure[aria-busy="true"] {
+  cursor: progress;
+  animation: ds-hydrating 0s linear 400ms forwards;
+}
+@keyframes ds-hydrating {
+  to {
+    opacity: 0.55;
+  }
+}
 .ds-panel--collapsed .ds-panel__header {
   border-bottom: 0;
 }
