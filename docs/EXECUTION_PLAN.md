@@ -8,7 +8,7 @@ Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-19 (later)". Verbatim text
 - **League intelligence and trade decision engine**, stages A–F of `docs/owner/LEAGUE_INTELLIGENCE_TRADE_DECISION_ENGINE_2026-10-19.md`, built in parallel workstreams. The stages are: exact-league scoring and projections, the projection ensemble, best-ball marginal utility, dynasty-horizon forecasts, the league-aware valuation challenger, and the hierarchical YES / NO decision engine inside the existing Trade Calculator.
   - Experimental models never change served values or recommendations until they pass promotion gates written down before the holdout is examined.
   - Promoting a league-aware canonical value follows the model-governance sequence (fit → backtest → validate → compare → human approval → promote → monitor → rollback). The evidence and the decision go to the owner together.
-- **Brisket Trade Advisor** (public League Hub): implement, test and ship under the public / private boundary.
+- **Brisket Trade Advisor** (public League Hub): implement, test and ship under the public / private boundary. *Refined 2026-10-20:* multi-team is now required, the public result is fairness-only, and public launch is owner-reserved. See §0 "Brisket Trade Advisor completion and multi-team trade support".
 - **Signals Fantasy IDP voting**: root cause, preregistered candidates and validation. Per-family activation only after the directive's gates pass.
 - **Chase Upside Trade Market**: the shadow source, its validation and the research view, labelled "Experimental — Not Voting". Voting needs owner authorization.
 
@@ -127,6 +127,41 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 ---
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
+
+## Brisket Trade Advisor completion and multi-team trade support — owner directive, 2026-10-20
+
+**AUTHORIZED NOW (implementation and validation; NOT activation).** The directive and its same-day FAIRNESS-ONLY
+amendment are recorded verbatim in `docs/owner/TRADE_ADVISOR_MULTITEAM_DIRECTIVE_2026-10-20.md`. Intake:
+`docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-20"). Binding interface contract:
+`docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`.
+
+Five lanes, in isolated branches:
+
+| lane | scope | branch |
+|---|---|---|
+| A | canonical N-team engine and private route | `claude/trade-nteam-engine` |
+| B | private calculator and War Room | `claude/trade-multi-team-ui` |
+| C | public fairness-only backend, reconciling #1861 | `claude/advisor-public-backend` |
+| D | League Hub frontend, reconciling #1866 | `claude/advisor-hub-frontend` |
+| E | quality, privacy, verification | test-only branches |
+
+There is also a separate owner-visible deploy unit, D-net (loopback binds).
+
+- **OD-1 resolved YES:** genuine 2/3/4-team evaluation in both products. Each team gets its own result, from ONE
+  shared server-side engine. Nothing is duplicated in the public endpoint.
+- **Flags:**
+  - the new private `trade_multi_team_analysis` ships default OFF and is enabled only through the normal release
+    process after Lane E's regressions and independent review;
+  - the public `brisket_trade_advisor` stays OFF.
+- **Public launch is OWNER-RESERVED.** All eleven directive §16 criteria must pass. That includes OD-3 source
+  permission, OD-4 exposure, OD-F1 to OD-F6 fairness threshold, and explicit owner approval. The spec's §6.3 launch
+  gate makes the threshold and source-permission blocks executable. No lane enables the flag or any production
+  default.
+- **Unchanged:** `geom_q078_v1` (q = 0.78) is the only active package model (no LP_150, no q change, no player-value
+  change); `fairness_bands_v1` is used unchanged; no new weights, thresholds or formulas without evidence and owner
+  authorization; the two-team routes are not regressed. The private 3+-team browser meter fix (spec §5.1) is a
+  directive-§6 correctness fix, shown to the owner with before/after evidence.
+- Merges and deploys keep their normal gates. A merge is not launch approval.
 
 ## Trade Calculator clarity, dual Value Adjustment and speed — owner directive, 2026-10-19
 

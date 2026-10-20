@@ -15,6 +15,40 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-20 — Brisket Trade Advisor completion and full multi-team trade support (+ same-day FAIRNESS-ONLY amendment)
+
+Definite owner instruction, recorded verbatim at `docs/owner/TRADE_ADVISOR_MULTITEAM_DIRECTIVE_2026-10-20.md`
+(main directive plus the superseding same-day amendment). This entry is the intake pointer. Capture is not
+implementation authorization: `docs/EXECUTION_PLAN.md` §0 ("Brisket Trade Advisor completion and multi-team trade
+support — owner directive, 2026-10-20") records what is authorized. The binding interface contract for the work is
+`docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`.
+
+- **OD-1 RESOLVED: YES.** 2-, 3- and 4-team trades are genuinely evaluated in BOTH the public Advisor and the private
+  Trade Calculator / War Room.
+  - There is ONE canonical server-side N-team engine: a per-team loop over the existing 2-team analysis owner.
+  - Each team gets its own authoritative result from its own perspective, with simultaneous roster application and
+    no separate multi-team valuation methodology.
+  - `multi_team_unsupported` is retired once the capability passes the launch requirements.
+- **FAIRNESS-ONLY amendment (supersedes the public ACCEPT/DECLINE / five-category requirement).**
+  - The PUBLIC Advisor answers only "Is this trade fair?": FAIR TRADE / NOT FAIR / UNABLE TO DETERMINE.
+  - Each team is judged separately; the overall trade is FAIR only when every team is fair.
+  - It reuses `geom_q078_v1` and the one fairness-band owner. There are no public numbers, gaps, formulas,
+    ACCEPT/DECLINE or personalized advice.
+  - The private calculator and War Room keep full YES/NO recommendations.
+  - The threshold must be investigated and validated, not silently inherited. Any methodology change goes to the
+    owner.
+- **Public launch is OWNER-RESERVED.**
+  - The `brisket_trade_advisor` flag stays off until all eleven directive §16 criteria pass, including:
+    - the source-permission decisions (OD-3);
+    - the exposure decisions (OD-4);
+    - the threshold decisions (OD-F1 to OD-F6);
+    - explicit owner launch approval.
+  - A merge is not launch approval.
+- **Unchanged:** `geom_q078_v1` (q = 0.78); no LP_150; no player-value change; no new weights or thresholds without
+  evidence and authorization; MISSING IS NEVER ZERO; recommendation ≠ execution.
+- **Supersession:** item 2 of the 2026-10-19 (later) entry below ("five categories mapped from the existing bands")
+  is superseded for the PUBLIC product by the amendment. Its other requirements stay in force.
+
 ## Added 2026-10-19 (later) — four product directives, recorded verbatim
 
 All four are definite owner instructions. The verbatim text lives in `docs/owner/`; this entry is the intake pointer. Capture is not implementation authorization: `docs/EXECUTION_PLAN.md` records what is authorized.
@@ -33,6 +67,7 @@ All four are definite owner instructions. The verbatim text lives in `docs/owner
    - A public League Hub advisor and the hub's default landing page, for 2-, 3- and 4-team trades.
    - It uses the same private engine, with a server-side boundary and rate limiting.
    - It returns five categories mapped from the existing bands and exposes no proprietary values anywhere.
+   - *Superseded in part 2026-10-20:* the public result is now fairness-only (FAIR TRADE / NOT FAIR / UNABLE TO DETERMINE) and multi-team is a requirement. See the 2026-10-20 entry above.
 3. **Signals Fantasy IDP voting** (`docs/owner/SIGNALS_IDP_VOTING_2026-10-19.md`).
    - Diagnose the 2026-10-17 shadow-mode failure and investigate native league-specific values first.
    - Preregister new candidates, then validate without weakening the gates.
