@@ -147,21 +147,178 @@ def test_engine_unable_reasons_are_left_alone():
     assert t.unavailable_asset_ids == ("p:2",)
 
 
-def test_overall_is_unable_not_fair_when_the_only_verdict_rests_on_a_withheld_value():
-    a = _entry(state=team_verdicts.FAIR, reason="within_fairness_threshold")
-    b = dict(
-        _entry(
-            state=team_verdicts.FAIR,
-            reason="within_fairness_threshold",
-            row_states=("priced", "quarantined"),
-        ),
-        rosterId=2,
+# ── evaluate(): the engine's OWN overall disagrees with the public answer ──
+#
+# The one case where the public check changes an answer is an engine FAIR /
+# NOT_FAIR over a row whose valueState is not ``priced``.  The engine's own
+# ``summary.fairnessOverall`` then still says FAIR / NOT_FAIR.  These tests
+# hand evaluate() exactly that engine result (they never recompute the overall
+# from the already-downgraded teams), so the published overall must come from
+# the public per-team states — not a 503 from the cross-check.
+
+
+def _team(rid, state, reason, *, give_state="priced", recv_state="priced"):
+    return {
+        "rosterId": rid,
+        "gives": [{"assetId": f"p:{rid}0", "value": 4000, "valueState": give_state}],
+        "receives": [{"assetId": f"p:{rid}1", "value": 3900, "valueState": recv_state}],
+        "fairness": {"state": state, "reasonCode": reason},
+    }
+
+
+def _run_evaluate(monkeypatch, teams, engine_overall):
+    from types import SimpleNamespace
+
+    from src.trade.trade_ledger import Leg
+
+    result = {
+        "teams": {t["rosterId"]: t for t in teams},
+        "summary": {"fairnessOverall": {"state": engine_overall, "reasonCode": "x"}},
+    }
+    monkeypatch.setattr(analyze_service, "analyze_trade_n", lambda *a, **k: copy.deepcopy(result))
+    ledger = SimpleNamespace(
+        teams=tuple(t["rosterId"] for t in teams),
+        legs=[Leg("p:10", 1, 2), Leg("p:20", 2, 1)],
     )
-    teams = [public_advisor.team_fairness_input(e) for e in (a, b)]
-    overall = team_verdicts.fairness_overall([t.state for t in teams])["state"]
-    assert overall == team_verdicts.UNABLE
-    res = public_advisor.reduce_fairness(teams, overall_state=overall, legs=[])
-    assert res.overall.result == public_advisor.UNABLE_TO_DETERMINE
+    return public_advisor.evaluate(object(), ledger)
+
+
+WITHHELD_STATES = ["off_board", "quarantined", "stale", "unpriced", "not_held", "withheld"]
+
+
+@pytest.mark.parametrize("row_state", WITHHELD_STATES)
+def test_engine_fair_overall_over_a_withheld_row_publishes_unable_not_503(monkeypatch, row_state):
+    """The reviewer's reproduction: two engine-FAIR teams, one carrying a
+    non-priced row, engine overall FAIR.  Before the fix evaluate() raised
+    InvariantViolation (route 503)."""
+    out = _run_evaluate(
+        monkeypatch,
+        [
+            _team(1, team_verdicts.FAIR, "within_fairness_threshold"),
+            _team(2, team_verdicts.FAIR, "within_fairness_threshold", recv_state=row_state),
+        ],
+        team_verdicts.FAIR,
+    )
+    assert out.overall.result == public_advisor.UNABLE_TO_DETERMINE
+    assert out.overall.reason_code == "evidence_insufficient"
+    t1, t2 = out.teams
+    assert (t1.roster_id, t1.result) == (1, public_advisor.FAIR)
+    assert (t2.roster_id, t2.result, t2.reason_code) == (
+        2,
+        public_advisor.UNABLE_TO_DETERMINE,
+        "evaluation_unavailable",
+    )
+    assert t2.unavailable_asset_ids == ()  # F-1: never named
+
+
+@pytest.mark.parametrize("row_state", ["quarantined", "stale"])
+def test_engine_not_fair_resting_on_a_withheld_row_publishes_unable(monkeypatch, row_state):
+    out = _run_evaluate(
+        monkeypatch,
+        [
+            _team(1, team_verdicts.NOT_FAIR, "outside_fairness_threshold", give_state=row_state),
+            _team(2, team_verdicts.FAIR, "within_fairness_threshold"),
+        ],
+        team_verdicts.NOT_FAIR,
+    )
+    assert out.overall.result == public_advisor.UNABLE_TO_DETERMINE
+    assert [t.result for t in out.teams] == [
+        public_advisor.UNABLE_TO_DETERMINE,
+        public_advisor.FAIR,
+    ]
+
+
+def test_a_priced_not_fair_team_keeps_the_overall_not_fair(monkeypatch):
+    """Kleene AND: one definite NOT_FAIR on priced evidence still proves the
+    trade is not fair for every team, whatever another team's evidence."""
+    out = _run_evaluate(
+        monkeypatch,
+        [
+            _team(1, team_verdicts.NOT_FAIR, "outside_fairness_threshold"),
+            _team(2, team_verdicts.FAIR, "within_fairness_threshold", recv_state="stale"),
+        ],
+        team_verdicts.NOT_FAIR,
+    )
+    assert out.overall.result == public_advisor.NOT_FAIR
+    assert [t.result for t in out.teams] == [
+        public_advisor.NOT_FAIR,
+        public_advisor.UNABLE_TO_DETERMINE,
+    ]
+
+
+def test_engine_fair_team_with_an_unknown_reason_publishes_unable_not_503(monkeypatch):
+    """Same class: the reducer fails an unknown reason closed, so the engine's
+    FAIR overall must not be copied over it."""
+    out = _run_evaluate(
+        monkeypatch,
+        [
+            _team(1, team_verdicts.FAIR, "within_fairness_threshold"),
+            _team(2, team_verdicts.FAIR, "a_reason_the_public_side_does_not_know"),
+        ],
+        team_verdicts.FAIR,
+    )
+    assert out.overall.result == public_advisor.UNABLE_TO_DETERMINE
+    assert out.teams[1].result == public_advisor.UNABLE_TO_DETERMINE
+
+
+@pytest.mark.parametrize(
+    ("states", "engine_overall"),
+    [
+        ((team_verdicts.FAIR, team_verdicts.FAIR), team_verdicts.NOT_FAIR),
+        ((team_verdicts.FAIR, team_verdicts.UNABLE), team_verdicts.FAIR),
+        ((team_verdicts.NOT_FAIR, team_verdicts.FAIR), team_verdicts.FAIR),
+        ((team_verdicts.NOT_FAIR, team_verdicts.FAIR), team_verdicts.UNABLE),
+    ],
+)
+@pytest.mark.parametrize("withheld", [False, True], ids=["priced", "withheld-row"])
+def test_an_engine_that_disagrees_with_itself_is_still_never_published(
+    monkeypatch, states, engine_overall, withheld
+):
+    """The cross-check is kept, at full precision, against the engine's OWN
+    per-team states (read before the public downgrade) — a withheld row can
+    neither trigger it nor hide a genuine engine inconsistency."""
+    reasons = {
+        team_verdicts.FAIR: "within_fairness_threshold",
+        team_verdicts.NOT_FAIR: "outside_fairness_threshold",
+        team_verdicts.UNABLE: "evidence_insufficient",
+    }
+    teams = [
+        _team(i + 1, st, reasons[st], recv_state="quarantined" if withheld else "priced")
+        for i, st in enumerate(states)
+    ]
+    with pytest.raises(public_advisor.InvariantViolation, match="engine overall"):
+        _run_evaluate(monkeypatch, teams, engine_overall)
+
+
+def test_evaluate_never_publishes_an_overall_more_certain_than_the_engine():
+    """Every engine-consistent combination of two teams x {FAIR, NOT_FAIR,
+    UNABLE} x {priced, withheld}: the published overall is the engine's, or
+    UNABLE.  FAIR / NOT_FAIR is never invented."""
+    import itertools
+
+    reasons = {
+        team_verdicts.FAIR: "within_fairness_threshold",
+        team_verdicts.NOT_FAIR: "outside_fairness_threshold",
+        team_verdicts.UNABLE: "evidence_insufficient",
+    }
+    states = [team_verdicts.FAIR, team_verdicts.NOT_FAIR, team_verdicts.UNABLE]
+    mp = pytest.MonkeyPatch()
+    try:
+        for (s1, w1), (s2, w2) in itertools.product(
+            itertools.product(states, [False, True]), repeat=2
+        ):
+            engine_overall = team_verdicts.fairness_overall([s1, s2])["state"]
+            teams = [
+                _team(1, s1, reasons[s1], give_state="stale" if w1 else "priced"),
+                _team(2, s2, reasons[s2], give_state="stale" if w2 else "priced"),
+            ]
+            out = _run_evaluate(mp, teams, engine_overall)
+            published = public_advisor._RESULT_TO_STATE[out.overall.result]
+            assert published in (engine_overall, team_verdicts.UNABLE), (s1, w1, s2, w2)
+            if not (w1 or w2):
+                assert published == engine_overall, (s1, s2)
+    finally:
+        mp.undo()
 
 
 # ── End to end over the real engine and the real route ───────────────────
@@ -186,6 +343,10 @@ def test_route_answers_unable_for_every_team_touching_a_withheld_asset(
     monkeypatch,
     kind,
 ):
+    """Real board stamps over HTTP.  Note: the ENGINE's own evidence gate
+    (``asset_evidence_gaps``) already answers this case UNABLE, so this test
+    alone does not exercise the public valueState check — the
+    ``..._engine_overall_is_fair_over_a_withheld_row`` route tests below do."""
     monkeypatch.setattr(server, "latest_contract_data", _withheld_contract(kind))
     r = advisor_client.post(S.ANALYZE, json=S.trade_body(*S.FAIR_TWO, teams=(1, 3)))
     assert r.status_code == 200, r.text
@@ -203,6 +364,70 @@ def test_route_answers_unable_for_every_team_touching_a_withheld_asset(
 
 def test_route_keeps_the_fair_answer_when_every_asset_is_priced(advisor_client):
     """Control for the test above: the same trade on the clean board is FAIR."""
+    r = advisor_client.post(S.ANALYZE, json=S.trade_body(*S.FAIR_TWO, teams=(1, 3)))
+    assert r.status_code == 200, r.text
+    assert r.json()["overall"]["result"] == "FAIR"
+
+
+def _with_withheld_row(asset_id: str, row_state: str):
+    """Wrap the REAL engine so its answer is the disagreeing shape: the team
+    fairness states and ``fairnessOverall`` stay the engine's own (FAIR on
+    the clean board) while one asset's rows carry a non-priced valueState."""
+    real = analyze_service.analyze_trade_n
+
+    def wrapped(*a, **k):
+        res = real(*a, **k)
+        for team in res["teams"].values():
+            for row in (*team.get("gives", []), *team.get("receives", [])):
+                if str(row.get("assetId")) == asset_id:
+                    row["valueState"] = row_state
+                    row["value"] = None
+        return res
+
+    return wrapped
+
+
+@pytest.mark.parametrize("row_state", ["quarantined", "stale"])
+def test_route_answers_unable_not_503_when_the_engine_overall_is_fair_over_a_withheld_row(
+    advisor_client, monkeypatch, row_state
+):
+    """Over HTTP, the path the engine's own gate does NOT already answer: the
+    engine overall is FAIR and only the row valueState says the value is
+    withheld.  The public check decides, and the answer is a 200 with those
+    teams UNABLE TO DETERMINE — not a 503."""
+    withheld = _with_withheld_row("p:303", row_state)
+    captured = {}
+
+    def spy(*a, **k):
+        res = withheld(*a, **k)
+        captured["overall"] = res["summary"]["fairnessOverall"]["state"]
+        captured["states"] = {rid: t["fairness"]["state"] for rid, t in res["teams"].items()}
+        return res
+
+    monkeypatch.setattr(analyze_service, "analyze_trade_n", spy)
+    r = advisor_client.post(S.ANALYZE, json=S.trade_body(*S.FAIR_TWO, teams=(1, 3)))
+    # The engine itself still said FAIR (this is the disagreeing shape).
+    assert captured["overall"] == team_verdicts.FAIR
+    assert set(captured["states"].values()) == {team_verdicts.FAIR}
+    assert r.status_code == 200, r.text
+    body = r.json()
+    public_advisor.assert_advisor_payload_value_free(body, kind="analyze")
+    assert body["overall"]["result"] == "UNABLE_TO_DETERMINE"
+    for team in body["teams"]:
+        assert team["result"] == "UNABLE_TO_DETERMINE", team
+        assert team["reasonCode"] == "evaluation_unavailable", team
+        assert team["unavailableAssetIds"] == [], team
+    assert row_state not in r.text.lower()
+
+
+def test_route_withheld_row_answer_is_decided_by_the_public_check(advisor_client, monkeypatch):
+    """Sensitivity control for the test above: with the public check disabled
+    the same engine answer would publish FAIR — so the UNABLE above is the
+    public check working, not an engine gate answering first."""
+    monkeypatch.setattr(
+        analyze_service, "analyze_trade_n", _with_withheld_row("p:303", "quarantined")
+    )
+    monkeypatch.setattr(public_advisor, "_withheld_value_evidence", lambda entry: False)
     r = advisor_client.post(S.ANALYZE, json=S.trade_body(*S.FAIR_TWO, teams=(1, 3)))
     assert r.status_code == 200, r.text
     assert r.json()["overall"]["result"] == "FAIR"
