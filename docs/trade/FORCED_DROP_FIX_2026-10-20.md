@@ -104,7 +104,8 @@ player and shuffling the roster leaves the cut set and charge unchanged (pinned)
 | surface | path | flag ON |
 |---|---|---|
 | Trade Calculator `/api/trade/simulate` | `trade_simulator._capacity_package` → `assess_roster_capacity(package=…)` | V5; `rosterCapacity.forcedDropCharge` / `forcedDropChargeBasis` / `forcedDropSelection`, per-drop `chargeBasis` |
-| War Room `/api/trade/analyze` (and the public 2-team advisor, same service) | `analyze_service` → simulate → `trade_decision._objective_value` reads `forcedDropCharge` | same number as the calculator |
+| War Room `/api/trade/analyze` (private) | `analyze_service` → simulate → `trade_decision._objective_value` reads `forcedDropCharge` | same number as the calculator |
+| Public advisor (`claude/advisor-public-backend`) | `analyze_service.analyze_trade_n(mode="market_fairness")` with Team Context, roster capacity and posture OFF (public fairness audit, PR #1889) | **none by construction** — the forced-release subtraction exists only in the private decision; nothing here is threaded into public paths |
 | Trade Finder (Team Context) | `finder._board_package` → `forced_drop_cost` | same owner, board-value package; unpriced counted |
 | Best Offers | `server.py` `capacity_for` → `board_package` | same as Finder |
 | Angle, Suggestions, Perfect Waivers, counterparty blocks | `assess_roster_capacity` without a package | V5 selection and unpriced rule; an acquired release is charged its raw `c` (`release_cost_no_package`) — these publish no package net |
@@ -141,7 +142,14 @@ decided by the production `decide()` with the utility block in the decision owne
 (`no_remaining_fantasy_weeks`, the off-season shape) — i.e. Component A + feasibility + posture. On the box Component
 B also votes.
 
-**War Room design (45 trades, 180 steps):** forced-drop set changes on 131; public category changes on **112**:
+**Scope: private surfaces only.** The public advisor runs every public path in `market_fairness` mode with Team
+Context, roster capacity and posture OFF (public fairness audit, PR #1889), so its impact is **none by
+construction**. The "category" columns below are `trade_decision.public_category_from_decision` applied to the
+**private** War Room decision — a private-decision category mapping used here as a compact summary of the verdict,
+not a served public category. (The evidence JSON keeps the key name `publicCategoryChanged`; read it as that
+mapping.)
+
+**War Room design (45 trades, 180 steps):** forced-drop set changes on 131; private-decision category changes on **112**:
 UNFAVORABLE→FAVORABLE 51, UNAVAILABLE→FAVORABLE 45, UNFAVORABLE→APPROXIMATELY_EVEN 11, UNAVAILABLE→APPROXIMATELY_EVEN
 3, UNAVAILABLE→STRONGLY_UNFAVORABLE 1, APPROXIMATELY_EVEN→FAVORABLE 1. The `forced_drop_unpriced` evidence gap
 disappears on all 49 steps that had it.
@@ -149,7 +157,7 @@ disappears on all 49 steps that had it.
 **Census (every team; 278 seeded 1-for-2 / 2-for-1 / 1-for-3 trades):** 181 require releases; drop set changes on
 174; War Room charge changes on 174 — 159 lower (at or under the cap), **15 higher** (rosters already over the limit,
 which the incumbent never charged; now charged the marginal release); median change −1,691 (−3,490 … +1,271).
-Public category changes on **140**: UNFAVORABLE→FAVORABLE 56, UNAVAILABLE→FAVORABLE 43,
+Private-decision category changes on **140**: UNFAVORABLE→FAVORABLE 56, UNAVAILABLE→FAVORABLE 43,
 UNFAVORABLE→APPROXIMATELY_EVEN 17, UNAVAILABLE→APPROXIMATELY_EVEN 15, APPROXIMATELY_EVEN→FAVORABLE 3,
 UNAVAILABLE→UNFAVORABLE 3, FAVORABLE→APPROXIMATELY_EVEN 2, UNFAVORABLE→STRONGLY_UNFAVORABLE 1.
 
@@ -174,7 +182,7 @@ excluded as 0, so it charged almost nothing).
 
 **What the owner is approving:** on team-aware surfaces, filler sweeteners stop being neutralised by an
 alphabetical over-charge and become genuine roster gains (§5.3 of the research: a filler worth more than the
-receiver's worst legal cut is a real gain); many War Room/public verdicts move from UNAVAILABLE or UNFAVORABLE to a
+receiver's worst legal cut is a real gain); many private War Room verdicts move from UNAVAILABLE or UNFAVORABLE to a
 decision, mostly FAVORABLE for the receiver; already-over-limit rosters start paying the marginal release; the
 Finder starts ranking on forced-drop cost it previously ignored. R-C (informational disclosure) remains the tool where
 market convention differs from the roster answer.
