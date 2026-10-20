@@ -975,11 +975,22 @@ def decoy_accuracy(
 
 
 def maturity_signal_test(
-    world: SimWorld, fit: FitResult, trades: TradeSet, *, q: float, min_trades: int = 3
+    world: SimWorld,
+    fit: FitResult,
+    trades: TradeSet,
+    *,
+    q: float,
+    min_trades: int = 3,
+    reading: str = "league_level",
 ) -> dict[str, Any]:
     """Does league age improve the signal?  Per league, mean |held-out
     residual| under the fit; one-sided Mann–Whitney: cohort A (>=3 completed
-    seasons, league level) less noisy than younger leagues.  Report-only."""
+    seasons) less noisy than younger leagues.  Report-only.  ``reading`` is
+    ``league_level`` (seasons as of the build) or ``point_in_time`` (seasons
+    at each trade; a league's trades split into one group per cohort) —
+    directive V2 / preregistration §9 report BOTH."""
+    if reading not in ("league_level", "point_in_time"):
+        raise ValueError(f"unknown maturity reading: {reading}")
     if trades.n == 0 or fit.spec.kind == "prior":
         return {"p_value": None, "n_A": 0, "n_younger": 0}
     pos = world.assets.position
@@ -988,14 +999,18 @@ def maturity_signal_test(
         - side_log_utility(fit, pos, trades.side_b, trades.stratum, q)
     )
     ok = np.isfinite(r)
-    by_league: dict[int, list[float]] = {}
-    for lg, val in zip(trades.league[ok], r[ok]):
-        by_league.setdefault(int(lg), []).append(float(val))
+    if reading == "league_level":
+        is_a = world.leagues.maturity[trades.league] >= 3
+    else:
+        is_a = trades.maturity_pit >= 3
+    by_group: dict[tuple[int, bool], list[float]] = {}
+    for lg, a, val in zip(trades.league[ok], is_a[ok], r[ok]):
+        by_group.setdefault((int(lg), bool(a)), []).append(float(val))
     a_vals, y_vals = [], []
-    for lg, vals in by_league.items():
+    for (_lg, a), vals in by_group.items():
         if len(vals) < min_trades:
             continue
-        (a_vals if world.leagues.maturity[lg] >= 3 else y_vals).append(float(np.mean(vals)))
+        (a_vals if a else y_vals).append(float(np.mean(vals)))
     if len(a_vals) < 3 or len(y_vals) < 3:
         return {"p_value": None, "n_A": len(a_vals), "n_younger": len(y_vals)}
     p = float(stats.mannwhitneyu(a_vals, y_vals, alternative="less").pvalue)
@@ -1063,6 +1078,9 @@ def evaluate_fit(
             "best_case_q": best_q,
             "best_case": by_q[best_q],
             "maturity_signal": maturity_signal_test(world, fit, ts, q=fit.q_eval),
+            "maturity_signal_point_in_time": maturity_signal_test(
+                world, fit, ts, q=fit.q_eval, reading="point_in_time"
+            ),
         }
     status_counts = {
         s: int((fit.status == s).sum())
@@ -1594,13 +1612,16 @@ def _summarise_point(n_lg, tpl, runs, estimators) -> dict[str, Any]:
         for m in ("decoy_hard_future", "decoy_hard_reserved"):
             vals = [v for v in (_metric(r, est, "", m) for r in good) if v is not None]
             per[m] = {"mean": float(np.mean(vals)), "n": len(vals)} if vals else None
-        pvals = [
-            r["estimators"][est]["held_out"]["chronological_future"]["maturity_signal"]["p_value"]
-            for r in good
-        ]
-        pvals = [p for p in pvals if p is not None]
-        per["maturity_signal_power_at_0.05"] = (
-            {"rate": float(np.mean([p < 0.05 for p in pvals])), "n": len(pvals)} if pvals else None
-        )
+        for key, label in (
+            ("maturity_signal", "maturity_signal_power_at_0.05"),
+            ("maturity_signal_point_in_time", "maturity_signal_point_in_time_power_at_0.05"),
+        ):
+            fut = [r["estimators"][est]["held_out"]["chronological_future"] for r in good]
+            pvals = [h[key]["p_value"] for h in fut if h[key]["p_value"] is not None]
+            per[label] = (
+                {"rate": float(np.mean([p < 0.05 for p in pvals])), "n": len(pvals)}
+                if pvals
+                else None
+            )
         out["metrics"][est] = per
     return out

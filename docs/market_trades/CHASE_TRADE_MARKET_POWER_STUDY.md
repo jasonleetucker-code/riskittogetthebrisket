@@ -304,6 +304,11 @@ ahead of trade volume.
   rejections in only a few of its 60 cell × estimator combinations (1–2 of
   3), consistent with multiple comparisons. A 10-replicate recheck of the
   worst cell (320 leagues × 10 trades) gave 0 of 10.
+- **Both readings:** the bench reports the test under the league-level and
+  the point-in-time reading (`maturity_signal` / `maturity_signal_point_in_time`).
+  On the synthetic chronological holdout they coincide, because every holdout
+  trade falls after the last season boundary; on real multi-season data they
+  can differ.
 - **Conclusion:** the age question is answerable only with about 160+
   leagues. Below that, a null result means **underpowered**, never "age does
   not matter".

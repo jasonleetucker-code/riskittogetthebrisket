@@ -398,6 +398,10 @@ def test_maturity_signal_test_refuses_with_too_few_leagues():
     f.spec = bench.EstimatorSpec("geom_huber")
     out = bench.maturity_signal_test(w, f, w.trades, q=0.78)
     assert out["p_value"] is None
+    pit = bench.maturity_signal_test(w, f, w.trades, q=0.78, reading="point_in_time")
+    assert pit["p_value"] is None
+    with pytest.raises(ValueError):
+        bench.maturity_signal_test(w, f, w.trades, q=0.78, reading="newest")
 
 
 # --------------------------------------------------------------------------- #
