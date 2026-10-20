@@ -62,6 +62,10 @@ RE_SYSTEMD="${TS}systemd\\[1\\]: ([A-Za-z0-9@._-]+\\.(service|timer|scope): )?(S
 RE_SYSTEMD_FAILURE="${TS}systemd\\[1\\]: ([A-Za-z0-9@._-]+\\.(service|timer): )?(Main process exited|Failed with result|Failed to start|Killing process|State '[a-z-]+' timed out)"
 # The watchdog's verdicts (deploy/systemd/dynasty-healthcheck.sh log()).
 RE_HEALTHCHECK="${TS}[^ ]+\\[[0-9]+\\]: \\[healthcheck\\] (LIVENESS FAIL [0-9]+/[0-9]+|threshold reached|restart issued|ERROR: systemctl restart|recovered|DEGRADED \\(log-only\\)|degraded state cleared|fd (WARNING|CRITICAL|EMERGENCY|recovered))"
+# The watchdog's cgroup snapshots (dynasty-healthcheck.sh cgroup_snapshot /
+# pyspy_dump), matched as WHOLE messages whose every value is numeric, "na"
+# or "max" — nothing a request carries can satisfy it.
+RE_SNAPSHOT="${TS}[^ ]+\\[[0-9]+\\]: \\[healthcheck\\] snapshot (mem|stat|psi_memory|psi_cpu|psi_io|host|pyspy) reason=(liveness-fail-[0-9]+|pre-restart)( [a-z0-9_]+=([0-9]+(\\.[0-9]+)?|na|max))+$"
 # uvicorn's start/stop banners, matched as WHOLE messages so an
 # application line that merely contains "Shutting down" cannot pass.
 RE_UVICORN="${TS}[^ ]+\\[[0-9]+\\]: (INFO|WARNING|ERROR):? +(Started server process \\[[0-9]+\\]|Waiting for application startup\\.|Application startup complete\\.|Shutting down|Waiting for application shutdown\\.|Application shutdown complete\\.|Finished server process \\[[0-9]+\\]|Uvicorn running on https?://[0-9A-Za-z.:]+ \\(Press CTRL\\+C to quit\\))$"
@@ -74,7 +78,7 @@ lifecycle_filter() {
   local kind="$1" re
   case "${kind}" in
     service)     re="(${RE_SYSTEMD})|(${RE_UVICORN})" ;;
-    healthcheck) re="(${RE_SYSTEMD_FAILURE})|(${RE_HEALTHCHECK})" ;;
+    healthcheck) re="(${RE_SYSTEMD_FAILURE})|(${RE_HEALTHCHECK})|(${RE_SNAPSHOT})" ;;
     kernel)      re="(${RE_KERNEL})|(${RE_OOMD})" ;;
     units)       re="${RE_SYSTEMD}" ;;
     *) echo "unknown filter kind: ${kind}" >&2; return 2 ;;
@@ -246,9 +250,19 @@ if [[ -d "${cg}" ]]; then
   for f in memory.current memory.peak memory.high memory.max memory.swap.current; do
     [[ -r "${cg}/${f}" ]] && printf '%s=%s\n' "${f}" "$(head -c 64 "${cg}/${f}")"
   done
-  for f in memory.events memory.pressure cpu.pressure io.pressure; do
+  for f in memory.events memory.events.local memory.pressure cpu.pressure io.pressure; do
     [[ -r "${cg}/${f}" ]] && sed "s/^/${f}: /" "${cg}/${f}" | head -8
   done
+  # How many times this cgroup crossed MemoryHigh (reclaim/throttle
+  # episodes), as one line; "na" when the file is unreadable.
+  mh="na"
+  [[ -r "${cg}/memory.events" ]] && mh="$(awk '$1 == "high" { print $2 }' "${cg}/memory.events")"
+  echo "memory_high_events=${mh:-na}"
+  # Anonymous vs page cache vs kernel: the question no earlier run could
+  # answer about a peak.  Kernel counters only (key + integer).
+  if [[ -r "${cg}/memory.stat" ]]; then
+    awk '$1 ~ /^[a-z_]+$/ && $2 ~ /^[0-9]+$/ { print "memory.stat: " $1 " " $2 }' "${cg}/memory.stat" | head -60
+  fi
 else
   echo "(no cgroup v2 directory at ${cg})"
 fi
@@ -265,6 +279,16 @@ for f in consecutive-failures fd-tier; do
   if [[ -r "${p}" ]]; then printf '%s=%s\n' "${f}" "$(head -c 32 "${p}" | tr -dc '0-9A-Z')"; fi
 done
 [[ -e "/run/${HEALTH_UNIT}/degraded" ]] && echo "degraded=present" || echo "degraded=absent"
+# Pre-restart py-spy dumps the watchdog saved (only when py-spy is
+# installed on the host).  Names and sizes only: the contents are Python
+# stack frames and stay on the box (read them there as root).
+pyspy_n=0
+for p in "/run/${HEALTH_UNIT}"/pyspy-*.txt; do
+  [[ -f "${p}" ]] || continue
+  pyspy_n=$((pyspy_n + 1))
+  printf 'pyspy_dump=%s bytes=%s\n' "$(basename "${p}" | tr -dc '0-9A-Za-z.-')" "$(wc -c < "${p}" 2>/dev/null | tr -dc '0-9')"
+done
+echo "pyspy_dumps=${pyspy_n}"
 
 # ── required: the journal window ─────────────────────────────────────
 section "boots (a reboot in the window would explain a restart)"
@@ -329,12 +353,14 @@ section "evidence summary (hints, not a verdict)"
 svc_life="$(printf '%s\n' "${svc_journal}" | lifecycle_filter service)"
 count() { printf '%s\n' "$1" | grep -cE -- "$2" || true; }
 n_fail="$(count "${hc_lines}" 'LIVENESS FAIL')"
+n_snap="$(count "${hc_lines}" '\[healthcheck\] snapshot mem ')"
 n_thresh="$(count "${hc_lines}" 'threshold reached')"
 n_oom="$(count "${svc_life}${kern_lines:+$'\n'}${kern_lines}" 'OOM killer|oom-kill|Out of memory|Killed process|oom_reaper|systemd-oomd')"
 n_stop_to="$(count "${svc_life}" "State 'stop-sigterm' timed out")"
 n_exit="$(count "${svc_life}" 'Main process exited')"
 n_start="$(count "${svc_life}" 'Started server process|systemd\[1\]: (Started|.*: Scheduled restart job)')"
 echo "liveness_failures=${n_fail} watchdog_restarts=${n_thresh} oom_lines=${n_oom} stop_sigterm_timeouts=${n_stop_to} main_process_exits=${n_exit} start_lines=${n_start}"
+echo "cgroup_snapshots=${n_snap} (watchdog cgroup-counter snapshots in window; the lines are under its verdicts above)"
 if (( n_oom > 0 )); then
   echo "HINT: oom_kill — the kernel or systemd-oomd killed the process (see the lines above)."
 elif (( n_thresh > 0 )); then
