@@ -24,7 +24,14 @@
  * Read-only over the site: only GET requests are made (the page's own
  * auto-fetches of /api/sharp/cohort and /api/sharp/market).
  */
-const { test, expect, prodUrl, annotate, desktopOnly } = require("./helpers");
+const {
+  test,
+  expect,
+  prodUrl,
+  annotate,
+  desktopOnly,
+  DISCLOSURE_SELECTOR,
+} = require("./helpers");
 
 /** Same asset filter the page applies before counting/rendering rows. */
 function nonPickAssets(market) {
@@ -116,12 +123,32 @@ test.describe("V1-62: /market/sharp-tracker renders /api/sharp/market from the p
 
       // Spot-check the top row against the response verbatim — proves
       // the render reads the response's fields, not a cached/derived copy.
+      // The Player cell holds the visible name (PlayerNameButton) AND,
+      // since #1849, a visually hidden disclosure toggle labelled
+      // "Source breakdown for <name>".  A substring getByText matched both
+      // (strict-mode violation), so match the visible name EXACTLY inside
+      // its own column, and assert the toggle on its own terms.
       const top = expectedAssets[0];
+      const topName = top.displayName || top.assetId;
       const topRow = rows.first();
+      const playerCell = topRow.locator('td[data-col="displayName"]');
       await expect(
-        topRow.getByText(top.displayName || top.assetId, { exact: false }),
+        playerCell.getByText(topName, { exact: true }),
         `top row must show the response's own displayName ("${top.displayName}")`,
       ).toBeVisible();
+      const disclosure = playerCell.locator(DISCLOSURE_SELECTOR);
+      await expect(
+        disclosure,
+        "the top row's Player cell must carry exactly one disclosure toggle",
+      ).toHaveCount(1);
+      await expect(
+        disclosure,
+        "the disclosure toggle must be named for the top row's own asset",
+      ).toHaveText(`Source breakdown for ${topName}`);
+      await expect(
+        disclosure,
+        "the top row's source breakdown must be collapsed on load",
+      ).toHaveAttribute("aria-expanded", "false");
 
       await expect(page.getByText(/No activity in this view/)).toHaveCount(0);
       await expect(
