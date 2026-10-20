@@ -1,0 +1,114 @@
+{
+  "bands": "fairness_bands_v1",
+  "codeRoot": "origin/claude/advisor-public-backend@fae7209b6b",
+  "counts": {
+    "D1_privateCategory_notEven_whenPublicFair": 103,
+    "D1_privateCategory_whenPublicFair": {
+      "APPROXIMATELY_EVEN": 35,
+      "FAVORABLE": 42,
+      "UNFAVORABLE": 61
+    },
+    "D1_privateCategory_whenPublicNotFair": {
+      "FAVORABLE": 300,
+      "STRONGLY_FAVORABLE": 653,
+      "STRONGLY_UNFAVORABLE": 899,
+      "UNFAVORABLE": 421
+    },
+    "D1_privateComponentA_differs": 0,
+    "D1_privateComponentA_differs_dueToForcedRelease": 0,
+    "D1_teamEvaluations": 2611,
+    "P1_teamContextInvariant_violations": 0,
+    "P2_publicEqualsEngine_violations": 0,
+    "P3_twoTeamSymmetry_violations": 0,
+    "P4_independentRecompute_violations": 0,
+    "P5_valueFree_violations": 0,
+    "byTeamCount": {
+      "2": 1485,
+      "3": 60,
+      "4": 60
+    },
+    "publicResults": {
+      "FAIR": 146,
+      "NOT_FAIR": 2465,
+      "UNABLE_TO_DETERMINE": 779
+    },
+    "refusedByLedger": 0,
+    "trades": 1605
+  },
+  "examples": {
+    "D1_category": [
+      {
+        "category": "UNFAVORABLE",
+        "legs": [
+          [
+            "p:101",
+            1,
+            2
+          ],
+          [
+            "p:104",
+            1,
+            2
+          ],
+          [
+            "p:201",
+            2,
+            1
+          ]
+        ],
+        "reason": null,
+        "shape": "2:2v1",
+        "team": 1
+      },
+      {
+        "category": "FAVORABLE",
+        "legs": [
+          [
+            "p:101",
+            1,
+            2
+          ],
+          [
+            "p:104",
+            1,
+            2
+          ],
+          [
+            "p:201",
+            2,
+            1
+          ]
+        ],
+        "reason": null,
+        "shape": "2:2v1",
+        "team": 2
+      },
+      {
+        "category": "UNFAVORABLE",
+        "legs": [
+          [
+            "p:101",
+            1,
+            2
+          ],
+          [
+            "p:105",
+            1,
+            2
+          ],
+          [
+            "p:201",
+            2,
+            1
+          ]
+        ],
+        "reason": null,
+        "shape": "2:2v1",
+        "team": 1
+      }
+    ]
+  },
+  "ok": true,
+  "rosterSize": 6,
+  "seed": 20261020
+}

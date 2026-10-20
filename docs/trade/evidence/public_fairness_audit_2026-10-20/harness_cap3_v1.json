@@ -1,0 +1,185 @@
+{
+  "bands": "fairness_bands_v1",
+  "codeRoot": "origin/claude/advisor-public-backend@fae7209b6b",
+  "counts": {
+    "D1_privateCategory_notEven_whenPublicFair": 44,
+    "D1_privateCategory_whenPublicFair": {
+      "APPROXIMATELY_EVEN": 18,
+      "FAVORABLE": 12,
+      "STRONGLY_UNFAVORABLE": 1,
+      "UNFAVORABLE": 31
+    },
+    "D1_privateCategory_whenPublicNotFair": {
+      "APPROXIMATELY_EVEN": 6,
+      "FAVORABLE": 135,
+      "STRONGLY_FAVORABLE": 104,
+      "STRONGLY_UNFAVORABLE": 350,
+      "UNFAVORABLE": 229
+    },
+    "D1_privateComponentA_differs": 14,
+    "D1_privateComponentA_differs_dueToForcedRelease": 14,
+    "D1_teamEvaluations": 2611,
+    "P1_teamContextInvariant_violations": 0,
+    "P2_publicEqualsEngine_violations": 0,
+    "P3_twoTeamSymmetry_violations": 0,
+    "P4_independentRecompute_violations": 0,
+    "P5_valueFree_violations": 0,
+    "byTeamCount": {
+      "2": 1485,
+      "3": 60,
+      "4": 60
+    },
+    "publicResults": {
+      "FAIR": 146,
+      "NOT_FAIR": 2465,
+      "UNABLE_TO_DETERMINE": 779
+    },
+    "refusedByLedger": 0,
+    "trades": 1605
+  },
+  "examples": {
+    "D1_category": [
+      {
+        "category": "UNFAVORABLE",
+        "legs": [
+          [
+            "pick:main:2027:r1:o1",
+            1,
+            3
+          ],
+          [
+            "p:302",
+            3,
+            1
+          ]
+        ],
+        "reason": null,
+        "shape": "2:1v1",
+        "team": 3
+      },
+      {
+        "category": "STRONGLY_UNFAVORABLE",
+        "legs": [
+          [
+            "p:103",
+            1,
+            3
+          ],
+          [
+            "p:105",
+            1,
+            3
+          ],
+          [
+            "p:301",
+            3,
+            1
+          ]
+        ],
+        "reason": null,
+        "shape": "2:2v1",
+        "team": 3
+      },
+      {
+        "category": "UNFAVORABLE",
+        "legs": [
+          [
+            "p:103",
+            1,
+            3
+          ],
+          [
+            "pick:main:2027:r2:o2",
+            1,
+            3
+          ],
+          [
+            "p:301",
+            3,
+            1
+          ]
+        ],
+        "reason": null,
+        "shape": "2:2v1",
+        "team": 3
+      }
+    ],
+    "D1_forcedRelease": [
+      {
+        "category": "FAVORABLE",
+        "legs": [
+          [
+            "p:101",
+            1,
+            3
+          ],
+          [
+            "p:102",
+            1,
+            3
+          ],
+          [
+            "p:302",
+            3,
+            1
+          ]
+        ],
+        "privateComponentA": "fair",
+        "public": "NOT_FAIR",
+        "shape": "2:2v1",
+        "team": 3
+      },
+      {
+        "category": "FAVORABLE",
+        "legs": [
+          [
+            "p:101",
+            1,
+            3
+          ],
+          [
+            "pick:main:2027:r1:o1",
+            1,
+            3
+          ],
+          [
+            "pick:main:2027:r1:o3",
+            3,
+            1
+          ]
+        ],
+        "privateComponentA": "fair",
+        "public": "NOT_FAIR",
+        "shape": "2:2v1",
+        "team": 3
+      },
+      {
+        "category": "STRONGLY_UNFAVORABLE",
+        "legs": [
+          [
+            "p:103",
+            1,
+            3
+          ],
+          [
+            "p:105",
+            1,
+            3
+          ],
+          [
+            "p:301",
+            3,
+            1
+          ]
+        ],
+        "privateComponentA": "lopsided",
+        "public": "FAIR",
+        "shape": "2:2v1",
+        "team": 3
+      }
+    ]
+  },
+  "ok": true,
+  "rosterSize": 3,
+  "seed": 20261020
+}
