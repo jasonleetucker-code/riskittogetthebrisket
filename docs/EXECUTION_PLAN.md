@@ -1,5 +1,19 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## outlier-integrity V2.1 — owner O-1 decision, 2026-10-20 (~19:45 UTC): gate on real prior history, cold-start safe
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~19:45 UTC)" (IV21-O1, IV21-O2 open). Verbatim text: `docs/owner/OUTLIER_V21_O1_DECISION_2026-10-20.md`. Successor to the outlier-integrity-v2 entry below, whose registration concluded MORE RESEARCH REQUIRED (PR #1884) and whose held-out boards are spent.
+
+**Authorized now (V2.1 lane, branch `claude/outlier-integrity-v2`, shadow only):**
+- **Successor preregistration first**: `docs/sources/OUTLIER_INTEGRITY_V21_PREREGISTRATION.md`, committed before any V2.1 code or evaluation. ARRIVING real prior history is the gate of record; NO-HISTORY results are reported; a mandatory cold-start safety gate requires zero legitimate votes dropped with no history; the directive's §5 thresholds are unchanged and the wrong-player and wrong-scale gates must still pass.
+- **Repairs** named by V2's review (B0 tolerance, B3a minimum n, B3b n_min scope, A3 family compatibility, age comparison basis, ordinal-slot preservation, Layer A explainer coverage, cold-start team rule, the self-confirming persistence / B4 release rules), all default OFF; the required runs V2 skipped (AD2-ID, AD2-SUR, AD2-N, INJ-DUP, PERSISTENT, V2-RPC); the Option-B freshness rows wired into the regression and integration tests.
+- **Upstream identity evidence** as prerequisites of the wrong-player gate: U2/U2b scraper stamps and U3 position/team capture (via scraper-ops coordination), and a vendor-id mapping (identity owner); stamps or lookups only, zero value change, shipped through the normal release process.
+- **Fresh held-out evaluation** on boards produced by the automated refresh after the preregistration commit, sealed until Stage 4 (`docs/sources/outlier_integrity_v21/HELDOUT_RULE.json`; earliest ready 2026-11-25).
+
+**Owner-reserved (NOT authorized):** activating `outlier_integrity_v2` or any sub-flag, DLF IDP / DLF Rookie IDP voting, D4, freshness v2; owner decision O-2 (AD2-ID as the wrong-player gate) is open. No merge, deploy or release-candidate dispatch from this lane. Boundary unchanged (IV2-8): no change to curves, Hill constants, weights, correlation groups, families, caps, freshness rule, Package VA, `geom_q078_v1`, trade math.
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel.
+
 ## PR #1831 universal freshness schedule — owner decision, 2026-10-20 (~12:25 UTC): OPTION B (merge disabled, activation held)
 
 Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~12:25 UTC)" (FS-B1..FS-B10). Verbatim text: `docs/owner/PR1831_OPTION_B_DECISION_2026-10-20.md`. Amends the 2026-10-19 universal-source-voting V5 authorization: the schedule is implemented and approved but NOT activated.
