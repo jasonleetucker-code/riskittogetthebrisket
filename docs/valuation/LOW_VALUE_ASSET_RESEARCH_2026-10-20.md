@@ -4,6 +4,10 @@
 (§8). **Recommendation: R-C, informational disclosure only.** No canonical value change, and no trade-currency
 adjustment.
 
+**Owner decision 2026-10-20: R-C approved** (`docs/owner/LOW_VALUE_ASSET_OWNER_DECISIONS_2026-10-20.md`). The
+follow-ups, investigations A and B, the disclosure design and a public-fairness consistency audit, run as separate
+workstreams.
+
 **Unchanged in production:**
 - `geom_q078_v1` (q = 0.78);
 - canonical values and source weights;
