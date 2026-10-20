@@ -1,5 +1,15 @@
 # Source voting: consensus, not duplication (2026-10-19)
 
+> **Update 2026-10-20 (~10:20 UTC) — D4 HELD.** The owner decided "Hold D4 for
+> V2": `dlf_values_rank_hill_vote` now ships **default OFF** (implementation
+> intact). Under the incumbent outlier filter, D4's vote newly drops other
+> sources' valid votes on 12–13 offense rows (Theo Johnson −7.4%), the same
+> mechanism class rejected for DLF IDP. The D4 measurements below are kept as
+> recorded (they describe D4 ON); release defaults are now D2/D3 withdrawn, D5
+> and TW only. D4 activation waits for outlier-integrity-v2
+> (`docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md`) and explicit owner
+> approval; locked by `tests/api/test_dlf_values_hold_locked.py`.
+
 Two owner directives of 2026-10-19, both P0:
 
 * "Correct source voting and consensus methodology" (the consensus directive);
