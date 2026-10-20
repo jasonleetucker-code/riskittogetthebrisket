@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, Mapping
 
 from src.valuation_math import fairness_bands, package_model
 
@@ -434,6 +434,32 @@ def _evidence_gaps(
 # ── Components ─────────────────────────────────────────────────────────────
 
 
+def _forced_release_charge_meta(fd: Mapping[str, Any]) -> dict[str, Any]:
+    """Flag ``forced_drop_cheapest_legal`` only: WHAT ``forcedReleaseCost`` is,
+    so a reader never presents a package credit as a player's worth.
+
+    ``forcedReleaseChargeBasis`` — ``release_value`` (every charged cut at its
+    own ``base x scarcity``), ``package_credit_forgone`` (every charged cut is
+    a just-acquired piece, charged the credit the package gave it) or
+    ``mixed``.  ``forcedReleaseChargeState`` — the roster-capacity owner's
+    basis state (``exact`` / ``assumed`` / ``lower_bound`` / ``mixed_bound``),
+    the SAME state the Trade Finder publishes in ``forcedDropCostBasis``.
+    """
+    kinds = {
+        "package_credit_forgone"
+        if (row or {}).get("chargeBasis") == "package_credit_forgone"
+        else "release_value"
+        for row in fd.get("forcedDrops") or []
+    }
+    basis = fd.get("forcedDropChargeBasis") or {}
+    return {
+        "forcedReleaseChargeBasis": (
+            next(iter(kinds)) if len(kinds) == 1 else ("mixed" if kinds else None)
+        ),
+        "forcedReleaseChargeState": basis.get("state"),
+    }
+
+
 def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     """Component A: the adjusted package gap, net of the dynasty value released
     by cuts this trade ADDS (charged once here; their lineup effect is in B)."""
@@ -443,6 +469,7 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     fd = feasibility.detail or {}
     release = fd.get("forcedDropReleaseCost")
     charged = None
+    charge_meta: dict[str, Any] = {}
     if "forcedDropCharge" in fd:
         # Flag ``forced_drop_cheapest_legal``: the ONE charge the roster-capacity
         # owner publishes (``roster_capacity.forced_drop_cost``) — the same
@@ -458,6 +485,7 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
             and c > 0
         ):
             charged = float(c)
+            charge_meta = _forced_release_charge_meta(fd)
     elif (
         feasibility.available
         and fd.get("state") == "cut_required"
@@ -481,6 +509,7 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
         "unit": "canonical value points (adjusted package)",
         "vaAdjustedGap": int(round(gap)),
         "forcedReleaseCost": None if charged is None else int(round(charged)),
+        **charge_meta,
         "netGap": int(round(net)),
         "largerAdjustedSide": int(round(larger)),
         "band": band,

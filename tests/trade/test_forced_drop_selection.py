@@ -127,7 +127,8 @@ def test_a_cheaper_player_the_lineup_needs_is_never_cut(flag_on):
     )
     assert "DB Archer" not in _names(cap)
     # And the selection still equals the brute-force legal minimum.
-    _assert_is_legal_minimum(ctx, cap, ["Star WR", "Filler RB", "Filler WR"], ["DB One"])
+    bf = _Brute(ctx, cap, ["Star WR", "Filler RB", "Filler WR"], ["DB One"])
+    assert cap.forced_drop_release_cost == pytest.approx(min(bf.own(S) for S in bf.legal))
 
 
 # ── 3. Unpriced players: never silently zero ───────────────────────────
@@ -214,6 +215,10 @@ def test_the_packet_carries_the_owner_charge(flag_on):
     packet = analyze_trade({**copy.deepcopy(sim), "teamContext": {"applied": True}})
     feas = packet["lenses"]["feasibility"]["detail"]
     assert feas["forcedDropCharge"] == sim["rosterCapacity"]["forcedDropCharge"] == 574.0
+    # The UI can tell a package credit from a player's worth (review fix E).
+    a = _objective(sim)
+    assert a["forcedReleaseChargeBasis"] == "mixed"
+    assert a["forcedReleaseChargeState"] == "exact"
     assert feas["forcedDropSelection"]["packageApplied"] is True
     assert [d["chargeBasis"] for d in feas["forcedDrops"]] == [
         fds.CHARGE_PACKAGE,
@@ -256,15 +261,69 @@ def test_a_released_acquired_piece_is_removed_from_the_package_not_charged(flag_
     assert a["forcedReleaseCost"] == round(rc["forcedDropCharge"])
 
 
-def test_unpriced_incoming_released_forgoes_no_credit(flag_on):
+def test_unpriced_incoming_is_never_the_free_first_cut(flag_on):
+    """Review fix D.  The market lens never credited "Unpriced DB" (unpricedIn),
+    so releasing him forgoes no package credit — but he is NOT free: he is
+    costed and charged at the ``assumedWaiver`` ceiling like any unpriced
+    player (DB waiver 1,600 here), so the priced WR Zed (300) is the cut."""
     c = R.contract()
     sim = _pkg(c, ["Star WR", "Unpriced DB"], ["WR Three"])
     (drop,) = sim["rosterCapacity"]["forcedDrops"]
-    assert drop["name"] == "Unpriced DB" and drop["acquiredInTrade"] is True
-    # The market lens never credited him (unpricedIn), so releasing him costs
-    # the package nothing; his value stays UNKNOWN (value None), not zero.
-    assert drop["value"] is None and drop["releaseCost"] == 0.0
-    assert sim["rosterCapacity"]["unpricedForcedDrops"] == 1
+    assert drop["name"] == "WR Zed" and drop["releaseCost"] == 300.0
+    assert sim["rosterCapacity"]["forcedDropChargeBasis"]["state"] == "exact"
+
+
+def _asset(pid, value, pos="WR"):
+    return DP.RosterAsset(player_id=pid, name=pid, position=pos, board_value=value)
+
+
+@pytest.mark.parametrize("mode", [fds.MODE_PACKAGE_CONSISTENT, fds.MODE_ROSTER_RATIONAL])
+def test_unpriced_incoming_released_is_charged_assumed_waiver_and_counted(flag_on, mode):
+    """When the uncredited incoming piece IS the cheapest legal cut, it is
+    charged its own ``c`` at the waiver ceiling (``release_value_uncredited``),
+    counted in ``assumedWaiverDrops`` and the basis is ``assumed`` (an upper
+    bound), never ``exact`` and never 0."""
+    existing = [_asset("e1", 2000.0), _asset("e2", 2500.0)]
+    incoming = [_asset("star", 3000.0), _asset("ghost", None, "WR")]
+    package = fds.PackageSides(sending=(3000.0,), receiving=(("star", 3000.0), ("ghost", None)))
+    sel = fds.select_forced_drops(
+        existing, incoming, ["star", "ghost"], drops_needed=1, starter_slots=[],
+        waiver_values={"WR": 900.0}, scarcity=None, slot_eligibility=None,
+        package=package, mode=mode,
+    )  # fmt: skip
+    (drop,) = sel.drops
+    assert drop.asset.player_id == "ghost" and drop.acquired
+    assert drop.charge_basis == fds.CHARGE_UNCREDITED
+    assert drop.charge == 900.0 and drop.value_basis == "assumedWaiver"
+    cap = RC.RosterCapacity(
+        roster_limit=3, taxi_size=0, size_before=3, size_after=4, incoming=2, outgoing=1,
+        open_spots_before=0, open_spots_after=0, over_limit_before=0, over_limit_after=1,
+        certainty="exact", over_limit_after_min=1, over_limit_after_max=1,
+        forced_drops=[RC.ForcedDrop(
+            player_id="ghost", name="ghost", position="WR", value=None,
+            effective_cut_cost=0.0, release_cost=drop.charge, waiver_value=900.0,
+            scarcity_multiplier=1.0, value_basis="assumedWaiver", rung=1,
+            acquired_in_trade=True, charge_basis=drop.charge_basis,
+        )],
+        selection_rule=fds.rule_id(mode),
+    )  # fmt: skip
+    cost, basis = RC.forced_drop_cost(cap)
+    assert cost == 900.0
+    assert basis["assumedWaiverDrops"] == 1
+    assert basis["state"] == "assumed" and basis["bound"] == "upper"
+
+
+def test_assumed_state_reaches_the_war_room_and_the_finder_alike(flag_on):
+    """An all-unpriced bench: the cut is an ``assumedWaiver`` player, so the
+    capacity basis (what the Finder publishes) and the War Room objective both
+    say ``assumed``."""
+    c = _all_unpriced_bench_contract()
+    sim = _pkg(c, ["Their QB"], [])
+    rc = sim["rosterCapacity"]
+    assert rc["forcedDropChargeBasis"]["state"] == "assumed"
+    a = _objective(sim)
+    assert a["forcedReleaseChargeState"] == "assumed"
+    assert a["forcedReleaseChargeBasis"] == "release_value"
 
 
 def test_a_label_the_package_does_not_name_falls_back_with_a_note(flag_on):
@@ -294,6 +353,39 @@ def test_already_over_limit_roster_pays_only_what_the_trade_adds(flag_on):
     assert cap.pre_trade_cleanup_cost == 300.0
     cost, basis = RC.forced_drop_cost(cap)
     assert cost == 350.0 and basis["state"] == "exact"
+    assert cap.to_dict()["forcedDropMarginal"] == 350.0
+    assert "marginalClamp" not in basis
+
+
+def test_relief_of_an_over_limit_roster_is_published_signed_never_credited(flag_on):
+    """Review fix C.  One over the cap, sends two and receives one: the trade
+    SPARES the roster the cut it owed (WR Zed, 300).  The charge stays clamped
+    at 0 (``conservative_clamp``); the signed marginal is published."""
+    _c, _us, ctx = _ctx(extra_us=(("WR Extra", 500.0, "WR"),))
+    cap = RC.assess_roster_capacity(ctx, incoming_players=["Star WR"],
+                                    outgoing_players=["WR Two", "WR Three"])  # fmt: skip
+    assert cap.over_limit_before == 1 and cap.over_limit_after == 0
+    cost, basis = RC.forced_drop_cost(cap)
+    assert cost == 0.0 and basis["state"] == "none"
+    assert basis["signedMarginal"] == -300.0
+    assert basis["marginalClamp"] == "conservative_clamp"
+    d = cap.to_dict()
+    assert d["forcedDropCharge"] == 0.0 and d["forcedDropMarginal"] == -300.0
+    # Two over, sends two, receives one: still one owed, but the cheaper one.
+    _c, _us, ctx2 = _ctx(extra_us=(("WR Extra", 500.0, "WR"), ("WR Extra Two", 520.0, "WR")))
+    cap2 = RC.assess_roster_capacity(ctx2, incoming_players=["Star WR"],
+                                     outgoing_players=["WR Two", "WR Three"])  # fmt: skip
+    assert cap2.over_limit_before == 2 and cap2.over_limit_after == 1
+    cost2, basis2 = RC.forced_drop_cost(cap2)
+    assert cost2 == 0.0 and basis2["marginalClamp"] == "conservative_clamp"
+    assert basis2["signedMarginal"] == -350.0  # 300 owed after vs 300 + 350 before
+
+
+def test_relief_is_unpublished_with_the_flag_off(flag_off):
+    _c, _us, ctx = _ctx(extra_us=(("WR Extra", 500.0, "WR"),))
+    cap = RC.assess_roster_capacity(ctx, incoming_players=["Star WR"],
+                                    outgoing_players=["WR Two", "WR Three"])  # fmt: skip
+    assert "forcedDropMarginal" not in cap.to_dict()
 
 
 def test_unknown_cap_is_unknown_not_free(flag_on):
@@ -398,6 +490,18 @@ _SMALL = {
     "taxiSize": 0,
     "starters": {"QB": 1, "RB": 1, "WR": 2, "FLEX": 1},
 }
+_WIDE_POS = ("QB", "RB", "WR", "TE", "DL", "LB", "DB")
+#: SUPER_FLEX and IDP slots; 11-man roster, 4-piece trades, so up to d = 4.
+_WIDE = {
+    "teamCount": 2,
+    "rosterSize": 11,
+    "taxiSize": 0,
+    "starters": {
+        "QB": 1, "RB": 1, "WR": 1, "TE": 1, "SUPER_FLEX": 1,
+        "DL": 1, "LB": 1, "DB": 1, "IDP_FLEX": 1,
+    },
+}  # fmt: skip
+MODES = (fds.MODE_PACKAGE_CONSISTENT, fds.MODE_ROSTER_RATIONAL)
 
 
 def _random_league(seed):
@@ -426,6 +530,52 @@ def _random_league(seed):
     return c, teams[0], pin, pout
 
 
+def _random_wide_league(seed):
+    """SUPER_FLEX + IDP slots, 11-man roster, a 1-4 piece incoming side."""
+    rng = random.Random(10_000 + seed)
+    rows, us, them = [], [], []
+    for i in range(11):
+        pos = _WIDE_POS[i] if i < len(_WIDE_POS) else rng.choice(_WIDE_POS)
+        v = None if rng.random() < 0.15 else float(rng.choice(range(100, 4000, 50)))
+        rows.append(R._row(f"U{i}", v, pos))
+        us.append(f"U{i}")
+    for i in range(5):
+        pos = rng.choice(_WIDE_POS)
+        v = None if rng.random() < 0.15 else float(rng.choice(range(100, 4000, 50)))
+        rows.append(R._row(f"T{i}", v, pos))
+        them.append(f"T{i}")
+    for p in _WIDE_POS:
+        rows.append(R._row(f"FA {p}", float(rng.choice(range(300, 1500, 50))), p))
+    teams = [
+        {"ownerId": "o1", "name": "Us", "players": us, "playerIds": [R._pid(n) for n in us]},
+        {"ownerId": "o2", "name": "Them", "players": them, "playerIds": [R._pid(n) for n in them]},
+    ]
+    c = {"playersArray": rows, "sleeper": {"teams": teams}}
+    pin = rng.sample(them, rng.randint(1, 4))
+    pout = rng.sample(us, rng.randint(0, 1))
+    return c, teams[0], pin, pout
+
+
+def _scarce(ctx, seed, positions):
+    """Real (non-inert) scarcity: a multiplier in 0.85-1.15 per position."""
+    rng = random.Random(77 + seed)
+    sc = {p: ScarcityComponents(p, None, None, rng.random(), None, None, None) for p in positions}
+    ctx = RC.CapacityContext(**{**ctx.__dict__, "scarcity": sc})
+    mults = {p: DP.scarcity_multiplier(v) for p, v in sc.items()}
+    assert all(0.85 <= m <= 1.15 for m in mults.values())
+    return ctx
+
+
+def _league(kind, seed):
+    if kind == "wide_scarce":
+        c, us, pin, pout = _random_wide_league(seed)
+        ctx = RC.build_capacity_context(c, None, us, roster_settings=_WIDE)
+        return c, ctx, pin, pout, _scarce(ctx, seed, _WIDE_POS)
+    c, us, pin, pout = _random_league(seed)
+    ctx = RC.build_capacity_context(c, None, us, roster_settings=_SMALL)
+    return c, ctx, pin, pout, (_scarce(ctx, seed, _POS) if kind == "scarce" else ctx)
+
+
 def _post_pool(ctx, pin, pout):
     existing = []
     pending = {RC._norm(n) for n in pout}
@@ -449,45 +599,65 @@ def _filled(ctx, assets):
     )
 
 
-def _assert_is_legal_minimum(ctx, cap, pin, pout, package=None):
-    """The charged cleanup equals the brute-force minimum over EVERY
-    lineup-legal cut set of the required size."""
-    existing, incoming = _post_pool(ctx, pin, pout)
-    pool = [*existing, *incoming]
-    base = _filled(ctx, pool)
-    d = cap.over_limit_after_max
-    labels = [RC._norm(n) for n in pin]
-    best = None
-    for S in itertools.combinations(range(len(pool)), d):
-        rest = [a for i, a in enumerate(pool) if i not in S]
-        if _filled(ctx, rest) < base:
-            continue
+class _Brute:
+    """Every lineup-legal cut set of the required size, costed both ways."""
+
+    def __init__(self, ctx, cap, pin, pout, package=None):
+        self.existing, self.incoming = _post_pool(ctx, pin, pout)
+        self.pool = [*self.existing, *self.incoming]
+        self.n_e = len(self.existing)
+        self.c = [fds.release_charge(a, ctx.waiver_values, ctx.scarcity)[0] for a in self.pool]
+        self.labels = [RC._norm(n) for n in pin]
+        self.package = package
+        base = _filled(ctx, self.pool)
+        d = cap.over_limit_after_max
+        self.legal = [
+            S
+            for S in itertools.combinations(range(len(self.pool)), d)
+            if _filled(ctx, [a for i, a in enumerate(self.pool) if i not in S]) >= base
+        ]
+        # k-th incoming with a label <-> k-th package entry with that label.
+        self.uncredited = set()
+        if package is not None:
+            entries: dict[str, list[bool]] = {}
+            for k, v in package.receiving:
+                if k is not None:
+                    entries.setdefault(k, []).append(v is not None)
+            seen: dict[str, int] = {}
+            for j, lab in enumerate(self.labels):
+                flags = entries.get(lab, [])
+                if seen.get(lab, 0) < len(flags) and not flags[seen.get(lab, 0)]:
+                    self.uncredited.add(self.n_e + j)
+                seen[lab] = seen.get(lab, 0) + 1
+
+    def own(self, S) -> float:
+        return sum(self.c[i] for i in S)
+
+    def charge(self, S) -> float:
+        """Rule 2: existing at ``c``; acquired at the package credit forgone
+        (+ its own ``c`` when the package never credited it)."""
+        if self.package is None:
+            return self.own(S)
         cost = 0.0
-        acq = [i - len(existing) for i in S if i >= len(existing)]
+        removed: dict[str, int] = {}
         for i in S:
-            if i < len(existing) or package is None:
-                cost += fds.release_charge(pool[i], ctx.waiver_values, ctx.scarcity)[0]
-        if package is not None and acq:
-            removed: dict[str, int] = {}
-            for j in acq:
-                removed[labels[j]] = removed.get(labels[j], 0) + 1
-            cost += package.gap() - package.gap(removed)
-        best = cost if best is None else min(best, cost)
-    assert best is not None
-    assert cap.forced_drop_release_cost == pytest.approx(best)
-    return best
+            if i < self.n_e or i in self.uncredited:
+                cost += self.c[i]
+            if i >= self.n_e:
+                lab = self.labels[i - self.n_e]
+                removed[lab] = removed.get(lab, 0) + 1
+        if removed:
+            cost += self.package.gap() - self.package.gap(removed)
+        return cost
 
-
-@pytest.mark.parametrize("seed", range(40))
-def test_charge_is_the_brute_force_legal_minimum_without_package(flag_on, seed):
-    c, us, pin, pout = _random_league(seed)
-    ctx = RC.build_capacity_context(c, None, us, roster_settings=_SMALL)
-    cap = RC.assess_roster_capacity(ctx, incoming_players=pin, outgoing_players=pout)
-    if not cap.over_limit_after:
-        pytest.skip("trade fits")
-    if cap.ladder_exhausted:
-        pytest.skip("no legal cleanup")
-    _assert_is_legal_minimum(ctx, cap, pin, pout)
+    def selected(self, cap) -> tuple[int, ...]:
+        """The pool indices of the capacity owner's drops (names are unique)."""
+        names = [a.name for a in self.pool]
+        taken: list[int] = []
+        for d in cap.forced_drops:
+            i = next(j for j, n in enumerate(names) if n == d.name and j not in taken)
+            taken.append(i)
+        return tuple(sorted(taken))
 
 
 def _package_for(c, pin, pout):
@@ -498,30 +668,128 @@ def _package_for(c, pin, pout):
     )
 
 
-@pytest.mark.parametrize("seed", range(40))
-def test_charge_is_the_brute_force_legal_minimum_with_package(flag_on, seed):
-    c, us, pin, pout = _random_league(seed)
-    ctx = RC.build_capacity_context(c, None, us, roster_settings=_SMALL)
-    package = _package_for(c, pin, pout)
-    cap = RC.assess_roster_capacity(
+def _assess(ctx, pin, pout, package, mode, monkeypatch):
+    monkeypatch.setattr(fds, "SELECTION_MODE", mode)
+    return RC.assess_roster_capacity(
         ctx, incoming_players=pin, outgoing_players=pout, package=package
     )
+
+
+_KINDS = (
+    [("plain", s) for s in range(40)]
+    + [("scarce", s) for s in range(30)]
+    + [("wide_scarce", s) for s in range(30)]
+)
+
+
+@pytest.mark.parametrize("with_package", [False, True])
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("kind,seed", _KINDS)
+def test_selection_and_charge_against_brute_force(flag_on, monkeypatch, kind, seed, mode,
+                                                  with_package):  # fmt: skip
+    """Exactness of both modes over every lineup-legal cut set, with inert and
+    REAL scarcity (0.85-1.15, mixed incoming/existing candidates — review fix
+    B) and in SUPER_FLEX + IDP leagues up to d = 4 (review fix F):
+
+    * V5 (package_consistent): the charge is the minimum of rule 2 over every
+      legal set;
+    * V5-R (roster_rational): the cut SET has the minimum ``sum c`` over every
+      legal set, and the charge is rule 2 applied to that set;
+    * without a package both modes are the plain cheapest-``c`` cleanup.
+    """
+    c, _ctx0, pin, pout, ctx = _league(kind, seed)
+    package = _package_for(c, pin, pout) if with_package else None
+    cap = _assess(ctx, pin, pout, package, mode, monkeypatch)
     if not cap.over_limit_after or cap.ladder_exhausted:
         pytest.skip("trade fits or no legal cleanup")
-    _assert_is_legal_minimum(ctx, cap, pin, pout, package=package)
-    # Package consistency: the charge never exceeds what releasing the
-    # cheapest-credited legal subset of the incoming pieces would cost, so a
-    # just-acquired piece is never both credited and charged.
+    bf = _Brute(ctx, cap, pin, pout, package)
+    assert bf.legal
+    chosen = bf.selected(cap)
+    assert chosen in bf.legal
+    min_own = min(bf.own(S) for S in bf.legal)
+    if package is None or mode == fds.MODE_ROSTER_RATIONAL:
+        assert bf.own(chosen) == pytest.approx(min_own)
+    if package is None:
+        assert cap.forced_drop_release_cost == pytest.approx(min_own)
+    elif mode == fds.MODE_PACKAGE_CONSISTENT:
+        assert cap.forced_drop_release_cost == pytest.approx(min(bf.charge(S) for S in bf.legal))
+    else:
+        assert cap.forced_drop_release_cost == pytest.approx(bf.charge(chosen))
+    if package is not None and cap.package_applied:
+        for d in cap.forced_drops:
+            if d.acquired_in_trade:
+                assert d.charge_basis in (fds.CHARGE_PACKAGE, fds.CHARGE_UNCREDITED)
+            else:
+                assert d.charge_basis == fds.CHARGE_RELEASE
+    # An uncredited (unpriced) incoming release is never charged 0.
     for d in cap.forced_drops:
-        if d.acquired_in_trade:
-            assert d.charge_basis == fds.CHARGE_PACKAGE
+        if d.charge_basis == fds.CHARGE_UNCREDITED:
+            assert d.release_cost > 0
+
+
+@pytest.mark.parametrize("kind,seed", _KINDS)
+def test_v5_charge_never_exceeds_v5r_and_v5r_cut_is_never_dearer(flag_on, monkeypatch, kind,
+                                                                 seed):  # fmt: skip
+    """The trade-off the owner decides (record §3a), as an identity: V5
+    minimises the CHARGE, so its charge <= V5-R's; V5-R minimises the cut's own
+    value, so its ``sum c`` <= V5's."""
+    c, _ctx0, pin, pout, ctx = _league(kind, seed)
+    package = _package_for(c, pin, pout)
+    v5 = _assess(ctx, pin, pout, package, fds.MODE_PACKAGE_CONSISTENT, monkeypatch)
+    v5r = _assess(ctx, pin, pout, package, fds.MODE_ROSTER_RATIONAL, monkeypatch)
+    if not v5.over_limit_after or v5.ladder_exhausted or v5r.ladder_exhausted:
+        pytest.skip("trade fits or no legal cleanup")
+    assert v5.forced_drop_release_cost <= v5r.forced_drop_release_cost + 1e-6
+    bf = _Brute(ctx, v5, pin, pout, package)
+    assert bf.own(bf.selected(v5r)) <= bf.own(bf.selected(v5)) + 1e-6
+    assert v5.selection_rule == fds.RULE_ID
+    assert v5r.selection_rule == fds.RULE_ID_ROSTER_RATIONAL
+
+
+def test_v5_releases_a_dearer_incoming_piece_v5r_the_cheaper_roster_player():
+    """The unit mismatch the review found, pinned: receive [5000, 1000, 1000]
+    with an existing 700 the cheapest roster player.  V5 releases a 1,000
+    incoming piece (its package credit under the geometric model is ~608 <
+    700); V5-R releases the 700 existing player, charged 700."""
+    existing = [_asset("e700", 700.0), _asset("e3000", 3000.0)]
+    incoming = [_asset("a5000", 5000.0), _asset("b1000", 1000.0), _asset("c1000", 1000.0)]
+    package = fds.PackageSides(
+        sending=(6500.0,),
+        receiving=(("a5000", 5000.0), ("b1000", 1000.0), ("c1000", 1000.0)),
+    )
+    kw = dict(drops_needed=1, starter_slots=[], waiver_values={"WR": 300.0}, scarcity=None,
+              slot_eligibility=None, package=package)  # fmt: skip
+    labels = ["a5000", "b1000", "c1000"]
+    v5 = fds.select_forced_drops(existing, incoming, labels, mode=fds.MODE_PACKAGE_CONSISTENT, **kw)
+    v5r = fds.select_forced_drops(existing, incoming, labels, mode=fds.MODE_ROSTER_RATIONAL, **kw)
+    (d5,) = v5.drops
+    assert d5.acquired and d5.asset.board_value == 1000.0
+    assert d5.charge_basis == fds.CHARGE_PACKAGE
+    credit = package.gap() - package.gap({d5.asset.player_id: 1})
+    assert d5.charge == pytest.approx(credit) and credit < 700.0
+    (dr,) = v5r.drops
+    assert dr.asset.player_id == "e700" and dr.charge == 700.0
+    assert dr.charge_basis == fds.CHARGE_RELEASE
+
+
+def test_unknown_selection_mode_is_refused():
+    with pytest.raises(ValueError):
+        fds.select_forced_drops(
+            [_asset("e", 1.0)], (), (), drops_needed=1, starter_slots=[], waiver_values={},
+            scarcity=None, slot_eligibility=None, mode="nope",
+        )  # fmt: skip
+
+
+def test_default_mode_is_package_consistent():
+    assert fds.SELECTION_MODE == fds.MODE_PACKAGE_CONSISTENT
+    assert fds.rule_id() == fds.RULE_ID
 
 
 @pytest.mark.parametrize("seed", range(40))
 def test_adding_an_incoming_piece_never_lowers_the_receivers_net(flag_on, seed):
-    """Monotonicity of the package-consistent net: receiving one more player
-    can always be undone by releasing him, so it never makes the trade worse
-    (geometric package model; roster fills every slot without him)."""
+    """Monotonicity of the package-consistent (V5) net: receiving one more
+    player can always be undone by releasing him, so it never makes the trade
+    worse (geometric package model; roster fills every slot without him)."""
     c, us, pin, pout = _random_league(seed)
     ctx = RC.build_capacity_context(c, None, us, roster_settings=_SMALL)
 
@@ -542,7 +810,15 @@ def test_adding_an_incoming_piece_never_lowers_the_receivers_net(flag_on, seed):
         # empty that slot again), so "release him" is not an available undo —
         # a documented limit of the guard, not of the charge.
         pytest.skip("roster cannot fill every slot without the extra piece")
+    priced = {r["displayName"] for r in c["playersArray"] if r.get("rankDerivedValue")}
+    # Precondition 2 (review fix D): the extra piece is CREDITED by the package.
+    # An unpriced piece takes a spot with no package credit and its release is
+    # charged at the ``assumedWaiver`` ceiling (never free — an identity miss is
+    # not a free cut), so receiving him can lower the net by up to the cheapest
+    # legal cut.  That is the intended price of not treating unknown as zero.
     for extra in [n for n in c["sleeper"]["teams"][1]["players"] if n not in pin]:
+        if extra not in priced:
+            continue
         before, after = net(pin), net([*pin, extra])
         if before is None or after is None:
             continue
