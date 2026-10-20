@@ -92,6 +92,40 @@ function valueWords(asset) {
   return "No value (unknown, not zero)";
 }
 
+const isPricedLeg = (a) => a?.valueState === "priced" && typeof a.value === "number";
+
+/**
+ * The legs of one team's part of the trade that carry no trusted value —
+ * any ``valueState`` other than ``priced`` (quarantined, stale, unpriced,
+ * off-board, not held, or one this component does not recognise).  While
+ * there is one, the team's trade-value RESULT is not determinable: the
+ * server's totals either leave the leg out or sum a value it withholds, so
+ * no "you receive X and send Y" is read from them.
+ */
+function untrustedLegs(team) {
+  return [...(team?.gives || []), ...(team?.receives || [])].filter((a) => !isPricedLeg(a));
+}
+
+/** "B Seven (Value withheld: quarantined (not trusted))", for a reason line. */
+function legReasons(legs) {
+  return listJoin(legs.map((a) => `${a.label || a.assetId} (${valueWords(a)})`));
+}
+
+// Short reason words for the at-a-glance table, where width is scarce.
+const SHORT_STATE_WORDS = {
+  quarantined: "quarantined",
+  stale: "stale",
+  unpriced: "no value",
+  off_board: "not on the board",
+  not_held: "not held",
+};
+const shortStateWords = (a) => SHORT_STATE_WORDS[a?.valueState] || "unknown";
+
+/** "B Seven quarantined", for the at-a-glance table. */
+function shortLegReasons(legs) {
+  return listJoin(legs.map((a) => `${a.label || a.assetId} ${shortStateWords(a)}`));
+}
+
 /**
  * How each per-leg ``valueState`` bears on the server's package sums
  * (``src/trade/analyze_trade.py::_market_lens``):
@@ -293,7 +327,12 @@ function AssetList({ title, items, direction, nameOf, testId }) {
               <span className={own.assetRoute}>
                 {direction === "out" ? `→ ${nameOf(a.toRosterId)}` : `← ${nameOf(a.fromRosterId)}`}
               </span>
-              <span className={own.assetValue}>{valueWords(a)}</span>
+              {/* A value is a right-aligned number; words saying why there is
+                  none take their own full-width line, so they never squeeze
+                  the asset's name. */}
+              <span className={isPricedLeg(a) ? own.assetValue : own.assetNote}>
+                {valueWords(a)}
+              </span>
             </li>
           ))}
         </ul>
@@ -323,7 +362,12 @@ function TeamResult({ team, nameOf, showStrategy, open, toggleOpen }) {
     }))
     .filter((g) => g.sentence);
   const market = analysis.lenses?.market;
-  const value = tradeValueSummary(market?.available ? market.detail : null);
+  // Withheld (F2): any non-priced leg makes the trade-value result not
+  // determinable for this team — never a sentence built on the server's sum.
+  const untrusted = untrustedLegs(team);
+  const value = untrusted.length
+    ? null
+    : tradeValueSummary(market?.available ? market.detail : null);
   const impact = weeklyImpact(analysis.lenses?.roster);
   const fit = rosterFit(analysis.lenses?.feasibility);
   const fitNotes = rosterNoteLines(
@@ -446,7 +490,12 @@ function TeamResult({ team, nameOf, showStrategy, open, toggleOpen }) {
         <div className={styles.glanceRow} data-lens="market">
           <dt className={styles.glanceLabel}>Trade value</dt>
           <dd className={styles.glanceValue}>
-            {value ? (
+            {untrusted.length ? (
+              <p className={styles.glanceAnswer} data-testid="multi-team-value-withheld">
+                Withheld — not determinable for {teamName}: {legReasons(untrusted)}. A value
+                that is withheld or unknown is never priced and never counted as 0.
+              </p>
+            ) : value ? (
               <p className={styles.glanceAnswer}>{value.sentence}</p>
             ) : (
               <p className={styles.muted}>
@@ -601,10 +650,23 @@ function Summary({ payload, nameOf }) {
                   <th scope="row">{row.teamName || nameOf(row.rosterId)}</th>
                   <td className={`${styles.wrap} ${own.sendsCol}`}>
                     {(t?.gives || [])
-                      .map((a) => `${a.label || a.assetId} → ${nameOf(a.toRosterId)}`)
+                      .map(
+                        (a) =>
+                          `${a.label || a.assetId} → ${nameOf(a.toRosterId)}${
+                            isPricedLeg(a) ? "" : ` (${shortStateWords(a)})`
+                          }`,
+                      )
                       .join(", ") || "—"}
                   </td>
-                  <td>{t?.categoryText || row.category}</td>
+                  <td>
+                    {t?.categoryText || row.category}
+                    {t && untrustedLegs(t).length ? (
+                      <span className={styles.muted} data-testid="multi-team-summary-withheld">
+                        {" "}
+                        — withheld, not determinable: {shortLegReasons(untrustedLegs(t))}
+                      </span>
+                    ) : null}
+                  </td>
                   <td>{FAIRNESS_STATE_WORDS[row.fairness] || "Unable to determine"}</td>
                 </tr>
               );

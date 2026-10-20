@@ -244,6 +244,80 @@ export function tradeEvaluationState(sides) {
   return { state: TRADE_EVAL_STATE.COMPLETE, unpriced: [] };
 }
 
+/**
+ * Why a board row's value is WITHHELD from a team result, or ``null``.
+ *
+ * Reads the pipeline's own stamps, in the engine's gate order
+ * (``src/trade/trade_decision.py::asset_evidence_codes``, which gives the
+ * leg ``valueState`` quarantined / stale in ``analyze_service._value_entry``):
+ *
+ *   ``"quarantined"``  the row-level quarantine verdict (``quarantined``)
+ *   ``"stale"``        the confidence owner's freshness axis reads ``low``
+ *                      (``confidenceAxes.freshness``, carried on ``raw``)
+ *
+ * Read, never computed: no threshold or freshness rule lives here, and an
+ * absent stamp is not withheld (the engine treats it the same way).  A value
+ * the user typed on the line (``customValue``) is the user's own number, not
+ * the withheld board value, so it is not withheld — the same rule
+ * ``unpricedAssetsOnSide`` applies to an unpriced row.
+ */
+export function withheldValueState(row) {
+  if (!row || row.customValue != null) return null;
+  if (row.quarantined === true || row.raw?.quarantined === true) return "quarantined";
+  const freshness = row.confidenceAxes?.freshness ?? row.raw?.confidenceAxes?.freshness;
+  if (freshness === "low") return "stale";
+  return null;
+}
+
+/**
+ * Per side, every WITHHELD asset in that team's part of a routed trade —
+ * what it sends AND what is routed to it (``tradeRoutes``), because a team's
+ * package gap reads both.  ``[{ name, state, direction: "out" | "in",
+ * fromSide, toSide }]`` per side, in side order; ``[]`` for a side with none.
+ *
+ * The preliminary meter shows such a team as WITHHELD with the reason —
+ * never its gap, never a band — and the multi-team headline as not
+ * determinable (``multiTeamNetSummary``).  Pass the OVERRIDE-APPLIED sides.
+ */
+export function withheldAssetsBySide(sides) {
+  const list = Array.isArray(sides) ? sides : [];
+  const out = list.map(() => []);
+  if (list.length < 2) return out;
+  const routes = tradeRoutes(list);
+  list.forEach((side, i) => {
+    (Array.isArray(side?.assets) ? side.assets : []).forEach((asset, k) => {
+      const state = withheldValueState(asset);
+      if (!state) return;
+      const to = routes[i]?.[k];
+      const name = String(asset?.name || asset?.displayName || "An asset");
+      out[i].push({ name, state, direction: "out", fromSide: i, toSide: to });
+      if (Number.isInteger(to) && out[to]) {
+        out[to].push({ name, state, direction: "in", fromSide: i, toSide: to });
+      }
+    });
+  });
+  return out;
+}
+
+const WITHHELD_STATE_WORDS = { quarantined: "quarantined", stale: "stale" };
+
+/**
+ * One side's withheld assets as words: "B Seven (sent, quarantined)".
+ * ``null`` when there are none.
+ */
+export function withheldReasonText(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  if (!list.length) return null;
+  return list
+    .map(
+      (e) =>
+        `${e.name} (${e.direction === "in" ? "received" : "sent"}, ${
+          WITHHELD_STATE_WORDS[e.state] || "withheld"
+        })`,
+    )
+    .join(", ");
+}
+
 /** Descending-sorted effective values for a side. */
 function sortedSideValues(side, valueMode, settings) {
   return side
@@ -2191,14 +2265,27 @@ export function multiTeamAnalysis(totals) {
  * larger package, never the largest package anyone sends.  The headline is
  * the worst team (``worstTeamBand``).  Package-only; never a decision.
  *
- * Returns ``{ nets, perTeam, worstIndex, worst, largerSide, verdict }``:
+ * Returns ``{ nets, perTeam, worstIndex, worst, largerSide, verdict, withheld }``:
  * ``worst`` is the worst team's |gap|, ``largerSide`` its band base, and
  * ``verdict`` its meter badge — or ``{label: "Indeterminate", level: null}``
  * when a team's gap is not a number (unknown, never fair).
+ *
+ * ``withheldBySide`` (``withheldAssetsBySide``, optional): a team whose part
+ * of the trade carries a WITHHELD value (quarantined / stale) has no gap and
+ * no band — its ``net`` is ``null`` (never the sum the withheld number is
+ * in, never 0) and it is INDETERMINATE for the headline, whose verdict then
+ * reads ``{label: "Withheld", level: null}``.  ``withheld[i]`` says which.
  * @param {{given:number, received:number, net:number}[]} flows
+ * @param {object[][]} [withheldBySide]
  */
-export function multiTeamNetSummary(flows) {
-  const list = Array.isArray(flows) ? flows : [];
+export function multiTeamNetSummary(flows, withheldBySide = null) {
+  const raw = Array.isArray(flows) ? flows : [];
+  const withheld = raw.map((_, i) =>
+    Array.isArray(withheldBySide?.[i]) ? withheldBySide[i].length > 0 : false,
+  );
+  // A withheld team's gap is not a number: it enters the band reading as
+  // indeterminate (``worstTeamBand``), exactly like any other unknown gap.
+  const list = raw.map((f, i) => (withheld[i] ? { ...f, net: Number.NaN } : f));
   // A net that is not a number stays unknown (null), never a fabricated 0.
   const nets = list.map((f) => {
     const n = Number(f?.net);
@@ -2217,6 +2304,7 @@ export function multiTeamNetSummary(flows) {
       worst: 0,
       largerSide: 0,
       verdict: meterVerdict(0, 0),
+      withheld,
     };
   }
   if (w.level == null) {
@@ -2226,7 +2314,10 @@ export function multiTeamNetSummary(flows) {
       worstIndex: w.index,
       worst: null,
       largerSide: null,
-      verdict: { label: "Indeterminate", level: null, relativePct: null },
+      verdict: withheld.some(Boolean)
+        ? { label: "Withheld", level: null, relativePct: null }
+        : { label: "Indeterminate", level: null, relativePct: null },
+      withheld,
     };
   }
   return {
@@ -2236,6 +2327,7 @@ export function multiTeamNetSummary(flows) {
     worst: Math.abs(w.gap),
     largerSide: w.larger,
     verdict: meterVerdict(w.gap, w.larger),
+    withheld,
   };
 }
 

@@ -18,6 +18,10 @@ import FORCED from "../fixtures/trade-multi/three-team-forced-cut.json";
 import STALE from "../fixtures/trade-multi/three-team-stale-rosters.json";
 import UNPRICED from "../fixtures/trade-multi/three-team-unpriced-asset.json";
 import FOUR from "../fixtures/trade-multi/four-team-asset-only.json";
+// Engine output with one traded asset the evidence gates withhold (F2):
+// tests/trade/multi_team_withheld_payloads.py.
+import QUARANTINED from "../fixtures/trade-multi-withheld/three-team-quarantined-asset.json";
+import STALE_VALUE from "../fixtures/trade-multi-withheld/three-team-stale-asset.json";
 
 const ok = (body, status = 200) => ({
   ok: status < 400,
@@ -324,6 +328,80 @@ describe("multi-team War Room", () => {
     expect(row.textContent).not.toContain("900");
     expect(note).toMatch(/A Unpriced has no usable value \(unknown, not zero\)/);
   });
+
+  // F2: a quarantined / stale asset is WITHHELD — never priced, never 0 — and
+  // every team whose part of the trade carries it is not determinable.  Real
+  // engine bodies; every expectation reads the fixture.
+  for (const [label, fixture, state] of [
+    ["quarantined", QUARANTINED, "quarantined"],
+    ["stale", STALE_VALUE, "stale"],
+  ]) {
+    it(`a ${label} asset is withheld for every team it touches, never priced or 0 (F2)`, async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(ok(fixture));
+      mount(fixture);
+      await analyze();
+      const legOf = (t) =>
+        [...t.gives, ...t.receives].find((a) => a.valueState !== "priced") || null;
+      const touched = fixture.teams.filter(legOf);
+      const clean = fixture.teams.filter((t) => !legOf(t));
+      expect(touched.length).toBeGreaterThan(0);
+      expect(clean.length).toBeGreaterThan(0);
+      const summary = screen.getByTestId("multi-team-summary");
+      for (const t of touched) {
+        const leg = legOf(t);
+        expect(leg.valueState).toBe(state);
+        expect(leg.value).toBeNull();
+        // The summary row names the withheld asset and its reason beside the
+        // server's own (unavailable) category.
+        const row = summary.querySelector(`[data-summary-team="${t.rosterId}"]`);
+        expect(row.textContent).toContain(t.categoryText);
+        expect(row.querySelector('[data-testid="multi-team-summary-withheld"]').textContent).toContain(
+          `withheld, not determinable: ${leg.label} ${state}`,
+        );
+        await act(async () => {
+          fireEvent.click(screen.getByRole("tab", { name: t.team.name }));
+        });
+        const panel = document.querySelector(`[data-team-result="${t.rosterId}"]`);
+        // The decision and fairness are the server's, verbatim (not determinable).
+        expect(within(panel).getByTestId("multi-team-decision").textContent).toBe(
+          t.analysis.decision.headlineText,
+        );
+        expect(t.fairness.state).toBe("UNABLE");
+        expect(within(panel).getByTestId("multi-team-fairness").textContent).toBe(
+          "Unable to determine",
+        );
+        // The trade-value result is withheld, with the reason.
+        const value = within(panel).getByTestId("multi-team-value-withheld").textContent;
+        expect(value).toMatch(/^Withheld — not determinable for /);
+        expect(value).toContain(`${leg.label} (Value withheld: ${state} (not trusted))`);
+        expect(panel.textContent).not.toMatch(/You receive/);
+        // The leg row withholds the value; the package carrying it has no total.
+        const li = panel.querySelector(`[data-asset-id="${leg.assetId}"]`);
+        expect(li.textContent).toMatch(new RegExp(`Value withheld: ${state}`));
+        const d = t.analysis.lenses.market.detail;
+        const dir = t.gives.some((g) => g.assetId === leg.assetId) ? "send" : "recv";
+        const pkg = within(panel)
+          .getByTestId("multi-team-package-totals")
+          .querySelector(`tr[data-package="${dir}"]`);
+        expect(pkg.getAttribute("data-package-state")).toBe("unknown");
+        const serverSum = dir === "send" ? d.sendingValue : d.receivingValue;
+        expect(typeof serverSum).toBe("number");
+        expect(pkg.textContent).not.toContain(Math.round(serverSum).toLocaleString());
+        expect(pkg.textContent).not.toMatch(/(^|\D)0(\D|$)/);
+      }
+      // A team the asset does not touch keeps its own priced answer.
+      for (const t of clean) {
+        const row = summary.querySelector(`[data-summary-team="${t.rosterId}"]`);
+        expect(row.querySelector('[data-testid="multi-team-summary-withheld"]')).toBeNull();
+        await act(async () => {
+          fireEvent.click(screen.getByRole("tab", { name: t.team.name }));
+        });
+        const panel = document.querySelector(`[data-team-result="${t.rosterId}"]`);
+        expect(within(panel).queryByTestId("multi-team-value-withheld")).toBeNull();
+        expect(panel.textContent).toMatch(/You receive/);
+      }
+    });
+  }
 
   it("stale rosters are said, and every team is not enough evidence", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(ok(STALE));

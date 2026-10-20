@@ -46,6 +46,7 @@ import {
   MIN_SIDES,
   computeStackAdjustments,
   multiTeamNetSummary,
+  withheldAssetsBySide,
   tradeSignature,
   displayValue,
 } from "@/lib/trade-logic";
@@ -1281,7 +1282,16 @@ export default function TradePage() {
   // 3+-team: the multi-team meter's own reading (one helper, shared with the
   // persistent summary bar) -- each team graded on its OWN gap against its
   // OWN larger package (per-team rule), headlined by the worst team.
-  const multiSummary = useMemo(() => multiTeamNetSummary(sideFlows), [sideFlows]);
+  // A team whose part of the trade carries a WITHHELD value (quarantined /
+  // stale) has no preliminary gap or band (``withheldAssetsBySide``).
+  const multiWithheld = useMemo(
+    () => (sides.length > 2 ? withheldAssetsBySide(sidesWithOverrides) : null),
+    [sides.length, sidesWithOverrides],
+  );
+  const multiSummary = useMemo(
+    () => multiTeamNetSummary(sideFlows, multiWithheld),
+    [sideFlows, multiWithheld],
+  );
   // The War Room's FINAL per-team answer, per side, while it answers the
   // trade on screen (the War Room reports null the moment the trade changes).
   // The preliminary meter and tray show these words instead of their own, so

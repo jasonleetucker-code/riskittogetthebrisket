@@ -295,3 +295,169 @@ test("multi-team War Room: live stack answers per its own flag", async ({ authed
   await room.screenshot({ path: shot });
   await testInfo.attach("multi-team-live", { path: shot, contentType: "image/png" });
 });
+
+// F2: a traded asset the evidence gates withhold (quarantined / stale) is
+// WITHHELD — never priced, never 0 — on the browser's preliminary meter (from
+// the board row's own `quarantined` stamp) and in the War Room (from the
+// engine's per-leg `valueState`).  The board row is marked quarantined by
+// rewriting the page's own board response.  The analysis answer is the real
+// fixture with that one leg's engine fields set the way Lane A's engine sets
+// them: valueState "quarantined", value null, and each team it touches
+// carrying the engine's own withheld answer (decision, category, UNABLE
+// fairness) taken from the engine-generated quarantined fixture
+// (tests/trade/multi_team_withheld_payloads.py), with its asset name swapped.
+const ENGINE_WITHHELD = JSON.parse(
+  fs.readFileSync(
+    path.resolve(
+      __dirname,
+      "../../../frontend/__tests__/fixtures/trade-multi-withheld/three-team-quarantined-asset.json",
+    ),
+    "utf-8",
+  ),
+);
+test("multi-team War Room: a quarantined asset is withheld on the preliminary meter and in the War Room (F2)", async ({
+  authedPage: page,
+}, testInfo) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  const sender = FIXTURE.teams[1];
+  const leg = sender.gives.find((g) => g.kind === "player" && g.toRosterId !== FIXTURE.teams[0].rosterId);
+  expect(leg, "the fixture routes a player between the second and third team").toBeTruthy();
+  const receiver = FIXTURE.teams.find((t) => t.rosterId === leg.toRosterId);
+  const untouched = FIXTURE.teams.find((t) => t.rosterId !== sender.rosterId && t.rosterId !== receiver.rosterId);
+
+  // The board: the same seeded contract, with that one row quarantined.
+  let boardRewrites = 0;
+  await page.route(
+    (url) => url.pathname.startsWith("/api/dynasty-data") || url.pathname === "/api/data",
+    async (route) => {
+      const res = await route.fetch();
+      const body = await res.json();
+      for (const r of body.playersArray || []) {
+        if (r?.displayName === leg.label || r?.canonicalName === leg.label) {
+          r.quarantined = true;
+          boardRewrites += 1;
+        }
+      }
+      if (body.players && body.players[leg.label]) body.players[leg.label].quarantined = true;
+      await route.fulfill({ response: res, json: body });
+    },
+  );
+
+  const withheldFixture = structuredClone(FIXTURE);
+  const unable = (f) => ({
+    ...f,
+    state: "UNABLE",
+    level: null,
+    reasonCode: "evaluation_unavailable",
+    gap: null,
+    largerAdjustedSide: null,
+    relativePct: null,
+  });
+  // The engine's own answer for a team whose part of the trade carries a
+  // quarantined asset (its sender, roster 2, in the engine fixture).
+  const engineTeam = ENGINE_WITHHELD.teams.find((t) =>
+    t.gives.some((g) => g.valueState === "quarantined"),
+  );
+  const engineAsset = engineTeam.gives.find((g) => g.valueState === "quarantined").label;
+  const engineDecision = () =>
+    JSON.parse(JSON.stringify(engineTeam.analysis.decision).split(engineAsset).join(leg.label));
+  const touchedIds = new Set([sender.rosterId, receiver.rosterId]);
+  for (const t of withheldFixture.teams) {
+    for (const row of [...t.gives, ...t.receives]) {
+      if (row.assetId === leg.assetId) {
+        row.valueState = "quarantined";
+        row.value = null;
+      }
+    }
+    if (!touchedIds.has(t.rosterId)) continue;
+    t.fairness = unable(t.fairness);
+    t.analysis.decision = engineDecision();
+    t.category = engineTeam.category;
+    t.categoryText = engineTeam.categoryText;
+    t.categoryReason = engineTeam.categoryReason;
+  }
+  withheldFixture.summary.perTeam = withheldFixture.summary.perTeam.map((p) =>
+    touchedIds.has(p.rosterId)
+      ? { ...p, fairness: "UNABLE", category: engineTeam.category, headline: engineTeam.analysis.decision.headline }
+      : p,
+  );
+  withheldFixture.summary.lines = withheldFixture.teams.map((t) => `${t.team.name}: ${t.categoryText}.`);
+
+  await page.route(
+    (url) => url.pathname === ENDPOINT,
+    async (route) => {
+      const body = route.request().postDataJSON() || {};
+      if (!Array.isArray(body.teams)) {
+        return route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "invalid_request", message: "The request body is malformed.", field: "teams" }),
+        });
+      }
+      const same =
+        JSON.stringify(body.teams) === JSON.stringify(FIXTURE.teams.map((t) => t.rosterId)) &&
+        JSON.stringify((body.assets || []).map((a) => [a.id, a.from, a.to])) ===
+          JSON.stringify(FIXTURE.ledger.legs.map((l) => [l.id, l.from, l.to]));
+      return route.fulfill({
+        status: same ? 200 : 400,
+        contentType: "application/json",
+        headers: { "Cache-Control": "no-store" },
+        body: JSON.stringify(
+          same
+            ? { ...withheldFixture, leagueKey: body.leagueKey || withheldFixture.leagueKey }
+            : { error: "invalid_trade", message: "The mock expected the fixture's ledger." },
+        ),
+      });
+    },
+  );
+
+  const sides = await buildThreeTeamTrade(page);
+  expect(boardRewrites, `the board carries ${leg.label}`).toBeGreaterThan(0);
+  for (const [i, side] of sides.entries()) {
+    await expect(page.locator(`#trade-side-team-${i}`)).toHaveValue(String(side.rosterId));
+  }
+  await routeAndPick(page, sides);
+
+  // Preliminary meter: the two teams the asset touches are WITHHELD with the
+  // reason; the untouched team keeps its gap; no band for the trade.
+  const sideIdx = (rid) => FIXTURE.teams.findIndex((t) => t.rosterId === rid);
+  const cells = page.locator(".trade-meter-multi-val");
+  await expect(cells).toHaveCount(3);
+  await expect(cells.nth(sideIdx(sender.rosterId))).toHaveAttribute("data-team-state", "withheld");
+  await expect(cells.nth(sideIdx(receiver.rosterId))).toHaveAttribute("data-team-state", "withheld");
+  await expect(cells.nth(sideIdx(untouched.rosterId))).toHaveAttribute("data-team-state", "priced");
+  await expect(cells.nth(sideIdx(sender.rosterId))).toContainText(`${leg.label} (sent, quarantined)`);
+  await expect(cells.nth(sideIdx(receiver.rosterId))).toContainText(`${leg.label} (received, quarantined)`);
+  await expect(page.locator(".trade-meter-verdict").first()).toHaveText("Withheld");
+  await expect(page.getByTestId("trade-multi-summary")).toContainText("Preliminary — not determinable");
+
+  // The War Room: the server's own answer, with the withheld leg named.
+  const room = page.locator('[data-war-room^="multi-"]');
+  await room.scrollIntoViewIfNeeded();
+  await page.getByTestId("multi-team-analyze").click();
+  await expect(page.getByTestId("multi-team-summary")).toBeVisible({ timeout: 30_000 });
+  const summary = page.getByTestId("multi-team-summary");
+  for (const t of [sender, receiver]) {
+    await expect(
+      summary.locator(`[data-summary-team="${t.rosterId}"] [data-testid="multi-team-summary-withheld"]`),
+    ).toContainText(`withheld, not determinable: ${leg.label} quarantined`);
+  }
+  await expect(
+    summary.locator(`[data-summary-team="${untouched.rosterId}"] [data-testid="multi-team-summary-withheld"]`),
+  ).toHaveCount(0);
+  await room.getByRole("tab", { name: sender.team.name }).click();
+  const panel = room.locator(`[data-team-result="${sender.rosterId}"]`);
+  await expect(panel.getByTestId("multi-team-decision")).toHaveText(engineTeam.analysis.decision.headlineText);
+  await expect(panel.getByTestId("multi-team-fairness")).toHaveText("Unable to determine");
+  await expect(panel.getByTestId("multi-team-value-withheld")).toContainText(
+    `${leg.label} (Value withheld: quarantined (not trusted))`,
+  );
+  await expect(panel.locator(`[data-asset-id="${leg.assetId}"]`)).toContainText("Value withheld: quarantined");
+  await expect(panel.locator('tr[data-package="send"]')).toHaveAttribute("data-package-state", "unknown");
+  await noPageOverflow(page);
+  const shot = shotPath(testInfo, "multi-team-withheld");
+  await room.screenshot({ path: shot });
+  await testInfo.attach("multi-team-withheld", { path: shot, contentType: "image/png" });
+  expect(errors).toEqual([]);
+});

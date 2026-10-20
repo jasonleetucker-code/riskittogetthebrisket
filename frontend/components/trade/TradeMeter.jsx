@@ -24,6 +24,8 @@ import {
   multiTeamNetSummary,
   percentageGap,
   tradeEvaluationState,
+  withheldAssetsBySide,
+  withheldReasonText,
 } from "@/lib/trade-logic";
 import { MonteCarloButton } from "@/components/ui";
 import ResilientSection from "@/components/ResilientSection";
@@ -222,7 +224,18 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows, finalBySide = nu
     Array.isArray(flows) && flows.length === sides.length
       ? flows
       : sides.map(() => ({ given: 0, received: 0, net: 0 }));
-  const { nets, perTeam, worst, worstIndex, verdict } = multiTeamNetSummary(flowList);
+  // A team whose part of the trade carries a WITHHELD value (quarantined /
+  // stale — the same stamps the engine's evidence gates read) shows no gap
+  // and no band: WITHHELD with the reason, never the sum that withheld
+  // number sits in and never 0.  The headline is then not determinable.
+  const withheldBySide = withheldAssetsBySide(sides);
+  const { nets, perTeam, worst, worstIndex, verdict, withheld } = multiTeamNetSummary(
+    flowList,
+    withheldBySide,
+  );
+  const withheldSides = sides
+    .map((s, i) => (withheld[i] ? `Side ${s.label}` : null))
+    .filter(Boolean);
   const isEvenNet = (i) => perTeam[i]?.level === "fair";
   // Display scale only (the bar's full width), never a verdict.
   const absMax = Math.max(1, ...nets.map((n) => Math.abs(n || 0)));
@@ -237,6 +250,7 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows, finalBySide = nu
     return n > 0 ? "var(--green)" : "var(--red)";
   };
   const netTag = (n, i) => {
+    if (withheld[i]) return "Withheld";
     if (n == null) return "Unknown";
     if (isEvenNet(i)) return "Even";
     if (n > 0) return "Getting value";
@@ -259,10 +273,14 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows, finalBySide = nu
         {sides.map((s, i) => {
           const flow = flowList[i] || { given: 0, received: 0, net: 0 };
           return (
-            <div key={s.id} className="trade-meter-multi-val">
+            <div
+              key={s.id}
+              className="trade-meter-multi-val"
+              data-team-state={withheld[i] ? "withheld" : nets[i] == null ? "unknown" : "priced"}
+            >
               <span className="label">Side {s.label}</span>
               <span className="trade-meter-side-val" style={{ color: netColor(nets[i], i) }}>
-                {nets[i] == null ? "—" : fmtSigned(nets[i])}
+                {withheld[i] ? "Withheld" : nets[i] == null ? "—" : fmtSigned(nets[i])}
               </span>
               {finalBySide?.[i] ? (
                 <span style={{ fontSize: "0.64rem" }} data-testid="trade-meter-final">
@@ -274,9 +292,19 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows, finalBySide = nu
                   {netTag(nets[i], i)}
                 </span>
               )}
-              <span className="muted" style={{ fontSize: "0.6rem" }}>
-                Give {Math.round(flow.given).toLocaleString()} · Get {Math.round(flow.received).toLocaleString()}
-              </span>
+              {withheld[i] ? (
+                <span
+                  className="muted"
+                  style={{ fontSize: "0.6rem" }}
+                  data-testid="trade-meter-withheld"
+                >
+                  Not determinable — value withheld: {withheldReasonText(withheldBySide[i])}
+                </span>
+              ) : (
+                <span className="muted" style={{ fontSize: "0.6rem" }}>
+                  Give {Math.round(flow.given).toLocaleString()} · Get {Math.round(flow.received).toLocaleString()}
+                </span>
+              )}
             </div>
           );
         })}
@@ -305,7 +333,9 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows, finalBySide = nu
                 borderRadius: 6,
                 overflow: "hidden",
               }}
-              title={`Side ${s.label}: ${fmtSigned(net)}`}
+              title={`Side ${s.label}: ${
+                withheld[i] ? "withheld" : nets[i] == null ? "unknown" : fmtSigned(net)
+              }`}
             >
               {/* Center marker */}
               <div
@@ -349,7 +379,7 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows, finalBySide = nu
               color: netColor(nets[i], i),
             }}
           >
-            {s.label}: {nets[i] == null ? "—" : fmtSigned(nets[i])}
+            {s.label}: {withheld[i] ? "withheld" : nets[i] == null ? "—" : fmtSigned(nets[i])}
           </span>
         ))}
       </div>
@@ -369,7 +399,9 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows, finalBySide = nu
             {verdict.label}
           </span>
           <span className="trade-meter-pct" style={{ marginLeft: 8 }}>
-            {worstIndex == null || worst == null
+            {withheldSides.length
+              ? `No overall reading: ${withheldSides.join(", ")} withheld (a quarantined or stale value is not priced)`
+              : worstIndex == null || worst == null
               ? "Widest gap: unknown"
               : `Widest gap: Side ${sides[worstIndex]?.label ?? worstIndex + 1} ${fmtSigned(
                   nets[worstIndex],
