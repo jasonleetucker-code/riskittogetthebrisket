@@ -162,6 +162,76 @@ describe("multi-team War Room", () => {
     expect(li.textContent).not.toMatch(/\b0\b/);
   });
 
+  it("a package made only of unpriced assets has no total (Unknown, never 0) and is marked; a priced one is complete (E1-F5)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(ok(UNPRICED));
+    mount(UNPRICED);
+    await analyze();
+    // Each team whose part of the trade carries an unpriced asset: the side
+    // holding ONLY unpriced assets reads Unknown; the other side is complete.
+    const affected = UNPRICED.teams.filter(
+      (t) => t.analysis.lenses.market.detail.incomplete === true,
+    );
+    expect(affected.length).toBeGreaterThan(0);
+    for (const t of affected) {
+      await act(async () => {
+        fireEvent.click(screen.getByRole("tab", { name: t.team.name }));
+      });
+      const detail = t.analysis.lenses.market.detail;
+      const table = screen.getByTestId("multi-team-package-totals");
+      for (const [key, unpriced, items] of [
+        ["send", detail.unpricedOut, t.gives],
+        ["recv", detail.unpricedIn, t.receives],
+      ]) {
+        const row = table.querySelector(`tr[data-package="${key}"]`);
+        const onlyUnpriced = unpriced.length > 0 && !items.some((a) => a.valueState === "priced");
+        if (onlyUnpriced) {
+          expect(row.getAttribute("data-package-state")).toBe("unknown");
+          const cells = [...row.querySelectorAll("td")].map((c) => c.textContent);
+          expect(cells).toEqual(["Unknown", "—", "Unknown"]);
+          expect(row.textContent).not.toMatch(/\b0\b/);
+          const note = screen.getByTestId(`multi-team-package-note-${key}`).textContent;
+          expect(note).toMatch(/has no total/);
+          for (const name of unpriced) expect(note).toContain(name);
+          expect(note).toMatch(/unknown, not zero/);
+        } else {
+          expect(row.getAttribute("data-package-state")).toBe("complete");
+          expect(screen.queryByTestId(`multi-team-package-note-${key}`)).toBeNull();
+        }
+      }
+    }
+  });
+
+  it("a package with SOME unpriced assets keeps its priced total and is marked incomplete (E1-F5)", async () => {
+    // Derived from the unpriced fixture: the team that sends only the
+    // unpriced asset also sends a priced one, so its sent total is partial.
+    const fx = structuredClone(UNPRICED);
+    const t = fx.teams.find((x) => (x.analysis.lenses.market.detail.unpricedOut || []).length);
+    t.gives.push({
+      assetId: "p:99990",
+      label: "Priced Extra",
+      valueState: "priced",
+      value: 1200,
+      toRosterId: t.gives[0].toRosterId,
+    });
+    t.analysis.lenses.market.detail.sendingValue = 1200;
+    t.analysis.lenses.market.detail.sendingAdjusted = 1200;
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(ok(fx));
+    mount(UNPRICED);
+    await analyze();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("tab", { name: t.team.name }));
+    });
+    const row = screen
+      .getByTestId("multi-team-package-totals")
+      .querySelector('tr[data-package="send"]');
+    expect(row.getAttribute("data-package-state")).toBe("incomplete");
+    expect(row.textContent).toContain("(incomplete)");
+    expect(row.textContent).toContain((1200).toLocaleString());
+    expect(screen.getByTestId("multi-team-package-note-send").textContent).toMatch(
+      /is incomplete: .* left out of the total/,
+    );
+  });
+
   it("stale rosters are said, and every team is not enough evidence", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(ok(STALE));
     mount(STALE);

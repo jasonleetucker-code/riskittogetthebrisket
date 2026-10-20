@@ -44,6 +44,8 @@ export const LEDGER_REASON_TEXT = {
   no_player_id: "has no league player id, so the analysis cannot identify it.",
   duplicate_asset:
     "is in the trade more than once. A team can trade an asset only once; copies are for the calculator only.",
+  shared_line:
+    "shares its name with a different asset on this side, so the two cannot be routed separately. Remove one of them to analyze.",
   invalid_destination: "needs a destination team on another side.",
   not_on_team: "is not on that team's roster.",
   idle_team: "neither sends nor receives anything. Remove the side or route an asset to it.",
@@ -67,7 +69,8 @@ function reasonText(r) {
  *
  * Refused, with a named reason each (nothing is coerced): an unbound side, a
  * team on two sides, an asset with no canonical id (a generic market pick, a
- * row with no player id), the same asset twice, a missing / self / out-of-range
+ * row with no player id), the same asset twice, two different assets sharing
+ * one side line (and so one destination), a missing / self / out-of-range
  * destination (3+ sides; two sides route to each other), an asset the bound
  * team does not hold in the loaded contract, a side that neither sends nor
  * receives, and an empty trade.  Ownership is re-verified by the server
@@ -107,12 +110,36 @@ export function buildMultiTeamLedger({ sides, bindings, teams }) {
   list.forEach((side, i) => {
     const held =
       rids[i] != null && teamById.has(rids[i]) ? teamHoldings(teamById.get(rids[i])) : null;
+    // A destination is stored per side LINE (`tradeEntryKey` — the owned-pick
+    // id, else the board row name).  Two DIFFERENT assets that share a line
+    // key on one side would share one destination, so that line is refused
+    // by name rather than routed as though they were one (E1-F3).
+    const idsByLine = new Map();
+    for (const entry of side?.assets || []) {
+      const ref = entryAssetRef(entry);
+      if (!ref.id) continue;
+      const key = tradeEntryKey(entry);
+      if (!idsByLine.has(key)) idsByLine.set(key, new Set());
+      idsByLine.get(key).add(ref.id);
+    }
+    const sharedLines = new Set(
+      [...idsByLine].filter(([, ids]) => ids.size > 1).map(([key]) => key),
+    );
+    const reportedShared = new Set();
     for (const entry of side?.assets || []) {
       total += 1;
       const label = String(entry?.assetLabel || entry?.name || "An asset");
       const ref = entryAssetRef(entry);
       if (!ref.id) {
         push({ code: ref.reason, sideIdx: i, label });
+        continue;
+      }
+      if (sharedLines.has(tradeEntryKey(entry))) {
+        const key = tradeEntryKey(entry);
+        if (!reportedShared.has(key)) {
+          reportedShared.add(key);
+          push({ code: "shared_line", sideIdx: i, label });
+        }
         continue;
       }
       if (seenAssets.has(ref.id)) {

@@ -54,6 +54,7 @@ import {
 import {
   confidenceSummary,
   decisionReasonSentences,
+  listJoin,
   missingEvidenceText,
   partialCoverageNote,
   rosterFit,
@@ -107,50 +108,113 @@ function fairnessDetail(f) {
   return parts.length ? `${parts.join(": ")}.` : null;
 }
 
-/** The package totals, straight from the market lens (raw, VA, adjusted, gap). */
-function PackageTotals({ detail }) {
+/**
+ * The package totals, straight from the market lens (raw, VA, adjusted, gap).
+ *
+ * An unpriced asset is left out of the server's sums (``unpricedOut`` /
+ * ``unpricedIn``), so a package with one is INCOMPLETE and says so, and a
+ * package made ONLY of unpriced assets has no total at all: the server's 0 is
+ * the empty sum, never the package's value, so it reads "Unknown", never 0
+ * (MISSING IS NEVER ZERO; E1-F5).
+ */
+function PackageTotals({ detail, gives = [], receives = [] }) {
   if (!detail) return null;
   const n = (v) => (typeof v === "number" ? formatValue(v) : "—");
   const va = (v) => (typeof v === "number" && Math.round(v) !== 0 ? `+${formatValue(v)}` : "none");
+  const names = (xs) => (Array.isArray(xs) ? xs.filter(Boolean).map(String) : []);
+  const priced = (items) => items.filter((a) => a?.valueState === "priced").length;
+  const rows = [
+    {
+      key: "send",
+      label: "Sends",
+      raw: detail.sendingValue,
+      adj: detail.sendingValueAdjustment,
+      total: detail.sendingAdjusted,
+      unpriced: names(detail.unpricedOut),
+      pricedCount: priced(gives),
+    },
+    {
+      key: "recv",
+      label: "Receives",
+      raw: detail.receivingValue,
+      adj: detail.receivingValueAdjustment,
+      total: detail.receivingAdjusted,
+      unpriced: names(detail.unpricedIn),
+      pricedCount: priced(receives),
+    },
+  ].map((r) => ({
+    ...r,
+    // Nothing priced and something unpriced: no total exists.
+    unknown: r.unpriced.length > 0 && r.pricedCount === 0,
+    incomplete: r.unpriced.length > 0,
+  }));
+  const notes = rows
+    .filter((r) => r.incomplete)
+    .map((r) => ({
+      key: r.key,
+      text: `${r.label === "Sends" ? "Sent" : "Received"} package ${
+        r.unknown ? "has no total" : "is incomplete"
+      }: ${listJoin(r.unpriced)} ${r.unpriced.length === 1 ? "has" : "have"} no value on the board (unknown, not zero)${
+        r.unknown
+          ? ""
+          : " and " + (r.unpriced.length === 1 ? "is" : "are") + " left out of the total"
+      }.`,
+    }));
   return (
-    <div
-      className={styles.tableWrap}
-      role="region"
-      aria-label="Package totals for this team"
-      tabIndex={0}
-    >
-      <table className={styles.table} data-testid="multi-team-package-totals">
-        <caption className="ds-visually-hidden">Package totals for this team</caption>
-        <thead>
-          <tr>
-            <th scope="col">Package</th>
-            <th scope="col" className={styles.num}>
-              Raw
-            </th>
-            <th scope="col" className={styles.num}>
-              Value Adjustment
-            </th>
-            <th scope="col" className={styles.num}>
-              Adjusted
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th scope="row">Sends</th>
-            <td className={styles.num}>{n(detail.sendingValue)}</td>
-            <td className={styles.num}>{va(detail.sendingValueAdjustment)}</td>
-            <td className={styles.num}>{n(detail.sendingAdjusted)}</td>
-          </tr>
-          <tr>
-            <th scope="row">Receives</th>
-            <td className={styles.num}>{n(detail.receivingValue)}</td>
-            <td className={styles.num}>{va(detail.receivingValueAdjustment)}</td>
-            <td className={styles.num}>{n(detail.receivingAdjusted)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div
+        className={styles.tableWrap}
+        role="region"
+        aria-label="Package totals for this team"
+        tabIndex={0}
+      >
+        <table className={styles.table} data-testid="multi-team-package-totals">
+          <caption className="ds-visually-hidden">Package totals for this team</caption>
+          <thead>
+            <tr>
+              <th scope="col">Package</th>
+              <th scope="col" className={styles.num}>
+                Raw
+              </th>
+              <th scope="col" className={styles.num}>
+                Value Adjustment
+              </th>
+              <th scope="col" className={styles.num}>
+                Adjusted
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr
+                key={r.key}
+                data-package={r.key}
+                data-package-state={
+                  r.unknown ? "unknown" : r.incomplete ? "incomplete" : "complete"
+                }
+              >
+                <th scope="row">
+                  {r.label}
+                  {r.incomplete ? (
+                    <span className={styles.muted}>
+                      {r.unknown ? " (unpriced)" : " (incomplete)"}
+                    </span>
+                  ) : null}
+                </th>
+                <td className={styles.num}>{r.unknown ? "Unknown" : n(r.raw)}</td>
+                <td className={styles.num}>{r.unknown ? "—" : va(r.adj)}</td>
+                <td className={styles.num}>{r.unknown ? "Unknown" : n(r.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {notes.map((x) => (
+        <p key={x.key} className={styles.muted} data-testid={`multi-team-package-note-${x.key}`}>
+          {x.text}
+        </p>
+      ))}
+    </>
   );
 }
 
@@ -327,7 +391,13 @@ function TeamResult({ team, nameOf, showStrategy, open, toggleOpen }) {
                 zero).
               </p>
             )}
-            {market?.available ? <PackageTotals detail={market.detail} /> : null}
+            {market?.available ? (
+              <PackageTotals
+                detail={market.detail}
+                gives={team.gives || []}
+                receives={team.receives || []}
+              />
+            ) : null}
           </dd>
         </div>
         <div className={styles.glanceRow} data-lens="roster">

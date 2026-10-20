@@ -144,6 +144,32 @@ describe("buildMultiTeamLedger", () => {
     expect(generic.sideIdx).toBe(0);
   });
 
+  it("two DIFFERENT assets sharing one side line (one display name) are refused, never routed as one (E1-F3)", () => {
+    const { sides, sleeperTeams, teamIds } = base();
+    const s = structuredClone(sides);
+    const teams = structuredClone(sleeperTeams);
+    const t0 = teams.find((t) => Number(t.roster_id ?? t.rosterId) === teamIds[0]);
+    // Two real, different players the same team holds, one display name
+    // (the live league has such a pair: two "Byron Murphy").
+    t0.playerIds = [...(t0.playerIds || []), "77701", "77702"];
+    s[0].assets.push({ name: "Byron Murphy", playerId: "77701" });
+    s[0].assets.push({ name: "Byron Murphy", playerId: "77702" });
+    s[0].destinations["Byron Murphy"] = 1;
+    const out = buildMultiTeamLedger({ sides: s, bindings: teamIds, teams });
+    expect(out.ok).toBe(false);
+    const shared = out.reasons.filter((r) => r.code === "shared_line");
+    expect(shared).toHaveLength(1); // one reason per line, not per copy
+    expect(shared[0].sideIdx).toBe(0);
+    expect(shared[0].text).toMatch(/^Byron Murphy shares its name with a different asset/);
+    expect(codes(out)).not.toContain("duplicate_asset");
+    // A COPY of one asset (same id) is still the duplicate refusal, not this one.
+    const copy = structuredClone(sides);
+    copy[0].assets.push({ ...copy[0].assets[0] });
+    expect(codes(buildMultiTeamLedger({ sides: copy, bindings: teamIds, teams: sleeperTeams }))).toEqual([
+      "duplicate_asset",
+    ]);
+  });
+
   it("an idle side and an empty trade are refused", () => {
     const { sides, sleeperTeams, teamIds } = base();
     const s = structuredClone(sides);
