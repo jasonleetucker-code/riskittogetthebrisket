@@ -1,0 +1,3827 @@
+{
+ "M1": {
+  "0": {
+   "allUnits": {
+    "n3": {
+     "blocks": 9,
+     "ci95": [
+      -1.5e-05,
+      0.000188
+     ],
+     "days": 61,
+     "mean": 6.8e-05,
+     "n": 359139,
+     "shareChallengerCloser": 0.0012
+    },
+    "none": {
+     "blocks": 9,
+     "ci95": [
+      -0.000295,
+      0.000704
+     ],
+     "days": 61,
+     "mean": 0.000143,
+     "n": 359139,
+     "shareChallengerCloser": 0.1057
+    },
+    "policy": {
+     "blocks": 9,
+     "ci95": [
+      -0.00047,
+      -0.000291
+     ],
+     "days": 61,
+     "mean": -0.000389,
+     "n": 359139,
+     "shareChallengerCloser": 0.0865
+    }
+   },
+   "n3": {
+    "blocks": 9,
+    "ci95": [
+     -0.03624,
+     0.041271
+    ],
+    "days": 61,
+    "mean": 0.02406,
+    "n": 1008,
+    "shareChallengerCloser": 0.4226
+   },
+   "none": {
+    "blocks": 9,
+    "ci95": [
+     -0.001664,
+     0.003075
+    ],
+    "days": 61,
+    "mean": 0.000711,
+    "n": 72332,
+    "shareChallengerCloser": 0.5246
+   },
+   "policy": {
+    "blocks": 9,
+    "ci95": [
+     -0.002899,
+     -0.001791
+    ],
+    "days": 61,
+    "mean": -0.002387,
+    "n": 58580,
+    "shareChallengerCloser": 0.53
+   },
+   "units": 359139
+  },
+  "14": {
+   "allUnits": {
+    "n3": {
+     "blocks": 7,
+     "ci95": [
+      -3.4e-05,
+      0.00018
+     ],
+     "days": 47,
+     "mean": 4.2e-05,
+     "n": 263431,
+     "shareChallengerCloser": 0.0004
+    },
+    "none": {
+     "blocks": 7,
+     "ci95": [
+      -9.1e-05,
+      0.000903
+     ],
+     "days": 47,
+     "mean": 0.000359,
+     "n": 263431,
+     "shareChallengerCloser": 0.1075
+    },
+    "policy": {
+     "blocks": 7,
+     "ci95": [
+      -0.000334,
+      -0.000169
+     ],
+     "days": 47,
+     "mean": -0.000259,
+     "n": 263431,
+     "shareChallengerCloser": 0.0865
+    }
+   },
+   "n3": {
+    "blocks": 7,
+    "ci95": [
+     -0.148361,
+     0.050631
+    ],
+    "days": 47,
+    "mean": 0.031563,
+    "n": 347,
+    "shareChallengerCloser": 0.3256
+   },
+   "none": {
+    "blocks": 7,
+    "ci95": [
+     -0.00048,
+     0.003609
+    ],
+    "days": 47,
+    "mean": 0.001673,
+    "n": 56467,
+    "shareChallengerCloser": 0.5014
+   },
+   "policy": {
+    "blocks": 7,
+    "ci95": [
+     -0.002034,
+     -0.001024
+    ],
+    "days": 47,
+    "mean": -0.001579,
+    "n": 43242,
+    "shareChallengerCloser": 0.5267
+   },
+   "units": 263431
+  },
+  "21": {
+   "allUnits": {
+    "n3": {
+     "blocks": 6,
+     "ci95": [
+      -3.1e-05,
+      0.000181
+     ],
+     "days": 41,
+     "mean": 4.4e-05,
+     "n": 223890,
+     "shareChallengerCloser": 0.0006
+    },
+    "none": {
+     "blocks": 6,
+     "ci95": [
+      1.3e-05,
+      0.001257
+     ],
+     "days": 41,
+     "mean": 0.000582,
+     "n": 223890,
+     "shareChallengerCloser": 0.1072
+    },
+    "policy": {
+     "blocks": 6,
+     "ci95": [
+      -0.000249,
+      -8.5e-05
+     ],
+     "days": 41,
+     "mean": -0.00018,
+     "n": 223890,
+     "shareChallengerCloser": 0.0844
+    }
+   },
+   "n3": {
+    "blocks": 6,
+    "ci95": [
+     -0.138986,
+     0.043781
+    ],
+    "days": 40,
+    "mean": 0.0292,
+    "n": 337,
+    "shareChallengerCloser": 0.3709
+   },
+   "none": {
+    "blocks": 6,
+    "ci95": [
+     6.7e-05,
+     0.004891
+    ],
+    "days": 41,
+    "mean": 0.002637,
+    "n": 49414,
+    "shareChallengerCloser": 0.4859
+   },
+   "policy": {
+    "blocks": 6,
+    "ci95": [
+     -0.001552,
+     -0.000531
+    ],
+    "days": 41,
+    "mean": -0.001115,
+    "n": 36223,
+    "shareChallengerCloser": 0.5214
+   },
+   "units": 223890
+  },
+  "3": {
+   "allUnits": {
+    "n3": {
+     "blocks": 9,
+     "ci95": [
+      -1.8e-05,
+      0.000185
+     ],
+     "days": 58,
+     "mean": 5.9e-05,
+     "n": 335757,
+     "shareChallengerCloser": 0.0009
+    },
+    "none": {
+     "blocks": 9,
+     "ci95": [
+      -0.000259,
+      0.000659
+     ],
+     "days": 58,
+     "mean": 0.000146,
+     "n": 335757,
+     "shareChallengerCloser": 0.107
+    },
+    "policy": {
+     "blocks": 9,
+     "ci95": [
+      -0.000447,
+      -0.000281
+     ],
+     "days": 58,
+     "mean": -0.000372,
+     "n": 335757,
+     "shareChallengerCloser": 0.0874
+    }
+   },
+   "n3": {
+    "blocks": 9,
+    "ci95": [
+     -0.039627,
+     0.045785
+    ],
+    "days": 58,
+    "mean": 0.027015,
+    "n": 731,
+    "shareChallengerCloser": 0.4008
+   },
+   "none": {
+    "blocks": 9,
+    "ci95": [
+     -0.001459,
+     0.002832
+    ],
+    "days": 58,
+    "mean": 0.000713,
+    "n": 68917,
+    "shareChallengerCloser": 0.5214
+   },
+   "policy": {
+    "blocks": 9,
+    "ci95": [
+     -0.002739,
+     -0.001704
+    ],
+    "days": 58,
+    "mean": -0.002254,
+    "n": 55362,
+    "shareChallengerCloser": 0.5298
+   },
+   "units": 335757
+  },
+  "7": {
+   "allUnits": {
+    "n3": {
+     "blocks": 8,
+     "ci95": [
+      -2.9e-05,
+      0.000156
+     ],
+     "days": 54,
+     "mean": 3.6e-05,
+     "n": 309188,
+     "shareChallengerCloser": 0.0004
+    },
+    "none": {
+     "blocks": 8,
+     "ci95": [
+      -0.000211,
+      0.000682
+     ],
+     "days": 54,
+     "mean": 0.000194,
+     "n": 309188,
+     "shareChallengerCloser": 0.1077
+    },
+    "policy": {
+     "blocks": 8,
+     "ci95": [
+      -0.000429,
+      -0.000242
+     ],
+     "days": 54,
+     "mean": -0.000341,
+     "n": 309188,
+     "shareChallengerCloser": 0.0876
+    }
+   },
+   "n3": {
+    "blocks": 8,
+    "ci95": [
+     -0.108654,
+     0.050606
+    ],
+    "days": 54,
+    "mean": 0.03043,
+    "n": 364,
+    "shareChallengerCloser": 0.3379
+   },
+   "none": {
+    "blocks": 8,
+    "ci95": [
+     -0.00118,
+     0.002775
+    ],
+    "days": 54,
+    "mean": 0.000928,
+    "n": 64798,
+    "shareChallengerCloser": 0.5139
+   },
+   "policy": {
+    "blocks": 8,
+    "ci95": [
+     -0.002617,
+     -0.001434
+    ],
+    "days": 54,
+    "mean": -0.002051,
+    "n": 51414,
+    "shareChallengerCloser": 0.527
+   },
+   "units": 309188
+  }
+ },
+ "M3": {
+  "14": {
+   "K": {
+    "bySource": {
+     "dlfIdp": 17,
+     "dlfRookieSf": 5,
+     "dlfSf": 160,
+     "draftSharks": 2274,
+     "draftSharksIdp": 961,
+     "dynastyDaddySf": 28,
+     "dynastyNerdsSfTep": 89,
+     "fantasyCalc": 70,
+     "fantasyNavigatorSf": 59,
+     "fantasyProsFitzmaurice": 146,
+     "fantasyProsIdp": 534,
+     "fantasyProsSf": 273,
+     "flockFantasySf": 124,
+     "flockFantasySfRookies": 35,
+     "idpShowCombined": 320,
+     "idpTradeCalc": 203,
+     "ktcCrowdSfTep": 105,
+     "ktcTradesSfTep": 59,
+     "otcffbSf": 19,
+     "pfkDynasty": 131,
+     "yahooBoone": 395
+    },
+    "classes": {
+     "ABANDONED": 386,
+     "DELISTED": 84,
+     "LED": 54,
+     "UNRESOLVED": 5483
+    },
+    "meanLeadShare": 0.0071,
+    "meanRetreatShare": 0.062,
+    "n": 6007
+   },
+   "X": {
+    "bySource": {
+     "flockFantasySfRookies": 10,
+     "ktcCrowdSfTep": 1
+    },
+    "classes": {
+     "ABANDONED": 1,
+     "DELISTED": 6,
+     "UNRESOLVED": 4
+    },
+    "meanLeadShare": 0.0021,
+    "meanRetreatShare": 0.1756,
+    "n": 11
+   }
+  },
+  "21": {
+   "K": {
+    "bySource": {
+     "dlfIdp": 11,
+     "dlfRookieSf": 5,
+     "dlfSf": 132,
+     "draftSharks": 2018,
+     "draftSharksIdp": 821,
+     "dynastyDaddySf": 15,
+     "dynastyNerdsSfTep": 52,
+     "fantasyCalc": 56,
+     "fantasyNavigatorSf": 35,
+     "fantasyProsFitzmaurice": 113,
+     "fantasyProsIdp": 459,
+     "fantasyProsSf": 239,
+     "flockFantasySf": 113,
+     "flockFantasySfRookies": 32,
+     "idpShowCombined": 265,
+     "idpTradeCalc": 158,
+     "ktcCrowdSfTep": 60,
+     "ktcTradesSfTep": 44,
+     "otcffbSf": 13,
+     "pfkDynasty": 75,
+     "yahooBoone": 321
+    },
+    "classes": {
+     "ABANDONED": 377,
+     "DELISTED": 77,
+     "LED": 131,
+     "UNRESOLVED": 4452
+    },
+    "meanLeadShare": 0.0102,
+    "meanRetreatShare": 0.0729,
+    "n": 5037
+   },
+   "X": {
+    "bySource": {
+     "flockFantasySfRookies": 8
+    },
+    "classes": {
+     "DELISTED": 8
+    },
+    "meanLeadShare": 0.0053,
+    "meanRetreatShare": null,
+    "n": 8
+   }
+  },
+  "3": {
+   "K": {
+    "bySource": {
+     "dlfIdp": 34,
+     "dlfRookieSf": 5,
+     "dlfSf": 207,
+     "draftSharks": 2738,
+     "draftSharksIdp": 1196,
+     "dynastyDaddySf": 45,
+     "dynastyNerdsSfTep": 177,
+     "fantasyCalc": 92,
+     "fantasyNavigatorSf": 83,
+     "fantasyProsFitzmaurice": 212,
+     "fantasyProsIdp": 665,
+     "fantasyProsSf": 334,
+     "flockFantasySf": 136,
+     "flockFantasySfRookies": 60,
+     "idpShowCombined": 396,
+     "idpTradeCalc": 275,
+     "ktcCrowdSfTep": 179,
+     "ktcTradesSfTep": 76,
+     "otcffbSf": 34,
+     "pfkDynasty": 220,
+     "yahooBoone": 536
+    },
+    "classes": {
+     "ABANDONED": 180,
+     "DELISTED": 65,
+     "UNRESOLVED": 7455
+    },
+    "meanLeadShare": 0.0038,
+    "meanRetreatShare": 0.0261,
+    "n": 7700
+   },
+   "X": {
+    "bySource": {
+     "flockFantasySfRookies": 22,
+     "ktcCrowdSfTep": 1,
+     "ktcTradesSfTep": 2
+    },
+    "classes": {
+     "ABANDONED": 2,
+     "DELISTED": 4,
+     "UNRESOLVED": 19
+    },
+    "meanLeadShare": -0.0285,
+    "meanRetreatShare": 0.0701,
+    "n": 25
+   }
+  },
+  "7": {
+   "K": {
+    "bySource": {
+     "dlfIdp": 30,
+     "dlfRookieSf": 5,
+     "dlfSf": 189,
+     "draftSharks": 2569,
+     "draftSharksIdp": 1124,
+     "dynastyDaddySf": 42,
+     "dynastyNerdsSfTep": 163,
+     "fantasyCalc": 84,
+     "fantasyNavigatorSf": 76,
+     "fantasyProsFitzmaurice": 183,
+     "fantasyProsIdp": 621,
+     "fantasyProsSf": 303,
+     "flockFantasySf": 128,
+     "flockFantasySfRookies": 49,
+     "idpShowCombined": 396,
+     "idpTradeCalc": 249,
+     "ktcCrowdSfTep": 156,
+     "ktcTradesSfTep": 65,
+     "otcffbSf": 28,
+     "pfkDynasty": 190,
+     "yahooBoone": 490
+    },
+    "classes": {
+     "ABANDONED": 330,
+     "DELISTED": 103,
+     "LED": 15,
+     "UNRESOLVED": 6692
+    },
+    "meanLeadShare": 0.0045,
+    "meanRetreatShare": 0.0468,
+    "n": 7140
+   },
+   "X": {
+    "bySource": {
+     "flockFantasySfRookies": 18,
+     "ktcCrowdSfTep": 1,
+     "ktcTradesSfTep": 2
+    },
+    "classes": {
+     "ABANDONED": 3,
+     "DELISTED": 5,
+     "UNRESOLVED": 13
+    },
+    "meanLeadShare": -0.0162,
+    "meanRetreatShare": 0.1423,
+    "n": 21
+   }
+  }
+ },
+ "M4": {
+  "all": {
+   "incumbent": 0.019025,
+   "n3": 0.019036,
+   "policy": 0.019289,
+   "ratioPolicyOverIncumbent": {
+    "ci95": [
+     0.99739,
+     1.029242
+    ],
+    "ratio": 1.013842
+   }
+  },
+  "idp": {
+   "incumbent": 0.021763,
+   "n3": 0.021787,
+   "policy": 0.022803,
+   "ratioPolicyOverIncumbent": {
+    "ci95": [
+     1.020619,
+     1.07637
+    ],
+    "ratio": 1.047786
+   }
+  },
+  "offense": {
+   "incumbent": 0.016681,
+   "n3": 0.016681,
+   "policy": 0.016292,
+   "ratioPolicyOverIncumbent": {
+    "ci95": [
+     0.965515,
+     0.986552
+    ],
+    "ratio": 0.976626
+   }
+  },
+  "pairs": 60
+ },
+ "M5": {
+  "boardScreenFirings": [
+   {
+    "archive": "dynasty_export_20260818_230211.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260819_230341.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260820_230504.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260821_230238.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260822_230108.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260823_230044.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260824_230400.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260825_230528.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260826_211658.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260827_153424.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260828_234428.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260829_211720.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260830_213746.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260831_230447.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260901_212308.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260902_212027.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260903_225148.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260904_223450.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260905_204615.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260906_205400.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260907_230241.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   },
+   {
+    "archive": "dynasty_export_20260908_212819.zip",
+    "flagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    }
+   }
+  ],
+  "bySource": {
+   "incumbent": {
+    "idp|dlfIdp": 102,
+    "idp|draftSharksIdp": 2160,
+    "idp|fantasyProsIdp": 1205,
+    "idp|idpShowCombined": 186,
+    "idp|idpTradeCalc": 284,
+    "offense|dlfRookieSf": 1234,
+    "offense|dlfSf": 432,
+    "offense|draftSharks": 4828,
+    "offense|dynastyDaddySf": 111,
+    "offense|dynastyNerdsSfTep": 507,
+    "offense|fantasyCalc": 149,
+    "offense|fantasyNavigatorSf": 182,
+    "offense|fantasyProsFitzmaurice": 516,
+    "offense|fantasyProsSf": 546,
+    "offense|flockFantasySf": 200,
+    "offense|flockFantasySfRookies": 1575,
+    "offense|idpShowCombined": 455,
+    "offense|idpTradeCalc": 566,
+    "offense|ktcCrowdSfTep": 508,
+    "offense|ktcTradesSfTep": 159,
+    "offense|otcffbSf": 94,
+    "offense|pfkDynasty": 562,
+    "offense|yahooBoone": 1060
+   },
+   "n3": {
+    "idp|dlfIdp": 102,
+    "idp|draftSharksIdp": 2187,
+    "idp|fantasyProsIdp": 1275,
+    "idp|idpShowCombined": 186,
+    "idp|idpTradeCalc": 298,
+    "offense|dlfRookieSf": 1234,
+    "offense|dlfSf": 432,
+    "offense|draftSharks": 4828,
+    "offense|dynastyDaddySf": 111,
+    "offense|dynastyNerdsSfTep": 507,
+    "offense|fantasyCalc": 149,
+    "offense|fantasyNavigatorSf": 182,
+    "offense|fantasyProsFitzmaurice": 516,
+    "offense|fantasyProsSf": 546,
+    "offense|flockFantasySf": 200,
+    "offense|flockFantasySfRookies": 1575,
+    "offense|idpShowCombined": 455,
+    "offense|idpTradeCalc": 566,
+    "offense|ktcCrowdSfTep": 508,
+    "offense|ktcTradesSfTep": 159,
+    "offense|otcffbSf": 94,
+    "offense|pfkDynasty": 562,
+    "offense|yahooBoone": 1060
+   },
+   "policy": {
+    "offense|dlfRookieSf": 1229,
+    "offense|draftSharks": 54,
+    "offense|fantasyNavigatorSf": 1,
+    "offense|flockFantasySfRookies": 1449,
+    "offense|idpTradeCalc": 4,
+    "offense|ktcCrowdSfTep": 3,
+    "offense|ktcTradesSfTep": 23
+   }
+  },
+  "perBoard": [
+   {
+    "archive": "dynasty_export_20260818_230211.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 230,
+     "n3": 231,
+     "policy": 129
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 129
+    },
+    "scrapeTimestamp": "2026-08-18T23:02:11.345069+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3939,
+     "medianMoved": 0.0169,
+     "moved": 142,
+     "p90": 0.0109,
+     "p99": 0.2551,
+     "rows": 980
+    }
+   },
+   {
+    "archive": "dynasty_export_20260819_230341.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 231,
+     "n3": 232,
+     "policy": 128
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 128
+    },
+    "scrapeTimestamp": "2026-08-19T23:03:41.580370+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3939,
+     "medianMoved": 0.0169,
+     "moved": 147,
+     "p90": 0.0118,
+     "p99": 0.2783,
+     "rows": 980
+    }
+   },
+   {
+    "archive": "dynasty_export_20260820_230504.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 226,
+     "n3": 227,
+     "policy": 128
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 128
+    },
+    "scrapeTimestamp": "2026-08-20T23:05:03.983096+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.7724,
+     "medianMoved": 0.0163,
+     "moved": 134,
+     "p90": 0.0085,
+     "p99": 0.2807,
+     "rows": 984
+    }
+   },
+   {
+    "archive": "dynasty_export_20260821_230238.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 234,
+     "n3": 234,
+     "policy": 126
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 126
+    },
+    "scrapeTimestamp": "2026-08-21T23:02:38.483718+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3228,
+     "medianMoved": 0.0188,
+     "moved": 121,
+     "p90": 0.0081,
+     "p99": 0.1192,
+     "rows": 979
+    }
+   },
+   {
+    "archive": "dynasty_export_20260822_230108.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 238,
+     "n3": 238,
+     "policy": 126
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 126
+    },
+    "scrapeTimestamp": "2026-08-22T23:01:08.145493+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3233,
+     "medianMoved": 0.0176,
+     "moved": 133,
+     "p90": 0.0089,
+     "p99": 0.0943,
+     "rows": 979
+    }
+   },
+   {
+    "archive": "dynasty_export_20260823_230044.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 234,
+     "n3": 234,
+     "policy": 126
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 126
+    },
+    "scrapeTimestamp": "2026-08-23T23:00:44.845095+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3291,
+     "medianMoved": 0.0156,
+     "moved": 122,
+     "p90": 0.0069,
+     "p99": 0.0816,
+     "rows": 985
+    }
+   },
+   {
+    "archive": "dynasty_export_20260824_230400.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 232,
+     "n3": 232,
+     "policy": 126
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 126
+    },
+    "scrapeTimestamp": "2026-08-24T23:04:00.553224+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3333,
+     "medianMoved": 0.0151,
+     "moved": 125,
+     "p90": 0.0067,
+     "p99": 0.1268,
+     "rows": 983
+    }
+   },
+   {
+    "archive": "dynasty_export_20260825_230528.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 234,
+     "n3": 234,
+     "policy": 126
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 126
+    },
+    "scrapeTimestamp": "2026-08-25T23:05:28.544040+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3391,
+     "medianMoved": 0.0173,
+     "moved": 122,
+     "p90": 0.0066,
+     "p99": 0.1268,
+     "rows": 978
+    }
+   },
+   {
+    "archive": "dynasty_export_20260826_211658.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 232,
+     "n3": 232,
+     "policy": 125
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 125
+    },
+    "scrapeTimestamp": "2026-08-26T21:16:58.813500+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3337,
+     "medianMoved": 0.0196,
+     "moved": 122,
+     "p90": 0.0085,
+     "p99": 0.1268,
+     "rows": 975
+    }
+   },
+   {
+    "archive": "dynasty_export_20260827_153424.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 232,
+     "n3": 232,
+     "policy": 125
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 125
+    },
+    "scrapeTimestamp": "2026-08-27T15:34:24.432490+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3459,
+     "medianMoved": 0.0158,
+     "moved": 155,
+     "p90": 0.0106,
+     "p99": 0.1352,
+     "rows": 976
+    }
+   },
+   {
+    "archive": "dynasty_export_20260828_234428.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 232,
+     "n3": 232,
+     "policy": 125
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 125
+    },
+    "scrapeTimestamp": "2026-08-28T23:44:28.488898+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.334,
+     "medianMoved": 0.0154,
+     "moved": 155,
+     "p90": 0.0109,
+     "p99": 0.1345,
+     "rows": 987
+    }
+   },
+   {
+    "archive": "dynasty_export_20260829_211720.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 232,
+     "n3": 232,
+     "policy": 125
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 125
+    },
+    "scrapeTimestamp": "2026-08-29T21:17:20.483662+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3224,
+     "medianMoved": 0.0147,
+     "moved": 153,
+     "p90": 0.0098,
+     "p99": 0.1322,
+     "rows": 986
+    }
+   },
+   {
+    "archive": "dynasty_export_20260830_213746.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 238,
+     "n3": 238,
+     "policy": 126
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 126
+    },
+    "scrapeTimestamp": "2026-08-30T21:37:46.179321+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3057,
+     "medianMoved": 0.0162,
+     "moved": 125,
+     "p90": 0.0077,
+     "p99": 0.1402,
+     "rows": 994
+    }
+   },
+   {
+    "archive": "dynasty_export_20260831_230447.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 239,
+     "n3": 239,
+     "policy": 127
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 127
+    },
+    "scrapeTimestamp": "2026-08-31T23:04:47.553692+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3378,
+     "medianMoved": 0.0167,
+     "moved": 118,
+     "p90": 0.0065,
+     "p99": 0.1435,
+     "rows": 989
+    }
+   },
+   {
+    "archive": "dynasty_export_20260901_212308.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 240,
+     "n3": 240,
+     "policy": 127
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 127
+    },
+    "scrapeTimestamp": "2026-09-01T21:23:08.208475+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.2787,
+     "medianMoved": 0.0161,
+     "moved": 116,
+     "p90": 0.007,
+     "p99": 0.1451,
+     "rows": 990
+    }
+   },
+   {
+    "archive": "dynasty_export_20260902_212027.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 240,
+     "n3": 240,
+     "policy": 127
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 127
+    },
+    "scrapeTimestamp": "2026-09-02T21:20:27.421884+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.2728,
+     "medianMoved": 0.016,
+     "moved": 115,
+     "p90": 0.0068,
+     "p99": 0.1514,
+     "rows": 992
+    }
+   },
+   {
+    "archive": "dynasty_export_20260903_225148.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 243,
+     "n3": 243,
+     "policy": 125
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 125
+    },
+    "scrapeTimestamp": "2026-09-03T22:51:48.381016+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.2741,
+     "medianMoved": 0.0137,
+     "moved": 146,
+     "p90": 0.0083,
+     "p99": 0.1577,
+     "rows": 982
+    }
+   },
+   {
+    "archive": "dynasty_export_20260904_223450.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 248,
+     "n3": 249,
+     "policy": 125
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 125
+    },
+    "scrapeTimestamp": "2026-09-04T22:34:50.402290+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3845,
+     "medianMoved": 0.0163,
+     "moved": 122,
+     "p90": 0.0065,
+     "p99": 0.1726,
+     "rows": 984
+    }
+   },
+   {
+    "archive": "dynasty_export_20260905_204615.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 223,
+     "n3": 224,
+     "policy": 103
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 103
+    },
+    "scrapeTimestamp": "2026-09-05T20:46:14.971171+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.2809,
+     "medianMoved": 0.0137,
+     "moved": 114,
+     "p90": 0.0061,
+     "p99": 0.1061,
+     "rows": 983
+    }
+   },
+   {
+    "archive": "dynasty_export_20260906_205400.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 225,
+     "n3": 226,
+     "policy": 101
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 101
+    },
+    "scrapeTimestamp": "2026-09-06T20:54:00.200026+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.1822,
+     "medianMoved": 0.0104,
+     "moved": 113,
+     "p90": 0.003,
+     "p99": 0.0489,
+     "rows": 956
+    }
+   },
+   {
+    "archive": "dynasty_export_20260907_230241.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 225,
+     "n3": 226,
+     "policy": 101
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 101
+    },
+    "scrapeTimestamp": "2026-09-07T23:02:41.696628+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.2743,
+     "medianMoved": 0.0069,
+     "moved": 117,
+     "p90": 0.0009,
+     "p99": 0.045,
+     "rows": 956
+    }
+   },
+   {
+    "archive": "dynasty_export_20260908_212819.zip",
+    "boardScreenFlagged": {
+     "offense": [
+      "dlfRookieSf",
+      "flockFantasySfRookies"
+     ]
+    },
+    "drops": {
+     "incumbent": 228,
+     "n3": 229,
+     "policy": 101
+    },
+    "policyReasons": {
+     "board_scale_mismatch": 101
+    },
+    "scrapeTimestamp": "2026-09-08T21:28:19.755167+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.4475,
+     "medianMoved": 0.0155,
+     "moved": 134,
+     "p90": 0.0081,
+     "p99": 0.1664,
+     "rows": 956
+    }
+   },
+   {
+    "archive": "dynasty_export_20260909_211525.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 128,
+     "n3": 129,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-09T21:15:25.520881+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.4654,
+     "medianMoved": 0.015,
+     "moved": 132,
+     "p90": 0.0086,
+     "p99": 0.1788,
+     "rows": 997
+    }
+   },
+   {
+    "archive": "dynasty_export_20260910_224947.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 127,
+     "n3": 128,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-10T22:49:47.117154+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.3328,
+     "medianMoved": 0.0174,
+     "moved": 130,
+     "p90": 0.0086,
+     "p99": 0.1197,
+     "rows": 997
+    }
+   },
+   {
+    "archive": "dynasty_export_20260911_212200.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 127,
+     "n3": 128,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-11T21:21:59.932906+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.2713,
+     "medianMoved": 0.0161,
+     "moved": 130,
+     "p90": 0.007,
+     "p99": 0.0634,
+     "rows": 998
+    }
+   },
+   {
+    "archive": "dynasty_export_20260912_223716.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 128,
+     "n3": 129,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-12T22:37:16.493963+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.5209,
+     "medianMoved": 0.0153,
+     "moved": 133,
+     "p90": 0.0082,
+     "p99": 0.1948,
+     "rows": 998
+    }
+   },
+   {
+    "archive": "dynasty_export_20260913_223956.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 124,
+     "n3": 125,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-13T22:39:55.982635+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.5374,
+     "medianMoved": 0.0165,
+     "moved": 141,
+     "p90": 0.0091,
+     "p99": 0.2003,
+     "rows": 1000
+    }
+   },
+   {
+    "archive": "dynasty_export_20260914_233241.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 124,
+     "n3": 125,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-14T23:32:40.978785+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.5564,
+     "medianMoved": 0.012,
+     "moved": 132,
+     "p90": 0.0041,
+     "p99": 0.228,
+     "rows": 1001
+    }
+   },
+   {
+    "archive": "dynasty_export_20260915_214858.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 114,
+     "n3": 115,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-15T21:48:58.542838+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.5459,
+     "medianMoved": 0.0071,
+     "moved": 122,
+     "p90": 0.0023,
+     "p99": 0.224,
+     "rows": 1000
+    }
+   },
+   {
+    "archive": "dynasty_export_20260916_214700.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 123,
+     "n3": 124,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-16T21:47:00.649072+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.584,
+     "medianMoved": 0.0145,
+     "moved": 133,
+     "p90": 0.0064,
+     "p99": 0.2079,
+     "rows": 999
+    }
+   },
+   {
+    "archive": "dynasty_export_20260917_214927.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 121,
+     "n3": 121,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-17T21:49:27.030228+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.6053,
+     "medianMoved": 0.0146,
+     "moved": 133,
+     "p90": 0.0072,
+     "p99": 0.2139,
+     "rows": 1001
+    }
+   },
+   {
+    "archive": "dynasty_export_20260918_211845.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 126,
+     "n3": 126,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-18T21:18:45.479767+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.5383,
+     "medianMoved": 0.0153,
+     "moved": 130,
+     "p90": 0.0068,
+     "p99": 0.1956,
+     "rows": 1001
+    }
+   },
+   {
+    "archive": "dynasty_export_20260919_223220.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 134,
+     "n3": 134,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-19T22:32:20.306553+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.6344,
+     "medianMoved": 0.0153,
+     "moved": 139,
+     "p90": 0.0081,
+     "p99": 0.2222,
+     "rows": 1003
+    }
+   },
+   {
+    "archive": "dynasty_export_20260920_224450.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 137,
+     "n3": 137,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-20T22:44:50.844730+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.6485,
+     "medianMoved": 0.0153,
+     "moved": 146,
+     "p90": 0.0082,
+     "p99": 0.2253,
+     "rows": 1003
+    }
+   },
+   {
+    "archive": "dynasty_export_20260921_234150.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 138,
+     "n3": 138,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-21T23:41:50.169419+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.6906,
+     "medianMoved": 0.0184,
+     "moved": 134,
+     "p90": 0.0087,
+     "p99": 0.2329,
+     "rows": 1047
+    }
+   },
+   {
+    "archive": "dynasty_export_20260922_214329.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 136,
+     "n3": 136,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-09-22T21:43:29.413827+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.7285,
+     "medianMoved": 0.0179,
+     "moved": 127,
+     "p90": 0.0073,
+     "p99": 0.2458,
+     "rows": 1045
+    }
+   },
+   {
+    "archive": "dynasty_export_20260923_215107.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 144,
+     "n3": 145,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-09-23T21:51:07.333976+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.5054,
+     "medianMoved": 0.0179,
+     "moved": 142,
+     "p90": 0.0098,
+     "p99": 0.21,
+     "rows": 1043
+    }
+   },
+   {
+    "archive": "dynasty_export_20260924_232149.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 154,
+     "n3": 155,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-09-24T23:21:49.383548+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.5033,
+     "medianMoved": 0.0155,
+     "moved": 165,
+     "p90": 0.012,
+     "p99": 0.169,
+     "rows": 1039
+    }
+   },
+   {
+    "archive": "dynasty_export_20260925_233646.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 157,
+     "n3": 158,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-09-25T23:36:46.320964+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.7055,
+     "medianMoved": 0.0149,
+     "moved": 169,
+     "p90": 0.0106,
+     "p99": 0.2386,
+     "rows": 1039
+    }
+   },
+   {
+    "archive": "dynasty_export_20260926_164906.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 152,
+     "n3": 153,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-09-26T16:49:06.686095+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.7131,
+     "medianMoved": 0.0137,
+     "moved": 165,
+     "p90": 0.0107,
+     "p99": 0.24,
+     "rows": 1039
+    }
+   },
+   {
+    "archive": "dynasty_export_20260927_214140.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 156,
+     "n3": 157,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-09-27T21:41:40.594037+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.7239,
+     "medianMoved": 0.0133,
+     "moved": 163,
+     "p90": 0.0108,
+     "p99": 0.2419,
+     "rows": 1038
+    }
+   },
+   {
+    "archive": "dynasty_export_20260928_233322.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 160,
+     "n3": 161,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-09-28T23:33:22.404434+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.7468,
+     "medianMoved": 0.0141,
+     "moved": 170,
+     "p90": 0.0109,
+     "p99": 0.2427,
+     "rows": 1038
+    }
+   },
+   {
+    "archive": "dynasty_export_20260929_194208.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 176,
+     "n3": 177,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-09-29T19:42:08.241118+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.7539,
+     "medianMoved": 0.0161,
+     "moved": 167,
+     "p90": 0.0114,
+     "p99": 0.2429,
+     "rows": 1037
+    }
+   },
+   {
+    "archive": "dynasty_export_20260930_130404.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 159,
+     "n3": 160,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-09-30T13:04:04.598312+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.7817,
+     "medianMoved": 0.0166,
+     "moved": 153,
+     "p90": 0.0105,
+     "p99": 0.2443,
+     "rows": 1036
+    }
+   },
+   {
+    "archive": "dynasty_export_20261002_193506.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 160,
+     "n3": 161,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-02T19:35:06.424571+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.8953,
+     "medianMoved": 0.0185,
+     "moved": 160,
+     "p90": 0.0116,
+     "p99": 0.2779,
+     "rows": 1036
+    }
+   },
+   {
+    "archive": "dynasty_export_20261003_214933.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 162,
+     "n3": 163,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-03T21:49:33.155741+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.9609,
+     "medianMoved": 0.0171,
+     "moved": 164,
+     "p90": 0.0112,
+     "p99": 0.2764,
+     "rows": 1035
+    }
+   },
+   {
+    "archive": "dynasty_export_20261004_085141.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 165,
+     "n3": 166,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-04T08:51:40.976743+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.9902,
+     "medianMoved": 0.0171,
+     "moved": 172,
+     "p90": 0.0127,
+     "p99": 0.2943,
+     "rows": 1035
+    }
+   },
+   {
+    "archive": "dynasty_export_20261004_153351.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 158,
+     "n3": 159,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-04T15:33:50.976493+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.9657,
+     "medianMoved": 0.018,
+     "moved": 163,
+     "p90": 0.0124,
+     "p99": 0.2871,
+     "rows": 1035
+    }
+   },
+   {
+    "archive": "dynasty_export_20261004_195148.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 160,
+     "n3": 161,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-04T19:51:47.988633+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0225,
+     "medianMoved": 0.0181,
+     "moved": 161,
+     "p90": 0.0125,
+     "p99": 0.3032,
+     "rows": 1036
+    }
+   },
+   {
+    "archive": "dynasty_export_20261004_233916.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 156,
+     "n3": 157,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-04T23:39:16.279657+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0294,
+     "medianMoved": 0.0175,
+     "moved": 158,
+     "p90": 0.0122,
+     "p99": 0.3043,
+     "rows": 1036
+    }
+   },
+   {
+    "archive": "dynasty_export_20261005_061740.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 159,
+     "n3": 160,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-05T06:17:40.429209+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.049,
+     "medianMoved": 0.018,
+     "moved": 163,
+     "p90": 0.0132,
+     "p99": 0.3104,
+     "rows": 1035
+    }
+   },
+   {
+    "archive": "dynasty_export_20261005_152048.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 157,
+     "n3": 158,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-05T15:20:48.671464+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0803,
+     "medianMoved": 0.0179,
+     "moved": 177,
+     "p90": 0.0129,
+     "p99": 0.3173,
+     "rows": 1036
+    }
+   },
+   {
+    "archive": "dynasty_export_20261005_225803.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 156,
+     "n3": 157,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-05T22:58:03.473611+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.7958,
+     "medianMoved": 0.016,
+     "moved": 158,
+     "p90": 0.011,
+     "p99": 0.2151,
+     "rows": 1035
+    }
+   },
+   {
+    "archive": "dynasty_export_20261006_065546.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 152,
+     "n3": 153,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-06T06:55:46.423054+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.8006,
+     "medianMoved": 0.0159,
+     "moved": 153,
+     "p90": 0.0116,
+     "p99": 0.2289,
+     "rows": 1035
+    }
+   },
+   {
+    "archive": "dynasty_export_20261006_153039.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 153,
+     "n3": 154,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-06T15:30:39.483681+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.8064,
+     "medianMoved": 0.0165,
+     "moved": 154,
+     "p90": 0.0106,
+     "p99": 0.2285,
+     "rows": 1035
+    }
+   },
+   {
+    "archive": "dynasty_export_20261006_211735.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 156,
+     "n3": 157,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-06T21:17:35.402057+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.8093,
+     "medianMoved": 0.0157,
+     "moved": 158,
+     "p90": 0.0115,
+     "p99": 0.2296,
+     "rows": 1035
+    }
+   },
+   {
+    "archive": "dynasty_export_20261007_015227.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 159,
+     "n3": 160,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-07T01:52:27.063516+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.8141,
+     "medianMoved": 0.0164,
+     "moved": 159,
+     "p90": 0.0119,
+     "p99": 0.2324,
+     "rows": 1036
+    }
+   },
+   {
+    "archive": "dynasty_export_20261007_092552.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 225,
+     "n3": 226,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-07T09:25:52.096903+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.8014,
+     "medianMoved": 0.009,
+     "moved": 172,
+     "p90": 0.0082,
+     "p99": 0.2514,
+     "rows": 881
+    }
+   },
+   {
+    "archive": "dynasty_export_20261007_173609.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 157,
+     "n3": 158,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-07T17:36:08.984296+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.6677,
+     "medianMoved": 0.016,
+     "moved": 156,
+     "p90": 0.0107,
+     "p99": 0.1901,
+     "rows": 1033
+    }
+   },
+   {
+    "archive": "dynasty_export_20261007_232213.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 164,
+     "n3": 165,
+     "policy": 0
+    },
+    "policyReasons": {},
+    "scrapeTimestamp": "2026-10-07T23:22:13.422873+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.4907,
+     "medianMoved": 0.0186,
+     "moved": 152,
+     "p90": 0.0111,
+     "p99": 0.1374,
+     "rows": 1032
+    }
+   },
+   {
+    "archive": "dynasty_export_20261008_064316.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 157,
+     "n3": 158,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-08T06:43:16.144155+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.5756,
+     "medianMoved": 0.0163,
+     "moved": 148,
+     "p90": 0.0103,
+     "p99": 0.0872,
+     "rows": 1031
+    }
+   },
+   {
+    "archive": "dynasty_export_20261008_141213.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 236,
+     "n3": 237,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-08T14:12:13.827619+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.397,
+     "medianMoved": 0.0096,
+     "moved": 185,
+     "p90": 0.0106,
+     "p99": 0.0894,
+     "rows": 874
+    }
+   },
+   {
+    "archive": "dynasty_export_20261008_201231.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 162,
+     "n3": 163,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-08T20:12:31.070475+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.5828,
+     "medianMoved": 0.0164,
+     "moved": 152,
+     "p90": 0.0094,
+     "p99": 0.0682,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261009_004358.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 166,
+     "n3": 168,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-09T00:43:58.617742+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.5731,
+     "medianMoved": 0.0165,
+     "moved": 153,
+     "p90": 0.0099,
+     "p99": 0.05,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261009_065001.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 172,
+     "n3": 173,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-09T06:50:01.381615+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.9814,
+     "medianMoved": 0.0153,
+     "moved": 164,
+     "p90": 0.0099,
+     "p99": 0.2297,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261009_153734.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 170,
+     "n3": 171,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-09T15:37:34.898074+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.9683,
+     "medianMoved": 0.0144,
+     "moved": 167,
+     "p90": 0.0109,
+     "p99": 0.2261,
+     "rows": 1027
+    }
+   },
+   {
+    "archive": "dynasty_export_20261009_212133.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 173,
+     "n3": 174,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-09T21:21:33.577327+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.8248,
+     "medianMoved": 0.0143,
+     "moved": 167,
+     "p90": 0.011,
+     "p99": 0.1924,
+     "rows": 1027
+    }
+   },
+   {
+    "archive": "dynasty_export_20261010_015826.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 175,
+     "n3": 176,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-10T01:58:25.939354+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.6579,
+     "medianMoved": 0.0167,
+     "moved": 163,
+     "p90": 0.0114,
+     "p99": 0.1535,
+     "rows": 1027
+    }
+   },
+   {
+    "archive": "dynasty_export_20261010_090501.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 174,
+     "n3": 175,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-10T09:05:01.323138+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.9901,
+     "medianMoved": 0.017,
+     "moved": 158,
+     "p90": 0.0118,
+     "p99": 0.2309,
+     "rows": 1027
+    }
+   },
+   {
+    "archive": "dynasty_export_20261010_160048.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 176,
+     "n3": 177,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-10T16:00:48.270811+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.9912,
+     "medianMoved": 0.0152,
+     "moved": 161,
+     "p90": 0.012,
+     "p99": 0.2308,
+     "rows": 1027
+    }
+   },
+   {
+    "archive": "dynasty_export_20261010_202220.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 163,
+     "n3": 164,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-10T20:22:20.787480+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.9306,
+     "medianMoved": 0.0149,
+     "moved": 157,
+     "p90": 0.0103,
+     "p99": 0.213,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261010_235341.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 160,
+     "n3": 161,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-10T23:53:41.088918+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.8381,
+     "medianMoved": 0.0158,
+     "moved": 157,
+     "p90": 0.0113,
+     "p99": 0.1918,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261011_063103.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 160,
+     "n3": 161,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-11T06:31:03.338664+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.6075,
+     "medianMoved": 0.0149,
+     "moved": 161,
+     "p90": 0.0111,
+     "p99": 0.1404,
+     "rows": 1027
+    }
+   },
+   {
+    "archive": "dynasty_export_20261011_133520.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 158,
+     "n3": 159,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-11T13:35:20.651451+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.485,
+     "medianMoved": 0.0166,
+     "moved": 155,
+     "p90": 0.0115,
+     "p99": 0.0874,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261011_191416.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 167,
+     "n3": 168,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-11T19:14:16.614273+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0,
+     "medianMoved": 0.0154,
+     "moved": 154,
+     "p90": 0.0101,
+     "p99": 0.2266,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261012_000240.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 166,
+     "n3": 167,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-12T00:02:40.550504+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0,
+     "medianMoved": 0.0169,
+     "moved": 152,
+     "p90": 0.0109,
+     "p99": 0.2266,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261012_063618.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 165,
+     "n3": 166,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-12T06:36:18.236146+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0022,
+     "medianMoved": 0.0171,
+     "moved": 154,
+     "p90": 0.0101,
+     "p99": 0.2266,
+     "rows": 1030
+    }
+   },
+   {
+    "archive": "dynasty_export_20261012_161108.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 144,
+     "n3": 146,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-12T16:11:08.577298+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0541,
+     "medianMoved": 0.0157,
+     "moved": 151,
+     "p90": 0.0094,
+     "p99": 0.2359,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261012_231649.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 144,
+     "n3": 146,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-12T23:16:49.195525+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0474,
+     "medianMoved": 0.0169,
+     "moved": 146,
+     "p90": 0.0091,
+     "p99": 0.2449,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261013_071003.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 147,
+     "n3": 149,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-13T07:10:03.491614+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.044,
+     "medianMoved": 0.0176,
+     "moved": 146,
+     "p90": 0.0093,
+     "p99": 0.244,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261013_163029.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 158,
+     "n3": 160,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-13T16:30:29.763582+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0349,
+     "medianMoved": 0.0156,
+     "moved": 160,
+     "p90": 0.0113,
+     "p99": 0.2446,
+     "rows": 1030
+    }
+   },
+   {
+    "archive": "dynasty_export_20261013_213606.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 162,
+     "n3": 164,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-13T21:36:06.042237+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0428,
+     "medianMoved": 0.0148,
+     "moved": 168,
+     "p90": 0.0105,
+     "p99": 0.2445,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261014_012731.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 152,
+     "n3": 154,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-14T01:27:31.405924+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0428,
+     "medianMoved": 0.0155,
+     "moved": 151,
+     "p90": 0.0101,
+     "p99": 0.234,
+     "rows": 1027
+    }
+   },
+   {
+    "archive": "dynasty_export_20261014_080442.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 154,
+     "n3": 156,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-14T08:04:42.307009+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0428,
+     "medianMoved": 0.0152,
+     "moved": 155,
+     "p90": 0.012,
+     "p99": 0.2339,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261014_140605.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 156,
+     "n3": 158,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-14T14:06:05.000913+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0316,
+     "medianMoved": 0.0154,
+     "moved": 154,
+     "p90": 0.0112,
+     "p99": 0.2314,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261014_185726.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 135,
+     "n3": 137,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-14T18:57:26.733828+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.9729,
+     "medianMoved": 0.0137,
+     "moved": 154,
+     "p90": 0.0086,
+     "p99": 0.2277,
+     "rows": 1026
+    }
+   },
+   {
+    "archive": "dynasty_export_20261014_233024.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 129,
+     "n3": 131,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-14T23:30:24.391517+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.8952,
+     "medianMoved": 0.0141,
+     "moved": 141,
+     "p90": 0.0077,
+     "p99": 0.2105,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261015_051650.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 134,
+     "n3": 136,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-15T05:16:50.186590+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.7824,
+     "medianMoved": 0.0145,
+     "moved": 144,
+     "p90": 0.008,
+     "p99": 0.1857,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261015_121138.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 135,
+     "n3": 137,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-15T12:11:37.969020+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.6449,
+     "medianMoved": 0.0148,
+     "moved": 145,
+     "p90": 0.0088,
+     "p99": 0.1552,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261015_172516.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 128,
+     "n3": 130,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-15T17:25:15.965825+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.6355,
+     "medianMoved": 0.0149,
+     "moved": 145,
+     "p90": 0.0083,
+     "p99": 0.1379,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261015_215027.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 131,
+     "n3": 133,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-15T21:50:27.337874+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.6671,
+     "medianMoved": 0.0146,
+     "moved": 137,
+     "p90": 0.0077,
+     "p99": 0.1183,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261016_004906.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 132,
+     "n3": 134,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-16T00:49:06.582037+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.6869,
+     "medianMoved": 0.015,
+     "moved": 145,
+     "p90": 0.008,
+     "p99": 0.1064,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261016_073446.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 132,
+     "n3": 134,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-16T07:34:46.637167+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.7289,
+     "medianMoved": 0.0142,
+     "moved": 136,
+     "p90": 0.0078,
+     "p99": 0.0832,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261016_134010.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 202,
+     "n3": 202,
+     "policy": 2
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 2
+    },
+    "scrapeTimestamp": "2026-10-16T13:40:10.343091+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.8902,
+     "medianMoved": 0.0163,
+     "moved": 166,
+     "p90": 0.0156,
+     "p99": 0.0801,
+     "rows": 869
+    }
+   },
+   {
+    "archive": "dynasty_export_20261016_182508.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 136,
+     "n3": 138,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-16T18:25:08.049273+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0609,
+     "medianMoved": 0.0132,
+     "moved": 143,
+     "p90": 0.0081,
+     "p99": 0.2379,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261016_214642.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 133,
+     "n3": 135,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-16T21:46:42.284991+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0643,
+     "medianMoved": 0.014,
+     "moved": 139,
+     "p90": 0.0066,
+     "p99": 0.2388,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261017_004948.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 142,
+     "n3": 144,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-17T00:49:47.985178+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0688,
+     "medianMoved": 0.0135,
+     "moved": 144,
+     "p90": 0.0076,
+     "p99": 0.2396,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261017_071509.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 133,
+     "n3": 135,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-17T07:15:09.477322+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0767,
+     "medianMoved": 0.013,
+     "moved": 140,
+     "p90": 0.0065,
+     "p99": 0.2414,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261017_122823.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 133,
+     "n3": 135,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-17T12:28:23.722411+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0868,
+     "medianMoved": 0.0138,
+     "moved": 138,
+     "p90": 0.0071,
+     "p99": 0.2424,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261017_160007.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 128,
+     "n3": 130,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-17T16:00:07.386644+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0924,
+     "medianMoved": 0.0127,
+     "moved": 149,
+     "p90": 0.0083,
+     "p99": 0.2436,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261017_185402.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 131,
+     "n3": 133,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-17T18:54:02.728594+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.097,
+     "medianMoved": 0.0135,
+     "moved": 143,
+     "p90": 0.0074,
+     "p99": 0.2444,
+     "rows": 1030
+    }
+   },
+   {
+    "archive": "dynasty_export_20261017_224340.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 132,
+     "n3": 134,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-17T22:43:40.824236+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0981,
+     "medianMoved": 0.0131,
+     "moved": 148,
+     "p90": 0.0085,
+     "p99": 0.2448,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261018_002736.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 133,
+     "n3": 135,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-18T00:27:36.329721+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0879,
+     "medianMoved": 0.0138,
+     "moved": 146,
+     "p90": 0.0091,
+     "p99": 0.2426,
+     "rows": 1029
+    }
+   },
+   {
+    "archive": "dynasty_export_20261018_051224.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 134,
+     "n3": 136,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-18T05:12:24.142715+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 1.0349,
+     "medianMoved": 0.0125,
+     "moved": 146,
+     "p90": 0.0089,
+     "p99": 0.2307,
+     "rows": 1028
+    }
+   },
+   {
+    "archive": "dynasty_export_20261018_114711.zip",
+    "boardScreenFlagged": {},
+    "drops": {
+     "incumbent": 131,
+     "n3": 132,
+     "policy": 1
+    },
+    "policyReasons": {
+     "gross_uncorroborated_error": 1
+    },
+    "scrapeTimestamp": "2026-10-18T11:47:11.644766+00:00",
+    "valueChangePolicyVsIncumbent": {
+     "max": 0.9267,
+     "medianMoved": 0.013,
+     "moved": 142,
+     "p90": 0.0086,
+     "p99": 0.2134,
+     "rows": 1028
+    }
+   }
+  ],
+  "totals": {
+   "incumbent": 17621,
+   "n3": 17732,
+   "policy": 2763
+  }
+ },
+ "M6_newestFrozenBoard": {
+  "archive": "dynasty_export_20261018_114711.zip",
+  "census": {
+   "boardScreenFlagged": {},
+   "incumbent": {
+    "bySource": {
+     "idp|dlfIdp": 1,
+     "idp|draftSharksIdp": 18,
+     "idp|fantasyProsIdp": 10,
+     "idp|idpTradeCalc": 3,
+     "offense|dlfSf": 9,
+     "offense|draftSharks": 53,
+     "offense|dynastyNerdsSfTep": 3,
+     "offense|fantasyNavigatorSf": 1,
+     "offense|fantasyProsFitzmaurice": 6,
+     "offense|fantasyProsSf": 3,
+     "offense|flockFantasySf": 3,
+     "offense|flockFantasySfRookies": 3,
+     "offense|idpTradeCalc": 3,
+     "offense|ktcCrowdSfTep": 4,
+     "offense|ktcTradesSfTep": 1,
+     "offense|otcffbSf": 1,
+     "offense|pfkDynasty": 1,
+     "offense|yahooBoone": 8
+    },
+    "drops": 131
+   },
+   "n3": {
+    "bySource": {
+     "idp|dlfIdp": 1,
+     "idp|draftSharksIdp": 19,
+     "idp|fantasyProsIdp": 10,
+     "idp|idpTradeCalc": 3,
+     "offense|dlfSf": 9,
+     "offense|draftSharks": 53,
+     "offense|dynastyNerdsSfTep": 3,
+     "offense|fantasyNavigatorSf": 1,
+     "offense|fantasyProsFitzmaurice": 6,
+     "offense|fantasyProsSf": 3,
+     "offense|flockFantasySf": 3,
+     "offense|flockFantasySfRookies": 3,
+     "offense|idpTradeCalc": 3,
+     "offense|ktcCrowdSfTep": 4,
+     "offense|ktcTradesSfTep": 1,
+     "offense|otcffbSf": 1,
+     "offense|pfkDynasty": 1,
+     "offense|yahooBoone": 8
+    },
+    "drops": 132
+   },
+   "policy": {
+    "bySource": {
+     "offense|draftSharks": 1
+    },
+    "drops": 1
+   },
+   "policyReasons": {
+    "gross_uncorroborated_error": 1
+   },
+   "rankingPasses": 1
+  },
+  "moversOver30pct": {
+   "n3VsIncumbent": [
+    {
+     "assetClass": "idp",
+     "droppedOnlyBy_incumbent": [],
+     "droppedOnlyBy_n3": [
+      "draftSharksIdp"
+     ],
+     "incumbent": 1875.0,
+     "n3": 1254.0,
+     "position": "DB",
+     "relative": -0.3312,
+     "row": "Kool-Aid McKinstry",
+     "votes": {
+      "draftSharksIdp": 2783,
+      "fantasyProsIdp": 1524,
+      "idpTradeCalc": 1225
+     }
+    }
+   ],
+   "policyVsIncumbent": [
+    {
+     "assetClass": "idp",
+     "droppedOnlyBy_incumbent": [
+      "draftSharksIdp"
+     ],
+     "droppedOnlyBy_policy": [],
+     "incumbent": 887.0,
+     "policy": 1709.0,
+     "position": "LB",
+     "relative": 0.9267,
+     "row": "Trevin Wallace",
+     "votes": {
+      "dlfIdp": 1538,
+      "draftSharksIdp": 2878,
+      "fantasyProsIdp": 1558,
+      "idpTradeCalc": 814
+     }
+    },
+    {
+     "assetClass": "idp",
+     "droppedOnlyBy_incumbent": [
+      "draftSharksIdp"
+     ],
+     "droppedOnlyBy_policy": [],
+     "incumbent": 2133.0,
+     "policy": 3572.0,
+     "position": "LB",
+     "relative": 0.6746,
+     "row": "CJ Allen",
+     "votes": {
+      "dlfIdp": 2657,
+      "dlfRookieIdp": 2054,
+      "draftSharksIdp": 5741,
+      "fantasyProsIdp": 2095,
+      "idpTradeCalc": 2129
+     }
+    },
+    {
+     "assetClass": "idp",
+     "droppedOnlyBy_incumbent": [
+      "idpTradeCalc"
+     ],
+     "droppedOnlyBy_policy": [],
+     "incumbent": 1516.0,
+     "policy": 2245.0,
+     "position": "DL",
+     "relative": 0.4809,
+     "row": "Trey Hendrickson",
+     "votes": {
+      "dlfIdp": 1884,
+      "draftSharksIdp": 1474,
+      "fantasyProsIdp": 1916,
+      "idpTradeCalc": 2927
+     }
+    },
+    {
+     "assetClass": "idp",
+     "droppedOnlyBy_incumbent": [
+      "idpTradeCalc"
+     ],
+     "droppedOnlyBy_policy": [],
+     "incumbent": 1635.0,
+     "policy": 2335.0,
+     "position": "DL",
+     "relative": 0.4281,
+     "row": "Nick Herbig",
+     "votes": {
+      "dlfIdp": 2007,
+      "draftSharksIdp": 1604,
+      "fantasyProsIdp": 1780,
+      "idpTradeCalc": 2999
+     }
+    },
+    {
+     "assetClass": "idp",
+     "droppedOnlyBy_incumbent": [
+      "draftSharksIdp"
+     ],
+     "droppedOnlyBy_policy": [],
+     "incumbent": 2044.0,
+     "policy": 2701.0,
+     "position": "LB",
+     "relative": 0.3214,
+     "row": "Barrett Carter",
+     "votes": {
+      "dlfIdp": 1979,
+      "draftSharksIdp": 3706,
+      "fantasyProsIdp": 1876,
+      "idpTradeCalc": 2056
+     }
+    }
+   ]
+  },
+  "valueChanges": {
+   "n3VsIncumbent": {
+    "all": {
+     "max": 0.3312,
+     "medianMoved": 0.3312,
+     "moved": 1,
+     "p90": 0.0,
+     "p99": 0.0,
+     "rows": 1028
+    },
+    "idp": {
+     "max": 0.3312,
+     "medianMoved": 0.3312,
+     "moved": 1,
+     "p90": 0.0,
+     "p99": 0.0,
+     "rows": 396
+    },
+    "offense": {
+     "max": 0.0,
+     "medianMoved": 0.0,
+     "moved": 0,
+     "p90": 0.0,
+     "p99": 0.0,
+     "rows": 488
+    },
+    "pick": {
+     "max": 0.0,
+     "medianMoved": 0.0,
+     "moved": 0,
+     "p90": 0.0,
+     "p99": 0.0,
+     "rows": 144
+    }
+   },
+   "policyVsIncumbent": {
+    "all": {
+     "max": 0.9267,
+     "medianMoved": 0.013,
+     "moved": 142,
+     "p90": 0.0086,
+     "p99": 0.2134,
+     "rows": 1028
+    },
+    "idp": {
+     "max": 0.9267,
+     "medianMoved": 0.1642,
+     "moved": 31,
+     "p90": 0.0,
+     "p99": 0.3214,
+     "rows": 396
+    },
+    "offense": {
+     "max": 0.0722,
+     "medianMoved": 0.011,
+     "moved": 76,
+     "p90": 0.0089,
+     "p99": 0.0342,
+     "rows": 488
+    },
+    "pick": {
+     "max": 0.0593,
+     "medianMoved": 0.0105,
+     "moved": 35,
+     "p90": 0.0114,
+     "p99": 0.0557,
+     "rows": 144
+    }
+   }
+  }
+ },
+ "decision": {
+  "adversarialGatePasses": false,
+  "better": true,
+  "boardScreenFalsePositives": 22,
+  "minimumSample": {
+   "blocks": 8,
+   "days": 54,
+   "units": 51414
+  },
+  "stabilityRatio": {
+   "ci95": [
+    0.99739,
+    1.029242
+   ],
+   "ratio": 1.013842
+  },
+  "verdict": "NOT_ELIGIBLE"
+ },
+ "emulatorFidelity": {
+  "median": 0.00021,
+  "p90": 0.067,
+  "rows": 49002,
+  "within0.5pct": 0.7064,
+  "within2pct": 0.7661
+ },
+ "expectedCompleteBoards": 105,
+ "identity": {
+  "codeSha": {
+   "92fa036b270b4c2d13232a21257bd9789c5af70a": 105
+  },
+  "payloadSha256": [
+   "001a08b8ebdaa5db85613d4917cc2b034fd5f084d74d48761b5b73d7d6e32c3d",
+   "01e141f7cbe69ac9e1027e8c218ca8c995d589b66cf74ec19e4d15decd920380",
+   "03efa6ac49a198cd6e3d6c9a916f08243f05efd9c6a5275f64178ac64ad333e7",
+   "05a13243ddbab937cc84d305d224d9ce806ddae569e214bbf037839a2340dba6",
+   "0734ed6ed48eb041d26b8c18a5d3dc3f46d2d31098d69c314212bfb7800ccb4f",
+   "09450ebb357f569840e4beb6712da39420b7e25cc9f7e7e291cd22b72bf8ab94",
+   "0dd09ed655764171d7ab892f8874979cc00774490a6a195a28c8d88b2c4d3b4b",
+   "10a4958d401089701315f8a199c8ba0911a5efeac57fb33cbd489f47307d29f6",
+   "11ab5a08e41ae101c0f266db840c611cee94a540da547b4ab5afc2674e7b6280",
+   "1ad92cf9f3f4d6508b9f8644b0cc7a8ab98dc900e53812dc2201068e2ca6173d",
+   "1b614ce0e19263a37aa2a46ac1e6d207bf279980f3adfbb51f14e6033d84a1ba",
+   "1c738b865f0bf074c3dddff1f7eb446707ebf95f21bb1bc2b019c9f28e8dd32c",
+   "1ccda26602b951d96c448ad73894656865e5505f5037522e1888e9b77a5aaf84",
+   "1f08e8dc2c95e56a16587fe7a8408e9aa076a848d3d4c7965e2d8d0ebb11fcec",
+   "211406b1ff654a66fddcd4d30a2d415ac0b11199a5210898fa1ff8b1f49996ef",
+   "2292262d8677876a3530db504c66348af3b8529339bb9b9a99b397a3ba19fbae",
+   "24237846c06bb9cdb6052dc43146bc031ec6ee5cce09dfb5f3b92394f7925960",
+   "258da4803f571cc1daeab4069edb6afdd50261828c908769ad71aca615795425",
+   "2ba0af9bbdbceaa17cbd5ea70fd5d2aa0904987f9daa5a320b4643b3458b89f2",
+   "2bc9aad08119d2753753359917c7d3afced42ba1016559724ed678c95f76cf98",
+   "2e818bde6469c6011044ce90e29d90221f32870e06cfe6b18a8aeddc8a646fa6",
+   "2fd1d10edcab6e94ea2ef6661dc0fc49ec42233f2613bfc0f1e34fa14b42c3bc",
+   "3389cb1a38e905425a1f54355a555beabc8786461ca97d966c23b9e653fb5ba8",
+   "342722c19c8e5a16e97289489f763b25eaf2db52242e49179c907f7f62479189",
+   "3b37c1fbb960d5fac7558876a1177a19fd7c2d7402a4a85ef2fb71b92a171731",
+   "3cb41ec32851419f7292a07f5082841ccabadf7d361f9ab9c6cd44fe05202692",
+   "3dbacc83d46397a7daac7e79ade09673e0dd6559113842296bdae8fe7f17a555",
+   "4011f101a3e66a564f3eede8ce8d91ff97c7274ab2307639acd986dab1170d49",
+   "447051a1204e2468253440c48e98042110ab9478d2424087ef375fb8851a268f",
+   "4490bd25819df4705a233135c92ab4ca23d093142621e4dc2082299a3089ce9a",
+   "4527b447e6c5f9a7df8801ade5245c94adb842da7bcf800d57943105a61bf9a0",
+   "4547fdea4e13709f154ac870801b357d52ca3d27cb86abfa140b9d3277b81fc6",
+   "469491be95f6688ee97e2a509cf93a9d6e8b3db694e901b9dad01e66b22790c0",
+   "48755cd4871efdf9d6f6a624579cbb088024daaf185bfa90edfe0eb84baa76c4",
+   "4b21e04bc4eb1320539aae25637cab79fbe75f70a5836b85d9cf4429c57bc92d",
+   "4bedacb3ffe77902322bd92ba8b3d5ed8627c2d1023d0cb7b5872a494e467d90",
+   "4e74e94ccefe56cb745e9228587e6d6a1e9dfc603a0df707c1405074956e771d",
+   "534c986bbf6c0836fcf7d9926d7876916ae32f04f673573a1838be855f0546fe",
+   "54efec9331611aa0ee8ab141f340490a8a51692fb4c05d723cfe248884565142",
+   "587c67f7d264849e1d19954bfa7b45a49d6b51229f644cc2cf01cfa63a39b77f",
+   "58f071180f55487500379d47844c6921c58f7a6a4db5f11c40322102912c2b59",
+   "5b03d4b220b57e4115be45170460b1c854edc25d3ac4adfb48fc834dbd06f48f",
+   "5d0b57c297484e1f5fb1cdf0dca046121ccc2e94b8f7714d44850a00c6dd435a",
+   "5e9cab19f266045b4babb22a92eacbb13f9972d665aed3743ae07c6dce6ef90f",
+   "603119f5375d64d1caa7735e67f5e9f318a0306bf961115ca6bcc6cd0971e489",
+   "651c78cffbc2f038b29c9144b9e2bb552821752cb96209e296905c509de298ec",
+   "670ad9143816f1740645640807865f71c5163bda74766cda8723aad9c814088c",
+   "6a172bb2ac728c4d3d182beef0b458b196c971ae4dfaf8bc3f0408778731a617",
+   "6cee0f99ced4e13e74a2b4696ac60bd1594b4c5f9711a986a1b80dc067c17a99",
+   "6e9547db628954c245956dda45df7df54915403f294580525fb4072c8c5dcc94",
+   "6ef77581bd5bac784589a6568aac74b70f3e67d782a0454bb6eb84e631979028",
+   "70eb7761324f3de9e9931a8e2b4195752bd76ccb72f1a1ac0a32a6be5194176f",
+   "70f621f5bd22977ca20b00d571a36805a2e9fa715ff315a69fe62e55f2b4a04e",
+   "71518753c3817cb7ef9807ba857950ca05d3071d7d0d225e679ad4da072217cf",
+   "754ca122bbe91931a6d42229477da9f971b5ee4e48befaf904c9ad55d29e9341",
+   "75c253c8e80fbc386355c73116d0f8e5efdccb6e25f08b34a7d68cf6ed271ddf",
+   "78e6e2d165f40b01f8b2db18763686eae702a71fe5079aa7611784119ff109c0",
+   "7903d55c127eeb75cd0b12b7a6d13254209f215dbf202e636cdb39bbe91e73b4",
+   "7ad71fbe353eb08e2d70e18f8b8fa01cdb6a163b01bb56fff6b3d467c273de2f",
+   "8322f111cf9a8f38053807783f4cf03af155f598073a6f80aa35e955c222bb54",
+   "85184786bb8c44092f4e4aa6942046a9f75b060fd749fa6d086597e3052150b4",
+   "8e5c0f2491bc5fdd5f74943ac483994345aa8a07e71f3253a4f286fb9553000f",
+   "8f609d137e8ee511277089cb22ed9ae9900e50ad40a68a38c04ab7c55735193b",
+   "9582324eea23a009db22b10ace303405917ccfbc155d94031d6bb030193a35d5",
+   "963fa8901f1577aee2d6000569296ee9c3270bbfeda63694713e916023ef01c9",
+   "97f20ca60c77d580f454c76ff55b6b828e21923a8cc241314a615eaae3081ba0",
+   "989c8ebfa0a46e2b9746a78b211b7220cb0ee04378f52b8b4e928d54202a477e",
+   "989dcf54e0ec583123795a60aa795dbb76710b8aa7332ba5b2f85ea6c6373675",
+   "996f1a50ff60d0bbae3d582963538b6bdc44f01bf1018409e337e539d957f687",
+   "9f5c8a1a066efe4dda62677249071051410e2e5af75c17b292f62b526220c431",
+   "9f7579ccc5f8da9de0b71d034e06bced965d7342c1abbee873c272263fc8e576",
+   "a4e05e2ff730990023d817ea0a303d738e56ff52eae8251293124f2d8d690f7d",
+   "a582833692dc312fe91866cefd90ba688c09b37e341540658f6d3ce4a3babe0e",
+   "a58323d6616838f3e2c056091e2457c06e99e837abd8ddf4d195a8c56e61fdef",
+   "a748e0e46571056618a2bb1b89d2906f900c981a1fcc8a1114d7058b061194c2",
+   "a7ae69c131875e393235f200a060d6a676797189db8bc3f42b785f2aa3f99dd8",
+   "a9c5c619b9a88410b30972e96221853f288a38c607b9e4a0d796463ee764b1eb",
+   "a9f48c23ca7040b38aa3965ec95c5ec4d33072c5b959ba2800677cf3e31be0c2",
+   "aeba4262f675b130117919d7e0823575f085de4a87d44cb473cee9fbbf045741",
+   "bd780c51e815ecedd79a1aed72b843c6bacc6f6a945b39b693b57f26b2f11665",
+   "c7e620b967442b15b7d18cd925f1a9bd02ab61e9553613e85fb983b4ae31e0d5",
+   "ccdc6194cb923a987ccef77aef7c6f5a8b26826f7214af2f79080a23e37b8fc8",
+   "cd3088b73b6c8fb13af32ba5f2f04cdc16b182f909501fcf0aaf241410b00014",
+   "d0025d49b3ec35c4b3057f556d08c9e9606cdf1f8b45267cfa9ce4b895c70fa3",
+   "d03fcaefd8bd6ae8b1c2bb1feb372d07fb666011f8f0c2db7c93bcecabbb878b",
+   "d6c94e21117a4d7f660938bec7012ab0a715f143d1d2bf1f74d7ba466abc5e4d",
+   "d7ac909f73779a6f584b0bcff6387945bfc70389324b31d32b988edcd4e79c76",
+   "d864d24ffccc0f6c9b72be24a5b360ec6c44cb2088f3e3cfa710607430753f9f",
+   "e17a5c6851f60b5f0e51308b0a99e9354aa59b84cccae725cbc936cab0bc0f0e",
+   "e32707365a3ced741fb1e7a84e3afce418fcefb17f5d993e8b33f9e4d6f24608",
+   "e419728a3d23f50dbf3aa1fdd44186d1cfa80e043189ce97fe9c39958b75ac2c",
+   "e4cfa70d9b8511a751003cf5c6c679666d38868d6d9ab5b6de0713333f308314",
+   "e86c63a91efa7c35605263b8516ae79d78b509bd8ddb474033bdcfa541642be4",
+   "e9b851e7a72e1ddbb9ad11598606b21e5d381aac8cba1d18532ef82d4fe14cf4",
+   "e9d0018852fcd2e70cd74cc8799ffe57f5a1ff00985b1b7cd739df313734e447",
+   "eb1a1551e981d0c13dfd15ea2e63eca5ca65ffd12208d7cb98e864ba6e9a7cc8",
+   "ecb2a9c51a3ce331675242202b73068f4877d95b9494de899071cc6ff736886d",
+   "f4f79bd22660a43da7aa19c410f985af913fb9b306bc6677b5489f49e68eada4",
+   "f67de0cd51ea8f8882aa658856117259cd695d4107d65e7473805230ac458a86",
+   "f8db7292de8682e7eee7014fefc2fb8b06f50d394e28e953315bfaacc54feb2d",
+   "f923ab8cfc28463bfdc8e63f27307f413ef3f9bc6a34611a7c79df2f605ac3f5",
+   "faceb098971d44c1b6355e65ac80d55c80216a3b3881a8d79d1a90bd2835b7a8",
+   "fb2ee412bd686725f8279ac375db68fb8874d0748b53b0bb73234b375ff0dff1",
+   "fd0441739ff7e78fc121841b30640266d425bfe7f52dc56a8ee290666f121153",
+   "ff84ac0d518949d6111fb1f601b553bd26f1901489a76db0c26ac63e8cdafb91"
+  ],
+  "records": 105,
+  "votesIdentical": {
+   "True": 105
+  },
+  "workingTreeDirty": {
+   "False": 105
+  }
+ },
+ "label": "archived inputs rebuilt through one replay code revision; NOT what production served",
+ "originDays": 61,
+ "preregistration": "docs/valuation/evidence/outlier-disagreement-2026-10-19/PREREGISTRATION.md",
+ "schema": "outlier-policy-evaluation/v1",
+ "sensitivities": {
+  "S1_all140": {
+   "blocks": 13,
+   "ci95": [
+    -0.002869,
+    -0.001788
+   ],
+   "days": 89,
+   "mean": -0.002326,
+   "n": 67574,
+   "shareChallengerCloser": 0.5273
+  },
+  "S2_idp": {
+   "n3": {
+    "blocks": 8,
+    "ci95": [
+     -0.108654,
+     0.050606
+    ],
+    "days": 54,
+    "mean": 0.03043,
+    "n": 364,
+    "shareChallengerCloser": 0.3379
+   },
+   "none": {
+    "blocks": 8,
+    "ci95": [
+     -0.010467,
+     -0.003745
+    ],
+    "days": 54,
+    "mean": -0.007454,
+    "n": 6169,
+    "shareChallengerCloser": 0.5323
+   },
+   "policy": {
+    "blocks": 8,
+    "ci95": [
+     -0.010379,
+     -0.003725
+    ],
+    "days": 54,
+    "mean": -0.007411,
+    "n": 6171,
+    "shareChallengerCloser": 0.5322
+   }
+  },
+  "S2_offense": {
+   "n3": {
+    "blocks": 0,
+    "ci95": null,
+    "days": 0,
+    "mean": null,
+    "n": 0
+   },
+   "none": {
+    "blocks": 8,
+    "ci95": [
+     -0.000501,
+     0.003795
+    ],
+    "days": 54,
+    "mean": 0.00181,
+    "n": 58629,
+    "shareChallengerCloser": 0.512
+   },
+   "policy": {
+    "blocks": 8,
+    "ci95": [
+     -0.001676,
+     -0.000987
+    ],
+    "days": 54,
+    "mean": -0.00132,
+    "n": 45243,
+    "shareChallengerCloser": 0.5263
+   }
+  },
+  "S3_byHeldOutFamily": {
+   "dlf": {
+    "blocks": 8,
+    "ci95": [
+     0.001174,
+     0.007097
+    ],
+    "days": 54,
+    "mean": 0.003885,
+    "n": 4279,
+    "shareChallengerCloser": 0.4917
+   },
+   "draftSharks": {
+    "blocks": 8,
+    "ci95": [
+     -0.011351,
+     -0.002498
+    ],
+    "days": 54,
+    "mean": -0.00802,
+    "n": 3103,
+    "shareChallengerCloser": 0.6403
+   },
+   "dynastyDaddySf": {
+    "blocks": 8,
+    "ci95": [
+     -0.003267,
+     0.000144
+    ],
+    "days": 54,
+    "mean": -0.001397,
+    "n": 3534,
+    "shareChallengerCloser": 0.4861
+   },
+   "dynastyNerdsSfTep": {
+    "blocks": 8,
+    "ci95": [
+     0.0036,
+     0.005561
+    ],
+    "days": 54,
+    "mean": 0.004542,
+    "n": 3228,
+    "shareChallengerCloser": 0.3652
+   },
+   "fantasyCalc": {
+    "blocks": 8,
+    "ci95": [
+     -0.002297,
+     -0.001589
+    ],
+    "days": 54,
+    "mean": -0.001946,
+    "n": 3684,
+    "shareChallengerCloser": 0.4978
+   },
+   "fantasyPros": {
+    "blocks": 8,
+    "ci95": [
+     -0.007987,
+     -0.002683
+    ],
+    "days": 54,
+    "mean": -0.005372,
+    "n": 5105,
+    "shareChallengerCloser": 0.5608
+   },
+   "flockFantasy": {
+    "blocks": 8,
+    "ci95": [
+     0.000413,
+     0.002255
+    ],
+    "days": 54,
+    "mean": 0.001402,
+    "n": 3519,
+    "shareChallengerCloser": 0.4197
+   },
+   "idpShow": {
+    "blocks": 7,
+    "ci95": [
+     -0.020932,
+     -0.018156
+    ],
+    "days": 44,
+    "mean": -0.019648,
+    "n": 4254,
+    "shareChallengerCloser": 0.7461
+   },
+   "idpTradeCalc": {
+    "blocks": 8,
+    "ci95": [
+     0.002704,
+     0.008609
+    ],
+    "days": 54,
+    "mean": 0.005909,
+    "n": 5088,
+    "shareChallengerCloser": 0.5061
+   },
+   "ktcCrowd": {
+    "blocks": 5,
+    "ci95": [
+     -0.004191,
+     -0.003088
+    ],
+    "days": 32,
+    "mean": -0.003605,
+    "n": 2374,
+    "shareChallengerCloser": 0.599
+   },
+   "ktcTrades": {
+    "blocks": 5,
+    "ci95": [
+     -0.004179,
+     -0.003005
+    ],
+    "days": 32,
+    "mean": -0.003651,
+    "n": 2429,
+    "shareChallengerCloser": 0.5895
+   },
+   "otcffbSf": {
+    "blocks": 8,
+    "ci95": [
+     0.000173,
+     0.004791
+    ],
+    "days": 54,
+    "mean": 0.002406,
+    "n": 3467,
+    "shareChallengerCloser": 0.4012
+   },
+   "pfkDynasty": {
+    "blocks": 8,
+    "ci95": [
+     -0.004979,
+     -0.002449
+    ],
+    "days": 54,
+    "mean": -0.003644,
+    "n": 3678,
+    "shareChallengerCloser": 0.5345
+   },
+   "yahooBoone": {
+    "blocks": 8,
+    "ci95": [
+     -0.003672,
+     0.002501
+    ],
+    "days": 54,
+    "mean": -0.000346,
+    "n": 3672,
+    "shareChallengerCloser": 0.5379
+   }
+  },
+  "S4_h0_persistence": {
+   "blocks": 9,
+   "ci95": [
+    -0.002899,
+    -0.001791
+   ],
+   "days": 61,
+   "mean": -0.002387,
+   "n": 58580,
+   "shareChallengerCloser": 0.53
+  },
+  "S5_noBoardScreen": {
+   "blocks": 8,
+   "ci95": [
+    -0.001742,
+    0.000194
+   ],
+   "days": 54,
+   "mean": -0.000774,
+   "n": 56679,
+   "shareChallengerCloser": 0.5204
+  },
+  "S6_dlfNotHeldOut": {
+   "blocks": 8,
+   "ci95": [
+    -0.003079,
+    -0.002074
+   ],
+   "days": 54,
+   "mean": -0.00259,
+   "n": 47135,
+   "shareChallengerCloser": 0.5302
+  },
+  "S7_episodeDedup": {
+   "blocks": 8,
+   "ci95": [
+    -0.003417,
+    -0.001163
+   ],
+   "days": 54,
+   "mean": -0.002153,
+   "n": 10644,
+   "shareChallengerCloser": 0.5336
+  }
+ }
+}

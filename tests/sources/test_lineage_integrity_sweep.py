@@ -30,6 +30,12 @@ REPO = Path(__file__).resolve().parents[2]
 
 @pytest.fixture(scope="module")
 def sweep():
+    # Reuse a copy another module already loaded: replacing a live
+    # ``sys.modules`` entry is process-state leakage (see
+    # tests/process_state_isolation.py).
+    existing = sys.modules.get("lineage_integrity_sweep")
+    if existing is not None:
+        return existing
     path = REPO / "scripts" / "audit" / "lineage_integrity_sweep.py"
     spec = importlib.util.spec_from_file_location("lineage_integrity_sweep", path)
     module = importlib.util.module_from_spec(spec)

@@ -75,6 +75,18 @@
   overflow-wrap: normal;
   word-break: normal;
 }
+/* One bubble team.  Wraps only BETWEEN words; a single word wider than the
+   line (dynasty_main has a real 24-character one-word team name) is clipped
+   with an ellipsis inside this box instead of overflowing the grid cell and
+   widening a phone page — the full name stays in the text and in `title`.
+   Same rule as the hero's .sideName. */
+.bubbleTeam {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
 
 /* ── Ranked rows ── */
 .columns,
@@ -184,6 +196,10 @@ button.rowButton:focus-visible {
 @media (max-width: 768px) {
   .summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Up to three team names: the whole summary width, not half of it. */
+  .bubble {
+    grid-column: 1 / -1;
   }
 }
 

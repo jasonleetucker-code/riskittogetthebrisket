@@ -501,11 +501,26 @@ def check_signals(contract: dict | None) -> None:
     shadowed = {
         k: sum(1 for r in rows if k in (r.get("sourceShadowMeta") or {})) for k in _SIGNALS_IDP_KEYS
     }
+    # A vote is a WEIGHTED, CONTRIBUTING observation — a row merely carrying a
+    # meta entry (freshness-excluded, Hampel-dropped) is not one.
     voting = {
-        k: sum(1 for r in rows if k in (r.get("sourceRankMeta") or {})) for k in _SIGNALS_IDP_KEYS
+        k: sum(
+            1
+            for r in rows
+            for m in [(r.get("sourceRankMeta") or {}).get(k)]
+            if isinstance(m, dict)
+            and m.get("contributedToBlend") is not False
+            and not m.get("hampelDropped")
+            and float(m.get("appliedWeight") or 0) > 0
+            and isinstance(m.get("valueContribution"), (int, float))
+        )
+        for k in _SIGNALS_IDP_KEYS
     }
+    # Per family (owner directive 2026-10-19): ``shadow`` and
+    # ``held`` (released without a qualified translation) both keep publishing
+    # the shadow stamp and cast no vote; ``active`` must contribute.
     consistent = all(
-        (states[k] == "shadow" and voting[k] == 0 and shadowed[k] > 0)
+        (states[k] in ("shadow", "held") and voting[k] == 0 and shadowed[k] > 0)
         or (states[k] == "active" and voting[k] > 0)
         for k in _SIGNALS_IDP_KEYS
     )

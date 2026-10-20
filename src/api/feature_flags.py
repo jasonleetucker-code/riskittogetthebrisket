@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-25 of the 49 entries in ``_DEFAULTS`` below are ``True`` —
+25 of the 55 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -130,31 +130,73 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # expected — while their native values stay visible; the contract stamps
     # ``privateSourceAvailability[*].rolledBack``.
     "signals_active_source": True,
-    # Signals IDP promotion switch (2026-10-04).  OFF: the three Signals IDP
+    # Signals IDP MASTER switch (2026-10-04; meaning narrowed 2026-10-19, owner
+    # directive SIGNALS_IDP_VOTING_2026-10-19).  OFF: the three Signals IDP
     # boards (signalsIdpDl/Lb/Db) run in SHADOW — their within-family rank is
     # translated onto the shared market (the bridge owner's family ladder)
-    # and published per row as ``sourceShadowMeta``, with no vote.  ON: they
-    # vote through that translation.  Switched on only when the promotion
-    # gate in docs/sources/SIGNALS_FANTASY_INTEGRATION.md §10 passes.
-    # Rollback: RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart.
+    # and published per row as ``sourceShadowMeta``, with no vote.
+    # ALONE IT NO LONGER ACTIVATES ANYTHING: a family votes only when this,
+    # its own family flag (``signals_idp_{dl,lb,db}_vote``) AND
+    # ``signals_idp_xwalk_v2`` are all ON (AND semantics,
+    # ``data_contract.PRIVATE_SOURCE_HOLD_RELEASE_FLAGS``).  With this ON and
+    # every other release flag OFF the board is byte-identical to the default.
+    # Rollback of ALL Signals IDP: RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0
+    # + restart.
     "signals_idp_shared_market": False,
-    # DLF IDP restore HELD AT RELEASE -- a TEMPORARY hold, not an exclusion.
-    # The owner's policy hold of 2026-10-16 ("DLF vote is offense-only") was
-    # RESCINDED by the universal source-voting directive of 2026-10-19, which
-    # approves restoring ``dlfIdp`` / ``dlfRookieIdp`` (inside DLF's one
-    # provider-family cap).  The restore is implemented (this flag OFF), but
-    # the hold was re-applied 2026-10-19 because restoring DLF IDP under the
-    # INCUMBENT outlier filter drops valid Draft Sharks IDP / FantasyPros IDP /
-    # IDP Trade Calculator votes (30 rows on the 2026-10-19 board, moves up to
-    # 54%, none from DLF's own vote) -- the "unexplained 40-50% player-value
-    # changes" the same directive forbids (docs/sources/
-    # SOURCE_VOTING_CONSENSUS_2026-10-19.md).  It lifts as soon as the outlier
-    # interaction is corrected (CQ-65) or the owner accepts those moves.  ON:
-    # the DLF IDP boards stay ingested and displayed but are held from the
-    # vote through ``data_contract.POLICY_SOURCE_VOTE_HOLDS`` (the same
-    # active-source gate seasonal inactivity and private holds use); ``dlfSf``
-    # / ``dlfRookieSf`` / ``dlfValuesSfTep`` vote unchanged.  Rollback / lift:
-    # RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart (DLF IDP votes).
+    # Signals IDP FAMILY-scoped quarantine (owner directive 2026-10-19,
+    # PR-H).  OFF (incumbent): one IDP family failing its own floor /
+    # collapse check withholds the whole IDP release — every family keeps
+    # its last good board.  ON: only the failing family is withheld (its
+    # CSV, clock and ``_last_success`` untouched); the passing families
+    # publish with their own clocks.  Any internal error in the
+    # family-scoped path falls back to release-level quarantine.  The gate
+    # runs in the ``dynasty-signals-values`` collector
+    # (``src/sources/signals.py::collect_value_dataset``), whose unit has no
+    # EnvironmentFile, so the registry default governs it; it moves no
+    # served value by itself (a family board votes only through its own vote
+    # state).  Rollback: revert the default (or set the env var in the unit).
+    "signals_idp_family_quarantine": False,
+    # Per-family Signals IDP release switches (owner directive 2026-10-19).
+    # Each lifts ONE family's hold, and only together with the master
+    # (``signals_idp_shared_market``) and ``signals_idp_xwalk_v2``.  Default
+    # OFF; flipped per family only after that family's preregistered gates,
+    # independent review and the applicable owner decisions.  Rollback of one
+    # family: RISKIT_FEATURE_SIGNALS_IDP_<FAM>_VOTE=0 + restart.
+    "signals_idp_dl_vote": False,
+    "signals_idp_lb_vote": False,
+    "signals_idp_db_vote": False,
+    # Candidate F, the coverage-aligned within-family crosswalk
+    # (``src/bridges/family_crosswalk.py``; docs/sources/
+    # SIGNALS_FANTASY_INTEGRATION.md).  ON: the Signals IDP shadow stamps (and
+    # any released family's vote) use F — votes are a permutation of the
+    # matched players' bridge coordinates; Signals-only and rookie rows are
+    # withheld with a reason — plus the Signals-scoped Sleeper-id
+    # contradiction guard.  OFF: the shadow keeps Candidate A, which can never
+    # vote: master + family ON with this OFF is ``held:
+    # no_qualified_translation``.  Rollback of the method:
+    # RISKIT_FEATURE_SIGNALS_IDP_XWALK_V2=0 + restart (held, never A).
+    "signals_idp_xwalk_v2": False,
+    # DLF IDP HOLD -- TEMPORARY, AND LOCKED BY THE OWNER (Option 3,
+    # 2026-10-20).  This flag is NOT an exclusion of DLF's IDP opinion: the
+    # universal source-voting directive of 2026-10-19 approves restoring
+    # ``dlfIdp`` / ``dlfRookieIdp`` inside DLF's one provider-family cap, and
+    # the restore is implemented (this flag OFF).  It stays ON because
+    # restoring DLF IDP under the INCUMBENT outlier filter
+    # (``_hampel_filter_per_player``) drops valid Draft Sharks IDP /
+    # FantasyPros IDP / IDP Trade Calculator votes -- 34-54% moves on rows
+    # such as Trevin Wallace, none from DLF's own vote.  On 2026-10-20 the
+    # owner chose Option 3: do NOT accept those moves, do NOT activate the
+    # candidate replacement filter (it failed 3 of its 6 mandatory
+    # adversarial tests), and keep DLF IDP voting disabled until a
+    # PREREGISTERED outlier-filter Version 2 passes EVERY mandatory gate.
+    # Lifting this hold (default False, or RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE
+    # set false-y in any deploy/config/env surface) IS the owner's DLF IDP
+    # activation decision and may only be made with the owner's explicit
+    # approval -- ``tests/api/test_dlf_idp_hold_locked.py`` fails otherwise.
+    # ON: the DLF IDP boards stay ingested and displayed but are held from
+    # the vote through ``data_contract.POLICY_SOURCE_VOTE_HOLDS`` (the same
+    # active-source gate seasonal inactivity and private holds use);
+    # ``dlfSf`` / ``dlfRookieSf`` / ``dlfValuesSfTep`` vote unchanged.
     "dlf_offense_only_vote": True,
     # DLF Values rank -> Hill vote (owner closeout 2026-10-18 Decision 4,
     # kept by the owner's source-voting directive of 2026-10-19).
@@ -232,6 +274,18 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # extrapolation.  No Hill constant, reference N, tail saturation rank or
     # coordinate changes.  Shadow evaluation only; promotion is an owner decision.
     "idp_deep_tail_native_challenger": False,
+    # Disagreement-preserving outlier policy ``outlier-corroborated-v1`` (owner
+    # directive 2026-10-19 "Universal source voting and freshness", §6;
+    # src/api/outlier_policy.py; preregistered in docs/valuation/evidence/
+    # outlier-disagreement-2026-10-19/PREREGISTRATION.md before it was run).
+    # ON: the per-player filter rejects only a gross, uncorroborated vote (more
+    # than 4x off the other families in implied rank AND 1,000 points off, with
+    # no other family within 2x) or the votes of a board the scale screen finds
+    # mis-scaled; valid disagreement keeps its vote.  OFF: the incumbent Hampel
+    # filter, byte for byte.  Every other filter challenger takes precedence.
+    # Stays OFF until independent validation and an owner decision.  Rollback if
+    # ever switched on: RISKIT_FEATURE_OUTLIER_DISAGREEMENT_POLICY=0 + restart.
+    "outlier_disagreement_policy": False,
     # SPARSE half: one voting family is stamped ``limitedEvidence`` and the
     # 0.30 single-source retention is not applied.
     "joint_sparse_limited_evidence": False,
@@ -897,7 +951,22 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``data_contract._private_source_vote_state``, reached through
     # ``build_api_data_contract`` on every /api/data build.
     "signals_active_source": LIVE,
+    # signals_idp_shared_market (the Signals IDP master) and the three
+    # per-family release flags gate the Signals IDP vote hold in
+    # ``data_contract._private_source_vote_state`` (AND semantics), reached
+    # through ``build_api_data_contract`` on every /api/data build.
     "signals_idp_shared_market": LIVE,
+    # signals_idp_family_quarantine gates the IDP family-scoped quarantine in
+    # ``src/sources/signals.py`` (imported by server.py, so it measures LIVE);
+    # the gate itself runs in the dynasty-signals-values collector process.
+    "signals_idp_family_quarantine": LIVE,
+    "signals_idp_dl_vote": LIVE,
+    "signals_idp_lb_vote": LIVE,
+    "signals_idp_db_vote": LIVE,
+    # signals_idp_xwalk_v2 selects the Signals IDP crosswalk (Candidate F) in
+    # ``data_contract._compute_unified_rankings`` and the Signals-scoped
+    # identity guard in ``_enrich_from_source_csvs``, both on every board build.
+    "signals_idp_xwalk_v2": LIVE,
     # joint_outlier_sparse_challenger swaps the per-player outlier filter and
     # the single-source haircut in ``data_contract._compute_unified_rankings``,
     # which reaches a request through ``/api/data``; ships OFF (challenger).
@@ -918,6 +987,11 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # in the same function's blend loop (reaches a request through /api/data);
     # ships OFF (challenger).
     "idp_deep_tail_native_challenger": LIVE,
+    # outlier_disagreement_policy replaces the per-player outlier filter's
+    # decision in the same function and screens each board between two ranking
+    # passes in build_api_data_contract (reaches a request through /api/data);
+    # ships OFF (challenger).
+    "outlier_disagreement_policy": LIVE,
     # joint_sparse_limited_evidence replaces the single-source haircut with a
     # limitedEvidence stamp in the same function; ships OFF (challenger).
     "joint_sparse_limited_evidence": LIVE,

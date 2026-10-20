@@ -1,0 +1,15 @@
+{
+  "_comment": "Marginal best-ball utility (src/bestball/marginal.py). Every value here is a declared PRIOR, not a fitted or validated constant. paramSetId is a content hash computed at load time over the non-underscore keys (src/bestball/params.py), so editing a value mints a new id.",
+  "modelVersion": "bestball_marginal_v1",
+  "classification": "PRIOR",
+  "draws": 400,
+  "_draws": "Inherited from src.roster_intel.best_ball_utility.DEFAULT_DRAWS (pinned equal by test). Raising it tightens mc_standard_error only; it never moves the materiality band.",
+  "seed": 1173,
+  "_seed": "Inherited from src.roster_intel.best_ball_utility.DEFAULT_SEED (pinned equal by test).",
+  "candidatesPerSlotFamily": 1,
+  "_candidatesPerSlotFamily": "How many top-by-ppg priced free agents are offered per slot family the removed player can fill. The exact lineup re-solve picks among the offered candidates; this cap only bounds cost.",
+  "materialityPpg": 1.0,
+  "_materialityPpg": "Reference band in expected best-ball points per week. Used alone while predictive_basis is 'unavailable'. Not a significance threshold and not a probability.",
+  "testDraws": 30,
+  "_testDraws": "Draw count for fast structural tests. Never used by a published number."
+}

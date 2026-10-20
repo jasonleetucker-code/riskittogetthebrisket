@@ -148,7 +148,8 @@ def boards(tmp_path_factory):
             )
         out["retired"] = build_api_data_contract(copy.deepcopy(raw))
         # A LATER class retiring too (2027 evidence; 2026 follows by
-        # supersession) — the horizon must still not move.
+        # supersession) — the horizon advances one season (owner decision
+        # 2026-10-19).
         later = copy.deepcopy(raw)
         later["sleeper"]["draftClassEvidence"] = _retired_evidence(
             raw, 2027, board_lid, "board_league"
@@ -177,7 +178,9 @@ def boards(tmp_path_factory):
 def test_retired_class_is_absent_from_every_present_tense_block(boards):
     c = boards["retired"]
     stamp = c["pickClassLifecycle"]
-    assert stamp["retiredYears"] == [2026]
+    # 2025 — the class before the anchor, evaluated for the horizon even with
+    # no rows on the board — is retired by supersession and removes nothing.
+    assert stamp["retiredYears"] == [2025, 2026]
     assert stamp["classes"]["2026"]["status"] == "retired"
     assert stamp["retiredRowCount"] == 90  # 72 slots + 18 tiers in the fixture
     for name in c["players"]:
@@ -204,17 +207,38 @@ def test_later_classes_are_untouched(boards):
         assert retired[name].get("rankDerivedValue") == kept[name].get("rankDerivedValue"), name
 
 
-def test_retirement_does_not_move_the_future_pick_horizon(boards):
-    """Owner decision on #1442: retirement decides which classes are
-    present-tense; the horizon stays anchored exactly as before.  Advancing
-    it is a separate decision."""
+def _horizon(contract: dict) -> dict:
+    return contract["pickClassLifecycle"]["horizon"]
+
+
+def test_the_horizon_ends_three_seasons_after_the_latest_completed_draft(boards):
+    """Owner decision 2026-10-19 (superseding the #1442 "separate decision"
+    note): the horizon ends three seasons after the latest PROVEN-completed
+    rookie draft.  The anchor (``currentDraftYear``) never moves; only the
+    number of future seasons does.
+
+    ``kept``: 2026 is unknown (a served league has no evidence) -> the
+    unproven floor, 2028.  ``retired``: 2026 proven -> 2029."""
     kept, retired = _pick_rows(boards["kept"]), _pick_rows(boards["retired"])
     assert boards["kept"]["currentDraftYear"] == 2026
     assert boards["retired"]["currentDraftYear"] == 2026
-    # The retired board is EXACTLY the kept board minus the 2026 class:
-    # nothing added (no 2030 rows), nothing else removed.
-    assert set(retired) == {n for n in kept if not n.startswith("2026")}
-    assert not any(n.startswith("2030") for n in retired)
+    hk, hr = _horizon(boards["kept"]), _horizon(boards["retired"])
+    assert (hk["endYear"], hk["latestCompletedClassProven"]) == (2028, False)
+    assert (hr["endYear"], hr["latestCompletedClass"], hr["latestCompletedClassProven"]) == (
+        2029,
+        2026,
+        True,
+    )
+    assert {int(n[:4]) for n in kept} == {2026, 2027, 2028}
+    assert {int(n[:4]) for n in retired} == {2027, 2028, 2029}
+    # The retired board is the kept board minus the 2026 class plus the one
+    # season the proof adds — nothing else moves.
+    added = {n for n in retired if n.startswith("2029")}
+    assert len(added) == 24  # 3 tiers + 1 generic row x 6 rounds
+    assert set(retired) == {n for n in kept if not n.startswith("2026")} | added
+    for name, row in _pick_rows(boards["retired"]).items():
+        if name.startswith("2029"):
+            assert (row.get("pickValueProvenance") or {}).get("class", "").startswith("derived_")
 
 
 def test_first_active_class_is_published_separately_from_the_horizon(boards):
@@ -228,13 +252,15 @@ def test_first_active_class_is_published_separately_from_the_horizon(boards):
         assert boards[key]["currentDraftYear"] == 2026
 
 
-def test_a_synthetic_later_retirement_does_not_extend_the_horizon(boards):
+def test_a_later_completed_draft_advances_the_horizon(boards):
+    """The 2027 draft proven complete adds 2030 — and only 2030."""
     c = boards["retired_later"]
     stamp = c["pickClassLifecycle"]
-    assert stamp["retiredYears"] == [2026, 2027]
+    assert stamp["retiredYears"] == [2025, 2026, 2027]
     assert stamp["classes"]["2026"]["status"] == "retired"  # by supersession
+    assert (_horizon(c)["endYear"], _horizon(c)["latestCompletedClass"]) == (2030, 2027)
     years = {int(n[:4]) for n in _pick_rows(c)}
-    assert years == {2028, 2029}  # no 2030 / 2031 minted to backfill
+    assert years == {2028, 2029, 2030}  # no 2031 minted to backfill
     assert c["currentDraftYear"] == 2026
     report = validate_api_data_contract(c)
     assert report.get("structuralErrors") == [], report.get("structuralErrors")
