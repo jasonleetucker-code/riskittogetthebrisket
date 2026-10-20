@@ -49,16 +49,24 @@ import {
 import { buildManagerLookup } from "./shared.jsx";
 import leagueNavStyles from "./league-shared.module.css";
 import {
-  DEFAULT_TAB,
+  OVERVIEW_TAB,
   PIECE_OF_SHIT_RANKINGS_TAB,
   SECTION_FOR_TAB,
-  SUB_TABS,
+  TRADE_ADVISOR_SUBTITLE,
+  TRADE_ADVISOR_TAB,
+  TRADE_ADVISOR_TITLE,
   VALID_TABS,
   leagueTabHref,
   normalizeTabKey,
+  resolveTab,
+  visibleTabs,
 } from "./tabs.js";
 
-import OverviewSection from "./sections/overview.jsx";
+// The Brisket Trade Advisor is DEFAULT_TAB, so its team step is statically
+// imported and server-rendered (no loading flash on the landing view every
+// visitor sees).  The shell is small; the builder, picker and result are
+// its own lazy chunks.  See ./sections/trade-advisor-shell.jsx.
+import TradeAdvisorShell from "./sections/trade-advisor-shell.jsx";
 
 // Section code is split per tab.  Exactly ONE section is mounted at a
 // time (see the `activeTab === …` chain below), but all 21 used to be
@@ -71,9 +79,13 @@ import OverviewSection from "./sections/overview.jsx";
 // pick.  This composes with the per-section data fetching added in #652:
 // the CODE for a tab and the DATA for a tab now both arrive on open.
 //
-// OverviewSection is deliberately NOT split — it is DEFAULT_TAB, so
-// splitting it would trade a bundle win for a loading flash on the
-// landing view that every visitor sees.
+// OverviewSection is split like every other section since the Brisket
+// Trade Advisor became DEFAULT_TAB (2026-10-19).  It used to be the one
+// static section precisely because it was the landing view; that
+// "no loading flash on the landing tab" rationale now belongs to the
+// advisor's team step (imported statically above).  When the advisor is
+// switched off the hub lands on Overview again and pays one lazy-chunk
+// load for it.
 //
 // Pattern (dynamic + `_`-prefixed siblings) matches
 // ./sections/draft-capital.jsx, which already splits its own two heavy
@@ -95,6 +107,7 @@ const sectionLoading = () => <LoadingState message="Loading section..." />;
 const lazySection = (loader) =>
   dynamic(loader, { ssr: false, loading: sectionLoading });
 
+const OverviewSection = lazySection(() => import("./sections/overview.jsx"));
 const DraftCapitalSection = lazySection(() => import("./sections/draft-capital.jsx"));
 const HistorySection = lazySection(() => import("./sections/history.jsx"));
 const RivalriesSection = lazySection(() => import("./sections/rivalries.jsx"));
@@ -144,15 +157,15 @@ function initialIntent(tab) {
   };
 }
 
-export default function LeagueClient({ initialContract = null, initialTab = DEFAULT_TAB }) {
+export default function LeagueClient({ initialContract = null, initialTab = null, initialAdvisor = null }) {
   return (
     <Suspense fallback={<LoadingState message="Loading league data..." />}>
-      <LeaguePage initialContract={initialContract} initialTab={initialTab} />
+      <LeaguePage initialContract={initialContract} initialTab={initialTab} initialAdvisor={initialAdvisor} />
     </Suspense>
   );
 }
 
-function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
+function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor = null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   // Apply the tab-key alias on read so legacy ``?tab=matchupPreview``
@@ -168,13 +181,19 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   const urlYear = searchParams.get(DRAFT_CAPITAL_YEAR_PARAM) || "";
   const normalizedInitialTab = normalizeTabKey(initialTab);
 
-  const [activeTab, setActiveTabState] = useState(
-    urlTab && VALID_TABS.has(urlTab)
-      ? urlTab
-      : (normalizedInitialTab && VALID_TABS.has(normalizedInitialTab)
-          ? normalizedInitialTab
-          : DEFAULT_TAB),
-  );
+  // Is the Brisket Trade Advisor served?  The server read the advisor's
+  // teams endpoint: "disabled" (flag off → 503 advisor_unavailable/disabled,
+  // or 404) means the hub behaves exactly as before the advisor — Overview
+  // lands, no advisor tab.  "unknown" (no answer) stays optimistic and the
+  // shell asks from the browser, calling `markAdvisorUnavailable` if the
+  // answer is "disabled".
+  const [advisorAvailable, setAdvisorAvailable] = useState(initialAdvisor?.state !== "disabled");
+  const markAdvisorUnavailable = useCallback(() => setAdvisorAvailable(false), []);
+
+  // The tab the visitor asked for (URL, or the server's view of it on the
+  // first render); `resolveTab` turns it into the tab actually shown.
+  const [requestedTab, setRequestedTab] = useState(urlTab || normalizedInitialTab || null);
+  const activeTab = resolveTab(requestedTab, { advisorAvailable });
   const [initialRequestIntent] = useState(() => initialIntent(activeTab));
   const intentRef = useRef(initialRequestIntent);
   useEffect(() => {
@@ -193,11 +212,16 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       : { loading: true, error: "", contract: null },
   );
 
+  // URL → tab.  Tab clicks PUSH history entries, so Back / Forward change
+  // `?tab=` (including to no tab at all, which is the default landing);
+  // every change of the URL's tab — never a re-render with the same one —
+  // re-resolves the requested tab.
+  const prevRawUrlTabRef = useRef(rawUrlTab);
   useEffect(() => {
-    if (urlTab && VALID_TABS.has(urlTab) && urlTab !== activeTab) {
-      setActiveTabState(urlTab);
-    }
-  }, [urlTab, activeTab]);
+    if (prevRawUrlTabRef.current === rawUrlTab) return;
+    prevRawUrlTabRef.current = rawUrlTab;
+    setRequestedTab(urlTab || null);
+  }, [rawUrlTab, urlTab]);
 
   useEffect(() => {
     // Keep old shared links working, then replace the legacy query value
@@ -206,7 +230,11 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
     router.replace(leagueTabHref(urlTab, searchParams.toString()), { scroll: false });
   }, [rawUrlTab, router, searchParams, urlTab]);
 
-  const setActiveTab = useCallback((key, extraParams = {}) => {
+  // `mode`: "push" for navigation between tabs (a real history entry, so
+  // Back returns to the previous tab), "replace" for a section's own
+  // selectors (owner / week / year) so changing a filter never stacks
+  // history entries.
+  const setActiveTab = useCallback((key, extraParams = {}, mode = "push") => {
     // Normalize on write so internal CTAs that still pass legacy
     // keys (overview.jsx → onNavigate("matchupPreview")) route to
     // the renamed tabs instead of into a blank-content state.
@@ -214,26 +242,30 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
     if (intentRef.current.tab !== normalized) {
       intentRef.current = { tab: normalized, deadline: performance.now() + RESOLVED_DEADLINE_MS };
     }
-    setActiveTabState(normalized);
+    setRequestedTab(normalized);
     // `?year=` belongs to the Draft Capital tab only; leaving it drops it.
     const params =
       normalized === "draft-capital"
         ? extraParams
         : { [DRAFT_CAPITAL_YEAR_PARAM]: null, ...extraParams };
-    router.replace(
-      leagueTabHref(normalized, searchParams.toString(), params),
-      { scroll: false },
-    );
+    const href = leagueTabHref(normalized, searchParams.toString(), params);
+    // The ref tracks what WE wrote, so the URL→tab effect does not echo it.
+    prevRawUrlTabRef.current = new URLSearchParams(href.split("?")[1] || "").get("tab");
+    if (mode === "replace") router.replace(href, { scroll: false });
+    else router.push(href, { scroll: false });
   }, [router, searchParams]);
 
   // `?year=` for the Draft Capital tab; null (All Years) removes the param.
   const setDraftCapitalYear = useCallback(
     (year) =>
-      setActiveTab("draft-capital", {
-        [DRAFT_CAPITAL_YEAR_PARAM]: serializeDraftCapitalYear(year),
-      }),
+      setActiveTab(
+        "draft-capital",
+        { [DRAFT_CAPITAL_YEAR_PARAM]: serializeDraftCapitalYear(year) },
+        "replace",
+      ),
     [setActiveTab],
   );
+  const openOverview = useCallback(() => setActiveTab(OVERVIEW_TAB), [setActiveTab]);
 
   useEffect(() => {
     // Server-rendered page already handed us the contract — skip.
@@ -355,39 +387,51 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
 
   const managers = useMemo(() => buildManagerLookup(league), [league]);
 
-  if (loading) return <LoadingState message="Loading league data..." />;
-  if (error) {
-    return (
-      <div className="card">
-        <EmptyState title="League data unavailable" message={error} />
-      </div>
-    );
-  }
-  if (!league) {
-    return (
-      <div className="card">
-        <EmptyState title="No public league data" message="Public contract empty." />
-      </div>
-    );
-  }
-
+  const advisorTab = activeTab === TRADE_ADVISOR_TAB;
+  const tabs = visibleTabs({ advisorAvailable });
   const overview = sections.overview || {};
   const seasonLabel =
     overview.seasonRangeLabel ||
-    (league.seasonsCovered || []).join(", ") ||
+    (league?.seasonsCovered || []).join(", ") ||
     "—";
+
+  // The public-league contract failing to load used to blank the WHOLE hub
+  // (three early returns).  The advisor does not read that contract, so
+  // the failure is now an in-panel state for the tabs that do, and the
+  // landing advisor keeps working.
+  const contractGate = loading ? (
+    <LoadingState message="Loading league data..." />
+  ) : error ? (
+    <div className="card">
+      <EmptyState title="League data unavailable" message={error} />
+    </div>
+  ) : !league ? (
+    <div className="card">
+      <EmptyState title="No public league data" message="Public contract empty." />
+    </div>
+  ) : null;
 
   return (
     <section>
-      <PageHeader
-        eyebrow="Chase Upside League"
-        title={league.leagueName || "League"}
-        description={
-          `Seasons: ${seasonLabel}` +
-          ` · ${(league.managers || []).length} managers` +
-          ` · Last ${(league.seasonsCovered || []).length || 2} dynasty season${(league.seasonsCovered || []).length === 1 ? "" : "s"}`
-        }
-      />
+      {advisorTab ? (
+        <PageHeader
+          eyebrow={league?.leagueName || "Chase Upside League"}
+          title={TRADE_ADVISOR_TITLE}
+          description={TRADE_ADVISOR_SUBTITLE}
+        />
+      ) : (
+        <PageHeader
+          eyebrow="Chase Upside League"
+          title={league?.leagueName || "League"}
+          description={
+            league
+              ? `Seasons: ${seasonLabel}` +
+                ` · ${(league.managers || []).length} managers` +
+                ` · Last ${(league.seasonsCovered || []).length || 2} dynasty season${(league.seasonsCovered || []).length === 1 ? "" : "s"}`
+              : undefined
+          }
+        />
+      )}
       <div className={leagueNavStyles.nav}>
         {/* Mobile: a dropdown selector so all 20 sections stay reachable
             without needing a horizontally-scrolled tab row. */}
@@ -400,14 +444,14 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
             value={activeTab}
             onChange={(e) => setActiveTab(e.target.value)}
             aria-label="Select league section"
-            options={SUB_TABS.map((t) => ({ value: t.key, label: t.label }))}
+            options={tabs.map((t) => ({ value: t.key, label: t.label }))}
           />
         </div>
         <div className="desktop-only">
           <Tabs
             idPrefix="league"
             label="League sections"
-            tabs={SUB_TABS.map((t) => ({ id: t.key, label: t.label }))}
+            tabs={tabs.map((t) => ({ id: t.key, label: t.label }))}
             active={activeTab}
             onChange={(key) => setActiveTab(key)}
           />
@@ -424,7 +468,17 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
           error state under the header and nav rather than blanking the
           page.  Tabs that fetch their own data have no section and skip
           this entirely. */}
-      {!haveSection ? (
+      {advisorTab ? (
+        <ResilientSection name="Trade Advisor">
+          <TradeAdvisorShell
+            bootstrap={initialAdvisor}
+            onUnavailable={markAdvisorUnavailable}
+            onOpenOverview={openOverview}
+          />
+        </ResilientSection>
+      ) : contractGate ? (
+        contractGate
+      ) : !haveSection ? (
         sectionError ? (
           <div className="card">
             <EmptyState title="Section unavailable" message={sectionError} />
@@ -459,7 +513,7 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
           data={sections.franchise}
           onNavigate={setActiveTab}
           initialOwner={urlOwner}
-          setOwner={(owner) => setActiveTab("franchise", { owner })}
+          setOwner={(owner) => setActiveTab("franchise", { owner }, "replace")}
         />
       )}
       {activeTab === "activity" && (
@@ -473,7 +527,7 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
         <DraftSection
           data={sections.draft}
           initialOwner={urlOwner}
-          setOwner={(owner) => setActiveTab("draft", { owner })}
+          setOwner={(owner) => setActiveTab("draft", { owner }, "replace")}
         />
       )}
       {activeTab === "weekly" && (
@@ -482,7 +536,7 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
           managers={managers}
           onNavigate={setActiveTab}
           initialWeek={urlWeek}
-          setWeek={(week) => setActiveTab("weekly", { week })}
+          setWeek={(week) => setActiveTab("weekly", { week }, "replace")}
         />
       )}
       {activeTab === "superlatives" && (

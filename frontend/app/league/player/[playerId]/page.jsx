@@ -112,7 +112,7 @@ export default async function PlayerJourneyPage({ params }) {
             message={`No public journey data for player ${playerId}.`}
           />
           <div style={{ marginTop: 10 }}>
-            <Link href="/league" style={{ color: "var(--cyan)" }}>← Back to league</Link>
+            <Link href="/league?tab=overview" style={{ color: "var(--cyan)" }}>← Back to league</Link>
           </div>
         </div>
       </section>
@@ -131,7 +131,7 @@ export default async function PlayerJourneyPage({ params }) {
     <section>
       <div className="card">
         <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
-          <Link href="/league" style={{ color: "var(--cyan)" }}>← League home</Link>
+          <Link href="/league?tab=overview" style={{ color: "var(--cyan)" }}>← League home</Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 4 }}>
           <PlayerImage

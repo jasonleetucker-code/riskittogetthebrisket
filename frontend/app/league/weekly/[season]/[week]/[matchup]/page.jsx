@@ -92,7 +92,7 @@ export default async function MatchupRecapPage({ params }) {
     <section>
       <div className="card">
         <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
-          <Link href="/league" style={{ color: "var(--cyan)" }}>← League home</Link>
+          <Link href="/league?tab=overview" style={{ color: "var(--cyan)" }}>← League home</Link>
           {" · "}
           <Link href="/league?tab=weekly" style={{ color: "var(--cyan)" }}>
             All weekly recaps

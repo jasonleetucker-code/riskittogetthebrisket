@@ -106,14 +106,14 @@ function LandingHome() {
               variant="secondary"
               style={{ display: "block", textAlign: "center", padding: "14px 12px" }}
             >
-              League
+              Go to League Hub
             </Button>
             <p
               className="muted text-xs"
               style={{ marginTop: 8, lineHeight: 1.45, textAlign: "center" }}
             >
-              Open to everyone: champions, records, rivalries, weekly recaps and
-              every trade in league history.
+              Open to everyone: the Brisket Trade Advisor, plus champions,
+              records, rivalries, weekly recaps and every trade in league history.
             </p>
           </div>
           <div>

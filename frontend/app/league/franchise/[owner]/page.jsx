@@ -108,7 +108,7 @@ export default async function FranchisePage({ params }) {
         <div className="card">
           <EmptyState title="Franchise not found" message={`No public franchise record for owner ${ownerId}.`} />
           <div style={{ marginTop: 10 }}>
-            <Link href="/league" style={{ color: "var(--cyan)" }}>← Back to league</Link>
+            <Link href="/league?tab=overview" style={{ color: "var(--cyan)" }}>← Back to league</Link>
           </div>
         </div>
       </section>
@@ -119,7 +119,7 @@ export default async function FranchisePage({ params }) {
     <section>
       <div className="card">
         <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
-          <Link href="/league" style={{ color: "var(--cyan)" }}>← League home</Link>
+          <Link href="/league?tab=overview" style={{ color: "var(--cyan)" }}>← League home</Link>
           {" · "}
           <Link href="/league?tab=franchise" style={{ color: "var(--cyan)" }}>All franchises</Link>
         </div>

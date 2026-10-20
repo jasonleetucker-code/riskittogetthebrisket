@@ -63,6 +63,7 @@ export default async function sitemap() {
     "/trades",
     "/draft-capital",
     "/league",
+    "/league?tab=overview",
     "/league?tab=matchupPreview",
     "/league?tab=power",
     "/league?tab=luck",

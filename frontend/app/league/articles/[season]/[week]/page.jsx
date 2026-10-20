@@ -77,7 +77,7 @@ export default async function WeekArticlesPage({ params }) {
           subtitle="Matchup previews & recaps"
         />
         <div style={{ display: "flex", gap: 8, marginTop: -4, marginBottom: 8 }}>
-          <Link href="/league" style={{ color: "var(--cyan)", fontSize: "0.78rem", textDecoration: "none" }}>
+          <Link href="/league?tab=overview" style={{ color: "var(--cyan)", fontSize: "0.78rem", textDecoration: "none" }}>
             ← Back to /league
           </Link>
         </div>

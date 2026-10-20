@@ -15,10 +15,14 @@ const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
 
 // Tab labels the walk test exercises — a subset of the page's
 // SUB_TABS (frontend/app/league/tabs.js), which also owns the default
-// landing (DEFAULT_TAB = "overview").
+// landing (DEFAULT_TAB = "trade-advisor" since 2026-10-19; Overview when
+// the advisor is not served).  "Trade Advisor" is deliberately not in
+// this list: it exists only while the backend serves the advisor, and
+// league-trade-advisor.spec.js covers both states.  The overview tab's
+// label is "Overview" (it was "Home" before the advisor became home).
 const TABS = [
   "Draft Capital",
-  "Home",
+  "Overview",
   "History",
   "Rivalries",
   "Awards",
@@ -493,15 +497,20 @@ test.describe("public /league page", () => {
     expect(html).toMatch(/<meta property="og:description"/i);
   });
 
-  test("/league?tab=overview SSRs with overview content (no loading flash)", async ({
+  test("/league?tab=overview server-fetches the overview data (no client round trip)", async ({
     request,
   }) => {
-    // Server-rendered /league?tab=overview hits the overview content
-    // directly — HTML should contain the overview headlines, not the
-    // fallback "Loading" text.
+    // Since the Brisket Trade Advisor became DEFAULT_TAB (2026-10-19) the
+    // overview section is a lazy CODE chunk like every other section, so
+    // its markup ("At a glance") is no longer in the SSR HTML.  Its DATA
+    // still is: page.jsx always server-fetches the overview section and
+    // serializes it into the flight payload, so opening the tab needs no
+    // data request — only the chunk.
     const res = await request.get(pageUrl("/league?tab=overview"));
+    expect(res.status()).toBe(200);
     const html = await res.text();
-    expect(html).toMatch(/At a glance|Defending champion|Featured rivalry/);
+    expect(html).toMatch(/seasonRangeLabel/);
+    expect(html).not.toMatch(/League data unavailable/);
   });
 
   test("/draft-capital redirects into the folded /league tab", async ({

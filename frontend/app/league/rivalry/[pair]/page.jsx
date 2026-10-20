@@ -111,7 +111,7 @@ export default async function RivalryPage({ params }) {
     <section>
       <div className="card">
         <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
-          <Link href="/league" style={{ color: "var(--cyan)" }}>← League home</Link>
+          <Link href="/league?tab=overview" style={{ color: "var(--cyan)" }}>← League home</Link>
           {" · "}
           <Link href="/league?tab=rivalries" style={{ color: "var(--cyan)" }}>All rivalries</Link>
         </div>

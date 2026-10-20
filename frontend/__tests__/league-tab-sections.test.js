@@ -16,16 +16,22 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  ADVISOR_FALLBACK_TAB,
+  ADVISOR_PARAMS,
   DEFAULT_TAB,
+  OVERVIEW_TAB,
   PIECE_OF_SHIT_RANKINGS_TAB,
   PIECE_OF_SHIT_RANKINGS_TITLE,
   SECTION_FOR_TAB,
   SUB_TABS,
   TAB_ALIASES,
   VALID_TABS,
+  TRADE_ADVISOR_TAB,
   leagueTabHref,
   normalizeTabKey,
+  resolveTab,
   sectionForTab,
+  visibleTabs,
 } from "@/app/league/tabs.js";
 import { PUBLIC_SECTION_KEYS } from "@/lib/public-league-data";
 
@@ -34,6 +40,9 @@ import { PUBLIC_SECTION_KEYS } from "@/lib/public-league-data";
 // which bucket it belongs to fails here instead of silently rendering
 // blank because its section was never shipped.
 const SELF_FETCHING_TABS = [
+  // Brisket Trade Advisor (2026-10-19): its own value-free public
+  // endpoints, never a public-league contract section.
+  "trade-advisor",
   "previews",
   "recaps",
   "power",
@@ -78,15 +87,47 @@ describe("tab → section map", () => {
     // A hand-typed junk tab must resolve like the UI will render it:
     // through DEFAULT_TAB, so the server pre-renders the section the
     // visitor is about to see rather than one they are not.
-    expect(sectionForTab("not-a-real-tab")).toBe(SECTION_FOR_TAB[DEFAULT_TAB]);
-    expect(sectionForTab(undefined)).toBe(SECTION_FOR_TAB[DEFAULT_TAB]);
+    // DEFAULT_TAB is the self-fetching advisor, so that is null.
+    expect(sectionForTab("not-a-real-tab")).toBe(SECTION_FOR_TAB[DEFAULT_TAB] || null);
+    expect(sectionForTab(undefined)).toBe(SECTION_FOR_TAB[DEFAULT_TAB] || null);
   });
 
-  it("keeps overview as the default tab's section", () => {
-    // page.jsx always fetches "overview" (the header's season label
-    // reads it on every tab) and skips a second request when the
-    // landing tab needs the same one.
-    expect(SECTION_FOR_TAB[DEFAULT_TAB]).toBe("overview");
+  it("lands on the Brisket Trade Advisor, and on Overview when it is not served", () => {
+    // The advisor reads no contract section; page.jsx always fetches
+    // "overview" anyway (the header's season label reads it on every tab),
+    // so the fallback landing is already server-rendered.
+    expect(DEFAULT_TAB).toBe(TRADE_ADVISOR_TAB);
+    expect(SUB_TABS[0].key).toBe(TRADE_ADVISOR_TAB);
+    expect(SECTION_FOR_TAB[DEFAULT_TAB]).toBeUndefined();
+    expect(ADVISOR_FALLBACK_TAB).toBe(OVERVIEW_TAB);
+    expect(SECTION_FOR_TAB[ADVISOR_FALLBACK_TAB]).toBe("overview");
+    expect(resolveTab(null)).toBe(TRADE_ADVISOR_TAB);
+    expect(resolveTab("junk")).toBe(TRADE_ADVISOR_TAB);
+    expect(resolveTab("advisor")).toBe(TRADE_ADVISOR_TAB);
+    expect(resolveTab(null, { advisorAvailable: false })).toBe(OVERVIEW_TAB);
+    expect(resolveTab("junk", { advisorAvailable: false })).toBe(OVERVIEW_TAB);
+    expect(resolveTab(TRADE_ADVISOR_TAB, { advisorAvailable: false })).toBe(OVERVIEW_TAB);
+    expect(resolveTab("awards", { advisorAvailable: false })).toBe("awards");
+    expect(sectionForTab(null, { advisorAvailable: false })).toBe("overview");
+    expect(visibleTabs({ advisorAvailable: false }).map((t) => t.key)).not.toContain(TRADE_ADVISOR_TAB);
+    expect(visibleTabs().map((t) => t.key)[0]).toBe(TRADE_ADVISOR_TAB);
+  });
+
+  it("keeps the overview key (only its label changed) and canonical hrefs", () => {
+    expect(SUB_TABS).toContainEqual({ key: OVERVIEW_TAB, label: "Overview" });
+    expect(leagueTabHref(TRADE_ADVISOR_TAB)).toBe("/league");
+    expect(leagueTabHref("advisor")).toBe("/league");
+    expect(leagueTabHref(OVERVIEW_TAB)).toBe("/league?tab=overview");
+    expect(leagueTabHref("not-a-real-tab")).toBe("/league");
+  });
+
+  it("drops the advisor's own params on every other tab and keeps other tabs' params", () => {
+    expect(ADVISOR_PARAMS).toEqual(["team", "step"]);
+    expect(leagueTabHref("awards", "team=4&step=result")).toBe("/league?tab=awards");
+    expect(leagueTabHref(TRADE_ADVISOR_TAB, "tab=awards", { team: 4 })).toBe("/league?team=4");
+    expect(leagueTabHref(TRADE_ADVISOR_TAB, "team=4&step=result", { step: null })).toBe("/league?team=4");
+    // owner / week / year keep their pre-advisor behaviour.
+    expect(leagueTabHref("franchise", "owner=abc")).toBe("/league?owner=abc&tab=franchise");
   });
 
   it("uses Piece of Shit Rankings as the canonical label and URL key", () => {

@@ -13,6 +13,7 @@ export { Icon, ICON_NAMES } from "./Icon";
 export { Button } from "./Button";
 export { Field, Input } from "./Input";
 export { Select } from "./Select";
+export { Combobox } from "./Combobox";
 export { SegmentedControl } from "./SegmentedControl";
 export { Panel } from "./Panel";
 export { CollapsiblePanel } from "./CollapsiblePanel";

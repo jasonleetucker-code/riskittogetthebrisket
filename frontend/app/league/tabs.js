@@ -14,9 +14,31 @@
 export const PIECE_OF_SHIT_RANKINGS_TAB = "piece-of-shit-rankings";
 export const PIECE_OF_SHIT_RANKINGS_TITLE = "Piece of Shit Rankings";
 
+// Brisket Trade Advisor (owner directive 2026-10-19): the League Hub's
+// default landing tab.  It is the only tab whose EXISTENCE depends on the
+// backend — the `brisket_trade_advisor` feature flag answers 503
+// `advisor_unavailable/disabled` (or the route is absent, 404) and the hub
+// then behaves exactly as it did before the advisor: Overview is the
+// landing tab and the advisor tab is not offered.  `resolveTab` is the one
+// place that rule lives; callers pass what they know about availability.
+export const TRADE_ADVISOR_TAB = "trade-advisor";
+export const TRADE_ADVISOR_TITLE = "Brisket Trade Advisor";
+export const TRADE_ADVISOR_SUBTITLE =
+  "Evaluate trades using our league's scoring, roster construction, and dynasty market.";
+export const OVERVIEW_TAB = "overview";
+
+// URL params the advisor owns.  Dropped by `leagueTabHref` whenever the
+// target tab is not the advisor, so a `?team=` never leaks onto Awards.
+// Every other tab's params (`owner`, `week`, `year`) keep today's
+// behaviour.
+export const ADVISOR_PARAMS = Object.freeze(["team", "step"]);
+
 // Tab order + labels for the /league section nav.
 export const SUB_TABS = Object.freeze([
-  { key: "overview", label: "Home" },
+  { key: TRADE_ADVISOR_TAB, label: "Trade Advisor" },
+  // Key unchanged (every `?tab=overview` link keeps working); the label is
+  // no longer "Home" because Home is now the advisor.
+  { key: OVERVIEW_TAB, label: "Overview" },
   // The two AI-article tabs replace the older "This Week" structured
   // preview tab and the structured "Recaps" tab. The articles surface
   // the same H2H + form data inline (the brief is built from it), so
@@ -48,7 +70,9 @@ export const SUB_TABS = Object.freeze([
 ]);
 
 export const VALID_TABS = new Set(SUB_TABS.map((t) => t.key));
-export const DEFAULT_TAB = "overview";
+export const DEFAULT_TAB = TRADE_ADVISOR_TAB;
+// Where the hub lands when the advisor is switched off / not served.
+export const ADVISOR_FALLBACK_TAB = OVERVIEW_TAB;
 
 // Old → new tab-key aliases. Two reasons to keep these forever:
 //   1. External deep links (sitemap.js, /league/week/<season>/<week>
@@ -63,6 +87,7 @@ export const TAB_ALIASES = Object.freeze({
   matchupPreview: "previews",
   weeklyRecap: "recaps",
   conduct: PIECE_OF_SHIT_RANKINGS_TAB,
+  advisor: TRADE_ADVISOR_TAB,
 });
 
 export function normalizeTabKey(key) {
@@ -70,14 +95,37 @@ export function normalizeTabKey(key) {
   return TAB_ALIASES[key] || key;
 }
 
-export function leagueTabHref(key, currentSearch = "", extraParams = {}) {
+/**
+ * The tab the hub renders for a requested key.
+ *
+ * Unknown / missing keys land on DEFAULT_TAB (the advisor).  When the
+ * advisor is unavailable (``advisorAvailable: false`` — flag off or route
+ * absent) both the advisor key and the default resolve to Overview, so a
+ * switched-off advisor leaves no broken landing state.
+ */
+export function resolveTab(key, { advisorAvailable = true } = {}) {
   const normalized = normalizeTabKey(key);
-  const resolved = VALID_TABS.has(normalized) ? normalized : DEFAULT_TAB;
+  const landing = advisorAvailable ? DEFAULT_TAB : ADVISOR_FALLBACK_TAB;
+  if (!normalized || !VALID_TABS.has(normalized)) return landing;
+  if (normalized === TRADE_ADVISOR_TAB && !advisorAvailable) return ADVISOR_FALLBACK_TAB;
+  return normalized;
+}
+
+/** The nav's tab list, without the advisor when it is unavailable. */
+export function visibleTabs({ advisorAvailable = true } = {}) {
+  return advisorAvailable ? SUB_TABS : SUB_TABS.filter((t) => t.key !== TRADE_ADVISOR_TAB);
+}
+
+export function leagueTabHref(key, currentSearch = "", extraParams = {}) {
+  const resolved = resolveTab(key);
   const params = new URLSearchParams(currentSearch);
   if (resolved === DEFAULT_TAB) {
     params.delete("tab");
   } else {
     params.set("tab", resolved);
+  }
+  if (resolved !== TRADE_ADVISOR_TAB) {
+    for (const name of ADVISOR_PARAMS) params.delete(name);
   }
   for (const [name, value] of Object.entries(extraParams)) {
     if (value === null || value === undefined || value === "") {
@@ -93,7 +141,9 @@ export function leagueTabHref(key, currentSearch = "", extraParams = {}) {
 // Which public-contract section each tab renders from.
 //
 // Tabs ABSENT from this map fetch their own data and need nothing from
-// the contract: `previews`/`recaps` (ArticlesSection), `power`
+// the contract: `trade-advisor` (its own public advisor endpoints — never
+// the public-league contract, and never a value), `previews`/`recaps`
+// (ArticlesSection), `power`
 // (RosPowerSection reads the lazy `rosPower` section directly — the v1
 // engine and its eager `power` section are retired), the four `ros*`
 // tabs, `draft-capital`, and `teamAssignment` (moved to self-fetching
@@ -128,8 +178,6 @@ export const SECTION_FOR_TAB = Object.freeze({
  * self-fetching.  Unknown tabs resolve through DEFAULT_TAB so a
  * hand-typed ``?tab=`` lands on the same section the UI will show.
  */
-export function sectionForTab(tab) {
-  const key = normalizeTabKey(tab);
-  const resolved = VALID_TABS.has(key) ? key : DEFAULT_TAB;
-  return SECTION_FOR_TAB[resolved] || null;
+export function sectionForTab(tab, opts = {}) {
+  return SECTION_FOR_TAB[resolveTab(tab, opts)] || null;
 }
