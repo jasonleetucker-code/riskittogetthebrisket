@@ -28,13 +28,16 @@ never-evicted global ceiling, BEFORE the body is read; a streamed body cap;
 strict inbound schema; ``str`` path / query parameters validated in the
 handler (so FastAPI's 422 body can never fire); a measured response floor
 applied in ``finally`` to every analyze outcome after the limiter charge; a
-public single-flight that never joins a private flight; no analyze-result
+public single-flight that never joins a private flight; per-route admission
+control (``src/api/compute_admission.py``: a concurrency bound on engine
+computations and a caller deadline, both a retryable 503); no analyze-result
 cache of any kind.
 
 Launch gate (spec §6.3), checked on every request: the flag, a measured
 ``responseFloorMs``, an owner-approved fairness-band version that is not
-PROVISIONAL, an owner source-permission record on disk, and the geom package
-model.  Until all hold every route answers 503 ``advisor_unavailable``.
+PROVISIONAL, a valid and current owner source-permission record covering
+every voting source (``src/trade/public_advisor_permission.py``), and the geom
+package model.  Until all hold every route answers 503 ``advisor_unavailable``.
 
 Wired like ``src/public_league/articles_api.py``: ``server.py`` calls
 :func:`configure_host` and includes :data:`router`; collaborators that live on
@@ -506,7 +509,10 @@ def _public_league_key() -> str | None:
 
 
 def reset_for_tests() -> None:
+    from src.api import compute_admission
     from src.trade import trade_ledger
+
+    compute_admission.reset_for_tests()
 
     trade_ledger.clear_snapshot_memo()
     public_advisor.reset_memos_for_tests()
@@ -517,14 +523,16 @@ def reset_for_tests() -> None:
         _LIMITER.reset()
 
 
-def _source_permission_record_exists(rel: str | None) -> bool:
-    if not rel:
-        return False
+def _source_permission_problem(rel: str | None) -> str | None:
+    """R2-10: the owner's OD-3 source-permission record must be a complete,
+    current approval covering every voting source — not merely an existing
+    file (``src/trade/public_advisor_permission.py``).  ``None`` = valid."""
+    from src.trade import public_advisor_permission  # noqa: PLC0415
+
     try:
-        path = (_REPO / rel).resolve()
-    except (OSError, ValueError):
-        return False
-    return path.is_file() and _REPO in path.parents
+        return public_advisor_permission.record_path_problem(rel)
+    except Exception:  # noqa: BLE001 — an unverifiable record never opens the gate
+        return "check_failed"
 
 
 def _launch_gate_reason() -> str | None:
@@ -541,8 +549,13 @@ def _launch_gate_reason() -> str | None:
         return "fairness_version_unapproved"
     if receipt.get("status") == "PROVISIONAL":
         return "fairness_bands_provisional"
-    if not _source_permission_record_exists(cfg.get("approvedSourcePermissionRecord")):
-        return "source_permission_unrecorded"
+    permission_problem = _source_permission_problem(cfg.get("approvedSourcePermissionRecord"))
+    if permission_problem is not None:
+        return (
+            "source_permission_unrecorded"
+            if permission_problem == "unrecorded"
+            else f"source_permission_invalid:{permission_problem}"
+        )
     if not public_advisor.package_model_ready():
         return "package_model_unavailable"
     return None
@@ -796,11 +809,27 @@ def _flight_key(league_key: str, snap: Any, ledger: Any) -> tuple[str, ...]:
     )
 
 
-async def _evaluate(league_key: str, snap: Any, ledger: Any) -> public_advisor.FairnessResult:
-    async def _run() -> public_advisor.FairnessResult:
-        return await run_in_threadpool(public_advisor.evaluate, snap, ledger)
+def _admission() -> Any:
+    from src.api.compute_admission import ROUTE_PUBLIC_ADVISOR, admission_for  # noqa: PLC0415
 
-    result, _joined = await _flights().run(_flight_key(league_key, snap, ledger), _run)
+    return admission_for(ROUTE_PUBLIC_ADVISOR)
+
+
+async def _evaluate(league_key: str, snap: Any, ledger: Any) -> public_advisor.FairnessResult:
+    """One shared computation per identical ledger (single-flight), each
+    computation in an admission slot, the caller's wait bounded by the
+    admission deadline (R2-5; ``src/api/compute_admission.py``).  Raises
+    ``AdmissionRejected`` (busy / timeout) — never a partial result."""
+    admission = _admission()
+
+    async def _run() -> public_advisor.FairnessResult:
+        return await admission.admit(
+            lambda: run_in_threadpool(public_advisor.evaluate, snap, ledger)
+        )
+
+    result, _joined = await admission.within_deadline(
+        lambda: _flights().run(_flight_key(league_key, snap, ledger), _run)
+    )
     return result
 
 
@@ -900,8 +929,18 @@ async def post_trade_advisor_analyze(request: Request, leagueKey: str = ""):
     except public_advisor.AdvisorError as exc:
         return _from_advisor_error(exc)
     except Exception as exc:  # noqa: BLE001 — engine refusal, invariant, assertion
+        from src.api.compute_admission import AdmissionRejected  # noqa: PLC0415
         from src.trade import analyze_service  # noqa: PLC0415
 
+        if isinstance(exc, AdmissionRejected):
+            # R2-5: retryable, fixed copy, held to the floor like every outcome.
+            return _error(
+                503,
+                "advisor_unavailable",
+                exc.reason,
+                headers={"Retry-After": str(exc.retry_after_seconds)},
+                retryAfterSeconds=exc.retry_after_seconds,
+            )
         if isinstance(exc, analyze_service.PackageModelUnavailable):
             return _error(503, "advisor_unavailable", "not_ready")
         _log_failure("analyze", exc)

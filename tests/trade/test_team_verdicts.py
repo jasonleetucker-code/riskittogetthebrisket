@@ -66,6 +66,99 @@ def test_category_reason_only_for_the_execution_gate():
     assert tv.team_category_reason(None) is None
 
 
+# LC-1: the exhaustive (headline x leaning x A.direction x A.magnitude x
+# deciding) mapping table — restored from the 2-team public-category test the
+# move into ``team_verdicts`` dropped, plus the malformed gate pairings.
+HEADLINES = ("YES", "NO", "NO_TOO_CLOSE", "NOT_ENOUGH_EVIDENCE", "BOGUS")
+LEANINGS = td.RECOMMENDATIONS + ("??", None)
+DIRECTIONS = ("favors", "opposes", "neutral", None)
+MAGNITUDES = ("modest", "large", None)
+DECIDING = (
+    "objectiveValue",
+    "rosterBenefit",
+    "strategy",
+    "both",
+    "executionGate",
+    "evidenceGate",
+    None,
+)
+#: The only headline ``decide`` emits each gate with.
+GATE_HEADLINE = {"executionGate": "NO", "evidenceGate": "NOT_ENOUGH_EVIDENCE"}
+
+
+@pytest.mark.parametrize(
+    ("headline", "lean", "direction", "magnitude", "deciding"),
+    list(itertools.product(HEADLINES, LEANINGS, DIRECTIONS, MAGNITUDES, DECIDING)),
+)
+def test_exhaustive_category_mapping(headline, lean, direction, magnitude, deciding):
+    d = _decision(headline, deciding=deciding, direction=direction, magnitude=magnitude, lean=lean)
+    cat = tv.team_category(d)
+    reason = tv.team_category_reason(d)
+    assert cat in tv.CATEGORY_TEXT
+    assert tv.team_category_text(d)  # always renders
+    malformed_gate = deciding in GATE_HEADLINE and headline != GATE_HEADLINE[deciding]
+    if malformed_gate or headline in ("NOT_ENOUGH_EVIDENCE", "BOGUS"):
+        assert cat == "UNAVAILABLE"
+        assert reason is None
+        return
+    if headline == "NO_TOO_CLOSE":
+        assert cat == "APPROXIMATELY_EVEN" and reason is None
+    if headline == "YES":
+        assert cat in ("FAVORABLE", "STRONGLY_FAVORABLE"), "never unfavourable with YES"
+        assert reason is None
+        strong = direction == "favors" and magnitude == "large" and lean == "MAKE"
+        assert (cat == "STRONGLY_FAVORABLE") == strong
+    if headline == "NO":
+        assert cat in ("UNFAVORABLE", "STRONGLY_UNFAVORABLE"), "never favourable with NO"
+        if deciding == "executionGate":
+            assert cat == "UNFAVORABLE" and reason == "roster_limit"
+            assert tv.team_category_text(d) == tv.ROSTER_LIMIT_TEXT
+        else:
+            assert reason is None
+            strong = direction == "opposes" and magnitude == "large" and lean == "PASS"
+            assert (cat == "STRONGLY_UNFAVORABLE") == strong
+    # Lane A asserted a PUBLIC-section alias here; on this branch the public
+    # section is deleted (fairness-only amendment), so there is no alias to
+    # agree with — pinned absent rather than silently dropped.
+    assert not hasattr(td, "public_category_from_decision")
+
+
+def test_malformed_gate_pairings_are_unavailable_never_confident():
+    """LC-1: ``decide`` cannot emit these; the category must not invent one."""
+    for headline in ("YES", "NO_TOO_CLOSE"):
+        assert tv.team_category(_decision(headline, deciding="executionGate")) == "UNAVAILABLE"
+    for headline in ("YES", "NO", "NO_TOO_CLOSE"):
+        assert tv.team_category(_decision(headline, deciding="evidenceGate")) == "UNAVAILABLE"
+    strong_yes = _decision(
+        "YES", deciding="executionGate", direction="favors", magnitude="large", lean="MAKE"
+    )
+    assert tv.team_category(strong_yes) == "UNAVAILABLE"
+    assert tv.team_category_reason(strong_yes) is None
+    for bad in (None, [], "YES", {}, {"headline": "YES", "components": "x"}):
+        assert tv.team_category(bad) in ("UNAVAILABLE", "FAVORABLE")
+    assert tv.team_category({"headline": "YES"}) == "FAVORABLE"
+
+
+def test_real_decide_results_never_hit_a_malformed_pairing():
+    """Every gate pairing ``decide`` actually emits maps by the table (the
+    malformed branch is unreachable from the owner — pinned so a change to
+    ``decide`` that starts emitting one is noticed)."""
+    from tests.trade import war_room_ui_payloads as gen
+    from src.trade.analyze_trade import analyze_trade
+
+    gates_seen = set()
+    for name in gen.SCENARIOS:
+        full = gen.build(name)
+        sim = {k: v for k, v in full.items() if k not in ("analysis", "_fixture")}
+        decision = analyze_trade(sim)["decision"]
+        gate = GATE_HEADLINE.get(decision.get("deciding"))
+        assert gate is None or decision["headline"] == gate, name
+        if gate is not None:
+            gates_seen.add(decision["deciding"])
+            assert tv.team_category(decision) != "FAVORABLE", name
+    assert gates_seen, "the fixtures must exercise at least one gate"
+
+
 def _analysis(level="fair", *, available=True, gap=100, send=5000.0, recv=5100.0, extra=None):
     detail = {
         "band": {"level": level, "relativePct": 1.96, "bands": "fairness_bands_v1"},

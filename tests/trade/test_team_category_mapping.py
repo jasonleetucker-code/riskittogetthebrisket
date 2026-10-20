@@ -91,6 +91,16 @@ def test_exhaustive_mapping_invariants(headline, lean, direction, magnitude, dec
     cat = tv.team_category(d)
     gate = deciding == "executionGate"
     assert cat in tv.CATEGORIES
+    # LC-1 (ported from Lane A's ``test_public_category_mapping.py``, which this
+    # lane deleted with the public section): a gate ``deciding`` with a headline
+    # ``decide`` never emits it with (executionGate only with NO, evidenceGate
+    # only with NOT_ENOUGH_EVIDENCE) is malformed, and a malformed decision is
+    # UNAVAILABLE — never a confident category (it was FAVORABLE for YES +
+    # executionGate).
+    gate_headline = {"executionGate": "NO", "evidenceGate": "NOT_ENOUGH_EVIDENCE"}.get(deciding)
+    if gate_headline is not None and headline != gate_headline:
+        assert cat == "UNAVAILABLE"
+        return
     if headline in ("NOT_ENOUGH_EVIDENCE", "BOGUS"):
         assert cat == "UNAVAILABLE"
     if headline == "NO_TOO_CLOSE":

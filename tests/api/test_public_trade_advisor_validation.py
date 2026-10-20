@@ -554,15 +554,51 @@ def test_snapshot_memo_is_the_ledger_owners(advisor_client, monkeypatch):
 _REAL_LAUNCH_GATE = api._launch_gate_reason
 
 
+_RECORD_REL = "docs/owner/TEST_SOURCE_PERMISSION.json"
+
+
+def _valid_permission_record() -> dict:
+    """A complete, current owner approval covering every voting source — a
+    TEST fixture only (the real record is the owner's, OD-3)."""
+    import datetime as dt
+
+    from src.trade import public_advisor_permission as perm
+
+    today = perm._today()
+    return {
+        "recordType": perm.RECORD_TYPE,
+        "schemaVersion": perm.SCHEMA_VERSION,
+        "scope": perm.SCOPE,
+        "approvedBy": "test-owner",
+        "approvedAt": (today - dt.timedelta(days=1)).isoformat(),
+        "reviewBy": (today + dt.timedelta(days=30)).isoformat(),
+        "providers": {},
+        "sources": {k: "approved" for k in perm.voting_source_keys()},
+    }
+
+
+def _write_record(monkeypatch, tmp_path, record) -> None:
+    """Point the permission check at a temp repo holding ``record`` (never
+    writes into the real ``docs/owner``)."""
+    import json
+
+    from src.trade import public_advisor_permission as perm
+
+    target = tmp_path / _RECORD_REL
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(record if isinstance(record, str) else json.dumps(record), encoding="utf-8")
+    monkeypatch.setattr(perm, "_REPO", tmp_path)
+
+
 def _launch_cfg(monkeypatch, tmp_path, **overrides):
     from src.valuation_math import fairness_bands
 
-    record = api._REPO / "docs" / "owner" / "BRISKET_TRADE_ADVISOR_DESIGN_2026-10-19.md"
+    _write_record(monkeypatch, tmp_path, _valid_permission_record())
     cfg = copy.deepcopy(api.advisor_config())
     cfg.update(
         responseFloorMs=900,
         approvedFairnessVersion=fairness_bands.receipt()["version"],
-        approvedSourcePermissionRecord=str(record.relative_to(api._REPO)),
+        approvedSourcePermissionRecord=_RECORD_REL,
     )
     cfg.update(overrides)
     monkeypatch.setattr(api, "advisor_config", lambda: cfg)
@@ -603,14 +639,25 @@ def test_the_committed_config_keeps_the_launch_gate_closed():
         ({}, "PROVISIONAL", "fairness_bands_provisional"),
         ({"approvedSourcePermissionRecord": None}, "APPROVED", "source_permission_unrecorded"),
         (
+            {"approvedSourcePermissionRecord": "docs/owner/NO_SUCH_RECORD.json"},
+            "APPROVED",
+            "source_permission_invalid:missing",
+        ),
+        (
             {"approvedSourcePermissionRecord": "docs/owner/NO_SUCH_RECORD.md"},
             "APPROVED",
-            "source_permission_unrecorded",
+            "source_permission_invalid:path_not_allowed",
         ),
         (
             {"approvedSourcePermissionRecord": "../../etc/passwd"},
             "APPROVED",
-            "source_permission_unrecorded",
+            "source_permission_invalid:path_not_allowed",
+        ),
+        # R2-10: an arbitrary existing repo file no longer opens the leg.
+        (
+            {"approvedSourcePermissionRecord": "README.md"},
+            "APPROVED",
+            "source_permission_invalid:path_not_allowed",
         ),
     ],
 )

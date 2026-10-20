@@ -1,14 +1,22 @@
 """Fail a deploy whose RUNNING process has an owner-held vote flag in the
 wrong state.
 
-The repository locks two source-vote holds by owner decision:
+The repository locks three owner-held vote flags by owner decision:
 
 * ``dlf_offense_only_vote`` must be effectively **ON** -- the DLF IDP / DLF
   Rookie IDP vote hold (owner Option 3, 2026-10-20;
   ``tests/api/test_dlf_idp_hold_locked.py``);
 * ``dlf_values_rank_hill_vote`` must be effectively **OFF** -- DLF Values
   offense voting, held for outlier-integrity-v2 (owner decision 2026-10-20,
-  "Hold D4 for V2"; ``tests/api/test_dlf_values_hold_locked.py``).
+  "Hold D4 for V2"; ``tests/api/test_dlf_values_hold_locked.py``);
+* ``source_freshness_schedule_v2`` must be effectively **OFF** -- the owner's
+  universal freshness step schedule: implementation and percentages approved,
+  activation held (owner decision 2026-10-20 on PR #1831, Option B;
+  ``tests/api/test_freshness_v2_hold_locked.py``).
+
+A flag ABSENT from the snapshot fails closed, exactly as for D4: this check
+runs after the restart, against the process the deploy just started, and
+that process's registry carries every flag listed here.
 
 The repository tests lock the registry defaults and every TRACKED
 deploy/config/env surface.  They cannot see the production box's untracked
@@ -61,6 +69,13 @@ OWNER_HELD_FLAGS: dict[str, tuple[bool, str, str]] = {
         "owner decision 2026-10-20 ('Hold D4 for V2'): DLF Values offense voting "
         "is held until outlier-integrity-v2 passes and the owner explicitly approves",
         "DLF Values is VOTING on offense rows in production",
+    ),
+    "source_freshness_schedule_v2": (
+        False,
+        "owner decision 2026-10-20 on PR #1831 (Option B): the universal freshness "
+        "schedule is approved but its activation is held for the owner's explicit "
+        "approval (outlier-integrity-v2 overlap)",
+        "the universal freshness step schedule is REWEIGHTING source votes in production",
     ),
 }
 

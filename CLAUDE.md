@@ -796,6 +796,26 @@ Steps:
    ``RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0`` + restart (factor 1.0,
    diagnostics keep reporting).  Full record:
    ``docs/sources/SOURCE_FRESHNESS_WEIGHTING.md``.
+   **The owner's STEP SCHEDULE is implemented and approved but HELD OFF**
+   (flag ``source_freshness_schedule_v2``, **default OFF** — owner decision
+   2026-10-20 on PR #1831, Option B: activation reserved for the owner
+   because the incumbent outlier filter can drop legitimate votes when the
+   voting population changes, which outlier-integrity-v2 is fixing; locked by
+   ``tests/api/test_freshness_v2_hold_locked.py`` and the deploy gate
+   ``scripts/verify_owner_held_flags.py``.  Owner directive "Universal
+   Source Voting and Freshness Policy"; when ON): whole days since the
+   last GENUINE publisher update — 0–7 → 1.00, 8–14 → 0.75, 15–21 → 0.50,
+   22–30 → 0.25, >30 → 0 (``config/sources/freshness_schedule_v2.json``).
+   Clock = a recorded vendor publication time (never later than the last
+   observed content change), else the last observed content change; an
+   unchanged re-download never moves it; an update time we cannot establish
+   votes at 0 (never fresh).  The KTC Market benchmark stays on v1.
+   Per-source voting status (status, reason, restore requirement):
+   ``src/sources/voting_status.py`` → contract ``sourceVotingStatus`` →
+   ``/api/sources/weighting`` ``votingStatus`` (reports the rule actually
+   in force — v1 while the flag is off).  Flag OFF is the cadence curve byte
+   for byte.  Record:
+   ``docs/sources/UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md``.
 4c. Family-capped voting (flag ``source_family_cap``, default ON, owner
    directive 2026-09-24) — after Hampel, EVERY member of a B10
    correlation family votes with its own effective weight and the

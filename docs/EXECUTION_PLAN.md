@@ -1,5 +1,18 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## PR #1831 universal freshness schedule — owner decision, 2026-10-20 (~12:25 UTC): OPTION B (merge disabled, activation held)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~12:25 UTC)" (FS-B1..FS-B10). Verbatim text: `docs/owner/PR1831_OPTION_B_DECISION_2026-10-20.md`. Amends the 2026-10-19 universal-source-voting V5 authorization: the schedule is implemented and approved but NOT activated.
+
+**Authorized now:**
+- **PR #1831 merges with `source_freshness_schedule_v2` default OFF** through the normal release process (release train / HEAD-FREEZE gates), reconciled with current `main` (incl. #1817), flag-off board identical to `main` (`board_diff --expect-no-value-change`), approved percentages and their tests intact, `sourceVotingStatus` reporting the rule in force plus a labelled non-voting v2 shadow. Locked by `tests/api/test_freshness_v2_hold_locked.py` and the deploy-time live-process check `scripts/verify_owner_held_flags.py` (now also requires this flag OFF).
+- **Regression data for outlier-integrity-v2**: the flag-ON affected rows (LaJohntay Wester, the newly unpriced IDP rows, every changed outlier verdict) at `tests/fixtures/outlier_integrity_v2/freshness_v2_affected_rows_2026-10-20.json`; the V2 lane wires them into its regression / integration tests.
+- **After V2 is validated**: a combined SHADOW impact analysis with the intended DLF voting changes and the freshness schedule (FS-B6), reported without treating legitimate disagreement as corruption.
+
+**Owner-reserved (NOT authorized):** activating the freshness schedule (`source_freshness_schedule_v2` → ON in the registry or any deploy / config / env surface); DLF IDP and D4 activation (unchanged); any DEGRADED-health rule change, coverage-factor rule change or pick-specific freshness exemption without separate evidence and approval.
+
+**Unaffected and not blocked:** Release Train 16, production stability work and the public/private multi-team calculators continue in parallel (FS-B9).
+
 ## outlier-integrity-v2 implementation directive + "Hold D4 for V2" — owner, 2026-10-20 (~10:20 UTC)
 
 Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~10:20 UTC)" (IV2-D4, IV2-1..IV2-13, IV2-A). Verbatim text: `docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md`. Amends the Option 3 entry below: its (a) no longer releases D4, and its (b) is now governed by this directive's fuller gates.

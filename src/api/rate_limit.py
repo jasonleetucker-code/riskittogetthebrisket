@@ -80,16 +80,34 @@ def _refill(bucket: _Bucket, now: float) -> None:
         bucket.last_refill_hour = now
 
 
+def _site_bucket_key(ip: str) -> str:
+    """The site-wide bucket's key for one client identity (R2-12): the IPv4
+    address unchanged, or the IPv6 ``/64`` — one subscriber is typically
+    handed a whole /64, so keying on the exact address let a single client
+    rotate through 2^64 identities and read public endpoints without limit.
+    The ONE keying rule is ``client_ip.client_key`` (the Trade Advisor
+    limiter's per-client key); non-IP identities pass through unchanged."""
+    from src.api.client_ip import client_key  # noqa: PLC0415
+
+    return client_key(ip)
+
+
 def should_rate_limit(ip: str) -> tuple[bool, int]:
     """Return ``(is_limited, retry_after_seconds)``.
 
-    Thread-safe.  Refills + decrements atomically.  Never blocks.
+    Thread-safe.  Refills + decrements atomically.  Never blocks.  Charged
+    per :func:`_site_bucket_key` (IPv4 address / IPv6 ``/64``).  The bypass
+    list matches the exact address or its bucket key (an operator may list a
+    whole ``/64``).
     """
     if not ip or ip in _BYPASS_IPS:
         return (False, 0)
+    key = _site_bucket_key(ip)
+    if not key or key in _BYPASS_IPS:
+        return (False, 0)
     now = time.time()
     with _lock:
-        bucket = _buckets.get(ip)
+        bucket = _buckets.get(key)
         if bucket is None:
             # Brand-new IP — full buckets.
             bucket = _Bucket(
@@ -98,7 +116,7 @@ def should_rate_limit(ip: str) -> tuple[bool, int]:
                 tokens_hour=_RATE_PER_HOUR - 1,
                 last_refill_hour=now,
             )
-            _buckets[ip] = bucket
+            _buckets[key] = bucket
             _maybe_evict()
             return (False, 0)
         _refill(bucket, now)

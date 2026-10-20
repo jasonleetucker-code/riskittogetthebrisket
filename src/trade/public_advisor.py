@@ -172,6 +172,13 @@ ERROR_MESSAGES: dict[tuple[str, str | None], str] = {
     ("advisor_unavailable", "upstream_unavailable"): (
         "The trade advisor is temporarily unavailable. Try again shortly."
     ),
+    # R2-5 admission control (src/api/compute_admission.py): both retryable.
+    ("advisor_unavailable", "busy"): (
+        "The trade advisor is busy right now. Please try again in a moment."
+    ),
+    ("advisor_unavailable", "timeout"): (
+        "The trade advisor took too long to answer. Please try again."
+    ),
 }
 
 
@@ -547,13 +554,60 @@ def validate(
 # ── Evaluation + reduction ────────────────────────────────────────────────
 
 
+#: The ONE engine row ``valueState`` a FAIR / NOT_FAIR verdict may rest on.
+#: The state is owned by the engine (``analyze_service._value_entry`` /
+#: ``analyze_service.VALUE_STATES``: ``priced``, ``unpriced``, ``off_board``,
+#: ``not_held``, ``quarantined``, ``stale``); this module reads it and never
+#: re-derives it.  Any other state — including one a newer engine adds, a
+#: missing state, or a malformed row — fails the team closed (R1-L2 / F2).
+_PRICED_STATE = "priced"
+
+
+def _withheld_value_evidence(entry: Mapping[str, Any]) -> bool:
+    """Does this team's side carry an asset the engine does not present as
+    priced?  (R1-L2 / F2, public side.)
+
+    Reads ONLY the engine's own row ``valueState`` on the team's ``gives`` /
+    ``receives`` rows — one owner.  The public side used to re-read the
+    simulation through ``trade_decision.asset_evidence_codes`` as a stand-in
+    while the engine rows still said ``priced`` for a quarantined / stale
+    value; Lane A (#1882) now carries ``quarantined`` / ``stale`` itself, so
+    that second read is deleted rather than kept as a parallel check.
+
+    A row that is not a mapping, or carries no ``valueState``, is NOT priced:
+    unknown is never treated as a trustworthy price."""
+    rows = [*(entry.get("gives") or []), *(entry.get("receives") or [])]
+    return any(not isinstance(r, Mapping) or r.get("valueState") != _PRICED_STATE for r in rows)
+
+
 def team_fairness_input(entry: Mapping[str, Any]) -> TeamFairnessInput:
-    """Pull the four public inputs out of one engine team entry — nothing else
-    is read.  Unavailable ids name only this team's own ledger assets."""
+    """Pull the four public inputs out of one engine team entry.  Unavailable
+    ids name only this team's own ledger assets.
+
+    Fail closed (R1-L2 / F2): if any asset on the team's side has an engine
+    ``valueState`` other than ``priced`` (:func:`_withheld_value_evidence`), a
+    FAIR / NOT_FAIR state becomes UNABLE ``evaluation_unavailable`` — the
+    reason the engine's own gate gives a quarantined / stale value (spec §2.8).
+    An engine UNABLE keeps the engine's own reason.  The withheld asset is NOT
+    named: whether the public answer may name it is the owner exposure
+    decision F-1, and until it is made the answer discloses no more than the
+    engine gate already does."""
     raw = entry.get("fairness")
     fairness: Mapping[str, Any] = raw if isinstance(raw, Mapping) else {}
     reason = fairness.get("reasonCode")
-    rows = [*(entry.get("gives") or []), *(entry.get("receives") or [])]
+    rows = [
+        r
+        for r in (*(entry.get("gives") or []), *(entry.get("receives") or []))
+        if isinstance(r, Mapping)
+    ]
+    state = str(fairness.get("state"))
+    if state in (team_verdicts.FAIR, team_verdicts.NOT_FAIR) and _withheld_value_evidence(entry):
+        return TeamFairnessInput(
+            roster_id=int(entry["rosterId"]),
+            state=team_verdicts.UNABLE,
+            reason_code="evaluation_unavailable",
+            unavailable_asset_ids=(),
+        )
     ids: set[str] = set()
     if reason == "ownership_unverifiable":
         ids |= {str(a) for a in entry.get("unverifiableAssetIds") or []}
@@ -565,7 +619,7 @@ def team_fairness_input(entry: Mapping[str, Any]) -> TeamFairnessInput:
     own = {str(r.get("assetId")) for r in rows}
     return TeamFairnessInput(
         roster_id=int(entry["rosterId"]),
-        state=str(fairness.get("state")),
+        state=state,
         reason_code=str(reason) if reason is not None else None,
         unavailable_asset_ids=tuple(sorted(ids & own)),
     )
@@ -606,8 +660,12 @@ def reduce_fairness(
     ``(rosterId, state, reasonCode, unavailable ids)``, the engine's overall
     fairness state and the canonical legs (``trade_ledger.Leg``).
 
-    The overall is the engine's ``fairnessOverall`` (three-valued AND); it is
-    cross-checked against the per-team states and a disagreement raises
+    ``overall_state`` is the overall the caller expects to publish: for
+    :func:`evaluate` that is the three-valued AND over the PUBLIC per-team
+    states, after the withheld-value downgrade (:func:`public_overall_state`),
+    with the engine's own ``fairnessOverall`` already cross-checked against
+    the engine's own per-team states there.  It is cross-checked again here
+    against the per-team results and a disagreement raises
     :class:`InvariantViolation` rather than publishing either.  Every array
     is in canonical order (teams ascending ``rosterId``, legs by asset id)."""
     per_team = sorted((_team_result(t) for t in teams), key=lambda r: r.roster_id)
@@ -642,7 +700,17 @@ def evaluate(snap: Any, ledger: Any) -> FairnessResult:
     Context, no posture, no capacity, no counterfactuals, nothing written) and
     reduce its result.  Raises the engine's ``PackageModelUnavailable`` /
     ``ConservationViolation`` or :class:`InvariantViolation`; the route maps
-    them to 503 and never publishes a partial body."""
+    them to 503 and never publishes a partial body.
+
+    The engine's ``fairnessOverall`` is cross-checked against the engine's
+    OWN per-team states (an engine that disagrees with itself is a 503).  The
+    PUBLISHED overall is recomputed from the public per-team states, so a team
+    the public side withholds (a non-``priced`` row under an engine FAIR /
+    NOT_FAIR — R1-L2 / F2) answers UNABLE TO DETERMINE with
+    ``evaluation_unavailable`` instead of turning the whole answer into a 503.
+    Spec I11 (public = private) therefore holds for every engine result whose
+    FAIR / NOT_FAIR teams carry only priced rows — which Lane A's own evidence
+    gate guarantees — and this downgrade is its one fail-closed exception."""
     from src.trade import analyze_service  # noqa: PLC0415
 
     result = analyze_service.analyze_trade_n(
@@ -652,12 +720,43 @@ def evaluate(snap: Any, ledger: Any) -> FairnessResult:
     if not isinstance(teams, Mapping) or set(teams) != set(ledger.teams):
         raise InvariantViolation("engine result does not cover every ledger team")
     summary = result.get("summary") if isinstance(result.get("summary"), Mapping) else {}
-    overall = (summary.get("fairnessOverall") or {}).get("state")
-    return reduce_fairness(
-        [team_fairness_input(teams[rid]) for rid in sorted(teams)],
-        overall_state=str(overall),
-        legs=ledger.legs,
-    )
+    engine_overall = str((summary.get("fairnessOverall") or {}).get("state"))
+    entries = [teams[rid] for rid in sorted(teams)]
+    # 1. The engine must agree with itself: its overall is the Kleene AND of
+    #    ITS OWN per-team states, read before any public downgrade.  A
+    #    disagreement here is an engine defect and is never published.
+    engine_states = [_engine_team_state(e) for e in entries]
+    if team_verdicts.fairness_overall(engine_states)["state"] != engine_overall:
+        raise InvariantViolation("engine overall fairness disagrees with its per-team states")
+    # 2. The public side may only make a team LESS certain (FAIR / NOT_FAIR ->
+    #    UNABLE when a row's valueState is not ``priced``, or an unknown
+    #    state / reason).  The published overall is therefore recomputed from
+    #    the public per-team states, never copied from the engine: copying it
+    #    would publish the engine's FAIR / NOT_FAIR over a team the public
+    #    side has just withheld (R1-L2 / F2).
+    inputs = [team_fairness_input(e) for e in entries]
+    public_overall = public_overall_state(inputs)
+    # 3. Structural guard: a downgrade can never make the overall MORE
+    #    certain than the engine's.  FAIR / NOT_FAIR is published only when
+    #    the engine said exactly that.
+    if public_overall != team_verdicts.UNABLE and public_overall != engine_overall:
+        raise InvariantViolation("public overall fairness is more certain than the engine's")
+    return reduce_fairness(inputs, overall_state=public_overall, legs=ledger.legs)
+
+
+def _engine_team_state(entry: Mapping[str, Any]) -> str:
+    """The engine's own per-team fairness state, unmodified."""
+    raw = entry.get("fairness")
+    return str(raw.get("state")) if isinstance(raw, Mapping) else "None"
+
+
+def public_overall_state(teams: Sequence[TeamFairnessInput]) -> str:
+    """The three-valued AND over the per-team results :func:`reduce_fairness`
+    will publish (each through :func:`_team_result`, so a team the reducer
+    fails closed counts as UNABLE here too)."""
+    return team_verdicts.fairness_overall(
+        [_RESULT_TO_STATE[_team_result(t).result] for t in teams]
+    )["state"]
 
 
 # ── Value-free enforcement (spec §4.6) ─────────────────────────────────────

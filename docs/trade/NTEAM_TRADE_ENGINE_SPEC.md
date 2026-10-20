@@ -346,7 +346,7 @@ That value is identical in every team's view (I13).
   "rosterId": 7,
   "team": {"rosterId": 7, "name": "…"},
   "gives":    [{"assetId": "p:4046", "kind": "player", "label": "…", "toRosterId": 3,
-                "value": 5123 /* or null */, "valueState": "priced|unpriced|off_board|not_held"}],
+                "value": 5123 /* or null */, "valueState": "priced|unpriced|off_board|not_held|quarantined|stale"}],
   "receives": [{"assetId": "…", "kind": "pick", "label": "…", "fromRosterId": 11,
                 "value": 4747, "valueState": "priced"}],
   "simulation": { /* simulate_for_team output, unchanged: before/after roster, lineup,
@@ -1067,8 +1067,23 @@ capacity / forced drops, posture, confidence.
   - `responseFloorMs` is a measured positive int, or a measured per-`teamCount` table;
   - `approvedFairnessVersion == fairness_bands.receipt()["version"]`;
   - fairness-bands `status != "PROVISIONAL"`;
-  - `approvedSourcePermissionRecord` names an existing file;
+  - `approvedSourcePermissionRecord` names a VALID owner record (R2-10,
+    `src/trade/public_advisor_permission.py`): a `.json` file under `docs/owner/` (no path or
+    symlink escape) with the exact `recordType` / `schemaVersion` / `scope`, a named approver,
+    `approvedAt <= today <= reviewBy` (past the owner-set `reviewBy` it is stale), and every
+    source registered to vote covered as `approved` by its own entry or its recorded provider's
+    (deny / unknown anywhere refuses; an uncovered or provider-unknown source refuses). Merely
+    naming an existing file no longer opens this leg;
   - the package model is geom with config state `ok`.
+- **Admission control (R2-5)**, both analyze routes (public and private
+  `/api/trade/analyze-multi`), one owner `src/api/compute_admission.py` reading
+  `config/trade/analyze_admission.json`: at most `maxConcurrent` engine computations per route
+  (joined single-flight waiters take no slot; a full route refuses at once), and each caller
+  waits at most `timeoutSeconds` (the computation is not abandoned and keeps its slot until it
+  finishes; an identical retry joins it). Refusals are retryable 503s with `Retry-After`
+  (public `advisor_unavailable` / `busy` | `timeout`, fixed copy, held to the floor; private
+  `analysis_busy` / `analysis_timeout`). Defaults public 2 / 5 s, private 2 / 30 s — **PENDING
+  OWNER CONFIRMATION** (§16 gate 7).
 
   This makes "public launch blocked on the owner's threshold and source-permission decisions"
   executable, and it catches a silent band version bump.
@@ -1306,6 +1321,30 @@ None changes a contract a consumer reads, except where marked **contract**.
   {"state": "not_computed_multi_team"}` (SD-12) — the lens itself then reads
   `not_computed`; `valueState` gains `not_held` for a sent asset the simulation reports in
   `ownedPickChecks.notOwnedBySender` (only reachable when rosters are not current).
+- **`valueState` quarantined / stale (contract, additive; R1-L2 / E-1 F2).** A resolved asset
+  the decision's evidence gates withhold reads `quarantined` (the pipeline's quarantine flag) or
+  `stale` (freshness axis `low`) — in that precedence, after `unpriced`, the same order as
+  `trade_decision.asset_evidence_codes` — with `value: null`, never `priced` with a number.
+  The full set is `analyze_service.VALUE_STATES`; only `priced` carries a value, and consumers
+  treat any state they do not recognise as not priced. The raw-conservation sums already exclude
+  every non-`priced` row. Public consumers (Lane C) still publish no per-asset state (§4).
+  Lane C consumes this state as the ONE owner: `public_advisor.team_fairness_input` turns a
+  FAIR / NOT_FAIR team into UNABLE `evaluation_unavailable` when any `gives` / `receives` row on
+  that team's side is not `priced` (missing state or malformed row included), and an engine
+  UNABLE keeps its own reason. The public side's interim second read of the simulation through
+  `trade_decision.asset_evidence_codes` is deleted. The withheld asset is not named in
+  `unavailableAssetIds` — naming it is owner exposure decision F-1, still open.
+- **One scarcity read per request (R1-1).** In `team_context` / `asset_only` the engine reads
+  the league scarcity bundle once (`roster_capacity.league_scarcity`) and hands the same reading
+  to every team's capacity context (`scarcity_reading`, threaded through `simulate_for_team` →
+  `simulate_trade` → `build_capacity_context`; `None`, the default every 2-team route uses,
+  reads it as before). `market_fairness` reads none. Per-team reads could score teams of one
+  trade against different scarcity, because the gameplan inputs are re-loaded on every call and
+  can fall to the 120 s TTL live team-strength fallback.
+- **Category for malformed gate pairings (LC-1).** `team_category` returns `UNAVAILABLE` when a
+  gate `deciding` (`executionGate`, `evidenceGate`) arrives with a headline `decide` never
+  emits it with (e.g. YES + `executionGate`) — previously FAVORABLE. Unreachable from `decide`;
+  pinned by the exhaustive table in `tests/trade/test_team_verdicts.py`.
 - **Comparables provider.** `(flows, simulation)`: the 2-team route's call needs the
   simulation's resolved `receiving` / `sending`, so the provider takes it (I4 holds exactly).
 - **Conservation (I6/I13).** `analyze_service._assert_conserved` checks every leg once in its

@@ -15,6 +15,57 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-20 — Brisket Trade Advisor completion and full multi-team trade support (+ same-day FAIRNESS-ONLY amendment)
+
+Definite owner instruction, recorded verbatim at `docs/owner/TRADE_ADVISOR_MULTITEAM_DIRECTIVE_2026-10-20.md`
+(main directive plus the superseding same-day amendment). This entry is the intake pointer. Capture is not
+implementation authorization: `docs/EXECUTION_PLAN.md` §0 ("Brisket Trade Advisor completion and multi-team trade
+support — owner directive, 2026-10-20") records what is authorized. The binding interface contract for the work is
+`docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`.
+
+- **OD-1 RESOLVED: YES.** 2-, 3- and 4-team trades are genuinely evaluated in BOTH the public Advisor and the private
+  Trade Calculator / War Room.
+  - There is ONE canonical server-side N-team engine: a per-team loop over the existing 2-team analysis owner.
+  - Each team gets its own authoritative result from its own perspective, with simultaneous roster application and
+    no separate multi-team valuation methodology.
+  - `multi_team_unsupported` is retired once the capability passes the launch requirements.
+- **FAIRNESS-ONLY amendment (supersedes the public ACCEPT/DECLINE / five-category requirement).**
+  - The PUBLIC Advisor answers only "Is this trade fair?": FAIR TRADE / NOT FAIR / UNABLE TO DETERMINE.
+  - Each team is judged separately; the overall trade is FAIR only when every team is fair.
+  - It reuses `geom_q078_v1` and the one fairness-band owner. There are no public numbers, gaps, formulas,
+    ACCEPT/DECLINE or personalized advice.
+  - The private calculator and War Room keep full YES/NO recommendations.
+  - The threshold must be investigated and validated, not silently inherited. Any methodology change goes to the
+    owner.
+- **Public launch is OWNER-RESERVED.**
+  - The `brisket_trade_advisor` flag stays off until all eleven directive §16 criteria pass, including:
+    - the source-permission decisions (OD-3);
+    - the exposure decisions (OD-4);
+    - the threshold decisions (OD-F1 to OD-F6);
+    - explicit owner launch approval.
+  - A merge is not launch approval.
+- **Unchanged:** `geom_q078_v1` (q = 0.78); no LP_150; no player-value change; no new weights or thresholds without
+  evidence and authorization; MISSING IS NEVER ZERO; recommendation ≠ execution.
+- **Supersession:** item 2 of the 2026-10-19 (later) entry below ("five categories mapped from the existing bands")
+  is superseded for the PUBLIC product by the amendment. Its other requirements stay in force.
+
+## Added 2026-10-20 (~12:25 UTC) — PR #1831 universal freshness schedule: owner chooses OPTION B (merge disabled, activation held)
+
+Owner decision, 2026-10-20, recorded verbatim at `docs/owner/PR1831_OPTION_B_DECISION_2026-10-20.md`. It answers the #1831 release question: merge the universal freshness schedule with `source_freshness_schedule_v2` OFF by default. The implementation and the previously established percentages (V5 of the 2026-10-19 entry) are APPROVED; activation is NOT. Reason, owner's words: the 918 value changes and LaJohntay Wester's +42.9% movement "warrant caution because the existing outlier filter can remove legitimate source votes when the voting population changes. This overlaps with the defect outlier-integrity-v2 is intended to fix." Capture is not implementation authorization; `docs/EXECUTION_PLAN.md` §0 (2026-10-20 ~12:25 UTC entry) records what is authorized.
+
+| # | Owner instruction | Status |
+|---|---|---|
+| FS-B1 | `source_freshness_schedule_v2` defaults OFF; no production environment override may activate it. With it off the board uses the v1 freshness rule exactly as `main` does | DECIDED — owner, 2026-10-20 (Option B). Default False in `src/api/feature_flags.py`; locked by `tests/api/test_freshness_v2_hold_locked.py` (registry default, every tracked deploy / workflow / config / script / env / systemd surface, default board = explicit-OFF board) and by `scripts/verify_owner_held_flags.py` in `deploy/verify-deploy.sh` (fails a deploy whose live process has it ON or does not report it — covers the untracked production `.env`). PR #1831 |
+| FS-B2 | Reconcile #1831 against current `main` (incl. #1817); recalculate the flag-off board impact against current `main` and confirm existing values are unchanged | DONE on the branch — merge of `origin/main` into `claude/universal-freshness-schedule`; one publisher-clock owner (`freshness.publisher_clock_style`) reconciles #1817 D5 with the v2 generalisation; flag-off `board_diff --expect-no-value-change` vs `origin/main`: 0 values, 0 ranks, 0 labels; whole contract identical except `generatedAt` and the additive `sourceVotingStatus` (`docs/sources/evidence/UNIVERSAL_FRESHNESS_2026-10-19/option_b_2026-10-20/`). PR #1831 |
+| FS-B3 | Keep the approved freshness schedule (0–7 100%, 8–14 75%, 15–21 50%, 22–30 25%, >30 0%) and its tests intact | DECIDED — owner, 2026-10-20. `config/sources/freshness_schedule_v2.json` steps unchanged; every v2 test kept and forces the flag ON explicitly. PR #1831 |
+| FS-B4 | Preserve the source-voting status and diagnostic improvements wherever they can operate without activating the new weighting | DECIDED — owner, 2026-10-20. `sourceVotingStatus` ships and reports the rule in force (v1 while held); a labelled, non-voting `shadowScheduleV2` per source shows what v2 would assign and never feeds a weight. PR #1831 |
+| FS-B5 | Add the affected rows — particularly LaJohntay Wester and the newly unpriced IDP cases — to the outlier-integrity-v2 regression and integration tests | DECIDED — owner, 2026-10-20. Regression data committed at `tests/fixtures/outlier_integrity_v2/freshness_v2_affected_rows_2026-10-20.json` (PR #1831); wiring it into V2's tests is owed on the V2 branch (`claude/outlier-integrity-v2`) |
+| FS-B6 | Once outlier-integrity-v2 is validated, run a combined impact analysis with the intended DLF voting changes and the freshness schedule enabled in SHADOW mode; report source participation, player values, IDP coverage, newly unpriced players and outlier exclusions — legitimate source disagreement is not corruption | DECIDED — owner, 2026-10-20; sequenced AFTER V2 validation (owned by the V2 lane) |
+| FS-B7 | Freshness activation, DLF IDP activation and D4 activation stay reserved for the owner's explicit approval | DECIDED — owner, 2026-10-20. Freshness activation OWNER-RESERVED (flipping the default is the only step, and it requires that approval); DLF IDP (O3-1) and D4 (IV2-D4) unchanged |
+| FS-B8 | Do not introduce the optional DEGRADED-health or coverage-factor rule changes, or pick-specific freshness exemptions, without separate evidence and approval | DECIDED — owner, 2026-10-20. None is in PR #1831 (health and coverage factors unchanged; no pick exemption); any such change needs its own evidence and owner approval |
+| FS-B9 | Do not delay unrelated authorized development (Release Train 16, production stability, the public/private multi-team calculators) | DECIDED — owner, 2026-10-20 |
+| FS-B10 | Once all gates pass, merge the safely disabled implementation through the normal release process; do not activate the schedule as part of that merge | DECIDED — owner, 2026-10-20; release through the normal train / HEAD-FREEZE gates, flag OFF |
+
 ## Added 2026-10-20 (~10:20 UTC) — "Hold D4 for V2" + OWNER IMPLEMENTATION DIRECTIVE: outlier-integrity-v2
 
 Two owner instructions of 2026-10-20, recorded together because the second carries the first as a binding addendum. Verbatim text: `docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md`. Capture is not implementation authorization; `docs/EXECUTION_PLAN.md` §0 (2026-10-20 ~10:20 UTC entry) records what is authorized. Both refine the Option 3 entry below: O3-2's "DLF Values voting (D4)" is SUPERSEDED by IV2-D4 (held); O3-3..O3-8 stand and are subsumed by the directive's fuller gates.
@@ -60,40 +111,6 @@ Owner decision, 2026-10-20, recorded verbatim at `docs/owner/OUTLIER_FILTER_V2_O
 | O3-8 | Once V2 passes all mandatory gates, prepare DLF IDP activation for the owner's explicit approval. Do not silently enable it | DECIDED — owner, 2026-10-20; DLF IDP activation (and V2 activation) are OWNER-RESERVED decisions |
 | O3-9 | Continue Train 12, Train 13, V1 verification and all other authorized engineering work in parallel without unnecessary blocking | DECIDED — owner, 2026-10-20; nothing else waits on V2 |
 | O3-10 | Keep the production stability investigation separate but high priority. The 2.6 GB memory peak above the 2.5 GB soft limit is a plausible contributor to the restart, not yet proof of root cause: W8 verifies the actual failure mechanism, addresses cache growth safely, and validates any proposed memory-limit change against the 8 GB server's available capacity | DECIDED — owner, 2026-10-20; W8 lane (`claude/prod-memory-pressure`); no box memory-limit change without that validation |
-
-## Added 2026-10-20 — Brisket Trade Advisor completion and full multi-team trade support (+ same-day FAIRNESS-ONLY amendment)
-
-Definite owner instruction, recorded verbatim at `docs/owner/TRADE_ADVISOR_MULTITEAM_DIRECTIVE_2026-10-20.md`
-(main directive plus the superseding same-day amendment). This entry is the intake pointer. Capture is not
-implementation authorization: `docs/EXECUTION_PLAN.md` §0 ("Brisket Trade Advisor completion and multi-team trade
-support — owner directive, 2026-10-20") records what is authorized. The binding interface contract for the work is
-`docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`.
-
-- **OD-1 RESOLVED: YES.** 2-, 3- and 4-team trades are genuinely evaluated in BOTH the public Advisor and the private
-  Trade Calculator / War Room.
-  - There is ONE canonical server-side N-team engine: a per-team loop over the existing 2-team analysis owner.
-  - Each team gets its own authoritative result from its own perspective, with simultaneous roster application and
-    no separate multi-team valuation methodology.
-  - `multi_team_unsupported` is retired once the capability passes the launch requirements.
-- **FAIRNESS-ONLY amendment (supersedes the public ACCEPT/DECLINE / five-category requirement).**
-  - The PUBLIC Advisor answers only "Is this trade fair?": FAIR TRADE / NOT FAIR / UNABLE TO DETERMINE.
-  - Each team is judged separately; the overall trade is FAIR only when every team is fair.
-  - It reuses `geom_q078_v1` and the one fairness-band owner. There are no public numbers, gaps, formulas,
-    ACCEPT/DECLINE or personalized advice.
-  - The private calculator and War Room keep full YES/NO recommendations.
-  - The threshold must be investigated and validated, not silently inherited. Any methodology change goes to the
-    owner.
-- **Public launch is OWNER-RESERVED.**
-  - The `brisket_trade_advisor` flag stays off until all eleven directive §16 criteria pass, including:
-    - the source-permission decisions (OD-3);
-    - the exposure decisions (OD-4);
-    - the threshold decisions (OD-F1 to OD-F6);
-    - explicit owner launch approval.
-  - A merge is not launch approval.
-- **Unchanged:** `geom_q078_v1` (q = 0.78); no LP_150; no player-value change; no new weights or thresholds without
-  evidence and authorization; MISSING IS NEVER ZERO; recommendation ≠ execution.
-- **Supersession:** item 2 of the 2026-10-19 (later) entry below ("five categories mapped from the existing bands")
-  is superseded for the PUBLIC product by the amendment. Its other requirements stay in force.
 
 ## Added 2026-10-19 (later) — four product directives, recorded verbatim
 
@@ -2200,7 +2217,7 @@ The finite completion queue they require is `docs/COMPLETION_QUEUE.md`. Capture 
 | V2 | IDP Trade Calculator and The IDP Show both vote on IDP at their approved weights; the D2 cross-provider shared cap is not enabled. The IDP Show's multiple boards count as one provider | DECIDED — owner, 2026-10-19; implementation: #1817 rework (CQ-01) |
 | V3 | IDP Trade Calculator's offensive values vote under the normal rules (D3 exclusion reversed) unless concrete evidence of copied or derived KTC data exists | DECIDED — owner, 2026-10-19; implementation: #1817 rework (CQ-01) |
 | V4 | **DLF IDP and DLF Rookie IDP return to voting** (the D1 hold is rescinded) under the DLF provider-family cap. Correct the outlier-filter interaction that caused 40–50% moves; no unexplained large moves | DECIDED — owner, 2026-10-19; implementation: #1817 (restore, HELD) + outlier lane (CQ-65). Refined 2026-10-20 (Option 3, O3-1..O3-10): DLF IDP stays held until outlier-filter V2 passes every mandatory gate and the owner explicitly approves activation |
-| V5 | **Universal freshness schedule** for every dynasty ranking source (offense, IDP, rookie). Days since the publisher's genuine update: 0–7 → 100%, 8–14 → 75%, 15–21 → 50%, 22–30 → 25%, more than 30 → 0%, multiplying the approved base weight. The clock is the publisher's update, or a recorded content-change observation; a re-download never resets it. Rookie seasonal inactivity is kept. Replaces the cadence-relative curve | DECIDED — owner, 2026-10-19; implementation: freshness lane (CQ-64) |
+| V5 | **Universal freshness schedule** for every dynasty ranking source (offense, IDP, rookie). Days since the publisher's genuine update: 0–7 → 100%, 8–14 → 75%, 15–21 → 50%, 22–30 → 25%, more than 30 → 0%, multiplying the approved base weight. The clock is the publisher's update, or a recorded content-change observation; a re-download never resets it. Rookie seasonal inactivity is kept. Replaces the cadence-relative curve | DECIDED — owner, 2026-10-19; implementation: freshness lane (CQ-64). **Activation HELD by the owner's Option B decision of 2026-10-20 (FS-B1..FS-B10 above): implementation and percentages approved, merged with `source_freshness_schedule_v2` default OFF; activation OWNER-RESERVED** |
 | V6 | Single-source haircut: the extreme D2 collapses (e.g. L'Jarius Sneed 1,133 → 339) are not accepted. Separate grouping errors from haircut flaws; keep the existing approved rule; any revision runs as a challenger with its own evidence gate | DECIDED — owner, 2026-10-19; implementation: #1817 rework evidence (CQ-01, CQ-10) |
 | V7 | Audit all 26 registered ranking sources: last genuine update, freshness %, base and effective weight, players contributing, voting status, reason, and what restores eligibility. Re-evaluate old-policy exclusions, defaulting to restore. Finish Signals Fantasy IDP shared-market normalization before it votes | DECIDED — owner, 2026-10-19; implementation: freshness lane audit generator (CQ-64); Signals IDP (CQ-24) |
 | V8 | No hidden weighting. A contribution is explainable from base weight × freshness × eligibility/quality × provider-family treatment; any other factor is documented with its purpose | DECIDED — owner, 2026-10-19; implementation: freshness + #1817 lanes |

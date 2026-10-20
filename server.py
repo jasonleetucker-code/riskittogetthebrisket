@@ -515,6 +515,18 @@ _OVERLAY_PER_FETCH_KEYS = frozenset({"overlayFetchedAt", "tradeWindowStart", "tr
 _OVERRIDES_RESPONSE_CACHE: dict = {}
 _OVERRIDES_ENCODE_LOCKS: dict = {}
 _OVERRIDES_RESPONSE_CACHE_MAX = 16
+# Byte bound (prod memory-pressure follow-up, 2026-10-20).  The count cap
+# alone allowed 16 entries of raw+gzip bytes: measured 6.26-6.5 MiB per delta
+# entry and 16.6-17.3 MiB per ``view=full`` entry, so ~105 / ~280 MB worst
+# case for a client posting distinct ``tep_multiplier`` values.  The budget is
+# sized so that 15 resident delta entries of up to ~8.5 MiB stay under it:
+# for delta bodies (the frontend default) the 16-entry COUNT cap still binds
+# first, so a cycle of distinct delta bodies thrashes at exactly the same
+# point it did before (16), and the byte budget only bites on full-view
+# bodies (~7 resident, worst case ~145 MiB instead of ~280 MB).  Eviction is
+# rebuild-on-next-request (0.9-1.3 s CPU per body measured), never a wrong
+# answer.
+_OVERRIDES_RESPONSE_CACHE_MAX_BYTES = 128 * 1024 * 1024
 latest_data_source: dict = {
     "type": "",
     "path": "",
@@ -4882,15 +4894,27 @@ def _overrides_encode_lock(cache_key) -> asyncio.Lock:
     return lock
 
 
+def _overrides_cache_bytes() -> int:
+    """Raw + gzip bytes held by the overrides memo."""
+    return sum(
+        len(e[0] or b"") + len(e[1] or b"") for e in list(_OVERRIDES_RESPONSE_CACHE.values())
+    )
+
+
 def _evict_overrides_cache_if_oversized(keep_key) -> None:
-    """Bound the overrides memo.  Key space is normally tiny (one stock
-    body × active leagues); the cap only guards against a client
-    spraying distinct bodies.  Held locks are preserved for the same
-    reason as ``_evict_overlay_cache_if_oversized``."""
-    if len(_OVERRIDES_RESPONSE_CACHE) < _OVERRIDES_RESPONSE_CACHE_MAX:
+    """Bound the overrides memo by entry count AND bytes.  Key space is
+    normally tiny (one stock body × active leagues); the caps only guard
+    against a client spraying distinct bodies.  Eviction is the same
+    clear-all-but-``keep_key`` it always was; an evicted body is rebuilt
+    byte-identically on its next request.  Held locks are preserved for
+    the same reason as ``_evict_overlay_cache_if_oversized``."""
+    if (
+        len(_OVERRIDES_RESPONSE_CACHE) < _OVERRIDES_RESPONSE_CACHE_MAX
+        and _overrides_cache_bytes() < _OVERRIDES_RESPONSE_CACHE_MAX_BYTES
+    ):
         return
-    for k in [k for k in _OVERRIDES_RESPONSE_CACHE if k != keep_key]:
-        del _OVERRIDES_RESPONSE_CACHE[k]
+    for k in [k for k in list(_OVERRIDES_RESPONSE_CACHE) if k != keep_key]:
+        _OVERRIDES_RESPONSE_CACHE.pop(k, None)
     for k in [k for k, lk in _OVERRIDES_ENCODE_LOCKS.items() if not lk.locked()]:
         del _OVERRIDES_ENCODE_LOCKS[k]
 
@@ -15970,6 +15994,14 @@ async def get_league_player_impact(request: Request, season: str = "", playerId:
         computed = _player_impact_cache.get(key)
         if computed is None:
             computed = _player_impact.compute_season(snapshot, target)
+            # A snapshot refresh moves ``generated_at``, so this league's
+            # entries from an older generation can never be looked up again;
+            # drop them instead of letting them occupy the cap (~8.7 MB each,
+            # memory follow-up 2026-10-20).  Other leagues' entries stay.
+            for stale in [
+                k for k in list(_player_impact_cache) if k[0] == key[0] and k[1] != key[1]
+            ]:
+                _player_impact_cache.pop(stale, None)
             while len(_player_impact_cache) >= _PLAYER_IMPACT_CACHE_MAX:
                 _player_impact_cache.pop(next(iter(_player_impact_cache)))
             _player_impact_cache[key] = computed
@@ -18654,9 +18686,17 @@ async def post_trade_analyze_multi(request: Request):
             stage=clock.stage,
         )
 
+    from src.api import compute_admission as _admission_mod  # noqa: PLC0415
+
+    admission = _admission_mod.admission_for(_admission_mod.ROUTE_ANALYZE_MULTI)
+
     async def _run():
+        # R2-5: each COMPUTATION takes an admission slot (joined waiters do
+        # not); a full route refuses at once instead of queueing on the GIL.
         try:
-            return await run_in_threadpool(_compute), None
+            return await admission.admit(lambda: run_in_threadpool(_compute)), None
+        except _admission_mod.AdmissionRejected as exc:
+            return None, f"admission_{exc.reason}"
         except _svc.PackageModelUnavailable:
             return None, "package_model_unavailable"
         except _svc.ConservationViolation as exc:
@@ -18673,10 +18713,41 @@ async def post_trade_analyze_multi(request: Request):
         json.dumps({str(k): v for k, v in goals.items()}, sort_keys=True),
         parsed["counterfactuals"],
     )
-    if owner:
-        (result, failure), shared = await _TRADE_ANALYZE_MULTI_FLIGHTS.run(key, _run)
-    else:
-        (result, failure), shared = await _run(), False
+
+    async def _await_result():
+        if owner:
+            return await _TRADE_ANALYZE_MULTI_FLIGHTS.run(
+                key,
+                _run,
+                # A refusal is about load at that instant, never a result
+                # another caller should inherit: a joiner retries once.
+                share_if=lambda out: not str(out[1] or "").startswith("admission_"),
+            )
+        return await _run(), False
+
+    try:
+        # R2-5: the caller waits at most the route's admission deadline; the
+        # computation itself keeps running (and keeps its slot) until done, so
+        # an identical retry joins it instead of starting another.
+        (result, failure), shared = await admission.within_deadline(_await_result)
+    except _admission_mod.AdmissionRejected as exc:
+        failure, result, shared = f"admission_{exc.reason}", None, False
+    if failure in ("admission_busy", "admission_timeout"):
+        retry = str(_admission_mod.RETRY_AFTER_SECONDS)
+        busy = failure == "admission_busy"
+        resp = _multi_error(
+            503,
+            "analysis_busy" if busy else "analysis_timeout",
+            (
+                "Multi-team analysis is busy right now. Try again in a moment."
+                if busy
+                else "Multi-team analysis took too long to answer. Try again."
+            ),
+            retryable=True,
+            retryAfterSeconds=_admission_mod.RETRY_AFTER_SECONDS,
+        )
+        resp.headers["Retry-After"] = retry
+        return resp
     if failure == "package_model_unavailable":
         return _multi_error(
             503, "package_model_unavailable", "Multi-team analysis needs the active package model."
