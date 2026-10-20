@@ -51,12 +51,42 @@ either side and put ~30 strings from the whole page in "Needs a side"):
 **Safe fallback.**  With ONE side label, only lines left-aligned under it
 take its side; nothing else is pulled onto it and no second side is inferred
 from position (a full page always has some other column — a sidebar, a
-widget — that would pass for one).  With NO side labels, nothing is placed on
+widget — that would pass for one).  The one exception is text BELOW the
+trade's end — its verdict or action buttons ("Fair Trade", "Copy Trade URL",
+"Accept", never a totals row, since one side's list can continue below the
+other's totals): that is the page under the trade (a "trending" widget, an
+ad) and is `ignored` as `outside_trade_region` even with one label.  With NO side labels, nothing is placed on
 a side (warning `trade_region_not_detected`), and an unassigned name-shaped
 string the canonical resolver has no match, candidate or near-name for is
 `ignored` as `unrecognized_text` rather than offered as "needs a side".
 Anything with a candidate or suggestion stays for the person to decide;
 nothing is guessed either way.
+
+## Several screenshots of one trade
+
+A trade often spans two phone screenshots.  Each is read on its own; the
+dialog merges them (`frontend/lib/screenshot-import.js::mergeImages`):
+
+* **Sides follow the side labels.**  Every anchored side carries
+  `anchorFamily` (the label vocabulary, e.g. `"team 1/team 2"`) and
+  `anchorSlot` (0 = first side, 1 = second), published by the server
+  (`layout.py` decides them; the client never parses label text).  A
+  follow-up shot showing only "Team 2 gets..." is added to Team 2's side, a
+  shot listing its sides in the other order is matched by label, and a lone
+  second-side label in the first shot goes to Side B.  Each screenshot's
+  placement is recorded in `alignmentNotes`; a placement that moved assets
+  off their position is explained in the review.
+* **Fallback is positional, and said out loud.**  A screenshot with no side
+  labels among labelled ones is placed by position with warning
+  `side_alignment_unverified`; one whose labels contradict the others
+  (another vocabulary, a side already taken, two sides onto one) with
+  `side_alignment_conflict`.  Never a guess presented as a label match.
+* **Overlap.**  Only an exact same-order run of >= 2 resolved assets at the
+  seam of two consecutive screenshots, on the same merged side, is kept once
+  (recorded with an undo).  A 1-asset match is flagged `possibleOverlap` and
+  never merged — repeats are legal (#1619).
+* Once both merged sides hold assets, the per-screenshot `missing_side`
+  warnings are dropped (they described one screenshot, not the trade).
 
 Item statuses: `resolved` (one board row), `needs_confirmation` (several
 on-board candidates — the user picks; never auto-selected), `unresolved`
@@ -103,6 +133,9 @@ reports `enabled: false`.
 
 * `GET /api/trade/import-screenshot/status` (signed-in) →
   `{"available", "reason", "engine": "tesseract", "version", "enabled"}`.
+  Production proof: `tests/e2e/specs/prod-auth/screenshot-import-status.spec.js`
+  (available, or a NAMED reason code; exactly these keys, no numbers,
+  `no-store`; read-only, never uploads).
 * `POST /api/trade/import-screenshot` (signed-in, not guest passes) — body
   `{"image": "<base64, optional data: URL prefix>", "index": 0..3}`. The
   response schema is documented and enforced in
@@ -152,7 +185,13 @@ precision, plus `distractorLeaks` — page players that became an item
 anywhere), **extraction / OCR** (expected strings read at all), **side**
 (extracted assets on the right side) and **identity** (extracted assets
 mapped to the right board row).  The fixtures are synthetic screenshots
-(regenerate with `python -m tests.trade.screenshot_import.synthetic`) plus
+(regenerate with `python -m tests.trade.screenshot_import.synthetic
+[scenario ...]` — name scenarios to avoid re-encoding the others' PNGs),
+including phone screenshots at a 390-point viewport captured at 3x
+(`mobile390_light_picks_idp`, `mobile390_dark_picks_idp`, with picks and IDP
+players, and the owner trade as a two-shot pair `mobile390_multishot_1/2`,
+whose real-tesseract payloads are committed as `extraction.json` and replayed
+by the frontend merge tests — re-record with `--record-extractions`), plus
 one REAL full-browser screenshot (`ktc_fullpage_browser`, a redacted
 derivative: tab strip, bookmark bar and profile avatar blanked with solid
 fill — never commit an unredacted original) and its crop (`ktc_cropped`).

@@ -1,0 +1,102 @@
+name: Production Restart Diagnostics (read-only)
+
+# Why did the backend restart, and what did the liveness watchdog see?
+#
+# Written for the 2026-10-19 stall: private endpoints timed out from about
+# 08:28 UTC, continuously from about 08:39:30, and the backend restarted
+# at 08:42:49 on the same commit (not a deploy).  The candidates (the
+# watchdog's 3-strike restart, MemoryHigh throttling, a MemoryMax OOM
+# kill) each leave a different footprint in the box journal, and nobody
+# had read it.  Reusable for any window.
+#
+# READ-ONLY and COUNT-ONLY by construction: it runs one script,
+# deploy/diagnostics/prod_restart_diagnostics.sh, which asks systemd for
+# unit properties and prints only allowlisted journal LIFECYCLE lines
+# (systemd, kernel OOM, the watchdog's verdicts, uvicorn start/stop) plus
+# per-minute COUNTS of the application log.  It never prints an
+# application log line, a request, a cookie, a token, an environment
+# variable or a command line, and it restarts, deploys and imports nothing.
+# The script is piped from the runner's checkout, so it runs before it
+# ships and writes nothing on the host.
+#
+# TRIGGER: workflow_dispatch only.  (A one-time branch push trigger was
+# used once, 2026-10-19 run 39241251979, and removed before merge.)
+
+on:
+  workflow_dispatch:
+    inputs:
+      since_utc:
+        description: 'Window start, UTC ("YYYY-MM-DD HH:MM")'
+        required: false
+        default: "2026-10-19 08:20"
+        type: string
+      until_utc:
+        description: 'Window end, UTC ("YYYY-MM-DD HH:MM"), at most 24h after the start'
+        required: false
+        default: "2026-10-19 08:50"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Its own group, NOT production-deploy: a read-only journal query must
+  # never queue a deploy behind it, or cancel a pending one.
+  group: production-diagnostics
+  cancel-in-progress: false
+
+jobs:
+  restart-diagnostics:
+    name: Restart diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_PRIVATE_KEY DEPLOY_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error title=Missing production SSH configuration::${name} is empty or unset."
+              exit 1
+            fi
+          done
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Collect restart evidence
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+          SINCE_UTC: ${{ inputs.since_utc || '2026-10-19 08:20' }}
+          UNTIL_UTC: ${{ inputs.until_utc || '2026-10-19 08:50' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The remote script's exit status is this step's status: it exits
+          # 5 when it could not read the journal or the window held nothing
+          # for the service, so "could not look" never renders green.  No
+          # `|| true`, no pipe that would mask it.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash -s -- $(printf %q "$SERVICE_NAME") $(printf %q "$SINCE_UTC") $(printf %q "$UNTIL_UTC")" \
+            < deploy/diagnostics/prod_restart_diagnostics.sh

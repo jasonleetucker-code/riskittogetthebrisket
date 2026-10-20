@@ -513,3 +513,48 @@ def test_team_weakness_for_an_absent_team_is_explicitly_unavailable():
 def test_declared_team_count_is_none_for_an_unknown_league_not_a_constant():
     assert ri.declared_team_count(None) is None
     assert ri.declared_team_count("definitely_not_a_league_key") is None
+
+
+# ══ An ownerless (orphaned) roster is still a team in the league ═══════
+#
+# Sleeper publishes ``owner_id: null`` for a roster whose manager left the
+# league, and both producers then write ``ownerId: ""`` and name the team
+# ``"Team <roster_id>"``.  Measured live on 2026-10-20: dynasty_main roster 12
+# lost its owner, ``/api/data`` listed "Team 12", and the canonical Team
+# Strength ladder had no row of that name.  The pool is keyed positionally by
+# ``roster_pool_key``; the NAME must follow the same key or the team is ranked
+# under a blank label.
+
+
+def _contract_with_orphan():
+    c = _contract(n_teams=4)
+    orphan = c["sleeper"]["teams"][-1]
+    orphan["ownerId"] = ""
+    orphan["name"] = "Team 12"
+    return c
+
+
+def test_an_orphaned_roster_is_ranked_under_its_contract_name():
+    c = _contract_with_orphan()
+    league = ri.build_league_roster_intelligence(c, team_count=4)
+    names = sorted(t["teamName"] for t in league["teams"].values())
+    assert names == sorted(t["name"] for t in c["sleeper"]["teams"])
+    assert "" not in names
+
+
+def test_the_league_context_ladder_names_the_orphaned_roster():
+    c = _contract_with_orphan()
+    payload = ri.get_team_roster_intelligence(c, "o0", team_count=4)
+    ladder = [row["teamName"] for row in payload["leagueContext"]]
+    assert len(ladder) == 4
+    assert "Team 12" in ladder
+
+
+def test_two_orphaned_rosters_keep_their_own_names():
+    c = _contract(n_teams=4)
+    for team, label in zip(c["sleeper"]["teams"][-2:], ("Team 11", "Team 12")):
+        team["ownerId"] = ""
+        team["name"] = label
+    league = ri.build_league_roster_intelligence(c, team_count=4)
+    names = sorted(t["teamName"] for t in league["teams"].values())
+    assert names == sorted(["Team o0", "Team o1", "Team 11", "Team 12"])

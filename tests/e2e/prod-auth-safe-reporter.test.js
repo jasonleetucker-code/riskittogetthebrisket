@@ -161,6 +161,38 @@ test("a failure keeps its status and an error CLASS, never the message", () => {
   assert.match(stdout, /FAIL \[prod-desktop\] example\.spec\.js › t1 \(12ms\) \[assertion\]/);
 });
 
+test("a COLOURED value-matcher failure is an assertion, a thrown error stays an error", () => {
+  // The exact shape Playwright produces for toBe / toEqual / toContain: the
+  // matcher hint is wrapped in ANSI dim/colour escapes.  The real message
+  // carries private values after the hint; none of it may be published.
+  const coloured =
+    `Error: a completed week must resolve final (owner ${OWNER_ID})\n\n` +
+    "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m" +
+    "\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: \"final\"\nReceived: \"live\"";
+  const thrown = "TypeError: Cannot read properties of null (reading 'season')";
+  const { report, stdout } = withReporter((r) => {
+    r.onTestEnd(fakeTest("coloured"), {
+      status: "failed",
+      duration: 5,
+      errors: [{ message: coloured, stack: coloured }],
+      annotations: [],
+    });
+    r.onTestEnd(fakeTest("thrown"), {
+      status: "failed",
+      duration: 5,
+      errors: [{ message: thrown, stack: thrown }],
+      annotations: [],
+    });
+    r.onEnd({ status: "failed" });
+  });
+  assert.equal(report.tests[0].errorClass, "assertion");
+  assert.equal(report.tests[1].errorClass, "error");
+  const blob = JSON.stringify(report) + stdout;
+  for (const leak of [OWNER_ID, "live", "final", "\u001b", "Cannot read"]) {
+    assert.ok(!blob.includes(leak), `leaked: ${JSON.stringify(leak)}`);
+  }
+});
+
 test("the report carries no attachments, stdout or raw annotations field", () => {
   const { report } = withReporter((r) => {
     r.onTestEnd(fakeTest("t3"), { status: "passed", duration: 5, errors: [], annotations: [] });
@@ -201,6 +233,7 @@ test("each converted spec emits only allowlisted annotation types", () => {
     "trade-stack-withdrawn.spec.js",
     "trade-war-room.spec.js",
     "train2-private-surfaces.spec.js",
+    "screenshot-import-status.spec.js",
   ];
   for (const file of converted) {
     const src = fs.readFileSync(path.join(__dirname, "specs", "prod-auth", file), "utf-8");

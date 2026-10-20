@@ -887,6 +887,37 @@ def _value_fn(objective: str):
     )
 
 
+def _override_table(
+    slot_eligibility: Mapping[str, Collection[str]] | None,
+) -> dict[str, frozenset[str]] | None:
+    """The league's configured slot rule as the predicate reads it, or
+    ``None`` when nothing is configured (the declared table applies)."""
+    if not slot_eligibility:
+        return None
+    return {
+        _normalize_slot_name(str(k)): frozenset(str(p).strip().upper() for p in v if str(p).strip())
+        for k, v in slot_eligibility.items()
+    }
+
+
+def _rule_identity(
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Collection[str]] | None,
+) -> tuple[tuple[str, ...], frozenset | None]:
+    """What a precomputed eligibility map was derived under: the slot list and
+    the league rule exactly as :func:`_eligibility_predicate` reads it."""
+    table = _override_table(slot_eligibility)
+    return tuple(slots), (None if table is None else frozenset(table.items()))
+
+
+class _PrecomputedEligibility(dict):
+    """:func:`precompute_slot_eligibility`'s answer, tagged with the slots and
+    rule it was derived under, so the solver can tell when re-reading it is
+    exactly what deriving eligibility again would answer."""
+
+    derived_for: tuple[tuple[str, ...], frozenset | None] | None = None
+
+
 def _eligibility_predicate(
     slot_eligibility: Mapping[str, Collection[str]] | None,
 ):
@@ -903,13 +934,9 @@ def _eligibility_predicate(
     is the LEAGUE's own rule, and a consumer passing anything else is
     reintroducing the second eligibility table this unit deleted.
     """
-    if not slot_eligibility:
+    overrides = _override_table(slot_eligibility)
+    if overrides is None:
         return _player_eligible_for_slot
-
-    overrides = {
-        _normalize_slot_name(str(k)): frozenset(str(p).strip().upper() for p in v if str(p).strip())
-        for k, v in slot_eligibility.items()
-    }
 
     def _predicate(slot: str, player: RosterPlayer) -> bool:
         allowed = overrides.get(_normalize_slot_name(slot))
@@ -947,9 +974,20 @@ def precompute_slot_eligibility(
     misalign the moment two calls draw different values.
     """
     is_eligible = _eligibility_predicate(slot_eligibility)
-    return {
-        p.player_id: tuple(i for i, slot in enumerate(slots) if is_eligible(slot, p)) for p in pool
-    }
+    out = _PrecomputedEligibility()
+    conflicting = False
+    for p in pool:
+        indices = tuple(i for i, slot in enumerate(slots) if is_eligible(slot, p))
+        prior = out.get(p.player_id)
+        if prior is not None and prior != indices:
+            conflicting = True  # one id, two position shapes: out of contract
+        out[p.player_id] = indices
+    # Tagged only when re-reading the map is exactly the predicate's answer.
+    # A pool that holds one id twice with different eligibility is keyed
+    # last-wins here, so it stays untagged and the labelling pass asks the
+    # predicate per player, as it always did.
+    out.derived_for = None if conflicting else _rule_identity(slots, slot_eligibility)
+    return out
 
 
 def solve_optimal_assignment(
@@ -1043,7 +1081,28 @@ def solve_optimal_assignment(
         _augment(idx, set())
 
     assignment = {slot_idx: ordered[p_idx] for slot_idx, p_idx in slot_owner.items()}
-    return _canonicalize_slots(assignment, slots, is_eligible, value=value)
+    eligible_at = None
+    if precomputed_eligibility is not None and getattr(
+        precomputed_eligibility, "derived_for", None
+    ) == _rule_identity(slots, slot_eligibility):
+        # The canonical-labelling pass asks "may this assigned player sit in
+        # slot i" under THIS call's rule.  When the precomputed map was
+        # derived under exactly these slots and this rule (its tag says so),
+        # re-reading it is that answer, so it is not re-derived per pair.
+        # Otherwise — an untagged map, or one derived under another rule
+        # than the call passes — the predicate is asked, as it always was,
+        # so no caller's labelling changes.  Assigned players are unique by
+        # id (the duplicate guard above), so the id-keyed lookup is
+        # unambiguous.
+        index_sets = {
+            ordered[p_idx].player_id: frozenset(eligible_slots[p_idx])
+            for p_idx in slot_owner.values()
+        }
+
+        def eligible_at(slot_idx: int, player: RosterPlayer) -> bool:
+            return slot_idx in index_sets[player.player_id]
+
+    return _canonicalize_slots(assignment, slots, is_eligible, value=value, eligible_at=eligible_at)
 
 
 @dataclass(frozen=True)
@@ -1125,6 +1184,7 @@ def _canonicalize_slots(
     slots: list[str],
     is_eligible=_player_eligible_for_slot,
     value=None,
+    eligible_at=None,
 ) -> dict[int, RosterPlayer]:
     """Pick a canonical representative among equally-optimal lineups.
 
@@ -1142,8 +1202,17 @@ def _canonicalize_slots(
     both are cross-eligible.  Both moves keep the multiset of started
     players — and therefore the total — identical, so optimality is
     preserved by construction.
+
+    ``eligible_at(slot_index, player)``, when given, answers the same
+    eligibility question by slot INDEX (the solver passes its precomputed
+    answer); otherwise ``is_eligible(slots[i], player)`` is asked.
     """
     value = value or _value_with_health_penalty
+    if eligible_at is None:
+
+        def eligible_at(slot_idx: int, player: RosterPlayer) -> bool:
+            return is_eligible(slots[slot_idx], player)
+
     changed = True
     while changed:
         changed = False
@@ -1153,14 +1222,14 @@ def _canonicalize_slots(
                 if there is None:
                     continue
                 if here is None:
-                    if is_eligible(slots[i], there):
+                    if eligible_at(i, there):
                         assignment[i] = there
                         del assignment[j]
                         changed = True
                     continue
                 if value(here) >= value(there):
                     continue
-                if is_eligible(slots[i], there) and is_eligible(slots[j], here):
+                if eligible_at(i, there) and eligible_at(j, here):
                     assignment[i], assignment[j] = there, here
                     changed = True
     return assignment

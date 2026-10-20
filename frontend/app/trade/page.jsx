@@ -47,6 +47,7 @@ import {
   computeStackAdjustments,
   multiTeamNetSummary,
   tradeSignature,
+  displayValue,
 } from "@/lib/trade-logic";
 import { valuationBasisLabel } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
@@ -58,7 +59,11 @@ import {
   parseShareParam,
   shareLinkLimits,
 } from "@/lib/trade-share";
-import { resolveTeamSide, tradeRequestForTeam } from "@/lib/trade-war-room";
+import {
+  resolveTeamSide,
+  tradeRequestForTeam,
+  warRoomValueSummaryFor,
+} from "@/lib/trade-war-room";
 import { historyOriginFor, sharePayloadOf } from "@/lib/trade-history-origin";
 import {
   PICK_OWNERSHIP_UNAVAILABLE_LABEL,
@@ -247,6 +252,13 @@ const TradeNextActions = dyn(
 // before it has anything to show.
 const loadWarRoom = () => import("@/components/trade/TradeWarRoom");
 const TradeWarRoom = dyn(loadWarRoom, "Trade War Room");
+// The Value Adjustment comparison (dual-VA, #1826) renders INSIDE the War Room
+// (its `vaSlot`, right under the at-a-glance rows), so its chunk is prefetched
+// beside the War Room's: no waterfall from War Room chunk -> comparison chunk.
+// Accepted trade-off: a War Room chunk failure also hides the comparison
+// (both sit behind the War Room's resilient section).
+const loadVaComparison = () => import("@/components/trade/ValueAdjustmentComparison");
+const ValueAdjustmentComparison = dyn(loadVaComparison, "Value Adjustment comparison");
 
 // On-demand page sections — the same React.lazy + per-section Suspense
 // pattern, for code that cannot be on screen at first render:
@@ -352,6 +364,17 @@ export default function TradePage() {
   // ``focusedSideIdx`` controls which side's dropdown is visible.
   const [sideQueries, setSideQueries] = useState({});
   const [focusedSideIdx, setFocusedSideIdx] = useState(null);
+  // Pending blur timers, one per side.  Focusing a side's search again
+  // cancels its timer: without that, blurring and re-focusing inside the
+  // 120ms window let the stale timer close the dropdown of a focused input
+  // (Enter then added nothing).
+  const sideBlurTimersRef = useRef({});
+  useEffect(
+    () => () => {
+      Object.values(sideBlurTimersRef.current).forEach(clearTimeout);
+    },
+    [],
+  );
   const sideInputRefs = useRef({});
   const [hydrated, setHydrated] = useState(false);
   // The suggestions desk is always rendered once the pool loads; fetch its
@@ -359,6 +382,7 @@ export default function TradePage() {
   useEffect(() => {
     prefetch(loadSuggestionsDesk);
     prefetch(loadWarRoom);
+    prefetch(loadVaComparison);
   }, []);
 
   // The phone sheet belongs to the phone layout: it closes if the viewport widens.
@@ -1422,12 +1446,24 @@ export default function TradePage() {
 
   // Inline-search add: drop the row onto the side, clear that side's
   // query so the dropdown collapses, and re-focus the input so the
-  // soft keyboard stays up for the next addition.
+  // soft keyboard stays up for the next addition.  The re-focus runs a
+  // frame later, so it only reclaims focus that is lost (the tapped option
+  // unmounted) or still inside this side's search: if the user has already
+  // moved on (say, into the other side's search) it never pulls them back.
   function addFromSearch(row, sideIdx) {
     addToSide(row, sideIdx);
     setSideQueries((prev) => ({ ...prev, [sideIdx]: "" }));
     requestAnimationFrame(() => {
-      sideInputRefs.current[sideIdx]?.focus({ preventScroll: true });
+      const input = sideInputRefs.current[sideIdx];
+      if (!input) return;
+      const current = typeof document !== "undefined" ? document.activeElement : null;
+      const movedOn =
+        current &&
+        current !== document.body &&
+        current !== input &&
+        !input.parentElement?.contains(current);
+      if (movedOn) return;
+      input.focus({ preventScroll: true });
     });
   }
 
@@ -1905,6 +1941,34 @@ export default function TradePage() {
           )
         : null,
     [sides, selectedTeam, teamRosterNames, explicitMySide],
+  );
+  // The War Room's immediate trade-value summary (owner directive 2026-10-19,
+  // Part 4): EXACTLY the calculator headline's totals for the selected team's
+  // side (overrides included), shown while the personalized analysis runs --
+  // never a YES / NO.  An asset with no board value and no override gets no
+  // total at all (MISSING IS NEVER ZERO); `warRoomValueSummaryFor` decides.
+  const warRoomValueSummary = useMemo(
+    () =>
+      sides.length === 2 && warRoomRequest
+        ? warRoomValueSummaryFor({
+            sideTotals,
+            mySide: warRoomRequest.mySide,
+            evaluation: evalState,
+            overrideCount: Object.keys(valueOverrides).length,
+          })
+        : null,
+    [sides.length, warRoomRequest, sideTotals, evalState, valueOverrides],
+  );
+  // The Value Adjustment comparison (#1826), defined once and mounted through
+  // the War Room's `vaSlot` in every War Room view.  Published values, like the
+  // War Room's analysis; the component renders nothing until two sides hold
+  // assets.
+  const vaComparison = (
+    <ValueAdjustmentComparison
+      sideValues={sides.map((s) => s.assets.map((r) => displayValue(r)))}
+      sideLabels={sides.map((s) => s.label)}
+      hasOverrides={Object.keys(valueOverrides).length > 0}
+    />
   );
   // Both sides hold assets but nothing says which one is the team's: ask.
   const sideChoiceNeeded =
@@ -2656,6 +2720,8 @@ export default function TradePage() {
                       setSideQueries((prev) => ({ ...prev, [idx]: v }))
                     }
                     onSideFocus={(idx) => {
+                      clearTimeout(sideBlurTimersRef.current[idx]);
+                      delete sideBlurTimersRef.current[idx];
                       setFocusedSideIdx(idx);
                       setActiveSide(idx);
                     }}
@@ -2663,7 +2729,9 @@ export default function TradePage() {
                       // Delay so a tap on a result registers before the
                       // dropdown unmounts (onMouseDown also pre-empts blur;
                       // this is the belt-and-braces guard for touch).
-                      setTimeout(() => {
+                      clearTimeout(sideBlurTimersRef.current[idx]);
+                      sideBlurTimersRef.current[idx] = setTimeout(() => {
+                        delete sideBlurTimersRef.current[idx];
                         setFocusedSideIdx((prev) => (prev === idx ? null : prev));
                       }, 120);
                     }}
@@ -2814,9 +2882,15 @@ export default function TradePage() {
             >
               {/* ── TRADE WAR ROOM (#792 / #1173 / #843 / #842) ────────
                   What this trade does to the selected team's actual
-                  roster: recommendation, then Market / Roster /
-                  Feasibility as three separate answers.  Two-side trades
-                  with a selected team; every number is the backend's. */}
+                  roster, in plain English (owner directive 2026-10-19):
+                  the ONE recommendation, then Trade value / Impact on your
+                  team / Does it fit your roster?  Every number is the
+                  backend's; while the analysis runs the War Room shows the
+                  calculator's own trade value (`valueSummary`), never a
+                  YES / NO. */}
+              {/* The Value Adjustment comparison (#1826) is defined ONCE and
+                  handed to every War Room view through `vaSlot` (two-team,
+                  3+-team and idle): exactly one mount in every state. */}
               {sides.length === 2 ? (
                 <TradeWarRoom
                   request={warRoomRequest}
@@ -2829,19 +2903,14 @@ export default function TradePage() {
                   chosenSide={teamSide.basis === "explicit" ? teamSide.side : null}
                   onChooseSide={setExplicitMySide}
                   onDecision={setDecisionSummary}
+                  valueSummary={warRoomValueSummary}
+                  vaSlot={vaComparison}
                 />
               ) : (
                 // TC-B / TCM-G09: the decision owner analyses ONE team's side of a
-                // two-team trade.  A 3+-team trade gets no YES / NO, and the page
-                // says so instead of silently dropping the War Room.
-                <Banner tone="info" title="A reliable YES / NO is unavailable">
-                  <span data-testid="war-room-multi-team-limit">
-                    The decision engine can identify your side and account for every
-                    side only in a two-team trade, so no YES / NO is given for this{" "}
-                    {sides.length}-team trade (owner decision, 2026-10-18); the result
-                    meter compares each team&apos;s net flow.
-                  </span>
-                </Banner>
+                // two-team trade.  A 3+-team trade gets no YES / NO; the War Room
+                // itself says so (`sideCount`) instead of silently disappearing.
+                <TradeWarRoom sideCount={sides.length} vaSlot={vaComparison} />
               )}
             </section>
 

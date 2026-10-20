@@ -14,6 +14,9 @@ import re
 
 from src.identity import pick_lifecycle as lc
 from src.identity.pick_lifecycle import (
+    BOARD_PICK_HORIZON_SEASONS_AFTER_COMPLETED_DRAFT,
+    HORIZON_BASIS_ANCHOR_FLOOR,
+    HORIZON_BASIS_PROVEN,
     LIFECYCLE_ACTIVE,
     LIFECYCLE_RETIRED,
     LIFECYCLE_UNKNOWN,
@@ -21,6 +24,7 @@ from src.identity.pick_lifecycle import (
     DraftObservation,
     LeagueDraftEvidence,
     board_class_lifecycle,
+    board_pick_horizon,
     draft_class_lifecycle,
     evidence_from_sleeper,
     first_active_class,
@@ -310,3 +314,93 @@ def test_first_active_class_steps_past_retired_classes():
     assert first_active_class(2026, [2026]) == 2027
     assert first_active_class(2026, [2026, 2027]) == 2028
     assert first_active_class(2026, [2025, 2028]) == 2026  # only a contiguous run moves it
+
+
+# ── Board future-pick horizon (owner decision 2026-10-19) ─────────────
+#
+# "Let's not add 2030 until the 2027 draft is complete ... 3 years out."
+# The horizon ends three seasons after the latest COMPLETED rookie draft,
+# where completed is the board-scoped retirement proof above.
+
+
+def _board(*verdicts: ClassLifecycle) -> dict[int, ClassLifecycle]:
+    return {lc_.season: lc_ for lc_ in verdicts}
+
+
+def _unknown(s: int) -> ClassLifecycle:
+    return ClassLifecycle(s, LIFECYCLE_UNKNOWN, ("no_draft_evidence",))
+
+
+def test_horizon_is_three_seasons_after_the_latest_completed_draft():
+    assert BOARD_PICK_HORIZON_SEASONS_AFTER_COMPLETED_DRAFT == 3
+    # 2026 completed, 2027 upcoming (vendors on 2027 slots) -> 2027-2029.
+    h = board_pick_horizon(2027, _board(_retired(2026), _unknown(2027), _unknown(2028)))
+    assert (h.end_year, h.latest_completed_class, h.basis) == (2029, 2026, HORIZON_BASIS_PROVEN)
+    assert h.to_dict()["endYear"] == 2029 and h.to_dict()["latestCompletedClassProven"] is True
+
+
+def test_the_2027_draft_completing_adds_2030():
+    h = board_pick_horizon(2027, _board(_retired(2026), _retired(2027), _unknown(2028)))
+    assert (h.end_year, h.latest_completed_class) == (2030, 2027)
+    # Self-rolling on proof alone, no year literal in the rule.
+    assert board_pick_horizon(2044, _board(_retired(2044))).end_year == 2047
+
+
+def test_a_vendor_slot_roll_alone_does_not_advance_the_horizon():
+    """The vendors moving their slot picks from 2026 to 2027 moves the anchor,
+    never the end: with 2026 proven, the horizon is 2029 on both sides of the
+    roll, and with 2026 NOT proven the rolled board still stops at 2029."""
+    proven_2026 = _board(_retired(2026), _unknown(2027))
+    assert board_pick_horizon(2026, proven_2026).end_year == 2029  # before the roll
+    assert board_pick_horizon(2027, proven_2026).end_year == 2029  # after the roll
+    unproven = board_pick_horizon(2027, _board(_unknown(2026), _unknown(2027)))
+    assert unproven.end_year == 2029  # never 2030
+    assert unproven.basis == HORIZON_BASIS_ANCHOR_FLOOR
+    assert unproven.to_dict()["latestCompletedClassProven"] is False
+
+
+def test_unprovable_completion_does_not_advance_the_horizon():
+    # No evidence at all, an unknown verdict, an active (live) draft, and a
+    # completed draft whose consumption is unproven all leave the floor.
+    unproven_consumption = draft_class_lifecycle(
+        2027,
+        _evidence([_draft("d27", 2027, "complete")], {"d27": _picks(84)}, ["veteran"]),
+    )
+    assert unproven_consumption.status == LIFECYCLE_UNKNOWN
+    for verdicts in (
+        None,
+        {},
+        _board(_unknown(2027)),
+        _board(ClassLifecycle(2027, LIFECYCLE_ACTIVE, ("draft_in_progress:d",))),
+        _board(unproven_consumption),
+    ):
+        h = board_pick_horizon(2027, verdicts)
+        assert h.end_year == 2029, verdicts
+        assert h.basis == HORIZON_BASIS_ANCHOR_FLOOR
+    # The floor is never above the anchor's previous class: an older proof
+    # (2025) cannot pull the horizon below it, and a newer one still wins.
+    older = board_pick_horizon(2027, _board(_retired(2025)))
+    assert (older.end_year, older.basis) == (2029, HORIZON_BASIS_ANCHOR_FLOOR)
+    # Before the 2026 draft is proven, a 2026-anchored board stops at 2028.
+    assert board_pick_horizon(2026, None).end_year == 2028
+
+
+def test_one_league_not_completed_keeps_the_board_horizon():
+    """The board verdict needs EVERY served league; one league still waiting
+    on its 2027 draft keeps 2030 off the shared board."""
+    per_league_2027 = {
+        "dynasty_main": _retired(2027),
+        "dynasty_new": ClassLifecycle(2027, LIFECYCLE_ACTIVE, ("draft_not_started:d",)),
+    }
+    board_2027 = board_class_lifecycle(2027, per_league_2027)
+    board_2026 = board_class_lifecycle(
+        2026, {"dynasty_main": _retired(2026), "dynasty_new": _retired(2026)}
+    )
+    h = board_pick_horizon(2027, _board(board_2026, board_2027))
+    assert (h.end_year, h.latest_completed_class) == (2029, 2026)
+    per_league_2027["dynasty_new"] = None  # no evidence at all
+    h = board_pick_horizon(2027, _board(board_2026, board_class_lifecycle(2027, per_league_2027)))
+    assert h.end_year == 2029
+    per_league_2027["dynasty_new"] = _retired(2027)
+    h = board_pick_horizon(2027, _board(board_2026, board_class_lifecycle(2027, per_league_2027)))
+    assert h.end_year == 2030

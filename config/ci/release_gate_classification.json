@@ -664,6 +664,15 @@
     "prod-e2e-smoke.yml::smoke::Use Node 20": {
       "category": "blocking"
     },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Checkout": {
+      "category": "blocking"
+    },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Collect restart evidence": {
+      "category": "blocking"
+    },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Configure production SSH": {
+      "category": "blocking"
+    },
     "public-league-warmup.yml::warm::Emit metrics snapshot": {
       "category": "blocking"
     },
@@ -1014,6 +1023,12 @@
     },
     "v1-authenticated-verification.yml::v1-authenticated::Upload the reports": {
       "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Wait for a warm backend (bounded, public endpoints)": {
+      "category": "advisory"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Detect a backend restart during the run (public /api/status)": {
+      "category": "advisory"
     },
     "v1-onbox-checklists.yml::v1-onbox::Configure production SSH": {
       "category": "blocking"

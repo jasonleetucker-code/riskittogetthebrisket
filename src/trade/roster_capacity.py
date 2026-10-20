@@ -976,8 +976,13 @@ def evaluate_final_roster_utility(
     draws: int | None = None,
     league_settings: Mapping[str, Any] | None = None,
     availability_context: Any = None,
+    cache_scope: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """#1173 best-ball utility for the FINAL LEGAL roster (C3-CAP-01's last step).
+
+    ``cache_scope`` is forwarded to ``evaluate_trade_utility`` so the BEFORE
+    roster's simulation is reused across trades for one team (exact reuse,
+    content-addressed; see ``best_ball_utility._before_side``).
 
     Availability (owner master package 2026-10-17, P0): when the league's
     remaining fantasy weeks resolve, every player carries his per-week
@@ -1076,6 +1081,7 @@ def evaluate_final_roster_utility(
         basis=basis,
         weeks=weeks,
         availability_basis=ctx.basis,
+        cache_scope=cache_scope,
     )
     if not weeks:
         # No remaining-week calendar resolved: the legacy calendar-free
