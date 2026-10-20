@@ -47,6 +47,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from src.identity.picks import parse_market_pick_id
 from src.sources.ktc_market import KTC_MARKET_KEY
+from src.trade import market_trade_groups as grp
 from src.valuation_math import package_model
 from src.valuation_math.package_model import adjusted_pair_totals
 
@@ -170,7 +171,8 @@ def fit_suitability(trade: Mapping[str, Any], topo: Mapping[str, Any]) -> dict[s
 # * ``hardExclusions`` -- the trade cannot be represented correctly in a
 #   latent-price fit (an unresolved asset, FAAB money the asset space cannot
 #   hold, an unverified dynasty format, a multi-team trade whose senders are
-#   unknown, no collection clock for point-in-time folds, ...).  Data
+#   unknown, a host record that leaves any received asset without a sender,
+#   no collection clock for point-in-time folds, ...).  Data
 #   integrity, not methodology.
 # * ``populationFlags`` -- provenance / independence FACTS (KTC-linked,
 #   Insider-crawled, own-league lane, unproven dedupe, FAAB not observable on
@@ -271,6 +273,20 @@ def estimator_evidence(trade: Mapping[str, Any]) -> dict[str, Any]:
             # A three-team trade is usable only when every asset's sender is
             # known (G8 restores it from the host movement's roster slot).
             hard.append("multi_team_senders_unattributed")
+    elif side_ev.get("attribution") == grp.SIDE_ATTRIBUTION_RECEIVED:
+        # A host record states every sender; a received asset with no sender
+        # proves the record is incomplete -- e.g. a three-team trade the
+        # Insider pool crawl cut down to its two pool rosters, which then
+        # reads as a two-sided trade.  KTC's package partition states no
+        # sender by design and is exempt.
+        senders = [
+            a.get("senderSideIndex")
+            for side in side_ev.get("sides") or []
+            for a in side.get("assets") or []
+        ]
+        n_assets = sum(len(s) for s in trade.get("sides") or [])
+        if len(senders) != n_assets or any(x is None for x in senders):
+            hard.append("partial_record_senders_unattributed")
     if not trade.get("occurredDate"):
         hard.append("undated_trade")
     if _parse_iso(trade.get("representativeCollectedAt") or trade.get("collectedAt")) is None:

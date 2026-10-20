@@ -194,6 +194,47 @@ class TestSleeperObservationEvidence:
             N.COLLECTION_PATH_SHARP: 1,
         }
 
+    def test_non_sleeper_platform_rows_never_get_sleeper_provenance(self, intel):
+        # The FFPC platform ledger writes trades into the same asset_movements
+        # table (``platform_ledger._insert_movement``).  None of this lane's
+        # Sleeper interpretation (host, collectionPath, platform exclusivity,
+        # sleeper_user manager-key domain) applies to them, so they are kept
+        # out of the Sleeper lane and COUNTED, never relabelled as Insider.
+        from src.intel import platform_ledger
+
+        platform_ledger.ensure_platform_schema(intel).close()
+        ledger.ingest_events(
+            _trade_events("T1", "L-A") + _trade_events("T9", "ffpc:97A"), path=intel
+        )
+        conn = ledger.connect(intel)
+        conn.execute("UPDATE asset_movements SET platform='ffpc' WHERE league_id='ffpc:97A'")
+        conn.commit()
+        conn.close()
+        rows, status = _sleeper_obs(intel)
+        assert [o["hostLeagueId"] for o in rows] == ["L-A"]
+        assert all(o["host"] == "sleeper" for o in rows)
+        assert status["nonSleeperTradesExcluded"] == {"ffpc": 1}
+        assert status["tradesByCollectionPath"] == {N.COLLECTION_PATH_INSIDER: 1}
+
+    def test_unrecorded_platform_on_a_migrated_ledger_is_not_sleeper(self, intel):
+        from src.intel import platform_ledger
+
+        platform_ledger.ensure_platform_schema(intel).close()
+        ledger.ingest_events(_trade_events("T1", "L-A"), path=intel)
+        conn = ledger.connect(intel)
+        conn.execute("UPDATE asset_movements SET platform=NULL")
+        conn.commit()
+        conn.close()
+        rows, status = _sleeper_obs(intel)
+        assert rows == []
+        assert status["nonSleeperTradesExcluded"] == {"unknown": 1}
+
+    def test_pre_platform_ledger_is_sleeper_only(self, intel):
+        # Without the platform migration the only writer is ingest_events.
+        ledger.ingest_events(_trade_events("T1", "L-A"), path=intel)
+        rows, status = _sleeper_obs(intel)
+        assert len(rows) == 1 and status["nonSleeperTradesExcluded"] == {}
+
     def test_no_secret_no_manager_key(self, intel):
         ledger.ingest_events(_trade_events(), path=intel)
         ev = _sleeper_obs(intel)[0][0]["sideEvidence"]
@@ -588,6 +629,59 @@ def test_multi_team_needs_every_sender():
         "multi_team_senders_unattributed"
         in E.estimator_evidence(_trade(sides=sides, sideEvidence=partial))["hardExclusions"]
     )
+
+
+def test_two_roster_record_of_a_three_team_trade_is_hard_excluded():
+    # The Insider crawl records only pool rosters: a three-team trade cut down
+    # to its two pool rosters looks like a 1-for-1 whose second side's sender
+    # is unknown.  The record itself proves it is incomplete.
+    sides = [[{"kind": "player", "canonicalId": f"player:{i}"}] for i in (1, 2)]
+    truncated = {
+        "attribution": N.SIDE_ATTRIBUTION_RECEIVED,
+        "managerKeyState": "keyed",
+        "sides": [{"assets": [{"senderSideIndex": 1}]}, {"assets": [{"senderSideIndex": None}]}],
+    }
+    ev = E.estimator_evidence(_trade(sides=sides, sideEvidence=truncated))
+    assert E.classify_topology(_trade(sides=sides))["topology"] != E.TOPO_MULTI_TEAM
+    assert "partial_record_senders_unattributed" in ev["hardExclusions"]
+
+
+def test_truncated_three_team_sleeper_record_end_to_end(intel):
+    # Rosters 1 and 2 are in the pool; roster 3 is not.  1 gets 1001 from 2,
+    # 2 gets 1002 from 3 (no drop recorded), 3 gets 1003 from 1 (no add).
+    events = [
+        _ev("T3", 1, "add", "1001"),
+        _ev("T3", 2, "drop", "1001"),
+        _ev("T3", 2, "add", "1002"),
+        _ev("T3", 1, "drop", "1003"),
+    ]
+    ledger.ingest_events(events, path=intel)
+    obs = _sleeper_obs(intel)[0][0]
+    assert obs["teamCount"] == 2
+    ev = E.estimator_evidence({**_trade(sides=obs["sides"]), "sideEvidence": obs["sideEvidence"]})
+    assert "partial_record_senders_unattributed" in ev["hardExclusions"]
+
+
+def test_package_partition_sender_absence_is_not_a_partial_record():
+    # KTC states packages, never senders: absence there is by design.
+    sides = [[{"kind": "player", "canonicalId": f"player:{i}"}] for i in (1, 2)]
+    ktc = {
+        "attribution": N.SIDE_ATTRIBUTION_PACKAGES,
+        "managerKeyState": "keyed",
+        "sides": [{"assets": [{"senderSideIndex": None}]} for _ in (1, 2)],
+    }
+    ev = E.estimator_evidence(_trade(sides=sides, sideEvidence=ktc))
+    assert "partial_record_senders_unattributed" not in ev["hardExclusions"]
+
+
+def test_complete_two_team_record_is_not_excluded():
+    sides = [[{"kind": "player", "canonicalId": f"player:{i}"}] for i in (1, 2)]
+    full = {
+        "attribution": N.SIDE_ATTRIBUTION_RECEIVED,
+        "managerKeyState": "keyed",
+        "sides": [{"assets": [{"senderSideIndex": j}]} for j in (1, 0)],
+    }
+    assert E.estimator_evidence(_trade(sides=sides, sideEvidence=full))["hardExclusions"] == []
 
 
 # ── consumers: identical output with or without the new fields ───────────

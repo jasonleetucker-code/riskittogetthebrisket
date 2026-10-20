@@ -110,6 +110,12 @@ _FORMAT_PREFERENCE = (
 #: we read on the host ourselves vs one KTC's trade database showed us.  The
 #: normalizer stamps ``observationChannel``; a row without the stamp falls back
 #: to its source family here.
+#: ``sideEvidence.attribution`` values (owned here, beside the channels, so the
+#: normalizer and the estimator read one definition).  A host record pairs each
+#: received asset with the roster that dropped it; KTC states packages only.
+SIDE_ATTRIBUTION_RECEIVED = "received_per_roster"
+SIDE_ATTRIBUTION_PACKAGES = "package_partition_orientation_unstated"
+
 CHANNEL_SLEEPER = "sleeper_observed"
 CHANNEL_KTC = "ktc_database"
 CHANNEL_BY_SOURCE_FAMILY = {

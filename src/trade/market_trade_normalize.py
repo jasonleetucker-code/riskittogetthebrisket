@@ -116,7 +116,13 @@ KIND_UNRESOLVED = "unresolved"
 #   Sharp cursor row was written by the Insider crawl -- the only other writer
 #   (``ledger.ingest_events`` has exactly these two callers).  A league WITH a
 #   cursor row is Sharp-covered; the Insider crawl may also have written some
-#   of its rows, which this label cannot separate.
+#   of its rows, which this label cannot separate.  The table has a third
+#   writer, the platform ledger (FFPC via ``platform_ledger.ingest_batch``):
+#   its rows carry ``platform != 'sleeper'`` and are NOT Sleeper trades, so
+#   the lane excludes and counts them (``nonSleeperTradesExcluded``) rather
+#   than stamping Sleeper host / crawl / exclusivity facts on them.  A ledger
+#   without the platform column predates that writer and is Sleeper-only; an
+#   unrecorded platform on a migrated ledger is ``unknown``, never Sleeper.
 # * ``sideEvidence`` -- aligned 1:1 with ``sides``: per side an optional
 #   pseudonymous ``managerKey`` (HMAC of the host user id under a box-local
 #   secret the caller supplies; no secret, no key), and per received asset the
@@ -140,8 +146,8 @@ COLLECTED_BASIS_SLEEPER = "intel_ledger_ingested_ms"
 COLLECTED_BASIS_OWN = "acquisition_first_recorded_at"
 COLLECTED_BASIS_UNKNOWN = "collection_time_unrecorded"
 
-SIDE_ATTRIBUTION_RECEIVED = "received_per_roster"
-SIDE_ATTRIBUTION_PACKAGES = "package_partition_orientation_unstated"
+SIDE_ATTRIBUTION_RECEIVED = grp.SIDE_ATTRIBUTION_RECEIVED
+SIDE_ATTRIBUTION_PACKAGES = grp.SIDE_ATTRIBUTION_PACKAGES
 MANAGER_KEY_KEYED = "keyed"
 MANAGER_KEY_NO_SECRET = "side_key_secret_unprovisioned"
 MANAGER_KEY_NOT_OBSERVED = "host_user_not_observed"
@@ -864,6 +870,14 @@ def _sharp_crawled_leagues(conn: sqlite3.Connection) -> set[str] | None:
         return None
 
 
+def _movement_platform_expr(conn: sqlite3.Connection) -> str:
+    """SQL for each movement's platform.  A ledger without the platform
+    column predates the platform ledger, whose writers are the only source of
+    non-Sleeper rows, so every row there is Sleeper (``ingest_events``)."""
+    cols = {str(r[1]) for r in conn.execute("PRAGMA table_info(asset_movements)").fetchall()}
+    return "m.platform" if "platform" in cols else "'sleeper'"
+
+
 def sleeper_discovery_observations(
     *,
     ledger_path: Path | None = None,
@@ -891,7 +905,8 @@ def sleeper_discovery_observations(
                 for r in conn.execute(
                     "SELECT m.movement_id, m.tx_id, m.league_id, m.asset_id, m.asset_type, "
                     "m.action, m.roster_id, m.ts, t.created_ms, t.status, m.user_id, "
-                    "m.ingested_ms AS m_ingested_ms, t.ingested_ms AS t_ingested_ms "
+                    "m.ingested_ms AS m_ingested_ms, t.ingested_ms AS t_ingested_ms, "
+                    f"{_movement_platform_expr(conn)} AS m_platform "
                     "FROM asset_movements m LEFT JOIN transactions t ON t.tx_id = m.tx_id "
                     "WHERE m.tx_type = 'trade' ORDER BY m.league_id, m.tx_id, m.movement_id"
                 ).fetchall()
@@ -922,6 +937,17 @@ def sleeper_discovery_observations(
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for m in moves:
         grouped.setdefault((str(m["league_id"]), str(m["tx_id"])), []).append(m)
+    non_sleeper: dict[str, int] = {}
+    for key in list(grouped):
+        platforms = {
+            str(m.get("m_platform") or "").strip().lower() or "unknown" for m in grouped[key]
+        }
+        if platforms != {"sleeper"}:
+            # Not a Sleeper trade (or not provably one): none of this lane's
+            # Sleeper interpretation applies.  Counted, never relabelled.
+            label = "+".join(sorted(platforms - {"sleeper"}))
+            non_sleeper[label] = non_sleeper.get(label, 0) + 1
+            del grouped[key]
 
     out: list[dict[str, Any]] = []
     format_sources: dict[str, int] = {}
@@ -1008,6 +1034,7 @@ def sleeper_discovery_observations(
         "trades": len(out),
         "leagues": len({k[0] for k in grouped}),
         "tradesByCollectionPath": dict(sorted(collection_paths.items())),
+        "nonSleeperTradesExcluded": dict(sorted(non_sleeper.items())),
         "formatCaptures": {
             "state": capture_state,
             "leaguesWithCapture": len(captures),
