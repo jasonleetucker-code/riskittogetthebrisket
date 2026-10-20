@@ -362,3 +362,31 @@ class TestV1RuleInForceWithV2Shadow:
         v1 = self._v1("a", _state(10)).subset_for(False).freshness
         assert e["status"] in vs.ACTIVE_STATUSES
         assert e["statusLabel"] == f"Active — {round(v1 * 100.0, 1):g}%"
+
+    def test_v1_label_map_publishes_bands_not_steps(self):
+        """Under v1 an Active code is only the band its continuous factor
+        falls in.  ``statusLabels`` (read by the audit script's counts line
+        and any other code-keyed consumer) must not name a step weight that
+        is not in force — 16.2% is not "Active — 25%"."""
+        for days in (1, 10, 20, 26, 29):
+            out = self._out(_state(days))
+            labels = out["statusLabels"]
+            assert labels == vs.STATUS_LABELS_V1
+            for code in vs.ACTIVE_STATUSES:
+                assert labels[code] != vs.STATUS_LABELS[code]
+            e = _by_key(out)["a"]
+            if e["status"] in vs.ACTIVE_STATUSES:
+                pct = e["weightFactors"]["freshness"] * 100.0
+                lo = {"active_100": 99.9, "active_75": 75, "active_50": 50, "active_25": 0}
+                assert pct >= lo[e["status"]] - 1e-6, (days, e)
+
+    def test_v2_label_map_is_the_step_vocabulary(self):
+        reg = [_src("a")]
+        contract = {
+            "playersArray": [_row("QB", {"a": _voted()})],
+            "sourceWeighting": {"applied": True, "sources": {"a": {}}},
+            "privateSourceAvailability": {},
+            "sourceSeasonalState": {"inactive": {}},
+        }
+        out = vs.build_source_voting_status(contract, {"a": _w("a", _state(10))}, reg, as_of=NOW)
+        assert out["statusLabels"] == vs.STATUS_LABELS

@@ -31,6 +31,12 @@ Status vocabulary (``status`` -> owner label)::
     active_75   Active — 75%           data_issue  Data Issue — Not Voting
     active_50   Active — 50%           seasonal    Seasonal — Not Voting
     active_25   Active — 25%           testing     Testing — Not Voting
+
+Those Active labels ARE the steps of the owner step schedule.  While the v1
+cadence curve is the rule in force the factor is continuous: each entry's
+``statusLabel`` names its actual percentage and ``statusLabels`` publishes the
+v1 BAND each Active code covers (``STATUS_LABELS_V1``), so no consumer can
+read a step weight that is not being applied.
 """
 
 from __future__ import annotations
@@ -71,6 +77,20 @@ STATUS_LABELS: dict[str, str] = {
     STATUS_DATA_ISSUE: "Data Issue — Not Voting",
     STATUS_SEASONAL: "Seasonal — Not Voting",
     STATUS_TESTING: "Testing — Not Voting",
+}
+#: The status vocabulary while the v1 cadence curve is the rule in force
+#: (the step schedule held OFF — owner decision 2026-10-20, PR #1831 Option
+#: B).  v1 freshness is CONTINUOUS, so an Active code is only the BAND the
+#: factor falls in (``_active_status``); naming a band by its lower step
+#: ("Active — 25%" for a source voting at 16.2%) would state a weight that is
+#: not in force.  Each entry's own ``statusLabel`` names the actual
+#: percentage; these labels describe what the code itself means under v1.
+STATUS_LABELS_V1: dict[str, str] = {
+    **STATUS_LABELS,
+    STATUS_ACTIVE_100: "Active — 99.9% or more",
+    STATUS_ACTIVE_75: "Active — 75% to under 99.9%",
+    STATUS_ACTIVE_50: "Active — 50% to under 75%",
+    STATUS_ACTIVE_25: "Active — under 50%",
 }
 ACTIVE_STATUSES = frozenset(
     {STATUS_ACTIVE_100, STATUS_ACTIVE_75, STATUS_ACTIVE_50, STATUS_ACTIVE_25}
@@ -425,7 +445,7 @@ def build_source_voting_status(
         "asOf": _iso(as_of),
         "freshnessSchedule": schedule,
         "freshnessApplied": applied,
-        "statusLabels": dict(STATUS_LABELS),
+        "statusLabels": dict(STATUS_LABELS if schedule == SCHEDULE_V2 else STATUS_LABELS_V1),
         "statusCounts": dict(sorted(counts.items())),
         "votingCount": sum(1 for e in entries if e["voting"]),
         "registeredCount": len(entries),
