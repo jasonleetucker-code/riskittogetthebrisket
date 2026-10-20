@@ -9,14 +9,9 @@
     "path": "/api/public/league/trade-advisor/teams",
     "status": 200
   },
-  "assets.value_desc": {
+  "assets.position_alpha": {
     "method": "GET",
     "path": "/api/public/league/trade-advisor/teams/1/assets",
-    "status": 200
-  },
-  "assets.alpha": {
-    "method": "GET",
-    "path": "/api/public/league/trade-advisor/teams/2/assets",
     "status": 200
   },
   "assets.pick-ownership-unavailable": {
@@ -24,27 +19,32 @@
     "path": "/api/public/league/trade-advisor/teams/2/assets",
     "status": 200
   },
-  "analyze.favorable": {
+  "analyze.fair-two-team": {
     "method": "POST",
     "path": "/api/public/league/trade-advisor/analyze",
     "status": 200
   },
-  "analyze.strongly-unfavorable": {
+  "analyze.not-fair-two-team": {
     "method": "POST",
     "path": "/api/public/league/trade-advisor/analyze",
     "status": 200
   },
-  "analyze.unavailable-asset": {
+  "analyze.three-team-fair": {
     "method": "POST",
     "path": "/api/public/league/trade-advisor/analyze",
     "status": 200
   },
-  "analyze.multi-team-unsupported": {
+  "analyze.four-team-mixed": {
     "method": "POST",
     "path": "/api/public/league/trade-advisor/analyze",
     "status": 200
   },
-  "analyze.roster-limit": {
+  "analyze.unable-asset": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 200
+  },
+  "analyze.unable-stale-rosters": {
     "method": "POST",
     "path": "/api/public/league/trade-advisor/analyze",
     "status": 200
@@ -70,6 +70,11 @@
     "status": 400
   },
   "error.invalid-trade-duplicate-asset": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 400
+  },
+  "error.invalid-trade-perspective": {
     "method": "POST",
     "path": "/api/public/league/trade-advisor/analyze",
     "status": 400

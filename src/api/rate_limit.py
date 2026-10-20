@@ -145,6 +145,8 @@ def reset_for_tests() -> None:
         _buckets.clear()
     with _keyed_lock:
         _keyed_buckets.clear()
+    for limiter in list(_LIMITER_INSTANCES):
+        limiter.reset()
     login_reset_for_tests()
 
 
@@ -198,6 +200,102 @@ def should_rate_limit_key(key: str, *, capacity: int, window_seconds: float) -> 
             return (True, max(1, math.ceil((1.0 - bucket.tokens) * per_token)))
         bucket.tokens -= 1.0
         return (False, 0)
+
+
+# ── Isolated keyed limiters (B0-h, 2026-10-19) ─────────────────────────
+#
+# ``should_rate_limit_key`` above shares ONE store, capped at
+# ``_MAX_TRACKED_KEYS`` with oldest-first eviction, between every caller
+# (screenshot OCR, Manager Intelligence).  A public caller able to mint keys
+# could therefore evict another feature's buckets — and its own, resetting its
+# limit.  A ``KeyedLimiter`` owns its store and lock; it reuses the same refill
+# arithmetic (``_refilled``) and clock seam (``_keyed_now``).  A ``ceiling``
+# bucket (a global cap shared by every caller) is never evicted.
+
+
+@dataclass
+class _LimiterBucket:
+    tokens: float
+    last_refill: float
+    ceiling: bool = False
+
+
+@dataclass(frozen=True)
+class KeyedCharge:
+    """One bucket a request is charged to."""
+
+    key: str
+    capacity: int
+    window_seconds: float
+    ceiling: bool = False
+
+
+class KeyedLimiter:
+    """An isolated token-bucket store (see the section comment)."""
+
+    def __init__(self, name: str, *, max_keys: int = 5000) -> None:
+        self.name = str(name)
+        self.max_keys = max(10, int(max_keys))
+        self._buckets: dict[str, _LimiterBucket] = {}
+        self._lock = threading.Lock()
+        _LIMITER_INSTANCES.append(self)
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._buckets)
+
+    def reset(self) -> None:
+        with self._lock:
+            self._buckets.clear()
+
+    def charge(self, charges: list[KeyedCharge]) -> tuple[bool, int]:
+        """``(is_limited, retry_after_seconds)`` for ONE request charged to
+        every bucket in ``charges``.  All-or-nothing: when any bucket is empty
+        nothing is debited (a refused request does not drain the others), and
+        the retry is the longest wait among the empty buckets.  Thread-safe;
+        never blocks.  Charges with an empty key or a non-positive capacity /
+        window are skipped."""
+        live = [c for c in charges if c.key and c.capacity > 0 and c.window_seconds > 0]
+        if not live:
+            return (False, 0)
+        now = _keyed_now()
+        with self._lock:
+            retry = 0
+            for c in live:
+                b = self._buckets.get(c.key)
+                if b is None:
+                    b = _LimiterBucket(tokens=float(c.capacity), last_refill=now, ceiling=c.ceiling)
+                    self._buckets[c.key] = b
+                else:
+                    b.tokens = _refilled(b.tokens, b.last_refill, now, c.capacity, c.window_seconds)
+                    b.last_refill = now
+                    b.ceiling = b.ceiling or c.ceiling
+                if b.tokens < 1.0:
+                    per_token = c.window_seconds / c.capacity
+                    retry = max(retry, max(1, math.ceil((1.0 - b.tokens) * per_token)))
+            if retry:
+                self._evict(protect={c.key for c in live})
+                return (True, retry)
+            for c in live:
+                self._buckets[c.key].tokens -= 1.0
+            self._evict(protect={c.key for c in live})
+            return (False, 0)
+
+    def _evict(self, *, protect: set[str]) -> None:
+        """Drop the oldest 10% of non-ceiling buckets over the cap.  Called
+        under ``self._lock``; never evicts a ceiling or a bucket this request
+        just charged."""
+        if len(self._buckets) <= self.max_keys:
+            return
+        candidates = sorted(
+            ((k, b) for k, b in self._buckets.items() if not b.ceiling and k not in protect),
+            key=lambda kv: kv[1].last_refill,
+        )
+        for k, _ in candidates[: max(1, self.max_keys // 10)]:
+            self._buckets.pop(k, None)
+
+
+_LIMITER_INSTANCES: list[KeyedLimiter] = []
 
 
 # ── Login failure throttle (W22-F003) ────────────────────────────────

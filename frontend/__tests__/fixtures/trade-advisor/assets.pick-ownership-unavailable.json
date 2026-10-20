@@ -1,23 +1,14 @@
 {
   "leagueKey": "main",
-  "generation": "669e14158e30e2fa",
+  "generation": "925cb8176237c9eb",
   "rosterId": 2,
-  "sort": "value_desc",
+  "sort": "position_alpha",
   "pickOwnership": "unavailable",
   "rosters": {
-    "state": "unknown",
-    "asOf": null
+    "state": "current",
+    "asOf": "2026-10-20"
   },
   "assets": [
-    {
-      "id": "p:201",
-      "kind": "player",
-      "label": "Bravo Star",
-      "side": "offense",
-      "position": "WR",
-      "nflTeam": "MIN",
-      "evaluable": true
-    },
     {
       "id": "p:202",
       "kind": "player",
@@ -25,6 +16,15 @@
       "side": "offense",
       "position": "RB",
       "nflTeam": "ATL",
+      "evaluable": true
+    },
+    {
+      "id": "p:201",
+      "kind": "player",
+      "label": "Bravo Star",
+      "side": "offense",
+      "position": "WR",
+      "nflTeam": "MIN",
       "evaluable": true
     },
     {
@@ -37,15 +37,6 @@
       "evaluable": true
     },
     {
-      "id": "p:203",
-      "kind": "player",
-      "label": "Bravo Safety",
-      "side": "defense",
-      "position": "DB",
-      "nflTeam": "KC",
-      "evaluable": true
-    },
-    {
       "id": "p:205",
       "kind": "player",
       "label": "Bravo Kicker",
@@ -53,6 +44,15 @@
       "position": "K",
       "nflTeam": "BAL",
       "evaluable": false
+    },
+    {
+      "id": "p:203",
+      "kind": "player",
+      "label": "Bravo Safety",
+      "side": "defense",
+      "position": "DB",
+      "nflTeam": "KC",
+      "evaluable": true
     }
   ]
 }

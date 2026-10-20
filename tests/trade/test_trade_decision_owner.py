@@ -93,4 +93,23 @@ def test_the_owner_is_pure():
             imported.add(n.module or "")
     # Pure stdlib (hashing / serialising its own receipt) + the valuation-math
     # owners.  No I/O, engine, store or network module.
-    assert imported <= {"__future__", "typing", "hashlib", "json", "src.valuation_math"}
+    # ``src.trade.team_verdicts`` (the per-team projections) stays allowed
+    # but is no longer imported here: the public alias that reached it was
+    # deleted with the PUBLIC section (fairness-only amendment, Lane C).  It
+    # is itself pure — pinned below.
+    assert imported <= {
+        "__future__",
+        "typing",
+        "hashlib",
+        "json",
+        "src.valuation_math",
+        "src.trade.team_verdicts",
+    }
+    verdicts = ast.parse((OWNER.parent / "team_verdicts.py").read_text(encoding="utf-8"))
+    v_imported = set()
+    for n in ast.walk(verdicts):
+        if isinstance(n, ast.Import):
+            v_imported |= {a.name for a in n.names}
+        elif isinstance(n, ast.ImportFrom):
+            v_imported.add(n.module or "")
+    assert v_imported <= {"__future__", "types", "typing", "src.trade", "src.valuation_math"}
