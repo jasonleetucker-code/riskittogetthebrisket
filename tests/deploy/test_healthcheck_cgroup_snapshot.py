@@ -22,6 +22,7 @@ from __future__ import annotations
 import os
 import stat
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -277,6 +278,24 @@ def test_pyspy_dump_only_when_installed_and_only_before_restart(host):
     # Stack frames stay in the state dir, out of the journal.
     assert "MainThread" not in res.stdout
     assert res.stdout.index("snapshot pyspy") < res.stdout.index("restart issued")
+
+
+def test_pyspy_that_ignores_sigterm_is_killed_and_never_blocks_the_restart(host):
+    # A plain ``timeout`` only SENDS SIGTERM; a py-spy that ignores it would
+    # hold the restart open past the unit's TimeoutStartSec.  ``-k`` makes the
+    # bound hard: SIGTERM at HEALTH_PYSPY_TIMEOUT, SIGKILL after the grace.
+    _write_exec(host.bin / "py-spy", "trap '' TERM\nexec sleep 30\n")
+    for _ in range(2):
+        host.run(HEALTH_PYSPY_TIMEOUT="1", HEALTH_PYSPY_KILL_AFTER="1")
+    started = time.monotonic()
+    res = host.run(HEALTH_PYSPY_TIMEOUT="1", HEALTH_PYSPY_KILL_AFTER="1")
+    elapsed = time.monotonic() - started
+    assert res.returncode == 0, res.stderr
+    assert elapsed < 15, f"py-spy held the restart for {elapsed:.1f}s"
+    receipt = [line for line in _snapshot_lines(res.stdout) if " pyspy " in line]
+    assert len(receipt) == 1 and _kv(receipt[0])["rc"] == "137"
+    assert "restart issued" in res.stdout
+    assert any(a.startswith("restart ") for a in host.systemctl_actions())
 
 
 def test_pyspy_can_be_disabled(host):

@@ -48,7 +48,9 @@
 #   HEALTH_PYSPY           default 1 (0 disables the optional pre-restart
 #                          py-spy dump; it only ever runs if py-spy is
 #                          already installed — nothing installs it)
-#   HEALTH_PYSPY_TIMEOUT   default 8 (seconds)
+#   HEALTH_PYSPY_TIMEOUT   default 8 (seconds; SIGTERM at this point,
+#                          SIGKILL HEALTH_PYSPY_KILL_AFTER seconds later)
+#   HEALTH_PYSPY_KILL_AFTER default 2 (seconds)
 
 set -Eeuo pipefail
 
@@ -175,6 +177,7 @@ HEALTH_CGROUP_ROOT="${HEALTH_CGROUP_ROOT:-/sys/fs/cgroup}"
 HEALTH_PROC_ROOT="${HEALTH_PROC_ROOT:-/proc}"
 HEALTH_PYSPY="${HEALTH_PYSPY:-1}"
 HEALTH_PYSPY_TIMEOUT="${HEALTH_PYSPY_TIMEOUT:-8}"
+HEALTH_PYSPY_KILL_AFTER="${HEALTH_PYSPY_KILL_AFTER:-2}"
 
 # A value as it may be logged: a number, "max" (an unlimited cgroup knob)
 # or "na" for anything missing or unexpected.
@@ -252,8 +255,11 @@ cgroup_snapshot() {
 # ONLY if py-spy is already installed on the host (this script installs
 # nothing).  Written to the state dir rather than the journal — stack
 # frames name files and functions, which the public diagnostics workflow
-# must not echo — and only a numeric receipt is logged.  Bounded by a
-# timeout so a frozen target cannot hold the restart for long.
+# must not echo — and only a numeric receipt is logged.  Hard-bounded:
+# SIGTERM at HEALTH_PYSPY_TIMEOUT, then SIGKILL HEALTH_PYSPY_KILL_AFTER
+# seconds later (`timeout -k`).  Without `-k` the timeout only SENDS
+# SIGTERM, and a py-spy that ignores it would hold the restart open past
+# the unit's TimeoutStartSec — the restart would then never run.
 pyspy_dump() {
     [[ "${HEALTH_PYSPY}" == "1" ]] || return 0
     command -v py-spy >/dev/null 2>&1 || return 0
@@ -262,7 +268,7 @@ pyspy_dump() {
     pid="$(systemctl show "${HEALTH_SERVICE}.service" -p MainPID --value 2>/dev/null || true)"
     [[ "${pid}" =~ ^[0-9]+$ && "${pid}" != "0" ]] || return 0
     out="${HEALTH_STATE_DIR}/pyspy-$(date -u +%Y%m%dT%H%M%SZ).txt"
-    timeout "${HEALTH_PYSPY_TIMEOUT}" py-spy dump --pid "${pid}" > "${out}" 2>&1 || rc=$?
+    timeout -k "${HEALTH_PYSPY_KILL_AFTER}" "${HEALTH_PYSPY_TIMEOUT}" py-spy dump --pid "${pid}" > "${out}" 2>&1 || rc=$?
     bytes="$(wc -c < "${out}" 2>/dev/null || echo 0)"
     log "snapshot pyspy reason=pre-restart rc=$(_snap_val "${rc}") bytes=$(_snap_val "${bytes// /}")"
     # Keep the newest three dumps.
