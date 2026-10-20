@@ -79,13 +79,18 @@ import TradeAdvisorShell from "./sections/trade-advisor-shell.jsx";
 // pick.  This composes with the per-section data fetching added in #652:
 // the CODE for a tab and the DATA for a tab now both arrive on open.
 //
-// OverviewSection is split like every other section since the Brisket
-// Trade Advisor became DEFAULT_TAB (2026-10-19).  It used to be the one
-// static section precisely because it was the landing view; that
-// "no loading flash on the landing tab" rationale now belongs to the
-// advisor's team step (imported statically above).  When the advisor is
-// switched off the hub lands on Overview again and pays one lazy-chunk
-// load for it.
+// OverviewSection is the one section that is split but still
+// SERVER-RENDERED (`ssr: true`, see below).  With the advisor switched off
+// it is the landing view, and an off flag must change nothing: its markup
+// has to stay in the server-rendered /league HTML exactly as on main
+// (first paint, SEO; main imported it statically).  Its code is still its
+// own chunk because the advisor's team step now also lives on the /league
+// page chunk and both would not fit the page budget.  next/dynamic with
+// `ssr: true` renders the section on the server and emits a preload for
+// its chunk, so hydration keeps the server HTML until the chunk arrives —
+// no loading flash on the landing view.  The `loading` fallback gives it
+// its own Suspense boundary for a client-side switch to the tab (without
+// one it would suspend the whole hub).
 //
 // Pattern (dynamic + `_`-prefixed siblings) matches
 // ./sections/draft-capital.jsx, which already splits its own two heavy
@@ -107,7 +112,10 @@ const sectionLoading = () => <LoadingState message="Loading section..." />;
 const lazySection = (loader) =>
   dynamic(loader, { ssr: false, loading: sectionLoading });
 
-const OverviewSection = lazySection(() => import("./sections/overview.jsx"));
+const OverviewSection = dynamic(() => import("./sections/overview.jsx"), {
+  ssr: true,
+  loading: sectionLoading,
+});
 const DraftCapitalSection = lazySection(() => import("./sections/draft-capital.jsx"));
 const HistorySection = lazySection(() => import("./sections/history.jsx"));
 const RivalriesSection = lazySection(() => import("./sections/rivalries.jsx"));
@@ -212,27 +220,43 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
       : { loading: true, error: "", contract: null },
   );
 
-  // URL → tab.  Tab clicks PUSH history entries, so Back / Forward change
-  // `?tab=` (including to no tab at all, which is the default landing);
-  // every change of the URL's tab — never a re-render with the same one —
-  // re-resolves the requested tab.
+  // URL → tab.
+  //
+  // Advisor served: tab clicks PUSH history entries, so Back / Forward
+  // change `?tab=` (including to no tab at all, which is the default
+  // landing); every change of the URL's tab — never a re-render with the
+  // same one — re-resolves the requested tab.
+  //
+  // Advisor NOT served: main's rule, verbatim — a valid `?tab=` that
+  // differs from the shown tab is adopted; no `?tab=` changes nothing.
   const prevRawUrlTabRef = useRef(rawUrlTab);
   useEffect(() => {
+    if (!advisorAvailable) {
+      prevRawUrlTabRef.current = rawUrlTab;
+      if (urlTab && resolveTab(urlTab, { advisorAvailable }) === urlTab && urlTab !== activeTab) {
+        setRequestedTab(urlTab);
+      }
+      return;
+    }
     if (prevRawUrlTabRef.current === rawUrlTab) return;
     prevRawUrlTabRef.current = rawUrlTab;
     setRequestedTab(urlTab || null);
-  }, [rawUrlTab, urlTab]);
+  }, [advisorAvailable, rawUrlTab, urlTab, activeTab]);
 
   useEffect(() => {
     // Keep old shared links working, then replace the legacy query value
     // with the canonical slug so copied URLs always use the current name.
     if (!rawUrlTab || rawUrlTab === urlTab || !VALID_TABS.has(urlTab)) return;
-    router.replace(leagueTabHref(urlTab, searchParams.toString()), { scroll: false });
-  }, [rawUrlTab, router, searchParams, urlTab]);
+    router.replace(leagueTabHref(urlTab, searchParams.toString(), {}, { advisorAvailable }), {
+      scroll: false,
+    });
+  }, [advisorAvailable, rawUrlTab, router, searchParams, urlTab]);
 
   // `mode`: "push" for navigation between tabs (a real history entry, so
   // Back returns to the previous tab), "replace" for a section's own
   // selectors (owner / week / year) so changing a filter never stacks
+  // history entries.  With the advisor NOT served every write is a
+  // replace, exactly as on main before the advisor: an off flag adds no
   // history entries.
   const setActiveTab = useCallback((key, extraParams = {}, mode = "push") => {
     // Normalize on write so internal CTAs that still pass legacy
@@ -248,12 +272,12 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
       normalized === "draft-capital"
         ? extraParams
         : { [DRAFT_CAPITAL_YEAR_PARAM]: null, ...extraParams };
-    const href = leagueTabHref(normalized, searchParams.toString(), params);
+    const href = leagueTabHref(normalized, searchParams.toString(), params, { advisorAvailable });
     // The ref tracks what WE wrote, so the URL→tab effect does not echo it.
     prevRawUrlTabRef.current = new URLSearchParams(href.split("?")[1] || "").get("tab");
-    if (mode === "replace") router.replace(href, { scroll: false });
+    if (mode === "replace" || !advisorAvailable) router.replace(href, { scroll: false });
     else router.push(href, { scroll: false });
-  }, [router, searchParams]);
+  }, [advisorAvailable, router, searchParams]);
 
   // `?year=` for the Draft Capital tab; null (All Years) removes the param.
   const setDraftCapitalYear = useCallback(
@@ -387,18 +411,15 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
 
   const managers = useMemo(() => buildManagerLookup(league), [league]);
 
-  const advisorTab = activeTab === TRADE_ADVISOR_TAB;
-  const tabs = visibleTabs({ advisorAvailable });
-  const overview = sections.overview || {};
-  const seasonLabel =
-    overview.seasonRangeLabel ||
-    (league?.seasonsCovered || []).join(", ") ||
-    "—";
-
-  // The public-league contract failing to load used to blank the WHOLE hub
-  // (three early returns).  The advisor does not read that contract, so
-  // the failure is now an in-panel state for the tabs that do, and the
-  // landing advisor keeps working.
+  // The public-league contract's loading / failure / empty states.
+  //
+  // Advisor NOT served: returned as the WHOLE page — main's three early
+  // returns, same elements — so a missing contract blanks the hub exactly
+  // as it did before the advisor.  (No hook runs below this point.)
+  //
+  // Advisor served: the advisor does not read that contract, so the
+  // failure is an in-panel state for the tabs that do, and the landing
+  // advisor keeps working.
   const contractGate = loading ? (
     <LoadingState message="Loading league data..." />
   ) : error ? (
@@ -410,6 +431,15 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
       <EmptyState title="No public league data" message="Public contract empty." />
     </div>
   ) : null;
+  if (!advisorAvailable && contractGate) return contractGate;
+
+  const advisorTab = activeTab === TRADE_ADVISOR_TAB;
+  const tabs = visibleTabs({ advisorAvailable });
+  const overview = sections.overview || {};
+  const seasonLabel =
+    overview.seasonRangeLabel ||
+    (league?.seasonsCovered || []).join(", ") ||
+    "—";
 
   return (
     <section>

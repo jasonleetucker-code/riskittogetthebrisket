@@ -5,7 +5,8 @@
  *   - no ?tab= (or an unknown one) lands on the advisor, server-rendered
  *     team step, h1 "Brisket Trade Advisor";
  *   - flag off (bootstrap "disabled") → the hub behaves as before the
- *     advisor: Overview lands, no advisor tab, nothing broken;
+ *     advisor: Overview lands, no advisor tab, nothing broken (the full
+ *     flag-off = main contract is league-advisor-flag-gate.test.jsx);
  *   - a failed public-league contract no longer blanks the hub: the advisor
  *     still renders, other tabs show an in-panel state;
  *   - tab clicks PUSH a history entry; Back (URL loses ?tab=) returns to the

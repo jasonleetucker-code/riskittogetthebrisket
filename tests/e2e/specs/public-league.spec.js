@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
+const { overviewTabLabel } = require("../helpers/advisor");
 
 // End-to-end coverage for the PUBLIC /league page.  Exercises the
 // real Sleeper-backed data flow through the FastAPI backend at
@@ -19,10 +20,11 @@ const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
 // the advisor is not served).  "Trade Advisor" is deliberately not in
 // this list: it exists only while the backend serves the advisor, and
 // league-trade-advisor.spec.js covers both states.  The overview tab's
-// label is "Overview" (it was "Home" before the advisor became home).
+// label depends on the advisor flag — "Home" exactly as on main while the
+// advisor is off, "Overview" while it is served (it is Home then) — so it
+// is added per run from `overviewTabLabel`.
 const TABS = [
   "Draft Capital",
-  "Overview",
   "History",
   "Rivalries",
   "Awards",
@@ -137,6 +139,7 @@ async function visitLeague(
 test.describe("public /league page", () => {
   test("renders league page, switches tabs, and never touches private endpoints", async ({
     page,
+    request,
   }) => {
     // Walking 12 tabs and waiting for each to actually render its own
     // content does not fit the default 90s budget — the old version fit
@@ -202,7 +205,8 @@ test.describe("public /league page", () => {
     // not coverage.  See docs/e2e-assertion-audit.md §3.4.
     const missingTabs = [];
 
-    for (const label of TABS) {
+    const overviewLabel = await overviewTabLabel(request);
+    for (const label of [TABS[0], overviewLabel, ...TABS.slice(1)]) {
       if (useMobile) {
         await mobileSelect.selectOption({ label });
         continue;
@@ -497,20 +501,16 @@ test.describe("public /league page", () => {
     expect(html).toMatch(/<meta property="og:description"/i);
   });
 
-  test("/league?tab=overview server-fetches the overview data (no client round trip)", async ({
+  test("/league?tab=overview SSRs with overview content (no loading flash)", async ({
     request,
   }) => {
-    // Since the Brisket Trade Advisor became DEFAULT_TAB (2026-10-19) the
-    // overview section is a lazy CODE chunk like every other section, so
-    // its markup ("At a glance") is no longer in the SSR HTML.  Its DATA
-    // still is: page.jsx always server-fetches the overview section and
-    // serializes it into the flight payload, so opening the tab needs no
-    // data request — only the chunk.
+    // Server-rendered /league?tab=overview hits the overview content
+    // directly — HTML should contain the overview headlines, not the
+    // fallback "Loading" text.  Holds with the advisor on or off: the
+    // Overview section is split but `ssr: true` (LeagueClient.jsx).
     const res = await request.get(pageUrl("/league?tab=overview"));
-    expect(res.status()).toBe(200);
     const html = await res.text();
-    expect(html).toMatch(/seasonRangeLabel/);
-    expect(html).not.toMatch(/League data unavailable/);
+    expect(html).toMatch(/At a glance|Defending champion|Featured rivalry/);
   });
 
   test("/draft-capital redirects into the folded /league tab", async ({

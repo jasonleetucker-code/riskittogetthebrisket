@@ -27,6 +27,10 @@ import {
   TAB_ALIASES,
   VALID_TABS,
   TRADE_ADVISOR_TAB,
+  LEAGUE_HOME_HREF,
+  LEAGUE_OVERVIEW_HREF,
+  OVERVIEW_LABEL_ADVISOR_OFF,
+  leagueHomeHrefFor,
   leagueTabHref,
   normalizeTabKey,
   resolveTab,
@@ -128,6 +132,35 @@ describe("tab → section map", () => {
     expect(leagueTabHref(TRADE_ADVISOR_TAB, "team=4&step=result", { step: null })).toBe("/league?team=4");
     // owner / week / year keep their pre-advisor behaviour.
     expect(leagueTabHref("franchise", "owner=abc")).toBe("/league?owner=abc&tab=franchise");
+  });
+
+  it("advisor OFF: the nav is main's — no advisor tab, Overview labelled 'Home'", () => {
+    const off = visibleTabs({ advisorAvailable: false });
+    expect(OVERVIEW_LABEL_ADVISOR_OFF).toBe("Home");
+    expect(off[0]).toEqual({ key: OVERVIEW_TAB, label: "Home" });
+    expect(off.map((t) => t.key)).toEqual(SUB_TABS.slice(1).map((t) => t.key));
+    expect(off.slice(1)).toEqual(SUB_TABS.slice(2));
+    expect(off.map((t) => t.label)).not.toContain("Overview");
+  });
+
+  it("advisor OFF: hrefs are built exactly as on main (Overview is the bare /league)", () => {
+    const OFF = { advisorAvailable: false };
+    expect(leagueTabHref(OVERVIEW_TAB, "", {}, OFF)).toBe("/league");
+    expect(leagueTabHref("not-a-real-tab", "tab=awards", {}, OFF)).toBe("/league");
+    expect(leagueTabHref("awards", "", {}, OFF)).toBe("/league?tab=awards");
+    expect(leagueTabHref("matchupPreview", "tab=matchupPreview", {}, OFF)).toBe("/league?tab=previews");
+    expect(leagueTabHref("franchise", "owner=abc", {}, OFF)).toBe("/league?owner=abc&tab=franchise");
+    // No advisor param handling at all while it is off (main had none).
+    expect(leagueTabHref("awards", "team=4", {}, OFF)).toBe("/league?team=4&tab=awards");
+  });
+
+  it("league back-links: /league unless the advisor is CONFIRMED served", () => {
+    expect(LEAGUE_HOME_HREF).toBe("/league");
+    expect(LEAGUE_OVERVIEW_HREF).toBe("/league?tab=overview");
+    expect(leagueHomeHrefFor({ state: "disabled" })).toBe("/league");
+    expect(leagueHomeHrefFor({ state: "unknown" })).toBe("/league");
+    expect(leagueHomeHrefFor(null)).toBe("/league");
+    expect(leagueHomeHrefFor({ state: "ready", data: {} })).toBe("/league?tab=overview");
   });
 
   it("uses Piece of Shit Rankings as the canonical label and URL key", () => {

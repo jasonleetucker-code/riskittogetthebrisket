@@ -111,20 +111,42 @@ export function resolveTab(key, { advisorAvailable = true } = {}) {
   return normalized;
 }
 
-/** The nav's tab list, without the advisor when it is unavailable. */
+// The nav exactly as it was before the advisor (main @ f3e24b3470): no
+// advisor tab, and Overview labelled "Home".  An off flag must change
+// nothing, so this is what the hub shows whenever the advisor is not
+// served.
+export const OVERVIEW_LABEL_ADVISOR_OFF = "Home";
+const SUB_TABS_ADVISOR_OFF = Object.freeze(
+  SUB_TABS.filter((t) => t.key !== TRADE_ADVISOR_TAB).map((t) =>
+    t.key === OVERVIEW_TAB ? { ...t, label: OVERVIEW_LABEL_ADVISOR_OFF } : t,
+  ),
+);
+
+/**
+ * The nav's tab list.  Advisor served: the advisor first and Overview
+ * labelled "Overview".  Not served: the pre-advisor list, unchanged.
+ */
 export function visibleTabs({ advisorAvailable = true } = {}) {
-  return advisorAvailable ? SUB_TABS : SUB_TABS.filter((t) => t.key !== TRADE_ADVISOR_TAB);
+  return advisorAvailable ? SUB_TABS : SUB_TABS_ADVISOR_OFF;
 }
 
-export function leagueTabHref(key, currentSearch = "", extraParams = {}) {
-  const resolved = resolveTab(key);
+/**
+ * Canonical /league href for a tab.  The landing tab carries no ``?tab=``:
+ * the advisor when it is served, Overview when it is not (which is how
+ * main wrote it before the advisor existed).  Advisor-only params are
+ * dropped on other tabs only while the advisor is served; switched off,
+ * the href is built exactly as before.
+ */
+export function leagueTabHref(key, currentSearch = "", extraParams = {}, { advisorAvailable = true } = {}) {
+  const resolved = resolveTab(key, { advisorAvailable });
+  const landing = advisorAvailable ? DEFAULT_TAB : ADVISOR_FALLBACK_TAB;
   const params = new URLSearchParams(currentSearch);
-  if (resolved === DEFAULT_TAB) {
+  if (resolved === landing) {
     params.delete("tab");
   } else {
     params.set("tab", resolved);
   }
-  if (resolved !== TRADE_ADVISOR_TAB) {
+  if (advisorAvailable && resolved !== TRADE_ADVISOR_TAB) {
     for (const name of ADVISOR_PARAMS) params.delete(name);
   }
   for (const [name, value] of Object.entries(extraParams)) {
@@ -180,4 +202,16 @@ export const SECTION_FOR_TAB = Object.freeze({
  */
 export function sectionForTab(tab, opts = {}) {
   return SECTION_FOR_TAB[resolveTab(tab, opts)] || null;
+}
+
+// "← League home" back-links on the /league/* detail pages.  Before the
+// advisor they all pointed at `/league`, and with the advisor switched off
+// they still must (an off flag changes nothing).  Only once the advisor is
+// CONFIRMED served (bootstrap state "ready") is `/league`'s landing the
+// advisor, so "League home" then names Overview explicitly.  "unknown"
+// (no answer) keeps `/league`: a back-link never guesses the flag is on.
+export const LEAGUE_HOME_HREF = "/league";
+export const LEAGUE_OVERVIEW_HREF = `/league?tab=${OVERVIEW_TAB}`;
+export function leagueHomeHrefFor(advisorBootstrap) {
+  return advisorBootstrap?.state === "ready" ? LEAGUE_OVERVIEW_HREF : LEAGUE_HOME_HREF;
 }

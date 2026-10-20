@@ -7,6 +7,26 @@ import { useUserState } from "@/components/useUserState";
 import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
 import { buildPublicActivityEvents, filterEvents } from "@/lib/activity-feed";
 import { fetchPublicSection } from "@/lib/public-league-data";
+import { fetchAdvisorTeams } from "@/lib/trade-advisor-client";
+import { LEAGUE_HOME_HREF, leagueHomeHrefFor } from "@/app/league/tabs";
+
+// "← League home": `/league`, exactly as before the Brisket Trade Advisor,
+// until the browser has CONFIRMED the advisor is served (it is then
+// /league's landing tab, so "League home" names Overview).  Same teams
+// read and classification the hub's shell uses; any failure keeps
+// `/league`.  Rule: `leagueHomeHrefFor` in app/league/tabs.js.
+function useLeagueHomeHref() {
+  const [href, setHref] = useState(LEAGUE_HOME_HREF);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetchAdvisorTeams({ signal: ctrl.signal }).then(
+      (boot) => setHref(leagueHomeHrefFor(boot)),
+      () => {},
+    );
+    return () => ctrl.abort();
+  }, []);
+  return href;
+}
 
 const SCOPE_OPTIONS = [
   { key: "league", label: "League" },
@@ -75,6 +95,7 @@ function humanizeNewsReason(reason) {
 }
 
 export default function ActivityPage() {
+  const leagueHome = useLeagueHomeHref();
   const { state: userState } = useUserState();
   const {
     items: newsItems,
@@ -147,7 +168,7 @@ export default function ActivityPage() {
   return (
     <section>
       <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
-        <Link href="/league?tab=overview" style={{ color: "var(--cyan)" }}>← League home</Link>
+        <Link href={leagueHome} style={{ color: "var(--cyan)" }}>← League home</Link>
       </div>
       <PageHeader
         title="Activity"

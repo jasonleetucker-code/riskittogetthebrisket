@@ -87,9 +87,9 @@ test.describe("W1-12: public Week 1 pregame surfaces (production)", () => {
     // This is a HYDRATION RACE, the same class this repo already diagnosed
     // and fixed once in v1-131-nav-gating.spec.js's mobile drawer test:
     // `domcontentloaded` + a visible CTA only proves the SSR markup
-    // painted (OverviewSection is a lazy chunk since the advisor became
-    // the default tab, so the CTA appears once that chunk loads) — the
-    // onClick is wired by React hydration, which can still be in flight.
+    // painted (OverviewSection is server-rendered — `ssr: true` — so its
+    // markup is in the initial HTML) — the onClick is wired by React
+    // hydration, which can still be in flight.
     // A native click landing in that gap dispatches a real DOM event with
     // nobody listening for it yet, and once hydration completes there is
     // no replay. Kept here rather than removed: a real future crash would

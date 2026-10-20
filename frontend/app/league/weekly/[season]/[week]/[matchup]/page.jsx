@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Avatar, Card, Stat } from "../../../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints } from "../../../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
+import { leagueHomeHref } from "@/app/league/league-home-href";
 import ShareButton from "../../../../ShareButton.jsx";
 
 function _backend() {
@@ -65,7 +66,7 @@ export async function generateMetadata({ params }) {
 
 export default async function MatchupRecapPage({ params }) {
   const { season, week, matchup } = await params;
-  const payload = await fetchMatchup(season, week, matchup);
+  const [payload, leagueHome] = await Promise.all([fetchMatchup(season, week, matchup), leagueHomeHref()]);
 
   if (!payload || !payload.matchup) {
     return (
@@ -92,7 +93,7 @@ export default async function MatchupRecapPage({ params }) {
     <section>
       <div className="card">
         <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
-          <Link href="/league?tab=overview" style={{ color: "var(--cyan)" }}>← League home</Link>
+          <Link href={leagueHome} style={{ color: "var(--cyan)" }}>← League home</Link>
           {" · "}
           <Link href="/league?tab=weekly" style={{ color: "var(--cyan)" }}>
             All weekly recaps

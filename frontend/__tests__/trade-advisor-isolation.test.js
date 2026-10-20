@@ -111,15 +111,21 @@ describe("dev bridges", () => {
 describe("hub routing wiring", () => {
   const client = code(read("app/league/LeagueClient.jsx"));
   const page = code(read("app/league/page.jsx"));
-  it("statically imports the advisor team step and lazy-loads Overview", () => {
+  it("statically imports the advisor team step; Overview is split but server-rendered (SSR markup, as on main)", () => {
     expect(client).toMatch(/import TradeAdvisorShell from "\.\/sections\/trade-advisor-shell\.jsx"/);
-    expect(client).not.toMatch(/import OverviewSection from/);
-    expect(client).toMatch(/OverviewSection = lazySection\(\(\) => import\("\.\/sections\/overview\.jsx"\)\)/);
+    // Flag off must equal main: Overview's markup stays in the SSR HTML,
+    // so its dynamic import must keep `ssr: true` (never lazySection's
+    // `ssr: false`) and its own loading boundary.
+    expect(client).toMatch(
+      /OverviewSection = dynamic\(\(\) => import\("\.\/sections\/overview\.jsx"\), \{\s*ssr: true,\s*loading: sectionLoading,\s*\}\)/,
+    );
+    expect(client).not.toMatch(/OverviewSection = lazySection/);
     // The builder is never on the page chunk.
     expect(client).not.toMatch(/sections\/trade-advisor\.jsx/);
   });
-  it("tab clicks push history entries; section selectors replace", () => {
+  it("tab clicks push history entries only while the advisor is served; section selectors replace", () => {
     expect(client).toMatch(/router\.push\(href/);
+    expect(client).toMatch(/if \(mode === "replace" \|\| !advisorAvailable\) router\.replace\(href/);
     expect(client).toMatch(/setActiveTab\("franchise", \{ owner \}, "replace"\)/);
     expect(client).toMatch(/setActiveTab\("weekly", \{ week \}, "replace"\)/);
     expect(client).toMatch(/setActiveTab\("draft", \{ owner \}, "replace"\)/);
@@ -129,22 +135,32 @@ describe("hub routing wiring", () => {
     expect(page).toMatch(/classifyTeamsResult\(result\)/);
     expect(page).toMatch(/initialAdvisor=\{initialAdvisor\}/);
   });
-  it("league back-links keep meaning 'league home' (Overview)", () => {
-    const files = [
-      "app/league/activity/page.jsx",
+  it("league back-links go through the flag-gated league-home href (8 links)", () => {
+    // `/league` exactly as on main while the advisor is off or unconfirmed;
+    // `/league?tab=overview` only once it is confirmed served.  The rule is
+    // `leagueHomeHrefFor` (tabs.js); behaviour is pinned in
+    // league-tab-sections.test.js.
+    const serverFiles = [
       "app/league/rivalry/[pair]/page.jsx",
       "app/league/articles/[season]/[week]/page.jsx",
       "app/league/weekly/[season]/[week]/[matchup]/page.jsx",
       "app/league/franchise/[owner]/page.jsx",
       "app/league/player/[playerId]/page.jsx",
     ];
+    const files = ["app/league/activity/page.jsx", ...serverFiles];
     let count = 0;
     for (const f of files) {
       const src = read(f);
-      expect(src, f).not.toMatch(/<Link href="\/league" /);
-      count += (src.match(/<Link href="\/league\?tab=overview"/g) || []).length;
+      expect(src, f).not.toMatch(/<Link href="\/league(\?tab=overview)?" /);
+      count += (src.match(/<Link href=\{leagueHome\}/g) || []).length;
     }
     expect(count).toBe(8);
+    for (const f of serverFiles) expect(read(f), f).toMatch(/leagueHomeHref\(\)/);
+    expect(read("app/league/activity/page.jsx")).toMatch(/useLeagueHomeHref\(\)/);
+    const helper = code(read("app/league/league-home-href.js"));
+    expect(helper).toMatch(/\/api\/public\/league\/trade-advisor\/teams/);
+    expect(helper).toMatch(/classifyTeamsResult\(result\)/);
+    expect(helper).not.toMatch(/connection\(/);
   });
   it("the landing button is 'Go to League Hub'", () => {
     expect(read("app/page.jsx")).toMatch(/Go to League Hub/);

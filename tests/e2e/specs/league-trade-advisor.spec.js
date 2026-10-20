@@ -3,6 +3,7 @@ const path = require("node:path");
 const { test, expect } = require("@playwright/test");
 const AxeBuilder = require("@axe-core/playwright").default;
 const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
+const { advisorServed } = require("../helpers/advisor");
 
 // Brisket Trade Advisor — the public League Hub's default tab (design §8,
 // §11 group E).  Anonymous; service workers blocked; the advisor's three
@@ -29,19 +30,6 @@ const FIX = path.resolve(__dirname, "..", "..", "..", "frontend", "__tests__", "
 const fixture = (name) => JSON.parse(fs.readFileSync(path.join(FIX, `${name}.json`), "utf8"));
 
 test.use({ serviceWorkers: "block" });
-
-async function advisorServed(request) {
-  // `request` uses baseURL = the backend (:8000): the same answer the
-  // Next server got when it rendered /league.
-  const res = await request.get("/api/public/league/trade-advisor/teams").catch(() => null);
-  if (!res) return false;
-  if (res.status() === 200) return true;
-  if (res.status() === 503) {
-    const body = await res.json().catch(() => ({}));
-    return body.reason !== "disabled";
-  }
-  return false;
-}
 
 function watchPrivate(page) {
   const hits = [];
@@ -131,6 +119,14 @@ test.describe("Brisket Trade Advisor", () => {
       await expect(page.locator("#league-panel-overview")).toBeVisible({ timeout: 30_000 });
       await expect(page.getByRole("tab", { name: "Trade Advisor" })).toHaveCount(0);
       await expect(page.getByText(/League data unavailable|Section unavailable/)).toHaveCount(0);
+      // Flag off = main: the Overview markup is in the SERVER-rendered
+      // HTML and the tab is labelled "Home" (desktop tab row).
+      const html = await (await request.get(pageUrl("/league"))).text();
+      expect(html).toMatch(/At a glance|Defending champion|Featured rivalry/);
+      if ((page.viewportSize()?.width ?? 1366) > 768) {
+        await expect(page.getByRole("tab", { name: "Home", exact: true })).toHaveCount(1);
+        await expect(page.getByRole("tab", { name: "Overview", exact: true })).toHaveCount(0);
+      }
     }
     // Deep links to other tabs keep working either way.
     await page.goto(pageUrl("/league?tab=awards"));

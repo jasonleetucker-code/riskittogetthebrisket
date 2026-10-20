@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints } from "../../shared-helpers.js";
 import { EmptyState, PageHeader, PlayerImage } from "@/components/ui";
+import { leagueHomeHref } from "@/app/league/league-home-href";
 import ShareButton from "../../ShareButton.jsx";
 import { newsItemsForPlayer } from "@/lib/player-name-match";
 
@@ -101,7 +102,7 @@ export async function generateMetadata({ params }) {
 
 export default async function PlayerJourneyPage({ params }) {
   const { playerId } = await params;
-  const payload = await fetchPlayer(playerId);
+  const [payload, leagueHome] = await Promise.all([fetchPlayer(playerId), leagueHomeHref()]);
 
   if (!payload || !payload.player) {
     return (
@@ -112,7 +113,7 @@ export default async function PlayerJourneyPage({ params }) {
             message={`No public journey data for player ${playerId}.`}
           />
           <div style={{ marginTop: 10 }}>
-            <Link href="/league?tab=overview" style={{ color: "var(--cyan)" }}>← Back to league</Link>
+            <Link href={leagueHome} style={{ color: "var(--cyan)" }}>← Back to league</Link>
           </div>
         </div>
       </section>
@@ -131,7 +132,7 @@ export default async function PlayerJourneyPage({ params }) {
     <section>
       <div className="card">
         <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
-          <Link href="/league?tab=overview" style={{ color: "var(--cyan)" }}>← League home</Link>
+          <Link href={leagueHome} style={{ color: "var(--cyan)" }}>← League home</Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 4 }}>
           <PlayerImage
