@@ -207,6 +207,8 @@ const INVALID_TRADE_COPY = {
 // (src/trade/public_advisor.py ERROR_MESSAGES, ("advisor_unavailable",
 // "busy" | "timeout")), held here verbatim for the same reason as
 // INVALID_TRADE_COPY: no server string is ever rendered.
+// Both tables are diffed against the Python owner by
+// tests/trade/test_public_advisor_client_copy_parity.py.
 export const ADMISSION_COPY = Object.freeze({
   busy: "The trade advisor is busy right now. Please try again in a moment.",
   timeout: "The trade advisor took too long to answer. Please try again.",
