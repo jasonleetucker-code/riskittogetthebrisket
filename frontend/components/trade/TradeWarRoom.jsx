@@ -2,401 +2,193 @@
 
 /**
  * TradeWarRoom — the roster-aware Analyze Trade surface on /trade
- * (#792 / #1173 / #843 / #842, Lane 6 — PSI Direction A).
+ * (#792 / #1173 / #843 / #842; plain-English rework per owner directive
+ * 2026-10-19 "Trade Calculator Clarity", Part 1 + the frontend of Part 4;
+ * Lane 6 — PSI Direction A).
  *
- * Answers, for the selected team, in this order:
- *   1. the recommendation, its confidence, the strongest reasons for and
- *      against, and the most important uncertainty;
- *   2. three DIFFERENT questions, never one gauge:
- *        MARKET       what does the market charge?        (canonical + package VA)
- *        ROSTER       what does my actual team gain/lose? (#1173 best-ball)
- *        FEASIBILITY  can it legally fit, what must go?   (#843 capacity)
- *   3. Roster Construction Impact — lineup-entry changes, promoted/displaced
- *      players, redundancy, depth, forced cuts, roster slots;
- *   4. details, collapsed: package VA, projection basis, assumptions, what is not
- *      included and why.
+ * Answers, for the selected team, at a glance:
+ *   1. Would I make this trade?  — the ONE recommendation and its confidence;
+ *   2. the biggest reason, and one genuinely different second reason;
+ *   3. Trade value              — am I gaining or losing value?
+ *      Impact on your team      — does my projected weekly lineup get better?
+ *      Does it fit your roster? — is it legal, and who must be cut?
+ *   4. a slot for the Value Adjustment comparison (dual-VA lane).
+ * Behind disclosures: player-by-player lineup impact, the before/after
+ * lineup, arguments / objections / uncertainty (and the strategy control),
+ * and the exact sources, simulations and methodology.
  *
- * DISPLAY ONLY: every number is `POST /api/trade/analyze`'s, formatted by
- * `lib/trade-war-room.js`.  Missing renders as words, never 0.
+ * DISPLAY ONLY: every number is `POST /api/trade/analyze`'s, worded by
+ * `lib/trade-war-room-copy.js`.  The recommendation is `analysis.decision`
+ * (`src/trade/trade_decision.py`) rendered verbatim — never rebuilt from the
+ * metrics shown here.  Missing renders as words, never 0.
  *
- * REQUEST SAFETY (same pattern as Game Day): one request per question, keyed
- * by (league, team, mode, trade); a newer question aborts the older one and a
- * late answer for an old key can never publish.  While a new answer computes,
- * the previous one stays visible, dimmed and marked as updating — but ONLY
- * when just the assets changed.  A different league, team or mode blanks it:
- * a Team-context verdict must never sit under an Asset-only toggle.
+ * LOADING (Part 4): while the personalized analysis runs, the calculator's
+ * own trade-value summary (`valueSummary`, the page's canonical totals) shows
+ * at once — a value summary, never a provisional YES / NO.  A changed trade,
+ * team, league, mode or strategy invalidates the request in flight
+ * IMMEDIATELY (not when the debounce fires) and the previous trade's answer
+ * is never shown under the new one.  Every request is bounded by
+ * ANALYZE_TIMEOUT_MS and ends in an answer, an honest error, or a timeout —
+ * each failure with Retry, which re-asks the same question.  Progress is
+ * visible but deliberately not a live region (TC-E): only the final decision
+ * is announced, once, by the page's verdict announcer.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Badge,
-  Banner,
-  Button,
-  CollapsiblePanel,
-  SegmentedControl,
-  SkeletonText,
-} from "@/components/ds";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Badge, Banner, Button, Panel, SegmentedControl } from "@/components/ds";
 import {
   DECISION_TONES,
-  DIRECTION_WORDS,
-  FEASIBILITY_WORDS,
-  RECOMMENDATION_LABELS,
   STRATEGY_CHOICES,
-  strategySummary,
-  ROLE_WORDS,
   analyzeRequestKey,
   availabilityNote,
+  comparablesSummary,
   formatPctPoint,
   formatPpg,
-  formatSignedPpg,
   formatSignedValue,
   formatValue,
-  comparablesSummary,
   lineupHolesSummary,
   notPricedNames,
   overrideBasisNotice,
   postureSummary,
   rosterImpactRows,
-  simulatedWeeksLabel,
   unavailableText,
   validAnalyzePayload,
 } from "@/lib/trade-war-room";
+import {
+  ANALYSIS_ERRORS_NO_RETRY,
+  POSTURE_LABELS,
+  REASON_ROLE_WORDS,
+  ROLE_PLAIN_WORDS,
+  analysisErrorCode,
+  analysisErrorText,
+  argumentLine,
+  assumptionLines,
+  comparableReasonText,
+  confidenceStatementText,
+  confidenceSummary,
+  decisionReasonSentences,
+  incomingLineupSentences,
+  listJoin,
+  missingEvidenceText,
+  packageModelLabel,
+  projectionBasisText,
+  recordReasonText,
+  rosterFit,
+  rosterNoteLines,
+  simulationExplanation,
+  strategySentence,
+  tradeValueSummary,
+  uncertaintyLine,
+  versionLabel,
+  weeklyImpact,
+} from "@/lib/trade-war-room-copy";
 import { RECOMMENDATION_ONLY_TEXT } from "@/components/help/TradeHelp";
 import styles from "./war-room.module.css";
 
 const DEBOUNCE_MS = 700;
+/** After this long the War Room says how long it has been working. */
+export const SLOW_NOTICE_MS = 5_000;
+/**
+ * The hard ceiling on one analysis request.  Above the ~60 s the owner
+ * observed a slow analysis finish in (2026-10-19), so a slow-but-working
+ * request is not cut off, and below nginx's 120 s `/api/` read timeout, so the
+ * user gets an honest "took too long" with Retry instead of a gateway error.
+ */
+export const ANALYZE_TIMEOUT_MS = 90_000;
 
 const CONTEXT_OPTIONS = [
   { value: "team", label: "Team context" },
   { value: "asset", label: "Asset only" },
 ];
 
-function directionTone(direction) {
-  if (direction === "favors") return "positive";
-  if (direction === "opposes") return "negative";
-  return "neutral";
-}
+/** Plain names for the dimensions the analysis does not include yet. */
+const DIMENSION_WORDS = {
+  valueUncertainty: "Value uncertainty ranges",
+  currentSeasonEquity: "Change in this season's playoff and title odds",
+  strategicPosture: "Team direction",
+  marketCorroboration: "Comparable real trades",
+};
+const DIMENSION_REASON_WORDS = {
+  unaudited_model: "its model has not passed review yet, so it is left out",
+  counterfactual_not_wired: "not connected to the analysis yet",
+};
 
-function LensState({ lens }) {
-  if (!lens) return <span className={styles.lensMuted}>Unavailable</span>;
-  if (!lens.available) {
-    return (
-      <span className={styles.lensMuted}>
-        {unavailableText(lens.unavailableReason)}
-      </span>
-    );
-  }
-  return (
-    <Badge tone={directionTone(lens.direction)} className={styles.lensBadge}>
-      {DIRECTION_WORDS[lens.direction] || "Neutral"}
-    </Badge>
-  );
-}
-
-function MarketAnswer({ lens }) {
-  const d = lens?.detail || {};
-  const gap = formatSignedValue(d.vaAdjustedGap);
-  return (
-    <div className={styles.answer} data-lens="market">
-      <p className={styles.answerQuestion}>
-        <span className={styles.answerLabel}>Market</span> What does the market
-        charge?
-      </p>
-      <p className={styles.answerHeadline}>
-        {gap ? (
-          <>
-            <span className={styles.bigNum}>{gap}</span>{" "}
-            <span className={styles.unit}>after Value Adjustment</span>
-          </>
-        ) : (
-          <span className={styles.lensMuted}>
-            {unavailableText(lens?.unavailableReason)}
-          </span>
-        )}
-      </p>
-      {gap ? (
-        <p className={styles.answerNote}>
-          You get {formatValue(d.receivingValue) ?? "—"} · you give{" "}
-          {formatValue(d.sendingValue) ?? "—"} (raw{" "}
-          {formatSignedValue(d.rawGap) ?? "—"})
-        </p>
-      ) : null}
-      <LensState lens={lens} />
-    </div>
-  );
-}
-
-function RosterAnswer({ lens }) {
-  const d = lens?.detail || {};
-  const ppg = formatSignedPpg(d.ppg);
-  const partial = lens?.unavailableReason === "partial_projection_coverage";
-  return (
-    <div className={styles.answer} data-lens="roster">
-      <p className={styles.answerQuestion}>
-        <span className={styles.answerLabel}>Roster</span> What does my team
-        gain or lose?
-      </p>
-      <p className={styles.answerHeadline}>
-        {ppg && (lens?.available || partial) ? (
-          <>
-            <span className={styles.bigNum}>{ppg}</span>{" "}
-            <span className={styles.unit}>
-              best-ball pts / week{partial ? " (partial)" : ""}
-            </span>
-          </>
-        ) : (
-          <span className={styles.lensMuted}>
-            {unavailableText(lens?.unavailableReason)}
-          </span>
-        )}
-      </p>
-      {ppg && d.ppgBeforeCleanup != null ? (
-        <p className={styles.answerNote}>
-          {formatSignedPpg(d.ppgBeforeCleanup)} before the required cut · {ppg}{" "}
-          once the roster is legal
-        </p>
-      ) : ppg && d.standardError != null ? (
-        <p className={styles.answerNote}>
-          Expected legal-lineup scoring, ± {formatPpg(d.standardError)}{" "}
-          simulation error
-        </p>
-      ) : null}
-      <LensState lens={lens} />
-    </div>
-  );
-}
-
-function FeasibilityAnswer({ lens }) {
-  const d = lens?.detail || {};
-  const state = d.state;
-  return (
-    <div className={styles.answer} data-lens="feasibility">
-      <p className={styles.answerQuestion}>
-        <span className={styles.answerLabel}>Feasibility</span> Can it legally
-        fit?
-      </p>
-      <p className={styles.answerHeadline}>
-        {state && FEASIBILITY_WORDS[state] ? (
-          <span className={styles.feasHeadline}>
-            {FEASIBILITY_WORDS[state]}
-          </span>
-        ) : (
-          <span className={styles.lensMuted}>
-            {unavailableText(lens?.unavailableReason)}
-          </span>
-        )}
-      </p>
-      {d.rosterLimit != null ? (
-        <p className={styles.answerNote}>
-          Roster {d.sizeBefore ?? "—"} → {d.sizeAfter ?? "—"} of {d.rosterLimit}
-          {d.forcedDrops?.length
-            ? ` · likely cut: ${d.forcedDrops.map((x) => x.name).join(", ")}${d.candidatesTied ? " (close call)" : ""}`
-            : ""}
-          {" · picks don't use roster spots"}
-        </p>
-      ) : null}
-      <LensState lens={lens} />
-    </div>
-  );
+function humanizeKey(key) {
+  const s = String(key || "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ");
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "";
 }
 
 /**
- * The ONE top-line decision, rendered verbatim from `analysis.decision`
- * (`src/trade/trade_decision.py`).  Nothing here decides: the headline text,
- * reasons, strategy, posture, bands and confidence statement are the
- * backend's words and numbers.
+ * One expandable section: the shared Panel disclosure, CONTROLLED from the
+ * War Room so an open section stays open when a new answer arrives.  Its
+ * body renders only while open — detail costs nothing until asked for.
  */
-function DecisionHeadline({ decision, teamLabel, goalChoice, onGoalChange, showStrategy }) {
-  const reasons = decision.reasons || [];
-  const missing = decision.missingEvidence || [];
-  const strategy = decision.strategy;
-  const posture = decision.posture || {};
-  const bands = decision.bands || {};
+function Disclosure({ id, title, open, onToggle, children }) {
+  const bodyId = useId();
   return (
-    <div className={styles.verdict} data-decision={decision.headline}>
-      <p className={styles.verdictEyebrow}>For {teamLabel}</p>
-      <p className={styles.verdictLine}>
-        {/* Screen-reader name for the answer (TC-E): "Final decision: YES —
-            MAKE THE TRADE", not a bare badge. */}
-        <span className="ds-visually-hidden">Final decision: </span>
-        <Badge
-          tone={DECISION_TONES[decision.headline]}
-          className={styles.verdictBadge}
-          data-testid="decision-headline"
-        >
-          {decision.headlineText}
-        </Badge>
-      </p>
-      {decision.subtext ? <p className={styles.answerNote}>{decision.subtext}</p> : null}
-      <p className={styles.confidence} data-testid="decision-confidence">
-        {decision.confidence?.statement}
-      </p>
-      {missing.length ? (
-        <div className={styles.reasons} data-tone="neutral">
-          <h4 className={styles.reasonsTitle}>What is missing</h4>
-          <ul className={styles.reasonsList} data-testid="decision-missing">
-            {missing.map((g) => (
-              <li key={g.code}>{g.text}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {reasons.length ? (
-        <div className={styles.reasons} data-tone="neutral">
-          <h4 className={styles.reasonsTitle}>Reasons and the evidence each used</h4>
-          <ul className={styles.reasonsList} data-testid="decision-reasons">
-            {reasons.map((r) => (
-              <li key={`${r.component}-${r.text}`} data-stance={r.stance}>
-                {r.text}
-                {r === decision.primaryReason ? " (primary reason)" : ""}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {decision.mainCounterargument ? (
-        <p className={styles.topUncertainty}>
-          <span className={styles.answerLabel}>Main counterargument</span>{" "}
-          {decision.mainCounterargument.text}
-        </p>
-      ) : null}
-      {showStrategy ? (
-        <div className={styles.note} data-testid="decision-strategy">
-          <p className={styles.answerNote}>
-            <span className={styles.answerLabel}>Strategy</span>{" "}
-            {strategy?.label ? `${strategy.label}. ` : ""}
-            {strategySummary(strategy)}
-            {posture.available ? ` · posture ${posture.label}` : ""}
-          </p>
-          <SegmentedControl
-            label="Strategy"
-            options={STRATEGY_CHOICES}
-            value={goalChoice}
-            onChange={onGoalChange}
-            className={styles.mode}
-          />
-        </div>
-      ) : null}
-      <p className={styles.answerNote} data-testid="decision-bands">
-        Fairness bands {bands.version} ({String(bands.status || "").toLowerCase()}):
-        fair under {bands.absoluteMinimum} points or {bands.slightPct}% of the larger
-        adjusted package · graded leaning:{" "}
-        {RECOMMENDATION_LABELS[decision.leaning] || decision.leaning}
-      </p>
-    </div>
+    <Panel
+      as="div"
+      title={title}
+      headingLevel={3}
+      dense
+      collapsible
+      collapsed={!open}
+      onToggleCollapsed={() => onToggle(id)}
+      bodyId={bodyId}
+      className={styles.disclosure}
+      data-disclosure={id}
+    >
+      {open ? children : null}
+    </Panel>
   );
 }
 
-function ReasonList({ title, items, tone }) {
-  if (!items?.length) return null;
+function PlayerImpact({ rosterDetail, partial }) {
+  const rows = rosterImpactRows(rosterDetail);
+  const sentences = incomingLineupSentences(rosterDetail);
   return (
-    <div className={styles.reasons} data-tone={tone}>
-      <h4 className={styles.reasonsTitle}>{title}</h4>
-      <ul className={styles.reasonsList}>
-        {items.map((r) => (
-          <li key={r}>{r}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function RosterImpact({ lens }) {
-  const d = lens?.detail;
-  if (!d || d.ppg == null) return null;
-  const rows = rosterImpactRows(d);
-  const before = d.before || {};
-  const after = d.after || {};
-  const depth = d.depth || {};
-  const holes = lineupHolesSummary(d);
-  return (
-    <section className={styles.impact} aria-labelledby="war-room-impact">
-      <h3 id="war-room-impact" className={styles.sectionTitle}>
-        Roster construction impact
-      </h3>
-      {lens?.unavailableReason === "partial_projection_coverage" ? (
+    <div className={styles.detailBody}>
+      {partial ? (
         <p className={styles.note}>
-          Partial: a traded player has no league-scored projection, so these
-          numbers cover the projected players only and do not count toward the
-          recommendation.
+          A traded player has no projection, so these numbers cover the projected players only and
+          do not count toward the recommendation.
         </p>
       ) : null}
-      <dl className={styles.facts}>
-        <div>
-          <dt>Expected lineup</dt>
-          <dd>
-            {formatPpg(before.expectedLineupPpg) ?? "—"} →{" "}
-            {formatPpg(after.expectedLineupPpg) ?? "—"} pts/wk
-          </dd>
-        </div>
-        <div>
-          <dt>Redundant production</dt>
-          <dd>
-            {formatPpg(before.redundantPpg) ?? "—"} →{" "}
-            {formatPpg(after.redundantPpg) ?? "—"} pts/wk
-          </dd>
-        </div>
-        <div>
-          <dt>If a starter misses a week</dt>
-          <dd>
-            {depth.meanLossDeltaPpg == null
-              ? "—"
-              : depth.meanLossDeltaPpg === 0
-                ? "No change vs today"
-                : `${formatPpg(Math.abs(depth.meanLossDeltaPpg))} pts/wk ${
-                    depth.meanLossDeltaPpg > 0 ? "more" : "fewer"
-                  } lost than today`}
-          </dd>
-        </div>
-        {holes ? (
-          <div data-testid="war-room-lineup-holes">
-            <dt>Empty starting slots</dt>
-            <dd>
-              {holes.perWeek}
-              {holes.bySlotAfter ? ` (after: ${holes.bySlotAfter})` : ""}
-              {holes.noEligible.length
-                ? `; no player can start at ${holes.noEligible.join(", ")}`
-                : ""}
-              {holes.onlyUnprojected.length
-                ? `; only unprojected players fit ${holes.onlyUnprojected.join(", ")}`
-                : ""}
-            </dd>
-          </div>
-        ) : null}
-        <div>
-          <dt>Shape</dt>
-          <dd>
-            {d.shape?.label || "—"} ({d.shape?.playersIn ?? 0} in,{" "}
-            {d.shape?.playersOut ?? 0} out)
-          </dd>
-        </div>
-      </dl>
+      {sentences.length ? (
+        <ul className={styles.plainList} data-testid="war-room-lineup-sentences">
+          {sentences.map((s) => (
+            <li key={s}>{s}</li>
+          ))}
+        </ul>
+      ) : null}
       {rows.length ? (
         // A table wider than a phone scrolls inside this region; the region is
         // focusable and named so a keyboard user can reach and scroll it.
         <div
           className={styles.tableWrap}
           role="region"
-          aria-label="Lineup entry table"
+          aria-label="Lineup impact by player"
           tabIndex={0}
         >
           <table className={styles.table}>
             <caption className={styles.srOnly}>
-              Lineup entry: how often each affected player makes the optimal
-              legal lineup, before and after
+              How often each affected player makes your best legal lineup, before and after the
+              trade, as a share of simulated weeks
             </caption>
             <thead>
               <tr>
                 <th scope="col">Player</th>
-                <th scope="col">Move</th>
+                <th scope="col">Change</th>
                 <th scope="col" className={styles.num}>
-                  Proj
+                  Projected pts / week
                 </th>
                 <th scope="col" className={styles.num}>
-                  Lineup before
+                  Starts now
                 </th>
                 <th scope="col" className={styles.num}>
-                  Lineup after
+                  Starts after
                 </th>
               </tr>
             </thead>
@@ -405,188 +197,355 @@ function RosterImpact({ lens }) {
                 <tr key={`${p.role}-${p.playerId}`} data-role={p.role}>
                   <th scope="row" className={styles.playerCell}>
                     <span className={styles.playerName}>{p.name}</span>
-                    {p.position ? (
-                      <span className={styles.playerPos}>{p.position}</span>
-                    ) : null}
+                    {p.position ? <span className={styles.playerPos}>{p.position}</span> : null}
                     {availabilityNote(p) ? (
-                      <span
-                        className={styles.playerPos}
-                        data-testid="war-room-availability"
-                      >
+                      <span className={styles.playerPos} data-testid="war-room-availability">
                         {availabilityNote(p)}
                       </span>
                     ) : null}
                   </th>
-                  <td>{ROLE_WORDS[p.role] || p.role}</td>
-                  <td className={styles.num}>
-                    {formatPpg(p.projectedPpg) ?? "No projection"}
-                  </td>
-                  <td className={styles.num}>
-                    {formatPctPoint(p.lineupEntryPctBefore) ?? "—"}
-                  </td>
-                  <td className={styles.num}>
-                    {formatPctPoint(p.lineupEntryPctAfter) ?? "—"}
-                  </td>
+                  <td className={styles.wrap}>{ROLE_PLAIN_WORDS[p.role] || p.role}</td>
+                  <td className={styles.num}>{formatPpg(p.projectedPpg) ?? "No projection"}</td>
+                  <td className={styles.num}>{formatPctPoint(p.lineupEntryPctBefore) ?? "—"}</td>
+                  <td className={styles.num}>{formatPctPoint(p.lineupEntryPctAfter) ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      ) : null}
-    </section>
+      ) : (
+        <p className={styles.note}>No affected player has a measured lineup share.</p>
+      )}
+    </div>
   );
 }
 
-function Details({ analysis, raw }) {
+function BeforeAfter({ rosterDetail }) {
+  const d = rosterDetail || {};
+  const before = d.before || {};
+  const after = d.after || {};
+  const depthB = d.depth?.before || {};
+  const depthA = d.depth?.after || {};
+  const holes = lineupHolesSummary(d);
+  const hb = d.lineupHoles?.before || {};
+  const ha = d.lineupHoles?.after || {};
+  const cell = (v) => formatPpg(v) ?? "—";
+  return (
+    <div className={styles.detailBody}>
+      <div
+        className={styles.tableWrap}
+        role="region"
+        aria-label="Your lineup before and after"
+        tabIndex={0}
+      >
+        <table className={styles.table}>
+          <caption className={styles.srOnly}>
+            Your projected lineup before and after the trade
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Measure</th>
+              <th scope="col" className={styles.num}>
+                Now
+              </th>
+              <th scope="col" className={styles.num}>
+                After
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Projected lineup points per week</th>
+              <td className={styles.num}>{cell(before.expectedLineupPpg)}</td>
+              <td className={styles.num}>{cell(after.expectedLineupPpg)}</td>
+            </tr>
+            <tr>
+              <th scope="row">Points left on your bench per week</th>
+              <td className={styles.num}>{cell(before.redundantPpg)}</td>
+              <td className={styles.num}>{cell(after.redundantPpg)}</td>
+            </tr>
+            <tr>
+              <th scope="row">Points lost if one starter misses a week (average)</th>
+              <td className={styles.num}>{cell(depthB.meanLossPpg)}</td>
+              <td className={styles.num}>{cell(depthA.meanLossPpg)}</td>
+            </tr>
+            {holes ? (
+              <tr data-testid="war-room-lineup-holes">
+                <th scope="row">
+                  Empty starting slots per week
+                  {holes.bySlotAfter ? (
+                    <span className={styles.rowNote}> After the trade: {holes.bySlotAfter}.</span>
+                  ) : null}
+                  {holes.noEligible.length ? (
+                    <span className={styles.rowNote}>
+                      {" "}
+                      Slots no player can fill: {listJoin(holes.noEligible)}.
+                    </span>
+                  ) : null}
+                  {holes.onlyUnprojected.length ? (
+                    <span className={styles.rowNote}>
+                      {" "}
+                      Slots only unprojected players can fill: {listJoin(holes.onlyUnprojected)}.
+                    </span>
+                  ) : null}
+                </th>
+                <td className={styles.num}>{cell(hb.emptySlotsPerWeek)}</td>
+                <td className={styles.num}>{cell(ha.emptySlotsPerWeek)}</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+      <p className={styles.note}>
+        Trade shape: {d.shape?.playersIn ?? 0} player{d.shape?.playersIn === 1 ? "" : "s"} in,{" "}
+        {d.shape?.playersOut ?? 0} out.
+      </p>
+    </div>
+  );
+}
+
+function Arguments({ analysis, showStrategy }) {
+  const decision = analysis.decision || {};
+  const strategy = decision.strategy;
+  // The biggest uncertainty leads its list here, once -- it is not repeated
+  // beside the confidence line at a glance.  A line carrying an internal code
+  // reads as its plain clause instead.
+  const rosterLens = analysis.lenses?.roster;
+  const uncertain = [
+    ...new Set(
+      [analysis.topUncertainty, ...(analysis.uncertainty || [])]
+        .map((x) => uncertaintyLine(x, { rosterLens }))
+        .filter(Boolean),
+    ),
+  ];
+  // Every line ends in a period; injury designations read in words.
+  const band = analysis.lenses?.market?.detail?.band || null;
+  const argued = (xs) => [
+    ...new Set((xs || []).map((x) => argumentLine(x, { band })).filter(Boolean)),
+  ];
+  const lists = [
+    { key: "for", title: "Points in favor", items: argued(analysis.reasonsFor) },
+    { key: "against", title: "Points against", items: argued(analysis.reasonsAgainst) },
+    { key: "uncertain", title: "What is uncertain", items: uncertain },
+  ].filter((l) => Array.isArray(l.items) && l.items.length);
+  return (
+    <div className={styles.detailBody}>
+      {lists.length ? (
+        lists.map((l) => (
+          <section key={l.key} className={styles.detailSection}>
+            <h4 className={styles.detailTitle}>{l.title}</h4>
+            <ul className={styles.plainList} data-list={l.key}>
+              {l.items.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          </section>
+        ))
+      ) : (
+        <p className={styles.note}>The analysis listed no further arguments.</p>
+      )}
+      {showStrategy ? (
+        <section className={styles.detailSection} data-testid="decision-strategy">
+          <h4 className={styles.detailTitle}>Strategy</h4>
+          <p>
+            {strategySentence(strategy)} Your strategy only matters when trade value and your lineup
+            point different ways; change it with the Strategy control above.
+          </p>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function Methodology({ analysis, raw }) {
+  const decision = analysis.decision || {};
+  const bands = decision.bands || {};
+  const confidenceStatement = confidenceStatementText(decision.confidence, {
+    rosterLens: analysis.lenses?.roster,
+    evidenceLens: analysis.lenses?.evidence,
+    decision,
+  });
+  const bandsVersion = versionLabel(bands.version);
+  const engineVersion = versionLabel(decision.version);
+  const primary = decision.primaryReason;
+  const isPrimary = (r) =>
+    !!primary && r.component === primary.component && r.text === primary.text;
   const market = analysis.lenses?.market?.detail || {};
   const roster = analysis.lenses?.roster?.detail || {};
   const basis = roster.basis || {};
+  const assumptions = assumptionLines(roster.assumptions, basis);
+  const feasDetail = analysis.lenses?.feasibility?.detail || {};
+  const rosterNotes = rosterNoteLines(feasDetail.notes, feasDetail);
   const ts = roster.teamStrength;
   const posture = postureSummary(analysis.lenses?.posture);
   const comps = comparablesSummary(analysis.lenses?.comparables);
+  // Every comparable reason line in plain words (a line that would show a
+  // code is dropped).
+  const compRows = (comps.rows || []).map((r) => ({
+    ...r,
+    reasons: r.reasons.map(comparableReasonText).filter(Boolean),
+  }));
   const notPriced = notPricedNames(analysis, raw);
   return (
-    <CollapsiblePanel
-      title="How this was decided"
-      defaultCollapsed
-      className={styles.details}
-    >
-      <div className={styles.detailsBody}>
-        <section>
-          <h4 className={styles.detailsTitle}>Market — Value Adjustment</h4>
-          <p>
-            Adjusted totals: you get{" "}
-            {formatValue(market.receivingAdjusted) ?? "—"}, you give{" "}
-            {formatValue(market.sendingAdjusted) ?? "—"} (
-            {market.magnitude || "—"} gap). Value Adjustment (
-            {market.packageModel?.label ||
-              market.valueAdjustment ||
-              "package model"}
-            ) is a separate market lens; roster fit never changes an
-            asset&apos;s value. It prices every asset at its board value, so
-            value overrides typed in the builder are not applied here.
-          </p>
-        </section>
-        {basis.source ? (
-          <section>
-            <h4 className={styles.detailsTitle}>Roster — projection basis</h4>
+    <div className={styles.detailBody}>
+      <section className={styles.detailSection}>
+        <h4 className={styles.detailTitle}>How the recommendation is made</h4>
+        <p>
+          One fixed rule table, not a weighted score. Trade value and the impact on your lineup each
+          point for, against or neither; your strategy decides only when they disagree. A near tie
+          with complete evidence is “No — too close”, and missing information gives “Not enough
+          evidence” instead of a guess.
+        </p>
+        <p data-testid="decision-bands">
+          Fairness bands{bandsVersion ? `, ${bandsVersion}` : ""} (
+          {String(bands.status || "").toLowerCase()}): a gap is fair under {bands.absoluteMinimum}{" "}
+          points or {bands.slightPct}% of the larger adjusted package.
+        </p>
+        {Array.isArray(decision.reasons) && decision.reasons.length ? (
+          <div data-testid="decision-record">
+            {/* The engine's record, with its numbers, in plain words: band
+                labels and posture codes worded, never an axis key. */}
             <p>
-              {basis.description || basis.source}. Source: {basis.source};{" "}
-              {basis.draws ?? "—"} simulated weeks
-              {simulatedWeeksLabel(basis)
-                ? ` over the league's remaining ${simulatedWeeksLabel(basis)}`
-                : ""}
-              {basis.pointsModel?.source
-                ? `; weekly variance: ${basis.pointsModel.source}`
-                : ""}
-              .
+              The decision engine&apos;s own record of its reasons
+              {engineVersion ? ` (${engineVersion})` : ""}:
             </p>
-            {roster.assumptions?.length ? (
-              <ul className={styles.detailsList}>
-                {roster.assumptions.map((a) => (
-                  <li key={a}>{a}</li>
-                ))}
-              </ul>
-            ) : null}
-          </section>
-        ) : null}
-        {ts ? (
-          <section>
-            <h4 className={styles.detailsTitle}>
-              Team Strength (context, not a vote)
-            </h4>
-            <p>
-              {formatValue(ts.before) ?? "—"} → {formatValue(ts.after) ?? "—"} (
-              {formatSignedValue(ts.delta) ?? "—"}). It sums the same canonical
-              values the market lens uses, so it explains the roster but is not
-              counted again.
-            </p>
-          </section>
-        ) : null}
-        {posture.available ? (
-          <section>
-            <h4 className={styles.detailsTitle}>
-              Team direction (context, not a vote)
-            </h4>
-            <p>
-              <strong>{posture.headline}</strong>
-              {posture.confidence
-                ? ` — ${posture.confidence} of the classification`
-                : ""}
-              . {posture.timing}. {posture.ownFirst}.
-            </p>
-            <ul className={styles.detailsList} aria-label="Posture split">
-              {posture.split.map((p) => (
-                <li key={p.label}>
-                  {p.label}: {p.pct ?? "—"}
+            <ul className={styles.plainList}>
+              {decision.reasons.map((r) => (
+                <li key={`${r.component}-${r.text}`} data-stance={r.stance}>
+                  {isPrimary(r) ? <strong>Deciding reason: </strong> : null}
+                  {recordReasonText(r, { strategy: decision.strategy })}
                 </li>
               ))}
             </ul>
-            <p>
-              Read from the same playoff odds, roster strength and age evidence
-              the other lenses use, so it explains the recommendation but is
-              never counted in it. Parameters are declared priors, not fitted.
-            </p>
-          </section>
+          </div>
         ) : null}
-        {comps.available ? (
-          <section>
-            <h4 className={styles.detailsTitle}>Comparable real trades</h4>
-            {comps.rows.length ? (
-              <ul className={styles.detailsList}>
-                {comps.rows.map((r) => (
-                  <li key={r.key}>
-                    <strong>{r.date}</strong>
-                    {r.similarity ? ` — ${r.similarity}` : ""}
-                    {r.reasons.length ? `: ${r.reasons.join("; ")}` : ""}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>{comps.emptyText}</p>
-            )}
-            <p>
-              What managers actually traded in similar packages. Reference only
-              — it is never a price, is not counted in the recommendation and
-              does not change its confidence.
-              {comps.scanCapped
-                ? " Only the most recent matching trades were searched."
-                : ""}
-            </p>
-          </section>
+        {confidenceStatement ? (
+          <p data-testid="decision-confidence-statement">
+            Confidence: {confidenceStatement} Confidence is a label set by the weakest part of the
+            evidence — never a probability.
+          </p>
         ) : null}
-        <section>
-          <h4 className={styles.detailsTitle}>Not included yet</h4>
-          <ul className={styles.detailsList}>
-            {posture.available ||
-            analysis.teamContext?.mode === "asset_only" ? null : (
-              <li key="strategicPosture">
-                <strong>strategicPosture</strong> — {posture.reasonText}
-              </li>
-            )}
-            {comps.available ? null : (
-              <li key="marketCorroboration">
-                <strong>Comparable real trades</strong> — {comps.reasonText}
-              </li>
-            )}
-            {(analysis.unavailableDimensions || []).map((d) => (
-              <li key={d.dimension}>
-                <strong>{d.dimension}</strong> — {d.notes}
-              </li>
+      </section>
+      <section className={styles.detailSection}>
+        <h4 className={styles.detailTitle}>Trade value</h4>
+        <p>
+          Package Value Adjustment: {packageModelLabel(market.packageModel)}. Adjusted totals: you
+          receive {formatValue(market.receivingAdjusted) ?? "—"} and send{" "}
+          {formatValue(market.sendingAdjusted) ?? "—"}. Every asset is priced at its board value, so
+          value overrides typed in the builder are not applied here, and fit with your roster never
+          changes an asset&apos;s value.
+        </p>
+        {notPriced.length ? (
+          <p>
+            Not priced: {notPriced.join(", ")} — unknown, not worth 0, so left out of the totals.
+          </p>
+        ) : null}
+      </section>
+      {basis.source ? (
+        <section className={styles.detailSection}>
+          <h4 className={styles.detailTitle}>Lineup simulation</h4>
+          <p data-testid="war-room-simulation-explained">{simulationExplanation(roster)}</p>
+          <p data-testid="war-room-projection-basis">{projectionBasisText(basis)}</p>
+          {assumptions.length ? (
+            <ul className={styles.plainList} data-testid="war-room-assumptions">
+              {assumptions.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
+      {/* The roster-capacity owner's notes, in plain words (`rosterNoteLines`):
+          facts about this trade's roster sit in the fit row; how the check was
+          made is listed here.  The backend's own prose is never shown. */}
+      {rosterNotes.detail.length ? (
+        <section className={styles.detailSection}>
+          <h4 className={styles.detailTitle}>How the roster fit was checked</h4>
+          <ul className={styles.plainList} data-testid="war-room-roster-notes">
+            {rosterNotes.detail.map((n) => (
+              <li key={n}>{n}</li>
             ))}
           </ul>
         </section>
-        {notPriced.length ? (
-          <section>
-            <h4 className={styles.detailsTitle}>Not priced</h4>
-            <p data-testid="war-room-not-priced">
-              {notPriced.join(", ")} — unknown, not worth 0, so left out of
-              the package math.
-            </p>
-          </section>
-        ) : null}
-      </div>
-    </CollapsiblePanel>
+      ) : null}
+      {ts ? (
+        <section className={styles.detailSection}>
+          <h4 className={styles.detailTitle}>Team Strength (context, not a vote)</h4>
+          <p>
+            {formatValue(ts.before) ?? "—"} → {formatValue(ts.after) ?? "—"} (
+            {formatSignedValue(ts.delta) ?? "—"}). It adds up the same player values the trade value
+            uses, so it explains your roster but is not counted again.
+          </p>
+        </section>
+      ) : null}
+      {posture.available ? (
+        <section className={styles.detailSection}>
+          <h4 className={styles.detailTitle}>Team direction (context, not a vote)</h4>
+          <p>
+            <strong>{posture.headline}</strong>
+            {posture.confidence ? ` — ${posture.confidence} of the classification` : ""}.{" "}
+            {posture.timing}. {posture.ownFirst}.
+          </p>
+          <ul className={styles.plainList} aria-label="Posture split">
+            {posture.split.map((p) => (
+              <li key={p.label}>
+                {POSTURE_LABELS[p.label] || p.label}: {p.pct ?? "—"}
+              </li>
+            ))}
+          </ul>
+          <p>
+            Read from the same playoff odds, roster strength and age evidence the rest of the
+            analysis uses, so it explains the recommendation but is never counted in it. Its
+            parameters are declared priors, not fitted.
+          </p>
+        </section>
+      ) : null}
+      {comps.available ? (
+        <section className={styles.detailSection}>
+          <h4 className={styles.detailTitle}>Comparable real trades</h4>
+          {comps.rows.length ? (
+            <ul className={styles.plainList}>
+              {compRows.map((r) => (
+                <li key={r.key}>
+                  <strong>{r.date}</strong>
+                  {r.similarity ? ` — ${r.similarity}` : ""}
+                  {r.reasons.length ? `: ${r.reasons.join("; ")}` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>{comps.emptyText}</p>
+          )}
+          <p>
+            What managers actually traded in similar packages. Reference only — never a price, not
+            counted in the recommendation, and it does not change its confidence.
+            {comps.scanCapped ? " Only the most recent matching trades were searched." : ""}
+          </p>
+        </section>
+      ) : null}
+      <section className={styles.detailSection}>
+        <h4 className={styles.detailTitle}>Not included yet</h4>
+        <ul className={styles.plainList}>
+          {posture.available || analysis.teamContext?.mode === "asset_only" ? null : (
+            <li key="strategicPosture">
+              <strong>Team direction</strong> — {posture.reasonText}
+            </li>
+          )}
+          {comps.available ? null : (
+            <li key="marketCorroboration">
+              <strong>Comparable real trades</strong> — {comps.reasonText}
+            </li>
+          )}
+          {(analysis.unavailableDimensions || []).map((d) => (
+            <li key={d.dimension}>
+              <strong>{DIMENSION_WORDS[d.dimension] || humanizeKey(d.dimension)}</strong> —{" "}
+              {DIMENSION_REASON_WORDS[d.reason] || "not included yet"}
+            </li>
+          ))}
+        </ul>
+      </section>
+      <p className={styles.note}>{RECOMMENDATION_ONLY_TEXT}</p>
+    </div>
   );
 }
 
@@ -601,12 +560,28 @@ export default function TradeWarRoom({
   chosenSide = null,
   onChooseSide,
   onDecision,
+  // The calculator's own canonical totals for this trade, in the market
+  // lens's shape (`valueSummaryFromSideTotals`): shown at once while the
+  // analysis runs.  `null` when unknown — never a 0.
+  valueSummary = null,
+  // How many sides the trade has.  The decision engine answers two-team
+  // trades only; 3+ gets an explanation, never a fabricated YES / NO.
+  sideCount = 2,
+  // Optional element rendered at the Value Adjustment comparison slot, right
+  // under the at-a-glance rows (the dual-VA lane's ValueAdjustmentComparison,
+  // built by the page from per-side values the War Room does not hold).
+  vaSlot = null,
 }) {
   const basisNotice = overrideBasisNotice(overrideCount);
+  const multi = sideCount > 2;
   // Owner decision 2: the strategy is inferred unless the user overrides it;
   // the override travels as `teamGoal` and the engine echoes it back.
   const [goalChoice, setGoalChoice] = useState("auto");
   const teamGoal = goalChoice === "auto" ? null : goalChoice;
+  // Which detail sections are open — kept here so an open section stays open
+  // across a new answer.
+  const [open, setOpen] = useState({});
+  const toggleOpen = useCallback((id) => setOpen((o) => ({ ...o, [id]: !o[id] })), []);
   // TC-A / UX audit P0-5: when roster evidence does not say which side is
   // the team's, the War Room ASKS — it never analyses an assumed side.
   const sideChooser = (
@@ -640,53 +615,49 @@ export default function TradeWarRoom({
       ) : null}
     </div>
   );
-  const [state, setState] = useState({
-    status: "idle",
-    payload: null,
-    error: null,
-    key: "",
-    contextKey: "",
-  });
+  const [state, setState] = useState({ status: "idle", payload: null, error: null, key: "" });
   const controllerRef = useRef(null);
-  // "Try again" after an error (TC-E): re-asks the SAME question; the
-  // request key and the abort/sequence rule are unchanged.
+  // Retry (TC-E): re-asks the SAME question; the request key and the
+  // abort / sequence rule are unchanged.
   const [attempt, setAttempt] = useState(0);
+  // When the current request actually left (after the debounce), for the
+  // truthful "N seconds so far" notice.
+  const [startedAt, setStartedAt] = useState(null);
+  const [now, setNow] = useState(0);
   const key = useMemo(
     () => analyzeRequestKey(request, leagueKey, useTeamContext, teamGoal),
     [request, leagueKey, useTeamContext, teamGoal],
   );
-  const contextKey = JSON.stringify([
-    leagueKey,
-    request?.teamName || "",
-    useTeamContext !== false,
-  ]);
   const ready = Boolean(
+    !multi &&
     request &&
     (request.playersIn.length || request.picksIn.length) &&
     (request.playersOut.length || request.picksOut.length),
   );
 
   useEffect(() => {
+    // A new question invalidates the one in flight NOW, not when the debounce
+    // fires: an answer for the previous trade can never land under this one.
+    controllerRef.current?.abort();
+    controllerRef.current = null;
+    setStartedAt(null);
     if (!ready) {
-      controllerRef.current?.abort();
-      setState({
-        status: "idle",
-        payload: null,
-        error: null,
-        key: "",
-        contextKey: "",
-      });
+      setState({ status: "idle", payload: null, error: null, key: "" });
       return undefined;
     }
-    setState((prev) =>
-      prev.payload && prev.contextKey === contextKey
-        ? { ...prev, status: "updating", key }
-        : { status: "loading", payload: null, error: null, key, contextKey },
-    );
+    setState({ status: "loading", payload: null, error: null, key });
+    let timeoutId = null;
     const timer = setTimeout(async () => {
-      controllerRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
+      let timedOut = false;
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, ANALYZE_TIMEOUT_MS);
+      setStartedAt(Date.now());
+      const current = () => controllerRef.current === controller;
+      const fail = (error) => setState({ status: "error", payload: null, error, key });
       try {
         const body = {
           teamName: request.teamName,
@@ -708,60 +679,62 @@ export default function TradeWarRoom({
           signal: controller.signal,
         });
         const data = await res.json().catch(() => ({}));
-        if (controller.signal.aborted || controllerRef.current !== controller)
-          return;
-        if (!res.ok) {
-          setState({
-            status: "error",
-            payload: null,
-            error: data?.error || `HTTP ${res.status}`,
-            key,
-            contextKey,
-          });
-          return;
-        }
-        if (!validAnalyzePayload(data, { leagueKey, useTeamContext })) {
-          setState({
-            status: "error",
-            payload: null,
-            error: "invalid_analysis",
-            key,
-            contextKey,
-          });
-          return;
-        }
-        setState({ status: "ok", payload: data, error: null, key, contextKey });
+        if (!current()) return;
+        if (timedOut) return fail("timeout");
+        if (controller.signal.aborted) return;
+        if (!res.ok) return fail(analysisErrorCode(res.status, data));
+        if (!validAnalyzePayload(data, { leagueKey, useTeamContext }))
+          return fail("invalid_analysis");
+        setState({ status: "ok", payload: data, error: null, key });
       } catch (err) {
-        if (controller.signal.aborted || controllerRef.current !== controller)
-          return;
-        setState({
-          status: "error",
-          payload: null,
-          error: String(err?.message || err),
-          key,
-          contextKey,
-        });
+        if (!current()) return;
+        if (timedOut) return fail("timeout");
+        if (controller.signal.aborted) return;
+        fail(String(err?.message || err));
+      } finally {
+        clearTimeout(timeoutId);
+        if (current()) setStartedAt(null);
       }
     }, DEBOUNCE_MS);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timeoutId);
+    };
     // `request` identity is folded into `key`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, ready, attempt]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
+  // The state belongs to THIS question only.  On the render where the trade
+  // changes, the old state is still in place for one frame; never show it.
+  const mine = state.key === key;
+  const status = !ready ? "idle" : mine ? state.status : "loading";
+  const answer = status === "ok" ? state.payload : null;
+  const loading = status === "loading";
+
+  useEffect(() => {
+    if (!loading || startedAt == null) return undefined;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [loading, startedAt]);
+  const elapsedMs = loading && startedAt != null ? Math.max(0, now - startedAt) : 0;
+
   // TC-D: the page echoes THIS decision in its sticky desktop column and the
-  // mobile verdict bar.  Reported, never recomputed: the echo reads the same
-  // payload this component renders, so the two cannot disagree.
-  const reportedDecision = state.payload?.analysis?.decision || null;
+  // mobile verdict bar.  Reported, never recomputed — and only for the trade
+  // on screen: while a new answer computes, nothing is reported.
+  const reportedDecision = answer?.analysis?.decision || null;
   // The served decision's run id (its receipt in the server's decision log),
   // so a Trade Desk save can carry this answer (TC-B2 / TCM-G18).
-  const reportedRunId = state.payload?.analysis?.decisionRunId || null;
+  const reportedRunId = answer?.analysis?.decisionRunId || null;
   const hasTeamOrTrade = Boolean(request || teamName);
   useEffect(() => {
     if (!onDecision) return;
-    if (ready) {
-      onDecision({ status: state.status, decision: reportedDecision, runId: reportedRunId });
+    if (multi) {
+      onDecision({ status: "multi", decision: null });
+    } else if (ready) {
+      onDecision({ status, decision: reportedDecision, runId: reportedRunId });
     } else {
       onDecision({
         status: sideChoiceNeeded ? "side-choice" : hasTeamOrTrade ? "idle" : "no-team",
@@ -770,13 +743,34 @@ export default function TradeWarRoom({
     }
   }, [
     onDecision,
+    multi,
     ready,
-    state.status,
+    status,
     reportedDecision,
     reportedRunId,
     sideChoiceNeeded,
     hasTeamOrTrade,
   ]);
+
+  const title = (
+    <h2 id="war-room-title" className={styles.title}>
+      Trade War Room
+    </h2>
+  );
+
+  if (multi) {
+    return (
+      <section className={styles.room} aria-labelledby="war-room-title" data-war-room="multi">
+        <header className={styles.head}>{title}</header>
+        <p className={styles.lead} data-testid="war-room-multi-team-limit">
+          No YES / NO is given for this {sideCount}-team trade. The decision engine can only judge
+          your side of a two-team trade, so it cannot account for every side here. The result above
+          compares each team&apos;s net trade value.
+        </p>
+        {vaSlot}
+      </section>
+    );
+  }
 
   const toggle = (
     <SegmentedControl
@@ -787,18 +781,30 @@ export default function TradeWarRoom({
       className={styles.mode}
     />
   );
+  // An INPUT, so it lives with the mode control and never disappears while a
+  // new answer computes (a control that unmounts under the pointer drops
+  // keyboard focus).  Team context only: Asset-only uses no strategy.
+  const strategyControl =
+    useTeamContext !== false ? (
+      <div className={styles.control}>
+        <span className={styles.controlLabel} aria-hidden="true">
+          Strategy
+        </span>
+        <SegmentedControl
+          label="Strategy"
+          options={STRATEGY_CHOICES}
+          value={goalChoice}
+          onChange={setGoalChoice}
+          className={styles.mode}
+        />
+      </div>
+    ) : null;
 
   if (!ready) {
     return (
-      <section
-        className={styles.room}
-        aria-labelledby="war-room-title"
-        data-war-room="idle"
-      >
+      <section className={styles.room} aria-labelledby="war-room-title" data-war-room="idle">
         <header className={styles.head}>
-          <h2 id="war-room-title" className={styles.title}>
-            Trade War Room
-          </h2>
+          {title}
           {toggle}
         </header>
         {sideChoiceNeeded ? (
@@ -813,107 +819,285 @@ export default function TradeWarRoom({
               : "Pick your team to see what this trade does to your roster."}
           </p>
         )}
+        {/* The Value Adjustment comparison works from the builder's own
+            values, so it stays available before a team or side is known. */}
+        {vaSlot}
       </section>
     );
   }
 
-  const payload = state.payload;
-  const analysis = payload?.analysis;
-  const stale = state.status === "updating";
+  const failed = status === "error";
+  const analysis = answer?.analysis || null;
+  const decision = analysis?.decision || null;
+  const teamLabel = answer?.team?.name || request.teamName;
+  const confidence = decision
+    ? confidenceSummary(decision.confidence, {
+        rosterLens: analysis.lenses?.roster,
+        evidenceLens: analysis.lenses?.evidence,
+        decision,
+      })
+    : null;
+  // Each reason and gap as its plain sentence; one with nothing plain to say
+  // is skipped, never rendered empty.
+  const reasons = decision ? decisionReasonSentences(decision, { analysis }) : [];
+  const missing = (decision?.missingEvidence || [])
+    .map((g, i) => ({ key: `${g?.code || "gap"}-${i}`, sentence: missingEvidenceText(g) }))
+    .filter((g) => g.sentence);
+  const showStrategy = useTeamContext !== false;
+
+  // ── At a glance ─────────────────────────────────────────────────────────
+  const marketLens = analysis?.lenses?.market;
+  const value = analysis
+    ? tradeValueSummary(marketLens?.available ? marketLens.detail : null)
+    : tradeValueSummary(valueSummary);
+  // Where the shown trade value comes from, said truthfully in every case:
+  // the summary is EXACTLY the calculator headline's totals (overrides
+  // included); the analysis prices every asset at its board value.
+  const summaryUnpriced = Array.isArray(valueSummary?.unpriced) ? valueSummary.unpriced : null;
+  const valueSource =
+    analysis || !value
+      ? null
+      : [
+          valueSummary?.overridesApplied
+            ? "The calculator's totals above, including your value overrides."
+            : "The calculator's totals above.",
+          failed
+            ? "The personalized analysis did not finish."
+            : valueSummary?.overridesApplied
+              ? "The personalized analysis, still running, prices every asset at its board value, so its figure can differ."
+              : "The personalized analysis is still running.",
+        ].join(" ");
+  const notPriced = analysis ? notPricedNames(analysis, answer) : [];
+  const valueMissing = analysis
+    ? unavailableText(marketLens?.unavailableReason)
+    : summaryUnpriced
+      ? `No total yet: ${listJoin(summaryUnpriced)} ${
+          summaryUnpriced.length === 1 ? "has" : "have"
+        } no value on the board (unknown, not zero).`
+      : failed
+        ? "Unavailable — the analysis did not finish."
+        : "Waiting for the analysis.";
+  const impact = analysis ? weeklyImpact(analysis.lenses?.roster) : null;
+  const fit = analysis ? rosterFit(analysis.lenses?.feasibility) : null;
+  const fitNotes = analysis
+    ? rosterNoteLines(
+        analysis.lenses?.feasibility?.detail?.notes,
+        analysis.lenses?.feasibility?.detail,
+      ).fit
+    : [];
+  const pendingWord = failed ? "Unavailable — the analysis did not finish." : null;
+
+  const rosterLens = analysis?.lenses?.roster;
+  const rosterDetail = rosterLens?.detail || {};
+  const rosterMeasured = typeof rosterDetail.ppg === "number";
+  const partial = rosterLens?.unavailableReason === "partial_projection_coverage";
 
   return (
     <section
       className={styles.room}
       aria-labelledby="war-room-title"
-      aria-busy={state.status === "loading" || stale || undefined}
-      data-war-room={state.status}
+      aria-busy={loading || undefined}
+      data-war-room={status}
     >
       <header className={styles.head}>
-        <h2 id="war-room-title" className={styles.title}>
-          Trade War Room
-        </h2>
-        {toggle}
+        {title}
+        <div className={styles.controls}>
+          {toggle}
+          {strategyControl}
+        </div>
       </header>
       {useTeamContext === false ? (
         <p className={styles.modeNote}>
-          Asset-Only: roster fit, lineup impact and roster capacity are not
-          included in this analysis.
+          Asset only: roster fit, lineup impact and roster capacity are not included in this
+          analysis.
         </p>
       ) : null}
       {chosenSide != null ? sideChooser : null}
-      {basisNotice ? (
+      {/* The basis notice describes the ANALYSIS's numbers (board values, no
+          overrides).  While it runs, or after it fails, the shown trade value
+          is the calculator's own (overrides included), so the notice would
+          contradict it: it appears with the analysis only. */}
+      {basisNotice && analysis ? (
         <p className={styles.modeNote} data-testid="war-room-basis-notice">
           {basisNotice}
         </p>
       ) : null}
-      {/* Visible progress, deliberately NOT a live region (TC-E design
-          choice): only the final decision change is announced, once, by the
-          page's verdict announcer -- "Analyzing…" on every edit is noise. */}
-      <p className={styles.status}>
-        {state.status === "loading"
-          ? "Analyzing this trade…"
-          : stale
-            ? "Updating for your latest change…"
-            : ""}
-      </p>
 
-      {state.status === "error" ? (
-        <Banner tone="warning">
-          Analysis unavailable right now ({state.error}). The package totals and
-          verdict below are unaffected.{" "}
-          <Button size="sm" variant="ghost" onClick={() => setAttempt((n) => n + 1)}>
-            Try again
-          </Button>
-        </Banner>
+      {/* ── Would I make this trade? ── */}
+      <div className={styles.verdict} data-decision={decision?.headline}>
+        <p className={styles.eyebrow}>Recommendation for {teamLabel}</p>
+        {decision ? (
+          <>
+            <p className={styles.verdictLine}>
+              {/* Screen-reader name for the answer (TC-E): "Final decision: YES —
+                  MAKE THE TRADE", not a bare badge. */}
+              <span className="ds-visually-hidden">Final decision: </span>
+              <Badge
+                tone={DECISION_TONES[decision.headline]}
+                className={styles.verdictBadge}
+                data-testid="decision-headline"
+              >
+                {decision.headlineText}
+              </Badge>
+            </p>
+            {decision.subtext ? <p className={styles.verdictNote}>{decision.subtext}</p> : null}
+            <p className={styles.confidence} data-testid="decision-confidence">
+              {confidence?.level ? <strong>{confidence.level}.</strong> : null}
+              {confidence?.level && confidence?.detail ? " " : null}
+              {confidence?.detail}
+            </p>
+          </>
+        ) : loading ? (
+          // Visible progress, deliberately NOT a live region (TC-E design
+          // choice): only the final decision is announced, once, by the
+          // page's verdict announcer.  Never a provisional YES / NO.
+          <>
+            <p className={styles.pending}>Analyzing this trade…</p>
+            {elapsedMs >= SLOW_NOTICE_MS ? (
+              <p className={styles.note} data-testid="war-room-slow">
+                Still working — {Math.floor(elapsedMs / 1000)} seconds so far. If it cannot finish
+                within {ANALYZE_TIMEOUT_MS / 1000} seconds it will stop and say so.
+              </p>
+            ) : null}
+          </>
+        ) : failed ? (
+          <Banner tone="warning">
+            <span data-testid="war-room-error">
+              No recommendation yet: the personalized analysis did not finish because{" "}
+              {analysisErrorText(state.error)}. The trade value below is unaffected.
+            </span>{" "}
+            {/* A lasting incompatibility is not fixed by trying again. */}
+            {ANALYSIS_ERRORS_NO_RETRY.has(state.error) ? null : (
+              <Button size="sm" variant="ghost" onClick={() => setAttempt((n) => n + 1)}>
+                Retry
+              </Button>
+            )}
+          </Banner>
+        ) : null}
+      </div>
+
+      {/* ── What's the biggest reason? ── */}
+      {reasons.length ? (
+        <div className={styles.why}>
+          <h3 className={styles.sectionTitle}>Why</h3>
+          <ul className={styles.whyList} data-testid="decision-reasons">
+            {reasons.map(({ role, reason, sentence }) => (
+              <li key={role} data-role={role} data-stance={reason.stance}>
+                <span className={styles.whyRole}>{REASON_ROLE_WORDS[role]}:</span> {sentence}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {missing.length ? (
+        <div className={styles.why}>
+          <h3 className={styles.sectionTitle}>What is missing</h3>
+          <ul className={styles.whyList} data-testid="decision-missing">
+            {missing.map((g) => (
+              <li key={g.key}>{g.sentence}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
-      {!analysis && state.status === "loading" ? (
-        <SkeletonText lines={4} />
-      ) : null}
+      {/* ── Am I gaining or losing value / does it help my lineup / does it fit? ── */}
+      <h3 className="ds-visually-hidden">This trade at a glance</h3>
+      <dl className={styles.glance}>
+        <div className={styles.glanceRow} data-lens="market">
+          <dt className={styles.glanceLabel}>Trade value</dt>
+          <dd className={styles.glanceValue}>
+            {value ? (
+              <p className={styles.glanceAnswer} data-testid="war-room-trade-value">
+                {value.sentence}
+              </p>
+            ) : (
+              <p className={styles.muted}>{valueMissing}</p>
+            )}
+            {valueSource ? <p className={styles.note}>{valueSource}</p> : null}
+            {notPriced.length ? (
+              <p className={styles.note} data-testid="war-room-not-priced">
+                Left out of the totals: {listJoin(notPriced)} — no value on the board (unknown, not
+                zero).
+              </p>
+            ) : null}
+          </dd>
+        </div>
+        <div className={styles.glanceRow} data-lens="roster">
+          <dt className={styles.glanceLabel}>Impact on your team</dt>
+          <dd className={styles.glanceValue}>
+            {impact?.sentence ? (
+              <>
+                <p className={styles.glanceAnswer} data-testid="war-room-weekly-impact">
+                  {impact.sentence}
+                </p>
+                {impact.note ? <p className={styles.note}>{impact.note}</p> : null}
+              </>
+            ) : (
+              <p className={styles.muted}>{impact?.unavailable || pendingWord || "Calculating…"}</p>
+            )}
+          </dd>
+        </div>
+        <div className={styles.glanceRow} data-lens="feasibility">
+          <dt className={styles.glanceLabel}>Does it fit your roster?</dt>
+          <dd className={styles.glanceValue}>
+            {fit?.sentence ? (
+              <p className={styles.glanceAnswer} data-testid="war-room-roster-fit">
+                {fit.sentence}
+              </p>
+            ) : (
+              <p className={styles.muted}>{fit?.unavailable || pendingWord || "Checking…"}</p>
+            )}
+            {fit?.spots ? <p className={styles.note}>{fit.spots}</p> : null}
+            {fitNotes.map((n) => (
+              <p key={n} className={styles.note} data-testid="war-room-fit-note">
+                {n}
+              </p>
+            ))}
+          </dd>
+        </div>
+      </dl>
+
+      {/* Value Adjustment comparison slot — dual-VA lane mounts ValueAdjustmentComparison here */}
+      {vaSlot}
 
       {analysis ? (
-        <div className={`${styles.body} ${stale ? styles.stale : ""}`.trim()}>
-          <DecisionHeadline
-            decision={analysis.decision}
-            teamLabel={payload.team?.name || request.teamName}
-            goalChoice={goalChoice}
-            onGoalChange={setGoalChoice}
-            showStrategy={useTeamContext !== false}
-          />
-          <p className={styles.answerNote}>{RECOMMENDATION_ONLY_TEXT}</p>
-          {analysis.topUncertainty ? (
-            <p className={styles.topUncertainty}>
-              <span className={styles.answerLabel}>Biggest uncertainty</span>{" "}
-              {analysis.topUncertainty}
-            </p>
+        <div className={styles.disclosures}>
+          {rosterMeasured && (rosterLens?.available || partial) ? (
+            <>
+              <Disclosure
+                id="players"
+                title="Lineup impact, player by player"
+                open={Boolean(open.players)}
+                onToggle={toggleOpen}
+              >
+                <PlayerImpact rosterDetail={rosterDetail} partial={partial} />
+              </Disclosure>
+              <Disclosure
+                id="lineup"
+                title="Your lineup before and after"
+                open={Boolean(open.lineup)}
+                onToggle={toggleOpen}
+              >
+                <BeforeAfter rosterDetail={rosterDetail} />
+              </Disclosure>
+            </>
           ) : null}
-
-          <div className={styles.answers}>
-            <MarketAnswer lens={analysis.lenses?.market} />
-            <RosterAnswer lens={analysis.lenses?.roster} />
-            <FeasibilityAnswer lens={analysis.lenses?.feasibility} />
-          </div>
-
-          <div className={styles.reasonGrid}>
-            <ReasonList
-              title="Why"
-              items={analysis.reasonsFor}
-              tone="positive"
-            />
-            <ReasonList
-              title="Against"
-              items={analysis.reasonsAgainst}
-              tone="negative"
-            />
-            <ReasonList
-              title="Uncertain"
-              items={analysis.uncertainty}
-              tone="neutral"
-            />
-          </div>
-
-          <RosterImpact lens={analysis.lenses?.roster} />
-          <Details analysis={analysis} raw={payload} />
+          <Disclosure
+            id="arguments"
+            title="Arguments, objections and uncertainty"
+            open={Boolean(open.arguments)}
+            onToggle={toggleOpen}
+          >
+            <Arguments analysis={analysis} showStrategy={showStrategy} />
+          </Disclosure>
+          <Disclosure
+            id="method"
+            title="Sources, simulations and methodology"
+            open={Boolean(open.method)}
+            onToggle={toggleOpen}
+          >
+            <Methodology analysis={analysis} raw={answer} />
+          </Disclosure>
         </div>
       ) : null}
     </section>

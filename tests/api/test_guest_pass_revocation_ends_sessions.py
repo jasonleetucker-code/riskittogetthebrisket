@@ -22,10 +22,23 @@ Pinned here:
 * the persistent store round-trips ``expires_at_epoch`` / ``guest_pass_id``,
   and ``hydrate`` refuses a guest row without them and any expired row;
 * ``revoke`` deletes the persisted sessions of that pass only.
+
+And the complement — what must NOT end a guest session (V1 verification run
+39221318435 lost its session mid-suite and with it the revoke proof):
+
+* a backend restart: ``hydrate`` keeps a bounded guest row even under a
+  non-empty allowlist that does not name ``guest`` (production's allowlist
+  never does — guests are refused admin by NOT being on it), and revocation
+  still ends the rehydrated session;
+* an unreadable pass store: the request is refused (fail closed) but the
+  session is kept, so the next request after the store recovers succeeds.
+  A definitively inactive pass (revoked, expired, unknown id) still ends the
+  session exactly as before.
 """
 
 from __future__ import annotations
 
+import sqlite3
 import time
 
 import pytest
@@ -250,3 +263,221 @@ def test_session_authority_tracks_the_pass():
     guest_passes.revoke(p.id)
     assert guest_passes.session_authority(p.id) is False
     assert guest_passes.session_authority(p.id + 999) is False
+
+
+# ── What must NOT end a guest session ───────────────────────────────────
+
+
+def _persisted_guest_rows(db) -> int:
+    conn = sqlite3.connect(db)
+    try:
+        return int(
+            conn.execute(
+                "SELECT COUNT(*) FROM auth_sessions WHERE auth_method = 'guest_pass'"
+            ).fetchone()[0]
+        )
+    finally:
+        conn.close()
+
+
+def _cookie(client: TestClient) -> str:
+    value = client.cookies.get(server.JASON_AUTH_COOKIE_NAME)
+    assert value, "precondition: login set the session cookie"
+    return value
+
+
+def _restart_process_memory() -> None:
+    """What a backend restart does to sessions: the in-memory cache is gone
+    and startup rebuilds it from disk with the production allowlist."""
+    server.auth_sessions.clear()
+    session_store._setup_done.clear()  # noqa: SLF001
+    server.auth_sessions.update(
+        session_store.hydrate(allowlist=server.PRIVATE_APP_ALLOWED_USERNAMES)
+    )
+
+
+def test_hydrate_keeps_a_bounded_guest_row_under_a_non_empty_allowlist(_isolated_stores):
+    db = _isolated_stores["sess_db"]
+    exp = time.time() + 3600
+    session_store.persist(
+        "sid-guest",
+        {
+            "username": "guest",
+            "auth_method": "guest_pass",
+            "expires_at_epoch": exp,
+            "guest_pass_id": 7,
+        },
+        db_path=db,
+    )
+    session_store.persist("sid-owner", {"username": "admin", "auth_method": "password"}, db_path=db)
+    session_store.persist(
+        "sid-gone", {"username": "removed", "auth_method": "password"}, db_path=db
+    )
+    session_store._setup_done.clear()  # noqa: SLF001
+    got = session_store.hydrate(allowlist=["admin"], db_path=db)
+    # The allowlist still signs out a non-guest user who left it ...
+    assert set(got) == {"sid-guest", "sid-owner"}
+    # ... and the guest row keeps the identity its authority check needs.
+    assert got["sid-guest"]["guest_pass_id"] == 7
+    assert got["sid-guest"]["expires_at_epoch"] == pytest.approx(exp)
+
+
+@pytest.mark.parametrize("bad_pass_id", [0, -3])
+def test_hydrate_still_drops_a_guest_row_without_a_usable_pass_id(_isolated_stores, bad_pass_id):
+    db = _isolated_stores["sess_db"]
+    session_store.persist(
+        "sid-guest",
+        {"username": "guest", "auth_method": "guest_pass", "expires_at_epoch": time.time() + 3600},
+        db_path=db,
+    )
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "UPDATE auth_sessions SET guest_pass_id = ? WHERE session_id = 'sid-guest'", (bad_pass_id,)
+    )
+    conn.commit()
+    conn.close()
+    session_store._setup_done.clear()  # noqa: SLF001
+    assert session_store.hydrate(allowlist=["admin"], db_path=db) == {}
+    assert _persisted_guest_rows(db) == 0
+
+
+def test_a_live_guest_session_survives_a_restart_and_revocation_still_ends_it(_isolated_stores):
+    pass_row, token = guest_passes.create(duration_hours=2.0)
+    with TestClient(server.app, base_url="https://testserver") as c:
+        _login(c, token)
+        assert c.get(PRIVATE_ROUTE).status_code == 200
+        cookie = _cookie(c)
+    _restart_process_memory()
+    assert _guest_session_ids(), "the restart must rehydrate the live guest session"
+    with TestClient(server.app, base_url="https://testserver") as after:
+        after.cookies.set(server.JASON_AUTH_COOKIE_NAME, cookie)
+        assert after.get(PRIVATE_ROUTE).status_code == 200
+        assert after.get("/api/auth/status").json().get("authenticated") is True
+        # The rehydrated session answers to its pass exactly as before.
+        guest_passes.revoke(pass_row.id)
+        assert after.get(PRIVATE_ROUTE).status_code == 401
+    assert _guest_session_ids() == []
+    assert _persisted_guest_rows(_isolated_stores["sess_db"]) == 0
+
+
+def test_a_stale_row_of_a_revoked_pass_cannot_authenticate_after_a_restart(
+    monkeypatch, _isolated_stores
+):
+    """Revoke's row deletion "lost" (it is belt-and-braces): the row comes
+    back on restart, and the per-request pass check still ends it."""
+    pass_row, token = guest_passes.create(duration_hours=2.0)
+    monkeypatch.setattr(session_store, "evict_guest_pass", lambda *a, **k: 0)
+    with TestClient(server.app, base_url="https://testserver") as c:
+        _login(c, token)
+        cookie = _cookie(c)
+    guest_passes.revoke(pass_row.id)
+    _restart_process_memory()
+    assert _guest_session_ids(), "precondition: the stale row rehydrated"
+    with TestClient(server.app, base_url="https://testserver") as after:
+        after.cookies.set(server.JASON_AUTH_COOKIE_NAME, cookie)
+        assert after.get(PRIVATE_ROUTE).status_code == 401
+    assert _guest_session_ids() == []
+    assert _persisted_guest_rows(_isolated_stores["sess_db"]) == 0
+
+
+def _locked(*_a, **_k):
+    raise sqlite3.OperationalError("database is locked")
+
+
+@pytest.mark.parametrize("failure", ["read_raises", "setup_fails"])
+def test_unreadable_pass_store_refuses_the_request_but_keeps_the_session(
+    monkeypatch, _isolated_stores, failure
+):
+    _p, token = guest_passes.create(duration_hours=2.0)
+    db = _isolated_stores["sess_db"]
+    with TestClient(server.app, base_url="https://testserver") as c:
+        _login(c, token)
+        assert c.get(PRIVATE_ROUTE).status_code == 200
+        with monkeypatch.context() as m:
+            if failure == "read_raises":
+                m.setattr(guest_passes, "get", _locked)
+            else:
+                m.setattr(guest_passes, "_ensure_setup", lambda _path: False)
+            # Fail closed: no access while the authority cannot be read ...
+            assert c.get(PRIVATE_ROUTE).status_code == 401
+            assert c.get("/api/auth/status").json().get("authenticated") is False
+            # ... but the session is neither evicted nor deleted.
+            assert len(_guest_session_ids()) == 1
+            assert _persisted_guest_rows(db) == 1
+        # The store answers again: the same session works on its next request.
+        assert c.get(PRIVATE_ROUTE).status_code == 200
+
+
+def test_an_expired_pass_still_ends_the_session_for_good(_isolated_stores):
+    """The pass expired early (row edited) while the session's own expiry is
+    still ahead: inactive, not unreadable — evicted from memory and disk."""
+    pass_row, token = guest_passes.create(duration_hours=2.0)
+    with TestClient(server.app, base_url="https://testserver") as c:
+        _login(c, token)
+        conn = sqlite3.connect(_isolated_stores["pass_db"])
+        conn.execute(
+            "UPDATE guest_passes SET expires_at_epoch = ? WHERE id = ?",
+            (time.time() - 1, pass_row.id),
+        )
+        conn.commit()
+        conn.close()
+        assert c.get(PRIVATE_ROUTE).status_code == 401
+    assert _guest_session_ids() == []
+    assert _persisted_guest_rows(_isolated_stores["sess_db"]) == 0
+
+
+def test_an_unknown_pass_id_still_ends_the_session_for_good(_isolated_stores):
+    _p, token = guest_passes.create(duration_hours=2.0)
+    with TestClient(server.app, base_url="https://testserver") as c:
+        _login(c, token)
+        (sid,) = _guest_session_ids()
+        server.auth_sessions[sid]["guest_pass_id"] = 987654
+        assert c.get(PRIVATE_ROUTE).status_code == 401
+    assert _guest_session_ids() == []
+    assert _persisted_guest_rows(_isolated_stores["sess_db"]) == 0
+
+
+def test_the_sessions_own_expiry_still_ends_it_for_good(_isolated_stores):
+    _p, token = guest_passes.create(duration_hours=2.0)
+    with TestClient(server.app, base_url="https://testserver") as c:
+        _login(c, token)
+        (sid,) = _guest_session_ids()
+        server.auth_sessions[sid]["expires_at_epoch"] = time.time() - 1
+        assert c.get(PRIVATE_ROUTE).status_code == 401
+    assert _guest_session_ids() == []
+    assert _persisted_guest_rows(_isolated_stores["sess_db"]) == 0
+
+
+def test_session_authority_state_separates_unreadable_from_inactive(monkeypatch):
+    p, _ = guest_passes.create(duration_hours=2.0)
+    assert guest_passes.session_authority_state(p.id) == guest_passes.AUTHORITY_ACTIVE
+    assert guest_passes.session_authority_state(p.id + 999) == guest_passes.AUTHORITY_INACTIVE
+    for bad in (None, 0, -1, "3", True, 3.0):
+        assert guest_passes.session_authority_state(bad) == guest_passes.AUTHORITY_INACTIVE
+    with monkeypatch.context() as m:
+        m.setattr(guest_passes, "get", _locked)
+        assert guest_passes.session_authority_state(p.id) == guest_passes.AUTHORITY_UNKNOWN
+        # The boolean form stays fail-closed: unknown is not authority.
+        assert guest_passes.session_authority(p.id) is False
+    with monkeypatch.context() as m:
+        m.setattr(guest_passes, "_ensure_setup", lambda _path: False)
+        assert guest_passes.session_authority_state(p.id) == guest_passes.AUTHORITY_UNKNOWN
+    guest_passes.revoke(p.id)
+    assert guest_passes.session_authority_state(p.id) == guest_passes.AUTHORITY_INACTIVE
+
+
+def test_ending_a_session_logs_the_reason_and_pass_never_the_session_id(caplog):
+    _p, token = guest_passes.create(duration_hours=2.0)
+    with TestClient(server.app, base_url="https://testserver") as c:
+        _login(c, token)
+        (sid,) = _guest_session_ids()
+        cookie = _cookie(c)
+        guest_passes.revoke(_p.id)
+        with caplog.at_level("INFO"):
+            assert c.get(PRIVATE_ROUTE).status_code == 401
+    ended = [r.getMessage() for r in caplog.records if "auth session ended" in r.getMessage()]
+    assert ended == [
+        f"auth session ended: reason=guest_pass_not_authoritative auth_method=guest_pass guest_pass_id={_p.id}"
+    ]
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert sid not in text and cookie not in text

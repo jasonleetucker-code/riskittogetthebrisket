@@ -2,11 +2,15 @@
  * lib/screenshot-import — joining extraction responses to the board, merging
  * several screenshots, and the review reducers.
  */
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   UNASSIGNED,
   addItem,
+  alignImageSides,
   confirmCandidate,
+  describeAlignment,
   describeImportError,
   describeWarning,
   emptyReview,
@@ -746,5 +750,378 @@ describe("full-page screenshots (server-side trade region)", () => {
     ]);
     expect(merged.mergeNotes).toHaveLength(1);
     expect(merged.unassigned).toEqual([]);
+  });
+});
+
+// ── multi-screenshot side alignment (CQ-11) ─────────────────────────
+
+/** A response whose sides carry real side labels (server anchor fields). */
+function labelled(imageIndex, sides, extra = {}) {
+  return {
+    ok: true,
+    imageIndex,
+    engine: { name: "tesseract", version: "5" },
+    layout: {
+      kind: sides.length === 1 ? "single" : "stacked",
+      confidence: 0.9,
+    },
+    sides: sides.map(([label, slot, items, family = "team 1/team 2"]) => ({
+      label,
+      labelSource: "anchor",
+      anchorFamily: family,
+      anchorSlot: slot,
+      items,
+    })),
+    unassigned: [],
+    ignored: [],
+    warnings: sides.length === 1 ? ["missing_side"] : [],
+    ...extra,
+  };
+}
+
+const names = (side) => side.items.map((i) => i.row?.name ?? i.raw);
+
+describe("multi-screenshot side alignment", () => {
+  const join = (r) => joinToBoard(r, M);
+
+  it("joinToBoard carries which side label each side is", () => {
+    const review = join(labelled(0, [["Team 2 gets", 1, []]]));
+    expect(review.sides[0]).toMatchObject({
+      anchorFamily: "team 1/team 2",
+      anchorSlot: 1,
+    });
+    // a positional side never claims a label
+    const pos = join(resp(0, [[], []]));
+    expect(pos.sides[0].anchorSlot).toBeNull();
+    expect(pos.sides[0].anchorFamily).toBeNull();
+  });
+
+  it("a follow-up shot showing only 'Team 2 gets' lands on Team 2's side", () => {
+    const merged = mergeImages([
+      join(
+        labelled(0, [
+          ["Team 1 gets", 0, [resolved("Ja'Marr Chase")]],
+          ["Team 2 gets", 1, [resolved("Puka Nacua")]],
+        ]),
+      ),
+      join(labelled(1, [["Team 2 gets", 1, [resolved("Bijan Robinson")]]])),
+    ]);
+    expect(names(merged.sides[0])).toEqual(["Ja'Marr Chase"]);
+    expect(names(merged.sides[1])).toEqual(["Puka Nacua", "Bijan Robinson"]);
+    expect(merged.alignmentNotes[1]).toMatchObject({
+      sourceImage: 1,
+      targets: [1],
+      basis: "label",
+      conflict: null,
+    });
+    // both sides are populated now: the per-shot missing_side is moot
+    expect(merged.warnings).toEqual([]);
+    expect(describeAlignment(merged, 2)).toEqual([
+      'Screenshot 2 shows only "Team 2 gets", so its assets were added to that side.',
+    ]);
+  });
+
+  it("a lone second-side label in the FIRST shot still goes to Side B", () => {
+    const merged = mergeImages([
+      join(labelled(0, [["Team 2 gets", 1, [resolved("Bijan Robinson")]]])),
+      join(
+        labelled(1, [
+          ["Team 1 gets", 0, [resolved("Ja'Marr Chase")]],
+          ["Team 2 gets", 1, [resolved("Puka Nacua")]],
+        ]),
+      ),
+    ]);
+    expect(names(merged.sides[0])).toEqual(["Ja'Marr Chase"]);
+    expect(names(merged.sides[1])).toEqual(["Bijan Robinson", "Puka Nacua"]);
+    expect(merged.sides[1].label).toBe("Team 2 gets");
+  });
+
+  it("a shot listing its sides in the other order is matched by label, not position", () => {
+    const merged = mergeImages([
+      join(
+        labelled(0, [
+          ["You give", 0, [resolved("Ja'Marr Chase")], "you give/you get"],
+          ["You get", 1, [resolved("Puka Nacua")], "you give/you get"],
+        ]),
+      ),
+      join(
+        labelled(1, [
+          ["You get", 1, [resolved("Bijan Robinson")], "you give/you get"],
+          [
+            "You give",
+            0,
+            [resolved("2027 Round 1", "pick")],
+            "you give/you get",
+          ],
+        ]),
+      ),
+    ]);
+    expect(names(merged.sides[0])).toEqual(["Ja'Marr Chase", "2027 Round 1"]);
+    expect(names(merged.sides[1])).toEqual(["Puka Nacua", "Bijan Robinson"]);
+    expect(merged.alignmentNotes[1].targets).toEqual([1, 0]);
+    expect(describeAlignment(merged, 2)[0]).toMatch(/other order/);
+  });
+
+  it("collapses a >= 2 seam overlap on the label-aligned side, with undo", () => {
+    const merged = mergeImages([
+      join(
+        labelled(0, [
+          ["Team 1 gets", 0, [resolved("Ja'Marr Chase")]],
+          [
+            "Team 2 gets",
+            1,
+            [resolved("Puka Nacua"), resolved("Josh Allen", "player", "4984")],
+          ],
+        ]),
+      ),
+      join(
+        labelled(1, [
+          [
+            "Team 2 gets",
+            1,
+            [
+              resolved("Puka Nacua"),
+              resolved("Josh Allen", "player", "4984"),
+              resolved("Bijan Robinson"),
+            ],
+          ],
+        ]),
+      ),
+    ]);
+    expect(names(merged.sides[0])).toEqual(["Ja'Marr Chase"]);
+    expect(names(merged.sides[1])).toEqual([
+      "Puka Nacua",
+      "Josh Allen",
+      "Bijan Robinson",
+    ]);
+    expect(merged.mergeNotes).toHaveLength(1);
+    expect(merged.mergeNotes[0]).toMatchObject({
+      side: 1,
+      count: 2,
+      sourceImage: 1,
+    });
+    const undone = undoMerge(merged, 0);
+    expect(names(undone.sides[1])).toEqual([
+      "Puka Nacua",
+      "Josh Allen",
+      "Puka Nacua",
+      "Josh Allen",
+      "Bijan Robinson",
+    ]);
+    expect(names(undone.sides[0])).toEqual(["Ja'Marr Chase"]);
+  });
+
+  it("flags but never merges a 1-asset seam match on the aligned side (#1619)", () => {
+    const merged = mergeImages([
+      join(
+        labelled(0, [
+          ["Team 1 gets", 0, [resolved("Ja'Marr Chase")]],
+          ["Team 2 gets", 1, [resolved("Puka Nacua")]],
+        ]),
+      ),
+      join(
+        labelled(1, [
+          [
+            "Team 2 gets",
+            1,
+            [resolved("Puka Nacua"), resolved("Bijan Robinson")],
+          ],
+        ]),
+      ),
+    ]);
+    const items = merged.sides[1].items;
+    expect(names(merged.sides[1])).toEqual([
+      "Puka Nacua",
+      "Puka Nacua",
+      "Bijan Robinson",
+    ]);
+    expect(items[0].possibleOverlap).toBe(true);
+    expect(items[1].possibleOverlap).toBe(true);
+    expect(merged.mergeNotes).toEqual([]);
+    // Side A's seam was broken by a shot that did not show it.
+    expect(merged.sides[0].items[0].possibleOverlap).toBe(false);
+  });
+
+  it("labels from another vocabulary fall back to position and say so", () => {
+    const merged = mergeImages([
+      join(
+        labelled(0, [
+          ["Team 1 gets", 0, [resolved("Ja'Marr Chase")]],
+          ["Team 2 gets", 1, [resolved("Puka Nacua")]],
+        ]),
+      ),
+      join(
+        labelled(1, [
+          ["You get", 1, [resolved("Bijan Robinson")], "you give/you get"],
+        ]),
+      ),
+    ]);
+    expect(names(merged.sides[0])).toEqual(["Ja'Marr Chase", "Bijan Robinson"]);
+    expect(merged.alignmentNotes[1]).toMatchObject({
+      basis: "position",
+      conflict: "label_family_mismatch",
+    });
+    const codes = merged.warnings.map((w) => [w.code, w.sourceImage]);
+    expect(codes).toContainEqual(["side_alignment_conflict", 1]);
+    expect(
+      describeWarning({ code: "side_alignment_conflict", sourceImage: 1 }, 2),
+    ).toMatch(/^Screenshot 2: its side labels don't match/);
+  });
+
+  it("an unlabelled shot among labelled ones is placed by position, flagged unverified", () => {
+    const merged = mergeImages([
+      join(
+        labelled(0, [
+          ["Team 1 gets", 0, [resolved("Ja'Marr Chase")]],
+          ["Team 2 gets", 1, [resolved("Puka Nacua")]],
+        ]),
+      ),
+      join({
+        ...resp(1, [[resolved("Bijan Robinson")], []]),
+        sides: [
+          {
+            label: "Side A",
+            labelSource: "position",
+            items: [resolved("Bijan Robinson")],
+          },
+          { label: "Side B", labelSource: "position", items: [] },
+        ],
+      }),
+    ]);
+    expect(names(merged.sides[0])).toEqual(["Ja'Marr Chase", "Bijan Robinson"]);
+    expect(merged.warnings.map((w) => [w.code, w.sourceImage])).toEqual([
+      ["side_alignment_unverified", 1],
+    ]);
+  });
+
+  it("keeps missing_side when the merged trade still has one empty side", () => {
+    const merged = mergeImages([
+      join(labelled(0, [["Team 1 gets", 0, [resolved("Ja'Marr Chase")]]])),
+      join(labelled(1, [["Team 1 gets", 0, [resolved("Puka Nacua")]]])),
+    ]);
+    expect(names(merged.sides[0])).toEqual(["Ja'Marr Chase", "Puka Nacua"]);
+    expect(merged.sides[1].items).toEqual([]);
+    expect(merged.warnings.map((w) => w.code)).toEqual([
+      "missing_side",
+      "missing_side",
+    ]);
+  });
+
+  it("swapReviewSides flips the alignment notes with the sides", () => {
+    const merged = mergeImages([
+      join(labelled(0, [["Team 2 gets", 1, [resolved("Bijan Robinson")]]])),
+    ]);
+    expect(merged.alignmentNotes[0].targets).toEqual([1]);
+    const swapped = swapReviewSides(merged);
+    expect(swapped.alignmentNotes[0].targets).toEqual([0]);
+    expect(names(swapped.sides[0])).toEqual(["Bijan Robinson"]);
+  });
+
+  it("alignImageSides: no labels -> position; colliding labels -> position + conflict", () => {
+    const side = (labelSource, anchorFamily, anchorSlot) => ({
+      labelSource,
+      anchorFamily,
+      anchorSlot,
+      items: [],
+    });
+    expect(
+      alignImageSides([
+        side("position", null, null),
+        side("position", null, null),
+      ]),
+    ).toEqual({ targets: [0, 1], basis: "position", conflict: null });
+    // a half-stated label is no label
+    expect(alignImageSides([side("anchor", null, 1)]).basis).toBe("position");
+    const frame = [
+      { family: "team 1/team 2", slot: 0 },
+      { family: "team 1/team 2", slot: 1 },
+    ];
+    expect(
+      alignImageSides(
+        [
+          side("anchor", "team 1/team 2", 1),
+          side("anchor", "team 1/team 2", 1),
+        ],
+        frame,
+      ),
+    ).toMatchObject({
+      targets: [0, 1],
+      basis: "position",
+      conflict: "labels_collide",
+    });
+    expect(
+      alignImageSides(
+        [side("anchor", "team a/team b", 0)],
+        [
+          { family: "team 1/team 2", slot: 0 },
+          { family: "team a/team b", slot: 0 },
+        ],
+      ),
+    ).toMatchObject({ basis: "label", targets: [1] });
+  });
+});
+
+// ── the owner's regression trade, replayed from REAL OCR output ──────
+
+describe("owner regression: Team 1 gets Jaxson Dart, Team 2 gets De'Von Achane", () => {
+  // Committed real-tesseract payloads of two SYNTHETIC phone screenshots of
+  // the owner's trade (tests/fixtures/screenshot_import/mobile390_multishot_*;
+  // never an owner screenshot).  test_real_tesseract.py fails when a fresh
+  // read drifts from these recordings.
+  const FIXTURES = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "tests",
+    "fixtures",
+    "screenshot_import",
+  );
+  const recorded = (name) =>
+    JSON.parse(
+      fs.readFileSync(path.join(FIXTURES, name, "extraction.json"), "utf8"),
+    );
+  const OWNER_ROWS = [
+    player("Jaxson Dart", "12508", { pos: "QB" }),
+    player("De'Von Achane", "9226", { pos: "RB" }),
+    player("Bryce Young", "9228", { pos: "QB" }),
+    player("Omarion Hampton", "12507", { pos: "RB" }),
+  ];
+  const OM = maps(OWNER_ROWS, {});
+  const shots = () => [
+    recorded("mobile390_multishot_1"),
+    recorded("mobile390_multishot_2"),
+  ];
+
+  it("imports Dart to Team 1 and Achane to Team 2, nothing else", () => {
+    const merged = mergeImages(shots().map((r) => joinToBoard(r, OM)));
+    expect(merged.sides.map((s) => s.label)).toEqual([
+      "Team 1 gets",
+      "Team 2 gets",
+    ]);
+    expect(
+      toImportedSides(merged).map((side) => side.map((r) => r.name)),
+    ).toEqual([["Jaxson Dart"], ["De'Von Achane"]]);
+    expect(merged.unassigned).toEqual([]);
+    expect(importReady(merged)).toBe(true);
+    expect(merged.warnings).toEqual([]);
+    // The insights widget's players are ignored as page furniture.
+    const ignored = Object.fromEntries(
+      merged.ignored.map((g) => [g.raw, g.reason]),
+    );
+    expect(ignored["Bryce Young"]).toBe("outside_trade_region");
+    expect(ignored["Omarion Hampton"]).toBe("outside_trade_region");
+  });
+
+  it("would have put both players on Team 1 if sides were aligned by position", () => {
+    // The pre-CQ-11 behaviour, reproduced by withholding the label fields:
+    // the follow-up shot's only side is its FIRST side.
+    const positional = shots().map((r) => ({
+      ...r,
+      sides: r.sides.map(({ anchorFamily, anchorSlot, ...side }) => side),
+    }));
+    const merged = mergeImages(positional.map((r) => joinToBoard(r, OM)));
+    expect(
+      toImportedSides(merged).map((side) => side.map((r) => r.name)),
+    ).toEqual([["Jaxson Dart", "De'Von Achane"], []]);
   });
 });

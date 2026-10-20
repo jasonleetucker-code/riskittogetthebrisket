@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import {
   Badge,
@@ -11,7 +11,6 @@ import {
   SkeletonTable,
   StatusIndicator,
 } from "@/components/ds";
-import { classifyContractFailure } from "@/lib/contract-failure";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
 import {
   formatFactor,
@@ -20,6 +19,7 @@ import {
   stateSummary,
   weightingRows,
 } from "@/lib/source-weighting";
+import { useSourceWeighting } from "@/components/useSourceWeighting";
 
 /**
  * SourceWeightingTable — the freshness VERDICT per source, from the backend.
@@ -43,23 +43,6 @@ const LABELS = Object.fromEntries(
 );
 // Not a registered voter, so not in RANKING_SOURCES.
 LABELS.ktcCrowdTradesSfTep = LABELS.ktcCrowdTradesSfTep || "KeepTradeCut Market (benchmark)";
-
-async function fetchWeighting() {
-  try {
-    const res = await fetch("/api/sources/weighting", {
-      credentials: "same-origin",
-      headers: { "Cache-Control": "no-store" },
-    });
-    const body = await res.json().catch(() => null);
-    if (!res.ok) return { data: null, failure: classifyContractFailure(res.status, body) };
-    return { data: body, failure: null };
-  } catch (err) {
-    return {
-      data: null,
-      failure: classifyContractFailure(null, { message: err?.message }),
-    };
-  }
-}
 
 const COLUMNS = [
   {
@@ -157,18 +140,15 @@ const COLUMNS = [
   },
 ];
 
-export default function SourceWeightingTable() {
-  const [state, setState] = useState({ loading: true, data: null, failure: null });
-
-  const load = useCallback(async () => {
-    setState((s) => ({ ...s, loading: true }));
-    const out = await fetchWeighting();
-    setState({ loading: false, ...out });
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+/**
+ * `weighting` — optional `useSourceWeighting()` state handed down by the page
+ * (Source Health fetches the payload once for this table and the voting
+ * status panel).  Without it the table fetches for itself.
+ */
+export default function SourceWeightingTable({ weighting = null } = {}) {
+  const own = useSourceWeighting({ skip: Boolean(weighting) });
+  const state = weighting || own;
+  const load = state.reload;
 
   const rows = useMemo(() => weightingRows(state.data, { labels: LABELS }), [state.data]);
   const summary = useMemo(() => stateSummary(rows), [rows]);

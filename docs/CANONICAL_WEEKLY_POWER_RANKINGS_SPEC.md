@@ -381,6 +381,16 @@ tooltip:
   and a zero delta shows `—`; a row with no prior rank at all shows `NEW`. The
   test is per ROW, not per card, so a manager who joined after the baseline week
   reads NEW while everyone around them shows real arrows.
+  A ROW is a franchise (a roster), and publications are keyed by `ownerId`.
+  A mid-season hand-off recorded in `config/leagues/roster_ownership_changes.json`
+  (`src/public_league/ownership.py`) is the SAME franchise under a new manager:
+  its movement compares with the roster's own Week N-1 row, published under the
+  outgoing manager, and the row names whose rank that was
+  (`previousOfficialOwnerId`; frozen as `priorOwnerId`) so a predecessor's rank
+  is never presented as the new manager's own. Only the recorded hand-off can
+  link the two: an owner change nothing records still reads NEW. The same rule
+  scores the franchise: current-season Power counts every game the roster
+  played, keyed to its current owner (CQ-09, 2026-10-19).
 - **the card names the week the arrows are measured against** (`vs preseason`,
   `vs Week 3`), taken from the published history rather than inferred from the
   week number — a league whose baseline was never published must not claim one.

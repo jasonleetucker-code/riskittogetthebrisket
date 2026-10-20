@@ -4,6 +4,12 @@ Read `AI_INSTRUCTIONS.md` first. Every model follows the same canonical
 `docs/AGENT_OPERATING_SYSTEM.md`, current execution authority and
 `ASSISTANT_COORDINATION.md`. Provider adapters grant no unique authority.
 
+**Owner's permanent rapid-delivery policy (2026-10-19):** the universal
+process in `docs/AGENT_OPERATING_SYSTEM.md` §3 and
+`ASSISTANT_COORDINATION.md` requires safe parallel coding, tiered
+validation and Integration-led qualified routine merges without repeated
+owner approval. This is a pointer, not Codex-specific authority.
+
 ## Working Copy
 
 Active working copy: `C:\Users\jason\code\riskittogetthebrisket`.
