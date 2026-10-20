@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtNumber } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
-import { leagueHomeHref } from "@/app/league/league-home-href";
+import { leagueHomeHref } from "@/app/league/advisor-bootstrap";
 import ShareButton from "../../ShareButton.jsx";
 import RosterComparePanel from "@/components/RosterComparePanel";
 import {

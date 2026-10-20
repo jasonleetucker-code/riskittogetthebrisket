@@ -267,12 +267,7 @@ export const NAV_MODEL = [
     href: "/league",
     hint: "Your league's hub, history and activity",
     items: [
-      {
-        href: "/league",
-        label: "Hub",
-        hint: "Brisket Trade Advisor, champions, records, power, draft capital, recaps",
-        keywords: ["trade advisor", "brisket trade advisor", "evaluate trade"],
-      },
+      { href: "/league", label: "Hub", hint: "Champions, records, power, draft capital, recaps" },
       { href: "/league/activity", label: "Activity", hint: "Trades and news in one feed" },
       {
         href: "/league/insider-trading",

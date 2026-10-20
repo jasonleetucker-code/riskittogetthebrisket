@@ -15,8 +15,8 @@
 import { cache } from "react";
 import { connection } from "next/server";
 import LeagueClient from "./LeagueClient.jsx";
-import { fetchBackendJson, fetchBackendResult } from "../../lib/server-backend.js";
-import { classifyTeamsResult } from "../../lib/trade-advisor-client.js";
+import { fetchBackendJson } from "../../lib/server-backend.js";
+import { fetchAdvisorBootstrap as readAdvisorBootstrap } from "./advisor-bootstrap.js";
 import {
   PIECE_OF_SHIT_RANKINGS_TAB,
   PIECE_OF_SHIT_RANKINGS_TITLE,
@@ -109,13 +109,12 @@ const fetchSection = cache(async function fetchSection(section) {
 // advisor_unavailable/disabled, or 404 → the hub lands on Overview exactly
 // as before), and the real team picker for the first paint.  Classified
 // and ALLOWLISTED by `classifyTeamsResult` before it becomes a prop, so
-// nothing beyond those identities can reach the RSC payload.
+// nothing beyond those identities can reach the RSC payload.  The read and
+// classification are ./advisor-bootstrap.js's (one owner, shared with the
+// landing page, the sitemap and the detail pages' back-links).
 const fetchAdvisorBootstrap = cache(async function fetchAdvisorBootstrap() {
   await connection();
-  const result = await fetchBackendResult("/api/public/league/trade-advisor/teams", {
-    revalidate: 60,
-  });
-  return classifyTeamsResult(result);
+  return readAdvisorBootstrap();
 });
 
 function rawTabFrom(sp) {

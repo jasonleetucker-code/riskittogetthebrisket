@@ -131,8 +131,9 @@ describe("hub routing wiring", () => {
     expect(client).toMatch(/setActiveTab\("draft", \{ owner \}, "replace"\)/);
   });
   it("the server reads the advisor bootstrap and classifies it before it becomes a prop", () => {
-    expect(page).toMatch(/\/api\/public\/league\/trade-advisor\/teams/);
-    expect(page).toMatch(/classifyTeamsResult\(result\)/);
+    // One owner of the read + classification (advisor-bootstrap.js).
+    expect(page).toMatch(/from "\.\/advisor-bootstrap\.js"/);
+    expect(page).not.toMatch(/fetchBackendResult/);
     expect(page).toMatch(/initialAdvisor=\{initialAdvisor\}/);
   });
   it("league back-links go through the flag-gated league-home href (8 links)", () => {
@@ -147,7 +148,7 @@ describe("hub routing wiring", () => {
       "app/league/franchise/[owner]/page.jsx",
       "app/league/player/[playerId]/page.jsx",
     ];
-    const files = ["app/league/activity/page.jsx", ...serverFiles];
+    const files = ["app/league/activity/ActivityClient.jsx", ...serverFiles];
     let count = 0;
     for (const f of files) {
       const src = read(f);
@@ -155,14 +156,19 @@ describe("hub routing wiring", () => {
       count += (src.match(/<Link href=\{leagueHome\}/g) || []).length;
     }
     expect(count).toBe(8);
-    for (const f of serverFiles) expect(read(f), f).toMatch(/leagueHomeHref\(\)/);
-    expect(read("app/league/activity/page.jsx")).toMatch(/useLeagueHomeHref\(\)/);
-    const helper = code(read("app/league/league-home-href.js"));
+    // Every href is decided on the server — the activity page too, through
+    // its server wrapper — so no browser teams request picks a back-link.
+    for (const f of [...serverFiles, "app/league/activity/page.jsx"]) {
+      expect(read(f), f).toMatch(/leagueHomeHref\(\)/);
+    }
+    expect(read("app/league/activity/ActivityClient.jsx")).not.toMatch(/trade-advisor-client|fetchAdvisorTeams/);
+    const helper = code(read("app/league/advisor-bootstrap.js"));
     expect(helper).toMatch(/\/api\/public\/league\/trade-advisor\/teams/);
     expect(helper).toMatch(/classifyTeamsResult\(result\)/);
     expect(helper).not.toMatch(/connection\(/);
   });
-  it("the landing button is 'Go to League Hub'", () => {
-    expect(read("app/page.jsx")).toMatch(/Go to League Hub/);
+  it("the landing button says 'Go to League Hub' only when the advisor is confirmed served", () => {
+    expect(read("app/HomeClient.jsx")).toMatch(/advisorServed \? "Go to League Hub" : "League"/);
+    expect(read("app/page.jsx")).toMatch(/advisorConfirmedServed\(\)/);
   });
 });

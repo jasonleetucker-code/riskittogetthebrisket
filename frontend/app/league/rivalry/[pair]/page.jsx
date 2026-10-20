@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Avatar, Card, MeetingCard, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints, nameFor } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
-import { leagueHomeHref } from "@/app/league/league-home-href";
+import { leagueHomeHref } from "@/app/league/advisor-bootstrap";
 import ShareButton from "../../ShareButton.jsx";
 
 function _backend() {

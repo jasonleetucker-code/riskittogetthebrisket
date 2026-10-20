@@ -11,7 +11,7 @@
 import Link from "next/link";
 import { Card } from "../../../shared-server.jsx";
 import { EmptyState, PageHeader } from "@/components/ui";
-import { leagueHomeHref } from "@/app/league/league-home-href";
+import { leagueHomeHref } from "@/app/league/advisor-bootstrap";
 
 function backendUrl() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";

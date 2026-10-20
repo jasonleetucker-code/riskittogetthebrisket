@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints } from "../../shared-helpers.js";
 import { EmptyState, PageHeader, PlayerImage } from "@/components/ui";
-import { leagueHomeHref } from "@/app/league/league-home-href";
+import { leagueHomeHref } from "@/app/league/advisor-bootstrap";
 import ShareButton from "../../ShareButton.jsx";
 import { newsItemsForPlayer } from "@/lib/player-name-match";
 
