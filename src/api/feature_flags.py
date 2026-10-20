@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-22 of the 51 entries in ``_DEFAULTS`` below are ``True`` —
+22 of the 52 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -141,6 +141,19 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Rollback of ALL Signals IDP: RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0
     # + restart.
     "signals_idp_shared_market": False,
+    # Signals IDP FAMILY-scoped quarantine (owner directive 2026-10-19,
+    # PR-H).  OFF (incumbent): one IDP family failing its own floor /
+    # collapse check withholds the whole IDP release — every family keeps
+    # its last good board.  ON: only the failing family is withheld (its
+    # CSV, clock and ``_last_success`` untouched); the passing families
+    # publish with their own clocks.  Any internal error in the
+    # family-scoped path falls back to release-level quarantine.  The gate
+    # runs in the ``dynasty-signals-values`` collector
+    # (``src/sources/signals.py::collect_value_dataset``), whose unit has no
+    # EnvironmentFile, so the registry default governs it; it moves no
+    # served value by itself (a family board votes only through its own vote
+    # state).  Rollback: revert the default (or set the env var in the unit).
+    "signals_idp_family_quarantine": False,
     # Per-family Signals IDP release switches (owner directive 2026-10-19).
     # Each lifts ONE family's hold, and only together with the master
     # (``signals_idp_shared_market``) and ``signals_idp_xwalk_v2``.  Default
@@ -878,6 +891,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``data_contract._private_source_vote_state`` (AND semantics), reached
     # through ``build_api_data_contract`` on every /api/data build.
     "signals_idp_shared_market": LIVE,
+    # signals_idp_family_quarantine gates the IDP family-scoped quarantine in
+    # ``src/sources/signals.py`` (imported by server.py, so it measures LIVE);
+    # the gate itself runs in the dynasty-signals-values collector process.
+    "signals_idp_family_quarantine": LIVE,
     "signals_idp_dl_vote": LIVE,
     "signals_idp_lb_vote": LIVE,
     "signals_idp_db_vote": LIVE,
