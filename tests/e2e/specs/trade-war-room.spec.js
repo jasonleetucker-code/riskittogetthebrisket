@@ -65,7 +65,7 @@ async function addToSide(page, sideLabel, name) {
   await expect(page.getByRole("button", { name: `Remove ${name} from Side ${sideLabel}` })).toBeVisible();
 }
 
-test("trade war room: recommendation, three answers, Asset-Only round trip, no sideways scroll, axe clean", async ({
+test("trade war room: recommendation, three plain answers, Asset-Only round trip, no sideways scroll, axe clean", async ({
   authedPage: page,
 }, testInfo) => {
   const errors = [];
@@ -102,15 +102,27 @@ test("trade war room: recommendation, three answers, Asset-Only round trip, no s
   const room = page.locator('[data-war-room="ok"]');
   await expect(room).toBeVisible({ timeout: 30_000 });
   const consolidation = load("consolidation");
-  // TC-C: the ONE decision headline, verbatim from the backend, plus the graded
-  // leaning in the bands note (both contain "make the trade", so each is
-  // addressed by its own test id rather than by text).
+  // TC-C: the ONE decision headline, verbatim from the backend.  The graded
+  // leaning and the supporting arguments sit behind their disclosures (owner
+  // directive 2026-10-19: immediate answer first, detail on request).
   await expect(room.getByTestId("decision-headline")).toHaveText(consolidation.analysis.decision.headlineText);
-  await expect(room.getByTestId("decision-bands")).toContainText("graded leaning: Make the trade");
   for (const lens of ["market", "roster", "feasibility"]) {
     await expect(room.locator(`[data-lens="${lens}"]`)).toBeVisible();
   }
-  await expect(room.getByText(consolidation.analysis.reasonsFor[0])).toBeVisible();
+  await room.getByRole("button", { name: "Sources, simulations and methodology" }).click();
+  // The bands are named by their version number, never by their id.
+  expect(consolidation.analysis.decision.bands.version).toBe("fairness_bands_v1");
+  await expect(room.getByTestId("decision-bands")).toContainText("Fairness bands, version 1");
+  // One official answer: no legacy graded leaning anywhere in the War Room.
+  await expect(room).not.toContainText(/leaning/i);
+  await room.getByRole("button", { name: "Arguments, objections and uncertainty" }).click();
+  // The legacy gap word ("(stretch gap)") reads in the canonical band words.
+  expect(consolidation.analysis.lenses.market.detail.band.level).toBe("lopsided");
+  await expect(
+    room.getByText(
+      consolidation.analysis.reasonsFor[0].replace("(stretch gap)", "(a lopsided gap)") + ".",
+    ),
+  ).toBeVisible();
   // The page asked about THIS trade for THIS team.
   const first = requests.at(-1);
   expect(first.teamName).toBe(trade.team.name);

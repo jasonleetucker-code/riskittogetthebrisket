@@ -148,22 +148,30 @@ def _actual_week_results(
     season: SeasonSnapshot,
     week: int,
     registry: ManagerRegistry,
+    *,
+    by_franchise: bool = False,
 ) -> tuple[dict[str, float], dict[str, tuple[float, float]]]:
     """Return (actual_share, pair_points) for the given week.
 
     * ``actual_share[owner_id]`` — 1.0 / 0.5 / 0.0 for W / T / L.
     * ``pair_points[owner_id]`` — ``(pointsFor, pointsAgainst)`` for the
       owner's matchup (0/0 if Sleeper didn't pair them).
+
+    ``by_franchise`` keys each result to the roster's CURRENT owner, exactly
+    as it does in :func:`_season_weekly_scores`.  A caller pairing the two
+    must pass the same value to both, or a handed-off roster's scores and its
+    results land on different owners.
     """
     pairs = metrics.matchup_pairs(season.matchups_by_week.get(week) or [])
     actual: dict[str, float] = {}
     pair_pts: dict[str, tuple[float, float]] = {}
+    owner_week = None if by_franchise else week
     for a, b in pairs:
         if not metrics.is_scored(a) and not metrics.is_scored(b):
             continue
         pa, pb = metrics.matchup_points(a), metrics.matchup_points(b)
-        oa = metrics.resolve_owner(registry, season.league_id, a.get("roster_id"), week)
-        ob = metrics.resolve_owner(registry, season.league_id, b.get("roster_id"), week)
+        oa = metrics.resolve_owner(registry, season.league_id, a.get("roster_id"), owner_week)
+        ob = metrics.resolve_owner(registry, season.league_id, b.get("roster_id"), owner_week)
         if oa:
             pair_pts[oa] = (pa, pb)
         if ob:

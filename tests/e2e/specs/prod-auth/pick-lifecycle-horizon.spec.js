@@ -4,8 +4,9 @@
  * The deployed board must carry exactly the classes the owner decided:
  * the completed 2026 rookie class RETIRED (draft complete, rookies rostered
  * — evidence-derived by `src/identity/pick_lifecycle.py`), the supported
- * future-pick horizon 2027–2029 present, and NO 2030 (retiring 2026 does not
- * advance the horizon).
+ * future-pick horizon 2027–2029 present, and NO 2030 (the horizon ends three
+ * seasons after the latest completed draft, so 2030 waits for the 2027 draft —
+ * owner decision 2026-10-19, `board_pick_horizon`).
  *
  * Two layers, both asserted:
  *   1. consistency with the lifecycle OWNER — every year the contract's own

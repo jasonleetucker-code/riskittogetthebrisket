@@ -31,6 +31,8 @@ from typing import Any, Callable
 import requests
 from requests.adapters import HTTPAdapter
 
+from src.utils.singleflight import SingleFlight
+
 log = logging.getLogger(__name__)
 
 SLEEPER_BASE = "https://api.sleeper.app/v1"
@@ -100,6 +102,16 @@ _session: requests.Session | None = None
 _request_cache_lock = threading.Lock()
 _request_cache: dict[str, tuple[float, Any]] = {}
 
+# Memory bound (prod memory-pressure incident 2026-10-19).  Expiry used to be
+# LAZY: an entry was dropped only when the SAME url was read again past its
+# TTL, so every url fetched once (each season x week matchups/transactions
+# payload of every league chain walked) stayed resident for the life of the
+# process although it could never be served again — measured ~10 MB of dead
+# payloads on one league locally, on top of the shared players dump.  A put
+# now sweeps expired entries and caps the live set; the TTL rule a reader
+# sees is unchanged (an expired entry was never returned anyway).
+_REQUEST_CACHE_MAX_ENTRIES = 512
+
 
 def _get_session() -> requests.Session:
     """Lazily-created pooled session shared across the public pipeline."""
@@ -157,8 +169,25 @@ def _cache_put(url: str, payload: Any) -> None:
         return
     import time as _time
 
+    now = _time.time()
     with _request_cache_lock:
-        _request_cache[url] = (_time.time(), payload)
+        _request_cache.pop(url, None)
+        _request_cache[url] = (now, payload)
+        _evict_request_cache_locked(now)
+
+
+def _evict_request_cache_locked(now: float) -> None:
+    """Drop expired entries, then the oldest beyond the cap.  Lock held.
+
+    Insertion order is put order (a re-put moves its key to the end), so the
+    first keys are the oldest.  Expired entries are never served, so dropping
+    them changes no answer; the cap only evicts the oldest still-live entries,
+    whose next read becomes an ordinary miss.
+    """
+    for key in [k for k, (ts, _) in _request_cache.items() if (now - ts) > _CACHE_TTL_SECONDS]:
+        _request_cache.pop(key, None)
+    while len(_request_cache) > _REQUEST_CACHE_MAX_ENTRIES:
+        _request_cache.pop(next(iter(_request_cache)))
 
 
 def reset_request_cache() -> None:
@@ -467,6 +496,11 @@ def fetch_losers_bracket(league_id: str) -> list[dict[str, Any]]:
 # every subsequent snapshot build.  ~5 MB from Sleeper — we cache it
 # for the life of the process.
 _nfl_players_cache: dict[str, Any] | None = None
+#: One ``players/nfl`` download in flight: a cold process used to start a
+#: second ~5 MB download (and JSON parse) for every caller arriving while the
+#: first was still running — e.g. the Analyze Trade warm and the first
+#: analyze request after a restart.
+_nfl_players_flight = SingleFlight()
 
 
 def fetch_nfl_players() -> dict[str, Any]:
@@ -484,14 +518,25 @@ def fetch_nfl_players() -> dict[str, Any]:
     rostered player at zero.  Callers that need names must treat ``{}``
     as unavailable, never as "the NFL has no players".
     """
-    global _nfl_players_cache
     if _nfl_players_cache is not None:
         return _nfl_players_cache
-    data = _request_json(f"{SLEEPER_BASE}/players/nfl", timeout=30.0)
-    if isinstance(data, dict) and data:
-        _nfl_players_cache = data
-        return data
-    return {}
+
+    def _download() -> dict[str, Any]:
+        global _nfl_players_cache
+        if _nfl_players_cache is not None:
+            return _nfl_players_cache
+        data = _request_json(f"{SLEEPER_BASE}/players/nfl", timeout=30.0)
+        if isinstance(data, dict) and data:
+            _nfl_players_cache = data
+            return data
+        return {}
+
+    # Only a successful download is shared: a caller whose concurrent leader
+    # got ``{}`` (failed) joins ONE shared retry (bounded: two downloads per wave).
+    result, _shared = _nfl_players_flight.run_sharing_success(
+        "players/nfl", _download, failed=lambda data: not data
+    )
+    return result
 
 
 def reset_nfl_players_cache() -> None:
