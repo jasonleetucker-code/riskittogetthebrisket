@@ -322,7 +322,9 @@ def test_pipeline_layer_c_drop_is_stamped_as_a_rule_never_as_corruption(far_on):
     assert row["outlierIntegrityReasons"]["fantasyCalc"] == si.REASON_TAIL
     lc = far_on["sourceIntegrity"]["layerC"]
     assert lc["bySource"]["fantasyCalc"]["dropped"] >= 1
-    assert lc["constants"]["tauC"] == pytest.approx(math.log(6), abs=1e-6)
+    # The committed (Stage 2 frozen) Layer C threshold, never below the ln 4 floor.
+    assert lc["constants"]["tauC"] == pytest.approx(si.load_thresholds().tau_c_big, abs=1e-6)
+    assert lc["constants"]["tauC"] >= math.log(4) - 1e-6
 
 
 def test_pipeline_never_maps_a_vote_that_passed_a_and_b_to_an_invalid_category(far_on):

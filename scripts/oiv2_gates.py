@@ -66,6 +66,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-rows", type=int, default=None)
     ap.add_argument("--gates", default=",".join(G.GATES))
     ap.add_argument("--stage4-gate-of-record", action="store_true")
+    ap.add_argument("--report-v1", action="store_true", help="also report V1's rates")
+    ap.add_argument(
+        "--history-file",
+        type=Path,
+        default=None,
+        help="ARRIVING variant: the V2 history lane before this board (oiv2_replay run)",
+    )
     args = ap.parse_args(argv)
 
     population, entry = population_of(args.board)
@@ -119,6 +126,20 @@ def main(argv: list[str] | None = None) -> int:
             root = Path(tmp)
             J.materialize_tree(root, commit, site)
             replayer.write(root / "data" / "scrape_state")
+            history = None
+            variant = "NO-HISTORY"
+            if args.history_file is not None:
+                import gzip  # noqa: PLC0415
+
+                from src.api import source_integrity as si  # noqa: PLC0415
+
+                with gzip.open(args.history_file, "rt", encoding="utf-8") as fh:
+                    blob = json.load(fh)
+                if blob.get("beforeBoard") != args.board:
+                    log("history file is not the state before this board; refused")
+                    return 2
+                history = si.IntegrityHistory.from_json(blob.get("history"))
+                variant = "ARRIVING"
             result = G.run_all(
                 raw,
                 root,
@@ -126,6 +147,9 @@ def main(argv: list[str] | None = None) -> int:
                 max_rows=args.max_rows,
                 gates=[g for g in args.gates.split(",") if g],
                 progress=log,
+                report_v1=args.report_v1,
+                history=history,
+                variant=variant,
             )
     except Exception as exc:  # noqa: BLE001
         log(f"build failed: {exc!r}")

@@ -110,6 +110,9 @@ V2_FLAGS = (
     "rookie_ladder_fail_closed",
 )
 CONFIGS = ("none", "incumbent", "v2")
+#: Reported beside V2 (prereg §7: "the incumbent's and V1's rates on the same
+#: fixtures"); never part of case planning, so adding it moves no case.
+REPORT_CONFIGS = ("v1",)
 
 
 def _flags_for(config: str, extra: Mapping[str, bool] | None = None) -> dict[str, bool]:
@@ -117,6 +120,8 @@ def _flags_for(config: str, extra: Mapping[str, bool] | None = None) -> dict[str
     v2_on = config == "v2"
     for f in V2_FLAGS:
         flags[f] = v2_on
+    if config == "v1":
+        flags["outlier_disagreement_policy"] = True
     flags.update(extra or {})
     return flags
 
@@ -137,7 +142,7 @@ def build(
     """One full build. ``none`` = no per-row filter (V2 off, incumbent stood
     down); ``incumbent`` = release filter; ``v2`` = V2 primary configuration
     under ``history`` (``None`` = NO-HISTORY)."""
-    if config not in CONFIGS:
+    if config not in CONFIGS + REPORT_CONFIGS:
         raise ValueError(config)
     with contextlib.ExitStack() as stack, contextlib.redirect_stdout(io.StringIO()):
         for name, enabled in sorted(_flags_for(config, extra_flags).items()):
@@ -359,20 +364,29 @@ def run_cases(
     cases: Sequence[Case],
     *,
     progress: Callable[[str], None] | None = None,
+    configs: Sequence[str] = CONFIGS,
+    history: Any = None,
 ) -> tuple[list[CaseResult], dict[str, Any]]:
     """Every case through every configuration, batched. Returns the per-case
-    results and the contamination census."""
-    clean_rows = {c: rows_by_name(clean[c]) for c in CONFIGS}
+    results and the contamination census. ``history`` is the V2 history lane
+    for the ``v2`` builds (``None`` = NO-HISTORY, the gate of record)."""
+    clean_rows = {c: rows_by_name(clean[c]) for c in configs}
     results: list[CaseResult] = []
-    contamination: dict[str, list[float]] = {c: [] for c in CONFIGS}
-    contaminated: dict[str, list[dict]] = {c: [] for c in CONFIGS}
+    contamination: dict[str, list[float]] = {c: [] for c in configs}
+    contaminated: dict[str, list[dict]] = {c: [] for c in configs}
     batches = batch_cases(cases)
     for bi, batch in enumerate(batches):
         overrides = {(c.row, c.source): c.bad for c in batch}
         case_rows = {c.row for c in batch}
         per_config: dict[str, dict[str, dict]] = {}
-        for config in CONFIGS:
-            contract = build(raw, csv_root, config, transform_for(overrides))
+        for config in configs:
+            contract = build(
+                raw,
+                csv_root,
+                config,
+                transform_for(overrides),
+                history=history if config == "v2" else None,
+            )
             per_config[config] = rows_by_name(contract)
             worst, worst_row = 0.0, None
             for n, r in per_config[config].items():
@@ -393,7 +407,7 @@ def run_cases(
                 )
         for c in batch:
             res = CaseResult(c)
-            for config in CONFIGS:
+            for config in configs:
                 row = per_config[config].get(c.row)
                 mv = _log_move(_value(clean_rows[config].get(c.row)), _value(row))
                 res.harm[config] = mv if mv is not None else float("inf")
@@ -415,6 +429,7 @@ def run_cases(
 
 def summarize_cases(results: Sequence[CaseResult]) -> dict[str, Any]:
     out: dict[str, Any] = {}
+    reported = ["incumbent"] + (["v1"] if any("v1" in r.harm for r in results) else []) + ["v2"]
     by_gate: dict[str, list[CaseResult]] = defaultdict(list)
     for r in results:
         by_gate[r.case.gate].append(r)
@@ -427,7 +442,7 @@ def summarize_cases(results: Sequence[CaseResult]) -> dict[str, Any]:
             "cases": len(items),
             "material": len(material),
         }
-        for config in ("incumbent", "v2"):
+        for config in reported:
             passed = [r for r in material if r.passed(config)]
             reasons: dict[str, int] = defaultdict(int)
             for r in material:
@@ -520,6 +535,7 @@ def run_ad3(
     clean_none: Mapping[str, Any],
     *,
     progress: Callable[[str], None] | None = None,
+    history: Any = None,
 ) -> dict[str, Any]:
     cases = []
     for source, ac in AD3_SOURCES:
@@ -528,7 +544,7 @@ def run_ad3(
             if not ov:
                 cases.append({"source": source, "kind": kind, "rows": 0, "flagged": False})
                 continue
-            contract = build(raw, csv_root, "v2", transform_for(ov))
+            contract = build(raw, csv_root, "v2", transform_for(ov), history=history)
             hits = ad3_flagged(contract, source, ac)
             rows = rows_by_name(contract)
             excluded = sum(1 for (n, s) in ov if exclusion_of(rows.get(n), s))
@@ -591,19 +607,30 @@ def run_all(
     max_rows: int | None = None,
     gates: Iterable[str] | None = None,
     progress: Callable[[str], None] | None = None,
+    report_v1: bool = False,
+    history: Any = None,
+    variant: str = "NO-HISTORY",
 ) -> dict[str, Any]:
-    clean = {c: build(raw, csv_root, c) for c in CONFIGS}
+    """``history`` (with ``variant``) is the V2 history lane for every ``v2``
+    build -- ``None`` is NO-HISTORY, the gate of record (prereg §7.1)."""
+    clean = {c: build(raw, csv_root, c, history=history if c == "v2" else None) for c in CONFIGS}
+    configs: tuple[str, ...] = CONFIGS
+    if report_v1:
+        clean["v1"] = build(raw, csv_root, "v1")
+        configs = CONFIGS + ("v1",)
     wanted = set(gates or GATES)
     cases = [c for c in plan_cases(clean, seed=seed, max_rows=max_rows) if c.gate in wanted]
-    results, contamination = run_cases(raw, csv_root, clean, cases, progress=progress)
+    results, contamination = run_cases(
+        raw, csv_root, clean, cases, progress=progress, configs=configs, history=history
+    )
     summary: dict[str, Any] = summarize_cases(results)
     summary = {g: v for g, v in summary.items() if g in wanted}
     if "AD3" in wanted:
-        summary["AD3"] = run_ad3(raw, csv_root, clean["none"], progress=progress)
+        summary["AD3"] = run_ad3(raw, csv_root, clean["none"], progress=progress, history=history)
     return {
         "schema": SCHEMA,
         "seed": seed,
-        "variant": "NO-HISTORY",
+        "variant": variant,
         "pins": _flags_for("v2"),
         "thresholds": si.load_thresholds().to_stamp(),
         "cleanDigests": {c: board_digest(clean[c]) for c in CONFIGS},

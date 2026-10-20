@@ -655,7 +655,7 @@ def test_on_a_clean_board_changes_no_value(clean_off, clean_on):
     assert stamp["version"] == si.POLICY_VERSION
     assert stamp["voteExclusions"] == {} and stamp["rankingPasses"] == 1
     assert stamp["historyLane"]["state"] == "absent"
-    assert stamp["thresholds"]["status"] == "provisional_stage1"
+    assert stamp["thresholds"]["status"] == "frozen_stage2"
     # every vote carries its integrity block
     for row in clean_on["playersArray"]:
         for meta in (row.get("sourceRankMeta") or {}).values():
