@@ -24,14 +24,13 @@ no value of its own:
    the decision object never leave this module except through
    :func:`_evaluate_trade_internal`, which exists for parity tests.
 
-Engine access goes through ONE adapter block (``_engine_*`` below).  The
-shared 2-team analysis service (``src/trade/analyze_service.py``, design B0-c)
-is being built in parallel; until it merges, the adapter calls
-``simulate_trade`` / ``analyze_trade`` exactly as ``server._build_trade_simulation``
-+ ``post_trade_analyze`` do (Team Context on, posture built if missing, the
-valuation lens withdrawn so the contract is used as-is).  **Switch the adapter
-to ``analyze_service.simulate_for_team`` / ``analyze_for_team`` once B0-c
-merges** — no decision logic lives here, so the switch is a call-site change.
+Engine access goes through ONE adapter block (``_engine_*`` below).  A 2-team
+evaluation runs through the shared 2-team analysis service
+(``src/trade/analyze_service.py``, design B0-c) — ``simulate_for_team`` +
+``analyze_for_team``, the same owner ``/api/trade/simulate`` and
+``/api/trade/analyze`` call (Team Context on, posture built if missing; the
+valuation lens is withdrawn, so the captured contract is used as-is).  No
+decision logic lives here.
 
 Deliberate, named divergences from the private War Room (design §2.10, OD-8):
 
@@ -181,10 +180,9 @@ class AdvisorResult:
     perspective: int
 
 
-# ── Engine adapter (switch to src.trade.analyze_service once B0-c merges) ──
+# ── Engine adapter (2-team analysis through src.trade.analyze_service) ──
 #
-# Every call into the private engine is in this block, so the B0-c switch is
-# a change here and nowhere else.  These are the engine's OWN resolution
+# Every call into the private engine is in this block.  These are the engine's OWN resolution
 # functions, not copies: the board value an asset list is sorted by is the
 # value the engine would analyze with.
 
@@ -214,16 +212,6 @@ def _engine_resolve(label: str, row_index: Mapping[str, Any]) -> dict[str, Any] 
     return _resolve_asset(label, row_index=row_index)
 
 
-def default_posture_resolver(
-    contract: Mapping[str, Any], league_key: str, team: Mapping[str, Any]
-) -> dict[str, Any]:
-    """The War Room's posture rule for Analyze Trade with Team Context on:
-    ``competitive_posture_for(..., build_if_missing=True)``."""
-    from src.api.trade_simulator import competitive_posture_for
-
-    return competitive_posture_for(dict(contract), league_key, dict(team), build_if_missing=True)
-
-
 def _engine_analyze(
     snap: AdvisorSnapshot,
     team: Mapping[str, Any],
@@ -234,43 +222,45 @@ def _engine_analyze(
     picks_out: list[str],
     pick_ids_in: list[str | None],
     pick_ids_out: list[str | None],
-    posture_resolver: Callable[..., Mapping[str, Any] | None],
+    posture_resolver: Callable[..., Mapping[str, Any] | None] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """``(simulation, analysis)`` exactly as ``/api/trade/analyze`` builds them
-    with Team Context on — minus what the public path must not do: no
-    comparables lens (context only, never votes), no decision log write, and
-    no counterfactual search (``counterfactuals=False``; it runs after the
-    headline, leaning and confidence are fixed, so it cannot change a category).
+    """``(simulation, analysis)`` through the ONE 2-team analysis owner,
+    ``src/trade/analyze_service.py`` (design B0-c) — the same
+    ``simulate_for_team`` → ``analyze_for_team`` pair ``/api/trade/analyze``
+    calls, with Team Context on (so the posture is built if missing and the
+    roster utility runs, by that service's own rules).  Minus what the public
+    path must not do: no comparables lens (context only, never votes), no
+    decision log write, and no counterfactual search (``counterfactuals=False``;
+    it runs after the headline, leaning and confidence are fixed, so it cannot
+    change a category).
+
+    ``posture_resolver`` follows ``analyze_service.simulate_for_team``'s
+    signature ``(contract, league_key, team, *, build_if_missing)``; ``None``
+    means the service default (``trade_simulator.competitive_posture_for``).
     """
-    from src.api.trade_simulator import simulate_trade
-    from src.trade.analyze_trade import analyze_trade
+    from src.trade import analyze_service
 
     contract = dict(snap.contract)
-    posture = posture_resolver(contract, snap.league_key, team)
-    simulation = simulate_trade(
+    simulation = analyze_service.simulate_for_team(
         contract,
+        league_key=snap.league_key,
+        roster_settings=dict(snap.roster_settings or {}),
         resolved_team=dict(team),
         players_in=players_in,
         players_out=players_out,
         picks_in=picks_in,
         picks_out=picks_out,
-        pick_asset_ids_in=pick_ids_in,
-        pick_asset_ids_out=pick_ids_out,
-        roster_settings=dict(snap.roster_settings or {}),
-        league_key=snap.league_key,
-        include_roster_utility=True,
-        competitive_posture=dict(posture) if isinstance(posture, Mapping) else posture,
+        pick_ids_in=pick_ids_in,
+        pick_ids_out=pick_ids_out,
+        team_context=True,
+        for_analysis=True,
+        posture_resolver=posture_resolver,
     )
-    simulation["teamContext"] = {"applied": True, "mode": "team"}
-    meta = contract.get("meta") if isinstance(contract.get("meta"), dict) else {}
-    analysis = analyze_trade(
+    analysis = analyze_service.analyze_for_team(
         simulation,
-        comparables=None,
+        contract=contract,
         team_goal=None,
-        provenance={
-            "boardStamp": meta.get("generatedAt") or contract.get("generatedAt"),
-            "scoringFingerprint": meta.get("scoringFingerprint"),
-        },
+        comparables=None,
         counterfactuals=False,
     )
     return simulation, analysis
@@ -833,7 +823,7 @@ def _evaluate_trade_internal(
         picks_out=picks_out,
         pick_ids_in=ids_in,
         pick_ids_out=ids_out,
-        posture_resolver=posture_resolver or default_posture_resolver,
+        posture_resolver=posture_resolver,
     )
     internals["simulation"] = simulation
     internals["analysis"] = analysis
