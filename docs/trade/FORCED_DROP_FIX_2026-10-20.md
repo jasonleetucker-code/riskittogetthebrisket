@@ -3,7 +3,9 @@
 **Authority:** owner decision 2026-10-20 §2,
 [`docs/owner/LOW_VALUE_ASSET_OWNER_DECISIONS_2026-10-20.md`](../owner/LOW_VALUE_ASSET_OWNER_DECISIONS_2026-10-20.md).
 **Status:** IMPLEMENTED behind `forced_drop_cheapest_legal`, **default OFF**. Nothing served changes until the
-owner approves the production impact in §8. Diagnosis:
+owner approves the production impact in §8 **and** decides the selection mode in §3a (V5 default vs V5-R). Revised
+2026-10-20 after the independent mathematical review (verdict ACCEPT WITH FIXES: optimiser exact, flag-off identical);
+fixes A–F are recorded in §3a, §3, §9 and §10. Diagnosis:
 [`docs/valuation/LOW_VALUE_ASSET_RESEARCH_2026-10-20.md`](../valuation/LOW_VALUE_ASSET_RESEARCH_2026-10-20.md) §5.
 Evidence: [`evidence/forced_drop_fix_2026-10-20/replay.json`](evidence/forced_drop_fix_2026-10-20/replay.json)
 (`scripts/forced_drop_fix_replay.py`; newest committed archive `dynasty_export_20261020_052241`, the research
@@ -31,8 +33,14 @@ opposite errors.
 Criteria: **C1** the cut is selected by the quantity it is charged; **C2** unpriced is never zero and never an
 artifact value; **C3** no double counting (an acquired piece is not both credited by the package and charged as a
 release); **C4** receiver-rational (the charge never exceeds a legal alternative, including releasing the incoming
-piece); **C5** unit consistency with the package credit (full value both sides); **C6** one rule every surface can
-read.
+piece); **C5** one currency for SELECTION (every candidate cut, existing or incoming, compared on the same quantity);
+**C6** one rule every surface can read.
+
+*Correction (review fix A).* The first version of this table defined C5 as "unit consistency with the package credit
+(full value both sides)" and marked V5 **yes**. That was false: V5 costs an acquired piece at its package credit
+forgone (the third piece of a geometric package is credited ~0.61x its value, no scarcity) and an existing player at
+`base x scarcity`, so its SELECTION compares two different units. C5 is restated as the selection-currency question
+and V5 now reads **no**. V5-R (§3a) is the variant that satisfies it.
 
 | variant | C1 | C2 | C3 | C4 | C5 | neutralised / over-corrected / surviving | steps charge > credit | median charge/credit |
 |---|---|---|---|---|---|---|---:|---:|
@@ -43,12 +51,18 @@ read.
 | V3a V1 + V2a | yes | **zero** | no | partly | yes | 5 / 0 / 128 | 2 | 0.00 |
 | V3b V1 + V2b | yes | artifact floor | no | partly | yes | 6 / 0 / 127 | 2 | 0.25 |
 | V4 package-consistent (floor costs) | yes | artifact floor | yes | yes | yes | 1 / 0 / 132 | 0 | 0.25 |
-| **V5 chosen: package-consistent, waiver ceiling** | **yes** | **documented ceiling** | **yes** | **yes** | **yes** | **6 / 0 / 127** | **0** | **0.48** |
-| V6 charge surplus over replacement | yes | n/a | n/a | yes | **no** | 0 / 0 / 133 | 0 | 0.00 |
-| **flag ON, measured through production** | | | | | | **6 / 0 / 127** | **0** | **0.48** |
+| **V5 package-consistent, waiver ceiling (default mode)** | **yes** | **documented ceiling** | **yes** | **yes** | **no** (mixed units) | **6 / 0 / 127** | **0 †** | **0.48** |
+| **V5-R roster-rational (alternative mode)** | **yes** | **documented ceiling** | **yes** | partly (cut by `c`, not by charge) | **yes** | **18 / 1 / 114** | 6 | 0.52 |
+| V6 charge surplus over replacement | yes | n/a | n/a | yes | n/a (units differ from package) | 0 / 0 / 133 | 0 | 0.00 |
+| **flag ON, V5, measured through production** | | | | | | **6 / 0 / 127** | **0 †** | **0.48** |
+| **flag ON, V5-R, measured through production** | | | | | | **18 / 1 / 114** | 6 | 0.52 |
 
-The measured flag-ON row equals the in-script V5 recomputation exactly (independent check that the implementation
-is the rule). Reproduction of the incumbent: 133 / 85 / 43 / 5, production cut set rebuilt on 135 / 135 steps.
+† **Zero by construction, not evidence** (review fix F). Releasing the fillers themselves is always a legal option
+charged exactly their package credit, and V5 minimises the charge, so V5 can never charge more than the filler credit.
+The column says nothing about whether V5 is better than V1; for V5-R (which selects by `c`) it is a measurement.
+
+Both measured flag-ON rows equal their in-script recomputations exactly (V5 and V5-R; independent check that the
+implementation is the rule). Reproduction of the incumbent: 133 / 85 / 43 / 5, production cut set rebuilt on 135 / 135 steps.
 
 **Why not V1.** It fixes selection but still charges a just-acquired filler its raw value while the package keeps
 crediting it (credit `< value` under the geometric model), so receiving-and-releasing a player reads as a net loss.
@@ -58,7 +72,7 @@ explicitly rejects as a cut cost because it turns an identity-join miss into a f
 incoming pieces at full value (the package) but charges releases only over replacement: asymmetric units; on a
 full roster it charges ~0 for everything.
 
-## 3. The rule (V5) and its math
+## 3. The rule (V5, default mode) and its math
 
 For the receiving team, post-trade pool `P = E ∪ A` (surviving roster `E`, acquired players `A`), required releases
 `d = overLimitAfter` (worst case under the taxi bracket). Lineup legality is the incumbent's, unchanged: `S` is legal
@@ -72,45 +86,135 @@ iff `fill(P \ S) ≥ fill(P)` (exact solver, `src/ros/lineup.py`).
 
   `C(S) = [G(K) − G(K \ (S ∩ A))] + Σ_{p ∈ S ∩ E} c(p)` and `S* = argmin { C(S) : S legal, |S| = d }`.
 
+  An acquired piece the package did not credit (`A_u`, unpriced or unresolved) also adds its own `c(p)`:
+  `+ Σ_{p ∈ S ∩ A_u} c(p)` (review fix D, below).
+
   Without a package (a caller that publishes no package net): `C(S) = Σ_{p ∈ S} c(p)`.
 * Charge: `forcedDropCharge = max(0, C(S*) − C_pre)`, `C_pre` = cheapest legal cleanup the pre-trade roster already
   owed (0 unless over the limit). War Room net `= G(K) − forcedDropCharge`.
+* **Signed marginal (review fix C).** The clamp hides relief: a roster one over the limit that sends two and receives
+  one is spared a cut it owed (`C(S*) − C_pre < 0`). The signed value is now published as
+  `rosterCapacity.forcedDropMarginal` (and in the feasibility lens detail); the charge stays clamped at 0 and the basis
+  carries `signedMarginal` + `marginalClamp: "conservative_clamp"` whenever the clamp binds — relief is reported, never
+  credited to the trade. Also computed when the trade returns the roster to legal size (no post-trade drops at all).
+  Flag ON only.
 
 **Exactness.** For a fixed acquired subset `J = S ∩ A`, minimising `Σ c` over legal completions from `E` is a
 minimum-weight problem on a matroid (the dual of the lineup transversal matroid, contracted by `J`), which the
 canonical cut ladder solves greedily — it is called with `order_key = c` and `candidate_ids = J ∪ E`. Enumerating
 every `J` (≤ 64 subsets; a trade delivers ≤ 3–4 players) makes `S*` the global optimum. Pinned against brute force
-over every legal `d`-subset on 120 random leagues, with and without a package.
+over every legal `d`-subset (coverage below).
 
 **No double counting.** An acquired piece in `S*` is removed from `K` and contributes its *credit forgone*,
 `G(K) − G(K \ {f})`, never `c(f)`; so for `overLimitBefore = 0` the net is `G(K \ J) − Σ_{E} c(p)`: the package
 counts each remaining piece once, each existing release is charged once, and a piece received and released counts
 zero times. Multiple acquired releases split the joint credit by sequential removal (most valuable first); shares sum
-to the joint credit. Monotonicity is pinned: adding an incoming piece never lowers the receiver's net (precondition:
-the roster fills every slot without him — see §9).
+to the joint credit. Monotonicity is pinned: adding a CREDITED incoming piece never lowers the receiver's net (preconditions:
+the roster fills every slot without him, and the package credits him — see §9).
 
 **Unpriced (one rule, both surfaces).** An unpriced player is charged at the `assumedWaiver` ceiling for selection and
 charge, and the Finder now counts it (`assumedWaiverDrops`) instead of excluding it as 0. Under `S*` he is released
 only when no priced legal option (including the incoming filler) is cheaper, so the assumed value can never push a
 charge above a real, priced alternative. On the War Room design, steps whose cleanup contains an unpriced player went
-**49 → 0**. An *incoming* unpriced player is not in the package (the market lens never credited him), so releasing
-him forgoes 0 credit: `releaseCost 0`, `value null`, still counted in `unpricedForcedDrops`.
+**49 → 0**.
+
+*Unpriced incoming (review fix D).* The first version charged an *incoming* unpriced player 0 when released (the
+package never credited him, so the credit forgone is 0) and did not count him in `assumedWaiverDrops` — which made him
+the free first cut every time and turned an identity-join miss into a free cut (the Perfect Draft hazard in
+CLAUDE.md). Now an incoming piece the package did not credit (unpriced or unresolved; matched label by label, k-th
+incoming player with a label ↔ k-th package entry with that label) is costed and charged its own `c` at the
+`assumedWaiver` ceiling, labelled `chargeBasis: "release_value_uncredited"`, and counted. Consequence for monotonicity
+(§9): receiving an *uncredited* extra piece can lower the net by up to the cheapest legal cut.
+
+*Basis state (review fix D).* `forcedDropChargeBasis.state` is no longer `exact` when the charge rests on an assumed
+value: `assumed` (`bound: "upper"` — the waiver level is the unpriced player's documented ceiling) when an assumed drop
+is in the post-trade cleanup only; `lower_bound` (reason `pre_trade_cleanup_assumed_waiver`) when only in the pre-trade
+cleanup it is netted against; `mixed_bound` when both or combined with another lower-bound reason. A drop owed both
+before and after the trade cancels out of the marginal and does not taint it. The War Room objective carries the same
+state (`objectiveValue.forcedReleaseChargeState`) as the Finder's `rankingFactors.forcedDropCostBasis.state`, because
+both read `roster_capacity.forced_drop_cost`.
 
 **Determinism.** Ties break on player id (then position, then roster position), never on name; renaming every
 player and shuffling the roster leaves the cut set and charge unchanged (pinned).
+
+**Exactness coverage (review fixes B, F).** Both modes are pinned against brute force over every legal `d`-subset on
+100 random leagues each × {with, without package}: 40 plain (QB/RB/WR/TE/FLEX), 30 with **real scarcity multipliers
+drawn in 0.85–1.15 per position** (mixed incoming/existing candidates, so the one-sided-scarcity question is exercised),
+and 30 SUPER_FLEX + IDP leagues (`QB, RB, WR, TE, SUPER_FLEX, DL, LB, DB, IDP_FLEX`, 11-man roster, 1–4 incoming,
+**d up to 4**). Plus the identity `charge(V5) ≤ charge(V5-R)` and `Σc(V5-R cut) ≤ Σc(V5 cut)` on the same 100.
+
+## 3a. OWNER DECISION — selection mode: V5 (trade-consistent) vs V5-R (roster-rational)
+
+**The mismatch (review finding A).** V5 compares an acquired piece at its *package credit forgone* with an existing
+player at `base x scarcity`. Under the geometric package model a third piece is credited well below its own value, so
+V5 can release a more valuable incoming player and keep a less valuable existing one. Synthetic, pinned: receive
+[5000, 1000, 1000] with an existing 700 the cheapest roster player → V5 releases a 1,000 incoming piece charged ~608;
+V5-R releases the 700. Real board, V5: **Dru Phillips (DB, 1,293) released while Jonathan Allen (DL, 1,197) is kept;
+Keisean Nixon (DB, 1,427) / LeQuint Allen (RB, 1,487) released while Jonathan Allen is kept; Avieon Terrell (DB, 565)
+released while Dee Alford (DB, 430) is kept.**
+
+**V5-R (implemented, a sub-option of the same flag).** Choose the cut set by `c(p) = base x scarcity` uniformly across
+existing AND incoming players (the true cheapest legal roster cut — exact, the same ladder with no package step), then
+charge an acquired cut its package credit forgone (no double count) and an existing cut `c(p)`. Switch:
+`src/trade/forced_drop_selection.py::SELECTION_MODE` (`package_consistent` | `roster_rational`), a reviewed constant
+rather than an environment read, because switching it changes served verdicts. Published rule ids
+`cheapest_legal_package_consistent_v1` / `cheapest_legal_roster_rational_v1`.
+
+**Currency anomaly** = an acquired piece released while a cheaper existing player, who could legally have been
+released instead (single swap, exact lineup solver), is kept. Measured on the flag-ON production path:
+
+| measure (same board, same designs) | V5 (default) | V5-R |
+|---|---:|---:|
+| War Room filler flips (133): neutralised / over-corrected / surviving | 6 / 0 / 127 | 18 / 1 / 114 |
+| War Room steps with charge > filler credit | 0 (by construction) | 6 |
+| median charge / filler credit | 0.48 | 0.52 |
+| War Room 180 steps: private-decision category changes vs OFF | 112 | 108 |
+| War Room: currency anomalies / selections releasing an acquired piece | **49 / 65** | **0 / 20** |
+| Census 278 trades: private-decision category changes vs OFF | 140 | 139 |
+| Census: currency anomalies / selections releasing an acquired piece | **36 / 70** | **0 / 34** |
+| Census charge change vs OFF: n, median (min … max) | 174, −1,691 (−3,490 … +1,271) | 174, −1,664 (−3,490 … +1,354) |
+| V5 vs V5-R: steps with a different cut set (War Room / census) | — | 49 / 36 |
+| … of which V5-R charges more / less | — | 49 / 0 ; 36 / 0 |
+| … of which the private-decision category differs | — | 22 / 9 |
+| Trade Finder (12 teams, top 20): mean overlap vs OFF; teams identical | 0.854; 4 | 0.854; 4 |
+| Trade Finder: V5-R vs V5 | — | identical on 12 / 12 |
+
+(The review counted 14 of 86 package-step selections under a different definition; this record uses the single-swap
+definition above, which is mechanical and reproducible from `replay.json` → `currencyAnomaly`.)
+
+**What each one optimises.** V5 is *trade-consistent*: it maximises the very net the War Room publishes,
+`G(K \ J) − Σ_E c`, so the receiver's verdict is the best the package lens allows; its "cut" can be a player the
+manager would never actually release. V5-R is *roster-rational*: the cut shown is the cheapest real roster cut in one
+currency, and the charge is then the honest accounting of that cut; its net is never above V5's (by construction) and
+is lower on exactly the anomalous selections (by `c(acquired) − credit` there).
+
+**Filler-flip outcome.** V5-R neutralises more sweetener flips (18 vs 6; V1 neutralised 21) and over-corrects one,
+because a sweetener whose package credit is below its value is no longer the convenient cut. The research verdict
+(§5.3: a filler worth more than the receiver's worst legal cut is a genuine gain) holds under both; V5-R simply does
+not let the package discount make the incoming filler look cheaper than it is.
+
+**Recommendation: V5-R**, but the shipped default stays **V5** until the owner chooses (the evidence does not *clearly*
+favour V5-R on outcomes — there is no realized-outcome ground truth for either — it favours V5-R on correctness of the
+displayed cut). Reasoning: (1) the War Room and Finder SHOW the cut by name; under V5, 85 of 135 real selections that
+release an acquired piece name a cut no rational manager makes ("release Dru Phillips 1,293, keep Jonathan Allen
+1,197"); (2) V5's advantage — a higher receiver net — comes entirely from exploiting the package model's depth
+discount inside a roster-spot calculation, and that discount already prices part of the roster-spot cost, so V5 leans
+on it twice in the receiver's favour; (3) the cost of V5-R is bounded and visible: 49 of 180 / 36 of 278 trades are
+charged more, 22 / 9 change category, and the Finder is unchanged. **Owner decision requested:** keep V5 (default) or
+switch `SELECTION_MODE` to `roster_rational` before activation.
 
 ## 4. Consistency across surfaces
 
 | surface | path | flag ON |
 |---|---|---|
-| Trade Calculator `/api/trade/simulate` | `trade_simulator._capacity_package` → `assess_roster_capacity(package=…)` | V5; `rosterCapacity.forcedDropCharge` / `forcedDropChargeBasis` / `forcedDropSelection`, per-drop `chargeBasis` |
-| War Room `/api/trade/analyze` (private) | `analyze_service` → simulate → `trade_decision._objective_value` reads `forcedDropCharge` | same number as the calculator |
+| Trade Calculator `/api/trade/simulate` | `trade_simulator._capacity_package` → `assess_roster_capacity(package=…)` | the selected mode; `rosterCapacity.forcedDropCharge` / `forcedDropChargeBasis` / `forcedDropMarginal` / `forcedDropSelection`, per-drop `chargeBasis` (`release_value` \| `package_credit_forgone` \| `release_value_uncredited` \| `release_value_no_package`) |
+| War Room `/api/trade/analyze` (private) | `analyze_service` → simulate → `trade_decision._objective_value` reads `forcedDropCharge` | same number as the calculator; `objectiveValue.forcedReleaseChargeBasis` (`release_value` \| `package_credit_forgone` \| `mixed`) and `forcedReleaseChargeState` (the capacity basis state) |
 | Public advisor (`claude/advisor-public-backend`) | `analyze_service.analyze_trade_n(mode="market_fairness")` with Team Context, roster capacity and posture OFF (public fairness audit, PR #1889) | **none by construction** — the forced-release subtraction exists only in the private decision; nothing here is threaded into public paths |
 | Trade Finder (Team Context) | `finder._board_package` → `forced_drop_cost` | same owner, board-value package; unpriced counted |
 | Best Offers | `server.py` `capacity_for` → `board_package` | same as Finder |
-| Angle, Suggestions, Perfect Waivers, counterparty blocks | `assess_roster_capacity` without a package | V5 selection and unpriced rule; an acquired release is charged its raw `c` (`release_cost_no_package`) — these publish no package net |
+| Angle, Suggestions, Perfect Waivers, counterparty blocks | `assess_roster_capacity` without a package | cheapest-legal selection and unpriced rule (both modes agree without a package); an acquired release is charged its raw `c` (`release_value_no_package`) — these publish no package net |
 | Trade history (`trade_history_asof`, public `/league` grades) | — | **not applicable**: no roster-capacity read anywhere in the history path |
-| Perfect Draft `/api/draft/roster-context` | `build_cut_ladder` without `order_key` | **unchanged** (12/12 identical on the board; pinned) |
+| Perfect Draft `/api/draft/roster-context` | `build_cut_ladder` without `order_key` | **unchanged** (11 of 11 comparable teams identical on the board; the 12th raises `ValueError` in both modes and is excluded; pinned synthetically) |
 
 ## 5. Flag and rollback
 
@@ -118,8 +222,9 @@ player and shuffling the roster leaves the cut set and charge unchanged (pinned)
 is emitted and every path is the incumbent: `tests/trade/test_forced_drop_flag_off_identity.py` compares the
 flag-OFF output (default and explicit `0`) byte-for-byte with a corpus generated on `e1eff9f5f` before any code
 change (`tests/fixtures/forced_drop_flag_off_reference.json`: 32 capacity blocks in full, sha256 of 16 simulate, 16
-War Room and 2 Finder payloads), and requires flag ON to change all three. Enable:
-`RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL=1` + restart. Rollback: `=0` (or unset) + restart.
+War Room and 2 Finder payloads), and requires flag ON to change all three. The identity test is unchanged by the
+review fixes and still passes. Enable: `RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL=1` + restart. Rollback: `=0` (or
+unset) + restart. The selection mode (§3a) is a code constant, `SELECTION_MODE`, read only when the flag is ON.
 
 ## 6. Perfect Draft exposure (not changed here)
 
@@ -149,6 +254,10 @@ construction**. The "category" columns below are `trade_decision.public_category
 not a served public category. (The evidence JSON keeps the key name `publicCategoryChanged`; read it as that
 mapping.)
 
+All numbers below are the **default mode (V5)**; the V5-R alternative is in the §3a table (War Room 108 category changes,
+census 139, Finder identical to V5). Re-run after the review fixes: every V5 number is unchanged (the unpriced-incoming
+fix D never binds on this board — no unpriced incoming piece was a cheapest cut).
+
 **War Room design (45 trades, 180 steps):** forced-drop set changes on 131; private-decision category changes on **112**:
 UNFAVORABLE→FAVORABLE 51, UNAVAILABLE→FAVORABLE 45, UNFAVORABLE→APPROXIMATELY_EVEN 11, UNAVAILABLE→APPROXIMATELY_EVEN
 3, UNAVAILABLE→STRONGLY_UNFAVORABLE 1, APPROXIMATELY_EVEN→FAVORABLE 1. The `forced_drop_unpriced` evidence gap
@@ -165,7 +274,9 @@ UNAVAILABLE→UNFAVORABLE 3, FAVORABLE→APPROXIMATELY_EVEN 2, UNFAVORABLE→STR
 non-zero forced-drop cost **9 → 66** (the incumbent's alphabetical cut was usually unpriced, which the Finder
 excluded as 0, so it charged almost nothing).
 
-**Perfect Draft:** identical, 12/12 (2 teams resolve to neither mode by owner id; same in both).
+**Perfect Draft:** identical on **11 of 11** comparable teams. The 12th team's roster context raises `ValueError` in
+both modes and is excluded rather than counted identical (the first version reported "12/12", counting the two error
+payloads as a match; the review's "2 teams" read the error counter, which counted one team once per mode).
 
 **Illustrations** (NFL player names only):
 
@@ -190,26 +301,48 @@ market convention differs from the roster answer.
 ## 9. Limits
 
 * Component B (lineup lens) is not measured locally; box headlines will differ from the A-driven stand-in.
-* Scarcity resolves inert locally (multiplier 1.0); on the box it scales every charge 0.85–1.15 and enters selection
-  (pinned synthetically).
+* Scarcity resolves inert locally (multiplier 1.0), so **every replay number in §3a and §8 is at scarcity 1.0**. On the
+  box it scales every existing player's `c` by 0.85–1.15 while an acquired piece's package credit carries no scarcity
+  (review finding B: the multiplier is one-sided under V5's charge, and under V5-R it enters selection on both sides
+  but only existing cuts' charges). Exactness under real multipliers is pinned synthetically (§3); **a box replay with
+  real scarcity is required before activation** (§10).
 * The lineup guard protects an incoming player who fills a slot the roster could not; he cannot be the release, so
   in that case receiving him can lower the net (his lineup value is Component B's).
+* Receiving an *uncredited* (unpriced/unresolved) extra piece can lower the net by up to the cheapest legal cut: he
+  takes a spot with no package credit and is never a free cut (review fix D). Monotonicity is pinned for credited
+  pieces only.
+* `forcedReleaseChargeBasis` summarises every forced drop, including ones an over-limit roster owed anyway, so it can
+  read `mixed` when the marginal itself is all package credit.
+* Duplicate incoming labels: the package removes by label and multiplicity, so with two incoming players sharing a
+  label the credited/uncredited match is positional. Not reachable with distinct player names.
 * Taxi-partial certainty: the War Room abstains (`uncertain`) while the Finder charges a lower bound — pre-existing,
   unchanged; `dynasty_main` has no taxi.
 * Under the KTC rollback package model (non-monotone) a credit forgone can be negative; the total charge is clamped at
   0.
 * Angle / Suggestions / Perfect Waivers hold no package: an acquired release there is charged its raw value
   (labelled).
-* UI copy: the War Room text "After the forced cut of X (worth N)" (`frontend/lib/trade-war-room-copy.js:793`) shows
-  the charge; for a `package_credit_forgone` release that is the credit, not the player's value. Copy belongs to the
-  UI lane.
+* UI copy: see the activation blocker in §10.
 
-## 10. UNRESOLVED
+## 10. Activation checklist (every item blocks activation)
 
-* Owner approval of the §8 production impact (activation is owner-gated; nothing is switched on).
-* Independent mathematical review (owner §2 requires it) — not performed by the implementer; route to an
-  independent reviewer.
-* Box-side replay with Component B and real scarcity before activation.
+1. **Owner decision — selection mode** (§3a): keep V5 (default) or switch `SELECTION_MODE` to `roster_rational`
+   (recommended).
+2. **Owner approval of the §8 production impact** for the chosen mode.
+3. **Box replay with real scarcity and Component B** (`scripts/forced_drop_fix_replay.py` on the box, both modes):
+   every number here is at scarcity 1.0 with Component B in its not-applicable state.
+4. **UI copy (UI lane, not this PR).** `frontend/lib/trade-war-room-copy.js:793` renders
+   "After the forced cut of X (worth N)" from `objectiveValue.forcedReleaseCost`. For a just-acquired release N is the
+   package credit forgone, not the player's value, so "worth N" is false. The backend now publishes
+   `objectiveValue.forcedReleaseChargeBasis` (and per-drop `chargeBasis`). Proposed copy:
+   * `release_value` (unchanged): "After the forced cut of X (worth N), you …"
+   * `package_credit_forgone`: "After releasing X, whom this trade sends you (the package credited him N), you …"
+   * `mixed`: "After the forced cuts of X and Y (N of trade value given up), you …"
+   * and when `forcedReleaseChargeState` is `assumed` / `mixed_bound`, append "(N is an upper estimate — X has no
+     board value)"; `lower_bound`: "(at least N)".
+5. Independent re-review of the review fixes (A–F) — performed by the reviewer, not the implementer.
+
+## 11. UNRESOLVED
+
+* The activation checklist (§10) — every item open; nothing is switched on.
 * Perfect Draft exposure (§6): same selection mechanism, separate authorization.
-* UI copy for `chargeBasis = package_credit_forgone` (UI lane).
 * Optional follow-up: pass a package from Angle / Suggestions if their capacity blocks should net acquired releases.
