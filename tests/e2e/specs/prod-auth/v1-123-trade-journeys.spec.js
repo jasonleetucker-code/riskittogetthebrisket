@@ -12,6 +12,7 @@
  * "extends v1-45 to /arbitrage and /trades."
  */
 const { test, expect, prodUrl, getJson, annotate } = require("./helpers");
+const { openPackageScan, openPlayerResearch } = require("../../helpers/arbitrage-page");
 
 const SEL = {
   boardRow: ".ds-table-wrap table tbody tr.rankings-row-clickable",
@@ -92,18 +93,14 @@ test.describe("V1-123 Phase 1: trade journeys beyond /trade (production)", () =>
     // is the default tool and the Package Scan is its own tab, and no research
     // table renders ahead of the tools — the same contract the local journey
     // (tests/e2e/specs/journey-trade.spec.js) holds the page to.
-    const tabs = page.getByRole("tab");
-    await expect(tabs.first()).toHaveText("Golden Upgrades", { timeout: 30_000 });
-    await page.getByRole("tab", { name: "Package Scan" }).click();
-    await expect(page.getByText(/Package scan ready/i)).toBeVisible({ timeout: 30_000 });
-
-    const teamSelect = page.getByLabel("Your team");
-    await expect
-      .poll(async () => teamSelect.locator("option").count(), {
-        message: "team selector should populate from the contract",
-        timeout: 60_000,
-      })
-      .toBeGreaterThan(0);
+    //
+    // openPackageScan waits for the page to HYDRATE (its team selector
+    // populates from the contract) before clicking the tab, then requires the
+    // click to have selected it.  Clicking as soon as the server-rendered
+    // heading painted is what held this test red on production: the tab's
+    // onClick was not attached yet, the click was lost, and "Package scan
+    // ready" never appeared — see tests/e2e/helpers/arbitrage-page.js.
+    await openPackageScan(page);
 
     // Read first, click only when no scan is in flight -- re-clicking is
     // not idempotent (a click on the same tick a scan settles tears the
@@ -148,15 +145,11 @@ test.describe("V1-123 Phase 1: trade journeys beyond /trade (production)", () =>
 
     // Since the 2026-10-18 "tools first" directive the player-level table
     // lives in the collapsed "Player-level market research" panel, which
-    // does not mount its body until opened.  Open it, then scope every
-    // lookup to it — the default tool above may render its own content.
-    const disclosure = page.getByRole("button", { name: "Player-level market research" });
-    await expect(disclosure).toHaveAttribute("aria-expanded", "false", { timeout: 30_000 });
-    await disclosure.click();
-    await expect(disclosure).toHaveAttribute("aria-expanded", "true");
-    // `.last()`: the innermost panel holding the disclosure (an enclosing
-    // panel, if a future layout adds one, would also match the filter).
-    const research = page.locator(".ds-panel").filter({ has: disclosure }).last();
+    // does not mount its body until opened.  Open it — after hydration, and
+    // asserting the click took effect (the same lost-click race as the scan
+    // test above) — then scope every lookup to it: the default tool above
+    // may render its own content.
+    const research = await openPlayerResearch(page);
 
     const visibleTile = research.getByText("Visible", { exact: true });
     await expect(visibleTile).toBeVisible({ timeout: 30_000 });

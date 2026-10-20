@@ -240,7 +240,9 @@ describe("TradeWarRoom — the packet, in plain English", () => {
     expect(row("roster")).toHaveTextContent("The required cut does not change this.");
     expect(screen.queryByTestId("decision-reasons")).toBeNull();
     for (const g of FORCED.analysis.decision.missingEvidence) {
-      expect(within(screen.getByTestId("decision-missing")).getByText(g.text)).toBeInTheDocument();
+      expect(
+        within(screen.getByTestId("decision-missing")).getByText(missingEvidenceText(g)),
+      ).toBeInTheDocument();
     }
   });
 
@@ -1238,5 +1240,29 @@ describe("TradeWarRoom — the ONE decision (TC-C)", () => {
     const broken = structuredClone(CONSOLIDATION);
     delete broken.analysis.decision;
     expect(validAnalyzePayload(broken, { leagueKey: "main", useTeamContext: true })).toBe(false);
+  });
+});
+
+describe("TradeWarRoom — round 3 review", () => {
+  it("the player detail's partial-coverage note counts the unprojected traded players", async () => {
+    const p = structuredClone(PARTIAL);
+    p.analysis.lenses.roster.detail.coverage.tradedUnprojectedPlayerIds = ["RB Unpriced", "WR Two"];
+    await renderWith(p);
+    openSection("Lineup impact, player by player");
+    expect(
+      screen.getByText(
+        "2 traded players have no projection, so these numbers cover the projected players only and do not count toward the recommendation.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/^A traded player has no projection/)).toBeNull();
+  });
+
+  it("what is missing reads counted words, never '(s)' (real forced-cut output)", async () => {
+    await renderWith(FORCED);
+    const missing = screen.getByTestId("decision-missing");
+    expect(missing).toHaveTextContent(
+      "A forced cut has no value on the board, so the cost of that cut is unknown.",
+    );
+    expect(missing.textContent).not.toMatch(/\(s\)/);
   });
 });

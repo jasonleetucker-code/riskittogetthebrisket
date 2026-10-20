@@ -592,7 +592,10 @@ def test_only_the_authenticated_value_keys_vote_never_the_public_boards():
         assert S.dataset_metadata(board)["votes"] is False
     for spec in S.VALUE_DATASETS.values():
         assert set(spec.output_keys()) <= keys
-        assert S.value_dataset_metadata(spec)["votes"] is True
+    # ``votes`` is derived from the vote-state owner, never hardcoded: offense
+    # votes; the IDP families are held (shadow) under default flags.
+    assert S.value_dataset_metadata(S.VALUE_DATASETS["offense"])["votes"] is True
+    assert S.value_dataset_metadata(S.VALUE_DATASETS["idp"])["votes"] is False
     # One provider family, no independence bonus: both inside FantasyCalc's.
     assert {correlation_group_for(k) for k in signals_keys} == {"fantasyCalc"}
     assert correlation_group_for("fantasyCalc") == "fantasyCalc"

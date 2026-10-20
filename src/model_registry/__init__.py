@@ -34,6 +34,11 @@ Modules
 ``holdout``     Out-of-sample evaluation, with a hard guard against
                 scoring a model on its own training sources.
 ``promotion``   The champion-challenger decision and its stated limits.
+``promotion_gates``  Which gate ``promote()`` runs per family: the Hill scope
+                gate (plus parameter completeness) or the generic fail-closed
+                gate for registered non-Hill families; unknown families refused.
+``reproducible_evaluation``  Promotable evaluation receipts: full code SHA,
+                input / snapshot hashes, model version, evaluation instant.
 """
 
 from src.model_registry.holdout import (
