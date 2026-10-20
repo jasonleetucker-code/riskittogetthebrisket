@@ -35,6 +35,7 @@ from src.model_registry.reproducible_evaluation import (
     evaluation_record,
     reproducible_evaluation_receipt,
 )
+from src.model_registry.training_run import model_hash
 from src.model_registry.versioning import ModelRegistry, ModelVersion, RegistryError
 from src.sources import chase_trade_market as ctm
 
@@ -62,6 +63,7 @@ def _provenance(version: int, **over) -> EvaluationProvenance:
         input_hashes={"underlying_trades": H, "format_captures": "c" * 64},
         snapshot_hash="d" * 64,
         model_version_id=POLICY.version_id(version),
+        model_params_hash=model_hash(PARAMS),
         evaluated_at=T0,
         scoring_fingerprint=NotApplicable(
             "post-stratified to the declared reference format, not one league card"
@@ -220,6 +222,7 @@ def test_generic_happy_path_records_what_the_gate_concluded(tmp_path):
     assert gate["evaluationReceiptId"] == receipt.receipt_id
     assert gate["evaluationContentHash"] == receipt.content_hash()
     assert gate["modelVersionId"] == "mv:chase_trade_market:v2"
+    assert gate["modelParamsHash"] == model_hash(PARAMS)
     assert gate["championModelVersionId"] == "mv:chase_trade_market:v1"
     assert gate["ownerApproval"] == "owner #1"
     assert gate["votingEffect"].startswith("none")
@@ -370,3 +373,34 @@ def test_every_policy_is_internally_consistent():
             "scoringFingerprint",
         }
     assert POLICY.model_family == ctm.MODEL_FAMILY
+
+
+def test_a_receipt_for_a_different_parameter_set_is_refused():
+    """The version id ``mv:chase_trade_market:v2`` names a version NUMBER, not the
+    model under evaluation: a receipt that measured params P1 must not promote a
+    v2 carrying different (in-bounds) params P2 under the same holdout record."""
+    measured = _receipt()
+    other_params = {**PARAMS, "huber_delta": 2.0}
+    reg, _ = _registry(receipt=measured, params=other_params)
+    with pytest.raises(RegistryError, match="different parameter set"):
+        reg.promote(2, reason="x", evaluation_receipt=measured, owner_approval="owner")
+    assert reg.champion.version == 1 and reg.get(2).status == "challenger"
+
+
+class _LegacyProvenance(EvaluationProvenance):
+    """A provenance serialised without its params pin (e.g. an older record)."""
+
+    def to_dict(self):
+        return {k: v for k, v in super().to_dict().items() if k != "modelParamsHash"}
+
+
+def test_a_receipt_that_does_not_name_its_evaluated_params_is_refused():
+    """Unknown evaluated parameters never pass as a match (fail closed)."""
+    base = _provenance(2)
+    legacy = _LegacyProvenance(**{f: getattr(base, f) for f in base.__dataclass_fields__})
+    receipt = _receipt(provenance=legacy)
+    assert "modelParamsHash" not in receipt.body["extra"]["provenance"]
+    reg, _ = _registry(receipt=receipt)
+    with pytest.raises(RegistryError, match="names no modelParamsHash"):
+        reg.promote(2, reason="x", evaluation_receipt=receipt, owner_approval="owner")
+    assert reg.champion.version == 1

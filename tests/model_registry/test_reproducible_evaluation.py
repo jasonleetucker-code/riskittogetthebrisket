@@ -44,6 +44,7 @@ def _prov(**over) -> EvaluationProvenance:
         input_hashes={"underlying_trades": "2" * 64},
         snapshot_hash="sha256:" + "3" * 64,
         model_version_id="mv:chase_trade_market:v2",
+        model_params_hash="8" * 64,
         evaluated_at=T0,
         scoring_fingerprint=NotApplicable("reference format, not one league card"),
         environment={"numpy": "2.1.0"},
@@ -91,6 +92,7 @@ def test_same_pins_build_a_byte_identical_receipt():
         {"input_hashes": {"underlying_trades": "5" * 64}},
         {"input_hashes": {"underlying_trades": "2" * 64, "format_captures": "6" * 64}},
         {"snapshot_hash": "7" * 64},
+        {"model_params_hash": "9" * 64},
         {"evaluated_at": T0 + timedelta(seconds=1)},
         {"scoring_fingerprint": "sf1:abc"},
         {"environment": {"numpy": "2.2.0"}},
@@ -110,6 +112,7 @@ def test_the_receipt_carries_every_pin_concretely():
     prov = body["extra"]["provenance"]
     assert prov["evaluatedAt"] == T0.isoformat()
     assert prov["modelVersionId"] == "mv:chase_trade_market:v2"
+    assert prov["modelParamsHash"] == "8" * 64
     assert body["promotes"] is False
 
 
@@ -122,6 +125,8 @@ def test_the_receipt_carries_every_pin_concretely():
         ({"input_hashes": {"x": "missing"}}, "sha256 content hash"),
         ({"snapshot_hash": ""}, "sha256 content hash"),
         ({"model_version_id": "chase_trade_market:v2"}, "mv:<family>:<token>"),
+        ({"model_params_hash": ""}, "modelParamsHash must be a sha256"),
+        ({"model_params_hash": "unknown"}, "modelParamsHash must be a sha256"),
         ({"evaluated_at": datetime(2026, 10, 1, 12)}, "naive"),
         ({"scoring_fingerprint": ""}, "explicit NotApplicable"),
         ({"scoring_fingerprint": NotApplicable("")}, "must say why"),

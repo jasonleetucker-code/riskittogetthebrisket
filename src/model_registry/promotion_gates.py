@@ -30,7 +30,8 @@ The generic gate refuses unless ALL of:
    the refusal, never skipped.
 2. **reproducible evaluation** — the challenger's ``holdout`` carries a
    ``reproducible_evaluation.evaluation_record`` and the caller presents the
-   receipt itself; its content hash, model version, champion pairing, verdict
+   receipt itself; its content hash, model version, evaluated parameter set
+   (``training_run.model_hash`` of the target's params), champion pairing, verdict
    (``challenger_better_pending_policy``), holdout designs and concrete input pins
    are re-verified (``reproducible_evaluation.verify_evaluation_record``).
 3. **owner approval** when the family requires it — a non-empty, recorded
@@ -58,6 +59,7 @@ from typing import Any
 from src.model_registry.learning_receipt import LearningReceipt, model_version_id
 from src.model_registry.reproducible_evaluation import verify_evaluation_record
 from src.model_registry.scope_validation import SCOPE_CONSTANTS, assert_promotable
+from src.model_registry.training_run import model_hash
 from src.model_registry.versioning import ModelVersion, RegistryError
 
 GATE_HILL_SCOPE = "hill_scope"
@@ -299,12 +301,14 @@ def check_generic_family(
     """The generic gate. Returns the recorded outcome, or raises :class:`RegistryError`."""
     check_generic_parameters(policy, target.params)
     expected = policy.version_id(target.version)
+    params_hash = model_hash(target.params)
     champion_id = policy.version_id(incumbent.version) if incumbent else None
     problems = verify_evaluation_record(
         target.holdout,
         evaluation_receipt,
         expected_model_version_id=expected,
         expected_champion_model_version_id=champion_id,
+        expected_model_params_hash=params_hash,
         required_pins=policy.required_pins,
         not_applicable_pins=policy.not_applicable_pins,
         required_holdout_designs=policy.required_holdout_designs,
@@ -334,6 +338,7 @@ def check_generic_family(
         "policySchemaVersion": str(policy.schema_version),
         "parameters": f"complete:{len(policy.parameters)}_of_{len(policy.parameters)}",
         "modelVersionId": expected,
+        "modelParamsHash": params_hash,
         "championModelVersionId": champion_id or "none",
         "evaluationReceiptId": evaluation_receipt.receipt_id,
         "evaluationContentHash": evaluation_receipt.content_hash(),

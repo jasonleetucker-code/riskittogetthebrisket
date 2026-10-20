@@ -17,6 +17,7 @@ This module adds the stricter, promotable form without forking the receipt:
 * :class:`EvaluationProvenance` — the exact pins of ONE evaluation run, validated
   at construction: a 40-hex git commit and a clean tree, a sha256 per named input,
   a sha256 snapshot hash, the ``mv:<family>:<token>`` model version, the
+  hash of the exact parameter set evaluated (``training_run.model_hash``), the
   evaluation instant (timezone-aware) and the scoring fingerprint or an explicit
   ``not_applicable`` with a reason.
 * :func:`reproducible_evaluation_receipt` — builds the ordinary AL-0 EVALUATION
@@ -27,7 +28,7 @@ This module adds the stricter, promotable form without forking the receipt:
   serialisation) and the receipt identity + content hash.
 * :func:`verify_evaluation_record` — the check the generic promotion gate runs:
   the receipt presented IS the one the registry recorded (content hash), it
-  evaluates THIS version against THIS champion, its verdict says the challenger
+  evaluates THIS version — its number AND its parameter set — against THIS champion, its verdict says the challenger
   was better, its holdout design covers what the family requires, and every
   required pin is a concrete value.
 
@@ -83,6 +84,11 @@ def _require_sha256(value: Any, what: str) -> str:
     return text
 
 
+def _bare_sha256(value: Any) -> str:
+    text = str(value or "").strip()
+    return text[len("sha256:") :] if text.startswith("sha256:") else text
+
+
 def _require_aware(value: Any, what: str) -> datetime:
     if not isinstance(value, datetime):
         raise ReceiptError(f"{what} must be a datetime, not {value!r}")
@@ -102,6 +108,12 @@ class EvaluationProvenance:
     model_version_id: str
     evaluated_at: datetime
     scoring_fingerprint: str | NotApplicable
+    #: ``training_run.model_hash(params)`` of the exact parameter set evaluated.
+    #: The ``mv:<family>:v<N>`` id names a version NUMBER, not a model: without
+    #: this pin a receipt that measured params P1 would equally "evaluate" a later
+    #: v<N> carrying params P2. Required — an evaluation of an unnamed model is
+    #: not reproducible.
+    model_params_hash: str = ""
     #: Optional runtime identity that can move a fit (e.g. numpy/scipy/BLAS
     #: versions — the preregistration pins them). Strings only; never a guess.
     environment: Mapping[str, str] = field(default_factory=dict)
@@ -128,6 +140,7 @@ class EvaluationProvenance:
             raise ReceiptError(
                 f"modelVersionId must be 'mv:<family>:<token>', not {self.model_version_id!r}"
             )
+        _require_sha256(self.model_params_hash, "modelParamsHash")
         _require_aware(self.evaluated_at, "evaluatedAt")
         fp = self.scoring_fingerprint
         if isinstance(fp, NotApplicable):
@@ -166,6 +179,7 @@ class EvaluationProvenance:
             "inputHashes": {str(k): str(v) for k, v in sorted(self.input_hashes.items())},
             "snapshotHash": self.snapshot_hash,
             "modelVersionId": self.model_version_id,
+            "modelParamsHash": self.model_params_hash,
             "evaluatedAt": iso(self.evaluated_at),
             "scoringFingerprint": fp.to_dict() if isinstance(fp, NotApplicable) else fp,
             "environment": dict(sorted(self.environment.items())),
@@ -281,6 +295,7 @@ def verify_evaluation_record(
     *,
     expected_model_version_id: str,
     expected_champion_model_version_id: str | None,
+    expected_model_params_hash: str,
     required_pins: Iterable[str],
     not_applicable_pins: Iterable[str] = (),
     required_holdout_designs: Iterable[str] = (),
@@ -352,6 +367,18 @@ def verify_evaluation_record(
         problems.append("the evaluation ran on a dirty tree; its code is not the commit it names")
     if provenance.get("modelVersionId") != receipt.model_version_id:
         problems.append("the provenance names a different model version than the receipt")
+    recorded_params = provenance.get("modelParamsHash")
+    if not SHA256_RE.match(str(recorded_params or "")):
+        problems.append(
+            "the provenance names no modelParamsHash; the evaluated parameter set is "
+            "unknown, so the receipt cannot be tied to this version's parameters"
+        )
+    elif _bare_sha256(recorded_params) != _bare_sha256(expected_model_params_hash):
+        problems.append(
+            "the receipt evaluated a different parameter set (modelParamsHash "
+            f"{recorded_params!r}) than this version carries "
+            f"({expected_model_params_hash!r}); a version number is not a model"
+        )
     pins = body.get("inputPins") or {}
     allowed_na = set(not_applicable_pins)
     for key in required_pins:
