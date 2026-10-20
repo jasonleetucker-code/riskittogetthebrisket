@@ -202,9 +202,7 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
     # worth nothing, so it never enters the package math as a 0 -- and it is
     # never dropped silently either: it is named in ``unpricedIn`` /
     # ``unpricedOut`` and in the uncertainty list (which caps confidence).
-    def _priced(a: dict[str, Any]) -> bool:
-        v = a.get("value")
-        return isinstance(v, (int, float)) and v > 0
+    _priced = trade_decision.asset_is_priced
 
     def _name(a: dict[str, Any]) -> str:
         return str(a.get("name") or a.get("sourceLabel") or "")
@@ -910,6 +908,7 @@ def analyze_trade(
     *,
     team_goal: Any = None,
     provenance: dict[str, Any] | None = None,
+    counterfactuals: bool = True,
 ) -> dict[str, Any]:
     """Synthesize one Analyze Trade packet from a ``simulate_trade`` payload.
 
@@ -919,6 +918,9 @@ def analyze_trade(
     computed it, the comparable-trades payload for this package (context
     only — see ``_comparables_lens``).  Computes no canonical value and calls
     no engine.
+
+    ``counterfactuals`` is forwarded to :func:`trade_decision.decide` (the
+    "what would change it" search; it never changes the decision).
     """
     cfg = _config()
     team_context_block = simulation.get("teamContext") or {"applied": True, "mode": "team"}
@@ -963,6 +965,7 @@ def analyze_trade(
         # What only the caller knows (board stamp, scoring fingerprint), plus
         # the roster-lens priors this packet ran under -- for the receipt.
         provenance={**(provenance or {}), "analyzeConfig": dict(cfg)},
+        counterfactuals=counterfactuals,
     )
 
     return AnalyzeTradeResult(
