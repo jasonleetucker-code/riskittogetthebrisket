@@ -590,6 +590,25 @@ describe("per-team package rule", () => {
     expect(two[0]).toBe(packageAdjustPair([9999], [7846, 5717]).value);
   });
 
+  it("valueAdjustmentFromSideArrays: 3+ sides exclude an unpriced value, never price it at 0, and keep routes aligned", () => {
+    // Side 0's middle asset is unpriced (null / undefined / NaN / "x").  It
+    // must drop out of every team's package, and the asset after it must
+    // still follow ITS OWN route (side 2), not shift onto the unpriced one's.
+    const routes = [[1, 2, 2], [0], [0]];
+    const priced = valueAdjustmentFromSideArrays([[6000, 3000], [7000], [2500]], {
+      routes: [[1, 2], [0], [0]],
+    });
+    for (const missing of [null, undefined, NaN, "x"]) {
+      const out = valueAdjustmentFromSideArrays([[6000, missing, 3000], [7000], [2500]], {
+        routes,
+      });
+      expect(out).toEqual(priced);
+      const teams = perTeamPackageTotals([[6000, missing, 3000], [7000], [2500]], routes);
+      expect(teams[0].rawGiven).toBe(9000);
+      expect(teams[2].rawReceived).toBe(3000);
+    }
+  });
+
   it("worstTeamBand: band severity first, then relative gap, then lower index; unknown wins", () => {
     const flows = [
       { given: 9000, received: 9610, net: 610 },

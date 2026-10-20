@@ -71,15 +71,38 @@ describe("decision helpers take no stack input", () => {
   }
 
   it("the adjusted total is exactly raw + Value Adjustment, with no third term", () => {
-    for (const t of [
-      ...TL.adjustedSideTotals([A, C], [PICK, LATE], "full"),
-      ...TL.multiAdjustedSideTotals(sides3, "full"),
-    ]) {
-      // 2 teams: exactly {raw, adjustment, adjusted}.  3+ teams also carry the
-      // team's own package reading (perTeamPackageTotals) — none of it a
-      // stack term.
-      for (const k of Object.keys(t)) expect(k).not.toMatch(/stack/i);
+    // An explicit ALLOWLIST, not a name blocklist: any new key on a decision
+    // helper's side total fails here until someone decides it belongs (this
+    // file is that methodology decision).
+    // 2 teams: exactly {raw, adjustment, adjusted}.
+    const TWO_TEAM_KEYS = ["adjusted", "adjustment", "raw"];
+    // 3+ teams: the same three, plus the team's OWN package reading from
+    // perTeamPackageTotals (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §5.1)
+    // — raw routed flows, its own package totals / VA, its gap, the band base
+    // and the band.  None of them is a stack term.
+    const MULTI_TEAM_KEYS = [
+      ...TWO_TEAM_KEYS,
+      "band",
+      "gap",
+      "larger",
+      "rawGiven",
+      "rawReceived",
+      "recvAdj",
+      "recvVA",
+      "sendAdj",
+      "sendVA",
+    ].sort();
+    for (const t of TL.adjustedSideTotals([A, C], [PICK, LATE], "full")) {
+      expect(Object.keys(t).sort()).toEqual(TWO_TEAM_KEYS);
       expect(t.adjusted).toBe(t.raw + t.adjustment);
+    }
+    const multi = TL.multiAdjustedSideTotals(sides3, "full");
+    expect(multi).toHaveLength(3);
+    for (const t of multi) {
+      expect(Object.keys(t).sort()).toEqual(MULTI_TEAM_KEYS);
+      expect(t.adjusted).toBe(t.raw + t.adjustment);
+      // The adjustment IS the team's own send-side VA, nothing added to it.
+      expect(t.adjustment).toBe(t.sendVA);
     }
   });
 

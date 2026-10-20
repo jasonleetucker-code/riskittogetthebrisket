@@ -95,16 +95,16 @@
    "auditEvidence": "GIVE convention \u2014 frontend/lib/trade-logic.js:1392-1393 `const value = ...effectiveValue(asset...); result[i].given += value;` then `result[dest].received += value`; frontend/app/trade/trade-sections.jsx:808 `<div className={styles.sideGroupLabel}>Giving</div>` over `side.assets`; frontend/components/graphs/MultiTradeFlow.jsx:80 \"Each side appears once on the left (giver)\"; frontend/app/trade/page",
    "auditId": "T-1",
    "path": "frontend/lib/trade-logic.js",
-   "signature": "result[i].given += value",
+   "signature": "given: t.sendAdj,",
    "status": "open",
-   "verifiedBy": "The GIVE convention is live at :1393 while the verdict names the bigger pile the winner. Both conventions still present.",
+   "verifiedBy": "The GIVE convention is live at :1393 while the verdict names the bigger pile the winner. Both conventions still present. Re-pointed 2026-10-20 (PR #1883): computeSideFlows now reads each team from perTeamPackageTotals, and the GIVE convention lives on as `given: t.sendAdj` (what the side SENDS); the old `result[i].given += value` accumulator is gone, not the convention. Status unchanged \u2014 nothing here decided the direction question.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
     "result": "signature_present",
     "path": "frontend/lib/trade-logic.js",
-    "needle": "result[i].given += value"
+    "needle": "given: t.sendAdj,"
    }
   },
   {

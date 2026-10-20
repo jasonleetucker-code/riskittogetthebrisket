@@ -888,8 +888,11 @@ export function valueAdjustmentFromSideArrays(sidesValues, opts = {}) {
     return result.side === 1 ? [result.value, 0] : [0, result.value];
   }
   if (!Array.isArray(opts.routes) || opts.routes.length !== sidesValues.length) return null;
+  // Values pass through UNCOERCED: the k-th entry must stay aligned with the
+  // k-th route, and packageAdjustedPairTotals drops non-finite / non-positive
+  // entries itself, so an unpriced piece is excluded — never priced at 0.
   return perTeamPackageTotals(
-    sidesValues.map((raw) => (Array.isArray(raw) ? raw.map((v) => Number(v) || 0) : [])),
+    sidesValues.map((raw) => (Array.isArray(raw) ? raw : [])),
     opts.routes,
     pairOpts,
   ).map((t) => t.sendVA);
