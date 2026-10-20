@@ -223,7 +223,7 @@ def collector_state(app_dir: Path) -> dict[str, Any]:
 # ── 4-5: contract builds ─────────────────────────────────────────────────
 
 
-def build_three(app_dir: Path) -> tuple[dict, dict, dict, str]:
+def build_three(app_dir: Path, *, promote: bool = True) -> tuple[dict, dict, dict | None, str]:
     from src.api.data_contract import build_api_data_contract
     from src.sources.signals import newest_raw_payload
 
@@ -249,6 +249,8 @@ def build_three(app_dir: Path) -> tuple[dict, dict, dict, str]:
     # never vote: a release needs the master, every family switch AND the
     # qualified translation (Candidate F, signals_idp_xwalk_v2).  The per-mode
     # build matrix (D1 / E1, Candidate A computed in-script) is PR-D's.
+    if not promote:
+        return champion, shipped, None, path.name if path else "?"
     with _flags(
         RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE="1",
         RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET="1",
@@ -747,6 +749,8 @@ def public_projection(report: Mapping[str, Any]) -> dict[str, Any]:
             "payload",
         )
     }
+    if "idpPromotedBuild" in report:
+        out["idpPromotedBuild"] = report["idpPromotedBuild"]
     sess = report.get("session") or {}
     out["session"] = {k: sess.get(k) for k in ("state", "acquisitionState", "error") if k in sess}
     if "collection" in report:
@@ -825,6 +829,9 @@ def main() -> int:
     ap.add_argument("--app-dir", default=os.getcwd())
     ap.add_argument("--collect", action="store_true", help="start one real collection first")
     ap.add_argument("--skip-builds", action="store_true")
+    # Candidate F statistics are preregistered for the first qualifying release
+    # (R1; plan 4.3 D1 quarantine): never computed unless explicitly asked for.
+    ap.add_argument("--candidate-f", action="store_true", help="build the F-promoted board")
     args = ap.parse_args()
     app_dir = Path(args.app_dir).resolve()
     sys.path.insert(0, str(app_dir))
@@ -840,15 +847,18 @@ def main() -> int:
         report["collection"] = run_collection()
     report["collector"] = collector_state(app_dir)
     if not args.skip_builds:
-        champion, shipped, promoted, payload = build_three(app_dir)
-        ladders = _family_ladders()  # from the PROMOTED build (last built)
+        champion, shipped, promoted, payload = build_three(app_dir, promote=args.candidate_f)
         report["payload"] = payload
         report["privateSourceAvailability"] = shipped.get("privateSourceAvailability")
         report["offense"] = offense_report(champion, shipped, report["collector"])
-        report["idp"] = idp_report(shipped, promoted, ladders)
-        report["idp"]["familyLadderDepths"] = {k: len(v) for k, v in ladders.items()}
-        report["watchList"] = watch_list(shipped, promoted)
-        report["trades"] = trade_check(app_dir, shipped, promoted)
+        if promoted is None:
+            report["idpPromotedBuild"] = "quarantined_until_R1:candidate_f_not_requested"
+        else:
+            ladders = _family_ladders()  # from the PROMOTED build (last built)
+            report["idp"] = idp_report(shipped, promoted, ladders)
+            report["idp"]["familyLadderDepths"] = {k: len(v) for k, v in ladders.items()}
+            report["watchList"] = watch_list(shipped, promoted)
+            report["trades"] = trade_check(app_dir, shipped, promoted)
         names = [r.get("displayName") for r in shipped.get("playersArray") or []]
     else:
         names = []
