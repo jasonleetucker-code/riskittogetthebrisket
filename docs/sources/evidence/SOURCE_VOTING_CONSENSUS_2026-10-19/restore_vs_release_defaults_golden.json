@@ -1,0 +1,894 @@
+{
+ "baseline": {
+  "name": "defaults",
+  "spec": {}
+ },
+ "pins": {
+  "code": "dd0d536992eb401c40724d33a44fe6282f5ae02a",
+  "payload": "tests/fixtures/golden/input_export.json.gz",
+  "payloadSha256": "73fd8b17372a94de57da6b80300bbf53e1367bd80fbc562f322a60f43ede6c36",
+  "trees": {},
+  "workingTreeDirty": false
+ },
+ "scenarios": {
+  "restore": {
+   "dlfRestoreDecomposition": {
+    "byCause": {
+     "dlfOwnVote": {
+      "absPctMax": 3.32,
+      "absPctP50": 0.79,
+      "absPctP90": 2.18,
+      "largest": [
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 1809,
+        "name": "Dexter Lawrence",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": 3.32,
+        "position": "DL",
+        "to": 1869
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp",
+         "dlfRookieIdp"
+        ],
+        "from": 1489,
+        "name": "Jaishawn Barham",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": 3.22,
+        "position": "LB",
+        "to": 1537
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 1154,
+        "name": "Trenton Simpson",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": 3.21,
+        "position": "LB",
+        "to": 1191
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp",
+         "dlfRookieIdp"
+        ],
+        "from": 2117,
+        "name": "Josiah Trotter",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": 3.16,
+        "position": "LB",
+        "to": 2184
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfRookieIdp"
+        ],
+        "from": 2036,
+        "name": "Kyle Louis",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -2.9,
+        "position": "LB",
+        "to": 1977
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 1976,
+        "name": "Josh Sweat",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -2.88,
+        "position": "DL",
+        "to": 1919
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 2474,
+        "name": "Greg Rousseau",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": 2.87,
+        "position": "DL",
+        "to": 2545
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfRookieIdp"
+        ],
+        "from": 1384,
+        "name": "Peter Woods",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": 2.82,
+        "position": "DL",
+        "to": 1423
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 3966,
+        "name": "Abdul Carter",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": 2.75,
+        "position": "DL",
+        "to": 4075
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 1937,
+        "name": "Quinnen Williams",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": 2.74,
+        "position": "DL",
+        "to": 1990
+       }
+      ],
+      "moved": 164,
+      "over30Pct": 0
+     },
+     "other": {
+      "absPctMax": 4.63,
+      "absPctP50": 4.63,
+      "absPctP90": 4.63,
+      "largest": [
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [],
+        "from": 4732,
+        "name": "Travis Hunter",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -4.63,
+        "position": "WR",
+        "to": 4513
+       }
+      ],
+      "moved": 1,
+      "over30Pct": 0
+     },
+     "outlierSideEffect": {
+      "absPctMax": 39.94,
+      "absPctP50": 6.33,
+      "absPctP90": 34.48,
+      "largest": [
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp",
+         "dlfRookieIdp"
+        ],
+        "from": 1262,
+        "name": "Gabe Jacas",
+        "otherSourcesNewlyDropped": [
+         "idpTradeCalc"
+        ],
+        "otherSourcesNewlyKept": [],
+        "pct": 39.94,
+        "position": "DL",
+        "to": 1766
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 4420,
+        "name": "Will Anderson",
+        "otherSourcesNewlyDropped": [
+         "draftSharksIdp",
+         "idpShowCombined"
+        ],
+        "otherSourcesNewlyKept": [],
+        "pct": 34.48,
+        "position": "DL",
+        "to": 5944
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp",
+         "dlfRookieIdp"
+        ],
+        "from": 2879,
+        "name": "Rueben Bain",
+        "otherSourcesNewlyDropped": [
+         "idpShowCombined",
+         "idpTradeCalc"
+        ],
+        "otherSourcesNewlyKept": [],
+        "pct": -33.28,
+        "position": "DL",
+        "to": 1921
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 3096,
+        "name": "Jared Verse",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [
+         "idpTradeCalc"
+        ],
+        "pct": 22.97,
+        "position": "DL",
+        "to": 3807
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 4796,
+        "name": "Aidan Hutchinson",
+        "otherSourcesNewlyDropped": [
+         "draftSharksIdp"
+        ],
+        "otherSourcesNewlyKept": [],
+        "pct": 15.93,
+        "position": "DL",
+        "to": 5560
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 2581,
+        "name": "Jamien Sherwood",
+        "otherSourcesNewlyDropped": [
+         "idpTradeCalc"
+        ],
+        "otherSourcesNewlyKept": [],
+        "pct": 12.17,
+        "position": "LB",
+        "to": 2895
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 3525,
+        "name": "Kyle Hamilton",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [
+         "draftSharksIdp"
+        ],
+        "pct": -6.33,
+        "position": "DB",
+        "to": 3302
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 3256,
+        "name": "Cedric Gray",
+        "otherSourcesNewlyDropped": [
+         "fantasyProsIdp"
+        ],
+        "otherSourcesNewlyKept": [],
+        "pct": -6.14,
+        "position": "LB",
+        "to": 3056
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp"
+        ],
+        "from": 3540,
+        "name": "Ernest Jones",
+        "otherSourcesNewlyDropped": [
+         "draftSharksIdp"
+        ],
+        "otherSourcesNewlyKept": [],
+        "pct": -5.76,
+        "position": "LB",
+        "to": 3336
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [
+         "dlfIdp",
+         "dlfRookieIdp"
+        ],
+        "from": 3317,
+        "name": "Dillon Thieneman",
+        "otherSourcesNewlyDropped": [
+         "draftSharksIdp"
+        ],
+        "otherSourcesNewlyKept": [],
+        "pct": -5.28,
+        "position": "DB",
+        "to": 3142
+       }
+      ],
+      "moved": 13,
+      "over30Pct": 3
+     },
+     "pickTether": {
+      "absPctMax": 4.61,
+      "absPctP50": 1.11,
+      "absPctP90": 3.17,
+      "largest": [
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [],
+        "from": 2583,
+        "name": "2026 Pick 3.06",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -4.61,
+        "position": "PICK",
+        "to": 2464
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [],
+        "from": 2273,
+        "name": "2026 Pick 4.02",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -3.92,
+        "position": "PICK",
+        "to": 2184
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [],
+        "from": 2730,
+        "name": "2026 Pick 3.03",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -3.63,
+        "position": "PICK",
+        "to": 2631
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [],
+        "from": 2117,
+        "name": "2026 Pick 4.06",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -3.4,
+        "position": "PICK",
+        "to": 2045
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [],
+        "from": 3245,
+        "name": "2026 Pick 2.07",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -3.17,
+        "position": "PICK",
+        "to": 3142
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [],
+        "from": 1980,
+        "name": "2026 Pick 5.03",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -2.98,
+        "position": "PICK",
+        "to": 1921
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [],
+        "from": 2036,
+        "name": "2026 Pick 4.11",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -2.55,
+        "position": "PICK",
+        "to": 1984
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [],
+        "from": 2801,
+        "name": "2026 Pick 3.02",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -2.53,
+        "position": "PICK",
+        "to": 2730
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [],
+        "from": 1688,
+        "name": "2026 Pick 6.09",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": 2.31,
+        "position": "PICK",
+        "to": 1727
+       },
+       {
+        "dlfDroppedAfter": [],
+        "dlfVotesGained": [],
+        "from": 2387,
+        "name": "2026 Pick 3.10",
+        "otherSourcesNewlyDropped": [],
+        "otherSourcesNewlyKept": [],
+        "pct": -2.18,
+        "position": "PICK",
+        "to": 2335
+       }
+      ],
+      "moved": 50,
+      "over30Pct": 0
+     }
+    },
+    "dlfIdpVotingRows": {
+     "dlfIdp": [
+      0,
+      171
+     ],
+     "dlfRookieIdp": [
+      0,
+      29
+     ]
+    },
+    "otherSourceVotesNewlyDroppedByOutlierFilter": {
+     "draftSharksIdp": 5,
+     "fantasyProsIdp": 3,
+     "idpShowCombined": 2,
+     "idpTradeCalc": 3
+    },
+    "otherSourceVotesNewlyKeptByOutlierFilter": {
+     "draftSharksIdp": 1,
+     "fantasyProsIdp": 1,
+     "idpTradeCalc": 1
+    },
+    "rowsOver30Pct": [
+     {
+      "cause": "outlierSideEffect",
+      "dlfDroppedAfter": [],
+      "dlfVotesGained": [
+       "dlfIdp",
+       "dlfRookieIdp"
+      ],
+      "from": 1262,
+      "name": "Gabe Jacas",
+      "otherSourcesNewlyDropped": [
+       "idpTradeCalc"
+      ],
+      "otherSourcesNewlyKept": [],
+      "pct": 39.94,
+      "position": "DL",
+      "to": 1766
+     },
+     {
+      "cause": "outlierSideEffect",
+      "dlfDroppedAfter": [],
+      "dlfVotesGained": [
+       "dlfIdp"
+      ],
+      "from": 4420,
+      "name": "Will Anderson",
+      "otherSourcesNewlyDropped": [
+       "draftSharksIdp",
+       "idpShowCombined"
+      ],
+      "otherSourcesNewlyKept": [],
+      "pct": 34.48,
+      "position": "DL",
+      "to": 5944
+     },
+     {
+      "cause": "outlierSideEffect",
+      "dlfDroppedAfter": [],
+      "dlfVotesGained": [
+       "dlfIdp",
+       "dlfRookieIdp"
+      ],
+      "from": 2879,
+      "name": "Rueben Bain",
+      "otherSourcesNewlyDropped": [
+       "idpShowCombined",
+       "idpTradeCalc"
+      ],
+      "otherSourcesNewlyKept": [],
+      "pct": -33.28,
+      "position": "DL",
+      "to": 1921
+     }
+    ]
+   },
+   "identityWithBaseline": {
+    "decisionFieldDifferences": {
+     "canonicalConsensusRank": 589,
+     "canonicalTierId": 676,
+     "confidenceBucket": 75,
+     "confidenceLabel": 214,
+     "rankDerivedValue": 228,
+     "sourceKeys": 180
+    },
+    "examples": {
+     "canonicalConsensusRank": [
+      "2027 Early 2nd",
+      "2027 Early 3rd",
+      "2027 Early 4th",
+      "2027 Late 1st",
+      "2027 Late 2nd"
+     ],
+     "canonicalTierId": [
+      "2027 Early 2nd",
+      "2027 Early 3rd",
+      "2027 Early 4th",
+      "2027 Late 1st",
+      "2027 Late 2nd"
+     ],
+     "confidenceBucket": [
+      "Aidan Hutchinson",
+      "Alex Highsmith",
+      "Andrew Mukuba",
+      "Andrew Van Ginkel",
+      "Anthony Hill"
+     ],
+     "confidenceLabel": [
+      "AJ Haulcy",
+      "Aidan Hutchinson",
+      "Akeem Davis-Gaither",
+      "Alex Highsmith",
+      "Alim McNeill"
+     ],
+     "rankDerivedValue": [
+      "2026 Pick 1.04",
+      "2026 Pick 1.09",
+      "2026 Pick 1.10",
+      "2026 Pick 1.11",
+      "2026 Pick 1.12"
+     ],
+     "sourceKeys": [
+      "AJ Haulcy",
+      "Abdul Carter",
+      "Aidan Hutchinson",
+      "Akeem Davis-Gaither",
+      "Akheem Mesidor"
+     ]
+    },
+    "identical": false,
+    "rowsA": 1111,
+    "rowsB": 1111
+   },
+   "spec": {
+    "env": {
+     "RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE": 0
+    }
+   },
+   "vsBaseline": {
+    "byClass": {
+     "idp": {
+      "absPctMax": 39.94,
+      "absPctP50": 0.897,
+      "absPctP90": 2.898,
+      "absPctP99": 34.48,
+      "moved": 177
+     },
+     "offense": {
+      "absPctMax": 4.63,
+      "absPctP50": 4.628,
+      "absPctP90": 4.628,
+      "absPctP99": 4.628,
+      "moved": 1
+     },
+     "other": {
+      "moved": 0
+     },
+     "pick": {
+      "absPctMax": 4.61,
+      "absPctP50": 1.105,
+      "absPctP90": 3.174,
+      "absPctP99": 4.607,
+      "moved": 50
+     }
+    },
+    "byPosition": {
+     "DB": {
+      "absPctMax": 6.33,
+      "moved": 34,
+      "signedPctP50": -0.573
+     },
+     "DL": {
+      "absPctMax": 39.94,
+      "moved": 80,
+      "signedPctP50": 0.987
+     },
+     "LB": {
+      "absPctMax": 12.17,
+      "moved": 63,
+      "signedPctP50": -0.159
+     },
+     "PICK": {
+      "absPctMax": 4.61,
+      "moved": 50,
+      "signedPctP50": -0.862
+     },
+     "WR": {
+      "absPctMax": 4.63,
+      "moved": 1,
+      "signedPctP50": -4.628
+     }
+    },
+    "confidenceBucketFlips": {
+     "idp:low->medium": 14,
+     "idp:medium->high": 50,
+     "idp:medium->low": 11
+    },
+    "defensePlayersMoved": 177,
+    "largest": [
+     {
+      "class": "idp",
+      "from": 1262,
+      "name": "Gabe Jacas",
+      "pct": 39.94,
+      "position": "DL",
+      "to": 1766
+     },
+     {
+      "class": "idp",
+      "from": 4420,
+      "name": "Will Anderson",
+      "pct": 34.48,
+      "position": "DL",
+      "to": 5944
+     },
+     {
+      "class": "idp",
+      "from": 2879,
+      "name": "Rueben Bain",
+      "pct": -33.28,
+      "position": "DL",
+      "to": 1921
+     },
+     {
+      "class": "idp",
+      "from": 3096,
+      "name": "Jared Verse",
+      "pct": 22.97,
+      "position": "DL",
+      "to": 3807
+     },
+     {
+      "class": "idp",
+      "from": 4796,
+      "name": "Aidan Hutchinson",
+      "pct": 15.93,
+      "position": "DL",
+      "to": 5560
+     },
+     {
+      "class": "idp",
+      "from": 2581,
+      "name": "Jamien Sherwood",
+      "pct": 12.17,
+      "position": "LB",
+      "to": 2895
+     },
+     {
+      "class": "idp",
+      "from": 3525,
+      "name": "Kyle Hamilton",
+      "pct": -6.33,
+      "position": "DB",
+      "to": 3302
+     },
+     {
+      "class": "idp",
+      "from": 3256,
+      "name": "Cedric Gray",
+      "pct": -6.14,
+      "position": "LB",
+      "to": 3056
+     },
+     {
+      "class": "idp",
+      "from": 3540,
+      "name": "Ernest Jones",
+      "pct": -5.76,
+      "position": "LB",
+      "to": 3336
+     },
+     {
+      "class": "idp",
+      "from": 3317,
+      "name": "Dillon Thieneman",
+      "pct": -5.28,
+      "position": "DB",
+      "to": 3142
+     },
+     {
+      "class": "idp",
+      "from": 3103,
+      "name": "Kevin Winston",
+      "pct": -5.12,
+      "position": "DB",
+      "to": 2944
+     },
+     {
+      "class": "offense",
+      "from": 4732,
+      "name": "Travis Hunter",
+      "pct": -4.63,
+      "position": "WR",
+      "to": 4513
+     }
+    ],
+    "newlyPriced": [],
+    "newlyUnpriced": [],
+    "offensePlayersMoved": 1,
+    "picksMovedNotTether": [],
+    "singleSourceHaircut": {
+     "gained": {},
+     "lost": {}
+    },
+    "sourceVoteChanges": {
+     "dlfIdp": {
+      "meanAppliedWeight": [
+       null,
+       0.9467
+      ],
+      "votingRows": [
+       null,
+       169
+      ]
+     },
+     "dlfRookieIdp": {
+      "meanAppliedWeight": [
+       null,
+       0.6897
+      ],
+      "votingRows": [
+       null,
+       29
+      ]
+     },
+     "draftSharksIdp": {
+      "meanAppliedWeight": [
+       1.0,
+       1.0
+      ],
+      "votingRows": [
+       298,
+       294
+      ]
+     },
+     "fantasyProsIdp": {
+      "meanAppliedWeight": [
+       0.9788,
+       0.9788
+      ],
+      "votingRows": [
+       237,
+       235
+      ]
+     },
+     "idpShowCombined": {
+      "meanAppliedWeight": [
+       1.0,
+       1.0
+      ],
+      "votingRows": [
+       643,
+       641
+      ]
+     },
+     "idpTradeCalc": {
+      "meanAppliedWeight": [
+       0.9192,
+       0.919
+      ],
+      "votingRows": [
+       884,
+       882
+      ]
+     }
+    },
+    "top200": {
+     "entered": [
+      "Jamien Sherwood"
+     ],
+     "left": [
+      "Rueben Bain"
+     ]
+    },
+    "top50": {
+     "entered": [
+      "Aidan Hutchinson",
+      "Will Anderson"
+     ],
+     "left": [
+      "Breece Hall",
+      "Emeka Egbuka"
+     ]
+    },
+    "twoWay": {
+     "Travis Hunter": {
+      "alt": 4513,
+      "altAudit": {
+       "altFamily": "DB",
+       "altFamilyValue": 4513,
+       "applied": true,
+       "droppedSources": [],
+       "evidenceRule": "alt_family_vote_state",
+       "families": [
+        "dlf",
+        "idpShow",
+        "idpTradeCalc"
+       ],
+       "freshnessExcludedSources": [],
+       "primaryFamilyValue": 2277,
+       "singleSourceValuePenaltyApplied": false,
+       "sourcesConsidered": [
+        "dlfIdp",
+        "idpShowCombined",
+        "idpTradeCalc"
+       ],
+       "untranslatedSources": []
+      },
+      "base": 4732
+     }
+    },
+    "validation": {
+     "ok": false,
+     "sourceHealthErrors": [
+      "partial_run_critical:KTC_TradeDB",
+      "partial_run_critical:KTC_WaiverDB"
+     ],
+     "status": "invalid",
+     "structuralErrors": [],
+     "structurallyOk": true
+    },
+    "valuesMoved": 228,
+    "weights": {
+     "familiesAboveOneProvider": [],
+     "familiesAboveOneProviderCount": 0,
+     "sourcesAboveApprovedWeight": [],
+     "sourcesAboveApprovedWeightCount": 0
+    }
+   }
+  }
+ },
+ "schema": "source-voting-consensus/custom-v1"
+}

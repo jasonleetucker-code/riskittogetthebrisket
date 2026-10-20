@@ -2106,6 +2106,10 @@ export default function RankingsPage() {
               onRowClick={(row) =>
                 setExpandedRow(expandedRow === row.name ? null : row.name)
               }
+              // Disclosure semantics: each row's keyboard stop announces
+              // collapsed / expanded (CQ-30 DataTable aria-expanded).
+              isRowExpanded={(row) => expandedRow === row.name}
+              rowExpandLabel={(row) => `Source breakdown for ${row.name}`}
               rowClassName={(row) =>
                 [
                   "rankings-row-clickable",

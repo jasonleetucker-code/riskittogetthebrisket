@@ -1,5 +1,45 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## outlier-integrity-v2 implementation directive + "Hold D4 for V2" — owner, 2026-10-20 (~10:20 UTC)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~10:20 UTC)" (IV2-D4, IV2-1..IV2-13, IV2-A). Verbatim text: `docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md`. Amends the Option 3 entry below: its (a) no longer releases D4, and its (b) is now governed by this directive's fuller gates.
+
+**Authorized now:**
+- **(a′) PR #1817 ships D2/D3 withdrawal, D5 and TW; D4 is HELD.** `dlf_values_rank_hill_vote` defaults OFF (implementation intact; the default flip is the only activation step), locked by `tests/api/test_dlf_values_hold_locked.py` and by the deploy-time live-process check `scripts/verify_owner_held_flags.py` in `deploy/verify-deploy.sh` (also enforces the DLF IDP hold). Reason: under the incumbent outlier filter D4 newly drops other sources' valid votes on 12–13 offense rows (Theo Johnson −7.4%).
+- **(b′) outlier-integrity-v2** per the directive: layered validation (identity, source integrity/normalization, legitimate disagreement, confidence), preregistered before evaluation, every previously failed safety case at its required rate, boards A–D plus the addendum's A′–D′ for D4, historical replay, independent review, default-OFF flag with incumbent-preserving disabled state, deliverables A–H ending in exactly one of READY FOR APPROVAL / MORE RESEARCH REQUIRED / BLOCKED. Implementation lane: branch `claude/outlier-integrity-v2` (separate lane owner). No served value moves.
+
+**Owner-reserved (NOT authorized):** activating V2 in production; lifting the DLF IDP hold; activating D4 (`dlf_values_rank_hill_vote` → ON in the registry or in any deploy / config / env surface). Each goes to the owner as an activation package with the directive's evidence.
+
+**Boundary (IV2-8):** no change to rank→value curves, Hill constants, source weights, legitimate correlation groups, family caps, freshness policy, Package Value Adjustment, `geom_q078_v1`, Trade Calculator fairness math or Trade Finder logic.
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel (IV2-12).
+
+## PR #1817 safe-portion release + outlier-filter Version 2 research — owner decision, 2026-10-20 (Option 3)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20" (O3-1..O3-10). Verbatim text: `docs/owner/OUTLIER_FILTER_V2_OPTION3_2026-10-20.md`. Refines the 2026-10-19 source-voting bullet "DLF IDP and DLF Rookie IDP return to voting": the return is HELD until the gates below pass and the owner approves it.
+
+**Authorized now:**
+- **(a) PR #1817 safe-portion release** at its release defaults, through the normal train / HEAD-FREEZE / deploy / production-verification gates: D2 and D3 withdrawn (deleted); ~~D4 DLF Values rank → Hill inside DLF's family cap (`dlf_values_rank_hill_vote` ON)~~ — **D4 HELD, default OFF, by the owner's later decision the same day ("Hold D4 for V2", entry above)**; D5 FantasyPros IDP upstream clock (`fantasypros_idp_upstream_clock` ON); TW Travis Hunter two-way alt-evidence correction (`two_way_alt_evidence_rules` ON). The DLF IDP hold `dlf_offense_only_vote` stays ON — TEMPORARY and locked by `tests/api/test_dlf_idp_hold_locked.py`.
+- **(b) Outlier-filter Version 2 research** in an isolated research branch / worktree, **shadow only** (now governed by the outlier-integrity-v2 directive, entry above). The algorithm, expected behaviour and acceptance criteria are preregistered (separate commit) BEFORE any evaluation. Mandatory gates: all six existing adversarial tests pass unweakened; regression coverage for Trevin Wallace, Myles Garrett and every defensive player whose valid votes the incumbent discarded; legitimate disagreement (Draft Sharks, FantasyPros, IDP Trade Calculator, DLF) is not removed merely for disagreeing; mathematical consistency, determinism, family caps and small-sample handling verified; an exact before / after valuation report with source contributions; a shadow run against the current production board with every unexpected large move explained and reviewed. No served value moves.
+
+**Owner-reserved (NOT authorized):** activating outlier-filter V2 in production, and lifting the DLF IDP hold (`dlf_offense_only_vote` → OFF in the registry or in any deploy / config / env surface). When V2 passes every mandatory gate, the activation package goes to the owner for explicit approval. Rejected outright: the incumbent filter's 34–54% DLF-IDP-restore moves, and the #1847 candidate (failed 3 of 6 mandatory adversarial tests).
+
+**Unaffected and not blocked:** Train 12, Train 13, V1 verification and every other §0 authorization continue in parallel. The production stability investigation (W8, `claude/prod-memory-pressure`) stays a separate high-priority lane: verify the actual restart mechanism (the 2.6 GB peak over the 2.5 GB soft limit is plausible, not proven), fix cache growth safely, and validate any memory-limit proposal against the 8 GB host before it is applied.
+
+## League intelligence, trade decision engine and three source / advisor directives — owner, 2026-10-19 (later)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-19 (later)". Verbatim texts in `docs/owner/`.
+
+**Authorized now (implementation, behind flags or in shadow until each gate passes):**
+- **League intelligence and trade decision engine**, stages A–F of `docs/owner/LEAGUE_INTELLIGENCE_TRADE_DECISION_ENGINE_2026-10-19.md`, built in parallel workstreams. The stages are: exact-league scoring and projections, the projection ensemble, best-ball marginal utility, dynasty-horizon forecasts, the league-aware valuation challenger, and the hierarchical YES / NO decision engine inside the existing Trade Calculator.
+  - Experimental models never change served values or recommendations until they pass promotion gates written down before the holdout is examined.
+  - Promoting a league-aware canonical value follows the model-governance sequence (fit → backtest → validate → compare → human approval → promote → monitor → rollback). The evidence and the decision go to the owner together.
+- **Brisket Trade Advisor** (public League Hub): implement, test and ship under the public / private boundary.
+- **Signals Fantasy IDP voting**: root cause, preregistered candidates and validation. Per-family activation only after the directive's gates pass.
+- **Chase Upside Trade Market**: the shadow source, its validation and the research view, labelled "Experimental — Not Voting". Voting needs owner authorization.
+
+**Unchanged:** geometric VA `geom_q078_v1`; no arbitrary positional multipliers; the withdrawn league-adjusted lens stays withdrawn; MISSING IS NEVER ZERO; DFS and League Tycoon shelved; no paid data or paid inference without the owner; no Sleeper writes.
+
 ## Site completion and universal source voting — owner directives, 2026-10-19
 
 **Authorized now:** every item in `docs/COMPLETION_QUEUE.md` whose blocker is `NONE`, executed in the queue's batches and priority order (P0 → P4). Release trains go through exact-head CI, E2E and the Release Candidate gate, then merge, deploy and production verification. Sources:
@@ -30,6 +70,27 @@ Each mathematical change ships behind its own flag. A change that fails validati
 - DFS and League Tycoon shelved;
 - no paid data, no paid inference and no Sleeper writes;
 - the official 2027 rookie auction stays gated.
+
+## Standing owner delivery method — 2026-10-19
+
+**PROCESS ONLY, NOT NEW FEATURE AUTHORIZATION.** The authorized work in
+§0 should be built by the maximum safe number of independent workers
+(target 3–5 isolated branches/worktrees when supported) instead of
+serializing behind unrelated full CI. Keep L0/L1 checks during coding,
+full required L2 at each PR integration boundary, and strict L3 at the
+existing release boundary. The **exclusive Integration Authority** may
+merge objectively ready, reviewed, exact-tree-green routine PRs without
+a new owner merge request. This newer standing instruction supersedes
+older *generic* per-merge signoff/stop-and-wait language, not specific
+owner-only gates for model/source promotion, methodology, launch/deploy,
+spending, security, destructive changes or OWNER_PAUSED DFS/League Tycoon.
+The active §0 authorizations and frozen completion contracts stay intact.
+A qualifying merge to `main` runs the existing automated Deploy Production
+pipeline, whose own validate gate still applies. That automatic deploy is
+part of the routine merge, not a separate owner gate; production
+verification is still recorded separately from the merge.
+Canonical policy: `docs/AGENT_OPERATING_SYSTEM.md` §3;
+mechanics: `ASSISTANT_COORDINATION.md`.
 
 ## Permanent parallel Premium UI — owner directive, 2026-09-24 (#1421)
 

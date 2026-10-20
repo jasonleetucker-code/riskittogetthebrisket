@@ -92,7 +92,6 @@ from src.history import record as _history_record
 from src.api import push_delivery as _push_delivery
 from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
-from src.api import trade_simulator as _trade_simulator
 from src.api import trade_analyze_runtime as _trade_analyze_runtime
 from src.api import user_kv as _user_kv
 from src.api import league_registry as _league_registry
@@ -288,19 +287,64 @@ PRIVATE_APP_ALLOWED_USERNAMES = frozenset(
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
 ALERT_COOLDOWN_SEC = 3600
+# Every SMTP socket operation is bounded.  The same 15 s ``_deliver_email_smtp``
+# already uses; ``smtplib``'s default is NO timeout.
+ALERT_SMTP_TIMEOUT_SEC = 15
+# At most one alert delivery in flight.  Also guards ``_last_alert_time``,
+# which the delivery thread writes.
+_alert_lock = threading.Lock()
+_alert_in_flight = False
 
 
 def send_alert(subject: str, body: str):
-    """Send an email alert. Fails silently if not configured."""
-    global _last_alert_time
+    """Send an email alert in the background. Fails silently if not configured.
+
+    Never blocks the caller on the network.  Two callers run ON the event
+    loop — ``get_health`` (stale backups) and ``uptime_watchdog_loop``
+    (consecutive uptime failures) — and this used to connect to
+    ``smtp.gmail.com:465`` synchronously with no timeout, a port the
+    production VPS firewalls (commit 54af3811cc).  A connect to a dropped
+    port waits out the kernel's SYN retries (~127 s per resolved address),
+    and for that span the process answers nothing, ``/api/health``
+    included, which is what the liveness watchdog restarts on.  A failed
+    send never set the cooldown, so every trigger tried again.  Pinned by
+    ``tests/api/test_send_alert_off_loop.py``.
+
+    Delivery runs on a daemon thread with a bounded timeout.  While one is
+    in flight a second alert is dropped (logged), not queued: the first
+    either succeeds, after which the cooldown would suppress the second
+    anyway, or fails against the same unreachable server.
+    """
+    global _alert_in_flight
 
     if not ALERT_ENABLED or not ALERT_FROM or not ALERT_PASSWORD:
         return
 
     now = time.time()
-    if now - _last_alert_time < ALERT_COOLDOWN_SEC:
-        log.info(f"Alert suppressed (cooldown): {subject}")
-        return
+    with _alert_lock:
+        if now - _last_alert_time < ALERT_COOLDOWN_SEC:
+            log.info(f"Alert suppressed (cooldown): {subject}")
+            return
+        if _alert_in_flight:
+            log.info(f"Alert suppressed (another alert is being sent): {subject}")
+            return
+        _alert_in_flight = True
+    try:
+        threading.Thread(
+            target=_deliver_alert,
+            args=(subject, body, now),
+            name="alert-smtp",
+            daemon=True,
+        ).start()
+    except Exception as e:  # noqa: BLE001 — alerting never raises into its caller
+        with _alert_lock:
+            _alert_in_flight = False
+        log.error(f"Failed to start alert delivery: {e}")
+
+
+def _deliver_alert(subject: str, body: str, attempted_at: float) -> None:
+    """The SMTP half of :func:`send_alert`.  Runs on the ``alert-smtp`` thread."""
+    global _last_alert_time, _alert_in_flight
 
     try:
         msg = MIMEMultipart()
@@ -320,14 +364,18 @@ def send_alert(subject: str, body: str):
         """
         msg.attach(MIMEText(html, "html"))
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=ALERT_SMTP_TIMEOUT_SEC) as server:
             server.login(ALERT_FROM, ALERT_PASSWORD)
             server.send_message(msg)
 
-        _last_alert_time = now
+        with _alert_lock:
+            _last_alert_time = attempted_at
         log.info(f"Alert sent: {subject}")
     except Exception as e:
         log.error(f"Failed to send alert email: {e}")
+    finally:
+        with _alert_lock:
+            _alert_in_flight = False
 
 
 # ── PATHS ───────────────────────────────────────────────────────────────
@@ -5078,6 +5126,13 @@ async def get_data(request: Request):
                         requested_league_config=overlay.get("leagueConfig"),
                     )
                 )
+            # B0-g: the overlay's owned picks carry the same canonical
+            # ``boardRowName`` the baked block does (a copy — the overlay's
+            # teams are a shared in-process cache).
+            overlay_full = {
+                **overlay_full,
+                "teams": _overlay_pick_board_rows(overlay_full.get("teams"), canonical),
+            }
             scrubbed["sleeper"] = overlay_full
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
@@ -9237,6 +9292,16 @@ async def get_roster_intelligence(request: Request):
             },
         )
 
+    # Measure the rosters the site SERVES.  ``/api/data`` — where every
+    # page, including /rosters' own team picker and portfolio, gets its
+    # team list — splices the live Sleeper teams overlay over the baked
+    # block.  Reading only the baked block made the Team Strength ladder
+    # lag every membership change by up to one scrape interval, and
+    # indefinitely when a scrape failed: on 2026-10-20 dynasty_main
+    # roster 12 lost its owner, /api/data listed "Team 12", and the
+    # ladder still ranked the departed manager (E2E run 39348160535).
+    contract, roster_membership = await _contract_with_live_rosters(contract, league_cfg)
+
     # The league's DECLARED size, not the roster count: a snapshot
     # missing one roster must not shrink every weakness threshold.
     declared_teams = _roster_intelligence.declared_team_count(league_cfg.key)
@@ -9265,8 +9330,48 @@ async def get_roster_intelligence(request: Request):
             },
         )
 
+    payload["rosterMembership"] = roster_membership
     # Private roster intelligence — never cached by a shared proxy.
     return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
+
+
+async def _contract_with_live_rosters(
+    contract: dict[str, Any], league_cfg: Any
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """``contract`` with its ``sleeper.teams`` replaced by the live teams
+    overlay — the same membership ``/api/data`` serves for the loaded
+    league — plus a ``{source, asOf}`` stamp naming which one was used.
+
+    Only ``teams`` is replaced; every NFL-wide map and league-config field
+    stays the baked block's, exactly as ``/api/data``'s ``live-merge``
+    path does.  A shallow copy: ``latest_contract_data`` is a shared
+    global and must never be mutated.  Any overlay failure degrades to the
+    baked teams with ``source: "contract"`` — the ladder is still correct
+    for the moment that block describes, and the stamp says which moment.
+    Callers must already have proven the contract is for ``league_cfg``.
+    """
+    baked = {"source": "contract", "asOf": None}
+    sleeper = contract.get("sleeper") if isinstance(contract, dict) else None
+    if not isinstance(sleeper, dict):
+        return contract, baked
+    id_map = sleeper.get("idToPlayer")
+    try:
+        overlay = await run_in_threadpool(
+            lambda: _sleeper_overlay.fetch_sleeper_teams_overlay(
+                sleeper_league_id=league_cfg.sleeper_league_id,
+                id_to_player=id_map if isinstance(id_map, dict) else {},
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — degrade to the baked rosters, never 500
+        log.warning("live rosters overlay failed for %s: %s", league_cfg.key, exc)
+        return contract, baked
+    teams = overlay.get("teams") if isinstance(overlay, dict) else None
+    if not isinstance(teams, list) or not teams:
+        return contract, baked
+    return (
+        {**contract, "sleeper": {**sleeper, "teams": teams}},
+        {"source": "live_overlay", "asOf": overlay.get("overlayFetchedAt")},
+    )
 
 
 @app.get("/api/matchup/intel")
@@ -11499,6 +11604,36 @@ def _resolve_league_for_request(
     return cfg
 
 
+_OVERLAY_PICK_ROWS_MEMO: dict[str, Any] = {"key": None, "rows": None}
+
+
+def _overlay_pick_board_rows(teams: Any, canonical: Any) -> Any:
+    """Stamp ``boardRowName`` onto overlay ``pickDetails`` (B0-g).
+
+    Same owner as the baked stamp (``pick_value_resolution.
+    stamp_owned_pick_rows``) over the loaded contract's pick rows, indexed
+    once per loaded contract object.
+    """
+    from src.api.data_contract import current_rookie_draft_year
+    from src.api.pick_value_resolution import pick_rows_by_name, stamp_owned_pick_rows
+
+    if not isinstance(canonical, dict) or not isinstance(teams, list):
+        return teams
+    try:
+        # The memo holds the row LIST itself, so identity cannot be reused by
+        # a later contract after this one is garbage-collected.
+        key = canonical.get("playersArray")
+        if _OVERLAY_PICK_ROWS_MEMO["key"] is not key:
+            _OVERLAY_PICK_ROWS_MEMO["rows"] = pick_rows_by_name(canonical)
+            _OVERLAY_PICK_ROWS_MEMO["key"] = key
+        return stamp_owned_pick_rows(
+            teams, _OVERLAY_PICK_ROWS_MEMO["rows"], current_rookie_draft_year()
+        )
+    except Exception:  # noqa: BLE001 — an additive stamp never fails the payload
+        log.warning("overlay boardRowName stamp failed", exc_info=True)
+        return teams
+
+
 def _requested_valuation_mode(request: "Request", body: dict | None = None) -> str:
     """Which board this request is asking for: ``market`` or
     ``leagueAdjusted``.
@@ -11581,10 +11716,9 @@ async def _valuation_scoped_contract(
     # on someone's phone must converge to the canonical answer silently —
     # refusing would turn an obsolete localStorage value into a broken
     # page for a user who never chose anything.
-    requested = _requested_valuation_mode(request, body)
-    if requested == "leagueAdjusted":
-        return source, "market", "league_adjusted_withdrawn: not_canonical"
-    return source, "market", None
+    from src.trade.valuation_scope import scoped_contract  # noqa: PLC0415
+
+    return scoped_contract(source, _requested_valuation_mode(request, body))
 
 
 def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
@@ -12641,8 +12775,17 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     (default), so trades made on Sleeper between scheduled
     refreshes are reflected immediately in per-team dollar totals.
 
-    If the Sleeper join fails or no trades are reported, the
-    workbook's R45:R116 ownership column is used verbatim.
+    Pick ownership is OBSERVED or the board is refused.  The
+    ``/traded_picks`` body is read through
+    ``picks.traded_picks_observation``: a list (even an empty one —
+    "no trades reported", in which case the workbook's R45:R116
+    ownership column stands) is applied.  A failed or non-list fetch,
+    or Sleeper failing before it can be read, refuses the whole board
+    with ``pick_ownership_unavailable`` — the same ``{error, message}``
+    + ``pickOwnershipState`` / ``pickOwnershipReason`` shape as the
+    Sleeper-derived fallback — instead of serving the workbook's
+    hand-entered ownership as current.  With no Sleeper league
+    configured there is nothing to observe and the workbook stands.
 
     ``league_key`` selects which league's Sleeper IDs to use for the
     team-name join.  None resolves to the registry default.
@@ -12715,7 +12858,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     first_name_to_team: dict[str, str] = {}
     all_team_names: list[str] = []
     # (round, slot) → new-owner first name from Sleeper traded_picks.
-    # Empty when Sleeper is unreachable or apply_sleeper_trades=False.
+    # Empty when no trades are reported or apply_sleeper_trades=False
+    # (an unreachable Sleeper refuses the board below instead).
     sleeper_trade_overrides: dict[tuple[int, int], str] = {}
     # Parallel to ``sleeper_trade_overrides`` but carrying the stable
     # roster_id of the pick's new owner.  ``isTraded`` keys off this
@@ -14921,27 +15065,39 @@ def _public_league_metrics_snapshot() -> dict:
 # Best-effort: load the most recent persisted snapshot at process
 # start so a cold-started server can still serve the public /league
 # page while the first Sleeper rebuild is running in the background.
-try:
-    _persisted = public_snapshot_store.load_snapshot()
-    _persisted_error = (
-        _public_snapshot_integrity_error(_persisted) if _persisted is not None else None
-    )
-    if _persisted_error is not None:
-        # A partial snapshot persisted by an older build must not be served
-        # at cold start; the first request rebuilds from Sleeper instead.
-        logging.warning("Ignoring persisted public_league snapshot: %s", _persisted_error)
-        _persisted = None
-    if _persisted is not None and _persisted.seasons:
-        _public_league_cache["snapshot"] = _persisted
-        _public_league_cache["snapshot_league_id"] = _persisted.root_league_id
-        _public_league_cache["fetched_at"] = 0.0  # forces refresh on next hit
-        logging.info(
-            "Loaded persisted public_league snapshot for league %s (%d seasons)",
-            _persisted.root_league_id,
-            len(_persisted.seasons),
+#
+# A FUNCTION, not module-level statements: the snapshot used to be bound
+# to a module global (``_persisted``) that nothing read after boot, so the
+# boot generation stayed reachable for the life of the process after the
+# first rebuild replaced ``_public_league_cache["snapshot"]`` — a second
+# resident copy of the whole multi-season snapshot (measured 46.9 MB on
+# one league; prod memory-pressure incident 2026-10-19).  The cache entry
+# is now the snapshot's only owner.
+def _load_persisted_public_snapshot_at_boot() -> None:
+    try:
+        persisted = public_snapshot_store.load_snapshot()
+        persisted_error = (
+            _public_snapshot_integrity_error(persisted) if persisted is not None else None
         )
-except Exception as _exc:  # noqa: BLE001
-    logging.warning("Public league snapshot load at startup failed: %s", _exc)
+        if persisted_error is not None:
+            # A partial snapshot persisted by an older build must not be served
+            # at cold start; the first request rebuilds from Sleeper instead.
+            logging.warning("Ignoring persisted public_league snapshot: %s", persisted_error)
+            persisted = None
+        if persisted is not None and persisted.seasons:
+            _public_league_cache["snapshot"] = persisted
+            _public_league_cache["snapshot_league_id"] = persisted.root_league_id
+            _public_league_cache["fetched_at"] = 0.0  # forces refresh on next hit
+            logging.info(
+                "Loaded persisted public_league snapshot for league %s (%d seasons)",
+                persisted.root_league_id,
+                len(persisted.seasons),
+            )
+    except Exception as _exc:  # noqa: BLE001
+        logging.warning("Public league snapshot load at startup failed: %s", _exc)
+
+
+_load_persisted_public_snapshot_at_boot()
 
 
 def _is_truthy_flag(value: Any) -> bool:
@@ -17771,6 +17927,7 @@ async def _build_trade_simulation(
     request: Request,
     *,
     for_analysis: bool = False,
+    capture: dict[str, Any] | None = None,
     clock: "_trade_analyze_runtime.StageClock | None" = None,
     league_cfg: "_league_registry.LeagueConfig | None" = None,
 ) -> tuple[dict[str, Any] | None, str | None, JSONResponse | None]:
@@ -17781,6 +17938,11 @@ async def _build_trade_simulation(
     ``/api/trade/analyze`` (V1-43 / C7-DESK-01) can compose Analyze Trade on
     top of the identical simulation ``/api/trade/simulate`` already returns,
     rather than re-deriving league/team/overlay resolution a second time.
+
+    The simulation itself is ``src.trade.analyze_service.simulate_for_team``
+    (B0-c: the one owner of the 2-team analysis path).  ``capture``, when
+    given, receives the exact ``contract`` the simulation ran against so the
+    analyze path reads provenance from it instead of the global.
 
     ``clock`` (Analyze Trade only) times each stage of this request; it
     observes the work and changes none of it.  ``league_cfg``, when given, is
@@ -17858,39 +18020,39 @@ async def _build_trade_simulation(
 
     picks_in, pick_ids_in = _picks_with_ids("picksIn", "pickAssetIdsIn")
     picks_out, pick_ids_out = _picks_with_ids("picksOut", "pickAssetIdsOut")
+    # B0-b: ``playerIdsIn`` / ``playerIdsOut`` run PARALLEL to the player
+    # lists (``null`` for a name without an id).  An entry with an id resolves
+    # by Sleeper id only — two players sharing a name cannot price as each
+    # other.  Same alignment rule as the pick ids above.
+    players_in, player_ids_in = _picks_with_ids("playersIn", "playerIdsIn")
+    players_out, player_ids_out = _picks_with_ids("playersOut", "playerIdsOut")
 
-    # Wave B (C7-POST-01): the canonical posture, resolved here so the
-    # simulator stays pure.  Analyze Trade may build the league bundle;
-    # a plain simulate reads a warm one only.
-    with clock.stage("posture"):
-        competitive_posture = await run_in_threadpool(
-            _trade_simulator.competitive_posture_for,
-            contract,
-            league_cfg.key,
-            resolved_team,
-            build_if_missing=for_analysis and use_team_context,
-        )
-    with clock.stage("simulation"):
-        result = await run_in_threadpool(
-            _trade_simulator.simulate_trade,
-            contract,
-            resolved_team=resolved_team,
-            players_in=_str_list("playersIn"),
-            players_out=_str_list("playersOut"),
-            picks_in=picks_in,
-            picks_out=picks_out,
-            pick_asset_ids_in=pick_ids_in,
-            pick_asset_ids_out=pick_ids_out,
-            roster_settings=dict(league_cfg.roster_settings or {}),
-            league_key=league_cfg.key,
-            include_roster_utility=for_analysis and use_team_context,
-            competitive_posture=competitive_posture,
-        )
-    if for_analysis:
-        result["teamContext"] = {
-            "applied": use_team_context,
-            "mode": "team" if use_team_context else "asset_only",
-        }
+    from src.trade import analyze_service as _analyze_service  # noqa: PLC0415
+
+    # B0-c: posture (Wave B, C7-POST-01 — Analyze Trade may build the league
+    # bundle; a plain simulate reads a warm one only), the simulation and the
+    # ``teamContext`` stamp all come from the ONE 2-team analysis owner.  The
+    # request clock observes its ``posture`` / ``simulation`` stages.
+    result = await run_in_threadpool(
+        _analyze_service.simulate_for_team,
+        contract,
+        league_key=league_cfg.key,
+        roster_settings=dict(league_cfg.roster_settings or {}),
+        resolved_team=resolved_team,
+        players_in=players_in,
+        players_out=players_out,
+        player_ids_in=player_ids_in,
+        player_ids_out=player_ids_out,
+        picks_in=picks_in,
+        picks_out=picks_out,
+        pick_ids_in=pick_ids_in,
+        pick_ids_out=pick_ids_out,
+        team_context=use_team_context,
+        for_analysis=for_analysis,
+        stage=clock.stage,
+    )
+    if capture is not None:
+        capture["contract"] = contract
     # Attached AFTER the simulation, never inside it: ``trade_simulator`` does
     # not import exposure, so there is no edge along which it could reach
     # equity, team impact or Analyze Trade (C2-EXP-01 non-influence).
@@ -18238,13 +18400,13 @@ async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg
     league the route resolved (and keyed the sharing on); ``None`` resolves it
     here.
     """
+    _captured: dict[str, Any] = {}
     result, league_key, error = await _build_trade_simulation(
-        request, for_analysis=True, clock=clock, league_cfg=league_cfg
+        request, for_analysis=True, clock=clock, league_cfg=league_cfg, capture=_captured
     )
     if error is not None:
         return None, None, error, clock.stages()
     from src.trade import comparable_trades as _comparable  # noqa: PLC0415
-    from src.trade.analyze_trade import analyze_trade
 
     # Comparable real trades for this exact package — context for the
     # packet's ``marketCorroboration`` lens, which never votes.  Any failure
@@ -18267,20 +18429,16 @@ async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg
     # body as ``teamGoal`` (WIN_NOW / BALANCED / LONG_TERM); the decision
     # echoes it back.  Absent -> inferred from competitive posture.
     _team_goal = body.get("teamGoal") if isinstance(body, dict) else None
-    _meta = (
-        (latest_contract_data or {}).get("meta") if isinstance(latest_contract_data, dict) else None
-    )
+    from src.trade import analyze_service as _analyze_service  # noqa: PLC0415
+
+    # Provenance comes from the contract the simulation ran against (B0-c),
+    # not a second read of the global, which a publish could have swapped.
     with clock.stage("decision"):
-        result["analysis"] = analyze_trade(
+        result["analysis"] = _analyze_service.analyze_for_team(
             result,
+            contract=_captured.get("contract"),
             comparables=comparables,
             team_goal=_team_goal,
-            provenance={
-                "boardStamp": (_meta or {}).get("generatedAt") if isinstance(_meta, dict) else None,
-                "scoringFingerprint": (_meta or {}).get("scoringFingerprint")
-                if isinstance(_meta, dict)
-                else None,
-            },
         )
     return result, league_key, None, clock.stages()
 

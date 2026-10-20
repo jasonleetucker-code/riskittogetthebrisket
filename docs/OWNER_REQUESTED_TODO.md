@@ -15,6 +15,120 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-20 (~10:20 UTC) — "Hold D4 for V2" + OWNER IMPLEMENTATION DIRECTIVE: outlier-integrity-v2
+
+Two owner instructions of 2026-10-20, recorded together because the second carries the first as a binding addendum. Verbatim text: `docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md`. Capture is not implementation authorization; `docs/EXECUTION_PLAN.md` §0 (2026-10-20 ~10:20 UTC entry) records what is authorized. Both refine the Option 3 entry below: O3-2's "DLF Values voting (D4)" is SUPERSEDED by IV2-D4 (held); O3-3..O3-8 stand and are subsumed by the directive's fuller gates.
+
+**The D4 hold decision** (owner answer to a direct question from the #1817 release lane):
+
+| # | Owner instruction (2026-10-20 ~10:20 UTC) | Disposition |
+|---|---|---|
+| IV2-D4 | "Hold D4 for V2". Turning on DLF Values offense voting (`dlf_values_rank_hill_vote`) makes the INCUMBENT outlier filter newly drop other sources' valid votes on 12–13 offense rows (6 Draft Sharks, plus IDP Trade Calculator, Yahoo/Boone, KTC Crowd, FantasyPros; Theo Johnson −7.4%, 2184 → 2023, after losing his Draft Sharks vote), the same mechanism class the owner rejected for DLF IDP. PR #1817 ships the D2/D3 withdrawal, D5 and TW now; D4 defaults OFF until outlier-integrity-v2 passes and the owner approves | DECIDED — owner, 2026-10-20. `dlf_values_rank_hill_vote` default OFF, implementation intact (flipping the default is the only activation step); locked by `tests/api/test_dlf_values_hold_locked.py` and by `scripts/verify_owner_held_flags.py` in `deploy/verify-deploy.sh` (fails a deploy whose live process has D4 ON or the DLF IDP hold OFF — covers the untracked production `.env`). D4 activation is OWNER-RESERVED. PR #1817 |
+
+**The OWNER IMPLEMENTATION DIRECTIVE — fix the outlier filter and restore DLF IDP voting (outlier-integrity-v2).** Priority HIGH. Objective: permanently fix why adding DLF IDP (and D4) makes the outlier filter remove other sources' legitimate votes — keep every legitimate independent source's appropriate voting power even when it disagrees, and reject only real data corruption (wrong player matches, broken conversions, malformed feeds, invalid observations). Not a request to loosen the incumbent filter until DLF works. All rows: DECIDED / AUTHORIZED for implementation (default-OFF, shadow until gates pass); **activation of V2, DLF IDP and D4 is OWNER-RESERVED**.
+
+| # | Directive section (summary; verbatim in the directive file) | Disposition |
+|---|---|---|
+| IV2-1 | Start from existing research: #1817, #1847, `data_contract.py`, `outlier_policy.py`, `feature_flags.py`, identity/normalization, provenance/freshness/confidence/family-cap infrastructure, existing adversarial and historical-replay tests and preregistrations; no duplicate implementation; coordinate with any lane already owning V2. Confirmed failure: the incumbent Hampel filter (≥4 votes) sees near-identical converted IDP values, adding DLF shrinks the MAD and drops valid votes — 31 votes on 30 rows (18 Draft Sharks, 10 FantasyPros, 3 IDPTC), seven moves of ~34–54% | DECIDED — owner, 2026-10-20; V2 lane `claude/outlier-integrity-v2` |
+| IV2-2 | Replace one-size-fits-all detection with LAYERED validation: A player identity integrity (canonical/source/Sleeper ids, aliases, position, team, rookie status; duplicates, team/position changes, rookies, two-way; unresolved → quarantine, never a silent wrong match; V1 caught only 15% of wrong-player cases); B source integrity and normalization (format, scale, rank direction, rank→value conversion, position class, dynasty/redraft, SF/TEP, freshness, no missing-as-zero, no wrong-curve fallback; investigate the rookie within-class-rank failures and the 2026-10-07/08 IDPTC offense-format anomaly; scoped, reasoned quarantine of demonstrably corrupt segments only); C legitimate disagreement is opinion, not corruption (similar numbers ≠ duplicates; only documented shared lineage merges; keep legitimate family caps; synthetic identical rank-board values are not independent prices; a new fourth vote must not eliminate prior valid votes); D disagreement may affect confidence through the canonical confidence/weighting logic, never a second engine or double count | DECIDED — owner, 2026-10-20; mandatory architecture |
+| IV2-3 | Research the best V2 algorithm (provenance-aware anomaly detection, position-specific integrity, source-wide distribution checks, historical source behaviour, relative deep-tail thresholds, family-aware robust statistics, corroboration, explicit uncertainty, structural validation before statistics). Do not just raise the Hampel threshold or disable filtering; interpretable, deterministic; every rejection has a specific defensible reason; suspicious-but-unproven gets a principled treatment | DECIDED — owner, 2026-10-20 |
+| IV2-4 | PREREGISTER V2 (algorithm, assumptions, layers, thresholds and their selection, populations, correctness properties, quantitative acceptance, failure modes, rollback, activation criteria) BEFORE evaluating on the frozen population; preserve the V1 preregistration and failed verdict; independent final validation; no weakening, relabelling or repeated tuning on held-out data | DECIDED — owner, 2026-10-20; mandatory gate |
+| IV2-5 | Every previously failed safety case must pass: ×5 high ≥90% (V1 93.7%), ×0.2 low ≥90% (58.3%), ×20 high ≥95% (97.9%), ×0.05 low ≥95% (92.6%), wrong-player ≥90% (15.0%), single-source spike ≥95% (100%), wrong-scale board 16/16 (15/16); every existing mandatory test retained; whole-pipeline tests evaluate the full layered system; missing fixture evidence documented and safeguarded upstream, never invented; regression tests for every wrongly rejected legitimate vote, plus the listed offense/IDP cases (2+1, 3+1, 4+ opinions, small family counts, identical synthetic values, sparse/deep tail, an invalid source agreeing with another, a valid contrarian, broken positional conversions, wrong players, transient anomalies, missing curves, family caps, order independence); no promotion recommendation if any mandatory gate fails | DECIDED — owner, 2026-10-20; mandatory gate |
+| IV2-6 | Primary acceptance: boards A (production + incumbent), B (DLF IDP + incumbent), C (DLF IDP + V2), D (V2, DLF held) on identical frozen inputs; compare retained/rejected votes, every changed exclusion reason, values, confidence, coverage, family representation, offense, IDP, two-way and pick effects; inspect Trevin Wallace, Myles Garrett, Aidan Hutchinson and every 34–54% mover; all 31 misclassified votes preserved unless independently shown invalid; no value-change cap, but large moves understood and validated before activation | DECIDED — owner, 2026-10-20; mandatory gate |
+| IV2-7 | Historical replay (reuse #1847's infrastructure and manifests): incumbent, V1, V2 and a few justified extra candidates, offense and IDP; measure retention, corruption detection, false positives/negatives, held-out agreement, stability, drift, confidence, coverage, ranking changes, small-sample sensitivity, known feed failures; stress the 22 rookie-board failures and the IDPTC position-scale anomaly; explain why V1 missed the October IDPTC anomaly; preserve historical records unaltered | DECIDED — owner, 2026-10-20; mandatory evidence |
+| IV2-8 | Input quality, not a valuation redesign: do not change rank→value curves, Hill constants, source weights, legitimate correlation groups, family caps, freshness policy, Package Value Adjustment, `geom_q078_v1`, Trade Calculator fairness math or Trade Finder logic; any needed confidence/normalization change identified, justified and tested separately; one canonical value, one trade path | DECIDED — owner, 2026-10-20; boundary |
+| IV2-9 | After V2 passes, evaluate `dlfIdp` + `dlfRookieIdp` voting inside the ONE DLF family cap (correct populations, rookie translation, not misclassified as outliers, DS/FP/IDPTC still vote, confidence reflects added evidence, consistent IDP values, two-way and downstream pick/trade values); produce the exact activation impact; keep the DLF IDP hold until all gates pass and the owner explicitly approves | DECIDED — owner, 2026-10-20; DLF IDP activation OWNER-RESERVED |
+| IV2-10 | Transparent exclusion reasons where the architecture supports it: voting normally / valid but disagreeing / invalid identity / format error / normalization-scale error / stale / broken feed / missing / policy-held / rejected by a justified integrity rule; never show legitimate dissent as corrupt; no invented metadata | DECIDED — owner, 2026-10-20 |
+| IV2-11 | Independent review and production safety: isolated branch/worktree, separate implementation and review agents (algorithm, integrity, identity, provenance, methodology, numerics, weights, regression, integration, performance/memory); no added production memory pressure or unnecessary box access; reproducible research; default-OFF flag whose disabled state preserves incumbent behaviour (byte-identical where required); documented rollback; never merge or activate an unvalidated challenger | DECIDED — owner, 2026-10-20; mandatory process |
+| IV2-12 | Keep all other development moving (trains, stability, valuation research, trade intelligence, UI) in parallel, respecting worktree ownership and coordinating overlapping source-voting files; if V2 is not ready, ship unrelated validated work and keep the DLF hold | DECIDED — owner, 2026-10-20 |
+| IV2-13 | Deliverables A–H: root-cause confirmation with reproducible examples; V2 architecture; default-OFF tested implementation; historical evidence vs incumbent and V1 incl. all adversarial cases; valuation impact with source-level reasons; DLF restoration readiness; independent verification findings and risks; an owner decision of exactly one of READY FOR APPROVAL / MORE RESEARCH REQUIRED / BLOCKED. Done only when legitimate opinions are preserved AND real errors are reliably detected under the agreed tests. Final instruction: do not silence DLF, Draft Sharks, FantasyPros or IDPTC, and do not keep bad data by tolerating disagreement; no V2 or DLF IDP activation without explicit owner approval | DECIDED — owner, 2026-10-20; deliverable contract |
+| IV2-A | Addendum (binding): V2 also treats D4 (DLF Values offense voting) as a second restoration target — boards A′ production, B′ D4 on + incumbent, C′ D4 on + V2, D′ V2 with D4 off (or an equivalent combined design isolating each effect); every offense row where the incumbent newly drops a valid vote with D4 on goes into the regression set (recomputed on the frozen input, Theo Johnson explicitly covered); report D4 activation readiness and exact impact; D4 activation is owner-reserved exactly like DLF IDP | DECIDED — owner, 2026-10-20; mandatory V2 scope; D4 activation OWNER-RESERVED |
+
+## Added 2026-10-20 — PR #1817 / DLF IDP / outlier filter: owner chooses Option 3 (wait for a preregistered Version 2)
+
+Owner decision, 2026-10-20, recorded verbatim at `docs/owner/OUTLIER_FILTER_V2_OPTION3_2026-10-20.md`. It answers the #1817 owner package's decisions 1 and 2 and supersedes the open "OWNER DECISION PENDING" on D1 / V4 below. Rejected: the current (incumbent) outlier filter's 34–54% valuation changes when DLF IDP votes, and activation of the candidate replacement filter (#1847), which failed three of its six mandatory adversarial tests. Standing priority, owner's words: "accurate, trustworthy valuations over rushing features into production." Capture is not implementation authorization; `docs/EXECUTION_PLAN.md` §0 (2026-10-20 entry) records what is authorized.
+
+| # | Owner instruction (2026-10-20) | Disposition |
+|---|---|---|
+| O3-1 | Keep DLF IDP voting disabled behind the temporary, explicitly labelled flag until a corrected outlier filter passes every mandatory test. Rebases, merges, deployments and default configuration must not be able to enable it accidentally | DECIDED — owner, 2026-10-20 (Option 3). `dlf_offense_only_vote` stays ON, labelled TEMPORARY; locked by `tests/api/test_dlf_idp_hold_locked.py` (registry default, every tracked deploy / workflow / config / script / env / systemd surface, and a default-flag board build with zero DLF IDP votes). PR #1817 |
+| O3-2 | Continue releasing the safe portions of PR #1817: the rejected-rule removals (D2 / D3 withdrawn), DLF Values voting (D4), the FantasyPros freshness improvement (D5) and Travis Hunter's two-way valuation correction (TW) | DECIDED — owner, 2026-10-20; APPROVED for release through the normal train / HEAD-FREEZE gates (PR #1817, release defaults). **D4 SUPERSEDED the same day by IV2-D4 ("Hold D4 for V2"): D4 ships default OFF**; D2/D3, D5 and TW release as approved |
+| O3-3 | Develop outlier-filter Version 2 immediately in an isolated research branch / worktree. Preregister its algorithm, expected behaviour and acceptance criteria BEFORE testing | DECIDED — owner, 2026-10-20; authorized as a shadow-only research lane (EXECUTION_PLAN §0) |
+| O3-4 | All six existing adversarial tests must pass, plus additional regression coverage for Trevin Wallace, Myles Garrett and every defensive player whose valid votes were incorrectly discarded. Do not weaken tests to make the new algorithm pass | DECIDED — owner, 2026-10-20; mandatory V2 gate |
+| O3-5 | V2 must distinguish legitimate source disagreement from actual outliers; it may not remove valid Draft Sharks, FantasyPros, IDP Trade Calculator or DLF opinions simply because sources disagree | DECIDED — owner, 2026-10-20; mandatory V2 gate |
+| O3-6 | Verify mathematical consistency, deterministic behaviour, source-family voting caps and small-sample handling. Produce an exact before / after valuation report with every significant player-value change and its underlying source contributions | DECIDED — owner, 2026-10-20; mandatory V2 gate + deliverable |
+| O3-7 | Run the corrected filter in shadow mode against the current production board before recommending activation; explain and review any unexpected large valuation movement | DECIDED — owner, 2026-10-20; mandatory V2 gate |
+| O3-8 | Once V2 passes all mandatory gates, prepare DLF IDP activation for the owner's explicit approval. Do not silently enable it | DECIDED — owner, 2026-10-20; DLF IDP activation (and V2 activation) are OWNER-RESERVED decisions |
+| O3-9 | Continue Train 12, Train 13, V1 verification and all other authorized engineering work in parallel without unnecessary blocking | DECIDED — owner, 2026-10-20; nothing else waits on V2 |
+| O3-10 | Keep the production stability investigation separate but high priority. The 2.6 GB memory peak above the 2.5 GB soft limit is a plausible contributor to the restart, not yet proof of root cause: W8 verifies the actual failure mechanism, addresses cache growth safely, and validates any proposed memory-limit change against the 8 GB server's available capacity | DECIDED — owner, 2026-10-20; W8 lane (`claude/prod-memory-pressure`); no box memory-limit change without that validation |
+
+## Added 2026-10-19 (later) — four product directives, recorded verbatim
+
+All four are definite owner instructions. The verbatim text lives in `docs/owner/`; this entry is the intake pointer. Capture is not implementation authorization: `docs/EXECUTION_PLAN.md` records what is authorized.
+
+1. **League intelligence and the trade decision engine** (`docs/owner/LEAGUE_INTELLIGENCE_TRADE_DECISION_ENGINE_2026-10-19.md`, evening).
+   - The Trade Calculator answers "should I make this trade?" with YES / NO, calibrated confidence, the three biggest reasons, key numbers and what could change it. It is evaluated separately for each team. INSUFFICIENT EVIDENCE is reported when essential data is missing.
+   - It does this through a hierarchical decision model: asset evaluation → forecasting → roster simulation → competitive outcomes → trade decision. No stack of arbitrary multipliers, and no signal counted twice.
+   - It is built on exact-league projections (raw categories, correlated events, distributions), a multi-source projection ensemble with learned reliability, true best-ball marginal utility, dynasty-horizon forecasts and a league-aware valuation challenger.
+   - **Owner decision:** league-aware Brisket values are authorized for evidence-based adoption as the canonical value once a challenger passes preregistered promotion gates.
+     - Thresholds are fixed before any holdout is examined.
+     - The new methodology must answer `docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md`; restoring the old overlay does not count.
+     - External market observations are never overwritten.
+     - Where governance requires an explicit owner approval to promote, the evidence and the promotion decision go to the owner together.
+   - Tracks #1842 and PR #1843.
+2. **Brisket Trade Advisor** (`docs/owner/BRISKET_TRADE_ADVISOR_2026-10-19.md`).
+   - A public League Hub advisor and the hub's default landing page, for 2-, 3- and 4-team trades.
+   - It uses the same private engine, with a server-side boundary and rate limiting.
+   - It returns five categories mapped from the existing bands and exposes no proprietary values anywhere.
+3. **Signals Fantasy IDP voting** (`docs/owner/SIGNALS_IDP_VOTING_2026-10-19.md`).
+   - Diagnose the 2026-10-17 shadow-mode failure and investigate native league-specific values first.
+   - Preregister new candidates, then validate without weakening the gates.
+   - Activation is per family (DL / LB / DB).
+   - No credentials, cookies or protected values in any public output.
+4. **Chase Upside Trade Market** (`docs/owner/CHASE_TRADE_MARKET_SOURCE_2026-10-19.md`, refined by `..._V2_...`, which wins on conflict).
+   - A trade-derived shadow source, `chaseTradeMarket`.
+   - Leagues with 3 verified completed seasons; 2-season leagues are a separate research cohort.
+   - Format-aware, duplicate-safe, KTC-overlap-safe, recency-weighted, held-out validated.
+   - Labelled "Experimental — Not Voting" until the owner authorizes voting.
+
+## Added 2026-10-19 — Permanent owner directive: maximize safe coding throughput
+
+The owner wants all engineers and AI/LLM workers to **implement independent
+already-authorized features in parallel**, normally targeting
+3–5 truly independent agents when safe/available, using worktrees, task
+branches and claimed files with a separate Integration coordinator.
+Do not have independent development await another feature's entire CI
+pipeline. Keep L0 and targeted L1 validation in implementation, required
+L2 on coherent PR integration, and strict L3 at release. No giant untested
+branch, weakened checks or unverified production releases.
+
+**Owner per-merge babysitting is eliminated.** The designated Integration
+Authority may merge reviewed, green, evidence-complete *routine* PRs
+without asking the owner each time, once exact-tree checks, dependency
+ordering, conflict/claims checks and protections pass. Escalate only
+real owner-reserved scope, methodology/source/model promotion, release/
+launch, paid/credential/security/destructive decisions. Paused DFS and
+League Tycoon remain paused. Newer generic no-manual-merge policy
+supersedes old broad per-PR prompts; feature-specific consequential
+gates remain. Canonical incorporation:
+`docs/AGENT_OPERATING_SYSTEM.md` §3 and
+`ASSISTANT_COORDINATION.md`; current authorization boundary:
+`docs/EXECUTION_PLAN.md`. No new roadmap, feature manifest ID or
+completion denominator is implied by this engineering process directive.
+
+Owner's words (2026-10-19, standing merge authorization, verbatim): "I do
+not want to manually approve every pull request merge. Effective
+immediately, the designated Integration Authority has my standing
+authorization to automatically merge any PR that is ready under our
+established requirements. If the required CI checks pass, the
+implementation is complete, the necessary reviews are satisfied, and there
+are no unresolved dependencies or conflicts, merge it without asking me. Do
+not interrupt development to request routine merge approval. Keep
+implementing independent features while other PRs are validating or
+merging. Do not bypass required checks or owner-only decisions involving
+production model activation, security, spending, or other consequential
+changes." The live implementation-state board the same day's MAXIMUM
+VELOCITY directive asked for is `docs/DEVELOPMENT_TRACKER.md`.
+
 ## #1338 expanded performance mandate — owner, 2026-09-26
 
 **Critical-path refinement (2026-09-27):** remain on Rankings/Trade until production
@@ -802,7 +916,24 @@ Retiring 2026 keeps the existing horizon unchanged: 2027–2029, with no 2030 ro
 rank/tier shifts. The only horizon rule on record is CLAUDE.md step 12 / C1-U6 ("horizon = current +
 3, self-rolling", anchored on the active draft year); nothing says retirement advances that anchor.
 **Horizon advancement (introducing 2030) is a separate owner decision**, to be brought with evidence
-and measured impact.
+and measured impact. *(Decided 2026-10-19 — see the next entry; this text is kept for traceability.)*
+
+**Owner decision — future-pick horizon ends three seasons after the latest completed draft
+(2026-10-19).** Status: DECIDED; implementation PR from `claude/pick-horizon-completed-draft-plus-3`.
+Owner, verbatim: "Yeah, let's not add 2030 until the 2027 draft is complete, because I think that's
+when we're issued our 2030 picks. And then that's why every league draft pick year should be added, is
+I think it's, yeah, 3 years out". Supersedes the open "separate owner decision" note above.
+
+- The board's supported future-pick horizon ends **three seasons after the most recent COMPLETED rookie
+  draft**. The 2026 draft is complete, so the horizon is 2027–2029. 2030 is added automatically once the
+  2027 draft is complete, which is when Sleeper issues 2030 picks.
+- "Complete" is the existing draft-class retirement proof (`src/identity/pick_lifecycle.py`): the draft is
+  completed and its picks are consumed. On the board scope, every served league must prove it (the
+  #1414 / PR #1442 rule). Unproven or partly proven completion does not advance the horizon.
+- A vendor slot roll alone must NOT move the horizon. The defect: around 2026-10-10 the vendors rolled
+  their slot picks from 2026 to 2027, and `current + 3` started minting 2030 rows.
+- Unchanged: current-year slot tethering, generic-grade rows, the derived year-step model, and the
+  league-scope resolver (`league_draft_years`). Only the number of future seasons the board emits changes.
 
 **Owner decision — FAAB vs Trade flex demand stays as-is (2026-09-24).** Do NOT unify the two yet.
 FAAB apportions flex demand fractionally (`even_split`, e.g. QB 1.25 in dynasty_main); Trade assigns
@@ -1903,7 +2034,7 @@ $1,200 budget-basis half of that row was decided on 2026-10-18 ("$1,200 per draf
 | Selector `All Years / 2027 / 2028 / 2029`, data-driven from the league-scoped resolver (`pick_lifecycle.league_draft_years`); a newly eligible class appears automatically; a completed (drafted and rostered) class never shows as future capital | DECIDED — owner; MERGED — #1785 via release train 6 #1794 (`c290dea0a8`, merged 2026-10-18 14:49Z; Deploy Production for that SHA succeeded; production verification not re-run by the 2026-10-18 housekeeping pass) |
 | Each year view: per-year team ranking, every owned pick with original + current owner (Sleeper is the source of truth), round, slot known / projected / unknown (never invented), estimated dollar value, team totals, picks owned / acquired / traded away, uncertainty labels; All Years combined with no double counting | DECIDED — owner; implementation IN PROGRESS |
 | Canonical pick identity, canonical pick values (`pick_value_resolution`, generic grade for classes without a draft order), unpriced = null + label never $0, public/private boundary, existing simulator and auction budgets preserved | DECIDED — owner; implemented in #1785. The later classes' DOLLARS moved to the rookie-auction curve in Batch E (draft-valuation workstream); identity, unpriced-never-$0 and the public/private boundary are unchanged |
-| The default-league workbook path's failed `/traded_picks` fetch must not keep the workbook's ownership silently (CLAUDE.md named follow-up) | DECIDED — owner; implementation IN PROGRESS (refuses the board, same shape as the fallback) |
+| The default-league workbook path's failed `/traded_picks` fetch must not keep the workbook's ownership silently (CLAUDE.md named follow-up) | DECIDED — owner; MERGED — #1785 via release train 6 #1794 (`c290dea0a8`, 2026-10-18): an unobserved `/traded_picks` refuses the board with the fallback's `pick_ownership_unavailable` shape. Exact fallback parity, route caching (300 s TTL, never the stale last-valid board) and success byte-identity pinned by `tests/api/test_draft_capital_workbook_pick_ownership.py` (`claude/workbook-pick-ownership-fail-closed`) |
 | $1,200 auction-power basis: one $1,200 pool per draft class, or one $1,200 pool shared across every listed class? | SUPERSEDED — decided 2026-10-18 (next row) |
 | Draft-capital budget basis: $1,200 per draft class (each class its own pool; All Years sums classes) | DECIDED — owner, 2026-10-18, **for `dynasty_main` only** (scope corrected by the owner the same day — next-but-two row). dynasty_main's workbook class keeps the exact workbook dollars, each later class its own $1,200. `budgetPolicy`: `basis: "per_class_pool"`, `status: "owner_confirmed"`. Implementation `claude/draft-capital-all-years` (#1785), merged via release train 6 #1794 (`c290dea0a8`, 2026-10-18). *The earlier wording "Both leagues … the Sleeper-derived fallback (dynasty_new) normalizes each class to $1,200 over its real picks (10 teams × 4 rounds = 40)" is SUPERSEDED by the 2026-10-18 scope correction; that fallback change was removed from #1785.* |
 | Addendum (owner, 2026-10-18): exact reconciliation — every complete class totals exactly $1,200.00 (integer-unit allocation, deterministic largest-remainder residual; pick dollars, team totals, year totals and All Years reconcile with no drift) | DECIDED — owner, 2026-10-18; implementation `claude/draft-capital-all-years` (#1785) |
@@ -1968,11 +2099,11 @@ consolidated, with live status, in `docs/owner/OWNER_DECISION_REGISTER.md`; what
 | # | Decision | Disposition |
 |---|---|---|
 | Scope | Continue all non-DFS Calculator work. **DFS shelved** (recorded in PR #1810): no new DFS work of any kind; deployed DFS preserved; DFS decisions, credentials, subscriptions and provider approvals `OWNER_PAUSED`. **League Tycoon shelved**: research and Ideas backlog kept; no integration, contract-dynasty features or migration; no configuration, capture or credential requests; Sleeper stays the platform | DECIDED — owner, 2026-10-18; OWNER_PAUSED (DFS, League Tycoon) |
-| D1 | DLF IDP voting: keep the offense-only hold (Option B). Run the preregistered `idp-hampel-n3-v1` on its 105 frozen archives without changing the preregistration; restore DLF IDP only after it passes AND independent full-board validation, via a reviewed reversible release; DLF IDP + rookie-IDP under one family cap | DECIDED — owner, 2026-10-18; EVIDENCE_PENDING (challenger not yet implemented) |
-| D2 | IDP-scoped shared correlation cap for IDP Trade Calculator + `idpShowCombined` (defensive rows only, through the canonical lineage / family-cap owners, replay + independent confidence counts, validated release before served values move) | DECIDED — owner, 2026-10-18; EVIDENCE_PENDING |
-| D3 | No unproven extra IDP Trade Calculator offense vote; a proven KTC-Crowd derivative may enter only under the KTC Crowd cap | DECIDED — owner, 2026-10-18; engineering verifies the existing voting behaviour |
-| D4 | DLF Values rank-to-Hill approved as an offense-only member of the existing DLF family (raw/max rejected), conditional on its evidence gates and a reversible observable release | DECIDED — owner, 2026-10-18; EVIDENCE_PENDING |
-| D5 | FantasyPros freshness uses `EXPLICIT_UPSTREAM_TIMESTAMP`; finish the dual-family duplicate-identity analysis; stale is reported, never zero | DECIDED — owner, 2026-10-18; implementation pending |
+| D1 | DLF IDP voting: keep the offense-only hold (Option B). Run the preregistered `idp-hampel-n3-v1` on its 105 frozen archives without changing the preregistration; restore DLF IDP only after it passes AND independent full-board validation, via a reviewed reversible release; DLF IDP + rookie-IDP under one family cap | **SUPERSEDED — owner directive 2026-10-19** (universal source voting; V4 of the 2026-10-19 entry): the policy hold is rescinded and the restore approved. PR #1817 implements DLF IDP + DLF Rookie IDP voting under the one DLF family cap behind `dlf_offense_only_vote`, **held at release** (default ON, temporary): under the incumbent outlier filter the restore drops 31 valid other-source IDP votes on 30 rows (moves up to 54%, none from DLF's own vote), which the same directive forbids. **DECIDED — owner, 2026-10-20 (Option 3, entry O3-1..O3-10 above): the moves are NOT accepted; the hold stays until a preregistered outlier-filter Version 2 passes every mandatory gate, and lifting it needs explicit owner approval** (`docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`) |
+| D2 | IDP-scoped shared correlation cap for IDP Trade Calculator + `idpShowCombined` (defensive rows only, through the canonical lineage / family-cap owners, replay + independent confidence counts, validated release before served values move) | **SUPERSEDED — owner directive 2026-10-19** (source voting: consensus, not duplication; V1/V2 of the 2026-10-19 entry). Not activated; mechanism deleted in PR #1817 (`docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`) |
+| D3 | No unproven extra IDP Trade Calculator offense vote; a proven KTC-Crowd derivative may enter only under the KTC Crowd cap | **SUPERSEDED — owner directive 2026-10-19** (V3: never exclude a vote for unproven independence; a proven KTC derivative still enters only the KTC Crowd family). Exclusion deleted in PR #1817; the offense vote is main's; no current republication evidence |
+| D4 | DLF Values rank-to-Hill approved as an offense-only member of the existing DLF family (raw/max rejected), conditional on its evidence gates and a reversible observable release | DECIDED — owner, 2026-10-18 (kept 2026-10-19); every gate passed on the 2026-10-19 board, flag `dlf_values_rank_hill_vote` ON in PR #1817; production verification pending |
+| D5 | FantasyPros freshness uses `EXPLICIT_UPSTREAM_TIMESTAMP`; finish the dual-family duplicate-identity analysis; stale is reported, never zero | DECIDED — owner, 2026-10-18 (kept 2026-10-19); implemented in PR #1817 under flag `fantasypros_idp_upstream_clock` (ON); duplicate analysis done (no amplification); production verification pending |
 | D6 | IDP deep-tail normalization: preregistered challenger (Hill extrapolation vs IDP Trade Calculator native value at equivalent rank); incumbent kept unless it convincingly improves | DECIDED — owner, 2026-10-18; EVIDENCE_PENDING |
 | D7 | Signals IDP: hold maintained; box-local evidence + diagnosis; a genuinely different challenger is preregistered before testing | DECIDED — owner, 2026-10-18 |
 | D8 | Active Value Adjustment unchanged: `geom_q078_v1`, q = 0.78; KTC kept for rollback / historical comparison; no recalibration from a few accepted trades; independent evaluation continues on the production trade archive; the 250-point Best Offers rule, fairness classifications and the YES/NO engine are not reopened | DECIDED — owner, 2026-10-18 (activation #1771, 2026-10-17; deployed) |
@@ -2033,7 +2164,7 @@ The finite completion queue they require is `docs/COMPLETION_QUEUE.md`. Capture 
 | V1 | **Source voting is consensus.** Different providers agreeing is agreement, not duplication. Only credible shared-DATA-lineage evidence (one feed republishing another) may merge votes; similarity alone never removes or caps a vote. Existing same-provider family protections stay (e.g. DLF Rank + DLF Values share the DLF cap). Supersedes the conflicting parts of D2/D3 | DECIDED — owner, 2026-10-19 |
 | V2 | IDP Trade Calculator and The IDP Show both vote on IDP at their approved weights; the D2 cross-provider shared cap is not enabled. The IDP Show's multiple boards count as one provider | DECIDED — owner, 2026-10-19; implementation: #1817 rework (CQ-01) |
 | V3 | IDP Trade Calculator's offensive values vote under the normal rules (D3 exclusion reversed) unless concrete evidence of copied or derived KTC data exists | DECIDED — owner, 2026-10-19; implementation: #1817 rework (CQ-01) |
-| V4 | **DLF IDP and DLF Rookie IDP return to voting** (the D1 hold is rescinded) under the DLF provider-family cap. Correct the outlier-filter interaction that caused 40–50% moves; no unexplained large moves | DECIDED — owner, 2026-10-19; implementation: #1817 (restore) + outlier lane (CQ-65) |
+| V4 | **DLF IDP and DLF Rookie IDP return to voting** (the D1 hold is rescinded) under the DLF provider-family cap. Correct the outlier-filter interaction that caused 40–50% moves; no unexplained large moves | DECIDED — owner, 2026-10-19; implementation: #1817 (restore, HELD) + outlier lane (CQ-65). Refined 2026-10-20 (Option 3, O3-1..O3-10): DLF IDP stays held until outlier-filter V2 passes every mandatory gate and the owner explicitly approves activation |
 | V5 | **Universal freshness schedule** for every dynasty ranking source (offense, IDP, rookie). Days since the publisher's genuine update: 0–7 → 100%, 8–14 → 75%, 15–21 → 50%, 22–30 → 25%, more than 30 → 0%, multiplying the approved base weight. The clock is the publisher's update, or a recorded content-change observation; a re-download never resets it. Rookie seasonal inactivity is kept. Replaces the cadence-relative curve | DECIDED — owner, 2026-10-19; implementation: freshness lane (CQ-64) |
 | V6 | Single-source haircut: the extreme D2 collapses (e.g. L'Jarius Sneed 1,133 → 339) are not accepted. Separate grouping errors from haircut flaws; keep the existing approved rule; any revision runs as a challenger with its own evidence gate | DECIDED — owner, 2026-10-19; implementation: #1817 rework evidence (CQ-01, CQ-10) |
 | V7 | Audit all 26 registered ranking sources: last genuine update, freshness %, base and effective weight, players contributing, voting status, reason, and what restores eligibility. Re-evaluate old-policy exclusions, defaulting to restore. Finish Signals Fantasy IDP shared-market normalization before it votes | DECIDED — owner, 2026-10-19; implementation: freshness lane audit generator (CQ-64); Signals IDP (CQ-24) |

@@ -1,0 +1,13 @@
+{
+  "bySeason": [
+    {
+      "expectedLineupPpg": null,
+      "sd": null,
+      "season": 2027
+    }
+  ],
+  "method": "deterministic_lineup_on_expected_ppg",
+  "ownerId": "owner01",
+  "reason": "horizon_not_built",
+  "state": "unavailable"
+}

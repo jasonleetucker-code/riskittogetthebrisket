@@ -8,7 +8,9 @@
 
 Exit codes: 0 every requested dataset ok (published / unchanged / skipped by
 interval) · 1 a dataset failed, or the session refused (auth stop) · 2 a
-dataset was quarantined for schema drift / collapse (and none hard-failed).
+dataset was quarantined for schema drift / collapse, or (flag
+``signals_idp_family_quarantine``) one IDP family was quarantined while its
+siblings published (``partially_quarantined``), and none hard-failed.
 
 All logic lives in ``src/sources/signals.py`` (the one Signals owner); this is
 a thin CLI.  Since the owner addendum of 2026-10-03 these values are an ACTIVE
@@ -86,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if kinds <= _OK:
         return 0
-    if kinds - _OK == {"quarantined"}:
+    if kinds - _OK <= {"quarantined", "partially_quarantined"}:
         return 2
     return 1
 

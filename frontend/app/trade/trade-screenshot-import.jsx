@@ -39,6 +39,7 @@ import {
   UNASSIGNED,
   addItem,
   confirmCandidate,
+  describeAlignment,
   describeImportError,
   describeWarning,
   importReady,
@@ -737,6 +738,11 @@ export function ScreenshotImportDialog({
             {review.warnings.map((w, i) => (
               <Banner key={`${w.code}-${w.sourceImage}-${i}`} tone="warning">
                 {describeWarning(w, images.length)}
+              </Banner>
+            ))}
+            {describeAlignment(review, images.length).map((text, i) => (
+              <Banner key={`align-${i}`} tone="info">
+                {text}
               </Banner>
             ))}
             {review.mergeNotes.map((note, i) => (

@@ -177,25 +177,43 @@ def _rows(contract: dict) -> dict[str, dict]:
     return {str(r.get("displayName")): r for r in contract.get("playersArray") or []}
 
 
+#: Every flag that must be ON for a Signals IDP family to vote (owner
+#: directive 2026-10-19: the master ALONE activates nothing; AND semantics).
+IDP_RELEASE_FLAGS = (
+    "signals_idp_shared_market",
+    "signals_idp_dl_vote",
+    "signals_idp_lb_vote",
+    "signals_idp_db_vote",
+    "signals_idp_xwalk_v2",
+)
+
+
 @contextlib.contextmanager
-def _idp_promoted():
-    """``signals_idp_shared_market`` ON — the promotion switch, exercised
-    through the real flag (env + reload), not by editing the hold table."""
+def _flags(*names: str):
+    """Switch real flags ON (env + reload), never by editing the hold table."""
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET", "1")
+        for name in names:
+            mp.setenv(f"RISKIT_FEATURE_{name.upper()}", "1")
         feature_flags.reload()
         try:
             yield
         finally:
-            mp.delenv("RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET")
+            for name in names:
+                mp.delenv(f"RISKIT_FEATURE_{name.upper()}")
             feature_flags.reload()
+
+
+def _idp_promoted():
+    """Every Signals IDP family released through Candidate F (the master, the
+    three family switches and the qualified translation)."""
+    return _flags(*IDP_RELEASE_FLAGS)
 
 
 @pytest.fixture(scope="module")
 def boards(tmp_path_factory):
-    """Built with Signals IDP PROMOTED (voting through the shared-market
-    family crosswalk), so the voting mechanics stay pinned for the day the
-    promotion gate passes."""
+    """Built with Signals IDP RELEASED (every family voting through the
+    Candidate F coverage-aligned crosswalk), so the voting mechanics stay
+    pinned for the day the promotion gates pass."""
     on = tmp_path_factory.mktemp("signals_on")
     _write_store(on)
     off = tmp_path_factory.mktemp("signals_off")
@@ -203,6 +221,16 @@ def boards(tmp_path_factory):
         with_signals = _build(on)
         without = _build(off)
     return with_signals, without
+
+
+@pytest.fixture(scope="module")
+def held_f(tmp_path_factory):
+    """SHADOW with Candidate F (``signals_idp_xwalk_v2`` only): no family
+    released, the shadow stamps translate with F."""
+    on = tmp_path_factory.mktemp("signals_held_f")
+    _write_store(on)
+    with _flags("signals_idp_xwalk_v2"):
+        return _build(on)
 
 
 @pytest.fixture(scope="module")
@@ -407,12 +435,26 @@ def _idp_local_family_ladder(group: str) -> list[int]:
     return [i for i, (_v, _n, pos) in enumerate(idp, start=1) if pos == group]
 
 
+def _bridge_coordinate(name: str, raw: dict | None = None) -> int:
+    """c(p): the player's COMBINED offense+IDP rank on the bridge's (IDPTC's)
+    pool — its own family slot's coordinate."""
+    players = (raw or _raw_payload())["players"]
+    pool = [
+        (float(p["idpTradeCalc"]), n)
+        for n, p in players.items()
+        if float(p.get("idpTradeCalc") or 0) > 0
+    ]
+    pool.sort(key=lambda t: (-t[0], t[1].lower()))
+    return next(i for i, (_v, n) in enumerate(pool, start=1) if n == name)
+
+
 class TestSharedMarketFamilyCrosswalk:
     @pytest.mark.parametrize("group", ["DL", "LB", "DB"])
-    def test_family_rank_k_lands_where_the_kth_of_that_family_sits_on_the_market(
-        self, boards, group
-    ):
-        ladder = _shared_market_family_ladder(group)
+    def test_candidate_f_votes_are_the_matched_players_bridge_coordinates(self, boards, group):
+        """Candidate F: the fixture's Signals order agrees with the market, so
+        every matched player votes exactly its OWN bridge coordinate — the
+        coverage gap (rows 10-19) displaces nobody (Candidate A shifted every
+        vote below the gap)."""
         key = f"signalsIdp{group.title()}"
         seen = 0
         for row in boards[0]["playersArray"]:
@@ -420,8 +462,12 @@ class TestSharedMarketFamilyCrosswalk:
             if not meta:
                 continue
             assert row["position"] == group
-            assert meta["effectiveRank"] == ladder[int(meta["rawRank"]) - 1], row["displayName"]
+            assert meta["method"] == "coverage_aligned"
+            assert meta["effectiveRank"] == _bridge_coordinate(row["displayName"])
             assert meta["rankCoordinatePool"] == "shared_market"
+            assert meta["candidate"] == "signals-idp-F-coverage-aligned-v1"
+            assert meta["levelSource"] == "idpTradeCalc"
+            assert meta["contributes"] == "within_family_order"
             seen += 1
         assert seen > 20
 
@@ -499,26 +545,38 @@ class TestSharedMarketFamilyCrosswalk:
         withheld = (contract.get("crossPositionBridges") or {}).get("withheldFamilyCrosswalk")
         assert sum((withheld or {}).get(k, {}).get("no_family_ladder", 0) for k in SIGNALS_KEYS[1:])
 
-    def test_a_rank_past_the_familys_market_depth_is_withheld_not_extrapolated(self, tmp_path):
-        """Candidate A: k deeper than the market's own LB list has no
-        measured market position.  Drop IDPTC from the deepest LBs so the
-        Signals LB board runs past the family ladder."""
+    def test_a_player_the_bridge_does_not_price_is_withheld_not_extrapolated(self, tmp_path):
+        """Candidate F: a Signals-only row (no bridge coordinate) is WITHHELD
+        ``unmatched_in_reference`` — never extrapolated, never zero — and the
+        matched votes stay inside the matched coordinates' range.  Drop IDPTC
+        from the deepest LBs so Signals covers players the bridge does not."""
         _write_store(tmp_path)
         raw = _raw_payload()
         lbs = [n for n, p in raw["players"].items() if p["position"] == "LB"]
-        for name in lbs[-15:]:
+        dropped = set(lbs[-15:])
+        for name in dropped:
             raw["players"][name].pop("idpTradeCalc", None)
             raw["players"][name]["_canonicalSiteValues"].pop("idpTradeCalc", None)
         with _idp_promoted(), contextlib.redirect_stdout(io.StringIO()):
             contract = build_api_data_contract(raw, csv_root=tmp_path)
-        depth = len(_shared_market_family_ladder("LB", raw))
+        ladder = _shared_market_family_ladder("LB", raw)
+        voted = 0
         for row in contract["playersArray"]:
             meta = (row.get("sourceRankMeta") or {}).get("signalsIdpLb")
             if meta:
-                assert int(meta["rawRank"]) <= depth
-                assert meta["method"] != "extrapolated"
+                assert row["displayName"] not in dropped
+                assert min(ladder) <= meta["effectiveRank"] <= max(ladder)
+                voted += 1
+            if row["displayName"] in dropped and "signalsIdpLb" in (
+                row.get("sourceNativeValues") or {}
+            ):
+                withheld = row["sourceWithheldMeta"]["signalsIdpLb"]
+                assert withheld["withheldReason"] == "unmatched_in_reference"
+                assert withheld["withheldByTranslation"] is True
+        assert voted > 10
         withheld = (contract.get("crossPositionBridges") or {}).get("withheldFamilyCrosswalk")
-        assert (withheld or {}).get("signalsIdpLb", {}).get("beyond_family_ladder", 0) > 0
+        assert (withheld or {}).get("signalsIdpLb", {}).get("unmatched_in_reference", 0) > 0
+        assert not (withheld or {}).get("signalsIdpLb", {}).get("beyond_family_ladder")
 
     def test_a_family_mismatch_with_our_position_casts_no_vote(self, boards):
         """A Signals DB board row joined to a row WE hold as DL is not
@@ -749,11 +807,11 @@ class TestIdpShadow:
                 seen += 1
         assert seen > 50
 
-    def test_the_shadow_number_is_exactly_what_promotion_would_vote(self, held, boards):
+    def test_the_shadow_number_is_exactly_what_promotion_would_vote(self, held_f, boards):
         """The diagnostic must not be a second methodology: the published
-        ``wouldContribute`` equals the contribution the same row casts once
-        the switch is on (pre-blend; same curve, same rank)."""
-        shadow_rows, promoted_rows = _rows(held[0]), _rows(boards[0])
+        ``wouldContribute`` (Candidate F shadow) equals the contribution the
+        same row casts once its family is released (same helper, same rank)."""
+        shadow_rows, promoted_rows = _rows(held_f), _rows(boards[0])
         compared = 0
         for name, row in shadow_rows.items():
             for key in SIGNALS_KEYS[1:]:
@@ -761,8 +819,9 @@ class TestIdpShadow:
                 voted = (promoted_rows[name].get("sourceRankMeta") or {}).get(key)
                 if not shadow or not voted or shadow.get("withheldReason"):
                     continue
+                assert shadow["candidate"] == voted["candidate"]
                 assert shadow["translatedRank"] == voted["effectiveRank"]
-                assert abs(shadow["wouldContribute"] - float(voted["valueContribution"])) <= 1
+                assert shadow["wouldContribute"] == int(voted["valueContribution"])
                 compared += 1
         assert compared > 50
 
@@ -819,8 +878,8 @@ def test_a_retired_pick_class_does_not_misplace_shadow_meta(tmp_path, monkeypatc
 
     real = dc._evaluate_pick_class_lifecycle
 
-    def lifecycle_with_2025_retired(players_by_name, sleeper_block):
-        out = real(players_by_name, sleeper_block)
+    def lifecycle_with_2025_retired(players_by_name, sleeper_block, **kwargs):
+        out = real(players_by_name, sleeper_block, **kwargs)
         out["retiredYears"] = sorted({*out.get("retiredYears", []), 2025})
         return out
 

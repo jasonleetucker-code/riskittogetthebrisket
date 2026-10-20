@@ -125,16 +125,13 @@ const BUDGETS_KB = {
   // KB. Held close so a future `import XSection from "./sections/…"`
   // — the easy mistake, since it looks like every other import — trips
   // CI instead of quietly putting all 21 back on the page.
-  // Bumped 50→53 by the Brisket Trade Advisor (#1866): measured 49.8 KB on
-  // main, 51.4 KB with the flag-gated hub routing (tab resolution, the
-  // flag-off "Home" nav, the advisor header / contract-gate branches and
-  // the team step's dynamic import).  The advisor's own code is NOT on
-  // this chunk — the team step is a separate `ssr: true` chunk with its
-  // own gzip budget in check-public-bundle-privacy.mjs, which also fails
-  // if advisor code lands here.  Flag-off /league measured +0.6 KB gzip
-  // JS vs origin/main.  Still tight enough that re-adding a static
-  // section import trips it.
-  "/league/page": 53,
+  // Brisket Trade Advisor (#1866): NOT raised.  Measured on the merge with
+  // main (2026-10-20): main 46.0 KB, main + advisor hub routing 47.6 KB.
+  // The advisor's own code is never on this chunk — the team step and the
+  // builder are separate chunks with their own gzip budgets in
+  // check-public-bundle-privacy.mjs, which also fails if advisor code
+  // lands here.
+  "/league/page": 50,
   // Bumped 30→40 by the canonical Team Strength migration: measured
   // 25.0 KB before, 34.6 KB after. The page stopped SCORING teams in
   // the browser (`scoreTeamTiers` — a weighted team formula plus a
@@ -160,7 +157,17 @@ const BUDGETS_KB = {
   // Today / When traded / aging card copy and the Winners & Losers metric
   // switch.  lib/trade-retro-value.js + the rank-history fetch it needed
   // left the route.  26 = 23.6 + ~10%.
-  "/trades/page": 26,
+  // 26 -> 32 (2026-10-19, CQ-66 source voting transparency): RELOCATION, no
+  // /trades change.  /settings starting to render the shared Source Voting
+  // table (DataTable + ds status primitives) re-split webpack's shared ds
+  // chunk, so Badge / Panel / Skeleton / Banner / Button land in /trades' own
+  // chunk again: 25.0 -> 30.8 KB page chunk, while /trades' page + shared
+  // chunks — everything its page module loads — went 138.2 -> 138.1 KB
+  // (measured from the RSC client manifests of a --webpack build of main vs
+  // this branch).  The table is React.lazy on /settings, which did not
+  // change the split (30.8 KB statically imported or lazy).  32 = 30.8 +
+  // ~4%, the same headroom /trades carried before.
+  "/trades/page": 32,
   // Added R4: /waivers was shipping unmeasured. Pinned at the R4
   // rebuild's measured size + headroom so the claim desk can't drift
   // unnoticed like it had been.
@@ -202,7 +209,17 @@ const BUDGETS_KB = {
   // after the #1723 review follow-ups (state blocks keep their siblings) (list view:
   // DataTable + the evidence renderer), pinned with ~15% headroom. The family
   // detail view is a React.lazy chunk (6.2 KB) and is not counted here.
-  "/admin/model-lab/page": 30,
+  // 30 -> 35 (2026-10-20, ds hydration gate): RELOCATION, no model-lab
+  // change.  The new shared `components/ds/useHydrated.js` (read by Tabs,
+  // SegmentedControl, CollapsiblePanel) re-split webpack's shared ds chunk,
+  // so Badge / Panel / Skeleton / Banner / Button / CollapsiblePanel land in
+  // this page's own chunk: 26.6 -> 33.0 KB page chunk, while the page chunk
+  // + every static chunk its startup list requires went 286.5 -> 286.7 KB
+  // (+0.0..0.4 KB on every budgeted route; measured on --webpack builds of
+  // main vs the branch).  Inlining the hook into the three primitives
+  // instead re-split it the same way once their docblocks grew, so the
+  // split is size-threshold chaos, not a cost of sharing.  35 = 33.0 + ~6%.
+  "/admin/model-lab/page": 35,
   // Added 2026-10-18 with the Trade Finder meaningful-discovery batch: the
   // page had no budget.  Measured 58.3 KB on main before, 70.2 KB with the
   // tools-first layout, shared discovery controls and research section;

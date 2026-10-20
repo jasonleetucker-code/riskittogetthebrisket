@@ -55,13 +55,18 @@ if str(REPO) not in sys.path:
 
 from src.api import value_replay as vr  # noqa: E402
 
-_SWEEP_SPEC = importlib.util.spec_from_file_location(
-    "lineage_integrity_sweep", REPO / "scripts" / "audit" / "lineage_integrity_sweep.py"
-)
-sweep = importlib.util.module_from_spec(_SWEEP_SPEC)
-assert _SWEEP_SPEC.loader is not None
-sys.modules["lineage_integrity_sweep"] = sweep
-_SWEEP_SPEC.loader.exec_module(sweep)
+# Reuse an already-loaded copy (as lineage_pair_snapshots does): replacing a
+# live ``sys.modules`` entry splits module identity for earlier importers.
+if "lineage_integrity_sweep" in sys.modules:
+    sweep = sys.modules["lineage_integrity_sweep"]
+else:
+    _SWEEP_SPEC = importlib.util.spec_from_file_location(
+        "lineage_integrity_sweep", REPO / "scripts" / "audit" / "lineage_integrity_sweep.py"
+    )
+    sweep = importlib.util.module_from_spec(_SWEEP_SPEC)
+    assert _SWEEP_SPEC.loader is not None
+    sys.modules["lineage_integrity_sweep"] = sweep
+    _SWEEP_SPEC.loader.exec_module(sweep)
 
 CSV_DIR = REPO / "CSVs" / "site_raw"
 #: Every IDP-covering source with a committed capture.  ``idpShow`` is the

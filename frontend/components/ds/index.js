@@ -22,6 +22,7 @@ export { ValueBasisNote } from "./ValueBasisNote";
 export { StatTile } from "./StatTile";
 export { DataTable, sortRows } from "./DataTable";
 export { Tabs, tabId, tabPanelId } from "./Tabs";
+export { useHydrated } from "./useHydrated";
 export {
   Badge,
   StatusIndicator,

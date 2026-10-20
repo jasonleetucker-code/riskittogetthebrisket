@@ -89,7 +89,7 @@ def test_runtime_additions_do_not_change_the_analysis(client, monkeypatch):
         sim,
         comparables={"state": "unavailable", "reason": "test"},
         provenance={
-            "boardStamp": meta.get("generatedAt"),
+            "boardStamp": rt.contract_generation(server.latest_contract_data),
             "scoringFingerprint": meta.get("scoringFingerprint"),
         },
     )
@@ -866,3 +866,47 @@ def test_personal_refusals_are_classified():
         assert server._analysis_outcome_personal(outcome(status)) is True
     for status in (400, 404, 500, 503):
         assert server._analysis_outcome_personal(outcome(status)) is False
+
+
+# ── board generation (five-point review, 2026-10-20) ─────────────────────
+#
+# The served contract stamps its generation at the TOP level
+# (``generatedAt``, beside ``dataFreshness``); ``meta`` carries only
+# ``leagueKey`` / ``packageModel`` / ``scoringFingerprint`` /
+# ``scoringProfile``.  Reading ``meta.generatedAt`` therefore always answered
+# "" / ``None`` on a real board: the in-flight key's generation component was
+# dead (only ``id(contract)`` separated two boards) and every decision receipt
+# carried ``boardStamp: null``.  The fixtures above put ``generatedAt`` under
+# ``meta``, which is why nothing caught it.
+
+
+def test_contract_generation_reads_the_top_level_stamp_the_served_board_carries():
+    assert rt.contract_generation({"generatedAt": "2026-10-20T01:10:59Z", "meta": {}}) == (
+        "2026-10-20T01:10:59Z"
+    )
+    # A board carrying it only under ``meta`` (older shape) still answers.
+    assert rt.contract_generation({"meta": {"generatedAt": "t-meta"}}) == "t-meta"
+    # Unknown is ``None``, never a fabricated stamp.
+    assert rt.contract_generation({"meta": {}}) is None
+    assert rt.contract_generation(None) is None
+
+
+def test_dedup_key_separates_two_generations_of_one_board_object():
+    s = {"username": "alice", "sleeper_user_id": "o1"}
+    board = {"generatedAt": "gen-1", "meta": {"leagueKey": "main"}}
+    k1 = rt.dedup_key("alice", s, {"a": 1}, board, league_key="main")
+    board["generatedAt"] = "gen-2"  # a new generation (same object address)
+    k2 = rt.dedup_key("alice", s, {"a": 1}, board, league_key="main")
+    assert k1 != k2
+
+
+def test_decision_receipt_names_the_board_generation(client, monkeypatch):
+    contract = _contract(league_key="main")
+    contract.pop("generatedAt", None)
+    (contract.get("meta") or {}).pop("generatedAt", None)
+    contract["generatedAt"] = "2026-10-20T01:10:59.009881+00:00"  # the served shape
+    monkeypatch.setattr(server, "latest_contract_data", contract)
+    res = client.post("/api/trade/analyze", json=_BODY)
+    assert res.status_code == 200, res.text
+    receipt = res.json()["analysis"]["decision"]["receipt"]
+    assert receipt["boardStamp"] == "2026-10-20T01:10:59.009881+00:00"

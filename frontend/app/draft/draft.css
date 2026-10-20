@@ -500,10 +500,14 @@
 .draft-tag-tab-active {
   font-weight: 600;
 }
+/* The count inherits the tab's own token colour at FULL strength.  It used
+   to sit at opacity 0.75, which pulled the inactive (--muted) count to
+   3.89:1 on the board panel — below WCAG 1.4.3's 4.5:1 (axe, CQ-30).  The
+   smaller mono face already sets it apart from the label; dimming added no
+   meaning and cost the contrast. */
 .draft-tag-tab-count {
   font-family: var(--mono, monospace);
   font-size: 0.68rem;
-  opacity: 0.75;
 }
 
 /* Per-row tag chips */

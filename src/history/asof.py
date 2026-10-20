@@ -56,6 +56,19 @@ latest instant first; (2) origin priority (``store.ORIGIN_PRIORITY``);
 Corrections: an observation superseded via ``store.record_correction``
 is skipped by selection (the superseding row stands on its own; the
 original stays readable in the store).
+
+Bitemporal reads (opt-in ``knowledge_cutoff``): the two instant-strict
+reads bound the VALID time (``observed_date`` / ``observed_at``) but, by
+default, read the ledger's CURRENT knowledge of that past — a correction
+or a backfilled observation recorded today changes what an old instant
+"knew".  For leakage-safe evaluation pass ``knowledge_cutoff`` (UTC-aware)
+to also bound the TRANSACTION time: an observation counts only when its
+``recorded_at`` is a proven instant at or before the cutoff, and a
+correction excludes its superseded row only when the correction's own
+``recorded_at`` is at or before the cutoff.  An unprovable ``recorded_at``
+is NOT known at the cutoff (conservatively missing, the same posture as an
+unknown same-day ``observed_at``).  ``None`` (the default) keeps the
+original query and results byte-identical.
 """
 
 from __future__ import annotations
@@ -275,6 +288,65 @@ class _KnownBeforeIndex:
         return None
 
 
+def _recorded_at_or_before(recorded_at: Any, cutoff_utc: datetime) -> bool:
+    """True only when a ledger ``recorded_at`` stamp is a PROVEN instant at
+    or before ``cutoff_utc`` (same parsing rule as :func:`parse_instant_utc`:
+    a time component is required, naive means UTC).  An unprovable stamp is
+    not known at the cutoff."""
+    parsed = parse_instant_utc(recorded_at)
+    return parsed is not None and parsed <= cutoff_utc
+
+
+def _known_at_cutoff(
+    conn: sqlite3.Connection,
+    rows: list[sqlite3.Row],
+    cutoff_utc: datetime,
+) -> list[sqlite3.Row]:
+    """The subset of ``rows`` (fetched WITHOUT the corrections filter) that
+    the ledger knew, and had not yet corrected away, at ``cutoff_utc``.
+
+    * an observation recorded after the cutoff (or at an unprovable time)
+      is invisible;
+    * an observation is excluded as superseded only when its correction was
+      recorded at or before the cutoff — a correction recorded later did not
+      exist yet, so the original row stands as it did then.
+    """
+    known = [r for r in rows if _recorded_at_or_before(r["recorded_at"], cutoff_utc)]
+    if not known:
+        return known
+    ids = [int(r["id"]) for r in known]
+    corrected: set[int] = set()
+    # Chunked so a long history never exceeds SQLite's bound-parameter limit.
+    for start in range(0, len(ids), 500):
+        chunk = ids[start : start + 500]
+        marks = ",".join("?" for _ in chunk)
+        for c in conn.execute(
+            f"SELECT superseded_id, recorded_at FROM corrections WHERE superseded_id IN ({marks})",
+            chunk,
+        ).fetchall():
+            if _recorded_at_or_before(c["recorded_at"], cutoff_utc):
+                corrected.add(int(c["superseded_id"]))
+    return [r for r in known if int(r["id"]) not in corrected]
+
+
+def _cutoff_utc(knowledge_cutoff: datetime | None, caller: str) -> datetime | None:
+    if knowledge_cutoff is None:
+        return None
+    if knowledge_cutoff.tzinfo is None:
+        raise ObservationError(
+            f"naive knowledge_cutoff passed to {caller}; knowledge cutoffs must be UTC-aware"
+        )
+    return knowledge_cutoff.astimezone(timezone.utc)
+
+
+def _stamp_cutoff(result: dict[str, Any], cutoff_utc: datetime | None) -> dict[str, Any]:
+    """Name the knowledge bound on a result — only when one was requested,
+    so the default shape is unchanged."""
+    if cutoff_utc is not None:
+        result["knowledgeCutoff"] = cutoff_utc.isoformat()
+    return result
+
+
 def _fetch_candidates(
     conn: sqlite3.Connection,
     asset_key: str,
@@ -284,6 +356,7 @@ def _fetch_candidates(
     date_max: str,
     strict_before_date: str | None = None,
     instant_max: datetime | None = None,
+    knowledge_cutoff: datetime | None = None,
 ) -> list[sqlite3.Row]:
     """Date-bounded candidate rows, superseded observations excluded.
 
@@ -293,17 +366,29 @@ def _fetch_candidates(
     (:func:`_instant_at_or_before` — a date-only or unparseable stamp
     is an unknown instant and never qualifies); rows on strictly
     earlier dates always qualify.
+
+    ``knowledge_cutoff`` (UTC-aware, opt-in) applies the bitemporal
+    bound described in the module docstring
+    (:func:`_known_at_cutoff`).  ``None`` issues the original query.
     """
-    q = (
-        f"SELECT {_SELECT_COLS} FROM observations "
-        "WHERE asset_key=? AND lane=? AND source_key=? AND observed_date<=? "
-        "AND id NOT IN (SELECT superseded_id FROM corrections)"
-    )
+    if knowledge_cutoff is None:
+        q = (
+            f"SELECT {_SELECT_COLS} FROM observations "
+            "WHERE asset_key=? AND lane=? AND source_key=? AND observed_date<=? "
+            "AND id NOT IN (SELECT superseded_id FROM corrections)"
+        )
+    else:
+        q = (
+            f"SELECT {_SELECT_COLS} FROM observations "
+            "WHERE asset_key=? AND lane=? AND source_key=? AND observed_date<=?"
+        )
     params: list[Any] = [asset_key, lane, source_key, date_max]
     if strict_before_date is not None:
         q += " AND observed_date<?"
         params.append(strict_before_date)
     rows = conn.execute(q, params).fetchall()
+    if knowledge_cutoff is not None:
+        rows = _known_at_cutoff(conn, rows, knowledge_cutoff)
     if instant_max is None:
         return rows
     boundary = date_max
@@ -365,6 +450,7 @@ def value_known_before(
     source_key: str = "",
     max_age_days: int | None = None,
     path: Path | None = None,
+    knowledge_cutoff: datetime | None = None,
 ) -> dict[str, Any]:
     """Instant-strict as-of lookup for at-the-time analyses (C3-U9).
 
@@ -372,21 +458,29 @@ def value_known_before(
     same-day observation whose scrape instant is unknown does NOT.
     ``instant`` must be timezone-aware (UTC semantics are the ledger's
     contract; a naive instant is refused rather than guessed).
+
+    ``knowledge_cutoff`` (opt-in, UTC-aware) additionally ignores every
+    observation and correction RECORDED after it — see the module
+    docstring.  ``None`` is byte-identical to the original behaviour.
     """
     if instant.tzinfo is None:
         raise ObservationError(
             "naive datetime passed to value_known_before; as-of instants must be UTC-aware"
         )
+    cutoff = _cutoff_utc(knowledge_cutoff, "value_known_before")
     utc = instant.astimezone(timezone.utc)
     requested = utc.date().isoformat()
     if requested < HISTORY_FLOOR:
-        return _unavailable(asset_key, lane, source_key, requested, REASON_BEFORE_BOUNDARY)
+        return _stamp_cutoff(
+            _unavailable(asset_key, lane, source_key, requested, REASON_BEFORE_BOUNDARY),
+            cutoff,
+        )
 
     conn = _connect_readonly(path)
     if conn is None:
         out = _unavailable(asset_key, lane, source_key, requested, REASON_NO_PRIOR)
         out["requestedInstant"] = utc.isoformat()
-        return out
+        return _stamp_cutoff(out, cutoff)
     try:
         rows = _fetch_candidates(
             conn,
@@ -395,13 +489,16 @@ def value_known_before(
             source_key,
             date_max=requested,
             instant_max=utc,
+            knowledge_cutoff=cutoff,
         )
     finally:
         conn.close()
 
     best = _select_best(rows)
     if best is None:
-        return _unavailable(asset_key, lane, source_key, requested, REASON_NO_PRIOR)
+        return _stamp_cutoff(
+            _unavailable(asset_key, lane, source_key, requested, REASON_NO_PRIOR), cutoff
+        )
     result = _result_from_row(best, requested)
     result["requestedInstant"] = utc.isoformat()
     if (
@@ -413,8 +510,8 @@ def value_known_before(
         out["requestedInstant"] = utc.isoformat()
         out["nearestPriorDate"] = result["observedDate"]
         out["nearestPriorDistanceDays"] = result["distanceDays"]
-        return out
-    return result
+        return _stamp_cutoff(out, cutoff)
+    return _stamp_cutoff(result, cutoff)
 
 
 def batch_as_of(
@@ -476,6 +573,7 @@ def batch_known_before(
     source_key: str = "",
     max_age_days: int | None = None,
     path: Path | None = None,
+    knowledge_cutoff: datetime | None = None,
 ) -> dict[str, Any]:
     """Instant-strict as-of lookup for a batch of ``(asset_key, instant)``
     pairs — the batched sibling of :func:`value_known_before`.
@@ -503,7 +601,11 @@ def batch_known_before(
     ``max_age_days`` has no default freshness budget (``None``): staleness
     is a live-serving concept, and historical replay has no owner-approved
     notion of "too old" to invent one.
+
+    ``knowledge_cutoff`` (opt-in, UTC-aware) applies one bitemporal bound
+    to the whole batch (module docstring); ``None`` is byte-identical.
     """
+    cutoff = _cutoff_utc(knowledge_cutoff, "batch_known_before")
     normalized: list[tuple[str, datetime]] = []
     for asset_key, instant in requests:
         if instant.tzinfo is None:
@@ -546,7 +648,9 @@ def batch_known_before(
                 continue
 
             max_date = max(normalized[i][1].date().isoformat() for i in eligible_idxs)
-            rows = _fetch_candidates(conn, asset_key, lane, source_key, date_max=max_date)
+            rows = _fetch_candidates(
+                conn, asset_key, lane, source_key, date_max=max_date, knowledge_cutoff=cutoff
+            )
             # Indexed ONCE per key, not filtered + re-sorted (four passes
             # over the whole history) once per request.  Same selection.
             index = _KnownBeforeIndex(rows)
@@ -580,6 +684,10 @@ def batch_known_before(
         if conn is not None:
             conn.close()
 
+    if cutoff is not None:
+        for r in results:
+            if r is not None:
+                _stamp_cutoff(r, cutoff)
     n = len(results)
     exact = sum(1 for r in results if r is not None and r["fidelity"] == FIDELITY_EXACT)
     prior = sum(1 for r in results if r is not None and r["fidelity"] == FIDELITY_NEAREST_PRIOR)
@@ -592,7 +700,7 @@ def batch_known_before(
         agg = FIDELITY_NEAREST_PRIOR
     else:
         agg = FIDELITY_PARTIAL
-    return {
+    out = {
         "results": results,
         "summary": {
             "items": n,
@@ -603,6 +711,7 @@ def batch_known_before(
             "fidelity": agg,
         },
     }
+    return _stamp_cutoff(out, cutoff)
 
 
 def series(

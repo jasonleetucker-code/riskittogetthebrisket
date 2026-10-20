@@ -51,6 +51,7 @@ import {
   listJoin,
   missingEvidenceText,
   packageModelLabel,
+  partialCoverageNote,
   plainLimit,
   projectionBasisText,
   reasonSentence,
@@ -802,13 +803,6 @@ describe("missingEvidenceText — what is missing, without reason codes", () => 
   });
 
   it("plain gaps stay verbatim; names are names; an identifier falls back", () => {
-    expect(
-      missingEvidenceText({
-        code: "forced_drop_unpriced",
-        text: "1 forced cut(s) have no value, so the cost of the cut is unknown.",
-        evidence: { count: 1 },
-      }),
-    ).toBe("1 forced cut(s) have no value, so the cost of the cut is unknown.");
     // A team display name is a name, even one a code detector would flag.
     expect(
       missingEvidenceText({
@@ -1790,5 +1784,136 @@ describe("no all-caps labels (owner directive 2026-10-19)", () => {
     const tableTh = css.slice(css.indexOf(".table th,"));
     expect(tableTh).toMatch(/text-transform:\s*none/);
     expect(tableTh).toMatch(/position:\s*static/);
+  });
+});
+
+// Round-3 review (owner directive 2026-10-19 §4): what the round-2 fixes left.
+describe("round 3 — one statement per limitation, counted wording", () => {
+  it("the methodology confidence statement names a limitation once, the named clause kept", () => {
+    // `_confidence` puts the analysis' first uncertainty line on the coverage
+    // axis while assetEvidence keeps its generic reason about the SAME fact.
+    const thin = [
+      ["coverage", "Low-confidence canonical value for Kenneth Walker III"],
+      ["assetEvidence", "a traded asset has low or no confidence stamp"],
+      ["precision", "roster estimate imprecise"],
+    ];
+    const statement = confidenceStatementText({
+      level: "MEDIUM",
+      bottleneck: thin.map((x) => x[0]),
+      statement: statementOf("MEDIUM", thin),
+    });
+    expect(statement).toBe(
+      "Medium confidence — limited by coverage and asset evidence (the value of Kenneth Walker III rests on thin evidence) and precision (the lineup simulation is imprecise).",
+    );
+    expect(statement).not.toMatch(/thin or missing evidence/);
+    const disagree = [
+      ["assetEvidence", "sources disagree on a traded asset"],
+      ["coverage", "Sources disagree on Ja'Marr Chase"],
+    ];
+    expect(
+      confidenceStatementText({
+        level: "MEDIUM",
+        bottleneck: disagree.map((x) => x[0]),
+        statement: statementOf("MEDIUM", disagree),
+      }),
+    ).toBe(
+      "Medium confidence — limited by asset evidence and coverage (the ranking sources disagree about Ja'Marr Chase).",
+    );
+    // Assets with NO stamp keep their own clause beside the named one, as at a glance.
+    const s = confidenceStatementText(
+      {
+        level: "MEDIUM",
+        bottleneck: ["coverage", "assetEvidence"],
+        statement: statementOf("MEDIUM", thin.slice(0, 2)),
+      },
+      {
+        evidenceLens: {
+          detail: {
+            lowConfidenceAssets: [{ name: "Kenneth Walker III" }],
+            unstampedAssets: ["Kenneth Walker III", "2027 Round 1"],
+          },
+        },
+      },
+    );
+    expect(s).toBe(
+      "Medium confidence — limited by coverage and asset evidence (the value of Kenneth Walker III rests on thin evidence; another traded asset's value has no evidence rating).",
+    );
+    // Different facts keep one entry per axis.
+    const two = [
+      ["coverage", "Sources disagree on Justin Herbert"],
+      ["assetEvidence", "a traded asset has low or no confidence stamp"],
+    ];
+    expect(
+      confidenceStatementText({
+        level: "MEDIUM",
+        bottleneck: two.map((x) => x[0]),
+        statement: statementOf("MEDIUM", two),
+      }),
+    ).toBe(
+      "Medium confidence — limited by coverage (the ranking sources disagree about Justin Herbert) and asset evidence (a traded player's value rests on thin or missing evidence).",
+    );
+  });
+
+  it("an unpriced forced cut is counted in words, never 'cut(s)'", () => {
+    const gap = (n) => ({
+      code: "forced_drop_unpriced",
+      text: `${n} forced cut(s) have no value, so the cost of the cut is unknown.`,
+      evidence: { count: n },
+    });
+    expect(missingEvidenceText(gap(1))).toBe(
+      "A forced cut has no value on the board, so the cost of that cut is unknown.",
+    );
+    expect(missingEvidenceText(gap(2))).toBe(
+      "2 forced cuts have no value on the board, so the cost of those cuts is unknown.",
+    );
+    // REAL output, and the evidence gate's reason (text + evidence, no code).
+    expect(FORCED.analysis.decision.missingEvidence.map(missingEvidenceText)).toEqual([
+      "A forced cut has no value on the board, so the cost of that cut is unknown.",
+    ]);
+    const { code, ...noCode } = gap(1);
+    expect(code).toBe("forced_drop_unpriced");
+    expect(reasonSentence({ component: "evidence", kind: "gate", ...noCode })).toBe(
+      "A forced cut has no value on the board, so the cost of that cut is unknown.",
+    );
+  });
+
+  it("an unprojected traded player is counted in words, never 'player(s)'", () => {
+    const gap = (ids, goal = "win now") => ({
+      code: "unprojected_players",
+      text: `No league-scored projection for ${ids.length} traded player(s), and a ${goal} decision needs the roster effect.`,
+      evidence: { playerIds: ids },
+    });
+    expect(missingEvidenceText(gap(["1"]))).toBe(
+      "A traded player has no league-scored projection, and a win-now decision needs the lineup effect.",
+    );
+    expect(missingEvidenceText(gap(["1", "2"], "balanced"))).toBe(
+      "2 traded players have no league-scored projection, and a balanced decision needs the lineup effect.",
+    );
+    // REAL output (`partial-coverage`).
+    expect(PARTIAL.analysis.decision.missingEvidence.map(missingEvidenceText)).toContain(
+      "A traded player has no league-scored projection, and a win-now decision needs the lineup effect.",
+    );
+    const { code, ...noCode } = gap(["1"]);
+    expect(code).toBe("unprojected_players");
+    expect(missingEvidenceText(noCode)).toBe(
+      "A traded player has no league-scored projection, and a win-now decision needs the lineup effect.",
+    );
+  });
+
+  it("the partial-coverage note in the player detail counts the unprojected players", () => {
+    const lens = (ids) => ({
+      unavailableReason: "partial_projection_coverage",
+      detail: { coverage: { state: "partial", tradedUnprojectedPlayerIds: ids } },
+    });
+    expect(partialCoverageNote(lens(["a"]))).toBe(
+      "A traded player has no projection, so these numbers cover the projected players only and do not count toward the recommendation.",
+    );
+    expect(partialCoverageNote(lens(["a", "b"]))).toBe(
+      "2 traded players have no projection, so these numbers cover the projected players only and do not count toward the recommendation.",
+    );
+    expect(partialCoverageNote({ unavailableReason: "partial_projection_coverage" })).toBe(
+      "Some traded players have no projection, so these numbers cover the projected players only and do not count toward the recommendation.",
+    );
+    expect(partialCoverageNote({ available: true, detail: {} })).toBeNull();
   });
 });
