@@ -40,7 +40,10 @@ Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
 
 - **A, canonical value curve — not supported.**
   - Served history shows low-value assets do *not* lose value faster than mid-range ones over 30 or 60 days.
-    Offense at 60 days: 1,000–1,999 retain 1.01–1.03; 3,000–5,999 retain 0.97–0.99 (§7.4).
+    Offense at 60 days: 1,000–1,999 retain 1.01–1.03; 3,000–5,999 retain 0.97–0.99 (§7.4). That fails R-A's
+    frozen condition, but about 80% of those ratios span a pipeline change, and a fixed-methodology replay shows
+    small low-band decay. The evidence is "no excess decay that would justify a curve change", not proof that the
+    curve is right.
   - The low end matches rest-of-season usefulness (§3).
 - **B, trade-currency adjustment — not supported.**
   - No candidate removes the inappropriate filler flips without re-levelling genuine starter trades (§4).
@@ -53,7 +56,7 @@ Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
 
 | question | answer |
 |---|---|
-| 1. Is legitimate depth unfairly penalized? | **Not by the production model.** GEOM_78 credits every piece at its value times its rank discount. Every tested discount *would* penalize depth: F3 shows they remove 7–14% of appropriate depth flips, and F2 shows they re-level 31–40% of starter-only trades. The one place depth can be over-charged today is the forced-drop release cost (§5). |
+| 1. Is legitimate depth unfairly penalized? | **Not by the production model.** GEOM_78 credits every piece at its value times its rank discount. Every tested treatment would re-level 31–42% of starter-only trades (F2 fails). Each also removes 7–14% of appropriate depth flips; that stays within the frozen ≤ 25% tolerance (F3 passes), but it is still credit taken from legitimate depth. The one place depth can be over-charged today is the forced-drop release cost (§5). |
 | 2. Is Team Context over-charging forced drops? | §5, investigation A: **Yes, on the War Room / analyze path.** The forced cut is picked alphabetically among sub-waiver players and charged at full value rather than surplus, and unpriced players are charged a whole waiver value. With the cheapest legal cut, 110 of 133 filler flips survive, so most of today's "absorption" is the over-charge. This is a roster-capacity defect for its owner; nothing was changed. |
 | 3. The IDP replacement anomaly | §6, investigation B: **Not a data bug.** The DB anchor is set by an injured player. The anchor rule counts injured and non-producing free agents as available. And canonical IDP value predicts this league's big-play IDP scoring poorly: rank correlation 0.45, against 0.77 for offense. Managers at a full cap churn IDP by production. So it is a replacement-methodology and league-scoring valuation issue. |
 | 4. Can filler turn an unfair trade into a fair one? | **Yes, on context-free surfaces**: the calculator, the 3–4-team meter, Trade Finder in asset-only mode, and Trade History. Example: Hurts vs Egbuka is +722, unfair; adding ~900-point fillers to Egbuka's side carries it through "fair", and four of them reach −1,300, unfair the other way. **Today, mostly no where a full roster is known**: Team Context absorbs 85 of 133 filler flips at the cap. But that is largely the over-charge in §5. With a correct cut, most of those flips survive, and they are genuine roster gains rather than errors. No smooth adjustment fixes it without harming legitimate trades (§4). |
@@ -184,7 +187,7 @@ canonical value, or the shared IDP board does not reflect this league's IDP scor
 That is a valuation question for the scoring-aware/IDP owners, not a package question.
 
 **Read.** As a *holding*, the low end is about right on usefulness and slightly sticky on aging. Approach A is not
-supported by local evidence, and the served-history check (§7.4, M3) confirms it.
+supported by local evidence. The served-history check (§7.4, M3) fails R-A's frozen condition, but it is confounded by pipeline changes, so it does not *confirm* the reading.
 
 ## 4. Would a trade-currency adjustment help? (Approach B; the filler-flip study)
 
@@ -260,7 +263,8 @@ preregistered bar in every class. **R-B is not met.**
 - **Asset-only scoring:** 133 of 135 sweetened steps flip.
 - **With Team Context:** **85 are neutralised**, **43 are over-corrected** (the verdict turns against the receiver),
   and **5 survive**.
-- **Release charges:** the median charge is 3,128 against a median filler credit of 1,982 (1.65×).
+- **Release charges:** the median charge is 3,128 against a median filler credit of 1,982. The median of the
+  per-step ratios is 1.65×.
 - **Unpriced players:** 57 of 270 forced drops are charged at an *assumed waiver value* for players the board does
   not price.
 
@@ -318,9 +322,13 @@ the raw value of the fillers received.
 
 ### 5.3 Answer to question 2, and what it means for R-B0
 
-**Yes: on this path Team Context over-charges forced drops.** Two defects compound:
-- it chooses the cut by name order among sub-waiver players;
-- it charges the cut at full value rather than surplus over replacement.
+**Yes: on this path Team Context over-charges forced drops.** The demonstrated defect is a mismatch:
+- the cut is *selected* by surplus over waiver (ECC), which is 0 for every sub-waiver player, so the choice among
+  them falls to name order;
+- it is *charged* at the player's full base value.
+
+V1 (cheapest legal cut) keeps the full-value charge and alone removes 41 of the 43 over-corrections. Charging
+surplus instead was not tested.
 
 Unpriced players are charged a whole waiver value. A rational receiver could always cut the cheaper incoming filler
 instead.
@@ -361,17 +369,17 @@ defect-driven. The durable reading is:
 | DL | 1,918 | 1,539 |
 
 `idp_anomaly.json` and `scripts/low_value_asset_idp_anomaly.py` reuse the shadow context, so they reproduce S1
-exactly. Their scorer matched Sleeper on 3,700 of 3,700 IDP player-weeks.
+exactly. Their scorer matched Sleeper's points on 3,300 of 3,300 player-weeks.
 
 **Verdict on each hypothesis:**
 
 | hypothesis | verdict | evidence |
 |---|---|---|
 | H1 data defect (rostered players showing as free) | **rejected** | All 24 unrostered IDP valued at or above the lowest starter are absent from live rosters (checked by Sleeper id), and all have an NFL team. The board's only name-join miss is a DL at 1,267, below the anomaly. **However, 10 of the 24 are injured or inactive now**, including Winfield (Out), who sets the 2,156 DB anchor. |
-| H2 lineup definition | **settled** | The 12 "optimal lineups" are solved on `rankDerivedValue`, not projections. The lowest-valued starters are productive veterans: a DB at 10.3 ppg, an LB at 8.2, a DL at 7.9. Re-solved on actual points, only 34% (DB) and 47% (DL) of the value-based starters match, against 60–76% in offense. |
+| H2 lineup definition | **settled** | The 12 "optimal lineups" are solved on `rankDerivedValue`, not projections. The lowest-valued starters are productive veterans: a DB at 10.3 ppg, an LB at 8.2, a DL at 7.9. Re-solved on actual points, only 34% (DB), 47% (DL) and 74% (LB) of the *production* starters are also in the value-based lineup, against 60–76% in offense. |
 | H3 league-scoring mismatch | **supported** | Rank correlation between value and points per game under `dynasty_main`'s card: offense 0.77, IDP 0.45 (the served pre-season board gives 0.67 vs 0.40). DL ~0.32, DB ~0.35, LB ~0.6; ~0 among unrostered IDP. The card rewards big plays: pass defended and interception 5.3, tackle for loss 4.24, solo tackle 1.33. A tackle-share comparison was mixed, so the exact cause is unsettled. |
-| H4 manager behaviour | **supported (churn, not stale rosters)** | All 12 rosters are at the 58 cap, with no IR or taxi slots, so every add forces a drop. Managers drop injured and non-producing IDP. 176 IDP waiver/FA adds in weeks 1–7, against 149 for offense; 13 of the 24 were rostered 60 days ago. On IDP, value separates rostered from unrostered (0.79) no better than points do; on offense it does much better (0.93). |
-| H5 board risers | **rejected** | With today's code over archived inputs, the 24 moved 0.986× over 60 days, while rostered 1,000–2,999 IDP fell to 0.94×. The served-history appreciation in M3 is therefore methodology (pipeline-version) change, not input change. Served history was not available locally to confirm this. |
+| H4 manager behaviour | **supported (churn, not stale rosters)** | Eleven rosters sit at the 58 cap and one at 59, with no taxi or IR players, so every add forces a drop. Managers drop injured and non-producing IDP. 176 IDP waiver/FA adds in weeks 1–7, against 149 for offense; 13 of the 24 were rostered 60 days ago. On IDP, value separates rostered from unrostered (0.79) no better than points do; on offense it does much better (0.93). |
+| H5 board risers | **rejected** | With today's code over archived inputs, the 24 moved 0.986× over 60 days, while rostered 1,000–2,999 IDP fell to 0.94×. The served-history appreciation in M3 is therefore *plausibly* methodology (pipeline-version) change rather than input change. That is a comparison of 24 `dynasty_main` players against full-ledger bands, and served history was not available locally to confirm it. |
 
 **Answer to question 3.** The anomaly is not a data bug. It has three parts, which overlap:
 
@@ -559,8 +567,8 @@ counted as missing, never as 0.
 | 500–999 | 1.39 | 1.39 | n 90 / 76; 84–100% of observations span a pipeline change |
 | 4,500–5,999 | 0.93 | 0.91 | — |
 
-**Picks** appreciate in every band; the low bands most (1.15–1.26 at 60d). That is consistent with time-to-draft,
-and with derived-pick methodology changes. Pick missingness is high (27–36% at 30d).
+**Picks** appreciate in nearly every band (4,500–5,999 at 30 days is 0.99); the low bands appreciate most (1.15–1.26 at 60d, n 30–47). That is consistent with time-to-draft,
+and with derived-pick methodology changes. Pick missingness is high above 1,500 (27–36% at 30d; 1,000–1,499 only 1%).
 
 **Reading:** the predicted excess 60-day depreciation of low-value assets is **absent**. In offense, low bands
 retain *more* than the 3,000–5,999 band; in IDP they appreciate.
@@ -620,19 +628,19 @@ traded for.
 
 | condition | result | evidence |
 |---|---|---|
-| D: low-band decay in both our lane and the vendor lane | partly: all lanes decay slightly more at the low end, our board least (−1.7% vs −0.6%; vendors −4.9% / −5.6%) | §3 |
-| M3: served low-band 60-day retention below the 3,000–6,000 band by more than its CI | **fails**: low bands retain *more* (1.008–1.030 vs 0.974–0.987) | §7.4 |
-| U: low-band usable depth contributes little lineup value relative to its value | **fails**: 143 low-value players beat free replacement; the low end matches ROS usefulness | §2, §3 |
+| D: low-band decay in both our lane and the vendor lane | **met (small)**: every lane decays more at the low end over 60 days (canonical −1.7% vs −0.6%; KTC −4.9% vs −2.2%; IDPTC −5.6% vs −0.8%). The frozen rule sets no magnitude. The canonical replay panel excludes KTC on every board | §3 |
+| M3: served low-band 60-day retention below the 3,000–6,000 band by more than its CI | **fails as frozen**: low bands retain *more* (1.008–1.030 vs 0.974–0.987). Confounded: about 80% of the 60-day ratios span a pipeline change, and the fixed-methodology replay shows small low-band decay (§3; `idp_anomaly.json` H5: rostered offense 1,000–2,999 at 0.966) | §7.4 |
+| U: low-band usable depth contributes little lineup value relative to its value | **not met, contestable**: the low end matches ROS usefulness and 143 low-value players beat free replacement. But on average players under 2,000 trail the 3rd-best free agent (−1.19 / −0.66 pts/wk), and the 143 were identified with hindsight | §2, §3 |
 
 **R-B: recommend a B treatment for owner approval on context-free surfaces.** It needs all five conditions. **Not
-met: three of five fail.**
+met:** two conditions fail (F, M2) and a third (T) cannot be demonstrated.
 
 | condition | result |
 |---|---|
-| F1–F3 in offense and mixed packages | **fails**: F1 removes at most 22% of filler flips (need ≥ 80%); F2 changes 36–39% of starter-only trades (need ≤ 2%) |
+| F1–F3 in offense and mixed packages | **fails**: F1 removes at most 23% of filler flips (need ≥ 80%); F2 changes 37–42% of starter-only trades (need ≤ 2%) |
 | M1: no loss of market agreement on held-out leagues | passes (J 0.302 → 0.183–0.202) |
 | M2: the market credits usable depth above filler as the anchor predicts | **fails**, and the comparison is confounded (§7.3) |
-| T: Team Context does not already absorb the effect on those surfaces | not applicable to context-free surfaces, which have no roster |
+| T: Team Context does not already absorb the effect on those surfaces | **not demonstrated, so not met.** T measured team-aware surfaces only; context-free surfaces have no roster to measure (disclosed in §12) |
 | every §2 property except homogeneity | passes (B is monotone, order- and swap-consistent, continuous, raw on 1-for-1) |
 
 **R-B0: Team Context is sufficient on team-aware surfaces. Holds as frozen.** On production behaviour 85 of 133
@@ -656,8 +664,8 @@ are insufficient for any class-wide change.
 |---|---|---|---|
 | Is its premise supported? | **no.** Served history shows no low-band decay; the low end matches ROS usefulness | **no.** The market discounts extras of every class, not filler specifically; Team Context already prices filler where a roster is known | **yes.** The market discount is real (Phase 3, M2) and many low pieces are freely replaceable (§2) |
 | Agreement with completed trades (M1, confirmation J) | 0.127–0.141 | 0.183–0.202 | 0.302 (unchanged numbers) |
-| Removes inappropriate filler flips (F1) | 20–28% | 14–22% | 0% (it discloses instead) |
-| Protects genuine starters and usable depth (F2, F3) | no (F2 31–40%) | no (F2 36–39%) | yes |
+| Removes inappropriate filler flips (F1) | 20–28% | 14–23% | 0% (it discloses instead) |
+| Protects genuine starters (F2) | no (31–40% re-levelled) | no (36–42% re-levelled) | yes |
 | Mathematical properties | monotone, order, swap, continuous; **fails** 1-for-1-raw and homogeneity | all except homogeneity | n/a |
 | Double counting with Team Context | yes | yes on team-aware surfaces | none |
 | Scope of change | every ranking and trade | every trade surface | copy only, separately reviewed |
@@ -665,14 +673,16 @@ are insufficient for any class-wide change.
 
 ## 10. The public Fair/Not Fair calculator
 
-The public Brisket Trade Advisor (open PR #1861, design record `docs/owner/BRISKET_TRADE_ADVISOR_DESIGN_2026-10-19.md`)
+The public Brisket Trade Advisor (open PR #1861; design record `docs/owner/BRISKET_TRADE_ADVISOR_DESIGN_2026-10-19.md`, on that
+PR's branch `claude/advisor-public-backend`, not yet on this branch)
 evaluates 2-team trades through the shared `analyze_service` with **Team Context on**. It maps 3–4-team trades through
 the fairness band (`public_category_from_net_band`). Consequences:
 
 1. **The 2-team path inherits the forced-drop release charge.** On a roster at the cap, filler sweeteners are mostly
    neutralised, which is good. Any over-charge found in §5, however, reaches public categories: a fair trade can read
    *UNFAVORABLE*. Investigation A finds exactly that over-charge (§5). Follow-up 1 should be resolved, or its effect on public categories measured, before the public 2-team advisor launches. Once it is fixed, more filler sweeteners will *legitimately* move 2-team verdicts, which makes the disclosure more useful there.
-2. **The 3–4-team path is context-free.** No roster charge applies, so §4's filler flips apply unmitigated. The
+2. **The 3–4-team path is context-free.** It is built but switched off today (`multi_team_unsupported`). Once it is
+   activated, no roster charge applies, so §4's filler flips will apply unmitigated. The
    multi-team market evidence was excluded from the box run (§7.1), so it gives no 3–4-team calibration.
 3. **No methodology or threshold change is recommended or authorized.** The public implementation stays protected.
    Threshold research may continue independently.
@@ -696,7 +706,7 @@ the fairness band (`public_category_from_net_band`). Consequences:
 
   Its design and UI need separate review and authorization.
 - Do not use the shadow rule "fire when B would change the verdict". It fires on 19% of depth cases and 13% of
-  starter cases (`shadow_replay.json`, S5e).
+  starter cases (`shadow_replay.json`, `S3_fillerFlipStudy.C_informationalDisclosure`).
 
 **Follow-up investigations** (separate owner decisions; none is authorized to change production here):
 
@@ -709,13 +719,25 @@ the fairness band (`public_category_from_net_band`). Consequences:
 
 ## 12. Uncertainties and protocol deviations
 
-**Protocol deviations:**
+**Protocol deviations** (each disclosed; none changes a rule outcome):
 1. **M3 clustered CIs were not computed** by the frozen box script. The deviation cannot change the R-A outcome,
    because the point estimates lie on the opposite side of the condition (§7.4).
 2. **The §3 classification leaves offense "usable depth" nearly empty** (starter line below anchor at WR and TE).
    - M2's usable-vs-filler comparison is therefore mostly picks vs players.
    - This is a property of the frozen rule and was not repaired after seeing results.
    - The F-study (§4) used the board's rostered classification and is not affected.
+3. **M1 has clustered CIs for the population bins but not per asset class**; `byAssetClass` reports means only.
+4. **The preregistered "rookie-pick-involved" class was reported as `pick_only` plus a `byRookiePick` split.**
+5. **M3 was split by asset group (offense / IDP / pick), not by the §3 class.** `missingAtHorizon` lumps true
+   drop-offs together with unobservable horizons; the script uses an exact-date lookup (`low_value_asset_box.py`
+   `m3`). Drop-offs are therefore not reported separately as frozen.
+6. **R-B's T condition was not demonstrable on context-free surfaces** (no roster), and it is read as *not met*
+   (§8).
+7. **The live-league query** that confirmed today's settings equal the fallback (§7.1) was run in this session;
+   no artifact of it is stored in the repo.
+8. **Waiver anchors differ between lanes on the same board** (lineup lane DL 1,839 / LB 1,895 / QB 1,648; S1
+   1,918 / 2,149 / 1,923). That reflects the roster snapshot each lane used, and it shows how sensitive the anchor
+   rule is (§6).
 
 **Uncertainties:**
 - **Lineup utility (U):** six weeks of data; the free-agent comparison uses hindsight.
@@ -728,6 +750,11 @@ the fairness band (`public_category_from_net_band`). Consequences:
   - multi-team trades were excluded;
   - there is no prospective population yet;
   - trade-time boards were not re-examined for the pick-type mapping in §7.3.
+
+**Independent review** (a fresh reviewer, 2026-10-20). It checked about 120 numbers against the evidence, the
+frozen protocol and the cited code. Verdict: **ACCEPT WITH FIXES**: the recommendation follows from the evidence.
+All fixes were applied: R-B tally, F1/F2 ranges, R-A condition D, M3 wording, protocol deviations 3–8 and the IDP
+details.
 
 **UNRESOLVED:**
 - owner decision on the R-C recommendation and on whether to commission the disclosure design;
