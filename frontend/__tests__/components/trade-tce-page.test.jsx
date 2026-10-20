@@ -300,6 +300,55 @@ describe("KTC export never copies a link for an older trade", () => {
   });
 });
 
+describe("side search survives a quick blur and re-focus", () => {
+  it("a stale blur timer does not close the dropdown of a re-focused input", async () => {
+    controlledFetch(() => false);
+    render(<TradePage />);
+    const input = screen.getByLabelText("Search to add a player to Side B");
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+    // Back in well inside the 120ms blur window, then let that window pass.
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "Puka" } });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    });
+    expect(screen.getByRole("listbox", { name: "Results for Side B" })).toBeTruthy();
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(savedSides()?.[1]?.assets).toEqual(["Puka Nacua"]));
+  });
+});
+
+describe("the post-pick re-focus never steals focus the user moved on with", () => {
+  it("moving to Side B right after a pick on Side A keeps focus on Side B", async () => {
+    controlledFetch(() => false);
+    render(<TradePage />);
+    const inputA = await keyboardAdd("A", "Bij");
+    const inputB = screen.getByLabelText("Search to add a player to Side B");
+    // Before the frame that re-focuses Side A runs.
+    inputB.focus();
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(document.activeElement).toBe(inputB);
+    expect(document.activeElement).not.toBe(inputA);
+  });
+
+  it("after a pick with focus nowhere, the input gets it back", async () => {
+    controlledFetch(() => false);
+    render(<TradePage />);
+    const inputA = await keyboardAdd("A", "Bij");
+    inputA.blur();
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(document.activeElement).toBe(inputA);
+  });
+});
+
 describe("toolbar disclosures return focus to their trigger (TC-E)", () => {
   it("Escape closes More and focuses the More button", async () => {
     controlledFetch(() => false);

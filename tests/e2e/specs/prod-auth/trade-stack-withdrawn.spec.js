@@ -15,12 +15,17 @@
  *     NEITHER the totals, NOR the gap/verdict, NOR the balancer list;
  *   - no side total is negative for this shape (nothing is clamped either:
  *     the check reads the unrounded model number, not the display);
- *   - Wave A (#1626) team attribution: a GENERIC market pick ("2027 Mid 1st",
- *     no ``assetId``) is hypothetical and moves no team's stack, so it shows
- *     no note; an OWNED first-round pick the sending side's team actually
- *     holds does move a stack, so the note is shown.  (Before Wave A any pick
- *     moved a stack, and this spec used the generic pick as its "sure to
- *     price" case -- red from 2026-10-03 on, against correct behaviour.)
+ *   - Wave A (#1626) team attribution: a GENERIC market pick (a tier row
+ *     such as "2028 Mid 1st", no ``assetId``) is hypothetical and moves no
+ *     team's stack, so it shows no note; an OWNED first-round pick the sending
+ *     side's team actually holds does move a stack, so the note is shown.
+ *     (Before Wave A any pick moved a stack, and this spec used the generic
+ *     pick as its "sure to price" case -- red from 2026-10-03 on, against
+ *     correct behaviour.)  The generic first is read off the served board, not
+ *     hard-coded: once a class has slot picks its tier rows become suppressed
+ *     aliases (``pickGenericSuppressed``) that /trade correctly never offers,
+ *     which is what made a literal "2027 Mid 1st" unsearchable once the
+ *     vendors rolled their slot picks to 2027 (2026-10-10).
  *
  * Everything observed is annotated, so the run is its own evidence.
  */
@@ -29,7 +34,7 @@ const { closeTradeSheet, openTradeSearch } = require("../../helpers/trade-builde
 
 const PICK_TOKEN = /\d{4}/;
 const PICKS = ["2029 Mid 5th", "2029 Mid 6th"];
-const FIRST = "2027 Mid 1st";
+const GENERIC_FIRST = /^(\d{4}) Mid 1st$/;
 
 async function plan(page) {
   const { status, body: contract } = await getJson(page, "/api/data", { timeoutMs: 120_000 });
@@ -50,6 +55,21 @@ async function plan(page) {
     (t.pickDetails || [])
       .filter((d) => d && Number(d.round) === 1 && d.assetId && d.label)
       .sort((x, y) => Number(x.season) - Number(y.season))[0] || null;
+  // The earliest GENERIC first-round tier row the board prices: a real,
+  // offered market reference with no owner.  Suppressed aliases (a class with
+  // slot picks) are not offered by /trade, so they are not candidates.
+  const genericFirst =
+    (contract?.playersArray || [])
+      .filter(
+        (r) =>
+          r?.assetClass === "pick" &&
+          !r.pickGenericSuppressed &&
+          GENERIC_FIRST.test(String(r.displayName || r.canonicalName || "")) &&
+          Number(r.rankDerivedValue) > 0,
+      )
+      .map((r) => String(r.displayName || r.canonicalName))
+      .sort()[0] || null;
+  expect(genericFirst, "the board must price a generic (unsuppressed) Mid 1st tier row").toBeTruthy();
   const eligible = teams.filter((t) => playable(t).length >= 1);
   expect(eligible.length, "need at least three teams with a board-resolvable player").toBeGreaterThanOrEqual(3);
   // Side B sends the picks, so Side B's team must hold an owned first.
@@ -63,6 +83,7 @@ async function plan(page) {
     give: playable(teamA)[0],
     receive: [playable(teamB)[0], ...PICKS],
     ownedFirst: ownedFirst(teamB),
+    genericFirst,
   };
 }
 
@@ -78,9 +99,17 @@ async function readSides(page) {
 }
 
 async function readGap(page) {
-  const el = page.locator("[data-trade-gap]").first();
-  await expect(el).toBeVisible({ timeout: 30_000 });
-  return { gap: Number(await el.getAttribute("data-trade-gap")), verdict: (await el.innerText()).trim() };
+  // The exact model gap is stamped on the verdict tray (`data-trade-gap`).
+  // Since TC-D1 (ecbde07821) that tray is the persistent verdict bar BELOW
+  // 1024 px only — the desktop workspace keeps the result in its sticky
+  // column and hides the tray — so the stamp is read from the DOM, and the
+  // VISIBLE verdict word is read from the package meter, which renders on
+  // every layout from the same fairness-band owner (meterVerdict).
+  const stamp = page.locator("[data-trade-gap]").first();
+  await expect(stamp).toBeAttached({ timeout: 30_000 });
+  const word = page.locator(".trade-meter-verdict:visible").first();
+  await expect(word).toBeVisible({ timeout: 30_000 });
+  return { gap: Number(await stamp.getAttribute("data-trade-gap")), verdict: (await word.innerText()).trim() };
 }
 
 async function readBalancers(page) {
@@ -197,7 +226,7 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
       await hit.first().click();
       await closeTradeSheet(page);
     };
-    await addToB(FIRST, { owned: false });
+    await addToB(p.genericFirst, { owned: false });
     await page.waitForTimeout(1_500);
     await expect(note, "a generic (hypothetical) first-round pick moves no stack, so no note").toHaveCount(0);
     await addToB(p.ownedFirst.label, { owned: true });

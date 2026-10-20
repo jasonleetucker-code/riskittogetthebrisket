@@ -863,6 +863,15 @@ def simulate_trade(
                     season=current_nfl_season(),
                     scoring_settings=(sleeper or {}).get("scoringSettings") or {},
                     league_settings=(sleeper or {}).get("leagueSettings") or {},
+                    # The before roster is the same for every trade this team
+                    # evaluates; reuse it per (league, team).  Exact: the
+                    # reuse key also carries every input it was computed from.
+                    cache_scope=(
+                        "trade_utility",
+                        str(league_key or ""),
+                        str((team_block or {}).get("ownerId") or ""),
+                        str((team_block or {}).get("rosterId") or ""),
+                    ),
                 )
             except Exception as exc:  # noqa: BLE001
                 # Degrade, never fail: the package answer stands without it,

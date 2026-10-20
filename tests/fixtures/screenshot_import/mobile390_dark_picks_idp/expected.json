@@ -1,0 +1,53 @@
+{
+  "anchorSlots": [
+    0,
+    1
+  ],
+  "expectInverted": true,
+  "forbiddenWarnings": [
+    "missing_side",
+    "trade_region_not_detected",
+    "low_layout_confidence"
+  ],
+  "layoutKind": "stacked",
+  "mustBeIgnored": [
+    "Brian Thomas",
+    "Josh Allen"
+  ],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "Bijan Robinson",
+          "text": "Bijan Robinson"
+        },
+        {
+          "boardName": "Jordan Davis",
+          "text": "Jordan Davis"
+        },
+        {
+          "boardName": "2026 Pick 1.05",
+          "text": "2026 1.05"
+        }
+      ],
+      "label": "Team 1 gets"
+    },
+    {
+      "assets": [
+        {
+          "boardName": "Patrick Mahomes",
+          "text": "Patrick Mahomes"
+        },
+        {
+          "boardName": "Quay Walker",
+          "text": "Quay Walker"
+        },
+        {
+          "boardName": "2027 Mid 1st",
+          "text": "2027 Mid 1st"
+        }
+      ],
+      "label": "Team 2 gets"
+    }
+  ]
+}

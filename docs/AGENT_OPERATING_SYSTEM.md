@@ -108,6 +108,61 @@ When that contract reaches 30/30, stop the launch-completion campaign and fall b
 
 ## 3. Default operating posture
 
+### Standing owner directive (2026-10-19): parallel implementation and qualified autonomous merging
+
+**Binding process policy for every model/engineer; not product-scope authority.**
+This supersedes older generic serial-work and per-PR owner-signoff instructions
+for routine *authorized* work, not explicit owner-only model/source promotion,
+launch, deployment, security, spending, access or destructive-action gates.
+`docs/EXECUTION_PLAN.md` remains the sole feature implementation authority.
+
+1. **Dispatch independent units concurrently.** Inspect main, open PRs,
+   current execution authority, `docs/WORK_CLAIMS.md`, active completion
+   contracts, shared-file owners and dependency overlap. Target **3–5 actual
+   implementation agents** where the runtime and resource budget allow, each
+   on its own Git worktree/branch with disjoint file/defect claims. Coordinate
+   shared canonical interfaces centrally; never invent agents, have multiple
+   writers to one branch/file, or do unauthorized work to occupy a worker.
+   If a worker is blocked, it should advance a different authorized,
+   dependency-ready task while Integration handles the queue.
+2. **Build immediately, validate deliberately.** Code independent approved
+   features and their regression tests without waiting for unrelated full CI.
+   Keep L0 checks continuous and focused L1 checks after logical chunks.
+   Expensive, full required L2 CI belongs at the coherent PR/integration
+   boundary; strict L3 release/deploy/production gates remain unchanged.
+   Do not skip essential tests, weaken risk classification or release broken
+   code. Mark code `IMPLEMENTED_UNVALIDATED` until evidence exists.
+3. **Preauthorized routine merges.** The designated **Integration Authority**,
+   not the feature writer acting as its own reviewer, may merge a ready,
+   authorized-scope PR *without seeking a separate "please merge" from the
+   owner* once required independent review, feature-scoped evidence, exact-tree
+   green integration CI, dependencies/claim/conflict resolution, rollback
+   readiness and branch protections have passed. Integrate promptly; keep
+   unrelated writers implementing. Subjective "looks ready" is insufficient.
+   Missing/failed/unknown checks stay unmerged. Never change required checks
+   or branch protection to satisfy this directive.
+4. **Keep consequential owner gates.** Do not expand scope from backlogs;
+   reactivate owner-paused DFS or League Tycoon; alter production valuation
+   methodology, source voting or model promotion without the approved gates;
+   spend money, handle owner-held credentials, destroy data, expose private
+   information, write real Sleeper transactions, or cross explicit owner-only
+   launch/deploy boundaries without the separate authorization. A
+   qualifying merge to `main` runs the existing automated Deploy Production
+   pipeline (its own validate gate still applies); that automatic deploy is
+   part of the routine merge. It does not extend to manual production
+   actions or to a launch/deploy boundary the repository reserves for the
+   owner, and production VERIFIED is still recorded separately.
+5. **Track evidence, not hopeful status.** Reuse work claims, PRs, execution
+   plan and completion ledger rather than creating a rival roadmap.
+   Distinguish QUEUED, IMPLEMENTING, IMPLEMENTED_UNVALIDATED, FEATURE_GREEN,
+   READY_FOR_INTEGRATION, INTEGRATION_GREEN, MERGED, DEPLOYED and VERIFIED.
+   Record real worker, branch, PR, tested SHA, passed/pending checks, gaps and
+   next action. A commit is not production completion.
+
+"Write everything now, fix kinks later" means **parallel isolated construction
+with staged full verification**, not a giant branch or unreviewed release.
+The existing L0–L3 workflow and exclusive Integration role below remain binding.
+
 ### Investigate before claiming
 
 Never make a codebase claim from memory when the relevant file, route, workflow, PR, contract, or production evidence can be inspected.
