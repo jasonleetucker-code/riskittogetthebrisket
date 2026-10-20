@@ -1,15 +1,14 @@
 {
   "leagueKey": "main",
-  "generation": "669e14158e30e2fa",
+  "generation": "925cb8176237c9eb",
   "limits": {
     "minTeams": 2,
     "maxTeams": 4,
     "maxLegs": 128
   },
-  "multiTeam": "unavailable",
   "rosters": {
     "state": "stale",
-    "asOf": "2026-10-18"
+    "asOf": "2026-10-19"
   },
   "teams": [
     {
@@ -26,6 +25,11 @@
       "rosterId": 3,
       "displayName": "Charlie",
       "teamName": "The Charlies"
+    },
+    {
+      "rosterId": 4,
+      "displayName": "Delta",
+      "teamName": "The Deltas"
     }
   ]
 }

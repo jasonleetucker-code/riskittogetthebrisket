@@ -1,27 +1,40 @@
-"""Brisket Trade Advisor — public HTTP routes (design §2.11 / §4 frozen contract).
+"""Brisket Trade Advisor — public HTTP routes, FAIRNESS-ONLY (owner amendment
+2026-10-20; spec ``docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`` §4 / §6.3).
 
 Three routes, all under the public ``/api/public/league`` prefix (public by
 the existing ``_private_api_gate`` prefix rule — no change to
 ``_PUBLIC_API_EXACT``):
 
 * ``GET  /api/public/league/trade-advisor/teams``
-* ``GET  /api/public/league/trade-advisor/teams/{rosterId}/assets?sort=…``
+* ``GET  /api/public/league/trade-advisor/teams/{rosterId}/assets?sort=position_alpha``
 * ``POST /api/public/league/trade-advisor/analyze``
+
+Analyze answers FAIR / NOT FAIR / UNABLE TO DETERMINE for every team of a 2-,
+3- or 4-team trade plus the overall result, all in ONE response (the
+perspective only selects the default view).  The computation is the shared
+N-team engine in ``market_fairness`` mode, reduced by
+``public_advisor.reduce_fairness`` — there is no business logic here.
 
 Every body this module sends is an instance of one of the outbound Pydantic
 models below (``extra="forbid"``, ``Literal`` enums, ``StrictInt`` on a fixed
-list of integer keys, NO float type anywhere), dumped and then passed through
-``public_contract.assert_public_payload_safe`` as a third line.  Nothing here
-serializes an engine object: the evaluation reaches this module only as a
-``public_advisor.AdvisorResult``.
+list of integer keys, NO float type anywhere), dumped, then passed through
+``public_contract.assert_public_payload_safe`` AND
+``public_advisor.assert_advisor_payload_value_free``.  Every response is
+``Cache-Control: no-store``.
 
-Abuse controls (design §7): an isolated ``rate_limit.KeyedLimiter`` charged
-per client (IPv4 / IPv6 /64), per neighbourhood (/24 / /48) and against a
-never-evicted global ceiling, BEFORE any evaluation; a streamed 16 KiB body
-cap; strict inbound schema; ``str`` path / query parameters validated in the
-handler (so FastAPI's 422 body can never fire); a constant response floor on
-analyze; ``Cache-Control: no-store`` on every error and on analyze; no
-analyze-result cache of any kind.
+Abuse controls: an isolated ``rate_limit.KeyedLimiter`` charged per client
+(IPv4 / IPv6 /64), per neighbourhood (/24 / /48), per region and against a
+never-evicted global ceiling, BEFORE the body is read; a streamed body cap;
+strict inbound schema; ``str`` path / query parameters validated in the
+handler (so FastAPI's 422 body can never fire); a measured response floor
+applied in ``finally`` to every analyze outcome after the limiter charge; a
+public single-flight that never joins a private flight; no analyze-result
+cache of any kind.
+
+Launch gate (spec §6.3), checked on every request: the flag, a measured
+``responseFloorMs``, an owner-approved fairness-band version that is not
+PROVISIONAL, an owner source-permission record on disk, and the geom package
+model.  Until all hold every route answers 503 ``advisor_unavailable``.
 
 Wired like ``src/public_league/articles_api.py``: ``server.py`` calls
 :func:`configure_host` and includes :data:`router`; collaborators that live on
@@ -33,20 +46,29 @@ and a test's monkeypatch — applies immediately.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
+import re
 import threading
 import time
 import traceback
-from collections import OrderedDict
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any, Callable, Literal, Union
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
-from pydantic import ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    StringConstraints,
+    ValidationError,
+    field_validator,
+)
 from starlette.concurrency import run_in_threadpool
 
 from src.api import rate_limit
@@ -57,9 +79,10 @@ _LOG = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "trade" / "public_advisor.json"
-_PUBLIC_CACHE = "public, max-age=60, stale-while-revalidate=300"
+_REPO = Path(__file__).resolve().parents[2]
+_CONFIG_PATH = _REPO / "config" / "trade" / "public_advisor.json"
 _NO_STORE = "no-store"
+_ECHO_RE = re.compile(r"^[A-Za-z0-9:_-]{1,64}$")
 
 _host_provider: Callable[[], Any] | None = None
 
@@ -79,19 +102,38 @@ def _host() -> Any:
 # ── Config ─────────────────────────────────────────────────────────────────
 
 
+def _positive_int(v: Any) -> int | None:
+    return int(v) if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
+
+
+def _parse_floor(raw: Any) -> int | dict[int, int] | None:
+    """``responseFloorMs``: a measured positive int, or a measured per-
+    ``teamCount`` table ``{"2": ms, "3": ms, ...}``.  Anything else is
+    ``None`` (unset — the launch gate stays closed)."""
+    single = _positive_int(raw)
+    if single is not None:
+        return single
+    if isinstance(raw, dict) and raw:
+        table: dict[int, int] = {}
+        for k, v in raw.items():
+            ms = _positive_int(v)
+            if not (isinstance(k, str) and k.isascii() and k.isdigit()) or ms is None:
+                return None
+            table[int(k)] = ms
+        return table
+    return None
+
+
 @lru_cache(maxsize=1)
 def advisor_config() -> dict[str, Any]:
     """The committed config.  An unreadable file yields the documented
-    defaults with both owner switches OFF (fail closed)."""
+    defaults with every launch input unset (fail closed)."""
     defaults: dict[str, Any] = {
-        "multiTeamRecommendations": False,
         "pickProjectionLabels": False,
-        "limits": {
-            "maxTeams": public_advisor.MAX_TEAMS,
-            "maxLegs": public_advisor.MAX_LEGS,
-            "maxBodyBytes": 16384,
-        },
+        "limits": {"maxTeams": 4, "maxLegs": 128, "maxBodyBytes": 16384},
         "responseFloorMs": None,
+        "approvedFairnessVersion": None,
+        "approvedSourcePermissionRecord": None,
         "rateLimits": {
             "perKeyBurst": {"capacity": 40, "windowSeconds": 600},
             "perKeyDaily": {"capacity": 400, "windowSeconds": 86400},
@@ -108,18 +150,27 @@ def advisor_config() -> dict[str, Any]:
         _LOG.error("public advisor config unreadable; using fail-closed defaults")
         return defaults
     out = dict(defaults)
-    for key in ("multiTeamRecommendations", "pickProjectionLabels"):
-        out[key] = raw.get(key) is True
+    out["pickProjectionLabels"] = raw.get("pickProjectionLabels") is True
     for key in ("limits", "rateLimits"):
         if isinstance(raw.get(key), dict):
             out[key] = {**defaults[key], **raw[key]}
-    floor = raw.get("responseFloorMs")
-    out["responseFloorMs"] = (
-        int(floor) if isinstance(floor, int) and not isinstance(floor, bool) and floor > 0 else None
-    )
+    out["responseFloorMs"] = _parse_floor(raw.get("responseFloorMs"))
+    for key in ("approvedFairnessVersion", "approvedSourcePermissionRecord"):
+        v = raw.get(key)
+        out[key] = v if isinstance(v, str) and v.strip() else None
     if isinstance(raw.get("maxTrackedKeys"), int):
         out["maxTrackedKeys"] = int(raw["maxTrackedKeys"])
     return out
+
+
+def _config_max_teams() -> int:
+    v = _positive_int(advisor_config()["limits"].get("maxTeams"))
+    return v if v is not None and v >= public_advisor.MIN_TEAMS else public_advisor.MIN_TEAMS
+
+
+def _config_max_legs() -> int:
+    v = _positive_int(advisor_config()["limits"].get("maxLegs"))
+    return v if v is not None else 1
 
 
 _LIMITER: rate_limit.KeyedLimiter | None = None
@@ -171,6 +222,7 @@ def _charges_for(ip: str) -> list[rate_limit.KeyedCharge]:
 
 _RosterId = Annotated[StrictInt, Field(ge=1, le=99)]
 _AssetId = Annotated[str, StringConstraints(strict=True, pattern=r"^[A-Za-z0-9:_-]{1,64}$")]
+_Generation = Annotated[str, StringConstraints(strict=True, pattern=r"^[A-Za-z0-9]{1,64}$")]
 
 
 class _LegIn(BaseModel):
@@ -182,18 +234,27 @@ class _LegIn(BaseModel):
 
 
 class AdvisorAnalyzeRequest(BaseModel):
-    """The analyze body.  ``assets`` carries no item bound here: the streamed
-    body cap bounds it, and the 128-leg payload-safety bound is enforced by
-    ``public_advisor.validate_trade`` as ``invalid_trade / too_many_assets``."""
+    """The analyze body.  ``teams`` is bounded by the CONFIG ceiling
+    (``limits.maxTeams``), never a hardcoded count; ``assets`` carries no item
+    bound here — the streamed body cap bounds it, and ``limits.maxLegs`` is
+    enforced by the ledger as ``invalid_trade / too_many_assets``."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
     perspectiveRosterId: _RosterId
-    teams: Annotated[list[_RosterId], Field(min_length=2, max_length=4)]
+    teams: Annotated[list[_RosterId], Field(min_length=2)]
     assets: list[_LegIn]
+    expectedGeneration: _Generation | None = None
+
+    @field_validator("teams")
+    @classmethod
+    def _teams_within_config_ceiling(cls, v: list[int]) -> list[int]:
+        if len(v) > _config_max_teams():
+            raise ValueError("too many teams")
+        return v
 
 
-# ── Outbound models (design §4.5) ──────────────────────────────────────────
+# ── Outbound models (spec §4.1-§4.5) ───────────────────────────────────────
 
 
 class _Out(BaseModel):
@@ -221,7 +282,6 @@ class TeamsResponse(_Out):
     leagueKey: str
     generation: str
     limits: LimitsOut
-    multiTeam: Literal["available", "unavailable"]
     rosters: RostersOut
     teams: list[TeamOut]
 
@@ -252,7 +312,7 @@ class AssetsResponse(_Out):
     leagueKey: str
     generation: str
     rosterId: StrictInt
-    sort: Literal["value_desc", "value_asc", "alpha"]
+    sort: Literal["position_alpha"]
     pickOwnership: Literal["observed", "unavailable"]
     rosters: RostersOut
     assets: list[Union[PlayerAssetOut, PickAssetOut]]
@@ -266,34 +326,43 @@ class LegOut(_Out):
     to: StrictInt
 
 
+_Result = Literal["FAIR", "NOT_FAIR", "UNABLE_TO_DETERMINE"]
+
+
+class OverallOut(_Out):
+    result: _Result
+    label: Literal["FAIR TRADE", "NOT FAIR", "UNABLE TO DETERMINE"]
+    reasonCode: Literal["all_teams_fair", "not_all_teams_fair", "evidence_insufficient"]
+    reasonText: str
+    note: str | None
+
+
+class TeamResultOut(_Out):
+    rosterId: StrictInt
+    result: _Result
+    label: Literal["FAIR FOR THIS TEAM", "NOT FAIR FOR THIS TEAM", "UNABLE TO DETERMINE"]
+    reasonCode: Literal[
+        "within_fairness_threshold",
+        "outside_fairness_threshold",
+        "asset_not_evaluable",
+        "ownership_unverifiable",
+        "evaluation_unavailable",
+    ]
+    reasonText: str
+    unavailableAssetIds: list[str]
+
+
 class AnalyzeResponse(_Out):
     status: Literal["success"]
     leagueKey: str
     generation: str
-    perspectiveRosterId: StrictInt
+    fairnessVersion: str
+    snapshotChanged: StrictBool | None
+    rosters: RostersOut
     teamCount: StrictInt
-    category: Literal[
-        "STRONGLY_FAVORABLE",
-        "FAVORABLE",
-        "APPROXIMATELY_EVEN",
-        "UNFAVORABLE",
-        "STRONGLY_UNFAVORABLE",
-        "UNAVAILABLE",
-    ]
-    recommendation: Literal["ACCEPT", "FAIR", "DECLINE", "NONE"]
-    headline: str
-    message: str
-    reasonCode: (
-        Literal[
-            "asset_not_evaluable",
-            "ownership_unverifiable",
-            "multi_team_unsupported",
-            "roster_limit",
-        ]
-        | None
-    )
-    reasonText: str | None
-    unavailableAssetIds: list[str]
+    perspectiveRosterId: StrictInt
+    overall: OverallOut
+    teams: list[TeamResultOut]
     trade: list[LegOut]
 
 
@@ -324,43 +393,15 @@ class ErrorOut(_Out):
     retryAfterSeconds: StrictInt | None = None
 
 
-#: Fixed public copy per (error, reason).  Never an exception message, never
-#: an echo of request content.
-_ERROR_MESSAGES: dict[tuple[str, str | None], str] = {
-    ("invalid_request", "invalid_json"): "The request body is not valid JSON.",
-    ("invalid_request", "schema"): "The request does not match the expected format.",
-    ("invalid_request", "unsupported_sort"): "That sort order is not supported.",
-    ("invalid_request", "invalid_roster_id"): "That team identifier is not valid.",
-    (
-        "invalid_trade",
-        "perspective_not_in_trade",
-    ): "Your team must be one of the teams in the trade.",
-    ("invalid_trade", "duplicate_team"): "A team can only appear once in a trade.",
-    ("invalid_trade", "unknown_team"): "One or more teams are not in this league.",
-    ("invalid_trade", "idle_team"): "Every team in the trade must send or receive an asset.",
-    ("invalid_trade", "one_sided_trade"): "Each team must send at least one player or pick.",
-    ("invalid_trade", "unknown_asset"): "One or more assets are not recognized.",
-    ("invalid_trade", "duplicate_asset"): "An asset can only appear once in a trade.",
-    ("invalid_trade", "invalid_origin"): "Every asset must come from a team in the trade.",
-    ("invalid_trade", "invalid_destination"): "Every asset must go to a team in the trade.",
-    ("invalid_trade", "destination_is_origin"): "An asset can't be sent to the team that owns it.",
-    ("invalid_trade", "too_many_assets"): "This trade has too many assets.",
-    ("unknown_league", None): "Unknown league.",
-    ("inactive_league", None): "That league is not active.",
-    ("league_not_public", None): "That league has no public trade advisor.",
-    ("unknown_team", None): "That team is not in this league.",
-    ("stale_assets", "asset_not_owned"): (
-        "Rosters have changed: one or more assets are no longer owned by the team "
-        "sending them. Refresh and try again."
-    ),
-    ("payload_too_large", None): "The request is too large.",
-    ("unsupported_media_type", None): "Send the request as application/json.",
-    ("rate_limited", None): "Too many requests. Please wait a moment and try again.",
-    ("advisor_unavailable", "disabled"): "The trade advisor is not available.",
-    ("advisor_unavailable", "not_ready"): "The trade advisor is not ready yet. Try again shortly.",
-    ("advisor_unavailable", "upstream_unavailable"): (
-        "The trade advisor is temporarily unavailable. Try again shortly."
-    ),
+#: Fixed public copy per (error, reason) — the ONE table lives in
+#: ``public_advisor`` (spec §4.4).
+_ERROR_MESSAGES = public_advisor.ERROR_MESSAGES
+
+_PAYLOAD_KIND: dict[type, str] = {
+    TeamsResponse: "list",
+    AssetsResponse: "list",
+    AnalyzeResponse: "analyze",
+    ErrorOut: "error",
 }
 
 
@@ -369,6 +410,7 @@ def _safe_dump(model: BaseModel) -> dict[str, Any]:
     from src.public_league.public_contract import assert_public_payload_safe
 
     assert_public_payload_safe(body)
+    public_advisor.assert_advisor_payload_value_free(body, kind=_PAYLOAD_KIND[type(model)])
     return body
 
 
@@ -384,6 +426,15 @@ def _error(
     if message is None:
         status, error, reason, extras = 503, "advisor_unavailable", "upstream_unavailable", {}
         message = _ERROR_MESSAGES[(error, reason)]
+    # Echo bounds (spec §4.5 P3): only request-supplied ids of the inbound
+    # pattern, capped at maxLegs.
+    cap = _config_max_legs()
+    if "assetIds" in extras:
+        ids = [a for a in extras["assetIds"] if isinstance(a, str) and _ECHO_RE.match(a)]
+        extras["assetIds"] = ids[:cap] or None
+    if "rosterIds" in extras:
+        rids = [r for r in extras["rosterIds"] if isinstance(r, int) and not isinstance(r, bool)]
+        extras["rosterIds"] = rids[:cap] or None
     body = _safe_dump(ErrorOut(error=error, message=message, reason=reason, **extras))
     return JSONResponse(
         status_code=status,
@@ -400,7 +451,7 @@ def _from_advisor_error(exc: public_advisor.AdvisorError) -> JSONResponse:
 
 def _log_failure(where: str, exc: BaseException) -> None:
     """Type and stack frames only — never the exception message, never a
-    simulation or decision object (design §2.11 / §13 item 5)."""
+    simulation or decision object."""
     try:
         from src.utils.request_context import current_request_id
 
@@ -454,43 +505,11 @@ def _public_league_key() -> str | None:
     return cfg.key if cfg is not None else None
 
 
-_SNAPSHOT_MEMO: "OrderedDict[tuple[int, str], tuple[Any, public_advisor.AdvisorSnapshot]]" = (
-    OrderedDict()
-)
-_SNAPSHOT_LOCK = threading.Lock()
-
-
-def _snapshot_for(contract: Any, league_key: str) -> public_advisor.AdvisorSnapshot:
-    """The snapshot of ONE captured contract, memoized by (identity,
-    generation), LRU 2.  The memo holds a reference to the contract so its
-    ``id`` cannot be reused while cached.  It depends on the contract only —
-    no evaluation result is ever cached."""
-    generation = public_advisor.generation_for(contract)
-    key = (id(contract), generation)
-    with _SNAPSHOT_LOCK:
-        hit = _SNAPSHOT_MEMO.get(key)
-        if hit is not None and hit[0] is contract and hit[1].league_key == league_key:
-            _SNAPSHOT_MEMO.move_to_end(key)
-            return hit[1]
-    from src.api import league_registry
-
-    cfg = league_registry.get_league_by_key(league_key)
-    snap = public_advisor.build_snapshot(
-        contract,
-        league_key=league_key,
-        roster_settings=dict(getattr(cfg, "roster_settings", None) or {}),
-    )
-    with _SNAPSHOT_LOCK:
-        _SNAPSHOT_MEMO[key] = (contract, snap)
-        _SNAPSHOT_MEMO.move_to_end(key)
-        while len(_SNAPSHOT_MEMO) > 2:
-            _SNAPSHOT_MEMO.popitem(last=False)
-    return snap
-
-
 def reset_for_tests() -> None:
-    with _SNAPSHOT_LOCK:
-        _SNAPSHOT_MEMO.clear()
+    from src.trade import trade_ledger
+
+    trade_ledger.clear_snapshot_memo()
+    public_advisor.reset_memos_for_tests()
     clear = getattr(advisor_config, "cache_clear", None)
     if callable(clear):
         clear()
@@ -498,26 +517,46 @@ def reset_for_tests() -> None:
         _LIMITER.reset()
 
 
+def _source_permission_record_exists(rel: str | None) -> bool:
+    if not rel:
+        return False
+    try:
+        path = (_REPO / rel).resolve()
+    except (OSError, ValueError):
+        return False
+    return path.is_file() and _REPO in path.parents
+
+
 def _launch_gate_reason() -> str | None:
-    """Design §2.11: the advisor may not serve while no measured response
-    floor is configured — without it, analyze latency encodes which engine
-    path ran.  Turning the flag on is therefore not enough to launch; the
-    floor must be set too.  Fails closed."""
-    if not advisor_config().get("responseFloorMs"):
+    """Spec §6.3: switching the flag on is not a launch.  The advisor serves
+    only when every owner-reserved launch input is recorded and measured.
+    ``None`` = open; otherwise the (internal, never published) reason."""
+    from src.valuation_math import fairness_bands  # noqa: PLC0415
+
+    cfg = advisor_config()
+    if cfg.get("responseFloorMs") is None:
         return "response_floor_unset"
+    receipt = fairness_bands.receipt()
+    if cfg.get("approvedFairnessVersion") != receipt.get("version"):
+        return "fairness_version_unapproved"
+    if receipt.get("status") == "PROVISIONAL":
+        return "fairness_bands_provisional"
+    if not _source_permission_record_exists(cfg.get("approvedSourcePermissionRecord")):
+        return "source_permission_unrecorded"
+    if not public_advisor.package_model_ready():
+        return "package_model_unavailable"
     return None
 
 
 def _gate(league_key: str) -> tuple[Any, str | None, JSONResponse | None]:
-    """Flag → league → ONE captured contract.  ``(contract, key, error)``."""
+    """Flag → launch gate → league → ONE captured contract.
+    ``(contract, key, error)``."""
     from src.api.feature_flags import is_enabled
 
     if not is_enabled("brisket_trade_advisor"):
         return None, None, _error(503, "advisor_unavailable", "disabled")
     if _launch_gate_reason() is not None:
-        # Publicly indistinguishable from the flag being off: naming the
-        # timing defence would describe it to an anonymous caller.
-        return None, None, _error(503, "advisor_unavailable", "disabled")
+        return None, None, _error(503, "advisor_unavailable", "not_ready")
     league_err = _league_error(league_key)
     if league_err is not None:
         return None, None, league_err
@@ -530,8 +569,12 @@ def _gate(league_key: str) -> tuple[Any, str | None, JSONResponse | None]:
     return contract, public_key, None
 
 
-def _rosters_out(snap: public_advisor.AdvisorSnapshot) -> RostersOut:
+def _rosters_out(snap: Any) -> RostersOut:
     return RostersOut(state=snap.rosters_state, asOf=snap.rosters_as_of)
+
+
+def _ok(body: BaseModel) -> JSONResponse:
+    return JSONResponse(content=_safe_dump(body), headers={"Cache-Control": _NO_STORE})
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────
@@ -539,33 +582,27 @@ def _rosters_out(snap: public_advisor.AdvisorSnapshot) -> RostersOut:
 
 @router.get("/api/public/league/trade-advisor/teams")
 async def get_trade_advisor_teams(request: Request, leagueKey: str = ""):
-    """The league's teams for the "Which team are you evaluating for?" step."""
+    """The league's teams for the team-selection step."""
     try:
         contract, key, err = _gate(leagueKey)
         if err is not None:
             return err
-        snap = _snapshot_for(contract, key)
-        limits = advisor_config()["limits"]
-        body = TeamsResponse(
-            leagueKey=key,
-            generation=snap.generation,
-            limits=LimitsOut(
-                minTeams=public_advisor.MIN_TEAMS,
-                maxTeams=min(int(limits["maxTeams"]), public_advisor.MAX_TEAMS),
-                maxLegs=min(int(limits["maxLegs"]), public_advisor.MAX_LEGS),
-            ),
-            # The multi-side twin (design B1) is not on main, so 3–4-team
-            # recommendations cannot be produced whatever the config says.
-            multiTeam="unavailable",
-            rosters=_rosters_out(snap),
-            teams=[
-                TeamOut(rosterId=t.roster_id, displayName=t.display_name, teamName=t.team_name)
-                for t in public_advisor.list_teams(snap)
-            ],
-        )
-        return JSONResponse(
-            content=_safe_dump(body),
-            headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=300"},
+        snap = public_advisor.snapshot(contract, league_key=key)
+        return _ok(
+            TeamsResponse(
+                leagueKey=key,
+                generation=public_advisor.public_generation(snap),
+                limits=LimitsOut(
+                    minTeams=public_advisor.MIN_TEAMS,
+                    maxTeams=min(_config_max_teams(), int(snap.team_count)),
+                    maxLegs=_config_max_legs(),
+                ),
+                rosters=_rosters_out(snap),
+                teams=[
+                    TeamOut(rosterId=t.roster_id, displayName=t.display_name, teamName=t.team_name)
+                    for t in public_advisor.list_teams(snap)
+                ],
+            )
         )
     except public_advisor.AdvisorError as exc:
         return _from_advisor_error(exc)
@@ -585,10 +622,14 @@ def _parse_roster_id(raw: str) -> int | None:
 
 @router.get("/api/public/league/trade-advisor/teams/{rosterId}/assets")
 async def get_trade_advisor_team_assets(
-    request: Request, rosterId: str, sort: str = "value_desc", leagueKey: str = ""
+    request: Request,
+    rosterId: str,
+    sort: str = public_advisor.SORT_POSITION_ALPHA,
+    leagueKey: str = "",
 ):
-    """One team's players and owned picks, already ordered for ``sort``.
-    Identities and labels only; the ordering key never leaves the server."""
+    """One team's players and owned picks in the ONE identity order
+    (side, position, label).  Identities and labels only; no value ever
+    decides the order."""
     try:
         contract, key, err = _gate(leagueKey)
         if err is not None:
@@ -598,7 +639,7 @@ async def get_trade_advisor_team_assets(
             return _error(400, "invalid_request", "invalid_roster_id", field="rosterId")
         if sort not in public_advisor.SORTS:
             return _error(400, "invalid_request", "unsupported_sort", field="sort")
-        snap = _snapshot_for(contract, key)
+        snap = public_advisor.snapshot(contract, league_key=key)
         assets, pick_state = public_advisor.list_team_assets(snap, rid, sort=sort)
         out: list[PlayerAssetOut | PickAssetOut] = []
         for a in assets:
@@ -628,18 +669,16 @@ async def get_trade_advisor_team_assets(
                         evaluable=bool(a.evaluable),
                     )
                 )
-        body = AssetsResponse(
-            leagueKey=key,
-            generation=snap.generation,
-            rosterId=rid,
-            sort=sort,
-            pickOwnership=pick_state,
-            rosters=_rosters_out(snap),
-            assets=out,
-        )
-        return JSONResponse(
-            content=_safe_dump(body),
-            headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=300"},
+        return _ok(
+            AssetsResponse(
+                leagueKey=key,
+                generation=public_advisor.public_generation(snap),
+                rosterId=rid,
+                sort="position_alpha",
+                pickOwnership=pick_state,
+                rosters=_rosters_out(snap),
+                assets=out,
+            )
         )
     except public_advisor.AdvisorError as exc:
         return _from_advisor_error(exc)
@@ -700,26 +739,137 @@ async def _sleep(seconds: float) -> None:
     await asyncio.sleep(seconds)
 
 
-async def _apply_floor(started: float) -> None:
-    """Hold an analyze answer until ``responseFloorMs`` has elapsed, so its
-    latency does not encode which engine path ran."""
-    floor_ms = advisor_config().get("responseFloorMs")
+def _floor_ms(team_count: int | None) -> int | None:
+    """The configured floor for this request.  A per-``teamCount`` table uses
+    the request's own count when it parsed, else the table's maximum (so a
+    malformed request is never faster than a valid one)."""
+    floor = advisor_config().get("responseFloorMs")
+    if isinstance(floor, dict):
+        if team_count is not None and team_count in floor:
+            return int(floor[team_count])
+        return max(floor.values()) if floor else None
+    return int(floor) if isinstance(floor, int) else None
+
+
+async def _apply_floor(started: float, team_count: int | None) -> None:
+    """Hold an analyze answer until the measured floor has elapsed, so its
+    latency does not encode which path ran.  A response that already
+    exceeded the floor is logged (the floor is then mis-measured)."""
+    floor_ms = _floor_ms(team_count)
     if not floor_ms:
         return
     remaining = floor_ms / 1000.0 - (_clock() - started)
     if remaining > 0:
         await _sleep(remaining)
+    else:
+        _LOG.warning(
+            "public advisor response exceeded the floor (%d ms, teamCount=%s)",
+            floor_ms,
+            team_count,
+        )
+
+
+#: Public single-flight: identical concurrent ledgers on one generation share
+#: one computation.  Separate from every private flight, keyed WITHOUT the
+#: perspective (spec §2.11).
+_ANALYZE_FLIGHTS: Any = None
+_FLIGHTS_LOCK = threading.Lock()
+
+
+def _flights() -> Any:
+    global _ANALYZE_FLIGHTS
+    with _FLIGHTS_LOCK:
+        if _ANALYZE_FLIGHTS is None:
+            from src.api.trade_analyze_runtime import AsyncSingleFlight  # noqa: PLC0415
+
+            _ANALYZE_FLIGHTS = AsyncSingleFlight()
+        return _ANALYZE_FLIGHTS
+
+
+def _flight_key(league_key: str, snap: Any, ledger: Any) -> tuple[str, ...]:
+    return (
+        "public-advisor",
+        "market_fairness",
+        league_key,
+        str(snap.generation),
+        hashlib.sha256(ledger.canonical_key().encode("utf-8")).hexdigest(),
+    )
+
+
+async def _evaluate(league_key: str, snap: Any, ledger: Any) -> public_advisor.FairnessResult:
+    async def _run() -> public_advisor.FairnessResult:
+        return await run_in_threadpool(public_advisor.evaluate, snap, ledger)
+
+    result, _joined = await _flights().run(_flight_key(league_key, snap, ledger), _run)
+    return result
+
+
+def _analyze_body(
+    key: str,
+    snap: Any,
+    perspective: int,
+    expected_generation: str | None,
+    result: public_advisor.FairnessResult,
+) -> AnalyzeResponse:
+    from src.valuation_math import fairness_bands  # noqa: PLC0415
+
+    generation = public_advisor.public_generation(snap)
+    o = result.overall
+    return AnalyzeResponse(
+        status="success",
+        leagueKey=key,
+        generation=generation,
+        fairnessVersion=str(fairness_bands.receipt()["version"]),
+        snapshotChanged=None if expected_generation is None else expected_generation != generation,
+        rosters=_rosters_out(snap),
+        teamCount=result.team_count,
+        perspectiveRosterId=int(perspective),
+        overall=OverallOut(
+            result=o.result,
+            label=o.label,
+            reasonCode=o.reason_code,
+            reasonText=o.reason_text,
+            note=o.note,
+        ),
+        teams=[
+            TeamResultOut(
+                rosterId=t.roster_id,
+                result=t.result,
+                label=t.label,
+                reasonCode=t.reason_code,
+                reasonText=t.reason_text,
+                unavailableAssetIds=list(t.unavailable_asset_ids),
+            )
+            for t in result.teams
+        ],
+        trade=[LegOut(id=leg.id, **{"from": leg.from_rid}, to=leg.to_rid) for leg in result.legs],
+    )
 
 
 @router.post("/api/public/league/trade-advisor/analyze")
 async def post_trade_advisor_analyze(request: Request, leagueKey: str = ""):
-    """Evaluate one proposed trade from one team's perspective.  Returns a
-    category and fixed copy — never a value, gap, band or confidence."""
-    started = _clock()
+    """Is this trade fair?  Per-team FAIR / NOT FAIR / UNABLE TO DETERMINE for
+    every team of a 2-4-team trade, plus the overall result, in one response.
+    Never a value, gap, band, category or recommendation."""
     try:
         contract, key, err = _gate(leagueKey)
-        if err is not None:
-            return err
+    except Exception as exc:  # noqa: BLE001
+        _log_failure("analyze-gate", exc)
+        return _error(503, "advisor_unavailable", "upstream_unavailable")
+    if err is not None:
+        return err
+    started = _clock()
+    team_count: int | None = None
+    try:
+        # Charge the limiter BEFORE reading or validating anything.
+        limited, retry = _limiter().charge(_charges_for(_host()._client_ip_from_request(request)))
+        if limited:
+            return _error(
+                429,
+                "rate_limited",
+                headers={"Retry-After": str(int(retry))},
+                retryAfterSeconds=int(retry),
+            )
         if not _json_content_type(request):
             return _error(415, "unsupported_media_type")
         cap = int(advisor_config()["limits"].get("maxBodyBytes") or 16384)
@@ -731,52 +881,32 @@ async def post_trade_advisor_analyze(request: Request, leagueKey: str = ""):
             req = AdvisorAnalyzeRequest.model_validate_json(raw)
         except ValidationError as exc:
             return _schema_error(exc)
+        team_count = len(set(req.teams))
 
-        limited, retry = _limiter().charge(_charges_for(_host()._client_ip_from_request(request)))
-        if limited:
-            return _error(
-                429,
-                "rate_limited",
-                headers={"Retry-After": str(int(retry))},
-                retryAfterSeconds=int(retry),
-            )
-
-        snap = _snapshot_for(contract, key)
-        trade = public_advisor.validate_trade(
+        snap = public_advisor.snapshot(contract, league_key=key)
+        policy = public_advisor.public_policy(
+            max_teams=_config_max_teams(), max_legs=_config_max_legs()
+        )
+        ledger = public_advisor.validate(
             snap,
             perspective=req.perspectiveRosterId,
             teams=list(req.teams),
             legs=[(leg.id, leg.from_, leg.to) for leg in req.assets],
+            policy=policy,
         )
-        result = await run_in_threadpool(
-            public_advisor.evaluate_trade,
-            snap,
-            trade,
-            multi_team_enabled=bool(advisor_config().get("multiTeamRecommendations")),
-        )
-        text = public_advisor.result_text(result)
-        body = AnalyzeResponse(
-            status="success",
-            leagueKey=key,
-            generation=snap.generation,
-            perspectiveRosterId=result.perspective,
-            teamCount=result.team_count,
-            category=result.category,
-            recommendation=text["recommendation"],
-            headline=text["headline"],
-            message=text["message"],
-            reasonCode=result.reason_code,
-            reasonText=text["reasonText"],
-            unavailableAssetIds=list(result.unavailable_asset_ids),
-            trade=[
-                LegOut(id=leg.id, **{"from": leg.from_rid}, to=leg.to_rid) for leg in result.legs
-            ],
-        )
-        content = _safe_dump(body)
-        await _apply_floor(started)
-        return JSONResponse(content=content, headers={"Cache-Control": _NO_STORE})
+        result = await _evaluate(key, snap, ledger)
+        body = _analyze_body(key, snap, req.perspectiveRosterId, req.expectedGeneration, result)
+        return JSONResponse(content=_safe_dump(body), headers={"Cache-Control": _NO_STORE})
     except public_advisor.AdvisorError as exc:
         return _from_advisor_error(exc)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — engine refusal, invariant, assertion
+        from src.trade import analyze_service  # noqa: PLC0415
+
+        if isinstance(exc, analyze_service.PackageModelUnavailable):
+            return _error(503, "advisor_unavailable", "not_ready")
         _log_failure("analyze", exc)
         return _error(503, "advisor_unavailable", "upstream_unavailable")
+    finally:
+        # Every outcome after the limiter charge — success, 400, 409, 413,
+        # 415, 429, 503 — waits out the measured floor.
+        await _apply_floor(started, team_count)

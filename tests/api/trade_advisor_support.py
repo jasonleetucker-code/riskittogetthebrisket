@@ -1,6 +1,6 @@
 """Shared synthetic league for the Brisket Trade Advisor tests.
 
-A three-team league on a temporary registry (``main`` public, ``side`` active
+A four-team league on a temporary registry (``main`` public, ``side`` active
 but not public, ``retired`` inactive), with Sleeper-style player ids, owned
 picks carrying canonical ``pick:main:…`` asset ids, an IDP player per family,
 an unpriced kicker and a rostered id with no board row.
@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copy
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +23,7 @@ REPO = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = REPO / "frontend" / "__tests__" / "fixtures" / "trade-advisor"
 
 ROSTER_SETTINGS = {
-    "teamCount": 3,
+    "teamCount": 4,
     "rosterSize": 8,
     "taxiSize": 0,
     "starters": {"QB": 1, "RB": 1, "WR": 1, "TE": 1, "FLEX": 1, "DL": 1, "LB": 1, "DB": 1},
@@ -105,12 +106,15 @@ PLAYERS = [
     ("301", "Charlie Passer", "QB", "CHI", 5000.0, 3),
     ("302", "Charlie Wideout", "WR", "LAR", 3500.0, 3),
     ("303", "Charlie Backer", "LB", "NYJ", 1100.0, 3),
+    ("401", "Delta Passer", "QB", "SEA", 4500.0, 4),
+    ("402", "Delta Runner", "RB", "HOU", 2800.0, 4),
+    ("403", "Delta Corner", "DB", "PIT", 1000.0, 4),
 ]
 #: Rostered by Alpha, absent from the board entirely.
 GHOST_ID = "9999"
 GHOST_NAME = "Ghost Player"
 
-TEAMS = {1: "Alpha", 2: "Bravo", 3: "Charlie"}
+TEAMS = {1: "Alpha", 2: "Bravo", 3: "Charlie", 4: "Delta"}
 
 
 def _pick_detail(season: int, rnd: int, origin: int, owner: int, base: str) -> dict[str, Any]:
@@ -166,6 +170,10 @@ def contract() -> dict[str, Any]:
         _pick_detail(2027, 1, 3, 3, "2027 Mid 1st"),
         _pick_detail(2027, 2, 3, 3, "2027 Mid 2nd"),
     ]
+    teams[3]["pickDetails"] = [
+        _pick_detail(2027, 1, 4, 4, "2027 Mid 1st"),
+        _pick_detail(2028, 1, 4, 4, "2028 Mid 1st"),
+    ]
     for t in teams:
         t["picks"] = [d["label"] for d in t["pickDetails"]]
     id_to_player = {pid: n for pid, n, _p, _t, _v, _r in PLAYERS}
@@ -177,6 +185,11 @@ def contract() -> dict[str, Any]:
         "playersArray": rows,
         "sleeper": {
             "teams": teams,
+            # Live rosters fetched an hour ago: ``current`` by the ONE roster
+            # freshness reader (src/api/roster_freshness.py), so ownership is
+            # provable.  Stale / unknown rosters are their own tests.
+            "rosterSource": "live",
+            "rosterFetchedAt": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
             "idToPlayer": id_to_player,
             "positions": {n: p for _pid, n, p, _t, _v, _r in PLAYERS},
             "playerIds": {n: pid for pid, n, _p, _t, _v, _r in PLAYERS},
@@ -269,6 +282,9 @@ PPG = {
     "charlie passer": 18.0,
     "charlie wideout": 13.0,
     "charlie backer": 7.5,
+    "delta passer": 17.0,
+    "delta runner": 11.0,
+    "delta corner": 5.5,
 }
 
 
@@ -373,6 +389,33 @@ def two_team_body(*legs: tuple[str, int, int], perspective: int = 1, teams=(1, 2
         "teams": list(teams),
         "assets": [{"id": a, "from": f, "to": t} for a, f, t in legs],
     }
+
+
+#: Any team count — the name ``two_team_body`` predates multi-team support.
+trade_body = two_team_body
+
+
+def stale_contract() -> dict[str, Any]:
+    """Rosters restored from the last good snapshot: ``stale`` by the ONE
+    roster freshness reader, so ownership is unprovable (SD-7)."""
+    c = contract()
+    c["sleeper"]["rosterSource"] = "last_good"
+    c["sleeper"]["rosterFetchedAt"] = (datetime.now(timezone.utc) - timedelta(hours=30)).isoformat()
+    return c
+
+
+# Named trades (values: 101 6000, 201 7000, 105 1200, 303 1100, 403 1000,
+# 202 2500, 402 2800).  Fairness is the band owner's verdict, never asserted
+# from these numbers in a public body.
+FAIR_TWO = [("p:105", 1, 3), ("p:303", 3, 1)]  # |gap| 100 < 250 -> fair both
+NOT_FAIR_TWO = [("p:101", 1, 2), ("p:201", 2, 1)]  # 1000 / 7000 = 14% -> unfair
+FAIR_THREE = [("p:105", 1, 3), ("p:303", 3, 4), ("p:403", 4, 1)]  # each |gap| <= 200
+MIXED_FOUR = [  # 1<->3 fair; 2<->4 300 / 2800 = 10.7% -> not fair
+    ("p:105", 1, 3),
+    ("p:303", 3, 1),
+    ("p:202", 2, 4),
+    ("p:402", 4, 2),
+]
 
 
 if __name__ == "__main__":  # pragma: no cover — fixture regeneration

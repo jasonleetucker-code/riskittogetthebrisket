@@ -1,101 +1,185 @@
-"""Brisket Trade Advisor — the public, restricted interface to the trade engine.
+"""Brisket Trade Advisor — the public, fairness-only reduction of the shared
+N-team trade engine.
 
-Owner directive 2026-10-19 ("GIVE LEAGUE MEMBERS THE INTELLIGENCE, NOT THE
-DATA"); design: the advisor implementation design §2.10 / §3 / §6.
+Owner directive 2026-10-20 + its same-day FAIRNESS-ONLY AMENDMENT; interface
+spec ``docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`` §4.  The public advisor answers
+one neutral question — *is this trade fair?* — for 2-, 3- and 4-team trades:
 
-This module is the pure half (no FastAPI).  It does four things and computes
-no value of its own:
+* per participating team: FAIR / NOT_FAIR / UNABLE_TO_DETERMINE;
+* overall: FAIR only when EVERY team is fair (three-valued AND, spec §2.9).
 
-1. **Snapshot** — :func:`build_snapshot` indexes ONE captured contract
-   (``latest_contract_data``) so every list and every evaluation in a request
-   reads one coherent generation of rows, rosters and pick ownership.
-2. **Lists** — :func:`list_teams` / :func:`list_team_assets` return team and
-   asset IDENTITIES (ids, labels, positions, booleans).  Players are ordered by
-   the canonical board value on the server; the value never leaves.  Picks sit
-   in their own segment ordered by (season, round, origin), never by value.
-3. **Validation** — :func:`validate_trade` enforces the trade structure and
-   asset ownership against the snapshot, independently of any client.
-4. **Evaluation** — :func:`evaluate_trade` runs the SAME shared analysis path
-   the private War Room runs (``trade_simulator.simulate_trade`` →
-   ``analyze_trade.analyze_trade`` → ``trade_decision.decide``) and maps the
-   decision to one of five public categories with
-   ``trade_decision.public_category_from_decision``.  It returns an
-   :class:`AdvisorResult`, which holds public fields ONLY; the simulation and
-   the decision object never leave this module except through
-   :func:`_evaluate_trade_internal`, which exists for parity tests.
+It never tells anyone to take or pass on a trade, and never publishes a value,
+gap, band level, percentage, category, decision headline or any Team Context
+inference.
 
-Engine access goes through ONE adapter block (``_engine_*`` below).  A 2-team
-evaluation runs through the shared 2-team analysis service
-(``src/trade/analyze_service.py``, design B0-c) — ``simulate_for_team`` +
-``analyze_for_team``, the same owner ``/api/trade/simulate`` and
-``/api/trade/analyze`` call (Team Context on, posture built if missing; the
-valuation lens is withdrawn, so the captured contract is used as-is).  No
-decision logic lives here.
+This module is the pure half (no FastAPI) and holds NO business logic:
 
-Deliberate, named divergences from the private War Room (design §2.10, OD-8):
+1. **Snapshot / ledger** — the ONE owner ``src/trade/trade_ledger.py``
+   (``snapshot_for`` + ``validate_ledger``), the same snapshot the private
+   ``/api/trade/analyze-multi`` route reads.  Roster freshness comes from
+   the ONE reader ``src/api/roster_freshness.py`` through that owner.
+2. **Evaluation** — ``analyze_service.analyze_trade_n(mode="market_fairness")``,
+   the ONE N-team composer.  Fairness per team is
+   ``team_verdicts.team_fairness`` (the asset evidence gates, then the band
+   ``fairness_bands`` classified for that team's own adjusted package
+   totals under the active ``geom_q078_v1`` package model).
+3. **Reduction** — :func:`reduce_fairness` maps that result onto fixed copy.
+   Its signature accepts only, per team, ``(rosterId, state, reasonCode,
+   unavailable ids)`` plus the overall state and the canonical legs, so
+   nothing from the decision engine (values, gaps, categories, posture) can
+   reach a public body (spec §4.3 step 6, P1a).
+4. **Lists** — team and asset IDENTITIES only.  Assets are ordered by a
+   pure function of (side, position, label, id) — never by a board value
+   (privacy M2, SD-8) — and ``evaluable`` is answered by the simulator's own
+   asset resolution, the path that feeds the engine's evidence gates.
+5. **Value-free enforcement** — :func:`assert_advisor_payload_value_free`,
+   applied to every outbound body after ``assert_public_payload_safe``.
 
-* ``one_sided_trade`` — with two teams each team must send at least one asset
-  (mirrors the War Room's own ``ready`` rule, ``TradeWarRoom.jsx``);
-* ``idle_team`` — with three or four teams every team must send or receive;
-* a 128-leg payload-safety bound (not a per-team quantity cap);
-* player ownership is checked against the roster's ``playerIds`` (409
-  ``stale_assets``), and conflicting or unpublished ownership returns
-  UNAVAILABLE ``ownership_unverifiable`` instead of being evaluated;
-* a player is identified by Sleeper id: an id with no board row, or whose
-  board row name resolves to a DIFFERENT player in the engine's name index
-  (a name collision), is UNAVAILABLE ``asset_not_evaluable`` rather than
-  priced as somebody else (until B0-b makes the engine itself id-keyed).
-
-3–4-team recommendations are built-but-OFF by owner default OD-1: the
-Python multi-side twin (design B1) is not on ``main``, so any trade with more
-than two teams is validated in full and then answered UNAVAILABLE
-``multi_team_unsupported``.
+All public text lives in the tables below and only here.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Mapping
+import threading
+from collections import OrderedDict
+from dataclasses import dataclass
+from typing import Any, Iterable, Mapping, Sequence
 
 from src.identity.picks import (
-    PICK_OWNER_OWNED,
-    PICK_OWNER_UNKNOWN,
-    league_pick_owner_index,
-    lookup_league_pick_owner,
     parse_league_pick_id,
     round_suffix,
     team_pick_ownership_unavailable_reason,
 )
-from src.trade import trade_decision
+from src.trade import team_verdicts
 from src.utils.name_clean import normalize_position
-from src.valuation_math import package_model
 
 _LOG = logging.getLogger(__name__)
 
-ADVISOR_VERSION = "brisket_trade_advisor_v1"
-SORTS = ("value_desc", "value_asc", "alpha")
+ADVISOR_VERSION = "brisket_trade_advisor_v2"
+#: The ONE public asset order (privacy M2).  Value orders were removed.
+SORT_POSITION_ALPHA = "position_alpha"
+SORTS = (SORT_POSITION_ALPHA,)
+MIN_TEAMS = 2
 OFFENSE = frozenset({"QB", "RB", "WR", "TE", "K"})
 DEFENSE = frozenset({"DL", "LB", "DB"})
-MIN_TEAMS = 2
-MAX_TEAMS = 4
-MAX_LEGS = 128
-#: The JavaScript calculator's active package model (``trade-logic.js``
-#: ``ACTIVE_PACKAGE_MODEL_ID``).  Python must agree before the advisor answers.
-_REQUIRED_PACKAGE_MODEL = package_model.GEOM_Q078_V1
-#: Roster freshness budget — the repo's existing scrape-cadence rule
-#: (``SCORING_SNAPSHOT_MAX_AGE_HOURS``), not a new number.
-_ROSTER_MAX_AGE_HOURS = 6.0
-PLAYER_ID_PREFIX = "p:"
+_SIDE_ORDER = {"offense": 0, "defense": 1, "other": 2}
+_POSITION_ORDER = {p: i for i, p in enumerate(("QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"))}
+
+# ── Public copy (spec §4.4) — the ONLY public text ─────────────────────────
+
+FAIR = "FAIR"
+NOT_FAIR = "NOT_FAIR"
+UNABLE_TO_DETERMINE = "UNABLE_TO_DETERMINE"
+RESULTS = (FAIR, NOT_FAIR, UNABLE_TO_DETERMINE)
+
+#: Engine fairness state -> public result.
+_STATE_TO_RESULT = {
+    team_verdicts.FAIR: FAIR,
+    team_verdicts.NOT_FAIR: NOT_FAIR,
+    team_verdicts.UNABLE: UNABLE_TO_DETERMINE,
+}
+
+#: Reserved for the OVERALL result (owner amendment wording).
+OVERALL_LABELS = {
+    FAIR: "FAIR TRADE",
+    NOT_FAIR: "NOT FAIR",
+    UNABLE_TO_DETERMINE: "UNABLE TO DETERMINE",
+}
+#: Per-team rows (SD-14): a team row reading "FAIR TRADE" beside an overall
+#: "NOT FAIR" would contradict itself.
+TEAM_LABELS = {
+    FAIR: "FAIR FOR THIS TEAM",
+    NOT_FAIR: "NOT FAIR FOR THIS TEAM",
+    UNABLE_TO_DETERMINE: "UNABLE TO DETERMINE",
+}
+
+TEAM_REASON_TEXT = {
+    "within_fairness_threshold": "This trade is within our fairness threshold for this team.",
+    "outside_fairness_threshold": (
+        "This trade falls outside our fairness threshold for this team."
+    ),
+    "asset_not_evaluable": (
+        "One or more assets this team sends or receives can't be valued right now."
+    ),
+    "ownership_unverifiable": (
+        "We couldn't confirm who owns every asset this team sends or receives."
+    ),
+    "evaluation_unavailable": "This trade can't be evaluated reliably right now.",
+}
+OVERALL_REASON_TEXT = {
+    "all_teams_fair": "The trade is within our fairness threshold for every team.",
+    "not_all_teams_fair": ("The trade falls outside our fairness threshold for at least one team."),
+    "evidence_insufficient": ("There isn't enough reliable information to judge this whole trade."),
+}
+MULTI_TEAM_NOTE = "A trade with more than two teams is fair only when it is fair for every team."
+
+#: Which reason codes are legal for which result (fail closed on anything else).
+_TEAM_REASONS_BY_RESULT = {
+    FAIR: ("within_fairness_threshold",),
+    NOT_FAIR: ("outside_fairness_threshold",),
+    UNABLE_TO_DETERMINE: (
+        "asset_not_evaluable",
+        "ownership_unverifiable",
+        "evaluation_unavailable",
+    ),
+}
+_OVERALL_REASON_BY_RESULT = {
+    FAIR: "all_teams_fair",
+    NOT_FAIR: "not_all_teams_fair",
+    UNABLE_TO_DETERMINE: "evidence_insufficient",
+}
+#: Reasons whose ``unavailableAssetIds`` name the assets concerned.
+_ID_REASONS = frozenset({"asset_not_evaluable", "ownership_unverifiable"})
+
+#: Fixed error copy per (error, reason).  Never an exception message, never
+#: an echo of request content (spec §4.4 / §4.5).
+ERROR_MESSAGES: dict[tuple[str, str | None], str] = {
+    ("invalid_request", "invalid_json"): "The request body is not valid JSON.",
+    ("invalid_request", "schema"): "The request does not match the expected format.",
+    ("invalid_request", "unsupported_sort"): "That sort order is not supported.",
+    ("invalid_request", "invalid_roster_id"): "That team identifier is not valid.",
+    ("invalid_trade", "perspective_not_in_trade"): "The selected team must be part of the trade.",
+    ("invalid_trade", "too_few_teams"): "A trade needs at least two teams.",
+    ("invalid_trade", "duplicate_team"): "A team can only appear once in a trade.",
+    ("invalid_trade", "too_many_teams"): "This trade has more teams than the advisor supports.",
+    ("invalid_trade", "team_not_in_league"): "One or more teams are not in this league.",
+    ("invalid_trade", "empty_trade"): "Add at least one player or pick to the trade.",
+    ("invalid_trade", "too_many_assets"): "This trade has too many assets.",
+    ("invalid_trade", "unknown_asset"): "One or more assets are not recognized.",
+    ("invalid_trade", "duplicate_asset"): "An asset can only appear once in a trade.",
+    ("invalid_trade", "invalid_origin"): "Every asset must come from a team in the trade.",
+    ("invalid_trade", "invalid_destination"): "Every asset must go to a team in the trade.",
+    ("invalid_trade", "destination_is_origin"): "An asset can't be sent to the team that owns it.",
+    ("invalid_trade", "idle_team"): "Every team in the trade must send or receive an asset.",
+    ("invalid_trade", "one_sided_trade"): (
+        "Every team in the trade must both send and receive at least one asset."
+    ),
+    ("unknown_league", None): "Unknown league.",
+    ("inactive_league", None): "That league is not active.",
+    ("league_not_public", None): "That league has no public trade advisor.",
+    ("unknown_team", None): "That team is not in this league.",
+    ("stale_assets", "asset_not_owned"): (
+        "Rosters have changed: one or more assets are no longer owned by the team "
+        "sending them. Refresh and try again."
+    ),
+    ("payload_too_large", None): "The request is too large.",
+    ("unsupported_media_type", None): "Send the request as application/json.",
+    ("rate_limited", None): "Too many requests. Please wait a moment and try again.",
+    ("advisor_unavailable", "disabled"): "The trade advisor is not available.",
+    ("advisor_unavailable", "not_ready"): "The trade advisor is not ready yet. Try again shortly.",
+    ("advisor_unavailable", "upstream_unavailable"): (
+        "The trade advisor is temporarily unavailable. Try again shortly."
+    ),
+}
 
 
 class AdvisorError(Exception):
     """A request the advisor refuses, with its public error shape.
 
-    ``extras`` carries only identifiers the caller supplied or the snapshot
-    owns (asset ids, roster ids) — never a value or an engine message.
+    ``extras`` carries only identifiers the caller supplied (asset ids,
+    roster ids) — never a value, an actual owner or an engine message.
     """
 
     def __init__(self, status: int, error: str, reason: str | None = None, **extras: Any) -> None:
@@ -106,27 +190,12 @@ class AdvisorError(Exception):
         self.extras = extras
 
 
+class InvariantViolation(RuntimeError):
+    """The engine result could not be reduced consistently — never published
+    (the route answers 503 ``upstream_unavailable``)."""
+
+
 # ── Data shapes ────────────────────────────────────────────────────────────
-
-
-@dataclass(frozen=True, eq=False)
-class AdvisorSnapshot:
-    contract: Mapping[str, Any]
-    league_key: str
-    generation: str
-    team_order: tuple[int, ...]
-    teams_by_rid: Mapping[int, Mapping[str, Any]]
-    rows: tuple[Mapping[str, Any], ...]
-    row_index: Mapping[str, Mapping[str, Any]]
-    rows_by_player_id: Mapping[str, Mapping[str, Any]]
-    player_owners: Mapping[str, tuple[int, ...]]
-    pick_owner_index: tuple[dict[str, list[int]], bool]
-    pick_details_by_id: Mapping[str, Mapping[str, Any]]
-    roster_settings: Mapping[str, Any]
-    rosters_state: str
-    rosters_as_of: str | None
-    id_to_player: Mapping[str, str] = field(default_factory=dict)
-    positions_by_name: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -152,451 +221,262 @@ class PublicAsset:
 
 
 @dataclass(frozen=True)
-class TradeLeg:
+class TeamFairnessInput:
+    """Everything :func:`reduce_fairness` may see about one team."""
+
+    roster_id: int
+    state: str  # team_verdicts FAIR / NOT_FAIR / UNABLE
+    reason_code: str | None
+    unavailable_asset_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class PublicLeg:
     id: str
     from_rid: int
     to_rid: int
 
 
 @dataclass(frozen=True)
-class ValidatedTrade:
-    perspective: int
-    teams: tuple[int, ...]
-    legs: tuple[TradeLeg, ...]
-    #: Assets whose ownership could not be verified (conflicting or
-    #: unpublished records); evaluation answers UNAVAILABLE for them.
-    unverifiable_ids: tuple[str, ...] = ()
+class PublicTeamResult:
+    roster_id: int
+    result: str
+    label: str
+    reason_code: str
+    reason_text: str
+    unavailable_asset_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True)
-class AdvisorResult:
+class PublicOverall:
+    result: str
+    label: str
+    reason_code: str
+    reason_text: str
+    note: str | None
+
+
+@dataclass(frozen=True)
+class FairnessResult:
     """The ONLY evaluation type the router may serialize: public fields only."""
 
-    category: str
-    reason_code: str | None
-    unavailable_asset_ids: tuple[str, ...]
-    legs: tuple[TradeLeg, ...]
+    overall: PublicOverall
+    teams: tuple[PublicTeamResult, ...]
+    legs: tuple[PublicLeg, ...]
     team_count: int
-    perspective: int
 
 
-# ── Engine adapter (2-team analysis through src.trade.analyze_service) ──
-#
-# Every call into the private engine is in this block.  These are the engine's OWN resolution
-# functions, not copies: the board value an asset list is sorted by is the
-# value the engine would analyze with.
-
-
-def _engine_rows(contract: Mapping[str, Any]) -> list[dict[str, Any]]:
-    from src.api.terminal import _players_array
-
-    return _players_array(dict(contract))
-
-
-def _engine_row_index(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    from src.api.terminal import _build_row_index
-
-    return _build_row_index(rows)
-
-
-def _engine_row_name(row: Mapping[str, Any]) -> str:
-    from src.api.terminal import _row_name
-
-    return _row_name(dict(row))
-
-
-def _engine_resolve(label: str, row_index: Mapping[str, Any]) -> dict[str, Any] | None:
-    """The engine's per-asset resolution (``trade_simulator._resolve_asset``)."""
-    from src.api.trade_simulator import _resolve_asset
-
-    return _resolve_asset(label, row_index=row_index)
-
-
-def _engine_analyze(
-    snap: AdvisorSnapshot,
-    team: Mapping[str, Any],
-    *,
-    players_in: list[str],
-    players_out: list[str],
-    picks_in: list[str],
-    picks_out: list[str],
-    pick_ids_in: list[str | None],
-    pick_ids_out: list[str | None],
-    posture_resolver: Callable[..., Mapping[str, Any] | None] | None = None,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """``(simulation, analysis)`` through the ONE 2-team analysis owner,
-    ``src/trade/analyze_service.py`` (design B0-c) — the same
-    ``simulate_for_team`` → ``analyze_for_team`` pair ``/api/trade/analyze``
-    calls, with Team Context on (so the posture is built if missing and the
-    roster utility runs, by that service's own rules).  Minus what the public
-    path must not do: no comparables lens (context only, never votes), no
-    decision log write, and no counterfactual search (``counterfactuals=False``;
-    it runs after the headline, leaning and confidence are fixed, so it cannot
-    change a category).
-
-    ``posture_resolver`` follows ``analyze_service.simulate_for_team``'s
-    signature ``(contract, league_key, team, *, build_if_missing)``; ``None``
-    means the service default (``trade_simulator.competitive_posture_for``).
-    """
-    from src.trade import analyze_service
-
-    contract = dict(snap.contract)
-    simulation = analyze_service.simulate_for_team(
-        contract,
-        league_key=snap.league_key,
-        roster_settings=dict(snap.roster_settings or {}),
-        resolved_team=dict(team),
-        players_in=players_in,
-        players_out=players_out,
-        picks_in=picks_in,
-        picks_out=picks_out,
-        pick_ids_in=pick_ids_in,
-        pick_ids_out=pick_ids_out,
-        team_context=True,
-        for_analysis=True,
-        posture_resolver=posture_resolver,
-    )
-    analysis = analyze_service.analyze_for_team(
-        simulation,
-        contract=contract,
-        team_goal=None,
-        comparables=None,
-        counterfactuals=False,
-    )
-    return simulation, analysis
+# ── Engine access (the shared owners only) ────────────────────────────────
 
 
 def package_model_ready() -> bool:
-    """The advisor answers only when Python's active package model is the one
-    the JavaScript calculator uses.  ``package_model._config`` falls back to
-    the KTC model on an unreadable or unknown config, so a broken config shows
-    up here as a mismatch and the advisor refuses (generic UNAVAILABLE) rather
-    than answering on a model ``/trade`` is not using."""
-    state = getattr(package_model, "config_state", None)  # B0-e, when merged
-    if callable(state):
-        try:
-            if state() != "ok":
-                return False
-        except Exception:  # noqa: BLE001
-            return False
+    """The shared N-team engine's own readiness rule (geom_q078_v1, config ok)."""
+    from src.trade import analyze_service  # noqa: PLC0415
+
+    return analyze_service.package_model_ready()
+
+
+def snapshot(contract: Mapping[str, Any], *, league_key: str) -> Any:
+    """The ONE snapshot (``trade_ledger.snapshot_for``) for a request, with the
+    league's registry roster settings — the same arguments the private
+    ``/api/trade/analyze-multi`` route passes, so both read one memo entry.
+    Raises ``AdvisorError(503, not_ready)`` when the contract carries no
+    usable league rosters."""
+    from src.api import league_registry  # noqa: PLC0415
+    from src.trade import trade_ledger  # noqa: PLC0415
+
+    cfg = league_registry.get_league_by_key(league_key)
     try:
-        return package_model.active_model_id() == _REQUIRED_PACKAGE_MODEL
-    except Exception:  # noqa: BLE001
-        return False
-
-
-# ── Snapshot ───────────────────────────────────────────────────────────────
-
-
-def _board_stamp(contract: Mapping[str, Any]) -> str | None:
-    """The served board's generation stamp, read through the ONE owner.
-
-    ``trade_analyze_runtime.contract_generation`` is the reader
-    ``analyze_service.contract_provenance`` (and so the decision receipt) and
-    the analyze in-flight key share: top-level ``generatedAt`` -- where the
-    served contract stamps it -- with a ``meta.generatedAt`` fallback for an
-    older shape, ``None`` when absent (#1871).  The advisor must not keep a
-    private copy of that rule.
-    """
-    from src.api.trade_analyze_runtime import contract_generation  # noqa: PLC0415
-
-    return contract_generation(contract)
-
-
-def generation_for(contract: Mapping[str, Any]) -> str:
-    stamp = _board_stamp(contract) or contract.get("scrapeTimestamp") or "unknown"
-    return hashlib.sha256(f"brisket-advisor-v1|{stamp}".encode()).hexdigest()[:16]
-
-
-def _rid(team: Any) -> int | None:
-    if not isinstance(team, Mapping):
-        return None
-    for key in ("roster_id", "rosterId"):
-        try:
-            rid = int(team.get(key))
-        except (TypeError, ValueError):
-            continue
-        if rid >= 1:
-            return rid
-    return None
-
-
-def _row_player_id(row: Mapping[str, Any]) -> str:
-    return str(row.get("playerId") or row.get("_sleeperId") or "").strip()
-
-
-def _parse_stamp(stamp: Any) -> datetime | None:
-    """An ISO-8601 stamp as an aware UTC datetime; ``None`` when unparseable."""
-    if not isinstance(stamp, str) or not stamp:
-        return None
-    try:
-        when = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if when.tzinfo is None:
-        when = when.replace(tzinfo=timezone.utc)
-    return when.astimezone(timezone.utc)
-
-
-def _hours_since(stamp: Any) -> float | None:
-    """Hours from an ISO-8601 stamp to now (UTC); ``None`` when unparseable."""
-    when = _parse_stamp(stamp)
-    if when is None:
-        return None
-    return (datetime.now(timezone.utc) - when).total_seconds() / 3600.0
-
-
-def _roster_as_of(sleeper: Mapping[str, Any], stamp: str, age: Any) -> str | None:
-    """The date the ROSTERS were observed — never the build date of a
-    contract that restored older rosters (a stale snapshot must not read as
-    fresher than it is).  ``rosterFetchedAt`` when stated, else the build
-    stamp minus the stated snapshot age, else ``None``."""
-    fetched = _parse_stamp(sleeper.get("rosterFetchedAt"))
-    if fetched is not None:
-        return fetched.date().isoformat()
-    built = _parse_stamp(stamp)
-    if built is None or not isinstance(age, (int, float)) or isinstance(age, bool) or age < 0:
-        return None
-    return (built - timedelta(hours=float(age))).date().isoformat()
-
-
-def roster_freshness(contract: Mapping[str, Any]) -> tuple[str, str | None]:
-    """``(state, asOf)`` for the snapshot's rosters (design §2.6 rule).
-
-    ``current`` when the contract states its rosters are LIVE and at most
-    six hours old; ``stale`` when it states they were restored from the last
-    good snapshot or are older; ``unknown`` when nothing in the contract
-    proves either — unprovable freshness is not freshness.  Reads the
-    ``sleeper.rosterSource`` / ``rosterSnapshotAgeHours`` evidence (design
-    B0-f); a live tag with no stated age is aged from ``rosterFetchedAt`` or
-    the contract's own build stamp, and an unparseable stamp is ``unknown``.
-    A contract built before that evidence exists answers ``unknown``.
-    Only the date is exposed.
-    """
-    sleeper = contract.get("sleeper") if isinstance(contract.get("sleeper"), Mapping) else {}
-    source = sleeper.get("rosterSource")
-    age = sleeper.get("rosterSnapshotAgeHours")
-    stamp = str(contract.get("scrapeTimestamp") or _board_stamp(contract) or "")
-    if source == "live":
-        if not (isinstance(age, (int, float)) and not isinstance(age, bool)):
-            # No stated age: measure it from the roster fetch (B0-f) or the
-            # contract's own build stamp.  Unprovable freshness is "unknown",
-            # never "current" (stale != current).
-            age = _hours_since(sleeper.get("rosterFetchedAt") or stamp)
-            if age is None:
-                return "unknown", None
-            # Aged from the stamp itself: the stamp's date is the roster date.
-            return ("current" if age <= _ROSTER_MAX_AGE_HOURS else "stale"), _roster_as_of(
-                sleeper, stamp, 0
-            )
-        return ("current" if age <= _ROSTER_MAX_AGE_HOURS else "stale"), _roster_as_of(
-            sleeper, stamp, age
+        return trade_ledger.snapshot_for(
+            contract,
+            league_key=league_key,
+            roster_settings=dict(getattr(cfg, "roster_settings", None) or {}),
         )
-    if source == "last_good":
-        return "stale", _roster_as_of(sleeper, stamp, age)
-    return "unknown", None
+    except LookupError:
+        raise AdvisorError(503, "advisor_unavailable", "not_ready") from None
 
 
-def build_snapshot(
-    contract: Mapping[str, Any],
-    *,
-    league_key: str,
-    roster_settings: Mapping[str, Any] | None,
-    freshness: tuple[str, str | None] | None = None,
-) -> AdvisorSnapshot:
-    """Index one captured contract.  Raises ``AdvisorError(503, not_ready)``
-    when it carries no usable league rosters."""
-    sleeper = contract.get("sleeper") if isinstance(contract, Mapping) else None
-    teams = sleeper.get("teams") if isinstance(sleeper, Mapping) else None
-    if not isinstance(teams, list) or not teams:
-        raise AdvisorError(503, "advisor_unavailable", "not_ready")
-    teams_by_rid: dict[int, Mapping[str, Any]] = {}
-    order: list[int] = []
-    for t in teams:
-        rid = _rid(t)
-        if rid is None or rid in teams_by_rid:
-            continue
-        teams_by_rid[rid] = t
-        order.append(rid)
-    if len(teams_by_rid) < MIN_TEAMS:
-        raise AdvisorError(503, "advisor_unavailable", "not_ready")
+def public_generation(snap: Any) -> str:
+    """An opaque public token for the snapshot's board generation (the ledger
+    owner's ``generation``, i.e. ``trade_analyze_runtime.contract_generation``).
+    The raw build stamp is not published."""
+    return hashlib.sha256(f"brisket-advisor-v2|{snap.generation}".encode()).hexdigest()[:16]
 
-    rows = _engine_rows(contract)
-    row_index = _engine_row_index(rows)
-    rows_by_player_id: dict[str, Mapping[str, Any]] = {}
-    for r in rows:
-        pid = _row_player_id(r)
-        if pid and r.get("assetClass") != "pick" and pid not in rows_by_player_id:
-            rows_by_player_id[pid] = r
 
-    player_owners: dict[str, list[int]] = {}
-    pick_details: dict[str, Mapping[str, Any]] = {}
-    for rid in order:
-        t = teams_by_rid[rid]
-        for pid in t.get("playerIds") or []:
-            sid = str(pid or "").strip()
-            if sid:
-                player_owners.setdefault(sid, []).append(rid)
-        details = t.get("pickDetails")
-        if isinstance(details, list):
-            for d in details:
-                if isinstance(d, Mapping):
-                    aid = str(d.get("assetId") or "").strip()
-                    if aid and aid not in pick_details:
-                        pick_details[aid] = d
+def public_policy(*, max_teams: int, max_legs: int) -> Any:
+    """The public ledger policy: every team must both send and receive
+    (``send_and_receive``, SD-5 / privacy M5)."""
+    from src.trade.trade_ledger import LedgerPolicy  # noqa: PLC0415
 
-    state, as_of = freshness if freshness is not None else roster_freshness(contract)
-    return AdvisorSnapshot(
-        contract=contract,
-        league_key=str(league_key),
-        generation=generation_for(contract),
-        team_order=tuple(order),
-        teams_by_rid=teams_by_rid,
-        rows=tuple(rows),
-        row_index=row_index,
-        rows_by_player_id=rows_by_player_id,
-        player_owners={k: tuple(v) for k, v in player_owners.items()},
-        pick_owner_index=league_pick_owner_index(list(teams_by_rid.values())),
-        pick_details_by_id=pick_details,
-        roster_settings=dict(roster_settings or {}),
-        rosters_state=state if state in ("current", "stale", "unknown") else "unknown",
-        rosters_as_of=as_of,
-        id_to_player=dict(sleeper.get("idToPlayer") or {})
-        if isinstance(sleeper.get("idToPlayer"), Mapping)
-        else {},
-        positions_by_name=dict(sleeper.get("positions") or {})
-        if isinstance(sleeper.get("positions"), Mapping)
-        else {},
+    return LedgerPolicy(
+        min_teams=MIN_TEAMS,
+        max_teams=int(max_teams),
+        max_legs=int(max_legs),
+        participation="send_and_receive",
     )
 
 
 # ── Lists ──────────────────────────────────────────────────────────────────
 
 
-def _team_display_name(team: Mapping[str, Any], rid: int) -> str:
-    name = str(team.get("name") or "").strip()
-    return name or f"Team {rid}"
+def list_teams(snap: Any) -> list[PublicTeam]:
+    from src.trade.trade_ledger import team_display_name  # noqa: PLC0415
 
-
-def list_teams(snap: AdvisorSnapshot) -> list[PublicTeam]:
     out: list[PublicTeam] = []
-    for rid in snap.team_order:
-        t = snap.teams_by_rid[rid]
+    for rid in sorted(snap.teams_by_roster_id):
+        t = snap.teams_by_roster_id[rid]
         team_name = str(t.get("sleeperTeamName") or "").strip() or None
-        out.append(PublicTeam(rid, _team_display_name(t, rid), team_name))
+        out.append(PublicTeam(rid, team_display_name(snap, rid), team_name))
     out.sort(key=lambda pt: (pt.display_name.casefold(), pt.roster_id))
     return out
 
 
-def _player_row_for(snap: AdvisorSnapshot, player_id: str) -> Mapping[str, Any] | None:
-    """The canonical row for a Sleeper id, only when the engine's name index
-    resolves that row's name back to the SAME player (fail closed on a
-    collision rather than price somebody else)."""
-    row = snap.rows_by_player_id.get(player_id)
-    if row is None:
-        return None
-    name = _engine_row_name(row).strip().lower()
-    hit = snap.row_index.get(name) if name else None
-    if hit is None or _row_player_id(hit) != player_id:
-        return None
-    return row
+_INDEX_MEMO: "OrderedDict[int, tuple[Any, dict[str, Any]]]" = OrderedDict()
+_INDEX_LOCK = threading.Lock()
 
 
-def _player_resolution(snap: AdvisorSnapshot, player_id: str) -> dict[str, Any] | None:
-    row = _player_row_for(snap, player_id)
-    if row is None:
-        return None
-    return _engine_resolve(_engine_row_name(row), snap.row_index)
+def _resolution_indexes(snap: Any) -> dict[str, Any]:
+    """The simulator's own resolution indexes for ONE snapshot (memo LRU 2,
+    keyed by snapshot identity; the entry holds the snapshot, so its id
+    cannot be reused while cached).  Depends on the contract only."""
+    from src.api import trade_simulator  # noqa: PLC0415
+    from src.api.pick_value_resolution import pick_rows_from_rows  # noqa: PLC0415
+
+    key = id(snap)
+    with _INDEX_LOCK:
+        hit = _INDEX_MEMO.get(key)
+        if hit is not None and hit[0] is snap:
+            _INDEX_MEMO.move_to_end(key)
+            return hit[1]
+    row_index = trade_simulator.asset_row_index(dict(snap.contract))
+    idx = {
+        "row_index": row_index,
+        "player_rows": dict(snap.rows_by_player_id),
+        "pick_rows": pick_rows_from_rows(row_index.values()),
+    }
+    with _INDEX_LOCK:
+        _INDEX_MEMO[key] = (snap, idx)
+        _INDEX_MEMO.move_to_end(key)
+        while len(_INDEX_MEMO) > 2:
+            _INDEX_MEMO.popitem(last=False)
+    return idx
 
 
-def _pick_label(snap: AdvisorSnapshot, d: Mapping[str, Any], ident: Any) -> str:
+def reset_memos_for_tests() -> None:
+    with _INDEX_LOCK:
+        _INDEX_MEMO.clear()
+
+
+def _evaluable(snap: Any, label: str, *, player_id: str | None, asset_id: str | None) -> bool:
+    """Would the engine price this asset?  The simulator's single-asset
+    resolution (``trade_simulator.resolve_trade_asset`` — id-first, the
+    canonical pick resolver) plus the decision owner's one "priced" rule
+    (``trade_decision.asset_is_priced``), i.e. exactly what decides the
+    ``off_board_assets`` / ``unpriced_assets`` evidence gates.  A quarantined
+    or stale value is still ``evaluable`` (accepted residual, spec §4.2)."""
+    from src.api import trade_simulator  # noqa: PLC0415
+    from src.trade.trade_decision import asset_is_priced  # noqa: PLC0415
+
+    idx = _resolution_indexes(snap)
+    hit = trade_simulator.resolve_trade_asset(
+        label,
+        contract=dict(snap.contract),
+        asset_id=asset_id,
+        player_id=player_id,
+        row_index=idx["row_index"],
+        pick_rows=idx["pick_rows"],
+        player_rows=idx["player_rows"],
+    )
+    return hit is not None and asset_is_priced(hit)
+
+
+def _pick_label(snap: Any, d: Mapping[str, Any], ident: Any) -> str:
+    from src.trade.trade_ledger import team_display_name  # noqa: PLC0415
+
     season = int(ident.season)
     rnd = int(ident.round_num)
     origin = int(ident.origin_roster_id)
-    owner = _rid({"roster_id": d.get("ownerRosterId")})
+    try:
+        owner = int(d.get("ownerRosterId")) if d.get("ownerRosterId") is not None else None
+    except (TypeError, ValueError):
+        owner = None
     if owner is not None and owner == origin:
         tail = "Own"
+    elif origin in snap.teams_by_roster_id:
+        tail = f"Originally {team_display_name(snap, origin)}"
     else:
-        origin_team = snap.teams_by_rid.get(origin)
-        name = (
-            _team_display_name(origin_team, origin)
-            if origin_team is not None
-            else (str(d.get("fromTeam") or "").strip() or f"Team {origin}")
-        )
-        tail = f"Originally {name}"
+        tail = f"Originally {str(d.get('fromTeam') or '').strip() or f'Team {origin}'}"
     return f"{season} {round_suffix(rnd)} — {tail}"
 
 
-def _player_asset(snap: AdvisorSnapshot, pid: str) -> tuple[PublicAsset, float | None]:
-    row = _player_row_for(snap, pid)
-    raw_row = snap.rows_by_player_id.get(pid)
-    label = (
-        _engine_row_name(raw_row).strip()
-        if raw_row is not None
-        else str(snap.id_to_player.get(pid) or "").strip()
-    ) or f"Player {pid}"
-    pos_raw = None
-    if raw_row is not None:
-        pos_raw = raw_row.get("position") or raw_row.get("pos")
-    if not pos_raw:
-        pos_raw = snap.positions_by_name.get(label)
-    pos = normalize_position(pos_raw) or None
-    side = "offense" if pos in OFFENSE else "defense" if pos in DEFENSE else "other"
-    hit = _engine_resolve(_engine_row_name(row), snap.row_index) if row is not None else None
-    value = float(hit["value"]) if hit is not None and hit.get("value") else None
-    evaluable = value is not None and value > 0
-    nfl_team = None
-    if raw_row is not None:
-        nfl_team = str(raw_row.get("team") or "").strip() or None
+def _player_order_key(a: PublicAsset) -> tuple[Any, ...]:
+    pos = a.position or ""
     return (
-        PublicAsset(
-            id=f"{PLAYER_ID_PREFIX}{pid}",
-            kind="player",
-            label=label,
-            side=side,
-            position=pos,
-            nfl_team=nfl_team,
-            evaluable=evaluable,
-        ),
-        value if evaluable else None,
+        _SIDE_ORDER.get(a.side, 2),
+        _POSITION_ORDER.get(pos, len(_POSITION_ORDER)),
+        pos,
+        a.label.casefold(),
+        a.id,
     )
 
 
-def list_team_assets(
-    snap: AdvisorSnapshot, roster_id: int, *, sort: str
-) -> tuple[list[PublicAsset], str]:
-    """``(assets, pickOwnership)`` for one team, ordered on the server.
+def _pick_order_key(a: PublicAsset) -> tuple[Any, ...]:
+    # Every pick asset is built from a parsed canonical id, so season, round
+    # and origin are always ints (an identity, never a value).
+    return (a.season, a.round, a.origin_roster_id, a.id)
 
-    * ``value_desc`` — priced players by (value desc, label, id), then
-      unpriced players by (label, id), then the pick segment;
-    * ``value_asc`` — the EXACT reverse of the priced-player segment (ties
-      included), then unpriced players, then picks;
-    * ``alpha`` — every asset by (label, id).
 
-    Picks are always ordered by (season, round, origin label, id), never by
-    value.  When the team's pick ownership is unavailable no pick is listed.
-    """
+def order_assets(assets: Iterable[PublicAsset]) -> list[PublicAsset]:
+    """The ONE public order: players by (side, position, label, id), then
+    picks by (season, round, origin, id).  A pure function of identity —
+    board values never enter it (privacy M2)."""
+    items = list(assets)
+    players = sorted((a for a in items if a.kind == "player"), key=_player_order_key)
+    picks = sorted((a for a in items if a.kind == "pick"), key=_pick_order_key)
+    return [*players, *picks]
+
+
+def list_team_assets(snap: Any, roster_id: int, *, sort: str) -> tuple[list[PublicAsset], str]:
+    """``(assets, pickOwnership)`` for one team in the ``position_alpha`` order.
+    When the team's pick ownership is unavailable no pick is listed."""
+    from src.trade.trade_ledger import PLAYER_PREFIX, player_label  # noqa: PLC0415
+
     if sort not in SORTS:
         raise AdvisorError(400, "invalid_request", "unsupported_sort", field="sort")
-    team = snap.teams_by_rid.get(int(roster_id))
+    team = snap.teams_by_roster_id.get(int(roster_id))
     if team is None:
         raise AdvisorError(404, "unknown_team")
+    sleeper = snap.contract.get("sleeper") if isinstance(snap.contract, Mapping) else None
+    by_name = sleeper.get("positions") if isinstance(sleeper, Mapping) else None
+    positions_by_name: Mapping[str, Any] = by_name if isinstance(by_name, Mapping) else {}
 
-    priced: list[tuple[float, PublicAsset]] = []
-    unpriced: list[PublicAsset] = []
+    assets: list[PublicAsset] = []
     seen: set[str] = set()
     for raw in team.get("playerIds") or []:
         pid = str(raw or "").strip()
         if not pid or pid in seen:
             continue
         seen.add(pid)
-        asset, value = _player_asset(snap, pid)
-        if value is None:
-            unpriced.append(asset)
-        else:
-            priced.append((value, asset))
+        row = snap.rows_by_player_id.get(pid)
+        label = player_label(snap, pid)
+        pos_raw = (row.get("position") or row.get("pos")) if row else None
+        if not pos_raw:
+            pos_raw = positions_by_name.get(label)
+        pos = normalize_position(pos_raw) or None
+        side = "offense" if pos in OFFENSE else "defense" if pos in DEFENSE else "other"
+        nfl_team = (str(row.get("team") or "").strip() or None) if row else None
+        assets.append(
+            PublicAsset(
+                id=f"{PLAYER_PREFIX}{pid}",
+                kind="player",
+                label=label,
+                side=side,
+                position=pos,
+                nfl_team=nfl_team,
+                evaluable=_evaluable(snap, label, player_id=pid, asset_id=None),
+            )
+        )
 
-    picks: list[PublicAsset] = []
     pick_state = "observed"
     if team_pick_ownership_unavailable_reason(team) is not None:
         pick_state = "unavailable"
@@ -609,8 +489,7 @@ def list_team_assets(
             if ident is None or ident.league_key != snap.league_key or aid in seen:
                 continue
             seen.add(aid)
-            hit = _engine_resolve(str(d.get("label") or ""), snap.row_index)
-            picks.append(
+            assets.append(
                 PublicAsset(
                     id=aid,
                     kind="pick",
@@ -620,281 +499,274 @@ def list_team_assets(
                     round=int(ident.round_num),
                     origin_roster_id=int(ident.origin_roster_id),
                     projection=None,  # OD-2: projected labels OFF
-                    evaluable=bool(hit is not None and hit.get("value")),
+                    evaluable=_evaluable(
+                        snap, str(d.get("label") or ""), player_id=None, asset_id=aid
+                    ),
                 )
             )
-    # Every pick asset above is built with an int season and round.
-    picks.sort(key=lambda a: (a.season, a.round, a.label.casefold(), a.id))
-
-    def _label_key(a: PublicAsset) -> tuple[str, str]:
-        return (a.label.casefold(), a.id)
-
-    priced_desc = [
-        a for _v, a in sorted(priced, key=lambda va: (-va[0], va[1].label.casefold(), va[1].id))
-    ]
-    unpriced.sort(key=_label_key)
-    if sort == "value_desc":
-        ordered = [*priced_desc, *unpriced, *picks]
-    elif sort == "value_asc":
-        ordered = [*reversed(priced_desc), *unpriced, *picks]
-    else:
-        ordered = sorted([*priced_desc, *unpriced, *picks], key=_label_key)
-    return ordered, pick_state
+    return order_assets(assets), pick_state
 
 
-# ── Validation ─────────────────────────────────────────────────────────────
+# ── Validation (the ledger owner) ─────────────────────────────────────────
 
 
-def _parse_asset_id(snap: AdvisorSnapshot, asset_id: str) -> tuple[str, Any] | None:
-    """``("player", sleeperId)`` / ``("pick", identity)`` or ``None``."""
-    if asset_id.startswith(PLAYER_ID_PREFIX):
-        pid = asset_id[len(PLAYER_ID_PREFIX) :]
-        if pid and pid.isalnum() and len(pid) <= 16:
-            return ("player", pid)
-        return None
-    ident = parse_league_pick_id(asset_id)
-    if ident is None or ident.league_key != snap.league_key:
-        return None
-    return ("pick", ident)
-
-
-def validate_trade(
-    snap: AdvisorSnapshot,
+def validate(
+    snap: Any,
     *,
     perspective: int,
-    teams: list[int] | tuple[int, ...],
-    legs: list[tuple[str, int, int]],
-) -> ValidatedTrade:
-    """Validate a proposed trade against the snapshot (design §2.10 order).
+    teams: Sequence[Any],
+    legs: Sequence[tuple[str, int, int]],
+    policy: Any,
+) -> Any:
+    """``trade_ledger.validate_ledger`` under the public policy, then the
+    API-layer perspective check (spec §2.3).  Raises :class:`AdvisorError`
+    with the ledger's own reason code; a 409 never names the actual owner."""
+    from src.trade import trade_ledger  # noqa: PLC0415
 
-    Raises :class:`AdvisorError` — 400 ``invalid_trade`` for a malformed
-    structure, 409 ``stale_assets`` for an asset the origin team does not hold
-    in this snapshot.  Ownership that cannot be verified (conflicting claims,
-    an unpublished pick inventory) is returned in ``unverifiable_ids``.
-    """
-    team_list = [int(t) for t in teams]
-    if int(perspective) not in team_list:
+    try:
+        ledger = trade_ledger.validate_ledger(
+            snap,
+            teams=list(teams),
+            legs=[{"id": a, "from": f, "to": t} for a, f, t in legs],
+            policy=policy,
+        )
+    except trade_ledger.LedgerError as err:
+        extras: dict[str, Any] = {}
+        if err.asset_ids:
+            extras["assetIds"] = list(err.asset_ids)
+        if err.roster_ids:
+            extras["rosterIds"] = list(err.roster_ids)
+        raise AdvisorError(err.status, err.error, err.reason, **extras) from None
+    if int(perspective) not in ledger.teams:
         raise AdvisorError(
             400, "invalid_trade", "perspective_not_in_trade", rosterIds=[int(perspective)]
         )
-    dups = sorted({t for t in team_list if team_list.count(t) > 1})
-    if dups:
-        raise AdvisorError(400, "invalid_trade", "duplicate_team", rosterIds=dups)
-    unknown_teams = [t for t in team_list if t not in snap.teams_by_rid]
-    if unknown_teams:
-        raise AdvisorError(400, "invalid_trade", "unknown_team", rosterIds=unknown_teams)
+    return ledger
 
-    parsed: list[tuple[str, int, int, tuple[str, Any]]] = []
-    bad_ids = []
-    for asset_id, frm, to in legs:
-        p = _parse_asset_id(snap, asset_id)
-        if p is None:
-            bad_ids.append(asset_id)
-        else:
-            parsed.append((asset_id, int(frm), int(to), p))
-    if bad_ids:
-        raise AdvisorError(400, "invalid_trade", "unknown_asset", assetIds=bad_ids)
-    ids = [a for a, _f, _t, _p in parsed]
-    dup_ids = sorted({a for a in ids if ids.count(a) > 1})
-    if dup_ids:
-        raise AdvisorError(400, "invalid_trade", "duplicate_asset", assetIds=dup_ids)
-    team_set = set(team_list)
-    bad_origin = [a for a, f, _t, _p in parsed if f not in team_set]
-    if bad_origin:
-        raise AdvisorError(400, "invalid_trade", "invalid_origin", assetIds=bad_origin)
-    bad_dest = [a for a, _f, t, _p in parsed if t not in team_set]
-    if bad_dest:
-        raise AdvisorError(400, "invalid_trade", "invalid_destination", assetIds=bad_dest)
-    self_dest = [a for a, f, t, _p in parsed if f == t]
-    if self_dest:
-        raise AdvisorError(400, "invalid_trade", "destination_is_origin", assetIds=self_dest)
-    if len(parsed) > MAX_LEGS:
-        raise AdvisorError(400, "invalid_trade", "too_many_assets")
-    senders = {f for _a, f, _t, _p in parsed}
-    receivers = {t for _a, _f, t, _p in parsed}
-    if len(team_list) == 2:
-        idle = [t for t in team_list if t not in senders]
-        if idle:
-            raise AdvisorError(400, "invalid_trade", "one_sided_trade", rosterIds=idle)
-    else:
-        idle = [t for t in team_list if t not in senders and t not in receivers]
-        if idle:
-            raise AdvisorError(400, "invalid_trade", "idle_team", rosterIds=idle)
 
-    not_owned: list[str] = []
-    unverifiable: list[str] = []
-    teams_seq = list(snap.teams_by_rid.values())
-    for asset_id, frm, _to, (kind, ref) in parsed:
-        if kind == "player":
-            owners = snap.player_owners.get(ref) or ()
-            if len(set(owners)) > 1:
-                unverifiable.append(asset_id)
-            elif tuple(set(owners)) != (frm,):
-                not_owned.append(asset_id)
-        else:
-            own = lookup_league_pick_owner(teams_seq, asset_id, index=snap.pick_owner_index)
-            if own.state == PICK_OWNER_OWNED:
-                if own.owner_roster_id != frm:
-                    not_owned.append(asset_id)
-            elif own.state == PICK_OWNER_UNKNOWN:
-                unverifiable.append(asset_id)
-            else:
-                not_owned.append(asset_id)
-    if not_owned:
-        raise AdvisorError(409, "stale_assets", "asset_not_owned", assetIds=not_owned)
-    return ValidatedTrade(
-        perspective=int(perspective),
-        teams=tuple(team_list),
-        legs=tuple(TradeLeg(a, f, t) for a, f, t, _p in parsed),
-        unverifiable_ids=tuple(unverifiable),
+# ── Evaluation + reduction ────────────────────────────────────────────────
+
+
+def team_fairness_input(entry: Mapping[str, Any]) -> TeamFairnessInput:
+    """Pull the four public inputs out of one engine team entry — nothing else
+    is read.  Unavailable ids name only this team's own ledger assets."""
+    raw = entry.get("fairness")
+    fairness: Mapping[str, Any] = raw if isinstance(raw, Mapping) else {}
+    reason = fairness.get("reasonCode")
+    rows = [*(entry.get("gives") or []), *(entry.get("receives") or [])]
+    ids: set[str] = set()
+    if reason == "ownership_unverifiable":
+        ids |= {str(a) for a in entry.get("unverifiableAssetIds") or []}
+        ids |= {str(r.get("assetId")) for r in rows if r.get("valueState") == "not_held"}
+    elif reason == "asset_not_evaluable":
+        ids |= {
+            str(r.get("assetId")) for r in rows if r.get("valueState") in ("unpriced", "off_board")
+        }
+    own = {str(r.get("assetId")) for r in rows}
+    return TeamFairnessInput(
+        roster_id=int(entry["rosterId"]),
+        state=str(fairness.get("state")),
+        reason_code=str(reason) if reason is not None else None,
+        unavailable_asset_ids=tuple(sorted(ids & own)),
     )
 
 
-# ── Evaluation ─────────────────────────────────────────────────────────────
-
-
-def _unavailable(
-    trade: ValidatedTrade, reason: str | None, ids: tuple[str, ...] = ()
-) -> AdvisorResult:
-    return AdvisorResult(
-        category="UNAVAILABLE",
+def _team_result(t: TeamFairnessInput) -> PublicTeamResult:
+    result = _STATE_TO_RESULT.get(t.state)
+    reason = t.reason_code
+    if result is None or reason not in _TEAM_REASONS_BY_RESULT[result]:
+        # Fail closed: an unknown state or reason is never a confident result.
+        result, reason = UNABLE_TO_DETERMINE, "evaluation_unavailable"
+    assert reason is not None
+    ids = t.unavailable_asset_ids if reason in _ID_REASONS else ()
+    return PublicTeamResult(
+        roster_id=int(t.roster_id),
+        result=result,
+        label=TEAM_LABELS[result],
         reason_code=reason,
-        unavailable_asset_ids=ids,
-        legs=trade.legs,
-        team_count=len(trade.teams),
-        perspective=trade.perspective,
+        reason_text=TEAM_REASON_TEXT[reason],
+        unavailable_asset_ids=tuple(sorted(ids)),
     )
 
 
-def _evaluate_trade_internal(
-    snap: AdvisorSnapshot,
-    trade: ValidatedTrade,
+_RESULT_TO_STATE = {
+    FAIR: team_verdicts.FAIR,
+    NOT_FAIR: team_verdicts.NOT_FAIR,
+    UNABLE_TO_DETERMINE: team_verdicts.UNABLE,
+}
+
+
+def reduce_fairness(
+    teams: Sequence[TeamFairnessInput],
     *,
-    posture_resolver: Callable[..., Mapping[str, Any] | None] | None = None,
-    multi_team_enabled: bool = False,
-) -> tuple[AdvisorResult, dict[str, Any]]:
-    """``(AdvisorResult, internals)`` — internals are for tests only and must
-    never reach a response."""
-    internals: dict[str, Any] = {}
-    if len(trade.teams) != 2:
-        # OD-1: built-but-OFF.  The multi-side twin is not on main, so even a
-        # switched-on config cannot produce a 3–4-team category here.
-        internals["multiTeamEnabled"] = bool(multi_team_enabled)
-        return _unavailable(trade, "multi_team_unsupported"), internals
-    if trade.unverifiable_ids:
-        return _unavailable(trade, "ownership_unverifiable"), internals
-    if not package_model_ready():
-        _LOG.error("public advisor: package model is not the active JS model; refusing")
-        return _unavailable(trade, None), internals
+    overall_state: str,
+    legs: Sequence[Any],
+) -> FairnessResult:
+    """The public reduction (spec §4.3).  Sees ONLY per-team
+    ``(rosterId, state, reasonCode, unavailable ids)``, the engine's overall
+    fairness state and the canonical legs (``trade_ledger.Leg``).
 
-    perspective = trade.perspective
-    team = snap.teams_by_rid[perspective]
-    players_in: list[str] = []
-    players_out: list[str] = []
-    picks_in: list[str] = []
-    picks_out: list[str] = []
-    ids_in: list[str | None] = []
-    ids_out: list[str | None] = []
-    engine_label_to_id: dict[str, str] = {}
-    not_evaluable: list[str] = []
-    for leg in trade.legs:
-        incoming = leg.to_rid == perspective
-        if leg.id.startswith(PLAYER_ID_PREFIX):
-            row = _player_row_for(snap, leg.id[len(PLAYER_ID_PREFIX) :])
-            if row is None:
-                not_evaluable.append(leg.id)
-                continue
-            name = _engine_row_name(row)
-            engine_label_to_id[name] = leg.id
-            (players_in if incoming else players_out).append(name)
-        else:
-            d = snap.pick_details_by_id.get(leg.id) or {}
-            label = str(d.get("label") or "").strip()
-            if not label:
-                not_evaluable.append(leg.id)
-                continue
-            engine_label_to_id[label] = leg.id
-            if incoming:
-                picks_in.append(label)
-                ids_in.append(leg.id)
-            else:
-                picks_out.append(label)
-                ids_out.append(leg.id)
-    if not_evaluable:
-        return _unavailable(trade, "asset_not_evaluable", tuple(not_evaluable)), internals
-
-    simulation, analysis = _engine_analyze(
-        snap,
-        team,
-        players_in=players_in,
-        players_out=players_out,
-        picks_in=picks_in,
-        picks_out=picks_out,
-        pick_ids_in=ids_in,
-        pick_ids_out=ids_out,
-        posture_resolver=posture_resolver,
-    )
-    internals["simulation"] = simulation
-    internals["analysis"] = analysis
-    decision = analysis.get("decision") if isinstance(analysis, dict) else None
-    category = trade_decision.public_category_from_decision(decision)
-    reason = trade_decision.public_reason_code(decision)
-    if category not in trade_decision.PUBLIC_CATEGORIES:
-        category, reason = "UNAVAILABLE", None
-    if category == "UNAVAILABLE" and reason == "roster_limit":
-        reason = None
-    if category != "UNAVAILABLE" and reason not in (None, "roster_limit"):
-        reason = None
-    ids: tuple[str, ...] = ()
-    if category == "UNAVAILABLE" and reason == "asset_not_evaluable":
-        mapped = []
-        for label in trade_decision.public_asset_gap_labels(decision):
-            aid = engine_label_to_id.get(label)
-            if aid is None:
-                # The engine names a resolved asset by its board row; map by
-                # case-insensitive match before giving up.
-                aid = next(
-                    (v for k, v in engine_label_to_id.items() if k.lower() == label.lower()),
-                    None,
-                )
-            if aid is not None and aid not in mapped:
-                mapped.append(aid)
-        ids = tuple(mapped)
-    return (
-        AdvisorResult(
-            category=category,
-            reason_code=reason,
-            unavailable_asset_ids=ids,
-            legs=trade.legs,
-            team_count=2,
-            perspective=perspective,
+    The overall is the engine's ``fairnessOverall`` (three-valued AND); it is
+    cross-checked against the per-team states and a disagreement raises
+    :class:`InvariantViolation` rather than publishing either.  Every array
+    is in canonical order (teams ascending ``rosterId``, legs by asset id)."""
+    per_team = sorted((_team_result(t) for t in teams), key=lambda r: r.roster_id)
+    recomputed = team_verdicts.fairness_overall([_RESULT_TO_STATE[r.result] for r in per_team])
+    if recomputed["state"] != overall_state:
+        raise InvariantViolation("overall fairness disagrees with the per-team states")
+    result = _STATE_TO_RESULT[overall_state]
+    reason = _OVERALL_REASON_BY_RESULT[result]
+    public_legs = sorted(
+        (
+            PublicLeg(str(leg.asset_id), int(leg.from_roster_id), int(leg.to_roster_id))
+            for leg in legs
         ),
-        internals,
+        key=lambda leg: leg.id,
+    )
+    return FairnessResult(
+        overall=PublicOverall(
+            result=result,
+            label=OVERALL_LABELS[result],
+            reason_code=reason,
+            reason_text=OVERALL_REASON_TEXT[reason],
+            note=MULTI_TEAM_NOTE if len(per_team) >= 3 else None,
+        ),
+        teams=tuple(per_team),
+        legs=tuple(public_legs),
+        team_count=len(per_team),
     )
 
 
-def evaluate_trade(
-    snap: AdvisorSnapshot,
-    trade: ValidatedTrade,
-    *,
-    posture_resolver: Callable[..., Mapping[str, Any] | None] | None = None,
-    multi_team_enabled: bool = False,
-) -> AdvisorResult:
-    """The public evaluation: an :class:`AdvisorResult` and nothing else."""
-    result, _internals = _evaluate_trade_internal(
-        snap,
-        trade,
-        posture_resolver=posture_resolver,
-        multi_team_enabled=multi_team_enabled,
+def evaluate(snap: Any, ledger: Any) -> FairnessResult:
+    """Run the shared N-team engine in ``market_fairness`` mode (no Team
+    Context, no posture, no capacity, no counterfactuals, nothing written) and
+    reduce its result.  Raises the engine's ``PackageModelUnavailable`` /
+    ``ConservationViolation`` or :class:`InvariantViolation`; the route maps
+    them to 503 and never publishes a partial body."""
+    from src.trade import analyze_service  # noqa: PLC0415
+
+    result = analyze_service.analyze_trade_n(
+        snap, ledger, mode="market_fairness", counterfactuals=False
     )
-    return result
+    teams = result.get("teams") if isinstance(result, Mapping) else None
+    if not isinstance(teams, Mapping) or set(teams) != set(ledger.teams):
+        raise InvariantViolation("engine result does not cover every ledger team")
+    summary = result.get("summary") if isinstance(result.get("summary"), Mapping) else {}
+    overall = (summary.get("fairnessOverall") or {}).get("state")
+    return reduce_fairness(
+        [team_fairness_input(teams[rid]) for rid in sorted(teams)],
+        overall_state=str(overall),
+        legs=ledger.legs,
+    )
 
 
-def result_text(result: AdvisorResult) -> dict[str, str | None]:
-    """The fixed copy for a result: recommendation / headline / message plus
-    the reason text (``None`` unless the reason is one of the public codes)."""
-    text = trade_decision.public_text(result.category, result.reason_code)
-    reason_text = (
-        trade_decision.PUBLIC_REASON_TEXT.get(result.reason_code) if result.reason_code else None
-    )
-    return {**text, "reasonText": reason_text}
+# ── Value-free enforcement (spec §4.6) ─────────────────────────────────────
+
+#: The ONLY integer-valued keys any advisor body may carry (§4.3).  ``from`` /
+#: ``to`` / ``perspectiveRosterId`` are roster ids.
+ALLOWED_INT_KEYS = frozenset(
+    {
+        "rosterId",
+        "rosterIds",
+        "perspectiveRosterId",
+        "originRosterId",
+        "from",
+        "to",
+        "teamCount",
+        "season",
+        "round",
+        "minTeams",
+        "maxTeams",
+        "maxLegs",
+        "maxBytes",
+        "retryAfterSeconds",
+    }
+)
+
+#: Names of the private ``TeamAnalysis`` / ``MultiTeamAnalysis`` blocks; none
+#: may appear as a key in an advisor body.  (``value`` is deliberately NOT in
+#: the global ``public_contract`` blocklist — other public payloads use it.)
+ADVISOR_KEY_BLOCKLIST = frozenset(
+    {
+        "value",
+        "valueState",
+        "gap",
+        "largerAdjustedSide",
+        "relativePct",
+        "band",
+        "level",
+        "category",
+        "categoryText",
+        "headline",
+        "decision",
+        "simulation",
+        "analysis",
+        "fairness",
+        "packageModel",
+        "fairnessBands",
+        "decisionRunIds",
+        "tradeRunId",
+        "analysisTiming",
+    }
+)
+
+FIXED_TEXT = frozenset(
+    [
+        *OVERALL_LABELS.values(),
+        *TEAM_LABELS.values(),
+        *TEAM_REASON_TEXT.values(),
+        *OVERALL_REASON_TEXT.values(),
+        MULTI_TEAM_NOTE,
+        *ERROR_MESSAGES.values(),
+    ]
+)
+#: Free-text keys that must be fixed copy in analyze and error bodies.  In the
+#: list bodies ``label`` is an asset's display label (league data).
+_FIXED_TEXT_KEYS = ("label", "reasonText", "message", "note")
+PAYLOAD_KINDS = ("analyze", "error", "list")
+
+
+class PayloadNotValueFree(AssertionError):
+    pass
+
+
+def assert_advisor_payload_value_free(body: Any, *, kind: str) -> None:
+    """Positive value-free check (spec §4.6 items 2-3).  ``kind`` is
+    ``"analyze"``, ``"error"`` or ``"list"``.
+
+    * every int leaf's key (a list item reports its list's key) is in
+      :data:`ALLOWED_INT_KEYS`; no float anywhere;
+    * no key from :data:`ADVISOR_KEY_BLOCKLIST`;
+    * in analyze / error bodies every ``label`` / ``reasonText`` /
+      ``message`` / ``note`` string is fixed copy from this module.
+    """
+    if kind not in PAYLOAD_KINDS:
+        raise ValueError(f"unknown payload kind {kind!r}")
+    check_text = kind in ("analyze", "error")
+
+    def walk(obj: Any, key: str, path: str) -> None:
+        if isinstance(obj, bool) or obj is None:
+            return
+        if isinstance(obj, float):
+            raise PayloadNotValueFree(f"float at {path}")
+        if isinstance(obj, int):
+            if key not in ALLOWED_INT_KEYS:
+                raise PayloadNotValueFree(f"non-allowlisted number at {path}")
+            return
+        if isinstance(obj, str):
+            if check_text and key in _FIXED_TEXT_KEYS and obj not in FIXED_TEXT:
+                raise PayloadNotValueFree(f"non-fixed text at {path}")
+            return
+        if isinstance(obj, Mapping):
+            for k, v in obj.items():
+                if k in ADVISOR_KEY_BLOCKLIST:
+                    raise PayloadNotValueFree(f"blocked key {k!r} at {path}")
+                walk(v, str(k), f"{path}.{k}")
+            return
+        if isinstance(obj, (list, tuple)):
+            for i, v in enumerate(obj):
+                walk(v, key, f"{path}[{i}]")
+            return
+        raise PayloadNotValueFree(f"unexpected type {type(obj).__name__} at {path}")
+
+    walk(body, "$", "$")

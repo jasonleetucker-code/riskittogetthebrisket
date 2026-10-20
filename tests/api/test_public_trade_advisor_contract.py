@@ -1,10 +1,11 @@
-"""Brisket Trade Advisor — the frozen §4 contract, pinned against REAL responses.
+"""Brisket Trade Advisor — the FAIRNESS-ONLY public contract (spec §4), pinned
+against REAL responses.
 
 The backend commits ``frontend/__tests__/fixtures/trade-advisor/*.json`` (one
 body per case, plus ``index.json`` naming each case's endpoint and HTTP
-status).  The frontend's tests and route mocks consume those files; this test
-fails whenever a real response's KEY SET drifts from its fixture, so the two
-halves cannot silently disagree about the contract.
+status).  The frontend's tests and route mocks consume those files
+byte-for-byte; this test fails whenever a real response's KEY SET drifts from
+its fixture, so the two halves cannot silently disagree about the contract.
 
 Regenerate after a deliberate contract change with::
 
@@ -16,12 +17,11 @@ from __future__ import annotations
 
 import copy
 import os
-from typing import Any, Callable
+import re
 
 import pytest
 
 import server
-from src.trade import public_advisor
 from tests.api import trade_advisor_support as S
 from tests.api.trade_advisor_support import (  # noqa: F401 — pytest fixtures, used by name
     advisor_app_fixture,
@@ -31,21 +31,7 @@ from tests.api.trade_advisor_support import (  # noqa: F401 — pytest fixtures,
 REGENERATE = os.environ.get("REGENERATE_TRADE_ADVISOR_FIXTURES") == "1"
 
 
-def _crafted(decision: dict[str, Any]) -> Callable[..., Any]:
-    def fake(*_a, **_k):
-        return {}, {"decision": decision}
-
-    return fake
-
-
-def _stale_contract() -> dict[str, Any]:
-    c = S.contract()
-    c["sleeper"]["rosterSource"] = "last_good"
-    c["sleeper"]["rosterSnapshotAgeHours"] = 30.0
-    return c
-
-
-def _no_picks_contract() -> dict[str, Any]:
+def _no_picks_contract():
     c = S.contract()
     team = c["sleeper"]["teams"][1]
     team["pickOwnershipState"] = "unavailable"
@@ -55,42 +41,46 @@ def _no_picks_contract() -> dict[str, Any]:
     return c
 
 
-GOOD = [("p:103", 1, 2), ("p:202", 2, 1)]
-
-#: name -> (method, path, body or None, setup(monkeypatch) or None, status)
+#: name -> (method, path, body or None, setup or None, status)
 CASES: dict[str, tuple] = {
     "teams.success": ("GET", S.TEAMS_URL, None, None, 200),
     "teams.rosters-stale": ("GET", S.TEAMS_URL, None, "stale", 200),
-    "assets.value_desc": ("GET", S.assets_url(1, "value_desc"), None, None, 200),
-    "assets.alpha": ("GET", S.assets_url(2, "alpha"), None, None, 200),
+    "assets.position_alpha": ("GET", S.assets_url(1, "position_alpha"), None, None, 200),
     "assets.pick-ownership-unavailable": ("GET", S.assets_url(2), None, "no_picks", 200),
-    "analyze.favorable": (
+    "analyze.fair-two-team": (
         "POST",
         S.ANALYZE,
-        S.two_team_body(("p:101", 1, 2), ("p:201", 2, 1)),
+        S.trade_body(*S.FAIR_TWO, teams=(1, 3)),
         None,
         200,
     ),
-    "analyze.strongly-unfavorable": ("POST", S.ANALYZE, S.two_team_body(*GOOD), None, 200),
-    "analyze.unavailable-asset": (
+    "analyze.not-fair-two-team": ("POST", S.ANALYZE, S.trade_body(*S.NOT_FAIR_TWO), None, 200),
+    "analyze.three-team-fair": (
         "POST",
         S.ANALYZE,
-        S.two_team_body(("p:9999", 1, 2), ("p:202", 2, 1)),
+        S.trade_body(*S.FAIR_THREE, teams=(1, 3, 4)),
         None,
         200,
     ),
-    "analyze.multi-team-unsupported": (
+    "analyze.four-team-mixed": (
         "POST",
         S.ANALYZE,
-        S.two_team_body(("p:103", 1, 2), ("p:202", 2, 3), ("p:302", 3, 1), teams=(1, 2, 3)),
+        S.trade_body(*S.MIXED_FOUR, teams=(1, 2, 3, 4), perspective=2),
         None,
         200,
     ),
-    "analyze.roster-limit": (
+    "analyze.unable-asset": (
         "POST",
         S.ANALYZE,
-        S.two_team_body(*GOOD),
-        "roster_limit",
+        S.trade_body(("p:9999", 1, 2), ("p:202", 2, 1)),
+        None,
+        200,
+    ),
+    "analyze.unable-stale-rosters": (
+        "POST",
+        S.ANALYZE,
+        S.trade_body(*S.FAIR_TWO, teams=(1, 3)),
+        "stale",
         200,
     ),
     "error.invalid-request-schema": (
@@ -101,18 +91,25 @@ CASES: dict[str, tuple] = {
         400,
     ),
     "error.invalid-request-json": ("POST", S.ANALYZE, b"{not json", None, 400),
-    "error.invalid-request-sort": ("GET", S.assets_url(1, "value"), None, None, 400),
+    "error.invalid-request-sort": ("GET", S.assets_url(1, "value_desc"), None, None, 400),
     "error.invalid-trade-one-sided": (
         "POST",
         S.ANALYZE,
-        S.two_team_body(("p:103", 1, 2)),
+        S.trade_body(("p:103", 1, 2), ("p:302", 3, 2), teams=(1, 2, 3)),
         None,
         400,
     ),
     "error.invalid-trade-duplicate-asset": (
         "POST",
         S.ANALYZE,
-        S.two_team_body(("p:103", 1, 2), ("p:103", 1, 2), ("p:202", 2, 1)),
+        S.trade_body(("p:103", 1, 2), ("p:103", 1, 2), ("p:202", 2, 1)),
+        None,
+        400,
+    ),
+    "error.invalid-trade-perspective": (
+        "POST",
+        S.ANALYZE,
+        S.trade_body(*S.NOT_FAIR_TWO, perspective=3),
         None,
         400,
     ),
@@ -122,13 +119,13 @@ CASES: dict[str, tuple] = {
     "error.stale-assets": (
         "POST",
         S.ANALYZE,
-        S.two_team_body(("p:201", 1, 2), ("p:202", 2, 1)),
+        S.trade_body(("p:201", 1, 2), ("p:202", 2, 1)),
         None,
         409,
     ),
     "error.payload-too-large": ("POST", S.ANALYZE, b"{" + b" " * 20000 + b"}", None, 413),
     "error.unsupported-media-type": ("POST", S.ANALYZE, "text", None, 415),
-    "error.rate-limited": ("POST", S.ANALYZE, S.two_team_body(*GOOD), "rate", 429),
+    "error.rate-limited": ("POST", S.ANALYZE, S.trade_body(*S.NOT_FAIR_TWO), "rate", 429),
     "error.disabled": ("GET", S.TEAMS_URL, None, "disabled", 503),
     "error.not-ready": ("GET", S.TEAMS_URL, None, "not_ready", 503),
 }
@@ -137,15 +134,9 @@ CASES: dict[str, tuple] = {
 def _run(client, monkeypatch, name: str):
     method, path, body, setup, _status = CASES[name]
     if setup == "stale":
-        monkeypatch.setattr(server, "latest_contract_data", _stale_contract())
+        monkeypatch.setattr(server, "latest_contract_data", S.stale_contract())
     elif setup == "no_picks":
         monkeypatch.setattr(server, "latest_contract_data", _no_picks_contract())
-    elif setup == "roster_limit":
-        monkeypatch.setattr(
-            public_advisor,
-            "_engine_analyze",
-            _crafted(S.decision("NO", deciding="executionGate", leaning="TOO_CLOSE")),
-        )
     elif setup == "rate":
         from src.api import public_trade_advisor_api as api
 
@@ -169,10 +160,15 @@ def _run(client, monkeypatch, name: str):
     return client.post(path, json=body)
 
 
+#: Values that legitimately change between runs (clock-derived) — compared by
+#: shape only.
+_VOLATILE = {"asOf", "generation"}
+
+
 @pytest.mark.parametrize("name", sorted(CASES))
-def test_real_response_matches_committed_fixture_key_set(advisor_client, monkeypatch, name):
+def test_real_response_matches_committed_fixture(advisor_client, monkeypatch, name):
     res = _run(advisor_client, monkeypatch, name)
-    method, path, _body, _setup, status = CASES[name]
+    _method, _path, _body, _setup, status = CASES[name]
     assert res.status_code == status, (name, res.status_code, res.text)
     body = res.json()
     if REGENERATE:
@@ -180,10 +176,16 @@ def test_real_response_matches_committed_fixture_key_set(advisor_client, monkeyp
         return
     fixture = S.load_fixture(f"{name}.json")
     assert S.key_shape(body) == S.key_shape(fixture), name
-    # The fixture is a REAL response, so its enums are real too.
-    for key in ("error", "reason", "category", "recommendation", "reasonCode", "sort"):
-        if key in fixture:
-            assert body[key] == fixture[key], (name, key)
+
+    def strip(obj):
+        if isinstance(obj, dict):
+            return {k: (None if k in _VOLATILE else strip(v)) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [strip(v) for v in obj]
+        return obj
+
+    # The fixture is a REAL response: every non-clock value must match too.
+    assert strip(body) == strip(fixture), name
 
 
 def test_index_names_every_case_with_its_status_and_endpoint():
@@ -202,51 +204,31 @@ def test_every_fixture_file_is_a_known_case():
     assert files == set(CASES), "stale or missing fixture files"
 
 
-def test_live_rosters_without_a_stated_age_are_aged_by_their_own_stamp():
-    """A live-tagged contract is "current" only while its own stamp is within
-    the six-hour budget; an old or unprovable stamp is never "current"."""
-    from datetime import datetime, timedelta, timezone
-
-    from src.trade.public_advisor import roster_freshness
-
-    now = datetime.now(timezone.utc)
-
-    def _contract(stamp: str | None) -> dict[str, Any]:
-        return {"scrapeTimestamp": stamp, "sleeper": {"rosterSource": "live"}}
-
-    assert roster_freshness(_contract((now - timedelta(hours=1)).isoformat()))[0] == "current"
-    assert roster_freshness(_contract((now - timedelta(hours=48)).isoformat()))[0] == "stale"
-    assert roster_freshness(_contract(None)) == ("unknown", None)
-    fetched = {
-        "scrapeTimestamp": (now - timedelta(hours=1)).isoformat(),
-        "sleeper": {
-            "rosterSource": "live",
-            "rosterFetchedAt": (now - timedelta(hours=10)).isoformat(),
-        },
-    }
-    assert roster_freshness(fetched)[0] == "stale"
+def test_fixtures_cover_every_public_result_and_team_count():
+    seen_results: set[str] = set()
+    seen_counts: set[int] = set()
+    for name in CASES:
+        if not name.startswith("analyze."):
+            continue
+        body = S.load_fixture(f"{name}.json")
+        seen_counts.add(body["teamCount"])
+        seen_results.add(body["overall"]["result"])
+        seen_results |= {t["result"] for t in body["teams"]}
+    assert seen_results == {"FAIR", "NOT_FAIR", "UNABLE_TO_DETERMINE"}
+    assert seen_counts == {2, 3, 4}
 
 
-def test_restored_rosters_are_dated_by_their_snapshot_not_the_build():
-    """A contract built on 2026-10-19 around rosters restored from a snapshot
-    30 hours old must say the rosters are from 2026-10-18 — the build date
-    would present stale rosters as fresher than they are."""
-    from src.trade.public_advisor import roster_freshness
-
-    restored = {
-        "scrapeTimestamp": "2026-10-19T11:58:00+00:00",
-        "sleeper": {"rosterSource": "last_good", "rosterSnapshotAgeHours": 30.0},
-    }
-    assert roster_freshness(restored) == ("stale", "2026-10-18")
-    # No stated age: still stale, but the date is unprovable -> null, never
-    # the build date.
-    unaged = {
-        "scrapeTimestamp": "2026-10-19T11:58:00+00:00",
-        "sleeper": {"rosterSource": "last_good"},
-    }
-    assert roster_freshness(unaged) == ("stale", None)
-    fetched = {
-        "scrapeTimestamp": "2026-10-19T11:58:00+00:00",
-        "sleeper": {"rosterSource": "last_good", "rosterFetchedAt": "2026-10-17T23:00:00Z"},
-    }
-    assert roster_freshness(fetched) == ("stale", "2026-10-17")
+def test_no_fixture_uses_retired_contract_vocabulary():
+    """The 5-way category, ACCEPT/DECLINE recommendations, the value sorts and
+    ``multi_team_unsupported`` are gone from every fixture."""
+    retired = re.compile(
+        r"STRONGLY_|FAVORABLE|APPROXIMATELY_EVEN|ACCEPT|DECLINE|value_desc\"|"
+        r"value_asc|multi_team_unsupported|roster_limit|\"category\"|"
+        r"\"recommendation\"|\"multiTeam\"",
+        re.IGNORECASE,
+    )
+    for path in S.FIXTURE_DIR.glob("*.json"):
+        text = path.read_text(encoding="utf-8")
+        if path.name == "index.json":
+            continue
+        assert not retired.search(text), (path.name, retired.search(text).group(0))

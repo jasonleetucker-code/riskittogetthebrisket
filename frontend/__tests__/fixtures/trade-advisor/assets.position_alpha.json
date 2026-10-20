@@ -1,12 +1,12 @@
 {
   "leagueKey": "main",
-  "generation": "669e14158e30e2fa",
+  "generation": "925cb8176237c9eb",
   "rosterId": 1,
-  "sort": "value_desc",
+  "sort": "position_alpha",
   "pickOwnership": "observed",
   "rosters": {
-    "state": "unknown",
-    "asOf": null
+    "state": "current",
+    "asOf": "2026-10-20"
   },
   "assets": [
     {
@@ -19,21 +19,21 @@
       "evaluable": true
     },
     {
-      "id": "p:103",
-      "kind": "player",
-      "label": "Alpha Receiver",
-      "side": "offense",
-      "position": "WR",
-      "nflTeam": "CIN",
-      "evaluable": true
-    },
-    {
       "id": "p:102",
       "kind": "player",
       "label": "Alpha Runner",
       "side": "offense",
       "position": "RB",
       "nflTeam": "PHI",
+      "evaluable": true
+    },
+    {
+      "id": "p:103",
+      "kind": "player",
+      "label": "Alpha Receiver",
+      "side": "offense",
+      "position": "WR",
+      "nflTeam": "CIN",
       "evaluable": true
     },
     {

@@ -6,6 +6,14 @@ units. **Product authority:** none of its own — the owner directive is
 current implementation authority is `docs/EXECUTION_PLAN.md`. OD-1..OD-8 below
 are OPEN owner decisions, not decided scope.
 
+> **SUPERSEDED IN PART — FAIRNESS-ONLY, MULTI-TEAM (2026-10-20).** The owner
+> directive `docs/owner/TRADE_ADVISOR_MULTITEAM_DIRECTIVE_2026-10-20.md` and its
+> same-day FAIRNESS-ONLY AMENDMENT replace the public recommendation product
+> described below. The binding interface is
+> [`docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`](../trade/NTEAM_TRADE_ENGINE_SPEC.md)
+> §4 / §6.3. Read **Part 0** first; where Part II disagrees with Part 0, Part 0
+> wins. Part I (the audit) stays as the historical record it is.
+
 **How to cite this document.** Part I (the audit) uses sections **§A1–§A9**.
 Part II (the design) uses **§0–§14**, then *Open questions / risks* (OD-1..OD-8)
 and *Challenge disposition*. A bare `§N` means Part II.
@@ -16,6 +24,82 @@ removed; specific canonical board values for named assets were replaced with
 first names in example payloads were replaced with placeholders. Nothing else
 was changed apart from the audit section labels (§1–§9 → §A1–§A9) and one
 corrected file pointer (marked inline).
+
+---
+
+# Part 0 — Current state: the public advisor is FAIRNESS-ONLY and multi-team (2026-10-20)
+
+This part records what #1861 (Lane C of the multi-team directive) now
+implements. It supersedes Part II wherever they disagree.
+
+**What the public advisor answers.** One neutral question — *is this trade
+fair?* — for 2-, 3- and 4-team trades:
+
+| scope | results | labels |
+|---|---|---|
+| per participating team | `FAIR` / `NOT_FAIR` / `UNABLE_TO_DETERMINE` | `FAIR FOR THIS TEAM` / `NOT FAIR FOR THIS TEAM` / `UNABLE TO DETERMINE` (SD-14) |
+| overall | `FAIR` only when every team is FAIR; any NOT_FAIR → NOT FAIR; else any UNABLE → UNABLE (Kleene AND, spec §2.9) | `FAIR TRADE` / `NOT FAIR` / `UNABLE TO DETERMINE` |
+
+It never says accept / decline / approve / deny, and never publishes a value,
+gap, band level, percentage, the private 5-level category, the YES/NO headline
+or any Team Context inference. Every team's result ships in ONE response; the
+perspective only selects the default view (privacy M6).
+
+**How it is computed — no business logic in the public layer.**
+
+1. Snapshot + ledger: `src/trade/trade_ledger.py` (`snapshot_for`,
+   `validate_ledger` under the public policy `send_and_receive`). The same
+   snapshot memo serves the private `/api/trade/analyze-multi` route.
+2. Engine: `analyze_service.analyze_trade_n(mode="market_fairness",
+   counterfactuals=False)` — Team Context off, no posture, no roster capacity,
+   nothing written (no decision receipt, no progress, no caches).
+3. Per-team fairness: `team_verdicts.team_fairness` — the asset evidence gates
+   (`trade_decision.asset_evidence_gaps`), then the band `fairness_bands_v1`
+   classified for that team's OWN adjusted package totals under the active
+   `geom_q078_v1` model. FAIR iff the band is `fair` (SD-1 / OD-F1 default).
+4. Reduction: `public_advisor.reduce_fairness` sees only, per team,
+   `(rosterId, state, reasonCode, unavailable ids)`, the engine's overall state
+   (cross-checked) and the canonical legs.
+5. Enforcement: Pydantic outbound models (`extra="forbid"`, Literal enums, no
+   float type) + `public_contract.assert_public_payload_safe` +
+   `public_advisor.assert_advisor_payload_value_free` (int-key allowlist, no
+   floats, advisor key blocklist, fixed copy only) on every body.
+
+**What changed from Part II.**
+
+| Part II item | now |
+|---|---|
+| §2.9 B1 `multi_side.py` (a JS transcription, built-but-off) | **Dropped** (SD-10). Multi-team is the shared Python N-team engine. |
+| §2.10 B2 adapter (`_engine_analyze`, `_engine_resolve`, `_player_row_for`, `validate_trade`, private `roster_freshness`) | **Deleted.** Ledger + engine owners above; the ONE roster-freshness reader is `src/api/roster_freshness.py`. |
+| §3 category mapping in the PUBLIC path | **Removed from the public path.** The 5-level category is private only (`team_verdicts.team_category`); the PUBLIC section of `trade_decision.py` (public categories, ACCEPT/DECLINE copy, net-band mapping, public reason codes) is deleted. |
+| §4 contract (category / recommendation / headline; `value_desc` / `value_asc` / `alpha`; `multiTeam`; `multi_team_unsupported`, `roster_limit`) | **Replaced** by spec §4: `overall` + `teams[]` + `trade[]`, `fairnessVersion`, `snapshotChanged`; one asset order `position_alpha` (side → position → label → id; picks by season / round / origin) — never value-ordered (privacy M2, SD-8); `multiTeam`, the value sorts and both retired reasons are gone. |
+| §0 "Players are value-sorted on the server" | **Superseded** (privacy M2). |
+| §2.11 response floor on success only | The floor applies in `finally` to every analyze outcome after the limiter charge (200 / 400 / 409 / 413 / 415 / 429 / 503); the limiter is charged before the body is read; a per-`teamCount` floor table is accepted. |
+| §2.11 launch gate = floor only | Launch gate (spec §6.3): flag + measured `responseFloorMs` + `approvedFairnessVersion` equal to the band receipt and not PROVISIONAL + `approvedSourcePermissionRecord` naming an existing file + geom package model. Every route answers 503 `advisor_unavailable` / `not_ready` until all hold. |
+| GET caching `public, max-age=60` | Every response `no-store` (spec §4). |
+| Errors | Ledger reason codes and fixed copy (spec §4.4 / §4.5); `unknown_team` in a trade body is now `team_not_in_league`; the 409 never names the actual owner. |
+
+**Owner decisions.**
+
+- **OD-1 — RESOLVED (2026-10-20): YES**, genuine multi-team evaluation, now
+  fairness-only for the public product. Implemented for 2-4 teams; the public
+  ceiling is `limits.maxTeams` (config), capped at the league's team count.
+- **OD-F1..OD-F6 (fairness threshold) — OPEN, BLOCKING LAUNCH.** The band is
+  used unchanged (`fairness_bands_v1`, PROVISIONAL); the launch gate refuses
+  until the owner approves a non-provisional version.
+- **OD-3 (source permission) — OPEN, BLOCKING LAUNCH**, recorded through
+  `approvedSourcePermissionRecord`.
+- **OD-4 (posture exposure) — MOOT for the public path**: posture is not an
+  input of the public answer (Team Context off; pinned by an invariance test).
+- **OD-8** — extend to the public `send_and_receive` rule (a "many to one"
+  shape where a team only receives is refused publicly — an availability
+  difference excluded from parity, not a different conclusion).
+- The response floor is still unmeasured (`responseFloorMs: null`); measure it
+  locally from the `market_fairness` worst-case p99, never against production.
+
+**Rollback.** `RISKIT_FEATURE_BRISKET_TRADE_ADVISOR=0` (the default) + restart
+disables only the public tool; the private calculator, the private multi-team
+route and valuation are untouched.
 
 ---
 
@@ -461,6 +545,8 @@ Add `pick_value_resolution.stamp_owned_pick_rows(sleeper_block, rows_by_name, cu
 
 ### 2.9 B1: `src/valuation_math/multi_side.py` (built, switched off)
 
+> **DROPPED (Part 0, SD-10).**
+
 ```python
 @dataclass(frozen=True)
 class SideFlow: given: float; received: float; net: float; adjustment: float
@@ -483,6 +569,8 @@ def side_band(flows, index) -> dict     # fairness_bands.classify(flows[i].net, 
 - Update the "3+-team" `intentionalDifferences` entry.
 
 ### 2.10 B2: `src/trade/public_advisor.py`
+
+> **SUPERSEDED by Part 0 — the adapter below was deleted; the module is now the fairness reduction.**
 
 Pure; imports no FastAPI.
 
@@ -604,6 +692,8 @@ def _evaluate_trade_internal(...) -> tuple[AdvisorResult, Mapping]   # tests onl
 
 ## 3. Category mapping (exact; no new thresholds)
 
+> **PRIVATE ONLY since the fairness-only amendment (Part 0); the public path no longer uses it.**
+
 **Two teams** (`public_category_from_decision`); `A = decision.components.objectiveValue`:
 
 | Condition | Category |
@@ -661,6 +751,8 @@ The collapse in the last row hides which teams are classified as rebuilders and 
 ---
 
 ## 4. Public API contract (frozen)
+
+> **SUPERSEDED by `docs/trade/NTEAM_TRADE_ENGINE_SPEC.md` §4 (Part 0).**
 
 **Common to every endpoint:**
 - Optional `leagueKey` query parameter (string, validated by the existing helper).
@@ -1166,7 +1258,7 @@ Report MERGED / DEPLOYED / VERIFIED separately.
 
 ### Owner decisions
 
-**OD-1 — 3–4-team recommendations.**
+**OD-1 — 3–4-team recommendations.** *RESOLVED 2026-10-20: YES (fairness-only publicly) — see Part 0.*
 - Decision 10 / D10 (`EXECUTION_PLAN.md:80`) against the directive's "existing multi-team engine".
 - **Default OFF** (`multi_team_unsupported`).
 - Switching on also requires OD-5 and A4 green (A4 depends on F0).

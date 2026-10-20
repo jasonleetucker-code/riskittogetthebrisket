@@ -1,0 +1,8 @@
+{
+  "error": "invalid_trade",
+  "message": "The selected team must be part of the trade.",
+  "reason": "perspective_not_in_trade",
+  "rosterIds": [
+    3
+  ]
+}

@@ -93,9 +93,10 @@ def test_the_owner_is_pure():
             imported.add(n.module or "")
     # Pure stdlib (hashing / serialising its own receipt) + the valuation-math
     # owners.  No I/O, engine, store or network module.
-    # ``src.trade.team_verdicts`` is reached only by the one-line
-    # ``public_category_from_decision`` alias (N-team spec A1 moved the body
-    # there); it is itself pure — pinned below.
+    # ``src.trade.team_verdicts`` (the per-team projections) stays allowed
+    # but is no longer imported here: the public alias that reached it was
+    # deleted with the PUBLIC section (fairness-only amendment, Lane C).  It
+    # is itself pure — pinned below.
     assert imported <= {
         "__future__",
         "typing",

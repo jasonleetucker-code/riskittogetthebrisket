@@ -55,8 +55,9 @@ def _decision(headline, *, deciding="objectiveValue", direction=None, magnitude=
 def test_category_table(decision, category, text):
     assert tv.team_category(decision) == category
     assert tv.team_category_text(decision) == text
-    # The PUBLIC-section alias is the same function (A1 moved the body).
-    assert td.public_category_from_decision(decision) == category
+    # The PUBLIC-section alias is gone with the whole public section (Lane C,
+    # fairness-only amendment): the category is private and has one owner.
+    assert not hasattr(td, "public_category_from_decision")
 
 
 def test_category_reason_only_for_the_execution_gate():

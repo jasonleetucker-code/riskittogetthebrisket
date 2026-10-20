@@ -1,28 +1,35 @@
-"""Brisket Trade Advisor ⇄ private engine parity on a REAL board (group A).
+"""Brisket Trade Advisor ⇄ private engine parity on a REAL archived board.
 
-Same comparison as ``test_public_advisor_parity.py``, on the newest complete
-archived scrape: IDP families (DL / LB / DB), owned picks in the baked label
-grammar with canonical asset ids, a top offensive swap.  The private side is
-the exact composition ``/api/trade/analyze`` runs (Team Context on, posture
-built if missing, names + ``pickAssetIds``); the posture seam is fixed so both
-paths read identical inputs.
+Same claim as ``test_public_advisor_parity.py`` (spec I11), on the newest
+complete archived scrape: real rosters, IDP families, owned picks with
+canonical asset ids, and 2-, 3- and 4-team trades built from them.  For every
+trade and every participating team:
+
+* the public per-team result == ``analyze_trade_n``'s ``fairness.state`` in
+  ``team_context`` mode (posture seam fixed) AND in ``asset_only`` mode;
+* the public overall == the private ``summary.fairnessOverall``.
+
+The archive predates the scraper's roster-source stamp, so the contract is
+stamped live here (otherwise every team is correctly UNABLE, SD-7).
 """
 
 from __future__ import annotations
 
 import copy
+import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from src.trade import public_advisor
-from src.trade import trade_decision as td
+from src.trade import analyze_service, public_advisor, trade_ledger
 from tests.api import trade_advisor_support as S
 
-COMPARED = ("headline", "leaning", "deciding", "components", "confidence", "primaryReason")
+_PUBLIC = {"FAIR": "FAIR", "NOT_FAIR": "NOT_FAIR", "UNABLE": "UNABLE_TO_DETERMINE"}
+LEAGUE = "dynasty_main"
 
 
 @pytest.fixture(scope="module")
-def archive_contract():
+def archive():
     from src.api.data_contract import build_api_data_contract
     from tests.archive_fixtures import newest_complete_raw_payload
 
@@ -30,117 +37,129 @@ def archive_contract():
     if payload is None:
         pytest.skip("no complete archived scrape")
     contract = build_api_data_contract(copy.deepcopy(payload))
-    contract.setdefault("meta", {})["leagueKey"] = "dynasty_main"
-    return contract
+    contract.setdefault("meta", {})["leagueKey"] = LEAGUE
+    contract["sleeper"]["rosterSource"] = "live"
+    contract["sleeper"]["rosterFetchedAt"] = (
+        datetime.now(timezone.utc) - timedelta(hours=1)
+    ).isoformat()
+    reg = json.loads((S.REPO / "config" / "leagues" / "registry.json").read_text())
+    entry = next(lg for lg in reg["leagues"] if lg["key"] == LEAGUE)
+    settings = entry.get("rosterSettings") or {}
+    trade_ledger.clear_snapshot_memo()
+    snap = trade_ledger.snapshot_for(contract, league_key=LEAGUE, roster_settings=settings)
+    return contract, snap
 
 
-def _archive_trades(contract):
-    """A handful of real 2-team shapes: top offense swap, IDP per family,
-    owned picks both ways."""
+def _real_trades(contract):
     teams = [t for t in contract["sleeper"]["teams"] if t.get("playerIds")]
-    a, b = teams[0], teams[1]
+    teams.sort(key=lambda t: int(t["roster_id"]))
     rows = {str(r.get("playerId")): r for r in contract["playersArray"] if r.get("playerId")}
 
-    def best(team, pred):
+    def pick_player(team, positions, rank=0):
         cands = [
             rows[p]
             for p in team["playerIds"]
-            if p in rows and pred(rows[p]) and (rows[p].get("rankDerivedValue") or 0) > 0
+            if p in rows
+            and rows[p].get("position") in positions
+            and (rows[p].get("rankDerivedValue") or 0) > 0
         ]
-        cands.sort(key=lambda r: -(r.get("rankDerivedValue") or 0))
-        return f"p:{cands[0]['playerId']}" if cands else None
+        cands.sort(key=lambda r: (-(r.get("rankDerivedValue") or 0), str(r.get("playerId"))))
+        return f"p:{cands[rank]['playerId']}" if len(cands) > rank else None
 
-    ra, rb = a["roster_id"], b["roster_id"]
+    def pick(team):
+        return next((d["assetId"] for d in team.get("pickDetails") or [] if d.get("assetId")), None)
+
+    off = ("QB", "RB", "WR", "TE")
+    a, b, c, d = (teams[i] for i in range(4))
+    ra, rb, rc, rd = (int(t["roster_id"]) for t in (a, b, c, d))
     out = []
-    off = lambda r: r.get("position") in ("QB", "RB", "WR", "TE")  # noqa: E731
-    for fam in ("DL", "LB", "DB"):
-        pa, pb = (
-            best(a, lambda r, f=fam: r.get("position") == f),
-            best(b, lambda r, f=fam: r.get("position") == f),
+    out.append(
+        (
+            "2: offense swap",
+            (ra, rb),
+            [(pick_player(a, off), ra, rb), (pick_player(b, off), rb, ra)],
         )
-        if pa and pb:
-            out.append((f"IDP {fam}", ra, rb, [(pa, ra, rb), (pb, rb, ra)]))
-    oa, ob = best(a, off), best(b, off)
-    out.append(("offense", ra, rb, [(oa, ra, rb), (ob, rb, ra)]))
-    pick_a = next((d["assetId"] for d in a.get("pickDetails") or [] if d.get("assetId")), None)
-    if pick_a:
-        out.append(("pick for player", ra, rb, [(pick_a, ra, rb), (ob, rb, ra)]))
-    return out
+    )
+    for fam in ("DL", "LB", "DB"):
+        out.append(
+            (
+                f"2: IDP {fam}",
+                (ra, rb),
+                [(pick_player(a, (fam,)), ra, rb), (pick_player(b, (fam,)), rb, ra)],
+            )
+        )
+    out.append(
+        (
+            "2: pick for player",
+            (ra, rb),
+            [(pick(a), ra, rb), (pick_player(b, off, 3), rb, ra)],
+        )
+    )
+    out.append(
+        (
+            "3: circular offense",
+            (ra, rb, rc),
+            [
+                (pick_player(a, off, 2), ra, rb),
+                (pick_player(b, off, 2), rb, rc),
+                (pick_player(c, off, 2), rc, ra),
+            ],
+        )
+    )
+    out.append(
+        (
+            "3: players and picks, one-to-many",
+            (ra, rb, rc),
+            [
+                (pick_player(a, off, 1), ra, rb),
+                (pick_player(a, ("LB",), 1), ra, rc),
+                (pick(b), rb, ra),
+                (pick_player(c, off, 4), rc, ra),
+            ],
+        )
+    )
+    out.append(
+        (
+            "4: circular mixed",
+            (ra, rb, rc, rd),
+            [
+                (pick_player(a, off, 5), ra, rb),
+                (pick_player(b, ("DL",), 0), rb, rc),
+                (pick(c), rc, rd),
+                (pick_player(d, off, 5), rd, ra),
+            ],
+        )
+    )
+    return [(n, t, legs) for n, t, legs in out if all(leg[0] for leg in legs)]
 
 
-def test_archive_board_parity(archive_contract, monkeypatch):
-    import json
-    from types import SimpleNamespace
-
+def test_archive_public_fairness_equals_the_private_engine(archive, monkeypatch):
     from src.api import trade_simulator
-    from src.trade.analyze_trade import analyze_trade
 
+    contract, snap = archive
     monkeypatch.setattr(
         trade_simulator,
-        "competitive_posture_for",
-        lambda contract, league_key, team, *, build_if_missing: dict(S.POSTURE),
+        "league_posture_bundle",
+        lambda *_a, **_k: ({}, {}, {"available": False, "unavailableReason": "test"}),
     )
-    # The suite runs with no registry (conftest); read the committed league
-    # config directly so both paths get the real roster settings.
-    reg = json.loads((S.REPO / "config" / "leagues" / "registry.json").read_text())
-    entry = next(lg for lg in reg["leagues"] if lg["key"] == "dynasty_main")
-    cfg = SimpleNamespace(roster_settings=entry.get("rosterSettings") or {})
-    snap = public_advisor.build_snapshot(
-        archive_contract, league_key="dynasty_main", roster_settings=cfg.roster_settings
-    )
-    teams = {t["roster_id"]: t for t in archive_contract["sleeper"]["teams"]}
-    rows = {
-        str(r.get("playerId")): r for r in archive_contract["playersArray"] if r.get("playerId")
-    }
-    details = {d["assetId"]: d for t in teams.values() for d in (t.get("pickDetails") or [])}
-    checked = 0
-    for name, ra, rb, legs in _archive_trades(archive_contract):
-        for perspective in (ra, rb):
-            trade = public_advisor.validate_trade(
-                snap, perspective=perspective, teams=[ra, rb], legs=legs
+    policy = public_advisor.public_policy(max_teams=4, max_legs=128)
+    trades = _real_trades(contract)
+    assert {len(t) for _n, t, _l in trades} == {2, 3, 4}
+    results = set()
+    for name, teams, legs in trades:
+        ledger = public_advisor.validate(
+            snap, perspective=teams[0], teams=list(teams), legs=legs, policy=policy
+        )
+        public = public_advisor.evaluate(snap, ledger)
+        for mode in ("team_context", "asset_only"):
+            private = analyze_service.analyze_trade_n(
+                snap, ledger, mode=mode, counterfactuals=False
             )
-            result, internals = public_advisor._evaluate_trade_internal(snap, trade)
-            if "analysis" not in internals:
-                assert result.category == "UNAVAILABLE"
-                continue
-            # The private route's exact composition.
-            body = {
-                "playersIn": [],
-                "playersOut": [],
-                "picksIn": [],
-                "picksOut": [],
-                "idsIn": [],
-                "idsOut": [],
-            }
-            for aid, _f, to in legs:
-                inc = to == perspective
-                if aid.startswith("p:"):
-                    body["playersIn" if inc else "playersOut"].append(rows[aid[2:]]["displayName"])
-                else:
-                    body["picksIn" if inc else "picksOut"].append(details[aid]["label"])
-                    body["idsIn" if inc else "idsOut"].append(aid)
-            team = teams[perspective]
-            sim = trade_simulator.simulate_trade(
-                archive_contract,
-                resolved_team=team,
-                players_in=body["playersIn"],
-                players_out=body["playersOut"],
-                picks_in=body["picksIn"],
-                picks_out=body["picksOut"],
-                pick_asset_ids_in=body["idsIn"],
-                pick_asset_ids_out=body["idsOut"],
-                roster_settings=dict(cfg.roster_settings or {}),
-                league_key="dynasty_main",
-                include_roster_utility=True,
-                competitive_posture=trade_simulator.competitive_posture_for(
-                    archive_contract, "dynasty_main", team, build_if_missing=True
-                ),
-            )
-            sim["teamContext"] = {"applied": True, "mode": "team"}
-            private = analyze_trade(sim, comparables={"state": "unavailable"})["decision"]
-            public = internals["analysis"]["decision"]
-            for key in COMPARED:
-                assert public[key] == private[key], (name, perspective, key)
-            assert result.category == td.public_category_from_decision(private)
-            checked += 1
-    assert checked >= 4
+            for row in public.teams:
+                state = private["teams"][row.roster_id]["fairness"]["state"]
+                assert row.result == _PUBLIC[state], (name, mode, row.roster_id)
+            overall = private["summary"]["fairnessOverall"]["state"]
+            assert public.overall.result == _PUBLIC[overall], (name, mode)
+        results |= {t.result for t in public.teams}
+    # A real board decides real trades: not everything is UNABLE.
+    assert results & {"FAIR", "NOT_FAIR"}, results
