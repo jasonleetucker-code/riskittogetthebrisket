@@ -225,3 +225,28 @@ def test_live_rosters_without_a_stated_age_are_aged_by_their_own_stamp():
         },
     }
     assert roster_freshness(fetched)[0] == "stale"
+
+
+def test_restored_rosters_are_dated_by_their_snapshot_not_the_build():
+    """A contract built on 2026-10-19 around rosters restored from a snapshot
+    30 hours old must say the rosters are from 2026-10-18 — the build date
+    would present stale rosters as fresher than they are."""
+    from src.trade.public_advisor import roster_freshness
+
+    restored = {
+        "scrapeTimestamp": "2026-10-19T11:58:00+00:00",
+        "sleeper": {"rosterSource": "last_good", "rosterSnapshotAgeHours": 30.0},
+    }
+    assert roster_freshness(restored) == ("stale", "2026-10-18")
+    # No stated age: still stale, but the date is unprovable -> null, never
+    # the build date.
+    unaged = {
+        "scrapeTimestamp": "2026-10-19T11:58:00+00:00",
+        "sleeper": {"rosterSource": "last_good"},
+    }
+    assert roster_freshness(unaged) == ("stale", None)
+    fetched = {
+        "scrapeTimestamp": "2026-10-19T11:58:00+00:00",
+        "sleeper": {"rosterSource": "last_good", "rosterFetchedAt": "2026-10-17T23:00:00Z"},
+    }
+    assert roster_freshness(fetched) == ("stale", "2026-10-17")

@@ -58,7 +58,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Mapping
 
 from src.identity.picks import (
@@ -326,8 +326,8 @@ def _row_player_id(row: Mapping[str, Any]) -> str:
     return str(row.get("playerId") or row.get("_sleeperId") or "").strip()
 
 
-def _hours_since(stamp: Any) -> float | None:
-    """Hours from an ISO-8601 stamp to now (UTC); ``None`` when unparseable."""
+def _parse_stamp(stamp: Any) -> datetime | None:
+    """An ISO-8601 stamp as an aware UTC datetime; ``None`` when unparseable."""
     if not isinstance(stamp, str) or not stamp:
         return None
     try:
@@ -336,7 +336,29 @@ def _hours_since(stamp: Any) -> float | None:
         return None
     if when.tzinfo is None:
         when = when.replace(tzinfo=timezone.utc)
+    return when.astimezone(timezone.utc)
+
+
+def _hours_since(stamp: Any) -> float | None:
+    """Hours from an ISO-8601 stamp to now (UTC); ``None`` when unparseable."""
+    when = _parse_stamp(stamp)
+    if when is None:
+        return None
     return (datetime.now(timezone.utc) - when).total_seconds() / 3600.0
+
+
+def _roster_as_of(sleeper: Mapping[str, Any], stamp: str, age: Any) -> str | None:
+    """The date the ROSTERS were observed — never the build date of a
+    contract that restored older rosters (a stale snapshot must not read as
+    fresher than it is).  ``rosterFetchedAt`` when stated, else the build
+    stamp minus the stated snapshot age, else ``None``."""
+    fetched = _parse_stamp(sleeper.get("rosterFetchedAt"))
+    if fetched is not None:
+        return fetched.date().isoformat()
+    built = _parse_stamp(stamp)
+    if built is None or not isinstance(age, (int, float)) or isinstance(age, bool) or age < 0:
+        return None
+    return (built - timedelta(hours=float(age))).date().isoformat()
 
 
 def roster_freshness(contract: Mapping[str, Any]) -> tuple[str, str | None]:
@@ -356,7 +378,6 @@ def roster_freshness(contract: Mapping[str, Any]) -> tuple[str, str | None]:
     source = sleeper.get("rosterSource")
     age = sleeper.get("rosterSnapshotAgeHours")
     stamp = str(contract.get("scrapeTimestamp") or contract.get("generatedAt") or "")
-    as_of = stamp[:10] if len(stamp) >= 10 and stamp[4] == "-" else None
     if source == "live":
         if not (isinstance(age, (int, float)) and not isinstance(age, bool)):
             # No stated age: measure it from the roster fetch (B0-f) or the
@@ -365,9 +386,15 @@ def roster_freshness(contract: Mapping[str, Any]) -> tuple[str, str | None]:
             age = _hours_since(sleeper.get("rosterFetchedAt") or stamp)
             if age is None:
                 return "unknown", None
-        return ("current" if age <= _ROSTER_MAX_AGE_HOURS else "stale"), as_of
+            # Aged from the stamp itself: the stamp's date is the roster date.
+            return ("current" if age <= _ROSTER_MAX_AGE_HOURS else "stale"), _roster_as_of(
+                sleeper, stamp, 0
+            )
+        return ("current" if age <= _ROSTER_MAX_AGE_HOURS else "stale"), _roster_as_of(
+            sleeper, stamp, age
+        )
     if source == "last_good":
-        return "stale", as_of
+        return "stale", _roster_as_of(sleeper, stamp, age)
     return "unknown", None
 
 
