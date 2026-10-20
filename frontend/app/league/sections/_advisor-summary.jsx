@@ -1,60 +1,65 @@
 "use client";
 
-// The consolidated trade summary (directive Phase 4: "the user should never
-// have to guess which players they are sending or receiving").  Two teams
-// read as You send / You receive; 3-4 teams list what every team sends and
-// receives, with destinations.  Labels only — no values.
+// The consolidated trade summary (directive §12: make clear who sends, who
+// receives and the full structure).  The same team-by-team layout for any
+// team count: every team's sends with their destination (→) and receives
+// with their origin (←).  Text arrows, so no SVG is needed on a phone.
+// Labels only — no values.
 
 import { tradeSummary } from "@/lib/trade-advisor";
 import styles from "./trade-advisor.module.css";
 
-function Names({ items, empty = "Nothing yet" }) {
+function Items({ items, empty = "Nothing yet" }) {
   if (!items.length) return <p className={`${styles.summaryList} ${styles.summaryNone}`}>{empty}</p>;
   return (
     <ul className={styles.summaryList}>
-      {items.map((text, i) => (
-        <li key={`${text}-${i}`}>{text}</li>
+      {items.map((it) => (
+        <li key={it.key}>
+          {it.label} <span className={styles.summaryRoute}>{it.route}</span>
+        </li>
       ))}
     </ul>
   );
 }
 
-export function AdvisorSummary({ state, teams, youLabel = "You" }) {
-  const summary = tradeSummary(state, teams);
-  const plural = youLabel === "You";
-  if (state.teamCount === 2) {
-    return (
-      <div className={styles.summary} data-testid="advisor-summary">
+/** One team's block; also used by the result's per-team panel. */
+export function TeamFlows({ team, headingLevel = 3, showName = true }) {
+  const H = `h${headingLevel}`;
+  const S = `h${Math.min(6, headingLevel + 1)}`;
+  return (
+    <div className={styles.summaryTeam} data-testid={`advisor-flows-${team.rosterId}`}>
+      {showName ? (
+        <H className={styles.summaryTeamName}>
+          {team.name}
+          {team.isYou ? " (your team)" : ""}
+        </H>
+      ) : null}
+      <div className={styles.summaryGrid}>
         <div className={styles.summaryCol}>
-          <h3 className={styles.summaryHead}>{youLabel} {plural ? "send" : "sends"}</h3>
-          <Names items={summary.youSend} />
+          <S className={styles.summaryHead}>Sends</S>
+          <Items
+            items={team.sends.map((s) => ({
+              key: s.id,
+              label: s.label,
+              route: `→ ${s.toName || "choose a team"}`,
+            }))}
+          />
         </div>
         <div className={styles.summaryCol}>
-          <h3 className={styles.summaryHead}>{youLabel} {plural ? "receive" : "receives"}</h3>
-          <Names items={summary.youReceive} />
+          <S className={styles.summaryHead}>Receives</S>
+          <Items items={team.receives.map((r) => ({ key: r.id, label: r.label, route: `← ${r.fromName}` }))} />
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+export function AdvisorSummary({ state, teams }) {
+  const summary = tradeSummary(state, teams);
   return (
-    <div data-testid="advisor-summary">
+    <div className={styles.summaryTeams} data-testid="advisor-summary" data-count={summary.teams.length}>
       {summary.teams.map((t) => (
-        <div key={t.rosterId} className={styles.summaryTeam}>
-          <h3 className={styles.summaryTeamName}>
-            {t.name}
-            {t.isYou ? " (your team)" : ""}
-          </h3>
-          <div className={styles.summaryGrid}>
-            <div className={styles.summaryCol}>
-              <h4 className={styles.summaryHead}>Sends</h4>
-              <Names items={t.sends.map((s) => `${s.label} → ${s.toName || "choose a team"}`)} />
-            </div>
-            <div className={styles.summaryCol}>
-              <h4 className={styles.summaryHead}>Receives</h4>
-              <Names items={t.receives.map((r) => `${r.label} ← ${r.fromName}`)} />
-            </div>
-          </div>
-        </div>
+        <TeamFlows key={t.rosterId} team={t} />
       ))}
     </div>
   );

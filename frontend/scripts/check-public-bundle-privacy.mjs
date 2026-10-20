@@ -40,7 +40,7 @@ const LAZY_MARKERS = [
 // located from Next's react-loadable-manifest (exactly the files that
 // import pulls in, dependencies included) AND by this marker; both must
 // agree, and every file found either way is privacy-checked.
-const SHELL_MARKER = "Which team are you evaluating for?";
+const SHELL_MARKER = "Which team is yours?";
 const SHELL_IMPORT = "./sections/trade-advisor-shell.jsx";
 const LOADABLE_MANIFEST = path.join(ROOT, ".next", "react-loadable-manifest.json");
 // The /league page chunk(s): with the team step split out, they must carry
@@ -53,9 +53,37 @@ const FORBIDDEN = [
   "/api/trade/",
   "useDynastyData",
   'credentials:"include"',
-  "credentials: \"include\"",
+  'credentials: "include"',
   "rankDerivedValue",
 ];
+
+// Private MODULES that must never be bundled into a public advisor chunk
+// (spec §4.6 item 6).  Located by a string literal each module carries that
+// survives minification — module paths do not survive a production build.
+const FORBIDDEN_MODULES = [
+  ["lib/trade-logic.js (workspace storage key)", "next_trade_workspace_v1"],
+  ["package-model code (geom_q078_v1)", "geom_q078_v1"],
+  ["lib/fairness-bands.js", "fairness_bands_v1"],
+  ["lib/dynasty-data.js (curve scopes)", "overall_offense"],
+  ["lib/edge-helpers.js", "Consensus asset"],
+  ["lib/trade-war-room.js / trade-war-room-copy.js", "Too close / depends"],
+  ["frontend/__tests__/fixtures/trade-multi (private engine output)", "decisionRunIds"],
+];
+
+// Public copy rule (spec §4.4): the advisor never tells anyone to accept,
+// decline, approve or deny a trade and gives no advice or personalization.
+// Scanned over the STRING LITERALS of every advisor chunk (identifiers are
+// minified and not copy).  The product name "Brisket Trade Advisor" is out
+// of scope (spec §10).
+const FORBIDDEN_WORDS =
+  /\b(accept|decline|approve|deny|reject|should|recommend\w*|advice|favorable|unfavorable|win|lose|smash|fleece|your roster|your lineup)\b/i;
+function stringLiterals(src) {
+  const out = [];
+  const re = /"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'|`((?:[^`\\]|\\.)*)`/g;
+  let m;
+  while ((m = re.exec(src))) out.push(m[1] ?? m[2] ?? m[3] ?? "");
+  return out;
+}
 
 // Gzipped total of the team step's own chunks (JS from the manifest).
 // It used to count against the /league page budget (50 KB raw); split
@@ -94,7 +122,9 @@ if (!fs.existsSync(LOADABLE_MANIFEST)) {
   const entries = Object.entries(manifest).filter(([key]) => key.endsWith(`-> ${SHELL_IMPORT}`));
   if (entries.length === 0) failures.push(`react-loadable-manifest has no entry for ${SHELL_IMPORT}`);
   const rel = new Set(entries.flatMap(([, v]) => v.files || []).filter((f) => f.endsWith(".js")));
-  manifestShell = files.filter((f) => rel.has(path.relative(path.join(ROOT, ".next"), f.file).split(path.sep).join("/")));
+  manifestShell = files.filter((f) =>
+    rel.has(path.relative(path.join(ROOT, ".next"), f.file).split(path.sep).join("/")),
+  );
   if (rel.size !== manifestShell.length) failures.push("a team-step chunk named by the manifest is missing on disk");
 }
 // (b) the marker: any chunk carrying the team step's copy.
@@ -108,7 +138,8 @@ const shell = [...new Set([...manifestShell, ...markerShell])];
 // Flag off = main: the /league page chunk carries no advisor code.
 for (const f of files.filter((x) => LEAGUE_PAGE_CHUNK.test(path.relative(CHUNKS, x.file)))) {
   for (const m of [SHELL_MARKER, ...LAZY_MARKERS]) {
-    if (f.src.includes(m)) failures.push(`${path.relative(ROOT, f.file)} (the /league page chunk) contains advisor code (${m})`);
+    if (f.src.includes(m))
+      failures.push(`${path.relative(ROOT, f.file)} (the /league page chunk) contains advisor code (${m})`);
   }
 }
 
@@ -121,9 +152,25 @@ if (foundMarkers.length !== LAZY_MARKERS.length) {
 }
 if (shell.length === 0) failures.push("could not locate the advisor team step in any chunk");
 
+// Chunks shared with the rest of the app (React, the ds primitives) carry
+// framework strings that are not advisor copy; the word scan reads only
+// chunks that are advisor-owned (they carry an advisor marker).
+const ADVISOR_OWNED = (f) => [SHELL_MARKER, ...LAZY_MARKERS].some((m) => f.src.includes(m));
 for (const f of [...lazy, ...shell]) {
   for (const marker of FORBIDDEN) {
     if (f.src.includes(marker)) failures.push(`${path.relative(ROOT, f.file)} contains ${marker}`);
+  }
+  for (const [name, marker] of FORBIDDEN_MODULES) {
+    if (f.src.includes(marker)) failures.push(`${path.relative(ROOT, f.file)} bundles ${name}`);
+  }
+  if (ADVISOR_OWNED(f)) {
+    const words = new Set();
+    for (const lit of stringLiterals(f.src)) {
+      if (lit.includes("Brisket Trade Advisor")) continue;
+      const hit = lit.match(FORBIDDEN_WORDS);
+      if (hit) words.add(`${hit[0]} (in "${lit.slice(0, 60)}")`);
+    }
+    for (const w of words) failures.push(`${path.relative(ROOT, f.file)} public copy uses a forbidden word: ${w}`);
   }
   if (fs.existsSync(`${f.file}.map`)) failures.push(`${path.relative(ROOT, f.file)} ships a source map`);
 }

@@ -181,7 +181,7 @@ describe("advisor flag ON — the new hub routing", () => {
   it("server-renders the advisor landing, advisor tab first, Overview labelled 'Overview'", async () => {
     const html = await ssr(<LeagueClient initialContract={contract} initialAdvisor={READY} />);
     expect(html).toContain("Brisket Trade Advisor");
-    expect(html).toContain("Which team are you evaluating for?");
+    expect(html).toContain("Which team is yours?");
     expect(html).toMatch(/role="tab"[^>]*>Trade Advisor</);
     expect(html).toMatch(/role="tab"[^>]*>Overview</);
     expect(html).not.toMatch(/role="tab"[^>]*>Home</);

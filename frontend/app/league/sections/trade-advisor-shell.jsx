@@ -12,7 +12,8 @@
 //
 // What this shell holds: the server-fetched team list (identities and
 // names only), the builder's reducer state (asset identities, labels,
-// roster ids, the result enum + fixed text) and the URL / session wiring.
+// roster ids, the fairness result enums + fixed text) and the URL / session
+// wiring.
 // It never holds a value, a rank or a score (design §8.6).  Isolation: no
 // import from the private trade, rankings or dynasty-data modules.
 //
@@ -93,7 +94,9 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
   const urlStep = searchParams.get("step");
 
   const [boot, setBoot] = useState(() =>
-    bootstrap && bootstrap.state === "ready" ? { status: "ready", data: bootstrap.data, at: Date.now() } : { status: "loading" },
+    bootstrap && bootstrap.state === "ready"
+      ? { status: "ready", data: bootstrap.data, at: Date.now() }
+      : { status: "loading" },
   );
   const [epoch, setEpoch] = useState(0);
   const [state, dispatch] = useReducer(advisorReducer, undefined, initialAdvisorState);
@@ -133,11 +136,17 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
   useEffect(() => {
     if (restoredRef.current || boot.status !== "ready") return;
     restoredRef.current = true;
-    const restored = restoreAdvisorState(readSession(), { urlTeam, teams: boot.data.teams });
+    const restored = restoreAdvisorState(readSession(), {
+      urlTeam,
+      teams: boot.data.teams,
+      maxTeams: boot.data.limits.maxTeams || MAX_TEAMS,
+    });
     lastResultRef.current = restored.result;
     // A saved result is shown again only for THIS trade on THIS board
     // generation (design §8.3: keyed by generation + trade hash).
-    const showResult = Boolean(restored.result) && urlStep === "result" &&
+    const showResult =
+      Boolean(restored.result) &&
+      urlStep === "result" &&
       restored.result.key === tradeKey(toAnalyzeRequest(restored)) &&
       restored.result.generation === boot.data.generation;
     if (!showResult) {
@@ -179,8 +188,11 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
       dispatch({ type: "EDIT" });
     } else if (urlStep === "result" && state.phase === "build") {
       const cached = lastResultRef.current;
-      if (cached && cached.key === tradeKey(toAnalyzeRequest(state)) &&
-          (boot.status !== "ready" || cached.generation === boot.data.generation)) {
+      if (
+        cached &&
+        cached.key === tradeKey(toAnalyzeRequest(state)) &&
+        (boot.status !== "ready" || cached.generation === boot.data.generation)
+      ) {
         dispatch({ type: "RESULT", result: cached });
       } else {
         navigate({ step: null });
@@ -229,7 +241,9 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [boot, refreshLists]);
 
-  const maxTeams = boot.status === "ready" ? Math.min(MAX_TEAMS, boot.data.limits.maxTeams || MAX_TEAMS) : MAX_TEAMS;
+  // The team cap is the server's (`limits.maxTeams`: public config ceiling,
+  // also capped at the league's team count), never a constant here.
+  const maxTeams = boot.status === "ready" ? boot.data.limits.maxTeams || MAX_TEAMS : MAX_TEAMS;
   const rosters = boot.status === "ready" ? boot.data.rosters : null;
 
   return (
@@ -247,7 +261,7 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
           <TeamCountControl
             value={state.teamCount}
             max={maxTeams}
-            onChange={(count) => dispatch({ type: "SET_TEAM_COUNT", count })}
+            onChange={(count) => dispatch({ type: "SET_TEAM_COUNT", count, max: maxTeams })}
           />
         </div>
       ) : null}
@@ -256,7 +270,7 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
         <div className={styles.stepHead}>
           <h2 className={styles.stepTitle} id="advisor-step-team">
             <span className={styles.stepEyebrow}>Step 1</span>
-            Which team are you evaluating for?
+            Which team is yours?
           </h2>
         </div>
         {boot.status === "ready" ? (
@@ -268,14 +282,21 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
               value={perspective}
               onChange={(rid) => dispatch({ type: "SET_SLOT", index: 0, rosterId: rid })}
               options={teamOptions(teams, state.slots, 0)}
-              hint="This sets whose side the analysis is from. It doesn't sign you in, and the advisor never changes a roster or sends an offer."
+              hint="Its result is shown first, and you can view every other team's result too. Choosing a team doesn't sign you in, and the advisor never changes a roster or sends an offer."
             />
           </div>
         ) : boot.status === "error" ? (
           <div role="alert" className={styles.analyzeRow}>
             <p className={styles.note}>{boot.error?.message || "The trade advisor couldn't load."}</p>
             <div className={styles.resultActions}>
-              <button type="button" className="ds-btn ds-btn--secondary" onClick={() => { setBoot({ status: "loading" }); loadTeams({ reload: true }).catch(() => {}); }}>
+              <button
+                type="button"
+                className="ds-btn ds-btn--secondary"
+                onClick={() => {
+                  setBoot({ status: "loading" });
+                  loadTeams({ reload: true }).catch(() => {});
+                }}
+              >
                 Try again
               </button>
               {onOpenOverview ? (
@@ -305,7 +326,6 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
             dispatch={dispatch}
             teams={teams}
             limits={boot.data.limits}
-            multiTeam={boot.data.multiTeam}
             epoch={epoch}
             perspectiveName={teamLabel(teams.find((t) => t.rosterId === perspective))}
             onResult={onResult}

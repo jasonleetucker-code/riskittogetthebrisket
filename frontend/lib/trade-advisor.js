@@ -3,45 +3,43 @@
 // What this module is: the reducer, selectors and request builder for the
 // public League Hub advisor.  What it is NOT: a valuation engine.  It holds
 // asset IDENTITIES (`p:<sleeperId>`, `pick:<leagueKey>:<season>:r<N>:o<rid>`),
-// display labels, roster ids and the server's recommendation enum + fixed
-// text.  It never holds, derives, sorts by or compares a value — the backend
-// orders asset lists and decides the recommendation (design §8.6).  Nothing
-// here may import the private trade or rankings modules.
+// display labels, roster ids and the server's fairness enums + fixed text
+// (FAIR / NOT_FAIR / UNABLE_TO_DETERMINE, per team and overall — owner
+// amendment 2026-10-20).  It never holds, derives, sorts by or compares a
+// value — the backend orders asset lists (value-free) and decides fairness
+// (spec §4, §5.2).  Nothing here may import the private trade or rankings
+// modules.
 //
 // Server-safe and dependency-free so the reducer can run in the /league page
 // chunk (the team step is server-rendered) and in Node tests.
 
 export const MIN_TEAMS = 2;
+// Fallback ceiling only.  The live cap is the teams endpoint's
+// `limits.maxTeams` (public config ceiling, also capped at the league's
+// team count) — callers pass it as `max`.
 export const MAX_TEAMS = 4;
-export const SLOT_NAMES = Object.freeze(["Your team", "Trade partner", "Team C", "Team D"]);
-export const SORTS = Object.freeze(["value_desc", "value_asc", "alpha"]);
-export const DEFAULT_SORT = "value_desc";
-export const SORT_LABELS = Object.freeze({
-  value_desc: "Highest value first",
-  value_asc: "Lowest value first",
-  alpha: "A to Z",
-});
-export const SESSION_KEY = "brisketAdvisor:v1";
+const SLOT_NAMES = Object.freeze(["Your team", "Trade partner"]);
+// The ONE public asset order (spec §4.2): side → position → name → id, picks
+// by season / round / origin.  It never depends on a value.
+export const ASSET_SORT = "position_alpha";
+export const SESSION_KEY = "brisketAdvisor:v2";
 
-// Categories the backend may answer with (design §3); anything else is
-// treated as UNAVAILABLE rather than guessed at.
-export const CATEGORIES = Object.freeze([
-  "STRONGLY_FAVORABLE",
-  "FAVORABLE",
-  "APPROXIMATELY_EVEN",
-  "UNFAVORABLE",
-  "STRONGLY_UNFAVORABLE",
-  "UNAVAILABLE",
-]);
-// Presentation tone only: the meaning travels in the server's own words
-// and an icon, never in colour alone (directive Phase 12).
-export const CATEGORY_TONE = Object.freeze({
-  STRONGLY_FAVORABLE: "positive",
-  FAVORABLE: "positive",
-  APPROXIMATELY_EVEN: "neutral",
-  UNFAVORABLE: "warning",
-  STRONGLY_UNFAVORABLE: "warning",
-  UNAVAILABLE: "neutral",
+// The public answer is fairness only (owner amendment 2026-10-20): three
+// results, per team and overall.  Anything else is not a result.
+export const RESULTS = Object.freeze(["FAIR", "NOT_FAIR", "UNABLE_TO_DETERMINE"]);
+// Presentation only.  The meaning travels in the server's own label and
+// text plus an icon, never in colour alone.
+export const RESULT_TONE = Object.freeze({
+  FAIR: "positive",
+  NOT_FAIR: "warning",
+  UNABLE_TO_DETERMINE: "neutral",
+});
+// Short form for the per-team tab badges; the full server label is shown
+// beside it in the panel.
+export const RESULT_SHORT = Object.freeze({
+  FAIR: "Fair",
+  NOT_FAIR: "Not fair",
+  UNABLE_TO_DETERMINE: "Unable to determine",
 });
 
 export function initialAdvisorState() {
@@ -51,16 +49,18 @@ export function initialAdvisorState() {
     slots: [null, null],
     legs: [], // {id, kind, label, from, to}
     result: null,
+    view: null, // the team whose result is shown (perspective switch)
     error: null,
     staleIds: [],
     notice: null,
   };
 }
 
-function clampCount(n) {
+function clampCount(n, max = MAX_TEAMS) {
   const count = Number(n);
+  const ceiling = Number.isInteger(max) && max >= MIN_TEAMS ? max : MAX_TEAMS;
   if (!Number.isInteger(count)) return MIN_TEAMS;
-  return Math.min(MAX_TEAMS, Math.max(MIN_TEAMS, count));
+  return Math.min(ceiling, Math.max(MIN_TEAMS, count));
 }
 
 function otherSlot(slots, from) {
@@ -97,10 +97,10 @@ function reconcileLegs(legs, slots) {
 }
 
 // Every edit made while a result is showing returns to the builder and
-// clears that result — a recommendation never sits beside a trade it was
-// not computed for.
+// clears that result — a result never sits beside a trade it was not
+// computed for.
 function edited(state, patch) {
-  return { ...state, ...patch, phase: "build", result: null, error: null };
+  return { ...state, ...patch, phase: "build", result: null, view: null, error: null };
 }
 
 export function advisorReducer(state, action) {
@@ -125,7 +125,7 @@ export function advisorReducer(state, action) {
       });
     }
     case "SET_TEAM_COUNT": {
-      const teamCount = clampCount(action.count);
+      const teamCount = clampCount(action.count, action.max);
       if (teamCount === state.teamCount) return state;
       const slots = state.slots.slice(0, teamCount);
       while (slots.length < teamCount) slots.push(null);
@@ -174,26 +174,53 @@ export function advisorReducer(state, action) {
     case "SUBMIT":
       return { ...state, phase: "submitting", error: null };
     case "RESULT":
-      return { ...state, phase: "result", result: action.result, error: null, staleIds: [] };
+      return {
+        ...state,
+        phase: "result",
+        result: action.result,
+        view: defaultView(action.result, state.slots),
+        error: null,
+        staleIds: [],
+      };
+    case "SET_VIEW": {
+      // Perspective switch: a different team's row of the SAME response.
+      // No request, no recomputation.
+      const rid = Number(action.rosterId);
+      if (!state.result || !state.result.teams.some((t) => t.rosterId === rid)) return state;
+      return rid === state.view ? state : { ...state, view: rid };
+    }
     case "FAIL": {
       const error = action.error || { kind: "unavailable" };
       const staleIds = error.kind === "stale" && Array.isArray(error.assetIds) ? error.assetIds.slice() : [];
-      return { ...state, phase: "build", result: null, error, staleIds };
+      return { ...state, phase: "build", result: null, view: null, error, staleIds };
     }
     case "EDIT":
-      return { ...state, phase: "build", result: null, error: null };
+      return { ...state, phase: "build", result: null, view: null, error: null };
     case "NEW_TRADE":
       // Keeps the teams, clears the assets.
-      return { ...state, phase: "build", legs: [], result: null, error: null, staleIds: [], notice: null };
+      return { ...state, phase: "build", legs: [], result: null, view: null, error: null, staleIds: [], notice: null };
     case "START_OVER":
       return initialAdvisorState();
     case "DISMISS_NOTICE":
       return { ...state, notice: null };
-    case "RESTORE":
-      return action.state ? { ...initialAdvisorState(), ...action.state, phase: action.state.result ? "result" : "build" } : state;
+    case "RESTORE": {
+      if (!action.state) return state;
+      const next = { ...initialAdvisorState(), ...action.state, phase: action.state.result ? "result" : "build" };
+      return { ...next, view: next.result ? defaultView(next.result, next.slots) : null };
+    }
     default:
       return state;
   }
+}
+
+// The result opens on the selected team ("your team"), falling back to the
+// response's own perspective echo, then its first team.
+function defaultView(result, slots) {
+  const ids = (result?.teams || []).map((t) => t.rosterId);
+  for (const rid of [slots?.[0], result?.perspectiveRosterId]) {
+    if (ids.includes(rid)) return rid;
+  }
+  return ids[0] ?? null;
 }
 
 // ── Selectors ──────────────────────────────────────────────────────────────
@@ -212,15 +239,24 @@ export function teamLabel(team) {
 }
 
 export function slotName(index) {
-  return SLOT_NAMES[index] || `Team ${index + 1}`;
+  // "Your team", "Trade partner", then Team C, Team D, … for any team count.
+  return SLOT_NAMES[index] || `Team ${String.fromCharCode(65 + index)}`;
 }
 
 /**
  * Client-side readiness, in the order the user should fix things.  These
- * mirror the server's validation (design §2.10 rule 8) so the Analyze button
- * is honest; the server enforces every rule independently.
+ * mirror the server's public validation (spec §4.5 "build-then-refuse") so
+ * Analyze stays disabled until the trade can actually be judged; the server
+ * still enforces every rule independently.
+ *
+ *   - every slot has a team;
+ *   - every team both SENDS and RECEIVES at least one asset (the public
+ *     `send_and_receive` rule, for any team count);
+ *   - every asset has a destination that is another team in the trade
+ *     (self-destinations are refused by the reducer);
+ *   - no more assets than `limits.maxLegs`.
  */
-export function tradeIssues(state, teams = []) {
+export function tradeIssues(state, teams = [], limits = null) {
   const byId = teamsById(teams);
   const issues = [];
   state.slots.forEach((rid, i) => {
@@ -233,6 +269,10 @@ export function tradeIssues(state, teams = []) {
     }
   });
   if (issues.length) return issues;
+  if (state.legs.length === 0) {
+    issues.push({ code: "empty_trade", message: "Add at least one player or pick to the trade." });
+    return issues;
+  }
   const sends = new Map(state.slots.map((rid) => [rid, 0]));
   const receives = new Map(state.slots.map((rid) => [rid, 0]));
   // Both maps start at a real count of 0 for every team in the trade; a
@@ -241,37 +281,44 @@ export function tradeIssues(state, teams = []) {
     if (sends.has(leg.from)) sends.set(leg.from, sends.get(leg.from) + 1);
     if (leg.to != null && receives.has(leg.to)) receives.set(leg.to, receives.get(leg.to) + 1);
   }
-  if (state.teamCount === 2) {
-    state.slots.forEach((rid, i) => {
-      if (!sends.get(rid)) {
-        issues.push({
-          code: "team_sends_nothing",
-          slot: i,
-          message: `${i === 0 ? "Your team" : teamLabel(byId.get(rid)) || slotName(i)} must send at least one player or pick.`,
-        });
-      }
-    });
-  } else {
-    state.slots.forEach((rid, i) => {
-      if (!sends.get(rid) && !receives.get(rid)) {
-        issues.push({
-          code: "idle_team",
-          slot: i,
-          message: `${teamLabel(byId.get(rid)) || slotName(i)} must send or receive at least one player or pick.`,
-        });
-      }
-    });
-  }
+  state.slots.forEach((rid, i) => {
+    const name = i === 0 ? "Your team" : teamLabel(byId.get(rid)) || slotName(i);
+    const s = sends.get(rid);
+    const r = receives.get(rid);
+    if (!s && !r) {
+      issues.push({
+        code: "idle_team",
+        slot: i,
+        message: `${name} must send and receive at least one player or pick.`,
+      });
+    } else if (!s) {
+      issues.push({
+        code: "team_sends_nothing",
+        slot: i,
+        message: `${name} must also send at least one player or pick.`,
+      });
+    } else if (!r) {
+      issues.push({
+        code: "team_receives_nothing",
+        slot: i,
+        message: `${name} must also receive at least one player or pick.`,
+      });
+    }
+  });
   for (const leg of state.legs) {
     if (leg.to == null) {
       issues.push({ code: "choose_destination", id: leg.id, message: `Choose where ${leg.label} goes.` });
     }
   }
+  const maxLegs = limits && Number.isInteger(limits.maxLegs) && limits.maxLegs > 0 ? limits.maxLegs : null;
+  if (maxLegs != null && state.legs.length > maxLegs) {
+    issues.push({ code: "too_many_assets", message: "This trade has too many assets." });
+  }
   return issues;
 }
 
-export function canAnalyze(state, teams) {
-  return state.phase !== "submitting" && tradeIssues(state, teams).length === 0;
+export function canAnalyze(state, teams, limits = null) {
+  return state.phase !== "submitting" && tradeIssues(state, teams, limits).length === 0;
 }
 
 /** The analyze body (frozen contract §4.3): identities and routing only. */
@@ -283,39 +330,50 @@ export function toAnalyzeRequest(state) {
   };
 }
 
-/** A stable key for "this exact trade" (cache of the last result). */
+/**
+ * A stable key for "this exact trade" (cache of the last result).  Order-
+ * and perspective-free, like the server's answer: the same teams and the
+ * same transfers are the same trade however they were entered.
+ */
 export function tradeKey(request) {
-  return JSON.stringify([request.perspectiveRosterId, request.teams, request.assets.map((a) => [a.id, a.from, a.to])]);
+  const teams = request.teams.slice().sort((a, b) => a - b);
+  const assets = request.assets
+    .map((a) => [a.id, a.from, a.to])
+    .sort((x, y) => (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0));
+  return JSON.stringify([teams, assets]);
 }
 
 /**
- * What each team sends and receives, in the order the legs were added.
- * Two-team trades read as "You send / You receive" from the perspective.
+ * What each team sends and receives, team by team in slot order ("your
+ * team" first), each asset in the order it was added.  Identities and
+ * labels only.
  */
 export function tradeSummary(state, teams = []) {
   const byId = teamsById(teams);
   const perspective = state.slots[0];
   const name = (rid) => teamLabel(byId.get(rid)) || (rid == null ? "" : `Team ${rid}`);
   return {
-    youSend: state.legs.filter((l) => l.from === perspective).map((l) => l.label),
-    youReceive: state.legs.filter((l) => l.to === perspective).map((l) => l.label),
     teams: state.slots
       .filter((rid) => rid != null)
       .map((rid) => ({
         rosterId: rid,
         name: name(rid),
         isYou: rid === perspective,
-        sends: state.legs.filter((l) => l.from === rid).map((l) => ({ label: l.label, to: l.to, toName: l.to == null ? null : name(l.to) })),
-        receives: state.legs.filter((l) => l.to === rid).map((l) => ({ label: l.label, from: l.from, fromName: name(l.from) })),
+        sends: state.legs
+          .filter((l) => l.from === rid)
+          .map((l) => ({ id: l.id, label: l.label, to: l.to, toName: l.to == null ? null : name(l.to) })),
+        receives: state.legs
+          .filter((l) => l.to === rid)
+          .map((l) => ({ id: l.id, label: l.label, from: l.from, fromName: name(l.from) })),
       })),
   };
 }
 
 // ── Asset filtering over the server's order ────────────────────────────────
 //
-// The backend returns an already-ordered list for the requested sort.  These
-// filters only REMOVE rows; they never reorder, so the server's order is
-// what the user sees.
+// The backend returns the list in its one value-free order (position, then
+// name; picks by year and round).  These filters only REMOVE rows; they
+// never reorder, so the server's order is what the user sees.
 
 export const ASSET_GROUPS = Object.freeze([
   { value: "all", label: "All" },
@@ -342,25 +400,65 @@ export function positionsPresent(assets, group = "all") {
 }
 
 export function filterAssets(assets, { group = "all", position = "", query = "" } = {}) {
-  const q = String(query || "").trim().toLowerCase();
+  const q = String(query || "")
+    .trim()
+    .toLowerCase();
   return (assets || []).filter((a) => {
     if (group !== "all" && a.side !== group) return false;
     if (position && a.position !== position) return false;
-    if (q && !String(a.label || "").toLowerCase().includes(q)) return false;
+    if (
+      q &&
+      !String(a.label || "")
+        .toLowerCase()
+        .includes(q)
+    )
+      return false;
     return true;
   });
 }
 
 // ── Session persistence (identities, labels, result enum + text only) ─────
 
-const RESULT_KEYS = ["category", "recommendation", "headline", "message", "reasonCode", "reasonText", "unavailableAssetIds", "generation", "key", "teamCount"];
+// A result is kept only in the allowlisted public shape: the result enums,
+// the server's fixed labels and text, roster ids and asset ids.
+function cleanResult(r) {
+  if (!r || typeof r !== "object" || !r.overall || !RESULTS.includes(r.overall.result) || !Array.isArray(r.teams)) {
+    return null;
+  }
+  const teams = r.teams.filter((t) => t && Number.isInteger(t.rosterId) && RESULTS.includes(t.result));
+  if (!teams.length) return null;
+  const text = (v) => (typeof v === "string" ? v : null);
+  return {
+    overall: {
+      result: r.overall.result,
+      label: text(r.overall.label) || "",
+      reasonCode: text(r.overall.reasonCode),
+      reasonText: text(r.overall.reasonText),
+      note: text(r.overall.note),
+    },
+    teams: teams.map((t) => ({
+      rosterId: t.rosterId,
+      result: t.result,
+      label: text(t.label) || "",
+      reasonCode: text(t.reasonCode),
+      reasonText: text(t.reasonText),
+      unavailableAssetIds: Array.isArray(t.unavailableAssetIds)
+        ? t.unavailableAssetIds.filter((x) => typeof x === "string")
+        : [],
+    })),
+    perspectiveRosterId: Number.isInteger(r.perspectiveRosterId) ? r.perspectiveRosterId : null,
+    teamCount: Number.isInteger(r.teamCount) ? r.teamCount : null,
+    generation: text(r.generation) || "",
+    key: text(r.key),
+  };
+}
 
 export function serializeAdvisorState(state) {
   return JSON.stringify({
     teamCount: state.teamCount,
     slots: state.slots,
     legs: state.legs.map((l) => ({ id: l.id, kind: l.kind, label: l.label, from: l.from, to: l.to })),
-    result: state.result ? Object.fromEntries(RESULT_KEYS.map((k) => [k, state.result[k] ?? null])) : null,
+    result: cleanResult(state.result),
   });
 }
 
@@ -369,7 +467,7 @@ export function serializeAdvisorState(state) {
  * team than the saved "your team", start fresh with the URL team.  Teams
  * that are no longer in the league are dropped (and their legs with them).
  */
-export function restoreAdvisorState(raw, { urlTeam = null, teams = [] } = {}) {
+export function restoreAdvisorState(raw, { urlTeam = null, teams = [], maxTeams = MAX_TEAMS } = {}) {
   const known = new Set((teams || []).map((t) => t.rosterId));
   const url = urlTeam == null || urlTeam === "" ? null : Number(urlTeam);
   const fresh = () => {
@@ -385,7 +483,7 @@ export function restoreAdvisorState(raw, { urlTeam = null, teams = [] } = {}) {
   }
   if (!saved || typeof saved !== "object" || !Array.isArray(saved.slots)) return fresh();
   if (url != null && saved.slots[0] !== url) return fresh();
-  const teamCount = clampCount(saved.teamCount);
+  const teamCount = clampCount(saved.teamCount, maxTeams);
   const slots = saved.slots.slice(0, teamCount).map((rid) => (known.has(rid) ? rid : null));
   while (slots.length < teamCount) slots.push(null);
   if (new Set(slots.filter((r) => r != null)).size !== slots.filter((r) => r != null).length) return fresh();
@@ -395,9 +493,15 @@ export function restoreAdvisorState(raw, { urlTeam = null, teams = [] } = {}) {
   for (const l of rawLegs) {
     if (!l || typeof l.id !== "string" || seen.has(l.id)) continue;
     seen.add(l.id);
-    legs.push({ id: l.id, kind: l.kind === "pick" ? "pick" : "player", label: String(l.label || l.id), from: l.from, to: l.to ?? null });
+    legs.push({
+      id: l.id,
+      kind: l.kind === "pick" ? "pick" : "player",
+      label: String(l.label || l.id),
+      from: l.from,
+      to: l.to ?? null,
+    });
   }
   const reconciled = reconcileLegs(legs, slots).legs;
-  const result = saved.result && CATEGORIES.includes(saved.result.category) ? saved.result : null;
+  const result = cleanResult(saved.result);
   return { ...initialAdvisorState(), teamCount, slots, legs: reconciled, result, phase: result ? "result" : "build" };
 }

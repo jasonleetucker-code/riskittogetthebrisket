@@ -1,11 +1,13 @@
 "use client";
 
-// One team's side of the trade: what it sends, and — for 3-4 team trades —
-// where each asset goes.  Identities and labels only.
+// One team's side of the trade: what it sends and where each asset goes,
+// plus — for 3+ team trades — what it receives and from whom, so the whole
+// routing is readable team by team.  Identities and labels only.
 
 import { Panel } from "@/components/ds/Panel";
 import { Button } from "@/components/ds/Button";
 import { Select } from "@/components/ds/Select";
+import { Icon } from "@/components/ds/Icon";
 import { slotName, teamLabel } from "@/lib/trade-advisor";
 import styles from "./trade-advisor.module.css";
 
@@ -14,6 +16,7 @@ export function AdvisorTeamPanel({
   team,
   rosterId,
   legs,
+  incoming = [],
   slots,
   teams,
   teamCount,
@@ -25,6 +28,10 @@ export function AdvisorTeamPanel({
   const name = teamLabel(team) || slotName(index);
   const isYou = index === 0;
   const title = isYou ? "Your team sends" : `${name} sends`;
+  const nameOf = (rid) => {
+    const t = (teams || []).find((x) => x.rosterId === rid);
+    return rid === slots[0] ? "your team" : teamLabel(t) || `Team ${rid}`;
+  };
   const destinations = slots
     .filter((rid) => rid != null && rid !== rosterId)
     .map((rid) => {
@@ -53,7 +60,7 @@ export function AdvisorTeamPanel({
                 ) : null}
                 {teamCount === 2 && leg.to != null ? (
                   <span className={styles.legMeta}>
-                    to {isYou ? teamLabel((teams || []).find((t) => t.rosterId === leg.to)) : "your team"}
+                    <Icon name="arrow-right" size={12} /> to {nameOf(leg.to)}
                   </span>
                 ) : null}
               </span>
@@ -84,6 +91,22 @@ export function AdvisorTeamPanel({
       <Button className={styles.addBtn} onClick={onAdd} aria-haspopup="dialog">
         + Add player or pick
       </Button>
+      {teamCount > 2 ? (
+        <div className={styles.incoming}>
+          <h4 className={styles.incomingHead}>{isYou ? "Your team receives" : `${name} receives`}</h4>
+          {incoming.length === 0 ? (
+            <p className={styles.emptyLegs}>Nothing routed here yet.</p>
+          ) : (
+            <ul className={styles.incomingList}>
+              {incoming.map((leg) => (
+                <li key={leg.id}>
+                  {leg.label} <span className={styles.legMeta}>from {nameOf(leg.from)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
     </Panel>
   );
 }

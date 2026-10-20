@@ -23,8 +23,7 @@ export const PIECE_OF_SHIT_RANKINGS_TITLE = "Piece of Shit Rankings";
 // place that rule lives; callers pass what they know about availability.
 export const TRADE_ADVISOR_TAB = "trade-advisor";
 export const TRADE_ADVISOR_TITLE = "Brisket Trade Advisor";
-export const TRADE_ADVISOR_SUBTITLE =
-  "Evaluate trades using our league's scoring, roster construction, and dynasty market.";
+export const TRADE_ADVISOR_SUBTITLE = "Check whether a trade is fair, by our league's dynasty market.";
 export const OVERVIEW_TAB = "overview";
 
 // URL params the advisor owns.  Dropped by `leagueTabHref` whenever the

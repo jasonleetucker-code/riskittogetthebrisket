@@ -1,28 +1,22 @@
 "use client";
 
-// Asset picker for one team (design §8.2).  The list arrives ALREADY ORDERED
-// by the server for the chosen sort; search and the offense / defense /
-// picks / position filters only remove rows, so the order the user sees is
-// the server's.  Picks always form their own segment ordered by season,
-// round and origin (server rule), never interleaved by value.
+// Asset picker for one team (design §8.2, spec §4.2).  The list arrives in
+// the server's ONE value-free order — offense, defense, then other players,
+// each by position and then name, followed by picks by season, round and
+// origin.  Search and the offense / defense / picks / position filters only
+// remove rows, so the order the user sees is the server's.  There is no
+// value sort: a value-ordered public list would publish the board's rank
+// order per roster (privacy M2).
 //
 // Rendered as a <ul role="listbox"> WITHOUT aria-posinset / aria-setsize and
-// without numbered markup: an asset's position in a value-ordered list is not
-// something this page publishes as a number.
+// without numbered markup.
 
 import { useId, useMemo, useState } from "react";
 import { Input } from "@/components/ds/Input";
 import { Select } from "@/components/ds/Select";
 import { SegmentedControl } from "@/components/ds/SegmentedControl";
 import { Button } from "@/components/ds/Button";
-import {
-  ASSET_GROUPS,
-  POSITION_LABELS,
-  SORTS,
-  SORT_LABELS,
-  filterAssets,
-  positionsPresent,
-} from "@/lib/trade-advisor";
+import { ASSET_GROUPS, POSITION_LABELS, filterAssets, positionsPresent } from "@/lib/trade-advisor";
 import styles from "./trade-advisor.module.css";
 
 function assetMeta(a, inTrade) {
@@ -37,7 +31,7 @@ function assetMeta(a, inTrade) {
   return parts.join(" · ");
 }
 
-export function AdvisorAssetPicker({ teamName, entry, sort, onSort, inTrade, onAdd, onRetry }) {
+export function AdvisorAssetPicker({ teamName, entry, inTrade, onAdd, onRetry }) {
   const uid = useId();
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState("all");
@@ -196,23 +190,18 @@ export function AdvisorAssetPicker({ teamName, entry, sort, onSort, inTrade, onA
                 setPosition(e.target.value);
                 setActive(-1);
               }}
-              options={[{ value: "", label: "All positions" }, ...positions.map((p) => ({ value: p, label: POSITION_LABELS[p] || p }))]}
+              options={[
+                { value: "", label: "All positions" },
+                ...positions.map((p) => ({ value: p, label: POSITION_LABELS[p] || p })),
+              ]}
             />
           </label>
         ) : null}
-        <label className={styles.legRoute}>
-          <span className={styles.label}>Sort players</span>
-          <Select
-            value={sort}
-            onChange={(e) => onSort(e.target.value)}
-            options={SORTS.map((s) => ({ value: s, label: SORT_LABELS[s] }))}
-          />
-        </label>
       </div>
       <p className={styles.note}>
         {picksUnavailable && group === "all"
           ? "Pick ownership for this team can't be confirmed right now, so picks aren't listed."
-          : "Draft picks are listed by year and round."}
+          : "Players are listed by position, then name. Draft picks follow, by year and round."}
       </p>
       <p className={styles.pickerStatus} role="status">
         {lastAdded}

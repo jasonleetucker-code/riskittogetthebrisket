@@ -9,7 +9,7 @@
  *
  * Usage:
  *   <Combobox
- *     label="Which team are you evaluating for?"
+ *     label="Which team is yours?"
  *     value={rosterId}
  *     onChange={setRosterId}
  *     options={[{ value: 4, label: "Team name", description: "Owner",

@@ -28,23 +28,21 @@ function useWide() {
   return wide;
 }
 
-export default function AdvisorAssetSheet({ team, isYou, entry, sort, onSort, inTrade, onAdd, onRetry, onClose }) {
+export default function AdvisorAssetSheet({ team, isYou, entry, inTrade, onAdd, onRetry, onClose }) {
   const wide = useWide();
   const name = teamLabel(team);
   const title = isYou ? "Add from your team" : `Add from ${name}`;
   const Shell = wide ? Modal : Drawer;
   return (
-    <Shell open onClose={onClose} title={title} className={wide ? "" : styles.sheet} closeLabel="Close the player and pick list">
+    <Shell
+      open
+      onClose={onClose}
+      title={title}
+      className={wide ? "" : styles.sheet}
+      closeLabel="Close the player and pick list"
+    >
       <div className={styles.picker} data-testid="advisor-asset-sheet">
-        <AdvisorAssetPicker
-          teamName={name}
-          entry={entry}
-          sort={sort}
-          onSort={onSort}
-          inTrade={inTrade}
-          onAdd={onAdd}
-          onRetry={onRetry}
-        />
+        <AdvisorAssetPicker teamName={name} entry={entry} inTrade={inTrade} onAdd={onAdd} onRetry={onRetry} />
         <Button variant="primary" className={styles.sheetDone} onClick={onClose}>
           Done
         </Button>

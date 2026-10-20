@@ -112,7 +112,7 @@ const tabLabels = () => screen.getAllByRole("tab").map((t) => t.textContent);
 it("lands on the advisor with its own h1 and the team step server-rendered", async () => {
   render(<LeagueClient initialContract={contract} initialAdvisor={READY} />);
   expect(screen.getByRole("heading", { level: 1, name: "Brisket Trade Advisor" })).toBeInTheDocument();
-  expect(screen.getByText("Evaluate trades using our league's scoring, roster construction, and dynasty market.")).toBeInTheDocument();
+  expect(screen.getByText("Check whether a trade is fair, by our league's dynasty market.")).toBeInTheDocument();
   expect(screen.getByText("Public League")).toBeInTheDocument();
   // The team step is its own (ssr: true) chunk; on the client it resolves async.
   expect(await screen.findByRole("combobox", { name: "Your team" })).toBeInTheDocument();

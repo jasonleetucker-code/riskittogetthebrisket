@@ -6,19 +6,27 @@
 //
 // The flow follows the directive's mobile order: 1 your team (shell) →
 // 2 trade partner(s) → 3 build (each team's panel) → 4 review → 5 analyze →
-// 6 recommendation.  Desktop lays the same steps out denser.
+// 6 result.  Desktop lays the same steps out denser.
 //
-// It renders identities and the server's words only.  Asset lists arrive
-// already ordered by the server for the requested sort; this component
-// filters them and never reorders, ranks or values anything.  The
-// recommendation is the backend's enum + fixed copy, rendered verbatim
-// (design §3, §8.6).
+// It renders identities and the server's words only.  Asset lists arrive in
+// the server's one value-free order (position, then name; picks by year and
+// round); this component filters them and never reorders, ranks or values
+// anything.  The result is the backend's fairness enums + fixed copy — one
+// per team plus an overall result — rendered verbatim (spec §4.3, §5.2).
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Banner } from "@/components/ds/Banner";
 import { Button } from "@/components/ds/Button";
 import { Combobox } from "@/components/ds/Combobox";
-import { canAnalyze, slotName, teamsById, toAnalyzeRequest, tradeIssues, tradeKey, DEFAULT_SORT } from "@/lib/trade-advisor";
+import {
+  MAX_TEAMS,
+  canAnalyze,
+  slotName,
+  teamsById,
+  toAnalyzeRequest,
+  tradeIssues,
+  tradeKey,
+} from "@/lib/trade-advisor";
 import { fetchAdvisorAssets, postAdvisorAnalyze } from "@/lib/trade-advisor-client";
 import { TeamCountControl, teamOptions } from "./trade-advisor-shell.jsx";
 import { AdvisorTeamPanel } from "./_advisor-team-panel.jsx";
@@ -28,9 +36,9 @@ import styles from "./trade-advisor.module.css";
 
 const AdvisorAssetSheet = lazy(() => import("./_advisor-asset-sheet.jsx"));
 
-// One cache entry per (team, sort, epoch): {status, data?, error?}.  The
-// epoch bumps on a 409, a generation change or a stale-tab refresh, which
-// drops every list at once.
+// One cache entry per (team, epoch): {status, data?, error?}.  The epoch
+// bumps on a 409, a generation change or a stale-tab refresh, which drops
+// every list at once.
 function useAssetLists(epoch) {
   const [lists, setLists] = useState({});
   const controllers = useRef({});
@@ -39,17 +47,20 @@ function useAssetLists(epoch) {
     for (const c of Object.values(controllers.current)) c.abort();
     controllers.current = {};
   }, [epoch]);
-  useEffect(() => () => {
-    for (const c of Object.values(controllers.current)) c.abort();
-  }, []);
+  useEffect(
+    () => () => {
+      for (const c of Object.values(controllers.current)) c.abort();
+    },
+    [],
+  );
   const load = useCallback(
-    (rosterId, sort, { reload = false } = {}) => {
-      const key = `${rosterId}|${sort}`;
+    (rosterId, { reload = false } = {}) => {
+      const key = String(rosterId);
       controllers.current[key]?.abort();
       const controller = new AbortController();
       controllers.current[key] = controller;
       setLists((prev) => ({ ...prev, [key]: { status: "loading", data: prev[key]?.data || null } }));
-      fetchAdvisorAssets(rosterId, sort, { signal: controller.signal, reload: reload || epoch > 0 })
+      fetchAdvisorAssets(rosterId, { signal: controller.signal, reload: reload || epoch > 0 })
         .then((r) => {
           if (controller.signal.aborted) return;
           setLists((prev) => ({
@@ -69,7 +80,6 @@ export default function TradeAdvisorBuilder({
   dispatch,
   teams,
   limits,
-  multiTeam,
   epoch,
   onResult,
   onLeaveResult,
@@ -80,14 +90,13 @@ export default function TradeAdvisorBuilder({
   const byId = useMemo(() => teamsById(teams), [teams]);
   const { lists, load } = useAssetLists(epoch);
   const [sheet, setSheet] = useState(null); // rosterId whose picker is open
-  const [sort, setSort] = useState(DEFAULT_SORT);
   const [cooldown, setCooldown] = useState(0);
   const analyzeRef = useRef(null);
-  const issues = tradeIssues(state, teams);
-  const ready = canAnalyze(state, teams) && cooldown === 0;
+  const issues = tradeIssues(state, teams, limits);
+  const ready = canAnalyze(state, teams, limits) && cooldown === 0;
   const inTrade = useMemo(() => new Set(state.legs.map((l) => l.id)), [state.legs]);
   const stale = useMemo(() => new Set(state.staleIds), [state.staleIds]);
-  const maxTeams = Math.min(4, (limits && limits.maxTeams) || 4);
+  const maxTeams = (limits && limits.maxTeams) || MAX_TEAMS;
 
   // 429 countdown.
   useEffect(() => {
@@ -98,13 +107,8 @@ export default function TradeAdvisorBuilder({
 
   const openSheet = (rid) => {
     setSheet(rid);
-    const key = `${rid}|${sort}`;
-    if (!lists[key] || lists[key].status === "error") load(rid, sort);
-  };
-
-  const changeSort = (next) => {
-    setSort(next);
-    if (sheet != null && !lists[`${sheet}|${next}`]) load(sheet, next);
+    const key = String(rid);
+    if (!lists[key] || lists[key].status === "error") load(rid);
   };
 
   const analyze = async () => {
@@ -135,7 +139,6 @@ export default function TradeAdvisorBuilder({
     dispatch({ type: "FAIL", error: r.error });
   };
 
-  const multiUnavailable = state.teamCount > 2 && multiTeam !== "available";
   const submitting = state.phase === "submitting";
 
   if (state.phase === "result" && state.result) {
@@ -143,6 +146,7 @@ export default function TradeAdvisorBuilder({
       <AdvisorResult
         state={state}
         teams={teams}
+        onView={(rosterId) => dispatch({ type: "SET_VIEW", rosterId })}
         onEdit={() => onLeaveResult("EDIT")}
         onNewTrade={() => onLeaveResult("NEW_TRADE")}
         onStartOver={() => onLeaveResult("START_OVER")}
@@ -165,7 +169,7 @@ export default function TradeAdvisorBuilder({
           <TeamCountControl
             value={state.teamCount}
             max={maxTeams}
-            onChange={(count) => dispatch({ type: "SET_TEAM_COUNT", count })}
+            onChange={(count) => dispatch({ type: "SET_TEAM_COUNT", count, max: maxTeams })}
           />
         </div>
         <div className={styles.partners}>
@@ -184,12 +188,6 @@ export default function TradeAdvisorBuilder({
             );
           })}
         </div>
-        {multiUnavailable ? (
-          <Banner tone="info" title="Recommendations cover two-team trades for now">
-            You can build and review a {state.teamCount}-team trade, but the advisor can&apos;t give a
-            recommendation for trades with more than two teams yet.
-          </Banner>
-        ) : null}
       </section>
 
       <section className={styles.step} aria-labelledby="advisor-step-build">
@@ -198,13 +196,20 @@ export default function TradeAdvisorBuilder({
             <span className={styles.stepEyebrow}>Step 3</span>
             Build your trade
           </h2>
+          <p className={styles.stepHint}>
+            {state.teamCount > 2
+              ? "Add what each team sends, then choose which team receives each player or pick. Every team must both send and receive."
+              : "Add what each team sends. Each team must send at least one player or pick."}
+          </p>
         </div>
         {state.notice?.kind === "removed" ? (
           <Banner tone="info" onDismiss={() => dispatch({ type: "DISMISS_NOTICE" })}>
             Removed from the trade: {state.notice.labels.join(", ")}.
           </Banner>
         ) : null}
-        {state.error ? <AdvisorError error={state.error} cooldown={cooldown} onRetry={analyze} onOpenOverview={onOpenOverview} /> : null}
+        {state.error ? (
+          <AdvisorError error={state.error} cooldown={cooldown} onRetry={analyze} onOpenOverview={onOpenOverview} />
+        ) : null}
         <div className={styles.panels} data-count={state.teamCount}>
           {state.slots.map((rid, index) =>
             rid == null ? null : (
@@ -214,6 +219,7 @@ export default function TradeAdvisorBuilder({
                 team={byId.get(rid)}
                 rosterId={rid}
                 legs={state.legs.filter((l) => l.from === rid)}
+                incoming={state.legs.filter((l) => l.to === rid)}
                 slots={state.slots}
                 teams={teams}
                 teamCount={state.teamCount}
@@ -267,12 +273,10 @@ export default function TradeAdvisorBuilder({
             team={byId.get(sheet)}
             rosterId={sheet}
             isYou={sheet === state.slots[0]}
-            entry={lists[`${sheet}|${sort}`]}
-            sort={sort}
-            onSort={changeSort}
+            entry={lists[String(sheet)]}
             inTrade={inTrade}
             onAdd={(asset) => dispatch({ type: "ADD_ASSET", asset, from: sheet })}
-            onRetry={() => load(sheet, sort, { reload: true })}
+            onRetry={() => load(sheet, { reload: true })}
             onClose={() => setSheet(null)}
           />
         </Suspense>
@@ -293,7 +297,11 @@ function AdvisorError({ error, cooldown, onRetry, onOpenOverview }) {
     return (
       <Banner tone="warning" title="Please wait">
         {error.message}{" "}
-        {cooldown > 0 ? <span data-testid="advisor-cooldown">You can try again in {cooldown}s.</span> : "You can try again now."}
+        {cooldown > 0 ? (
+          <span data-testid="advisor-cooldown">You can try again in {cooldown}s.</span>
+        ) : (
+          "You can try again now."
+        )}
       </Banner>
     );
   }

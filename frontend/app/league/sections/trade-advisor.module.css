@@ -211,6 +211,47 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.summaryTeams {
+  display: grid;
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+.summaryRoute {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ── Receives (3+ teams, inside each team panel) ── */
+.incoming {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.incomingHead {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.incomingList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+.incomingList li {
+  overflow-wrap: anywhere;
+}
+.stepHint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
 /* ── Analyze ── */
 .analyzeRow {
   display: grid;
@@ -291,6 +332,52 @@
   margin: var(--space-1) 0 0;
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
+}
+.teamResults,
+.perspective {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.teamResultList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+.teamResultRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-size-sm);
+}
+.teamResultName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: var(--font-weight-semibold);
+}
+.teamResultBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.perspective :global(.ds-tab) {
+  min-height: 44px;
+}
+.tabResult {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-regular);
+}
+.perspectivePanel {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
 }
 .resultActions {
   display: flex;

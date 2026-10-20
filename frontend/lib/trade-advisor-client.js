@@ -8,19 +8,26 @@
 // sessionStorage or the RSC payload — the response models on the server
 // are the first line, this is the second (design §8.6, §13).
 //
-// Error copy is FIXED client text keyed by the contract's error codes; no
-// server-provided error string is rendered.  The analyze result's
-// headline / message / reasonText are the one exception: they are the
-// server's fixed category copy (design §3) and are rendered verbatim.
+// Error copy is FIXED client text keyed by the contract's error codes (the
+// same wording as the server's fixed table, spec §4.4); no server-provided
+// error string is rendered.  The analyze result's labels / reasonText /
+// note are the one exception: they are the server's fixed fairness copy
+// (spec §4.4) and are rendered verbatim.
 //
 // Isolation: imports nothing.  Never `credentials: "include"`.
 
-import { CATEGORIES, SORTS } from "./trade-advisor.js";
+import { ASSET_SORT, RESULTS } from "./trade-advisor.js";
 
 export const ADVISOR_API = "/api/public/league/trade-advisor";
 
-const RECOMMENDATIONS = ["ACCEPT", "FAIR", "DECLINE", "NONE"];
-const REASON_CODES = ["asset_not_evaluable", "ownership_unverifiable", "multi_team_unsupported", "roster_limit"];
+const TEAM_REASONS = [
+  "within_fairness_threshold",
+  "outside_fairness_threshold",
+  "asset_not_evaluable",
+  "ownership_unverifiable",
+  "evaluation_unavailable",
+];
+const OVERALL_REASONS = ["all_teams_fair", "not_all_teams_fair", "evidence_insufficient"];
 const ROSTER_STATES = ["current", "stale", "unknown"];
 const PROJECTIONS = ["early", "mid", "late"];
 
@@ -59,7 +66,6 @@ export function sanitizeTeamsPayload(data) {
       maxTeams: int(limits.maxTeams) ?? 4,
       maxLegs: int(limits.maxLegs) ?? 128,
     },
-    multiTeam: oneOf(data.multiTeam, ["available", "unavailable"], "unavailable"),
     rosters: rostersBlock(data.rosters),
     teams,
   };
@@ -100,28 +106,58 @@ export function sanitizeAssetsPayload(data) {
   return {
     generation: str(data.generation) || "",
     rosterId: int(data.rosterId),
-    sort: oneOf(data.sort, SORTS, null),
+    sort: oneOf(data.sort, [ASSET_SORT], null),
     pickOwnership: oneOf(data.pickOwnership, ["observed", "unavailable"], "unavailable"),
     rosters: rostersBlock(data.rosters),
     assets,
   };
 }
 
-/** Analyze payload → allowlisted result, or null when it is not one. */
+const ID = /^[A-Za-z0-9:_-]{1,64}$/;
+const ids = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && ID.test(x)) : []);
+
+/**
+ * Analyze payload → allowlisted fairness result, or null when it is not one.
+ * One response carries EVERY participating team's result plus the overall
+ * result (spec §4.3); the perspective switch reads other rows of it.  A
+ * team row or overall block with an unknown result enum makes the whole
+ * payload unusable rather than guessed at.
+ */
 export function sanitizeAnalyzePayload(data) {
   if (!data || typeof data !== "object" || data.status !== "success") return null;
-  const category = oneOf(data.category, CATEGORIES, null);
-  if (!category) return null;
+  const o = data.overall && typeof data.overall === "object" ? data.overall : null;
+  if (!o || !RESULTS.includes(o.result) || !Array.isArray(data.teams) || data.teams.length < 2) return null;
+  const teams = [];
+  for (const t of data.teams) {
+    if (!t || !isInt(t.rosterId) || !RESULTS.includes(t.result)) return null;
+    teams.push({
+      rosterId: t.rosterId,
+      result: t.result,
+      label: str(t.label) || "",
+      reasonCode: oneOf(t.reasonCode, TEAM_REASONS, null),
+      reasonText: str(t.reasonText),
+      unavailableAssetIds: ids(t.unavailableAssetIds),
+    });
+  }
+  const trade = [];
+  for (const leg of Array.isArray(data.trade) ? data.trade : []) {
+    if (!leg || typeof leg.id !== "string" || !ID.test(leg.id) || !isInt(leg.from) || !isInt(leg.to)) continue;
+    trade.push({ id: leg.id, from: leg.from, to: leg.to });
+  }
   return {
-    category,
-    recommendation: oneOf(data.recommendation, RECOMMENDATIONS, "NONE"),
-    headline: str(data.headline) || "",
-    message: str(data.message) || "",
-    reasonCode: oneOf(data.reasonCode, REASON_CODES, null),
-    reasonText: str(data.reasonText),
-    unavailableAssetIds: Array.isArray(data.unavailableAssetIds) ? data.unavailableAssetIds.filter((x) => typeof x === "string") : [],
-    generation: str(data.generation) || "",
+    overall: {
+      result: o.result,
+      label: str(o.label) || "",
+      reasonCode: oneOf(o.reasonCode, OVERALL_REASONS, null),
+      reasonText: str(o.reasonText),
+      note: str(o.note),
+    },
+    teams,
+    trade,
+    perspectiveRosterId: int(data.perspectiveRosterId),
     teamCount: int(data.teamCount),
+    generation: str(data.generation) || "",
+    rosters: rostersBlock(data.rosters),
   };
 }
 
@@ -148,12 +184,23 @@ export function classifyTeamsResult({ status, data } = {}) {
 
 // ── Errors (fixed copy, keyed by the contract's codes) ─────────────────────
 
+// The server's fixed copy for every public `invalid_trade` reason (spec
+// §4.4 / §4.5), held here so no server string is rendered.
 const INVALID_TRADE_COPY = {
-  one_sided_trade: "Each team must send at least one player or pick.",
-  idle_team: "Every team in the trade must send or receive at least one player or pick.",
-  duplicate_asset: "A player or pick can only appear once in a trade.",
+  perspective_not_in_trade: "The selected team must be part of the trade.",
+  too_few_teams: "A trade needs at least two teams.",
   duplicate_team: "A team can only appear once in a trade.",
-  too_many_assets: "This trade has more players and picks than the advisor accepts.",
+  too_many_teams: "This trade has more teams than the advisor supports.",
+  team_not_in_league: "One or more teams are not in this league.",
+  empty_trade: "Add at least one player or pick to the trade.",
+  too_many_assets: "This trade has too many assets.",
+  unknown_asset: "One or more assets are not recognized.",
+  duplicate_asset: "An asset can only appear once in a trade.",
+  invalid_origin: "Every asset must come from a team in the trade.",
+  invalid_destination: "Every asset must go to a team in the trade.",
+  destination_is_origin: "An asset can't be sent to the team that owns it.",
+  idle_team: "Every team in the trade must send or receive an asset.",
+  one_sided_trade: "Every team in the trade must both send and receive at least one asset.",
 };
 
 export function errorFromResponse(status, body) {
@@ -163,7 +210,8 @@ export function errorFromResponse(status, body) {
     return {
       kind: "stale",
       assetIds,
-      message: "Rosters have changed since this list loaded. Some players or picks are no longer on the team sending them. The lists have been refreshed.",
+      message:
+        "Rosters have changed since this list loaded. Some players or picks are no longer on the team sending them. The lists have been refreshed.",
     };
   }
   if (status === 429) {
@@ -181,11 +229,16 @@ export function errorFromResponse(status, body) {
     return {
       kind: "invalid",
       assetIds,
-      message: INVALID_TRADE_COPY[b.reason] || "This trade isn't valid. Check every team and destination, then try again.",
+      message:
+        INVALID_TRADE_COPY[b.reason] || "This trade isn't valid. Check every team and destination, then try again.",
     };
   }
   if (status === 404 && b.error === "unknown_team") {
-    return { kind: "invalid", assetIds: [], message: "One of these teams is no longer in the league. Start over to pick again." };
+    return {
+      kind: "invalid",
+      assetIds: [],
+      message: "One of these teams is no longer in the league. Start over to pick again.",
+    };
   }
   if (status === 0) {
     return { kind: "offline", message: "Couldn't reach the trade advisor. Check your connection and try again." };
@@ -223,10 +276,9 @@ export async function fetchAdvisorTeams({ signal, reload = false } = {}) {
   return { ok: false, ...boot, error: errorFromResponse(r.status, r.body) };
 }
 
-/** GET one team's assets in the server's order for `sort`. */
-export async function fetchAdvisorAssets(rosterId, sort, { signal, reload = false } = {}) {
-  const s = SORTS.includes(sort) ? sort : SORTS[0];
-  const url = `${ADVISOR_API}/teams/${encodeURIComponent(String(rosterId))}/assets?sort=${encodeURIComponent(s)}`;
+/** GET one team's assets in the server's one value-free order. */
+export async function fetchAdvisorAssets(rosterId, { signal, reload = false } = {}) {
+  const url = `${ADVISOR_API}/teams/${encodeURIComponent(String(rosterId))}/assets?sort=${ASSET_SORT}`;
   const r = await request(url, { method: "GET", signal, ...(reload ? { cache: "reload" } : {}) });
   if (r.ok) {
     const data = sanitizeAssetsPayload(r.body);
