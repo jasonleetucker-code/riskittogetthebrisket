@@ -288,14 +288,23 @@ def package_model_ready() -> bool:
 # ── Snapshot ───────────────────────────────────────────────────────────────
 
 
+def _board_stamp(contract: Mapping[str, Any]) -> str | None:
+    """The served board's generation stamp, read through the ONE owner.
+
+    ``trade_analyze_runtime.contract_generation`` is the reader
+    ``analyze_service.contract_provenance`` (and so the decision receipt) and
+    the analyze in-flight key share: top-level ``generatedAt`` -- where the
+    served contract stamps it -- with a ``meta.generatedAt`` fallback for an
+    older shape, ``None`` when absent (#1871).  The advisor must not keep a
+    private copy of that rule.
+    """
+    from src.api.trade_analyze_runtime import contract_generation  # noqa: PLC0415
+
+    return contract_generation(contract)
+
+
 def generation_for(contract: Mapping[str, Any]) -> str:
-    meta = contract.get("meta") if isinstance(contract.get("meta"), dict) else {}
-    stamp = (
-        contract.get("generatedAt")
-        or meta.get("generatedAt")
-        or contract.get("scrapeTimestamp")
-        or "unknown"
-    )
+    stamp = _board_stamp(contract) or contract.get("scrapeTimestamp") or "unknown"
     return hashlib.sha256(f"brisket-advisor-v1|{stamp}".encode()).hexdigest()[:16]
 
 
@@ -367,7 +376,7 @@ def roster_freshness(contract: Mapping[str, Any]) -> tuple[str, str | None]:
     sleeper = contract.get("sleeper") if isinstance(contract.get("sleeper"), Mapping) else {}
     source = sleeper.get("rosterSource")
     age = sleeper.get("rosterSnapshotAgeHours")
-    stamp = str(contract.get("scrapeTimestamp") or contract.get("generatedAt") or "")
+    stamp = str(contract.get("scrapeTimestamp") or _board_stamp(contract) or "")
     if source == "live":
         if not (isinstance(age, (int, float)) and not isinstance(age, bool)):
             # No stated age: measure it from the roster fetch (B0-f) or the
