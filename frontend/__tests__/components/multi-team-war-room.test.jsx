@@ -389,6 +389,30 @@ describe("multi-team War Room", () => {
         expect(pkg.textContent).not.toContain(Math.round(serverSum).toLocaleString());
         expect(pkg.textContent).not.toMatch(/(^|\D)0(\D|$)/);
       }
+      // The whole-trade raw total covers only the priced legs, so the
+      // conservation sentence names the withheld leg as outside it rather
+      // than presenting the figure as the value of every asset (F2).
+      const cons = fixture.summary.conservation;
+      expect(cons.balanced).toBe(true);
+      const withheldLegs = fixture.teams.flatMap((t) => t.gives).filter((g) => g.valueState !== "priced");
+      const pricedSum = fixture.teams
+        .flatMap((t) => t.gives)
+        .filter((g) => g.valueState === "priced")
+        .reduce((acc, g) => acc + g.value, 0);
+      expect(cons.pricedRawSent).toBe(pricedSum);
+      const consText = screen.getByTestId("multi-team-conservation").textContent;
+      const pricedCount = cons.assetsSent - withheldLegs.length;
+      expect(consText).toContain(
+        `The ${pricedCount} priced ${pricedCount === 1 ? "asset is" : "assets are"} worth ${cons.pricedRawSent.toLocaleString()} in raw board value on both sides`,
+      );
+      expect(consText).not.toContain(
+        `other, worth ${cons.pricedRawSent.toLocaleString()} in raw board value on both sides`,
+      );
+      const excluded = screen.getByTestId("multi-team-conservation-excluded").textContent;
+      for (const leg of withheldLegs) {
+        expect(excluded).toContain(`${leg.label} (Value withheld: ${state} (not trusted))`);
+      }
+      expect(excluded).toMatch(/never counted as 0/);
       // A team the asset does not touch keeps its own priced answer.
       for (const t of clean) {
         const row = summary.querySelector(`[data-summary-team="${t.rosterId}"]`);
@@ -402,6 +426,38 @@ describe("multi-team War Room", () => {
       }
     });
   }
+
+  it("a fully priced trade states its raw total for every asset, with nothing excluded (F2)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(ok(THREE_CTX));
+    mount(THREE_CTX);
+    await analyze();
+    const gives = THREE_CTX.teams.flatMap((t) => t.gives);
+    expect(gives.every((g) => g.valueState === "priced")).toBe(true);
+    const cons = THREE_CTX.summary.conservation;
+    expect(screen.getByTestId("multi-team-conservation").textContent).toContain(
+      `${cons.assetsSent} assets move; every one leaves exactly one team and reaches exactly one other, worth ${cons.pricedRawSent.toLocaleString()} in raw board value on both sides.`,
+    );
+    expect(screen.queryByTestId("multi-team-conservation-excluded")).toBeNull();
+  });
+
+  it("a trade with NO priced leg states no raw total and names every leg (F2)", async () => {
+    const fixture = structuredClone(QUARANTINED);
+    for (const t of fixture.teams) {
+      for (const a of [...t.gives, ...t.receives]) {
+        a.valueState = "quarantined";
+        a.value = null;
+      }
+    }
+    fixture.summary.conservation.pricedRawSent = 0;
+    fixture.summary.conservation.pricedRawReceived = 0;
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(ok(fixture));
+    mount(fixture);
+    await analyze();
+    const text = screen.getByTestId("multi-team-conservation").textContent;
+    expect(text).toMatch(/No asset carries a trusted value, so there is no raw board total/);
+    expect(text).not.toMatch(/worth 0/);
+    for (const g of fixture.teams.flatMap((t) => t.gives)) expect(text).toContain(g.label);
+  });
 
   it("stale rosters are said, and every team is not enough evidence", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(ok(STALE));

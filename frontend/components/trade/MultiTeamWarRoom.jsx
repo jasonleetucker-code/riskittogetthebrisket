@@ -612,6 +612,62 @@ function TeamResult({ team, nameOf, showStrategy, open, toggleOpen }) {
   );
 }
 
+/**
+ * The legs the server's raw conservation total leaves out: an asset counts
+ * there only when it is priced in BOTH the sender's and the receiver's view
+ * (``team_verdicts.conservation``).  One entry per asset, sender's view first.
+ */
+function conservationExcludedLegs(teams) {
+  const received = new Map();
+  for (const t of teams) for (const r of t?.receives || []) received.set(String(r.assetId), r);
+  const out = [];
+  const seen = new Set();
+  for (const t of teams) {
+    for (const g of t?.gives || []) {
+      const id = String(g.assetId);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const r = received.get(id);
+      if (!isPricedLeg(g)) out.push(g);
+      else if (!r || !isPricedLeg(r)) out.push(r || g);
+    }
+  }
+  return out;
+}
+
+/**
+ * The raw-value conservation sentence.  Its total covers only the priced
+ * assets, so while any leg is withheld or unknown the sentence names that leg
+ * and says it is outside the figure — a whole-trade total that silently drops
+ * a leg would read as that leg counting 0.
+ */
+function Conservation({ cons, teams }) {
+  const excluded = conservationExcludedLegs(teams);
+  const moves = `${cons.assetsSent} assets move; every one leaves exactly one team and reaches exactly one other`;
+  if (!excluded.length) {
+    return (
+      <p className={styles.note} data-testid="multi-team-conservation">
+        {moves}, worth {formatValue(cons.pricedRawSent)} in raw board value on both sides.
+      </p>
+    );
+  }
+  const pricedCount = Math.max(0, Number(cons.assetsSent) - excluded.length);
+  return (
+    <p className={styles.note} data-testid="multi-team-conservation">
+      {moves}.{" "}
+      {pricedCount > 0
+        ? `The ${pricedCount} priced ${pricedCount === 1 ? "asset is" : "assets are"} worth ${formatValue(
+            cons.pricedRawSent,
+          )} in raw board value on both sides; `
+        : "No asset carries a trusted value, so there is no raw board total; "}
+      <span data-testid="multi-team-conservation-excluded">
+        {pricedCount > 0 ? "not in that figure" : "not priced"}: {legReasons(excluded)} — never
+        counted as 0.
+      </span>
+    </p>
+  );
+}
+
 function Summary({ payload, nameOf }) {
   const summary = payload.summary || {};
   const overall = summary.fairnessOverall || {};
@@ -684,12 +740,7 @@ function Summary({ payload, nameOf }) {
         {OVERALL_FAIRNESS_WORDS[overall.reasonCode] || "Unknown."} There is no single verdict for
         the whole trade: each team gets its own decision, and a trade can help more than one team.
       </p>
-      {cons.balanced === true ? (
-        <p className={styles.note}>
-          {cons.assetsSent} assets move; every one leaves exactly one team and reaches exactly one
-          other, worth {formatValue(cons.pricedRawSent)} in raw board value on both sides.
-        </p>
-      ) : null}
+      {cons.balanced === true ? <Conservation cons={cons} teams={payload.teams || []} /> : null}
       {summary.nonConservedNote ? <p className={styles.note}>{summary.nonConservedNote}</p> : null}
     </section>
   );

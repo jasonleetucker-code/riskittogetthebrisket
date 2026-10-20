@@ -383,6 +383,20 @@ test("multi-team War Room: a quarantined asset is withheld on the preliminary me
       : p,
   );
   withheldFixture.summary.lines = withheldFixture.teams.map((t) => `${t.team.name}: ${t.categoryText}.`);
+  // The engine's raw conservation sums only legs priced in BOTH views
+  // (team_verdicts.conservation), so the withheld leg leaves both totals —
+  // as in the engine's own quarantined fixture.  Keeping the original total
+  // would be a response no real engine can produce.
+  expect(typeof leg.value).toBe("number");
+  const cons = withheldFixture.summary.conservation;
+  cons.pricedRawSent -= leg.value;
+  cons.pricedRawReceived -= leg.value;
+  expect(ENGINE_WITHHELD.summary.conservation.pricedRawSent).toBe(
+    ENGINE_WITHHELD.teams
+      .flatMap((t) => t.gives)
+      .filter((g) => g.valueState === "priced")
+      .reduce((acc, g) => acc + g.value, 0),
+  );
 
   await page.route(
     (url) => url.pathname === ENDPOINT,
@@ -446,6 +460,19 @@ test("multi-team War Room: a quarantined asset is withheld on the preliminary me
   await expect(
     summary.locator(`[data-summary-team="${untouched.rosterId}"] [data-testid="multi-team-summary-withheld"]`),
   ).toHaveCount(0);
+  // The whole-trade raw total excludes the withheld leg and says so — it is
+  // never presented as the value of every asset moved.
+  const consLine = page.getByTestId("multi-team-conservation");
+  const pricedCount = cons.assetsSent - 1;
+  await expect(consLine).toContainText(
+    `The ${pricedCount} priced assets are worth ${cons.pricedRawSent.toLocaleString("en-US")} in raw board value on both sides`,
+  );
+  await expect(page.getByTestId("multi-team-conservation-excluded")).toContainText(
+    `${leg.label} (Value withheld: quarantined (not trusted))`,
+  );
+  await expect(consLine).not.toContainText(
+    `${FIXTURE.summary.conservation.pricedRawSent.toLocaleString("en-US")} in raw board value`,
+  );
   await room.getByRole("tab", { name: sender.team.name }).click();
   const panel = room.locator(`[data-team-result="${sender.rosterId}"]`);
   await expect(panel.getByTestId("multi-team-decision")).toHaveText(engineTeam.analysis.decision.headlineText);
