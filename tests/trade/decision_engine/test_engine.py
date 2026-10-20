@@ -88,7 +88,9 @@ def test_imprecise_large_c_does_not_decide():
     )
 
 
-@pytest.mark.parametrize("se,why", [(None, "precision_unknown"), (5.0, "imprecise")])
+@pytest.mark.parametrize(
+    "se,why", [(None, "precision_unknown"), (-1.0, "precision_unknown"), (5.0, "imprecise")]
+)
 @pytest.mark.parametrize("strategy", ["WIN_NOW", "BALANCED"])
 def test_unknown_or_imprecise_large_loss_never_becomes_a_neutral_vote(strategy, se, why):
     # Review finding (PR #1862): A = F+ with an 8 ppg lineup loss.  Precise,
@@ -108,11 +110,15 @@ def test_unknown_or_imprecise_large_loss_never_becomes_a_neutral_vote(strategy, 
     assert not c.counted_as_vote and c.direction is None and c.magnitude_class is None
     assert c.state == "partial" and c.reason == why
     # The measured delta stays visible as a report-only number, never dropped.
-    assert c.value == pytest.approx(-8.0) and c.precision_ok is (None if se is None else False)
+    assert c.value == pytest.approx(-8.0)
+    assert c.precision_ok is (None if why == "precision_unknown" else False)
+    # A negative standard error is malformed input, not a very precise one:
+    # it is not published as a measured precision either.
+    assert c.mc_standard_error == (None if why == "precision_unknown" else se)
     assert d.confidence == "low" and d.confidence_axes["coverage"] == "low"
 
 
-@pytest.mark.parametrize("se", [None, 5.0])
+@pytest.mark.parametrize("se", [None, -1.0, 5.0])
 def test_unknown_precision_c_under_long_term_falls_to_the_no_vote_column(se):
     d = _eval(
         strategy="LONG_TERM",

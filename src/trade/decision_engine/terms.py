@@ -219,6 +219,10 @@ def classify_lineup(lineup: Mapping[str, Any], params: Mapping[str, Any]) -> Ter
         # "available" without a number is a malformed layer, not a zero.
         return _silent("C", "unavailable", "delta_missing", C_UNIT)
     se = num(get(lineup, "mcStandardError", "mc_standard_error"))
+    if se is not None and se < 0:
+        # A negative standard error is malformed input, never "very precise":
+        # precision is UNKNOWN, so C cannot pass the gate and vote.
+        se = None
     psd = num(get(lineup, "predictiveSd", "predictive_sd"))
     basis = get(lineup, "predictiveBasis", "predictive_basis")
     basis = basis if isinstance(basis, str) else "unavailable"
