@@ -24,7 +24,7 @@ simulator for the same swap.
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 from src.api.terminal import (
     _build_row_index,
@@ -512,6 +512,58 @@ def _diff(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
     return delta
 
 
+def league_posture_bundle(
+    contract: Any,
+    league_key: str,
+    *,
+    build_if_missing: bool,
+) -> tuple[Mapping[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
+    """``(postures_by_owner, meta, None)`` — or ``(None, None, unavailable)``.
+
+    The league half of :func:`competitive_posture_for`, split out so a caller
+    that needs SEVERAL teams' blocks from one request (the N-team engine) reads
+    the league bundle once and looks each team up with
+    :func:`posture_block_for` — the same two steps, never a second rule.
+    """
+    try:
+        from src.api.gameplan import GameplanUnavailable, league_competitive_postures
+        from src.api.league_registry import get_scoring_profile
+
+        postures, meta = league_competitive_postures(
+            league_key,
+            get_scoring_profile(league_key),
+            contract,
+            build_if_missing=build_if_missing,
+        )
+    except GameplanUnavailable as exc:
+        return None, None, {"available": False, "unavailableReason": exc.reason}
+    except Exception as exc:  # noqa: BLE001 — context never fails a simulation
+        return (
+            None,
+            None,
+            {"available": False, "unavailableReason": f"error:{type(exc).__name__}"},
+        )
+    return postures, meta, None
+
+
+def posture_block_for(
+    postures: Mapping[str, Any],
+    meta: Mapping[str, Any] | None,
+    team: dict[str, Any],
+) -> dict[str, Any]:
+    """One team's block from a league bundle (the team half of
+    :func:`competitive_posture_for`)."""
+    owner_id = str(team.get("ownerId") or "")
+    posture = postures.get(owner_id)
+    if posture is None:
+        return {"available": False, "unavailableReason": "team_not_in_league_bundle"}
+    return {
+        "available": True,
+        **posture.to_dict(),
+        "bundleFreshness": (meta or {}).get("bundleFreshness"),
+    }
+
+
 def competitive_posture_for(
     contract: Any,
     league_key: str,
@@ -526,29 +578,12 @@ def competitive_posture_for(
     simulate (every calculator edit) reads a warm one only, so it never pays
     the cold solve.
     """
-    owner_id = str(team.get("ownerId") or "")
-    try:
-        from src.api.gameplan import GameplanUnavailable, league_competitive_postures
-        from src.api.league_registry import get_scoring_profile
-
-        postures, meta = league_competitive_postures(
-            league_key,
-            get_scoring_profile(league_key),
-            contract,
-            build_if_missing=build_if_missing,
-        )
-    except GameplanUnavailable as exc:
-        return {"available": False, "unavailableReason": exc.reason}
-    except Exception as exc:  # noqa: BLE001 — context never fails a simulation
-        return {"available": False, "unavailableReason": f"error:{type(exc).__name__}"}
-    posture = postures.get(owner_id)
-    if posture is None:
-        return {"available": False, "unavailableReason": "team_not_in_league_bundle"}
-    return {
-        "available": True,
-        **posture.to_dict(),
-        "bundleFreshness": meta.get("bundleFreshness"),
-    }
+    postures, meta, unavailable = league_posture_bundle(
+        contract, league_key, build_if_missing=build_if_missing
+    )
+    if unavailable is not None:
+        return unavailable
+    return posture_block_for(postures or {}, meta, team)
 
 
 def simulate_trade(
@@ -567,6 +602,8 @@ def simulate_trade(
     pick_asset_ids_out: list[Any] | None = None,
     player_ids_in: list[Any] | None = None,
     player_ids_out: list[Any] | None = None,
+    include_roster_capacity: bool = True,
+    unverifiable_asset_ids: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Build the simulator payload for a single hypothetical trade.
 
@@ -628,7 +665,21 @@ def simulate_trade(
       sent to the name index.  The before-roster is built from the team's
       ``playerIds`` when published (joined by id; a player with no row is
       listed in ``rosterUnpriced`` and priced nowhere), falling back to the
-      ``players`` names only when ids are absent.
+      ``players`` names only when ids are absent.  The roster-capacity owner
+      matches an id-carrying outgoing player to his roster entry BY ID
+      (``roster_capacity.outgoing_roster_names``); names are the fallback.
+
+    N-team engine (``src/trade/analyze_service.analyze_trade_n``):
+
+    * ``include_roster_capacity=False`` skips ``rosterCapacity``,
+      ``finalRosterSimulation`` and the roster utility (and with it the
+      per-team before-roster cache) — the market-fairness mode reads none of
+      them and must write nothing shared.  Default ``True``: unchanged.
+    * ``unverifiable_asset_ids`` — ledger ids (``p:<sleeperId>`` / canonical
+      pick ids) whose ownership the ledger could not verify.  The ones in
+      THIS team's legs are published as ``ownershipEvidence`` (read by the
+      ``ownership_unverifiable`` decision gate).  Empty: the key is ABSENT,
+      so the default output is byte-identical.
     """
     players_in, player_ids_in = _paired_players(players_in, player_ids_in)
     players_out, player_ids_out = _paired_players(players_out, player_ids_out)
@@ -895,6 +946,12 @@ def simulate_trade(
             "hypotheticalPicksOut": hypothetical_out,
         },
     }
+    if unverifiable_asset_ids:
+        legs = {f"p:{pid}" for pid in (*player_ids_in, *player_ids_out) if pid}
+        legs |= {aid for aid in (*pick_ids_in, *pick_ids_out) if aid}
+        mine = sorted({str(a) for a in unverifiable_asset_ids if str(a) in legs})
+        if mine:
+            response["ownershipEvidence"] = {"unverifiableAssetIds": mine}
     if roster_unpriced:
         # Rostered (they occupy spots) but the board has no row for the id:
         # unpriced, never zero, never another player of the same name.
@@ -924,17 +981,29 @@ def simulate_trade(
     if resolved_team and roster_settings:
         from src.trade import team_impact
 
-        impact = team_impact.compute(
-            before_assets=before_assets,
-            after_assets=after_assets,
-            receiving=receiving,
-            sending=sending,
-            equity=int(equity),
-            roster_settings=roster_settings,
-            canonical_posture=(
-                posture_block if posture_block and posture_block.get("label") else None
-            ),
-        )
+        try:
+            impact = team_impact.compute(
+                before_assets=before_assets,
+                after_assets=after_assets,
+                receiving=receiving,
+                sending=sending,
+                equity=int(equity),
+                roster_settings=roster_settings,
+                canonical_posture=(
+                    posture_block if posture_block and posture_block.get("label") else None
+                ),
+            )
+        except ValueError as exc:
+            # ``team_impact`` refuses (rather than silently merges) two
+            # starters sharing one identity — e.g. a received player the
+            # roster already lists, which only conflicting ownership records
+            # can produce (the N-team ledger marks such an asset
+            # unverifiable).  Degrade, never fail: the refusal is published.
+            response["teamImpact"] = {
+                "unavailable": type(exc).__name__,
+                "notes": ["team impact could not be computed for this trade"],
+            }
+            impact = None
         if impact is not None:
             response["teamImpact"] = impact
 
@@ -951,11 +1020,15 @@ def simulate_trade(
     # on the live board, ``rosterSize`` is 58, the largest roster holds exactly
     # 58 players, and those same teams hold 10-23 picks besides.  So
     # ``picks_in`` / ``picks_out`` are deliberately not passed.
-    if resolved_team:
+    capacity = None
+    capacity_context = None
+    capacity_out: list[str] = list(players_out)
+    if resolved_team and include_roster_capacity:
         try:
             from src.trade.roster_capacity import (  # noqa: PLC0415
                 assess_roster_capacity,
                 build_capacity_context,
+                outgoing_roster_names,
             )
 
             capacity_context = build_capacity_context(
@@ -964,10 +1037,11 @@ def simulate_trade(
                 resolved_team,
                 roster_settings=roster_settings,
             )
+            capacity_out = outgoing_roster_names(capacity_context, players_out, player_ids_out)
             capacity = assess_roster_capacity(
                 capacity_context,
                 incoming_players=players_in,
-                outgoing_players=players_out,
+                outgoing_players=capacity_out,
             )
             response["rosterCapacity"] = capacity.to_dict()
         except Exception as exc:  # noqa: BLE001
@@ -1022,7 +1096,7 @@ def simulate_trade(
                         capacity_context,
                         capacity,
                         incoming_players=players_in,
-                        outgoing_players=players_out,
+                        outgoing_players=capacity_out,
                     )
                 except Exception as exc:  # noqa: BLE001
                     response["finalRosterSimulation"] = {
@@ -1034,7 +1108,7 @@ def simulate_trade(
     # roster as ``finalRosterSimulation`` (``roster_capacity.final_legal_roster``)
     # but priced by league-scored projections, never by canonical value.
     # Opt-in: it is a Monte-Carlo pass, and only Analyze Trade asks for it.
-    if include_roster_utility:
+    if include_roster_utility and include_roster_capacity:
         if not resolved_team:
             response["rosterUtility"] = {
                 "available": False,
@@ -1057,7 +1131,7 @@ def simulate_trade(
                     capacity_context,
                     capacity,
                     incoming_players=players_in,
-                    outgoing_players=players_out,
+                    outgoing_players=capacity_out,
                     season=current_nfl_season(),
                     scoring_settings=(sleeper or {}).get("scoringSettings") or {},
                     league_settings=(sleeper or {}).get("leagueSettings") or {},
