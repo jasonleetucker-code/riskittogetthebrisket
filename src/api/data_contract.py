@@ -5390,6 +5390,40 @@ def _payload_as_of(raw_payload: Mapping[str, Any]) -> "datetime | None":
 
 _FP_META_CSV_CACHE: dict[str, tuple[float, dict[str, dict[str, Any]]]] = {}
 
+# Outlier-integrity-v2 inputs captured by the SAME parse that builds the
+# lookup (U1 identity evidence + B0 format census), kept OUT of the parse's
+# return value so every existing caller is byte-identical.  Keyed and
+# invalidated exactly like ``_SOURCE_CSV_PARSE_CACHE``; read only by the V2
+# layers (``_source_csv_integrity_inputs``) while ``outlier_integrity_v2`` is on.
+#
+# value: (mtime, {canonical key: [SourceEntryEvidence, ...]} aligned 1:1 with
+# the lookup's tuples for that key, format census dict)
+_SOURCE_CSV_INTEGRITY_CACHE: dict[str, tuple[float, dict[str, list[Any]], dict[str, Any]]] = {}
+
+# Header tokens (``_normalize_header_token``) a source's OWN identity fields are
+# read from.  Conservative like ``_SLEEPER_ID_TOKENS``: a column carrying extra
+# words (``sleeper_id_source``) never matches.
+_IDENTITY_POSITION_TOKENS: frozenset[str] = frozenset({"position", "pos", "fantasyposition"})
+_IDENTITY_TEAM_TOKENS: frozenset[str] = frozenset({"team", "nflteam"})
+_IDENTITY_AGE_TOKENS: frozenset[str] = frozenset({"age"})
+_IDENTITY_VENDOR_ID_TOKENS: frozenset[str] = frozenset({"playerid", "ktcid", "vendorid"})
+
+
+def _source_csv_integrity_inputs(
+    csv_path: Path,
+) -> tuple[dict[str, list[Any]], dict[str, Any]] | None:
+    """``(identity evidence by key, format census)`` from the last parse of
+    ``csv_path``, or ``None`` when that parse produced none (missing file,
+    schema mismatch, parse failure).  Call after ``_parse_source_csv_cached``."""
+    try:
+        current_mtime = csv_path.stat().st_mtime
+    except OSError:
+        current_mtime = 0.0
+    cached = _SOURCE_CSV_INTEGRITY_CACHE.get(str(csv_path))
+    if not cached or cached[0] != current_mtime:
+        return None
+    return cached[1], cached[2]
+
 
 def _parse_source_csv_cached(
     csv_path: Path,
@@ -5415,6 +5449,41 @@ def _parse_source_csv_cached(
 
     csv_lookup: dict[str, list[tuple[str, int, float | None]]] = {}
     schema_err: dict[str, str] | None = None
+    # V2 integrity inputs, aligned 1:1 with ``csv_lookup`` (see
+    # ``_SOURCE_CSV_INTEGRITY_CACHE``).  Collected only while
+    # ``outlier_integrity_v2`` is on, so the served path carries no extra work
+    # or memory; reading a few more columns of a row already in hand changes no
+    # returned value either way.
+    from src.api import feature_flags as _ff_integrity  # noqa: PLC0415
+    from src.identity.resolution import SourceEntryEvidence as _Evidence  # noqa: PLC0415
+
+    _collect_integrity = _ff_integrity.is_enabled("outlier_integrity_v2")
+
+    evidence_lookup: dict[str, list[Any]] = {}
+    format_census: dict[str, Any] = {
+        "rows": 0,
+        "nonNumericValueRows": 0,
+        "rankValuePairs": [],
+    }
+
+    def _entry_evidence(csvrow: dict[str, Any], name: str, sid: str, value: Any, rank: Any) -> Any:
+        age_raw = _pick_provider_id(csvrow, _IDENTITY_AGE_TOKENS).strip()
+        try:
+            age_val: float | None = float(age_raw) if age_raw else None
+        except (TypeError, ValueError):
+            age_val = None
+        if age_val is not None and not (0.0 < age_val < 60.0):
+            age_val = None
+        return _Evidence(
+            raw_name=name,
+            position=_pick_provider_id(csvrow, _IDENTITY_POSITION_TOKENS).strip() or None,
+            team=_pick_provider_id(csvrow, _IDENTITY_TEAM_TOKENS).strip() or None,
+            age=age_val,
+            vendor_id=_pick_provider_id(csvrow, _IDENTITY_VENDOR_ID_TOKENS).strip() or None,
+            sleeper_id=sid or None,
+            value=float(value) if value is not None else None,
+            rank=float(rank) if rank is not None else None,
+        )
 
     _NAME_ALIASES = ("name", "Name", "player", "Player", "player_name", "PlayerName")
     # DLF raw CSV exports carry both ``Rank`` (ordinal) and ``Avg``
@@ -5508,6 +5577,7 @@ def _parse_source_csv_cached(
                 key = _canonical_match_key(name)
                 if not key:
                     continue
+                format_census["rows"] += 1
                 if signal == "rank":
                     raw = _pick(csvrow, _RANK_ALIASES)
                     if raw == "" or raw is None:
@@ -5515,6 +5585,7 @@ def _parse_source_csv_cached(
                     try:
                         rank_val = float(str(raw).strip())
                     except (TypeError, ValueError):
+                        format_census["nonNumericValueRows"] += 1
                         continue
                     if rank_val <= 0:
                         continue
@@ -5543,6 +5614,12 @@ def _parse_source_csv_cached(
                     csv_lookup.setdefault(key, []).append(
                         (name, synthetic, rank_val, native_val, sid or None)
                     )
+                    if _collect_integrity:
+                        evidence_lookup.setdefault(key, []).append(
+                            _entry_evidence(csvrow, name, sid, synthetic, rank_val)
+                        )
+                        if native_val is not None:
+                            format_census["rankValuePairs"].append((rank_val, native_val))
                 else:
                     val = _pick(csvrow, _VALUE_ALIASES)
                     if not val:
@@ -5578,7 +5655,14 @@ def _parse_source_csv_cached(
                             (name, parsed_val, orig_rank, None, sid or None)
                         )
                     except (ValueError, TypeError):
+                        format_census["nonNumericValueRows"] += 1
                         continue
+                    if _collect_integrity:
+                        evidence_lookup.setdefault(key, []).append(
+                            _entry_evidence(csvrow, name, sid, parsed_val, orig_rank)
+                        )
+                        if orig_rank is not None and number > 0:
+                            format_census["rankValuePairs"].append((orig_rank, number))
     except Exception as exc:  # noqa: BLE001
         schema_err = {
             "source": source_key,
@@ -5595,6 +5679,8 @@ def _parse_source_csv_cached(
         return csv_lookup, schema_err
 
     _SOURCE_CSV_PARSE_CACHE[cache_key] = (current_mtime, csv_lookup, schema_err)
+    if _collect_integrity:
+        _SOURCE_CSV_INTEGRITY_CACHE[cache_key] = (current_mtime, evidence_lookup, format_census)
     return csv_lookup, schema_err
 
 
@@ -5683,11 +5769,109 @@ def _select_fp_meta(
     return None
 
 
+def _apply_payload_provenance_guard(
+    source_key: str,
+    payload_rows: list[tuple[dict[str, Any], float, dict[str, Any] | None]],
+    integrity: Any,
+) -> None:
+    """Outlier-integrity-v2 B2 (``payload_provenance_guard``) for one source.
+
+    ``payload_rows`` are the rows whose observation came from the scraper
+    payload, each with the same-run CSV entry joined to it (``None`` when the
+    CSV has none).  On proof (``source_integrity.provenance_check``) the proven
+    payload value is ABSENT: the vendor's own preserved CSV value takes its
+    place, and with no CSV the observation is withheld — never zero, never a
+    payload number the proof rejected.  Every changed row carries a
+    ``sourceProvenance`` stamp with both copies; the board-level result lands in
+    ``integrity.provenance``.
+    """
+    from src.api import source_integrity as _si  # noqa: PLC0415
+
+    pairs: list[Any] = []
+    by_idx: dict[int, tuple[dict[str, Any], float, dict[str, Any] | None]] = {}
+    for idx, (row, payload, entry) in enumerate(payload_rows):
+        by_idx[idx] = (row, payload, entry)
+        csv_val = _safe_num((entry or {}).get("value"))
+        if csv_val is None or csv_val <= 0 or payload <= 0:
+            continue
+        group = (
+            "PICK"
+            if row.get("assetClass") == "pick"
+            else str(row.get("position") or "").strip().upper() or "OTHER"
+        )
+        pairs.append(_si.ProvenancePair(idx, group, float(payload), float(csv_val)))
+    result = _si.provenance_check(
+        pairs,
+        epsilon=integrity.thresholds.epsilon_b2,
+        supporting={"payloadRows": len(payload_rows), "overlappingRows": len(pairs)},
+    )
+    stamp = result.to_stamp()
+    proven: set[int] = set(by_idx) if result.board_proof else set(result.row_proofs)
+    replaced = withheld = 0
+    for idx in sorted(proven):
+        row, payload, entry = by_idx[idx]
+        csv_vals = row.get("canonicalSiteValues")
+        if not isinstance(csv_vals, dict):
+            continue
+        csv_val = _safe_num((entry or {}).get("value"))
+        proof = "board" if result.board_proof else "row"
+        if csv_val is not None and csv_val > 0:
+            if csv_val == payload:
+                continue
+            csv_vals[source_key] = (entry or {}).get("value")
+            if (
+                isinstance(row.get("rawSourceValues"), dict)
+                and source_key in row["rawSourceValues"]
+            ):
+                row["rawSourceValues"][source_key] = (entry or {}).get("value")
+            row.setdefault("sourceProvenance", {})[source_key] = {
+                "payload": payload,
+                "csv": (entry or {}).get("value"),
+                "selected": "csv",
+                "proof": proof,
+                "reason": _si.REASON_PROVENANCE,
+            }
+            replaced += 1
+        else:
+            csv_vals.pop(source_key, None)
+            if isinstance(row.get("rawSourceValues"), dict):
+                row["rawSourceValues"].pop(source_key, None)
+            if isinstance(row.get("sourcePresence"), dict) and source_key in row["sourcePresence"]:
+                row["sourcePresence"][source_key] = False
+            row.setdefault("sourceProvenance", {})[source_key] = {
+                "payload": payload,
+                "csv": None,
+                "selected": "none",
+                "proof": proof,
+                "reason": _si.REASON_PROVENANCE,
+            }
+            row.setdefault("sourceIntegrity", {})[source_key] = _si.integrity_stamp(
+                _si.STATUS_WITHHELD, [_si.REASON_PROVENANCE], scope=f"{proof}:{source_key}"
+            )
+            withheld += 1
+    stamp["replacedByCsv"] = replaced
+    stamp["withheldNoCsv"] = withheld
+    integrity.provenance[source_key] = stamp
+    if proven:
+        integrity.proof_sources.add(source_key)
+    if result.board_proof:
+        integrity.findings.append(
+            _si.BoardFinding(
+                source_key,
+                _si.REASON_PROVENANCE,
+                "source",
+                True,
+                {"provenGroups": list(result.proven_groups), "replaced": replaced},
+            )
+        )
+
+
 def _enrich_from_source_csvs(
     players_array: list[dict[str, Any]],
     *,
     parse_errors: list[dict[str, str]] | None = None,
     csv_root: "Path | None" = None,
+    integrity: Any = None,
 ) -> dict[str, dict[str, dict[str, Any]]]:
     """Fill missing canonicalSiteValues from source CSV exports.
 
@@ -5723,11 +5907,70 @@ def _enrich_from_source_csvs(
         downstream descending sort in ``_compute_unified_rankings`` still
         produces the correct ordinal.  Only the ordering matters to the
         ranking pipeline; the absolute number is a bookkeeping artefact.
+
+    ``integrity`` (``source_integrity.IntegrityBuild``; ``None`` unless
+    ``outlier_integrity_v2`` is on) switches on outlier-integrity-v2's ingestion
+    layers: Layer A grades every CSV join with the source's own published
+    identity evidence and REFUSES contradicted / unresolved observations (absent,
+    never zero); B0 records format findings; B2 (``payload_provenance_guard``)
+    replaces a proven broken payload value with the vendor's own CSV value.  With
+    ``integrity=None`` this function is byte-identical to before.
     """
     from pathlib import Path
 
     repo = Path(__file__).resolve().parents[2]
     csv_index: dict[str, dict[str, dict[str, Any]]] = {}
+    _v2 = integrity is not None
+    _layer_a = _v2 and bool(getattr(integrity, "identity_on", False))
+    _b2_on = _v2 and bool(getattr(integrity, "provenance_on", False))
+    if _v2:
+        from src.api import source_integrity as _si  # noqa: PLC0415
+        from src.identity import resolution as _idres  # noqa: PLC0415
+        from src.utils.name_clean import canonical_position_group as _v2_group  # noqa: PLC0415
+
+        _v2_rookie_boards = {
+            str(s.get("key") or "") for s in _RANKING_SOURCES if s.get("needs_rookie_translation")
+        } | {rk for rk, _ref, _u in ROOKIE_LADDER_PAIRS}
+        _v2_row_identity: dict[int, Any] = {}
+        _v2_rows_by_key_group: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        # Layer A1: a source's Sleeper id contradicts a row only when it
+        # RESOLVES to a different player on this board.
+        _v2_sid_owner: dict[str, str] = {
+            str(r.get("playerId")).strip(): str(r.get("canonicalName") or "")
+            for r in players_array
+            if str(r.get("playerId") or "").strip()
+        }
+        for _v2_row in players_array:
+            _v2_nm = str(_v2_row.get("canonicalName") or _v2_row.get("displayName") or "")
+            _v2_ck = _canonical_match_key(_v2_nm) if _v2_nm else ""
+            if _v2_ck and _v2_row.get("assetClass") != "pick":
+                _v2_rows_by_key_group.setdefault(
+                    (_v2_ck, _v2_group(_v2_row.get("position"))), []
+                ).append(_v2_row)
+
+        def _v2_identity_of(row: dict[str, Any]) -> Any:
+            got = _v2_row_identity.get(id(row))
+            if got is None:
+                nm = str(row.get("canonicalName") or row.get("displayName") or "")
+                alt = _TWO_WAY_PLAYERS.get(nm)
+                got = _idres.RowIdentityEvidence(
+                    player_id=str(row.get("playerId") or "").strip() or None,
+                    name=nm,
+                    position=row.get("position"),
+                    team=row.get("team"),
+                    age=_safe_num(row.get("age")),
+                    years_exp=row.get("yearsExp") if isinstance(row.get("yearsExp"), int) else None,
+                    rookie=bool(row.get("rookie")),
+                    alt_groups=frozenset({_v2_group(alt)}) if alt else frozenset(),
+                )
+                _v2_row_identity[id(row)] = got
+            return got
+
+        def _v2_player_key(row: dict[str, Any]) -> str | None:
+            from src.history.keys import asset_key_for_contract_row  # noqa: PLC0415
+
+            got = asset_key_for_contract_row(dict(row))
+            return None if got is None else got[0]
 
     # C1-ID-01 CUTOVER: the canonical owner decides every (row, source)
     # join.  The inline cascade that used to live in the row loop is
@@ -5833,10 +6076,40 @@ def _enrich_from_source_csvs(
         if schema_err is not None:
             if parse_errors is not None:
                 parse_errors.append(schema_err)
+            if _v2:
+                # B0: the whole board was unreadable (already absent today).
+                integrity.findings.append(
+                    _si.BoardFinding(
+                        source_key,
+                        _si.REASON_FORMAT_SCHEMA,
+                        "source",
+                        True,
+                        {"error": str(schema_err.get("error") or "")},
+                    )
+                )
             continue
 
         if not csv_lookup:
             continue
+
+        # Outlier-integrity-v2 inputs from the SAME parse (U1 evidence, B0
+        # census).  ``None`` (never a guess) when the parse kept none.
+        _v2_evidence: dict[str, list[Any]] = {}
+        if _v2:
+            _v2_inputs = _source_csv_integrity_inputs(csv_path)
+            if _v2_inputs is None and str(csv_path) in _SOURCE_CSV_PARSE_CACHE:
+                # Parsed (and cached) before the flag was read on: parse once
+                # more so the evidence exists.  Same file, same lookup.
+                _SOURCE_CSV_PARSE_CACHE.pop(str(csv_path), None)
+                csv_lookup, _ = _parse_source_csv_cached(csv_path, source_key, signal, csv_rel)
+                _v2_inputs = _source_csv_integrity_inputs(csv_path)
+            if _v2_inputs is not None:
+                _v2_evidence = _v2_inputs[0]
+                for _finding in _si.format_findings(source_key, _v2_inputs[1]):
+                    integrity.findings.append(_finding)
+                    if _finding.hard:
+                        integrity.source_quarantines[source_key] = _finding.reason
+                        integrity.proof_sources.add(source_key)
 
         # ── Rookie source → synthetic pick-slot stamps ──
         # dlfRookieSf ranks rookies; user-visible rookie picks
@@ -5877,6 +6150,8 @@ def _enrich_from_source_csvs(
         from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
 
         per_source: dict[str, dict[str, Any]] = {}
+        # Layer A: entry dict id → (bucket evidence, join's chosen index, tuples).
+        _v2_buckets: dict[int, tuple[list[Any], int, list[Any]]] = {}
         for cname, entries in csv_lookup.items():
             # Quick pre-pass: figure out which position groups the
             # contract has on this canonical key.  If it's only one
@@ -5896,6 +6171,15 @@ def _enrich_from_source_csvs(
                     "ambiguous": len(entries) > 1,
                     "candidates": [t[0] for t in entries],
                 }
+                if _layer_a:
+                    _ev = _v2_evidence.get(cname)
+                    if _ev is not None and len(_ev) == len(entries):
+                        _best_idx = max(range(len(entries)), key=lambda i: (entries[i][1], -i))
+                        _v2_buckets[id(per_source[f"{cname}::{grp}"])] = (
+                            list(_ev),
+                            _best_idx,
+                            list(entries),
+                        )
             else:
                 # Multiple DISTINCT canonical players share this
                 # normalized name across different position groups —
@@ -5949,6 +6233,8 @@ def _enrich_from_source_csvs(
 
         # Enrich missing values onto each row using the position-aware
         # key cascade.
+        _b2_source = _b2_on and source_key in _si.PAYLOAD_PROVENANCE_SOURCES
+        _b2_payload_rows: list[tuple[dict[str, Any], float, dict[str, Any] | None]] = []
         for row in players_array:
             csv_vals = row.get("canonicalSiteValues")
             if not isinstance(csv_vals, dict):
@@ -6008,9 +6294,79 @@ def _enrich_from_source_csvs(
                         )
             elif decision.entry_key:
                 entry = per_source.get(decision.entry_key)
+            if _b2_source and value_present:
+                _b2_payload_rows.append((row, float(existing), entry))
             if not entry:
                 continue
             _join_matched += 1
+            if _layer_a and not value_present and row.get("assetClass") != "pick":
+                # Layer A (outlier-integrity-v2): grade the join with the
+                # source's own published identity evidence.  A refused
+                # observation is ABSENT — never zero, never another player's.
+                _bucket = _v2_buckets.get(id(entry))
+                if _bucket is not None:
+                    _cands, _chosen, _tuples = _bucket
+                else:
+                    _cands = [
+                        _idres.SourceEntryEvidence(
+                            raw_name=str(entry.get("displayName") or ""),
+                            sleeper_id=entry.get("sleeperId"),
+                        )
+                    ]
+                    _chosen, _tuples = 0, []
+                _row_id = _v2_identity_of(row)
+                _row_ck = _canonical_match_key(_row_id.name) if _row_id.name else ""
+                _homonyms = [
+                    _v2_identity_of(other)
+                    for other in _v2_rows_by_key_group.get(
+                        (_row_ck, canonical_position_group(row.get("position"))), []
+                    )
+                    if other is not row
+                ]
+                _continuity: bool | None = None
+                _hist = integrity.history
+                if _hist is not None and not _hist.empty:
+                    _pk = _v2_player_key(row)
+                    _seen = _hist.teams.get(f"{source_key}|{_pk}") if _pk else None
+                    _now_team = _idres.team_evidence(_cands[_chosen].team) if _cands else None
+                    if _seen and _now_team:
+                        _continuity = _seen == _now_team
+                _verdict = _idres.assess_identity_evidence(
+                    row=_row_id,
+                    candidates=_cands,
+                    chosen=_chosen,
+                    via=decision.via,
+                    canonical_match_key=_canonical_match_key,
+                    position_group=canonical_position_group,
+                    rookie_board=source_key in _v2_rookie_boards,
+                    tau_age=integrity.thresholds.tau_age,
+                    homonyms=_homonyms,
+                    team_continuity=_continuity,
+                    sleeper_id_owner=_v2_sid_owner.get,
+                )
+                integrity.count_identity(source_key, _verdict.verdict)
+                _voting_ev = _cands[_verdict.selected if _verdict.selected is not None else _chosen]
+                _stamp = _verdict.to_stamp()
+                _entry_team = _idres.team_evidence(_voting_ev.team)
+                if _entry_team:
+                    _stamp["entryTeam"] = _entry_team
+                if _verdict.refused:
+                    row.setdefault("sourceIntegrity", {})[source_key] = _si.integrity_stamp(
+                        _si.STATUS_REFUSED, [str(_verdict.reason)], identity=_stamp
+                    )
+                    continue
+                row.setdefault("sourceIntegrity", {})[source_key] = {"identity": _stamp}
+                if _verdict.selected is not None and _tuples:
+                    _t = _tuples[_verdict.selected]
+                    entry = {
+                        **entry,
+                        "value": _t[1],
+                        "originalRank": _t[2],
+                        "nativeValue": _t[3],
+                        "sleeperId": _t[4],
+                        "displayName": _t[0],
+                        "identityDisambiguated": True,
+                    }
             if value_present:
                 # Metadata-only stamping: never overwrite the existing
                 # contribution, just make sure the display fields are
@@ -6052,6 +6408,9 @@ def _enrich_from_source_csvs(
                 if native_val is not None:
                     natives = row.setdefault("sourceNativeValues", {})
                     natives[source_key] = round(float(native_val), 2)
+
+        if _b2_source and _b2_payload_rows:
+            _apply_payload_provenance_guard(source_key, _b2_payload_rows, integrity)
 
     # ── FantasyPros IDP metadata stamp ──────────────────────────────
     # The generic rank-signal enrichment only stamps the effective
@@ -10439,6 +10798,69 @@ def _outlier_policy_active() -> bool:
     )
 
 
+def _integrity_provider_of(source_key: str) -> str:
+    """The PROVIDER behind a source (``source_census.provider_of``), for
+    outlier-integrity-v2's corroboration units.  An unrecorded provider fails
+    closed onto the source's B10 family — never counted as a separate,
+    independent provider of its own."""
+    from src.sources.source_census import provider_of  # noqa: PLC0415
+
+    return provider_of(source_key) or f"family:{correlation_group_for(source_key)}"
+
+
+def _source_integrity_vote_exclusions(
+    players_array: list[dict[str, Any]],
+    row_source_ranks: Mapping[int, Mapping[str, Any]],
+    row_source_meta: Mapping[int, Mapping[str, Mapping[str, Any]]],
+    integrity: Any,
+) -> dict[tuple[int, str], list[str]]:
+    """``{(row index, source): [reason, ...]}`` for every vote outlier-integrity-v2
+    Layer B excludes before the blend (B1 untranslated rookie votes; B0 / B3
+    quarantines; their dependants).  Pure read of the votes Phase 1 assembled.
+
+    B1 (``rookie_ladder_fail_closed``): a rookie-board vote whose method is not
+    ``rookie_ladder_translation_*`` — the ladder loop skipped it because the
+    reference was inactive or too shallow — would vote a within-class rank as an
+    overall rank.  Dependency: with the IDP shared-market bridge lost
+    (``scale_integrity_lost`` over the quarantined set), every IDP vote that was
+    translated onto the shared market inherits ``normalization_dependency_
+    unavailable``.
+    """
+    from src.api import source_integrity as _si  # noqa: PLC0415
+
+    rookie_keys = {
+        str(s.get("key") or "") for s in _RANKING_SOURCES if s.get("needs_rookie_translation")
+    } | {rk for rk, _ref, _u in ROOKIE_LADDER_PAIRS}
+    out: dict[tuple[int, str], list[str]] = {}
+    for row_idx, ranks in row_source_ranks.items():
+        row = players_array[row_idx]
+        asset_class = str(row.get("assetClass") or "")
+        pos = str(row.get("position") or "").strip().upper()
+        metas = row_source_meta.get(row_idx, {})
+        for source_key in ranks:
+            codes: list[str] = []
+            meta = metas.get(source_key) or {}
+            if (
+                integrity.rookie_fail_closed_on
+                and source_key in rookie_keys
+                and not str(meta.get("method") or "").startswith("rookie_ladder_translation_")
+            ):
+                codes.append(_si.REASON_UNTRANSLATED)
+                integrity.proof_sources.add(source_key)
+            hard = integrity.vote_exclusion(source_key, asset_class, pos)
+            if hard:
+                codes.append(hard)
+            if (
+                integrity.dependency_idp_shared_market
+                and asset_class == "idp"
+                and bool(meta.get("sharedMarketTranslated"))
+            ):
+                codes.append(_si.REASON_DEPENDENCY)
+            if codes:
+                out[(row_idx, source_key)] = list(dict.fromkeys(codes))
+    return out
+
+
 def _hill_inverse(value: float, c: float, s: float) -> float:
     """Percentile coordinate of a Hill value: p = c · (9999 / v − 1)^(1/s).
 
@@ -11267,6 +11689,7 @@ def _compute_unified_rankings(
     freshness_as_of: "datetime | None" = None,
     csv_root: "Path | None" = None,
     outlier_board_exclusions: Mapping[str, Sequence[str]] | None = None,
+    source_integrity: Any = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -12435,6 +12858,27 @@ def _compute_unified_rankings(
             meta["method"] = f"rookie_ladder_translation_via_{ref_key}"
             meta["rankCoordinatePool"] = ladder_pool
 
+    # ── Outlier-integrity-v2 Layer B, vote level (default OFF) ──
+    # ``source_integrity`` is a ``source_integrity.IntegrityBuild`` only while
+    # ``outlier_integrity_v2`` is on; ``None`` leaves this function byte for
+    # byte the incumbent.  B1 (untranslated rookie votes), B0 / B3 source and
+    # segment quarantines and their dependants are excluded at the VOTE (the
+    # rank slot stays, the family stays eligible, coverage can only fall); B4
+    # continuity holds are decided per row below, once the row's votes exist.
+    _integrity = source_integrity
+    _integrity_votes: dict[tuple[int, str], list[str]] = {}
+    _integrity_hashes: dict[str, str] = {}
+    _integrity_keys: dict[int, str | None] = {}
+    if _integrity is not None:
+        from src.api import source_integrity as _si  # noqa: PLC0415
+
+        _integrity_votes = _source_integrity_vote_exclusions(
+            players_array, row_source_ranks, row_source_meta, _integrity
+        )
+        if _integrity.history is not None:
+            _integrity_keys = {i: _si.player_key_for_row(r) for i, r in enumerate(players_array)}
+            _integrity_hashes = _si.source_hashes_for_rows(players_array, _integrity_keys)
+
     # ── Phase 2-3: Normalized value (Hill curve) + robust blend ──
     # Look up each source's weight / depth once.  ``src_by_key`` itself
     # is built above Phase 1 — the translation passes need it too.
@@ -12951,6 +13395,18 @@ def _compute_unified_rankings(
                     value = _te_lift_under_ceiling(value * effective_native_multiplier)
                     te_transform = (PER_VOTE_TE_FLAT, effective_native_multiplier)
                     tep_native_corrected = True
+            if _integrity is not None and (row_idx, source_key) in _integrity_votes:
+                _codes = _integrity_votes[(row_idx, source_key)]
+                _ix = row_source_meta[row_idx].setdefault(source_key, {})
+                _ix["valueContribution"] = int(round(value))
+                _ix["percentile"] = round(p, 6)
+                _ix["valueContributionPath"] = contribution_path
+                _ix["appliedWeight"] = 0.0
+                _ix["contributedToBlend"] = False
+                _ix["integrity"] = _si.integrity_stamp(_si.vote_status_for(_codes), _codes)
+                _ix["excludedReason"] = _ix["integrity"]["primaryReason"]
+                _integrity.count_vote(_ix["excludedReason"])
+                continue
             base_weight = blend_weight_by_source.get(source_key, 1.0)
             dyn_factor, dyn_stamp = _dynamic_weight_factor(
                 players_array[row_idx], source_key, row_is_pick
@@ -12979,6 +13435,10 @@ def _compute_unified_rankings(
                 withheld_pairs.append((source_key, float(value)))
                 continue
             row_weight[source_key] = src_blend_weight
+            if _integrity is not None:
+                row_source_meta[row_idx].setdefault(source_key, {})["integrity"] = _si.voting_stamp(
+                    players_array[row_idx], source_key
+                )
             all_values.append(value)
             all_weights.append(src_blend_weight)
             # Pick rows use the widened anchor set (KTC joins IDPTC as
@@ -13061,6 +13521,42 @@ def _compute_unified_rankings(
         # Picks bypass: KTC's per-slot synthetic values create
         # artificial agreement that the Hampel statistic mis-reads as
         # outliers across the synthetic vs. real-source values.
+        if (
+            _integrity is not None
+            and _integrity.history is not None
+            and not row_is_pick
+            and all_value_pairs
+        ):
+            _held = _si.row_continuity_holds(
+                players_array[row_idx],
+                [(k, v) for k, v, _a in all_value_pairs],
+                player_key=_integrity_keys.get(row_idx),
+                integrity=_integrity,
+                source_hashes=_integrity_hashes,
+                provider_of=_integrity_provider_of,
+            )
+            if _held:
+                for _hk, _hstamp in _held.items():
+                    _hm = row_source_meta[row_idx].setdefault(_hk, {})
+                    _hm["integrity"] = _hstamp
+                    _hm["excludedReason"] = _hstamp["primaryReason"]
+                    _hm["contributedToBlend"] = False
+                    _hm["appliedWeight"] = 0.0
+                    _integrity.count_vote(_hstamp["primaryReason"])
+                    if _integrity.holds_as_withheld_on:
+                        _hv = next(v for k, v, _a in all_value_pairs if k == _hk)
+                        withheld_pairs.append((_hk, float(_hv)))
+                all_value_pairs = [t for t in all_value_pairs if t[0] not in _held]
+                all_values = [v for _k, v, _a in all_value_pairs]
+                all_weights = [row_weight.get(k, 1.0) for k, _v, _a in all_value_pairs]
+                cross_market_values = [v for _k, v, a in all_value_pairs if a]
+                cross_market_weights = [row_weight.get(k, 1.0) for k, _v, a in all_value_pairs if a]
+                subgroup_values = [v for _k, v, a in all_value_pairs if not a]
+                subgroup_weights = [row_weight.get(k, 1.0) for k, _v, a in all_value_pairs if not a]
+                for _hk in _held:
+                    row_weight.pop(_hk, None)
+                    vote_forward_maps.pop(_hk, None)
+
         hampel_dropped_keys: list[str] = []
         # ``idp-hampel-n3-v1`` (default OFF) changes ONLY this minimum, and
         # only on IDP rows; with the flag off it is ``_HAMPEL_MIN_N``.
@@ -15125,11 +15621,26 @@ def build_api_data_contract(
             continue
         players_array.append(_derive_player_row(str(name), p_data, pos_map, site_keys))
 
+    # Outlier-integrity-v2 (Layers A + B; default OFF, challenger —
+    # src/api/source_integrity.py, docs/sources/OUTLIER_INTEGRITY_V2_
+    # PREREGISTRATION.md).  ``None`` keeps every pass below byte for byte the
+    # incumbent.  ``v2_active`` refuses to run alongside V1.
+    from src.api import source_integrity as _source_integrity  # noqa: PLC0415
+
+    integrity_build = (
+        _source_integrity.new_build(csv_root, _payload_as_of(raw_payload))
+        if _source_integrity.v2_active()
+        else None
+    )
+
     # Enrich players with source CSV values that may be missing from the
     # legacy scraper payload (e.g. KTC scrape failed but CSV exists).
     source_parse_errors: list[dict[str, str]] = []
     csv_index = _enrich_from_source_csvs(
-        players_array, parse_errors=source_parse_errors, csv_root=csv_root
+        players_array,
+        parse_errors=source_parse_errors,
+        csv_root=csv_root,
+        integrity=integrity_build,
     )
     _stamp_ktc_value_source_diagnostics(players_array)
 
@@ -15246,12 +15757,31 @@ def build_api_data_contract(
             freshness_as_of=freshness_as_of,
             csv_root=csv_root,
             outlier_board_exclusions=outlier_board_exclusions,
+            source_integrity=integrity_build,
         )
 
     # The disagreement-preserving outlier policy (default OFF) screens each
     # board the first pass priced and ranks again only if one is mis-scaled.
+    # Outlier-integrity-v2 takes that slot (never both): its B3 segment screen
+    # runs on the votes the first pass priced and re-ranks once only if a
+    # segment is quarantined.
     outlier_policy_stamp: dict[str, Any] | None = None
-    if _outlier_policy_active():
+    if integrity_build is not None:
+        if integrity_build.source_quarantines:
+            _lost = scale_integrity_lost(set(integrity_build.source_quarantines))
+            integrity_build.dependency_sources = set(_lost.get("sources") or {})
+            integrity_build.dependency_idp_shared_market = "idp" in (
+                _lost.get("assetClasses") or {}
+            )
+        pick_aliases = _source_integrity.rank_with_segment_screen(
+            _rank,
+            players_array,
+            players_by_name,
+            integrity_build,
+            provider_of=_integrity_provider_of,
+            dependency_of=scale_integrity_lost,
+        )
+    elif _outlier_policy_active():
         from src.api import outlier_policy as _outlier_policy  # noqa: PLC0415
 
         pick_aliases, outlier_policy_stamp = _outlier_policy.rank_with_board_screen(
@@ -15682,6 +16212,8 @@ def build_api_data_contract(
         }
     if outlier_policy_stamp is not None:
         contract_payload["outlierPolicy"] = outlier_policy_stamp
+    if integrity_build is not None:
+        contract_payload["sourceIntegrity"] = integrity_build.summary()
     if seasonal_policy_error:
         contract_payload["sourceSeasonalState"]["policyError"] = seasonal_policy_error
         contract_payload["sourceSeasonalState"]["basis"] = (

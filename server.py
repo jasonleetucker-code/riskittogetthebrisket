@@ -3149,6 +3149,19 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
                     )
                 except Exception as inner_exc:  # noqa: BLE001
                     log.warning("temporal_ledger: record failed: %s", inner_exc)
+                # Outlier-integrity-v2 source_rank lane (U4; RECORD-ONLY, flag
+                # ``source_rank_history_record``, default OFF): the per-source
+                # history Layer B's baselines read.  Moves no value; isolated
+                # like its siblings.
+                try:
+                    from src.api import source_integrity as _source_integrity
+                    from src.history import source_rank as _source_rank_lane
+
+                    if _source_integrity.history_record_active():
+                        lane_result = _source_rank_lane.record_contract(contract_payload)
+                        log.info("source_rank_lane: %s", lane_result)
+                except Exception as inner_exc:  # noqa: BLE001
+                    log.warning("source_rank_lane: record failed: %s", inner_exc)
             stamped = _rank_history.stamp_contract_with_history(contract_payload)
             if stamped:
                 log.info("rank_history: stamped %d rows with history series", stamped)
