@@ -1,0 +1,232 @@
+/* SourceVotingStatus.jsx — per-source voting status (owner directive
+   2026-10-19 §8).  Semantic tokens only: no page-local colours, radii,
+   shadows or breakpoints (768px is the canonical md breakpoint).  Dense
+   aligned rows separated by thin rules, per the PSI contract — no cards. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.num {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rows carry a wrapped reason, so cells align to the top rather than the
+   single-line middle the board tables use. */
+.table td {
+  vertical-align: top;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.sourceCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 8rem;
+  white-space: normal;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-height: 24px;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-1);
+  font: inherit;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.toggle:hover .sourceName {
+  color: var(--accent);
+}
+.toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.sourceName {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Disclosure caret: a thin-ruled chevron drawn with two borders — points
+   right when collapsed, down when open. */
+.caret,
+.caretOpen {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  margin: 5px 3px 0 1px;
+  border-right: 1.5px solid var(--text-tertiary);
+  border-bottom: 1.5px solid var(--text-tertiary);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+.caret {
+  transform: rotate(-45deg);
+}
+.caretOpen {
+  transform: rotate(45deg);
+}
+
+.sourceMeta,
+.mobileFacts {
+  padding-left: var(--space-4);
+  font-size: var(--font-size-2xs);
+}
+.sourceMeta {
+  color: var(--text-tertiary);
+}
+
+/* Last Updated / Freshness / Voting Weight columns hide below md; their
+   values ride under the source name instead (mobile parity, contract §6). */
+.mobileFacts {
+  display: none;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+@media (width < 768px) {
+  .mobileFacts {
+    display: block;
+  }
+}
+
+.dateCell {
+  display: flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.subtle {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xs);
+}
+
+.statusCell {
+  white-space: normal;
+}
+@media (width >= 768px) {
+  .statusCell {
+    min-width: 16rem;
+    max-width: 34rem;
+  }
+}
+
+/* Phone width (below the canonical 480px sm breakpoint): the longest
+   label ("Data Issue — Not Voting") plus a fixed source-column minimum
+   overflowed a 375px viewport by 25px (measured), so the source column
+   shrinks to its longest word and the status label may wrap. */
+@media (width < 480px) {
+  .sourceCell {
+    min-width: 0;
+  }
+  .statusCell :global(.ds-badge) {
+    white-space: normal;
+    line-height: var(--line-height-snug);
+  }
+}
+
+.reason {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--text-secondary);
+}
+
+/* ── Expanded detail ── */
+.detailRow td {
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border-default);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0 var(--space-4);
+  margin: 0;
+  white-space: normal;
+}
+
+.detailItem {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.detailItem dt {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.detailItem dd {
+  margin: 2px 0 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--text-primary);
+}
+
+.detailNote {
+  display: block;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+.reasonList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.code {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  color: var(--text-secondary);
+}
+
+/* ── Not available yet ── */
+.unavailable {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+}
+.unavailableTitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.unavailableBody {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--border-strong);
+  background: var(--surface-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+}
+
+.footnote {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}

@@ -47,6 +47,10 @@ def test_fixture_set_is_present():
         "fullpage_mobile_stacked",
         "fullpage_single_header",
         "fullpage_no_headers",
+        "mobile390_light_picks_idp",
+        "mobile390_dark_picks_idp",
+        "mobile390_multishot_1",
+        "mobile390_multishot_2",
     } <= set(SCENARIOS)
 
 
@@ -58,6 +62,8 @@ def test_fixture_screenshot_reads_sides_and_assets(name, identity_ctx, board):
     assert out["engine"]["name"] == "tesseract" and out["engine"]["version"]
     assert out["layout"]["kind"] == expected["layoutKind"]
     assert [s["label"] for s in out["sides"]] == [s["label"] for s in expected["sides"]]
+    if "anchorSlots" in expected:
+        assert [s["anchorSlot"] for s in out["sides"]] == expected["anchorSlots"]
     for side, exp in zip(out["sides"], expected["sides"]):
         assert [it["boardName"] for it in side["items"]] == [a["boardName"] for a in exp["assets"]]
         assert [it["status"] for it in side["items"]] == [
@@ -77,8 +83,51 @@ def test_fixture_screenshot_reads_sides_and_assets(name, identity_ctx, board):
         assert warning in out["warnings"]
     for warning in expected.get("forbiddenWarnings", []):
         assert warning not in out["warnings"]
-    if name.startswith("dark"):
+    if expected.get("expectInverted", name.startswith("dark")):
         assert prep.inverted is True
+
+
+def _stable(payload: dict) -> dict:
+    """What the client's merge depends on, without engine noise (conf)."""
+    item = lambda it: (it["raw"], it["kind"], it["status"], it["boardName"], it["sleeperId"])  # noqa: E731
+    return {
+        "layout": payload["layout"]["kind"],
+        "sides": [
+            (
+                s["label"],
+                s["labelSource"],
+                s["anchorFamily"],
+                s["anchorSlot"],
+                [item(i) for i in s["items"]],
+            )
+            for s in payload["sides"]
+        ],
+        "unassigned": [item(i) for i in payload["unassigned"]],
+        "ignoredReasons": sorted({ig["reason"] for ig in payload["ignored"]}),
+        "warnings": payload["warnings"],
+    }
+
+
+def test_recorded_multishot_extractions_match_a_fresh_read(identity_ctx, board):
+    """The frontend replays the committed ``extraction.json`` of the
+    owner-trade screenshot pair; a fresh real read must still agree with it
+    on everything the merge uses (re-record with ``python -m
+    tests.trade.screenshot_import.synthetic --record-extractions``)."""
+    from .synthetic import RECORDED_EXTRACTIONS
+
+    for index, name in enumerate(RECORDED_EXTRACTIONS):
+        d = FIXTURES / name
+        recorded = json.loads((d / "extraction.json").read_text(encoding="utf-8"))
+        prep = decode_image(fixture_image(d).read_bytes())
+        fresh = extract_trade(
+            prep.png,
+            engine=TesseractEngine(),
+            identity_ctx=identity_ctx,
+            contract=board,
+            image_index=index,
+        )
+        assert recorded["imageIndex"] == index
+        assert _stable(fresh) == _stable(recorded), name
 
 
 def test_fresh_render_end_to_end(identity_ctx, board):

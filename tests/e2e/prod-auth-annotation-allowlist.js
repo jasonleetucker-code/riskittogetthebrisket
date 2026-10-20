@@ -210,6 +210,15 @@ const ALLOWLIST = {
     "w1-12-cta": oneOf("Full H2H preview → structured previews"),
     "w1-12-privacy": oneOf("no projection or probability language on the public page"),
   },
+  "screenshot-import-status.spec.js": {
+    "screenshot-status-http": "http_status",
+    "screenshot-status-no-values": "bool",
+    "screenshot-status-available": "bool",
+    "screenshot-status-enabled": "bool",
+    "screenshot-status-version-present": "bool",
+    // the API's reason CODE (an enum such as tesseract_not_installed), or "none"
+    "screenshot-status-reason": "state",
+  },
   "w1-16-game-day.spec.js": {
     "w1-16-endpoint-status": "http_status",
     "w1-27-mode": "state",

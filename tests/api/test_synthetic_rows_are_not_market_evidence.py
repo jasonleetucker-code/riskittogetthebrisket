@@ -27,6 +27,14 @@ synthetic rows left the pool, the shared-market ladder moved by at most
 p50 0.085% / p90 0.152%, and two IDP rows moved ~29.5% because a 12-rank
 shift crossed the trim boundary of the count-aware blend.  Full record:
 ``docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md`` §12.
+
+Extended 2026-10-19: the backbone was not the only reader of a vendor's
+published order.  The rookie ladder translates ``dlfRookieSf`` /
+``flockFantasySfRookies`` ranks through ``ktcCrowdSfTep``'s order (and
+``dlfRookieIdp`` through ``idpTradeCalc``'s), and the derived 2030 rows of the
+2026-10-10 vendor slot roll sat in that order — 36 rookies moved value.  A
+derived row now keeps its vote but occupies no position in any per-source
+ordinal list.
 """
 
 from __future__ import annotations
@@ -65,6 +73,26 @@ def _board():
         # vendors' keys so the row can be blended.
         _row("2029 Early 1st", "PICK", "pick", idpTradeCalc=3600, ktcCrowdSfTep=3600),
     ]
+
+
+def _ladder_board():
+    """``_board()`` plus a rookie class priced by a rookie-only source.
+
+    ``dlfRookieSf`` publishes within-class ranks (synthetic rank encoding:
+    rank k = 1,000,000 - 100k), which the rookie ladder translates through
+    ``ktcCrowdSfTep``'s order.  The derived ``2029 Early 1st`` (3600) sits
+    ABOVE every rookie in that order, which is exactly the position a
+    derived row must not occupy.
+    """
+    rows = _board()
+    for i, (name, pos, ktc) in enumerate(
+        (("Rook One", "WR", 3500), ("Rook Two", "RB", 3000), ("Rook Three", "TE", 2500)),
+        start=1,
+    ):
+        row = _row(name, pos, "offense", ktcCrowdSfTep=ktc, dlfRookieSf=1_000_000 - 100 * i)
+        row["rookie"] = True
+        rows.append(row)
+    return rows
 
 
 def _values_by_name(rows):
@@ -143,3 +171,28 @@ class TestADerivedRowIsNotAnObservation:
             "evidence pool is not actually reading pick rows and the test above "
             "would pass for the wrong reason"
         )
+
+    def test_a_derived_row_does_not_move_the_rookie_ladder(self):
+        """The same invariant through the rookie ladder (2026-10-19).
+
+        Without the exclusion the derived row pushed every rookie one place
+        down KTC Crowd's order, the ladder translated ``dlfRookieSf`` one rank
+        deeper, and the rookies' values moved.
+        """
+        declared = copy.deepcopy(_ladder_board())
+        dc._compute_unified_rankings(declared, {}, synthetic_pick_derivations=_derivations())
+
+        absent = [
+            r for r in copy.deepcopy(_ladder_board()) if r["canonicalName"] != "2029 Early 1st"
+        ]
+        dc._compute_unified_rankings(absent, {})
+
+        # Non-vacuity: the rookie source really went through the ladder.
+        rook = next(r for r in declared if r["canonicalName"] == "Rook One")
+        meta = (rook.get("sourceRankMeta") or {}).get("dlfRookieSf") or {}
+        assert str(meta.get("method") or "").startswith("rookie_ladder_translation"), rook.get(
+            "sourceRankMeta"
+        )
+        assert _values_by_name(declared) == _values_by_name(absent)
+        derived = next(r for r in declared if r["canonicalName"] == "2029 Early 1st")
+        assert (derived.get("rankDerivedValue") or 0) > 0, derived  # still priced

@@ -15,6 +15,74 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-19 (later) — four product directives, recorded verbatim
+
+All four are definite owner instructions. The verbatim text lives in `docs/owner/`; this entry is the intake pointer. Capture is not implementation authorization: `docs/EXECUTION_PLAN.md` records what is authorized.
+
+1. **League intelligence and the trade decision engine** (`docs/owner/LEAGUE_INTELLIGENCE_TRADE_DECISION_ENGINE_2026-10-19.md`, evening).
+   - The Trade Calculator answers "should I make this trade?" with YES / NO, calibrated confidence, the three biggest reasons, key numbers and what could change it. It is evaluated separately for each team. INSUFFICIENT EVIDENCE is reported when essential data is missing.
+   - It does this through a hierarchical decision model: asset evaluation → forecasting → roster simulation → competitive outcomes → trade decision. No stack of arbitrary multipliers, and no signal counted twice.
+   - It is built on exact-league projections (raw categories, correlated events, distributions), a multi-source projection ensemble with learned reliability, true best-ball marginal utility, dynasty-horizon forecasts and a league-aware valuation challenger.
+   - **Owner decision:** league-aware Brisket values are authorized for evidence-based adoption as the canonical value once a challenger passes preregistered promotion gates.
+     - Thresholds are fixed before any holdout is examined.
+     - The new methodology must answer `docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md`; restoring the old overlay does not count.
+     - External market observations are never overwritten.
+     - Where governance requires an explicit owner approval to promote, the evidence and the promotion decision go to the owner together.
+   - Tracks #1842 and PR #1843.
+2. **Brisket Trade Advisor** (`docs/owner/BRISKET_TRADE_ADVISOR_2026-10-19.md`).
+   - A public League Hub advisor and the hub's default landing page, for 2-, 3- and 4-team trades.
+   - It uses the same private engine, with a server-side boundary and rate limiting.
+   - It returns five categories mapped from the existing bands and exposes no proprietary values anywhere.
+3. **Signals Fantasy IDP voting** (`docs/owner/SIGNALS_IDP_VOTING_2026-10-19.md`).
+   - Diagnose the 2026-10-17 shadow-mode failure and investigate native league-specific values first.
+   - Preregister new candidates, then validate without weakening the gates.
+   - Activation is per family (DL / LB / DB).
+   - No credentials, cookies or protected values in any public output.
+4. **Chase Upside Trade Market** (`docs/owner/CHASE_TRADE_MARKET_SOURCE_2026-10-19.md`, refined by `..._V2_...`, which wins on conflict).
+   - A trade-derived shadow source, `chaseTradeMarket`.
+   - Leagues with 3 verified completed seasons; 2-season leagues are a separate research cohort.
+   - Format-aware, duplicate-safe, KTC-overlap-safe, recency-weighted, held-out validated.
+   - Labelled "Experimental — Not Voting" until the owner authorizes voting.
+
+## Added 2026-10-19 — Permanent owner directive: maximize safe coding throughput
+
+The owner wants all engineers and AI/LLM workers to **implement independent
+already-authorized features in parallel**, normally targeting
+3–5 truly independent agents when safe/available, using worktrees, task
+branches and claimed files with a separate Integration coordinator.
+Do not have independent development await another feature's entire CI
+pipeline. Keep L0 and targeted L1 validation in implementation, required
+L2 on coherent PR integration, and strict L3 at release. No giant untested
+branch, weakened checks or unverified production releases.
+
+**Owner per-merge babysitting is eliminated.** The designated Integration
+Authority may merge reviewed, green, evidence-complete *routine* PRs
+without asking the owner each time, once exact-tree checks, dependency
+ordering, conflict/claims checks and protections pass. Escalate only
+real owner-reserved scope, methodology/source/model promotion, release/
+launch, paid/credential/security/destructive decisions. Paused DFS and
+League Tycoon remain paused. Newer generic no-manual-merge policy
+supersedes old broad per-PR prompts; feature-specific consequential
+gates remain. Canonical incorporation:
+`docs/AGENT_OPERATING_SYSTEM.md` §3 and
+`ASSISTANT_COORDINATION.md`; current authorization boundary:
+`docs/EXECUTION_PLAN.md`. No new roadmap, feature manifest ID or
+completion denominator is implied by this engineering process directive.
+
+Owner's words (2026-10-19, standing merge authorization, verbatim): "I do
+not want to manually approve every pull request merge. Effective
+immediately, the designated Integration Authority has my standing
+authorization to automatically merge any PR that is ready under our
+established requirements. If the required CI checks pass, the
+implementation is complete, the necessary reviews are satisfied, and there
+are no unresolved dependencies or conflicts, merge it without asking me. Do
+not interrupt development to request routine merge approval. Keep
+implementing independent features while other PRs are validating or
+merging. Do not bypass required checks or owner-only decisions involving
+production model activation, security, spending, or other consequential
+changes." The live implementation-state board the same day's MAXIMUM
+VELOCITY directive asked for is `docs/DEVELOPMENT_TRACKER.md`.
+
 ## #1338 expanded performance mandate — owner, 2026-09-26
 
 **Critical-path refinement (2026-09-27):** remain on Rankings/Trade until production
@@ -802,7 +870,24 @@ Retiring 2026 keeps the existing horizon unchanged: 2027–2029, with no 2030 ro
 rank/tier shifts. The only horizon rule on record is CLAUDE.md step 12 / C1-U6 ("horizon = current +
 3, self-rolling", anchored on the active draft year); nothing says retirement advances that anchor.
 **Horizon advancement (introducing 2030) is a separate owner decision**, to be brought with evidence
-and measured impact.
+and measured impact. *(Decided 2026-10-19 — see the next entry; this text is kept for traceability.)*
+
+**Owner decision — future-pick horizon ends three seasons after the latest completed draft
+(2026-10-19).** Status: DECIDED; implementation PR from `claude/pick-horizon-completed-draft-plus-3`.
+Owner, verbatim: "Yeah, let's not add 2030 until the 2027 draft is complete, because I think that's
+when we're issued our 2030 picks. And then that's why every league draft pick year should be added, is
+I think it's, yeah, 3 years out". Supersedes the open "separate owner decision" note above.
+
+- The board's supported future-pick horizon ends **three seasons after the most recent COMPLETED rookie
+  draft**. The 2026 draft is complete, so the horizon is 2027–2029. 2030 is added automatically once the
+  2027 draft is complete, which is when Sleeper issues 2030 picks.
+- "Complete" is the existing draft-class retirement proof (`src/identity/pick_lifecycle.py`): the draft is
+  completed and its picks are consumed. On the board scope, every served league must prove it (the
+  #1414 / PR #1442 rule). Unproven or partly proven completion does not advance the horizon.
+- A vendor slot roll alone must NOT move the horizon. The defect: around 2026-10-10 the vendors rolled
+  their slot picks from 2026 to 2027, and `current + 3` started minting 2030 rows.
+- Unchanged: current-year slot tethering, generic-grade rows, the derived year-step model, and the
+  league-scope resolver (`league_draft_years`). Only the number of future seasons the board emits changes.
 
 **Owner decision — FAAB vs Trade flex demand stays as-is (2026-09-24).** Do NOT unify the two yet.
 FAAB apportions flex demand fractionally (`even_split`, e.g. QB 1.25 in dynasty_main); Trade assigns
@@ -1903,7 +1988,7 @@ $1,200 budget-basis half of that row was decided on 2026-10-18 ("$1,200 per draf
 | Selector `All Years / 2027 / 2028 / 2029`, data-driven from the league-scoped resolver (`pick_lifecycle.league_draft_years`); a newly eligible class appears automatically; a completed (drafted and rostered) class never shows as future capital | DECIDED — owner; MERGED — #1785 via release train 6 #1794 (`c290dea0a8`, merged 2026-10-18 14:49Z; Deploy Production for that SHA succeeded; production verification not re-run by the 2026-10-18 housekeeping pass) |
 | Each year view: per-year team ranking, every owned pick with original + current owner (Sleeper is the source of truth), round, slot known / projected / unknown (never invented), estimated dollar value, team totals, picks owned / acquired / traded away, uncertainty labels; All Years combined with no double counting | DECIDED — owner; implementation IN PROGRESS |
 | Canonical pick identity, canonical pick values (`pick_value_resolution`, generic grade for classes without a draft order), unpriced = null + label never $0, public/private boundary, existing simulator and auction budgets preserved | DECIDED — owner; implemented in #1785. The later classes' DOLLARS moved to the rookie-auction curve in Batch E (draft-valuation workstream); identity, unpriced-never-$0 and the public/private boundary are unchanged |
-| The default-league workbook path's failed `/traded_picks` fetch must not keep the workbook's ownership silently (CLAUDE.md named follow-up) | DECIDED — owner; implementation IN PROGRESS (refuses the board, same shape as the fallback) |
+| The default-league workbook path's failed `/traded_picks` fetch must not keep the workbook's ownership silently (CLAUDE.md named follow-up) | DECIDED — owner; MERGED — #1785 via release train 6 #1794 (`c290dea0a8`, 2026-10-18): an unobserved `/traded_picks` refuses the board with the fallback's `pick_ownership_unavailable` shape. Exact fallback parity, route caching (300 s TTL, never the stale last-valid board) and success byte-identity pinned by `tests/api/test_draft_capital_workbook_pick_ownership.py` (`claude/workbook-pick-ownership-fail-closed`) |
 | $1,200 auction-power basis: one $1,200 pool per draft class, or one $1,200 pool shared across every listed class? | SUPERSEDED — decided 2026-10-18 (next row) |
 | Draft-capital budget basis: $1,200 per draft class (each class its own pool; All Years sums classes) | DECIDED — owner, 2026-10-18, **for `dynasty_main` only** (scope corrected by the owner the same day — next-but-two row). dynasty_main's workbook class keeps the exact workbook dollars, each later class its own $1,200. `budgetPolicy`: `basis: "per_class_pool"`, `status: "owner_confirmed"`. Implementation `claude/draft-capital-all-years` (#1785), merged via release train 6 #1794 (`c290dea0a8`, 2026-10-18). *The earlier wording "Both leagues … the Sleeper-derived fallback (dynasty_new) normalizes each class to $1,200 over its real picks (10 teams × 4 rounds = 40)" is SUPERSEDED by the 2026-10-18 scope correction; that fallback change was removed from #1785.* |
 | Addendum (owner, 2026-10-18): exact reconciliation — every complete class totals exactly $1,200.00 (integer-unit allocation, deterministic largest-remainder residual; pick dollars, team totals, year totals and All Years reconcile with no drift) | DECIDED — owner, 2026-10-18; implementation `claude/draft-capital-all-years` (#1785) |
