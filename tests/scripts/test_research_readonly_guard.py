@@ -8,6 +8,7 @@ network or start a subprocess — and every refusal is recorded.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -151,8 +152,20 @@ def test_phase2_box_mode_installs_the_guard_before_app_imports():
         {"deployedCodeSha": "UNKNOWN"},
     ],
 )
-def test_aggregate_check_accepts_only_a_real_sha(payload):
-    from tests.scripts.test_package_model_phase2_research import P2
+def test_aggregate_check_accepts_only_a_real_sha(payload, monkeypatch):
+    # Load the Phase 2 module with sys.modules entries restored afterwards, so
+    # this module never leaves replaced research modules behind for later tests.
+    for name in ("package_model_phase2_research", "package_model_hybrid_research"):
+        if name in sys.modules:
+            monkeypatch.setitem(sys.modules, name, sys.modules[name])
+        else:
+            monkeypatch.delitem(sys.modules, name, raising=False)
+    spec = importlib.util.spec_from_file_location(
+        "package_model_phase2_research", REPO / "scripts" / "package_model_phase2_research.py"
+    )
+    P2 = importlib.util.module_from_spec(spec)
+    sys.modules["package_model_phase2_research"] = P2
+    spec.loader.exec_module(P2)
 
     P2.assert_aggregate_only(payload)
     with pytest.raises(ValueError):

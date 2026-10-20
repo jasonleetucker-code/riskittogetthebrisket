@@ -75,8 +75,16 @@ BINS = P3.BINS
 # Replacement anchors and starter lines for dynasty_main, computed by the frozen
 # rule (§2: waiver value by position; "*" = FAAB V_repl) on the newest board and
 # recorded by the shadow-replay evidence (shadow_replay.json).  Filled at freeze.
-ANCHORS: dict[str, float] = {}
-STARTER_LINES: dict[str, float] = {}
+ANCHORS: dict[str, float] = {
+    "QB": 1923.0, "RB": 1626.0, "WR": 1802.0, "TE": 2061.0,
+    "DL": 1918.0, "LB": 2149.0, "DB": 2156.0, "*": 1687.0,
+}  # fmt: skip
+# Lowest starter value at the position across the 12 optimal lineups; "*" (picks,
+# K, unknown) = FAAB V_allin, the league-wide starter-pool line (Amendment 1).
+STARTER_LINES: dict[str, float] = {
+    "QB": 1988.0, "RB": 1653.0, "WR": 1510.0, "TE": 1671.0,
+    "DL": 1539.0, "LB": 1474.0, "DB": 1335.0, "*": 2387.0,
+}  # fmt: skip
 _IDP = {"DL", "LB", "DB"}
 
 

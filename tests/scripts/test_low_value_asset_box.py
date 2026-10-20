@@ -18,9 +18,25 @@ REPO = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location(
     "low_value_asset_box", REPO / "scripts" / "low_value_asset_box.py"
 )
+# Loading the script registers its sibling research modules in sys.modules; the
+# entries are restored afterwards so no later test module sees this module's
+# copies (tests/process_state_isolation.py).  B keeps its own references.
+_NAMES = (
+    "low_value_asset_box",
+    "low_value_asset_treatments",
+    "package_model_phase3_research",
+    "package_model_phase2_research",
+    "package_model_hybrid_research",
+)
+_saved = {n: sys.modules.get(n) for n in _NAMES}
 B = importlib.util.module_from_spec(_spec)
 sys.modules["low_value_asset_box"] = B
 _spec.loader.exec_module(B)
+for _n, _m in _saved.items():
+    if _m is None:
+        sys.modules.pop(_n, None)
+    else:
+        sys.modules[_n] = _m
 
 
 def test_single_guard_and_guard_precedes_app_imports():
@@ -82,3 +98,15 @@ def test_analysis_is_aggregate_only():
     blob = json.dumps(out)
     assert "league-3" not in blob and "player:" not in blob
     assert out["M3_servedValueDynamics"]["available"] in (True, False)
+
+
+def test_frozen_anchors_match_the_shadow_replay_evidence():
+    ev = json.loads(
+        (
+            REPO / "docs/valuation/evidence/low_value_assets_2026-10-20/shadow_replay.json"
+        ).read_text()
+    )["S1_replacementAnchors"]
+    assert {k: float(v) for k, v in ev["replacementAnchorDict"].items()} == B.ANCHORS
+    for pos, line in B.STARTER_LINES.items():
+        if pos != "*":
+            assert ev["byPosition"][pos]["lowestStarterAcross12OptimalLineups"] == line

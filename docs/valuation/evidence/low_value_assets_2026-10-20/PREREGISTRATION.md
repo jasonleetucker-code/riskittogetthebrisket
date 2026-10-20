@@ -142,4 +142,39 @@ a class-wide change. Disclose the market's discount, with no number changed.
 
 ## Amendments
 
-None.
+**Amendment 1 (2026-10-20, before any confirmatory run; exploratory lanes had reported).**
+
+- **Anchor values.** The §2 replacement anchors were computed by the frozen rule on board
+  `dynasty_export_20261020_052241` (`shadow_replay.json → S1_replacementAnchors`) and are fixed in
+  `scripts/low_value_asset_box.py`:
+
+  | position | anchor |
+  |---|---:|
+  | QB | 1,923 |
+  | RB | 1,626 |
+  | WR | 1,802 |
+  | TE | 2,061 |
+  | DL | 1,918 |
+  | LB | 2,149 |
+  | DB | 2,156 |
+  | `*` (picks, K, unknown) | 1,687 (FAAB V_repl) |
+
+- **Starter lines.** These are the lowest starter value at each position across the 12 optimal lineups:
+
+  | position | starter line |
+  |---|---:|
+  | QB | 1,988 |
+  | RB | 1,653 |
+  | WR | 1,510 |
+  | TE | 1,671 |
+  | DL | 1,539 |
+  | LB | 1,474 |
+  | DB | 1,335 |
+
+- **Clarification.** §3 did not state a starter line for picks or K. They use FAAB V_allin, 2,387: the value at
+  the league-wide starter-pool line.
+
+- **An observation, not a rule change.** The IDP waiver anchors sit *above* the lowest IDP starters (DB: anchor
+  2,156 vs lowest starter 1,335). For unrostered IDP assets, the §3 order (starter line before anchor) therefore
+  classifies values between those two numbers as starters. This is reported as a finding (§6 of the memo), not
+  corrected.
