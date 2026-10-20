@@ -1594,6 +1594,54 @@ equalizer per addition.  A balancer is never a draft pick (C7-PICKGEN-01
 rule 5: picks enter generated trades only through a posture-aware
 generator).
 
+### Multi-team trade analysis — one owner (N-team engine, owner directive 2026-10-20)
+
+A team-attributed trade of ANY size is one routed ledger evaluated by the SAME
+per-team analysis the 2-team War Room runs.  Spec (binding interface):
+``docs/trade/NTEAM_TRADE_ENGINE_SPEC.md``.
+
+* ``src/trade/trade_ledger.py`` owns the ledger: ONE snapshot per request
+  (``snapshot_for``; rosters, board rows, pick ownership, roster settings, and
+  freshness from ``src/api/roster_freshness.py`` — never a copy), asset refs
+  (``p:<sleeperId>`` / canonical league pick ids; labels never identify),
+  validation in the spec's fixed order (§2.3, stable reason codes), and ownership
+  verified against the snapshot — no request field can assert it.  Only
+  ``current`` rosters prove ownership; ``stale`` / ``unknown`` rosters, a player
+  on several rosters, or an ``unknown`` pick make the asset UNVERIFIABLE, never
+  guessed.
+* ``src/trade/analyze_service.analyze_trade_n`` is the one N-team composer: a
+  per-team loop over ``simulate_for_team`` + ``analyze_for_team`` from that one
+  snapshot.  Each team's roster changes only through its own legs, so all
+  changes are simultaneous by construction — no chain of 2-team trades.  At N = 2
+  a team's ``simulation`` + ``analysis`` equal ``/api/trade/analyze``'s (pinned on
+  real archived trades; the one listed difference is an orphan team's posture
+  reason).  Modes: ``team_context`` / ``asset_only`` (private) and
+  ``market_fairness`` (public: no posture, no capacity, writes nothing).  Refuses
+  unless the package model is ``geom_q078_v1`` with a readable config.
+* ``src/trade/team_verdicts.py`` projects, never computes: the per-team category
+  (the old ``public_category_from_decision`` body), per-team MARKET fairness (the
+  asset evidence gates, then the equity lens's own ``fairness_bands`` band over
+  that team's adjusted (gives, receives) — gross, identical in every mode), the
+  Kleene-AND overall, and the all-team summary.  There is no trade-level
+  recommendation, and no per-team adjusted gap, VA or utility is ever summed into
+  a trade-level number — only RAW priced totals are conserved.
+* ``trade_decision.asset_evidence_gaps`` is the asset half of the evidence gates;
+  its ``ownership_unverifiable`` gate reads the simulator's ``ownershipEvidence``,
+  which only the ledger sets, so every existing route is unchanged.
+* Roster capacity matches an outgoing player to his roster entry BY ID
+  (``roster_capacity.outgoing_roster_names``); names are the fallback only.
+* The private route ``POST /api/trade/analyze-multi`` is gated by
+  ``trade_multi_team_analysis`` (default OFF; rollback
+  ``RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0`` + restart).  The flag gates the
+  route, not the engine.  Bounds: ``config/trade/multi_team.json`` (unreadable →
+  2 teams).  A per-team result that does not reconcile with the ledger raises
+  ``ConservationViolation`` and is never published (500).
+
+Rule for new code: a multi-team surface consumes ``trade_ledger`` +
+``analyze_trade_n``; it never re-implements routing, ownership, valuation, the
+package model, fairness or the decision, and never collapses a multi-team trade
+into two imaginary sides.
+
 ### Competitive Posture — one owner (#840 / C7-POST-01, Wave B)
 
 ``src/roster_intel/window.py::competitive_posture`` publishes PUSH / HOLD /

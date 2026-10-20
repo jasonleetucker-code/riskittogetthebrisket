@@ -279,14 +279,32 @@ def asset_evidence_codes(asset: Any) -> tuple[str, ...]:
     return tuple(codes)
 
 
-def _evidence_gaps(
-    simulation: dict[str, Any],
-    market: Any,
-    roster: Any,
-    feasibility: Any,
-    strategy: dict[str, Any],
-    team_context: bool,
-) -> list[dict[str, Any]]:
+#: The asset half of the evidence gates, in gate order.  Every one is a fact
+#: about the traded assets themselves (priced? on the board? held? quarantined?
+#: fresh?), never about Team Context, so it applies in every mode and is the
+#: half per-team market fairness reads (``src/trade/team_verdicts.py``).
+ASSET_EVIDENCE_GATE_CODES = (
+    "no_priced_assets",
+    "off_board_assets",
+    "unpriced_assets",
+    "unheld_assets",
+    "pick_ownership_unknown",
+    "ownership_unverifiable",
+    "quarantined_values",
+    "stale_values",
+)
+
+
+def asset_evidence_gaps(simulation: dict[str, Any], market: Any) -> list[dict[str, Any]]:
+    """The ASSET half of the evidence gates, in :data:`ASSET_EVIDENCE_GATE_CODES`
+    order (pure).
+
+    ``ownership_unverifiable`` (N-team engine, R1) fires when the simulation
+    carries ``ownershipEvidence.unverifiableAssetIds`` — set only by the N-team
+    ledger (a player held by several rosters, a pick whose ownership is
+    unknown, or rosters that are not ``current``).  Every existing route leaves
+    that key absent, so their gates are unchanged.
+    """
     gaps: list[dict[str, Any]] = []
     md = market.detail or {}
     if not market.available:
@@ -342,6 +360,21 @@ def _evidence_gaps(
                 reason=po.get("reason"),
             )
         )
+    ownership = simulation.get("ownershipEvidence")
+    unverifiable = (
+        [str(x) for x in ownership.get("unverifiableAssetIds") or []]
+        if isinstance(ownership, dict)
+        else []
+    )
+    if unverifiable:
+        gaps.append(
+            _missing(
+                "ownership_unverifiable",
+                "Who owns every asset in this trade could not be confirmed: "
+                + ", ".join(unverifiable),
+                assetIds=unverifiable,
+            )
+        )
     quarantined = [
         a.get("name")
         for a in _traded(simulation)
@@ -367,6 +400,18 @@ def _evidence_gaps(
                 assets=stale,
             )
         )
+    return gaps
+
+
+def _evidence_gaps(
+    simulation: dict[str, Any],
+    market: Any,
+    roster: Any,
+    feasibility: Any,
+    strategy: dict[str, Any],
+    team_context: bool,
+) -> list[dict[str, Any]]:
+    gaps = asset_evidence_gaps(simulation, market)
     if not team_context:
         return gaps
 
@@ -1519,44 +1564,12 @@ _PUBLIC_GAP_REASON = {
 
 
 def public_category_from_decision(decision: Any) -> str:
-    """The public category for one 2-team :func:`decide` result (design §3).
+    """Alias kept for the PUBLIC section's existing callers; the body moved to
+    the one per-team category owner, :func:`src.trade.team_verdicts.team_category`
+    (N-team spec A1).  Lane C deletes this alias with the PUBLIC section."""
+    from src.trade.team_verdicts import team_category  # noqa: PLC0415 -- no import cycle
 
-    | headline | condition | category |
-    |---|---|---|
-    | NOT_ENOUGH_EVIDENCE | — | UNAVAILABLE |
-    | YES | A favours, A large, leaning MAKE | STRONGLY_FAVORABLE |
-    | YES | otherwise | FAVORABLE |
-    | NO_TOO_CLOSE | — | APPROXIMATELY_EVEN |
-    | NO | execution gate | UNFAVORABLE (reason ``roster_limit``) |
-    | NO | A opposes, A large, leaning PASS | STRONGLY_UNFAVORABLE |
-    | NO | otherwise | UNFAVORABLE |
-
-    ``A`` is ``components.objectiveValue``.  Anything malformed or unknown is
-    UNAVAILABLE — a confident category is never invented.
-    """
-    if not isinstance(decision, dict):
-        return "UNAVAILABLE"
-    headline = decision.get("headline")
-    if headline == "NOT_ENOUGH_EVIDENCE":
-        return "UNAVAILABLE"
-    if headline == "NO_TOO_CLOSE":
-        return "APPROXIMATELY_EVEN"
-    if headline not in ("YES", "NO"):
-        return "UNAVAILABLE"
-    if headline == "NO" and decision.get("deciding") == "executionGate":
-        return "UNFAVORABLE"
-    comps = decision.get("components")
-    a = comps.get("objectiveValue") if isinstance(comps, dict) else None
-    a = a if isinstance(a, dict) else {}
-    large = a.get("magnitude") == "large"
-    lean = decision.get("leaning")
-    if headline == "YES":
-        if a.get("direction") == "favors" and large and lean == "MAKE":
-            return "STRONGLY_FAVORABLE"
-        return "FAVORABLE"
-    if a.get("direction") == "opposes" and large and lean == "PASS":
-        return "STRONGLY_UNFAVORABLE"
-    return "UNFAVORABLE"
+    return team_category(decision)
 
 
 def public_category_from_net_band(band: Any, net: Any) -> str:

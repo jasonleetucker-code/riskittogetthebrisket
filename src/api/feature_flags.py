@@ -624,6 +624,16 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # public API terms apply.  Off → 503 feature_disabled and the nav item
     # disappears.  Rollback: RISKIT_FEATURE_MANAGER_INTELLIGENCE=0 + restart.
     "manager_intelligence": True,
+    # N-team trade analysis (owner directive 2026-10-20; spec
+    # docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §6.1): gates the private
+    # ``POST /api/trade/analyze-multi`` route (and, through the frontend flag
+    # path, the multi-team War Room).  It does NOT gate the shared engine
+    # (``analyze_service.analyze_trade_n``), which the public advisor also
+    # reads.  Default OFF until the Lane E regressions and independent review
+    # pass; turned on only through the normal release process.  Off → 503
+    # multi_team_analysis_disabled; the 2-team routes are unchanged either way.
+    # Rollback: RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0 + restart.
+    "trade_multi_team_analysis": False,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -938,6 +948,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # manager_intelligence gates the /api/manager-intel router mounted in
     # server.py: off → 503 feature_disabled, on → the profile.
     "manager_intelligence": LIVE,
+    # trade_multi_team_analysis gates /api/trade/analyze-multi inline in
+    # server.py: off → 503 multi_team_analysis_disabled, on → the per-team
+    # analysis.  Default False (see its _DEFAULTS entry).
+    "trade_multi_team_analysis": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,
