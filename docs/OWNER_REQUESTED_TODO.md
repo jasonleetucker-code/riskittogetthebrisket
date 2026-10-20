@@ -2188,3 +2188,19 @@ The finite completion queue they require is `docs/COMPLETION_QUEUE.md`. Capture 
 | V8 | No hidden weighting. A contribution is explainable from base weight × freshness × eligibility/quality × provider-family treatment; any other factor is documented with its purpose | DECIDED — owner, 2026-10-19; implementation: freshness + #1817 lanes |
 | V9 | Settings and Source Health show Source / Last Updated / Freshness / Voting Weight / Status with plain labels (Active — 100/75/50/25%, Stale — Not Voting, Data Issue — Not Voting, Seasonal — Not Voting, Testing — Not Voting), reasons, and expandable detail | DECIDED — owner, 2026-10-19; implementation: CQ-66 |
 | V10 | Validate the whole board before deployment (offense, IDP, rookie and pick changes; median/p90/p99/max; top movers; position effects; top-50/200; votes per player; effective weights; outlier and haircut behaviour; family totals; confidence; two-way players). No source older than 30 days contributes. Geometric VA q = 0.78 is unchanged | DECIDED — owner, 2026-10-19; integration validation across CQ-01/CQ-64/CQ-65 |
+
+## Added 2026-10-20 — League manager replacement: Blaine (ughb) → schoeppeya, dynasty_main roster 12 (OPEN owner items)
+
+The automated refresh of 2026-10-20 21:59 UTC (commit `343d47a634`) committed `data/sleeper_last_good.json` with
+`dynasty_main` roster 12 owned by a NEW Sleeper user, display / team name `schoeppeya` (user_id `1393410658032177152`).
+Roster 12 was held by **Blaine** (`ughb`, user_id `1303549304882892800`) through commit `ae1fb9936b`
+(savedAt 2026-10-19T23:56Z), was ownerless ("Team 12") from 2026-10-20T05:20Z, and has had the new owner since
+2026-10-20T21:53Z. Recorded the same way as the roster-11 hand-off (identity by user id). Lane `claude/roster12-handoff`.
+
+| Item | Disposition |
+|---|---|
+| Roster 12 hand-off recorded in `config/leagues/roster_ownership_changes.json` with **effectiveWeek 7**: Blaine keeps 2026 weeks 0–6 (draft, matchups, waivers, trades), the new manager owns week 7 onward. Derived from committed evidence, not owner-stated: Sleeper `leg` 6 / `last_scored_leg` 5 while Blaine still held the roster, ownerless only after week 6 was scored, new owner before week 7 opened (2026-10-22 on the league clock); best-ball league, so nothing is managed after week 6 locks | IMPLEMENTED — lane `claude/roster12-handoff`; **OPEN — owner to confirm the cutover week** (roster 11's week was owner-confirmed; roster 12's is not) |
+| New manager's name: no real first name is known, so `_byUserId["1393410658032177152"]` maps to the Sleeper display name **`schoeppeya`** (exactly what the site already showed); nothing invented. Blaine is also keyed by user id (`_byUserId["1303549304882892800"] = "Blaine"`) so his retired identity keeps his name | IMPLEMENTED; **OPEN — owner to supply the new manager's real first name** |
+| The new manager inherits neither Blaine's favourite NFL team (CIN) nor his 2026 Waiver King ineligibility, which stays keyed to Blaine's user id | RECORDED — binding (roster-11 directive: do not transfer the outgoing manager's personal data) |
+| Whether the new manager is also ineligible for the 2026 Waiver King (the owner extended the ruling to John for roster 11 on 2026-10-17; nothing has done so for roster 12) | **OPEN — owner decision**; until then the new manager is eligible for his own weeks |
+| The week-6 Power Rankings publication (`data/ros/power_snapshots/dynasty_main/2026/week_06.json`) was frozen at 21:59 UTC 2026-10-20, after the takeover, so its roster-12 row is keyed to the new manager although week 6 is Blaine's. Published snapshots are create-once and were not edited; consequence: the week-7 movement baseline for roster 12 looks up Blaine in week 6, finds no row, and publishes "no previous rank" rather than a borrowed one | RECORDED — known limitation, not altered |
