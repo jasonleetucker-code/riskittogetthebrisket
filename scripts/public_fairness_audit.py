@@ -17,29 +17,48 @@ P1  Team-Context invariance — every team's market-fairness state is the same
     under every injected competitive posture.
 P2  One calculation at every N — the public reduction
     (``public_advisor.evaluate``) equals the engine's ``market_fairness``
-    per-team states and overall, for 2-, 3- and 4-team trades.
+    per-team states and overall, for 2-, 3- and 4-team trades.  Scope: the
+    evaluator and its dataclass, NOT the HTTP route or the served body
+    (``_safe_dump``); body value-freedom rests on the advisor's own privacy
+    and contract tests.
 P3  N = 2 symmetry — both teams of a 2-team trade carry the same state.
 P4  Independent recomputation — at N = 2 each priced FAIR / NOT_FAIR equals
     ``fairness_bands.classify`` over the package model's adjusted totals,
     recomputed from the board values alone.
-P5  Value-free reduction — the public result type carries no float and no
-    integer outside roster ids / counts.
+P5  Value-free reduction — the public result dataclass carries no float and
+    no integer outside roster ids / counts (same scope note as P2).
+P6  Forced-release sentinel — with the PRIVATE forced-release cost forced to
+    an extreme value (``trade_decision._objective_value`` charges
+    ``SENTINEL_RELEASE_COST`` on every team, and ``RosterCapacity.to_dict``
+    reports it), every public per-team result and overall is unchanged.  The
+    sentinel is shown to be live by counting the private component-A levels
+    it moves.
 D1  Personalization delta (diagnostic, not a failure) — how often the
     PRIVATE roster-aware decision (component A, net of forced-release cost,
     and the 5-level category) disagrees with the public market answer.  This
     is what a public path built on the private decision — the advisor's
-    pre-2026-10-20 design — would have published.
+    pre-2026-10-20 design — would have published.  The private category is
+    bucketed for EVERY team with a FAIR / NOT_FAIR public answer, including
+    teams whose component A was not evaluated (roster-limit / execution gate),
+    which then carry a category such as UNFAVORABLE or UNAVAILABLE.
+
+Every run also emits ``publicDigest``: sha256 of the ordered list of
+``(trade index, shape, per-team public results, overall)``.  Equal digests
+across runs mean identical public results trade by trade, not just equal
+totals; ``--compare-digests`` checks that over saved outputs.
 
 ``--bands-root`` additionally runs a pure-math symmetry check of a band
 owner (e.g. a ``git archive`` of ``origin/claude/fairness-bands-v2``), so the
 N = 2 symmetry property is known to survive the v2 denominator.
 
-Exit 0 when P1-P5 hold, 1 otherwise.  Output is JSON on stdout.
+Exit 0 when P1-P6 hold, 1 otherwise.  Output is JSON on stdout.
 """
 
 from __future__ import annotations
 
 import argparse
+import dataclasses
+import hashlib
 import importlib.util
 import itertools
 import json
@@ -48,6 +67,9 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any
+
+#: The extreme forced-release cost the P6 sentinel charges.
+SENTINEL_RELEASE_COST = 1.0e9
 
 POSTURES = {
     "PUSH": {"PUSH": 0.8, "HOLD": 0.1, "RETOOL": 0.05, "REBUILD": 0.05},
@@ -156,10 +178,70 @@ def _objective_band(entry: dict[str, Any]) -> tuple[str | None, int | None]:
     return band.get("level"), a.get("forcedReleaseCost")
 
 
+def _digest(rows: list[Any]) -> str:
+    blob = json.dumps(rows, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _public_row(index: int, shape: str, pub: Any) -> list[Any]:
+    return [
+        index,
+        shape,
+        sorted([int(t.roster_id), str(t.result)] for t in pub.teams),
+        str(pub.overall.result),
+    ]
+
+
+def _install_release_sentinel(trade_decision: Any, roster_capacity: Any) -> Any:
+    """Force the PRIVATE forced-release cost to ``SENTINEL_RELEASE_COST``.
+
+    Two seams: the capacity owner's serialized ``forcedDropReleaseCost`` (and
+    each drop's ``releaseCost``), and component A itself, which is made to
+    charge the sentinel on every team whatever its roster state.  Returns an
+    undo callable."""
+    real_objective = trade_decision._objective_value
+    real_to_dict = roster_capacity.RosterCapacity.to_dict
+
+    def objective(market: Any, feasibility: Any) -> dict[str, Any]:
+        detail = dict(feasibility.detail or {})
+        detail.update(
+            state="cut_required", overLimitBefore=0, forcedDropReleaseCost=SENTINEL_RELEASE_COST
+        )
+        forced = dataclasses.replace(feasibility, available=True, detail=detail)
+        return real_objective(market, forced)
+
+    def to_dict(self: Any) -> dict[str, Any]:
+        out = real_to_dict(self)
+        if out.get("forcedDropReleaseCost") is not None:
+            out["forcedDropReleaseCost"] = SENTINEL_RELEASE_COST
+        for d in out.get("forcedDrops") or []:
+            if isinstance(d, dict):
+                d["releaseCost"] = SENTINEL_RELEASE_COST
+        return out
+
+    trade_decision._objective_value = objective
+    roster_capacity.RosterCapacity.to_dict = to_dict
+
+    def undo() -> None:
+        trade_decision._objective_value = real_objective
+        roster_capacity.RosterCapacity.to_dict = real_to_dict
+
+    return undo
+
+
+def _private_levels(result: dict[str, Any]) -> dict[int, str | None]:
+    return {int(r): _objective_band(e)[0] for r, e in result["teams"].items()}
+
+
 def run(code_root: Path, roster_size: int, n_random: int, seed: int) -> dict[str, Any]:
     S = _setup(code_root, roster_size)
-    from src.api import trade_simulator  # noqa: PLC0415
-    from src.trade import analyze_service, public_advisor, trade_ledger  # noqa: PLC0415
+    from src.trade import (  # noqa: PLC0415
+        analyze_service,
+        public_advisor,
+        roster_capacity,
+        trade_decision,
+        trade_ledger,
+    )
     from src.valuation_math import fairness_bands  # noqa: PLC0415
     from src.valuation_math.package_model import adjusted_pair_totals  # noqa: PLC0415
 
@@ -197,11 +279,15 @@ def run(code_root: Path, roster_size: int, n_random: int, seed: int) -> dict[str
         "P3_twoTeamSymmetry_violations": 0,
         "P4_independentRecompute_violations": 0,
         "P5_valueFree_violations": 0,
+        "P6_forcedReleaseSentinel_publicChanged": 0,
+        "P6_forcedReleaseSentinel_privateComponentA_moved": 0,
+        "D1_privateComponentA_notEvaluated": 0,
         "D1_privateComponentA_differs": 0,
         "D1_privateComponentA_differs_dueToForcedRelease": 0,
         "D1_privateCategory_notEven_whenPublicFair": 0,
         "D1_privateCategory_whenPublicFair": {},
         "D1_privateCategory_whenPublicNotFair": {},
+        "D1_publicFair_byComponentA": {},
         "D1_teamEvaluations": 0,
         "publicResults": {"FAIR": 0, "NOT_FAIR": 0, "UNABLE_TO_DETERMINE": 0},
     }
@@ -212,8 +298,10 @@ def run(code_root: Path, roster_size: int, n_random: int, seed: int) -> dict[str
         if len(examples[key]) < 3:
             examples[key].append(item)
 
-    real_posture = trade_simulator.competitive_posture_for
-    for shape, legs, teams in trades:
+    public_rows: list[list[Any]] = []
+    # (index, shape, ledger, public row, private component-A levels) for P6.
+    replay: list[tuple[int, str, Any, list[Any], dict[int, str | None]]] = []
+    for index, (shape, legs, teams) in enumerate(trades):
         try:
             ledger = trade_ledger.validate_ledger(
                 snap,
@@ -268,6 +356,8 @@ def run(code_root: Path, roster_size: int, n_random: int, seed: int) -> dict[str
             _example("P2", {"shape": shape, "legs": legs, "public": pub_states, "engine": mapped})
         for r in pub.teams:
             counts["publicResults"][r.result] += 1
+        row = _public_row(index, shape, pub)
+        public_rows.append(row)
 
         # P5: the public dataclass tree carries no float, ints only as ids/counts.
         def _walk(obj: Any, path: str) -> None:
@@ -337,16 +427,16 @@ def run(code_root: Path, roster_size: int, n_random: int, seed: int) -> dict[str
 
         # D1: the private roster-aware decision vs the public market answer.
         tc = privates["team_context:PUSH"]
+        replay.append((index, shape, ledger, row, _private_levels(tc)))
         for rid, entry in tc["teams"].items():
             if base[int(rid)] not in ("FAIR", "NOT_FAIR"):
                 continue
             counts["D1_teamEvaluations"] += 1
+            public_fair = base[int(rid)] == "FAIR"
             level, release = _objective_band(entry)
             if level is None:
-                continue
-            private_fair = level == "fair"
-            public_fair = base[int(rid)] == "FAIR"
-            if private_fair != public_fair:
+                counts["D1_privateComponentA_notEvaluated"] += 1
+            elif (level == "fair") != public_fair:
                 counts["D1_privateComponentA_differs"] += 1
                 if release:
                     counts["D1_privateComponentA_differs_dueToForcedRelease"] += 1
@@ -368,6 +458,20 @@ def run(code_root: Path, roster_size: int, n_random: int, seed: int) -> dict[str
                 else "D1_privateCategory_whenPublicNotFair"
             )
             counts[bucket][cat] = counts[bucket].get(cat, 0) + 1
+            if public_fair:
+                # Which private component the category disagreement comes from:
+                # A not evaluated (a roster-limit / execution gate decided the
+                # category), A disagreeing with the public band, or A agreeing
+                # (the category then moved on roster utility / strategy).
+                if level is None:
+                    rel = "componentA_notEvaluated"
+                elif level == "fair":
+                    rel = "componentA_agreesFair"
+                else:
+                    rel = "componentA_notFair"
+                by = counts["D1_publicFair_byComponentA"].setdefault(rel, {})
+                key = f"{cat}|{entry.get('categoryReason')}"
+                by[key] = by.get(key, 0) + 1
             if public_fair and cat != "APPROXIMATELY_EVEN":
                 counts["D1_privateCategory_notEven_whenPublicFair"] += 1
                 _example(
@@ -380,7 +484,36 @@ def run(code_root: Path, roster_size: int, n_random: int, seed: int) -> dict[str
                         "reason": entry.get("categoryReason"),
                     },
                 )
-    trade_simulator.competitive_posture_for = real_posture
+
+    # P6: replay every trade with the private forced-release cost forced to an
+    # extreme value.  The public answer must not move; the private one must.
+    undo = _install_release_sentinel(trade_decision, roster_capacity)
+    sentinel_rows: list[list[Any]] = []
+    try:
+        for index, shape, ledger, row, levels in replay:
+            pub = public_advisor.evaluate(snap, ledger)
+            srow = _public_row(index, shape, pub)
+            sentinel_rows.append(srow)
+            if srow != row:
+                counts["P6_forcedReleaseSentinel_publicChanged"] += 1
+                _example("P6", {"shape": shape, "before": row, "after": srow})
+            tc = analyze_service.analyze_trade_n(
+                snap,
+                ledger,
+                mode="team_context",
+                counterfactuals=False,
+                posture_resolver=lambda c, k, t, *, build_if_missing: _posture_block("PUSH"),
+            )
+            moved = _private_levels(tc)
+            counts["P6_forcedReleaseSentinel_privateComponentA_moved"] += sum(
+                1 for rid, lv in moved.items() if lv != levels.get(rid)
+            )
+    finally:
+        undo()
+    if counts["P6_forcedReleaseSentinel_privateComponentA_moved"] == 0:
+        # A sentinel that moves nothing private proves nothing public.
+        counts["P6_forcedReleaseSentinel_publicChanged"] += 1
+        _example("P6", {"error": "sentinel did not move any private component A"})
 
     failed = any(
         counts[k]
@@ -390,6 +523,7 @@ def run(code_root: Path, roster_size: int, n_random: int, seed: int) -> dict[str
             "P3_twoTeamSymmetry_violations",
             "P4_independentRecompute_violations",
             "P5_valueFree_violations",
+            "P6_forcedReleaseSentinel_publicChanged",
         )
     )
     return {
@@ -399,6 +533,8 @@ def run(code_root: Path, roster_size: int, n_random: int, seed: int) -> dict[str
         "bands": fairness_bands.receipt().get("version"),
         "counts": counts,
         "examples": examples,
+        "publicDigest": _digest(public_rows),
+        "publicDigestUnderForcedReleaseSentinel": _digest(sentinel_rows),
         "ok": not failed,
     }
 
@@ -444,20 +580,55 @@ def bands_symmetry(bands_root: Path, n: int, seed: int) -> dict[str, Any]:
     }
 
 
+def compare_digests(paths: list[Path]) -> dict[str, Any]:
+    """Do saved harness outputs carry the same per-trade public results?"""
+    runs = []
+    for path in paths:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        runs.append(
+            {
+                "file": path.name,
+                "rosterSize": data.get("rosterSize"),
+                "bands": data.get("bands"),
+                "publicDigest": data.get("publicDigest"),
+                "publicDigestUnderForcedReleaseSentinel": data.get(
+                    "publicDigestUnderForcedReleaseSentinel"
+                ),
+            }
+        )
+    digests = {r["publicDigest"] for r in runs} | {
+        r["publicDigestUnderForcedReleaseSentinel"] for r in runs
+    }
+    return {"runs": runs, "identical": len(digests) == 1 and None not in digests}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--code-root", type=Path, required=True)
+    ap.add_argument("--code-root", type=Path, default=None)
     ap.add_argument(
         "--roster-size", type=int, default=6, help="cap; 6 puts the 6-man team at the cap"
     )
     ap.add_argument("--random", type=int, default=60, help="random 3- and 4-team trades each")
     ap.add_argument("--seed", type=int, default=20261020)
     ap.add_argument("--bands-root", type=Path, default=None)
+    ap.add_argument(
+        "--compare-digests",
+        type=Path,
+        nargs="+",
+        default=None,
+        help="saved harness outputs; exit 0 iff every per-trade public digest is identical",
+    )
     args = ap.parse_args()
+    if args.compare_digests:
+        out = compare_digests(args.compare_digests)
+        print(json.dumps(out, indent=2, sort_keys=True))
+        return 0 if out["identical"] else 1
     if args.bands_root is not None:
         out = bands_symmetry(args.bands_root, 20000, args.seed)
         print(json.dumps(out, indent=2, sort_keys=True))
         return 0 if out["swapMismatches"] == 0 else 1
+    if args.code_root is None:
+        ap.error("--code-root is required")
     out = run(args.code_root, args.roster_size, args.random, args.seed)
     print(json.dumps(out, indent=2, sort_keys=True, default=str))
     return 0 if out["ok"] else 1

@@ -97,7 +97,7 @@ overall result.
 |---|---|---|---|---|
 | F1 | 2 / 3 / 4-team | Team Context on/off | **No** | the mode is fixed to `market_fairness` (`public_advisor.py:716-718@fae7209`). Harness P1: 0 of 1,605 trades differ across `market_fairness`, `asset_only` and `team_context` |
 | F2 | 2 / 3 / 4-team | competitive posture (PUSH / REBUILD / unavailable) | **No** | `_no_posture` (`analyze_service.py:211-215,445`). The harness P1 sweep covers three postures. Privacy test: `test_team_context_inputs_never_change_the_public_body` |
-| F3 | 2 / 3 / 4-team | roster capacity, forced drops, **forced-release cost** | **No** | `include_capacity = False` (`:443`); `team_fairness` reads the gross band (`team_verdicts.py:189-200`). `test_market_fairness_writes_nothing_on_the_public_path` makes `build_capacity_context` raise. Harness: identical public results at roster caps 3, 6 and 8 (146 / 2,465 / 779 each) |
+| F3 | 2 / 3 / 4-team | roster capacity, forced drops, **forced-release cost** | **No** | `include_capacity = False` (`:443`); `team_fairness` reads the gross band (`team_verdicts.py:189-200`). `test_market_fairness_writes_nothing_on_the_public_path` makes `build_capacity_context` raise. Harness, trade by trade: the per-trade public digest (sha256 over every trade's per-team results and overall) is identical at roster caps 3, 6 and 8, within v1 and within the v2 overlay (`digest_comparison_*.json`). Harness P6: forcing the private forced-release cost to 1e9 changes 0 public results while moving 184-449 private component-A levels per run |
 | F4 | 2 / 3 / 4-team | roster utility / lineup lens / projections | **No** | `include_roster_utility = for_analysis and team_context` (`analyze_service.py:118`) is False. The privacy test sets projections to 0.1 ppg and gets an identical body |
 | F5 | 2 / 3 / 4-team | team goal / strategy | **No** | `evaluate` passes no `team_goals`. Strategy enters only `decide`, which the public reduction never reads |
 | F6 | 2 / 3 / 4-team | perspective team | **No** (validated only; it sets the default UI view) | `validate` checks membership (`public_advisor.py:547-551`). The parity test runs every perspective |
@@ -115,13 +115,32 @@ overall result.
 ### 3.1 What the personalized path would have published (diagnostic D1)
 
 On every trade the harness also runs the PRIVATE roster-aware decision (Team Context on, posture PUSH) and compares
-it to the public market answer. Results on the synthetic league at `fae7209`:
+it to the public market answer. Results on the synthetic league at `fae7209` (v1 bands).
 
-| roster cap | team evaluations with a FAIR / NOT_FAIR public answer | private component A (net of forced release) disagrees with public | …because a forced release was charged | public FAIR but private category not `APPROXIMATELY_EVEN` |
+**Denominator.** The last three columns count team results whose public answer is **FAIR** (146 at every cap). Every
+one of them is bucketed by its private category, including teams whose private component A was never evaluated
+because a roster-limit / execution gate decided the category first. "Explicit non-even" means `FAVORABLE`,
+`UNFAVORABLE`, `STRONGLY_FAVORABLE` or `STRONGLY_UNFAVORABLE`; the remainder of "not even" is `UNAVAILABLE`.
+
+| roster cap | team evaluations with a FAIR / NOT_FAIR public answer | private component A (net of forced release) disagrees with public | …because a forced release was charged | public FAIR: private category not `APPROXIMATELY_EVEN` | …of which explicit non-even | …of which `UNAVAILABLE` |
+|---|---:|---:|---:|---:|---:|---:|
+| 3 | 2,611 | 14 | 14 | **128 of 146** | 124 | 4 |
+| 6 | 2,611 | 0 | 0 | **111 of 146** | 104 | 7 |
+| 8 | 2,611 | 0 | 0 | **111 of 146** | 111 | 0 |
+
+Where the 146 public-FAIR disagreements come from (`counts.D1_publicFair_byComponentA` in the evidence):
+
+| roster cap | component A not evaluated (gate decided) | component A charged a forced release and left `fair` | component A `fair`, category moved by roster utility / strategy | agree (`APPROXIMATELY_EVEN`) |
 |---|---:|---:|---:|---:|
-| 3 | 2,611 | 14 | 14 | 44 of 62 |
-| 6 | 2,611 | 0 | 0 | 103 of 138 |
-| 8 | 2,611 | 0 | 0 | 111 of 146 |
+| 3 | 84 (80 `UNFAVORABLE` `roster_limit`, 4 `UNAVAILABLE`) | 3 | 41 | 18 |
+| 6 | 8 (1 `UNFAVORABLE` `roster_limit`, 7 `UNAVAILABLE`) | 0 | 103 | 35 |
+| 8 | 0 | 0 | 111 | 35 |
+
+The v2 overlay gives the same shape over its 144 public-FAIR teams: 126 / 109 / 109 not even at caps 3 / 6 / 8
+(122 / 102 / 109 explicit non-even).
+
+An earlier revision of this table skipped every team whose component A was not evaluated. That dropped 84 of the 146
+public-FAIR teams at cap 3 and 8 at cap 6, and under-reported the disagreement (it read 44 of 62 and 103 of 138).
 
 **Example at cap 3** (synthetic ids):
 - A team at its cap receives two players for one. The market gap is about 1.2 % of the larger side, so the public
@@ -130,8 +149,11 @@ it to the public market answer. Results on the synthetic league at `fae7209`:
   **STRONGLY_UNFAVORABLE**.
 - That is the category the pre-`2bbe5d4bd` design mapped to "DECLINE — STRONGLY NOT RECOMMENDED".
 
-These disagreements are the intended roster-aware behaviour of the private calculator and War Room. They also inherit
-the forced-drop over-charge that Investigation A is fixing. At the current head they never reach the public answer.
+These disagreements are the intended roster-aware behaviour of the private calculator and War Room. Only the 14
+forced-release cases at cap 3 (3 of them on public-FAIR teams, 11 on public NOT_FAIR teams that the charge pulled into
+the private `fair` band) inherit the forced-drop over-charge that Investigation A is fixing. At caps 6 and 8 no forced
+release was charged, so all of the differences there come from the roster-limit / execution gates and from the
+roster-utility and strategy components. At the current head none of them reaches the public answer.
 
 ## 4. Consistency verdict
 
@@ -151,7 +173,10 @@ the forced-drop over-charge that Investigation A is fixing. At the current head 
     `fairness_bands_v1` and `fairness_bands_v2` (`bands_symmetry_v1.json`, `bands_symmetry_v2.json`).
 - **Independent recomputation** (harness P4): every priced 2-team FAIR / NOT_FAIR equals the band owner's
   `classify(adjusted gap, band base)` recomputed from board values alone. There were 0 mismatches under v1 and under
-  the v2 overlay.
+  the v2 overlay, at roster caps 3, 6 and 8.
+- **Harness scope.** P2 and P5 exercise `public_advisor.evaluate` and its result dataclass, not the HTTP route or the
+  served body (`_safe_dump`). That the served body is value-free rests on the advisor's own privacy and contract tests
+  and on `assert_advisor_payload_value_free`, which `_safe_dump` runs on every response.
 
 The advisor-branch suites were run read-only at `fae7209`: `test_public_advisor_parity`,
 `test_public_advisor_withheld_values`, `test_public_trade_advisor_privacy`, `test_public_trade_advisor_contract`,
@@ -165,7 +190,7 @@ The advisor-branch suites were run read-only at `fae7209`: `test_public_advisor_
 | analyze body | Ints appear only under `rosterId`, `perspectiveRosterId`, `from`, `to` and `teamCount`. Strings are fixed copy. `fairnessVersion` is a version string; `generation` is an opaque hash | clean |
 | team / asset lists | Asset order is `position_alpha`: identity only, never value (`public_advisor.py:419-443`). Also carried: an `evaluable` boolean; pick `season` / `round` / `originRosterId`. Projection labels are OFF (OD-2) | clean (`evaluable=false` discloses "the board does not price this", not a number) |
 | errors | fixed copy table (`public_advisor.py:138-182`), no exception text; the 409 never names the actual owner | clean |
-| UI | Renders server labels verbatim and never receives a value (`frontend/app/league/sections/_advisor-result.jsx:1-15,145-148@105f074`). The copy says the result "doesn't consider any team's roster needs, lineup or plans". The bundle check forbids `accept / decline / approve / deny / recommend / favorable / unfavorable / your roster / your lineup` (`frontend/scripts/check-public-bundle-privacy.mjs:73-79@105f074`). `fairnessVersion` is not rendered | clean |
+| UI | Renders server labels verbatim and never receives a value (`frontend/app/league/sections/_advisor-result.jsx:1-15,145-148@105f074`). The copy says the result "doesn't consider any team's roster needs, lineup or plans". The bundle check's `FORBIDDEN_WORDS` regex rejects `accept / decline / approve / deny / reject / should / recommend* / advice / favorable / unfavorable / win / lose / smash / fleece / your roster / your lineup` in the advisor chunks' string literals (`frontend/scripts/check-public-bundle-privacy.mjs:78-79@105f074`). `fairnessVersion` is not rendered | clean |
 | oracle | A deterministic binary answer lets a patient caller bound value ratios by bisection | **Residual, already accepted:** spec `docs/trade/NTEAM_TRADE_ENGINE_SPEC.md` §6 ("slow, visible reconstruction (about 30k queries)") and design record `BRISKET_TRADE_ADVISOR_DESIGN_2026-10-19.md` Part III item 6. The limiter priors are only speed bumps |
 
 No `ACCEPT` / `DECLINE` / `FAVORABLE` vocabulary remains in public code on either advisor branch. Checked with
@@ -245,14 +270,20 @@ Recommended additions (small):
    `fairness_bands`. By design this fails today on `src/public_league/trade_grading.py`, until the owner decides OD-F6.
 
 `scripts/public_fairness_audit.py` (this branch) is a runnable differential harness over the advisor lane's own
-synthetic league. Items 1, 2 and 5 are its P1 and P4 checks in test form.
+synthetic league. It already covers three of these in harness form:
+
+- item 1 — per trade, through `publicDigest` compared across roster caps (`--compare-digests`);
+- item 2 — the P6 forced-release sentinel;
+- item 5 — the `--bands-root` swap check (plus P3 over `public_advisor.evaluate`).
+
+Items 3, 4 and 6 are not covered by the harness.
 
 ## 8. Interaction with `fairness_bands_v2` (#1886)
 
 | item | state |
 |---|---|
 | OD-F1: FAIR TRADE = band `fair` only; overall FAIR iff every team is FAIR | **Approved.** The advisor already behaves this way, through a literal (see §6.1) |
-| OD-F2: denominator = larger package utility | **Approved.** It flows into the public answer automatically through the market lens; a 1-for-1 is unchanged. On the synthetic league, public FAIR team results move from 146 to 144 (overlay run) |
+| OD-F2: denominator = larger package utility | **Approved.** It flows into the public answer automatically through the market lens; a 1-for-1 is unchanged. On the synthetic league, public FAIR team results move from 146 to 144 (overlay runs, at every roster cap) |
 | OD-F3 / OD-F5: publish v2 as an owner-approved prior; keep the 250 floor | **Approved.** The status is `PRIOR_OWNER_APPROVED_2026-10-20`, not `PROVISIONAL`, so the launch gate's provisional check would pass |
 | OD-F4: post-launch validation against at-the-time market trades | **Pending** (`postLaunchValidation.state: PENDING`) |
 | OD-F6: align or relabel the League Hub trade-history "Fair trade" grade | **Open** (see A1) |
@@ -302,11 +333,25 @@ breakages are the expected fixture and private-field items in §6.2 and §6.3.
 - **Harness:** `scripts/public_fairness_audit.py --code-root <read-only checkout of the advisor head>`, over the
   advisor lane's own synthetic four-team league (`tests/api/trade_advisor_support.py`; no real league data).
   - Trades: every 1-for-1, 2-for-1 and 1-for-2 between every pair of teams (1,485 two-team trades), plus 60 random
-    3-team and 60 random 4-team ring trades. Seed `20261020`; roster caps 3, 6 and 8.
+    3-team and 60 random 4-team ring trades. Seed `20261020`; roster caps 3, 6 and 8, each under v1 and under the v2
+    overlay.
+  - Checks P1-P5 as described in the script, plus **P6**, a forced-release sentinel. It replays every trade with
+    `trade_decision._objective_value` charging a 1e9 forced-release cost on every team, and with
+    `RosterCapacity.to_dict` reporting 1e9. It requires 0 public changes, and at least one moved private component-A
+    level to prove the sentinel is live.
+  - Every run emits `publicDigest`: sha256 of the ordered `(trade index, shape, per-team public results, overall)`
+    list. `--compare-digests` asserts equality over saved runs. Results:
+    - v1 caps 3/6/8: `5f2002b3c71cfae5…`, identical (`digest_comparison_v1.json`);
+    - v2 overlay caps 3/6/8: `8501804266dd9670…`, identical (`digest_comparison_v2_overlay.json`);
+    - each run's digest under the P6 sentinel equals its own `publicDigest`;
+    - v1 vs v2 differ, as expected (146 → 144 public FAIR).
+  - **Scope:** P2 and P5 run over `public_advisor.evaluate` and its dataclass, not the HTTP route or the served body
+    (`_safe_dump`). That the body is value-free rests on the advisor's own privacy tests and on
+    `assert_advisor_payload_value_free`.
   - Evidence is in `docs/trade/evidence/public_fairness_audit_2026-10-20/`. `--bands-root` runs the pure-math swap
     check.
-- **v2 composition:** measured on a scratch overlay of the v2 **backend** diff onto `fae7209`. The JS mirror and the
-  frontend half of v2 were not combined.
+- **v2 composition:** measured on a scratch overlay of the v2 **backend** diff (`config/` and `src/` from
+  `1332aba1c6..19ec3f7394`) onto `fae7209`. The JS mirror and the frontend half of v2 were not combined.
 - **Limits:**
   - synthetic league only (4 teams, 16 players, 8 picks);
   - in the harness, the private `team_context` runs tried live Sleeper calls for the synthetic league id and fell
@@ -314,12 +359,36 @@ breakages are the expected fixture and private-field items in §6.2 and §6.3.
     mode to touch nothing;
   - no production or box data was read.
 
+## 12. Independent review
+
+An independent review returned **ACCEPT WITH FIXES**: the public path is consistent with owner §5, and the defects were
+in the diagnostic evidence and its wording.
+
+The reviewer independently confirmed, at `fae7209`:
+- there is one public route, `post_trade_advisor_analyze` (`src/api/public_trade_advisor_api.py:878-879`);
+- its request model is `extra="forbid"` (`AdvisorAnalyzeRequest`, `:239-245`);
+- `public_advisor.evaluate` makes a single `analyze_trade_n(mode="market_fairness")` call (`public_advisor.py:716`);
+- every response passes the value-free payload assertion (`_safe_dump`, `:411-416`);
+- the advisor suites gave 3,268 passed in the reviewer's environment, against 3,262 passed and 6 skipped in the
+  author's.
+
+Fixes applied in this revision:
+1. §3.1 now buckets the private category for every public-FAIR team, and defines the denominator. The harness used to
+   skip teams whose component A was not evaluated.
+2. Cross-cap identity now rests on a per-trade digest, not equal totals. The P6 forced-release sentinel was added; §7
+   now names exactly which recommended tests the harness covers.
+3. The forced-drop over-charge is attributed only to the 14 cap-3 cases.
+4. The harness scope (evaluator, not route or served body) is stated in §4 and §11. Dead posture save/restore code was
+   removed.
+5. §5 lists the full forbidden-word set and cites `:78-79`.
+
 STATUS: DONE
 ACCEPTANCE: audit the public 2/3/4-team paths against owner §5; findings table; consistency verdict; exposure check;
 advisor-lane changes with file:line; pinning tests; v2 interaction; risks; recommendations.
-EVIDENCE: code reads at the §1 SHAs; advisor suites at `fae7209` (3,262 passed, 6 skipped, read-only); harness P1-P5
-0 violations at caps 3/6/8 and on the v2 overlay; band swap symmetry 0 / 20,000 under v1 and v2; v2 overlay suite run
-(3,253 passed, 9 expected failures named in §6.2-6.3).
+EVIDENCE: code reads at the §1 SHAs; advisor suites at `fae7209` (3,262 passed, 6 skipped, read-only; 3,268 passed in
+the independent reviewer's environment); harness P1-P6 0 violations at caps 3/6/8 under v1 and under the v2 overlay;
+per-trade public digests identical across caps (and under the forced-release sentinel) for v1 and for v2; band swap
+symmetry 0 / 20,000 under v1 and v2; v2 overlay suite run (3,253 passed, 9 expected failures named in §6.2-6.3).
 UNRESOLVED: OD-F6 (owner); validating the frontend train as one tree with the backend head (integration); the research
 memo §10 erratum (research lane).
 BLOCKERS: none for this audit.

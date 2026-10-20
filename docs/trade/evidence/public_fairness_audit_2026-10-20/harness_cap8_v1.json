@@ -16,12 +16,22 @@
     },
     "D1_privateComponentA_differs": 0,
     "D1_privateComponentA_differs_dueToForcedRelease": 0,
+    "D1_privateComponentA_notEvaluated": 0,
+    "D1_publicFair_byComponentA": {
+      "componentA_agreesFair": {
+        "APPROXIMATELY_EVEN|None": 35,
+        "FAVORABLE|None": 49,
+        "UNFAVORABLE|None": 62
+      }
+    },
     "D1_teamEvaluations": 2611,
     "P1_teamContextInvariant_violations": 0,
     "P2_publicEqualsEngine_violations": 0,
     "P3_twoTeamSymmetry_violations": 0,
     "P4_independentRecompute_violations": 0,
     "P5_valueFree_violations": 0,
+    "P6_forcedReleaseSentinel_privateComponentA_moved": 449,
+    "P6_forcedReleaseSentinel_publicChanged": 0,
     "byTeamCount": {
       "2": 1485,
       "3": 60,
@@ -109,6 +119,8 @@
     ]
   },
   "ok": true,
+  "publicDigest": "5f2002b3c71cfae561b971051f3722035afe34d48497d54c91ae73054e50ce58",
+  "publicDigestUnderForcedReleaseSentinel": "5f2002b3c71cfae561b971051f3722035afe34d48497d54c91ae73054e50ce58",
   "rosterSize": 8,
   "seed": 20261020
 }
