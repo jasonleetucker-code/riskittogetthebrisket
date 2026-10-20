@@ -8,7 +8,11 @@ source-voting consensus directive of 2026-10-19.
   and the D3 exclusion of the IDP Trade Calculator's offense vote are
   WITHDRAWN: both mechanisms are deleted and the votes are main's.
 * D4 — DLF Values votes rank -> Hill as an offense-only ``dlf`` member,
-  splitting DLF's one provider cap (``dlf_values_rank_hill_vote``).
+  splitting DLF's one provider cap (``dlf_values_rank_hill_vote``).  HELD,
+  default OFF, by the owner's decision of 2026-10-20 ("Hold D4 for V2"): under
+  the incumbent outlier filter it newly drops other sources' valid offense
+  votes.  Locked by ``tests/api/test_dlf_values_hold_locked.py``; the D4
+  tests here force the flag ON in-process (evidence, not activation).
 * D5 — FantasyPros IDP is judged on the vendor's stated expert-update clock
   (``fantasypros_idp_upstream_clock``).
 * Two-way boost — the alt-family value is what a real member of the family
@@ -109,8 +113,9 @@ def test_flags_are_registered_live_with_their_decided_defaults():
     # (CQ-65): the hold flag is ON by default; ``=0`` lifts it.
     assert feature_flags._DEFAULTS["dlf_offense_only_vote"] is True
     assert feature_flags._DEFAULTS["fantasypros_idp_upstream_clock"] is True
-    # D4's default is its gate outcome (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md).
-    assert isinstance(feature_flags._DEFAULTS["dlf_values_rank_hill_vote"], bool)
+    # D4 is HELD by the owner (2026-10-20, "Hold D4 for V2"): default OFF,
+    # locked by tests/api/test_dlf_values_hold_locked.py.
+    assert feature_flags._DEFAULTS["dlf_values_rank_hill_vote"] is False
     for name in (
         "dlf_values_rank_hill_vote",
         "two_way_alt_evidence_rules",
@@ -358,16 +363,29 @@ def test_d4_votes_on_offense_only_and_keeps_one_dlf_family(boards):
 
 
 def test_d4_flag_off_holds_dlf_values_through_the_policy_gate(monkeypatch):
-    monkeypatch.setenv(_ENV["D4"], "0")
+    # OFF is the release default (owner hold, 2026-10-20) and the explicit
+    # rollback: both hold DLF Values through the owner-policy gate.
+    for env_value in (None, "0"):
+        if env_value is None:
+            monkeypatch.delenv(_ENV["D4"], raising=False)
+        else:
+            monkeypatch.setenv(_ENV["D4"], env_value)
+        feature_flags.reload()
+        try:
+            state = dc._source_vote_state()["dlfValuesSfTep"]
+            assert state["voteState"] == dc.VOTE_STATE_HELD and state["votes"] is False
+            assert state["heldFromVote"] == "owner_policy_dlf_values_release_gated"
+        finally:
+            monkeypatch.delenv(_ENV["D4"], raising=False)
+            feature_flags.reload()
+    # Forced ON in-process (evidence only): released, the default vote state.
+    monkeypatch.setenv(_ENV["D4"], "1")
     feature_flags.reload()
     try:
-        state = dc._source_vote_state()["dlfValuesSfTep"]
-        assert state["voteState"] == dc.VOTE_STATE_HELD and state["votes"] is False
-        assert state["heldFromVote"] == "owner_policy_dlf_values_release_gated"
+        assert "dlfValuesSfTep" not in dc._source_vote_state()
     finally:
         monkeypatch.delenv(_ENV["D4"])
         feature_flags.reload()
-    assert "dlfValuesSfTep" not in dc._source_vote_state()  # released: default state
 
 
 def test_d5_duplicate_csv_identities_cast_one_vote(boards):
@@ -411,8 +429,8 @@ def test_dlf_idp_is_held_at_release_by_default(boards):
 
 
 def test_release_defaults_move_no_idp_row_by_30_percent(boards):
-    """Why the hold is in force: with it, the release defaults (D4 + D5 + the
-    two-way fix) move no defensive value by 30% or more against main's
+    """Why the hold is in force: with it, the release defaults (D5 + the
+    two-way fix; D4 held) move no defensive value by 30% or more against main's
     behaviour (the ``off`` board).  The restore's 34-54% moves are the
     incumbent outlier filter dropping other sources' valid IDP votes."""
     off, dflt = _rows(boards["off"]), _rows(boards["defaults"])

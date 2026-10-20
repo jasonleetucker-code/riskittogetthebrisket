@@ -83,13 +83,13 @@
       "reviewBy": "2026-10-31"
     },
     "dlfValuesSfTep": {
-      "state": "evaluation_pending",
-      "reason": "RELEASED (owner closeout Decision 4, kept by the 2026-10-19 directive): rank-to-Hill as an offense-only dlf family member splitting DLF's one cap; every activation gate re-passed on the 2026-10-19 production board (timestamps, completeness, 24-release stability, top-50 movement, picks/IDP non-interference, one DLF family, geom_q078_v1 package model, contract, regression suite), so dlf_values_rank_hill_vote ships ON. raw/max stays rejected (Hampel drop 0.897)",
-      "evidence": "docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md; docs/sources/IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md; docs/sources/DLF_VALUES_GATE_2026-09-25.md; docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md §5",
-      "recoveryAction": "post-release: verify on the deployed build (contract stamps dlfValuesSfTep voting on offense rows, DLF family weight <= 1.0); rollback RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE=0 + restart re-applies the declared hold",
-      "owner": "automation:dlf-fetch (collection) / claude (evaluation)",
-      "nextTrigger": "production deploy of the closeout PR, then the first post-deploy board",
-      "promotionGate": "released; stays inside the DLF provider family (one cap, one B11 family). Any change of representation (e.g. raw/max) needs its own gate",
+      "state": "policy_held",
+      "reason": "rank-to-Hill as an offense-only dlf family member splitting DLF's one cap (owner closeout Decision 4, kept by the 2026-10-19 directive) is implemented in PR #1817 behind dlf_values_rank_hill_vote, and its 2026-10-19 activation gates passed, but OWNER DECISION 2026-10-20 ('Hold D4 for V2'): under the incumbent outlier filter turning it on newly drops other sources' valid votes on 12-13 offense rows (6 Draft Sharks, plus IDPTC, Yahoo/Boone, KTC Crowd, FantasyPros; e.g. Theo Johnson -7.4%), the same mechanism class the owner rejected for DLF IDP. The flag ships OFF and is LOCKED (tests/api/test_dlf_values_hold_locked.py; deploy/verify-deploy.sh fails a deploy whose live process has it ON). raw/max stays rejected (Hampel drop 0.897)",
+      "evidence": "docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md (addendum); docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md; docs/sources/IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md; docs/sources/DLF_VALUES_GATE_2026-09-25.md",
+      "recoveryAction": "outlier-integrity-v2 (owner implementation directive 2026-10-20) treats D4 as a second restoration target: preregistered, every mandatory gate passed, every offense row whose valid vote the incumbent newly drops with D4 on (Theo Johnson explicitly) in its regression set, exact D4 activation impact reported; THEN the hold lifts (flip the registry default in a reviewed PR) ONLY with the owner's explicit approval",
+      "owner": "owner (explicit D4 activation approval) / outlier-integrity-v2 lane (claude/outlier-integrity-v2) / integration (combined validation)",
+      "nextTrigger": "outlier-integrity-v2 passes every mandatory gate, followed by the owner's explicit approval",
+      "promotionGate": "stays inside the DLF provider family (one cap, one B11 family); with D4 on, no other source's valid vote is dropped by the outlier filter. Any change of representation (e.g. raw/max) needs its own gate",
       "reviewBy": "2026-11-15"
     },
     "dlfValuesSfTepPicks": {

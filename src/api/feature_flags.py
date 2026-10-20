@@ -9,14 +9,14 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-25 of the 55 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 55 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
 ``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
 ``source_freshness_weighting``, ``source_family_cap``, ``source_universe_freshness``,
 ``signals_active_source``, ``dlf_offense_only_vote``,
-``dlf_values_rank_hill_vote``, ``two_way_alt_evidence_rules``,
+``two_way_alt_evidence_rules``,
 ``fantasypros_idp_upstream_clock``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
 ``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates``,
@@ -198,20 +198,31 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # active-source gate seasonal inactivity and private holds use);
     # ``dlfSf`` / ``dlfRookieSf`` / ``dlfValuesSfTep`` vote unchanged.
     "dlf_offense_only_vote": True,
-    # DLF Values rank -> Hill vote (owner closeout 2026-10-18 Decision 4,
-    # kept by the owner's source-voting directive of 2026-10-19).
-    # ``dlfValuesSfTep`` is registered as an offense-only member of the
-    # existing ``dlf`` family (its native value ORDER -> percentile -> Hill;
-    # raw/max rejected) and SPLITS DLF's one provider cap with DLF Rank -- an
-    # approved same-provider rule, not a similarity merge.  ON only because
-    # every Decision 4 activation gate passed on the current board
-    # (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md).  Value-moving on
-    # offense rows and the current-year picks tethered to the rookie pool.
-    # OFF (RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE=0 + restart): collected and
-    # displayed, held from the vote by the owner-policy vote-hold gate
-    # (``data_contract.POLICY_SOURCE_VOTE_HOLDS``); decision fields identical
-    # to the prior board (the source stays registered and displayed).
-    "dlf_values_rank_hill_vote": True,
+    # DLF VALUES RANK -> HILL VOTE -- HELD, DEFAULT OFF (owner decision
+    # 2026-10-20, "Hold D4 for V2").  HELD pending outlier-integrity-v2 +
+    # explicit owner approval.  The implementation (owner closeout 2026-10-18
+    # Decision 4, kept by the source-voting directive of 2026-10-19) is
+    # intact: ``dlfValuesSfTep`` is registered as an offense-only member of
+    # the existing ``dlf`` family (its native value ORDER -> percentile ->
+    # Hill; raw/max rejected) and SPLITS DLF's one provider cap with DLF
+    # Rank.  It is held because under the INCUMBENT outlier filter
+    # (``_hampel_filter_per_player``) turning it on newly drops OTHER
+    # sources' valid votes on 12-13 offense rows (6 Draft Sharks, plus IDPTC,
+    # Yahoo/Boone, KTC Crowd, FantasyPros; e.g. Theo Johnson -7.4%) -- the
+    # same mechanism class the owner rejected for DLF IDP.  The owner's
+    # outlier-integrity-v2 directive
+    # (docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md, addendum)
+    # makes D4 a second restoration target.  Setting this default True (or
+    # RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE true-y in any deploy/config/
+    # env surface) IS the owner's D4 activation decision and may only be made
+    # with the owner's explicit approval after V2 passes --
+    # ``tests/api/test_dlf_values_hold_locked.py`` fails otherwise, and
+    # deploy/verify-deploy.sh fails a production deploy whose effective flag
+    # is ON.  OFF: collected and displayed, held from the vote by the
+    # owner-policy vote-hold gate (``data_contract.POLICY_SOURCE_VOTE_HOLDS``);
+    # decision fields identical to main.  Activation, once approved:
+    # flip this default (the only step).
+    "dlf_values_rank_hill_vote": False,
     # Two-way boost alt-family evidence (PR #1817 review + owner source-voting
     # directive 2026-10-19).  ON: ``data_contract._apply_two_way_player_boost``
     # prices a two-way player's alt-family value as a REAL member of that

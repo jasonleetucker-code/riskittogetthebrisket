@@ -712,8 +712,10 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
         # votes offense-only (D4), so one more voter carries its sourceRanks /
         # sourceRankMeta / effectiveSourceRanks entries on every covered
         # offense row.  Measured on this fixture: main 67,963; DLF Values
-        # registered and displayed 68,399 (+436); its vote 70,898 (+2,499) --
-        # the release default, over 70KB on its own.  The approved DLF IDP
+        # registered and displayed 68,399 (+436); its vote 70,898 (+2,499),
+        # over 70KB on its own.  D4 is HELD at release (owner decision
+        # 2026-10-20), so the default build carries 68,399; the bound keeps
+        # covering the vote for when the owner releases it.  The approved DLF IDP
         # restore is held at release (dlf_offense_only_vote ON); lifting the
         # hold measures 72,134 (+1,236), so the bound also covers the lift.
         # Ratio 0.334 held / 0.336 lifted, unaffected.

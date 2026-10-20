@@ -1146,7 +1146,13 @@ def _private_source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict
 #: offense-only member of the ``dlf`` family voting rank -> Hill, released
 #: only through its activation gates.  Its hold is in force while
 #: ``dlf_values_rank_hill_vote`` is OFF (``holdWhileFlag: "off"``) — the
-#: inverse of the DLF IDP hold, whose flag names the hold itself.
+#: inverse of the DLF IDP hold, whose flag names the hold itself.  HELD by
+#: the owner's decision of 2026-10-20 ("Hold D4 for V2"; flag default OFF):
+#: under the incumbent outlier filter its vote newly drops other sources'
+#: valid offense votes (12-13 rows; Theo Johnson -7.4%), the mechanism class
+#: rejected for DLF IDP.  It lifts only with explicit owner approval after
+#: outlier-integrity-v2 passes (``docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md``);
+#: pinned by ``tests/api/test_dlf_values_hold_locked.py``.
 POLICY_SOURCE_VOTE_HOLDS: dict[str, dict[str, str]] = {
     **{
         key: {
@@ -1167,7 +1173,10 @@ POLICY_SOURCE_VOTE_HOLDS: dict[str, dict[str, str]] = {
         "reason": "owner_policy_dlf_values_release_gated",
         "decision": (
             "owner closeout 2026-10-18 Decision 4: DLF Values rank -> Hill approved, "
-            "released only when its activation gates pass"
+            "released only when its activation gates pass. Owner decision 2026-10-20 "
+            "(Hold D4 for V2): held (temporary) because the incumbent outlier filter "
+            "drops other sources' valid offense votes when it votes; lifts only with "
+            "explicit owner approval after outlier-integrity-v2 passes"
         ),
         "flag": "dlf_values_rank_hill_vote",
         "holdWhileFlag": "off",

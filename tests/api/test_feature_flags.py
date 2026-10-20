@@ -119,14 +119,12 @@ def test_every_flag_defaults_off_except_safe_additive():
         # Owner closeout 2026-10-18 as amended by the owner's source-voting
         # directive of 2026-10-19 (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md;
         # measured by scripts/source_voting_consensus_evidence.py on the
-        # 2026-10-19 production board vs main b08f7230d1).  D4: DLF Values rank
-        # -> Hill inside the DLF cap, every Decision 4 gate passed -- 299 offense
-        # values move (p90 1.7%, max 5.1%, top-50 max 1.9%) + 36 tethered picks.
-        # Two-way alt-evidence fix: Travis Hunter only (3738 -> 3599 with The IDP
-        # Show withheld), no other row.  D5: FantasyPros IDP on its upstream
-        # clock -- 0 values today (labels / freshness axes only).  Rollback for
-        # each: RISKIT_FEATURE_<NAME>=0 + restart.
-        "dlf_values_rank_hill_vote",
+        # 2026-10-19 production board vs main b08f7230d1).  Two-way alt-evidence
+        # fix: Travis Hunter only (3738 -> 3599 with The IDP Show withheld), no
+        # other row.  D5: FantasyPros IDP on its upstream clock -- 0 values today
+        # (labels / freshness axes only).  Rollback for each:
+        # RISKIT_FEATURE_<NAME>=0 + restart.  (D4, dlf_values_rank_hill_vote, is
+        # HELD OFF by the owner -- see ``off_only``.)
         "two_way_alt_evidence_rules",
         "fantasypros_idp_upstream_clock",
         # DLF IDP restore HELD AT RELEASE (temporary, re-applied 2026-10-19).
@@ -259,6 +257,14 @@ def test_every_flag_defaults_off_except_safe_additive():
         # a passing re-run: flipping it means moving this line, which
         # means writing down which measurement changed.  See ADR-023.
         "consensus_edge",
+        # DLF Values offense voting (D4).  HELD by the owner's decision of
+        # 2026-10-20 ("Hold D4 for V2"): under the incumbent outlier filter it
+        # newly drops other sources' valid votes on 12-13 offense rows (Theo
+        # Johnson -7.4%).  Activates only with explicit owner approval after
+        # outlier-integrity-v2 passes; tests/api/test_dlf_values_hold_locked.py
+        # is the lock.  (Measured when ON, 2026-10-19 board: 299 offense values
+        # move, p90 1.7%, max 5.1%, + 36 tethered picks.)
+        "dlf_values_rank_hill_vote",
     }
     assert not (safe_on & value_moving_on), "a flag cannot be both no-change and value-moving"
     for name, value in flags.items():

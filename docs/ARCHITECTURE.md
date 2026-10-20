@@ -26,7 +26,7 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-10-20, 25 of the 55 entries in
+   **Defaults are per-flag.** As of 2026-10-20, 24 of the 55 entries in
    `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
    F-24: the ledger-derived `rankChange` derivation, previously an
    invisible direct env read), `bdvm_engine`, `te_basis_conversion`
@@ -45,8 +45,6 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `dlf_offense_only_vote` (the owner-approved DLF IDP restore, held at
    release pending the outlier-filter fix: the DLF IDP boards are collected
    and displayed but held from the vote; off lifts the hold),
-   `dlf_values_rank_hill_vote` (owner closeout 2026-10-18 D4: DLF
-   Values votes rank -> Hill inside the DLF family cap; off holds it),
    `two_way_alt_evidence_rules` (a two-way player's alt-family value is a
    real member's: only voting sources, the incumbent blend, the haircut
    once; off restores the prior boost), `fantasypros_idp_upstream_clock`
@@ -63,6 +61,16 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    with comments
    recording that the enabled default is deliberate. For those, the env
    var is a rollback lever rather than an opt-in.
+
+   `dlf_values_rank_hill_vote` (owner closeout 2026-10-18 D4: DLF Values
+   votes rank -> Hill inside the DLF family cap) ships DISABLED and is
+   HELD by the owner's decision of 2026-10-20 ("Hold D4 for V2"): under the
+   incumbent outlier filter it newly drops other sources' valid offense
+   votes, so it activates only with explicit owner approval after
+   outlier-integrity-v2 passes
+   (`docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md`); pinned by
+   `tests/api/test_dlf_values_hold_locked.py` and the deploy-time check in
+   `deploy/verify-deploy.sh`.
 
    Signals IDP voting is released per family with AND semantics (owner
    directive 2026-10-19): `signals_idp_shared_market` is the IDP master and

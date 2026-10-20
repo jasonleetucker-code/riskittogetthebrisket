@@ -15,12 +15,20 @@ deployments, and default configuration cannot accidentally enable it."
 This file is that lock.  It fails if:
 
 * the registry default ``_DEFAULTS["dlf_offense_only_vote"]`` is not ``True``;
-* any tracked deploy / workflow / config / script / env / systemd surface
-  sets ``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE`` to a false-y value;
+* any tracked deploy / workflow / config / script / src / frontend /
+  ``server.py`` / env / systemd surface sets
+  ``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE`` to a false-y value (literal,
+  subshell, backtick or indirect ``RISKIT_FEATURE_${...}`` forms --
+  ``tests/api/hold_lock_scan.py``);
 * a DLF IDP-scoped source exists that the hold does not name;
 * with default flags, a real board build lets any DLF IDP source vote --
   including when a user's source override (``POST /api/rankings/overrides``
   -> ``source_overrides``) asks for it with a positive weight.
+
+The production box's untracked ``.env`` is covered at deploy time:
+``deploy/verify-deploy.sh`` runs ``scripts/verify_owner_held_flags.py``
+against the live process and fails the deploy (auto-rollback) when the hold
+is not effectively ON.
 
 CHANGING THIS FILE TO LET DLF IDP VOTE *IS* THE OWNER'S DLF IDP ACTIVATION
 DECISION, NOT A TEST FIX.  Do it only in a reviewed PR that carries the
@@ -37,14 +45,13 @@ activation; nothing here forbids measuring the restore.
 from __future__ import annotations
 
 import copy
-import re
-import subprocess
 from pathlib import Path
 
 import pytest
 
 import src.api.data_contract as dc
 from src.api import feature_flags
+from tests.api import hold_lock_scan as scan
 from tests.archive_fixtures import newest_complete_raw_payload
 
 _FLAG = "dlf_offense_only_vote"
@@ -114,56 +121,20 @@ def test_default_flags_hold_every_dlf_idp_source(monkeypatch):
 
 
 # ── deploy / workflow / config / env surfaces ─────────────────────────────
-
-#: Directories whose tracked files configure what production and CI run.
-_SURFACE_DIRS = ("deploy/", ".github/", "config/", "scripts/")
-#: Env / unit files anywhere in the tree.
-_SURFACE_NAME = re.compile(
-    r"(^|/)(\.env[^/]*|[^/]*\.env(\.[^/]*)?|[^/]*\.(service|timer|socket|path)(\.template)?)$"
-)
-#: ``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE`` assigned a false-y value in any
-#: shell / env-file / systemd ``Environment=`` / YAML / JSON / Python form.
-_FALSEY_ASSIGNMENT = re.compile(
-    re.escape(_ENV) + r"""["']?\s*\]?\s*[=:,]\s*["']?(0|false|no|off)\b""",
-    re.IGNORECASE,
-)
-
-
-def _tracked_surface_files() -> list[Path]:
-    try:
-        out = subprocess.run(
-            ["git", "ls-files", "-z"],
-            cwd=_REPO,
-            capture_output=True,
-            check=True,
-        ).stdout.decode("utf-8", "replace")
-    except (OSError, subprocess.CalledProcessError):  # pragma: no cover - no git
-        pytest.skip("git is unavailable; cannot enumerate tracked files")
-    files = []
-    for rel in filter(None, out.split("\0")):
-        if rel.startswith(_SURFACE_DIRS) or _SURFACE_NAME.search(rel):
-            path = _REPO / rel
-            if path.is_file():
-                files.append(path)
-    return files
+#
+# The scanner is shared with the DLF Values lock (``hold_lock_scan``): every
+# tracked file under deploy/, .github/, config/, scripts/, src/, frontend/,
+# server.py and env / systemd unit files anywhere.  The production box's
+# UNTRACKED ``.env`` is covered from the other end by
+# ``scripts/verify_owner_held_flags.py``, which deploy/verify-deploy.sh runs
+# against the live process (tests/scripts/test_verify_owner_held_flags.py).
 
 
 def _falsey_assignments(text: str) -> list[str]:
     """Lines that ASSIGN the env var a false-y value.  Prose that tells an
-    operator how a lift WOULD be done -- a comment line, or a parenthesised /
-    backticked mention such as ``(RISKIT_FEATURE_...=0 + restart`` -- is
-    documentation, not configuration."""
-    hits = []
-    for line in text.splitlines():
-        stripped = line.lstrip()
-        if stripped.startswith(("#", "//", "*", ";")):
-            continue
-        for m in _FALSEY_ASSIGNMENT.finditer(line):
-            before = line[max(0, m.start() - 1) : m.start()]
-            if before in ("(", "`"):
-                continue
-            hits.append(line.strip())
-    return hits
+    operator how a lift WOULD be done -- a comment line, ``(VAR=0 + restart``,
+    ````VAR=0```` -- is documentation, not configuration."""
+    return scan.forbidden_assignments(text, _ENV, scan.FALSEY, _FLAG)
 
 
 def test_the_scan_recognises_every_assignment_form():
@@ -180,6 +151,15 @@ def test_the_scan_recognises_every_assignment_form():
         f'{{"{_ENV}": 0}}',
         f'os.environ["{_ENV}"] = "0"',
         f'monkeypatch.setenv("{_ENV}", "0")',
+        # subshell / command substitution / backtick forms
+        f"({_ENV}=0 python server.py)",
+        f"out=$({_ENV}=0 python -m scripts.x)",
+        f"out=`{_ENV}=off uvicorn server:app`",
+        f"env {_ENV}=0 ./deploy/deploy.sh",
+        # indirect names, in a file that names the flag
+        'FLAG=DLF_OFFENSE_ONLY_VOTE\nexport "RISKIT_FEATURE_${FLAG}=0"',
+        "N=DLF_OFFENSE_ONLY_VOTE; RISKIT_FEATURE_$N=false ./run.sh",
+        f'os.environ[f"RISKIT_FEATURE_{{\'{_FLAG}\'.upper()}}"] = "0"',
     ]
     for form in forms:
         assert _falsey_assignments(form), form
@@ -187,26 +167,28 @@ def test_the_scan_recognises_every_assignment_form():
         f"# Rollback: {_ENV}=0 + restart",
         f"lift the hold ({_ENV}=0 + restart, or flip the default)",
         f"set ``{_ENV}=1``",
+        f"see ``{_ENV}=0``",
         f"{_ENV}=1",
+        f"({_ENV}=1 python server.py)",
+        # an indirect name in a file that never names this flag is not attributable
+        'export "RISKIT_FEATURE_${OTHER}=0"',
+        '"rollback": f"RISKIT_FEATURE_{name.upper()}=0 + restart"',
     ):
         assert not _falsey_assignments(prose), prose
 
 
 def test_no_tracked_deploy_config_or_env_surface_lifts_the_hold():
-    files = _tracked_surface_files()
-    assert files, "found no tracked deploy/config surface to scan"
-    offenders = {}
-    for path in files:
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            continue
-        if _ENV not in text:
-            continue
-        hits = _falsey_assignments(text)
-        if hits:
-            offenders[str(path.relative_to(_REPO))] = hits
+    offenders = scan.surface_offenders(_ENV, scan.FALSEY, _FLAG)
     assert not offenders, f"{_ACTIVATION} Offending surfaces: {offenders}"
+
+
+def test_the_scan_reaches_src_server_and_frontend():
+    rels = {str(p.relative_to(scan.REPO)) for p in scan.tracked_surface_files()}
+    assert "src/api/feature_flags.py" in rels
+    assert "deploy/verify-deploy.sh" in rels
+    assert not any(r.startswith(("tests/", "docs/")) for r in rels)
+    if (scan.REPO / "server.py").is_file():
+        assert "server.py" in rels
 
 
 # ── a real board, default flags ───────────────────────────────────────────
