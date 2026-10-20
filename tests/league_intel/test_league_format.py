@@ -315,3 +315,15 @@ def test_no_production_surface_imports_the_new_modules_in_batch_1():
             ("src.nfl_data", "synthetic_splits"),
         ):
             assert f"{pkg}.{name}" not in found, path
+
+
+def test_fresh_state_without_a_fingerprint_is_not_verified(snapshot_dir, monkeypatch):
+    # The state and the fingerprint are separate registry reads; if the
+    # snapshot expires between them the format must not read as verified.
+    _write_card(snapshot_dir, MAIN_ID, CARD)
+    monkeypatch.setattr(reg, "scoring_fingerprint_for_league", lambda cfg: None)
+    out = resolve_league_format("dynasty_main")
+    assert out.scoring_evidence_state == "fresh"
+    assert out.scoring_fingerprint is None
+    assert out.state == STATE_UNVERIFIED
+    assert "scoring_fingerprint_unavailable" in out.reason

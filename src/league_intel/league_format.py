@@ -180,6 +180,11 @@ def resolve_league_format(
     reasons: list[str] = []
     if evidence != "fresh":
         reasons.append(f"scoring_evidence_{evidence}")
+    elif sf is None:
+        # State and fingerprint are two registry reads; a snapshot crossing
+        # its age budget (or rewritten) between them must not yield a
+        # "verified" format with no proven scoring identity.
+        reasons.append("scoring_fingerprint_unavailable")
     if unknown:
         reasons.append("unknown_axes:" + ",".join(unknown))
     return VerifiedLeagueFormat(
