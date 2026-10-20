@@ -1,7 +1,12 @@
 # Package Value Adjustment — Phase 3: the production market ledger, LP_150, and the value-level question (2026-10-20)
 
-**Status: RESEARCH — interim.** Sections marked **[BOX RUN PENDING]** wait on the preregistered Phase 3
-production run (`scripts/package_model_phase3_research.py --box`, pinned commit `d7a881bc`).
+**Status: RESEARCH — complete, pending only the optional prospective re-run (§9.4).**
+
+The preregistered Phase 3 production run (`scripts/package_model_phase3_research.py --box`, pinned commit
+`d7a881bc`, run by the owner on 2026-10-20) is in `evidence/package_model_phase3_2026-10-20/production_phase3_run_2026-10-20.json`:
+- 18,690 graded trades from 11,565 leagues;
+- the read-only guard refused 0 writes;
+- aggregates only.
 
 - Nothing is promoted or changed in production. `geom_q078_v1` (q = 0.78) stays the authoritative package
   model.
@@ -107,7 +112,7 @@ league-clustered intervals are part of the box run (§9).
 | KTC and the blends ≈ GEOM_78 on calibration | yes | yes (J 0.280–0.295 vs 0.301) | **replicated**, and they still fail monotonicity (§7) |
 | LP_150 closest to 0 | yes (−0.171 / −0.087 / −0.101) | yes (−0.162 / −0.077 / −0.094) | **replicated** |
 | the shortfall persists on KTC's own value scale | 212 trades | 3,513 trades: GEOM_78 −0.289 / −0.118 / −0.102, LP_150 −0.153 / −0.070 / −0.078 | **strengthened** |
-| the shortfall grows as value falls | single-side binning | to be re-measured with noise-balanced binning (§6) | **[BOX RUN PENDING]** |
+| the shortfall grows as value falls | single-side binning | yes, with noise-balanced binning: GEOM_78 1-for-N −0.35 at level 2,000–3,999 vs −0.18 at 6,000–7,999 (§6.1) | **replicated, and explained (§6)** |
 | earlier 60% vs later 40% | consistent | J moves ≤ 0.016 for every model | **strengthened** |
 | one league or source dominating | not tested at scale | no: largest league 0.2%, league cap leaves bins within 0.004, both sources agree | **new, strong** |
 
@@ -197,6 +202,10 @@ ledger). This is not production evidence:
 - for scale: LP_250 values two equal pieces at **1.32×** one piece, and ten 3,000-value starters at about 7,500,
   below a single 9,000 star.
 
+The production Phase 3 run (18,690 trades) shows the same shape:
+- J falls from 0.161 (LP_150) through 0.103 (LP_175) and 0.064 (LP_200) to its minimum, 0.018, at LP_250;
+- it then rises again (LP_300 0.036, LP_400 0.053).
+
 A target that rewards ever more extreme superstar preference is a warning sign. The calibration target
 measures where trades **clear**, and §6 shows a large part of that is a value-*level* effect that no
 homogeneous formula can represent. The preregistered box run therefore selects a candidate **twice** (§9):
@@ -210,9 +219,11 @@ It also flags any candidate that over-credits consolidation among elite trades (
 **A. IDP.**
 - **Format.** 276 graded trades (1.5%) come from IDP-format leagues: 85 / 57 / 14 / 120 across the four bins.
   That is only 14 deep trades. GEOM_78 there is −0.338 / −0.157 / −0.139, with wide CIs.
-- **Assets.** The report carries asset *kinds*, not positions. DL, LB and DB involvement, IDP-only trades and
-  mixed offense/IDP trades are counted by the box run. In the container sample IDP assets appear in 27 of
-  4,000+ asset slots.
+- **Assets (Phase 3 run).** 138 of 18,690 trades contain an IDP asset: 133 mixed offense/IDP and 5 IDP-only.
+  - **By position:** DB 98, LB 41, DL 20.
+  - **Deep trades:** 12, all mixed.
+  - **Direction:** the same as offense. Mixed trades under GEOM_78 are −0.42 / −0.19 / −0.10, and under the
+    level diagnostic VG_085_2000 −0.08 / −0.05 / −0.03. With n of 12–39 per bin, that is direction only.
 - **Read:** the market evidence is overwhelmingly about offense and picks. **No package-model conclusion
   extends to IDP-heavy trades in our league without qualification.**
 
@@ -221,8 +232,21 @@ It also flags any candidate that over-credits consolidation among elite trades (
   a pick, so only 46 deep trades are all players.
 - GEOM_78 player-only: −0.247 / −0.098 / −0.087. With picks: −0.312 / −0.139 / −0.128.
 - So picks deepen the shortfall, but do not create it.
-- Pick-only, mixed, multi-future-pick, pick-dominated deep and all-player deep trades, plus the share of the
-  deep side that is picks: **[BOX RUN PENDING]**.
+- **Phase 3 run (18,690).**
+
+  | slice | n | GEOM_78 (1-for-N / ordinary / deep) | VG_085_2000 |
+  |---|---:|---|---|
+  | player-only | 3,683 | −0.25 / −0.10 / −0.09 | +0.02 / +0.01 / +0.01 |
+  | mixed | 14,926 | −0.31 / −0.14 / −0.13 | −0.01 / −0.00 / −0.00 |
+  | pick-only | 81 | −0.33 / −0.24 / −0.38 | too few |
+  | 2+ picks | 7,443 | −0.32 / −0.15 / −0.13 | −0.01 / −0.01 / −0.00 |
+  | deep, all players | 80 | deep −0.08 | +0.02 |
+  | deep, pick-dominated | 660 | deep −0.15 | −0.01 |
+
+  By the share of the depth side that is picks, GEOM_78's 1-for-N shortfall runs from −0.25 (0%) to −0.33
+  (>75%), while VG stays between +0.02 and −0.03.
+- **Read:** picks are not mispriced as a class. Picks deepen the shortfall only because pick-heavy packages are
+  made of lower-value pieces, and the same value-level rule (§6) explains them.
 
 **C. Source.**
 
@@ -251,12 +275,18 @@ It also flags any candidate that over-credits consolidation among elite trades (
     (`src/intel/crawler.py`, `src/sharp/transactions.py`).
 - **So the population before 2026-09-14 is almost all Sharp Sleeper (offseason and preseason) and the
   population from 2026-09-28 is mostly KTC (in season).**
-- The production report's chronological split and source split both agree. Week-balanced means and a
-  source × regime split are in the box run.
+- The production report's chronological split and source split both agree.
+- In the Phase 3 run the week-balanced means, where every week counts equally, are −0.31 / −0.14 / −0.12 for
+  GEOM_78, essentially the pooled values.
+- The four source × regime cells with data all agree (KTC from 09-28: −0.30 / −0.13 / −0.13; Sharp before
+  09-28: −0.31 / −0.14 / −0.12).
+- **No single ingestion regime decides anything.**
 
-**E. League dependence.** 11,188 leagues and a league cap that changes nothing (§1 #8) argue against
-dependence driving anything. League-clustered bootstrap intervals for every reported statistic are in the box
-run.
+**E. League dependence.**
+- The Phase 3 run has league-clustered bootstrap intervals throughout: leagues are resampled, 400 reps.
+- They are about as narrow as the trade-level ones. For example, GEOM_78's full-population 1-for-N residual is
+  −0.300 [−0.305, −0.296], clustered.
+- With 11,565 leagues and the largest at 0.2% of trades, league dependence does not move any conclusion.
 
 ## 6. Value curve or package formula?
 
@@ -317,8 +347,87 @@ The credit rises with the piece's *absolute* size.
 Phase 2 found the residual does *not* track roster size. The box run tests whether c tracks **league size**
 (R3).
 
-**[BOX RUN PENDING]:** the same tables on 18,031+ trades with league-clustered CIs, by league size, source and
-composition, and on KTC's value scale.
+### 6.1 Production results (Phase 3 run, 18,690 trades)
+
+**1. The level gradient is real, and homogeneous formulas cannot remove it.**
+
+Mean signed residual (1-for-N / ordinary / deep) by noise-balanced level, the mean of both sides' best asset:
+
+| level | n | GEOM_78 | LP_150 | GP_078_150 | LP_250 | **VG_085_2000** |
+|---|---:|---|---|---|---|---|
+| below 2,000 | 837 | −0.49 | −0.33 | −0.26 | −0.17 | **−0.01** |
+| 2,000–3,999 | 7,445 | −0.35 / −0.18 / −0.25 | −0.21 / −0.12 / −0.19 | −0.15 / −0.06 / −0.08 | −0.06 / −0.02 / −0.04 | **+0.01 / +0.02 / −0.00** |
+| 4,000–5,999 | 6,646 | −0.27 / −0.14 / −0.14 | −0.14 / −0.08 / −0.10 | −0.08 / −0.03 / −0.03 | +0.00 / +0.00 / −0.00 | **−0.03 / −0.01 / +0.00** |
+| 6,000–7,999 | 3,160 | −0.18 / −0.10 / −0.11 | −0.05 / −0.04 / −0.08 | +0.00 / +0.01 / +0.01 | **+0.08 / +0.05 / +0.04** | **+0.01 / +0.01 / +0.00** |
+| 8,000+ | 602 | −0.23 / −0.13 / −0.10 | −0.09 / −0.07 / −0.08 | −0.04 / −0.02 / −0.01 | +0.04 / +0.02 / +0.01 | **−0.07 / −0.05 / −0.04** |
+
+- Every homogeneous formula shows the same trend with level. The only way to flatten it is to make the formula
+  strong enough to over-credit elite trades, which is what LP_250 does at 6,000–7,999.
+- A single fixed level does not have that problem. VG_085_2000 sits within ±0.03 of zero at every level up to
+  8,000. Above 8,000 it is −0.07 / −0.05 / −0.04, against −0.23 / −0.13 / −0.10 for GEOM_78.
+
+**2. The joint decomposition gives one answer everywhere.**
+
+`VG_q_c = Σ q^i max(0, v_i − c)`.
+
+| population | best fit | J | the c = 0 column at the same q (shape only) | best homogeneous model |
+|---|---|---|---|---|
+| discovery (9,306) | q 0.85, c 2,000 | 0.009 | 0.350 | LP_250, 0.019 |
+| **confirmation (9,384, held out)** | **q 0.85, c 2,000** | **0.006** | 0.344 | LP_250, 0.018 |
+| elite level ≥ 6,000 (discovery) | q 0.85, c 2,000 | 0.006 | 0.241 | GP_078_150, 0.011 |
+| leagues ≤ 10 / 11–12 / 13–14 teams | c 2,000 / 2,000 / 2,000 (q 0.80 / 0.85 / 0.75) | 0.007 / 0.005 / 0.006 | — | — |
+| KTC trade database / Sharp Sleeper | c 2,000 / 2,000 | 0.005 / 0.010 | — | — |
+| player-only trades | q 0.85, c 1,750 | 0.008 | — | — |
+| **KTC's own value scale** (3,639) | c 2,000–2,500 (q 0.75 J 0.011; q 1.00 J 0.011) | 0.011 | — | LP_250, 0.013 |
+
+At the incumbent's q = 0.78, the best level is c = 2,000 in every population (J 0.014 on discovery, 0.015 on
+confirmation).
+
+**3. Out-of-target corroboration.**
+- Equal-count trades carry no piece-count signal and never entered the calibration target J. On them, VG_085_2000
+  still fits best: mean |residual| 0.143, against GEOM_78 0.164, LP_150 0.159 and LP_250 0.155.
+- VG's residual is also flat across every shape from 1-for-2 to 3-for-5+ (−0.04 to +0.01), pick share, month,
+  source, TEP level and league size.
+
+**4. The market's implied weight on a second piece in 1-for-2 trades** (n = 4,631):
+
+| second piece's absolute size | median implied weight | GEOM_78 implies |
+|---|---:|---:|
+| 1,000–1,999 | 0.13 | 0.78 |
+| 2,000–3,499 | 0.17 | 0.78 |
+| 3,500–4,999 | 0.32 | 0.78 |
+| 5,000+ | 0.30 | 0.78 |
+
+The weight rises with the piece's *absolute* value, as a level effect predicts and a rank-only discount cannot.
+
+### 6.2 What this means: the answer to the central question
+
+**The apparent improvement from LP_150 is a value-level effect, not a weakness in the package shape.**
+- **What the market does.** Completed trades behave as if every received asset first loses a fixed ~2,000 points,
+  so assets below that count for almost nothing as trade currency. The remainder is then combined with a
+  geometric package shape of q ≈ 0.80–0.85, close to our 0.78.
+- **Why LP_150 looks better.** A homogeneous formula can only imitate a fixed level by discounting all small
+  pieces relative to large ones. LP_150 does that partly; LP_250 does it fully and then over-credits elite
+  trades.
+
+**Replacement level or value curve?** (Preregistered rule R3 was *not* corroborated.)
+- **Not this league's replacement level.** The level does **not** fall with league size, roster size (Phase 2),
+  source or TEP. It is about 2,000 everywhere, and about the same on KTC's own scale. A level set by each league's
+  starter pool would move with league size.
+- **What it looks like instead.** A market-wide convention on dynasty value scales: KTC's and ours both price
+  sub-~2,000 assets above what managers accept as trade currency.
+- **What the data cannot tell apart.** Completed trades cannot distinguish (a) "the value scales run rich at the
+  low end" from (b) "managers apply a fixed per-piece discount to fringe assets". Either way it is a property of
+  how low-value assets are valued in trades, not of how packages combine.
+
+**What it does not license:**
+- changing canonical player values;
+- changing the package formula;
+- adding a level term to the live trade engine;
+- double-counting the roster-spot and replacement costs that team context already charges (roster capacity /
+  forced drops, lineup).
+
+A level-aware *trade-currency* layer is a separate design question with its own owner decision (§11).
 
 ## 7. Mandatory properties
 
@@ -449,68 +558,226 @@ leaves genuine starters near the incumbent. A homogeneous LP_p cannot do both: r
 taxes every starter. Whether the market evidence (§6) supports something in between is for the box run to
 decide.
 
-## 9. Challenger status and the preregistered protocol
+## 9. Challenger status and the preregistered protocol: results
 
-**No challenger is advanced, and no shadow pathway is added to application code.** Nothing yet meets your bar:
-a specific advantage that survives independent validation.
+The protocol was frozen in `evidence/package_model_phase3_2026-10-20/PREREGISTRATION.md` before the run.
 
-The protocol is frozen in `evidence/package_model_phase3_2026-10-20/PREREGISTRATION.md` and implemented by
-`scripts/package_model_phase3_research.py --box`:
-- **Split.** League-disjoint discovery and confirmation halves, from a salted league hash.
-- **Selections, on discovery only:**
-  - S1, pooled calibration;
-  - S2, elite-level calibration.
-- **Tests, on confirmation:**
-  - C1: calibration gain, league-clustered CI;
-  - C2: no bin materially worse;
-  - C3: dispersion not worse;
-  - C4: both source families;
-  - C5: players and picks;
-  - C6: no elite over-credit.
-- **Decomposition** (the R1–R4 rules) on every population.
-- **Prospective.** Trades after 2026-10-20 form the only population nobody has seen. They are tested by
-  re-running the same pinned commit once at least 2,000 unequal prospective trades exist (about two weeks at
-  October volume).
+### 9.1 The run
+
+- **Validity.** Aggregates only, and the guard refused 0 writes or processes.
+- **Network.** 273 network refusals, all from the same `_resolve_league_context`. The function is byte-identical
+  in the deployed `fd798c3e`, so the §1 parity audit applies.
+- **Memory.** Peak 1,157 MB.
+- **Ledger.** 29,638 groups, 18,690 graded trades, 11,565 leagues.
+- **Reproduction.** On trades through 2026-10-19 (n 18,588, the ledger having grown slightly) the run reproduces
+  the first production report to within 0.0006 in every bin: GEOM_78 −0.3006 / −0.1350 / −0.1270 against
+  −0.3012 / −0.1349 / −0.1267.
+- **Split.** Discovery 9,306 and confirmation 9,384, league-disjoint. There are no prospective trades yet: the
+  freeze date is the last trade date.
+
+### 9.2 Selections (discovery) and confirmation (held-out leagues)
+
+| | S1 pooled: LP_250 | S2 elite-level: GP_078_150 |
+|---|---|---|
+| two-piece factor (GEOM_78: 1.78) | 1.32 | 1.47 |
+| C1: calibration gain, clustered CI | J 0.018 vs 0.298, ΔJ [0.271, 0.284] ✓ | J 0.101 vs 0.298, ΔJ [0.196, 0.199] ✓ |
+| C2: no bin materially worse | ✓ | ✓ |
+| C3: dispersion | −0.090 [−0.092, −0.087] ✓ | −0.076 [−0.079, −0.075] ✓ |
+| C4: both sources | ✓ (0.019 / 0.033) | ✓ (0.094 / 0.118) |
+| C5: players and picks | ✓ | ✓ |
+| **C6: elite over-credit** | **FLAGGED** (6,000–7,999: 1-for-N +0.086, ordinary +0.054) | not flagged |
+| verdict | calibration replicated, **ineligible** (C6) | calibration replicated |
+
+LP_150, shown but not independently tested (it was seen before the freeze), is −0.159 / −0.077 / −0.094 on
+confirmation, unchanged from the full sample.
+
+### 9.3 Interpretation rules (applied as frozen)
+
+- **R1 applies.** On confirmation the decomposition's best has c = 2,000 > 0 and q = 0.85, which lies in
+  [0.70, 0.85]. Its J is 0.006, below the better of S1 and S2 (0.018). Per the frozen rule, *a package-formula
+  change is not supported*, and the level effect is routed to a separate follow-up.
+- **R2 does not apply.** The best fit has c > 0 and q ≥ 0.70.
+- **R3 is not corroborated.** c does not fall with league size (§6.2).
+- **R4.** The elite-level estimate of the pure package premium is GP_078_150's two-piece factor, 1.47. But the
+  decomposition at elite level still prefers q = 0.85 with c = 2,000. So the "stronger premium" read from
+  homogeneous fits is the level effect again, not a stronger shape.
+
+**GP_078_150** passes C1–C6, but R1 decides against a package change and the decision evidence goes the same way:
+- in the local replay (§8) the GP family flags "superstar beats legitimate starters by a large margin" in 9 of 9
+  cases;
+- it needs 1.36× raw for two equal pieces against one star, and 3.86× for ten.
+
+That breaks the rule that several legitimate starters keep significant value.
+
+**No shadow challenger is implemented.** None qualified under the frozen rules, so adding a disabled-by-default
+model path would add code without a candidate to put in it.
+
+### 9.4 Prospective re-run (optional)
+
+Trades after 2026-10-20 have not been seen by anyone. Re-running the same pinned command once there are at least
+2,000 unequal post-freeze trades (about two weeks at October volume) would confirm on them. That re-run is now
+confirmation of a KEEP, not a gate for a change. It is worth doing only if you want the strongest possible
+record.
 
 ## 10. Owner report: the fifteen questions
 
-**[Completed after the box run and the replay; see §11 for the interim position.]**
+1. **Did the 18,031-trade production dataset confirm Phase 2?**
+   Yes, every conclusion, with intervals 3–5 times narrower:
+   - all models under-credit consolidation;
+   - depth-friendlier models are worse;
+   - KTC and its blends are no better and fail monotonicity;
+   - the value-level gradient is real.
 
-## 11. Recommendation (interim)
+   Phase 3 adds one thing: *why*. The gradient is a fixed value-level effect (§6).
+2. **Is GEOM_78 mathematically correct and still defensible?**
+   - **Correct:** yes. 0 failures on every mandatory property.
+   - **Defensible:** yes. Once the level effect is separated, the market's own package shape is q ≈ 0.80–0.85.
+     q = 0.78 sits beside it, with the incumbent's J at that level 0.015 against the best 0.006.
+3. **Does the stronger consolidation preference in completed trades show a weakness in GEOM_78?**
+   Not in its package shape. It shows something GEOM_78 does not model, and no package formula should: low-value
+   assets count for far less as trade currency than their value-scale numbers say.
 
-**KEEP GEOM_78 — and CONTINUE CHALLENGER RESEARCH only through the frozen box protocol.**
+   The one visible symptom inside the calculator is real. A rank-only discount credits a sub-2,000 filler piece
+   at 78% (§8.1).
+4. **Is LP_150 a legitimate improvement or just more aggressive?**
+   More aggressive. Its calibration gain is a partial imitation of the level effect:
+   - it still leaves a level gradient (−0.21 at level 2,000–3,999 against −0.05 at 6,000–7,999);
+   - on real players it rates 2-for-1s of genuine starters unfair (6 of 9 cases);
+   - it rewrites most Finder top-10s with recommendations that hand the user less board edge.
+5. **Does a better monotone hybrid exist?**
+   Not as a homogeneous package formula. Each candidate either over-credits elite consolidation (LP_250,
+   C6-flagged) or taxes genuine starters (GP_078_150, LP_175+).
 
-**Why nothing changes today:**
-- The production ledger confirms Phase 2 to high precision: every model under-credits consolidation, and
-  depth-friendlier models are further off.
-- The candidate that fits best on pooled data, LP_150, keeps "improving" as the premium is pushed to extremes.
-  That is the signature of fitting a level effect with a shape formula.
-- The container sample suggests the market behaves like *our* q = 0.78 above a fixed value level of about
-  2,000. If confirmed, the improvement belongs in replacement-level and team-context modelling, not the
-  package formula.
+   The structure that fits is *shape + level*: q ≈ 0.8 above a ~2,000 level. Its level half is not a package
+   property and fails homogeneity by design.
+6. **Best for 2-for-3?** (n 1,861)
+   - GEOM_78 −0.11; LP_150 −0.06; GP_078_150 −0.02; LP_250 +0.01.
+   - The level diagnostic VG: 0.00.
+   - GEOM_78's error here is one of its smallest, after only the balanced 3-for-4+ and 3-for-5+ shapes. The level
+     effect accounts for it.
+7. **Best for 1-for-3?** (n 1,492)
+   - GEOM_78 −0.33; LP_150 −0.17; GP_078_150 −0.09; LP_250 +0.01; VG −0.01.
+   - The largest GEOM_78 shortfall is in 1-for-N trades, and nearly all of it is the level effect: the
+     consolidating side's single asset is usually well above 2,000, and the extra pieces are often near it.
+8. **Six-to-ten-asset packages?**
+   - 1-for-5+ (n 201): GEOM_78 −0.33, LP_150 −0.20, VG −0.04.
+   - 2-for-5+ (377): GEOM_78 −0.16.
+   - 3+-for-5+ (698): GEOM_78 −0.05, LP_150 −0.05.
+   - All-player deep packages (80): GEOM_78 −0.08, VG +0.02.
 
-**What would change the recommendation:**
-- R2 (§9): the decomposition finds no level effect, and an elite-level challenger passes C1–C6 on the held-out
-  half;
-- and later the prospective population confirms it.
+   Balanced deep packages are already handled well by GEOM_78. Lopsided star-for-many are not, again because of
+   the level. LP_150 is more generous than GEOM_78 to very deep *even* packages (n = 10: 2.15× vs 2.40× needed)
+   and harsher to uneven ones.
+9. **Which best tells real depth from filler?**
+   - The market draws the line by absolute value. A second piece below 2,000 earns 0.13 of its value; one of
+     3,500–4,999 earns 0.32.
+   - GEOM_78 cannot draw that line: it is rank-only and credits filler at 78%.
+   - LP_150 draws it by relative size, which taxes genuine starters.
+   - Only a level-aware layer draws it the way the market does. That is the follow-up (§11).
+10. **How much of the discrepancy is picks or the value curve?**
+    - **Picks:** not a separate cause. GEOM_78's shortfall grows with pick share (−0.25 → −0.33), but the level
+      model is flat across pick share (+0.02 → −0.03). Picks behave like any asset of the same value.
+    - **Value level:** essentially all of the systematic part. The level model leaves residuals within ±0.03 in
+      every stratum, against GEOM_78's −0.10 to −0.35.
+11. **Confidence for our IDP-heavy league?**
+    - **Low.** 138 trades with IDP assets: DB 98, LB 41, DL 20, 12 of them deep. 276 trades from IDP-format
+      leagues. The direction matches offense.
+    - **The market evidence is about offense and picks.** Any IDP-specific package or level conclusion needs our
+      own league's trades. There are 38 own-league graded trades in Phase 2, far too few.
+12. **Would changing the formula improve Trade Finder and Trade Advisor?**
+    Not to LP_150 or anything stronger. In the local replay they rewrite 45–95% of top-10s and hand the user less
+    board edge (best offers +1,104 vs +2,631). No model produced a star-for-pile trade.
+
+    A level-aware layer *might* improve filler handling. It is untested and would need its own replay with team
+    context on.
+13. **What would users notice if a new formula went live?** With LP_150:
+    - about 25% of fairness labels would change on near-even trades;
+    - 2-for-1s of two genuine starters for one star would flip from "fair" to "unfair";
+    - most Finder top-10s would change;
+    - filler sweeteners would stop rescuing lopsided trades;
+    - Trade History grades would shift.
+14. **Risks of changing the production model:**
+    - fitting a market convention instead of value;
+    - over-crediting elite consolidation (the C6 failure);
+    - double-counting roster-spot costs that team context already charges;
+    - re-grading Trade History;
+    - JavaScript/Python parity work;
+    - no IDP evidence;
+    - a prospective population still unseen;
+    - churn in user-visible verdicts with no demonstrated decision gain.
+15. **What further evidence is needed?**
+    - **For KEEP:** none required. The optional prospective re-run (§9.4) would strengthen the record.
+    - **For the level question:**
+      - a value-curve study of how canonical values below ~2,000 compare with trade-implied values (and with
+        KTC's);
+      - a team-context-on replay on the box;
+      - own-league outcome evidence;
+      - IDP-specific trades.
+
+## 11. Recommendation
+
+**KEEP GEOM_78. Retain `geom_q078_v1` with q = 0.78, unchanged.**
+
+**The evidence:**
+- 18,690 graded production trades.
+- A preregistered, league-disjoint confirmation.
+- Decision replays.
+
+**Why it supports keeping GEOM_78:**
+- **The package shape is not the problem.** Once a fixed value level is separated, the market's own package shape
+  is q ≈ 0.80–0.85, beside the incumbent's 0.78.
+- **LP_150's advantage is that level effect, imperfectly imitated.**
+- **The two candidates that passed calibration both fail a decision test:**
+  - LP_250 over-credits elite consolidation (C6);
+  - GP_078_150 taxes genuine starters (9 of 9 local cases).
+- **The local replay says the changes would make trade advice worse.**
+
+**Follow-up for a separate owner decision (not authorized, not implemented): a trade-currency / value-level
+study.** The market treats sub-~2,000 assets as near-worthless trade currency, uniformly across league sizes,
+sources and both value scales. That is the one robust, systematic finding here. It explains GEOM_78's single
+real weakness, filler sweeteners in near-even trades. The study would decide where, if anywhere, this belongs:
+
+1. **Canonical value curve.** A valuation-owner question about the low end of the scale. It affects rankings, not
+   only trades.
+2. **Trade-currency layer in the trade engine.** For example, a labelled, reported adjustment for sub-level
+   pieces. It must be designed so it does not double-count roster capacity / forced drops.
+3. **Nowhere.** Shown to users as information only.
+
+**Limitations of this recommendation:**
+- Completed trades show where trades clear, not what is fair.
+- The level reading cannot tell a value-curve cause from a convention cause.
+- IDP evidence is thin.
+- The decision replay is context-free.
+- The prospective population is still unseen.
 
 ## 12. Verification and outstanding work
 
-**Done:**
-- the report validated (§1);
-- the full offline-parity audit;
-- the period and source mechanism identified;
-- the Phase 3 box protocol frozen, implemented, tested and rehearsed with the exact owner command
-  (0 writes, 0 file changes, temp dir removed).
+**Evidence** (`evidence/package_model_phase3_2026-10-20/`, all aggregate-only):
 
-**Tests.** `pytest tests/scripts/test_package_model_phase3_research.py tests/scripts/test_package_model_phase2_research.py tests/scripts/test_research_readonly_guard.py tests/scripts/test_package_model_hybrid_research.py tests/valuation_math tests/docs`
-→ 324 passed. `bash scripts/format_python_changes.sh` green.
+| file | content |
+|---|---|
+| `production_ledger_run_2026-10-20.json` | the first production report |
+| `production_phase3_run_2026-10-20.json` | the preregistered Phase 3 run (sha256 `e42769a5…6598`) |
+| `offline_parity_audit.json` | 0 / 136,558 values changed |
+| `local.json` | properties, consolidation premium, real-player examples, decision replay |
+| `PREREGISTRATION.md` | frozen before the run; no amendments |
+
+**Commands.** The owner ran the pinned Phase 3 box command at `d7a881bc` (sha256-verified, read-only guard).
+Locally:
+- `python scripts/package_model_offline_parity_audit.py --out …`
+- `python scripts/package_model_phase3_local.py`
+
+**Tests:**
+- `pytest tests/scripts/test_package_model_phase3_research.py tests/scripts/test_package_model_phase2_research.py tests/scripts/test_research_readonly_guard.py tests/scripts/test_package_model_hybrid_research.py tests/valuation_math tests/docs`;
+- `bash scripts/format_python_changes.sh` green.
+
+**Production is unchanged.** `geom_q078_v1` is active, with no code, config, value, weight or UI change.
 
 **Outstanding:**
-- (1) the Phase 3 box run (owner-run, pinned `d7a881bc`);
-- (2) the prospective re-run after ≥ 2,000 unequal post-freeze trades;
-- (3) the local decision replay (§8);
-- (4) a team-context-on Trade Finder replay (box-local roster capacity);
-- (5) the value-curve / replacement-level follow-up, which needs its own owner authorization.
+- (1) The optional prospective re-run.
+- (2) A team-context-on replay (box-local).
+- (3) The trade-currency / value-level study, which needs owner authorization.
+- (4) IDP-specific evidence.
+- (5) The owner decision on this recommendation.
 
-UNRESOLVED: items (1)–(5).
+UNRESOLVED: items (1)–(5). None of them blocks the KEEP recommendation.

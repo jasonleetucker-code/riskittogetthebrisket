@@ -11,6 +11,12 @@ dispatch, config, Trade Finder behaviour or Value Adjustment integration point w
 
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 
+> **Phase 3 (2026-10-20):** see `PACKAGE_MODEL_PHASE3_RESEARCH_2026-10-20.md`.
+> - 18,690 production-ledger trades replicate every finding below.
+> - The value-level gradient (§A.4) is explained as a fixed ~2,000-point level effect, not a package-shape
+>   effect.
+> - This memo is otherwise preserved unchanged.
+
 ## Executive summary
 
 | Your question | Answer |

@@ -220,3 +220,19 @@ def test_reference_numbers_are_the_committed_production_report():
                 == P3.PHASE2_REFERENCE[m][b]
             )
     P3.P2.assert_aggregate_only(rep)
+
+
+def test_committed_phase3_run_is_aggregate_only_and_supports_the_memo():
+    rep = json.loads((EVIDENCE / "production_phase3_run_2026-10-20.json").read_text())
+    P3.P2.assert_aggregate_only(rep)
+    assert rep["readOnlyGuard"]["refusedWriteOrProcessAttempts"] == 0
+    conf = rep["analysis"]["confirmationLeagueDisjoint"]
+    # The memo's R1 reading: the held-out decomposition is a level effect above
+    # a geometric shape inside [0.70, 0.85], and beats every homogeneous selection.
+    assert conf["decomposition"]["bestParams"] == {"q": 0.85, "c": 2000}
+    homogeneous = [
+        conf[s]["C1_calibration_gain_clustered"]["J_selected"] for s in ("LP_250", "GP_078_150")
+    ]
+    assert conf["decomposition"]["J"] < min(homogeneous)
+    assert conf["C6_eliteOvercreditFlags"]["LP_250"]["flagged"]
+    assert not conf["C6_eliteOvercreditFlags"]["GEOM_78"]["flagged"]
