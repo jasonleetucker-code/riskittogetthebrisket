@@ -47,6 +47,7 @@ import {
   serializeDraftCapitalYear,
 } from "@/lib/draft-capital-years";
 import { buildManagerLookup } from "./shared.jsx";
+import OverviewSection from "./sections/overview.jsx";
 import leagueNavStyles from "./league-shared.module.css";
 import {
   OVERVIEW_TAB,
@@ -62,11 +63,6 @@ import {
   visibleTabs,
 } from "./tabs.js";
 
-// The Brisket Trade Advisor is DEFAULT_TAB, so its team step is statically
-// imported and server-rendered (no loading flash on the landing view every
-// visitor sees).  The shell is small; the builder, picker and result are
-// its own lazy chunks.  See ./sections/trade-advisor-shell.jsx.
-import TradeAdvisorShell from "./sections/trade-advisor-shell.jsx";
 
 // Section code is split per tab.  Exactly ONE section is mounted at a
 // time (see the `activeTab === …` chain below), but all 21 used to be
@@ -79,18 +75,14 @@ import TradeAdvisorShell from "./sections/trade-advisor-shell.jsx";
 // pick.  This composes with the per-section data fetching added in #652:
 // the CODE for a tab and the DATA for a tab now both arrive on open.
 //
-// OverviewSection is the one section that is split but still
-// SERVER-RENDERED (`ssr: true`, see below).  With the advisor switched off
-// it is the landing view, and an off flag must change nothing: its markup
-// has to stay in the server-rendered /league HTML exactly as on main
-// (first paint, SEO; main imported it statically).  Its code is still its
-// own chunk because the advisor's team step now also lives on the /league
-// page chunk and both would not fit the page budget.  next/dynamic with
-// `ssr: true` renders the section on the server and emits a preload for
-// its chunk, so hydration keeps the server HTML until the chunk arrives —
-// no loading flash on the landing view.  The `loading` fallback gives it
-// its own Suspense boundary for a client-side switch to the tab (without
-// one it would suspend the whole hub).
+// OverviewSection is deliberately NOT split — exactly as on main.  With
+// the advisor switched off it is DEFAULT_TAB's fallback landing view, and
+// an off flag must change nothing: same server-rendered markup (first
+// paint, SEO) and the same bytes (flag-off /league was measured against
+// origin/main; splitting Overview into its own preloaded chunks cost
+// ~1.6 KB gzip of chunk overhead for no flag-off gain).  The advisor's
+// team step is the split one instead (TradeAdvisorShell, below): it is
+// only ever rendered while the advisor is served.
 //
 // Pattern (dynamic + `_`-prefixed siblings) matches
 // ./sections/draft-capital.jsx, which already splits its own two heavy
@@ -112,7 +104,15 @@ const sectionLoading = () => <LoadingState message="Loading section..." />;
 const lazySection = (loader) =>
   dynamic(loader, { ssr: false, loading: sectionLoading });
 
-const OverviewSection = dynamic(() => import("./sections/overview.jsx"), {
+// The Brisket Trade Advisor's team step: split the same way as Overview —
+// its own chunk, still SERVER-RENDERED whenever the advisor tab renders
+// (it is DEFAULT_TAB while the advisor is served, so the landing paints
+// the real team picker with no loading flash; Next preloads the chunk).
+// With the advisor switched off the tab never renders, so /league
+// references no advisor chunk at all (byte parity with main).  The
+// builder, picker and result are the shell's own lazy chunks.  See
+// ./sections/trade-advisor-shell.jsx.
+const TradeAdvisorShell = dynamic(() => import("./sections/trade-advisor-shell.jsx"), {
   ssr: true,
   loading: sectionLoading,
 });

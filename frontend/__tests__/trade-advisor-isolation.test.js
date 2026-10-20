@@ -9,7 +9,7 @@
  *   - the picker publishes no list position (no aria-posinset/setsize, no
  *     <ol>), and no data-* attribute carries anything numeric about an asset;
  *   - the dev bridges refuse to run in production;
- *   - the hub's routing wiring (static team step, lazy Overview, push for tab
+ *   - the hub's routing wiring (split server-rendered team step, static Overview, push for tab
  *     clicks, server-read bootstrap) stays in place.
  */
 import fs from "node:fs";
@@ -111,15 +111,18 @@ describe("dev bridges", () => {
 describe("hub routing wiring", () => {
   const client = code(read("app/league/LeagueClient.jsx"));
   const page = code(read("app/league/page.jsx"));
-  it("statically imports the advisor team step; Overview is split but server-rendered (SSR markup, as on main)", () => {
-    expect(client).toMatch(/import TradeAdvisorShell from "\.\/sections\/trade-advisor-shell\.jsx"/);
-    // Flag off must equal main: Overview's markup stays in the SSR HTML,
-    // so its dynamic import must keep `ssr: true` (never lazySection's
-    // `ssr: false`) and its own loading boundary.
+  it("the team step is its own server-rendered chunk; Overview stays static (as on main)", () => {
+    // Flag off = main byte for byte: /league's page chunk carries no
+    // advisor code (check-public-bundle-privacy.mjs asserts it on the
+    // build), so the team step is a `ssr: true` dynamic import that only
+    // renders while the advisor is served.
     expect(client).toMatch(
-      /OverviewSection = dynamic\(\(\) => import\("\.\/sections\/overview\.jsx"\), \{\s*ssr: true,\s*loading: sectionLoading,\s*\}\)/,
+      /TradeAdvisorShell = dynamic\(\(\) => import\("\.\/sections\/trade-advisor-shell\.jsx"\), \{\s*ssr: true,\s*loading: sectionLoading,\s*\}\)/,
     );
-    expect(client).not.toMatch(/OverviewSection = lazySection/);
+    expect(client).not.toMatch(/import TradeAdvisorShell from/);
+    // Overview: main's static import (same SSR markup, same bytes).
+    expect(client).toMatch(/import OverviewSection from "\.\/sections\/overview\.jsx"/);
+    expect(client).not.toMatch(/OverviewSection = (lazySection|dynamic)/);
     // The builder is never on the page chunk.
     expect(client).not.toMatch(/sections\/trade-advisor\.jsx/);
   });

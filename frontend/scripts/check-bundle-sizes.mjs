@@ -125,7 +125,16 @@ const BUDGETS_KB = {
   // KB. Held close so a future `import XSection from "./sections/…"`
   // — the easy mistake, since it looks like every other import — trips
   // CI instead of quietly putting all 21 back on the page.
-  "/league/page": 50,
+  // Bumped 50→53 by the Brisket Trade Advisor (#1866): measured 49.8 KB on
+  // main, 51.4 KB with the flag-gated hub routing (tab resolution, the
+  // flag-off "Home" nav, the advisor header / contract-gate branches and
+  // the team step's dynamic import).  The advisor's own code is NOT on
+  // this chunk — the team step is a separate `ssr: true` chunk with its
+  // own gzip budget in check-public-bundle-privacy.mjs, which also fails
+  // if advisor code lands here.  Flag-off /league measured +0.6 KB gzip
+  // JS vs origin/main.  Still tight enough that re-adding a static
+  // section import trips it.
+  "/league/page": 53,
   // Bumped 30→40 by the canonical Team Strength migration: measured
   // 25.0 KB before, 34.6 KB after. The page stopped SCORING teams in
   // the browser (`scoreTeamTiers` — a weighted team formula plus a

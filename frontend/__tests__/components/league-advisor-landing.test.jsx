@@ -23,7 +23,27 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: nav.push, replace: nav.replace }),
   useSearchParams: () => new URLSearchParams(nav.search),
 }));
-vi.mock("next/dynamic", () => ({ default: () => ({ data }) => <div>{data?.label || "section-ready"}</div> }));
+// next/dynamic on its real contract: `ssr: false` sections render their
+// data label; an `ssr: true` import (the advisor team step) is a React.lazy
+// of the real module.
+vi.mock("next/dynamic", async () => {
+  const React = await import("react");
+  return {
+    default: (loader, opts = {}) => {
+      if (opts.ssr === false) return ({ data }) => <div>{data?.label || "section-ready"}</div>;
+      const Lazy = React.lazy(() => loader().then((m) => ({ default: m.default ?? m })));
+      return function SsrSection(props) {
+        return (
+          <React.Suspense fallback={<div>loading-section</div>}>
+            <Lazy {...props} />
+          </React.Suspense>
+        );
+      };
+    },
+  };
+});
+// Overview is statically imported (as on main); render its data label.
+vi.mock("@/app/league/sections/overview.jsx", () => ({ default: ({ data }) => <div>{data?.label}</div> }));
 vi.mock("@/app/league/shared.jsx", () => ({ buildManagerLookup: () => ({}) }));
 vi.mock("@/components/ds", () => ({
   PageHeader: ({ title, eyebrow, description }) => (
@@ -89,12 +109,13 @@ afterEach(() => vi.unstubAllGlobals());
 
 const tabLabels = () => screen.getAllByRole("tab").map((t) => t.textContent);
 
-it("lands on the advisor with its own h1 and the team step server-rendered", () => {
+it("lands on the advisor with its own h1 and the team step server-rendered", async () => {
   render(<LeagueClient initialContract={contract} initialAdvisor={READY} />);
   expect(screen.getByRole("heading", { level: 1, name: "Brisket Trade Advisor" })).toBeInTheDocument();
   expect(screen.getByText("Evaluate trades using our league's scoring, roster construction, and dynasty market.")).toBeInTheDocument();
   expect(screen.getByText("Public League")).toBeInTheDocument();
-  expect(screen.getByRole("combobox", { name: "Your team" })).toBeInTheDocument();
+  // The team step is its own (ssr: true) chunk; on the client it resolves async.
+  expect(await screen.findByRole("combobox", { name: "Your team" })).toBeInTheDocument();
   expect(tabLabels()[0]).toBe("Trade Advisor");
   expect(tabLabels()).toContain("Overview");
   expect(fetch).not.toHaveBeenCalled();
@@ -126,10 +147,11 @@ it("a deep link to another tab still works", () => {
   expect(screen.getByText("Awards loaded")).toBeInTheDocument();
 });
 
-it("a failed public-league contract does not blank the advisor", () => {
+it("a failed public-league contract does not blank the advisor", async () => {
   render(<LeagueClient initialContract={null} initialAdvisor={READY} />);
   expect(screen.getByRole("heading", { level: 1, name: "Brisket Trade Advisor" })).toBeInTheDocument();
-  expect(screen.getByRole("combobox", { name: "Your team" })).toBeInTheDocument();
+  // The team step is its own (ssr: true) chunk; on the client it resolves async.
+  expect(await screen.findByRole("combobox", { name: "Your team" })).toBeInTheDocument();
 });
 
 it("tab clicks push history; Back to no ?tab= returns to the advisor", async () => {

@@ -33,8 +33,19 @@ const LAZY_MARKERS = [
   "advisor-asset-sheet", // _advisor-asset-sheet.jsx
   "advisor-result", // _advisor-result.jsx
 ];
-// The team step lives in the /league page chunk (static by design).
+// The team step (trade-advisor-shell.jsx) is its OWN chunk since the
+// flag-off byte-parity fix: LeagueClient loads it with next/dynamic
+// `ssr: true`, so it is server-rendered while the advisor is served and
+// never referenced by /league while the flag is off.  Its chunks are
+// located from Next's react-loadable-manifest (exactly the files that
+// import pulls in, dependencies included) AND by this marker; both must
+// agree, and every file found either way is privacy-checked.
 const SHELL_MARKER = "Which team are you evaluating for?";
+const SHELL_IMPORT = "./sections/trade-advisor-shell.jsx";
+const LOADABLE_MANIFEST = path.join(ROOT, ".next", "react-loadable-manifest.json");
+// The /league page chunk(s): with the team step split out, they must carry
+// no advisor code at all (flag off = main, byte for byte).
+const LEAGUE_PAGE_CHUNK = /^app[\\/]league[\\/]page-[^\\/]+\.js$/;
 
 const FORBIDDEN = [
   "/api/data",
@@ -45,6 +56,11 @@ const FORBIDDEN = [
   "credentials: \"include\"",
   "rankDerivedValue",
 ];
+
+// Gzipped total of the team step's own chunks (JS from the manifest).
+// It used to count against the /league page budget (50 KB raw); split
+// out, it gets its own.  Measured 8.7 KB gzip + ~15%.
+const SHELL_BUDGET_GZIP_KB = 10;
 
 // Gzipped total of the advisor's LAZY chunks.  Measured 2026-10-20 on
 // claude/advisor-hub-frontend; see docs/ui/UI_PARALLEL_LEDGER.md.
@@ -66,8 +82,35 @@ if (!fs.existsSync(CHUNKS)) {
 
 const files = walk(CHUNKS).map((file) => ({ file, src: fs.readFileSync(file, "utf8") }));
 const lazy = files.filter((f) => LAZY_MARKERS.some((m) => f.src.includes(m)) && !f.src.includes(SHELL_MARKER));
-const shell = files.filter((f) => f.src.includes(SHELL_MARKER));
 const failures = [];
+
+// Team step, two ways.  (a) the manifest: every JS file the
+// `import("./sections/trade-advisor-shell.jsx")` loads.
+let manifestShell = [];
+if (!fs.existsSync(LOADABLE_MANIFEST)) {
+  failures.push("no react-loadable-manifest.json — cannot locate the team step's chunks");
+} else {
+  const manifest = JSON.parse(fs.readFileSync(LOADABLE_MANIFEST, "utf8"));
+  const entries = Object.entries(manifest).filter(([key]) => key.endsWith(`-> ${SHELL_IMPORT}`));
+  if (entries.length === 0) failures.push(`react-loadable-manifest has no entry for ${SHELL_IMPORT}`);
+  const rel = new Set(entries.flatMap(([, v]) => v.files || []).filter((f) => f.endsWith(".js")));
+  manifestShell = files.filter((f) => rel.has(path.relative(path.join(ROOT, ".next"), f.file).split(path.sep).join("/")));
+  if (rel.size !== manifestShell.length) failures.push("a team-step chunk named by the manifest is missing on disk");
+}
+// (b) the marker: any chunk carrying the team step's copy.
+const markerShell = files.filter((f) => f.src.includes(SHELL_MARKER));
+if (markerShell.length === 0) failures.push("could not locate the advisor team step in any chunk");
+if (manifestShell.length && !manifestShell.some((f) => f.src.includes(SHELL_MARKER))) {
+  failures.push("the manifest's team-step chunks do not contain the team step (marker absent)");
+}
+const shell = [...new Set([...manifestShell, ...markerShell])];
+
+// Flag off = main: the /league page chunk carries no advisor code.
+for (const f of files.filter((x) => LEAGUE_PAGE_CHUNK.test(path.relative(CHUNKS, x.file)))) {
+  for (const m of [SHELL_MARKER, ...LAZY_MARKERS]) {
+    if (f.src.includes(m)) failures.push(`${path.relative(ROOT, f.file)} (the /league page chunk) contains advisor code (${m})`);
+  }
+}
 
 const foundMarkers = LAZY_MARKERS.filter((m) => lazy.some((f) => f.src.includes(m)));
 if (foundMarkers.length !== LAZY_MARKERS.length) {
@@ -85,10 +128,15 @@ for (const f of [...lazy, ...shell]) {
   if (fs.existsSync(`${f.file}.map`)) failures.push(`${path.relative(ROOT, f.file)} ships a source map`);
 }
 
+const shellKb = manifestShell.reduce((sum, f) => sum + zlib.gzipSync(f.src).length, 0) / 1024;
+if (shellKb > SHELL_BUDGET_GZIP_KB) {
+  failures.push(`advisor team step ${shellKb.toFixed(1)} KB gzip exceeds the ${SHELL_BUDGET_GZIP_KB} KB budget`);
+}
 const gzipKb = lazy.reduce((sum, f) => sum + zlib.gzipSync(f.src).length, 0) / 1024;
 console.log(
   `[advisor-bundle] lazy advisor chunks: ${lazy.length} (${gzipKb.toFixed(1)} KB gzip, budget ${LAZY_BUDGET_GZIP_KB} KB); ` +
-    `team-step chunk(s): ${shell.map((f) => path.relative(CHUNKS, f.file)).join(", ") || "none"}`,
+    `team-step chunk(s): ${shell.map((f) => path.relative(CHUNKS, f.file)).join(", ") || "none"} ` +
+    `(${shellKb.toFixed(1)} KB gzip, budget ${SHELL_BUDGET_GZIP_KB} KB)`,
 );
 if (gzipKb > LAZY_BUDGET_GZIP_KB) {
   failures.push(`advisor lazy chunks ${gzipKb.toFixed(1)} KB gzip exceed the ${LAZY_BUDGET_GZIP_KB} KB budget`);

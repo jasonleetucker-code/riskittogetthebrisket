@@ -2,10 +2,11 @@
 
 // Brisket Trade Advisor — the team step (design §8.1-§8.3).
 //
-// STATICALLY imported by ../LeagueClient.jsx because the advisor is the
-// hub's default tab: the first paint must show the real team picker, not a
-// loading flash (the same rationale OverviewSection carried while it was
-// the default).  Everything past the team step — partner selection, the
+// Loaded by ../LeagueClient.jsx as its own chunk that is still
+// SERVER-RENDERED (next/dynamic `ssr: true`): while the advisor is the
+// hub's default tab the first paint shows the real team picker, not a
+// loading flash, and with the advisor switched off /league loads none of
+// this code.  Everything past the team step — partner selection, the
 // asset picker, the summary and the result — is the lazy
 // ./trade-advisor.jsx chunk, loaded once a team is chosen.
 //
