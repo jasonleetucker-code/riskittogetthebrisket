@@ -6232,6 +6232,7 @@ def _finalize_integrity_v21(
         block["category"] = _si.reason_category(reason)
         return True
 
+    by_name_is_map = isinstance(players_by_name, Mapping)
     for row in players_array:
         if not isinstance(row, dict) or row.get("assetClass") == "pick":
             continue
@@ -6239,7 +6240,7 @@ def _finalize_integrity_v21(
         if not isinstance(stamps, dict):
             continue
         name = str(row.get("canonicalName") or row.get("displayName") or "")
-        legacy = players_by_name.get(name) if isinstance(players_by_name, Mapping) else None
+        legacy = players_by_name.get(name) if by_name_is_map else None
         meta_all = row.setdefault("sourceRankMeta", {})
         for source, stamp in sorted(stamps.items()):
             if not isinstance(stamp, dict):
@@ -6306,6 +6307,72 @@ def _finalize_integrity_v21(
     return counts
 
 
+#: V2.1 R13: Layer A identity grading memoized per (source, CSV file + mtime)
+#: for one board identity.  ``board`` is the tuple of every row's
+#: ``RowIdentityEvidence`` (which also fixes homonyms, the board's own Sleeper-id
+#: owners' names and the position groups the CSV entries are bucketed by) plus
+#: the build's grading constants; it is compared by EQUALITY, so a hit needs an
+#: identical board.  Per join the key carries the decision (rung, entry key,
+#: chosen entry) and the history facts; the Sleeper-id owner and vendor-id
+#: answers the original call read are recorded and RE-ASKED on a hit (the
+#: directory and the vendor-id map may differ between builds).  A rebuild of an
+#: unchanged board (rankings overrides) therefore re-grades nothing; any
+#: difference is a miss, never a stale verdict.
+_V21_GRADE_MEMO: dict[str, Any] = {"board": None, "sources": {}}
+_V21_GRADE_MEMO_MAX_JOINS = 200_000
+#: V2.1 R13: Layer C's per-row decisions (``outlier_policy.LayerCMemo``).
+_V21_LAYER_C_MEMO: Any = None
+
+
+def _v21_layer_c_memo() -> Any:
+    global _V21_LAYER_C_MEMO
+    if _V21_LAYER_C_MEMO is None:
+        from src.api import outlier_policy as _op  # noqa: PLC0415
+
+        _V21_LAYER_C_MEMO = _op.LayerCMemo()
+    return _V21_LAYER_C_MEMO
+
+
+#: Process counters of the grading memo (diagnostic; read by tests).
+_V21_GRADE_MEMO_STATS: dict[str, int] = {"hits": 0, "misses": 0}
+
+
+def _v2_assess_identity_original() -> Callable[..., Any]:
+    from src.identity import resolution as _res  # noqa: PLC0415
+
+    return _res.assess_identity_evidence
+
+
+#: The identity owner's grading function as imported (see the memo's bypass).
+_V2_ASSESS_IDENTITY_ORIGINAL = _v2_assess_identity_original()
+
+
+def _recording_lookup(
+    fn: Callable[[str], Any], tag: str, deps: list[tuple[str, Any, Any]]
+) -> Callable[[str], Any]:
+    """``fn`` that also records ``(tag, argument, answer)`` (the grading memo's
+    dependency record, re-asked on a hit)."""
+
+    def _lookup(arg: str) -> Any:
+        ans = fn(arg)
+        deps.append((tag, arg, ans))
+        return ans
+
+    return _lookup
+
+
+#: V2 Layer A's process-wide answers of two pure helpers
+#: (``_canonical_match_key``, ``canonical_position_group``): the same names and
+#: positions recur on every build of every board.  Bounded by
+#: ``_V2_HELPER_MEMO_MAX`` (cleared, never evicted piecemeal).
+_V2_NAME_KEY_MEMO: dict[str, str] = {}
+#: Layer A's per-(source, canonical key) candidate bucket, valid only for the
+#: same CSV parse objects (see ``_v2_bucket_for``).
+_V2_BUCKET_MEMO: dict[tuple[str, str], Any] = {}
+_V2_POSITION_GROUP_MEMO: dict[Any, str] = {}
+_V2_HELPER_MEMO_MAX = 200_000
+
+
 def _enrich_from_source_csvs(
     players_array: list[dict[str, Any]],
     *,
@@ -6364,9 +6431,16 @@ def _enrich_from_source_csvs(
     _layer_a = _v2 and bool(getattr(integrity, "identity_on", False))
     _b2_on = _v2 and bool(getattr(integrity, "provenance_on", False))
 
+    # The repair set is fixed for the build: read it once (V2.1 R13
+    # performance; the per-join loop asks tens of thousands of times).
+    _v21_repairs_on: dict[str, bool] = {}
+
     def _v21_on(repair_id: str) -> bool:
         """A V2.1 repair is in force on this build (``outlier_integrity_v21``)."""
-        return _v2 and integrity.repairs.on(repair_id)
+        got = _v21_repairs_on.get(repair_id)
+        if got is None:
+            got = _v21_repairs_on[repair_id] = bool(_v2 and integrity.repairs.on(repair_id))
+        return got
 
     if _v2:
         from src.api import source_integrity as _si  # noqa: PLC0415
@@ -6413,12 +6487,40 @@ def _enrich_from_source_csvs(
                 _v21_age_as_of = datetime.fromisoformat(str(integrity.as_of)).date()
             except ValueError:
                 _v21_age_as_of = None
+        # V2.1 R13 (performance; identical results): Layer A asks the same
+        # pure name / position questions thousands of times per build (every
+        # (row, source) join, every candidate, every homonym), so the V2 path
+        # answers each distinct string once per process (bounded; both helpers
+        # are pure functions of the string and the static alias tables).  The
+        # served incumbent path is untouched.
+        _v2_cmk_memo = _V2_NAME_KEY_MEMO
+        _v2_grp_memo = _V2_POSITION_GROUP_MEMO
+        if len(_v2_cmk_memo) > _V2_HELPER_MEMO_MAX:
+            _v2_cmk_memo.clear()
+        if len(_v2_grp_memo) > _V2_HELPER_MEMO_MAX:
+            _v2_grp_memo.clear()
+
+        def _v2_cmk(name: str) -> str:
+            got = _v2_cmk_memo.get(name)
+            if got is None:
+                got = _v2_cmk_memo[name] = _canonical_match_key(name)
+            return got
+
+        def _v2_grp_of(position: Any) -> str:
+            try:
+                got = _v2_grp_memo.get(position)
+            except TypeError:  # unhashable: never cached, still answered
+                return _v2_group(position)
+            if got is None:
+                got = _v2_grp_memo[position] = _v2_group(position)
+            return got
+
         for _v2_row in players_array:
             _v2_nm = str(_v2_row.get("canonicalName") or _v2_row.get("displayName") or "")
-            _v2_ck = _canonical_match_key(_v2_nm) if _v2_nm else ""
+            _v2_ck = _v2_cmk(_v2_nm) if _v2_nm else ""
             if _v2_ck and _v2_row.get("assetClass") != "pick":
                 _v2_rows_by_key_group.setdefault(
-                    (_v2_ck, _v2_group(_v2_row.get("position"))), []
+                    (_v2_ck, _v2_grp_of(_v2_row.get("position"))), []
                 ).append(_v2_row)
 
         def _v2_identity_of(row: dict[str, Any]) -> Any:
@@ -6450,25 +6552,37 @@ def _enrich_from_source_csvs(
                 _v2_row_identity[id(row)] = got
             return got
 
+        _v2_player_key_cache: dict[int, str | None] = {}
+
         def _v2_player_key(row: dict[str, Any]) -> str | None:
+            # The key reads identity fields enrichment never changes: once per
+            # row and build (V2.1 R13 performance).
+            if id(row) in _v2_player_key_cache:
+                return _v2_player_key_cache[id(row)]
             from src.history.keys import asset_key_for_contract_row  # noqa: PLC0415
 
             got = asset_key_for_contract_row(dict(row))
-            return None if got is None else got[0]
+            _v2_player_key_cache[id(row)] = None if got is None else got[0]
+            return _v2_player_key_cache[id(row)]
+
+        _v2_homonym_cache: dict[int, list[Any]] = {}
 
         def _v2_homonyms_of(row: dict[str, Any]) -> list[Any]:
-            """Other board rows sharing this row's canonical name and group."""
-            from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
-
+            """Other board rows sharing this row's canonical name and group
+            (computed once per row and build: neither changes during
+            enrichment)."""
+            got = _v2_homonym_cache.get(id(row))
+            if got is not None:
+                return list(got)
             ident = _v2_identity_of(row)
-            ck = _canonical_match_key(ident.name) if ident.name else ""
-            return [
+            ck = _v2_cmk(ident.name) if ident.name else ""
+            got = [
                 _v2_identity_of(other)
-                for other in _v2_rows_by_key_group.get(
-                    (ck, canonical_position_group(row.get("position"))), []
-                )
+                for other in _v2_rows_by_key_group.get((ck, _v2_grp_of(row.get("position"))), [])
                 if other is not row
             ]
+            _v2_homonym_cache[id(row)] = got
+            return list(got)
 
         def _v21_history_facts(row: dict[str, Any], source_key: str) -> tuple[Any, tuple]:
             """R8 / R10 history facts for one (row, source): the team on the
@@ -6589,6 +6703,30 @@ def _enrich_from_source_csvs(
             )
             integrity.vendor_id_census = _vid_map.census()
 
+    # V2.1 R13: the grading memo's board identity (see ``_V21_GRADE_MEMO``).
+    _v21_grade_sources: dict[str, Any] | None = None
+    _v21_row_index: dict[int, int] = {}
+    if (
+        _layer_a
+        and _v21_on("R13")
+        # A wrapped grading function (a replay call recorder) must see every
+        # call, so the memo stands aside whenever the owner's function is not
+        # the original.
+        and _idres.assess_identity_evidence is _V2_ASSESS_IDENTITY_ORIGINAL
+    ):
+        _v21_board_fp = (
+            tuple(_v2_identity_of(r) for r in players_array),
+            tuple(_v21_on(rid) for rid in ("R4", "R5", "R8", "R10")),
+            integrity.thresholds.tau_age,
+            _v21_age_as_of,
+            frozenset(_v2_rookie_boards),
+        )
+        if _V21_GRADE_MEMO["board"] != _v21_board_fp:
+            _V21_GRADE_MEMO["board"] = _v21_board_fp
+            _V21_GRADE_MEMO["sources"] = {}
+        _v21_grade_sources = _V21_GRADE_MEMO["sources"]
+        _v21_row_index = {id(r): i for i, r in enumerate(players_array)}
+
     # V2.1 U2: grade every payload-attached value of a stamped source on the
     # capture's own evidence — independent of whether that source's CSV is on
     # disk (the payload observation exists either way).
@@ -6691,7 +6829,7 @@ def _enrich_from_source_csvs(
                 _v2_inputs = _source_csv_integrity_inputs(csv_path)
             if _v2_inputs is not None:
                 _v2_evidence = _v2_inputs[0]
-                for _finding in _si.format_findings(
+                for _finding in _si.format_findings_cached(
                     source_key, _v2_inputs[1], tolerant=_v21_on("R1")
                 ):
                     integrity.findings.append(_finding)
@@ -6743,8 +6881,48 @@ def _enrich_from_source_csvs(
         from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
 
         per_source: dict[str, dict[str, Any]] = {}
-        # Layer A: entry dict id → (bucket evidence, join's chosen index, tuples).
-        _v2_buckets: dict[int, tuple[list[Any], int, list[Any]]] = {}
+        # Layer A: entry dict id → its canonical key; the bucket (evidence,
+        # join's chosen index, tuples) is built on first use only (V2.1 R13
+        # performance: most entries are never joined to a gradeable row).
+        _v2_bucket_keys: dict[int, str] = {}
+        _v2_bucket_memo = _V2_BUCKET_MEMO
+        if len(_v2_bucket_memo) > _V2_HELPER_MEMO_MAX:
+            _v2_bucket_memo.clear()
+
+        def _v2_bucket_for(
+            entry_dict: Any,
+            _keys: dict[int, str] = _v2_bucket_keys,
+            _memo: dict[tuple[str, str], Any] = _v2_bucket_memo,
+            _lookup: dict[str, Any] = csv_lookup,
+            _evidence: dict[str, list[Any]] = _v2_evidence,
+            _source: str = source_key,
+        ) -> tuple[list[Any], int, list[Any]] | None:
+            cname_b = _keys.get(id(entry_dict))
+            if cname_b is None:
+                return None
+            entries_b = _lookup[cname_b]
+            _ev_b = _evidence.get(cname_b)
+            # Keyed by (source, key) and valid only for EQUAL parse output (the
+            # CSV parse cache's own lists, or an equal copy such as the rookie
+            # board's per-build pick-extended lookup): an unchanged CSV builds
+            # each bucket once per process, and the bucket object is stable.
+            hit_b = _memo.get((_source, cname_b))
+            if (
+                hit_b is None
+                or (hit_b[0] is not entries_b and hit_b[0] != entries_b)
+                or (hit_b[1] is not _ev_b and hit_b[1] != _ev_b)
+            ):
+                if _ev_b is not None and len(_ev_b) == len(entries_b):
+                    _best_b = max(range(len(entries_b)), key=lambda i: (entries_b[i][1], -i))
+                    bucket_b = (list(_ev_b), _best_b, list(entries_b))
+                else:
+                    bucket_b = None
+                hit_b = (entries_b, _ev_b, bucket_b)
+                _memo[(_source, cname_b)] = hit_b
+            # The bucket's lists are only read downstream (as they were when
+            # every entry held its own prebuilt tuple), so they are shared.
+            return hit_b[2]
+
         for cname, entries in csv_lookup.items():
             # Quick pre-pass: figure out which position groups the
             # contract has on this canonical key.  If it's only one
@@ -6765,14 +6943,7 @@ def _enrich_from_source_csvs(
                     "candidates": [t[0] for t in entries],
                 }
                 if _layer_a:
-                    _ev = _v2_evidence.get(cname)
-                    if _ev is not None and len(_ev) == len(entries):
-                        _best_idx = max(range(len(entries)), key=lambda i: (entries[i][1], -i))
-                        _v2_buckets[id(per_source[f"{cname}::{grp}"])] = (
-                            list(_ev),
-                            _best_idx,
-                            list(entries),
-                        )
+                    _v2_bucket_keys[id(per_source[f"{cname}::{grp}"])] = cname
             else:
                 # Multiple DISTINCT canonical players share this
                 # normalized name across different position groups —
@@ -6831,6 +7002,33 @@ def _enrich_from_source_csvs(
         # V2.1 VID: this source's vendor ids through the id map (None = A1's
         # vendor branch abstains, as V2 registered).
         _vid_resolver = _vid_map.resolver_for(source_key) if _vid_map is not None else None
+        _v21_r1, _v21_r4, _v21_r5, _v21_r8 = (
+            _v21_on("R1"),
+            _v21_on("R4"),
+            _v21_on("R5"),
+            _v21_on("R8"),
+        )
+        _v21_r6, _v21_r10 = _v21_on("R6"), _v21_on("R10")
+        _v21_joins: dict[tuple, tuple[Any, ...]] | None = None
+        if _v21_grade_sources is not None:
+            try:
+                _v21_scope = (str(csv_path), csv_path.stat().st_mtime)
+            except OSError:
+                _v21_scope = None
+            # The parse this build used (the CSV parse cache's own entry): a
+            # re-parse of the same file is a new scope too.
+            _v21_parse = _SOURCE_CSV_PARSE_CACHE.get(str(csv_path))
+            if _v21_scope is not None and _v21_parse is not None:
+                _src_memo = _v21_grade_sources.get(source_key)
+                if (
+                    _src_memo is None
+                    or _src_memo[0] != _v21_scope
+                    or _src_memo[2] is not _v21_parse
+                    or len(_src_memo[1]) > _V21_GRADE_MEMO_MAX_JOINS
+                ):
+                    _src_memo = (_v21_scope, {}, _v21_parse)
+                    _v21_grade_sources[source_key] = _src_memo
+                _v21_joins = _src_memo[1]
         for row in players_array:
             csv_vals = row.get("canonicalSiteValues")
             if not isinstance(csv_vals, dict):
@@ -6911,7 +7109,7 @@ def _enrich_from_source_csvs(
                 # Layer A (outlier-integrity-v2): grade the join with the
                 # source's own published identity evidence.  A refused
                 # observation is ABSENT — never zero, never another player's.
-                _bucket = _v2_buckets.get(id(entry))
+                _bucket = _v2_bucket_for(entry)
                 if _bucket is not None:
                     _cands, _chosen, _tuples = _bucket
                 else:
@@ -6922,15 +7120,6 @@ def _enrich_from_source_csvs(
                         )
                     ]
                     _chosen, _tuples = 0, []
-                _row_id = _v2_identity_of(row)
-                _row_ck = _canonical_match_key(_row_id.name) if _row_id.name else ""
-                _homonyms = [
-                    _v2_identity_of(other)
-                    for other in _v2_rows_by_key_group.get(
-                        (_row_ck, canonical_position_group(row.get("position"))), []
-                    )
-                    if other is not row
-                ]
                 _continuity: bool | None = None
                 _prior_team: str | None = None
                 _prev_row_teams: tuple[str, ...] = ()
@@ -6938,7 +7127,7 @@ def _enrich_from_source_csvs(
                 if _hist is not None and not _hist.empty:
                     _pk = _v2_player_key(row)
                     _seen = _hist.teams.get(f"{source_key}|{_pk}") if _pk else None
-                    if _v21_on("R10") or _v21_on("R8"):
+                    if _v21_r10 or _v21_r8:
                         # V2.1 R10: continuity is judged on the A4-CHOSEN entry
                         # inside the identity owner, so only the history facts
                         # travel; R8 adds the row's own team history.
@@ -6950,37 +7139,91 @@ def _enrich_from_source_csvs(
                         _now_team = _idres.team_evidence(_cands[_chosen].team) if _cands else None
                         if _seen and _now_team:
                             _continuity = _seen == _now_team
-                _verdict = _idres.assess_identity_evidence(
-                    row=_row_id,
-                    candidates=_cands,
-                    chosen=_chosen,
-                    via=decision.via,
-                    canonical_match_key=_canonical_match_key,
-                    position_group=canonical_position_group,
-                    rookie_board=source_key in _v2_rookie_boards,
-                    tau_age=integrity.thresholds.tau_age,
-                    homonyms=_homonyms,
-                    team_continuity=_continuity,
-                    sleeper_id_owner=_v2_sid_owner.get,
-                    vendor_id_resolver=_vid_resolver,
-                    r4=_v21_on("R4"),
-                    r5=_v21_on("R5"),
-                    r8=_v21_on("R8"),
-                    prior_source_team=_prior_team,
-                    row_previous_teams=_prev_row_teams,
-                    age_as_of=_v21_age_as_of,
-                )
+                _verdict = None
+                _v21_stamp_tpl: dict[str, Any] | None = None
+                _v21_gkey: tuple | None = None
+                if _v21_joins is not None:
+                    _v21_gkey = (
+                        _v21_row_index.get(id(row)),
+                        decision.via,
+                        decision.entry_key,
+                        _chosen,
+                        # The candidates: the bucket memo's own list (its
+                        # identity is stable while held, and a changed CSV
+                        # resets this scope), else their values.
+                        id(_cands) if _bucket is not None else tuple(_cands),
+                        _continuity,
+                        _prior_team,
+                        tuple(_prev_row_teams),
+                        _vid_resolver is None,
+                    )
+                    _v21_hit = _v21_joins.get(_v21_gkey)
+                    if _v21_hit is not None and (
+                        not _v21_hit[1]
+                        or all(
+                            (_v2_sid_owner.get if _which == "s" else _vid_resolver)(_arg) == _ans
+                            for _which, _arg, _ans in _v21_hit[1]
+                        )
+                    ):
+                        _verdict = _v21_hit[0]
+                        _v21_stamp_tpl = _v21_hit[2]
+                        _V21_GRADE_MEMO_STATS["hits"] += 1
+                if _verdict is None:
+                    _v21_deps: list[tuple[str, Any, Any]] = []
+                    _sid_lookup = _v2_sid_owner.get
+                    _vid_lookup = _vid_resolver
+                    if _v21_gkey is not None:
+                        _sid_lookup = _recording_lookup(_v2_sid_owner.get, "s", _v21_deps)
+                        if _vid_resolver is not None:
+                            _vid_lookup = _recording_lookup(_vid_resolver, "v", _v21_deps)
+                    _verdict = _idres.assess_identity_evidence(
+                        row=_v2_identity_of(row),
+                        candidates=_cands,
+                        chosen=_chosen,
+                        via=decision.via,
+                        canonical_match_key=_v2_cmk,
+                        position_group=_v2_grp_of,
+                        rookie_board=source_key in _v2_rookie_boards,
+                        tau_age=integrity.thresholds.tau_age,
+                        homonyms=_v2_homonyms_of(row),
+                        team_continuity=_continuity,
+                        sleeper_id_owner=_sid_lookup,
+                        vendor_id_resolver=_vid_lookup,
+                        r4=_v21_r4,
+                        r5=_v21_r5,
+                        r8=_v21_r8,
+                        prior_source_team=_prior_team,
+                        row_previous_teams=_prev_row_teams,
+                        age_as_of=_v21_age_as_of,
+                    )
                 integrity.count_identity(source_key, _verdict.verdict)
-                _voting_ev = _cands[_verdict.selected if _verdict.selected is not None else _chosen]
-                _stamp = _verdict.to_stamp()
-                _entry_team = _idres.team_evidence(_voting_ev.team)
-                if _entry_team:
-                    _stamp["entryTeam"] = _entry_team
+                if _v21_stamp_tpl is not None:
+                    # A memo hit: the same verdict on the same entry, so the
+                    # same identity stamp (a fresh copy; lists copied).
+                    _stamp = {
+                        k: (list(v) if isinstance(v, list) else v)
+                        for k, v in _v21_stamp_tpl.items()
+                    }
+                else:
+                    _voting_ev = _cands[
+                        _verdict.selected if _verdict.selected is not None else _chosen
+                    ]
+                    _stamp = _verdict.to_stamp()
+                    _entry_team = _idres.team_evidence(_voting_ev.team)
+                    if _entry_team:
+                        _stamp["entryTeam"] = _entry_team
+                    if _v21_gkey is not None and _v21_gkey[0] is not None:
+                        _V21_GRADE_MEMO_STATS["misses"] += 1
+                        _v21_joins[_v21_gkey] = (
+                            _verdict,
+                            tuple(_v21_deps),
+                            {k: (list(v) if isinstance(v, list) else v) for k, v in _stamp.items()},
+                        )
                 if _verdict.refused:
                     row.setdefault("sourceIntegrity", {})[source_key] = _si.integrity_stamp(
                         _si.STATUS_REFUSED, [str(_verdict.reason)], identity=_stamp
                     )
-                    if not _v21_on("R6"):
+                    if not _v21_r6:
                         continue
                     row["sourceIntegrity"][source_key]["ordinalSlotKept"] = True
                     row["sourceIntegrity"][source_key]["slotPrior"] = existing
@@ -6994,7 +7237,7 @@ def _enrich_from_source_csvs(
                 else:
                     row.setdefault("sourceIntegrity", {})[source_key] = {"identity": _stamp}
                 if (
-                    _v21_on("R1")
+                    _v21_r1
                     and source_key in integrity.format_advisories
                     and str(decision.entry_key or "").split("::", 1)[0]
                     in integrity.format_advisories[source_key]
@@ -11764,12 +12007,13 @@ def _source_integrity_vote_exclusions(
         str(s.get("key") or "") for s in _RANKING_SOURCES if s.get("needs_rookie_translation")
     } | {rk for rk, _ref, _u in ROOKIE_LADDER_PAIRS}
     out: dict[tuple[int, str], list[str]] = {}
+    r6_on = integrity.repairs.on("R6")
     for row_idx, ranks in row_source_ranks.items():
         row = players_array[row_idx]
         asset_class = str(row.get("assetClass") or "")
         pos = str(row.get("position") or "").strip().upper()
         metas = row_source_meta.get(row_idx, {})
-        row_integrity = row.get("sourceIntegrity") or {}
+        row_integrity = (row.get("sourceIntegrity") or {}) if r6_on else {}
         for source_key in ranks:
             codes: list[str] = []
             meta = metas.get(source_key) or {}
@@ -11778,7 +12022,7 @@ def _source_integrity_vote_exclusions(
             # other entries rank as if it were present).
             _ri = row_integrity.get(source_key)
             if (
-                integrity.repairs.on("R6")
+                _ri is not None
                 and isinstance(_ri, Mapping)
                 and _ri.get("status") == _si.STATUS_REFUSED
                 and _ri.get("primaryReason")
@@ -13945,13 +14189,22 @@ def _compute_unified_rankings(
         and not _rank_space_per_vote
         and not _idp_hampel_n3
     )
+    _v21_r13_compact = _integrity is not None and _integrity.repairs.on("R13")
     if _v2_layer_c_on:
         from src.api import outlier_policy as _outlier_policy  # noqa: PLC0415, F811
 
         _rookie_ladder_ref = {rk: ref for rk, ref, _u in ROOKIE_LADDER_PAIRS}
 
+        _v2_family_memo: dict[str, str] = {}
+
         def _v2_family_of(_k: str) -> str:
-            return family_by_key.get(_k) or correlation_group_for(_k)
+            # Memoized per build (V2.1 R13 performance): ``family_by_key`` is
+            # fixed for the build and ``correlation_group_for`` scans the
+            # registry, so each source's family is looked up once.
+            got = _v2_family_memo.get(_k)
+            if got is None:
+                got = _v2_family_memo[_k] = family_by_key.get(_k) or correlation_group_for(_k)
+            return got
 
         def _v2_layer_c_context(
             row_idx: int,
@@ -14514,7 +14767,7 @@ def _compute_unified_rankings(
             row_weight[source_key] = src_blend_weight
             if _integrity is not None:
                 _vstamp = _si.voting_stamp(
-                    players_array[row_idx], source_key, compact=_integrity.repairs.on("R13")
+                    players_array[row_idx], source_key, compact=_v21_r13_compact
                 )
                 if _vstamp is not None:
                     row_source_meta[row_idx].setdefault(source_key, {})["integrity"] = _vstamp
@@ -14712,7 +14965,11 @@ def _compute_unified_rankings(
                     min_threshold=_HAMPEL_MIN_THRESHOLD,
                 )
             elif _v2c is not None:
-                _cv = _v2c.assess([(k, v) for k, v, _ in all_value_pairs])
+                _cv = (
+                    _v21_layer_c_memo().assess(_v2c, [(k, v) for k, v, _ in all_value_pairs])
+                    if _v21_r13_compact
+                    else _v2c.assess([(k, v) for k, v, _ in all_value_pairs])
+                )
                 kept_pairs = [(k, v) for k, v, _ in all_value_pairs if k in set(_cv.kept)]
                 hampel_dropped_keys = list(_cv.dropped)
                 _integrity.count_layer_c(_cv)
@@ -17538,6 +17795,12 @@ def build_api_data_contract(
     # contract so they don't leak into the public payload.
     for row in players_array:
         row.pop("_positionFromSleeperOnly", None)
+    if integrity_build is not None and integrity_build.repairs.on("R13"):
+        # V2.1 R13 (contract size): every reader inside the build has used the
+        # full stamps; drop the ones that only say "voting normally".
+        contract_payload["sourceIntegrity"]["compactStamps"] = (
+            _source_integrity.compact_default_stamps(players_array, players_by_name)
+        )
     stamp_optimal_lineups(contract_payload)
     _stamp_owned_pick_board_rows(contract_payload)
     return contract_payload

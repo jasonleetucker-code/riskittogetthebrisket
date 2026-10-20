@@ -118,6 +118,14 @@ def _build(flags=(), *, csvs=None, sidecar=None, vid=None, directory=None):
             return dc.build_api_data_contract(_payload(), csv_root=root)
 
 
+def _build_full_stamps(flags=(), **kw):
+    """A V2.1 build with R13's end-of-build stamp compaction reverted, for the
+    tests that read a DEFAULT verdict's per-vote identity stamp (R13 changes no
+    decision: ``tests/api/test_outlier_integrity_v21_perf.py``)."""
+    with si.repairs_override(si.Repairs.all_on().without("R13")):
+        return _build(flags, **kw)
+
+
 def _canon(contract) -> str:
     c = copy.deepcopy(contract)
     c.pop("generatedAt", None)
@@ -178,10 +186,17 @@ def test_v2_without_v21_ignores_the_sidecar_and_the_vid_map():
 def test_u2_exact_rung_with_agreeing_fields_votes_verified():
     row = PAYLOAD["players"]["Off Vet 003"]
     side = _sidecar({"Off Vet 003": {"position": row["position"], "team": row["team"]}})
-    got = _rows(_build(V21_ON, sidecar=side))["Off Vet 003"]
-    stamp = got["sourceIntegrity"][SRC]["identity"]
-    assert stamp["verdict"] == r.ID_VERIFIED and stamp["basis"] == "capture_evidence_u2"
+    contract = _build(V21_ON, sidecar=side)
+    got = _rows(contract)["Off Vet 003"]
+    # R13: a vote that passed with a default verdict keeps no per-vote stamp;
+    # its grade is in the per-source census.
+    assert SRC not in (got.get("sourceIntegrity") or {})
+    assert contract["sourceIntegrity"]["captureEvidence"]["graded"][SRC][r.ID_VERIFIED] >= 1
     assert SRC in got["canonicalSiteValues"]
+    # The full stamp, as the build wrote it before R13's compaction.
+    full = _rows(_build_full_stamps(V21_ON, sidecar=side))["Off Vet 003"]
+    stamp = full["sourceIntegrity"][SRC]["identity"]
+    assert stamp["verdict"] == r.ID_VERIFIED and stamp["basis"] == "capture_evidence_u2"
 
 
 def test_u2_surname_rung_without_position_is_refused_absent_and_explained():
@@ -250,7 +265,7 @@ def test_u2_an_unresolvable_vendor_name_is_no_a2_evidence():
         }
     )
     directory = r.build_sleeper_index({})
-    got = _rows(_build(V21_ON, sidecar=side, directory=directory))["Off Vet 006"]
+    got = _rows(_build_full_stamps(V21_ON, sidecar=side, directory=directory))["Off Vet 006"]
     # family AND team agree: A5 is satisfied, the fuzzy attach votes
     assert got["sourceIntegrity"][SRC]["identity"]["verdict"] == r.ID_VERIFIED
 
@@ -322,7 +337,9 @@ def test_vid_agreeing_vendor_id_verifies():
     name = "Off Vet 010"
     sid = PAYLOAD["players"][name]["_sleeperId"]
     got = _rows(
-        _build(V21_ON, csvs=_u3_csvs(), vid=_vid_for(name, sid, "2026-10-01T00:00:00+00:00"))
+        _build_full_stamps(
+            V21_ON, csvs=_u3_csvs(), vid=_vid_for(name, sid, "2026-10-01T00:00:00+00:00")
+        )
     )[name]
     stamp = got["sourceIntegrity"]["fantasyCalc"]["identity"]
     assert stamp["verdict"] == r.ID_VERIFIED and stamp["evidence"] == ["id"]

@@ -108,3 +108,52 @@ ways, 1,106 rows. Pinned on synthetic boards by
   archived before U2 shipped carry no sidecar: absent stays absent.
 * AD2-ID / AD2-SUR harness runs, V2-RPC, Stage 2 selection and every evaluation
   stage.
+
+## V2.1, Stage 1c: R13 build time and contract size; the L3 fixture wired
+
+**Status.** Written with the R13 implementation and the L3 test wiring, before
+any V2.1 build of an R, SPENT or held-out board and before any evaluation.
+**No V2.1 result of any kind exists when this section is written.** The only
+inputs read were synthetic rows, the committed fixture
+`tests/fixtures/outlier_integrity_v2/freshness_v2_affected_rows_2026-10-20.json`
+(a committed record, read as §5.4 Stage 1 registers: "the Option-B fixture wired
+into the regression and integration tests"), and the DEV board
+`dynasty_export_20260930_130404.zip` (E_DEV; the same board V2 used for its own
+development performance note), for build-time and size measurement and for the
+output-identity check below. pin2015, pin0527, pinOB, every SPENT board and every
+board added after T0 stay unread.
+
+**No acceptance criterion, gate, bar, population, seed, grid, selection rule,
+held-out rule or threshold has changed.** Nothing is selected or weakened.
+Nothing activates: `outlier_integrity_v2`, `outlier_integrity_v21` and every
+sub-flag stay OFF; the DLF IDP hold stays ON; D4 and freshness v2 stay OFF. No
+curve, Hill, weight, family, cap, freshness, VA, geom_q078_v1 or trade code
+changes.
+
+**R13 changes no decision (measured).** On the DEV board, built with the code
+before and after this unit (`f14ad7681d` vs this commit), in four
+configurations -- incumbent, V2-NOHIST, V2.1-NOHIST, V2.1 with D4 on and DLF IDP
+restored, each built cold and then warm (memos populated) -- plus V2.1 with a
+one-board history lane (cold and warm) and a two-board lane, every contract is
+identical apart from the build clock (`dataFreshness.generatedAt`), once the old
+V2.1 output is passed through the same end-of-build compaction. The incumbent
+and V2 outputs are identical without any adjustment. The history lane's record
+(`board_record`) of the compacted and uncompacted V2.1 contracts is identical.
+
+| id | registered text | implementation | reason / why it loosens nothing |
+|---|---|---|---|
+| V21-C27 | R13: "no full-board deep-copy snapshot (copy only touched rows)" | `rank_with_segment_screen` serializes the pre-ranking board once (`pickle`, which keeps the shared-object graph as `copy.deepcopy` does) and deserializes it only when a B3 quarantine forces the re-rank; anything unpicklable falls back to `copy.deepcopy`. This is not "copy only touched rows": the ranking pass touches every row, so the copy is made cheap and lazy instead. The helper runs under the V2 master whether or not the V2.1 sub-flag is on (its output is identical: V2-NOHIST byte for byte, above). | Engineering only. The restored board is the same object graph; pinned by a re-rank test with both snapshot kinds. |
+| V21-C28 | R13: "identity grading memoized per (source, CSV content hash)" | A process memo of Layer A's verdict per join, scoped per source by (CSV path, mtime, the CSV parse cache's own entry) and per board by EQUALITY of every row's `RowIdentityEvidence` plus the grading constants (R4/R5/R8/R10, `tau_age`, the age date, the rookie boards). The join key carries the row, the rung, the entry key, the chosen entry, the candidates, and the history facts (prior team, the row's previous teams, continuity). The Sleeper-id owner and vendor-id answers the original call read are recorded and re-asked on every hit. The memo stands aside whenever the identity owner's grading function is wrapped (the replay's `IdentityAgeRecorder`), so a recorder sees every call. Supporting pure memos: the canonical name key and position group (process-wide, bounded), the candidate bucket (equality-validated), per-row homonyms and player keys, lazy buckets, the B0 format findings per census object. | A hit is served only when every input the verdict read is unchanged; any difference is a miss. Exactness pinned on synthetic boards (changed CSV, changed history, changed board, wrapped function) and by the full-board identity above. The ratio below is warm-build (the registered protocol, §10); the first build is reported beside it. |
+| V21-C29 | R13: "per-vote integrity stamps emitted only for non-default verdicts; census aggregated per source" | V21-C12 omitted the VERIFIED vote block. This unit treats both voting verdicts with nothing further to say (`VERIFIED`, `NAME_ONLY`, no advisory) as default: an end-of-build pass (`source_integrity.compact_default_stamps`, after every in-build reader: the vote loop, finalize, the §10 census, the source voting status) removes the row-level `sourceIntegrity[source]` that holds only such a verdict -- keeping `{verdict, entryTeam}` where the history lane reads the entry team -- and the `sourceRankMeta` name-only voting block. The counts stay in `sourceIntegrity.identity`, `votingCategories` (taken before the pass) and `captureEvidence.graded`; `sourceIntegrity.compactStamps` counts what was removed. Every refusal, hold, withhold, quarantine, Layer C stamp, advisory, `TEAM_UNCONFIRMED` vote and persistent-dissent stamp stays verbatim. **Test change:** three existing identity-evidence tests that read a default verdict's per-vote stamp now build with R13 reverted (`repairs_override(... without("R13"))`), and one also asserts the compacted state. | Labels only, and only for votes that passed A and B: the per-vote grade of a normal vote moves to the per-source census. No value, vote or exclusion changes (above); no invalid label can appear (tested). **Flag for the reviewer:** less per-vote detail on the explainer for normal votes. |
+| V21-C30 | R13 names three mechanisms | Further exact rewrites, each pinned by a property or identity test: the segment screen reused on identical inputs (history by identity, the rest by equality, a deep copy returned); a Layer C memo (`outlier_policy.LayerCMemo`: panel, curve, `tau_C`, providers and families in the key; `linked`, persistence and the lazily computed weights recorded and re-asked; stands aside for the replay's `LayerCRecorder`); guard 4's family-capped weights computed lazily (only rows that reach guard 4); the nearest other-provider vote found in O(k log k); B3's leave-source-out references computed per row at once; a fast path in `vote_exclusion` for a board with no quarantine; cached voting-stamp templates; a per-board coordinate memo in `board_vote_rows`. | None decides anything differently (property tests over thousands of random panels; the full-board identity above). |
+| V21-C31 | §10 / §11 criteria 13-14: performance and contract size on pin2015 (Stage 3) and G2 (Stage 4) | The development measurement uses the DEV board, not pin2015 (Stage 3 only), with the registered protocol (`scripts/oiv21_perf.py`: each configuration in its own process, one warm-up, median of 5 warm builds; full contract as served, gzip, and the rankings-overrides delta). Three runs each, before (`f14ad7681d`) and after: wall ratio **1.76-1.89x -> 1.22-1.26x**; full contract **1.128 -> 1.011**, gzip **1.052 -> 1.013**, delta **1.112 -> 1.001**; peak RSS **+43-44 MB -> +46-48 MB** (the memos). First-build ratio after: 0.98-1.71 (noisy; reported, not judged). Records: `outlier_integrity_v21/perf_dev/`. | Development evidence only; criteria 13-14 are judged at Stage 3 and Stage 4 exactly as registered. **Named risks:** the wall margin under 1.25x is thin on this host (run-to-run spread about +-5%); the warm ratio leans on the memos, so a build whose inputs change between warm builds pays the cold cost; with a non-empty history lane (G2) the build also computes player keys and content hashes per row, not measured here; the RSS margin under +50 MB is thin. |
+| V21-C32 | §5.4: evaluator code frozen at Stage 2 | `scripts/oiv21_perf.py` is new Stage 1 tooling. It refuses a SPENT board and any board absent from `POPULATIONS.json` (the sealed held-out set), and an R pin unless `--stage3-r-pin`. | Stage discipline enforced in code; frozen with the evaluator at Stage 2. |
+| V21-C33 | §5.4 Stage 1 / §7.4 L3: "the Option-B fixture wired into the regression and integration tests" (continues V21-C18) | `tests/api/test_outlier_integrity_v21_l3_freshness_rows.py` rebuilds every fixture row synthetically from its own player, position, class, value level and sources. **Regression** (Layer C as served, real lineage and families, empty history): every row in each freshness state, the incumbent-excluded sources placed as a legitimate dissent the incumbent drops (asserted: the panel reproduces the fixture's exclusions exactly, 27 OFF + 23 ON = 50 vote-instances over 39 pairs); V2.1 drops none and labels no dissent invalid, in either order. **Integration** (`build_api_data_contract`, V2.1-NOHIST): a synthetic board carrying every priced fixture offense row under its own name with the fixture's own sources; no V2.1 layer excludes any vote on those rows, every fixture dissent stays in the blend, none is labelled invalid; LaJohntay Wester's Flock vote is dropped by the incumbent and kept by V2.1; Dee Alford, James Pierre and Kyle Dugger keep their sole FantasyPros IDP vote and are priced as the incumbent prices them, and when that vote stops they are UNPRICED (`None`), never 0. Dissent size: the consensus +- max(1,100, 30%) -- beyond the incumbent's 1,000-point floor so its exclusion is reproduced, and inside `tau_C` (asserted). | Not tuned on any real board. The ON state is exercised at the Layer C level only (the synthetic tree carries no dataset state, so freshness weighting is unavailable at pipeline level); the board-level L3 run (pinOB at D, freshness v2 OFF and ON) stays the Stage 3 constraint. |
+
+### Not done in this unit (named)
+
+* The board-level L3 cold-start run on pinOB and every other Stage 3 constraint,
+  criteria 13-14 on pin2015 and G2, Stage 2 selection, AD2-ID / AD2-SUR / AD2-N /
+  INJ-DUP / PERSISTENT / V2-RPC runs.
+* Shipping U2 / U3 / VID (V21-C24 note): unchanged, still the wrong-player gate's
+  dependency.

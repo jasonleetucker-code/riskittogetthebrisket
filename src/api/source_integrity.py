@@ -97,6 +97,7 @@ import copy
 import hashlib
 import json
 import math
+import pickle
 from collections import defaultdict
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -750,6 +751,28 @@ class BoardFinding:
         }
 
 
+#: ``format_findings`` per (source, tolerant): the census object it last
+#: answered for and the answer.  The census is the CSV parse cache's own object
+#: (``data_contract._SOURCE_CSV_INTEGRITY_CACHE``, keyed by file mtime), so an
+#: unchanged CSV is judged once per process (V2.1 R13 performance).
+_FORMAT_FINDINGS_MEMO: dict[tuple[str, bool], tuple[Any, tuple[BoardFinding, ...]]] = {}
+
+
+def format_findings_cached(
+    source: str, census: Mapping[str, Any] | None, *, tolerant: bool = False
+) -> list[BoardFinding]:
+    """``format_findings`` memoized on the identity of the census object.
+    Identical findings (each with its own copy of the evidence)."""
+    if not census:
+        return format_findings(source, census, tolerant=tolerant)
+    key = (source, bool(tolerant))
+    hit = _FORMAT_FINDINGS_MEMO.get(key)
+    if hit is None or hit[0] is not census:
+        hit = (census, tuple(format_findings(source, census, tolerant=tolerant)))
+        _FORMAT_FINDINGS_MEMO[key] = hit
+    return [replace(f, evidence=copy.deepcopy(dict(f.evidence))) for f in hit[1]]
+
+
 def format_findings(
     source: str, census: Mapping[str, Any] | None, *, tolerant: bool = False
 ) -> list[BoardFinding]:
@@ -1117,6 +1140,40 @@ def leave_source_out_reference(
     return _median([_median(v) for v in by_provider.values()])
 
 
+def leave_source_out_references(
+    row_votes: Mapping[str, float], provider_of: Callable[[str], str]
+) -> dict[str, float | None]:
+    """``leave_source_out_reference`` for every source of one row at once
+    (V2.1 R13 performance; identical answers).
+
+    The provider medians are computed once; leaving a source out changes only
+    its own provider's median (or removes that provider when the source was
+    its only member).  Each answer is the median of the same multiset of
+    provider medians the one-source function builds, so it is the same float.
+    """
+    by_provider: dict[str, list[float]] = defaultdict(list)
+    prov_of: dict[str, str] = {}
+    for k, u in row_votes.items():
+        p = provider_of(k)
+        prov_of[k] = p
+        by_provider[p].append(u)
+    full = {p: _median(v) for p, v in by_provider.items()}
+    out: dict[str, float | None] = {}
+    for k, u in row_votes.items():
+        p = prov_of[k]
+        members = by_provider[p]
+        if not isinstance(u, (int, float)) or isinstance(u, bool) or not math.isfinite(u):
+            out[k] = leave_source_out_reference(k, row_votes, provider_of)
+            continue
+        others = [m for q, m in full.items() if q != p]
+        if len(members) > 1:
+            rest = list(members)
+            rest.remove(u)
+            others.append(_median(rest))
+        out[k] = _median(others) if len(others) >= B3_MIN_REFERENCE_PROVIDERS else None
+    return out
+
+
 def leave_provider_out(
     source: str, row_votes: Mapping[str, float], provider_of: Callable[[str], str]
 ) -> dict[str, float]:
@@ -1235,8 +1292,9 @@ def segment_screen(
     seg: dict[tuple[str, str, str], list[tuple[float, float]]] = defaultdict(list)
     for _idx in sorted(rows):
         asset_class, pos, votes = rows[_idx]
+        refs = leave_source_out_references(votes, provider_of)
         for source in sorted(votes):
-            ref = leave_source_out_reference(source, votes, provider_of)
+            ref = refs[source]
             if ref is None:
                 continue
             seg[(source, asset_class, pos)].append((votes[source], ref))
@@ -1556,6 +1614,8 @@ class IntegrityBuild:
     def vote_exclusion(self, source: str, asset_class: str, pos: str) -> str | None:
         """The hard board-level reason excluding this vote, if any (B0 / B3 /
         dependency), by precedence."""
+        if not (self.source_quarantines or self.segment_quarantines or self.dependency_sources):
+            return None  # a healthy board: nothing can exclude (the common case)
         codes: list[str] = []
         if source in self.source_quarantines:
             codes.append(self.source_quarantines[source])
@@ -1680,9 +1740,12 @@ def voting_stamp(
     block at all — ``None`` — because the absence of a block already reads as
     "voting normally" everywhere it is consumed."""
     ident = (row.get("sourceIntegrity") or {}).get(source)
-    identity = ident.get("identity") if isinstance(ident, Mapping) else None
-    advisory = ident.get("advisory") if isinstance(ident, Mapping) else None
-    verdict = identity.get("verdict") if isinstance(identity, Mapping) else None
+    if ident is None:  # ungraded: the common fast path
+        identity = advisory = verdict = None
+    else:
+        identity = ident.get("identity") if isinstance(ident, Mapping) else None
+        advisory = ident.get("advisory") if isinstance(ident, Mapping) else None
+        verdict = identity.get("verdict") if isinstance(identity, Mapping) else None
     reason = REASON_VOTING
     if verdict == "NAME_ONLY":
         reason = REASON_NAME_ONLY
@@ -1690,12 +1753,105 @@ def voting_stamp(
         reason = REASON_TEAM_UNCONFIRMED
     if compact and reason == REASON_VOTING and not advisory:
         return None
-    out = integrity_stamp(STATUS_VOTING, [reason])
-    if verdict:
-        out["identity"] = verdict
+    template = _VOTING_STAMP_TEMPLATES.get((reason, verdict))
+    if template is None:
+        template = integrity_stamp(STATUS_VOTING, [reason])
+        if verdict:
+            template["identity"] = verdict
+        _VOTING_STAMP_TEMPLATES[(reason, verdict)] = template
+    out = dict(template)  # a fresh block per vote: later passes add to it
     if advisory:
         out["advisory"] = advisory
     return out
+
+
+#: ``voting_stamp``'s block per (reason, verdict): ``integrity_stamp`` is a pure
+#: function of the reason, so each distinct block is built once per process
+#: and copied (V2.1 R13 performance; identical blocks).
+_VOTING_STAMP_TEMPLATES: dict[tuple[str, Any], dict[str, Any]] = {}
+
+
+#: V2.1 R13: identity verdicts of a vote that passed A and B with nothing
+#: further to say (directive §10 category ``voting_normally``, no advisory).
+DEFAULT_VOTING_VERDICTS = frozenset({"VERIFIED", "NAME_ONLY"})
+_DEFAULT_VOTE_BLOCK_KEYS = frozenset({"status", "primaryReason", "category", "identity"})
+
+
+def compact_default_stamps(
+    players_array: Iterable[Any], players_by_name: Mapping[str, Any] | None = None
+) -> dict[str, int]:
+    """V2.1 R13: drop per-vote stamps that say only "voting normally".
+
+    Run once at the very end of a V2.1 build, after every consumer inside the
+    build (the vote loop, the explainer finalize, the §10 census and the
+    source voting status) has read the full stamps, so nothing the build
+    decides or reports changes.  Afterwards:
+
+    * a row-level ``sourceIntegrity[source]`` that holds only a default
+      identity verdict (``VERIFIED`` / ``NAME_ONLY``) is removed, except that
+      the entry team the history lane reads (``board_record``: the team on the
+      source's last accepted observation, R8) is kept as
+      ``{"identity": {"verdict", "entryTeam"}}``;
+    * a ``sourceRankMeta`` integrity block that is exactly the name-only
+      voting default is removed (``voting_stamp`` already omits the VERIFIED
+      one).  An absent block reads as voting normally everywhere it is
+      consumed (``observation_category``, ``vote_state``, ``board_vote_rows``).
+
+    Every refusal, hold, withhold, quarantine, Layer C decision, advisory,
+    ``TEAM_UNCONFIRMED`` vote and persistent-dissent stamp is kept verbatim;
+    the name-only / verified counts stay in the per-source census
+    (``sourceIntegrity.identity`` and ``votingCategories``).
+    """
+    rows_dropped = rows_slimmed = blocks_dropped = 0
+
+    def _compact_meta(rank_meta: Any) -> None:
+        # A meta shared by the legacy dict is met twice; the second time its
+        # block is already gone, so nothing is counted twice.
+        nonlocal blocks_dropped
+        if not isinstance(rank_meta, dict):
+            return
+        for meta in rank_meta.values():
+            integ = meta.get("integrity") if type(meta) is dict else None
+            if (
+                type(integ) is dict
+                and integ.get("primaryReason") == REASON_NAME_ONLY
+                and integ.get("status") == STATUS_VOTING
+                and integ.get("identity") in (None, "NAME_ONLY")
+                and integ.keys() <= _DEFAULT_VOTE_BLOCK_KEYS
+            ):
+                del meta["integrity"]
+                blocks_dropped += 1
+
+    for row in players_array:
+        if not isinstance(row, dict):
+            continue
+        stamps = row.get("sourceIntegrity")
+        if isinstance(stamps, dict):
+            for source in list(stamps):
+                entry = stamps[source]
+                if type(entry) is not dict or len(entry) != 1:
+                    continue
+                ident = entry.get("identity")
+                if type(ident) is not dict or ident.get("verdict") not in DEFAULT_VOTING_VERDICTS:
+                    continue
+                team = ident.get("entryTeam")
+                if team:
+                    stamps[source] = {"identity": {"verdict": ident["verdict"], "entryTeam": team}}
+                    rows_slimmed += 1
+                else:
+                    del stamps[source]
+                    rows_dropped += 1
+            if not stamps:
+                del row["sourceIntegrity"]
+        _compact_meta(row.get("sourceRankMeta"))
+    for legacy in (players_by_name or {}).values():
+        if isinstance(legacy, Mapping):
+            _compact_meta(legacy.get("sourceRankMeta"))
+    return {
+        "rowStampsDropped": rows_dropped,
+        "rowStampsSlimmed": rows_slimmed,
+        "voteBlocksDropped": blocks_dropped,
+    }
 
 
 def player_key_for_row(row: Mapping[str, Any]) -> str | None:
@@ -1936,7 +2092,7 @@ def observation_category(meta: Mapping[str, Any]) -> tuple[str, str]:
     written by the layer that tested the observation); otherwise the existing
     exclusion stamps; otherwise the observation voted normally."""
     integ = meta.get("integrity")
-    if isinstance(integ, Mapping) and integ.get("primaryReason"):
+    if integ is not None and isinstance(integ, Mapping) and integ.get("primaryReason"):
         reason = str(integ["primaryReason"])
         return str(integ.get("category") or reason_category(reason) or reason), reason
     excluded = meta.get("excludedReason")
@@ -1974,7 +2130,7 @@ def voting_category_census(
             continue
         rank_meta = row.get("sourceRankMeta") or {}
         for source, meta in rank_meta.items():
-            if not isinstance(meta, Mapping):
+            if type(meta) is not dict and not isinstance(meta, Mapping):
                 continue
             category, reason = observation_category(meta)
             e = _entry(str(source))
@@ -2101,6 +2257,9 @@ def board_vote_rows(
     ``rejected_tail``) are kept (they are observations, and the filter is not
     an integrity verdict)."""
     out: dict[int, tuple[str, str, dict[str, float]]] = {}
+    # ``vote_coordinate`` is a pure function of (value, asset class); the
+    # board's integer contributions repeat, so each is computed once here.
+    coord_memo: dict[tuple[type, Any, str], float | None] = {}
     for idx, row in enumerate(players_array):
         if not isinstance(row, Mapping) or row.get("assetClass") == "pick":
             continue
@@ -2108,22 +2267,115 @@ def board_vote_rows(
         pos = str(row.get("position") or "").strip().upper()
         votes: dict[str, float] = {}
         for source, meta in (row.get("sourceRankMeta") or {}).items():
-            if not isinstance(meta, Mapping):
+            if type(meta) is not dict and not isinstance(meta, Mapping):
                 continue
             integ = meta.get("integrity")
-            if isinstance(integ, Mapping) and integ.get("status") not in (
-                STATUS_VOTING,
-                STATUS_REJECTED_TAIL,
+            if (
+                integ is not None
+                and isinstance(integ, Mapping)
+                and integ.get("status")
+                not in (
+                    STATUS_VOTING,
+                    STATUS_REJECTED_TAIL,
+                )
             ):
                 continue
             if meta.get("excludedReason"):
                 continue
-            u = vote_coordinate(meta.get("valueContribution"), asset_class)
+            vc = meta.get("valueContribution")
+            if type(vc) in (int, float):  # exact types: True / 1 never share a slot
+                ck = (type(vc), vc, asset_class)
+                if ck in coord_memo:
+                    u = coord_memo[ck]
+                else:
+                    u = coord_memo[ck] = vote_coordinate(vc, asset_class)
+            else:
+                u = vote_coordinate(vc, asset_class)
             if u is not None:
                 votes[str(source)] = u
         if votes:
             out[idx] = (asset_class, pos, votes)
     return out
+
+
+def _board_snapshot(board: Any) -> tuple[str, Any]:
+    """The pre-ranking snapshot ``rank_with_segment_screen`` restores from when
+    B3 quarantines (V2.1 R13: no full-board deep copy on every build).
+
+    The board is serialized once (``pickle``, which keeps the shared-object
+    graph exactly as ``copy.deepcopy`` does) and only DESERIALIZED when a
+    re-rank is actually needed -- a healthy board ranks once and never pays
+    for the copy.  A board holding anything ``pickle`` refuses falls back to
+    ``copy.deepcopy``, so the restored object graph is identical either way.
+    """
+    try:
+        return ("pickle", pickle.dumps(board, protocol=pickle.HIGHEST_PROTOCOL))
+    except (pickle.PicklingError, TypeError, AttributeError, RecursionError):
+        return ("deepcopy", copy.deepcopy(board))
+
+
+def _restore_board_snapshot(snapshot: tuple[str, Any]) -> Any:
+    kind, blob = snapshot
+    return pickle.loads(blob) if kind == "pickle" else blob  # noqa: S301 -- our own bytes
+
+
+#: V2.1 R13: the last segment screen's inputs and result.  B3 is a pure,
+#: order-free function of the board's votes, the provider lineage, the
+#: thresholds, the history object, the proof set and the R2 / R3 switches; an
+#: identical rebuild (rankings overrides) reuses the answer.  The history is
+#: compared by identity (held here, so its id cannot be reused) and every other
+#: input by equality; any difference recomputes.
+_SEGMENT_SCREEN_MEMO: dict[str, Any] = {}
+
+
+def segment_screen_memo(
+    rows: Mapping[int, tuple[str, str, Mapping[str, float]]],
+    *,
+    provider_of: Callable[[str], str],
+    thresholds: IntegrityThresholds,
+    history: IntegrityHistory | None,
+    proof_sources: Iterable[str] = (),
+    r2: bool = False,
+    r3: bool = False,
+) -> SegmentScreen:
+    """``segment_screen`` reusing the previous identical call's result (a deep
+    copy, so no caller can alter the memo)."""
+    sources = sorted({str(k) for _ac, _pos, votes in rows.values() for k in votes})
+    lineage = tuple((k, provider_of(k)) for k in sources)
+    proof = frozenset(proof_sources)
+    last = _SEGMENT_SCREEN_MEMO
+    if (
+        last
+        and last["history"] is history
+        and last["r"] == (bool(r2), bool(r3))
+        and last["thresholds"] == thresholds
+        and last["proof"] == proof
+        and last["lineage"] == lineage
+        and last["rows"] == rows
+    ):
+        return copy.deepcopy(last["screen"])
+    screen = segment_screen(
+        rows,
+        provider_of=provider_of,
+        thresholds=thresholds,
+        history=history,
+        proof_sources=proof,
+        r2=r2,
+        r3=r3,
+    )
+    _SEGMENT_SCREEN_MEMO.clear()
+    _SEGMENT_SCREEN_MEMO.update(
+        {
+            "history": history,
+            "r": (bool(r2), bool(r3)),
+            "thresholds": thresholds,
+            "proof": proof,
+            "lineage": lineage,
+            "rows": copy.deepcopy(dict(rows)),
+            "screen": copy.deepcopy(screen),
+        }
+    )
+    return screen
 
 
 def rank_with_segment_screen(
@@ -2144,17 +2396,23 @@ def rank_with_segment_screen(
     propagation of B0 quarantines is applied before the first pass (by the
     caller), so a healthy board ranks once.
     """
-    snapshot = copy.deepcopy((players_array, players_by_name))
+    snapshot = _board_snapshot((players_array, players_by_name))
     result = rank_once()
-    screen = segment_screen(
-        board_vote_rows(players_array),
-        provider_of=provider_of,
+    screen_args = dict(
         thresholds=integrity.thresholds,
         history=integrity.history,
         proof_sources=integrity.proof_sources,
         r2=integrity.repairs.on("R2"),
         r3=integrity.repairs.on("R3"),
     )
+    if integrity.repairs.on("R13"):
+        screen = segment_screen_memo(
+            board_vote_rows(players_array), provider_of=provider_of, **screen_args
+        )
+    else:
+        screen = segment_screen(
+            board_vote_rows(players_array), provider_of=provider_of, **screen_args
+        )
     integrity.findings.extend(screen.findings)
     integrity.segment_stats = screen.stats
     integrity.segment_medians = screen.medians
@@ -2165,7 +2423,7 @@ def rank_with_segment_screen(
         lost = dependency_of(quarantined)
         integrity.dependency_sources = set(lost.get("sources") or {})
         integrity.dependency_idp_shared_market = "idp" in (lost.get("assetClasses") or {})
-        array0, by_name0 = snapshot
+        array0, by_name0 = _restore_board_snapshot(snapshot)
         players_array[:] = array0
         players_by_name.clear()
         players_by_name.update(by_name0)

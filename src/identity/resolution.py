@@ -66,6 +66,7 @@ Non-negotiables inherited from the governance layer:
 
 from __future__ import annotations
 
+import functools
 import math
 import re
 from dataclasses import dataclass, field
@@ -913,7 +914,13 @@ V21_ALLOWED_DRIFT: frozenset[frozenset[str]] = frozenset(
 def v21_position_families(position: object) -> frozenset[str]:
     """The registered families of one published position (R4).  An unknown or
     blank position belongs to no family: no evidence, never a mismatch."""
-    raw = str(position or "").strip().upper()
+    return _v21_families_of_raw(str(position or "").strip().upper())
+
+
+@functools.lru_cache(maxsize=512)
+def _v21_families_of_raw(raw: str) -> frozenset[str]:
+    """Pure on the normalized string (the family table is a constant), so it
+    is answered once per distinct position (V2.1 R13 performance)."""
     if not raw:
         return frozenset()
     return frozenset(f for f, members in V21_POSITION_FAMILIES.items() if raw in members)
@@ -1011,10 +1018,16 @@ def team_evidence(team: object) -> str | None:
     a free agent (``FA``), a blank or an unrecognised code is NOT evidence of a
     team — missing is never a mismatch.
     """
+    return _team_evidence_of_raw(str(team or "").strip().upper())
+
+
+@functools.lru_cache(maxsize=512)
+def _team_evidence_of_raw(raw: str) -> str | None:
+    """Pure on the normalized string (the NFL team owner's tables are
+    constants), so it is answered once per distinct spelling (V2.1 R13)."""
     from src.playerctx.normalize import normalize_team_code  # noqa: PLC0415
     from src.utils.name_clean import NFL_TEAM_CODES  # noqa: PLC0415
 
-    raw = str(team or "").strip().upper()
     if not raw:
         return None
     code = _TEAM_LONG_FORMS.get(raw, normalize_team_code(raw))

@@ -67,7 +67,7 @@ import math
 import statistics
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 POLICY_VERSION = "outlier-corroborated-v1"
@@ -575,6 +575,7 @@ def assess_row_layer_c(
     linked: Callable[[str, str], bool] | None = None,
     persistence_confirmed: Callable[[str, float], bool] | None = None,
     tau_c_big: float | None = None,
+    weights_fn: Callable[[], Mapping[str, float]] | None = None,
 ) -> LayerCVerdict:
     """Layer C's keep / drop decision for one non-pick row.
 
@@ -586,6 +587,10 @@ def assess_row_layer_c(
     True when source ``k``'s own accepted history confirms coordinate ``u``
     (absent -> never confirmed: the cold-start rule). ``tau_c_big``: guard 3's
     threshold (clamped at ``ln 4``).
+
+    ``weights_fn`` (used only when ``weights`` is ``None``) supplies the same
+    weights lazily: guard 4 is the only reader, so a row where no vote reaches
+    it never computes them (V2.1 R13 performance; identical decisions).
 
     Pure: no I/O, no flag reads; the decision depends on the multiset of
     observations, never their order.
@@ -601,24 +606,54 @@ def assess_row_layer_c(
     providers_present = set(prov.values())
     is_linked = linked or (lambda _a, _b: False)
     confirmed = persistence_confirmed or (lambda _k, _u: False)
-    shares = _family_shares(keys, weights, family_of)
+    _shares: list[dict[str, float]] = []
+
+    def _share_of(family: str) -> float:
+        if not _shares:
+            w = weights if weights is not None or weights_fn is None else weights_fn()
+            _shares.append(_family_shares(keys, w, family_of))
+        return _shares[0].get(family, 0.0)
 
     dissent: dict[str, str] = {}
     kept_because: dict[str, str] = {}
     details: dict[str, dict[str, Any]] = {}
     candidates: set[str] = set()
-    for o in sorted(coords):
+    ordered = sorted(coords)
+    ordered_coords = [(k, prov[k], coords[k]) for k in ordered]
+    # The nearest OTHER-provider vote of each vote, read off the votes sorted
+    # by coordinate: it is the first other-provider vote on the left or on the
+    # right (subtraction is monotone), so this is the same minimum as the scan
+    # over every pair, in O(k log k) (V2.1 R13 performance).
+    by_u = sorted(ordered_coords, key=lambda t: t[2])
+    at = {t[0]: i for i, t in enumerate(by_u)}
+
+    def _nearest(o: str, u_o: float, p_o: str) -> float | None:
+        best: float | None = None
+        i = at[o]
+        for step in (-1, 1):
+            j = i + step
+            while 0 <= j < len(by_u):
+                if by_u[j][1] != p_o:
+                    d = abs(u_o - by_u[j][2])
+                    if best is None or d < best:
+                        best = d
+                    break
+                j += step
+        return best
+
+    for o in ordered:
         u_o = coords[o]
-        others = sorted(k for k in coords if prov[k] != prov[o])
-        if not others:
+        p_o = prov[o]
+        nearest = _nearest(o, u_o, p_o)
+        if nearest is None:
             continue
-        nearest = min(abs(u_o - coords[k]) for k in others)
         info: dict[str, Any] = {"nearestOtherProvider": round(nearest, 4)}
         details[o] = info
         if nearest > C_CORROBORATION_DISTANCE:
             dissent[o] = KEPT_DISSENT
         if nearest <= tau:
             continue
+        others = [k for k, p_k, _u in ordered_coords if p_k != p_o]
         # Guard 3 met: the vote is further than tau_C from every other
         # provider. Every other guard must hold before it can be removed.
         info["tauC"] = round(tau, 4)
@@ -645,7 +680,7 @@ def assess_row_layer_c(
         if confirmed(o, u_o):
             kept_because[o] = C_KEPT_PERSISTENT
             continue
-        share = shares.get(family_of(o), 0.0)
+        share = _share_of(family_of(o))
         info["familyShare"] = round(share, 4)
         if share >= C_DOMINANT_SHARE:
             kept_because[o] = C_KEPT_DOMINANT
@@ -692,8 +727,10 @@ class LayerCContext:
         pairs: Sequence[tuple[str, float]],
         weights: Mapping[str, float] | None = None,
     ) -> LayerCVerdict:
+        weights_fn = None
         if weights is None and self.weights_for is not None:
-            weights = self.weights_for([k for k, _v in pairs])
+            weights_for = self.weights_for
+            weights_fn = lambda: weights_for([k for k, _v in pairs])  # noqa: E731
         return assess_row_layer_c(
             pairs,
             curve=self.curve,
@@ -703,6 +740,7 @@ class LayerCContext:
             linked=self.linked,
             persistence_confirmed=self.persistence_confirmed,
             tau_c_big=self.tau_c_big,
+            weights_fn=weights_fn,
         )
 
     def replay(self) -> Callable[[Sequence[tuple[str, float]]], list[str]]:
@@ -713,3 +751,89 @@ class LayerCContext:
             return list(self.assess(list(observed)).dropped)
 
         return _replay
+
+
+#: The class method as defined: a wrapped method (a replay call recorder)
+#: makes ``LayerCMemo`` stand aside so the recorder sees every call.
+_LAYER_C_ASSESS_ORIGINAL = LayerCContext.assess
+
+
+class LayerCMemo:
+    """V2.1 R13: Layer C's per-row decision memoized across builds.
+
+    ``assess_row_layer_c`` is pure; through a ``LayerCContext`` it reads the
+    ordered panel, the curve, ``tau_C``, each key's provider and family, and
+    three lookups -- ``linked``, ``persistence_confirmed`` and the lazily
+    computed family-capped weights.  The key holds the panel, the curve, the
+    threshold and every key's provider and family; the lookups' answers are
+    RECORDED on a miss and RE-ASKED on a hit.  A hit is therefore returned only
+    when every input the original decision read is unchanged, so an identical
+    rebuild (rankings overrides) re-decides nothing and any difference is a
+    miss.  Bounded (cleared at ``max_entries``).  The verdict is shared, and
+    every consumer only reads it.
+    """
+
+    def __init__(self, max_entries: int = 100_000) -> None:
+        self.max_entries = max_entries
+        self.entries: dict[tuple, tuple[LayerCVerdict, tuple]] = {}
+        self.hits = 0
+        self.misses = 0
+
+    def assess(self, ctx: LayerCContext, pairs: Sequence[tuple[str, float]]) -> LayerCVerdict:
+        if LayerCContext.assess is not _LAYER_C_ASSESS_ORIGINAL:
+            return ctx.assess(pairs)
+        keys = [k for k, _v in pairs]
+        try:
+            key = (
+                tuple((str(k), float(v)) for k, v in pairs),
+                tuple(ctx.curve),
+                ctx.tau_c_big,
+                tuple(ctx.provider_of(k) for k in keys),
+                tuple(ctx.family_of(k) for k in keys),
+                ctx.linked is None,
+                ctx.persistence_confirmed is None,
+                ctx.weights_for is None,
+            )
+            hit = self.entries.get(key)
+        except (TypeError, ValueError):
+            return ctx.assess(pairs)
+        if hit is not None and all(self._answer(ctx, call) == ans for call, ans in hit[1]):
+            self.hits += 1
+            return hit[0]
+        recorded: list[tuple[tuple, Any]] = []
+
+        def _linked(a: str, b: str) -> bool:
+            ans = ctx.linked(a, b)  # type: ignore[misc]
+            recorded.append((("l", a, b), ans))
+            return ans
+
+        def _persist(k: str, u: float) -> bool:
+            ans = ctx.persistence_confirmed(k, u)  # type: ignore[misc]
+            recorded.append((("p", k, u), ans))
+            return ans
+
+        def _weights(ks: Sequence[str]) -> Mapping[str, float]:
+            ans = dict(ctx.weights_for(ks))  # type: ignore[misc]
+            recorded.append((("w", tuple(ks)), ans))
+            return ans
+
+        recording = replace(
+            ctx,
+            linked=_linked if ctx.linked is not None else None,
+            persistence_confirmed=_persist if ctx.persistence_confirmed is not None else None,
+            weights_for=_weights if ctx.weights_for is not None else None,
+        )
+        verdict = recording.assess(pairs)
+        self.misses += 1
+        if len(self.entries) >= self.max_entries:
+            self.entries.clear()
+        self.entries[key] = (verdict, tuple(recorded))
+        return verdict
+
+    @staticmethod
+    def _answer(ctx: LayerCContext, call: tuple) -> Any:
+        if call[0] == "l":
+            return ctx.linked(call[1], call[2])  # type: ignore[misc]
+        if call[0] == "p":
+            return ctx.persistence_confirmed(call[1], call[2])  # type: ignore[misc]
+        return dict(ctx.weights_for(list(call[1])))  # type: ignore[misc]
