@@ -57,6 +57,14 @@ def test_exhaustive_mapping_invariants(headline, lean, direction, magnitude, dec
     d = _decision(headline, lean, direction, magnitude, deciding)
     cat = td.public_category_from_decision(d)
     assert cat in td.PUBLIC_CATEGORIES
+    # LC-1: a gate ``deciding`` with a headline ``decide`` never emits it with
+    # (executionGate only with NO, evidenceGate only with NOT_ENOUGH_EVIDENCE)
+    # is malformed, and a malformed decision is UNAVAILABLE — never a
+    # confident category (it was FAVORABLE for YES + executionGate).
+    gate_headline = {"executionGate": "NO", "evidenceGate": "NOT_ENOUGH_EVIDENCE"}.get(deciding)
+    if gate_headline is not None and headline != gate_headline:
+        assert cat == "UNAVAILABLE"
+        return
     if headline == "NOT_ENOUGH_EVIDENCE" or headline == "BOGUS":
         assert cat == "UNAVAILABLE"
     if headline == "NO_TOO_CLOSE":
