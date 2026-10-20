@@ -21,6 +21,13 @@ canonical ledger nor writes the coverage report.  ``--archive-path``,
 ``--intel-ledger-path``, ``--acquisition-path`` and ``--lanes`` point any mode
 at other stores (synthetic fixtures locally; the box defaults otherwise).
 
+``--side-key-secret-file PATH`` (box-local, mode 0600, never committed) turns on
+the pseudonymous per-side ``managerKey`` evidence (chaseTradeMarket P2): an
+HMAC of the host user id under that secret, so manager-level dependence can be
+measured without storing the id itself.  Without it every key is ``None``.  The
+secret's custody (creation, backup, rotation) is an owner decision; this script
+only reads it, and refuses a file group or others can read.
+
 Exit codes: 0 built · 1 error · 2 no observations in any lane.
 """
 
@@ -41,6 +48,20 @@ from src.trade import market_trade_report as report  # noqa: E402
 def _latest_export(repo: Path) -> Path | None:
     files = sorted((repo / "exports" / "latest").glob("dynasty_data_*.json"))
     return files[-1] if files else None
+
+
+def read_side_key_secret(path: Path) -> bytes:
+    """The box-local HMAC secret.  Refuses a file group/others can read and an
+    empty or short secret -- a weak key would make the side keys guessable."""
+    import stat  # noqa: PLC0415
+
+    mode = path.stat().st_mode
+    if mode & (stat.S_IRWXG | stat.S_IRWXO):
+        raise PermissionError("side key secret file must be mode 0600 (owner only)")
+    secret = path.read_bytes().strip()
+    if len(secret) < 32:
+        raise ValueError("side key secret must be at least 32 bytes")
+    return secret
 
 
 def write_census(result: dict, out_dir: Path, *, now: datetime) -> tuple[Path, Path]:
@@ -87,6 +108,12 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="comma-separated source lanes (default: all three)",
     )
+    parser.add_argument(
+        "--side-key-secret-file",
+        type=Path,
+        default=None,
+        help="box-local 0600 secret enabling pseudonymous per-side manager keys",
+    )
     args = parser.parse_args(argv)
 
     repo = Path(__file__).resolve().parents[1]
@@ -99,6 +126,14 @@ def main(argv: list[str] | None = None) -> int:
             source=f"file:{args.player_directory.name}",
         )
     lanes = [s.strip() for s in args.lanes.split(",") if s.strip()] if args.lanes else None
+    secret = None
+    if args.side_key_secret_file is not None:
+        try:
+            secret = read_side_key_secret(args.side_key_secret_file)
+        except (OSError, ValueError) as exc:
+            # The exception class only: never echo a path or content.
+            print(f"error: side key secret unusable: {type(exc).__name__}", file=sys.stderr)
+            return 1
     try:
         result = report.build_ledger(
             target_league=args.target_league,
@@ -108,6 +143,7 @@ def main(argv: list[str] | None = None) -> int:
             intel_ledger_path=args.intel_ledger_path,
             acquisition_path=args.acquisition_path,
             lanes=lanes,
+            side_key_secret=secret,
         )
     except Exception as exc:  # noqa: BLE001
         print(f"error: ledger build failed: {exc}", file=sys.stderr)
