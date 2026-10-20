@@ -148,13 +148,41 @@ class FreshnessConfig:
         return self.sources.get(key, self.default_cadence)
 
 
-def _cadence(d: Mapping[str, Any], default: SourceCadence | None = None) -> SourceCadence:
+def style_flag_states() -> tuple[tuple[str, bool], ...]:
+    """Every flag a configured ``styleFlag`` may name, with its state.
+
+    A source's declared publication ``style`` can sit behind its own rollback
+    flag (``"styleFlag"`` beside ``"style"`` in ``freshness_v1.json``):
+    ``fantasyProsIdp``'s ``EXPLICIT_UPSTREAM_TIMESTAMP`` (owner closeout
+    2026-10-18 Decision 5) is in force only while
+    ``fantasypros_idp_upstream_clock`` is on.  Each flag is read by LITERAL
+    name so the flag-reachability scan sees the gate.  Part of every cache
+    key that holds a parsed config, so a flag flip is never served stale.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return (("fantasypros_idp_upstream_clock", is_enabled("fantasypros_idp_upstream_clock")),)
+
+
+def _cadence(
+    d: Mapping[str, Any],
+    default: SourceCadence | None = None,
+    flags: Mapping[str, bool] | None = None,
+) -> SourceCadence:
     base = default or SourceCadence(72.0, 24.0, 336.0)
+    style = d.get("style")
+    flag = d.get("styleFlag")
+    if style and flag:
+        states = dict(flags if flags is not None else style_flag_states())
+        if str(flag) not in states:
+            raise ValueError(f"freshness config names an unknown styleFlag: {flag!r}")
+        if not states[str(flag)]:
+            style = None
     return SourceCadence(
         seed_hours=float(d.get("seedHours", base.seed_hours)),
         min_hours=float(d.get("minHours", base.min_hours)),
         max_hours=float(d.get("maxHours", base.max_hours)),
-        style=d.get("style"),
+        style=style,
     )
 
 
@@ -162,9 +190,10 @@ def load_config(path: Path | None = None, *, curve: str | None = None) -> Freshn
     data = json.loads(Path(path or CONFIG_PATH).read_text(encoding="utf-8"))
     style = data.get("styleClassification") or {}
     cad = data.get("cadence") or {}
-    default = _cadence(data.get("defaultCadence") or {})
+    flags = dict(style_flag_states())
+    default = _cadence(data.get("defaultCadence") or {}, flags=flags)
     sources = {
-        str(k): _cadence(v, default)
+        str(k): _cadence(v, default, flags)
         for k, v in (data.get("sources") or {}).items()
         if isinstance(v, Mapping)
     }
@@ -199,10 +228,16 @@ _CONFIG_CACHE: dict[str, FreshnessConfig] = {}
 
 
 def default_config() -> FreshnessConfig:
-    cfg = _CONFIG_CACHE.get("default")
+    # Keyed by the style-flag states too: a flag flip must not be served from
+    # a config parsed under the other state.  ``"default"`` is kept as the
+    # plain key while every style flag is in its default state, so callers
+    # that substitute a variant config under it keep working.
+    states = style_flag_states()
+    key = "default" if all(on for _f, on in states) else f"default:{states!r}"
+    cfg = _CONFIG_CACHE.get(key)
     if cfg is None:
         cfg = load_config()
-        _CONFIG_CACHE["default"] = cfg
+        _CONFIG_CACHE[key] = cfg
     return cfg
 
 

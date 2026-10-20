@@ -144,9 +144,11 @@ class TestCorrelationGroups(unittest.TestCase):
         only the singleton case above would notice — which is the
         direction that does NOT fail closed.
         """
+        # DLF Values joined the DLF family as its offense-only rank -> Hill
+        # member (owner decision D4, 2026-10-18), sharing DLF's one cap.
         self.assertEqual(
             dc.expand_correlation_groups(["dlfSf"]),
-            {"dlfSf", "dlfRookieSf", "dlfIdp", "dlfRookieIdp"},
+            {"dlfSf", "dlfRookieSf", "dlfIdp", "dlfRookieIdp", "dlfValuesSfTep"},
         )
 
     def test_an_unknown_key_passes_through_rather_than_raising(self):
