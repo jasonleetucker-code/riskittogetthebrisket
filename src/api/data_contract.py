@@ -6064,6 +6064,109 @@ def _apply_payload_provenance_guard(
         )
 
 
+def _grade_payload_identity_u2(
+    row: dict[str, Any],
+    source_key: str,
+    stamp: Mapping[str, Any],
+    *,
+    row_identity: Any,
+    homonyms: list[Any],
+    directory: Any,
+    sleeper_id_owner: Any,
+    vendor_id_resolver: Any,
+    integrity: Any,
+    age_as_of: Any,
+    history_facts: tuple[Any, tuple],
+) -> None:
+    """Outlier-integrity V2.1 U2 (preregistration §3.5 / §3.7; repair ``U2``).
+
+    Grades ONE payload-attached value (``ktc`` / ``ktcSfTep`` /
+    ``idpTradeCalc``) with Layer A's own rule on the evidence the capture
+    published (``capture_evidence`` sidecar): the attach rung is the ``via``
+    (``scraper_exact`` is exact; surname / fuzzy / first-name-variant rungs are
+    A5's low-evidence rungs), the entry's position / team / age / vendor id are
+    the source entry's fields, and in-source duplicates are A4 candidates.
+
+    A2 for the payload path is the registered "raw name re-resolved through the
+    owner gives a different player": on a NON-exact rung only (on the exact
+    rung the vendor's name is the row's name), the vendor name is resolved
+    through the identity owner's directory and contradicts only when it
+    RESOLVES to a different Sleeper id than the row's; an unresolved or
+    ambiguous name is no A2 evidence (A5 then governs).
+
+    A refusal is ABSENT, never zero: under R6 the value keeps its ordinal slot
+    through ranking, is excluded at the vote and released after the last pass
+    (``_finalize_integrity_v21``); without R6 it leaves the row now, like a B2
+    withhold.
+    """
+    from src.api import source_integrity as _si  # noqa: PLC0415
+    from src.identity import capture_evidence as _cev  # noqa: PLC0415
+    from src.identity import resolution as _idres  # noqa: PLC0415
+    from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
+
+    cands, chosen = _cev.entry_candidates(stamp)
+    via = str(stamp.get("via") or _cev.VIA_SCRAPER_FUZZY)
+    repairs = integrity.repairs
+    verdict = None
+    row_sid = str(getattr(row_identity, "player_id", None) or "").strip()
+    if via != _cev.VIA_SCRAPER_EXACT and directory is not None and row_sid:
+        raw = str(stamp.get("vendorName") or "")
+        res = _idres.resolve_canonical_v2(
+            directory, name=raw, position=cands[chosen].position, team=cands[chosen].team
+        )
+        if res.resolved and res.sleeper_id and str(res.sleeper_id) != row_sid:
+            verdict = _idres.IdentityVerdict(
+                _idres.ID_CONTRADICTED, _idres.ID_REASON_JOIN_INCONSISTENT, None, ("name",)
+            )
+    if verdict is None:
+        prior_team, prev_teams = history_facts
+        verdict = _idres.assess_identity_evidence(
+            row=row_identity,
+            candidates=cands,
+            chosen=chosen,
+            via=via,
+            # A2 is decided above (re-resolution through the owner); a name
+            # KEY comparison would refuse every legitimate initial/fuzzy attach.
+            canonical_match_key=lambda _name: "",
+            position_group=canonical_position_group,
+            rookie_board=False,
+            tau_age=integrity.thresholds.tau_age,
+            homonyms=homonyms,
+            team_continuity=None,
+            vendor_id_resolver=vendor_id_resolver,
+            sleeper_id_owner=sleeper_id_owner,
+            r4=repairs.on("R4"),
+            r5=repairs.on("R5"),
+            r8=repairs.on("R8"),
+            prior_source_team=prior_team,
+            row_previous_teams=prev_teams,
+            age_as_of=age_as_of,
+        )
+    bucket = integrity.capture_evidence_counts.setdefault(source_key, {})
+    bucket[verdict.verdict] = bucket.get(verdict.verdict, 0) + 1
+    id_stamp = verdict.to_stamp()
+    id_stamp["basis"] = "capture_evidence_u2"
+    id_stamp["via"] = via
+    if verdict.refused:
+        block = _si.integrity_stamp(_si.STATUS_REFUSED, [str(verdict.reason)], identity=id_stamp)
+        row.setdefault("sourceIntegrity", {})[source_key] = block
+        if repairs.on("R6"):
+            block["ordinalSlotKept"] = True
+            block["slotPrior"] = None
+            return
+        csv_vals = row.get("canonicalSiteValues")
+        if isinstance(csv_vals, dict):
+            observed = csv_vals.pop(source_key, None)
+            if observed is not None:
+                block["refusedObservation"] = {"value": observed}
+        if isinstance(row.get("rawSourceValues"), dict):
+            row["rawSourceValues"].pop(source_key, None)
+        if isinstance(row.get("sourcePresence"), dict) and source_key in row["sourcePresence"]:
+            row["sourcePresence"][source_key] = False
+        return
+    row.setdefault("sourceIntegrity", {})[source_key] = {"identity": id_stamp}
+
+
 def _finalize_integrity_v21(
     players_array: list[dict[str, Any]],
     players_by_name: Mapping[str, Any],
@@ -6353,6 +6456,31 @@ def _enrich_from_source_csvs(
             got = asset_key_for_contract_row(dict(row))
             return None if got is None else got[0]
 
+        def _v2_homonyms_of(row: dict[str, Any]) -> list[Any]:
+            """Other board rows sharing this row's canonical name and group."""
+            from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
+
+            ident = _v2_identity_of(row)
+            ck = _canonical_match_key(ident.name) if ident.name else ""
+            return [
+                _v2_identity_of(other)
+                for other in _v2_rows_by_key_group.get(
+                    (ck, canonical_position_group(row.get("position"))), []
+                )
+                if other is not row
+            ]
+
+        def _v21_history_facts(row: dict[str, Any], source_key: str) -> tuple[Any, tuple]:
+            """R8 / R10 history facts for one (row, source): the team on the
+            source's last accepted observation of this player, and the row's
+            own previous teams.  ``(None, ())`` without history."""
+            hist = integrity.history
+            if hist is None or hist.empty or not (_v21_on("R8") or _v21_on("R10")):
+                return None, ()
+            pk = _v2_player_key(row)
+            seen = hist.teams.get(f"{source_key}|{pk}") if pk else None
+            return seen, tuple(hist.previous_row_teams(pk, _idres.team_evidence(row.get("team"))))
+
     # C1-ID-01 CUTOVER: the canonical owner decides every (row, source)
     # join.  The inline cascade that used to live in the row loop is
     # DELETED — no flag, no fallback — after its transcription was proven
@@ -6417,6 +6545,83 @@ def _enrich_from_source_csvs(
     # live path is untouched.
     if csv_root is not None:
         repo = Path(csv_root)
+
+    # V2.1 upstream identity evidence (preregistration §3.7; repairs ``U2`` /
+    # ``VID``, default OFF with ``outlier_integrity_v21``).  Both are read-only
+    # lookups: the U2 sidecar is read only when its ``scrapeTimestamp`` is this
+    # payload's own, and the vendor-id map only as it stood strictly BEFORE
+    # this board (ARRIVING evidence).
+    _u2_evidence = None
+    _vid_map = None
+    if _layer_a and _v21_on("U2"):
+        from src.identity import capture_evidence as _cev_mod  # noqa: PLC0415
+
+        _u2_evidence, integrity.capture_evidence_state = _cev_mod.load_capture_evidence(
+            repo, integrity.as_of
+        )
+        # A2 for a non-exact attach rung re-resolves the vendor's raw name
+        # through the identity owner's directory (absent → A2 abstains).
+        from src.identity.directory_cache import get_default_sleeper_index  # noqa: PLC0415
+
+        _u2_directory = get_default_sleeper_index() if _u2_evidence is not None else None
+    if _layer_a and _v21_on("VID"):
+        from src.identity import vendor_ids as _vid_mod  # noqa: PLC0415
+
+        _vid_store = repo / _vid_mod.STORE_REL
+        _vid_origin = "tree"
+        if not _vid_store.exists():
+            # A replay tree carries no identity store; the append-only repo
+            # store read ``as_of`` the board is the same evidence.
+            _vid_store = Path(__file__).resolve().parents[2] / _vid_mod.STORE_REL
+            _vid_origin = "repo"
+        _vid_as_of = None
+        if integrity.as_of:
+            try:
+                _vid_as_of = datetime.fromisoformat(str(integrity.as_of))
+            except ValueError:
+                _vid_as_of = None
+        if _vid_as_of is None:
+            integrity.vendor_id_state = "board_time_unknown"
+        else:
+            _vid_map = _vid_mod.VendorIdMap.load(_vid_store, as_of=_vid_as_of)
+            integrity.vendor_id_state = (
+                f"loaded_{_vid_origin}" if _vid_map.observation_count else "empty"
+            )
+            integrity.vendor_id_census = _vid_map.census()
+
+    # V2.1 U2: grade every payload-attached value of a stamped source on the
+    # capture's own evidence — independent of whether that source's CSV is on
+    # disk (the payload observation exists either way).
+    if _u2_evidence is not None:
+        for _u2_src in _cev_mod.STAMPED_SOURCES:
+            _u2_resolver = _vid_map.resolver_for(_u2_src) if _vid_map is not None else None
+            for row in players_array:
+                if row.get("assetClass") == "pick":
+                    continue
+                _u2_vals = row.get("canonicalSiteValues")
+                if not isinstance(_u2_vals, dict):
+                    continue
+                _u2_existing = _safe_num(_u2_vals.get(_u2_src))
+                if _u2_existing is None or _u2_existing <= 0:
+                    continue
+                _u2_stamp = _u2_evidence.stamp_for(
+                    _u2_src, str(row.get("legacyRef") or row.get("canonicalName") or "")
+                )
+                if _u2_stamp is None:
+                    continue
+                _grade_payload_identity_u2(
+                    row,
+                    _u2_src,
+                    _u2_stamp,
+                    row_identity=_v2_identity_of(row),
+                    homonyms=_v2_homonyms_of(row),
+                    directory=_u2_directory,
+                    sleeper_id_owner=_v2_sid_owner.get,
+                    vendor_id_resolver=_u2_resolver,
+                    integrity=integrity,
+                    age_as_of=_v21_age_as_of,
+                    history_facts=_v21_history_facts(row, _u2_src),
+                )
 
     # A private, box-local source that is NOT PROVISIONED on this host is
     # absent by design (``private_source_availability``) — not a parse error
@@ -6623,6 +6828,9 @@ def _enrich_from_source_csvs(
         # key cascade.
         _b2_source = _b2_on and source_key in _si.PAYLOAD_PROVENANCE_SOURCES
         _b2_payload_rows: list[tuple[dict[str, Any], float, dict[str, Any] | None]] = []
+        # V2.1 VID: this source's vendor ids through the id map (None = A1's
+        # vendor branch abstains, as V2 registered).
+        _vid_resolver = _vid_map.resolver_for(source_key) if _vid_map is not None else None
         for row in players_array:
             csv_vals = row.get("canonicalSiteValues")
             if not isinstance(csv_vals, dict):
@@ -6684,6 +6892,18 @@ def _enrich_from_source_csvs(
                 entry = per_source.get(decision.entry_key)
             if _b2_source and value_present:
                 _b2_payload_rows.append((row, float(existing), entry))
+            if (
+                _u2_evidence is not None
+                and not value_present
+                and isinstance(row.get("sourceIntegrity"), dict)
+                and isinstance(row["sourceIntegrity"].get(source_key), dict)
+                and (row["sourceIntegrity"][source_key].get("identity") or {}).get("basis")
+                == "capture_evidence_u2"
+            ):
+                # A payload observation U2 refused stays ABSENT: it is not
+                # replaced by a CSV copy joined by name (R6 off only; with R6
+                # the value kept its slot and is excluded at the vote).
+                continue
             if not entry:
                 continue
             _join_matched += 1
@@ -6742,6 +6962,7 @@ def _enrich_from_source_csvs(
                     homonyms=_homonyms,
                     team_continuity=_continuity,
                     sleeper_id_owner=_v2_sid_owner.get,
+                    vendor_id_resolver=_vid_resolver,
                     r4=_v21_on("R4"),
                     r5=_v21_on("R5"),
                     r8=_v21_on("R8"),

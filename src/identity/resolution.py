@@ -985,7 +985,13 @@ def v21_age_gap(entry_age: object, row_age: object, row_exact_age: float | None)
 #: The exact (non-fuzzy) rungs of ``CONTRACT_CSV_JOIN_V1``.  A decision that
 #: arrives by any other rung is a low-evidence rung (A5).  None exists on the
 #: board path today; the rule is here so adding one cannot silently vote.
-EXACT_JOIN_RUNGS = frozenset({"sleeper_id", "name_group", "name_star", "single_group"})
+#: ``scraper_exact`` is the exact attach rung of a payload-attached value
+#: (V2.1 U2, ``capture_evidence.VIA_SCRAPER_EXACT``); the scraper's surname,
+#: fuzzy and first-name-variant rungs are NOT exact and fall under A5.  No CSV
+#: join ever produces it, so V2's verdicts are unchanged.
+EXACT_JOIN_RUNGS = frozenset(
+    {"sleeper_id", "name_group", "name_star", "single_group", "scraper_exact"}
+)
 
 #: Position groups that carry identity evidence (``OTHER`` — empty or unknown —
 #: is no evidence; ``PICK`` rows are pick identity, out of scope here).

@@ -381,6 +381,8 @@ REPAIR_IDS: tuple[str, ...] = (
     "R13",  # compact per-vote stamps (contract size)
     "R14",  # B2 sign share over non-agreeing rows only
     "P",  # P-1..P-4 persistence and B4 release
+    "U2",  # §3.7 U2/U2b: payload-attached values graded on the capture's stamp
+    "VID",  # §3.7 VID: A1 vendor ids through the append-only vendor-id map
 )
 
 
@@ -1519,6 +1521,14 @@ class IntegrityBuild:
     #: R4: ``{canonical name: fantasy positions}`` from the payload's Sleeper
     #: block (the directory's own facts win where present).
     fantasy_positions: Mapping[str, Sequence[str]] = field(default_factory=dict)
+    #: §3.7 U2: whether the capture sidecar was bound to this payload
+    #: (``capture_evidence`` state) and ``{source: {verdict: n}}`` of the
+    #: payload-attached values graded on it.
+    capture_evidence_state: str | None = None
+    capture_evidence_counts: dict[str, dict[str, int]] = field(default_factory=dict)
+    #: §3.7 VID: the vendor-id map's state and census as of this board.
+    vendor_id_state: str | None = None
+    vendor_id_census: dict[str, Any] = field(default_factory=dict)
 
     @property
     def v21(self) -> bool:
@@ -1578,6 +1588,19 @@ class IntegrityBuild:
                 k: len(v) for k, v in sorted(self.format_advisories.items()) if v
             }
             out["sleeperDirectory"] = self.directory_state
+            if self.repairs.on("U2"):
+                out["captureEvidence"] = {
+                    "state": self.capture_evidence_state,
+                    "graded": {
+                        k: dict(sorted(v.items()))
+                        for k, v in sorted(self.capture_evidence_counts.items())
+                    },
+                }
+            if self.repairs.on("VID"):
+                out["vendorIdMap"] = {
+                    "state": self.vendor_id_state,
+                    **dict(sorted(self.vendor_id_census.items())),
+                }
             out["persistenceRules"] = PERSISTENCE_RULES_V21 if self.repairs.on("P") else None
         return out
 
