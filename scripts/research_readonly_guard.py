@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import atexit
 import os
-import shutil
 import sys
 import tempfile
 
@@ -121,6 +120,34 @@ def _hook(event: str, args) -> None:
         _deny(event, args[:1] if args else "")
 
 
+def _cleanup() -> None:
+    """Remove the private scratch dir at exit, by ABSOLUTE paths only.
+
+    ``shutil.rmtree`` deletes entries by name relative to a directory fd, which
+    the hook cannot place inside the scratch dir and so refuses — that left the
+    scratch dir behind in /tmp whenever a library had written into it.  A
+    symlink resolving outside the scratch dir is still refused, so nothing
+    outside it can be deleted."""
+    scratch = _STATE["scratch"]
+    if not scratch or not os.path.isdir(scratch):
+        return
+    for root, dirs, files in os.walk(scratch, topdown=False):
+        for name in files:
+            try:
+                os.remove(os.path.join(root, name))
+            except (OSError, PermissionError):
+                pass
+        for name in dirs:
+            try:
+                os.rmdir(os.path.join(root, name))
+            except (OSError, PermissionError):
+                pass
+    try:
+        os.rmdir(scratch)
+    except (OSError, PermissionError):
+        pass
+
+
 def install() -> str:
     """Install the guard (idempotent).  Returns the private scratch dir."""
     if _STATE["installed"]:
@@ -130,7 +157,7 @@ def install() -> str:
     _STATE["scratch"] = scratch
     os.environ["TMPDIR"] = scratch
     tempfile.tempdir = scratch
-    atexit.register(shutil.rmtree, scratch, True)
+    atexit.register(_cleanup)
     sys.addaudithook(_hook)
     _STATE["installed"] = True
     return scratch

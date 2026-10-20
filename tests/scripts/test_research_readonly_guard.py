@@ -159,3 +159,22 @@ def test_aggregate_check_accepts_only_a_real_sha(payload):
         P2.assert_aggregate_only({"deployedCodeSha": "1312006700437352448"})
     with pytest.raises(ValueError):
         P2.assert_aggregate_only({"x": {"rosterId": 3}})
+
+
+def test_scratch_dir_is_removed_at_exit_even_with_files_in_it():
+    code = textwrap.dedent(
+        f"""
+        import importlib.util, os
+        spec = importlib.util.spec_from_file_location("g", {str(GUARD)!r})
+        g = importlib.util.module_from_spec(spec); spec.loader.exec_module(g)
+        scratch = g.install()
+        os.makedirs(os.path.join(scratch, "sub"))
+        open(os.path.join(scratch, "sub", "f.txt"), "w").write("x")
+        open(os.path.join(scratch, "top.txt"), "w").write("x")
+        print(scratch)
+        """
+    )
+    proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
+    assert proc.returncode == 0, proc.stderr
+    scratch = proc.stdout.strip().splitlines()[-1]
+    assert not Path(scratch).exists()
