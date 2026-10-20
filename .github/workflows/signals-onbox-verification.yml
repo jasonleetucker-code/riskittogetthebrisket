@@ -204,9 +204,11 @@ jobs:
           "${SSH[@]}" "cat > $(printf %q "$DIAG_DIR")/verify_signals_onbox.py" < scripts/verify_signals_onbox.py
           # The interpreter is the app's own venv, so imports resolve to the
           # DEPLOYED src/ (the script is run with --app-dir as its root).
-          # Remote stderr goes to a 0600 file in the private Signals store on
-          # the box: a traceback can carry a name or a value, and this log is
-          # public.  Only the script's public projection reaches stdout.
+          # The verifier logs failures to a 0600 file in its own private store
+          # (private_stderr) and prints only an error class; anything else on
+          # stderr is discarded: a traceback can carry a name or a value, and
+          # this log is public.  Only the script's public projection reaches
+          # stdout.
           "${SSH[@]}" "bash -s -- $(printf '%q ' "$DIAG_DIR" "$APP_DIR" "${ARGS[@]}")" <<'REMOTE' | tee signals-onbox.json
           set -Eeuo pipefail
           DIAG_DIR=$1
@@ -215,12 +217,9 @@ jobs:
           trap 'rm -rf -- "$DIAG_DIR"' EXIT
           PY=/home/dynasty/.venvs/trade-calculator/bin/python
           [[ -x $PY ]] || PY=$APP_DIR/.venv/bin/python
-          REPORTS=$APP_DIR/data/sources/signals/reports
           umask 077
-          install -d -m 700 "$REPORTS"
-          ERRLOG=$REPORTS/verify-remote-stderr-$(date -u +%Y%m%dT%H%M%SZ).log
           cd "$APP_DIR"
-          "$PY" "$DIAG_DIR/verify_signals_onbox.py" --app-dir "$APP_DIR" "$@" 2>"$ERRLOG"
+          "$PY" "$DIAG_DIR/verify_signals_onbox.py" --app-dir "$APP_DIR" "$@" 2>/dev/null
           REMOTE
 
       - name: Upload report

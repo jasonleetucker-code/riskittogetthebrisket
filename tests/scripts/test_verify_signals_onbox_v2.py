@@ -595,8 +595,12 @@ def test_the_workflow_exposes_the_modes_and_guards_the_box():
     assert "actions: read" in text
     assert "Refuse while a production deploy is running or queued" in text
     assert "deploy.yml" in text
-    # Remote stderr lands in a 0600 file on the box, never the public log.
-    assert "umask 077" in text and '2>"$ERRLOG"' in text
+    # Remote stderr never reaches the public log: the verifier writes its own
+    # failures to a 0600 file in its private store (private_stderr) and the
+    # workflow discards anything else, without naming that store's path.
+    assert "umask 077" in text and "2>/dev/null" in text
+    assert callable(getattr(MOD, "private_stderr", None))
+    assert "data/sources" not in text
     # Inputs reach the shell through env, validated, never interpolated.
     assert "${{ inputs.payload_ref }}" not in text.split("env:", 1)[0]
     assert re.search(r"\[0-9a-f\]\{7,40\}", text)
