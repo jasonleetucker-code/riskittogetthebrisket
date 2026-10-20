@@ -976,6 +976,54 @@
     "v1-49-host-native-scoring-activation.yml::v1-49-activation::Validate inputs": {
       "category": "blocking"
     },
+    "signals-health-probe.yml::bundle::Checkout": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::bundle::Run Tier 0 on the runner (no credentials)": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::bundle::Upload report": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Checkout": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Refuse unless dispatched from main": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Refuse while a production deploy is running or queued": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Configure production SSH": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Run the deployed script on the host": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Upload report": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Checkout": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Validate inputs": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Configure production SSH": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Roll back and verify the served board": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Restore the captured pre-rollback state": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Job summary": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Upload the report": {
+      "category": "blocking"
+    },
     "v1-authenticated-verification.yml::v1-authenticated::API verification suite": {
       "category": "blocking"
     },

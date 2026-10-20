@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-22 of the 46 entries in ``_DEFAULTS`` below are ``True`` —
+22 of the 47 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -136,6 +136,19 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # gate in docs/sources/SIGNALS_FANTASY_INTEGRATION.md §10 passes.
     # Rollback: RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart.
     "signals_idp_shared_market": False,
+    # Signals IDP FAMILY-scoped quarantine (owner directive 2026-10-19,
+    # PR-H).  OFF (incumbent): one IDP family failing its own floor /
+    # collapse check withholds the whole IDP release — every family keeps
+    # its last good board.  ON: only the failing family is withheld (its
+    # CSV, clock and ``_last_success`` untouched); the passing families
+    # publish with their own clocks.  Any internal error in the
+    # family-scoped path falls back to release-level quarantine.  The gate
+    # runs in the ``dynasty-signals-values`` collector
+    # (``src/sources/signals.py::collect_value_dataset``), whose unit has no
+    # EnvironmentFile, so the registry default governs it; it moves no
+    # served value by itself (a family board votes only through its own vote
+    # state).  Rollback: revert the default (or set the env var in the unit).
+    "signals_idp_family_quarantine": False,
     # DLF vote offense-only (owner directive 2026-10-16; docs/
     # OWNER_REQUESTED_TODO.md).  ON: the DLF IDP boards (``dlfIdp``,
     # ``dlfRookieIdp``) stay ingested and displayed but are held from the
@@ -837,6 +850,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``build_api_data_contract`` on every /api/data build.
     "signals_active_source": LIVE,
     "signals_idp_shared_market": LIVE,
+    # signals_idp_family_quarantine gates the IDP family-scoped quarantine in
+    # ``src/sources/signals.py`` (imported by server.py, so it measures LIVE);
+    # the gate itself runs in the dynasty-signals-values collector process.
+    "signals_idp_family_quarantine": LIVE,
     # joint_outlier_sparse_challenger swaps the per-player outlier filter and
     # the single-source haircut in ``data_contract._compute_unified_rankings``,
     # which reaches a request through ``/api/data``; ships OFF (challenger).
