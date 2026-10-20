@@ -4,7 +4,8 @@ Each scenario is drawn with Pillow (no real site's branding or layout is
 copied) and saved under ``tests/fixtures/screenshot_import/<name>/`` as
 ``image.png`` + ``expected.json``.  Regenerate with::
 
-    python -m tests.trade.screenshot_import.synthetic
+    python -m tests.trade.screenshot_import.synthetic [scenario ...]
+    python -m tests.trade.screenshot_import.synthetic --record-extractions
 
 The committed PNGs are what the real-tesseract tests and
 ``scripts/screenshot_import_eval.py`` read, so results do not depend on the
@@ -446,6 +447,302 @@ SCENARIOS.update(
 )
 
 
+# Phone screenshots at a 390-point viewport, captured at 3x (1170 x 2532 —
+# what an ordinary phone screenshot of a mobile trade calculator is).  The
+# shape is the common mobile calculator: status bar, browser address bar,
+# site header, then the two sides STACKED, each a dark header bar, a search
+# box, one row per asset with its "POS · TEAM · age" line UNDER the name,
+# and a totals row; then the verdict, the action buttons, a "trending"
+# widget naming OTHER board players, and an ad.  Synthetic and unbranded:
+# never an owner screenshot, never its OCR text.
+_PHONE = (1170, 2532)
+_PHONE_FONT = 46
+_META = 34
+_LINK = (40, 140, 220)
+_VERDICT = (226, 238, 250)
+_AD = (246, 246, 246)
+_DARK_BG_BAR = (52, 56, 66)
+_DARK_URL = (40, 42, 48)
+_DARK_META = (150, 150, 158)
+_DARK_AD = (36, 38, 44)
+
+
+def _phone_chrome(*, dark: bool, header: bool = True) -> tuple[list, list]:
+    """Status bar, browser address bar and (optionally) the site header."""
+    url_box = _DARK_URL if dark else (240, 240, 243)
+    url_text = _DARK_META if dark else _GREY
+    boxes = [(40, 120, 1130, 220, url_box)]
+    texts = [
+        ("9:41", 60, 40, {"size": 44}),
+        ("example.com/trade-calculator", 90, 145, {"fill": url_text, "size": 38}),
+    ]
+    if header:
+        boxes.append((0, 250, 1170, 400, (30, 34, 40) if not dark else (16, 17, 21)))
+        texts += [
+            ("Trade Calculator", 60, 295, {"fill": _WHITE, "size": 52}),
+            ("Menu", 960, 300, {"fill": _WHITE}),
+            ("1QB   Superflex   TE Premium", 60, 425, {"fill": url_text, "size": 34}),
+        ]
+    return boxes, texts
+
+
+def _phone_side(label: str, top: int, rows: list[tuple[str, str | None, str]], *, dark: bool):
+    """One side: header bar, search box, asset rows, totals row.  Returns
+    ``(boxes, texts, bottom)``; each row is (name, meta-or-None, value)."""
+    bar = _DARK_BG_BAR if dark else _BAR
+    meta_fill = _DARK_META if dark else _GREY
+    boxes = [(40, top, 1130, top + 90, bar)]
+    texts = [
+        (label, 80, top + 20, {"fill": _WHITE, "size": 44}),
+        ("Search for a player", 80, top + 120, {"fill": meta_fill, "size": 40}),
+    ]
+    y = top + 210
+    for name, meta, value in rows:
+        texts.append((name, 80, y))
+        texts.append((value, 960, y + 6, {"size": 40}))
+        if meta:
+            texts.append((meta, 80, y + 58, {"fill": meta_fill, "size": _META}))
+            y += 125
+        else:
+            y += 100
+    texts.append((f"{len(rows)} Total Pieces", 80, y + 5, {"fill": meta_fill, "size": 40}))
+    return boxes, texts, y + 70
+
+
+def _phone_trade_end(top: int, *, dark: bool):
+    """Verdict + the two action buttons.  Returns ``(boxes, texts, bottom)``."""
+    verdict_box = (40, 46, 60) if dark else _VERDICT
+    verdict_text = (140, 190, 240) if dark else (30, 90, 160)
+    boxes = [
+        (40, top, 1130, top + 80, verdict_box),
+        (40, top + 105, 560, top + 175, _LINK),
+        (610, top + 105, 1130, top + 175, _DARK_BG_BAR if dark else _BAR),
+    ]
+    texts = [
+        ("Fair Trade", 470, top + 16, {"fill": verdict_text}),
+        ("Copy Trade URL", 90, top + 120, {"fill": _WHITE, "size": 36}),
+        ("Clear Calculator", 650, top + 120, {"fill": _WHITE, "size": 36}),
+    ]
+    return boxes, texts, top + 175
+
+
+def _phone_page(sides, *, dark: bool, widget: list[str], header: bool = True, start: int = 500):
+    boxes, texts = _phone_chrome(dark=dark, header=header)
+    y = start
+    for label, rows in sides:
+        b, t, y = _phone_side(label, y, rows, dark=dark)
+        boxes += b
+        texts += t
+        y += 50
+    b, t, y = _phone_trade_end(y, dark=dark)
+    boxes += b
+    texts += t
+    meta_fill = _DARK_META if dark else _GREY
+    y += 60
+    texts.append(("BIGGEST 30 DAY RISERS", 80, y, {"fill": meta_fill, "size": 32}))
+    for i, name in enumerate(widget):
+        texts.append((name, 80 + 560 * (i % 2), y + 55 + 80 * (i // 2)))
+    ad_top = max(y + 200, _PHONE[1] - 160)
+    if ad_top + 130 > _PHONE[1]:
+        raise ValueError("phone page does not fit the screenshot")
+    boxes.append((0, ad_top, 1170, _PHONE[1], _DARK_AD if dark else _AD))
+    texts += [
+        ("LIMITED TIME OFFER", 80, ad_top + 28, {"size": 40}),
+        ("Shop the sale", 80, ad_top + 88, {"size": 36}),
+    ]
+    return boxes, texts
+
+
+_LIGHT_BOXES, _LIGHT_TEXTS = _phone_page(
+    [
+        (
+            "Team 1 gets...",
+            [
+                ("Jaxson Dart", "QB · NYG · 23.4 y.o.", "5542"),
+                ("Quay Walker", "LB · LV · 26 y.o.", "2100"),
+                ("2027 Early 1st", None, "5100"),
+            ],
+        ),
+        (
+            "Team 2 gets...",
+            [
+                ("De'Von Achane", "RB · MIA · 25 y.o.", "5507"),
+                ("Josh Hines-Allen", "DL · JAX · 28 y.o.", "3300"),
+                ("2028 2nd", None, "1900"),
+            ],
+        ),
+    ],
+    dark=False,
+    widget=["Bryce Young", "Omarion Hampton"],
+)
+_DARK_BOXES, _DARK_TEXTS = _phone_page(
+    [
+        (
+            "Team 1 gets...",
+            [
+                ("Bijan Robinson", "RB · ATL · 24 y.o.", "8100"),
+                ("Jordan Davis", "DL · PHI · 26 y.o.", "1900"),
+                ("2026 1.05", None, "2950"),
+            ],
+        ),
+        (
+            "Team 2 gets...",
+            [
+                ("Patrick Mahomes", "QB · KC · 31 y.o.", "8412"),
+                ("Quay Walker", "LB · LV · 26 y.o.", "2100"),
+                ("2027 Mid 1st", None, "4600"),
+            ],
+        ),
+    ],
+    dark=True,
+    widget=["Brian Thomas Jr.", "Josh Allen"],
+)
+
+# The owner's real-world regression trade (Team 1 gets Jaxson Dart, Team 2
+# gets De'Von Achane), taken as TWO phone screenshots: the first ends just
+# after "Team 2 gets..." scrolls into view, the second is scrolled so that
+# "Team 2 gets..." is the only side label on screen.  Read alone, the second
+# shot's one side is the FIRST side it shows; merged, it must land on Team
+# 2's side (anchorSlot 1), and its trending widget (Bryce Young, Omarion
+# Hampton) must never become an item.
+_SHOT1_BOXES, _SHOT1_TEXTS = _phone_chrome(dark=False)
+_b, _t, _y = _phone_side(
+    "Team 1 gets...", 500, [("Jaxson Dart", "QB · NYG · 23.4 y.o.", "5542")], dark=False
+)
+# A long recommendation block between the sides pushes "Team 2 gets..." to
+# the bottom edge of the first screenshot, with nothing of its list visible.
+_SHOT1_BOXES += _b + [(40, 1100, 1130, 2280, (246, 246, 246)), (40, 2390, 1130, 2480, _BAR)]
+_SHOT1_TEXTS += _t + [
+    ("5,542", 900, _y - 65, {"size": 40}),
+    ("Want a better offer?", 80, 1160, {"size": 40}),
+    ("Pro members see trade grades", 80, 1240, {"fill": _GREY, "size": 36}),
+    ("Start free trial", 80, 2180, {"fill": _LINK, "size": 40}),
+    ("Team 2 gets...", 80, 2410, {"fill": _WHITE, "size": 44}),
+]
+_SHOT2_BOXES, _SHOT2_TEXTS = _phone_page(
+    [("Team 2 gets...", [("De'Von Achane", "RB · MIA · 25 y.o.", "5507")])],
+    dark=False,
+    widget=["Bryce Young", "Omarion Hampton"],
+    header=False,
+    start=300,
+)
+del _b, _t, _y
+
+_PHONE_FORBIDDEN = ["missing_side", "trade_region_not_detected", "low_layout_confidence"]
+
+SCENARIOS.update(
+    {
+        "mobile390_light_picks_idp": {
+            "size": _PHONE,
+            "dark": False,
+            "font_size": _PHONE_FONT,
+            "boxes": _LIGHT_BOXES,
+            "texts": _LIGHT_TEXTS,
+            "expected": {
+                "layoutKind": "stacked",
+                "anchorSlots": [0, 1],
+                "sides": [
+                    {
+                        "label": "Team 1 gets",
+                        "assets": [
+                            {"text": "Jaxson Dart", "boardName": "Jaxson Dart"},
+                            {"text": "Quay Walker", "boardName": "Quay Walker"},
+                            {"text": "2027 Early 1st", "boardName": "2027 Early 1st"},
+                        ],
+                    },
+                    {
+                        "label": "Team 2 gets",
+                        "assets": [
+                            {"text": "De'Von Achane", "boardName": "De'Von Achane"},
+                            {"text": "Josh Hines-Allen", "boardName": "Josh Hines-Allen"},
+                            {"text": "2028 2nd", "boardName": "2028 Round 2"},
+                        ],
+                    },
+                ],
+                "mustBeIgnored": ["Bryce Young", "Omarion Hampton"],
+                "forbiddenWarnings": _PHONE_FORBIDDEN,
+            },
+        },
+        "mobile390_dark_picks_idp": {
+            "size": _PHONE,
+            "dark": True,
+            "font_size": _PHONE_FONT,
+            "boxes": _DARK_BOXES,
+            "texts": _DARK_TEXTS,
+            "expected": {
+                "layoutKind": "stacked",
+                "anchorSlots": [0, 1],
+                "expectInverted": True,
+                "sides": [
+                    {
+                        "label": "Team 1 gets",
+                        "assets": [
+                            {"text": "Bijan Robinson", "boardName": "Bijan Robinson"},
+                            {"text": "Jordan Davis", "boardName": "Jordan Davis"},
+                            {"text": "2026 1.05", "boardName": "2026 Pick 1.05"},
+                        ],
+                    },
+                    {
+                        "label": "Team 2 gets",
+                        "assets": [
+                            {"text": "Patrick Mahomes", "boardName": "Patrick Mahomes"},
+                            {"text": "Quay Walker", "boardName": "Quay Walker"},
+                            {"text": "2027 Mid 1st", "boardName": "2027 Mid 1st"},
+                        ],
+                    },
+                ],
+                "mustBeIgnored": ["Brian Thomas", "Josh Allen"],
+                "forbiddenWarnings": _PHONE_FORBIDDEN,
+            },
+        },
+        "mobile390_multishot_1": {
+            "size": _PHONE,
+            "dark": False,
+            "font_size": _PHONE_FONT,
+            "boxes": _SHOT1_BOXES,
+            "texts": _SHOT1_TEXTS,
+            "expected": {
+                "layoutKind": "stacked",
+                "anchorSlots": [0, 1],
+                "multishot": {"group": "owner_dart_achane", "order": 0},
+                "sides": [
+                    {
+                        "label": "Team 1 gets",
+                        "assets": [{"text": "Jaxson Dart", "boardName": "Jaxson Dart"}],
+                    },
+                    {"label": "Team 2 gets", "assets": []},
+                ],
+                "mustBeIgnored": [],
+                "requiredWarnings": ["missing_side"],
+                "forbiddenWarnings": ["trade_region_not_detected", "low_layout_confidence"],
+            },
+        },
+        "mobile390_multishot_2": {
+            "size": _PHONE,
+            "dark": False,
+            "font_size": _PHONE_FONT,
+            "boxes": _SHOT2_BOXES,
+            "texts": _SHOT2_TEXTS,
+            "expected": {
+                "layoutKind": "single",
+                "anchorSlots": [1],
+                "multishot": {"group": "owner_dart_achane", "order": 1},
+                "sides": [
+                    {
+                        "label": "Team 2 gets",
+                        "assets": [{"text": "De'Von Achane", "boardName": "De'Von Achane"}],
+                    },
+                ],
+                "unassigned": [],
+                "mustBeIgnored": ["Bryce Young", "Omarion Hampton"],
+                "requiredWarnings": ["missing_side"],
+                "forbiddenWarnings": ["trade_region_not_detected"],
+            },
+        },
+    }
+)
+
+
 def _font(size: int):
     from PIL import ImageFont
 
@@ -473,9 +770,14 @@ def render(name: str):
     return img
 
 
-def write_fixtures(out_dir: Path = FIXTURE_DIR) -> list[Path]:
+def write_fixtures(out_dir: Path = FIXTURE_DIR, names: list[str] | None = None) -> list[Path]:
+    """Render ``names`` (default: every scenario) into ``out_dir``.  Pass
+    names to add a scenario without re-encoding the committed PNGs of the
+    others (Pillow/font versions change their bytes, not their content)."""
     written = []
     for name, spec in SCENARIOS.items():
+        if names and name not in names:
+            continue
         d = out_dir / name
         d.mkdir(parents=True, exist_ok=True)
         render(name).save(d / "image.png", format="PNG")
@@ -486,6 +788,50 @@ def write_fixtures(out_dir: Path = FIXTURE_DIR) -> list[Path]:
     return written
 
 
+# Scenarios whose REAL-tesseract extraction payload is also committed, as
+# ``extraction.json``: the frontend tests replay them through joinToBoard /
+# mergeImages, so the multi-screenshot side alignment is tested on what the
+# server actually returns for these images, not on a hand-written payload.
+# ``test_real_tesseract`` fails when a fresh read drifts from the recording.
+RECORDED_EXTRACTIONS = ("mobile390_multishot_1", "mobile390_multishot_2")
+
+
+def record_extractions(out_dir: Path = FIXTURE_DIR) -> list[Path]:
+    """Re-record ``extraction.json`` for :data:`RECORDED_EXTRACTIONS` (needs
+    the local tesseract binary)."""
+    from src.trade.market_trade_normalize import IdentityContext
+    from src.trade.screenshot_import.image_input import decode_image
+    from src.trade.screenshot_import.ocr import TesseractEngine
+    from src.trade.screenshot_import.service import extract_trade
+
+    from .conftest import fixture_image, load_directory
+
+    ctx = IdentityContext.from_directory(load_directory(), source="test_fixture")
+    board = json.loads((out_dir / "board.json").read_text(encoding="utf-8"))
+    written = []
+    for index, name in enumerate(RECORDED_EXTRACTIONS):
+        d = out_dir / name
+        prep = decode_image(fixture_image(d).read_bytes())
+        out = extract_trade(
+            prep.png, engine=TesseractEngine(), identity_ctx=ctx, contract=board, image_index=index
+        )
+        (d / "extraction.json").write_text(
+            json.dumps(out, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        written.append(d / "extraction.json")
+    return written
+
+
 if __name__ == "__main__":
-    for path in write_fixtures():
+    import sys
+
+    args = sys.argv[1:]
+    if args == ["--record-extractions"]:
+        for path in record_extractions():
+            print(path)
+        raise SystemExit(0)
+    unknown = [n for n in args if n not in SCENARIOS]
+    if unknown:
+        raise SystemExit(f"unknown scenario(s): {unknown}")
+    for path in write_fixtures(names=args or None):
         print(path)

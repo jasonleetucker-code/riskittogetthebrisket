@@ -3,15 +3,24 @@
 import { PageHeader } from "@/components/ui";
 import { InfoTip, Panel } from "@/components/ds";
 import SourceHealthStrip from "@/components/SourceHealthStrip";
+import SourceVotingStatus from "@/components/SourceVotingStatus";
 import SourceWeightingTable from "@/components/SourceWeightingTable";
+import { useSourceWeighting } from "@/components/useSourceWeighting";
+import { votingStatusBlock } from "@/lib/source-voting-status";
 import styles from "./source-health.module.css";
 
 /**
  * Source Health — full-page diagnostic view of every ranking source.
  *
- * Two different questions, kept on two different surfaces because they
+ * Three different questions, kept on three different surfaces because they
  * have different answers:
  *
+ *   0. Source voting (SourceVotingStatus, `votingStatus` on
+ *      /api/sources/weighting) — owner directive 2026-10-19 §8: per source,
+ *      Last Updated, Freshness, Voting Weight and Status in the owner's plain
+ *      labels, with the reason and expandable detail.  Until the backend
+ *      publishes the block the panel says "not available yet"; it never
+ *      fabricates rows.
  *   1. Freshness and weighting (SourceWeightingTable, /api/sources/weighting)
  *      — the pipeline's own verdict: content age against each source's
  *      expected cadence, the freshness factor, health, coverage and the
@@ -21,16 +30,31 @@ import styles from "./source-health.module.css";
  *      of unchanged vendor content is still green there, which is exactly
  *      why it is not the freshness verdict.
  *
- * Auth-gated: both endpoints sit behind the session gate.
+ * Auth-gated: both endpoints sit behind the session gate.  Panels 0 and 1
+ * read one fetch of /api/sources/weighting.
  */
 export default function SourceHealthPage() {
+  const weighting = useSourceWeighting();
   return (
     <section className={`${styles.page} psi-editorial`}>
       <PageHeader
         title="Source Health"
         subtitle="Is each ranking source current, and how much does it count?"
       />
-      <SourceWeightingTable />
+      <Panel
+        title="Source voting"
+        headingLevel={2}
+        subtitle="Which ranking sources count toward the consensus values, how much each one counts, and why."
+      >
+        <SourceVotingStatus
+          block={votingStatusBlock(weighting.data)}
+          loading={weighting.loading}
+          failure={weighting.failure}
+          onRetry={weighting.reload}
+          context="source voting status"
+        />
+      </Panel>
+      <SourceWeightingTable weighting={weighting} />
       <Panel
         title="Fetch recency"
         headingLevel={2}

@@ -4,6 +4,13 @@
 
 Astra, Claude, Codex, Gemini, Grok, ChatGPT, Copilot, and any future coding agent must use the same repository-owned operating rules. Provider-specific files are adapters only and may not contain unique product, engineering, safety, or verification rules.
 
+**Permanent cross-model process (owner 2026-10-19):** follow
+`docs/AGENT_OPERATING_SYSTEM.md` §3 and `ASSISTANT_COORDINATION.md`
+for parallel isolated authorized feature implementation, mandatory L0/L1
+during coding, required L2/L3 at integration/release, and Integration-led
+merges of qualifying green reviewed routine PRs without repeated owner
+approval. Owner-only consequential gates are unchanged.
+
 ## Read order for material work
 
 1. `docs/AGENT_OPERATING_SYSTEM.md` — model-neutral agent workflow, evidence, graph, review, handoff, and autonomy rules.

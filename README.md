@@ -29,6 +29,12 @@ snapshots). This line said "Private repo" while `SECURITY.md` and
   several deliberately. For those the env var is a rollback lever, not an
   opt-in. Read `_DEFAULTS` before assuming a capability is dormant.
 
+**Standing engineering delivery process (2026-10-19):** read
+`docs/AGENT_OPERATING_SYSTEM.md` §3 and
+`ASSISTANT_COORDINATION.md` for cross-model parallel isolated feature
+development, tiered CI and qualified Integration-led automatic routine
+merges. Existing owner-only, required review and release gates remain.
+
 **AI/agent entrypoint:**
 - [`AI_INSTRUCTIONS.md`](AI_INSTRUCTIONS.md) — universal instructions for Claude, Codex, Gemini, ChatGPT, Copilot, and future agents
 
