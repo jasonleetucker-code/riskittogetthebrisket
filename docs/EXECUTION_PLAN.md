@@ -138,6 +138,16 @@ War Room clarity (UI), dual Value Adjustment + Second Opinions comparison, `/api
 comparator, never blended, added, averaged or voted; the backend decision stays the only recommendation; no
 simulation, scoring or evidence reduction for speed. Merges and deploys keep their gates.
 
+## Hybrid Value Adjustment research — owner directive, 2026-10-19
+
+**AUTHORIZED NOW: research and, only if justified, a disabled-by-default non-voting challenger.** Verbatim:
+`docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_2026-10-19.md`; intake `docs/OWNER_REQUESTED_TODO.md` ("Added
+2026-10-19 — Hybrid Value Adjustment research"). `geom_q078_v1` (q = 0.78) stays active and `ktc_2026_04` stays
+the read-only comparator until the owner explicitly approves a replacement (also D8, 2026-10-18). No verdict,
+fairness band, Trade History, Finder, War Room or Second Opinions behaviour changes. Must not interrupt the
+completion campaign or PR #1826. Result: `docs/valuation/PACKAGE_MODEL_HYBRID_RESEARCH_2026-10-19.md`
+(recommendation: keep `geom_q078_v1`; no KTC blend at any weight; no challenger registered). Owner decision pending. Phase 2 (same day, verbatim `docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_PHASE2_2026-10-19.md`): research only, same production bounds; result `docs/valuation/PACKAGE_MODEL_PHASE2_RESEARCH_2026-10-19.md` (KEEP).
+
 ## Owner decision closeout + evidence unblock — owner directive, 2026-10-18 (D1–D20)
 
 **AUTHORIZED NOW, within the gates the directive names.** Verbatim: `docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md`;

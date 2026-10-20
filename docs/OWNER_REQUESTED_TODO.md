@@ -2125,3 +2125,19 @@ The finite completion queue they require is `docs/COMPLETION_QUEUE.md`. Capture 
 | V8 | No hidden weighting. A contribution is explainable from base weight × freshness × eligibility/quality × provider-family treatment; any other factor is documented with its purpose | DECIDED — owner, 2026-10-19; implementation: freshness + #1817 lanes |
 | V9 | Settings and Source Health show Source / Last Updated / Freshness / Voting Weight / Status with plain labels (Active — 100/75/50/25%, Stale — Not Voting, Data Issue — Not Voting, Seasonal — Not Voting, Testing — Not Voting), reasons, and expandable detail | DECIDED — owner, 2026-10-19; implementation: CQ-66 |
 | V10 | Validate the whole board before deployment (offense, IDP, rookie and pick changes; median/p90/p99/max; top movers; position effects; top-50/200; votes per player; effective weights; outlier and haircut behaviour; family totals; confidence; two-way players). No source older than 30 days contributes. Geometric VA q = 0.78 is unchanged | DECIDED — owner, 2026-10-19; integration validation across CQ-01/CQ-64/CQ-65 |
+
+## Added 2026-10-19 — Hybrid Value Adjustment research (owner research directive)
+
+Verbatim: `docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_2026-10-19.md`. Authorization: `docs/EXECUTION_PLAN.md` §0.
+Investigate whether averaging `geom_q078_v1` with `ktc_2026_04` (50/50 and 75/25 … 25/75 on identical canonical
+values, one blended signed gap, never stacked bonuses), or another mathematically consistent hybrid, is
+demonstrably better. Required properties (owner §4) are mandatory for any production recommendation, including
+`[7200]` vs `[6000, 1]`. The production model is unchanged until explicit owner approval.
+
+| Item | Disposition |
+|---|---|
+| Research: averaging idea at five weights, monotone alternatives, §4 properties, §5 shapes × populations, completed trades with chronological holdout, owner report A–J | DONE (research) — `docs/valuation/PACKAGE_MODEL_HYBRID_RESEARCH_2026-10-19.md`; harness `scripts/package_model_hybrid_research.py`; evidence `docs/valuation/evidence/package_model_hybrid_2026-10-19/`. Every KTC blend fails the mandatory add-an-asset property; recommendation: keep `geom_q078_v1` unchanged |
+| Challenger implementation | NOT IMPLEMENTED by recommendation — no candidate showed a defensible improvement (owner §8: implement only if justified) |
+| Promotion of any alternative | OWNER DECISION — recommendation is to retain `geom_q078_v1`; nothing activates without explicit approval |
+| Evaluation on the production-box Sharp / KTC market-trade ledger | EVIDENCE_PENDING — owner chose (2026-10-20) to run it by hand: `scripts/package_model_phase2_research.py --market-ledger-only` at pinned commit `d1c9e5e9`, sha256-verified, under the read-only audit-hook guard (`scripts/research_readonly_guard.py`), aggregates only; no workflow, merge or deploy. Permanent read-only runner: proposal only, `docs/ops/RESEARCH_RUNNER_PROPOSAL_2026-10-20.md` |
+| Phase 2 (owner directive 2026-10-19): market archive, large-package / filler investigation, value-aware challenger, Trade Finder replay | DONE (research) — `docs/valuation/PACKAGE_MODEL_PHASE2_RESEARCH_2026-10-19.md` (verbatim directive `docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_PHASE2_2026-10-19.md`; preregistration committed before results). Recommendation **KEEP** `geom_q078_v1`: 1,121 external public-source trades show the market charges deep packages *more* than q = 0.78 does; depth-friendlier challengers move away from it and add star-for-pile Finder recommendations. Production-box ledger run (`--market-ledger`) still EVIDENCE_PENDING |

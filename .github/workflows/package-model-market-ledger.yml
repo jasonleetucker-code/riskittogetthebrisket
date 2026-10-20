@@ -1,0 +1,192 @@
+name: Package Model Market-Ledger Evaluation (read-only)
+
+# Research evidence for the package Value Adjustment (PR #1833, Phases 1-2:
+# docs/valuation/PACKAGE_MODEL_PHASE2_RESEARCH_2026-10-19.md; master directive
+# 2026-10-19 §11).  RESEARCH ONLY: geom_q078_v1 (q = 0.78) stays the production
+# package model; nothing here can promote, write or change anything.
+#
+# The market-trade ledger (data/market_trades/underlying_trades.sqlite) is
+# box-local, so the only place every package-model candidate can be graded on
+# the real archive is the production host.  This job runs
+# ``scripts/package_model_phase2_research.py --market-ledger-only`` there,
+# through deploy/diagnostics/package_model_ledger_onbox.sh:
+#
+#   * PINNED: the three research scripts must match
+#     deploy/diagnostics/package_model_ledger_onbox.sha256 on the runner AND
+#     again on the host; the job refuses any ref other than main;
+#   * READ-ONLY: the host script writes only to its own mktemp dir (removed on
+#     exit), never cds into the app dir, never touches a service, timer, store,
+#     config or checkout; the Python run installs an irremovable audit hook
+#     (scripts/research_readonly_guard.py) before any app import, opens the
+#     ledger mode=ro, and exits 3 on any refused write or process start;
+#   * BOUNDED: nice 19, idle I/O, 30-minute timeout, 4 GiB address-space cap;
+#   * NO DEPLOY: it reads the DEPLOYED checkout; nothing is shipped.
+#
+# THIS REPOSITORY IS PUBLIC: logs and artifacts are world-readable.  The report
+# is aggregates only (counts, means, intervals); ``assert_aggregate_only`` on
+# the host and a second independent gate on the runner refuse anything
+# identifier-like, raw stderr never leaves the host, and the artifact is
+# uploaded only when both gates passed.
+#
+# OWNER GATE: ``environment: production`` (required reviewers) — every dispatch
+# waits for an explicit approval of this exact run before any secret is read.
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_lag_days:
+        description: Max days between a trade and the archived board that prices it (0-30)
+        type: string
+        required: false
+        default: "7"
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never read the deployed tree while a deploy is swapping it.  Dispatch-only
+  # and no job-level `if`, so this run never queues in the group doing nothing.
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    name: Package-model market-ledger evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - name: Refuse anything but main
+        shell: bash
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "$REF" != "refs/heads/main" ]]; then
+            echo "::error title=Unreviewed ref::This evaluation runs only from main (got ${REF})."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Verify pinned research scripts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          (cd scripts && sha256sum --check --strict ../deploy/diagnostics/package_model_ledger_onbox.sha256)
+          bash -n deploy/diagnostics/package_model_ledger_onbox.sh
+          echo "commit: ${GITHUB_SHA}"
+
+      - name: Validate inputs
+        shell: bash
+        env:
+          MAX_LAG_DAYS: ${{ inputs.max_lag_days }}
+        run: |
+          set -Eeuo pipefail
+          if ! [[ "$MAX_LAG_DAYS" =~ ^[0-9]{1,2}$ ]] || (( 10#$MAX_LAG_DAYS > 30 )); then
+            echo "::error title=Invalid input::max_lag_days must be an integer 0-30."
+            exit 1
+          fi
+          echo "MAX_LAG_DAYS=$((10#$MAX_LAG_DAYS))" >> "$GITHUB_ENV"
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_PRIVATE_KEY DEPLOY_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error title=Missing production SSH configuration::${name} is empty or unset."
+              exit 1
+            fi
+          done
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Run the evaluation on the host (read-only)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          PAYLOAD_B64="$(tar -czf - -C scripts package_model_phase2_research.py \
+            package_model_hybrid_research.py research_readonly_guard.py | base64 -w0)"
+          # One remote argument; Linux caps a single argument at 128 KiB.
+          (( ${#PAYLOAD_B64} < 100000 )) || { echo "::error::payload too large"; exit 1; }
+          PINS="$(cat deploy/diagnostics/package_model_ledger_onbox.sha256)"
+          # The remote script's exit status is this step's exit status — no
+          # `|| true`, no masking pipe.  stdout is the aggregate report only.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") MAX_LAG_DAYS=$(printf %q "$MAX_LAG_DAYS") PINS=$(printf %q "$PINS") PAYLOAD_B64=$(printf %q "$PAYLOAD_B64") bash -s" \
+            < deploy/diagnostics/package_model_ledger_onbox.sh \
+            > "$RUNNER_TEMP/package-model-market-ledger.json"
+
+      - name: Aggregate-only gate and summary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$RUNNER_TEMP/package-model-market-ledger.json" <<'EOF'
+          # Second, independent privacy gate (the host script already ran
+          # assert_aggregate_only).  On refusal nothing is printed or uploaded.
+          import json, re, sys
+          path = sys.argv[1]
+          doc = json.load(open(path, encoding="utf-8"))
+          sha = doc.get("deployedCodeSha")
+          if not (isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{40}|UNKNOWN", sha)):
+              sys.exit("refused: deployedCodeSha is not a commit sha")
+          ID_LIKE = re.compile(r"\d{9,}|utrade:|player:|mpick:|leagueId|ownerId|userId|rosterId")
+          def strings(obj):
+              # Keys and string values (numbers are statistics, never ids).
+              if isinstance(obj, dict):
+                  for k, v in obj.items():
+                      yield str(k)
+                      if k != "deployedCodeSha":
+                          yield from strings(v)
+              elif isinstance(obj, list):
+                  for v in obj:
+                      yield from strings(v)
+              elif isinstance(obj, str):
+                  yield obj
+          if any(ID_LIKE.search(s) for s in strings(doc)):
+              sys.exit("refused: identifier-like content in the report")
+          guard = doc.get("readOnlyGuard") or {}
+          if not guard.get("installed") or guard.get("refusedWriteOrProcessAttempts"):
+              sys.exit("refused: the read-only guard was not installed or refused a write")
+          m = doc.get("marketLedgerCalibration") or {}
+          print(json.dumps({k: doc.get(k) for k in ("deployedCodeSha", "generatedAt",
+                "ledgerBuiltAt", "ledgerDatedGroupsSince20260701", "peakRssMb")}, indent=1))
+          print(json.dumps(guard, indent=1))
+          print(json.dumps(m.get("audit") or {}, indent=1)[:4000])
+          for model, per in ((m.get("calibration") or {}).get("byModel") or {}).items():
+              allp = per.get("all") or {}
+              print(model, {b: (v.get("n"), v.get("meanSigned"), v.get("ci95"))
+                            for b, v in allp.items() if b != "equal"})
+          EOF
+
+      - name: Upload aggregate report
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-model-market-ledger
+          path: ${{ runner.temp }}/package-model-market-ledger.json
+          retention-days: 30
+          if-no-files-found: error

@@ -532,6 +532,30 @@
     "lane4-onbox-verification.yml::lane4-onbox::Upload the report": {
       "category": "blocking"
     },
+    "package-model-market-ledger.yml::evaluate::Refuse anything but main": {
+      "category": "blocking"
+    },
+    "package-model-market-ledger.yml::evaluate::Checkout": {
+      "category": "blocking"
+    },
+    "package-model-market-ledger.yml::evaluate::Verify pinned research scripts": {
+      "category": "blocking"
+    },
+    "package-model-market-ledger.yml::evaluate::Validate inputs": {
+      "category": "blocking"
+    },
+    "package-model-market-ledger.yml::evaluate::Configure production SSH": {
+      "category": "blocking"
+    },
+    "package-model-market-ledger.yml::evaluate::Run the evaluation on the host (read-only)": {
+      "category": "blocking"
+    },
+    "package-model-market-ledger.yml::evaluate::Aggregate-only gate and summary": {
+      "category": "blocking"
+    },
+    "package-model-market-ledger.yml::evaluate::Upload aggregate report": {
+      "category": "blocking"
+    },
     "signals-onbox-verification.yml::verify::Checkout": {
       "category": "blocking"
     },
