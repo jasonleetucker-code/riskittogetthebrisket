@@ -43,6 +43,12 @@
 #                          event loop during a scrape isn't misread
 #                          as down)
 #   HEALTH_STATE_DIR       default /run/dynasty-healthcheck
+#   HEALTH_CGROUP_ROOT     default /sys/fs/cgroup (cgroup v2 mount)
+#   HEALTH_PROC_ROOT       default /proc
+#   HEALTH_PYSPY           default 1 (0 disables the optional pre-restart
+#                          py-spy dump; it only ever runs if py-spy is
+#                          already installed — nothing installs it)
+#   HEALTH_PYSPY_TIMEOUT   default 8 (seconds)
 
 set -Eeuo pipefail
 
@@ -148,6 +154,122 @@ fd_watch() {
 
 fd_watch || true
 
+# ── cgroup pressure snapshot (2026-10-19 incident) ────────────────────
+# The 2026-10-19 08:42 UTC restart was this watchdog (PROVEN: three
+# no-response probes, SIGTERM ignored for TimeoutStopSec, SIGKILL).  WHY
+# the process stopped answering was left at LIKELY memory throttling, not
+# proven, for one reason: the dead process's own cgroup counters
+# (memory.events high, memory.pressure) are destroyed when the restart
+# recreates the cgroup, and host-wide PSI cannot be attributed to one
+# cgroup.  So, on every LIVENESS FAIL and immediately before a restart,
+# record the backend cgroup's memory and pressure counters into the
+# journal while they still exist.
+#
+# REPORT ONLY.  These are plain file reads (cheap, never blocking on the
+# backend), every read tolerates a missing file, and nothing here feeds
+# the restart decision.  Every logged value is numeric (or "na" / "max"),
+# so the public restart-diagnostics workflow can allowlist the lines
+# strictly (deploy/diagnostics/prod_restart_diagnostics.sh); each line is
+# kept under that workflow's 300-character cut.
+HEALTH_CGROUP_ROOT="${HEALTH_CGROUP_ROOT:-/sys/fs/cgroup}"
+HEALTH_PROC_ROOT="${HEALTH_PROC_ROOT:-/proc}"
+HEALTH_PYSPY="${HEALTH_PYSPY:-1}"
+HEALTH_PYSPY_TIMEOUT="${HEALTH_PYSPY_TIMEOUT:-8}"
+
+# A value as it may be logged: a number, "max" (an unlimited cgroup knob)
+# or "na" for anything missing or unexpected.
+_snap_val() {
+    if [[ "${1:-}" =~ ^[0-9]+(\.[0-9]+)?$ || "${1:-}" == "max" ]]; then
+        printf '%s' "$1"
+    else
+        printf 'na'
+    fi
+}
+
+# First line of a single-value file, or "na".
+_snap_file() {
+    local v=""
+    if [[ -r "$1" ]]; then read -r v < "$1" 2>/dev/null || true; fi
+    _snap_val "${v}"
+}
+
+# "key value" files (memory.events, memory.stat, /proc/meminfo): the value
+# of each requested key, as " out=value" pairs.
+_snap_keyed() {
+    local file="$1"; shift
+    local -A seen=()
+    local k v _rest pair out=""
+    if [[ -r "${file}" ]]; then
+        while read -r k v _rest; do
+            seen["${k%:}"]="${v}"
+        done < "${file}" 2>/dev/null
+    fi
+    for pair in "$@"; do
+        out+=" ${pair%%=*}=$(_snap_val "${seen[${pair#*=}]:-}")"
+    done
+    printf '%s' "${out}"
+}
+
+# A PSI file ("some avg10=.. avg60=.. avg300=.. total=..", "full ...") as
+# " <prefix>some_avg10=.. <prefix>some_avg60=.. <prefix>some_total=.. ...".
+_snap_psi() {
+    local file="$1" prefix="${2:-}" kind rest kv k
+    local -A seen=()
+    if [[ -r "${file}" ]]; then
+        while read -r kind rest; do
+            for kv in ${rest}; do seen["${kind}_${kv%%=*}"]="${kv#*=}"; done
+        done < "${file}" 2>/dev/null
+    fi
+    local out=""
+    for k in some_avg10 some_avg60 some_total full_avg10 full_avg60 full_total; do
+        out+=" ${prefix}${k}=$(_snap_val "${seen[${k}]:-}")"
+    done
+    printf '%s' "${out}"
+}
+
+backend_cgroup_dir() {
+    local cg
+    cg="$(systemctl show "${HEALTH_SERVICE}.service" -p ControlGroup --value 2>/dev/null || true)"
+    [[ "${cg}" =~ ^/[A-Za-z0-9@._/-]+$ ]] || cg="/system.slice/${HEALTH_SERVICE}.service"
+    printf '%s%s' "${HEALTH_CGROUP_ROOT}" "${cg}"
+}
+
+cgroup_snapshot() {
+    local reason="$1" cg
+    cg="$(backend_cgroup_dir)"
+    log "snapshot mem reason=${reason} cur=$(_snap_file "${cg}/memory.current") peak=$(_snap_file "${cg}/memory.peak") high=$(_snap_file "${cg}/memory.high") max=$(_snap_file "${cg}/memory.max")$(_snap_keyed "${cg}/memory.events" ev_high=high ev_max=max ev_oom=oom ev_oom_kill=oom_kill)"
+    log "snapshot stat reason=${reason}$(_snap_keyed "${cg}/memory.stat" anon=anon file=file shmem=shmem kernel=kernel sock=sock)"
+    log "snapshot psi_memory reason=${reason}$(_snap_psi "${cg}/memory.pressure")"
+    log "snapshot psi_cpu reason=${reason}$(_snap_psi "${cg}/cpu.pressure")"
+    log "snapshot psi_io reason=${reason}$(_snap_psi "${cg}/io.pressure")"
+    # Host-wide context (h_* = host PSI), so the next incident can tell a cgroup-local
+    # stall (high cgroup PSI, plenty of host MemAvailable) from global
+    # reclaim.
+    log "snapshot host reason=${reason}$(_snap_keyed "${HEALTH_PROC_ROOT}/meminfo" mem_available_kb=MemAvailable)$(_snap_psi "${HEALTH_PROC_ROOT}/pressure/memory" h_)"
+}
+
+# Optional, restart path only: a Python stack dump of the wedged process,
+# ONLY if py-spy is already installed on the host (this script installs
+# nothing).  Written to the state dir rather than the journal — stack
+# frames name files and functions, which the public diagnostics workflow
+# must not echo — and only a numeric receipt is logged.  Bounded by a
+# timeout so a frozen target cannot hold the restart for long.
+pyspy_dump() {
+    [[ "${HEALTH_PYSPY}" == "1" ]] || return 0
+    command -v py-spy >/dev/null 2>&1 || return 0
+    command -v timeout >/dev/null 2>&1 || return 0
+    local pid out rc=0 bytes
+    pid="$(systemctl show "${HEALTH_SERVICE}.service" -p MainPID --value 2>/dev/null || true)"
+    [[ "${pid}" =~ ^[0-9]+$ && "${pid}" != "0" ]] || return 0
+    out="${HEALTH_STATE_DIR}/pyspy-$(date -u +%Y%m%dT%H%M%SZ).txt"
+    timeout "${HEALTH_PYSPY_TIMEOUT}" py-spy dump --pid "${pid}" > "${out}" 2>&1 || rc=$?
+    bytes="$(wc -c < "${out}" 2>/dev/null || echo 0)"
+    log "snapshot pyspy reason=pre-restart rc=$(_snap_val "${rc}") bytes=$(_snap_val "${bytes// /}")"
+    # Keep the newest three dumps.
+    ls -1t "${HEALTH_STATE_DIR}"/pyspy-*.txt 2>/dev/null | tail -n +4 | xargs -r rm -f -- 2>/dev/null
+    return 0
+}
+
 # LIVENESS probe: no -f — any HTTP status is proof of life.  rc != 0
 # means curl got no usable HTTP response (connection refused, timeout,
 # empty reply, ...) and only that counts as a liveness failure.
@@ -179,12 +301,17 @@ fi
 failures="$(( $(read_failures) + 1 ))"
 printf '%s\n' "${failures}" > "${FAIL_FILE}"
 log "LIVENESS FAIL ${failures}/${HEALTH_FAIL_THRESHOLD}: no HTTP response from ${HEALTH_URL} (curl exit ${rc})"
+cgroup_snapshot "liveness-fail-${failures}" || true
 
 if (( failures < HEALTH_FAIL_THRESHOLD )); then
     exit 0
 fi
 
 log "threshold reached — restarting ${HEALTH_SERVICE}.service"
+# Last chance to read the dying cgroup's counters: the restart below
+# destroys them.
+cgroup_snapshot "pre-restart" || true
+pyspy_dump || true
 # Clear any tripped StartLimit state first, otherwise restart is a no-op
 # on a unit systemd has given up on.
 systemctl reset-failed "${HEALTH_SERVICE}.service" 2>/dev/null || true
