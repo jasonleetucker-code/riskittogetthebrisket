@@ -1,0 +1,15 @@
+{
+  "agingCurveVersion": "unfitted",
+  "playerId": "wr001",
+  "reason": "horizon_not_built",
+  "seasons": [
+    {
+      "basis": "unavailable",
+      "expectedPpg": null,
+      "pActive": null,
+      "sd": null,
+      "season": 2027
+    }
+  ],
+  "state": "unavailable"
+}

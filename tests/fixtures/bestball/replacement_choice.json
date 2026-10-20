@@ -1,0 +1,8 @@
+{
+  "assumption": "the vacated roster spot is filled by a free waiver claim",
+  "contested": false,
+  "costAssumption": "free_waiver_claim_unmodelled_faab",
+  "kind": "waiver_free_agent",
+  "playerId": "te074",
+  "ppg": 4.2
+}

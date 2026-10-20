@@ -416,6 +416,8 @@ export default function SharpTrackerPage() {
             onRowClick={(row) =>
               setExpandedAssetId((current) => (current === row.assetId ? null : row.assetId))
             }
+            isRowExpanded={(row) => row.assetId === expandedAssetId}
+            rowExpandLabel={(row) => `Source breakdown for ${row.displayName || row.assetId}`}
             renderAfterRow={(row) =>
               row.assetId === expandedAssetId ? (
                 <tr key={`${row.assetId}-detail`}>

@@ -62,7 +62,7 @@ Degradation
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from src.league_intel.scorer import score_stat_line as _score_stat_line
@@ -451,6 +451,21 @@ class RealizedPoints:
     the omitted contribution may be positive or negative. Missing is never
     zero, so the gap travels with the number instead of being silently
     folded into it.
+    """
+
+    components: tuple[tuple[str, float, float, float], ...] = field(
+        default=(), compare=False, repr=False
+    )
+    """``(scoring_key, raw_stat, rate, awarded_points)`` — the canonical
+    scorer's own components for THIS score, in its sorted-key order.
+
+    Additive provenance only: excluded from equality, ``repr`` and
+    :meth:`to_dict`, so no existing comparison or served payload changes.
+    It exists so a consumer that needs the per-key breakdown (keys and
+    rates, which :attr:`breakdown`'s human labels do not carry) reads the
+    one scoring call's arithmetic instead of re-scoring the line.  Summed
+    in order, the ``awarded_points`` reproduce :attr:`fantasy_points`
+    exactly (zero-rate components award 0.0).
     """
 
     def to_dict(self) -> dict[str, Any]:
@@ -993,6 +1008,9 @@ def compute_weekly_points(
         fantasy_points=result.total_points,
         breakdown=breakdown,
         unscored=unscored,
+        components=tuple(
+            (c.scoring_key, c.raw_stat, c.rate, c.awarded_points) for c in result.components
+        ),
     )
 
 

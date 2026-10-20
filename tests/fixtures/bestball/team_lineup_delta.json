@@ -1,0 +1,25 @@
+{
+  "afterPpg": 182.4,
+  "beforePpg": 180.12,
+  "coverage": "full",
+  "deltaPpg": 2.28,
+  "depthAfter": 6.5,
+  "depthBefore": 6.1,
+  "downsideQ10": null,
+  "mcStandardError": 0.31,
+  "ownerId": "owner01",
+  "predictiveBasis": "unavailable",
+  "predictiveSd": null,
+  "reason": null,
+  "state": "available",
+  "vacatedSpotBackfill": [
+    {
+      "assumption": "the vacated roster spot is filled by a free waiver claim",
+      "contested": false,
+      "costAssumption": "free_waiver_claim_unmodelled_faab",
+      "kind": "waiver_free_agent",
+      "playerId": "te074",
+      "ppg": 4.2
+    }
+  ]
+}

@@ -26,7 +26,7 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-10-17, 22 of the 46 entries in
+   **Defaults are per-flag.** As of 2026-10-19, 22 of the 51 entries in
    `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
    F-24: the ledger-derived `rankChange` derivation, previously an
    invisible direct env read), `bdvm_engine`, `te_basis_conversion`
@@ -56,6 +56,14 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    with comments
    recording that the enabled default is deliberate. For those, the env
    var is a rollback lever rather than an opt-in.
+
+   Signals IDP voting is released per family with AND semantics (owner
+   directive 2026-10-19): `signals_idp_shared_market` is the IDP master and
+   ALONE activates nothing; a family votes only with the master, its own
+   `signals_idp_dl_vote` / `signals_idp_lb_vote` / `signals_idp_db_vote` and
+   `signals_idp_xwalk_v2` (Candidate F, the coverage-aligned crosswalk) all
+   ON. All four new flags ship disabled, and the board is byte-identical
+   with the master alone.
 
    This item previously asserted a blanket disabled-by-default rule and
    that production behaviour was frozen until a flag was flipped. Both

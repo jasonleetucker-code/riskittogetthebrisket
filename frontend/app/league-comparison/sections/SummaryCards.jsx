@@ -1,5 +1,7 @@
 "use client";
 
+import { SegmentedControl } from "@/components/ds";
+
 /**
  * SummaryCards — high-density at-a-glance scorecard.
  *
@@ -11,6 +13,16 @@
  * Method toggle (improved vs legacy) lives at the top so the user
  * can see how the two formulas compare without leaving the page.
  */
+// The method toggle is an exclusive 2-way choice, so it is the ds
+// SegmentedControl (DESIGN-SYSTEM rule 15).  It used to be two bare
+// <button className="btn btn-secondary"> — classes no stylesheet defines,
+// so the browser's default #efefef face carried an inline cyan label at
+// 1.36:1 (axe 1.4.3, CQ-30).
+const SUMMARY_METHOD_OPTIONS = [
+  { value: "improved", label: "Improved" },
+  { value: "legacy", label: "Legacy (avg+median)/2" },
+];
+
 export default function SummaryCards({ data, method, setMethod }) {
   const sim = data?.similarity || {};
   const summary = data?.summary || {};
@@ -30,23 +42,13 @@ export default function SummaryCards({ data, method, setMethod }) {
       <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div className="muted text-xs" style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>Method</div>
-          <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-            <button
-              type="button"
-              className={`btn btn-secondary ${method === "improved" ? "active" : ""}`}
-              onClick={() => setMethod("improved")}
-              style={method === "improved" ? { borderColor: "var(--cyan)", color: "var(--cyan)" } : {}}
-            >
-              Improved
-            </button>
-            <button
-              type="button"
-              className={`btn btn-secondary ${method === "legacy" ? "active" : ""}`}
-              onClick={() => setMethod("legacy")}
-              style={method === "legacy" ? { borderColor: "var(--cyan)", color: "var(--cyan)" } : {}}
-            >
-              Legacy (avg+median)/2
-            </button>
+          <div style={{ marginTop: 6 }}>
+            <SegmentedControl
+              label="Method"
+              value={method}
+              onChange={setMethod}
+              options={SUMMARY_METHOD_OPTIONS}
+            />
           </div>
         </div>
         <div className="muted text-xs" style={{ maxWidth: 360, lineHeight: 1.5 }}>

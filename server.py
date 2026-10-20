@@ -18397,7 +18397,10 @@ async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg
             comparables=comparables,
             team_goal=_team_goal,
             provenance={
-                "boardStamp": (_meta or {}).get("generatedAt") if isinstance(_meta, dict) else None,
+                # The served board stamps ``generatedAt`` at the top level, not
+                # under ``meta`` (five-point review 2026-10-20: this read
+                # ``meta.generatedAt`` and so was always null).
+                "boardStamp": _trade_analyze_runtime.contract_generation(latest_contract_data),
                 "scoringFingerprint": (_meta or {}).get("scoringFingerprint")
                 if isinstance(_meta, dict)
                 else None,
