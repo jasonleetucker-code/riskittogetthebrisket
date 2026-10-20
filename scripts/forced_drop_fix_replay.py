@@ -30,6 +30,14 @@ Sections:
    (must be identical).
 6. **Illustrations** — trades whose verdict changes, with NFL player names only.
 
+Both selection MODES of the flag are measured through production
+(``forced_drop_selection.SELECTION_MODE``, toggled in-process and restored):
+``package_consistent`` (V5, the default) and ``roster_rational`` (V5-R, the
+review's alternative).  Each flag-ON section reports V5 under its historical
+keys and V5-R under a ``rosterRational`` sibling, plus the "currency anomaly"
+census (an acquired piece released while a cheaper existing player that could
+legally have been released instead is kept).
+
 Output: ``docs/trade/evidence/forced_drop_fix_2026-10-20/replay.json`` —
 aggregates and NFL player names only (no league / user / roster / team ids, no
 team or manager names; checked with ``assert_aggregate_only``).
@@ -97,6 +105,20 @@ def flag(on: bool):
         else:
             os.environ[ENV] = prev
         feature_flags.reload()
+
+
+@contextlib.contextmanager
+def mode(m: str):
+    prev = FDS.SELECTION_MODE
+    FDS.SELECTION_MODE = m
+    try:
+        yield
+    finally:
+        FDS.SELECTION_MODE = prev
+
+
+#: suffix of the per-step keys -> selection mode ("" keeps the V5 key names).
+MODES = {"": FDS.MODE_PACKAGE_CONSISTENT, "R": FDS.MODE_ROSTER_RATIONAL}
 
 
 def _sgn(x):
@@ -196,6 +218,60 @@ def _fmt_drop(d) -> str:
     )
 
 
+def _match_pool(pool, drops) -> list[int] | None:
+    """Pool indices of the served drops (by name and acquired flag)."""
+    taken: list[int] = []
+    for name, _pos, _v, _rel, acquired in drops:
+        hit = next(
+            (
+                i
+                for i, p in enumerate(pool)
+                if i not in taken and p["name"] == name and bool(p["acquired"]) == bool(acquired)
+            ),
+            None,
+        )
+        if hit is None:
+            return None
+        taken.append(hit)
+    return taken
+
+
+def currency_anomaly(pool, legal, drops) -> dict | None:
+    """``None`` unless the served cut set releases a just-acquired piece.
+    Otherwise ``{"anomaly": bool, ...}``: an anomaly is an acquired cut ``a``
+    and a KEPT existing player ``e`` with ``c(e) < c(a)`` such that releasing
+    ``e`` instead of ``a`` is lineup-legal — the roster keeps a less valuable
+    player and lets a more valuable one go (``c = base x scarcity``)."""
+    idx = _match_pool(pool, drops)
+    if idx is None:
+        return {"anomaly": None, "reason": "drops_not_matched"}
+    S = set(idx)
+    acq = [i for i in idx if pool[i]["acquired"]]
+    if not acq:
+        return None
+    for a in sorted(acq, key=lambda i: -pool[i]["release"]):
+        for e in sorted(range(len(pool)), key=lambda i: pool[i]["release"]):
+            if e in S or pool[e]["acquired"] or pool[e]["release"] >= pool[a]["release"]:
+                continue
+            if legal.ok(frozenset((S - {a}) | {e})):
+                return {
+                    "anomaly": True,
+                    "released": f"{pool[a]['name']} ({pool[a]['pos']}, {pool[a]['release']:.0f})",
+                    "kept": f"{pool[e]['name']} ({pool[e]['pos']}, {pool[e]['release']:.0f})",
+                }
+    return {"anomaly": False}
+
+
+def _anomaly_summary(rows: list[dict]) -> dict:
+    hits = [r for r in rows if r.get("anomaly")]
+    return {
+        "selectionsReleasingAnAcquiredPiece": len(rows),
+        "currencyAnomalies": len(hits),
+        "unmatched": sum(1 for r in rows if r.get("anomaly") is None),
+        "examples": [{"released": h["released"], "kept": h["kept"]} for h in hits[:6]],
+    }
+
+
 # ── 1 + 2. the War Room filler-flip design ──────────────────────────────────
 
 
@@ -247,39 +323,63 @@ def war_room(ctx, max_opps: int, seed: int) -> dict:
                         if best is None or charge < best:
                             best = charge
                 st["charges"]["V5_implementedRule"] = best
+                # V5-R shadow: cheapest legal set by ``c`` over the WHOLE pool
+                # (existing and incoming alike); acquired fillers in it are then
+                # netted out of the package, existing cuts charged ``c``.
+                vr = D.greedy(pool, legal, d,
+                              key=lambda i: (pool[i]["release"], str(pool[i]["asset"].player_id)))  # fmt: skip
+                vr_charge = None
+                if len(vr) == d and all(
+                    not pool[i]["acquired"] or pool[i]["name"] in fill_names for i in vr
+                ):
+                    gone = {pool[i]["name"] for i in vr if pool[i]["acquired"]}
+                    g = gap_with([n for n in fill_names[:k] if n not in gone])
+                    if g is not None:
+                        vr_charge = (
+                            st["gap"]
+                            - g[0]
+                            + sum(pool[i]["release"] for i in vr if not pool[i]["acquired"])
+                        )
+                st["charges"]["V5R_rosterRational"] = vr_charge
                 v6 = D.greedy(pool, legal, d, key=lambda i: (pool[i]["ecc"], pool[i]["release"],
                                                              str(pool[i]["asset"].player_id)))  # fmt: skip
                 st["charges"]["V6_surplusCharge"] = sum(pool[i]["ecc"] for i in v6)
-            # Measured: production path with the flag ON (Team Context ON).
-            with flag(True):
-                son = sim(ctx, s["me"], pin, pout, True)
-                a_on = comp_a(son, True)
-                st["tcOrdOn"] = ordinal(a_on)
-                st["chargeOn"] = (a_on or {}).get("forcedReleaseCost") or 0
-                st["dropsOn"] = drops_of(son)
-                st["verdictOn"] = verdict(packet_of(ctx, son), son)
+            # Measured: production path with the flag ON (Team Context ON),
+            # once per selection mode.
+            for sfx, md in MODES.items():
+                with flag(True), mode(md):
+                    son = sim(ctx, s["me"], pin, pout, True)
+                    a_on = comp_a(son, True)
+                    st[f"tcOrdOn{sfx}"] = ordinal(a_on)
+                    st[f"chargeOn{sfx}"] = (a_on or {}).get("forcedReleaseCost") or 0
+                    st[f"dropsOn{sfx}"] = drops_of(son)
+                    st[f"verdictOn{sfx}"] = verdict(packet_of(ctx, son), son)
+                if st.get("pool") is not None and st["d"] > 0:
+                    st[f"anomaly{sfx}"] = currency_anomaly(
+                        st["pool"], st["legal"], st[f"dropsOn{sfx}"]
+                    )
             with flag(False):
                 soff = sim(ctx, s["me"], pin, pout, True)
                 st["dropsOff"] = drops_of(soff)
                 st["verdictOff"] = verdict(packet_of(ctx, soff), soff)
 
-    def classify_on(results):
+    def classify_on(results, sfx=""):
         out = Counter()
         over_sig = 0
         ratios = []
         for rec in results:
             s0 = rec["steps"][0]
             for st in rec["steps"][1:]:
-                if st["aoOrd"] is None or s0["aoOrd"] is None or st["tcOrdOn"] is None:
+                if st["aoOrd"] is None or s0["aoOrd"] is None or st[f"tcOrdOn{sfx}"] is None:
                     continue
                 credit = st["gap"] - s0["gap"]
                 if credit > 0:
-                    ratios.append(st["chargeOn"] / credit)
-                    over_sig += st["chargeOn"] > credit
+                    ratios.append(st[f"chargeOn{sfx}"] / credit)
+                    over_sig += st[f"chargeOn{sfx}"] > credit
                 if _sgn(st["aoOrd"]) == _sgn(s0["aoOrd"]):
                     continue
                 out["flips"] += 1
-                vo, base = st["tcOrdOn"], s0["tcOrdOn"]
+                vo, base = st[f"tcOrdOn{sfx}"], s0[f"tcOrdOn{sfx}"]
                 if _sgn(vo) == _sgn(base):
                     out["neutralised"] += 1
                 elif _sgn(vo) < _sgn(base):
@@ -293,34 +393,76 @@ def war_room(ctx, max_opps: int, seed: int) -> dict:
             "chargeOverCreditMedian": _r(statistics.median(ratios), 3) if ratios else None,
         }  # fmt: skip
 
-    for v in ("V5_implementedRule", "V6_surplusCharge"):
+    for v in ("V5_implementedRule", "V5R_rosterRational", "V6_surplusCharge"):
         variants[v] = D.classify_flips(results, v)
     variants["FLAG_ON_measured"] = classify_on(results)
+    variants["FLAG_ON_measured_rosterRational"] = classify_on(results, "R")
+    for v, note in (
+        ("V5_implementedRule", "0 by construction: releasing the fillers themselves is a legal "
+         "option charged exactly their package credit, and V5 minimises the charge — not "
+         "evidence that V5 beats V1"),
+        ("FLAG_ON_measured", "0 by construction (see V5_implementedRule)"),
+        ("V5R_rosterRational", "not guaranteed: V5-R selects by c, not by the charge"),
+        ("FLAG_ON_measured_rosterRational", "not guaranteed (see V5R_rosterRational)"),
+    ):  # fmt: skip
+        variants[v]["stepsWhereChargeExceedsFillerCreditNote"] = note
 
-    # Verdict comparison over every step with Team Context.
-    head = Counter()
-    cat = Counter()
-    cat_trans = Counter()
-    gap_trans = Counter()
-    unpriced_off = unpriced_on = 0
-    drop_changed = 0
-    steps = 0
+    def verdicts(sfx: str) -> dict:
+        head = Counter()
+        cat = Counter()
+        cat_trans = Counter()
+        gap_trans = Counter()
+        unpriced_off = unpriced_on = 0
+        drop_changed = 0
+        steps = 0
+        for rec in results:
+            for st in rec["steps"]:
+                steps += 1
+                off, on = st["verdictOff"], st[f"verdictOn{sfx}"]
+                head[(off["headline"] == on["headline"])] += 1
+                cat[(off["category"] == on["category"])] += 1
+                if off["category"] != on["category"]:
+                    cat_trans[f"{off['category']} -> {on['category']}"] += 1
+                drop_changed += sorted(map(str, st["dropsOff"])) != sorted(
+                    map(str, st[f"dropsOn{sfx}"])
+                )
+                if off["missingEvidence"] != on["missingEvidence"]:
+                    gap_trans[
+                        f"{','.join(off['missingEvidence']) or '-'} -> "
+                        f"{','.join(on['missingEvidence']) or '-'}"
+                    ] += 1
+                unpriced_off += any(d[2] is None for d in st["dropsOff"])
+                unpriced_on += any(d[2] is None for d in st[f"dropsOn{sfx}"])
+        return {
+            "stepsCompared": steps,
+            "headlineChanged": head[False],
+            "publicCategoryChanged": cat[False],
+            "publicCategoryTransitions": dict(cat_trans.most_common()),
+            "evidenceGapTransitions": dict(gap_trans.most_common()),
+            "stepsWithAnUnpricedForcedDrop": {"off": unpriced_off, "on": unpriced_on},
+            "forcedDropSetChanged": drop_changed,
+            "currencyAnomaly": _anomaly_summary(
+                [
+                    st[f"anomaly{sfx}"]
+                    for rec in results
+                    for st in rec["steps"]
+                    if st.get(f"anomaly{sfx}") is not None
+                ]
+            ),
+        }
+
+    v5_vs_r = Counter()
     for rec in results:
         for st in rec["steps"]:
-            steps += 1
-            off, on = st["verdictOff"], st["verdictOn"]
-            head[(off["headline"] == on["headline"])] += 1
-            cat[(off["category"] == on["category"])] += 1
-            if off["category"] != on["category"]:
-                cat_trans[f"{off['category']} -> {on['category']}"] += 1
-            drop_changed += sorted(map(str, st["dropsOff"])) != sorted(map(str, st["dropsOn"]))
-            if off["missingEvidence"] != on["missingEvidence"]:
-                gap_trans[
-                    f"{','.join(off['missingEvidence']) or '-'} -> "
-                    f"{','.join(on['missingEvidence']) or '-'}"
-                ] += 1
-            unpriced_off += any(d[2] is None for d in st["dropsOff"])
-            unpriced_on += any(d[2] is None for d in st["dropsOn"])
+            v5_vs_r["steps"] += 1
+            v5_vs_r["dropSetDiffers"] += sorted(map(str, st["dropsOn"])) != sorted(
+                map(str, st["dropsOnR"])
+            )
+            v5_vs_r["v5rChargeHigher"] += st["chargeOnR"] > st["chargeOn"] + 0.5
+            v5_vs_r["v5rChargeLower"] += st["chargeOnR"] < st["chargeOn"] - 0.5
+            v5_vs_r["categoryDiffers"] += (
+                st["verdictOn"]["category"] != st["verdictOnR"]["category"]
+            )
     rm, rt = diag["repro"]
     prod = variants["PROD"]
     return {
@@ -345,21 +487,105 @@ def war_room(ctx, max_opps: int, seed: int) -> dict:
             "productionCutSetReconstructed": f"{rm}/{rt}",
         },  # fmt: skip
         "variants": variants,
-        "analyzeVerdicts": {
-            "stepsCompared": steps,
-            "headlineChanged": head[False],
-            "publicCategoryChanged": cat[False],
-            "publicCategoryTransitions": dict(cat_trans.most_common()),
-            "evidenceGapTransitions": dict(gap_trans.most_common()),
-            "stepsWithAnUnpricedForcedDrop": {"off": unpriced_off, "on": unpriced_on},
-            "forcedDropSetChanged": drop_changed,
-        },
+        "analyzeVerdicts": verdicts(""),
+        "analyzeVerdictsRosterRational": verdicts("R"),
+        "v5VsRosterRational": dict(v5_vs_r),
         "results": results,
         "elapsedSec": round(time.time() - t0, 1),
     }
 
 
 # ── 3. census ─────────────────────────────────────────────────────────────
+
+
+class _CensusTally:
+    """Flag OFF vs one flag-ON mode, over the census trades."""
+
+    def __init__(self):
+        self.out = Counter()
+        self.trans = Counter()
+        self.cap_changes = Counter()
+        self.charge_delta: list[float] = []
+        self.delta_kind = Counter()
+        self.gap_trans = Counter()
+        self.up_examples: list[dict] = []
+        self.examples: list[dict] = []
+        self.anomalies: list[dict] = []
+
+    def add(self, shape, pin, pout, ok, soff, voff, son, von, anomaly):
+        out = self.out
+        out["trades"] += 1
+        out[f"trades:{shape}"] += 1
+        rc_off, rc_on = soff.get("rosterCapacity") or {}, son.get("rosterCapacity") or {}
+        if rc_off.get("requiresDrops"):
+            out["requireDrops"] += 1
+        d_off, d_on = drops_of(soff), drops_of(son)
+        if sorted(map(str, d_off)) != sorted(map(str, d_on)):
+            out["dropSetChanged"] += 1
+        if (voff["charge"] or 0) != (von["charge"] or 0):
+            out["chargeChanged"] += 1
+            delta = (von["charge"] or 0) - (voff["charge"] or 0)
+            self.charge_delta.append(delta)
+            over_b = (rc_off.get("overLimitBefore") or 0) > 0
+            self.delta_kind[
+                f"{'overLimitBefore' if over_b else 'atOrUnderCap'}:{'up' if delta > 0 else 'down'}"
+            ] += 1
+            if delta > 0 and len(self.up_examples) < 4:
+                self.up_examples.append(self._example(shape, pin, pout, ok, voff, von, d_off, d_on,
+                                                      rc_off.get("overLimitBefore")))  # fmt: skip
+        if voff["missingEvidence"] != von["missingEvidence"]:
+            self.gap_trans[
+                f"{','.join(voff['missingEvidence']) or '-'} -> "
+                f"{','.join(von['missingEvidence']) or '-'}"
+            ] += 1
+        if voff["headline"] != von["headline"]:
+            out["headlineChanged"] += 1
+        if voff["category"] != von["category"]:
+            out["publicCategoryChanged"] += 1
+            self.trans[f"{voff['category']} -> {von['category']}"] += 1
+            if len(self.examples) < 12:
+                self.examples.append(self._example(shape, pin, pout, ok, voff, von, d_off, d_on))
+        for k in ("forcedDropReleaseCost", "unpricedForcedDrops", "overLimitAfter"):
+            if rc_off.get(k) != rc_on.get(k):
+                self.cap_changes[k] += 1
+        if anomaly is not None:
+            self.anomalies.append(anomaly)
+
+    @staticmethod
+    def _example(shape, pin, pout, ok, voff, von, d_off, d_on, over_before=None):
+        ex = {
+            "shape": shape,
+            "send": [f"{n} ({ok(n)['pos']}, {ok(n)['value']:.0f})" for n in pout],
+            "receive": [f"{n} ({ok(n)['pos']}, {ok(n)['value']:.0f})" for n in pin],
+            "off": {**voff, "cuts": [_fmt_drop(d) for d in d_off]},
+            "on": {**von, "cuts": [_fmt_drop(d) for d in d_on]},
+        }
+        if over_before is not None:
+            ex = {
+                "shape": shape,
+                "overLimitBefore": over_before,
+                **{k: v for k, v in ex.items() if k != "shape"},
+            }
+        return ex
+
+    def summary(self) -> dict:
+        cd = self.charge_delta
+        return {
+            "counts": dict(self.out),
+            "rosterCapacityFieldChanges": dict(self.cap_changes),
+            "publicCategoryTransitions": dict(self.trans.most_common()),
+            "evidenceGapTransitions": dict(self.gap_trans.most_common()),
+            "chargeDeltaByKind": dict(self.delta_kind),
+            "chargeIncreaseExamples": self.up_examples,
+            "chargeDelta": {
+                "n": len(cd),
+                "median": _r(statistics.median(cd)) if cd else None,
+                "min": _r(min(cd)) if cd else None,
+                "max": _r(max(cd)) if cd else None,
+            },
+            "currencyAnomaly": _anomaly_summary(self.anomalies),
+            "examples": self.examples,
+        }
 
 
 def census(ctx, per_shape: int, seed: int) -> dict:
@@ -372,18 +598,13 @@ def census(ctx, per_shape: int, seed: int) -> dict:
         return r if r and not r["quarantined"] and r["cls"] != "pick" else None
 
     shapes = {"1-for-2": (1, 2), "2-for-1": (2, 1), "1-for-3": (1, 3)}
-    out = Counter()
-    trans = Counter()
-    cap_changes = Counter()
-    charge_delta = []
-    delta_kind = Counter()
-    gap_trans = Counter()
-    up_examples = []
+    tallies = {sfx: _CensusTally() for sfx in MODES}
+    v5_vs_r = Counter()
     at_cap = 0
-    examples = []
     for ti, me in enumerate(teams):
         if len(me.get("players") or []) >= cap:
             at_cap += 1
+        cc = None
         mine = [r for r in (ok(n) for n in me["players"]) if r]
         mine_hi = [r for r in mine if 1500 <= r["value"] <= 7000]
         mine_lo = sorted(mine, key=lambda r: r["value"])[:12]
@@ -407,75 +628,41 @@ def census(ctx, per_shape: int, seed: int) -> dict:
                 with flag(False):
                     soff = sim(ctx, me, pin, pout, True)
                     voff = verdict(packet_of(ctx, soff), soff)
-                with flag(True):
-                    son = sim(ctx, me, pin, pout, True)
-                    von = verdict(packet_of(ctx, son), son)
-                out["trades"] += 1
-                out[f"trades:{shape}"] += 1
-                rc_off, rc_on = soff.get("rosterCapacity") or {}, son.get("rosterCapacity") or {}
-                if rc_off.get("requiresDrops"):
-                    out["requireDrops"] += 1
-                d_off, d_on = drops_of(soff), drops_of(son)
-                if sorted(map(str, d_off)) != sorted(map(str, d_on)):
-                    out["dropSetChanged"] += 1
-                if (voff["charge"] or 0) != (von["charge"] or 0):
-                    out["chargeChanged"] += 1
-                    delta = (von["charge"] or 0) - (voff["charge"] or 0)
-                    charge_delta.append(delta)
-                    over_b = (rc_off.get("overLimitBefore") or 0) > 0
-                    delta_kind[
-                        f"{'overLimitBefore' if over_b else 'atOrUnderCap'}:"
-                        f"{'up' if delta > 0 else 'down'}"
-                    ] += 1
-                    if delta > 0 and len(up_examples) < 4:
-                        up_examples.append({
-                            "shape": shape,
-                            "overLimitBefore": rc_off.get("overLimitBefore"),
-                            "send": [f"{n} ({ok(n)['pos']}, {ok(n)['value']:.0f})" for n in pout],
-                            "receive": [f"{n} ({ok(n)['pos']}, {ok(n)['value']:.0f})" for n in pin],
-                            "off": {**voff, "cuts": [_fmt_drop(d) for d in d_off]},
-                            "on": {**von, "cuts": [_fmt_drop(d) for d in d_on]},
-                        })  # fmt: skip
-                if voff["missingEvidence"] != von["missingEvidence"]:
-                    gap_trans[
-                        f"{','.join(voff['missingEvidence']) or '-'} -> "
-                        f"{','.join(von['missingEvidence']) or '-'}"
-                    ] += 1
-                if voff["headline"] != von["headline"]:
-                    out["headlineChanged"] += 1
-                if voff["category"] != von["category"]:
-                    out["publicCategoryChanged"] += 1
-                    trans[f"{voff['category']} -> {von['category']}"] += 1
-                    if len(examples) < 12:
-                        examples.append({
-                            "shape": shape,
-                            "send": [f"{n} ({ok(n)['pos']}, {ok(n)['value']:.0f})" for n in pout],
-                            "receive": [f"{n} ({ok(n)['pos']}, {ok(n)['value']:.0f})" for n in pin],
-                            "off": {**voff, "cuts": [_fmt_drop(d) for d in d_off]},
-                            "on": {**von, "cuts": [_fmt_drop(d) for d in d_on]},
-                        })  # fmt: skip
-                for k in ("forcedDropReleaseCost", "unpricedForcedDrops", "overLimitAfter"):
-                    if rc_off.get(k) != rc_on.get(k):
-                        cap_changes[k] += 1
+                charges = {}
+                drops = {}
+                cats = {}
+                for sfx, md in MODES.items():
+                    with flag(True), mode(md):
+                        son = sim(ctx, me, pin, pout, True)
+                        von = verdict(packet_of(ctx, son), son)
+                    anomaly = None
+                    d_on = drops_of(son)
+                    if any(d[4] for d in d_on):
+                        if cc is None:
+                            cc = RC.build_capacity_context(
+                                ctx["contract"], LEAGUE, me, roster_settings=ctx["roster_settings"]
+                            )
+                        pool = D.post_trade_pool(cc, pin, pout)
+                        anomaly = currency_anomaly(pool, D.Legality(pool, cc), d_on)
+                    tallies[sfx].add(shape, pin, pout, ok, soff, voff, son, von, anomaly)
+                    charges[sfx], drops[sfx], cats[sfx] = von["charge"] or 0, d_on, von["category"]
+                v5_vs_r["trades"] += 1
+                v5_vs_r["dropSetDiffers"] += sorted(map(str, drops[""])) != sorted(
+                    map(str, drops["R"])
+                )
+                v5_vs_r["v5rChargeHigher"] += charges["R"] > charges[""] + 0.5
+                v5_vs_r["v5rChargeLower"] += charges["R"] < charges[""] - 0.5
+                v5_vs_r["categoryDiffers"] += cats[""] != cats["R"]
+    v5 = tallies[""].summary()
     return {
         "design": f"every dynasty_main team x {per_shape} seeded trades per shape (1-for-2, "
         "2-for-1, 1-for-3) against random rivals: the main incoming piece at 80-105% of a "
         "1,500-7,000 outgoing player, extra pieces from the rival's 10 cheapest players (and "
         "for 2-for-1 the sender's own 12 cheapest); Team Context ON",
         "teamsAtCap": at_cap,
-        "counts": dict(out),
-        "rosterCapacityFieldChanges": dict(cap_changes),
-        "publicCategoryTransitions": dict(trans.most_common()),
-        "evidenceGapTransitions": dict(gap_trans.most_common()),
-        "chargeDeltaByKind": dict(delta_kind),
-        "chargeIncreaseExamples": up_examples,
-        "chargeDelta": {
-            "n": len(charge_delta),
-            "median": _r(statistics.median(charge_delta)) if charge_delta else None,
-            "min": _r(min(charge_delta)) if charge_delta else None,
-            "max": _r(max(charge_delta)) if charge_delta else None,
-        },
-        "examples": examples,
+        **v5,
+        "rosterRational": tallies["R"].summary(),
+        "v5VsRosterRational": dict(v5_vs_r),
     }
 
 
@@ -489,12 +676,16 @@ def finder_overlap(ctx, top_k: int) -> dict:
     players = contract["players"]
     names = [t["name"] for t in teams]
     per = []
+    per_r = []
     t0 = time.time()
     for me in teams:
         cc = RC.build_capacity_context(contract, LEAGUE, me, roster_settings=ctx["roster_settings"])
         res = {}
-        for on in (False, True):
-            with flag(on):
+        for on in (False, True, "R"):
+            with (
+                flag(bool(on)),
+                mode(FDS.MODE_ROSTER_RATIONAL if on == "R" else FDS.MODE_PACKAGE_CONSISTENT),
+            ):
                 payload = finder.find_trades(
                     players,
                     me["name"],
@@ -516,6 +707,16 @@ def finder_overlap(ctx, top_k: int) -> dict:
             ]
         off_keys = [k for k, _ in res[False]]
         on_keys = [k for k, _ in res[True]]
+        r_keys = [k for k, _ in res["R"]]
+        per_r.append({
+            "overlap": len(set(off_keys) & set(r_keys)),
+            "returnedOff": len(off_keys),
+            "returnedOn": len(r_keys),
+            "sameOrder": off_keys == r_keys,
+            "chargedOn": sum(1 for _k, f in res["R"] if f),
+            "overlapWithV5": len(set(on_keys) & set(r_keys)),
+            "sameOrderAsV5": on_keys == r_keys,
+        })  # fmt: skip
         per.append({
             "atCap": len(me.get("players") or []) >= int(ctx["roster_settings"].get("rosterSize") or 0),
             "returnedOff": len(off_keys),
@@ -537,6 +738,14 @@ def finder_overlap(ctx, top_k: int) -> dict:
         "totalTradesChargedOn": sum(p["chargedOn"] for p in per),
         "totalFactorChanges": sum(p["factorChanged"] for p in per),
         "perTeam": [{k: v for k, v in p.items()} for p in per],
+        "rosterRational": {
+            "meanOverlapAtK": _r(statistics.mean(p["overlap"] / max(1, p["returnedOff"]) for p in per_r), 3),
+            "teamsIdenticalTopK": sum(1 for p in per_r if p["sameOrder"]),
+            "totalTradesChargedOn": sum(p["chargedOn"] for p in per_r),
+            "meanOverlapWithV5AtK": _r(statistics.mean(p["overlapWithV5"] / max(1, p["returnedOn"]) for p in per_r), 3),
+            "teamsIdenticalToV5": sum(1 for p in per_r if p["sameOrderAsV5"]),
+            "perTeam": per_r,
+        },
         "elapsedSec": round(time.time() - t0, 1),
     }  # fmt: skip
 
@@ -548,26 +757,34 @@ def perfect_draft(ctx) -> dict:
     from src.draft.context import build_roster_context  # noqa: PLC0415
 
     contract, teams = ctx["contract"], ctx["teams"]
-    same = 0
+    same = compared = 0
     errors = Counter()
     for t in teams:
         digests = {}
+        raised = False
         for on in (False, True):
             with flag(on):
                 try:
                     payload = build_roster_context(contract, LEAGUE, owner_id=t.get("ownerId"))
                 except Exception as exc:  # noqa: BLE001
                     payload = {"error": type(exc).__name__}
-                    errors[type(exc).__name__] += 1
+                    errors[f"{type(exc).__name__}:{'on' if on else 'off'}"] += 1
+                    raised = True
             digests[on] = hashlib.sha256(
                 json.dumps(payload, sort_keys=True, default=str).encode()
             ).hexdigest()
+        if raised:
+            continue  # an error in both modes is not a comparison
+        compared += 1
         same += digests[False] == digests[True]
     return {
         "surface": "src.draft.context.build_roster_context (/api/draft/roster-context)",
         "teams": len(teams),
+        "comparedOffVsOn": compared,
         "identicalOffVsOn": same,
-        "errors": dict(errors),
+        "errorsByMode": dict(errors),
+        "note": "teams whose roster context raises (in both modes) are excluded from the "
+        "comparison rather than counted identical",
     }
 
 
@@ -604,7 +821,7 @@ def main() -> int:
     ap.add_argument("--out", default=OUT_DEFAULT)
     ap.add_argument("--archive", default=D.ARCHIVE_DEFAULT)
     ap.add_argument("--war-room-opps", type=int, default=5)
-    ap.add_argument("--census-per-shape", type=int, default=6)
+    ap.add_argument("--census-per-shape", type=int, default=8)
     ap.add_argument("--finder-top-k", type=int, default=20)
     ap.add_argument("--skip-finder", action="store_true")
     args = ap.parse_args()
@@ -628,6 +845,8 @@ def main() -> int:
         "generatedBy": "scripts/forced_drop_fix_replay.py",
         "activeModelAtRun": pm.active_model_id(),
         "rule": FDS.RULE_ID,
+        "ruleRosterRational": FDS.RULE_ID_ROSTER_RATIONAL,
+        "defaultSelectionMode": FDS.SELECTION_MODE,
         "board": {"archive": args.archive, "member": member, "sha256": sha},
         "codeSha": S.P1._git_sha(),
         "warRoom": wr,
@@ -650,7 +869,12 @@ def main() -> int:
     out.write_text(json.dumps(result, indent=1, default=str) + "\n")
     print(json.dumps({"out": str(out), "reproduction": wr["reproduction"],
                       "flagOn": wr["variants"]["FLAG_ON_measured"],
-                      "verdicts": wr["analyzeVerdicts"], "census": cen["counts"],
+                      "flagOnR": wr["variants"]["FLAG_ON_measured_rosterRational"],
+                      "verdicts": wr["analyzeVerdicts"],
+                      "verdictsR": wr["analyzeVerdictsRosterRational"],
+                      "v5VsR": wr["v5VsRosterRational"], "census": cen["counts"],
+                      "censusR": cen["rosterRational"]["counts"],
+                      "censusV5VsR": cen["v5VsRosterRational"],
                       "finder": None if fin is None else {k: fin[k] for k in fin if k != "perTeam"},
                       "perfectDraft": pd}, indent=1, default=str))  # fmt: skip
     return 0
