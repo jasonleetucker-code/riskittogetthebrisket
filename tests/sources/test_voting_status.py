@@ -355,3 +355,10 @@ class TestV1RuleInForceWithV2Shadow:
         )
         assert "shadow" not in out
         assert "shadowScheduleV2" not in _by_key(out)["a"]
+
+    def test_v1_active_label_names_the_actual_percentage(self):
+        out = self._out(_state(10))
+        e = _by_key(out)["a"]
+        v1 = self._v1("a", _state(10)).subset_for(False).freshness
+        assert e["status"] in vs.ACTIVE_STATUSES
+        assert e["statusLabel"] == f"Active — {round(v1 * 100.0, 1):g}%"

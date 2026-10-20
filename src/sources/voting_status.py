@@ -223,6 +223,16 @@ def _pct(freshness: float | None, schedule: str) -> float | None:
     return float(round(pct)) if schedule == SCHEDULE_V2 else round(pct, 1)
 
 
+def _status_label(status: str, freshness: float | None, schedule: str) -> str:
+    """The owner label.  Under the step schedule an Active label IS the step.
+    Under the v1 cadence curve (in force while the step schedule is held) the
+    factor is continuous, so the Active bucket names the ACTUAL percentage
+    rather than the step it falls into: 16.2% is never shown as "Active — 25%"."""
+    if schedule == SCHEDULE_V1 and status in ACTIVE_STATUSES and freshness is not None:
+        return f"Active — {_pct(freshness, schedule):g}%"
+    return STATUS_LABELS[status]
+
+
 def _active_status(freshness: float) -> str:
     if freshness >= 0.999:
         return STATUS_ACTIVE_100
@@ -368,7 +378,7 @@ def build_source_voting_status(
             "notVotingRows": dict(sorted(tally["notVoting"].items())),
             "voting": (players_voting + picks_voting) > 0,
             "status": status,
-            "statusLabel": STATUS_LABELS[status],
+            "statusLabel": _status_label(status, freshness, schedule),
             "reason": reason,
             "restoreRequirement": restore,
             "health": getattr(sw, "health_state", None) if sw is not None else None,
