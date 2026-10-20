@@ -15,9 +15,10 @@
  *     server's summary lines, the trade-level fairness (all teams fair?) and
  *     the raw-value conservation check — never a trade-level YES / NO;
  *   * a perspective switch (one tab per team, over the one response);
- *   * per team: the ONE decision (YES / NO / NO — TOO CLOSE / NOT ENOUGH
- *     EVIDENCE) and its category, the market-fairness band as a SEPARATELY
- *     labelled answer (C4), what it sends and receives with destinations and
+ *   * per team: the ONE decision (`decision.headlineText`, verbatim — the
+ *     texts are owned by `src/trade/trade_decision.py::HEADLINE_TEXT` and
+ *     never written here) and its category, the market-fairness band as a
+ *     SEPARATELY labelled answer (C4), what it sends and receives with destinations and
  *     values, the package totals and Value Adjustment, roster fit and forced
  *     drops, lineup impact, team direction, confidence and missing evidence,
  *     plus the same detail sections as the two-team War Room.
@@ -86,7 +87,75 @@ function valueWords(asset) {
   }
   if (asset?.valueState === "not_held") return "Not held by the sender";
   if (asset?.valueState === "off_board") return "Not on the board (unknown, not zero)";
+  if (asset?.valueState === "quarantined") return "Value withheld: quarantined (not trusted)";
+  if (asset?.valueState === "stale") return "Value withheld: stale (not trusted)";
   return "No value (unknown, not zero)";
+}
+
+/**
+ * How each per-leg ``valueState`` bears on the server's package sums
+ * (``src/trade/analyze_trade.py::_market_lens``):
+ *
+ *   * EXCLUDED — the leg is not in the sum at all: ``unpriced`` (no positive
+ *     canonical value; named in ``unpricedOut`` / ``unpricedIn``),
+ *     ``off_board`` (unresolved; named in ``unresolvedOut`` / ``unresolvedIn``)
+ *     and ``not_held`` (the simulator leaves a pick the sender does not hold
+ *     out of ``sending``).  A package with one is INCOMPLETE.
+ *   * WITHHELD — ``quarantined`` / ``stale``: the canonical value is positive,
+ *     so the market lens DOES sum it, but the per-team rows withhold it as
+ *     untrustworthy (R1-L2).  A total containing a withheld number is not a
+ *     trusted total, so it is not shown.
+ *   * Any state this component does not recognise is treated as WITHHELD:
+ *     whether it is in the sum is unknown, so the total is too (fail closed).
+ */
+const EXCLUDED_STATES = {
+  unpriced: (n) => `${n === 1 ? "has" : "have"} no value on the board (unknown, not zero)`,
+  off_board: (n) => `${n === 1 ? "is" : "are"} not on the board (unknown, not zero)`,
+  not_held: (n) => `${n === 1 ? "is" : "are"} not held by the sender`,
+};
+const WITHHELD_STATES = {
+  quarantined: (n) =>
+    `${n === 1 ? "has a value" : "have values"} withheld as quarantined (not trusted)`,
+  stale: (n) => `${n === 1 ? "has a value" : "have values"} withheld as stale (not trusted)`,
+};
+const UNRECOGNISED_STATE = (n) => `${n === 1 ? "has" : "have"} no usable value (unknown, not zero)`;
+
+function packageState(items, detailNames) {
+  const legs = Array.isArray(items) ? items : [];
+  const pricedCount = legs.filter(
+    (a) => a?.valueState === "priced" && typeof a.value === "number",
+  ).length;
+  const groups = new Map();
+  let excluded = 0;
+  let withheld = 0;
+  for (const a of legs) {
+    if (a?.valueState === "priced" && typeof a.value === "number") continue;
+    const state = a?.valueState;
+    const kind = EXCLUDED_STATES[state] ? "excluded" : "withheld";
+    if (kind === "excluded") excluded += 1;
+    else withheld += 1;
+    const key = EXCLUDED_STATES[state] || WITHHELD_STATES[state] ? state : "?";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(String(a?.label || a?.assetId || "An asset"));
+  }
+  // Defensive: the server named an excluded asset no leg carries.
+  if (!groups.size && detailNames.length) {
+    groups.set("unpriced", detailNames);
+    excluded = detailNames.length;
+  }
+  const clauses = [...groups.entries()].map(([key, names]) => {
+    const words = EXCLUDED_STATES[key] || WITHHELD_STATES[key] || UNRECOGNISED_STATE;
+    return `${listJoin(names)} ${words(names.length)}`;
+  });
+  const missing = excluded + withheld;
+  return {
+    clauses,
+    excluded,
+    withheld,
+    // No priced leg, or a withheld number inside the sum: no total is shown.
+    unknown: missing > 0 && (pricedCount === 0 || withheld > 0),
+    incomplete: missing > 0,
+  };
 }
 
 function fairnessDetail(f) {
@@ -111,18 +180,21 @@ function fairnessDetail(f) {
 /**
  * The package totals, straight from the market lens (raw, VA, adjusted, gap).
  *
- * An unpriced asset is left out of the server's sums (``unpricedOut`` /
- * ``unpricedIn``), so a package with one is INCOMPLETE and says so, and a
- * package made ONLY of unpriced assets has no total at all: the server's 0 is
- * the empty sum, never the package's value, so it reads "Unknown", never 0
- * (MISSING IS NEVER ZERO; E1-F5).
+ * The state is derived from every leg's ``valueState`` (``packageState``),
+ * never from the server's name lists alone: an unpriced, off-board or unheld
+ * asset is left out of the server's sums, so a package with one is INCOMPLETE
+ * and says so; a package with NO priced leg has no total at all — the server's
+ * 0 is the empty sum, never the package's value — so it reads "Unknown", never
+ * 0 (MISSING IS NEVER ZERO; E1-F5).  A quarantined or stale value IS in the
+ * server's sum but is withheld per asset, so its package has no trusted total
+ * either and reads "Unknown".
  */
 function PackageTotals({ detail, gives = [], receives = [] }) {
   if (!detail) return null;
   const n = (v) => (typeof v === "number" ? formatValue(v) : "—");
   const va = (v) => (typeof v === "number" && Math.round(v) !== 0 ? `+${formatValue(v)}` : "none");
-  const names = (xs) => (Array.isArray(xs) ? xs.filter(Boolean).map(String) : []);
-  const priced = (items) => items.filter((a) => a?.valueState === "priced").length;
+  const names = (...lists) =>
+    lists.flatMap((xs) => (Array.isArray(xs) ? xs.filter(Boolean).map(String) : []));
   const rows = [
     {
       key: "send",
@@ -130,8 +202,7 @@ function PackageTotals({ detail, gives = [], receives = [] }) {
       raw: detail.sendingValue,
       adj: detail.sendingValueAdjustment,
       total: detail.sendingAdjusted,
-      unpriced: names(detail.unpricedOut),
-      pricedCount: priced(gives),
+      ...packageState(gives, names(detail.unpricedOut, detail.unresolvedOut)),
     },
     {
       key: "recv",
@@ -139,25 +210,17 @@ function PackageTotals({ detail, gives = [], receives = [] }) {
       raw: detail.receivingValue,
       adj: detail.receivingValueAdjustment,
       total: detail.receivingAdjusted,
-      unpriced: names(detail.unpricedIn),
-      pricedCount: priced(receives),
+      ...packageState(receives, names(detail.unpricedIn, detail.unresolvedIn)),
     },
-  ].map((r) => ({
-    ...r,
-    // Nothing priced and something unpriced: no total exists.
-    unknown: r.unpriced.length > 0 && r.pricedCount === 0,
-    incomplete: r.unpriced.length > 0,
-  }));
+  ];
   const notes = rows
     .filter((r) => r.incomplete)
     .map((r) => ({
       key: r.key,
       text: `${r.label === "Sends" ? "Sent" : "Received"} package ${
-        r.unknown ? "has no total" : "is incomplete"
-      }: ${listJoin(r.unpriced)} ${r.unpriced.length === 1 ? "has" : "have"} no value on the board (unknown, not zero)${
-        r.unknown
-          ? ""
-          : " and " + (r.unpriced.length === 1 ? "is" : "are") + " left out of the total"
+        r.unknown ? (r.withheld ? "has no trusted total" : "has no total") : "is incomplete"
+      }: ${r.clauses.join("; ")}${
+        r.unknown ? "" : `, so ${r.excluded === 1 ? "it is" : "they are"} left out of the total`
       }.`,
     }));
   return (
@@ -197,7 +260,7 @@ function PackageTotals({ detail, gives = [], receives = [] }) {
                   {r.label}
                   {r.incomplete ? (
                     <span className={styles.muted}>
-                      {r.unknown ? " (unpriced)" : " (incomplete)"}
+                      {r.unknown ? (r.withheld ? " (withheld)" : " (unpriced)") : " (incomplete)"}
                     </span>
                   ) : null}
                 </th>

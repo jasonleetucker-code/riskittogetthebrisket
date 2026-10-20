@@ -19,7 +19,11 @@ import STALE from "../fixtures/trade-multi/three-team-stale-rosters.json";
 import UNPRICED from "../fixtures/trade-multi/three-team-unpriced-asset.json";
 import FOUR from "../fixtures/trade-multi/four-team-asset-only.json";
 
-const ok = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
+const ok = (body, status = 200) => ({
+  ok: status < 400,
+  status,
+  json: async () => body,
+});
 
 function mount(fixture, props = {}) {
   const { sides, sleeperTeams, teamIds } = builderFromFixture(fixture);
@@ -106,7 +110,10 @@ describe("multi-team War Room", () => {
       /no single verdict for the whole trade/,
     );
     expect(props.onFinal).toHaveBeenLastCalledWith(
-      expect.objectContaining({ payload: THREE_CTX, sideRosterIds: THREE_CTX.teams.map((t) => t.rosterId) }),
+      expect.objectContaining({
+        payload: THREE_CTX,
+        sideRosterIds: THREE_CTX.teams.map((t) => t.rosterId),
+      }),
     );
   });
 
@@ -232,11 +239,99 @@ describe("multi-team War Room", () => {
     );
   });
 
+  // E1-F5 residual: the package state is derived from every leg's
+  // valueState, not from unpricedOut / unpricedIn alone.  Each case below is
+  // derived from the unpriced fixture's Team A (sends only "A Unpriced").
+  async function sentRowFor(mutate) {
+    const fx = structuredClone(UNPRICED);
+    const t = fx.teams.find((x) => (x.analysis.lenses.market.detail.unpricedOut || []).length);
+    mutate(t, t.analysis.lenses.market.detail);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(ok(fx));
+    mount(UNPRICED);
+    await analyze();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("tab", { name: t.team.name }));
+    });
+    const row = screen
+      .getByTestId("multi-team-package-totals")
+      .querySelector('tr[data-package="send"]');
+    const note = screen.queryByTestId("multi-team-package-note-send");
+    return { t, row, note: note ? note.textContent : null };
+  }
+
+  it("a package made only of OFF-BOARD assets reads Unknown, never a complete 0 (E1-F5 residual)", async () => {
+    // Off-board assets are named in unresolvedOut, never in unpricedOut.
+    const { row, note } = await sentRowFor((t, d) => {
+      t.gives[0].valueState = "off_board";
+      d.unresolvedOut = d.unpricedOut;
+      d.unpricedOut = [];
+    });
+    expect(row.getAttribute("data-package-state")).toBe("unknown");
+    expect([...row.querySelectorAll("td")].map((c) => c.textContent)).toEqual([
+      "Unknown",
+      "—",
+      "Unknown",
+    ]);
+    expect(row.textContent).not.toMatch(/\b0\b/);
+    expect(note).toMatch(/has no total: A Unpriced is not on the board \(unknown, not zero\)/);
+  });
+
+  it("a package made only of QUARANTINED assets withholds the server's sum (E1-F5 residual, R1-L2)", async () => {
+    // The market lens sums a positive quarantined value; the per-team row
+    // withholds it, so the package total is not shown either.
+    const { t, row, note } = await sentRowFor((tm, d) => {
+      tm.gives[0].valueState = "quarantined";
+      d.unpricedOut = [];
+      d.sendingValue = 3456;
+      d.sendingAdjusted = 3456;
+    });
+    expect(row.getAttribute("data-package-state")).toBe("unknown");
+    expect(row.textContent).toContain("(withheld)");
+    expect(row.textContent).not.toContain((3456).toLocaleString());
+    expect(row.textContent).not.toMatch(/\b0\b/);
+    expect(note).toMatch(/has no trusted total: A Unpriced has a value withheld as quarantined/);
+    const li = document.querySelector(`[data-asset-id="${t.gives[0].assetId}"]`);
+    expect(li.textContent).toMatch(/Value withheld: quarantined/);
+  });
+
+  it("a STALE value beside a priced one still leaves no trusted total (E1-F5 residual)", async () => {
+    const { row, note } = await sentRowFor((tm, d) => {
+      tm.gives[0].valueState = "stale";
+      tm.gives.push({
+        assetId: "p:99991",
+        label: "Priced Extra",
+        valueState: "priced",
+        value: 1200,
+        toRosterId: tm.gives[0].toRosterId,
+      });
+      d.unpricedOut = [];
+      d.sendingValue = 4200;
+      d.sendingAdjusted = 4200;
+    });
+    expect(row.getAttribute("data-package-state")).toBe("unknown");
+    expect(row.textContent).not.toContain((4200).toLocaleString());
+    expect(note).toMatch(/has no trusted total: A Unpriced has a value withheld as stale/);
+  });
+
+  it("an unrecognised valueState fails closed: no total, never complete (E1-F5 residual)", async () => {
+    const { row, note } = await sentRowFor((tm, d) => {
+      tm.gives[0].valueState = "some_future_state";
+      d.unpricedOut = [];
+      d.sendingValue = 900;
+      d.sendingAdjusted = 900;
+    });
+    expect(row.getAttribute("data-package-state")).toBe("unknown");
+    expect(row.textContent).not.toContain("900");
+    expect(note).toMatch(/A Unpriced has no usable value \(unknown, not zero\)/);
+  });
+
   it("stale rosters are said, and every team is not enough evidence", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(ok(STALE));
     mount(STALE);
     await analyze();
-    expect(screen.getByText(/League rosters are out of date|no provable refresh time/)).toBeTruthy();
+    expect(
+      screen.getByText(/League rosters are out of date|no provable refresh time/),
+    ).toBeTruthy();
     for (const t of STALE.teams) expect(t.analysis.decision.headline).toBe("NOT_ENOUGH_EVIDENCE");
   });
 
