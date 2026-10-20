@@ -308,6 +308,7 @@ def check_generic_family(
         required_pins=policy.required_pins,
         not_applicable_pins=policy.not_applicable_pins,
         required_holdout_designs=policy.required_holdout_designs,
+        criterion_name=policy.criterion_name,
     )
     record = target.holdout or {}
     if not problems and record.get("criterionName") != policy.criterion_name:

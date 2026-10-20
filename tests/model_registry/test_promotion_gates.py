@@ -327,6 +327,15 @@ def test_a_tampered_registry_record_is_refused():
         reg.promote(2, reason="x", evaluation_receipt=receipt, owner_approval="owner")
 
 
+def test_a_tampered_recorded_criterion_is_refused():
+    """holdout.criterion sits outside the receipt's content hash; the gate re-derives it."""
+    reg, receipt = _registry()
+    v2 = reg.get(2)
+    reg = ModelRegistry(MODEL, [reg.get(1), replace(v2, holdout={**v2.holdout, "criterion": 0.01})])
+    with pytest.raises(RegistryError, match="holdout.criterion 0.01 is not the receipt's"):
+        reg.promote(2, reason="x", evaluation_receipt=receipt, owner_approval="owner")
+
+
 def test_owner_approval_is_required_and_override_is_not_available():
     reg, receipt = _registry()
     with pytest.raises(RegistryError, match="requires explicit owner approval"):

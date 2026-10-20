@@ -284,6 +284,7 @@ def verify_evaluation_record(
     required_pins: Iterable[str],
     not_applicable_pins: Iterable[str] = (),
     required_holdout_designs: Iterable[str] = (),
+    criterion_name: str | None = None,
 ) -> list[str]:
     """Every reason the recorded evaluation cannot support a promotion; ``[]`` if none.
 
@@ -360,4 +361,17 @@ def verify_evaluation_record(
                 continue
         if not _pin_is_concrete(value):
             problems.append(f"input pin {key!r} is not a concrete value ({value!r})")
+    if criterion_name is not None:
+        # holdout.criterion is NOT covered by the receipt's content hash, and it is
+        # what ModelVersion.qualified reads — so re-derive it from the receipt.
+        try:
+            measured: float | None = _overall_point(body, criterion_name)
+        except ReceiptError as exc:
+            problems.append(str(exc))
+            measured = None
+        if measured is not None and record.get("criterion") != measured:
+            problems.append(
+                f"holdout.criterion {record.get('criterion')!r} is not the receipt's "
+                f"measured {criterion_name!r} ({measured!r})"
+            )
     return problems
