@@ -218,6 +218,15 @@ def good(identity_ctx, board):
         lambda p: p["engine"].__setitem__("name", "paid-api"),
         lambda p: p["sides"].extend([p["sides"][0]] * 2),
         lambda p: p["sides"][0].__setitem__("labelSource", "guess"),
+        lambda p: p["sides"][0].pop("anchorSlot"),
+        lambda p: p["sides"][0].__setitem__("anchorSlot", 2),
+        lambda p: p["sides"][0].__setitem__("anchorSlot", True),
+        lambda p: p["sides"][0].__setitem__("anchorSlot", 1.0),
+        lambda p: p["sides"][0].__setitem__("anchorSlot", None),
+        lambda p: p["sides"][0].__setitem__("anchorFamily", None),
+        lambda p: p["sides"][0].__setitem__("anchorFamily", 3),
+        # a positional / unlabelled side never claims a label it did not read
+        lambda p: p["sides"][0].__setitem__("labelSource", "position"),
         lambda p: p["sides"][0]["items"][0].__setitem__("status", "maybe"),
         lambda p: p["sides"][0]["items"][0].__setitem__("value", 9999),
         lambda p: p["sides"][0]["items"][0].__setitem__("boardName", None),
@@ -233,3 +242,23 @@ def test_validator_rejects_malformed_payloads(good, mutate):
     mutate(bad)
     with pytest.raises(ExtractionSchemaError):
         validate_extraction(bad)
+
+
+def test_anchored_sides_name_their_label(good):
+    assert [(s["anchorFamily"], s["anchorSlot"]) for s in good["sides"]] == [
+        ("you give/you get", 0),
+        ("you give/you get", 1),
+    ]
+
+
+def test_recorded_real_extractions_still_match_the_contract():
+    """The committed real-tesseract payloads the frontend tests replay must
+    stay valid against the server's own contract (CI-safe: no tesseract)."""
+    import json
+
+    from .conftest import FIXTURES
+    from .synthetic import RECORDED_EXTRACTIONS
+
+    for name in RECORDED_EXTRACTIONS:
+        payload = json.loads((FIXTURES / name / "extraction.json").read_text(encoding="utf-8"))
+        validate_extraction(payload)

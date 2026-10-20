@@ -1,5 +1,13 @@
 # Product Plan — Start Here
 
+**Permanent owner delivery process (2026-10-19):** independent
+*authorized* development may run concurrently, and the designated
+Integration Authority can merge qualifying green, reviewed routine PRs
+without repeated owner confirmation. This changes workflow, **not**
+roadmap scope or owner-only consequential gates. Read
+`docs/AGENT_OPERATING_SYSTEM.md` §3 and
+`ASSISTANT_COORDINATION.md`.
+
 The canonical product/roadmap front door for **Risk It To Get The Brisket** is:
 
 **[`docs/MASTER_PRODUCT_PLAN.md`](docs/MASTER_PRODUCT_PLAN.md)**

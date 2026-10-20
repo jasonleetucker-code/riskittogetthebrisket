@@ -108,9 +108,11 @@ class TestPickCompletenessCensus(unittest.TestCase):
     def test_every_valid_ref_through_the_horizon_resolves_finite(self) -> None:
         _earliest, board_future = _board_years(self.contract)
         # The horizon is anchored on the contract's own current draft year
-        # (C1-U6: current + 3), which retiring a class does not advance
-        # (owner decision on #1442).  The earliest class still on the board
-        # is a different quantity once the current class has retired.
+        # and ENDS three seasons after the latest completed rookie draft —
+        # the contract's own ``pickClassLifecycle.horizon`` (owner decision
+        # 2026-10-19; it replaced C1-U6's self-rolling current + 3).  The
+        # earliest class still on the board is a different quantity once the
+        # current class has retired.
         anchor = self.contract.get("currentDraftYear")
         self.assertIsInstance(anchor, int, "the contract no longer stamps currentDraftYear")
         board_years = sorted({_earliest, *board_future})
@@ -131,16 +133,23 @@ class TestPickCompletenessCensus(unittest.TestCase):
         #
         # So: no published future year at all is a SOURCE condition and
         # is reported as such.  One or more, and the horizon requirement
-        # is fully in force — the injection must fill through current+3,
-        # and that IS a claim about our code.
+        # is fully in force — the board must carry exactly the stamped
+        # horizon, and that IS a claim about our code.
         if not future_years:
             self.skipTest(
                 "no future pick years on this board — no template for the horizon "
                 "derivation; this is a source-coverage condition, reported by "
                 "scripts/check_source_health.py, not a code regression"
             )
-        self.assertGreaterEqual(
-            len(future_years), 3, f"horizon must reach current+3 (got {future_years})"
+        horizon_end = ((self.contract.get("pickClassLifecycle") or {}).get("horizon") or {}).get(
+            "endYear"
+        )
+        self.assertIsInstance(horizon_end, int, "the contract no longer stamps its horizon")
+        self.assertIn(horizon_end, (anchor + 2, anchor + 3), "latest completed draft + 3")
+        self.assertEqual(
+            future_years,
+            [y for y in range(anchor + 1, horizon_end + 1) if y not in retired],
+            f"the board must carry exactly the horizon through {horizon_end}",
         )
         failures: list[str] = []
         for year in future_years:

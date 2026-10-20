@@ -115,6 +115,35 @@ def test_side_a_is_the_left_anchor_even_when_it_is_the_second_slot():
     )
     lay = detect_layout(lines, W)
     assert [s.label for s in lay.sides] == ["You get", "You give"]
+    # ...and each side still says WHICH label it carries, so a merge across
+    # screenshots can align by label rather than by this image's geometry.
+    assert [(s.anchor_family, s.anchor_slot) for s in lay.sides] == [
+        ("you give/you get", 1),
+        ("you give/you get", 0),
+    ]
+
+
+def test_anchor_family_and_slot_are_published_only_for_anchored_sides():
+    pair = detect_layout(
+        build_lines(page(("Team 1 gets...", 60, 40), ("Team 2 gets...", 660, 40))), W
+    )
+    assert [(s.anchor_family, s.anchor_slot) for s in pair.sides] == [
+        ("team 1/team 2", 0),
+        ("team 1/team 2", 1),
+    ]
+    positional = detect_layout(
+        build_lines(
+            page(
+                ("Patrick Mahomes", 60, 100),
+                ("2027 1st", 60, 160),
+                ("Bijan Robinson", 700, 100),
+                ("Quay Walker", 700, 160),
+            )
+        ),
+        W,
+    )
+    assert [s.label_source for s in positional.sides] == ["position", "position"]
+    assert [(s.anchor_family, s.anchor_slot) for s in positional.sides] == [(None, None)] * 2
 
 
 def test_narrow_anchor_row_read_as_one_segment_is_split():
@@ -220,7 +249,21 @@ def test_single_anchor_is_a_single_side():
     lay = detect_layout(lines, W)
     assert lay.kind == "single" and len(lay.sides) == 1
     assert lay.sides[0].label == "You get"
+    assert (lay.sides[0].anchor_family, lay.sides[0].anchor_slot) == ("you give/you get", 1)
     assert _texts(lay.sides[0].lines) == ["Bijan Robinson", "2027 1st"]
+
+
+@pytest.mark.parametrize(
+    "raw,label",
+    [
+        (". Team 2 gets", "Team 2 gets"),
+        ("| You get: 7,200", "You get"),
+        ("Team 1 gets...", "Team 1 gets"),
+    ],
+)
+def test_side_label_drops_stray_ocr_punctuation(raw, label):
+    lay = detect_layout(build_lines(page((raw, 60, 40), ("Bijan Robinson", 60, 100))), W)
+    assert [s.label for s in lay.sides] == [label]
 
 
 def test_empty_input():
