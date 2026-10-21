@@ -209,7 +209,7 @@ def test_guard_refuses_free_text_and_odd_keys() -> None:
         hg.assert_aggregate_only({"x": object()})
     # fixed vocabulary and provenance pins are accepted
     hg.assert_aggregate_only(
-        {"level": "fair", "label": "Fair trade", "path": "data/sleeper_last_good.json", "n": 3}
+        {"level": "fair", "label": "Evenly valued", "path": "data/sleeper_last_good.json", "n": 3}
     )
 
 
