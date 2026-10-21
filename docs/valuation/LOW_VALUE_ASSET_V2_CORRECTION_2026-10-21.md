@@ -189,6 +189,8 @@ The memo's "19% of depth, 13% of starter cases" is **10% and 7%** under v2. Calc
 | 2027 1.04 vs 1.12 + two 4th-round picks | −791 unfair → unfair | +22 fair → fair | +241 fair → fair |
 | Boston (WR) vs Bailey (DL) + two DB fillers | −832 unfair → unfair | +43 fair → fair | +81 fair → fair |
 
+The evidence holds 15 real-player cases; four further rows changed and are not shown (Rookie-pick 1: B 279 fair → slight, A 844 slight → unfair; IDP-depth 1: A 1,150 unfair → lopsided; Love vs picks: A 640 slight → unfair), none for the incumbent. "B fixes pick sweeteners" is therefore weaker for Rookie-pick 1 (fair → slight).
+
 Two memo sentences are therefore reworded: the Hurts + four fillers example is "lopsided the other way" (not
 "unfair"), and "B fixes the real filler cases" holds for Hurts, the pick sweeteners and the DB fillers but **not** for
 the Gibbs + four ~1,000 fillers case, where B now lands on "slight" rather than "fair". Gibbs vs six starters reads
@@ -217,7 +219,7 @@ A .317 → .333, B .425 → .433).
 
 War Room (Team Context ON at the 58 cap, 45 samples, 135 sweetened steps): **133 asset-only flips; 85 neutralised, 43
 over-corrected, 5 survive — identical under v1, v2 same board and v2 current.** Median release charge 3,128 against a
-median filler credit 1,982; ratio 1.65. Why the counts coincide was not investigated further; the public-category shadow
+median filler credit 1,982; ratio 1.65. The counts coincide, consistent with the 250 absolute floor deciding fair / not-fair at these base sizes (below a base of about 7,143, 3.5% is under 250, and the sampled starters sit at 2,500-6,500 with a counterpart at 86-97% of them), so the v1 and v2 denominators cannot move the fair crossing there. This is reasoning, not instrumentation; the public-category shadow
 (§4.6), which runs the same engine, does move, so the basis switch is in effect on this path.
 
 Forced-drop counterfactuals (same 133 flips), v1 → v2:
@@ -373,7 +375,7 @@ changes (the `codeSha` field in the run files is the base commit; the switch its
 
 ## Appendix B — fairness-level computation inventory (C1)
 
-Counts (33 rows): production code 12 (0 inconsistent; one is a differently-named concept), current research
+Counts (35 rows): production code 14 (0 inconsistent with the band owner; three are differently-named concepts, see the last rows of C1.1), current research
 accidentally on the legacy denominator 4 (three places in the replay plus the forced-drop diagnostic; all repaired),
 historical research intentionally preserving v1 5, band-independent research 3, tests / fixtures 4 groups,
 documentation / evidence 5 groups. Nothing in production code was edited; no production inconsistency was found.
@@ -395,7 +397,9 @@ documentation / evidence 5 groups. Nothing in production code was edited; no pro
 | `frontend/lib/trade-logic.js:938-2515`, `frontend/lib/va-comparison.js:93`, `frontend/app/trade/page.jsx:1275-1278`, `frontend/components/trade/{TradeMeter,TradeFairnessExplanation}.jsx` | `classifyGap(gap, largerUtility)` / `meterVerdict` with `sideTotalsFairnessBase` / `fairnessBase(packageUtilities(...))` | production, consistent (scanned by `OneDenominatorOwner` in `tests/valuation_math/test_fairness_bands.py`) | none |
 | `frontend/lib/second-opinions.js:371-381` (`OPINION_EVEN_TOLERANCE_PCT` = 1) | Second Opinions "even" = within 1% of the larger ADJUSTED side | production, a DIFFERENT named concept (TC-C decision 4), not a fairness level | none; noted so it is not mistaken for the band |
 
-**No production-code inconsistency found.** Every production path that produces a fairness level takes its base from the owner.
+| `src/public_league/trade_grading.py:54-58` (`_GRADE_PCT_FAIR` = 3.0, SLIGHT 8, GOOD 15, CLEAR 25, ROBBERY 40; `grade_from_pct`, `grade_trade_sides`) and `frontend/lib/league-analysis.js:93-104,449-470,622-655` (`gradeTradeHistorySide`, `pct < 3`, per-side W/L rule at +/-3) | historical trade grade: percentage of the larger EFFECTIVE side, no 250 floor | production, a DIFFERENT named concept (history grade). **OD-F6 is open** (`docs/OWNER_REQUESTED_TODO.md`, `docs/EXECUTION_PLAN.md`, `docs/WORK_CLAIMS.md`); it is not a `fairness_bands` consumer and is deliberately NOT changed here | none; workstream D measures its effect read-only |
+
+**No production-code inconsistency with the band owner found.** Every production path that produces a fairness level takes its base from the owner.
 
 ### C1.2 Research code
 
@@ -411,7 +415,7 @@ documentation / evidence 5 groups. Nothing in production code was edited; no pro
 | `scripts/low_value_asset_forced_drop_diagnostic.py:111,306-324` (was `largerAdjustedSide`) | counterfactual variants classified against the larger ADJUSTED side while the production path used the engine's band | **current research accidentally on the legacy denominator (internally inconsistent since v2)** | fixed: reads `largerPackageUtility`; same switch |
 | `scripts/low_value_asset_box.py` | confirmatory box run; M1-M4 use signed residuals, no band | historical, band-independent | allow-listed (loads the Phase 3 module); no band number to correct |
 | `scripts/low_value_asset_{treatments,idp_anomaly,lineup_utility,value_dynamics}.py` | no fairness band | band-independent | none |
-| `scripts/measure_fairness_band_change.py:85-162` | measures v1 vs v2 on purpose (`_old_classify`, `relativePct` on the larger adjusted side next to `relativePctUtility`) | historical/measurement research, intentionally preserves v1 | none (it is the v1-vs-v2 comparator) |
+| `scripts/measure_fairness_band_change.py:85-162, about 765 (`v1Base`) and about 1104 (`base = max(sendAdjusted, recvAdjusted)`) | measures v1 vs v2 on purpose (`_old_classify`, `relativePct` on the larger adjusted side next to `relativePctUtility`) | historical/measurement research, intentionally preserves v1 | none (it is the v1-vs-v2 comparator) |
 | `scripts/package_model_finder_replay.py:77-214` | takes a `level` callable | harness, no band of its own | none |
 
 ### C1.3 Tests
@@ -420,6 +424,8 @@ documentation / evidence 5 groups. Nothing in production code was edited; no pro
 |---|---|---|
 | `tests/valuation_math/test_fairness_bands.py:326-380` (`OneDenominatorOwner`) | test of production code; scans `src/` and `frontend/` | extended in spirit by the new research guard (it reuses its detector) |
 | `tests/trade/decision_engine/test_terms_and_policy.py:38` | test fixture: `classify(gap, max(sum(send), sum(recv)))` | holds only because every parametrised case is 1-for-1 (utility = raw total); latent, not wrong. Reported, not edited |
+| `tests/trade/test_balancer_uses_adjusted_gap.py:128` | `fairness_bands.is_even(gap, max(give_adj, recv_adj))` while production `src/trade/suggestions.py:1597` uses `larger_package_utility` | latent: agrees on all six `_SHAPES` today (independent review), would diverge on a borderline shape. Reported, not edited |
+| `src/trade/symmetrize.py:203` (`ratio > 0.03`, tier impact) | not a fairness level: a raw-delta share | none; noted so it is not mistaken for the band |
 | `tests/trade/test_team_verdicts.py:164-187`, `test_analyze_multi_team.py:85-97`, `test_multi_team_*` | fixtures asserting the published display field `largerAdjustedSide` | test fixtures of production display fields | none |
 | `tests/scripts/test_package_model_hybrid_research.py`, `test_package_model_phase2_research.py`, `test_low_value_asset_box.py`, `test_research_readonly_guard.py` | load the historical research modules | test fixtures | none |
 

@@ -409,6 +409,11 @@ def legacy_v1_denominator():
     decision engine, the Trade Finder), so a measurement that runs the real
     engine reproduces a v1-era number.  In-process only and always restored;
     nothing is written anywhere.  Never wrap a current-methodology measurement in it.
+
+    Process-global (not thread-safe); correct for single-threaded use and for forked
+    workers that are created inside the block.  A caller that did ``from ...fairness_bands
+    import larger_package_utility`` would not see the rebind: every production caller reads
+    it through the module.
     """
     original = fairness_bands.larger_package_utility
 

@@ -80,9 +80,20 @@ def _references_legacy(path: Path) -> list[str]:
             if node.module in LEGACY_MODULES:
                 hits.append(f"from {node.module} import ...")
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-            stem = node.value[:-3] if node.value.endswith(".py") else node.value
-            if stem in LEGACY_MODULES:
+            # a module name anywhere in a path-like string ("scripts/package_model_x.py") loads it
+            if (
+                len(node.value) < 160
+                and not any(c.isspace() for c in node.value)
+                and any(mod in node.value for mod in LEGACY_MODULES)
+            ):
                 hits.append(f"loads {node.value!r}")
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "level"
+        ):
+            # ``<module>.P1.level(...)`` is the retired v1 helper under its kept alias
+            hits.append(".level(...) call (retired v1 alias)")
         elif isinstance(node, ast.Attribute) and node.attr in LEGACY_NAMES:
             hits.append(f".{node.attr}")
         elif isinstance(node, ast.Name) and node.id in LEGACY_NAMES:
@@ -92,7 +103,11 @@ def _references_legacy(path: Path) -> list[str]:
 
 def _band_offenders(path: Path) -> list[str]:
     """An owner band call whose base is an adjusted side / ``max(...)`` (the same
-    detector that guards ``src/``)."""
+    detector that guards ``src/``).
+
+    Limit: a base routed through a variable (``larger = max(a, b); classify(g, larger)``) is not
+    detected; the same limit applies to the ``src/`` detector this reuses.
+    """
     detector = _load_detector()
     return detector(path.read_text(encoding="utf-8"), path.name)
 

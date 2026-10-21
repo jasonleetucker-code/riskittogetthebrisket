@@ -12,7 +12,8 @@ workstreams.
 > calculator, Trade Finder and "naive disclosure" figures below (§0, §4, §8, §9, §11) and the counterfactual cells in
 > §5.2 were measured on the retired `fairness_bands_v1` denominator. Re-measured under `fairness_bands_v2` on the
 > same board: **no frozen-rule outcome changes and R-C still holds.** This body is the as-recorded text and is not
-> rewritten; the addendum lists which sentences it supersedes.
+> rewritten; the addendum lists which sentences it supersedes. In particular, do not quote the §11 "19% / 13%"
+> naive-rule fire rates (they are about 10% / 7% under v2), and note that F2 is worse than recorded (40-53% against 31-42%).
 
 **Unchanged in production:**
 - `geom_q078_v1` (q = 0.78);
