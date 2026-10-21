@@ -1,0 +1,64 @@
+{
+ "idpRowsReachingFilter_A": 0,
+ "idpRowsReachingFilter_B": 158,
+ "idpDrops_A": 0,
+ "idpDrops_B": 32,
+ "offenseDrops_A": 99,
+ "offenseDrops_B": 99,
+ "idpVotersPerRow_A": {
+  "0": 31,
+  "1": 73,
+  "2": 99,
+  "3": 225
+ },
+ "idpVotersPerRow_B": {
+  "0": 31,
+  "1": 71,
+  "2": 71,
+  "3": 97,
+  "4": 148,
+  "5": 10
+ },
+ "newlyDroppedIdp": {
+  "allNewDrops": 32,
+  "dlfOwnVotesDropped": [
+   {
+    "row": "Jared Verse",
+    "source": "dlfIdp"
+   }
+  ],
+  "otherSourceVotesDropped": 31,
+  "rows": 30,
+  "bySource": {
+   "draftSharksIdp": 18,
+   "fantasyProsIdp": 10,
+   "idpTradeCalc": 3
+  },
+  "byPosition": {
+   "DL": 9,
+   "LB": 20,
+   "DB": 2
+  },
+  "rowsWithTwoDrops": [
+   "Josiah Trotter"
+  ]
+ },
+ "mechanismSummary": {
+  "rows": 30,
+  "floorBound": 21,
+  "n4": 23,
+  "n5plus": 7,
+  "rowsWithNearIdenticalRankDerivedPair": 3,
+  "rowsWithDlfInNearIdenticalPair": 3
+ }
+}
+movers>=30%:
+  {'row': 'Trevin Wallace', 'pos': 'LB', 'A': 1937, 'B': 885, 'rel': -0.5431, 'droppedInB': ['draftSharksIdp']}
+  {'row': 'Myles Garrett', 'pos': 'DL', 'A': 3555, 'B': 5266, 'rel': 0.4813, 'droppedInB': ['draftSharksIdp']}
+  {'row': 'CJ Allen', 'pos': 'LB', 'A': 3987, 'B': 2164, 'rel': -0.4572, 'droppedInB': ['draftSharksIdp']}
+  {'row': 'T.J. Watt', 'pos': 'DL', 'A': 2394, 'B': 3431, 'rel': 0.4332, 'droppedInB': ['draftSharksIdp']}
+  {'row': 'Josiah Trotter', 'pos': 'LB', 'A': 2368, 'B': 3379, 'rel': 0.4269, 'droppedInB': ['fantasyProsIdp', 'draftSharksIdp']}
+  {'row': 'Will Anderson', 'pos': 'DL', 'A': 4354, 'B': 5967, 'rel': 0.3705, 'droppedInB': ['draftSharksIdp']}
+  {'row': 'Aidan Hutchinson', 'pos': 'DL', 'A': 4772, 'B': 6422, 'rel': 0.3458, 'droppedInB': ['draftSharksIdp']}
+  {'row': 'Danielle Hunter', 'pos': 'DL', 'A': 2333, 'B': 3041, 'rel': 0.3035, 'droppedInB': ['draftSharksIdp']}
+offense drop set changed: []

@@ -164,6 +164,11 @@ threshold; shadow counters in production before any display.
 
 ## J. Owner decision packages (all PENDING; nothing here is approved)
 
+> **Answered 2026-10-21 (~12:40 UTC).** The owner decided all five packages: P1 V5-R + dormant merge + box replay
+> (no activation); P2 option A with a wording check; P3 D1-D8 as recommended; P4 shadow counters only; P5 partially
+> (Q2 not approved, census first). Verbatim: `docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md`. The text below is the
+> question as it was put, kept unchanged.
+
 ### Package 1: Forced-drop fix (#1890)
 - **Decision:** (1a) choose the selection mode; (1b) approve the dormant merge; (1c) authorize the read-only
   production-box replay.

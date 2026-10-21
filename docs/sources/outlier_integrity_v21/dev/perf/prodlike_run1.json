@@ -1,0 +1,53 @@
+{
+ "board": "dynasty_export_20260930_130404.zip",
+ "deltaRssMb": 58.1,
+ "incumbent": {
+  "config": "incumbent",
+  "deltaBytes": 5821188,
+  "firstBuildSeconds": 1.5743,
+  "fullBytes": 15622182,
+  "fullGzipBytes": 1320993,
+  "peakRssMb": 88.4,
+  "rows": 1125,
+  "wallSeconds": [
+   0.8308,
+   1.1452,
+   0.9189,
+   0.9225,
+   0.878
+  ],
+  "wallSecondsMedian": 0.9189
+ },
+ "limits": {
+  "rssDeltaMb": 50.0,
+  "sizeRatio": 1.02,
+  "wallRatio": 1.25
+ },
+ "ratioDelta": 1.0011,
+ "ratioFirstBuild": 1.8976,
+ "ratioFull": 1.0107,
+ "ratioGzip": 1.0142,
+ "ratioWall": 1.1039,
+ "repeats": 5,
+ "v21": {
+  "config": "v21",
+  "deltaBytes": 5827392,
+  "firstBuildSeconds": 2.9874,
+  "fullBytes": 15789876,
+  "fullGzipBytes": 1339775,
+  "peakRssMb": 146.5,
+  "rows": 1125,
+  "wallSeconds": [
+   1.0641,
+   1.0144,
+   1.1015,
+   0.99,
+   1.0125
+  ],
+  "wallSecondsMedian": 1.0144
+ },
+ "withinBudget": {
+  "criterion13": false,
+  "criterion14": true
+ }
+}
