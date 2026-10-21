@@ -56,31 +56,68 @@ ALWAYS_ON = frozenset({"dynasty", "dynasty-frontend"})
 
 _UNITS = {"": 1, "B": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}
 _LIMIT_KEYS = ("MemoryHigh", "MemoryMax")
-_LINE = re.compile(r"^\s*(?P<key>MemoryHigh|MemoryMax)\s*=\s*(?P<val>\S+)\s*$")
+# ``\S*``: an EMPTY assignment (``MemoryMax=``) is a systemd reset to the
+# default, which for these two knobs is "no limit".
+_LINE = re.compile(r"^\s*(?P<key>MemoryHigh|MemoryMax)\s*=\s*(?P<val>\S*)\s*$")
+_HOST_BYTES = DEFAULT_HOST_MIB * 1024**2
+
+#: systemd also accepts a share of physical memory: "80%", "800‰", "8000‱".
+_PROPORTION = {"%": 100, "‰": 1000, "‱": 10000}
 
 
-def parse_size(text: str) -> int | None:
-    """systemd size (base 1024) in bytes; None for infinity / unparseable."""
+class _Invalid:
+    """A value systemd would reject; it ignores the assignment."""
+
+
+INVALID = _Invalid()
+
+
+def _parse(text: str, host_bytes: float | None) -> int | None | _Invalid:
     t = text.strip()
-    if t.lower() in {"infinity", "none", ""}:
+    if t == "" or t.lower() in {"infinity", "none"}:
         return None
+    m = re.fullmatch(r"(?P<n>\d+(?:\.\d+)?)(?P<p>[%‰‱])", t)
+    if m:
+        if host_bytes is None:
+            return INVALID  # a share of an unknown host: unknown, never "no limit"
+        return int(host_bytes * float(m["n"]) / _PROPORTION[m["p"]])
     m = re.fullmatch(r"(?P<n>\d+(?:\.\d+)?)(?P<u>[KMGTB]?)", t, re.IGNORECASE)
     if not m:
-        return None
+        return INVALID
     return int(float(m["n"]) * _UNITS[m["u"].upper()])
 
 
-def unit_limits(text: str) -> dict[str, int | None]:
-    """Last ``MemoryHigh=`` / ``MemoryMax=`` in a unit file (systemd: last wins)."""
+def parse_size(text: str, host_bytes: float | None = None) -> int | None:
+    """systemd size in bytes (base 1024; ``N%`` of ``host_bytes``).
+
+    None for infinity / empty, and for anything that cannot be resolved --
+    junk, or a percentage with no host size.  Callers that must tell "no limit"
+    from "unparseable" use ``unit_limits``, which ignores rejected assignments
+    the way systemd does.
+    """
+    value = _parse(text, host_bytes)
+    return None if value is INVALID else value
+
+
+def unit_limits(text: str, host_bytes: float | None = _HOST_BYTES) -> dict[str, int | None]:
+    """Last ``MemoryHigh=`` / ``MemoryMax=`` in a unit file (systemd: last wins).
+
+    An empty assignment resets the knob to "no limit"; a value systemd would
+    reject is ignored and the previous assignment stands.
+    """
     found: dict[str, int | None] = {}
     for line in text.splitlines():
         m = _LINE.match(line)
         if m:
-            found[m["key"]] = parse_size(m["val"])
+            value = _parse(m["val"], host_bytes)
+            if value is not INVALID:
+                found[m["key"]] = value
     return found
 
 
-def read_units(units_dir: Path) -> dict[str, dict[str, int | None]]:
+def read_units(
+    units_dir: Path, host_bytes: float | None = _HOST_BYTES
+) -> dict[str, dict[str, int | None]]:
     if not units_dir.is_dir():
         raise OSError(f"units dir not found: {units_dir}")
     units: dict[str, dict[str, int | None]] = {}
@@ -88,21 +125,26 @@ def read_units(units_dir: Path) -> dict[str, dict[str, int | None]]:
         if path.suffix not in {".service", ".template"}:
             continue
         stem = path.name.removesuffix(".template").removesuffix(".service")
-        limits = unit_limits(path.read_text(encoding="utf-8"))
+        limits = unit_limits(path.read_text(encoding="utf-8"), host_bytes)
         if limits:
             units[stem] = limits
     return units
 
 
 def apply_overrides(
-    units: dict[str, dict[str, int | None]], overrides: list[str]
+    units: dict[str, dict[str, int | None]],
+    overrides: list[str],
+    host_bytes: float | None = _HOST_BYTES,
 ) -> dict[str, dict[str, int | None]]:
     out = {k: dict(v) for k, v in units.items()}
     for item in overrides:
-        m = re.fullmatch(r"(?P<unit>[\w@.-]+)\.(?P<key>MemoryHigh|MemoryMax)=(?P<val>\S+)", item)
+        m = re.fullmatch(r"(?P<unit>[\w@.-]+)\.(?P<key>MemoryHigh|MemoryMax)=(?P<val>\S*)", item)
         if not m:
             raise ValueError(f"bad --set {item!r}; expected UNIT.MemoryMax=3584M")
-        out.setdefault(m["unit"], {})[m["key"]] = parse_size(m["val"])
+        value = _parse(m["val"], host_bytes)
+        if value is INVALID:
+            raise ValueError(f"bad --set {item!r}; unparseable size {m['val']!r}")
+        out.setdefault(m["unit"], {})[m["key"]] = value
     return out
 
 
@@ -183,7 +225,8 @@ def main(argv: list[str] | None = None) -> int:
         for item in args.usage:
             label, _, value = item.partition("=")
             usage[label] = float(value)
-        units = apply_overrides(read_units(args.units_dir), args.overrides)
+        host_bytes = args.host_mib * 1024**2  # percentages resolve against THIS host
+        units = apply_overrides(read_units(args.units_dir, host_bytes), args.overrides, host_bytes)
     except (OSError, ValueError) as exc:
         print(f"memory_ceiling_budget: {exc}", file=sys.stderr)
         return 2

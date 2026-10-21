@@ -26,7 +26,8 @@ log or unit file), **[D]** arithmetic on measured values, **[I]** inference, **[
 3. **The host has room.** 7,941 MiB RAM, no swap. [M] At the moment of the 2026-10-21 wedge the host reported
    4,550 MiB `MemAvailable`. [M] Raising the backend ceiling is survivable on measured usage (section 4.1).
 4. **Recommendation:** run **Option C-without-a-High-boundary** (i.e. C + D together: `MemoryMax=3584M`, **no**
-   `MemoryHigh`) as a **runtime-only canary first** (no file change, no restart), plus the frontend ceilings from B.
+   `MemoryHigh`) as a **runtime-only canary first** (no unit-file change, no restart; its `/run` drop-ins must be
+   cleaned up afterwards, section 5.3), plus the frontend ceilings from B.
    Do **not** keep a "warning" `MemoryHigh`: it does not warn, it throttles (section 4.3). Keep the 3-strike
    watchdog untouched. Defer `MALLOC_ARENA_MAX=2` to its own A/B, defer isolating Chromium (E), and treat
    verification scheduling (F) as a separate, owner-sensitive change.
@@ -47,7 +48,8 @@ Three scripts were added by this PR. None calls a host, a journal, systemctl or 
 | Question | Command | Input |
 |---|---|---|
 | What stopped the backend, and was it throttling? | `python scripts/backend_restart_report.py LOG --high-bytes 2684354560` | The log of the `Production Restart Diagnostics (read-only)` workflow run (`gh run view <id> --log > LOG`), or the stdout of `deploy/diagnostics/prod_restart_diagnostics.sh` |
-| Which commits start a deploy (= a restart)? | `python scripts/deploy_trigger_audit.py --ref origin/main --since 2026-10-19T09:55:00Z --until 2026-10-20T09:55:00Z --runs-json runs.json` | A local clone, plus optionally `gh run list --workflow=deploy.yml --limit 100 --json databaseId,createdAt,updatedAt,conclusion,event,displayTitle,headSha` |
+| Which commits start a deploy? | `python scripts/deploy_trigger_audit.py --ref origin/main --since 2026-10-19T09:55:00Z --until 2026-10-20T09:55:00Z --runs-json runs.json` | A local clone, plus optionally `gh run list --workflow=deploy.yml --limit 100 --json databaseId,createdAt,updatedAt,conclusion,event,displayTitle,headSha` |
+| What caused each RESTART? | the same command plus `--restart-log LOG` | A restart-diagnostics log for the same window. Each clean stop is matched to the successful deploy run that completed 0-30 min after it. Commit time does not work for this: a deploy completes 80-110 min after its commit |
 | Do the declared ceilings fit the host, and does a proposed usage? | `python scripts/memory_ceiling_budget.py --set dynasty.MemoryMax=3584M --set dynasty.MemoryHigh=none --usage backend=3430 --usage other=689` | `deploy/systemd/*.service[.template]` |
 
 Fixtures of the public logs (hostname replaced, secret-masking restored) are in `tests/deploy/fixtures/`;
@@ -67,7 +69,7 @@ Source runs: diagnostics `39241251979` (2026-10-19 window), `39403489430` (2026-
 | Unit | `MemoryHigh` | `MemoryMax` | Notes |
 |---|---|---|---|
 | `dynasty.service` (backend + in-process scrape + Chromium) | 2560M (2,684,354,560 B live) | 3G (3,221,225,472 B live) | `OOMPolicy=stop`, `MemorySwapMax=infinity`, swap total 0; `ManagedOOMMemoryPressure=auto` (no oomd action observed) |
-| `dynasty-frontend.service` | 1536M | 2G | measured use ~94-106 MiB |
+| `dynasty-frontend.service` | 1536M | 2G | measured peaks 93.9 MiB (journal, 2026-10-21), 105.7 MiB (inventory, 2026-09-26), **137.3 MiB** (journal, 2026-10-19 10:04Z, run 39403489430) |
 | `dynasty-ktc-trades` | - | 512M | timer :07/:37 |
 | `dynasty-market-trade-ledger` | 768M | 1G | daily 08:52 UTC |
 | `dynasty-pick-forecast-snapshot` | - | 1536M | weekly Tue/Wed/Thu |
@@ -90,7 +92,7 @@ already oversubscribed; that is a statement about what the limits permit, not ab
 | Watchdog | 1/3, 2/3, *recovered* 08:29:48; 1/3, *recovered* 08:35:02; 1/3, 2/3, 3/3 -> restart 08:42:13 [M] | 1/3, 2/3, 3/3 -> restart 07:53:17 [M] |
 | SIGTERM | ignored; `stop-sigterm` timeout 08:42:43, SIGKILL [M] | ignored; timeout 07:53:48, SIGKILL [M] |
 | Back serving | startup complete 08:43:04 [M] | startup complete 07:54:20 [M] |
-| User-visible outage | ~15 min window containing ~6 min of failed probes (1.6 + 1 + 3 min) | ~4.5 min, one episode |
+| User-visible outage | ~15 min window containing ~6 min of failed probes (1.6 + 1 + 3 min) | ~3 min silent before the watchdog acted (07:50 -> 07:53:18), ~4.5 min until serving again (07:54:20), because the SIGTERM wait (30 s) and the boot (~30 s) follow the silence |
 | systemd memory peak | 2.6G (CPU 16m43s) [M] | 2.5G (CPU 27m) [M] |
 | cgroup counters before restart | **none logged** | see below |
 | Kernel OOM / oomd lines | none [M] | none [M] |
@@ -121,16 +123,30 @@ throttling episodes that sometimes clear [I]; nothing proves the last one would 
 * Peak memory of those 11 processes (systemd, one decimal, GiB): 1.6, 2.2, **2.5**, 2.2, 1.4, **2.5**, 2.2, 2.1,
   2.1, 2.0, 2.1 -> median 2.1, max 2.5. Two of eleven stopped with a peak *at* the 2.5 GiB throttle line.
   **Those peaks are censored by `memory.high`**: a process held at the line reports the line, not its demand. [I]
-* Attribution (exact; `deploy_trigger_audit.py` predicts 11 push deploys and the repository ran 11):
-  * 6 commits changing runtime files,
-  * 1 commit changing only docs/tests (still a full deploy + restart),
+* Attribution of the 11 RESTARTS, each matched to the successful deploy run that completed 3.6-15.9 min after
+  the stop (`deploy_trigger_audit.py --restart-log`; pinned by `test_real_restarts_are_7_runtime_0_docs_only_4_dlf`):
+  * **7 runtime changes** (the first, at 10:04Z, came from `a9f391880`, committed before the window opened),
+  * 0 docs/tests-only,
   * **4 box-side DLF refresh commits** (`chore(dlf): automated refresh`, touching `CSVs/site_raw/*.csv`).
-* Over 60 h (2026-10-19 00:00Z -> 2026-10-21 12:00Z): 29 push deploys predicted, **29 ran** (21 success, 6
-  cancelled, 1 failed, 1 none) plus 11 `workflow_dispatch` deploys (6 success, 4 failed, 1 cancelled). Successful
-  deploys: **27** = 10.8 per day. Data-driven successes: 5 box-refresh pushes + 6 dispatches = **11 of 27 (41%)**.
-  A redeploy of the same SHA still proceeds (`deploy.yml` "Redeploy: Already at this commit; redeploying the same
-  tree"), and `deploy/deploy.sh` `restart_service` is unconditional, so each success restarts the backend. [M]/[I]
-  (dispatch-success restarts are inferred from that code path, not read from the journal).
+
+  The COMMITS in the same window read 6 runtime / 1 docs-only / 4 DLF, and that is a different quantity: the
+  docs-only commit (`f631607ff`) restarted the backend after the window closed. Selecting by commit time is valid
+  for counting push RUNS (11 predicted, 11 created) but not for attributing restarts.
+* Over 60 h (2026-10-19 00:00Z -> 2026-10-21 12:00Z), counted by run creation time, **not** a restart count:
+  29 push deploys predicted, **29 created**, plus 11 `workflow_dispatch` deploys.
+
+  | | success | cancelled (superseded) | still running when listed | failed |
+  |---|---|---|---|---|
+  | push | 21 | 6 | 1 | 1 |
+  | dispatch | 6 | 1 | 0 | 4 |
+
+  "Cancelled" here means superseded: deploys share the `production-deploy` concurrency group, which keeps one
+  pending run, so a newer queued deploy (which ships the same and later commits) displaces an older one. Real
+  failures are **5 of 40**, not 13. Successful deploys: **27** = 10.8 per day. Data-driven successes: 5
+  box-refresh pushes + 6 dispatches = **11 of 27 (41%)**. A redeploy of the same SHA still proceeds (`deploy.yml`
+  "Redeploy: Already at this commit; redeploying the same tree"), and `deploy/deploy.sh` `restart_service` is
+  unconditional, so each success restarts the backend. [M]/[I] (dispatch-success restarts are inferred from that
+  code path, not read from the journal).
 * About 29 backend processes lived in those 60 h (27 deploy restarts + 2 watchdog restarts) and **2 wedged**
   (7%). Of the 13 processes with a known peak (the 11 clean stops and both wedges), 4 reached the 2.5 GiB line and
   2 of those wedged. Small sample. [D]
@@ -143,8 +159,14 @@ throttling episodes that sometimes clear [I]; nothing proves the last one would 
   restarts at every boot, a process that lives < 2 h never runs its scheduled scrape.
 * Chromium: **700-745 MiB, 6 processes**, in every full run (max sample 744 MiB; the one partial capture of
   466 MiB was cut off mid-run). App RSS during a scrape ranged 864-2,097 MiB. Scrape duration ~4-6 min.
-* Fresh process, startup scrape: cgroup 1.2-1.6 GiB. Aged process (~2 h, scheduled scrape): app 1.5-2.1 GiB +
-  Chromium 0.72 GiB -> cgroup 2.0-2.56 GiB.
+* During the startup scrape of a fresh process, in the sampled runs: cgroup 1.2-1.6 GiB. Aged process (~2 h,
+  scheduled scrape): app 1.5-2.1 GiB + Chromium 0.72 GiB -> cgroup 2.0-2.56 GiB.
+* **A fresh process can regrow fast.** The process the watchdog started on 2026-10-21 at 07:53:49Z already had
+  `MemoryPeak` = **2,508,705,792 B (2,392 MiB, 93% of `MemoryHigh`)** when sampled at 08:23:43Z, ~30 min
+  after start (`MemoryCurrent` then 1,626 MiB) [M, run 39568862441]. It started while a V1 browser suite was in
+  progress (07:42:48 -> 08:06:18) and ran its own startup scrape, so 2.4 GiB is reachable within half an hour
+  under verification load. `memory.peak` carries no timestamp, so whether the peak came from the scrape, from V1,
+  or both is **[U]**. Implication for sizing: section 4.1.
 * **One scheduled scrape on an aged process hit the line and survived**: run `0ae18b5a58f7`, 2026-10-19
   13:39-13:44Z, app RSS 2,097 MiB, Chromium 738 MiB, cgroup 2,560 MiB, `ev_high` = 781, memory stall <1%. It
   recovered because Chromium exited when the scrape ended and memory fell back under the line. That is the
@@ -224,10 +246,23 @@ RAM today, +763 MiB if the backend ceiling were raised to 3,584M with the fronte
 frontend change in B belongs in the same package, and why the unbounded timers (unmeasured) are the residual
 risk on the margin.
 
+**Is 3,584M enough? Fast regrowth says: only probably, and not with much room.** Both wedged processes reached
+~2.6 GiB within 17-33 min of boot, and the replacement started at 07:53:49Z on 2026-10-21 reached a 2,392 MiB
+peak within ~30 min (section 3.4). So a heap of ~2.4-2.6 GiB is a *normal* half-hour state under verification
+load, not a tail event. Add one Chromium scrape (~0.72 GiB, the +2 h scheduled scrape, or a startup scrape on a
+process that has not reset its heap) and demand is ~3.1-3.35 GiB: inside 3,584 MiB with **only ~230-480 MiB
+(7-14%) of room** [D/E]. Every one of those peaks was taken while throttled at 2.5 GiB, so the unthrottled
+plateau is unknown; if the heap keeps growing past 30 min, 3,584M will be reached and the process killed.
+That is why Stage 1 is a canary with a kill-count rollback trigger and a 3.4 GiB peak trigger, why 3,584M is
+not presented as a fix, and why the heap profile of the V1 route set (section 7, item 3) is the real follow-up.
+A larger ceiling (4G) still fits measured usage (+84 MiB in the all-ceilings case) but has no evidence base
+either; raise it only if Stage 1 shows peaks clustering above ~3.2 GiB with no kills.
+
 **Measurements that contradict or limit the proposals:**
 
 * *Against B alone:* B leaves `MemoryHigh=2560M` in place, and the measured wedge is exactly that throttle.
-  Frontend limits reduce declared ceilings by 1,024 MiB but release no memory; the frontend uses ~100 MiB.
+  Frontend limits reduce declared ceilings by 1,024 MiB but release no memory; the frontend's highest measured
+  peak is 137.3 MiB.
   `MALLOC_ARENA_MAX=2` has **no measurement in this repository** (nothing sets or tests it).
 * *Against C as worded ("keep a MemoryHigh warning boundary"):* `memory.high` cannot warn; see 4.3.
 * *Against D with `MemoryMax=3G` unchanged:* the 2026-10-19 13:39 scrape reached tree RSS 2,814 MiB while the
@@ -241,7 +276,7 @@ risk on the margin.
 | | Change | Fixes the measured wedge? | Main risk | Verdict |
 |---|---|---|---|---|
 | **A** | keep limits | No (2 wedges in ~3 days) | Recurring 3-15 min outages | Reject as the end state; it is the rollback state |
-| **B** | `MALLOC_ARENA_MAX=2`; frontend 768M/1G only | No: leaves the throttle; the arena effect is unmeasured | Confounds any later measurement if combined with a limit change | Take the **frontend half now** (safe: 7-10x headroom, cuts declared ceilings 1,024 MiB); defer the arena half to its own A/B |
+| **B** | `MALLOC_ARENA_MAX=2`; frontend 768M/1G only | No: leaves the throttle; the arena effect is unmeasured | Confounds any later measurement if combined with a limit change | Take the **frontend half now** (5.6x headroom to `MemoryHigh` and 7.5x to `MemoryMax` over the highest measured peak of 137.3 MiB; cuts declared ceilings 1,024 MiB); defer the arena half to its own A/B |
 | **C** | `MemoryMax=3584M`, keep `MemoryHigh=2560M` "as a warning" | **No**: the throttle still engages at 2,560M | A throttle presented as a warning | Reject as worded |
 | **C'** | `MemoryMax=3584M`, `MemoryHigh` raised near it (e.g. 3328M) | Partly: moves the wedge to 3.25 GiB | A 256 MiB throttle band is a smaller copy of the same trap, and it reproduces the stall for any slow-growth runaway | Reject |
 | **D** | remove `MemoryHigh`, keep `MemoryMax=3G` | Removes the stall; converts it into a kill | Only ~260-460 MiB of room: a scrape on an aged heap can OOM-kill mid-scrape | Not alone |
@@ -288,9 +323,9 @@ Reasons: the throttle is the measured failure mode; the host has 4.5 GiB free at
 in ~30 s, the throttle did not recover in 3-15 min; and the declared-ceiling sum stays under host RAM
 (7,680 vs 7,941 MiB).
 
-Confidence: **high** that the throttle must go; **medium** on 3,584M as the right number (it is 154 MiB above the
-3,430 estimate, which is a sum of non-co-occurring maxima); **low** on whether this reduces the underlying
-growth (it does not).
+Confidence: **high** that the throttle must go; **medium-low** on 3,584M as the right number (it is 154 MiB above
+the 3,430 estimate, which is a sum of non-co-occurring maxima, and only ~230-480 MiB above a fast-regrown heap
+plus one Chromium scrape; section 4.1); **low** on whether this reduces the underlying growth (it does not).
 
 ### 5.2 Stages
 
@@ -304,7 +339,8 @@ gaps in 3.7, an operator with approval dispatches the existing **read-only** wor
 2,944 MiB, report-only, same transition-only pattern as `fd_watch`. This restores the "near the old boundary"
 signal that removing `MemoryHigh` takes away.
 
-**Stage 1 — runtime canary (operator, no file change, no restart, reverts at reboot).**
+**Stage 1 — runtime canary (operator; no unit-file change, no restart; writes runtime drop-ins under `/run` that
+last until clean-up or reboot).**
 
 ```
 sudo systemctl set-property --runtime dynasty.service MemoryMax=3584M MemoryHigh=infinity
@@ -313,15 +349,28 @@ cat /sys/fs/cgroup/system.slice/dynasty.service/memory.max /sys/fs/cgroup/system
 ```
 
 `systemctl` is within the deploy user's NOPASSWD scope per `deploy/reconcile-runtime-controls.sh`; whether the
-exact `set-property` invocation is permitted is **[U]** (sudoers is not in the repo). A runtime property drop-in
-survives `daemon-reload` and a deploy's unit rewrite until reboot, and the next restart applies it at cgroup
-creation. Apply the frontend ceilings the same way
-(`... set-property --runtime dynasty-frontend.service MemoryHigh=768M MemoryMax=1G`).
+exact `set-property` invocation is permitted is **[U]** (sudoers is not in the repo). Apply the frontend ceilings
+the same way (`... set-property --runtime dynasty-frontend.service MemoryHigh=768M MemoryMax=1G`).
+
+**What `--runtime` leaves behind, and why it matters.** `set-property --runtime` applies the values to the live
+cgroup *and* writes drop-ins under `/run/systemd/system.control/<unit>.d/` (for these properties
+`50-MemoryMax.conf` and `50-MemoryHigh.conf`). Those drop-ins override the unit file **until reboot**: they
+survive `daemon-reload`, a deploy's unit rewrite and service restarts. So:
+
+* setting the old values back restores the *values* but leaves the *state*: the unit is still governed by
+  runtime drop-ins rather than by its file;
+* while they exist, **any later change to the unit file is silently masked**: a Stage 2 deploy (same values,
+  harmless) or, worse, a Stage 2 rollback to 3G would not take effect until reboot.
+
+The canary therefore ends with an explicit clean-up (section 5.3), whether it succeeds or not.
 
 Soak: **7 days and at least 20 backend restarts**, including at least two deploys followed by V1 suites.
 
 Success criteria (all from existing logs):
-* zero `watchdog_restart` stops; `backend_restart_report.py` shows only `clean_stop` over the soak;
+* zero `watchdog_restart` stops; `backend_restart_report.py` shows only `clean_stop` over the soak, i.e.
+  `oom_kills`, `crashes`, `auto_restarts_without_cause` and `systemd_initiated` all 0 (the report counts
+  systemd-initiated stops that have no `Stopping` line; pass `--unit dynasty.service` if the window holds no
+  `Started` line);
 * every process peak < 3.2 GiB (`Consumed ... memory peak` in the journal; the first uncensored distribution);
 * host memory stall (`h_some_avg10`) < 10% outside scrape windows; no kernel/oomd OOM line in
   `--filter kernel`;
@@ -333,8 +382,10 @@ scrape; any other unit OOM-killed; an unexplained half-written data file.
 
 **Stage 2 — persist.** After a clean soak, open one reviewed PR applying
 `docs/ops/patches/backend-memory-policy-stage2.PROPOSED.patch` (backend `MemoryMax=3584M` with `MemoryHigh`
-removed; frontend 768M/1G; comments record the measurement). It goes through the normal deploy; the deploy
-restarts the backend, so the runtime override becomes redundant.
+removed; frontend 768M/1G; comments record the measurement). **Clear the Stage 1 runtime drop-ins first**
+(section 5.3, steps 2-4) so the unit file, not `/run`, governs the unit after the deploy; then deploy normally.
+Verify afterwards that `systemctl show dynasty.service -p DropInPaths` lists nothing under
+`/run/systemd/system.control/`.
 
 **Stage 3 — `MALLOC_ARENA_MAX=2`, separate A/B (never with a limit change).**
 `docs/ops/patches/backend-malloc-arena-stage3.PROPOSED.patch`. Protocol on a non-production Linux machine with the
@@ -346,10 +397,40 @@ from threads, so the gain is plausible but **entirely unmeasured here**.
 
 ### 5.3 Rollback
 
+**Stage 1 clean restore** (values first, then state; no service restart). Run for `dynasty.service` and, if the
+frontend canary was applied, the same for `dynasty-frontend.service` with `MemoryHigh=1536M MemoryMax=2G`:
+
+```
+# 1. restore the values on the live cgroup immediately
+sudo systemctl set-property --runtime dynasty.service MemoryMax=3G MemoryHigh=2560M
+# 2. see every drop-in that currently shapes the unit
+systemctl show dynasty.service -p DropInPaths
+ls -l /run/systemd/system.control/dynasty.service.d/
+# 3. remove ONLY the runtime control drop-ins the canary created (needs root: rm is
+#    not in the deploy user's NOPASSWD set, which is systemctl/journalctl/install/chown)
+sudo rm -f /run/systemd/system.control/dynasty.service.d/50-MemoryMax.conf \
+           /run/systemd/system.control/dynasty.service.d/50-MemoryHigh.conf
+# 4. reload and verify the unit file governs again
+sudo systemctl daemon-reload
+systemctl show dynasty.service -p DropInPaths -p MemoryMax -p MemoryHigh   # no system.control path; 3221225472 / 2684354560
+cat /sys/fs/cgroup/system.slice/dynasty.service/memory.max /sys/fs/cgroup/system.slice/dynasty.service/memory.high
+```
+
+Step 1 makes the live values correct without relying on how `daemon-reload` re-applies cgroup attributes; steps
+3-4 remove the state. A reboot also clears `/run`.
+
+**On `systemctl revert dynasty.service`.** It removes the unit's drop-ins (runtime control drop-ins included) and
+keeps the unit file itself, because `dynasty.service` has no vendor copy under `/usr`. The repository installs
+**no** drop-in for `dynasty.service` (no `dynasty.service.d` anywhere in `deploy/`), so on a host built only from
+the repo, `revert` equals steps 3-4, and it works within the deploy user's systemctl scope. It is **unverified**
+whether hand-made drop-ins exist on the box: operator docs suggest `systemctl edit` drop-ins for other units, and
+`revert` would delete any for this one without confirmation. So use `revert` only after step 2 shows that the
+only drop-ins are the two `system.control/50-Memory*.conf` files; otherwise use the targeted `rm`.
+
 | Stage | Rollback | Time |
 |---|---|---|
-| 1 | `sudo systemctl set-property --runtime dynasty.service MemoryMax=3G MemoryHigh=2560M` (restores the file values live); `... dynasty-frontend.service MemoryHigh=1536M MemoryMax=2G`. A reboot also clears runtime properties. Avoid `systemctl revert`: it deletes every drop-in, including any persistent one. | seconds, no restart |
-| 2 | Revert the PR and let the normal deploy reconcile the unit (`deploy/reconcile-runtime-controls.sh` runs on deploy and on `deploy/rollback.sh`). | one deploy |
+| 1 | The clean restore above (values in seconds, state with root). Values alone (step 1) are an acceptable emergency stop, but leave the runtime drop-ins in force until clean-up or reboot. | seconds; no restart |
+| 2 | Revert the PR and let the normal deploy reconcile the unit (`deploy/reconcile-runtime-controls.sh` runs on deploy and on `deploy/rollback.sh`). First confirm no `/run/systemd/system.control/dynasty.service.d/` drop-in is left from Stage 1: it would mask the reverted unit file until reboot. | one deploy |
 | 3 | Revert the patch; the next restart drops the variable. | one deploy |
 
 Do not edit the unit file by hand on the host: the deploy reconciler overwrites it from the template.
@@ -378,8 +459,10 @@ unmeasured; peaks will read higher once uncensored; two wedges in ~29 processes 
 5. **Every deploy restarts the backend and every boot starts a scrape (Chromium) after 3 s**, with no freshness
    check. A restart also resets the 2 h scheduled-scrape timer. [M]
 6. **Data transport is the deploy**: DLF CSVs reach the live tree only through a deploy (the box timer works in a
-   separate clone), and deploys are a fragile carrier: 5 of 11 dispatches and 8 of 29 push deploys in 60 h did not
-   succeed. Freshness for those data therefore already depends on the next successful deploy.
+   separate clone). Of the 40 deploy runs created in 60 h, 7 were cancelled because a newer queued deploy
+   superseded them (that newer deploy carries the same data, so these cost latency, not data), 1 was still running
+   when listed, and **5 actually failed** (1 push, 4 dispatches). A failed deploy leaves the data waiting for the
+   next successful one, so freshness for those data depends on the deploy pipeline staying green. [M]
 
 Peak-hour overlap: the box timers (`:27`, `:32`, ktc `:07/:37`) and the scheduled scrape do not by themselves
 approach the limit; the observed pressure came from a freshly restarted process under the V1 suite.
@@ -411,10 +494,12 @@ never whether one runs.
 
 **Before / after on commits (offline, exact):**
 `python scripts/deploy_trigger_audit.py --ref origin/main --since T0 --until T1 --runs-json runs.json`.
-Baseline (this PR): predicted push deploys equal actual push runs, 29/29 over 60 h and 11/11 over the verified
-24 h. Acceptance after D-1/D-3: `box_data_refresh` and `non_runtime_only` push deploys drop to 0 while
-`scripts/deploy_trigger_audit.py` still reports the same number of refresh commits; restarts per day fall from
-~10.8 toward the runtime-change count (~7).
+Baseline (this PR): predicted push deploys equal push runs created, 29/29 over 60 h and 11/11 over the verified
+24 h (both selected by commit / creation time). For RESTARTS add `--restart-log LOG` (a restart-diagnostics log
+of the same window): the 24 h baseline is 11 restarts = 7 runtime + 4 DLF. Acceptance after D-1/D-3:
+`box_data_refresh` and `non_runtime_only` causes drop to 0 in the restart attribution while the audit still
+reports the same number of refresh commits; restarts per day fall from ~10.8 toward the runtime-change count
+(~7 in the baseline day).
 
 **On the host (read-only, existing workflow):** dispatch `Production Restart Diagnostics (read-only)` for a 24 h
 window and run `backend_restart_report.py` on the log: `clean_stops` per day, `clean_stop_peak_bytes_*`, and
@@ -444,7 +529,8 @@ D-1 ships.
 5. Whether Chromium was present at 2026-10-21 07:50 (telemetry not retrieved).
 6. Provenance of 3,430 MiB; reconstructed, not found.
 7. Atomicity of scraper writes under SIGKILL/OOM-kill.
-8. Whether `systemctl set-property --runtime` is permitted for the deploy user.
+8. Whether `systemctl set-property --runtime` is permitted for the deploy user, and whether any hand-made drop-in
+   for `dynasty.service` exists on the box (decides whether `systemctl revert` is safe; section 5.3).
 9. Box memory during deploys; memory of the unbounded timers.
 10. Which field exposes per-source data freshness for the section 6.2 lag measurement.
 11. `MALLOC_ARENA_MAX=2` effect: unmeasured.

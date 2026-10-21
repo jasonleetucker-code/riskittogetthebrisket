@@ -54,6 +54,42 @@ def test_last_directive_wins_and_comments_are_ignored():
     assert mcb.unit_limits(text) == {"MemoryHigh": 1024**3, "MemoryMax": 3 * 1024**3}
 
 
+def test_percentages_resolve_against_the_host_and_are_unknown_without_one():
+    host = 8000 * MIB
+    assert mcb.parse_size("80%", host_bytes=host) == 6400 * MIB
+    assert mcb.parse_size("12.5%", host_bytes=host) == 1000 * MIB
+    assert mcb.parse_size("500‰", host_bytes=host) == 4000 * MIB
+    assert mcb.parse_size("50%") is None  # no host size: cannot resolve
+    assert mcb.unit_limits("MemoryMax=50%\n", host_bytes=host) == {"MemoryMax": 4000 * MIB}
+
+
+def test_a_percentage_without_a_host_does_not_become_no_limit():
+    # the earlier, resolvable assignment stands rather than reading as "unlimited"
+    assert mcb.unit_limits("MemoryMax=2G\nMemoryMax=50%\n", host_bytes=None) == {
+        "MemoryMax": 2 * 1024**3
+    }
+
+
+def test_an_empty_assignment_resets_the_limit():
+    assert mcb.unit_limits("MemoryHigh=1G\nMemoryMax=2G\nMemoryMax=\n") == {
+        "MemoryHigh": 1024**3,
+        "MemoryMax": None,
+    }
+
+
+def test_a_rejected_value_is_ignored_like_systemd_ignores_it():
+    assert mcb.unit_limits("MemoryMax=2G\nMemoryMax=lots\n") == {"MemoryMax": 2 * 1024**3}
+
+
+def test_cli_percentage_override_uses_the_given_host(capsys):
+    assert (
+        mcb.main(["--host-mib", "8000", "--set", "dynasty.MemoryMax=45%", "--format", "json"]) == 0
+    )
+    rows = json.loads(capsys.readouterr().out)["units"]
+    assert next(r for r in rows if r["unit"] == "dynasty")["memory_max_mib"] == 3600.0
+    assert mcb.main(["--set", "dynasty.MemoryMax=lots"]) == 2
+
+
 def test_infinity_clears_a_limit_rather_than_becoming_zero():
     assert mcb.unit_limits("MemoryMax=infinity\n") == {"MemoryMax": None}
 

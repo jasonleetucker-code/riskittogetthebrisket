@@ -32,9 +32,21 @@ workflow text).  Those deploys are ``workflow_dispatch`` events and are not in
 ``git log``; pass ``--runs-json`` (``gh run list --workflow=deploy.yml --json
 createdAt,conclusion,event,displayTitle,headSha``) to count them.
 
+COMMITS IN A WINDOW ARE NOT RESTARTS IN THAT WINDOW
+---------------------------------------------------
+The commit table selects by COMMIT time; a deploy completes 80-110 min later,
+so the restarts inside a window come partly from commits before it, and the
+last commits in it restart the backend after it closes.  To count RESTARTS by
+cause, pass ``--restart-log`` (a restart-diagnostics log): each clean backend
+stop is matched to the successful deploy run that completed 0-30 min after it
+(``attribute_restarts``).  On 2026-10-19 09:55Z -> 2026-10-20 09:55Z the commit
+table says 6 runtime / 1 docs-only / 4 DLF, while the 11 restarts were
+7 runtime / 0 docs-only / 4 DLF.
+
 Usage:
     python scripts/deploy_trigger_audit.py --since 2026-10-19T09:55Z --until 2026-10-20T09:55Z
-           [--repo .] [--ref origin/main] [--runs-json runs.json] [--format json|text]
+           [--repo .] [--ref origin/main] [--runs-json runs.json]
+           [--restart-log diagnostics.log] [--format json|text]
 Exit codes: 0 report printed; 2 git/workflow unreadable.
 """
 
@@ -42,7 +54,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import re
@@ -63,17 +75,29 @@ DISPATCH_SUBJECT = re.compile(r"automated data refresh|freshness stamps")
 #: (``deploy/dlf_fetch_and_push.sh``, ``deploy/idpshow_fetch_and_push.sh``).
 BOX_REFRESH_SUBJECT = re.compile(r"^chore\((?:dlf|idpshow)\): automated refresh")
 
-#: Hill Autopilot's per-refit evidence commit (``config/model_registry/**``):
-#: not under ``paths-ignore``, so each one starts a deploy of unchanged code.
+#: Hill Autopilot's per-refit evidence commit (``config/model_registry/**``).
+#: It passes the path filter, but Hill Autopilot pushes it as
+#: ``github-actions[bot]`` (see TOKEN_PUSH_AUTHORS), so it starts NO push run.
 HILL_EVIDENCE_SUBJECT = re.compile(r"^chore\(calibration\): record Hill")
 
 #: A commit pushed with the workflow ``GITHUB_TOKEN`` does not start another
 #: workflow (GitHub: "events triggered by the GITHUB_TOKEN ... will not create a
 #: new workflow run").  scheduled-refresh and Hill Autopilot push as this
 #: author, which is why scheduled-refresh has to ``gh workflow run deploy.yml``
-#: explicitly.  Validated on 2026-10-19 09:55Z -> 2026-10-20 09:55Z: this rule
-#: predicts 11 push deploys and the repository ran exactly 11.
+#: explicitly.  Validated on PUSH RUNS, selected by commit / run-creation time:
+#: for commits in 2026-10-19 09:55Z -> 2026-10-20 09:55Z this rule predicts 11
+#: push deploys and 11 push runs were created; over 2026-10-19 00:00Z ->
+#: 2026-10-21 12:00Z, 29 and 29.  That is NOT a count of the restarts in the
+#: same window: a deploy completes 80-110 min after its commit, so restarts
+#: are attributed separately, by run completion (``attribute_restarts``).
 TOKEN_PUSH_AUTHORS = frozenset({"github-actions[bot]"})
+
+#: A deploy restarts the backend a few minutes BEFORE its run completes (the
+#: post-deploy smoke and live checks run after the restart).  Measured on
+#: 2026-10-19..20: the clean stop precedes its run's completion by 4-16 min.
+#: A stop is attributed to the earliest successful deploy run that completes
+#: within this many minutes after it.
+RESTART_TO_RUN_END_MAX_MINUTES = 30
 
 _RS, _US = "\x1e", "\x1f"
 
@@ -214,6 +238,16 @@ def _parse(stamp: str) -> datetime:
     return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
+def _shift(stamp: str | None, hours: float) -> str | None:
+    """An ISO ``--since`` moved by ``hours``; other git date forms pass through."""
+    if not stamp:
+        return None
+    try:
+        return (_parse(stamp) + timedelta(hours=hours)).isoformat()
+    except ValueError:
+        return stamp
+
+
 def tally_runs(
     path: Path, since: str | None, until: str | None, commits: list[dict] | None = None
 ) -> dict:
@@ -245,6 +279,76 @@ def tally_runs(
     }
 
 
+def attribute_restarts(
+    stops: list[dict],
+    runs: list[dict],
+    kind_of: dict[str, str],
+    max_lag_minutes: float = RESTART_TO_RUN_END_MAX_MINUTES,
+) -> dict:
+    """Attribute each backend stop to the deploy run that caused it.
+
+    ``stops``: ``{"ts": ISO, "kind": "clean_stop" | "watchdog_restart" | ...}``
+    (``scripts/backend_restart_report.py``).  Only a ``clean_stop`` can be a
+    deploy; every other kind is its own cause.  A clean stop is matched to the
+    earliest SUCCESSFUL run (``gh run list --json``) completing in
+    ``[stop, stop + max_lag_minutes]``, each run used once.  A push run's cause
+    is the kind of its head commit (``kind_of``, keyed by 9-char SHA); a
+    ``workflow_dispatch`` run is ``dispatch_deploy`` (scheduled-refresh).
+    Unmatched clean stops are ``unattributed`` -- never guessed.
+    """
+    successes = sorted(
+        (r for r in runs if r.get("conclusion") == "success" and r.get("updatedAt")),
+        key=lambda r: _parse(r["updatedAt"]),
+    )
+    used: set[int] = set()
+    rows, causes = [], Counter()
+    for stop in sorted(stops, key=lambda s: _parse(s["ts"])):
+        when = _parse(stop["ts"])
+        row = {
+            "stop": when.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "stop_kind": stop["kind"],
+        }
+        if stop["kind"] != "clean_stop":
+            row["cause"] = stop["kind"]
+        else:
+            match = None
+            for i, r in enumerate(successes):
+                lag = (_parse(r["updatedAt"]) - when).total_seconds() / 60
+                if i not in used and 0 <= lag <= max_lag_minutes:
+                    match = i
+                    break
+            if match is None:
+                row["cause"] = "unattributed"
+            else:
+                used.add(match)
+                r = successes[match]
+                sha = str(r.get("headSha") or "")[:9]
+                row.update(
+                    run_completed=r["updatedAt"],
+                    run_event=r.get("event"),
+                    head=sha,
+                    minutes_before_run_end=round(
+                        (_parse(r["updatedAt"]) - when).total_seconds() / 60, 1
+                    ),
+                    cause=(
+                        "dispatch_deploy"
+                        if r.get("event") == "workflow_dispatch"
+                        else kind_of.get(sha, "unknown_commit")
+                    ),
+                )
+        causes[row["cause"]] += 1
+        rows.append(row)
+    return {"by_cause": dict(sorted(causes.items())), "stops": rows}
+
+
+def commit_kinds(repo: Path, ref: str, since: str | None, until: str | None) -> dict[str, str]:
+    """9-char SHA -> kind for every first-parent commit in a window."""
+    return {
+        c["sha"][:9]: classify_commit(c["subject"], c["files"])
+        for c in _git_log(repo, ref, since, until)
+    }
+
+
 def render_text(report: dict) -> str:
     lines = ["deploy trigger audit (offline; read-only)", ""]
     lines.append(f"  paths-ignore: {report['paths_ignore']}")
@@ -259,6 +363,12 @@ def render_text(report: dict) -> str:
         lines.append(
             f"  push runs by commit kind:conclusion: {report['deploy_runs']['push_runs_by_commit_kind']}"
         )
+    if "restart_attribution" in report:
+        ra = report["restart_attribution"]
+        lines.append(f"  RESTARTS by cause (matched to deploy run completion): {ra['by_cause']}")
+        for s in ra["stops"]:
+            via = f" <- {s.get('run_event')} {s.get('head')} (run ended {s.get('minutes_before_run_end')} min later)"
+            lines.append(f"    {s['stop']}  {s['cause']:<19}{via if 'head' in s else ''}")
     lines.append("")
     for row in report["commits"]:
         if row["starts_push_deploy"]:
@@ -280,14 +390,34 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--since")
     ap.add_argument("--until")
     ap.add_argument("--runs-json", type=Path)
+    ap.add_argument(
+        "--restart-log",
+        type=Path,
+        help="restart-diagnostics log; attributes each backend stop to its deploy run (needs --runs-json)",
+    )
     ap.add_argument("--format", choices=("json", "text"), default="text")
     args = ap.parse_args(argv)
+    if args.restart_log and not args.runs_json:
+        print("deploy_trigger_audit: --restart-log needs --runs-json", file=sys.stderr)
+        return 2
     try:
         report = audit(args.repo, args.ref, args.since, args.until)
         if args.runs_json:
             report["deploy_runs"] = tally_runs(
                 args.runs_json, args.since, args.until, report["commits"]
             )
+        if args.restart_log:
+            if str(REPO_ROOT) not in sys.path:
+                sys.path.insert(0, str(REPO_ROOT))
+            from scripts import backend_restart_report as brr
+
+            parsed = brr.parse_log(args.restart_log.read_text(encoding="utf-8", errors="replace"))
+            stops = [{"ts": s.ts, "kind": s.kind} for s in parsed["stops"]]
+            # The commit behind a restart can predate the window by the deploy
+            # lag (80-110 min), so classify commits from a day earlier.
+            kinds = commit_kinds(args.repo, args.ref, _shift(args.since, -24), args.until)
+            runs = json.loads(args.runs_json.read_text(encoding="utf-8"))
+            report["restart_attribution"] = attribute_restarts(stops, runs, kinds)
     except (OSError, RuntimeError, ValueError, yaml.YAMLError) as exc:
         print(f"deploy_trigger_audit: {exc}", file=sys.stderr)
         return 2

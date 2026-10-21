@@ -1,5 +1,5 @@
 diff --git a/deploy/systemd/dynasty-frontend.service.template b/deploy/systemd/dynasty-frontend.service.template
-index d380e8972..d0da112cd 100644
+index d380e8972..d22ea8182 100644
 --- a/deploy/systemd/dynasty-frontend.service.template
 +++ b/deploy/systemd/dynasty-frontend.service.template
 @@ -29,9 +29,13 @@ EnvironmentFile=-__APP_DIR__/.env
@@ -9,9 +9,9 @@ index d380e8972..d0da112cd 100644
 -# backend; 2 GB hard cap assumes a >=4 GB box (docs/PROD-HARDENING.md).
 -MemoryHigh=1536M
 -MemoryMax=2G
-+# backend.  MEASURED peaks: 105.7 MiB (2026-09-26 inventory) and 93.9 MiB
-+# (journal, 2026-10-21), so 768M/1G leaves ~7-10x headroom while no longer
-+# adding 2 GiB to the sum of declared ceilings on a 7.9 GiB host.
++# backend.  MEASURED peaks: 93.9-137.3 MiB (journal 2026-10-19 / 2026-10-21,
++# inventory 2026-09-26), so 768M/1G is 5.6x / 7.5x the highest while no
++# longer adding 2 GiB to the sum of declared ceilings on a 7.9 GiB host.
 +# MemoryHigh throttles (it does not warn); at ~100 MiB of use it is
 +# never reached.
 +MemoryHigh=768M
@@ -20,10 +20,10 @@ index d380e8972..d0da112cd 100644
  PrivateTmp=true
  
 diff --git a/deploy/systemd/dynasty.service.template b/deploy/systemd/dynasty.service.template
-index 1633670e5..2481abd9f 100644
+index 1633670e5..d20d6fab0 100644
 --- a/deploy/systemd/dynasty.service.template
 +++ b/deploy/systemd/dynasty.service.template
-@@ -29,14 +29,23 @@ Environment=PYTHONUNBUFFERED=1
+@@ -29,14 +29,25 @@ Environment=PYTHONUNBUFFERED=1
  EnvironmentFile=-__APP_DIR__/.env
  
  # ── Resource sanity ─────────────────────────────────────────────────
@@ -46,8 +46,10 @@ index 1633670e5..2481abd9f 100644
 +# evicts every file page (the interpreter's own) and sleeps the
 +# allocating threads instead of freeing anything.  2026-10-21 07:50Z:
 +# memory.events high rose 63,734 -> 127,174 in two minutes while
-+# max=0 and oom_kill=0, the service answered nothing for ~3 minutes, and
-+# the watchdog restarted it.  MemoryMax is a hard line: past it the
++# max=0 and oom_kill=0; the service answered nothing for ~3 minutes until
++# the watchdog restarted it, ~4.5 minutes until it served again.  A
++# replacement process then regrew to 2.39 GiB within ~30 minutes, so
++# 3584M is a canary value, not a proven fit.  MemoryMax is a hard line: past it the
 +# kernel kills the process in seconds and Restart=always brings it back
 +# (a ~30 s outage instead of a multi-minute stall).
 +# Full record and rollback: docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md.

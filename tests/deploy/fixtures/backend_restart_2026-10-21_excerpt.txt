@@ -1,6 +1,6 @@
 # Excerpt of the public "Production Restart Diagnostics (read-only)" workflow log.
-# Hostname -> "host"; GitHub secret-masking restored (the masked tokens were the
-# SSH port "22" and the unit name). Only allowlisted lifecycle/watchdog lines.
+# Hostname -> "host"; GitHub secret-masking restored.
+# Only allowlisted lifecycle/watchdog lines.
 ===== dynasty.service lifecycle (systemd + uvicorn banners only) =====
 2026-10-21T07:17:35.447924+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
 2026-10-21T07:17:35.507366+00:00 host python[261333]: INFO:     Shutting down

@@ -33,6 +33,11 @@ THE RULE (``classify_snapshots``)
   counter cannot be shown rising.
 * ``at_memory_high_throttle_unproven`` -- at ``memory.high`` but the throttle
   counter is zero or unreadable.
+* ``memory_high_not_configured`` / ``near_memory_max_no_high`` -- the cgroup
+  reads ``memory.high = max`` (MemoryHigh removed): no throttle verdict is
+  possible; the second form means ``memory.current`` was >= 95% of
+  ``memory.max``.  ``--high-bytes`` never overrides a ``max`` reading; it only
+  fills in an unreadable one.
 * ``below_memory_high``         -- counters were readable and the cgroup was
   NOT near ``memory.high``; look elsewhere.
 * ``no_cgroup_counters``        -- no snapshot at all (any restart before the
@@ -72,7 +77,23 @@ _LINE = re.compile(
     r"(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?[+-]\d{2}:?\d{2}) (?P<host>\S+) (?P<msg>.*)$"
 )
 _STOPPING = re.compile(r"Stopping (?P<unit>\S+\.service) - (?P<desc>.*?)\.\.\.$")
+_STARTED = re.compile(r"Started (?P<unit>\S+\.service) - (?P<desc>.*?)\.?$")
 _SIGTERM_TIMEOUT = re.compile(r"(?P<unit>\S+\.service): State 'stop-sigterm' timed out")
+# systemd-initiated stops: nothing asked for these, so there is no "Stopping".
+_MAIN_EXITED = re.compile(
+    r"(?P<unit>\S+\.service): Main process exited, code=(?P<code>\w+), status=(?P<status>\S+)"
+)
+_FAILED_RESULT = re.compile(r"(?P<unit>\S+\.service): Failed with result '(?P<result>[a-z-]+)'")
+_OOM_UNIT = re.compile(
+    r"(?P<unit>\S+\.service): A process of this unit has been killed by the OOM killer"
+)
+_SCHEDULED_RESTART = re.compile(r"(?P<unit>\S+\.service): Scheduled restart job")
+_KERNEL_OOM = re.compile(
+    r"kernel: .*(?:Memory cgroup out of memory|oom-kill:|Out of memory:)|systemd-oomd\[\d+\]: Killed"
+)
+
+#: Results systemd reports for a process that died on its own.
+_CRASH_RESULTS = frozenset({"signal", "exit-code", "core-dump", "watchdog"})
 _CONSUMED = re.compile(
     r"(?P<unit>\S+\.service): Consumed (?P<cpu>.+?) CPU time,\s*(?P<peak>[\d.]+[KMGT]?) memory peak"
 )
@@ -132,6 +153,10 @@ class Snapshot:
     mem_stall_full_avg10: float | None = None
     host_mem_available_kb: float | None = None
     host_mem_stall_some_avg10: float | None = None
+    #: the watchdog logs the literal "max" for an unlimited knob -- after
+    #: MemoryHigh is removed, memory.high reads "max".  Distinct from "na".
+    high_unlimited: bool = False
+    max_unlimited: bool = False
 
 
 @dataclass
@@ -139,6 +164,14 @@ class StopRecord:
     ts: str
     unit: str
     description: str
+    #: True when something asked for the stop ("Stopping ..." from a deploy, an
+    #: operator or the watchdog); False when systemd observed the process die.
+    requested: bool = True
+    result: str | None = None
+    exit_code: str | None = None
+    exit_status: str | None = None
+    oom_killed: bool = False
+    auto_restart: bool = False
     sigterm_timed_out: bool = False
     cpu: str | None = None
     peak_text: str | None = None
@@ -151,10 +184,13 @@ class StopRecord:
 
 
 def _fill(snap: Snapshot, kind: str, rest: str) -> None:
-    kv = {m["k"]: _num(m["v"]) for m in _KV.finditer(rest)}
+    raw = {m["k"]: m["v"] for m in _KV.finditer(rest)}
+    kv = {k: _num(v) for k, v in raw.items()}
     if kind == "mem":
         snap.cur, snap.peak = kv.get("cur"), kv.get("peak")
         snap.high, snap.max = kv.get("high"), kv.get("max")
+        snap.high_unlimited = raw.get("high") == "max"
+        snap.max_unlimited = raw.get("max") == "max"
         snap.ev_high, snap.ev_max = kv.get("ev_high"), kv.get("ev_max")
         snap.ev_oom, snap.ev_oom_kill = kv.get("ev_oom"), kv.get("ev_oom_kill")
     elif kind == "stat":
@@ -173,7 +209,13 @@ def classify_snapshots(snaps: list[Snapshot], high_bytes: float | None = None) -
     if not snaps:
         return {**base, "verdict": "no_cgroup_counters"}
     first, last = snaps[0], snaps[-1]
-    high = last.high if last.high is not None else high_bytes
+    # The cgroup's own reading wins.  ``high_bytes`` (the configured value,
+    # from --high-bytes) only fills in an UNREADABLE reading; a reading of
+    # "max" means no MemoryHigh is in force and must never be back-filled.
+    if last.high_unlimited:
+        high = None
+    else:
+        high = last.high if last.high is not None else high_bytes
     killed = any((s.ev_oom_kill or 0) > 0 or (s.ev_oom or 0) > 0 for s in snaps)
     max_reached = any((s.ev_max or 0) > 0 for s in snaps)
     delta = None
@@ -184,6 +226,11 @@ def classify_snapshots(snaps: list[Snapshot], high_bytes: float | None = None) -
     evidence = {
         "cur_bytes": last.cur,
         "high_bytes": high,
+        "memory_high_unlimited": last.high_unlimited,
+        "max_bytes": last.max,
+        "cur_over_max": (
+            round(last.cur / last.max, 4) if last.max and last.cur is not None else None
+        ),
         "cur_over_high": round(last.cur / high, 4) if high and last.cur is not None else None,
         "anon_share_of_cur": (
             round(last.anon / last.cur, 4) if last.anon is not None and last.cur else None
@@ -203,6 +250,13 @@ def classify_snapshots(snaps: list[Snapshot], high_bytes: float | None = None) -
         # memory.max was hit but nothing was killed: a different failure from
         # high-throttling, so it must not fall through to either label below.
         verdict = "memory_max_reached_no_oom_kill"
+    elif last.high_unlimited:
+        # MemoryHigh removed (the recommended policy): no throttle exists, so
+        # no throttle verdict is possible; say how close to the hard line it was.
+        near_max = bool(
+            last.max and last.cur is not None and last.cur >= AT_HIGH_FRACTION * last.max
+        )
+        verdict = "near_memory_max_no_high" if near_max else "memory_high_not_configured"
     elif at_high and delta is not None and delta > 0:
         verdict = "memory_high_throttle_confirmed"
     elif at_high and (last.ev_high or 0) > 0:
@@ -218,27 +272,104 @@ def classify_snapshots(snaps: list[Snapshot], high_bytes: float | None = None) -
     return {**base, "verdict": verdict, "evidence": evidence}
 
 
-def parse_log(text: str, service_description: str = r"Dynasty Trade Calculator \(") -> dict:
-    """Parse diagnostics output into stop records and a summary."""
-    desc_re = re.compile(service_description)
-    stops: list[StopRecord] = []
-    open_stop: dict[str, StopRecord] = {}
-    all_snaps: list[Snapshot] = []
-    threshold_ts: list[str] = []
+def _journal(text: str):
     for raw in text.splitlines():
         m = _LINE.search(raw)
-        if not m:
-            continue
-        ts, msg = m["ts"], m["msg"]
-        s = _STOPPING.search(msg)
+        if m:
+            yield m["ts"], m["msg"]
+
+
+def backend_units(
+    text: str, service_description: str = r"Dynasty Trade Calculator \(", extra=()
+) -> set[str]:
+    """Units whose Stopping/Started line carries the backend's description.
+
+    Needed BEFORE the stop lines are read: a systemd-initiated stop is logged
+    as ``<unit>: Main process exited`` / ``Failed with result`` with no
+    description, and only the later ``Started <unit> - <description>`` line
+    says which unit is the backend.
+    """
+    desc_re = re.compile(service_description)
+    units = set(extra)
+    for _ts, msg in _journal(text):
+        s = _STOPPING.search(msg) or _STARTED.search(msg)
         if s and desc_re.search(s["desc"]):
-            rec = StopRecord(ts=ts, unit=s["unit"], description=s["desc"])
+            units.add(s["unit"])
+    return units
+
+
+def _classify_unrequested(rec: StopRecord, kernel_oom_near: bool) -> str:
+    if rec.oom_killed or rec.result == "oom-kill" or kernel_oom_near:
+        return "oom_kill"
+    if rec.result in _CRASH_RESULTS or rec.exit_code is not None:
+        return "crash"
+    return "auto_restart"
+
+
+def parse_log(
+    text: str,
+    service_description: str = r"Dynasty Trade Calculator \(",
+    high_bytes: float | None = None,
+    units: tuple[str, ...] = (),
+) -> dict:
+    """Parse diagnostics output into stop records.
+
+    A stop is either REQUESTED (``Stopping <unit>``: a deploy, an operator or
+    the watchdog) or SYSTEMD-INITIATED (the process died; systemd logs
+    ``Main process exited`` / ``A process of this unit has been killed by the
+    OOM killer`` / ``Failed with result '...'`` and, with ``Restart=always``,
+    ``Scheduled restart job``).  Both kinds become records; the second is
+    classified ``oom_kill``, ``crash`` or ``auto_restart``.
+    """
+    backend = backend_units(text, service_description, units)
+    stops: list[StopRecord] = []
+    open_stop: dict[str, StopRecord] = {}
+    last_rec: dict[str, StopRecord] = {}
+    all_snaps: list[Snapshot] = []
+    threshold_ts: list[str] = []
+    kernel_oom_ts: list[str] = []
+
+    def _record(unit: str, ts: str, requested: bool, desc: str = "") -> StopRecord:
+        rec = open_stop.get(unit)
+        if rec is None:
+            rec = StopRecord(ts=ts, unit=unit, description=desc, requested=requested)
             stops.append(rec)
-            open_stop[s["unit"]] = rec
+            open_stop[unit] = rec
+            last_rec[unit] = rec
+        return rec
+
+    for ts, msg in _journal(text):
+        s = _STOPPING.search(msg)
+        if s and s["unit"] in backend:
+            _record(s["unit"], ts, True, s["desc"])
             continue
         s = _SIGTERM_TIMEOUT.search(msg)
         if s and s["unit"] in open_stop:
             open_stop[s["unit"]].sigterm_timed_out = True
+            continue
+        s = _OOM_UNIT.search(msg)
+        if s and s["unit"] in backend:
+            _record(s["unit"], ts, False).oom_killed = True
+            continue
+        s = _MAIN_EXITED.search(msg)
+        if s and s["unit"] in backend:
+            rec = _record(s["unit"], ts, False)
+            rec.exit_code, rec.exit_status = s["code"], s["status"]
+            continue
+        s = _FAILED_RESULT.search(msg)
+        if s and s["unit"] in backend:
+            _record(s["unit"], ts, False).result = s["result"]
+            continue
+        s = _SCHEDULED_RESTART.search(msg)
+        if s and s["unit"] in backend:
+            prev = last_rec.get(s["unit"])
+            # "Scheduled restart job" follows the failed stop's Consumed line
+            # by RestartSec (5 s); it belongs to that stop, not a new one.
+            if prev is not None and not prev.requested and _seconds(ts) - _seconds(prev.ts) <= 120:
+                prev.auto_restart = True
+            else:
+                _record(s["unit"], ts, False).auto_restart = True
+                open_stop.pop(s["unit"], None)
             continue
         s = _CONSUMED.search(msg)
         if s and s["unit"] in open_stop:
@@ -247,6 +378,9 @@ def parse_log(text: str, service_description: str = r"Dynasty Trade Calculator \
             parsed = parse_systemd_size(s["peak"])
             if parsed:
                 rec.peak_bytes, rec.peak_rounding_bytes = parsed
+            continue
+        if _KERNEL_OOM.search(msg):
+            kernel_oom_ts.append(ts)
             continue
         if _WATCHDOG_THRESHOLD.search(msg):
             threshold_ts.append(ts)
@@ -258,25 +392,31 @@ def parse_log(text: str, service_description: str = r"Dynasty Trade Calculator \
                 all_snaps.append(Snapshot(ts=ts, reason=reason))
             if all_snaps and all_snaps[-1].reason == reason:
                 _fill(all_snaps[-1], kind, rest)
+
     for rec in stops:
+        t = _seconds(rec.ts)
         # The watchdog logs "threshold reached" and its pre-restart snapshot
         # in the seconds before systemd prints "Stopping"; a snapshot that
         # belongs to the NEW process is logged after the stop and is excluded.
-        near = [t for t in threshold_ts if 0 <= _seconds(rec.ts) - _seconds(t) <= 120]
-        if rec.sigterm_timed_out or near:
-            rec.kind = "watchdog_restart" if near else "killed_after_sigterm_timeout"
-        if near:
-            window_start = _seconds(near[0]) - 600
-            rec.snapshots = [
-                s
-                for s in all_snaps
-                if window_start <= _seconds(s.ts) <= _seconds(rec.ts) + 5
-                and (s.reason.startswith("liveness-fail") or s.reason == "pre-restart")
-            ]
-            rec.watchdog_fails = sum(
-                1 for s in rec.snapshots if s.reason.startswith("liveness-fail")
-            )
-            rec.verdict = classify_snapshots(rec.snapshots)
+        near = [x for x in threshold_ts if 0 <= t - _seconds(x) <= 120]
+        if rec.requested:
+            if rec.sigterm_timed_out or near:
+                rec.kind = "watchdog_restart" if near else "killed_after_sigterm_timeout"
+        else:
+            oom_near = any(0 <= t - _seconds(x) <= 30 for x in kernel_oom_ts)
+            rec.kind = _classify_unrequested(rec, oom_near)
+        if rec.kind == "clean_stop":
+            continue
+        window_start = (_seconds(near[0]) if near else t) - 600
+        rec.snapshots = [
+            s
+            for s in all_snaps
+            if window_start <= _seconds(s.ts) <= t + 5
+            and (s.reason.startswith("liveness-fail") or s.reason == "pre-restart")
+        ]
+        rec.watchdog_fails = sum(1 for s in rec.snapshots if s.reason.startswith("liveness-fail"))
+        if near or rec.snapshots:
+            rec.verdict = classify_snapshots(rec.snapshots, high_bytes)
     return {"stops": stops, "snapshots_total": len(all_snaps)}
 
 
@@ -313,6 +453,10 @@ def summarize(parsed: dict, high_bytes: float | None = None) -> dict:
         "clean_stops": sum(1 for r in stops if r.kind == "clean_stop"),
         "watchdog_restarts": sum(1 for r in stops if r.kind == "watchdog_restart"),
         "killed_other": sum(1 for r in stops if r.kind == "killed_after_sigterm_timeout"),
+        "oom_kills": sum(1 for r in stops if r.kind == "oom_kill"),
+        "crashes": sum(1 for r in stops if r.kind == "crash"),
+        "auto_restarts_without_cause": sum(1 for r in stops if r.kind == "auto_restart"),
+        "systemd_initiated": sum(1 for r in stops if not r.requested),
         "span_hours_first_to_last_stop": span_h,
         "clean_stop_peak_bytes_max": max(peaks) if peaks else None,
         "clean_stop_peak_bytes_median": sorted(peaks)[len(peaks) // 2] if peaks else None,
@@ -327,8 +471,11 @@ def render_text(parsed: dict, summary: dict) -> str:
     out.append("")
     for rec in parsed["stops"]:
         peak = f"{rec.peak_text}" if rec.peak_text else "n/a"
+        extra = (
+            "" if rec.requested else f" result={rec.result} exit={rec.exit_code}/{rec.exit_status}"
+        )
         out.append(
-            f"{rec.ts}  {rec.kind:<28} peak={peak:<6} sigterm_timeout={rec.sigterm_timed_out}"
+            f"{rec.ts}  {rec.kind:<28} peak={peak:<6} sigterm_timeout={rec.sigterm_timed_out}{extra}"
         )
         if rec.verdict:
             ev = rec.verdict.get("evidence") or {}
@@ -336,6 +483,8 @@ def render_text(parsed: dict, summary: dict) -> str:
                 f"    verdict: {rec.verdict['verdict']}  (snapshots={rec.verdict['snapshots']})"
             )
             for key in (
+                "memory_high_unlimited",
+                "cur_over_max",
                 "cur_over_high",
                 "anon_share_of_cur",
                 "file_bytes",
@@ -359,6 +508,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--format", choices=("json", "text"), default="text")
     ap.add_argument("--high-bytes", type=float, default=None, help="configured MemoryHigh in bytes")
     ap.add_argument("--service-description", default=r"Dynasty Trade Calculator \(")
+    ap.add_argument(
+        "--unit",
+        action="append",
+        default=[],
+        help="backend unit name (e.g. dynasty.service); added to those found by description",
+    )
     args = ap.parse_args(argv)
     try:
         text = (
@@ -369,7 +524,7 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as exc:
         print(f"cannot read {args.log}: {exc}", file=sys.stderr)
         return 2
-    parsed = parse_log(text, args.service_description)
+    parsed = parse_log(text, args.service_description, args.high_bytes, tuple(args.unit))
     summary = summarize(parsed, args.high_bytes)
     if args.format == "json":
         print(

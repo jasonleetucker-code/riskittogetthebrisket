@@ -11,11 +11,16 @@ backend" offline.  It is only useful if its rules are the real ones, so:
 * the audit's two assumptions about OTHER files are pinned to those files:
   the dispatch subject regex must still be the one ``scheduled-refresh.yml``
   greps for, and ``deploy.yml`` must still declare a ``paths-ignore`` list.
-  If either moves, this fails and the audit must be re-read -- on purpose.
+  If either moves, this fails and the audit must be re-read -- on purpose;
+* RESTARTS are attributed by deploy-run COMPLETION, not commit time: on the
+  real 2026-10-19 09:55Z -> 2026-10-20 09:55Z data the 11 restarts are
+  7 runtime / 0 docs-only / 4 DLF, while the commits in the same window read
+  6 / 1 / 4 (the first restart's commit predates the window; the docs-only
+  commit restarted the backend after it closed).
 
 Validated against production before it was committed: for 2026-10-19 00:00Z ->
-2026-10-21 12:00Z the audit predicted 29 push-triggered deploys and the
-repository ran 29.
+2026-10-21 12:00Z the audit predicted 29 push-triggered deploys and 29 push
+runs were created.
 """
 
 from __future__ import annotations
@@ -302,3 +307,100 @@ def test_the_real_repo_audit_runs_on_head():
     assert report["paths_ignore"] == audit.load_paths_ignore(
         REPO / ".github" / "workflows" / "deploy.yml"
     )
+
+
+# ── restarts are attributed by deploy-run completion, not commit time ─────
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+#: Kinds of the head commits in the runs fixture, as ``classify_commit``
+#: assigns them on origin/main (pinned here so the test needs no git history;
+#: a shallow CI checkout does not have these commits).
+REAL_KINDS = {
+    "b08f7230d": "runtime_change",
+    "a9f391880": "runtime_change",
+    "2d854f752": "runtime_change",
+    "4c477b265": "box_data_refresh",
+    "20842ef14": "box_data_refresh",
+    "28b892c0e": "box_data_refresh",
+    "7847ae18e": "box_data_refresh",
+    "f3e24b347": "runtime_change",
+    "4475df47b": "runtime_change",
+    "1eec968a3": "runtime_change",
+    "9d07b9ceb": "runtime_change",
+    "fd798c3ec": "runtime_change",
+    "f631607ff": "non_runtime_only",
+}
+
+
+def _real_stops() -> list[dict]:
+    from scripts import backend_restart_report as brr
+
+    text = (FIXTURES / "backend_restart_2026-10-19_to_20_clean_stops_excerpt.txt").read_text(
+        encoding="utf-8"
+    )
+    return [{"ts": s.ts, "kind": s.kind} for s in brr.parse_log(text)["stops"]]
+
+
+def test_real_restarts_are_7_runtime_0_docs_only_4_dlf():
+    runs = json.loads((FIXTURES / "deploy_runs_2026-10-19_to_20.json").read_text(encoding="utf-8"))
+    out = audit.attribute_restarts(_real_stops(), runs, REAL_KINDS)
+    assert out["by_cause"] == {"box_data_refresh": 4, "runtime_change": 7}
+    heads = [s["head"] for s in out["stops"]]
+    # the first stop (10:04Z) came from a commit made BEFORE the window ...
+    assert heads[0] == "a9f391880"
+    # ... and the docs-only commit restarted the backend after the window closed
+    assert "f631607ff" not in heads
+    assert all(0 <= s["minutes_before_run_end"] <= 30 for s in out["stops"])
+
+
+def _run(end: str, conclusion: str = "success", event: str = "push", sha: str = "a" * 40) -> dict:
+    return {
+        "createdAt": end,
+        "updatedAt": end,
+        "conclusion": conclusion,
+        "event": event,
+        "headSha": sha,
+    }
+
+
+def test_attribution_uses_only_successful_runs_inside_the_lag_window():
+    stops = [{"ts": "2026-10-19T10:00:00+00:00", "kind": "clean_stop"}]
+    failed = [_run("2026-10-19T10:05:00Z", conclusion="failure")]
+    late = [_run("2026-10-19T10:45:00Z")]  # 45 min > the 30 min window
+    early = [_run("2026-10-19T09:55:00Z")]  # completed before the stop
+    for runs in (failed, late, early):
+        assert audit.attribute_restarts(stops, runs, {})["by_cause"] == {"unattributed": 1}
+
+
+def test_dispatch_runs_and_unknown_commits_are_named_not_guessed():
+    stops = [
+        {"ts": "2026-10-19T10:00:00+00:00", "kind": "clean_stop"},
+        {"ts": "2026-10-19T12:00:00+00:00", "kind": "clean_stop"},
+    ]
+    runs = [
+        _run("2026-10-19T10:04:00Z", event="workflow_dispatch"),
+        _run("2026-10-19T12:04:00Z", sha="b" * 40),
+    ]
+    out = audit.attribute_restarts(stops, runs, {})
+    assert [s["cause"] for s in out["stops"]] == ["dispatch_deploy", "unknown_commit"]
+
+
+def test_each_run_explains_at_most_one_stop_and_non_clean_stops_keep_their_kind():
+    stops = [
+        {"ts": "2026-10-19T10:00:00+00:00", "kind": "clean_stop"},
+        {"ts": "2026-10-19T10:01:00+00:00", "kind": "clean_stop"},
+        {"ts": "2026-10-19T10:02:00+00:00", "kind": "watchdog_restart"},
+    ]
+    runs = [_run("2026-10-19T10:05:00Z")]
+    out = audit.attribute_restarts(stops, runs, {"aaaaaaaaa": "runtime_change"})
+    assert [s["cause"] for s in out["stops"]] == [
+        "runtime_change",
+        "unattributed",
+        "watchdog_restart",
+    ]
+
+
+def test_restart_log_requires_runs_json(capsys):
+    assert audit.main(["--restart-log", "x.txt"]) == 2
+    assert "--runs-json" in capsys.readouterr().err

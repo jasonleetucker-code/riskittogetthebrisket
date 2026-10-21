@@ -196,3 +196,176 @@ def test_cli_json_and_missing_input(tmp_path, capsys):
     assert "cannot read" in capsys.readouterr().err
     assert rep.main([str(fx)]) == 0
     assert "memory_high_throttle_confirmed" in capsys.readouterr().out
+
+
+# ── systemd-initiated stops (no "Stopping" line) ──────────────────────────
+# Stage 1's success criterion ("zero watchdog restarts, no OOM kill") reads
+# this script, so a kill under the raised MemoryMax must be counted, not lost.
+
+P = "2026-10-22T10:00:0{}.{:06d}+00:00 host "
+STARTED = (
+    P.format(9, 0) + "systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty)."
+)
+
+OOM_JOURNAL = "\n".join(
+    [
+        P.format(0, 1) + "kernel: python invoked oom-killer: gfp_mask=0xcc0(GFP_KERNEL), order=0",
+        P.format(0, 2) + "kernel: Memory cgroup out of memory: Killed process 4242 (python)",
+        P.format(0, 3)
+        + "systemd[1]: dynasty.service: A process of this unit has been killed by the OOM killer.",
+        P.format(0, 4)
+        + "systemd[1]: dynasty.service: Main process exited, code=killed, status=9/KILL",
+        P.format(0, 5) + "systemd[1]: dynasty.service: Failed with result 'oom-kill'.",
+        P.format(0, 6)
+        + "systemd[1]: dynasty.service: Consumed 30min 1.000s CPU time, 3.4G memory peak, 0B memory swap peak.",
+        P.format(5, 0)
+        + "systemd[1]: dynasty.service: Scheduled restart job, restart counter is at 1.",
+        P.format(5, 1)
+        + "systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).",
+        STARTED,
+    ]
+)
+
+
+def test_an_oom_kill_without_a_stopping_line_is_counted_and_classified():
+    parsed = rep.parse_log(OOM_JOURNAL)
+    summary = rep.summarize(parsed)
+    (stop,) = parsed["stops"]
+    assert stop.kind == "oom_kill"
+    assert not stop.requested and stop.oom_killed and stop.auto_restart
+    assert stop.result == "oom-kill" and stop.exit_status == "9/KILL"
+    assert stop.peak_bytes == pytest.approx(3.4 * 1024**3)
+    assert summary["stops_total"] == 1
+    assert summary["oom_kills"] == 1 and summary["systemd_initiated"] == 1
+    assert summary["clean_stops"] == 0 and summary["watchdog_restarts"] == 0
+
+
+def test_the_oom_result_alone_or_a_kernel_oom_line_alone_is_enough():
+    result_only = "\n".join(
+        [
+            P.format(0, 4)
+            + "systemd[1]: dynasty.service: Main process exited, code=killed, status=9/KILL",
+            P.format(0, 5) + "systemd[1]: dynasty.service: Failed with result 'oom-kill'.",
+            STARTED,
+        ]
+    )
+    kernel_only = "\n".join(
+        [
+            P.format(0, 2) + "kernel: Memory cgroup out of memory: Killed process 4242 (python)",
+            P.format(0, 4)
+            + "systemd[1]: dynasty.service: Main process exited, code=killed, status=9/KILL",
+            P.format(0, 5) + "systemd[1]: dynasty.service: Failed with result 'signal'.",
+            STARTED,
+        ]
+    )
+    for text in (result_only, kernel_only):
+        assert [s.kind for s in rep.parse_log(text)["stops"]] == ["oom_kill"]
+
+
+def test_a_crash_and_a_bare_auto_restart_are_distinct_kinds():
+    crash = "\n".join(
+        [
+            P.format(0, 4)
+            + "systemd[1]: dynasty.service: Main process exited, code=exited, status=1/FAILURE",
+            P.format(0, 5) + "systemd[1]: dynasty.service: Failed with result 'exit-code'.",
+            P.format(5, 0)
+            + "systemd[1]: dynasty.service: Scheduled restart job, restart counter is at 1.",
+            STARTED,
+        ]
+    )
+    (stop,) = rep.parse_log(crash)["stops"]
+    assert stop.kind == "crash" and stop.auto_restart
+    bare = (
+        P.format(5, 0)
+        + "systemd[1]: dynasty.service: Scheduled restart job, restart counter is at 2.\n"
+        + STARTED
+    )
+    summary = rep.summarize(rep.parse_log(bare))
+    assert summary["auto_restarts_without_cause"] == 1 and summary["stops_total"] == 1
+
+
+def test_other_units_failing_are_not_backend_stops():
+    text = "\n".join(
+        [
+            P.format(0, 5)
+            + "systemd[1]: dynasty-dlf-fetch.service: Failed with result 'exit-code'.",
+            P.format(0, 6)
+            + "systemd[1]: dynasty-frontend.service: Main process exited, code=killed, status=9/KILL",
+            STARTED,
+        ]
+    )
+    assert rep.parse_log(text)["stops"] == []
+
+
+def test_the_backend_unit_can_be_named_when_no_started_line_is_in_the_window():
+    text = P.format(0, 5) + "systemd[1]: dynasty.service: Failed with result 'oom-kill'."
+    assert rep.parse_log(text)["stops"] == []  # unknown unit: nothing is guessed
+    assert [s.kind for s in rep.parse_log(text, units=("dynasty.service",))["stops"]] == [
+        "oom_kill"
+    ]
+
+
+def test_the_watchdog_and_clean_fixtures_are_unchanged_by_systemd_line_parsing():
+    oct19 = rep.parse_log(
+        (FIXTURES / "backend_restart_2026-10-19_08-42_excerpt.txt").read_text(encoding="utf-8")
+    )
+    (stop,) = oct19["stops"]
+    assert stop.requested and stop.kind == "watchdog_restart" and stop.result == "timeout"
+    clean = rep.parse_log(
+        (FIXTURES / "backend_restart_2026-10-19_to_20_clean_stops_excerpt.txt").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert {s.kind for s in clean["stops"]} == {"clean_stop"}
+
+
+# ── --high-bytes and a removed MemoryHigh ─────────────────────────────────
+
+WATCHDOG_NA_HIGH = "\n".join(
+    [
+        P.format(0, 0)
+        + "dynasty-healthcheck.sh[1]: [healthcheck] snapshot mem reason=liveness-fail-1 "
+        "cur=2700000000 peak=2700000000 high=na max=3221225472 ev_high=100 ev_max=0 ev_oom=0 ev_oom_kill=0",
+        P.format(1, 0)
+        + "dynasty-healthcheck.sh[1]: [healthcheck] threshold reached — restarting dynasty.service",
+        P.format(1, 1) + "dynasty-healthcheck.sh[1]: [healthcheck] snapshot mem reason=pre-restart "
+        "cur=2700000000 peak=2700000000 high=na max=3221225472 ev_high=900 ev_max=0 ev_oom=0 ev_oom_kill=0",
+        P.format(2, 0)
+        + "systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...",
+    ]
+)
+
+
+def test_high_bytes_fills_in_an_unreadable_high_through_parse_log_and_the_cli(capsys, tmp_path):
+    without = rep.parse_log(WATCHDOG_NA_HIGH)["stops"][0].verdict["verdict"]
+    with_high = rep.parse_log(WATCHDOG_NA_HIGH, high_bytes=HIGH)["stops"][0].verdict["verdict"]
+    assert without == "inconclusive"
+    assert with_high == "memory_high_throttle_confirmed"
+    log = tmp_path / "na.txt"
+    log.write_text(WATCHDOG_NA_HIGH, encoding="utf-8")
+    assert rep.main([str(log), "--format", "json", "--high-bytes", str(HIGH)]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["stops"][0]["verdict"]["verdict"] == "memory_high_throttle_confirmed"
+
+
+def test_a_max_reading_means_no_memory_high_and_is_never_back_filled():
+    snap = rep.Snapshot(ts="t", reason="liveness-fail-1")
+    rep._fill(
+        snap, "mem", " cur=2700000000 high=max max=3758096384 ev_high=0 ev_max=0 ev_oom_kill=0"
+    )
+    assert snap.high_unlimited and snap.high is None
+    out = rep.classify_snapshots([snap], high_bytes=HIGH)  # stale config must not win
+    assert out["verdict"] == "memory_high_not_configured"
+    assert out["evidence"]["high_bytes"] is None and out["evidence"]["memory_high_unlimited"]
+    assert out["evidence"]["cur_over_max"] == pytest.approx(2700000000 / 3758096384, abs=1e-4)
+    near = rep.Snapshot(ts="t", reason="r")
+    rep._fill(
+        near, "mem", " cur=3700000000 high=max max=3758096384 ev_high=0 ev_max=0 ev_oom_kill=0"
+    )
+    assert rep.classify_snapshots([near])["verdict"] == "near_memory_max_no_high"
+    unlimited = rep.Snapshot(ts="t", reason="r")
+    rep._fill(unlimited, "mem", " cur=1 high=max max=max")
+    assert (
+        unlimited.max_unlimited
+        and rep.classify_snapshots([unlimited])["verdict"] == "memory_high_not_configured"
+    )
