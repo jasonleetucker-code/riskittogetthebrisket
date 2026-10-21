@@ -444,6 +444,14 @@ market convention differs from the roster answer.
   real scarcity is required before activation** (§10).
 * The lineup guard protects an incoming player who fills a slot the roster could not; he cannot be the release, so
   in that case receiving him can lower the net (his lineup value is Component B's).
+* **"Lineup-legal" means rank-preserving, nothing more (review F5).** A cut set `S` is legal iff the number of filled
+  starting slots after releasing it is at least the number before (`fill(P \ S) ≥ fill(P)`, the exact assignment
+  solver). It does not ask whether the cut changes WHO starts, by how much, or whether a starter is hurt; and
+  injury status plays no part in selection or charge — the contract's rows carry no `injured` field, so the
+  `RosterPlayer.injured` the ladder is built with is never set on this path. A cut can therefore release a healthy
+  low-value player the roster would rather keep over an injured starter it cannot use, and cannot release one the
+  guard needs. Lineup effects of the trade (starter changes, depth, injury) are Component B's (the roster-utility
+  lens), not this charge's; selection stays a pure roster-value cost.
 * Receiving an *uncredited* (unpriced/unresolved) extra piece can lower the net by up to the cheapest legal cut: he
   takes a spot with no package credit and is never a free cut (review fix D). Monotonicity is pinned for credited
   pieces only, **and for V5 only**: V5-R's net is non-monotone (63 of 767 random cases lowered by a free credited
