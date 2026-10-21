@@ -34,10 +34,11 @@ export const HISTORY_EVEN_LABEL = "Evenly valued";
 export function historyGradeBasisText() {
   return (
     "Trade grades compare the value each side gave and got (board value plus the " +
-    "package adjustment), as a share of the larger side, on the date shown: when " +
-    "traded, or today. " +
+    "package adjustment), as a share of the larger side. \"When traded\" uses the " +
+    "latest values recorded before the trade; \"Today\" uses today's values. " +
     `"${HISTORY_EVEN_LABEL}" means the gap is under ${HISTORY_EVEN_PCT}% of the larger side. ` +
     "It measures how the values balanced, not how the players went on to perform, " +
-    "and it is not the trade calculator's FAIR / NOT FAIR verdict."
+    "and it is not the FAIR / NOT FAIR market-fairness verdict of the trade " +
+    "calculator and advisor."
   );
 }

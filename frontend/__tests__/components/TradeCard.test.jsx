@@ -10,7 +10,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { TradeCard } from "@/app/league/sections/activity.jsx";
+import ActivitySection, { TradeCard } from "@/app/league/sections/activity.jsx";
 import { historyGradeBasisText } from "@/lib/trade-history-grade-policy";
 
 function tradeWith(sides) {
@@ -137,5 +137,42 @@ describe("TradeCard current-grade band (owner 2026-10-17)", () => {
     expect(today[0]).toHaveTextContent("D");
     expect(today[1]).toHaveTextContent("Current value unavailable");
     expect(screen.getByTitle(/no value on today's board/i)).toBeInTheDocument();
+  });
+});
+
+describe("ActivitySection grade basis (OD-F6 option A)", () => {
+  function feedWith(grade) {
+    return {
+      totalCount: 1,
+      feed: [
+        {
+          transactionId: "t1",
+          season: "2026",
+          week: 2,
+          totalAssets: 2,
+          createdAt: 1790000000000,
+          sides: [
+            { ownerId: "a", rosterId: 1, displayName: "A", receivedAssets: [], ...(grade ? { currentGrade: grade } : {}) },
+            { ownerId: "b", rosterId: 2, displayName: "B", receivedAssets: [], ...(grade ? { currentGrade: grade } : {}) },
+          ],
+        },
+      ],
+    };
+  }
+
+  it("states the basis when the feed carries grades", () => {
+    render(
+      <ActivitySection
+        managers={new Map()}
+        data={feedWith({ grade: "A", color: "var(--green)", label: "Evenly valued" })}
+        onNavigate={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("activity-grade-basis").textContent).toBe(historyGradeBasisText());
+  });
+
+  it("omits the basis when no trade carries a grade", () => {
+    render(<ActivitySection managers={new Map()} data={feedWith(null)} onNavigate={() => {}} />);
+    expect(screen.queryByTestId("activity-grade-basis")).toBeNull();
   });
 });

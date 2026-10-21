@@ -38,13 +38,16 @@ the label is **"Evenly valued"**. It also avoids the word "fair".
 
 ## 3. The distinction, as the pages now state it
 
-On `/trades`, under the trade list, and on the public `/league` trade timeline, there is a visible line. The same
+On `/trades`, above the trade list, and on the public `/league` trade timeline, there is a visible line. The same
 text also appears on hover over each grade:
 
 > Trade grades compare the value each side gave and got (board value plus the package adjustment), as a share of
-> the larger side, on the date shown: when traded, or today. "Evenly valued" means the gap is under 3% of the
-> larger side. It measures how the values balanced, not how the players went on to perform, and it is not the
-> trade calculator's FAIR / NOT FAIR verdict.
+> the larger side. "When traded" uses the latest values recorded before the trade; "Today" uses today's values.
+> "Evenly valued" means the gap is under 3% of the larger side. It measures how the values balanced, not how the
+> players went on to perform, and it is not the FAIR / NOT FAIR market-fairness verdict of the trade calculator and
+> advisor.
+
+On `/league` the line shows only when the feed carries grades.
 
 ## 4. One authoritative 3% criterion
 

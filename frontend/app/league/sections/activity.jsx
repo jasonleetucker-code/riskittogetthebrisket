@@ -45,6 +45,9 @@ function ActivitySection({ managers, data, onNavigate }) {
       return tokens.includes(q);
     });
   }, [feed, filter]);
+  // The grade-basis sentence explains grades, so it shows only when the feed
+  // carries at least one (a feed built without a valuation has none).
+  const hasGrades = feed.some((t) => (t.sides || []).some((s) => s.grade || s.currentGrade));
 
   if (!feed.length && !data?.totalCount) return <EmptyCard label="Trade activity" />;
 
@@ -113,12 +116,14 @@ function ActivitySection({ managers, data, onNavigate }) {
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div
-            data-testid="activity-grade-basis"
-            style={{ fontSize: "0.68rem", color: "var(--subtext)", lineHeight: 1.45 }}
-          >
-            {historyGradeBasisText()}
-          </div>
+          {hasGrades && filtered.length > 0 ? (
+            <div
+              data-testid="activity-grade-basis"
+              style={{ fontSize: "0.68rem", color: "var(--subtext)", lineHeight: 1.45 }}
+            >
+              {historyGradeBasisText()}
+            </div>
+          ) : null}
           {filtered.map((t) => (
             <TradeCard key={t.transactionId} trade={t} managers={managers} onNavigate={onNavigate} />
           ))}
