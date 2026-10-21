@@ -61,8 +61,10 @@ def _card(mine, theirs):
 
 
 def test_a_gain_of_at_least_the_minimum_but_below_the_slight_band_qualifies_as_fair():
-    # 3-for-3: +771 after the Value Adjustment, 3.09% of the larger side.
-    equity = equity_verdict([9000, 8000, 7000], [9300, 8300, 7390])
+    # 3-for-3: +595 after the Value Adjustment, 2.96% of the larger package
+    # utility (fairness_bands_v2).  (The v1 example, +771 vs 7,390, read 3.09%
+    # of the larger ADJUSTED side but 3.80% of the larger utility: SLIGHT.)
+    equity = equity_verdict([9000, 8000, 7000], [9300, 8300, 7100])
     before = copy.deepcopy(equity)
     assert equity["band"]["level"] == "fair"
     assert equity["band"]["relativePct"] < fairness_bands.SLIGHT_PCT

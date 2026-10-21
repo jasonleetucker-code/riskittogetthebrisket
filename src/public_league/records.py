@@ -54,7 +54,7 @@ def _weekly_side_rows(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
             opp_pts = metrics.matchup_points(foe)
             if my_pts <= 0:
                 continue
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
             if not owner_id:
                 continue
             margin = my_pts - opp_pts
@@ -66,7 +66,7 @@ def _weekly_side_rows(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
                 "isPlayoff": is_playoff,
                 "ownerId": owner_id,
                 "rosterId": rid,
-                "teamName": metrics.team_name(snapshot, season.league_id, rid),
+                "teamName": metrics.team_name(snapshot, season.league_id, rid, week),
                 "points": round(my_pts, 2),
                 "opponentPoints": round(opp_pts, 2),
                 "margin": round(margin, 2),
@@ -103,7 +103,7 @@ def _weekly_side_rows_individual(snapshot: PublicLeagueSnapshot) -> list[dict[st
                     opp_pts = metrics.matchup_points(foe)
                     if my_pts <= 0:
                         continue
-                    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
                     if not owner_id:
                         continue
                     margin = my_pts - opp_pts
@@ -116,7 +116,7 @@ def _weekly_side_rows_individual(snapshot: PublicLeagueSnapshot) -> list[dict[st
                             "isPlayoff": is_playoff,
                             "ownerId": owner_id,
                             "rosterId": rid,
-                            "teamName": metrics.team_name(snapshot, season.league_id, rid),
+                            "teamName": metrics.team_name(snapshot, season.league_id, rid, week),
                             "points": round(my_pts, 2),
                             "opponentPoints": round(opp_pts, 2),
                             "margin": round(margin, 2),
@@ -145,7 +145,7 @@ def _streaks(snapshot: PublicLeagueSnapshot) -> tuple[list[dict[str, Any]], list
             opp = metrics.matchup_points(foe)
             if my <= 0 and opp <= 0:
                 continue
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
             if not owner_id:
                 continue
             if my > opp:
@@ -165,7 +165,7 @@ def _streaks(snapshot: PublicLeagueSnapshot) -> tuple[list[dict[str, Any]], list
                         "week": week,
                         "result": result,
                         "rosterId": rid,
-                        "teamName": metrics.team_name(snapshot, season.league_id, rid),
+                        "teamName": metrics.team_name(snapshot, season.league_id, rid, week),
                     },
                 )
             )
@@ -256,7 +256,9 @@ def _trade_waiver_counts(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]
                 roster_ids = tx.get("roster_ids") or []
                 rid = int(roster_ids[0]) if roster_ids else None
                 owner_id = (
-                    metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                    metrics.resolve_owner(
+                        snapshot.managers, season.league_id, rid, metrics.tx_week(tx)
+                    )
                     if rid is not None
                     else ""
                 )
@@ -306,7 +308,7 @@ def _season_scoring_totals(
                     rid = metrics.roster_id_of(me)
                     if rid is None:
                         continue
-                    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, wk)
                     if not owner_id:
                         continue
                     key = (owner_id, season.season)
@@ -358,7 +360,7 @@ def _player_records(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[str, 
                 rid = metrics.roster_id_of(entry)
                 if rid is None:
                     continue
-                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
                 if not owner_id:
                     continue
                 pp = entry.get("players_points")
@@ -390,7 +392,7 @@ def _player_records(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[str, 
                             "week": week,
                             "ownerId": owner_id,
                             "rosterId": rid,
-                            "teamName": metrics.team_name(snapshot, season.league_id, rid),
+                            "teamName": metrics.team_name(snapshot, season.league_id, rid, week),
                             "displayName": metrics.display_name_for(snapshot, owner_id),
                             "playerId": pid,
                             "playerName": snapshot.player_display(pid),

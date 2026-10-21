@@ -2,6 +2,8 @@
  * Tests for lib/trade-logic.js — the pure trade calculator logic
  * extracted from the Next.js trade page.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   VALUE_MODES,
@@ -11,9 +13,15 @@ import {
   colorFromGap,
   sideTotal,
   computeValueAdjustment,
-  computeMultiSideAdjustments,
+  packageAdjustedPairTotals,
+  perTeamPackageTotals,
+  tradeRoutes,
+  worstTeamBand,
+  multiTeamNetSummary,
+  valueAdjustmentFromSideArrays,
   adjustedSideTotals,
   multiAdjustedSideTotals,
+  sideTotalsFairnessBase,
   computeStackAdjustments,
   computeSideFlows,
   tradeImbalance,
@@ -93,37 +101,6 @@ function ownerGap(aVals, bVals, opts = {}) {
   if (recipientIdx === null) return raw;
   return recipientIdx === 0 ? raw + adjustment : raw - adjustment;
 }
-
-// computeMultiSideAdjustments' fold, against the owner: each side versus
-// the flattened union of every other side, credited only when it receives.
-function ownerFold(valueSides, opts = {}) {
-  return valueSides.map((side, i) => {
-    const others = valueSides.flatMap((s, j) => (j === i ? [] : s));
-    if (side.length === 0 || others.length === 0) return 0;
-    const r = packageAdjustPair(side, others, opts);
-    return r.displayed && r.value > 0 && r.side === 1 ? r.value : 0;
-  });
-}
-
-describe("package model dispatch is the geometric model by default", () => {
-  it("ACTIVE is geom_q078_v1 and consumers read it", () => {
-    expect(ACTIVE_PACKAGE_MODEL_ID).toBe(PACKAGE_MODEL_IDS.GEOM_Q078_V1);
-    for (const [a, b] of [
-      [[9999], [4000, 3000]],
-      [[9000, 1500], [5000, 4500]],
-      [[9000], [8500, 7000]],
-    ]) {
-      expect(computeValueAdjustment(a.map(mockRow), b.map(mockRow), "full")).toEqual(
-        ownerAdjustment(a, b),
-      );
-      expect(tradeGapAdjusted(a.map(mockRow), b.map(mockRow), "full")).toBe(ownerGap(a, b));
-      // Geometric identity: adjusted gap === U_A - U_B up to integer rounding.
-      expect(
-        Math.abs(ownerGap(a, b) - (geomPackageUtility(a) - geomPackageUtility(b))),
-      ).toBeLessThanOrEqual(0.5 + 1e-9);
-    }
-  });
-});
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -494,109 +471,200 @@ describe("computeValueAdjustment", () => {
 // Structural property tests — we don't have KTC observations for 3+
 // team trades yet, so these assert formula invariants and consistency
 // with the 2-side path rather than hitting specific KTC numbers.
-describe("computeMultiSideAdjustments", () => {
-  it("returns array matching input length", () => {
-    const out = computeMultiSideAdjustments(
-      [[mockRow(9999)], [mockRow(5000)], [mockRow(3000)]],
-      "full",
-    );
-    expect(out).toHaveLength(3);
-  });
+// ── Per-team package rule (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §5.1) ──
+//
+// Every team of a routed trade is read in its OWN perspective:
+// packageAdjustedPairTotals(gives_i, receives_i).  The retired
+// computeMultiSideAdjustments read each side against the flattened union of
+// every OTHER side — the "two imaginary sides" collapse directive §6 forbids.
 
-  it("reduces to 2-side behavior when called with 2 sides", () => {
-    const sideA = [mockRow(9999)];
-    const sideB = [mockRow(7846), mockRow(5717)];
-    const [adjA, adjB] = computeMultiSideAdjustments([sideA, sideB], "full");
-    const twoSide = computeValueAdjustment(sideA, sideB, "full");
-    const expectedRecipient = twoSide.adjustment;
-    const expectedOther = 0;
-    expect(adjA).toBeCloseTo(expectedRecipient, 5);
-    expect(adjB).toBeCloseTo(expectedOther, 5);
-    expect(twoSide.recipientIdx).toBe(0);
-  });
+const routed = (spec) =>
+  spec.map(([assets, dests], i) => ({
+    id: i,
+    label: "ABCDE"[i],
+    assets: assets.map(([name, v]) => makeRow(name, v)),
+    destinations: Object.fromEntries(
+      assets.map(([name], k) => [name, dests == null ? undefined : dests[k]]),
+    ),
+  }));
 
-  it("KTC rollback model: at most one side earns VA when all have equal piece counts (2 ea)", () => {
-    const vals = [
-      [5000, 3000],
-      [4800, 3100],
-      [4900, 2900],
-    ];
-    // Each side has count=2, opposition count=4.  Under KTC most sides
-    // have top ≤ merged top, so VA stays at zero; at most the side with
-    // the strictly-highest top gets a non-zero VA.
-    const nonZero = ownerFold(vals, KTC).filter((v) => v > 0).length;
-    expect(nonZero).toBeLessThanOrEqual(1);
-  });
-
-  it("geometric (active) model: every side that discards less depth than its opposition earns the difference", () => {
-    const vals = [
-      [5000, 3000],
-      [4800, 3100],
-      [4900, 2900],
-    ];
-    const out = computeMultiSideAdjustments(vals.map((s) => s.map(mockRow)), "full");
-    // Two pieces against the merged four: each side discards less depth
-    // than the rest of the trade, so all three receive a positive-only
-    // adjustment of |D_side - D_rest| (geom q=0.78: [3134, 3095, 3208]).
-    expect(out).toEqual(ownerFold(vals));
-    expect(out).toEqual([3134, 3095, 3208]);
-    for (const v of out) expect(v).toBeGreaterThan(0);
-  });
-
-  it("in 3-team with one clear stud holder, that side gets the premium", () => {
-    // Side A has a single 9999 stud.  Sides B and C each have 2
-    // medium pieces.  A should earn the largest premium for consolidation.
-    const vals = [[9999], [5000, 3500], [4800, 3200]];
-    const out = computeMultiSideAdjustments(vals.map((s) => s.map(mockRow)), "full");
-    expect(out[0]).toBeGreaterThan(1000);
-    expect(out[0]).toBe(Math.max(...out));
-    // Active (geom) model: B and C each discard less depth than the
-    // merged rest, so they earn smaller positive premiums
-    // (geom q=0.78: [4108, 1539, 1767]).
-    expect(out).toEqual(ownerFold(vals));
-    // KTC rollback model: B's and C's tops sit below A's stud, so their
-    // topGap is 0 and they earn 0 VA.
-    const ktc = ownerFold(vals, KTC);
-    expect(ktc[0]).toBeGreaterThan(1000);
-    expect(ktc[1]).toBe(0);
-    expect(ktc[2]).toBe(0);
-  });
-
-  it("never produces negative adjustments", () => {
-    const out = computeMultiSideAdjustments(
-      [
-        [mockRow(9999), mockRow(8000)],
-        [mockRow(7500)],
-        [mockRow(6000), mockRow(4000), mockRow(2000)],
-      ],
-      "full",
-    );
-    for (const v of out) expect(v).toBeGreaterThanOrEqual(0);
-  });
-
-  it("VA stays within a sane bound (≤ 2× top asset)", () => {
-    // V12 can produce VA values that exceed the side's own top asset
-    // when the trade is heavily stud-vs-pile (the displayed VA is the
-    // gap-to-equality on the OTHER side's total, not a per-asset
-    // multiplier).  Pin a relaxed but defensible upper bound: the VA
-    // never blows past 2× the side's own top piece.  Catches a
-    // catastrophic constant-drift regression without false-failing on
-    // legitimate big-VA cases.
-    const sides = [
-      [mockRow(9999)],
-      [mockRow(5000), mockRow(3000), mockRow(2000)],
-      [mockRow(4000), mockRow(3000)],
-    ];
-    const out = computeMultiSideAdjustments(sides, "full");
-    sides.forEach((side, i) => {
-      const top = Math.max(...side.map((r) => r.values.full));
-      expect(out[i]).toBeLessThanOrEqual(top * 2);
+describe("per-team package rule", () => {
+  it("packageAdjustedPairTotals: empty side gets no adjustment; gives are the FIRST argument", () => {
+    expect(packageAdjustedPairTotals([3000, 2000], [])).toEqual({
+      sendRaw: 5000,
+      recvRaw: 0,
+      sendAdj: 5000,
+      recvAdj: 0,
+      sendVA: 0,
+      recvVA: 0,
     });
+    // 1-for-1 never adjusts.
+    expect(packageAdjustedPairTotals([5000], [4000]).sendVA).toBe(0);
+    expect(packageAdjustedPairTotals([5000], [4000]).recvVA).toBe(0);
+    // Consolidating team (one stud for two) carries the VA on its gives.
+    const t = packageAdjustedPairTotals([9999], [7846, 5717]);
+    const pair = packageAdjustPair([9999], [7846, 5717]);
+    expect(pair.side).toBe(1);
+    expect(t.sendVA).toBe(pair.value);
+    expect(t.sendAdj).toBe(9999 + pair.value);
+    expect(t.recvAdj).toBe(7846 + 5717);
+    // Swapping the arguments mirrors the answer exactly.
+    const m = packageAdjustedPairTotals([7846, 5717], [9999]);
+    expect(m.recvVA).toBe(t.sendVA);
+    expect(m.recvAdj - m.sendAdj).toBe(-(t.recvAdj - t.sendAdj));
   });
 
-  it("empty or single-side input returns zeros", () => {
-    expect(computeMultiSideAdjustments([], "full")).toEqual([]);
-    expect(computeMultiSideAdjustments([[mockRow(9999)]], "full")).toEqual([0]);
+  it("packageAdjustedPairTotals drops non-positive and non-finite values (missing is never zero)", () => {
+    expect(packageAdjustedPairTotals([5000, 0, NaN, -3], [4000, null])).toEqual(
+      packageAdjustedPairTotals([5000], [4000]),
+    );
+  });
+
+  it("I14 directional correctness: one team sending to two destinations", () => {
+    // A sends 6000 -> B and 3000 -> C; B sends 7000 -> A; C sends 2500 -> A.
+    const teams = perTeamPackageTotals([[6000, 3000], [7000], [2500]], [[1, 2], [0], [0]]);
+    expect(teams.map((t) => t.gap)).toEqual([610, -1000, 500]);
+    // The larger ADJUSTED side is display only; the band is relative to the
+    // larger PACKAGE UTILITY (fairness_bands_v2, OD-F2): team A's receives
+    // [7000, 2500] -> 7000 + 0.78 x 2500 = 8950 (v1: 6.35 % of 9610).
+    expect(teams.map((t) => t.larger)).toEqual([9610, 7000, 3000]);
+    expect(teams.map((t) => t.largerUtility)).toEqual([8950, 7000, 3000]);
+    expect(teams.map((t) => t.band.level)).toEqual(["slight", "unfair", "unfair"]);
+    expect(teams.map((t) => t.band.relativePct)).toEqual([6.82, 14.29, 16.67]);
+    // RAW routed flows are conserved; adjusted per-team values are not.
+    const rawIn = teams.reduce((a, t) => a + t.rawReceived, 0);
+    const rawOut = teams.reduce((a, t) => a + t.rawGiven, 0);
+    expect(rawIn).toBe(rawOut);
+  });
+
+  it("a null piece is refused, never priced as 0 (MISSING IS NEVER ZERO)", () => {
+    for (const missing of [null, undefined, NaN, "5000"]) {
+      const teams = perTeamPackageTotals([[missing, 5000], [4000]], [[1, 1], [0]]);
+      expect(teams[0].band).toBeNull();
+      expect(teams[1].band).toBeNull();
+    }
+  });
+
+  it("N = 2: the per-team reading is the two-side reading, mirrored", () => {
+    const sides = routed([[[["a", 9999]]], [[["b1", 7846], ["b2", 5717]]]]);
+    const [a, b] = perTeamPackageTotals(
+      sides.map((s) => s.assets.map((r) => r.values.full)),
+      tradeRoutes(sides),
+    );
+    const gap = tradeGapAdjusted(sides[0].assets, sides[1].assets, "full");
+    expect(b.gap).toBe(gap);
+    expect(a.gap).toBe(-gap);
+    expect(a.larger).toBe(b.larger);
+    expect(a.band.level).toBe(b.band.level);
+  });
+
+  it("locality: a leg between B and C never moves A's reading", () => {
+    const base = perTeamPackageTotals([[6000], [5000], [4000]], [[1], [0], [0]]);
+    const more = perTeamPackageTotals([[6000], [5000, 1200], [4000, 900]], [[1], [0, 2], [0, 1]]);
+    expect(more[0]).toEqual(base[0]);
+  });
+
+  it("team order independence: permuting the teams permutes the readings", () => {
+    const vals = [[6000, 3000], [7000], [2500]];
+    const routes = [[1, 2], [0], [0]];
+    const base = perTeamPackageTotals(vals, routes);
+    // Order C, A, B: old index -> new index map.
+    const perm = [2, 0, 1];
+    const inv = [1, 2, 0];
+    const pv = perm.map((i) => vals[i]);
+    const pr = perm.map((i) => routes[i].map((d) => inv[d]));
+    const out = perTeamPackageTotals(pv, pr);
+    perm.forEach((oldIdx, newIdx) => expect(out[newIdx]).toEqual(base[oldIdx]));
+  });
+
+  it("asset order independence within a side", () => {
+    const a = perTeamPackageTotals([[6000, 3000], [7000], [2500]], [[1, 2], [0], [0]]);
+    const b = perTeamPackageTotals([[3000, 6000], [7000], [2500]], [[2, 1], [0], [0]]);
+    expect(b).toEqual(a);
+  });
+
+  it("a one-for-one cycle has no VA, and its per-team gaps sum to zero", () => {
+    const teams = perTeamPackageTotals([[5000], [4200], [3900]], [[1], [2], [0]]);
+    for (const t of teams) {
+      expect(t.sendVA).toBe(0);
+      expect(t.recvVA).toBe(0);
+    }
+    expect(teams.reduce((acc, t) => acc + t.gap, 0)).toBe(0);
+  });
+
+  it("valueAdjustmentFromSideArrays: 3+ sides need the routing (no union stand-in)", () => {
+    expect(valueAdjustmentFromSideArrays([[6000, 3000], [7000], [2500]])).toBeNull();
+    const out = valueAdjustmentFromSideArrays([[6000, 3000], [7000], [2500]], {
+      routes: [[1, 2], [0], [0]],
+    });
+    const teams = perTeamPackageTotals([[6000, 3000], [7000], [2500]], [[1, 2], [0], [0]]);
+    expect(out).toEqual(teams.map((t) => t.sendVA));
+    // 2 sides: unchanged single-recipient shape.
+    const two = valueAdjustmentFromSideArrays([[9999], [7846, 5717]]);
+    expect(two[1]).toBe(0);
+    expect(two[0]).toBe(packageAdjustPair([9999], [7846, 5717]).value);
+  });
+
+  it("valueAdjustmentFromSideArrays: 3+ sides exclude an unpriced value, never price it at 0, and keep routes aligned", () => {
+    // Side 0's middle asset is unpriced (null / undefined / NaN / "x").  It
+    // must drop out of every team's package, and the asset after it must
+    // still follow ITS OWN route (side 2), not shift onto the unpriced one's.
+    const routes = [[1, 2, 2], [0], [0]];
+    const priced = valueAdjustmentFromSideArrays([[6000, 3000], [7000], [2500]], {
+      routes: [[1, 2], [0], [0]],
+    });
+    for (const missing of [null, undefined, NaN, "x"]) {
+      const out = valueAdjustmentFromSideArrays([[6000, missing, 3000], [7000], [2500]], {
+        routes,
+      });
+      expect(out).toEqual(priced);
+      const teams = perTeamPackageTotals([[6000, missing, 3000], [7000], [2500]], routes);
+      expect(teams[0].rawGiven).toBe(9000);
+      expect(teams[2].rawReceived).toBe(3000);
+    }
+  });
+
+  it("worstTeamBand: band severity first, then relative gap, then lower index; unknown wins", () => {
+    // Each flow states the package utility of what it sends / receives
+    // (fairness_bands_v2: the team's band base is the larger of the two).
+    const flows = [
+      { given: 9000, received: 9610, net: 610, utility: 8340, receivedUtility: 8950 },
+      { given: 7000, received: 6000, net: -1000, utility: 7000, receivedUtility: 6000 },
+      { given: 2500, received: 3000, net: 500, utility: 2500, receivedUtility: 3000 },
+    ];
+    expect(worstTeamBand(flows)).toMatchObject({
+      index: 2,
+      level: "unfair",
+      relPct: 16.67,
+      largerUtility: 3000,
+    });
+    expect(
+      worstTeamBand([
+        ...flows,
+        { given: 100, received: 100, net: NaN, utility: 100, receivedUtility: 100 },
+      ]),
+    ).toMatchObject({ index: 3, level: null });
+    // A flow without its package utilities is UNKNOWN, never fair.
+    expect(worstTeamBand([...flows, { given: 100, received: 100, net: 0 }])).toMatchObject({
+      index: 3,
+      level: null,
+    });
+    expect(worstTeamBand([])).toBeNull();
+  });
+
+  it("multiTeamNetSummary grades each team on its OWN larger package", () => {
+    const sides = routed([
+      [[["a1", 6000], ["a2", 3000]], [1, 2]],
+      [[["b1", 7000]], [0]],
+      [[["c1", 2500]], [0]],
+    ]);
+    const s = multiTeamNetSummary(computeSideFlows(sides, "full"));
+    expect(s.nets).toEqual([610, -1000, 500]);
+    expect(s.perTeam.map((b) => b.level)).toEqual(["slight", "unfair", "unfair"]);
+    expect(s.worstIndex).toBe(2);
+    expect(s.worst).toBe(500);
+    expect(s.largerUtility).toBe(3000);
+    expect(s.verdict.level).toBe("unfair");
   });
 });
 
@@ -630,6 +698,41 @@ describe("multiAdjustedSideTotals", () => {
     expect(multi[1].raw).toBe(b.raw);
     expect(multi[1].adjustment).toBeCloseTo(b.adjustment, 5);
     expect(multi[1].adjusted).toBeCloseTo(b.adjusted, 5);
+  });
+
+  // Train 17: the #1883 merge left #1886's pre-N-team tail
+  // (`packageUtilities(...totals...)`) after the N >= 3 return — unreachable,
+  // and `totals` was undefined in that scope.  The N >= 3 `utility` comes from
+  // perTeamPackageTotals via the spread; pin that, so the dead tail can never
+  // be "needed" again, and that the owner accepts these totals as a base.
+  it("stamps a finite package utility on every N >= 3 side (no dead tail)", () => {
+    const sides = [
+      [mockRow(9999)],
+      [mockRow(5000), mockRow(3500)],
+      [mockRow(4800), mockRow(3200)],
+    ];
+    const totals = multiAdjustedSideTotals(sides, "full");
+    for (const t of totals) {
+      expect(Number.isFinite(t.utility)).toBe(true);
+      expect(t.utility).toBeGreaterThan(0);
+    }
+    expect(Number.isFinite(sideTotalsFairnessBase(totals))).toBe(true);
+    expect(sideTotalsFairnessBase(totals)).toBe(Math.max(...totals.map((t) => t.utility)));
+  });
+
+  it("has no statement after the N >= 3 return in multiAdjustedSideTotals", () => {
+    const src = readFileSync(
+      fileURLToPath(new URL("../lib/trade-logic.js", import.meta.url)),
+      "utf8",
+    );
+    const start = src.indexOf("export function multiAdjustedSideTotals(");
+    expect(start).toBeGreaterThan(-1);
+    const end = src.indexOf("\n}\n", start);
+    const body = src.slice(start, end);
+    const tail = body.slice(body.lastIndexOf("return teams.map("));
+    // Only the closing of the map callback may follow the final return.
+    expect(tail.replace(/\s+/g, " ")).toMatch(/\}\);\s*$/);
+    expect(body).not.toMatch(/\btotals\b/);
   });
 });
 
@@ -1357,19 +1460,15 @@ describe("findBalancers", () => {
     expect(findBalancers(sidesOf([8000], [3000, 2500]), 1, rows, "full")).toEqual([]);
   });
 
-  it("routes the sweetener to the most-shorted side in a 3-team trade", () => {
+  it("is disabled for 3+ teams (spec §5.1 R10d): no balancing objective is approved", () => {
     const sides = [
       { assets: [{ name: "a0", pos: "QB", values: { full: 9000 } }], destinations: { a0: 1 } },
       { assets: [{ name: "b0", pos: "WR", values: { full: 2000 } }], destinations: { b0: 2 } },
       { assets: [{ name: "c0", pos: "RB", values: { full: 2200 } }], destinations: { c0: 0 } },
     ];
-    const nets = computeSideFlows(sides, "full").map((f) => f.net);
-    const bestIdx = nets.indexOf(Math.max(...nets));
-    const worstIdx = nets.indexOf(Math.min(...nets));
-    const out = findBalancers(sides, bestIdx, pool(), "full", { toSideIdx: worstIdx });
-    expect(out.length).toBeGreaterThan(0);
-    expect(out[0].gapAfter).toBeNull(); // no single signed gap for N >= 3
-    expect(out[0].imbalanceAfter).toBeLessThan(out[0].imbalanceBefore);
+    for (const idx of [0, 1, 2]) {
+      expect(findBalancers(sides, idx, pool(), "full", { combos: true })).toEqual([]);
+    }
   });
 });
 
@@ -1410,7 +1509,7 @@ describe("tradeImbalance — one representation for every side count", () => {
     expect(flows[2].given).toBeCloseTo(5000 + flows[2].adjustment, 6);
   });
 
-  it("nothing is created or destroyed: total given equals total received", () => {
+  it("nothing is created or destroyed: RAW routed flows are conserved", () => {
     const sides = [
       { assets: [{ name: "a0", pos: "QB", values: { full: 9000 } }], destinations: { a0: 2 } },
       { assets: [{ name: "b0", pos: "WR", values: { full: 4000 } },
@@ -1418,10 +1517,32 @@ describe("tradeImbalance — one representation for every side count", () => {
       { assets: [{ name: "c0", pos: "LB", values: { full: 5000 } }], destinations: { c0: 1 } },
     ];
     const flows = computeSideFlows(sides, "full");
-    const given = flows.reduce((t, f) => t + f.given, 0);
-    const received = flows.reduce((t, f) => t + f.received, 0);
-    expect(given).toBeCloseTo(received, 6);
-    expect(flows.reduce((t, f) => t + f.net, 0)).toBeCloseTo(0, 6);
+    const given = flows.reduce((t, f) => t + f.rawGiven, 0);
+    const received = flows.reduce((t, f) => t + f.rawReceived, 0);
+    expect(given).toBe(received);
+    // Adjusted per-team values are perspective quantities: C receives two
+    // pieces (9000 + 2500) for one, so its own reading carries VA that no
+    // sender's reading carries — they are never summed into a trade total.
+    expect(flows[2].recvVA + flows[2].sendVA).toBeGreaterThan(0);
+  });
+
+  it("N >= 3 shape: per-team gaps and the worst team, never max(net) - min(net)", () => {
+    const sides = [
+      { assets: [{ name: "a1", values: { full: 6000 } }, { name: "a2", values: { full: 3000 } }],
+        destinations: { a1: 1, a2: 2 } },
+      { assets: [{ name: "b1", values: { full: 7000 } }], destinations: { b1: 0 } },
+      { assets: [{ name: "c1", values: { full: 2500 } }], destinations: { c1: 0 } },
+    ];
+    const imb = tradeImbalance(sides, "full");
+    expect(imb.gap).toBeNull();
+    expect(imb.imbalance).toBeUndefined();
+    expect(imb.perTeam).toEqual([
+      { gap: 610, larger: 9610, largerUtility: 8950, level: "slight" },
+      { gap: -1000, larger: 7000, largerUtility: 7000, level: "unfair" },
+      { gap: 500, larger: 3000, largerUtility: 3000, level: "unfair" },
+    ]);
+    expect(imb.worst).toEqual({ index: 2, level: "unfair", relPct: 16.67, largerUtility: 3000 });
+    expect(imb.largerUtility).toBe(3000);
   });
 
   it("a side whose pieces are all unpriced carries no premium", () => {
@@ -1658,9 +1779,31 @@ describe("computeSideFlows", () => {
     const flows = computeSideFlows(sides, "full");
     // 1-for-1: KTC suppresses Value Adjustment, so the VA-inclusive
     // flow is identical to the raw one here.
-    expect(flows).toEqual([
-      { given: 9000, received: 8500, net: -500, adjustment: 0 },
-      { given: 8500, received: 9000, net: 500, adjustment: 0 },
+    expect(flows).toMatchObject([
+      // `utility` / `receivedUtility`: the package utility of what the team
+      // sends / receives (fairness_bands_v2's base); `largerUtility` the max.
+      {
+        given: 9000,
+        received: 8500,
+        net: -500,
+        adjustment: 0,
+        rawGiven: 9000,
+        rawReceived: 8500,
+        utility: 9000,
+        receivedUtility: 8500,
+        largerUtility: 9000,
+      },
+      {
+        given: 8500,
+        received: 9000,
+        net: 500,
+        adjustment: 0,
+        rawGiven: 8500,
+        rawReceived: 9000,
+        utility: 8500,
+        receivedUtility: 9000,
+        largerUtility: 9000,
+      },
     ]);
   });
 
@@ -1683,28 +1826,16 @@ describe("computeSideFlows", () => {
       { id: 2, label: "C", assets: [PARSONS], destinations: { "Micah Parsons": 1 } },
     ];
     const flows = computeSideFlows(sides, "full");
-    // Each side's package premium travels with the assets it sends.
-    // Before 2026-08-18 the multi-team flow carried no Value Adjustment
-    // at all and these were the raw totals — the same shape graded
-    // differently at 2 teams and at 3.  Under the active geometric model
-    // each one-piece side discards less depth than the two pieces it
-    // faces: A and B are credited 5000 x 0.22 = 1100, C 8500 x 0.22 =
-    // 1870 (geom q=0.78) — read from the canonical owner below.
-    const [adjA, adjB, adjC] = ownerFold([[9000], [8500], [5000]]);
-    expect([adjA, adjB, adjC]).toEqual([1100, 1100, 1870]);
-    const gA = 9000 + adjA; // Allen → C
-    const gB = 8500 + adjB; // Chase → A
-    const gC = 5000 + adjC; // Parsons → B
-    const expected = [
-      { given: gA, received: gB, net: gB - gA, adjustment: adjA },
-      { given: gB, received: gC, net: gC - gB, adjustment: adjB },
-      { given: gC, received: gA, net: gA - gC, adjustment: adjC },
-    ];
-    flows.forEach((f, i) => {
-      for (const k of ["given", "received", "net", "adjustment"]) {
-        expect(f[k], `side ${i} ${k}`).toBeCloseTo(expected[i][k], 6);
-      }
-    });
+    // Per-team rule (spec §5.1): every team here gives one piece and gets
+    // one piece, so no team's OWN reading carries a Value Adjustment.  The
+    // retired union collapse credited A and B 1,100 and C 1,870 by pricing
+    // each side against the other two sides' pieces combined.
+    expect(flows.map((f) => f.adjustment)).toEqual([0, 0, 0]);
+    expect(flows).toMatchObject([
+      { given: 9000, received: 8500, net: -500 }, // Allen -> C, Chase from B
+      { given: 8500, received: 5000, net: -3500 }, // Chase -> A, Parsons from C
+      { given: 5000, received: 9000, net: 4000 }, // Parsons -> B, Allen from A
+    ]);
   });
 
   it("3-team trade: missing destination falls back to next-side default", () => {
@@ -1714,12 +1845,9 @@ describe("computeSideFlows", () => {
       { id: 2, label: "C", assets: [PARSONS], destinations: {} }, // no dest → default to 0
     ];
     const flows = computeSideFlows(sides, "full");
-    // Every asset carries its sender's package premium (owner-derived;
-    // geom q=0.78: A 1100, B 1100, C 1870).
-    const [adjA, adjB, adjC] = ownerFold([[9000], [8500], [5000]]);
-    expect(flows[0].received).toBeCloseTo(5000 + adjC, 6); // Parsons from C
-    expect(flows[1].received).toBeCloseTo(9000 + adjA, 6); // Allen from A
-    expect(flows[2].received).toBeCloseTo(8500 + adjB, 6); // Chase from B
+    expect(flows[0].rawReceived).toBe(5000); // Parsons from C
+    expect(flows[1].rawReceived).toBe(9000); // Allen from A
+    expect(flows[2].rawReceived).toBe(8500); // Chase from B
   });
 
   it("3-team trade: self-referencing or out-of-range destination falls back to default", () => {
@@ -1730,18 +1858,25 @@ describe("computeSideFlows", () => {
     ];
     const flows = computeSideFlows(sides, "full");
     // All fall back to defaults: A→1, B→2, C→0
-    // Every asset carries its sender's package premium (owner-derived;
-    // geom q=0.78: A 1100, B 1100, C 1870).
-    const [adjA, adjB, adjC] = ownerFold([[9000], [8500], [5000]]);
-    expect(flows[0].received).toBeCloseTo(5000 + adjC, 6); // Parsons from C
-    expect(flows[1].received).toBeCloseTo(9000 + adjA, 6); // Allen from A
-    expect(flows[2].received).toBeCloseTo(8500 + adjB, 6); // Chase from B
+    expect(flows[0].rawReceived).toBe(5000); // Parsons from C
+    expect(flows[1].rawReceived).toBe(9000); // Allen from A
+    expect(flows[2].rawReceived).toBe(8500); // Chase from B
   });
 
   it("returns zero-shaped arrays for empty / single-side inputs", () => {
     expect(computeSideFlows([], "full")).toEqual([]);
     expect(computeSideFlows([{ assets: [ALLEN] }], "full")).toEqual([
-      { given: 0, received: 0, net: 0, adjustment: 0 },
+      {
+        given: 0,
+        received: 0,
+        net: 0,
+        adjustment: 0,
+        rawGiven: 0,
+        rawReceived: 0,
+        utility: 0,
+        receivedUtility: 0,
+        largerUtility: 0,
+      },
     ]);
   });
 
@@ -1754,20 +1889,44 @@ describe("computeSideFlows", () => {
     const flows = computeSideFlows(sides, "full");
     // Only one side has anything on the table, so there is no package
     // to price a consolidation premium against.
-    expect(flows[0]).toEqual({ given: 9000, received: 0, net: -9000, adjustment: 0 });
-    expect(flows[1]).toEqual({ given: 0, received: 9000, net: 9000, adjustment: 0 });
-    expect(flows[2]).toEqual({ given: 0, received: 0, net: 0, adjustment: 0 });
+    // `utility` is the package each side SENDS (fairness_bands_v2's base),
+    // `receivedUtility` the package routed to it.
+    expect(flows[0]).toMatchObject({
+      given: 9000,
+      received: 0,
+      net: -9000,
+      adjustment: 0,
+      utility: 9000,
+      receivedUtility: 0,
+    });
+    expect(flows[1]).toMatchObject({
+      given: 0,
+      received: 9000,
+      net: 9000,
+      adjustment: 0,
+      utility: 0,
+      receivedUtility: 9000,
+    });
+    expect(flows[2]).toMatchObject({
+      given: 0,
+      received: 0,
+      net: 0,
+      adjustment: 0,
+      utility: 0,
+      receivedUtility: 0,
+    });
   });
 
-  it("NET flow always sums to zero across all sides (conservation)", () => {
+  it("RAW flow is conserved across all sides; adjusted nets are per-team", () => {
     const sides = [
       { id: 0, label: "A", assets: [ALLEN, MAHOMES], destinations: { "Josh Allen": 1, "Patrick Mahomes": 2 } },
       { id: 1, label: "B", assets: [CHASE], destinations: { "Ja'Marr Chase": 2 } },
       { id: 2, label: "C", assets: [PARSONS, PICK_2026], destinations: { "Micah Parsons": 0, "2026 Early 1st": 1 } },
     ];
     const flows = computeSideFlows(sides, "full");
-    const totalNet = flows.reduce((s, f) => s + f.net, 0);
-    expect(totalNet).toBe(0);
+    const rawNet = flows.reduce((s, f) => s + (f.rawReceived - f.rawGiven), 0);
+    expect(rawNet).toBe(0);
+    for (const f of flows) expect(f.net).toBe(f.recvAdj - f.sendAdj);
   });
 });
 

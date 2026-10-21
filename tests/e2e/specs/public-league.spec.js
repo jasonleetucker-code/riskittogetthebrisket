@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
+const { overviewTabLabel } = require("../helpers/advisor");
 
 // End-to-end coverage for the PUBLIC /league page.  Exercises the
 // real Sleeper-backed data flow through the FastAPI backend at
@@ -15,10 +16,15 @@ const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
 
 // Tab labels the walk test exercises — a subset of the page's
 // SUB_TABS (frontend/app/league/tabs.js), which also owns the default
-// landing (DEFAULT_TAB = "overview").
+// landing (DEFAULT_TAB = "trade-advisor" since 2026-10-19; Overview when
+// the advisor is not served).  "Trade Advisor" is deliberately not in
+// this list: it exists only while the backend serves the advisor, and
+// league-trade-advisor.spec.js covers both states.  The overview tab's
+// label depends on the advisor flag — "Home" exactly as on main while the
+// advisor is off, "Overview" while it is served (it is Home then) — so it
+// is added per run from `overviewTabLabel`.
 const TABS = [
   "Draft Capital",
-  "Home",
   "History",
   "Rivalries",
   "Awards",
@@ -133,6 +139,7 @@ async function visitLeague(
 test.describe("public /league page", () => {
   test("renders league page, switches tabs, and never touches private endpoints", async ({
     page,
+    request,
   }) => {
     // Walking 12 tabs and waiting for each to actually render its own
     // content does not fit the default 90s budget — the old version fit
@@ -198,7 +205,8 @@ test.describe("public /league page", () => {
     // not coverage.  See docs/e2e-assertion-audit.md §3.4.
     const missingTabs = [];
 
-    for (const label of TABS) {
+    const overviewLabel = await overviewTabLabel(request);
+    for (const label of [TABS[0], overviewLabel, ...TABS.slice(1)]) {
       if (useMobile) {
         await mobileSelect.selectOption({ label });
         continue;
@@ -498,7 +506,8 @@ test.describe("public /league page", () => {
   }) => {
     // Server-rendered /league?tab=overview hits the overview content
     // directly — HTML should contain the overview headlines, not the
-    // fallback "Loading" text.
+    // fallback "Loading" text.  Holds with the advisor on or off: the
+    // Overview section is split but `ssr: true` (LeagueClient.jsx).
     const res = await request.get(pageUrl("/league?tab=overview"));
     const html = await res.text();
     expect(html).toMatch(/At a glance|Defending champion|Featured rivalry/);

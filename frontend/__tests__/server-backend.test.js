@@ -15,7 +15,7 @@
 
 import { describe, expect, it, afterEach, vi } from "vitest";
 
-import { backendOrigin, fetchBackendJson } from "../lib/server-backend.js";
+import { backendOrigin, fetchBackendJson, fetchBackendResult } from "../lib/server-backend.js";
 
 const REAL_FETCH = globalThis.fetch;
 
@@ -96,6 +96,40 @@ describe("failure is one answer, not four", () => {
     const payload = { contractVersion: "x", league: { leagueName: "L" }, data: {} };
     globalThis.fetch = async () => ({ ok: true, json: async () => payload });
     expect(await fetchBackendJson("/api/public/league/overview")).toEqual(payload);
+  });
+});
+
+describe("fetchBackendResult reports the status for callers that must tell refusal from silence", () => {
+  // The League Hub decides whether the Brisket Trade Advisor tab exists from
+  // this: 503 advisor_unavailable/disabled or 404 means "fall back to
+  // Overview"; no answer means "unknown, let the client ask".
+  it("keeps the status and the parsed error body", async () => {
+    globalThis.fetch = async () => ({ ok: false, status: 503, json: async () => ({ error: "advisor_unavailable", reason: "disabled" }) });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await fetchBackendResult("/api/public/league/trade-advisor/teams")).toEqual({
+      ok: false,
+      status: 503,
+      data: { error: "advisor_unavailable", reason: "disabled" },
+    });
+  });
+
+  it("status 0 when nothing answered, and never throws", async () => {
+    globalThis.fetch = async () => {
+      throw Object.assign(new Error("timeout"), { name: "TimeoutError" });
+    };
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await fetchBackendResult("/api/public/league/trade-advisor/teams")).toEqual({ ok: false, status: 0, data: null });
+  });
+
+  it("carries the same bound as fetchBackendJson", async () => {
+    let init;
+    globalThis.fetch = async (_url, i) => {
+      init = i;
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+    await fetchBackendResult("/x", { revalidate: 60 });
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init.next).toEqual({ revalidate: 60 });
   });
 });
 

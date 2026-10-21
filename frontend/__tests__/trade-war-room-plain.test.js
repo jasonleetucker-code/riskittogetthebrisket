@@ -64,6 +64,8 @@ import {
   tradeValueSummary,
   uncertaintyLine,
   versionLabel,
+  bandStatusWords,
+  bandBasisWords,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
 
@@ -1122,7 +1124,7 @@ describe("methodology — the engine's own record, in plain words", () => {
 
   it("each recorded reason keeps its numbers; band and posture labels read in words", () => {
     expect(d.reasons.map((r) => recordReasonText(r, { strategy: d.strategy }))).toEqual([
-      "+1,440 package value for you after Value Adjustment — 19.4% of the larger package: a lopsided gap.",
+      "+1,440 package value for you after Value Adjustment — 20.6% of the larger package: a lopsided gap.",
       "+1.5 expected best-ball points per week in your legal lineup.",
       "Fits your roster without a cut.",
       "Strategy: Win now. Your competitive posture is Push (contender), so the strategy is win now.",
@@ -1184,6 +1186,14 @@ describe("methodology — the engine's own record, in plain words", () => {
 
   it("version ids read as version numbers, never as ids", () => {
     expect(versionLabel("fairness_bands_v1")).toBe("version 1");
+    expect(versionLabel("fairness_bands_v2")).toBe("version 2");
+    expect(bandStatusWords("PRIOR_OWNER_APPROVED_2026-10-20")).toBe(
+      "owner-approved prior, validated after launch",
+    );
+    expect(bandStatusWords("PROVISIONAL")).toBe("provisional");
+    expect(bandStatusWords("SOMETHING_ELSE")).toBeNull();
+    expect(bandBasisWords("larger_package_utility")).toBe("the larger package after the depth discount");
+    expect(bandBasisWords("adjusted_package_totals")).toBe("the larger adjusted package");
     expect(versionLabel("trade_decision_v2")).toBe("version 2");
     expect(versionLabel("weird")).toBeNull();
   });
@@ -1217,7 +1227,7 @@ describe("a strategy-decided answer says what pushed toward it", () => {
     const items = decisionReasonSentences(d, { analysis: a });
     expect(items.map((r) => r.role)).toEqual(["main", "supportAgainst", "counter"]);
     expect(items[1].sentence).toBe(
-      "After the forced cut of RB Bench One (worth 3,000), you come out 1,426 behind on trade value — an unfair gap against you (13.8% of the larger package).",
+      "After the forced cut of RB Bench One (worth 3,000), you come out 1,426 behind on trade value — an unfair gap against you (14.9% of the larger package).",
     );
     // Every number is the decision's own.
     const ev = d.reasons.find((r) => r.component === "objectiveValue").evidence;

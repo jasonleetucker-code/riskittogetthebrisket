@@ -1,0 +1,35 @@
+{
+  "leagueKey": "main",
+  "generation": "925cb8176237c9eb",
+  "limits": {
+    "minTeams": 2,
+    "maxTeams": 4,
+    "maxLegs": 128
+  },
+  "rosters": {
+    "state": "current",
+    "asOf": "2026-10-20"
+  },
+  "teams": [
+    {
+      "rosterId": 1,
+      "displayName": "Alpha",
+      "teamName": "The Alphas"
+    },
+    {
+      "rosterId": 2,
+      "displayName": "Bravo",
+      "teamName": "The Bravos"
+    },
+    {
+      "rosterId": 3,
+      "displayName": "Charlie",
+      "teamName": "The Charlies"
+    },
+    {
+      "rosterId": 4,
+      "displayName": "Delta",
+      "teamName": "The Deltas"
+    }
+  ]
+}

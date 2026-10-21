@@ -21,6 +21,7 @@
 // routes only, for one revalidate window.
 
 import { fetchBackendJson } from "../lib/server-backend.js";
+import { advisorConfirmedServed } from "./league/advisor-bootstrap.js";
 import { isPublicPath } from "../lib/public-routes.js";
 
 function _origin() {
@@ -38,6 +39,10 @@ async function _fetchJson(path) {
 export default async function sitemap() {
   const origin = _origin();
   const now = new Date();
+  // Same cached read as the hub (./league/advisor-bootstrap.js), on the
+  // sitemap's own 10 m window so it does not shorten the route's
+  // revalidation.
+  const advisorServed = await advisorConfirmedServed({ revalidate: 600 });
 
   // Static public routes.
   //
@@ -63,6 +68,11 @@ export default async function sitemap() {
     "/trades",
     "/draft-capital",
     "/league",
+    // Advisor-only URL: while the Brisket Trade Advisor is served it is
+    // /league's landing, so Overview needs its own `?tab=`.  Listed only
+    // when the advisor is CONFIRMED served — off (or unknown), the sitemap
+    // is exactly main's.
+    ...(advisorServed ? ["/league?tab=overview"] : []),
     "/league?tab=matchupPreview",
     "/league?tab=power",
     "/league?tab=luck",

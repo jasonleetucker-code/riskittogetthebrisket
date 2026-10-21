@@ -1,0 +1,22 @@
+
+I14 one-to-many
+  side | old given/received/net (union collapse) | new sendAdj/recvAdj/gap (per team) | new band
+  A    | 9000/13634/4634 | 9000/9610/610 | slight 6.35%
+  B    | 8639/6000/-2639 | 7000/6000/-1000 | unfair 14.29%
+  C    | 4995/3000/-1995 | 2500/3000/500 | unfair 16.67%
+  old headline: LOPSIDED (worst |net| 4634 on base 9000) | new headline: UNFAIR (Side C 500 of 3000)
+
+3-team circular 1-for-1
+  side | old given/received/net (union collapse) | new sendAdj/recvAdj/gap (per team) | new band
+  A    | 10100/6870/-3230 | 9000/5000/-4000 | lopsided 44.44%
+  B    | 9600/10100/500 | 8500/9000/500 | slight 5.56%
+  C    | 6870/9600/2730 | 5000/8500/3500 | lopsided 41.18%
+  old headline: LOPSIDED (worst |net| 3230 on base 10100) | new headline: LOPSIDED (Side A -4000 of 9000)
+
+4-team circular
+  side | old given/received/net (union collapse) | new sendAdj/recvAdj/gap (per team) | new band
+  A    | 13743/12128/-1615 | 9500/6830/-2670 | lopsided 28.11%
+  B    | 12518/13743/1225 | 7330/9500/2170 | lopsided 22.84%
+  C    | 11214/12518/1304 | 7000/7660/660 | slight 8.62%
+  D    | 12128/11214/-914 | 7160/7000/-160 | fair 2.23%
+  old headline: UNFAIR (worst |net| 1615 on base 13743) | new headline: LOPSIDED (Side A -2670 of 9500)

@@ -32,11 +32,12 @@ import server
 
 SERVER_PY = Path(server.__file__)
 ARTICLES_API_PY = SERVER_PY.parent / "src" / "public_league" / "articles_api.py"
+TRADE_ADVISOR_API_PY = SERVER_PY.parent / "src" / "api" / "public_trade_advisor_api.py"
 
 #: Files whose route handlers are scanned: ``server.py`` plus each router
 #: module extracted from it whose decorators spell the full served path
 #: (no ``APIRouter(prefix=...)``).
-SCANNED_SOURCES = (SERVER_PY, ARTICLES_API_PY)
+SCANNED_SOURCES = (SERVER_PY, ARTICLES_API_PY, TRADE_ADVISOR_API_PY)
 
 _ROUTE_RE = re.compile(r"@(?:app|router)\.(?:get|post|put|delete)\(\s*[\"']([^\"']+)[\"']")
 _PUBLIC_STAMP_RE = re.compile(r"\"Cache-Control\":\s*\"public")

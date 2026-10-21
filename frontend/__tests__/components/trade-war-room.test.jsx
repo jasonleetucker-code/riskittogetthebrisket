@@ -776,7 +776,7 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
     const items = within(screen.getByTestId("decision-reasons")).getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual([
       "Biggest reason: Your strategy decided it: long-term value — your choice; your team reads as a contender.",
-      "What pushes against it: After the forced cut of RB Bench One (worth 3,000), you come out 1,426 behind on trade value — an unfair gap against you (13.8% of the larger package).",
+      "What pushes against it: After the forced cut of RB Bench One (worth 3,000), you come out 1,426 behind on trade value — an unfair gap against you (14.9% of the larger package).",
       "On the other hand: Your projected weekly lineup gets much stronger.",
     ]);
   });
@@ -1191,7 +1191,7 @@ describe("TradeWarRoom — the ONE decision (TC-C)", () => {
         .getAllByRole("listitem")
         .map((li) => li.textContent),
     ).toEqual([
-      "Deciding reason: +1,440 package value for you after Value Adjustment — 19.4% of the larger package: a lopsided gap.",
+      "Deciding reason: +1,440 package value for you after Value Adjustment — 20.6% of the larger package: a lopsided gap.",
       "+1.5 expected best-ball points per week in your legal lineup.",
       "Fits your roster without a cut.",
       "Strategy: Win now. Your competitive posture is Push (contender), so the strategy is win now.",
@@ -1199,7 +1199,7 @@ describe("TradeWarRoom — the ONE decision (TC-C)", () => {
     expect(readText(record)).toMatch(/version 2/);
     const bands = screen.getByTestId("decision-bands");
     expect(bands).toHaveTextContent(
-      "Fairness bands, version 1 (provisional): a gap is fair under 250 points or 3.5% of the larger adjusted package.",
+      "Fairness bands, version 2 (owner-approved prior, validated after launch): a gap is fair under 250 points or 3.5% of the larger package after the depth discount.",
     );
     for (const el of [record, bands]) expect(hasInternalIdentifier(readText(el))).toBe(false);
   });

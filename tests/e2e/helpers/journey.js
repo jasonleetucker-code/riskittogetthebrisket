@@ -607,6 +607,13 @@ function routeUsefulSnapshot(path) {
   const pending = () => result("pending", "data_pending");
   const main = document.querySelector("main") || document;
   if (path === "/league") {
+    // Brisket Trade Advisor landing (DEFAULT_TAB when the backend serves
+    // it): useful once the server-rendered team picker is interactive.
+    const advisor = document.querySelector('#league-panel-trade-advisor[role="tabpanel"]');
+    if (visible(advisor)) {
+      const picker = advisor.querySelector('input[role="combobox"]#advisor-your-team');
+      return visible(picker) ? result("useful", "public_advisor_team_step") : pending();
+    }
     const topLevelEmpty = all(main, "h2,h3,h4,.empty-state-title").some(el => !el.closest('[role="tabpanel"]') && ["League data unavailable", "No public league data"].includes(text(el)));
     const panel = document.querySelector('#league-panel-overview[role="tabpanel"]');
     if (!visible(panel)) return topLevelEmpty ? result("unavailable", "public_data_unavailable") : pending();

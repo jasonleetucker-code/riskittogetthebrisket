@@ -25,7 +25,9 @@ vi.mock("@/components/terminal/TerminalLayout", () => ({
   default: () => <div data-testid="terminal" />,
 }));
 
-import HomePage from "@/app/page.jsx";
+// The page is a server wrapper (advisor flag read); the client component
+// under test is HomeClient.
+import HomePage from "@/app/HomeClient.jsx";
 
 beforeEach(() => {
   vi.useFakeTimers();

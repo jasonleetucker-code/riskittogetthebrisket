@@ -178,12 +178,16 @@
         "engineVersion": "decision_engine_v3_shadow",
         "fairnessBands": {
           "absoluteMinimum": 250.0,
-          "basis": "adjusted_package_totals",
+          "basis": "larger_package_utility",
+          "fairTradeLevels": [
+            "fair"
+          ],
           "lopsidedPct": 18.0,
+          "postLaunchValidation": "OD-F4",
           "slightPct": 3.5,
-          "status": "PROVISIONAL",
+          "status": "PRIOR_OWNER_APPROVED_2026-10-20",
           "unfairPct": 9.0,
-          "version": "fairness_bands_v1"
+          "version": "fairness_bands_v2"
         },
         "inputHashes": {
           "asset": "1667b1dd546c9d13",
@@ -444,12 +448,16 @@
         "engineVersion": "decision_engine_v3_shadow",
         "fairnessBands": {
           "absoluteMinimum": 250.0,
-          "basis": "adjusted_package_totals",
+          "basis": "larger_package_utility",
+          "fairTradeLevels": [
+            "fair"
+          ],
           "lopsidedPct": 18.0,
+          "postLaunchValidation": "OD-F4",
           "slightPct": 3.5,
-          "status": "PROVISIONAL",
+          "status": "PRIOR_OWNER_APPROVED_2026-10-20",
           "unfairPct": 9.0,
-          "version": "fairness_bands_v1"
+          "version": "fairness_bands_v2"
         },
         "inputHashes": {
           "asset": "eaeccbc0537d4eb0",

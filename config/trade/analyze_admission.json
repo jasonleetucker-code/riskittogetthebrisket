@@ -1,0 +1,9 @@
+{
+  "_comment": "Per-route admission control for the N-team trade analyze routes (review R2-5, owner directive 2026-10-20 §13 'bounded resources' / 'cancellation/timeout'). Read ONLY by src/api/compute_admission.py. maxConcurrent bounds how many engine COMPUTATIONS (not joined single-flight waiters) may run at once on that route in one process; a request arriving when every slot is busy is refused at once with a retryable 503 instead of queueing behind the GIL. timeoutSeconds bounds how long one caller waits for its computation; the computation itself cannot be interrupted (it runs in a worker thread), so it keeps its slot until it really finishes, and an identical retry joins it rather than starting another. BOTH SIZES ARE PENDING OWNER CONFIRMATION (directive §16 gate 7): they are conservative defaults chosen against the Lane E-4 local measurement (public worst-case 4-team p50 55-61 ms / p99 <= 623 ms under in-process contention; private worst-case 4-team p50 200-330 ms; one process saturates at ~12-14 public analyses/s because the work is GIL-bound), not fitted constants. A missing or malformed entry falls back to the defaults in compute_admission.DEFAULTS; a non-positive value is never 'unlimited'.",
+  "version": "analyze_admission_v1",
+  "status": "PENDING_OWNER_CONFIRMATION",
+  "routes": {
+    "public_advisor_analyze": {"maxConcurrent": 2, "timeoutSeconds": 5},
+    "trade_analyze_multi": {"maxConcurrent": 2, "timeoutSeconds": 30}
+  }
+}
