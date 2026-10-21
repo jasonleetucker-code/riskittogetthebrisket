@@ -146,6 +146,48 @@ def test_retention_prunes_old_days(store, flag):
     assert list(shadow.read_counters("main", root=store)["days"]) == ["2027-02-05"]
 
 
+def _write_store(store, days):
+    store.mkdir(parents=True, exist_ok=True)
+    blob = {"version": shadow.COUNTERS_VERSION, "leagueKey": "main", "aggregateOnly": True}
+    blob["days"] = {d: {"calculator": {"trade": {"trades": 1}}} for d in days}
+    (store / "main.json").write_text(json.dumps(blob), encoding="utf-8")
+
+
+def test_read_never_serves_and_deletes_expired_days_with_no_writes(store, flag):
+    """Retention holds with the flag OFF: nothing writes, yet an expired day is
+    neither served nor kept (owner-requested retention protection)."""
+    flag(False)
+    now = datetime(2026, 10, 21, tzinfo=timezone.utc)
+    _write_store(store, ["2026-01-01", "2026-04-23", "2026-04-24", "2026-10-20"])
+    data = shadow.read_counters("main", root=store, now=now)
+    assert sorted(data["days"]) == ["2026-04-24", "2026-10-20"]  # 180-day window
+    assert data["totals"]["calculator"]["trade"]["trades"] == 2
+    kept = json.loads((store / "main.json").read_text(encoding="utf-8"))
+    assert sorted(kept["days"]) == ["2026-04-24", "2026-10-20"]
+
+
+def test_prune_expired_runs_with_the_flag_off_across_leagues(store, flag):
+    flag(False)
+    now = datetime(2026, 10, 21, tzinfo=timezone.utc)
+    _write_store(store, ["2025-01-01", "2026-10-20"])
+    (store / "side.json").write_text(
+        json.dumps({"days": {"2025-02-02": {}, "2026-10-01": {}}}), encoding="utf-8"
+    )
+    assert shadow.prune_expired(now=now, root=store) == 2
+    assert list(json.loads((store / "main.json").read_text("utf-8"))["days"]) == ["2026-10-20"]
+    assert list(json.loads((store / "side.json").read_text("utf-8"))["days"]) == ["2026-10-01"]
+    assert shadow.prune_expired(now=now, root=store) == 0  # idempotent
+    assert shadow.prune_expired(now=now, root=store / "absent") == 0  # never raises
+
+
+def test_the_post_scrape_pass_prunes_the_shadow_store():
+    src = (REPO / "server.py").read_text(encoding="utf-8")
+    block = src[src.index("_ret = prune_data_dir(BASE_DIR)") :]
+    block = block[: block.index("return result")]
+    assert "_depth_shadow.prune_expired()" in block
+    assert "is_enabled" not in block  # retention never depends on the flag
+
+
 def test_unavailable_lines_are_counted_never_guessed(store, flag):
     flag(True)
     _record(contract=F.contract(lineups=False))
@@ -180,6 +222,102 @@ def test_a_failing_counter_never_raises(store, flag, monkeypatch):
 
     monkeypatch.setattr(dd, "evaluate_two_team", boom)
     assert _record() is None
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"unresolvedIn": ["Nobody"]},
+        {"unresolvedOut": ["Nobody"]},
+        {"ownedPickChecks": {"notOwnedBySender": [{"label": "2027 Pick 1.04"}]}},
+        {"ownedPickChecks": {"hypotheticalPicksOut": ["2027 Round 1"]}},
+        {"pickOwnership": {"state": "unavailable"}},
+        {"ownershipEvidence": {"unverifiableAssetIds": ["p:1"]}},
+    ],
+)
+def test_signature_changes_when_evaluability_changes(extra):
+    """A trade whose evidence gates differ is a different trade to count: fixing
+    an off-board name or dropping an unheld pick must be evaluated again."""
+    base = F.HURTS_FOR_EGBUKA_HODGINS
+    assert shadow.trade_signature({**base, **extra}) != shadow.trade_signature(base)
+
+
+def test_signature_changes_with_piece_state():
+    base = F.HURTS_FOR_EGBUKA_HODGINS
+    stale = copy.deepcopy(base)
+    stale["receiving"][1]["valueFreshness"] = "low"
+    quarantined = copy.deepcopy(base)
+    quarantined["receiving"][1]["quarantined"] = True
+    for variant in (stale, quarantined):
+        assert shadow.trade_signature(variant) != shadow.trade_signature(base)
+
+
+def test_a_corrected_trade_is_evaluated_again(store, flag):
+    flag(True)
+    now = datetime(2026, 10, 21, 13, 0, tzinfo=timezone.utc)
+    broken = {**F.HURTS_FOR_EGBUKA_HODGINS, "unresolvedIn": ["Nobody"]}
+    common = dict(contract=F.contract(), league_key="main", roster_settings=F.SETTINGS)
+    shadow.record_evaluation(broken, surface="war_room", now=now, **common)
+    shadow.record_evaluation(F.HURTS_FOR_EGBUKA_HODGINS, surface="war_room", now=now, **common)
+    block = shadow.read_counters("main", root=store)["days"]["2026-10-21"]["war_room"]
+    assert block["trade"]["trades"] == 2 and "repeatRequests" not in block["trade"]
+    assert block["self"]["outcome:not_evaluated:unknown_piece:off_board_assets"] == 1
+    assert block["self"]["fires"] == 1
+
+
+def test_a_failed_evaluation_is_not_marked_counted(store, flag, monkeypatch):
+    flag(True)
+    now = datetime(2026, 10, 21, 13, 0, tzinfo=timezone.utc)
+    real = dd.evaluate_two_team
+
+    def boom(*_a, **_k):
+        raise RuntimeError("synthetic")
+
+    monkeypatch.setattr(dd, "evaluate_two_team", boom)
+    assert _record(now=now) is None
+    monkeypatch.setattr(dd, "evaluate_two_team", real)
+    out = _record(now=now)
+    assert out is not None and out["trade"].get("trades") == 1
+
+
+def test_an_older_day_never_resets_a_newer_days_dedup(store, flag):
+    flag(True)
+    day2 = datetime(2026, 10, 22, 1, 0, tzinfo=timezone.utc)
+    _record(now=day2)
+    _record(now=day2 - timedelta(hours=3))  # a job queued before midnight
+    out = _record(now=day2)
+    assert out["trade"] == {"requests": 1, "repeatRequests": 1}
+
+
+def test_submit_stamps_the_request_time(store, flag, monkeypatch):
+    flag(True)
+    seen = {}
+    monkeypatch.setattr(
+        shadow, "record_evaluation", lambda sim, **kw: seen.setdefault("now", kw.get("now"))
+    )
+    before = datetime.now(timezone.utc)
+    shadow.submit_evaluation(F.HURTS_FOR_EGBUKA_HODGINS, league_key="main", surface="calculator")
+    shadow.flush()
+    assert seen["now"] is not None and seen["now"] >= before
+
+
+def test_a_full_queue_drops_and_counts_never_blocks(store, flag, monkeypatch):
+    import queue as _queue
+
+    flag(True)
+    monkeypatch.setattr(shadow, "_QUEUE", _queue.Queue(maxsize=1))
+    monkeypatch.setattr(shadow, "_ensure_worker", lambda: None)  # nothing drains
+    for _ in range(3):
+        shadow.submit_evaluation(F.HURTS_FOR_EGBUKA_HODGINS, league_key="main", surface="x")
+    assert shadow._dropped == 2
+    monkeypatch.undo()
+    flag(True)
+    monkeypatch.setattr(shadow, "SHADOW_DIR", store)
+    shadow._dropped = 2
+    _record(now=datetime(2026, 10, 21, tzinfo=timezone.utc))
+    data = shadow.read_counters("main", root=store)
+    assert data["days"]["2026-10-21"]["_queue"] == {"dropped": 2}
+    assert shadow._dropped == 0
 
 
 def test_submit_runs_off_the_request_path_and_snapshots(store, flag):
@@ -331,6 +469,19 @@ def test_read_route_is_invisible_with_the_flag_off(league, store, flag, monkeypa
     assert _call(monkeypatch, "get", url, session=lambda _r: None).status_code == 401
     assert _call(monkeypatch, "get", url, session=_session(username="alice")).status_code == 403
     assert _call(monkeypatch, "get", url).status_code == 404
+
+
+def test_a_non_admin_cannot_tell_whether_the_window_is_running(league, store, flag, monkeypatch):
+    """Flag-state oracle: anyone but an admin gets the identical response with
+    the flag OFF and ON."""
+    url = "/api/trade/depth-disclosure-shadow?leagueKey=main"
+    for session in (lambda _r: None, _session(username="alice")):
+        answers = []
+        for on in (False, True):
+            flag(on)
+            res = _call(monkeypatch, "get", url, session=session)
+            answers.append((res.status_code, res.content))
+        assert answers[0] == answers[1], answers
 
 
 def test_read_route_requires_admin_and_league_membership(league, store, flag, monkeypatch):

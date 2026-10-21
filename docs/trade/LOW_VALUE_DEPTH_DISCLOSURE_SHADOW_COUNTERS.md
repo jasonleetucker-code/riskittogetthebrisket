@@ -20,8 +20,10 @@ Flag: `low_value_depth_disclosure_shadow` (default OFF; `RISKIT_FEATURE_LOW_VALU
 
 1. `server.py::_build_trade_simulation` finishes the simulation and calls
    `src/trade/depth_disclosure_shadow.submit_evaluation`. That call takes a deep copy of the few
-   fields the rule reads, and one background worker counts it. The request never waits, and the
-   payload is byte-identical with the flag ON or OFF (`tests/trade/test_depth_disclosure_shadow.py`).
+   fields the rule reads and stamps the request time, which decides the counting day. One daemon
+   worker, reading a bounded queue of 256 jobs, counts it. The request never waits, and the payload
+   is byte-identical with the flag ON or OFF (`tests/trade/test_depth_disclosure_shadow.py`). If the
+   queue is full, the job is dropped and counted (`_queue.dropped` on the next written day).
    The two surfaces are named by route:
    - **`calculator`:** `/api/trade/simulate`, the calculator's explicit "Simulate impact";
    - **`war_room`:** `/api/trade/analyze`, which the War Room panel on `/trade` re-posts as the
@@ -42,12 +44,28 @@ Flag: `low_value_depth_disclosure_shadow` (default OFF; `RISKIT_FEATURE_LOW_VALU
 
 **The counting unit is a distinct trade per league, UTC day and surface.** The War Room re-posts
 on every debounced edit and on every Team Context or goal toggle, so counting requests would weight
-a trade by how often its builder iterated. A repeat of the same trade that day (same team, same
-asset ids on both sides) is not evaluated again. It adds only to `trade.requests` and
+a trade by how often its builder iterated. A repeat of the same trade that day is not evaluated
+again. "The same trade" means:
+- the same team;
+- the same asset ids on both sides, each with the same priced, quarantined and stale state;
+- the same off-board names, unheld picks and hypothetical picks;
+- the same pick-ownership state.
+
+So a trade that becomes evaluable when the user fixes it is counted again. A trade is marked
+counted only after its write succeeds. It adds only to `trade.requests` and
 `trade.repeatRequests`. The signature set lives in memory and holds hashes only. It resets on a
 restart, so a trade asked again after a deploy is counted twice.
 
 **The store holds no player name, value, gap or line.** A test asserts this.
+
+**Retention: 180 days** (`retentionDays`). It is enforced in three places, so expiry never depends on
+the counters running:
+- **on every write;**
+- **on every read:** an expired day is never served, and reading deletes it;
+- **in the post-scrape maintenance pass:** `server.py` calls `prune_expired()` beside
+  `src/maintenance/retention.prune_data_dir`, whatever the flag says.
+
+The store is under the gitignored `data/` tree, and no workflow force-adds it.
 
 ## Counters
 

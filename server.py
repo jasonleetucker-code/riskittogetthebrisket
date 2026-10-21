@@ -4074,6 +4074,14 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     log.info("retention: %s", _ret.summary())
             except Exception as _ret_exc:  # noqa: BLE001
                 log.warning("retention prune skipped: %s", _ret_exc)
+            # Depth-note shadow counters (LVA-P4): expired days go whatever the
+            # flag says, so retention never depends on the counters running.
+            try:
+                from src.trade import depth_disclosure_shadow as _depth_shadow  # noqa: PLC0415
+
+                _depth_shadow.prune_expired()
+            except Exception as _lvd_exc:  # noqa: BLE001
+                log.warning("depth-disclosure shadow retention skipped: %s", _lvd_exc)
 
             return result
         except Exception as e:
