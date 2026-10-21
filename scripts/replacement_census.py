@@ -85,21 +85,42 @@ CENSUS: tuple[Impl, ...] = (
     Impl(
         key="A",
         path="src/league_intel/replacement.py",
-        symbol="compute_replacement_levels / measure_endogenous_starters / compute_scarcity",
+        symbol=(
+            "compute_replacement_levels / measure_endogenous_starters / compute_scarcity"
+            " / waiver_levels"
+        ),
         quantity="four replacement tiers (starter / bestBallStarter / roster / waiver)",
-        unit="rosValue — 0-100 log-rank ROS production index",
-        population="every rostered player in the league, plus free agents",
+        unit=(
+            "caller-selected value field — the four-tier compute_replacement_levels "
+            "/ compute_scarcity path reads rosValue (0-100 log-rank ROS production "
+            "index); waiver_levels reads the field its caller names (value_key), "
+            "rankDerivedValue reserved for the displacement consumers"
+        ),
+        population=(
+            "every rostered player in the league, plus free agents; waiver_levels "
+            "takes a caller-built free-agent population and decides no eligibility"
+        ),
         disposition=OWNER,
         note=(
-            "Canonical for the ROS-production unit. Reads rosValue at :299/:375/"
-            ":386/:567/:618; its own docstring :22 says 'runs the optimizer over "
-            "rosValue'. Its production caller supplies ROS rows "
-            "(gameplan.py:357 loads data/ros/team_strength/)."
+            "Canonical for the ROS-production unit, and the ONE algorithm owner of "
+            "the waiver tier (mean of free-agent ranks 1..1+DEFAULT_BAND) in any "
+            "unit (LI-5 consolidation design 2026-10-21, D3). The four-tier path "
+            "reads rosValue at every value site (measure_endogenous_starters, the "
+            "rostered pools, compute_scarcity) and its waiver tier calls "
+            "waiver_levels(value_key='rosValue'); its own docstring :22 says 'runs "
+            "the optimizer over rosValue'. Its production caller supplies ROS rows "
+            "(gameplan.py loads data/ros/team_strength/) and passes no free agents, "
+            "so no waiver tier is served and scarcity stays inert (D8). Units are "
+            "kept apart by ARGUMENT, not merged: there is no validated rosValue <-> "
+            "rankDerivedValue conversion, and a level is comparable only with values "
+            "read from the same field. Row G stays DISTINCT until its consumers are "
+            "wired onto waiver_levels (design phase P3)."
         ),
         call_names=(
             "compute_replacement_levels",
             "measure_endogenous_starters",
             "compute_scarcity",
+            "waiver_levels",
         ),
     ),
     Impl(
