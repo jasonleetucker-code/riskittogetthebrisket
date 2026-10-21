@@ -522,7 +522,8 @@ def cmd_tauc(args: argparse.Namespace) -> int:
     th = {lab: _partial_thresholds(sel, k_c=kc, tau_c=tau_c, tau_c_big=t) for lab, t in D.TAUC_GRID}
     out_dir = OUT_ROOT / "tauc"
     l4 = l4_board_set()
-    want = set(TAUC_BOARDS) | l4
+    l4_only = bool(getattr(args, "l4_only", False))
+    want = l4 if l4_only else set(TAUC_BOARDS) | l4
     for entry, cut, raw, root in iterate():
         b = entry["board"]
         if b not in want:
@@ -533,6 +534,11 @@ def cmd_tauc(args: argparse.Namespace) -> int:
             "stage": "tauc",
             "board": R2.board_meta(entry, cut),
         }
+        prior = out_dir / f"{Path(b).stem}.json.gz"
+        if l4_only and prior.exists():
+            # V21-D17: recompute only the L4 measurement; keep the value cases.
+            rec = read_gz(prior)
+            rec["l4MeasurementRevision"] = "V21-D17"
         if b in l4:
             ex = l4_exclude_for(entry)
             rec["l4"] = {}
@@ -544,7 +550,7 @@ def cmd_tauc(args: argparse.Namespace) -> int:
                     "dropped": got["dropped"],
                     "drops": got["drops"][:200],
                 }
-        if b in TAUC_BOARDS:
+        if b in TAUC_BOARDS and not l4_only:
             hist = D.history_from(
                 read_gz(OUT_ROOT / "kc" / f"_history_k{int(kc)}" / f"{Path(b).stem}.json.gz")[
                     "history"
@@ -1807,11 +1813,12 @@ def main(argv: list[str] | None = None) -> int:
         "select1b",
         "kc",
         "select2",
-        "tauc",
         "select3",
         "chain",
     ):
         sub.add_parser(name)
+    tc = sub.add_parser("tauc")
+    tc.add_argument("--l4-only", action="store_true")
     g = sub.add_parser("gates")
     g.add_argument("--board", required=True)
     g.add_argument("--variant", choices=("ARRIVING", "NOHIST"), required=True)

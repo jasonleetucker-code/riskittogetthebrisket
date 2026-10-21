@@ -423,9 +423,11 @@ def board_counts(contract: Mapping[str, Any]) -> dict[str, Any]:
             continue
         for s in set(r.get("sourceRankMeta") or {}) | set(r.get("sourceIntegrity") or {}):
             m = (r.get("sourceRankMeta") or {}).get(s)
-            if isinstance(m, Mapping) and m.get("excludedReason"):
-                continue
+            # A V2.1 exclusion also stamps ``excludedReason``: decide the
+            # layer FIRST, and skip only exclusions V2.1 does not own.
             lay = v21_layer_drop(r, s)
+            if lay is None and isinstance(m, Mapping) and m.get("excludedReason"):
+                continue
             if lay is None and not (
                 isinstance(m, Mapping) and (RP._num(m.get("valueContribution")) or 0) > 0
             ):
@@ -1627,9 +1629,9 @@ def l4_drops(
             if exclude(n, s):
                 continue
             m = (r.get("sourceRankMeta") or {}).get(s)
-            if isinstance(m, Mapping) and m.get("excludedReason"):
-                continue
             lay = v21_layer_drop(r, s)
+            if lay is None and isinstance(m, Mapping) and m.get("excludedReason"):
+                continue
             val = RP._num(m.get("valueContribution")) if isinstance(m, Mapping) else None
             if lay is None and not (val and val > 0):
                 continue
