@@ -70,7 +70,7 @@ must never be added to a ``rankDerivedValue``.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -407,6 +407,8 @@ def build_cut_ladder(
     *,
     slot_eligibility: Mapping[str, Collection[str]] | None = None,
     max_rungs: int = MAX_LADDER_RUNGS,
+    order_key: Callable[[RosterAsset], Any] | None = None,
+    candidate_ids: Collection[str] | None = None,
 ) -> CutLadder:
     """Cheapest-first ladder of players this team would actually release.
 
@@ -430,6 +432,18 @@ def build_cut_ladder(
     Greedy is exactly optimal here; see the module docstring for the matroid
     argument.  It is also cheap: the cheapest candidate is almost always
     feasible, so this is typically one solver call per rung.
+
+    ``order_key`` and ``candidate_ids`` exist for the TRADE path only
+    (``src/trade/forced_drop_selection.py``, flag ``forced_drop_cheapest_legal``)
+    and default to ``None``, which is byte-for-byte the Perfect Draft ladder:
+
+    * ``order_key(asset)`` replaces the ``(ECC, name)`` order.  A trade charges a
+      release its full ``base x scarcity`` (``ForcedDrop.release_cost``), so it
+      must also SELECT by that quantity — ECC is 0 for every sub-waiver player
+      and its ties fell to name order.  Any key keeps the greedy exact: the
+      matroid argument holds for every weight order.
+    * ``candidate_ids`` restricts who may be RELEASED; everyone in ``roster``
+      still counts toward lineup feasibility.  ``None`` = everyone.
     """
     ladder = CutLadder()
     pool = [a for a in roster if a is not None]
@@ -452,7 +466,10 @@ def build_cut_ladder(
         costed.append((ecc, asset.name.lower(), asset, base, basis, waiver, mult))
     # Deterministic: equal costs (every ``assumedWaiver`` player scores 0) break
     # by name so the ladder is stable across runs.
-    costed.sort(key=lambda t: (t[0], t[1]))
+    if order_key is None:
+        costed.sort(key=lambda t: (t[0], t[1]))
+    else:
+        costed.sort(key=lambda t: order_key(t[2]))
 
     remaining = list(pool)
     baseline_filled = _filled_slot_count(remaining, slots, slot_eligibility) if slots else 0
@@ -470,6 +487,8 @@ def build_cut_ladder(
         progressed = False
         for ecc, _tie, asset, base, basis, waiver, mult in costed:
             if asset.player_id in taken or asset.player_id in blocked:
+                continue
+            if candidate_ids is not None and asset.player_id not in candidate_ids:
                 continue
             if slots:
                 survivors = [a for a in remaining if a.player_id != asset.player_id]

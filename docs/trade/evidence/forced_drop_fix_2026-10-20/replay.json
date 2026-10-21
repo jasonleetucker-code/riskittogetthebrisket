@@ -1,0 +1,2134 @@
+{
+ "purpose": "EVIDENCE ONLY.  Forced-drop fix (flag forced_drop_cheapest_legal, default OFF): flag OFF vs ON on real dynasty_main rosters.  The flag is toggled in-process and always restored; nothing served changes.",
+ "generatedBy": "scripts/forced_drop_fix_replay.py",
+ "activeModelAtRun": "geom_q078_v1",
+ "rule": "cheapest_legal_package_consistent_v1",
+ "ruleRosterRational": "cheapest_legal_roster_rational_v1",
+ "defaultSelectionMode": "package_consistent",
+ "board": {
+  "archive": "exports/archive/dynasty_export_20261020_052241.zip",
+  "member": "dynasty_data_2026-10-20.json",
+  "sha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+  "pricedAssets": 1003,
+  "builtBoardSha256": "eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833",
+  "csvTree": {
+   "paths": [
+    "CSVs",
+    "data/scrape_state",
+    "config/weights"
+   ],
+   "source": "git revision",
+   "revisionSha": "d5236546ff4df9294b6cf99c6b93e8db57e6ff36",
+   "revisionCommittedAt": "2026-10-20T22:42:00+00:00",
+   "contentSha256": "31687c60b2adc9f347eb58c8da2e15a1198a264d3b98200b1db3fa5f2345bd54"
+  },
+  "pinNote": "the board is a function of the archive AND the CSV tree (source CSVs, scrape-state stamps, config/weights) the contract build reads; builtBoardSha256 hashes the resulting name -> canonical value map"
+ },
+ "fairnessBands": {
+  "version": "fairness_bands_v2",
+  "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+  "basis": "larger_package_utility",
+  "absoluteMinimum": 250.0,
+  "slightPct": 3.5,
+  "unfairPct": 9.0,
+  "lopsidedPct": 18.0,
+  "fairTradeLevels": [
+   "fair"
+  ],
+  "postLaunchValidation": "OD-F4"
+ },
+ "codeSha": "17765f0b6fe44822e342670b2782737e8dc3a8c0",
+ "warRoom": {
+  "design": "identical to the research diagnostic (archive, seed SEED+2, 5 opponents per roster at the 58 cap; X 2,500-6,500 out, Y at 86-97% of X in, then 1-3 expendable fillers)",
+  "reproduction": {
+   "samples": 45,
+   "sweetenedSteps": 135,
+   "flips_neutralised_overCorrected_surviving": [
+    133,
+    85,
+    43,
+    5
+   ],
+   "matches_133_85_43_5": true,
+   "productionCutSetReconstructed": "135/135"
+  },
+  "shadowBandBase": {
+   "base": "largerPackageUtility (the production decision's band base, read from the flag-OFF asset-only objective; classified by fairness_bands.classify)",
+   "bandVersion": "fairness_bands_v2",
+   "stepsWhereBaseDiffersFromLargerAdjustedSide": 135
+  },
+  "variants": {
+   "PROD": {
+    "flips": 133,
+    "neutralised": 85,
+    "overCorrected": 43,
+    "surviving_underCorrected": 5,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 127,
+    "chargeOverCreditMedian": 1.648
+   },
+   "V1_cheapestRelease": {
+    "flips": 133,
+    "neutralised": 19,
+    "overCorrected": 4,
+    "surviving_underCorrected": 110,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 10,
+    "chargeOverCreditMedian": 0.551
+   },
+   "V2a_unpricedExcluded": {
+    "flips": 133,
+    "neutralised": 61,
+    "overCorrected": 38,
+    "surviving_underCorrected": 34,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 95,
+    "chargeOverCreditMedian": 1.252
+   },
+   "V2b_unpricedBoardFloor": {
+    "flips": 133,
+    "neutralised": 67,
+    "overCorrected": 38,
+    "surviving_underCorrected": 28,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 97,
+    "chargeOverCreditMedian": 1.288
+   },
+   "V3a_cheapest_unpricedExcluded": {
+    "flips": 133,
+    "neutralised": 4,
+    "overCorrected": 1,
+    "surviving_underCorrected": 128,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 2,
+    "chargeOverCreditMedian": 0.0
+   },
+   "V3b_cheapest_unpricedBoardFloor": {
+    "flips": 133,
+    "neutralised": 5,
+    "overCorrected": 1,
+    "surviving_underCorrected": 127,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 2,
+    "chargeOverCreditMedian": 0.253
+   },
+   "V4_packageConsistent": {
+    "flips": 133,
+    "neutralised": 1,
+    "overCorrected": 0,
+    "surviving_underCorrected": 132,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.253
+   },
+   "V5_implementedRule": {
+    "flips": 133,
+    "neutralised": 6,
+    "overCorrected": 0,
+    "surviving_underCorrected": 127,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.482,
+    "stepsWhereChargeExceedsFillerCreditNote": "0 by construction: releasing the fillers themselves is a legal option charged exactly their package credit, and V5 minimises the charge \u2014 not evidence that V5 beats V1"
+   },
+   "V5R_rosterRational": {
+    "flips": 133,
+    "neutralised": 17,
+    "overCorrected": 2,
+    "surviving_underCorrected": 114,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 6,
+    "chargeOverCreditMedian": 0.522,
+    "stepsWhereChargeExceedsFillerCreditNote": "not guaranteed: V5-R selects by c, not by the charge"
+   },
+   "V6_surplusCharge": {
+    "flips": 133,
+    "neutralised": 0,
+    "overCorrected": 0,
+    "surviving_underCorrected": 133,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.0
+   },
+   "FLAG_ON_measured": {
+    "flips": 133,
+    "neutralised": 6,
+    "overCorrected": 0,
+    "surviving_underCorrected": 127,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.482,
+    "stepsWhereChargeExceedsFillerCreditNote": "0 by construction (see V5_implementedRule)"
+   },
+   "FLAG_ON_measured_rosterRational": {
+    "flips": 133,
+    "neutralised": 17,
+    "overCorrected": 2,
+    "surviving_underCorrected": 114,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 6,
+    "chargeOverCreditMedian": 0.522,
+    "stepsWhereChargeExceedsFillerCreditNote": "not guaranteed (see V5R_rosterRational)"
+   }
+  },
+  "analyzeVerdicts": {
+   "stepsCompared": 180,
+   "headlineChanged": 109,
+   "publicCategoryChanged": 109,
+   "publicCategoryTransitions": {
+    "UNFAVORABLE -> FAVORABLE": 51,
+    "UNAVAILABLE -> FAVORABLE": 45,
+    "UNFAVORABLE -> APPROXIMATELY_EVEN": 8,
+    "UNAVAILABLE -> APPROXIMATELY_EVEN": 3,
+    "UNAVAILABLE -> STRONGLY_UNFAVORABLE": 1,
+    "APPROXIMATELY_EVEN -> FAVORABLE": 1
+   },
+   "evidenceGapTransitions": {
+    "forced_drop_unpriced -> -": 49
+   },
+   "stepsWithAnUnpricedForcedDrop": {
+    "off": 49,
+    "on": 0
+   },
+   "forcedDropSetChanged": 131,
+   "currencyAnomaly": {
+    "selectionsReleasingAnAcquiredPiece": 65,
+    "currencyAnomalies": 49,
+    "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 134,
+    "reverseCurrencyAnomalies": 0,
+    "unmatched": 0,
+    "examples": [
+     {
+      "released": "Dru Phillips (DB, 1293)",
+      "kept": "Jonathan Allen (DL, 1197)"
+     },
+     {
+      "released": "Justice Hill (RB, 1461)",
+      "kept": "Jonathan Allen (DL, 1197)"
+     },
+     {
+      "released": "Tahj Brooks (RB, 1331)",
+      "kept": "Jonathan Allen (DL, 1197)"
+     },
+     {
+      "released": "Uchenna Nwosu (DL, 1386)",
+      "kept": "Jonathan Allen (DL, 1197)"
+     },
+     {
+      "released": "Uchenna Nwosu (DL, 1386)",
+      "kept": "Jonathan Allen (DL, 1197)"
+     },
+     {
+      "released": "Caleb Banks (DL, 1259)",
+      "kept": "Jonathan Allen (DL, 1197)"
+     }
+    ],
+    "reverseExamples": []
+   }
+  },
+  "analyzeVerdictsRosterRational": {
+   "stepsCompared": 180,
+   "headlineChanged": 105,
+   "publicCategoryChanged": 105,
+   "publicCategoryTransitions": {
+    "UNFAVORABLE -> FAVORABLE": 44,
+    "UNAVAILABLE -> FAVORABLE": 33,
+    "UNAVAILABLE -> APPROXIMATELY_EVEN": 12,
+    "UNFAVORABLE -> APPROXIMATELY_EVEN": 11,
+    "UNAVAILABLE -> UNFAVORABLE": 3,
+    "UNAVAILABLE -> STRONGLY_UNFAVORABLE": 1,
+    "APPROXIMATELY_EVEN -> FAVORABLE": 1
+   },
+   "evidenceGapTransitions": {
+    "forced_drop_unpriced -> -": 49
+   },
+   "stepsWithAnUnpricedForcedDrop": {
+    "off": 49,
+    "on": 0
+   },
+   "forcedDropSetChanged": 131,
+   "currencyAnomaly": {
+    "selectionsReleasingAnAcquiredPiece": 20,
+    "currencyAnomalies": 0,
+    "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 134,
+    "reverseCurrencyAnomalies": 0,
+    "unmatched": 0,
+    "examples": [],
+    "reverseExamples": []
+   }
+  },
+  "v5VsRosterRational": {
+   "steps": 180,
+   "dropSetDiffers": 49,
+   "v5rChargeHigher": 49,
+   "v5rChargeLower": 0,
+   "categoryDiffers": 20
+  },
+  "elapsedSec": 101.4
+ },
+ "census": {
+  "design": "every dynasty_main team x 8 seeded trades per shape (1-for-2, 2-for-1, 1-for-3) against random rivals: the main incoming piece at 80-105% of a 1,500-7,000 outgoing player, extra pieces from the rival's 10 cheapest players (and for 2-for-1 the sender's own 12 cheapest); Team Context ON",
+  "teamsAtCap": 11,
+  "counts": {
+   "trades": 278,
+   "trades:1-for-2": 94,
+   "requireDrops": 181,
+   "dropSetChanged": 174,
+   "chargeChanged": 174,
+   "headlineChanged": 124,
+   "publicCategoryChanged": 125,
+   "trades:2-for-1": 89,
+   "trades:1-for-3": 95
+  },
+  "rosterCapacityFieldChanges": {
+   "forcedDropReleaseCost": 174,
+   "unpricedForcedDrops": 61
+  },
+  "publicCategoryTransitions": {
+   "UNFAVORABLE -> FAVORABLE": 52,
+   "UNAVAILABLE -> FAVORABLE": 39,
+   "UNFAVORABLE -> APPROXIMATELY_EVEN": 16,
+   "UNAVAILABLE -> APPROXIMATELY_EVEN": 14,
+   "APPROXIMATELY_EVEN -> FAVORABLE": 1,
+   "UNAVAILABLE -> UNFAVORABLE": 1,
+   "FAVORABLE -> APPROXIMATELY_EVEN": 1,
+   "UNFAVORABLE -> STRONGLY_UNFAVORABLE": 1
+  },
+  "evidenceGapTransitions": {
+   "forced_drop_unpriced -> -": 54,
+   "forced_drop_unpriced,stale_values -> stale_values": 7
+  },
+  "chargeDeltaByKind": {
+   "atOrUnderCap:down": 159,
+   "overLimitBefore:up": 15
+  },
+  "chargeIncreaseExamples": [
+   {
+    "shape": "1-for-2",
+    "overLimitBefore": 1,
+    "send": [
+     "Kevin Coleman (WR, 1628)"
+    ],
+    "receive": [
+     "Mike Sainristil (DB, 1484)",
+     "Dorian Williams (LB, 1234)"
+    ],
+    "off": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 819,
+     "charge": 0,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Amani Hooker (DB, 1475; charged 1475)",
+      "Austin Booker (DL, 1818; charged 1818)"
+     ]
+    },
+    "on": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 379,
+     "charge": 440,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Deone Walker (DL, 373; charged 373)",
+      "James Pierre (DB, 440; charged 440)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-2",
+    "overLimitBefore": 1,
+    "send": [
+     "Chop Robinson (DL, 1771)"
+    ],
+    "receive": [
+     "Calijah Kancey (DL, 1454)",
+     "Zavion Thomas (WR, 1399)"
+    ],
+    "off": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 774,
+     "charge": 0,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Amani Hooker (DB, 1475; charged 1475)",
+      "Austin Booker (DL, 1818; charged 1818)"
+     ]
+    },
+    "on": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 334,
+     "charge": 440,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Deone Walker (DL, 373; charged 373)",
+      "James Pierre (DB, 440; charged 440)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-2",
+    "overLimitBefore": 1,
+    "send": [
+     "Grant Delpit (DB, 1558)"
+    ],
+    "receive": [
+     "Caleb Banks (DL, 1259)",
+     "Eli Heidenreich (RB, 1367)"
+    ],
+    "off": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 791,
+     "charge": 0,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Amani Hooker (DB, 1475; charged 1475)",
+      "Austin Booker (DL, 1818; charged 1818)"
+     ]
+    },
+    "on": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 351,
+     "charge": 440,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Deone Walker (DL, 373; charged 373)",
+      "James Pierre (DB, 440; charged 440)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-2",
+    "overLimitBefore": 1,
+    "send": [
+     "David Bailey (DL, 3475)"
+    ],
+    "receive": [
+     "Eli Raridon (TE, 2953)",
+     "Derek Stingley (DB, 1406)"
+    ],
+    "off": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 575,
+     "charge": 0,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Amani Hooker (DB, 1475; charged 1475)",
+      "Austin Booker (DL, 1818; charged 1818)"
+     ]
+    },
+    "on": {
+     "headline": "NO_TOO_CLOSE",
+     "category": "APPROXIMATELY_EVEN",
+     "missingEvidence": [],
+     "netGap": 135,
+     "charge": 440,
+     "aDirection": "neutral",
+     "aMagnitude": null,
+     "cuts": [
+      "Deone Walker (DL, 373; charged 373)",
+      "James Pierre (DB, 440; charged 440)"
+     ]
+    }
+   }
+  ],
+  "chargeDelta": {
+   "n": 174,
+   "median": -1691,
+   "min": -3490,
+   "max": 1271
+  },
+  "currencyAnomaly": {
+   "selectionsReleasingAnAcquiredPiece": 70,
+   "currencyAnomalies": 36,
+   "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 167,
+   "reverseCurrencyAnomalies": 0,
+   "unmatched": 0,
+   "examples": [
+    {
+     "released": "Keisean Nixon (DB, 1427)",
+     "kept": "Jonathan Allen (DL, 1197)"
+    },
+    {
+     "released": "LeQuint Allen (RB, 1487)",
+     "kept": "Jonathan Allen (DL, 1197)"
+    },
+    {
+     "released": "Sione Vaki (RB, 1361)",
+     "kept": "Jonathan Allen (DL, 1197)"
+    },
+    {
+     "released": "Avieon Terrell (DB, 565)",
+     "kept": "Dee Alford (DB, 430)"
+    },
+    {
+     "released": "DJ Turner (DB, 445)",
+     "kept": "Deonte Banks (DB, 422)"
+    },
+    {
+     "released": "DJ Turner (DB, 445)",
+     "kept": "Deonte Banks (DB, 422)"
+    }
+   ],
+   "reverseExamples": []
+  },
+  "examples": [
+   {
+    "shape": "1-for-2",
+    "send": [
+     "Chris Olave (WR, 6786)"
+    ],
+    "receive": [
+     "Colston Loveland (TE, 6501)",
+     "Cody White (WR, 1176)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -1286,
+     "charge": 1918,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 405,
+     "charge": 227,
+     "aDirection": "favors",
+     "aMagnitude": "modest",
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-2",
+    "send": [
+     "Harold Fannin (TE, 5332)"
+    ],
+    "receive": [
+     "Tee Higgins (WR, 4911)",
+     "Isaiah Williams (WR, 1061)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -1511,
+     "charge": 1918,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "NO_TOO_CLOSE",
+     "category": "APPROXIMATELY_EVEN",
+     "missingEvidence": [],
+     "netGap": 180,
+     "charge": 227,
+     "aDirection": "neutral",
+     "aMagnitude": null,
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-2",
+    "send": [
+     "Alex Singleton (LB, 1950)"
+    ],
+    "receive": [
+     "Chris Rodriguez (RB, 2038)",
+     "Jacob Parrish (DB, 1626)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -562,
+     "charge": 1918,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 1129,
+     "charge": 227,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-2",
+    "send": [
+     "Nate Landman (LB, 2247)"
+    ],
+    "receive": [
+     "Dawson Knox (TE, 2085)",
+     "DJ Turner (DB, 445)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -1733,
+     "charge": 1918,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "NO_TOO_CLOSE",
+     "category": "APPROXIMATELY_EVEN",
+     "missingEvidence": [],
+     "netGap": -42,
+     "charge": 227,
+     "aDirection": "neutral",
+     "aMagnitude": null,
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-2",
+    "send": [
+     "Jonas Sanker (DB, 1588)"
+    ],
+    "receive": [
+     "Xavier Legette (WR, 1538)",
+     "Emari Demercado (RB, 1157)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -1066,
+     "charge": 1918,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 625,
+     "charge": 227,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-2",
+    "send": [
+     "Myles Garrett (DL, 3531)"
+    ],
+    "receive": [
+     "Terry McLaurin (WR, 3206)",
+     "Romello Height (DL, 1163)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -1336,
+     "charge": 1918,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 355,
+     "charge": 227,
+     "aDirection": "favors",
+     "aMagnitude": "modest",
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-2",
+    "send": [
+     "T.J. Edwards (LB, 2195)"
+    ],
+    "receive": [
+     "Malaki Starks (DB, 1944)",
+     "Dohnte Meyers (WR, 1506)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -994,
+     "charge": 1918,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 697,
+     "charge": 227,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-2",
+    "send": [
+     "Deshaun Watson (QB, 2546)"
+    ],
+    "receive": [
+     "George Karlaftis (DL, 2625)",
+     "Jimmy Horn (WR, 1172)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -925,
+     "charge": 1918,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 766,
+     "charge": 227,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-3",
+    "send": [
+     "Nick Emmanwori (DB, 4002)"
+    ],
+    "receive": [
+     "Sam Darnold (QB, 4014)",
+     "Shemar James (LB, 804)",
+     "Tyrice Knight (LB, 765)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -2731,
+     "charge": 3836,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)",
+      "Adin Huntington (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 412,
+     "charge": 693,
+     "aDirection": "favors",
+     "aMagnitude": "modest",
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)",
+      "Tyrice Knight (LB, 765, just acquired; charged 466)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-3",
+    "send": [
+     "Jonathan Taylor (RB, 6810)"
+    ],
+    "receive": [
+     "Jordan Love (QB, 5849)",
+     "Nate Wiggins (DB, 1562)",
+     "Keisean Nixon (DB, 1427)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -2710,
+     "charge": 3836,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)",
+      "Adin Huntington (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "NO_TOO_CLOSE",
+     "category": "APPROXIMATELY_EVEN",
+     "missingEvidence": [],
+     "netGap": 30,
+     "charge": 1096,
+     "aDirection": "neutral",
+     "aMagnitude": null,
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)",
+      "Keisean Nixon (DB, 1427, just acquired; charged 869)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-3",
+    "send": [
+     "Harold Fannin (TE, 5332)"
+    ],
+    "receive": [
+     "Bo Nix (QB, 5387)",
+     "LeQuint Allen (RB, 1487)",
+     "Sean Tucker (RB, 1574)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -1649,
+     "charge": 3836,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)",
+      "Adin Huntington (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "YES",
+     "category": "FAVORABLE",
+     "missingEvidence": [],
+     "netGap": 1056,
+     "charge": 1131,
+     "aDirection": "favors",
+     "aMagnitude": "large",
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)",
+      "LeQuint Allen (RB, 1487, just acquired; charged 904)"
+     ]
+    }
+   },
+   {
+    "shape": "1-for-3",
+    "send": [
+     "Chris Olave (WR, 6786)"
+    ],
+    "receive": [
+     "Jalen Hurts (QB, 5919)",
+     "Michael Taaffe (DB, 822)",
+     "Eli Heidenreich (RB, 1367)"
+    ],
+    "off": {
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "category": "UNAVAILABLE",
+     "missingEvidence": [
+      "forced_drop_unpriced"
+     ],
+     "netGap": -3137,
+     "charge": 3836,
+     "aDirection": "opposes",
+     "aMagnitude": "large",
+     "cuts": [
+      "Aaron Donald (DL, unpriced; charged 1918)",
+      "Adin Huntington (DL, unpriced; charged 1918)"
+     ]
+    },
+    "on": {
+     "headline": "NO_TOO_CLOSE",
+     "category": "APPROXIMATELY_EVEN",
+     "missingEvidence": [],
+     "netGap": -28,
+     "charge": 727,
+     "aDirection": "neutral",
+     "aMagnitude": null,
+     "cuts": [
+      "Quan Martin (DB, 227; charged 227)",
+      "Michael Taaffe (DB, 822, just acquired; charged 500)"
+     ]
+    }
+   }
+  ],
+  "rosterRational": {
+   "counts": {
+    "trades": 278,
+    "trades:1-for-2": 94,
+    "requireDrops": 181,
+    "dropSetChanged": 174,
+    "chargeChanged": 174,
+    "headlineChanged": 126,
+    "publicCategoryChanged": 127,
+    "trades:2-for-1": 89,
+    "trades:1-for-3": 95
+   },
+   "rosterCapacityFieldChanges": {
+    "forcedDropReleaseCost": 174,
+    "unpricedForcedDrops": 61
+   },
+   "publicCategoryTransitions": {
+    "UNFAVORABLE -> FAVORABLE": 49,
+    "UNAVAILABLE -> FAVORABLE": 36,
+    "UNFAVORABLE -> APPROXIMATELY_EVEN": 19,
+    "UNAVAILABLE -> APPROXIMATELY_EVEN": 16,
+    "FAVORABLE -> APPROXIMATELY_EVEN": 3,
+    "UNAVAILABLE -> UNFAVORABLE": 2,
+    "APPROXIMATELY_EVEN -> FAVORABLE": 1,
+    "UNFAVORABLE -> STRONGLY_UNFAVORABLE": 1
+   },
+   "evidenceGapTransitions": {
+    "forced_drop_unpriced -> -": 54,
+    "forced_drop_unpriced,stale_values -> stale_values": 7
+   },
+   "chargeDeltaByKind": {
+    "atOrUnderCap:down": 159,
+    "overLimitBefore:up": 15
+   },
+   "chargeIncreaseExamples": [
+    {
+     "shape": "1-for-2",
+     "overLimitBefore": 1,
+     "send": [
+      "Kevin Coleman (WR, 1628)"
+     ],
+     "receive": [
+      "Mike Sainristil (DB, 1484)",
+      "Dorian Williams (LB, 1234)"
+     ],
+     "off": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 819,
+      "charge": 0,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Amani Hooker (DB, 1475; charged 1475)",
+       "Austin Booker (DL, 1818; charged 1818)"
+      ]
+     },
+     "on": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 379,
+      "charge": 440,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Deone Walker (DL, 373; charged 373)",
+       "James Pierre (DB, 440; charged 440)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-2",
+     "overLimitBefore": 1,
+     "send": [
+      "Chop Robinson (DL, 1771)"
+     ],
+     "receive": [
+      "Calijah Kancey (DL, 1454)",
+      "Zavion Thomas (WR, 1399)"
+     ],
+     "off": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 774,
+      "charge": 0,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Amani Hooker (DB, 1475; charged 1475)",
+       "Austin Booker (DL, 1818; charged 1818)"
+      ]
+     },
+     "on": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 334,
+      "charge": 440,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Deone Walker (DL, 373; charged 373)",
+       "James Pierre (DB, 440; charged 440)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-2",
+     "overLimitBefore": 1,
+     "send": [
+      "Grant Delpit (DB, 1558)"
+     ],
+     "receive": [
+      "Caleb Banks (DL, 1259)",
+      "Eli Heidenreich (RB, 1367)"
+     ],
+     "off": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 791,
+      "charge": 0,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Amani Hooker (DB, 1475; charged 1475)",
+       "Austin Booker (DL, 1818; charged 1818)"
+      ]
+     },
+     "on": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 351,
+      "charge": 440,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Deone Walker (DL, 373; charged 373)",
+       "James Pierre (DB, 440; charged 440)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-2",
+     "overLimitBefore": 1,
+     "send": [
+      "David Bailey (DL, 3475)"
+     ],
+     "receive": [
+      "Eli Raridon (TE, 2953)",
+      "Derek Stingley (DB, 1406)"
+     ],
+     "off": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 575,
+      "charge": 0,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Amani Hooker (DB, 1475; charged 1475)",
+       "Austin Booker (DL, 1818; charged 1818)"
+      ]
+     },
+     "on": {
+      "headline": "NO_TOO_CLOSE",
+      "category": "APPROXIMATELY_EVEN",
+      "missingEvidence": [],
+      "netGap": 135,
+      "charge": 440,
+      "aDirection": "neutral",
+      "aMagnitude": null,
+      "cuts": [
+       "Deone Walker (DL, 373; charged 373)",
+       "James Pierre (DB, 440; charged 440)"
+      ]
+     }
+    }
+   ],
+   "chargeDelta": {
+    "n": 174,
+    "median": -1664,
+    "min": -3490,
+    "max": 1354
+   },
+   "currencyAnomaly": {
+    "selectionsReleasingAnAcquiredPiece": 34,
+    "currencyAnomalies": 0,
+    "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 175,
+    "reverseCurrencyAnomalies": 0,
+    "unmatched": 0,
+    "examples": [],
+    "reverseExamples": []
+   },
+   "examples": [
+    {
+     "shape": "1-for-2",
+     "send": [
+      "Chris Olave (WR, 6786)"
+     ],
+     "receive": [
+      "Colston Loveland (TE, 6501)",
+      "Cody White (WR, 1176)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -1286,
+      "charge": 1918,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 405,
+      "charge": 227,
+      "aDirection": "favors",
+      "aMagnitude": "modest",
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-2",
+     "send": [
+      "Harold Fannin (TE, 5332)"
+     ],
+     "receive": [
+      "Tee Higgins (WR, 4911)",
+      "Isaiah Williams (WR, 1061)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -1511,
+      "charge": 1918,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "NO_TOO_CLOSE",
+      "category": "APPROXIMATELY_EVEN",
+      "missingEvidence": [],
+      "netGap": 180,
+      "charge": 227,
+      "aDirection": "neutral",
+      "aMagnitude": null,
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-2",
+     "send": [
+      "Alex Singleton (LB, 1950)"
+     ],
+     "receive": [
+      "Chris Rodriguez (RB, 2038)",
+      "Jacob Parrish (DB, 1626)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -562,
+      "charge": 1918,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 1129,
+      "charge": 227,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-2",
+     "send": [
+      "Nate Landman (LB, 2247)"
+     ],
+     "receive": [
+      "Dawson Knox (TE, 2085)",
+      "DJ Turner (DB, 445)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -1733,
+      "charge": 1918,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "NO_TOO_CLOSE",
+      "category": "APPROXIMATELY_EVEN",
+      "missingEvidence": [],
+      "netGap": -42,
+      "charge": 227,
+      "aDirection": "neutral",
+      "aMagnitude": null,
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-2",
+     "send": [
+      "Jonas Sanker (DB, 1588)"
+     ],
+     "receive": [
+      "Xavier Legette (WR, 1538)",
+      "Emari Demercado (RB, 1157)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -1066,
+      "charge": 1918,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 625,
+      "charge": 227,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-2",
+     "send": [
+      "Myles Garrett (DL, 3531)"
+     ],
+     "receive": [
+      "Terry McLaurin (WR, 3206)",
+      "Romello Height (DL, 1163)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -1336,
+      "charge": 1918,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 355,
+      "charge": 227,
+      "aDirection": "favors",
+      "aMagnitude": "modest",
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-2",
+     "send": [
+      "T.J. Edwards (LB, 2195)"
+     ],
+     "receive": [
+      "Malaki Starks (DB, 1944)",
+      "Dohnte Meyers (WR, 1506)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -994,
+      "charge": 1918,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 697,
+      "charge": 227,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-2",
+     "send": [
+      "Deshaun Watson (QB, 2546)"
+     ],
+     "receive": [
+      "George Karlaftis (DL, 2625)",
+      "Jimmy Horn (WR, 1172)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -925,
+      "charge": 1918,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 766,
+      "charge": 227,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-3",
+     "send": [
+      "Nick Emmanwori (DB, 4002)"
+     ],
+     "receive": [
+      "Sam Darnold (QB, 4014)",
+      "Shemar James (LB, 804)",
+      "Tyrice Knight (LB, 765)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -2731,
+      "charge": 3836,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)",
+       "Adin Huntington (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 412,
+      "charge": 693,
+      "aDirection": "favors",
+      "aMagnitude": "modest",
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)",
+       "Tyrice Knight (LB, 765, just acquired; charged 466)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-3",
+     "send": [
+      "Jonathan Taylor (RB, 6810)"
+     ],
+     "receive": [
+      "Jordan Love (QB, 5849)",
+      "Nate Wiggins (DB, 1562)",
+      "Keisean Nixon (DB, 1427)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -2710,
+      "charge": 3836,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)",
+       "Adin Huntington (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "NO",
+      "category": "UNFAVORABLE",
+      "missingEvidence": [],
+      "netGap": -298,
+      "charge": 1424,
+      "aDirection": "opposes",
+      "aMagnitude": "modest",
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)",
+       "Jonathan Allen (DL, 1197; charged 1197)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-3",
+     "send": [
+      "Harold Fannin (TE, 5332)"
+     ],
+     "receive": [
+      "Bo Nix (QB, 5387)",
+      "LeQuint Allen (RB, 1487)",
+      "Sean Tucker (RB, 1574)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -1649,
+      "charge": 3836,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)",
+       "Adin Huntington (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "YES",
+      "category": "FAVORABLE",
+      "missingEvidence": [],
+      "netGap": 763,
+      "charge": 1424,
+      "aDirection": "favors",
+      "aMagnitude": "large",
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)",
+       "Jonathan Allen (DL, 1197; charged 1197)"
+      ]
+     }
+    },
+    {
+     "shape": "1-for-3",
+     "send": [
+      "Chris Olave (WR, 6786)"
+     ],
+     "receive": [
+      "Jalen Hurts (QB, 5919)",
+      "Michael Taaffe (DB, 822)",
+      "Eli Heidenreich (RB, 1367)"
+     ],
+     "off": {
+      "headline": "NOT_ENOUGH_EVIDENCE",
+      "category": "UNAVAILABLE",
+      "missingEvidence": [
+       "forced_drop_unpriced"
+      ],
+      "netGap": -3137,
+      "charge": 3836,
+      "aDirection": "opposes",
+      "aMagnitude": "large",
+      "cuts": [
+       "Aaron Donald (DL, unpriced; charged 1918)",
+       "Adin Huntington (DL, unpriced; charged 1918)"
+      ]
+     },
+     "on": {
+      "headline": "NO_TOO_CLOSE",
+      "category": "APPROXIMATELY_EVEN",
+      "missingEvidence": [],
+      "netGap": -28,
+      "charge": 727,
+      "aDirection": "neutral",
+      "aMagnitude": null,
+      "cuts": [
+       "Quan Martin (DB, 227; charged 227)",
+       "Michael Taaffe (DB, 822, just acquired; charged 500)"
+      ]
+     }
+    }
+   ]
+  },
+  "v5VsRosterRational": {
+   "trades": 278,
+   "dropSetDiffers": 36,
+   "v5rChargeHigher": 36,
+   "v5rChargeLower": 0,
+   "categoryDiffers": 9
+  }
+ },
+ "finder": {
+  "design": "find_trades per dynasty_main team vs every rival, Team Context ON, the team's own capacity context, max_results=20 (the forced-drop re-rank path)",
+  "teams": 12,
+  "meanOverlapAtK": 0.854,
+  "teamsIdenticalTopK": 4,
+  "teamsSameSetDifferentOrder": 0,
+  "totalTradesChargedOff": 9,
+  "totalTradesChargedOn": 66,
+  "totalFactorChanges": 30,
+  "perTeam": [
+   {
+    "atCap": true,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 18,
+    "sameOrder": false,
+    "factorChanged": 13,
+    "chargedOff": 0,
+    "chargedOn": 13
+   },
+   {
+    "atCap": true,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 20,
+    "sameOrder": true,
+    "factorChanged": 0,
+    "chargedOff": 8,
+    "chargedOn": 8
+   },
+   {
+    "atCap": true,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 18,
+    "sameOrder": false,
+    "factorChanged": 9,
+    "chargedOff": 0,
+    "chargedOn": 9
+   },
+   {
+    "atCap": false,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 20,
+    "sameOrder": true,
+    "factorChanged": 0,
+    "chargedOff": 0,
+    "chargedOn": 0
+   },
+   {
+    "atCap": true,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 10,
+    "sameOrder": false,
+    "factorChanged": 0,
+    "chargedOff": 0,
+    "chargedOn": 10
+   },
+   {
+    "atCap": true,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 19,
+    "sameOrder": false,
+    "factorChanged": 0,
+    "chargedOff": 0,
+    "chargedOn": 1
+   },
+   {
+    "atCap": true,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 8,
+    "sameOrder": false,
+    "factorChanged": 0,
+    "chargedOff": 0,
+    "chargedOn": 12
+   },
+   {
+    "atCap": true,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 17,
+    "sameOrder": false,
+    "factorChanged": 7,
+    "chargedOff": 0,
+    "chargedOn": 7
+   },
+   {
+    "atCap": true,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 20,
+    "sameOrder": true,
+    "factorChanged": 0,
+    "chargedOff": 0,
+    "chargedOn": 0
+   },
+   {
+    "atCap": true,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 19,
+    "sameOrder": false,
+    "factorChanged": 0,
+    "chargedOff": 0,
+    "chargedOn": 1
+   },
+   {
+    "atCap": true,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 20,
+    "sameOrder": true,
+    "factorChanged": 0,
+    "chargedOff": 0,
+    "chargedOn": 0
+   },
+   {
+    "atCap": true,
+    "returnedOff": 20,
+    "returnedOn": 20,
+    "overlap": 16,
+    "sameOrder": false,
+    "factorChanged": 1,
+    "chargedOff": 1,
+    "chargedOn": 5
+   }
+  ],
+  "rosterRational": {
+   "meanOverlapAtK": 0.854,
+   "teamsIdenticalTopK": 4,
+   "totalTradesChargedOn": 66,
+   "meanOverlapWithV5AtK": 1.0,
+   "teamsIdenticalToV5": 12,
+   "perTeam": [
+    {
+     "overlap": 18,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": false,
+     "chargedOn": 13,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    },
+    {
+     "overlap": 20,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": true,
+     "chargedOn": 8,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    },
+    {
+     "overlap": 18,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": false,
+     "chargedOn": 9,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    },
+    {
+     "overlap": 20,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": true,
+     "chargedOn": 0,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    },
+    {
+     "overlap": 10,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": false,
+     "chargedOn": 10,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    },
+    {
+     "overlap": 19,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": false,
+     "chargedOn": 1,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    },
+    {
+     "overlap": 8,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": false,
+     "chargedOn": 12,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    },
+    {
+     "overlap": 17,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": false,
+     "chargedOn": 7,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    },
+    {
+     "overlap": 20,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": true,
+     "chargedOn": 0,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    },
+    {
+     "overlap": 19,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": false,
+     "chargedOn": 1,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    },
+    {
+     "overlap": 20,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": true,
+     "chargedOn": 0,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    },
+    {
+     "overlap": 16,
+     "returnedOff": 20,
+     "returnedOn": 20,
+     "sameOrder": false,
+     "chargedOn": 5,
+     "overlapWithV5": 20,
+     "sameOrderAsV5": true
+    }
+   ]
+  },
+  "elapsedSec": 118.2
+ },
+ "perfectDraft": {
+  "surface": "src.draft.context.build_roster_context (/api/draft/roster-context)",
+  "teams": 12,
+  "comparedOffVsOn": 11,
+  "identicalOffVsOn": 11,
+  "errorsByMode": {
+   "ValueError:off": 1,
+   "ValueError:on": 1
+  },
+  "note": "teams whose roster context raises (in both modes) are excluded from the comparison rather than counted identical"
+ },
+ "illustrations": [
+  {
+   "send": "Aidan Hutchinson (DL, 4737)",
+   "receive": [
+    "Jordyn Tyson (WR, 4587)",
+    "Dohnte Meyers (WR, 1506)"
+   ],
+   "off": {
+    "headline": "NOT_ENOUGH_EVIDENCE",
+    "category": "UNAVAILABLE",
+    "missingEvidence": [
+     "forced_drop_unpriced"
+    ],
+    "netGap": -893,
+    "charge": 1918,
+    "aDirection": "opposes",
+    "aMagnitude": "large",
+    "cuts": [
+     "Aaron Donald (DL, unpriced; charged 1918)"
+    ]
+   },
+   "on": {
+    "headline": "YES",
+    "category": "FAVORABLE",
+    "missingEvidence": [],
+    "netGap": 798,
+    "charge": 227,
+    "aDirection": "favors",
+    "aMagnitude": "large",
+    "cuts": [
+     "Quan Martin (DB, 227; charged 227)"
+    ]
+   }
+  },
+  {
+   "send": "Cedric Gray (LB, 4471)",
+   "receive": [
+    "Jordyn Brooks (LB, 3900)",
+    "Deone Walker (DL, 373)"
+   ],
+   "off": {
+    "headline": "NOT_ENOUGH_EVIDENCE",
+    "category": "UNAVAILABLE",
+    "missingEvidence": [
+     "forced_drop_unpriced"
+    ],
+    "netGap": -2198,
+    "charge": 1918,
+    "aDirection": "opposes",
+    "aMagnitude": "large",
+    "cuts": [
+     "Aaron Donald (DL, unpriced; charged 1918)"
+    ]
+   },
+   "on": {
+    "headline": "NO",
+    "category": "STRONGLY_UNFAVORABLE",
+    "missingEvidence": [],
+    "netGap": -507,
+    "charge": 227,
+    "aDirection": "opposes",
+    "aMagnitude": "large",
+    "cuts": [
+     "Quan Martin (DB, 227; charged 227)"
+    ]
+   }
+  },
+  {
+   "send": "Omarion Hampton (RB, 5325)",
+   "receive": [
+    "Derrick Henry (RB, 4820)",
+    "Calvin Ridley (WR, 1496)"
+   ],
+   "off": {
+    "headline": "NOT_ENOUGH_EVIDENCE",
+    "category": "UNAVAILABLE",
+    "missingEvidence": [
+     "forced_drop_unpriced"
+    ],
+    "netGap": -1256,
+    "charge": 1918,
+    "aDirection": "opposes",
+    "aMagnitude": "large",
+    "cuts": [
+     "Aaron Donald (DL, unpriced; charged 1918)"
+    ]
+   },
+   "on": {
+    "headline": "YES",
+    "category": "FAVORABLE",
+    "missingEvidence": [],
+    "netGap": 435,
+    "charge": 227,
+    "aDirection": "favors",
+    "aMagnitude": "modest",
+    "cuts": [
+     "Quan Martin (DB, 227; charged 227)"
+    ]
+   }
+  },
+  {
+   "send": "Garrett Wilson (WR, 6472)",
+   "receive": [
+    "Jalen Hurts (QB, 5919)",
+    "Upton Stout (DB, 1422)"
+   ],
+   "off": {
+    "headline": "NOT_ENOUGH_EVIDENCE",
+    "category": "UNAVAILABLE",
+    "missingEvidence": [
+     "forced_drop_unpriced"
+    ],
+    "netGap": -1362,
+    "charge": 1918,
+    "aDirection": "opposes",
+    "aMagnitude": "large",
+    "cuts": [
+     "Aaron Donald (DL, unpriced; charged 1918)"
+    ]
+   },
+   "on": {
+    "headline": "YES",
+    "category": "FAVORABLE",
+    "missingEvidence": [],
+    "netGap": 329,
+    "charge": 227,
+    "aDirection": "favors",
+    "aMagnitude": "modest",
+    "cuts": [
+     "Quan Martin (DB, 227; charged 227)"
+    ]
+   }
+  },
+  {
+   "send": "Pat Freiermuth (TE, 2943)",
+   "receive": [
+    "Laiatu Latu (DL, 2696)",
+    "Dane Belton (DB, 1226)",
+    "Jake Golday (LB, 1892)"
+   ],
+   "off": {
+    "headline": "NO",
+    "category": "UNFAVORABLE",
+    "missingEvidence": [],
+    "netGap": -255,
+    "charge": 2230,
+    "aDirection": "opposes",
+    "aMagnitude": "modest",
+    "cuts": [
+     "Brandon Cisse (DB, 257; charged 257)",
+     "Chamarri Conner (DB, 1973; charged 1973)"
+    ]
+   },
+   "on": {
+    "headline": "YES",
+    "category": "FAVORABLE",
+    "missingEvidence": [],
+    "netGap": 1288,
+    "charge": 687,
+    "aDirection": "favors",
+    "aMagnitude": "large",
+    "cuts": [
+     "Brandon Cisse (DB, 257; charged 257)",
+     "Dee Alford (DB, 430; charged 430)"
+    ]
+   }
+  },
+  {
+   "send": "Tucker Kraft (TE, 5439)",
+   "receive": [
+    "Aidan Hutchinson (DL, 4737)",
+    "Frankie Luvu (LB, 1869)",
+    "Nnamdi Madubuike (DL, 1488)"
+   ],
+   "off": {
+    "headline": "NO",
+    "category": "UNFAVORABLE",
+    "missingEvidence": [],
+    "netGap": -569,
+    "charge": 2230,
+    "aDirection": "opposes",
+    "aMagnitude": "modest",
+    "cuts": [
+     "Brandon Cisse (DB, 257; charged 257)",
+     "Chamarri Conner (DB, 1973; charged 1973)"
+    ]
+   },
+   "on": {
+    "headline": "YES",
+    "category": "FAVORABLE",
+    "missingEvidence": [],
+    "netGap": 974,
+    "charge": 687,
+    "aDirection": "favors",
+    "aMagnitude": "large",
+    "cuts": [
+     "Brandon Cisse (DB, 257; charged 257)",
+     "Dee Alford (DB, 430; charged 430)"
+    ]
+   }
+  },
+  {
+   "send": "Matthew Golden (WR, 4403)",
+   "receive": [
+    "Nick Bolton (LB, 4205)",
+    "Zach Ertz (TE, 1728)",
+    "Cedric Tillman (WR, 1326)",
+    "Chimere Dike (WR, 1628)"
+   ],
+   "off": {
+    "headline": "NO",
+    "category": "UNFAVORABLE",
+    "missingEvidence": [],
+    "netGap": -786,
+    "charge": 3556,
+    "aDirection": "opposes",
+    "aMagnitude": "large",
+    "cuts": [
+     "Brandon Cisse (DB, 257; charged 257)",
+     "Cedric Tillman (WR, 1326, just acquired; charged 1326)",
+     "Chamarri Conner (DB, 1973; charged 1973)"
+    ]
+   },
+   "on": {
+    "headline": "YES",
+    "category": "FAVORABLE",
+    "missingEvidence": [],
+    "netGap": 1453,
+    "charge": 1317,
+    "aDirection": "favors",
+    "aMagnitude": "large",
+    "cuts": [
+     "Brandon Cisse (DB, 257; charged 257)",
+     "Dee Alford (DB, 430; charged 430)",
+     "Cedric Tillman (WR, 1326, just acquired; charged 630)"
+    ]
+   }
+  },
+  {
+   "send": "Jaylen Warren (RB, 3651)",
+   "receive": [
+    "Roquan Smith (LB, 3309)",
+    "Jacob Cowing (WR, 1198)",
+    "Reed Blankenship (DB, 1410)"
+   ],
+   "off": {
+    "headline": "NO",
+    "category": "UNFAVORABLE",
+    "missingEvidence": [],
+    "netGap": -743,
+    "charge": 2230,
+    "aDirection": "opposes",
+    "aMagnitude": "large",
+    "cuts": [
+     "Brandon Cisse (DB, 257; charged 257)",
+     "Chamarri Conner (DB, 1973; charged 1973)"
+    ]
+   },
+   "on": {
+    "headline": "YES",
+    "category": "FAVORABLE",
+    "missingEvidence": [],
+    "netGap": 800,
+    "charge": 687,
+    "aDirection": "favors",
+    "aMagnitude": "large",
+    "cuts": [
+     "Brandon Cisse (DB, 257; charged 257)",
+     "Dee Alford (DB, 430; charged 430)"
+    ]
+   }
+  }
+ ],
+ "localLimits": [
+  "Component B (roster utility / lineup lens) needs the box-local projection snapshot and abstains locally; only Component A (VA gap net of the forced-release charge) and the decision built on it are measured.",
+  "Positional scarcity resolves inert locally (multiplier 1.0); on the box it can scale every release charge by 0.85-1.15."
+ ],
+ "elapsedSec": 278.5
+}

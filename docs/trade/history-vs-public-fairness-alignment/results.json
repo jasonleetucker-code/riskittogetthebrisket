@@ -1,0 +1,721 @@
+{
+ "meta": {
+  "bandOwner": {
+   "absoluteMinimum": 250.0,
+   "basis": "larger_package_utility",
+   "fairTradeLevels": [
+    "fair"
+   ],
+   "lopsidedPct": 18.0,
+   "postLaunchValidation": "OD-F4",
+   "slightPct": 3.5,
+   "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+   "unfairPct": 9.0,
+   "version": "fairness_bands_v2"
+  },
+  "historyGrade": {
+   "cutPoints": [
+    3.0,
+    8.0,
+    15.0,
+    25.0,
+    40.0
+   ],
+   "module": "src/public_league/trade_grading.py"
+  },
+  "packageModel": {
+   "classification": "ACTIVE",
+   "family": "geom",
+   "id": "geom_q078_v1",
+   "version": "1"
+  }
+ },
+ "notes": {
+  "denominator": "History grade divides by the larger effective (adjusted) side; the band owner divides by the larger package utility.",
+  "population": "Rolling-window own-league trades from the tracked trade file, not necessarily the whole league history.",
+  "synthetic": "Illustrative balanced-by-construction trades; not the league's trades.",
+  "valueBasis": "Both classifiers read identical CURRENT-board values; the at-the-time grade shown on the public timeline is not reproduced (temporal ledger is box-local)."
+ },
+ "populations": {
+  "own_league_trades_current_board": {
+   "absoluteFloor": {
+    "belowFloorButHistoryNotFair": 6,
+    "ownerFairOnlyBecauseOfFloor": 6,
+    "ownerFairOnlyBecauseOfFloorShare": 0.0392,
+    "shareBelowFloor": 0.183,
+    "sidesBelowFloor": 28
+   },
+   "assetCensus": {
+    "assets": 930,
+    "unpriced": 94,
+    "unpriced_class_offense": 2,
+    "unpriced_class_pick": 84,
+    "unpriced_class_player": 8
+   },
+   "byAbsGap": {
+    "10x_or_more_floor": {
+     "fairClassificationDiffers": 0,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 0,
+     "historyFair": 0,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 0,
+     "ownerFair": 0,
+     "shareFairClassificationDiffers": 0.0,
+     "shareGradeBucketChanges": 0.0,
+     "sides": 24
+    },
+    "1x_to_2x_floor": {
+     "fairClassificationDiffers": 0,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 0,
+     "historyFair": 0,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 0,
+     "ownerFair": 0,
+     "shareFairClassificationDiffers": 0.0,
+     "shareGradeBucketChanges": 0.0,
+     "sides": 12
+    },
+    "2x_to_5x_floor": {
+     "fairClassificationDiffers": 0,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 0,
+     "historyFair": 0,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 0,
+     "ownerFair": 0,
+     "shareFairClassificationDiffers": 0.0,
+     "shareGradeBucketChanges": 0.0,
+     "sides": 46
+    },
+    "5x_to_10x_floor": {
+     "fairClassificationDiffers": 0,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 0,
+     "historyFair": 0,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 0,
+     "ownerFair": 0,
+     "shareFairClassificationDiffers": 0.0,
+     "shareGradeBucketChanges": 0.0,
+     "sides": 43
+    },
+    "below_1x_floor": {
+     "fairClassificationDiffers": 6,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 6
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 6,
+     "historyFair": 22,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 6,
+     "ownerFair": 28,
+     "shareFairClassificationDiffers": 0.2143,
+     "shareGradeBucketChanges": 0.2143,
+     "sides": 28
+    }
+   },
+   "byPicks": {
+    "includes_pick": {
+     "fairClassificationDiffers": 4,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 4
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 4,
+     "historyFair": 6,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 4,
+     "ownerFair": 10,
+     "shareFairClassificationDiffers": 0.0533,
+     "shareGradeBucketChanges": 0.0533,
+     "sides": 75
+    },
+    "no_pick": {
+     "fairClassificationDiffers": 2,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 2
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 2,
+     "historyFair": 16,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 2,
+     "ownerFair": 18,
+     "shareFairClassificationDiffers": 0.0256,
+     "shareGradeBucketChanges": 0.0256,
+     "sides": 78
+    }
+   },
+   "byShape": {
+    "1v1": {
+     "fairClassificationDiffers": 4,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 4
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 4,
+     "historyFair": 4,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 4,
+     "ownerFair": 8,
+     "shareFairClassificationDiffers": 0.125,
+     "shareGradeBucketChanges": 0.125,
+     "sides": 32
+    },
+    "2v1": {
+     "fairClassificationDiffers": 0,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 0,
+     "historyFair": 2,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 0,
+     "ownerFair": 2,
+     "shareFairClassificationDiffers": 0.0,
+     "shareGradeBucketChanges": 0.0,
+     "sides": 28
+    },
+    "2v2": {
+     "fairClassificationDiffers": 2,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 2
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 2,
+     "historyFair": 0,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 2,
+     "ownerFair": 2,
+     "shareFairClassificationDiffers": 0.0833,
+     "shareGradeBucketChanges": 0.0833,
+     "sides": 24
+    },
+    "larger_two_team": {
+     "fairClassificationDiffers": 0,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 0,
+     "historyFair": 16,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 0,
+     "ownerFair": 16,
+     "shareFairClassificationDiffers": 0.0,
+     "shareGradeBucketChanges": 0.0,
+     "sides": 66
+    },
+    "multi_team": {
+     "fairClassificationDiffers": 0,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 0,
+     "historyFair": 0,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 0,
+     "ownerFair": 0,
+     "shareFairClassificationDiffers": 0.0,
+     "shareGradeBucketChanges": 0.0,
+     "sides": 3
+    }
+   },
+   "census": {
+    "gradable": 76,
+    "notGradable": 29,
+    "notGradable_unpriced_asset": 29,
+    "trades": 105
+   },
+   "description": "Rolling-window own-league trades from the tracked trade file, not necessarily the whole league history.",
+   "gapAgreementFailures": 0,
+   "inputs": {
+    "board": {
+     "archive": "dynasty_export_20261021_080314.zip",
+     "archiveMember": "dynasty_data_2026-10-21.json",
+     "archiveMemberSha256": "2853be37767ee652423003aec3f31ad0feb3448e1c30b95070c510c55d68b807",
+     "builtBoardSha256": "6d524a330b5800f68029ebbb324016d6c600933ab59b4c07a0fed085bdd865de",
+     "csvTree": {
+      "contentSha256": "24e7f8ffd4db82c9417f7708459eac948d7034b1ecba17d2bea9343de970ffa1",
+      "revisionCommittedAt": "2026-10-21T05:51:02-04:00",
+      "revisionSha": "7dd8cb04819b68eee49d5f31571c2e7d1482541f",
+      "source": "git_revision"
+     }
+    },
+    "trades": {
+     "blob": "4eb7de895d6939ac88de668ddde8043c4e43fb2d",
+     "path": "data/sleeper_last_good.json",
+     "rev": "7dd8cb048"
+    }
+   },
+   "ownerRelativePctOverHistoryPct": {
+    "median": 1.1165,
+    "p10": 1.0,
+    "p90": 1.3005
+   },
+   "packageUtilityOverHistoryScale": {
+    "median": 0.8957,
+    "p10": 0.7689,
+    "p90": 1.0
+   },
+   "sideLevel": {
+    "decomposition": {
+     "1_relativeCutChange": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "2_absoluteFloorAdded": {
+      "fairToNotFair": 0,
+      "notFairToFair": 6
+     },
+     "3_packageUtilityDenominator": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "netHistoryToOwner": {
+      "fairToNotFair": 0,
+      "notFairToFair": 6
+     }
+    },
+    "fairBoundary": {
+     "ownerFairMaxPct": 7.672,
+     "ownerFairSidesAtOrAboveHistoryCut": 6,
+     "ownerNotFairMinPct": 4.204,
+     "ownerNotFairSidesBelowHistoryCut": 0,
+     "ownerNotFairSidesBelowOwnerFairMax": 30
+    },
+    "fairClassificationDiffers": 6,
+    "gradeBucketChangeDirection": {
+     "fairToNotFair": 0,
+     "notFairToFair": 6
+    },
+    "gradeBucketChangesIfOnlyFairIsOwners": 6,
+    "historyFair": 22,
+    "historyFairOwnerNotFair": 0,
+    "historyLabelCounts": {
+     "Bad deal": 12,
+     "Big win": 23,
+     "Clear win": 12,
+     "Fair trade": 22,
+     "Fleeced": 11,
+     "Good win": 13,
+     "Overpay": 12,
+     "Robbery": 12,
+     "Slight overpay": 18,
+     "Slight win": 18
+    },
+    "historyNotFairOwnerFair": 6,
+    "historyTierByOwnerLevel": {
+     "tier0": {
+      "fair": 22
+     },
+     "tier1": {
+      "fair": 6,
+      "slight": 24,
+      "unfair": 6
+     },
+     "tier2": {
+      "lopsided": 2,
+      "unfair": 23
+     },
+     "tier3": {
+      "lopsided": 20,
+      "unfair": 4
+     },
+     "tier4": {
+      "lopsided": 24
+     },
+     "tier5": {
+      "lopsided": 22
+     }
+    },
+    "hybridLabelCounts": {
+     "Bad deal": 12,
+     "Big win": 23,
+     "Clear win": 12,
+     "Fair trade": 28,
+     "Fleeced": 11,
+     "Good win": 13,
+     "Overpay": 12,
+     "Robbery": 12,
+     "Slight overpay": 15,
+     "Slight win": 15
+    },
+    "ownerFair": 28,
+    "ownerLevelCounts": {
+     "fair": 28,
+     "lopsided": 68,
+     "slight": 24,
+     "unfair": 33
+    },
+    "rebasedMarginTiers": {
+     "shareTierMoves": 0.2418,
+     "sides": 153,
+     "tierMovesLessSevere": 0,
+     "tierMovesMoreSevere": 37
+    },
+    "shareFairClassificationDiffers": 0.0392,
+    "shareGradeBucketChanges": 0.0392,
+    "sides": 153,
+    "winnersLosers": {
+     "historyLosses": 65,
+     "historyStatusToOwnerStatus": {
+      "loss>loss": 62,
+      "loss>none": 3,
+      "none>none": 22,
+      "win>none": 3,
+      "win>win": 63
+     },
+     "historyWins": 66,
+     "ownerLosses": 62,
+     "ownerWins": 63,
+     "sidesWithChangedStatus": 6
+    }
+   },
+   "tradeLevel": {
+    "fairClassificationDiffers": 3,
+    "historyFair": 11,
+    "historyFairOwnerNotFair": 0,
+    "historyNotFairOwnerFair": 3,
+    "ownerFair": 14,
+    "shareFairClassificationDiffers": 0.0395,
+    "trades": 76
+   },
+   "twoTeamAsymmetries": 0,
+   "valueBasis": "Both classifiers read identical CURRENT-board values; the at-the-time grade shown on the public timeline is not reproduced (temporal ledger is box-local)."
+  },
+  "synthetic_balanced": {
+   "absoluteFloor": {
+    "belowFloorButHistoryNotFair": 216,
+    "ownerFairOnlyBecauseOfFloor": 196,
+    "ownerFairOnlyBecauseOfFloorShare": 0.0653,
+    "shareBelowFloor": 0.1853,
+    "sidesBelowFloor": 556
+   },
+   "byAbsGap": {
+    "10x_or_more_floor": {
+     "fairClassificationDiffers": 0,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 0,
+     "historyFair": 0,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 0,
+     "ownerFair": 0,
+     "shareFairClassificationDiffers": 0.0,
+     "shareGradeBucketChanges": 0.0,
+     "sides": 216
+    },
+    "1x_to_2x_floor": {
+     "fairClassificationDiffers": 6,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 2,
+      "notFairToFair": 4
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 6,
+     "historyFair": 54,
+     "historyFairOwnerNotFair": 2,
+     "historyNotFairOwnerFair": 4,
+     "ownerFair": 56,
+     "shareFairClassificationDiffers": 0.012,
+     "shareGradeBucketChanges": 0.012,
+     "sides": 500
+    },
+    "2x_to_5x_floor": {
+     "fairClassificationDiffers": 0,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 0,
+     "historyFair": 0,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 0,
+     "ownerFair": 0,
+     "shareFairClassificationDiffers": 0.0,
+     "shareGradeBucketChanges": 0.0,
+     "sides": 1036
+    },
+    "5x_to_10x_floor": {
+     "fairClassificationDiffers": 0,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 0
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 0,
+     "historyFair": 0,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 0,
+     "ownerFair": 0,
+     "shareFairClassificationDiffers": 0.0,
+     "shareGradeBucketChanges": 0.0,
+     "sides": 692
+    },
+    "below_1x_floor": {
+     "fairClassificationDiffers": 216,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 216
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 216,
+     "historyFair": 340,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 216,
+     "ownerFair": 556,
+     "shareFairClassificationDiffers": 0.3885,
+     "shareGradeBucketChanges": 0.3885,
+     "sides": 556
+    }
+   },
+   "byPicks": {
+    "no_pick": {
+     "fairClassificationDiffers": 222,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 2,
+      "notFairToFair": 220
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 222,
+     "historyFair": 394,
+     "historyFairOwnerNotFair": 2,
+     "historyNotFairOwnerFair": 220,
+     "ownerFair": 612,
+     "shareFairClassificationDiffers": 0.074,
+     "shareGradeBucketChanges": 0.074,
+     "sides": 3000
+    }
+   },
+   "byShape": {
+    "1v1": {
+     "fairClassificationDiffers": 166,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 166
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 166,
+     "historyFair": 86,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 166,
+     "ownerFair": 252,
+     "shareFairClassificationDiffers": 0.2842,
+     "shareGradeBucketChanges": 0.2842,
+     "sides": 584
+    },
+    "2v1": {
+     "fairClassificationDiffers": 36,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 36
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 36,
+     "historyFair": 86,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 36,
+     "ownerFair": 122,
+     "shareFairClassificationDiffers": 0.059,
+     "shareGradeBucketChanges": 0.059,
+     "sides": 610
+    },
+    "2v2": {
+     "fairClassificationDiffers": 18,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 0,
+      "notFairToFair": 18
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 18,
+     "historyFair": 68,
+     "historyFairOwnerNotFair": 0,
+     "historyNotFairOwnerFair": 18,
+     "ownerFair": 86,
+     "shareFairClassificationDiffers": 0.0307,
+     "shareGradeBucketChanges": 0.0307,
+     "sides": 586
+    },
+    "larger_two_team": {
+     "fairClassificationDiffers": 2,
+     "gradeBucketChangeDirection": {
+      "fairToNotFair": 2,
+      "notFairToFair": 0
+     },
+     "gradeBucketChangesIfOnlyFairIsOwners": 2,
+     "historyFair": 154,
+     "historyFairOwnerNotFair": 2,
+     "historyNotFairOwnerFair": 0,
+     "ownerFair": 152,
+     "shareFairClassificationDiffers": 0.0016,
+     "shareGradeBucketChanges": 0.0016,
+     "sides": 1220
+    }
+   },
+   "census": {
+    "gradable": 1500,
+    "trades": 1500
+   },
+   "description": "Illustrative balanced-by-construction trades; not the league's trades.",
+   "gapAgreementFailures": 0,
+   "inputs": {
+    "count": 1500,
+    "seed": 20261021
+   },
+   "ownerRelativePctOverHistoryPct": {
+    "median": 1.1071,
+    "p10": 1.0,
+    "p90": 1.199
+   },
+   "packageUtilityOverHistoryScale": {
+    "median": 0.9035,
+    "p10": 0.8341,
+    "p90": 1.0
+   },
+   "sideLevel": {
+    "decomposition": {
+     "1_relativeCutChange": {
+      "fairToNotFair": 0,
+      "notFairToFair": 62
+     },
+     "2_absoluteFloorAdded": {
+      "fairToNotFair": 0,
+      "notFairToFair": 184
+     },
+     "3_packageUtilityDenominator": {
+      "fairToNotFair": 28,
+      "notFairToFair": 0
+     },
+     "netHistoryToOwner": {
+      "fairToNotFair": 2,
+      "notFairToFair": 220
+     }
+    },
+    "fairBoundary": {
+     "ownerFairMaxPct": 11.411,
+     "ownerFairSidesAtOrAboveHistoryCut": 220,
+     "ownerNotFairMinPct": 2.918,
+     "ownerNotFairSidesBelowHistoryCut": 2,
+     "ownerNotFairSidesBelowOwnerFairMax": 920
+    },
+    "fairClassificationDiffers": 222,
+    "gradeBucketChangeDirection": {
+     "fairToNotFair": 2,
+     "notFairToFair": 220
+    },
+    "gradeBucketChangesIfOnlyFairIsOwners": 222,
+    "historyFair": 394,
+    "historyFairOwnerNotFair": 2,
+    "historyLabelCounts": {
+     "Bad deal": 400,
+     "Big win": 67,
+     "Clear win": 400,
+     "Fair trade": 394,
+     "Fleeced": 28,
+     "Good win": 512,
+     "Overpay": 512,
+     "Robbery": 39,
+     "Slight overpay": 324,
+     "Slight win": 324
+    },
+    "historyNotFairOwnerFair": 220,
+    "historyTierByOwnerLevel": {
+     "tier0": {
+      "fair": 392,
+      "slight": 2
+     },
+     "tier1": {
+      "fair": 174,
+      "slight": 448,
+      "unfair": 26
+     },
+     "tier2": {
+      "fair": 46,
+      "lopsided": 6,
+      "slight": 10,
+      "unfair": 962
+     },
+     "tier3": {
+      "lopsided": 600,
+      "unfair": 200
+     },
+     "tier4": {
+      "lopsided": 78
+     },
+     "tier5": {
+      "lopsided": 56
+     }
+    },
+    "hybridLabelCounts": {
+     "Bad deal": 400,
+     "Big win": 67,
+     "Clear win": 400,
+     "Fair trade": 612,
+     "Fleeced": 28,
+     "Good win": 489,
+     "Overpay": 489,
+     "Robbery": 39,
+     "Slight overpay": 238,
+     "Slight win": 238
+    },
+    "ownerFair": 612,
+    "ownerLevelCounts": {
+     "fair": 612,
+     "lopsided": 740,
+     "slight": 460,
+     "unfair": 1188
+    },
+    "rebasedMarginTiers": {
+     "shareTierMoves": 0.1307,
+     "sides": 3000,
+     "tierMovesLessSevere": 0,
+     "tierMovesMoreSevere": 392
+    },
+    "shareFairClassificationDiffers": 0.074,
+    "shareGradeBucketChanges": 0.074,
+    "sides": 3000,
+    "winnersLosers": {
+     "historyLosses": 1303,
+     "historyStatusToOwnerStatus": {
+      "loss>loss": 1193,
+      "loss>none": 110,
+      "none>loss": 1,
+      "none>none": 392,
+      "none>win": 1,
+      "win>none": 110,
+      "win>win": 1193
+     },
+     "historyWins": 1303,
+     "ownerLosses": 1194,
+     "ownerWins": 1194,
+     "sidesWithChangedStatus": 222
+    }
+   },
+   "tradeLevel": {
+    "fairClassificationDiffers": 111,
+    "historyFair": 197,
+    "historyFairOwnerNotFair": 1,
+    "historyNotFairOwnerFair": 110,
+    "ownerFair": 306,
+    "shareFairClassificationDiffers": 0.074,
+    "trades": 1500
+   },
+   "twoTeamAsymmetries": 0
+  }
+ },
+ "readOnly": true,
+ "schema": "history_grade_vs_fairness_bands.v1"
+}
