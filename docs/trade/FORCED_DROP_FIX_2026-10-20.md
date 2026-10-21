@@ -515,6 +515,10 @@ market convention differs from the roster answer.
   returns 0 when the league has no waiver-level values, so an unpriced (`assumedWaiver`) cut is costed 0 on the
   incumbent trade path and on Perfect Draft / `/api/draft/roster-context` alike. Not changed here (flag-OFF byte
   identity). Under the flag the forced-drop charge refuses such a number instead (`forcedDropChargeBasis`
-  `{state: "unknown", reason: "waiver_values_unavailable"}`, `forcedDropMarginal: null`); note the War Room objective
-  treats any `null` charge as uncharged (pre-existing posture for `unknown`), and only the post-trade case also raises
-  the `forced_drop_unpriced` evidence gap.
+  `{state: "unknown", reason: "waiver_values_unavailable"}`, `forcedDropMarginal: null`). The War Room objective
+  still treats any `null` charge as uncharged (pre-existing posture for `unknown`), so (review F7, flag-ON path only)
+  the decision now raises the explicit evidence gap `forced_drop_charge_unavailable` — `evidence.reason` /
+  `.state` from the charge basis — whenever a release is required (`requiresDrops` true) and the charge is `null`
+  (skipped when `forced_drop_unpriced` already withholds the headline). The headline is withheld, never read as a
+  free cut. No frontend mapping exists for the new code: the backend sentence is plain and is shown as-is
+  (UI lane may word it). Pinned: `test_a_required_release_with_an_undeterminable_charge_is_an_evidence_gap_review_f7`.

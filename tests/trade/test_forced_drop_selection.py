@@ -393,6 +393,48 @@ def test_release_cost_evidence_is_unchanged_with_the_flag_off(flag_off):
     assert TD._forced_drop_evidence_extra(detail) == {}
 
 
+def _undeterminable_charge_capacity(**kw):
+    from tests.trade.test_trade_decision import _capacity  # noqa: PLC0415
+
+    return _capacity(
+        requiresDrops=True, sizeBefore=58, sizeAfter=59, overLimitAfter=1,
+        forcedDropCharge=None, forcedDropMarginal=None,
+        forcedDropChargeBasis={"state": "unknown", "reason": "waiver_values_unavailable"},
+        **kw,
+    )  # fmt: skip
+
+
+def test_a_required_release_with_an_undeterminable_charge_is_an_evidence_gap_review_f7():
+    """Review F7.  The objective treats a ``None`` charge as uncharged; with a
+    release required that would read as a free cut.  Flag-ON capacity (the
+    ``forcedDropCharge`` key present) now raises an explicit evidence gap and
+    withholds the headline."""
+    from tests.trade.test_trade_decision import _decision, _sim  # noqa: PLC0415
+
+    d = _decision(_sim([6000], [5000], ppg=1.5, capacity=_undeterminable_charge_capacity()))
+    gaps = {g["code"]: g for g in d["missingEvidence"]}
+    assert "forced_drop_charge_unavailable" in gaps
+    assert gaps["forced_drop_charge_unavailable"]["evidence"]["reason"] == (
+        "waiver_values_unavailable"
+    )
+    assert d["headline"] == "NOT_ENOUGH_EVIDENCE"
+
+
+def test_no_charge_gap_when_the_charge_is_known_or_no_release_is_required_or_flag_off_shape():
+    from tests.trade.test_trade_decision import _capacity, _decision, _sim  # noqa: PLC0415
+
+    known = _undeterminable_charge_capacity()
+    known["forcedDropCharge"] = 350.0
+    known["forcedDropChargeBasis"] = {"state": "exact"}
+    for cap in (
+        known,  # charged
+        _capacity(forcedDropCharge=None, requiresDrops=False),  # nothing required
+        _capacity(requiresDrops=True, sizeAfter=59, overLimitAfter=1),  # flag-OFF shape
+    ):
+        d = _decision(_sim([6000], [5000], ppg=1.5, capacity=cap))
+        assert "forced_drop_charge_unavailable" not in {g["code"] for g in d["missingEvidence"]}
+
+
 def test_relief_of_an_over_limit_roster_is_published_signed_never_credited(flag_on):
     """Review fix C.  One over the cap, sends two and receives one: the trade
     SPARES the roster the cut it owed (WR Zed, 300).  The charge stays clamped

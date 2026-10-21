@@ -473,6 +473,24 @@ def _evidence_gaps(
                 count=unpriced_drops,
             )
         )
+    elif "forcedDropCharge" in fd and fd.get("requiresDrops") is True:
+        # Flag ``forced_drop_cheapest_legal`` only (the key is absent when OFF).
+        # A release IS required but its charge is undeterminable (``None``:
+        # e.g. no waiver-level table for an unpriced cut).  The objective treats
+        # a ``None`` charge as uncharged, so without this gap the headline would
+        # silently read as if the cut were free (review F7).  Skipped when the
+        # unpriced-cut gap above already withholds the headline.
+        if fd.get("forcedDropCharge") is None:
+            basis = fd.get("forcedDropChargeBasis") or {}
+            gaps.append(
+                _missing(
+                    "forced_drop_charge_unavailable",
+                    "The roster cut this trade forces cannot be costed, so the cost of the cut is "
+                    "unknown.",
+                    reason=basis.get("reason"),
+                    state=basis.get("state"),
+                )
+            )
     return gaps
 
 
