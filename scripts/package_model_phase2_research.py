@@ -127,6 +127,9 @@ UTILITY = {
     "EFD_130": efd(1.30),
 }
 CORE = ["GEOM_78", "KTC", "BLEND_G50_K50", "FGEOM_70_20", "HYBRID_50", "EFD_78"]
+# The current (fairness_bands_v2) basis classifies a candidate on its own utilities.
+for _name in ("EFD_78", "EFD_115", "EFD_130"):
+    P1.BAND_UTILITY[_name] = UTILITY[_name]
 
 
 def adjusted(gf, A, B) -> tuple[float, float, float]:
@@ -136,6 +139,9 @@ def adjusted(gf, A, B) -> tuple[float, float, float]:
 
 
 def level(gf, A, B) -> str:
+    """LEGACY (fairness_bands_v1) Trade Finder replay tag, as recorded.  It gets a gap
+    FUNCTION, not a model name, so it cannot pick a model's own utility;
+    ``scripts/package_model_v2_remeasure.py`` re-tags the replayed trades on v2."""
     g, a, b = adjusted(gf, A, B)
     return P1.level(g, a, b)
 
@@ -252,7 +258,7 @@ def depth_vs_filler(star: float = 9000.0) -> list[dict]:
                "effectiveCount": round(effective_count(pkg), 2)}  # fmt: skip
         for m in CORE + ["EFD_115", "EFD_130", "GEOM_85", "LP_150"]:
             g, a, b = adjusted(MODELS[m]["gap"], [S], pkg)
-            row[m] = {"starLead": round(g), "level": P1.level(g, a, b)}
+            row[m] = {"starLead": round(g), "level": P1.band_level(m, g, [S], pkg)}
         out.append(row)
     return out
 
@@ -277,7 +283,7 @@ def asymmetric(star: float = 9000.0) -> list[dict]:
                "rawA": round(sum(A)), "rawB": round(sum(B))}  # fmt: skip
         for m in CORE + ["GEOM_85"]:
             g, a, b = adjusted(MODELS[m]["gap"], A, B)
-            row[m] = {"gapA": round(g), "level": P1.level(g, a, b)}
+            row[m] = {"gapA": round(g), "level": P1.band_level(m, g, A, B)}
         out.append(row)
     return out
 
@@ -375,7 +381,7 @@ def real_examples(board: dict) -> list[dict]:
                "rawA": round(sum(a)), "rawB": round(sum(b)), "effectiveCountB": round(effective_count(b), 2)}  # fmt: skip
         for m in CORE + ["GEOM_85"]:
             g, x, y = adjusted(MODELS[m]["gap"], a, b)
-            row[m] = {"gapA": round(g), "level": P1.level(g, x, y)}
+            row[m] = {"gapA": round(g), "level": P1.band_level(m, g, a, b)}
         out.append(row)
     return out
 
