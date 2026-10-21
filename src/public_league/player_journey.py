@@ -52,8 +52,10 @@ def _transactions_for(
 ) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
 
-    def _resolve(rid: Any) -> str:
-        return metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+    def _resolve(rid: Any, week: Any) -> str:
+        # The week's manager: a move before a mid-season hand-off belongs to
+        # the outgoing owner, not the roster's current one.
+        return metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
 
     for week in sorted(season.transactions_by_week.keys()):
         for tx in season.transactions_by_week[week]:
@@ -66,7 +68,7 @@ def _transactions_for(
 
             if str(player_id) in adds:
                 added_to_rid = adds[str(player_id)]
-                to_owner = _resolve(added_to_rid)
+                to_owner = _resolve(added_to_rid, week)
                 events.append(
                     {
                         "kind": "add",
@@ -84,7 +86,7 @@ def _transactions_for(
                 )
             if str(player_id) in drops:
                 dropped_from_rid = drops[str(player_id)]
-                from_owner = _resolve(dropped_from_rid)
+                from_owner = _resolve(dropped_from_rid, week)
                 events.append(
                     {
                         "kind": "drop",

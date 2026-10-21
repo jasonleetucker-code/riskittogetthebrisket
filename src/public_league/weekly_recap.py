@@ -34,15 +34,19 @@ from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
 def _side_entry(
-    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, entry: dict[str, Any]
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    entry: dict[str, Any],
+    week: int | None = None,
 ) -> dict[str, Any]:
+    """One side of a ``week`` matchup, attributed to that week's manager."""
     rid = metrics.roster_id_of(entry)
-    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
     return {
         "ownerId": owner_id,
         "rosterId": rid,
         "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
-        "teamName": metrics.team_name(snapshot, season.league_id, rid),
+        "teamName": metrics.team_name(snapshot, season.league_id, rid, week),
         "points": round(metrics.matchup_points(entry), 2),
     }
 
@@ -71,7 +75,7 @@ def _weekly_trades_for(
         roster_ids = tx.get("roster_ids") or []
         parties = []
         for rid in roster_ids:
-            oid = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            oid = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
             if oid:
                 parties.append(
                     {
@@ -543,8 +547,8 @@ def _build_week_recap(
         seed = week
 
     for i, (a, b) in enumerate(scored_pairs):
-        home = _side_entry(snapshot, season, a)
-        away = _side_entry(snapshot, season, b)
+        home = _side_entry(snapshot, season, a, week)
+        away = _side_entry(snapshot, season, b, week)
         if home["points"] == 0 and away["points"] == 0:
             continue
         margin = round(abs(home["points"] - away["points"]), 2)
