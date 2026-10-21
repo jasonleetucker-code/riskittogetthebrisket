@@ -30,11 +30,28 @@ Sections (match the owner task):
 Output: ``docs/valuation/evidence/low_value_assets_2026-10-20/shadow_replay.json``
 — aggregates and real player NAMES only (no league / user / roster / team ids or
 manager names; checked with ``assert_aggregate_only``).
+
+Band basis (added 2026-10-21, ``docs/valuation/LOW_VALUE_ASSET_V2_CORRECTION_2026-10-21.md``).
+The committed ``shadow_replay.json`` was produced when every research verdict
+divided by the larger ADJUSTED side (``fairness_bands_v1``, reached through
+``P1.level``).  ``--band-basis current`` (the DEFAULT) obtains every level from
+the fairness-band owner (``fairness_bands.classify_packages`` for the incumbent;
+``fairness_base`` of a treatment's own package utilities + ``classify`` for a
+treatment) and runs the served-engine paths (War Room, public category, Trade
+Finder) as they now are.  ``--band-basis v1_legacy`` reproduces the recorded
+evidence: the research verdict uses ``P1.level_v1_legacy`` and the engine paths
+run inside ``P1.legacy_v1_denominator()``.  ``--archive`` / ``--csv-rev`` pin the
+board (the archive alone does not: the contract build also reads the source CSVs,
+scrape-state stamps and ``config/weights`` from a tree); ``--value-override`` holds
+one board value at a recorded number so a code-drift effect can be separated from
+the band effect.  Default output is the original path; write corrected runs to a
+new directory with ``--out``.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import importlib.util
 import json
@@ -71,8 +88,17 @@ P3L = _load("package_model_phase3_local")  # board loader + newest archive
 P2 = P3L.P2  # adjusted / level / structure_bin / orient / assert_aggregate_only
 P1 = P3L.P1  # level / leader (the shared fairness classifier) / _git_sha
 FR = P3L.FR  # Trade Finder replay harness (installed / run / compare)
+RPB = _load("research_pinned_board")  # archive + CSV-tree pin (shared helper)
 
+from src.valuation_math import fairness_bands  # noqa: E402
 from src.valuation_math import package_model as pm  # noqa: E402
+
+#: Which fairness-band basis the research verdicts use.  ``current`` = the owner
+#: (fairness_bands_v2, whatever version is active); ``v1_legacy`` = the retired
+#: denominator (the larger ADJUSTED side), for reproducing recorded evidence only.
+FAIRNESS_BAND_BASIS = "current_owner"
+BAND_BASES = ("current", "v1_legacy")
+BAND_BASIS = "current"
 
 LEAGUE = "dynasty_main"
 SEED = 20261020
@@ -88,17 +114,58 @@ CLASSES = ("offense", "idp", "picks", "mixed")
 # ── shared helpers ────────────────────────────────────────────────────────
 
 
-def verdict(treatment: str, A, B, rep: dict) -> dict:
-    """Fairness verdict on ADJUSTED totals through the shared classifier.
+def set_band_basis(basis: str) -> None:
+    global BAND_BASIS
+    if basis not in BAND_BASES:
+        raise ValueError(f"band basis must be one of {BAND_BASES}, got {basis!r}")
+    BAND_BASIS = basis
+
+
+def _treatment_utilities(treatment: str, A, B, rep) -> tuple[float, float]:
+    """``(U_A, U_B)`` under a research treatment's OWN package utility (the scale its
+    gap is on), from the frozen treatment definitions; ``T.gap`` is ``U_A - U_B``."""
+    u = T.TREATMENTS[treatment]["u"]
+    r = rep or {"*": T.MARKET_LEVEL}
+    return (
+        u([(v, T.anchor_for(treatment, p, r)) for v, p in A]),
+        u([(v, T.anchor_for(treatment, p, r)) for v, p in B]),
+    )
+
+
+def owner_level(treatment: str, gap: float, A, B, rep) -> str:
+    """The band level from the fairness-band OWNER, whatever version is active.
+
+    The incumbent is classified by ``fairness_bands.classify_packages`` (the owner
+    computes its own denominator from the two packages' values under the active
+    package model); a comparator treatment by ``fairness_bands.classify`` on
+    ``fairness_bands.fairness_base`` of that treatment's own package utilities.  No
+    threshold or denominator is computed here."""
+    if treatment == INCUMBENT:
+        return fairness_bands.classify_packages(gap, [v for v, _ in A], [v for v, _ in B])["level"]
+    return fairness_bands.classify(
+        gap, fairness_bands.fairness_base(_treatment_utilities(treatment, A, B, rep))
+    )["level"]
+
+
+def verdict(treatment: str, A, B, rep: dict, basis: str | None = None) -> dict:
+    """Fairness verdict through the band basis in force (module ``BAND_BASIS``).
 
     ``A`` / ``B`` are lists of (value, position).  Returns the signed gap, the
-    level (``fairness_bands.classify`` via ``P1.level``), the favoured side and an
-    ordinal from A's point of view (-3 lopsided against A .. +3 lopsided for A).
+    level, the favoured side and an ordinal from A's point of view (-3 lopsided
+    against A .. +3 lopsided for A).  ``current``: the level is the owner's
+    (:func:`owner_level`).  ``v1_legacy``: the RETIRED v1 denominator (the larger
+    ADJUSTED side), only to reproduce evidence recorded under v1.
     """
+    basis = basis or BAND_BASIS
     g = T.gap(treatment, A, B, rep)
     av, bv = [v for v, _ in A], [v for v, _ in B]
     g2, x, y = P2.adjusted(lambda _a, _b: g, av, bv)
-    lvl = P1.level(g2, x, y)
+    if basis == "v1_legacy":
+        lvl = P1.level_v1_legacy(g2, x, y)
+    elif basis == "current":
+        lvl = owner_level(treatment, g2, A, B, rep)
+    else:
+        raise ValueError(f"unknown band basis {basis!r}")
     sign = 1 if g > 0 else (-1 if g < 0 else 0)
     return {
         "gap": g,
@@ -108,6 +175,13 @@ def verdict(treatment: str, A, B, rep: dict) -> dict:
         "lead": P1.leader(g2, x, y),
         "ord": sign * LEVEL_RANK[lvl],
     }
+
+
+def _band_label() -> str:
+    if BAND_BASIS == "v1_legacy":
+        return "fairness_bands_v1, the larger ADJUSTED side (RETIRED, reproduction only)"
+    r = fairness_bands.receipt()
+    return f"{r['version']}, the larger PACKAGE UTILITY (the fairness-band owner)"
 
 
 def _sgn(x):
@@ -562,7 +636,7 @@ def flip_study(rows, rep, per_cell: int, seed: int = SEED) -> dict:
             "behind on raw value; identical cases for every treatment",
             "flip": "PRIMARY flips = the verdict crosses a region for the sweetening side "
             "(disfavoured -> fair, disfavoured -> favoured, or fair -> favoured), the shared "
-            "classifier (fairness_bands_v1) on adjusted totals; this is what F1/F3 count.  "
+            f"classifier ({_band_label()}); this is what F1/F3 count.  "
             "Secondary: verdictChanged = any change of the signed level (e.g. lopsided -> unfair "
             "against); winnerFlipped = disfavoured -> favoured; unfairMadeFair = disfavoured -> FAIR",
             "basesByClass": dict(Counter(b["cls"] for b in bases)),
@@ -716,7 +790,7 @@ def real_examples(rows, rep) -> dict:
                       "withoutSweetener": {"B": fmt(base), "treatments": ev(A, base)}})  # fmt: skip
     return {
         "convention": "gapA = adjusted A minus adjusted B (positive favours A); level = "
-        "fairness_bands_v1 on adjusted totals (shared classifier); values = today's board; "
+        f"{_band_label()} (shared classifier); values = today's board; "
         "§3 class in each label",
         "cases": cases,
         "missingAssets": sorted(set(missing)),
@@ -787,10 +861,38 @@ def _finder_gap(mid):
     return lambda a, b, _m=mid: T.gap(_m, [(v, None) for v in a], [(v, None) for v in b])
 
 
+def _finder_level(mid: str):
+    """The ``level(gap, recv, give)`` the finder replay tags trades with, on the band
+    basis in force.  ``v1_legacy`` = the recorded ``P2.level`` (larger ADJUSTED side).
+    ``current`` = the fairness-band owner on the treatment's own package utilities."""
+    if BAND_BASIS == "v1_legacy":
+        return P2.level
+
+    def level(gf, recv, give):
+        g = gf(recv, give)
+        if mid == INCUMBENT:
+            return fairness_bands.classify_packages(g, recv, give)["level"]
+        u = T.TREATMENTS[mid]["u"]
+        base = fairness_bands.fairness_base(
+            (
+                u([(v, T.anchor_for(mid, None, {"*": T.MARKET_LEVEL})) for v in recv]),
+                u([(v, T.anchor_for(mid, None, {"*": T.MARKET_LEVEL})) for v in give]),
+            )
+        )
+        return fairness_bands.classify(g, base)["level"]
+
+    return level
+
+
 def _replay_chunk(job):
     raw_path, chunk = job
     models = {m: {"gap": _finder_gap(m) or FR._geom_exact_gap()} for m in FINDER_MODELS}
-    return FR.run(board_raw_path=Path(raw_path), models=models, model_ids=chunk, level=P2.level)
+    return FR.run(
+        board_raw_path=Path(raw_path),
+        models=models,
+        model_ids=chunk,
+        level=_finder_level(chunk[0]),
+    )
 
 
 # ── 5c. Trade History grades ──────────────────────────────────────────────
@@ -893,6 +995,7 @@ def trade_history(raw: dict, ctx: dict) -> dict:
 def war_room(ctx, max_opps: int = 5, seed: int = SEED + 2) -> dict:
     from src.trade import analyze_service as AS  # noqa: PLC0415
     from src.trade import analyze_trade as AT  # noqa: PLC0415
+    from src.trade import team_verdicts as TV  # noqa: PLC0415
     from src.trade import trade_decision as TD  # noqa: PLC0415
 
     rng = random.Random(seed)
@@ -1069,7 +1172,7 @@ def war_room(ctx, max_opps: int = 5, seed: int = SEED + 2) -> dict:
             with FR.installed(gap):
                 sim = run(rec["me"], st["_pin"], st["_pout"], False)
                 an = AS.analyze_for_team(sim, contract=contract, counterfactuals=False)
-            cats[t].append(TD.public_category_from_decision(an.get("decision")))
+            cats[t].append(TV.team_category(an.get("decision")))
     assert pm.active_model_id() == pm.GEOM_Q078_V1
     e_out = {}
     for t in TREATMENTS:
@@ -1081,7 +1184,7 @@ def war_room(ctx, max_opps: int = 5, seed: int = SEED + 2) -> dict:
             "transitions": dict(Counter(f"{a}->{b}" for a, b in pairs if a != b)),
         }
     e_res = {
-        "path": "trade_decision.public_category_from_decision over analyze_for_team (asset-only, "
+        "path": "team_verdicts.team_category (formerly trade_decision.public_category_from_decision) over analyze_for_team (asset-only, "
         "counterfactuals off) with each treatment installed in-process behind "
         "package_model._geom_pair (FR.installed, always restored); replacement anchors mapped "
         "per trade from that trade's own assets (value -> c), skipped if ambiguous",
@@ -1181,10 +1284,54 @@ def main() -> int:
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--skip-replay", action="store_true")
     ap.add_argument("--war-room-opps", type=int, default=5)
+    ap.add_argument(
+        "--band-basis",
+        choices=BAND_BASES,
+        default="current",
+        help="current = the fairness-band owner (default); v1_legacy = the retired larger-"
+        "ADJUSTED-side denominator, only to reproduce evidence recorded under v1",
+    )
+    ap.add_argument(
+        "--archive",
+        default=None,
+        help="the dynasty_export_*.zip to build the board from (default: the newest archive)",
+    )
+    ap.add_argument(
+        "--csv-rev",
+        default=None,
+        help="git revision whose " + ", ".join(RPB.CSV_TREE_PATHS) + " the contract build "
+        "reads (default: the working tree); with --archive this pins the whole board",
+    )
+    ap.add_argument(
+        "--value-override",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="hold one board value at VALUE in the row-based populations (flip study, real "
+        "examples, calculator sample) to separate a code-drift effect from the band effect; "
+        "recorded in the evidence.  The served-engine populations always use the built contract.",
+    )
     args = ap.parse_args()
     assert pm.active_model_id() == pm.GEOM_Q078_V1, "the incumbent must be the active model"
+    set_band_basis(args.band_basis)
+    overrides = {}
+    for item in args.value_override:
+        name, _, val = item.rpartition("=")
+        overrides[name] = float(val)
+    with contextlib.ExitStack() as stack:
+        csv_root, csv_provenance = stack.enter_context(RPB.csv_tree(args.csv_rev))
+        stack.enter_context(RPB.pinned_contract_builds(csv_root))
+        if BAND_BASIS == "v1_legacy":
+            stack.enter_context(P1.legacy_v1_denominator())
+        return _run(args, overrides, csv_provenance)
+
+
+def _run(args, overrides: dict, csv_provenance: dict) -> int:
     t0 = time.time()
-    zpath, member, blob, raw = newest_board()
+    if args.archive:
+        zpath, member, blob, raw = RPB.load_archive(args.archive)
+    else:
+        zpath, member, blob, raw = newest_board()
     scratch = Path(tempfile.mkdtemp(prefix="lva_shadow_"))
     raw_path = scratch / member
     raw_path.write_bytes(blob)
@@ -1201,6 +1348,15 @@ def main() -> int:
     timings["board+anchors"] = round(time.time() - t, 1)
     rows, rep = ctx["rows"], ctx["rep"]
     classification = classify_assets(ctx)
+    board_sha = RPB.built_board_sha256(rows)
+    applied_overrides = {}
+    if overrides:
+        rows = {n: dict(r) for n, r in rows.items()}
+        for name, val in overrides.items():
+            if name not in rows:
+                raise SystemExit(f"--value-override: {name!r} is not priced on this board")
+            applied_overrides[name] = {"from": rows[name]["value"], "to": val}
+            rows[name]["value"] = val
     t = time.time()
     flips = flip_study(rows, rep, per_cell=args.per_cell)
     timings["flipStudy"] = round(time.time() - t, 1)
@@ -1258,6 +1414,31 @@ def main() -> int:
             "byClass": dict(Counter(r["cls"] for r in rows.values())),
         },
         "codeSha": P1._git_sha(),
+        "bandBasis": {
+            "basis": BAND_BASIS,
+            "declared": "v1_legacy: the larger ADJUSTED side (fairness_bands_v1, RETIRED, "
+            "reproduction only)"
+            if BAND_BASIS == "v1_legacy"
+            else "current: every level from the fairness-band owner",
+            "receiptOfOwnerInForce": fairness_bands.receipt(),
+            "researchVerdict": "P1.level_v1_legacy"
+            if BAND_BASIS == "v1_legacy"
+            else "fairness_bands.classify_packages / fairness_base + classify",
+            "servedEnginePaths": "run inside P1.legacy_v1_denominator()"
+            if BAND_BASIS == "v1_legacy"
+            else "run as the engine now is (fairness_bands_v2 denominator)",
+            "leaderRule": "P1.leader (the Phase 1 benchmark's within-1% rule on adjusted totals) is "
+            "not a fairness level and is unchanged on both bases",
+        },  # fmt: skip
+        "boardPin": {
+            "builtBoardSha256": board_sha,
+            "csvTree": {"paths": list(RPB.CSV_TREE_PATHS), **csv_provenance},
+            "valueOverrides": applied_overrides,
+            "valueOverridesAppliedTo": "row-based populations only (S3, S4, S5a); the served-engine "
+            "populations (S5b, S5d, S5e) use the built contract unmodified"
+            if applied_overrides
+            else None,
+        },  # fmt: skip
         "treatments": {
             t: {"approach": s["approach"], "anchor": s["anchor"]} for t, s in T.TREATMENTS.items()
         },

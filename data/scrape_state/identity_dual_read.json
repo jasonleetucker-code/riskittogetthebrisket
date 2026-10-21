@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-10-21T01:01:42.469684+00:00",
+ "generatedAt": "2026-10-21T08:03:14.442956+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2001,
+ "calls": 2006,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1977,
- "v2WouldChange": 24,
+ "v2Same": 1983,
+ "v2WouldChange": 23,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -46,14 +46,6 @@
   },
   {
    "name": "J.T. Tuimoloau",
-   "pos": "",
-   "served": "12594",
-   "engineV2": null,
-   "v2Method": "none",
-   "v2Reason": "no_candidate"
-  },
-  {
-   "name": "JT Tuimoloau",
    "pos": "",
    "served": "12594",
    "engineV2": null,
