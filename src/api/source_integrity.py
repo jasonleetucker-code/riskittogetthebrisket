@@ -910,7 +910,15 @@ def provenance_check(
         m = _median(ds)
         same = sum(1 for d in ds if (d > 0 if m > 0 else d < 0)) if m != 0 else 0
         if nonzero_sign_share:
+            # Numerator and denominator over the SAME rows (|d| > epsilon): a
+            # row within epsilon agrees with the CSV and is neither sign
+            # (V2.1 DEVIATIONS V21-C34; the share could otherwise exceed 1).
             moved = sum(1 for d in ds if abs(d) > epsilon)
+            same = (
+                sum(1 for d in ds if abs(d) > epsilon and (d > 0 if m > 0 else d < 0))
+                if m != 0
+                else 0
+            )
             share = same / moved if moved else 0.0
         else:
             share = same / len(ds) if ds else 0.0

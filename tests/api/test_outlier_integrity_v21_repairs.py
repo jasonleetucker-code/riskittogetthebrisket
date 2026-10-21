@@ -333,6 +333,37 @@ def test_r14_a_seventy_percent_shift_is_a_board_proof_only_under_the_v21_reading
     assert si.provenance_check(pairs, epsilon=0.01, nonzero_sign_share=True).board_proof
 
 
+def test_r14_rows_within_epsilon_are_neither_sign_in_the_numerator_either():
+    # Numerator and denominator count the same rows (|d| > epsilon), so the
+    # share is a proportion of the rows that moved and never exceeds 1.
+    def _pairs(ds_for_k):
+        out, i = [], 0
+        for g in ("QB", "RB"):
+            for k in range(20):
+                csv = 1000.0 + 10 * k
+                out.append(si.ProvenancePair(i, g, csv * math.exp(ds_for_k(k)), csv))
+                i += 1
+        return out
+
+    # 8 rows moved +0.2, 12 rows within epsilon on the same side (+0.005):
+    # 8 / 8 moved rows positive, share exactly 1.0 (it used to read 20 / 8).
+    res = si.provenance_check(
+        _pairs(lambda k: 0.2 if k < 8 else 0.005), epsilon=0.01, nonzero_sign_share=True
+    )
+    assert all(st["signShare"] == 1.0 for st in res.group_stats.values())
+    # 11 moved +0.2, 5 moved -0.2, 4 within epsilon at +0.005 (median +0.2):
+    # 11 / 16 moved rows on the median's side = 0.6875 < 0.8, so no proof.
+    # Counting the within-epsilon rows in the numerator gave 15 / 16 and a
+    # false board proof.
+    res = si.provenance_check(
+        _pairs(lambda k: 0.2 if k < 11 else (-0.2 if k < 16 else 0.005)),
+        epsilon=0.01,
+        nonzero_sign_share=True,
+    )
+    assert not res.board_proof
+    assert all(st["signShare"] == 0.6875 for st in res.group_stats.values())
+
+
 def test_r14_a_healthy_capture_never_proves():
     pairs = _inj_pairs(shift_share=0.0)
     res = si.provenance_check(pairs, epsilon=0.01, nonzero_sign_share=True)
