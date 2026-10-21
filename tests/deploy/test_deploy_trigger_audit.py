@@ -401,6 +401,45 @@ def test_each_run_explains_at_most_one_stop_and_non_clean_stops_keep_their_kind(
     ]
 
 
+def test_the_raw_masked_log_gives_the_same_attribution():
+    from scripts import backend_restart_report as brr
+
+    text = (FIXTURES / "backend_restart_2026-10-19_to_20_RAW_MASKED.txt").read_text(
+        encoding="utf-8"
+    )
+    stops = [{"ts": s.ts, "kind": s.kind} for s in brr.parse_log(text)["stops"]]
+    runs = json.loads((FIXTURES / "deploy_runs_2026-10-19_to_20.json").read_text(encoding="utf-8"))
+    out = audit.attribute_restarts(stops, runs, REAL_KINDS)
+    assert out["by_cause"] == {"box_data_refresh": 4, "runtime_change": 7}
+
+
+def test_an_incomplete_restart_log_is_marked_and_exits_3(repo: Path, tmp_path: Path, capsys):
+    lines = (
+        (FIXTURES / "backend_restart_2026-10-19_to_20_clean_stops_excerpt.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    # mask the HOUR of one backend lifecycle line, as GitHub does on any 22:xx line
+    masked = [
+        (ln[:11] + "***" + ln[13:]) if ln.startswith("2026-10-20T03:52:20.064699") else ln
+        for ln in lines
+    ]
+    log = tmp_path / "masked.txt"
+    log.write_text("\n".join(masked), encoding="utf-8")
+    rc = audit.main(
+        [
+            "--repo",
+            str(repo),
+            "--runs-json",
+            str(FIXTURES / "deploy_runs_2026-10-19_to_20.json"),
+            "--restart-log",
+            str(log),
+        ]
+    )
+    assert rc == 3
+    assert "RESTART LOG INCOMPLETE" in capsys.readouterr().out
+
+
 def test_restart_log_requires_runs_json(capsys):
     assert audit.main(["--restart-log", "x.txt"]) == 2
     assert "--runs-json" in capsys.readouterr().err

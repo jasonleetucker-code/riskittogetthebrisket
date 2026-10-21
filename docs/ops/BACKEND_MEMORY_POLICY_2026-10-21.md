@@ -27,7 +27,9 @@ log or unit file), **[D]** arithmetic on measured values, **[I]** inference, **[
    4,550 MiB `MemAvailable`. [M] Raising the backend ceiling is survivable on measured usage (section 4.1).
 4. **Recommendation:** run **Option C-without-a-High-boundary** (i.e. C + D together: `MemoryMax=3584M`, **no**
    `MemoryHigh`) as a **runtime-only canary first** (no unit-file change, no restart; its `/run` drop-ins must be
-   cleaned up afterwards, section 5.3), plus the frontend ceilings from B.
+   cleaned up afterwards, section 5.3), plus the frontend ceilings from B. The canary may start only after
+   unmasked classification (Stage 0a) and periodic report-only sampling (Stage 0b) exist, because several of its
+   success criteria are unobservable without them (section 5.2).
    Do **not** keep a "warning" `MemoryHigh`: it does not warn, it throttles (section 4.3). Keep the 3-strike
    watchdog untouched. Defer `MALLOC_ARENA_MAX=2` to its own A/B, defer isolating Chromium (E), and treat
    verification scheduling (F) as a separate, owner-sensitive change.
@@ -50,7 +52,26 @@ Three scripts were added by this PR. None calls a host, a journal, systemctl or 
 | What stopped the backend, and was it throttling? | `python scripts/backend_restart_report.py LOG --high-bytes 2684354560` | The log of the `Production Restart Diagnostics (read-only)` workflow run (`gh run view <id> --log > LOG`), or the stdout of `deploy/diagnostics/prod_restart_diagnostics.sh` |
 | Which commits start a deploy? | `python scripts/deploy_trigger_audit.py --ref origin/main --since 2026-10-19T09:55:00Z --until 2026-10-20T09:55:00Z --runs-json runs.json` | A local clone, plus optionally `gh run list --workflow=deploy.yml --limit 100 --json databaseId,createdAt,updatedAt,conclusion,event,displayTitle,headSha` |
 | What caused each RESTART? | the same command plus `--restart-log LOG` | A restart-diagnostics log for the same window. Each clean stop is matched to the successful deploy run that completed 0-30 min after it. Commit time does not work for this: a deploy completes 80-110 min after its commit |
-| Do the declared ceilings fit the host, and does a proposed usage? | `python scripts/memory_ceiling_budget.py --set dynasty.MemoryMax=3584M --set dynasty.MemoryHigh=none --usage backend=3430 --usage other=689` | `deploy/systemd/*.service[.template]` |
+| Do the declared ceilings fit the host, and does a proposed usage? | `python scripts/memory_ceiling_budget.py --set dynasty.MemoryMax=3584M --set dynasty.MemoryHigh=none --usage backend=3430 --usage other=727` | `deploy/systemd/*.service[.template]` |
+
+**Masked input fails closed.** GitHub replaces secret values with `***` when it writes a workflow log, including
+inside journal TIMESTAMPS (any hour, minute, second or day containing the value, and fractional seconds). In
+the two runs above, 17 of 207 and 13 of 122 journal lines were masked this way; an earlier version of the
+classifier skipped them silently and, on the raw log of run 39403489430, merged the 03:52Z and 06:20Z restarts.
+Now: a timestamp masked only in its fraction is read at one-second precision; any other masked line the
+classifier would act on makes the report `input: incomplete` with **exit code 3** (never a pass); masked lines
+about other units are counted but do not block. `deploy_trigger_audit.py --restart-log` applies the same rule.
+The clean fix is to classify the script's stdout on the runner **before** it is logged:
+`docs/ops/patches/prod-restart-diagnostics-classify.PROPOSED.patch` (not applied; `git apply --check` passes,
+and the existing workflow tests pass with it applied) captures the stdout to a runner file, prints it as before,
+then prints `backend_restart_report.py --format summary` computed on the unmasked file, and keeps the
+collection's exit status. Two more masking effects: the backend unit appears as `***.service` (the classifier
+finds it from its unmasked description; `--unit` must be given exactly as it appears in the input), and
+masked numeric values parse to "unknown", never 0.
+
+**`--high-bytes`** is the configured `MemoryHigh` in bytes. It only fills in an unreadable `memory.high`
+reading. Once `MemoryHigh` is `infinity` (Stage 1 onward) omit it: there is no limit left to compare against,
+the snapshots read `high=max`, and the report notes that it ignored the flag.
 
 Fixtures of the public logs (hostname replaced, secret-masking restored) are in `tests/deploy/fixtures/`;
 `tests/deploy/test_backend_restart_report.py`, `test_deploy_trigger_audit.py` and `test_memory_ceiling_budget.py`
@@ -164,7 +185,7 @@ throttling episodes that sometimes clear [I]; nothing proves the last one would 
 * **A fresh process can regrow fast.** The process the watchdog started on 2026-10-21 at 07:53:49Z already had
   `MemoryPeak` = **2,508,705,792 B (2,392 MiB, 93% of `MemoryHigh`)** when sampled at 08:23:43Z, ~30 min
   after start (`MemoryCurrent` then 1,626 MiB) [M, run 39568862441]. It started while a V1 browser suite was in
-  progress (07:42:48 -> 08:06:18) and ran its own startup scrape, so 2.4 GiB is reachable within half an hour
+  progress (07:42:48 -> 08:06:18) and ran its own startup scrape, so 2.34 GiB is reachable within half an hour
   under verification load. `memory.peak` carries no timestamp, so whether the peak came from the scrape, from V1,
   or both is **[U]**. Implication for sizing: section 4.1.
 * **One scheduled scrape on an aged process hit the line and survived**: run `0ae18b5a58f7`, 2026-10-19
@@ -229,18 +250,22 @@ independently *measured maxima*: `2,560 (high) + 744 (Chromium) + 106 (frontend)
 only at the +2 h scheduled scrape), and the first form double counts Chromium, which is already inside the
 2,560 MiB cgroup figure. Treat 3,430 as a plausible upper bound, not an observation.
 
-Host margin [D, `scripts/memory_ceiling_budget.py`], host 7,941 MiB, measured non-backend use 689 MiB
-(`free -m` used 2,315 MiB minus backend `MemoryCurrent` 1,626 MiB on 2026-10-21 08:23Z; includes frontend, nginx,
-kernel):
+Host margin [D, `scripts/memory_ceiling_budget.py`], host 7,941 MiB, non-backend use **~727 MiB** [D/E]. Derivation
+(2026-10-21 08:23Z): `free -m` "used" was 2,315 MiB; "used" excludes page cache (reported under buff/cache), but
+the backend's `MemoryCurrent` (1,626 MiB) *includes* the page cache charged to its cgroup. Subtracting
+`MemoryCurrent` would therefore remove cache that "used" never contained and understate the rest (an earlier
+draft did this and got 689 MiB). The backend's non-cache share is `anon` + `kernel` from its `memory.stat` =
+1,660,657,664 + 4,698,112 B = 1,588 MiB, so non-backend non-cache use is 2,315 - 1,588 = **727 MiB** (frontend,
+nginx, kernel, other processes). Still one sample, so an estimate:
 
 | Scenario | Co-resident usage | Margin |
 |---|---|---|
-| Backend at the 3,430 estimate + measured non-backend 689 | 4,119 MiB | **+3,822 MiB** |
-| Backend at proposed ceiling 3,584 + 689 + `ktc-trades` 512 + `market-ledger` 1,024 + `pick-forecast` 1,536 (every bounded timer at its ceiling at once; never observed) | 7,345 MiB | **+596 MiB** |
-| Same absurd case at today's 3,072 ceiling | 6,833 MiB | +1,108 MiB |
+| Backend at the 3,430 estimate + non-backend 727 | 4,157 MiB | **+3,784 MiB** |
+| Backend at proposed ceiling 3,584 + 727 + `ktc-trades` 512 + `market-ledger` 1,024 + `pick-forecast` 1,536 (every bounded timer at its ceiling at once; never observed) | 7,383 MiB | **+558 MiB** |
+| Same absurd case at today's 3,072 ceiling | 6,871 MiB | +1,070 MiB |
 | Observed at the wedge: host `MemAvailable` | - | 4,550 MiB free with the backend at 2,618 MiB |
 
-So **simultaneous-load margin is not negative** on measured usage, and stays positive (+596 MiB) even in an
+So **simultaneous-load margin is not negative** on measured usage, and stays positive (+558 MiB) even in an
 unrealistic all-ceilings case. The one place it *is* negative is the **sum of declared ceilings**: +251 MiB over
 RAM today, +763 MiB if the backend ceiling were raised to 3,584M with the frontend left at 2G. That is why the
 frontend change in B belongs in the same package, and why the unbounded timers (unmeasured) are the residual
@@ -248,14 +273,14 @@ risk on the margin.
 
 **Is 3,584M enough? Fast regrowth says: only probably, and not with much room.** Both wedged processes reached
 ~2.6 GiB within 17-33 min of boot, and the replacement started at 07:53:49Z on 2026-10-21 reached a 2,392 MiB
-peak within ~30 min (section 3.4). So a heap of ~2.4-2.6 GiB is a *normal* half-hour state under verification
+peak within ~30 min (section 3.4). So a heap of ~2.3-2.6 GiB is a *normal* half-hour state under verification
 load, not a tail event. Add one Chromium scrape (~0.72 GiB, the +2 h scheduled scrape, or a startup scrape on a
 process that has not reset its heap) and demand is ~3.1-3.35 GiB: inside 3,584 MiB with **only ~230-480 MiB
 (7-14%) of room** [D/E]. Every one of those peaks was taken while throttled at 2.5 GiB, so the unthrottled
 plateau is unknown; if the heap keeps growing past 30 min, 3,584M will be reached and the process killed.
 That is why Stage 1 is a canary with a kill-count rollback trigger and a 3.4 GiB peak trigger, why 3,584M is
 not presented as a fix, and why the heap profile of the V1 route set (section 7, item 3) is the real follow-up.
-A larger ceiling (4G) still fits measured usage (+84 MiB in the all-ceilings case) but has no evidence base
+A larger ceiling (4G) still fits measured usage (+46 MiB in the all-ceilings case) but has no evidence base
 either; raise it only if Stage 1 shows peaks clustering above ~3.2 GiB with no kills.
 
 **Measurements that contradict or limit the proposals:**
@@ -334,10 +359,48 @@ gaps in 3.7, an operator with approval dispatches the existing **read-only** wor
 `scrape-telemetry-diagnostics.yml` for 2026-10-21 (is Chromium present at 07:50?) and
 `prod-restart-diagnostics.yml` for any later restart. Feed logs to `backend_restart_report.py`.
 
-**Stage 0b — userspace warning, no throttle (separate PR, not written here).** In
-`deploy/systemd/dynasty-healthcheck.sh`, log a one-line `memory_watch` when `memory.current` passes 2,560 MiB and
-2,944 MiB, report-only, same transition-only pattern as `fd_watch`. This restores the "near the old boundary"
-signal that removing `MemoryHigh` takes away.
+**Stage 0a — classify unmasked (workflow PR, precondition for Stage 1).** Apply
+`docs/ops/patches/prod-restart-diagnostics-classify.PROPOSED.patch`. Every 24 h window contains a 22:xx hour, and
+the 22nd of each month is masked whole, so a daily check read from the raw log will regularly be `incomplete`
+(exit 3) whenever a backend or watchdog line lands there. Classifying on the runner removes that.
+
+**Stage 0b — periodic report-only sampling (separate PR, not written here; precondition for Stage 1).** Today the
+watchdog snapshots ONLY on a liveness failure (`dynasty-healthcheck.sh` around lines 310/319), so a healthy
+period produces no samples. Several canary criteria are therefore unobservable while the system is healthy,
+which is exactly when they must be shown to hold. Stage 0b: in the same minutely watchdog, every N minutes (e.g.
+5) and report-only, log one allowlist-safe numeric line with: backend `memory.current` / `memory.peak` /
+`memory.events` (`max`, `oom_kill`), host `MemAvailable`, host memory PSI `some`/`full` `avg10`, and the frontend
+cgroup's `memory.events high` / `memory.current`. Add a transition-only `memory_watch` line when backend
+`memory.current` crosses 2,560 MiB and 2,944 MiB (the "near the old boundary" signal that removing `MemoryHigh`
+takes away). Extend `prod_restart_diagnostics.sh`'s allowlist and `backend_restart_report.py` to read them. It
+changes no restart decision.
+
+**Observability of the Stage 1 criteria and triggers, with today's tooling:**
+
+| Criterion / trigger | Observable now? | Source |
+|---|---|---|
+| zero watchdog restarts; no backend OOM kill, crash or unexplained auto-restart | **yes** | restart diagnostics -> `backend_restart_report.py` (`watchdog_restarts`, `oom_kills`, `crashes`, `auto_restarts_without_cause`, `systemd_initiated`) |
+| process peak < 3.2 GiB; trigger >= 3.4 GiB | **at each stop** (one-decimal `Consumed ... memory peak`), and the current process's `MemoryPeak` in the diagnostics' unit-properties section | same; `any_stop_peak_bytes_max` |
+| no other unit OOM-killed; no kernel / oomd OOM line | **yes**, for lines that pass the diagnostics' "other units" filter | `other_unit_oom_kills`, `kernel_oom_lines` |
+| breaches inside any watchdog snapshot, including recovered liveness failures | **yes, but only when a liveness failure happens** | `trigger_breaches`, `trigger_unknown_snapshots`, `liveness_fail_lines`, `recoveries_without_restart` |
+| host `MemAvailable` >= 1.5 GiB | **no** while healthy (one `free -m` per diagnostics run is not a series) | needs Stage 0b |
+| host memory stall `full` < 10% *outside a scrape* | **no**: no healthy-time samples, and "outside a scrape" needs the scrape windows | Stage 0b + `scrape-telemetry-diagnostics.yml` (`data/diagnostics/scrape_events.jsonl`) |
+| frontend not throttled | **no**: its cgroup counters are never collected | Stage 0b |
+| no half-written data file | **no tooling** | manual inspection on a kill; **[U]** |
+
+**Who checks, how often, which command (7-day soak).** The canary owner (whoever runs Stage 1; named in the
+work claim) checks once a day at a fixed time and after any page/alert:
+
+```
+gh workflow run prod-restart-diagnostics.yml -f since_utc="<D-1> 09:00" -f until_utc="<D> 09:00"
+gh run view <run-id> --log      # with Stage 0a: read the printed classification summary
+# without Stage 0a (raw, masked log):
+gh run view <run-id> --log > day.log
+python scripts/backend_restart_report.py day.log      # 0 = complete; 3 = INCOMPLETE -> not a pass
+gh workflow run scrape-telemetry-diagnostics.yml      # scrape windows for the PSI criterion
+```
+
+A day whose report exits 3, or whose Stage 0b samples are missing, does **not** count toward the 7 days.
 
 **Stage 1 — runtime canary (operator; no unit-file change, no restart; writes runtime drop-ins under `/run` that
 last until clean-up or reboot).**
@@ -366,19 +429,27 @@ The canary therefore ends with an explicit clean-up (section 5.3), whether it su
 
 Soak: **7 days and at least 20 backend restarts**, including at least two deploys followed by V1 suites.
 
-Success criteria (all from existing logs):
+Preconditions: Stage 0a and Stage 0b are live (otherwise several criteria below cannot be observed; see the
+table above).
+
+Success criteria:
+* every daily report `input: complete` (exit 0);
 * zero `watchdog_restart` stops; `backend_restart_report.py` shows only `clean_stop` over the soak, i.e.
-  `oom_kills`, `crashes`, `auto_restarts_without_cause` and `systemd_initiated` all 0 (the report counts
-  systemd-initiated stops that have no `Stopping` line; pass `--unit dynasty.service` if the window holds no
-  `Started` line);
-* every process peak < 3.2 GiB (`Consumed ... memory peak` in the journal; the first uncensored distribution);
-* host memory stall (`h_some_avg10`) < 10% outside scrape windows; no kernel/oomd OOM line in
-  `--filter kernel`;
-* no unit other than the backend killed or throttled.
+  `oom_kills`, `crashes`, `auto_restarts_without_cause` and `systemd_initiated` all 0. The report counts
+  systemd-initiated stops that have no `Stopping` line and finds the backend unit from its description; in a
+  GitHub-masked log the unit is `***.service`, so `--unit dynasty.service` would never match there (use the
+  unmasked Stage 0a summary, or `--unit '***.service'` on a raw log);
+* every process peak < 3.2 GiB (`Consumed ... memory peak`; the first uncensored distribution);
+* host memory stall `full` (`h_full_avg10`) < 10% outside scrape windows and host `MemAvailable` >= 1.5 GiB in
+  every Stage 0b sample; `kernel_oom_lines` = 0;
+* `other_unit_oom_kills` empty and no frontend `memory.events high` increase (Stage 0b).
 
 Rollback triggers (any one): a process peak >= 3.4 GiB (growth is unbounded at the new ceiling); any backend
-`oom_kill`; host `MemAvailable` < 1.5 GiB at any watchdog snapshot; host memory stall `full` > 10% outside a
-scrape; any other unit OOM-killed; an unexplained half-written data file.
+`oom_kill`; host `MemAvailable` < 1.5 GiB in any snapshot or sample; host memory stall `full` > 10% outside a
+scrape; any other unit OOM-killed; an unexplained half-written data file. `backend_restart_report.py` lists every
+snapshot that breaches one (`trigger_breaches`) and every snapshot whose trigger inputs were unreadable
+(`trigger_unknown_snapshots`, which is not a pass either). Omit `--high-bytes` during the canary: `MemoryHigh` is
+`infinity`.
 
 **Stage 2 — persist.** After a clean soak, open one reviewed PR applying
 `docs/ops/patches/backend-memory-policy-stage2.PROPOSED.patch` (backend `MemoryMax=3584M` with `MemoryHigh`
@@ -534,3 +605,6 @@ D-1 ships.
 9. Box memory during deploys; memory of the unbounded timers.
 10. Which field exposes per-source data freshness for the section 6.2 lag measurement.
 11. `MALLOC_ARENA_MAX=2` effect: unmeasured.
+12. Stage 0a (proposed workflow patch) is not applied and Stage 0b (periodic sampling) is not written; until both
+    exist, host `MemAvailable`, host stall outside scrapes and frontend throttling are unobservable while healthy.
+13. The 727 MiB non-backend figure is one sample (2026-10-21 08:23Z) and an estimate.

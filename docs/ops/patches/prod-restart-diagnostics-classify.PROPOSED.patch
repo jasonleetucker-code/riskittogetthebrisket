@@ -1,0 +1,36 @@
+diff --git a/.github/workflows/prod-restart-diagnostics.yml b/.github/workflows/prod-restart-diagnostics.yml
+index 8936a0214..bae7cea3a 100644
+--- a/.github/workflows/prod-restart-diagnostics.yml
++++ b/.github/workflows/prod-restart-diagnostics.yml
+@@ -93,10 +93,30 @@ jobs:
+           # 5 when it could not read the journal or the window held nothing
+           # for the service, so "could not look" never renders green.  No
+           # `|| true`, no pipe that would mask it.
++          #
++          # The output is captured to a runner file first so it can also be
++          # CLASSIFIED UNMASKED: GitHub replaces secret values with "***" at
++          # log time, including inside journal timestamps, and a masked
++          # lifecycle line can merge or hide a restart.  The classifier reads
++          # the file before anything is logged and prints only its summary.
++          out="${RUNNER_TEMP}/restart-diagnostics.txt"
++          rc=0
+           ssh -i "$HOME/.ssh/id_ed25519" \
+             -o BatchMode=yes -o StrictHostKeyChecking=yes \
+             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+             -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+             "bash -s -- $(printf %q "$SERVICE_NAME") $(printf %q "$SINCE_UTC") $(printf %q "$UNTIL_UTC")" \
+-            < deploy/diagnostics/prod_restart_diagnostics.sh
++            < deploy/diagnostics/prod_restart_diagnostics.sh > "${out}" || rc=$?
++          cat "${out}"
++          echo
++          echo "===== classification of the UNMASKED output (scripts/backend_restart_report.py) ====="
++          cls=0
++          python3 scripts/backend_restart_report.py "${out}" --format summary || cls=$?
++          if (( cls == 3 )); then
++            echo "::warning title=Restart classification incomplete::unparseable lifecycle lines even in the unmasked output; read the evidence above by hand."
++          elif (( cls != 0 )); then
++            echo "::warning title=Restart classification failed::backend_restart_report.py exited ${cls}."
++          fi
++          # The collection's own status stays the step's status (5 = could not look).
++          exit "${rc}"

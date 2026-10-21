@@ -369,3 +369,166 @@ def test_a_max_reading_means_no_memory_high_and_is_never_back_filled():
         unlimited.max_unlimited
         and rep.classify_snapshots([unlimited])["verdict"] == "memory_high_not_configured"
     )
+
+
+# ── masked input fails closed (GitHub masks "***" inside timestamps) ──────
+
+RAW_DAY = FIXTURES / "backend_restart_2026-10-19_to_20_RAW_MASKED.txt"
+RAW_1021 = FIXTURES / "backend_restart_2026-10-21_RAW_MASKED.txt"
+
+
+def test_raw_masked_day_keeps_all_eleven_restarts_the_old_parser_merged():
+    # In the published log the 03:52Z stop's "Consumed" line is masked in its
+    # fractional seconds; the old parser skipped it and merged 03:52 with 06:20.
+    parsed = rep.parse_log(RAW_DAY.read_text(encoding="utf-8"))
+    summary = rep.summarize(parsed)
+    assert summary["stops_total"] == 11 and summary["clean_stops"] == 11
+    assert summary["input"] == "complete" and summary["reduced_precision_lines"] > 0
+    by_hour = {s.ts[:16]: s for s in parsed["stops"]}
+    assert by_hour["2026-10-20T03:52"].peak_text == "2.1G"
+    assert by_hour["2026-10-20T06:20"].peak_text == "2.0G"
+    # the masked unit name is found from its description
+    assert {s.unit for s in parsed["stops"]} == {"***.service"}
+
+
+def test_raw_masked_21st_still_confirms_the_throttle():
+    summary = rep.summarize(rep.parse_log(RAW_1021.read_text(encoding="utf-8")))
+    assert summary["watchdog_restarts"] == 1 and summary["input"] == "complete"
+    stop = [s for s in rep.parse_log(RAW_1021.read_text(encoding="utf-8"))["stops"] if s.verdict][0]
+    assert stop.verdict["verdict"] == "memory_high_throttle_confirmed"
+
+
+def _mask_ts(line: str) -> str:
+    """Mask the HOUR of a journal timestamp, as GitHub does for any 22:xx line."""
+    return line[:11] + "***" + line[13:]
+
+
+def test_a_fully_masked_consumed_line_cannot_merge_two_restarts_and_is_incomplete(capsys, tmp_path):
+    lines = (
+        (FIXTURES / "backend_restart_2026-10-19_to_20_clean_stops_excerpt.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    lines = [
+        _mask_ts(ln) if ln.startswith("2026-10-20T03:52:20.685") and "Consumed" in ln else ln
+        for ln in lines
+    ]
+    text = "\n".join(lines)
+    parsed = rep.parse_log(text)
+    summary = rep.summarize(parsed)
+    assert summary["stops_total"] == 11  # Stopped/Started close the record
+    by_hour = {s.ts[:16]: s for s in parsed["stops"]}
+    assert by_hour["2026-10-20T03:52"].peak_text is None  # its peak is honestly missing
+    assert by_hour["2026-10-20T06:20"].peak_text == "2.0G"
+    assert summary["input"] == "incomplete"
+    assert parsed["unparseable_relevant_kinds"] == {"consumed": 1}
+    log = tmp_path / "masked.txt"
+    log.write_text(text, encoding="utf-8")
+    assert rep.main([str(log)]) == 3  # never a pass
+    assert "INPUT INCOMPLETE" in capsys.readouterr().out
+
+
+def test_a_masked_watchdog_restart_is_never_reported_as_a_clean_pass(tmp_path):
+    lines = (
+        (FIXTURES / "backend_restart_2026-10-19_08-42_excerpt.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    masked = [
+        _mask_ts(ln) if ("threshold reached" in ln or "stop-sigterm" in ln) else ln for ln in lines
+    ]
+    parsed = rep.parse_log("\n".join(masked))
+    summary = rep.summarize(parsed)
+    # with both tell-tale lines masked, the stop LOOKS clean ...
+    assert [s.kind for s in parsed["stops"]] == ["clean_stop"]
+    # ... and the report refuses to call that a result
+    assert summary["input"] == "incomplete"
+    assert parsed["unparseable_relevant_kinds"] == {"sigterm_timeout": 1, "watchdog_threshold": 1}
+    log = tmp_path / "w.txt"
+    log.write_text("\n".join(masked), encoding="utf-8")
+    assert rep.main([str(log), "--format", "json"]) == 3
+
+
+def test_masked_lines_about_other_units_do_not_block():
+    text = (
+        "2026-10-21T07:***:36.657278+00:00 host systemd[1]: ***-game-day-live.service: "
+        "Deactivated successfully.\n" + OOM_JOURNAL
+    )
+    parsed = rep.parse_log(text)
+    assert parsed["unparseable_other_lines"] == 1 and parsed["unparseable_relevant_lines"] == 0
+    assert rep.summarize(parsed)["input"] == "complete"
+
+
+def test_a_new_stopping_always_starts_a_new_record():
+    text = "\n".join(
+        [
+            "2026-10-20T03:52:20.000000+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...",
+            # every closing line of the first stop is missing
+            "2026-10-20T06:20:47.000000+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...",
+        ]
+    )
+    assert len(rep.parse_log(text)["stops"]) == 2
+
+
+# ── canary observability (M1) ─────────────────────────────────────────────
+
+
+def test_host_full_stall_is_read_and_every_breaching_snapshot_is_listed():
+    snap = rep.Snapshot(ts="t", reason="liveness-fail-1")
+    rep._fill(snap, "host", " mem_available_kb=1000000 h_some_avg10=30.0 h_full_avg10=25.5")
+    rep._fill(
+        snap, "mem", " cur=3700000000 high=max max=3758096384 ev_high=0 ev_max=0 ev_oom_kill=1"
+    )
+    assert snap.host_mem_stall_full_avg10 == 25.5
+    (hit,) = rep.trigger_breaches([snap])
+    assert set(hit["breaches"]) == {
+        "host_mem_available_below_1.5GiB",
+        "host_mem_stall_full_above_10pct(scrape_window_unknown)",
+        "backend_cgroup_at_or_above_3.4GiB",
+        "backend_cgroup_oom_kill",
+    }
+
+
+def test_a_masked_trigger_input_is_unknown_not_healthy():
+    snap = rep.Snapshot(ts="t", reason="liveness-fail-2")
+    rep._fill(snap, "host", " mem_available_kb=4652916 h_full_avg10=***.64")
+    rep._fill(snap, "mem", " cur=2739773440 ev_oom_kill=0")
+    (row,) = rep.trigger_breaches([snap])
+    assert row["breaches"] == [] and row["unknown"] == ["host_mem_stall_full_avg10"]
+    summary_rows = rep.summarize({"stops": [], "snapshots": [snap], "snapshots_total": 1})
+    assert summary_rows["trigger_unknown_snapshots"][0]["unknown"] == ["host_mem_stall_full_avg10"]
+
+
+def test_recovered_failures_kernel_ooms_and_other_units_ooms_are_summarized():
+    text = "\n".join(
+        [
+            "2026-10-19T08:28:13.000000+00:00 host h[1]: [healthcheck] LIVENESS FAIL 1/3: no HTTP response",
+            # the watchdog always logs "mem" first; it opens the snapshot
+            "2026-10-19T08:28:13.050000+00:00 host h[1]: [healthcheck] snapshot mem reason=liveness-fail-1 "
+            "cur=2000000000 high=2684354560 max=3221225472 ev_high=0 ev_max=0 ev_oom=0 ev_oom_kill=0",
+            "2026-10-19T08:28:13.100000+00:00 host h[1]: [healthcheck] snapshot host reason=liveness-fail-1 "
+            "mem_available_kb=900000 h_full_avg10=12.0",
+            "2026-10-19T08:29:48.000000+00:00 host h[1]: [healthcheck] recovered: responding again",
+            "2026-10-19T09:00:00.000000+00:00 host kernel: Memory cgroup out of memory: Killed process 77 (node)",
+            "2026-10-19T09:00:00.100000+00:00 host systemd[1]: dynasty-frontend.service: "
+            "A process of this unit has been killed by the OOM killer.",
+            "2026-10-19T09:00:00.200000+00:00 host systemd[1]: dynasty-frontend.service: Failed with result 'oom-kill'.",
+            STARTED,
+        ]
+    )
+    summary = rep.summarize(rep.parse_log(text))
+    assert summary["liveness_fail_lines"] == 1 and summary["recoveries_without_restart"] == 1
+    assert summary["kernel_oom_lines"] == 1
+    assert summary["other_unit_oom_kills"] == {"dynasty-frontend.service": 2}
+    assert summary["stops_total"] == 0  # the frontend's kill is not a backend stop
+    # the recovered failure's snapshot is not attached to any stop, and is still checked
+    assert summary["trigger_breaches"][0]["reason"] == "liveness-fail-1"
+
+
+def test_high_bytes_against_a_removed_memory_high_is_called_out():
+    snap = rep.Snapshot(ts="t", reason="r")
+    rep._fill(snap, "mem", " cur=1 high=max max=3758096384")
+    summary = rep.summarize(
+        {"stops": [], "snapshots": [snap], "snapshots_total": 1}, high_bytes=HIGH
+    )
+    assert any("--high-bytes ignored" in n for n in summary["notes"])

@@ -54,7 +54,19 @@ DEFAULT_HOST_MIB = 7941
 #: timer-driven job that is normally not running.
 ALWAYS_ON = frozenset({"dynasty", "dynasty-frontend"})
 
-_UNITS = {"": 1, "B": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}
+#: systemd's base-1024 size suffixes.  Upper case ONLY: systemd's size parser
+#: rejects "3g", so this module rejects it too (a rejected assignment is
+#: ignored, exactly as systemd ignores it).
+_UNITS = {
+    "": 1,
+    "B": 1,
+    "K": 1024,
+    "M": 1024**2,
+    "G": 1024**3,
+    "T": 1024**4,
+    "P": 1024**5,
+    "E": 1024**6,
+}
 _LIMIT_KEYS = ("MemoryHigh", "MemoryMax")
 # ``\S*``: an EMPTY assignment (``MemoryMax=``) is a systemd reset to the
 # default, which for these two knobs is "no limit".
@@ -81,7 +93,7 @@ def _parse(text: str, host_bytes: float | None) -> int | None | _Invalid:
         if host_bytes is None:
             return INVALID  # a share of an unknown host: unknown, never "no limit"
         return int(host_bytes * float(m["n"]) / _PROPORTION[m["p"]])
-    m = re.fullmatch(r"(?P<n>\d+(?:\.\d+)?)(?P<u>[KMGTB]?)", t, re.IGNORECASE)
+    m = re.fullmatch(r"(?P<n>\d+(?:\.\d+)?)(?P<u>[BKMGTPE]?)", t)
     if not m:
         return INVALID
     return int(float(m["n"]) * _UNITS[m["u"].upper()])

@@ -77,6 +77,12 @@ def test_an_empty_assignment_resets_the_limit():
     }
 
 
+@pytest.mark.parametrize("text", ["3g", "512m", "1k", "2Gb"])
+def test_lowercase_or_mixed_suffixes_are_rejected_as_systemd_rejects_them(text):
+    assert mcb.parse_size(text) is None
+    assert mcb.unit_limits(f"MemoryMax=1G\nMemoryMax={text}\n") == {"MemoryMax": 1024**3}
+
+
 def test_a_rejected_value_is_ignored_like_systemd_ignores_it():
     assert mcb.unit_limits("MemoryMax=2G\nMemoryMax=lots\n") == {"MemoryMax": 2 * 1024**3}
 

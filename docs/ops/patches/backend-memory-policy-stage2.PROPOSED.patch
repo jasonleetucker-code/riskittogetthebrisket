@@ -20,7 +20,7 @@ index d380e8972..d22ea8182 100644
  PrivateTmp=true
  
 diff --git a/deploy/systemd/dynasty.service.template b/deploy/systemd/dynasty.service.template
-index 1633670e5..d20d6fab0 100644
+index 1633670e5..38e82aa01 100644
 --- a/deploy/systemd/dynasty.service.template
 +++ b/deploy/systemd/dynasty.service.template
 @@ -29,14 +29,25 @@ Environment=PYTHONUNBUFFERED=1
@@ -48,7 +48,7 @@ index 1633670e5..d20d6fab0 100644
 +# memory.events high rose 63,734 -> 127,174 in two minutes while
 +# max=0 and oom_kill=0; the service answered nothing for ~3 minutes until
 +# the watchdog restarted it, ~4.5 minutes until it served again.  A
-+# replacement process then regrew to 2.39 GiB within ~30 minutes, so
++# replacement process then regrew to 2.34 GiB within ~30 minutes, so
 +# 3584M is a canary value, not a proven fit.  MemoryMax is a hard line: past it the
 +# kernel kills the process in seconds and Restart=always brings it back
 +# (a ~30 s outage instead of a multi-minute stall).

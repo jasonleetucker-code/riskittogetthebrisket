@@ -47,7 +47,8 @@ Usage:
     python scripts/deploy_trigger_audit.py --since 2026-10-19T09:55Z --until 2026-10-20T09:55Z
            [--repo .] [--ref origin/main] [--runs-json runs.json]
            [--restart-log diagnostics.log] [--format json|text]
-Exit codes: 0 report printed; 2 git/workflow unreadable.
+Exit codes: 0 report printed; 2 git/workflow unreadable; 3 report printed but the
+``--restart-log`` input is incomplete (masked/unparseable lifecycle lines).
 """
 
 from __future__ import annotations
@@ -365,6 +366,11 @@ def render_text(report: dict) -> str:
         )
     if "restart_attribution" in report:
         ra = report["restart_attribution"]
+        if ra.get("input") == "incomplete":
+            lines.append(
+                f"  RESTART LOG INCOMPLETE: {ra['unparseable_relevant_lines']} relevant line(s) with "
+                f"masked/unparseable timestamps {ra['unparseable_relevant_kinds']}; attribution is not a pass"
+            )
         lines.append(f"  RESTARTS by cause (matched to deploy run completion): {ra['by_cause']}")
         for s in ra["stops"]:
             via = f" <- {s.get('run_event')} {s.get('head')} (run ended {s.get('minutes_before_run_end')} min later)"
@@ -418,10 +424,21 @@ def main(argv: list[str] | None = None) -> int:
             kinds = commit_kinds(args.repo, args.ref, _shift(args.since, -24), args.until)
             runs = json.loads(args.runs_json.read_text(encoding="utf-8"))
             report["restart_attribution"] = attribute_restarts(stops, runs, kinds)
+            # Same fail-closed rule as the restart report: a masked or
+            # unparseable lifecycle line can hide or merge a restart, so the
+            # attribution is marked incomplete and the exit code is 3.
+            bad = parsed["unparseable_relevant_lines"]
+            report["restart_attribution"]["input"] = "incomplete" if bad else "complete"
+            report["restart_attribution"]["unparseable_relevant_lines"] = bad
+            report["restart_attribution"]["unparseable_relevant_kinds"] = parsed[
+                "unparseable_relevant_kinds"
+            ]
     except (OSError, RuntimeError, ValueError, yaml.YAMLError) as exc:
         print(f"deploy_trigger_audit: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(report, indent=2) if args.format == "json" else render_text(report))
+    if report.get("restart_attribution", {}).get("input") == "incomplete":
+        return 3
     return 0
 
 
