@@ -389,7 +389,10 @@ def waiver_levels(
         pos = position_of(row)
         if not pos:
             continue
-        value = float(row.get(value_key) or 0.0)
+        raw = row.get(value_key)
+        if not raw:
+            continue  # missing or zero: no information about the level
+        value = float(raw)
         if value > 0:
             pools.setdefault(pos, []).append(value)
 
