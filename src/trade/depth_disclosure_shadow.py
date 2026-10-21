@@ -32,6 +32,18 @@ fairness REGION (``transition:<real>><without>``), the band pair
 whether the guard suppressed it, and the piece classes involved.  No outcome or
 user evidence exists, so "false positive" is measured only as these proxies.
 
+Counting unit: a DISTINCT trade per (league, UTC day, surface).  The War Room
+re-posts on every debounced edit and toggle, so counting requests would weight
+a trade by how often its builder iterated.  A repeat of the same trade (same
+team, same assets on both sides) that day adds only to ``trade.requests`` /
+``trade.repeatRequests``.  The in-memory signature set is never persisted (it
+holds hashes of asset ids, not names) and resets on a restart, so a restart can
+count a trade twice.
+
+Off the request path: :func:`submit_evaluation` snapshots the few simulation
+fields the rule reads and hands them to one background worker, so a request
+never waits on the store and the Analyze stage timings are not affected.
+
 Storage: ``data/trade/depth_disclosure_shadow/<leagueKey>.json`` (gitignored,
 box-local), aggregate-only, bounded to ``retentionDays`` days.  Read privately
 through ``GET /api/trade/depth-disclosure-shadow`` (admin + league member).
@@ -39,12 +51,14 @@ through ``GET /api/trade/depth-disclosure-shadow`` (admin + league member).
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import logging
 import threading
 import time
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping
@@ -64,6 +78,21 @@ SHADOW_DIR = REPO_ROOT / "data" / "trade" / "depth_disclosure_shadow"
 _lock = threading.Lock()
 _LINES_CACHE: OrderedDict[tuple, dd.DepthLines | str] = OrderedDict()
 _LINES_CACHE_MAX = 8
+#: (league, day, surface) -> trade signatures already counted (hashes only).
+_SEEN: dict[tuple[str, str, str], set[str]] = {}
+_SEEN_MAX_PER_KEY = 50_000
+#: The simulation fields the rule and the evidence gates read.
+_SNAPSHOT_KEYS = (
+    "team",
+    "receiving",
+    "sending",
+    "unresolvedIn",
+    "unresolvedOut",
+    "ownedPickChecks",
+    "pickOwnership",
+    "ownershipEvidence",
+)
+_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="lvd-shadow")
 
 
 def enabled() -> bool:
@@ -107,9 +136,14 @@ def lines_for(
     line is never reused."""
     from src.api.trade_analyze_runtime import contract_generation  # noqa: PLC0415
 
+    generation = contract_generation(contract)
+    if generation is None:
+        # No board stamp: a refresh with unchanged rosters would be invisible
+        # to the key, so never reuse a line for an unstamped board.
+        return dd.league_depth_lines(contract, league_key, roster_settings)
     key = (
         str(league_key),
-        contract_generation(contract),
+        generation,
         _roster_fingerprint(contract),
         json.dumps((roster_settings or {}).get("starters") or {}, sort_keys=True, default=str),
     )
@@ -199,6 +233,66 @@ def _atomic_write(path: Path, payload: Any) -> None:
         raise
 
 
+def trade_signature(simulation: Mapping[str, Any]) -> str:
+    """A hash of the team and both sides' asset ids: the same trade asked again
+    (another debounce, a Team Context toggle) has the same signature."""
+
+    def refs(side: Any) -> list[str]:
+        return sorted(dd._asset_ref(a).lower() for a in side or () if isinstance(a, Mapping))
+
+    team = simulation.get("team") if isinstance(simulation.get("team"), Mapping) else {}
+    blob = json.dumps(
+        [
+            str(team.get("ownerId") or ""),
+            refs(simulation.get("receiving")),
+            refs(simulation.get("sending")),
+        ],
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()
+
+
+def _first_sighting(league_key: str, day: str, surface: str, signature: str) -> bool:
+    key = (str(league_key), day, surface)
+    with _lock:
+        for stale in [k for k in _SEEN if k[1] != day]:
+            del _SEEN[stale]
+        seen = _SEEN.setdefault(key, set())
+        if signature in seen:
+            return False
+        if len(seen) >= _SEEN_MAX_PER_KEY:
+            seen.clear()  # bounded; a later repeat may then count twice
+        seen.add(signature)
+        return True
+
+
+def submit_evaluation(simulation: Mapping[str, Any], **kwargs: Any) -> None:
+    """Snapshot what the rule reads and record it on the background worker.
+
+    Returns at once; never raises.  The snapshot is a deep copy of a few small
+    fields, so the route may keep mutating its result (Analyze adds
+    ``analysis``) while the worker reads.
+    """
+    try:
+        if not enabled():
+            return
+        snap = {k: copy.deepcopy(simulation.get(k)) for k in _SNAPSHOT_KEYS if k in simulation}
+        _EXECUTOR.submit(record_evaluation, snap, **kwargs)
+    except Exception as exc:  # noqa: BLE001 — shadow-only; never break the response
+        log.warning("depth-disclosure shadow submit failed: %s", exc)
+
+
+def flush(timeout: float = 30.0) -> None:
+    """Wait for every submitted evaluation (tests; the worker is single)."""
+    _EXECUTOR.submit(lambda: None).result(timeout=timeout)
+
+
+def reset_for_tests() -> None:
+    with _lock:
+        _SEEN.clear()
+        _LINES_CACHE.clear()
+
+
 def record_evaluation(
     simulation: Mapping[str, Any],
     *,
@@ -219,22 +313,27 @@ def record_evaluation(
         if not enabled() or surface not in SURFACES or not league_key:
             return None
         cfg = dd.load_config()
-        lines = lines_for(contract, league_key, roster_settings)
-        teams = dd.evaluate_two_team(simulation, lines)
-        increments = {p: perspective_counters(teams[p]) for p in PERSPECTIVES}
-        trade = {"trades": 1}
-        n_fire = sum(teams[p].fires for p in PERSPECTIVES)
-        if n_fire:
-            trade["trades.anyFire"] = 1
-        if n_fire == 2:
-            trade["trades.bothFire"] = 1
-        if all(teams[p].state == dd.STATE_NOT_EVALUATED for p in PERSPECTIVES):
-            trade["trades.notEvaluated"] = 1
+        ts = now or datetime.now(timezone.utc)
+        day = ts.astimezone(timezone.utc).date().isoformat()
+        increments: dict[str, dict[str, int]] = {}
+        trade: dict[str, int] = {"requests": 1}
+        if _first_sighting(league_key, day, surface, trade_signature(simulation)):
+            lines = lines_for(contract, league_key, roster_settings)
+            teams = dd.evaluate_two_team(simulation, lines)
+            increments = {p: perspective_counters(teams[p]) for p in PERSPECTIVES}
+            trade["trades"] = 1
+            n_fire = sum(teams[p].fires for p in PERSPECTIVES)
+            if n_fire:
+                trade["trades.anyFire"] = 1
+            if n_fire == 2:
+                trade["trades.bothFire"] = 1
+            if all(teams[p].state == dd.STATE_NOT_EVALUATED for p in PERSPECTIVES):
+                trade["trades.notEvaluated"] = 1
+        else:
+            trade["repeatRequests"] = 1
 
         from src.valuation_math import fairness_bands  # noqa: PLC0415
 
-        ts = now or datetime.now(timezone.utc)
-        day = ts.astimezone(timezone.utc).date().isoformat()
         retention = int(cfg.get("retentionDays") or 180)
         path = _path_for(league_key, root)
         with _lock:
@@ -246,8 +345,8 @@ def record_evaluation(
             day_block = store["days"].setdefault(day, {})
             block = day_block.setdefault(surface, {})
             _merge(block.setdefault("trade", {}), trade)
-            for p in PERSPECTIVES:
-                _merge(block.setdefault(p, {}), increments[p])
+            for p, counts in increments.items():
+                _merge(block.setdefault(p, {}), counts)
             _merge(block.setdefault("bandVersions", {}), {str(fairness_bands.CONFIG["version"]): 1})
             cutoff = (ts.astimezone(timezone.utc).date() - timedelta(days=retention)).isoformat()
             for d in [d for d in store["days"] if d < cutoff]:

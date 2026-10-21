@@ -44,7 +44,15 @@ def test_config_is_the_owners_v4_choice():
 
 
 @pytest.mark.parametrize(
-    "patch", [{"threshold": "prereg"}, {"rule": "B_share25"}, {"guard": "yes"}, {"version": ""}]
+    "patch",
+    [
+        {"threshold": "prereg"},
+        {"rule": "B_share25"},
+        {"guard": "yes"},
+        {"guard": False},
+        {"includePicks": False},
+        {"version": ""},
+    ],
 )
 def test_config_refuses_a_choice_the_owner_did_not_make(tmp_path, patch):
     cfg = json.loads(dd.CONFIG_PATH.read_text(encoding="utf-8"))

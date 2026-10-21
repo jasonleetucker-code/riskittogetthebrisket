@@ -71,8 +71,11 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
             "depth_disclosure config must be rule A_guarded with the floor threshold "
             "(owner decision 2026-10-21, Package 4)"
         )
-    if not isinstance(cfg.get("includePicks"), bool) or not isinstance(cfg.get("guard"), bool):
-        raise DepthDisclosureConfigError("includePicks and guard must be booleans")
+    if cfg.get("includePicks") is not True or cfg.get("guard") is not True:
+        raise DepthDisclosureConfigError(
+            "depth_disclosure config must include picks and keep the guard "
+            "(owner decision 2026-10-21, Package 4)"
+        )
     if not isinstance(cfg.get("version"), str) or not cfg["version"]:
         raise DepthDisclosureConfigError("depth_disclosure config carries no version")
     return cfg

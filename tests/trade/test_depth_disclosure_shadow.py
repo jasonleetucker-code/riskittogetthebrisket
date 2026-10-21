@@ -14,6 +14,7 @@ What is pinned here:
 
 from __future__ import annotations
 
+import copy
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -35,9 +36,10 @@ _ENV = "RISKIT_FEATURE_LOW_VALUE_DEPTH_DISCLOSURE_SHADOW"
 def store(tmp_path, monkeypatch):
     root = tmp_path / "shadow"
     monkeypatch.setattr(shadow, "SHADOW_DIR", root)
-    shadow._LINES_CACHE.clear()
+    shadow.reset_for_tests()
     yield root
-    shadow._LINES_CACHE.clear()
+    shadow.flush()
+    shadow.reset_for_tests()
 
 
 @pytest.fixture
@@ -82,7 +84,7 @@ def test_flag_off_records_nothing(store, flag):
 def test_flag_on_counts_the_would_fire_answer(store, flag):
     flag(True)
     out = _record()
-    assert out is not None and out["trade"] == {"trades": 1, "trades.anyFire": 1}
+    assert out is not None and out["trade"] == {"requests": 1, "trades": 1, "trades.anyFire": 1}
     data = shadow.read_counters("main", root=store)
     me = data["totals"]["calculator"]["self"]
     assert me["evaluations"] == 1 and me["fires"] == 1 and me["candidates"] == 1
@@ -106,9 +108,34 @@ def test_counters_accumulate_per_day_and_surface(store, flag):
     assert data["totals"]["war_room"]["trade"]["trades"] == 2
     assert data["totals"]["calculator"]["trade"]["trades"] == 1
     assert shadow.read_counters("main", days=1, root=store)["totals"]["war_room"]["trade"] == {
+        "requests": 1,
         "trades": 1,
         "trades.anyFire": 1,
     }
+
+
+def test_a_repeated_trade_counts_once_per_day_and_surface(store, flag):
+    """The War Room re-posts on every debounce and toggle: the counting unit
+    is the distinct trade, and repeats are visible only as requests."""
+    flag(True)
+    now = datetime(2026, 10, 21, 13, 0, tzinfo=timezone.utc)
+    for _ in range(3):
+        _record(now=now, surface="war_room")
+    _record(now=now + timedelta(days=1), surface="war_room")
+    data = shadow.read_counters("main", root=store)
+    day1 = data["days"]["2026-10-21"]["war_room"]
+    assert day1["trade"] == {
+        "requests": 3,
+        "repeatRequests": 2,
+        "trades": 1,
+        "trades.anyFire": 1,
+    }
+    assert day1["self"]["evaluations"] == 1 and day1["self"]["fires"] == 1
+    assert data["days"]["2026-10-22"]["war_room"]["trade"]["trades"] == 1
+    other = F.simulation(
+        F.HURTS_FOR_EGBUKA_HODGINS["receiving"][:1], F.HURTS_FOR_EGBUKA_HODGINS["sending"]
+    )
+    assert shadow.trade_signature(other) != shadow.trade_signature(F.HURTS_FOR_EGBUKA_HODGINS)
 
 
 def test_retention_prunes_old_days(store, flag):
@@ -129,8 +156,9 @@ def test_unavailable_lines_are_counted_never_guessed(store, flag):
 def test_store_is_aggregate_only(store, flag):
     """No player name, no value and no line ever reaches the store."""
     flag(True)
-    _record()
-    _record(surface="war_room")
+    now = datetime(2026, 10, 21, 13, 0, tzinfo=timezone.utc)  # no stray digits
+    _record(now=now)
+    _record(now=now, surface="war_room")
     text = next(store.glob("*.json")).read_text(encoding="utf-8")
     for name in (r["displayName"] for r in F.contract()["playersArray"]):
         assert name not in text, name
@@ -152,6 +180,36 @@ def test_a_failing_counter_never_raises(store, flag, monkeypatch):
 
     monkeypatch.setattr(dd, "evaluate_two_team", boom)
     assert _record() is None
+
+
+def test_submit_runs_off_the_request_path_and_snapshots(store, flag):
+    flag(True)
+    sim = copy.deepcopy(F.HURTS_FOR_EGBUKA_HODGINS)
+    shadow.submit_evaluation(
+        sim,
+        contract=F.contract(),
+        league_key="main",
+        roster_settings=F.SETTINGS,
+        surface="calculator",
+    )
+    sim["receiving"].clear()  # the route may keep mutating its result
+    shadow.flush()
+    me = shadow.read_counters("main", root=store)["totals"]["calculator"]["self"]
+    assert me["fires"] == 1
+
+
+def test_submit_with_the_flag_off_does_nothing(store, flag):
+    flag(False)
+    shadow.submit_evaluation(F.HURTS_FOR_EGBUKA_HODGINS, league_key="main", surface="calculator")
+    shadow.flush()
+    assert not store.exists()
+
+
+def test_unstamped_board_is_never_cached(store, flag):
+    c = F.contract()
+    c.pop("generatedAt")
+    a = shadow.lines_for(c, "main", F.SETTINGS)
+    assert shadow.lines_for(c, "main", F.SETTINGS) is not a
 
 
 def test_lines_cache_keys_on_rosters(store, flag):
@@ -247,10 +305,15 @@ def test_payload_is_byte_identical_with_the_flag_off_and_on(
     flag(False)
     off = _call(monkeypatch, "post", path, body=F.TRADE_BODY)
     assert off.status_code == 200, off.text
+    shadow.flush()
     assert not store.exists(), "flag OFF must write nothing"
     flag(True)
-    on = _call(monkeypatch, "post", path, body=F.TRADE_BODY)
+    contract = F.contract()
+    pristine = copy.deepcopy(contract)
+    on = _call(monkeypatch, "post", path, body=F.TRADE_BODY, contract=contract)
     assert on.status_code == 200, on.text
+    shadow.flush()
+    assert contract == pristine, "the shadow must never mutate the served contract"
     assert _stable(on) == _stable(off)
     if path == "/api/trade/simulate":
         assert on.content == off.content  # literally byte-identical
@@ -263,8 +326,11 @@ def test_payload_is_byte_identical_with_the_flag_off_and_on(
 
 def test_read_route_is_invisible_with_the_flag_off(league, store, flag, monkeypatch):
     flag(False)
-    res = _call(monkeypatch, "get", "/api/trade/depth-disclosure-shadow?leagueKey=main")
-    assert res.status_code == 404
+    url = "/api/trade/depth-disclosure-shadow?leagueKey=main"
+    # Only an admin learns the flag state: anyone else is refused first.
+    assert _call(monkeypatch, "get", url, session=lambda _r: None).status_code == 401
+    assert _call(monkeypatch, "get", url, session=_session(username="alice")).status_code == 403
+    assert _call(monkeypatch, "get", url).status_code == 404
 
 
 def test_read_route_requires_admin_and_league_membership(league, store, flag, monkeypatch):

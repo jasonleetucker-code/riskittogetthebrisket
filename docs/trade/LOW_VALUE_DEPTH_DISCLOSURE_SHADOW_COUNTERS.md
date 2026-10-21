@@ -18,10 +18,14 @@ Nothing here displays a note, adds a payload field or changes a value, a verdict
 
 Flag: `low_value_depth_disclosure_shadow` (default OFF; `RISKIT_FEATURE_LOW_VALUE_DEPTH_DISCLOSURE_SHADOW`).
 
-1. `server.py::_build_trade_simulation` finishes the simulation for `/api/trade/simulate` (surface
-   `calculator`) or `/api/trade/analyze` (surface `war_room`). It then passes the finished result to
-   `src/trade/depth_disclosure_shadow.record_evaluation`. The response does not read the return value,
-   and the payload is byte-identical with the flag ON or OFF (`tests/trade/test_depth_disclosure_shadow.py`).
+1. `server.py::_build_trade_simulation` finishes the simulation and calls
+   `src/trade/depth_disclosure_shadow.submit_evaluation`. That call takes a deep copy of the few
+   fields the rule reads, and one background worker counts it. The request never waits, and the
+   payload is byte-identical with the flag ON or OFF (`tests/trade/test_depth_disclosure_shadow.py`).
+   The two surfaces are named by route:
+   - **`calculator`:** `/api/trade/simulate`, the calculator's explicit "Simulate impact";
+   - **`war_room`:** `/api/trade/analyze`, which the War Room panel on `/trade` re-posts as the
+     trade is edited.
 2. The owner module `src/trade/depth_disclosure.py` evaluates both teams:
    - `self` receives the simulation's `receiving` package;
    - `partner` receives its `sending` package.
@@ -36,13 +40,21 @@ Flag: `low_value_depth_disclosure_shadow` (default OFF; `RISKIT_FEATURE_LOW_VALU
 5. It adds counts to `data/trade/depth_disclosure_shadow/<leagueKey>.json`. The store is box-local and
    gitignored, kept per UTC day and per surface, and retained for 180 days (`config/trade/depth_disclosure.json`).
 
+**The counting unit is a distinct trade per league, UTC day and surface.** The War Room re-posts
+on every debounced edit and on every Team Context or goal toggle, so counting requests would weight
+a trade by how often its builder iterated. A repeat of the same trade that day (same team, same
+asset ids on both sides) is not evaluated again. It adds only to `trade.requests` and
+`trade.repeatRequests`. The signature set lives in memory and holds hashes only. It resets on a
+restart, so a trade asked again after a deploy is counted twice.
+
 **The store holds no player name, value, gap or line.** A test asserts this.
 
 ## Counters
 
 | key | meaning |
 |---|---|
-| `trade.trades` / `trades.anyFire` / `trades.bothFire` / `trades.notEvaluated` | per evaluated trade |
+| `trade.trades` / `trades.anyFire` / `trades.bothFire` / `trades.notEvaluated` | per distinct trade |
+| `trade.requests` / `trade.repeatRequests` | every request, and the repeats not re-evaluated |
 | `<self\|partner>.evaluations` | team-sides evaluated |
 | `outcome:shown` | the note would fire |
 | `outcome:not_shown:no_low_value_depth` | no low-value extras received |
@@ -77,10 +89,10 @@ Then the counters are read privately:
 GET /api/trade/depth-disclosure-shadow?leagueKey=dynasty_main[&days=N]
 ```
 
-The route has these access rules:
-- **404** while the flag is OFF, the same answer as an unknown route;
+The route has these access rules, checked in this order:
 - **401** without a session;
-- **403** unless the session is an allowlisted admin;
+- **403** unless the session is an allowlisted admin, so no one else learns the flag state;
+- **404** while the flag is OFF;
 - **403** (`league_membership_required`) unless the session's team is on a roster of the requested
   league in the loaded contract. Unprovable membership is refused.
 
@@ -93,6 +105,6 @@ read directly.
 - **War Room Team Context integration:** held until #1890 is settled (OD-9).
 - **Trade Finder, Trade History and `analyze-multi`:** not counted. The owner chose calculator and
   War Room first.
-- **Analyze in-flight sharing:** identical in-flight Analyze requests share one computation, so they
-  count once.
+- **Restart and dedup:** a restart clears the in-memory dedup set, so a trade asked again on the
+  same day after a deploy counts twice.
 - **Display:** the display decision is separate and not authorized (G4/G5).
