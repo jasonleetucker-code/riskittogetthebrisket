@@ -1084,6 +1084,9 @@
     "v1-authenticated-verification.yml::v1-authenticated::Detect a backend restart during the run (public /api/status)": {
       "category": "advisory"
     },
+    "v1-authenticated-verification.yml::v1-authenticated::Classify failures (report-only, never a gate)": {
+      "category": "advisory"
+    },
     "v1-onbox-checklists.yml::v1-onbox::Configure production SSH": {
       "category": "blocking"
     },

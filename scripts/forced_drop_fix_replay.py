@@ -373,6 +373,9 @@ def verdict(packet, s) -> dict:
         "charge": a.get("forcedReleaseCost") or 0,
         "aDirection": a.get("direction"),
         "aMagnitude": a.get("magnitude"),
+        # The fairness-band base (larger package utility), so a charge
+        # difference can be read as a share of what classifies the trade.
+        "base": a.get("largerPackageUtility"),
     }
 
 
@@ -518,6 +521,123 @@ def _anomaly_summary(rows: list[dict]) -> dict:
     }
 
 
+# ── V5 vs V5-R regret, ties (2026-10-21 review follow-up) ───────────────────
+#
+# Both directions of what the mode choice costs, on the SAME post-trade pool:
+# asset value forgone (sum of c of the released set; V5-R minimises it, so V5
+# minus V5-R is >= 0) and the evaluator charge (V5 minimises it, so V5-R minus
+# V5 is >= 0).  A negative value in either is a defect, so it is counted
+# rather than averaged away.  V5-R's zero currency anomalies are true by
+# construction and prove nothing; these are the informative V5-R measures.
+
+FAVOURABLE = ("FAVORABLE", "STRONGLY_FAVORABLE")
+
+
+def _sum_c(pool, drops) -> float | None:
+    idx = _match_pool(pool, drops)
+    return None if idx is None else float(sum(pool[i]["release"] for i in idx))
+
+
+def _incoming_above_own_c(pool, drops) -> int:
+    """Released just-acquired pieces whose charge exceeds their own ``c``
+    (sequential-removal attribution or a clamp at ``sum c``)."""
+    idx = _match_pool(pool, drops)
+    if idx is None:
+        return 0
+    return sum(
+        1
+        for i, d in zip(idx, drops)
+        if d[4] and d[3] is not None and d[3] > pool[i]["release"] + 0.5
+    )
+
+
+def _tie_of(s) -> dict | None:
+    rc = s.get("rosterCapacity") or {}
+    return (rc.get("forcedDropSelection") or {}).get("tieBreak")
+
+
+def regret_row(pool, drops_v5, drops_r, charge_v5, charge_r, base, tie_r) -> dict:
+    return {
+        "sumC": (_sum_c(pool, drops_v5), _sum_c(pool, drops_r)),
+        "charge": (float(charge_v5 or 0), float(charge_r or 0)),
+        "base": base,
+        "aboveOwnC": (_incoming_above_own_c(pool, drops_v5), _incoming_above_own_c(pool, drops_r)),
+        "tie": tie_r,
+    }
+
+
+def _dist(xs: list[float]) -> dict:
+    if not xs:
+        return {"n": 0, "median": None, "p90": None, "max": None}
+    s = sorted(xs)
+    return {
+        "n": len(s),
+        "median": _r(statistics.median(s), 1),
+        "p90": _r(s[min(len(s) - 1, int(0.9 * len(s)))], 1),
+        "max": _r(s[-1], 1),
+    }
+
+
+def _regret_summary(rows: list[dict]) -> dict:
+    asset = [r["sumC"][0] - r["sumC"][1] for r in rows if None not in r["sumC"]]
+    charge = [r["charge"][1] - r["charge"][0] for r in rows]
+    share = [
+        100.0 * (r["charge"][1] - r["charge"][0]) / r["base"]
+        for r in rows
+        if r["base"] and abs(r["charge"][1] - r["charge"][0]) > 0.5
+    ]
+    ties = [r["tie"] for r in rows if r["tie"]]
+    return {
+        "selectionsCompared": len(rows),
+        "assetValueRegretV5MinusV5R": {
+            **_dist([x for x in asset if x > 0.5]),
+            "unmatched": sum(1 for r in rows if None in r["sumC"]),
+            "negativeDefect": sum(1 for x in asset if x < -0.5),
+        },
+        "chargeRegretV5RMinusV5": {
+            **_dist([x for x in charge if x > 0.5]),
+            "negativeDefect": sum(1 for x in charge if x < -0.5),
+        },
+        "chargeRegretPctOfBandBase": _dist(share),
+        "incomingChargedAboveOwnC": {
+            "V5": sum(r["aboveOwnC"][0] for r in rows),
+            "V5-R": sum(r["aboveOwnC"][1] for r in rows),
+        },
+        "tieCensusV5R": {
+            "tieBreakApplied": len(ties),
+            "resolvedBy": dict(Counter(t.get("resolvedBy") for t in ties)),
+            "chargeSpread": _dist([t["chargeSpread"] for t in ties if t.get("chargeSpread")]),
+        },
+    }
+
+
+def unpriced_roster_census(ctx) -> dict:
+    """Rostered players the board does not price, by position: the
+    dead-roster-spot vs real-asset question behind the evidence-gate lifts
+    (an unpriced cut is charged the position's waiver ceiling)."""
+    cap = int(ctx["roster_settings"].get("rosterSize") or 0)
+    by_pos = Counter()
+    rostered = teams_with = at_cap_with = 0
+    for me in ctx["teams"]:
+        cc = RC.build_capacity_context(
+            ctx["contract"], LEAGUE, me, roster_settings=ctx["roster_settings"]
+        )
+        rostered += len(cc.roster_player_names)
+        unpriced = [a for a in cc.assets_by_key.values() if a.board_value is None]
+        for a in unpriced:
+            by_pos[a.position or "unknown"] += 1
+        if unpriced:
+            teams_with += 1
+            at_cap_with += len(me.get("players") or []) >= cap > 0
+    return {
+        "rosteredPlayers": rostered,
+        "unpricedRostered": sum(by_pos.values()),
+        "unpricedByPosition": dict(by_pos.most_common()),
+        "teamsWithUnpriced": teams_with,
+        "teamsAtCapWithUnpriced": at_cap_with,
+    }
+
+
 # ── 1 + 2. the War Room filler-flip design ──────────────────────────────────
 
 
@@ -620,6 +740,7 @@ def war_room(ctx, max_opps: int, seed: int) -> dict:
                     st[f"chargeOn{sfx}"] = (a_on or {}).get("forcedReleaseCost") or 0
                     st[f"dropsOn{sfx}"] = drops_of(son)
                     st[f"verdictOn{sfx}"] = verdict(packet_of(ctx, son), son)
+                    st[f"tieOn{sfx}"] = _tie_of(son)
                 if st.get("pool") is not None and st["d"] > 0:
                     st[f"anomaly{sfx}"] = currency_anomaly(
                         st["pool"], st["legal"], st[f"dropsOn{sfx}"]
@@ -729,6 +850,20 @@ def war_room(ctx, max_opps: int, seed: int) -> dict:
             v5_vs_r["categoryDiffers"] += (
                 st["verdictOn"]["category"] != st["verdictOnR"]["category"]
             )
+    regret_rows = [
+        regret_row(
+            st["pool"],
+            st["dropsOn"],
+            st["dropsOnR"],
+            st["chargeOn"],
+            st["chargeOnR"],
+            st["verdictOnR"].get("base"),
+            st.get("tieOnR"),
+        )
+        for rec in results
+        for st in rec["steps"]
+        if st.get("pool") is not None and st["d"] > 0 and (st["dropsOn"] or st["dropsOnR"])
+    ]
     rm, rt = diag["repro"]
     prod = variants["PROD"]
     return {
@@ -762,6 +897,7 @@ def war_room(ctx, max_opps: int, seed: int) -> dict:
         "analyzeVerdicts": verdicts(""),
         "analyzeVerdictsRosterRational": verdicts("R"),
         "v5VsRosterRational": dict(v5_vs_r),
+        "v5VsRosterRationalRegret": _regret_summary(regret_rows),
         "results": results,
         "elapsedSec": round(time.time() - t0, 1),
     }
@@ -909,6 +1045,7 @@ def census(ctx, per_shape: int, seed: int) -> dict:
     cap = int(ctx["roster_settings"].get("rosterSize") or 0)
     tallies = {sfx: _CensusTally() for sfx in MODES}
     v5_vs_r = Counter()
+    regret_rows: list[dict] = []
     at_cap = sum(1 for me in teams if len(me.get("players") or []) >= cap)
     ccs: dict[int, object] = {}
     for ti, me, shape, pin, pout, ok in _census_trades(ctx, per_shape, seed):
@@ -918,6 +1055,9 @@ def census(ctx, per_shape: int, seed: int) -> dict:
         charges = {}
         drops = {}
         cats = {}
+        ties = {}
+        bases = {}
+        pool = None
         for sfx, md in MODES.items():
             with flag(True), mode(md):
                 son = sim(ctx, me, pin, pout, True)
@@ -934,6 +1074,13 @@ def census(ctx, per_shape: int, seed: int) -> dict:
                 anomaly = currency_anomaly(pool, D.Legality(pool, cc), d_on)
             tallies[sfx].add(shape, pin, pout, ok, soff, voff, son, von, anomaly)
             charges[sfx], drops[sfx], cats[sfx] = von["charge"] or 0, d_on, von["category"]
+            ties[sfx], bases[sfx] = _tie_of(son), von.get("base")
+        if pool is not None:
+            regret_rows.append(
+                regret_row(
+                    pool, drops[""], drops["R"], charges[""], charges["R"], bases["R"], ties["R"]
+                )  # fmt: skip
+            )
         v5_vs_r["trades"] += 1
         v5_vs_r["dropSetDiffers"] += sorted(map(str, drops[""])) != sorted(map(str, drops["R"]))
         v5_vs_r["v5rChargeHigher"] += charges["R"] > charges[""] + 0.5
@@ -949,6 +1096,7 @@ def census(ctx, per_shape: int, seed: int) -> dict:
         **v5,
         "rosterRational": tallies["R"].summary(),
         "v5VsRosterRational": dict(v5_vs_r),
+        "v5VsRosterRationalRegret": _regret_summary(regret_rows),
     }
 
 
@@ -1159,6 +1307,10 @@ def _b_row(s, packet) -> dict:
         "gaps": sorted(m.get("code") for m in dec.get("missingEvidence") or []),
         "bAvailable": bool(ru.get("available")),
         "bReason": None if ru.get("available") else ru.get("unavailableReason"),
+        # Component B's own number: the best-ball lineup impact in points per
+        # game of the FINAL legal roster (after the forced cuts).
+        "ppg": (ru.get("impact") or {}).get("ppg") if ru.get("available") else None,
+        "drops": sorted(map(str, drops_of(s))),
         "strategySource": (dec.get("strategy") or {}).get("source"),
         "postureAvailable": bool((s.get("competitivePosture") or {}).get("available")),
     }
@@ -1179,8 +1331,13 @@ def component_b_census(ctx, per_shape: int, seed: int) -> dict:
     changed = {sfx: Counter() for sfx in MODES}
     trans = {sfx: Counter() for sfx in MODES}
     gaps = {sfx: Counter() for sfx in MODES}
+    # Interplay (review 2026-10-21): the cut is chosen by dynasty value
+    # (Component A) and then scored by lineup utility (Component B).
+    inter = {sfx: Counter() for sfx in MODES}
+    ppg_delta = {sfx: [] for sfx in MODES}
     for _ti, me, _shape, pin, pout, _ok in _census_trades(ctx, per_shape, seed):
         rows = {}
+        a_only = {}
         with flag(False):
             so = sim(ctx, me, pin, pout, True)
             rows["off"] = _b_row(so, packet_of(ctx, so, b_stand_in=False))
@@ -1188,6 +1345,27 @@ def component_b_census(ctx, per_shape: int, seed: int) -> dict:
             with flag(True), mode(md):
                 sn = sim(ctx, me, pin, pout, True)
                 rows[sfx] = _b_row(sn, packet_of(ctx, sn, b_stand_in=False))
+                a_only[sfx] = TV.team_category((packet_of(ctx, sn).get("decision") or {}))
+        for sfx in MODES:
+            off, on = rows["off"], rows[sfx]
+            if a_only[sfx] in FAVOURABLE:
+                inter[sfx]["favourableWithAOnly"] += 1
+                if on["bAvailable"]:
+                    inter[sfx]["favourableWithAOnlyAndBAvailable"] += 1
+                    if on["category"] not in FAVOURABLE:
+                        inter[sfx]["favourableLostWhenBVotes"] += 1
+            if off["drops"] != on["drops"] and off["bAvailable"] and on["bAvailable"]:
+                inter[sfx]["cutChangedWithBAvailable"] += 1
+                if off["ppg"] is not None and on["ppg"] is not None:
+                    delta = on["ppg"] - off["ppg"]
+                    ppg_delta[sfx].append(delta)
+                    inter[sfx][
+                        "onCutLowersLineupPpg"
+                        if delta < -0.05
+                        else "onCutRaisesLineupPpg"
+                        if delta > 0.05
+                        else "lineupPpgUnchanged"
+                    ] += 1
         n["trades"] += 1
         for k in keys:
             r = rows[k]
@@ -1218,6 +1396,16 @@ def component_b_census(ctx, per_shape: int, seed: int) -> dict:
                 **dict(changed[sfx]),
                 "categoryTransitions": dict(trans[sfx].most_common()),
                 "evidenceGapTransitions": dict(gaps[sfx].most_common()),
+            }
+            for sfx in MODES
+        },
+        "interplay": {
+            names[sfx]: {
+                **dict(inter[sfx]),
+                "lineupPpgDeltaOnMinusOff": {
+                    "lower": _dist([-x for x in ppg_delta[sfx] if x < -0.05]),
+                    "higher": _dist([x for x in ppg_delta[sfx] if x > 0.05]),
+                },
             }
             for sfx in MODES
         },
@@ -1383,6 +1571,7 @@ def box_main(args) -> int:
     comp_b = component_b_census(ctx, args.census_per_shape, S.SEED + 7)
     stress = single_source_stress_census(ctx, args.census_per_shape, S.SEED + 7)
     shift = charge_shift(wr["results"])
+    unpriced = unpriced_roster_census(ctx)
     denied = GUARD.denied() if GUARD else []
     net = [d for d in denied if d["event"].startswith("socket.")]
     fatal = [d for d in denied if not d["event"].startswith("socket.")]
@@ -1423,6 +1612,7 @@ def box_main(args) -> int:
         "componentBCensus": comp_b,
         "singleSourceStress": stress,
         "warRoomChargeShift": shift,
+        "unpricedRosterCensus": unpriced,
         "readOnlyGuard": {
             "installed": bool(GUARD and GUARD.installed()),
             "refusedWriteOrProcessAttempts": len(fatal),
@@ -1540,6 +1730,7 @@ def main() -> int:
         "finder": fin,
         "perfectDraft": pd,
         "illustrations": ill,
+        "unpricedRosterCensus": unpriced_roster_census(ctx),
         "localLimits": [
             "Component B (roster utility / lineup lens) needs the box-local projection snapshot "
             "and abstains locally; only Component A (VA gap net of the forced-release charge) "
@@ -1561,6 +1752,8 @@ def main() -> int:
                       "v5VsR": wr["v5VsRosterRational"], "census": cen["counts"],
                       "censusR": cen["rosterRational"]["counts"],
                       "censusV5VsR": cen["v5VsRosterRational"],
+                      "warRoomRegret": wr["v5VsRosterRationalRegret"],
+                      "censusRegret": cen["v5VsRosterRationalRegret"],
                       "finder": None if fin is None else {k: fin[k] for k in fin if k != "perTeam"},
                       "perfectDraft": pd}, indent=1, default=str))  # fmt: skip
     return 0

@@ -10,7 +10,8 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { TradeCard } from "@/app/league/sections/activity.jsx";
+import ActivitySection, { TradeCard } from "@/app/league/sections/activity.jsx";
+import { historyGradeBasisText } from "@/lib/trade-history-grade-policy";
 
 function tradeWith(sides) {
   return {
@@ -29,18 +30,22 @@ describe("TradeCard grade badge", () => {
         ownerId: "a",
         teamName: "Team A",
         receivedAssets: [{ kind: "player", playerName: "Player One", position: "WR" }],
-        grade: { grade: "A", color: "var(--green)", label: "Fair trade" },
+        grade: { grade: "A", color: "var(--green)", label: "Evenly valued" },
       },
       {
         ownerId: "b",
         teamName: "Team B",
         receivedAssets: [{ kind: "player", playerName: "Player Two", position: "RB" }],
-        grade: { grade: "A", color: "var(--green)", label: "Fair trade" },
+        grade: { grade: "A", color: "var(--green)", label: "Evenly valued" },
       },
     ]);
     render(<TradeCard trade={trade} managers={new Map()} onNavigate={() => {}} />);
     expect(screen.getAllByText("A").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Fair trade").length).toBe(2);
+    expect(screen.getAllByText("Evenly valued").length).toBe(2);
+    // OD-F6 option A: every graded band states what it measures on hover.
+    for (const el of screen.getAllByTestId("activity-grade-at-trade")) {
+      expect(el.getAttribute("title")).toBe(historyGradeBasisText());
+    }
   });
 
   it("renders an honest unavailable state instead of a letter grade", () => {
@@ -62,7 +67,7 @@ describe("TradeCard grade badge", () => {
         ownerId: "zeta",
         teamName: "Team Z",
         receivedAssets: [{ kind: "player", playerName: "Player Two", position: "RB" }],
-        grade: { grade: "A", color: "var(--green)", label: "Fair trade" },
+        grade: { grade: "A", color: "var(--green)", label: "Evenly valued" },
       },
     ]);
     render(<TradeCard trade={trade} managers={new Map()} onNavigate={() => {}} />);
@@ -79,7 +84,7 @@ describe("TradeCard grade badge", () => {
     ).toBeInTheDocument();
     // The other side in the SAME trade is unaffected -- one side's
     // missing evidence does not poison its counterpart.
-    expect(screen.getByText("Fair trade")).toBeInTheDocument();
+    expect(screen.getByText("Evenly valued")).toBeInTheDocument();
     expect(screen.queryByText("null")).toBeNull();
   });
 
@@ -93,7 +98,7 @@ describe("TradeCard grade badge", () => {
     ]);
     render(<TradeCard trade={trade} managers={new Map()} onNavigate={() => {}} />);
     expect(screen.queryByText("Insufficient historical evidence")).toBeNull();
-    expect(screen.queryByText("Fair trade")).toBeNull();
+    expect(screen.queryByText("Evenly valued")).toBeNull();
   });
 });
 
@@ -111,7 +116,7 @@ describe("TradeCard current-grade band (owner 2026-10-17)", () => {
         ownerId: "zeta",
         teamName: "Team Z",
         receivedAssets: [{ kind: "player", playerName: "Player Two", position: "RB" }],
-        grade: { grade: "A", color: "var(--green)", label: "Fair trade" },
+        grade: { grade: "A", color: "var(--green)", label: "Evenly valued" },
         currentGrade: {
           grade: null,
           color: null,
@@ -132,5 +137,42 @@ describe("TradeCard current-grade band (owner 2026-10-17)", () => {
     expect(today[0]).toHaveTextContent("D");
     expect(today[1]).toHaveTextContent("Current value unavailable");
     expect(screen.getByTitle(/no value on today's board/i)).toBeInTheDocument();
+  });
+});
+
+describe("ActivitySection grade basis (OD-F6 option A)", () => {
+  function feedWith(grade) {
+    return {
+      totalCount: 1,
+      feed: [
+        {
+          transactionId: "t1",
+          season: "2026",
+          week: 2,
+          totalAssets: 2,
+          createdAt: 1790000000000,
+          sides: [
+            { ownerId: "a", rosterId: 1, displayName: "A", receivedAssets: [], ...(grade ? { currentGrade: grade } : {}) },
+            { ownerId: "b", rosterId: 2, displayName: "B", receivedAssets: [], ...(grade ? { currentGrade: grade } : {}) },
+          ],
+        },
+      ],
+    };
+  }
+
+  it("states the basis when the feed carries grades", () => {
+    render(
+      <ActivitySection
+        managers={new Map()}
+        data={feedWith({ grade: "A", color: "var(--green)", label: "Evenly valued" })}
+        onNavigate={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("activity-grade-basis").textContent).toBe(historyGradeBasisText());
+  });
+
+  it("omits the basis when no trade carries a grade", () => {
+    render(<ActivitySection managers={new Map()} data={feedWith(null)} onNavigate={() => {}} />);
+    expect(screen.queryByTestId("activity-grade-basis")).toBeNull();
   });
 });

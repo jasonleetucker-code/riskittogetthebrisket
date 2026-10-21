@@ -61,6 +61,12 @@ V1_LEGACY_ALLOWLIST: dict[str, str] = {
     "2026-10-20 evidence",
     "low_value_asset_forced_drop_diagnostic.py": "loads the replay; --band-basis v1_legacy wraps "
     "the engine in legacy_v1_denominator() to reproduce the recorded evidence; default is current",
+    "package_model_v2_remeasure.py": "Package VA Phases 1-3 re-measurement (2026-10-21): runs each "
+    "band-dependent section on v1_legacy ONLY to reproduce the recorded evidence, and on current "
+    "(fairness_bands_v2, the owner) for the result; it loads the frozen phase modules to do so",
+    "package_model_v2_remeasure_extract.py": "runs INSIDE a detached checkout of a recorded "
+    "revision and loads THAT revision's phase scripts to rebuild the recorded board / Finder "
+    "replay as plain values; it classifies no band (the driver re-tags on both bases)",
 }
 
 _BAND_CALLS = ("classify", "is_even", "relative_pct", "fair_threshold")

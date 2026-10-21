@@ -178,3 +178,11 @@
 .muted {
   color: var(--text-tertiary);
 }
+
+/* What every history grade measures (OD-F6 option A, 2026-10-21). */
+.gradeBasis {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+  color: var(--text-tertiary);
+}

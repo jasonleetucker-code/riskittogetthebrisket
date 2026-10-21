@@ -472,6 +472,10 @@ _ALLOWED_UPLOADS = {
     "v1-auth-report.json",
     "lane4-remote.json",
     "security-acceptance.json",
+    # scripts/v1_failure_classifier.py: closed-vocabulary enums, SHAs, ISO
+    # instants and counts; fixed test titles; no message text.  Redaction is
+    # pinned by tests/ops/test_v1_failure_classifier.py.
+    "v1-failure-classification.json",
     "tests/e2e/prod-auth-results.json",
 }
 

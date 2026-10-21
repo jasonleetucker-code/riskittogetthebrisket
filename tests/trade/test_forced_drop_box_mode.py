@@ -275,3 +275,79 @@ def test_wall_clock_cap_raises_timeout():
     proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
     assert proc.returncode == 0, proc.stderr[-1500:]
     assert proc.stdout.strip().endswith("timeout")
+
+
+# ── 2026-10-21 review follow-up: V5 vs V5-R regret and tie census ─────────
+
+
+def _pure_helpers():
+    """The replay's pure regret helpers, extracted by name and run in
+    isolation (no application import, same posture as the tests above)."""
+    import statistics
+    from collections import Counter
+
+    src = SCRIPT.read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    names = {
+        "_r", "_match_pool", "_sum_c", "_incoming_above_own_c", "_tie_of",
+        "regret_row", "_dist", "_regret_summary",
+    }  # fmt: skip
+    ns = {"statistics": statistics, "Counter": Counter}
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name in names:
+            exec(compile(ast.Module([node], []), str(SCRIPT), "exec"), ns)  # noqa: S102
+    assert names <= set(ns), names - set(ns)
+    return ns
+
+
+def _pool():
+    # name, acquired flag, release value c
+    return [
+        {"name": "keep", "acquired": False, "release": 900.0},
+        {"name": "e1", "acquired": False, "release": 500.0},
+        {"name": "inc", "acquired": True, "release": 700.0},
+    ]
+
+
+def test_regret_summary_measures_both_directions_and_flags_wrong_signs():
+    h = _pure_helpers()
+    pool = _pool()
+    # (name, pos, value, releaseCost/charge, acquired) as drops_of() emits
+    v5 = [("inc", "WR", 700.0, 426.0, True)]  # V5 releases the dearer incoming piece
+    v5r = [("e1", "WR", 500.0, 500.0, False)]  # V5-R releases the cheaper existing one
+    row = h["regret_row"](pool, v5, v5r, 426.0, 500.0, 6000.0, None)
+    out = h["_regret_summary"]([row])
+    assert out["assetValueRegretV5MinusV5R"]["median"] == 200.0
+    assert out["chargeRegretV5RMinusV5"]["median"] == 74.0
+    assert out["chargeRegretPctOfBandBase"]["median"] == round(100 * 74 / 6000, 1)
+    assert out["assetValueRegretV5MinusV5R"]["negativeDefect"] == 0
+    assert out["chargeRegretV5RMinusV5"]["negativeDefect"] == 0
+    # A V5-R set with a HIGHER sum c, or a LOWER charge than V5, is a defect
+    # and must be counted, never averaged away.
+    bad = h["regret_row"](pool, v5r, v5, 500.0, 426.0, 6000.0, None)
+    out = h["_regret_summary"]([bad])
+    assert out["assetValueRegretV5MinusV5R"]["negativeDefect"] == 1
+    assert out["chargeRegretV5RMinusV5"]["negativeDefect"] == 1
+
+
+def test_tie_census_and_incoming_charged_above_own_c():
+    h = _pure_helpers()
+    pool = _pool()
+    over = [("inc", "WR", 700.0, 760.0, True)]  # charged above its own c (700)
+    tie = {"tiedMinimumSets": 2, "chargeSpread": 220.0, "resolvedBy": "lowest_charge"}
+    out = h["_regret_summary"]([h["regret_row"](pool, over, over, 760.0, 760.0, 0, tie)])
+    assert out["incomingChargedAboveOwnC"] == {"V5": 1, "V5-R": 1}
+    assert out["tieCensusV5R"]["tieBreakApplied"] == 1
+    assert out["tieCensusV5R"]["resolvedBy"] == {"lowest_charge": 1}
+    assert out["tieCensusV5R"]["chargeSpread"]["max"] == 220.0
+    # Unmatched drops are counted, not silently treated as zero.
+    out = h["_regret_summary"](
+        [h["regret_row"](pool, [("ghost", "WR", 1.0, 1.0, False)], over, 1.0, 760.0, 0, None)]
+    )
+    assert out["assetValueRegretV5MinusV5R"]["unmatched"] == 1
+
+
+def test_box_report_carries_the_review_follow_up_fields():
+    src = SCRIPT.read_text(encoding="utf-8")
+    for key in ('"unpricedRosterCensus"', '"v5VsRosterRationalRegret"', '"interplay"'):
+        assert key in src, key

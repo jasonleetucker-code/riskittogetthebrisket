@@ -1,0 +1,14 @@
+{
+  "_comment": "Low-value depth disclosure (LVA Package 4, owner decision 2026-10-21, V4): SHADOW COUNTERS ONLY. Every entry is an owner-approved choice (docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md Package 4; design docs/trade/LOW_VALUE_DEPTH_DISCLOSURE_DESIGN_2026-10-20.md §7.3). Nothing here is tuned to agreement and nothing here displays anything. Read by src/trade/depth_disclosure.py.",
+  "version": "lvd_disclosure_v1",
+  "rule": "A_guarded",
+  "threshold": "floor",
+  "includePicks": true,
+  "guard": true,
+  "replacementSource": "displacement.waiver_values_by_position",
+  "lowestStarterSource": "sleeper.teams[].optimalLineup.starters",
+  "pickLineSource": "faab_engine.resolve_anchors.v_repl",
+  "surfaces": ["calculator", "war_room"],
+  "teamContextIntegration": "held_until_pr_1890",
+  "retentionDays": 180
+}

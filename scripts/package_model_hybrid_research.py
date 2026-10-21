@@ -398,6 +398,92 @@ def level_v1_legacy(gap: float, adj_a: float, adj_b: float) -> str:
 #: Historical name, kept so the frozen Phase 1-3 scripts keep running unchanged.
 level = level_v1_legacy
 
+# ── band basis for the level-dependent sections (2026-10-21 re-measurement) ──
+# ``docs/valuation/PACKAGE_MODEL_PHASES_1_3_V2_REMEASURE_2026-10-21.md``.  The
+# Phase 1-3 call sites classify through :func:`band_level`, which knows the two
+# PACKAGES as well as the gap, so it can answer either basis:
+#
+# * ``v1_legacy`` -- :func:`level_v1_legacy` on the adjusted totals, exactly the
+#   recorded evidence.  The MODULE DEFAULT, so the frozen scripts' own ``main``
+#   still classify on the recorded basis (their boards are rebuilt by
+#   today's pipeline; see the addendum for the exact reproduction).
+# * ``current`` -- fairness_bands_v2 from the owner: the incumbent through
+#   ``classify_packages``; KTC through ``larger_package_utility(model_id=ktc)``
+#   (the owner's own rule for a model with no package utility: its adjusted
+#   totals stand in); any other model on ITS OWN package utilities
+#   (``fairness_base((U_A, U_B))``, the #1898 rule for a comparator).  A model
+#   with no package utility (the BLENDs: a weighted signed gap) takes the owner's
+#   utility-less rule, the adjusted totals, so it is v1 == v2 by construction.
+#
+# Select the basis with :func:`band_basis`; ``scripts/package_model_v2_remeasure.py``
+# is the driver that runs both.
+
+BAND_BASES = ("current", "v1_legacy")
+_BAND_BASIS = ["v1_legacy"]
+
+#: Per-model package utility ``U(values)`` (any order), for the ``current`` basis.
+#: Registered by ``_reg`` below and by the Phase 2 / Phase 3 modules for their
+#: own candidates; a model absent here has no package utility.
+BAND_UTILITY: dict[str, Callable[[list[float]], float]] = {}
+
+
+@contextlib.contextmanager
+def band_basis(basis: str):
+    """Scope the basis :func:`band_level` answers on (in-process, always restored)."""
+    if basis not in BAND_BASES:
+        raise ValueError(f"unknown band basis {basis!r}; expected one of {BAND_BASES}")
+    saved = _BAND_BASIS[0]
+    _BAND_BASIS[0] = basis
+    try:
+        yield
+    finally:
+        _BAND_BASIS[0] = saved
+
+
+def current_band_basis() -> str:
+    return _BAND_BASIS[0]
+
+
+def band_level(model: str, gap: float, A, B, *, basis: str | None = None) -> str:
+    """The fairness level of ``gap`` (adjusted A minus adjusted B under ``model``)
+    for the packages ``A`` / ``B``, on the selected basis (see the block above)."""
+    basis = basis or _BAND_BASIS[0]
+    a, b = _desc(A), _desc(B)
+    if basis == "v1_legacy":
+        ra, rb = sum(a), sum(b)
+        return level_v1_legacy(gap, ra + max(0.0, gap - (ra - rb)), rb + max(0.0, (ra - rb) - gap))
+    if basis != "current":
+        raise ValueError(f"unknown band basis {basis!r}; expected one of {BAND_BASES}")
+    if model == "GEOM_78":
+        return fairness_bands.classify_packages(gap, a, b, model_id=package_model.GEOM_Q078_V1)[
+            "level"
+        ]
+    if model == "KTC":
+        base = fairness_bands.larger_package_utility(a, b, model_id=package_model.KTC_2026_04)
+        return fairness_bands.classify(gap, base)["level"]
+    u = BAND_UTILITY.get(model)
+    if u is not None:
+        return fairness_bands.classify(gap, fairness_bands.fairness_base((u(a), u(b))))["level"]
+    # No package utility (a blend of signed gaps): the owner's utility-less rule.
+    ra, rb = sum(a), sum(b)
+    stand_in = (ra + max(0.0, gap - (ra - rb)), rb + max(0.0, (ra - rb) - gap))
+    return fairness_bands.classify(gap, fairness_bands.fairness_base(stand_in))["level"]
+
+
+# The same constructors the registry above uses (its gaps are ``U(A) - U(B)``).
+BAND_UTILITY["RAW"] = lambda v: sum(_desc(v))
+for _q in (0.60, 0.65, 0.70, 0.75, 0.80, 0.82, 0.85, 0.88, 0.90):
+    BAND_UTILITY[f"GEOM_{int(round(_q * 100))}"] = owa(lambda i, q=_q: q**i)
+BAND_UTILITY["HYBRID_50"] = lambda v: 0.5 * sum(_desc(v)) + 0.5 * lp(1.5)(v)
+BAND_UTILITY["LP_150"] = lp(1.5)
+for _q, _f in FGEOM_GRID:
+    BAND_UTILITY[f"FGEOM_{int(round(_q * 100))}_{int(round(_f * 100))}"] = fgeom(_q, _f)
+for _a in (0.50, 0.75, 1.00):
+    BAND_UTILITY[f"ZIPF_{int(_a * 100)}"] = owa(lambda i, a_=_a: (i + 1) ** -a_)
+assert set(BAND_UTILITY) | {"GEOM_78", "KTC"} | {
+    m for m in MODELS if m.startswith("BLEND_")
+} == set(MODELS), "every Phase 1 model has a band rule"
+
 
 @contextlib.contextmanager
 def legacy_v1_denominator():
@@ -482,9 +568,9 @@ def run_matrix(p, per_cell: int, seed: int) -> dict:
                             st["rawLead"] += 1
                             st["flip"] += ld == -rl
                         st["shift"].append(abs(g - (ra - rb)) / max(ra, rb))
-                        lv = level(g, adj_a, adj_b)
+                        lv = band_level(m, g, A, B)
                         st["lvl"][lv] = st["lvl"].get(lv, 0) + 1
-                        st["sameLvlG78"] += lv == level(g78, a78, b78)
+                        st["sameLvlG78"] += lv == band_level("GEOM_78", g78, A, B)
                         st["sameLeadG78"] += ld == leader(g78, a78, b78)
                     n = len(cases)
                     sh = sorted(st["shift"])
@@ -764,11 +850,10 @@ def trade_evidence(rows: list[dict], seed: int, *, detail: bool = True) -> dict:
     for m in HEADLINE:
         changed = []
         for r in rows:
-            ra, rb = sum(r["A"]), sum(r["B"])
             lv = {}
-            for name, gf in (("m", MODELS[m]["gap"]), ("g", GEOM78_DISPATCH)):
-                g = gf(r["A"], r["B"])
-                lv[name] = level(g, ra + max(0.0, g - (ra - rb)), rb + max(0.0, (ra - rb) - g))
+            for name, mid in (("m", m), ("g", "GEOM_78")):
+                g = MODELS[mid]["gap"](r["A"], r["B"])
+                lv[name] = band_level(mid, g, r["A"], r["B"])
             if lv["m"] != lv["g"]:
                 changed.append(f"{r['shape']}: {lv['g']} -> {lv['m']}")
         cls[m] = {"changed": len(changed), "of": len(rows), "examples": changed[:6]}
@@ -915,9 +1000,7 @@ def worked_examples(board: dict) -> list[dict]:
                "rawA": round(sum(a)), "rawB": round(sum(b))}  # fmt: skip
         for m in HEADLINE:
             g = MODELS[m]["gap"](a, b)
-            ra, rb = sum(a), sum(b)
-            adj_a, adj_b = ra + max(0.0, g - (ra - rb)), rb + max(0.0, (ra - rb) - g)
-            row[m] = {"gap": round(g), "level": level(g, adj_a, adj_b)}
+            row[m] = {"gap": round(g), "level": band_level(m, g, a, b)}
         out.append(row)
 
     star = off[2]

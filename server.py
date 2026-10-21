@@ -4074,6 +4074,14 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     log.info("retention: %s", _ret.summary())
             except Exception as _ret_exc:  # noqa: BLE001
                 log.warning("retention prune skipped: %s", _ret_exc)
+            # Depth-note shadow counters (LVA-P4): expired days go whatever the
+            # flag says, so retention never depends on the counters running.
+            try:
+                from src.trade import depth_disclosure_shadow as _depth_shadow  # noqa: PLC0415
+
+                _depth_shadow.prune_expired()
+            except Exception as _lvd_exc:  # noqa: BLE001
+                log.warning("depth-disclosure shadow retention skipped: %s", _lvd_exc)
 
             return result
         except Exception as e:
@@ -18083,6 +18091,22 @@ async def _build_trade_simulation(
         )
     result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    # LVA Package 4 (owner decision 2026-10-21): hidden depth-note SHADOW
+    # counters, default OFF.  Snapshots what it reads and counts on a
+    # background worker: the request never waits, and the payload is
+    # byte-identical either way (tests/trade/test_depth_disclosure_shadow.py).
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    if _ff.is_enabled("low_value_depth_disclosure_shadow"):
+        from src.trade import depth_disclosure_shadow as _depth_shadow  # noqa: PLC0415
+
+        _depth_shadow.submit_evaluation(
+            result,
+            contract=contract,
+            league_key=league_cfg.key,
+            roster_settings=dict(league_cfg.roster_settings or {}),
+            surface="war_room" if for_analysis else "calculator",
+        )
     return result, league_cfg.key, None
 
 
@@ -18791,6 +18815,50 @@ async def post_trade_analyze_multi(request: Request):
             "Server-Timing": clock.server_timing(detail=detail).replace(":", "_"),
         },
     )
+
+
+@app.get("/api/trade/depth-disclosure-shadow")
+async def get_trade_depth_disclosure_shadow(request: Request, days: int = 0):
+    """The depth-note SHADOW counters for one league (LVA Package 4, owner
+    decision 2026-10-21).  PRIVATE: aggregate counts only, no names or values.
+
+    An allowlisted admin session first (so nobody else learns the flag
+    state), then 404 unless ``low_value_depth_disclosure_shadow`` is ON, then
+    the session's team must be a member of the requested league in
+    the loaded contract's rosters -- unprovable membership (another league's
+    contract loaded, no team for the session) is refused, never assumed.
+    Never under ``/api/public``; the frontend has no bridge route for it.
+    """
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    if not _ff.is_enabled("low_value_depth_disclosure_shadow"):
+        return JSONResponse(status_code=404, content={"error": "not_found"})
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    contract = latest_contract_data
+    loaded_league = ((contract or {}).get("meta") or {}).get("leagueKey")
+    owner = _requester_owner_id(request, league_cfg)
+    teams = (((contract or {}).get("sleeper") or {}).get("teams")) or []
+    member = bool(owner) and any(
+        isinstance(t, dict) and str(t.get("ownerId") or "") == owner for t in teams
+    )
+    if not contract or loaded_league != league_cfg.key or not member:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "league_membership_required", "leagueKey": league_cfg.key},
+            headers={"Cache-Control": "no-store"},
+        )
+    from src.trade import depth_disclosure_shadow as _depth_shadow  # noqa: PLC0415
+
+    payload = await run_in_threadpool(
+        _depth_shadow.read_counters, league_cfg.key, days=days if days > 0 else None
+    )
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/trade/analyze/status")

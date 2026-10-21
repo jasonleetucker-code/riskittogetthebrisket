@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 59 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 60 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -646,6 +646,24 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # multi_team_analysis_disabled; the 2-team routes are unchanged either way.
     # Rollback: RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0 + restart.
     "trade_multi_team_analysis": False,
+    # Low-value depth disclosure SHADOW COUNTERS -- HELD, DEFAULT OFF (owner
+    # decision 2026-10-21, LVA Package 4, V4 "approved for shadow measurement
+    # only"; docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md).  ON: each private
+    # 2-team evaluation (/api/trade/simulate = calculator, /api/trade/analyze =
+    # War Room) asks ``src/trade/depth_disclosure.py`` whether the depth note
+    # WOULD fire (rule A-guarded, floor threshold, picks included, guard kept)
+    # and adds aggregate COUNTS to the box-local
+    # data/trade/depth_disclosure_shadow/ store (``depth_disclosure_shadow``),
+    # read only through the admin + league-member route
+    # GET /api/trade/depth-disclosure-shadow.  It never changes a response,
+    # renders no copy, and stores no name or value.  OFF: nothing runs, every
+    # payload byte-identical, the read route answers 404.  Turning it on is the
+    # owner's G3 shadow-window decision (design
+    # docs/trade/LOW_VALUE_DEPTH_DISCLOSURE_DESIGN_2026-10-20.md §10);
+    # deploy/verify-deploy.sh fails a deploy whose effective flag is ON
+    # (scripts/verify_owner_held_flags.py).  Rollback:
+    # RISKIT_FEATURE_LOW_VALUE_DEPTH_DISCLOSURE_SHADOW=0 + restart.
+    "low_value_depth_disclosure_shadow": False,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -981,6 +999,12 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # server.py: off → 503 multi_team_analysis_disabled, on → the per-team
     # analysis.  Default False (see its _DEFAULTS entry).
     "trade_multi_team_analysis": LIVE,
+    # low_value_depth_disclosure_shadow gates the depth-note shadow counters
+    # inline in server.py (``_build_trade_simulation``, reached by
+    # /api/trade/simulate and /api/trade/analyze) and the private read route
+    # GET /api/trade/depth-disclosure-shadow.  It changes no trade response
+    # either way (shadow by design); off -> the read route answers 404.
+    "low_value_depth_disclosure_shadow": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,

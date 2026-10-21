@@ -333,7 +333,7 @@ describe("analyzeSleeperTradeHistory — side shape (gave + got + net)", () => {
     // 3-team trade where the positive net is split across two small
     // winners (<3% each) but one side takes a big loss.  The headline
     // must surface the loser's 'overpaid by N%' rather than rounding
-    // to 'Fair trade', so the card stays consistent with per-side
+    // to 'Evenly valued', so the card stays consistent with per-side
     // grades and W/L credit.
     const rawData = {
       sleeper: {
