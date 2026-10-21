@@ -112,6 +112,12 @@ from src.identity.name_primitives import similarity as _identity_similarity  # n
 # the name primitives above.
 from src.identity import picks as _pick_identity  # noqa: E402
 
+# Outlier-integrity V2.1 upstream identity evidence (U2 / U2b, §3.7): the
+# identity owner's collector of what each scraped capture published about who
+# its entries are and how each value reached a payload row.  Stamps only — it
+# writes a sidecar next to the payload and never touches a value or a join.
+from src.identity import capture_evidence as _capture_evidence  # noqa: E402
+
 # Durable diagnostic telemetry.  scrape_ktc() is module-level and has no
 # access to run()'s _phase closure, so KTC's internal sub-steps can only
 # be timed by writing to this owner directly.  Every call is best-effort
@@ -679,6 +685,30 @@ def match_all(players, name_map, results, site_key=None):
 
 # Global dict collecting full name_map for every site (for JSON export)
 FULL_DATA = {}
+
+# U2 / U2b identity evidence for the payload-attached sources (ktc, ktcSfTep,
+# idpTradeCalc).  One collector per process run; see
+# ``src/identity/capture_evidence.py``.
+_CAPTURE_EVIDENCE = _capture_evidence.CaptureEvidenceCollector()
+
+
+def _cev(method, *args, **kwargs):
+    """Best-effort call into the identity-evidence collector.  Evidence is
+    never allowed to fail, slow or change a scrape: any error is swallowed
+    (and printed under DEBUG) and the value path continues untouched.
+    Every swallowed failure is COUNTED (``census.collectorErrors``), so silent
+    evidence loss is visible in the committed manifest."""
+    try:
+        return getattr(_CAPTURE_EVIDENCE, method)(*args, **kwargs)
+    except Exception as exc:  # noqa: BLE001
+        if DEBUG:
+            print(f"  [IdentityEvidence] {method} failed (non-fatal): {exc}")
+        try:
+            _CAPTURE_EVIDENCE.note_failure(method)
+        except Exception:  # noqa: BLE001
+            pass
+        return None
+
 
 # Contract-aligned site_raw floors for the two legacy-scraper sources
 # (== _DEFAULT_SOURCE_ROW_FLOORS["ktc"/"idpTradeCalc"] in
@@ -2024,12 +2054,19 @@ async def scrape_ktc(page, players):
 
     _ktc_mark("start")
     results = {p: None for p in players}
+    _cev("reset_source", "ktc")
+    _cev("reset_source", "ktcSfTep")
     cached = get_cached("KTC")
     if cached:
         match_all(players, cached, results, site_key="KTC")
         cached_tep = get_cached("KTC_TEP")
         if cached_tep:
             FULL_DATA["KTC_TEP"] = dict(cached_tep)
+        # U2: a cache hit observed nothing about the page — entries carry no
+        # page position or published fields and the format state is
+        # unobserved (U2b), never the requested state restated.
+        _cev("record_cache_capture", "ktc", cached, SUPERFLEX, "none")
+        _cev("record_cache_capture", "ktcSfTep", cached_tep or {}, SUPERFLEX, "TE++")
         _ktc_mark("cache_hit", cached_rows=len(cached))
         return results
     tep_name_map = {}
@@ -2531,6 +2568,14 @@ async def scrape_ktc(page, players):
             )
             return results
 
+        # U2 / U2b: every entry of the explicit Crowd capture — its ordinal
+        # place in the in-page playersArray, the identity fields the same row
+        # publishes, and the format state the numbers were read under.
+        # Every attribute read is defensive (``getattr``) and every call goes
+        # through ``_cev``: evidence must never be able to raise into the
+        # value path below.
+        _cev("record_ktc_capture", _crowd_capture, clean_name, SUPERFLEX)
+
         set_cache("KTC", name_map)
         match_all(players, name_map, results, site_key="KTC")
         # TE+ (level 1) sub-board: only stash if at least a handful of
@@ -2612,6 +2657,29 @@ async def scrape_ktc(page, players):
 async def scrape_idptradecalc(page, players):
     results = {p: None for p in players}
     name_map = {}
+    _cev("reset_source", "idpTradeCalc")
+    # U2b: the toggle checkboxes as read back from the page, and the census of
+    # value columns the numbers came from.  Filled as observed; never assumed.
+    _idptc_toggle_state = {"superflex": None, "tep": None}
+    # NOT named ``_idptc_value_keys``: that is the nested function below which lists
+    # the value columns to try.  Sharing the name rebound this local to the function,
+    # so the collector received a function instead of the census dict.
+    _idptc_value_key_census = {}
+
+    def _idptc_record_entries(entries, acquisition):
+        _cev("record_entry_dicts", "idpTradeCalc", entries, acquisition, _idptc_value_key_census)
+
+    def _idptc_set_toggles():
+        _cev(
+            "record_checkbox_toggles",
+            "idpTradeCalc",
+            SUPERFLEX,
+            TEP,
+            _idptc_toggle_state.get("superflex"),
+            _idptc_toggle_state.get("tep"),
+            _idptc_value_key_census,
+        )
+
     try:
 
         def _idptc_value_keys():
@@ -2667,7 +2735,7 @@ async def scrape_idptradecalc(page, players):
                 "Value",
             ]
 
-        def _extract_idptc_name_map(data_obj):
+        def _extract_idptc_name_map(data_obj, entries_out=None):
             extracted = {}
             items = []
             if isinstance(data_obj, dict):
@@ -2726,7 +2794,7 @@ async def scrape_idptradecalc(page, players):
                 return extracted
 
             key_order = _idptc_value_keys()
-            for item in items:
+            for _item_index, item in enumerate(items, start=1):
                 if not isinstance(item, dict):
                     continue
                 nm = ""
@@ -2738,6 +2806,7 @@ async def scrape_idptradecalc(page, players):
                     continue
 
                 val = None
+                _val_key = None
                 for vk in key_order:
                     raw_val = item.get(vk)
                     if raw_val is None:
@@ -2748,6 +2817,7 @@ async def scrape_idptradecalc(page, players):
                         continue
                     if cand > 0:
                         val = cand
+                        _val_key = vk
                         break
                 if val is None:
                     continue
@@ -2756,6 +2826,30 @@ async def scrape_idptradecalc(page, players):
                 prev = extracted.get(cn)
                 if prev is None or val > prev:
                     extracted[cn] = val
+                if entries_out is not None:
+                    # U2 / U3 evidence: this item's ordinal place in the
+                    # vendor's sheets and whatever identity fields it carries
+                    # (only recognised keys — an absent key is no evidence).
+                    entries_out.append(
+                        {
+                            "name": cn,
+                            "value": val,
+                            "pagePosition": _item_index,
+                            "valueKey": _val_key,
+                            "position": next(
+                                (
+                                    item.get(k)
+                                    for k in ("position", "pos", "Position", "Pos")
+                                    if item.get(k)
+                                ),
+                                None,
+                            ),
+                            "team": next(
+                                (item.get(k) for k in ("team", "Team", "nflTeam") if item.get(k)),
+                                None,
+                            ),
+                        }
+                    )
             return extracted
 
         api_data = {}
@@ -2888,6 +2982,18 @@ async def scrape_idptradecalc(page, players):
                     }
                 """)
                 await page.wait_for_timeout(300)
+            # U2b: read the checkboxes back AFTER every correction — the
+            # observed state of the capture, not the state requested above.
+            try:
+                _idptc_toggle_state["superflex"] = await page.evaluate(
+                    "document.getElementById('toggleButton').checked"
+                )
+                _idptc_toggle_state["tep"] = await page.evaluate(
+                    "document.getElementById('toggleButtonTEP').checked"
+                )
+            except Exception:
+                _idptc_toggle_state["superflex"] = None
+                _idptc_toggle_state["tep"] = None
             return True
 
         await ensure_toggles_on()
@@ -2978,7 +3084,8 @@ async def scrape_idptradecalc(page, players):
                 # Earlier revisions only passed Sheet1, dropping the
                 # ~500-player Sheet3 offense pool that contains
                 # suffix-named players like "Kenneth Walker III".
-                parsed_map = _extract_idptc_name_map(data)
+                _parsed_entries = []
+                parsed_map = _extract_idptc_name_map(data, entries_out=_parsed_entries)
 
                 if DEBUG and parsed_map:
                     sample_name = next(iter(parsed_map))
@@ -2989,6 +3096,7 @@ async def scrape_idptradecalc(page, players):
                 if not parsed_map:
                     continue
                 name_map.update(parsed_map)
+                _idptc_record_entries(_parsed_entries, _capture_evidence.ACQ_API_INTERCEPT)
 
                 if name_map and DEBUG:
                     print(f"  [IDPTradeCalc] Parsed {len(name_map)} players from {url[:60]}")
@@ -3020,9 +3128,15 @@ async def scrape_idptradecalc(page, players):
                                 except Exception:
                                     payload = None
                                 if payload is not None:
-                                    parsed_map = _extract_idptc_name_map(payload)
+                                    _parsed_entries = []
+                                    parsed_map = _extract_idptc_name_map(
+                                        payload, entries_out=_parsed_entries
+                                    )
                                     if parsed_map:
                                         name_map.update(parsed_map)
+                                        _idptc_record_entries(
+                                            _parsed_entries, _capture_evidence.ACQ_DIRECT_API
+                                        )
                                         if DEBUG:
                                             print(
                                                 f"  [IDPTradeCalc] Direct API fallback loaded "
@@ -3039,6 +3153,7 @@ async def scrape_idptradecalc(page, players):
             print(f"  [IDPTradeCalc] {len(name_map)} players. Sample: {list(name_map.items())[:3]}")
 
         match_all(players, name_map, results, site_key="IDPTradeCalc")
+        _idptc_set_toggles()
 
         # ── Bulk lookup via page JS ──
         if ok:
@@ -3099,6 +3214,13 @@ async def scrape_idptradecalc(page, players):
                                 if cn not in name_map:
                                     name_map[cn] = v
                                     added += 1
+                                    _cev(
+                                        "add_entry",
+                                        "idpTradeCalc",
+                                        cn,
+                                        v,
+                                        acquisition=_capture_evidence.ACQ_BULK_JS,
+                                    )
                         except (ValueError, TypeError):
                             pass
                     if added > 0:
@@ -3231,6 +3353,17 @@ async def scrape_idptradecalc(page, players):
                         if player in players:
                             results[player] = val
                         name_map[player] = val
+                        # U2: an autocomplete hit is matched by SURNAME on the
+                        # rendered page — the vendor's own display name is not
+                        # captured, only the name we typed.
+                        _cev(
+                            "add_entry",
+                            "idpTradeCalc",
+                            player,
+                            val,
+                            acquisition=_capture_evidence.ACQ_AUTOCOMPLETE,
+                            queried_name=player,
+                        )
                         # [FIX P0] Use .update() pattern instead of overwriting
                         if "IDPTradeCalc" not in FULL_DATA:
                             FULL_DATA["IDPTradeCalc"] = {}
@@ -3248,6 +3381,7 @@ async def scrape_idptradecalc(page, players):
                         print(f"  [IDPTradeCalc] Search box error for {player}: {e}")
 
             print(f"  [IDPTradeCalc] Batch search complete: {found_count}/{len(missing)} found")
+            _idptc_set_toggles()
 
             try:
                 clear_btn = await page.query_selector("text=Clear")
@@ -3326,6 +3460,9 @@ def print_health_report():
 async def run(progress_callback=None):
     global DLF_IMPORT_DEBUG
     run_started_at_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    # U2: identity evidence describes THIS run only (the module can be reused
+    # across in-process scrapes).
+    _cev("reset_all")
 
     async def _emit_progress(
         step,
@@ -3631,6 +3768,8 @@ async def run(progress_callback=None):
                         # Recover partial results from FULL_DATA (autocomplete
                         # writes directly there even when the outer timeout fires)
                         if "IDPTradeCalc" in FULL_DATA:
+                            if site == "IDPTradeCalc":
+                                _cev("mark_recovered_partial", "idpTradeCalc")
                             recovered = 0
                             for p, v in FULL_DATA["IDPTradeCalc"].items():
                                 if p in all_results and v is not None:
@@ -3969,6 +4108,9 @@ async def run(progress_callback=None):
     # ── Build canonical name resolution map ──
     # Maps variant names (e.g. "A. St. Brown" from DynastyNerds) → Sleeper canonical name.
     _canonical_map = {}  # variant_cleaned → canonical_name
+    # Which rung of this map fired per variant (U2 identity evidence only;
+    # read by nothing that decides a value).
+    _canonical_map_rung = {}
     _sleeper_names = set()
     if SLEEPER_ROSTER_DATA.get("positions"):
         _sleeper_names = set(SLEEPER_ROSTER_DATA["positions"].keys())
@@ -3994,11 +4136,13 @@ async def run(progress_callback=None):
         # Already a rostered Sleeper canonical name?
         if cn in _sleeper_names:
             _canonical_map[cn] = cn
+            _canonical_map_rung[cn] = _capture_evidence.RUNG_ROSTER_EXACT
             continue
         # Normalized match?
         cn_norm = normalize_lookup_name(cn)
         if cn_norm in _sleeper_norm:
             _canonical_map[cn] = _sleeper_norm[cn_norm]
+            _canonical_map_rung[cn] = _capture_evidence.RUNG_ROSTER_LOOKUP
             continue
         # Initial-expansion match? (e.g. "A. St. Brown" → "Amon-Ra St. Brown")
         parts = cn.split()
@@ -4008,6 +4152,7 @@ async def run(progress_callback=None):
             key = (initial, last)
             if key in _sleeper_initial_idx:
                 _canonical_map[cn] = _sleeper_initial_idx[key]
+                _canonical_map_rung[cn] = _capture_evidence.RUNG_ROSTER_INITIAL
                 if DEBUG:
                     print(f"  [Dedup] '{cn}' → '{_sleeper_initial_idx[key]}'")
                 continue
@@ -4015,9 +4160,11 @@ async def run(progress_callback=None):
         fm = best_match(cn, _sleeper_names, threshold=0.85, match_guard=_is_safe_name_merge)
         if fm:
             _canonical_map[cn] = fm
+            _canonical_map_rung[cn] = _capture_evidence.RUNG_ROSTER_FUZZY
             continue
         # No match — keep as-is
         _canonical_map[cn] = cn
+        _canonical_map_rung[cn] = _capture_evidence.RUNG_ROSTER_UNMAPPED
 
     # ── C1-ID-01 CUTOVER: the Sleeper candidate indexes and the
     # candidate-scoring pair that fed the retired run()-scope ladder are
@@ -4122,6 +4269,8 @@ async def run(progress_callback=None):
             "id": served.sleeper_id,
             "name": served.display_name,
             "pos": served.position,
+            # Which rung of the served ladder fired (U2 identity evidence).
+            "method": served.method,
         }
 
     # Position-based site filtering:
@@ -4165,6 +4314,11 @@ async def run(progress_callback=None):
         canonical = _canonical_map.get(raw_canonical, raw_canonical)
         player_pos = _get_pos(canonical) or _get_pos(raw_canonical) or _get_pos(name)
 
+        # U2: the rungs that carried this vendor name onto its payload row.
+        _attach_steps = [
+            _canonical_map_rung.get(raw_canonical, _capture_evidence.RUNG_ROSTER_UNMAPPED)
+        ]
+
         # Then resolve to a full Sleeper identity for robust cross-source linkage.
         sleeper_identity = None
         if not _looks_like_pick_name(canonical):
@@ -4172,6 +4326,10 @@ async def run(progress_callback=None):
             if not sleeper_identity and canonical != raw_canonical:
                 sleeper_identity = _resolve_sleeper_identity(
                     raw_canonical, preferred_pos=player_pos
+                )
+            if sleeper_identity and sleeper_identity.get("method"):
+                _attach_steps.append(
+                    _capture_evidence.IDENTITY_RUNG_PREFIX + str(sleeper_identity["method"])
                 )
             if sleeper_identity:
                 canonical = sleeper_identity.get("name") or canonical
@@ -4194,6 +4352,7 @@ async def run(progress_callback=None):
                         continue
                     val = full_map[name]
                     entry[dash_key] = round(val, 2) if val != int(val) else int(val)
+                    _cev("attach", dash_key, canonical, name, entry[dash_key], _attach_steps)
 
         if not entry:
             continue
@@ -4264,6 +4423,7 @@ async def run(progress_callback=None):
             continue
 
         # Keep real site values additive (only fill missing source slots).
+        _moved_slots = []
         for _k, _v in _s_entry.items():
             if str(_k).startswith("_"):
                 continue
@@ -4274,6 +4434,8 @@ async def run(progress_callback=None):
                 and float(_v) > 0
             ):
                 _p_entry[_k] = _v
+                _moved_slots.append(_k)
+        _cev("merge", _secondary, _primary, _capture_evidence.RUNG_MERGE_PUNCTUATION, _moved_slots)
 
         # Preserve identity metadata if primary lacks it.
         if not _p_entry.get("_sleeperId") and _s_entry.get("_sleeperId"):
@@ -4343,6 +4505,7 @@ async def run(progress_callback=None):
         _s_entry = players_json.get(_ghost)
         if not isinstance(_p_entry, dict) or not isinstance(_s_entry, dict):
             continue
+        _moved_slots = []
         for _k, _v in _s_entry.items():
             if str(_k).startswith("_"):
                 continue
@@ -4353,6 +4516,8 @@ async def run(progress_callback=None):
                 and float(_v) > 0
             ):
                 _p_entry[_k] = _v
+                _moved_slots.append(_k)
+        _cev("merge", _ghost, _primary, _capture_evidence.RUNG_MERGE_FIRST_NAME, _moved_slots)
         players_json[_primary] = _p_entry
         players_json.pop(_ghost, None)
         _pos_map.pop(_ghost, None)
@@ -6950,6 +7115,36 @@ async def run(progress_callback=None):
     except Exception as _dr_err:  # noqa: BLE001
         print(f"  [Identity] dual-read artifact write failed (non-fatal): {_dr_err}")
 
+    # ── Outlier-integrity V2.1 U2 / U2b identity evidence.  Written NEXT TO
+    # the payload (never into it), bound to it by ``scrapeTimestamp``, filtered
+    # against the final ``players`` so a stamp never describes a row whose
+    # value changed after capture.  The FULL evidence goes to the gitignored
+    # ``data/identity_capture_evidence/`` (uploaded as a run artifact on the CI
+    # refresh); only a checksummed manifest of aggregate counts goes to
+    # ``data/scrape_state/`` and the export bundle, so git history stays
+    # bounded.  Best-effort, like the artifact above.
+    _identity_manifest_path = os.path.join(SCRIPT_DIR, str(_capture_evidence.MANIFEST_REL))
+    _cev_manifest = None
+    try:
+        _cev_payload = _CAPTURE_EVIDENCE.build_sidecar(
+            players_json, scrape_timestamp=dashboard_json.get("scrapeTimestamp")
+        )
+        _cev_manifest = _capture_evidence.write_evidence(
+            _cev_payload, Path(SCRIPT_DIR), env=os.environ
+        )
+        print(
+            "  [IdentityEvidence] U2 stamps: "
+            + ", ".join(
+                f"{_k}={_cev_payload['census'][_k].get('stamped')}"
+                for _k in _capture_evidence.STAMPED_SOURCES
+            )
+            + f", collectorErrors={_cev_payload['census']['collectorErrors']['total']}"
+            + f" -> {_cev_manifest['storage']['boxLocal']}"
+            + f" (sha256 {_cev_manifest['evidence']['sha256'][:12]})"
+        )
+    except Exception as _cev_err:  # noqa: BLE001
+        print(f"  [IdentityEvidence] evidence write failed (non-fatal): {_cev_err}")
+
     print(f"  {len(players_json)} players, {len(max_values)} sites with max values")
     if pick_anchors:
         print(f"  Pick anchors from: {', '.join(pick_anchors.keys())}")
@@ -7021,6 +7216,13 @@ async def run(progress_callback=None):
             fname,  # dynasty_values.csv
             full_csv_fname,  # dynasty_full.csv
         ]
+        # V2.1 U2 identity evidence MANIFEST (checksums + aggregate counts,
+        # never the full stamps), archived beside the payload it is bound to.
+        # Only THIS run's manifest: when the write above failed, the file on
+        # disk is a previous scrape's and must not be archived as this one's —
+        # absent stays absent.
+        if _cev_manifest is not None:
+            copy_paths.append(_identity_manifest_path)
         for p in copy_paths:
             if os.path.exists(p):
                 try:
@@ -7054,9 +7256,19 @@ async def run(progress_callback=None):
             try:
                 with open(out_csv, "w", newline="", encoding="utf-8") as f:
                     w = csv.writer(f)
-                    w.writerow(["name", "value"])
+                    # V2.1 U3: the identity fields the capture published for
+                    # each entry, appended AFTER the value (never a rank,
+                    # value or Sleeper-id column).  Blank when not published.
+                    _u3 = dash_key in _capture_evidence.STAMPED_SOURCES
+                    w.writerow(
+                        ["name", "value", *(_capture_evidence.IDENTITY_CSV_COLUMNS if _u3 else ())]
+                    )
                     for n, v in sorted(full_map.items(), key=lambda x: x[0].lower()):
-                        w.writerow([n, v])
+                        if _u3:
+                            _f = _cev("entry_fields", dash_key, n, v) or {}
+                            w.writerow([n, v, _f.get("position", ""), _f.get("team", "")])
+                        else:
+                            w.writerow([n, v])
                 _fresh_site_raw.add(f"{dash_key}.csv")
             except Exception:
                 continue
@@ -7148,6 +7360,37 @@ async def run(progress_callback=None):
         run_stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         archive_zip_path = os.path.join(archive_dir, f"dynasty_export_{run_stamp}.zip")
         _write_bundle_zip(archive_zip_path)
+
+        # V2.1 VID: fold this run's vendor-id-carrying boards into the
+        # identity owner's append-only vendor-id map.  Record-only — it
+        # changes no value, join or vote — and never fails the export.
+        # ONE writer: only the process the refresh workflow marks
+        # (``vendor_ids.WRITER_ENV``).  The box also scrapes, but its tracked
+        # ``data/identity/`` is reset by every deploy's checkout, so lines it
+        # appended would be lost and the "append-only" map would fork.
+        try:
+            from src.identity import vendor_ids as _vendor_ids
+
+            if _vendor_ids.writer_enabled(os.environ):
+                _vid_summary = _vendor_ids.record_from_site_raw(
+                    Path(site_raw_dir),
+                    index=_identity_engine_index,
+                    store_path=Path(SCRIPT_DIR) / _vendor_ids.STORE_REL,
+                    observed_at=str(dashboard_json.get("scrapeTimestamp") or ""),
+                )
+                print(
+                    f"  [VID] appended={_vid_summary.get('appended')} "
+                    f"census={_vid_summary.get('census')}",
+                    flush=True,
+                )
+            else:
+                print(
+                    "  [VID] skipped: not the designated writer "
+                    f"({_vendor_ids.WRITER_ENV} unset; the scheduled refresh owns the map)",
+                    flush=True,
+                )
+        except Exception as _vid_err:  # noqa: BLE001
+            print(f"  [VID] vendor-id record failed (non-fatal): {_vid_err}", flush=True)
 
         print(f"  [Export] Latest bundle: {latest_dir}")
         print(f"  [Export] Zip: {zip_path}")
