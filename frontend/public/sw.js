@@ -110,6 +110,9 @@ const NEVER_CACHE = [
   // sit here because the generic `/api/public/league` branch below would
   // otherwise network-first-and-put it.
   "/api/public/league/trade-advisor",
+  // Waiver Wire Comparison: live roster ownership, served with its own
+  // freshness stamps — never replayed from CacheStorage.
+  "/api/public/waiver-compare",
 ];
 
 function isNeverCache(url) {
