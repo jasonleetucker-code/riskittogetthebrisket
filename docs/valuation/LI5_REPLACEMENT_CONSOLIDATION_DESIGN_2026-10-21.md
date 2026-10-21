@@ -204,7 +204,11 @@ as AVAILABLE for an "Out" player, because "current week only" has no current wee
 it is **not applicable** when the league's own week is unknown (`fantasy_week_horizon` /
 `availability.load_context`; "no calendar fallback on this path" is the existing stance). The consolidated
 owner must stamp `health: not_applicable` and apply banding alone in that case. Perfect Draft in August is
-therefore banding-only.
+therefore served at the banded level **without** health (the §5 rule for question B, dynasty-asset opportunity cost), not the health-filtered level of question A. D1 option A therefore does not hold for Perfect Draft in the pre-season: its stamp must say so (`health: not_applicable`, served level named as banded-without-health), and the two must not share one label.
+
+**F4b. What "week unknown" means.** The off-season trigger is `ctx.current_week is None` or a date outside the NFL season; whether Sleeper reports `leg` as 0, 1 or missing in the off-season is unverified, and `leg=1` before week 1 (or the last week after the season) would run the health filter against a stale or irrelevant week. The build adds a test for `leg=1` before the season starts.
+
+**F4c. Bye and owner-override states.** In `src/ros/availability.py` the `unavailable` state includes `bye` and `owner_override`. The design evaluates health at the current week only; counting a bye as unavailable would drop a position's top free agents on their bye week and move the anchor week to week on schedule alone. The rule is therefore an injury-type reason-code allowlist (state the exact codes in the build); `bye` and `owner_override` do not exclude. If the owner prefers to accept bye exclusion, a bye-week test and a replay row are required.
 
 **F5. Health data is daily and request-path network access is forbidden.** `matchup_intel._players_meta`
 (`src/api/matchup_intel.py:185-199`) falls back to a multi-MB network fetch when the persisted DB is stale or
@@ -413,7 +417,7 @@ replay so the owner can see the gap. Reason: the format is best ball with no IR,
 charge, cut ladder, droppability, Perfect Draft cut side) all ask what you give up *to hold a roster spot now*.
 The two questions must not share one label (C2-U2's "named as different views"): if the owner chooses B for any
 consumer, it is a separately named level, not the same field with a different formula. A and B are two outputs
-of one owner function (the health step on or off), not two owners. **Default if unanswered:** no change (the
+that differ only by the health step (which lives in the population builder, §4.4, not in LI-5), not two owners. **Default if unanswered:** no change (the
 flag stays OFF, the status quo C stands).
 
 ## 6. Phased plan and dependency on #1890
@@ -421,7 +425,7 @@ flag stays OFF, the status quo C stands).
 **State of #1890 (verified).** Branch `ccr-04f5ba3d-forced-drop-fix`, flag `forced_drop_cheapest_legal`
 (default OFF, gate LIVE), selection mode V5 vs V5-R pending an owner call, activation checklist §10 all open.
 Its diff touches: `src/draft/displacement.py` (`build_cut_ladder` seams `order_key` / `candidate_ids`, +23),
-`src/trade/roster_capacity.py` (+429, regions `assess_roster_capacity`, `forced_drop_cost`, `ForcedDrop`,
+`src/trade/roster_capacity.py` (about +506 at the head current when this was reviewed, regions `assess_roster_capacity`, `forced_drop_cost`, `ForcedDrop`,
 `RosterCapacity`; **not** `build_capacity_context`), `src/roster_intel/droppability.py` (`pool_cut_ladder`
 signature, +8), `src/api/feature_flags.py` (+20), `src/api/trade_simulator.py`, `src/trade/{analyze_trade,finder,trade_decision}.py`,
 `server.py` (5 lines), the new `src/trade/forced_drop_selection.py`, and tests/fixtures including
@@ -658,11 +662,14 @@ phase beyond P0 is not authorized until the owner answers D2.
 **D6. Keep each consumer's existing population?** PENDING.
 - Capacity: no auction-rookie exclusion; Perfect Draft and droppability: auction rookies excluded. The
   alternative is unifying (which would silently change one of them).
-- **Recommended:** preserve each (the consolidation changes banding and health only, nothing about who counts
-  as a free agent).
+- **Recommended:** preserve the rostered and auction-rookie unavailable-key populations of each consumer. The
+  add-pool gates (`waiver_candidate_exclusion`: value floor, `single_source`, `rookie_gate`, position set) and the
+  health filter (D5) are the intentional new population rules and are part of this change's effect; they truncate
+  the ladder tail (§4.4 step 3) and the replay reports an "add-pool only" step separately from the health step.
 - **Default:** preserve.
-- **Answer text:** "D6: Preserve each consumer's current free-agent population. Prove it by test. Any change to
-  who counts as a free agent is a separate decision."
+- **Answer text:** "D6: Preserve each consumer's current rostered and auction-rookie unavailable-key populations; prove it by
+  test. The add-pool gates and the D5 health filter are the intended population changes. Any other change to who
+  counts as a free agent is a separate decision."
 
 **D7. Sequencing relative to the forced-drop correction (#1890).** PENDING.
 - P1-P2 may proceed now (no shared files). P3 starts after #1890 merges. Activation is evaluated against a
