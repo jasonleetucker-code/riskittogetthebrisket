@@ -27,7 +27,8 @@ Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
   divides by the larger **package utility**. The numerator, the package models, the samples, the seeds and the
   cut points (250 points; 3.5 / 9 / 18%) are the same. Only the denominator changed.
 - **Reproduced first.** The recorded v1 numbers are reproduced **exactly** for every band-dependent section on
-  its pinned board (§3).
+  its pinned board, except the two Trade Finder replays: Phase 2 matches 442 of 443 leaves, the one miss a
+  band-free count; Phase 3 matches 710 of 822, all engine drift present on v1 too (§3).
 - **Does any KEEP conclusion change? No.** Phase 1, Phase 2 and Phase 3 each still recommend **KEEP
   `geom_q078_v1` with q = 0.78**. Every finding that decided those recommendations is either band-independent
   (mathematical properties, market residuals, the value-level decomposition, the Finder's recommendation lists)
@@ -55,7 +56,7 @@ Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 | P2 §E star-for-pile recommendations added: EFD_78 / HYBRID_50 / GEOM_78 | 1 / 2 / 0 | **0 / 0 / 0** | C6 leg 1 |
 | P2 §E incumbent's sensible-depth trades lost (EFD_78, all four surfaces) | 72 / 10 / 17 / 55 | identical (no band) | C6 leg 2: **still fails** |
 | P3 §8.1 flag "superstar beats legitimate starters", of 9: GEOM_78 / LP_150 / LP_175 | 0 / 6 / 6 | 0 / 6 / **9** | "LP_150 over-charges starters": holds |
-| P3 §8.1 flag "decisive verdict on a raw near-even trade": GEOM_78 / LP_150 | 1 / 6 | **3** / 6 | context |
+| P3 §8.1 flag "decisive verdict on a raw near-even trade": GEOM_78 / LP_125 / LP_150 | 1 / 1 / 6 | **3** / 2 / 6 | narrows GEOM_78's edge (§4.3) |
 | P3 §8.1 flag "filler tips the verdict": GEOM_78 / LP_150 | 1 / 0 | 1 / 0 | GEOM_78's one weakness: holds |
 | P3 §8.2 levels changed vs GEOM_78 on 2,000 trades: LP_150 / LP_175 / KTC | 520 / 680 / 1,227 | 409 / 655 / 1,041 | "about a quarter" → about a fifth |
 | P3 §8.2 favoured side flipped vs GEOM_78 | as recorded | identical (no band) | context |
@@ -203,7 +204,7 @@ model.
 | six ~1,775 bench | EFD_78 | +1,989 | unfair → lopsided |
 | four ~3,250 | EFD_78 | −456 | fair → slight |
 | IDP: Schwesinger for four ~2,050 IDP starters | EFD_78 | −277 | fair → slight |
-| offense + IDP depth (5) | EFD_78 / FGEOM_70_20 | −1,292 / +309 | slight → unfair / fair → slight |
+| offense + IDP depth (5) | EFD_78 / FGEOM_70_20 | −1,292 / +356 | slight → unfair / fair → slight |
 
 Unchanged:
 - three ~3,900 starters (GEOM_78 slight);
@@ -278,6 +279,16 @@ Unchanged:
 | decisive verdict on a raw near-even trade | 1 → **3** | 1 → 2 | 6 → 6 | 6 → 6 | 6 → 6 |
 | filler alone tips the verdict | 1 → 1 | 1 → 1 | 0 → 0 | 0 → 0 | 0 → 0 |
 
+**What the flags mean.**
+- Under v2, GEOM_78's lead over LP_150 on "decisive verdict on a raw near-even trade" narrows from 6 vs 1 to 6 vs 3.
+- LP_125 now ties or beats GEOM_78 on every flag (0 / 2 / 1 against GEOM_78's 0 / 3 / 1).
+- This does not change the KEEP. Phase 3's recommendation never rested on these flag counts. It rests on §6 / §9:
+  - the market's own package shape, q ≈ 0.80–0.85 once the value-level effect is separated;
+  - the preregistered selections and confirmation.
+  Both are band-free. LP_125 was never a selected or confirmed candidate.
+- It is recorded here so that "GEOM_78 is the least decisive model on near-even trades" is not quoted from the
+  v1 table.
+
 **Fairness sample of 2,000 trades (memo §8.2), levels changed vs GEOM_78:**
 
 | model | v1 | v2 |
@@ -338,6 +349,9 @@ The extracted inputs are recorded by sha256 in each `phaseN.json → board` / `f
 committed: the Finder replays carry team names.
 - The checkout must use a short path on Windows; a deep path fails checkout.
 - The extracted board is sha256 `2d599239…4002`.
+- The extract records the payload's sha256 as `d5c5f9e4…`, not the pinned `b639608f…`. This is not a different
+  payload: the Windows checkout converts the JSON to CRLF. The git blob is `b639608f`, and the reproduction is
+  exact.
 
 ## Completion result
 

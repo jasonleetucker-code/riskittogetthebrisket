@@ -421,5 +421,5 @@ UNRESOLVED: items (1)–(5) above; none blocks the KEEP recommendation.
 
 The fairness levels in this memo were classified on the retired `fairness_bands_v1` denominator. They are
 re-measured on `fairness_bands_v2` in `PACKAGE_MODEL_PHASES_1_3_V2_REMEASURE_2026-10-21.md` (§4.2). The
-recorded v1 numbers reproduce exactly. **The KEEP recommendation does not change.** This memo and its evidence
+recorded v1 numbers reproduce exactly, except the Trade Finder replays (see its §3). **The KEEP recommendation does not change.** This memo and its evidence
 are preserved as recorded.

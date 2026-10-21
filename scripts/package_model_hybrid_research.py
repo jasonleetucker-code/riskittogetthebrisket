@@ -455,7 +455,9 @@ def band_level(model: str, gap: float, A, B, *, basis: str | None = None) -> str
     if basis != "current":
         raise ValueError(f"unknown band basis {basis!r}; expected one of {BAND_BASES}")
     if model == "GEOM_78":
-        return fairness_bands.classify_packages(gap, a, b)["level"]
+        return fairness_bands.classify_packages(gap, a, b, model_id=package_model.GEOM_Q078_V1)[
+            "level"
+        ]
     if model == "KTC":
         base = fairness_bands.larger_package_utility(a, b, model_id=package_model.KTC_2026_04)
         return fairness_bands.classify(gap, base)["level"]
