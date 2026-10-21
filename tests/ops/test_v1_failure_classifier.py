@@ -138,12 +138,37 @@ def test_an_assertion_that_ran_out_a_ui_budget_is_a_timeout_not_a_wrong_value():
     assert only["category"] != "product_assertion"
 
 
-def test_legacy_logs_without_a_signal_use_the_declared_expect_budget():
+def test_a_legacy_assertion_at_the_expect_deadline_is_ambiguous_not_a_timeout():
+    """Playwright retries a WRONG value to the same deadline as a missing element,
+    so a pre-failureSignal log cannot tell them apart by duration."""
     legacy = _only(_run([_t(ms=vfc.EXPECT_BUDGET_MS + 11000, signal=None)]))
-    assert "duration_at_or_above_expect_budget" in legacy["evidence"]
-    assert legacy["category"] != "product_assertion"
+    assert legacy["category"] == "unknown"
+    assert "legacy_assertion_at_expect_budget_ambiguous" in legacy["evidence"]
     fast = _only(_run([_t(ms=vfc.EXPECT_BUDGET_MS - 5000, signal=None)]))
     assert fast["category"] == "product_assertion"
+
+
+def test_a_legacy_assertion_at_the_deadline_next_to_an_api_timeout_is_backend_at_low_confidence_only():
+    tests = [
+        _t(
+            "Sharp Tracker matches GET /api/sharp/market",
+            status="timedOut",
+            cls="timeout",
+            ms=91000,
+        ),
+        _t("previews", ms=64109, signal=None),
+    ]
+    second = _run(tests)["failures"][1]
+    assert (second["category"], second["confidence"]) == ("backend_timeout", "low")
+    assert "legacy_assertion_at_expect_budget_ambiguous" in second["evidence"]
+
+
+def test_a_current_report_wrong_value_retried_to_the_deadline_is_a_product_assertion():
+    """The reporter emits failureSignal "none" for a Received VALUE, whatever the duration."""
+    only = _only(_run([_t("toHaveText Alpha vs Beta", ms=20500, signal="none")]))
+    assert only["category"] == "product_assertion"
+    missing = _only(_run([_t("heading never appeared", ms=20500, signal="expect_timeout")]))
+    assert missing["category"] != "product_assertion"
 
 
 def test_an_api_contract_timeout_is_backend_and_drags_its_cluster_with_it():
@@ -175,7 +200,7 @@ def test_an_api_contract_timeout_is_backend_and_drags_its_cluster_with_it():
 def test_a_lone_ui_timeout_with_a_healthy_backend_is_frontend_low_confidence():
     report = _run(
         [_t("tab renders", ms=65000, signal="expect_timeout")],
-        backend={"warm": True, "healthAfterHttp": 200, "healthAfterSeconds": 0.3},
+        backend={"warm": True, "statusAfterHttp": 200, "statusAfterSeconds": 0.3},
     )
     only = _only(report)
     assert (only["category"], only["confidence"]) == ("frontend_timeout", "low")
@@ -295,7 +320,10 @@ def test_two_fast_failures_are_not_a_burst():
 
 def test_a_received_401_or_403_is_auth_and_needs_no_burst():
     only = _only(_run([_t(signal="http_401_403", ms=300)]))
-    assert (only["category"], only["confidence"]) == ("auth_session", "high")
+    # A pattern-derived signal, anchored to a status context, is medium -- never high.
+    assert (only["category"], only["confidence"]) == ("auth_session", "medium")
+    five = _only(_run([_t(signal="http_5xx", ms=300)]))
+    assert (five["category"], five["confidence"]) == ("backend_timeout", "medium")
 
 
 def test_login_failure_is_classified_by_its_status_and_unknown_status_stays_unknown():
@@ -450,7 +478,7 @@ def test_a_cancelled_run_report_carries_the_cancellation_category():
 
 def _green(**overrides):
     base = {
-        "run": {"conclusion": "success"},
+        "run": {"conclusion": "success", "suiteExits": {"browser": 0, "security": 0}},
         "deployment": {
             "expectedCommit": SHA_A,
             "observedCommitBefore": SHA_A,
@@ -462,6 +490,82 @@ def _green(**overrides):
     }
     base.update(overrides)
     return vfc.classify(base)
+
+
+def test_review_repro_security_exit_2_on_an_all_pass_browser_run_is_not_passed():
+    """Review finding 1: browser all-pass, no mismatch, no restart, SECURITY_EXIT=2.
+    job.status still reads success when the classifier runs; the verdict step then
+    fails the job.  The classifier must not publish a pass."""
+    report = _green(run={"conclusion": "success", "suiteExits": {"browser": 0, "security": 2}})
+    assert report["run"]["conclusion"] == "failure"
+    level = report["authenticatedVerification"]
+    assert level["level"] == "not_established"
+    assert "security_acceptance_exit_2" in level["blockers"]
+    assert [s["stage"] for s in report["stages"]] == ["security_acceptance"]
+
+
+def test_a_security_failure_after_the_control_was_rejected_is_a_session_problem():
+    report = _green(
+        run={"conclusion": "success", "suiteExits": {"browser": 0, "security": 2}},
+        auth={"preRevokeAuthenticated": False},
+    )
+    assert report["stages"][0]["category"] == "auth_session"
+
+
+def test_api_and_lane4_exit_codes_reach_the_verdict():
+    failed = _green(
+        run={"conclusion": "success", "suiteExits": {"browser": 0, "security": 0, "api": 2}}
+    )
+    assert failed["run"]["conclusion"] == "failure"
+    assert "api_suite_exit_2" in failed["authenticatedVerification"]["blockers"]
+    assert failed["stages"][0]["stage"] == "api_suite"
+    # Exit 3 does not fail the job (the verdict step's rule) but proves nothing.
+    empty = _green(
+        run={"conclusion": "success", "suiteExits": {"browser": 0, "security": 0, "lane4": 3}}
+    )
+    assert empty["run"]["conclusion"] == "success"
+    assert empty["authenticatedVerification"]["level"] == "not_established"
+    assert "lane4_suite_proved_nothing" in empty["authenticatedVerification"]["blockers"]
+
+
+def test_a_browser_exit_1_with_no_failed_test_still_blocks():
+    report = _green(run={"conclusion": "success", "suiteExits": {"browser": 1, "security": 0}})
+    assert report["run"]["conclusion"] == "failure"
+    assert report["stages"][0]["stage"] == "browser_suite"
+
+
+def test_an_unobserved_security_acceptance_is_not_a_pass():
+    report = _green(run={"conclusion": "success", "suiteExits": {"browser": 0}})
+    assert report["authenticatedVerification"]["level"] == "not_established"
+    assert "security_acceptance_not_observed" in report["authenticatedVerification"]["blockers"]
+
+
+def test_the_suite_exits_are_read_from_the_workflow_environment():
+    env = {
+        "V1_JOB_STATUS": "success",
+        "V1_BROWSER_EXIT": "0",
+        "V1_SECURITY_EXIT": "2",
+        "V1_API_EXIT": "",
+        "V1_STATUS_AFTER_HTTP": "200",
+        "V1_STATUS_AFTER_SECONDS": "0.42",
+    }
+    evidence = vfc.evidence_from_environment(
+        env,
+        safe_report={"tests": [_t(status="passed", cls=None)]},
+        probe_login=None,
+        probe_pre_revoke=None,
+    )
+    assert evidence["run"]["suiteExits"] == {
+        "api": None,
+        "lane4": None,
+        "browser": 0,
+        "security": 2,
+    }
+    assert evidence["backend"]["statusAfterHttp"] == 200
+    assert evidence["backend"]["statusAfterSeconds"] == pytest.approx(0.42)
+    report = vfc.classify(evidence)
+    assert report["run"]["conclusion"] == "failure"
+    assert report["authenticatedVerification"]["level"] == "not_established"
 
 
 def test_only_a_green_attributed_unrestarted_run_claims_authenticated_verification():

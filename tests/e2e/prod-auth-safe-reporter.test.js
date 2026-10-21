@@ -306,6 +306,38 @@ test("failureSignal names infrastructure and HTTP families without their text", 
   }
 });
 
+test("a web-first assertion retried on a WRONG value is not a timeout, even though it ran to the deadline", () => {
+  // Playwright 1.62 retries toHaveText until the deadline when the element
+  // exists but reads wrong, and prints the same "Timeout: Nms" line.
+  const retriedWrongValue =
+    "expect(locator).toHaveText(expected) failed\n\nLocator: getByRole('heading')\n" +
+    'Expected string: "Alpha"\nReceived string: "Beta"\nTimeout: 20000ms\n\nCall log:\n  - waiting for heading';
+  const neverAppeared =
+    "expect(locator).toBeVisible() failed\n\nLocator: getByText('Week 7 matchups')\n" +
+    "Expected: visible\nReceived: <element(s) not found>\nTimeout: 60000ms";
+  const noReceivedLine = "Error: Timeout 20000ms exceeded while waiting for expect(locator).toBeVisible()";
+  assert.equal(signalFor(retriedWrongValue).failureSignal, "none");
+  assert.equal(signalFor(neverAppeared).failureSignal, "expect_timeout");
+  assert.equal(signalFor(noReceivedLine).failureSignal, "expect_timeout");
+});
+
+test("a received NUMBER is not an HTTP status unless the message is about a status", () => {
+  const cases = [
+    ["expect(received).toBe(expected)\n\nExpected: 600\nReceived: 512", "none"], // a count
+    ["expect(received).toBe(expected)\n\nExpected: 3\nReceived: 403", "none"],
+    ["expect(received).toBeGreaterThan(expected)\n\nExpected: > 500\nReceived: 401", "none"],
+    ["expect(received).toBeLessThan(expected)\n\nExpected: < 400\nReceived:   502", "http_5xx"],
+    ["expect(received).toBe(expected)\n\nExpected: 200\nReceived: 503", "http_5xx"],
+    ["Error: /api/sharp/market answered status 504", "http_5xx"],
+    ["Error: upstream said 502 Bad Gateway", "http_5xx"],
+    ["expect(received).toBe(expected)\n\nExpected: 200\nReceived: 403", "http_401_403"],
+    ["Error: response status 401 for the private route", "http_401_403"],
+  ];
+  for (const [message, expected] of cases) {
+    assert.equal(signalFor(message).failureSignal, expected, JSON.stringify(message.slice(-30)));
+  }
+});
+
 test("a spec that EXPECTS a 403 is not an auth failure", () => {
   const msg = "expect(received).toBe(expected)\n\nExpected: 403\nReceived: 200";
   assert.equal(signalFor(msg).failureSignal, "none");

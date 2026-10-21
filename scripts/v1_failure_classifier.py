@@ -107,10 +107,13 @@ FAILURE_SIGNALS = frozenset(
 #: Signals that mean "a clock ran out", whatever ``errorClass`` says.
 TIMEOUT_SIGNALS = frozenset({"navigation_timeout", "api_request_timeout", "expect_timeout"})
 
-#: ``expect.timeout`` in tests/e2e/prod-auth.config.js (parity test).  A failure
-#: that is an "assertion" yet lasted at least this long, with no signal to say
-#: otherwise, ran out a web-first assertion's budget -- a wrong value fails at
-#: once.  Used ONLY for logs published before ``failureSignal`` existed.
+#: ``expect.timeout`` in tests/e2e/prod-auth.config.js (parity test).  A legacy
+#: (pre-``failureSignal``) "assertion" that lasted at least this long ran a
+#: web-first assertion to its deadline -- but that is AMBIGUOUS: Playwright
+#: retries a web-first assertion whose element exists with the WRONG value to
+#: the same deadline (``toHaveText`` Expected "Alpha" / Received "Beta" also
+#: ends ``Timeout: Nms``).  So duration alone never makes it a timeout; it is
+#: reported as ``legacy_assertion_at_expect_budget_ambiguous``.
 EXPECT_BUDGET_MS = 20_000
 _EXPECT_BUDGET_SLACK_MS = 1_000
 
@@ -254,18 +257,20 @@ def _scrub(text: str, secrets: Sequence[str]) -> str:
 
 
 def _is_timeout_like(t: Mapping[str, Any]) -> bool:
-    """A clock ran out -- by status, by signal, or (legacy logs) by duration."""
+    """A clock ran out -- by status or by an explicit timeout signal.
+
+    ``expect_timeout`` is published only when the assertion's target was never
+    found (see the reporter); a retried wrong value is NOT a timeout here."""
     if t["status"] == "timedOut" or t["errorClass"] == "timeout":
         return True
-    signal = t["failureSignal"]
-    if signal in TIMEOUT_SIGNALS:
-        return True
-    if signal in (None, "none") and t["errorClass"] == "assertion":
-        return _legacy_budget_exhausted(t)
-    return False
+    return t["failureSignal"] in TIMEOUT_SIGNALS
 
 
-def _legacy_budget_exhausted(t: Mapping[str, Any]) -> bool:
+def _legacy_assertion_at_budget(t: Mapping[str, Any]) -> bool:
+    """A pre-``failureSignal`` assertion that ran to the expect deadline: either
+    the UI never appeared or a wrong value was retried until the deadline."""
+    if t["failureSignal"] is not None or t["errorClass"] != "assertion":
+        return False
     duration = t["durationMs"]
     return duration is not None and duration >= EXPECT_BUDGET_MS - _EXPECT_BUDGET_SLACK_MS
 
@@ -320,8 +325,10 @@ class _Context:
 
         backend = evidence.get("backend") or {}
         self.warm = _bool(backend.get("warm"))
-        self.health_http = _int(backend.get("healthAfterHttp"))
-        self.health_seconds = _float(backend.get("healthAfterSeconds"))
+        # The public /api/status request the restart-detection step already
+        # makes after the suites (no extra load): HTTP code + latency.
+        self.status_after_http = _int(backend.get("statusAfterHttp"))
+        self.status_after_seconds = _float(backend.get("statusAfterSeconds"))
 
         browser = evidence.get("browser") or {}
         self.browser_step_outcome = _enum(
@@ -340,12 +347,30 @@ class _Context:
         self.cancellation_reason = _enum(run.get("cancellationReason"), CANCELLATION_REASONS)
         self.queue_wait_seconds = _int(run.get("queueWaitSeconds"))
         self.deploy_run_id = _int(run.get("deployRunId"))
+        # Exit codes the suites RECORD instead of failing their step
+        # (0 pass, 1/2 fail, 3 proved nothing; None = suite did not run).
+        exits = run.get("suiteExits") or {}
+        self.suite_exits: dict[str, int | None] = {
+            name: _int(exits.get(name)) for name in ("api", "lane4", "browser", "security")
+        }
+        # The verdict step runs AFTER this classifier, so ``job.status`` can
+        # still read "success" for a run that step is about to fail.  Mirror
+        # its rule exactly: security != 0, or any suite exit 1/2, fails the job.
+        if self.conclusion == "success" and self.verdict_step_will_fail:
+            self.conclusion = "failure"
+
+    @property
+    def verdict_step_will_fail(self) -> bool:
+        security = self.suite_exits["security"]
+        if security not in (None, 0):
+            return True
+        return any(self.suite_exits[name] in (1, 2) for name in ("api", "lane4", "browser"))
 
     @property
     def backend_healthy_after(self) -> bool | None:
-        if self.health_http is None or self.health_seconds is None:
+        if self.status_after_http is None or self.status_after_seconds is None:
             return None
-        return self.health_http == 200 and self.health_seconds < HEALTHY_SECONDS
+        return self.status_after_http == 200 and self.status_after_seconds < HEALTHY_SECONDS
 
 
 # ---------------------------------------------------------------------------
@@ -457,9 +482,11 @@ def _classify_failure(
         if t["endedAt"] and ctx.restart_at and ctx.restart_at > t["endedAt"]:
             evidence.append("restart_followed_this_failure")
 
-    # 4. Session.
+    # 4. Session.  The reporter emits the HTTP signals only in a status context
+    # (status/HTTP wording, or Expected 2xx / < 400 against the received code),
+    # never for an arbitrary number; still a pattern, so medium, not high.
     if signal == "http_401_403":
-        return _verdict(AUTH_SESSION, "high", "signal_http_401_403")
+        return _verdict(AUTH_SESSION, "medium", "signal_http_401_403")
     if index in burst:
         if ctx.pre_revoke_authenticated is False:
             return _verdict(
@@ -472,16 +499,24 @@ def _classify_failure(
 
     # 5. Server side said so.
     if signal == "http_5xx":
-        return _verdict(BACKEND_TIMEOUT, "high", "signal_http_5xx", *evidence)
+        return _verdict(BACKEND_TIMEOUT, "medium", "signal_http_5xx", *evidence)
     if signal == "network_error":
         return _verdict(BACKEND_TIMEOUT, "medium", "signal_network_error", *evidence)
     if signal == "api_request_timeout":
         return _verdict(BACKEND_TIMEOUT, "high", "signal_api_request_timeout", *evidence)
 
-    # 6. A clock ran out.
+    # 6a. Legacy log, assertion at the expect deadline: the UI never appeared OR
+    # a wrong value was retried until the deadline -- the log cannot say which.
+    if legacy and _legacy_assertion_at_budget(t):
+        evidence.append("legacy_assertion_at_expect_budget_ambiguous")
+        if _co_timeout_with_api(index, tests):
+            return _verdict(
+                BACKEND_TIMEOUT, "low", "near_api_contract_timeout_in_same_run", *evidence
+            )
+        return _verdict(UNKNOWN, "low", *evidence)
+
+    # 6b. A clock ran out.
     if _is_timeout_like(t):
-        if legacy and t["errorClass"] == "assertion":
-            evidence.append("duration_at_or_above_expect_budget")
         if _is_api_contract(t):
             return _verdict(BACKEND_TIMEOUT, "medium", "api_contract_test_timed_out", *evidence)
         if _co_timeout_with_api(index, tests):
@@ -539,6 +574,40 @@ def _classify_run_stages(ctx: _Context, tests: Sequence[Mapping[str, Any]]) -> l
             {
                 "stage": "browser_setup",
                 **_verdict(BROWSER_INFRA, "medium", "browser_step_failed_before_any_test_reported"),
+            }
+        )
+    # Suites that record an exit code instead of failing their own step.
+    security = ctx.suite_exits["security"]
+    if security not in (None, 0):
+        if ctx.pre_revoke_authenticated is False:
+            # The control was already rejected before the revoke: inconclusive,
+            # and the session -- not the revoke -- is what failed.
+            verdict = _verdict(
+                AUTH_SESSION,
+                "medium",
+                "security_acceptance_not_passed",
+                "pre_revoke_control_rejected",
+            )
+        else:
+            verdict = _verdict(PRODUCT_ASSERTION, "medium", "security_acceptance_not_passed")
+        stages.append({"stage": "security_acceptance", **verdict})
+    for name in ("api", "lane4"):
+        code = ctx.suite_exits[name]
+        if code in (1, 2):
+            stages.append(
+                {
+                    "stage": f"{name}_suite",
+                    # Its per-check statuses live in its own allowlisted report.
+                    **_verdict(UNKNOWN, "low", f"{name}_suite_exit_{code}_see_its_report"),
+                }
+            )
+    browser = ctx.suite_exits["browser"]
+    failed_tests = any(t["status"] in _FAILED_STATUSES for t in tests)
+    if browser in (1, 2) and not failed_tests and tests:
+        stages.append(
+            {
+                "stage": "browser_suite",
+                **_verdict(UNKNOWN, "low", f"browser_suite_exit_{browser}_without_a_failed_test"),
             }
         )
     return stages
@@ -676,6 +745,19 @@ def _authenticated_verification(
         blockers.append("revision_mismatch")
     if ctx.restart == "during_run":
         blockers.append("backend_restarted_during_run")
+    # The security acceptance is part of what "authenticated verification"
+    # means: it must have been OBSERVED to pass, not merely not reported.
+    security = ctx.suite_exits["security"]
+    if security is None:
+        blockers.append("security_acceptance_not_observed")
+    elif security != 0:
+        blockers.append(f"security_acceptance_exit_{security}")
+    for name in ("api", "lane4", "browser"):
+        code = ctx.suite_exits[name]
+        if code in (1, 2):
+            blockers.append(f"{name}_suite_exit_{code}")
+        elif code == 3:
+            blockers.append(f"{name}_suite_proved_nothing")
     if blockers:
         return {"level": "not_established", "blockers": blockers}
     unproven: list[str] = []
@@ -694,7 +776,15 @@ def _authenticated_verification(
 
 
 def _assert_public(report: dict[str, Any], secrets: Sequence[str]) -> dict[str, Any]:
-    """Defence in depth: nothing secret-shaped leaves, whatever produced it."""
+    """Defence in depth, with a stated limit.
+
+    It replaces any string containing a supplied secret (``--secret-file``) or
+    ``jason_session=``-shaped text.  It CANNOT recognise a bare cookie value or
+    token when no secret was supplied -- in the workflow the cookie and token
+    files are already deleted by the time this runs.  The real protection is
+    upstream: every published field is built from closed vocabularies, SHAs,
+    ISO instants, counts and the fixed spec titles the reporter already
+    publishes, and no message, URL or body is ever an input."""
     live = [s for s in secrets if len(s) >= _SECRET_MIN_LEN]
 
     def walk(value: Any) -> Any:
@@ -890,15 +980,31 @@ def evidence_from_environment(
     # The Playwright step records its exit code instead of failing, so
     # ``job.status`` is still "success" when this runs even though the verdict
     # step that follows will fail the job.  Report what that step will decide.
+    # (_Context applies the same rule to the recorded suite exit codes.)
     if conclusion == "success" and any(t.get("status") in _FAILED_STATUSES for t in tests):
         conclusion = "failure"
+
+    def whole_number(name: str) -> int | None:
+        value = e(name)
+        return int(value) if value.isdigit() else None
+
+    def number(name: str) -> float | None:
+        try:
+            return _float(float(e(name)))
+        except ValueError:
+            return None
+
     return {
         "run": {
             "conclusion": conclusion,
-            "deployRunId": _int(int(e("V1_DEPLOY_RUN_ID")))
-            if e("V1_DEPLOY_RUN_ID").isdigit()
-            else None,
+            "deployRunId": whole_number("V1_DEPLOY_RUN_ID"),
             "queueWaitSeconds": queue_wait if queue_wait is None or queue_wait >= 0 else None,
+            "suiteExits": {
+                "api": whole_number("V1_API_EXIT"),
+                "lane4": whole_number("V1_LANE4_EXIT"),
+                "browser": whole_number("V1_BROWSER_EXIT"),
+                "security": whole_number("V1_SECURITY_EXIT"),
+            },
         },
         "deployment": {
             "expectedCommit": e("V1_EXPECTED_SHA") or None,
@@ -914,7 +1020,11 @@ def evidence_from_environment(
             "loginControlAuthenticated": _probe_authenticated(probe_login),
             "preRevokeAuthenticated": _probe_authenticated(probe_pre_revoke),
         },
-        "backend": {"warm": {"true": True, "false": False}.get(e("V1_BACKEND_WARM"))},
+        "backend": {
+            "warm": {"true": True, "false": False}.get(e("V1_BACKEND_WARM")),
+            "statusAfterHttp": whole_number("V1_STATUS_AFTER_HTTP"),
+            "statusAfterSeconds": number("V1_STATUS_AFTER_SECONDS"),
+        },
         "browser": {"stepOutcome": browser_outcome, "reportPresent": bool(tests)},
         "tests": tests,
     }

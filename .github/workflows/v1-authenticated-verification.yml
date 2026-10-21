@@ -571,28 +571,41 @@ jobs:
           import os
           import re
           import sys
+          import time
+          import urllib.error
           import urllib.request
 
           origin = sys.argv[1]
           before = os.environ.get("STARTED_BEFORE") or ""
           after = ""
           commit_after = ""
+          status_http = ""
+          t0 = time.monotonic()
           try:
               with urllib.request.urlopen(origin + "/api/status", timeout=60) as resp:
+                  status_http = str(resp.status)
                   body = json.loads(resp.read())
               build = (body or {}).get("build") or {}
               value = build.get("process_started_at")
               after = value if isinstance(value, str) else ""
               commit = build.get("commit")
               commit_after = commit if isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit) else ""
+          except urllib.error.HTTPError as exc:  # answered, with an error status
+              status_http = str(exc.code)
+              after = ""
           except Exception:  # noqa: BLE001 -- unknown, never "no restart"
               after = ""
+          status_seconds = f"{time.monotonic() - t0:.2f}" if status_http else ""
           # Report-only inputs to scripts/v1_failure_classifier.py.  The restart
           # INSTANT is what lets a restart be attributed to the one test it
-          # overlapped, rather than to every failure in the run.
+          # overlapped, rather than to every failure in the run; the HTTP code and
+          # latency of this same request (no extra load) say whether the backend
+          # was answering promptly after the suites.
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
               out.write(f"backend_started_after={after}\n")
               out.write(f"backend_commit_after={commit_after}\n")
+              out.write(f"status_after_http={status_http}\n")
+              out.write(f"status_after_seconds={status_seconds}\n")
           if not before or not after:
               print(f"backend restart during run: unknown (before={before or 'unknown'}, now={after or 'unknown'})")
           elif before != after:
@@ -767,6 +780,15 @@ jobs:
           V1_STARTED_AFTER: ${{ steps.restart.outputs.backend_started_after }}
           V1_LOGIN_OUTCOME: ${{ steps.login.outcome }}
           V1_BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+          V1_STATUS_AFTER_HTTP: ${{ steps.restart.outputs.status_after_http }}
+          V1_STATUS_AFTER_SECONDS: ${{ steps.restart.outputs.status_after_seconds }}
+          # The exit codes the verdict step below decides on.  job.status still
+          # reads "success" here for a run that step is about to fail, so the
+          # classifier mirrors the verdict step's rule from these same values.
+          V1_API_EXIT: ${{ steps.api.outputs.api_exit }}
+          V1_LANE4_EXIT: ${{ steps.lane4.outputs.lane4_exit }}
+          V1_BROWSER_EXIT: ${{ steps.browser.outputs.browser_exit }}
+          V1_SECURITY_EXIT: ${{ steps.security.outputs.security_exit }}
         run: |
           set -Eeuo pipefail
           python3 scripts/v1_failure_classifier.py classify \

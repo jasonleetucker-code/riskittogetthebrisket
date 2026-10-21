@@ -86,13 +86,16 @@ function errorClass(result) {
 
 /**
  * The closed vocabulary of `failureSignal` values.  `errorClass` alone cannot
- * tell "the UI never showed up in 60 s" from "the value was wrong": a web-first
- * `expect(locator).toBeVisible()` that runs out its budget carries an
- * `expect(` hint and is therefore an "assertion" (V1 run 39561535837 published
- * three 64 s "assertion" failures that were timeouts).  The signal is read from
- * the same stripped message `errorClass` reads and is one of THESE strings, so
- * the failure's cause family is published without a character of its text.
- * Mirrored by scripts/v1_failure_classifier.py::FAILURE_SIGNALS (parity test:
+ * tell "the UI never showed up" from "the value was wrong": both are
+ * "assertion".  Duration cannot either -- a web-first assertion (toHaveText,
+ * toBeVisible, ...) RETRIES a wrong value to the same deadline and prints the
+ * same `Timeout: Nms`.  What separates them is the Received line:
+ * `<element(s) not found>` (or no Received line at all) means the target never
+ * appeared -> `expect_timeout`; a Received VALUE means the page answered
+ * wrongly -> no timeout signal.  The signal is read from the same stripped
+ * message `errorClass` reads and is one of THESE strings, so the cause family is
+ * published without a character of its text.  Mirrored by
+ * scripts/v1_failure_classifier.py::FAILURE_SIGNALS (parity test:
  * tests/ops/test_v1_failure_classifier.py).
  */
 const SIGNAL_NAMES = [
@@ -117,21 +120,55 @@ const SIGNAL_PATTERNS = [
   ["network_error", /net::ERR_|\bECONNRESET\b|\bECONNREFUSED\b|\bENOTFOUND\b|\bETIMEDOUT\b|\bEAI_AGAIN\b|socket hang up/i],
   ["navigation_timeout", /page\.goto: Timeout|waiting until "(?:domcontentloaded|load|networkidle|commit)"/i],
   ["api_request_timeout", /apiRequestContext\.\w+: Timeout|request\.(?:get|post|put|fetch): Timeout/i],
-  // Only a RECEIVED/RETURNED status counts: a guest-refusal spec legitimately
-  // reads "Expected: 403" and must not look like an auth failure.
-  ["http_401_403", /Received:\s*\[?\s*(?:401|403)\b|returned HTTP (?:401|403)\b/i],
-  ["http_5xx", /Received:\s*\[?\s*5\d\d\b|returned HTTP 5\d\d\b|\b50[0-4]\b (?:Bad Gateway|Service Unavailable|Gateway Time-?out|Internal Server Error)/i],
-  // A web-first assertion that ran out its budget prints its own "Timeout: Nms".
-  ["expect_timeout", /\bexpect\([\s\S]*?Timeout:\s*\d+ms|Timeout \d+ms exceeded while waiting for expect/i],
+  // HTTP families ONLY in a status context -- never "any received number":
+  // `expect(count).toBe(600)` / Received 512 is a count, not a 5xx.  Accepted:
+  // HTTP/status wording next to the code, a status reason phrase, or a Received
+  // code against an Expected 2xx / "< 400".  A guest-refusal spec that reads
+  // "Expected: 403 / Received: 200" matches none of these.
+  [
+    "http_401_403",
+    new RegExp(
+      [
+        String.raw`\b(?:HTTP|status(?:Code)?)\b[^\n\d]{0,16}\b(?:401|403)\b`,
+        String.raw`\b(?:401 Unauthorized|403 Forbidden)\b`,
+        String.raw`Expected:\s*(?:2\d\d|<\s*400)\s*\n\s*Received:\s*\[?\s*(?:401|403)\b`,
+      ].join("|"),
+      "i",
+    ),
+  ],
+  [
+    "http_5xx",
+    new RegExp(
+      [
+        String.raw`\b(?:HTTP|status(?:Code)?)\b[^\n\d]{0,16}\b5\d\d\b`,
+        String.raw`\b50[0-4] (?:Bad Gateway|Service Unavailable|Gateway Time-?out|Internal Server Error)\b`,
+        String.raw`Expected:\s*(?:2\d\d|<\s*400)\s*\n\s*Received:\s*\[?\s*5\d\d\b`,
+      ].join("|"),
+      "i",
+    ),
+  ],
+  // A web-first assertion that ran to its deadline WITHOUT finding its target.
+  ["expect_timeout", expectTargetNeverAppeared],
   ["strict_mode_violation", /strict mode violation/i],
 ];
+
+function expectTargetNeverAppeared(message) {
+  const ranToDeadline =
+    (/\bexpect\(/.test(message) && /Timeout:\s*\d+ms/.test(message)) ||
+    /Timeout \d+ms exceeded while waiting for expect/i.test(message);
+  if (!ranToDeadline) return false;
+  if (/element\(s\) not found/i.test(message)) return true;
+  // A Received VALUE means the target existed and answered wrongly.
+  return !/^\s*Received(?: string| value| array| object)?:/im.test(message);
+}
 
 /** A closed-vocabulary signal for a failure — never its text. */
 function failureSignal(result) {
   const err = result.errors?.[0] || result.error;
   const message = String(err?.message || "").replace(ANSI_ESCAPE, "");
   for (const [name, pattern] of SIGNAL_PATTERNS) {
-    if (pattern.test(message)) return name;
+    const hit = typeof pattern === "function" ? pattern(message) : pattern.test(message);
+    if (hit) return name;
   }
   return "none";
 }

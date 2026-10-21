@@ -63,16 +63,26 @@ instrumentation); two of the 11 show the skew. Nothing in the workflow compared 
 
 * `tests/e2e/prod-auth-safe-reporter.js` publishes two extra fields per test: `failureSignal`, one word
   from a closed 11-word vocabulary derived from the message (never the message), and `startedAt`.
-  Before this, `errorClass: assertion` covered both "value wrong" and "UI never appeared in 60 s": F's
-  three 64 s failures were published as assertions.
+  `errorClass: assertion` covers both "value wrong" and "UI never appeared", and **duration cannot
+  separate them**: Playwright retries a web-first assertion whose element exists but reads wrong
+  (`toHaveText` Expected "Alpha" / Received "Beta") to the same deadline and prints the same
+  `Timeout: Nms`. The discriminator is the Received line: `<element(s) not found>` or no Received line
+  gives `expect_timeout`; a Received value gives no timeout signal. HTTP signals (`http_401_403`,
+  `http_5xx`) fire only in a status context (HTTP/status wording, a reason phrase, or a received code
+  against an Expected 2xx / `< 400`), never for an arbitrary number such as a count, and are
+  medium confidence.
+* F's two 64 s pregame failures predate the signal. Reading the spec, their only assertion that can
+  run 60 s is `expect(heading).toBeVisible({ timeout: 60_000 })`; a visibility assertion on an existing
+  but wrong element would more likely report `hidden`. That points to "never appeared", but the log
+  cannot prove it, so the classifier reports these as `legacy_assertion_at_expect_budget_ambiguous`.
 * `scripts/v1_failure_classifier.py` maps a run to nine categories with a confidence and fixed
   evidence codes. **Report-only**: it never changes a verdict and `unknown` is a valid answer.
 
 | Category | Needs, at minimum |
 |---|---|
-| `product_assertion` | an assertion that did not run out a clock; high if the same test failed in the previous run |
-| `auth_session` | a *received* 401/403, or a burst of >= 3 sub-2 s errors **and** a pre-revoke control showing the session already gone |
-| `backend_timeout` | a 5xx / network / API-request signal, an API-contract test timing out, a timeout cluster with one, or a restart instant **inside** that test |
+| `product_assertion` | an assertion with no timeout signal (including a wrong value retried to the deadline); a security acceptance that did not pass with the control still accepted; high only if the same test failed in the previous run |
+| `auth_session` | a status-context 401/403 (medium), or a burst of >= 3 sub-2 s errors **and** a pre-revoke control showing the session already gone, or a failed security acceptance whose pre-revoke control was already rejected |
+| `backend_timeout` | a status-context 5xx (medium) / network / API-request signal, an API-contract test timing out, a timeout cluster with one, or a restart instant **inside** that test |
 | `frontend_timeout` | a clock ran out, no API timeout in the run, backend healthy afterwards (low confidence, by design) |
 | `browser_infra` | launch failure, closed/crashed browser, or the browser step dying before any test reported |
 | `deployment_revision_mismatch` | served `build.commit` differs from the spec commit (before or after the suite) |
@@ -80,16 +90,39 @@ instrumentation); two of the 11 show the skew. Nothing in the workflow compared 
 | `cancellation` | job annotation (`classify_run_record`) |
 | `unknown` | anything else |
 
+**The verdict.** The classifier runs before the verdict step, when `job.status` can still read
+`success` for a run about to fail. It therefore receives the same `API_EXIT` / `LANE4_EXIT` /
+`BROWSER_EXIT` / `SECURITY_EXIT` values the verdict step decides on and applies the same rule
+(security != 0, or any suite exit 1/2, fails the job). `authenticated_verification_passed` also
+requires the security acceptance to have been *observed* passing (exit 0), and treats a suite exit 3
+("proved nothing") as a blocker.
+
+**Inputs the workflow does not supply today, and what that means:**
+
+| Input | Supplied in CI? | Consequence today |
+|---|---|---|
+| `statusAfterHttp` / `statusAfterSeconds` | **yes**: code and latency of the `/api/status` request the restart step already makes | `frontend_timeout` can fire (low confidence) |
+| suite exit codes | **yes** | verdict mirrored exactly |
+| login HTTP status | no (the login step is part of the auth path and is left unchanged) | a failed login is always `unknown` (`login_failed_status_not_captured`); login can never classify as `auth_session` or `backend_timeout` in CI |
+| previous-run failures | no (offline `from-log --previous-log` only) | `product_assertion` never reaches **high** confidence in CI; medium at most |
+| runner OOM / disk pressure | no | `resource_exhaustion` fires in CI **only** through the `out_of_memory` signal from a test's own error |
+| `cancellationReason` | no (a cancelled-while-pending job runs no step) | in-workflow cancellations read `cancelled_unattributed`; the GitHub annotation is read offline by `classify_run_record` |
+
 Redaction: output is closed vocabularies, SHAs, ISO instants, counts and the fixed spec titles the
-reporter already published. Unknown keys and wrong-kind values are dropped; any string containing the
+reporter already published. The output guard replaces a string containing a supplied secret or
+`jason_session=` text, but in the workflow the cookie and token files are already deleted when the
+classifier runs, so it cannot recognise a bare cookie value; the protection is that no message, URL or
+body is ever an input. Unknown keys and wrong-kind values are dropped; any string containing the
 session cookie/token or `jason_session=` is replaced. Pinned by `tests/ops/test_v1_failure_classifier.py`
 (hostile messages, titles and env values) and the existing artifact allowlist test, which now lists
 `v1-failure-classification.json`.
 
-Run on the real logs, the classifier reproduces the hand analysis of F: the Sharp Tracker and the first
-two pregame failures are `backend_timeout` (medium) with `restart_followed_this_failure`, the third is
-`backend_timeout` (high) with `backend_restart_instant_inside_test`, and the mobile League-tabs failure
-stays a medium `product_assertion` rather than being blamed on the restart.
+Run on the real log of F, the classifier gives: Sharp Tracker `backend_timeout` (medium,
+`api_contract_test_timed_out`, `restart_followed_this_failure`); the two 64 s pregame failures
+`backend_timeout` at **low** confidence (`legacy_assertion_at_expect_budget_ambiguous`,
+`near_api_contract_timeout_in_same_run`); the 180 s Home-card test `backend_timeout` (high,
+`backend_restart_instant_inside_test`); and the mobile League-tabs failure a medium
+`product_assertion`, not blamed on the restart.
 
 ## 3. Verification taxonomy
 

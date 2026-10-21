@@ -69,6 +69,20 @@ def test_the_classifier_receives_no_secret():
     assert "--probe-login" in run and "--probe-pre-revoke" in run
 
 
+def test_the_classifier_sees_every_exit_code_the_verdict_step_decides_on():
+    """Review finding 1: job.status reads success before the verdict step runs."""
+    env = _step(CLASSIFY_STEP)["env"]
+    verdict_env = _step(VERDICT_STEP)["env"]
+    pairs = {
+        "V1_API_EXIT": verdict_env["API_EXIT"],
+        "V1_LANE4_EXIT": verdict_env["LANE4_EXIT"],
+        "V1_BROWSER_EXIT": verdict_env["BROWSER_EXIT"],
+        "V1_SECURITY_EXIT": verdict_env["SECURITY_EXIT"],
+    }
+    for key, source in pairs.items():
+        assert env[key] == source, key
+
+
 def test_the_classification_is_uploaded_with_the_other_sanitized_reports():
     upload = [s for s in _steps() if s.get("name") == "Upload the reports"][0]
     paths = upload["with"]["path"].split()
