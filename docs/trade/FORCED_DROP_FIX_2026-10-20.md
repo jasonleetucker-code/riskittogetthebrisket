@@ -181,8 +181,11 @@ over every legal `d`-subset (coverage below).
 `G(K) − G(K \ {f})`, never `c(f)`; so for `overLimitBefore = 0` the net is `G(K \ J) − Σ_{E} c(p)`: the package
 counts each remaining piece once, each existing release is charged once, and a piece received and released counts
 zero times. Multiple acquired releases split the joint credit by sequential removal (most valuable first); shares sum
-to the joint credit. Monotonicity is pinned: adding a CREDITED incoming piece never lowers the receiver's net (preconditions:
-the roster fills every slot without him, and the package credits him — see §9).
+to the joint credit. **Net-monotonicity holds for V5 ONLY** (independent review F1): adding a CREDITED incoming piece
+never lowers the V5 receiver's net, because V5 can always undo the extra piece by releasing it at the credit it
+forgoes (preconditions: the roster fills every slot without him, and the package credits him — see §9). **V5-R does
+not have this property** (§3a, §9): its cut set is chosen in a different currency, so a free credited extra piece can
+lower its net.
 
 **Unpriced (one rule, both surfaces).** An unpriced player is charged at the `assumedWaiver` ceiling for selection and
 charge, and the Finder now counts it (`assumedWaiverDrops`) instead of excluding it as 0. Under `S*` he is released
@@ -283,6 +286,18 @@ definition above, which is mechanical and reproducible from `replay.json` → `c
 manager would never actually release. V5-R is *roster-rational*: the cut shown is the cheapest real roster cut in one
 currency, and the charge is then the honest accounting of that cut; its net is never above V5's (by construction) and
 is lower on exactly the anomalous selections (by `c(acquired) − credit` there).
+
+**V5-R is NOT net-monotone, and V5-R's net is dominated by V5's (review F1).** V5 minimises the charge, so on any
+instance V5's net `G(K \ J) − Σ c` is at least V5-R's (pinned as an identity). The two differ in 77 of 545 randomly
+generated instances with a cut-set difference, and in every one V5-R charges more (median +80). V5-R also gives up
+the monotonicity V5 has: in 63 of 767 random cases a *free credited extra* incoming piece LOWERED V5-R's net, by up to
+1,298; V5 had 0 violations. Minimal reproducer (pinned by
+`tests/trade/test_forced_drop_selection.py::test_v5r_net_is_not_monotone_in_a_free_credited_extra_piece_v5_is`): a
+roster at the cap whose cheapest player is a 900 bench player; trade 1 sends [3,000] and receives [3,000] (net 0);
+trade 2 is the same plus a free 1,000 — V5 releases the 1,000 it just received at its package credit (780), net 0;
+V5-R cuts the 900 bench player (900 > 780), net −120. This is the price of the roster-rational cut, not a regression:
+V5-R keeps more raw roster value (it never trades a more valuable real player for a cheaper-looking package credit),
+at the cost of a net that can fall when a free piece is added. The test exists so this is never mistaken for one.
 
 **Filler-flip outcome.** V5-R neutralises more sweetener flips (17 vs 6; V1 neutralised 19) and over-corrects two,
 because a sweetener whose package credit is below its value is no longer the convenient cut. The research verdict
@@ -413,7 +428,9 @@ market convention differs from the roster answer.
   in that case receiving him can lower the net (his lineup value is Component B's).
 * Receiving an *uncredited* (unpriced/unresolved) extra piece can lower the net by up to the cheapest legal cut: he
   takes a spot with no package credit and is never a free cut (review fix D). Monotonicity is pinned for credited
-  pieces only.
+  pieces only, **and for V5 only**: V5-R's net is non-monotone (63 of 767 random cases lowered by a free credited
+  piece, up to 1,298; reproducer pinned, §3a) and is dominated by V5's net on the 77 of 545 instances where the two cut
+  sets differ.
 * `forcedReleaseChargeBasis` summarises every forced drop, including ones an over-limit roster owed anyway, so it can
   read `mixed` when the marginal itself is all package credit.
 * Duplicate incoming labels: the package removes by label and multiplicity, so with two incoming players sharing a

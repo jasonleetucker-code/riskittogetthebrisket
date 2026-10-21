@@ -934,6 +934,62 @@ def test_adding_an_incoming_piece_never_lowers_the_receivers_net(flag_on, seed):
         assert after >= before - 1e-6
 
 
+def _net(existing, incoming, labels, package, mode, d):
+    """``package gap - charge`` of the selected cleanup (the War Room net when
+    the roster owed nothing before the trade)."""
+    sel = fds.select_forced_drops(
+        existing, incoming, labels, drops_needed=d, starter_slots=[],
+        waiver_values={"WR": 300.0}, scarcity=None, slot_eligibility=None,
+        package=package, mode=mode,
+    )  # fmt: skip
+    return package.gap() - sel.total, sel
+
+
+def test_v5r_net_is_not_monotone_in_a_free_credited_extra_piece_v5_is():
+    """Record §3 / §9 (review F1).  Net-monotonicity ("receiving one more
+    CREDITED piece never lowers the receiver's net") holds for V5 ONLY.
+
+    Minimal reproducer: a roster at the cap whose cheapest player is a bench
+    900.  Trade 1 sends a 3,000 and receives a 3,000 (no release owed, net 0).
+    Trade 2 is the same plus a free 1,000.  V5 may release the 1,000 it just
+    received, charged the package credit it forgoes (780), so its net stays 0.
+    V5-R selects by ``c`` across both pools, so it cuts the 900 bench player
+    instead (900 > 780): net -120 — the free extra piece LOWERED the net.
+
+    This is the known price of V5-R's roster-rational cut (it never prefers a
+    cheaper-looking package credit to a cheaper real player), NOT a regression:
+    if this test starts failing, V5-R's selection changed and the owner
+    decision in record §3a must be re-read.  V5's net dominates V5-R's.
+    """
+    existing = [_asset("bench900", 900.0), _asset("star5000", 5000.0)]
+    r3000 = _asset("r3000", 3000.0)
+    free1000 = _asset("free1000", 1000.0)
+
+    # Trade 1: 1-for-1, the roster stays at the cap, nothing is released.
+    p1 = fds.PackageSides(sending=(3000.0,), receiving=(("r3000", 3000.0),))
+    net_1 = p1.gap()
+    assert net_1 == 0.0
+
+    # Trade 2: the same plus a free credited 1,000 — one release is owed.
+    p2 = fds.PackageSides(sending=(3000.0,), receiving=(("r3000", 3000.0), ("free1000", 1000.0)))
+    labels = ["r3000", "free1000"]
+    net_v5, sel_v5 = _net(existing, [r3000, free1000], labels, p2,
+                          fds.MODE_PACKAGE_CONSISTENT, 1)  # fmt: skip
+    net_v5r, sel_v5r = _net(existing, [r3000, free1000], labels, p2,
+                            fds.MODE_ROSTER_RATIONAL, 1)  # fmt: skip
+
+    (d5,) = sel_v5.drops
+    assert d5.asset.player_id == "free1000" and d5.charge_basis == fds.CHARGE_PACKAGE
+    assert net_v5 == pytest.approx(0.0, abs=1e-6)
+    assert net_v5 >= net_1 - 1e-6  # V5: monotone
+
+    (dr,) = sel_v5r.drops
+    assert dr.asset.player_id == "bench900" and dr.charge == 900.0
+    assert net_v5r == pytest.approx(-120.0, abs=1e-6)
+    assert net_v5r < net_1 - 100.0  # V5-R: the free extra piece lowered the net
+    assert net_v5 >= net_v5r  # V5 dominates V5-R on the same instance
+
+
 # ── 8. One number across surfaces ──────────────────────────────────────
 
 
