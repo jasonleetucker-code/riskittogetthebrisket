@@ -92,9 +92,17 @@ git -C "$APP" merge-base --is-ancestor <DORMANT_MERGE_SHA> "$CODE_SHA"      # th
 test -z "$(GIT_OPTIONAL_LOCKS=0 git -C "$APP" status --porcelain --untracked-files=no -- src scripts config)"
 # Capture first: grep -q exiting early under pipefail could SIGPIPE systemctl and hide a match.
 SVC_ENV=$(systemctl show dynasty.service -p Environment -p EnvironmentFiles)
-ENV_FILES=$(printf '%s\n' "$SVC_ENV" | sed -n 's/^EnvironmentFiles=\([^ ]*\).*/\1/p')
-if printf '%s\n' "$SVC_ENV" | grep -qi FORCED_DROP \
-   || grep -qis FORCED_DROP "$APP/.env" $ENV_FILES; then
+ENV_FILES=$(sed -n 's/^EnvironmentFiles=\([^ ]*\).*/\1/p' <<<"$SVC_ENV")
+# Fail CLOSED: an env file that exists but cannot be read is a STOP, never "flag absent".
+# No pipes into grep -q (pipefail + SIGPIPE could turn a match into a miss).
+ENV_CHECK=()
+for f in "$APP/.env" $ENV_FILES; do
+  [ -e "$f" ] || continue
+  [ -r "$f" ] || { echo "cannot read $f to check the flag: STOP"; exit 1; }
+  ENV_CHECK+=("$f")
+done
+if grep -qi FORCED_DROP <<<"$SVC_ENV" \
+   || { [ "${#ENV_CHECK[@]}" -gt 0 ] && grep -qi FORCED_DROP -- "${ENV_CHECK[@]}"; }; then
   echo "forced-drop flag set in the service environment: STOP"; exit 1
 fi
 (cd "$APP" && sha256sum --check - <<'EOF'
