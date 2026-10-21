@@ -432,7 +432,7 @@ class ActivityGradingTests(unittest.TestCase):
         # trade, grading must still emit badges on every side.  With
         # the floor-1 contribution that mirrors private grading, a
         # symmetric trade (both sides got the same asset count) ends
-        # up with identical floor totals → "Fair trade" on every
+        # up with identical floor totals → "Evenly valued" on every
         # side.  We pin against the 2025 fixture trade which is
         # symmetric (1 player + 1 pick per side); the 2024 fixture
         # is asymmetric and legitimately grades lopsided when the
@@ -448,7 +448,7 @@ class ActivityGradingTests(unittest.TestCase):
         trade_2025 = next(t for t in feed if t["transactionId"] == "tx-2025-a")
         for side in trade_2025["sides"]:
             self.assertEqual(side["grade"]["grade"], "A")
-            self.assertEqual(side["grade"]["label"], "Fair trade")
+            self.assertEqual(side["grade"]["label"], "Evenly valued")
 
     def test_activity_grades_sanitize_non_finite_valuation(self) -> None:
         # A valuation that returns NaN for some assets must not poison
@@ -485,7 +485,7 @@ class ActivityGradingTests(unittest.TestCase):
         grades = [s["grade"]["grade"] for s in trade["sides"]]
         labels = [s["grade"]["label"] for s in trade["sides"]]
         self.assertEqual(grades, ["A", "A"])
-        self.assertEqual(labels, ["Fair trade", "Fair trade"])
+        self.assertEqual(labels, ["Evenly valued", "Evenly valued"])
 
     def test_activity_grades_each_multi_team_side_on_its_own_net(self) -> None:
         # 3-team trade, graded the way the private /trades page grades
@@ -494,7 +494,7 @@ class ActivityGradingTests(unittest.TestCase):
         # exactly where it matters — team C receives the SECOND-smallest
         # pile (3000) but sent only 1000, so it is a clear winner, while
         # ranking received totals would call it the unremarkable middle
-        # side and stamp it "Fair trade".
+        # side and stamp it "Evenly valued".
         #
         #   A: got 1000, gave 8000  → −7000 / 8000 = −87.5%  → F
         #   B: got 8000, gave 3000  → +5000 / 8000 = +62.5%  → A+
@@ -535,7 +535,7 @@ class ActivityGradingTests(unittest.TestCase):
         # The per-section endpoint (/api/public/league/activity) also
         # honors the optional valuation kwarg.  Uniform player values
         # + uniform pick values → the 2025 swap is balanced and both
-        # sides land in the "Fair trade" bucket.
+        # sides land in the "Evenly valued" bucket.
         def _valuation(asset):
             if isinstance(asset, dict) and asset.get("kind") == "player":
                 return 1000.0
@@ -552,7 +552,7 @@ class ActivityGradingTests(unittest.TestCase):
         grades = [side["grade"]["grade"] for side in trade_2025["sides"]]
         self.assertEqual(grades, ["A", "A"])
         labels = {side["grade"]["label"] for side in trade_2025["sides"]}
-        self.assertEqual(labels, {"Fair trade"})
+        self.assertEqual(labels, {"Evenly valued"})
 
 
 class ImportSurfaceTests(unittest.TestCase):

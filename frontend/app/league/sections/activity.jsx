@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { Avatar, Card, EmptyCard, Stat, nameFor } from "../shared.jsx";
 import TradeFlowSankey from "@/components/graphs/TradeFlowSankey";
 import ActivityHeatmap from "@/components/graphs/ActivityHeatmap";
+import { historyGradeBasisText } from "@/lib/trade-history-grade-policy";
 
 function ActivitySection({ managers, data, onNavigate }) {
   const feed = data?.feed || [];
@@ -44,6 +45,9 @@ function ActivitySection({ managers, data, onNavigate }) {
       return tokens.includes(q);
     });
   }, [feed, filter]);
+  // The grade-basis sentence explains grades, so it shows only when the feed
+  // carries at least one (a feed built without a valuation has none).
+  const hasGrades = feed.some((t) => (t.sides || []).some((s) => s.grade || s.currentGrade));
 
   if (!feed.length && !data?.totalCount) return <EmptyCard label="Trade activity" />;
 
@@ -112,6 +116,14 @@ function ActivitySection({ managers, data, onNavigate }) {
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {hasGrades && filtered.length > 0 ? (
+            <div
+              data-testid="activity-grade-basis"
+              style={{ fontSize: "0.68rem", color: "var(--subtext)", lineHeight: 1.45 }}
+            >
+              {historyGradeBasisText()}
+            </div>
+          ) : null}
           {filtered.map((t) => (
             <TradeCard key={t.transactionId} trade={t} managers={managers} onNavigate={onNavigate} />
           ))}
@@ -196,7 +208,9 @@ export default ActivitySection;
 // backend's one grading function under the active package model; this only
 // renders a band and label (no values reach the public payload).  An
 // unavailable grade is an honest "we don't know", never a grade computed
-// from some other date's values.
+// from some other date's values.  The label is a VALUE-BALANCE word (OD-F6
+// option A: the lowest tier reads "Evenly valued", never the market-fairness
+// verdict's "FAIR"); the hover text states the basis.
 function TradeGradeBand({ grade, when, unavailableTitle, testId }) {
   if (!grade) return null;
   if (grade.available === false) {
@@ -211,7 +225,11 @@ function TradeGradeBand({ grade, when, unavailableTitle, testId }) {
     );
   }
   return (
-    <span data-testid={testId} style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+    <span
+      data-testid={testId}
+      title={historyGradeBasisText()}
+      style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}
+    >
       <span style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500 }}>{when}</span>
       <span style={{ fontSize: "0.78rem", fontWeight: 800, color: grade.color }}>{grade.grade}</span>
       <span style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500 }}>{grade.label}</span>

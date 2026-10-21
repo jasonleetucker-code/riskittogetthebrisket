@@ -42,7 +42,7 @@ const PUBLIC_FEED = [
         ownerId: "ownA",
         teamName: "Team A",
         receivedAssets: [{ kind: "player", playerName: "Caleb Williams", position: "QB" }],
-        grade: { grade: "A", color: "var(--green)", label: "Fair trade" },
+        grade: { grade: "A", color: "var(--green)", label: "Evenly valued" },
       },
       {
         rosterId: 2,
@@ -52,7 +52,7 @@ const PUBLIC_FEED = [
           { kind: "player", playerName: "Drake Maye", position: "QB" },
           { kind: "pick", season: "2027", round: 1, label: "2027 R1" },
         ],
-        grade: { grade: "A", color: "var(--green)", label: "Fair trade" },
+        grade: { grade: "A", color: "var(--green)", label: "Evenly valued" },
       },
     ],
     totalAssets: 3,

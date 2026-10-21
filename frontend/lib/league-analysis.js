@@ -13,6 +13,7 @@ import {
 } from "@/lib/trade-logic";
 import { fillLineup, lineupPosition } from "@/lib/starter-slots";
 import { pickOwnershipUnavailableReason } from "@/lib/pick-ownership";
+import { HISTORY_EVEN_LABEL, HISTORY_EVEN_PCT } from "@/lib/trade-history-grade-policy";
 
 // ── Position Group Helpers ──────────────────────────────────────────────
 export const POS_GROUPS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PICKS"];
@@ -89,9 +90,11 @@ export function filterTradesToRollingWindow(trades, windowDays = 365) {
 // letters used to run A, A, A-, B+, A+ -- a Clear win graded below a Slight
 // win, and B+ meant both "Clear win" and "Slight overpay".  Cut points are
 // unchanged (PRIOR, owner recalibration pending).  Twin:
-// src/public_league/trade_grading.py::grade_from_pct.
+// src/public_league/trade_grading.py::grade_from_pct.  The tier-0 cut and word
+// come from lib/trade-history-grade-policy.js (OD-F6 option A, 2026-10-21:
+// "Evenly valued", formerly "Fair trade" -- relabelled, never re-graded).
 export function gradeTradeHistorySide(pct, isWinner) {
-  if (pct < 3) return { grade: "A", color: "var(--green)", label: "Fair trade" };
+  if (pct < HISTORY_EVEN_PCT) return { grade: "A", color: "var(--green)", label: HISTORY_EVEN_LABEL };
   if (isWinner) {
     if (pct < 8) return { grade: "A", color: "var(--green)", label: "Slight win" };
     if (pct < 15) return { grade: "A", color: "var(--green)", label: "Good win" };
@@ -619,10 +622,9 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
   for (const trade of filtered) {
     const entry = analyzeRawTrade(trade, ctx);
 
-    // Per-side W/L for team scores.  3% is the fairness threshold —
-    // any trade where every team's net rounds below 3% shouldn't
-    // count as a win or loss for anyone.  ``totalGain`` (alpha-weighted,
-    // won/lost trades only) survives solely as the opt-in "legacy
+    // Per-side W/L for team scores.  HISTORY_EVEN_PCT (3%) is the
+    // evenly-valued cut: a side under it is neither a win nor a loss.
+    // ``totalGain`` (alpha-weighted, won/lost trades only) survives solely as the opt-in "legacy
     // concentration index" — a different metric, never the default.
     for (const s of entry.sides) {
       const key = sideAggregationKey(s);
@@ -649,10 +651,10 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
       const netAdj = Number(s.netAdjusted);
       if (Number.isFinite(netAdj)) teamScores[key].netAdjustedTotal += netAdj;
       if (Number(s.unresolvedAssets) > 0) teamScores[key].incompleteTrades++;
-      if (s.pctGap >= 3) {
+      if (s.pctGap >= HISTORY_EVEN_PCT) {
         teamScores[key].won++;
         teamScores[key].totalGain += s.netWeighted;
-      } else if (s.pctGap <= -3) {
+      } else if (s.pctGap <= -HISTORY_EVEN_PCT) {
         teamScores[key].lost++;
         teamScores[key].totalGain += s.netWeighted;
       }
