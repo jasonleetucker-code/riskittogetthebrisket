@@ -50,16 +50,40 @@ A trade belongs to its season-league. Three nested component definitions show th
 
 | def | joins season-leagues through | meaning |
 |---|---|---|
-| **L** | `previous_league_id` (lineage) | "the same league across seasons": the owner's whole-league unit |
-| **P** | L + every manager who was a side of a trade in the population | the plan's manager-lineage component |
-| **M** | P + every recorded member of a population league | a manager who knows a league without trading in it |
+| **L** | `previous_league_id` (lineage), plus a record's `leagueMaturity.lineageId` once a maturity owner stamps one | "the same league across seasons": the owner's whole-league unit |
+| **P** | L + every manager observed on a side of **any** ledger trade | the plan's manager-lineage component |
+| **M** | P + every recorded member of any ledger league | a manager who knows a league without trading in it |
 
-Three populations are measured:
-- `all`: every ledger group except an unproven dedupe (`POSSIBLE_OVERLAP` / `UNRESOLVED`);
+Links come from every ledger trade, not only the population being measured, so a component is what a
+reserve built over all observed trades would see.
+
+**Unknown linkage is not "no linkage."**
+- A trade with no league is an unlinkable singleton.
+- A trade is *partially observed* when fewer managers are seen than it has sides. For example, the Insider
+  pool crawl records only pool members' movements.
+- Every leakage share is computed over the evaluation trades it can check, and states the share it could not.
+- `P_fullyObservedOnly` repeats the P concentration over completely observed trades only.
+
+**Where participants come from.** The census joins the ledger's `hostTxId` to the intel ledger's
+`asset_movements.user_id`. A Sleeper transaction id is globally unique, so the intel row also names the league
+when a duplicate group's representative record came from KTC. `--participants side_keys` would use the ledger's
+pseudonymous `sideEvidence.managerKey` instead, but on the box those are all null (§3.3). Raw ids stay in process
+memory.
+
+**Clock.** The chronological split uses `collectedAt`, the protocol's availability clock, by default.
+`--clock occurred` is available. Coverage reports both clocks and the trades missing each.
+
+Five populations are measured:
+- `allProvenDedupe`: every ledger group except an unproven dedupe (`POSSIBLE_OVERLAP` / `UNRESOLVED`);
 - `fitEligible`: groups that are not `unsuitable` under `market_trade_eval.fit_suitability`, which requires
   verified dynasty, a known QB format, two sides, no FAAB or unresolved assets, and so on;
 - `fitEligibleSleeperObserved`: the subset in the Sleeper-observed lane, which the preregistration names for the
-  first voting candidate.
+  first voting candidate;
+- `estimatorEligible` / `estimatorEligibleSleeperObserved`: the estimator's own gate, an empty
+  `estimator_evidence(...).hardExclusions`. It also drops undated and unknown-collection trades, multi-copy or
+  unknown-exclusivity leagues, and trades with unattributed senders.
+
+Policies are simulated on `fitEligibleSleeperObserved` and on both `estimatorEligible` populations.
 
 Maturity (≥ 3 completed seasons) is **not** applied. Its owner is #1852, which is not merged. Cohorts can be
 cross-tabulated once it lands.
@@ -71,18 +95,31 @@ Per definition and population, the census reports:
 - HHI, the effective number of components (1/HHI) and the Gini coefficient;
 - the largest component's share of trades, leagues and trading managers.
 
-**Coverage** covers trades by lane and month, the date range, leagues, lineages, leagues with membership, the
-share of trades whose managers are observed, and trades with no league or no date.
+**Coverage** covers trades by lane and month (small cells print as `<5`), both clocks' date ranges, leagues,
+lineages and trading managers.
+
+**Linkage** covers:
+- trades with no league;
+- complete, partial and unobserved participants;
+- the fully linkable share;
+- population leagues present in the intel `leagues` table;
+- leagues with a predecessor link, and links that point outside the table (a possible gap in the chain);
+- leagues with a lineage stamp.
+
+**Policy results are a distribution over 100 seeds**, given as mean, p5, p95, min and max, and never collapsed
+to one number. Each one states `replicatesWithEval`: leakage and concentration are computed over replicates
+whose holdout came out non-empty, while sizes include the empty ones.
 
 Policy leakage metrics, computed on each evaluation set against its training set:
 - `lineageLeak`: the evaluation trade's lineage also has training trades;
 - `componentLeakP`: the same at P-component level;
-- `participantLeak`: a manager of the evaluation trade is a manager on a training trade (among evaluation trades
-  whose managers are observed);
-- `membershipLeak`: a member of its league is a member of a training trade's league;
+- `participantLeak`: a manager of the evaluation trade is a manager on a training trade, among evaluation trades
+  whose every side is observed. `participantLeakAnyObserved` also includes partly observed trades;
+- `membershipLeak`: a participant or member of its league also trades in, or is a member of, a training league.
+  Both kinds of key share one key space;
 - `evalDatedBeforeTrainEnd`: temporal overlap;
-- `participantUnobserved` / `leakageUnmeasurable`: evaluation trades for which the check cannot be made. These
-  are never counted as zero.
+- `participantPartialShare` / `participantUnobservedShare` / `leakageUnmeasurableShare`: evaluation trades for
+  which the check is incomplete or impossible. These are never counted as zero.
 
 ## 3. What can be measured off the box (coverage labelled)
 
@@ -125,7 +162,8 @@ magnitude: thousands of leagues, each very small.
    - KTC publishes the host league id but no transaction id, no managers and no predecessor chain
      (`normalize_ktc_row`).
    - For these rows a "component" is at most the league. Any component reserve degenerates to a league holdout,
-     and its manager leakage is **unmeasurable**. The census reports it as `participantUnobserved`, never as 0.
+     and its manager leakage is **unmeasurable**. The census reports it as `participantUnobservedShare`, never as
+     0.
 3. **The Sharp lane is a snowball sample.**
    - `scripts/discover_sharp_graph.py` expands from seeded managers to their leagues, to the members of those
      leagues, and on.
@@ -136,7 +174,16 @@ magnitude: thousands of leagues, each very small.
    - The synthetic power study (`CHASE_TRADE_MARKET_POWER_STUDY.md` §4.5) shows the collapse is steep: 10%
      per-seat overlap turns 160 leagues into 25 components.
 4. **Lineage comes from the intel `leagues.previous_league_id`** link. Sleeper's `"0"` terminator is treated as
-   "no predecessor", matching #1852's G3 fix. Loops terminate.
+   "no predecessor", matching #1852's G3 fix, and loops terminate. Known limits, reported rather than hidden:
+   - **A season missing from the table cuts the chain.** A 2026 league and its 2024 ancestor split into two
+     lineages if 2025 was never crawled. That over-counts independent lineages; `predecessorLinksLeavingTheTable`
+     measures it.
+   - **Own-league and KTC leagues carry no chain** in this table.
+   - **A redraft predecessor is not treated as ending the chain.** For leakage, merging more is the conservative
+     direction, because the same people are in the league.
+   - The canonical chain walker and store are #1852's (`league_filter.predecessor_league_id`,
+     `ledger.league_season_chain`). When #1852 lands, the census should consume them; the record's
+     `leagueMaturity.lineageId` is already read when present.
 
 ## 4. The tool
 
@@ -149,21 +196,36 @@ magnitude: thousands of leagues, each very small.
 Properties:
 - It **never draws, persists or exposes the reserve.** The policy simulations hash
   `census-sim|<seed>|<opaque unit>` with seeds 0…R−1. The reserve hashes `component ‖ 0x1f ‖ committed salt`.
-  The committed salt and the reserve config are never read; a test pins this.
-- Every store is opened `mode=ro`. Nothing is written. Raw ids exist only in process memory.
-- Its output is aggregate-only. `assert_aggregate_only` refuses any 9+ digit run and any `mk:` / `utrade:` /
-  `sleeper:` / `syn:` key text.
-- Exit codes: 0 ok, 2 an input store is absent, 3 the guard refused a write or a process start.
+  The reserve module, its config and its salt are never read; a test pins this.
+- Every store is opened `mode=ro`. Nothing is written at the Python level. Raw ids exist only in process memory.
+- **SQLite caveat.** The intel ledger runs in WAL mode, so SQLite's own C layer may open its `-shm` file, which
+  the audit hook cannot see. A long read also delays the live writer's checkpoint. So run it as the service user
+  and outside the timer windows.
+- Its output is aggregate-only. `assert_aggregate_only` refuses any 9+ digit run and any `word:` / `L:` / `U:`
+  key text, which covers `sleeper:`, `unknown:`, `mk:` and `utrade:`.
+- `--box` refuses abbreviated flags, and refuses to run unless the guard is installed (exit 64).
+- Exit codes: 0 ok; 2 the ledger or, in `--box`, the intel ledger is absent; 3 the guard refused a write or a
+  process start; 64 bad invocation.
 
-Tests: `tests/scripts/test_lineage_component_census.py` (synthetic ids). They cover:
+Tests: `tests/scripts/test_lineage_component_census.py`, 16 tests on synthetic ids. They cover:
 - the three definitions on a hand-built graph;
+- links taken from outside the population;
 - loop safety;
-- the concentration arithmetic;
-- the hand-computed leakage arithmetic;
-- that a component reserve never leaks through participants;
-- that the simulation hash is not the reserve hash;
-- the id guard;
-- an end-to-end store run that leaves both stores byte-identical and prints no id.
+- the concentration arithmetic, including a non-zero Gini;
+- the hand-computed leakage arithmetic, with one key space and partial observation;
+- that a component reserve never leaks, checked non-vacuously;
+- that empty holdouts are counted;
+- the window and purge boundaries;
+- that the hybrid collapses to the whole-league holdout;
+- the simulation hash framing;
+- the id guard, plus a synthetic end-to-end run through it;
+- `--box` refusing abbreviations and refusing to run without the guard;
+- an end-to-end store run that resolves a duplicate group's league through the tx id, leaves both stores
+  byte-identical and prints no id.
+
+An independent review found 4 high-severity and 3 medium defects in the first version, among them hidden empty
+holdouts, a `--bo` abbreviation that bypassed the guard, partial observation counted as observed, and the wrong
+clock. All are fixed in the pinned commit.
 
 A guarded `--box` rehearsal against fixture stores exited 0. The guard refused 0 writes or processes, and both
 stores were byte-identical afterwards.
@@ -195,7 +257,7 @@ effective 70.7; no giant component.
 | **A** | 152 [97–210] | 17.1 | 0.12 | **0.06** | 0.28 | 0 | 1,530 |
 | B | 973 [612–1,379] | 15.1 | 0.15 | 0 | 0.01 | **1.00** | 0 |
 | B′ | 144 [84–205] | 13.1 | 0.16 | 0 | 0.00 | 0 | 1,484 |
-| C | 146 [94–205] | 13.3 | 0.16 | 0 | 0.00 | 0 | 1,491 |
+| C | 152 [102–206] | 13.8 | 0.15 | 0 | 0.00 | 0 | 1,515 |
 
 **Scenario S2:** 10% overlap, 160 leagues, 5,600 trades. The P-components are 31, top-1 **74%**, effective 1.8;
 M top-1 84%. Two giant components hold 81%.
@@ -206,7 +268,7 @@ M top-1 84%. Two giant components hold 81%.
 | **A** | 165 [106–227] | 1.9 | 0.73 | **0.28** | 0.83 | 0 | 1,704 |
 | B | 936 **[73–4,397]** | 3.4 | 0.51 | 0 | 0.12 | **1.00** | 0 |
 | B′ | 137 **[12–631]** | 3.6 | 0.49 | 0 | 0.12 | 0 | 1,564 |
-| C | 156 [102–209] | 1.9 | 0.73 | 0.26 | 0.77 | 0 | 1,670 |
+| C | 166 [114–230] | 1.8 | 0.74 | 0.27 | 0.78 | 0 | 1,708 |
 
 **Scenario S3:** 5% overlap, 640 leagues, 20,097 trades. The P-components are 348, top-1 10.9%, effective 41.5;
 M top-1 25.8%, effective 13.7.
@@ -217,7 +279,7 @@ M top-1 25.8%, effective 13.7.
 | **A** | 611 [501–730] | 29.8 | 0.12 | **0.11** | 0.52 | 0 | 6,135 |
 | B | 3,818 [2,426–5,737] | 19.1 | 0.22 | 0 | 0.06 | **1.00** | 0 |
 | B′ | 585 [385–877] | 18.6 | 0.22 | 0 | 0.06 | 0 | 6,014 |
-| C | 619 [468–805] | 20.1 | 0.15 | 0.04 | 0.21 | 0 | 6,134 |
+| C | 623 [480–818] | 19.7 | 0.15 | 0.04 | 0.21 | 0 | 6,224 |
 
 In S1, the reserve's realized share at the target fraction (evaluation trades as a share of the population) was:
 - 10%: 0.097, range 207–783 trades;
@@ -225,7 +287,8 @@ In S1, the reserve's realized share at the target fraction (evaluation trades as
 - 30%: 0.300.
 
 The single largest component lands in the reserve at about the target rate. In S2 that one draw decides whether
-the reserve holds a few dozen trades or most of the data.
+the reserve holds a few dozen trades or most of the data. At 10% in S2, 4 of the 100 seeds produced an empty
+holdout.
 
 ### Trade-offs
 
@@ -240,7 +303,7 @@ the reserve holds a few dozen trades or most of the data.
 
 ## 6. What the box numbers would decide (provisional reading, not a decision)
 
-Read `populations.fitEligibleSleeperObserved.components.P` first:
+Read `populations.estimatorEligibleSleeperObserved.linkage` first, then its `components.P` and `components.P_fullyObservedOnly`:
 
 - **If P has no giant component** (largest share ≲ 5%, effective components ≳ 50):
   - Component-level and league-level holdouts both work.
@@ -275,7 +338,7 @@ ssh -p <port> dynasty@<host> 'bash -s' < lineage_census_box.sh > lineage_census.
 #!/usr/bin/env bash
 # Manager-lineage component census (owner Package 5A).  READ-ONLY, aggregates only.
 set -Eeuo pipefail
-PIN=0593d4b72b7b915488446bb3ceaffe85e789c329
+PIN=dc5ee632884277bb7e31a9a05d8fc8dfe15379d9
 APP_DIR=/home/dynasty/trade-calculator
 RAW="https://raw.githubusercontent.com/jasonleetucker-code/riskittogetthebrisket/$PIN/scripts"
 [[ "$(id -un)" != root ]] || { echo "run as the service user, not root" >&2; exit 64; }
@@ -286,7 +349,7 @@ for f in lineage_component_census.py research_readonly_guard.py; do
   curl -fsSL --proto '=https' --max-time 60 "$RAW/$f" -o "$WORK/$f"
 done
 sha256sum --check --strict --quiet - >&2 <<'PINS'
-e84fb9a96d37fba9a1a2ffefdb10531b802cea9c6753376ead8895d02fe2a5b2  lineage_component_census.py
+67c16624d60a6f42308761a29b348393df303ea513c12d1f4f14e7ed1442acff  lineage_component_census.py
 5c208fe8ee187d78ef7173330efc795a621b970f1ba69ff416c9edf836bc6f18  research_readonly_guard.py
 PINS
 PY=/home/dynasty/.venvs/trade-calculator/bin/python
@@ -296,16 +359,18 @@ TMPDIR="$WORK" RISKIT_APP_DIR="$APP_DIR" OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=
   "$PY" -B "$WORK/lineage_component_census.py" --box --replicates 100
 ```
 
-- The pinned commit `0593d4b72b7b…` is this PR's script commit, reachable through the PR ref.
+- The pinned commit `dc5ee632884…` is this PR's script commit, reachable through the PR ref.
 - After merge, `main` carries byte-identical files. The sha256 check is what binds the run, and the guard file's
   hash is `main`'s current `scripts/research_readonly_guard.py`.
-- Expected cost: about 1 minute for 28.5k synthetic trades × 100 seeds locally; budget 30 minutes on the box.
-  Memory is well under 1 GB.
+- Expected cost: about 2 minutes locally for 28.5k synthetic trades × 100 seeds × 3 policy populations. Budget
+  30 minutes on the box. Python heap peaked at about 20 MB in that run; the raw-id sets add to that but stay well
+  under 1 GB.
 
 Acceptance checks on the output:
 1. Exit 0, and `readOnlyGuard.refusedWriteOrProcessAttempts == 0`.
-2. `inputs.intel.available` is true, and `inputs.intel.sleeperTradesWithParticipants` is close to
-   `sleeperTradesJoinable`. A large gap means the intel movements were pruned. Report it; it is not an error.
+2. `inputs.intel.available` is true. Compare `inputs.intel.tradesFoundInIntel` with `tradesWithHostTxId`: a
+   large gap means intel movements were pruned. Read each population's `linkage` block before its component
+   numbers. Report both; neither is an error.
 3. The output contains no 9+ digit run and no key text; the script asserts this.
 4. Commit it byte-for-byte under `docs/market_trades/evidence/lineage_census_<date>.json`, and add the real
    tables to this document as an addendum.
