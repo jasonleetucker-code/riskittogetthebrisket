@@ -251,6 +251,8 @@ JavaScript cannot disagree and rollback needs no frontend deploy.
   change). `tests/fixtures/trade_grade_parity_cases.json` keeps its numbers; the label field changes in
   both parity suites.
 * Measured impact: **0 sides, 0 trades change grade; 0 W/L changes.** Only the displayed word.
+* Does not resolve the "win" collision (§1.3): a 3.0-8 % history "Slight win" remains next to a market-FAIR trade. Adding that wording to the copy list is part of the option if the owner wants it resolved.
+* Contract note: as designed, the flag serves `historyGradePolicy.wording`, which is an API contract and fixture change, so it is not a "zero-change copy edit". A flagless copy-only change is the alternative; the owner picks one.
 * Risk: low. Does not make the two thresholds agree -- it stops *calling both* "fair". The percentage
   and denominator differences remain (labelled).
 * Flag design: `history_grade_outcome_wording` (default OFF). OFF = today's labels. Rollback
@@ -308,7 +310,7 @@ JavaScript cannot disagree and rollback needs no frontend deploy.
 
 **A now, with C kept as a designed, evidence-gated follow-up; B alone is not recommended.**
 
-1. The measured disagreement is small and one-directional on real trades (floor only, history is the
+1. The measured disagreement (a lower bound: unpriced pick trades near the floor are excluded and the at-the-time population is unmeasured) is small and one-directional on real trades (floor only, history is the
    *stricter* one; never history-fair while the advisor says NOT FAIR), so there is no urgency to
    change the math and a retroactive re-grade (B) buys little.
 2. The user-visible harm is the **shared word** and the **two percentages**, which A fixes at no
@@ -323,8 +325,10 @@ JavaScript cannot disagree and rollback needs no frontend deploy.
 > **OD-F6 -- League Hub trade-history "Fair trade" grade.**
 > The history grade's "Fair trade" (below 3.0 % of the larger adjusted side, no floor) and the advisor's
 > FAIR (band `fair` of `fairness_bands_v2`) are different predicates. Measured at one pinned board they
-> disagree on 3.9 % of real trade sides (all from the 250-point floor, the history grade being the
-> stricter), 7.4 % of a synthetic grid.
+> disagree on at least 3.9 % of real trade sides (6 of 153; all from the 250-point floor, the history grade
+> being the stricter) and 7.4 % of a synthetic grid. The real figure is the current-board gradable subset only
+> (76 of 105 trades; trades with unpriced assets, mostly picks, are excluded; the at-the-time population the
+> public timeline shows is unmeasured).
 > **Choose one:**
 > 1. **A -- relabel only (recommended now).** Rename the history tier-0 word to "Even outcome" (and the
 >    `/trades` badge), state the value basis in the label, define the 3 % literal once. No grade,

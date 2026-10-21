@@ -471,7 +471,8 @@ def synthetic_trades(pool: list[float], n: int, seed: int = SEED) -> list[dict[s
 
     Shape drawn uniformly; the last received piece is the pool value that lands the
     relative package gap closest to a target drawn uniformly in [0, 0.20] of the larger
-    adjusted side, so every band edge is exercised.  Illustrative: it is NOT the league's
+    adjusted side, so every band edge is exercised (0.20 is a ruler chosen to span the owner's
+    lopsided edge, not a band number; GAP_BIN_MULTIPLES is likewise a ruler).  Illustrative: it is NOT the league's
     trades and says nothing about how often such trades occur."""
     rng = random.Random(seed)
     values = sorted({float(v) for v in pool if is_priced(v)}, reverse=True)

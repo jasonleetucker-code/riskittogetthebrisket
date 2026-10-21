@@ -156,13 +156,13 @@ def test_priced_trades_with_an_unresolvable_label_are_not_gradable() -> None:
 
 # ── aggregate-only ────────────────────────────────────────────────────────
 
-SENTINELS = ("SENTINEL_TEAM_ZED", "SENTINEL_MGR_QUX", "1002085133723299840", "Player Label Alpha")
+SENTINELS = ("SENTINEL_TEAM_ZED", "SENTINEL_MGR_QUX", "SENTINEL_ID_000", "Player Label Alpha")
 
 
 def test_report_carries_no_input_label_or_identifier() -> None:
     raw = [
         {
-            "leagueId": "1312006700437352448",
+            "leagueId": "SENTINEL_ID_001",
             "sides": [
                 {
                     "team": SENTINELS[0],
