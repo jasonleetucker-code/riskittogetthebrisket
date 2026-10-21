@@ -2267,7 +2267,9 @@ export function worstTeamBand(flows) {
     }
     if (worst && worst.level == null) return;
     const band = classifyGap(gap, largerUtility);
-    const rel = relativeGapPct(gap, largerUtility) ?? 0;
+    // Tie-break only (the band already decided severity); an empty pairing
+    // (base 0) can only be in the fair band, where every rel ties at 0.
+    const rel = largerUtility > 0 ? Math.abs(gap) / largerUtility : 0;
     const cand = {
       index,
       level: band.level,
