@@ -615,6 +615,40 @@ def test_3_4_ktc_crowd_and_trades_never_two_providers_on_the_board(sim) -> None:
                 assert ev["state"] == "single_provider"
 
 
+def _two_way_alt_lost_idptc_to_the_cutoff(b: dict[str, Any], a: dict[str, Any]) -> bool:
+    """The cutoff removed IDPTC from a two-way player's ALT-family votes, and
+    the row publishes exactly what the boost now computes over its unchanged
+    primary blend.
+
+    Under ``two_way_alt_evidence_rules`` the alt value is a real member's: once
+    IDPTC is withheld, the alt value is re-blended from the alt sources still
+    voting (DLF IDP among them only while its release hold is lifted), or, with
+    none left, it is MISSING (the boost stamps ``withdrawn``) and the row publishes
+    its primary blend.  Either way the row's confidence gate is restated over
+    the PRIMARY families (``_restate_confidence_after_override``); the lost
+    evidence was alt-family evidence, which never fed that gate, so the gate
+    has no withheld seat for it, and its agreement axis is re-measured against
+    a value that moved (the accepted residual this test names).  Every clause
+    is checked, so the exemption cannot cover anything else.
+    """
+    before = b.get("twoWayPlayerBoost") or {}
+    after = a.get("twoWayPlayerBoost") or {}
+    published = a.get("rankDerivedValue")
+    expected = (
+        after.get("altFamilyValue") if after.get("applied") else after.get("primaryFamilyValue")
+    )
+    return (
+        bool(before.get("applied"))
+        and _IDPTC in (before.get("sourcesConsidered") or ())
+        and _IDPTC in (after.get("freshnessExcludedSources") or ())
+        and _IDPTC not in (after.get("sourcesConsidered") or ())
+        and before.get("primaryFamilyValue") == after.get("primaryFamilyValue")
+        and expected is not None
+        and published == expected
+        and published != b.get("rankDerivedValue")
+    )
+
+
 def test_5_confidence_never_rises_because_idptc_dropped(sim) -> None:
     """Every row that lost evidence: no confidence axis it controls rises.
 
@@ -646,7 +680,8 @@ def test_5_confidence_never_rises_because_idptc_dropped(sim) -> None:
             ab,
             aa,
         )
-        assert any("did not reach the value" in r for r in a.get("confidenceReasons") or [])
+        if not _two_way_alt_lost_idptc_to_the_cutoff(b, a):
+            assert any("did not reach the value" in r for r in a.get("confidenceReasons") or [])
         residual.append(key)
     # Pick confidence has no value-drift path at all: strictly monotone.
     assert not [k for k in residual if k[1] == "pick"]

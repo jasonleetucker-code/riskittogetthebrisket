@@ -700,6 +700,7 @@ def cached_league_scouting(
     payload = build_league_scouting(league_id, contract=contract, window=window, now=now, **kwargs)
     if payload.get("status") == mp.STATUS_OK:
         with _payload_lock:
+            mp.drop_expired_payloads_locked(_payload_cache, t, PAYLOAD_TTL_SECONDS)
             if len(_payload_cache) >= _PAYLOAD_MAX_ENTRIES:
                 oldest = min(_payload_cache, key=lambda k: _payload_cache[k][0])
                 _payload_cache.pop(oldest, None)

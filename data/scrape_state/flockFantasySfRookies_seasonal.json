@@ -1,8 +1,8 @@
 {
  "classYear": 2026,
- "lastInactiveVerifiedAt": "2026-10-20T05:22:46Z",
+ "lastInactiveVerifiedAt": "2026-10-21T01:01:46Z",
  "lastObservation": {
-  "at": "2026-10-20T05:22:46Z",
+  "at": "2026-10-21T01:01:46Z",
   "outcome": "expected_empty",
   "rawRowCount": 0,
   "reason": "expected_empty:class=2026:since=2026-10-01T00:00:00Z",
