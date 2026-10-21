@@ -1,10 +1,23 @@
-# Proposed deviation: where the V2.1 U2 / U2b evidence is stored
+# Deviation: where the V2.1 U2 / U2b evidence is stored
 
-**Status: PROPOSED, PENDING OWNER APPROVAL.** This file edits no frozen rule. It is a proposal
-for the V2.1 lane to transcribe into `docs/sources/outlier_integrity_v21/DEVIATIONS.md` (a
-`V21-D` entry) once the owner approves, and it travels with the code that needs it (PR #1910).
-Until approved, treat the storage choice below as an implementation decision awaiting sign-off,
-not as part of the registration.
+**Status: DECIDED — owner, 2026-10-21.** The owner answered in the coordinator's session; the
+selected option label, verbatim: **"Artifacts + pin held-out (Recommended)"**.
+
+What the decision says (as relayed by the coordinator):
+
+* the deviation below is **approved**: the full U2/U2b stamps live in the 90-day CI artifact
+  (plus the 30-day box copy), and git keeps the checksummed manifest;
+* **pinning requirement:** when G1 and G2 are selected (earliest 2026-11-25), their full stamps
+  must be **verified against the manifest checksum and committed into the repository**, so the
+  evaluation evidence is permanent. Procedure: [`PIN_HELDOUT_STAMPS.md`](PIN_HELDOUT_STAMPS.md);
+* every other board's full stamps **may expire** with their artifacts.
+
+The option label is the owner's own selection. The surrounding sentences are the coordinator's
+relay of what that option meant, not owner-typed text.
+
+This file edits no frozen rule. The V2.1 lane transcribes the entry at the end into
+`docs/sources/outlier_integrity_v21/DEVIATIONS.md` as a `V21-D` entry. Intake row: `IV21-U2S` in
+`docs/OWNER_REQUESTED_TODO.md`. The text below is the proposal as approved.
 
 ## What the registration says
 
@@ -58,20 +71,25 @@ only, the alternative is to put the full sidecar back into the archive zip. That
 * **Expiry.** The full U2 stamps of a refresh board expire 90 days after that refresh. The first
   stamped H_ORIGIN board is the first refresh after #1910 merges (the refresh runs the scraper from
   `main`, so production deploy is not needed for stamps). Its artifact therefore expires about
-  90 days after the merge, around late January 2027 for a late-October merge. Stage 4 (earliest
-  2026-11-25) must **download and pin** the H-board artifacts before then. The lane should add that
-  pinning step to its Stage 4 plan. If Stage 4 slips past expiry, the wrong-player gate is BLOCKED
-  for every board whose stamps expired. It is never inferred as passing.
+  90 days after the merge, around late January 2027 for a late-October merge. As decided, the
+  stamps of **G1 and G2** must be **downloaded, verified and committed** once they are selected
+  (earliest 2026-11-25), and before their artifacts expire (`PIN_HELDOUT_STAMPS.md`). G1 is the
+  first complete H_ORIGIN board at or after 2026-11-04, so its artifact expires no earlier than
+  2027-02-02. If a gate board's stamps expire unpinned, the wrong-player gate is BLOCKED for it; it
+  is never inferred as passing.
 * **Visibility.** Artifacts of a public repository can be downloaded by any signed-in GitHub user.
   The full stamps add matching rungs and page positions to vendor rows whose values are already
   public in the tracked archive zips. No application route serves them.
 
-## Proposed DEVIATIONS entry (for the lane to transcribe once approved)
+## DEVIATIONS entry (approved; for the lane to transcribe)
 
-> **V21-Dxx (storage of the U2 / U2b evidence; owner-approved <date>).** Preregistration 3.7 names no
-> storage for U2/U2b. To keep git history bounded (owner, 2026-10-21), each refresh archives a
-> manifest beside the board: U2b toggles, U2 census, collector-error count, SHA-256 of the full
-> stamps. The full stamps are kept outside git, as a 90-day Actions artifact plus a 30-day box-local
-> copy, verifiable against that checksum. "G1 and G2 carry the stamps" is read as U3 and U2b inline
-> and U2 by checksum-bound reference. Stage 4 pins the H-board artifacts before they expire; an
-> expired or unverifiable stamp file makes the wrong-player gate BLOCKED for that board.
+> **V21-Dxx (storage of the U2 / U2b evidence; owner-approved 2026-10-21, "Artifacts + pin held-out
+> (Recommended)").** Preregistration 3.7 names no storage for U2/U2b. To keep git history bounded
+> (owner, 2026-10-21), each refresh archives a manifest beside the board: U2b toggles, U2 census,
+> collector-error count, SHA-256 of the full stamps. The full stamps are kept outside git, as a
+> 90-day Actions artifact plus a 30-day box-local copy, verifiable against that checksum. "G1 and
+> G2 carry the stamps" is read as U3 and U2b inline and U2 by checksum-bound reference. When G1 and
+> G2 are selected, their full stamps are verified against the archived manifest and committed
+> under `docs/sources/outlier_integrity_v21/pinned_stamps/` (`PIN_HELDOUT_STAMPS.md`); other
+> boards' stamps may expire. An expired or unverifiable stamp file makes the wrong-player gate
+> BLOCKED for that board.
