@@ -537,6 +537,14 @@ describe("per-team package rule", () => {
     expect(rawIn).toBe(rawOut);
   });
 
+  it("a null piece is refused, never priced as 0 (MISSING IS NEVER ZERO)", () => {
+    for (const missing of [null, undefined, NaN, "5000"]) {
+      const teams = perTeamPackageTotals([[missing, 5000], [4000]], [[1, 1], [0]]);
+      expect(teams[0].band).toBeNull();
+      expect(teams[1].band).toBeNull();
+    }
+  });
+
   it("N = 2: the per-team reading is the two-side reading, mirrored", () => {
     const sides = routed([[[["a", 9999]]], [[["b1", 7846], ["b2", 5717]]]]);
     const [a, b] = perTeamPackageTotals(

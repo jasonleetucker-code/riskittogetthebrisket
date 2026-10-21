@@ -986,7 +986,10 @@ export function perTeamPackageTotals(values, routes, opts = {}) {
  * ``packageAdjustedPairTotals`` (read only by the ktc rollback family).
  */
 function teamPackageUtilities(gives, receives, totals, opts = {}) {
-  const sortDesc = (xs) => xs.map(Number).sort((a, b) => b - a);
+  // No Number() coercion: a null/undefined/non-number piece must reach the
+  // owner's finite check and be refused (MISSING IS NEVER ZERO), exactly as the
+  // Python twin raises on a None piece.  Number(null) would price it as 0.
+  const sortDesc = (xs) => [...xs].sort((a, b) => b - a);
   try {
     const [utility, receivedUtility] = packageUtilities(
       [sortDesc(gives), sortDesc(receives)],
