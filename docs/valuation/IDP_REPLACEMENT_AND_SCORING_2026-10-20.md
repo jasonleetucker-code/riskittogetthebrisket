@@ -62,7 +62,7 @@ and the headline IDP correlation gap is explained by range restriction and IDP n
 **Recommendation (§9):**
 - **Methodology:** consolidate, do not add. Route the displacement anchor through the canonical replacement owner
   (LI-5's waiver tier, which is exactly the "banded top three" rule tested here) with a health filter, as part of
-  the C2-REPL-01 consolidation. Gated, owner-approved, and sequenced after the forced-drop correction
+  the C2-REPL-01 consolidation. Gated, requires owner approval, and sequenced after the forced-drop correction
   (investigation A).
 - **Scarcity:** coupled to the above. Feeding free agents to LI-5 is what activates the currently inert
   scarcity multiplier (1.0 everywhere), so it is either a separately flagged effect of the same PR or an
@@ -87,7 +87,7 @@ and the headline IDP correlation gap is explained by range restriction and IDP n
 
 | input | detail |
 |---|---|
-| today's board | `exports/archive/dynasty_export_20261020_052241.zip`, built with today's code through `shadow_replay.build_context`, which reproduces the prior lane's anchors exactly (sha256 in the JSON) |
+| today's board | `exports/archive/dynasty_export_20261020_052241.zip`, built with today's code through `shadow_replay.build_context`, which reproduced the prior lane's anchors exactly at the evidence commit `b8008c2a4` (the sha256 in the JSON pins the input archive only). `build_api_data_contract` also reads the working tree's tracked `data/` and `CSVs/`, which refresh every two hours: re-running on a later HEAD with the same archive drifts the anchors by up to about 3% (DB A0 2156 to 2146, LB 2149 to 2208, RB 1626 to 1660) with conclusions unchanged (independent review, 2026-10-21). Treat every figure as of that commit |
 | pre-season board | the served 2026-08-25 golden board (`data/ops/v1-27/…`). Per-source pre-season ranks come from a today's-code replay of the 2026-08-25 archive. Ranks are source inputs, so methodology drift does not move them. |
 | production | Sleeper weekly stat lines for 2026 weeks 1–6 and 2025 weeks 1–18. Both seasons are scored under the current card by the canonical scorer (`compute_weekly_points`). |
 | scorer check | 3,299 / 3,299 player-weeks match Sleeper's own points (max difference 0.004) |
@@ -505,7 +505,8 @@ Line numbers are traced at run time; see `consumers` in the JSON.
 | Perfect Draft (server) | `src/draft/context.py:324` | positional anchor, plus a position-agnostic free-agent ladder `W(k)` |
 | Perfect Draft (client) | `frontend/lib/perfect-draft.js:170`, `:250` | rookie surplus = `max(0, v·tilt − waiver(pos))`; release cost = base × mult |
 | Droppability | `src/roster_intel/droppability.py:235` | same cut ladder |
-| Perfect Waivers | `src/trade/perfect_waivers.py:1092` | calls `effective_cut_cost(asset, {}, None)`: **no anchor at all** |
+| Perfect Waivers | `src/trade/perfect_waivers.py:1092` | calls `effective_cut_cost(asset, {}, None)`: **no anchor in its cost basis**. It also calls `team_droppability` and the capacity assessment, and its `requiredStartersToday` comes from the cut ladder's `undroppable` list, which is built in ECC order, so that list's contents can shift (capacity counts do not) |
+| Others downstream of the same anchor | `frontend/lib/auction-advice.js:97,111` (reads `waiverValues`), the decision engine's forced-drop term (via `forced_drop_cost`), and the N-team path (via the simulator) | all move with the anchor; omitted from the first consumer list |
 | FAAB | `src/trade/faab_engine.py:326`, `server.py:8054` | `V_repl` is **position-agnostic**: the format line blended 50/50 with the 12th-best unrostered player |
 | LI-5 / scarcity | `src/league_intel/replacement.py:341`, `src/api/gameplan.py:517`, `src/draft/displacement.py:209` | gameplan calls LI-5 **without free agents**, so there is no waiver tier, `waiver_scarcity` is `None`, and the multiplier is **inert at 1.0 for every position** (confirmed: `servedMultiplierByPosition` is all 1.0) |
 
@@ -550,9 +551,18 @@ drop is the roster's own cheapest legal cut.
   which is not viable. **FAAB is barely affected, because it is position-agnostic and has its own anchor.**
 - **LI-5 scarcity:** inert today. Wiring free agents into the gameplan bundle would activate a 0.85–1.15×
   multiplier on every cut cost: a served change, and an owner decision of its own. Routing the anchor through
-  LI-5 (§9 recommendation 1) supplies exactly those free agents, so the two are coupled.
+  LI-5 (§9 recommendation 1) supplies exactly those free agents, so the two can be coupled; see the currency note in §9 recommendation 1.
 
 ## 9. Conclusion, recommendation, gates and what must not be done
+
+**Statistical caveats (independent review).** The out-of-sample DB intervals still admit effects as large as the in-sample
+-0.134; "predicts at least as well" is a point estimate with a CI of [-0.059, +0.195]; the Bonferroni DB upper bound
+(+0.002) is borderline; there is a single author-chosen reference card with no sensitivity check; and the games-played
+selection conditions on survival. Sample sizes differ between cells (DB 0.309 at n=81 versus 0.323 at n=82) and the
+wire-order DB rho differs from the prior lane's (0.206 at n=27 versus 0.124 at n=26) because the pools differ. 10 of 13
+production-qualified wire DBs are unpriced by the board, so the deep DB wire is simply not covered. Perfect Draft's
+shadow skips the auction-rookie exclusion the served path applies (`src/draft/context.py:324,332`); whether that
+matters in October is unverified.
 
 **Conclusion: replacement methodology. A league-specific valuation defect is not established.**
 
@@ -574,7 +584,22 @@ drop is the roster's own cheapest legal cut.
      `src/draft/displacement.py::waiver_values_by_position` through LI-5's waiver tier, with the strict health
      rule (§2.2: NFL team, explicit `Active` status, no unavailable injury designation; a missing status is
      unknown, never healthy), **as part of the C2-REPL-01 consolidation**. A health-filtered banded rule written
-     inside `displacement.py` would be a sixth implementation and is out.
+     inside `displacement.py` would be a sixth implementation and is out. The strict health rule in this study
+     (`is_healthy_strict`) is a research definition: a production version must consume the existing owners
+     (`src/ros/availability.py` states and `src/trade/waiver.py::waiver_candidate_exclusion`, the add-pool filter)
+     rather than add another health definition. Whether the DL/LB rookie anchor setters pass that filter's
+     `rookie_gate` and `single_source` checks is not yet checked.
+   - **Currency and the scarcity coupling.** LI-5 in the gameplan bundle runs on `rosValue`, a 0-100 ROS index, while
+     the displacement anchor is in `rankDerivedValue` (0-9999). Scarcity today comes from the bundle's rosValue LI-5
+     call (`src/draft/context.py:152-174`), so a separate market-value LI-5 call fed free agents would not activate
+     scarcity unless the bundle call is also changed. Whether the two are "coupled" is therefore a design choice for
+     the consolidation, not a given. The study's A3 is an inline top-three mean, not an LI-5 call; a parity assertion
+     against `compute_replacement_levels(free_agents=...)` is part of the build.
+   - **Which question the ladder answers.** The anchor prices the opportunity cost of a roster spot in dynasty-asset
+     terms, where a free injured star or rookie is a claimable asset with real value. The health filter is right only
+     if the question is this-season lineup replacement. That is an owner call, and it is not settled here. Residuals
+     remain even after A3h: 12-13 of 35 DB starters sit below the anchor, and the DB anchor (1,754) is above the
+     lowest starter (1,335).
    - **Who moves.** Everything that reads the displacement anchor moves together: roster capacity and its
      consumers (Trade Calculator Team Context, War Room, Trade Finder, Angle, suggestions, Analyze Trade, trade
      simulator), Perfect Draft (server and client) and Droppability. **FAAB does not**: it has its own
@@ -593,7 +618,7 @@ drop is the roster's own cheapest legal cut.
      **sequencing after investigation A's forced-drop correction**; then before/after verdict comparisons on
      Trade Calculator Team Context, War Room, Finder and Perfect Draft.
    - It changes served recommendations, so the exact production impact goes to the owner before activation
-     (owner decision §2 and §6). Both effects remain owner-approved and gated.
+     (owner decision §2 and §6). Both effects require owner approval and remain gated.
    - Not production-qualified (A4): unstable in the bar, undefined at four positions, and its evaluation here is
      circular.
 2. **Latent scarcity wiring.** Either record "scarcity multiplier intentionally inert" in the displacement and
