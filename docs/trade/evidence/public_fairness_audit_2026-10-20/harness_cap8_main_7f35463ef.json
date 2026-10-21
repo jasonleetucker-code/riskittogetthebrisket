@@ -1,0 +1,126 @@
+{
+  "bands": "fairness_bands_v2",
+  "codeRoot": "main@7f35463ef (merged into the audit branch; includes train 17: #1861, #1886)",
+  "counts": {
+    "D1_privateCategory_notEven_whenPublicFair": 109,
+    "D1_privateCategory_whenPublicFair": {
+      "APPROXIMATELY_EVEN": 35,
+      "FAVORABLE": 48,
+      "UNFAVORABLE": 61
+    },
+    "D1_privateCategory_whenPublicNotFair": {
+      "FAVORABLE": 327,
+      "STRONGLY_FAVORABLE": 799,
+      "STRONGLY_UNFAVORABLE": 906,
+      "UNFAVORABLE": 435
+    },
+    "D1_privateComponentA_differs": 0,
+    "D1_privateComponentA_differs_dueToForcedRelease": 0,
+    "D1_privateComponentA_notEvaluated": 0,
+    "D1_publicFair_byComponentA": {
+      "componentA_agreesFair": {
+        "APPROXIMATELY_EVEN|None": 35,
+        "FAVORABLE|None": 48,
+        "UNFAVORABLE|None": 61
+      }
+    },
+    "D1_teamEvaluations": 2611,
+    "P1_teamContextInvariant_violations": 0,
+    "P2_publicEqualsEngine_violations": 0,
+    "P3_twoTeamSymmetry_violations": 0,
+    "P4_independentRecompute_violations": 0,
+    "P5_valueFree_violations": 0,
+    "P6_forcedReleaseSentinel_privateComponentA_moved": 428,
+    "P6_forcedReleaseSentinel_publicChanged": 0,
+    "byTeamCount": {
+      "2": 1485,
+      "3": 60,
+      "4": 60
+    },
+    "publicResults": {
+      "FAIR": 144,
+      "NOT_FAIR": 2467,
+      "UNABLE_TO_DETERMINE": 779
+    },
+    "refusedByLedger": 0,
+    "trades": 1605
+  },
+  "examples": {
+    "D1_category": [
+      {
+        "category": "UNFAVORABLE",
+        "legs": [
+          [
+            "p:101",
+            1,
+            2
+          ],
+          [
+            "p:104",
+            1,
+            2
+          ],
+          [
+            "p:201",
+            2,
+            1
+          ]
+        ],
+        "reason": null,
+        "shape": "2:2v1",
+        "team": 1
+      },
+      {
+        "category": "FAVORABLE",
+        "legs": [
+          [
+            "p:101",
+            1,
+            2
+          ],
+          [
+            "p:104",
+            1,
+            2
+          ],
+          [
+            "p:201",
+            2,
+            1
+          ]
+        ],
+        "reason": null,
+        "shape": "2:2v1",
+        "team": 2
+      },
+      {
+        "category": "UNFAVORABLE",
+        "legs": [
+          [
+            "p:101",
+            1,
+            2
+          ],
+          [
+            "p:105",
+            1,
+            2
+          ],
+          [
+            "p:201",
+            2,
+            1
+          ]
+        ],
+        "reason": null,
+        "shape": "2:2v1",
+        "team": 1
+      }
+    ]
+  },
+  "ok": true,
+  "publicDigest": "8501804266dd9670c7e355486d147d180bf4b7f9a32fe2b31c0ffdad9edd67db",
+  "publicDigestUnderForcedReleaseSentinel": "8501804266dd9670c7e355486d147d180bf4b7f9a32fe2b31c0ffdad9edd67db",
+  "rosterSize": 8,
+  "seed": 20261020
+}
