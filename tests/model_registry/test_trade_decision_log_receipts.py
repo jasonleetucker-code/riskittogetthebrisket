@@ -68,7 +68,7 @@ def test_one_decision_receipt_points_into_the_line_and_copies_no_asset(log):
     body = out["body"]
     assert body["headline"] == line["headline"] == "YES"
     assert body["action"] == "recommend_only" and body["promotes"] is False
-    assert body["bands"] == "fairness_bands_v1"
+    assert body["bands"] == "fairness_bands_v2"
     assert out["modelVersionId"].startswith("mv:trade_decision:trade_decision_v")
     text = json.dumps(out)
     for leaked in ("Secret Receiver", "Secret Sender"):

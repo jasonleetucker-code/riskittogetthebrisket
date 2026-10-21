@@ -279,14 +279,32 @@ def asset_evidence_codes(asset: Any) -> tuple[str, ...]:
     return tuple(codes)
 
 
-def _evidence_gaps(
-    simulation: dict[str, Any],
-    market: Any,
-    roster: Any,
-    feasibility: Any,
-    strategy: dict[str, Any],
-    team_context: bool,
-) -> list[dict[str, Any]]:
+#: The asset half of the evidence gates, in gate order.  Every one is a fact
+#: about the traded assets themselves (priced? on the board? held? quarantined?
+#: fresh?), never about Team Context, so it applies in every mode and is the
+#: half per-team market fairness reads (``src/trade/team_verdicts.py``).
+ASSET_EVIDENCE_GATE_CODES = (
+    "no_priced_assets",
+    "off_board_assets",
+    "unpriced_assets",
+    "unheld_assets",
+    "pick_ownership_unknown",
+    "ownership_unverifiable",
+    "quarantined_values",
+    "stale_values",
+)
+
+
+def asset_evidence_gaps(simulation: dict[str, Any], market: Any) -> list[dict[str, Any]]:
+    """The ASSET half of the evidence gates, in :data:`ASSET_EVIDENCE_GATE_CODES`
+    order (pure).
+
+    ``ownership_unverifiable`` (N-team engine, R1) fires when the simulation
+    carries ``ownershipEvidence.unverifiableAssetIds`` — set only by the N-team
+    ledger (a player held by several rosters, a pick whose ownership is
+    unknown, or rosters that are not ``current``).  Every existing route leaves
+    that key absent, so their gates are unchanged.
+    """
     gaps: list[dict[str, Any]] = []
     md = market.detail or {}
     if not market.available:
@@ -342,6 +360,21 @@ def _evidence_gaps(
                 reason=po.get("reason"),
             )
         )
+    ownership = simulation.get("ownershipEvidence")
+    unverifiable = (
+        [str(x) for x in ownership.get("unverifiableAssetIds") or []]
+        if isinstance(ownership, dict)
+        else []
+    )
+    if unverifiable:
+        gaps.append(
+            _missing(
+                "ownership_unverifiable",
+                "Who owns every asset in this trade could not be confirmed: "
+                + ", ".join(unverifiable),
+                assetIds=unverifiable,
+            )
+        )
     quarantined = [
         a.get("name")
         for a in _traded(simulation)
@@ -367,6 +400,18 @@ def _evidence_gaps(
                 assets=stale,
             )
         )
+    return gaps
+
+
+def _evidence_gaps(
+    simulation: dict[str, Any],
+    market: Any,
+    roster: Any,
+    feasibility: Any,
+    strategy: dict[str, Any],
+    team_context: bool,
+) -> list[dict[str, Any]]:
+    gaps = asset_evidence_gaps(simulation, market)
     if not team_context:
         return gaps
 
@@ -440,6 +485,10 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     md = market.detail or {}
     gap = float(md["vaAdjustedGap"])
     larger = max(float(md["sendingAdjusted"]), float(md["receivingAdjusted"]))
+    # The band's base is the larger PACKAGE UTILITY the market lens took from
+    # the fairness-band owner (fairness_bands_v2, OD-F2) -- never recomputed
+    # here, never the larger adjusted side.
+    larger_utility = float(md["largerPackageUtility"])
     fd = feasibility.detail or {}
     release = fd.get("forcedDropReleaseCost")
     charged = None
@@ -453,7 +502,7 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     ):
         charged = float(release)
     net = gap - charged if charged is not None else gap
-    band = fairness_bands.classify(net, larger)
+    band = fairness_bands.classify(net, larger_utility)
     if band["level"] == "fair":
         direction, magnitude = "neutral", None
     else:
@@ -468,6 +517,7 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
         "forcedReleaseCost": None if charged is None else int(round(charged)),
         "netGap": int(round(net)),
         "largerAdjustedSide": int(round(larger)),
+        "largerPackageUtility": int(round(larger_utility)),
         "band": band,
         "kind": "independent",
     }
@@ -776,7 +826,7 @@ def _a_from_values(send: list[float], recv: list[float], release: float | None) 
     # ``None`` = no cut is charged (not an unknown cost: an unpriced cut is an
     # evidence gate upstream and never reaches this search).
     net = gap - release if release is not None else gap
-    band = fairness_bands.classify(net, max(send_adj, recv_adj))
+    band = fairness_bands.classify(net, fairness_bands.larger_package_utility(send, recv))
     if band["level"] == "fair":
         return {"evaluated": True, "direction": "neutral", "magnitude": None, "band": band}
     return {
@@ -1429,173 +1479,3 @@ def decide(
         coverage=_cover(a, b),
         confidence=confidence,
     )
-
-
-# ── Public categories (Brisket Trade Advisor; design §3) ──────────────────
-#
-# The public advisor shows one of five recommendation categories and never a
-# number.  The categories are a MAPPING of this module's own decision — no new
-# threshold, no new band, no second engine.  "Strong" means the value band is
-# unfair or lopsided in the matching direction (``_objective_value``'s
-# ``magnitude == "large"``) AND the headline and graded leaning agree — the
-# same strong cut the 3-4-team mapping uses (band unfair/lopsided), so strong
-# means one thing at every team count.  Copy lives here and only here.
-
-PUBLIC_CATEGORIES = (
-    "STRONGLY_FAVORABLE",
-    "FAVORABLE",
-    "APPROXIMATELY_EVEN",
-    "UNFAVORABLE",
-    "STRONGLY_UNFAVORABLE",
-    "UNAVAILABLE",
-)
-
-PUBLIC_CATEGORY_TEXT: dict[str, dict[str, str]] = {
-    "STRONGLY_FAVORABLE": {
-        "recommendation": "ACCEPT",
-        "headline": "ACCEPT — STRONG TRADE FOR YOUR TEAM",
-        "message": "Our analysis strongly favors your side of this trade.",
-    },
-    "FAVORABLE": {
-        "recommendation": "ACCEPT",
-        "headline": "ACCEPT — GOOD TRADE FOR YOUR TEAM",
-        "message": "Our analysis indicates this trade benefits your team.",
-    },
-    "APPROXIMATELY_EVEN": {
-        "recommendation": "FAIR",
-        "headline": "FAIR TRADE — YOUR DECISION",
-        "message": "Our analysis considers this a relatively balanced exchange.",
-    },
-    "UNFAVORABLE": {
-        "recommendation": "DECLINE",
-        "headline": "DECLINE — NOT RECOMMENDED",
-        "message": "Our analysis indicates this trade does not favor your team.",
-    },
-    "STRONGLY_UNFAVORABLE": {
-        "recommendation": "DECLINE",
-        "headline": "DECLINE — STRONGLY NOT RECOMMENDED",
-        "message": "Our analysis strongly favors the assets your team would give up.",
-    },
-    "UNAVAILABLE": {
-        "recommendation": "NONE",
-        "headline": "NO RECOMMENDATION",
-        "message": "This trade can't be evaluated reliably right now.",
-    },
-}
-
-#: The execution gate's own copy (UNFAVORABLE with reason ``roster_limit``).
-PUBLIC_ROSTER_LIMIT_TEXT: dict[str, str] = {
-    "recommendation": "DECLINE",
-    "headline": "DECLINE — YOUR ROSTER CAN'T FIT THIS TRADE",
-    "message": "Your team couldn't complete this trade under the roster limit.",
-}
-
-#: The ONLY reason codes the public surface may expose.  Anything else is
-#: ``None`` with the generic UNAVAILABLE copy (posture, projection, staleness
-#: and quarantine causes are deliberately collapsed).
-PUBLIC_REASON_TEXT: dict[str, str] = {
-    "asset_not_evaluable": "One or more assets in this trade can't be evaluated right now.",
-    "ownership_unverifiable": "We couldn't confirm who owns every asset in this trade.",
-    "multi_team_unsupported": (
-        "Recommendations for trades with more than two teams aren't available yet."
-    ),
-    "roster_limit": PUBLIC_ROSTER_LIMIT_TEXT["message"],
-}
-
-#: Evidence-gate code -> public reason code.  Codes absent here (and any code
-#: added to the gates later) map to ``None``: unknown fails closed.
-_PUBLIC_GAP_REASON = {
-    "no_priced_assets": "asset_not_evaluable",
-    "off_board_assets": "asset_not_evaluable",
-    "unpriced_assets": "asset_not_evaluable",
-    "unheld_assets": "ownership_unverifiable",
-    "pick_ownership_unknown": "ownership_unverifiable",
-}
-
-
-def public_category_from_decision(decision: Any) -> str:
-    """The public category for one 2-team :func:`decide` result (design §3).
-
-    | headline | condition | category |
-    |---|---|---|
-    | NOT_ENOUGH_EVIDENCE | — | UNAVAILABLE |
-    | YES | A favours, A large, leaning MAKE | STRONGLY_FAVORABLE |
-    | YES | otherwise | FAVORABLE |
-    | NO_TOO_CLOSE | — | APPROXIMATELY_EVEN |
-    | NO | execution gate | UNFAVORABLE (reason ``roster_limit``) |
-    | NO | A opposes, A large, leaning PASS | STRONGLY_UNFAVORABLE |
-    | NO | otherwise | UNFAVORABLE |
-
-    ``A`` is ``components.objectiveValue``.  Anything malformed or unknown is
-    UNAVAILABLE — a confident category is never invented.
-    """
-    if not isinstance(decision, dict):
-        return "UNAVAILABLE"
-    headline = decision.get("headline")
-    if headline == "NOT_ENOUGH_EVIDENCE":
-        return "UNAVAILABLE"
-    if headline == "NO_TOO_CLOSE":
-        return "APPROXIMATELY_EVEN"
-    if headline not in ("YES", "NO"):
-        return "UNAVAILABLE"
-    if headline == "NO" and decision.get("deciding") == "executionGate":
-        return "UNFAVORABLE"
-    comps = decision.get("components")
-    a = comps.get("objectiveValue") if isinstance(comps, dict) else None
-    a = a if isinstance(a, dict) else {}
-    large = a.get("magnitude") == "large"
-    lean = decision.get("leaning")
-    if headline == "YES":
-        if a.get("direction") == "favors" and large and lean == "MAKE":
-            return "STRONGLY_FAVORABLE"
-        return "FAVORABLE"
-    if a.get("direction") == "opposes" and large and lean == "PASS":
-        return "STRONGLY_UNFAVORABLE"
-    return "UNFAVORABLE"
-
-
-def public_category_from_net_band(band: Any, net: Any) -> str:
-    """The public category for one side's fairness band (the 3-4-team path).
-
-    fair → APPROXIMATELY_EVEN; slight → FAVORABLE / UNFAVORABLE by the sign of
-    ``net``; unfair or lopsided → STRONGLY_* by sign.  ``band`` is a
-    ``fairness_bands.classify`` result (or its ``level``).  Unknown → UNAVAILABLE.
-    """
-    level = band.get("level") if isinstance(band, dict) else band
-    if not isinstance(net, (int, float)) or isinstance(net, bool):
-        return "UNAVAILABLE"
-    if level == "fair":
-        return "APPROXIMATELY_EVEN"
-    if level not in ("slight", "unfair", "lopsided") or net == 0:
-        return "UNAVAILABLE"
-    if level == "slight":
-        return "FAVORABLE" if net > 0 else "UNFAVORABLE"
-    return "STRONGLY_FAVORABLE" if net > 0 else "STRONGLY_UNFAVORABLE"
-
-
-def public_reason_code(decision: Any) -> str | None:
-    """The one public reason code for a decision, or ``None``.
-
-    ``roster_limit`` for the execution gate.  For NOT_ENOUGH_EVIDENCE, the
-    FIRST gap decides (gates run asset checks before team-context checks, so
-    a trade with an unevaluable asset reads the same whatever the team's
-    posture).  A first gap outside the public list — or any code this
-    function does not know — is ``None``: fail closed.
-    """
-    if not isinstance(decision, dict):
-        return None
-    if decision.get("headline") == "NO" and decision.get("deciding") == "executionGate":
-        return "roster_limit"
-    if decision.get("headline") != "NOT_ENOUGH_EVIDENCE":
-        return None
-    gaps = decision.get("missingEvidence")
-    if not isinstance(gaps, list) or not gaps or not isinstance(gaps[0], dict):
-        return None
-    return _PUBLIC_GAP_REASON.get(str(gaps[0].get("code") or ""))
-
-
-def public_text(category: str, reason_code: str | None = None) -> dict[str, str]:
-    """``{recommendation, headline, message}`` for a public category (copy)."""
-    if category == "UNFAVORABLE" and reason_code == "roster_limit":
-        return dict(PUBLIC_ROSTER_LIMIT_TEXT)
-    return dict(PUBLIC_CATEGORY_TEXT.get(category) or PUBLIC_CATEGORY_TEXT["UNAVAILABLE"])

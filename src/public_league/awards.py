@@ -41,7 +41,7 @@ import math
 from collections import defaultdict
 from typing import Any
 
-from . import award_eligibility, metrics
+from . import award_eligibility, metrics, ownership
 from .draft import _pick_ownership_map, pick_weight
 from .playoff_structure import resolve_playoff_structure
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
@@ -2293,14 +2293,13 @@ def _award_from_row(
         return _awaiting_award(key, label)
     winner = pool[0]
     owner_id = winner["ownerId"]
-    rid = _roster_id_for_owner(season, owner_id)
     return {
         "key": key,
         "label": label,
         "description": AWARD_DESCRIPTIONS.get(key, ""),
         "ownerId": owner_id,
         "displayName": winner.get("displayName") or metrics.display_name_for(snapshot, owner_id),
-        "teamName": (metrics.team_name(snapshot, season.league_id, rid) if rid is not None else ""),
+        "teamName": _award_team_name(snapshot, season, owner_id),
         "value": value_builder(winner),
     }
 
@@ -2313,6 +2312,25 @@ def _roster_id_for_owner(season: SeasonSnapshot, owner_id: str) -> int | None:
             except (TypeError, ValueError):
                 return None
     return None
+
+
+def _award_team_name(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, owner_id: str) -> str:
+    """Team name ``owner_id`` held in ``season``, or ``""``.
+
+    Sleeper's rosters name only CURRENT owners, so a manager who handed a
+    roster off mid-season (``ownership.handed_off_roster``) is looked up there,
+    and the name is that manager's own alias for the league-season
+    (``metrics.team_name_for_owner``) rather than the successor's.  For a
+    current owner this is exactly ``metrics.team_name`` with no week.
+    """
+    if not owner_id:
+        return ""
+    rid = _roster_id_for_owner(season, owner_id)
+    if rid is None:
+        rid = ownership.handed_off_roster(season.league_id, owner_id)
+    if rid is None:
+        return ""
+    return metrics.team_name_for_owner(snapshot, season.league_id, rid, owner_id)
 
 
 # ── shared per-season row sets ────────────────────────────────────────────
@@ -2400,7 +2418,6 @@ def _activity_awards_for_season(
         _add(_awaiting_award("best_trade_of_the_year", "Best Trade of the Year"))
     elif best_trade is not None:
         gain, owner_id, payload, best_tx = best_trade
-        rid = _roster_id_for_owner(season, owner_id)
         # Reuse the activity-section trade normalizer so the public
         # payload carries the full sides/assets the UI already renders.
         from .activity import _normalize_trade
@@ -2413,9 +2430,7 @@ def _activity_awards_for_season(
                 "description": AWARD_DESCRIPTIONS["best_trade_of_the_year"],
                 "ownerId": owner_id,
                 "displayName": metrics.display_name_for(snapshot, owner_id),
-                "teamName": metrics.team_name(snapshot, season.league_id, rid)
-                if rid is not None
-                else "",
+                "teamName": _award_team_name(snapshot, season, owner_id),
                 "value": {
                     "pointsGained": payload["pointsGained"],
                     "week": payload["week"],
@@ -2475,7 +2490,6 @@ def _activity_awards_for_season(
         _add(_awaiting_award("playoff_mvp", "Playoff MVP"))
     elif playoff_mvp_rows:
         winner = playoff_mvp_rows[0]
-        rid = _roster_id_for_owner(season, winner["ownerId"])
         awards.append(
             {
                 "key": "playoff_mvp",
@@ -2483,9 +2497,7 @@ def _activity_awards_for_season(
                 "description": AWARD_DESCRIPTIONS["playoff_mvp"],
                 "ownerId": winner["ownerId"],
                 "displayName": winner["displayName"],
-                "teamName": metrics.team_name(snapshot, season.league_id, rid)
-                if rid is not None
-                else "",
+                "teamName": _award_team_name(snapshot, season, winner["ownerId"]),
                 "value": {
                     "playerId": winner["playerId"],
                     "playerName": winner["playerName"],
@@ -2583,7 +2595,6 @@ def _activity_awards_for_season(
         winner = pos_rows[0]
         if winner["starterPoints"] <= 0:
             continue
-        rid = _roster_id_for_owner(season, winner["ownerId"]) if winner["ownerId"] else None
         awards.append(
             {
                 "key": _PLAYER_AWARD_KEY_BY_POS[pos],
@@ -2591,9 +2602,7 @@ def _activity_awards_for_season(
                 "description": AWARD_DESCRIPTIONS[_PLAYER_AWARD_KEY_BY_POS[pos]],
                 "ownerId": winner["ownerId"],
                 "displayName": winner["displayName"],
-                "teamName": metrics.team_name(snapshot, season.league_id, rid)
-                if rid is not None
-                else "",
+                "teamName": _award_team_name(snapshot, season, winner["ownerId"]),
                 "value": {
                     "playerId": winner["playerId"],
                     "playerName": winner["playerName"],
@@ -2614,7 +2623,6 @@ def _activity_awards_for_season(
             awards.append(pending)
     if mvp_rows:
         winner = mvp_rows[0]
-        rid = _roster_id_for_owner(season, winner["ownerId"]) if winner["ownerId"] else None
         awards.append(
             {
                 "key": "league_mvp",
@@ -2623,9 +2631,7 @@ def _activity_awards_for_season(
                 "eligibility": rows["mvp_eligibility"],
                 "ownerId": winner["ownerId"],
                 "displayName": winner["displayName"],
-                "teamName": metrics.team_name(snapshot, season.league_id, rid)
-                if rid is not None
-                else "",
+                "teamName": _award_team_name(snapshot, season, winner["ownerId"]),
                 "value": {
                     "playerId": winner["playerId"],
                     "playerName": winner["playerName"],
@@ -2650,7 +2656,6 @@ def _activity_awards_for_season(
         # floored at 0); only skip when nobody actually started/scored.
         if (w.get("starterPoints") or 0) <= 0:
             return
-        r_id = _roster_id_for_owner(season, w["ownerId"]) if w["ownerId"] else None
         awards.append(
             {
                 "key": key,
@@ -2658,9 +2663,7 @@ def _activity_awards_for_season(
                 "description": AWARD_DESCRIPTIONS[key],
                 "ownerId": w["ownerId"],
                 "displayName": w["displayName"],
-                "teamName": metrics.team_name(snapshot, season.league_id, r_id)
-                if r_id is not None
-                else "",
+                "teamName": _award_team_name(snapshot, season, w["ownerId"]),
                 "value": {
                     "playerId": w["playerId"],
                     "playerName": w["playerName"],
@@ -2830,10 +2833,7 @@ def _standings(
         else:
             entry.update(barred.to_payload())
         if entity in ("manager", "team", "event") and owner_id:
-            rid = _roster_id_for_owner(season, owner_id)
-            entry["teamName"] = (
-                metrics.team_name(snapshot, season.league_id, rid) if rid is not None else ""
-            )
+            entry["teamName"] = _award_team_name(snapshot, season, owner_id)
         if detail is not None:
             entry["detail"] = detail(row)
         out.append(entry)

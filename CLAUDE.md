@@ -1409,16 +1409,28 @@ The retired rule picks the 1,000 piece, because 1,000 matches 1,000:
 The moment B holds two pieces the consolidation premium fires and credits
 2,032 to side A.
 
-**One representation, every side count.**  Until 2026-08-18 the 2-team meter
-read VA-adjusted side totals while the 3+-team meter read a raw net flow with
-no VA in it at all, so the same trade shape graded differently at 2 teams and
-at 3.  ``computeSideFlows`` is now VA-inclusive: each side's premium is spread
-proportionally across the assets it SENDS, so ``given_i = raw_i + adjustment_i``
-by construction and the premium lands on whichever side receives those pieces.
-``tradeImbalance`` is the single definition of "how far apart is this trade",
-and for N = 2 the identity ``nets[1] === tradeGapAdjusted(A, B)`` holds exactly
-(pinned by test).  Caveat that travels with the number: the multi-side VA is a
-**structural extension** of a 2-side calibration, not a separately fit model.
+**One rule, every side count: each team in its OWN perspective** (2026-10-20,
+spec ``docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`` §5.1).  For a routed trade of any
+N, team i's package reading is ``packageAdjustedPairTotals(G_i, R_i)`` — what it
+sends against everything routed to it, the JS twin of Python
+``package_model.adjusted_pair_totals`` (pinned by
+``tests/fixtures/multi_team_trade_parity_cases.json``).  Its gap is
+``recvAdj − sendAdj`` and its band base is ``max(sendAdj, recvAdj)`` — its OWN
+larger package, never the largest package anyone sends.  ``computeSideFlows``
+publishes that reading (``given`` / ``received`` / ``net`` = ``sendAdj`` /
+``recvAdj`` / gap, perspective values never summed across teams) beside the RAW
+routed flows ``rawGiven`` / ``rawReceived``, the only conserved quantities.
+For N = 2 the two readings are mirror images, every number is unchanged, and
+``nets[1] === tradeGapAdjusted(A, B)`` holds exactly (pinned by test).  For
+N ≥ 3 ``tradeImbalance`` returns ``{perTeam, worst}`` (no ``max(net) −
+min(net)``), and ``findBalancers`` returns nothing (no approved 3+-team
+balancing objective, SD-13).  RETIRED: ``computeMultiSideAdjustments``, which
+priced each side against the flattened union of every OTHER side — the "two
+imaginary sides" collapse directive §6 forbids (on the spec's I14 trade it put
+team A at +4,634 and the trade at "lopsided"; A's own packages differ by +610,
+"slight").  The browser's 3+-team reading is a
+labelled PRELIMINARY indicator; each team's final answer is
+``POST /api/trade/analyze-multi``'s.
 
 **The draft-capital stack effect is INFORMATIONAL ONLY** (owner directive
 2026-09-29, #1527).  ``computeStackAdjustments`` still computes it for a
@@ -1593,6 +1605,54 @@ generated side (``thresholds.topologyRejected``), and the suggestions
 equalizer per addition.  A balancer is never a draft pick (C7-PICKGEN-01
 rule 5: picks enter generated trades only through a posture-aware
 generator).
+
+### Multi-team trade analysis — one owner (N-team engine, owner directive 2026-10-20)
+
+A team-attributed trade of ANY size is one routed ledger evaluated by the SAME
+per-team analysis the 2-team War Room runs.  Spec (binding interface):
+``docs/trade/NTEAM_TRADE_ENGINE_SPEC.md``.
+
+* ``src/trade/trade_ledger.py`` owns the ledger: ONE snapshot per request
+  (``snapshot_for``; rosters, board rows, pick ownership, roster settings, and
+  freshness from ``src/api/roster_freshness.py`` — never a copy), asset refs
+  (``p:<sleeperId>`` / canonical league pick ids; labels never identify),
+  validation in the spec's fixed order (§2.3, stable reason codes), and ownership
+  verified against the snapshot — no request field can assert it.  Only
+  ``current`` rosters prove ownership; ``stale`` / ``unknown`` rosters, a player
+  on several rosters, or an ``unknown`` pick make the asset UNVERIFIABLE, never
+  guessed.
+* ``src/trade/analyze_service.analyze_trade_n`` is the one N-team composer: a
+  per-team loop over ``simulate_for_team`` + ``analyze_for_team`` from that one
+  snapshot.  Each team's roster changes only through its own legs, so all
+  changes are simultaneous by construction — no chain of 2-team trades.  At N = 2
+  a team's ``simulation`` + ``analysis`` equal ``/api/trade/analyze``'s (pinned on
+  real archived trades; the one listed difference is an orphan team's posture
+  reason).  Modes: ``team_context`` / ``asset_only`` (private) and
+  ``market_fairness`` (public: no posture, no capacity, writes nothing).  Refuses
+  unless the package model is ``geom_q078_v1`` with a readable config.
+* ``src/trade/team_verdicts.py`` projects, never computes: the per-team category
+  (the old ``public_category_from_decision`` body), per-team MARKET fairness (the
+  asset evidence gates, then the equity lens's own ``fairness_bands`` band over
+  that team's adjusted (gives, receives) — gross, identical in every mode), the
+  Kleene-AND overall, and the all-team summary.  There is no trade-level
+  recommendation, and no per-team adjusted gap, VA or utility is ever summed into
+  a trade-level number — only RAW priced totals are conserved.
+* ``trade_decision.asset_evidence_gaps`` is the asset half of the evidence gates;
+  its ``ownership_unverifiable`` gate reads the simulator's ``ownershipEvidence``,
+  which only the ledger sets, so every existing route is unchanged.
+* Roster capacity matches an outgoing player to his roster entry BY ID
+  (``roster_capacity.outgoing_roster_names``); names are the fallback only.
+* The private route ``POST /api/trade/analyze-multi`` is gated by
+  ``trade_multi_team_analysis`` (default OFF; rollback
+  ``RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0`` + restart).  The flag gates the
+  route, not the engine.  Bounds: ``config/trade/multi_team.json`` (unreadable →
+  2 teams).  A per-team result that does not reconcile with the ledger raises
+  ``ConservationViolation`` and is never published (500).
+
+Rule for new code: a multi-team surface consumes ``trade_ledger`` +
+``analyze_trade_n``; it never re-implements routing, ownership, valuation, the
+package model, fairness or the decision, and never collapses a multi-team trade
+into two imaginary sides.
 
 ### Competitive Posture — one owner (#840 / C7-POST-01, Wave B)
 

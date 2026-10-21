@@ -1,0 +1,535 @@
+/* Brisket Trade Advisor — PSI Direction A (docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md).
+   Semantic tokens and the canonical 480 / 768 / 1024 / 1320 breakpoints only;
+   no raw colours, no new radii or shadows, 44px touch targets.  Mobile first:
+   every rule below the media queries is the phone layout. */
+
+.root {
+  /* .psi-editorial scopes the editorial tokens; the island paints its own
+     canvas so editorial ink never sits on the terminal surface. */
+  background: var(--surface-1);
+  color: var(--text-primary);
+  display: grid;
+  gap: var(--space-4);
+  /* Phone (UX-2): the shell's fixed 44x44 screenshot button sits 10px above
+     the bottom nav at the right edge (globals.css .screenshot-fab).  At the
+     end of the page it covered the last control in the row — "Start over"
+     on a result, the right edge of "Analyze trade" while building — and a
+     fixed control at the page end can never be scrolled out of the way.
+     The extra bottom reserve (space-10, 64px > 44px + 10px) lets the last
+     row scroll clear of it.  Reset by the 768px rule below, where the
+     button moves to the corner and the action row no longer spans it. */
+  padding: var(--space-3) var(--space-3) calc(var(--space-3) + var(--space-10));
+  min-width: 0;
+  border-top: 1px solid var(--border-strong);
+}
+
+.step {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.step + .step {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-4);
+}
+
+.stepHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.stepTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+/* Step headings take programmatic focus (tabIndex -1) after Edit trade,
+   New trade and Start over, so keyboard and screen-reader users land on
+   the step they were sent back to instead of <body>. */
+.stepTitle:focus {
+  outline: none;
+}
+.stepTitle:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.stepEyebrow {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: var(--space-1);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.teamPicker {
+  max-width: 34rem;
+}
+
+.teamCount {
+  display: grid;
+  gap: var(--space-1);
+}
+.teamCount :global(.ds-segmented__option) {
+  min-height: 44px;
+  min-width: 44px;
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.partners {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.panels {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.panelTitleName {
+  overflow-wrap: anywhere;
+}
+
+.legs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.leg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.leg:first-child {
+  border-top: 0;
+}
+
+.legLabel {
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.legMeta {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.legFlag {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--warning-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.legRoute {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--space-1);
+}
+.legRoute :global(.ds-select) {
+  min-height: 44px;
+}
+
+.removeBtn {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.addBtn {
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--space-2);
+}
+
+.emptyLegs {
+  margin: 0;
+  padding: var(--space-2) 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+/* ── Summary ── */
+.summary {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr);
+}
+.summaryCol {
+  display: grid;
+  gap: var(--space-1);
+  align-content: start;
+  min-width: 0;
+}
+.summaryHead {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border-strong);
+}
+.summaryList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+.summaryList li {
+  overflow-wrap: anywhere;
+}
+.summaryNone {
+  color: var(--text-tertiary);
+}
+.summaryTeam {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.summaryTeamName {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+.summaryGrid {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.summaryTeams {
+  display: grid;
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+.summaryRoute {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ── Receives (3+ teams, inside each team panel) ── */
+.incoming {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.incomingHead {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.incomingList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+.incomingList li {
+  overflow-wrap: anywhere;
+}
+.stepHint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* ── Analyze ── */
+.analyzeRow {
+  display: grid;
+  gap: var(--space-2);
+}
+.analyzeBtn {
+  width: 100%;
+  min-height: 44px;
+}
+.issues {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* ── Result ── */
+.result {
+  display: grid;
+  gap: var(--space-4);
+  border-top: 1px solid var(--border-strong);
+  padding-top: var(--space-4);
+}
+.resultHeading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+}
+.resultHeading:focus {
+  outline: none;
+}
+.resultHeading:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+.verdict {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border-left: 3px solid var(--neutral-signal);
+  border-radius: var(--radius-1);
+}
+.verdict[data-tone="positive"] {
+  border-left-color: var(--positive);
+}
+.verdict[data-tone="warning"] {
+  border-left-color: var(--warning);
+}
+.verdictIcon {
+  margin-top: 2px;
+  color: var(--text-secondary);
+}
+.verdict[data-tone="positive"] .verdictIcon {
+  color: var(--positive-text);
+}
+.verdict[data-tone="warning"] .verdictIcon {
+  color: var(--warning-text);
+}
+.verdictEyebrow {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.verdictHeadline {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.verdictMessage {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.teamResults,
+.perspective {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.teamResultList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+.teamResultRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-size-sm);
+}
+.teamResultName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: var(--font-weight-semibold);
+}
+.teamResultBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.perspective :global(.ds-tab) {
+  min-height: 44px;
+}
+.tabResult {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-regular);
+}
+.perspectivePanel {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.resultActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.resultActions > * {
+  min-height: 44px;
+  flex: 1 1 auto;
+}
+
+/* ── Asset picker ── */
+.picker {
+  display: grid;
+  gap: var(--space-2);
+  min-height: 0;
+}
+.pickerControls {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr);
+}
+.pickerControls :global(.ds-input),
+.pickerControls :global(.ds-select) {
+  min-height: 44px;
+}
+.pickerGroups :global(.ds-segmented__option) {
+  min-height: 44px;
+}
+.pickerStatus {
+  margin: 0;
+  min-height: 1.25em;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.assetList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  max-height: 55vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-strong);
+}
+.assetList:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+.asset {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+}
+.asset.isActive {
+  background: var(--surface-active);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.asset[aria-disabled="true"] {
+  cursor: default;
+  color: var(--text-tertiary);
+}
+.assetName {
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+.assetMeta {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.assetAction {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--accent);
+  white-space: nowrap;
+}
+.asset[aria-disabled="true"] .assetAction {
+  color: var(--text-tertiary);
+}
+.sheet {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-height: 85dvh;
+  border-left: 0;
+  border-top: 1px solid var(--border-default);
+  border-radius: var(--radius-3) var(--radius-3) 0 0;
+}
+.sheetDone {
+  width: 100%;
+  min-height: 44px;
+}
+
+@media (min-width: 480px) {
+  .pickerControls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .pickerSearch {
+    grid-column: 1 / -1;
+  }
+  .analyzeBtn {
+    width: auto;
+    justify-self: start;
+  }
+}
+
+@media (min-width: 768px) {
+  .root {
+    padding: var(--space-4) var(--space-5);
+  }
+  .partners {
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  }
+  .panels,
+  .summary,
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .resultActions > * {
+    flex: 0 0 auto;
+  }
+}
+
+@media (min-width: 1320px) {
+  .panels[data-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .panels[data-count="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

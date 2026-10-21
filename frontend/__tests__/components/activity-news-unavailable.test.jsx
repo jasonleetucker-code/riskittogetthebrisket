@@ -26,7 +26,9 @@ vi.mock("@/lib/public-league-data", () => ({
   fetchPublicSection: (...args) => mockFetchPublicSection(...args),
 }));
 
-import ActivityPage from "@/app/league/activity/page";
+// The page is a server wrapper (it decides the back-link href); the
+// client component under test is ActivityClient.
+import ActivityPage from "@/app/league/activity/ActivityClient";
 
 // One trade, shaped like src/public_league/activity.py's feed entries.
 const PUBLIC_FEED = [

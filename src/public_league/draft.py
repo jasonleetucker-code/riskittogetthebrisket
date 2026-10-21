@@ -74,7 +74,11 @@ def _normalize_pick(
         "pickNo": pick_no,
         "rosterId": rid,
         "ownerId": owner_id,
-        "teamName": metrics.team_name(snapshot, season.league_id, rid) if rid is not None else "",
+        # Same week-0 attribution as ``ownerId``: the outgoing manager's team
+        # name for that league-season, not the successor's current one.
+        "teamName": (
+            metrics.team_name(snapshot, season.league_id, rid, 0) if rid is not None else ""
+        ),
         "playerId": player_id,
         "playerName": player_name,
         "position": metadata.get("position") or snapshot.player_position(player_id) or None,

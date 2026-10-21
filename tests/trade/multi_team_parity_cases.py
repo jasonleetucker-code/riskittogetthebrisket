@@ -1,0 +1,143 @@
+"""Multi-team package-math parity cases (N-team spec I12).
+
+``tests/fixtures/multi_team_trade_parity_cases.json`` holds per-team value
+arrays for routed multi-team trades and, per team, the Python owners' answer:
+``package_model.adjusted_pair_totals(gives, receives)`` (the active model),
+``gap = recvAdj - sendAdj`` and ``fairness_bands.classify(gap, larger_package_utility)``
+-- the fairness_bands_v2 base (OD-F2): the larger PACKAGE UTILITY of the
+team's (gives, receives), decided by the owner, never ``max`` of the adjusted
+totals (v1).  ``larger`` (the larger adjusted side) stays as a display number.
+The JavaScript half (``frontend/__tests__/multi-team-package-parity.test.js``)
+must reproduce every number from the same file.  Value RESOLUTION is out of
+scope (spec §5.1 item 9): only the pure math over the same arrays.
+
+Regenerate (Lane A is the producer; consumers never hand-edit)::
+
+    python -m tests.trade.multi_team_parity_cases
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+from src.valuation_math import fairness_bands, package_model
+
+OUT = Path(__file__).resolve().parents[1] / "fixtures" / "multi_team_trade_parity_cases.json"
+
+#: (id, description, {team: [(value, destination team), ...]}) — each team's
+#: OUTGOING assets with their destination; a team's receives are every asset
+#: routed to it.  LABELLED synthetic values.
+TRADES: list[tuple[str, str, dict[str, list[tuple[float, str]]]]] = [
+    (
+        "i14_one_to_many",
+        "Spec I14: A sends 6000->B and 3000->C; B sends 7000->A; C sends 2500->A.",
+        {"A": [(6000, "B"), (3000, "C")], "B": [(7000, "A")], "C": [(2500, "A")]},
+    ),
+    (
+        "three_team_cycle_one_for_one",
+        "A->B->C->A, one asset each: no VA on a 1-for-1, gaps sum to zero.",
+        {"A": [(5200, "B")], "B": [(4800, "C")], "C": [(5000, "A")]},
+    ),
+    (
+        "four_team_cycle_mixed",
+        "A->B->C->D->A with packages of different depth.",
+        {
+            "A": [(4000, "B"), (900, "B")],
+            "B": [(3500, "C")],
+            "C": [(2500, "D"), (2200, "D"), (300, "D")],
+            "D": [(5100, "A")],
+        },
+    ),
+    (
+        "many_to_one_gift_side",
+        "B and C both send to A; A sends one asset to B only (C receives nothing: empty side).",
+        {"A": [(3000, "B")], "B": [(2500, "A")], "C": [(1200, "A")]},
+    ),
+    (
+        "depth_tie",
+        "Equal depth on both sides of one team: no VA.",
+        {"A": [(3000, "B"), (1000, "B")], "B": [(3000, "A"), (1000, "A")]},
+    ),
+    (
+        "deep_packages_four_teams",
+        "Twelve-piece and one-piece packages across four teams.",
+        {
+            "A": [(v, "B") for v in (900, 850, 800, 760, 700, 650, 600, 560, 500, 450, 400, 350)],
+            "B": [(7600, "C")],
+            "C": [(4100, "D"), (3000, "A")],
+            "D": [(3900, "A"), (120, "B")],
+        },
+    ),
+    (
+        "elite_vs_depth_floats",
+        "Non-integer board values (sub-integer rounding inside the owner).",
+        {"A": [(8123.4, "B")], "B": [(4061.7, "A"), (3999.9, "A"), (511.25, "A")]},
+    ),
+    (
+        "small_trade_floor",
+        "Values below the band's absolute floor.",
+        {"A": [(180, "B")], "B": [(60, "A"), (20, "A")]},
+    ),
+]
+
+
+def _team_totals(gives: list[float], receives: list[float]) -> dict:
+    send_adj, recv_adj, send_va, recv_va = package_model.adjusted_pair_totals(gives, receives)
+    gap = recv_adj - send_adj
+    # fairness_bands_v2: the owner decides the base (larger package utility).
+    larger_utility = fairness_bands.larger_package_utility(gives, receives)
+    band = fairness_bands.classify(gap, larger_utility)
+    return {
+        "sendAdj": send_adj,
+        "recvAdj": recv_adj,
+        "sendVA": send_va,
+        "recvVA": recv_va,
+        "gap": gap,
+        "larger": max(send_adj, recv_adj),
+        "largerUtility": larger_utility,
+        "level": band["level"],
+        "relativePct": band["relativePct"],
+    }
+
+
+def build() -> dict:
+    cases = []
+    for case_id, description, routes in TRADES:
+        teams = sorted({*routes, *(to for legs in routes.values() for _v, to in legs)})
+        per_team = {}
+        for t in teams:
+            gives = [v for v, _to in routes.get(t, [])]
+            receives = [v for s, legs in routes.items() for v, to in legs if to == t]
+            per_team[t] = {
+                "gives": gives,
+                "receives": receives,
+                "expected": _team_totals(gives, receives),
+            }
+        cases.append({"id": case_id, "description": description, "teams": per_team})
+    return {
+        "_comment": (
+            "N-team package-math parity (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md I12). "
+            "Per team: gives / receives value arrays and the Python owners' adjusted totals, "
+            "gap (recvAdj - sendAdj) and fairness band. Generated by "
+            "tests/trade/multi_team_parity_cases.py; never hand-edited."
+        ),
+        "model": package_model.active_model_id(),
+        "bands": fairness_bands.receipt()["version"],
+        "cases": cases,
+    }
+
+
+def serialize(payload: dict) -> str:
+    return json.dumps(payload, indent=1, sort_keys=True) + "\n"
+
+
+def main() -> int:
+    OUT.write_text(serialize(build()), encoding="utf-8")
+    print(f"wrote {OUT}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

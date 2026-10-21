@@ -1,0 +1,129 @@
+/* Multi-team Trade War Room — layout only.  Tokens only (tokens.css,
+   .psi-editorial scope on the /trade root), the same type/rule hierarchy as
+   war-room.module.css, canonical breakpoints (480/768) only. */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.reasons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--border-strong);
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.perspective {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.panel {
+  min-width: 0;
+}
+
+.teamResult {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.answers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.assets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.assetGroup {
+  min-width: 0;
+}
+
+.assetList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.assetItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "name value"
+    "route route"
+    "note note";
+  column-gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-default);
+  font-size: var(--font-size-sm);
+}
+
+.assetName {
+  grid-area: name;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.assetValue {
+  grid-area: value;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.assetNote {
+  grid-area: note;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.assetRoute {
+  grid-area: route;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  /* Phones: what each team sends is in its own view below; the at-a-glance
+     table keeps Team · Decision · Market fairness so it fits the width. */
+  .sendsCol {
+    display: none;
+  }
+  .answers,
+  .assets {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
