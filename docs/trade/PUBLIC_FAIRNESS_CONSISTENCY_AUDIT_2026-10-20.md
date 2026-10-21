@@ -22,6 +22,32 @@ The research memo's description of the advisor is stale for the current head
 `2bbe5d4bd`. The concern it raised — the public 2-team path inheriting the forced-drop over-charge (§5 of that memo)
 — was real for that design and **does not apply to the current head**.
 
+### 0a. Re-verified on `main` after train 17 (2026-10-21)
+
+Train 17 merged the advisor lane (#1861) and `fairness_bands_v2` (#1886) into `main`. The harness was re-run on
+`main@7f35463ef`, merged into this branch, with `--code-root .`, the same seed and caps 3, 6 and 8:
+
+- **P1–P6 hold at every cap.** Bands read `fairness_bands_v2`.
+- **The per-trade public digest is identical** to this audit's v2-overlay run (`8501804266dd…`), and the counts are
+  identical too. The scratch overlay predicted the merged tree exactly.
+- **The forced-release sentinel leaves every public result unchanged.**
+- Evidence: `harness_cap{3,6,8}_main_7f35463ef.json`. `--compare-digests` against the overlay run returns identical.
+
+**§6 follow-ups, as landed on `main`:**
+
+| item | status |
+|---|---|
+| 1, FAIR from the band owner | done: `counts_as_fair_trade` |
+| 2, private base | done: `largerPackageUtility` is read from the market lens |
+| 3, contract fixtures | done: regenerated on v2 |
+| 4, frontend | merged in the same train |
+
+`approvedFairnessVersion` now names `fairness_bands_v2` (owner-approved prior). The launch gate still keeps the
+advisor dark on its other conditions: the measured response floor, the source-permission record and the
+`brisket_trade_advisor` flag. Nothing here activates it.
+
+**Verdict unchanged:** CONSISTENT with the owner's intent.
+
 ## 1. Audited SHAs
 
 | ref | SHA | role |
