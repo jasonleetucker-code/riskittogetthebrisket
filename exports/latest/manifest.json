@@ -1,11 +1,12 @@
 {
-  "generatedAt": "2026-10-21T18:58:55.107167",
+  "generatedAt": "2026-10-21T23:41:40.538972",
   "date": "2026-10-21",
   "files": [
     "dynasty_data.js",
     "dynasty_data_2026-10-21.json",
     "dynasty_full.csv",
     "dynasty_values.csv",
+    "identity_capture_manifest.json",
     "site_raw"
   ],
   "siteRawCount": 10,
