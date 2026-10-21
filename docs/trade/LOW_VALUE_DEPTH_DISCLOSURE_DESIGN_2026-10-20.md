@@ -17,10 +17,64 @@ Part 0, `docs/trade/NTEAM_TRADE_ENGINE_SPEC.md` §2.8, §4).
 
 **Evidence:** `docs/trade/evidence/low_value_depth_disclosure_2026-10-20/disclosure_shadow.json`,
 produced by `scripts/low_value_depth_disclosure_shadow.py` (aggregate-only, NFL names only;
-checked with `assert_aggregate_only`). One run, ~50 s locally, on
-`exports/archive/dynasty_export_20261020_052241.zip` — the same board as the research.
+checked with `assert_aggregate_only`). One run, ~90 s locally:
+`--archive exports/archive/dynasty_export_20261020_052241.zip --csv-rev 1511ca1d0` — the same
+board as the research (the `board` block records the archive, the CSV tree, the code SHA and a
+hash of the built board). The band is read from the canonical owner, `fairness_bands_v2`.
 
 Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
+
+### Re-measured 2026-10-21 under fairness_bands_v2 after train 17; v1 figures superseded
+
+Train 17 made `fairness_bands_v2` the canonical classifier. A gap is now classified against the
+**larger package utility**, not the larger adjusted side: a 1-for-1 is unchanged, and deeper
+packages get a narrower fair band. Every figure in this document is re-measured with the band
+read from the owner (`fairness_bands.classify_packages`), on the **same built board** as the v1
+run. The disclosure itself reads the market lens's own band, whatever version is active (§2.3).
+
+| headline (current anchors, floor) | v1 (2026-10-20) | v2 (2026-10-21) |
+|---|---:|---:|
+| A-guarded, filler-caused flips | 61.2% (of 9,273) | 60.4% (of 9,171) |
+| A-guarded, filler "made fair" | 89.5% (of 399) | 91.6% (of 358) |
+| A-guarded, depth / starter sweeteners | 1.2% / 1.3% | 1.1% / 1.1% |
+| A-guarded, all-starter control | 0.0% | 0.0% |
+| A-guarded, unsweetened base trades | 20.5% | 21.1% |
+| A-guarded, calculator sample (FAIR results) | 1.9% (429) | 1.6% (385) |
+| A-guarded, own-league team sides | 5.3% | 4.5% |
+| A-guarded, War Room, 1 filler added | 57.8% | 57.8% |
+| public FAIR-only, made fair / calculator | 89.5% / 0.9% | 91.6% / 0.6% |
+| naive rule, filler / depth / starter fires | 6,586 / 2,118 / 1,249 | 4,364 / 1,112 / 699 |
+| naive rule, all-starter control / calculator | 13.7–22.4% / 32.9% | 8.6–11.8% / 36.1% |
+| canonical-dispatch parity: checked / band differs by rounding | 648,080 / 58 | 647,969 / 6 |
+
+**The recommendation is unchanged:** A-guarded with the floor threshold on private surfaces, and
+no public note (V4). Under v2 the A-guarded false-alarm rates and calculator exposure fall
+slightly and the all-starter control stays at 0.0%. The naive comparator fires less, but still on
+8.6–11.8% of all-starter control trades and 36.1% of calculator trades, so it stays rejected. The
+privacy argument (§9) is structural and does not depend on the band version.
+
+**Why a first, unpinned re-run moved further, and why it was not a v2 measurement.** It reported
+`flipsMatch: false`, 0 pick-filler flips (from 1,098) and 2,831 base trades (from 2,825). The
+root causes, each verified directly:
+- **The band was still v1.** The shadow verdict read the band through the research helper,
+  which divides by the larger *adjusted* side. Its market ordinal disagreed with the served (v2)
+  asset-only lens on 5 of 168 War Room steps. With the band read from the owner it agrees on
+  180 / 180.
+- **Pinning the archive did not pin the board.** The contract build also reads the source CSVs,
+  the scrape-state stamps and `config/weights` from the working tree, and the 2-hourly source
+  refreshes had moved them (Jalen Hurts 5,919 → 5,859, Jarrett Stidham 975 → 1,173, for
+  example). Today's code on the v1 run's CSV tree reproduces the v1 board's values exactly except
+  one asset. `--csv-rev` now pins that tree.
+- **The 0 pick-filler flips were an empty cell, not a rate.** On the drifted board only 3 picks
+  were §3 filler (5 before), fewer than the 4 sweeteners each case draws. So the 1,400
+  pick-filler cases were never generated (32,180 → 30,852 cases). The base count 2,825 → 2,831 is
+  the same drift: the base sampler's value tiers moved.
+- **One value differs on the pinned board:** Travis Hunter, 3,738 → 3,599, from PR #1817's
+  two-way-boost evidence rules, merged after the v1 run. It is the only one of 1,003 values that
+  differs. Case generation matches the committed study exactly (2,825 bases, 32,180 cases). On
+  the v1 basis the flips differ by at most 32 per class and the naive fires by 82, so
+  `reproduction.flipsMatch` is false for this reason alone. With his value set back to 3,738, both
+  reproduce the committed counts exactly (checked separately).
 
 ## 0. Summary for the owner
 
@@ -55,18 +109,18 @@ comparison (§5.3, OD-2).
 
 | case | A-guarded (private) | public FAIR-only (owner option, leaks; not recommended) | naive rule (rejected) |
 |---|---:|---:|---:|
-| filler-caused flips (sweeteners cross a fairness region) | 61.2% | 3.8% | 66.8% |
-| filler that turns an unfair result into FAIR ("made fair") | 89.5% | 89.5% | 86.0% |
-| depth-sweetener cases | 1.2% | 0.1% | 18.7% |
-| starter-sweetener cases | 1.3% | 0.1% | 12.8% |
-| all-starter trades + starter / depth sweeteners (control) | 0.0% | 0.0% | 13.7% / 22.4% |
-| realistic 2-team calculator trades | 1.9% | 0.9% | 32.9% |
-| own-league completed trades, team sides (today's values) | 5.3% | 3.0% | 25.8% |
+| filler-caused flips (sweeteners cross a fairness region) | 60.4% | 3.6% | 44.8% |
+| filler that turns an unfair result into FAIR ("made fair") | 91.6% | 91.6% | 86.0% |
+| depth-sweetener cases | 1.1% | 0.1% | 9.8% |
+| starter-sweetener cases | 1.1% | 0.0% | 7.2% |
+| all-starter trades + starter / depth sweeteners (control) | 0.0% | 0.0% | 8.6% / 11.8% |
+| realistic 2-team calculator trades | 1.6% | 0.6% | 36.1% |
+| own-league completed trades, team sides (today's values) | 4.5% | 1.5% | 25.8% |
 
-**Anchor sensitivity:** under the floor, filler-flip sensitivity is 61.2 / 58.5 / 58.3% for the
-current, healthy-only and LI-5 replacement definitions. "Made fair" is 89.5 / 88.7 / 88.7%.
-Under the prereg threshold (below the anchor, lineup starters excluded) it is 87.7 / 83.0 /
-78.6%, and the calculator fire rate swings from 17.2% to 11.1%.
+**Anchor sensitivity:** under the floor, filler-flip sensitivity is 60.4 / 58.2 / 58.1% for the
+current, healthy-only and LI-5 replacement definitions. "Made fair" is 91.6 / 90.2 / 90.2%.
+Under the prereg threshold (below the anchor, lineup starters excluded) it is 87.7 / 83.3 /
+78.6%, and the calculator fire rate swings from 16.1% to 10.3%.
 
 **Copy:** the exact strings are in §4.
 
@@ -154,9 +208,12 @@ against the canonical dispatch; §5.)
   (`src/valuation_math/package_model.py`, active `geom_q078_v1`).
 - **Team gap.** `gap_i = U(Rcv_i) − U(Gv_i)`, exactly the per-team gap in N-team spec §1 and §2.8
   (locality: team `i`'s result depends only on its own legs).
-- **Band.** `band_i = fairness_bands.classify(gap_i, max(adjusted sides))`, the market lens's own
-  band. The real result is *read* from the market lens. Only the counterfactual is computed,
-  through the same two functions.
+- **Band.** `band_i`, the market lens's own band from the canonical owner, whatever version is
+  active: `fairness_bands.classify_packages(gap_i, Rcv_i values, Gv_i values)`, which computes
+  its own denominator (under `fairness_bands_v2`, the larger package utility
+  `max(U(Rcv_i), U(Gv_i))`, via `larger_package_utility` / `fairness_base`). The disclosure never
+  computes a band threshold or denominator. The real result is *read* from the market lens. Only
+  the counterfactual is computed, through the same two owners.
 - **Region.** `region_i = 0` if `band_i` is fair, else `sign(gap_i)` (−1 against team `i`,
   +1 in its favour).
 - **Top piece.** `top(Rcv_i)` is the highest-valued received piece; ties go to the
@@ -202,14 +259,14 @@ fires_i  ⇔  E_i ≠ ∅
 **Why each element is there:**
 - **"Depends on":** the note appears only when the low-value depth decides the result.
   - Filler sweeteners that do not move the result rarely cause a note. On filler cases that do
-    not flip, `A_guarded` still fires on 9.3% (9.0–16.1% across the six variants), but only
-    0.0–0.2% is attributable to the sweeteners. The rest comes from low-value pieces already in
+    not flip, `A_guarded` still fires on 9.8% (8.9–16.3% across the six variants), but 0.0% is
+    attributable to the sweeteners. The rest comes from low-value pieces already in
     the base package, where the base result itself depends on them (§5.1).
-  - Depth and starter sweeteners almost never trigger it (1.1–1.8%).
+  - Depth and starter sweeteners almost never trigger it (1.0–1.7%).
 - **The top piece is never removed.** The market convention concerns *extra* pieces (M2). A
   1-for-1 of two low-value players is not a padding question.
 - **The guard** suppresses a team whose own legs are all LVD pieces: two benches swapping
-  filler. Without it, 40% of the unsweetened low-tier base trades fired; with it, 26.8%. This
+  filler. Without it, 41.8% of the unsweetened low-tier base trades fired; with it, 27.1%. This
   guard was added
   *after* seeing those base trades. It is reported separately (`A_dependence` vs `A_guarded`) so
   the owner can drop it.
@@ -221,7 +278,8 @@ fires_i  ⇔  E_i ≠ ∅
   team, and the lean of a NOT FAIR result is never public (spec §4.3, privacy M4). Restricting
   to FAIR results avoids that, but it does **not** make the note direction-free:
   - a note implies `gap_i < ΔU(E_i) − t`, where `ΔU(E_i) = U(Rcv_i) − U(Rcv_i \ E_i)` and `t` is
-    the fairness threshold of the counterfactual package;
+    the fairness threshold of the counterfactual package (under `fairness_bands_v2`,
+    `fair_threshold` of its larger package utility);
   - when `ΔU(E_i) < t` (small extras in a large package) this means team `i` is **behind**
     within the FAIR band; in a 2-team trade a note on one row therefore says which side leads;
   - this is a within-FAIR direction and gap signal (§9 R1), and the note is also a per-asset
@@ -241,7 +299,7 @@ fires_i  ⇔  |Rcv_i| ≥ 2  ∧  Σ_{a∈E_i} value(a) / Σ_{a∈Rcv_i} value(a
 - The rule fires whether or not the pieces matter to the result:
   - on 51% of filler cases where the filler did not move the verdict;
   - on 13–14% of depth and starter cases, almost all from low-value pieces already in the base
-    package (attributable: 0.8–1.1%).
+    package (attributable: 0.9–1.1%).
 
 ### 3.3 Rule C, piece-count asymmetry with low-value extras (alternative)
 
@@ -249,7 +307,7 @@ fires_i  ⇔  |Rcv_i| ≥ 2  ∧  Σ_{a∈E_i} value(a) / Σ_{a∈Rcv_i} value(a
 fires_i  ⇔  |Rcv_i| > |Gv_i|  ∧  ∃ a ∈ (the |Rcv_i| − |Gv_i| lowest-valued pieces of Rcv_i) with class(a) = LVD
 ```
 
-- It is the most sensitive rule: 91.6% of filler-caused flips.
+- It is the most sensitive rule: 92.1% of filler-caused flips.
 - It is also the least specific: 23–24% of depth and starter cases, and 77% of filler cases that
   did not move the result.
 - It is not a safe public variant either. In any k-for-(k+1) trade whose lowest piece is X it
@@ -259,12 +317,14 @@ fires_i  ⇔  |Rcv_i| > |Gv_i|  ∧  ∃ a ∈ (the |Rcv_i| − |Gv_i| lowest-va
 ### 3.4 Comparator: the rejected naive rule
 
 The comparator fires when the `B_currency_replacement` treatment would change the signed level.
-- It is reproduced exactly: 6,586 / 2,118 / 1,249 fires on filler / depth / starter cases, equal
-  to the committed `shadow_replay.json`.
-- It fires on 13.7–22.4% of the **all-starter** control trades and on a third of realistic
+- Under `fairness_bands_v2` (each treatment banded on its own package utilities through the
+  owner's `fairness_base`) it fires 4,364 / 1,112 / 699 times on filler / depth / starter cases.
+  On the retired v1 basis it reproduces the committed `shadow_replay.json` counts (6,586 / 2,118 /
+  1,249) once the one changed board value is set back (see the re-measurement note above).
+- It fires on 8.6–11.8% of the **all-starter** control trades and on 36.1% of realistic
   calculator trades.
-- On the research's real examples it fires on Wilson vs Ferguson + Kelce, the six-starter
-  package, and Schwesinger vs Baun + Parsons. Rule A fires on none of them.
+- On the research's real examples it fires on Gibbs vs Young + Kraft, Wilson vs Ferguson + Kelce,
+  the six-starter package, and Schwesinger vs Baun + Parsons. Rule A fires on none of them.
 
 ### 3.5 Multi-team and the surfaces
 
@@ -389,14 +449,14 @@ larger one, so the team that *receives* it is ahead.
 | # | trade (side A for side B) | GEOM_78 result | LVD pieces (floor) | private | public (owner option, not recommended) |
 |---|---|---|---|---|---|
 | 1 | Jalen Hurts (5,919) for Emeka Egbuka (5,197) + Isaiah Hodgins (897) | +22 **fair** | Hodgins | **shown** to the team receiving Egbuka + Hodgins: *"Part of your side of this result comes from lower-value depth (Isaiah Hodgins). It counts in full here, but trade partners often give depth like this less credit than its listed value."* To the team receiving Hurts: the *`you_send`* variant, naming Hodgins | **shown** on the team receiving Egbuka + Hodgins: FAIR FOR THIS TEAM + *"Part of what this team receives is lower-value depth. It is counted in full in this result, but trade partners often give depth like this less credit."* |
-| 2 | Hurts for Egbuka + Hodgins, Frank Gore, Khalil Herbert, Mason Tipton (~900 each) | −1,300 **unfair; favours the team receiving side B** | the four fillers | **shown** (`you_receive` names all four): without them the team receiving side B would be behind, so its "in favour" result depends on them | **not shown**: NOT FAIR, and a note could only reveal the lean |
-| 3 | Jahmyr Gibbs (9,864) for Bryce Young (5,493) + Tucker Kraft (5,439) | +129 fair | none | not shown | not shown |
+| 2 | Hurts for Egbuka + Hodgins, Frank Gore, Khalil Herbert, Mason Tipton (~900 each) | −1,300 **lopsided; favours the team receiving side B** (v1: unfair) | the four fillers | **shown** (`you_receive` names all four): without them the team receiving side B would be behind, so its "in favour" result depends on them | **not shown**: NOT FAIR, and a note could only reveal the lean |
+| 3 | Jahmyr Gibbs (9,864) for Bryce Young (5,493) + Tucker Kraft (5,439) | +129 fair | none | not shown (**the naive rule fires here under v2**) | not shown |
 | 4 | Garrett Wilson (6,472) for Jake Ferguson (3,529) + Travis Kelce (3,490) | +221 fair | none: Kelce is usable depth, far above the TE floor | not shown (**the naive rule fired here**) | not shown |
 | 5 | Denzel Boston (4,204) for David Bailey (DL 3,475) + Jadon Canady (DB 1,124) + Zakee Wheatley (DB 1,125) | −832 unfair; favours the team receiving side B | Canady, Wheatley (below the DB floor, 1,335) | **shown** (`you_receive`, two DB names) | not shown (NOT FAIR) |
 | 6 | 2027 Pick 1.04 (5,090) for 2027 Pick 1.12 (3,942) + 2029 Late 4th (1,325) + 2029 Mid 4th (1,452) | −791 unfair; favours the team receiving side B | both 2029 4ths (below `R_*` 1,687) | **shown** | not shown (NOT FAIR) |
 
 Further non-firing checks, where the naive rule fires but rule A does not:
-- Gibbs for six ~2,950 starters / usable depth (−564, fair);
+- Gibbs for six ~2,950 starters / usable depth (−564, slight edge under v2; fair under v1);
 - Carson Schwesinger for Zack Baun + Micah Parsons (+176, fair).
 
 Under the floor threshold, every example gives the same answer for all three anchor definitions
@@ -409,51 +469,55 @@ Unless stated otherwise:
 - the current anchors are used, with the floor threshold;
 - every rule is computed from the same verdict function.
 
-**What the verdict function reuses, and what it re-implements.** Only the band classifier,
-`fairness_bands.classify`, is the canonical function. The package utility is the research `owa`
-(q = 0.78 hard-coded) and the adjusted totals are the research re-implementation
-`P2.adjusted`. So the script checks **every** incumbent evaluation against the canonical
-`src/valuation_math/package_model.py` dispatch for the active model (`geom_q078_v1`) and aborts on
-any mismatch (`packageModelParity` in the evidence):
-- **648,080** evaluations checked;
+**What the verdict function reuses, and what it re-implements.** The band comes from the
+canonical owner, whatever version is active: `fairness_bands.classify_packages` computes its own
+denominator (the larger package utility under `fairness_bands_v2`; `fairnessBands` in the
+evidence is the owner's receipt). The script computes no threshold or denominator. The package
+utility is the research `owa` (q = 0.78 hard-coded) and the adjusted totals are the research
+re-implementation `P2.adjusted`. So the script checks **every** incumbent evaluation against the
+canonical `src/valuation_math/package_model.py` dispatch for the active model (`geom_q078_v1`)
+and aborts on any mismatch (`packageModelParity` in the evidence):
+- **647,969** evaluations checked;
 - the utility gap equals `geom_utility`'s to a relative float tolerance of 1e-9;
+- the owner's band on the canonical utility gap equals the research band on all 647,969;
 - the adjusted totals equal `adjusted_pair_totals`' within 0.5, because the canonical dispatch
   rounds the adjustment to a whole number and the research form does not;
-- read on the canonical whole-number adjusted gap, the band agrees on 648,022 evaluations and
-  differs on 58 (0.009%), all at a band edge, from that rounding alone.
+- read on the canonical whole-number adjusted gap (same owner denominator), the band agrees on
+  647,963 evaluations and differs on 6 (0.001%), all at a band edge, from that rounding alone.
 
 The War Room population also re-runs the served engine (§5.5), which agrees on 180 / 180 steps.
 
 ### 5.1 Filler-flip study
 
-The research's 32,180 cases were regenerated case for case and match the committed evidence
-exactly:
-- incumbent flips per class and category equal `shadow_replay.json`;
-- the naive rule fires 6,586 / 2,118 / 1,249, equal to the committed counts.
+The research's 32,180 cases were regenerated case for case (2,825 bases; cases per class and
+category equal `shadow_replay.json`). That study was built on the retired v1 basis, so its flips
+are reproduced on that basis only as a board check: they match exactly once the one changed board
+value (Travis Hunter) is set back, see the re-measurement note at the top. Every figure below uses
+the v2 band.
 
 | group (cases) | A_guarded | public FAIR-only (owner option) | B_share25 | C_extraPieces | naive_B |
 |---|---:|---:|---:|---:|---:|
-| filler, flip (9,273) | **61.2** | 3.8 | 65.8 | 91.6 | 66.8 |
-| filler, made fair (399) | **89.5** | **89.5** | 19.3 | 91.7 | 86.0 |
-| filler, no flip (1,867) | 9.3 (attrib. 0.2) | 1.5 | 51.2 | 76.7 | 21.2 |
-| depth (11,300) | **1.2** (attrib. 0.8) | 0.1 | 14.1 | 23.4 | 18.7 |
-| starter (9,740) | **1.3** (attrib. 0.7) | 0.1 | 12.9 | 24.4 | 12.8 |
-| starter-only bases + depth sweeteners (4,460) | **0.0** | 0.0 | 0.0 | 0.0 | 22.4 |
-| starter-only bases + starter sweeteners (4,460) | **0.0** | 0.0 | 0.0 | 0.0 | 13.7 |
-| unsweetened base trades (2,825) | 20.5 | 15.9 | 18.4 | 21.3 | 37.4 |
+| filler, flip (9,171) | **60.4** | 3.6 | 66.0 | 92.1 | 44.8 |
+| filler, made fair (358) | **91.6** | **91.6** | 14.8 | 93.6 | 86.0 |
+| filler, no flip (1,969) | 9.8 (attrib. 0.0) | 1.5 | 51.2 | 77.1 | 13.1 |
+| depth (11,300) | **1.1** (attrib. 0.7) | 0.1 | 14.2 | 23.2 | 9.8 |
+| starter (9,740) | **1.1** (attrib. 0.7) | 0.0 | 13.1 | 24.1 | 7.2 |
+| starter-only bases + depth sweeteners (4,460) | **0.0** | 0.0 | 0.0 | 0.0 | 11.8 |
+| starter-only bases + starter sweeteners (4,460) | **0.0** | 0.0 | 0.0 | 0.0 | 8.6 |
+| unsweetened base trades (2,825) | 21.1 | 16.4 | 18.6 | 21.1 | 42.2 |
 
 - "attrib." = fires on the sweetened package and did not fire on that package before the
   sweeteners. The remaining depth and starter fires come from low-value pieces already in a base
   package, where the base result itself depends on them.
 - The public FAIR-only rule rarely fires on "flips", because most study flips go
-  fair → in favour (NOT FAIR). On the public-relevant subset, unfair → FAIR, it fires 89.5%.
+  fair → in favour (NOT FAIR). On the public-relevant subset, unfair → FAIR, it fires 91.6%.
 
 **Filler-caused flips by asset class (A_guarded):**
 
 | | offense | IDP | picks | mixed |
 |---|---:|---:|---:|---:|
-| floor | 65.8 | **42.1** | 100.0 | 56.4 |
-| prereg | 87.3 | 81.9 | 100.0 | 88.1 |
+| floor | 65.2 | **42.6** | 100.0 | 54.0 |
+| prereg | 87.6 | 81.5 | 100.0 | 88.0 |
 
 The picks column is 100% by construction, not by evidence: the pick line `R_*` is exactly the
 line the study used to label pick filler, and picks have no starter clamp. So every pick filler
@@ -469,15 +533,18 @@ below even the healthy DB anchor. The floor declines to call such players low-va
 Population: the research's S5a population, same seed. Assets come from the top-500; shapes are
 1–3 vs na..na+4; raw gap is within 25%; n = 2,000.
 
-| | all | FAIR results (429) | NOT FAIR (1,571) |
+| | all | FAIR results (385) | NOT FAIR (1,615) |
 |---|---:|---:|---:|
-| A_guarded, floor | 1.9 | 4.4 | 1.3 |
-| public FAIR-only, floor (owner option) | 0.9 | 4.4 | 0.0 |
-| A_guarded, prereg | 17.2 | 32.2 | 13.2 |
-| naive_B | 32.9 | 33.3 | 32.7 |
+| A_guarded, floor | 1.6 | 2.9 | 1.3 |
+| public FAIR-only, floor (owner option) | 0.6 | 2.9 | 0.0 |
+| A_guarded, prereg | 16.1 | 29.6 | 12.9 |
+| naive_B | 36.1 | 35.8 | 36.2 |
+
+Under v2, 44 fewer of these trades are FAIR (429 → 385): the narrower fair band for deeper
+packages.
 
 - Top-500 trades rarely contain floor-LVD pieces.
-- Under the floor, the 1.9% is entirely QBs and RBs between the healthy and current anchors
+- Under the floor, the 1.6% is entirely QBs and RBs between the healthy and current anchors
   (1,605–1,923). It falls to 0.0% under the healthy and LI-5 anchors. That is the one place the
   floor remains anchor-sensitive (QB: the current anchor is a player Sleeper lists as injured or inactive).
 
@@ -485,14 +552,14 @@ Population: the research's S5a population, same seed. Assets come from the top-5
 
 | metric | current | healthy-only | LI-5 banded |
 |---|---:|---:|---:|
-| floor: filler-caused flips | 61.2 | 58.5 | 58.3 |
-| floor: filler made fair | 89.5 | 88.7 | 88.7 |
-| floor: depth / starter cases | 1.2 / 1.3 | 1.1 / 1.2 | 1.1 / 1.2 |
-| floor: calculator sample | 1.9 | 0.0 | 0.0 |
+| floor: filler-caused flips | 60.4 | 58.2 | 58.1 |
+| floor: filler made fair | 91.6 | 90.2 | 90.2 |
+| floor: depth / starter cases | 1.1 / 1.1 | 1.0 / 1.0 | 1.0 / 1.0 |
+| floor: calculator sample | 1.6 | 0.0 | 0.0 |
 | floor: War Room, 1 filler added | 57.8 | 55.6 | 55.6 |
-| prereg: filler-caused flips | 87.7 | 83.0 | 78.6 |
-| prereg: filler made fair | 100.0 | 99.2 | 96.5 |
-| prereg: calculator sample | 17.2 | 14.2 | 11.1 |
+| prereg: filler-caused flips | 87.7 | 83.3 | 78.6 |
+| prereg: filler made fair | 100.0 | 98.9 | 96.6 |
+| prereg: calculator sample | 16.1 | 13.3 | 10.3 |
 | prereg: War Room, 1 filler added | 95.6 | 91.1 | 88.9 |
 
 **The anchor definitions:**
@@ -528,8 +595,8 @@ Population:
 
 | rule | current | healthy | LI-5 |
 |---|---:|---:|---:|
-| A_guarded (floor) | 5.3 | 3.8 | 3.8 |
-| public FAIR-only (floor; owner option) | 3.0 | 1.5 | 1.5 |
+| A_guarded (floor) | 4.5 | 3.0 | 3.0 |
+| public FAIR-only (floor; owner option) | 1.5 | 0.8 | 0.8 |
 | naive_B | 25.8 | 25.8 | 25.8 |
 
 All shares are of the 132 evaluated sides.
@@ -597,8 +664,10 @@ def classify_piece(asset, lines) -> Literal["lvd", "not_lvd", "unknown"]
 def team_depth_disclosure(received, given, lines, *, utility, classify_band) -> TeamDepthDisclosure
 ```
 
-- `utility` and `classify_band` are *passed in* from `package_model` and `fairness_bands`. The
-  module defines no threshold, no curve and no package maths; an AST test pins this.
+- `utility` and `classify_band` are *passed in* from `package_model` and `fairness_bands`
+  (`classify_packages`, so the band's denominator is always the owner's, whatever version is
+  active). The module defines no threshold, no denominator, no curve and no package maths; an AST
+  test pins this.
 - `TeamDepthDisclosure`:
   - `state`: `shown` | `not_shown` | `not_evaluated`;
   - `reason`: one of `no_low_value_depth`, `result_does_not_depend`, `only_low_value_pieces`,
@@ -783,8 +852,12 @@ single bit".
 - **Post-hoc threshold.** The floor was chosen in this workstream after the prereg threshold's
   anchor sensitivity was seen (§5.3). Its robustness is partly by construction.
 - **Verdict re-implementation.** The shadow verdict uses the research utility and adjusted-total
-  code, checked against the canonical dispatch on all 648,080 evaluations; the band read on the
-  canonical whole-number adjusted gap differs on 58 of them, from rounding alone (§5).
+  code, checked against the canonical dispatch on all 647,969 evaluations; the band (always from
+  the owner) read on the canonical whole-number adjusted gap differs on 6 of them, from rounding
+  alone (§5).
+- **The board is pinned by archive *and* CSV tree.** The contract build reads the source CSVs,
+  scrape-state stamps and `config/weights` from a repository tree, so the archive alone does not
+  pin it. The evidence records both, plus a hash of the built board.
 
 ## Completion result
 
@@ -796,11 +869,13 @@ single bit".
   - exact private and public copy, placement, accessibility and worked examples (§4);
   - an API sketch, test plan, privacy review and rollout (§7–§10).
 - **EVIDENCE:**
-  - `scripts/low_value_depth_disclosure_shadow.py` reproduces the committed flip-study counts
-    exactly and agrees with the served asset-only lens on 180 / 180 War Room steps;
-  - every one of its 648,080 incumbent evaluations matches the canonical `package_model`
+  - `scripts/low_value_depth_disclosure_shadow.py`, re-run 2026-10-21 under `fairness_bands_v2`
+    on the pinned board (`--archive` + `--csv-rev`), regenerates the committed flip-study cases
+    exactly, reproduces its v1 flip counts once the one changed board value is set back, and
+    agrees with the served (v2) asset-only lens on 180 / 180 War Room steps;
+  - every one of its 647,969 incumbent evaluations matches the canonical `package_model`
     dispatch for `geom_q078_v1` (utility gap to float tolerance, adjusted totals within the
-    canonical whole-number rounding);
+    canonical whole-number rounding), and its band equals the owner's on every one;
   - output in `docs/trade/evidence/low_value_depth_disclosure_2026-10-20/disclosure_shadow.json`;
   - `bash scripts/format_python_changes.sh` is GREEN.
 - **UNRESOLVED:**

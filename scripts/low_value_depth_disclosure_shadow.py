@@ -13,27 +13,44 @@ What is reused, and what is re-implemented and verified:
 
 * board, rosters, optimal lineups and replacement anchors —
   ``low_value_asset_shadow_replay.build_context`` (one contract build of the
-  newest archive, today's code; the anchors come from the canonical owners
+  archive, today's code; the anchors come from the canonical owners
   ``waiver_values_by_position`` and ``faab_engine.resolve_anchors``);
 * the §3 classification (genuine starter / usable depth / expendable filler) —
   ``classify_assets``;
-* the verdict — ``low_value_asset_shadow_replay.verdict``.  Only the band
-  classifier, ``fairness_bands.classify``, is the canonical function.  The package
-  utility is the research ``owa`` (q = 0.78 hard-coded) and the adjusted totals
-  are the research re-implementation ``P2.adjusted``; neither is the canonical
-  dispatch.  So EVERY incumbent evaluation is checked against the canonical
+* the BAND — the canonical fairness-band owner, whatever version is active
+  (``fairness_bands.classify_packages``: the gap against the owner's own
+  denominator, the larger PACKAGE UTILITY under ``fairness_bands_v2``).  This
+  script never computes a band denominator of its own.  The package utility is
+  the research ``owa`` (q = 0.78 hard-coded) and the adjusted totals are the
+  research re-implementation ``P2.adjusted``; neither is the canonical dispatch.
+  So EVERY incumbent evaluation is checked against the canonical
   ``src/valuation_math/package_model.py`` dispatch for the active model
   (``geom_q078_v1``): the utility gap must equal ``geom_utility``'s to float
   tolerance, and the adjusted totals must equal ``adjusted_pair_totals``'s to
   within that function's whole-number rounding of the adjustment (0.5).  The run
-  aborts otherwise; the count checked is reported as ``packageModelParity``;
+  aborts otherwise; the count checked is reported as ``packageModelParity``.
+  ``low_value_asset_shadow_replay.verdict`` (the RETIRED v1 basis: the larger
+  ADJUSTED side) is used only to reproduce the committed v1 filler-flip study;
 * the naive comparator rule ("fire when B_currency_replacement changes the
-  verdict") — the frozen treatment in ``low_value_asset_treatments``.
+  verdict") — the frozen treatment in ``low_value_asset_treatments``, banded by
+  the same owner on that treatment's own package utilities
+  (``fairness_bands.fairness_base``).
+
+The board pin.  ``--archive`` names the raw scraper payload (default: the newest
+archive).  The archive does NOT pin the board on its own: the contract build also
+reads the source CSVs, the scrape-state stamps and ``config/weights`` from a
+repository tree (``build_api_data_contract(csv_root=...)``), and the 2-hourly
+source refreshes move those.  ``--csv-rev REV`` materialises exactly those paths
+from a git revision (default: the working tree).  The evidence records the
+archive, the CSV-tree identity, the code SHA, the active fairness-band receipt
+and a hash of the built board's values, so a re-run can prove it built the same
+board.
 
 Populations:
 
 1. the filler-flip study (S3), regenerated case-for-case with the same seed and
-   checked against the committed ``shadow_replay.json`` counts;
+   checked against the committed ``shadow_replay.json`` counts (case counts under
+   any band; flips and naive fires under the v1 basis that study was built on);
 2. a realistic 2-team calculator sample (S5a's population, same seed);
 3. the own-league completed trades in the archive (graded with today's values);
 4. the real-roster War Room trades (S5d's sampling, same seed), with the served
@@ -52,13 +69,20 @@ Output: ``docs/trade/evidence/low_value_depth_disclosure_2026-10-20/disclosure_s
 from __future__ import annotations
 
 import argparse
+import contextlib
+import functools
 import hashlib
 import importlib.util
+import io
 import json
 import random
 import re
+import subprocess
 import sys
+import tarfile
+import tempfile
 import time
+import zipfile
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -137,6 +161,109 @@ def _pct(n, d):
     return None if not d else round(100.0 * n / d, 1)
 
 
+# ── the board pin ─────────────────────────────────────────────────────────
+
+#: What ``build_api_data_contract(csv_root=...)`` reads from a repository tree
+#: besides the archive: the source CSVs, the per-source fetch stamps and the
+#: coverage-floor configs (``data_contract._build_source_timestamps`` and the
+#: ``config/weights`` floor readers).
+CSV_TREE_PATHS = ("CSVs", "data/scrape_state", "config/weights")
+_HEX40 = re.compile(r"^[0-9a-f]{40}$")
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _git(*args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(REPO), *args], check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def load_archive(archive: str | None) -> tuple[Path, str, bytes, dict]:
+    """The raw payload of ``archive`` (a ``dynasty_export_*.zip``); None = the newest."""
+    if archive is None:
+        return S.newest_board()
+    zpath = Path(archive)
+    if not zpath.is_absolute():
+        zpath = (REPO / zpath).resolve()
+    with zipfile.ZipFile(zpath) as zf:
+        member = next(n for n in zf.namelist() if re.match(r"dynasty_data_.*\.json$", n))
+        blob = zf.read(member)
+    return zpath, member, blob, json.loads(blob)
+
+
+def _tree_content_sha256(root: Path) -> str:
+    """sha256 over (relative path, bytes) of every file under ``CSV_TREE_PATHS``."""
+    h = hashlib.sha256()
+    for top in CSV_TREE_PATHS:
+        base = root / top
+        if not base.exists():
+            continue
+        for p in sorted(x for x in base.rglob("*") if x.is_file()):
+            h.update(p.relative_to(root).as_posix().encode() + b"\0")
+            h.update(hashlib.sha256(p.read_bytes()).digest())
+    return h.hexdigest()
+
+
+@contextlib.contextmanager
+def csv_tree(rev: str | None):
+    """Yield ``(csv_root, provenance)``.  ``rev`` None = the working tree (``csv_root``
+    None, exactly as before); otherwise ``CSV_TREE_PATHS`` at that git revision,
+    materialised into a temporary directory that is deleted on exit."""
+    if rev is None:
+        yield (
+            None,
+            {
+                "source": "working tree",
+                "contentSha256": _tree_content_sha256(REPO),
+            },
+        )
+        return
+    full = _git("rev-parse", "--verify", f"{rev}^{{commit}}")
+    tar = subprocess.run(
+        ["git", "-C", str(REPO), "archive", "--format=tar", full, *CSV_TREE_PATHS],
+        check=True,
+        capture_output=True,
+    ).stdout
+    with tempfile.TemporaryDirectory(prefix="lvd-csv-tree-") as tmp:
+        with tarfile.open(fileobj=io.BytesIO(tar)) as tf:
+            tf.extractall(tmp, filter="data")
+        root = Path(tmp)
+        yield (
+            root,
+            {
+                "source": "git revision",
+                "revisionSha": full,
+                "revisionCommittedAt": _git("log", "-1", "--format=%cI", full),
+                "contentSha256": _tree_content_sha256(root),
+            },
+        )
+
+
+def build_context_pinned(raw: dict, csv_root: Path | None) -> dict:
+    """``S.build_context`` with the contract built against ``csv_root``.
+
+    ``build_context`` imports ``build_api_data_contract`` inside the call, so the
+    module attribute is bound to ``csv_root`` for the duration of the build and
+    restored after; nothing else is changed."""
+    if csv_root is None:
+        return S.build_context(raw)
+    from src.api import data_contract as dc  # noqa: PLC0415
+
+    original = dc.build_api_data_contract
+    dc.build_api_data_contract = functools.partial(original, csv_root=csv_root)
+    try:
+        return S.build_context(raw)
+    finally:
+        dc.build_api_data_contract = original
+
+
+def built_board_sha256(rows: dict) -> str:
+    """Hash of the built board (name -> canonical value), so a re-run can prove it
+    built the same board from the same archive and CSV tree."""
+    blob = json.dumps(sorted((n, r["value"]) for n, r in rows.items()), separators=(",", ":"))
+    return hashlib.sha256(blob.encode()).hexdigest()
+
+
 # ── anchors ───────────────────────────────────────────────────────────────
 
 
@@ -213,6 +340,48 @@ _UTILITY_RTOL = 1e-9  # relative float tolerance on the utility gap
 _ADJUSTED_TOL = 0.5 + 1e-6  # the canonical adjustment is a whole number (js_round)
 
 
+def _treatment_utilities(treatment: str, A, B, rep) -> tuple[float, float]:
+    """``(U_A, U_B)`` under a research treatment's OWN package utility (the scale its
+    gap is on), from the frozen treatment definitions; ``T.gap`` is ``U_A - U_B``."""
+    u = T.TREATMENTS[treatment]["u"]
+    r = rep or {"*": T.MARKET_LEVEL}
+    return (
+        u([(v, T.anchor_for(treatment, p, r)) for v, p in A]),
+        u([(v, T.anchor_for(treatment, p, r)) for v, p in B]),
+    )
+
+
+def verdict(treatment: str, A, B, rep: dict) -> dict:
+    """The verdict with the band from the canonical owner, whatever version is active.
+
+    Same shape as ``S.verdict`` (``A`` / ``B`` are lists of (value, position); ``ord``
+    from A's point of view, -3 lopsided against A .. +3 lopsided for A).  The only
+    difference is the band: the incumbent is classified by
+    ``fairness_bands.classify_packages`` (the owner computes its own denominator from
+    the two packages' values under the active package model); a comparator treatment
+    by ``fairness_bands.classify`` on ``fairness_bands.fairness_base`` of that
+    treatment's own package utilities.  No threshold or denominator is computed here.
+    """
+    g = T.gap(treatment, A, B, rep)
+    av, bv = [v for v, _ in A], [v for v, _ in B]
+    g2, x, y = P2.adjusted(lambda _a, _b: g, av, bv)
+    if treatment == INCUMBENT:
+        band = fairness_bands.classify_packages(g2, av, bv)
+    else:
+        base = fairness_bands.fairness_base(_treatment_utilities(treatment, A, B, rep))
+        band = fairness_bands.classify(g2, base)
+    lvl = band["level"]
+    sign = 1 if g > 0 else (-1 if g < 0 else 0)
+    return {
+        "gap": g,
+        "adjA": x,
+        "adjB": y,
+        "level": lvl,
+        "lead": S.P1.leader(g2, x, y),
+        "ord": sign * S.LEVEL_RANK[lvl],
+    }
+
+
 def _check_parity(R, G, v) -> None:
     """Abort unless the research verdict ``v`` matches the canonical dispatch on (R, G)."""
     a, b = [r["value"] for r in R], [r["value"] for r in G]
@@ -226,16 +395,27 @@ def _check_parity(R, G, v) -> None:
     if abs(xa - v["adjA"]) > _ADJUSTED_TOL or abs(xb - v["adjB"]) > _ADJUSTED_TOL:
         raise AssertionError(f"adjusted {(v['adjA'], v['adjB'])} != canonical {(xa, xb)}")
     PARITY["checked"] += 1
-    # Informational: the band read on the canonical (whole-number) adjusted gap.
-    clvl = fairness_bands.classify(xa - xb, max(xa, xb))["level"]
+    # The band the owner gives the canonical utility gap must be the research band
+    # (both read classify_packages; they can differ only at a float boundary).
+    ulvl = fairness_bands.classify_packages(cgap, a, b)["level"]
+    PARITY["bandAgreesOnCanonicalUtilityGap" if ulvl == v["level"] else "bandDiffersAtFloatBoundary"] += 1  # fmt: skip
+    # Informational: the owner's band on the canonical WHOLE-NUMBER adjusted gap
+    # (adjusted_pair_totals rounds the adjustment), same owner denominator.
+    clvl = fairness_bands.classify_packages(xa - xb, a, b)["level"]
     PARITY["bandAgrees" if clvl == v["level"] else "bandDiffersOnlyByRounding"] += 1
 
 
 def _ord(R, G, rep, treatment=INCUMBENT):
-    v = S.verdict(treatment, [S._asset(r) for r in R], [S._asset(r) for r in G], rep)
+    v = verdict(treatment, [S._asset(r) for r in R], [S._asset(r) for r in G], rep)
     if treatment == INCUMBENT:
         _check_parity(R, G, v)
     return v["ord"]
+
+
+def _ord_v1_reproduction(R, G, rep, treatment=INCUMBENT):
+    """The RETIRED v1 basis (``S.verdict``: band on the larger ADJUSTED side).  Used
+    only to reproduce the committed v1 filler-flip study; never a disclosure input."""
+    return S.verdict(treatment, [S._asset(r) for r in R], [S._asset(r) for r in G], rep)["ord"]
 
 
 def _asset_id(r) -> str:
@@ -351,10 +531,12 @@ def flip_population(rows, rep, lvd_by_variant: dict, per_cell: int) -> dict:
                 B = B + c["sweet"]
         return A, B
 
-    # Reproduction check against the committed evidence (incumbent region flips and
-    # the naive rule's fire counts per sweetener category / class).
+    # Region flips under the ACTIVE bands (what every rule and table below uses) and,
+    # for the reproduction check only, under the retired v1 basis the committed study
+    # was built on.
     base_ord = [_ord(*sides(b), rep) for b in bases]
-    flip = []
+    base_ord_v1 = [_ord_v1_reproduction(*sides(b), rep) for b in bases]
+    flip, flip_v1, naive_v1 = [], [], []
     made_fair = []
     for c in cases:
         b = bases[c["base"]]
@@ -363,17 +545,30 @@ def flip_population(rows, rep, lvd_by_variant: dict, per_cell: int) -> dict:
         o1 = s * _ord(*sides(b, c), rep)
         flip.append(_sgn(o1) != _sgn(o0))
         made_fair.append(o0 < 0 and o1 == 0)
+        o_a = _ord_v1_reproduction(*sides(b, c), rep)  # A's point of view
+        flip_v1.append(_sgn(s * o_a) != _sgn(s * base_ord_v1[c["base"]]))
+        naive_v1.append(_ord_v1_reproduction(*sides(b, c), rep, NAIVE) != o_a)
     committed = json.loads((LVA_EVIDENCE / "shadow_replay.json").read_text())["S3_fillerFlipStudy"]
-    repro_flips = {
-        cls: {cat: sum(1 for i, c in enumerate(cases)
-                       if flip[i] and c["cat"] == cat and bases[c["base"]]["cls"] == cls)
-              for cat in ("filler", "depth")}
-        for cls in S.CLASSES
-    }  # fmt: skip
+
+    def by_class(flags, cats=("filler", "depth")):
+        return {
+            cls: {cat: sum(1 for i, c in enumerate(cases)
+                           if flags[i] and c["cat"] == cat and bases[c["base"]]["cls"] == cls)
+                  for cat in cats}
+            for cls in S.CLASSES
+        }  # fmt: skip
+
+    repro_flips = by_class(flip_v1)
+    active_flips = by_class(flip)
     expect_flips = {
         cls: {
             cat: committed["byClass"][cls][cat][INCUMBENT]["flips"] for cat in ("filler", "depth")
         }
+        for cls in S.CLASSES
+    }
+    repro_cases = by_class([True] * len(cases), S.CATS)
+    expect_cases = {
+        cls: {cat: committed["byClass"][cls][cat][INCUMBENT]["cases"] for cat in S.CATS}
         for cls in S.CLASSES
     }
 
@@ -443,14 +638,33 @@ def flip_population(rows, rep, lvd_by_variant: dict, per_cell: int) -> dict:
         "package before the sweeteners were added",
     }
     naive_cur = out["variants"]["current|prereg"]
+    naive_repro = {
+        cat: sum(1 for i, c in enumerate(cases) if naive_v1[i] and c["cat"] == cat)
+        for cat in S.CATS
+    }
+    naive_expect = {
+        cat: committed["C_informationalDisclosure"][cat]["disclosureFires"] for cat in S.CATS
+    }
     out["reproduction"] = {
+        "basis": "the committed study (docs/valuation/evidence/low_value_assets_2026-10-20/"
+        "shadow_replay.json S3) was built on the RETIRED fairness_bands_v1 basis (band on the "
+        "larger ADJUSTED side).  Case generation is band-independent and must match exactly; "
+        "flips and naive fires are reproduced on that v1 basis (low_value_asset_shadow_replay."
+        "verdict) to prove the same board and cases.  Every rule and table in this file uses the "
+        "ACTIVE bands (*_activeBands below)",
+        "bases_regenerated": len(bases),
+        "bases_committed": committed["design"]["bases"],
+        "casesByClass_regenerated": repro_cases,
+        "casesByClass_committed": expect_cases,
+        "casesMatch": len(bases) == committed["design"]["bases"] and repro_cases == expect_cases,
         "incumbentRegionFlips_regenerated": repro_flips,
         "incumbentRegionFlips_committed": expect_flips,
         "flipsMatch": repro_flips == expect_flips,
-        "naiveRuleFires_regenerated": {cat: naive_cur[cat]["fires"]["naive_B"] for cat in S.CATS},
-        "naiveRuleFires_committed": {
-            cat: committed["C_informationalDisclosure"][cat]["disclosureFires"] for cat in S.CATS
-        },
+        "naiveRuleFires_regenerated": naive_repro,
+        "naiveRuleFires_committed": naive_expect,
+        "naiveFiresMatch": naive_repro == naive_expect,
+        "incumbentRegionFlips_activeBands": active_flips,
+        "naiveRuleFires_activeBands": {cat: naive_cur[cat]["fires"]["naive_B"] for cat in S.CATS},
     }
     return out
 
@@ -748,7 +962,7 @@ def worked_examples(ctx, lvd_by_variant) -> list:
         if any(r is None for r in A + B):
             out.append({"case": lbl, "skipped": "asset not priced on this board"})
             continue
-        v = S.verdict(INCUMBENT, [S._asset(r) for r in A], [S._asset(r) for r in B], rep)
+        v = verdict(INCUMBENT, [S._asset(r) for r in A], [S._asset(r) for r in B], rep)
         _check_parity(A, B, v)
         e = {
             "case": lbl,
@@ -802,11 +1016,23 @@ def main() -> int:
     ap.add_argument("--out", default=OUT_DEFAULT)
     ap.add_argument("--per-cell", type=int, default=30)
     ap.add_argument("--no-engine", action="store_true", help="skip the War Room engine re-run")
+    ap.add_argument(
+        "--archive",
+        default=None,
+        help="the dynasty_export_*.zip to build the board from (default: the newest archive)",
+    )
+    ap.add_argument(
+        "--csv-rev",
+        default=None,
+        help="git revision whose " + ", ".join(CSV_TREE_PATHS) + " the contract build reads "
+        "(default: the working tree); with --archive this pins the whole board",
+    )
     args = ap.parse_args()
     assert pm.active_model_id() == pm.GEOM_Q078_V1, "the incumbent must be the active model"
     t0 = time.time()
-    zpath, member, blob, raw = S.newest_board()
-    ctx = S.build_context(raw)
+    zpath, member, blob, raw = load_archive(args.archive)
+    with csv_tree(args.csv_rev) as (csv_root, csv_provenance):
+        ctx = build_context_pinned(raw, csv_root)
     S.classify_assets(ctx)  # §3 labels under the current anchors (the study's own labels)
     rep = ctx["rep"]
     sets = anchor_sets(ctx)
@@ -833,11 +1059,25 @@ def main() -> int:
         "generatedBy": "scripts/low_value_depth_disclosure_shadow.py",
         "activeModelAtRun": pm.active_model_id(),
         "board": {
-            "archive": str(zpath.relative_to(REPO)),
+            "archive": zpath.relative_to(REPO).as_posix()
+            if zpath.is_relative_to(REPO)
+            else zpath.name,
             "member": member,
             "sha256": hashlib.sha256(blob).hexdigest(),
             "pricedAssets": len(ctx["rows"]),
+            "builtBoardSha256": built_board_sha256(ctx["rows"]),
+            "csvTree": {"paths": list(CSV_TREE_PATHS), **csv_provenance},
+            "codeSha": _git("rev-parse", "HEAD"),
+            "pinNote": "the board is a function of the archive AND the CSV tree (source CSVs, "
+            "scrape-state stamps, config/weights) the contract build reads; builtBoardSha256 "
+            "hashes the resulting name -> canonical value map",
         },  # fmt: skip
+        "fairnessBands": {
+            **fairness_bands.receipt(),
+            "readThrough": "fairness_bands.classify_packages (incumbent) / classify on "
+            "fairness_base of the treatment's own package utilities (naive comparator); this "
+            "script computes no band threshold or denominator",
+        },
         "rules": RULE_TEXT,
         "sharePrior": SHARE_PRIOR,
         "lvdDefinition": {
@@ -865,19 +1105,35 @@ def main() -> int:
             "utilityGapTolerance": f"relative {_UTILITY_RTOL:g} of the larger raw side",
             "adjustedTotalTolerance": "0.5 (adjusted_pair_totals rounds the adjustment to a "
             "whole number, js_round)",
+            "bandAgreesOnCanonicalUtilityGap": PARITY["bandAgreesOnCanonicalUtilityGap"],
+            "bandDiffersAtFloatBoundary": PARITY["bandDiffersAtFloatBoundary"],
             "bandAgreesOnCanonicalAdjustedGap": PARITY["bandAgrees"],
             "bandDiffersOnlyByRounding": PARITY["bandDiffersOnlyByRounding"],
             "note": "every incumbent (GEOM_78) evaluation in every population was checked: the "
             "research utility gap equals package_model.geom_utility's and the research adjusted "
             "totals equal package_model.adjusted_pair_totals' within the tolerances above; any "
-            "mismatch aborts the run.  The band comparison is informational (it reads "
-            "fairness_bands.classify on the canonical whole-number adjusted gap)",
+            "mismatch aborts the run.  Band: the owner's band (classify_packages, its own "
+            "denominator) on the canonical utility gap must equal the research band; the "
+            "comparison on the canonical WHOLE-NUMBER adjusted gap (same owner denominator) is "
+            "informational, and differs only where rounding the adjustment crosses a cut point",
         },
         "timingsSec": {**timings, "total": round(time.time() - t0, 1)},
     }
     assert pm.active_model_id() == pm.GEOM_Q078_V1
     P2.assert_aggregate_only({k: v for k, v in result.items() if k != "board"})
-    P2.assert_aggregate_only({k: v for k, v in result["board"].items() if k != "sha256"})
+    board = dict(result["board"])
+    csv_meta = dict(board.pop("csvTree"))
+    hashes = {
+        "sha256": board.pop("sha256"),
+        "builtBoardSha256": board.pop("builtBoardSha256"),
+        "contentSha256": csv_meta.pop("contentSha256"),
+    }
+    shas = {"codeSha": board.pop("codeSha")}
+    if "revisionSha" in csv_meta:
+        shas["revisionSha"] = csv_meta.pop("revisionSha")
+    assert all(_HEX64.match(h) for h in hashes.values()), hashes
+    assert all(_HEX40.match(h) for h in shas.values()), shas
+    P2.assert_aggregate_only({**board, "csvTree": csv_meta})
     out = REPO / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=1, default=str) + "\n")
