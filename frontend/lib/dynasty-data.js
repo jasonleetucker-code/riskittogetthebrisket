@@ -330,6 +330,29 @@ export const RANKING_SOURCES = [
     excludesRookies: false,
   },
   {
+    // DLF Trade Analyzer Values (owner closeout 2026-10-18 Decision 4).
+    // Mirrors the backend entry: an offense-only member of the "dlf"
+    // family that votes its VALUE ORDER through rank -> Hill (never the
+    // raw value), sharing DLF's one provider cap with DLF Rank.  Held from
+    // the vote unless the backend flag dlf_values_rank_hill_vote is on —
+    // the contract's vote-state stamp says which.
+    key: "dlfValuesSfTep",
+    correlationGroup: "dlf",
+    displayName: "Dynasty League Football Trade Values SF-TEP",
+    columnLabel: "DLF Val",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 320,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: true,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
+  {
     // DLF (Dynasty League Football) full-board IDP rankings.  Mirrors
     // the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
     // 185-player expert consensus; overall_idp scope; not a backbone.

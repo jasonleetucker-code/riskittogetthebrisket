@@ -57,7 +57,7 @@ def _archive_payload(tmp: Path) -> Path | None:
 def _signals_inputs(as_of: datetime) -> tuple[list[dict], dict]:
     from src.sources import signals
     from src.sources.dataset_state import load_state
-    from src.sources.freshness import assess_source
+    from src.sources.freshness import active_schedule, assess_source
 
     root = REPO / "data" / "sources" / "signals"
     store = signals.SignalsStore(root)
@@ -88,7 +88,9 @@ def _signals_inputs(as_of: datetime) -> tuple[list[dict], dict]:
             }
         )
         weightings[spec.source_key] = (
-            assess_source(spec.source_key, state, as_of=as_of).to_dict() if state else None
+            assess_source(spec.source_key, state, as_of=as_of, schedule=active_schedule()).to_dict()
+            if state
+            else None
         )
     return boards, weightings
 
@@ -195,7 +197,7 @@ def collect_inputs(payload_path: Path, args: argparse.Namespace):
     from src.sources import ktc_market
     from src.sources import source_census as sc
     from src.sources.dataset_state import load_state, state_path
-    from src.sources.freshness import assess_source
+    from src.sources.freshness import active_schedule, assess_source
 
     raw = json.loads(payload_path.read_text(encoding="utf-8"))
     contract = dc.build_api_data_contract(raw)
@@ -230,7 +232,9 @@ def collect_inputs(payload_path: Path, args: argparse.Namespace):
             }
         if key not in covered:
             extra_weightings[key] = (
-                assess_source(key, state, as_of=as_of).to_dict() if state else None
+                assess_source(key, state, as_of=as_of, schedule=active_schedule()).to_dict()
+                if state
+                else None
             )
     profiles = {}
     for key in sorted(candidate_keys):

@@ -199,6 +199,34 @@ describe("votingStatusSummary", () => {
     ]);
     expect(s.groups.reduce((n, g) => n + g.count, 0)).toBe(26);
   });
+
+  it("under the v1 curve names the percentage in force, never the step", () => {
+    const s = votingStatusSummary({
+      freshnessSchedule: "v1_cadence_curve",
+      sources: [
+        { key: "a", status: "active_75", statusLabel: "Active — 77.7%", voting: true },
+        { key: "b", status: "active_25", statusLabel: "Active — 16.2%", voting: true },
+        { key: "c", status: "active_100", statusLabel: "Active — 100%", voting: true },
+        { key: "d", status: "active_100", statusLabel: "Active — 100%", voting: true },
+        { key: "e", status: "stale", statusLabel: "Stale — Not Voting", voting: false },
+      ],
+    });
+    expect(s.stepSchedule).toBe(false);
+    expect(s.groups.map((g) => [g.label, g.count])).toEqual([
+      ["Active — 100%", 2],
+      ["Active — 77.7%", 1],
+      ["Active — 16.2%", 1],
+      ["Stale — Not Voting", 1],
+    ]);
+    expect(s.groups.map((g) => g.label)).not.toContain("Active — 25%");
+    expect(s.groups.map((g) => g.label)).not.toContain("Active — 75%");
+    expect(new Set(s.groups.map((g) => g.key)).size).toBe(s.groups.length);
+  });
+
+  it("an entry with no server label still groups under its owner label", () => {
+    const s = votingStatusSummary({ sources: [{ key: "a", status: "testing" }, { key: "b" }] });
+    expect(s.groups.map((g) => g.label)).toEqual(["Testing — Not Voting", "Unknown status"]);
+  });
 });
 
 describe("formatters", () => {

@@ -1,0 +1,37 @@
+====================================================================
+BOARD DIFF  before.json -> d4.json
+====================================================================
+      rows: 1131 -> 1131
+    ranked: 740 -> 740
+    priced: 1028 -> 1028
+     picks: 162 -> 162
+       idp: 428 -> 428
+
+  VALUES: 340 moved, 0 newly priced, 0 newly unpriced
+    |pct change|  p50=0.2%  p90=1.7%  max=11.7%
+    Josh Cameron                          1436 ->    1604  (+11.7%)
+    Theo Johnson                          2168 ->    2065  (-4.8%)
+    Jack Strand                           1299 ->    1346  (+3.6%)
+    Baker Mayfield                        3857 ->    3990  (+3.4%)
+    DeMario Douglas                       1589 ->    1540  (-3.1%)
+    Darren Waller                         2222 ->    2154  (-3.1%)
+    Ja'Tavion Sanders                     2008 ->    1947  (-3.0%)
+    Xavier Hutchinson                     1385 ->    1426  (+3.0%)
+    Colby Parkinson                       1926 ->    1875  (-2.6%)
+    Cole Kmet                             1943 ->    1892  (-2.6%)
+    Tez Johnson                           1474 ->    1437  (-2.5%)
+    Dalton Schultz                        2793 ->    2723  (-2.5%)
+    Tyrone Tracy                          1772 ->    1731  (-2.3%)
+    T.J. Hockenson                        3237 ->    3163  (-2.3%)
+    2027 Pick 5.05                        1845 ->    1887  (+2.3%)
+
+  RANKS: 475 changed
+
+  LABELS:
+    canonicalTierId            592 flipped   e.g. 2028 Early 1st: 10 -> 8
+    confidenceBucket            24 flipped   e.g. Baker Mayfield: medium -> high
+    confidenceLabel             27 flipped   e.g. Baker Mayfield: Medium — limited by agreement -> High — every axis high
+    marketGapDirection           8 flipped   e.g. Bijan Robinson: retail_premium -> consensus_premium
+    hasSourceDisagreement        6 flipped   e.g. Carson Wentz: False -> True
+
+  SOURCE COVERAGE: 319 rows vote differently

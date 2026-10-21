@@ -1,0 +1,3061 @@
+{
+ "D2": {
+  "diff": {
+   "boardHashAlt": "ebc3f9cc8e47330aee29968ea12d7880d5ab45b6478ef5345dfa30ea90774b3c",
+   "boardHashBase": "ebc3f9cc8e47330aee29968ea12d7880d5ab45b6478ef5345dfa30ea90774b3c",
+   "byClass": {},
+   "confidenceBucketDirections": {},
+   "confidenceBucketFlipsByClass": {},
+   "independentSourceCountChangesByClass": {},
+   "newlyPriced": [],
+   "newlyUnpriced": [],
+   "rankChanges": 0,
+   "top200MembershipSwaps": 0,
+   "top50MembershipSwaps": 0,
+   "valuesMoved": 0
+  },
+  "independentCheck": {
+   "countMismatchExamples": [],
+   "countMismatches": 0,
+   "d2EngagedRowsRecomputed": 0,
+   "d2EngagedRowsStamped": 0,
+   "d2EngagementAgrees": true,
+   "d2LineageCapViolations": [],
+   "independenceAxisMismatches": 0,
+   "rowsChecked": 980
+  },
+  "policy": {
+   "rowClassVoteHolds": {},
+   "rowScopedCorrelation": {
+    "idp_show_lineage_on_idp_rows": {
+     "assetClass": "idp",
+     "enabled": true,
+     "flag": "idp_shared_correlation_cap",
+     "group": "idpShow",
+     "lineage": "pair-idptradecalc-idpshow",
+     "members": [
+      "idpTradeCalc",
+      "idpShowCombined"
+     ],
+     "rowsEngaged": 0
+    }
+   }
+  }
+ },
+ "D3": {
+  "checks": {
+   "idpAndPickVotesChanged": 0,
+   "idpAndPickVotesChangedExamples": [],
+   "idpTradeCalcOffenseVotesAfter": 0,
+   "idpTradeCalcOffenseVotesBefore": 434,
+   "offenseRowsWhereItWasTheOnlyVoter": 0
+  },
+  "diff": {
+   "boardHashAlt": "db477cdda29e334dd36fe1691263cef146093317bce2a7b1c78f8c4b19d52a76",
+   "boardHashBase": "ebc3f9cc8e47330aee29968ea12d7880d5ab45b6478ef5345dfa30ea90774b3c",
+   "byClass": {
+    "offense": {
+     "absPctMax": 13.36,
+     "absPctP50": 1.226,
+     "absPctP90": 3.015,
+     "largest": [
+      {
+       "from": 1183,
+       "name": "Adam Trautman",
+       "pct": 13.36,
+       "to": 1341
+      },
+      {
+       "from": 1436,
+       "name": "Josh Cameron",
+       "pct": 11.91,
+       "to": 1607
+      },
+      {
+       "from": 1118,
+       "name": "Jahdae Walker",
+       "pct": -9.12,
+       "to": 1016
+      },
+      {
+       "from": 1339,
+       "name": "Malik Benson",
+       "pct": -8.29,
+       "to": 1228
+      },
+      {
+       "from": 1014,
+       "name": "Phil Mafah",
+       "pct": 6.41,
+       "to": 1079
+      },
+      {
+       "from": 1020,
+       "name": "Gabe Davis",
+       "pct": 6.27,
+       "to": 1084
+      },
+      {
+       "from": 2442,
+       "name": "Deshaun Watson",
+       "pct": 6.18,
+       "to": 2593
+      },
+      {
+       "from": 1388,
+       "name": "Efton Chism",
+       "pct": 6.05,
+       "to": 1472
+      }
+     ],
+     "moved": 428,
+     "top150MaxAbsPct": 2.27,
+     "top50MaxAbsPct": 2.17
+    },
+    "pick": {
+     "absPctMax": 2.42,
+     "absPctP50": 0.662,
+     "absPctP90": 1.858,
+     "largest": [
+      {
+       "from": 2437,
+       "name": "2027 Pick 3.11",
+       "pct": -2.42,
+       "to": 2378
+      },
+      {
+       "from": 7228,
+       "name": "2027 Pick 1.01",
+       "pct": 2.17,
+       "to": 7385
+      },
+      {
+       "from": 2470,
+       "name": "2027 Pick 3.09",
+       "pct": -2.06,
+       "to": 2419
+      },
+      {
+       "from": 2002,
+       "name": "2027 Pick 4.06",
+       "pct": 2.05,
+       "to": 2043
+      },
+      {
+       "from": 2457,
+       "name": "2027 Pick 3.10",
+       "pct": -2.04,
+       "to": 2407
+      },
+      {
+       "from": 4141,
+       "name": "2027 Pick 1.10",
+       "pct": -1.93,
+       "to": 4061
+      },
+      {
+       "from": 2368,
+       "name": "2027 Pick 3.12",
+       "pct": -1.86,
+       "to": 2324
+      },
+      {
+       "from": 3974,
+       "name": "2027 Pick 1.12",
+       "pct": -1.76,
+       "to": 3904
+      }
+     ],
+     "moved": 62,
+     "top150MaxAbsPct": 0.0,
+     "top50MaxAbsPct": 0.0
+    }
+   },
+   "confidenceBucketDirections": {
+    "high->medium": 10,
+    "low->medium": 18,
+    "medium->high": 13,
+    "medium->low": 19
+   },
+   "confidenceBucketFlipsByClass": {
+    "offense": 60
+   },
+   "independentSourceCountChangesByClass": {
+    "offense": 426
+   },
+   "newlyPriced": [],
+   "newlyUnpriced": [],
+   "rankChanges": 622,
+   "top200MembershipSwaps": 1,
+   "top50MembershipSwaps": 1,
+   "valuesMoved": 490
+  },
+  "independentCheck": {
+   "countMismatchExamples": [],
+   "countMismatches": 0,
+   "d2EngagedRowsRecomputed": 0,
+   "d2EngagedRowsStamped": 0,
+   "d2EngagementAgrees": true,
+   "d2LineageCapViolations": [],
+   "independenceAxisMismatches": 0,
+   "rowsChecked": 980
+  },
+  "packageModel": {
+   "activeModel": "geom_q078_v1",
+   "even250BandCrossings": 13,
+   "invariantFailures": 0,
+   "pairings": 2000,
+   "relativeGapChangePctP50": 0.613,
+   "relativeGapChangePctP90": 1.499,
+   "sideFlips": 8
+  },
+  "policy": {
+   "rowClassVoteHolds": {
+    "idpTradeCalc": {
+     "assetClass": "offense",
+     "decision": "owner closeout 2026-10-18 Decision 3: exclude an unproven extra IDP Trade Calculator offense vote",
+     "flag": "idptc_offense_vote_excluded",
+     "lineage": "pair-idptradecalc-offense-ktc",
+     "reason": "owner_policy_unproven_extra_offense_vote",
+     "rowsHeld": 434
+    }
+   },
+   "rowScopedCorrelation": {
+    "idp_show_lineage_on_idp_rows": {
+     "assetClass": "idp",
+     "enabled": false,
+     "flag": "idp_shared_correlation_cap",
+     "group": "idpShow",
+     "lineage": "pair-idptradecalc-idpshow",
+     "members": [
+      "idpTradeCalc",
+      "idpShowCombined"
+     ],
+     "rowsEngaged": 0
+    }
+   }
+  }
+ },
+ "D4": {
+  "capture": {
+   "byPosition": {
+    "QB": 54,
+    "RB": 91,
+    "TE": 46,
+    "WR": 128
+   },
+   "csvSha256": "54b7c01da7972580bfc4a1c9c2053a2bcc93a71ef0395a607f5011981836c2ab",
+   "distinctValues": 319,
+   "freshness": {
+    "ageHours": 6.5,
+    "expectedCadenceHours": 24.0,
+    "freshness": 1.0,
+    "freshnessClock": "lastBroadDatasetChangeAt",
+    "publicationStyle": "SNAPSHOT",
+    "sourceDataAsOf": "2026-10-18T12:27:39Z",
+    "state": "ON_SCHEDULE"
+   },
+   "health": "HEALTHY",
+   "nonPositiveValues": 0,
+   "pickRowsInVotingCsv": 0,
+   "rows": 319
+  },
+  "checks": {
+   "hampelDropRate": 0.0031,
+   "idpValueMoves": [],
+   "maxDlfFamilyAppliedWeight": 1.0001,
+   "pickValueMovesNotRookieTether": [],
+   "rowsWhereASecondDlfFamilyWasCounted": [],
+   "rowsWhereCountRoseThoughDlfAlreadyVoted": [
+    {
+     "familiesAdded": [
+      "dynastyNerdsSfTep"
+     ],
+     "row": "Bryce Young"
+    },
+    {
+     "familiesAdded": [
+      "otcffbSf"
+     ],
+     "row": "Jeremiyah Love"
+    },
+    {
+     "familiesAdded": [
+      "draftSharks"
+     ],
+     "row": "Josh Cameron"
+    },
+    {
+     "familiesAdded": [
+      "yahooBoone"
+     ],
+     "row": "Justin Herbert"
+    }
+   ],
+   "rowsWhereDlfFamilyGainedCoverage": 33,
+   "rowsWhereDlfFamilyGainedCoverageExamples": [
+    "Baker Mayfield",
+    "Bhayshul Tuten",
+    "Christian Watson",
+    "Colby Parkinson",
+    "Darnell Washington",
+    "Darren Waller",
+    "De'Von Achane",
+    "DeVonta Smith",
+    "Emeka Egbuka",
+    "George Holani"
+   ],
+   "votesByClass": {
+    "offense": 319
+   }
+  },
+  "diff": {
+   "boardHashAlt": "4d066a7395e7c10135f1a9dc793d01b1819c7227b6cc7327a68812582732841e",
+   "boardHashBase": "ebc3f9cc8e47330aee29968ea12d7880d5ab45b6478ef5345dfa30ea90774b3c",
+   "byClass": {
+    "offense": {
+     "absPctMax": 11.7,
+     "absPctP50": 0.269,
+     "absPctP90": 1.686,
+     "largest": [
+      {
+       "from": 1436,
+       "name": "Josh Cameron",
+       "pct": 11.7,
+       "to": 1604
+      },
+      {
+       "from": 2168,
+       "name": "Theo Johnson",
+       "pct": -4.75,
+       "to": 2065
+      },
+      {
+       "from": 1299,
+       "name": "Jack Strand",
+       "pct": 3.62,
+       "to": 1346
+      },
+      {
+       "from": 3857,
+       "name": "Baker Mayfield",
+       "pct": 3.45,
+       "to": 3990
+      },
+      {
+       "from": 1589,
+       "name": "DeMario Douglas",
+       "pct": -3.08,
+       "to": 1540
+      },
+      {
+       "from": 2222,
+       "name": "Darren Waller",
+       "pct": -3.06,
+       "to": 2154
+      },
+      {
+       "from": 2008,
+       "name": "Ja'Tavion Sanders",
+       "pct": -3.04,
+       "to": 1947
+      },
+      {
+       "from": 1385,
+       "name": "Xavier Hutchinson",
+       "pct": 2.96,
+       "to": 1426
+      }
+     ],
+     "moved": 300,
+     "top150MaxAbsPct": 3.45,
+     "top50MaxAbsPct": 1.8
+    },
+    "pick": {
+     "absPctMax": 2.28,
+     "absPctP50": 0.121,
+     "absPctP90": 0.604,
+     "largest": [
+      {
+       "from": 1845,
+       "name": "2027 Pick 5.05",
+       "pct": 2.28,
+       "to": 1887
+      },
+      {
+       "from": 7228,
+       "name": "2027 Pick 1.01",
+       "pct": 1.8,
+       "to": 7358
+      },
+      {
+       "from": 3974,
+       "name": "2027 Pick 1.12",
+       "pct": -0.73,
+       "to": 3945
+      },
+      {
+       "from": 4141,
+       "name": "2027 Pick 1.10",
+       "pct": -0.6,
+       "to": 4116
+      },
+      {
+       "from": 1787,
+       "name": "2027 Pick 5.09",
+       "pct": -0.56,
+       "to": 1777
+      },
+      {
+       "from": 4091,
+       "name": "2027 Pick 1.11",
+       "pct": -0.42,
+       "to": 4074
+      },
+      {
+       "from": 4769,
+       "name": "2027 Pick 1.06",
+       "pct": 0.4,
+       "to": 4788
+      },
+      {
+       "from": 2658,
+       "name": "2027 Pick 3.05",
+       "pct": 0.26,
+       "to": 2665
+      }
+     ],
+     "moved": 40,
+     "top150MaxAbsPct": 0.0,
+     "top50MaxAbsPct": 0.0
+    }
+   },
+   "confidenceBucketDirections": {
+    "high->medium": 6,
+    "low->medium": 8,
+    "medium->high": 6,
+    "medium->low": 4
+   },
+   "confidenceBucketFlipsByClass": {
+    "offense": 24
+   },
+   "independentSourceCountChangesByClass": {
+    "offense": 46
+   },
+   "newlyPriced": [],
+   "newlyUnpriced": [],
+   "rankChanges": 475,
+   "top200MembershipSwaps": 0,
+   "top50MembershipSwaps": 1,
+   "valuesMoved": 340
+  },
+  "independentCheck": {
+   "countMismatchExamples": [],
+   "countMismatches": 0,
+   "d2EngagedRowsRecomputed": 0,
+   "d2EngagedRowsStamped": 0,
+   "d2EngagementAgrees": true,
+   "d2LineageCapViolations": [],
+   "independenceAxisMismatches": 0,
+   "rowsChecked": 980
+  },
+  "packageModel": {
+   "activeModel": "geom_q078_v1",
+   "even250BandCrossings": 9,
+   "invariantFailures": 0,
+   "pairings": 2000,
+   "relativeGapChangePctP50": 0.272,
+   "relativeGapChangePctP90": 0.99,
+   "sideFlips": 6
+  },
+  "publicationHistory": {
+   "commitsTouchingCsv": 29,
+   "distinctContentVersions": [
+    {
+     "at": "2026-09-25T00:28:08+00:00",
+     "commit": "b6a962e969",
+     "rows": 322
+    },
+    {
+     "added": 1,
+     "at": "2026-09-25T12:27:33+00:00",
+     "commit": "744ca99b82",
+     "nCommon": 322,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 0.9998,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.8075
+    },
+    {
+     "added": 0,
+     "at": "2026-09-26T14:27:40+00:00",
+     "commit": "ebc28b5363",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 1.0,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.6409
+    },
+    {
+     "added": 0,
+     "at": "2026-09-27T12:27:34+00:00",
+     "commit": "ccfd7a49f8",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 1.0,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.6285
+    },
+    {
+     "added": 0,
+     "at": "2026-09-28T12:27:36+00:00",
+     "commit": "41842561eb",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 0.9999,
+     "top24OverlapVsPrevious": 23,
+     "valuesChangedShare": 0.8266
+    },
+    {
+     "added": 0,
+     "at": "2026-09-29T12:27:34+00:00",
+     "commit": "e1acee1898",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 1.0,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.7121
+    },
+    {
+     "added": 0,
+     "at": "2026-10-01T14:27:30+00:00",
+     "commit": "a546c0af00",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 0.9983,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9319
+    },
+    {
+     "added": 0,
+     "at": "2026-10-01T20:27:31+00:00",
+     "commit": "59210a7cfb",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 1.0,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.418
+    },
+    {
+     "added": 0,
+     "at": "2026-10-03T12:27:33+00:00",
+     "commit": "d1f7da04ee",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 0.9999,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.8978
+    },
+    {
+     "added": 0,
+     "at": "2026-10-04T12:27:34+00:00",
+     "commit": "80354f1d59",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 0.9984,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9164
+    },
+    {
+     "added": 0,
+     "at": "2026-10-05T12:27:38+00:00",
+     "commit": "79f15b98fe",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 0.998,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9474
+    },
+    {
+     "added": 4,
+     "at": "2026-10-06T12:27:38+00:00",
+     "commit": "2f823024ab",
+     "nCommon": 319,
+     "removed": 4,
+     "rows": 323,
+     "spearmanVsPrevious": 0.9864,
+     "top24OverlapVsPrevious": 22,
+     "valuesChangedShare": 0.9624
+    },
+    {
+     "added": 0,
+     "at": "2026-10-07T12:27:42+00:00",
+     "commit": "1eec690fa3",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 0.9999,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9288
+    },
+    {
+     "added": 0,
+     "at": "2026-10-08T12:27:38+00:00",
+     "commit": "e8e9540a19",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 0.9998,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9536
+    },
+    {
+     "added": 0,
+     "at": "2026-10-09T12:27:37+00:00",
+     "commit": "69887623e7",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 0.9998,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9474
+    },
+    {
+     "added": 0,
+     "at": "2026-10-10T12:27:41+00:00",
+     "commit": "96a62ed01d",
+     "nCommon": 323,
+     "removed": 0,
+     "rows": 323,
+     "spearmanVsPrevious": 0.9995,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9721
+    },
+    {
+     "added": 8,
+     "at": "2026-10-11T12:27:33+00:00",
+     "commit": "7e3c72e6d9",
+     "nCommon": 312,
+     "removed": 11,
+     "rows": 320,
+     "spearmanVsPrevious": 0.9931,
+     "top24OverlapVsPrevious": 23,
+     "valuesChangedShare": 0.9583
+    },
+    {
+     "added": 0,
+     "at": "2026-10-12T12:27:38+00:00",
+     "commit": "22e0dd27e2",
+     "nCommon": 320,
+     "removed": 0,
+     "rows": 320,
+     "spearmanVsPrevious": 0.9999,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9219
+    },
+    {
+     "added": 0,
+     "at": "2026-10-13T12:27:45+00:00",
+     "commit": "fff03800cd",
+     "nCommon": 320,
+     "removed": 0,
+     "rows": 320,
+     "spearmanVsPrevious": 0.9998,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9
+    },
+    {
+     "added": 0,
+     "at": "2026-10-14T12:27:40+00:00",
+     "commit": "baab4aeb69",
+     "nCommon": 319,
+     "removed": 1,
+     "rows": 319,
+     "spearmanVsPrevious": 0.9989,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9498
+    },
+    {
+     "added": 0,
+     "at": "2026-10-15T12:27:44+00:00",
+     "commit": "f4d481f2a2",
+     "nCommon": 319,
+     "removed": 0,
+     "rows": 319,
+     "spearmanVsPrevious": 0.9991,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9687
+    },
+    {
+     "added": 1,
+     "at": "2026-10-16T12:27:37+00:00",
+     "commit": "e54a695383",
+     "nCommon": 319,
+     "removed": 0,
+     "rows": 320,
+     "spearmanVsPrevious": 0.9986,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.9592
+    },
+    {
+     "added": 0,
+     "at": "2026-10-17T12:27:36+00:00",
+     "commit": "fce064224c",
+     "nCommon": 319,
+     "removed": 1,
+     "rows": 319,
+     "spearmanVsPrevious": 0.9997,
+     "top24OverlapVsPrevious": 24,
+     "valuesChangedShare": 0.8997
+    },
+    {
+     "added": 0,
+     "at": "2026-10-18T12:27:40+00:00",
+     "commit": "4b2982aa07",
+     "nCommon": 319,
+     "removed": 0,
+     "rows": 319,
+     "spearmanVsPrevious": 0.9996,
+     "top24OverlapVsPrevious": 23,
+     "valuesChangedShare": 0.9154
+    }
+   ]
+  }
+ },
+ "D5": {
+  "checks": {
+   "after": {
+    "ageHours": 1072.4,
+    "excludedRows": 0,
+    "expectedCadenceHours": 253.0,
+    "freshness": 0.18,
+    "freshnessClock": "upstreamPublishedAt",
+    "lastBroadDatasetChangeAt": "2026-09-23T21:54:29Z",
+    "publicationStyle": "EXPLICIT_UPSTREAM_TIMESTAMP",
+    "sourceDataAsOf": "2026-09-04T02:34:24Z",
+    "state": "SEVERELY_STALE",
+    "votingRows": 249
+   },
+   "before": {
+    "ageHours": 597.1,
+    "excludedRows": 0,
+    "expectedCadenceHours": 253.0,
+    "freshness": 0.581,
+    "freshnessClock": "lastBroadDatasetChangeAt",
+    "lastBroadDatasetChangeAt": "2026-09-23T21:54:29Z",
+    "publicationStyle": "BATCH",
+    "sourceDataAsOf": "2026-09-23T21:54:29Z",
+    "state": "STALE",
+    "votingRows": 249
+   },
+   "boardRowsWithAFantasyProsIdpVote": 249,
+   "csvDuplicateIdentities": 15,
+   "csvRows": 299,
+   "distinctNamesAmongThoseVotes": 249,
+   "duplicateVotes": [
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 117,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 228,
+       "family": "DL"
+      }
+     ],
+     "name": "Bradley Chubb",
+     "votedRawRank": 130,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 106,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 176,
+       "family": "DL"
+      }
+     ],
+     "name": "Carl Granderson",
+     "votedRawRank": 110,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 89,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 118,
+       "family": "DL"
+      }
+     ],
+     "name": "Dallas Turner",
+     "votedRawRank": 89,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 105,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 118,
+       "family": "DL"
+      }
+     ],
+     "name": "Greg Rousseau",
+     "votedRawRank": 108,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 110,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 166,
+       "family": "DL"
+      }
+     ],
+     "name": "Harold Landry III",
+     "votedRawRank": null,
+     "votesOnBoard": 0
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 113,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 119,
+       "family": "DL"
+      }
+     ],
+     "name": "Jaelan Phillips",
+     "votedRawRank": 121,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 119,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 135,
+       "family": "DL"
+      }
+     ],
+     "name": "Jonathan Greenard",
+     "votedRawRank": 135,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 89,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 118,
+       "family": "DL"
+      }
+     ],
+     "name": "Josh Hines-Allen",
+     "votedRawRank": 89,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 127,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 275,
+       "family": "DL"
+      }
+     ],
+     "name": "K'Lavon Chaisson",
+     "votedRawRank": 147,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 120,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 249,
+       "family": "DL"
+      }
+     ],
+     "name": "Khalil Mack",
+     "votedRawRank": 137,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 118,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 150,
+       "family": "DL"
+      }
+     ],
+     "name": "Nick Herbig",
+     "votedRawRank": 132,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 126,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 218,
+       "family": "DL"
+      }
+     ],
+     "name": "Rashan Gary",
+     "votedRawRank": 145,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 89,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 118,
+       "family": "DL"
+      }
+     ],
+     "name": "Trey Hendrickson",
+     "votedRawRank": 89,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 125,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 233,
+       "family": "DL"
+      }
+     ],
+     "name": "Uchenna Nwosu",
+     "votedRawRank": 143,
+     "votesOnBoard": 1
+    },
+    {
+     "csvEntries": [
+      {
+       "effectiveRank": 112,
+       "family": "LB"
+      },
+      {
+       "effectiveRank": 119,
+       "family": "DL"
+      }
+     ],
+     "name": "Yaya Diaby",
+     "votedRawRank": 119,
+     "votesOnBoard": 1
+    }
+   ],
+   "everyDuplicateVotesAtMostOnce": true,
+   "upstreamStateFile": "data/scrape_state/fantasyProsIdp_upstream.json"
+  },
+  "diff": {
+   "boardHashAlt": "ebc3f9cc8e47330aee29968ea12d7880d5ab45b6478ef5345dfa30ea90774b3c",
+   "boardHashBase": "ebc3f9cc8e47330aee29968ea12d7880d5ab45b6478ef5345dfa30ea90774b3c",
+   "byClass": {},
+   "confidenceBucketDirections": {},
+   "confidenceBucketFlipsByClass": {},
+   "independentSourceCountChangesByClass": {},
+   "newlyPriced": [],
+   "newlyUnpriced": [],
+   "rankChanges": 0,
+   "top200MembershipSwaps": 0,
+   "top50MembershipSwaps": 0,
+   "valuesMoved": 0
+  }
+ },
+ "baselineIndependentCheck": {
+  "countMismatchExamples": [],
+  "countMismatches": 0,
+  "d2EngagedRowsRecomputed": 0,
+  "d2EngagedRowsStamped": 0,
+  "d2EngagementAgrees": true,
+  "d2LineageCapViolations": [],
+  "independenceAxisMismatches": 0,
+  "rowsChecked": 980
+ },
+ "history": [
+  {
+   "archive": "dynasty_export_20260905_204615.zip",
+   "archiveSha256": "7df88a0ef88c52e9ce8614d66332569e3434e9b12b547fcfafd4e7763788f78a",
+   "baselineIndependentCheck": {
+    "countMismatchExamples": [],
+    "countMismatches": 0,
+    "d2EngagedRowsRecomputed": 0,
+    "d2EngagedRowsStamped": 0,
+    "d2EngagementAgrees": true,
+    "d2LineageCapViolations": [],
+    "independenceAxisMismatches": 0,
+    "rowsChecked": 937
+   },
+   "csvCommit": "957a10211833dd0c70e8f470396fa2f10088dc58",
+   "d2": {
+    "diff": {
+     "boardHashAlt": "31b261d1f022fa68744ee2e81db97f02f9911807f97e7072619e702b11ede11f",
+     "boardHashBase": "ff5093dd661a7f55efca20abe0897399d8e005fbcfa7fb0a1b20ad138de001bc",
+     "byClass": {
+      "idp": {
+       "absPctMax": 23.21,
+       "absPctP50": 2.137,
+       "absPctP90": 10.296,
+       "largest": [
+        {
+         "from": 3749,
+         "name": "Cedric Gray",
+         "pct": 23.21,
+         "to": 4619
+        },
+        {
+         "from": 3870,
+         "name": "Micah Parsons",
+         "pct": -18.45,
+         "to": 3156
+        },
+        {
+         "from": 3914,
+         "name": "Abdul Carter",
+         "pct": -16.91,
+         "to": 3252
+        },
+        {
+         "from": 2820,
+         "name": "Daiyan Henley",
+         "pct": 15.35,
+         "to": 3253
+        },
+        {
+         "from": 3730,
+         "name": "Jared Verse",
+         "pct": -14.42,
+         "to": 3192
+        },
+        {
+         "from": 3010,
+         "name": "Kevin Winston",
+         "pct": 14.35,
+         "to": 3442
+        },
+        {
+         "from": 1771,
+         "name": "SirVocea Dennis",
+         "pct": 14.23,
+         "to": 2023
+        },
+        {
+         "from": 3231,
+         "name": "Laiatu Latu",
+         "pct": -14.05,
+         "to": 2777
+        }
+       ],
+       "moved": 239,
+       "top150MaxAbsPct": 23.21,
+       "top50MaxAbsPct": 8.36
+      },
+      "offense": {
+       "absPctMax": 2.83,
+       "absPctP50": 2.834,
+       "absPctP90": 2.834,
+       "largest": [
+        {
+         "from": 4835,
+         "name": "Travis Hunter",
+         "pct": -2.83,
+         "to": 4698
+        }
+       ],
+       "moved": 1,
+       "top150MaxAbsPct": 2.83,
+       "top50MaxAbsPct": 0.0
+      },
+      "pick": {
+       "absPctMax": 5.35,
+       "absPctP50": 1.143,
+       "absPctP90": 3.136,
+       "largest": [
+        {
+         "from": 2876,
+         "name": "2026 Pick 2.10",
+         "pct": -5.35,
+         "to": 2722
+        },
+        {
+         "from": 1885,
+         "name": "2026 Pick 6.06",
+         "pct": -4.88,
+         "to": 1793
+        },
+        {
+         "from": 4332,
+         "name": "2026 Pick 1.08",
+         "pct": 3.79,
+         "to": 4496
+        },
+        {
+         "from": 3452,
+         "name": "2026 Pick 2.01",
+         "pct": 3.71,
+         "to": 3580
+        },
+        {
+         "from": 3419,
+         "name": "2026 Pick 2.02",
+         "pct": 3.39,
+         "to": 3535
+        },
+        {
+         "from": 4496,
+         "name": "2026 Pick 1.07",
+         "pct": 3.14,
+         "to": 4637
+        },
+        {
+         "from": 1827,
+         "name": "2026 Pick 6.08",
+         "pct": -3.01,
+         "to": 1772
+        },
+        {
+         "from": 2619,
+         "name": "2026 Pick 3.02",
+         "pct": -2.94,
+         "to": 2542
+        }
+       ],
+       "moved": 53,
+       "top150MaxAbsPct": 0.0,
+       "top50MaxAbsPct": 0.0
+      }
+     },
+     "confidenceBucketDirections": {
+      "low->medium": 1,
+      "medium->low": 108
+     },
+     "confidenceBucketFlipsByClass": {
+      "idp": 109
+     },
+     "independentSourceCountChangesByClass": {
+      "idp": 302
+     },
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 595,
+     "top200MembershipSwaps": 6,
+     "top50MembershipSwaps": 0,
+     "valuesMoved": 293
+    },
+    "independentCheck": {
+     "countMismatchExamples": [],
+     "countMismatches": 0,
+     "d2EngagedRowsRecomputed": 303,
+     "d2EngagedRowsStamped": 303,
+     "d2EngagementAgrees": true,
+     "d2LineageCapViolations": [],
+     "independenceAxisMismatches": 0,
+     "rowsChecked": 937
+    },
+    "policy": {
+     "rowClassVoteHolds": {},
+     "rowScopedCorrelation": {
+      "idp_show_lineage_on_idp_rows": {
+       "assetClass": "idp",
+       "enabled": true,
+       "flag": "idp_shared_correlation_cap",
+       "group": "idpShow",
+       "lineage": "pair-idptradecalc-idpshow",
+       "members": [
+        "idpTradeCalc",
+        "idpShowCombined"
+       ],
+       "rowsEngaged": 303
+      }
+     }
+    }
+   },
+   "d3": {
+    "checks": {
+     "idpAndPickVotesChanged": 0,
+     "idpAndPickVotesChangedExamples": [],
+     "idpTradeCalcOffenseVotesAfter": 0,
+     "idpTradeCalcOffenseVotesBefore": 376,
+     "offenseRowsWhereItWasTheOnlyVoter": 0
+    },
+    "diff": {
+     "boardHashAlt": "857e01a95b26cdf8c0e997cb52d227a257e4a42d11736939828ff25b31c0e893",
+     "boardHashBase": "ff5093dd661a7f55efca20abe0897399d8e005fbcfa7fb0a1b20ad138de001bc",
+     "byClass": {
+      "offense": {
+       "absPctMax": 5.16,
+       "absPctP50": 1.039,
+       "absPctP90": 2.3,
+       "largest": [
+        {
+         "from": 2693,
+         "name": "Ja'Kobi Lane",
+         "pct": -5.16,
+         "to": 2554
+        },
+        {
+         "from": 1274,
+         "name": "Marcus Mariota",
+         "pct": 4.79,
+         "to": 1335
+        },
+        {
+         "from": 1171,
+         "name": "Jahdae Walker",
+         "pct": -4.1,
+         "to": 1123
+        },
+        {
+         "from": 1486,
+         "name": "Christian Kirk",
+         "pct": -3.97,
+         "to": 1427
+        },
+        {
+         "from": 2025,
+         "name": "Jerry Jeudy",
+         "pct": -3.56,
+         "to": 1953
+        },
+        {
+         "from": 2063,
+         "name": "Drew Allar",
+         "pct": -3.54,
+         "to": 1990
+        },
+        {
+         "from": 2024,
+         "name": "Mac Jones",
+         "pct": -3.46,
+         "to": 1954
+        },
+        {
+         "from": 1575,
+         "name": "Brock Wright",
+         "pct": 3.37,
+         "to": 1628
+        }
+       ],
+       "moved": 372,
+       "top150MaxAbsPct": 2.36,
+       "top50MaxAbsPct": 2.36
+      },
+      "pick": {
+       "absPctMax": 3.56,
+       "absPctP50": 0.699,
+       "absPctP90": 1.416,
+       "largest": [
+        {
+         "from": 2693,
+         "name": "2026 Pick 3.01",
+         "pct": -3.56,
+         "to": 2597
+        },
+        {
+         "from": 2619,
+         "name": "2026 Pick 3.02",
+         "pct": -2.48,
+         "to": 2554
+        },
+        {
+         "from": 2458,
+         "name": "2026 Pick 3.06",
+         "pct": -2.32,
+         "to": 2401
+        },
+        {
+         "from": 2703,
+         "name": "2026 Pick 2.12",
+         "pct": -1.92,
+         "to": 2651
+        },
+        {
+         "from": 2123,
+         "name": "2026 Pick 4.06",
+         "pct": -1.51,
+         "to": 2091
+        },
+        {
+         "from": 2542,
+         "name": "2026 Pick 3.03",
+         "pct": -1.42,
+         "to": 2506
+        },
+        {
+         "from": 2416,
+         "name": "2026 Pick 3.07",
+         "pct": -1.37,
+         "to": 2383
+        },
+        {
+         "from": 2465,
+         "name": "2026 Pick 3.05",
+         "pct": -1.34,
+         "to": 2432
+        }
+       ],
+       "moved": 57,
+       "top150MaxAbsPct": 0.0,
+       "top50MaxAbsPct": 0.0
+      }
+     },
+     "confidenceBucketDirections": {
+      "high->medium": 7,
+      "low->medium": 9,
+      "medium->high": 22,
+      "medium->low": 3
+     },
+     "confidenceBucketFlipsByClass": {
+      "offense": 41
+     },
+     "independentSourceCountChangesByClass": {
+      "offense": 369
+     },
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 612,
+     "top200MembershipSwaps": 1,
+     "top50MembershipSwaps": 1,
+     "valuesMoved": 429
+    }
+   },
+   "datasetStatePresent": false,
+   "idpRowsWhereBothD2MembersVote": 303,
+   "idpRowsWhereIdpShowCombinedVotes": 303,
+   "scrapeTimestamp": "2026-09-05T20:46:14.971171+00:00"
+  },
+  {
+   "archive": "dynasty_export_20260915_214858.zip",
+   "archiveSha256": "d55daf8a27ef7b8e7b853d7e84dbff7bdd349976eb630bdba51447a56099e237",
+   "baselineIndependentCheck": {
+    "countMismatchExamples": [],
+    "countMismatches": 0,
+    "d2EngagedRowsRecomputed": 0,
+    "d2EngagedRowsStamped": 0,
+    "d2EngagementAgrees": true,
+    "d2LineageCapViolations": [],
+    "independenceAxisMismatches": 0,
+    "rowsChecked": 953
+   },
+   "csvCommit": "95e6478d2cc6370d3034a145992037c733889f5b",
+   "d2": {
+    "diff": {
+     "boardHashAlt": "aaf9423b9c3d9440cc431bab4ebc7326759aef76f21d7c7cd54f8fe24d41a924",
+     "boardHashBase": "4276e3b1552b584e9137df01baa7357970d760df81883937ef22ef2a454edd56",
+     "byClass": {
+      "idp": {
+       "absPctMax": 22.9,
+       "absPctP50": 2.103,
+       "absPctP90": 10.142,
+       "largest": [
+        {
+         "from": 3733,
+         "name": "Cedric Gray",
+         "pct": 22.9,
+         "to": 4588
+        },
+        {
+         "from": 3867,
+         "name": "Micah Parsons",
+         "pct": -18.59,
+         "to": 3148
+        },
+        {
+         "from": 3912,
+         "name": "Abdul Carter",
+         "pct": -17.05,
+         "to": 3245
+        },
+        {
+         "from": 2883,
+         "name": "Kevin Winston",
+         "pct": 16.41,
+         "to": 3356
+        },
+        {
+         "from": 2817,
+         "name": "Daiyan Henley",
+         "pct": 15.37,
+         "to": 3250
+        },
+        {
+         "from": 2574,
+         "name": "Josiah Trotter",
+         "pct": -14.3,
+         "to": 2206
+        },
+        {
+         "from": 3227,
+         "name": "Laiatu Latu",
+         "pct": -14.22,
+         "to": 2768
+        },
+        {
+         "from": 3542,
+         "name": "Jared Verse",
+         "pct": -13.98,
+         "to": 3047
+        }
+       ],
+       "moved": 240,
+       "top150MaxAbsPct": 22.9,
+       "top50MaxAbsPct": 8.36
+      },
+      "offense": {
+       "absPctMax": 2.53,
+       "absPctP50": 2.534,
+       "absPctP90": 2.534,
+       "largest": [
+        {
+         "from": 4814,
+         "name": "Travis Hunter",
+         "pct": -2.53,
+         "to": 4692
+        }
+       ],
+       "moved": 1,
+       "top150MaxAbsPct": 2.53,
+       "top50MaxAbsPct": 0.0
+      },
+      "pick": {
+       "absPctMax": 5.18,
+       "absPctP50": 1.142,
+       "absPctP90": 3.231,
+       "largest": [
+        {
+         "from": 4224,
+         "name": "2026 Pick 1.09",
+         "pct": 5.18,
+         "to": 4443
+        },
+        {
+         "from": 2411,
+         "name": "2026 Pick 3.10",
+         "pct": -4.52,
+         "to": 2302
+        },
+        {
+         "from": 1826,
+         "name": "2026 Pick 6.05",
+         "pct": -4.11,
+         "to": 1751
+        },
+        {
+         "from": 2746,
+         "name": "2026 Pick 3.01",
+         "pct": -3.97,
+         "to": 2637
+        },
+        {
+         "from": 1855,
+         "name": "2026 Pick 6.04",
+         "pct": -3.61,
+         "to": 1788
+        },
+        {
+         "from": 1857,
+         "name": "2026 Pick 6.03",
+         "pct": -3.23,
+         "to": 1797
+        },
+        {
+         "from": 1797,
+         "name": "2026 Pick 6.06",
+         "pct": -3.17,
+         "to": 1740
+        },
+        {
+         "from": 2637,
+         "name": "2026 Pick 3.02",
+         "pct": -3.15,
+         "to": 2554
+        }
+       ],
+       "moved": 59,
+       "top150MaxAbsPct": 0.0,
+       "top50MaxAbsPct": 0.0
+      }
+     },
+     "confidenceBucketDirections": {
+      "low->medium": 2,
+      "medium->low": 99
+     },
+     "confidenceBucketFlipsByClass": {
+      "idp": 101
+     },
+     "independentSourceCountChangesByClass": {
+      "idp": 301
+     },
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 616,
+     "top200MembershipSwaps": 4,
+     "top50MembershipSwaps": 0,
+     "valuesMoved": 300
+    },
+    "independentCheck": {
+     "countMismatchExamples": [],
+     "countMismatches": 0,
+     "d2EngagedRowsRecomputed": 302,
+     "d2EngagedRowsStamped": 302,
+     "d2EngagementAgrees": true,
+     "d2LineageCapViolations": [],
+     "independenceAxisMismatches": 0,
+     "rowsChecked": 953
+    },
+    "policy": {
+     "rowClassVoteHolds": {},
+     "rowScopedCorrelation": {
+      "idp_show_lineage_on_idp_rows": {
+       "assetClass": "idp",
+       "enabled": true,
+       "flag": "idp_shared_correlation_cap",
+       "group": "idpShow",
+       "lineage": "pair-idptradecalc-idpshow",
+       "members": [
+        "idpTradeCalc",
+        "idpShowCombined"
+       ],
+       "rowsEngaged": 302
+      }
+     }
+    }
+   },
+   "d3": {
+    "checks": {
+     "idpAndPickVotesChanged": 0,
+     "idpAndPickVotesChangedExamples": [],
+     "idpTradeCalcOffenseVotesAfter": 0,
+     "idpTradeCalcOffenseVotesBefore": 412,
+     "offenseRowsWhereItWasTheOnlyVoter": 0
+    },
+    "diff": {
+     "boardHashAlt": "a181ccea4ab0a8b8cb756d0846b4e834f7005246d0d20a9ea153d20be9887a13",
+     "boardHashBase": "4276e3b1552b584e9137df01baa7357970d760df81883937ef22ef2a454edd56",
+     "byClass": {
+      "offense": {
+       "absPctMax": 7.33,
+       "absPctP50": 1.078,
+       "absPctP90": 2.678,
+       "largest": [
+        {
+         "from": 1009,
+         "name": "Mason Tipton",
+         "pct": 7.33,
+         "to": 1083
+        },
+        {
+         "from": 1322,
+         "name": "Jimmy Horn",
+         "pct": -6.05,
+         "to": 1242
+        },
+        {
+         "from": 1083,
+         "name": "Kenny Pickett",
+         "pct": 5.17,
+         "to": 1139
+        },
+        {
+         "from": 1052,
+         "name": "Sione Vaki",
+         "pct": 4.94,
+         "to": 1104
+        },
+        {
+         "from": 965,
+         "name": "Le'Veon Moss",
+         "pct": 4.77,
+         "to": 1011
+        },
+        {
+         "from": 2169,
+         "name": "Colby Parkinson",
+         "pct": -4.52,
+         "to": 2071
+        },
+        {
+         "from": 1204,
+         "name": "Jalin Hyatt",
+         "pct": -4.49,
+         "to": 1150
+        },
+        {
+         "from": 1317,
+         "name": "Xavier Hutchinson",
+         "pct": -4.4,
+         "to": 1259
+        }
+       ],
+       "moved": 410,
+       "top150MaxAbsPct": 3.61,
+       "top50MaxAbsPct": 2.68
+      },
+      "pick": {
+       "absPctMax": 2.53,
+       "absPctP50": 0.988,
+       "absPctP90": 2.032,
+       "largest": [
+        {
+         "from": 2451,
+         "name": "2026 Pick 3.09",
+         "pct": -2.53,
+         "to": 2389
+        },
+        {
+         "from": 2163,
+         "name": "2026 Pick 4.07",
+         "pct": -2.45,
+         "to": 2110
+        },
+        {
+         "from": 2231,
+         "name": "2026 Pick 4.03",
+         "pct": -2.29,
+         "to": 2180
+        },
+        {
+         "from": 2211,
+         "name": "2026 Pick 4.05",
+         "pct": -2.17,
+         "to": 2163
+        },
+        {
+         "from": 2227,
+         "name": "2026 Pick 4.04",
+         "pct": -2.16,
+         "to": 2179
+        },
+        {
+         "from": 2411,
+         "name": "2026 Pick 3.10",
+         "pct": -2.03,
+         "to": 2362
+        },
+        {
+         "from": 2746,
+         "name": "2026 Pick 3.01",
+         "pct": -1.93,
+         "to": 2693
+        },
+        {
+         "from": 2294,
+         "name": "2026 Pick 3.12",
+         "pct": -1.79,
+         "to": 2253
+        }
+       ],
+       "moved": 54,
+       "top150MaxAbsPct": 0.0,
+       "top50MaxAbsPct": 0.0
+      }
+     },
+     "confidenceBucketDirections": {
+      "high->medium": 4,
+      "low->medium": 10,
+      "medium->high": 18,
+      "medium->low": 16
+     },
+     "confidenceBucketFlipsByClass": {
+      "offense": 48
+     },
+     "independentSourceCountChangesByClass": {
+      "offense": 407
+     },
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 615,
+     "top200MembershipSwaps": 1,
+     "top50MembershipSwaps": 0,
+     "valuesMoved": 464
+    }
+   },
+   "datasetStatePresent": false,
+   "idpRowsWhereBothD2MembersVote": 302,
+   "idpRowsWhereIdpShowCombinedVotes": 302,
+   "scrapeTimestamp": "2026-09-15T21:48:58.542838+00:00"
+  },
+  {
+   "archive": "dynasty_export_20260925_233646.zip",
+   "archiveSha256": "910529444c60a564e14574b0a8472104fb5450565eef73a06bfc38dc7f1a5012",
+   "baselineIndependentCheck": {
+    "countMismatchExamples": [],
+    "countMismatches": 0,
+    "d2EngagedRowsRecomputed": 0,
+    "d2EngagedRowsStamped": 0,
+    "d2EngagementAgrees": true,
+    "d2LineageCapViolations": [],
+    "independenceAxisMismatches": 0,
+    "rowsChecked": 991
+   },
+   "csvCommit": "70722931b1c651d94e460b0739d6c3c195796be6",
+   "d2": {
+    "diff": {
+     "boardHashAlt": "b3b82fe122c2c03d69b8f34f190c44eee23ee84f158a5532e842a3fd9a066294",
+     "boardHashBase": "50ca5c739fc263335a7773ca425771de27aa5c3ef4d0c508ddfa7e4832a371ad",
+     "byClass": {
+      "idp": {
+       "absPctMax": 3.61,
+       "absPctP50": 0.951,
+       "absPctP90": 2.202,
+       "largest": [
+        {
+         "from": 3630,
+         "name": "Micah Parsons",
+         "pct": -3.61,
+         "to": 3499
+        },
+        {
+         "from": 3786,
+         "name": "Abdul Carter",
+         "pct": -2.96,
+         "to": 3674
+        },
+        {
+         "from": 1499,
+         "name": "Nate Wiggins",
+         "pct": 2.94,
+         "to": 1543
+        },
+        {
+         "from": 1343,
+         "name": "Genesis Smith",
+         "pct": 2.9,
+         "to": 1382
+        },
+        {
+         "from": 1336,
+         "name": "Keisean Nixon",
+         "pct": 2.69,
+         "to": 1372
+        },
+        {
+         "from": 4446,
+         "name": "Will Anderson",
+         "pct": -2.68,
+         "to": 4327
+        },
+        {
+         "from": 4566,
+         "name": "Cedric Gray",
+         "pct": 2.67,
+         "to": 4688
+        },
+        {
+         "from": 4840,
+         "name": "Aidan Hutchinson",
+         "pct": -2.6,
+         "to": 4714
+        }
+       ],
+       "moved": 237,
+       "top150MaxAbsPct": 3.61,
+       "top50MaxAbsPct": 0.91
+      },
+      "offense": {
+       "absPctMax": 0.33,
+       "absPctP50": 0.335,
+       "absPctP90": 0.335,
+       "largest": [
+        {
+         "from": 4779,
+         "name": "Travis Hunter",
+         "pct": -0.33,
+         "to": 4763
+        }
+       ],
+       "moved": 1,
+       "top150MaxAbsPct": 0.33,
+       "top50MaxAbsPct": 0.0
+      },
+      "pick": {
+       "absPctMax": 1.59,
+       "absPctP50": 0.458,
+       "absPctP90": 1.051,
+       "largest": [
+        {
+         "from": 1821,
+         "name": "2026 Pick 5.10",
+         "pct": 1.59,
+         "to": 1850
+        },
+        {
+         "from": 4701,
+         "name": "2026 Pick 1.06",
+         "pct": 1.32,
+         "to": 4763
+        },
+        {
+         "from": 2652,
+         "name": "2026 Pick 3.02",
+         "pct": -1.24,
+         "to": 2619
+        },
+        {
+         "from": 3710,
+         "name": "2026 Pick 1.12",
+         "pct": 1.05,
+         "to": 3749
+        },
+        {
+         "from": 1782,
+         "name": "2026 Pick 6.01",
+         "pct": -1.01,
+         "to": 1764
+        },
+        {
+         "from": 2619,
+         "name": "2026 Pick 3.03",
+         "pct": -0.88,
+         "to": 2596
+        },
+        {
+         "from": 1775,
+         "name": "2026 Pick 6.02",
+         "pct": -0.85,
+         "to": 1760
+        },
+        {
+         "from": 1764,
+         "name": "2026 Pick 6.03",
+         "pct": -0.74,
+         "to": 1751
+        }
+       ],
+       "moved": 31,
+       "top150MaxAbsPct": 0.0,
+       "top50MaxAbsPct": 0.0
+      }
+     },
+     "confidenceBucketDirections": {
+      "low->medium": 1,
+      "medium->low": 82
+     },
+     "confidenceBucketFlipsByClass": {
+      "idp": 83
+     },
+     "independentSourceCountChangesByClass": {
+      "idp": 300
+     },
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 539,
+     "top200MembershipSwaps": 0,
+     "top50MembershipSwaps": 0,
+     "valuesMoved": 269
+    },
+    "independentCheck": {
+     "countMismatchExamples": [],
+     "countMismatches": 0,
+     "d2EngagedRowsRecomputed": 301,
+     "d2EngagedRowsStamped": 301,
+     "d2EngagementAgrees": true,
+     "d2LineageCapViolations": [],
+     "independenceAxisMismatches": 0,
+     "rowsChecked": 991
+    },
+    "policy": {
+     "rowClassVoteHolds": {},
+     "rowScopedCorrelation": {
+      "idp_show_lineage_on_idp_rows": {
+       "assetClass": "idp",
+       "enabled": true,
+       "flag": "idp_shared_correlation_cap",
+       "group": "idpShow",
+       "lineage": "pair-idptradecalc-idpshow",
+       "members": [
+        "idpTradeCalc",
+        "idpShowCombined"
+       ],
+       "rowsEngaged": 301
+      }
+     }
+    }
+   },
+   "d3": {
+    "checks": {
+     "idpAndPickVotesChanged": 0,
+     "idpAndPickVotesChangedExamples": [],
+     "idpTradeCalcOffenseVotesAfter": 0,
+     "idpTradeCalcOffenseVotesBefore": 436,
+     "offenseRowsWhereItWasTheOnlyVoter": 0
+    },
+    "diff": {
+     "boardHashAlt": "6efdd6ade5f6881ce52b2353767d8e85263b47ac8a3aaefafda9898dc88972ca",
+     "boardHashBase": "50ca5c739fc263335a7773ca425771de27aa5c3ef4d0c508ddfa7e4832a371ad",
+     "byClass": {
+      "offense": {
+       "absPctMax": 12.99,
+       "absPctP50": 0.155,
+       "absPctP90": 0.573,
+       "largest": [
+        {
+         "from": 1301,
+         "name": "Jeremy Ruckert",
+         "pct": 12.99,
+         "to": 1470
+        },
+        {
+         "from": 1027,
+         "name": "Reggie Virgil",
+         "pct": 10.03,
+         "to": 1130
+        },
+        {
+         "from": 1903,
+         "name": "Devaughn Vele",
+         "pct": 5.68,
+         "to": 2011
+        },
+        {
+         "from": 1610,
+         "name": "DeMario Douglas",
+         "pct": -4.04,
+         "to": 1545
+        },
+        {
+         "from": 2712,
+         "name": "Gunnar Helm",
+         "pct": -3.28,
+         "to": 2623
+        },
+        {
+         "from": 940,
+         "name": "Tyler Scott",
+         "pct": -2.45,
+         "to": 917
+        },
+        {
+         "from": 4871,
+         "name": "Jared Goff",
+         "pct": 2.07,
+         "to": 4972
+        },
+        {
+         "from": 944,
+         "name": "Isaiah Hodgins",
+         "pct": -2.01,
+         "to": 925
+        }
+       ],
+       "moved": 400,
+       "top150MaxAbsPct": 2.07,
+       "top50MaxAbsPct": 1.45
+      },
+      "pick": {
+       "absPctMax": 1.24,
+       "absPctP50": 0.11,
+       "absPctP90": 0.272,
+       "largest": [
+        {
+         "from": 2414,
+         "name": "2026 Pick 3.09",
+         "pct": -1.24,
+         "to": 2384
+        },
+        {
+         "from": 2431,
+         "name": "2026 Pick 3.08",
+         "pct": -0.86,
+         "to": 2410
+        },
+        {
+         "from": 2109,
+         "name": "2026 Pick 4.06",
+         "pct": -0.52,
+         "to": 2098
+        },
+        {
+         "from": 2334,
+         "name": "2026 Pick 3.11",
+         "pct": -0.34,
+         "to": 2326
+        },
+        {
+         "from": 2205,
+         "name": "2026 Pick 4.03",
+         "pct": -0.27,
+         "to": 2199
+        },
+        {
+         "from": 1850,
+         "name": "2026 Pick 5.09",
+         "pct": -0.27,
+         "to": 1845
+        },
+        {
+         "from": 1855,
+         "name": "2026 Pick 5.08",
+         "pct": -0.22,
+         "to": 1851
+        },
+        {
+         "from": 2000,
+         "name": "2026 Pick 4.08",
+         "pct": -0.2,
+         "to": 1996
+        }
+       ],
+       "moved": 43,
+       "top150MaxAbsPct": 0.0,
+       "top50MaxAbsPct": 0.0
+      }
+     },
+     "confidenceBucketDirections": {
+      "high->medium": 15,
+      "low->medium": 7,
+      "medium->high": 13,
+      "medium->low": 13
+     },
+     "confidenceBucketFlipsByClass": {
+      "offense": 48
+     },
+     "independentSourceCountChangesByClass": {
+      "offense": 426
+     },
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 372,
+     "top200MembershipSwaps": 0,
+     "top50MembershipSwaps": 0,
+     "valuesMoved": 443
+    }
+   },
+   "datasetStatePresent": true,
+   "idpRowsWhereBothD2MembersVote": 301,
+   "idpRowsWhereIdpShowCombinedVotes": 301,
+   "scrapeTimestamp": "2026-09-25T23:36:46.320964+00:00"
+  },
+  {
+   "archive": "dynasty_export_20261002_193506.zip",
+   "archiveSha256": "42c308c5b6006cf6e0cf87d08e7b35c96ea7ebfaf48c99cb8c608c9c627ab447",
+   "baselineIndependentCheck": {
+    "countMismatchExamples": [],
+    "countMismatches": 0,
+    "d2EngagedRowsRecomputed": 0,
+    "d2EngagedRowsStamped": 0,
+    "d2EngagementAgrees": true,
+    "d2LineageCapViolations": [],
+    "independenceAxisMismatches": 0,
+    "rowsChecked": 988
+   },
+   "csvCommit": "adb00b95a94825ddf2db1d7aa5ad9e0f3befae61",
+   "d2": {
+    "diff": {
+     "boardHashAlt": "93be495d5b2604e1b57ebebc1f68a6219f83f62dbeb42cebcded9e2b629e0c74",
+     "boardHashBase": "93be495d5b2604e1b57ebebc1f68a6219f83f62dbeb42cebcded9e2b629e0c74",
+     "byClass": {},
+     "confidenceBucketDirections": {
+      "medium->low": 86
+     },
+     "confidenceBucketFlipsByClass": {
+      "idp": 86
+     },
+     "independentSourceCountChangesByClass": {
+      "idp": 300
+     },
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 0,
+     "top200MembershipSwaps": 0,
+     "top50MembershipSwaps": 0,
+     "valuesMoved": 0
+    },
+    "independentCheck": {
+     "countMismatchExamples": [],
+     "countMismatches": 0,
+     "d2EngagedRowsRecomputed": 301,
+     "d2EngagedRowsStamped": 301,
+     "d2EngagementAgrees": true,
+     "d2LineageCapViolations": [],
+     "independenceAxisMismatches": 0,
+     "rowsChecked": 988
+    },
+    "policy": {
+     "rowClassVoteHolds": {},
+     "rowScopedCorrelation": {
+      "idp_show_lineage_on_idp_rows": {
+       "assetClass": "idp",
+       "enabled": true,
+       "flag": "idp_shared_correlation_cap",
+       "group": "idpShow",
+       "lineage": "pair-idptradecalc-idpshow",
+       "members": [
+        "idpTradeCalc",
+        "idpShowCombined"
+       ],
+       "rowsEngaged": 301
+      }
+     }
+    }
+   },
+   "d3": {
+    "checks": {
+     "idpAndPickVotesChanged": 0,
+     "idpAndPickVotesChangedExamples": [],
+     "idpTradeCalcOffenseVotesAfter": 0,
+     "idpTradeCalcOffenseVotesBefore": 429,
+     "offenseRowsWhereItWasTheOnlyVoter": 0
+    },
+    "diff": {
+     "boardHashAlt": "2a65c8e2280a0b4cfa2a22a76365f9e2bf1c44e522eb342168382ceccc490b6a",
+     "boardHashBase": "93be495d5b2604e1b57ebebc1f68a6219f83f62dbeb42cebcded9e2b629e0c74",
+     "byClass": {
+      "offense": {
+       "absPctMax": 3.68,
+       "absPctP50": 0.083,
+       "absPctP90": 0.4,
+       "largest": [
+        {
+         "from": 924,
+         "name": "Bub Means",
+         "pct": -3.68,
+         "to": 890
+        },
+        {
+         "from": 1550,
+         "name": "Zavion Thomas",
+         "pct": -3.1,
+         "to": 1502
+        },
+        {
+         "from": 1330,
+         "name": "Malik Benson",
+         "pct": -2.93,
+         "to": 1291
+        },
+        {
+         "from": 3419,
+         "name": "Jalen Coker",
+         "pct": 2.9,
+         "to": 3518
+        },
+        {
+         "from": 8037,
+         "name": "Justin Jefferson",
+         "pct": 2.76,
+         "to": 8259
+        },
+        {
+         "from": 2310,
+         "name": "Elijah Arroyo",
+         "pct": -1.99,
+         "to": 2264
+        },
+        {
+         "from": 2474,
+         "name": "Cade Otton",
+         "pct": -1.94,
+         "to": 2426
+        },
+        {
+         "from": 3511,
+         "name": "Chuba Hubbard",
+         "pct": 1.85,
+         "to": 3576
+        }
+       ],
+       "moved": 362,
+       "top150MaxAbsPct": 2.9,
+       "top50MaxAbsPct": 2.76
+      },
+      "pick": {
+       "absPctMax": 0.17,
+       "absPctP50": 0.07,
+       "absPctP90": 0.109,
+       "largest": [
+        {
+         "from": 2367,
+         "name": "2026 Pick 3.09",
+         "pct": -0.17,
+         "to": 2363
+        },
+        {
+         "from": 1736,
+         "name": "2026 Pick 6.07",
+         "pct": 0.12,
+         "to": 1738
+        },
+        {
+         "from": 1759,
+         "name": "2026 Pick 6.02",
+         "pct": -0.11,
+         "to": 1757
+        },
+        {
+         "from": 1838,
+         "name": "2026 Pick 5.10",
+         "pct": -0.11,
+         "to": 1836
+        },
+        {
+         "from": 1884,
+         "name": "2026 Pick 5.06",
+         "pct": -0.11,
+         "to": 1882
+        },
+        {
+         "from": 1918,
+         "name": "2026 Pick 5.04",
+         "pct": -0.1,
+         "to": 1916
+        },
+        {
+         "from": 1974,
+         "name": "2026 Pick 4.10",
+         "pct": -0.1,
+         "to": 1972
+        },
+        {
+         "from": 7978,
+         "name": "2026 Pick 1.01",
+         "pct": 0.1,
+         "to": 7986
+        }
+       ],
+       "moved": 40,
+       "top150MaxAbsPct": 0.0,
+       "top50MaxAbsPct": 0.0
+      }
+     },
+     "confidenceBucketDirections": {
+      "high->medium": 4,
+      "low->medium": 6,
+      "medium->high": 22,
+      "medium->low": 20
+     },
+     "confidenceBucketFlipsByClass": {
+      "offense": 52
+     },
+     "independentSourceCountChangesByClass": {
+      "offense": 422
+     },
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 263,
+     "top200MembershipSwaps": 0,
+     "top50MembershipSwaps": 0,
+     "valuesMoved": 402
+    }
+   },
+   "datasetStatePresent": true,
+   "idpRowsWhereBothD2MembersVote": 301,
+   "idpRowsWhereIdpShowCombinedVotes": 301,
+   "scrapeTimestamp": "2026-10-02T19:35:06.424571+00:00"
+  },
+  {
+   "archive": "dynasty_export_20261010_235341.zip",
+   "archiveSha256": "b89a181f72061b153084dcab4ae3395887ff0cbba506356d02aa8bf595c43e28",
+   "baselineIndependentCheck": {
+    "countMismatchExamples": [],
+    "countMismatches": 0,
+    "d2EngagedRowsRecomputed": 0,
+    "d2EngagedRowsStamped": 0,
+    "d2EngagementAgrees": true,
+    "d2LineageCapViolations": [],
+    "independenceAxisMismatches": 0,
+    "rowsChecked": 980
+   },
+   "csvCommit": "adec42bd4dc76b8a7e478af1d7db660a34ba6a61",
+   "d2": {
+    "diff": {
+     "boardHashAlt": "fc13c31f53f1950a4604ebecfb1079508623bef24d8dd919d5fd90b88de3b86f",
+     "boardHashBase": "740cd2a1644d259ec6964649b7bd09c9d5b430159e1515af5d67a1e6b826d182",
+     "byClass": {
+      "idp": {
+       "absPctMax": 1.14,
+       "absPctP50": 0.232,
+       "absPctP90": 0.606,
+       "largest": [
+        {
+         "from": 1670,
+         "name": "Trevin Wallace",
+         "pct": 1.14,
+         "to": 1689
+        },
+        {
+         "from": 3840,
+         "name": "Cedric Gray",
+         "pct": 1.02,
+         "to": 3879
+        },
+        {
+         "from": 1228,
+         "name": "Genesis Smith",
+         "pct": 0.9,
+         "to": 1239
+        },
+        {
+         "from": 3849,
+         "name": "Micah Parsons",
+         "pct": -0.83,
+         "to": 3817
+        },
+        {
+         "from": 1395,
+         "name": "Nate Wiggins",
+         "pct": 0.79,
+         "to": 1406
+        },
+        {
+         "from": 1105,
+         "name": "Tarheeb Still",
+         "pct": 0.72,
+         "to": 1113
+        },
+        {
+         "from": 1177,
+         "name": "DaRon Bland",
+         "pct": 0.68,
+         "to": 1185
+        },
+        {
+         "from": 2951,
+         "name": "Daiyan Henley",
+         "pct": 0.68,
+         "to": 2971
+        }
+       ],
+       "moved": 229,
+       "top150MaxAbsPct": 1.02,
+       "top50MaxAbsPct": 0.21
+      },
+      "offense": {
+       "absPctMax": 0.08,
+       "absPctP50": 0.08,
+       "absPctP90": 0.08,
+       "largest": [
+        {
+         "from": 3769,
+         "name": "Travis Hunter",
+         "pct": -0.08,
+         "to": 3766
+        }
+       ],
+       "moved": 1,
+       "top150MaxAbsPct": 0.08,
+       "top50MaxAbsPct": 0.0
+      },
+      "pick": {
+       "absPctMax": 0.62,
+       "absPctP50": 0.224,
+       "absPctP90": 0.358,
+       "largest": [
+        {
+         "from": 2594,
+         "name": "2027 Pick 3.04",
+         "pct": -0.62,
+         "to": 2578
+        },
+        {
+         "from": 1707,
+         "name": "2027 Pick 6.11",
+         "pct": 0.47,
+         "to": 1715
+        },
+        {
+         "from": 2793,
+         "name": "2027 Pick 2.11",
+         "pct": -0.36,
+         "to": 2783
+        },
+        {
+         "from": 1742,
+         "name": "2027 Pick 6.07",
+         "pct": -0.29,
+         "to": 1737
+        },
+        {
+         "from": 2474,
+         "name": "2027 Pick 3.09",
+         "pct": -0.28,
+         "to": 2467
+        },
+        {
+         "from": 3541,
+         "name": "2027 Pick 2.03",
+         "pct": 0.28,
+         "to": 3551
+        },
+        {
+         "from": 2132,
+         "name": "2027 Pick 4.04",
+         "pct": 0.28,
+         "to": 2138
+        },
+        {
+         "from": 4768,
+         "name": "2027 Pick 1.06",
+         "pct": -0.23,
+         "to": 4757
+        }
+       ],
+       "moved": 23,
+       "top150MaxAbsPct": 0.0,
+       "top50MaxAbsPct": 0.0
+      }
+     },
+     "confidenceBucketDirections": {
+      "medium->low": 73
+     },
+     "confidenceBucketFlipsByClass": {
+      "idp": 73
+     },
+     "independentSourceCountChangesByClass": {
+      "idp": 299
+     },
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 299,
+     "top200MembershipSwaps": 0,
+     "top50MembershipSwaps": 0,
+     "valuesMoved": 253
+    },
+    "independentCheck": {
+     "countMismatchExamples": [],
+     "countMismatches": 0,
+     "d2EngagedRowsRecomputed": 300,
+     "d2EngagedRowsStamped": 300,
+     "d2EngagementAgrees": true,
+     "d2LineageCapViolations": [],
+     "independenceAxisMismatches": 0,
+     "rowsChecked": 980
+    },
+    "policy": {
+     "rowClassVoteHolds": {},
+     "rowScopedCorrelation": {
+      "idp_show_lineage_on_idp_rows": {
+       "assetClass": "idp",
+       "enabled": true,
+       "flag": "idp_shared_correlation_cap",
+       "group": "idpShow",
+       "lineage": "pair-idptradecalc-idpshow",
+       "members": [
+        "idpTradeCalc",
+        "idpShowCombined"
+       ],
+       "rowsEngaged": 300
+      }
+     }
+    }
+   },
+   "d3": {
+    "checks": {
+     "idpAndPickVotesChanged": 0,
+     "idpAndPickVotesChangedExamples": [],
+     "idpTradeCalcOffenseVotesAfter": 0,
+     "idpTradeCalcOffenseVotesBefore": 433,
+     "offenseRowsWhereItWasTheOnlyVoter": 0
+    },
+    "diff": {
+     "boardHashAlt": "2b6ee19842a024aec2fb1c485ef46b0165c1184923613a82a221fd92c703bafa",
+     "boardHashBase": "740cd2a1644d259ec6964649b7bd09c9d5b430159e1515af5d67a1e6b826d182",
+     "byClass": {
+      "offense": {
+       "absPctMax": 12.65,
+       "absPctP50": 1.323,
+       "absPctP90": 3.589,
+       "largest": [
+        {
+         "from": 1273,
+         "name": "Grant Calcaterra",
+         "pct": 12.65,
+         "to": 1434
+        },
+        {
+         "from": 1161,
+         "name": "Foster Moreau",
+         "pct": 12.14,
+         "to": 1302
+        },
+        {
+         "from": 2011,
+         "name": "Ollie Gordon",
+         "pct": 10.39,
+         "to": 2220
+        },
+        {
+         "from": 1033,
+         "name": "Phil Mafah",
+         "pct": 9.49,
+         "to": 1131
+        },
+        {
+         "from": 934,
+         "name": "Reggie Virgil",
+         "pct": 9.1,
+         "to": 1019
+        },
+        {
+         "from": 2775,
+         "name": "Michael Mayer",
+         "pct": -8.79,
+         "to": 2531
+        },
+        {
+         "from": 1129,
+         "name": "Tanner McKee",
+         "pct": 7.88,
+         "to": 1218
+        },
+        {
+         "from": 1468,
+         "name": "Tyler Huntley",
+         "pct": 7.56,
+         "to": 1579
+        }
+       ],
+       "moved": 431,
+       "top150MaxAbsPct": 6.06,
+       "top50MaxAbsPct": 6.06
+      },
+      "pick": {
+       "absPctMax": 6.06,
+       "absPctP50": 0.731,
+       "absPctP90": 1.745,
+       "largest": [
+        {
+         "from": 7332,
+         "name": "2027 Pick 1.01",
+         "pct": 6.06,
+         "to": 7776
+        },
+        {
+         "from": 2555,
+         "name": "2027 Pick 3.05",
+         "pct": -2.62,
+         "to": 2488
+        },
+        {
+         "from": 2594,
+         "name": "2027 Pick 3.04",
+         "pct": -2.54,
+         "to": 2528
+        },
+        {
+         "from": 2426,
+         "name": "2027 Pick 3.10",
+         "pct": -2.27,
+         "to": 2371
+        },
+        {
+         "from": 2775,
+         "name": "2027 Pick 3.01",
+         "pct": -1.84,
+         "to": 2724
+        },
+        {
+         "from": 2694,
+         "name": "2027 Pick 3.02",
+         "pct": -1.74,
+         "to": 2647
+        },
+        {
+         "from": 4031,
+         "name": "2027 Pick 1.11",
+         "pct": -1.66,
+         "to": 3964
+        },
+        {
+         "from": 2040,
+         "name": "2027 Pick 4.06",
+         "pct": 1.57,
+         "to": 2072
+        }
+       ],
+       "moved": 58,
+       "top150MaxAbsPct": 0.0,
+       "top50MaxAbsPct": 0.0
+      }
+     },
+     "confidenceBucketDirections": {
+      "high->medium": 9,
+      "low->medium": 13,
+      "medium->high": 17,
+      "medium->low": 23
+     },
+     "confidenceBucketFlipsByClass": {
+      "offense": 62
+     },
+     "independentSourceCountChangesByClass": {
+      "offense": 425
+     },
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 652,
+     "top200MembershipSwaps": 2,
+     "top50MembershipSwaps": 0,
+     "valuesMoved": 489
+    }
+   },
+   "datasetStatePresent": true,
+   "idpRowsWhereBothD2MembersVote": 300,
+   "idpRowsWhereIdpShowCombinedVotes": 300,
+   "scrapeTimestamp": "2026-10-10T23:53:41.088918+00:00"
+  },
+  {
+   "archive": "dynasty_export_20261018_114711.zip",
+   "archiveSha256": "5c45f77d857c066b2a1903a992c9a54a27c0ea336780eb7a76a80aba712f1461",
+   "baselineIndependentCheck": {
+    "countMismatchExamples": [],
+    "countMismatches": 0,
+    "d2EngagedRowsRecomputed": 0,
+    "d2EngagedRowsStamped": 0,
+    "d2EngagementAgrees": true,
+    "d2LineageCapViolations": [],
+    "independenceAxisMismatches": 0,
+    "rowsChecked": 980
+   },
+   "csvCommit": "c7070d3326983170ff8ad21d0fdffd3a41823235",
+   "d2": {
+    "diff": {
+     "boardHashAlt": "5ef6b8fe4f5d5579b2d157de41ce742ebfb4a7cb85ead181efe704217102a60c",
+     "boardHashBase": "5ef6b8fe4f5d5579b2d157de41ce742ebfb4a7cb85ead181efe704217102a60c",
+     "byClass": {},
+     "confidenceBucketDirections": {},
+     "confidenceBucketFlipsByClass": {},
+     "independentSourceCountChangesByClass": {},
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 0,
+     "top200MembershipSwaps": 0,
+     "top50MembershipSwaps": 0,
+     "valuesMoved": 0
+    },
+    "independentCheck": {
+     "countMismatchExamples": [],
+     "countMismatches": 0,
+     "d2EngagedRowsRecomputed": 0,
+     "d2EngagedRowsStamped": 0,
+     "d2EngagementAgrees": true,
+     "d2LineageCapViolations": [],
+     "independenceAxisMismatches": 0,
+     "rowsChecked": 980
+    },
+    "policy": {
+     "rowClassVoteHolds": {},
+     "rowScopedCorrelation": {
+      "idp_show_lineage_on_idp_rows": {
+       "assetClass": "idp",
+       "enabled": true,
+       "flag": "idp_shared_correlation_cap",
+       "group": "idpShow",
+       "lineage": "pair-idptradecalc-idpshow",
+       "members": [
+        "idpTradeCalc",
+        "idpShowCombined"
+       ],
+       "rowsEngaged": 0
+      }
+     }
+    }
+   },
+   "d3": {
+    "checks": {
+     "idpAndPickVotesChanged": 0,
+     "idpAndPickVotesChangedExamples": [],
+     "idpTradeCalcOffenseVotesAfter": 0,
+     "idpTradeCalcOffenseVotesBefore": 434,
+     "offenseRowsWhereItWasTheOnlyVoter": 0
+    },
+    "diff": {
+     "boardHashAlt": "323b939dd5c9bad51c1237f918518761d167b76b2ea6b555b80039fc7f3aa6cb",
+     "boardHashBase": "5ef6b8fe4f5d5579b2d157de41ce742ebfb4a7cb85ead181efe704217102a60c",
+     "byClass": {
+      "offense": {
+       "absPctMax": 13.64,
+       "absPctP50": 1.281,
+       "absPctP90": 3.156,
+       "largest": [
+        {
+         "from": 1180,
+         "name": "Adam Trautman",
+         "pct": 13.64,
+         "to": 1341
+        },
+        {
+         "from": 1767,
+         "name": "Michael Trigg",
+         "pct": 7.7,
+         "to": 1903
+        },
+        {
+         "from": 1301,
+         "name": "Foster Moreau",
+         "pct": 7.53,
+         "to": 1399
+        },
+        {
+         "from": 1108,
+         "name": "Gardner Minshew",
+         "pct": 7.22,
+         "to": 1188
+        },
+        {
+         "from": 2428,
+         "name": "Deshaun Watson",
+         "pct": 6.18,
+         "to": 2578
+        },
+        {
+         "from": 1009,
+         "name": "Gabe Davis",
+         "pct": 6.14,
+         "to": 1071
+        },
+        {
+         "from": 985,
+         "name": "Kalel Mullings",
+         "pct": 6.09,
+         "to": 1045
+        },
+        {
+         "from": 1394,
+         "name": "Efton Chism",
+         "pct": 5.95,
+         "to": 1477
+        }
+       ],
+       "moved": 428,
+       "top150MaxAbsPct": 3.01,
+       "top50MaxAbsPct": 2.28
+      },
+      "pick": {
+       "absPctMax": 2.93,
+       "absPctP50": 0.83,
+       "absPctP90": 1.838,
+       "largest": [
+        {
+         "from": 1811,
+         "name": "2027 Pick 5.07",
+         "pct": 2.93,
+         "to": 1864
+        },
+        {
+         "from": 1992,
+         "name": "2027 Pick 4.06",
+         "pct": 2.36,
+         "to": 2039
+        },
+        {
+         "from": 1839,
+         "name": "2027 Pick 5.06",
+         "pct": 2.34,
+         "to": 1882
+        },
+        {
+         "from": 1984,
+         "name": "2027 Pick 4.08",
+         "pct": -2.22,
+         "to": 1940
+        },
+        {
+         "from": 2445,
+         "name": "2027 Pick 3.11",
+         "pct": -1.92,
+         "to": 2398
+        },
+        {
+         "from": 3972,
+         "name": "2027 Pick 1.12",
+         "pct": -1.84,
+         "to": 3899
+        },
+        {
+         "from": 2464,
+         "name": "2027 Pick 3.09",
+         "pct": -1.79,
+         "to": 2420
+        },
+        {
+         "from": 2363,
+         "name": "2027 Pick 3.12",
+         "pct": -1.74,
+         "to": 2322
+        }
+       ],
+       "moved": 57,
+       "top150MaxAbsPct": 0.0,
+       "top50MaxAbsPct": 0.0
+      }
+     },
+     "confidenceBucketDirections": {
+      "high->medium": 8,
+      "low->medium": 16,
+      "medium->high": 10,
+      "medium->low": 18
+     },
+     "confidenceBucketFlipsByClass": {
+      "offense": 52
+     },
+     "independentSourceCountChangesByClass": {
+      "offense": 426
+     },
+     "newlyPriced": [],
+     "newlyUnpriced": [],
+     "rankChanges": 628,
+     "top200MembershipSwaps": 2,
+     "top50MembershipSwaps": 1,
+     "valuesMoved": 485
+    }
+   },
+   "datasetStatePresent": true,
+   "idpRowsWhereBothD2MembersVote": 0,
+   "idpRowsWhereIdpShowCombinedVotes": 0,
+   "scrapeTimestamp": "2026-10-18T11:47:11.644766+00:00"
+  }
+ ],
+ "pins": {
+  "boardHashes": {
+   "D2": "ebc3f9cc8e47330aee29968ea12d7880d5ab45b6478ef5345dfa30ea90774b3c",
+   "D3": "db477cdda29e334dd36fe1691263cef146093317bce2a7b1c78f8c4b19d52a76",
+   "D4": "4d066a7395e7c10135f1a9dc793d01b1819c7227b6cc7327a68812582732841e",
+   "D5": "ebc3f9cc8e47330aee29968ea12d7880d5ab45b6478ef5345dfa30ea90774b3c",
+   "baseline": "ebc3f9cc8e47330aee29968ea12d7880d5ab45b6478ef5345dfa30ea90774b3c",
+   "productionDefaults": "70c5f0fbde612c3a2693b25d7197b9bfa95a5a1f91dfc7c983daddb638d191fb"
+  },
+  "code": "8692603f3a031133700e73bdcff9fee84e50f991",
+  "flagDefaults": {
+   "dlf_values_rank_hill_vote": true,
+   "idp_shared_correlation_cap": true,
+   "idptc_offense_vote_excluded": true
+  },
+  "payload": "exports/latest/dynasty_data_2026-10-18.json",
+  "payloadSha256": "1d26baef13551028a76736bb5a3e4de7f67aecd6bd3556c0ca2e2dade1d1d216",
+  "scrapeTimestamp": "2026-10-18T18:59:52.660472+00:00",
+  "workingTreeDirty": false
+ },
+ "productionDefaults": {
+  "diff": {
+   "boardHashAlt": "70c5f0fbde612c3a2693b25d7197b9bfa95a5a1f91dfc7c983daddb638d191fb",
+   "boardHashBase": "ebc3f9cc8e47330aee29968ea12d7880d5ab45b6478ef5345dfa30ea90774b3c",
+   "byClass": {
+    "offense": {
+     "absPctMax": 14.21,
+     "absPctP50": 1.289,
+     "absPctP90": 3.674,
+     "largest": [
+      {
+       "from": 1436,
+       "name": "Josh Cameron",
+       "pct": 14.21,
+       "to": 1640
+      },
+      {
+       "from": 1183,
+       "name": "Adam Trautman",
+       "pct": 13.36,
+       "to": 1341
+      },
+      {
+       "from": 2168,
+       "name": "Theo Johnson",
+       "pct": -12.73,
+       "to": 1892
+      },
+      {
+       "from": 1118,
+       "name": "Jahdae Walker",
+       "pct": -9.12,
+       "to": 1016
+      },
+      {
+       "from": 1589,
+       "name": "DeMario Douglas",
+       "pct": -6.99,
+       "to": 1478
+      },
+      {
+       "from": 2250,
+       "name": "Mike Gesicki",
+       "pct": -6.93,
+       "to": 2094
+      },
+      {
+       "from": 2062,
+       "name": "Darnell Washington",
+       "pct": -6.89,
+       "to": 1920
+      },
+      {
+       "from": 2442,
+       "name": "Deshaun Watson",
+       "pct": 6.76,
+       "to": 2607
+      }
+     ],
+     "moved": 427,
+     "top150MaxAbsPct": 3.69,
+     "top50MaxAbsPct": 3.69
+    },
+    "pick": {
+     "absPctMax": 3.56,
+     "absPctP50": 0.77,
+     "absPctP90": 2.118,
+     "largest": [
+      {
+       "from": 7228,
+       "name": "2027 Pick 1.01",
+       "pct": 3.56,
+       "to": 7485
+      },
+      {
+       "from": 2457,
+       "name": "2027 Pick 3.10",
+       "pct": -2.85,
+       "to": 2387
+      },
+      {
+       "from": 3974,
+       "name": "2027 Pick 1.12",
+       "pct": -2.39,
+       "to": 3879
+      },
+      {
+       "from": 2437,
+       "name": "2027 Pick 3.11",
+       "pct": -2.3,
+       "to": 2381
+      },
+      {
+       "from": 4141,
+       "name": "2027 Pick 1.10",
+       "pct": -2.29,
+       "to": 4046
+      },
+      {
+       "from": 4202,
+       "name": "2027 Pick 1.09",
+       "pct": -2.12,
+       "to": 4113
+      },
+      {
+       "from": 2368,
+       "name": "2027 Pick 3.12",
+       "pct": -2.03,
+       "to": 2320
+      },
+      {
+       "from": 1845,
+       "name": "2027 Pick 5.05",
+       "pct": 1.95,
+       "to": 1881
+      }
+     ],
+     "moved": 60,
+     "top150MaxAbsPct": 0.0,
+     "top50MaxAbsPct": 0.0
+    }
+   },
+   "confidenceBucketDirections": {
+    "high->medium": 10,
+    "low->medium": 22,
+    "medium->high": 18,
+    "medium->low": 19
+   },
+   "confidenceBucketFlipsByClass": {
+    "offense": 69
+   },
+   "independentSourceCountChangesByClass": {
+    "offense": 398
+   },
+   "newlyPriced": [],
+   "newlyUnpriced": [],
+   "rankChanges": 649,
+   "top200MembershipSwaps": 1,
+   "top50MembershipSwaps": 1,
+   "valuesMoved": 487
+  },
+  "independentCheck": {
+   "countMismatchExamples": [],
+   "countMismatches": 0,
+   "d2EngagedRowsRecomputed": 0,
+   "d2EngagedRowsStamped": 0,
+   "d2EngagementAgrees": true,
+   "d2LineageCapViolations": [],
+   "independenceAxisMismatches": 0,
+   "rowsChecked": 980
+  },
+  "packageModel": {
+   "activeModel": "geom_q078_v1",
+   "even250BandCrossings": 16,
+   "invariantFailures": 0,
+   "pairings": 2000,
+   "relativeGapChangePctP50": 0.697,
+   "relativeGapChangePctP90": 1.915,
+   "sideFlips": 7
+  },
+  "policy": {
+   "rowClassVoteHolds": {
+    "idpTradeCalc": {
+     "assetClass": "offense",
+     "decision": "owner closeout 2026-10-18 Decision 3: exclude an unproven extra IDP Trade Calculator offense vote",
+     "flag": "idptc_offense_vote_excluded",
+     "lineage": "pair-idptradecalc-offense-ktc",
+     "reason": "owner_policy_unproven_extra_offense_vote",
+     "rowsHeld": 434
+    }
+   },
+   "rowScopedCorrelation": {
+    "idp_show_lineage_on_idp_rows": {
+     "assetClass": "idp",
+     "enabled": true,
+     "flag": "idp_shared_correlation_cap",
+     "group": "idpShow",
+     "lineage": "pair-idptradecalc-idpshow",
+     "members": [
+      "idpTradeCalc",
+      "idpShowCombined"
+     ],
+     "rowsEngaged": 0
+    }
+   }
+  }
+ },
+ "schema": "source-independence-closeout/v1"
+}
