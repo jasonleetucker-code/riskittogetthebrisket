@@ -127,6 +127,9 @@ const ROUTES = [
   "/auction/join",
   "/auction/notifications",
   "/auction/reset",
+  // Unlisted Waiver Wire Comparison (owner request 2026-10-21): public by
+  // exact link, never advertised (lib/public-routes.js isUnlistedPagePath).
+  "/waiver-wire/r7k4q9m2",
 ];
 
 const enc = encodeURIComponent;
