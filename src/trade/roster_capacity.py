@@ -453,6 +453,10 @@ class RosterCapacity:
             # Finder re-rank, decision engine): one function, one number.
             "forcedDropCharge": None if cost is None else round(cost, 1),
             "forcedDropChargeBasis": basis,
+            # ``forcedDropReleaseCost`` (above) is the GROSS sum of every
+            # modelled release, including ones an over-limit roster owed before
+            # the trade; the charge a consumer subtracts is ``forcedDropCharge``.
+            "forcedDropReleaseCostBasis": "gross_post_trade_cleanup_including_pre_owed",
             # The SIGNED marginal the charge is clamped from: negative when the
             # trade SPARES an over-limit roster a release it already owed
             # (e.g. sends 2, receives 1).  Published, never charged or credited

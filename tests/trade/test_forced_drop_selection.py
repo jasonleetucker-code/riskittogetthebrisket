@@ -359,6 +359,40 @@ def test_already_over_limit_roster_pays_only_what_the_trade_adds(flag_on):
     assert "marginalClamp" not in basis
 
 
+def test_release_cost_evidence_is_labelled_gross_beside_the_charge_review_f6(flag_on):
+    """Review F6.  An over-limit roster owes WR Zed (300) anyway, so the 1-for-2
+    modelled cleanup is 300 + 350 = 650 GROSS but the trade is charged 350.  The
+    evidence field ``forcedDropReleaseCost`` is the gross sum; it is now labelled
+    so, with the charge and the signed marginal published beside it."""
+    c = R.contract(extra_us=(("WR Extra", 500.0, "WR"),))
+    sim = _pkg(c, ["Star WR", "Filler RB"], ["WR Two"])
+    rc = sim["rosterCapacity"]
+    assert rc["forcedDropReleaseCost"] == 650.0 and rc["forcedDropCharge"] == 350.0
+    assert rc["forcedDropReleaseCostBasis"] == "gross_post_trade_cleanup_including_pre_owed"
+    packet = analyze_trade({**copy.deepcopy(sim), "teamContext": {"applied": True}})
+    detail = packet["lenses"]["feasibility"]["detail"]
+    assert detail["forcedDropReleaseCost"] == 650.0
+    assert detail["forcedDropReleaseCostBasis"] == rc["forcedDropReleaseCostBasis"]
+    extra = TD._forced_drop_evidence_extra(detail)
+    assert extra == {
+        "forcedDropReleaseCostBasis": "gross_post_trade_cleanup_including_pre_owed",
+        "forcedDropCharge": 350.0,
+        "forcedDropMarginal": 350.0,
+    }
+
+
+def test_release_cost_evidence_is_unchanged_with_the_flag_off(flag_off):
+    sim = _pkg(
+        R.contract(extra_us=(("WR Extra", 500.0, "WR"),)), ["Star WR", "Filler RB"], ["WR Two"]
+    )
+    assert "forcedDropReleaseCostBasis" not in sim["rosterCapacity"]
+    detail = analyze_trade({**copy.deepcopy(sim), "teamContext": {"applied": True}})["lenses"][
+        "feasibility"
+    ]["detail"]
+    assert "forcedDropReleaseCostBasis" not in detail
+    assert TD._forced_drop_evidence_extra(detail) == {}
+
+
 def test_relief_of_an_over_limit_roster_is_published_signed_never_credited(flag_on):
     """Review fix C.  One over the cap, sends two and receives one: the trade
     SPARES the roster the cut it owed (WR Zed, 300).  The charge stays clamped

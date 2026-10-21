@@ -459,6 +459,13 @@ market convention differs from the roster answer.
   sets differ.
 * `forcedReleaseChargeBasis` summarises every forced drop, including ones an over-limit roster owed anyway, so it can
   read `mixed` when the marginal itself is all package credit.
+* **`forcedDropReleaseCost` is GROSS (review F6).** The evidence field of that name (feasibility lens detail, the
+  decision's `feasibility` / `roster_construction` evidence, the capacity block) is the sum of every modelled release
+  at its charge, including releases an over-limit roster owed before the trade; the number the objective subtracts is
+  `forcedDropCharge` (marginal, clamped at 0). Flag ON now labels it
+  (`forcedDropReleaseCostBasis: "gross_post_trade_cleanup_including_pre_owed"`) and publishes `forcedDropCharge` and the
+  signed `forcedDropMarginal` beside it in the decision evidence (650 gross against a 350 charge in the pinned
+  example). Flag OFF packets are unchanged.
 * Duplicate incoming labels: the package removes by label and multiplicity, so with two incoming players sharing a
   label the credited/uncredited match is positional. Not reachable with distinct player names.
 * Taxi-partial certainty: the War Room abstains (`uncertain`) while the Finder charges a lower bound — pre-existing,

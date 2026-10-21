@@ -505,6 +505,27 @@ def _forced_release_charge_meta(fd: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _forced_drop_evidence_extra(fd: Mapping[str, Any]) -> dict[str, Any]:
+    """Flag ``forced_drop_cheapest_legal`` only (empty when OFF, so incumbent
+    evidence is unchanged): what ``forcedDropReleaseCost`` IS beside the number
+    the objective actually subtracts.
+
+    ``forcedDropReleaseCost`` is the GROSS sum of every modelled release at its
+    charge, including releases an over-limit roster owed before the trade; the
+    decision subtracts ``forcedDropCharge`` (marginal to the trade, clamped at
+    0).  Both are published, with the signed marginal, so a reader never takes
+    the gross figure for the charge (a 650 gross against a 350 charge was the
+    review's example, F6).
+    """
+    if "forcedDropCharge" not in fd:
+        return {}
+    return {
+        "forcedDropReleaseCostBasis": "gross_post_trade_cleanup_including_pre_owed",
+        "forcedDropCharge": fd.get("forcedDropCharge"),
+        "forcedDropMarginal": fd.get("forcedDropMarginal"),
+    }
+
+
 def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     """Component A: the adjusted package gap, net of the dynasty value released
     by cuts this trade ADDS (charged once here; their lineup effect is in B)."""
@@ -729,6 +750,7 @@ def _reasons(
                     "state": state,
                     "forcedDrops": names,
                     "forcedDropReleaseCost": fd.get("forcedDropReleaseCost"),
+                    **_forced_drop_evidence_extra(fd),
                 },
             }
         )
@@ -1141,13 +1163,16 @@ def _coverage(
             component="objectiveValue",
             role="gate",
             evidence={
-                k: fd.get(k)
-                for k in (
-                    "state",
-                    "forcedDropReleaseCost",
-                    "ladderExhausted",
-                    "unpricedForcedDrops",
-                )
+                **{
+                    k: fd.get(k)
+                    for k in (
+                        "state",
+                        "forcedDropReleaseCost",
+                        "ladderExhausted",
+                        "unpricedForcedDrops",
+                    )
+                },
+                **_forced_drop_evidence_extra(fd),
             },
             uncertainty={"kind": "none", "value": None},
             contribution={

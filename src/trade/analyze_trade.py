@@ -466,6 +466,7 @@ def _feasibility_lens(simulation: dict[str, Any]) -> DimensionResult:
         # incumbent detail is unchanged): the owner's one charge and its rule.
         detail["forcedDropCharge"] = cap.get("forcedDropCharge")
         detail["forcedDropChargeBasis"] = cap.get("forcedDropChargeBasis")
+        detail["forcedDropReleaseCostBasis"] = cap.get("forcedDropReleaseCostBasis")
         detail["forcedDropMarginal"] = cap.get("forcedDropMarginal")
         detail["forcedDropSelection"] = cap.get("forcedDropSelection")
         for row, d in zip(detail["forcedDrops"], drops):
