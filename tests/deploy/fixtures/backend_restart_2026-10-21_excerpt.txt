@@ -1,0 +1,68 @@
+# Excerpt of the public "Production Restart Diagnostics (read-only)" workflow log.
+# Hostname -> "host"; GitHub secret-masking restored (the masked tokens were the
+# SSH port "22" and the unit name). Only allowlisted lifecycle/watchdog lines.
+===== dynasty.service lifecycle (systemd + uvicorn banners only) =====
+2026-10-21T07:17:35.447924+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-21T07:17:35.507366+00:00 host python[261333]: INFO:     Shutting down
+2026-10-21T07:17:35.611204+00:00 host python[261333]: INFO:     Waiting for application shutdown.
+2026-10-21T07:17:35.619243+00:00 host python[261333]: INFO:     Application shutdown complete.
+2026-10-21T07:17:35.619243+00:00 host python[261333]: INFO:     Finished server process [261333]
+2026-10-21T07:17:35.949859+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-21T07:17:35.951755+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-21T07:17:35.951996+00:00 host systemd[1]: dynasty.service: Consumed 10min 24.693s CPU time, 1.3G memory peak, 0B memory swap peak.
+2026-10-21T07:17:35.982296+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-21T07:17:47.557794+00:00 host python[269238]: INFO:     Started server process [269238]
+2026-10-21T07:17:47.557794+00:00 host python[269238]: INFO:     Waiting for application startup.
+2026-10-21T07:17:58.945616+00:00 host python[269238]: INFO:     Application startup complete.
+2026-10-21T07:17:58.986827+00:00 host python[269238]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-10-21T07:53:18.881117+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-21T07:53:48.883278+00:00 host systemd[1]: dynasty.service: State 'stop-sigterm' timed out. Killing.
+2026-10-21T07:53:48.883408+00:00 host systemd[1]: dynasty.service: Killing process 269238 (python) with signal SIGKILL.
+2026-10-21T07:53:49.638092+00:00 host systemd[1]: dynasty.service: Main process exited, code=killed, status=9/KILL
+2026-10-21T07:53:49.640030+00:00 host systemd[1]: dynasty.service: Failed with result 'timeout'.
+2026-10-21T07:53:49.641606+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-21T07:53:49.641836+00:00 host systemd[1]: dynasty.service: Consumed 27min 431ms CPU time, 2.5G memory peak, 0B memory swap peak.
+2026-10-21T07:53:49.668599+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-21T07:54:02.408243+00:00 host python[273463]: INFO:     Started server process [273463]
+2026-10-21T07:54:02.408243+00:00 host python[273463]: INFO:     Waiting for application startup.
+2026-10-21T07:54:20.612947+00:00 host python[273463]: INFO:     Application startup complete.
+2026-10-21T07:54:20.615294+00:00 host python[273463]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+
+===== dynasty-healthcheck verdicts =====
+2026-10-21T07:51:17.249566+00:00 host dynasty-healthcheck.sh[273110]: [healthcheck] LIVENESS FAIL 1/3: no HTTP response from http://127.0.0.1:8000/api/health (curl exit 28)
+2026-10-21T07:51:17.473435+00:00 host dynasty-healthcheck.sh[273110]: [healthcheck] snapshot mem reason=liveness-fail-1 cur=2738745344 peak=2739769344 high=2684354560 max=3221225472 ev_high=63734 ev_max=0 ev_oom=0 ev_oom_kill=0
+2026-10-21T07:51:17.622791+00:00 host dynasty-healthcheck.sh[273110]: [healthcheck] snapshot stat reason=liveness-fail-1 anon=2728144896 file=0 shmem=0 kernel=10432512 sock=36864
+2026-10-21T07:51:17.668240+00:00 host dynasty-healthcheck.sh[273110]: [healthcheck] snapshot psi_memory reason=liveness-fail-1 some_avg10=26.58 some_avg60=22.93 some_total=29428916 full_avg10=24.40 full_avg60=20.89 full_total=26678683
+2026-10-21T07:51:17.701863+00:00 host dynasty-healthcheck.sh[273110]: [healthcheck] snapshot psi_cpu reason=liveness-fail-1 some_avg10=5.82 some_avg60=6.52 some_total=62152780 full_avg10=4.16 full_avg60=3.54 full_total=27328240
+2026-10-21T07:51:18.114853+00:00 host dynasty-healthcheck.sh[273110]: [healthcheck] snapshot psi_io reason=liveness-fail-1 some_avg10=2.74 some_avg60=5.87 some_total=43315924 full_avg10=1.90 full_avg60=4.75 full_total=37754809
+2026-10-21T07:51:18.156823+00:00 host dynasty-healthcheck.sh[273110]: [healthcheck] snapshot host reason=liveness-fail-1 mem_available_kb=4637836 h_some_avg10=25.59 h_some_avg60=21.97 h_some_total=967617790 h_full_avg10=16.06 h_full_avg60=15.91 h_full_total=838662013
+2026-10-21T07:52:17.309634+00:00 host dynasty-healthcheck.sh[273214]: [healthcheck] LIVENESS FAIL 2/3: no HTTP response from http://127.0.0.1:8000/api/health (curl exit 28)
+2026-10-21T07:52:17.373441+00:00 host dynasty-healthcheck.sh[273214]: [healthcheck] snapshot mem reason=liveness-fail-2 cur=2739773440 peak=2740654080 high=2684354560 max=3221225472 ev_high=90555 ev_max=0 ev_oom=0 ev_oom_kill=0
+2026-10-21T07:52:17.403947+00:00 host dynasty-healthcheck.sh[273214]: [healthcheck] snapshot stat reason=liveness-fail-2 anon=2729291776 file=8192 shmem=0 kernel=10465280 sock=16384
+2026-10-21T07:52:17.469991+00:00 host dynasty-healthcheck.sh[273214]: [healthcheck] snapshot psi_memory reason=liveness-fail-2 some_avg10=28.10 some_avg60=26.27 some_total=46608566 full_avg10=25.02 full_avg60=23.60 full_total=42145771
+2026-10-21T07:52:17.497468+00:00 host dynasty-healthcheck.sh[273214]: [healthcheck] snapshot psi_cpu reason=liveness-fail-2 some_avg10=6.27 some_avg60=6.08 some_total=65786623 full_avg10=4.14 full_avg60=3.88 full_total=29971155
+2026-10-21T07:52:17.513954+00:00 host dynasty-healthcheck.sh[273214]: [healthcheck] snapshot psi_io reason=liveness-fail-2 some_avg10=3.93 some_avg60=4.68 some_total=45831234 full_avg10=3.21 full_avg60=3.85 full_total=39931600
+2026-10-21T07:52:17.561338+00:00 host dynasty-healthcheck.sh[273214]: [healthcheck] snapshot host reason=liveness-fail-2 mem_available_kb=4652916 h_some_avg10=27.43 h_some_avg60=24.57 h_some_total=983234456 h_full_avg10=22.64 h_full_avg60=18.44 h_full_total=850411293
+2026-10-21T07:53:17.342704+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] LIVENESS FAIL 3/3: no HTTP response from http://127.0.0.1:8000/api/health (curl exit 28)
+2026-10-21T07:53:17.443352+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot mem reason=liveness-fail-3 cur=2744922112 peak=2746023936 high=2684354560 max=3221225472 ev_high=126849 ev_max=0 ev_oom=0 ev_oom_kill=0
+2026-10-21T07:53:17.469613+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot stat reason=liveness-fail-3 anon=2734313472 file=32768 shmem=0 kernel=10518528 sock=86016
+2026-10-21T07:53:17.503835+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot psi_memory reason=liveness-fail-3 some_avg10=37.19 some_avg60=31.31 some_total=66893191 full_avg10=32.96 full_avg60=28.33 full_total=60714329
+2026-10-21T07:53:17.546692+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot psi_cpu reason=liveness-fail-3 some_avg10=5.03 some_avg60=4.85 some_total=68372352 full_avg10=3.43 full_avg60=3.28 full_total=31920587
+2026-10-21T07:53:17.639757+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot psi_io reason=liveness-fail-3 some_avg10=7.36 some_avg60=5.24 some_total=49253995 full_avg10=6.49 full_avg60=4.47 full_total=42985609
+2026-10-21T07:53:17.745881+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot host reason=liveness-fail-3 mem_available_kb=4658360 h_some_avg10=37.22 h_some_avg60=30.60 h_some_total=1003389075 h_full_avg10=30.96 h_full_avg60=25.13 h_full_total=867752129
+2026-10-21T07:53:17.745881+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] threshold reached — restarting dynasty.service
+2026-10-21T07:53:17.924892+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot mem reason=pre-restart cur=2744926208 peak=2746023936 high=2684354560 max=3221225472 ev_high=127174 ev_max=0 ev_oom=0 ev_oom_kill=0
+2026-10-21T07:53:17.970931+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot stat reason=pre-restart anon=2734313472 file=135168 shmem=0 kernel=10518528 sock=86016
+2026-10-21T07:53:18.256859+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot psi_memory reason=pre-restart some_avg10=37.19 some_avg60=31.31 some_total=67137559 full_avg10=32.96 full_avg60=28.33 full_total=60918066
+2026-10-21T07:53:18.559304+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot psi_cpu reason=pre-restart some_avg10=5.03 some_avg60=4.85 some_total=68475611 full_avg10=3.43 full_avg60=3.28 full_total=31992097
+2026-10-21T07:53:18.618394+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot psi_io reason=pre-restart some_avg10=7.36 some_avg60=5.24 some_total=49360693 full_avg10=6.49 full_avg60=4.47 full_total=43083594
+2026-10-21T07:53:18.800428+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] snapshot host reason=pre-restart mem_available_kb=4659100 h_some_avg10=37.22 h_some_avg60=30.60 h_some_total=1003779417 h_full_avg10=30.96 h_full_avg60=25.13 h_full_total=867988758
+2026-10-21T07:53:49.682119+00:00 host dynasty-healthcheck.sh[273318]: [healthcheck] restart issued for dynasty.service
+2026-10-21T07:53:52.483439+00:00 host dynasty-healthcheck.sh[273469]: [healthcheck] LIVENESS FAIL 1/3: no HTTP response from http://127.0.0.1:8000/api/health (curl exit 7)
+2026-10-21T07:53:52.607836+00:00 host dynasty-healthcheck.sh[273469]: [healthcheck] snapshot mem reason=liveness-fail-1 cur=81575936 peak=81838080 high=2684354560 max=3221225472 ev_high=0 ev_max=0 ev_oom=0 ev_oom_kill=0
+2026-10-21T07:53:52.638432+00:00 host dynasty-healthcheck.sh[273469]: [healthcheck] snapshot stat reason=liveness-fail-1 anon=66752512 file=15249408 shmem=0 kernel=372736 sock=0
+2026-10-21T07:53:52.686602+00:00 host dynasty-healthcheck.sh[273469]: [healthcheck] snapshot psi_memory reason=liveness-fail-1 some_avg10=0.00 some_avg60=0.00 some_total=0 full_avg10=0.00 full_avg60=0.00 full_total=0
+2026-10-21T07:53:52.731249+00:00 host dynasty-healthcheck.sh[273469]: [healthcheck] snapshot psi_cpu reason=liveness-fail-1 some_avg10=0.00 some_avg60=0.00 some_total=18608 full_avg10=0.00 full_avg60=0.00 full_total=18608
+2026-10-21T07:53:52.757180+00:00 host dynasty-healthcheck.sh[273469]: [healthcheck] snapshot psi_io reason=liveness-fail-1 some_avg10=3.98 some_avg60=0.71 some_total=617808 full_avg10=3.98 full_avg60=0.71 full_total=617808
+2026-10-21T07:53:52.804403+00:00 host dynasty-healthcheck.sh[273469]: [healthcheck] snapshot host reason=liveness-fail-1 mem_available_kb=7272504 h_some_avg10=32.76 h_some_avg60=33.51 h_some_total=1016271502 h_full_avg10=26.85 h_full_avg60=27.42 h_full_total=878304635
+2026-10-21T07:54:53.065720+00:00 host dynasty-healthcheck.sh[273602]: [healthcheck] recovered: http://127.0.0.1:8000/api/health responding again after 1 liveness failure(s)

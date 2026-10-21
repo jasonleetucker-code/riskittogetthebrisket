@@ -1,0 +1,18 @@
+diff --git a/deploy/systemd/dynasty.service.template b/deploy/systemd/dynasty.service.template
+index 1633670e5..d2b12c8e9 100644
+--- a/deploy/systemd/dynasty.service.template
++++ b/deploy/systemd/dynasty.service.template
+@@ -26,6 +26,13 @@ RestartSec=5
+ TimeoutStartSec=180
+ TimeoutStopSec=30
+ Environment=PYTHONUNBUFFERED=1
++# glibc creates up to 8 x cores = 32 malloc arenas on this 4-vCPU host; the
++# backend runs a thread pool plus a scrape worker thread, and per-thread
++# arenas fragment independently (freed memory in one arena is not reusable
++# by another).  Capping them is an UNMEASURED hypothesis here: apply it only
++# through the A/B in docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md Stage 3,
++# never together with a limit change.
++Environment=MALLOC_ARENA_MAX=2
+ EnvironmentFile=-__APP_DIR__/.env
+ 
+ # ── Resource sanity ─────────────────────────────────────────────────
