@@ -1,7 +1,8 @@
 """Fail a deploy whose RUNNING process has an owner-held vote flag in the
 wrong state.
 
-The repository locks three owner-held vote flags by owner decision:
+The repository locks four owner-held flags by owner decision (three
+source-vote flags and one shadow-measurement flag):
 
 * ``dlf_offense_only_vote`` must be effectively **ON** -- the DLF IDP / DLF
   Rookie IDP vote hold (owner Option 3, 2026-10-20;
@@ -12,7 +13,11 @@ The repository locks three owner-held vote flags by owner decision:
 * ``source_freshness_schedule_v2`` must be effectively **OFF** -- the owner's
   universal freshness step schedule: implementation and percentages approved,
   activation held (owner decision 2026-10-20 on PR #1831, Option B;
-  ``tests/api/test_freshness_v2_hold_locked.py``).
+  ``tests/api/test_freshness_v2_hold_locked.py``);
+* ``low_value_depth_disclosure_shadow`` must be effectively **OFF** -- the
+  low-value depth-note shadow counters: implementation authorized, the shadow
+  window is the owner's separate decision (owner decision 2026-10-21, LVA
+  Package 4; ``tests/api/test_depth_disclosure_shadow_hold_locked.py``).
 
 A flag ABSENT from the snapshot fails closed, exactly as for D4: this check
 runs after the restart, against the process the deploy just started, and
@@ -76,6 +81,13 @@ OWNER_HELD_FLAGS: dict[str, tuple[bool, str, str]] = {
         "schedule is approved but its activation is held for the owner's explicit "
         "approval (outlier-integrity-v2 overlap)",
         "the universal freshness step schedule is REWEIGHTING source votes in production",
+    ),
+    "low_value_depth_disclosure_shadow": (
+        False,
+        "owner decision 2026-10-21, LVA Package 4 (V4, 'approved for shadow measurement "
+        "only'): the hidden depth-note shadow counters are implemented dormant; starting "
+        "the production shadow window is the owner's separate decision",
+        "the depth-note shadow counters are RECORDING trade evaluations in production",
     ),
 }
 
