@@ -263,20 +263,14 @@ def test_reset_source_forgets_a_retried_attempt():
     assert col.build_sidecar({}, scrape_timestamp=TS)["sources"]["idpTradeCalc"]["entryCount"] == 0
 
 
-# ── the sidecar: written next to the payload, bound to it ──────────────
-
-
-def _write(tmp_path, payload):
-    path = tmp_path / ce.SIDECAR_REL
-    ce.write_sidecar(payload, path)
-    return path
+# ── the evidence: full file out of git, bound by a committed manifest ──
 
 
 def test_sidecar_binds_only_to_its_own_payload(tmp_path):
     col = ce.CaptureEvidenceCollector()
     col.add_entry("ktc", "A", 1, acquisition=ce.ACQ_VALUE_SOURCE_CAPTURE, position="QB")
     col.attach("ktc", "A", "A", 1, ["roster_exact"])
-    _write(tmp_path, col.build_sidecar({"A": {"ktc": 1}}, scrape_timestamp=TS))
+    ce.write_evidence(col.build_sidecar({"A": {"ktc": 1}}, scrape_timestamp=TS), tmp_path)
     ev, state = ce.load_capture_evidence(tmp_path, "2026-10-20T17:35:27Z")
     assert state == ce.STATE_BOUND and ev.stamp_for("ktc", "A")["position"] == "QB"
     assert ev.stamp_for("ktc", "B") is None and ev.stamp_for("nope", "A") is None
@@ -289,26 +283,26 @@ def test_sidecar_binds_only_to_its_own_payload(tmp_path):
 
 
 def test_sidecar_schema_and_garbage_are_not_evidence(tmp_path):
-    path = tmp_path / ce.SIDECAR_REL
+    path = tmp_path / ce.MANIFEST_REL
     path.parent.mkdir(parents=True)
     path.write_text("{not json")
     assert ce.load_capture_evidence(tmp_path, TS)[1] == ce.STATE_UNREADABLE
-    path.write_text(json.dumps({"schema": "other", "scrapeTimestamp": TS, "sources": {}}))
+    path.write_text(json.dumps({"schema": "other", "scrapeTimestamp": TS}))
     assert ce.load_capture_evidence(tmp_path, TS)[1] == ce.STATE_SCHEMA_MISMATCH
 
 
-def test_archive_sidecar_installs_into_a_replay_tree(tmp_path):
+def test_archive_manifest_is_read_from_the_bundle(tmp_path):
     col = ce.CaptureEvidenceCollector()
-    payload = col.build_sidecar({}, scrape_timestamp=TS)
+    manifest = ce.write_evidence(col.build_sidecar({}, scrape_timestamp=TS), tmp_path)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
-        zf.writestr(ce.SIDECAR_FILENAME, json.dumps(payload))
-    assert ce.install_sidecar_from_archive(buf.getvalue(), tmp_path) is True
-    assert ce.load_capture_evidence(tmp_path, TS)[1] == ce.STATE_BOUND
+        zf.writestr(ce.MANIFEST_FILENAME, (tmp_path / ce.MANIFEST_REL).read_text())
+    assert ce.manifest_from_archive(buf.getvalue()) == manifest
+    assert ce.load_capture_evidence(tmp_path, TS, manifest)[1] == ce.STATE_BOUND
     empty = io.BytesIO()
     with zipfile.ZipFile(empty, "w") as zf:
         zf.writestr("manifest.json", "{}")
-    assert ce.install_sidecar_from_archive(empty.getvalue(), tmp_path / "other") is False
+    assert ce.manifest_from_archive(empty.getvalue()) is None
 
 
 def test_published_cells_are_verbatim_never_guessed():

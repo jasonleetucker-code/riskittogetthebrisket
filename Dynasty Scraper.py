@@ -695,12 +695,18 @@ _CAPTURE_EVIDENCE = _capture_evidence.CaptureEvidenceCollector()
 def _cev(method, *args, **kwargs):
     """Best-effort call into the identity-evidence collector.  Evidence is
     never allowed to fail, slow or change a scrape: any error is swallowed
-    (and printed under DEBUG) and the value path continues untouched."""
+    (and printed under DEBUG) and the value path continues untouched.
+    Every swallowed failure is COUNTED (``census.collectorErrors``), so silent
+    evidence loss is visible in the committed manifest."""
     try:
         return getattr(_CAPTURE_EVIDENCE, method)(*args, **kwargs)
     except Exception as exc:  # noqa: BLE001
         if DEBUG:
             print(f"  [IdentityEvidence] {method} failed (non-fatal): {exc}")
+        try:
+            _CAPTURE_EVIDENCE.note_failure(method)
+        except Exception:  # noqa: BLE001
+            pass
         return None
 
 
@@ -7109,25 +7115,35 @@ async def run(progress_callback=None):
     except Exception as _dr_err:  # noqa: BLE001
         print(f"  [Identity] dual-read artifact write failed (non-fatal): {_dr_err}")
 
-    # ── Outlier-integrity V2.1 U2 / U2b identity evidence sidecar.  Written
-    # NEXT TO the payload (never into it), bound to it by ``scrapeTimestamp``,
-    # filtered against the final ``players`` so a stamp never describes a row
-    # whose value changed after capture.  Best-effort, like the artifact above.
-    _identity_evidence_path = os.path.join(SCRIPT_DIR, str(_capture_evidence.SIDECAR_REL))
+    # ── Outlier-integrity V2.1 U2 / U2b identity evidence.  Written NEXT TO
+    # the payload (never into it), bound to it by ``scrapeTimestamp``, filtered
+    # against the final ``players`` so a stamp never describes a row whose
+    # value changed after capture.  The FULL evidence goes to the gitignored
+    # ``data/identity_capture_evidence/`` (uploaded as a run artifact on the CI
+    # refresh); only a checksummed manifest of aggregate counts goes to
+    # ``data/scrape_state/`` and the export bundle, so git history stays
+    # bounded.  Best-effort, like the artifact above.
+    _identity_manifest_path = os.path.join(SCRIPT_DIR, str(_capture_evidence.MANIFEST_REL))
+    _cev_manifest = None
     try:
         _cev_payload = _CAPTURE_EVIDENCE.build_sidecar(
             players_json, scrape_timestamp=dashboard_json.get("scrapeTimestamp")
         )
-        _capture_evidence.write_sidecar(_cev_payload, Path(_identity_evidence_path))
+        _cev_manifest = _capture_evidence.write_evidence(
+            _cev_payload, Path(SCRIPT_DIR), env=os.environ
+        )
         print(
             "  [IdentityEvidence] U2 stamps: "
             + ", ".join(
-                f"{_k}={_v.get('stamped')}" for _k, _v in sorted(_cev_payload["census"].items())
+                f"{_k}={_cev_payload['census'][_k].get('stamped')}"
+                for _k in _capture_evidence.STAMPED_SOURCES
             )
-            + f" -> {_identity_evidence_path}"
+            + f", collectorErrors={_cev_payload['census']['collectorErrors']['total']}"
+            + f" -> {_cev_manifest['storage']['boxLocal']}"
+            + f" (sha256 {_cev_manifest['evidence']['sha256'][:12]})"
         )
     except Exception as _cev_err:  # noqa: BLE001
-        print(f"  [IdentityEvidence] sidecar write failed (non-fatal): {_cev_err}")
+        print(f"  [IdentityEvidence] evidence write failed (non-fatal): {_cev_err}")
 
     print(f"  {len(players_json)} players, {len(max_values)} sites with max values")
     if pick_anchors:
@@ -7199,11 +7215,14 @@ async def run(progress_callback=None):
             js_fname,
             fname,  # dynasty_values.csv
             full_csv_fname,  # dynasty_full.csv
-            # V2.1 U2 identity evidence, archived beside the payload it is
-            # bound to (absent when the write above failed — absent stays
-            # absent).
-            _identity_evidence_path,
         ]
+        # V2.1 U2 identity evidence MANIFEST (checksums + aggregate counts,
+        # never the full stamps), archived beside the payload it is bound to.
+        # Only THIS run's manifest: when the write above failed, the file on
+        # disk is a previous scrape's and must not be archived as this one's —
+        # absent stays absent.
+        if _cev_manifest is not None:
+            copy_paths.append(_identity_manifest_path)
         for p in copy_paths:
             if os.path.exists(p):
                 try:
@@ -7345,20 +7364,31 @@ async def run(progress_callback=None):
         # V2.1 VID: fold this run's vendor-id-carrying boards into the
         # identity owner's append-only vendor-id map.  Record-only — it
         # changes no value, join or vote — and never fails the export.
+        # ONE writer: only the process the refresh workflow marks
+        # (``vendor_ids.WRITER_ENV``).  The box also scrapes, but its tracked
+        # ``data/identity/`` is reset by every deploy's checkout, so lines it
+        # appended would be lost and the "append-only" map would fork.
         try:
             from src.identity import vendor_ids as _vendor_ids
 
-            _vid_summary = _vendor_ids.record_from_site_raw(
-                Path(site_raw_dir),
-                index=_identity_engine_index,
-                store_path=Path(SCRIPT_DIR) / _vendor_ids.STORE_REL,
-                observed_at=str(dashboard_json.get("scrapeTimestamp") or ""),
-            )
-            print(
-                f"  [VID] appended={_vid_summary.get('appended')} "
-                f"census={_vid_summary.get('census')}",
-                flush=True,
-            )
+            if _vendor_ids.writer_enabled(os.environ):
+                _vid_summary = _vendor_ids.record_from_site_raw(
+                    Path(site_raw_dir),
+                    index=_identity_engine_index,
+                    store_path=Path(SCRIPT_DIR) / _vendor_ids.STORE_REL,
+                    observed_at=str(dashboard_json.get("scrapeTimestamp") or ""),
+                )
+                print(
+                    f"  [VID] appended={_vid_summary.get('appended')} "
+                    f"census={_vid_summary.get('census')}",
+                    flush=True,
+                )
+            else:
+                print(
+                    "  [VID] skipped: not the designated writer "
+                    f"({_vendor_ids.WRITER_ENV} unset; the scheduled refresh owns the map)",
+                    flush=True,
+                )
         except Exception as _vid_err:  # noqa: BLE001
             print(f"  [VID] vendor-id record failed (non-fatal): {_vid_err}", flush=True)
 

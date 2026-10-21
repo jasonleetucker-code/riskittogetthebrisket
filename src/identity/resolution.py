@@ -213,9 +213,12 @@ class SleeperDirectoryIndex:
             # family compatibility, R5 exact age).  A field the directory does
             # not carry is ``None`` / empty — no evidence, never a default.
             _bd = str(pdata.get("birth_date") or "").strip() or None
+            # Only a list/tuple is a position list: a scalar (``7``, ``"WR"``)
+            # or any other shape is no evidence, never iterated into one.
+            _fps_raw = pdata.get("fantasy_positions")
             _fps = tuple(
                 str(x).strip().upper()
-                for x in (pdata.get("fantasy_positions") or ())
+                for x in (_fps_raw if isinstance(_fps_raw, (list, tuple)) else ())
                 if str(x or "").strip()
             )
             if _bd or _fps:

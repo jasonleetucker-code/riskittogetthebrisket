@@ -50,6 +50,20 @@ from typing import Any
 from src.identity import published_fields as pf
 
 STORE_REL = Path("data") / "identity" / "vendor_id_map.jsonl"
+
+#: The store has ONE writer: the scheduled refresh, which sets this to ``1`` on
+#: its scraper step and commits ``data/identity/``.  The production box also
+#: scrapes, but every deploy force-checks-out the tracked ``data/identity/``,
+#: discarding anything the box appended - two writers would fork an
+#: append-only log.  Any process without it records nothing.
+WRITER_ENV = "IDENTITY_VID_WRITER"
+
+
+def writer_enabled(env: Mapping[str, str]) -> bool:
+    """True only in the designated writer (``WRITER_ENV`` == ``"1"``)."""
+    return str(env.get(WRITER_ENV) or "").strip() == "1"
+
+
 BASIS_VENDOR_SLEEPER_ID = "vendor_published_sleeper_id"
 BASIS_VERIFIED_JOIN = "verified_join"
 MIN_VERIFIED_DATASETS = 2

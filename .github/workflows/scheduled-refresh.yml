@@ -136,6 +136,11 @@ jobs:
           # idpShow and the prod systemd timer remains its only
           # producer, which is the behaviour before this secret existed.
           IDPSHOW_SESSION_JSON: ${{ secrets.IDPSHOW_SESSION_JSON }}
+          # V2.1 VID: this step is the ONE writer of the append-only
+          # data/identity/vendor_id_map.jsonl (committed below).  The box's
+          # own scrapes do not set it, so they never append to a file every
+          # deploy would reset (src/identity/vendor_ids.py::WRITER_ENV).
+          IDENTITY_VID_WRITER: "1"
         run: |
           set -Eeuo pipefail
 
@@ -502,6 +507,26 @@ jobs:
           # marks the source stale.
           python -m src.ros.scrape 2>&1 || echo "::warning title=ROS scrape failed::Non-fatal — orchestrator keeps yesterday's CSV per source"
 
+
+      - name: Upload identity capture evidence (V2.1 U2/U2b full stamps, kept out of git)
+        # ``Dynasty Scraper.py`` writes the FULL U2/U2b sidecar (~35 KB
+        # gzipped) to the gitignored ``data/identity_capture_evidence/`` and
+        # only a checksummed manifest to ``data/scrape_state/`` + the export
+        # bundle, so git history stays bounded.  This runner is ephemeral,
+        # so the full file is kept as a run artifact; the manifest names
+        # this artifact (``capture_evidence.artifact_name``, same two
+        # values) and carries the sha256 it must verify against.
+        # Retention 90 days = this public repository's maximum.  Non-fatal:
+        # evidence must never block shipping a good scrape.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: identity-capture-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: data/identity_capture_evidence/*.json.gz
+          retention-days: 90
+          if-no-files-found: warn
+          compression-level: 0
 
       - name: Persist freshness stamps
         # Runs even when ``Run scraper`` exited non-zero so the

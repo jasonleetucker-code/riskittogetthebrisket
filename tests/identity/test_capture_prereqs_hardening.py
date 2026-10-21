@@ -86,14 +86,15 @@ def test_attach_order_does_not_change_the_stamps():
     assert {k: v_ for k, v_ in a.items()} == {k: v_ for k, v_ in b.items()}
 
 
-def test_write_sidecar_is_stable_and_sorted(tmp_path):
+def test_written_evidence_and_manifest_are_byte_reproducible(tmp_path):
     col, players = _col_with_rows([0, 1, 2, 3])
     payload = col.build_sidecar(players, scrape_timestamp=TS, generated_at=GEN)
-    p1, p2 = tmp_path / "a" / "s.json", tmp_path / "b" / "s.json"
-    ce.write_sidecar(payload, p1, p2)
-    assert p1.read_bytes() == p2.read_bytes()
-    assert p1.read_bytes().endswith(b"\n")
-    assert json.loads(p1.read_text()) == payload
+    m1 = ce.write_evidence(payload, tmp_path / "a")
+    m2 = ce.write_evidence(payload, tmp_path / "b")
+    assert m1 == m2
+    for rel in (ce.MANIFEST_REL, ce.EVIDENCE_DIR_REL / m1["evidence"]["filename"]):
+        assert (tmp_path / "a" / rel).read_bytes() == (tmp_path / "b" / rel).read_bytes()
+    assert (tmp_path / "a" / ce.MANIFEST_REL).read_bytes().endswith(b"\n")
 
 
 # ── missing is never zero / never a guess ──────────────────────────────
@@ -288,29 +289,29 @@ def test_a_vendor_id_that_maps_to_two_players_is_never_resolved(tmp_path):
 # ── failure and recovery ───────────────────────────────────────────────
 
 
-def test_a_failed_serialization_leaves_the_previous_sidecar_intact(tmp_path):
-    path = tmp_path / ce.SIDECAR_REL
-    ce.write_sidecar({"schema": ce.SCHEMA_VERSION, "ok": True}, path)
-    before = path.read_bytes()
+def test_a_failed_serialization_leaves_the_previous_evidence_intact(tmp_path):
+    col, players = _col_with_rows([0, 1])
+    ce.write_evidence(col.build_sidecar(players, scrape_timestamp=TS), tmp_path)
+    before = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
     with pytest.raises(TypeError):
-        ce.write_sidecar({"bad": object()}, path)
-    assert path.read_bytes() == before
-    assert not list(path.parent.glob("*.tmp"))
+        ce.write_evidence({"schema": ce.SCHEMA_VERSION, "bad": object()}, tmp_path)
+    after = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert after == before
+    assert not list(tmp_path.rglob("*.tmp"))
 
 
 def test_a_sidecar_for_another_scrape_is_never_read(tmp_path):
     col, players = _col_with_rows([0, 1])
-    ce.write_sidecar(
-        col.build_sidecar(players, scrape_timestamp="2026-10-21T00:00:00+00:00"),
-        tmp_path / ce.SIDECAR_REL,
+    manifest = ce.write_evidence(
+        col.build_sidecar(players, scrape_timestamp="2026-10-21T00:00:00+00:00"), tmp_path
     )
     assert ce.load_capture_evidence(tmp_path, "2026-10-21T02:00:00+00:00") == (
         None,
         ce.STATE_TIMESTAMP_MISMATCH,
     )
     # A truncated file (crash mid-copy elsewhere) is unreadable evidence, not partial evidence.
-    path = tmp_path / ce.SIDECAR_REL
-    path.write_text(path.read_text()[:200])
+    path = tmp_path / ce.EVIDENCE_DIR_REL / manifest["evidence"]["filename"]
+    path.write_bytes(path.read_bytes()[:40])
     assert ce.load_capture_evidence(tmp_path, "2026-10-21T00:00:00+00:00")[1] == (
         ce.STATE_UNREADABLE
     )
@@ -366,22 +367,14 @@ def test_vendor_id_store_survives_a_torn_final_line(tmp_path):
 # ── archive compatibility ──────────────────────────────────────────────
 
 
-def test_a_bundle_without_a_sidecar_is_absent_evidence_not_an_error(tmp_path):
+def test_a_bundle_without_a_manifest_is_absent_evidence_not_an_error(tmp_path):
     old = io.BytesIO()
     with zipfile.ZipFile(old, "w") as zf:
         zf.writestr("manifest.json", "{}")
         zf.writestr("site_raw/ktc.csv", "name,value\nA,1\n")  # pre-U3 shape
-    assert ce.install_sidecar_from_archive(old.getvalue(), tmp_path) is False
+    assert ce.manifest_from_archive(old.getvalue()) is None
     assert ce.load_capture_evidence(tmp_path, TS) == (None, ce.STATE_MISSING)
-    assert ce.install_sidecar_from_archive(b"not a zip", tmp_path) is False
-
-
-def test_the_scraper_archives_the_sidecar_beside_the_payload():
-    text = (REPO / "Dynasty Scraper.py").read_text(encoding="utf-8")
-    start = text.index("copy_paths = [")
-    block = text[start : text.index("]", start)]
-    assert "_identity_evidence_path" in block
-    assert block.index("full_csv_fname") < block.index("_identity_evidence_path")
+    assert ce.manifest_from_archive(b"not a zip") is None
 
 
 def test_trailing_columns_do_not_change_the_dataset_a_board_is():
@@ -397,6 +390,7 @@ def test_trailing_columns_do_not_change_the_dataset_a_board_is():
 
 _EVIDENCE_TOKENS = (
     "identity_capture_evidence",
+    "identity_capture_manifest",
     "vendor_id_map",
     "capture_evidence",
     "src.identity.vendor_ids",

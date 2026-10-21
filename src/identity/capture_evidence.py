@@ -20,10 +20,11 @@ calls :class:`CaptureEvidenceCollector` at the points where it already holds
 the facts, and this module owns the vocabulary, the consistency rule and the
 sidecar schema.  Nothing here changes a value, a join or a vote:
 
-* the sidecar is written next to the payload
-  (``data/scrape_state/identity_capture_evidence.json`` plus a copy in the
-  export bundle), never INTO it, so the raw payload and therefore the built
-  board are byte-identical with or without it;
+* the sidecar is written next to the payload, never INTO it, so the raw
+  payload and therefore the built board are byte-identical with or without it.
+  The full sidecar stays OUT of git (gitignored ``data/identity_capture_evidence/``
+  plus a 90-day Actions artifact on the refresh runner); git receives only a
+  checksummed manifest of aggregate counts (see "Storage" below);
 * nothing on the board path reads it.  Its future reader is outlier-integrity
   V2.1's Layer A, which lives in the detection branch (PR #1884) and is NOT part
   of this module or of ``main``; this module only COLLECTS, because identity
@@ -50,9 +51,6 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 SCHEMA_VERSION = "identity_capture_evidence.v1"
-SIDECAR_FILENAME = "identity_capture_evidence.json"
-#: Relative to a repository (or replay) root.
-SIDECAR_REL = Path("data") / "scrape_state" / SIDECAR_FILENAME
 
 #: The payload-attached sources U2 covers (preregistration §3.7).
 STAMPED_SOURCES: tuple[str, ...] = ("ktc", "ktcSfTep", "idpTradeCalc")
@@ -108,6 +106,40 @@ VIA_SCRAPER_FIRST_NAME = "scraper_first_name_variant"
 #: The CSV columns U3 appends to name-only boards.  Never a rank, value or
 #: Sleeper-id column: those change what a board votes or how it joins.
 IDENTITY_CSV_COLUMNS: tuple[str, ...] = ("position", "team")
+
+#: Per ``site_raw`` board (CSV stem, equal to its registry key), the identity
+#: columns U3 ADDED.  Readers whose registered methodology predates U3 - the
+#: source-quality panel, the lineage-integrity sweep and content staleness in
+#: ``check_source_health`` - ignore exactly these, so their behaviour is
+#: byte-identical across the U3 cutover.  A column a board already carried
+#: before U3 (``position`` on the KTC capture boards) is NOT listed and keeps
+#: its meaning.  Pinned by ``tests/identity/test_u3_research_readers.py``.
+U3_ADDED_COLUMNS: dict[str, tuple[str, ...]] = {
+    **{
+        key: IDENTITY_CSV_COLUMNS
+        for key in (
+            "ktc",
+            "ktcSfTep",
+            "idpTradeCalc",
+            "dlfSf",
+            "dlfIdp",
+            "dlfRookieSf",
+            "dlfRookieIdp",
+            "fantasyCalc",
+            "otcffbSf",
+            "dynastyDaddySf",
+            "flockFantasySf",
+            "flockFantasySfRookies",
+            "fantasyNavigatorSf",
+        )
+    },
+    **{key: ("team",) for key in ("ktcCrowdSfTep", "ktcTradesSfTep", "ktcCrowdTradesSfTep")},
+}
+
+
+def u3_added_columns(board_key: object) -> frozenset[str]:
+    """The (lower-case) column names U3 added to ``board_key``'s CSV; empty when none."""
+    return frozenset(U3_ADDED_COLUMNS.get(str(board_key or ""), ()))
 
 
 def published_position(raw: object) -> str:
@@ -230,6 +262,7 @@ class CaptureEvidenceCollector:
         #: ``{source: {payload row name: (vendor name, value, steps)}}``
         self._attached: dict[str, dict[str, tuple[str, float, tuple[str, ...]]]] = {}
         self._discarded_merges: Counter[str] = Counter()
+        self._failures: Counter[str] = Counter()
 
     # ── capture side ────────────────────────────────────────────────────
     def reset_all(self) -> None:
@@ -396,6 +429,10 @@ class CaptureEvidenceCollector:
     def mark_recovered_partial(self, source: str) -> None:
         self._partial.add(source)
 
+    def note_failure(self, method: str) -> None:
+        """Count one collector call the scraper's best-effort wrapper swallowed."""
+        self._failures[str(method)] += 1
+
     def entry_fields(self, source: str, vendor_name: str, value: object) -> dict[str, Any]:
         """The published identity fields of the entry that carried ``value``
         under ``vendor_name`` (for the U3 CSV columns); ``{}`` when unknown or
@@ -523,6 +560,13 @@ class CaptureEvidenceCollector:
                 "dropped": dict(sorted(dropped.items())),
                 "mergeDiscarded": int(self._discarded_merges.get(source, 0)),
             }
+        # Collector calls the scraper's best-effort wrapper swallowed.  Always
+        # present: 0 is an observation ("no evidence call failed"), and a
+        # non-zero count says the stamps above may be incomplete.
+        census["collectorErrors"] = {
+            "total": int(sum(self._failures.values())),
+            "byMethod": dict(sorted(self._failures.items())),
+        }
         return {
             "schema": SCHEMA_VERSION,
             "scrapeTimestamp": scrape_timestamp,
@@ -532,26 +576,204 @@ class CaptureEvidenceCollector:
         }
 
 
-def write_sidecar(payload: Mapping[str, Any], *paths: Path) -> list[Path]:
-    """Write the sidecar (compact JSON) to every path; returns those written."""
+# ── Storage: full evidence out of git, a checksummed manifest in git ────────
+#
+# The full sidecar is ~450 KB of JSON per scrape (~35 KB gzipped).  The refresh
+# workflow force-adds ``data/scrape_state/`` and commits ``exports/archive/*.zip``
+# every two hours, so carrying it there would grow git history without bound.
+# So the evidence is split:
+#
+# * the FULL sidecar is written, gzip-compressed and byte-deterministic, to
+#   ``data/identity_capture_evidence/`` - a gitignored directory that no refresh
+#   step force-adds.  On the CI refresh runner it is uploaded as a GitHub Actions
+#   artifact (90-day retention, the repository maximum); on the production box it
+#   is pruned by ``src.maintenance.retention`` after
+#   ``BOX_EVIDENCE_RETENTION_DAYS``;
+# * a small MANIFEST - the sidecar's checksums, per-source aggregate counts, the
+#   U2b observed-format block, and where the full file lives - is written to
+#   ``data/scrape_state/identity_capture_manifest.json`` and archived in the
+#   export bundle beside the payload it describes.
+#
+# The checksum is SHA-256 over the canonical (uncompressed) JSON bytes, so the
+# full evidence verifies against git whatever container it travels in.
+
+EVIDENCE_DIR_REL = Path("data") / "identity_capture_evidence"
+MANIFEST_FILENAME = "identity_capture_manifest.json"
+MANIFEST_REL = Path("data") / "scrape_state" / MANIFEST_FILENAME
+MANIFEST_SCHEMA_VERSION = "identity_capture_manifest.v1"
+#: Box-local copies are pruned after this many days (``src.maintenance.retention``).
+#: They describe the BOX's own scrapes; the evaluated boards are the refresh's,
+#: whose full evidence lives in the run artifact.
+BOX_EVIDENCE_RETENTION_DAYS = 30
+#: GitHub's maximum artifact retention for this (public) repository.
+ARTIFACT_RETENTION_DAYS = 90
+ARTIFACT_NAME_PREFIX = "identity-capture-evidence"
+
+
+def canonical_bytes(payload: Mapping[str, Any]) -> bytes:
+    """The sidecar's canonical serialization (the bytes the checksum covers)."""
     text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-    written: list[Path] = []
-    for path in paths:
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(text + "\n", encoding="utf-8")
-        tmp.replace(path)
-        written.append(path)
-    return written
+    return (text + "\n").encode("utf-8")
 
 
-# ── Sidecar binding (read-only) ──────────────────────────────────────────────
+def _gzip_deterministic(data: bytes) -> bytes:
+    import gzip  # noqa: PLC0415
+    import io as _io  # noqa: PLC0415
+
+    buf = _io.BytesIO()
+    # mtime=0 and no embedded filename: identical input -> identical bytes.
+    with gzip.GzipFile(filename="", mode="wb", fileobj=buf, mtime=0, compresslevel=9) as gz:
+        gz.write(data)
+    return buf.getvalue()
+
+
+def _sha256(data: bytes) -> str:
+    import hashlib  # noqa: PLC0415
+
+    return hashlib.sha256(data).hexdigest()
+
+
+def stamp_key(scrape_timestamp: object) -> str:
+    """``YYYYMMDDTHHMMSSZ`` (UTC) for a scrape timestamp; ``unknown`` if unreadable.
+
+    The compact form the retention pruner's filename-date rule reads."""
+    if not scrape_timestamp:
+        return "unknown"
+    try:
+        dt = datetime.fromisoformat(str(scrape_timestamp).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return "unknown"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def evidence_filename(scrape_timestamp: object) -> str:
+    return f"identity_capture_evidence_{stamp_key(scrape_timestamp)}.json.gz"
+
+
+def artifact_name(run_id: object, run_attempt: object) -> str:
+    """The Actions artifact name for one refresh run.  The workflow's
+    ``upload-artifact`` step builds the same string from the same two values
+    (pinned by ``tests/identity/test_capture_evidence_storage.py``)."""
+    return f"{ARTIFACT_NAME_PREFIX}-{run_id}-{run_attempt}"
+
+
+def artifact_pointer(env: Mapping[str, str]) -> dict[str, Any] | None:
+    """Where a CI refresh run uploads the full evidence; ``None`` off CI."""
+    run_id = str(env.get("GITHUB_RUN_ID") or "").strip()
+    if not run_id or str(env.get("GITHUB_ACTIONS") or "").lower() != "true":
+        return None
+    attempt = str(env.get("GITHUB_RUN_ATTEMPT") or "1").strip() or "1"
+    return {
+        "kind": "github_actions_artifact",
+        "repository": str(env.get("GITHUB_REPOSITORY") or "") or None,
+        "runId": run_id,
+        "runAttempt": attempt,
+        "name": artifact_name(run_id, attempt),
+        "retentionDays": ARTIFACT_RETENTION_DAYS,
+    }
+
+
+_MANIFEST_FIELD_PRESENCE = ("pagePosition", "position", "team", "age", "vendorId", "valueKey")
+
+
+def build_manifest(
+    payload: Mapping[str, Any],
+    *,
+    evidence_bytes: bytes,
+    gzip_bytes: bytes,
+    filename: str,
+    artifact: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """The committed summary of one sidecar.  Aggregates only: no player row,
+    stamp or vendor name enters git through it."""
+    sources_in = payload.get("sources") if isinstance(payload, Mapping) else None
+    sources_out: dict[str, Any] = {}
+    for source in STAMPED_SOURCES:
+        block = sources_in.get(source) if isinstance(sources_in, Mapping) else None
+        block = block if isinstance(block, Mapping) else {}
+        attached = block.get("attached")
+        attached = attached if isinstance(attached, Mapping) else {}
+        stamps = [st for st in attached.values() if isinstance(st, Mapping)]
+        vias = Counter(str(st.get("via")) for st in stamps)
+        fields = Counter(f for st in stamps for f in _MANIFEST_FIELD_PRESENCE if f in st)
+        out: dict[str, Any] = {
+            "entryCount": block.get("entryCount", 0),
+            "acquisition": dict(block.get("acquisition") or {}),
+            # U2b is a few hundred bytes and is exactly what readiness asks of a board.
+            "toggles": block.get("toggles"),
+            "stampsByVia": dict(sorted(vias.items())),
+            "stampsWithField": dict(sorted(fields.items())),
+        }
+        if block.get("capture"):
+            out["capture"] = block.get("capture")
+        sources_out[source] = out
+    return {
+        "schema": MANIFEST_SCHEMA_VERSION,
+        "evidenceSchema": payload.get("schema"),
+        "scrapeTimestamp": payload.get("scrapeTimestamp"),
+        "generatedAt": payload.get("generatedAt"),
+        "evidence": {
+            "filename": filename,
+            "sha256": _sha256(evidence_bytes),
+            "bytes": len(evidence_bytes),
+            "gzipSha256": _sha256(gzip_bytes),
+            "gzipBytes": len(gzip_bytes),
+        },
+        "census": payload.get("census"),
+        "sources": sources_out,
+        "storage": {
+            "boxLocal": (EVIDENCE_DIR_REL / filename).as_posix(),
+            "boxLocalRetentionDays": BOX_EVIDENCE_RETENTION_DAYS,
+            "artifact": dict(artifact) if artifact else None,
+        },
+    }
+
+
+def _atomic_write(path: Path, data: bytes) -> Path:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_bytes(data)
+    tmp.replace(path)
+    return path
+
+
+def write_evidence(
+    payload: Mapping[str, Any],
+    root: Path,
+    *,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Write the full gzipped sidecar under ``root/EVIDENCE_DIR_REL`` and the
+    manifest to ``root/MANIFEST_REL``; returns the manifest.
+
+    Serialization happens before any file is touched, so a payload that cannot
+    be serialized leaves the previous evidence and manifest intact."""
+    raw = canonical_bytes(payload)
+    gz = _gzip_deterministic(raw)
+    filename = evidence_filename(payload.get("scrapeTimestamp"))
+    manifest = build_manifest(
+        payload,
+        evidence_bytes=raw,
+        gzip_bytes=gz,
+        filename=filename,
+        artifact=artifact_pointer(env or {}),
+    )
+    manifest_bytes = canonical_bytes(manifest)
+    _atomic_write(Path(root) / EVIDENCE_DIR_REL / filename, gz)
+    _atomic_write(Path(root) / MANIFEST_REL, manifest_bytes)
+    return manifest
+
+
+# ── Verification and binding (read-only) ─────────────────────────────────────
 STATE_BOUND = "bound"
 STATE_MISSING = "missing"
 STATE_UNREADABLE = "unreadable"
 STATE_SCHEMA_MISMATCH = "schema_mismatch"
 STATE_TIMESTAMP_MISMATCH = "scrape_timestamp_mismatch"
+STATE_CHECKSUM_MISMATCH = "checksum_mismatch"
 
 
 @dataclass(frozen=True)
@@ -591,39 +813,77 @@ def _same_instant(a: object, b: object) -> bool:
     return da == db
 
 
+def _decompress(blob: bytes) -> bytes:
+    import gzip  # noqa: PLC0415
+
+    return gzip.decompress(blob) if blob[:2] == b"\x1f\x8b" else blob
+
+
+def verify_evidence(blob: bytes, manifest: Mapping[str, Any]) -> tuple[dict | None, str]:
+    """``(payload, state)``: the full evidence (gzipped or plain JSON bytes)
+    checked against a committed manifest.  ``STATE_BOUND`` only when the
+    canonical bytes hash to the manifest's ``evidence.sha256`` AND the
+    ``scrapeTimestamp`` matches - an unverifiable file is never evidence."""
+    if not isinstance(manifest, Mapping) or manifest.get("schema") != MANIFEST_SCHEMA_VERSION:
+        return None, STATE_SCHEMA_MISMATCH
+    expected = (manifest.get("evidence") or {}).get("sha256")
+    try:
+        raw = _decompress(bytes(blob))
+        data = json.loads(raw.decode("utf-8"))
+    except (OSError, ValueError, EOFError):
+        return None, STATE_UNREADABLE
+    if not isinstance(data, Mapping) or data.get("schema") != SCHEMA_VERSION:
+        return None, STATE_SCHEMA_MISMATCH
+    if not expected or _sha256(canonical_bytes(data)) != expected:
+        return None, STATE_CHECKSUM_MISMATCH
+    if not _same_instant(data.get("scrapeTimestamp"), manifest.get("scrapeTimestamp")):
+        return None, STATE_TIMESTAMP_MISMATCH
+    return dict(data), STATE_BOUND
+
+
 def load_capture_evidence(
-    root: Path, scrape_timestamp: object
+    root: Path,
+    scrape_timestamp: object,
+    manifest: Mapping[str, Any] | None = None,
 ) -> tuple[CaptureEvidence | None, str]:
     """``(evidence, state)`` for the payload stamped ``scrape_timestamp``.
 
-    The sidecar under ``root`` is read only when its ``scrapeTimestamp`` is the
-    payload's own: a sidecar from another scrape describes other captures."""
-    path = Path(root) / SIDECAR_REL
+    Reads ``root/EVIDENCE_DIR_REL/<file for that timestamp>`` and verifies it
+    against ``manifest`` (default: ``root/MANIFEST_REL``).  Evidence from
+    another scrape, or bytes that do not match the committed checksum, are not
+    read at all."""
+    root = Path(root)
+    if manifest is None:
+        try:
+            manifest = json.loads((root / MANIFEST_REL).read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return None, STATE_MISSING
+        except (OSError, ValueError):
+            return None, STATE_UNREADABLE
+    if not isinstance(manifest, Mapping) or manifest.get("schema") != MANIFEST_SCHEMA_VERSION:
+        return None, STATE_SCHEMA_MISMATCH
+    if not _same_instant(manifest.get("scrapeTimestamp"), scrape_timestamp):
+        return None, STATE_TIMESTAMP_MISMATCH
+    path = root / EVIDENCE_DIR_REL / evidence_filename(scrape_timestamp)
     try:
-        text = path.read_text(encoding="utf-8")
+        blob = path.read_bytes()
     except FileNotFoundError:
         return None, STATE_MISSING
     except OSError:
         return None, STATE_UNREADABLE
-    try:
-        data = json.loads(text)
-    except ValueError:
-        return None, STATE_UNREADABLE
-    if not isinstance(data, Mapping) or data.get("schema") != SCHEMA_VERSION:
-        return None, STATE_SCHEMA_MISMATCH
-    if not _same_instant(data.get("scrapeTimestamp"), scrape_timestamp):
-        return None, STATE_TIMESTAMP_MISMATCH
+    data, state = verify_evidence(blob, manifest)
+    if data is None:
+        return None, state
     sources = data.get("sources")
     if not isinstance(sources, Mapping):
         return None, STATE_SCHEMA_MISMATCH
     return CaptureEvidence(sources=sources), STATE_BOUND
 
 
-def install_sidecar_from_archive(archive: Path | bytes, root: Path) -> bool:
-    """Replay helper: copy an export-archive zip's sidecar (archived beside
-    the payload it is bound to) into ``root``'s ``SIDECAR_REL``, where
-    :func:`load_capture_evidence` reads it.  ``False`` when the archive
-    carries none (boards produced before U2 shipped) — absent stays absent."""
+def manifest_from_archive(archive: Path | bytes) -> dict[str, Any] | None:
+    """The manifest an export-archive zip carries beside its payload, or
+    ``None`` (boards produced before U2 shipped, or an unreadable zip) -
+    absent stays absent."""
     import io as _io  # noqa: PLC0415
     import zipfile  # noqa: PLC0415
 
@@ -631,15 +891,16 @@ def install_sidecar_from_archive(archive: Path | bytes, root: Path) -> bool:
     try:
         with zipfile.ZipFile(source) as zf:
             try:
-                data = zf.read(SIDECAR_FILENAME)
+                data = zf.read(MANIFEST_FILENAME)
             except KeyError:
-                return False
+                return None
     except (OSError, zipfile.BadZipFile):
-        return False
-    target = Path(root) / SIDECAR_REL
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(data)
-    return True
+        return None
+    try:
+        got = json.loads(data.decode("utf-8"))
+    except ValueError:
+        return None
+    return got if isinstance(got, dict) else None
 
 
 def ktc_toggles(

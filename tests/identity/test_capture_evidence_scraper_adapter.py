@@ -92,5 +92,18 @@ def test_u3_site_raw_columns_are_the_owners_and_trail_the_value():
 def test_the_sidecar_never_enters_the_payload():
     text = SCRAPER.read_text(encoding="utf-8")
     assert 'dashboard_json["identityCaptureEvidence"]' not in text
-    assert "_capture_evidence.write_sidecar(_cev_payload, Path(_identity_evidence_path))" in text
-    assert ce.SIDECAR_REL.as_posix() == "data/scrape_state/identity_capture_evidence.json"
+    assert "_capture_evidence.write_evidence(" in text
+    assert ce.MANIFEST_REL.as_posix() == "data/scrape_state/identity_capture_manifest.json"
+    assert ce.EVIDENCE_DIR_REL.as_posix() == "data/identity_capture_evidence"
+
+
+def test_only_the_manifest_is_archived_and_only_this_runs():
+    """The bundle (git-tracked ``exports/archive``) gets the small manifest, never
+    the full evidence, and only when THIS run wrote it."""
+    text = SCRAPER.read_text(encoding="utf-8")
+    start = text.index("copy_paths = [")
+    block = text[start : text.index("for p in copy_paths:", start)]
+    assert "_identity_manifest_path" in block
+    assert "if _cev_manifest is not None:" in block
+    assert "identity_capture_evidence" not in block.replace("_identity_manifest_path", "")
+    assert "_cev_manifest = None" in text[: text.index("_cev_manifest = _capture_evidence.write")]
