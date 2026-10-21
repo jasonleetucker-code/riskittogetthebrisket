@@ -1,12 +1,26 @@
-"""DLF vote offense-only (owner directive 2026-10-16).
+"""DLF IDP vote hold: approved restore, HELD AT RELEASE (re-applied 2026-10-19).
+
+History: the owner's policy hold of 2026-10-16 ("DLF vote is offense-only") was
+RESCINDED by the universal source-voting directive of 2026-10-19, which approves
+restoring DLF IDP and DLF Rookie IDP voting.  The restore is implemented (flag
+OFF), but the hold was re-applied the same day as a TEMPORARY release hold:
+under the incumbent outlier filter the restore drops valid Draft Sharks IDP /
+FantasyPros IDP / IDP Trade Calculator votes (30 rows, moves up to 54%, none
+from DLF's own vote), which the directive forbids.  On 2026-10-20 the owner
+chose Option 3: those moves are not accepted, and the hold lifts only with the
+owner's explicit approval after a preregistered outlier-filter Version 2
+passes every mandatory gate -- locked by ``tests/api/test_dlf_idp_hold_locked.py``.
+The board tests here force the flag both ways IN-PROCESS, so they pin the hold
+AND the (evidence-only) restore path either way.
 
 The owner settled the interpretation docs/sources/SOURCE_VALUATION_AUDIT_2026-10-13.md
 left open: the DLF IDP boards (``dlfIdp``, ``dlfRookieIdp``) stay ingested and
 displayed but never vote; ``dlfSf`` / ``dlfRookieSf`` vote unchanged; DLF Values
 stays held.  Implemented through the EXISTING vote-hold gate
 (``data_contract.POLICY_SOURCE_VOTE_HOLDS`` feeds the same active-source gate
-seasonal inactivity and the private holds use) with the rollback flag
-``dlf_offense_only_vote`` (``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`` + restart).
+seasonal inactivity and the private holds use) with the flag
+``dlf_offense_only_vote`` (``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`` + restart
+lifts the hold: the approved restore).
 
 Two halves: declaration / surface properties that need no board, and
 invariants on the newest complete archived scrape built twice (flag ON and
@@ -28,6 +42,7 @@ _HELD = ("dlfIdp", "dlfRookieIdp")
 _DLF_OFFENSE = ("dlfSf", "dlfRookieSf")
 _FLAG = "dlf_offense_only_vote"
 _ENV = "RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE"
+_REASON = "owner_policy_dlf_idp_restore_held_pending_outlier_fix"
 _LEVEL = {"none": -1, "low": 0, "medium": 1, "high": 2}
 #: Axes that measure the QUALITY of a family's own evidence.  A family that
 #: leaves the panel can legitimately lift a row only through one of these —
@@ -50,19 +65,38 @@ def flag(monkeypatch):
 
 
 def test_the_hold_names_exactly_the_dlf_idp_boards():
-    assert set(dc.POLICY_SOURCE_VOTE_HOLDS) == set(_HELD)
+    offense_only = {k for k, h in dc.POLICY_SOURCE_VOTE_HOLDS.items() if h["flag"] == _FLAG}
+    assert offense_only == set(_HELD)
     registered = set(dc.get_ranking_source_keys())
     assert set(_HELD) <= registered, "a held source stays REGISTERED (ingested + displayed)"
     for key in _DLF_OFFENSE:
         assert key in registered and key not in dc.POLICY_SOURCE_VOTE_HOLDS
-    # DLF Values is not a voter today and this change does not make it one.
-    assert "dlfValuesSfTep" not in registered
-    assert all(h["flag"] == _FLAG for h in dc.POLICY_SOURCE_VOTE_HOLDS.values())
+    # DLF Values (owner closeout 2026-10-18 Decision 4) is registered as an
+    # offense-only DLF member under its OWN release hold, never this one.
+    assert "dlfValuesSfTep" in registered
+    assert dc.POLICY_SOURCE_VOTE_HOLDS["dlfValuesSfTep"]["flag"] == "dlf_values_rank_hill_vote"
 
 
-def test_flag_defaults_on_and_is_live():
+def test_the_restore_is_held_at_release_by_default_and_the_flag_is_live(flag):
+    """The owner approved the restore (2026-10-19); it is held at release
+    pending the outlier fix (CQ-65), so the hold is IN FORCE by default and
+    ``=0`` lifts it (the restore path stays one flag away)."""
     assert feature_flags._DEFAULTS[_FLAG] is True
     assert feature_flags.gate_status(_FLAG) == feature_flags.LIVE
+    assert set(_HELD) <= set(dc._policy_source_vote_holds())
+    flag(False)
+    assert not set(_HELD) & set(dc._policy_source_vote_holds())
+
+
+def test_the_hold_says_it_is_temporary_and_names_its_lift_condition():
+    """A release hold, never an indefinite exclusion: the published reason and
+    decision name the approved restore and the outlier-fix lift condition."""
+    for key in _HELD:
+        hold = dc.POLICY_SOURCE_VOTE_HOLDS[key]
+        assert hold["reason"] == _REASON
+        assert "2026-10-19" in hold["decision"]
+        assert "approves the DLF IDP restore" in hold["decision"]
+        assert "temporary" in hold["decision"] and "CQ-65" in hold["decision"]
 
 
 def test_registry_surface_names_the_hold_with_a_reason(flag):
@@ -70,8 +104,8 @@ def test_registry_surface_names_the_hold_with_a_reason(flag):
     reg = {s["key"]: s for s in dc.get_ranking_source_registry()}
     for key in _HELD:
         hold = reg[key]["voteHold"]
-        assert hold and hold["reason"] == "owner_policy_dlf_vote_offense_only"
-        assert "2026-10-16" in hold["decision"]
+        assert hold and hold["reason"] == _REASON
+        assert "2026-10-19" in hold["decision"]
     for key in _DLF_OFFENSE:
         assert reg[key]["voteHold"] is None
     flag(False)
@@ -87,7 +121,7 @@ def test_vote_state_stamp_marks_held_public_sources(flag):
         assert entry["private"] is False
         assert entry["holdKind"] == dc.VOTE_HOLD_KIND_OWNER_POLICY
         assert entry["votes"] is False
-        assert entry["heldFromVote"] == "owner_policy_dlf_vote_offense_only"
+        assert entry["heldFromVote"] == _REASON
     # The coverage gates (CI watchdog, deploy verifier, validator) excuse a
     # source by the board's own stamp through this one reader.
     assert set(_HELD) <= dc.private_sources_absent_by_design(state)

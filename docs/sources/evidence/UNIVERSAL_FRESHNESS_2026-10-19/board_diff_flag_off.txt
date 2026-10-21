@@ -1,0 +1,16 @@
+====================================================================
+BOARD DIFF  golden_main.json -> golden_off.json
+====================================================================
+      rows: 1130 -> 1130
+    ranked: 740 -> 740
+    priced: 1029 -> 1029
+     picks: 162 -> 162
+       idp: 428 -> 428
+
+  VALUES: 0 moved, 0 newly priced, 0 newly unpriced
+
+  RANKS: 0 changed
+
+  LABELS:
+
+ASSERTION OK: no value changed.

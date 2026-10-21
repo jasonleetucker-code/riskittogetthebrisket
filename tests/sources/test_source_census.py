@@ -70,7 +70,6 @@ def test_non_voting_benchmarks_and_second_opinions_appear_with_reasons(built):
         {ktc_market.KTC_MARKET_KEY}
         | {b.source_key for b in SIGNALS_BOARDS.values()}
         | set(dc._NON_VOTING_SOURCE_CSV_KEYS)
-        | {"dlfValuesSfTep"}
     )
     for key in expected:
         e = _entry(census, key)
@@ -82,6 +81,11 @@ def test_non_voting_benchmarks_and_second_opinions_appear_with_reasons(built):
     for b in SIGNALS_BOARDS.values():
         assert _entry(census, b.source_key)["nonVotingClass"] == sc.NV_SECOND_OPINION
     assert census["summary"]["unclassified"] == []
+    # DLF Values (owner closeout 2026-10-18 Decision 4) is a registered dlf
+    # member, released by its own gate-backed flag: a voter in DLF's family.
+    dlfv = _entry(census, "dlfValuesSfTep")
+    assert dlfv["family"]["correlationGroup"] == "dlf"
+    assert dlfv["votingStatus"] in (sc.VOTING, sc.REGISTERED_NO_VOTES)
 
 
 # ── missing is never zero ────────────────────────────────────────────────
