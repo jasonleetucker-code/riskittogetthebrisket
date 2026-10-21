@@ -2,6 +2,8 @@
  * Tests for lib/trade-logic.js — the pure trade calculator logic
  * extracted from the Next.js trade page.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   VALUE_MODES,
@@ -19,6 +21,7 @@ import {
   valueAdjustmentFromSideArrays,
   adjustedSideTotals,
   multiAdjustedSideTotals,
+  sideTotalsFairnessBase,
   computeStackAdjustments,
   computeSideFlows,
   tradeImbalance,
@@ -687,6 +690,41 @@ describe("multiAdjustedSideTotals", () => {
     expect(multi[1].raw).toBe(b.raw);
     expect(multi[1].adjustment).toBeCloseTo(b.adjustment, 5);
     expect(multi[1].adjusted).toBeCloseTo(b.adjusted, 5);
+  });
+
+  // Train 17: the #1883 merge left #1886's pre-N-team tail
+  // (`packageUtilities(...totals...)`) after the N >= 3 return — unreachable,
+  // and `totals` was undefined in that scope.  The N >= 3 `utility` comes from
+  // perTeamPackageTotals via the spread; pin that, so the dead tail can never
+  // be "needed" again, and that the owner accepts these totals as a base.
+  it("stamps a finite package utility on every N >= 3 side (no dead tail)", () => {
+    const sides = [
+      [mockRow(9999)],
+      [mockRow(5000), mockRow(3500)],
+      [mockRow(4800), mockRow(3200)],
+    ];
+    const totals = multiAdjustedSideTotals(sides, "full");
+    for (const t of totals) {
+      expect(Number.isFinite(t.utility)).toBe(true);
+      expect(t.utility).toBeGreaterThan(0);
+    }
+    expect(Number.isFinite(sideTotalsFairnessBase(totals))).toBe(true);
+    expect(sideTotalsFairnessBase(totals)).toBe(Math.max(...totals.map((t) => t.utility)));
+  });
+
+  it("has no statement after the N >= 3 return in multiAdjustedSideTotals", () => {
+    const src = readFileSync(
+      fileURLToPath(new URL("../lib/trade-logic.js", import.meta.url)),
+      "utf8",
+    );
+    const start = src.indexOf("export function multiAdjustedSideTotals(");
+    expect(start).toBeGreaterThan(-1);
+    const end = src.indexOf("\n}\n", start);
+    const body = src.slice(start, end);
+    const tail = body.slice(body.lastIndexOf("return teams.map("));
+    // Only the closing of the map callback may follow the final return.
+    expect(tail.replace(/\s+/g, " ")).toMatch(/\}\);\s*$/);
+    expect(body).not.toMatch(/\btotals\b/);
   });
 });
 

@@ -1207,11 +1207,6 @@ export function multiAdjustedSideTotals(sides, valueMode, settings = null) {
     const raw = sideTotal(assets[i], valueMode, settings);
     return { raw, adjustment: t.sendVA, adjusted: raw + t.sendVA, ...t };
   });
-  const utilities = packageUtilities(
-    sides.map((side) => sortedSideValues(side, valueMode, settings)),
-    totals.map((t) => t.adjusted),
-  );
-  return totals.map((t, i) => ({ ...t, utility: utilities[i] }));
 }
 
 /**
