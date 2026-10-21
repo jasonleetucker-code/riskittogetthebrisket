@@ -1,5 +1,17 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Unlisted Waiver Wire Comparison page — owner directive, 2026-10-21
+
+**AUTHORIZED (build, review, merge and deploy in one pass).** A standalone, read-only page at the
+unlisted URL `/waiver-wire/r7k4q9m2`: pick a `dynasty_main` team, see every rostered player's value,
+and the top available waiver players (50 at a time) with position/age/sort filters. Value = plain
+50/50 average of KTC (Dynasty, Crowd+Trades, SF, TE++) and IDP Trade Calculator (SF, TEP, offense +
+IDP); a lone value is used unchanged; neither = N/A. Explicitly NO replacement line, drop advice or
+other math, and NO change to canonical values, source weights, the trade calculator or any model.
+Owner: `src/waiver_compare/` (isolated value concept) + `GET /api/public/waiver-compare`. Public by
+link only: not in nav, robots or the sitemap, and noindexed. Intake:
+`docs/OWNER_REQUESTED_TODO.md` §"Added 2026-10-21 — Unlisted Waiver Wire Comparison page".
+
 ## Low-value-asset decision packages 1–5 — owner decisions, 2026-10-21 (~12:40 UTC)
 
 Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-21 (~12:40 UTC)" (LVA-P1 to LVA-P5C). The verbatim text is

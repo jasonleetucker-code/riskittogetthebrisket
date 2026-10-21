@@ -4506,6 +4506,12 @@ _PUBLIC_API_EXACT = frozenset(
         # news" card from this endpoint, so it must be reachable
         # without a session.
         "/api/news",
+        # Unlisted Waiver Wire Comparison page (owner request 2026-10-21).
+        # Read-only: league team names + Sleeper rosters (public on Sleeper)
+        # and two PUBLISHED third-party values (KTC Crowd+Trades, IDPTC)
+        # averaged 50/50.  No canonical/proprietary value is in the payload
+        # (pinned by tests/waiver_compare/test_endpoint.py).
+        "/api/public/waiver-compare",
     }
 )
 # Endpoints that handle their own auth (bearer token, etc.) — the
@@ -6839,6 +6845,42 @@ async def get_metrics():
 # a thin adapter: parse query args, delegate, and surface per-provider
 # diagnostics so the frontend can distinguish "empty feed" from "all
 # providers degraded".
+_waiver_compare_service = None
+
+
+@app.get("/api/public/waiver-compare")
+async def get_public_waiver_compare():
+    """Unlisted Waiver Wire Comparison — rosters vs available players, valued.
+
+    Public by owner request; NOT linked anywhere and noindexed.  Values are
+    the plain 50/50 KTC Crowd+Trades / IDPTC average owned by
+    ``src/waiver_compare`` — never ``rankDerivedValue``.
+    """
+    global _waiver_compare_service
+    from src.api import league_registry as _lr  # noqa: PLC0415
+    from src.waiver_compare.service import LEAGUE_KEY, WaiverCompareService  # noqa: PLC0415
+
+    if _waiver_compare_service is None:
+        _waiver_compare_service = WaiverCompareService()
+    cfg = _lr.get_league_by_key(LEAGUE_KEY)
+    league = (
+        {"key": cfg.key, "name": cfg.display_name, "sleeperLeagueId": cfg.sleeper_league_id}
+        if cfg is not None and cfg.active
+        else None
+    )
+    status, body = await run_in_threadpool(
+        _waiver_compare_service.payload, latest_contract_data, league
+    )
+    return JSONResponse(
+        status_code=status,
+        content=body,
+        headers={
+            "Cache-Control": "public, max-age=30" if status == 200 else "no-store",
+            "X-Robots-Tag": "noindex, nofollow",
+        },
+    )
+
+
 @app.get("/api/news")
 async def get_news(request: Request):
     limit_raw = request.query_params.get("limit")

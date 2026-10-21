@@ -137,4 +137,32 @@ export function isSelfAuthedPagePath(pathname) {
   return SELF_AUTHED_PAGE_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
-export { PUBLIC_EXACT, PUBLIC_PREFIXES, PRIVATE_EXCEPTIONS, SELF_AUTHED_PAGE_PREFIXES };
+/**
+ * UNLISTED pages: reachable by anyone holding the exact link, and nothing
+ * else — no session needed, but `isPublicPath` stays FALSE, so they are
+ * never in robots.txt's allowlist, the sitemap or the logged-out nav (the
+ * three consumers of the public predicate).  Matched EXACTLY: the link is
+ * the whole access model, so no prefix may widen it.  Each page also
+ * declares `robots: noindex` in its own metadata.
+ *
+ * `/waiver-wire/r7k4q9m2` is the Waiver Wire Comparison tool (owner
+ * request 2026-10-21): league rosters vs available players, valued by the
+ * plain KTC / IDPTC average — data that is already public on those sites
+ * and on Sleeper.
+ */
+export const WAIVER_COMPARE_PATH = "/waiver-wire/r7k4q9m2";
+
+const UNLISTED_PAGE_EXACT = new Set([WAIVER_COMPARE_PATH]);
+
+export function isUnlistedPagePath(pathname) {
+  if (!pathname) return false;
+  return UNLISTED_PAGE_EXACT.has(pathname.replace(/\/+$/, "") || "/");
+}
+
+export {
+  PUBLIC_EXACT,
+  PUBLIC_PREFIXES,
+  PRIVATE_EXCEPTIONS,
+  SELF_AUTHED_PAGE_PREFIXES,
+  UNLISTED_PAGE_EXACT,
+};

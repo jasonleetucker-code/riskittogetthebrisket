@@ -15,6 +15,19 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-21 — Unlisted Waiver Wire Comparison page
+
+Owner request 2026-10-21: build, test and deploy a simple standalone page, reachable by anyone with the link
+and linked from nowhere, that compares a selected team's roster values with the best available waiver players.
+Authorized in `docs/EXECUTION_PLAN.md` (same date).
+
+| # | Owner instruction | Status |
+|---|---|---|
+| WWC-1 | Unlisted, no-login URL; not in nav, the league hub, robots or the sitemap; noindexed | IMPLEMENTED — `/waiver-wire/r7k4q9m2` (`frontend/lib/public-routes.js::isUnlistedPagePath`) |
+| WWC-2 | Value = (KTC Crowd+Trades SF TE++ + IDPTC SF TEP) / 2; one source alone unchanged; neither = N/A, never 0; player-id matching; isolated from every existing model | IMPLEMENTED — `src/waiver_compare/values.py` |
+| WWC-3 | Team dropdown; full roster (bench/taxi/IR) by value; top 50 waivers + Load 50 more; All/QB/RB/WR/TE/DL/LB/DB on both lists; five sorts; waiver max-age slider (All, 40…21); per-site values on tap; last-updated times | IMPLEMENTED — `frontend/app/waiver-wire/r7k4q9m2/` |
+| WWC-4 | No red line, replacement threshold, drop recommendation or comparison math | RECORDED — binding scope limit |
+
 ## Added 2026-10-21 (~12:40 UTC) — Low-value-asset decision packages 1–5 answered
 
 These are the owner's answers to the five packages in `docs/owner/LVA_INTEGRATION_REPORT_AND_DECISIONS_2026-10-21.md`
