@@ -36,6 +36,7 @@ from pathlib import Path
 import pytest
 
 from src.source_archive import store as archive_store
+from src.identity import capture_evidence
 from src.sources.ktc_identity import extract_embedded_array
 from src.source_archive.store import ArchivedBoard, read_boards
 from src.sources import ktc_format_archive as kfa
@@ -1046,7 +1047,16 @@ def _scrape_ktc_slice(**overrides):
         "get_cached": lambda _key: None,
         "set_cache": lambda *_a, **_k: None,
         "page_dump": None,
+        # V2.1 U2 identity evidence: the real collector, so the slice also
+        # proves evidence never changes the KTC result.
+        "_capture_evidence": capture_evidence,
+        "_CAPTURE_EVIDENCE": capture_evidence.CaptureEvidenceCollector(),
     }
+
+    def _cev(method, *args, **kwargs):
+        return getattr(ns["_CAPTURE_EVIDENCE"], method)(*args, **kwargs)
+
+    ns["_cev"] = _cev
 
     def match_all(players, name_map, results, site_key=None):
         for p in players:

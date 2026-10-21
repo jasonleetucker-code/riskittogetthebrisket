@@ -175,6 +175,9 @@ class SleeperDirectoryIndex:
         self.by_gsis: dict[str, SleeperCandidate] = {}
         self.by_espn: dict[str, SleeperCandidate] = {}
         self.by_canonical: dict[str, list[SleeperCandidate]] = {}
+        #: ``{sleeper id: (birth_date or None, fantasy positions)}`` — V2.1 Layer A
+        #: evidence only; no ladder reads it.
+        self.facts_by_sleeper_id: dict[str, tuple[str | None, tuple[str, ...]]] = {}
 
         for pid, pdata in (directory or {}).items():
             if not isinstance(pdata, dict):
@@ -206,6 +209,17 @@ class SleeperDirectoryIndex:
                 self.by_initial_last.setdefault(key, []).append(cand)
 
             self.by_sleeper_id[str(pid)] = cand
+            # Identity facts read only by outlier-integrity V2.1 Layer A (R4
+            # family compatibility, R5 exact age).  A field the directory does
+            # not carry is ``None`` / empty — no evidence, never a default.
+            _bd = str(pdata.get("birth_date") or "").strip() or None
+            _fps = tuple(
+                str(x).strip().upper()
+                for x in (pdata.get("fantasy_positions") or ())
+                if str(x or "").strip()
+            )
+            if _bd or _fps:
+                self.facts_by_sleeper_id[str(pid)] = (_bd, _fps)
             gsis = str(pdata.get("gsis_id") or "").strip()
             if gsis:
                 self.by_gsis.setdefault(gsis, cand)

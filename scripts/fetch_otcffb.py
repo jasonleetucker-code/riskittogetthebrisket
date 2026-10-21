@@ -137,10 +137,16 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
             continue
         if value_f <= 0:
             continue
+        # V2.1 U3 identity evidence: the position and team the vendor
+        # published for this row (blank when it did not).  Written as trailing
+        # CSV columns; nothing that ranks or values reads them.
+        team_raw = entry.get("team")
         out.append(
             {
                 "name": name.strip(),
                 "value": round(value_f, 2),
+                "position": pos,
+                "team": team_raw.strip().upper() if isinstance(team_raw, str) else "",
             }
         )
     out.sort(key=lambda r: r["value"], reverse=True)
@@ -156,7 +162,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     # blend (Codex review on PR #530).  ``rows`` arrive value-sorted
     # descending from ``_parse_players``.
     path.parent.mkdir(parents=True, exist_ok=True)
-    fields = ["name", "value", "rank"]
+    fields = ["name", "value", "rank", "position", "team"]
     with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
@@ -171,6 +177,8 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
                     "name": row["name"],
                     "value": row["value"],
                     "rank": rank,
+                    "position": row.get("position", ""),
+                    "team": row.get("team", ""),
                 }
             )
 

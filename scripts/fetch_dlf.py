@@ -803,7 +803,7 @@ def _write_csv(path: Path, rows: list[dict]) -> int:
     Rank remains the canonical blend signal. Value is preserved for
     vendor-literal trade second opinions and never becomes a second DLF vote.
     """
-    written: list[tuple[str, float, float | None]] = []
+    written: list[tuple[str, float, float | None, str, str]] = []
     seen_names: set[str] = set()
     for r in rows:
         name = (r.get("name") or "").strip()
@@ -817,19 +817,31 @@ def _write_csv(path: Path, rows: list[dict]) -> int:
         # player; skip that kind of accidental duplicate.
         if name in seen_names:
             continue
-        written.append((name, rank_val, _native_value_of(r)))
+        # V2.1 U3 identity evidence: the Pos / Team cells DLF's table shows
+        # for this row, verbatim (blank when the table has no such column).
+        written.append(
+            (
+                name,
+                rank_val,
+                _native_value_of(r),
+                str(r.get("pos") or "").strip().upper(),
+                str(r.get("team") or "").strip().upper(),
+            )
+        )
         seen_names.add(name)
     written.sort(key=lambda t: t[1])
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["name", "rank", "value"])
-        for name, rank_val, native_value in written:
+        w.writerow(["name", "rank", "value", "position", "team"])
+        for name, rank_val, native_value, pos, team in written:
             w.writerow(
                 [
                     name,
                     int(rank_val) if rank_val == int(rank_val) else f"{rank_val:.2f}",
                     "" if native_value is None else _format_number(native_value),
+                    pos,
+                    team,
                 ]
             )
     return len(written)
