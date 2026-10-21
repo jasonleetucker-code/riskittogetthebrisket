@@ -361,6 +361,14 @@ class RosterCapacity:
     #: bound was exceeded and the V5-R selection with package charging ran
     #: instead (``None`` when the flag is OFF).
     search_bound_exceeded: bool | None = None
+    #: Flag ``forced_drop_cheapest_legal`` and taxi-unknown (``certainty
+    #: "partial"``) only: ``(cost, exhausted, assumed)`` of the cheapest legal
+    #: cleanup of the GUARANTEED number of releases (``over_limit_after_min``,
+    #: capped at the roster's growth), RE-SELECTED at that count.  The cheapest
+    #: ``k`` drops of the worst-case cleanup are a legal ``k``-set but not
+    #: necessarily the cheapest one (the lineup guard and the package step
+    #: couple the choices), so they are not a guaranteed lower bound.
+    taxi_bound_cleanup: tuple[float, bool, bool] | None = None
 
     @property
     def requires_drops(self) -> bool | None:
@@ -975,12 +983,21 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
         added = min(over, growth)
         if added == 0:
             return 0.0, {"state": "none", "reason": "trade_adds_no_release", **common}
-        charged = sorted(capacity.forced_drops, key=lambda d: (d.release_cost, d.player_id))[:added]
         lower.append("taxi_occupancy_unknown_guaranteed_drops_only")
-        if len(charged) < added:
-            lower.append("fewer_drops_modelled_than_added")
-        cost = float(sum(d.release_cost for d in charged))
-        upper = any(_assumed(d) for d in charged)
+        if capacity.taxi_bound_cleanup is not None:
+            # RE-SELECTED at the guaranteed count: the cheapest legal cleanup
+            # of ``added`` releases, so the lower bound is a lower bound.
+            cost, bound_exhausted, upper = capacity.taxi_bound_cleanup
+            if bound_exhausted:
+                lower.append("fewer_drops_modelled_than_added")
+        else:
+            charged = sorted(capacity.forced_drops, key=lambda d: (d.release_cost, d.player_id))[
+                :added
+            ]
+            if len(charged) < added:
+                lower.append("fewer_drops_modelled_than_added")
+            cost = float(sum(d.release_cost for d in charged))
+            upper = any(_assumed(d) for d in charged)
     else:
         total = float(sum(d.release_cost for d in capacity.forced_drops))
         pre = _pre_trade_owed(capacity)
@@ -1798,6 +1815,40 @@ def _assess_selected(
         else None
     )
 
+    taxi_bound = None
+    if certainty != "exact":
+        # Taxi membership unknown: the charge is a lower bound on the releases
+        # GUARANTEED under every assignment.  Re-run the selection at that
+        # count (a subset of the worst-case cleanup is legal but not
+        # necessarily the cheapest legal set of that size).
+        added = min(over_after_min, max(0, size_after - size_before))
+        if added <= 0:
+            lb = None
+        elif added == over_after_max and sel.mode == fds.MODE_PACKAGE_CONSISTENT:
+            lb = sel
+        else:
+            # Always the charge-minimising (V5) selection, whichever mode is
+            # served: the roster-rational set minimises ``sum c``, not the
+            # charge, so its cost at a smaller count is not a lower bound.
+            lb = fds.select_forced_drops(
+                existing,
+                arrivals,
+                incoming,
+                drops_needed=added,
+                package=package,
+                mode=fds.MODE_PACKAGE_CONSISTENT,
+                **common,
+            )
+        if lb is not None:
+            taxi_bound = (
+                lb.total,
+                lb.exhausted,
+                any(
+                    d.value_basis == "assumedWaiver" and d.charge_basis != fds.CHARGE_PACKAGE
+                    for d in lb.drops
+                ),
+            )
+
     priced = [d.value for d in drops if d.value is not None]
     taxi_lo, taxi_hi = taxi
     return RosterCapacity(
@@ -1830,6 +1881,7 @@ def _assess_selected(
         selection_rule=fds.rule_id(sel.mode),
         package_applied=sel.package_applied,
         search_bound_exceeded=sel.search_bound_exceeded,
+        taxi_bound_cleanup=taxi_bound,
         waiver_values_available=bool(context.waiver_values),
         **_pre_trade_fields(pre_sel),
     )

@@ -218,6 +218,15 @@ before and after the trade cancels out of the marginal and does not taint it. Th
 state (`objectiveValue.forcedReleaseChargeState`) as the Finder's `rankingFactors.forcedDropCostBasis.state`, because
 both read `roster_capacity.forced_drop_cost`.
 
+*Taxi-unknown lower bound (review F3).* When taxi membership is invisible the charge covers only the releases
+guaranteed under every assignment (`over_limit_after_min`, capped at the roster's growth). It used to be the cheapest
+`k` drops of the *worst-case* cleanup — a legal `k`-set but not always the cheapest one (the lineup guard and the
+package step couple the choices): in 23 of 462 random cases a different legal `k`-set was strictly cheaper (e.g. 261
+against 335), so the label `lower_bound` was not guaranteed. The bound is now RE-SELECTED at the guaranteed count with
+the charge-minimising (V5) selection whichever mode is served (the V5-R set minimises `Σ c`, not the charge, so its
+cost at a smaller count is not a lower bound), and is pinned equal to the brute-force minimum over every lineup-legal
+`k`-set on 240 seeded cases.
+
 *Incomplete or undeterminable cleanups (re-review findings 1, 3; flag-ON code only).* A cleanup that stops short of
 legal size is never reported as exact: `forcedDropMarginal` is `null` when either the post-trade ladder
 (`ladderExhausted`) or the pre-trade cleanup is exhausted; exhaustion is checked *before* the "trade adds no release

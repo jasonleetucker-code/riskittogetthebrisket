@@ -881,6 +881,58 @@ def test_v5_releases_a_dearer_incoming_piece_v5r_the_cheaper_roster_player():
     assert dr.charge_basis == fds.CHARGE_RELEASE
 
 
+def _taxi_unknown_case(seed, mode, monkeypatch):
+    c, us, pin, pout = _random_wide_league(seed)
+    ctx = RC.build_capacity_context(c, None, us, roster_settings={**_WIDE, "taxiSize": 2})
+    package = _package_for(c, pin, pout)
+    cap = _assess(ctx, pin, pout, package, mode, monkeypatch)
+    return ctx, cap, pin, pout, package
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("seed", range(120))
+def test_taxi_unknown_lower_bound_is_the_cheapest_legal_cleanup_of_the_guaranteed_count(
+    flag_on, monkeypatch, seed, mode
+):  # fmt: skip
+    """Review F3.  With taxi membership invisible the charge is a LOWER BOUND on
+    the releases guaranteed under every assignment.  The cheapest ``k`` drops of
+    the worst-case cleanup are a legal ``k``-set but not necessarily the
+    cheapest one, so the bound is now RE-SELECTED at ``k``: it equals the
+    brute-force minimum charge over every lineup-legal ``k``-set, and is never
+    above the cheapest ``k`` of the worst-case drops (23 of 462 random cases
+    were strictly below)."""
+    ctx, cap, pin, pout, package = _taxi_unknown_case(seed, mode, monkeypatch)
+    if cap.certainty != "partial" or cap.taxi_bound_cleanup is None or cap.ladder_exhausted:
+        pytest.skip("no taxi bracket to bound")
+    added = min(cap.over_limit_after_min, max(0, cap.size_after - cap.size_before))
+    bf = _Brute(ctx, cap, pin, pout, package)
+    base = _filled(ctx, bf.pool)
+    legal_k = [
+        S
+        for S in itertools.combinations(range(len(bf.pool)), added)
+        if _filled(ctx, [a for i, a in enumerate(bf.pool) if i not in S]) >= base
+    ]
+    cost, basis = RC.forced_drop_cost(cap)
+    assert cost == pytest.approx(min(bf.charge(S) for S in legal_k), abs=0.06)
+    old = sum(sorted(d.release_cost for d in cap.forced_drops)[:added])
+    assert cost <= old + 1e-6
+    assert basis["state"] in ("lower_bound", "mixed_bound")
+    assert "taxi_occupancy_unknown_guaranteed_drops_only" in basis["lowerBoundReasons"]
+
+
+def test_taxi_unknown_lower_bound_can_be_strictly_below_the_cheapest_k_of_the_worst_case(
+    flag_on, monkeypatch
+):  # fmt: skip
+    """Pinned instance (review F3, the "9/364" class): the guaranteed count is 1
+    of 3 possible releases.  The cheapest single drop of the 3-release cleanup is
+    335, but a different legal single release costs 261."""
+    ctx, cap, _pin, _pout, _pk = _taxi_unknown_case(40, fds.MODE_PACKAGE_CONSISTENT, monkeypatch)
+    assert (cap.over_limit_after_min, cap.over_limit_after_max) == (1, 3)
+    cost, _basis = RC.forced_drop_cost(cap)
+    assert cost == 261.0
+    assert min(d.release_cost for d in cap.forced_drops) == 335.0
+
+
 def _seven_incoming(d):
     existing = [_asset(f"e{i}", 1500.0 + 400.0 * i) for i in range(6)]
     incoming = [_asset(f"in{i}", 700.0 + 350.0 * i) for i in range(7)]
