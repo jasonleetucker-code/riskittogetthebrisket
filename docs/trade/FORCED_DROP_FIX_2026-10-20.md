@@ -300,8 +300,10 @@ cells confirm the implementation is the rule; they are not a measured advantage.
 
 § **Zero locally because scarcity is inert here (1.0), not by construction.** At scarcity 1.0 a piece's package credit
 under the geometric model never exceeds its own value, so it never exceeds `c` and V5 has no reason to keep a cheaper
-acquired piece. On the box (scarcity 0.85–1.15) it can; **the box replay with real scarcity must report both
-directions** (`currencyAnomaly.currencyAnomalies` and `.reverseCurrencyAnomalies`, §10 item 3).
+acquired piece. Under non-inert scarcity (0.85–1.15) it could. *Amended 2026-10-21:* production scarcity
+is inert by construction (1.0 everywhere; owner decision D8 keeps it inert), so the box replay cannot exercise
+this either. It reports both directions anyway (`currencyAnomaly.currencyAnomalies` and
+`.reverseCurrencyAnomalies`), and the replay must be re-run if scarcity is ever activated.
 
 (The review counted 14 of 86 package-step selections under a different definition; this record uses the single-swap
 definition above, which is mechanical and reproducible from `replay.json` → `currencyAnomaly`.)
@@ -466,11 +468,13 @@ market convention differs from the roster answer.
 ## 9. Limits
 
 * Component B (lineup lens) is not measured locally; box headlines will differ from the A-driven stand-in.
-* Scarcity resolves inert locally (multiplier 1.0), so **every replay number in §3a and §8 is at scarcity 1.0**. On the
-  box it scales every existing player's `c` by 0.85–1.15 while an acquired piece's package credit carries no scarcity
-  (review finding B: the multiplier is one-sided under V5's charge, and under V5-R it enters selection on both sides
-  but only existing cuts' charges). Exactness under real multipliers is pinned synthetically (§3); **a box replay with
-  real scarcity is required before activation** (§10).
+* Scarcity resolves inert locally (multiplier 1.0), so **every replay number in §3a and §8 is at scarcity 1.0**.
+  *Amended 2026-10-21:* production resolves it inert too, by construction (no free agents reach `compute_scarcity`;
+  owner decision D8 keeps it inert), so 1.0 is the served state, not a local artifact. Non-inert scarcity would scale
+  every existing player's `c` by 0.85–1.15 while an acquired piece's package credit carries none (review finding B:
+  one-sided under V5's charge; under V5-R it enters selection on both sides but only existing cuts' charges).
+  Exactness under real multipliers is pinned synthetically (§3). **If scarcity is ever activated, a box replay under
+  it is required before this fix may be activated on top of it** (§10 item 3).
 * The lineup guard protects an incoming player who fills a slot the roster could not; he cannot be the release, so
   in that case receiving him can lower the net (his lineup value is Component B's).
 * **"Lineup-legal" means rank-preserving, nothing more (review F5).** A cut set `S` is legal iff the number of filled
@@ -522,9 +526,12 @@ market convention differs from the roster answer.
    `docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md` Package 1). The dormant merge and the read-only box replay are
    authorized. Activation is not: it needs items 2-4 and 6-13.
 2. **Owner approval of the §8 production impact** for the chosen mode.
-3. **Box replay with real scarcity and Component B** (`scripts/forced_drop_fix_replay.py` on the box, both modes):
-   every number here is at scarcity 1.0 with Component B in its not-applicable state. It must report the currency
-   anomaly in BOTH directions (forward and reverse, §3a) — the reverse direction is structurally 0 at scarcity 1.0.
+3. **Box replay with production scarcity and Component B** (`scripts/forced_drop_fix_replay.py` on the box,
+   both modes). Every local number is at scarcity 1.0 with Component B in its not-applicable state. *Amended
+   2026-10-21 (owner):* production scarcity is itself inert by construction, so the box adds Component B,
+   posture and live league state, not scarcity (runbook §8). It must still report the currency anomaly in BOTH
+   directions (§3a); the reverse direction stays structurally 0 at scarcity 1.0. If scarcity is ever activated,
+   this item reopens.
 4. **UI copy (UI lane, not this PR).** `frontend/lib/trade-war-room-copy.js:793` renders
    "After the forced cut of X (worth N)" from `objectiveValue.forcedReleaseCost`. For a just-acquired release N is the
    package credit forgone, not the player's value, so "worth N" is false. The backend now publishes
