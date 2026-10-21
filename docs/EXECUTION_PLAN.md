@@ -1,5 +1,45 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Low-value-asset decision packages 1–5 — owner decisions, 2026-10-21 (~12:40 UTC)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-21 (~12:40 UTC)" (LVA-P1 to LVA-P5C). The verbatim text is
+in `docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md`. It answers §J of
+`docs/owner/LVA_INTEGRATION_REPORT_AND_DECISIONS_2026-10-21.md`. Develop/dormant-merge authorization is kept
+separate from activation authorization: **every item below is develop or dormant only.**
+
+**Authorized now:**
+- **P1, forced-drop fix #1890.** The mode constant becomes V5-R (`roster_rational`). Dormant merge once the exact
+  head passes required CI, independent review and merge checks. The flag `forced_drop_cheapest_legal` stays OFF and
+  `scripts/verify_owner_held_flags.py` keeps holding it OFF. After that deploys dormant: one pinned, read-only
+  production-box replay per `docs/trade/FORCED_DROP_BOX_REPLAY_RUNBOOK_2026-10-21.md`, run as the service user, with
+  aggregate-only output. It reports real scarcity, Component B, both anomaly directions, the trade-recommendation
+  changes and an investigation of V5-R's non-monotonicity (a better incoming player worsening the result).
+- **P2, OD-F6 option A.** Relabel the League Hub history tier and state its basis, with the 3% criterion defined in
+  one authoritative place. Zero numerical grade changes. The wording has to be verified against what the metric
+  measures first: if it is valuation balance, the label is "Evenly valued" or similar, not "Even outcome", and the
+  distinction is documented. Also, at low priority: re-measure Package VA Phases 1–3 under `fairness_bands_v2` as
+  research only, additive to the original evidence.
+- **P3, LI-5 (C2-REPL-01) phases P1–P2** of `docs/valuation/LI5_REPLACEMENT_CONSOLIDATION_DESIGN_2026-10-21.md`,
+  per D1–D8 as recommended, behind a new default-OFF flag. P3 (which touches #1890's files) starts only after #1890
+  merges.
+- **P4, depth disclosure V4 shadow counters**: hidden, private-access-protected, behind a default-OFF flag, measuring
+  fire rates and false positives (A-guarded, floor threshold, picks included). Calculator and War Room first. War
+  Room Team Context stays held until #1890 is settled.
+- **P5A, #1852**: the read-only census of eligible manager-lineage components (sizes, concentration, coverage,
+  allocation alternatives). No reserve is drawn, persisted or exposed, and Q2 stays `PROPOSED_PENDING_OWNER_Q2`.
+- **P5B, #1884**: the owning session reconciles and revalidates it. Priority is extracting the research records and
+  the separately reviewed identity prerequisites for 2026-11-04.
+- **P5C, #1873**: prepare the pinned manual command for the early-November prospective evaluation. #1873 stays open
+  and unmerged.
+
+**Owner-reserved (NOT authorized):** turning `forced_drop_cheapest_legal`, the LI-5 flag or the disclosure-counter
+flag ON in any registry, deploy, config or env surface; any served replacement-level, IDP valuation, voting or
+scarcity change; any user-facing or public depth note, or public probing route; drawing or persisting the #1852
+reserve; merging the whole #1884 V2/V2.1 implementation; merging #1873; running the #1873 command on the box; any
+change to `geom_q078_v1`, q = 0.78 or the fairness methodology; any change to numerical history grades.
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel.
+
 ## fairness_bands_v2 — owner decisions, 2026-10-20 (~19:45 UTC): OD-F1 / OD-F2 / OD-F3 / OD-F5
 
 Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~19:45 UTC)". Verbatim text: `docs/owner/FAIRNESS_V2_DECISIONS_2026-10-20.md`. Evidence: `docs/trade/FAIRNESS_BANDS_V2_2026-10-20.md`.
@@ -7,7 +47,7 @@ Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~19:45 UTC)". Verbatim
 **Authorized now:**
 - **`fairness_bands_v2` in the ONE fairness-band owner** (`src/valuation_math/fairness_bands.py` + `config/trade/fairness_bands.json`, pinned JS mirror `frontend/lib/fairness-bands.js`): the gap divided by the larger package utility (OD-F2), the 250 floor kept as an owner-approved prior (OD-F3), FAIR TRADE = `fair` only recorded in the owner (OD-F1), status `PRIOR_OWNER_APPROVED_2026-10-20` (OD-F5), non-finite input refused identically in both languages. Every consumer (private Asset-Only YES / NO, /trade meter, balancers, Best Offers, Package Builder, suggestions badge) moves with the owner; impact measured with `scripts/measure_fairness_band_change.py --compare v1-v2`. Branch `claude/fairness-bands-v2`, through the normal release train / HEAD-FREEZE gates.
 
-**Owner-reserved (NOT authorized):** changing the League Hub trade-history grade (OD-F6 open); public advisor launch (OD-3, admission sizes, F-1, response floor, launch approval open); calling v2 validated before OD-F4 runs; any change to `package_model`, q, `geom_q078_v1`, curves or values; enabling any flag.
+**Owner-reserved (NOT authorized):** changing the League Hub trade-history grade (OD-F6 decided 2026-10-21 as relabel only, no grade change; see the LVA entry above); public advisor launch (OD-3, admission sizes, F-1, response floor, launch approval open); calling v2 validated before OD-F4 runs; any change to `package_model`, q, `geom_q078_v1`, curves or values; enabling any flag.
 
 **Unaffected and not blocked:** every other §0 authorization continues in parallel.
 
