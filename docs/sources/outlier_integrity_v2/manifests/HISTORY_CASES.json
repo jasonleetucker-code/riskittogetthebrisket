@@ -1,0 +1,3670 @@
+{
+ "schema": "oiv2-history-cases/v1",
+ "generatedFrom": {
+  "repoTree": "origin/main f631607ff3 (read-only worktree)",
+  "archives": 149,
+  "manifest": "docs/valuation/evidence/idp-outlier-n3-2026-10-18/ARCHIVE_MANIFEST.json (140 boards, 105 complete; 5 recovered from their add commits, 9 newer archives outside it)",
+  "zipHashesVerifiedAgainstManifest": true,
+  "priorEvidence": "docs/valuation/evidence/outlier-disagreement-2026-10-19/"
+ },
+ "labelVocabulary": {
+  "corrupted": "the observation is wrong for a reason other than opinion; a validation layer should exclude it with a reason",
+  "corrupted (replay construct)": "wrong only when old inputs are rebuilt through current code; production at the time was unaffected, but the live code path that produces it is real",
+  "suspected normalization instability (soft label)": "our derivation changes a source's implied value by ~2x without the vendor changing its order; report separately, do not count as hard corruption",
+  "latent identity hazard": "a mechanism that can attach a wrong player's value; no wrong vote demonstrated in the archives",
+  "legitimate / benign (control)": "a real change that a validation layer must NOT exclude"
+ },
+ "cases": [
+  {
+   "id": "H1-rookie-ladder-untranslated",
+   "layer": "B",
+   "class": "conversion: rank-to-value translation reference missing -> within-class rookie rank voted as an overall rank",
+   "label": "corrupted (replay construct)",
+   "labelConfidence": "high",
+   "scope": {
+    "sources": [
+     "dlfRookieSf",
+     "flockFantasySfRookies"
+    ],
+    "assetClass": "offense rookies",
+    "rowsPerBoard": "dlfRookieSf 56-57, flockFantasySfRookies 48-84 (CSV rows)"
+   },
+   "productionImpactAtTheTime": "none known: until 2026-09-09 ROOKIE_LADDER_PAIRS used ktcSfTep as the reference (present on every archive); the failure appears only when the archive is rebuilt with the current reference ktcCrowdSfTep (CSV first committed 2026-09-09 in 348b838f69; reference switched to it in de98f56233 on 2026-09-23)",
+   "liveCodeHazard": "data_contract ROOKIE_LADDER_PAIRS loop: `if rookie_key not in active_keys or ref_key not in active_keys: continue` and `len(ladder) < 3: continue` leave the rookie rank untranslated silently (no stamp, no exclusion); scale_integrity_lost declares the dependency only for exclusion callers",
+   "detection": {
+    "incumbentHampel": "drops the votes row by row (e.g. 56 of 56 dlfRookieSf on 2026-08-18 per prior evidence)",
+    "outlierCorroboratedV1": "board screen flags both sources on all 22 boards (excluded as board_scale_mismatch); the preregistered rule counted these firings as false positives, which decided part of V1's NOT ELIGIBLE verdict (verdict unchanged here)"
+   },
+   "magnitudeMethod": "ordinal k vs the production-time reference ladder (k-th best offense rookie rank on ktcSfTep among payload players); value at today's OFFENSE Hill master (c=0.11, s=1.11, N=500)",
+   "boards": [
+    {
+     "archive": "dynasty_export_20260818_230211.zip",
+     "zipSha256": "8fa39f394246e502cc0a29a2dda8c3d1e7afa49472da728665714f722105f761",
+     "payloadSha256": "258da4803f571cc1daeab4069edb6afdd50261828c908769ad71aca615795425",
+     "scrapeTimestamp": "2026-08-18T23:02:11.345069+00:00",
+     "addCommit": "d060ad21366aea61360e927bdc7ee40949949ad6",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 62,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "1e03f7c1a06decaf",
+       "rows": 56,
+       "rankFactorMedian": 6.69,
+       "rankFactorRange": [
+        6.24,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.35,
+       "valueOverstatementMax": 4.65,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Jordyn Tyson",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Fernando Mendoza",
+         3,
+         50,
+         9618,
+         5264
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "e1cf340a54a7b289",
+       "rows": 84,
+       "rankFactorMedian": 7.31,
+       "rankFactorRange": [
+        6.24,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.99,
+       "valueOverstatementMax": 6.77,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Carnell Tate",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         50,
+         9618,
+         5264
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 230,
+      "policyDrops": 129,
+      "policyReasons": {
+       "board_scale_mismatch": 129
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3939,
+       "medianMoved": 0.0169,
+       "moved": 142,
+       "p90": 0.0109,
+       "p99": 0.2551,
+       "rows": 980
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260819_230341.zip",
+     "zipSha256": "5a64fa4398cbfb9f47a43da8bca70815f451113b33fde905787bc8c455b34b0d",
+     "payloadSha256": "4b21e04bc4eb1320539aae25637cab79fbe75f70a5836b85d9cf4429c57bc92d",
+     "scrapeTimestamp": "2026-08-19T23:03:41.580370+00:00",
+     "addCommit": "8fd35fca945b074b4236d42919a757406cb495d6",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 64,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "83e433be3637e64a",
+       "rows": 56,
+       "rankFactorMedian": 6.7,
+       "rankFactorRange": [
+        6.24,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.36,
+       "valueOverstatementMax": 4.65,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         15,
+         9883,
+         8087
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Carnell Tate",
+         3,
+         50,
+         9618,
+         5264
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.97,
+       "rankFactorRange": [
+        6.24,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.94,
+       "valueOverstatementMax": 6.32,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         15,
+         9883,
+         8087
+        ],
+        [
+         "Carnell Tate",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Makai Lemon",
+         3,
+         50,
+         9618,
+         5264
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 231,
+      "policyDrops": 128,
+      "policyReasons": {
+       "board_scale_mismatch": 128
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3939,
+       "medianMoved": 0.0169,
+       "moved": 147,
+       "p90": 0.0118,
+       "p99": 0.2783,
+       "rows": 980
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260820_230504.zip",
+     "zipSha256": "85e6df6abe557d77f54727994e30f0e881147874b9c0d358cefb3cd7c593f87e",
+     "payloadSha256": "e9d0018852fcd2e70cd74cc8799ffe57f5a1ff00985b1b7cd739df313734e447",
+     "scrapeTimestamp": "2026-08-20T23:05:03.983096+00:00",
+     "addCommit": "22909d7809df9f98b39d2d120cffdefe3f25e3a1",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 64,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "83e433be3637e64a",
+       "rows": 56,
+       "rankFactorMedian": 6.65,
+       "rankFactorRange": [
+        6.15,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.35,
+       "valueOverstatementMax": 4.33,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Carnell Tate",
+         3,
+         47,
+         9618,
+         5435
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.93,
+       "rankFactorRange": [
+        6.07,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.95,
+       "valueOverstatementMax": 6.2,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Carnell Tate",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Makai Lemon",
+         3,
+         47,
+         9618,
+         5435
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 226,
+      "policyDrops": 128,
+      "policyReasons": {
+       "board_scale_mismatch": 128
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.7724,
+       "medianMoved": 0.0163,
+       "moved": 134,
+       "p90": 0.0085,
+       "p99": 0.2807,
+       "rows": 984
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260821_230238.zip",
+     "zipSha256": "d493ede4fc3d1234a9bb22d4bb9a8905c80ac064a30a9d630a8fd8ab3d40f1b6",
+     "payloadSha256": "5e9cab19f266045b4babb22a92eacbb13f9972d665aed3743ae07c6dce6ef90f",
+     "scrapeTimestamp": "2026-08-21T23:02:38.483718+00:00",
+     "addCommit": "c5af41863fcbcc869f25d701b956931e85a8c083",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 64,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "83e433be3637e64a",
+       "rows": 56,
+       "rankFactorMedian": 6.61,
+       "rankFactorRange": [
+        6.06,
+        18.5
+       ],
+       "valueOverstatementMedian": 3.36,
+       "valueOverstatementMax": 4.28,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         15,
+         9883,
+         8087
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         37,
+         9753,
+         6082
+        ],
+        [
+         "Carnell Tate",
+         3,
+         49,
+         9618,
+         5320
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.91,
+       "rankFactorRange": [
+        6.05,
+        18.5
+       ],
+       "valueOverstatementMedian": 3.96,
+       "valueOverstatementMax": 6.33,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         15,
+         9883,
+         8087
+        ],
+        [
+         "Carnell Tate",
+         2,
+         37,
+         9753,
+         6082
+        ],
+        [
+         "Makai Lemon",
+         3,
+         49,
+         9618,
+         5320
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 234,
+      "policyDrops": 126,
+      "policyReasons": {
+       "board_scale_mismatch": 126
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3228,
+       "medianMoved": 0.0188,
+       "moved": 121,
+       "p90": 0.0081,
+       "p99": 0.1192,
+       "rows": 979
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260822_230108.zip",
+     "zipSha256": "2710e61edd0169f7a5af7e00b3277245ee45c2d43261e88b73c41a4896e4fdb3",
+     "payloadSha256": "f4f79bd22660a43da7aa19c410f985af913fb9b306bc6677b5489f49e68eada4",
+     "scrapeTimestamp": "2026-08-22T23:01:08.145493+00:00",
+     "addCommit": "ed4dab82b46a8d6b52ee0f33ff690994d4f5a63f",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 64,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "83e433be3637e64a",
+       "rows": 56,
+       "rankFactorMedian": 6.54,
+       "rankFactorRange": [
+        6.0,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.28,
+       "valueOverstatementMax": 4.28,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Carnell Tate",
+         3,
+         50,
+         9618,
+         5264
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.95,
+       "rankFactorRange": [
+        6.0,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.89,
+       "valueOverstatementMax": 6.46,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Carnell Tate",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Makai Lemon",
+         3,
+         50,
+         9618,
+         5264
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 238,
+      "policyDrops": 126,
+      "policyReasons": {
+       "board_scale_mismatch": 126
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3233,
+       "medianMoved": 0.0176,
+       "moved": 133,
+       "p90": 0.0089,
+       "p99": 0.0943,
+       "rows": 979
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260823_230044.zip",
+     "zipSha256": "f7d76ba0c47b75d425fb4ee4d7b06e46888b77fc551e752b5539dcb7e45d898b",
+     "payloadSha256": "7ad71fbe353eb08e2d70e18f8b8fa01cdb6a163b01bb56fff6b3d467c273de2f",
+     "scrapeTimestamp": "2026-08-23T23:00:44.845095+00:00",
+     "addCommit": "fe55d1ce34860af30c1b55025f2161565dc20925",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 66,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "83e433be3637e64a",
+       "rows": 56,
+       "rankFactorMedian": 6.52,
+       "rankFactorRange": [
+        5.94,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.27,
+       "valueOverstatementMax": 4.27,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Carnell Tate",
+         3,
+         49,
+         9618,
+         5320
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.96,
+       "rankFactorRange": [
+        5.94,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.88,
+       "valueOverstatementMax": 6.75,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Carnell Tate",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Makai Lemon",
+         3,
+         49,
+         9618,
+         5320
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 234,
+      "policyDrops": 126,
+      "policyReasons": {
+       "board_scale_mismatch": 126
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3291,
+       "medianMoved": 0.0156,
+       "moved": 122,
+       "p90": 0.0069,
+       "p99": 0.0816,
+       "rows": 985
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260824_230400.zip",
+     "zipSha256": "5631b6001c876669d7acc94bb21fe8a2aadc861f71564a64bb49c18f96c4a917",
+     "payloadSha256": "03efa6ac49a198cd6e3d6c9a916f08243f05efd9c6a5275f64178ac64ad333e7",
+     "scrapeTimestamp": "2026-08-24T23:04:00.553224+00:00",
+     "addCommit": "cca85dd93a68d804821b0b3dd7d5a4aeebb3a149",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 65,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "3fb6403537f21bbc",
+       "rows": 56,
+       "rankFactorMedian": 6.53,
+       "rankFactorRange": [
+        5.9,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.27,
+       "valueOverstatementMax": 4.26,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         15,
+         9883,
+         8087
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Carnell Tate",
+         3,
+         49,
+         9618,
+         5320
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.78,
+       "rankFactorRange": [
+        5.9,
+        19.0
+       ],
+       "valueOverstatementMedian": 3.91,
+       "valueOverstatementMax": 6.13,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         15,
+         9883,
+         8087
+        ],
+        [
+         "Carnell Tate",
+         2,
+         38,
+         9753,
+         6011
+        ],
+        [
+         "Makai Lemon",
+         3,
+         49,
+         9618,
+         5320
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 232,
+      "policyDrops": 126,
+      "policyReasons": {
+       "board_scale_mismatch": 126
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3333,
+       "medianMoved": 0.0151,
+       "moved": 125,
+       "p90": 0.0067,
+       "p99": 0.1268,
+       "rows": 983
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260825_230528.zip",
+     "zipSha256": "ef8d6a211d580102ba8581963ab45bf1ffa8e8c0bae28964e0ff7f5b38fb6f65",
+     "payloadSha256": "5b03d4b220b57e4115be45170460b1c854edc25d3ac4adfb48fc834dbd06f48f",
+     "scrapeTimestamp": "2026-08-25T23:05:28.544040+00:00",
+     "addCommit": "a82898fdbe73ea2effd295132590dff35a45ac98",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 66,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "0b09b3ff9d27e3e6",
+       "rows": 56,
+       "rankFactorMedian": 6.54,
+       "rankFactorRange": [
+        5.91,
+        21.0
+       ],
+       "valueOverstatementMedian": 3.29,
+       "valueOverstatementMax": 4.23,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         15,
+         9883,
+         8087
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         42,
+         9753,
+         5742
+        ],
+        [
+         "Carnell Tate",
+         3,
+         50,
+         9618,
+         5264
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 7.03,
+       "rankFactorRange": [
+        5.91,
+        21.0
+       ],
+       "valueOverstatementMedian": 3.85,
+       "valueOverstatementMax": 6.76,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         15,
+         9883,
+         8087
+        ],
+        [
+         "Carnell Tate",
+         2,
+         42,
+         9753,
+         5742
+        ],
+        [
+         "Makai Lemon",
+         3,
+         50,
+         9618,
+         5264
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 234,
+      "policyDrops": 126,
+      "policyReasons": {
+       "board_scale_mismatch": 126
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3391,
+       "medianMoved": 0.0173,
+       "moved": 122,
+       "p90": 0.0066,
+       "p99": 0.1268,
+       "rows": 978
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260826_211658.zip",
+     "zipSha256": "2f717f60dc2290e717e9c37615836fca950e7224249b58780689cf343e126b75",
+     "payloadSha256": "9582324eea23a009db22b10ace303405917ccfbc155d94031d6bb030193a35d5",
+     "scrapeTimestamp": "2026-08-26T21:16:58.813500+00:00",
+     "addCommit": "50834ef7b760933c9df675e99f7b4f49ac90a7c8",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 65,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "33872c8f275048d3",
+       "rows": 56,
+       "rankFactorMedian": 6.58,
+       "rankFactorRange": [
+        5.91,
+        22.0
+       ],
+       "valueOverstatementMedian": 3.29,
+       "valueOverstatementMax": 4.23,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         17,
+         9883,
+         7863
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         44,
+         9753,
+         5616
+        ],
+        [
+         "Carnell Tate",
+         3,
+         51,
+         9618,
+         5209
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.82,
+       "rankFactorRange": [
+        5.91,
+        22.0
+       ],
+       "valueOverstatementMedian": 3.84,
+       "valueOverstatementMax": 6.18,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         17,
+         9883,
+         7863
+        ],
+        [
+         "Carnell Tate",
+         2,
+         44,
+         9753,
+         5616
+        ],
+        [
+         "Makai Lemon",
+         3,
+         51,
+         9618,
+         5209
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 232,
+      "policyDrops": 125,
+      "policyReasons": {
+       "board_scale_mismatch": 125
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3337,
+       "medianMoved": 0.0196,
+       "moved": 122,
+       "p90": 0.0085,
+       "p99": 0.1268,
+       "rows": 975
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260827_153424.zip",
+     "zipSha256": "2b0579ec4486e42385abea49910abd9a883b6023a4669b1fe1abd7a9b7836643",
+     "payloadSha256": "78e6e2d165f40b01f8b2db18763686eae702a71fe5079aa7611784119ff109c0",
+     "scrapeTimestamp": "2026-08-27T15:34:24.432490+00:00",
+     "addCommit": "43f1bd770971a59b3596bb5c50fd334241d6173f",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 65,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "33872c8f275048d3",
+       "rows": 56,
+       "rankFactorMedian": 6.56,
+       "rankFactorRange": [
+        5.93,
+        22.0
+       ],
+       "valueOverstatementMedian": 3.28,
+       "valueOverstatementMax": 4.28,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         44,
+         9753,
+         5616
+        ],
+        [
+         "Carnell Tate",
+         3,
+         51,
+         9618,
+         5209
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.81,
+       "rankFactorRange": [
+        5.93,
+        22.0
+       ],
+       "valueOverstatementMedian": 3.84,
+       "valueOverstatementMax": 6.09,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Carnell Tate",
+         2,
+         44,
+         9753,
+         5616
+        ],
+        [
+         "Makai Lemon",
+         3,
+         51,
+         9618,
+         5209
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 232,
+      "policyDrops": 125,
+      "policyReasons": {
+       "board_scale_mismatch": 125
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3459,
+       "medianMoved": 0.0158,
+       "moved": 155,
+       "p90": 0.0106,
+       "p99": 0.1352,
+       "rows": 976
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260828_234428.zip",
+     "zipSha256": "b421980ddf2d6b980edc636ff2cdebe8e77042d182beda3085e0abb09b53bff5",
+     "payloadSha256": "211406b1ff654a66fddcd4d30a2d415ac0b11199a5210898fa1ff8b1f49996ef",
+     "scrapeTimestamp": "2026-08-28T23:44:28.488898+00:00",
+     "addCommit": "8b6165efad55f9937e11a26a2485c385037daa3e",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 65,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "29cfc57e6d1851eb",
+       "rows": 57,
+       "rankFactorMedian": 6.55,
+       "rankFactorRange": [
+        5.92,
+        22.0
+       ],
+       "valueOverstatementMedian": 3.36,
+       "valueOverstatementMax": 4.23,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         17,
+         9883,
+         7863
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         44,
+         9753,
+         5616
+        ],
+        [
+         "Carnell Tate",
+         3,
+         50,
+         9618,
+         5264
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.85,
+       "rankFactorRange": [
+        5.92,
+        22.0
+       ],
+       "valueOverstatementMedian": 3.82,
+       "valueOverstatementMax": 6.19,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         17,
+         9883,
+         7863
+        ],
+        [
+         "Carnell Tate",
+         2,
+         44,
+         9753,
+         5616
+        ],
+        [
+         "Makai Lemon",
+         3,
+         50,
+         9618,
+         5264
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 232,
+      "policyDrops": 125,
+      "policyReasons": {
+       "board_scale_mismatch": 125
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.334,
+       "medianMoved": 0.0154,
+       "moved": 155,
+       "p90": 0.0109,
+       "p99": 0.1345,
+       "rows": 987
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260829_211720.zip",
+     "zipSha256": "5e59cf67aba011b78fa98ade6ed0a1a2b81e3731f2fc5fa3803f32680170c038",
+     "payloadSha256": "1c738b865f0bf074c3dddff1f7eb446707ebf95f21bb1bc2b019c9f28e8dd32c",
+     "scrapeTimestamp": "2026-08-29T21:17:20.483662+00:00",
+     "addCommit": "e04260c7c26b2b34e2f54257b3af5c119d19d288",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 65,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "8ecd7d4296596cdc",
+       "rows": 57,
+       "rankFactorMedian": 6.57,
+       "rankFactorRange": [
+        5.89,
+        22.0
+       ],
+       "valueOverstatementMedian": 3.34,
+       "valueOverstatementMax": 4.23,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         44,
+         9753,
+         5616
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         51,
+         9618,
+         5209
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.84,
+       "rankFactorRange": [
+        5.89,
+        22.0
+       ],
+       "valueOverstatementMedian": 3.81,
+       "valueOverstatementMax": 6.29,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Carnell Tate",
+         2,
+         44,
+         9753,
+         5616
+        ],
+        [
+         "Makai Lemon",
+         3,
+         51,
+         9618,
+         5209
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 232,
+      "policyDrops": 125,
+      "policyReasons": {
+       "board_scale_mismatch": 125
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3224,
+       "medianMoved": 0.0147,
+       "moved": 153,
+       "p90": 0.0098,
+       "p99": 0.1322,
+       "rows": 986
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260830_213746.zip",
+     "zipSha256": "5d28a73b7cf553d6738dd49556b201d2650f000c43326f545fbfdd08f94f6e01",
+     "payloadSha256": "e419728a3d23f50dbf3aa1fdd44186d1cfa80e043189ce97fe9c39958b75ac2c",
+     "scrapeTimestamp": "2026-08-30T21:37:46.179321+00:00",
+     "addCommit": "1f65765c14e396443b5480f244af13a1fae2a867",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 65,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "8ecd7d4296596cdc",
+       "rows": 57,
+       "rankFactorMedian": 6.63,
+       "rankFactorRange": [
+        5.89,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.37,
+       "valueOverstatementMax": 4.3,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         14,
+         9883,
+         8203
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         55,
+         9618,
+         5000
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.84,
+       "rankFactorRange": [
+        5.89,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.81,
+       "valueOverstatementMax": 6.33,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         14,
+         9883,
+         8203
+        ],
+        [
+         "Carnell Tate",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Makai Lemon",
+         3,
+         55,
+         9618,
+         5000
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 238,
+      "policyDrops": 126,
+      "policyReasons": {
+       "board_scale_mismatch": 126
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3057,
+       "medianMoved": 0.0162,
+       "moved": 125,
+       "p90": 0.0077,
+       "p99": 0.1402,
+       "rows": 994
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260831_230447.zip",
+     "zipSha256": "7e1146ba2de173242bf22d12a27f69256e0cc45237509aca602d2919bf220824",
+     "payloadSha256": "1f08e8dc2c95e56a16587fe7a8408e9aa076a848d3d4c7965e2d8d0ebb11fcec",
+     "scrapeTimestamp": "2026-08-31T23:04:47.553692+00:00",
+     "addCommit": "1af3ad704c1b1f565b6a967398b55e69e71523a0",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 66,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "a4b776f687d68ad3",
+       "rows": 57,
+       "rankFactorMedian": 6.63,
+       "rankFactorRange": [
+        5.85,
+        23.0
+       ],
+       "valueOverstatementMedian": 3.38,
+       "valueOverstatementMax": 4.24,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         46,
+         9753,
+         5494
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         56,
+         9618,
+         4950
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.76,
+       "rankFactorRange": [
+        5.85,
+        23.0
+       ],
+       "valueOverstatementMedian": 3.77,
+       "valueOverstatementMax": 6.02,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Carnell Tate",
+         2,
+         46,
+         9753,
+         5494
+        ],
+        [
+         "Makai Lemon",
+         3,
+         56,
+         9618,
+         4950
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 239,
+      "policyDrops": 127,
+      "policyReasons": {
+       "board_scale_mismatch": 127
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3378,
+       "medianMoved": 0.0167,
+       "moved": 118,
+       "p90": 0.0065,
+       "p99": 0.1435,
+       "rows": 989
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260901_212308.zip",
+     "zipSha256": "5a0c88a1fd9fa0d1eb4b8e72abb35b3d5bd8036edec34af63f0ff00c9a4a950d",
+     "payloadSha256": "a4e05e2ff730990023d817ea0a303d738e56ff52eae8251293124f2d8d690f7d",
+     "scrapeTimestamp": "2026-09-01T21:23:08.208475+00:00",
+     "addCommit": "6ca2d7e5465ee972f42c2eb761b7a3e56c13f4a8",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 67,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "a4b776f687d68ad3",
+       "rows": 57,
+       "rankFactorMedian": 6.52,
+       "rankFactorRange": [
+        5.84,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.25,
+       "valueOverstatementMax": 4.21,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         57,
+         9618,
+         4900
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.71,
+       "rankFactorRange": [
+        5.84,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.78,
+       "valueOverstatementMax": 6.12,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Carnell Tate",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Makai Lemon",
+         3,
+         57,
+         9618,
+         4900
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 240,
+      "policyDrops": 127,
+      "policyReasons": {
+       "board_scale_mismatch": 127
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.2787,
+       "medianMoved": 0.0161,
+       "moved": 116,
+       "p90": 0.007,
+       "p99": 0.1451,
+       "rows": 990
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260902_212027.zip",
+     "zipSha256": "6f57d650574754a06008ce7e3a31a5994b4953ae52f21d4af19d08f93c171c6b",
+     "payloadSha256": "5d0b57c297484e1f5fb1cdf0dca046121ccc2e94b8f7714d44850a00c6dd435a",
+     "scrapeTimestamp": "2026-09-02T21:20:27.421884+00:00",
+     "addCommit": "2e0e4d8dba2a4b25cc757df76ee466d298fa96a5",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 67,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "0a45cba11bf4cd6f",
+       "rows": 57,
+       "rankFactorMedian": 6.47,
+       "rankFactorRange": [
+        5.73,
+        24.0
+       ],
+       "valueOverstatementMedian": 3.24,
+       "valueOverstatementMax": 4.11,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         18,
+         9883,
+         7755
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         48,
+         9753,
+         5377
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         56,
+         9618,
+         4950
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.72,
+       "rankFactorRange": [
+        5.73,
+        24.0
+       ],
+       "valueOverstatementMedian": 3.73,
+       "valueOverstatementMax": 6.22,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         18,
+         9883,
+         7755
+        ],
+        [
+         "Carnell Tate",
+         2,
+         48,
+         9753,
+         5377
+        ],
+        [
+         "Makai Lemon",
+         3,
+         56,
+         9618,
+         4950
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 240,
+      "policyDrops": 127,
+      "policyReasons": {
+       "board_scale_mismatch": 127
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.2728,
+       "medianMoved": 0.016,
+       "moved": 115,
+       "p90": 0.0068,
+       "p99": 0.1514,
+       "rows": 992
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260903_225148.zip",
+     "zipSha256": "b99386d3ece0028e45c38fb63ee7f101818639d0517634934be4586d7a22bf03",
+     "payloadSha256": "587c67f7d264849e1d19954bfa7b45a49d6b51229f644cc2cf01cfa63a39b77f",
+     "scrapeTimestamp": "2026-09-03T22:51:48.381016+00:00",
+     "addCommit": "9b76f58821bb74ec28fa93abd6e46741aa2fd5c7",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 67,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "bf34b12d0971215d",
+       "rows": 57,
+       "rankFactorMedian": 6.43,
+       "rankFactorRange": [
+        5.74,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.22,
+       "valueOverstatementMax": 4.06,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         18,
+         9883,
+         7755
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         57,
+         9618,
+         4900
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.69,
+       "rankFactorRange": [
+        5.74,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.71,
+       "valueOverstatementMax": 6.3,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         18,
+         9883,
+         7755
+        ],
+        [
+         "Carnell Tate",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Makai Lemon",
+         3,
+         57,
+         9618,
+         4900
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 243,
+      "policyDrops": 125,
+      "policyReasons": {
+       "board_scale_mismatch": 125
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.2741,
+       "medianMoved": 0.0137,
+       "moved": 146,
+       "p90": 0.0083,
+       "p99": 0.1577,
+       "rows": 982
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260904_223450.zip",
+     "zipSha256": "b586e60d89cb406d2ba877b94bdf9514d9e921bd48c30035a7b43b090a0a80d6",
+     "payloadSha256": "eb1a1551e981d0c13dfd15ea2e63eca5ca65ffd12208d7cb98e864ba6e9a7cc8",
+     "scrapeTimestamp": "2026-09-04T22:34:50.402290+00:00",
+     "addCommit": "5b1d78a1ee89a249b9a91c1da1132c0b2753d7a4",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 67,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "bf34b12d0971215d",
+       "rows": 57,
+       "rankFactorMedian": 6.43,
+       "rankFactorRange": [
+        5.68,
+        24.0
+       ],
+       "valueOverstatementMedian": 3.27,
+       "valueOverstatementMax": 4.04,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         48,
+         9753,
+         5377
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         57,
+         9618,
+         4900
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "b29bf3eeb6ce202b",
+       "rows": 83,
+       "rankFactorMedian": 6.77,
+       "rankFactorRange": [
+        5.68,
+        24.0
+       ],
+       "valueOverstatementMedian": 3.77,
+       "valueOverstatementMax": 6.39,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Carnell Tate",
+         2,
+         48,
+         9753,
+         5377
+        ],
+        [
+         "Makai Lemon",
+         3,
+         57,
+         9618,
+         4900
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 248,
+      "policyDrops": 125,
+      "policyReasons": {
+       "board_scale_mismatch": 125
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.3845,
+       "medianMoved": 0.0163,
+       "moved": 122,
+       "p90": 0.0065,
+       "p99": 0.1726,
+       "rows": 984
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260905_204615.zip",
+     "zipSha256": "7df88a0ef88c52e9ce8614d66332569e3434e9b12b547fcfafd4e7763788f78a",
+     "payloadSha256": "3dbacc83d46397a7daac7e79ade09673e0dd6559113842296bdae8fe7f17a555",
+     "scrapeTimestamp": "2026-09-05T20:46:14.971171+00:00",
+     "addCommit": "957a10211833dd0c70e8f470396fa2f10088dc58",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 68,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "bf34b12d0971215d",
+       "rows": 57,
+       "rankFactorMedian": 6.43,
+       "rankFactorRange": [
+        5.7,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.24,
+       "valueOverstatementMax": 4.03,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         56,
+         9618,
+         4950
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "0a0219625ea4e542",
+       "rows": 48,
+       "rankFactorMedian": 6.96,
+       "rankFactorRange": [
+        5.98,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.2,
+       "valueOverstatementMax": 3.92,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         16,
+         9883,
+         7974
+        ],
+        [
+         "Carnell Tate",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Fernando Mendoza",
+         3,
+         56,
+         9618,
+         4950
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 223,
+      "policyDrops": 103,
+      "policyReasons": {
+       "board_scale_mismatch": 103
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.2809,
+       "medianMoved": 0.0137,
+       "moved": 114,
+       "p90": 0.0061,
+       "p99": 0.1061,
+       "rows": 983
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260906_205400.zip",
+     "zipSha256": "3aac677669f6b8cc2f479ee9844969ba0831514eb4c4cf952a9d9361b41448a0",
+     "payloadSha256": "e86c63a91efa7c35605263b8516ae79d78b509bd8ddb474033bdcfa541642be4",
+     "scrapeTimestamp": "2026-09-06T20:54:00.200026+00:00",
+     "addCommit": "5b40533c47884e7b5410805c657bc9cc31c6d373",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 64,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "aa0d4f58b1b8a41a",
+       "rows": 57,
+       "rankFactorMedian": 6.5,
+       "rankFactorRange": [
+        5.66,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.25,
+       "valueOverstatementMax": 4.02,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         17,
+         9883,
+         7863
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         58,
+         9618,
+         4852
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "0a0219625ea4e542",
+       "rows": 48,
+       "rankFactorMedian": 7.04,
+       "rankFactorRange": [
+        5.98,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.22,
+       "valueOverstatementMax": 3.95,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         17,
+         9883,
+         7863
+        ],
+        [
+         "Carnell Tate",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Fernando Mendoza",
+         3,
+         58,
+         9618,
+         4852
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 225,
+      "policyDrops": 101,
+      "policyReasons": {
+       "board_scale_mismatch": 101
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.1822,
+       "medianMoved": 0.0104,
+       "moved": 113,
+       "p90": 0.003,
+       "p99": 0.0489,
+       "rows": 956
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260907_230241.zip",
+     "zipSha256": "25d1a2561e661a866bb4971a6bf45e56b75ff2c34fe652fb9f5e0122d0e4f6a7",
+     "payloadSha256": "05a13243ddbab937cc84d305d224d9ce806ddae569e214bbf037839a2340dba6",
+     "scrapeTimestamp": "2026-09-07T23:02:41.696628+00:00",
+     "addCommit": "a41cdd9b0f7690bafd56d93dd9232a93d9d6ec39",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 64,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "aa0d4f58b1b8a41a",
+       "rows": 57,
+       "rankFactorMedian": 6.52,
+       "rankFactorRange": [
+        5.64,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.29,
+       "valueOverstatementMax": 4.04,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         19,
+         9883,
+         7648
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         56,
+         9618,
+         4950
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "0a0219625ea4e542",
+       "rows": 48,
+       "rankFactorMedian": 7.12,
+       "rankFactorRange": [
+        5.91,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.22,
+       "valueOverstatementMax": 3.91,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         19,
+         9883,
+         7648
+        ],
+        [
+         "Carnell Tate",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Fernando Mendoza",
+         3,
+         56,
+         9618,
+         4950
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 225,
+      "policyDrops": 101,
+      "policyReasons": {
+       "board_scale_mismatch": 101
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.2743,
+       "medianMoved": 0.0069,
+       "moved": 117,
+       "p90": 0.0009,
+       "p99": 0.045,
+       "rows": 956
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20260908_212819.zip",
+     "zipSha256": "dbff43127e55deeea1bde339b05f33eed7cf701ab19af7600919174b5c8c868b",
+     "payloadSha256": "4547fdea4e13709f154ac870801b357d52ca3d27cb86abfa140b9d3277b81fc6",
+     "scrapeTimestamp": "2026-09-08T21:28:19.755167+00:00",
+     "addCommit": "714282501fe0582b8e7dc3305478c1dbde332d7b",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "productionLadderReference": "ktcSfTep",
+     "ladderDepth": 64,
+     "sources": {
+      "dlfRookieSf": {
+       "csvSha16": "aa0d4f58b1b8a41a",
+       "rows": 57,
+       "rankFactorMedian": 6.52,
+       "rankFactorRange": [
+        5.61,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.31,
+       "valueOverstatementMax": 4.04,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         18,
+         9883,
+         7755
+        ],
+        [
+         "Fernando Mendoza",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Jordyn Tyson",
+         3,
+         57,
+         9618,
+         4900
+        ]
+       ]
+      },
+      "flockFantasySfRookies": {
+       "csvSha16": "0a0219625ea4e542",
+       "rows": 48,
+       "rankFactorMedian": 7.14,
+       "rankFactorRange": [
+        5.91,
+        23.5
+       ],
+       "valueOverstatementMedian": 3.25,
+       "valueOverstatementMax": 3.86,
+       "top3": [
+        [
+         "Jeremiyah Love",
+         1,
+         18,
+         9883,
+         7755
+        ],
+        [
+         "Carnell Tate",
+         2,
+         47,
+         9753,
+         5435
+        ],
+        [
+         "Fernando Mendoza",
+         3,
+         57,
+         9618,
+         4900
+        ]
+       ]
+      }
+     },
+     "replay": {
+      "incumbentDrops": 228,
+      "policyDrops": 101,
+      "policyReasons": {
+       "board_scale_mismatch": 101
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.4475,
+       "medianMoved": 0.0155,
+       "moved": 134,
+       "p90": 0.0081,
+       "p99": 0.1664,
+       "rows": 956
+      },
+      "boardScreenFlagged": {
+       "offense": [
+        "dlfRookieSf",
+        "flockFantasySfRookies"
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "H2-idptc-partial-fallback-format-switch",
+   "layer": "B (provenance / source-format / scale) with an A component (H3)",
+   "class": "transient source-format switch on a partial scrape: 1QB-scale (Superflex toggle off) values from the IDPTradeCalc autocomplete fallback override the preserved SF+TEP CSV for ~400 rows",
+   "label": "corrupted",
+   "labelConfidence": "high that the votes are wrong (the vendor's own same-window CSV disagrees, coherently by position, and the next scrape reverts); medium on the exact setting (SF off on all three; TE premium apparently OFF on 2026-10-07 and ON on 2026-10-08 / 2026-10-16, inferred from TE moving with WR on the latter two only)",
+   "mechanism": [
+    "IDPTradeCalc API intercept returned (almost) nothing, so scrape_idptradecalc fell back to the autocomplete loop (IDP_AUTOCOMPLETE_ENABLE default true, up to IDP_AUTOCOMPLETE_MAX=500 names), which types each name into #team1Name and regex-reads \"<Lastname> (<value>) - <POS>\" from the page text; run time ~424 s against ~100 s normally",
+    "the displayed autocomplete values follow the page's SF/TEP toggles; ensure_toggles_on cycles the toggles when both read checked, so a race can leave SF off",
+    "the CSV was NOT rewritten (row floor preserved last-good: siteRawPreserved lists idpTradeCalc.csv) but the scraper payload's players[*]._canonicalSiteValues.idpTradeCalc carried the fallback values, and data_contract._enrich_from_source_csvs never overwrites a real payload value with the CSV (\"rows that already carry a real value skip VALUE enrichment\"), so the board voted a mixture: ~400 fallback values + ~500 preserved CSV values",
+    "sourceRunSummary still reported IDPTradeCalc \"complete\", so the archive manifest marks the board complete with no degraded source and no contract source-health error fires"
+   ],
+   "whyV1Missed": [
+    "per row: the error is 0.14-0.25 in log value (15-28%), always within V1's 2x corroboration distance of other families and far from its 4x gross line",
+    "board screen pools QB/RB/WR/TE as one asset class: QBs move one way (du +0.14..+0.18 in V1's rank coordinate vs KTC) and WR/RB the other (du -0.17..-0.20), and ~30% of the source's offense rows are the preserved CSV values with no shift; the pooled median IDPTC-vs-KTC du moved only -0.02 -> -0.11/-0.12 (V1 itself measured -0.20 against the other families) against a 0.405 (ln 1.5) limit",
+    "even unpooled, |du| per position stays <= 0.21; the screen is sized for whole-board wrong-scale failures, not a 15-25% format switch",
+    "V1 reads only votes: it has no input for the scraper metadata that exposes the episode (payload rows 398-428 vs ~990, sites.idpTradeCalc.max 7,350 / 9,949 / 9,999 with playerCount 404-436 vs 900, 4x run time, preserved CSV), no comparison of a source with its own previous board (sameDirShare 1.0, Spearman 0.99, coherent sign flip QB vs WR/RB), and no notion that one source's votes came from two provenance paths"
+   ],
+   "fixStatus": "not fixed on origin/main f631607ff3: autocomplete fallback still default-on; payload-over-CSV precedence unchanged; no per-source provenance stamp distinguishes fallback values",
+   "boards": [
+    {
+     "archive": "dynasty_export_20261007_092552.zip",
+     "zipSha256": "272b63779d5b066de01fad2a227663e65aabd81a71910e27b744f6408ce230c2",
+     "payloadSha256": "ecb2a9c51a3ce331675242202b73068f4877d95b9494de899071cc6ff736886d",
+     "scrapeTimestamp": "2026-10-07T09:25:52.096903+00:00",
+     "addCommit": "8fcc82ebe208997972e73faac81858f3ed7e8093",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "previousArchive": {
+      "archive": "dynasty_export_20261007_015227.zip",
+      "zipSha256": "c3e2e2e5a4f6b66814893da397fcc370d6db2406df190ecec575e5db5f2b9ff9",
+      "payloadSha256": "d6c94e21117a4d7f660938bec7012ab0a715f143d1d2bf1f74d7ba466abc5e4d",
+      "scrapeTimestamp": "2026-10-07T01:52:27.063516+00:00",
+      "addCommit": "eafb97256b915af83b5ec666455807f9deac21df",
+      "manifest": {
+       "complete": true,
+       "degraded": []
+      },
+      "origin": "working_tree"
+     },
+     "nextArchive": {
+      "archive": "dynasty_export_20261007_173609.zip",
+      "zipSha256": "fc09e0e5aa8d0a47f82c22782eb984beb80f1be322ec711afa5f184c40056966",
+      "payloadSha256": "a748e0e46571056618a2bb1b89d2906f900c981a1fcc8a1114d7058b061194c2",
+      "scrapeTimestamp": "2026-10-07T17:36:08.984296+00:00",
+      "addCommit": "9264a1eab018e220a2f83692537fc5155546aa16",
+      "manifest": {
+       "complete": true,
+       "degraded": []
+      },
+      "origin": "working_tree"
+     },
+     "scraperSignals": {
+      "sites.idpTradeCalc": {
+       "key": "idpTradeCalc",
+       "label": "IDPTradeCalc",
+       "max": 7350.0,
+       "playerCount": 404
+      },
+      "normalSites.idpTradeCalc": {
+       "key": "idpTradeCalc",
+       "label": "IDPTradeCalc",
+       "max": 9997.0,
+       "playerCount": 900
+      },
+      "sourceRun.IDPTradeCalc": {
+       "state": "complete",
+       "durationSec": 423.86,
+       "message": "IDPTradeCalc completed (2 mapped values)",
+       "valueCount": 2
+      },
+      "normalSourceRun.IDPTradeCalc": {
+       "state": "complete",
+       "durationSec": 102.99,
+       "message": "IDPTradeCalc completed (4 mapped values)",
+       "valueCount": 4
+      },
+      "siteRawPreserved": [
+       "draftSharksIdp.csv",
+       "draftSharksRosIdp.csv",
+       "draftSharksRosSf.csv",
+       "draftSharksSf.csv",
+       "idpTradeCalc.csv"
+      ],
+      "idpTradeCalcCsvSha16": "eba58065cccc4998",
+      "payloadIdpTradeCalcRows": 398,
+      "normalPayloadIdpTradeCalcRows": 814
+     },
+     "payloadVsSameRunCsvByPosition": {
+      "DB": {
+       "n": 27,
+       "differ": 27,
+       "medLog": 0.1872
+      },
+      "DL": {
+       "n": 36,
+       "differ": 36,
+       "medLog": 0.1717
+      },
+      "LB": {
+       "n": 35,
+       "differ": 35,
+       "medLog": 0.1721
+      },
+      "QB": {
+       "n": 50,
+       "differ": 48,
+       "medLog": -0.1361
+      },
+      "RB": {
+       "n": 78,
+       "differ": 76,
+       "medLog": 0.204
+      },
+      "TE": {
+       "n": 52,
+       "differ": 50,
+       "medLog": 0.0115
+      },
+      "WR": {
+       "n": 115,
+       "differ": 113,
+       "medLog": 0.2056
+      }
+     },
+     "rowsDiffering": 385,
+     "rowsOverlapping": 393,
+     "extremeRows": [
+      {
+       "player": "Cole Payton",
+       "position": "QB",
+       "payloadVote": 181,
+       "sameRunVendorCsv": 785.0,
+       "logRatio": -1.4672
+      },
+      {
+       "player": "Tyson Bagent",
+       "position": "QB",
+       "payloadVote": 287,
+       "sameRunVendorCsv": 1213.0,
+       "logRatio": -1.4414
+      },
+      {
+       "player": "Davis Mills",
+       "position": "QB",
+       "payloadVote": 289,
+       "sameRunVendorCsv": 1160.0,
+       "logRatio": -1.3897
+      },
+      {
+       "player": "Jack Strand",
+       "position": "QB",
+       "payloadVote": 357,
+       "sameRunVendorCsv": 1261.0,
+       "logRatio": -1.2619
+      },
+      {
+       "player": "Carson Beck",
+       "position": "QB",
+       "payloadVote": 1189,
+       "sameRunVendorCsv": 2831.0,
+       "logRatio": -0.8675
+      },
+      {
+       "player": "Gardner Minshew",
+       "position": "QB",
+       "payloadVote": 400,
+       "sameRunVendorCsv": 944.0,
+       "logRatio": -0.8587
+      },
+      {
+       "player": "Tanner McKee",
+       "position": "QB",
+       "payloadVote": 478,
+       "sameRunVendorCsv": 1098.0,
+       "logRatio": -0.8316
+      },
+      {
+       "player": "Deshaun Watson",
+       "position": "QB",
+       "payloadVote": 947,
+       "sameRunVendorCsv": 1913.0,
+       "logRatio": -0.7031
+      },
+      {
+       "player": "Tyler Huntley",
+       "position": "QB",
+       "payloadVote": 598,
+       "sameRunVendorCsv": 1058.0,
+       "logRatio": -0.5705
+      },
+      {
+       "player": "Trey Lance",
+       "position": "QB",
+       "payloadVote": 567,
+       "sameRunVendorCsv": 920.0,
+       "logRatio": -0.484
+      },
+      {
+       "player": "Devin Singletary",
+       "position": "RB",
+       "payloadVote": 1418,
+       "sameRunVendorCsv": 1111.0,
+       "logRatio": 0.244
+      },
+      {
+       "player": "Quentin Johnston",
+       "position": "WR",
+       "payloadVote": 4268,
+       "sameRunVendorCsv": 3339.0,
+       "logRatio": 0.2455
+      },
+      {
+       "player": "Davante Adams",
+       "position": "WR",
+       "payloadVote": 4358,
+       "sameRunVendorCsv": 3408.0,
+       "logRatio": 0.2459
+      },
+      {
+       "player": "Tahj Brooks",
+       "position": "RB",
+       "payloadVote": 2076,
+       "sameRunVendorCsv": 1610.0,
+       "logRatio": 0.2542
+      },
+      {
+       "player": "Tyreek Hill",
+       "position": "WR",
+       "payloadVote": 1430,
+       "sameRunVendorCsv": 1089.0,
+       "logRatio": 0.2724
+      }
+     ],
+     "replay": {
+      "drops": {
+       "incumbent": 225,
+       "n3": 226,
+       "policy": 2
+      },
+      "policyReasons": {
+       "gross_uncorroborated_error": 2
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.8014,
+       "medianMoved": 0.009,
+       "moved": 172,
+       "p90": 0.0082,
+       "p99": 0.2514,
+       "rows": 881
+      }
+     },
+     "replayNeighbourDrops": {
+      "dynasty_export_20261007_015227.zip": {
+       "incumbent": 159,
+       "n3": 160,
+       "policy": 2
+      },
+      "dynasty_export_20261007_173609.zip": {
+       "incumbent": 157,
+       "n3": 158,
+       "policy": 1
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20261008_141213.zip",
+     "zipSha256": "a662fa76250a53a8f61c62c963c907d28f2dabbe12ea94dcee68c69c5a725780",
+     "payloadSha256": "6cee0f99ced4e13e74a2b4696ac60bd1594b4c5f9711a986a1b80dc067c17a99",
+     "scrapeTimestamp": "2026-10-08T14:12:13.827619+00:00",
+     "addCommit": "5aecb0e6127d067d76f670ec014543aa261e7b6c",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "previousArchive": {
+      "archive": "dynasty_export_20261008_064316.zip",
+      "zipSha256": "5023d75f5899ded35f929ccd6dba458fff728118a31f253621f51bdd4f68377f",
+      "payloadSha256": "48755cd4871efdf9d6f6a624579cbb088024daaf185bfa90edfe0eb84baa76c4",
+      "scrapeTimestamp": "2026-10-08T06:43:16.144155+00:00",
+      "addCommit": "2b117958dbd0ed7b0b65e1fafe1d2d0bbcb9b526",
+      "manifest": {
+       "complete": true,
+       "degraded": []
+      },
+      "origin": "working_tree"
+     },
+     "nextArchive": {
+      "archive": "dynasty_export_20261008_201231.zip",
+      "zipSha256": "4f6ad14d6304bc8881f5301025c86b0b7150c7aaecfb13bd49162c81db9c3f97",
+      "payloadSha256": "a7ae69c131875e393235f200a060d6a676797189db8bc3f42b785f2aa3f99dd8",
+      "scrapeTimestamp": "2026-10-08T20:12:31.070475+00:00",
+      "addCommit": "87008850d369cac6192fa419b131cb6ac3948b3e",
+      "manifest": {
+       "complete": true,
+       "degraded": []
+      },
+      "origin": "working_tree"
+     },
+     "scraperSignals": {
+      "sites.idpTradeCalc": {
+       "key": "idpTradeCalc",
+       "label": "IDPTradeCalc",
+       "max": 9949.0,
+       "playerCount": 428
+      },
+      "normalSites.idpTradeCalc": {
+       "key": "idpTradeCalc",
+       "label": "IDPTradeCalc",
+       "max": 9997.0,
+       "playerCount": 900
+      },
+      "sourceRun.IDPTradeCalc": {
+       "state": "complete",
+       "durationSec": 422.99,
+       "message": "IDPTradeCalc completed (4 mapped values)",
+       "valueCount": 4
+      },
+      "normalSourceRun.IDPTradeCalc": {
+       "state": "complete",
+       "durationSec": 103.59,
+       "message": "IDPTradeCalc completed (4 mapped values)",
+       "valueCount": 4
+      },
+      "siteRawPreserved": [
+       "draftSharksIdp.csv",
+       "draftSharksRosIdp.csv",
+       "draftSharksRosSf.csv",
+       "draftSharksSf.csv",
+       "idpTradeCalc.csv"
+      ],
+      "idpTradeCalcCsvSha16": "eba58065cccc4998",
+      "payloadIdpTradeCalcRows": 422,
+      "normalPayloadIdpTradeCalcRows": 814
+     },
+     "payloadVsSameRunCsvByPosition": {
+      "DB": {
+       "n": 27,
+       "differ": 27,
+       "medLog": 0.1872
+      },
+      "DL": {
+       "n": 35,
+       "differ": 35,
+       "medLog": 0.1717
+      },
+      "LB": {
+       "n": 35,
+       "differ": 35,
+       "medLog": 0.1721
+      },
+      "QB": {
+       "n": 56,
+       "differ": 53,
+       "medLog": -0.15
+      },
+      "RB": {
+       "n": 82,
+       "differ": 80,
+       "medLog": 0.2008
+      },
+      "TE": {
+       "n": 55,
+       "differ": 54,
+       "medLog": 0.1696
+      },
+      "WR": {
+       "n": 127,
+       "differ": 121,
+       "medLog": 0.2015
+      }
+     },
+     "rowsDiffering": 405,
+     "rowsOverlapping": 417,
+     "extremeRows": [
+      {
+       "player": "Justin Jefferson",
+       "position": "WR",
+       "payloadVote": 773,
+       "sameRunVendorCsv": 7371.0,
+       "logRatio": -2.255
+      },
+      {
+       "player": "Cole Payton",
+       "position": "QB",
+       "payloadVote": 181,
+       "sameRunVendorCsv": 785.0,
+       "logRatio": -1.4672
+      },
+      {
+       "player": "Tyson Bagent",
+       "position": "QB",
+       "payloadVote": 287,
+       "sameRunVendorCsv": 1213.0,
+       "logRatio": -1.4414
+      },
+      {
+       "player": "Davis Mills",
+       "position": "QB",
+       "payloadVote": 289,
+       "sameRunVendorCsv": 1160.0,
+       "logRatio": -1.3897
+      },
+      {
+       "player": "Jack Strand",
+       "position": "QB",
+       "payloadVote": 357,
+       "sameRunVendorCsv": 1261.0,
+       "logRatio": -1.2619
+      },
+      {
+       "player": "Carson Beck",
+       "position": "QB",
+       "payloadVote": 1189,
+       "sameRunVendorCsv": 2831.0,
+       "logRatio": -0.8675
+      },
+      {
+       "player": "Gardner Minshew",
+       "position": "QB",
+       "payloadVote": 400,
+       "sameRunVendorCsv": 944.0,
+       "logRatio": -0.8587
+      },
+      {
+       "player": "Tanner McKee",
+       "position": "QB",
+       "payloadVote": 478,
+       "sameRunVendorCsv": 1098.0,
+       "logRatio": -0.8316
+      },
+      {
+       "player": "Deshaun Watson",
+       "position": "QB",
+       "payloadVote": 947,
+       "sameRunVendorCsv": 1913.0,
+       "logRatio": -0.7031
+      },
+      {
+       "player": "Tyler Huntley",
+       "position": "QB",
+       "payloadVote": 598,
+       "sameRunVendorCsv": 1058.0,
+       "logRatio": -0.5705
+      },
+      {
+       "player": "Devin Singletary",
+       "position": "RB",
+       "payloadVote": 1418,
+       "sameRunVendorCsv": 1111.0,
+       "logRatio": 0.244
+      },
+      {
+       "player": "Quentin Johnston",
+       "position": "WR",
+       "payloadVote": 4268,
+       "sameRunVendorCsv": 3339.0,
+       "logRatio": 0.2455
+      },
+      {
+       "player": "Davante Adams",
+       "position": "WR",
+       "payloadVote": 4358,
+       "sameRunVendorCsv": 3408.0,
+       "logRatio": 0.2459
+      },
+      {
+       "player": "Tahj Brooks",
+       "position": "RB",
+       "payloadVote": 2076,
+       "sameRunVendorCsv": 1610.0,
+       "logRatio": 0.2542
+      },
+      {
+       "player": "Tyreek Hill",
+       "position": "WR",
+       "payloadVote": 1430,
+       "sameRunVendorCsv": 1089.0,
+       "logRatio": 0.2724
+      }
+     ],
+     "replay": {
+      "drops": {
+       "incumbent": 236,
+       "n3": 237,
+       "policy": 2
+      },
+      "policyReasons": {
+       "gross_uncorroborated_error": 2
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.397,
+       "medianMoved": 0.0096,
+       "moved": 185,
+       "p90": 0.0106,
+       "p99": 0.0894,
+       "rows": 874
+      }
+     },
+     "replayNeighbourDrops": {
+      "dynasty_export_20261008_064316.zip": {
+       "incumbent": 157,
+       "n3": 158,
+       "policy": 1
+      },
+      "dynasty_export_20261008_201231.zip": {
+       "incumbent": 162,
+       "n3": 163,
+       "policy": 1
+      }
+     }
+    },
+    {
+     "archive": "dynasty_export_20261016_134010.zip",
+     "zipSha256": "b44a25f0f32cfd87f0989f6a453ce5f2164b0fe28ea1c01f88a18270e5b1ff3c",
+     "payloadSha256": "10a4958d401089701315f8a199c8ba0911a5efeac57fb33cbd489f47307d29f6",
+     "scrapeTimestamp": "2026-10-16T13:40:10.343091+00:00",
+     "addCommit": "12261a68d1944f14931ee7b63cf683a3f69255f4",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "previousArchive": {
+      "archive": "dynasty_export_20261016_073446.zip",
+      "zipSha256": "7dc87a6e46aa75cbae18813dc3574486e1f55552f83a7b537874b53d4b441929",
+      "payloadSha256": "e32707365a3ced741fb1e7a84e3afce418fcefb17f5d993e8b33f9e4d6f24608",
+      "scrapeTimestamp": "2026-10-16T07:34:46.637167+00:00",
+      "addCommit": "f623436aea568521b60fddc154c57621eee4fe15",
+      "manifest": {
+       "complete": true,
+       "degraded": []
+      },
+      "origin": "working_tree"
+     },
+     "nextArchive": {
+      "archive": "dynasty_export_20261016_182508.zip",
+      "zipSha256": "951e4b829d93f64d56965df6f67bd2406be23236879a8d8571eb31af82b4f4d0",
+      "payloadSha256": "97f20ca60c77d580f454c76ff55b6b828e21923a8cc241314a615eaae3081ba0",
+      "scrapeTimestamp": "2026-10-16T18:25:08.049273+00:00",
+      "addCommit": "71610cff30b2838094b03ea0802e54fbe65a5300",
+      "manifest": {
+       "complete": true,
+       "degraded": []
+      },
+      "origin": "working_tree"
+     },
+     "scraperSignals": {
+      "sites.idpTradeCalc": {
+       "key": "idpTradeCalc",
+       "label": "IDPTradeCalc",
+       "max": 9999.0,
+       "playerCount": 436
+      },
+      "normalSites.idpTradeCalc": {
+       "key": "idpTradeCalc",
+       "label": "IDPTradeCalc",
+       "max": 9999.0,
+       "playerCount": 900
+      },
+      "sourceRun.IDPTradeCalc": {
+       "state": "complete",
+       "durationSec": 415.67,
+       "message": "IDPTradeCalc completed (4 mapped values)",
+       "valueCount": 4
+      },
+      "normalSourceRun.IDPTradeCalc": {
+       "state": "complete",
+       "durationSec": 92.23,
+       "message": "IDPTradeCalc completed (4 mapped values)",
+       "valueCount": 4
+      },
+      "siteRawPreserved": [
+       "draftSharksIdp.csv",
+       "draftSharksRosIdp.csv",
+       "draftSharksRosSf.csv",
+       "draftSharksSf.csv",
+       "idpTradeCalc.csv"
+      ],
+      "idpTradeCalcCsvSha16": "3107d841335b8612",
+      "payloadIdpTradeCalcRows": 428,
+      "normalPayloadIdpTradeCalcRows": 813
+     },
+     "payloadVsSameRunCsvByPosition": {
+      "DB": {
+       "n": 26,
+       "differ": 26,
+       "medLog": 0.185
+      },
+      "DL": {
+       "n": 34,
+       "differ": 34,
+       "medLog": 0.1783
+      },
+      "LB": {
+       "n": 34,
+       "differ": 34,
+       "medLog": 0.1858
+      },
+      "QB": {
+       "n": 57,
+       "differ": 56,
+       "medLog": -0.1771
+      },
+      "RB": {
+       "n": 84,
+       "differ": 83,
+       "medLog": 0.213
+      },
+      "TE": {
+       "n": 57,
+       "differ": 56,
+       "medLog": 0.1718
+      },
+      "WR": {
+       "n": 129,
+       "differ": 126,
+       "medLog": 0.2003
+      }
+     },
+     "rowsDiffering": 415,
+     "rowsOverlapping": 421,
+     "extremeRows": [
+      {
+       "player": "Justin Jefferson",
+       "position": "WR",
+       "payloadVote": 951,
+       "sameRunVendorCsv": 7638.0,
+       "logRatio": -2.0834
+      },
+      {
+       "player": "Jack Strand",
+       "position": "QB",
+       "payloadVote": 359,
+       "sameRunVendorCsv": 1367.0,
+       "logRatio": -1.3371
+      },
+      {
+       "player": "Davis Mills",
+       "position": "QB",
+       "payloadVote": 299,
+       "sameRunVendorCsv": 1047.0,
+       "logRatio": -1.2532
+      },
+      {
+       "player": "Kyle McCord",
+       "position": "QB",
+       "payloadVote": 282,
+       "sameRunVendorCsv": 763.0,
+       "logRatio": -0.9954
+      },
+      {
+       "player": "Jalon Daniels",
+       "position": "QB",
+       "payloadVote": 837,
+       "sameRunVendorCsv": 1793.0,
+       "logRatio": -0.7618
+      },
+      {
+       "player": "Gardner Minshew",
+       "position": "QB",
+       "payloadVote": 406,
+       "sameRunVendorCsv": 857.0,
+       "logRatio": -0.7471
+      },
+      {
+       "player": "Tyson Bagent",
+       "position": "QB",
+       "payloadVote": 1004,
+       "sameRunVendorCsv": 2094.0,
+       "logRatio": -0.7351
+      },
+      {
+       "player": "Deshaun Watson",
+       "position": "QB",
+       "payloadVote": 903,
+       "sameRunVendorCsv": 1798.0,
+       "logRatio": -0.6887
+      },
+      {
+       "player": "Tanner McKee",
+       "position": "QB",
+       "payloadVote": 474,
+       "sameRunVendorCsv": 888.0,
+       "logRatio": -0.6278
+      },
+      {
+       "player": "Tyler Huntley",
+       "position": "QB",
+       "payloadVote": 608,
+       "sameRunVendorCsv": 1122.0,
+       "logRatio": -0.6127
+      },
+      {
+       "player": "Jordan James",
+       "position": "RB",
+       "payloadVote": 2575,
+       "sameRunVendorCsv": 1934.0,
+       "logRatio": 0.2863
+      },
+      {
+       "player": "Jimmy Horn",
+       "position": "WR",
+       "payloadVote": 1605,
+       "sameRunVendorCsv": 1196.0,
+       "logRatio": 0.2941
+      },
+      {
+       "player": "Tahj Brooks",
+       "position": "RB",
+       "payloadVote": 1901,
+       "sameRunVendorCsv": 1411.0,
+       "logRatio": 0.2981
+      },
+      {
+       "player": "Tyreek Hill",
+       "position": "WR",
+       "payloadVote": 1195,
+       "sameRunVendorCsv": 880.0,
+       "logRatio": 0.306
+      },
+      {
+       "player": "Jarquez Hunter",
+       "position": "RB",
+       "payloadVote": 1736,
+       "sameRunVendorCsv": 1277.0,
+       "logRatio": 0.3071
+      }
+     ],
+     "replay": {
+      "drops": {
+       "incumbent": 202,
+       "n3": 202,
+       "policy": 2
+      },
+      "policyReasons": {
+       "gross_uncorroborated_error": 2
+      },
+      "valueChangePolicyVsIncumbent": {
+       "max": 0.8902,
+       "medianMoved": 0.0163,
+       "moved": 166,
+       "p90": 0.0156,
+       "p99": 0.0801,
+       "rows": 869
+      }
+     },
+     "replayNeighbourDrops": {
+      "dynasty_export_20261016_073446.zip": {
+       "incumbent": 132,
+       "n3": 134,
+       "policy": 1
+      },
+      "dynasty_export_20261016_182508.zip": {
+       "incumbent": 136,
+       "n3": 138,
+       "policy": 1
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "H3-idptc-autocomplete-wrong-player",
+   "layer": "A",
+   "class": "wrong-player capture: surname-only autocomplete regex (\"Jefferson (<value>) - <POS>\") takes the first matching asset on the page",
+   "label": "corrupted",
+   "labelConfidence": "high (9-10x below the same vendor's own same-window CSV value for the WR; the payload value reaches the vote because payload beats CSV)",
+   "scope": {
+    "source": "idpTradeCalc",
+    "player": "Justin Jefferson (WR, MIN)",
+    "likelyCapturedAsset": "a different \"Jefferson\" on IDPTradeCalc, most plausibly the same-named Cleveland LB (issue #1011 namesake) - not provable from the archive"
+   },
+   "detection": "gross by distance (~2.1-2.3 in log value, >1,000 points): both the incumbent and V1 are expected to reject it on these rows; not re-verified from stored replay records (none retained). The 2026-08-03 board is degraded (outside the 105 complete boards)",
+   "boards": [
+    {
+     "archive": "dynasty_export_20260803_235610.zip",
+     "zipSha256": "355741c2f009ce7426a6d60cde734358ddec28197d501a78266b542dc8cde158",
+     "payloadSha256": "19e2e0d7ad54965a18d47b962e31dc82909f3c8cac8e2008be95d052cd4273ac",
+     "scrapeTimestamp": "2026-08-03T23:56:10.773424",
+     "addCommit": "d9f7e4cdaed29a94e59aad7706c3ce80699b16db",
+     "manifest": {
+      "complete": false,
+      "degraded": [
+       "KTC_TradeDB",
+       "KTC_WaiverDB"
+      ]
+     },
+     "origin": "working_tree",
+     "row": {
+      "player": "Justin Jefferson",
+      "position": "WR",
+      "payloadVote": 837,
+      "sameRunVendorCsv": 7674.0,
+      "logRatio": -2.2158
+     }
+    },
+    {
+     "archive": "dynasty_export_20261008_141213.zip",
+     "zipSha256": "a662fa76250a53a8f61c62c963c907d28f2dabbe12ea94dcee68c69c5a725780",
+     "payloadSha256": "6cee0f99ced4e13e74a2b4696ac60bd1594b4c5f9711a986a1b80dc067c17a99",
+     "scrapeTimestamp": "2026-10-08T14:12:13.827619+00:00",
+     "addCommit": "5aecb0e6127d067d76f670ec014543aa261e7b6c",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "row": {
+      "player": "Justin Jefferson",
+      "position": "WR",
+      "payloadVote": 773,
+      "sameRunVendorCsv": 7371.0,
+      "logRatio": -2.255
+     }
+    },
+    {
+     "archive": "dynasty_export_20261016_134010.zip",
+     "zipSha256": "b44a25f0f32cfd87f0989f6a453ce5f2164b0fe28ea1c01f88a18270e5b1ff3c",
+     "payloadSha256": "10a4958d401089701315f8a199c8ba0911a5efeac57fb33cbd489f47307d29f6",
+     "scrapeTimestamp": "2026-10-16T13:40:10.343091+00:00",
+     "addCommit": "12261a68d1944f14931ee7b63cf683a3f69255f4",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree",
+     "row": {
+      "player": "Justin Jefferson",
+      "position": "WR",
+      "payloadVote": 951,
+      "sameRunVendorCsv": 7638.0,
+      "logRatio": -2.0834
+     }
+    }
+   ]
+  },
+  {
+   "id": "H4-idptc-partial-fallback-correct-format",
+   "layer": "B (provenance)",
+   "class": "same partial-fallback path as H2, values on the correct SF+TEP scale (median payload/CSV log ratio 0.000 at every position)",
+   "label": "valid values (control) except the H3 row on 2026-08-03; provenance mixture still present",
+   "labelConfidence": "high",
+   "note": "the fallback also wrote pick rows (e.g. \"2026 Late 1st\" and \"2028 Late 1st\" both 4,955; \"2026 Pick 1.04\" 4,443 vs CSV 6,486 - surname-token collisions on \"1st\"/\"1.04\") into top-level payload fields, but not into _canonicalSiteValues, so they never reached the vote",
+   "boards": [
+    {
+     "archive": "dynasty_export_20260803_235610.zip",
+     "zipSha256": "355741c2f009ce7426a6d60cde734358ddec28197d501a78266b542dc8cde158",
+     "payloadSha256": "19e2e0d7ad54965a18d47b962e31dc82909f3c8cac8e2008be95d052cd4273ac",
+     "scrapeTimestamp": "2026-08-03T23:56:10.773424",
+     "addCommit": "d9f7e4cdaed29a94e59aad7706c3ce80699b16db",
+     "manifest": {
+      "complete": false,
+      "degraded": [
+       "KTC_TradeDB",
+       "KTC_WaiverDB"
+      ]
+     },
+     "origin": "working_tree",
+     "sites.idpTradeCalc": {
+      "key": "idpTradeCalc",
+      "label": "IDPTradeCalc",
+      "max": 8051.0,
+      "playerCount": 442
+     },
+     "sourceRun.IDPTradeCalc": {
+      "state": "complete",
+      "durationSec": 424.49,
+      "message": "IDPTradeCalc completed (3 mapped values)",
+      "valueCount": 3
+     },
+     "payloadVsSameRunCsvByPosition": {
+      "DB": {
+       "n": 27,
+       "differ": 0,
+       "medLog": 0.0
+      },
+      "DL": {
+       "n": 35,
+       "differ": 0,
+       "medLog": 0.0
+      },
+      "LB": {
+       "n": 36,
+       "differ": 0,
+       "medLog": 0.0
+      },
+      "QB": {
+       "n": 55,
+       "differ": 15,
+       "medLog": 0.0
+      },
+      "RB": {
+       "n": 91,
+       "differ": 17,
+       "medLog": 0.0
+      },
+      "TE": {
+       "n": 56,
+       "differ": 13,
+       "medLog": 0.0
+      },
+      "WR": {
+       "n": 128,
+       "differ": 28,
+       "medLog": 0.0
+      }
+     },
+     "rowsDiffering": 73,
+     "rowsOverlapping": 428
+    },
+    {
+     "archive": "dynasty_export_20260806_150742.zip",
+     "zipSha256": "e3565556ea5bebb8c1abac5aa60e095a25a19e86324dc94d0581b216b6b40e31",
+     "payloadSha256": "2ca9fd8ef4248006285386cbd2498eec9fb03384348c50135bcce024a168b9f3",
+     "scrapeTimestamp": "2026-08-06T15:07:42.355653",
+     "addCommit": "75ca34762a8afacd83000efc2c0650aea8ae1358",
+     "manifest": {
+      "complete": false,
+      "degraded": [
+       "KTC_TradeDB",
+       "KTC_WaiverDB"
+      ]
+     },
+     "origin": "working_tree",
+     "sites.idpTradeCalc": {
+      "key": "idpTradeCalc",
+      "label": "IDPTradeCalc",
+      "max": 7052.0,
+      "playerCount": 408
+     },
+     "sourceRun.IDPTradeCalc": {
+      "state": "complete",
+      "durationSec": 424.39,
+      "message": "IDPTradeCalc completed (2 mapped values)",
+      "valueCount": 2
+     },
+     "payloadVsSameRunCsvByPosition": {
+      "DB": {
+       "n": 28,
+       "differ": 0,
+       "medLog": 0.0
+      },
+      "DL": {
+       "n": 35,
+       "differ": 0,
+       "medLog": 0.0
+      },
+      "LB": {
+       "n": 37,
+       "differ": 0,
+       "medLog": 0.0
+      },
+      "QB": {
+       "n": 45,
+       "differ": 0,
+       "medLog": 0.0
+      },
+      "RB": {
+       "n": 85,
+       "differ": 0,
+       "medLog": 0.0
+      },
+      "TE": {
+       "n": 50,
+       "differ": 1,
+       "medLog": 0.0
+      },
+      "WR": {
+       "n": 115,
+       "differ": 2,
+       "medLog": 0.0
+      }
+     },
+     "rowsDiffering": 3,
+     "rowsOverlapping": 395
+    }
+   ]
+  },
+  {
+   "id": "H5-fantasyprosidp-anchored-extension-instability",
+   "layer": "B (conversion)",
+   "class": "derived rank extension: scripts/fetch_fantasypros_idp.py places individual-page DL/LB/DB players onto the combined rank axis by a per-family anchor curve whose tail slope is the median of the last 5 anchor segments; the slope (and so the whole anchored segment's effective rank) swings 0.6x-5.7x with the combined page's composition while the vendor's own positional order barely moves",
+   "label": "suspected normalization instability (soft label)",
+   "labelConfidence": "medium: version-to-version changes of ~2x in effective rank are ours, not the vendor's opinion (e.g. Jalen Pitre DB positional 26->31 but effective 116->210); which version is \"right\" is not identifiable",
+   "clearestEpisode": {
+    "from": {
+     "archive": "dynasty_export_20260916_214700.zip",
+     "zipSha256": "e145772e214261019f6506b1a021ae6e87020dcd18f21415f77c51baf124843e",
+     "payloadSha256": "f67de0cd51ea8f8882aa658856117259cd695d4107d65e7473805230ac458a86",
+     "scrapeTimestamp": "2026-09-16T21:47:00.649072+00:00",
+     "addCommit": "907dfee4df574a32f06c010434106204874d1a27",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree"
+    },
+    "bad": [
+     {
+      "archive": "dynasty_export_20260917_214927.zip",
+      "zipSha256": "b2c4b84efeacfb5659e3cad89f0942d4a71310ab78a16b643106baca82865966",
+      "payloadSha256": "bd780c51e815ecedd79a1aed72b843c6bacc6f6a945b39b693b57f26b2f11665",
+      "scrapeTimestamp": "2026-09-17T21:49:27.030228+00:00",
+      "addCommit": "6f265e370af73097081769e30ef16fbf943ea6c9",
+      "manifest": {
+       "complete": true,
+       "degraded": []
+      },
+      "origin": "working_tree"
+     },
+     {
+      "archive": "dynasty_export_20260922_214329.zip",
+      "zipSha256": "4d37f8601690fdae067c86395329b2804c48b3a4bc25e60fcca38827788c58a3",
+      "payloadSha256": "989dcf54e0ec583123795a60aa795dbb76710b8aa7332ba5b2f85ea6c6373675",
+      "scrapeTimestamp": "2026-09-22T21:43:29.413827+00:00",
+      "addCommit": "c577cabf0f9d05066dc96341779ccb660725de9d",
+      "manifest": {
+       "complete": true,
+       "degraded": []
+      },
+      "origin": "working_tree"
+     }
+    ],
+    "revertedAt": {
+     "archive": "dynasty_export_20260923_215107.zip",
+     "zipSha256": "7121449dd65d3e72b75179c744c295a6dbc64e2d40c92dc7cb3a1e081e5c2441",
+     "payloadSha256": "54efec9331611aa0ee8ab141f340490a8a51692fb4c05d723cfe248884565142",
+     "scrapeTimestamp": "2026-09-23T21:51:07.333976+00:00",
+     "addCommit": "36bace41974c616f5617c7f80147ac89dd74c13d",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree"
+    },
+    "effect": "anchored DB effective ranks x3.2 (median log +1.16, 73 rows), anchored DL x0.59 (log -0.53, 60 rows), anchored LB +0.22 (13 rows); direct_combined rows within 0.1; DB anchor tail slope 0.95 -> 5.12, DL 4.49 -> 1.28; reverted on 2026-09-23 to the prior composition",
+    "archivesInEpisode": [
+     "dynasty_export_20260917_214927.zip",
+     "dynasty_export_20260918_211845.zip",
+     "dynasty_export_20260919_223220.zip",
+     "dynasty_export_20260920_224450.zip",
+     "dynasty_export_20260921_234150.zip",
+     "dynasty_export_20260922_214329.zip"
+    ]
+   },
+   "slopeHistory": "see history.md table (versions 2026-07-14 .. 2026-10-14)",
+   "csvVersions": [
+    {
+     "firstArchive": "dynasty_export_20260714_233659.zip",
+     "csvSha16": "9a025a147818005f"
+    },
+    {
+     "firstArchive": "dynasty_export_20260727_234712.zip",
+     "csvSha16": "39eb8edab1866ed1"
+    },
+    {
+     "firstArchive": "dynasty_export_20260804_234442.zip",
+     "csvSha16": "01a17ce73c2a579f"
+    },
+    {
+     "firstArchive": "dynasty_export_20260818_230211.zip",
+     "csvSha16": "c9715669c80a6e7f"
+    },
+    {
+     "firstArchive": "dynasty_export_20260821_230238.zip",
+     "csvSha16": "ae1a553f571fe254"
+    },
+    {
+     "firstArchive": "dynasty_export_20260829_211720.zip",
+     "csvSha16": "d55d89c77aba5962"
+    },
+    {
+     "firstArchive": "dynasty_export_20260830_213746.zip",
+     "csvSha16": "5130b700a1acc089"
+    },
+    {
+     "firstArchive": "dynasty_export_20260831_230447.zip",
+     "csvSha16": "283cdd16d6628744"
+    },
+    {
+     "firstArchive": "dynasty_export_20260901_212308.zip",
+     "csvSha16": "ba08823bc3ba862b"
+    },
+    {
+     "firstArchive": "dynasty_export_20260904_223450.zip",
+     "csvSha16": "85ad5d60b5c79077"
+    },
+    {
+     "firstArchive": "dynasty_export_20260909_211525.zip",
+     "csvSha16": "9a10d072499c3858"
+    },
+    {
+     "firstArchive": "dynasty_export_20260917_214927.zip",
+     "csvSha16": "79e803f0675096f6"
+    },
+    {
+     "firstArchive": "dynasty_export_20260922_214329.zip",
+     "csvSha16": "2897416e7c248b6f"
+    },
+    {
+     "firstArchive": "dynasty_export_20260923_215107.zip",
+     "csvSha16": "41ee06ebf7450922"
+    },
+    {
+     "firstArchive": "dynasty_export_20261002_193506.zip",
+     "csvSha16": "4d970358e73cfc5f"
+    },
+    {
+     "firstArchive": "dynasty_export_20261010_202220.zip",
+     "csvSha16": "d35306d2f76531fd"
+    },
+    {
+     "firstArchive": "dynasty_export_20261013_213606.zip",
+     "csvSha16": "bb67076decd37daf"
+    },
+    {
+     "firstArchive": "dynasty_export_20261014_233024.zip",
+     "csvSha16": "383c766087b1c691"
+    }
+   ],
+   "whyStatisticalFiltersStruggle": "the anchored rows are deep IDP (effective ranks ~90-600) on rows with 2-4 votes; a 2x change in implied rank is inside V1's 4x gross line, and the board screen pools DL/LB/DB as one asset class while the episode moves DB and DL in opposite directions"
+  },
+  {
+   "id": "H6-fantasyprosidp-duplicate-and-colliding-names",
+   "layer": "A",
+   "class": "one CSV lists the same person twice (EDGE players on both the LB and DL individual pages, with different effective ranks, e.g. Khalil Mack 120 vs 249) and two different people under one normalized key (Byron Murphy II DL SEA vs Byron Murphy Jr. DB MIN)",
+   "label": "latent identity hazard (no wrong vote demonstrated)",
+   "labelConfidence": "high that the hazard exists",
+   "mechanism": "data_contract._enrich_from_source_csvs: when the board has a single position group for a canonical key it keeps the HIGHEST-valued entry (\"best-of-value\"); canonical_position_group maps DL/LB/DB all to IDP and _canonical_match_key(\"Byron Murphy II\") == _canonical_match_key(\"Byron Murphy Jr.\") == \"byron murphy\", so a different person's rank can attach to the board's only Byron Murphy whenever it is the better one; the duplicate-EDGE case silently takes the better of two family anchorings",
+   "boards": "every fantasyProsIdp version from 2026-07-27 (13-16 normalized-name duplicates per version)"
+  },
+  {
+   "id": "N1-draftsharks-te-segment-shift-persistent",
+   "layer": "B",
+   "class": "persistent position-segment shift (TE ranks improve 0.44 in log rank; WR worsen 0.11) on the first fresh DraftSharks board after a 15-day ingestion outage",
+   "label": "legitimate change / not corruption (control)",
+   "labelConfidence": "medium: persisted through 2026-10-19 (-0.39); coincides with the 2026-08-18 DraftSharks ingestion repair (c01d3934f8, merged in #894), which moved the harvest to league-scored rendered values; a vendor methodology change cannot be excluded",
+   "boards": {
+    "before": {
+     "archive": "dynasty_export_20260819_230341.zip",
+     "zipSha256": "5a64fa4398cbfb9f47a43da8bca70815f451113b33fde905787bc8c455b34b0d",
+     "payloadSha256": "4b21e04bc4eb1320539aae25637cab79fbe75f70a5836b85d9cf4429c57bc92d",
+     "scrapeTimestamp": "2026-08-19T23:03:41.580370+00:00",
+     "addCommit": "8fd35fca945b074b4236d42919a757406cb495d6",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree"
+    },
+    "after": {
+     "archive": "dynasty_export_20260820_230504.zip",
+     "zipSha256": "85e6df6abe557d77f54727994e30f0e881147874b9c0d358cefb3cd7c593f87e",
+     "payloadSha256": "e9d0018852fcd2e70cd74cc8799ffe57f5a1ff00985b1b7cd739df313734e447",
+     "scrapeTimestamp": "2026-08-20T23:05:03.983096+00:00",
+     "addCommit": "22909d7809df9f98b39d2d120cffdefe3f25e3a1",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree"
+    }
+   },
+   "precedingStaleness": "draftSharksSf/draftSharksIdp CSVs unchanged on 13 consecutive archives 2026-08-05 23:40 -> 2026-08-17 23:02 (fetch failing; last-good preserved) - a freshness case, not a format case"
+  },
+  {
+   "id": "N2-dynastydaddy-value-scale-renormalisation",
+   "layer": "B",
+   "class": "whole-board value-scale shifts in one day with ranks unchanged (value log shifts -0.16..-0.24 on 2026-08-26/27, +0.23..+0.33 on 2026-08-30; median log RANK shift 0.000-0.021)",
+   "label": "legitimate (control): dynastyDaddySf votes by rank, so a value-space integrity check must not flag it",
+   "labelConfidence": "high",
+   "boards": [
+    {
+     "archive": "dynasty_export_20260825_230528.zip",
+     "zipSha256": "ef8d6a211d580102ba8581963ab45bf1ffa8e8c0bae28964e0ff7f5b38fb6f65",
+     "payloadSha256": "5b03d4b220b57e4115be45170460b1c854edc25d3ac4adfb48fc834dbd06f48f",
+     "scrapeTimestamp": "2026-08-25T23:05:28.544040+00:00",
+     "addCommit": "a82898fdbe73ea2effd295132590dff35a45ac98",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree"
+    },
+    {
+     "archive": "dynasty_export_20260826_211658.zip",
+     "zipSha256": "2f717f60dc2290e717e9c37615836fca950e7224249b58780689cf343e126b75",
+     "payloadSha256": "9582324eea23a009db22b10ace303405917ccfbc155d94031d6bb030193a35d5",
+     "scrapeTimestamp": "2026-08-26T21:16:58.813500+00:00",
+     "addCommit": "50834ef7b760933c9df675e99f7b4f49ac90a7c8",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree"
+    },
+    {
+     "archive": "dynasty_export_20260827_153424.zip",
+     "zipSha256": "2b0579ec4486e42385abea49910abd9a883b6023a4669b1fe1abd7a9b7836643",
+     "payloadSha256": "78e6e2d165f40b01f8b2db18763686eae702a71fe5079aa7611784119ff109c0",
+     "scrapeTimestamp": "2026-08-27T15:34:24.432490+00:00",
+     "addCommit": "43f1bd770971a59b3596bb5c50fd334241d6173f",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree"
+    },
+    {
+     "archive": "dynasty_export_20260829_211720.zip",
+     "zipSha256": "5e59cf67aba011b78fa98ade6ed0a1a2b81e3731f2fc5fa3803f32680170c038",
+     "payloadSha256": "1c738b865f0bf074c3dddff1f7eb446707ebf95f21bb1bc2b019c9f28e8dd32c",
+     "scrapeTimestamp": "2026-08-29T21:17:20.483662+00:00",
+     "addCommit": "e04260c7c26b2b34e2f54257b3af5c119d19d288",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree"
+    },
+    {
+     "archive": "dynasty_export_20260830_213746.zip",
+     "zipSha256": "5d28a73b7cf553d6738dd49556b201d2650f000c43326f545fbfdd08f94f6e01",
+     "payloadSha256": "e419728a3d23f50dbf3aa1fdd44186d1cfa80e043189ce97fe9c39958b75ac2c",
+     "scrapeTimestamp": "2026-08-30T21:37:46.179321+00:00",
+     "addCommit": "1f65765c14e396443b5480f244af13a1fae2a867",
+     "manifest": {
+      "complete": true,
+      "degraded": []
+     },
+     "origin": "working_tree"
+    }
+   ]
+  },
+  {
+   "id": "N3-dlf-blank-value-column",
+   "layer": "B",
+   "class": "schema change: dlfSf/dlfIdp/dlfRookieSf/dlfRookieIdp gained a \"value\" column that is blank on every row from 2026-09-24 (77 archives)",
+   "label": "benign for voting (signal=rank) - a missing-as-zero hazard for any reader that prefers a value column",
+   "labelConfidence": "high",
+   "firstArchive": {
+    "archive": "dynasty_export_20260924_232149.zip",
+    "zipSha256": "ac7737c9386e9ea99db9a6b005946b945351c5f4a82ac383af83f03dba22733e",
+    "payloadSha256": "1b614ce0e19263a37aa2a46ac1e6d207bf279980f3adfbb51f14e6033d84a1ba",
+    "scrapeTimestamp": "2026-09-24T23:21:49.383548+00:00",
+    "addCommit": "84e5954b38460b96cbe247e63762b0a2597c7bb5",
+    "manifest": {
+     "complete": true,
+     "degraded": []
+    },
+    "origin": "working_tree"
+   }
+  },
+  {
+   "id": "N4-yahooboone-zero-values",
+   "layer": "B",
+   "class": "vendor value column carries 0 for 6-22 rows on 120 archives (2026-07-14 .. 2026-10-14; 22 rows on 2026-08-05 .. 2026-09-03)",
+   "label": "benign for voting (signal=rank) - must never be read as a value of zero",
+   "labelConfidence": "high"
+  },
+  {
+   "id": "N5-draftsharks-ros-board-split",
+   "layer": "B",
+   "class": "schema change on non-voting seasonal boards: draftSharksRosIdp stopped carrying offense rows and its IDP ranks re-based (median log rank -0.94..-1.11, i.e. x0.33-0.39) on 2026-08-05; draftSharksRosSf dropped its IDP rows",
+   "label": "benign for dynasty voting (ROS boards are seasonal-lane, not in _RANKING_SOURCES); an example of a combined->positional rank-space change",
+   "labelConfidence": "high",
+   "boards": {
+    "before": {
+     "archive": "dynasty_export_20260804_234442.zip",
+     "zipSha256": "dc2d59332bec52644985026f3e7662aa39bfd2ebe5017f95dd43f968b0213205",
+     "payloadSha256": "e51755905a9d260e6336562281551e8831fc8aa7383b691beb606e0e6adc0dff",
+     "scrapeTimestamp": "2026-08-04T23:44:42.548610",
+     "addCommit": "d7a0c1c3dd500fa3883f8182dd5cda8c29f0cd13",
+     "manifest": {
+      "complete": false,
+      "degraded": [
+       "KTC_TradeDB",
+       "KTC_WaiverDB"
+      ]
+     },
+     "origin": "working_tree"
+    },
+    "after": {
+     "archive": "dynasty_export_20260805_234032.zip",
+     "zipSha256": "cb01a547d3a6175d70138a70843a0e64b687afb0dbe4f6019751d2439d3ff3e4",
+     "payloadSha256": "3366e9d9a585615964609df7a89743ab3821b29d380d60f54abe441848d09ca9",
+     "scrapeTimestamp": "2026-08-05T23:40:32.046254",
+     "addCommit": "c85bb696177b958bf7ad233d8c9b312307e51afa",
+     "manifest": {
+      "complete": false,
+      "degraded": [
+       "KTC_TradeDB",
+       "KTC_WaiverDB"
+      ]
+     },
+     "origin": "working_tree"
+    }
+   }
+  },
+  {
+   "id": "N6-benign-coverage-changes",
+   "layer": "B",
+   "class": "coverage changes that are not corruption",
+   "label": "benign (control)",
+   "items": [
+    "footballGuysSf/footballGuysIdp absent from 2026-07-21 23:43 (source retired)",
+    "KTC pick rows 36 -> 84 on 2026-09-06 and 84 -> 36 on 2026-09-21 (slot-pick rows added/removed; player rows unaffected)",
+    "flockFantasySfRookies depth 83 -> 48 on 2026-09-05 (tail truncated: dropped rows were ranks 44-80; top unchanged)",
+    "dlfValuesSfTepPicks emptied on 2026-10-02 (non-voting)",
+    "fantasyProsSf TE rows 51 -> 99 (2026-07-27) and 42 -> 74 (2026-10-14) with stable order"
+   ]
+  }
+ ]
+}
