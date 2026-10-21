@@ -8,9 +8,36 @@
  "board": {
   "archive": "exports/archive/dynasty_export_20261020_052241.zip",
   "member": "dynasty_data_2026-10-20.json",
-  "sha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a"
+  "sha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+  "pricedAssets": 1003,
+  "builtBoardSha256": "eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833",
+  "csvTree": {
+   "paths": [
+    "CSVs",
+    "data/scrape_state",
+    "config/weights"
+   ],
+   "source": "git revision",
+   "revisionSha": "d5236546ff4df9294b6cf99c6b93e8db57e6ff36",
+   "revisionCommittedAt": "2026-10-20T22:42:00+00:00",
+   "contentSha256": "31687c60b2adc9f347eb58c8da2e15a1198a264d3b98200b1db3fa5f2345bd54"
+  },
+  "pinNote": "the board is a function of the archive AND the CSV tree (source CSVs, scrape-state stamps, config/weights) the contract build reads; builtBoardSha256 hashes the resulting name -> canonical value map"
  },
- "codeSha": "d5236546ff4df9294b6cf99c6b93e8db57e6ff36",
+ "fairnessBands": {
+  "version": "fairness_bands_v2",
+  "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+  "basis": "larger_package_utility",
+  "absoluteMinimum": 250.0,
+  "slightPct": 3.5,
+  "unfairPct": 9.0,
+  "lopsidedPct": 18.0,
+  "fairTradeLevels": [
+   "fair"
+  ],
+  "postLaunchValidation": "OD-F4"
+ },
+ "codeSha": "17765f0b6fe44822e342670b2782737e8dc3a8c0",
  "warRoom": {
   "design": "identical to the research diagnostic (archive, seed SEED+2, 5 opponents per roster at the 58 cap; X 2,500-6,500 out, Y at 86-97% of X in, then 1-3 expendable fillers)",
   "reproduction": {
@@ -25,6 +52,11 @@
    "matches_133_85_43_5": true,
    "productionCutSetReconstructed": "135/135"
   },
+  "shadowBandBase": {
+   "base": "largerPackageUtility (the production decision's band base, read from the flag-OFF asset-only objective; classified by fairness_bands.classify)",
+   "bandVersion": "fairness_bands_v2",
+   "stepsWhereBaseDiffersFromLargerAdjustedSide": 135
+  },
   "variants": {
    "PROD": {
     "flips": 133,
@@ -37,8 +69,8 @@
    },
    "V1_cheapestRelease": {
     "flips": 133,
-    "neutralised": 21,
-    "overCorrected": 2,
+    "neutralised": 19,
+    "overCorrected": 4,
     "surviving_underCorrected": 110,
     "notEvaluable": 0,
     "stepsWhereChargeExceedsFillerCredit": 10,
@@ -46,26 +78,26 @@
    },
    "V2a_unpricedExcluded": {
     "flips": 133,
-    "neutralised": 60,
+    "neutralised": 61,
     "overCorrected": 38,
-    "surviving_underCorrected": 35,
+    "surviving_underCorrected": 34,
     "notEvaluable": 0,
     "stepsWhereChargeExceedsFillerCredit": 95,
     "chargeOverCreditMedian": 1.252
    },
    "V2b_unpricedBoardFloor": {
     "flips": 133,
-    "neutralised": 64,
+    "neutralised": 67,
     "overCorrected": 38,
-    "surviving_underCorrected": 31,
+    "surviving_underCorrected": 28,
     "notEvaluable": 0,
     "stepsWhereChargeExceedsFillerCredit": 97,
     "chargeOverCreditMedian": 1.288
    },
    "V3a_cheapest_unpricedExcluded": {
     "flips": 133,
-    "neutralised": 5,
-    "overCorrected": 0,
+    "neutralised": 4,
+    "overCorrected": 1,
     "surviving_underCorrected": 128,
     "notEvaluable": 0,
     "stepsWhereChargeExceedsFillerCredit": 2,
@@ -73,8 +105,8 @@
    },
    "V3b_cheapest_unpricedBoardFloor": {
     "flips": 133,
-    "neutralised": 6,
-    "overCorrected": 0,
+    "neutralised": 5,
+    "overCorrected": 1,
     "surviving_underCorrected": 127,
     "notEvaluable": 0,
     "stepsWhereChargeExceedsFillerCredit": 2,
@@ -101,8 +133,8 @@
    },
    "V5R_rosterRational": {
     "flips": 133,
-    "neutralised": 18,
-    "overCorrected": 1,
+    "neutralised": 17,
+    "overCorrected": 2,
     "surviving_underCorrected": 114,
     "notEvaluable": 0,
     "stepsWhereChargeExceedsFillerCredit": 6,
@@ -130,8 +162,8 @@
    },
    "FLAG_ON_measured_rosterRational": {
     "flips": 133,
-    "neutralised": 18,
-    "overCorrected": 1,
+    "neutralised": 17,
+    "overCorrected": 2,
     "surviving_underCorrected": 114,
     "notEvaluable": 0,
     "stepsWhereChargeExceedsFillerCredit": 6,
@@ -141,12 +173,12 @@
   },
   "analyzeVerdicts": {
    "stepsCompared": 180,
-   "headlineChanged": 112,
-   "publicCategoryChanged": 112,
+   "headlineChanged": 109,
+   "publicCategoryChanged": 109,
    "publicCategoryTransitions": {
     "UNFAVORABLE -> FAVORABLE": 51,
     "UNAVAILABLE -> FAVORABLE": 45,
-    "UNFAVORABLE -> APPROXIMATELY_EVEN": 11,
+    "UNFAVORABLE -> APPROXIMATELY_EVEN": 8,
     "UNAVAILABLE -> APPROXIMATELY_EVEN": 3,
     "UNAVAILABLE -> STRONGLY_UNFAVORABLE": 1,
     "APPROXIMATELY_EVEN -> FAVORABLE": 1
@@ -196,13 +228,13 @@
   },
   "analyzeVerdictsRosterRational": {
    "stepsCompared": 180,
-   "headlineChanged": 108,
-   "publicCategoryChanged": 108,
+   "headlineChanged": 105,
+   "publicCategoryChanged": 105,
    "publicCategoryTransitions": {
     "UNFAVORABLE -> FAVORABLE": 44,
-    "UNAVAILABLE -> FAVORABLE": 32,
-    "UNFAVORABLE -> APPROXIMATELY_EVEN": 14,
-    "UNAVAILABLE -> APPROXIMATELY_EVEN": 13,
+    "UNAVAILABLE -> FAVORABLE": 33,
+    "UNAVAILABLE -> APPROXIMATELY_EVEN": 12,
+    "UNFAVORABLE -> APPROXIMATELY_EVEN": 11,
     "UNAVAILABLE -> UNFAVORABLE": 3,
     "UNAVAILABLE -> STRONGLY_UNFAVORABLE": 1,
     "APPROXIMATELY_EVEN -> FAVORABLE": 1
@@ -230,9 +262,9 @@
    "dropSetDiffers": 49,
    "v5rChargeHigher": 49,
    "v5rChargeLower": 0,
-   "categoryDiffers": 22
+   "categoryDiffers": 20
   },
-  "elapsedSec": 74.7
+  "elapsedSec": 101.4
  },
  "census": {
   "design": "every dynasty_main team x 8 seeded trades per shape (1-for-2, 2-for-1, 1-for-3) against random rivals: the main incoming piece at 80-105% of a 1,500-7,000 outgoing player, extra pieces from the rival's 10 cheapest players (and for 2-for-1 the sender's own 12 cheapest); Team Context ON",
@@ -243,8 +275,8 @@
    "requireDrops": 181,
    "dropSetChanged": 174,
    "chargeChanged": 174,
-   "headlineChanged": 139,
-   "publicCategoryChanged": 140,
+   "headlineChanged": 124,
+   "publicCategoryChanged": 125,
    "trades:2-for-1": 89,
    "trades:1-for-3": 95
   },
@@ -253,17 +285,18 @@
    "unpricedForcedDrops": 61
   },
   "publicCategoryTransitions": {
-   "UNFAVORABLE -> FAVORABLE": 56,
-   "UNAVAILABLE -> FAVORABLE": 43,
-   "UNFAVORABLE -> APPROXIMATELY_EVEN": 17,
-   "UNAVAILABLE -> APPROXIMATELY_EVEN": 15,
-   "APPROXIMATELY_EVEN -> FAVORABLE": 3,
-   "UNAVAILABLE -> UNFAVORABLE": 3,
-   "FAVORABLE -> APPROXIMATELY_EVEN": 2,
+   "UNFAVORABLE -> FAVORABLE": 52,
+   "UNAVAILABLE -> FAVORABLE": 39,
+   "UNFAVORABLE -> APPROXIMATELY_EVEN": 16,
+   "UNAVAILABLE -> APPROXIMATELY_EVEN": 14,
+   "APPROXIMATELY_EVEN -> FAVORABLE": 1,
+   "UNAVAILABLE -> UNFAVORABLE": 1,
+   "FAVORABLE -> APPROXIMATELY_EVEN": 1,
    "UNFAVORABLE -> STRONGLY_UNFAVORABLE": 1
   },
   "evidenceGapTransitions": {
-   "forced_drop_unpriced -> -": 61
+   "forced_drop_unpriced -> -": 54,
+   "forced_drop_unpriced,stale_values -> stale_values": 7
   },
   "chargeDeltaByKind": {
    "atOrUnderCap:down": 159,
@@ -912,8 +945,8 @@
     "requireDrops": 181,
     "dropSetChanged": 174,
     "chargeChanged": 174,
-    "headlineChanged": 138,
-    "publicCategoryChanged": 139,
+    "headlineChanged": 126,
+    "publicCategoryChanged": 127,
     "trades:2-for-1": 89,
     "trades:1-for-3": 95
    },
@@ -922,17 +955,18 @@
     "unpricedForcedDrops": 61
    },
    "publicCategoryTransitions": {
-    "UNFAVORABLE -> FAVORABLE": 53,
-    "UNAVAILABLE -> FAVORABLE": 40,
+    "UNFAVORABLE -> FAVORABLE": 49,
+    "UNAVAILABLE -> FAVORABLE": 36,
     "UNFAVORABLE -> APPROXIMATELY_EVEN": 19,
-    "UNAVAILABLE -> APPROXIMATELY_EVEN": 18,
-    "UNAVAILABLE -> UNFAVORABLE": 3,
+    "UNAVAILABLE -> APPROXIMATELY_EVEN": 16,
     "FAVORABLE -> APPROXIMATELY_EVEN": 3,
-    "APPROXIMATELY_EVEN -> FAVORABLE": 2,
+    "UNAVAILABLE -> UNFAVORABLE": 2,
+    "APPROXIMATELY_EVEN -> FAVORABLE": 1,
     "UNFAVORABLE -> STRONGLY_UNFAVORABLE": 1
    },
    "evidenceGapTransitions": {
-    "forced_drop_unpriced -> -": 61
+    "forced_drop_unpriced -> -": 54,
+    "forced_drop_unpriced,stale_values -> stale_values": 7
    },
    "chargeDeltaByKind": {
     "atOrUnderCap:down": 159,
@@ -1457,13 +1491,13 @@
       ]
      },
      "on": {
-      "headline": "NO_TOO_CLOSE",
-      "category": "APPROXIMATELY_EVEN",
+      "headline": "NO",
+      "category": "UNFAVORABLE",
       "missingEvidence": [],
       "netGap": -298,
       "charge": 1424,
-      "aDirection": "neutral",
-      "aMagnitude": null,
+      "aDirection": "opposes",
+      "aMagnitude": "modest",
       "cuts": [
        "Quan Martin (DB, 227; charged 227)",
        "Jonathan Allen (DL, 1197; charged 1197)"
@@ -1806,7 +1840,7 @@
     }
    ]
   },
-  "elapsedSec": 94.9
+  "elapsedSec": 118.2
  },
  "perfectDraft": {
   "surface": "src.draft.context.build_roster_context (/api/draft/roster-context)",
@@ -2035,7 +2069,7 @@
     "netGap": -786,
     "charge": 3556,
     "aDirection": "opposes",
-    "aMagnitude": "modest",
+    "aMagnitude": "large",
     "cuts": [
      "Brandon Cisse (DB, 257; charged 257)",
      "Cedric Tillman (WR, 1326, just acquired; charged 1326)",
@@ -2096,5 +2130,5 @@
   "Component B (roster utility / lineup lens) needs the box-local projection snapshot and abstains locally; only Component A (VA gap net of the forced-release charge) and the decision built on it are measured.",
   "Positional scarcity resolves inert locally (multiplier 1.0); on the box it can scale every release charge by 0.85-1.15."
  ],
- "elapsedSec": 213.2
+ "elapsedSec": 278.5
 }
