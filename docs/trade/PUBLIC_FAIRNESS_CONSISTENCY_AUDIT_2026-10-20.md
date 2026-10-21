@@ -2,6 +2,10 @@
 
 **Status:** audit and recommendations only. No code on any audited branch was changed; no fairness
 threshold was modified or activated.
+**Historical body:** sections 1 to 12 describe the audited SHAs (`fae7209b6b` / `aa88b5c`, before train 17). Where they
+say the advisor is "branch only", `fairness_bands_v2` is "not merged", `approvedFairnessVersion` is `null`, or a
+follow-up is future work, read §0a first: it records the state on `main` and supersedes them. Line numbers in §2 and
+§3 are the audited heads' and have moved on `main`.
 **Authority:** owner decision record `docs/owner/LOW_VALUE_ASSET_OWNER_DECISIONS_2026-10-20.md` §5 ("PUBLIC
 CALCULATOR CONSISTENCY — IMPORTANT").
 **Agent-OS-Receipt:** cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
@@ -14,7 +18,7 @@ CALCULATOR CONSISTENCY — IMPORTANT").
 | Does it subtract forced-drop release cost (`trade_decision._objective_value`) today? | **No.** The public answer reads the gross market band; roster capacity is not even computed on the public path. |
 | Do the public 2-, 3- and 4-team paths use one calculation? | **Yes.** All three go through one function: `public_advisor.evaluate` → `analyze_service.analyze_trade_n(mode="market_fairness")` → `team_verdicts.team_fairness`. |
 | Is any proprietary number exposed in the public payload or UI? | **No direct exposure found.** Residual: a binary fair / not-fair oracle permits slow reconstruction (already an accepted residual in the spec). |
-| Verdict | **CONSISTENT with the owner's intent at `fae7209b6b`.** Five bounded follow-ups (§6); three of them only apply once `fairness_bands_v2` (#1886) lands. |
+| Verdict | **CONSISTENT with the owner's intent at `fae7209b6b`** (historical; re-verified on `main` in §0a). Five bounded follow-ups (§6); three of them only apply once `fairness_bands_v2` (#1886) lands. |
 
 The research memo's description of the advisor is stale for the current head
 (`docs/valuation/LOW_VALUE_ASSET_RESEARCH_2026-10-20.md` §10). It says the advisor "evaluates 2-team trades … with
@@ -42,7 +46,9 @@ Train 17 merged the advisor lane (#1861) and `fairness_bands_v2` (#1886) into `m
 | 3, contract fixtures | done: regenerated on v2 |
 | 4, frontend | merged in the same train |
 
-`approvedFairnessVersion` now names `fairness_bands_v2` (owner-approved prior). The launch gate still keeps the
+`approvedFairnessVersion` now names `fairness_bands_v2`. It was set by integration commit `bb9ae05c4`, citing the
+owner's v2 approval (`docs/owner/FAIRNESS_V2_DECISIONS_2026-10-20.md`); the owner has not separately confirmed it as
+launch approval (OD-3, the response floor and the flag remain). The launch gate still keeps the
 advisor dark on its other conditions: the measured response floor, the source-permission record and the
 `brisket_trade_advisor` flag. Nothing here activates it.
 
