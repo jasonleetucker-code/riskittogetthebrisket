@@ -204,6 +204,9 @@ test("the report carries no attachments, stdout or raw annotations field", () =>
     "durationMs",
     "file",
     "project",
+    // A UTC instant (or null).  Added with the V1 failure classifier so a
+    // restart is attributed only to the tests it overlapped.
+    "startedAt",
     "status",
     "title",
     "withheldCount",
@@ -245,4 +248,80 @@ test("each converted spec emits only allowlisted annotation types", () => {
       assert.ok(keys.some((k) => pattern.test(k)), `${file}: annotation type "${t}" is not allowlisted`);
     }
   }
+});
+
+// ---- failureSignal (V1 failure classification input) ------------------------
+// The signal is one word from a closed vocabulary, derived from the message and
+// published INSTEAD of it.  Every message below is hostile: it carries the
+// cookie, an owner id, a player name and a Received value.
+
+const { SIGNAL_NAMES } = require("./prod-auth-safe-reporter.js");
+
+function signalFor(message, status = "failed") {
+  const { report, stdout } = withReporter((r) => {
+    r.onTestEnd(fakeTest("t"), {
+      status,
+      duration: 7,
+      errors: [{ message, stack: message }],
+      annotations: [],
+      startTime: new Date("2026-10-21T07:50:07.000Z"),
+    });
+    r.onEnd({ status: "failed" });
+  });
+  const blob = JSON.stringify(report) + stdout;
+  for (const leak of [COOKIE, OWNER_ID, "Josh Allen", "Private Player"]) {
+    assert.ok(!blob.includes(leak), `leaked: ${leak}`);
+  }
+  return report.tests[0];
+}
+
+test("failureSignal separates a UI wait that ran out its budget from a wrong value", () => {
+  const wait =
+    `expect(locator).toBeVisible() failed\n\nLocator: getByText('Josh Allen ${OWNER_ID}')\n` +
+    "Expected: visible\nReceived: <element(s) not found>\nTimeout: 60000ms";
+  const value = `expect(received).toBe(expected)\n\nExpected: "final"\nReceived: "Josh Allen"`;
+  const a = signalFor(wait);
+  const b = signalFor(value);
+  // Both are "assertion" to errorClass -- the signal is what tells them apart.
+  assert.equal(a.errorClass, "assertion");
+  assert.equal(b.errorClass, "assertion");
+  assert.equal(a.failureSignal, "expect_timeout");
+  assert.equal(b.failureSignal, "none");
+});
+
+test("failureSignal names infrastructure and HTTP families without their text", () => {
+  const cases = [
+    [`Error: browserType.launch: Executable doesn't exist at /x (${COOKIE})`, "browser_launch_failed"],
+    ["Error: Target page, context or browser has been closed", "browser_closed"],
+    ["page.goto: net::ERR_CONNECTION_RESET at https://chaseupside.com/league", "network_error"],
+    ['page.goto: Timeout 60000ms exceeded.\nwaiting until "domcontentloaded"', "navigation_timeout"],
+    ["apiRequestContext.get: Timeout 30000ms exceeded.", "api_request_timeout"],
+    [`production /league?tab=awards returned HTTP 502 (owner ${OWNER_ID})`, "http_5xx"],
+    ["expect(received).toBe(expected)\n\nExpected: 200\nReceived: 401", "http_401_403"],
+    ["Error: out of memory", "out_of_memory"],
+    ["Error: strict mode violation: getByText('Private Player') resolved to 2 elements", "strict_mode_violation"],
+  ];
+  for (const [message, expected] of cases) {
+    assert.equal(signalFor(message).failureSignal, expected, message.slice(0, 40));
+  }
+});
+
+test("a spec that EXPECTS a 403 is not an auth failure", () => {
+  const msg = "expect(received).toBe(expected)\n\nExpected: 403\nReceived: 200";
+  assert.equal(signalFor(msg).failureSignal, "none");
+});
+
+test("failureSignal is always inside the declared vocabulary and absent on passes", () => {
+  const { report } = withReporter((r) => {
+    r.onTestEnd(fakeTest("ok"), { status: "passed", duration: 1, errors: [], annotations: [] });
+    r.onTestEnd(fakeTest("to"), { status: "timedOut", duration: 180000, errors: [], annotations: [] });
+    r.onEnd({ status: "failed" });
+  });
+  assert.equal("failureSignal" in report.tests[0], false);
+  assert.ok(SIGNAL_NAMES.includes(report.tests[1].failureSignal));
+  assert.equal(report.tests[1].startedAt, null); // unknown is null, never fabricated
+});
+
+test("startedAt is a UTC ISO instant when Playwright supplies one", () => {
+  assert.equal(signalFor("expect(a).toBe(b)").startedAt, "2026-10-21T07:50:07.000Z");
 });
