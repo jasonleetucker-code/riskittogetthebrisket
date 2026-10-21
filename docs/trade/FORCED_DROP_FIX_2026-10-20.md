@@ -245,7 +245,8 @@ switch `SELECTION_MODE` to `roster_rational` before activation.
 `src/api/feature_flags.py::forced_drop_cheapest_legal`, default `False`, gate status `LIVE`. With it OFF no new field
 is emitted and every path is the incumbent: `tests/trade/test_forced_drop_flag_off_identity.py` compares the
 flag-OFF output (default and explicit `0`) byte-for-byte with a corpus generated on `e1eff9f5f` before any code
-change (`tests/fixtures/forced_drop_flag_off_reference.json`: 32 capacity blocks in full, sha256 of 16 simulate, 16
+change (re-recorded 2026-10-21 on pure `main@7f35463ef`, which still lacks this fix, after train 17 moved the 16 War
+Room digests; the capacity, simulate and Finder digests did not move) (`tests/fixtures/forced_drop_flag_off_reference.json`: 32 capacity blocks in full, sha256 of 16 simulate, 16
 War Room and 2 Finder payloads), and requires flag ON to change all three. The identity test is unchanged by the
 review fixes and still passes. Enable: `RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL=1` + restart. Rollback: `=0` (or
 unset) + restart. The selection mode (§3a) is a code constant, `SELECTION_MODE`, read only when the flag is ON.
