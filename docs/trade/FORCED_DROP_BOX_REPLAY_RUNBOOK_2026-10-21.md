@@ -57,8 +57,8 @@ scarcity and Component B ... must report the currency anomaly in BOTH directions
 
 | pin | value |
 |---|---|
-| Code under test | PR #1890 head **`<FINAL_PR_HEAD_SHA>`** (filled by the coordinator). The hashes below were refreshed on 2026-10-21 for the V5-R default (owner decision): `forced_drop_selection.py` and `forced_drop_fix_replay.py` changed, and the earlier `roster_capacity.py` pin was already stale at `dfe4345b6`, which changed that file after `557338a22` — the box must be running a deployment of this tree (the flag is OFF by default, so the PR can be merged and deployed dormant first). `--expect-code-sha` is the **deployed** commit: **`<DEPLOYED_SHA>`** (the merge commit if the PR is squash-merged, otherwise the PR head). |
-| Script files (sha256 at `<FINAL_PR_HEAD_SHA>`) | `scripts/forced_drop_fix_replay.py` `92176ce07479008623b6e40ea487f94f37306aa87e31473e7a2761bdfe56505c`; `scripts/forced_drop_box_support.py` `4841ac8b241c43571cd0551c93bfd711dbcfec5213dc66bef66ddbfe02c67478`; `scripts/research_readonly_guard.py` `5c208fe8ee187d78ef7173330efc795a621b970f1ba69ff416c9edf836bc6f18`; `src/trade/forced_drop_selection.py` `eaa1ee4059850fb6db01e2ba8c498d780f1c1ef8c63a4f663fabaf791676d966`; `src/trade/roster_capacity.py` `ea2f65645411bc5b3b2bd4f38036071a446d75a764ebc1e00e1dce825d231c3e`; `src/trade/trade_decision.py` `325ed03514351a486e25daa5b8442f09f91d889ece58c84b9b179e745e661794`; `src/trade/analyze_trade.py` `6a3935bb66b41ca34e281bf85006397968c0a45ffb8384857081e4db44db776e` |
+| Code under test | The dormant merges of PR #1890 **and** its follow-up (the V5-R tie-break and the replay census additions, 2026-10-21), deployed with the flag OFF. `<DORMANT_MERGE_SHA>` is the follow-up's merge commit; the box's `HEAD` must contain it (§3 step 0). The file hashes below are the real code pin. They are LF content hashes (`git show <sha>:<path> \| sha256sum`), which is what a Linux checkout has; never hash a `core.autocrlf=true` working tree. |
+| Script files | the seven LF content hashes in §3 step 0, taken from the follow-up PR's tree. A squash merge does not change file content, so they hold for the merge commit. The coordinator re-checks them against `<DORMANT_MERGE_SHA>` before the run |
 | Archive | `exports/archive/dynasty_export_20261020_052241.zip` — file sha256 `f660098f3c68eee3be24790d7674bd263616d4c97d330e92c24ed77d5dd6078e`; JSON member `dynasty_data_2026-10-20.json` sha256 `8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a` |
 | CSV tree | revision `d5236546ff4df9294b6cf99c6b93e8db57e6ff36` (`CSVs`, `data/scrape_state`, `config/weights`), content sha256 `31687c60b2adc9f347eb58c8da2e15a1198a264d3b98200b1db3fa5f2345bd54` |
 | Built board | `eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833` (1,003 priced assets; `fairness_bands_v2`, `geom_q078_v1`) |
@@ -73,22 +73,31 @@ Run as the service user, from a shell where nothing else is deploying. All paths
 deployed application directory (the value the service uses for `RISKIT_APP_DIR` / its working directory), `PY` the
 interpreter the service uses (see `ExecStart` in its unit file).
 
+**Run window (review 2026-10-21).** `deploy/deploy.sh` checks out a new revision on every deploy, including
+data-refresh deploys, so `HEAD` moves often. Do not merge to `main` during the window. Read `HEAD` once, immediately
+before the run, and again immediately after: both must equal `CODE_SHA`, otherwise the run is void. The seven file
+hashes are the real code pin; `HEAD` only proves nothing moved mid-run.
+
 ```bash
 set -euo pipefail
-APP=<application directory>            # deployed tree, commit = <DEPLOYED_SHA>
+APP=<application directory>            # deployed tree
 PY=<service interpreter>
-CODE_SHA=<DEPLOYED_SHA>
+CODE_SHA=$(git -C "$APP" rev-parse HEAD)   # read ONCE, right now; it must contain <DORMANT_MERGE_SHA>
 CSV_REV=d5236546ff4df9294b6cf99c6b93e8db57e6ff36
 ARCHIVE=exports/archive/dynasty_export_20261020_052241.zip
 
 # 0. Preconditions (read-only).
-test "$(git -C "$APP" rev-parse HEAD)" = "$CODE_SHA"
+git -C "$APP" merge-base --is-ancestor <DORMANT_MERGE_SHA> "$CODE_SHA"      # the dormant merge is deployed
+test -z "$(git -C "$APP" status --porcelain --untracked-files=no -- src scripts config)"
+if grep -qi FORCED_DROP "$APP/.env" 2>/dev/null    || systemctl show dynasty.service -p Environment | grep -qi FORCED_DROP; then
+  echo "forced-drop flag set in the service environment: STOP"; exit 1
+fi
 (cd "$APP" && sha256sum --check - <<'EOF'
-92176ce07479008623b6e40ea487f94f37306aa87e31473e7a2761bdfe56505c  scripts/forced_drop_fix_replay.py
+fbfc6100547291598edfb23d38cdd272c265ee2de59a050d7f3c99e615d96d9b  scripts/forced_drop_fix_replay.py
 4841ac8b241c43571cd0551c93bfd711dbcfec5213dc66bef66ddbfe02c67478  scripts/forced_drop_box_support.py
 5c208fe8ee187d78ef7173330efc795a621b970f1ba69ff416c9edf836bc6f18  scripts/research_readonly_guard.py
-eaa1ee4059850fb6db01e2ba8c498d780f1c1ef8c63a4f663fabaf791676d966  src/trade/forced_drop_selection.py
-ea2f65645411bc5b3b2bd4f38036071a446d75a764ebc1e00e1dce825d231c3e  src/trade/roster_capacity.py
+57da58e71a4bf10a99228b66daf9c88fcbde0d7aa40af1de83ee2af4e4716532  src/trade/forced_drop_selection.py
+c03a1b0e3a91ca3dbcdc09c6de7e26f5c02e987eed573bd8fad289136ccdb065  src/trade/roster_capacity.py
 325ed03514351a486e25daa5b8442f09f91d889ece58c84b9b179e745e661794  src/trade/trade_decision.py
 6a3935bb66b41ca34e281bf85006397968c0a45ffb8384857081e4db44db776e  src/trade/analyze_trade.py
 f660098f3c68eee3be24790d7674bd263616d4c97d330e92c24ed77d5dd6078e  exports/archive/dynasty_export_20261020_052241.zip
@@ -98,36 +107,74 @@ EOF
 # 1. A private scratch tree OUTSIDE the application directory, and an output directory.
 WORK=$(mktemp -d /var/tmp/fdr-box-XXXXXX)          # 0700 by mktemp
 mkdir "$WORK/csvtree" "$WORK/out"
-git -C "$APP" archive "$CSV_REV" CSVs data/scrape_state config/weights | tar -x -C "$WORK/csvtree"
-#    (git archive only READS the repository. If the box has no object for $CSV_REV, copy the tree from a
-#     workstation instead and let the run's CSV-tree sha256 pin prove it is the same tree.)
+#    $CSV_REV is a branch commit, not reachable from main, so a gc on the box can prune it.  Check now; if it
+#    is gone, materialise the tree on a workstation with `git -c core.autocrlf=false archive $CSV_REV CSVs
+#    data/scrape_state config/weights` and copy it into "$WORK/csvtree".  Either way the run's own
+#    --csv-tree-sha256 pin is what proves it is the same tree.
+if [ "$(git -C "$APP" cat-file -t "$CSV_REV" 2>/dev/null)" = commit ]; then
+  git -C "$APP" archive "$CSV_REV" CSVs data/scrape_state config/weights | tar -x -C "$WORK/csvtree"
+else
+  echo "no object for CSV_REV on the box: copy the materialised tree into $WORK/csvtree, then continue"; exit 1
+fi
+
+# 1b. Live inputs the report cannot pin (scarcity and Component B read the box's own data/).
+#     Hashes and counts only, before and after.  No BDVM projections = Component B cannot vote = STOP.
+live_inputs() {
+  echo "ros_aggregate_sha256 $(sha256sum "$APP/data/ros/aggregate/latest.json" | cut -d' ' -f1)"
+  echo "bdvm_projection_files $(find "$APP/data/bdvm/projections" -type f | wc -l)"
+  find "$APP/data/bdvm/projections" -type f -printf '%s %TY-%Tm-%TdT%TH:%TM
+' | sort
+}
+test "$(find "$APP/data/bdvm/projections" -type f | wc -l)" -gt 0 || { echo "no BDVM projections: STOP"; exit 1; }
+live_inputs > "$WORK/out/live_inputs_before.txt"
 
 # 2. The guard's own refusals, no application code imported: exits 0 and prints one JSON line in which
 #    writeOutsideScratch, mkdirOutsideScratch, networkConnect, subprocess and sqliteReadWrite are all "refused"
 #    and writeInsideScratch is "allowed". Anything else: stop.
 RISKIT_APP_DIR="$APP" "$PY" "$APP/scripts/forced_drop_fix_replay.py" --box --box-selftest
 
-# 3. The replay (a non-zero exit is reported, not fatal to the shell, so the exit code is printed). nice, a wall-clock timeout, a 4 GiB address-space cap inside the process, single-threaded BLAS.
+COMMON=(--box --archive "$ARCHIVE"
+  --archive-sha256 f660098f3c68eee3be24790d7674bd263616d4c97d330e92c24ed77d5dd6078e
+  --expect-member-sha256 8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a
+  --csv-root "$WORK/csvtree" --csv-rev "$CSV_REV"
+  --csv-tree-sha256 31687c60b2adc9f347eb58c8da2e15a1198a264d3b98200b1db3fa5f2345bd54
+  --expect-code-sha "$CODE_SHA"
+  --expect-board-sha256 eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833
+  --max-mem-gib 4)
 cd "$APP"
-env RISKIT_APP_DIR="$APP" PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
-  nice -n 10 timeout 7500 "$PY" scripts/forced_drop_fix_replay.py --box \
-    --archive "$ARCHIVE" \
-    --archive-sha256 f660098f3c68eee3be24790d7674bd263616d4c97d330e92c24ed77d5dd6078e \
-    --expect-member-sha256 8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a \
-    --csv-root "$WORK/csvtree" --csv-rev "$CSV_REV" \
-    --csv-tree-sha256 31687c60b2adc9f347eb58c8da2e15a1198a264d3b98200b1db3fa5f2345bd54 \
-    --expect-code-sha "$CODE_SHA" \
-    --expect-board-sha256 eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833 \
-    --max-mem-gib 4 --max-cpu-seconds 5400 --wall-seconds 7200 \
-  > "$WORK/out/forced_drop_box_replay.json" 2> "$WORK/out/stderr.txt" || RC=$?
+ENVV=(env RISKIT_APP_DIR="$APP" PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1)
+
+# 3a. MANDATORY rehearsal (same pins, small design).  The box-only paths (real scarcity, Component B through the
+#     guard) were never exercised off the box, so the full run is gated on this.
+"${ENVV[@]}" nice -n 10 timeout 1800 "$PY" scripts/forced_drop_fix_replay.py "${COMMON[@]}"   --war-room-opps 2 --census-per-shape 2 --skip-finder --max-cpu-seconds 1500 --wall-seconds 1700   > "$WORK/out/rehearsal.json" 2> "$WORK/out/rehearsal.err" || { echo "rehearsal exit=$?: STOP"; exit 1; }
+"$PY" -I - "$WORK/out/rehearsal.json" <<'EOF'
+import json, sys
+r = json.load(open(sys.argv[1]))
+assert r["provenance"]["pinsMatch"] is True, "pins"
+s = r["scarcityObserved"]
+assert s["inert"] is False and 0.85 <= s["min"] <= s["max"] <= 1.15, ("scarcity", s)
+assert r["readOnlyGuard"]["refusedWriteOrProcessAttempts"] == 0, "guard"
+b = r["componentBCensus"]["componentBState"]["off"]
+assert b.get("B available", 0) > 0, ("component B", b)
+print("rehearsal gate OK")
+EOF
+
+# 3b. The full run (a non-zero exit is reported, not fatal to the shell, so the exit code is printed).
+"${ENVV[@]}" nice -n 10 timeout 7500 "$PY" scripts/forced_drop_fix_replay.py "${COMMON[@]}"   --max-cpu-seconds 5400 --wall-seconds 7200   > "$WORK/out/forced_drop_box_replay.json" 2> "$WORK/out/stderr.txt" || RC=$?
 echo "exit=${RC:-0}"
+
+# 3c. Nothing moved during the run.
+test "$(git -C "$APP" rev-parse HEAD)" = "$CODE_SHA" || echo "HEAD moved during the run: VOID"
+live_inputs > "$WORK/out/live_inputs_after.txt"
+cmp -s "$WORK/out/live_inputs_before.txt" "$WORK/out/live_inputs_after.txt" || echo "live inputs changed during the run: VOID"
+sha256sum "$WORK/out/forced_drop_box_replay.json" "$WORK/out/live_inputs_before.txt"
 ```
 
 * **Expected duration.** Several times the local ~5 minutes (about 8 – 15 minutes on a development machine for these designs without Component B; allow up to 40 minutes on the box): the real Component B lens, the
   Component B census and the stress census each re-decide the census trades. The caps are 90 minutes of CPU and 120
   of wall clock; exceeding the wall-clock or memory cap stops the run (exit 5) and nothing is printed; a CPU-cap kill (SIGXCPU) ends the process by signal instead, also with nothing printed.
-* **Optional smaller run** (to rehearse, same pins): add `--war-room-opps 2 --census-per-shape 2 --skip-finder`. Its
-  numbers are not comparable with §5; the exit code, the pins and `readOnlyGuard` are.
+* **The rehearsal (step 3a) is mandatory**, not optional. Its numbers are not comparable with §5; the exit code, the
+  pins, `readOnlyGuard`, `scarcityObserved` and the Component B state are, and they gate the full run.
 * **Exit codes:** `0` ok · `2` an input pin or argument was refused (stderr names the pin and prints the observed
   digests; nothing measured) · `3` the guard refused a write or process start · `4` the report was refused as not
   aggregate-only (stderr names the path, never the value; nothing printed) · `5` a resource cap stopped the run.
@@ -140,8 +187,9 @@ echo "exit=${RC:-0}"
 2. `sha256sum "$WORK/out/forced_drop_box_replay.json"` — send the digest to the coordinator with the file.
 3. Check the file locally is **only** aggregates: `python3 -c "import json;json.load(open(f))"`; the in-run check has
    already refused anything else, so this is a second look, not the safeguard.
-4. Hand the single file `forced_drop_box_replay.json` to the coordinator (not the scratch tree, not stderr unless
-   non-empty).
+4. Hand over exactly three files, `forced_drop_box_replay.json`, `live_inputs_before.txt` and
+   `live_inputs_after.txt` (hashes and counts only), plus the two VOID lines if either printed. Not the scratch
+   tree, and not stderr unless it is non-empty.
 5. Clean up: `rm -rf "$WORK"` (the scratch directory the guard created under it is already deleted at exit).
 6. Do not copy anything else off the box: no `data/`, no rosters, no logs.
 7. Do not re-run to "fix" a number. A different result on a re-run is a finding, not noise.
@@ -183,15 +231,33 @@ Paths are into `forced_drop_box_replay.json`. "Local" is the committed `replay.j
 | `readOnlyGuard.refusedNetworkAttempts` | — | — | the contract build's Sleeper lookups (3 per board build); expected |
 | `peakRssMb`, `resourceCaps`, `elapsedSec` | — | — | recorded |
 
+### 5a. Added 2026-10-21 (review follow-up): the informative V5-R measures
+
+V5-R's forward and reverse anomaly counts are 0 **by construction** (its cut set minimises `sum c`), so they prove
+nothing about V5-R. These fields are what carry information about the mode choice:
+
+| field | what it answers |
+|---|---|
+| `warRoom.v5VsRosterRationalRegret` · `census.v5VsRosterRationalRegret` | `assetValueRegretV5MinusV5R` (asset value V5 gives up that V5-R keeps), `chargeRegretV5RMinusV5` (the extra charge V5-R pays) and `chargeRegretPctOfBandBase` (that extra as a share of the band base), each with `negativeDefect`, which must be 0; `incomingChargedAboveOwnC` per mode; `tieCensusV5R` (how often an exact tie decided the cut, now always by the lower charge, and the charge spread it would otherwise have cost) |
+| `componentBCensus.interplay.V5-R` | `favourableWithAOnly` → `favourableLostWhenBVotes` (A-only favourable verdicts that are no longer favourable once Component B votes); `cutChangedWithBAvailable` and the lineup ppg change of the ON cut against the OFF cut (`onCutLowersLineupPpg`, with its distribution) |
+| `singleSourceStress.categoryDistribution` (`V5-R` columns) | the favourable count when the cheap single-source tail is treated as unpriced, for V5-R as well as V5 |
+| `unpricedRosterCensus` | rostered players the board does not price, by position, and teams at the cap that hold one: the dead-roster-spot question behind the evidence-gate lifts |
+
 ## 6. What would make the owner stop
 
 Stop (do not activate the flag; send the finding to the coordinator) if any of these is true:
 
-1. **Any reverse anomaly** (`reverseCurrencyAnomalies > 0`) in either mode, in any design. V5-R's reverse count is 0 by
-   construction, so a non-zero V5-R value is an implementation defect; a non-zero V5 value is the real-scarcity currency
-   problem the local replay could not see (record §3a). Either way the selection mode needs a new decision.
-2. **A forward anomaly in V5-R** (`currencyAnomalies > 0` under `analyzeVerdictsRosterRational` / `census.rosterRational`):
-   by construction 0.
+1. **A regret with the wrong sign** (`negativeDefect > 0` anywhere in `v5VsRosterRationalRegret`), or any V5-R
+   anomaly at all, forward or reverse. These are 0 by construction for V5-R, so a non-zero value is an implementation
+   defect, not a finding. (A V5 reverse anomaly is informational: the review found 5 in 8,000 synthetic trades at
+   scarcity below 1.)
+2. **V5-R's extra charge is large against the band base**: `chargeRegretPctOfBandBase.p90` well above the local
+   figure. The mode choice was made on the local evidence, so a much larger regret with real scarcity sends it back to
+   the owner. Separately, `tieCensusV5R.resolvedBy.player_id_search_bound > 0` means an exact tie could not be
+   searched; report it.
+2a. **Component B overturns the A-driven result**: a material share of `favourableWithAOnlyAndBAvailable` lost in
+   `favourableLostWhenBVotes`, or the ON cut lowering lineup ppg on most `cutChangedWithBAvailable` trades. That is the
+   owner's own stop condition.
 3. **The flag raises a charge at or under the cap** (`census.chargeDeltaByKind` has an `atOrUnderCap:up`, or
    `warRoomChargeShift.*.up > 0`).
 4. **Category changes that depend on the single-source tail.** If `singleSourceStress` shows the ON verdicts collapsing

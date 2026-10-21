@@ -1229,6 +1229,79 @@ def test_unknown_selection_mode_is_refused():
         )  # fmt: skip
 
 
+def _v5r(existing, incoming, package, *, d=1, slots=(), waiver=None):
+    return fds.select_forced_drops(
+        existing, incoming, [a.player_id for a in incoming], drops_needed=d,
+        starter_slots=list(slots), waiver_values=waiver or {"WR": 300.0, "RB": 300.0},
+        scarcity=None, slot_eligibility=None, package=package, mode=fds.MODE_ROSTER_RATIONAL,
+    )  # fmt: skip
+
+
+@pytest.mark.parametrize("existing_id", ["a_rostered", "z_rostered"])
+def test_v5r_exact_value_tie_is_broken_by_charge_not_player_id(existing_id):
+    """Review finding (2026-10-21): an existing player and a just-acquired
+    second piece with the SAME c.  The ladder alone broke the tie by player id,
+    so the charge was the incoming piece's credit (below its c) or the existing
+    player's full c, depending only on the ids, while the final rosters were
+    identical.  V5-R now chooses the lower charge whichever id sorts first."""
+    existing = [_asset("keeper", 6000.0), _asset(existing_id, 1000.0)]
+    incoming = [_asset("main", 5000.0), _asset("x_piece", 1000.0)]
+    package = fds.PackageSides(sending=(5500.0,), receiving=(("main", 5000.0), ("x_piece", 1000.0)))
+    sel = _v5r(existing, incoming, package)
+    credit = package.gap() - package.gap({"x_piece": 1})
+    assert credit < 1000.0  # the depth discount: a second piece is credited below c
+    (drop,) = sel.drops
+    assert drop.asset.player_id == "x_piece" and drop.acquired
+    assert drop.charge == pytest.approx(credit)
+    assert sel.tie_break == {
+        "tiedMinimumSets": 2,
+        "chargeSpread": round(1000.0 - credit, 1),
+        "resolvedBy": "lowest_charge",
+    }
+
+
+def test_v5r_tie_between_existing_players_only_publishes_nothing():
+    """Two EXISTING players tied on c charge the same either way, so the id
+    order changes who is named but never the charge; nothing is published."""
+    existing = [_asset("keeper", 6000.0), _asset("e_a", 700.0), _asset("e_b", 700.0)]
+    incoming = [_asset("main", 5000.0)]
+    package = fds.PackageSides(sending=(5500.0,), receiving=(("main", 5000.0),))
+    sel = _v5r(existing, incoming, package)
+    (drop,) = sel.drops
+    assert drop.charge == 700.0 and not drop.acquired
+    assert sel.tie_break is None
+
+
+@pytest.mark.parametrize("seed", range(60))
+def test_v5r_charge_does_not_depend_on_player_ids(seed):
+    """Property: relabelling every player (the ids, which the ladder uses to
+    break exact ties) never changes V5-R's minimum sum c or its charge.  Values
+    are drawn from a small integer set so exact ties are common."""
+    rng = random.Random(seed)
+    vals = [400.0, 700.0, 700.0, 1000.0, 1000.0, 1500.0]
+    pos = ["WR", "RB"]
+    ex = [(rng.choice(vals), rng.choice(pos)) for _ in range(rng.randint(3, 6))]
+    inc = [(rng.choice([5000.0, 3000.0]), "WR")] + [
+        (rng.choice(vals), rng.choice(pos)) for _ in range(rng.randint(1, 3))
+    ]
+    d = rng.randint(1, min(3, len(inc)))
+    slots = rng.choice([(), ("WR", "RB"), ("WR", "WR", "RB")])
+
+    def run(prefix_ex, prefix_in):
+        existing = [_asset(f"{prefix_ex}{i}", v, p) for i, (v, p) in enumerate(ex)]
+        incoming = [_asset(f"{prefix_in}{i}", v, p) for i, (v, p) in enumerate(inc)]
+        package = fds.PackageSides(
+            sending=(5500.0,), receiving=tuple((a.player_id, a.board_value) for a in incoming)
+        )
+        sel = _v5r(existing, incoming, package, d=d, slots=slots)
+        sum_c = sum((a.board_value or 0.0) for a in (s.asset for s in sel.drops))
+        return round(sum_c, 6), round(sel.total, 6), len(sel.drops)
+
+    a = run("a", "z")
+    b = run("z", "a")
+    assert a == b
+
+
 def test_default_mode_is_roster_rational():
     """Owner decision 2026-10-21 (LVA Package 1): V5-R is the selection mode.
     Changing this is an owner decision, not a refactor."""

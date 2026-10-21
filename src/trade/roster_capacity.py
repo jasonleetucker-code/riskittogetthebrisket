@@ -372,6 +372,11 @@ class RosterCapacity:
     #: (kept side empty, or the KTC rollback package model) — ``{"reasons",
     #: "rawCredit", "charged"}``; ``None`` when the raw credit was charged.
     package_credit_clamp: dict[str, Any] | None = None
+    #: Flag ``forced_drop_cheapest_legal``, V5-R only: set when an exact
+    #: release-value tie between cut sets was resolved by the lower charge (or,
+    #: past the search bound, by player id).  See
+    #: ``forced_drop_selection.Selection.tie_break``.  ``None`` otherwise.
+    selection_tie_break: dict[str, Any] | None = None
 
     @property
     def requires_drops(self) -> bool | None:
@@ -474,6 +479,7 @@ class RosterCapacity:
                 "searchBound": fds.MAX_PACKAGE_SUBSETS,
                 "searchBoundExceeded": self.search_bound_exceeded,
                 "packageCreditClamp": self.package_credit_clamp,
+                "tieBreak": self.selection_tie_break,
                 "preTradeCleanupCost": (
                     None
                     if self.pre_trade_cleanup_cost is None
@@ -1904,6 +1910,7 @@ def _assess_selected(
         search_bound_exceeded=sel.search_bound_exceeded,
         taxi_bound_cleanup=taxi_bound,
         package_credit_clamp=sel.credit_clamp,
+        selection_tie_break=sel.tie_break,
         waiver_values_available=bool(context.waiver_values),
         **_pre_trade_fields(pre_sel),
     )
