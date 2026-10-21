@@ -10,6 +10,7 @@ import {
   Badge,
   Banner,
   Button,
+  Combobox,
   DataTable,
   Drawer,
   EmptyState,
@@ -105,6 +106,7 @@ function Swatch({ token, note, height = 56 }) {
 
 export default function DesignGallery() {
   const [segment, setSegment] = useState("7d");
+  const [comboTeam, setComboTeam] = useState(1);
   const [tab, setTab] = useState("tokens");
   const [density, setDensity] = useState("regular");
   const [modalOpen, setModalOpen] = useState(false);
@@ -289,6 +291,21 @@ export default function DesignGallery() {
                 ]}
               />
             </Field>
+            <div>
+              <p className={styles.demoLabel}>Combobox (searchable single-select, disabled options say why)</p>
+              <Combobox
+                label="Fixture team"
+                placeholder="Search teams"
+                value={comboTeam}
+                onChange={setComboTeam}
+                hint="Fixture options only."
+                options={[
+                  { value: 1, label: "Fixture Team One", description: "Manager A" },
+                  { value: 2, label: "Fixture Team Two", description: "Manager B" },
+                  { value: 3, label: "Fixture Team Three", description: "Manager C", disabled: true, disabledReason: "in trade" },
+                ]}
+              />
+            </div>
             <div>
               <p className={styles.demoLabel}>SegmentedControl (radiogroup, arrow keys)</p>
               <SegmentedControl

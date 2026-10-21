@@ -117,6 +117,7 @@ webkit `mobile-390` / `mobile-430` projects, which need
 | `E2E_FRONTEND_CMD` | Override the frontend `webServer` command (default: production build + start) |
 | `E2E_CHROMIUM_PATH` | Launch a pre-installed Chromium binary instead of the revision-pinned download (sandboxes / air-gapped runners) |
 | `SKIP_VISUAL_REGRESSION=1` | Skip the two visual-regression specs entirely |
+| `E2E_ADVISOR_E2E=1` | Register the Brisket Trade Advisor flows that need a stack SERVING the advisor (`league-trade-advisor.spec.js` beyond "landing", all of `advisor-e2e-keyboard-a11y.spec.js`).  Unset, they are not registered at all — never skipped — because no CI stack can serve the advisor: its launch gate needs owner-reserved inputs.  Set, a stack that does not serve the advisor FAILS them.  Serve it only from a throwaway local process (flag on, gate opened in-process), never a committed config change |
 
 ## Spec inventory
 

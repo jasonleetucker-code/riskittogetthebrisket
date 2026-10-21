@@ -125,6 +125,12 @@ const BUDGETS_KB = {
   // KB. Held close so a future `import XSection from "./sections/…"`
   // — the easy mistake, since it looks like every other import — trips
   // CI instead of quietly putting all 21 back on the page.
+  // Brisket Trade Advisor (#1866): NOT raised.  Measured on the merge with
+  // main (2026-10-20): main 46.0 KB, main + advisor hub routing 47.6 KB.
+  // The advisor's own code is never on this chunk — the team step and the
+  // builder are separate chunks with their own gzip budgets in
+  // check-public-bundle-privacy.mjs, which also fails if advisor code
+  // lands here.
   "/league/page": 50,
   // Bumped 30→40 by the canonical Team Strength migration: measured
   // 25.0 KB before, 34.6 KB after. The page stopped SCORING teams in

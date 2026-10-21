@@ -99,6 +99,16 @@ function pageFileFor(route) {
   return null;
 }
 
+// A page may be a thin SERVER wrapper that only decides a prop and renders
+// a sibling client component (e.g. /league/activity, whose back-link href
+// is read on the server).  Its <h1> lives in that sibling, so the page's
+// source includes every `./<Name>Client.jsx` it imports.
+function pageSource(file) {
+  const src = fs.readFileSync(file, "utf8");
+  const siblings = [...src.matchAll(/^import\s+\w+\s+from\s+"\.\/(\w+Client\.jsx)";/gm)].map((m) => m[1]);
+  return [src, ...siblings.map((f) => fs.readFileSync(path.join(path.dirname(file), f), "utf8"))].join("\n");
+}
+
 describe("page title canon — mechanism", () => {
   it("ds/PageHeader renders its title as the page's single h1", () => {
     render(<DsPageHeader title="Trade Calculator" />);
@@ -141,7 +151,7 @@ describe("page title canon — wiring", () => {
     for (const route of staticTitleRoutes()) {
       const file = pageFileFor(route);
       if (!file) continue; // covered by the test above
-      const titles = pageHeaderTitles(fs.readFileSync(file, "utf8"));
+      const titles = pageHeaderTitles(pageSource(file));
       if (!titles.includes(CANON[route])) {
         wrong.push({ route, expected: CANON[route], found: titles });
       }
@@ -178,7 +188,7 @@ describe("page title canon — wiring", () => {
     for (const route of Object.keys(CANON)) {
       const file = pageFileFor(route);
       if (!file) continue;
-      const titles = pageHeaderTitles(fs.readFileSync(file, "utf8"));
+      const titles = pageHeaderTitles(pageSource(file));
       for (const t of titles) {
         if (retired.includes(t)) offenders.push({ route, title: t });
       }
