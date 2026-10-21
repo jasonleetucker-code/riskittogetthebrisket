@@ -34,12 +34,12 @@ run. The disclosure itself reads the market lens's own band, whatever version is
 
 | headline (current anchors, floor) | v1 (2026-10-20) | v2 (2026-10-21) |
 |---|---:|---:|
-| A-guarded, filler-caused flips | 61.2% (of 9,273) | 60.4% (of 9,171) |
+| A-guarded, filler-caused flips (includes 1,097 pick-class flips that are 100% by construction; 55.0% without picks) | 61.2% (of 9,273) | 60.4% (of 9,171) |
 | A-guarded, filler "made fair" | 89.5% (of 399) | 91.6% (of 358) |
 | A-guarded, depth / starter sweeteners | 1.2% / 1.3% | 1.1% / 1.1% |
-| A-guarded, all-starter control | 0.0% | 0.0% |
+| A-guarded, all-starter control (a wiring check: a starter cannot be low-value, so it is 0.0% by construction) | 0.0% | 0.0% |
 | A-guarded, unsweetened base trades | 20.5% | 21.1% |
-| A-guarded, calculator sample (FAIR results) | 1.9% (429) | 1.6% (385) |
+| A-guarded, calculator sample (all 2,000 trades; FAIR-only rate 4.4% v1, 2.9% v2) | 1.9% (429) | 1.6% (385) |
 | A-guarded, own-league team sides | 5.3% | 4.5% |
 | A-guarded, War Room, 1 filler added | 57.8% | 57.8% |
 | public FAIR-only, made fair / calculator | 89.5% / 0.9% | 91.6% / 0.6% |
@@ -48,8 +48,8 @@ run. The disclosure itself reads the market lens's own band, whatever version is
 | canonical-dispatch parity: checked / band differs by rounding | 648,080 / 58 | 647,969 / 6 |
 
 **The recommendation is unchanged:** A-guarded with the floor threshold on private surfaces, and
-no public note (V4). Under v2 the A-guarded false-alarm rates and calculator exposure fall
-slightly and the all-starter control stays at 0.0%. The naive comparator fires less, but still on
+no public note (V4). Under v2 the calculator exposure and own-league rate fall slightly; the
+unsweetened-base false-alarm rate rose from 20.5% to 21.1%. The all-starter control is a wiring check (0.0% by construction). The naive comparator fires less, but still on
 8.6–11.8% of all-starter control trades and 36.1% of calculator trades, so it stays rejected. The
 privacy argument (§9) is structural and does not depend on the band version.
 
@@ -143,7 +143,7 @@ Under the prereg threshold (below the anchor, lineup starters excluded) it is 87
   - It is computed after the verdict, from the verdict's own inputs, and nothing reads it back.
 - **Never an override.**
   - It sits outside the verdict badge, in neutral "info" styling, and never uses verdict colours.
-  - Its copy states that the result above is unchanged and already counts the pieces in full.
+  - Its copy states that the result above is unchanged and already includes the pieces (under the package model an extra piece counts at a reduced weight, not in full).
 - **Never "worthless".**
   - The research found 143 sub-2,000 players who beat free replacement (§2). The market discount
     is a general extra-piece convention, not a filler-specific fact (§7.3).
@@ -370,9 +370,9 @@ already lists.
 
 | copy key | when | text |
 |---|---|---|
-| `private.depth.you_receive` | the viewing team's received package fired | `Part of your side of this result comes from lower-value depth ({pieces}). It counts in full here, but trade partners often give depth like this less credit than its listed value.` |
-| `private.depth.you_send` | the partner's received package fired (pieces the viewer would send) | `Part of the other side of this result comes from lower-value depth you would send ({pieces}). It counts in full here, but a trade partner may give depth like this less credit than its listed value.` |
-| `private.depth.side` | calculator with no team perspective; `{side}` = "Side A" / "Side B" / the team name | `Part of {side}'s side of this result comes from lower-value depth ({pieces}). It counts in full here, but trade partners often give depth like this less credit than its listed value.` |
+| `private.depth.you_receive` | the viewing team's received package fired | `Part of your side of this result comes from lower-value depth ({pieces}). It is included in the result above, which is unchanged, but trade partners often give depth like this less credit than its listed value.` |
+| `private.depth.you_send` | the partner's received package fired (pieces the viewer would send) | `Part of the other side of this result comes from lower-value depth you would send ({pieces}). It is included in the result above, which is unchanged, but a trade partner may give depth like this less credit than its listed value.` |
+| `private.depth.side` | calculator with no team perspective; `{side}` = "Side A" / "Side B" / the team name | `Part of {side}'s side of this result comes from lower-value depth ({pieces}). It is included in the result above, which is unchanged, but trade partners often give depth like this less credit than its listed value.` |
 
 **War Room roster-context line.** Private only. It is appended to `private.depth.you_receive`
 when Team Context is ON and the roster-capacity block reports ≥ 1 forced drop for this trade.
@@ -385,14 +385,14 @@ when Team Context is ON and the roster-capacity block reports ≥ 1 forced drop 
 **Learn more** (`private.depth.learn_more`, expandable):
 
 > **What counts as lower-value depth?** A player valued below both the replacement level at his
-> position in this league (roughly, what is typically available on the waiver wire) and the
+> position in this league (roughly, the best player usually available without a trade) and the
 > lowest current starter at that position across the league's lineups. A draft pick counts when
 > it is valued below the league's general replacement level.
 >
 > **Why this note appears.** It appears only when removing these pieces would change this
 > side's fairness result. The values, the result and the fairness threshold shown above are
-> unchanged. Depth like this has real value: many of these players start in some weeks. In
-> real trades, though, managers tend to give extra pieces less credit than their listed value.
+> unchanged. Depth like this can still matter for injuries, bye weeks and roster flexibility. In
+> real trades, though, managers tend to give any extra piece less credit than its listed value.
 >
 > You can hide depth notes in Settings.
 
@@ -407,11 +407,11 @@ the exact text in front of them.
 
 **One-sentence explanation** (`public.depth.fair_with_depth`):
 
-> `Part of what this team receives is lower-value depth. It is counted in full in this result, but trade partners often give depth like this less credit.`
+> `Part of what this team receives is lower-value depth. It is included in this result, which is unchanged, but trade partners often give depth like this less credit.`
 
 **Learn more** (`public.depth.learn_more`):
 
-> `Lower-value depth is a player or pick that managers in this league can usually replace without a trade. These pieces still have real value and are counted in full. In real trades, managers often give extra pieces like these less credit than they are counted at here. This note is for information only and does not change the result above.`
+> `Lower-value depth is a player or pick that managers in this league can usually replace without a trade. These pieces still have real value and are included in the result. In real trades, managers often give extra pieces like these less credit than they are counted at here. This note is for information only and does not change the result above.`
 
 **The public copy deliberately says nothing about dependence.** It does not say the result
 "depends on" or "relies on" the pieces, because that is closeness wording. The trigger's
@@ -448,7 +448,7 @@ larger one, so the team that *receives* it is ahead.
 
 | # | trade (side A for side B) | GEOM_78 result | LVD pieces (floor) | private | public (owner option, not recommended) |
 |---|---|---|---|---|---|
-| 1 | Jalen Hurts (5,919) for Emeka Egbuka (5,197) + Isaiah Hodgins (897) | +22 **fair** | Hodgins | **shown** to the team receiving Egbuka + Hodgins: *"Part of your side of this result comes from lower-value depth (Isaiah Hodgins). It counts in full here, but trade partners often give depth like this less credit than its listed value."* To the team receiving Hurts: the *`you_send`* variant, naming Hodgins | **shown** on the team receiving Egbuka + Hodgins: FAIR FOR THIS TEAM + *"Part of what this team receives is lower-value depth. It is counted in full in this result, but trade partners often give depth like this less credit."* |
+| 1 | Jalen Hurts (5,919) for Emeka Egbuka (5,197) + Isaiah Hodgins (897) | +22 **fair** | Hodgins | **shown** to the team receiving Egbuka + Hodgins: *"Part of your side of this result comes from lower-value depth (Isaiah Hodgins). It is included in the result above, which is unchanged, but trade partners often give depth like this less credit than its listed value."* To the team receiving Hurts: the *`you_send`* variant, naming Hodgins | **shown** on the team receiving Egbuka + Hodgins: FAIR FOR THIS TEAM + *"Part of what this team receives is lower-value depth. It is included in this result, which is unchanged, but trade partners often give depth like this less credit."* |
 | 2 | Hurts for Egbuka + Hodgins, Frank Gore, Khalil Herbert, Mason Tipton (~900 each) | −1,300 **lopsided; favours the team receiving side B** (v1: unfair) | the four fillers | **shown** (`you_receive` names all four): without them the team receiving side B would be behind, so its "in favour" result depends on them | **not shown**: NOT FAIR, and a note could only reveal the lean |
 | 3 | Jahmyr Gibbs (9,864) for Bryce Young (5,493) + Tucker Kraft (5,439) | +129 fair | none | not shown (**the naive rule fires here under v2**) | not shown |
 | 4 | Garrett Wilson (6,472) for Jake Ferguson (3,529) + Travis Kelce (3,490) | +221 fair | none: Kelce is usable depth, far above the TE floor | not shown (**the naive rule fired here**) | not shown |
@@ -822,7 +822,7 @@ single bit".
 |---|---|---|
 | OD-1 | trigger rule | **A-guarded** (verdict dependence + guard); alternatives B (share ≥ 25%) and C (extra pieces) measured in §5 |
 | OD-2 | interim piece threshold | **floor** `min(R_pos, S_pos)`: anchor-robust, never flags a starter; prereg is more sensitive but anchor-sensitive. Disclosure: the floor was introduced in this workstream after the prereg threshold's anchor sensitivity was seen; it was not preregistered (§5.3) |
-| OD-3 | include picks (line `R_*`) | **yes**, on the strength of M2, which found the extra-piece discount strongest for picks (0.105 vs 0.174 for offense players at 1,000–2,499). Rule A's 100% on pick-class filler flips is **not** evidence: it is tautological, because `R_*` is the study's own pick filler line (§5.1) |
+| OD-3 | include picks (line `R_*`) | **an include-or-exclude choice with little measured effect**. The M2 contrast (0.105 vs 0.174) is a composition artifact of the 1,000–2,499 band mixing filler and usable picks; within picks the filler class (0.170) is about equal to offense players (0.174), and under the floor only 5 of 120 picks are low-value today (37 are UNKNOWN and quarantined). Recommend including them for consistency. Rule A's 100% on pick-class filler flips is **not** evidence: it is tautological, because `R_*` is the study's own pick filler line (§5.1) |
 | OD-4 | any public note | **no public note (V4)**. The FAIR-only public variant leaks the replacement anchors (R2, a per-asset oracle) and within-FAIR direction (R1), which the owner standard forbids; it is available only if the owner explicitly accepts both leaks. Rule C is the same oracle and is not an alternative (§9) |
 | OD-5 | default visibility | **V4** (§6): private shown by default with a per-user hide; no public note |
 | OD-6 | exact copy | §4 as written |
@@ -833,6 +833,15 @@ single bit".
 
 ## 11. Limits
 
+- **Independent-review additions (2026-10-21).**
+  - The `reproduction` block in the evidence JSON is `false` for the v1 flip counts because the board moved after the v1 study: Travis Hunter was 3,738 then and is 3,599 now (#1817). With his value set back to 3,738 the v1 counts reproduce exactly (reviewer's scratch check; not an option in the committed script).
+  - `board.codeSha` records the parent of the committed head, and the run came from an uncommitted tree.
+  - `incumbent.favours` in the worked examples uses the legacy 1% leader rule and labels FAIR results too; it is illustrative only.
+  - `S_pos` is a minimum over twelve lineups, so one thin roster sets the line, and the note is a cliff at a band edge: it can toggle as values refresh.
+  - A private user probing hypotheticals through a proposed `POST /api/trade/depth-disclosure` could recover `min(R_pos, S_pos)`. The inputs are already visible to private users; the route still needs auth, league membership and a rate limit.
+  - No fire-rate measurement exists for Trade Finder or Trade History; 85 of 217 own-league sides (39%) are not evaluable.
+  - Per-position replacement anchors for `dynasty_main` are printed in §2.1 of this public repository; the owner may prefer to redact them.
+
 - **One board and one league** (`dynasty_main`, 2026-10-20). Every population is exploratory: the
   synthetic flip study, the S5a calculator sample, own-league trades on today's values, and 45
   War Room samples.
@@ -841,8 +850,8 @@ single bit".
 - **Partly tautological sensitivity.** For rule A on the flip study's own filler, sensitivity is
   close to tautological under the prereg threshold, because the trigger asks the same
   counterfactual the study measures. The informative numbers are:
-  - the false-alarm rates;
-  - the starter-only control;
+  - the false-alarm rates (9.8% on non-flipping filler cases, 21.1% on base trades, 4.5% own-league; no user or outcome evidence);
+  - the starter-only control is only a wiring check and is vacuous for the recommended rule;
   - the realistic and own-league fire rates;
   - the anchor sensitivity.
 - **Unvalidated against users.** Whether the copy helps managers is not measured. G3–G4 measure
