@@ -26,7 +26,9 @@ from src.draft.rookie_pool import auction_rookie_keys
 from src.draft.waiver_population import (
     HEALTH_APPLIED,
     HEALTH_EVIDENCE_UNAVAILABLE,
+    HEALTH_EXCLUDING_REASONS,
     HEALTH_NOT_APPLICABLE,
+    LENS_BANDED_NO_HEALTH,
     LENS_DYNASTY_SHADOW,
     LENS_THIS_SEASON,
     POPULATION_RULE,
@@ -143,8 +145,11 @@ def test_nothing_in_production_imports_the_population_builder_yet():
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == "src.draft.waiver_population":
                 importers.append(path.relative_to(REPO).as_posix())
-            elif isinstance(node, ast.ImportFrom) and node.module == "src.draft":
-                if any(a.name == "waiver_population" for a in node.names):
+            elif isinstance(node, ast.ImportFrom) and (
+                node.module in ("src.draft", "waiver_population", None) or node.level
+            ):
+                named = {a.name for a in node.names} | {node.module or ""}
+                if "waiver_population" in named:
                     importers.append(path.relative_to(REPO).as_posix())
             elif isinstance(node, ast.Import):
                 if any(a.name == "src.draft.waiver_population" for a in node.names):
@@ -298,11 +303,14 @@ def test_add_pool_gates_are_the_waiver_owners():
 
 def test_rookie_window_is_injected_not_read_from_the_clock(monkeypatch):
     import src.trade.suggestions as suggestions
+    import src.trade.waiver as waiver
 
     def _boom(*_a, **_k):
         raise AssertionError("the builder read the rookie window from the clock")
 
+    # Both bindings: waiver.py holds its own reference from import time.
     monkeypatch.setattr(suggestions, "_rookies_eligible_today", _boom)
+    monkeypatch.setattr(waiver, "_rookies_eligible_today", _boom)
     pop = build([prow("rook", "WR", 2000, rookie=True)], leg=None, rookies_eligible=False)
     assert pop.add_pool_rows == ()
 
@@ -561,7 +569,10 @@ def test_load_health_evidence_is_disk_only_and_fails_closed(tmp_path, monkeypatc
 def test_lens_a_is_served_lens_b_is_a_named_shadow():
     rows = [prow("out", "DB", 2400), prow("ok", "DB", 2000)]
     pop = build(rows, meta_by_id={"out": meta(status="Out"), "ok": meta()})
+    assert pop.served_lens == LENS_THIS_SEASON
     assert ids(pop.rows_for_lens(LENS_THIS_SEASON)) == ["ok"]
+    with pytest.raises(LookupError):
+        pop.rows_for_lens(LENS_BANDED_NO_HEALTH)
     assert ids(pop.rows_for_lens(LENS_DYNASTY_SHADOW)) == ["out", "ok"]
     with pytest.raises(ValueError):
         pop.rows_for_lens("best_unrostered")
@@ -591,3 +602,107 @@ def test_the_builder_does_not_mutate_its_inputs():
     )
     assert json.dumps(contract, sort_keys=True) == snapshot
     assert json.dumps(metas, sort_keys=True) == meta_snapshot
+
+
+@pytest.mark.parametrize(
+    "leg,meta_by_id",
+    [(None, {"out": {"team": "KC", "injury_status": "Out"}}), (7, None)],
+    ids=["not_applicable", "evidence_unavailable"],
+)
+def test_a_health_free_population_never_carries_lens_a(leg, meta_by_id):
+    """Design F4: when health did not run, the served rows are the banded,
+    health-free population under their own label, never lens A's."""
+    pop = build([prow("out", "DB", 2400), prow("ok", "DB", 2000)], leg=leg, meta_by_id=meta_by_id)
+    assert pop.served_lens == LENS_BANDED_NO_HEALTH
+    assert pop.provenance()["lens"] == LENS_BANDED_NO_HEALTH
+    assert ids(pop.rows_for_lens(LENS_BANDED_NO_HEALTH)) == ["out", "ok"]
+    with pytest.raises(LookupError):
+        pop.rows_for_lens(LENS_THIS_SEASON)
+
+
+def test_the_excluding_reasons_are_exactly_the_owners_out_codes():
+    """F4c: an enumerated allowlist.  If the availability owner gains or
+    loses an OUT-type code, this fails and the change is reviewed here."""
+    from src.ros import availability as av
+
+    host_out = {f"host_designation_{c.lower()}" for c in av._HOST_OUT}
+    assert HEALTH_EXCLUDING_REASONS == host_out | {
+        "expected_return_after_game",
+        "expected_return_after_season",
+    }
+
+
+@pytest.mark.parametrize("code", ["Out", "IR", "PUP", "NA", "Sus", "DNR", "COV"])
+def test_every_current_week_out_designation_excludes(code):
+    rows = [prow("x", "LB", 2000), prow("ok", "LB", 1500)]
+    pop = build(rows, meta_by_id={"x": meta(status=code), "ok": meta()})
+    assert ids(pop.rows) == ["ok"], code
+
+
+def test_an_unreviewed_unavailable_reason_keeps_the_player_and_is_reported(monkeypatch):
+    import src.ros.availability as av
+
+    real = av.player_week_states
+
+    def fake(pid, meta_, ctx):
+        out = real(pid, meta_, ctx)
+        if pid == "x":
+            out = {wk: av.WeekState(av.UNAVAILABLE, "host_designation_newcode") for wk in out}
+        return out
+
+    monkeypatch.setattr(av, "player_week_states", fake)
+    pop = build([prow("x", "LB", 2000)], meta_by_id={"x": meta()})
+    assert ids(pop.rows) == ["x"]
+    assert pop.health["unavailableKept"] == {"host_designation_newcode": 1}
+
+
+def test_a_context_without_a_recorded_week_source_is_not_applicable():
+    from dataclasses import replace
+
+    ctx = replace(ctx_for(7), basis={})
+    assert health_applicability(ctx, as_of=date(2026, 10, 21)) == (
+        False,
+        "current_week_not_from_league",
+    )
+
+
+def test_the_health_loader_is_asked_once_for_exactly_the_add_pool_ids():
+    calls = []
+
+    def loader(player_ids):
+        calls.append(list(player_ids))
+        return HealthEvidence({"a": meta(), "c": meta(status="Out")})
+
+    rows = [prow("a", "WR", 2000), prow("b", "WR", 2100, sources=1), prow("c", "WR", 1900)]
+    pop = build_waiver_population(
+        contract_of(rows),
+        (),
+        rookies_eligible=True,
+        availability=ctx_for(7),
+        health_loader=loader,
+        as_of=date(2026, 10, 21),
+    )
+    assert calls == [["a", "c"]]  # "b" is single-source: not in the add pool
+    assert ids(pop.rows) == ["a"]
+
+    calls.clear()
+    off = build_waiver_population(
+        contract_of(rows),
+        (),
+        rookies_eligible=True,
+        availability=ctx_for(None),
+        health_loader=loader,
+    )
+    assert calls == [] and off.health["state"] == HEALTH_NOT_APPLICABLE
+
+
+def test_load_health_evidence_strips_ids(tmp_path, monkeypatch):
+    import src.ros.game_day_live as gdl
+
+    _forbid_network(monkeypatch)
+    db = tmp_path / "players.json"
+    monkeypatch.setattr(gdl, "_players_db_path", lambda: db)
+    monkeypatch.setattr(gdl, "_players_db_cache", {})
+    _write_players_db(db, "2027-01-15T07:59:00+00:00", {"a": meta()})
+    ev = load_health_evidence([" a "], now=1_800_000_000.0)
+    assert ev.players_meta is not None

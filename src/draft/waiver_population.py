@@ -41,16 +41,21 @@ The four steps, each delegated (design §4.4):
 current week is known and placed in its season (:func:`health_applicability`);
 otherwise the stamp says ``not_applicable`` and why.  When the players DB is
 missing, stale or incomplete the stamp says ``evidence_unavailable`` and the
-population stops after step 3.  Neither case treats a player as healthy,
-available or zero: the level is then explicitly a banded, health-free level,
-and the stamp is how a consumer tells the two apart.  Inside an applied
+population stops after step 3 (this reads the design's "legacy population"
+row of §4.4 as "no health step": the add-pool gates are an intended
+population change under D6 and do not depend on health evidence).  Neither
+case treats a player as healthy, available or zero: the served lens is then
+:data:`LENS_BANDED_NO_HEALTH`, never lens A's label (design F4).  Inside an applied
 health step a player with no metadata is ``unknown`` and excluded — never
 assumed available.
 
-Lenses (D1).  ``rows`` is lens A, *this-season lineup replacement* — the one
-P3 will serve.  ``add_pool_rows`` is lens B, *dynasty-asset opportunity cost*:
-the same population without the health step.  B is a named, NON-SERVED shadow
-lens for the replay; it must never be published under A's label.
+Lenses (D1).  ``rows`` is the served population and ``served_lens`` names
+it: lens A, *this-season lineup replacement*, when health was applied, else
+:data:`LENS_BANDED_NO_HEALTH`.  ``add_pool_rows`` is lens B, *dynasty-asset
+opportunity cost*: the same population without the health step.  B is a
+named, NON-SERVED shadow lens for the replay; it is never published under
+A's label, and A's label is never stamped on a population health did not
+filter.
 
 Imports of the trade and ros owners are function-level on purpose:
 ``src.trade.waiver`` imports ``src.trade.suggestions``, and a module-level
@@ -63,7 +68,7 @@ players DB from disk and never touches the network.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
@@ -72,6 +77,7 @@ __all__ = [
     "POPULATION_RULE",
     "LENS_THIS_SEASON",
     "LENS_DYNASTY_SHADOW",
+    "LENS_BANDED_NO_HEALTH",
     "HEALTH_APPLIED",
     "HEALTH_NOT_APPLICABLE",
     "HEALTH_EVIDENCE_UNAVAILABLE",
@@ -90,20 +96,36 @@ POPULATION_RULE = "li5_waiver_tier_v1"
 LENS_THIS_SEASON = "this_season_lineup_replacement"
 #: D1 option B — a named shadow lens for the replay.  Never served.
 LENS_DYNASTY_SHADOW = "dynasty_asset_opportunity_cost_shadow"
+#: What is served when the health step could not run (design F4): banded,
+#: add-pool eligible, health NOT applied.  Its own label, never lens A's.
+LENS_BANDED_NO_HEALTH = "banded_without_health"
 
 HEALTH_APPLIED = "applied"
 HEALTH_NOT_APPLICABLE = "not_applicable"
 HEALTH_EVIDENCE_UNAVAILABLE = "evidence_unavailable"
 
 #: ``unavailable`` reasons from ``src.ros.availability`` that remove a
-#: replacement candidate: an expected return after this week's game, and a
-#: host OUT-type designation for the current week (every
-#: ``host_designation_*`` reason the owner labels ``unavailable``).  An
-#: ALLOWLIST (design F4c): ``bye`` and ``owner_override`` keep the player, and
-#: an unavailable reason the owner adds later keeps him too until it is
-#: reviewed — reported under ``unavailableKept`` rather than silently applied.
-HEALTH_EXCLUDING_REASONS = frozenset({"expected_return_after_game", "expected_return_after_season"})
-_HOST_DESIGNATION_PREFIX = "host_designation_"
+#: replacement candidate, enumerated exactly (design F4c): a stated return
+#: after this week's game or after the season, and the host's current-week
+#: OUT-type designations (the owner's ``_HOST_OUT``: Out, IR, PUP, NA,
+#: Suspended, DNR, COVID).  An ALLOWLIST: ``bye`` and ``owner_override`` keep
+#: the player, and an unavailable reason the owner adds later (a new host code
+#: included) keeps him too until it is reviewed — reported under
+#: ``unavailableKept`` rather than silently applied.  A test pins this set
+#: against the owner's codes so a new code forces that review.
+HEALTH_EXCLUDING_REASONS = frozenset(
+    {
+        "expected_return_after_game",
+        "expected_return_after_season",
+        "host_designation_out",
+        "host_designation_ir",
+        "host_designation_pup",
+        "host_designation_na",
+        "host_designation_sus",
+        "host_designation_dnr",
+        "host_designation_cov",
+    }
+)
 
 _KEY_FIELDS = ("playerId", "legacyRef", "canonicalName", "displayName")
 
@@ -180,7 +202,7 @@ def load_health_evidence(player_ids: Iterable[str], *, now: float | None = None)
     """
     from src.ros.game_day_live import persisted_players_meta  # noqa: PLC0415
 
-    ids = {str(p) for p in player_ids if str(p or "").strip()}
+    ids = {str(p).strip() for p in player_ids if str(p or "").strip()}
     meta = persisted_players_meta(ids, now=now)
     if meta is None:
         return HealthEvidence(None, None, "players_db_missing_stale_or_incomplete")
@@ -210,7 +232,7 @@ def health_applicability(ctx: Any, *, as_of: date | None) -> tuple[bool, str | N
     if current is None:
         return False, "no_current_week"
     basis = getattr(ctx, "basis", None) or {}
-    if basis.get("currentWeekSource", "league_leg") != "league_leg":
+    if basis.get("currentWeekSource") != "league_leg":
         return False, "current_week_not_from_league"
     weeks = tuple(getattr(ctx, "weeks", ()) or ())
     if current not in weeks:
@@ -237,7 +259,9 @@ def health_applicability(ctx: Any, *, as_of: date | None) -> tuple[bool, str | N
 class WaiverPopulation:
     """The free-agent population at each step, plus how it was decided.
 
-    ``rows`` — lens A (this-season lineup replacement): steps 1-4.
+    ``rows`` — the served population, named by :attr:`served_lens`: lens A
+    (steps 1-4) when health was applied, else ``banded_without_health``
+    (steps 1-3).
     ``add_pool_rows`` — lens B shadow (no health): steps 1-3.  Not served.
     ``base_rows`` — steps 1-2, the legacy free-agent set.
     """
@@ -250,11 +274,26 @@ class WaiverPopulation:
     health: Mapping[str, Any]
     health_by_id: Mapping[str, tuple[str, str]] = field(default_factory=dict)
 
+    @property
+    def served_lens(self) -> str:
+        """Lens A only when the health step actually ran."""
+        if self.health.get("state") == HEALTH_APPLIED:
+            return LENS_THIS_SEASON
+        return LENS_BANDED_NO_HEALTH
+
     def rows_for_lens(self, lens: str) -> tuple[Mapping[str, Any], ...]:
-        if lens == LENS_THIS_SEASON:
-            return self.rows
+        """Rows for a named lens.  Asking for lens A when health did not run
+        is a ``LookupError`` naming why, never the health-free rows under
+        A's label (design F4)."""
         if lens == LENS_DYNASTY_SHADOW:
             return self.add_pool_rows
+        if lens in (LENS_THIS_SEASON, LENS_BANDED_NO_HEALTH):
+            if lens != self.served_lens:
+                raise LookupError(
+                    f"lens {lens!r} is not available: health is "
+                    f"{self.health.get('state')} ({self.health.get('reason')})"
+                )
+            return self.rows
         raise ValueError(f"unknown waiver-population lens: {lens!r}")
 
     def provenance(self) -> dict[str, Any]:
@@ -263,7 +302,7 @@ class WaiverPopulation:
         level) is added by the P3 consumer that computes the level."""
         return {
             "rule": POPULATION_RULE,
-            "lens": LENS_THIS_SEASON,
+            "lens": self.served_lens,
             "unavailableKeysCount": self.unavailable_keys_count,
             "baseFreeAgents": len(self.base_rows),
             "addPoolEligible": len(self.add_pool_rows),
@@ -282,7 +321,7 @@ def _health_classification(state: str, reason: str) -> str:
     if state == av.UNCERTAIN:
         return "keep_uncertain"
     if state == av.UNAVAILABLE:
-        if reason in HEALTH_EXCLUDING_REASONS or reason.startswith(_HOST_DESIGNATION_PREFIX):
+        if reason in HEALTH_EXCLUDING_REASONS:
             return "exclude"
         return "keep_unavailable"
     # UNKNOWN, or a state the owner adds later: not demonstrably usable.
@@ -297,15 +336,20 @@ def build_waiver_population(
     rookies_eligible: bool,
     availability: Any = None,
     health_evidence: HealthEvidence | None = None,
+    health_loader: Callable[[Iterable[str]], HealthEvidence] | None = None,
     as_of: date | None = None,
     min_value: int | None = None,
 ) -> WaiverPopulation:
     """Compose steps 1-4 (module docstring).  No level is computed here.
 
     ``availability`` is a ``src.ros.availability.AvailabilityContext`` (from
-    ``load_context`` at the request boundary); ``health_evidence`` comes from
-    :func:`load_health_evidence` over the add-pool ids.  Both are injected so
-    the result is a pure function of its arguments.
+    ``load_context`` at the request boundary).  Health evidence is injected
+    either as ``health_evidence`` or, preferably, as ``health_loader`` (e.g.
+    :func:`load_health_evidence`), which the builder calls ONCE with the
+    add-pool player ids — the only ids the health step reads — so a caller
+    never has to re-derive step 3 to know what to ask for.  The loader is
+    called only when health applies.  Either way the result is a pure
+    function of its arguments.
     """
     from src.ros.availability import player_week_states  # noqa: PLC0415
     from src.trade.waiver import (  # noqa: PLC0415
@@ -334,6 +378,11 @@ def build_waiver_population(
     applicable, why_not = health_applicability(availability, as_of=as_of)
     health: dict[str, Any]
     by_id: dict[str, tuple[str, str]] = {}
+
+    if applicable and health_evidence is None and health_loader is not None:
+        health_evidence = health_loader(
+            sorted({str(r.get("playerId")).strip() for r in add_pool if r.get("playerId")})
+        )
 
     if not applicable:
         health = {"state": HEALTH_NOT_APPLICABLE, "reason": why_not, "asOf": None}

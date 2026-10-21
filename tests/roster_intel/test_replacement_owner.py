@@ -331,5 +331,7 @@ def test_the_gameplan_call_still_passes_no_free_agents():
     assert calls, "gameplan no longer calls LI-5; re-check the scarcity chain"
     for c in calls:
         assert c.func.id == "compute_replacement_levels"
-        assert "free_agents" not in {k.arg for k in c.keywords}
+        kwargs = {k.arg for k in c.keywords}
+        assert "free_agents" not in kwargs
+        assert None not in kwargs, "a **splat could carry free_agents into the waiver tier"
         assert len(c.args) <= 2, "a positional free_agents argument would feed the waiver tier"
