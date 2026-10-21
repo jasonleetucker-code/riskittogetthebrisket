@@ -1,5 +1,5 @@
 {
-  "computedAt": "2026-10-20T21:59:17.335021+00:00",
+  "computedAt": "2026-10-21T01:05:04.833849+00:00",
   "playoffOdds": [
     {
       "ownerId": "1002085133723299840",
@@ -9,23 +9,23 @@
         0.9996,
         1.0
       ],
-      "championshipOdds": 0.9933,
+      "championshipOdds": 0.9924,
       "championshipOddsCi": [
-        0.9915,
-        0.9947
+        0.9905,
+        0.9939
       ],
-      "finalsOdds": 0.9978,
+      "finalsOdds": 0.9973,
       "semifinalOdds": 1.0,
       "expectedFinish": 1.01,
-      "byeOdds": 0.9998,
-      "topSeedOdds": 0.9998,
+      "byeOdds": 0.9991,
+      "topSeedOdds": 0.9991,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 25.98,
+      "expectedWins": 25.99,
       "medianFinalSeed": 1,
       "mostLikelySeed": 1,
       "seedDistribution": [
-        0.9998,
-        0.0002,
+        0.9991,
+        0.0009,
         0.0,
         0.0,
         0.0,
@@ -47,21 +47,21 @@
         0.0,
         0.0,
         0.0001,
-        0.0043,
-        0.0089,
-        0.9867
+        0.0039,
+        0.0077,
+        0.9883
       ],
       "finalWins": {
-        "mean": 11.98,
+        "mean": 11.99,
         "p10": 12.0,
         "p50": 12.0,
         "p90": 12.0
       },
       "finalPointsFor": {
-        "mean": 6672.34,
-        "p10": 6521.18,
-        "p50": 6673.24,
-        "p90": 6821.06
+        "mean": 6671.47,
+        "p10": 6520.67,
+        "p50": 6673.25,
+        "p90": 6822.44
       }
     },
     {
@@ -72,27 +72,27 @@
         0.9996,
         1.0
       ],
-      "championshipOdds": 0.0009,
+      "championshipOdds": 0.001,
       "championshipOddsCi": [
         0.0005,
-        0.0017
+        0.0018
       ],
-      "finalsOdds": 0.2482,
-      "semifinalOdds": 0.8723,
-      "expectedFinish": 3.21,
-      "byeOdds": 0.0002,
-      "topSeedOdds": 0.0002,
+      "finalsOdds": 0.2325,
+      "semifinalOdds": 0.8744,
+      "expectedFinish": 3.22,
+      "byeOdds": 0.0007,
+      "topSeedOdds": 0.0007,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 23.55,
+      "expectedWins": 23.54,
       "medianFinalSeed": 3,
       "mostLikelySeed": 3,
       "seedDistribution": [
-        0.0002,
-        0.3434,
-        0.5086,
-        0.108,
-        0.0386,
-        0.0012,
+        0.0007,
+        0.3368,
+        0.5125,
+        0.1089,
+        0.0396,
+        0.0015,
         0.0,
         0.0,
         0.0,
@@ -106,13 +106,13 @@
         0.0,
         0.0,
         0.0,
-        0.0006,
-        0.0135,
-        0.0992,
-        0.2506,
-        0.5261,
-        0.1073,
-        0.0027
+        0.0002,
+        0.0176,
+        0.0931,
+        0.2434,
+        0.5403,
+        0.1036,
+        0.0018
       ],
       "finalWins": {
         "mean": 10.68,
@@ -121,10 +121,10 @@
         "p90": 12.0
       },
       "finalPointsFor": {
-        "mean": 5235.41,
-        "p10": 5096.54,
-        "p50": 5235.93,
-        "p90": 5375.49
+        "mean": 5237.62,
+        "p10": 5096.65,
+        "p50": 5237.23,
+        "p90": 5380.23
       }
     },
     {
@@ -135,26 +135,26 @@
         0.9996,
         1.0
       ],
-      "championshipOdds": 0.0048,
+      "championshipOdds": 0.0054,
       "championshipOddsCi": [
-        0.0036,
-        0.0064
+        0.0041,
+        0.007
       ],
-      "finalsOdds": 0.7137,
-      "semifinalOdds": 0.9948,
-      "expectedFinish": 2.3,
-      "byeOdds": 0.0,
-      "topSeedOdds": 0.0,
+      "finalsOdds": 0.7315,
+      "semifinalOdds": 0.9936,
+      "expectedFinish": 2.28,
+      "byeOdds": 0.0002,
+      "topSeedOdds": 0.0002,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 23.65,
+      "expectedWins": 23.66,
       "medianFinalSeed": 2,
       "mostLikelySeed": 2,
       "seedDistribution": [
-        0.0,
-        0.6279,
-        0.3695,
-        0.0024,
         0.0002,
+        0.6372,
+        0.3615,
+        0.001,
+        0.0001,
         0.0,
         0.0,
         0.0,
@@ -172,22 +172,22 @@
         0.0,
         0.0,
         0.0,
-        0.0004,
-        0.1396,
-        0.8496,
-        0.0104
+        0.0001,
+        0.1316,
+        0.8587,
+        0.0096
       ],
       "finalWins": {
-        "mean": 11.65,
+        "mean": 11.66,
         "p10": 11.0,
         "p50": 12.0,
         "p90": 12.0
       },
       "finalPointsFor": {
-        "mean": 5401.39,
-        "p10": 5296.14,
-        "p50": 5401.9,
-        "p90": 5505.49
+        "mean": 5406.59,
+        "p10": 5301.71,
+        "p50": 5406.78,
+        "p90": 5513.48
       }
     },
     {
@@ -203,8 +203,8 @@
         0.0,
         0.0004
       ],
-      "finalsOdds": 0.0193,
-      "semifinalOdds": 0.3509,
+      "finalsOdds": 0.0176,
+      "semifinalOdds": 0.352,
       "expectedFinish": 5.55,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
@@ -214,11 +214,11 @@
       "mostLikelySeed": 4,
       "seedDistribution": [
         0.0,
-        0.0283,
-        0.1124,
-        0.6283,
-        0.2203,
-        0.0107,
+        0.0251,
+        0.1154,
+        0.6296,
+        0.2189,
+        0.011,
         0.0,
         0.0,
         0.0,
@@ -232,25 +232,25 @@
         0.0,
         0.0,
         0.0,
-        0.0008,
-        0.0206,
-        0.1206,
-        0.5099,
-        0.3139,
-        0.034,
-        0.0002
+        0.0002,
+        0.0223,
+        0.1222,
+        0.5176,
+        0.3076,
+        0.0298,
+        0.0003
       ],
       "finalWins": {
-        "mean": 10.51,
+        "mean": 10.49,
         "p10": 10.0,
         "p50": 10.0,
         "p90": 11.0
       },
       "finalPointsFor": {
-        "mean": 4942.49,
-        "p10": 4819.34,
-        "p50": 4943.12,
-        "p90": 5064.29
+        "mean": 4947.59,
+        "p10": 4826.49,
+        "p50": 4948.05,
+        "p90": 5069.01
       }
     },
     {
@@ -261,27 +261,27 @@
         0.9996,
         1.0
       ],
-      "championshipOdds": 0.001,
+      "championshipOdds": 0.0012,
       "championshipOddsCi": [
-        0.0005,
-        0.0018
+        0.0007,
+        0.0021
       ],
-      "finalsOdds": 0.0209,
-      "semifinalOdds": 0.7218,
+      "finalsOdds": 0.0211,
+      "semifinalOdds": 0.7227,
       "expectedFinish": 4.08,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 20.88,
+      "expectedWins": 20.87,
       "medianFinalSeed": 5,
       "mostLikelySeed": 5,
       "seedDistribution": [
         0.0,
-        0.0002,
-        0.0093,
+        0.0,
+        0.0099,
         0.2549,
-        0.7231,
-        0.0125,
+        0.7198,
+        0.0154,
         0.0,
         0.0,
         0.0,
@@ -295,97 +295,34 @@
         0.0,
         0.0,
         0.0,
-        0.0036,
-        0.1703,
-        0.6063,
-        0.206,
-        0.0136,
+        0.0051,
+        0.1834,
+        0.5942,
+        0.2039,
+        0.0132,
         0.0002,
         0.0
       ],
       "finalWins": {
-        "mean": 8.92,
+        "mean": 8.91,
         "p10": 8.0,
         "p50": 9.0,
         "p90": 10.0
       },
       "finalPointsFor": {
-        "mean": 5183.84,
-        "p10": 5059.23,
-        "p50": 5184.67,
-        "p90": 5307.09
+        "mean": 5186.69,
+        "p10": 5062.68,
+        "p50": 5185.83,
+        "p90": 5311.18
       }
     },
     {
       "ownerId": "714912789268865024",
       "displayName": "MaKayla",
-      "playoffOdds": 0.9971,
+      "playoffOdds": 0.9986,
       "playoffOddsCi": [
-        0.9958,
-        0.998
-      ],
-      "championshipOdds": 0.0,
-      "championshipOddsCi": [
-        0.0,
-        0.0004
-      ],
-      "finalsOdds": 0.0001,
-      "semifinalOdds": 0.0524,
-      "expectedFinish": 5.84,
-      "byeOdds": 0.0,
-      "topSeedOdds": 0.0,
-      "missPlayoffsOdds": 0.0029,
-      "expectedWins": 17.49,
-      "medianFinalSeed": 6,
-      "mostLikelySeed": 6,
-      "seedDistribution": [
-        0.0,
-        0.0,
-        0.0002,
-        0.0064,
-        0.0178,
-        0.9387,
-        0.034,
-        0.0029,
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "draftSlotDistribution": [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0053,
-        0.0777,
-        0.7104,
-        0.1711,
-        0.033,
-        0.0025,
-        0.0,
-        0.0
-      ],
-      "finalWins": {
-        "mean": 8.54,
-        "p10": 8.0,
-        "p50": 9.0,
-        "p90": 9.0
-      },
-      "finalPointsFor": {
-        "mean": 4501.54,
-        "p10": 4396.42,
-        "p50": 4501.79,
-        "p90": 4605.38
-      }
-    },
-    {
-      "ownerId": "1208452010173538304",
-      "displayName": "Kich",
-      "playoffOdds": 0.6073,
-      "playoffOddsCi": [
-        0.5977,
-        0.6168
+        0.9977,
+        0.9992
       ],
       "championshipOdds": 0.0,
       "championshipOddsCi": [
@@ -393,12 +330,75 @@
         0.0004
       ],
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.0031,
-      "expectedFinish": 6.18,
+      "semifinalOdds": 0.0495,
+      "expectedFinish": 5.85,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
-      "missPlayoffsOdds": 0.3927,
-      "expectedWins": 11.55,
+      "missPlayoffsOdds": 0.0014,
+      "expectedWins": 17.61,
+      "medianFinalSeed": 6,
+      "mostLikelySeed": 6,
+      "seedDistribution": [
+        0.0,
+        0.0,
+        0.0007,
+        0.0056,
+        0.0216,
+        0.9387,
+        0.032,
+        0.0014,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "draftSlotDistribution": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0045,
+        0.0722,
+        0.6983,
+        0.1869,
+        0.0347,
+        0.0034,
+        0.0,
+        0.0
+      ],
+      "finalWins": {
+        "mean": 8.57,
+        "p10": 8.0,
+        "p50": 9.0,
+        "p90": 9.0
+      },
+      "finalPointsFor": {
+        "mean": 4510.61,
+        "p10": 4406.05,
+        "p50": 4510.85,
+        "p90": 4614.58
+      }
+    },
+    {
+      "ownerId": "1208452010173538304",
+      "displayName": "Kich",
+      "playoffOdds": 0.5991,
+      "playoffOddsCi": [
+        0.5895,
+        0.6087
+      ],
+      "championshipOdds": 0.0,
+      "championshipOddsCi": [
+        0.0,
+        0.0004
+      ],
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.0028,
+      "expectedFinish": 6.21,
+      "byeOdds": 0.0,
+      "topSeedOdds": 0.0,
+      "missPlayoffsOdds": 0.4009,
+      "expectedWins": 11.47,
       "medianFinalSeed": 7,
       "mostLikelySeed": 7,
       "seedDistribution": [
@@ -407,9 +407,9 @@
         0.0,
         0.0,
         0.0,
-        0.0123,
-        0.595,
-        0.3927,
+        0.0096,
+        0.5895,
+        0.4009,
         0.0,
         0.0,
         0.0,
@@ -420,11 +420,11 @@
         0.0,
         0.0,
         0.0,
-        0.1498,
-        0.8031,
-        0.0446,
-        0.0025,
-        0.0,
+        0.1443,
+        0.8132,
+        0.0395,
+        0.0029,
+        0.0001,
         0.0,
         0.0,
         0.0
@@ -436,19 +436,19 @@
         "p90": 8.0
       },
       "finalPointsFor": {
-        "mean": 4236.37,
-        "p10": 4123.52,
-        "p50": 4235.98,
-        "p90": 4349.61
+        "mean": 4235.6,
+        "p10": 4124.45,
+        "p50": 4236.0,
+        "p90": 4349.31
       }
     },
     {
       "ownerId": "473973924808355840",
       "displayName": "Ty",
-      "playoffOdds": 0.3956,
+      "playoffOdds": 0.4023,
       "playoffOddsCi": [
-        0.3861,
-        0.4052
+        0.3927,
+        0.4119
       ],
       "championshipOdds": 0.0,
       "championshipOddsCi": [
@@ -456,12 +456,12 @@
         0.0004
       ],
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.0047,
-      "expectedFinish": 6.83,
+      "semifinalOdds": 0.005,
+      "expectedFinish": 6.81,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
-      "missPlayoffsOdds": 0.6044,
-      "expectedWins": 11.27,
+      "missPlayoffsOdds": 0.5977,
+      "expectedWins": 11.25,
       "medianFinalSeed": 8,
       "mostLikelySeed": 8,
       "seedDistribution": [
@@ -470,9 +470,9 @@
         0.0,
         0.0,
         0.0,
-        0.0246,
-        0.371,
-        0.6044,
+        0.0238,
+        0.3785,
+        0.5977,
         0.0,
         0.0,
         0.0,
@@ -482,27 +482,27 @@
         0.0,
         0.0,
         0.0,
-        0.0024,
-        0.8425,
-        0.1142,
-        0.0406,
-        0.0003,
-        0.0,
+        0.0014,
+        0.8498,
+        0.1091,
+        0.0389,
+        0.0007,
+        0.0001,
         0.0,
         0.0,
         0.0
       ],
       "finalWins": {
-        "mean": 6.18,
+        "mean": 6.17,
         "p10": 5.0,
         "p50": 6.0,
         "p90": 7.0
       },
       "finalPointsFor": {
-        "mean": 4080.57,
-        "p10": 3964.98,
-        "p50": 4080.52,
-        "p90": 4194.99
+        "mean": 4084.15,
+        "p10": 3971.64,
+        "p50": 4084.13,
+        "p90": 4197.23
       }
     },
     {
@@ -520,7 +520,7 @@
       ],
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "expectedFinish": 10.0,
+      "expectedFinish": 10.01,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 1.0,
@@ -536,17 +536,17 @@
         0.0,
         0.0,
         0.0,
-        0.0133,
-        0.9703,
-        0.0164,
+        0.0138,
+        0.9648,
+        0.0214,
         0.0
       ],
       "draftSlotDistribution": [
         0.0,
-        0.0074,
-        0.7468,
-        0.2434,
-        0.0024,
+        0.0119,
+        0.739,
+        0.2477,
+        0.0014,
         0.0,
         0.0,
         0.0,
@@ -556,16 +556,16 @@
         0.0
       ],
       "finalWins": {
-        "mean": 3.27,
+        "mean": 3.26,
         "p10": 3.0,
         "p50": 3.0,
         "p90": 4.0
       },
       "finalPointsFor": {
-        "mean": 2996.25,
-        "p10": 2899.29,
-        "p50": 2996.22,
-        "p90": 3094.63
+        "mean": 2999.29,
+        "p10": 2894.87,
+        "p50": 2999.19,
+        "p90": 3103.58
       }
     },
     {
@@ -587,7 +587,7 @@
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 1.0,
-      "expectedWins": 0.32,
+      "expectedWins": 0.34,
       "medianFinalSeed": 12,
       "mostLikelySeed": 12,
       "seedDistribution": [
@@ -605,8 +605,8 @@
         1.0
       ],
       "draftSlotDistribution": [
-        1.0,
-        0.0,
+        0.9997,
+        0.0003,
         0.0,
         0.0,
         0.0,
@@ -619,16 +619,16 @@
         0.0
       ],
       "finalWins": {
-        "mean": 0.32,
+        "mean": 0.34,
         "p10": 0.0,
         "p50": 0.0,
         "p90": 1.0
       },
       "finalPointsFor": {
-        "mean": 2371.87,
-        "p10": 2311.69,
-        "p50": 2372.09,
-        "p90": 2431.22
+        "mean": 2381.34,
+        "p10": 2314.2,
+        "p50": 2381.52,
+        "p90": 2448.93
       }
     },
     {
@@ -650,7 +650,7 @@
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 1.0,
-      "expectedWins": 5.13,
+      "expectedWins": 5.12,
       "medianFinalSeed": 9,
       "mostLikelySeed": 9,
       "seedDistribution": [
@@ -662,16 +662,16 @@
         0.0,
         0.0,
         0.0,
-        0.9867,
-        0.0133,
+        0.9862,
+        0.0138,
         0.0,
         0.0
       ],
       "draftSlotDistribution": [
         0.0,
-        0.0027,
-        0.2431,
-        0.7542,
+        0.0034,
+        0.2457,
+        0.7509,
         0.0,
         0.0,
         0.0,
@@ -682,16 +682,16 @@
         0.0
       ],
       "finalWins": {
-        "mean": 3.03,
+        "mean": 3.04,
         "p10": 2.0,
         "p50": 3.0,
         "p90": 4.0
       },
       "finalPointsFor": {
-        "mean": 3604.79,
-        "p10": 3507.19,
-        "p50": 3604.38,
-        "p90": 3700.86
+        "mean": 3613.41,
+        "p10": 3517.24,
+        "p50": 3614.08,
+        "p90": 3706.72
       }
     },
     {
@@ -726,14 +726,14 @@
         0.0,
         0.0,
         0.0,
-        0.0164,
-        0.9836,
+        0.0214,
+        0.9786,
         0.0
       ],
       "draftSlotDistribution": [
-        0.0,
-        0.9899,
-        0.0101,
+        0.0003,
+        0.9844,
+        0.0153,
         0.0,
         0.0,
         0.0,
@@ -751,16 +751,16 @@
         "p90": 2.0
       },
       "finalPointsFor": {
-        "mean": 2638.43,
-        "p10": 2576.59,
-        "p50": 2638.01,
-        "p90": 2701.31
+        "mean": 2643.38,
+        "p10": 2580.57,
+        "p50": 2643.73,
+        "p90": 2704.12
       }
     }
   ],
   "n_simulations": 10000,
   "converged": true,
-  "worstPlayoffOddsSe": 0.00489,
+  "worstPlayoffOddsSe": 0.0049,
   "oddsSeTolerance": 0.005,
   "playoffSeeds": 7,
   "byeSeeds": 1,
