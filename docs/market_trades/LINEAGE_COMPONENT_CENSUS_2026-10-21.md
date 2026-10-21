@@ -1,7 +1,7 @@
 # Manager-lineage component census for the Chase Upside Trade Market holdout (2026-10-21)
 
-**Status: census tool and local evidence DONE; the real census is PENDING an owner-authorized, read-only box run
-(§7).**
+**Status: PARTIAL.** The census tool and the off-box evidence are done. The real component sizes and a
+measured allocation comparison are **not yet delivered**: they need one read-only run on the production box (§7).
 - Q2 stays **`PROPOSED_PENDING_OWNER_Q2`**.
 - No reserve has been drawn, persisted or exposed.
 - No verbatim Q2 wording exists or is offered here.
@@ -11,7 +11,14 @@ Authority: owner decision Package 5A, 2026-10-21 (`docs/owner/LVA_OWNER_DECISION
 - The owner's original intent for Q2 was to hold out entire leagues with chronological separation, to prevent
   leakage between training and evaluation.
 - A permanent 20% manager-lineage reserve and the five-way allocation are **not approved**.
-- First do the read-only census, then the owner chooses.
+- The owner's words: "First perform the permitted read-only census of actual eligible manager-lineage
+  components. Return the real component sizes, concentration, coverage and proposed allocation, with
+  alternatives and trade-offs."
+
+**Why the box run is not done here.** The session that assigned this work said that if the data lives only on the
+production box, this session must not run anything there, and must instead write a pinned, read-only command for
+the owner to authorize. Whether "permitted read-only census" already covers that run is for the owner or the
+coordinating session to decide; this document does not decide it.
 
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 
@@ -70,7 +77,9 @@ when a duplicate group's representative record came from KTC. `--participants si
 pseudonymous `sideEvidence.managerKey` instead, but on the box those are all null (§3.3). Raw ids stay in process
 memory.
 
-**Clock.** The chronological split uses `collectedAt`, the protocol's availability clock, by default.
+**Clock.** The chronological split uses the collection clock by default: `representativeCollectedAt`, falling
+back to `collectedAt`. This is the same order the estimator gate (`estimator_evidence`) uses; the representative
+record's clock is the one that matters for a fit on the group's sides.
 `--clock occurred` is available. Coverage reports both clocks and the trades missing each.
 
 Five populations are measured:
@@ -137,7 +146,7 @@ League level only: no lineage and no manager links.
 |---|---|
 | ledger groups | 29,638 |
 | source families: KTC trade database / Sharp Sleeper / own league (alone or with Sharp) / KTC and Sharp | 19,652 / 9,957 / 28 / 1 |
-| two-team groups | 27,801 (1,753 empty, 84 with three or more teams) |
+| groups by team count | 27,801 two-team · 1,753 one-team (empty trades) · 84 with three or more |
 | graded trades (Phase 3's own filter, superflex basis) | 18,690 |
 | distinct leagues among graded trades | 11,565 (about 1.6 trades per league) |
 | largest league / top five leagues, share of graded trades | 0.2% / 0.6% |
@@ -158,9 +167,10 @@ magnitude: thousands of leagues, each very small.
      ledger. Forming one needs either a provisioned side-key secret (an owner credential decision) or the
      in-memory join this census uses: ledger `hostTxId` to intel `asset_movements.user_id`.
    - The census prints neither key nor id.
-2. **KTC-database rows are two-thirds of the ledger** and are structurally unlinkable:
-   - KTC publishes the host league id but no transaction id, no managers and no predecessor chain
-     (`normalize_ktc_row`).
+2. **KTC-database rows are two-thirds of the ledger**, and their managers cannot be linked:
+   - KTC publishes the host league id but no transaction id and no managers (`normalize_ktc_row`).
+   - A KTC row on a Sleeper host keys to the same Sleeper league id, so it does join that league's intel chain and
+     membership when the Sharp crawl has seen the league. Otherwise it has no chain.
    - For these rows a "component" is at most the league. Any component reserve degenerates to a league holdout,
      and its manager leakage is **unmeasurable**. The census reports it as `participantUnobservedShare`, never as
      0.
@@ -171,14 +181,15 @@ magnitude: thousands of leagues, each very small.
      giant M-components.
    - Whether **P** (only managers who actually traded) also collapses is the main open question the box run
      answers.
-   - The synthetic power study (`CHASE_TRADE_MARKET_POWER_STUDY.md` §4.5) shows the collapse is steep: 10%
-     per-seat overlap turns 160 leagues into 25 components.
+   - The synthetic power study (`CHASE_TRADE_MARKET_POWER_STUDY.md` §4.5) shows how steeply *shared seats*
+     collapse leagues: 10% per-seat overlap turns 160 leagues into 25 components. That is the M kind of link. It
+     says nothing direct about P.
 4. **Lineage comes from the intel `leagues.previous_league_id`** link. Sleeper's `"0"` terminator is treated as
    "no predecessor", matching #1852's G3 fix, and loops terminate. Known limits, reported rather than hidden:
    - **A season missing from the table cuts the chain.** A 2026 league and its 2024 ancestor split into two
      lineages if 2025 was never crawled. That over-counts independent lineages; `predecessorLinksLeavingTheTable`
      measures it.
-   - **Own-league and KTC leagues carry no chain** in this table.
+   - **Own-league leagues, and KTC leagues the crawl has not seen, carry no chain** in this table.
    - **A redraft predecessor is not treated as ending the chain.** For leakage, merging more is the conservative
      direction, because the same people are in the league.
    - The canonical chain walker and store are #1852's (`league_filter.predecessor_league_id`,
@@ -225,7 +236,8 @@ Tests: `tests/scripts/test_lineage_component_census.py`, 16 tests on synthetic i
 
 An independent review found 4 high-severity and 3 medium defects in the first version, among them hidden empty
 holdouts, a `--bo` abbreviation that bypassed the guard, partial observation counted as observed, and the wrong
-clock. All are fixed in the pinned commit.
+clock. All are fixed in the pinned commit. A second, fresh review of the whole PR found no blocking defect; its
+operational and wording findings are applied here too.
 
 A guarded `--box` rehearsal against fixture stores exited 0. The guard refused 0 writes or processes, and both
 stores were byte-identical afterwards.
@@ -270,7 +282,7 @@ M top-1 84%. Two giant components hold 81%.
 | B′ | 137 **[12–631]** | 3.6 | 0.49 | 0 | 0.12 | 0 | 1,564 |
 | C | 166 [114–230] | 1.8 | 0.74 | 0.27 | 0.78 | 0 | 1,708 |
 
-**Scenario S3:** 5% overlap, 640 leagues, 20,097 trades. The P-components are 348, top-1 10.9%, effective 41.5;
+**Scenario S3** (`--synthetic 0.05 --leagues 640`): 5% overlap, 640 leagues, 20,097 trades. The P-components are 348, top-1 10.9%, effective 41.5;
 M top-1 25.8%, effective 13.7.
 
 | | eval trades | eff. clusters (P) | largest share of eval | participant leak | membership leak | temporal overlap | unused |
@@ -282,7 +294,7 @@ M top-1 25.8%, effective 13.7.
 | C | 623 [480–818] | 19.7 | 0.15 | 0.04 | 0.21 | 0 | 6,224 |
 
 In S1, the reserve's realized share at the target fraction (evaluation trades as a share of the population) was:
-- 10%: 0.097, range 207–783 trades;
+- 10%: 0.097; evaluation size p5–p95 207–783 trades (min–max 164–1,083);
 - 20%: 0.197;
 - 30%: 0.300.
 
@@ -307,26 +319,36 @@ Read `populations.estimatorEligibleSleeperObserved.linkage` first, then its `com
 
 - **If P has no giant component** (largest share ≲ 5%, effective components ≳ 50):
   - Component-level and league-level holdouts both work.
-  - B′ or C add zero manager leakage at almost no cost relative to A.
-  - The owner's chronological separation is kept either way.
+  - B′ or C remove manager leakage among fully observed trades. That does not cover partly observed trades or
+    the KTC lane. The cost is fewer effective evaluation clusters: in S1, 13.1 (B′) and 13.8 (C) against A's
+    17.1, about 20% fewer.
+  - Chronological separation, the owner's stated intent, is available under any of them.
 - **If one P-component holds a large share** (≳ 25%):
   - A component reserve is effectively one coin flip. Either it locks most of the data permanently or it locks
     almost none.
-  - **A (the owner's intent) is the robust choice.** Report its measured participant leakage, and run the
-    "purge leaking evaluation trades" sensitivity check.
+  - A (the owner's intent) does not depend on that coin flip. Its participant leakage would be measured and
+    reported, with the "purge leaking evaluation trades" sensitivity check alongside it.
   - No policy can create independent clusters, so confidence intervals must cluster at P-component level whatever
     the allocation.
-- **In every case:**
-  - Keep the chronological split. A reserve without it leaks the future into training on every evaluation trade.
-  - Keep the KTC lane on league holdout + chronological, with manager leakage reported as unmeasurable.
+- **Observations that hold in every scenario** (inputs to the owner's choice, not a choice):
+  - Without a chronological split, every evaluation trade has training trades dated after it.
+  - On the KTC lane only league holdout + chronological is possible, and its manager leakage cannot be measured.
 
 Separately, a permanent manager-lineage reserve would need either a provisioned side-key secret on the box or a
 redesigned component key (§3.3.1). Both are owner decisions this census does not make.
 
-## 7. Pinned box command (awaiting owner authorization; do not run without it)
+## 7. Pinned box command (prepared; not run)
 
-Read-only and aggregate-only. Run it as the service user (`dynasty`), never root, outside the 04:20–06:30 and
-08:45–09:15 UTC timer windows. From your own machine:
+Read-only and aggregate-only. Run it as the service user (`dynasty`), never root.
+
+**When.** Start it between **09:30 and 13:30 UTC**. That slot avoids every writer of the intel ledger and the
+trade ledger:
+- `dynasty-sharp-transactions` at 02:20, 08:20, 14:20 and 20:20 (up to 30 minutes);
+- discovery at 04:20, records at 04:50, cohort at 05:10, FFPC at 05:20, rosters at 05:50, and activity at 06:30
+  (up to 60 minutes);
+- the ledger rebuild at 08:52 (up to 15 minutes).
+
+From your own machine:
 
 ```bash
 ssh -p <port> dynasty@<host> 'bash -s' < lineage_census_box.sh > lineage_census.json
@@ -338,10 +360,11 @@ ssh -p <port> dynasty@<host> 'bash -s' < lineage_census_box.sh > lineage_census.
 #!/usr/bin/env bash
 # Manager-lineage component census (owner Package 5A).  READ-ONLY, aggregates only.
 set -Eeuo pipefail
-PIN=dc5ee632884277bb7e31a9a05d8fc8dfe15379d9
+PIN=861fa358abbd2d6be9d7ceafb3d37f9a14df0364
 APP_DIR=/home/dynasty/trade-calculator
 RAW="https://raw.githubusercontent.com/jasonleetucker-code/riskittogetthebrisket/$PIN/scripts"
 [[ "$(id -un)" != root ]] || { echo "run as the service user, not root" >&2; exit 64; }
+umask 077
 WORK="$(mktemp -d /tmp/lineage-census.XXXXXX)"
 trap 'rm -rf -- "$WORK"' EXIT
 cd "$WORK"
@@ -349,20 +372,22 @@ for f in lineage_component_census.py research_readonly_guard.py; do
   curl -fsSL --proto '=https' --max-time 60 "$RAW/$f" -o "$WORK/$f"
 done
 sha256sum --check --strict --quiet - >&2 <<'PINS'
-67c16624d60a6f42308761a29b348393df303ea513c12d1f4f14e7ed1442acff  lineage_component_census.py
+5b78a0ed5e90b1c4182c8073cb2e1150d71fc14fd12d18307f1f887c7bb1d9e1  lineage_component_census.py
 5c208fe8ee187d78ef7173330efc795a621b970f1ba69ff416c9edf836bc6f18  research_readonly_guard.py
 PINS
 PY=/home/dynasty/.venvs/trade-calculator/bin/python
 [[ -x "$PY" ]] || PY="$APP_DIR/.venv/bin/python"
+[[ -x "$PY" ]] || { echo "no app python found" >&2; exit 2; }
 TMPDIR="$WORK" RISKIT_APP_DIR="$APP_DIR" OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
   timeout 1800 nice -n 19 ionice -c3 \
   "$PY" -B "$WORK/lineage_component_census.py" --box --replicates 100
 ```
 
-- The pinned commit `dc5ee632884…` is this PR's script commit, reachable through the PR ref.
+- The pinned commit `861fa358abb…` is this PR's final script commit, reachable through the PR ref.
 - After merge, `main` carries byte-identical files. The sha256 check is what binds the run, and the guard file's
   hash is `main`'s current `scripts/research_readonly_guard.py`.
-- Expected cost: about 2 minutes locally for 28.5k synthetic trades × 100 seeds × 3 policy populations. Budget
+- Expected cost: about 2 minutes locally for 28.5k synthetic trades × 100 seeds × 3 policy populations
+  (`--synthetic 0.05 --leagues 1000`). Budget
   30 minutes on the box. Python heap peaked at about 20 MB in that run; the raw-id sets add to that but stay well
   under 1 GB.
 

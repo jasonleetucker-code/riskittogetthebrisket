@@ -62,9 +62,18 @@ How these were verified (2026-10-21):
     kept "for the frozen Phase 1-3 callers".
   - `research_readonly_guard.py` changed in `2fee3850`, so the guard now removes its scratch directory by absolute
     path.
-- Pinning the frozen commit runs exactly the preregistered code. Its guard's one weakness (a scratch directory
-  can be left behind) is contained by the wrapper below: `TMPDIR` is the command's own temp directory, which the
-  `trap` removes.
+- Pinning the frozen commit runs exactly the preregistered *research scripts*. Its guard's one weakness (a
+  scratch directory can be left behind) is contained by the wrapper below: `TMPDIR` is the command's own temp
+  directory, which the `trap` removes.
+
+**What is NOT pinned: the valuation pipeline.**
+- The scripts rebuild every archived board with the box's deployed `src/`.
+- Phase 3 ran on deployed `fd798c3e`. Since the pin, `src/api/data_contract.py` alone has changed in 17 commits.
+- The run stamps `deployedCodeSha`. Any difference from the 2026-10-20 run therefore mixes three things:
+  - new trades;
+  - late-collected pre-freeze trades;
+  - board-pipeline changes.
+- §6 says how that is reported.
 
 **Compatibility with the deployed `src/`.** The scripts import the box's deployed application code
 (`RISKIT_APP_DIR`). Checked against current main (`ce22d5de7`): every `src` attribute the four pinned scripts use
@@ -86,9 +95,10 @@ still exists. That covers `market_trade_report`, `market_trade_eval`, `package_m
 - A run that comes up short is harmless: it prints `"reported": false` and the counts. It is still a wasted
   slot, though, so wait and re-run.
 
-Avoid the box's busy windows:
-- the Sharp crawl passes, 04:20–06:30 UTC;
-- the market-trade ledger rebuild, 08:52 UTC (`dynasty-market-trade-ledger`).
+Start it between **09:30 and 13:30 UTC**. That slot avoids the box's writers:
+- the Sharp crawl passes, 04:20 to about 07:30 UTC;
+- the transaction crawl at 02:20, 08:20, 14:20 and 20:20;
+- the market-trade ledger rebuild at 08:52 UTC (`dynasty-market-trade-ledger`).
 
 The rebuild replaces the file atomically, so an open read-only connection keeps reading the old copy. Avoiding it
 just keeps the run on one ledger build.
@@ -112,6 +122,7 @@ PIN=d7a881bc13f508a7755c13adf746cbd57c449ada
 APP_DIR=/home/dynasty/trade-calculator
 RAW="https://raw.githubusercontent.com/jasonleetucker-code/riskittogetthebrisket/$PIN/scripts"
 [[ "$(id -un)" != root ]] || { echo "run as the service user, not root" >&2; exit 64; }
+umask 077
 WORK="$(mktemp -d /tmp/pkg-prospective.XXXXXX)"
 trap 'rm -rf -- "$WORK"' EXIT
 cd "$WORK"
@@ -127,9 +138,12 @@ sha256sum --check --strict --quiet - >&2 <<'PINS'
 PINS
 PY=/home/dynasty/.venvs/trade-calculator/bin/python
 [[ -x "$PY" ]] || PY="$APP_DIR/.venv/bin/python"
+[[ -x "$PY" ]] || { echo "no app python found" >&2; exit 2; }
+LEDGER="$APP_DIR/data/market_trades/underlying_trades.sqlite"
+[[ -f "$LEDGER" ]] || { echo "no market-trade ledger on this host" >&2; exit 2; }
 # Step 0 (readiness): post-freeze ledger groups.  About 5,400 are needed.
-"$PY" -B -c 'import sqlite3,sys; c=sqlite3.connect("file:"+sys.argv[1]+"?mode=ro",uri=True); print("post_freeze_groups", c.execute("SELECT COUNT(*) FROM underlying_trades WHERE occurred_date > ?",("2026-10-20",)).fetchone()[0], file=sys.stderr)' \
-  "$APP_DIR/data/market_trades/underlying_trades.sqlite"
+"$PY" -B -c 'import sqlite3,sys; c=sqlite3.connect("file:"+sys.argv[1]+"?mode=ro",uri=True); print("post_freeze_groups", c.execute("SELECT COUNT(*) FROM underlying_trades WHERE substr(occurred_date,1,10) > ?",("2026-10-20",)).fetchone()[0], file=sys.stderr)' \
+  "$LEDGER"
 # Step 1: the frozen Phase 3 run, under the read-only audit-hook guard.
 TMPDIR="$WORK" RISKIT_APP_DIR="$APP_DIR" OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
   timeout 2700 nice -n 19 ionice -c3 \
@@ -153,10 +167,12 @@ Do these before quoting or committing anything:
 1. Exit status 0, and `readOnlyGuard.refusedWriteOrProcessAttempts == 0`.
 2. Network refusals are expected (about 273 last time), all from `_resolve_league_context`.
    - The 2026-10-20 offline parity audit showed the guarded fallback changes 0 of 136,558 board values at
-     `fd798c3e`.
-   - If `deployedCodeSha` is a different commit and any `reproductionOfPhase2Report` bin moves by more than
-     0.01, the deployed board pipeline has changed. In that case re-run
-     `scripts/package_model_offline_parity_audit.py` at that SHA before interpreting the result.
+     `fd798c3e`. It checks only that network fallback, not board drift between deployed versions.
+   - `reproductionOfPhase2Report` re-scores trades through 2026-10-19 and compares them with the first report.
+     A bin that moves by more than 0.01 cannot by itself say whether the boards changed (a new `deployedCodeSha`)
+     or late-collected pre-freeze trades were added (compare its `n` with 18,588).
+   - Report such a move as **unattributed drift**, with both figures. Attributing it would need a separate,
+     separately authorized board comparison. Until then, treat the prospective tests as conditional on it.
 3. `prospective.reported == true` and `prospective.unequal >= 2000`. Otherwise it is too early; see §4.
 4. The output is aggregate-only. The script calls `assert_aggregate_only` itself. Also check by eye that there
    is no 9+ digit run and no `player:` / `mpick:` / `utrade:` / `@` string.
