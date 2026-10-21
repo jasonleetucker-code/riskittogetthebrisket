@@ -461,6 +461,16 @@ def _feasibility_lens(simulation: dict[str, Any]) -> DimensionResult:
         "picksOccupySpots": False,
         "notes": list(cap.get("notes") or []),
     }
+    if "forcedDropCharge" in cap:
+        # Flag ``forced_drop_cheapest_legal`` only (absent when OFF, so the
+        # incumbent detail is unchanged): the owner's one charge and its rule.
+        detail["forcedDropCharge"] = cap.get("forcedDropCharge")
+        detail["forcedDropChargeBasis"] = cap.get("forcedDropChargeBasis")
+        detail["forcedDropReleaseCostBasis"] = cap.get("forcedDropReleaseCostBasis")
+        detail["forcedDropMarginal"] = cap.get("forcedDropMarginal")
+        detail["forcedDropSelection"] = cap.get("forcedDropSelection")
+        for row, d in zip(detail["forcedDrops"], drops):
+            row["chargeBasis"] = d.get("chargeBasis")
     if state in ("unknown_limit", "uncertain"):
         return DimensionResult(
             name="feasibility",
@@ -476,6 +486,10 @@ def _feasibility_lens(simulation: dict[str, Any]) -> DimensionResult:
         # cost is already inside the roster lens).  Releasing only unpriced
         # or zero-cost players is a burden but not a value loss.
         released = cap.get("forcedDropReleaseCost")
+        if "forcedDropCharge" in cap:
+            # Flag ``forced_drop_cheapest_legal``: direction follows the one
+            # charge the objective subtracts.
+            released = cap.get("forcedDropCharge")
         # An unpriced forced drop's value is UNKNOWN, not zero: it is not
         # claimed as a cost (the reasons still name the cut).
         released_value = isinstance(released, (int, float)) and released > 0
