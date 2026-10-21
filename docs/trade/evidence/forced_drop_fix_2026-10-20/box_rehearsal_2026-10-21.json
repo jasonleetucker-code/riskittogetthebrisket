@@ -1,0 +1,758 @@
+{
+ "purpose": "EVIDENCE ONLY.  Forced-drop fix (flag forced_drop_cheapest_legal, default OFF), flag OFF vs ON on the PRODUCTION BOX: read-only, pinned board, aggregates only.",
+ "generatedBy": "scripts/forced_drop_fix_replay.py --box",
+ "generatedAt": "2026-10-21T20:27:52.526662+00:00",
+ "activeModelAtRun": "geom_q078_v1",
+ "rule": "cheapest_legal_package_consistent_v1",
+ "ruleRosterRational": "cheapest_legal_roster_rational_v1",
+ "defaultSelectionMode": "roster_rational",
+ "provenance": {
+  "deployedCodeSha": "408742c992b66d67e777c0c61452ff617cfb3969",
+  "expectedCodeSha": "408742c992b66d67e777c0c61452ff617cfb3969",
+  "archive": "exports/archive/dynasty_export_20261020_052241.zip",
+  "archiveSha256": "f660098f3c68eee3be24790d7674bd263616d4c97d330e92c24ed77d5dd6078e",
+  "expectedArchiveSha256": "f660098f3c68eee3be24790d7674bd263616d4c97d330e92c24ed77d5dd6078e",
+  "archiveMemberSha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+  "expectedArchiveMemberSha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+  "csvRev": "d5236546ff4df9294b6cf99c6b93e8db57e6ff36",
+  "csvTreeSha256": "31687c60b2adc9f347eb58c8da2e15a1198a264d3b98200b1db3fa5f2345bd54",
+  "expectedCsvTreeSha256": "31687c60b2adc9f347eb58c8da2e15a1198a264d3b98200b1db3fa5f2345bd54",
+  "builtBoardSha256": "eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833",
+  "expectedBoardSha256": "eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833",
+  "pricedAssets": 1003,
+  "pinsMatch": true,
+  "configSha256": {
+   "config/trade/package_model.json": "d22cd301ac09f2e2b8300be3cbb445e643cb8337251c377cb832f61f4b9592cd",
+   "config/trade/fairness_bands.json": "9779a4063109b4a8a581dbd091ba0e0fc71a07ea4efaf49a86fbae1b8523a242",
+   "config/trade/analyze_trade.json": "136101b0fd5153e3e6ce6f1b371ac2bf2670c183cfe905949973a717c4f5c00d",
+   "config/trade/decision_engine_v1.json": "5646dc71584e0a33f85ce288a30d28c24533e3aa32c50c0764b3ad7dfeb8c822",
+   "config/trade/team_impact.json": "a289887571e2f0f46783098960399de2e294d1fb0a318f9c2d9baf87a3dcd94b"
+  }
+ },
+ "fairnessBands": {
+  "version": "fairness_bands_v2",
+  "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+  "basis": "larger_package_utility",
+  "absoluteMinimum": 250.0,
+  "slightPct": 3.5,
+  "unfairPct": 9.0,
+  "lopsidedPct": 18.0,
+  "fairTradeLevels": [
+   "fair"
+  ],
+  "postLaunchValidation": "OD-F4"
+ },
+ "packageModel": {
+  "id": "geom_q078_v1",
+  "family": "geom",
+  "version": "1",
+  "label": "Geometric Value Adjustment (q = 0.78)",
+  "classification": "ACTIVE"
+ },
+ "resourceCaps": {
+  "nice": 10,
+  "addressSpaceGiB": 4.0,
+  "cpuSeconds": 1500,
+  "wallSeconds": 1700
+ },
+ "scarcityObserved": {
+  "positions": 8,
+  "multiplierByPosition": {
+   "DB": 1.0,
+   "DL": 1.0,
+   "K": 1.0,
+   "LB": 1.0,
+   "QB": 1.0,
+   "RB": 1.0,
+   "TE": 1.0,
+   "WR": 1.0
+  },
+  "min": 1.0,
+  "max": 1.0,
+  "inert": true,
+  "waiverValuesPositions": 7
+ },
+ "warRoom": {
+  "design": "identical to the research diagnostic (archive, seed SEED+2, 5 opponents per roster at the 58 cap; X 2,500-6,500 out, Y at 86-97% of X in, then 1-3 expendable fillers)",
+  "reproduction": {
+   "samples": 18,
+   "sweetenedSteps": 54,
+   "flips_neutralised_overCorrected_surviving": [
+    53,
+    30,
+    22,
+    1
+   ],
+   "matches_133_85_43_5": false,
+   "productionCutSetReconstructed": "54/54"
+  },
+  "shadowBandBase": {
+   "base": "largerPackageUtility (the production decision's band base, read from the flag-OFF asset-only objective; classified by fairness_bands.classify)",
+   "bandVersion": "fairness_bands_v2",
+   "stepsWhereBaseDiffersFromLargerAdjustedSide": 0
+  },
+  "variants": {
+   "PROD": {
+    "flips": 53,
+    "neutralised": 30,
+    "overCorrected": 22,
+    "surviving_underCorrected": 1,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 51,
+    "chargeOverCreditMedian": 1.414
+   },
+   "V1_cheapestRelease": {
+    "flips": 53,
+    "neutralised": 2,
+    "overCorrected": 0,
+    "surviving_underCorrected": 51,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.487
+   },
+   "V2a_unpricedExcluded": {
+    "flips": 53,
+    "neutralised": 28,
+    "overCorrected": 12,
+    "surviving_underCorrected": 13,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 35,
+    "chargeOverCreditMedian": 1.166
+   },
+   "V2b_unpricedBoardFloor": {
+    "flips": 53,
+    "neutralised": 29,
+    "overCorrected": 13,
+    "surviving_underCorrected": 11,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 37,
+    "chargeOverCreditMedian": 1.176
+   },
+   "V3a_cheapest_unpricedExcluded": {
+    "flips": 53,
+    "neutralised": 0,
+    "overCorrected": 0,
+    "surviving_underCorrected": 53,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.0
+   },
+   "V3b_cheapest_unpricedBoardFloor": {
+    "flips": 53,
+    "neutralised": 0,
+    "overCorrected": 0,
+    "surviving_underCorrected": 53,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.216
+   },
+   "V4_packageConsistent": {
+    "flips": 53,
+    "neutralised": 0,
+    "overCorrected": 0,
+    "surviving_underCorrected": 53,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.216
+   },
+   "V5_implementedRule": {
+    "flips": 53,
+    "neutralised": 0,
+    "overCorrected": 0,
+    "surviving_underCorrected": 53,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.431,
+    "stepsWhereChargeExceedsFillerCreditNote": "0 by construction: releasing the fillers themselves is a legal option charged exactly their package credit, and V5 minimises the charge \u2014 not evidence that V5 beats V1"
+   },
+   "V5R_rosterRational": {
+    "flips": 53,
+    "neutralised": 2,
+    "overCorrected": 0,
+    "surviving_underCorrected": 51,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.487,
+    "stepsWhereChargeExceedsFillerCreditNote": "not guaranteed: V5-R selects by c, not by the charge"
+   },
+   "V6_surplusCharge": {
+    "flips": 53,
+    "neutralised": 0,
+    "overCorrected": 0,
+    "surviving_underCorrected": 53,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.0
+   },
+   "FLAG_ON_measured": {
+    "flips": 53,
+    "neutralised": 0,
+    "overCorrected": 0,
+    "surviving_underCorrected": 53,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.431,
+    "stepsWhereChargeExceedsFillerCreditNote": "0 by construction (see V5_implementedRule)"
+   },
+   "FLAG_ON_measured_rosterRational": {
+    "flips": 53,
+    "neutralised": 2,
+    "overCorrected": 0,
+    "surviving_underCorrected": 51,
+    "notEvaluable": 0,
+    "stepsWhereChargeExceedsFillerCredit": 0,
+    "chargeOverCreditMedian": 0.487,
+    "stepsWhereChargeExceedsFillerCreditNote": "not guaranteed (see V5R_rosterRational)"
+   }
+  },
+  "analyzeVerdicts": {
+   "stepsCompared": 72,
+   "headlineChanged": 44,
+   "publicCategoryChanged": 44,
+   "publicCategoryTransitions": {
+    "UNFAVORABLE -> FAVORABLE": 23,
+    "UNAVAILABLE -> FAVORABLE": 16,
+    "UNFAVORABLE -> APPROXIMATELY_EVEN": 3,
+    "UNAVAILABLE -> STRONGLY_UNFAVORABLE": 1,
+    "APPROXIMATELY_EVEN -> FAVORABLE": 1
+   },
+   "evidenceGapTransitions": {
+    "forced_drop_unpriced -> -": 17,
+    "forced_drop_unpriced,stale_values -> stale_values": 3
+   },
+   "stepsWithAnUnpricedForcedDrop": {
+    "off": 20,
+    "on": 0
+   },
+   "forcedDropSetChanged": 53,
+   "currencyAnomaly": {
+    "selectionsReleasingAnAcquiredPiece": 23,
+    "currencyAnomalies": 21,
+    "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 54,
+    "reverseCurrencyAnomalies": 0,
+    "unmatched": 0
+   }
+  },
+  "analyzeVerdictsRosterRational": {
+   "stepsCompared": 72,
+   "headlineChanged": 44,
+   "publicCategoryChanged": 44,
+   "publicCategoryTransitions": {
+    "UNFAVORABLE -> FAVORABLE": 19,
+    "UNAVAILABLE -> FAVORABLE": 13,
+    "UNFAVORABLE -> APPROXIMATELY_EVEN": 7,
+    "UNAVAILABLE -> APPROXIMATELY_EVEN": 3,
+    "UNAVAILABLE -> STRONGLY_UNFAVORABLE": 1,
+    "APPROXIMATELY_EVEN -> FAVORABLE": 1
+   },
+   "evidenceGapTransitions": {
+    "forced_drop_unpriced -> -": 17,
+    "forced_drop_unpriced,stale_values -> stale_values": 3
+   },
+   "stepsWithAnUnpricedForcedDrop": {
+    "off": 20,
+    "on": 0
+   },
+   "forcedDropSetChanged": 53,
+   "currencyAnomaly": {
+    "selectionsReleasingAnAcquiredPiece": 3,
+    "currencyAnomalies": 0,
+    "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 54,
+    "reverseCurrencyAnomalies": 0,
+    "unmatched": 0
+   }
+  },
+  "v5VsRosterRational": {
+   "steps": 72,
+   "dropSetDiffers": 21,
+   "v5rChargeHigher": 21,
+   "v5rChargeLower": 0,
+   "categoryDiffers": 7
+  },
+  "v5VsRosterRationalRegret": {
+   "selectionsCompared": 54,
+   "assetValueRegretV5MinusV5R": {
+    "n": 21,
+    "median": 334.0,
+    "p90": 625.0,
+    "max": 1254.0,
+    "unmatched": 0,
+    "negativeDefect": 0
+   },
+   "chargeRegretV5RMinusV5": {
+    "n": 21,
+    "median": 411.0,
+    "p90": 763.0,
+    "max": 918.0,
+    "negativeDefect": 0
+   },
+   "chargeRegretPctOfBandBase": {
+    "n": 21,
+    "median": 6.3,
+    "p90": 10.5,
+    "max": 12.6
+   },
+   "incomingChargedAboveOwnC": {
+    "V5": 0,
+    "V5-R": 0
+   },
+   "tieCensusV5R": {
+    "tieBreakApplied": 0,
+    "resolvedBy": {},
+    "chargeSpread": {
+     "n": 0,
+     "median": null,
+     "p90": null,
+     "max": null
+    }
+   }
+  },
+  "elapsedSec": 361.0
+ },
+ "census": {
+  "design": "every dynasty_main team x 2 seeded trades per shape (1-for-2, 2-for-1, 1-for-3) against random rivals: the main incoming piece at 80-105% of a 1,500-7,000 outgoing player, extra pieces from the rival's 10 cheapest players (and for 2-for-1 the sender's own 12 cheapest); Team Context ON",
+  "teamsAtCap": 11,
+  "counts": {
+   "trades": 70,
+   "trades:1-for-2": 24,
+   "requireDrops": 45,
+   "dropSetChanged": 43,
+   "chargeChanged": 43,
+   "headlineChanged": 34,
+   "publicCategoryChanged": 34,
+   "trades:2-for-1": 23,
+   "trades:1-for-3": 23
+  },
+  "rosterCapacityFieldChanges": {
+   "forcedDropReleaseCost": 43,
+   "unpricedForcedDrops": 16
+  },
+  "publicCategoryTransitions": {
+   "UNAVAILABLE -> FAVORABLE": 11,
+   "UNFAVORABLE -> FAVORABLE": 10,
+   "UNFAVORABLE -> APPROXIMATELY_EVEN": 6,
+   "UNAVAILABLE -> APPROXIMATELY_EVEN": 5,
+   "APPROXIMATELY_EVEN -> FAVORABLE": 2
+  },
+  "evidenceGapTransitions": {
+   "forced_drop_unpriced -> -": 16
+  },
+  "chargeDeltaByKind": {
+   "atOrUnderCap:down": 39,
+   "overLimitBefore:up": 4
+  },
+  "chargeDelta": {
+   "n": 43,
+   "median": -1691,
+   "min": -3087,
+   "max": 1231
+  },
+  "currencyAnomaly": {
+   "selectionsReleasingAnAcquiredPiece": 15,
+   "currencyAnomalies": 3,
+   "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 45,
+   "reverseCurrencyAnomalies": 0,
+   "unmatched": 0
+  },
+  "rosterRational": {
+   "counts": {
+    "trades": 70,
+    "trades:1-for-2": 24,
+    "requireDrops": 45,
+    "dropSetChanged": 43,
+    "chargeChanged": 43,
+    "headlineChanged": 34,
+    "publicCategoryChanged": 34,
+    "trades:2-for-1": 23,
+    "trades:1-for-3": 23
+   },
+   "rosterCapacityFieldChanges": {
+    "forcedDropReleaseCost": 43,
+    "unpricedForcedDrops": 16
+   },
+   "publicCategoryTransitions": {
+    "UNAVAILABLE -> FAVORABLE": 11,
+    "UNFAVORABLE -> FAVORABLE": 10,
+    "UNFAVORABLE -> APPROXIMATELY_EVEN": 6,
+    "UNAVAILABLE -> APPROXIMATELY_EVEN": 5,
+    "APPROXIMATELY_EVEN -> FAVORABLE": 2
+   },
+   "evidenceGapTransitions": {
+    "forced_drop_unpriced -> -": 16
+   },
+   "chargeDeltaByKind": {
+    "atOrUnderCap:down": 39,
+    "overLimitBefore:up": 4
+   },
+   "chargeDelta": {
+    "n": 43,
+    "median": -1691,
+    "min": -3087,
+    "max": 1354
+   },
+   "currencyAnomaly": {
+    "selectionsReleasingAnAcquiredPiece": 12,
+    "currencyAnomalies": 0,
+    "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 45,
+    "reverseCurrencyAnomalies": 0,
+    "unmatched": 0
+   }
+  },
+  "v5VsRosterRational": {
+   "trades": 70,
+   "dropSetDiffers": 3,
+   "v5rChargeHigher": 3,
+   "v5rChargeLower": 0,
+   "categoryDiffers": 0
+  },
+  "v5VsRosterRationalRegret": {
+   "selectionsCompared": 45,
+   "assetValueRegretV5MinusV5R": {
+    "n": 3,
+    "median": 386.0,
+    "p90": 482.0,
+    "max": 482.0,
+    "unmatched": 0,
+    "negativeDefect": 0
+   },
+   "chargeRegretV5RMinusV5": {
+    "n": 3,
+    "median": 123.0,
+    "p90": 387.0,
+    "max": 387.0,
+    "negativeDefect": 0
+   },
+   "chargeRegretPctOfBandBase": {
+    "n": 3,
+    "median": 3.0,
+    "p90": 10.5,
+    "max": 10.5
+   },
+   "incomingChargedAboveOwnC": {
+    "V5": 0,
+    "V5-R": 0
+   },
+   "tieCensusV5R": {
+    "tieBreakApplied": 0,
+    "resolvedBy": {},
+    "chargeSpread": {
+     "n": 0,
+     "median": null,
+     "p90": null,
+     "max": null
+    }
+   }
+  }
+ },
+ "finder": null,
+ "perfectDraft": {
+  "surface": "src.draft.context.build_roster_context (/api/draft/roster-context)",
+  "teams": 12,
+  "comparedOffVsOn": 11,
+  "identicalOffVsOn": 11,
+  "errorsByMode": {
+   "ValueError:off": 1,
+   "ValueError:on": 1
+  },
+  "note": "teams whose roster context raises (in both modes) are excluded from the comparison rather than counted identical"
+ },
+ "componentBCensus": {
+  "design": "the census' seeded trades (same sampler), decided with the box's own roster-utility lens (Component B) and posture instead of the not-applicable stand-in",
+  "trades": 70,
+  "componentBState": {
+   "off": {
+    "B available": 70
+   },
+   "": {
+    "B available": 70
+   },
+   "R": {
+    "B available": 70
+   }
+  },
+  "postureState": {
+   "off": {
+    "posture available": 64,
+    "posture unavailable": 6
+   },
+   "": {
+    "posture available": 64,
+    "posture unavailable": 6
+   },
+   "R": {
+    "posture available": 64,
+    "posture unavailable": 6
+   }
+  },
+  "strategySource": {
+   "off": {
+    "posture": 64,
+    "posture_unknown": 6
+   },
+   "": {
+    "posture": 64,
+    "posture_unknown": 6
+   },
+   "R": {
+    "posture": 64,
+    "posture_unknown": 6
+   }
+  },
+  "headlineDistribution": {
+   "off": {
+    "NOT_ENOUGH_EVIDENCE": 38,
+    "NO": 26,
+    "YES": 4,
+    "NO_TOO_CLOSE": 2
+   },
+   "": {
+    "NOT_ENOUGH_EVIDENCE": 24,
+    "NO": 23,
+    "YES": 21,
+    "NO_TOO_CLOSE": 2
+   },
+   "R": {
+    "NOT_ENOUGH_EVIDENCE": 24,
+    "NO": 23,
+    "YES": 21,
+    "NO_TOO_CLOSE": 2
+   }
+  },
+  "vsOff": {
+   "V5": {
+    "categoryChanged": 25,
+    "headlineChanged": 25,
+    "categoryTransitions": {
+     "UNAVAILABLE -> FAVORABLE": 9,
+     "UNFAVORABLE -> FAVORABLE": 7,
+     "UNAVAILABLE -> UNFAVORABLE": 4,
+     "APPROXIMATELY_EVEN -> FAVORABLE": 2,
+     "UNAVAILABLE -> APPROXIMATELY_EVEN": 2,
+     "FAVORABLE -> UNAVAILABLE": 1
+    },
+    "evidenceGapTransitions": {
+     "forced_drop_unpriced -> -": 14,
+     "forced_drop_unpriced,unprojected_players -> unprojected_players": 2,
+     "unprojected_players -> -": 1,
+     "- -> unprojected_players": 1
+    }
+   },
+   "V5-R": {
+    "categoryChanged": 25,
+    "headlineChanged": 25,
+    "categoryTransitions": {
+     "UNAVAILABLE -> FAVORABLE": 9,
+     "UNFAVORABLE -> FAVORABLE": 7,
+     "UNAVAILABLE -> UNFAVORABLE": 4,
+     "APPROXIMATELY_EVEN -> FAVORABLE": 2,
+     "UNAVAILABLE -> APPROXIMATELY_EVEN": 2,
+     "FAVORABLE -> UNAVAILABLE": 1
+    },
+    "evidenceGapTransitions": {
+     "forced_drop_unpriced -> -": 14,
+     "forced_drop_unpriced,unprojected_players -> unprojected_players": 2,
+     "unprojected_players -> -": 1,
+     "- -> unprojected_players": 1
+    }
+   }
+  },
+  "interplay": {
+   "V5": {
+    "favourableWithAOnly": 29,
+    "favourableWithAOnlyAndBAvailable": 29,
+    "favourableLostWhenBVotes": 9,
+    "cutChangedWithBAvailable": 43,
+    "onCutRaisesLineupPpg": 28,
+    "lineupPpgUnchanged": 10,
+    "onCutLowersLineupPpg": 5,
+    "lineupPpgDeltaOnMinusOff": {
+     "lower": {
+      "n": 5,
+      "median": 0.2,
+      "p90": 1.0,
+      "max": 1.0
+     },
+     "higher": {
+      "n": 28,
+      "median": 1.0,
+      "p90": 3.1,
+      "max": 3.8
+     }
+    }
+   },
+   "V5-R": {
+    "favourableWithAOnly": 29,
+    "favourableWithAOnlyAndBAvailable": 29,
+    "favourableLostWhenBVotes": 9,
+    "cutChangedWithBAvailable": 43,
+    "onCutRaisesLineupPpg": 29,
+    "lineupPpgUnchanged": 10,
+    "onCutLowersLineupPpg": 4,
+    "lineupPpgDeltaOnMinusOff": {
+     "lower": {
+      "n": 4,
+      "median": 0.2,
+      "p90": 1.0,
+      "max": 1.0
+     },
+     "higher": {
+      "n": 29,
+      "median": 0.9,
+      "p90": 3.1,
+      "max": 3.8
+     }
+    }
+   }
+  },
+  "elapsedSec": 191.6
+ },
+ "singleSourceStress": {
+  "design": "the census' seeded trades under the base board and under the stress (every single-source player unpriced -> charged at the waiver ceiling)",
+  "trades": 70,
+  "singleSourcePlayersOnBoard": 254,
+  "categoryDistribution": {
+   "base": {
+    "OFF": {
+     "UNAVAILABLE": 27,
+     "STRONGLY_UNFAVORABLE": 17,
+     "FAVORABLE": 4,
+     "APPROXIMATELY_EVEN": 2,
+     "UNFAVORABLE": 18,
+     "STRONGLY_FAVORABLE": 2
+    },
+    "V5": {
+     "FAVORABLE": 27,
+     "APPROXIMATELY_EVEN": 11,
+     "UNAVAILABLE": 11,
+     "STRONGLY_UNFAVORABLE": 17,
+     "STRONGLY_FAVORABLE": 2,
+     "UNFAVORABLE": 2
+    },
+    "V5-R": {
+     "FAVORABLE": 27,
+     "APPROXIMATELY_EVEN": 11,
+     "UNAVAILABLE": 11,
+     "STRONGLY_UNFAVORABLE": 17,
+     "STRONGLY_FAVORABLE": 2,
+     "UNFAVORABLE": 2
+    }
+   },
+   "stress": {
+    "OFF": {
+     "UNAVAILABLE": 31,
+     "STRONGLY_UNFAVORABLE": 17,
+     "STRONGLY_FAVORABLE": 2,
+     "UNFAVORABLE": 17,
+     "FAVORABLE": 3
+    },
+    "V5": {
+     "UNFAVORABLE": 12,
+     "UNAVAILABLE": 16,
+     "STRONGLY_UNFAVORABLE": 17,
+     "APPROXIMATELY_EVEN": 20,
+     "STRONGLY_FAVORABLE": 2,
+     "FAVORABLE": 3
+    },
+    "V5-R": {
+     "UNFAVORABLE": 23,
+     "UNAVAILABLE": 11,
+     "STRONGLY_UNFAVORABLE": 17,
+     "APPROXIMATELY_EVEN": 14,
+     "STRONGLY_FAVORABLE": 2,
+     "FAVORABLE": 3
+    }
+   }
+  },
+  "categoryChangesVsOff": {
+   "base": {
+    "V5": {
+     "categoryChanged": 34
+    },
+    "V5-R": {
+     "categoryChanged": 34
+    }
+   },
+   "stress": {
+    "V5": {
+     "categoryChanged": 33
+    },
+    "V5-R": {
+     "categoryChanged": 32
+    }
+   }
+  },
+  "elapsedSec": 391.4
+ },
+ "warRoomChargeShift": {
+  "V5": {
+   "steps": 72,
+   "chargeChanged": 53,
+   "medianDelta": -2149,
+   "down": 53,
+   "up": 0
+  },
+  "V5-R": {
+   "steps": 72,
+   "chargeChanged": 53,
+   "medianDelta": -1888,
+   "down": 53,
+   "up": 0
+  }
+ },
+ "unpricedRosterCensus": {
+  "rosteredPlayers": 696,
+  "unpricedRostered": 54,
+  "unpricedByPosition": {
+   "K": 21,
+   "DL": 13,
+   "DB": 13,
+   "LB": 3,
+   "WR": 3,
+   "RB": 1
+  },
+  "teamsWithUnpriced": 12,
+  "teamsAtCapWithUnpriced": 11
+ },
+ "readOnlyGuard": {
+  "installed": true,
+  "refusedWriteOrProcessAttempts": 0,
+  "refusedWriteOrProcessEvents": [],
+  "refusedNetworkAttempts": 4,
+  "refusedNetworkCallers": [
+   "/<frozen importlib._bootstrap>:488",
+   "api/data_contract.py:9994"
+  ]
+ },
+ "peakRssMb": 144.0,
+ "elapsedSec": 1155.4,
+ "currencyAnomalyDirections": {
+  "warRoomV5": {
+   "selectionsReleasingAnAcquiredPiece": 23,
+   "currencyAnomalies": 21,
+   "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 54,
+   "reverseCurrencyAnomalies": 0,
+   "unmatched": 0
+  },
+  "warRoomV5R": {
+   "selectionsReleasingAnAcquiredPiece": 3,
+   "currencyAnomalies": 0,
+   "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 54,
+   "reverseCurrencyAnomalies": 0,
+   "unmatched": 0
+  },
+  "censusV5": {
+   "selectionsReleasingAnAcquiredPiece": 15,
+   "currencyAnomalies": 3,
+   "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 45,
+   "reverseCurrencyAnomalies": 0,
+   "unmatched": 0
+  },
+  "censusV5R": {
+   "selectionsReleasingAnAcquiredPiece": 12,
+   "currencyAnomalies": 0,
+   "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 45,
+   "reverseCurrencyAnomalies": 0,
+   "unmatched": 0
+  }
+ }
+}
