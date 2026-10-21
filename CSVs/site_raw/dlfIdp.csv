@@ -1,176 +1,176 @@
-name,rank,value
-Aidan Hutchinson,1.50,
-Will Anderson Jr,1.50,
-Jack Campbell,3.50,
-Carson Schwesinger,3.50,
-Micah Parsons,8,
-Abdul Carter,8.50,
-Sonny Styles,8.50,
-Jacob Rodriguez,9,
-Nick Bosa,13,
-Jared Verse,13.50,
-Myles Garrett,15.50,
-Nik Bonitto,15.50,
-Ernest Jones,16.50,
-Dallas Turner,16.50,
-Arvell Reese,16.50,
-Maxx Crosby,18,
-Nick Bolton,18,
-Roquan Smith,18.50,
-Fred Warner,19,
-David Bailey,19,
-Edgerrin Cooper,19.50,
-Gregory Rousseau,20.50,
-Brian Burns,21.50,
-Jordyn Brooks,21.50,
-TJ Watt,22,
-Jamien Sherwood,25,
-Josiah Trotter,26,
-Laiatu Latu,29,
-Zack Baun,29.50,
-Jihaad Campbell,29.50,
-Anthony Hill Jr,30.50,
-Tuli Tuipulotu,33,
-Nakobe Dean,33.50,
-Kyle Hamilton,36,
-Nick Emmanwori,36,
-Quay Walker,37,
-Jalen Carter,37,
-Jeffery Simmons,38,
-Caleb Downs,41,
-Josh Hines-Allen,41.50,
-Byron Murphy II,41.50,
-Devin Lloyd,42.50,
-Payton Wilson,42.50,
-Alex Highsmith,43,
-Foye Oluokun,46,
-Danielle Hunter,47,
-Cedric Gray,47,
-Daiyan Henley,48,
-Azeez Al-Shaair,49.50,
-Nate Landman,50,
-CJ Allen,50,
-Dexter Lawrence,57.50,
-Kaden Elliss,57.50,
-Byron Young,58,
-Brian Branch,59.50,
-Dillon Thieneman,62,
-Blake Cashman,64,
-George Karlaftis,65.50,
-Quinnen Williams,66.50,
-Jaelan Phillips,67,
-Travis Hunter,68,
-Terrel Bernard,69.50,
-Nick Cross,71,
-Devin Bush,72.50,
-Travon Walker,73.50,
-Tremaine Edmunds,76.50,
-Jake Golday,77,
-Kobie Turner,77.50,
-Zaire Franklin,78,
-Zach Allen,79.50,
-Rueben Bain Jr,80.50,
-Derwin James,81.50,
-Patrick Queen,83,
-Nick Herbig,84.50,
-Jalon Walker,84.50,
-DeForest Buckner,85.50,
-Jonathan Greenard,86.50,
-Quincy Williams,88,
-Barrett Carter,88,
-Mason Graham,88,
-Devon Witherspoon,89,
-Alex Singleton,90,
-Robert Spillane,92,
-Cooper DeJean,92,
-Tykee Smith,93,
-Budda Baker,94,
-Demetrius Knight Jr,95.50,
-Jaishawn Barham,95.50,
-Andrew Van Ginkel,96,
-Chase Young,96.50,
-James Pearce Jr,97.50,
-Antoine Winfield,98.50,
-TJ Edwards,100,
-Kaleb Elarms-Orr,101.50,
-Quentin Lake,103,
-Donovan Ezeiruaku,103,
-Chop Robinson,105,
-Dre Greenlaw,107,
-Lukas Van Ness,107.50,
-DeMarvion Overshown,107.50,
-Leonard Williams,108,
-Trey Hendrickson,108,
-Akheem Mesidor,109.50,
-Drake Thomas,110,
-Jermaine Johnson,111.50,
-Xavier McKinney,112.50,
-Will McDonald IV,114,
-Ventrell Miller,115,
-YaYa Diaby,115.50,
-Walter Nolen,115.50,
-Dee Winters,115.50,
-Calijah Kancey,116,
-AJ Haulcy,116,
-Jalen Pitre,117,
-Danny Stutsman,117.50,
-Frankie Luvu,119.50,
-Julian Love,120,
-Derrick Brown,120,
-Tre'von Moehrig,120,
-Tyler Nubin,120.50,
-Nolan Smith,121,
-Boye Mafe,121.50,
-Kayvon Thibodeaux,122,
-Montez Sweat,122.50,
-Kendal Daniels,122.50,
-Gabe Jacas,123,
-Teddye Buchanan,123.50,
-Malachi Lawrence,124,
-Braden Fiske,124.50,
-Zach Sieler,125,
-Carl Granderson,127.50,
-Ed Oliver,127.50,
-Talanoa Hufanga,127.50,
-Chris Jones,128,
-Jessie Bates,128,
-Eric Wilson,128,
-Henry To'oTo'o,128.50,
-Jalyx Hunt,128.50,
-Jalen Thompson,129,
-Mike Green,129.50,
-Mykel Williams,130,
-Xavier Watts,130,
-Rashan Gary,130.50,
-Divine Deablo,130.50,
-Jonas Sanker,130.50,
-Justin Madubuike,131,
-Jonathon Cooper,132,
-Jer'Zhan Newton,132.50,
-Mack Wilson,133,
-Demario Davis,133.50,
-Jeremy Chinn,133.50,
-Jaquan Brisker,133.50,
-Jordan Battle,133.50,
-Gervon Dexter,134,
-Evan Williams,135,
-Derrick Harmon,135,
-Brandon Jones,136.50,
-Emmanuel McNeil-Warren,137,
-Bradley Chubb,137.50,
-Kevin Winston Jr,137.50,
-Austin Booker,138.50,
-Malaki Starks,138.50,
-Trenton Simpson,139,
-R Mason Thomas,139.50,
-Trevin Wallace,140,
-Leo Chenal,140.50,
-Uchenna Nwosu,141.50,
-Josh Sweat,143,
-Kamren Curl,143,
-Cashius Howell,144.50,
-Cole Bishop,145.50,
-Jordan Davis,146.50,
-Akeem Davis-Gaither,148.50,
-Andrew Mukuba,149.50,
-Dadrion Taylor-Demerson,150,
+name,rank,value,position,team
+Aidan Hutchinson,1.50,,DE (DL1),DET
+Will Anderson Jr,1.50,,DE (DL2),HOU
+Jack Campbell,3.50,,LB1,DET
+Carson Schwesinger,3.50,,LB2,CLE
+Micah Parsons,8,,DE (DL3),GB
+Abdul Carter,8.50,,DE (DL4),NYG
+Sonny Styles,8.50,,LB3,WAS
+Jacob Rodriguez,9,,LB4,MIA
+Nick Bosa,13,,DE (DL5),SF
+Jared Verse,13.50,,DE (DL6),CLE
+Myles Garrett,15.50,,DE (DL7),LAR
+Nik Bonitto,15.50,,DE (DL8),DEN
+Ernest Jones,16.50,,LB5,SEA
+Dallas Turner,16.50,,DE (DL9),MIN
+Arvell Reese,16.50,,LB6,NYG
+Maxx Crosby,18,,DE (DL10),LV
+Nick Bolton,18,,LB7,KC
+Roquan Smith,18.50,,LB8,BAL
+Fred Warner,19,,LB9,SF
+David Bailey,19,,DE (DL11),NYJ
+Edgerrin Cooper,19.50,,LB10,GB
+Gregory Rousseau,20.50,,DE (DL12),BUF
+Brian Burns,21.50,,DE (DL13),NYG
+Jordyn Brooks,21.50,,LB11,MIA
+TJ Watt,22,,DE (DL14),PIT
+Jamien Sherwood,25,,LB12,NYJ
+Josiah Trotter,26,,LB13,TB
+Laiatu Latu,29,,DE (DL15),IND
+Zack Baun,29.50,,LB14,PHI
+Jihaad Campbell,29.50,,LB15,PHI
+Anthony Hill Jr,30.50,,LB16,TEN
+Tuli Tuipulotu,33,,DE (DL16),LAC
+Nakobe Dean,33.50,,LB17,LV
+Kyle Hamilton,36,,S (DB1),BAL
+Nick Emmanwori,36,,S (DB2),SEA
+Quay Walker,37,,LB18,LV
+Jalen Carter,37,,DT (DL17),PHI
+Jeffery Simmons,38,,DT (DL18),TEN
+Caleb Downs,41,,S (DB3),DAL
+Josh Hines-Allen,41.50,,DE (DL19),JAC
+Byron Murphy II,41.50,,DT (DL20),SEA
+Devin Lloyd,42.50,,LB19,CAR
+Payton Wilson,42.50,,LB20,PIT
+Alex Highsmith,43,,DE (DL21),PIT
+Foye Oluokun,46,,LB21,JAC
+Danielle Hunter,47,,DE (DL22),HOU
+Cedric Gray,47,,LB22,TEN
+Daiyan Henley,48,,LB23,LAC
+Azeez Al-Shaair,49.50,,LB24,HOU
+Nate Landman,50,,LB25,LAR
+CJ Allen,50,,LB26,IND
+Dexter Lawrence,57.50,,DT (DL23),CIN
+Kaden Elliss,57.50,,LB27,NO
+Byron Young,58,,DE (DL24),LAR
+Brian Branch,59.50,,S (DB4),DET
+Dillon Thieneman,62,,S (DB5),CHI
+Blake Cashman,64,,LB28,MIN
+George Karlaftis,65.50,,DE (DL25),KC
+Quinnen Williams,66.50,,DT (DL26),DAL
+Jaelan Phillips,67,,DE (DL27),CAR
+Travis Hunter,68,,WR1,JAC
+Terrel Bernard,69.50,,LB29,BUF
+Nick Cross,71,,S (DB6),WAS
+Devin Bush,72.50,,LB30,CHI
+Travon Walker,73.50,,DE (DL28),JAC
+Tremaine Edmunds,76.50,,LB31,NYG
+Jake Golday,77,,LB32,MIN
+Kobie Turner,77.50,,DT (DL29),LAR
+Zaire Franklin,78,,LB33,GB
+Zach Allen,79.50,,DT (DL30),DEN
+Rueben Bain Jr,80.50,,DE (DL31),TB
+Derwin James,81.50,,S (DB7),LAC
+Patrick Queen,83,,LB34,PIT
+Nick Herbig,84.50,,DE (DL32),PIT
+Jalon Walker,84.50,,DE (DL33),ATL
+DeForest Buckner,85.50,,DT (DL34),IND
+Jonathan Greenard,86.50,,DE (DL35),PHI
+Quincy Williams,88,,LB35,CLE
+Barrett Carter,88,,LB36,CIN
+Mason Graham,88,,DT (DL36),CLE
+Devon Witherspoon,89,,CB (DB8),SEA
+Alex Singleton,90,,LB37,DEN
+Robert Spillane,92,,LB38,NE
+Cooper DeJean,92,,CB (DB9),PHI
+Tykee Smith,93,,S (DB10),TB
+Budda Baker,94,,S (DB11),ARI
+Demetrius Knight Jr,95.50,,LB39,CIN
+Jaishawn Barham,95.50,,LB40,DAL
+Andrew Van Ginkel,96,,DE (DL37),MIN
+Chase Young,96.50,,DE (DL38),NO
+James Pearce Jr,97.50,,DE (DL39),ATL
+Antoine Winfield,98.50,,S (DB12),TB
+TJ Edwards,100,,LB41,CHI
+Kaleb Elarms-Orr,101.50,,LB42,BUF
+Quentin Lake,103,,S (DB13),LAR
+Donovan Ezeiruaku,103,,DE (DL40),DAL
+Chop Robinson,105,,DE (DL41),MIA
+Dre Greenlaw,107,,LB43,SF
+Lukas Van Ness,107.50,,DE (DL42),GB
+DeMarvion Overshown,107.50,,LB44,DAL
+Leonard Williams,108,,DT (DL43),SEA
+Trey Hendrickson,108,,DE (DL44),BAL
+Akheem Mesidor,109.50,,DE (DL45),LAC
+Drake Thomas,110,,LB45,SEA
+Jermaine Johnson,111.50,,DE (DL46),TEN
+Xavier McKinney,112.50,,S (DB14),GB
+Will McDonald IV,114,,DE (DL47),NYJ
+Ventrell Miller,115,,LB46,JAC
+YaYa Diaby,115.50,,DE (DL48),TB
+Walter Nolen,115.50,,DT (DL49),ARI
+Dee Winters,115.50,,LB47,DAL
+Calijah Kancey,116,,DT (DL50),TB
+AJ Haulcy,116,,S (DB15),IND
+Jalen Pitre,117,,S (DB16),HOU
+Danny Stutsman,117.50,,LB48,NO
+Frankie Luvu,119.50,,LB49,WAS
+Julian Love,120,,S (DB17),SEA
+Derrick Brown,120,,DT (DL51),CAR
+Tre'von Moehrig,120,,S (DB18),CAR
+Tyler Nubin,120.50,,S (DB19),NYG
+Nolan Smith,121,,DE (DL52),PHI
+Boye Mafe,121.50,,DE (DL53),CIN
+Kayvon Thibodeaux,122,,DE (DL54),NYG
+Montez Sweat,122.50,,DE (DL55),CHI
+Kendal Daniels,122.50,,LB50,ATL
+Gabe Jacas,123,,DE (DL56),NE
+Teddye Buchanan,123.50,,LB51,BAL
+Malachi Lawrence,124,,DE (DL57),DAL
+Braden Fiske,124.50,,DT (DL58),LAR
+Zach Sieler,125,,DT (DL59),MIA
+Carl Granderson,127.50,,DE (DL60),NO
+Ed Oliver,127.50,,DT (DL61),BUF
+Talanoa Hufanga,127.50,,S (DB20),DEN
+Chris Jones,128,,DT (DL62),KC
+Jessie Bates,128,,S (DB21),ATL
+Eric Wilson,128,,LB52,MIN
+Henry To'oTo'o,128.50,,LB53,HOU
+Jalyx Hunt,128.50,,DE (DL63),PHI
+Jalen Thompson,129,,S (DB22),DAL
+Mike Green,129.50,,DE (DL64),BAL
+Mykel Williams,130,,DE (DL65),SF
+Xavier Watts,130,,S (DB23),ATL
+Rashan Gary,130.50,,DE (DL66),DAL
+Divine Deablo,130.50,,LB54,ATL
+Jonas Sanker,130.50,,S (DB24),NO
+Justin Madubuike,131,,DT (DL67),BAL
+Jonathon Cooper,132,,DE (DL68),DEN
+Jer'Zhan Newton,132.50,,DT (DL69),WAS
+Mack Wilson,133,,LB55,ARI
+Demario Davis,133.50,,LB56,NYJ
+Jeremy Chinn,133.50,,S (DB25),LV
+Jaquan Brisker,133.50,,S (DB26),PIT
+Jordan Battle,133.50,,S (DB27),CIN
+Gervon Dexter,134,,DL70,ATL
+Evan Williams,135,,S (DB28),GB
+Derrick Harmon,135,,DT (DL71),PIT
+Brandon Jones,136.50,,S (DB29),DEN
+Emmanuel McNeil-Warren,137,,S (DB30),CLE
+Bradley Chubb,137.50,,DE (DL72),BUF
+Kevin Winston Jr,137.50,,S (DB31),TEN
+Austin Booker,138.50,,DE (DL73),CHI
+Malaki Starks,138.50,,S (DB32),BAL
+Trenton Simpson,139,,LB57,BAL
+R Mason Thomas,139.50,,DE (DL74),KC
+Trevin Wallace,140,,LB58,NYJ
+Leo Chenal,140.50,,LB59,WAS
+Uchenna Nwosu,141.50,,DE (DL75),SEA
+Josh Sweat,143,,DE (DL76),ARI
+Kamren Curl,143,,S (DB33),LAR
+Cashius Howell,144.50,,DE (DL77),CIN
+Cole Bishop,145.50,,S (DB34),BUF
+Jordan Davis,146.50,,DT (DL78),PHI
+Akeem Davis-Gaither,148.50,,LB60,IND
+Andrew Mukuba,149.50,,S (DB35),PHI
+Dadrion Taylor-Demerson,150,,S (DB36),ARI
