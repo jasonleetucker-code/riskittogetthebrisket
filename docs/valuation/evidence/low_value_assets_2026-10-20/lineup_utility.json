@@ -1,0 +1,7238 @@
+{
+ "schema": "low_value_assets.lineup_utility.v1",
+ "generatedAt": "2026-10-20T11:04:06.328626+00:00",
+ "researchOnly": true,
+ "productionChanged": false,
+ "league": {
+  "leagueKey": "dynasty_main",
+  "season": 2026,
+  "teams": 12,
+  "rosterSize": 58,
+  "bestBall": true,
+  "starterSlots": [
+   "QB",
+   "RB",
+   "RB",
+   "WR",
+   "WR",
+   "WR",
+   "TE",
+   "TE",
+   "FLEX",
+   "FLEX",
+   "SUPER_FLEX",
+   "K",
+   "DL",
+   "DL",
+   "DL",
+   "LB",
+   "LB",
+   "LB",
+   "DB",
+   "DB",
+   "DB"
+  ],
+  "starterSlotSource": "sleeper_roster_positions",
+  "weeks": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "idsSanitized": "no Sleeper league/user/roster ids or team names are written"
+ },
+ "values": {
+  "preseason": {
+   "pricedPlayerRows": 705,
+   "lowestPricedPlayerValue": 1186.0,
+   "floorNote": "the 2026-08-25 board priced no player below this value, so the <500 and 500-1000 pre-season bands are EMPTY by construction (players past the rank cap were unpriced then -> 'unvalued'); today's board prices off-cap players",
+   "artifact": "data/ops/v1-27/pre-deploy-golden-board-LIVE-2026-08-25.json",
+   "basis": "LIVE export exports/latest/dynasty_data_2026-08-25.json \u2014 the board production actually serves",
+   "boardSha256": "93ff9dd6ab5e5d2b753ad52e66bd71d73da61a923957362d4b8457c43beedb44",
+   "capturedAt": "2026-08-25T07:42:21.563661+00:00",
+   "nameToSleeperIdJoin": {
+    "via": "exports/archive/dynasty_export_20260825_230528.zip",
+    "playerRowsJoined": 941,
+    "playerRowsUnjoined": 11
+   }
+  },
+  "today": {
+   "archive": "exports/archive/dynasty_export_20261020_052241.zip",
+   "scrapeTimestamp": "2026-10-20T05:22:41.050102+00:00",
+   "methodology": "TODAY's code at this commit (build_api_data_contract), not the methodology that served on the archive date",
+   "contractSleeperBlockIsThisLeague": true
+  },
+  "bands": [
+   "<500",
+   "500-1000",
+   "1000-1500",
+   "1500-2000",
+   "2000-3000",
+   "3000-4500",
+   "4500+",
+   "unvalued"
+  ],
+  "unvaluedMeans": "the board did not price this player (unpriced row or not on the board) - UNKNOWN, never a value of 0"
+ },
+ "validation": {
+  "scorer": {
+   "what": "canonical scorer (source='sleeper') vs host players_points, rostered player-weeks",
+   "playerWeeks": 4172,
+   "withinOneHundredth": 4172,
+   "maxAbsDiff": 0.004
+  },
+  "solver": {
+   "what": "canonical exact solver (realized_points) vs host best-ball starters",
+   "rosterWeeks": 72,
+   "scoreMatches": 72,
+   "identicalStarterSets": 64,
+   "maxAbsScoreDiff": 0.0,
+   "note": "identical starter sets can differ only by equal-point ties"
+  }
+ },
+ "method": {
+  "marginal": "optimal(roster) - optimal(roster without player), canonical solver on that week's actual points; 0 for a non-starter by construction",
+  "marginalVsFreeAgent": "optimal(roster) - optimal(roster without player + a free agent at his position): the value of his roster SPOT over the wire. The free agent is the best / 3rd-best player on NO roster at the current snapshot, ranked by weeks-1..N total (HINDSIGHT selection), with his actual points that week. Negative = a free agent in that spot would have scored more. Computed for every rostered player-week (bench players are <= 0 by construction)",
+  "shareOfLeagueStartingPoints": "points this cell supplied while started / all starting points league-wide",
+  "smallSample": "flagged when < 30 player-weeks or < 8 distinct players",
+  "byeWeeks": "kept (a rostered bye week is a real 0-utility roster week)"
+ },
+ "q1_q2_byPreseasonBand": {
+  "1000-1500": {
+   "ALL": {
+    "playerWeeks": 529,
+    "distinctPlayers": 112,
+    "startRate": 0.2665,
+    "meanPointsPerWeek": 5.7,
+    "meanPointsWhenStarted": 13.25,
+    "shareOfLeagueStartingPoints": 0.074,
+    "marginalPointsPerRosteredWeek": {
+     "n": 529,
+     "mean": 1.49,
+     "median": 0.0,
+     "p75": 0.26,
+     "p90": 6.64
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 141,
+     "mean": 5.57,
+     "median": 4.5,
+     "p75": 7.95,
+     "p90": 11.66
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2571,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 529,
+     "mean": -2.58,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.0
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 529,
+     "mean": -1.19,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.29
+    },
+    "smallSample": false
+   },
+   "DB": {
+    "playerWeeks": 136,
+    "distinctPlayers": 27,
+    "startRate": 0.3529,
+    "meanPointsPerWeek": 8.69,
+    "meanPointsWhenStarted": 15.66,
+    "shareOfLeagueStartingPoints": 0.0298,
+    "marginalPointsPerRosteredWeek": {
+     "n": 136,
+     "mean": 2.25,
+     "median": 0.0,
+     "p75": 2.19,
+     "p90": 7.99
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 48,
+     "mean": 6.38,
+     "median": 5.28,
+     "p75": 8.64,
+     "p90": 13.48
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.3529,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 136,
+     "mean": -4.4,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 6.09
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 136,
+     "mean": -2.1,
+     "median": 0.0,
+     "p75": 0.06,
+     "p90": 5.82
+    },
+    "smallSample": false
+   },
+   "DL": {
+    "playerWeeks": 40,
+    "distinctPlayers": 9,
+    "startRate": 0.325,
+    "meanPointsPerWeek": 6.08,
+    "meanPointsWhenStarted": 12.46,
+    "shareOfLeagueStartingPoints": 0.0064,
+    "marginalPointsPerRosteredWeek": {
+     "n": 40,
+     "mean": 1.28,
+     "median": 0.0,
+     "p75": 0.89,
+     "p90": 5.18
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 13,
+     "mean": 3.94,
+     "median": 2.64,
+     "p75": 7.12,
+     "p90": 8.25
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.325,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 40,
+     "mean": -2.32,
+     "median": -0.64,
+     "p75": 0.0,
+     "p90": 2.97
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 40,
+     "mean": -1.75,
+     "median": -0.0,
+     "p75": 0.0,
+     "p90": 1.72
+    },
+    "smallSample": false
+   },
+   "LB": {
+    "playerWeeks": 79,
+    "distinctPlayers": 17,
+    "startRate": 0.3038,
+    "meanPointsPerWeek": 8.69,
+    "meanPointsWhenStarted": 15.84,
+    "shareOfLeagueStartingPoints": 0.0151,
+    "marginalPointsPerRosteredWeek": {
+     "n": 79,
+     "mean": 1.78,
+     "median": 0.0,
+     "p75": 0.85,
+     "p90": 8.11
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 24,
+     "mean": 5.86,
+     "median": 5.25,
+     "p75": 9.3,
+     "p90": 11.34
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.3038,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 79,
+     "mean": -4.26,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.43
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 79,
+     "mean": -2.46,
+     "median": -0.78,
+     "p75": 0.0,
+     "p90": 7.28
+    },
+    "smallSample": false
+   },
+   "QB": {
+    "playerWeeks": 59,
+    "distinctPlayers": 14,
+    "startRate": 0.0847,
+    "meanPointsPerWeek": 2.08,
+    "meanPointsWhenStarted": 17.37,
+    "shareOfLeagueStartingPoints": 0.0034,
+    "marginalPointsPerRosteredWeek": {
+     "n": 59,
+     "mean": 0.77,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.0
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 5,
+     "mean": 9.11,
+     "median": 6.66,
+     "p75": 12.95,
+     "p90": 16.5
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.0847,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 59,
+     "mean": -2.09,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.0
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 59,
+     "mean": -0.48,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.0
+    },
+    "smallSample": false
+   },
+   "RB": {
+    "playerWeeks": 75,
+    "distinctPlayers": 16,
+    "startRate": 0.1867,
+    "meanPointsPerWeek": 3.31,
+    "meanPointsWhenStarted": 9.5,
+    "shareOfLeagueStartingPoints": 0.0053,
+    "marginalPointsPerRosteredWeek": {
+     "n": 75,
+     "mean": 0.91,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.56
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 14,
+     "mean": 4.88,
+     "median": 4.86,
+     "p75": 6.8,
+     "p90": 8.17
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.1867,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 75,
+     "mean": -0.43,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.55
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 75,
+     "mean": 0.2,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.53
+    },
+    "smallSample": false
+   },
+   "TE": {
+    "playerWeeks": 6,
+    "distinctPlayers": 2,
+    "startRate": 0.1667,
+    "meanPointsPerWeek": 1.35,
+    "meanPointsWhenStarted": 2.95,
+    "shareOfLeagueStartingPoints": 0.0001,
+    "marginalPointsPerRosteredWeek": {
+     "n": 6,
+     "mean": 0.35,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 1.06
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 1,
+     "mean": 2.12,
+     "median": 2.12,
+     "p75": 2.12,
+     "p90": 2.12
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.1667,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 6,
+     "mean": -1.17,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.1
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 6,
+     "mean": -1.71,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 1.06
+    },
+    "smallSample": true
+   },
+   "WR": {
+    "playerWeeks": 134,
+    "distinctPlayers": 27,
+    "startRate": 0.2687,
+    "meanPointsPerWeek": 3.93,
+    "meanPointsWhenStarted": 9.77,
+    "shareOfLeagueStartingPoints": 0.0139,
+    "marginalPointsPerRosteredWeek": {
+     "n": 134,
+     "mean": 1.28,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.6
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 36,
+     "mean": 4.77,
+     "median": 2.96,
+     "p75": 7.26,
+     "p90": 11.49
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2313,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 134,
+     "mean": -1.3,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.38
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 134,
+     "mean": -0.42,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.21
+    },
+    "smallSample": false
+   },
+   "idp": {
+    "playerWeeks": 255,
+    "distinctPlayers": 53,
+    "startRate": 0.3333,
+    "meanPointsPerWeek": 8.28,
+    "meanPointsWhenStarted": 15.22,
+    "shareOfLeagueStartingPoints": 0.0512,
+    "marginalPointsPerRosteredWeek": {
+     "n": 255,
+     "mean": 1.95,
+     "median": 0.0,
+     "p75": 1.86,
+     "p90": 7.85
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 85,
+     "mean": 5.86,
+     "median": 4.77,
+     "p75": 8.47,
+     "p90": 11.56
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.3333,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 255,
+     "mean": -4.03,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.67
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 255,
+     "mean": -2.16,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 5.3
+    },
+    "smallSample": false
+   },
+   "offense": {
+    "playerWeeks": 274,
+    "distinctPlayers": 59,
+    "startRate": 0.2044,
+    "meanPointsPerWeek": 3.3,
+    "meanPointsWhenStarted": 10.26,
+    "shareOfLeagueStartingPoints": 0.0227,
+    "marginalPointsPerRosteredWeek": {
+     "n": 274,
+     "mean": 1.05,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.14
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 56,
+     "mean": 5.14,
+     "median": 3.97,
+     "p75": 7.25,
+     "p90": 11.49
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.1861,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 274,
+     "mean": -1.23,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 2.42
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 274,
+     "mean": -0.29,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 2.92
+    },
+    "smallSample": false
+   }
+  },
+  "1500-2000": {
+   "ALL": {
+    "playerWeeks": 1005,
+    "distinctPlayers": 187,
+    "startRate": 0.2945,
+    "meanPointsPerWeek": 6.63,
+    "meanPointsWhenStarted": 14.77,
+    "shareOfLeagueStartingPoints": 0.1731,
+    "marginalPointsPerRosteredWeek": {
+     "n": 1005,
+     "mean": 2.1,
+     "median": 0.0,
+     "p75": 1.34,
+     "p90": 7.97
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 296,
+     "mean": 7.14,
+     "median": 5.15,
+     "p75": 10.34,
+     "p90": 17.01
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2905,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 1005,
+     "mean": -1.91,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 5.2
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 1005,
+     "mean": -0.66,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.95
+    },
+    "smallSample": false
+   },
+   "DB": {
+    "playerWeeks": 212,
+    "distinctPlayers": 38,
+    "startRate": 0.3255,
+    "meanPointsPerWeek": 9.07,
+    "meanPointsWhenStarted": 17.96,
+    "shareOfLeagueStartingPoints": 0.0491,
+    "marginalPointsPerRosteredWeek": {
+     "n": 212,
+     "mean": 2.7,
+     "median": 0.0,
+     "p75": 2.46,
+     "p90": 11.3
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 69,
+     "mean": 8.28,
+     "median": 6.87,
+     "p75": 13.5,
+     "p90": 18.69
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.3255,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 212,
+     "mean": -3.48,
+     "median": 0.0,
+     "p75": 0.34,
+     "p90": 8.98
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 212,
+     "mean": -1.12,
+     "median": 0.0,
+     "p75": 0.01,
+     "p90": 7.59
+    },
+    "smallSample": false
+   },
+   "DL": {
+    "playerWeeks": 204,
+    "distinctPlayers": 39,
+    "startRate": 0.3873,
+    "meanPointsPerWeek": 7.02,
+    "meanPointsWhenStarted": 13.37,
+    "shareOfLeagueStartingPoints": 0.0418,
+    "marginalPointsPerRosteredWeek": {
+     "n": 204,
+     "mean": 2.88,
+     "median": 0.0,
+     "p75": 4.58,
+     "p90": 10.46
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 79,
+     "mean": 7.43,
+     "median": 5.85,
+     "p75": 10.73,
+     "p90": 16.4
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.3873,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 204,
+     "mean": -1.4,
+     "median": -0.52,
+     "p75": 0.0,
+     "p90": 6.08
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 204,
+     "mean": -0.79,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 6.33
+    },
+    "smallSample": false
+   },
+   "LB": {
+    "playerWeeks": 169,
+    "distinctPlayers": 33,
+    "startRate": 0.2663,
+    "meanPointsPerWeek": 7.57,
+    "meanPointsWhenStarted": 17.39,
+    "shareOfLeagueStartingPoints": 0.031,
+    "marginalPointsPerRosteredWeek": {
+     "n": 169,
+     "mean": 1.95,
+     "median": 0.0,
+     "p75": 1.12,
+     "p90": 6.17
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 45,
+     "mean": 7.31,
+     "median": 5.19,
+     "p75": 8.32,
+     "p90": 20.12
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2663,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 169,
+     "mean": -3.93,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.1
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 169,
+     "mean": -2.37,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.92
+    },
+    "smallSample": false
+   },
+   "QB": {
+    "playerWeeks": 46,
+    "distinctPlayers": 8,
+    "startRate": 0.1739,
+    "meanPointsPerWeek": 7.57,
+    "meanPointsWhenStarted": 24.38,
+    "shareOfLeagueStartingPoints": 0.0077,
+    "marginalPointsPerRosteredWeek": {
+     "n": 46,
+     "mean": 1.72,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 7.91
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 8,
+     "mean": 9.89,
+     "median": 8.64,
+     "p75": 15.68,
+     "p90": 16.84
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.1739,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 46,
+     "mean": -1.87,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 7.91
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 46,
+     "mean": -0.11,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 7.91
+    },
+    "smallSample": false
+   },
+   "RB": {
+    "playerWeeks": 120,
+    "distinctPlayers": 23,
+    "startRate": 0.1667,
+    "meanPointsPerWeek": 4.1,
+    "meanPointsWhenStarted": 12.63,
+    "shareOfLeagueStartingPoints": 0.01,
+    "marginalPointsPerRosteredWeek": {
+     "n": 120,
+     "mean": 1.19,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.06
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 20,
+     "mean": 7.16,
+     "median": 4.07,
+     "p75": 10.26,
+     "p90": 16.82
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.1667,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 120,
+     "mean": 0.18,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 2.22
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 120,
+     "mean": 0.67,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 1.64
+    },
+    "smallSample": false
+   },
+   "TE": {
+    "playerWeeks": 93,
+    "distinctPlayers": 18,
+    "startRate": 0.3763,
+    "meanPointsPerWeek": 4.01,
+    "meanPointsWhenStarted": 8.31,
+    "shareOfLeagueStartingPoints": 0.0115,
+    "marginalPointsPerRosteredWeek": {
+     "n": 93,
+     "mean": 1.7,
+     "median": 0.0,
+     "p75": 1.45,
+     "p90": 6.63
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 35,
+     "mean": 4.53,
+     "median": 2.73,
+     "p75": 7.91,
+     "p90": 10.95
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.3333,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 93,
+     "mean": -1.27,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.35
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 93,
+     "mean": -0.28,
+     "median": 0.0,
+     "p75": 0.52,
+     "p90": 4.74
+    },
+    "smallSample": false
+   },
+   "WR": {
+    "playerWeeks": 161,
+    "distinctPlayers": 28,
+    "startRate": 0.2484,
+    "meanPointsPerWeek": 5.09,
+    "meanPointsWhenStarted": 13.9,
+    "shareOfLeagueStartingPoints": 0.022,
+    "marginalPointsPerRosteredWeek": {
+     "n": 161,
+     "mean": 1.52,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.68
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 40,
+     "mean": 6.1,
+     "median": 4.25,
+     "p75": 9.04,
+     "p90": 13.74
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2484,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 161,
+     "mean": -0.32,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.51
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 161,
+     "mean": 0.52,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.81
+    },
+    "smallSample": false
+   },
+   "idp": {
+    "playerWeeks": 585,
+    "distinctPlayers": 110,
+    "startRate": 0.3299,
+    "meanPointsPerWeek": 7.92,
+    "meanPointsWhenStarted": 15.95,
+    "shareOfLeagueStartingPoints": 0.1219,
+    "marginalPointsPerRosteredWeek": {
+     "n": 585,
+     "mean": 2.54,
+     "median": 0.0,
+     "p75": 2.4,
+     "p90": 9.17
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 193,
+     "mean": 7.71,
+     "median": 5.84,
+     "p75": 11.03,
+     "p90": 17.46
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.3299,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 585,
+     "mean": -2.89,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 6.54
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 585,
+     "mean": -1.37,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 5.48
+    },
+    "smallSample": false
+   },
+   "offense": {
+    "playerWeeks": 420,
+    "distinctPlayers": 77,
+    "startRate": 0.2452,
+    "meanPointsPerWeek": 4.84,
+    "meanPointsWhenStarted": 12.57,
+    "shareOfLeagueStartingPoints": 0.0513,
+    "marginalPointsPerRosteredWeek": {
+     "n": 420,
+     "mean": 1.49,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.79
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 103,
+     "mean": 6.07,
+     "median": 3.93,
+     "p75": 9.35,
+     "p90": 15.31
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2357,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 420,
+     "mean": -0.55,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.75
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 420,
+     "mean": 0.32,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.83
+    },
+    "smallSample": false
+   }
+  },
+  "2000-3000": {
+   "ALL": {
+    "playerWeeks": 892,
+    "distinctPlayers": 154,
+    "startRate": 0.3767,
+    "meanPointsPerWeek": 7.92,
+    "meanPointsWhenStarted": 15.5,
+    "shareOfLeagueStartingPoints": 0.2062,
+    "marginalPointsPerRosteredWeek": {
+     "n": 892,
+     "mean": 2.93,
+     "median": 0.0,
+     "p75": 3.33,
+     "p90": 10.87
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 336,
+     "mean": 7.79,
+     "median": 5.31,
+     "p75": 11.2,
+     "p90": 16.82
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.37,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 892,
+     "mean": -0.33,
+     "median": 0.0,
+     "p75": 1.11,
+     "p90": 7.84
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 892,
+     "mean": 0.77,
+     "median": 0.0,
+     "p75": 1.58,
+     "p90": 8.85
+    },
+    "smallSample": false
+   },
+   "DB": {
+    "playerWeeks": 103,
+    "distinctPlayers": 18,
+    "startRate": 0.3301,
+    "meanPointsPerWeek": 8.89,
+    "meanPointsWhenStarted": 16.95,
+    "shareOfLeagueStartingPoints": 0.0228,
+    "marginalPointsPerRosteredWeek": {
+     "n": 103,
+     "mean": 2.75,
+     "median": 0.0,
+     "p75": 1.96,
+     "p90": 8.65
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 34,
+     "mean": 8.32,
+     "median": 6.77,
+     "p75": 11.37,
+     "p90": 15.82
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.3301,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 103,
+     "mean": -2.9,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 7.18
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 103,
+     "mean": -1.02,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 6.85
+    },
+    "smallSample": false
+   },
+   "DL": {
+    "playerWeeks": 102,
+    "distinctPlayers": 17,
+    "startRate": 0.4216,
+    "meanPointsPerWeek": 10.64,
+    "meanPointsWhenStarted": 20.77,
+    "shareOfLeagueStartingPoints": 0.0354,
+    "marginalPointsPerRosteredWeek": {
+     "n": 102,
+     "mean": 5.13,
+     "median": 0.0,
+     "p75": 9.8,
+     "p90": 16.35
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 43,
+     "mean": 12.17,
+     "median": 11.77,
+     "p75": 16.07,
+     "p90": 23.9
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.4216,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 102,
+     "mean": 1.47,
+     "median": 0.0,
+     "p75": 4.96,
+     "p90": 14.58
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 102,
+     "mean": 2.37,
+     "median": 0.0,
+     "p75": 5.82,
+     "p90": 14.21
+    },
+    "smallSample": false
+   },
+   "LB": {
+    "playerWeeks": 175,
+    "distinctPlayers": 30,
+    "startRate": 0.48,
+    "meanPointsPerWeek": 10.92,
+    "meanPointsWhenStarted": 17.1,
+    "shareOfLeagueStartingPoints": 0.0569,
+    "marginalPointsPerRosteredWeek": {
+     "n": 175,
+     "mean": 3.79,
+     "median": 0.0,
+     "p75": 4.87,
+     "p90": 11.97
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 84,
+     "mean": 7.89,
+     "median": 5.04,
+     "p75": 11.24,
+     "p90": 17.5
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.48,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 175,
+     "mean": -1.87,
+     "median": 0.0,
+     "p75": 2.57,
+     "p90": 10.82
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 175,
+     "mean": -0.26,
+     "median": 0.0,
+     "p75": 2.91,
+     "p90": 10.19
+    },
+    "smallSample": false
+   },
+   "QB": {
+    "playerWeeks": 43,
+    "distinctPlayers": 8,
+    "startRate": 0.2791,
+    "meanPointsPerWeek": 7.24,
+    "meanPointsWhenStarted": 21.58,
+    "shareOfLeagueStartingPoints": 0.0103,
+    "marginalPointsPerRosteredWeek": {
+     "n": 43,
+     "mean": 3.74,
+     "median": 0.0,
+     "p75": 3.84,
+     "p90": 15.14
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 12,
+     "mean": 13.4,
+     "median": 11.03,
+     "p75": 15.97,
+     "p90": 26.57
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2791,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 43,
+     "mean": -0.84,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 7.96
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 43,
+     "mean": 1.63,
+     "median": 0.0,
+     "p75": 1.62,
+     "p90": 7.96
+    },
+    "smallSample": false
+   },
+   "RB": {
+    "playerWeeks": 152,
+    "distinctPlayers": 26,
+    "startRate": 0.4079,
+    "meanPointsPerWeek": 7.16,
+    "meanPointsWhenStarted": 13.17,
+    "shareOfLeagueStartingPoints": 0.0323,
+    "marginalPointsPerRosteredWeek": {
+     "n": 152,
+     "mean": 2.39,
+     "median": 0.0,
+     "p75": 3.27,
+     "p90": 8.62
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 62,
+     "mean": 5.87,
+     "median": 4.18,
+     "p75": 8.59,
+     "p90": 13.23
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.375,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 152,
+     "mean": 1.44,
+     "median": 0.0,
+     "p75": 1.8,
+     "p90": 7.19
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 152,
+     "mean": 1.93,
+     "median": 0.0,
+     "p75": 2.93,
+     "p90": 7.42
+    },
+    "smallSample": false
+   },
+   "TE": {
+    "playerWeeks": 127,
+    "distinctPlayers": 23,
+    "startRate": 0.378,
+    "meanPointsPerWeek": 4.91,
+    "meanPointsWhenStarted": 9.95,
+    "shareOfLeagueStartingPoints": 0.0189,
+    "marginalPointsPerRosteredWeek": {
+     "n": 127,
+     "mean": 2.36,
+     "median": 0.0,
+     "p75": 2.73,
+     "p90": 9.29
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 48,
+     "mean": 6.24,
+     "median": 4.88,
+     "p75": 9.34,
+     "p90": 13.05
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.3701,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 127,
+     "mean": -0.75,
+     "median": 0.0,
+     "p75": 0.09,
+     "p90": 6.12
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 127,
+     "mean": 0.26,
+     "median": 0.0,
+     "p75": 0.6,
+     "p90": 8.29
+    },
+    "smallSample": false
+   },
+   "WR": {
+    "playerWeeks": 190,
+    "distinctPlayers": 32,
+    "startRate": 0.2789,
+    "meanPointsPerWeek": 5.93,
+    "meanPointsWhenStarted": 14.14,
+    "shareOfLeagueStartingPoints": 0.0297,
+    "marginalPointsPerRosteredWeek": {
+     "n": 190,
+     "mean": 1.7,
+     "median": 0.0,
+     "p75": 0.76,
+     "p90": 6.62
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 53,
+     "mean": 6.1,
+     "median": 3.94,
+     "p75": 9.04,
+     "p90": 13.89
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2789,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 190,
+     "mean": 0.51,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.33
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 190,
+     "mean": 1.04,
+     "median": 0.0,
+     "p75": 0.09,
+     "p90": 6.62
+    },
+    "smallSample": false
+   },
+   "idp": {
+    "playerWeeks": 380,
+    "distinctPlayers": 65,
+    "startRate": 0.4237,
+    "meanPointsPerWeek": 10.29,
+    "meanPointsWhenStarted": 18.05,
+    "shareOfLeagueStartingPoints": 0.1151,
+    "marginalPointsPerRosteredWeek": {
+     "n": 380,
+     "mean": 3.87,
+     "median": 0.0,
+     "p75": 5.04,
+     "p90": 13.81
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 161,
+     "mean": 9.13,
+     "median": 6.9,
+     "p75": 13.13,
+     "p90": 18.83
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.4237,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 380,
+     "mean": -1.26,
+     "median": 0.0,
+     "p75": 2.48,
+     "p90": 10.9
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 380,
+     "mean": 0.24,
+     "median": 0.0,
+     "p75": 2.37,
+     "p90": 10.38
+    },
+    "smallSample": false
+   },
+   "offense": {
+    "playerWeeks": 512,
+    "distinctPlayers": 89,
+    "startRate": 0.3418,
+    "meanPointsPerWeek": 6.15,
+    "meanPointsWhenStarted": 13.16,
+    "shareOfLeagueStartingPoints": 0.0912,
+    "marginalPointsPerRosteredWeek": {
+     "n": 512,
+     "mean": 2.24,
+     "median": 0.0,
+     "p75": 1.9,
+     "p90": 8.62
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 175,
+     "mean": 6.56,
+     "median": 4.86,
+     "p75": 9.16,
+     "p90": 15.26
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.3301,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 512,
+     "mean": 0.36,
+     "median": 0.0,
+     "p75": 0.22,
+     "p90": 6.29
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 512,
+     "mean": 1.16,
+     "median": 0.0,
+     "p75": 1.15,
+     "p90": 7.46
+    },
+    "smallSample": false
+   }
+  },
+  "3000-4500": {
+   "ALL": {
+    "playerWeeks": 588,
+    "distinctPlayers": 98,
+    "startRate": 0.4711,
+    "meanPointsPerWeek": 10.9,
+    "meanPointsWhenStarted": 18.8,
+    "shareOfLeagueStartingPoints": 0.2062,
+    "marginalPointsPerRosteredWeek": {
+     "n": 588,
+     "mean": 4.71,
+     "median": 0.0,
+     "p75": 7.17,
+     "p90": 15.08
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 277,
+     "mean": 10.0,
+     "median": 7.97,
+     "p75": 14.01,
+     "p90": 22.51
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.4711,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 588,
+     "mean": 1.73,
+     "median": 0.0,
+     "p75": 4.56,
+     "p90": 13.39
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 588,
+     "mean": 2.88,
+     "median": 0.0,
+     "p75": 5.36,
+     "p90": 14.12
+    },
+    "smallSample": false
+   },
+   "DB": {
+    "playerWeeks": 42,
+    "distinctPlayers": 7,
+    "startRate": 0.619,
+    "meanPointsPerWeek": 13.24,
+    "meanPointsWhenStarted": 18.3,
+    "shareOfLeagueStartingPoints": 0.0188,
+    "marginalPointsPerRosteredWeek": {
+     "n": 42,
+     "mean": 4.38,
+     "median": 2.59,
+     "p75": 6.62,
+     "p90": 12.12
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 26,
+     "mean": 7.08,
+     "median": 5.19,
+     "p75": 7.83,
+     "p90": 13.86
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.619,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 42,
+     "mean": -1.33,
+     "median": 0.0,
+     "p75": 4.1,
+     "p90": 7.89
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 42,
+     "mean": 1.13,
+     "median": 0.0,
+     "p75": 5.04,
+     "p90": 8.6
+    },
+    "smallSample": true
+   },
+   "DL": {
+    "playerWeeks": 54,
+    "distinctPlayers": 9,
+    "startRate": 0.2593,
+    "meanPointsPerWeek": 6.06,
+    "meanPointsWhenStarted": 14.98,
+    "shareOfLeagueStartingPoints": 0.0083,
+    "marginalPointsPerRosteredWeek": {
+     "n": 54,
+     "mean": 1.91,
+     "median": 0.0,
+     "p75": 0.52,
+     "p90": 6.1
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 14,
+     "mean": 7.38,
+     "median": 4.77,
+     "p75": 9.47,
+     "p90": 19.47
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2593,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 54,
+     "mean": -1.09,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 1.43
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 54,
+     "mean": -0.32,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 5.08
+    },
+    "smallSample": false
+   },
+   "LB": {
+    "playerWeeks": 138,
+    "distinctPlayers": 23,
+    "startRate": 0.5435,
+    "meanPointsPerWeek": 13.44,
+    "meanPointsWhenStarted": 20.48,
+    "shareOfLeagueStartingPoints": 0.0608,
+    "marginalPointsPerRosteredWeek": {
+     "n": 138,
+     "mean": 5.33,
+     "median": 0.54,
+     "p75": 8.3,
+     "p90": 15.73
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 75,
+     "mean": 9.8,
+     "median": 7.99,
+     "p75": 13.53,
+     "p90": 20.09
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.5435,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 138,
+     "mean": 0.24,
+     "median": 0.0,
+     "p75": 5.59,
+     "p90": 12.09
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 138,
+     "mean": 2.0,
+     "median": 0.0,
+     "p75": 4.76,
+     "p90": 14.11
+    },
+    "smallSample": false
+   },
+   "QB": {
+    "playerWeeks": 48,
+    "distinctPlayers": 8,
+    "startRate": 0.4792,
+    "meanPointsPerWeek": 12.74,
+    "meanPointsWhenStarted": 22.93,
+    "shareOfLeagueStartingPoints": 0.0209,
+    "marginalPointsPerRosteredWeek": {
+     "n": 48,
+     "mean": 7.3,
+     "median": 0.0,
+     "p75": 9.33,
+     "p90": 29.6
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 23,
+     "mean": 15.23,
+     "median": 12.66,
+     "p75": 27.43,
+     "p90": 34.88
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.4792,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 48,
+     "mean": 2.13,
+     "median": 0.0,
+     "p75": 3.81,
+     "p90": 18.14
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 48,
+     "mean": 4.95,
+     "median": 0.0,
+     "p75": 9.33,
+     "p90": 26.06
+    },
+    "smallSample": false
+   },
+   "RB": {
+    "playerWeeks": 78,
+    "distinctPlayers": 13,
+    "startRate": 0.4487,
+    "meanPointsPerWeek": 11.92,
+    "meanPointsWhenStarted": 21.54,
+    "shareOfLeagueStartingPoints": 0.0298,
+    "marginalPointsPerRosteredWeek": {
+     "n": 78,
+     "mean": 5.54,
+     "median": 0.0,
+     "p75": 9.89,
+     "p90": 17.49
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 35,
+     "mean": 12.35,
+     "median": 10.61,
+     "p75": 16.17,
+     "p90": 22.99
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.4487,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 78,
+     "mean": 5.15,
+     "median": 0.0,
+     "p75": 9.23,
+     "p90": 17.49
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 78,
+     "mean": 5.43,
+     "median": 0.0,
+     "p75": 9.89,
+     "p90": 16.87
+    },
+    "smallSample": false
+   },
+   "TE": {
+    "playerWeeks": 84,
+    "distinctPlayers": 14,
+    "startRate": 0.5238,
+    "meanPointsPerWeek": 8.53,
+    "meanPointsWhenStarted": 14.24,
+    "shareOfLeagueStartingPoints": 0.0248,
+    "marginalPointsPerRosteredWeek": {
+     "n": 84,
+     "mean": 4.68,
+     "median": 0.93,
+     "p75": 7.95,
+     "p90": 15.43
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 44,
+     "mean": 8.93,
+     "median": 6.16,
+     "p75": 14.22,
+     "p90": 18.66
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.5238,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 84,
+     "mean": 2.35,
+     "median": 0.0,
+     "p75": 2.99,
+     "p90": 13.53
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 84,
+     "mean": 3.21,
+     "median": 0.0,
+     "p75": 4.14,
+     "p90": 14.04
+    },
+    "smallSample": false
+   },
+   "WR": {
+    "playerWeeks": 144,
+    "distinctPlayers": 24,
+    "startRate": 0.4167,
+    "meanPointsPerWeek": 9.81,
+    "meanPointsWhenStarted": 17.99,
+    "shareOfLeagueStartingPoints": 0.0427,
+    "marginalPointsPerRosteredWeek": {
+     "n": 144,
+     "mean": 3.98,
+     "median": 0.0,
+     "p75": 6.02,
+     "p90": 13.2
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 60,
+     "mean": 9.54,
+     "median": 8.31,
+     "p75": 13.16,
+     "p90": 18.32
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.4167,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 144,
+     "mean": 2.76,
+     "median": 0.0,
+     "p75": 4.53,
+     "p90": 13.11
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 144,
+     "mean": 3.18,
+     "median": 0.0,
+     "p75": 4.97,
+     "p90": 11.73
+    },
+    "smallSample": false
+   },
+   "idp": {
+    "playerWeeks": 234,
+    "distinctPlayers": 39,
+    "startRate": 0.4915,
+    "meanPointsPerWeek": 11.7,
+    "meanPointsWhenStarted": 19.32,
+    "shareOfLeagueStartingPoints": 0.088,
+    "marginalPointsPerRosteredWeek": {
+     "n": 234,
+     "mean": 4.37,
+     "median": 0.0,
+     "p75": 6.95,
+     "p90": 13.69
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 115,
+     "mean": 8.89,
+     "median": 6.98,
+     "p75": 12.5,
+     "p90": 20.09
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.4915,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 234,
+     "mean": -0.35,
+     "median": 0.0,
+     "p75": 3.52,
+     "p90": 10.48
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 234,
+     "mean": 1.31,
+     "median": 0.0,
+     "p75": 4.15,
+     "p90": 12.51
+    },
+    "smallSample": false
+   },
+   "offense": {
+    "playerWeeks": 354,
+    "distinctPlayers": 59,
+    "startRate": 0.4576,
+    "meanPointsPerWeek": 10.37,
+    "meanPointsWhenStarted": 18.44,
+    "shareOfLeagueStartingPoints": 0.1183,
+    "marginalPointsPerRosteredWeek": {
+     "n": 354,
+     "mean": 4.94,
+     "median": 0.0,
+     "p75": 8.02,
+     "p90": 15.74
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 162,
+     "mean": 10.79,
+     "median": 8.64,
+     "p75": 15.02,
+     "p90": 23.98
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.4576,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 354,
+     "mean": 3.11,
+     "median": 0.0,
+     "p75": 5.38,
+     "p90": 15.07
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 354,
+     "mean": 3.92,
+     "median": 0.0,
+     "p75": 6.58,
+     "p90": 14.9
+    },
+    "smallSample": false
+   }
+  },
+  "4500+": {
+   "ALL": {
+    "playerWeeks": 456,
+    "distinctPlayers": 76,
+    "startRate": 0.5811,
+    "meanPointsPerWeek": 15.21,
+    "meanPointsWhenStarted": 22.65,
+    "shareOfLeagueStartingPoints": 0.2376,
+    "marginalPointsPerRosteredWeek": {
+     "n": 456,
+     "mean": 7.65,
+     "median": 3.44,
+     "p75": 13.1,
+     "p90": 23.53
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 265,
+     "mean": 13.17,
+     "median": 11.6,
+     "p75": 18.45,
+     "p90": 26.8
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.5811,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 456,
+     "mean": 5.46,
+     "median": 0.62,
+     "p75": 11.52,
+     "p90": 20.88
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 456,
+     "mean": 6.5,
+     "median": 2.2,
+     "p75": 12.57,
+     "p90": 21.45
+    },
+    "smallSample": false
+   },
+   "DL": {
+    "playerWeeks": 12,
+    "distinctPlayers": 2,
+    "startRate": 0.6667,
+    "meanPointsPerWeek": 18.56,
+    "meanPointsWhenStarted": 25.27,
+    "shareOfLeagueStartingPoints": 0.008,
+    "marginalPointsPerRosteredWeek": {
+     "n": 12,
+     "mean": 13.97,
+     "median": 8.7,
+     "p75": 28.13,
+     "p90": 34.45
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 8,
+     "mean": 20.95,
+     "median": 20.67,
+     "p75": 32.58,
+     "p90": 36.13
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.6667,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 12,
+     "mean": 8.48,
+     "median": 7.91,
+     "p75": 17.14,
+     "p90": 25.44
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 12,
+     "mean": 9.08,
+     "median": 4.87,
+     "p75": 16.19,
+     "p90": 27.92
+    },
+    "smallSample": true
+   },
+   "LB": {
+    "playerWeeks": 12,
+    "distinctPlayers": 2,
+    "startRate": 0.5,
+    "meanPointsPerWeek": 12.51,
+    "meanPointsWhenStarted": 16.19,
+    "shareOfLeagueStartingPoints": 0.0038,
+    "marginalPointsPerRosteredWeek": {
+     "n": 12,
+     "mean": 3.67,
+     "median": 1.19,
+     "p75": 6.19,
+     "p90": 10.91
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 6,
+     "mean": 7.34,
+     "median": 6.52,
+     "p75": 10.29,
+     "p90": 12.84
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.5,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 12,
+     "mean": -1.72,
+     "median": 0.0,
+     "p75": 3.25,
+     "p90": 7.05
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 12,
+     "mean": -0.41,
+     "median": 0.0,
+     "p75": 2.52,
+     "p90": 6.75
+    },
+    "smallSample": true
+   },
+   "QB": {
+    "playerWeeks": 120,
+    "distinctPlayers": 20,
+    "startRate": 0.5583,
+    "meanPointsPerWeek": 17.82,
+    "meanPointsWhenStarted": 27.09,
+    "shareOfLeagueStartingPoints": 0.0719,
+    "marginalPointsPerRosteredWeek": {
+     "n": 120,
+     "mean": 8.08,
+     "median": 1.31,
+     "p75": 14.82,
+     "p90": 25.63
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 67,
+     "mean": 14.47,
+     "median": 12.59,
+     "p75": 21.22,
+     "p90": 27.38
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.5583,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 120,
+     "mean": 3.98,
+     "median": 0.0,
+     "p75": 10.74,
+     "p90": 21.5
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 120,
+     "mean": 6.3,
+     "median": 0.0,
+     "p75": 12.8,
+     "p90": 21.5
+    },
+    "smallSample": false
+   },
+   "RB": {
+    "playerWeeks": 102,
+    "distinctPlayers": 17,
+    "startRate": 0.6373,
+    "meanPointsPerWeek": 15.87,
+    "meanPointsWhenStarted": 22.01,
+    "shareOfLeagueStartingPoints": 0.0567,
+    "marginalPointsPerRosteredWeek": {
+     "n": 102,
+     "mean": 8.42,
+     "median": 5.51,
+     "p75": 14.59,
+     "p90": 24.32
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 65,
+     "mean": 13.21,
+     "median": 11.51,
+     "p75": 17.18,
+     "p90": 26.09
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.6373,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 102,
+     "mean": 7.67,
+     "median": 4.57,
+     "p75": 14.59,
+     "p90": 23.02
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 102,
+     "mean": 8.1,
+     "median": 5.21,
+     "p75": 14.34,
+     "p90": 24.32
+    },
+    "smallSample": false
+   },
+   "TE": {
+    "playerWeeks": 54,
+    "distinctPlayers": 9,
+    "startRate": 0.5556,
+    "meanPointsPerWeek": 10.97,
+    "meanPointsWhenStarted": 17.06,
+    "shareOfLeagueStartingPoints": 0.0203,
+    "marginalPointsPerRosteredWeek": {
+     "n": 54,
+     "mean": 6.46,
+     "median": 3.48,
+     "p75": 11.72,
+     "p90": 16.92
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 30,
+     "mean": 11.63,
+     "median": 11.16,
+     "p75": 14.46,
+     "p90": 20.85
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.5556,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 54,
+     "mean": 3.98,
+     "median": 0.12,
+     "p75": 9.42,
+     "p90": 13.86
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 54,
+     "mean": 4.79,
+     "median": 0.83,
+     "p75": 9.93,
+     "p90": 16.24
+    },
+    "smallSample": false
+   },
+   "WR": {
+    "playerWeeks": 156,
+    "distinctPlayers": 26,
+    "startRate": 0.5705,
+    "meanPointsPerWeek": 14.2,
+    "meanPointsWhenStarted": 21.84,
+    "shareOfLeagueStartingPoints": 0.077,
+    "marginalPointsPerRosteredWeek": {
+     "n": 156,
+     "mean": 7.06,
+     "median": 3.35,
+     "p75": 12.54,
+     "p90": 21.68
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 89,
+     "mean": 12.37,
+     "median": 9.88,
+     "p75": 16.68,
+     "p90": 25.81
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.5705,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 156,
+     "mean": 5.98,
+     "median": 1.3,
+     "p75": 11.34,
+     "p90": 20.38
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 156,
+     "mean": 6.51,
+     "median": 2.93,
+     "p75": 11.15,
+     "p90": 21.35
+    },
+    "smallSample": false
+   },
+   "idp": {
+    "playerWeeks": 24,
+    "distinctPlayers": 4,
+    "startRate": 0.5833,
+    "meanPointsPerWeek": 15.53,
+    "meanPointsWhenStarted": 21.38,
+    "shareOfLeagueStartingPoints": 0.0119,
+    "marginalPointsPerRosteredWeek": {
+     "n": 24,
+     "mean": 8.82,
+     "median": 2.92,
+     "p75": 12.55,
+     "p90": 30.37
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 14,
+     "mean": 15.12,
+     "median": 11.64,
+     "p75": 23.78,
+     "p90": 33.88
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.5833,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 24,
+     "mean": 3.38,
+     "median": 0.0,
+     "p75": 10.8,
+     "p90": 22.0
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 24,
+     "mean": 4.33,
+     "median": 0.08,
+     "p75": 8.22,
+     "p90": 19.33
+    },
+    "smallSample": true
+   },
+   "offense": {
+    "playerWeeks": 432,
+    "distinctPlayers": 72,
+    "startRate": 0.581,
+    "meanPointsPerWeek": 15.2,
+    "meanPointsWhenStarted": 22.72,
+    "shareOfLeagueStartingPoints": 0.2258,
+    "marginalPointsPerRosteredWeek": {
+     "n": 432,
+     "mean": 7.59,
+     "median": 3.51,
+     "p75": 13.1,
+     "p90": 22.96
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 251,
+     "mean": 13.06,
+     "median": 11.6,
+     "p75": 18.21,
+     "p90": 26.55
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.581,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 432,
+     "mean": 5.57,
+     "median": 0.65,
+     "p75": 11.7,
+     "p90": 20.77
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 432,
+     "mean": 6.62,
+     "median": 2.33,
+     "p75": 12.62,
+     "p90": 21.48
+    },
+    "smallSample": false
+   }
+  },
+  "unvalued": {
+   "ALL": {
+    "playerWeeks": 702,
+    "distinctPlayers": 188,
+    "startRate": 0.2806,
+    "meanPointsPerWeek": 5.84,
+    "meanPointsWhenStarted": 13.18,
+    "shareOfLeagueStartingPoints": 0.1028,
+    "marginalPointsPerRosteredWeek": {
+     "n": 702,
+     "mean": 2.01,
+     "median": 0.0,
+     "p75": 1.11,
+     "p90": 8.51
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 197,
+     "mean": 7.16,
+     "median": 6.04,
+     "p75": 10.57,
+     "p90": 14.92
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2749,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 702,
+     "mean": -2.19,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.07
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 702,
+     "mean": -0.75,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.12
+    },
+    "smallSample": false
+   },
+   "DB": {
+    "playerWeeks": 177,
+    "distinctPlayers": 48,
+    "startRate": 0.2373,
+    "meanPointsPerWeek": 7.01,
+    "meanPointsWhenStarted": 15.91,
+    "shareOfLeagueStartingPoints": 0.0265,
+    "marginalPointsPerRosteredWeek": {
+     "n": 177,
+     "mean": 1.57,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 6.14
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 42,
+     "mean": 6.61,
+     "median": 5.17,
+     "p75": 9.76,
+     "p90": 13.47
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2373,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 177,
+     "mean": -5.28,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 4.37
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 177,
+     "mean": -2.63,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.31
+    },
+    "smallSample": false
+   },
+   "DL": {
+    "playerWeeks": 116,
+    "distinctPlayers": 38,
+    "startRate": 0.3017,
+    "meanPointsPerWeek": 6.19,
+    "meanPointsWhenStarted": 13.87,
+    "shareOfLeagueStartingPoints": 0.0192,
+    "marginalPointsPerRosteredWeek": {
+     "n": 116,
+     "mean": 1.97,
+     "median": 0.0,
+     "p75": 1.27,
+     "p90": 7.41
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 35,
+     "mean": 6.54,
+     "median": 4.58,
+     "p75": 8.26,
+     "p90": 14.08
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2845,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 116,
+     "mean": -1.27,
+     "median": -0.58,
+     "p75": 0.0,
+     "p90": 3.28
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 116,
+     "mean": -0.17,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 6.42
+    },
+    "smallSample": false
+   },
+   "K": {
+    "playerWeeks": 134,
+    "distinctPlayers": 28,
+    "startRate": 0.5373,
+    "meanPointsPerWeek": 8.56,
+    "meanPointsWhenStarted": 11.16,
+    "shareOfLeagueStartingPoints": 0.0318,
+    "marginalPointsPerRosteredWeek": {
+     "n": 134,
+     "mean": 4.13,
+     "median": 1.3,
+     "p75": 7.66,
+     "p90": 12.56
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 72,
+     "mean": 7.69,
+     "median": 7.38,
+     "p75": 10.87,
+     "p90": 15.03
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.5299,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 134,
+     "mean": -0.48,
+     "median": 0.0,
+     "p75": 0.82,
+     "p90": 4.58
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 134,
+     "mean": 0.74,
+     "median": 0.0,
+     "p75": 2.05,
+     "p90": 5.6
+    },
+    "smallSample": false
+   },
+   "LB": {
+    "playerWeeks": 53,
+    "distinctPlayers": 18,
+    "startRate": 0.0755,
+    "meanPointsPerWeek": 4.03,
+    "meanPointsWhenStarted": 19.75,
+    "shareOfLeagueStartingPoints": 0.0031,
+    "marginalPointsPerRosteredWeek": {
+     "n": 53,
+     "mean": 0.7,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.0
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 4,
+     "mean": 9.31,
+     "median": 8.4,
+     "p75": 10.34,
+     "p90": 13.35
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.0755,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 53,
+     "mean": -3.95,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.0
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 53,
+     "mean": -3.02,
+     "median": -0.8,
+     "p75": 0.0,
+     "p90": 0.0
+    },
+    "smallSample": false
+   },
+   "QB": {
+    "playerWeeks": 58,
+    "distinctPlayers": 14,
+    "startRate": 0.1207,
+    "meanPointsPerWeek": 2.89,
+    "meanPointsWhenStarted": 21.1,
+    "shareOfLeagueStartingPoints": 0.0058,
+    "marginalPointsPerRosteredWeek": {
+     "n": 58,
+     "mean": 1.3,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 2.31
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 7,
+     "mean": 10.78,
+     "median": 9.13,
+     "p75": 14.17,
+     "p90": 18.79
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.1207,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 58,
+     "mean": -1.89,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 2.31
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 58,
+     "mean": -0.2,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.51
+    },
+    "smallSample": false
+   },
+   "RB": {
+    "playerWeeks": 48,
+    "distinctPlayers": 12,
+    "startRate": 0.1667,
+    "meanPointsPerWeek": 2.84,
+    "meanPointsWhenStarted": 11.37,
+    "shareOfLeagueStartingPoints": 0.0036,
+    "marginalPointsPerRosteredWeek": {
+     "n": 48,
+     "mean": 0.86,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 1.43
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 8,
+     "mean": 5.13,
+     "median": 2.57,
+     "p75": 7.58,
+     "p90": 12.23
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.1667,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 48,
+     "mean": -0.12,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.22
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 48,
+     "mean": 0.38,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.22
+    },
+    "smallSample": false
+   },
+   "TE": {
+    "playerWeeks": 11,
+    "distinctPlayers": 5,
+    "startRate": 0.0,
+    "meanPointsPerWeek": 1.37,
+    "meanPointsWhenStarted": null,
+    "shareOfLeagueStartingPoints": 0.0,
+    "marginalPointsPerRosteredWeek": {
+     "n": 11,
+     "mean": 0.0,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.0
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 0,
+     "mean": null,
+     "median": null,
+     "p75": null,
+     "p90": null
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.0,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 11,
+     "mean": -1.68,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.0
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 11,
+     "mean": -2.26,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 0.0
+    },
+    "smallSample": true
+   },
+   "WR": {
+    "playerWeeks": 105,
+    "distinctPlayers": 25,
+    "startRate": 0.2762,
+    "meanPointsPerWeek": 4.4,
+    "meanPointsWhenStarted": 11.11,
+    "shareOfLeagueStartingPoints": 0.0128,
+    "marginalPointsPerRosteredWeek": {
+     "n": 105,
+     "mean": 1.87,
+     "median": 0.0,
+     "p75": 0.41,
+     "p90": 6.9
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 29,
+     "mean": 6.75,
+     "median": 5.99,
+     "p75": 10.3,
+     "p90": 14.28
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2667,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 105,
+     "mean": -0.46,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 5.71
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 105,
+     "mean": 0.38,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 6.05
+    },
+    "smallSample": false
+   },
+   "idp": {
+    "playerWeeks": 346,
+    "distinctPlayers": 104,
+    "startRate": 0.2341,
+    "meanPointsPerWeek": 6.28,
+    "meanPointsWhenStarted": 15.22,
+    "shareOfLeagueStartingPoints": 0.0488,
+    "marginalPointsPerRosteredWeek": {
+     "n": 346,
+     "mean": 1.57,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 6.38
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 81,
+     "mean": 6.72,
+     "median": 5.26,
+     "p75": 9.58,
+     "p90": 13.91
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.2283,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 346,
+     "mean": -3.73,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.58
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 346,
+     "mean": -1.86,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.58
+    },
+    "smallSample": false
+   },
+   "kicker": {
+    "playerWeeks": 134,
+    "distinctPlayers": 28,
+    "startRate": 0.5373,
+    "meanPointsPerWeek": 8.56,
+    "meanPointsWhenStarted": 11.16,
+    "shareOfLeagueStartingPoints": 0.0318,
+    "marginalPointsPerRosteredWeek": {
+     "n": 134,
+     "mean": 4.13,
+     "median": 1.3,
+     "p75": 7.66,
+     "p90": 12.56
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 72,
+     "mean": 7.69,
+     "median": 7.38,
+     "p75": 10.87,
+     "p90": 15.03
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.5299,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 134,
+     "mean": -0.48,
+     "median": 0.0,
+     "p75": 0.82,
+     "p90": 4.58
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 134,
+     "mean": 0.74,
+     "median": 0.0,
+     "p75": 2.05,
+     "p90": 5.6
+    },
+    "smallSample": false
+   },
+   "offense": {
+    "playerWeeks": 222,
+    "distinctPlayers": 56,
+    "startRate": 0.1982,
+    "meanPointsPerWeek": 3.52,
+    "meanPointsWhenStarted": 12.74,
+    "shareOfLeagueStartingPoints": 0.0222,
+    "marginalPointsPerRosteredWeek": {
+     "n": 222,
+     "mean": 1.41,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 5.99
+    },
+    "marginalPointsPerStartedWeek": {
+     "n": 44,
+     "mean": 7.1,
+     "median": 6.02,
+     "p75": 10.4,
+     "p90": 15.42
+    },
+    "shareOfWeeksWithPositiveMarginal": 0.1937,
+    "marginalVsBestFreeAgentPerRosteredWeek": {
+     "n": 222,
+     "mean": -0.82,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 2.37
+    },
+    "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+     "n": 222,
+     "mean": 0.1,
+     "median": 0.0,
+     "p75": 0.0,
+     "p90": 3.78
+    },
+    "smallSample": false
+   }
+  }
+ },
+ "q1_q2_byTodayBand": {
+  "note": "same rows banded by TODAY's board - partly circular (today's values already absorbed weeks 1-6), shown for comparison only",
+  "table": {
+   "<500": {
+    "ALL": {
+     "playerWeeks": 94,
+     "distinctPlayers": 25,
+     "startRate": 0.234,
+     "meanPointsPerWeek": 6.2,
+     "meanPointsWhenStarted": 14.48,
+     "shareOfLeagueStartingPoints": 0.0126,
+     "marginalPointsPerRosteredWeek": {
+      "n": 94,
+      "mean": 1.5,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 5.86
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 22,
+      "mean": 6.4,
+      "median": 4.92,
+      "p75": 9.59,
+      "p90": 13.81
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2234,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 94,
+      "mean": -4.16,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 1.87
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 94,
+      "mean": -1.66,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.6
+     },
+     "smallSample": false
+    },
+    "DB": {
+     "playerWeeks": 54,
+     "distinctPlayers": 12,
+     "startRate": 0.1852,
+     "meanPointsPerWeek": 5.9,
+     "meanPointsWhenStarted": 15.46,
+     "shareOfLeagueStartingPoints": 0.0061,
+     "marginalPointsPerRosteredWeek": {
+      "n": 54,
+      "mean": 0.92,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.11
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 10,
+      "mean": 4.98,
+      "median": 3.41,
+      "p75": 8.33,
+      "p90": 9.95
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.1852,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 54,
+      "mean": -6.51,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 1.87
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 54,
+      "mean": -3.18,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.98
+     },
+     "smallSample": false
+    },
+    "DL": {
+     "playerWeeks": 38,
+     "distinctPlayers": 12,
+     "startRate": 0.3158,
+     "meanPointsPerWeek": 6.94,
+     "meanPointsWhenStarted": 13.66,
+     "shareOfLeagueStartingPoints": 0.0065,
+     "marginalPointsPerRosteredWeek": {
+      "n": 38,
+      "mean": 2.39,
+      "median": 0.0,
+      "p75": 2.3,
+      "p90": 9.49
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 12,
+      "mean": 7.58,
+      "median": 5.69,
+      "p75": 13.19,
+      "p90": 14.17
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2895,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 38,
+      "mean": -1.03,
+      "median": -0.58,
+      "p75": 0.0,
+      "p90": 1.43
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 38,
+      "mean": 0.54,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 8.67
+     },
+     "smallSample": false
+    },
+    "LB": {
+     "playerWeeks": 2,
+     "distinctPlayers": 1,
+     "startRate": 0.0,
+     "meanPointsPerWeek": 0.0,
+     "meanPointsWhenStarted": null,
+     "shareOfLeagueStartingPoints": 0.0,
+     "marginalPointsPerRosteredWeek": {
+      "n": 2,
+      "mean": 0.0,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p75": null,
+      "p90": null
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.0,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 2,
+      "mean": 0.0,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 2,
+      "mean": -2.4,
+      "median": -2.4,
+      "p75": -1.2,
+      "p90": -0.48
+     },
+     "smallSample": true
+    },
+    "idp": {
+     "playerWeeks": 94,
+     "distinctPlayers": 25,
+     "startRate": 0.234,
+     "meanPointsPerWeek": 6.2,
+     "meanPointsWhenStarted": 14.48,
+     "shareOfLeagueStartingPoints": 0.0126,
+     "marginalPointsPerRosteredWeek": {
+      "n": 94,
+      "mean": 1.5,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 5.86
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 22,
+      "mean": 6.4,
+      "median": 4.92,
+      "p75": 9.59,
+      "p90": 13.81
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2234,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 94,
+      "mean": -4.16,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 1.87
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 94,
+      "mean": -1.66,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.6
+     },
+     "smallSample": false
+    }
+   },
+   "500-1000": {
+    "ALL": {
+     "playerWeeks": 60,
+     "distinctPlayers": 12,
+     "startRate": 0.15,
+     "meanPointsPerWeek": 3.97,
+     "meanPointsWhenStarted": 13.33,
+     "shareOfLeagueStartingPoints": 0.0047,
+     "marginalPointsPerRosteredWeek": {
+      "n": 60,
+      "mean": 0.74,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.25
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 9,
+      "mean": 4.91,
+      "median": 4.27,
+      "p75": 6.63,
+      "p90": 8.05
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.15,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 60,
+      "mean": -4.73,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.49
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 60,
+      "mean": -3.14,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 1.18
+     },
+     "smallSample": false
+    },
+    "DB": {
+     "playerWeeks": 21,
+     "distinctPlayers": 4,
+     "startRate": 0.381,
+     "meanPointsPerWeek": 6.8,
+     "meanPointsWhenStarted": 12.31,
+     "shareOfLeagueStartingPoints": 0.0039,
+     "marginalPointsPerRosteredWeek": {
+      "n": 21,
+      "mean": 1.69,
+      "median": 0.0,
+      "p75": 3.2,
+      "p90": 5.3
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 8,
+      "mean": 4.44,
+      "median": 3.99,
+      "p75": 5.63,
+      "p90": 7.01
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.381,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 21,
+      "mean": -4.56,
+      "median": 0.0,
+      "p75": 0.28,
+      "p90": 4.27
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 21,
+      "mean": -3.21,
+      "median": 0.0,
+      "p75": 1.07,
+      "p90": 3.48
+     },
+     "smallSample": true
+    },
+    "LB": {
+     "playerWeeks": 24,
+     "distinctPlayers": 5,
+     "startRate": 0.0417,
+     "meanPointsPerWeek": 3.85,
+     "meanPointsWhenStarted": 21.43,
+     "shareOfLeagueStartingPoints": 0.0008,
+     "marginalPointsPerRosteredWeek": {
+      "n": 24,
+      "mean": 0.36,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 1,
+      "mean": 8.67,
+      "median": 8.67,
+      "p75": 8.67,
+      "p90": 8.67
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.0417,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 24,
+      "mean": -5.65,
+      "median": -1.46,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 24,
+      "mean": -4.02,
+      "median": -1.06,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "smallSample": true
+    },
+    "QB": {
+     "playerWeeks": 12,
+     "distinctPlayers": 2,
+     "startRate": 0.0,
+     "meanPointsPerWeek": 0.0,
+     "meanPointsWhenStarted": null,
+     "shareOfLeagueStartingPoints": 0.0,
+     "marginalPointsPerRosteredWeek": {
+      "n": 12,
+      "mean": 0.0,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p75": null,
+      "p90": null
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.0,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 12,
+      "mean": -3.59,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 12,
+      "mean": -1.29,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "smallSample": true
+    },
+    "WR": {
+     "playerWeeks": 3,
+     "distinctPlayers": 1,
+     "startRate": 0.0,
+     "meanPointsPerWeek": 1.06,
+     "meanPointsWhenStarted": null,
+     "shareOfLeagueStartingPoints": 0.0,
+     "marginalPointsPerRosteredWeek": {
+      "n": 3,
+      "mean": 0.0,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p75": null,
+      "p90": null
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.0,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 3,
+      "mean": -3.24,
+      "median": -3.85,
+      "p75": -1.92,
+      "p90": -0.77
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 3,
+      "mean": -3.08,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "smallSample": true
+    },
+    "idp": {
+     "playerWeeks": 45,
+     "distinctPlayers": 9,
+     "startRate": 0.2,
+     "meanPointsPerWeek": 5.22,
+     "meanPointsWhenStarted": 13.33,
+     "shareOfLeagueStartingPoints": 0.0047,
+     "marginalPointsPerRosteredWeek": {
+      "n": 45,
+      "mean": 0.98,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 4.05
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 9,
+      "mean": 4.91,
+      "median": 4.27,
+      "p75": 6.63,
+      "p90": 8.05
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 45,
+      "mean": -5.14,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 2.87
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 45,
+      "mean": -3.64,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 2.77
+     },
+     "smallSample": false
+    },
+    "offense": {
+     "playerWeeks": 15,
+     "distinctPlayers": 3,
+     "startRate": 0.0,
+     "meanPointsPerWeek": 0.21,
+     "meanPointsWhenStarted": null,
+     "shareOfLeagueStartingPoints": 0.0,
+     "marginalPointsPerRosteredWeek": {
+      "n": 15,
+      "mean": 0.0,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p75": null,
+      "p90": null
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.0,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 15,
+      "mean": -3.52,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 15,
+      "mean": -1.65,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "smallSample": true
+    }
+   },
+   "1000-1500": {
+    "ALL": {
+     "playerWeeks": 814,
+     "distinctPlayers": 179,
+     "startRate": 0.215,
+     "meanPointsPerWeek": 5.13,
+     "meanPointsWhenStarted": 14.1,
+     "shareOfLeagueStartingPoints": 0.0977,
+     "marginalPointsPerRosteredWeek": {
+      "n": 814,
+      "mean": 1.31,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 5.03
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 175,
+      "mean": 6.1,
+      "median": 4.67,
+      "p75": 8.81,
+      "p90": 13.48
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2101,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 814,
+      "mean": -2.86,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 2.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 814,
+      "mean": -1.47,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 2.78
+     },
+     "smallSample": false
+    },
+    "DB": {
+     "playerWeeks": 218,
+     "distinctPlayers": 42,
+     "startRate": 0.3257,
+     "meanPointsPerWeek": 7.99,
+     "meanPointsWhenStarted": 15.89,
+     "shareOfLeagueStartingPoints": 0.0447,
+     "marginalPointsPerRosteredWeek": {
+      "n": 218,
+      "mean": 2.34,
+      "median": 0.0,
+      "p75": 2.13,
+      "p90": 8.49
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 71,
+      "mean": 7.17,
+      "median": 5.57,
+      "p75": 9.35,
+      "p90": 16.85
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3257,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 218,
+      "mean": -4.5,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 5.65
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 218,
+      "mean": -2.08,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 6.39
+     },
+     "smallSample": false
+    },
+    "DL": {
+     "playerWeeks": 94,
+     "distinctPlayers": 23,
+     "startRate": 0.2553,
+     "meanPointsPerWeek": 4.84,
+     "meanPointsWhenStarted": 12.68,
+     "shareOfLeagueStartingPoints": 0.012,
+     "marginalPointsPerRosteredWeek": {
+      "n": 94,
+      "mean": 1.44,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 5.19
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 24,
+      "mean": 5.63,
+      "median": 3.43,
+      "p75": 7.76,
+      "p90": 12.36
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2447,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 94,
+      "mean": -1.95,
+      "median": -0.64,
+      "p75": 0.0,
+      "p90": 1.97
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 94,
+      "mean": -1.27,
+      "median": -0.0,
+      "p75": 0.0,
+      "p90": 1.73
+     },
+     "smallSample": false
+    },
+    "LB": {
+     "playerWeeks": 139,
+     "distinctPlayers": 29,
+     "startRate": 0.2374,
+     "meanPointsPerWeek": 7.74,
+     "meanPointsWhenStarted": 16.72,
+     "shareOfLeagueStartingPoints": 0.0218,
+     "marginalPointsPerRosteredWeek": {
+      "n": 139,
+      "mean": 1.55,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 5.92
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 33,
+      "mean": 6.54,
+      "median": 5.11,
+      "p75": 10.71,
+      "p90": 13.16
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2374,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 139,
+      "mean": -4.34,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.24
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 139,
+      "mean": -2.58,
+      "median": -0.7,
+      "p75": 0.0,
+      "p90": 4.78
+     },
+     "smallSample": false
+    },
+    "QB": {
+     "playerWeeks": 73,
+     "distinctPlayers": 17,
+     "startRate": 0.0274,
+     "meanPointsPerWeek": 0.84,
+     "meanPointsWhenStarted": 29.76,
+     "shareOfLeagueStartingPoints": 0.0024,
+     "marginalPointsPerRosteredWeek": {
+      "n": 73,
+      "mean": 0.17,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 2,
+      "mean": 6.3,
+      "median": 6.3,
+      "p75": 7.57,
+      "p90": 8.33
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.0274,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 73,
+      "mean": -3.2,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 73,
+      "mean": -1.79,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "smallSample": false
+    },
+    "RB": {
+     "playerWeeks": 103,
+     "distinctPlayers": 27,
+     "startRate": 0.1165,
+     "meanPointsPerWeek": 2.82,
+     "meanPointsWhenStarted": 12.22,
+     "shareOfLeagueStartingPoints": 0.0058,
+     "marginalPointsPerRosteredWeek": {
+      "n": 103,
+      "mean": 0.61,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.41
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 12,
+      "mean": 5.22,
+      "median": 3.93,
+      "p75": 6.76,
+      "p90": 9.62
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.1165,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 103,
+      "mean": -0.52,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 103,
+      "mean": 0.01,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.09
+     },
+     "smallSample": false
+    },
+    "TE": {
+     "playerWeeks": 6,
+     "distinctPlayers": 2,
+     "startRate": 0.1667,
+     "meanPointsPerWeek": 1.35,
+     "meanPointsWhenStarted": 2.95,
+     "shareOfLeagueStartingPoints": 0.0001,
+     "marginalPointsPerRosteredWeek": {
+      "n": 6,
+      "mean": 0.35,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 1.06
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 1,
+      "mean": 2.12,
+      "median": 2.12,
+      "p75": 2.12,
+      "p90": 2.12
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.1667,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 6,
+      "mean": -1.17,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.1
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 6,
+      "mean": -1.71,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 1.06
+     },
+     "smallSample": true
+    },
+    "WR": {
+     "playerWeeks": 181,
+     "distinctPlayers": 39,
+     "startRate": 0.1768,
+     "meanPointsPerWeek": 3.0,
+     "meanPointsWhenStarted": 8.55,
+     "shareOfLeagueStartingPoints": 0.0108,
+     "marginalPointsPerRosteredWeek": {
+      "n": 181,
+      "mean": 0.72,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 1.93
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 32,
+      "mean": 4.06,
+      "median": 2.83,
+      "p75": 6.33,
+      "p90": 10.34
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.1602,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 181,
+      "mean": -1.46,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.18
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 181,
+      "mean": -0.69,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 1.3
+     },
+     "smallSample": false
+    },
+    "idp": {
+     "playerWeeks": 451,
+     "distinctPlayers": 94,
+     "startRate": 0.2838,
+     "meanPointsPerWeek": 7.26,
+     "meanPointsWhenStarted": 15.5,
+     "shareOfLeagueStartingPoints": 0.0786,
+     "marginalPointsPerRosteredWeek": {
+      "n": 451,
+      "mean": 1.91,
+      "median": 0.0,
+      "p75": 1.07,
+      "p90": 7.33
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 128,
+      "mean": 6.72,
+      "median": 5.08,
+      "p75": 9.45,
+      "p90": 14.42
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2816,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 451,
+      "mean": -3.92,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 4.35
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 451,
+      "mean": -2.07,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 4.84
+     },
+     "smallSample": false
+    },
+    "offense": {
+     "playerWeeks": 363,
+     "distinctPlayers": 85,
+     "startRate": 0.1295,
+     "meanPointsPerWeek": 2.49,
+     "meanPointsWhenStarted": 10.27,
+     "shareOfLeagueStartingPoints": 0.0191,
+     "marginalPointsPerRosteredWeek": {
+      "n": 363,
+      "mean": 0.57,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.57
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 47,
+      "mean": 4.41,
+      "median": 2.96,
+      "p75": 6.77,
+      "p90": 10.12
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.1212,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 363,
+      "mean": -1.54,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 363,
+      "mean": -0.73,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.07
+     },
+     "smallSample": false
+    }
+   },
+   "1500-2000": {
+    "ALL": {
+     "playerWeeks": 1016,
+     "distinctPlayers": 189,
+     "startRate": 0.3071,
+     "meanPointsPerWeek": 6.39,
+     "meanPointsWhenStarted": 14.07,
+     "shareOfLeagueStartingPoints": 0.1738,
+     "marginalPointsPerRosteredWeek": {
+      "n": 1016,
+      "mean": 2.12,
+      "median": 0.0,
+      "p75": 1.53,
+      "p90": 7.68
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 312,
+      "mean": 6.91,
+      "median": 5.19,
+      "p75": 9.48,
+      "p90": 16.24
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3012,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 1016,
+      "mean": -1.69,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 5.65
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 1016,
+      "mean": -0.5,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 5.58
+     },
+     "smallSample": false
+    },
+    "DB": {
+     "playerWeeks": 217,
+     "distinctPlayers": 39,
+     "startRate": 0.3641,
+     "meanPointsPerWeek": 10.3,
+     "meanPointsWhenStarted": 18.18,
+     "shareOfLeagueStartingPoints": 0.0569,
+     "marginalPointsPerRosteredWeek": {
+      "n": 217,
+      "mean": 3.05,
+      "median": 0.0,
+      "p75": 3.44,
+      "p90": 12.4
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 79,
+      "mean": 8.37,
+      "median": 6.63,
+      "p75": 13.66,
+      "p90": 17.64
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3641,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 217,
+      "mean": -2.85,
+      "median": 0.0,
+      "p75": 1.33,
+      "p90": 10.34
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 217,
+      "mean": -0.61,
+      "median": 0.0,
+      "p75": 0.79,
+      "p90": 7.36
+     },
+     "smallSample": false
+    },
+    "DL": {
+     "playerWeeks": 207,
+     "distinctPlayers": 37,
+     "startRate": 0.4106,
+     "meanPointsPerWeek": 7.32,
+     "meanPointsWhenStarted": 13.38,
+     "shareOfLeagueStartingPoints": 0.045,
+     "marginalPointsPerRosteredWeek": {
+      "n": 207,
+      "mean": 2.83,
+      "median": 0.0,
+      "p75": 4.58,
+      "p90": 9.44
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 85,
+      "mean": 6.89,
+      "median": 5.71,
+      "p75": 9.38,
+      "p90": 15.74
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.4106,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 207,
+      "mean": -1.39,
+      "median": -0.52,
+      "p75": 0.12,
+      "p90": 6.5
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 207,
+      "mean": -0.84,
+      "median": 0.0,
+      "p75": 0.12,
+      "p90": 6.36
+     },
+     "smallSample": false
+    },
+    "LB": {
+     "playerWeeks": 127,
+     "distinctPlayers": 25,
+     "startRate": 0.3386,
+     "meanPointsPerWeek": 8.51,
+     "meanPointsWhenStarted": 16.7,
+     "shareOfLeagueStartingPoints": 0.0284,
+     "marginalPointsPerRosteredWeek": {
+      "n": 127,
+      "mean": 2.23,
+      "median": 0.0,
+      "p75": 2.64,
+      "p90": 6.68
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 43,
+      "mean": 6.57,
+      "median": 4.96,
+      "p75": 7.56,
+      "p90": 17.84
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3386,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 127,
+      "mean": -3.43,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 4.87
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 127,
+      "mean": -2.0,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 4.99
+     },
+     "smallSample": false
+    },
+    "QB": {
+     "playerWeeks": 56,
+     "distinctPlayers": 12,
+     "startRate": 0.125,
+     "meanPointsPerWeek": 3.26,
+     "meanPointsWhenStarted": 16.74,
+     "shareOfLeagueStartingPoints": 0.0046,
+     "marginalPointsPerRosteredWeek": {
+      "n": 56,
+      "mean": 1.35,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.81
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 7,
+      "mean": 10.78,
+      "median": 9.13,
+      "p75": 14.17,
+      "p90": 18.79
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.125,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 56,
+      "mean": -1.82,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.84
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 56,
+      "mean": 0.08,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.81
+     },
+     "smallSample": false
+    },
+    "RB": {
+     "playerWeeks": 107,
+     "distinctPlayers": 19,
+     "startRate": 0.1682,
+     "meanPointsPerWeek": 3.0,
+     "meanPointsWhenStarted": 9.09,
+     "shareOfLeagueStartingPoints": 0.0065,
+     "marginalPointsPerRosteredWeek": {
+      "n": 107,
+      "mean": 1.03,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 4.02
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 18,
+      "mean": 6.12,
+      "median": 4.53,
+      "p75": 8.24,
+      "p90": 11.45
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.1682,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 107,
+      "mean": -0.08,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 2.61
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 107,
+      "mean": 0.46,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.33
+     },
+     "smallSample": false
+    },
+    "TE": {
+     "playerWeeks": 101,
+     "distinctPlayers": 21,
+     "startRate": 0.2772,
+     "meanPointsPerWeek": 2.53,
+     "meanPointsWhenStarted": 6.6,
+     "shareOfLeagueStartingPoints": 0.0073,
+     "marginalPointsPerRosteredWeek": {
+      "n": 101,
+      "mean": 1.02,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.9
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 28,
+      "mean": 3.67,
+      "median": 2.39,
+      "p75": 5.27,
+      "p90": 9.66
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2376,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 101,
+      "mean": -2.12,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 1.2
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 101,
+      "mean": -1.28,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 2.73
+     },
+     "smallSample": false
+    },
+    "WR": {
+     "playerWeeks": 201,
+     "distinctPlayers": 36,
+     "startRate": 0.2587,
+     "meanPointsPerWeek": 4.5,
+     "meanPointsWhenStarted": 12.17,
+     "shareOfLeagueStartingPoints": 0.0251,
+     "marginalPointsPerRosteredWeek": {
+      "n": 201,
+      "mean": 1.68,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 6.25
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 52,
+      "mean": 6.48,
+      "median": 4.75,
+      "p75": 9.85,
+      "p90": 15.02
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2488,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 201,
+      "mean": -0.25,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 4.92
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 201,
+      "mean": 0.63,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 5.3
+     },
+     "smallSample": false
+    },
+    "idp": {
+     "playerWeeks": 551,
+     "distinctPlayers": 101,
+     "startRate": 0.3757,
+     "meanPointsPerWeek": 8.77,
+     "meanPointsWhenStarted": 15.9,
+     "shareOfLeagueStartingPoints": 0.1303,
+     "marginalPointsPerRosteredWeek": {
+      "n": 551,
+      "mean": 2.78,
+      "median": 0.0,
+      "p75": 3.74,
+      "p90": 9.47
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 207,
+      "mean": 7.39,
+      "median": 5.58,
+      "p75": 10.1,
+      "p90": 17.01
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3757,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 551,
+      "mean": -2.44,
+      "median": 0.0,
+      "p75": 0.26,
+      "p90": 6.89
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 551,
+      "mean": -1.02,
+      "median": 0.0,
+      "p75": 0.03,
+      "p90": 6.63
+     },
+     "smallSample": false
+    },
+    "offense": {
+     "playerWeeks": 465,
+     "distinctPlayers": 88,
+     "startRate": 0.2258,
+     "meanPointsPerWeek": 3.58,
+     "meanPointsWhenStarted": 10.46,
+     "shareOfLeagueStartingPoints": 0.0435,
+     "marginalPointsPerRosteredWeek": {
+      "n": 465,
+      "mean": 1.34,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 4.86
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 105,
+      "mean": 5.95,
+      "median": 4.5,
+      "p75": 9.07,
+      "p90": 13.34
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2129,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 465,
+      "mean": -0.81,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.61
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 465,
+      "mean": 0.11,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.97
+     },
+     "smallSample": false
+    }
+   },
+   "2000-3000": {
+    "ALL": {
+     "playerWeeks": 865,
+     "distinctPlayers": 146,
+     "startRate": 0.4104,
+     "meanPointsPerWeek": 8.71,
+     "meanPointsWhenStarted": 15.57,
+     "shareOfLeagueStartingPoints": 0.2188,
+     "marginalPointsPerRosteredWeek": {
+      "n": 865,
+      "mean": 3.22,
+      "median": 0.0,
+      "p75": 4.22,
+      "p90": 11.51
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 355,
+      "mean": 7.85,
+      "median": 5.82,
+      "p75": 11.37,
+      "p90": 17.0
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.4035,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 865,
+      "mean": 0.3,
+      "median": 0.0,
+      "p75": 2.13,
+      "p90": 9.02
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 865,
+      "mean": 1.34,
+      "median": 0.0,
+      "p75": 2.93,
+      "p90": 10.02
+     },
+     "smallSample": false
+    },
+    "DB": {
+     "playerWeeks": 53,
+     "distinctPlayers": 9,
+     "startRate": 0.3774,
+     "meanPointsPerWeek": 9.1,
+     "meanPointsWhenStarted": 16.75,
+     "shareOfLeagueStartingPoints": 0.0133,
+     "marginalPointsPerRosteredWeek": {
+      "n": 53,
+      "mean": 2.67,
+      "median": 0.0,
+      "p75": 5.84,
+      "p90": 8.65
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 20,
+      "mean": 7.08,
+      "median": 7.43,
+      "p75": 8.76,
+      "p90": 13.48
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3774,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 53,
+      "mean": -2.47,
+      "median": 0.0,
+      "p75": 1.57,
+      "p90": 7.39
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 53,
+      "mean": -0.96,
+      "median": 0.0,
+      "p75": 0.55,
+      "p90": 7.03
+     },
+     "smallSample": false
+    },
+    "DL": {
+     "playerWeeks": 114,
+     "distinctPlayers": 19,
+     "startRate": 0.3947,
+     "meanPointsPerWeek": 10.34,
+     "meanPointsWhenStarted": 20.86,
+     "shareOfLeagueStartingPoints": 0.0372,
+     "marginalPointsPerRosteredWeek": {
+      "n": 114,
+      "mean": 5.12,
+      "median": 0.0,
+      "p75": 9.8,
+      "p90": 16.8
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 45,
+      "mean": 12.97,
+      "median": 11.91,
+      "p75": 16.97,
+      "p90": 24.31
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3947,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 114,
+      "mean": 1.67,
+      "median": 0.0,
+      "p75": 4.44,
+      "p90": 14.9
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 114,
+      "mean": 2.6,
+      "median": 0.0,
+      "p75": 6.03,
+      "p90": 14.26
+     },
+     "smallSample": false
+    },
+    "LB": {
+     "playerWeeks": 153,
+     "distinctPlayers": 26,
+     "startRate": 0.4967,
+     "meanPointsPerWeek": 11.54,
+     "meanPointsWhenStarted": 18.17,
+     "shareOfLeagueStartingPoints": 0.0547,
+     "marginalPointsPerRosteredWeek": {
+      "n": 153,
+      "mean": 4.44,
+      "median": 0.0,
+      "p75": 5.81,
+      "p90": 13.67
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 76,
+      "mean": 8.93,
+      "median": 6.24,
+      "p75": 12.1,
+      "p90": 20.11
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.4967,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 153,
+      "mean": -1.34,
+      "median": 0.0,
+      "p75": 3.1,
+      "p90": 12.11
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 153,
+      "mean": 0.41,
+      "median": 0.0,
+      "p75": 4.26,
+      "p90": 11.38
+     },
+     "smallSample": false
+    },
+    "QB": {
+     "playerWeeks": 52,
+     "distinctPlayers": 9,
+     "startRate": 0.4038,
+     "meanPointsPerWeek": 12.28,
+     "meanPointsWhenStarted": 22.43,
+     "shareOfLeagueStartingPoints": 0.0186,
+     "marginalPointsPerRosteredWeek": {
+      "n": 52,
+      "mean": 5.06,
+      "median": 0.0,
+      "p75": 8.41,
+      "p90": 15.94
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 21,
+      "mean": 12.54,
+      "median": 12.95,
+      "p75": 15.98,
+      "p90": 18.86
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.4038,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 52,
+      "mean": 1.47,
+      "median": 0.0,
+      "p75": 6.41,
+      "p90": 15.57
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 52,
+      "mean": 3.51,
+      "median": 0.0,
+      "p75": 6.41,
+      "p90": 15.57
+     },
+     "smallSample": false
+    },
+    "RB": {
+     "playerWeeks": 162,
+     "distinctPlayers": 27,
+     "startRate": 0.3827,
+     "meanPointsPerWeek": 7.28,
+     "meanPointsWhenStarted": 12.47,
+     "shareOfLeagueStartingPoints": 0.0306,
+     "marginalPointsPerRosteredWeek": {
+      "n": 162,
+      "mean": 2.01,
+      "median": 0.0,
+      "p75": 2.32,
+      "p90": 7.83
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 62,
+      "mean": 5.26,
+      "median": 3.88,
+      "p75": 8.33,
+      "p90": 11.82
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3519,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 162,
+      "mean": 1.21,
+      "median": 0.0,
+      "p75": 1.26,
+      "p90": 5.9
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 162,
+      "mean": 1.62,
+      "median": 0.0,
+      "p75": 2.14,
+      "p90": 5.89
+     },
+     "smallSample": false
+    },
+    "TE": {
+     "playerWeeks": 133,
+     "distinctPlayers": 23,
+     "startRate": 0.4286,
+     "meanPointsPerWeek": 5.65,
+     "meanPointsWhenStarted": 10.02,
+     "shareOfLeagueStartingPoints": 0.0226,
+     "marginalPointsPerRosteredWeek": {
+      "n": 133,
+      "mean": 2.67,
+      "median": 0.0,
+      "p75": 3.3,
+      "p90": 10.11
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 57,
+      "mean": 6.23,
+      "median": 4.9,
+      "p75": 9.55,
+      "p90": 11.94
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.4211,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 133,
+      "mean": -0.27,
+      "median": 0.0,
+      "p75": 1.07,
+      "p90": 7.32
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 133,
+      "mean": 0.82,
+      "median": 0.0,
+      "p75": 1.75,
+      "p90": 8.77
+     },
+     "smallSample": false
+    },
+    "WR": {
+     "playerWeeks": 198,
+     "distinctPlayers": 33,
+     "startRate": 0.3737,
+     "meanPointsPerWeek": 7.75,
+     "meanPointsWhenStarted": 14.29,
+     "shareOfLeagueStartingPoints": 0.0419,
+     "marginalPointsPerRosteredWeek": {
+      "n": 198,
+      "mean": 2.21,
+      "median": 0.0,
+      "p75": 2.62,
+      "p90": 8.46
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 74,
+      "mean": 5.92,
+      "median": 4.46,
+      "p75": 8.76,
+      "p90": 13.85
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3737,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 198,
+      "mean": 0.86,
+      "median": 0.0,
+      "p75": 1.31,
+      "p90": 7.1
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 198,
+      "mean": 1.52,
+      "median": 0.0,
+      "p75": 1.8,
+      "p90": 7.68
+     },
+     "smallSample": false
+    },
+    "idp": {
+     "playerWeeks": 320,
+     "distinctPlayers": 54,
+     "startRate": 0.4406,
+     "meanPointsPerWeek": 10.71,
+     "meanPointsWhenStarted": 18.83,
+     "shareOfLeagueStartingPoints": 0.1051,
+     "marginalPointsPerRosteredWeek": {
+      "n": 320,
+      "mean": 4.39,
+      "median": 0.0,
+      "p75": 7.25,
+      "p90": 14.1
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 141,
+      "mean": 9.96,
+      "median": 8.5,
+      "p75": 13.8,
+      "p90": 21.76
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.4406,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 320,
+      "mean": -0.46,
+      "median": 0.0,
+      "p75": 3.39,
+      "p90": 12.93
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 320,
+      "mean": 0.96,
+      "median": 0.0,
+      "p75": 4.2,
+      "p90": 12.09
+     },
+     "smallSample": false
+    },
+    "offense": {
+     "playerWeeks": 545,
+     "distinctPlayers": 92,
+     "startRate": 0.3927,
+     "meanPointsPerWeek": 7.53,
+     "meanPointsWhenStarted": 13.42,
+     "shareOfLeagueStartingPoints": 0.1137,
+     "marginalPointsPerRosteredWeek": {
+      "n": 545,
+      "mean": 2.54,
+      "median": 0.0,
+      "p75": 3.22,
+      "p90": 9.18
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 214,
+      "mean": 6.46,
+      "median": 4.87,
+      "p75": 9.29,
+      "p90": 15.46
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3817,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 545,
+      "mean": 0.75,
+      "median": 0.0,
+      "p75": 1.5,
+      "p90": 7.53
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 545,
+      "mean": 1.57,
+      "median": 0.0,
+      "p75": 2.37,
+      "p90": 8.35
+     },
+     "smallSample": false
+    }
+   },
+   "3000-4500": {
+    "ALL": {
+     "playerWeeks": 516,
+     "distinctPlayers": 86,
+     "startRate": 0.4806,
+     "meanPointsPerWeek": 10.28,
+     "meanPointsWhenStarted": 17.64,
+     "shareOfLeagueStartingPoints": 0.1732,
+     "marginalPointsPerRosteredWeek": {
+      "n": 516,
+      "mean": 4.48,
+      "median": 0.0,
+      "p75": 6.48,
+      "p90": 14.21
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 248,
+      "mean": 9.33,
+      "median": 6.97,
+      "p75": 13.31,
+      "p90": 19.15
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.4806,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 516,
+      "mean": 1.36,
+      "median": 0.0,
+      "p75": 4.0,
+      "p90": 12.13
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 516,
+      "mean": 2.53,
+      "median": 0.0,
+      "p75": 4.49,
+      "p90": 13.04
+     },
+     "smallSample": false
+    },
+    "DB": {
+     "playerWeeks": 30,
+     "distinctPlayers": 5,
+     "startRate": 0.5667,
+     "meanPointsPerWeek": 11.7,
+     "meanPointsWhenStarted": 17.31,
+     "shareOfLeagueStartingPoints": 0.0117,
+     "marginalPointsPerRosteredWeek": {
+      "n": 30,
+      "mean": 3.51,
+      "median": 1.73,
+      "p75": 3.23,
+      "p90": 6.99
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 17,
+      "mean": 6.2,
+      "median": 3.19,
+      "p75": 5.33,
+      "p90": 13.4
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.5667,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 30,
+      "mean": -2.03,
+      "median": 0.0,
+      "p75": 2.62,
+      "p90": 5.09
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 30,
+      "mean": 0.15,
+      "median": 0.0,
+      "p75": 3.12,
+      "p90": 6.99
+     },
+     "smallSample": true
+    },
+    "DL": {
+     "playerWeeks": 24,
+     "distinctPlayers": 4,
+     "startRate": 0.4583,
+     "meanPointsPerWeek": 11.42,
+     "meanPointsWhenStarted": 21.49,
+     "shareOfLeagueStartingPoints": 0.0094,
+     "marginalPointsPerRosteredWeek": {
+      "n": 24,
+      "mean": 6.74,
+      "median": 0.0,
+      "p75": 3.55,
+      "p90": 30.37
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 11,
+      "mean": 14.7,
+      "median": 5.46,
+      "p75": 29.37,
+      "p90": 34.74
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.4583,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 24,
+      "mean": 2.94,
+      "median": 0.0,
+      "p75": 1.5,
+      "p90": 21.95
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 24,
+      "mean": 3.71,
+      "median": 0.0,
+      "p75": 2.26,
+      "p90": 18.79
+     },
+     "smallSample": true
+    },
+    "LB": {
+     "playerWeeks": 120,
+     "distinctPlayers": 20,
+     "startRate": 0.55,
+     "meanPointsPerWeek": 12.77,
+     "meanPointsWhenStarted": 19.09,
+     "shareOfLeagueStartingPoints": 0.0499,
+     "marginalPointsPerRosteredWeek": {
+      "n": 120,
+      "mean": 4.82,
+      "median": 0.9,
+      "p75": 7.86,
+      "p90": 13.76
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 66,
+      "mean": 8.77,
+      "median": 7.32,
+      "p75": 12.08,
+      "p90": 16.99
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.55,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 120,
+      "mean": -0.22,
+      "median": 0.0,
+      "p75": 5.13,
+      "p90": 11.65
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 120,
+      "mean": 1.37,
+      "median": 0.0,
+      "p75": 4.34,
+      "p90": 12.54
+     },
+     "smallSample": false
+    },
+    "QB": {
+     "playerWeeks": 54,
+     "distinctPlayers": 9,
+     "startRate": 0.4259,
+     "meanPointsPerWeek": 9.56,
+     "meanPointsWhenStarted": 18.12,
+     "shareOfLeagueStartingPoints": 0.0165,
+     "marginalPointsPerRosteredWeek": {
+      "n": 54,
+      "mean": 4.94,
+      "median": 0.0,
+      "p75": 6.38,
+      "p90": 14.74
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 23,
+      "mean": 11.59,
+      "median": 6.88,
+      "p75": 14.62,
+      "p90": 27.09
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.4259,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 54,
+      "mean": -0.81,
+      "median": 0.0,
+      "p75": 1.8,
+      "p90": 6.74
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 54,
+      "mean": 2.29,
+      "median": 0.0,
+      "p75": 3.81,
+      "p90": 14.74
+     },
+     "smallSample": false
+    },
+    "RB": {
+     "playerWeeks": 84,
+     "distinctPlayers": 14,
+     "startRate": 0.4286,
+     "meanPointsPerWeek": 9.02,
+     "meanPointsWhenStarted": 17.92,
+     "shareOfLeagueStartingPoints": 0.0255,
+     "marginalPointsPerRosteredWeek": {
+      "n": 84,
+      "mean": 4.27,
+      "median": 0.0,
+      "p75": 7.03,
+      "p90": 14.66
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 36,
+      "mean": 9.96,
+      "median": 8.21,
+      "p75": 13.95,
+      "p90": 21.01
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.4286,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 84,
+      "mean": 3.22,
+      "median": 0.0,
+      "p75": 5.39,
+      "p90": 14.52
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 84,
+      "mean": 3.72,
+      "median": 0.0,
+      "p75": 5.52,
+      "p90": 13.3
+     },
+     "smallSample": false
+    },
+    "TE": {
+     "playerWeeks": 72,
+     "distinctPlayers": 12,
+     "startRate": 0.5,
+     "meanPointsPerWeek": 8.23,
+     "meanPointsWhenStarted": 14.29,
+     "shareOfLeagueStartingPoints": 0.0204,
+     "marginalPointsPerRosteredWeek": {
+      "n": 72,
+      "mean": 4.38,
+      "median": 0.35,
+      "p75": 4.47,
+      "p90": 14.75
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 36,
+      "mean": 8.76,
+      "median": 4.55,
+      "p75": 14.22,
+      "p90": 17.08
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.5,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 72,
+      "mean": 1.98,
+      "median": 0.0,
+      "p75": 3.2,
+      "p90": 12.01
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 72,
+      "mean": 2.92,
+      "median": 0.0,
+      "p75": 4.05,
+      "p90": 14.08
+     },
+     "smallSample": false
+    },
+    "WR": {
+     "playerWeeks": 132,
+     "distinctPlayers": 22,
+     "startRate": 0.447,
+     "meanPointsPerWeek": 9.71,
+     "meanPointsWhenStarted": 17.08,
+     "shareOfLeagueStartingPoints": 0.0399,
+     "marginalPointsPerRosteredWeek": {
+      "n": 132,
+      "mean": 3.99,
+      "median": 0.0,
+      "p75": 6.17,
+      "p90": 12.91
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 59,
+      "mean": 8.93,
+      "median": 7.15,
+      "p75": 12.28,
+      "p90": 16.79
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.447,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 132,
+      "mean": 2.64,
+      "median": 0.0,
+      "p75": 4.22,
+      "p90": 12.23
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 132,
+      "mean": 3.06,
+      "median": 0.0,
+      "p75": 5.28,
+      "p90": 11.6
+     },
+     "smallSample": false
+    },
+    "idp": {
+     "playerWeeks": 174,
+     "distinctPlayers": 29,
+     "startRate": 0.5402,
+     "meanPointsPerWeek": 12.4,
+     "meanPointsWhenStarted": 19.05,
+     "shareOfLeagueStartingPoints": 0.0709,
+     "marginalPointsPerRosteredWeek": {
+      "n": 174,
+      "mean": 4.86,
+      "median": 1.09,
+      "p75": 7.12,
+      "p90": 13.79
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 94,
+      "mean": 9.0,
+      "median": 5.71,
+      "p75": 12.08,
+      "p90": 21.72
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.5402,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 174,
+      "mean": -0.1,
+      "median": 0.0,
+      "p75": 4.16,
+      "p90": 11.15
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 174,
+      "mean": 1.48,
+      "median": 0.0,
+      "p75": 3.85,
+      "p90": 12.61
+     },
+     "smallSample": false
+    },
+    "offense": {
+     "playerWeeks": 342,
+     "distinctPlayers": 57,
+     "startRate": 0.4503,
+     "meanPointsPerWeek": 9.21,
+     "meanPointsWhenStarted": 16.78,
+     "shareOfLeagueStartingPoints": 0.1023,
+     "marginalPointsPerRosteredWeek": {
+      "n": 342,
+      "mean": 4.29,
+      "median": 0.0,
+      "p75": 6.38,
+      "p90": 14.31
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 154,
+      "mean": 9.53,
+      "median": 7.51,
+      "p75": 13.56,
+      "p90": 18.1
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.4503,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 342,
+      "mean": 2.1,
+      "median": 0.0,
+      "p75": 3.93,
+      "p90": 12.3
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 342,
+      "mean": 3.07,
+      "median": 0.0,
+      "p75": 4.92,
+      "p90": 13.45
+     },
+     "smallSample": false
+    }
+   },
+   "4500+": {
+    "ALL": {
+     "playerWeeks": 468,
+     "distinctPlayers": 78,
+     "startRate": 0.6068,
+     "meanPointsPerWeek": 16.57,
+     "meanPointsWhenStarted": 23.72,
+     "shareOfLeagueStartingPoints": 0.2667,
+     "marginalPointsPerRosteredWeek": {
+      "n": 468,
+      "mean": 8.32,
+      "median": 4.58,
+      "p75": 14.38,
+      "p90": 24.58
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 284,
+      "mean": 13.71,
+      "median": 12.54,
+      "p75": 19.75,
+      "p90": 27.12
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.6068,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 468,
+      "mean": 6.29,
+      "median": 2.47,
+      "p75": 13.14,
+      "p90": 21.77
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 468,
+      "mean": 7.29,
+      "median": 3.57,
+      "p75": 13.45,
+      "p90": 23.12
+     },
+     "smallSample": false
+    },
+    "DL": {
+     "playerWeeks": 6,
+     "distinctPlayers": 1,
+     "startRate": 0.3333,
+     "meanPointsPerWeek": 11.85,
+     "meanPointsWhenStarted": 25.29,
+     "shareOfLeagueStartingPoints": 0.002,
+     "marginalPointsPerRosteredWeek": {
+      "n": 6,
+      "mean": 4.4,
+      "median": 0.0,
+      "p75": 8.96,
+      "p90": 13.2
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 2,
+      "mean": 13.2,
+      "median": 13.2,
+      "p75": 13.82,
+      "p90": 14.2
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3333,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 6,
+      "mean": 1.85,
+      "median": 0.0,
+      "p75": 7.97,
+      "p90": 12.54
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 6,
+      "mean": 2.09,
+      "median": 0.0,
+      "p75": 5.11,
+      "p90": 10.63
+     },
+     "smallSample": true
+    },
+    "LB": {
+     "playerWeeks": 30,
+     "distinctPlayers": 5,
+     "startRate": 0.5667,
+     "meanPointsPerWeek": 14.94,
+     "meanPointsWhenStarted": 19.71,
+     "shareOfLeagueStartingPoints": 0.0133,
+     "marginalPointsPerRosteredWeek": {
+      "n": 30,
+      "mean": 5.36,
+      "median": 1.4,
+      "p75": 7.18,
+      "p90": 16.46
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 17,
+      "mean": 9.46,
+      "median": 7.18,
+      "p75": 14.99,
+      "p90": 18.1
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.5667,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 30,
+      "mean": 0.08,
+      "median": 0.0,
+      "p75": 4.76,
+      "p90": 11.11
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 30,
+      "mean": 2.01,
+      "median": 0.0,
+      "p75": 4.5,
+      "p90": 15.14
+     },
+     "smallSample": true
+    },
+    "QB": {
+     "playerWeeks": 120,
+     "distinctPlayers": 20,
+     "startRate": 0.575,
+     "meanPointsPerWeek": 19.26,
+     "meanPointsWhenStarted": 28.5,
+     "shareOfLeagueStartingPoints": 0.0779,
+     "marginalPointsPerRosteredWeek": {
+      "n": 120,
+      "mean": 8.86,
+      "median": 1.53,
+      "p75": 15.72,
+      "p90": 26.73
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 69,
+      "mean": 15.41,
+      "median": 14.01,
+      "p75": 25.0,
+      "p90": 29.98
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.575,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 120,
+      "mean": 5.07,
+      "median": 0.0,
+      "p75": 13.57,
+      "p90": 21.82
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 120,
+      "mean": 7.24,
+      "median": 0.36,
+      "p75": 14.82,
+      "p90": 23.15
+     },
+     "smallSample": false
+    },
+    "RB": {
+     "playerWeeks": 108,
+     "distinctPlayers": 18,
+     "startRate": 0.6852,
+     "meanPointsPerWeek": 18.05,
+     "meanPointsWhenStarted": 23.46,
+     "shareOfLeagueStartingPoints": 0.0687,
+     "marginalPointsPerRosteredWeek": {
+      "n": 108,
+      "mean": 9.69,
+      "median": 6.79,
+      "p75": 15.46,
+      "p90": 25.63
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 74,
+      "mean": 14.14,
+      "median": 12.8,
+      "p75": 19.51,
+      "p90": 26.48
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.6852,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 108,
+      "mean": 9.19,
+      "median": 6.17,
+      "p75": 15.46,
+      "p90": 24.39
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 108,
+      "mean": 9.59,
+      "median": 6.71,
+      "p75": 15.46,
+      "p90": 25.63
+     },
+     "smallSample": false
+    },
+    "TE": {
+     "playerWeeks": 60,
+     "distinctPlayers": 10,
+     "startRate": 0.6,
+     "meanPointsPerWeek": 11.99,
+     "meanPointsWhenStarted": 17.68,
+     "shareOfLeagueStartingPoints": 0.0252,
+     "marginalPointsPerRosteredWeek": {
+      "n": 60,
+      "mean": 7.12,
+      "median": 3.61,
+      "p75": 12.74,
+      "p90": 19.26
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 36,
+      "mean": 11.87,
+      "median": 11.68,
+      "p75": 16.88,
+      "p90": 21.25
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.6,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 60,
+      "mean": 4.86,
+      "median": 0.83,
+      "p75": 10.93,
+      "p90": 17.17
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 60,
+      "mean": 5.57,
+      "median": 2.12,
+      "p75": 11.41,
+      "p90": 17.32
+     },
+     "smallSample": false
+    },
+    "WR": {
+     "playerWeeks": 144,
+     "distinctPlayers": 24,
+     "startRate": 0.5972,
+     "meanPointsPerWeek": 15.67,
+     "meanPointsWhenStarted": 23.39,
+     "shareOfLeagueStartingPoints": 0.0796,
+     "marginalPointsPerRosteredWeek": {
+      "n": 144,
+      "mean": 8.11,
+      "median": 4.42,
+      "p75": 13.16,
+      "p90": 24.14
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 86,
+      "mean": 13.59,
+      "median": 12.75,
+      "p75": 19.63,
+      "p90": 26.74
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.5972,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 144,
+      "mean": 7.22,
+      "median": 3.44,
+      "p75": 13.14,
+      "p90": 22.32
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 144,
+      "mean": 7.65,
+      "median": 4.0,
+      "p75": 13.08,
+      "p90": 24.0
+     },
+     "smallSample": false
+    },
+    "idp": {
+     "playerWeeks": 36,
+     "distinctPlayers": 6,
+     "startRate": 0.5278,
+     "meanPointsPerWeek": 14.43,
+     "meanPointsWhenStarted": 20.3,
+     "shareOfLeagueStartingPoints": 0.0153,
+     "marginalPointsPerRosteredWeek": {
+      "n": 36,
+      "mean": 5.2,
+      "median": 0.36,
+      "p75": 8.22,
+      "p90": 15.72
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 19,
+      "mean": 9.85,
+      "median": 7.18,
+      "p75": 14.72,
+      "p90": 17.29
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.5278,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 36,
+      "mean": 0.38,
+      "median": 0.0,
+      "p75": 5.07,
+      "p90": 11.21
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 36,
+      "mean": 2.02,
+      "median": 0.0,
+      "p75": 4.68,
+      "p90": 14.72
+     },
+     "smallSample": true
+    },
+    "offense": {
+     "playerWeeks": 432,
+     "distinctPlayers": 72,
+     "startRate": 0.6134,
+     "meanPointsPerWeek": 16.75,
+     "meanPointsWhenStarted": 23.96,
+     "shareOfLeagueStartingPoints": 0.2514,
+     "marginalPointsPerRosteredWeek": {
+      "n": 432,
+      "mean": 8.58,
+      "median": 4.84,
+      "p75": 14.64,
+      "p90": 24.99
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 265,
+      "mean": 13.98,
+      "median": 12.65,
+      "p75": 20.17,
+      "p90": 27.33
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.6134,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 432,
+      "mean": 6.78,
+      "median": 2.79,
+      "p75": 13.46,
+      "p90": 21.93
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 432,
+      "mean": 7.73,
+      "median": 4.18,
+      "p75": 13.68,
+      "p90": 23.8
+     },
+     "smallSample": false
+    }
+   },
+   "unvalued": {
+    "ALL": {
+     "playerWeeks": 339,
+     "distinctPlayers": 100,
+     "startRate": 0.3156,
+     "meanPointsPerWeek": 6.22,
+     "meanPointsWhenStarted": 12.36,
+     "shareOfLeagueStartingPoints": 0.0524,
+     "marginalPointsPerRosteredWeek": {
+      "n": 339,
+      "mean": 2.32,
+      "median": 0.0,
+      "p75": 2.39,
+      "p90": 9.11
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 107,
+      "mean": 7.35,
+      "median": 6.37,
+      "p75": 10.61,
+      "p90": 14.92
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.3097,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 339,
+      "mean": -2.34,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.68
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 339,
+      "mean": -0.92,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.86
+     },
+     "smallSample": false
+    },
+    "DB": {
+     "playerWeeks": 77,
+     "distinctPlayers": 27,
+     "startRate": 0.1818,
+     "meanPointsPerWeek": 7.1,
+     "meanPointsWhenStarted": 18.92,
+     "shareOfLeagueStartingPoints": 0.0105,
+     "marginalPointsPerRosteredWeek": {
+      "n": 77,
+      "mean": 1.55,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 6.25
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 14,
+      "mean": 8.54,
+      "median": 7.56,
+      "p75": 12.52,
+      "p90": 13.9
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.1818,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 77,
+      "mean": -5.0,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 4.93
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 77,
+      "mean": -2.24,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.36
+     },
+     "smallSample": false
+    },
+    "DL": {
+     "playerWeeks": 45,
+     "distinctPlayers": 18,
+     "startRate": 0.2889,
+     "meanPointsPerWeek": 6.02,
+     "meanPointsWhenStarted": 13.64,
+     "shareOfLeagueStartingPoints": 0.007,
+     "marginalPointsPerRosteredWeek": {
+      "n": 45,
+      "mean": 1.73,
+      "median": 0.0,
+      "p75": 1.86,
+      "p90": 6.24
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 13,
+      "mean": 6.0,
+      "median": 4.39,
+      "p75": 7.43,
+      "p90": 10.19
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.2889,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 45,
+      "mean": -2.08,
+      "median": -0.93,
+      "p75": 0.0,
+      "p90": 1.66
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 45,
+      "mean": -0.96,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 3.28
+     },
+     "smallSample": false
+    },
+    "K": {
+     "playerWeeks": 134,
+     "distinctPlayers": 28,
+     "startRate": 0.5373,
+     "meanPointsPerWeek": 8.56,
+     "meanPointsWhenStarted": 11.16,
+     "shareOfLeagueStartingPoints": 0.0318,
+     "marginalPointsPerRosteredWeek": {
+      "n": 134,
+      "mean": 4.13,
+      "median": 1.3,
+      "p75": 7.66,
+      "p90": 12.56
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 72,
+      "mean": 7.69,
+      "median": 7.38,
+      "p75": 10.87,
+      "p90": 15.03
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.5299,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 134,
+      "mean": -0.48,
+      "median": 0.0,
+      "p75": 0.82,
+      "p90": 4.58
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 134,
+      "mean": 0.74,
+      "median": 0.0,
+      "p75": 2.05,
+      "p90": 5.6
+     },
+     "smallSample": false
+    },
+    "LB": {
+     "playerWeeks": 31,
+     "distinctPlayers": 12,
+     "startRate": 0.0645,
+     "meanPointsPerWeek": 3.15,
+     "meanPointsWhenStarted": 22.11,
+     "shareOfLeagueStartingPoints": 0.0018,
+     "marginalPointsPerRosteredWeek": {
+      "n": 31,
+      "mean": 0.76,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 2,
+      "mean": 11.74,
+      "median": 11.74,
+      "p75": 13.54,
+      "p90": 14.63
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.0645,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 31,
+      "mean": -4.01,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 31,
+      "mean": -3.26,
+      "median": -0.8,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "smallSample": false
+    },
+    "QB": {
+     "playerWeeks": 7,
+     "distinctPlayers": 3,
+     "startRate": 0.0,
+     "meanPointsPerWeek": -1.3,
+     "meanPointsWhenStarted": null,
+     "shareOfLeagueStartingPoints": 0.0,
+     "marginalPointsPerRosteredWeek": {
+      "n": 7,
+      "mean": 0.0,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p75": null,
+      "p90": null
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.0,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 7,
+      "mean": -5.32,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 7,
+      "mean": -2.11,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "smallSample": true
+    },
+    "RB": {
+     "playerWeeks": 11,
+     "distinctPlayers": 2,
+     "startRate": 0.1818,
+     "meanPointsPerWeek": 1.35,
+     "meanPointsWhenStarted": 6.75,
+     "shareOfLeagueStartingPoints": 0.0005,
+     "marginalPointsPerRosteredWeek": {
+      "n": 11,
+      "mean": 0.31,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 1.01
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 2,
+      "mean": 1.71,
+      "median": 1.71,
+      "p75": 2.05,
+      "p90": 2.26
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.1818,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 11,
+      "mean": -0.77,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 1.01
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 11,
+      "mean": -0.22,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "smallSample": true
+    },
+    "TE": {
+     "playerWeeks": 3,
+     "distinctPlayers": 3,
+     "startRate": 0.0,
+     "meanPointsPerWeek": 0.44,
+     "meanPointsWhenStarted": null,
+     "shareOfLeagueStartingPoints": 0.0,
+     "marginalPointsPerRosteredWeek": {
+      "n": 3,
+      "mean": 0.0,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 0,
+      "mean": null,
+      "median": null,
+      "p75": null,
+      "p90": null
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.0,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 3,
+      "mean": -0.91,
+      "median": -1.37,
+      "p75": -0.69,
+      "p90": -0.27
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 3,
+      "mean": -4.53,
+      "median": -6.8,
+      "p75": -3.4,
+      "p90": -1.36
+     },
+     "smallSample": true
+    },
+    "WR": {
+     "playerWeeks": 31,
+     "distinctPlayers": 7,
+     "startRate": 0.129,
+     "meanPointsPerWeek": 1.25,
+     "meanPointsWhenStarted": 4.9,
+     "shareOfLeagueStartingPoints": 0.0008,
+     "marginalPointsPerRosteredWeek": {
+      "n": 31,
+      "mean": 0.25,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 4,
+      "mean": 1.98,
+      "median": 2.26,
+      "p75": 2.99,
+      "p90": 3.22
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.0968,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 31,
+      "mean": -2.55,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 31,
+      "mean": -1.97,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "smallSample": true
+    },
+    "idp": {
+     "playerWeeks": 153,
+     "distinctPlayers": 57,
+     "startRate": 0.1895,
+     "meanPointsPerWeek": 5.98,
+     "meanPointsWhenStarted": 16.78,
+     "shareOfLeagueStartingPoints": 0.0193,
+     "marginalPointsPerRosteredWeek": {
+      "n": 153,
+      "mean": 1.44,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 5.59
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 29,
+      "mean": 7.62,
+      "median": 6.9,
+      "p75": 10.6,
+      "p90": 14.22
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.1895,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 153,
+      "mean": -3.94,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 2.93
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 153,
+      "mean": -2.07,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.96
+     },
+     "smallSample": false
+    },
+    "kicker": {
+     "playerWeeks": 134,
+     "distinctPlayers": 28,
+     "startRate": 0.5373,
+     "meanPointsPerWeek": 8.56,
+     "meanPointsWhenStarted": 11.16,
+     "shareOfLeagueStartingPoints": 0.0318,
+     "marginalPointsPerRosteredWeek": {
+      "n": 134,
+      "mean": 4.13,
+      "median": 1.3,
+      "p75": 7.66,
+      "p90": 12.56
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 72,
+      "mean": 7.69,
+      "median": 7.38,
+      "p75": 10.87,
+      "p90": 15.03
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.5299,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 134,
+      "mean": -0.48,
+      "median": 0.0,
+      "p75": 0.82,
+      "p90": 4.58
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 134,
+      "mean": 0.74,
+      "median": 0.0,
+      "p75": 2.05,
+      "p90": 5.6
+     },
+     "smallSample": false
+    },
+    "offense": {
+     "playerWeeks": 52,
+     "distinctPlayers": 15,
+     "startRate": 0.1154,
+     "meanPointsPerWeek": 0.88,
+     "meanPointsWhenStarted": 5.52,
+     "shareOfLeagueStartingPoints": 0.0013,
+     "marginalPointsPerRosteredWeek": {
+      "n": 52,
+      "mean": 0.22,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalPointsPerStartedWeek": {
+      "n": 6,
+      "mean": 1.89,
+      "median": 2.03,
+      "p75": 2.75,
+      "p90": 3.12
+     },
+     "shareOfWeeksWithPositiveMarginal": 0.0962,
+     "marginalVsBestFreeAgentPerRosteredWeek": {
+      "n": 52,
+      "mean": -2.45,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "marginalVs3rdBestFreeAgentPerRosteredWeek": {
+      "n": 52,
+      "mean": -1.77,
+      "median": 0.0,
+      "p75": 0.0,
+      "p90": 0.0
+     },
+     "smallSample": false
+    }
+   }
+  }
+ },
+ "q3_rosterStructure": {
+  "basis": "CURRENT Sleeper rosters (week-7 snapshot), banded by PRE-SEASON value",
+  "rosterPlayersPerTeamByBand": {
+   "<500": {
+    "mean": 0.0,
+    "min": 0,
+    "max": 0
+   },
+   "500-1000": {
+    "mean": 0.0,
+    "min": 0,
+    "max": 0
+   },
+   "1000-1500": {
+    "mean": 7.4,
+    "min": 2,
+    "max": 21
+   },
+   "1500-2000": {
+    "mean": 13.7,
+    "min": 3,
+    "max": 23
+   },
+   "2000-3000": {
+    "mean": 12.2,
+    "min": 8,
+    "max": 17
+   },
+   "3000-4500": {
+    "mean": 8.2,
+    "min": 0,
+    "max": 18
+   },
+   "4500+": {
+    "mean": 6.3,
+    "min": 1,
+    "max": 15
+   },
+   "unvalued": {
+    "mean": 10.3,
+    "min": 6,
+    "max": 17
+   }
+  },
+  "rosterPlayersPerTeamByBandAndPosition_mean": {
+   "1000-1500": {
+    "QB": 0.83,
+    "RB": 1.08,
+    "WR": 1.67,
+    "DL": 0.58,
+    "LB": 1.25,
+    "DB": 2.0
+   },
+   "1500-2000": {
+    "QB": 0.67,
+    "RB": 1.5,
+    "WR": 2.17,
+    "TE": 1.33,
+    "DL": 2.67,
+    "LB": 2.33,
+    "DB": 3.0
+   },
+   "2000-3000": {
+    "QB": 0.58,
+    "RB": 2.17,
+    "WR": 2.58,
+    "TE": 1.67,
+    "DL": 1.42,
+    "LB": 2.42,
+    "DB": 1.33
+   },
+   "3000-4500": {
+    "QB": 0.67,
+    "RB": 1.08,
+    "WR": 2.0,
+    "TE": 1.17,
+    "DL": 0.75,
+    "LB": 1.92,
+    "DB": 0.58
+   },
+   "4500+": {
+    "QB": 1.67,
+    "RB": 1.42,
+    "WR": 2.17,
+    "TE": 0.75,
+    "DL": 0.17,
+    "LB": 0.17
+   },
+   "unvalued": {
+    "QB": 0.58,
+    "RB": 0.75,
+    "WR": 1.58,
+    "TE": 0.08,
+    "K": 1.75,
+    "DL": 2.17,
+    "LB": 0.67,
+    "DB": 2.75
+   }
+  },
+  "everStartedWeeks1toN_byBand": {
+   "1000-1500": {
+    "distinctPlayersRosteredAnyWeek": 112,
+    "everStarted": 62,
+    "neverStarted": 50
+   },
+   "1500-2000": {
+    "distinctPlayersRosteredAnyWeek": 187,
+    "everStarted": 121,
+    "neverStarted": 66
+   },
+   "2000-3000": {
+    "distinctPlayersRosteredAnyWeek": 154,
+    "everStarted": 118,
+    "neverStarted": 36
+   },
+   "3000-4500": {
+    "distinctPlayersRosteredAnyWeek": 98,
+    "everStarted": 85,
+    "neverStarted": 13
+   },
+   "4500+": {
+    "distinctPlayersRosteredAnyWeek": 76,
+    "everStarted": 72,
+    "neverStarted": 4
+   },
+   "unvalued": {
+    "distinctPlayersRosteredAnyWeek": 188,
+    "everStarted": 95,
+    "neverStarted": 93
+   }
+  }
+ },
+ "q3_replacementLevels": {
+  "board": "TODAY (see values.today)",
+  "waiverValuesByPosition_bestUnrosteredBoardValue": {
+   "DB": 2156.0,
+   "DL": 1839.0,
+   "LB": 1895.0,
+   "QB": 1648.0,
+   "RB": 1626.0,
+   "TE": 2061.0,
+   "WR": 1802.0
+  },
+  "cutLadder": {
+   "teams": 12,
+   "first5RungsBaseValue": {
+    "n": 60,
+    "mean": 1527.2,
+    "median": 1526.0,
+    "p75": 1802.0,
+    "p90": 1974.4
+   },
+   "first5RungsValueBasis": {
+    "assumedWaiver": 11,
+    "board": 49
+   },
+   "first5RungsByPosition": {
+    "DB": 24,
+    "DL": 10,
+    "K": 1,
+    "LB": 5,
+    "QB": 2,
+    "RB": 3,
+    "TE": 2,
+    "WR": 13
+   },
+   "rung1BaseValuePerTeam": [
+    257.0,
+    1123.0,
+    1413.0,
+    1475.0,
+    1533.0,
+    1752.0,
+    1802.0,
+    1839.0,
+    1897.0,
+    2156.0,
+    2156.0,
+    2156.0
+   ],
+   "notes": []
+  },
+  "replacementLevels_boardValue": {
+   "DB": {
+    "startersPerTeam": 3.0,
+    "starter": 1658.0,
+    "bestBallStarter": 1384.0,
+    "roster": 301.0,
+    "waiver": 1994.0
+   },
+   "DL": {
+    "startersPerTeam": 3.0,
+    "starter": 2070.0,
+    "bestBallStarter": 1668.0,
+    "roster": 241.0,
+    "waiver": 1860.0
+   },
+   "LB": {
+    "startersPerTeam": 3.0,
+    "starter": 2330.0,
+    "bestBallStarter": 1628.0,
+    "roster": 779.0,
+    "waiver": 1946.0
+   },
+   "QB": {
+    "startersPerTeam": 1.92,
+    "starter": 5388.0,
+    "bestBallStarter": 2553.0,
+    "roster": 997.0,
+    "waiver": 1661.0
+   },
+   "RB": {
+    "startersPerTeam": 2.92,
+    "starter": 2963.0,
+    "bestBallStarter": 1826.0,
+    "roster": 1109.0,
+    "waiver": 1569.0
+   },
+   "TE": {
+    "startersPerTeam": 2.25,
+    "starter": 3200.0,
+    "bestBallStarter": 1834.0,
+    "roster": 1669.0,
+    "waiver": 1972.0
+   },
+   "WR": {
+    "startersPerTeam": 3.92,
+    "starter": 3480.0,
+    "bestBallStarter": 1768.0,
+    "roster": 1026.0,
+    "waiver": 1633.0
+   }
+  },
+  "replacementLevels_realizedPpgWeeks1toN": {
+   "note": "rosValue := mean weekly points while rostered (weeks 1..N), rosters as of the last week; point estimates erase best-ball spikes (see the module docstring)",
+   "levels": {
+    "DB": {
+     "startersPerTeam": 3.0,
+     "starter": 11.91,
+     "bestBallStarter": 7.57,
+     "roster": 0.86,
+     "waiver": 12.52
+    },
+    "DL": {
+     "startersPerTeam": 3.0,
+     "starter": 9.65,
+     "bestBallStarter": 5.28,
+     "roster": 0.62,
+     "waiver": 9.85
+    },
+    "K": {
+     "startersPerTeam": 1.0,
+     "starter": 11.07,
+     "bestBallStarter": 7.24,
+     "roster": 4.91,
+     "waiver": 9.54
+    },
+    "LB": {
+     "startersPerTeam": 3.0,
+     "starter": 12.72,
+     "bestBallStarter": 11.08,
+     "roster": 0.61,
+     "waiver": 10.28
+    },
+    "QB": {
+     "startersPerTeam": 1.75,
+     "starter": 19.05,
+     "bestBallStarter": 8.77,
+     "roster": 0.93,
+     "waiver": 6.13
+    },
+    "RB": {
+     "startersPerTeam": 2.83,
+     "starter": 11.18,
+     "bestBallStarter": 4.35,
+     "roster": 0.27,
+     "waiver": 4.16
+    },
+    "TE": {
+     "startersPerTeam": 2.08,
+     "starter": 8.9,
+     "bestBallStarter": 2.28,
+     "roster": 0.69,
+     "waiver": 4.7
+    },
+    "WR": {
+     "startersPerTeam": 4.33,
+     "starter": 9.81,
+     "bestBallStarter": 4.25,
+     "roster": 0.28,
+     "waiver": 5.89
+    }
+   }
+  },
+  "faabAnchors": {
+   "vAllIn": 2387.0,
+   "vRepl": 1687.0,
+   "formatRepl": 1573.0,
+   "livePoolRepl": 1839.0,
+   "starterSlots": 240,
+   "note": "starters_per_team=20 excludes K (anchors.excludedPositions), as the waiver route passes it"
+  },
+  "marketLevelForComparison": 2000
+ },
+ "q4_usableDepthVsFiller": {
+  "lowValueDefinition": "PRE-SEASON value < 2000 or unvalued",
+  "lowValuePlayersRostered": 487,
+  "usableDepth_positiveMarginalVsBench": 277,
+  "usableDepth_positiveMarginalVs3rdBestFa": 143,
+  "neverStarted": 209,
+  "usableByPosition": {
+   "DB": 76,
+   "DL": 57,
+   "K": 23,
+   "LB": 35,
+   "QB": 9,
+   "RB": 18,
+   "TE": 16,
+   "WR": 43
+  },
+  "usableVsFaByPosition": {
+   "DB": 22,
+   "DL": 26,
+   "K": 17,
+   "LB": 11,
+   "QB": 8,
+   "RB": 16,
+   "TE": 7,
+   "WR": 36
+  },
+  "neverStartedByPosition": {
+   "DB": 37,
+   "DL": 29,
+   "K": 5,
+   "LB": 33,
+   "QB": 27,
+   "RB": 33,
+   "TE": 9,
+   "WR": 36
+  },
+  "tiers": {
+   "definitions": {
+    "filler_neverStarted": "0 best-ball starts in weeks 1..N",
+    "startedButRedundant_zeroMarginal": "started, but an equal bench alternative existed every time (marginal 0)",
+    "lineupContributor_butReplaceableFromWaivers": "positive marginal over the bench, but the 3rd-best free agent in his spot would have done as well or better over weeks 1..N",
+    "usableDepth_beatsFreeReplacement": "positive marginal over the bench AND over the 3rd-best free agent"
+   },
+   "counts": {
+    "filler_neverStarted": 209,
+    "lineupContributor_butReplaceableFromWaivers": 134,
+    "startedButRedundant_zeroMarginal": 1,
+    "usableDepth_beatsFreeReplacement": 143
+   },
+   "countsByPosition": {
+    "filler_neverStarted": {
+     "DB": 37,
+     "DL": 29,
+     "K": 5,
+     "LB": 33,
+     "QB": 27,
+     "RB": 33,
+     "TE": 9,
+     "WR": 36
+    },
+    "lineupContributor_butReplaceableFromWaivers": {
+     "DB": 54,
+     "DL": 31,
+     "K": 6,
+     "LB": 24,
+     "QB": 1,
+     "RB": 2,
+     "TE": 9,
+     "WR": 7
+    },
+    "startedButRedundant_zeroMarginal": {
+     "WR": 1
+    },
+    "usableDepth_beatsFreeReplacement": {
+     "DB": 22,
+     "DL": 26,
+     "K": 17,
+     "LB": 11,
+     "QB": 8,
+     "RB": 16,
+     "TE": 7,
+     "WR": 36
+    }
+   }
+  },
+  "byBand": {
+   "1000-1500": {
+    "distinctPlayersRostered": 112,
+    "neverStarted": 50,
+    "positiveMarginalVsBench": 62,
+    "positiveMarginalVs3rdBestFa": 31,
+    "marginalPtsPerPlayerSeason": {
+     "n": 112,
+     "mean": 7.02,
+     "median": 1.43,
+     "p75": 11.93,
+     "p90": 22.97
+    },
+    "byPosition": {
+     "QB": {
+      "players": 14,
+      "neverStarted": 11,
+      "positiveMarginal": 3,
+      "positiveMarginalVs3rdBestFa": 3,
+      "meanMarginalPtsPerPlayer": 3.26
+     },
+     "RB": {
+      "players": 16,
+      "neverStarted": 9,
+      "positiveMarginal": 7,
+      "positiveMarginalVs3rdBestFa": 6,
+      "meanMarginalPtsPerPlayer": 4.27
+     },
+     "WR": {
+      "players": 27,
+      "neverStarted": 12,
+      "positiveMarginal": 15,
+      "positiveMarginalVs3rdBestFa": 10,
+      "meanMarginalPtsPerPlayer": 6.36
+     },
+     "TE": {
+      "players": 2,
+      "neverStarted": 1,
+      "positiveMarginal": 1,
+      "positiveMarginalVs3rdBestFa": 0,
+      "meanMarginalPtsPerPlayer": 1.06
+     },
+     "DL": {
+      "players": 9,
+      "neverStarted": 3,
+      "positiveMarginal": 6,
+      "positiveMarginalVs3rdBestFa": 1,
+      "meanMarginalPtsPerPlayer": 5.69
+     },
+     "LB": {
+      "players": 17,
+      "neverStarted": 7,
+      "positiveMarginal": 10,
+      "positiveMarginalVs3rdBestFa": 4,
+      "meanMarginalPtsPerPlayer": 8.27
+     },
+     "DB": {
+      "players": 27,
+      "neverStarted": 7,
+      "positiveMarginal": 20,
+      "positiveMarginalVs3rdBestFa": 7,
+      "meanMarginalPtsPerPlayer": 11.34
+     }
+    }
+   },
+   "1500-2000": {
+    "distinctPlayersRostered": 187,
+    "neverStarted": 66,
+    "positiveMarginalVsBench": 121,
+    "positiveMarginalVs3rdBestFa": 60,
+    "marginalPtsPerPlayerSeason": {
+     "n": 187,
+     "mean": 11.29,
+     "median": 5.26,
+     "p75": 18.34,
+     "p90": 30.93
+    },
+    "byPosition": {
+     "QB": {
+      "players": 8,
+      "neverStarted": 6,
+      "positiveMarginal": 2,
+      "positiveMarginalVs3rdBestFa": 2,
+      "meanMarginalPtsPerPlayer": 9.89
+     },
+     "RB": {
+      "players": 23,
+      "neverStarted": 18,
+      "positiveMarginal": 5,
+      "positiveMarginalVs3rdBestFa": 5,
+      "meanMarginalPtsPerPlayer": 6.23
+     },
+     "WR": {
+      "players": 28,
+      "neverStarted": 12,
+      "positiveMarginal": 16,
+      "positiveMarginalVs3rdBestFa": 16,
+      "meanMarginalPtsPerPlayer": 8.71
+     },
+     "TE": {
+      "players": 18,
+      "neverStarted": 3,
+      "positiveMarginal": 15,
+      "positiveMarginalVs3rdBestFa": 7,
+      "meanMarginalPtsPerPlayer": 8.8
+     },
+     "DL": {
+      "players": 39,
+      "neverStarted": 9,
+      "positiveMarginal": 30,
+      "positiveMarginalVs3rdBestFa": 13,
+      "meanMarginalPtsPerPlayer": 15.05
+     },
+     "LB": {
+      "players": 33,
+      "neverStarted": 12,
+      "positiveMarginal": 21,
+      "positiveMarginalVs3rdBestFa": 6,
+      "meanMarginalPtsPerPlayer": 9.96
+     },
+     "DB": {
+      "players": 38,
+      "neverStarted": 6,
+      "positiveMarginal": 32,
+      "positiveMarginalVs3rdBestFa": 11,
+      "meanMarginalPtsPerPlayer": 15.04
+     }
+    }
+   },
+   "2000-3000": {
+    "distinctPlayersRostered": 154,
+    "neverStarted": 36,
+    "positiveMarginalVsBench": 117,
+    "positiveMarginalVs3rdBestFa": 74,
+    "marginalPtsPerPlayerSeason": {
+     "n": 154,
+     "mean": 16.99,
+     "median": 9.47,
+     "p75": 26.27,
+     "p90": 45.4
+    },
+    "byPosition": {
+     "QB": {
+      "players": 8,
+      "neverStarted": 4,
+      "positiveMarginal": 4,
+      "positiveMarginalVs3rdBestFa": 3,
+      "meanMarginalPtsPerPlayer": 20.1
+     },
+     "RB": {
+      "players": 26,
+      "neverStarted": 3,
+      "positiveMarginal": 22,
+      "positiveMarginalVs3rdBestFa": 22,
+      "meanMarginalPtsPerPlayer": 14.0
+     },
+     "WR": {
+      "players": 32,
+      "neverStarted": 11,
+      "positiveMarginal": 21,
+      "positiveMarginalVs3rdBestFa": 16,
+      "meanMarginalPtsPerPlayer": 10.1
+     },
+     "TE": {
+      "players": 23,
+      "neverStarted": 7,
+      "positiveMarginal": 16,
+      "positiveMarginalVs3rdBestFa": 7,
+      "meanMarginalPtsPerPlayer": 13.03
+     },
+     "DL": {
+      "players": 17,
+      "neverStarted": 3,
+      "positiveMarginal": 14,
+      "positiveMarginalVs3rdBestFa": 9,
+      "meanMarginalPtsPerPlayer": 30.78
+     },
+     "LB": {
+      "players": 30,
+      "neverStarted": 4,
+      "positiveMarginal": 26,
+      "positiveMarginalVs3rdBestFa": 12,
+      "meanMarginalPtsPerPlayer": 22.1
+     },
+     "DB": {
+      "players": 18,
+      "neverStarted": 4,
+      "positiveMarginal": 14,
+      "positiveMarginalVs3rdBestFa": 5,
+      "meanMarginalPtsPerPlayer": 15.72
+     }
+    }
+   },
+   "3000-4500": {
+    "distinctPlayersRostered": 98,
+    "neverStarted": 13,
+    "positiveMarginalVsBench": 85,
+    "positiveMarginalVs3rdBestFa": 69,
+    "marginalPtsPerPlayerSeason": {
+     "n": 98,
+     "mean": 28.28,
+     "median": 21.01,
+     "p75": 42.3,
+     "p90": 64.61
+    },
+    "byPosition": {
+     "QB": {
+      "players": 8,
+      "neverStarted": 1,
+      "positiveMarginal": 7,
+      "positiveMarginalVs3rdBestFa": 6,
+      "meanMarginalPtsPerPlayer": 43.8
+     },
+     "RB": {
+      "players": 13,
+      "neverStarted": 3,
+      "positiveMarginal": 10,
+      "positiveMarginalVs3rdBestFa": 10,
+      "meanMarginalPtsPerPlayer": 33.25
+     },
+     "WR": {
+      "players": 24,
+      "neverStarted": 3,
+      "positiveMarginal": 21,
+      "positiveMarginalVs3rdBestFa": 18,
+      "meanMarginalPtsPerPlayer": 23.86
+     },
+     "TE": {
+      "players": 14,
+      "neverStarted": 1,
+      "positiveMarginal": 13,
+      "positiveMarginalVs3rdBestFa": 11,
+      "meanMarginalPtsPerPlayer": 28.08
+     },
+     "DL": {
+      "players": 9,
+      "neverStarted": 2,
+      "positiveMarginal": 7,
+      "positiveMarginalVs3rdBestFa": 3,
+      "meanMarginalPtsPerPlayer": 11.48
+     },
+     "LB": {
+      "players": 23,
+      "neverStarted": 3,
+      "positiveMarginal": 20,
+      "positiveMarginalVs3rdBestFa": 17,
+      "meanMarginalPtsPerPlayer": 31.97
+     },
+     "DB": {
+      "players": 7,
+      "neverStarted": 0,
+      "positiveMarginal": 7,
+      "positiveMarginalVs3rdBestFa": 4,
+      "meanMarginalPtsPerPlayer": 26.3
+     }
+    }
+   },
+   "4500+": {
+    "distinctPlayersRostered": 76,
+    "neverStarted": 4,
+    "positiveMarginalVsBench": 72,
+    "positiveMarginalVs3rdBestFa": 69,
+    "marginalPtsPerPlayerSeason": {
+     "n": 76,
+     "mean": 45.91,
+     "median": 38.68,
+     "p75": 66.4,
+     "p90": 87.35
+    },
+    "byPosition": {
+     "QB": {
+      "players": 20,
+      "neverStarted": 2,
+      "positiveMarginal": 18,
+      "positiveMarginalVs3rdBestFa": 16,
+      "meanMarginalPtsPerPlayer": 48.49
+     },
+     "RB": {
+      "players": 17,
+      "neverStarted": 0,
+      "positiveMarginal": 17,
+      "positiveMarginalVs3rdBestFa": 17,
+      "meanMarginalPtsPerPlayer": 50.49
+     },
+     "WR": {
+      "players": 26,
+      "neverStarted": 2,
+      "positiveMarginal": 24,
+      "positiveMarginalVs3rdBestFa": 24,
+      "meanMarginalPtsPerPlayer": 42.33
+     },
+     "TE": {
+      "players": 9,
+      "neverStarted": 0,
+      "positiveMarginal": 9,
+      "positiveMarginalVs3rdBestFa": 9,
+      "meanMarginalPtsPerPlayer": 38.76
+     },
+     "DL": {
+      "players": 2,
+      "neverStarted": 0,
+      "positiveMarginal": 2,
+      "positiveMarginalVs3rdBestFa": 2,
+      "meanMarginalPtsPerPlayer": 83.81
+     },
+     "LB": {
+      "players": 2,
+      "neverStarted": 0,
+      "positiveMarginal": 2,
+      "positiveMarginalVs3rdBestFa": 1,
+      "meanMarginalPtsPerPlayer": 22.01
+     }
+    }
+   },
+   "unvalued": {
+    "distinctPlayersRostered": 188,
+    "neverStarted": 93,
+    "positiveMarginalVsBench": 94,
+    "positiveMarginalVs3rdBestFa": 52,
+    "marginalPtsPerPlayerSeason": {
+     "n": 188,
+     "mean": 7.5,
+     "median": 0.05,
+     "p75": 8.85,
+     "p90": 27.78
+    },
+    "byPosition": {
+     "QB": {
+      "players": 14,
+      "neverStarted": 10,
+      "positiveMarginal": 4,
+      "positiveMarginalVs3rdBestFa": 3,
+      "meanMarginalPtsPerPlayer": 5.39
+     },
+     "RB": {
+      "players": 12,
+      "neverStarted": 6,
+      "positiveMarginal": 6,
+      "positiveMarginalVs3rdBestFa": 5,
+      "meanMarginalPtsPerPlayer": 3.42
+     },
+     "WR": {
+      "players": 25,
+      "neverStarted": 12,
+      "positiveMarginal": 12,
+      "positiveMarginalVs3rdBestFa": 10,
+      "meanMarginalPtsPerPlayer": 7.84
+     },
+     "TE": {
+      "players": 5,
+      "neverStarted": 5,
+      "positiveMarginal": 0,
+      "positiveMarginalVs3rdBestFa": 0,
+      "meanMarginalPtsPerPlayer": 0.0
+     },
+     "K": {
+      "players": 28,
+      "neverStarted": 5,
+      "positiveMarginal": 23,
+      "positiveMarginalVs3rdBestFa": 17,
+      "meanMarginalPtsPerPlayer": 19.78
+     },
+     "DL": {
+      "players": 38,
+      "neverStarted": 17,
+      "positiveMarginal": 21,
+      "positiveMarginalVs3rdBestFa": 12,
+      "meanMarginalPtsPerPlayer": 6.03
+     },
+     "LB": {
+      "players": 18,
+      "neverStarted": 14,
+      "positiveMarginal": 4,
+      "positiveMarginalVs3rdBestFa": 1,
+      "meanMarginalPtsPerPlayer": 2.07
+     },
+     "DB": {
+      "players": 48,
+      "neverStarted": 24,
+      "positiveMarginal": 24,
+      "positiveMarginalVs3rdBestFa": 4,
+      "meanMarginalPtsPerPlayer": 5.79
+     }
+    }
+   }
+  },
+  "topUsableExamples": [
+   {
+    "name": "Tyler Bass",
+    "pos": "K",
+    "preValue": null,
+    "nowValue": null,
+    "weeksRostered": 6,
+    "starts": 6,
+    "points": 68.9,
+    "marginalPts": 68.9,
+    "marginalVsBestFaPts": 8.0,
+    "marginalVs3rdFaPts": 16.7
+   },
+   {
+    "name": "Will Reichard",
+    "pos": "K",
+    "preValue": null,
+    "nowValue": null,
+    "weeksRostered": 6,
+    "starts": 6,
+    "points": 66.2,
+    "marginalPts": 66.2,
+    "marginalVsBestFaPts": 5.3,
+    "marginalVs3rdFaPts": 14.0
+   },
+   {
+    "name": "Tyler Loop",
+    "pos": "K",
+    "preValue": null,
+    "nowValue": null,
+    "weeksRostered": 6,
+    "starts": 6,
+    "points": 64.1,
+    "marginalPts": 64.1,
+    "marginalVsBestFaPts": 3.2,
+    "marginalVs3rdFaPts": 11.9
+   },
+   {
+    "name": "Cam Little",
+    "pos": "K",
+    "preValue": null,
+    "nowValue": null,
+    "weeksRostered": 6,
+    "starts": 6,
+    "points": 61.9,
+    "marginalPts": 61.9,
+    "marginalVsBestFaPts": 1.1,
+    "marginalVs3rdFaPts": 9.7
+   },
+   {
+    "name": "Drue Tranquill",
+    "pos": "LB",
+    "preValue": 1857.0,
+    "nowValue": 1663.0,
+    "weeksRostered": 6,
+    "starts": 5,
+    "points": 75.4,
+    "marginalPts": 59.5,
+    "marginalVsBestFaPts": 8.7,
+    "marginalVs3rdFaPts": 14.3
+   },
+   {
+    "name": "Brian Robinson",
+    "pos": "RB",
+    "preValue": 1980.0,
+    "nowValue": 2265.0,
+    "weeksRostered": 6,
+    "starts": 6,
+    "points": 69.8,
+    "marginalPts": 57.3,
+    "marginalVsBestFaPts": 38.3,
+    "marginalVs3rdFaPts": 44.9
+   },
+   {
+    "name": "Boye Mafe",
+    "pos": "DL",
+    "preValue": 1656.0,
+    "nowValue": 1755.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 64.3,
+    "marginalPts": 55.0,
+    "marginalVsBestFaPts": 12.9,
+    "marginalVs3rdFaPts": 17.6
+   },
+   {
+    "name": "Keenan Allen",
+    "pos": "WR",
+    "preValue": 1544.0,
+    "nowValue": 1654.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 55.8,
+    "marginalPts": 53.3,
+    "marginalVsBestFaPts": 14.7,
+    "marginalVs3rdFaPts": 22.0
+   },
+   {
+    "name": "Kalif Raymond",
+    "pos": "WR",
+    "preValue": null,
+    "nowValue": 1628.0,
+    "weeksRostered": 6,
+    "starts": 5,
+    "points": 64.5,
+    "marginalPts": 51.5,
+    "marginalVsBestFaPts": 21.1,
+    "marginalVs3rdFaPts": 32.5
+   },
+   {
+    "name": "Dexter Lawrence",
+    "pos": "DL",
+    "preValue": 1857.0,
+    "nowValue": 1792.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 60.8,
+    "marginalPts": 50.4,
+    "marginalVsBestFaPts": 5.0,
+    "marginalVs3rdFaPts": 9.0
+   },
+   {
+    "name": "Aaron Rodgers",
+    "pos": "QB",
+    "preValue": 1941.0,
+    "nowValue": 2207.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 108.6,
+    "marginalPts": 50.3,
+    "marginalVsBestFaPts": 39.9,
+    "marginalVs3rdFaPts": 50.3
+   },
+   {
+    "name": "Tre Tucker",
+    "pos": "WR",
+    "preValue": 1957.0,
+    "nowValue": 2153.0,
+    "weeksRostered": 6,
+    "starts": 6,
+    "points": 89.2,
+    "marginalPts": 49.8,
+    "marginalVsBestFaPts": 38.1,
+    "marginalVs3rdFaPts": 38.7
+   },
+   {
+    "name": "Brandon Aubrey",
+    "pos": "K",
+    "preValue": null,
+    "nowValue": null,
+    "weeksRostered": 6,
+    "starts": 6,
+    "points": 49.7,
+    "marginalPts": 49.7,
+    "marginalVsBestFaPts": -11.2,
+    "marginalVs3rdFaPts": -2.5
+   },
+   {
+    "name": "Amani Hooker",
+    "pos": "DB",
+    "preValue": 1531.0,
+    "nowValue": 1475.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 88.1,
+    "marginalPts": 44.5,
+    "marginalVsBestFaPts": 4.8,
+    "marginalVs3rdFaPts": 31.2
+   },
+   {
+    "name": "Leonard Williams",
+    "pos": "DL",
+    "preValue": 1856.0,
+    "nowValue": 1677.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 74.7,
+    "marginalPts": 43.2,
+    "marginalVsBestFaPts": 12.7,
+    "marginalVs3rdFaPts": 11.1
+   },
+   {
+    "name": "Javon Bullard",
+    "pos": "DB",
+    "preValue": 1362.0,
+    "nowValue": 1219.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 82.1,
+    "marginalPts": 42.4,
+    "marginalVsBestFaPts": -2.8,
+    "marginalVs3rdFaPts": 9.2
+   },
+   {
+    "name": "Zach Sieler",
+    "pos": "DL",
+    "preValue": 1558.0,
+    "nowValue": 1464.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 50.5,
+    "marginalPts": 41.7,
+    "marginalVsBestFaPts": -1.7,
+    "marginalVs3rdFaPts": 1.1
+   },
+   {
+    "name": "Quentin Lake",
+    "pos": "DB",
+    "preValue": 1954.0,
+    "nowValue": 1774.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 103.3,
+    "marginalPts": 41.6,
+    "marginalVsBestFaPts": 2.2,
+    "marginalVs3rdFaPts": 12.7
+   },
+   {
+    "name": "Trent McDuffie",
+    "pos": "DB",
+    "preValue": 1667.0,
+    "nowValue": 1554.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 73.0,
+    "marginalPts": 39.0,
+    "marginalVsBestFaPts": 0.6,
+    "marginalVs3rdFaPts": 3.6
+   },
+   {
+    "name": "Alvin Kamara",
+    "pos": "RB",
+    "preValue": 1909.0,
+    "nowValue": 1966.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 52.0,
+    "marginalPts": 38.7,
+    "marginalVsBestFaPts": 24.4,
+    "marginalVs3rdFaPts": 29.2
+   },
+   {
+    "name": "Ka'imi Fairbairn",
+    "pos": "K",
+    "preValue": null,
+    "nowValue": null,
+    "weeksRostered": 6,
+    "starts": 5,
+    "points": 72.1,
+    "marginalPts": 38.7,
+    "marginalVsBestFaPts": 5.0,
+    "marginalVs3rdFaPts": 19.1
+   },
+   {
+    "name": "Jalen Ramsey",
+    "pos": "DB",
+    "preValue": 1355.0,
+    "nowValue": 1223.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 90.8,
+    "marginalPts": 38.5,
+    "marginalVsBestFaPts": 0.6,
+    "marginalVs3rdFaPts": 10.0
+   },
+   {
+    "name": "Yaya Diaby",
+    "pos": "DL",
+    "preValue": 1900.0,
+    "nowValue": 1892.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 49.7,
+    "marginalPts": 38.3,
+    "marginalVsBestFaPts": -4.6,
+    "marginalVs3rdFaPts": 3.5
+   },
+   {
+    "name": "Cameron Dicker",
+    "pos": "K",
+    "preValue": null,
+    "nowValue": null,
+    "weeksRostered": 6,
+    "starts": 6,
+    "points": 37.2,
+    "marginalPts": 37.2,
+    "marginalVsBestFaPts": -23.7,
+    "marginalVs3rdFaPts": -15.0
+   },
+   {
+    "name": "Derrick Barnes",
+    "pos": "LB",
+    "preValue": 1673.0,
+    "nowValue": 1560.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 78.9,
+    "marginalPts": 36.7,
+    "marginalVsBestFaPts": 5.4,
+    "marginalVs3rdFaPts": 17.5
+   },
+   {
+    "name": "DeForest Buckner",
+    "pos": "DL",
+    "preValue": 1916.0,
+    "nowValue": 1709.0,
+    "weeksRostered": 6,
+    "starts": 5,
+    "points": 93.1,
+    "marginalPts": 36.7,
+    "marginalVsBestFaPts": 16.9,
+    "marginalVs3rdFaPts": 26.5
+   },
+   {
+    "name": "Kendrick Bourne",
+    "pos": "WR",
+    "preValue": null,
+    "nowValue": 1547.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 49.6,
+    "marginalPts": 36.2,
+    "marginalVsBestFaPts": 14.2,
+    "marginalVs3rdFaPts": 24.4
+   },
+   {
+    "name": "Roman Wilson",
+    "pos": "WR",
+    "preValue": 1386.0,
+    "nowValue": 2027.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 50.8,
+    "marginalPts": 35.6,
+    "marginalVsBestFaPts": 10.3,
+    "marginalVs3rdFaPts": 21.3
+   },
+   {
+    "name": "Brandon Jones",
+    "pos": "DB",
+    "preValue": 1670.0,
+    "nowValue": 1509.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 93.0,
+    "marginalPts": 33.9,
+    "marginalVsBestFaPts": -3.6,
+    "marginalVs3rdFaPts": 16.4
+   },
+   {
+    "name": "Jameis Winston",
+    "pos": "QB",
+    "preValue": 1213.0,
+    "nowValue": 2041.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 53.9,
+    "marginalPts": 33.0,
+    "marginalVsBestFaPts": 14.9,
+    "marginalVs3rdFaPts": 33.0
+   }
+  ],
+  "topUsableBeatsFreeReplacementExamples": [
+   {
+    "name": "Aaron Rodgers",
+    "pos": "QB",
+    "preValue": 1941.0,
+    "nowValue": 2207.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 108.6,
+    "marginalPts": 50.3,
+    "marginalVsBestFaPts": 39.9,
+    "marginalVs3rdFaPts": 50.3
+   },
+   {
+    "name": "Brian Robinson",
+    "pos": "RB",
+    "preValue": 1980.0,
+    "nowValue": 2265.0,
+    "weeksRostered": 6,
+    "starts": 6,
+    "points": 69.8,
+    "marginalPts": 57.3,
+    "marginalVsBestFaPts": 38.3,
+    "marginalVs3rdFaPts": 44.9
+   },
+   {
+    "name": "Tre Tucker",
+    "pos": "WR",
+    "preValue": 1957.0,
+    "nowValue": 2153.0,
+    "weeksRostered": 6,
+    "starts": 6,
+    "points": 89.2,
+    "marginalPts": 49.8,
+    "marginalVsBestFaPts": 38.1,
+    "marginalVs3rdFaPts": 38.7
+   },
+   {
+    "name": "Jameis Winston",
+    "pos": "QB",
+    "preValue": 1213.0,
+    "nowValue": 2041.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 53.9,
+    "marginalPts": 33.0,
+    "marginalVsBestFaPts": 14.9,
+    "marginalVs3rdFaPts": 33.0
+   },
+   {
+    "name": "Tyler Huntley",
+    "pos": "QB",
+    "preValue": null,
+    "nowValue": 1727.0,
+    "weeksRostered": 2,
+    "starts": 2,
+    "points": 48.9,
+    "marginalPts": 32.8,
+    "marginalVsBestFaPts": 32.8,
+    "marginalVs3rdFaPts": 32.8
+   },
+   {
+    "name": "Kalif Raymond",
+    "pos": "WR",
+    "preValue": null,
+    "nowValue": 1628.0,
+    "weeksRostered": 6,
+    "starts": 5,
+    "points": 64.5,
+    "marginalPts": 51.5,
+    "marginalVsBestFaPts": 21.1,
+    "marginalVs3rdFaPts": 32.5
+   },
+   {
+    "name": "Amani Hooker",
+    "pos": "DB",
+    "preValue": 1531.0,
+    "nowValue": 1475.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 88.1,
+    "marginalPts": 44.5,
+    "marginalVsBestFaPts": 4.8,
+    "marginalVs3rdFaPts": 31.2
+   },
+   {
+    "name": "Alvin Kamara",
+    "pos": "RB",
+    "preValue": 1909.0,
+    "nowValue": 1966.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 52.0,
+    "marginalPts": 38.7,
+    "marginalVsBestFaPts": 24.4,
+    "marginalVs3rdFaPts": 29.2
+   },
+   {
+    "name": "Elijah Ponder",
+    "pos": "DL",
+    "preValue": null,
+    "nowValue": null,
+    "weeksRostered": 4,
+    "starts": 3,
+    "points": 72.9,
+    "marginalPts": 31.8,
+    "marginalVsBestFaPts": 18.7,
+    "marginalVs3rdFaPts": 29.1
+   },
+   {
+    "name": "Kirk Cousins",
+    "pos": "QB",
+    "preValue": 1747.0,
+    "nowValue": 2389.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 146.1,
+    "marginalPts": 28.8,
+    "marginalVsBestFaPts": 28.0,
+    "marginalVs3rdFaPts": 28.3
+   },
+   {
+    "name": "DeForest Buckner",
+    "pos": "DL",
+    "preValue": 1916.0,
+    "nowValue": 1709.0,
+    "weeksRostered": 6,
+    "starts": 5,
+    "points": 93.1,
+    "marginalPts": 36.7,
+    "marginalVsBestFaPts": 16.9,
+    "marginalVs3rdFaPts": 26.5
+   },
+   {
+    "name": "Tyler Higbee",
+    "pos": "TE",
+    "preValue": 1812.0,
+    "nowValue": 2278.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 52.7,
+    "marginalPts": 30.6,
+    "marginalVsBestFaPts": 15.6,
+    "marginalVs3rdFaPts": 26.1
+   },
+   {
+    "name": "Mason Graham",
+    "pos": "DL",
+    "preValue": 1655.0,
+    "nowValue": 1785.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 67.6,
+    "marginalPts": 24.9,
+    "marginalVsBestFaPts": 20.7,
+    "marginalVs3rdFaPts": 24.8
+   },
+   {
+    "name": "Tyquan Thornton",
+    "pos": "WR",
+    "preValue": 1433.0,
+    "nowValue": 1570.0,
+    "weeksRostered": 6,
+    "starts": 2,
+    "points": 51.7,
+    "marginalPts": 28.0,
+    "marginalVsBestFaPts": 21.0,
+    "marginalVs3rdFaPts": 24.4
+   },
+   {
+    "name": "Kendrick Bourne",
+    "pos": "WR",
+    "preValue": null,
+    "nowValue": 1547.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 49.6,
+    "marginalPts": 36.2,
+    "marginalVsBestFaPts": 14.2,
+    "marginalVs3rdFaPts": 24.4
+   },
+   {
+    "name": "DJ Wonnum",
+    "pos": "DL",
+    "preValue": null,
+    "nowValue": 1158.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 70.0,
+    "marginalPts": 28.3,
+    "marginalVsBestFaPts": 23.3,
+    "marginalVs3rdFaPts": 22.9
+   },
+   {
+    "name": "Carl Granderson",
+    "pos": "DL",
+    "preValue": 1885.0,
+    "nowValue": 1796.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 67.9,
+    "marginalPts": 25.3,
+    "marginalVsBestFaPts": 13.0,
+    "marginalVs3rdFaPts": 22.7
+   },
+   {
+    "name": "Dontayvion Wicks",
+    "pos": "WR",
+    "preValue": 1975.0,
+    "nowValue": 2110.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 65.7,
+    "marginalPts": 26.2,
+    "marginalVsBestFaPts": 17.4,
+    "marginalVs3rdFaPts": 22.3
+   },
+   {
+    "name": "Keenan Allen",
+    "pos": "WR",
+    "preValue": 1544.0,
+    "nowValue": 1654.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 55.8,
+    "marginalPts": 53.3,
+    "marginalVsBestFaPts": 14.7,
+    "marginalVs3rdFaPts": 22.0
+   },
+   {
+    "name": "Jalon Daniels",
+    "pos": "QB",
+    "preValue": null,
+    "nowValue": 1884.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 34.2,
+    "marginalPts": 30.0,
+    "marginalVsBestFaPts": 13.7,
+    "marginalVs3rdFaPts": 21.9
+   },
+   {
+    "name": "Roman Wilson",
+    "pos": "WR",
+    "preValue": 1386.0,
+    "nowValue": 2027.0,
+    "weeksRostered": 6,
+    "starts": 4,
+    "points": 50.8,
+    "marginalPts": 35.6,
+    "marginalVsBestFaPts": 10.3,
+    "marginalVs3rdFaPts": 21.3
+   },
+   {
+    "name": "DeMario Douglas",
+    "pos": "WR",
+    "preValue": 1494.0,
+    "nowValue": 1640.0,
+    "weeksRostered": 6,
+    "starts": 2,
+    "points": 62.5,
+    "marginalPts": 24.8,
+    "marginalVsBestFaPts": 17.1,
+    "marginalVs3rdFaPts": 21.3
+   },
+   {
+    "name": "Austin Booker",
+    "pos": "DL",
+    "preValue": 1828.0,
+    "nowValue": 1818.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 77.6,
+    "marginalPts": 28.0,
+    "marginalVsBestFaPts": 13.1,
+    "marginalVs3rdFaPts": 20.1
+   },
+   {
+    "name": "Mike Gesicki",
+    "pos": "TE",
+    "preValue": 1965.0,
+    "nowValue": 2245.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 54.1,
+    "marginalPts": 29.6,
+    "marginalVsBestFaPts": 13.4,
+    "marginalVs3rdFaPts": 19.8
+   },
+   {
+    "name": "Samaje Perine",
+    "pos": "RB",
+    "preValue": null,
+    "nowValue": 1217.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 41.0,
+    "marginalPts": 30.3,
+    "marginalVsBestFaPts": 16.5,
+    "marginalVs3rdFaPts": 19.6
+   },
+   {
+    "name": "Ka'imi Fairbairn",
+    "pos": "K",
+    "preValue": null,
+    "nowValue": null,
+    "weeksRostered": 6,
+    "starts": 5,
+    "points": 72.1,
+    "marginalPts": 38.7,
+    "marginalVsBestFaPts": 5.0,
+    "marginalVs3rdFaPts": 19.1
+   },
+   {
+    "name": "Evan Williams",
+    "pos": "DB",
+    "preValue": 1564.0,
+    "nowValue": 1847.0,
+    "weeksRostered": 4,
+    "starts": 3,
+    "points": 83.0,
+    "marginalPts": 32.2,
+    "marginalVsBestFaPts": -4.6,
+    "marginalVs3rdFaPts": 18.9
+   },
+   {
+    "name": "Emanuel Wilson",
+    "pos": "RB",
+    "preValue": 1560.0,
+    "nowValue": 2027.0,
+    "weeksRostered": 6,
+    "starts": 2,
+    "points": 71.8,
+    "marginalPts": 17.8,
+    "marginalVsBestFaPts": 17.8,
+    "marginalVs3rdFaPts": 17.8
+   },
+   {
+    "name": "Jahan Dotson",
+    "pos": "WR",
+    "preValue": 1478.0,
+    "nowValue": 1460.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 55.4,
+    "marginalPts": 17.8,
+    "marginalVsBestFaPts": 12.1,
+    "marginalVs3rdFaPts": 17.8
+   },
+   {
+    "name": "Boye Mafe",
+    "pos": "DL",
+    "preValue": 1656.0,
+    "nowValue": 1755.0,
+    "weeksRostered": 6,
+    "starts": 3,
+    "points": 64.3,
+    "marginalPts": 55.0,
+    "marginalVsBestFaPts": 12.9,
+    "marginalVs3rdFaPts": 17.6
+   }
+  ],
+  "neverStartedExamples_highestPreValue": [
+   {
+    "name": "Luke Musgrave",
+    "pos": "TE",
+    "preValue": 1992.0,
+    "nowValue": 1928.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 0.0,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -6.5,
+    "marginalVs3rdFaPts": -6.1
+   },
+   {
+    "name": "Troy Franklin",
+    "pos": "WR",
+    "preValue": 1982.0,
+    "nowValue": 1763.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 14.0,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -4.4,
+    "marginalVs3rdFaPts": -0.3
+   },
+   {
+    "name": "Isiah Pacheco",
+    "pos": "RB",
+    "preValue": 1981.0,
+    "nowValue": 1626.0,
+    "weeksRostered": 4,
+    "starts": 0,
+    "points": 0.0,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -0.7,
+    "marginalVs3rdFaPts": 0.0
+   },
+   {
+    "name": "Kam Curl",
+    "pos": "DB",
+    "preValue": 1970.0,
+    "nowValue": 1919.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 52.6,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -30.5,
+    "marginalVs3rdFaPts": -16.4
+   },
+   {
+    "name": "Chris Brazzell",
+    "pos": "WR",
+    "preValue": 1964.0,
+    "nowValue": 1748.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 0.0,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -19.3,
+    "marginalVs3rdFaPts": -7.2
+   },
+   {
+    "name": "Derrick Moore",
+    "pos": "DL",
+    "preValue": 1956.0,
+    "nowValue": 1918.0,
+    "weeksRostered": 2,
+    "starts": 0,
+    "points": 0.0,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": 0.0,
+    "marginalVs3rdFaPts": 0.0
+   },
+   {
+    "name": "Kaelon Black",
+    "pos": "RB",
+    "preValue": 1953.0,
+    "nowValue": 2624.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 28.2,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -4.2,
+    "marginalVs3rdFaPts": -0.1
+   },
+   {
+    "name": "Kayvon Thibodeaux",
+    "pos": "DL",
+    "preValue": 1946.0,
+    "nowValue": 1779.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 12.5,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -19.2,
+    "marginalVs3rdFaPts": -16.0
+   },
+   {
+    "name": "Cody Simon",
+    "pos": "LB",
+    "preValue": 1932.0,
+    "nowValue": 1929.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 9.6,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -42.0,
+    "marginalVs3rdFaPts": -36.4
+   },
+   {
+    "name": "MarShawn Lloyd",
+    "pos": "RB",
+    "preValue": 1929.0,
+    "nowValue": 2329.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 46.4,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": 0.0,
+    "marginalVs3rdFaPts": 0.0
+   },
+   {
+    "name": "Skyler Bell",
+    "pos": "WR",
+    "preValue": 1921.0,
+    "nowValue": 1794.0,
+    "weeksRostered": 5,
+    "starts": 0,
+    "points": 0.0,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -19.3,
+    "marginalVs3rdFaPts": -6.5
+   },
+   {
+    "name": "Deshaun Watson",
+    "pos": "QB",
+    "preValue": 1916.0,
+    "nowValue": 2546.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 93.9,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": 0.0,
+    "marginalVs3rdFaPts": -3.1
+   },
+   {
+    "name": "Teddye Buchanan",
+    "pos": "LB",
+    "preValue": 1905.0,
+    "nowValue": 1739.0,
+    "weeksRostered": 4,
+    "starts": 0,
+    "points": 1.3,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -9.5,
+    "marginalVs3rdFaPts": -2.4
+   },
+   {
+    "name": "Mac Jones",
+    "pos": "QB",
+    "preValue": 1901.0,
+    "nowValue": 2104.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": -0.2,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -42.0,
+    "marginalVs3rdFaPts": -20.3
+   },
+   {
+    "name": "Kaleb Johnson",
+    "pos": "RB",
+    "preValue": 1896.0,
+    "nowValue": 1903.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 16.3,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -0.7,
+    "marginalVs3rdFaPts": 0.0
+   },
+   {
+    "name": "Will Kacmarek",
+    "pos": "TE",
+    "preValue": 1892.0,
+    "nowValue": 1617.0,
+    "weeksRostered": 1,
+    "starts": 0,
+    "points": 0.0,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": 0.0,
+    "marginalVs3rdFaPts": 0.0
+   },
+   {
+    "name": "Demond Claiborne",
+    "pos": "RB",
+    "preValue": 1884.0,
+    "nowValue": 1781.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 3.1,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -0.1,
+    "marginalVs3rdFaPts": 0.0
+   },
+   {
+    "name": "Will McDonald",
+    "pos": "DL",
+    "preValue": 1881.0,
+    "nowValue": 1628.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 38.5,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -19.2,
+    "marginalVs3rdFaPts": -16.0
+   },
+   {
+    "name": "Tyrel Dodson",
+    "pos": "LB",
+    "preValue": 1875.0,
+    "nowValue": 1475.0,
+    "weeksRostered": 6,
+    "starts": 0,
+    "points": 5.3,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -42.0,
+    "marginalVs3rdFaPts": -36.4
+   },
+   {
+    "name": "Jalen Redmond",
+    "pos": "DL",
+    "preValue": 1850.0,
+    "nowValue": 1779.0,
+    "weeksRostered": 4,
+    "starts": 0,
+    "points": 28.7,
+    "marginalPts": 0.0,
+    "marginalVsBestFaPts": -1.5,
+    "marginalVs3rdFaPts": -3.1
+   }
+  ]
+ },
+ "q5_freeAgentReplacement": {
+  "QB": {
+   "freeAgentsWithStats": 41,
+   "top3FreeAgentsByTotal": [
+    {
+     "name": "Drew Lock",
+     "totalPts": 50.8,
+     "ppg": 8.47,
+     "preValue": null
+    },
+    {
+     "name": "Case Keenum",
+     "totalPts": 31.3,
+     "ppg": 5.22,
+     "preValue": null
+    },
+    {
+     "name": "Carson Wentz",
+     "totalPts": 28.2,
+     "ppg": 4.7,
+     "preValue": null
+    }
+   ],
+   "hindsightWeeklyBestFaPts_mean": 4.34,
+   "hindsightWeekly3rdBestFaPts_mean": 0.0,
+   "hindsightWeekly12thBestFaPts_mean": 0.0,
+   "rosteredLowValue_lt2000_or_unvalued": {
+    "playerWeeks": 163,
+    "meanPtsPerWeek": 3.92,
+    "meanPtsWhenStarted": 21.48,
+    "startRate": 0.1227
+   }
+  },
+  "RB": {
+   "freeAgentsWithStats": 103,
+   "top3FreeAgentsByTotal": [
+    {
+     "name": "Tyler Badie",
+     "totalPts": 26.9,
+     "ppg": 4.48,
+     "preValue": null
+    },
+    {
+     "name": "Corey Kiner",
+     "totalPts": 26.8,
+     "ppg": 4.47,
+     "preValue": null
+    },
+    {
+     "name": "Ameer Abdullah",
+     "totalPts": 21.2,
+     "ppg": 3.54,
+     "preValue": null
+    }
+   ],
+   "hindsightWeeklyBestFaPts_mean": 10.64,
+   "hindsightWeekly3rdBestFaPts_mean": 5.56,
+   "hindsightWeekly12thBestFaPts_mean": 1.21,
+   "rosteredLowValue_lt2000_or_unvalued": {
+    "playerWeeks": 243,
+    "meanPtsPerWeek": 3.61,
+    "meanPtsWhenStarted": 11.35,
+    "startRate": 0.1728
+   }
+  },
+  "WR": {
+   "freeAgentsWithStats": 180,
+   "top3FreeAgentsByTotal": [
+    {
+     "name": "Treylon Burks",
+     "totalPts": 40.0,
+     "ppg": 6.67,
+     "preValue": 1376.0
+    },
+    {
+     "name": "Jerry Jeudy",
+     "totalPts": 33.4,
+     "ppg": 5.57,
+     "preValue": 2103.0
+    },
+    {
+     "name": "Myles Price",
+     "totalPts": 32.5,
+     "ppg": 5.41,
+     "preValue": null
+    }
+   ],
+   "hindsightWeeklyBestFaPts_mean": 13.66,
+   "hindsightWeekly3rdBestFaPts_mean": 8.68,
+   "hindsightWeekly12thBestFaPts_mean": 3.75,
+   "rosteredLowValue_lt2000_or_unvalued": {
+    "playerWeeks": 400,
+    "meanPtsPerWeek": 4.52,
+    "meanPtsWhenStarted": 11.71,
+    "startRate": 0.2625
+   }
+  },
+  "TE": {
+   "freeAgentsWithStats": 121,
+   "top3FreeAgentsByTotal": [
+    {
+     "name": "Foster Moreau",
+     "totalPts": 38.3,
+     "ppg": 6.38,
+     "preValue": null
+    },
+    {
+     "name": "Josh Cuevas",
+     "totalPts": 23.7,
+     "ppg": 3.95,
+     "preValue": 1672.0
+    },
+    {
+     "name": "Nate Adkins",
+     "totalPts": 22.6,
+     "ppg": 3.77,
+     "preValue": null
+    }
+   ],
+   "hindsightWeeklyBestFaPts_mean": 12.51,
+   "hindsightWeekly3rdBestFaPts_mean": 7.63,
+   "hindsightWeekly12thBestFaPts_mean": 1.98,
+   "rosteredLowValue_lt2000_or_unvalued": {
+    "playerWeeks": 110,
+    "meanPtsPerWeek": 3.6,
+    "meanPtsWhenStarted": 8.16,
+    "startRate": 0.3273
+   }
+  },
+  "K": {
+   "freeAgentsWithStats": 52,
+   "top3FreeAgentsByTotal": [
+    {
+     "name": "Chad Ryland",
+     "totalPts": 60.9,
+     "ppg": 10.15,
+     "preValue": null
+    },
+    {
+     "name": "Chris Boswell",
+     "totalPts": 58.6,
+     "ppg": 9.77,
+     "preValue": null
+    },
+    {
+     "name": "Dominic Zvada",
+     "totalPts": 52.2,
+     "ppg": 8.7,
+     "preValue": null
+    }
+   ],
+   "hindsightWeeklyBestFaPts_mean": 15.06,
+   "hindsightWeekly3rdBestFaPts_mean": 10.37,
+   "hindsightWeekly12thBestFaPts_mean": 0.22,
+   "rosteredLowValue_lt2000_or_unvalued": {
+    "playerWeeks": 134,
+    "meanPtsPerWeek": 8.56,
+    "meanPtsWhenStarted": 11.16,
+    "startRate": 0.5373
+   }
+  },
+  "DL": {
+   "freeAgentsWithStats": 361,
+   "top3FreeAgentsByTotal": [
+    {
+     "name": "Isaiah McGuire",
+     "totalPts": 61.0,
+     "ppg": 10.16,
+     "preValue": null
+    },
+    {
+     "name": "Jacob Martin",
+     "totalPts": 61.0,
+     "ppg": 10.16,
+     "preValue": null
+    },
+    {
+     "name": "Dayo Odeyingbo",
+     "totalPts": 55.3,
+     "ppg": 9.21,
+     "preValue": null
+    }
+   ],
+   "hindsightWeeklyBestFaPts_mean": 24.04,
+   "hindsightWeekly3rdBestFaPts_mean": 16.98,
+   "hindsightWeekly12thBestFaPts_mean": 11.88,
+   "rosteredLowValue_lt2000_or_unvalued": {
+    "playerWeeks": 360,
+    "meanPtsPerWeek": 6.65,
+    "meanPtsWhenStarted": 13.41,
+    "startRate": 0.3528
+   }
+  },
+  "LB": {
+   "freeAgentsWithStats": 189,
+   "top3FreeAgentsByTotal": [
+    {
+     "name": "David Walker",
+     "totalPts": 65.4,
+     "ppg": 10.9,
+     "preValue": null
+    },
+    {
+     "name": "Jack Gibbens",
+     "totalPts": 60.4,
+     "ppg": 10.07,
+     "preValue": 1304.0
+    },
+    {
+     "name": "Que Robinson",
+     "totalPts": 59.2,
+     "ppg": 9.87,
+     "preValue": null
+    }
+   ],
+   "hindsightWeeklyBestFaPts_mean": 22.46,
+   "hindsightWeekly3rdBestFaPts_mean": 14.71,
+   "hindsightWeekly12thBestFaPts_mean": 5.54,
+   "rosteredLowValue_lt2000_or_unvalued": {
+    "playerWeeks": 301,
+    "meanPtsPerWeek": 7.24,
+    "meanPtsWhenStarted": 17.01,
+    "startRate": 0.2425
+   }
+  },
+  "DB": {
+   "freeAgentsWithStats": 379,
+   "top3FreeAgentsByTotal": [
+    {
+     "name": "Jamel Dean",
+     "totalPts": 80.3,
+     "ppg": 13.39,
+     "preValue": null
+    },
+    {
+     "name": "Roger McCreary",
+     "totalPts": 73.1,
+     "ppg": 12.18,
+     "preValue": null
+    },
+    {
+     "name": "Rasul Douglas",
+     "totalPts": 72.0,
+     "ppg": 12.0,
+     "preValue": null
+    }
+   ],
+   "hindsightWeeklyBestFaPts_mean": 33.27,
+   "hindsightWeekly3rdBestFaPts_mean": 25.0,
+   "hindsightWeekly12thBestFaPts_mean": 14.5,
+   "rosteredLowValue_lt2000_or_unvalued": {
+    "playerWeeks": 525,
+    "meanPtsPerWeek": 8.28,
+    "meanPtsWhenStarted": 16.72,
+    "startRate": 0.3029
+   }
+  }
+ },
+ "caveats": [
+  "6 weeks only: per-player season marginals are noisy; cell means with smallSample=true should not be quoted alone",
+  "free agents are those on no roster NOW; the hindsight-best FA is an upper envelope a manager could not pick in advance, and best ball requires rostering before the week",
+  "marginal vs bench measures realized lineup utility in THIS league's 58-man best-ball format; deep benches dilute any single depth player's marginal",
+  "pre-season value of in-season breakouts and undrafted players is low or unvalued by construction; that is the question being asked, not a defect",
+  "2025 (10 teams, different format) was not used: no pre-season board on this scale exists before 2026-07-14"
+ ],
+ "runtimeSeconds": 40.5,
+ "networkCalls": 0
+}

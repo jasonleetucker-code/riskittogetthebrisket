@@ -1,0 +1,2833 @@
+{
+ "purpose": "RESEARCH ONLY, EXPLORATORY: why is the best unrostered IDP valued above the lowest rostered IDP starter in dynasty_main?  No production code, value or config changed.",
+ "generatedBy": "scripts/low_value_asset_idp_anomaly.py",
+ "board": {
+  "archive": "exports/archive/dynasty_export_20261020_052241.zip",
+  "member": "dynasty_data_2026-10-20.json",
+  "sha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+  "methodology": "today's code via shadow_replay.build_context (reproduces S1_replacementAnchors)"
+ },
+ "reproducedAnomaly": {
+  "QB": {
+   "waiverBestUnrostered": 1923,
+   "lowestStarterAcross12OptimalLineups": 1988
+  },
+  "RB": {
+   "waiverBestUnrostered": 1626,
+   "lowestStarterAcross12OptimalLineups": 1653
+  },
+  "WR": {
+   "waiverBestUnrostered": 1802,
+   "lowestStarterAcross12OptimalLineups": 1510
+  },
+  "TE": {
+   "waiverBestUnrostered": 2061,
+   "lowestStarterAcross12OptimalLineups": 1671
+  },
+  "DL": {
+   "waiverBestUnrostered": 1918,
+   "lowestStarterAcross12OptimalLineups": 1539
+  },
+  "LB": {
+   "waiverBestUnrostered": 2149,
+   "lowestStarterAcross12OptimalLineups": 1474
+  },
+  "DB": {
+   "waiverBestUnrostered": 2156,
+   "lowestStarterAcross12OptimalLineups": 1335
+  }
+ },
+ "inputs": {
+  "weeks": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "minGamesForPpg": 3,
+  "scorerVsHostPlayersPoints": {
+   "playerWeeks": 3300,
+   "exactWithin0.01": 3300,
+   "maxAbsDiff": 0.004
+  },
+  "rosterSizes": [
+   58,
+   58,
+   58,
+   58,
+   58,
+   58,
+   58,
+   58,
+   58,
+   58,
+   58,
+   59
+  ],
+  "rosterCap": 58,
+  "liveTaxiPlayers": 0,
+  "liveReservePlayers": 0,
+  "idpScoringCard": {
+   "idp_blk_kick": 5.3,
+   "idp_def_td": 6.36,
+   "idp_ff": 4.24,
+   "idp_fum_rec": 3.19,
+   "idp_fum_ret_yd": 0.111,
+   "idp_int": 5.3,
+   "idp_int_ret_yd": 0.111,
+   "idp_pass_def": 5.3,
+   "idp_qb_hit": 2.12,
+   "idp_sack": 2.92,
+   "idp_sack_yd": 0.111,
+   "idp_safe": 5.3,
+   "idp_tkl_ast": 0.8,
+   "idp_tkl_loss": 4.24,
+   "idp_tkl_solo": 1.33
+  },
+  "idpStarterSlotsPerTeam": {
+   "DL": 3,
+   "LB": 3,
+   "DB": 3
+  },
+  "servedPreseasonBoard": "data/ops/v1-27/pre-deploy-golden-board-LIVE-2026-08-25.json",
+  "replayArchives": {
+   "Tminus60": "exports/archive/dynasty_export_20260821_230238.zip",
+   "Tminus30": "exports/archive/dynasty_export_20260920_224450.zip",
+   "Tminus14": "exports/archive/dynasty_export_20261006_211735.zip",
+   "Tminus0": "exports/archive/dynasty_export_20261020_052241.zip"
+  },
+  "temporalLedger": "data/temporal_ledger.sqlite is NOT present in this checkout; served history between 2026-08-25 and today is unavailable locally"
+ },
+ "H1_dataDefect": {
+  "test": "every board player row the shadow replay counts as unrostered (name not in sleeper.teams[].players) checked by Sleeper id against the SAME snapshot's playerIds and against LIVE Sleeper rosters (players incl. taxi/reserve), plus Sleeper directory status",
+  "countsByPosition": {
+   "QB": {
+    "unrosteredByName": 12,
+    "noSleeperIdJoin": 0,
+    "rosteredByIdInSameSnapshot": 0,
+    "rosteredOnLiveSleeperRosters": 0,
+    "unrosteredValuedAtOrAboveLowestStarter": 0,
+    "ofThoseOnLiveRosters": 0,
+    "ofThoseWithoutNflTeam": 0
+   },
+   "RB": {
+    "unrosteredByName": 37,
+    "noSleeperIdJoin": 0,
+    "rosteredByIdInSameSnapshot": 0,
+    "rosteredOnLiveSleeperRosters": 0,
+    "unrosteredValuedAtOrAboveLowestStarter": 0,
+    "ofThoseOnLiveRosters": 0,
+    "ofThoseWithoutNflTeam": 0
+   },
+   "WR": {
+    "unrosteredByName": 54,
+    "noSleeperIdJoin": 0,
+    "rosteredByIdInSameSnapshot": 0,
+    "rosteredOnLiveSleeperRosters": 0,
+    "unrosteredValuedAtOrAboveLowestStarter": 3,
+    "ofThoseOnLiveRosters": 0,
+    "ofThoseWithoutNflTeam": 0
+   },
+   "TE": {
+    "unrosteredByName": 24,
+    "noSleeperIdJoin": 0,
+    "rosteredByIdInSameSnapshot": 0,
+    "rosteredOnLiveSleeperRosters": 0,
+    "unrosteredValuedAtOrAboveLowestStarter": 8,
+    "ofThoseOnLiveRosters": 0,
+    "ofThoseWithoutNflTeam": 0
+   },
+   "DL": {
+    "unrosteredByName": 46,
+    "noSleeperIdJoin": 0,
+    "rosteredByIdInSameSnapshot": 1,
+    "rosteredOnLiveSleeperRosters": 1,
+    "unrosteredValuedAtOrAboveLowestStarter": 8,
+    "ofThoseOnLiveRosters": 0,
+    "ofThoseWithoutNflTeam": 0
+   },
+   "LB": {
+    "unrosteredByName": 33,
+    "noSleeperIdJoin": 0,
+    "rosteredByIdInSameSnapshot": 0,
+    "rosteredOnLiveSleeperRosters": 0,
+    "unrosteredValuedAtOrAboveLowestStarter": 5,
+    "ofThoseOnLiveRosters": 0,
+    "ofThoseWithoutNflTeam": 0
+   },
+   "DB": {
+    "unrosteredByName": 36,
+    "noSleeperIdJoin": 0,
+    "rosteredByIdInSameSnapshot": 0,
+    "rosteredOnLiveSleeperRosters": 0,
+    "unrosteredValuedAtOrAboveLowestStarter": 11,
+    "ofThoseOnLiveRosters": 0,
+    "ofThoseWithoutNflTeam": 0
+   }
+  },
+  "cleanWaiverBestByPosition": {
+   "QB": {
+    "name": "Drew Allar",
+    "value": 1923
+   },
+   "RB": {
+    "name": "Isiah Pacheco",
+    "value": 1626
+   },
+   "WR": {
+    "name": "Jerry Jeudy",
+    "value": 1802
+   },
+   "TE": {
+    "name": "Ja'Tavion Sanders",
+    "value": 2061
+   },
+   "DL": {
+    "name": "Derrick Moore",
+    "value": 1918
+   },
+   "LB": {
+    "name": "Kaleb Elarms-Orr",
+    "value": 2149
+   },
+   "DB": {
+    "name": "Antoine Winfield",
+    "value": 2156
+   }
+  },
+  "healthyWaiverBestByPosition": {
+   "QB": {
+    "name": "Drew Lock",
+    "value": 1648
+   },
+   "RB": {
+    "name": "Riley Nowakowski",
+    "value": 1605
+   },
+   "WR": {
+    "name": "Jerry Jeudy",
+    "value": 1802
+   },
+   "TE": {
+    "name": "Ben Sinnott",
+    "value": 1855
+   },
+   "DL": {
+    "name": "Derrick Moore",
+    "value": 1918
+   },
+   "LB": {
+    "name": "Kaleb Elarms-Orr",
+    "value": 2149
+   },
+   "DB": {
+    "name": "Keionte Scott",
+    "value": 1917
+   }
+  },
+  "nameJoinMisses": [
+   {
+    "boardName": "Alim McNeill",
+    "pos": "DL",
+    "value": 1267,
+    "sleeperFullName": "Alim McNeill"
+   }
+  ],
+  "censusUnrosteredAtOrAboveLowestStarter": {
+   "QB": {
+    "n": 0,
+    "injuredOrInactiveNow": 0,
+    "rookies": 0,
+    "rosteredInArchiveTminus14": 0,
+    "rosteredInArchiveTminus30": 0,
+    "rosteredInArchiveTminus60": 0,
+    "fewerThanMinGamesPlayed": 0,
+    "medianPpgWhenPlayed": null
+   },
+   "RB": {
+    "n": 0,
+    "injuredOrInactiveNow": 0,
+    "rookies": 0,
+    "rosteredInArchiveTminus14": 0,
+    "rosteredInArchiveTminus30": 0,
+    "rosteredInArchiveTminus60": 0,
+    "fewerThanMinGamesPlayed": 0,
+    "medianPpgWhenPlayed": null
+   },
+   "WR": {
+    "n": 3,
+    "injuredOrInactiveNow": 1,
+    "rookies": 0,
+    "rosteredInArchiveTminus14": 0,
+    "rosteredInArchiveTminus30": 2,
+    "rosteredInArchiveTminus60": 3,
+    "fewerThanMinGamesPlayed": 0,
+    "medianPpgWhenPlayed": 4.41
+   },
+   "TE": {
+    "n": 8,
+    "injuredOrInactiveNow": 4,
+    "rookies": 4,
+    "rosteredInArchiveTminus14": 1,
+    "rosteredInArchiveTminus30": 3,
+    "rosteredInArchiveTminus60": 5,
+    "fewerThanMinGamesPlayed": 5,
+    "medianPpgWhenPlayed": 0.42
+   },
+   "DL": {
+    "n": 8,
+    "injuredOrInactiveNow": 3,
+    "rookies": 1,
+    "rosteredInArchiveTminus14": 2,
+    "rosteredInArchiveTminus30": 4,
+    "rosteredInArchiveTminus60": 3,
+    "fewerThanMinGamesPlayed": 1,
+    "medianPpgWhenPlayed": 5.32
+   },
+   "LB": {
+    "n": 5,
+    "injuredOrInactiveNow": 1,
+    "rookies": 1,
+    "rosteredInArchiveTminus14": 1,
+    "rosteredInArchiveTminus30": 4,
+    "rosteredInArchiveTminus60": 4,
+    "fewerThanMinGamesPlayed": 2,
+    "medianPpgWhenPlayed": 2.09
+   },
+   "DB": {
+    "n": 11,
+    "injuredOrInactiveNow": 6,
+    "rookies": 3,
+    "rosteredInArchiveTminus14": 4,
+    "rosteredInArchiveTminus30": 6,
+    "rosteredInArchiveTminus60": 6,
+    "fewerThanMinGamesPlayed": 3,
+    "medianPpgWhenPlayed": 8.53
+   }
+  },
+  "top10UnrosteredByValue": {
+   "DL": [
+    {
+     "name": "Derrick Moore",
+     "boardPos": "DL",
+     "value": 1918,
+     "sleeperPos": "DL",
+     "fantasyPositions": [
+      "DL"
+     ],
+     "nflTeam": "DET",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 0,
+     "age": 23,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 5,
+     "wk1_6Points": 8.5,
+     "wk1_6Ppg": 1.7,
+     "wk1_6TackleShare": 0.25,
+     "ppgRankAtPosAll": 230,
+     "ppgRankAtPosAmongFreeAgents": 145,
+     "valueServedPreseason_2026_08_25": 1956,
+     "valueReplayTminus60": 1980,
+     "valueReplayTminus30": 1937,
+     "valueReplayTminus14": 1925,
+     "rosteredTminus60": false,
+     "rosteredTminus30": true,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Derrick Harmon",
+     "boardPos": "DL",
+     "value": 1839,
+     "sleeperPos": "DL",
+     "fantasyPositions": [
+      "DL"
+     ],
+     "nflTeam": "PIT",
+     "status": "Inactive",
+     "injuryStatus": "IR",
+     "yearsExp": 1,
+     "age": 23,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 4,
+     "wk1_6Points": 29.9,
+     "wk1_6Ppg": 7.48,
+     "wk1_6TackleShare": 0.37,
+     "ppgRankAtPosAll": 69,
+     "ppgRankAtPosAmongFreeAgents": 16,
+     "valueServedPreseason_2026_08_25": 1643,
+     "valueReplayTminus60": 1651,
+     "valueReplayTminus30": 1736,
+     "valueReplayTminus14": 1748,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": true
+    },
+    {
+     "name": "Nic Scourton",
+     "boardPos": "DL",
+     "value": 1824,
+     "sleeperPos": "DL",
+     "fantasyPositions": [
+      "DL"
+     ],
+     "nflTeam": "CAR",
+     "status": "Inactive",
+     "injuryStatus": "IR",
+     "yearsExp": 1,
+     "age": 22,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 0,
+     "wk1_6Points": 0,
+     "wk1_6Ppg": null,
+     "wk1_6TackleShare": null,
+     "ppgRankAtPosAll": null,
+     "ppgRankAtPosAmongFreeAgents": null,
+     "valueServedPreseason_2026_08_25": 1660,
+     "valueReplayTminus60": 1681,
+     "valueReplayTminus30": 1735,
+     "valueReplayTminus14": 1740,
+     "rosteredTminus60": false,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Jalen Redmond",
+     "boardPos": "DL",
+     "value": 1779,
+     "sleeperPos": "DL",
+     "fantasyPositions": [
+      "DL"
+     ],
+     "nflTeam": "MIN",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 4,
+     "age": 27,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 5,
+     "wk1_6Points": 36.4,
+     "wk1_6Ppg": 7.28,
+     "wk1_6TackleShare": 0.48,
+     "ppgRankAtPosAll": 75,
+     "ppgRankAtPosAmongFreeAgents": 20,
+     "valueServedPreseason_2026_08_25": 1850,
+     "valueReplayTminus60": 1811,
+     "valueReplayTminus30": 1793,
+     "valueReplayTminus14": 1788,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": true
+    },
+    {
+     "name": "Jonah Elliss",
+     "boardPos": "DL",
+     "value": 1740,
+     "sleeperPos": "DL",
+     "fantasyPositions": [
+      "DL"
+     ],
+     "nflTeam": "DEN",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 2,
+     "age": 23,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 6,
+     "wk1_6Points": 29.5,
+     "wk1_6Ppg": 4.92,
+     "wk1_6TackleShare": 0.42,
+     "ppgRankAtPosAll": 120,
+     "ppgRankAtPosAmongFreeAgents": 48,
+     "valueServedPreseason_2026_08_25": 1395,
+     "valueReplayTminus60": 1405,
+     "valueReplayTminus30": 1423,
+     "valueReplayTminus14": 1422,
+     "rosteredTminus60": false,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Derick Hall",
+     "boardPos": "DL",
+     "value": 1700,
+     "sleeperPos": "DL",
+     "fantasyPositions": [
+      "DL"
+     ],
+     "nflTeam": "SEA",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 3,
+     "age": 25,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 6,
+     "wk1_6Points": 46.9,
+     "wk1_6Ppg": 7.82,
+     "wk1_6TackleShare": 0.29,
+     "ppgRankAtPosAll": 59,
+     "ppgRankAtPosAmongFreeAgents": 9,
+     "valueServedPreseason_2026_08_25": 1497,
+     "valueReplayTminus60": 1469,
+     "valueReplayTminus30": 1407,
+     "valueReplayTminus14": 1392,
+     "rosteredTminus60": false,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Walter Nolen",
+     "boardPos": "DL",
+     "value": 1603,
+     "sleeperPos": "DL",
+     "fantasyPositions": [
+      "DL"
+     ],
+     "nflTeam": "ARI",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 1,
+     "age": 23,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 6,
+     "wk1_6Points": 31.9,
+     "wk1_6Ppg": 5.32,
+     "wk1_6TackleShare": 0.43,
+     "ppgRankAtPosAll": 111,
+     "ppgRankAtPosAmongFreeAgents": 40,
+     "valueServedPreseason_2026_08_25": 1688,
+     "valueReplayTminus60": 1667,
+     "valueReplayTminus30": 1592,
+     "valueReplayTminus14": 1571,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Joseph Ossai",
+     "boardPos": "DL",
+     "value": 1539,
+     "sleeperPos": "DL",
+     "fantasyPositions": [
+      "DL",
+      "LB"
+     ],
+     "nflTeam": "NYJ",
+     "status": "Active",
+     "injuryStatus": "Out",
+     "yearsExp": 5,
+     "age": 26,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 3,
+     "wk1_6Points": 9.8,
+     "wk1_6Ppg": 3.28,
+     "wk1_6TackleShare": 1.0,
+     "ppgRankAtPosAll": 179,
+     "ppgRankAtPosAmongFreeAgents": 102,
+     "valueServedPreseason_2026_08_25": 1531,
+     "valueReplayTminus60": 1513,
+     "valueReplayTminus30": 1507,
+     "valueReplayTminus14": 1501,
+     "rosteredTminus60": false,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Bryan Bresee",
+     "boardPos": "DL",
+     "value": 1518,
+     "sleeperPos": "DL",
+     "fantasyPositions": [
+      "DL"
+     ],
+     "nflTeam": "NO",
+     "status": "Inactive",
+     "injuryStatus": "IR",
+     "yearsExp": 3,
+     "age": 25,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 0,
+     "wk1_6Points": 0,
+     "wk1_6Ppg": null,
+     "wk1_6TackleShare": null,
+     "ppgRankAtPosAll": null,
+     "ppgRankAtPosAmongFreeAgents": null,
+     "valueServedPreseason_2026_08_25": 1318,
+     "valueReplayTminus60": 1379,
+     "valueReplayTminus30": 1433,
+     "valueReplayTminus14": 1431,
+     "rosteredTminus60": false,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Ed Oliver",
+     "boardPos": "DL",
+     "value": 1512,
+     "sleeperPos": "DL",
+     "fantasyPositions": [
+      "DL"
+     ],
+     "nflTeam": "BUF",
+     "status": "Active",
+     "injuryStatus": "Out",
+     "yearsExp": 7,
+     "age": 28,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 3,
+     "wk1_6Points": 26.5,
+     "wk1_6Ppg": 8.85,
+     "wk1_6TackleShare": 0.33,
+     "ppgRankAtPosAll": 44,
+     "ppgRankAtPosAmongFreeAgents": 5,
+     "valueServedPreseason_2026_08_25": 1684,
+     "valueReplayTminus60": 1642,
+     "valueReplayTminus30": 1532,
+     "valueReplayTminus14": 1508,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": true
+    }
+   ],
+   "LB": [
+    {
+     "name": "Kaleb Elarms-Orr",
+     "boardPos": "LB",
+     "value": 2149,
+     "sleeperPos": "LB",
+     "fantasyPositions": [
+      "LB"
+     ],
+     "nflTeam": "BUF",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 0,
+     "age": 23,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 6,
+     "wk1_6Points": 16.8,
+     "wk1_6Ppg": 2.79,
+     "wk1_6TackleShare": 0.6,
+     "ppgRankAtPosAll": 122,
+     "ppgRankAtPosAmongFreeAgents": 30,
+     "valueServedPreseason_2026_08_25": 2031,
+     "valueReplayTminus60": 1990,
+     "valueReplayTminus30": 2098,
+     "valueReplayTminus14": 2117,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "SirVocea Dennis",
+     "boardPos": "LB",
+     "value": 1895,
+     "sleeperPos": "LB",
+     "fantasyPositions": [
+      "LB"
+     ],
+     "nflTeam": "TB",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 3,
+     "age": 26,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 5,
+     "wk1_6Points": 5.9,
+     "wk1_6Ppg": 1.17,
+     "wk1_6TackleShare": 0.55,
+     "ppgRankAtPosAll": 148,
+     "ppgRankAtPosAmongFreeAgents": 50,
+     "valueServedPreseason_2026_08_25": 1774,
+     "valueReplayTminus60": 1729,
+     "valueReplayTminus30": 1805,
+     "valueReplayTminus14": 1812,
+     "rosteredTminus60": true,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Henry To'oTo'o",
+     "boardPos": "LB",
+     "value": 1793,
+     "sleeperPos": "LB",
+     "fantasyPositions": [
+      "LB"
+     ],
+     "nflTeam": "HOU",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 3,
+     "age": 25,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 2,
+     "wk1_6Points": 18.1,
+     "wk1_6Ppg": 9.03,
+     "wk1_6TackleShare": 0.47,
+     "ppgRankAtPosAll": null,
+     "ppgRankAtPosAmongFreeAgents": null,
+     "valueServedPreseason_2026_08_25": 1784,
+     "valueReplayTminus60": 1672,
+     "valueReplayTminus30": 1547,
+     "valueReplayTminus14": 1516,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Teddye Buchanan",
+     "boardPos": "LB",
+     "value": 1739,
+     "sleeperPos": "LB",
+     "fantasyPositions": [
+      "LB"
+     ],
+     "nflTeam": "BAL",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 1,
+     "age": 24,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 4,
+     "wk1_6Points": 5.6,
+     "wk1_6Ppg": 1.4,
+     "wk1_6TackleShare": 0.76,
+     "ppgRankAtPosAll": 140,
+     "ppgRankAtPosAmongFreeAgents": 44,
+     "valueServedPreseason_2026_08_25": 1905,
+     "valueReplayTminus60": 1903,
+     "valueReplayTminus30": 1787,
+     "valueReplayTminus14": 1765,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": true
+    },
+    {
+     "name": "Harold Landry",
+     "boardPos": "LB",
+     "value": 1508,
+     "sleeperPos": "LB",
+     "fantasyPositions": [
+      "DL",
+      "LB"
+     ],
+     "nflTeam": "NE",
+     "status": "Active",
+     "injuryStatus": "PUP",
+     "yearsExp": 8,
+     "age": 30,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 0,
+     "wk1_6Points": 0,
+     "wk1_6Ppg": null,
+     "wk1_6TackleShare": null,
+     "ppgRankAtPosAll": null,
+     "ppgRankAtPosAmongFreeAgents": null,
+     "valueServedPreseason_2026_08_25": 1787,
+     "valueReplayTminus60": 1814,
+     "valueReplayTminus30": 1743,
+     "valueReplayTminus14": 1728,
+     "rosteredTminus60": false,
+     "rosteredTminus30": true,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Jack Gibbens",
+     "boardPos": "LB",
+     "value": 1367,
+     "sleeperPos": "LB",
+     "fantasyPositions": [
+      "LB"
+     ],
+     "nflTeam": "ARI",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 4,
+     "age": 27,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 6,
+     "wk1_6Points": 60.4,
+     "wk1_6Ppg": 10.07,
+     "wk1_6TackleShare": 0.71,
+     "ppgRankAtPosAll": 64,
+     "ppgRankAtPosAmongFreeAgents": 2,
+     "valueServedPreseason_2026_08_25": 1304,
+     "valueReplayTminus60": 1309,
+     "valueReplayTminus30": 1314,
+     "valueReplayTminus14": 1332,
+     "rosteredTminus60": false,
+     "rosteredTminus30": false,
+     "rosteredTminus14": true
+    },
+    {
+     "name": "Christian Rozeboom",
+     "boardPos": "LB",
+     "value": 1348,
+     "sleeperPos": "LB",
+     "fantasyPositions": [
+      "LB"
+     ],
+     "nflTeam": "TB",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 6,
+     "age": 29,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 5,
+     "wk1_6Points": 25.5,
+     "wk1_6Ppg": 5.1,
+     "wk1_6TackleShare": 0.31,
+     "ppgRankAtPosAll": 101,
+     "ppgRankAtPosAmongFreeAgents": 14,
+     "valueServedPreseason_2026_08_25": 1404,
+     "valueReplayTminus60": 1448,
+     "valueReplayTminus30": 1359,
+     "valueReplayTminus14": 1341,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Bobby Wagner",
+     "boardPos": "LB",
+     "value": 1284,
+     "sleeperPos": "LB",
+     "fantasyPositions": [
+      "LB"
+     ],
+     "nflTeam": null,
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 14,
+     "age": 35,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 0,
+     "wk1_6Points": 0,
+     "wk1_6Ppg": null,
+     "wk1_6TackleShare": null,
+     "ppgRankAtPosAll": null,
+     "ppgRankAtPosAmongFreeAgents": null,
+     "valueServedPreseason_2026_08_25": 1627,
+     "valueReplayTminus60": 1627,
+     "valueReplayTminus30": 1392,
+     "valueReplayTminus14": 1330,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Wade Woodaz",
+     "boardPos": "LB",
+     "value": 1216,
+     "sleeperPos": "LB",
+     "fantasyPositions": [
+      "LB"
+     ],
+     "nflTeam": "HOU",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 0,
+     "age": 22,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 6,
+     "wk1_6Points": 4.0,
+     "wk1_6Ppg": 0.67,
+     "wk1_6TackleShare": 0.33,
+     "ppgRankAtPosAll": 166,
+     "ppgRankAtPosAmongFreeAgents": 66,
+     "valueServedPreseason_2026_08_25": 1432,
+     "valueReplayTminus60": 1415,
+     "valueReplayTminus30": 1252,
+     "valueReplayTminus14": 1220,
+     "rosteredTminus60": false,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Micah McFadden",
+     "boardPos": "LB",
+     "value": 1193,
+     "sleeperPos": "LB",
+     "fantasyPositions": [
+      "LB"
+     ],
+     "nflTeam": "NYG",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 4,
+     "age": 26,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 5,
+     "wk1_6Points": 1.3,
+     "wk1_6Ppg": 0.27,
+     "wk1_6TackleShare": 0.0,
+     "ppgRankAtPosAll": 180,
+     "ppgRankAtPosAmongFreeAgents": 79,
+     "valueServedPreseason_2026_08_25": 1494,
+     "valueReplayTminus60": 1386,
+     "valueReplayTminus30": 1198,
+     "valueReplayTminus14": 1160,
+     "rosteredTminus60": false,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    }
+   ],
+   "DB": [
+    {
+     "name": "Antoine Winfield",
+     "boardPos": "DB",
+     "value": 2156,
+     "sleeperPos": "DB",
+     "fantasyPositions": [
+      "DB"
+     ],
+     "nflTeam": "TB",
+     "status": "Active",
+     "injuryStatus": "Out",
+     "yearsExp": 6,
+     "age": 28,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 4,
+     "wk1_6Points": 33.5,
+     "wk1_6Ppg": 8.38,
+     "wk1_6TackleShare": 0.81,
+     "ppgRankAtPosAll": 118,
+     "ppgRankAtPosAmongFreeAgents": 41,
+     "valueServedPreseason_2026_08_25": 2338,
+     "valueReplayTminus60": 2294,
+     "valueReplayTminus30": 2196,
+     "valueReplayTminus14": 2174,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": true
+    },
+    {
+     "name": "Keionte Scott",
+     "boardPos": "DB",
+     "value": 1917,
+     "sleeperPos": "DB",
+     "fantasyPositions": [
+      "DB"
+     ],
+     "nflTeam": "TB",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 0,
+     "age": 25,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 6,
+     "wk1_6Points": 64.1,
+     "wk1_6Ppg": 10.69,
+     "wk1_6TackleShare": 0.55,
+     "ppgRankAtPosAll": 68,
+     "ppgRankAtPosAmongFreeAgents": 14,
+     "valueServedPreseason_2026_08_25": 2016,
+     "valueReplayTminus60": 2016,
+     "valueReplayTminus30": 1936,
+     "valueReplayTminus14": 1916,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Treydan Stukes",
+     "boardPos": "DB",
+     "value": 1910,
+     "sleeperPos": "DB",
+     "fantasyPositions": [
+      "DB"
+     ],
+     "nflTeam": "LV",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 0,
+     "age": 25,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 5,
+     "wk1_6Points": 44.4,
+     "wk1_6Ppg": 8.88,
+     "wk1_6TackleShare": 0.61,
+     "ppgRankAtPosAll": 108,
+     "ppgRankAtPosAmongFreeAgents": 35,
+     "valueServedPreseason_2026_08_25": 1530,
+     "valueReplayTminus60": 1531,
+     "valueReplayTminus30": 1383,
+     "valueReplayTminus14": 1333,
+     "rosteredTminus60": false,
+     "rosteredTminus30": true,
+     "rosteredTminus14": true
+    },
+    {
+     "name": "Alontae Taylor",
+     "boardPos": "DB",
+     "value": 1676,
+     "sleeperPos": "DB",
+     "fantasyPositions": [
+      "DB"
+     ],
+     "nflTeam": "TEN",
+     "status": "Active",
+     "injuryStatus": "Out",
+     "yearsExp": 4,
+     "age": 27,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 5,
+     "wk1_6Points": 52.2,
+     "wk1_6Ppg": 10.44,
+     "wk1_6TackleShare": 0.58,
+     "ppgRankAtPosAll": 72,
+     "ppgRankAtPosAmongFreeAgents": 15,
+     "valueServedPreseason_2026_08_25": 1738,
+     "valueReplayTminus60": 1695,
+     "valueReplayTminus30": 1646,
+     "valueReplayTminus14": 1628,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": true
+    },
+    {
+     "name": "Will Johnson",
+     "boardPos": "DB",
+     "value": 1502,
+     "sleeperPos": "DB",
+     "fantasyPositions": [
+      "DB"
+     ],
+     "nflTeam": "ARI",
+     "status": "Inactive",
+     "injuryStatus": "IR",
+     "yearsExp": 1,
+     "age": 23,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 2,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 2,
+     "wk1_6Points": 16.5,
+     "wk1_6Ppg": 8.24,
+     "wk1_6TackleShare": 0.48,
+     "ppgRankAtPosAll": null,
+     "ppgRankAtPosAmongFreeAgents": null,
+     "valueServedPreseason_2026_08_25": 1579,
+     "valueReplayTminus60": 1367,
+     "valueReplayTminus30": 1417,
+     "valueReplayTminus14": 1413,
+     "rosteredTminus60": false,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "DeShon Elliott",
+     "boardPos": "DB",
+     "value": 1438,
+     "sleeperPos": "DB",
+     "fantasyPositions": [
+      "DB"
+     ],
+     "nflTeam": "PIT",
+     "status": "Inactive",
+     "injuryStatus": "IR",
+     "yearsExp": 8,
+     "age": 29,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 0,
+     "wk1_6Points": 0,
+     "wk1_6Ppg": null,
+     "wk1_6TackleShare": null,
+     "ppgRankAtPosAll": null,
+     "ppgRankAtPosAmongFreeAgents": null,
+     "valueServedPreseason_2026_08_25": 1524,
+     "valueReplayTminus60": 1545,
+     "valueReplayTminus30": 1445,
+     "valueReplayTminus14": 1424,
+     "rosteredTminus60": true,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Antonio Johnson",
+     "boardPos": "DB",
+     "value": 1436,
+     "sleeperPos": "DB",
+     "fantasyPositions": [
+      "DB"
+     ],
+     "nflTeam": "JAX",
+     "status": "Active",
+     "injuryStatus": "Questionable",
+     "yearsExp": 3,
+     "age": 24,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 6,
+     "wk1_6Points": 51.2,
+     "wk1_6Ppg": 8.53,
+     "wk1_6TackleShare": 0.62,
+     "ppgRankAtPosAll": 112,
+     "ppgRankAtPosAmongFreeAgents": 37,
+     "valueServedPreseason_2026_08_25": 1423,
+     "valueReplayTminus60": 1409,
+     "valueReplayTminus30": 1421,
+     "valueReplayTminus14": 1420,
+     "rosteredTminus60": false,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Jalen Thompson",
+     "boardPos": "DB",
+     "value": 1430,
+     "sleeperPos": "DB",
+     "fantasyPositions": [
+      "DB"
+     ],
+     "nflTeam": "DAL",
+     "status": "Inactive",
+     "injuryStatus": "IR",
+     "yearsExp": 7,
+     "age": 28,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 3,
+     "wk1_6Points": 20.0,
+     "wk1_6Ppg": 6.65,
+     "wk1_6TackleShare": 0.89,
+     "ppgRankAtPosAll": 157,
+     "ppgRankAtPosAmongFreeAgents": 65,
+     "valueServedPreseason_2026_08_25": 1485,
+     "valueReplayTminus60": 1531,
+     "valueReplayTminus30": 1437,
+     "valueReplayTminus14": 1418,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": true
+    },
+    {
+     "name": "Bud Clark",
+     "boardPos": "DB",
+     "value": 1404,
+     "sleeperPos": "DB",
+     "fantasyPositions": [
+      "DB"
+     ],
+     "nflTeam": "SEA",
+     "status": "Inactive",
+     "injuryStatus": "IR",
+     "yearsExp": 0,
+     "age": 24,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 0,
+     "wk1_6Points": 0,
+     "wk1_6Ppg": null,
+     "wk1_6TackleShare": null,
+     "ppgRankAtPosAll": null,
+     "ppgRankAtPosAmongFreeAgents": null,
+     "valueServedPreseason_2026_08_25": 1538,
+     "valueReplayTminus60": 1530,
+     "valueReplayTminus30": 1414,
+     "valueReplayTminus14": 1393,
+     "rosteredTminus60": false,
+     "rosteredTminus30": false,
+     "rosteredTminus14": false
+    },
+    {
+     "name": "Bryan Cook",
+     "boardPos": "DB",
+     "value": 1386,
+     "sleeperPos": "DB",
+     "fantasyPositions": [
+      "DB"
+     ],
+     "nflTeam": "CIN",
+     "status": "Active",
+     "injuryStatus": null,
+     "yearsExp": 4,
+     "age": 27,
+     "sleeperIdJoined": true,
+     "onLiveSleeperRoster": false,
+     "onLiveTaxiOrReserve": false,
+     "activeSameNameSleeperPlayers": 1,
+     "sameNameBoardRows": 1,
+     "wk1_6Games": 4,
+     "wk1_6Points": 27.4,
+     "wk1_6Ppg": 6.85,
+     "wk1_6TackleShare": 0.73,
+     "ppgRankAtPosAll": 152,
+     "ppgRankAtPosAmongFreeAgents": 62,
+     "valueServedPreseason_2026_08_25": 1462,
+     "valueReplayTminus60": 1491,
+     "valueReplayTminus30": 1395,
+     "valueReplayTminus14": 1375,
+     "rosteredTminus60": true,
+     "rosteredTminus30": true,
+     "rosteredTminus14": false
+    }
+   ]
+  }
+ },
+ "H2_lineupDefinition": {
+  "objective": "canonical rankDerivedValue \u2014 data_contract.contract_roster_pools feeds RosterPlayer.ros_value = rankDerivedValue to lineup.assign_lineup (stamp_optimal_lineups); NOT projections and NOT realized points",
+  "lowestValuedCanonicalStarter": {
+   "QB": {
+    "name": "Shedeur Sanders",
+    "value": 1988,
+    "wk1_6Games": 1,
+    "wk1_6Points": 0.4,
+    "wk1_6Ppg": 0.37,
+    "wk1_6TackleShare": 0.0,
+    "ppgRankAtPosAll": null,
+    "startersAtPosValuedBelowCleanWaiverBest": 0,
+    "teamsStartingAtLeastOneBelowCleanWaiverBest": 0,
+    "startersAtPos": 23,
+    "startersAtPosValuedBelowHealthyWaiverBest": 0
+   },
+   "RB": {
+    "name": "Seth McGowan",
+    "value": 1653,
+    "wk1_6Games": 6,
+    "wk1_6Points": 31.5,
+    "wk1_6Ppg": 5.25,
+    "wk1_6TackleShare": 0.0,
+    "ppgRankAtPosAll": 61,
+    "startersAtPosValuedBelowCleanWaiverBest": 0,
+    "teamsStartingAtLeastOneBelowCleanWaiverBest": 0,
+    "startersAtPos": 35,
+    "startersAtPosValuedBelowHealthyWaiverBest": 0
+   },
+   "WR": {
+    "name": "Jalen Royals",
+    "value": 1510,
+    "wk1_6Games": 5,
+    "wk1_6Points": 17.8,
+    "wk1_6Ppg": 3.56,
+    "wk1_6TackleShare": 0.0,
+    "ppgRankAtPosAll": 115,
+    "startersAtPosValuedBelowCleanWaiverBest": 2,
+    "teamsStartingAtLeastOneBelowCleanWaiverBest": 1,
+    "startersAtPos": 48,
+    "startersAtPosValuedBelowHealthyWaiverBest": 2
+   },
+   "TE": {
+    "name": "Sam Roush",
+    "value": 1671,
+    "wk1_6Games": 6,
+    "wk1_6Points": 10.3,
+    "wk1_6Ppg": 1.72,
+    "wk1_6TackleShare": 0.13,
+    "ppgRankAtPosAll": 69,
+    "startersAtPosValuedBelowCleanWaiverBest": 3,
+    "teamsStartingAtLeastOneBelowCleanWaiverBest": 2,
+    "startersAtPos": 27,
+    "startersAtPosValuedBelowHealthyWaiverBest": 2
+   },
+   "DL": {
+    "name": "Chris Jones",
+    "value": 1539,
+    "wk1_6Games": 5,
+    "wk1_6Points": 39.4,
+    "wk1_6Ppg": 7.89,
+    "wk1_6TackleShare": 0.34,
+    "ppgRankAtPosAll": 58,
+    "startersAtPosValuedBelowCleanWaiverBest": 7,
+    "teamsStartingAtLeastOneBelowCleanWaiverBest": 4,
+    "startersAtPos": 37,
+    "startersAtPosValuedBelowHealthyWaiverBest": 7
+   },
+   "LB": {
+    "name": "Alex Anzalone",
+    "value": 1474,
+    "wk1_6Games": 6,
+    "wk1_6Points": 49.4,
+    "wk1_6Ppg": 8.23,
+    "wk1_6TackleShare": 0.59,
+    "ppgRankAtPosAll": 81,
+    "startersAtPosValuedBelowCleanWaiverBest": 6,
+    "teamsStartingAtLeastOneBelowCleanWaiverBest": 5,
+    "startersAtPos": 35,
+    "startersAtPosValuedBelowHealthyWaiverBest": 6
+   },
+   "DB": {
+    "name": "Marlon Humphrey",
+    "value": 1335,
+    "wk1_6Games": 6,
+    "wk1_6Points": 61.6,
+    "wk1_6Ppg": 10.27,
+    "wk1_6TackleShare": 0.41,
+    "ppgRankAtPosAll": 76,
+    "startersAtPosValuedBelowCleanWaiverBest": 26,
+    "teamsStartingAtLeastOneBelowCleanWaiverBest": 12,
+    "startersAtPos": 35,
+    "startersAtPosValuedBelowHealthyWaiverBest": 19
+   }
+  },
+  "lineupsResolvedOnSeasonToDatePoints": {
+   "QB": {
+    "productionOptimalStarters": 21,
+    "shareAlsoInCanonicalValueLineup": 0.619,
+    "unvaluedProductionStarters": 0,
+    "lowestValuedProductionStarter": 1645,
+    "medianValueOfProductionStarters": 5493
+   },
+   "RB": {
+    "productionOptimalStarters": 33,
+    "shareAlsoInCanonicalValueLineup": 0.697,
+    "unvaluedProductionStarters": 0,
+    "lowestValuedProductionStarter": 1217,
+    "medianValueOfProductionStarters": 3828
+   },
+   "WR": {
+    "productionOptimalStarters": 52,
+    "shareAlsoInCanonicalValueLineup": 0.596,
+    "unvaluedProductionStarters": 0,
+    "lowestValuedProductionStarter": 1061,
+    "medianValueOfProductionStarters": 3496
+   },
+   "TE": {
+    "productionOptimalStarters": 25,
+    "shareAlsoInCanonicalValueLineup": 0.76,
+    "unvaluedProductionStarters": 0,
+    "lowestValuedProductionStarter": 1619,
+    "medianValueOfProductionStarters": 3442
+   },
+   "DL": {
+    "productionOptimalStarters": 32,
+    "shareAlsoInCanonicalValueLineup": 0.469,
+    "unvaluedProductionStarters": 2,
+    "lowestValuedProductionStarter": 268,
+    "medianValueOfProductionStarters": 1840
+   },
+   "LB": {
+    "productionOptimalStarters": 39,
+    "shareAlsoInCanonicalValueLineup": 0.744,
+    "unvaluedProductionStarters": 0,
+    "lowestValuedProductionStarter": 1235,
+    "medianValueOfProductionStarters": 2756
+   },
+   "DB": {
+    "productionOptimalStarters": 38,
+    "shareAlsoInCanonicalValueLineup": 0.342,
+    "unvaluedProductionStarters": 4,
+    "lowestValuedProductionStarter": 257,
+    "medianValueOfProductionStarters": 1532
+   }
+  }
+ },
+ "H3_scoringMismatch": {
+  "test": "Spearman rank correlation between canonical value and weeks-1..N (ppg: per game played, >= minGames; perTeamWeek: total / N weeks, every player with a weekly line) league-scored points per game (players with >= minGames), today's board (hindsight-contaminated: it already knows the season) and the SERVED 2026-08-25 pre-season board",
+  "spearman": {
+   "ppg": {
+    "today": {
+     "offense": {
+      "all": {
+       "allValues": {
+        "n": 344,
+        "rho": 0.774
+       },
+       "1000to2999": {
+        "n": 220,
+        "rho": 0.511
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 289,
+        "rho": 0.734
+       },
+       "1000to2999": {
+        "n": 171,
+        "rho": 0.425
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 55,
+        "rho": 0.011
+       },
+       "1000to2999": {
+        "n": 49,
+        "rho": -0.068
+       }
+      }
+     },
+     "idp": {
+      "all": {
+       "allValues": {
+        "n": 352,
+        "rho": 0.45
+       },
+       "1000to2999": {
+        "n": 268,
+        "rho": 0.352
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 269,
+        "rho": 0.389
+       },
+       "1000to2999": {
+        "n": 209,
+        "rho": 0.277
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 83,
+        "rho": 0.113
+       },
+       "1000to2999": {
+        "n": 59,
+        "rho": 0.071
+       }
+      }
+     },
+     "QB": {
+      "all": {
+       "allValues": {
+        "n": 37,
+        "rho": 0.649
+       },
+       "1000to2999": {
+        "n": 11,
+        "rho": 0.609
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 36,
+        "rho": 0.637
+       },
+       "1000to2999": {
+        "n": 10,
+        "rho": 0.552
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 1,
+        "rho": null
+       },
+       "1000to2999": {
+        "n": 1,
+        "rho": null
+       }
+      }
+     },
+     "RB": {
+      "all": {
+       "allValues": {
+        "n": 92,
+        "rho": 0.808
+       },
+       "1000to2999": {
+        "n": 61,
+        "rho": 0.592
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 81,
+        "rho": 0.791
+       },
+       "1000to2999": {
+        "n": 52,
+        "rho": 0.571
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 11,
+        "rho": -0.3
+       },
+       "1000to2999": {
+        "n": 9,
+        "rho": -0.6
+       }
+      }
+     },
+     "WR": {
+      "all": {
+       "allValues": {
+        "n": 143,
+        "rho": 0.802
+       },
+       "1000to2999": {
+        "n": 97,
+        "rho": 0.605
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 116,
+        "rho": 0.74
+       },
+       "1000to2999": {
+        "n": 74,
+        "rho": 0.447
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 27,
+        "rho": 0.453
+       },
+       "1000to2999": {
+        "n": 23,
+        "rho": 0.468
+       }
+      }
+     },
+     "TE": {
+      "all": {
+       "allValues": {
+        "n": 72,
+        "rho": 0.753
+       },
+       "1000to2999": {
+        "n": 51,
+        "rho": 0.518
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 56,
+        "rho": 0.712
+       },
+       "1000to2999": {
+        "n": 35,
+        "rho": 0.443
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 16,
+        "rho": -0.338
+       },
+       "1000to2999": {
+        "n": 16,
+        "rho": -0.338
+       }
+      }
+     },
+     "DL": {
+      "all": {
+       "allValues": {
+        "n": 112,
+        "rho": 0.328
+       },
+       "1000to2999": {
+        "n": 91,
+        "rho": 0.376
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 76,
+        "rho": 0.275
+       },
+       "1000to2999": {
+        "n": 63,
+        "rho": 0.316
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 36,
+        "rho": 0.088
+       },
+       "1000to2999": {
+        "n": 28,
+        "rho": 0.146
+       }
+      }
+     },
+     "LB": {
+      "all": {
+       "allValues": {
+        "n": 117,
+        "rho": 0.636
+       },
+       "1000to2999": {
+        "n": 79,
+        "rho": 0.46
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 96,
+        "rho": 0.545
+       },
+       "1000to2999": {
+        "n": 68,
+        "rho": 0.426
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 21,
+        "rho": -0.21
+       },
+       "1000to2999": {
+        "n": 11,
+        "rho": -0.191
+       }
+      }
+     },
+     "DB": {
+      "all": {
+       "allValues": {
+        "n": 123,
+        "rho": 0.355
+       },
+       "1000to2999": {
+        "n": 98,
+        "rho": 0.354
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 97,
+        "rho": 0.309
+       },
+       "1000to2999": {
+        "n": 78,
+        "rho": 0.244
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 26,
+        "rho": 0.124
+       },
+       "1000to2999": {
+        "n": 20,
+        "rho": 0.304
+       }
+      }
+     }
+    },
+    "preseasonServed": {
+     "offense": {
+      "all": {
+       "allValues": {
+        "n": 296,
+        "rho": 0.67
+       },
+       "1000to2999": {
+        "n": 177,
+        "rho": 0.32
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 266,
+        "rho": 0.626
+       },
+       "1000to2999": {
+        "n": 147,
+        "rho": 0.227
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 30,
+        "rho": -0.36
+       },
+       "1000to2999": {
+        "n": 30,
+        "rho": -0.36
+       }
+      }
+     },
+     "idp": {
+      "all": {
+       "allValues": {
+        "n": 277,
+        "rho": 0.403
+       },
+       "1000to2999": {
+        "n": 237,
+        "rho": 0.303
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 233,
+        "rho": 0.357
+       },
+       "1000to2999": {
+        "n": 193,
+        "rho": 0.256
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 44,
+        "rho": -0.187
+       },
+       "1000to2999": {
+        "n": 44,
+        "rho": -0.187
+       }
+      }
+     },
+     "QB": {
+      "all": {
+       "allValues": {
+        "n": 34,
+        "rho": 0.507
+       },
+       "1000to2999": {
+        "n": 9,
+        "rho": 0.7
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 34,
+        "rho": 0.507
+       },
+       "1000to2999": {
+        "n": 9,
+        "rho": 0.7
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 0,
+        "rho": null
+       },
+       "1000to2999": {
+        "n": 0,
+        "rho": null
+       }
+      }
+     },
+     "RB": {
+      "all": {
+       "allValues": {
+        "n": 80,
+        "rho": 0.707
+       },
+       "1000to2999": {
+        "n": 52,
+        "rho": 0.456
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 76,
+        "rho": 0.694
+       },
+       "1000to2999": {
+        "n": 48,
+        "rho": 0.445
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 4,
+        "rho": null
+       },
+       "1000to2999": {
+        "n": 4,
+        "rho": null
+       }
+      }
+     },
+     "WR": {
+      "all": {
+       "allValues": {
+        "n": 116,
+        "rho": 0.704
+       },
+       "1000to2999": {
+        "n": 72,
+        "rho": 0.428
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 101,
+        "rho": 0.637
+       },
+       "1000to2999": {
+        "n": 57,
+        "rho": 0.237
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 15,
+        "rho": 0.198
+       },
+       "1000to2999": {
+        "n": 15,
+        "rho": 0.198
+       }
+      }
+     },
+     "TE": {
+      "all": {
+       "allValues": {
+        "n": 66,
+        "rho": 0.637
+       },
+       "1000to2999": {
+        "n": 44,
+        "rho": 0.289
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 55,
+        "rho": 0.55
+       },
+       "1000to2999": {
+        "n": 33,
+        "rho": 0.091
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 11,
+        "rho": -0.673
+       },
+       "1000to2999": {
+        "n": 11,
+        "rho": -0.673
+       }
+      }
+     },
+     "DL": {
+      "all": {
+       "allValues": {
+        "n": 82,
+        "rho": 0.316
+       },
+       "1000to2999": {
+        "n": 73,
+        "rho": 0.321
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 62,
+        "rho": 0.262
+       },
+       "1000to2999": {
+        "n": 53,
+        "rho": 0.315
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 20,
+        "rho": -0.296
+       },
+       "1000to2999": {
+        "n": 20,
+        "rho": -0.296
+       }
+      }
+     },
+     "LB": {
+      "all": {
+       "allValues": {
+        "n": 101,
+        "rho": 0.532
+       },
+       "1000to2999": {
+        "n": 77,
+        "rho": 0.366
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 93,
+        "rho": 0.504
+       },
+       "1000to2999": {
+        "n": 69,
+        "rho": 0.336
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 8,
+        "rho": -0.524
+       },
+       "1000to2999": {
+        "n": 8,
+        "rho": -0.524
+       }
+      }
+     },
+     "DB": {
+      "all": {
+       "allValues": {
+        "n": 94,
+        "rho": 0.334
+       },
+       "1000to2999": {
+        "n": 87,
+        "rho": 0.253
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 78,
+        "rho": 0.237
+       },
+       "1000to2999": {
+        "n": 71,
+        "rho": 0.138
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 16,
+        "rho": 0.279
+       },
+       "1000to2999": {
+        "n": 16,
+        "rho": 0.279
+       }
+      }
+     }
+    }
+   },
+   "perTeamWeek": {
+    "today": {
+     "offense": {
+      "all": {
+       "allValues": {
+        "n": 464,
+        "rho": 0.726
+       },
+       "1000to2999": {
+        "n": 305,
+        "rho": 0.506
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 352,
+        "rho": 0.678
+       },
+       "1000to2999": {
+        "n": 220,
+        "rho": 0.451
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 112,
+        "rho": 0.276
+       },
+       "1000to2999": {
+        "n": 85,
+        "rho": 0.072
+       }
+      }
+     },
+     "idp": {
+      "all": {
+       "allValues": {
+        "n": 394,
+        "rho": 0.423
+       },
+       "1000to2999": {
+        "n": 297,
+        "rho": 0.319
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 284,
+        "rho": 0.326
+       },
+       "1000to2999": {
+        "n": 222,
+        "rho": 0.232
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 110,
+        "rho": 0.126
+       },
+       "1000to2999": {
+        "n": 75,
+        "rho": 0.005
+       }
+      }
+     },
+     "QB": {
+      "all": {
+       "allValues": {
+        "n": 67,
+        "rho": 0.781
+       },
+       "1000to2999": {
+        "n": 35,
+        "rho": 0.577
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 59,
+        "rho": 0.784
+       },
+       "1000to2999": {
+        "n": 28,
+        "rho": 0.692
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 8,
+        "rho": 0.439
+       },
+       "1000to2999": {
+        "n": 7,
+        "rho": null
+       }
+      }
+     },
+     "RB": {
+      "all": {
+       "allValues": {
+        "n": 128,
+        "rho": 0.76
+       },
+       "1000to2999": {
+        "n": 84,
+        "rho": 0.602
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 93,
+        "rho": 0.678
+       },
+       "1000to2999": {
+        "n": 61,
+        "rho": 0.549
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 35,
+        "rho": 0.116
+       },
+       "1000to2999": {
+        "n": 23,
+        "rho": -0.295
+       }
+      }
+     },
+     "WR": {
+      "all": {
+       "allValues": {
+        "n": 188,
+        "rho": 0.7
+       },
+       "1000to2999": {
+        "n": 128,
+        "rho": 0.483
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 140,
+        "rho": 0.611
+       },
+       "1000to2999": {
+        "n": 93,
+        "rho": 0.33
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 48,
+        "rho": 0.445
+       },
+       "1000to2999": {
+        "n": 35,
+        "rho": 0.323
+       }
+      }
+     },
+     "TE": {
+      "all": {
+       "allValues": {
+        "n": 81,
+        "rho": 0.694
+       },
+       "1000to2999": {
+        "n": 58,
+        "rho": 0.435
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 60,
+        "rho": 0.69
+       },
+       "1000to2999": {
+        "n": 38,
+        "rho": 0.449
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 21,
+        "rho": -0.444
+       },
+       "1000to2999": {
+        "n": 20,
+        "rho": -0.608
+       }
+      }
+     },
+     "DL": {
+      "all": {
+       "allValues": {
+        "n": 127,
+        "rho": 0.258
+       },
+       "1000to2999": {
+        "n": 104,
+        "rho": 0.349
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 82,
+        "rho": 0.194
+       },
+       "1000to2999": {
+        "n": 68,
+        "rho": 0.28
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 45,
+        "rho": -0.013
+       },
+       "1000to2999": {
+        "n": 36,
+        "rho": 0.055
+       }
+      }
+     },
+     "LB": {
+      "all": {
+       "allValues": {
+        "n": 130,
+        "rho": 0.608
+       },
+       "1000to2999": {
+        "n": 84,
+        "rho": 0.377
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 100,
+        "rho": 0.475
+       },
+       "1000to2999": {
+        "n": 71,
+        "rho": 0.344
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 30,
+        "rho": 0.095
+       },
+       "1000to2999": {
+        "n": 13,
+        "rho": -0.143
+       }
+      }
+     },
+     "DB": {
+      "all": {
+       "allValues": {
+        "n": 137,
+        "rho": 0.358
+       },
+       "1000to2999": {
+        "n": 109,
+        "rho": 0.299
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 102,
+        "rho": 0.25
+       },
+       "1000to2999": {
+        "n": 83,
+        "rho": 0.18
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 35,
+        "rho": 0.217
+       },
+       "1000to2999": {
+        "n": 26,
+        "rho": 0.136
+       }
+      }
+     }
+    },
+    "preseasonServed": {
+     "offense": {
+      "all": {
+       "allValues": {
+        "n": 380,
+        "rho": 0.621
+       },
+       "1000to2999": {
+        "n": 249,
+        "rho": 0.344
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 323,
+        "rho": 0.572
+       },
+       "1000to2999": {
+        "n": 192,
+        "rho": 0.258
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 57,
+        "rho": -0.098
+       },
+       "1000to2999": {
+        "n": 57,
+        "rho": -0.098
+       }
+      }
+     },
+     "idp": {
+      "all": {
+       "allValues": {
+        "n": 309,
+        "rho": 0.361
+       },
+       "1000to2999": {
+        "n": 266,
+        "rho": 0.278
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 247,
+        "rho": 0.282
+       },
+       "1000to2999": {
+        "n": 204,
+        "rho": 0.193
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 62,
+        "rho": -0.044
+       },
+       "1000to2999": {
+        "n": 62,
+        "rho": -0.044
+       }
+      }
+     },
+     "QB": {
+      "all": {
+       "allValues": {
+        "n": 54,
+        "rho": 0.649
+       },
+       "1000to2999": {
+        "n": 26,
+        "rho": 0.288
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 52,
+        "rho": 0.629
+       },
+       "1000to2999": {
+        "n": 24,
+        "rho": 0.284
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 2,
+        "rho": null
+       },
+       "1000to2999": {
+        "n": 2,
+        "rho": null
+       }
+      }
+     },
+     "RB": {
+      "all": {
+       "allValues": {
+        "n": 104,
+        "rho": 0.642
+       },
+       "1000to2999": {
+        "n": 74,
+        "rho": 0.446
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 87,
+        "rho": 0.575
+       },
+       "1000to2999": {
+        "n": 57,
+        "rho": 0.348
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 17,
+        "rho": -0.026
+       },
+       "1000to2999": {
+        "n": 17,
+        "rho": -0.026
+       }
+      }
+     },
+     "WR": {
+      "all": {
+       "allValues": {
+        "n": 147,
+        "rho": 0.595
+       },
+       "1000to2999": {
+        "n": 97,
+        "rho": 0.327
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 125,
+        "rho": 0.537
+       },
+       "1000to2999": {
+        "n": 75,
+        "rho": 0.184
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 22,
+        "rho": 0.074
+       },
+       "1000to2999": {
+        "n": 22,
+        "rho": 0.074
+       }
+      }
+     },
+     "TE": {
+      "all": {
+       "allValues": {
+        "n": 75,
+        "rho": 0.582
+       },
+       "1000to2999": {
+        "n": 52,
+        "rho": 0.259
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 59,
+        "rho": 0.499
+       },
+       "1000to2999": {
+        "n": 36,
+        "rho": 0.069
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 16,
+        "rho": -0.593
+       },
+       "1000to2999": {
+        "n": 16,
+        "rho": -0.593
+       }
+      }
+     },
+     "DL": {
+      "all": {
+       "allValues": {
+        "n": 93,
+        "rho": 0.256
+       },
+       "1000to2999": {
+        "n": 82,
+        "rho": 0.283
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 67,
+        "rho": 0.162
+       },
+       "1000to2999": {
+        "n": 56,
+        "rho": 0.246
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 26,
+        "rho": -0.21
+       },
+       "1000to2999": {
+        "n": 26,
+        "rho": -0.21
+       }
+      }
+     },
+     "LB": {
+      "all": {
+       "allValues": {
+        "n": 111,
+        "rho": 0.496
+       },
+       "1000to2999": {
+        "n": 86,
+        "rho": 0.364
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 97,
+        "rho": 0.423
+       },
+       "1000to2999": {
+        "n": 72,
+        "rho": 0.258
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 14,
+        "rho": 0.127
+       },
+       "1000to2999": {
+        "n": 14,
+        "rho": 0.127
+       }
+      }
+     },
+     "DB": {
+      "all": {
+       "allValues": {
+        "n": 105,
+        "rho": 0.273
+       },
+       "1000to2999": {
+        "n": 98,
+        "rho": 0.188
+       }
+      },
+      "rostered": {
+       "allValues": {
+        "n": 83,
+        "rho": 0.187
+       },
+       "1000to2999": {
+        "n": 76,
+        "rho": 0.078
+       }
+      },
+      "unrostered": {
+       "allValues": {
+        "n": 22,
+        "rho": -0.013
+       },
+       "1000to2999": {
+        "n": 22,
+        "rho": -0.013
+       }
+      }
+     }
+    }
+   }
+  },
+  "tackleProfile": {
+   "DL": {
+    "medianTackleShareTop10UnrosteredByValue": 0.4,
+    "medianTackleShareCanonicalStarters": 0.26
+   },
+   "LB": {
+    "medianTackleShareTop10UnrosteredByValue": 0.51,
+    "medianTackleShareCanonicalStarters": 0.6
+   },
+   "DB": {
+    "medianTackleShareTop10UnrosteredByValue": 0.61,
+    "medianTackleShareCanonicalStarters": 0.51
+   }
+  }
+ },
+ "H4_managerBehaviour": {
+  "aucRosteredVsUnrostered": {
+   "offense": {
+    "rostered": 289,
+    "unrostered": 55,
+    "aucCanonicalValue": 0.926,
+    "aucLeagueScoredPpg": 0.9
+   },
+   "idp": {
+    "rostered": 269,
+    "unrostered": 83,
+    "aucCanonicalValue": 0.787,
+    "aucLeagueScoredPpg": 0.791
+   },
+   "DL": {
+    "rostered": 76,
+    "unrostered": 36,
+    "aucCanonicalValue": 0.771,
+    "aucLeagueScoredPpg": 0.751
+   },
+   "LB": {
+    "rostered": 96,
+    "unrostered": 21,
+    "aucCanonicalValue": 0.9,
+    "aucLeagueScoredPpg": 0.894
+   },
+   "DB": {
+    "rostered": 97,
+    "unrostered": 26,
+    "aucCanonicalValue": 0.709,
+    "aucLeagueScoredPpg": 0.697
+   }
+  },
+  "top10UnrosteredVsLowestStarter": {
+   "DL": {
+    "lowestValuedStarterPpg": 7.89,
+    "top10UnrosteredMedianPpg": 6.3,
+    "top10UnrosteredOutscoringLowestStarter": 1,
+    "top10UnrosteredWithFewerThanMinGames": 2
+   },
+   "LB": {
+    "lowestValuedStarterPpg": 8.23,
+    "top10UnrosteredMedianPpg": 2.09,
+    "top10UnrosteredOutscoringLowestStarter": 2,
+    "top10UnrosteredWithFewerThanMinGames": 3
+   },
+   "DB": {
+    "lowestValuedStarterPpg": 10.27,
+    "top10UnrosteredMedianPpg": 8.46,
+    "top10UnrosteredOutscoringLowestStarter": 2,
+    "top10UnrosteredWithFewerThanMinGames": 3
+   }
+  },
+  "transactionsWeeks1toNplus1": {
+   "idp_adds": {
+    "commissioner": 20,
+    "free_agent": 23,
+    "trade": 39,
+    "waiver": 153
+   },
+   "idp_drops": {
+    "commissioner": 20,
+    "free_agent": 36,
+    "trade": 39,
+    "waiver": 83
+   },
+   "offense_adds": {
+    "commissioner": 24,
+    "free_agent": 13,
+    "trade": 227,
+    "waiver": 136
+   },
+   "offense_drops": {
+    "commissioner": 21,
+    "free_agent": 55,
+    "trade": 227,
+    "waiver": 81
+   }
+  }
+ },
+ "H5_boardMovement": {
+  "test": "median today/then value ratio, both values from TODAY's code (sensitivity replay: inputs move, methodology fixed), and today's replay over the SERVED pre-season value (mixes input moves AND pipeline changes)",
+  "groups": {
+   "idp:rostered_1000to2999": {
+    "Tminus60": {
+     "n": 218,
+     "medianTodayOverThen": 0.94
+    },
+    "Tminus30": {
+     "n": 221,
+     "medianTodayOverThen": 0.996
+    },
+    "Tminus14": {
+     "n": 221,
+     "medianTodayOverThen": 1.007
+    },
+    "servedPreseason": {
+     "n": 209,
+     "medianTodayReplayOverServedPreseason": 0.939
+    },
+    "rosteredTminus60": 185
+   },
+   "idp:unrostered_atOrAboveLowestStarter": {
+    "Tminus60": {
+     "n": 24,
+     "medianTodayOverThen": 0.986
+    },
+    "Tminus30": {
+     "n": 24,
+     "medianTodayOverThen": 1.009
+    },
+    "Tminus14": {
+     "n": 24,
+     "medianTodayOverThen": 1.013
+    },
+    "servedPreseason": {
+     "n": 24,
+     "medianTodayReplayOverServedPreseason": 0.964
+    },
+    "rosteredTminus60": 13
+   },
+   "offense:rostered_1000to2999": {
+    "Tminus60": {
+     "n": 215,
+     "medianTodayOverThen": 0.966
+    },
+    "Tminus30": {
+     "n": 219,
+     "medianTodayOverThen": 0.995
+    },
+    "Tminus14": {
+     "n": 224,
+     "medianTodayOverThen": 1.001
+    },
+    "servedPreseason": {
+     "n": 197,
+     "medianTodayReplayOverServedPreseason": 0.972
+    },
+    "rosteredTminus60": 192
+   },
+   "offense:unrostered_atOrAboveLowestStarter": {
+    "Tminus60": {
+     "n": 11,
+     "medianTodayOverThen": 0.96
+    },
+    "Tminus30": {
+     "n": 11,
+     "medianTodayOverThen": 0.99
+    },
+    "Tminus14": {
+     "n": 11,
+     "medianTodayOverThen": 0.989
+    },
+    "servedPreseason": {
+     "n": 10,
+     "medianTodayReplayOverServedPreseason": 0.957
+    },
+    "rosteredTminus60": 8
+   }
+  }
+ },
+ "readout": {
+  "H1": {
+   "idpUnrosteredAtOrAboveLowestStarter": {
+    "DL": 8,
+    "LB": 5,
+    "DB": 11
+   },
+   "ofThoseOnLiveRosters": 0,
+   "ofThoseWithoutNflTeam": 0,
+   "ofThoseInjuredOrInactiveNow": 10,
+   "healthyWaiverBestVsLowestStarter": {
+    "DL": [
+     1918,
+     1539
+    ],
+    "LB": [
+     2149,
+     1474
+    ],
+    "DB": [
+     1917,
+     1335
+    ]
+   }
+  },
+  "H2": "lineups are solved on canonical value, so the anomaly is in value space; the lowest-valued IDP starters are productive veterans (see lowestValuedCanonicalStarter)",
+  "H3": {
+   "spearmanValueVsPpg_today": {
+    "offense": 0.774,
+    "idp": 0.45
+   },
+   "spearmanValueVsPpg_preseasonServed": {
+    "offense": 0.67,
+    "idp": 0.403
+   },
+   "spearmanValueVsPpg_1000to2999_today": {
+    "offense": 0.511,
+    "idp": 0.352
+   }
+  },
+  "H4": {
+   "aucValue_offense_vs_idp": [
+    0.926,
+    0.787
+   ],
+   "aucPpg_offense_vs_idp": [
+    0.9,
+    0.791
+   ],
+   "waiverAndFreeAgentAdds_idp_vs_offense": [
+    176,
+    149
+   ]
+  },
+  "H5": {
+   "anomalousIdpMedianRatio_Tminus60": 0.986,
+   "rosteredIdp1000to2999MedianRatio_Tminus60": 0.94,
+   "anomalousIdpRosteredAtTminus60": 13
+  }
+ },
+ "timingsSec": 9.4
+}
