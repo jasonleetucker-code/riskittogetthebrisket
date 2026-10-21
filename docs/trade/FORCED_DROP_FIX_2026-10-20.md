@@ -12,6 +12,13 @@ Evidence: [`evidence/forced_drop_fix_2026-10-20/replay.json`](evidence/forced_dr
 `dynasty_export_20261020_052241` **and** the `CSVs/`, `data/scrape_state`, `config/weights` tree of `d5236546f`, both
 pinned — §0).
 
+**Verdict-change analysis (LOCAL replay):** why the verdicts move, how much of it is correction vs modelling assumption
+vs sensitivity, who is affected, the overstatement test and the scarcity / anchor sensitivity —
+[`FORCED_DROP_VERDICT_CHANGE_ANALYSIS_2026-10-21.md`](FORCED_DROP_VERDICT_CHANGE_ANALYSIS_2026-10-21.md)
+(aggregates: [`evidence/forced_drop_fix_2026-10-20/verdict_change_analysis.json`](evidence/forced_drop_fix_2026-10-20/verdict_change_analysis.json)).
+Production-box replay (prepared, **not run**, needs owner authorization):
+[`FORCED_DROP_BOX_REPLAY_RUNBOOK_2026-10-21.md`](FORCED_DROP_BOX_REPLAY_RUNBOOK_2026-10-21.md).
+
 ## 0. Re-measured 2026-10-21 on main@7f35463ef after train 17 (fairness_bands_v2); pre-train-17 figures superseded
 
 Every number in §2, §3a, §7 and §8 now describes the merged tree that would ship (code `17765f0b6` = this branch
