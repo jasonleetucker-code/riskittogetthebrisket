@@ -4,8 +4,12 @@
 Owner decision 2026-10-20 §2 (``docs/owner/LOW_VALUE_ASSET_OWNER_DECISIONS_2026-10-20.md``).
 The candidate is ``src/trade/forced_drop_selection.py`` behind flag
 ``forced_drop_cheapest_legal`` (default OFF).  This script measures, on the
-newest committed board archive and the ``dynasty_main`` rosters it carries,
-what turning the flag ON would change.  The flag is toggled IN-PROCESS only
+board archive pinned by ``--archive`` (default: the research board
+``low_value_asset_forced_drop_diagnostic.ARCHIVE_DEFAULT`` — NOT the newest
+archive, so a re-measurement on a later tree compares like with like) and the
+``dynasty_main`` rosters it carries, what turning the flag ON would change.  The
+fairness-band version in force is read from the band owner
+(``src/valuation_math/fairness_bands.receipt()``) and stamped in the evidence.  The flag is toggled IN-PROCESS only
 (env var + ``feature_flags.reload()``, always restored); nothing is written but
 the evidence JSON.
 
@@ -18,8 +22,10 @@ Sections:
    (charge surplus over replacement), and the MEASURED flag-ON outcome through
    the production path.
 2. **Analyze verdicts** — for every step of (1) with Team Context ON: the
-   ``/api/trade/analyze`` headline and ``public_category_from_decision`` flag
-   OFF vs ON.
+   ``/api/trade/analyze`` headline and the private 5-level category
+   (``team_verdicts.team_category``, formerly ``trade_decision.
+   public_category_from_decision`` — same table, moved by the N-team advisor
+   work) flag OFF vs ON.
 3. **Census** — every ``dynasty_main`` team x a seeded set of real 1-for-2,
    2-for-1 and 1-for-3 trades from its rivals' rosters: ``/api/trade/simulate``
    rosterCapacity (drop set, charge), analyze headline and public category,
@@ -53,14 +59,19 @@ from __future__ import annotations
 import argparse
 import contextlib
 import copy
+import functools
 import hashlib
 import importlib.util
+import io
 import itertools
 import json
 import os
 import random
 import statistics
+import subprocess
 import sys
+import tarfile
+import tempfile
 import time
 from collections import Counter
 from pathlib import Path
@@ -90,10 +101,92 @@ from src.trade import analyze_trade as AT  # noqa: E402
 from src.trade import roster_capacity as RC  # noqa: E402
 from src.trade import trade_decision as TD  # noqa: E402
 from src.trade import forced_drop_selection as FDS  # noqa: E402
+from src.trade import team_verdicts as TV  # noqa: E402
 from src.valuation_math import package_model as pm  # noqa: E402
+from src.valuation_math import fairness_bands as FB  # noqa: E402
 
 LEAGUE = D.LEAGUE
 ENV = "RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL"
+
+
+# ── the board pin ─────────────────────────────────────────────────────────
+
+#: What ``build_api_data_contract(csv_root=...)`` reads from a repository tree
+#: besides the archive: the source CSVs, the per-source fetch stamps and the
+#: coverage-floor configs.  The archive alone does NOT pin the board — the
+#: 2-hourly source refreshes on ``main`` move these paths.
+CSV_TREE_PATHS = ("CSVs", "data/scrape_state", "config/weights")
+
+
+def _git(*args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(REPO), *args], check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def _tree_content_sha256(root: Path) -> str:
+    """sha256 over (relative path, bytes) of every file under ``CSV_TREE_PATHS``."""
+    h = hashlib.sha256()
+    for top in CSV_TREE_PATHS:
+        base = root / top
+        if not base.exists():
+            continue
+        for p in sorted(x for x in base.rglob("*") if x.is_file()):
+            h.update(p.relative_to(root).as_posix().encode() + b"\0")
+            h.update(hashlib.sha256(p.read_bytes()).digest())
+    return h.hexdigest()
+
+
+@contextlib.contextmanager
+def csv_tree(rev: str | None):
+    """Yield ``(csv_root, provenance)``.  ``rev`` None = the working tree
+    (``csv_root`` None, the contract build's own default); otherwise
+    ``CSV_TREE_PATHS`` at that git revision, materialised into a temporary
+    directory that is deleted on exit."""
+    if rev is None:
+        yield None, {"source": "working tree", "contentSha256": _tree_content_sha256(REPO)}
+        return
+    full = _git("rev-parse", "--verify", f"{rev}^{{commit}}")
+    tar = subprocess.run(
+        ["git", "-C", str(REPO), "archive", "--format=tar", full, *CSV_TREE_PATHS],
+        check=True,
+        capture_output=True,
+    ).stdout
+    with tempfile.TemporaryDirectory(prefix="fdr-csv-tree-") as tmp:
+        with tarfile.open(fileobj=io.BytesIO(tar)) as tf:
+            tf.extractall(tmp, filter="data")
+        root = Path(tmp)
+        yield (
+            root,
+            {
+                "source": "git revision",
+                "revisionSha": full,
+                "revisionCommittedAt": _git("log", "-1", "--format=%cI", full),
+                "contentSha256": _tree_content_sha256(root),
+            },
+        )
+
+
+def build_context_pinned(raw: dict, csv_root: Path | None) -> dict:
+    """``S.build_context`` with the contract built against ``csv_root``
+    (``build_context`` imports ``build_api_data_contract`` inside the call, so
+    the module attribute is bound for the build and restored after)."""
+    if csv_root is None:
+        return S.build_context(raw)
+    from src.api import data_contract as dc  # noqa: PLC0415
+
+    original = dc.build_api_data_contract
+    dc.build_api_data_contract = functools.partial(original, csv_root=csv_root)
+    try:
+        return S.build_context(raw)
+    finally:
+        dc.build_api_data_contract = original
+
+
+def built_board_sha256(rows: dict) -> str:
+    """Hash of the built board (name -> canonical value)."""
+    blob = json.dumps(sorted((n, r["value"]) for n, r in rows.items()), separators=(",", ":"))
+    return hashlib.sha256(blob.encode()).hexdigest()
 
 
 @contextlib.contextmanager
@@ -174,7 +267,7 @@ def verdict(packet, s) -> dict:
     a = comp_a(s, True) or {}
     return {
         "headline": dec.get("headline"),
-        "category": TD.public_category_from_decision(dec),
+        "category": TV.team_category(dec),
         "missingEvidence": sorted(m.get("code") for m in dec.get("missingEvidence") or []),
         "netGap": a.get("netGap"),
         "charge": a.get("forcedReleaseCost") or 0,
@@ -333,6 +426,26 @@ def war_room(ctx, max_opps: int, seed: int) -> dict:
     with flag(False):
         diag = D.run_diagnostic(ctx, max_opps, seed)
     results = diag["results"]
+    # Shadow-variant band base.  The diagnostic stores the larger ADJUSTED side
+    # (``step["larger"]``), the fairness_bands_v1 base.  The production decision
+    # (``trade_decision._objective_value``) classifies against the band owner's
+    # basis — since fairness_bands_v2 the larger PACKAGE UTILITY of the same
+    # (full) package — so the shadows are re-based onto what production reads,
+    # taken from the same flag-OFF asset-only objective, never recomputed here.
+    # Under v1 the two bases coincide and nothing changes.
+    rebased = 0
+    for rec in results:
+        s = rec["s"]
+        fill_names = [r["name"] for r in s["fill"]]
+        for st in rec["steps"]:
+            if st.get("larger") is None:
+                continue
+            pin = [s["y"]["name"]] + fill_names[: st["k"]]
+            with flag(False):
+                a = comp_a(sim(ctx, s["me"], pin, [s["x"]["name"]], False), False)
+            st["largerAdjustedSide"] = st["larger"]
+            st["larger"] = a["largerPackageUtility"]
+            rebased += st["larger"] != st["largerAdjustedSide"]
     variants = {v: D.classify_flips(results, v) for v in D.VARIANTS}
 
     # V5 / V6 shadow costs, then the MEASURED flag-ON path.
@@ -539,6 +652,12 @@ def war_room(ctx, max_opps: int, seed: int) -> dict:
             == (133, 85, 43, 5),
             "productionCutSetReconstructed": f"{rm}/{rt}",
         },  # fmt: skip
+        "shadowBandBase": {
+            "base": "largerPackageUtility (the production decision's band base, read from the "
+            "flag-OFF asset-only objective; classified by fairness_bands.classify)",
+            "bandVersion": FB.receipt()["version"],
+            "stepsWhereBaseDiffersFromLargerAdjustedSide": rebased,
+        },
         "variants": variants,
         "analyzeVerdicts": verdicts(""),
         "analyzeVerdictsRosterRational": verdicts("R"),
@@ -877,12 +996,19 @@ def main() -> int:
     ap.add_argument("--census-per-shape", type=int, default=8)
     ap.add_argument("--finder-top-k", type=int, default=20)
     ap.add_argument("--skip-finder", action="store_true")
+    ap.add_argument(
+        "--csv-rev",
+        default=None,
+        help="git revision whose " + ", ".join(CSV_TREE_PATHS) + " the contract build reads "
+        "(default: the working tree); with --archive this pins the whole board",
+    )
     args = ap.parse_args()
     assert pm.active_model_id() == pm.GEOM_Q078_V1
     t0 = time.time()
     member, blob, raw = D.load_archive(args.archive)
     sha = hashlib.sha256(blob).hexdigest()
-    ctx = S.build_context(raw)
+    with csv_tree(args.csv_rev) as (csv_root, csv_provenance):
+        ctx = build_context_pinned(raw, csv_root)
     S.classify_assets(ctx)
 
     wr = war_room(ctx, args.war_room_opps, S.SEED + 2)
@@ -900,7 +1026,18 @@ def main() -> int:
         "rule": FDS.RULE_ID,
         "ruleRosterRational": FDS.RULE_ID_ROSTER_RATIONAL,
         "defaultSelectionMode": FDS.SELECTION_MODE,
-        "board": {"archive": args.archive, "member": member, "sha256": sha},
+        "board": {
+            "archive": args.archive,
+            "member": member,
+            "sha256": sha,
+            "pricedAssets": len(ctx["rows"]),
+            "builtBoardSha256": built_board_sha256(ctx["rows"]),
+            "csvTree": {"paths": list(CSV_TREE_PATHS), **csv_provenance},
+            "pinNote": "the board is a function of the archive AND the CSV tree (source CSVs, "
+            "scrape-state stamps, config/weights) the contract build reads; builtBoardSha256 "
+            "hashes the resulting name -> canonical value map",
+        },
+        "fairnessBands": FB.receipt(),
         "codeSha": S.P1._git_sha(),
         "warRoom": wr,
         "census": cen,
