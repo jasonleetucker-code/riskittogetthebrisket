@@ -178,11 +178,15 @@ def league_depth_lines(
     # R_* — the league-wide replacement level (FAAB V_repl), as the study built it.
     pick_line: float | None = None
     starters = (roster_settings or {}).get("starters")
-    spt = (
-        sum(int(v or 0) for k, v in starters.items() if str(k).upper() != "K")
+    counts = (
+        [v for k, v in starters.items() if str(k).upper() != "K"]
         if isinstance(starters, Mapping)
-        else 0
+        else []
     )
+    # A count we cannot read is unknown, never 0 slots: refuse the line.
+    if not counts or not all(isinstance(v, int) and not isinstance(v, bool) for v in counts):
+        return "lines_unavailable:no_starter_counts"
+    spt = sum(counts)
     if spt <= 0:
         return "lines_unavailable:no_starter_counts"
     excluded = set(faab_engine.FaabConfig().get("anchors", "excludedPositions", []) or [])
@@ -319,11 +323,17 @@ def _counts_as_fair(level: Any) -> bool:
     return fairness_bands.counts_as_fair_trade(level)
 
 
-def _region(result: Mapping[str, Any]) -> Region:
+def _region(result: Mapping[str, Any]) -> Region | None:
+    """``fair`` inside the band, else the gap's sign; ``None`` when the verdict
+    carries no readable band or gap (unknown, never "fair" by default)."""
     level = (result.get("band") or {}).get("level")
+    if level is None:
+        return None
     if _counts_as_fair(level):
         return "fair"
-    gap = float(result.get("vaAdjustedGap") or 0)
+    gap = result.get("vaAdjustedGap")
+    if not isinstance(gap, (int, float)) or isinstance(gap, bool):
+        return None
     if gap > 0:
         return "favour"
     if gap < 0:
@@ -364,6 +374,8 @@ def team_depth_disclosure(
     removed = set(extras)
     cf = verdict(gv_values, [v for i, v in enumerate(rcv_values) if i not in removed])
     region, cf_region = _region(real), _region(cf)
+    if region is None or cf_region is None:
+        return TeamDepthDisclosure(STATE_NOT_EVALUATED, "result_unavailable")
     common = {
         "region": region,
         "counterfactual_region": cf_region,

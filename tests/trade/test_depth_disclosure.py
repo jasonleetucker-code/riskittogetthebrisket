@@ -124,9 +124,24 @@ def test_league_lines_fail_closed(mutate, reason):
     assert dd.league_depth_lines(c, "main", F.SETTINGS) == f"lines_unavailable:{reason}"
 
 
-def test_league_lines_need_the_leagues_own_starter_counts():
-    out = dd.league_depth_lines(F.contract(), "main", {"teamCount": 2})
+@pytest.mark.parametrize(
+    "settings",
+    [{"teamCount": 2}, {"starters": {"QB": None, "WR": 1}}, {"starters": {"QB": "1"}}],
+)
+def test_league_lines_need_the_leagues_own_starter_counts(settings):
+    out = dd.league_depth_lines(F.contract(), "main", settings)
     assert out == "lines_unavailable:no_starter_counts"
+
+
+def test_an_unreadable_verdict_is_not_evaluated_never_fair():
+    rcv = [F.asset("star", 5000, "WR"), F.asset("f", 600, "WR")]
+    gv = [F.asset("g", 5200, "WR")]
+    d = dd.team_depth_disclosure(rcv, gv, _lines(), verdict=lambda _g, _r: {"band": {}})
+    assert d.state == dd.STATE_NOT_EVALUATED and d.reason == "result_unavailable"
+    d = dd.team_depth_disclosure(
+        rcv, gv, _lines(), verdict=lambda _g, _r: {"band": {"level": "unfair"}}
+    )
+    assert d.reason == "result_unavailable"
 
 
 # ── §3.1 rule A-guarded ───────────────────────────────────────────────────
