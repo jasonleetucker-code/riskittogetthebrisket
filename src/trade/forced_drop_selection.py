@@ -355,6 +355,16 @@ class Selection:
     #: ``None`` unless a released acquired set's package credit was clamped to
     #: ``[0, c]``: ``{"reasons": [...], "rawCredit": x, "charged": y}``.
     credit_clamp: dict[str, Any] | None = None
+    #: V5-R only.  ``None`` unless more than one legal cut set attains the
+    #: minimum ``sum c`` AND those sets differ in charge, which happens on an
+    #: exact ``c`` tie between an existing player and a just-acquired piece.
+    #: In that case the set with the LOWEST charge is chosen, never the one
+    #: with the lower player id; the dict is
+    #: ``{"tiedMinimumSets", "chargeSpread", "resolvedBy"}``.  If the
+    #: acquired-subset search bound rules out the exact search and such a tie
+    #: exists, ``resolvedBy`` is ``"player_id_search_bound"``: published, never
+    #: silent.
+    tie_break: dict[str, Any] | None = None
 
     @property
     def total(self) -> float:
@@ -402,6 +412,37 @@ def _ladder_ids(
     return [r.player_id for r in ladder.rungs]
 
 
+def _release_ties(
+    chosen: Sequence[str],
+    by_internal: Mapping[str, RosterAsset],
+    meta: Mapping[str, tuple],
+) -> tuple[bool, bool]:
+    """``(any_tie, charge_relevant)`` for the V5-R ladder's cut set.
+
+    ``any_tie``: a released candidate has exactly the release value ``c`` of a
+    KEPT one.  Legal cut sets are the bases of a matroid, so a second minimum
+    ``sum c`` set exists only if such a pair exists.  Without one the ladder's
+    set is the unique minimum and no tie search is needed (exact).
+
+    ``charge_relevant``: such a pair in which at least one side is just
+    acquired.  Two EXISTING players tied on ``c`` charge the same either way.
+    A tie involving an acquired piece (against an existing player, or against
+    another acquired piece, for example one the package did not credit) can
+    change the charge."""
+    picked = set(chosen)
+    kept: dict[float, list[bool]] = {}
+    for pid in by_internal:
+        if pid not in picked:
+            kept.setdefault(round(meta[pid][2], 9), []).append(meta[pid][1])
+    any_tie = relevant = False
+    for pid in chosen:
+        kinds = kept.get(round(meta[pid][2], 9))
+        if kinds:
+            any_tie = True
+            relevant = relevant or meta[pid][1] or any(kinds)
+    return any_tie, relevant
+
+
 def select_forced_drops(
     existing: Sequence[RosterAsset],
     incoming: Sequence[RosterAsset],
@@ -420,7 +461,10 @@ def select_forced_drops(
     ``existing`` is the surviving pre-trade roster, ``incoming`` the acquired
     players with ``incoming_labels`` the caller's label for each (what the
     package is keyed by).  Pure; deterministic; independent of roster order and
-    of player names (ties break on player id).  ``mode`` (default
+    of player names.  Under V5-R, when cut sets tie on ``sum c``, the one with
+    the lower CHARGE is chosen (:attr:`Selection.tie_break`).  Only sets that
+    are equal on both fall back to player id, and those leave the charge, and so
+    every verdict, unchanged.  ``mode`` (default
     :data:`SELECTION_MODE`) picks V5 or V5-R; it matters only when a package
     is supplied and a just-acquired player is a candidate.
     """
@@ -600,17 +644,13 @@ def select_forced_drops(
             sel.package_applied = True
             return sel
 
-        if mode == MODE_ROSTER_RATIONAL:
-            # V5-R: the cut SET is the cheapest legal set by ``c`` over the
-            # whole post-trade pool (existing and incoming in one unit); the
-            # CHARGE then nets an acquired cut out of the package.
-            rungs = _ladder_ids(pool, rungs=d, key=cost_key, candidates=None, **common)
-            if len(rungs) == d:
-                J = [pid for pid in rungs if meta[pid][1]]
-                return finish(J, [pid for pid in rungs if not meta[pid][1]])
-        else:
-            best: tuple | None = None
-            ordered_acq = sorted(acquired_ids, key=lambda pid: cost_key(by_internal[pid]))
+        ordered_acq = sorted(acquired_ids, key=lambda pid: cost_key(by_internal[pid]))
+
+        def legal_cleanups():
+            """For every acquired subset ``J``, cheapest first, the cheapest
+            legal completion from the existing roster: ``(J, rest, rungs)``.
+            This covers the acquired part of every minimum-``sum c`` cut set,
+            because for a fixed ``J`` the completion is the cheapest by ``c``."""
             for j in range(0, min(d, len(ordered_acq)) + 1):
                 for J in itertools.combinations(ordered_acq, j):
                     jset = set(J)
@@ -625,14 +665,63 @@ def select_forced_drops(
                         continue  # releasing J itself breaks the lineup
                     if len(rungs) < d:
                         continue  # no complete legal cleanup with this J
-                    rest = rungs[len(J) :]
-                    total = charge_of(J, rest)
-                    tie = tuple(sorted(meta[pid][8] for pid in rungs))
-                    cand = (round(total, 9), len(J), tie, J, rest)
-                    if best is None or cand[:3] < best[:3]:
-                        best = cand
+                    yield J, rungs[len(J) :], rungs
+
+        if mode == MODE_ROSTER_RATIONAL:
+            # V5-R: the cut SET is the cheapest legal set by ``c`` over the
+            # whole post-trade pool (existing and incoming in one unit); the
+            # CHARGE then nets an acquired cut out of the package.
+            rungs = _ladder_ids(pool, rungs=d, key=cost_key, candidates=None, **common)
+            if len(rungs) == d:
+                j0 = [pid for pid in rungs if meta[pid][1]]
+                rest0 = [pid for pid in rungs if not meta[pid][1]]
+                min_c = sum(meta[pid][2] for pid in rungs)
+                tol = 1e-9 * max(1.0, abs(min_c))
+                # Without a charge-relevant tie the ladder's set is the unique
+                # minimum, or its rivals differ only in which tied EXISTING
+                # player is named (same charge): one ladder, no search (exact).
+                _, relevant = _release_ties(rungs, by_internal, meta)
+                if relevant and n_subsets <= MAX_PACKAGE_SUBSETS:
+                    # Exact c ties: among the minimum-sum-c sets the LOWEST
+                    # CHARGE wins (owner-decision follow-up, 2026-10-21).  The
+                    # ladder alone breaks such a tie on player id, which moved
+                    # the charge by up to an incoming piece's depth discount.
+                    tied = []
+                    for J, rest, rr in legal_cleanups():
+                        if abs(sum(meta[pid][2] for pid in rr) - min_c) <= tol:
+                            ids = tuple(sorted(meta[pid][8] for pid in rr))
+                            tied.append((round(charge_of(J, rest), 9), len(J), ids, J, rest))
+                    charges = {t[0] for t in tied}
+                    if len(charges) > 1:
+                        best = min(tied, key=lambda t: t[:3])
+                        sel.tie_break = {
+                            "tiedMinimumSets": len(tied),
+                            "chargeSpread": round(max(charges) - min(charges), 1),
+                            "resolvedBy": "lowest_charge",
+                        }
+                        return finish(list(best[3]), list(best[4]))
+                elif relevant:
+                    sel.tie_break = {
+                        "tiedMinimumSets": None,
+                        "chargeSpread": None,
+                        "resolvedBy": "player_id_search_bound",
+                    }
+                    sel.notes.append(
+                        "a just-acquired player tied exactly on release value with another "
+                        "candidate, and the acquired-subset search bound prevented the exact "
+                        "lowest-charge search; the tie was broken by player id"
+                    )
+                return finish(j0, rest0)
+        else:
+            best: tuple | None = None
+            for J, rest, rr in legal_cleanups():
+                total = charge_of(J, rest)
+                tie = tuple(sorted(meta[pid][8] for pid in rr))
+                cand = (round(total, 9), len(J), tie, J, rest)
+                if best is None or cand[:3] < best[:3]:
+                    best = cand
             if best is not None:
-                return finish(best[3], best[4])
+                return finish(list(best[3]), list(best[4]))
         sel.notes.append(
             "no complete lineup-legal cleanup exists with the package step; "
             "falling back to the cheapest legal releases available"

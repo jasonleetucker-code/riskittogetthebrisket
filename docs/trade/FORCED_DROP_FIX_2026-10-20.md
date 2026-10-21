@@ -520,7 +520,7 @@ market convention differs from the roster answer.
 
 1. ~~**Owner decision — selection mode**~~ **DECIDED 2026-10-21: V5-R** (`roster_rational`, now the constant's value;
    `docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md` Package 1). The dormant merge and the read-only box replay are
-   authorized. Activation is not: it needs items 2-4 plus the non-monotonicity investigation.
+   authorized. Activation is not: it needs items 2-4 and 6-13.
 2. **Owner approval of the §8 production impact** for the chosen mode.
 3. **Box replay with real scarcity and Component B** (`scripts/forced_drop_fix_replay.py` on the box, both modes):
    every number here is at scarcity 1.0 with Component B in its not-applicable state. It must report the currency
@@ -535,6 +535,33 @@ market convention differs from the roster answer.
    * and when `forcedReleaseChargeState` is `assumed` / `mixed_bound`, append "(N is an upper estimate — X has no
      board value)"; `lower_bound`: "(at least N)".
 5. Independent re-review of the review fixes (A–F) — performed by the reviewer, not the implementer.
+
+**Added 2026-10-21 by the independent review of the V5-R default (both reviews agree V5-R and the dormant merge).**
+Every item below also blocks activation:
+
+6. **V5-R exact-tie behaviour.** ~~Ties between an existing and an incoming player on exactly equal `c` were broken by
+   player id, which moved the charge by up to the incoming piece's depth discount (220 points in the reviewer's
+   construction) for identical final rosters.~~ **FIXED in the follow-up PR.** Among cut sets with the minimum
+   `sum c`, the lowest charge now wins (`Selection.tie_break`, published as `forcedDropSelection.tieBreak`). Against
+   the old code, an id-relabelling property test failed on 26 of 60 seeds; it now passes on all 60. Activation still
+   needs the box tie census (runbook §5a); a non-zero `player_id_search_bound` count must be explained.
+7. **The cheap single-source tail.** In the stress variant, favourable census verdicts fall from 111 to 12 (V5) and
+   from 103 to 9 (V5-R). The owner decides whether single-source values of 226-440 are real cut costs; until then
+   class A is not established.
+8. **Unpriced rostered players** (the 49-54 evidence-gate lifts). Either clean the roster feed of dead roster spots,
+   or accept charging them the waiver ceiling. The box `unpricedRosterCensus` sizes the question.
+9. **Non-monotonicity statement.** The activation note must say, in plain words, that "a depth sweetener can lower the
+   displayed net by up to its depth discount when it displaces a rostered player worth more than its credit". The
+   reviewer traced it to the credit-vs-full-value currency, not to selection: 313 of 3,000 synthetic trades under
+   V5-R against 6 under V5. Fixing it would change the accounting (an owner decision), not the mode.
+10. **Copy and backend publishes** (extends item 4). Never "worth" for a charge. The backend must publish
+    `chargedInMarginal` per drop, so the sentence names only charged cuts. `chargeBasis` must stay distinct for
+    uncredited and no-package releases, and `forcedReleaseChargeBasis` must be computed over charged drops only.
+    Per-player numbers for released incoming players must not be shown: the sequential-removal split can exceed a
+    piece's own value.
+11. **V5-R production impact**, approved by the owner for V5-R specifically. The §8 tables are V5 headline numbers.
+12. **Over-cap marginal-charge policy** (class D) accepted or rejected.
+13. **Perfect Draft** stays a separate authorization (same selection flaw, untouched here).
 
 ## 11. UNRESOLVED
 
