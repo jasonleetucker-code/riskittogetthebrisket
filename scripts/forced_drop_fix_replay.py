@@ -52,6 +52,24 @@ replay with real scarcity must report both directions.
 Output: ``docs/trade/evidence/forced_drop_fix_2026-10-20/replay.json`` —
 aggregates and NFL player names only (no league / user / roster / team ids, no
 team or manager names; checked with ``assert_aggregate_only``).
+
+``--box`` — the READ-ONLY production-box mode (prepared, owner-run only; record
+``docs/trade/FORCED_DROP_BOX_REPLAY_RUNBOOK_2026-10-21.md``).  Same pattern as
+``package_model_phase3_research.py --box``: the audit-hook guard
+(``research_readonly_guard.py``) is installed BEFORE any application import, so
+the process cannot write outside its private scratch directory, open a network
+connection, start a subprocess or open SQLite read-write; resource caps (nice,
+address space, CPU, wall clock) are applied; the board is PINNED (archive sha256,
+CSV-tree sha256, code SHA, built-board sha256 — a mismatch stops the run before
+anything is measured); the report goes to STDOUT only and is refused unless it is
+aggregate-only (``forced_drop_box_support.assert_box_output_safe``, which also
+rejects any replayed league's ids, team and owner names).  Beyond the local
+replay it measures real scarcity (the observed multiplier spread, no longer
+inert), Component B / posture where the box has them (a second, B-voting
+verdict census beside the A-driven stand-in), and reports the forward AND
+reverse currency anomalies.  ``--box-selftest`` runs the guard's refusals only
+(no application import) and exits.  Exit codes: 0 ok, 2 pin mismatch, 3 guard
+refusal, 4 output refused, 5 resource cap.
 """
 
 from __future__ import annotations
@@ -74,11 +92,84 @@ import tarfile
 import tempfile
 import time
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+BOX = "--box" in sys.argv
+REPO = Path(
+    (os.environ.get("RISKIT_APP_DIR") if BOX else None) or Path(__file__).resolve().parents[1]
+).resolve()
 SCRIPT_DIR = Path(__file__).resolve().parent
 OUT_DEFAULT = "docs/trade/evidence/forced_drop_fix_2026-10-20/replay.json"
+
+# ── --box: the read-only guard goes in BEFORE any application import ────────
+# numpy (third party, no application code) is imported first because CPython's
+# ctypes import performs a dlopen the guard refuses; no bytecode is written.
+GUARD = None
+if BOX:
+    sys.dont_write_bytecode = True
+    try:
+        import numpy  # noqa: F401
+    except ImportError:  # pragma: no cover
+        pass
+    _gspec = importlib.util.spec_from_file_location(
+        "research_readonly_guard", SCRIPT_DIR / "research_readonly_guard.py"
+    )
+    GUARD = importlib.util.module_from_spec(_gspec)
+    sys.modules["research_readonly_guard"] = GUARD
+    _gspec.loader.exec_module(GUARD)
+    GUARD.install()
+    if "--box-selftest" in sys.argv:
+        # The guard's refusals, exercised in THIS process exactly as installed
+        # for a real run, with no application code imported.  Prints JSON.
+        def _attempt(fn):
+            try:
+                fn()
+                return "allowed"
+            except PermissionError:
+                return "refused"
+            except OSError as exc:  # allowed by the guard, failed for another reason
+                return f"allowed:{type(exc).__name__}"
+
+        def _write_outside():
+            with open(os.path.join(os.path.dirname(GUARD._STATE["scratch"]), ".fdr_selftest"), "w"):
+                pass
+
+        def _write_scratch():
+            with open(os.path.join(GUARD._STATE["scratch"], "ok.txt"), "w") as fh:
+                fh.write("x")
+
+        def _connect():
+            import socket
+
+            socket.create_connection(("127.0.0.1", 9), timeout=1)
+
+        def _subprocess():
+            import subprocess
+
+            subprocess.run(["true"], check=False)
+
+        def _sqlite_rw():
+            import sqlite3
+
+            sqlite3.connect(os.path.join(GUARD._STATE["scratch"], "x.db")).close()
+
+        def _mkdir_outside():
+            os.mkdir(os.path.join(os.path.dirname(GUARD._STATE["scratch"]), ".fdr_selftest_dir"))
+
+        report = {
+            "guardInstalled": GUARD.installed(),
+            "writeOutsideScratch": _attempt(_write_outside),
+            "writeInsideScratch": _attempt(_write_scratch),
+            "mkdirOutsideScratch": _attempt(_mkdir_outside),
+            "networkConnect": _attempt(_connect),
+            "subprocess": _attempt(_subprocess),
+            "sqliteReadWrite": _attempt(_sqlite_rw),
+            "refusedEvents": sorted({d["event"] for d in GUARD.denied()}),
+        }
+        print(json.dumps(report))
+        sys.exit(0)
+
 sys.path.insert(0, str(REPO))
 
 
@@ -94,6 +185,14 @@ def _load(name: str):
 
 D = _load("low_value_asset_forced_drop_diagnostic")
 S = D.S
+SUP = _load("forced_drop_box_support")
+
+
+def _code_sha() -> str:
+    """The commit of the code under test.  ``--box`` reads ``.git`` files (the
+    guard forbids starting ``git``); the local run asks git."""
+    return S.P2._deployed_sha(REPO) if BOX else S.P1._git_sha()
+
 
 from src.api import feature_flags  # noqa: E402
 from src.trade import analyze_service as AS  # noqa: E402
@@ -722,6 +821,13 @@ class _CensusTally:
                 self.cap_changes[k] += 1
         if anomaly is not None:
             self.anomalies.append(anomaly)
+        # Review F2 / F4 receipts (counted only when they occur, so a run where
+        # neither binds publishes exactly the keys it always did).
+        sel_on = rc_on.get("forcedDropSelection") or {}
+        if sel_on.get("packageCreditClamp"):
+            out["packageCreditClampApplied"] += 1
+        if sel_on.get("searchBoundExceeded"):
+            out["searchBoundExceeded"] += 1
 
     @staticmethod
     def _example(shape, pin, pout, ok, voff, von, d_off, d_on, over_before=None):
@@ -760,23 +866,20 @@ class _CensusTally:
         }
 
 
-def census(ctx, per_shape: int, seed: int) -> dict:
+def _census_trades(ctx, per_shape: int, seed: int):
+    """The census' seeded trades, one ``(team_index, team, shape, pin, pout, ok)``
+    per sampled trade.  Flag-independent (the RNG is consumed only here), shared
+    by the census and the box-only Component B census so both measure the SAME
+    trades."""
     rng = random.Random(seed)
     rows, teams = ctx["rows"], ctx["teams"]
-    cap = int(ctx["roster_settings"].get("rosterSize") or 0)
 
     def ok(n):
         r = rows.get(n)
         return r if r and not r["quarantined"] and r["cls"] != "pick" else None
 
     shapes = {"1-for-2": (1, 2), "2-for-1": (2, 1), "1-for-3": (1, 3)}
-    tallies = {sfx: _CensusTally() for sfx in MODES}
-    v5_vs_r = Counter()
-    at_cap = 0
     for ti, me in enumerate(teams):
-        if len(me.get("players") or []) >= cap:
-            at_cap += 1
-        cc = None
         mine = [r for r in (ok(n) for n in me["players"]) if r]
         mine_hi = [r for r in mine if 1500 <= r["value"] <= 7000]
         mine_lo = sorted(mine, key=lambda r: r["value"])[:12]
@@ -797,34 +900,44 @@ def census(ctx, per_shape: int, seed: int) -> dict:
                 pout = [x["name"]] + [
                     r["name"] for r in rng.sample([r for r in mine_lo if r is not x], n_out - 1)
                 ]
-                with flag(False):
-                    soff = sim(ctx, me, pin, pout, True)
-                    voff = verdict(packet_of(ctx, soff), soff)
-                charges = {}
-                drops = {}
-                cats = {}
-                for sfx, md in MODES.items():
-                    with flag(True), mode(md):
-                        son = sim(ctx, me, pin, pout, True)
-                        von = verdict(packet_of(ctx, son), son)
-                    anomaly = None
-                    d_on = drops_of(son)
-                    if d_on:
-                        if cc is None:
-                            cc = RC.build_capacity_context(
-                                ctx["contract"], LEAGUE, me, roster_settings=ctx["roster_settings"]
-                            )
-                        pool = D.post_trade_pool(cc, pin, pout)
-                        anomaly = currency_anomaly(pool, D.Legality(pool, cc), d_on)
-                    tallies[sfx].add(shape, pin, pout, ok, soff, voff, son, von, anomaly)
-                    charges[sfx], drops[sfx], cats[sfx] = von["charge"] or 0, d_on, von["category"]
-                v5_vs_r["trades"] += 1
-                v5_vs_r["dropSetDiffers"] += sorted(map(str, drops[""])) != sorted(
-                    map(str, drops["R"])
-                )
-                v5_vs_r["v5rChargeHigher"] += charges["R"] > charges[""] + 0.5
-                v5_vs_r["v5rChargeLower"] += charges["R"] < charges[""] - 0.5
-                v5_vs_r["categoryDiffers"] += cats[""] != cats["R"]
+                yield ti, me, shape, pin, pout, ok
+
+
+def census(ctx, per_shape: int, seed: int) -> dict:
+    teams = ctx["teams"]
+    cap = int(ctx["roster_settings"].get("rosterSize") or 0)
+    tallies = {sfx: _CensusTally() for sfx in MODES}
+    v5_vs_r = Counter()
+    at_cap = sum(1 for me in teams if len(me.get("players") or []) >= cap)
+    ccs: dict[int, object] = {}
+    for ti, me, shape, pin, pout, ok in _census_trades(ctx, per_shape, seed):
+        with flag(False):
+            soff = sim(ctx, me, pin, pout, True)
+            voff = verdict(packet_of(ctx, soff), soff)
+        charges = {}
+        drops = {}
+        cats = {}
+        for sfx, md in MODES.items():
+            with flag(True), mode(md):
+                son = sim(ctx, me, pin, pout, True)
+                von = verdict(packet_of(ctx, son), son)
+            anomaly = None
+            d_on = drops_of(son)
+            if d_on:
+                if ti not in ccs:
+                    ccs[ti] = RC.build_capacity_context(
+                        ctx["contract"], LEAGUE, me, roster_settings=ctx["roster_settings"]
+                    )
+                cc = ccs[ti]
+                pool = D.post_trade_pool(cc, pin, pout)
+                anomaly = currency_anomaly(pool, D.Legality(pool, cc), d_on)
+            tallies[sfx].add(shape, pin, pout, ok, soff, voff, son, von, anomaly)
+            charges[sfx], drops[sfx], cats[sfx] = von["charge"] or 0, d_on, von["category"]
+        v5_vs_r["trades"] += 1
+        v5_vs_r["dropSetDiffers"] += sorted(map(str, drops[""])) != sorted(map(str, drops["R"]))
+        v5_vs_r["v5rChargeHigher"] += charges["R"] > charges[""] + 0.5
+        v5_vs_r["v5rChargeLower"] += charges["R"] < charges[""] - 0.5
+        v5_vs_r["categoryDiffers"] += cats[""] != cats["R"]
     v5 = tallies[""].summary()
     return {
         "design": f"every dynasty_main team x {per_shape} seeded trades per shape (1-for-2, "
@@ -988,6 +1101,355 @@ def illustrations(results, limit: int = 8) -> list[dict]:
     return out
 
 
+# ── 7. --box only: real scarcity, Component B, posture ────────────────────
+
+#: Config files whose bytes the verdict depends on; hashed into the report.
+BOX_CONFIGS = (
+    "config/trade/package_model.json",
+    "config/trade/fairness_bands.json",
+    "config/trade/analyze_trade.json",
+    "config/trade/decision_engine_v1.json",
+    "config/trade/team_impact.json",
+)
+#: Keys carrying per-trade or per-team detail (player names, rosters): dropped
+#: from the box report, which keeps counts and statistics only.
+BOX_STRIP_KEYS = frozenset(
+    {"examples", "reverseExamples", "chargeIncreaseExamples", "perTeam", "illustrations", "results"}
+)
+
+
+def _strip(obj):
+    if isinstance(obj, dict):
+        return {k: _strip(v) for k, v in obj.items() if k not in BOX_STRIP_KEYS}
+    if isinstance(obj, list):
+        return [_strip(v) for v in obj]
+    return obj
+
+
+def scarcity_observed(ctx) -> dict:
+    """The scarcity multipliers this host actually resolves (``displacement.
+    scarcity_multiplier``, 0.85 - 1.15) per position: the local replay's are all
+    1.0 (inert), so this is the receipt that the box run is NOT."""
+    me = ctx["teams"][0]
+    cc = RC.build_capacity_context(
+        ctx["contract"], LEAGUE, me, roster_settings=ctx["roster_settings"]
+    )
+    mults = {
+        pos: round(float(D.DP.scarcity_multiplier(comp)), 4)
+        for pos, comp in sorted((cc.scarcity or {}).items())
+    }
+    vals = list(mults.values())
+    return {
+        "positions": len(mults),
+        "multiplierByPosition": mults,
+        "min": min(vals) if vals else None,
+        "max": max(vals) if vals else None,
+        "inert": (not vals) or all(v == 1.0 for v in vals),
+        "waiverValuesPositions": len(cc.waiver_values or {}),
+    }
+
+
+def _b_row(s, packet) -> dict:
+    dec = packet.get("decision") or {}
+    ru = s.get("rosterUtility") or {}
+    return {
+        "headline": dec.get("headline"),
+        "category": TV.team_category(dec),
+        "gaps": sorted(m.get("code") for m in dec.get("missingEvidence") or []),
+        "bAvailable": bool(ru.get("available")),
+        "bReason": None if ru.get("available") else ru.get("unavailableReason"),
+        "strategySource": (dec.get("strategy") or {}).get("source"),
+        "postureAvailable": bool((s.get("competitivePosture") or {}).get("available")),
+    }
+
+
+def component_b_census(ctx, per_shape: int, seed: int) -> dict:
+    """The census trades decided with the box's REAL roster-utility lens
+    (Component B) and posture — no not-applicable stand-in — flag OFF vs each
+    flag-ON mode.  Where Component B is unavailable on a trade the row says why
+    (``bReason``); that is a finding, not an error."""
+    t0 = time.time()
+    keys = ("off", *MODES)
+    n = Counter()
+    state = {k: Counter() for k in keys}
+    posture = {k: Counter() for k in keys}
+    strategy = {k: Counter() for k in keys}
+    headline = {k: Counter() for k in keys}
+    changed = {sfx: Counter() for sfx in MODES}
+    trans = {sfx: Counter() for sfx in MODES}
+    gaps = {sfx: Counter() for sfx in MODES}
+    for _ti, me, _shape, pin, pout, _ok in _census_trades(ctx, per_shape, seed):
+        rows = {}
+        with flag(False):
+            so = sim(ctx, me, pin, pout, True)
+            rows["off"] = _b_row(so, packet_of(ctx, so, b_stand_in=False))
+        for sfx, md in MODES.items():
+            with flag(True), mode(md):
+                sn = sim(ctx, me, pin, pout, True)
+                rows[sfx] = _b_row(sn, packet_of(ctx, sn, b_stand_in=False))
+        n["trades"] += 1
+        for k in keys:
+            r = rows[k]
+            state[k]["B available" if r["bAvailable"] else f"B unavailable: {r['bReason']}"] += 1
+            posture[k]["posture available" if r["postureAvailable"] else "posture unavailable"] += 1
+            strategy[k][str(r["strategySource"])] += 1
+            headline[k][str(r["headline"])] += 1
+        for sfx in MODES:
+            off, on = rows["off"], rows[sfx]
+            if off["category"] != on["category"]:
+                changed[sfx]["categoryChanged"] += 1
+                trans[sfx][f"{off['category']} -> {on['category']}"] += 1
+            if off["headline"] != on["headline"]:
+                changed[sfx]["headlineChanged"] += 1
+            if off["gaps"] != on["gaps"]:
+                gaps[sfx][f"{','.join(off['gaps']) or '-'} -> {','.join(on['gaps']) or '-'}"] += 1
+    names = {"": "V5", "R": "V5-R"}
+    return {
+        "design": "the census' seeded trades (same sampler), decided with the box's own "
+        "roster-utility lens (Component B) and posture instead of the not-applicable stand-in",
+        "trades": n["trades"],
+        "componentBState": {k: dict(v) for k, v in state.items()},
+        "postureState": {k: dict(v) for k, v in posture.items()},
+        "strategySource": {k: dict(v) for k, v in strategy.items()},
+        "headlineDistribution": {k: dict(v) for k, v in headline.items()},
+        "vsOff": {
+            names[sfx]: {
+                **dict(changed[sfx]),
+                "categoryTransitions": dict(trans[sfx].most_common()),
+                "evidenceGapTransitions": dict(gaps[sfx].most_common()),
+            }
+            for sfx in MODES
+        },
+        "elapsedSec": round(time.time() - t0, 1),
+    }
+
+
+def charge_shift(results) -> dict:
+    """War Room steps: the flag-ON minus flag-OFF forced-release charge, over the
+    steps whose charge changed, per mode (median and direction counts)."""
+    out = {}
+    for sfx, name in (("", "V5"), ("R", "V5-R")):
+        deltas = []
+        steps = 0
+        for rec in results:
+            for st in rec["steps"]:
+                steps += 1
+                off, on = st["verdictOff"]["charge"] or 0, st[f"verdictOn{sfx}"]["charge"] or 0
+                if off != on:
+                    deltas.append(on - off)
+        out[name] = {
+            "steps": steps,
+            "chargeChanged": len(deltas),
+            "medianDelta": _r(statistics.median(deltas)) if deltas else None,
+            "down": sum(1 for d in deltas if d < 0),
+            "up": sum(1 for d in deltas if d > 0),
+        }
+    return out
+
+
+@contextlib.contextmanager
+def _single_source_unpriced(ctx):
+    """STRESS: every single-source player is treated as unpriced (board value
+    None, so a cut of him is charged at the position's waiver ceiling).  This is
+    the 'are the cheap single-source tail values real?' question: the local
+    replay's favourable verdicts rest on 226 - 440 single-source values.  In-process
+    monkeypatch of the capacity owner's asset builders, always restored."""
+    import dataclasses  # noqa: PLC0415
+
+    ss = set()
+    for r in ctx["contract"].get("playersArray") or []:
+        if str(r.get("assetClass")).lower() != "pick" and r.get("sourceCount") == 1:
+            for key in (r.get("displayName"), r.get("canonicalName"), r.get("playerId")):
+                if key:
+                    ss.add(RC._norm(key))
+    ss.discard("")
+    build_orig, resolve_orig = RC.build_roster_assets, RC._resolve_incoming
+
+    def hit(a):
+        return RC._norm(a.name) in ss or RC._norm(a.player_id) in ss
+
+    def build(team, by_name, by_id, _o=build_orig):
+        assets, unmatched = _o(team, by_name, by_id)
+        return [
+            dataclasses.replace(a, board_value=None) if hit(a) else a for a in assets
+        ], unmatched
+
+    def resolve(name, by_name, _o=resolve_orig):
+        a = _o(name, by_name)
+        return dataclasses.replace(a, board_value=None) if hit(a) else a
+
+    RC.build_roster_assets, RC._resolve_incoming = build, resolve
+    try:
+        yield len(ss)
+    finally:
+        RC.build_roster_assets, RC._resolve_incoming = build_orig, resolve_orig
+
+
+def single_source_stress_census(ctx, per_shape: int, seed: int) -> dict:
+    """The census trades, base vs the single-source stress: how many verdicts end
+    FAVORABLE and how many category changes survive when the cheap single-source
+    tail is not trusted.  A-driven stand-in packets (comparable to the local
+    replay's stress figures)."""
+    t0 = time.time()
+    keys = ("off", *MODES)
+    cats = {sc: {k: Counter() for k in keys} for sc in ("base", "stress")}
+    changed = {sc: {sfx: Counter() for sfx in MODES} for sc in ("base", "stress")}
+    n = 0
+    for _ti, me, _shape, pin, pout, _ok in _census_trades(ctx, per_shape, seed):
+        n += 1
+        for sc in ("base", "stress"):
+            cm = _single_source_unpriced(ctx) if sc == "stress" else contextlib.nullcontext()
+            with cm:
+                rows = {}
+                with flag(False):
+                    so = sim(ctx, me, pin, pout, True)
+                    rows["off"] = verdict(packet_of(ctx, so), so)
+                for sfx, md in MODES.items():
+                    with flag(True), mode(md):
+                        sn = sim(ctx, me, pin, pout, True)
+                        rows[sfx] = verdict(packet_of(ctx, sn), sn)
+            for k in keys:
+                cats[sc][k][rows[k]["category"]] += 1
+            for sfx in MODES:
+                if rows["off"]["category"] != rows[sfx]["category"]:
+                    changed[sc][sfx]["categoryChanged"] += 1
+    names = {"": "V5", "R": "V5-R"}
+    with _single_source_unpriced(ctx) as n_single:
+        pass
+    return {
+        "design": "the census' seeded trades under the base board and under the stress "
+        "(every single-source player unpriced -> charged at the waiver ceiling)",
+        "trades": n,
+        "singleSourcePlayersOnBoard": n_single,
+        "categoryDistribution": {
+            sc: {("OFF" if k == "off" else names[k]): dict(c) for k, c in per.items()}
+            for sc, per in cats.items()
+        },
+        "categoryChangesVsOff": {
+            sc: {names[sfx]: dict(c) for sfx, c in per.items()} for sc, per in changed.items()
+        },
+        "elapsedSec": round(time.time() - t0, 1),
+    }
+
+
+def box_main(args) -> int:
+    """The read-only production-box replay (prepared; owner-run only)."""
+    t0 = time.time()
+    problems = SUP.validate_box_args(args)
+    if problems:
+        print(json.dumps({"refused": "arguments", "problems": problems}), file=sys.stderr)
+        return SUP.EXIT_PIN_MISMATCH
+    caps = SUP.apply_resource_caps(
+        max_mem_gib=args.max_mem_gib,
+        max_cpu_seconds=args.max_cpu_seconds,
+        wall_seconds=args.wall_seconds,
+    )
+    csv_root = Path(args.csv_root)
+    expected = {
+        "archiveSha256": args.archive_sha256,
+        "csvTreeSha256": args.csv_tree_sha256,
+        "codeSha": args.expect_code_sha,
+        "builtBoardSha256": args.expect_board_sha256,
+        "archiveMemberSha256": args.expect_member_sha256,
+    }
+    observed = {
+        "archiveSha256": SUP.sha256_file(REPO / args.archive),
+        "csvTreeSha256": SUP.tree_content_sha256(csv_root, CSV_TREE_PATHS),
+        "codeSha": _code_sha(),
+    }
+    pre = ("archiveSha256", "csvTreeSha256", "codeSha")
+    bad = SUP.pin_mismatches(observed, {k: v for k, v in expected.items() if k in pre})
+    if bad:
+        print(json.dumps({"refused": "pin_mismatch", "pins": bad, "observed": observed}),
+              file=sys.stderr)  # fmt: skip
+        return SUP.EXIT_PIN_MISMATCH
+    member, blob, raw = D.load_archive(args.archive)
+    observed["archiveMemberSha256"] = hashlib.sha256(blob).hexdigest()
+    ctx = build_context_pinned(raw, csv_root)
+    S.classify_assets(ctx)
+    observed["builtBoardSha256"] = built_board_sha256(ctx["rows"])
+    bad = SUP.pin_mismatches(observed, expected)
+    if bad:
+        print(json.dumps({"refused": "pin_mismatch", "pins": bad, "observed": observed}),
+              file=sys.stderr)  # fmt: skip
+        return SUP.EXIT_PIN_MISMATCH
+
+    wr = war_room(ctx, args.war_room_opps, S.SEED + 2)
+    cen = census(ctx, args.census_per_shape, S.SEED + 7)
+    fin = None if args.skip_finder else finder_overlap(ctx, args.finder_top_k)
+    pd = perfect_draft(ctx)
+    scar = scarcity_observed(ctx)
+    comp_b = component_b_census(ctx, args.census_per_shape, S.SEED + 7)
+    stress = single_source_stress_census(ctx, args.census_per_shape, S.SEED + 7)
+    shift = charge_shift(wr["results"])
+    denied = GUARD.denied() if GUARD else []
+    net = [d for d in denied if d["event"].startswith("socket.")]
+    fatal = [d for d in denied if not d["event"].startswith("socket.")]
+    result = {
+        "purpose": "EVIDENCE ONLY.  Forced-drop fix (flag forced_drop_cheapest_legal, default "
+        "OFF), flag OFF vs ON on the PRODUCTION BOX: read-only, pinned board, aggregates only.",
+        "generatedBy": "scripts/forced_drop_fix_replay.py --box",
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "activeModelAtRun": pm.active_model_id(),
+        "rule": FDS.RULE_ID,
+        "ruleRosterRational": FDS.RULE_ID_ROSTER_RATIONAL,
+        "defaultSelectionMode": FDS.SELECTION_MODE,
+        "provenance": {
+            "deployedCodeSha": observed["codeSha"],
+            "expectedCodeSha": args.expect_code_sha,
+            "archive": args.archive,
+            "archiveSha256": observed["archiveSha256"],
+            "expectedArchiveSha256": args.archive_sha256,
+            "archiveMemberSha256": observed["archiveMemberSha256"],
+            "expectedArchiveMemberSha256": args.expect_member_sha256 or "NOT_PROVIDED",
+            "csvRev": args.csv_rev,
+            "csvTreeSha256": observed["csvTreeSha256"],
+            "expectedCsvTreeSha256": args.csv_tree_sha256,
+            "builtBoardSha256": observed["builtBoardSha256"],
+            "expectedBoardSha256": args.expect_board_sha256 or "NOT_PROVIDED",
+            "pricedAssets": len(ctx["rows"]),
+            "pinsMatch": True,
+            "configSha256": SUP.config_hashes(REPO, BOX_CONFIGS),
+        },
+        "fairnessBands": FB.receipt(),
+        "packageModel": pm.receipt(),
+        "resourceCaps": caps,
+        "scarcityObserved": scar,
+        "warRoom": _strip(wr),
+        "census": _strip(cen),
+        "finder": None if fin is None else _strip(fin),
+        "perfectDraft": pd,
+        "componentBCensus": comp_b,
+        "singleSourceStress": stress,
+        "warRoomChargeShift": shift,
+        "readOnlyGuard": {
+            "installed": bool(GUARD and GUARD.installed()),
+            "refusedWriteOrProcessAttempts": len(fatal),
+            "refusedWriteOrProcessEvents": sorted({d["event"] for d in fatal}),
+            "refusedNetworkAttempts": len(net),
+            "refusedNetworkCallers": sorted({d["caller"] for d in net}),
+        },
+        "peakRssMb": SUP.peak_rss_mb(),
+        "elapsedSec": round(time.time() - t0, 1),
+    }
+    result["currencyAnomalyDirections"] = {
+        "warRoomV5": wr["analyzeVerdicts"].get("currencyAnomaly"),
+        "warRoomV5R": wr["analyzeVerdictsRosterRational"].get("currencyAnomaly"),
+        "censusV5": cen.get("currencyAnomaly"),
+        "censusV5R": (cen.get("rosterRational") or {}).get("currencyAnomaly"),
+    }
+    result["currencyAnomalyDirections"] = _strip(result["currencyAnomalyDirections"])
+    try:
+        SUP.assert_box_output_safe(result, forbidden=SUP.forbidden_tokens(ctx["contract"]))
+        S.P2.assert_aggregate_only({k: v for k, v in result.items() if k not in ("provenance",)})
+    except ValueError as exc:  # OutputRefused is a ValueError
+        print(json.dumps({"refused": "output_not_aggregate_only", "detail": str(exc)}),
+              file=sys.stderr)  # fmt: skip
+        return SUP.EXIT_OUTPUT_REFUSED
+    sys.stdout.write(SUP.dumps_aggregate(result))
+    return SUP.EXIT_GUARD_REFUSED if fatal else SUP.EXIT_OK
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--out", default=OUT_DEFAULT)
@@ -1002,7 +1464,40 @@ def main() -> int:
         help="git revision whose " + ", ".join(CSV_TREE_PATHS) + " the contract build reads "
         "(default: the working tree); with --archive this pins the whole board",
     )
+    box = ap.add_argument_group("--box (read-only production-box mode; owner-run only)")
+    box.add_argument("--box", action="store_true", help="read-only run; report to stdout")
+    box.add_argument("--box-selftest", action="store_true", help="guard refusals only, then exit")
+    box.add_argument(
+        "--csv-root", help="ABSOLUTE path of the pre-materialised CSV tree at --csv-rev"
+    )
+    box.add_argument("--archive-sha256", help="expected sha256 of the --archive zip")
+    box.add_argument("--csv-tree-sha256", help="expected contentSha256 of the --csv-root tree")
+    box.add_argument("--expect-code-sha", help="expected deployed code commit (40 hex)")
+    box.add_argument("--expect-board-sha256", help="expected built-board sha256 (optional pin)")
+    box.add_argument(
+        "--expect-member-sha256",
+        help="expected sha256 of the archive's JSON member (optional pin; the committed "
+        "replay.json records it as board.sha256)",
+    )
+    box.add_argument("--max-mem-gib", type=float, default=4.0)
+    box.add_argument("--max-cpu-seconds", type=int, default=5400)
+    box.add_argument("--wall-seconds", type=int, default=7200)
     args = ap.parse_args()
+    if args.box:
+        # --out is rejected in box mode (validate_box_args); the default is
+        # not a user choice, so an explicit one is detected from argv.
+        args.out = args.out if "--out" in sys.argv else None
+        try:
+            return box_main(args)
+        except MemoryError:
+            print(json.dumps({"refused": "resource_cap", "cap": "memory"}), file=sys.stderr)
+            return SUP.EXIT_RESOURCE_CAP
+        except TimeoutError as exc:
+            print(json.dumps({"refused": "resource_cap", "detail": str(exc)}), file=sys.stderr)
+            return SUP.EXIT_RESOURCE_CAP
+        except PermissionError as exc:
+            print(json.dumps({"refused": "guard", "detail": str(exc)[:200]}), file=sys.stderr)
+            return SUP.EXIT_GUARD_REFUSED
     assert pm.active_model_id() == pm.GEOM_Q078_V1
     t0 = time.time()
     member, blob, raw = D.load_archive(args.archive)
@@ -1038,7 +1533,7 @@ def main() -> int:
             "hashes the resulting name -> canonical value map",
         },
         "fairnessBands": FB.receipt(),
-        "codeSha": S.P1._git_sha(),
+        "codeSha": _code_sha(),
         "warRoom": wr,
         "census": cen,
         "finder": fin,
