@@ -101,7 +101,8 @@ describe("override basis notice", () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const page = fs.readFileSync(path.resolve(__dirname, "../../app/trade/page.jsx"), "utf8");
-    expect(page.match(/overrideCount=\{Object\.keys\(valueOverrides\)\.length\}/g)).toHaveLength(2);
+    // Two-team War Room, Simulate impact, and the multi-team War Room.
+    expect(page.match(/overrideCount=\{Object\.keys\(valueOverrides\)\.length\}/g)).toHaveLength(3);
     const sections = fs.readFileSync(
       path.resolve(__dirname, "../../app/trade/trade-sections.jsx"),
       "utf8",

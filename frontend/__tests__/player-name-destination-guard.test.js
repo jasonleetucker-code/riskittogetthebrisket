@@ -96,7 +96,7 @@ const ADOPTED = {
 const ALLOWED_RAW = {
   "app/trade/page.jsx": {},
   "app/trade/trade-sections.jsx": {
-    "t.name": [1, NOT_A_PLAYER, "team summary"],
+    "t.name": [2, NOT_A_PLAYER, "team summary; the side card's league-team selector (multi-team analysis)"],
     "selectedTeam.name": [1, NOT_A_PLAYER, "the user's team badge"],
   },
   // Split out of trade-sections.jsx (loaded on demand by /trade); the

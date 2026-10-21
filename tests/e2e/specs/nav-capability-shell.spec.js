@@ -59,6 +59,23 @@ test.describe("V1-131: capability gate on the real shell", () => {
 
     // 2. The palette opens. Focus must leave any input first or the
     //    shortcut is swallowed by the focused field.
+    //
+    //    Wait for the shortcut to EXIST before pressing it.  The "/" listener
+    //    is attached only once the client-side auth probe (/api/auth/status)
+    //    resolves `authenticated === true`; the server-rendered HTML — and
+    //    so the <h1> — is on screen before that.  Pressing "/" first is
+    //    swallowed and never repeated, which is the intermittent V1-131
+    //    failure (E2E Safety Net run 39465313078: the failure video shows
+    //    the logged-out chrome for the first ~0.5 s, then the Search button;
+    //    a throwaway spec delaying /api/auth/status by 1.5 s fails every
+    //    time on origin/main and passes every time with this wait).  The
+    //    readiness signal is the shell's own "Search" button: TopBar and
+    //    MobileTopBar render it under the same condition that wires "/",
+    //    and AppShell attaches the listener in a layout effect of that same
+    //    commit, so a visible Search button means "/" works.
+    await expect(
+      authedPage.locator("header").getByRole("button", { name: "Search", exact: true }),
+    ).toBeVisible({ timeout: 30_000 });
     await authedPage.locator("h1").first().click();
     await authedPage.keyboard.press("/");
     await expect(authedPage.getByLabel(/search players, picks/i)).toBeVisible({

@@ -116,12 +116,14 @@ __all__ = [
     "RosterCapacity",
     "assess_roster_capacity",
     "build_capacity_context",
+    "league_scarcity",
     "capacity_context_for_team",
     "counterparty_capacity_block",
     "counterparty_context_resolver",
     "forced_drop_cost",
     "league_roster_limit",
     "league_taxi_size",
+    "outgoing_roster_names",
 ]
 
 
@@ -490,10 +492,38 @@ class CapacityContext:
     #: ANOTHER team in the same league (the counterparty) resolves the same cap
     #: and slots instead of falling back to a different source.
     roster_settings: Mapping[str, Any] | None = None
+    #: The player id of each ``roster_player_names`` entry, position for
+    #: position (``build_roster_assets`` emits exactly one asset per name, in
+    #: order): the board row's ``playerId`` when the entry joined, else the
+    #: roster's own id.  Lets an outgoing leg that carries a Sleeper id find
+    #: ITS roster entry whatever display name the caller used
+    #: (:func:`outgoing_roster_names`).  Empty for a context built without it.
+    roster_player_ids: tuple[str, ...] = ()
 
 
 def _asset_key(asset: RosterAsset) -> str:
     return _norm(asset.player_id) or _norm(asset.name)
+
+
+#: ``(scarcity, note)`` as :func:`league_scarcity` returns it.
+ScarcityReading = tuple[Mapping[str, Any] | None, str | None]
+
+
+def league_scarcity(
+    league_key: str | None,
+    contract: Mapping[str, Any] | None,
+) -> ScarcityReading:
+    """The league's positional scarcity for capacity, or ``(None, reason)``.
+
+    The ONE read capacity makes (``src.draft.context._league_scarcity``, which
+    routes through the shared gameplan bundle).  A caller evaluating several
+    teams of ONE request — the N-team engine — reads it once here and hands
+    the same reading to every team's :func:`build_capacity_context`, because
+    the bundle's inputs are re-loaded on every call (and can fall to the live
+    team-strength fallback, TTL-cached for 120 s), so per-team reads could
+    score teams of the same trade against different scarcity (R1-1).
+    """
+    return _league_scarcity(league_key, contract)
 
 
 def build_capacity_context(
@@ -502,6 +532,7 @@ def build_capacity_context(
     team: Mapping[str, Any] | None,
     *,
     roster_settings: Mapping[str, Any] | None = None,
+    scarcity_reading: ScarcityReading | None = None,
 ) -> CapacityContext:
     """Assemble the per-(team, board) constants.
 
@@ -509,6 +540,10 @@ def build_capacity_context(
     worth having — the counts are the load-bearing part — so a missing board,
     missing starter slots or missing scarcity each produce a note, not an
     exception.
+
+    ``scarcity_reading`` is a :func:`league_scarcity` result the caller
+    already holds for this league and board (one read per request); ``None``
+    (the default) reads it here, exactly as before.
     """
     notes: list[str] = []
     roster_limit = league_roster_limit(league_key, roster_settings)
@@ -593,7 +628,9 @@ def build_capacity_context(
     except Exception:  # noqa: BLE001 — an optional rule must not fail capacity
         slot_eligibility = None
 
-    scarcity, scarcity_note = _league_scarcity(league_key, contract)
+    scarcity, scarcity_note = (
+        scarcity_reading if scarcity_reading is not None else league_scarcity(league_key, contract)
+    )
     if scarcity_note:
         notes.append(scarcity_note)
 
@@ -613,7 +650,48 @@ def build_capacity_context(
         by_id=by_id,
         notes=tuple(notes),
         roster_settings=roster_settings if isinstance(roster_settings, Mapping) else None,
+        roster_player_ids=(
+            tuple(str(a.player_id) for a in assets) if len(assets) == len(names) else ()
+        ),
     )
+
+
+def outgoing_roster_names(
+    context: CapacityContext,
+    names: Sequence[str],
+    ids: Sequence[str | None] | None = None,
+) -> list[str]:
+    """The roster's OWN name for each outgoing player (B0-b parity).
+
+    ``ids`` runs parallel to ``names`` (``None`` for an entry without one).
+    An entry whose Sleeper id matches a roster entry's id is translated to that
+    entry's roster name — matched by MULTIPLICITY, each roster entry consumed
+    once — so a caller that names the player differently from the Sleeper
+    roster (a board display name, a suffix) still frees the spot he occupies.
+    An entry with no id, or whose id is on no roster entry, keeps its name:
+    name matching is the fallback only, exactly as before.  Pure.
+    """
+    ids = list(ids or [])
+    roster_ids = list(context.roster_player_ids)
+    if len(roster_ids) != len(context.roster_player_names):
+        roster_ids = []
+    used: set[int] = set()
+    out: list[str] = []
+    for i, name in enumerate(names):
+        pid = ids[i] if i < len(ids) else None
+        key = _norm(pid) if pid else ""
+        hit = None
+        if key:
+            hit = next(
+                (k for k, rid in enumerate(roster_ids) if k not in used and _norm(rid) == key),
+                None,
+            )
+        if hit is None:
+            out.append(str(name))
+            continue
+        used.add(hit)
+        out.append(context.roster_player_names[hit])
+    return out
 
 
 def capacity_context_for_team(

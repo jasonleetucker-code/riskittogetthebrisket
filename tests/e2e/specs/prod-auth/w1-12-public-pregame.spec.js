@@ -87,12 +87,13 @@ test.describe("W1-12: public Week 1 pregame surfaces (production)", () => {
     // This is a HYDRATION RACE, the same class this repo already diagnosed
     // and fixed once in v1-131-nav-gating.spec.js's mobile drawer test:
     // `domcontentloaded` + a visible CTA only proves the SSR markup
-    // painted (OverviewSection is statically imported, so its markup is
-    // in the initial HTML) — the onClick is wired by React hydration,
-    // which can still be in flight. A native click landing in that gap
-    // dispatches a real DOM event with nobody listening for it yet, and
-    // once hydration completes there is no replay. Kept here rather than
-    // removed: a real future crash would still show up in these arrays.
+    // painted (OverviewSection is server-rendered — `ssr: true` — so its
+    // markup is in the initial HTML) — the onClick is wired by React
+    // hydration, which can still be in flight.
+    // A native click landing in that gap dispatches a real DOM event with
+    // nobody listening for it yet, and once hydration completes there is
+    // no replay. Kept here rather than removed: a real future crash would
+    // still show up in these arrays.
     const consoleErrors = [];
     const pageErrors = [];
     page.on("console", (msg) => {
@@ -102,7 +103,9 @@ test.describe("W1-12: public Week 1 pregame surfaces (production)", () => {
 
     // The navigation half of the row. This CTA used to land on a slate of
     // articles from a previous season.
-    await page.goto(prodUrl("/league"), { waitUntil: "domcontentloaded" });
+    // Explicit ?tab=overview: once the Brisket Trade Advisor is served it
+    // is the default landing, and the Home card lives on Overview.
+    await page.goto(prodUrl("/league?tab=overview"), { waitUntil: "domcontentloaded" });
     const cta = page.getByText(/Full H2H preview/i).first();
     await expect(cta).toBeVisible({ timeout: 60_000 });
     // Give hydration a bounded chance to finish before clicking — same

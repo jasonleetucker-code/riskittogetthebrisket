@@ -134,10 +134,15 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C05": (
         "T-1",
         "frontend/lib/trade-logic.js",
-        "result[i].given += value",
+        "given: t.sendAdj,",
         OPEN,
         "The GIVE convention is live at :1393 while the verdict names the "
-        "bigger pile the winner. Both conventions still present.",
+        "bigger pile the winner. Both conventions still present. "
+        "Re-pointed 2026-10-20 (PR #1883): computeSideFlows now reads each "
+        "team from perTeamPackageTotals, and the GIVE convention lives on as "
+        "`given: t.sendAdj` (what the side SENDS); the old "
+        "`result[i].given += value` accumulator is gone, not the convention. "
+        "Status unchanged — nothing here decided the direction question.",
     ),
     "C06": (
         "W-1",

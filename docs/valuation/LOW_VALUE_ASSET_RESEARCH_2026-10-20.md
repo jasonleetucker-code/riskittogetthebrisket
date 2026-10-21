@@ -64,7 +64,7 @@ Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
 | 2. Is Team Context over-charging forced drops? | §5, investigation A: **Yes, on the War Room / analyze path.** The forced cut is picked alphabetically among sub-waiver players and charged at full value rather than surplus, and unpriced players are charged a whole waiver value. With the cheapest legal cut, 110 of 133 filler flips survive, so most of today's "absorption" is the over-charge. This is a roster-capacity defect for its owner; nothing was changed. |
 | 3. The IDP replacement anomaly | §6, investigation B: **Not a data bug.** The DB anchor is set by an injured player. The anchor rule counts injured and non-producing free agents as available. And canonical IDP value predicts this league's big-play IDP scoring poorly: rank correlation 0.45, against 0.77 for offense. Managers at a full cap churn IDP by production. So it is a replacement-methodology and league-scoring valuation issue. |
 | 4. Can filler turn an unfair trade into a fair one? | **Yes, on context-free surfaces**: the calculator, the 3–4-team meter, Trade Finder in asset-only mode, and Trade History. Example: Hurts vs Egbuka is +722, unfair; adding ~900-point fillers to Egbuka's side carries it through "fair", and four of them reach −1,300, unfair the other way. **Today, mostly no where a full roster is known**: Team Context absorbs 85 of 133 filler flips at the cap. But that is largely the over-charge in §5. With a correct cut, most of those flips survive, and they are genuine roster gains rather than errors. No smooth adjustment fixes it without harming legitimate trades (§4). |
-| 5. Effect on the public Fair/Not Fair calculator | §10. Its 2-team path runs with Team Context on, so it inherits §5's release-charge behaviour. Its 3–4-team path is the context-free band, where filler flips are unmitigated. Recommend no methodology or threshold change. A later disclosure must not reveal proprietary numbers. |
+| 5. Effect on the public Fair/Not Fair calculator | §10 (corrected after the public fairness audit). Every public path, 2-, 3- and 4-team, runs one context-free market-fairness calculation, so it does **not** inherit §5's release charge, but filler flips apply to it unmitigated. Recommend no methodology or threshold change, and no public note unless the owner accepts its leak (PR #1887). Public copy must never reveal proprietary numbers. |
 
 **Your preliminary decision is supported by the frozen rules:**
 - retain GEOM_78 (q = 0.78);
@@ -677,26 +677,32 @@ are insufficient for any class-wide change.
 
 ## 10. The public Fair/Not Fair calculator
 
-The public Brisket Trade Advisor (open PR #1861; design record `docs/owner/BRISKET_TRADE_ADVISOR_DESIGN_2026-10-19.md`, on that
-PR's branch `claude/advisor-public-backend`, not yet on this branch)
-evaluates 2-team trades through the shared `analyze_service` with **Team Context on**. It maps 3–4-team trades through
-the fairness band (`public_category_from_net_band`). Consequences:
+**Correction (2026-10-20, from the public fairness consistency audit, PR #1889).** An earlier version of this section
+described a superseded design. In that design the public 2-team path ran with Team Context on and used Accept/Decline
+copy. That code existed only on the advisor branch (first commit `5e5f8f453`), was deleted at `2bbe5d4bd`, and was
+never served.
 
-1. **The 2-team path inherits the forced-drop release charge.** On a roster at the cap, filler sweeteners are mostly
-   neutralised, which is good. Any over-charge found in §5, however, reaches public categories: a fair trade can read
-   *UNFAVORABLE*. Investigation A finds exactly that over-charge (§5). Follow-up 1 should be resolved, or its effect on public categories measured, before the public 2-team advisor launches. Once it is fixed, more filler sweeteners will *legitimately* move 2-team verdicts, which makes the disclosure more useful there.
-2. **The 3–4-team path is context-free.** It is built but switched off today (`multi_team_unsupported`). Once it is
-   activated, no roster charge applies, so §4's filler flips will apply unmitigated. The
-   multi-team market evidence was excluded from the box run (§7.1), so it gives no 3–4-team calibration.
+**Current design** (public advisor PR #1861, audited at `fae7209b6b`). All public paths, 2-, 3- and 4-team, run **one**
+function, `analyze_service.analyze_trade_n(mode="market_fairness")`:
+- Team Context, roster capacity and posture are off.
+- Each team's result reads the gross market fairness band.
+- The forced-release charge exists only in the private decision.
+
+The audit's harness found 0 violations on 1,605 trades: public results are identical across roster caps, equal to the
+shared engine's, symmetric under side swap, and expose no numbers. Consequences:
+
+1. **The public calculator does not inherit the forced-drop over-charge (§5).** That defect affects the private War Room
+   / analyze path and the Trade Finder's ordering. The fix (follow-up 1) stays private-only, and Team Context or the
+   forced-drop cost must never be threaded into a public path.
+2. **Every public path is context-free,** so §4's filler flips apply to public FAIR / NOT FAIR results at any team
+   count. That is the setting where a disclosure is most relevant. But the disclosure design (PR #1887) found that a
+   public note would leak the replacement cutoffs, so it recommends **no public note** unless the owner explicitly
+   accepts that leak.
 3. **No methodology or threshold change is recommended or authorized.** The public implementation stays protected.
-   Threshold research may continue independently.
-4. **Disclosure (R-C) on a public surface must not reveal proprietary numbers.** That means:
-   - no point values, gaps, anchors or replacement levels;
-   - categorical wording only, for example *"Part of this side is low-value depth that managers rarely pay for in
-     trades"*;
-   - a trigger computed server-side from the §3 classification.
-
-   Wording, placement and the trigger need separate owner review before any UI work.
+   `fairness_bands_v2` keeps its own owner approval and validation requirements.
+4. **Disclosure on a public surface must not reveal proprietary numbers:**
+   - no point values, gaps, anchors, replacement levels or formulas;
+   - wording, placement and the trigger need separate owner review before any UI work.
 
 ## 11. Recommendation and follow-ups
 
@@ -716,7 +722,7 @@ the fairness band (`public_category_from_net_band`). Consequences:
 
 | # | investigation | owner area | priority | evidence |
 |---|---|---|---|---|
-| 1 | Roster-capacity release-charge review | `src/trade/roster_capacity.py` / `src/draft/displacement.py` | **high**: reaches the public 2-team advisor | §5; `forced_drop_diagnostic.json` |
+| 1 | Roster-capacity release-charge review | `src/trade/roster_capacity.py` / `src/draft/displacement.py` | **high**: private War Room verdicts and Trade Finder ordering (the public advisor is context-free and unaffected, §10) | §5; `forced_drop_diagnostic.json` |
 | 2 | IDP replacement and league-scoring review | scoring-aware IDP / value pipeline; the waiver-anchor rule belongs to the displacement owner | medium | §6; `idp_anomaly.json` |
 | 3 | Prospective re-run of the same pinned box command once at least 2,000 unequal-count trades are dated after 2026-10-20 | this program | low | §7.1 |
 | 4 | Pick-type composition of the market's extra-piece credit (§7.3), if pick package pricing is ever revisited | pick valuation | low | §7.3 |

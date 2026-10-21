@@ -168,10 +168,12 @@ def equity_verdict(sending_values: list[float], receiving_values: list[float]) -
     """
     send_adj, recv_adj, send_va, recv_va = adjusted_pair_totals(sending_values, receiving_values)
     gap = recv_adj - send_adj  # positive = the selected team comes out ahead
-    # The ONE fairness-band owner (TC-C, owner decision 3): relative to the
-    # larger adjusted side, with an absolute minimum.  ``magnitude`` keeps its
-    # even / lean / stretch vocabulary for existing consumers.
-    band = fairness_bands.classify(gap, max(send_adj, recv_adj))
+    # The ONE fairness-band owner (fairness_bands_v2, OD-F2): relative to the
+    # larger PACKAGE UTILITY (decided by the owner, never here), with an
+    # absolute minimum.  ``magnitude`` keeps its even / lean / stretch
+    # vocabulary for existing consumers.
+    larger_utility = fairness_bands.larger_package_utility(sending_values, receiving_values)
+    band = fairness_bands.classify(gap, larger_utility)
     magnitude = fairness_bands.legacy_magnitude(band["level"])
     # An "even" gap is inside the market's own fairness band: it neither
     # favors nor opposes, whatever its sign.
@@ -187,6 +189,9 @@ def equity_verdict(sending_values: list[float], receiving_values: list[float]) -
         "band": band,
         "sendingAdjusted": round(send_adj, 1),
         "receivingAdjusted": round(recv_adj, 1),
+        # The band's base (unrounded so a re-classification of a net gap
+        # reproduces the band exactly).
+        "largerPackageUtility": larger_utility,
         "sendingValueAdjustment": round(float(send_va), 1),
         "receivingValueAdjustment": round(float(recv_va), 1),
     }
@@ -237,6 +242,7 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
             "bandsReceipt": fairness_bands.receipt(),
             "sendingAdjusted": verdict["sendingAdjusted"],
             "receivingAdjusted": verdict["receivingAdjusted"],
+            "largerPackageUtility": verdict["largerPackageUtility"],
             "sendingValueAdjustment": verdict["sendingValueAdjustment"],
             "receivingValueAdjustment": verdict["receivingValueAdjustment"],
             "valueAdjustment": package_model.receipt()["label"],

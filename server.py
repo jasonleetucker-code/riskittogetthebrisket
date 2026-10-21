@@ -4665,33 +4665,16 @@ async def _request_context_middleware(request: Request, call_next):
 
 def _client_ip_from_request(request: Request) -> str:
     """The client identity the RATE LIMITER keys on — attacker-fixed, not
-    attacker-chosen (W22-F002 / V1-103).
+    attacker-chosen (W22-F002 / V1-103; B0-h 2026-10-19).
 
-    ``X-Real-IP`` first: nginx sets it with ``proxy_set_header X-Real-IP
-    $remote_addr`` (deploy/nginx/chaseupside-proxy.conf), which REPLACES
-    anything the client sent — through the proxy it is always the TCP
-    peer nginx actually saw.
-
-    ``X-Forwarded-For`` is different: nginx uses
-    ``$proxy_add_x_forwarded_for``, which APPENDS the real address to
-    whatever the client supplied.  Taking the FIRST entry — what this
-    function did until 2026-08-25 — therefore keyed the limiter on an
-    attacker-chosen string: rotate one header value per request and every
-    public endpoint's limit dissolves.  The one entry our own trusted
-    proxy wrote is the LAST, so the fallback takes that.
-
-    Bare ``request.client.host`` remains for direct (dev/E2E) access.
+    Delegates to the one owner, ``src/api/client_ip.py``: proxy headers
+    (``X-Real-IP``, then the LAST ``X-Forwarded-For`` entry) are honoured only
+    from a trusted peer (loopback nginx or ``RATE_LIMIT_TRUSTED_PROXIES``) and
+    only when they parse as an address; otherwise the TCP peer.
     """
-    real_ip = request.headers.get("x-real-ip", "").strip()
-    if real_ip:
-        return real_ip
-    xff = request.headers.get("x-forwarded-for", "")
-    if xff:
-        last = xff.split(",")[-1].strip()
-        if last:
-            return last
-    client = request.client
-    return client.host if client else ""
+    from src.api.client_ip import client_ip_from_request
+
+    return client_ip_from_request(request)
 
 
 def _overlay_content_identity(overlay: dict) -> str | None:
@@ -18478,6 +18461,338 @@ async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg
     return result, league_key, None, clock.stages()
 
 
+# ── N-team trade analysis (private; spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §3) ──
+
+_TRADE_ANALYZE_MULTI_FLIGHTS = _trade_analyze_runtime.AsyncSingleFlight()
+
+
+def _multi_error(status: int, error: str, message: str, **extra: Any) -> JSONResponse:
+    """The private N-team error shape: ``{error, message, reason?, assetIds?,
+    rosterIds?}``, never cached."""
+    content: dict[str, Any] = {"error": error, "message": message}
+    content.update({k: v for k, v in extra.items() if v not in (None, [], ())})
+    return JSONResponse(status_code=status, content=content, headers={"Cache-Control": "no-store"})
+
+
+_MULTI_REASON_TEXT = {
+    "too_few_teams": "A trade needs at least two teams.",
+    "duplicate_team": "Each team can be listed only once.",
+    "too_many_teams": "This trade has more teams than are supported.",
+    "team_not_in_league": "Every team must belong to this league.",
+    "empty_trade": "Add at least one asset to the trade.",
+    "too_many_assets": "This trade has more assets than are supported.",
+    "unknown_asset": "One or more assets do not exist in this league.",
+    "duplicate_asset": "An asset can move only once in a trade.",
+    "invalid_origin": "Every asset must be sent by a team in the trade.",
+    "invalid_destination": "Every asset must go to a team in the trade.",
+    "destination_is_origin": "An asset cannot be sent to the team that already holds it.",
+    "idle_team": "Every listed team must send or receive at least one asset.",
+    "one_sided_trade": "Every team in the trade must both send and receive at least one asset.",
+    "asset_not_owned": "One or more assets are not held by the team sending them.",
+    "perspective_not_in_trade": "The selected team must be part of the trade.",
+}
+
+
+def _parse_multi_body(body: Any) -> tuple[dict[str, Any] | None, str | None]:
+    """Type-check the ``/api/trade/analyze-multi`` body.  ``(parsed, None)`` or
+    ``(None, field)`` naming the first malformed field.  Use Team Context is
+    read through its one owner (``src.trade.team_context``)."""
+    from src.trade.team_context import team_context_requested  # noqa: PLC0415
+
+    def _int(v: Any) -> bool:
+        return isinstance(v, int) and not isinstance(v, bool)
+
+    if not isinstance(body, dict):
+        return None, "body"
+    teams = body.get("teams")
+    if not isinstance(teams, list) or not all(_int(t) for t in teams):
+        return None, "teams"
+    assets = body.get("assets")
+    if not isinstance(assets, list):
+        return None, "assets"
+    legs = []
+    for a in assets:
+        if not (
+            isinstance(a, dict)
+            and isinstance(a.get("id"), str)
+            and _int(a.get("from"))
+            and _int(a.get("to"))
+        ):
+            return None, "assets"
+        legs.append({"id": a["id"], "from": a["from"], "to": a["to"]})
+    for key in ("useTeamContext", "counterfactuals"):
+        if key in body and not isinstance(body[key], bool):
+            return None, key
+    perspective = body.get("perspectiveRosterId")
+    if perspective is not None and not _int(perspective):
+        return None, "perspectiveRosterId"
+    expected = body.get("expectedGeneration")
+    if expected is not None and not isinstance(expected, str):
+        return None, "expectedGeneration"
+    goals_raw = body.get("teamGoals") or {}
+    if not isinstance(goals_raw, dict):
+        return None, "teamGoals"
+    goals: dict[int, Any] = {}
+    for k, v in goals_raw.items():
+        try:
+            rid = int(k)
+        except (TypeError, ValueError):
+            return None, "teamGoals"
+        if v is not None and not isinstance(v, str):
+            return None, "teamGoals"
+        goals[rid] = v
+    return {
+        "teams": list(teams),
+        "legs": legs,
+        "useTeamContext": team_context_requested(body),
+        "counterfactuals": body.get("counterfactuals", True) is not False,
+        "perspective": perspective,
+        "expectedGeneration": expected,
+        "teamGoals": goals,
+    }, None
+
+
+@app.post("/api/trade/analyze-multi")
+async def post_trade_analyze_multi(request: Request):
+    """N-team Analyze Trade — every participating team's own analysis.
+
+    Gated by ``trade_multi_team_analysis`` (default OFF; 503
+    ``multi_team_analysis_disabled``).  ``/api/trade/analyze`` is unchanged.
+
+    Body::
+
+        {"leagueKey": "...",                 # optional; the normal resolver
+         "teams": [3, 7, 11],                # rosterIds, 2..maxTeams
+         "assets": [{"id": "p:4046", "from": 3, "to": 7}, ...],
+         "useTeamContext": true,             # false -> asset-only
+         "teamGoals": {"3": "WIN_NOW"},      # optional per-team override
+         "counterfactuals": true,
+         "perspectiveRosterId": 3,           # optional; echoed only
+         "expectedGeneration": "..."}        # optional; drives snapshotChanged
+
+    Assets are ``p:<sleeperId>`` or canonical league pick ids; labels never
+    identify an asset.  The ledger is validated against ONE snapshot
+    (``src/trade/trade_ledger.py``), every team is analysed by the shared
+    owner (``analyze_service.analyze_trade_n``: one YES / NO / NO_TOO_CLOSE /
+    NOT_ENOUGH_EVIDENCE decision per team, its category and its market
+    fairness), and the all-team summary is a projection of those — there is
+    no trade-level recommendation.  Recommendation only: nothing executes.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    if not is_enabled("trade_multi_team_analysis"):
+        return _multi_error(
+            503,
+            "multi_team_analysis_disabled",
+            "Multi-team trade analysis is not enabled.",
+        )
+    clock = _trade_analyze_runtime.StageClock()
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    detail = not _trade_analyze_runtime.is_guest(session)
+    owner = _trade_analyze_runtime.session_owner(
+        session, request.cookies.get(JASON_AUTH_COOKIE_NAME)
+    )
+    with clock.stage("resolve"):
+        try:
+            raw_body = await request.json()
+        except Exception:  # noqa: BLE001
+            raw_body = None
+        parsed, bad_field = _parse_multi_body(raw_body)
+        if parsed is None:
+            return _multi_error(
+                400,
+                "invalid_request",
+                "The request body is malformed.",
+                field=bad_field,
+            )
+        prepared = await _prepare_trade_simulation(request)
+        if isinstance(prepared, JSONResponse):
+            return prepared
+        contract, league_cfg, body, session = prepared
+        contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+            request, body, league_cfg, base=contract
+        )
+        meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+        if (
+            meta.get("leagueKey") in (None, league_cfg.key)
+            and meta.get("sleeperDataReady") is False
+        ):
+            return _multi_error(
+                503, "data_not_ready", "League rosters are not ready.", leagueKey=league_cfg.key
+            )
+        from src.trade import analyze_service as _svc  # noqa: PLC0415
+        from src.trade import trade_ledger as _ledger  # noqa: PLC0415
+
+        if not _svc.package_model_ready():
+            return _multi_error(
+                503,
+                "package_model_unavailable",
+                "Multi-team analysis needs the active package model.",
+            )
+        try:
+            snap = _ledger.snapshot_for(
+                contract,
+                league_key=league_cfg.key,
+                roster_settings=dict(league_cfg.roster_settings or {}),
+            )
+        except LookupError:
+            return _multi_error(
+                503, "data_not_ready", "League rosters are not ready.", leagueKey=league_cfg.key
+            )
+        policy = _ledger.private_policy()
+        try:
+            ledger = _ledger.validate_ledger(
+                snap, teams=parsed["teams"], legs=parsed["legs"], policy=policy
+            )
+        except _ledger.LedgerError as err:
+            return _multi_error(
+                err.status,
+                err.error,
+                _MULTI_REASON_TEXT.get(err.reason, "This trade is not valid."),
+                reason=err.reason,
+                assetIds=list(err.asset_ids),
+                rosterIds=list(err.roster_ids),
+            )
+        perspective = parsed["perspective"]
+        if perspective is not None and perspective not in ledger.teams:
+            return _multi_error(
+                400,
+                "invalid_trade",
+                _MULTI_REASON_TEXT["perspective_not_in_trade"],
+                reason="perspective_not_in_trade",
+                rosterIds=[perspective],
+            )
+    mode = "team_context" if parsed["useTeamContext"] else "asset_only"
+    goals = {rid: g for rid, g in parsed["teamGoals"].items() if rid in ledger.teams}
+    league_key = league_cfg.key
+
+    def _comparables(flows, simulation):
+        from src.trade import comparable_trades as _comparable  # noqa: PLC0415
+
+        return _comparable.comparable_trades(
+            league_key,
+            side_a=_comparable.side_refs_from_assets(simulation.get("receiving") or []),
+            side_b=_comparable.side_refs_from_assets(simulation.get("sending") or []),
+            names=_board_names_by_player_id(),
+        )
+
+    def _compute():
+        return _svc.analyze_trade_n(
+            snap,
+            ledger,
+            mode=mode,
+            counterfactuals=parsed["counterfactuals"],
+            team_goals=goals,
+            comparables_provider=_comparables,
+            stage=clock.stage,
+        )
+
+    from src.api import compute_admission as _admission_mod  # noqa: PLC0415
+
+    admission = _admission_mod.admission_for(_admission_mod.ROUTE_ANALYZE_MULTI)
+
+    async def _run():
+        # R2-5: each COMPUTATION takes an admission slot (joined waiters do
+        # not); a full route refuses at once instead of queueing on the GIL.
+        try:
+            return await admission.admit(lambda: run_in_threadpool(_compute)), None
+        except _admission_mod.AdmissionRejected as exc:
+            return None, f"admission_{exc.reason}"
+        except _svc.PackageModelUnavailable:
+            return None, "package_model_unavailable"
+        except _svc.ConservationViolation as exc:
+            log.error("analyze-multi: invariant violation, refusing: %s", exc)
+            return None, "internal_error"
+
+    key = (
+        "analyze-multi",
+        owner,
+        league_key,
+        snap.generation,
+        hashlib.sha256(ledger.canonical_key().encode("utf-8")).hexdigest(),
+        mode,
+        json.dumps({str(k): v for k, v in goals.items()}, sort_keys=True),
+        parsed["counterfactuals"],
+    )
+
+    async def _await_result():
+        if owner:
+            return await _TRADE_ANALYZE_MULTI_FLIGHTS.run(
+                key,
+                _run,
+                # A refusal is about load at that instant, never a result
+                # another caller should inherit: a joiner retries once.
+                share_if=lambda out: not str(out[1] or "").startswith("admission_"),
+            )
+        return await _run(), False
+
+    try:
+        # R2-5: the caller waits at most the route's admission deadline; the
+        # computation itself keeps running (and keeps its slot) until done, so
+        # an identical retry joins it instead of starting another.
+        (result, failure), shared = await admission.within_deadline(_await_result)
+    except _admission_mod.AdmissionRejected as exc:
+        failure, result, shared = f"admission_{exc.reason}", None, False
+    if failure in ("admission_busy", "admission_timeout"):
+        retry = str(_admission_mod.RETRY_AFTER_SECONDS)
+        busy = failure == "admission_busy"
+        resp = _multi_error(
+            503,
+            "analysis_busy" if busy else "analysis_timeout",
+            (
+                "Multi-team analysis is busy right now. Try again in a moment."
+                if busy
+                else "Multi-team analysis took too long to answer. Try again."
+            ),
+            retryable=True,
+            retryAfterSeconds=_admission_mod.RETRY_AFTER_SECONDS,
+        )
+        resp.headers["Retry-After"] = retry
+        return resp
+    if failure == "package_model_unavailable":
+        return _multi_error(
+            503, "package_model_unavailable", "Multi-team analysis needs the active package model."
+        )
+    if failure is not None or result is None:
+        return _multi_error(500, "internal_error", "The trade could not be analysed.")
+    if shared:
+        result = copy.deepcopy(result)
+
+    from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
+
+    response = _svc.multi_team_payload(
+        result,
+        snap=snap,
+        ledger=ledger,
+        league_key=league_key,
+        perspective=perspective,
+        expected_generation=parsed["expectedGeneration"],
+    )
+    decision_run_ids: dict[str, Any] = {}
+    with clock.stage("receipt"):
+        for t in response["teams"]:
+            run_id = record_decision(
+                t["analysis"], league_key=league_key, team=(t.get("team") or {}).get("name")
+            )
+            t["analysis"]["decisionRunId"] = run_id
+            decision_run_ids[str(t["rosterId"])] = run_id
+    response["decisionRunIds"] = decision_run_ids
+    response["tradeRunId"] = uuid.uuid4().hex
+    response["analysisTiming"] = clock.to_dict(detail=detail)
+    _stamp_valuation_mode(response, valuation_mode, valuation_note)
+    return JSONResponse(
+        content=response,
+        headers={
+            "Cache-Control": "no-store",
+            # Server-Timing metric names are tokens; the per-team stage names
+            # carry ':' (``team:<rid>:decision``), which is not a token char.
+            "Server-Timing": clock.server_timing(detail=detail).replace(":", "_"),
+        },
+    )
+
+
 @app.get("/api/trade/analyze/status")
 async def get_trade_analyze_status(request: Request, requestId: str = ""):
     """The stage an Analyze Trade request is executing (see the route above).
@@ -19595,6 +19910,20 @@ from src.public_league import articles_api as _articles_api  # noqa: E402
 
 _articles_api.configure_host(lambda: sys.modules[__name__])
 app.include_router(_articles_api.router)
+
+# ── BRISKET TRADE ADVISOR (public League Hub trade advisor) ───────────
+# Owner directive 2026-10-19.  The three routes live in
+# src/api/public_trade_advisor_api.py under /api/public/league/trade-advisor/
+# (public by the existing prefix rule; no change to _PUBLIC_API_EXACT).  Same
+# late-binding host arrangement as the articles router: the handlers read
+# latest_contract_data / _public_league_key_error / _client_ip_from_request
+# on this module at request time.  Gated by the ``brisket_trade_advisor``
+# flag (default OFF until the frontend lands): off -> 503
+# advisor_unavailable/disabled.
+from src.api import public_trade_advisor_api as _public_trade_advisor_api  # noqa: E402
+
+_public_trade_advisor_api.configure_host(lambda: sys.modules[__name__])
+app.include_router(_public_trade_advisor_api.router)
 
 
 # Static file mount for backend-generated assets (CSS, images if any).

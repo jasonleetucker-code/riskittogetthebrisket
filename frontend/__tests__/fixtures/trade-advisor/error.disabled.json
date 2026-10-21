@@ -1,0 +1,5 @@
+{
+  "error": "advisor_unavailable",
+  "message": "The trade advisor is not available.",
+  "reason": "disabled"
+}
