@@ -40,7 +40,7 @@ import logging
 from collections import defaultdict
 from typing import Any
 
-from . import metrics, schedule_impact
+from . import metrics, ownership, schedule_impact
 from .identity import ManagerRegistry
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
@@ -197,6 +197,8 @@ def _actual_week_results(
 def _season_team_weeks(
     season: SeasonSnapshot,
     registry: ManagerRegistry,
+    *,
+    by_franchise: bool = False,
 ) -> tuple[list[tuple[int, str, dict[str, float | int], float, float, float]], dict[str, Any]]:
     """Every owner's evaluable regular-season game as
     ``(week, owner_id, all_play, actual_share, points_for, points_against)``,
@@ -243,6 +245,16 @@ def _season_team_weeks(
         key = row["teamKey"]
         if key.startswith("roster:"):
             continue
+        # The schedule-impact owner keys a TEAM by its roster's current owner
+        # (its all-play and host-record cross-check are team-level questions).
+        # A luck row is a MANAGER's game, so it goes to whoever held the roster
+        # that week: before a mid-season hand-off that is the outgoing owner
+        # (``ownership.owner_at``).  The per-week numbers are unchanged — only
+        # whose row they land in.  No recorded hand-off → ``key`` itself.
+        # ``by_franchise`` keeps the team key (the roster's current owner),
+        # for a team-level consumer (see ``build_section``).
+        if not by_franchise:
+            key = _week_owner(registry, season.league_id, key, int(row["week"])) or key
         beats, ties = int(row["allPlayWins"]), int(row["allPlayTies"])
         rivals = beats + ties + int(row["allPlayLosses"])
         all_play = {
@@ -280,6 +292,27 @@ def _roster_id_for_owner(registry: ManagerRegistry, league_id: str, owner_id: st
     return None
 
 
+def _week_owner(registry: ManagerRegistry, league_id: str, team_key: str, week: int) -> str:
+    """The manager who held ``team_key``'s roster in ``week``.
+
+    ``team_key`` is the roster's CURRENT owner (the schedule-impact team key).
+    """
+    rid = _roster_id_for_owner(registry, league_id, team_key)
+    if rid is None:
+        return ""
+    return metrics.resolve_owner(registry, league_id, rid, week)
+
+
+def _held_roster_id(registry: ManagerRegistry, league_id: str, owner_id: str) -> int | None:
+    """The roster ``owner_id`` held in ``league_id``, including one they handed
+    off mid-season (they are no longer its current owner, so
+    :func:`_roster_id_for_owner` cannot see it)."""
+    rid = _roster_id_for_owner(registry, league_id, owner_id)
+    if rid is not None:
+        return rid
+    return ownership.handed_off_roster(league_id, owner_id)
+
+
 def _season_sort_key(season: str) -> int:
     try:
         return int(season)
@@ -288,8 +321,16 @@ def _season_sort_key(season: str) -> int:
 
 
 # ── Build section ────────────────────────────────────────────────────────
-def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
-    """Assemble the luck-score section payload."""
+def build_section(snapshot: PublicLeagueSnapshot, *, by_franchise: bool = False) -> dict[str, Any]:
+    """Assemble the luck-score section payload.
+
+    Rows are MANAGER rows: a game before a mid-season hand-off counts for the
+    outgoing manager (``ownership.owner_at``).  ``by_franchise=True`` keys every
+    game to the roster's CURRENT owner instead — the team-level view a
+    consumer asking about the roster's season (the Pick Forecast's all-play
+    input) needs, exactly as ``_season_weekly_scores`` does for Power and
+    playoff odds.
+    """
     registry = snapshot.managers
 
     def _blank_career() -> dict[str, Any]:
@@ -324,7 +365,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     # would decrease in the sorted output.
     season_states: list[dict[str, Any]] = []
     for season in sorted(snapshot.seasons, key=lambda s: _season_sort_key(s.season)):
-        team_weeks, season_state = _season_team_weeks(season, registry)
+        team_weeks, season_state = _season_team_weeks(season, registry, by_franchise=by_franchise)
         season_states.append(season_state)
         for wk, oid, ap, actual_share, pts_for, pts_against in team_weeks:
             expected_share = float(ap["expectedShare"])
@@ -336,8 +377,10 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 career["displayName"] = metrics.display_name_for(snapshot, oid)
                 current = snapshot.current_season
                 if current:
-                    rid_current = _roster_id_for_owner(registry, current.league_id, oid)
-                    career["teamName"] = metrics.team_name(snapshot, current.league_id, rid_current)
+                    rid_current = _held_roster_id(registry, current.league_id, oid)
+                    career["teamName"] = metrics.team_name_for_owner(
+                        snapshot, current.league_id, rid_current, oid
+                    )
             career["gamesPlayed"] += 1
             career["expectedWins"] += expected_share
             career["actualWins"] += actual_share
@@ -350,13 +393,13 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             # Season aggregate.
             key = (oid, season.season)
             if key not in by_owner_season:
-                rid = _roster_id_for_owner(registry, season.league_id, oid)
+                rid = _held_roster_id(registry, season.league_id, oid)
                 by_owner_season[key] = {
                     "ownerId": oid,
                     "season": season.season,
                     "leagueId": season.league_id,
                     "displayName": metrics.display_name_for(snapshot, oid),
-                    "teamName": metrics.team_name(snapshot, season.league_id, rid),
+                    "teamName": metrics.team_name_for_owner(snapshot, season.league_id, rid, oid),
                     "gamesPlayed": 0,
                     "actualWins": 0.0,
                     "expectedWins": 0.0,

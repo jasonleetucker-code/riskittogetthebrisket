@@ -65,8 +65,14 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     )
 
     for season, week, a, b, is_playoff in metrics.walk_matchup_pairs(snapshot):
-        owner_a = metrics.resolve_owner(snapshot.managers, season.league_id, a.get("roster_id"))
-        owner_b = metrics.resolve_owner(snapshot.managers, season.league_id, b.get("roster_id"))
+        # The week's managers, not the rosters' current ones: a meeting before
+        # a mid-season hand-off belongs to the outgoing manager's series.
+        owner_a = metrics.resolve_owner(
+            snapshot.managers, season.league_id, a.get("roster_id"), week
+        )
+        owner_b = metrics.resolve_owner(
+            snapshot.managers, season.league_id, b.get("roster_id"), week
+        )
         if not owner_a or not owner_b or owner_a == owner_b:
             continue
 

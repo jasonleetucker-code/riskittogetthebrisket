@@ -298,7 +298,7 @@ def _normalize_trade(
                 "rosterId": rid,
                 "ownerId": owner_id,
                 "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
-                "teamName": metrics.team_name(snapshot, season.league_id, rid)
+                "teamName": metrics.team_name(snapshot, season.league_id, rid, metrics.tx_week(tx))
                 if owner_id
                 else f"Team {rid}",
                 "receivedAssets": received_assets,
