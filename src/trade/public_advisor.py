@@ -21,7 +21,9 @@ This module is the pure half (no FastAPI) and holds NO business logic:
 2. **Evaluation** — ``analyze_service.analyze_trade_n(mode="market_fairness")``,
    the ONE N-team composer.  Fairness per team is
    ``team_verdicts.team_fairness`` (the asset evidence gates, then the band
-   ``fairness_bands`` classified for that team's own adjusted package
+   ``fairness_bands`` classified for that team's own package gap, relative to
+   its larger PACKAGE UTILITY -- fairness_bands_v2 -- read through
+   ``counts_as_fair_trade``; was: its own adjusted package
    totals under the active ``geom_q078_v1`` package model).
 3. **Reduction** — :func:`reduce_fairness` maps that result onto fixed copy.
    Its signature accepts only, per team, ``(rosterId, state, reasonCode,
@@ -591,7 +593,16 @@ def team_fairness_input(entry: Mapping[str, Any]) -> TeamFairnessInput:
     An engine UNABLE keeps the engine's own reason.  The withheld asset is NOT
     named: whether the public answer may name it is the owner exposure
     decision F-1, and until it is made the answer discloses no more than the
-    engine gate already does."""
+    engine gate already does.
+
+    FAIR is the fairness owner's binary rule (fairness_bands_v2, OD-F1):
+    ``fairness_bands.counts_as_fair_trade(level)`` over the band the engine
+    classified (relative to the team's larger PACKAGE UTILITY, OD-F2).  An
+    engine FAIR whose band does not count as a fair trade -- or a NOT_FAIR
+    whose band does, or either with no band -- is UNABLE
+    ``evaluation_unavailable``: a contradictory answer is never published."""
+    from src.valuation_math import fairness_bands  # noqa: PLC0415 -- stdlib-only owner
+
     raw = entry.get("fairness")
     fairness: Mapping[str, Any] = raw if isinstance(raw, Mapping) else {}
     reason = fairness.get("reasonCode")
@@ -601,7 +612,13 @@ def team_fairness_input(entry: Mapping[str, Any]) -> TeamFairnessInput:
         if isinstance(r, Mapping)
     ]
     state = str(fairness.get("state"))
-    if state in (team_verdicts.FAIR, team_verdicts.NOT_FAIR) and _withheld_value_evidence(entry):
+    verdict = state in (team_verdicts.FAIR, team_verdicts.NOT_FAIR)
+    level = fairness.get("level")
+    if verdict and (
+        _withheld_value_evidence(entry)
+        or level not in fairness_bands.LEVELS
+        or fairness_bands.counts_as_fair_trade(level) != (state == team_verdicts.FAIR)
+    ):
         return TeamFairnessInput(
             roster_id=int(entry["rosterId"]),
             state=team_verdicts.UNABLE,
@@ -791,6 +808,7 @@ ADVISOR_KEY_BLOCKLIST = frozenset(
         "valueState",
         "gap",
         "largerAdjustedSide",
+        "largerPackageUtility",
         "relativePct",
         "band",
         "level",

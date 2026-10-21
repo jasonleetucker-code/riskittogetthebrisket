@@ -614,16 +614,38 @@ def _approved_bands(monkeypatch, status="APPROVED"):
 
 
 def test_the_committed_config_keeps_the_launch_gate_closed():
+    from src.valuation_math import fairness_bands
+
     api.advisor_config.cache_clear()
     try:
         cfg = api.advisor_config()
         assert cfg["responseFloorMs"] is None
-        assert cfg["approvedFairnessVersion"] is None
+        # The owner approved fairness_bands_v2 (2026-10-20, OD-F1/F2/F3/F5):
+        # the committed config names it, and it is the owner's live version.
+        assert cfg["approvedFairnessVersion"] == "fairness_bands_v2"
+        assert cfg["approvedFairnessVersion"] == fairness_bands.receipt()["version"]
+        assert fairness_bands.receipt()["status"] != "PROVISIONAL"
+        # Still owner-open: the response floor (RF-1) and the source-permission
+        # record (OD-3), so the gate stays CLOSED.
         assert cfg["approvedSourcePermissionRecord"] is None
         assert "multiTeamRecommendations" not in cfg
         assert _REAL_LAUNCH_GATE() == "response_floor_unset"
     finally:
         api.advisor_config.cache_clear()
+
+
+def test_naming_the_approved_fairness_version_opens_nothing(monkeypatch):
+    """With only the floor supplied, the fairness checks pass (v2 is the
+    owner-approved version) and the gate still refuses on the missing OD-3
+    source-permission record -- the fairness approval alone never launches."""
+    api.advisor_config.cache_clear()
+    try:
+        cfg = copy.deepcopy(api.advisor_config())
+    finally:
+        api.advisor_config.cache_clear()
+    cfg["responseFloorMs"] = 900
+    monkeypatch.setattr(api, "advisor_config", lambda: cfg)
+    assert _REAL_LAUNCH_GATE() == "source_permission_unrecorded"
 
 
 @pytest.mark.parametrize(

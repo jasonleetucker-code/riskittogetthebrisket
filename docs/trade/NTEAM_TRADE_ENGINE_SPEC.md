@@ -1064,7 +1064,8 @@ capacity / forced drops, posture, confidence.
   - keep limits `{maxTeams: 4, maxLegs: 128, maxBodyBytes: 16384}`;
   - keep `responseFloorMs: null`;
   - keep the limiter priors;
-  - **add** `"approvedFairnessVersion": null`;
+  - **add** `"approvedFairnessVersion": null` (release train 17 sets it to `"fairness_bands_v2"`, the
+    owner-approved version of 2026-10-20 — see §8; the gate stays closed on the floor and OD-3);
   - **add** `"approvedSourcePermissionRecord": null`, the repo path of the owner's OD-3 record
     (P3).
 - **Launch gate** (`advisor_unavailable` / `not_ready` while false), checked on every request.

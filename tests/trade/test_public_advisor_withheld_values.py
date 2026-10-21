@@ -30,13 +30,18 @@ from tests.api.trade_advisor_support import (  # noqa: F401 — pytest fixtures,
 REPO = Path(__file__).resolve().parents[2]
 
 
+#: The band an engine state comes with (the engine's own pairing: FAIR only on
+#: a band that counts as a fair trade, fairness_bands_v2 OD-F1).
+_LEVEL = {team_verdicts.FAIR: "fair", team_verdicts.NOT_FAIR: "slight"}
+
+
 def _entry(*, state, reason, row_states=("priced", "priced")):
     gives_state, recv_state = row_states
     return {
         "rosterId": 1,
         "gives": [{"assetId": "p:1", "value": 4000, "valueState": gives_state}],
         "receives": [{"assetId": "p:2", "value": 3900, "valueState": recv_state}],
-        "fairness": {"state": state, "reasonCode": reason},
+        "fairness": {"state": state, "reasonCode": reason, "level": _LEVEL.get(state)},
     }
 
 
@@ -108,6 +113,36 @@ def test_engine_asset_not_evaluable_never_names_a_withheld_asset():
     assert t.unavailable_asset_ids == ("p:2",)
 
 
+@pytest.mark.parametrize(
+    ("state", "level"),
+    [
+        (team_verdicts.FAIR, "slight"),
+        (team_verdicts.FAIR, None),
+        (team_verdicts.NOT_FAIR, "fair"),
+        (team_verdicts.NOT_FAIR, None),
+    ],
+)
+def test_fair_is_read_through_the_owner_and_a_contradiction_fails_closed(state, level):
+    """fairness_bands_v2 (OD-F1): public FAIR is ``counts_as_fair_trade`` over
+    the engine's band.  An engine state its band contradicts -- or that has no
+    band -- is UNABLE, never a confident public answer."""
+    entry = _entry(state=state, reason=dict([FAIR, NOT_FAIR])[state])
+    entry["fairness"]["level"] = level
+    t = public_advisor.team_fairness_input(entry)
+    assert (t.state, t.reason_code) == (team_verdicts.UNABLE, "evaluation_unavailable")
+
+
+def test_public_fair_follows_the_owners_fair_trade_levels(monkeypatch):
+    """The binary rule lives in the owner (FAIR_TRADE_LEVELS), not here."""
+    from src.valuation_math import fairness_bands
+
+    monkeypatch.setattr(fairness_bands, "FAIR_TRADE_LEVELS", ("fair", "slight"))
+    entry = _entry(state=team_verdicts.FAIR, reason="within_fairness_threshold")
+    entry["fairness"]["level"] = "slight"
+    t = public_advisor.team_fairness_input(entry)
+    assert (t.state, t.reason_code) == (team_verdicts.FAIR, "within_fairness_threshold")
+
+
 def test_public_side_has_no_second_value_state_owner():
     """One owner: the public module never re-derives a value state from the
     simulation (no ``asset_evidence_codes`` / quarantine / freshness read)."""
@@ -162,7 +197,7 @@ def _team(rid, state, reason, *, give_state="priced", recv_state="priced"):
         "rosterId": rid,
         "gives": [{"assetId": f"p:{rid}0", "value": 4000, "valueState": give_state}],
         "receives": [{"assetId": f"p:{rid}1", "value": 3900, "valueState": recv_state}],
-        "fairness": {"state": state, "reasonCode": reason},
+        "fairness": {"state": state, "reasonCode": reason, "level": _LEVEL.get(state)},
     }
 
 

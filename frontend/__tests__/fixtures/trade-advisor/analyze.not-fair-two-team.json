@@ -2,7 +2,7 @@
   "status": "success",
   "leagueKey": "main",
   "generation": "925cb8176237c9eb",
-  "fairnessVersion": "fairness_bands_v1",
+  "fairnessVersion": "fairness_bands_v2",
   "snapshotChanged": null,
   "rosters": {
     "state": "current",
