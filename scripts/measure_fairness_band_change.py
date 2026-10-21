@@ -840,7 +840,7 @@ def _board(contract: dict[str, Any]):
 def measure_real_trades(contract, trades) -> dict[str, Any]:
     """(a) every fully priced own-league trade, per team, plus (d) the League
     Hub trade-history grade beside the v1 / v2 band on the same quantity."""
-    from src.public_league.trade_grading import grade_trade_sides
+    from src.public_league.trade_grading import HISTORY_EVEN_LABEL, grade_trade_sides
 
     price, _ = _board(contract)
     census = Counter()
@@ -884,7 +884,7 @@ def measure_real_trades(contract, trades) -> dict[str, Any]:
             j = _judge(x["gave"], x["got"])
             j["team"] = x["team"]
             j["shape"] = f"{len(x['gave'])}>{len(x['got'])}"
-            j["historyFair"] = g["grade"]["label"] == "Fair trade"
+            j["historyFair"] = g["grade"]["label"] == HISTORY_EVEN_LABEL
             per.append(j)
             judged_all.append(j)
             for c in cats:

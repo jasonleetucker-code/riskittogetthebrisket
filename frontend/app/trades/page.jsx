@@ -34,6 +34,11 @@ import { encodeTrade, SHARE_PARAM } from "@/lib/trade-share";
 import { rememberHistoryOrigin } from "@/lib/trade-history-origin";
 import { useTradeAsofGrades } from "@/components/useTradeAsofGrades";
 import {
+  HISTORY_EVEN_LABEL,
+  HISTORY_EVEN_PCT,
+  historyGradeBasisText,
+} from "@/lib/trade-history-grade-policy";
+import {
   AGING,
   AGING_LABEL,
   AGING_REASON_TEXT,
@@ -407,7 +412,7 @@ function AssetGroup({ label, items, total }) {
 
 function GradeLine({ when, grade, testId }) {
   return (
-    <span className={styles.entryDate} data-testid={testId}>
+    <span className={styles.entryDate} data-testid={testId} title={historyGradeBasisText()}>
       {when}:{" "}
       {grade && grade.grade ? (
         <>
@@ -425,8 +430,9 @@ function GradeLine({ when, grade, testId }) {
 // trades span several dates, so they have no single at-the-time instant).
 function TradeEntry({ analysis: a, atTimeSides = null, asofStatus = "idle", modelMatches = true }) {
   // Headline reflects the largest grievance — winner OR loser, whichever
-  // has the biggest magnitude pctGap.  Under ±3% the trade reads fair.
-  const showBadge = a.pctGap >= 3 && a.headlineSide;
+  // has the biggest magnitude pctGap.  Under HISTORY_EVEN_PCT the trade reads
+  // evenly valued (OD-F6 option A: a value-balance word, never "fair").
+  const showBadge = a.pctGap >= HISTORY_EVEN_PCT && a.headlineSide;
   const isLoserHeadline = showBadge && a.headlineDirection === "overpaid";
 
   // Build a /trade?share=... href so clicking pre-loads the calculator.
@@ -464,7 +470,9 @@ function TradeEntry({ analysis: a, atTimeSides = null, asofStatus = "idle", mode
             {isLoserHeadline ? "overpaid by" : "won by"} {a.pctGap.toFixed(1)}%
           </Badge>
         ) : (
-          <Badge tone="neutral">Fair trade</Badge>
+          <span title={historyGradeBasisText()} data-testid="trade-even-badge">
+            <Badge tone="neutral">{HISTORY_EVEN_LABEL}</Badge>
+          </span>
         )}
       </div>
 
@@ -778,6 +786,12 @@ export default function TradesPage() {
                 modelLabel={activeModel.label}
               />
               <TendenciesPanel />
+
+              {filtered.length > 0 ? (
+                <p className={styles.gradeBasis} data-testid="trade-grade-basis">
+                  {historyGradeBasisText()}
+                </p>
+              ) : null}
 
               {filtered.length > 0 ? (
                 <div className={styles.ledger}>
