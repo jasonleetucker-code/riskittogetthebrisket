@@ -1200,6 +1200,14 @@ def cmd_persistent(args: argparse.Namespace) -> int:
     th = candidate_thresholds()
     rec_g = read_gz(OUT_ROOT / "gates" / f"{Path(board).stem}_ARRIVING.json.gz")
     arriving = {(c["gate"], c["row"], c["source"]): c for c in rec_g["valueCaseRecords"]}
+    # The batching segment is the real (source, asset class, position group)
+    # of the case row, from the chain record of this board.
+    grow = read_gz(OUT_ROOT / "chain" / f"{Path(board).stem}.json.gz")["v21"]["rows"]
+
+    def _seg(c: dict) -> tuple[str, str, str]:
+        r = grow.get(c["row"]) or {}
+        return (c["source"], str(r.get("ac") or ""), str(r.get("pos") or "").upper() or "OTHER")
+
     cases = [
         G.Case(
             c["gate"],
@@ -1207,7 +1215,7 @@ def cmd_persistent(args: argparse.Namespace) -> int:
             c["source"],
             c["clean"],
             c["bad"],
-            (c["source"], "", ""),
+            _seg(c),
             c["band"],
             c.get("swappedFrom"),
         )
@@ -1216,6 +1224,19 @@ def cmd_persistent(args: argparse.Namespace) -> int:
     ]
     if args.max_cases:
         cases = cases[: args.max_cases]
+    if args.per_gate:
+        # V21-D18: a seeded stratified subsample (<= per_gate material cases
+        # per gate, seed 2034), taken before any PERSISTENT result exists.
+        import random  # noqa: PLC0415
+
+        rng = random.Random(D.GATE_SEED)
+        by_gate: dict[str, list] = {}
+        for c in cases:
+            by_gate.setdefault(c.gate, []).append(c)
+        cases = []
+        for gate in sorted(by_gate):
+            pool = by_gate[gate]
+            cases += pool if len(pool) <= args.per_gate else rng.sample(pool, args.per_gate)
     sources = {c.source for c in cases}
     win = dataset_windows(board, sources)
     names = [r["board"]["archive"] for r in _load("chain")]
@@ -1321,6 +1342,7 @@ def cmd_persistent(args: argparse.Namespace) -> int:
             "board": board,
             "pins": code_pins(),
             "windows": win,
+            "perGate": args.per_gate,
             "summary": summary,
             "records": results,
             "wallSeconds": round(time.time() - t0, 1),
@@ -1792,9 +1814,41 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
             "focus": rec["focus"],
         }
     out["boards"] = bd
-    path = DEV_OUT / "evaluation.json"
-    path.write_text(json.dumps(out, indent=1, sort_keys=True, default=str) + "\n", "utf-8")
-    log(f"wrote {path} ({path.stat().st_size} bytes)")
+    full = DEV_OUT / "evaluation.json.gz"
+    with gzip.open(full, "wt", encoding="utf-8") as fh:
+        json.dump(out, fh, indent=1, sort_keys=True, default=str)
+    # Compact summary: the per-pair / per-drop / focus detail stays in the gz.
+    summ = json.loads(json.dumps(out, default=str))
+    for g in (summ.get("gates") or {}).values():
+        for k in ("AD3",):
+            for per in (g.get(k) or {}).values():
+                for v in per.values():
+                    v.pop("cases", None)
+        g.pop("contamination", None)
+        for k in ("valueGates", "AD2_ID", "AD2_N", "AD2_SUR"):
+            blk = g.get(k)
+            if not isinstance(blk, dict):
+                continue
+            for sub in blk.values():
+                if not isinstance(sub, dict):
+                    continue
+                sub.pop("failures", None)
+                for lab in sub.values():
+                    if isinstance(lab, dict):
+                        lab.pop("failures", None)
+    for b in (summ.get("boards") or {}).values():
+        b.pop("focus", None)
+        for v in (b.get("restorePairs") or {}).values():
+            v.pop("pairs", None)
+        for v in (b.get("comparisons") or {}).values():
+            v.pop("moversGe10pct", None)
+            v.pop("pricedUnpricedSwitches", None)
+    for lab in ((summ.get("coldStart") or {}).get("L4") or {}).values():
+        lab["drops"] = lab["drops"][:40]
+    (summ.get("dlfRestorePairs") or {}).pop("notRetained", None)
+    path = DEV_OUT / "evaluation_summary.json"
+    path.write_text(json.dumps(summ, indent=1, sort_keys=True) + "\n", "utf-8")
+    log(f"wrote {full} and {path} ({path.stat().st_size} bytes)")
     return 0
 
 
@@ -1830,6 +1884,7 @@ def main(argv: list[str] | None = None) -> int:
     pp = sub.add_parser("persistent")
     pp.add_argument("--board", required=True)
     pp.add_argument("--max-cases", type=int, default=None)
+    pp.add_argument("--per-gate", type=int, default=None)
     args = ap.parse_args(argv)
     set_directory(args.directory)
     cmds = {
