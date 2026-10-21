@@ -1013,6 +1013,12 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
                 lower.append("fewer_drops_modelled_than_added")
             cost = float(sum(d.release_cost for d in charged))
             upper = any(_assumed(d) for d in charged)
+        if capacity.over_limit_before is not None and capacity.over_limit_before > 0:
+            # A roster already over the cap owes a cleanup under ANY taxi occupancy and the
+            # guaranteed post-trade releases are not netted against it, so the only honest
+            # lower bound on the trade's marginal cost is 0 (independent final review, F3).
+            cost = 0.0
+            lower.append("pre_trade_overage_not_netted_taxi_unknown")
     else:
         total = float(sum(d.release_cost for d in capacity.forced_drops))
         pre = _pre_trade_owed(capacity)

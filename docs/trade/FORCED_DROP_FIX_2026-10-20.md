@@ -189,7 +189,7 @@ with `d = 4` is 99) V5 used to skip the package step silently, i.e. switch to ra
 presented under the V5 rule id. It now (a) publishes `forcedDropSelection.searchBound` (64) and
 `searchBoundExceeded`, (b) uses the **V5-R selection with package charging** instead (exact and polynomial: one
 ladder, no subset search; a just-acquired release is still netted out of the package), (c) publishes the roster-rational
-rule id (what actually ran) and a note. At or below the bound nothing changes and `searchBoundExceeded` is `false`.
+rule id (what actually ran) and a note. At or below the bound nothing changes and `searchBoundExceeded` is `false`. **Discontinuity at the bound:** the V5-R charge can exceed the true V5 minimum (up to about 0.9 in adversarial 7-9-piece trades in the final review's sweep), so a 7-piece trade is priced a little differently from a 6-piece one. The Finder's widest shape is 3 incoming, so this reaches only hand-built simulate trades of 7 or more players.
 Pinned: `test_search_bound_exceeded_is_explicit_and_uses_package_charging_review_f2`,
 `test_at_or_below_the_search_bound_nothing_changes`, `test_search_bound_is_published_in_the_capacity_block`.
 
@@ -232,7 +232,7 @@ package step couple the choices): in 23 of 462 random cases a different legal `k
 against 335), so the label `lower_bound` was not guaranteed. The bound is now RE-SELECTED at the guaranteed count with
 the charge-minimising (V5) selection whichever mode is served (the V5-R set minimises `Σ c`, not the charge, so its
 cost at a smaller count is not a lower bound), and is pinned equal to the brute-force minimum over every lineup-legal
-`k`-set on 240 seeded cases.
+`k`-set on 240 seeded cases. **Over-cap caveat (final review):** that holds when the roster is not over the cap before the trade. A roster already over the cap owes a cleanup under any taxi occupancy and the guaranteed post-trade releases are not netted against it, so there the published bound is 0 (reason `pre_trade_overage_not_netted_taxi_unknown`), the only bound the marginal cannot undercut.
 
 *Incomplete or undeterminable cleanups (re-review findings 1, 3; flag-ON code only).* A cleanup that stops short of
 legal size is never reported as exact: `forcedDropMarginal` is `null` when either the post-trade ladder

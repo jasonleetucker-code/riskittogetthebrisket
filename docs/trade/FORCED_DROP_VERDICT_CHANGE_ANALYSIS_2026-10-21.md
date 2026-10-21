@@ -179,7 +179,7 @@ IDP/offense mixes (IDP 0.85 / offense 1.15 and the reverse); waiver anchors ±15
   FAVORABLE. This is the dominant uncertainty and only the production data can bear on it.
 * **Reverse anomalies were 0 in all eight scenarios, both modes** (an existing player released while a cheaper-by-`c`
   acquired piece is kept). The structural reason: a reverse anomaly needs a kept acquired piece whose package credit
-  exceeds its own `c`. For every piece ranked second or later in the package, credit ÷ value is at most 0.782 (second of two
+  exceeds its own `c`. For every piece ranked second or later in the package, provided the trade sends at least one priced asset (if the priced sending side is empty the package model gives no adjustment and every incoming piece's credit equals its full value, ratio 1.0, so even non-top pieces are not excluded when the scarcity multiplier is below 1; the replay's trades always send something), credit ÷ value is at most 0.782 (second of two
   0.778 – 0.782; third of three 0.61; fourth of four 0.475), below the smallest scarcity multiplier 0.85. **This is
   structural only for those pieces.** The top-ranked piece's ratio reaches 0.99 (two pieces), 0.94 (three) and 0.88 (four) — above 0.85 in each
   — and is 1.0 – 1.24 for a sole incoming piece, above `c` whenever the multiplier is lower than the ratio; there it is not

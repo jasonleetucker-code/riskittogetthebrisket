@@ -125,7 +125,7 @@ echo "exit=${RC:-0}"
 
 * **Expected duration.** Several times the local ~5 minutes (about 8 – 15 minutes on a development machine for these designs without Component B; allow up to 40 minutes on the box): the real Component B lens, the
   Component B census and the stress census each re-decide the census trades. The caps are 90 minutes of CPU and 120
-  of wall clock; exceeding either stops the run (exit 5) and nothing is printed.
+  of wall clock; exceeding the wall-clock or memory cap stops the run (exit 5) and nothing is printed; a CPU-cap kill (SIGXCPU) ends the process by signal instead, also with nothing printed.
 * **Optional smaller run** (to rehearse, same pins): add `--war-room-opps 2 --census-per-shape 2 --skip-finder`. Its
   numbers are not comparable with §5; the exit code, the pins and `readOnlyGuard` are.
 * **Exit codes:** `0` ok · `2` an input pin or argument was refused (stderr names the pin and prints the observed

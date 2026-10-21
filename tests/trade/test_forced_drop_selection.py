@@ -597,6 +597,24 @@ def test_taxi_unknown_bracket_charges_only_guaranteed_drops(flag_on):
     assert RC.forced_drop_cost(cap2)[0] is None
 
 
+def test_taxi_unknown_bound_on_an_already_over_cap_roster_is_zero_not_a_guaranteed_cost(flag_on):
+    """Final review F3: a roster already over the cap owes a cleanup under ANY taxi
+    occupancy, and the guaranteed post-trade releases are not netted against it, so
+    the only honest lower bound on what the trade adds is 0 (labelled), never a
+    positive number the marginal can undercut."""
+    _c, _us, ctx = _ctx(
+        settings={**R.SETTINGS, "taxiSize": 2}, extra_us=(("WR Extra", 500.0, "WR"),)
+    )
+    cap = RC.assess_roster_capacity(
+        ctx, incoming_players=["Filler RB", "Filler WR", "Filler LB"], outgoing_players=[]
+    )
+    assert cap.certainty == "partial" and cap.over_limit_before > 0
+    cost, basis = RC.forced_drop_cost(cap)
+    assert cost == 0.0
+    assert basis["state"] in ("lower_bound", "mixed_bound")
+    assert "pre_trade_overage_not_netted_taxi_unknown" in basis["lowerBoundReasons"]
+
+
 def test_outgoing_player_not_on_roster_frees_no_spot(flag_on):
     _c, _us, ctx = _ctx()
     cap = RC.assess_roster_capacity(ctx, incoming_players=["Star WR", "Filler WR"],
