@@ -16,10 +16,23 @@ Every other board's stamps may expire.
 
 ## When
 
-As soon as G1 and G2 are fixed by `HELDOUT_RULE.json` (earliest 2026-11-25; G2 moves with any
-window extension, at most to 2026-12-02), and **before** their artifacts expire (90 days after each
-board's refresh; for G1, no earlier than 2027-02-02). Pin each board once. If a window extension
-moves G2, pin the new G2; an earlier pin of a board that is no longer G2 may stay.
+**Run the pin as soon as G1 and G2 are determined** by `HELDOUT_RULE.json` (earliest 2026-11-25;
+G2 moves with any window extension, at most to 2026-12-02), **not** at the expiry deadline. The hard
+limit is each board's artifact expiry (90 days after its refresh; for G1, no earlier than
+2027-02-02), but every day of delay is a day an expiry, deletion or outage can take the evidence
+irrecoverably. Pin each board once. If a window extension moves G2, pin the new G2; an earlier pin
+of a board that is no longer G2 may stay.
+
+Each refresh records whether its artifact was actually kept, in the committed ledger
+`data/scrape_state/identity_capture_uploads.jsonl` (bounded to the last 1,200 refreshes). The
+`artifact upload:` line printed in step 1 reads it:
+
+| value | meaning |
+|---|---|
+| `uploaded` | the artifact exists until its expiry; download and pin it |
+| `failed` | **evidence not retained**: the upload failed (the refresh raised an `::error` annotation and a step-summary line at the time). No download exists, so the wrong-player gate is BLOCKED for that board. Exit code 1 |
+| `skipped` | the upload step did not run; treat as not retained unless a download succeeds and verifies |
+| `unrecorded` | no ledger line for this board; try the download, and the checksum decides |
 
 ## How
 

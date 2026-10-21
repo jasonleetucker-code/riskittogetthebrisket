@@ -518,8 +518,12 @@ jobs:
         # values) and carries the sha256 it must verify against.
         # Retention 90 days = this public repository's maximum.  Non-fatal:
         # evidence must never block shipping a good scrape.
+        # Bounded: a hung upload must not eat the 30-minute job budget and
+        # cancel the commit steps below.
+        id: identity_upload
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 3
         uses: actions/upload-artifact@v7
         with:
           name: identity-capture-evidence-${{ github.run_id }}-${{ github.run_attempt }}
@@ -527,6 +531,19 @@ jobs:
           retention-days: 90
           if-no-files-found: warn
           compression-level: 0
+
+      - name: Record identity evidence upload outcome (loud on failure, never blocking)
+        # Appends this run's outcome to the committed, bounded ledger
+        # data/scrape_state/identity_capture_uploads.jsonl (committed with
+        # data/scrape_state/ below) and raises an ::error annotation plus a
+        # step-summary line on a failed upload.  The manifest itself is not
+        # rewritten: a copy is already sealed in the archive zip.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          python scripts/record_identity_capture_upload.py --outcome "${{ steps.identity_upload.outcome }}" || true
 
       - name: Persist freshness stamps
         # Runs even when ``Run scraper`` exited non-zero so the

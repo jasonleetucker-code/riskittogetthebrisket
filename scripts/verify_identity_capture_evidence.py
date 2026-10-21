@@ -31,9 +31,14 @@ USAGE
 ``--manifest PATH`` may replace ``--archive`` for verification, but ``--pin``
 requires ``--archive``: a pin is bound to the archived board it describes.
 
+The locate output also reports the refresh's recorded ``artifact upload``
+outcome (``data/scrape_state/identity_capture_uploads.jsonl``): ``uploaded``,
+``failed`` (evidence not retained - no download exists), ``skipped``, or
+``unrecorded`` (no ledger line, e.g. a board older than the ledger).
+
 Exit codes: 0 verified / pinned / already pinned (or locate-only success),
-1 evidence does not verify or conflicts with an existing pin, 2 usage / missing
-manifest.
+1 evidence does not verify, conflicts with an existing pin, or (locate only)
+the upload was recorded as FAILED, 2 usage / missing manifest.
 """
 
 from __future__ import annotations
@@ -144,6 +149,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--pin", action="store_true", help="commit-ready pin after verification")
     ap.add_argument("--label", help="pin label, e.g. G1 or G2")
     ap.add_argument(
+        "--uploads",
+        default=str(_REPO / ce.UPLOADS_REL),
+        help=f"upload-outcome ledger (default: {ce.UPLOADS_REL.as_posix()})",
+    )
+    ap.add_argument(
         "--sealed",
         action="store_true",
         help="print hashes and timestamps only (no census) - for sealed held-out boards",
@@ -171,8 +181,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"census:          {json.dumps(manifest.get('census'), sort_keys=True)}")
     hint = _download_hint(manifest)
     print(f"retrieve:        {hint or 'no CI artifact recorded (box-local scrape)'}")
+    upload = ce.upload_status(Path(args.uploads), manifest) if hint else None
+    if upload is not None:
+        print(f"artifact upload: {upload}")
+        if upload == ce.UPLOAD_FAILED:
+            print(
+                "evidence not retained: the refresh recorded a FAILED artifact upload for this "
+                "board; no download exists (the wrong-player gate is BLOCKED for it)"
+            )
     if not args.evidence:
-        return 0
+        return 1 if upload == ce.UPLOAD_FAILED else 0
     try:
         blob = Path(args.evidence).read_bytes()
     except OSError as exc:

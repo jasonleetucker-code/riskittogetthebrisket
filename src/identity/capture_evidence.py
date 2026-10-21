@@ -903,6 +903,114 @@ def manifest_from_archive(archive: Path | bytes) -> dict[str, Any] | None:
     return got if isinstance(got, dict) else None
 
 
+# ── Artifact upload outcome (committed, bounded ledger) ──────────────────────
+#
+# The manifest is written by the scraper BEFORE the workflow uploads the
+# artifact, and a copy of it is already sealed inside the board's archive zip.
+# Writing the upload outcome back into it would make the two copies disagree,
+# so the outcome is recorded in a separate committed ledger, one line per
+# refresh, keyed by (scrapeTimestamp, evidence sha256).  A manifest whose
+# artifact upload failed would otherwise point at an artifact that never
+# existed, and a gate board's evidence would be silently lost.
+
+UPLOADS_REL = Path("data") / "scrape_state" / "identity_capture_uploads.jsonl"
+#: Lines kept: ~100 days at 12 refreshes/day, longer than the 90-day artifact
+#: retention (after which an outcome no longer changes anything).  Older lines
+#: remain in git history.
+UPLOAD_LEDGER_KEEP = 1200
+UPLOAD_UPLOADED = "uploaded"
+UPLOAD_FAILED = "failed"
+UPLOAD_SKIPPED = "skipped"
+UPLOAD_UNRECORDED = "unrecorded"
+_STEP_OUTCOME_TO_UPLOAD = {
+    "success": UPLOAD_UPLOADED,
+    "failure": UPLOAD_FAILED,
+    "cancelled": UPLOAD_FAILED,
+    "skipped": UPLOAD_SKIPPED,
+}
+
+
+def upload_from_step_outcome(step_outcome: object) -> str:
+    """Map a GitHub ``steps.<id>.outcome`` onto the ledger vocabulary.  Anything
+    unrecognised is a FAILURE (a lost artifact must never read as retained)."""
+    return _STEP_OUTCOME_TO_UPLOAD.get(str(step_outcome or "").strip().lower(), UPLOAD_FAILED)
+
+
+def record_upload_outcome(
+    root: Path,
+    *,
+    step_outcome: object,
+    env: Mapping[str, str],
+    recorded_at: str | None = None,
+) -> dict[str, Any] | None:
+    """Append this refresh's upload outcome to ``root/UPLOADS_REL``.
+
+    Returns the record, or ``None`` when this run wrote no evidence (the
+    manifest on disk is another run's, or absent) - nothing is claimed then.
+    An upload reported as successful whose evidence file is missing on disk is
+    recorded as FAILED: the artifact cannot contain it."""
+    root = Path(root)
+    try:
+        manifest = json.loads((root / MANIFEST_REL).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    pointer = artifact_pointer(env)
+    art = (manifest.get("storage") or {}).get("artifact") if isinstance(manifest, dict) else None
+    if not pointer or not isinstance(art, dict):
+        return None
+    if (art.get("runId"), art.get("runAttempt")) != (pointer["runId"], pointer["runAttempt"]):
+        return None  # the manifest on disk is a previous run's
+    evidence = manifest.get("evidence") or {}
+    outcome = upload_from_step_outcome(step_outcome)
+    if (
+        outcome == UPLOAD_UPLOADED
+        and not (root / EVIDENCE_DIR_REL / str(evidence.get("filename") or "")).is_file()
+    ):
+        outcome = UPLOAD_FAILED
+    record = {
+        "scrapeTimestamp": manifest.get("scrapeTimestamp"),
+        "evidenceSha256": evidence.get("sha256"),
+        "artifactUpload": outcome,
+        "artifact": art.get("name"),
+        "runId": art.get("runId"),
+        "runAttempt": art.get("runAttempt"),
+        "recordedAt": recorded_at or datetime.now(timezone.utc).isoformat(),
+    }
+    path = root / UPLOADS_REL
+    try:
+        lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    except OSError:
+        lines = []
+    lines.append(json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    _atomic_write(path, ("\n".join(lines[-UPLOAD_LEDGER_KEEP:]) + "\n").encode("utf-8"))
+    return record
+
+
+def upload_status(ledger: Path, manifest: Mapping[str, Any]) -> str:
+    """The recorded upload outcome for the board ``manifest`` describes:
+    ``uploaded`` / ``failed`` / ``skipped``, or ``unrecorded`` when the ledger
+    has no line for it (an older board, or a ledger line trimmed or lost).
+    The LAST matching line wins (a re-run attempt supersedes)."""
+    want = (manifest.get("scrapeTimestamp"), (manifest.get("evidence") or {}).get("sha256"))
+    status = UPLOAD_UNRECORDED
+    try:
+        text = Path(ledger).read_text(encoding="utf-8")
+    except OSError:
+        return status
+    for line in text.splitlines():
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue  # a torn line is skipped, never guessed
+        if not isinstance(rec, dict):
+            continue
+        if (rec.get("scrapeTimestamp"), rec.get("evidenceSha256")) == want:
+            got = rec.get("artifactUpload")
+            if got in (UPLOAD_UPLOADED, UPLOAD_FAILED, UPLOAD_SKIPPED):
+                status = got
+    return status
+
+
 def ktc_toggles(
     rows: Iterable[Any],
     *,
