@@ -2,24 +2,20 @@
   "cohort": {},
   "credentialRegression": false,
   "ffpcMarket": {},
-  "lastError": {
-    "attempt": 1,
-    "message": "401 from https://chaseupside.com/api/sharp/cohort",
-    "type": "Unauthenticated"
-  },
+  "lastError": null,
   "lastMeasuredOn": null,
-  "lastObservedAt": "2026-10-20T16:24:06.398661+00:00",
-  "lastObservedOn": "2026-10-20",
+  "lastObservedAt": "2026-10-21T01:05:38.246238+00:00",
+  "lastObservedOn": "2026-10-21",
   "lastRun": {
-    "attempts": 1,
-    "deployConclusion": "success",
-    "deployHeadSha": "202a0e375eb55fe7e1a5d8b071f1249c0c89d597",
-    "deployRunId": "39440179082",
+    "attempts": 0,
+    "deployConclusion": "cancelled",
+    "deployHeadSha": "d2e043762b9a225f9531f48755784dd07d147fbd",
+    "deployRunId": "39523807093",
     "event": "workflow_run"
   },
   "measured": false,
   "schema": 2,
-  "stateFingerprint": "sha256:f57cf5e6cbe5fdb5622c386fe300849a82fb2bdc3dbbfdab7bcaea151551b7f8",
-  "stateSince": "2026-10-20T16:24:06.398661+00:00",
-  "status": "unverifiable_unauthenticated"
+  "stateFingerprint": "sha256:438bc94bea481fcc7898b74a6ef98e570b925ab3cc47def95ac7e7abc831bfc4",
+  "stateSince": "2026-10-21T01:05:38.246238+00:00",
+  "status": "deploy_superseded"
 }

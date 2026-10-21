@@ -178,7 +178,7 @@ export const DEFAULT_TEAMS = [
   { name: "Eric", initialBudget: 71 },
   { name: "Collin", initialBudget: 71 },
   { name: "Roy", initialBudget: 71 },
-  { name: "Blaine", initialBudget: 71 },
+  { name: "schoeppeya", initialBudget: 71 },
   { name: "John", initialBudget: 73 },
 ];
 

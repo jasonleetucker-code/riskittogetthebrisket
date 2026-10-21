@@ -12,6 +12,18 @@
       "toUsername": "jnesselhauf",
       "effectiveWeek": 6,
       "source": "owner directive 2026-10-16; cutover week confirmed by owner 2026-10-17 (jstuedle's last roster-11 transaction 2026-10-11, week 5)"
+    },
+    {
+      "leagueKey": "dynasty_main",
+      "leagueId": "1312006700437352448",
+      "season": "2026",
+      "rosterId": 12,
+      "fromOwnerId": "1303549304882892800",
+      "fromUsername": "ughb",
+      "toOwnerId": "1393410658032177152",
+      "toUsername": "schoeppeya",
+      "effectiveWeek": 7,
+      "source": "derived from committed data/sleeper_last_good.json, PENDING OWNER CONFIRMATION of the cutover week: roster 12 ownerId is 1303549304882892800 (ughb) at savedAt 2026-10-19T23:56Z (commit ae1fb9936b; Sleeper leg 6, last_scored_leg 5 = week 6 still being played), ownerless 'Team 12' from 2026-10-20T05:20Z (d9c3a70209; last_scored_leg 6 = week 6 scored), 1393410658032177152 (schoeppeya) at 2026-10-20T21:53Z (343d47a634; leg 6, week 7 not started: faab_engine.current_nfl_week opens week 7 on 2026-10-22). Best-ball league (leagueSettings.best_ball 1), so no lineup is managed after week 6 locks; ughb's last roster-12 trade is week 1 (2026-08-30). First week ughb did not hold the roster: 7"
     }
   ]
 }
