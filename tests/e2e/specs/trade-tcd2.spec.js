@@ -127,7 +127,19 @@ test("trade TC-D2: toolbar, builder sheets, drilldown tabs, 3-team summary, no s
   await addToSide(page, "C", c);
   const summary = page.getByTestId("trade-multi-summary");
   await expect(summary).toHaveCount(1);
-  await expect(summary).toContainText(/reliable YES \/ NO unavailable for 3 teams/);
+  // The meter's own per-team reading, labelled PRELIMINARY and pointing at
+  // the War Room for the final per-team answer (no team is bound here, so no
+  // War Room answer exists and the bar must not claim a final result).
+  const NET = "[+\u2212]?\\d[\\d,]*";
+  const reading = new RegExp(
+    `^A (${NET})B (${NET})C (${NET})Preliminary \u00b7 (FAIR|SLIGHT EDGE|UNFAIR|LOPSIDED) \u00b7 widest gap Side ([ABC]) (${NET}) \u00b7 final result in the War Room$`,
+  );
+  await expect(summary).toHaveText(reading);
+  const m = reading.exec((await summary.textContent()).replace(/\s+/g, " ").trim());
+  expect(m, "summary text parses").not.toBeNull();
+  // The widest gap it names is that side's own net, as shown beside it.
+  expect(m[6]).toBe(m[1 + "ABC".indexOf(m[5])]);
+  await expect(summary).not.toContainText(/Final:|reliable YES \/ NO unavailable/);
   if (phone) await expect(summary).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("tcd2-three-team.png"), fullPage: false });
   await noSidewaysScroll(page, "three-team trade");

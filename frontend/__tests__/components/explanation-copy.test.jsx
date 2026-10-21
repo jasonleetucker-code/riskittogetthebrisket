@@ -61,7 +61,7 @@ describe("trade verdict wording follows the side model", () => {
     render(
       <TradeMeter
         sides={sides}
-        sideTotals={[{ adjusted: 5000 }, { adjusted: 4000 }]}
+        sideTotals={[{ adjusted: 5000, utility: 5000 }, { adjusted: 4000, utility: 4000 }]}
         sidesSend
       />,
     );
@@ -72,7 +72,7 @@ describe("trade verdict wording follows the side model", () => {
   });
 
   it("keeps the original wording where sides are not an exchange (/waivers)", () => {
-    render(<TradeMeter sides={sides} sideTotals={[{ adjusted: 4000 }, { adjusted: 5000 }]} />);
+    render(<TradeMeter sides={sides} sideTotals={[{ adjusted: 4000, utility: 4000 }, { adjusted: 5000, utility: 5000 }]} />);
     expect(screen.getByText("Side B wins by 20%")).toBeInTheDocument();
   });
 
@@ -82,7 +82,7 @@ describe("trade verdict wording follows the side model", () => {
     render(
       <TradeFairnessExplanation
         sides={[{ label: "A", assets: [a] }, { label: "B", assets: [b] }]}
-        sideTotals={[{ adjusted: 5000 }, { adjusted: 4000 }]}
+        sideTotals={[{ adjusted: 5000, utility: 5000 }, { adjusted: 4000, utility: 4000 }]}
       />,
     );
     const note = screen.getByRole("note");

@@ -1009,6 +1009,25 @@ export function projectionBasisText(basis) {
   );
 }
 
+/** The fairness bands' status in words (never the raw id): PROVISIONAL ->
+ *  "provisional"; an owner-approved prior (fairness_bands_v2) -> "owner-approved
+ *  prior, validated after launch"; anything else -> null. */
+export function bandStatusWords(status) {
+  const s = String(status || "");
+  if (s === "PROVISIONAL") return "provisional";
+  if (s.startsWith("PRIOR_OWNER_APPROVED")) return "owner-approved prior, validated after launch";
+  return null;
+}
+
+/** What the fair band is relative to, in words, from the bands' `basis`:
+ *  v2 = the larger package after the depth discount (package utility); v1 =
+ *  the larger adjusted package.  Unknown -> the neutral "the larger package". */
+export function bandBasisWords(basis) {
+  if (basis === "larger_package_utility") return "the larger package after the depth discount";
+  if (basis === "adjusted_package_totals") return "the larger adjusted package";
+  return "the larger package";
+}
+
 /** "fairness_bands_v1" -> "version 1"; null for anything else (an id is
  *  never shown as-is). */
 export function versionLabel(id) {

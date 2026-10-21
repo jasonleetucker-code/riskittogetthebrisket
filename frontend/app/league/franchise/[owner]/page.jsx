@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtNumber } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
+import { leagueHomeHref } from "@/app/league/advisor-bootstrap";
 import ShareButton from "../../ShareButton.jsx";
 import RosterComparePanel from "@/components/RosterComparePanel";
 import {
@@ -87,7 +88,11 @@ export async function generateMetadata({ params }) {
 export default async function FranchisePage({ params }) {
   const { owner } = await params;
   const ownerId = decodeURIComponent(String(owner || ""));
-  const [data, schedule] = await Promise.all([fetchFranchise(ownerId), fetchScheduleBlock()]);
+  const [data, schedule, leagueHome] = await Promise.all([
+    fetchFranchise(ownerId),
+    fetchScheduleBlock(),
+    leagueHomeHref(),
+  ]);
   const fr = data?.franchiseDetail || data?.data?.detail?.[ownerId] || null;
   const managers = buildManagerLookup(data?.league);
   const scheduleSeason = schedule?.currentSeason || null;
@@ -108,7 +113,7 @@ export default async function FranchisePage({ params }) {
         <div className="card">
           <EmptyState title="Franchise not found" message={`No public franchise record for owner ${ownerId}.`} />
           <div style={{ marginTop: 10 }}>
-            <Link href="/league" style={{ color: "var(--cyan)" }}>← Back to league</Link>
+            <Link href={leagueHome} style={{ color: "var(--cyan)" }}>← Back to league</Link>
           </div>
         </div>
       </section>
@@ -119,7 +124,7 @@ export default async function FranchisePage({ params }) {
     <section>
       <div className="card">
         <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
-          <Link href="/league" style={{ color: "var(--cyan)" }}>← League home</Link>
+          <Link href={leagueHome} style={{ color: "var(--cyan)" }}>← League home</Link>
           {" · "}
           <Link href="/league?tab=franchise" style={{ color: "var(--cyan)" }}>All franchises</Link>
         </div>

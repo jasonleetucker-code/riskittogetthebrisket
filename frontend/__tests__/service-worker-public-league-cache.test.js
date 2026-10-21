@@ -83,7 +83,7 @@ describe("public-league service-worker cache", () => {
     expect(fetch).toHaveBeenCalledOnce();
     expect(cache.match).not.toHaveBeenCalled();
     expect(cache.put).toHaveBeenCalledOnce();
-    expect(caches.open).toHaveBeenCalledWith("chaseupside-v9-public-league");
+    expect(caches.open).toHaveBeenCalledWith("chaseupside-v10-public-league");
   });
 
   it("uses the public-league cache only when the network is unavailable", async () => {
@@ -112,5 +112,51 @@ describe("rookie auction room responses are never cached", () => {
     expect(respondWith).not.toHaveBeenCalled();
     expect(caches.open).not.toHaveBeenCalled();
     expect(cache.put).not.toHaveBeenCalled();
+  });
+});
+
+// R2-7 / privacy F-2: the Brisket Trade Advisor is served no-store; the
+// public-league network-first branch must not put it into CacheStorage.
+describe("Brisket Trade Advisor responses are never cached", () => {
+  it.each([
+    "https://chaseupside.com/api/public/league/trade-advisor/teams",
+    "https://chaseupside.com/api/public/league/trade-advisor/teams?leagueKey=dynasty_main",
+    "https://chaseupside.com/api/public/league/trade-advisor/teams/3/assets?sort=position",
+  ])("passes %s straight to the network (no respondWith, no cache)", (href) => {
+    const { cache, caches, fetch, listeners } = loadServiceWorker({
+      cachedResponse: { ok: true },
+      networkResponse: { ok: true, clone: vi.fn(() => ({ ok: true })) },
+    });
+    const respondWith = vi.fn();
+    listeners.fetch({ request: { method: "GET", url: href }, respondWith });
+    expect(respondWith).not.toHaveBeenCalled();
+    expect(caches.open).not.toHaveBeenCalled();
+    expect(cache.put).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("the analyze POST is never intercepted either", () => {
+    const { caches, listeners } = loadServiceWorker({ cachedResponse: null, networkResponse: { ok: true } });
+    const respondWith = vi.fn();
+    listeners.fetch({
+      request: { method: "POST", url: "https://chaseupside.com/api/public/league/trade-advisor/analyze" },
+      respondWith,
+    });
+    expect(respondWith).not.toHaveBeenCalled();
+    expect(caches.open).not.toHaveBeenCalled();
+  });
+
+  it("the rest of the public league API keeps its offline fallback", async () => {
+    const fresh = { ok: true, clone: vi.fn(() => ({ ok: true })) };
+    const { cache, listeners } = loadServiceWorker({ cachedResponse: null, networkResponse: fresh });
+    let responsePromise;
+    listeners.fetch({
+      request: { method: "GET", url: "https://chaseupside.com/api/public/league/overview" },
+      respondWith(value) {
+        responsePromise = value;
+      },
+    });
+    await expect(responsePromise).resolves.toBe(fresh);
+    expect(cache.put).toHaveBeenCalledOnce();
   });
 });

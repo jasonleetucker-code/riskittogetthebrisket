@@ -48,7 +48,7 @@ const BASELINE = {
   "app/players/compare/page.jsx": 1,
   "app/tools/ros-data-health/page.jsx": 1,
   "app/bdvm/page.jsx": 2,
-  "app/league/activity/page.jsx": 1,
+  "app/league/activity/ActivityClient.jsx": 1,
   "app/league/sections/ros-team-strength.jsx": 1,
   "app/league/sections/ros-championship.jsx": 1,
   "app/league/sections/ros-trade-deadline.jsx": 1,
@@ -74,7 +74,7 @@ function walk(dir, out = []) {
  *
  * Matching on the title rather than anywhere in the props is the whole
  * precision of this guard, and it was tightened after a first pass
- * flagged `app/league/activity/page.jsx`:
+ * flagged `app/league/activity/page.jsx` (now `ActivityClient.jsx`):
  *
  *     <EmptyState
  *       title="No activity in this view"

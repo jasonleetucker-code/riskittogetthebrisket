@@ -17,6 +17,11 @@
  * lineup, arguments / objections / uncertainty (and the strategy control),
  * and the exact sources, simulations and methodology.
  *
+ * The detail sections (Disclosure, PlayerImpact, BeforeAfter, Arguments,
+ * Methodology) are exported for the multi-team War Room
+ * (./MultiTeamWarRoom.jsx), which renders each team's `analysis` — the same
+ * shape — through them rather than through a second copy.
+ *
  * DISPLAY ONLY: every number is `POST /api/trade/analyze`'s, worded by
  * `lib/trade-war-room-copy.js`.  The recommendation is `analysis.decision`
  * (`src/trade/trade_decision.py`) rendered verbatim — never rebuilt from the
@@ -81,6 +86,8 @@ import {
   tradeValueSummary,
   uncertaintyLine,
   versionLabel,
+  bandStatusWords,
+  bandBasisWords,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
 import { RECOMMENDATION_ONLY_TEXT } from "@/components/help/TradeHelp";
@@ -126,7 +133,7 @@ function humanizeKey(key) {
  * War Room so an open section stays open when a new answer arrives.  Its
  * body renders only while open — detail costs nothing until asked for.
  */
-function Disclosure({ id, title, open, onToggle, children }) {
+export function Disclosure({ id, title, open, onToggle, children }) {
   const bodyId = useId();
   return (
     <Panel
@@ -146,7 +153,7 @@ function Disclosure({ id, title, open, onToggle, children }) {
   );
 }
 
-function PlayerImpact({ rosterDetail, partialNote }) {
+export function PlayerImpact({ rosterDetail, partialNote }) {
   const rows = rosterImpactRows(rosterDetail);
   const sentences = incomingLineupSentences(rosterDetail);
   return (
@@ -216,7 +223,7 @@ function PlayerImpact({ rosterDetail, partialNote }) {
   );
 }
 
-function BeforeAfter({ rosterDetail }) {
+export function BeforeAfter({ rosterDetail }) {
   const d = rosterDetail || {};
   const before = d.before || {};
   const after = d.after || {};
@@ -300,7 +307,7 @@ function BeforeAfter({ rosterDetail }) {
   );
 }
 
-function Arguments({ analysis, showStrategy }) {
+export function Arguments({ analysis, showStrategy }) {
   const decision = analysis.decision || {};
   const strategy = decision.strategy;
   // The biggest uncertainty leads its list here, once -- it is not repeated
@@ -353,7 +360,7 @@ function Arguments({ analysis, showStrategy }) {
   );
 }
 
-function Methodology({ analysis, raw }) {
+export function Methodology({ analysis, raw }) {
   const decision = analysis.decision || {};
   const bands = decision.bands || {};
   const confidenceStatement = confidenceStatementText(decision.confidence, {
@@ -393,9 +400,9 @@ function Methodology({ analysis, raw }) {
           evidence” instead of a guess.
         </p>
         <p data-testid="decision-bands">
-          Fairness bands{bandsVersion ? `, ${bandsVersion}` : ""} (
-          {String(bands.status || "").toLowerCase()}): a gap is fair under {bands.absoluteMinimum}{" "}
-          points or {bands.slightPct}% of the larger adjusted package.
+          Fairness bands{bandsVersion ? `, ${bandsVersion}` : ""}
+          {bandStatusWords(bands.status) ? ` (${bandStatusWords(bands.status)})` : ""}: a gap is fair
+          under {bands.absoluteMinimum} points or {bands.slightPct}% of {bandBasisWords(bands.basis)}.
         </p>
         {Array.isArray(decision.reasons) && decision.reasons.length ? (
           <div data-testid="decision-record">

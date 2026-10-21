@@ -25,6 +25,9 @@ vi.mock("../lib/server-backend.js", () => ({
   // No backend in a unit test: the sitemap's documented fallback is the
   // static routes only, which is exactly what this test wants to inspect.
   fetchBackendJson: vi.fn(async () => null),
+  // The Brisket Trade Advisor read (advisor-bootstrap.js): no answer, so
+  // "unknown" — the sitemap is main's, with no advisor-only URL.
+  fetchBackendResult: vi.fn(async () => ({ ok: false, status: 0, data: null })),
 }));
 
 let sitemap;

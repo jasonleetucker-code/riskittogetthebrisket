@@ -214,3 +214,81 @@ def test_simulate_route_accepts_parallel_player_ids(two_league_registry, monkeyp
     body = res.json()
     assert sorted(a["name"] for a in body["sending"]) == ["WR Kc", "WR Phi"]
     assert body["unresolvedOut"] == []
+
+
+# ── N-team composer (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §2.1) ──────
+
+
+def test_analyze_trade_n_is_the_only_other_composer():
+    """No module outside the service composes the two per-team steps; the
+    N-team route goes through ``analyze_trade_n`` and nothing lower."""
+    offenders = []
+    for path in sorted((REPO / "src").rglob("*.py")):
+        if path == REPO / "src/trade/analyze_service.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for fn in ast.walk(tree):
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                calls = _calls(fn)
+                if "simulate_for_team" in calls and "analyze_for_team" in calls:
+                    offenders.append(f"{path.relative_to(REPO)}::{fn.name}")
+    assert offenders == []
+    fns = _server_functions()
+    multi = _calls(fns["post_trade_analyze_multi"])
+    assert "analyze_trade_n" in multi
+    for lower in ("simulate_for_team", "analyze_for_team", "simulate_trade", "analyze_trade"):
+        assert lower not in multi, lower
+
+
+def test_n_team_defaults_leave_the_two_team_path_byte_identical(monkeypatch):
+    """``include_roster_capacity`` / ``unverifiable_asset_ids`` default to the
+    pre-existing behaviour: the simulator sees True / an empty list, and no
+    ``ownershipEvidence`` key appears."""
+    seen = {}
+
+    def fake_sim(contract, **kw):
+        seen.update(kw)
+        return {"team": None}
+
+    monkeypatch.setattr(analyze_service.trade_simulator, "simulate_trade", fake_sim)
+    analyze_service.simulate_for_team(
+        {},
+        league_key="k",
+        roster_settings={},
+        resolved_team={"name": "x"},
+        team_context=False,
+        for_analysis=True,
+        posture_resolver=lambda *a, **k: None,
+    )
+    assert seen["include_roster_capacity"] is True
+    assert seen["unverifiable_asset_ids"] == []
+
+
+def test_simulator_publishes_ownership_evidence_only_for_this_teams_legs():
+    from src.api import trade_simulator
+    from tests.api.test_trade_nfl_exposure import _SETTINGS, _contract, _us
+
+    c = _contract()
+    for r in c["playersArray"]:
+        if r.get("assetClass") != "pick":
+            r["playerId"] = r["displayName"].lower()
+    kw = dict(
+        resolved_team=_us(c),
+        players_in=["WR Buf Star"],
+        player_ids_in=["wr buf star"],
+        players_out=["WR Kc"],
+        player_ids_out=["wr kc"],
+        roster_settings=_SETTINGS,
+    )
+    plain = trade_simulator.simulate_trade(c, **kw)
+    assert "ownershipEvidence" not in plain
+    marked = trade_simulator.simulate_trade(
+        c, **kw, unverifiable_asset_ids=["p:wr kc", "p:not-in-this-trade"]
+    )
+    assert marked["ownershipEvidence"] == {"unverifiableAssetIds": ["p:wr kc"]}
+    marked.pop("ownershipEvidence")
+    assert marked == plain
+    lean = trade_simulator.simulate_trade(c, **kw, include_roster_capacity=False)
+    for key in ("rosterCapacity", "finalRosterSimulation", "rosterUtility"):
+        assert key not in lean
+    assert lean["receiving"] == plain["receiving"] and lean["equity"] == plain["equity"]

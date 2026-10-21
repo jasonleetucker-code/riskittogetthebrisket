@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useDynastyData } from "@/components/useDynastyData";
 import { buildTeamByPlayer } from "@/lib/waiver-logic";
@@ -344,7 +344,15 @@ function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData
 
   // Global keyboard shortcuts for search: "/" (legacy, preserved) and
   // Cmd/Ctrl+K (the standard command-palette chord — R1 additive).
-  useEffect(() => {
+  //
+  // A LAYOUT effect, deliberately: the shortcut is wired in the same commit
+  // that renders its visible affordance (the shell's "Search" button, which
+  // TopBar / MobileTopBar show under the same `authenticated &&
+  // searchEnabled` condition), before the browser paints it.  As a passive
+  // effect it ran after paint, so for a moment the Search button was on
+  // screen while "/" still did nothing.  "The Search control is visible"
+  // now implies "/" works — the readiness signal V1-131's E2E waits on.
+  useLayoutEffect(() => {
     if (!searchEnabled) return undefined;
     function onKeyDown(e) {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {

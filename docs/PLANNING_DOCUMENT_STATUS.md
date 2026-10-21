@@ -170,6 +170,9 @@ Binding within their subject; implementation authority remains `docs/EXECUTION_P
   carry AL-* units and acceptance).
 - `docs/sources/SIGNALS_FANTASY_INTEGRATION.md` — Signals integration (owner directive 2026-09-30, ACTIVE addendum
   2026-10-03; IDP held behind its preregistered gate).
+- `docs/owner/BRISKET_TRADE_ADVISOR_DESIGN_2026-10-19.md` — Brisket Trade Advisor architecture audit (§A1–§A9) and
+  implementation design (§0–§14, open owner decisions OD-1..OD-8) for the owner directive
+  `docs/owner/BRISKET_TRADE_ADVISOR_2026-10-19.md`; authorizes nothing (`docs/EXECUTION_PLAN.md` does).
 
 ### Owner decision records (2026-10-18 closeout)
 Records of owner decisions and their live status; they authorize nothing (`docs/EXECUTION_PLAN.md` §0 does) and do

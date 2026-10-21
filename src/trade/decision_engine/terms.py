@@ -55,6 +55,12 @@ def num(x: Any) -> float | None:
     return f if math.isfinite(f) else None
 
 
+def _positive(xs: Any) -> list[float]:
+    """The priced (finite, positive) values of a package -- an unpriced piece
+    is never a 0 inside the package math."""
+    return [v for v in (num(x) for x in xs or ()) if v is not None and v > 0]
+
+
 def _state(m: Mapping[str, Any] | None) -> tuple[str, str | None]:
     if not isinstance(m, Mapping) or not m:
         return "unavailable", "layer_missing"
@@ -86,15 +92,16 @@ def _silent(term: str, state: str, reason: str | None, unit: str) -> TermResult:
 # ── A ──────────────────────────────────────────────────────────────────────
 
 
-def a_band_threshold(larger_side: float) -> float:
-    """The absolute gap at which a package pairing leaves the fair band."""
-    return max(fairness_bands.ABSOLUTE_MINIMUM, fairness_bands.SLIGHT_PCT / 100.0 * larger_side)
+def a_band_threshold(larger_utility: float) -> float:
+    """The absolute gap at which a package pairing leaves the fair band (the
+    owner's rule, on the larger PACKAGE UTILITY -- fairness_bands_v2)."""
+    return fairness_bands.fair_threshold(larger_utility)
 
 
 def _classify_gap(
-    net: float, larger: float, params: Mapping[str, Any]
+    net: float, larger_utility: float, params: Mapping[str, Any]
 ) -> tuple[str, str | None, dict]:
-    band = fairness_bands.classify(net, larger)
+    band = fairness_bands.classify(net, larger_utility)
     magnitude = params["terms"]["A"]["levelToMagnitude"][band["level"]]
     if magnitude is None:
         return "neutral", None, band
@@ -132,6 +139,17 @@ def classify_asset(asset: Mapping[str, Any], params: Mapping[str, Any]) -> tuple
     recv_adj = num(get(asset, "recvAdjusted", "recv_adjusted"))
     if gap is None or send_adj is None or recv_adj is None:
         return _silent("A", "unavailable", "asset_totals_missing", A_UNIT), detail
+    # The band's base is the larger PACKAGE UTILITY of the two packages
+    # (fairness_bands_v2, OD-F2), from the fairness-band owner -- so A needs the
+    # piece values, not only the adjusted totals.
+    send_values = _positive(get(asset, "sendValues", "send_values"))
+    recv_values = _positive(get(asset, "recvValues", "recv_values"))
+    if not send_values and not recv_values:
+        return _silent("A", "unavailable", "package_values_missing", A_UNIT), detail
+    model = (get(asset, "packageModel", "package_model") or {}).get("id")
+    if model is not None and model not in package_model.PACKAGE_MODELS:
+        return _silent("A", "unavailable", "package_model_unresolved", A_UNIT), detail
+    larger_utility = fairness_bands.larger_package_utility(send_values, recv_values, model_id=model)
     charge, charge_state = forced_release_charge(asset)
     detail["forcedReleaseCharge"] = charge
     detail["forcedReleaseBasis"] = charge_state
@@ -139,8 +157,15 @@ def classify_asset(asset: Mapping[str, Any], params: Mapping[str, Any]) -> tuple
         return _silent("A", "partial", f"forced_drop_cost_{charge_state}", A_UNIT), detail
     larger = max(send_adj, recv_adj)
     net = gap - charge
-    direction, magnitude, band = _classify_gap(net, larger, params)
-    detail.update({"fairness": band, "vaGap": gap, "largerAdjustedSide": larger})
+    direction, magnitude, band = _classify_gap(net, larger_utility, params)
+    detail.update(
+        {
+            "fairness": band,
+            "vaGap": gap,
+            "largerAdjustedSide": larger,
+            "largerPackageUtility": larger_utility,
+        }
+    )
     return (
         TermResult(
             term="A",
@@ -150,7 +175,7 @@ def classify_asset(asset: Mapping[str, Any], params: Mapping[str, Any]) -> tuple
             magnitude_class=magnitude,  # type: ignore[arg-type]
             value=round(net, 1),
             unit=A_UNIT,
-            band=round(a_band_threshold(larger), 1),
+            band=round(a_band_threshold(larger_utility), 1),
             mc_standard_error=None,
             predictive_sd=None,
             predictive_basis="not_applicable",
@@ -176,9 +201,11 @@ def a_term_from_values(
     send_adj, recv_adj, _, _ = package_model.adjusted_pair_totals(
         send_values, recv_values, model_id=model_id
     )
-    larger = max(send_adj, recv_adj)
+    larger_utility = fairness_bands.larger_package_utility(
+        send_values, recv_values, model_id=model_id
+    )
     net = recv_adj - send_adj - charge
-    direction, magnitude, _ = _classify_gap(net, larger, params)
+    direction, magnitude, _ = _classify_gap(net, larger_utility, params)
     return TermResult(
         term="A",
         lineage_member=TERM_LINEAGE_MEMBER["A"],
@@ -187,7 +214,7 @@ def a_term_from_values(
         magnitude_class=magnitude,  # type: ignore[arg-type]
         value=round(net, 1),
         unit=A_UNIT,
-        band=round(a_band_threshold(larger), 1),
+        band=round(a_band_threshold(larger_utility), 1),
         mc_standard_error=None,
         predictive_sd=None,
         predictive_basis="not_applicable",

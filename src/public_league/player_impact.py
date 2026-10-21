@@ -846,7 +846,7 @@ def season_team_weeks(
             teams.append(
                 TeamWeek(
                     roster_id=rid,
-                    owner_id=metrics.resolve_owner(snapshot.managers, season.league_id, rid),
+                    owner_id=metrics.resolve_owner(snapshot.managers, season.league_id, rid, wk),
                     score=_score(entry),
                     counted=counted,
                     points=points,

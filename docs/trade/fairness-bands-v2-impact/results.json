@@ -1,0 +1,1824 @@
+{
+ "compare": "fairness_bands_v1 (larger ADJUSTED side) vs fairness_bands_v2 (larger PACKAGE UTILITY)",
+ "inputs": {
+  "export": {
+   "path": "exports/latest/dynasty_data_2026-10-20.json",
+   "rev": "1511ca1d08",
+   "blob": "0d0e0d862d0b269f2a9292a786122517ce7fb47e"
+  },
+  "trades": {
+   "path": "data/sleeper_last_good.json",
+   "rev": "1511ca1d08",
+   "blob": "91ff7203c13707da81f163858a71627e1a68ccba"
+  }
+ },
+ "boardGeneratedAt": null,
+ "packageModel": {
+  "id": "geom_q078_v1",
+  "family": "geom",
+  "version": "1",
+  "label": "Geometric Value Adjustment (q = 0.78)",
+  "classification": "ACTIVE"
+ },
+ "newBands": {
+  "version": "fairness_bands_v2",
+  "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+  "basis": "larger_package_utility",
+  "absoluteMinimum": 250.0,
+  "slightPct": 3.5,
+  "unfairPct": 9.0,
+  "lopsidedPct": 18.0,
+  "fairTradeLevels": [
+   "fair"
+  ],
+  "postLaunchValidation": "OD-F4"
+ },
+ "oldBands": {
+  "version": "fairness_bands_v1",
+  "basis": "adjusted_package_totals",
+  "note": "same cut points, floor and gap; base = max(sendAdjusted, recvAdjusted)"
+ },
+ "realTrades": {
+  "census": {
+   "graded": 76,
+   "excludedUnpriced": 31
+  },
+  "teamResults": 153,
+  "summary": {
+   "judged": 153,
+   "bandChanged": 16,
+   "bandStricter": 16,
+   "bandLooser": 0,
+   "bandTransitions": {
+    "fair->slight": 2,
+    "slight->unfair": 8,
+    "unfair->lopsided": 6
+   },
+   "fairToNotFair": 2,
+   "notFairToFair": 0,
+   "assetOnlyHeadlineChanged": 2,
+   "assetOnlyHeadlineTransitions": {
+    "NO_TOO_CLOSE->NO": 1,
+    "NO_TOO_CLOSE->YES": 1
+   }
+  },
+  "byCategory": {
+   "1_for_1": {
+    "judged": 32,
+    "bandChanged": 0,
+    "bandStricter": 0,
+    "bandLooser": 0,
+    "bandTransitions": {},
+    "fairToNotFair": 0,
+    "notFairToFair": 0,
+    "assetOnlyHeadlineChanged": 0,
+    "assetOnlyHeadlineTransitions": {}
+   },
+   "all": {
+    "judged": 153,
+    "bandChanged": 16,
+    "bandStricter": 16,
+    "bandLooser": 0,
+    "bandTransitions": {
+     "fair->slight": 2,
+     "slight->unfair": 8,
+     "unfair->lopsided": 6
+    },
+    "fairToNotFair": 2,
+    "notFairToFair": 0,
+    "assetOnlyHeadlineChanged": 2,
+    "assetOnlyHeadlineTransitions": {
+     "NO_TOO_CLOSE->NO": 1,
+     "NO_TOO_CLOSE->YES": 1
+    }
+   },
+   "deep_4plus_pieces": {
+    "judged": 34,
+    "bandChanged": 12,
+    "bandStricter": 12,
+    "bandLooser": 0,
+    "bandTransitions": {
+     "fair->slight": 2,
+     "slight->unfair": 6,
+     "unfair->lopsided": 4
+    },
+    "fairToNotFair": 2,
+    "notFairToFair": 0,
+    "assetOnlyHeadlineChanged": 2,
+    "assetOnlyHeadlineTransitions": {
+     "NO_TOO_CLOSE->NO": 1,
+     "NO_TOO_CLOSE->YES": 1
+    }
+   },
+   "includes_idp": {
+    "judged": 39,
+    "bandChanged": 8,
+    "bandStricter": 8,
+    "bandLooser": 0,
+    "bandTransitions": {
+     "slight->unfair": 6,
+     "unfair->lopsided": 2
+    },
+    "fairToNotFair": 0,
+    "notFairToFair": 0,
+    "assetOnlyHeadlineChanged": 0,
+    "assetOnlyHeadlineTransitions": {}
+   },
+   "includes_pick": {
+    "judged": 75,
+    "bandChanged": 12,
+    "bandStricter": 12,
+    "bandLooser": 0,
+    "bandTransitions": {
+     "fair->slight": 2,
+     "slight->unfair": 4,
+     "unfair->lopsided": 6
+    },
+    "fairToNotFair": 2,
+    "notFairToFair": 0,
+    "assetOnlyHeadlineChanged": 2,
+    "assetOnlyHeadlineTransitions": {
+     "NO_TOO_CLOSE->NO": 1,
+     "NO_TOO_CLOSE->YES": 1
+    }
+   },
+   "multi_team": {
+    "judged": 3,
+    "bandChanged": 0,
+    "bandStricter": 0,
+    "bandLooser": 0,
+    "bandTransitions": {},
+    "fairToNotFair": 0,
+    "notFairToFair": 0,
+    "assetOnlyHeadlineChanged": 0,
+    "assetOnlyHeadlineTransitions": {}
+   },
+   "two_team": {
+    "judged": 150,
+    "bandChanged": 16,
+    "bandStricter": 16,
+    "bandLooser": 0,
+    "bandTransitions": {
+     "fair->slight": 2,
+     "slight->unfair": 8,
+     "unfair->lopsided": 6
+    },
+    "fairToNotFair": 2,
+    "notFairToFair": 0,
+    "assetOnlyHeadlineChanged": 2,
+    "assetOnlyHeadlineTransitions": {
+     "NO_TOO_CLOSE->NO": 1,
+     "NO_TOO_CLOSE->YES": 1
+    }
+   }
+  },
+  "tradeLevelFair": {
+   "v1AllTeamsFair": 15,
+   "v2AllTeamsFair": 14
+  },
+  "historyGradeVsBand": {
+   "v1:agree": 145,
+   "v1:disagree": 8,
+   "v2:agree": 147,
+   "v2:disagree": 6,
+   "v2:historyNotFair_v2Fair": 6
+  },
+  "examples": [
+   {
+    "date": "2025-10-23",
+    "team": "Jason",
+    "shape": "2>4",
+    "gap": 430,
+    "v1Base": 13435.0,
+    "v2Base": 10303.3,
+    "v1": "fair (3.2%)",
+    "v2": "slight (4.17%)",
+    "assetOnly": "NO_TOO_CLOSE -> YES",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_pick"
+    ]
+   },
+   {
+    "date": "2025-10-23",
+    "team": "Joey",
+    "shape": "4>2",
+    "gap": -430,
+    "v1Base": 13435.0,
+    "v2Base": 10303.3,
+    "v1": "fair (3.2%)",
+    "v2": "slight (4.17%)",
+    "assetOnly": "NO_TOO_CLOSE -> NO",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_pick"
+    ]
+   },
+   {
+    "date": "2026-03-11",
+    "team": "Brent",
+    "shape": "5>2",
+    "gap": -2265,
+    "v1Base": 13259.0,
+    "v2Base": 10488.0,
+    "v1": "unfair (17.08%)",
+    "v2": "lopsided (21.6%)",
+    "assetOnly": "NO -> NO",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_pick"
+    ]
+   },
+   {
+    "date": "2026-03-11",
+    "team": "Jason",
+    "shape": "2>5",
+    "gap": 2265,
+    "v1Base": 13259.0,
+    "v2Base": 10488.0,
+    "v1": "unfair (17.08%)",
+    "v2": "lopsided (21.6%)",
+    "assetOnly": "YES -> YES",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_pick"
+    ]
+   },
+   {
+    "date": "2026-05-12",
+    "team": "Jason",
+    "shape": "4>2",
+    "gap": -1882,
+    "v1Base": 13098.0,
+    "v2Base": 10312.1,
+    "v1": "unfair (14.37%)",
+    "v2": "lopsided (18.25%)",
+    "assetOnly": "NO -> NO",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_pick"
+    ]
+   },
+   {
+    "date": "2026-05-12",
+    "team": "MaKayla",
+    "shape": "2>4",
+    "gap": 1882,
+    "v1Base": 13098.0,
+    "v2Base": 10312.1,
+    "v1": "unfair (14.37%)",
+    "v2": "lopsided (18.25%)",
+    "assetOnly": "YES -> YES",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_pick"
+    ]
+   },
+   {
+    "date": "2026-07-31",
+    "team": "Ed",
+    "shape": "5>2",
+    "gap": -788,
+    "v1Base": 10803.0,
+    "v2Base": 7855.0,
+    "v1": "slight (7.29%)",
+    "v2": "unfair (10.03%)",
+    "assetOnly": "NO -> NO",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_pick"
+    ]
+   },
+   {
+    "date": "2026-07-31",
+    "team": "Jason",
+    "shape": "2>5",
+    "gap": 788,
+    "v1Base": 10803.0,
+    "v2Base": 7855.0,
+    "v1": "slight (7.29%)",
+    "v2": "unfair (10.03%)",
+    "assetOnly": "YES -> YES",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_pick"
+    ]
+   },
+   {
+    "date": "2026-08-12",
+    "team": "Jason",
+    "shape": "2>2",
+    "gap": 1076,
+    "v1Base": 5991.0,
+    "v2Base": 5416.1,
+    "v1": "unfair (17.96%)",
+    "v2": "lopsided (19.87%)",
+    "assetOnly": "YES -> YES",
+    "cats": [
+     "all",
+     "two_team",
+     "includes_pick",
+     "includes_idp"
+    ]
+   },
+   {
+    "date": "2026-08-12",
+    "team": "Jason",
+    "shape": "9>5",
+    "gap": -2968,
+    "v1Base": 39838.0,
+    "v2Base": 18743.7,
+    "v1": "slight (7.45%)",
+    "v2": "unfair (15.83%)",
+    "assetOnly": "NO -> NO",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_pick",
+     "includes_idp"
+    ]
+   },
+   {
+    "date": "2026-08-12",
+    "team": "John",
+    "shape": "2>2",
+    "gap": -1076,
+    "v1Base": 5991.0,
+    "v2Base": 5416.1,
+    "v1": "unfair (17.96%)",
+    "v2": "lopsided (19.87%)",
+    "assetOnly": "NO -> NO",
+    "cats": [
+     "all",
+     "two_team",
+     "includes_pick",
+     "includes_idp"
+    ]
+   },
+   {
+    "date": "2026-08-12",
+    "team": "Roy",
+    "shape": "5>9",
+    "gap": 2968,
+    "v1Base": 39838.0,
+    "v2Base": 18743.7,
+    "v1": "slight (7.45%)",
+    "v2": "unfair (15.83%)",
+    "assetOnly": "YES -> YES",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_pick",
+     "includes_idp"
+    ]
+   },
+   {
+    "date": "2026-08-24",
+    "team": "Ed",
+    "shape": "3>4",
+    "gap": 945,
+    "v1Base": 13691.0,
+    "v2Base": 10091.2,
+    "v1": "slight (6.9%)",
+    "v2": "unfair (9.36%)",
+    "assetOnly": "YES -> YES",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_idp"
+    ]
+   },
+   {
+    "date": "2026-08-24",
+    "team": "Jason",
+    "shape": "4>3",
+    "gap": -945,
+    "v1Base": 13691.0,
+    "v2Base": 10091.2,
+    "v1": "slight (6.9%)",
+    "v2": "unfair (9.36%)",
+    "assetOnly": "NO -> NO",
+    "cats": [
+     "all",
+     "two_team",
+     "deep_4plus_pieces",
+     "includes_idp"
+    ]
+   },
+   {
+    "date": "2026-09-23",
+    "team": "Ed",
+    "shape": "2>3",
+    "gap": 575,
+    "v1Base": 7172.0,
+    "v2Base": 6024.2,
+    "v1": "slight (8.02%)",
+    "v2": "unfair (9.54%)",
+    "assetOnly": "YES -> YES",
+    "cats": [
+     "all",
+     "two_team",
+     "includes_idp"
+    ]
+   },
+   {
+    "date": "2026-09-23",
+    "team": "Jason",
+    "shape": "3>2",
+    "gap": -575,
+    "v1Base": 7172.0,
+    "v2Base": 6024.2,
+    "v1": "slight (8.02%)",
+    "v2": "unfair (9.54%)",
+    "assetOnly": "NO -> NO",
+    "cats": [
+     "all",
+     "two_team",
+     "includes_idp"
+    ]
+   }
+  ]
+ },
+ "synthetic": {
+  "one_for_one": {
+   "judged": 96,
+   "bandChanged": 0,
+   "bandStricter": 0,
+   "bandLooser": 0,
+   "bandTransitions": {},
+   "fairToNotFair": 0,
+   "notFairToFair": 0,
+   "assetOnlyHeadlineChanged": 0,
+   "assetOnlyHeadlineTransitions": {},
+   "examples": []
+  },
+  "deep_stud_vs_pile": {
+   "judged": 252,
+   "bandChanged": 66,
+   "bandStricter": 66,
+   "bandLooser": 0,
+   "bandTransitions": {
+    "fair->slight": 18,
+    "slight->lopsided": 1,
+    "slight->unfair": 38,
+    "unfair->lopsided": 9
+   },
+   "fairToNotFair": 18,
+   "notFairToFair": 0,
+   "assetOnlyHeadlineChanged": 18,
+   "assetOnlyHeadlineTransitions": {
+    "NO_TOO_CLOSE->NO": 8,
+    "NO_TOO_CLOSE->YES": 10
+   },
+   "examples": [
+    {
+     "gave": [
+      3000
+     ],
+     "got": [
+      1407,
+      1407,
+      1407
+     ],
+     "gap": 360,
+     "v1": "slight (8.54%)",
+     "v2": "unfair (10.73%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      3000
+     ],
+     "got": [
+      1030,
+      1030,
+      1030
+     ],
+     "gap": -540,
+     "v1": "unfair (14.88%)",
+     "v2": "lopsided (18.0%)",
+     "assetOnly": "NO -> NO"
+    },
+    {
+     "gave": [
+      3000
+     ],
+     "got": [
+      922,
+      922,
+      922,
+      922
+     ],
+     "gap": -360,
+     "v1": "slight (8.9%)",
+     "v2": "unfair (12.02%)",
+     "assetOnly": "NO -> NO"
+    },
+    {
+     "gave": [
+      3000
+     ],
+     "got": [
+      1174,
+      1174,
+      1174,
+      1174
+     ],
+     "gap": 360,
+     "v1": "slight (7.68%)",
+     "v2": "unfair (10.73%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      3000
+     ],
+     "got": [
+      859,
+      859,
+      859,
+      859
+     ],
+     "gap": -540,
+     "v1": "unfair (13.58%)",
+     "v2": "lopsided (18.0%)",
+     "assetOnly": "NO -> NO"
+    },
+    {
+     "gave": [
+      3000
+     ],
+     "got": [
+      750,
+      750,
+      750,
+      750,
+      750,
+      750
+     ],
+     "gap": -360,
+     "v1": "slight (7.42%)",
+     "v2": "unfair (12.01%)",
+     "assetOnly": "NO -> NO"
+    }
+   ]
+  },
+  "board_offense": {
+   "judged": 480,
+   "bandChanged": 28,
+   "bandStricter": 28,
+   "bandLooser": 0,
+   "bandTransitions": {
+    "fair->slight": 5,
+    "slight->unfair": 8,
+    "unfair->lopsided": 15
+   },
+   "fairToNotFair": 5,
+   "notFairToFair": 0,
+   "assetOnlyHeadlineChanged": 5,
+   "assetOnlyHeadlineTransitions": {
+    "NO_TOO_CLOSE->NO": 3,
+    "NO_TOO_CLOSE->YES": 2
+   },
+   "examples": [
+    {
+     "gave": [
+      1644,
+      5895
+     ],
+     "got": [
+      552,
+      6493
+     ],
+     "gap": -254,
+     "v1": "fair (3.37%)",
+     "v2": "slight (3.54%)",
+     "assetOnly": "NO_TOO_CLOSE -> NO"
+    },
+    {
+     "gave": [
+      1153,
+      1470
+     ],
+     "got": [
+      1350,
+      624,
+      1151
+     ],
+     "gap": 258,
+     "v1": "slight (8.26%)",
+     "v2": "unfair (9.82%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      929,
+      1629
+     ],
+     "got": [
+      1300,
+      1193,
+      1109
+     ],
+     "gap": 552,
+     "v1": "unfair (15.32%)",
+     "v2": "lopsided (19.0%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1492,
+      1470
+     ],
+     "got": [
+      1184,
+      1615,
+      647
+     ],
+     "gap": 294,
+     "v1": "slight (8.53%)",
+     "v2": "unfair (10.03%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1916,
+      632
+     ],
+     "got": [
+      986,
+      1222,
+      1432
+     ],
+     "gap": 576,
+     "v1": "unfair (15.82%)",
+     "v2": "lopsided (19.3%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      2329
+     ],
+     "got": [
+      1022,
+      1167,
+      1020
+     ],
+     "gap": 256,
+     "v1": "slight (7.98%)",
+     "v2": "unfair (9.9%)",
+     "assetOnly": "YES -> YES"
+    }
+   ]
+  },
+  "board_idp": {
+   "judged": 480,
+   "bandChanged": 29,
+   "bandStricter": 29,
+   "bandLooser": 0,
+   "bandTransitions": {
+    "fair->slight": 1,
+    "slight->unfair": 4,
+    "unfair->lopsided": 24
+   },
+   "fairToNotFair": 1,
+   "notFairToFair": 0,
+   "assetOnlyHeadlineChanged": 1,
+   "assetOnlyHeadlineTransitions": {
+    "NO_TOO_CLOSE->NO": 1
+   },
+   "examples": [
+    {
+     "gave": [
+      3998,
+      5506
+     ],
+     "got": [
+      2446,
+      2146,
+      5075
+     ],
+     "gap": -336,
+     "v1": "fair (3.36%)",
+     "v2": "slight (3.9%)",
+     "assetOnly": "NO_TOO_CLOSE -> NO"
+    },
+    {
+     "gave": [
+      1658
+     ],
+     "got": [
+      424,
+      830,
+      1144
+     ],
+     "gap": 391,
+     "v1": "unfair (16.31%)",
+     "v2": "lopsided (19.08%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1661,
+      1346
+     ],
+     "got": [
+      1428,
+      807,
+      1194,
+      1239,
+      242
+     ],
+     "gap": 883,
+     "v1": "unfair (17.98%)",
+     "v2": "lopsided (24.57%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1551,
+      1703
+     ],
+     "got": [
+      1465,
+      1530,
+      1226,
+      428,
+      257
+     ],
+     "gap": 804,
+     "v1": "unfair (16.39%)",
+     "v2": "lopsided (21.63%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1679,
+      1583
+     ],
+     "got": [
+      1124,
+      1440,
+      1325,
+      830,
+      807
+     ],
+     "gap": 936,
+     "v1": "unfair (16.94%)",
+     "v2": "lopsided (24.31%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1488,
+      1679
+     ],
+     "got": [
+      429,
+      1508,
+      419,
+      1227,
+      1235
+     ],
+     "gap": 737,
+     "v1": "unfair (15.3%)",
+     "v2": "lopsided (20.61%)",
+     "assetOnly": "YES -> YES"
+    }
+   ]
+  },
+  "board_mixed": {
+   "judged": 480,
+   "bandChanged": 29,
+   "bandStricter": 29,
+   "bandLooser": 0,
+   "bandTransitions": {
+    "fair->slight": 4,
+    "slight->unfair": 11,
+    "unfair->lopsided": 14
+   },
+   "fairToNotFair": 4,
+   "notFairToFair": 0,
+   "assetOnlyHeadlineChanged": 4,
+   "assetOnlyHeadlineTransitions": {
+    "NO_TOO_CLOSE->YES": 4
+   },
+   "examples": [
+    {
+     "gave": [
+      879,
+      2016
+     ],
+     "got": [
+      237,
+      1665,
+      1540
+     ],
+     "gap": 309,
+     "v1": "slight (8.98%)",
+     "v2": "unfair (10.26%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      2292
+     ],
+     "got": [
+      447,
+      1207,
+      1622
+     ],
+     "gap": 543,
+     "v1": "unfair (16.58%)",
+     "v2": "lopsided (19.15%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1359
+     ],
+     "got": [
+      473,
+      1162,
+      272
+     ],
+     "gap": 337,
+     "v1": "unfair (17.67%)",
+     "v2": "lopsided (19.87%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      2611
+     ],
+     "got": [
+      272,
+      1633,
+      1237,
+      1013
+     ],
+     "gap": 732,
+     "v1": "unfair (17.62%)",
+     "v2": "lopsided (21.89%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1758,
+      1857
+     ],
+     "got": [
+      1771,
+      1282,
+      1348,
+      262,
+      1011
+     ],
+     "gap": 951,
+     "v1": "unfair (16.76%)",
+     "v2": "lopsided (22.76%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      2071,
+      1408
+     ],
+     "got": [
+      955,
+      1413,
+      1184,
+      1169,
+      1306
+     ],
+     "gap": 891,
+     "v1": "unfair (14.78%)",
+     "v2": "lopsided (21.94%)",
+     "assetOnly": "YES -> YES"
+    }
+   ]
+  },
+  "picks_r4_r6": {
+   "judged": 300,
+   "bandChanged": 18,
+   "bandStricter": 18,
+   "bandLooser": 0,
+   "bandTransitions": {
+    "slight->unfair": 4,
+    "unfair->lopsided": 14
+   },
+   "fairToNotFair": 0,
+   "notFairToFair": 0,
+   "assetOnlyHeadlineChanged": 0,
+   "assetOnlyHeadlineTransitions": {},
+   "examples": [
+    {
+     "gave": [
+      1798
+     ],
+     "got": [
+      1117,
+      1373
+     ],
+     "gap": 446,
+     "v1": "unfair (17.91%)",
+     "v2": "lopsided (19.87%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1910
+     ],
+     "got": [
+      1282,
+      1354
+     ],
+     "gap": 444,
+     "v1": "unfair (16.84%)",
+     "v2": "lopsided (18.86%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1899
+     ],
+     "got": [
+      1354,
+      1312
+     ],
+     "gap": 478,
+     "v1": "unfair (17.93%)",
+     "v2": "lopsided (20.11%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1697
+     ],
+     "got": [
+      1219,
+      1117
+     ],
+     "gap": 393,
+     "v1": "unfair (16.82%)",
+     "v2": "lopsided (18.8%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1870
+     ],
+     "got": [
+      1312,
+      1258
+     ],
+     "gap": 423,
+     "v1": "unfair (16.46%)",
+     "v2": "lopsided (18.45%)",
+     "assetOnly": "YES -> YES"
+    },
+    {
+     "gave": [
+      1884
+     ],
+     "got": [
+      1442,
+      1117
+     ],
+     "gap": 429,
+     "v1": "unfair (16.76%)",
+     "v2": "lopsided (18.55%)",
+     "assetOnly": "YES -> YES"
+    }
+   ]
+  }
+ },
+ "meter": {
+  "state": "ran",
+  "bySet": {
+   "board_idp": {
+    "changed": 29,
+    "fair->slight": 1,
+    "judged": 480,
+    "slight->unfair": 4,
+    "unfair->lopsided": 24
+   },
+   "board_mixed": {
+    "changed": 29,
+    "fair->slight": 4,
+    "judged": 480,
+    "slight->unfair": 11,
+    "unfair->lopsided": 14
+   },
+   "board_offense": {
+    "changed": 28,
+    "fair->slight": 5,
+    "judged": 480,
+    "slight->unfair": 8,
+    "unfair->lopsided": 15
+   },
+   "deep_stud_vs_pile": {
+    "changed": 66,
+    "fair->slight": 18,
+    "judged": 252,
+    "slight->lopsided": 1,
+    "slight->unfair": 38,
+    "unfair->lopsided": 9
+   },
+   "one_for_one": {
+    "judged": 96
+   },
+   "picks_r4_r6": {
+    "changed": 18,
+    "judged": 300,
+    "slight->unfair": 4,
+    "unfair->lopsided": 14
+   },
+   "real_two_team": {
+    "changed": 8,
+    "fair->slight": 1,
+    "judged": 75,
+    "slight->unfair": 4,
+    "unfair->lopsided": 3
+   }
+  },
+  "pythonParityMismatches": 0,
+  "pythonParityExamples": []
+ },
+ "consumers": {
+  "bestOffersCanonicalRule": {
+   "cards": {
+    "sameOffer": 132
+   },
+   "cardPairs": 132,
+   "candidateCanonicalWin": {
+    "judged": 1373870,
+    "winBoth": 653986,
+    "qualifiedByMeaningfulGainOnly": 1745,
+    "winNewOnly": 2672
+   },
+   "candidatesNowWinning": {
+    "count": 2672,
+    "small": 0,
+    "idp": 1421,
+    "pick": 0,
+    "consolidation": 2241,
+    "relativePctMedian": 2.88,
+    "relativePctRange": [
+     1.16,
+     3.5
+    ],
+    "absGapRange": [
+     250,
+     762
+    ]
+   },
+   "candidatesNoLongerWinning": {
+    "count": 0,
+    "small": 0,
+    "idp": 0,
+    "pick": 0,
+    "consolidation": 0
+   },
+   "changedCards": []
+  },
+  "packageBuilderCanonicalRule": {
+   "requests": 36,
+   "packages": {
+    "kept": 378,
+    "added": 3,
+    "dropped": 4
+   },
+   "candidateAccepted": {
+    "judged": 190056
+   },
+   "candidatesNowAccepted": {
+    "count": 0,
+    "small": 0,
+    "idp": 0,
+    "pick": 0,
+    "consolidation": 0
+   },
+   "candidatesNoLongerAccepted": {
+    "count": 191,
+    "small": 0,
+    "idp": 82,
+    "pick": 0,
+    "consolidation": 191,
+    "relativePctMedian": 3.38,
+    "relativePctRange": [
+     3.14,
+     3.5
+    ],
+    "absGapRange": [
+     251,
+     383
+    ]
+   }
+  },
+  "bestOffersQualification": {
+   "qualification": {
+    "qualifiedOld": 46250,
+    "qualifiedNew": 46250,
+    "kept": 46250,
+    "dropped": {
+     "count": 0,
+     "small": 0,
+     "idp": 0,
+     "pick": 0,
+     "consolidation": 0
+    },
+    "added": {
+     "count": 0,
+     "small": 0,
+     "idp": 0,
+     "pick": 0,
+     "consolidation": 0
+    },
+    "droppedExamples": [],
+    "addedExamples": []
+   },
+   "ranking": {
+    "groupsWithBothQualified": 141,
+    "groupsWhoseOrderChanged": 0,
+    "positionsChanged": 0,
+    "groupsWhoseTopCandidateChanged": 0
+   }
+  },
+  "packageBuilderQualification": {
+   "qualification": {
+    "qualifiedOld": 73274,
+    "qualifiedNew": 73083,
+    "kept": 73083,
+    "dropped": {
+     "count": 191,
+     "small": 0,
+     "idp": 82,
+     "pick": 0,
+     "consolidation": 191,
+     "relativePctMedian": 3.38,
+     "relativePctRange": [
+      3.14,
+      3.5
+     ],
+     "absGapRange": [
+      251,
+      383
+     ]
+    },
+    "added": {
+     "count": 0,
+     "small": 0,
+     "idp": 0,
+     "pick": 0,
+     "consolidation": 0
+    },
+    "droppedExamples": [
+     {
+      "me": "Team 12",
+      "opponent": "Jason",
+      "give": [
+       "Josh Allen"
+      ],
+      "receive": [
+       "Justin Herbert",
+       "Dalton Kincaid"
+      ],
+      "gap": -383,
+      "larger": 11021,
+      "relativePct": 3.48,
+      "small": false,
+      "idp": false,
+      "pick": false,
+      "consolidation": true
+     },
+     {
+      "me": "Jason",
+      "opponent": "Eric",
+      "give": [
+       "Brock Bowers"
+      ],
+      "receive": [
+       "Parker Washington",
+       "Luther Burden"
+      ],
+      "gap": -381,
+      "larger": 11085,
+      "relativePct": 3.44,
+      "small": false,
+      "idp": false,
+      "pick": false,
+      "consolidation": true
+     },
+     {
+      "me": "Jason",
+      "opponent": "Brent",
+      "give": [
+       "Brock Bowers"
+      ],
+      "receive": [
+       "Dak Prescott",
+       "Aidan Hutchinson"
+      ],
+      "gap": -379,
+      "larger": 11032,
+      "relativePct": 3.44,
+      "small": false,
+      "idp": true,
+      "pick": false,
+      "consolidation": true
+     },
+     {
+      "me": "Joey",
+      "opponent": "Collin",
+      "give": [
+       "Jahmyr Gibbs"
+      ],
+      "receive": [
+       "Kyren Williams",
+       "DeVonta Smith"
+      ],
+      "gap": -377,
+      "larger": 10941,
+      "relativePct": 3.45,
+      "small": false,
+      "idp": false,
+      "pick": false,
+      "consolidation": true
+     },
+     {
+      "me": "Joey",
+      "opponent": "MaKayla",
+      "give": [
+       "Jahmyr Gibbs"
+      ],
+      "receive": [
+       "Chase Brown",
+       "Javonte Williams"
+      ],
+      "gap": -373,
+      "larger": 10983,
+      "relativePct": 3.4,
+      "small": false,
+      "idp": false,
+      "pick": false,
+      "consolidation": true
+     },
+     {
+      "me": "Jason",
+      "opponent": "Brent",
+      "give": [
+       "Brock Bowers"
+      ],
+      "receive": [
+       "Jonathan Taylor",
+       "Travis Kelce"
+      ],
+      "gap": -372,
+      "larger": 10758,
+      "relativePct": 3.46,
+      "small": false,
+      "idp": false,
+      "pick": false,
+      "consolidation": true
+     },
+     {
+      "me": "Team 12",
+      "opponent": "Eric",
+      "give": [
+       "Josh Allen"
+      ],
+      "receive": [
+       "Trevor Lawrence",
+       "Blake Corum"
+      ],
+      "gap": -370,
+      "larger": 10620,
+      "relativePct": 3.48,
+      "small": false,
+      "idp": false,
+      "pick": false,
+      "consolidation": true
+     },
+     {
+      "me": "Team 12",
+      "opponent": "Eric",
+      "give": [
+       "Josh Allen"
+      ],
+      "receive": [
+       "Trevor Lawrence",
+       "David Montgomery"
+      ],
+      "gap": -369,
+      "larger": 10621,
+      "relativePct": 3.47,
+      "small": false,
+      "idp": false,
+      "pick": false,
+      "consolidation": true
+     },
+     {
+      "me": "Jason",
+      "opponent": "MaKayla",
+      "give": [
+       "Brock Bowers"
+      ],
+      "receive": [
+       "Malik Nabers",
+       "Chris Godwin"
+      ],
+      "gap": -368,
+      "larger": 10535,
+      "relativePct": 3.49,
+      "small": false,
+      "idp": false,
+      "pick": false,
+      "consolidation": true
+     },
+     {
+      "me": "Joey",
+      "opponent": "Team 12",
+      "give": [
+       "Jaxon Smith-Njigba"
+      ],
+      "receive": [
+       "Jalen Hurts",
+       "Saquon Barkley"
+      ],
+      "gap": -368,
+      "larger": 10590,
+      "relativePct": 3.47,
+      "small": false,
+      "idp": false,
+      "pick": false,
+      "consolidation": true
+     },
+     {
+      "me": "Jason",
+      "opponent": "Ed",
+      "give": [
+       "Brock Bowers"
+      ],
+      "receive": [
+       "Bryce Young",
+       "Christian Watson"
+      ],
+      "gap": -367,
+      "larger": 11135,
+      "relativePct": 3.3,
+      "small": false,
+      "idp": false,
+      "pick": false,
+      "consolidation": true
+     },
+     {
+      "me": "Joey",
+      "opponent": "Ed",
+      "give": [
+       "Jahmyr Gibbs"
+      ],
+      "receive": [
+       "Fernando Mendoza",
+       "Christian Watson"
+      ],
+      "gap": -366,
+      "larger": 11011,
+      "relativePct": 3.32,
+      "small": false,
+      "idp": false,
+      "pick": false,
+      "consolidation": true
+     }
+    ],
+    "addedExamples": []
+   },
+   "ranking": {
+    "groupsWithBothQualified": 139,
+    "groupsWhoseOrderChanged": 0,
+    "positionsChanged": 0,
+    "groupsWhoseTopCandidateChanged": 1
+   }
+  },
+  "suggestions": {
+   "kept": 34,
+   "added": 9,
+   "dropped": 8,
+   "keptWithRankChange": 8,
+   "relabels": {
+    "lean->stretch": 4
+   },
+   "relabelled": {
+    "count": 4,
+    "small": 0,
+    "idp": 2,
+    "pick": 1,
+    "consolidation": 4,
+    "relativePctMedian": 8.83,
+    "relativePctRange": [
+     8.7,
+     8.92
+    ],
+    "absGapRange": [
+     498,
+     738
+    ]
+   },
+   "addedCharacter": {
+    "count": 9,
+    "small": 0,
+    "idp": 3,
+    "pick": 1,
+    "consolidation": 9,
+    "relativePctMedian": 9.18,
+    "relativePctRange": [
+     7.31,
+     11.42
+    ],
+    "absGapRange": [
+     380,
+     990
+    ]
+   },
+   "droppedCharacter": {
+    "count": 8,
+    "small": 0,
+    "idp": 2,
+    "pick": 0,
+    "consolidation": 8,
+    "relativePctMedian": 8.41,
+    "relativePctRange": [
+     7.67,
+     8.81
+    ],
+    "absGapRange": [
+     406,
+     775
+    ]
+   },
+   "droppedExamples": [
+    {
+     "team": "Brent",
+     "type": "consolidation",
+     "give": [
+      "Chuba Hubbard",
+      "Kenyon Sadiq"
+     ],
+     "receive": [
+      "Lamar Jackson"
+     ],
+     "fairness": "lean",
+     "consolidation": true,
+     "larger": 9329,
+     "gap": 775,
+     "relativePct": 8.31,
+     "relativePctUtility": 9.13,
+     "small": false,
+     "idp": false,
+     "pick": false
+    },
+    {
+     "team": "Brent",
+     "type": "consolidation",
+     "give": [
+      "Rashee Rice",
+      "Travis Kelce"
+     ],
+     "receive": [
+      "Justin Jefferson"
+     ],
+     "fairness": "lean",
+     "consolidation": true,
+     "larger": 8702,
+     "gap": 716,
+     "relativePct": 8.23,
+     "relativePctUtility": 9.03,
+     "small": false,
+     "idp": false,
+     "pick": false
+    },
+    {
+     "team": "Jason",
+     "type": "consolidation",
+     "give": [
+      "Brian Thomas",
+      "Jordyn Tyson"
+     ],
+     "receive": [
+      "Joe Burrow"
+     ],
+     "fairness": "lean",
+     "consolidation": true,
+     "larger": 8755,
+     "gap": 740,
+     "relativePct": 8.45,
+     "relativePctUtility": 9.23,
+     "small": false,
+     "idp": false,
+     "pick": false
+    },
+    {
+     "team": "Jason",
+     "type": "consolidation",
+     "give": [
+      "Jameson Williams",
+      "Kyler Murray"
+     ],
+     "receive": [
+      "Malik Nabers"
+     ],
+     "fairness": "lean",
+     "consolidation": true,
+     "larger": 8479,
+     "gap": 747,
+     "relativePct": 8.81,
+     "relativePctUtility": 9.74,
+     "small": false,
+     "idp": false,
+     "pick": false
+    },
+    {
+     "team": "Joey",
+     "type": "consolidation",
+     "give": [
+      "Eli Raridon",
+      "RJ Harvey"
+     ],
+     "receive": [
+      "George Pickens"
+     ],
+     "fairness": "lean",
+     "consolidation": true,
+     "larger": 6723,
+     "gap": 566,
+     "relativePct": 8.42,
+     "relativePctUtility": 9.33,
+     "small": false,
+     "idp": false,
+     "pick": false
+    },
+    {
+     "team": "Joey",
+     "type": "consolidation",
+     "give": [
+      "Jeremy Chinn",
+      "Rhamondre Stevenson"
+     ],
+     "receive": [
+      "Tee Higgins"
+     ],
+     "fairness": "lean",
+     "consolidation": true,
+     "larger": 5294,
+     "gap": 406,
+     "relativePct": 7.67,
+     "relativePctUtility": 8.27,
+     "small": false,
+     "idp": true,
+     "pick": false
+    },
+    {
+     "team": "Joey",
+     "type": "consolidation",
+     "give": [
+      "Kamari Lassiter",
+      "Rhamondre Stevenson"
+     ],
+     "receive": [
+      "Luther Burden"
+     ],
+     "fairness": "lean",
+     "consolidation": true,
+     "larger": 5410,
+     "gap": 416,
+     "relativePct": 7.69,
+     "relativePctUtility": 8.32,
+     "small": false,
+     "idp": true,
+     "pick": false
+    },
+    {
+     "team": "MaKayla",
+     "type": "consolidation",
+     "give": [
+      "Jacory Croskey-Merritt",
+      "Michael Wilson"
+     ],
+     "receive": [
+      "Chris Olave"
+     ],
+     "fairness": "lean",
+     "consolidation": true,
+     "larger": 7453,
+     "gap": 627,
+     "relativePct": 8.41,
+     "relativePctUtility": 9.17,
+     "small": false,
+     "idp": false,
+     "pick": false
+    }
+   ],
+   "addedExamples": [
+    {
+     "team": "Brent",
+     "type": "consolidation",
+     "give": [
+      "Chuba Hubbard",
+      "Rashee Rice"
+     ],
+     "receive": [
+      "CeeDee Lamb"
+     ],
+     "fairness": "stretch",
+     "consolidation": true,
+     "larger": 9161,
+     "gap": 860,
+     "relativePct": 9.39,
+     "relativePctUtility": 10.34,
+     "small": false,
+     "idp": false,
+     "pick": false
+    },
+    {
+     "team": "Brent",
+     "type": "consolidation",
+     "give": [
+      "Kenyon Sadiq",
+      "Travis Etienne"
+     ],
+     "receive": [
+      "Ashton Jeanty"
+     ],
+     "fairness": "lean",
+     "consolidation": true,
+     "larger": 8813,
+     "gap": 644,
+     "relativePct": 7.31,
+     "relativePctUtility": 7.99,
+     "small": false,
+     "idp": false,
+     "pick": false
+    },
+    {
+     "team": "Brent",
+     "type": "consolidation",
+     "give": [
+      "Travis Etienne",
+      "Travis Kelce"
+     ],
+     "receive": [
+      "Tyler Warren"
+     ],
+     "fairness": "stretch",
+     "consolidation": true,
+     "larger": 7644,
+     "gap": 690,
+     "relativePct": 9.03,
+     "relativePctUtility": 10.02,
+     "small": false,
+     "idp": false,
+     "pick": false
+    },
+    {
+     "team": "Jason",
+     "type": "consolidation",
+     "give": [
+      "Jameson Williams",
+      "Jordyn Tyson"
+     ],
+     "receive": [
+      "Amon-Ra St. Brown"
+     ],
+     "fairness": "stretch",
+     "consolidation": true,
+     "larger": 9684,
+     "gap": 990,
+     "relativePct": 10.22,
+     "relativePctUtility": 11.26,
+     "small": false,
+     "idp": false,
+     "pick": false
+    },
+    {
+     "team": "Joey",
+     "type": "consolidation",
+     "give": [
+      "Eli Raridon",
+      "Rhamondre Stevenson"
+     ],
+     "receive": [
+      "George Pickens"
+     ],
+     "fairness": "stretch",
+     "consolidation": true,
+     "larger": 6723,
+     "gap": 604,
+     "relativePct": 8.98,
+     "relativePctUtility": 9.96,
+     "small": false,
+     "idp": false,
+     "pick": false
+    },
+    {
+     "team": "Joey",
+     "type": "consolidation",
+     "give": [
+      "Jeremy Chinn",
+      "Kamari Lassiter"
+     ],
+     "receive": [
+      "Travis Hunter"
+     ],
+     "fairness": "stretch",
+     "consolidation": true,
+     "larger": 3984,
+     "gap": 380,
+     "relativePct": 9.54,
+     "relativePctUtility": 10.56,
+     "small": false,
+     "idp": true,
+     "pick": false
+    },
+    {
+     "team": "Joey",
+     "type": "consolidation",
+     "give": [
+      "RJ Harvey",
+      "Rhamondre Stevenson"
+     ],
+     "receive": [
+      "Nico Collins"
+     ],
+     "fairness": "stretch",
+     "consolidation": true,
+     "larger": 7130,
+     "gap": 814,
+     "relativePct": 11.42,
+     "relativePctUtility": 12.64,
+     "small": false,
+     "idp": false,
+     "pick": false
+    },
+    {
+     "team": "MaKayla",
+     "type": "consolidation",
+     "give": [
+      "Jacory Croskey-Merritt",
+      "Jaelan Phillips"
+     ],
+     "receive": [
+      "2027 Pick 1.04"
+     ],
+     "fairness": "stretch",
+     "consolidation": true,
+     "larger": 5642,
+     "gap": 518,
+     "relativePct": 9.18,
+     "relativePctUtility": 10.1,
+     "small": false,
+     "idp": true,
+     "pick": true
+    },
+    {
+     "team": "MaKayla",
+     "type": "consolidation",
+     "give": [
+      "Jaelan Phillips",
+      "Michael Wilson"
+     ],
+     "receive": [
+      "Nico Collins"
+     ],
+     "fairness": "lean",
+     "consolidation": true,
+     "larger": 6953,
+     "gap": 575,
+     "relativePct": 8.27,
+     "relativePctUtility": 8.93,
+     "small": false,
+     "idp": true,
+     "pick": false
+    }
+   ]
+  }
+ }
+}

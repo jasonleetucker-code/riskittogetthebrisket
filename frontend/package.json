@@ -22,13 +22,13 @@
   },
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build --webpack && node scripts/check-bundle-sizes.mjs",
+    "build": "next build --webpack && node scripts/check-bundle-sizes.mjs && node scripts/check-public-bundle-privacy.mjs",
     "build:nocheck": "next build --webpack",
     "start": "next start -p 3000",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:components": "vitest run --project components",
-    "check:bundles": "node scripts/check-bundle-sizes.mjs"
+    "check:bundles": "node scripts/check-bundle-sizes.mjs && node scripts/check-public-bundle-privacy.mjs"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",

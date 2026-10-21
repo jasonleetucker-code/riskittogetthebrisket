@@ -66,28 +66,33 @@
   "decision": {
    "bands": {
     "absoluteMinimum": 250.0,
-    "basis": "adjusted_package_totals",
+    "basis": "larger_package_utility",
+    "fairTradeLevels": [
+     "fair"
+    ],
     "lopsidedPct": 18.0,
+    "postLaunchValidation": "OD-F4",
     "slightPct": 3.5,
-    "status": "PROVISIONAL",
+    "status": "PRIOR_OWNER_APPROVED_2026-10-20",
     "unfairPct": 9.0,
-    "version": "fairness_bands_v1"
+    "version": "fairness_bands_v2"
    },
    "components": {
     "objectiveValue": {
      "band": {
       "absoluteGap": 50.0,
-      "bands": "fairness_bands_v1",
+      "bands": "fairness_bands_v2",
       "label": "FAIR",
       "level": "fair",
       "relativePct": 2.44,
-      "status": "PROVISIONAL"
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20"
      },
      "direction": "neutral",
      "evaluated": true,
      "forcedReleaseCost": null,
      "kind": "independent",
      "largerAdjustedSide": 2050,
+     "largerPackageUtility": 2050,
      "magnitude": null,
      "netGap": 50,
      "unit": "canonical value points (adjusted package)",
@@ -136,11 +141,11 @@
      "evidence": {
       "band": {
        "absoluteGap": 50.0,
-       "bands": "fairness_bands_v1",
+       "bands": "fairness_bands_v2",
        "label": "FAIR",
        "level": "fair",
        "relativePct": 2.44,
-       "status": "PROVISIONAL"
+       "status": "PRIOR_OWNER_APPROVED_2026-10-20"
       },
       "rawGap": 50,
       "receivingAdjusted": 2050.0,
@@ -456,11 +461,11 @@
      "evidence": {
       "band": {
        "absoluteGap": 50.0,
-       "bands": "fairness_bands_v1",
+       "bands": "fairness_bands_v2",
        "label": "FAIR",
        "level": "fair",
        "relativePct": 2.44,
-       "status": "PROVISIONAL"
+       "status": "PRIOR_OWNER_APPROVED_2026-10-20"
       },
       "forcedReleaseCost": null,
       "largerAdjustedSide": 2050,
@@ -519,7 +524,7 @@
      "largeMultiple": 3.0,
      "materialityPpg": 1.0
     },
-    "bands": "fairness_bands_v1",
+    "bands": "fairness_bands_v2",
     "boardStamp": null,
     "decisionVersion": "trade_decision_v2",
     "packageModel": {
@@ -667,23 +672,28 @@
     "detail": {
      "band": {
       "absoluteGap": 50.0,
-      "bands": "fairness_bands_v1",
+      "bands": "fairness_bands_v2",
       "label": "FAIR",
       "level": "fair",
       "relativePct": 2.44,
-      "status": "PROVISIONAL"
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20"
      },
      "bandsReceipt": {
       "absoluteMinimum": 250.0,
-      "basis": "adjusted_package_totals",
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
       "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
       "slightPct": 3.5,
-      "status": "PROVISIONAL",
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
       "unfairPct": 9.0,
-      "version": "fairness_bands_v1"
+      "version": "fairness_bands_v2"
      },
      "hypotheticalPicksOut": [],
      "incomplete": false,
+     "largerPackageUtility": 2050.0,
      "magnitude": "even",
      "notOwnedBySender": [],
      "packageModel": {
@@ -1076,23 +1086,28 @@
     "detail": {
      "band": {
       "absoluteGap": 50.0,
-      "bands": "fairness_bands_v1",
+      "bands": "fairness_bands_v2",
       "label": "FAIR",
       "level": "fair",
       "relativePct": 2.44,
-      "status": "PROVISIONAL"
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20"
      },
      "bandsReceipt": {
       "absoluteMinimum": 250.0,
-      "basis": "adjusted_package_totals",
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
       "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
       "slightPct": 3.5,
-      "status": "PROVISIONAL",
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
       "unfairPct": 9.0,
-      "version": "fairness_bands_v1"
+      "version": "fairness_bands_v2"
      },
      "hypotheticalPicksOut": [],
      "incomplete": false,
+     "largerPackageUtility": 2050.0,
      "magnitude": "even",
      "notOwnedBySender": [],
      "packageModel": {

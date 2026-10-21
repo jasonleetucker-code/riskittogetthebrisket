@@ -80,3 +80,22 @@ describe("PSI design reference", () => {
     expect(opener).toHaveFocus();
   });
 });
+
+describe("PSI design reference — Combobox", () => {
+  it("filters, skips disabled options with a stated reason, and selects by keyboard", async () => {
+    const user = userEvent.setup();
+    render(<DesignGallery />);
+    const input = screen.getByRole("combobox", { name: "Fixture team" });
+    await user.click(input);
+    const list = screen.getByRole("listbox", { name: "Fixture team" });
+    const disabled = within(list).getByRole("option", { name: /Fixture Team Three/ });
+    expect(disabled).toHaveAttribute("aria-disabled", "true");
+    expect(disabled).toHaveTextContent("in trade");
+    expect(list.querySelector("[aria-posinset],[aria-setsize]")).toBeNull();
+    await user.type(input, "two");
+    expect(within(list).getAllByRole("option")).toHaveLength(1);
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(input).toHaveValue("Fixture Team Two");
+    expect(input).toHaveAttribute("aria-expanded", "false");
+  });
+});
