@@ -180,6 +180,62 @@ def test_prune_expired_runs_with_the_flag_off_across_leagues(store, flag):
     assert shadow.prune_expired(now=now, root=store / "absent") == 0  # never raises
 
 
+def test_a_failed_prune_write_on_read_still_never_serves_expired_days(store, flag, monkeypatch):
+    flag(False)
+    now = datetime(2026, 10, 21, tzinfo=timezone.utc)
+    _write_store(store, ["2026-01-01", "2026-10-20"])
+
+    def full_disk(*_a, **_k):
+        raise OSError("No space left on device")
+
+    monkeypatch.setattr(shadow, "_atomic_write", full_disk)
+    data = shadow.read_counters("main", root=store, now=now)
+    assert list(data["days"]) == ["2026-10-20"]
+
+
+def test_a_read_creates_no_file(store, flag):
+    flag(False)
+    data = shadow.read_counters("main", root=store)
+    assert data["days"] == {} and not store.exists()
+
+
+def test_one_leagues_prune_failure_does_not_skip_the_others(store, flag, monkeypatch):
+    flag(False)
+    now = datetime(2026, 10, 21, tzinfo=timezone.utc)
+    _write_store(store, ["2025-01-01", "2026-10-20"])
+    (store / "aaa.json").write_text(json.dumps({"days": {"2025-01-01": {}}}), "utf-8")
+    real = shadow._atomic_write
+
+    def flaky(path, payload):
+        if path.name == "aaa.json":
+            raise OSError("synthetic")
+        real(path, payload)
+
+    monkeypatch.setattr(shadow, "_atomic_write", flaky)
+    assert shadow.prune_expired(now=now, root=store) == 1
+    assert list(json.loads((store / "main.json").read_text("utf-8"))["days"]) == ["2026-10-20"]
+
+
+def test_retention_falls_back_to_180_days_when_the_config_is_unreadable(monkeypatch):
+    def broken():
+        raise dd.DepthDisclosureConfigError("unreadable")
+
+    monkeypatch.setattr(dd, "load_config", broken)
+    assert shadow._retention_days() == 180
+
+
+def test_unavailable_lines_are_not_deduped(store, flag):
+    """A trade first seen while the league lines were unavailable (e.g. just
+    after a restart) is evaluated again once they load, the same day."""
+    flag(True)
+    now = datetime(2026, 10, 21, 13, 0, tzinfo=timezone.utc)
+    _record(now=now, contract=F.contract(lineups=False))
+    out = _record(now=now)
+    assert out["trade"].get("trades") == 1 and out["self"]["fires"] == 1
+    again = _record(now=now)
+    assert again["trade"] == {"requests": 1, "repeatRequests": 1}
+
+
 def test_the_post_scrape_pass_prunes_the_shadow_store():
     src = (REPO / "server.py").read_text(encoding="utf-8")
     block = src[src.index("_ret = prune_data_dir(BASE_DIR)") :]

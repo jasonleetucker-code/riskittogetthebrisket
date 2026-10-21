@@ -114,7 +114,14 @@ The route has these access rules, checked in this order:
 - **403** (`league_membership_required`) unless the session's team is on a roster of the requested
   league in the loaded contract. Unprovable membership is refused.
 
-The route is not under `/api/public`, and the frontend has no bridge route for it. The response
+The route is not under `/api/public`, and the frontend has no bridge route for it.
+
+**What stays visible: whether the window is running.** The route never reveals the flag state to a
+non-admin. A test pins that a non-admin gets the identical response with the flag ON or OFF.
+However, `/api/status` publishes every flag's effective state (`featureFlags`) by design, and the
+deploy gate `scripts/verify_owner_held_flags.py` reads exactly that snapshot to prove the hold is in
+force. Redacting it would break the hold. So whether counting is on is public, as it is for every
+flag. The counts themselves are private. The response
 carries the per-day blocks and a `totals` roll-up per surface. On the box, the JSON file can also be
 read directly.
 

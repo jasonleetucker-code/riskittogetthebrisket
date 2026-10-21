@@ -98,6 +98,8 @@ _SNAPSHOT_KEYS = (
 #: One daemon worker over a BOUNDED queue: a stalled store drops shadow jobs
 #: (counted, in memory) instead of growing without limit or holding shutdown.
 _QUEUE_MAX = 256
+#: Not-evaluated reasons about the moment rather than the trade (never deduped).
+_TRANSIENT_REASONS = ("lines_unavailable", "package_model_unavailable")
 _QUEUE: queue.Queue = queue.Queue(maxsize=_QUEUE_MAX)
 _worker: threading.Thread | None = None
 _dropped = 0
@@ -261,15 +263,20 @@ def prune_expired(*, now: datetime | None = None, root: Path | None = None) -> i
     base = root or SHADOW_DIR
     try:
         cutoff = _cutoff(now, _retention_days())
-        for path in sorted(base.glob("*.json")) if base.is_dir() else []:
+        paths = sorted(base.glob("*.json")) if base.is_dir() else []
+    except Exception as exc:  # noqa: BLE001 — maintenance; never break a caller
+        log.warning("depth-disclosure shadow retention prune failed: %s", exc)
+        return 0
+    for path in paths:  # one league's failure never skips the others
+        try:
             with _lock:
                 store = _load(path, path.stem)
                 n = _drop_expired(store, cutoff)
                 if n:
                     _atomic_write(path, store)
             removed += n
-    except Exception as exc:  # noqa: BLE001 — maintenance; never break a caller
-        log.warning("depth-disclosure shadow retention prune failed: %s", exc)
+        except Exception as exc:  # noqa: BLE001 — maintenance; never break a caller
+            log.warning("depth-disclosure shadow retention prune failed for %s: %s", path, exc)
     return removed
 
 
@@ -285,7 +292,7 @@ def _atomic_write(path: Path, payload: Any) -> None:
 
 
 def trade_signature(simulation: Mapping[str, Any]) -> str:
-    """A hash of everything the rule and its evidence gates read: the team,
+    """A hash of the trade's identity and its evidence-gate inputs: the team,
     both sides' asset ids with their priced / quarantined / stale state, the
     off-board names, the unheld and hypothetical picks, and the pick-ownership
     and ownership-evidence states.  The same trade asked again (another
@@ -389,7 +396,8 @@ def submit_evaluation(simulation: Mapping[str, Any], **kwargs: Any) -> None:
     fields, so the route may keep mutating its result (Analyze adds
     ``analysis``) while the worker reads.  The counting day is the REQUEST's
     time (``now`` is stamped here), never the worker's.  A full queue drops the
-    job and counts the drop (``queue.dropped`` on the next written day).
+    job and counts the drop (``_queue.dropped`` on the next written day, across
+    leagues: the queue is shared).
     """
     global _dropped
     try:
@@ -411,7 +419,10 @@ def flush(timeout: float = 30.0) -> None:
     """Wait for every job queued before this call (tests; the worker is single)."""
     done = threading.Event()
     _ensure_worker()
-    _QUEUE.put((done.set, (), {}), timeout=timeout)
+    try:
+        _QUEUE.put((done.set, (), {}), timeout=timeout)
+    except queue.Full as exc:
+        raise TimeoutError("depth-disclosure shadow queue stayed full") from exc
     if not done.wait(timeout):
         raise TimeoutError("depth-disclosure shadow worker did not drain")
 
@@ -450,6 +461,7 @@ def record_evaluation(
         trade: dict[str, int] = {"requests": 1}
         signature = trade_signature(simulation)
         repeat = _already_counted(league_key, day, surface, signature)
+        transient = False
         if not repeat:
             lines = lines_for(contract, league_key, roster_settings)
             teams = dd.evaluate_two_team(simulation, lines)
@@ -462,6 +474,12 @@ def record_evaluation(
                 trade["trades.bothFire"] = 1
             if all(teams[p].state == dd.STATE_NOT_EVALUATED for p in PERSPECTIVES):
                 trade["trades.notEvaluated"] = 1
+            # League lines or the package model unavailable is a property of
+            # the moment, not of the trade: the next identical request (say,
+            # once the lineups have loaded) must be evaluated, not a repeat.
+            transient = any(
+                str(teams[p].reason or "").startswith(_TRANSIENT_REASONS) for p in PERSPECTIVES
+            )
         else:
             trade["repeatRequests"] = 1
 
@@ -489,7 +507,7 @@ def record_evaluation(
             _atomic_write(path, store)
         if dropped:
             _take_dropped_up_to(dropped)
-        if not repeat:
+        if not repeat and not transient:
             _mark_counted(league_key, day, surface, signature)
         return {"day": day, "surface": surface, "trade": trade, **increments}
     except Exception as exc:  # noqa: BLE001 — shadow-only; never break the response
@@ -514,13 +532,19 @@ def read_counters(
     with _lock:
         store = _load(path, league_key)
         if _drop_expired(store, cutoff) and path.exists():
-            _atomic_write(path, store)
+            try:
+                _atomic_write(path, store)
+            except OSError as exc:
+                # Still never served (filtered above); the next prune retries.
+                log.warning("depth-disclosure shadow prune-on-read write failed: %s", exc)
     day_keys = sorted(store["days"])
     if days is not None and days > 0:
         day_keys = day_keys[-days:]
     totals: dict[str, dict[str, dict[str, int]]] = {}
     for d in day_keys:
         for surface, block in (store["days"][d] or {}).items():
+            if surface.startswith("_"):  # bookkeeping (``_queue``), not a surface
+                continue
             tgt = totals.setdefault(surface, {})
             for part, counts in (block or {}).items():
                 if isinstance(counts, dict):
