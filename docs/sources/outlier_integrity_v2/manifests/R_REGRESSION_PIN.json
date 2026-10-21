@@ -1,0 +1,47 @@
+{
+ "boards": [
+  {
+   "addCommit": "d9680440a586109130b739923470580571c75df2",
+   "board": "dynasty_export_20261019_201546.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": false,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "3ef54acda8c1062f96d02692fc22ea8ebc7e8f9bc38168359efac60675119199",
+   "population": "R_REGRESSION_PIN",
+   "reason": "pin2015: section-6 primary acceptance input; every V2 candidate's feasibility numbers were computed on it, so it is a must-pass constraint, never evidence",
+   "roles": [],
+   "scrapeTimestamp": "2026-10-19T20:15:45.979848+00:00",
+   "zipSha256": "40d2eb5697c63a5a242d30f8a94afed7f8baa28a2163fc7f962e2922ba774252"
+  }
+ ],
+ "count": 3,
+ "pins": [
+  {
+   "archive": "dynasty_export_20261019_201546.zip",
+   "payloadPath": "exports/latest/dynasty_data_2026-10-19.json",
+   "payloadSha256": "3ef54acda8c1062f96d02692fc22ea8ebc7e8f9bc38168359efac60675119199",
+   "pin": "pin2015",
+   "refreshCommit": "d9680440a5",
+   "use": "boards A/B/C/D and A'/B'/C'/D'; the 31 IDP votes; the D4 newly-dropped offense votes"
+  },
+  {
+   "archive": null,
+   "payloadPath": "exports/latest/dynasty_data_2026-10-19.json",
+   "payloadSha256Prefix": "b639608f",
+   "pin": "pin0527",
+   "refreshCommit": "eb10d3e12d",
+   "use": "reproduction input of the documented 31/18/10/3 and the seven 34-54% movers"
+  },
+  {
+   "archive": "the newest I_INDEPENDENT board at evaluation time",
+   "pin": "d4_newest_I",
+   "use": "D4 newly-dropped offense votes recomputed on an independent board (reported)"
+  }
+ ],
+ "population": "R_REGRESSION_PIN",
+ "schema": "oiv2-population-manifest/v1"
+}

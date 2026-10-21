@@ -1,0 +1,607 @@
+{
+ "boards": [
+  {
+   "addCommit": "a7e968887ec4b69d6717ca32594e5567e7529c7f",
+   "board": "dynasty_export_20260714_233659.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "e4a53152909cd659c2d60570373f67c42eb23db9a4cc50697c76dc5b65e7584d",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-14T23:36:58.981924",
+   "zipSha256": "06d37c2f4a18c32abfae251bb677205f08a0045422b9edc166cdeec1a0434664"
+  },
+  {
+   "addCommit": "ae64ef059966f902770a5fc1bf41d32fc96fa5f2",
+   "board": "dynasty_export_20260715_234323.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "a8cb95f2454b1d01eca9e037d6786f31a36305f9f0f831dfa6f1d022139cecb1",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-15T23:43:23.417667",
+   "zipSha256": "9445220fcea84b388811c3978e45f5772e23be53633dc91fa6756592fd367d5a"
+  },
+  {
+   "addCommit": "9d95959d6e2971c3c31c1a7d3eba429d48612137",
+   "board": "dynasty_export_20260716_234047.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "de452465b74a2759fe4ba62a8bf46db64b3df5549d3b4a3d8f6bd20896fac591",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-16T23:40:47.323707",
+   "zipSha256": "c62c11c1597949e2c2ab47e21ad605423e1e3722caa835957ff750ed5adcd19b"
+  },
+  {
+   "addCommit": "dfbc9b0cd9295dc7e8d8980087d629d9fa81676c",
+   "board": "dynasty_export_20260717_233701.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "102706b0fca5a0ebbccc5734af4def1da42719906918af5085dbf6e4163bd93e",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-17T23:37:01.299903",
+   "zipSha256": "9288707dd31f1c9ffe0e59574a8252405e44e65117f5ec4b6db1274f5ddfef9f"
+  },
+  {
+   "addCommit": "ac21a7bc7f6a364b5ac1f73b7056ed6e9dc6bbb4",
+   "board": "dynasty_export_20260718_233845.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "96cf46f34b22f61bb6a6c9e0b90601d66f5bfd5a2b667d447224efd46236c987",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-18T23:38:44.906743",
+   "zipSha256": "c94ddde9c2f0b8dd229917778e7f24e80f4a08bdfb62780ce60b1f772944c455"
+  },
+  {
+   "addCommit": "b1a25eb17e853ea81e351ad535aed8501b2f506d",
+   "board": "dynasty_export_20260719_234246.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "91fd98ed28cf8982cd86918bb43b1d5531052cd019936df263a5c417b2254fff",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-19T23:42:46.544313",
+   "zipSha256": "f3b55b406794f7be5089a3734d8e3f8e040b9adaa40756944c95c068b8e143e5"
+  },
+  {
+   "addCommit": "e916452f6d5c98ed76b82f68546ffc213d23337a",
+   "board": "dynasty_export_20260720_234315.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "d57ee16bc7eb29a09e2150ea1593a2e7d0be295d54d47ea6bed016062cf51f7a",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-20T23:43:15.598696",
+   "zipSha256": "672598944c9a68cd034510a0a5290daceab5f345debac538e3ee93f612d9f0a7"
+  },
+  {
+   "addCommit": "689bf27eddc0b4cf71ff63d531ce1278ed8fd76b",
+   "board": "dynasty_export_20260721_234338.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "5529bec4a9724679e152580e3c807ecf3ef6efceb12d8387bb5e7692d18e8dde",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-21T23:43:38.778525",
+   "zipSha256": "795194da7f972fe33f05f91217da99437bce2151c86ec75d9367b92c79317c36"
+  },
+  {
+   "addCommit": "c7bb1d228319ad154a1bb66ae5968f333d5589a1",
+   "board": "dynasty_export_20260722_234350.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "8e9a7c1b77b623e5ae4343dbc57acfe75b45e717444b636f4bbb9c4133ae0bbb",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-22T23:43:50.570144",
+   "zipSha256": "8279e8d77cb147118dec6accdb2334b9e5f1d619296c53943e52df3dc3c71f5b"
+  },
+  {
+   "addCommit": "48dd315154ba87acfeb443cf54daafe7a33258da",
+   "board": "dynasty_export_20260723_234119.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "352f015a855aadd79db8107c237212324ef74d87f50e42df92e96f837057cc0e",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-23T23:41:19.085012",
+   "zipSha256": "10f911cd8d4068b55970cd25c968aa03aab746905642e224ae18d59d7be31b0b"
+  },
+  {
+   "addCommit": "1c732a1a78540c0fadcd152a34bb3ef8b12beb75",
+   "board": "dynasty_export_20260724_234602.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "d2cce2e3bba1acd87a56c1ab50827aae5d0d41593dac44c4c435f11da2013538",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-24T23:46:02.490261",
+   "zipSha256": "69cd7f9ed50764b00e4b88ad83323ab2bdfd6f6104bdee96eef8c4136f4b5b50"
+  },
+  {
+   "addCommit": "c49451de960d3bf860bc3b466d5b7ba84c82690a",
+   "board": "dynasty_export_20260725_174518.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "3b2f8197e803a3c4f5207f7d9cea46e02bb79b4a72a603f83167e908fe08b159",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-25T17:45:18.192819",
+   "zipSha256": "4f6a9aa2fadf364ce84ba1c4367e7ce54e41ce6b029fa7d54f2617b11fdb460d"
+  },
+  {
+   "addCommit": "c9371ab6caaf4b058dfcc203e79e648502f599a7",
+   "board": "dynasty_export_20260726_234351.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "8488440f388743239f0799daa339803ae5e9f755d70bff8b30e23d1a6b5b1e2a",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-26T23:43:51.597396",
+   "zipSha256": "c859571a8c3d42b8d4d63d7f5ce8f53a9a3f8e21414e1571c45843f3abeb7f6b"
+  },
+  {
+   "addCommit": "aaa4ee144f4a55b1132223489d64741de70826b5",
+   "board": "dynasty_export_20260727_234712.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "184c83c7dec1b45cd36ae7db92aa6936eae173ba44d6289dda09a6c631a77d2c",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-27T23:47:12.008137",
+   "zipSha256": "e64138c42fdddac4c8434117b98263a53810eb0bd2da1a4ab961ba02aa8166f5"
+  },
+  {
+   "addCommit": "5f201e466e8927a4bb8e0cfe584df2caa22968d4",
+   "board": "dynasty_export_20260728_234257.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "6b0b35fdf5c7a7e1e451bcdad8b6ea1fe0993e2ca136e72aedfe7fe8ee2cc591",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-28T23:42:56.922693",
+   "zipSha256": "4c54228a104aaac8db63f0063c7a48c11d25ab9be13b3a485484c77219948462"
+  },
+  {
+   "addCommit": "21dc24767de474a24e10b824402fc6ef8a5c3080",
+   "board": "dynasty_export_20260729_234404.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "15f07396e003129ba231a393d47176b3ef7e54dec97f7d01c95bcdae387d3176",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-29T23:44:04.817264",
+   "zipSha256": "f0eefcf6b9df52837d095e2f5e05b19fc01ed9be369543f35933d88b9e97f97e"
+  },
+  {
+   "addCommit": "668961e3f5f957e97dfd14ad2fb02e1052323b10",
+   "board": "dynasty_export_20260730_234456.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "8a4969956b1962b0a87bd12f436eb0146692f47d93b94bd30950c1b9cf6e1d8c",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-30T23:44:56.265720",
+   "zipSha256": "6de8af07050f3cc3dc77aeccdce48d3090f265e87e05401bf0e730395c0825bd"
+  },
+  {
+   "addCommit": "a1afce18898d41c075ca28ab6c54faeba91e0d34",
+   "board": "dynasty_export_20260731_234435.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "e2c0dea91f52e3dbbacf68864af258cf74eb020b541513c790318de19be1dfc8",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-07-31T23:44:35.562570",
+   "zipSha256": "dd4be0029da60b70e3f15e75bcd230b318c33b0299a5e16133db4a4ec6b78af7"
+  },
+  {
+   "addCommit": "c93123ebadab065c85e8015be12af6f054929c34",
+   "board": "dynasty_export_20260801_234420.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "3b5c1c1015d5815ece2d6b2d1c19a3176e363784c5c37cc83abdef87d10ffd6e",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-01T23:44:20.346047",
+   "zipSha256": "eed763267d3d16f04587aae98528d172846fe99df34e32c5ea07243b36d574d7"
+  },
+  {
+   "addCommit": "34b5354263c6bb86f79f0b4a79421f4dfb673b33",
+   "board": "dynasty_export_20260802_234410.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "c39c3b519757cbbf3c99a34667f8016a3b3e8df6cacf4b32b04c5e2f2a537f9d",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-02T23:44:10.120540",
+   "zipSha256": "9720b0dd7b799e30ac57b22ac16ecf9ef9e5582f71c23995be48abe6ee7389d1"
+  },
+  {
+   "addCommit": "d9f7e4cdaed29a94e59aad7706c3ce80699b16db",
+   "board": "dynasty_export_20260803_235610.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H3",
+    "H4"
+   ],
+   "payloadSha256": "19e2e0d7ad54965a18d47b962e31dc82909f3c8cac8e2008be95d052cd4273ac",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-03T23:56:10.773424",
+   "zipSha256": "355741c2f009ce7426a6d60cde734358ddec28197d501a78266b542dc8cde158"
+  },
+  {
+   "addCommit": "d7a0c1c3dd500fa3883f8182dd5cda8c29f0cd13",
+   "board": "dynasty_export_20260804_234442.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "e51755905a9d260e6336562281551e8831fc8aa7383b691beb606e0e6adc0dff",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-04T23:44:42.548610",
+   "zipSha256": "dc2d59332bec52644985026f3e7662aa39bfd2ebe5017f95dd43f968b0213205"
+  },
+  {
+   "addCommit": "c85bb696177b958bf7ad233d8c9b312307e51afa",
+   "board": "dynasty_export_20260805_234032.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "3366e9d9a585615964609df7a89743ab3821b29d380d60f54abe441848d09ca9",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-05T23:40:32.046254",
+   "zipSha256": "cb01a547d3a6175d70138a70843a0e64b687afb0dbe4f6019751d2439d3ff3e4"
+  },
+  {
+   "addCommit": "75ca34762a8afacd83000efc2c0650aea8ae1358",
+   "board": "dynasty_export_20260806_150742.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H4"
+   ],
+   "payloadSha256": "2ca9fd8ef4248006285386cbd2498eec9fb03384348c50135bcce024a168b9f3",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-06T15:07:42.355653",
+   "zipSha256": "e3565556ea5bebb8c1abac5aa60e095a25a19e86324dc94d0581b216b6b40e31"
+  },
+  {
+   "addCommit": "00e2028941d8917f08841d5a0a9480290980c3e2",
+   "board": "dynasty_export_20260807_231948.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "9846f4dec3f6069441270d4a30e00898343200ca9e69df0b048350aa0d2b88f8",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-07T23:19:48.012755",
+   "zipSha256": "1c87e6d06a854b4bbcff976bca08d30e03414770b764abfa553a77e73e1a214a"
+  },
+  {
+   "addCommit": "ac659cad400371c745220e4e29986550b4b9ea2e",
+   "board": "dynasty_export_20260808_230641.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "f957ab3942bd1f979ce25e5fc1fe386a1805c247d69f1b700f46853a6d527c16",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-08T23:06:41.729689",
+   "zipSha256": "1f7ddee9fdb525292bd183532d9060f7cf997cbc2950efa72626a2fe83d5b368"
+  },
+  {
+   "addCommit": "bba011bd426713aa0e9783b1d8f515561d7b7e76",
+   "board": "dynasty_export_20260809_230755.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "70e456bc17ef6f3f68350d48d87b4ee662abf46f8845563ff9e2d23cf3d57b83",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-09T23:07:55.301765",
+   "zipSha256": "0cebabcbe3053f8739483623e5eeb7fbc56737d589bda78a91495c6b54abd9a4"
+  },
+  {
+   "addCommit": "c67568b2938f5dffd0a54dc6de9fbc53d049e97c",
+   "board": "dynasty_export_20260810_232112.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "c21e6d94f44f7bc7e5179044305c897c9e9252c6849fb2852c080a24d1add16d",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-10T23:21:12.732296",
+   "zipSha256": "09de205604e7c6cdd520313f7c2e8ae34ae51d21e3485afdb55f420a14c46de5"
+  },
+  {
+   "addCommit": "7470bb72af0a9e36e800e28fdb163da522805244",
+   "board": "dynasty_export_20260811_232600.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "d10ab8188695c09d4c4f89faf3a1515cb1312498e448587cea19011f9ba55ea3",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-11T23:26:00.344116",
+   "zipSha256": "ceed14b428f67b264f752b06b125fe9ea7434b9c3bd4cc88d8e7db366de55c3b"
+  },
+  {
+   "addCommit": "278eae7d9e696ae29ca8a31c3199c518d36f3410",
+   "board": "dynasty_export_20260812_232543.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "8fb1ba53b36681b81a0ee1e90e7d8a4197f1f3b27f2df2155453e7e58b2a8ce3",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-12T23:25:43.193455",
+   "zipSha256": "794c687dc29aa6c4c4a683d1ad50fca5327de8e608e6720771b16de118757919"
+  },
+  {
+   "addCommit": "fb7187708111c47078d651ddc69e0abdfea54945",
+   "board": "dynasty_export_20260813_232644.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "0b49e6e803be99fc74abf078e0bc28eee427636ffc85ac3147e035c86f41bb12",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-13T23:26:44.473576",
+   "zipSha256": "004ae5abe2bbbfd1ae058a184496f885bb0fc0bb78b35a0b50997c0915214565"
+  },
+  {
+   "addCommit": "a9adacc94a7a5f48eca5fa96300c34f320b2028d",
+   "board": "dynasty_export_20260814_230212.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "7adc48a180426c9e1af9f7ad069b3d6340738c776307533d93c69c13d9c9f480",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-14T23:02:12.097157",
+   "zipSha256": "342b37bf8fa788d21976043bee0ceb3f51847046cca97da51ccfe40d8acb3899"
+  },
+  {
+   "addCommit": "061fd8339c31ef417e8e19eb58fca5832e406e10",
+   "board": "dynasty_export_20260815_230043.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "9b08fef3164dd6017ccce837e6a3ce175d13bab19264f0efa333e313f3b23935",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-15T23:00:43.782126",
+   "zipSha256": "f0551306798bf149868992335da5f2a38e3a02485e2ddf741ea9fa39c12f789a"
+  },
+  {
+   "addCommit": "f17937e72ef12cfab2e909d59a0bf090a62c45e5",
+   "board": "dynasty_export_20260816_225946.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "f7d5e7157a09bcc857c229c5a81b5302883aa0ff6369548404aec85c023d16e9",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-16T22:59:45.967433",
+   "zipSha256": "0dfb2948a37ef61f1b17038288d4e4a3bd6cd5e2bdb303af60be8b646610ff2f"
+  },
+  {
+   "addCommit": "96ecc22a9ec4a1c488f5afd2e3308a4c212947ca",
+   "board": "dynasty_export_20260817_230203.zip",
+   "complete": false,
+   "degraded": [
+    "KTC_TradeDB",
+    "KTC_WaiverDB"
+   ],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "6d71545c5f4335582494b9812187200ce4349b9ead267424b245d0bec83e49ed",
+   "population": "E_BASELINE",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-17T23:02:03.835156",
+   "zipSha256": "6b8319eee8049bc63b4062a9e144424d24701a78e27d30a886d1ef49dd6fd89d"
+  }
+ ],
+ "count": 35,
+ "population": "E_BASELINE",
+ "schema": "oiv2-population-manifest/v1"
+}

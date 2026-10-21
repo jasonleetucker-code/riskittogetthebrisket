@@ -1,0 +1,695 @@
+{
+ "boards": [
+  {
+   "addCommit": "d060ad21366aea61360e927bdc7ee40949949ad6",
+   "board": "dynasty_export_20260818_230211.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "258da4803f571cc1daeab4069edb6afdd50261828c908769ad71aca615795425",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-18T23:02:11.345069+00:00",
+   "zipSha256": "8fa39f394246e502cc0a29a2dda8c3d1e7afa49472da728665714f722105f761"
+  },
+  {
+   "addCommit": "8fd35fca945b074b4236d42919a757406cb495d6",
+   "board": "dynasty_export_20260819_230341.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "4b21e04bc4eb1320539aae25637cab79fbe75f70a5836b85d9cf4429c57bc92d",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-19T23:03:41.580370+00:00",
+   "zipSha256": "5a64fa4398cbfb9f47a43da8bca70815f451113b33fde905787bc8c455b34b0d"
+  },
+  {
+   "addCommit": "22909d7809df9f98b39d2d120cffdefe3f25e3a1",
+   "board": "dynasty_export_20260820_230504.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1",
+    "N1"
+   ],
+   "payloadSha256": "e9d0018852fcd2e70cd74cc8799ffe57f5a1ff00985b1b7cd739df313734e447",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-20T23:05:03.983096+00:00",
+   "zipSha256": "85e6df6abe557d77f54727994e30f0e881147874b9c0d358cefb3cd7c593f87e"
+  },
+  {
+   "addCommit": "c5af41863fcbcc869f25d701b956931e85a8c083",
+   "board": "dynasty_export_20260821_230238.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "5e9cab19f266045b4babb22a92eacbb13f9972d665aed3743ae07c6dce6ef90f",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-21T23:02:38.483718+00:00",
+   "zipSha256": "d493ede4fc3d1234a9bb22d4bb9a8905c80ac064a30a9d630a8fd8ab3d40f1b6"
+  },
+  {
+   "addCommit": "ed4dab82b46a8d6b52ee0f33ff690994d4f5a63f",
+   "board": "dynasty_export_20260822_230108.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "f4f79bd22660a43da7aa19c410f985af913fb9b306bc6677b5489f49e68eada4",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-22T23:01:08.145493+00:00",
+   "zipSha256": "2710e61edd0169f7a5af7e00b3277245ee45c2d43261e88b73c41a4896e4fdb3"
+  },
+  {
+   "addCommit": "fe55d1ce34860af30c1b55025f2161565dc20925",
+   "board": "dynasty_export_20260823_230044.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "7ad71fbe353eb08e2d70e18f8b8fa01cdb6a163b01bb56fff6b3d467c273de2f",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-23T23:00:44.845095+00:00",
+   "zipSha256": "f7d76ba0c47b75d425fb4ee4d7b06e46888b77fc551e752b5539dcb7e45d898b"
+  },
+  {
+   "addCommit": "cca85dd93a68d804821b0b3dd7d5a4aeebb3a149",
+   "board": "dynasty_export_20260824_230400.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "03efa6ac49a198cd6e3d6c9a916f08243f05efd9c6a5275f64178ac64ad333e7",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-24T23:04:00.553224+00:00",
+   "zipSha256": "5631b6001c876669d7acc94bb21fe8a2aadc861f71564a64bb49c18f96c4a917"
+  },
+  {
+   "addCommit": "a82898fdbe73ea2effd295132590dff35a45ac98",
+   "board": "dynasty_export_20260825_230528.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "5b03d4b220b57e4115be45170460b1c854edc25d3ac4adfb48fc834dbd06f48f",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-25T23:05:28.544040+00:00",
+   "zipSha256": "ef8d6a211d580102ba8581963ab45bf1ffa8e8c0bae28964e0ff7f5b38fb6f65"
+  },
+  {
+   "addCommit": "50834ef7b760933c9df675e99f7b4f49ac90a7c8",
+   "board": "dynasty_export_20260826_211658.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1",
+    "N2"
+   ],
+   "payloadSha256": "9582324eea23a009db22b10ace303405917ccfbc155d94031d6bb030193a35d5",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-26T21:16:58.813500+00:00",
+   "zipSha256": "2f717f60dc2290e717e9c37615836fca950e7224249b58780689cf343e126b75"
+  },
+  {
+   "addCommit": "43f1bd770971a59b3596bb5c50fd334241d6173f",
+   "board": "dynasty_export_20260827_153424.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1",
+    "N2"
+   ],
+   "payloadSha256": "78e6e2d165f40b01f8b2db18763686eae702a71fe5079aa7611784119ff109c0",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-27T15:34:24.432490+00:00",
+   "zipSha256": "2b0579ec4486e42385abea49910abd9a883b6023a4669b1fe1abd7a9b7836643"
+  },
+  {
+   "addCommit": "8b6165efad55f9937e11a26a2485c385037daa3e",
+   "board": "dynasty_export_20260828_234428.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "211406b1ff654a66fddcd4d30a2d415ac0b11199a5210898fa1ff8b1f49996ef",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-28T23:44:28.488898+00:00",
+   "zipSha256": "b421980ddf2d6b980edc636ff2cdebe8e77042d182beda3085e0abb09b53bff5"
+  },
+  {
+   "addCommit": "e04260c7c26b2b34e2f54257b3af5c119d19d288",
+   "board": "dynasty_export_20260829_211720.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "1c738b865f0bf074c3dddff1f7eb446707ebf95f21bb1bc2b019c9f28e8dd32c",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-29T21:17:20.483662+00:00",
+   "zipSha256": "5e59cf67aba011b78fa98ade6ed0a1a2b81e3731f2fc5fa3803f32680170c038"
+  },
+  {
+   "addCommit": "1f65765c14e396443b5480f244af13a1fae2a867",
+   "board": "dynasty_export_20260830_213746.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1",
+    "N2"
+   ],
+   "payloadSha256": "e419728a3d23f50dbf3aa1fdd44186d1cfa80e043189ce97fe9c39958b75ac2c",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-30T21:37:46.179321+00:00",
+   "zipSha256": "5d28a73b7cf553d6738dd49556b201d2650f000c43326f545fbfdd08f94f6e01"
+  },
+  {
+   "addCommit": "1af3ad704c1b1f565b6a967398b55e69e71523a0",
+   "board": "dynasty_export_20260831_230447.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "1f08e8dc2c95e56a16587fe7a8408e9aa076a848d3d4c7965e2d8d0ebb11fcec",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-08-31T23:04:47.553692+00:00",
+   "zipSha256": "7e1146ba2de173242bf22d12a27f69256e0cc45237509aca602d2919bf220824"
+  },
+  {
+   "addCommit": "6ca2d7e5465ee972f42c2eb761b7a3e56c13f4a8",
+   "board": "dynasty_export_20260901_212308.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "a4e05e2ff730990023d817ea0a303d738e56ff52eae8251293124f2d8d690f7d",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-01T21:23:08.208475+00:00",
+   "zipSha256": "5a0c88a1fd9fa0d1eb4b8e72abb35b3d5bd8036edec34af63f0ff00c9a4a950d"
+  },
+  {
+   "addCommit": "2e0e4d8dba2a4b25cc757df76ee466d298fa96a5",
+   "board": "dynasty_export_20260902_212027.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "5d0b57c297484e1f5fb1cdf0dca046121ccc2e94b8f7714d44850a00c6dd435a",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-02T21:20:27.421884+00:00",
+   "zipSha256": "6f57d650574754a06008ce7e3a31a5994b4953ae52f21d4af19d08f93c171c6b"
+  },
+  {
+   "addCommit": "9b76f58821bb74ec28fa93abd6e46741aa2fd5c7",
+   "board": "dynasty_export_20260903_225148.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "587c67f7d264849e1d19954bfa7b45a49d6b51229f644cc2cf01cfa63a39b77f",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-03T22:51:48.381016+00:00",
+   "zipSha256": "b99386d3ece0028e45c38fb63ee7f101818639d0517634934be4586d7a22bf03"
+  },
+  {
+   "addCommit": "5b1d78a1ee89a249b9a91c1da1132c0b2753d7a4",
+   "board": "dynasty_export_20260904_223450.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "eb1a1551e981d0c13dfd15ea2e63eca5ca65ffd12208d7cb98e864ba6e9a7cc8",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-04T22:34:50.402290+00:00",
+   "zipSha256": "b586e60d89cb406d2ba877b94bdf9514d9e921bd48c30035a7b43b090a0a80d6"
+  },
+  {
+   "addCommit": "957a10211833dd0c70e8f470396fa2f10088dc58",
+   "board": "dynasty_export_20260905_204615.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "3dbacc83d46397a7daac7e79ade09673e0dd6559113842296bdae8fe7f17a555",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-05T20:46:14.971171+00:00",
+   "zipSha256": "7df88a0ef88c52e9ce8614d66332569e3434e9b12b547fcfafd4e7763788f78a"
+  },
+  {
+   "addCommit": "5b40533c47884e7b5410805c657bc9cc31c6d373",
+   "board": "dynasty_export_20260906_205400.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "e86c63a91efa7c35605263b8516ae79d78b509bd8ddb474033bdcfa541642be4",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-06T20:54:00.200026+00:00",
+   "zipSha256": "3aac677669f6b8cc2f479ee9844969ba0831514eb4c4cf952a9d9361b41448a0"
+  },
+  {
+   "addCommit": "a41cdd9b0f7690bafd56d93dd9232a93d9d6ec39",
+   "board": "dynasty_export_20260907_230241.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "05a13243ddbab937cc84d305d224d9ce806ddae569e214bbf037839a2340dba6",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-07T23:02:41.696628+00:00",
+   "zipSha256": "25d1a2561e661a866bb4971a6bf45e56b75ff2c34fe652fb9f5e0122d0e4f6a7"
+  },
+  {
+   "addCommit": "714282501fe0582b8e7dc3305478c1dbde332d7b",
+   "board": "dynasty_export_20260908_212819.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H1"
+   ],
+   "payloadSha256": "4547fdea4e13709f154ac870801b357d52ca3d27cb86abfa140b9d3277b81fc6",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-08T21:28:19.755167+00:00",
+   "zipSha256": "dbff43127e55deeea1bde339b05f33eed7cf701ab19af7600919174b5c8c868b"
+  },
+  {
+   "addCommit": "bd7eda6052a3c40e3dceb2d3bf3f6c8f128078e1",
+   "board": "dynasty_export_20260909_211525.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "9f5c8a1a066efe4dda62677249071051410e2e5af75c17b292f62b526220c431",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-09T21:15:25.520881+00:00",
+   "zipSha256": "bfd1f406b3a2f855f6bf9356d0d99cc1b032587c7a2ae357c2ca3a13f67a8972"
+  },
+  {
+   "addCommit": "53b87921a115751c16c9749fa84ddbb40b118224",
+   "board": "dynasty_export_20260910_224947.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "d0025d49b3ec35c4b3057f556d08c9e9606cdf1f8b45267cfa9ce4b895c70fa3",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-10T22:49:47.117154+00:00",
+   "zipSha256": "161505e52256b2a05b3104b6faba34cfe9cd6dfffbdcf8c6b6db93b6d441efbf"
+  },
+  {
+   "addCommit": "2a18436e342c43705fc7baa258c39407ff65ba0f",
+   "board": "dynasty_export_20260911_212200.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "f8db7292de8682e7eee7014fefc2fb8b06f50d394e28e953315bfaacc54feb2d",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-11T21:21:59.932906+00:00",
+   "zipSha256": "8ab9c1db1d4cd3dfa4ae00d35ee005557a75928e4f0939499d8d02893e30baf3"
+  },
+  {
+   "addCommit": "e9bea4b67a9d64ad164bf731ebb955a896ac7d9d",
+   "board": "dynasty_export_20260912_223716.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "09450ebb357f569840e4beb6712da39420b7e25cc9f7e7e291cd22b72bf8ab94",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-12T22:37:16.493963+00:00",
+   "zipSha256": "1afae5b65921a1e420d68f9c4c0349b818ed676b49776eb8c399d01666928a41"
+  },
+  {
+   "addCommit": "a00e1b37812c2e18d79c32ba779e7b8854b93812",
+   "board": "dynasty_export_20260913_223956.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "70f621f5bd22977ca20b00d571a36805a2e9fa715ff315a69fe62e55f2b4a04e",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-13T22:39:55.982635+00:00",
+   "zipSha256": "cdf3682db6619bde203458fd6bc5b906c4dc4da444dee6f249dcbb4fff6e67c1"
+  },
+  {
+   "addCommit": "c62fabd40415db64ac459948b96cd8a9541457ad",
+   "board": "dynasty_export_20260914_233241.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "8f609d137e8ee511277089cb22ed9ae9900e50ad40a68a38c04ab7c55735193b",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-14T23:32:40.978785+00:00",
+   "zipSha256": "eb2118f6ed2929e899f1a2d4c3d5678cf03ba6997205356a5942576d1082d906"
+  },
+  {
+   "addCommit": "95e6478d2cc6370d3034a145992037c733889f5b",
+   "board": "dynasty_export_20260915_214858.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "651c78cffbc2f038b29c9144b9e2bb552821752cb96209e296905c509de298ec",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-15T21:48:58.542838+00:00",
+   "zipSha256": "d55daf8a27ef7b8e7b853d7e84dbff7bdd349976eb630bdba51447a56099e237"
+  },
+  {
+   "addCommit": "907dfee4df574a32f06c010434106204874d1a27",
+   "board": "dynasty_export_20260916_214700.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "f67de0cd51ea8f8882aa658856117259cd695d4107d65e7473805230ac458a86",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-16T21:47:00.649072+00:00",
+   "zipSha256": "e145772e214261019f6506b1a021ae6e87020dcd18f21415f77c51baf124843e"
+  },
+  {
+   "addCommit": "6f265e370af73097081769e30ef16fbf943ea6c9",
+   "board": "dynasty_export_20260917_214927.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H5"
+   ],
+   "payloadSha256": "bd780c51e815ecedd79a1aed72b843c6bacc6f6a945b39b693b57f26b2f11665",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-17T21:49:27.030228+00:00",
+   "zipSha256": "b2c4b84efeacfb5659e3cad89f0942d4a71310ab78a16b643106baca82865966"
+  },
+  {
+   "addCommit": "a341709d88dfa5d267802ec82eb0113f181908de",
+   "board": "dynasty_export_20260918_211845.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H5"
+   ],
+   "payloadSha256": "fb2ee412bd686725f8279ac375db68fb8874d0748b53b0bb73234b375ff0dff1",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-18T21:18:45.479767+00:00",
+   "zipSha256": "31a6b57d02221fb78a2205f81514787e3611fed83f66de9e96f67b2a96ec6cdd"
+  },
+  {
+   "addCommit": "7f81c38660c3a869fca9d3bba871d1416e09d102",
+   "board": "dynasty_export_20260919_223220.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H5"
+   ],
+   "payloadSha256": "754ca122bbe91931a6d42229477da9f971b5ee4e48befaf904c9ad55d29e9341",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-19T22:32:20.306553+00:00",
+   "zipSha256": "b98b7c79a4535258fd20b22c3ea508569ff60e5e0229f47bb592e8787429ba7a"
+  },
+  {
+   "addCommit": "307a324bd8ddecac3af5694953c4084a1e8204c3",
+   "board": "dynasty_export_20260920_224450.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H5"
+   ],
+   "payloadSha256": "faceb098971d44c1b6355e65ac80d55c80216a3b3881a8d79d1a90bd2835b7a8",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-20T22:44:50.844730+00:00",
+   "zipSha256": "1a4062de6895abb0d236d89eaef04ea5f1a326e62d1c02c6df2bb26cde2558ba"
+  },
+  {
+   "addCommit": "24e18bdcc49ea44e15f2b402f2e42634de0cd124",
+   "board": "dynasty_export_20260921_234150.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "H5"
+   ],
+   "payloadSha256": "1ccda26602b951d96c448ad73894656865e5505f5037522e1888e9b77a5aaf84",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-21T23:41:50.169419+00:00",
+   "zipSha256": "d1118320b39fa813a17c8358c10300629555a19e8f6df587b2a18f49721dc620"
+  },
+  {
+   "addCommit": "c577cabf0f9d05066dc96341779ccb660725de9d",
+   "board": "dynasty_export_20260922_214329.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "989dcf54e0ec583123795a60aa795dbb76710b8aa7332ba5b2f85ea6c6373675",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-22T21:43:29.413827+00:00",
+   "zipSha256": "4d37f8601690fdae067c86395329b2804c48b3a4bc25e60fcca38827788c58a3"
+  },
+  {
+   "addCommit": "36bace41974c616f5617c7f80147ac89dd74c13d",
+   "board": "dynasty_export_20260923_215107.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [],
+   "payloadSha256": "54efec9331611aa0ee8ab141f340490a8a51692fb4c05d723cfe248884565142",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-23T21:51:07.333976+00:00",
+   "zipSha256": "7121449dd65d3e72b75179c744c295a6dbc64e2d40c92dc7cb3a1e081e5c2441"
+  },
+  {
+   "addCommit": "84e5954b38460b96cbe247e63762b0a2597c7bb5",
+   "board": "dynasty_export_20260924_232149.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "1b614ce0e19263a37aa2a46ac1e6d207bf279980f3adfbb51f14e6033d84a1ba",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-24T23:21:49.383548+00:00",
+   "zipSha256": "ac7737c9386e9ea99db9a6b005946b945351c5f4a82ac383af83f03dba22733e"
+  },
+  {
+   "addCommit": "70722931b1c651d94e460b0739d6c3c195796be6",
+   "board": "dynasty_export_20260925_233646.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "6ef77581bd5bac784589a6568aac74b70f3e67d782a0454bb6eb84e631979028",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-25T23:36:46.320964+00:00",
+   "zipSha256": "910529444c60a564e14574b0a8472104fb5450565eef73a06bfc38dc7f1a5012"
+  },
+  {
+   "addCommit": "1928d489834501b026192a874af2e3326c2d5b69",
+   "board": "dynasty_export_20260926_164906.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "2ba0af9bbdbceaa17cbd5ea70fd5d2aa0904987f9daa5a320b4643b3458b89f2",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-26T16:49:06.686095+00:00",
+   "zipSha256": "2067a77f832c3648f3de6eceba9f22d36447bde0af54f5ccf2a49e9c28aa553d"
+  },
+  {
+   "addCommit": "1a240b7a5fd4901c361231689ef423d41a9142ca",
+   "board": "dynasty_export_20260927_214140.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "58f071180f55487500379d47844c6921c58f7a6a4db5f11c40322102912c2b59",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-27T21:41:40.594037+00:00",
+   "zipSha256": "a511377dcef858f51f705a9f581adf78db381d253ca781abde6ef9c7946e2796"
+  },
+  {
+   "addCommit": "c9dc390f17ec079fa79564e4fabefd5e0b642063",
+   "board": "dynasty_export_20260928_233322.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "989c8ebfa0a46e2b9746a78b211b7220cb0ee04378f52b8b4e928d54202a477e",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-28T23:33:22.404434+00:00",
+   "zipSha256": "d6ce3433e0326dd614c8403b22617075d5a6f1fc074c276ff5cc81e76f934d2b"
+  },
+  {
+   "addCommit": "8ea2c18493f6c16425f973e860ea9b58e61e0d0e",
+   "board": "dynasty_export_20260929_194208.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "7903d55c127eeb75cd0b12b7a6d13254209f215dbf202e636cdb39bbe91e73b4",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-29T19:42:08.241118+00:00",
+   "zipSha256": "fbea2278288d767a95a5d883ef4cf7ce8c8012461757380aa7910e4d61e1ed76"
+  },
+  {
+   "addCommit": "10c9d7429a91aecc4300f25916a5a0444f3ea510",
+   "board": "dynasty_export_20260930_130404.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": true,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "8e5c0f2491bc5fdd5f74943ac483994345aa8a07e71f3253a4f286fb9553000f",
+   "population": "E_DEV",
+   "roles": [],
+   "scrapeTimestamp": "2026-09-30T13:04:04.598312+00:00",
+   "zipSha256": "59338ef068c37d84e66ac68ed24f8c3ed67042bda9d13d59bca754e559cede7e"
+  }
+ ],
+ "count": 44,
+ "population": "E_DEV",
+ "schema": "oiv2-population-manifest/v1"
+}
