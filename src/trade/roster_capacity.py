@@ -782,7 +782,8 @@ def forced_drop_marginal(capacity: RosterCapacity) -> float | None:
         return None
     if capacity.requires_drops is None:
         return None
-    if (capacity.over_limit_before or 0) > 0 and capacity.pre_trade_cleanup_cost is None:
+    owed = _pre_trade_owed(capacity)
+    if owed is None:
         return None  # what the roster already owed is not known
     # An incomplete cleanup on either side is not a signed EXACT marginal:
     # the modelled drops stop short of legal size, so the difference is of
@@ -792,7 +793,25 @@ def forced_drop_marginal(capacity: RosterCapacity) -> float | None:
     if _rests_on_missing_waiver(capacity):
         return None
     total = float(sum(d.release_cost for d in capacity.forced_drops))
-    return total - float(capacity.pre_trade_cleanup_cost or 0.0)
+    return total - owed
+
+
+def _pre_trade_owed(capacity: RosterCapacity) -> float | None:
+    """What the PRE-trade roster already owed in releases, or ``None``.
+
+    0 only when the roster was proven within its cap (``over_limit_before``
+    <= 0: it owed no cleanup); the pre-trade cleanup cost when it was over; and
+    ``None`` when the cap is unknown or the over-limit cleanup was not
+    computed — an unknown is never netted as zero.
+    """
+    over = capacity.over_limit_before
+    if over is None:
+        return None
+    if over <= 0:
+        return 0.0
+    if capacity.pre_trade_cleanup_cost is None:
+        return None
+    return float(capacity.pre_trade_cleanup_cost)
 
 
 def _rests_on_missing_waiver(capacity: RosterCapacity) -> bool:
@@ -880,7 +899,9 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
         upper = any(_assumed(d) for d in charged)
     else:
         total = float(sum(d.release_cost for d in capacity.forced_drops))
-        pre = float(capacity.pre_trade_cleanup_cost or 0.0)
+        pre = _pre_trade_owed(capacity)
+        if pre is None:
+            return None, {"state": "unknown", "reason": "pre_trade_owed_undetermined", **common}
         cost = max(0.0, total - pre)
         # Exhaustion is checked BEFORE the zero early return: a cleanup that
         # stops short of legal size must not read as an exact zero
@@ -918,8 +939,10 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
         state, bound = "exact", None
     basis: dict[str, Any] = {
         "state": state,
-        "addedReleases": max(
-            0, (capacity.over_limit_after_max or 0) - (capacity.over_limit_before or 0)
+        "addedReleases": (
+            None
+            if capacity.over_limit_after_max is None or capacity.over_limit_before is None
+            else max(0, capacity.over_limit_after_max - capacity.over_limit_before)
         ),
         "valueScale": (
             "releaseCost (rankDerivedValue x scarcity; package credit for an acquired piece)"
