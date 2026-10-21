@@ -18,34 +18,43 @@ What it never does:
 
 * it never draws, persists or exposes THE reserve.  The policy simulations use
   throwaway seeds and a different hash input (``census-sim|seed|unit``) from the
-  reserve's ``sha256(component || 0x1f || committed salt)``, so no result here
-  says anything about which components the committed salt would lock;
-* it writes nothing, opens every store ``mode=ro`` and prints aggregates only:
-  no league, lineage, user, manager, transaction or asset id ever leaves the
+  reserve's ``sha256(component || 0x1f || committed salt)``; the reserve config
+  and its salt are never read;
+* it writes nothing at the Python level (``--box`` installs the read-only audit
+  hook first), opens every store ``mode=ro`` and prints aggregates only: no
+  league, lineage, user, manager, transaction or asset id ever leaves the
   process (``assert_aggregate_only``);
 * it changes no value, vote, weight, flag or served payload.
 
-Components.  A trade belongs to its league (season-league).  Three nested
-definitions, so the effect of each kind of link is visible:
+Components.  A trade belongs to its season-league.  Three nested definitions,
+so the effect of each kind of link is visible:
 
-* ``L`` lineage: season-leagues joined along ``previous_league_id``;
-* ``P`` participants: ``L`` plus a link through every manager who was a side
-  of a trade in the population (the plan's manager-lineage component);
-* ``M`` memberships: ``P`` plus a link through every member of a population
-  league (a manager can carry knowledge into a league without trading there).
+* ``L`` lineage: season-leagues joined along the intel ledger's
+  ``previous_league_id`` (and a record's ``leagueMaturity.lineageId`` when a
+  maturity owner has stamped one);
+* ``P`` participants: ``L`` plus a link through every manager observed on a
+  side of ANY ledger trade (the plan's manager-lineage component);
+* ``M`` memberships: ``P`` plus a link through every recorded member of any
+  ledger league (a manager can carry knowledge into a league without trading).
 
-A trade with no league id is its own unlinkable singleton (and its leakage is
-unmeasurable, not zero).  Manager links exist only where the host record names
-the managers -- the Sleeper-observed lane via the Sharp intel ledger; KTC
-database rows name a league but no manager.
+Links come from every trade in the ledger, not only the population being
+measured, so a component is the one a reserve built over all observed trades
+would see.  UNKNOWN LINKAGE IS NOT "NO LINKAGE": a trade with no league is an
+unlinkable singleton, a trade whose managers are not (fully) observed is
+counted as such, and every leakage share says how many evaluation trades it
+could not check.
+
+Participants come from the Sharp intel ledger (``asset_movements.user_id``,
+joined on the Sleeper transaction id, which is globally unique) -- the box's
+market-trade ledger is built without a side-key secret, so its
+``sideEvidence.managerKey`` is null.  ``--participants side_keys`` uses the
+pseudonymous keys instead once they exist.
 
 Run on the production host with ``--box`` (owner-authorized, separately; see
-``docs/market_trades/LINEAGE_COMPONENT_CENSUS_2026-10-21.md``): the read-only
-audit hook (``research_readonly_guard.py``) is installed BEFORE any application
-import.  Locally: ``--ledger PATH --intel PATH`` against copies, or
-``--synthetic OVERLAP`` for a labelled synthetic rehearsal.
-Exit codes: 0 ok, 2 an input store is absent, 3 the guard refused a write /
-process start.
+``docs/market_trades/LINEAGE_COMPONENT_CENSUS_2026-10-21.md``).  Locally:
+``--ledger PATH --intel PATH`` against copies, or ``--synthetic OVERLAP`` for a
+labelled synthetic rehearsal.  Exit codes: 0 ok, 2 an input store is absent,
+3 the guard refused a write / process start, 64 bad invocation.
 """
 
 from __future__ import annotations
@@ -84,7 +93,7 @@ else:
 
 sys.path.insert(0, str(REPO))
 
-CENSUS_VERSION = "ctm-lineage-component-census-v1"
+CENSUS_VERSION = "ctm-lineage-component-census-v2"
 SIM_PREFIX = "census-sim"
 DEFINITIONS = ("L", "P", "M")
 DEFAULT_FRACTIONS = (0.10, 0.20, 0.30)
@@ -94,6 +103,13 @@ DEFAULT_GIANT_SHARE = 0.05
 DEFAULT_REPLICATES = 100
 TOP_K = (1, 5, 10, 20, 50)
 SIZE_BUCKETS = ((1, 1), (2, 4), (5, 9), (10, 49), (50, 249), (250, 999), (1000, None))
+MIN_CELL = 5
+SUPPRESSED = "<5"
+POLICY_POPULATIONS = (
+    "fitEligibleSleeperObserved",
+    "estimatorEligible",
+    "estimatorEligibleSleeperObserved",
+)
 
 LANE_SLEEPER = "sleeper_observed"
 LANE_KTC = "ktc_database"
@@ -111,9 +127,21 @@ _NO_PREDECESSOR = ("", "0", "None")
 class Trade:
     lane: str
     league: str | None
-    day: date | None
+    day: date | None  # the clock the chronological split uses
     participants: tuple[str, ...] = ()
+    sides: int = 2
     fit: bool = False
+    estimator: bool = False
+    occurred: date | None = None
+    collected: date | None = None
+    lineage_id: str | None = None
+
+    @property
+    def observed(self) -> str:
+        """``complete`` / ``partial`` / ``none`` participant observation."""
+        if not self.participants:
+            return "none"
+        return "complete" if len(self.participants) >= max(2, self.sides) else "partial"
 
 
 @dataclass
@@ -121,7 +149,9 @@ class Dataset:
     trades: list[Trade]
     predecessor: dict[str, str] = field(default_factory=dict)
     members: dict[str, set[str]] = field(default_factory=dict)
+    known_leagues: set[str] | None = None  # leagues present in the intel table
     inputs: dict[str, Any] = field(default_factory=dict)
+    labels: dict[str, np.ndarray] = field(default_factory=dict, repr=False)  # cache
 
 
 def trade_lane(families: Iterable[str]) -> str:
@@ -169,9 +199,8 @@ class _UnionFind:
             self.parent[rb] = ra
 
 
-def _lineage_roots(ds: Dataset, leagues: Iterable[str]) -> dict[str, str]:
-    """League -> lineage root, walking ``previous_league_id`` (loop-safe)."""
-    uf = _UnionFind()
+def _link_lineage(uf: _UnionFind, ds: Dataset, leagues: Iterable[str]) -> None:
+    """Join each league to its recorded predecessors (loop-safe walk)."""
     for lg in leagues:
         seen: set[str] = set()
         cur = lg
@@ -181,21 +210,21 @@ def _lineage_roots(ds: Dataset, leagues: Iterable[str]) -> dict[str, str]:
             prev = ds.predecessor[cur]
             uf.union("L:" + cur, "L:" + prev)
             cur = prev
-    return {lg: uf.find("L:" + lg) for lg in leagues}
 
 
-def component_labels(ds: Dataset, idx: Sequence[int], definition: str) -> np.ndarray:
-    """Per-trade component label (dense ints, in ``idx`` order)."""
+def _build_labels(ds: Dataset, definition: str) -> list[str]:
+    """Raw component root for EVERY trade under ``definition``; links come
+    from the whole ledger, never only the population being measured."""
     if definition not in DEFINITIONS:
         raise ValueError(f"unknown component definition {definition!r}")
-    trades = [ds.trades[i] for i in idx]
-    leagues = sorted({t.league for t in trades if t.league})
-    lineage = _lineage_roots(ds, leagues)
+    leagues = sorted({t.league for t in ds.trades if t.league})
     uf = _UnionFind()
-    for lg in leagues:
-        uf.union("L:" + lg, lineage[lg])
+    _link_lineage(uf, ds, leagues)
+    for t in ds.trades:
+        if t.league and t.lineage_id:
+            uf.union("L:" + t.league, "N:" + t.lineage_id)
     if definition in ("P", "M"):
-        for t in trades:
+        for t in ds.trades:
             if t.league:
                 for u in t.participants:
                     uf.union("L:" + t.league, "U:" + u)
@@ -203,9 +232,25 @@ def component_labels(ds: Dataset, idx: Sequence[int], definition: str) -> np.nda
         for lg in leagues:
             for u in ds.members.get(lg, ()):
                 uf.union("L:" + lg, "U:" + u)
-    raw = [uf.find("L:" + t.league) if t.league else f"T:{k}" for k, t in enumerate(trades)]
-    _, labels = np.unique(np.asarray(raw, dtype=object).astype(str), return_inverse=True)
-    return labels.astype(np.int64)
+    return [uf.find("L:" + t.league) if t.league else f"T:{k}" for k, t in enumerate(ds.trades)]
+
+
+def _global_labels(ds: Dataset, definition: str) -> np.ndarray:
+    """Labels over the whole dataset, cached on it (a dataset is built once
+    and never mutated after its first census)."""
+    if definition not in ds.labels:
+        raw = np.asarray(_build_labels(ds, definition), dtype=object).astype(str)
+        _, labels = np.unique(raw, return_inverse=True)
+        ds.labels[definition] = labels.astype(np.int64)
+    return ds.labels[definition]
+
+
+def component_labels(ds: Dataset, idx: Sequence[int], definition: str) -> np.ndarray:
+    """Per-trade component label (dense ints, in ``idx`` order)."""
+    full = _global_labels(ds, definition)
+    sub = full[np.asarray(idx, dtype=np.int64)] if len(idx) else np.zeros(0, np.int64)
+    _, dense = np.unique(sub, return_inverse=True)
+    return dense.astype(np.int64)
 
 
 # ── concentration ───────────────────────────────────────────────────────────
@@ -213,6 +258,10 @@ def component_labels(ds: Dataset, idx: Sequence[int], definition: str) -> np.nda
 
 def _r(x: float) -> float:
     return round(float(x), 4)
+
+
+def _cell(n: int) -> int | str:
+    return SUPPRESSED if 0 < n < MIN_CELL else n
 
 
 def _gini(counts: np.ndarray) -> float:
@@ -224,7 +273,9 @@ def _gini(counts: np.ndarray) -> float:
 
 
 def concentration(labels: np.ndarray) -> dict[str, Any]:
-    """Size distribution and concentration of trades over components."""
+    """Size distribution and concentration of trades over components.  The
+    histogram counts COMPONENTS (structural units, not people), so it is not
+    small-cell suppressed: "one component of 1000+ trades" is the finding."""
     counts = np.bincount(labels) if labels.size else np.zeros(0, dtype=np.int64)
     counts = counts[counts > 0]
     total = int(counts.sum())
@@ -267,47 +318,88 @@ def largest_component_profile(ds: Dataset, idx: Sequence[int], labels: np.ndarra
     all_leagues = {ds.trades[i].league for i in idx if ds.trades[i].league}
     mgrs = {u for t in members for u in t.participants}
     all_mgrs = {u for i in idx for u in ds.trades[i].participants}
+    lin = _global_labels(ds, "L")
     return {
         "tradeShare": _r(len(members) / len(idx)),
         "leagueShare": _r(len(leagues) / max(1, len(all_leagues))),
         "participantManagerShare": _r(len(mgrs) / max(1, len(all_mgrs))),
-        "lineages": len(set(_lineage_roots(ds, leagues).values())),
+        "lineages": int(np.unique(lin[[idx[k] for k in np.flatnonzero(labels == big)]]).size),
+    }
+
+
+def linkage(ds: Dataset, idx: Sequence[int]) -> dict[str, Any]:
+    """How much of the population the census can actually link."""
+    trades = [ds.trades[i] for i in idx]
+    n = max(1, len(trades))
+    obs = {"complete": 0, "partial": 0, "none": 0}
+    for t in trades:
+        obs[t.observed] += 1
+    leagues = {t.league for t in trades if t.league}
+    known = ds.known_leagues
+    with_pred = sum(1 for lg in leagues if lg in ds.predecessor)
+    gaps = sum(
+        1
+        for lg in leagues
+        if lg in ds.predecessor and known is not None and ds.predecessor[lg] not in known
+    )
+    return {
+        "tradesWithoutLeague": sum(1 for t in trades if not t.league),
+        "participantsComplete": obs["complete"],
+        "participantsPartial": obs["partial"],
+        "participantsUnobserved": obs["none"],
+        "fullyLinkableShare": _r(
+            sum(1 for t in trades if t.league and t.observed == "complete") / n
+        ),
+        "populationLeagues": len(leagues),
+        "leaguesInIntelTable": (
+            sum(1 for lg in leagues if lg in known) if known is not None else None
+        ),
+        "leaguesWithPredecessorLink": with_pred,
+        "predecessorLinksLeavingTheTable": gaps if known is not None else None,
+        "leaguesWithLineageStamp": len({t.league for t in trades if t.league and t.lineage_id}),
     }
 
 
 def coverage(ds: Dataset, idx: Sequence[int]) -> dict[str, Any]:
     trades = [ds.trades[i] for i in idx]
-    days = sorted(t.day for t in trades if t.day)
-    leagues = {t.league for t in trades if t.league}
     by_month: dict[str, int] = {}
-    for d in days:
-        by_month[d.strftime("%Y-%m")] = by_month.get(d.strftime("%Y-%m"), 0) + 1
+    for t in trades:
+        if t.day:
+            k = t.day.strftime("%Y-%m")
+            by_month[k] = by_month.get(k, 0) + 1
     by_lane: dict[str, int] = {}
     for t in trades:
         by_lane[t.lane] = by_lane.get(t.lane, 0) + 1
-    with_mgr = sum(1 for t in trades if t.participants)
+
+    def _range(days: list[date]) -> list[str] | None:
+        return [min(days).isoformat(), max(days).isoformat()] if days else None
+
+    occ = [t.occurred for t in trades if t.occurred]
+    col = [t.collected for t in trades if t.collected]
     return {
         "trades": len(trades),
-        "byLane": dict(sorted(by_lane.items())),
-        "leagues": len(leagues),
-        "lineages": len(set(_lineage_roots(ds, leagues).values())),
-        "leaguesWithMembership": sum(1 for lg in leagues if ds.members.get(lg)),
-        "tradesWithoutLeague": sum(1 for t in trades if not t.league),
-        "tradesWithParticipants": with_mgr,
-        "participantCoverage": _r(with_mgr / max(1, len(trades))),
+        "byLane": {k: _cell(v) for k, v in sorted(by_lane.items())},
+        "leagues": len({t.league for t in trades if t.league}),
+        "lineages": int(np.unique(_global_labels(ds, "L")[list(idx)]).size) if idx else 0,
         "participantManagers": len({u for t in trades for u in t.participants}),
-        "dateRange": [days[0].isoformat(), days[-1].isoformat()] if days else None,
-        "tradesWithoutDate": len(trades) - len(days),
-        "byMonth": dict(sorted(by_month.items())),
+        "occurredDateRange": _range(occ),
+        "collectedDateRange": _range(col),
+        "tradesWithoutOccurredDate": len(trades) - len(occ),
+        "tradesWithoutCollectedDate": len(trades) - len(col),
+        "splitClockByMonth": {k: _cell(v) for k, v in sorted(by_month.items())},
     }
 
 
 # ── allocation policies (simulated; never the committed reserve) ────────────
 
 
-def _unit_uniform(unit: str, seed: int) -> float:
-    h = hashlib.sha256(f"{SIM_PREFIX}|{seed}|{unit}".encode()).digest()
-    return int.from_bytes(h[:8], "big") / 2.0**64
+def _unit_uniforms(n_units: int, prefix: str, seed: int) -> np.ndarray:
+    """One throwaway uniform per opaque unit index for one replicate."""
+    out = np.empty(n_units, dtype=float)
+    for k in range(n_units):
+        h = hashlib.sha256(f"{SIM_PREFIX}|{seed}|{prefix}{k}".encode()).digest()
+        out[k] = int.from_bytes(h[:8], "big") / 2.0**64
+    return out
 
 
 def _csr(lists: Sequence[Sequence[int]]) -> tuple[np.ndarray, np.ndarray]:
@@ -334,124 +426,121 @@ class _Frame:
     """Population arrays shared by every policy and replicate."""
 
     n: int
-    day: np.ndarray  # ordinal, -1 unknown
+    day: np.ndarray  # split-clock ordinal, -1 unknown
     lineage: np.ndarray
     comp_p: np.ndarray
     has_league: np.ndarray
+    complete: np.ndarray
     has_mgr: np.ndarray
     mgr_ptr: np.ndarray
     mgr_flat: np.ndarray
     n_mgr: int
-    mem_ptr: np.ndarray
-    mem_flat: np.ndarray
-    n_mem: int
-    has_mem: np.ndarray
-    lineage_names: list[str]
-    comp_names: list[str]
+    know_ptr: np.ndarray
+    know_flat: np.ndarray
+    has_know: np.ndarray
 
 
 def _frame(ds: Dataset, idx: Sequence[int]) -> _Frame:
     trades = [ds.trades[i] for i in idx]
-    lin = component_labels(ds, idx, "L")
-    cp = component_labels(ds, idx, "P")
-    mgr_ids: dict[str, int] = {}
-    mgr_lists = [[mgr_ids.setdefault(u, len(mgr_ids)) for u in t.participants] for t in trades]
-    mem_ids: dict[str, int] = {}
-    mem_lists = [
-        [mem_ids.setdefault(u, len(mem_ids)) for u in sorted(ds.members.get(t.league or "", ()))]
-        for t in trades
+    # One key space for participants and members, so a manager who TRADES in a
+    # training league and is a MEMBER of an evaluation league is a leak.
+    key_ids: dict[str, int] = {}
+    mgr_lists = [[key_ids.setdefault(u, len(key_ids)) for u in t.participants] for t in trades]
+    know_lists = [
+        sorted(
+            {key_ids.setdefault(u, len(key_ids)) for u in ds.members.get(t.league or "", ())}
+            | set(m)
+        )
+        for t, m in zip(trades, mgr_lists)
     ]
     mptr, mflat = _csr(mgr_lists)
-    eptr, eflat = _csr(mem_lists)
+    kptr, kflat = _csr(know_lists)
     return _Frame(
         n=len(trades),
         day=np.array([t.day.toordinal() if t.day else -1 for t in trades], dtype=np.int64),
-        lineage=lin,
-        comp_p=cp,
-        has_league=np.array([bool(t.league) for t in trades]),
-        has_mgr=np.array([bool(t.participants) for t in trades]),
+        lineage=component_labels(ds, idx, "L"),
+        comp_p=component_labels(ds, idx, "P"),
+        has_league=np.array([bool(t.league) for t in trades], dtype=bool),
+        complete=np.array([t.observed == "complete" for t in trades], dtype=bool),
+        has_mgr=np.array([bool(t.participants) for t in trades], dtype=bool),
         mgr_ptr=mptr,
         mgr_flat=mflat,
-        n_mgr=len(mgr_ids),
-        mem_ptr=eptr,
-        mem_flat=eflat,
-        n_mem=len(mem_ids),
-        has_mem=np.array([bool(x) for x in mem_lists]),
-        # opaque labels only feed the throwaway hash; never emitted
-        lineage_names=[f"lin{k}" for k in range(int(lin.max()) + 1 if lin.size else 0)],
-        comp_names=[f"cmp{k}" for k in range(int(cp.max()) + 1 if cp.size else 0)],
+        n_mgr=len(key_ids),
+        know_ptr=kptr,
+        know_flat=kflat,
+        has_know=np.array([bool(x) for x in know_lists], dtype=bool),
     )
 
 
-def _held_units(names: Sequence[str], fraction: float, seed: int) -> np.ndarray:
-    return np.array([_unit_uniform(u, seed) < fraction for u in names], dtype=bool)
-
-
 def _evaluate(fr: _Frame, train: np.ndarray, ev: np.ndarray) -> dict[str, float]:
-    """Leakage, size and concentration of one (train, eval) split."""
+    """Leakage, size and concentration of one (train, eval) split.  Size keys
+    are always present; the rest only when the evaluation set is non-empty."""
     n_eval = int(ev.sum())
     out: dict[str, float] = {
         "train": float(train.sum()),
         "eval": float(n_eval),
+        "evalShare": float(n_eval / fr.n),
         "unused": float(fr.n - train.sum() - n_eval),
     }
     if n_eval == 0:
         return out
     mgr_leak = _leak_through(fr.mgr_ptr, fr.mgr_flat, fr.n_mgr, train)
-    mem_leak = _leak_through(fr.mem_ptr, fr.mem_flat, fr.n_mem, train)
+    know_leak = _leak_through(fr.know_ptr, fr.know_flat, fr.n_mgr, train)
     lin_train = np.zeros(int(fr.lineage.max()) + 1, dtype=bool)
     lin_train[fr.lineage[train & fr.has_league]] = True
-    lin_leak = lin_train[fr.lineage] & fr.has_league
     cp_train = np.zeros(int(fr.comp_p.max()) + 1, dtype=bool)
     cp_train[fr.comp_p[train & fr.has_league]] = True
-    cp_leak = cp_train[fr.comp_p] & fr.has_league
-    ev_obs = ev & fr.has_mgr
-    ev_mem = ev & fr.has_mem
+    ev_complete = ev & fr.complete
+    ev_know = ev & fr.has_know
     shares = np.bincount(fr.comp_p[ev]) / n_eval
     hhi = float(np.sum(shares**2))
+    tr_days = fr.day[train & (fr.day >= 0)]
+    before = float((ev & (fr.day >= 0) & (fr.day <= tr_days.max())).sum()) if tr_days.size else 0.0
     out.update(
         {
-            "evalShare": float(n_eval / fr.n),
-            "evalDatedBeforeTrainEnd": _before_train_end(fr, train, ev) / n_eval,
+            "evalDatedBeforeTrainEnd": before / n_eval,
             "evalComponentsP": float(np.count_nonzero(shares)),
             "evalEffectiveComponentsP": 1.0 / hhi,
             "evalLargestComponentShare": float(shares.max()),
             "evalLineages": float(np.unique(fr.lineage[ev & fr.has_league]).size),
-            "lineageLeak": float((lin_leak & ev).sum() / n_eval),
-            "componentLeakP": float((cp_leak & ev).sum() / n_eval),
-            "participantLeak": float((mgr_leak & ev_obs).sum() / max(1, ev_obs.sum())),
-            "participantUnobserved": float((ev & ~fr.has_mgr).sum() / n_eval),
-            "membershipLeak": float((mem_leak & ev_mem).sum() / max(1, ev_mem.sum())),
-            "leakageUnmeasurable": float((ev & ~fr.has_league).sum() / n_eval),
+            "lineageLeak": float((lin_train[fr.lineage] & fr.has_league & ev).sum() / n_eval),
+            "componentLeakP": float((cp_train[fr.comp_p] & fr.has_league & ev).sum() / n_eval),
+            # among evaluation trades whose every side is observed
+            "participantLeak": float((mgr_leak & ev_complete).sum() / max(1, ev_complete.sum())),
+            "participantLeakAnyObserved": float(
+                (mgr_leak & ev & fr.has_mgr).sum() / max(1, (ev & fr.has_mgr).sum())
+            ),
+            "participantPartialShare": float((ev & fr.has_mgr & ~fr.complete).sum() / n_eval),
+            "participantUnobservedShare": float((ev & ~fr.has_mgr).sum() / n_eval),
+            # a participant OR member of the eval league also trades / sits in
+            # a training league
+            "membershipLeak": float((know_leak & ev_know).sum() / max(1, ev_know.sum())),
+            "leakageUnmeasurableShare": float((ev & ~fr.has_league).sum() / n_eval),
         }
     )
     return out
 
 
-def _before_train_end(fr: _Frame, train: np.ndarray, ev: np.ndarray) -> float:
-    """Eval trades dated on or before the newest training trade (temporal
-    overlap -- what a chronological split removes)."""
-    tr_days = fr.day[train & (fr.day >= 0)]
-    if tr_days.size == 0:
-        return 0.0
-    return float((ev & (fr.day >= 0) & (fr.day <= tr_days.max())).sum())
-
-
 def _summ(rows: Sequence[Mapping[str, float]]) -> dict[str, Any]:
+    """Distribution over replicates.  Never collapsed to a scalar, and the
+    number of replicates with a non-empty evaluation set is always stated:
+    leak / concentration keys are conditional on it."""
     keys = sorted({k for r in rows for k in r})
-    out: dict[str, Any] = {}
+    out: dict[str, Any] = {
+        "replicates": len(rows),
+        "replicatesWithEval": sum(1 for r in rows if r.get("eval", 0) > 0),
+    }
     for k in keys:
         vals = np.array([r[k] for r in rows if k in r], dtype=float)
         if vals.size == 0:
             continue
-        if np.allclose(vals, vals[0]):
-            out[k] = _r(vals[0])
-        else:
-            out[k] = {
-                "mean": _r(vals.mean()),
-                "p5": _r(np.percentile(vals, 5)),
-                "p95": _r(np.percentile(vals, 95)),
-            }
+        out[k] = {
+            "mean": _r(vals.mean()),
+            "p5": _r(np.percentile(vals, 5)),
+            "p95": _r(np.percentile(vals, 95)),
+            "min": _r(vals.min()),
+            "max": _r(vals.max()),
+        }
     return out
 
 
@@ -479,56 +568,61 @@ def simulate_policies(
     fr = _frame(ds, idx)
     if fr.n == 0:
         return {}
-    largest = int(np.argmax(np.bincount(fr.comp_p)))
-    comp_share = np.bincount(fr.comp_p) / fr.n
-    giant = comp_share > giant_share
+    comp_counts = np.bincount(fr.comp_p)
+    largest = int(np.argmax(comp_counts))
+    giant = comp_counts / fr.n > giant_share
     # Hybrid unit: a non-giant P-component is held whole; inside a giant
-    # component the unit falls back to the lineage (league holdout).
-    hyb_names = sorted(
-        {f"g{fr.lineage[k]}" if giant[fr.comp_p[k]] else f"c{fr.comp_p[k]}" for k in range(fr.n)}
-    )
-    hyb_pos = {u: j for j, u in enumerate(hyb_names)}
-    hyb_unit = np.array(
-        [
-            hyb_pos[f"g{fr.lineage[k]}" if giant[fr.comp_p[k]] else f"c{fr.comp_p[k]}"]
-            for k in range(fr.n)
-        ],
-        dtype=np.int64,
-    )
+    # component the unit falls back to the lineage (league holdout).  With one
+    # all-covering giant the hybrid IS the whole-league holdout.
+    hyb_keys = [
+        ("g", int(fr.lineage[k])) if giant[fr.comp_p[k]] else ("c", int(fr.comp_p[k]))
+        for k in range(fr.n)
+    ]
+    hyb_pos: dict[tuple[str, int], int] = {}
+    hyb_unit = np.array([hyb_pos.setdefault(h, len(hyb_pos)) for h in hyb_keys], dtype=np.int64)
+    n_lin, n_cmp, n_hyb = int(fr.lineage.max()) + 1, int(fr.comp_p.max()) + 1, len(hyb_pos)
+    win = {w: _windows(fr, w, purge_days) for w in windows}
     out: dict[str, Any] = {
         "giantComponentRule": f"P-component holding more than {giant_share:.0%} of trades",
         "giantComponents": int(giant.sum()),
-        "giantTradeShare": _r(comp_share[giant].sum()),
+        "giantTradeShare": _r(comp_counts[giant].sum() / fr.n),
+        "trainEvalPurgeNote": "unused = trades in neither set (held-out pre-window, purge gap, "
+        "non-held in-window, unknown clock)",
     }
     for w in windows:
-        tr_win, ev_win = _windows(fr, w, purge_days)
+        tr_win, ev_win = win[w]
         out[f"chronologicalOnly_{w}d"] = _summ([_evaluate(fr, tr_win, ev_win)])
-    for f in fractions:
-        tag = f"{int(round(f * 100))}pct"
-        rows_comp: list[dict[str, float]] = []
-        rows_lc: dict[int, list[dict[str, float]]] = {w: [] for w in windows}
-        rows_cc: dict[int, list[dict[str, float]]] = {w: [] for w in windows}
-        rows_hy: dict[int, list[dict[str, float]]] = {w: [] for w in windows}
-        largest_in = 0
-        for rep in range(replicates):
-            held_lin = _held_units(fr.lineage_names, f, rep)[fr.lineage] & fr.has_league
-            held_cmp = _held_units(fr.comp_names, f, rep)[fr.comp_p]
-            held_hyb = _held_units(hyb_names, f, rep)[hyb_unit]
-            largest_in += int(_unit_uniform(fr.comp_names[largest], rep) < f)
-            rows_comp.append(_evaluate(fr, ~held_cmp, held_cmp))
+    rows: dict[str, list[dict[str, float]]] = {}
+    largest_in = {f: 0 for f in fractions}
+    for rep in range(replicates):
+        u_lin = _unit_uniforms(n_lin, "lin", rep)
+        u_cmp = _unit_uniforms(n_cmp, "cmp", rep)
+        u_hyb = _unit_uniforms(n_hyb, "hyb", rep)
+        for f in fractions:
+            tag = f"{int(round(f * 100))}pct"
+            held_lin = (u_lin < f)[fr.lineage] & fr.has_league
+            held_cmp = (u_cmp < f)[fr.comp_p]
+            held_hyb = (u_hyb < f)[hyb_unit]
+            largest_in[f] += int(u_cmp[largest] < f)
+            rows.setdefault(f"componentReserve_{tag}", []).append(
+                _evaluate(fr, ~held_cmp, held_cmp)
+            )
             for w in windows:
-                tr_win, ev_win = _windows(fr, w, purge_days)
-                rows_lc[w].append(_evaluate(fr, tr_win & ~held_lin, ev_win & held_lin))
-                rows_cc[w].append(_evaluate(fr, tr_win & ~held_cmp, ev_win & held_cmp))
-                rows_hy[w].append(_evaluate(fr, tr_win & ~held_hyb, ev_win & held_hyb))
-        out[f"componentReserve_{tag}"] = {
-            **_summ(rows_comp),
-            "largestComponentHeldRate": _r(largest_in / replicates),
-        }
-        for w in windows:
-            out[f"wholeLeagueChronological_{tag}_{w}d"] = _summ(rows_lc[w])
-            out[f"componentChronological_{tag}_{w}d"] = _summ(rows_cc[w])
-            out[f"hybrid_{tag}_{w}d"] = _summ(rows_hy[w])
+                tr_win, ev_win = win[w]
+                for name, held in (
+                    ("wholeLeagueChronological", held_lin),
+                    ("componentChronological", held_cmp),
+                    ("hybrid", held_hyb),
+                ):
+                    rows.setdefault(f"{name}_{tag}_{w}d", []).append(
+                        _evaluate(fr, tr_win & ~held, ev_win & held)
+                    )
+    for key, rs in rows.items():
+        out[key] = _summ(rs)
+    for f in fractions:
+        out[f"componentReserve_{int(round(f * 100))}pct"]["largestComponentHeldRate"] = _r(
+            largest_in[f] / replicates
+        )
     return out
 
 
@@ -536,13 +630,15 @@ def simulate_policies(
 
 
 def populations(ds: Dataset) -> dict[str, list[int]]:
+    sleeper = (LANE_SLEEPER, LANE_BOTH)
     fit = [i for i, t in enumerate(ds.trades) if t.fit]
+    est = [i for i, t in enumerate(ds.trades) if t.estimator]
     return {
-        "all": list(range(len(ds.trades))),
+        "allProvenDedupe": list(range(len(ds.trades))),
         "fitEligible": fit,
-        "fitEligibleSleeperObserved": [
-            i for i in fit if ds.trades[i].lane in (LANE_SLEEPER, LANE_BOTH)
-        ],
+        "fitEligibleSleeperObserved": [i for i in fit if ds.trades[i].lane in sleeper],
+        "estimatorEligible": est,
+        "estimatorEligibleSleeperObserved": [i for i in est if ds.trades[i].lane in sleeper],
     }
 
 
@@ -554,18 +650,26 @@ def census(
     windows: Sequence[int] = DEFAULT_WINDOWS,
     purge_days: int = DEFAULT_PURGE_DAYS,
     giant_share: float = DEFAULT_GIANT_SHARE,
-    policy_populations: Sequence[str] = ("fitEligible", "fitEligibleSleeperObserved"),
+    policy_populations: Sequence[str] = POLICY_POPULATIONS,
 ) -> dict[str, Any]:
     pops = populations(ds)
     result: dict[str, Any] = {"populations": {}}
     for name, idx in pops.items():
-        block: dict[str, Any] = {"coverage": coverage(ds, idx), "components": {}}
+        block: dict[str, Any] = {
+            "coverage": coverage(ds, idx),
+            "linkage": linkage(ds, idx),
+            "components": {},
+        }
         for d in DEFINITIONS:
             labels = component_labels(ds, idx, d)
             block["components"][d] = {
                 **concentration(labels),
                 "largest": largest_component_profile(ds, idx, labels),
             }
+        # Concentration among trades the census can link completely, so an
+        # unobserved trade is never read as an independent component.
+        full = [i for i in idx if ds.trades[i].league and ds.trades[i].observed == "complete"]
+        block["components"]["P_fullyObservedOnly"] = concentration(component_labels(ds, full, "P"))
         if name in policy_populations and idx:
             block["policies"] = simulate_policies(
                 ds,
@@ -584,7 +688,7 @@ def census(
         "purgeDays": purge_days,
         "giantShare": giant_share,
         "simulationHash": f"sha256('{SIM_PREFIX}|<seed>|<opaque unit>'), seeds 0..{replicates - 1}",
-        "dateBasis": "trade date (occurredDate); the protocol's availability filter is collectedAt",
+        "smallCellRule": f"trade counts by lane / month in [1, {MIN_CELL}) print as {SUPPRESSED!r}",
     }
     return result
 
@@ -592,14 +696,21 @@ def census(
 # ── inputs ──────────────────────────────────────────────────────────────────
 
 
-def dataset_from_stores(ledger: sqlite3.Connection, intel: sqlite3.Connection | None) -> Dataset:
+def dataset_from_stores(
+    ledger: sqlite3.Connection,
+    intel: sqlite3.Connection | None,
+    *,
+    clock: str = "collected",
+    participant_source: str = "intel",
+) -> Dataset:
     """Build the in-memory dataset from the underlying-trade ledger and the
     Sharp intel ledger (both ``mode=ro``).  Raw ids stay in this process."""
     from src.trade import market_trade_eval as ev  # noqa: PLC0415
 
     trades: list[Trade] = []
-    keys: list[tuple[str, str] | None] = []
-    audit = {"rows": 0, "excludedUnprovenDedupe": 0, "fitEligible": 0}
+    tx_keys: list[str | None] = []
+    key_states: dict[str, int] = {}
+    audit = {"rows": 0, "excludedUnprovenDedupe": 0}
     for (record_json,) in ledger.execute(
         "SELECT record_json FROM underlying_trades ORDER BY underlying_trade_id"
     ):
@@ -609,57 +720,101 @@ def dataset_from_stores(ledger: sqlite3.Connection, intel: sqlite3.Connection | 
             audit["excludedUnprovenDedupe"] += 1
             continue
         fit = ev.fit_suitability(g, ev.classify_topology(g))["fit"] != ev.FIT_UNSUITABLE
-        audit["fitEligible"] += int(fit)
+        est = not ev.estimator_evidence(g)["hardExclusions"]
+        side_ev = g.get("sideEvidence") or {}
+        state = str(side_ev.get("managerKeyState") or "absent")
+        key_states[state] = key_states.get(state, 0) + 1
+        keys: tuple[str, ...] = ()
+        if participant_source == "side_keys":
+            keys = tuple(
+                sorted(
+                    {
+                        str(s["managerKey"])
+                        for s in side_ev.get("sides") or []
+                        if s.get("managerKey")
+                    }
+                )
+            )
         league = str(g.get("hostLeagueId") or "").strip() or None
-        host = str(g.get("host") or "")
-        tx = str(g.get("hostTxId") or "").strip()
+        host = str(g.get("host") or "").strip() or "unknown"
+        occurred = _parse_day(g.get("occurredDate"))
+        collected = _parse_day(g.get("collectedAt") or g.get("representativeCollectedAt"))
+        lm = g.get("leagueMaturity") or {}
         trades.append(
             Trade(
                 lane=trade_lane(g.get("sourceFamilies") or ()),
                 # a league id is only linkable within one host's id space
                 league=f"{host}:{league}" if league else None,
-                day=_parse_day(g.get("occurredDate")),
+                day=collected if clock == "collected" else occurred,
+                participants=keys,
+                sides=len([s for s in g.get("sides") or [] if s is not None]) or 2,
                 fit=fit,
+                estimator=est,
+                occurred=occurred,
+                collected=collected,
+                lineage_id=lm.get("lineageId") if isinstance(lm.get("lineageId"), str) else None,
             )
         )
-        keys.append((league, tx) if host == "sleeper" and league and tx else None)
+        tx = str(g.get("hostTxId") or "").strip()
+        tx_keys.append(tx or None)
+    audit["fitEligible"] = sum(1 for t in trades if t.fit)
+    audit["estimatorEligible"] = sum(1 for t in trades if t.estimator)
+    audit["managerKeyStates"] = dict(sorted(key_states.items()))
     predecessor: dict[str, str] = {}
     members: dict[str, set[str]] = {}
+    known: set[str] | None = None
     intel_audit: dict[str, Any] = {"available": intel is not None}
     if intel is not None:
-        wanted = {k for k in keys if k}
-        parts: dict[tuple[str, str], set[str]] = {}
+        wanted = {k for k in tx_keys if k}
+        parts: dict[str, set[str]] = {}
+        tx_league: dict[str, str] = {}
         for lg, tx, uid in intel.execute(
             "SELECT league_id, tx_id, user_id FROM asset_movements WHERE tx_type = 'trade'"
         ):
-            key = (str(lg), str(tx))
-            if key in wanted and uid:
-                parts.setdefault(key, set()).add(str(uid))
-        for k, t in zip(keys, trades):
-            if k and k in parts:
-                t.participants = tuple(sorted(parts[k]))
+            tx = str(tx)
+            if tx in wanted:
+                tx_league.setdefault(tx, f"sleeper:{lg}")
+                if uid:
+                    parts.setdefault(tx, set()).add(str(uid))
+        for k, t in zip(tx_keys, trades):
+            if not k or k not in tx_league:
+                continue
+            # Sleeper transaction ids are globally unique, so the intel row
+            # names the league even when the group's representative record
+            # came from another feed.
+            t.league = tx_league[k]
+            if participant_source == "intel":
+                t.participants = tuple(sorted(parts.get(k, ())))
+        known = set()
         for lg, prev in intel.execute("SELECT league_id, previous_league_id FROM leagues"):
+            known.add(f"sleeper:{lg}")
             p = str(prev or "").strip()
             if p not in _NO_PREDECESSOR:
                 predecessor[f"sleeper:{lg}"] = f"sleeper:{p}"
-        pop_leagues = {t.league for t in trades if t.league}
+        ledger_leagues = {t.league for t in trades if t.league}
         for lg, uid in intel.execute("SELECT league_id, user_id FROM league_memberships"):
             key = f"sleeper:{lg}"
-            if key in pop_leagues and uid:
+            if key in ledger_leagues and uid:
                 members.setdefault(key, set()).add(str(uid))
         intel_audit.update(
             {
-                "sleeperTradesJoinable": len(wanted),
-                "sleeperTradesWithParticipants": sum(1 for k in wanted if k in parts),
-                "predecessorLinks": len(predecessor),
-                "populationLeaguesWithMembership": len(members),
+                "tradesWithHostTxId": len(wanted),
+                "tradesFoundInIntel": sum(1 for k in tx_keys if k and k in tx_league),
+                "tradesWithParticipants": sum(1 for t in trades if t.participants),
+                "ledgerLeaguesWithMembership": len(members),
             }
         )
     return Dataset(
         trades=trades,
         predecessor=predecessor,
         members=members,
-        inputs={"ledger": audit, "intel": intel_audit},
+        known_leagues=known,
+        inputs={
+            "ledger": audit,
+            "intel": intel_audit,
+            "clock": clock,
+            "participantSource": participant_source,
+        },
     )
 
 
@@ -671,27 +826,35 @@ def dataset_synthetic(overlap: float, seed: int = 0, n_leagues: int = 160) -> Da
     world = sim.generate_world(cfg)
     lg, ts = world.leagues, world.trades
     start = date(2026, 1, 1)
-    trades = [
-        Trade(
-            lane=LANE_SLEEPER,
-            league=f"syn:{int(ts.league[k])}",
-            day=start + timedelta(days=int(ts.date[k])),
-            participants=(f"m{int(ts.mgr_a[k])}", f"m{int(ts.mgr_b[k])}"),
-            fit=True,
+    trades = []
+    for k in range(len(ts.league)):
+        day = start + timedelta(days=int(ts.date[k]))
+        trades.append(
+            Trade(
+                lane=LANE_SLEEPER,
+                league=f"syn:{int(ts.league[k])}",
+                day=day,
+                participants=(f"m{int(ts.mgr_a[k])}", f"m{int(ts.mgr_b[k])}"),
+                fit=True,
+                estimator=True,
+                occurred=day,
+                collected=day,
+            )
         )
-        for k in range(len(ts.league))
-    ]
     members = {f"syn:{i}": {f"m{m}" for m in seats} for i, seats in enumerate(lg.seats)}
     return Dataset(
         trades=trades,
         members=members,
+        known_leagues=set(members),
         inputs={"synthetic": {"perSeatOverlap": overlap, "seed": seed, "leagues": n_leagues}},
     )
 
 
 # ── output safety ───────────────────────────────────────────────────────────
 
-_ID_LIKE = re.compile(r"\d{9,}|mk:|utrade:|sleeper:|syn:|U:|L:|T:\d")
+# A 9+ digit run (Sleeper / KTC ids), or any ``word:`` key prefix this script
+# builds internally (``sleeper:``, ``unknown:``, ``mk:``, ``utrade:``, ...).
+_ID_LIKE = re.compile(r"\d{9,}|[A-Za-z]{2,}:[A-Za-z0-9]|\b[LUNT]:[A-Za-z0-9]")
 
 
 def assert_aggregate_only(result: Mapping[str, Any]) -> None:
@@ -708,35 +871,62 @@ def _open_ro(path: Path) -> sqlite3.Connection | None:
     return sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
 
 
+def _guard_block() -> tuple[dict[str, Any], int]:
+    denied = GUARD.denied()
+    net = [d for d in denied if d["event"].startswith("socket.")]
+    fatal = [d for d in denied if not d["event"].startswith("socket.")]
+    block = {
+        "installed": bool(GUARD.installed()),
+        "refusedWriteOrProcessAttempts": len(fatal),
+        "refusedWriteOrProcessEvents": sorted({d["event"] for d in fatal}),
+        "refusedNetworkAttempts": len(net),
+    }
+    return block, (3 if fatal else 0)
+
+
 def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
+    if args.box and GUARD is None:
+        return {"available": False, "reason": "box_mode_requires_the_read_only_guard"}, 64
     if args.synthetic is not None:
         ds = dataset_synthetic(args.synthetic, seed=args.seed)
         label = "SYNTHETIC rehearsal (power-study generator) -- not evidence about real leagues"
     else:
-        if args.ledger:
-            ledger_path = Path(args.ledger)
-        else:
-            from src.trade import market_trade_report as report  # noqa: PLC0415
-
-            ledger_path = report.ledger_file_path()
-        intel_path = Path(args.intel or REPO / "data" / "intel" / "ledger.sqlite3")
-        ledger = _open_ro(ledger_path)
-        if ledger is None:
-            return {"available": False, "reason": "no_market_trade_ledger_on_this_host"}, 2
-        intel = _open_ro(intel_path)
         try:
-            built = ledger.execute("SELECT value FROM meta WHERE key = 'builtAt'").fetchone()
-            ds = dataset_from_stores(ledger, intel)
-        finally:
-            ledger.close()
-            if intel is not None:
-                intel.close()
+            if args.ledger:
+                ledger_path = Path(args.ledger)
+            else:
+                from src.trade import market_trade_report as report  # noqa: PLC0415
+
+                ledger_path = report.ledger_file_path()
+            intel_path = Path(args.intel or REPO / "data" / "intel" / "ledger.sqlite3")
+            ledger = _open_ro(ledger_path)
+            if ledger is None:
+                return {"available": False, "reason": "no_market_trade_ledger_on_this_host"}, 2
+            intel = _open_ro(intel_path)
+            if intel is None and args.box:
+                ledger.close()
+                return {"available": False, "reason": "no_intel_ledger_on_this_host"}, 2
+            try:
+                built = ledger.execute("SELECT value FROM meta WHERE key = 'builtAt'").fetchone()
+                ds = dataset_from_stores(
+                    ledger, intel, clock=args.clock, participant_source=args.participants
+                )
+            finally:
+                ledger.close()
+                if intel is not None:
+                    intel.close()
+        except PermissionError:
+            # The guard refused something; report the event type only.
+            res: dict[str, Any] = {"available": False, "reason": "read_only_guard_refused"}
+            if GUARD is not None:
+                res["readOnlyGuard"], _ = _guard_block()
+            return res, 3
         ds.inputs["ledgerBuiltAt"] = json.loads(built[0]) if built else None
         label = "production stores (read-only)" if args.box else "local store copies"
     result = {
         "purpose": (
-            "RESEARCH ONLY (owner Package 5A, 2026-10-21): manager-lineage component census. "
-            "No reserve is drawn, persisted or exposed; nothing is activated."
+            "RESEARCH ONLY (owner Package 5A, 2026-10-21). Manager-lineage component census; "
+            "no reserve is drawn, persisted or exposed; nothing is activated."
         ),
         "version": CENSUS_VERSION,
         "dataLabel": label,
@@ -746,27 +936,20 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     }
     code = 0
     if GUARD is not None:
-        denied = GUARD.denied()
-        net = [d for d in denied if d["event"].startswith("socket.")]
-        fatal = [d for d in denied if not d["event"].startswith("socket.")]
-        result["readOnlyGuard"] = {
-            "installed": bool(GUARD.installed()),
-            "refusedWriteOrProcessAttempts": len(fatal),
-            "refusedWriteOrProcessEvents": sorted({d["event"] for d in fatal}),
-            "refusedNetworkAttempts": len(net),
-        }
-        code = 3 if fatal else 0
+        result["readOnlyGuard"], code = _guard_block()
     assert_aggregate_only(result)
     return result, code
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], allow_abbrev=False)
     src = ap.add_mutually_exclusive_group(required=True)
     src.add_argument("--box", action="store_true", help="read-only production-store run")
     src.add_argument("--ledger", help="local copy of underlying_trades.sqlite")
     src.add_argument("--synthetic", type=float, metavar="OVERLAP", help="per-seat overlap")
     ap.add_argument("--intel", help="local copy of the intel ledger.sqlite3 (with --ledger)")
+    ap.add_argument("--clock", choices=("collected", "occurred"), default="collected")
+    ap.add_argument("--participants", choices=("intel", "side_keys"), default="intel")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--replicates", type=int, default=DEFAULT_REPLICATES)
     args = ap.parse_args(argv)
