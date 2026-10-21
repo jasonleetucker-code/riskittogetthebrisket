@@ -59,15 +59,15 @@ The rule (``RULE_ID``)
 
 Two selection MODES (``SELECTION_MODE``; an owner decision, see the record §3a)
 ───────────────────────────────────────────────────────────────────────────────
-* ``package_consistent`` (V5, the default) — the cut set MINIMISES the charge of
-  rule 2 (an acquired piece at its package credit forgone, an existing player
-  at ``c``).  Trade-consistent, but the two candidate kinds are compared in
+* ``package_consistent`` (V5) — the cut set MINIMISES the charge of rule 2
+  (an acquired piece at its package credit forgone, an existing player at
+  ``c``).  Trade-consistent, but the two candidate kinds are compared in
   different units, so it can release a more valuable incoming player and keep
   a less valuable existing one when the package credits the incoming piece
   below its own value.
-* ``roster_rational`` (V5-R) — the cut set is the cheapest legal set by ``c``
-  across existing AND incoming players alike (one unit, the true cheapest
-  roster cut); THEN an acquired cut is charged its package credit forgone and
+* ``roster_rational`` (V5-R, the default; owner decision 2026-10-21) — the cut
+  set is the cheapest legal set by ``c`` across existing AND incoming players
+  alike (one unit, the true cheapest roster cut); THEN an acquired cut is charged its package credit forgone and
   an existing cut ``c``.  No double counting either way; V5-R's charge is never
   below V5's (V5 minimises it).
 
@@ -117,7 +117,9 @@ MODE_ROSTER_RATIONAL = "roster_rational"
 #: and an OWNER DECISION (``docs/trade/FORCED_DROP_FIX_2026-10-20.md`` §3a).
 #: Deliberately a reviewed constant rather than an environment read: switching
 #: it changes served verdicts and is a code change with its own evidence.
-SELECTION_MODE = MODE_PACKAGE_CONSISTENT
+#: V5-R chosen by the owner 2026-10-21 (``docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md``
+#: Package 1). It is read only while the flag is ON, and the flag stays OFF.
+SELECTION_MODE = MODE_ROSTER_RATIONAL
 
 _RULE_BY_MODE = {
     MODE_PACKAGE_CONSISTENT: RULE_ID,

@@ -57,8 +57,8 @@ scarcity and Component B ... must report the currency anomaly in BOTH directions
 
 | pin | value |
 |---|---|
-| Code under test | PR #1890 head **`<FINAL_PR_HEAD_SHA>`** (filled by the coordinator; the script and source files below have not changed since `557338a22`, only documentation after it) — the box must be running a deployment of this tree (the flag is OFF by default, so the PR can be merged and deployed dormant first). `--expect-code-sha` is the **deployed** commit: **`<DEPLOYED_SHA>`** (the merge commit if the PR is squash-merged, otherwise the PR head). |
-| Script files (sha256 at `<FINAL_PR_HEAD_SHA>`) | `scripts/forced_drop_fix_replay.py` `60399db2e01e218cd13bee47ff9385a58db036b08550a08674bf28f73717bbe4`; `scripts/forced_drop_box_support.py` `4841ac8b241c43571cd0551c93bfd711dbcfec5213dc66bef66ddbfe02c67478`; `scripts/research_readonly_guard.py` `5c208fe8ee187d78ef7173330efc795a621b970f1ba69ff416c9edf836bc6f18`; `src/trade/forced_drop_selection.py` `d90a2ef25af9b0d7d829d5446954edb18f5187b8fda1b0a7e2e0006a32453dd4`; `src/trade/roster_capacity.py` `fb3b68d79d8d1bccdf6b395807d9e432ff4c4c3ed172b7d43133358af4b4226c`; `src/trade/trade_decision.py` `325ed03514351a486e25daa5b8442f09f91d889ece58c84b9b179e745e661794`; `src/trade/analyze_trade.py` `6a3935bb66b41ca34e281bf85006397968c0a45ffb8384857081e4db44db776e` |
+| Code under test | PR #1890 head **`<FINAL_PR_HEAD_SHA>`** (filled by the coordinator). The hashes below were refreshed on 2026-10-21 for the V5-R default (owner decision): `forced_drop_selection.py` and `forced_drop_fix_replay.py` changed, and the earlier `roster_capacity.py` pin was already stale at `dfe4345b6`, which changed that file after `557338a22` — the box must be running a deployment of this tree (the flag is OFF by default, so the PR can be merged and deployed dormant first). `--expect-code-sha` is the **deployed** commit: **`<DEPLOYED_SHA>`** (the merge commit if the PR is squash-merged, otherwise the PR head). |
+| Script files (sha256 at `<FINAL_PR_HEAD_SHA>`) | `scripts/forced_drop_fix_replay.py` `92176ce07479008623b6e40ea487f94f37306aa87e31473e7a2761bdfe56505c`; `scripts/forced_drop_box_support.py` `4841ac8b241c43571cd0551c93bfd711dbcfec5213dc66bef66ddbfe02c67478`; `scripts/research_readonly_guard.py` `5c208fe8ee187d78ef7173330efc795a621b970f1ba69ff416c9edf836bc6f18`; `src/trade/forced_drop_selection.py` `eaa1ee4059850fb6db01e2ba8c498d780f1c1ef8c63a4f663fabaf791676d966`; `src/trade/roster_capacity.py` `ea2f65645411bc5b3b2bd4f38036071a446d75a764ebc1e00e1dce825d231c3e`; `src/trade/trade_decision.py` `325ed03514351a486e25daa5b8442f09f91d889ece58c84b9b179e745e661794`; `src/trade/analyze_trade.py` `6a3935bb66b41ca34e281bf85006397968c0a45ffb8384857081e4db44db776e` |
 | Archive | `exports/archive/dynasty_export_20261020_052241.zip` — file sha256 `f660098f3c68eee3be24790d7674bd263616d4c97d330e92c24ed77d5dd6078e`; JSON member `dynasty_data_2026-10-20.json` sha256 `8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a` |
 | CSV tree | revision `d5236546ff4df9294b6cf99c6b93e8db57e6ff36` (`CSVs`, `data/scrape_state`, `config/weights`), content sha256 `31687c60b2adc9f347eb58c8da2e15a1198a264d3b98200b1db3fa5f2345bd54` |
 | Built board | `eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833` (1,003 priced assets; `fairness_bands_v2`, `geom_q078_v1`) |
@@ -84,11 +84,11 @@ ARCHIVE=exports/archive/dynasty_export_20261020_052241.zip
 # 0. Preconditions (read-only).
 test "$(git -C "$APP" rev-parse HEAD)" = "$CODE_SHA"
 (cd "$APP" && sha256sum --check - <<'EOF'
-60399db2e01e218cd13bee47ff9385a58db036b08550a08674bf28f73717bbe4  scripts/forced_drop_fix_replay.py
+92176ce07479008623b6e40ea487f94f37306aa87e31473e7a2761bdfe56505c  scripts/forced_drop_fix_replay.py
 4841ac8b241c43571cd0551c93bfd711dbcfec5213dc66bef66ddbfe02c67478  scripts/forced_drop_box_support.py
 5c208fe8ee187d78ef7173330efc795a621b970f1ba69ff416c9edf836bc6f18  scripts/research_readonly_guard.py
-d90a2ef25af9b0d7d829d5446954edb18f5187b8fda1b0a7e2e0006a32453dd4  src/trade/forced_drop_selection.py
-fb3b68d79d8d1bccdf6b395807d9e432ff4c4c3ed172b7d43133358af4b4226c  src/trade/roster_capacity.py
+eaa1ee4059850fb6db01e2ba8c498d780f1c1ef8c63a4f663fabaf791676d966  src/trade/forced_drop_selection.py
+ea2f65645411bc5b3b2bd4f38036071a446d75a764ebc1e00e1dce825d231c3e  src/trade/roster_capacity.py
 325ed03514351a486e25daa5b8442f09f91d889ece58c84b9b179e745e661794  src/trade/trade_decision.py
 6a3935bb66b41ca34e281bf85006397968c0a45ffb8384857081e4db44db776e  src/trade/analyze_trade.py
 f660098f3c68eee3be24790d7674bd263616d4c97d330e92c24ed77d5dd6078e  exports/archive/dynasty_export_20261020_052241.zip

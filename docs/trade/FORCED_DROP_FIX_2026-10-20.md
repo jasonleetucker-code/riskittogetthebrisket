@@ -336,8 +336,11 @@ release an acquired piece name a cut no rational manager makes ("release Dru Phi
 1,197"); (2) V5's advantage — a higher receiver net — comes entirely from exploiting the package model's depth
 discount inside a roster-spot calculation, and that discount already prices part of the roster-spot cost, so V5 leans
 on it twice in the receiver's favour; (3) the cost of V5-R is bounded and visible: 49 of 180 / 36 of 278 trades are
-charged more, 20 / 9 change category, and the Finder is unchanged. (Re-confirmed on the post-train-17 tree, §0.) **Owner decision requested:** keep V5 (default) or
-switch `SELECTION_MODE` to `roster_rational` before activation.
+charged more, 20 / 9 change category, and the Finder is unchanged. (Re-confirmed on the post-train-17 tree, §0.) **Owner decision (2026-10-21, LVA Package 1,
+`docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md`): V5-R.** `SELECTION_MODE` is now `roster_rational`. It is read only
+while the flag is ON, and the flag stays OFF, so served output is unchanged. V5 remains implemented, tested and
+measured by the replay. The owner also asked that V5-R's non-monotonicity (§3a, "a free better player lowered the
+net") be investigated and included in the activation recommendation.
 
 ## 4. Consistency across surfaces
 
@@ -515,8 +518,9 @@ market convention differs from the roster answer.
 
 ## 10. Activation checklist (every item blocks activation)
 
-1. **Owner decision — selection mode** (§3a): keep V5 (default) or switch `SELECTION_MODE` to `roster_rational`
-   (recommended).
+1. ~~**Owner decision — selection mode**~~ **DECIDED 2026-10-21: V5-R** (`roster_rational`, now the constant's value;
+   `docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md` Package 1). The dormant merge and the read-only box replay are
+   authorized. Activation is not: it needs items 2-4 plus the non-monotonicity investigation.
 2. **Owner approval of the §8 production impact** for the chosen mode.
 3. **Box replay with real scarcity and Component B** (`scripts/forced_drop_fix_replay.py` on the box, both modes):
    every number here is at scarcity 1.0 with Component B in its not-applicable state. It must report the currency

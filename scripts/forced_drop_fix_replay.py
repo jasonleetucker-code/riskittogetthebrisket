@@ -38,8 +38,9 @@ Sections:
 
 Both selection MODES of the flag are measured through production
 (``forced_drop_selection.SELECTION_MODE``, toggled in-process and restored):
-``package_consistent`` (V5, the default) and ``roster_rational`` (V5-R, the
-review's alternative).  Each flag-ON section reports V5 under its historical
+``package_consistent`` (V5) and ``roster_rational`` (V5-R, the default since
+the owner's 2026-10-21 decision).  Every flag-ON section sets its mode
+explicitly, so the constant changes only ``defaultSelectionMode``.  Each flag-ON section reports V5 under its historical
 keys and V5-R under a ``rosterRational`` sibling, plus the "currency anomaly"
 census in both directions: forward (an acquired piece released while a cheaper
 existing player that could legally have been released instead is kept) and

@@ -57,6 +57,15 @@ def flag_off(monkeypatch):
     feature_flags.reload()
 
 
+@pytest.fixture
+def v5_mode(monkeypatch):
+    """Pin the package-consistent (V5) selection for a test that pins V5's own
+    behaviour. The served default became V5-R on 2026-10-21 (owner decision);
+    V5 stays implemented and measured, and these tests keep it honest."""
+    monkeypatch.setattr(fds, "SELECTION_MODE", fds.MODE_PACKAGE_CONSISTENT)
+    yield
+
+
 def _ctx(settings=None, **kw):
     c = R.contract(**kw)
     us = terminal.resolve_team(c, owner_id="o1", name=None)
@@ -97,7 +106,7 @@ def test_ties_on_ecc_are_broken_by_cost_not_name(flag_on):
     assert cap.forced_drop_release_cost == 300.0
     d = cap.to_dict()
     assert d["forcedDropCharge"] == 300.0
-    assert d["forcedDropSelection"]["rule"] == fds.RULE_ID
+    assert d["forcedDropSelection"]["rule"] == fds.rule_id()
     assert d["rungOrderWasTied"] is False
 
 
@@ -212,7 +221,7 @@ def _objective(sim):
     return TD._objective_value(AT._market_lens(sim), AT._feasibility_lens(sim))
 
 
-def test_the_packet_carries_the_owner_charge(flag_on):
+def test_the_packet_carries_the_owner_charge(flag_on, v5_mode):
     sim = _pkg(R.contract(), ["Star WR", "Filler RB", "Filler WR"], ["WR Two"])
     packet = analyze_trade({**copy.deepcopy(sim), "teamContext": {"applied": True}})
     feas = packet["lenses"]["feasibility"]["detail"]
@@ -228,6 +237,19 @@ def test_the_packet_carries_the_owner_charge(flag_on):
     ]
 
 
+def test_the_packet_carries_the_owner_charge_under_the_default_mode(flag_on):
+    """Same property under the served default (V5-R, owner decision 2026-10-21):
+    the War Room packet states exactly the charge the capacity owner computed."""
+    assert fds.SELECTION_MODE == fds.MODE_ROSTER_RATIONAL
+    sim = _pkg(R.contract(), ["Star WR", "Filler RB", "Filler WR"], ["WR Two"])
+    packet = analyze_trade({**copy.deepcopy(sim), "teamContext": {"applied": True}})
+    feas = packet["lenses"]["feasibility"]["detail"]
+    assert feas["forcedDropCharge"] == sim["rosterCapacity"]["forcedDropCharge"] == 650.0
+    assert feas["forcedDropSelection"]["rule"] == fds.RULE_ID_ROSTER_RATIONAL
+    # V5-R never charges less than V5 on the same trade (V5 minimises the charge).
+    assert feas["forcedDropCharge"] >= 574.0
+
+
 def test_without_a_package_an_incoming_filler_is_a_candidate_at_raw_cost(flag_on):
     c, _us, ctx = _ctx(extra_us=(("WR Extra", 500.0, "WR"),))
     cap = RC.assess_roster_capacity(
@@ -239,7 +261,7 @@ def test_without_a_package_an_incoming_filler_is_a_candidate_at_raw_cost(flag_on
     assert filler[0].release_cost == 450.0
 
 
-def test_a_released_acquired_piece_is_removed_from_the_package_not_charged(flag_on):
+def test_a_released_acquired_piece_is_removed_from_the_package_not_charged(flag_on, v5_mode):
     """1-for-3: the third piece's package credit is below every rostered cut,
     so the receiver releases the piece it just acquired — and that costs it
     exactly the credit the package gave it, never its raw value as well."""
@@ -1095,7 +1117,7 @@ def test_at_or_below_the_search_bound_nothing_changes():
     assert v5_4.search_bound_exceeded is False and v5_4.mode == fds.MODE_PACKAGE_CONSISTENT
 
 
-def test_search_bound_is_published_in_the_capacity_block(flag_on):
+def test_search_bound_is_published_in_the_capacity_block(flag_on, v5_mode):
     existing, incoming, labels, kw = _seven_incoming(4)
     rows = [
         R._row(a.player_id, a.board_value, "WR") for a in [*existing, *incoming]
@@ -1207,13 +1229,15 @@ def test_unknown_selection_mode_is_refused():
         )  # fmt: skip
 
 
-def test_default_mode_is_package_consistent():
-    assert fds.SELECTION_MODE == fds.MODE_PACKAGE_CONSISTENT
-    assert fds.rule_id() == fds.RULE_ID
+def test_default_mode_is_roster_rational():
+    """Owner decision 2026-10-21 (LVA Package 1): V5-R is the selection mode.
+    Changing this is an owner decision, not a refactor."""
+    assert fds.SELECTION_MODE == fds.MODE_ROSTER_RATIONAL
+    assert fds.rule_id() == fds.RULE_ID_ROSTER_RATIONAL
 
 
 @pytest.mark.parametrize("seed", range(40))
-def test_adding_an_incoming_piece_never_lowers_the_receivers_net(flag_on, seed):
+def test_adding_an_incoming_piece_never_lowers_the_receivers_net(flag_on, v5_mode, seed):
     """Monotonicity of the package-consistent (V5) net: receiving one more
     player can always be undone by releasing him, so it never makes the trade
     worse (geometric package model; roster fills every slot without him)."""
@@ -1354,7 +1378,7 @@ def test_finder_charges_through_the_flagged_owner(flag_on):
         (t.get("rankingFactors") or {}).get("forcedDropCostBasis") or {} for t in res["trades"]
     ]
     stated = [b for b in bases if b.get("state")]
-    assert stated and all(b.get("rule") == fds.RULE_ID for b in stated)
+    assert stated and all(b.get("rule") == fds.rule_id() for b in stated)
 
 
 # ── 9. Perfect Draft is untouched ──────────────────────────────────────
