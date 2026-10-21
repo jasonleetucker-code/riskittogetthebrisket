@@ -89,3 +89,12 @@ independent confirmation.
 Several extracted documents cite paths (`src/api/source_integrity.py`, `src/robust_filter_shadow/oiv2_*.py`,
 `config/sources/outlier_integrity_v2.json`, ...) that exist only on the #1884 branch. Those references
 are accurate for that branch and are intentionally left as written.
+
+## Citations in the O-1 record, resolved on `main` (added at integration)
+
+`docs/owner/OUTLIER_V21_O1_DECISION_2026-10-20.md` cites intake IV21-O1 in `docs/OWNER_REQUESTED_TODO.md`
+and an `docs/EXECUTION_PLAN.md` §0 ~19:45 UTC entry. Both were written on the #1884 branch. This PR
+carries the IV21-O1 / IV21-O2 intake section to `main` unchanged, except that its authorization sentence
+now points at the entry actually in force: the 2026-10-21 owner decision P5B in `docs/EXECUTION_PLAN.md`.
+The #1884 §0 ~19:45 UTC authorization entry is not carried; it described the V2.1 lane's original scope,
+which P5B supersedes for integration. The O-1 record itself is unchanged, to keep it byte-identical.
