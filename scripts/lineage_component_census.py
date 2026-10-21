@@ -37,8 +37,8 @@ so the effect of each kind of link is visible:
 * ``M`` memberships: ``P`` plus a link through every recorded member of any
   ledger league (a manager can carry knowledge into a league without trading).
 
-Links come from every trade in the ledger, not only the population being
-measured, so a component is the one a reserve built over all observed trades
+Links come from every trade in the ledger (unproven dedupes included, though
+they are never measured), not only the population being measured, so a component is the one a reserve built over all observed trades
 would see.  UNKNOWN LINKAGE IS NOT "NO LINKAGE": a trade with no league is an
 unlinkable singleton, a trade whose managers are not (fully) observed is
 counted as such, and every leakage share says how many evaluation trades it
@@ -135,6 +135,7 @@ class Trade:
     occurred: date | None = None
     collected: date | None = None
     lineage_id: str | None = None
+    proven: bool = True  # False: an unproven dedupe -- links, never measured
 
     @property
     def observed(self) -> str:
@@ -631,10 +632,10 @@ def simulate_policies(
 
 def populations(ds: Dataset) -> dict[str, list[int]]:
     sleeper = (LANE_SLEEPER, LANE_BOTH)
-    fit = [i for i, t in enumerate(ds.trades) if t.fit]
-    est = [i for i, t in enumerate(ds.trades) if t.estimator]
+    fit = [i for i, t in enumerate(ds.trades) if t.fit and t.proven]
+    est = [i for i, t in enumerate(ds.trades) if t.estimator and t.proven]
     return {
-        "allProvenDedupe": list(range(len(ds.trades))),
+        "allProvenDedupe": [i for i, t in enumerate(ds.trades) if t.proven],
         "fitEligible": fit,
         "fitEligibleSleeperObserved": [i for i in fit if ds.trades[i].lane in sleeper],
         "estimatorEligible": est,
@@ -716,9 +717,8 @@ def dataset_from_stores(
     ):
         g = json.loads(record_json)
         audit["rows"] += 1
-        if g.get("dedupeState") in _UNPROVEN_DEDUPE:
-            audit["excludedUnprovenDedupe"] += 1
-            continue
+        proven = g.get("dedupeState") not in _UNPROVEN_DEDUPE
+        audit["excludedUnprovenDedupe"] += int(not proven)
         fit = ev.fit_suitability(g, ev.classify_topology(g))["fit"] != ev.FIT_UNSUITABLE
         est = not ev.estimator_evidence(g)["hardExclusions"]
         side_ev = g.get("sideEvidence") or {}
@@ -738,7 +738,9 @@ def dataset_from_stores(
         league = str(g.get("hostLeagueId") or "").strip() or None
         host = str(g.get("host") or "").strip() or "unknown"
         occurred = _parse_day(g.get("occurredDate"))
-        collected = _parse_day(g.get("collectedAt") or g.get("representativeCollectedAt"))
+        # The clock a fit on the group's SIDES uses -- the same order as the
+        # estimator gate (``market_trade_eval.estimator_evidence``).
+        collected = _parse_day(g.get("representativeCollectedAt") or g.get("collectedAt"))
         lm = g.get("leagueMaturity") or {}
         trades.append(
             Trade(
@@ -753,12 +755,13 @@ def dataset_from_stores(
                 occurred=occurred,
                 collected=collected,
                 lineage_id=lm.get("lineageId") if isinstance(lm.get("lineageId"), str) else None,
+                proven=proven,
             )
         )
         tx = str(g.get("hostTxId") or "").strip()
         tx_keys.append(tx or None)
-    audit["fitEligible"] = sum(1 for t in trades if t.fit)
-    audit["estimatorEligible"] = sum(1 for t in trades if t.estimator)
+    audit["fitEligible"] = sum(1 for t in trades if t.fit and t.proven)
+    audit["estimatorEligible"] = sum(1 for t in trades if t.estimator and t.proven)
     audit["managerKeyStates"] = dict(sorted(key_states.items()))
     predecessor: dict[str, str] = {}
     members: dict[str, set[str]] = {}
@@ -888,7 +891,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     if args.box and GUARD is None:
         return {"available": False, "reason": "box_mode_requires_the_read_only_guard"}, 64
     if args.synthetic is not None:
-        ds = dataset_synthetic(args.synthetic, seed=args.seed)
+        ds = dataset_synthetic(args.synthetic, seed=args.seed, n_leagues=args.leagues)
         label = "SYNTHETIC rehearsal (power-study generator) -- not evidence about real leagues"
     else:
         try:
@@ -907,7 +910,12 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 ledger.close()
                 return {"available": False, "reason": "no_intel_ledger_on_this_host"}, 2
             try:
-                built = ledger.execute("SELECT value FROM meta WHERE key = 'builtAt'").fetchone()
+                try:
+                    built = ledger.execute(
+                        "SELECT value FROM meta WHERE key = 'builtAt'"
+                    ).fetchone()
+                except sqlite3.DatabaseError:
+                    built = None
                 ds = dataset_from_stores(
                     ledger, intel, clock=args.clock, participant_source=args.participants
                 )
@@ -921,7 +929,10 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             if GUARD is not None:
                 res["readOnlyGuard"], _ = _guard_block()
             return res, 3
-        ds.inputs["ledgerBuiltAt"] = json.loads(built[0]) if built else None
+        try:
+            ds.inputs["ledgerBuiltAt"] = json.loads(built[0]) if built else None
+        except (TypeError, ValueError):
+            ds.inputs["ledgerBuiltAt"] = None
         label = "production stores (read-only)" if args.box else "local store copies"
     result = {
         "purpose": (
@@ -951,6 +962,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--clock", choices=("collected", "occurred"), default="collected")
     ap.add_argument("--participants", choices=("intel", "side_keys"), default="intel")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--leagues", type=int, default=160, help="synthetic leagues (--synthetic)")
     ap.add_argument("--replicates", type=int, default=DEFAULT_REPLICATES)
     args = ap.parse_args(argv)
     result, code = run(args)

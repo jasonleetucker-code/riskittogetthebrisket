@@ -94,6 +94,15 @@ def test_links_come_from_every_trade_not_only_the_population():
     assert _sizes(lcc.component_labels(ds, pop, "P")) == [4, 3, 1]
 
 
+def test_unproven_dedupes_link_but_are_never_measured():
+    ds = _ds()
+    ds.trades.append(Trade(lane=lcc.LANE_SLEEPER, league="d", day=None,
+                           participants=("m8", "m6"), fit=True, proven=False))  # fmt: skip
+    pops = lcc.populations(ds)
+    assert len(ds.trades) - 1 not in pops["allProvenDedupe"]
+    assert _sizes(lcc.component_labels(ds, pops["fitEligible"], "P")) == [4, 3, 1]
+
+
 def test_concentration_statistics():
     labels = np.array([0, 0, 0, 0, 0, 0, 1, 1, 2, 3])
     c = lcc.concentration(labels)
@@ -213,7 +222,9 @@ def test_output_refuses_identifier_like_text():
 
 
 def test_synthetic_output_passes_the_id_guard():
-    args = argparse.Namespace(box=False, synthetic=0.05, seed=0, replicates=3, ledger=None)
+    args = argparse.Namespace(
+        box=False, synthetic=0.05, seed=0, leagues=40, replicates=3, ledger=None
+    )
     result, code = lcc.run(args)
     assert code == 0 and result["dataLabel"].startswith("SYNTHETIC")
 
