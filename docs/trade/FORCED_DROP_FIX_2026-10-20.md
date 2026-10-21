@@ -49,7 +49,7 @@ the band owner and stamped (`replay.json` → `fairnessBands.version` = `fairnes
 | Trade Finder V5-R vs V5 | identical 12 / 12 | same | — |
 | Perfect Draft identical (comparable teams) | 11 / 11 | 11 / 11 | — |
 | Shadow variants (§2) V1 · V2a · V2b · V3a · V3b | 21/2/110 · 60/38/35 · 64/38/31 · 5/0/128 · 6/0/127 | **19/4/110 · 61/38/34 · 67/38/28 · 4/1/128 · 5/1/127** | shadows re-based onto the v2 band base |
-| Simulate, 3-release 1-for-4 (median, this machine): OFF → V5 → V5-R | ~35 → ~100 ms | 62 → 146 → 56 ms | train-17 analyze work + machine; V5-R has no package search |
+| Simulate, 3-release 1-for-4, latency ratio to flag OFF (same machine): V5 · V5-R | ≈ 2.9x · — | ≈ 2.4x (author) / 4.5–6x (independent review) · ≈ 1x | machine- and load-dependent; V5-R has no package search (§7) |
 
 **What moved and why** (attributed on the pinned board with Travis Hunter held at 3,738, so every delta is code; then
 the shipping run with 3,599):
@@ -343,7 +343,15 @@ switch `SELECTION_MODE` to `roster_rational` before activation.
 | Best Offers | `server.py` `capacity_for` → `board_package` | same as Finder |
 | Angle, Suggestions, Perfect Waivers, counterparty blocks | `assess_roster_capacity` without a package | cheapest-legal selection and unpriced rule (both modes agree without a package); an acquired release is charged its raw `c` (`release_value_no_package`) — these publish no package net |
 | Trade history (`trade_history_asof`, public `/league` grades) | — | **not applicable**: no roster-capacity read anywhere in the history path |
+| Droppability ladder (`src/roster_intel/droppability.py`) | `build_cut_ladder` without `order_key` | **unchanged**: ECC order with the flag ON, like Perfect Draft; it is not a forced-drop charge |
 | Perfect Draft `/api/draft/roster-context` | `build_cut_ladder` without `order_key` | **unchanged** (11 of 11 comparable teams identical on the board; the 12th raises `ValueError` in both modes and is excluded; pinned synthetically) |
+
+**Which surfaces pass the trade's package (review F8).** The charge function is one (`forced_drop_cost`), but only the
+surfaces that hand `assess_roster_capacity` a `PackageSides` read a charge with an acquired release netted out of it:
+the War Room and Trade Calculator (`/api/trade/analyze`, `/api/trade/simulate`), the Trade Finder and Best Offers.
+Angle, Suggestions, Perfect Waivers and the counterparty block read the same function without a package (an acquired
+release at its raw `c`); the droppability ladder and Perfect Draft stay on ECC order with the flag ON. "One number
+across surfaces" therefore holds between the first group, not across the two.
 
 ## 5. Flag and rollback
 
@@ -366,10 +374,21 @@ authorization.
 
 ## 7. Performance
 
-Re-measured 2026-10-21 on the merged tree (median over the War Room design's 3-release 1-for-4 trades, this
-machine): simulate 62 ms flag OFF → 146 ms V5 (package subset search) → 56 ms V5-R (no package search; one ladder).
-The 2026-10-20 figure was ~35 → ~100 ms on `d5236546f`; the flag-OFF baseline rose with train 17's analyze work. Finder
-(Team Context, top 20, 12 teams): 1.4–5.3 s per team, median 3.6 s OFF / 3.6 s V5 / 3.3 s V5-R.
+Latency is reported as **ratios to the flag-OFF path on the same machine in the same run**, not as milliseconds:
+absolute times move with machine, load and the train-17 analyze work (the OFF baseline itself roughly doubled between
+the two measurements), and the two independent measurements below disagree on the V5 ratio.
+
+| path (simulate, 3-release 1-for-4) | author, 2026-10-21 | independent review, shared machine |
+|---|---:|---:|
+| flag OFF | 1.0x | 1.0x |
+| V5 (package subset search; the shipped default) | ≈ 2.4x | **≈ 4.5–6x** |
+| V5-R (one ladder, no subset search) | ≈ 0.9x | ≈ 0.9x |
+
+Read this as: V5 costs a small multiple of OFF (the subset search runs one ladder per acquired subset, at most 64 —
+beyond that V5-R's single ladder is used, §3), and V5-R costs about the same as OFF. The earlier "2.4x" is the low end
+of what was measured, not a bound. Trade Finder (Team Context, top 20, 12 teams): per-team time is dominated by
+candidate generation; the median is within noise of OFF in all three paths (ratios ≈ 1.0x · 1.0x · 0.9x). No latency
+budget is claimed; the box replay (runbook) should record the same ratios on production hardware.
 
 ## 8. Exact production impact if activated (owner approval required)
 

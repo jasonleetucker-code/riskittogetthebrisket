@@ -252,15 +252,13 @@ class ForcedDrop:
     #: invisible.
     acquired_in_trade: bool = False
     #: Flag ``forced_drop_cheapest_legal`` only (``None`` and unpublished when
-    #: OFF): how ``release_cost`` was charged — ``release_cost`` (``base x
+    #: OFF): how ``release_cost`` was charged — ``release_value`` (``base x
     #: scarcity``), ``package_credit_forgone`` (a just-acquired piece removed
-    #: from the package, charged the credit the package gave it) or
-    #: ``release_value`` (``base x scarcity``), ``package_credit_forgone`` (a
-    #: just-acquired piece removed from the package, charged the credit the
-    #: package gave it — NOT the player's value), ``release_value_uncredited``
-    #: (acquired, but the package never credited it: its own ``base x
-    #: scarcity`` at the ``assumedWaiver`` ceiling when unpriced) or
-    #: ``release_value_no_package`` (acquired, but the caller held no package).
+    #: from the package, charged the credit the package gave it — NOT the
+    #: player's value), ``release_value_uncredited`` (acquired, but the package
+    #: never credited it: its own ``base x scarcity``, at the ``assumedWaiver``
+    #: ceiling when unpriced) or ``release_value_no_package`` (acquired, but the
+    #: caller held no package).
     charge_basis: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -449,8 +447,15 @@ class RosterCapacity:
         cost, basis = forced_drop_cost(self)
         marginal = forced_drop_marginal(self)
         return {
-            # THE charge every consumer reads (War Room objective, Trade
-            # Finder re-rank, decision engine): one function, one number.
+            # The ONE charge function (``forced_drop_cost``).  Surfaces that
+            # hand the capacity owner the trade's package read a charge with an
+            # acquired release netted out of it: the War Room / Trade
+            # Calculator (``/api/trade/analyze``, ``/simulate``), the Trade
+            # Finder and Best Offers.  Surfaces that pass no package (Angle,
+            # Suggestions, Perfect Waivers, the counterparty block) read the
+            # same function with an acquired release at its raw
+            # ``release_value_no_package``; the droppability ladder and Perfect
+            # Draft keep the ECC order (they never call this).
             "forcedDropCharge": None if cost is None else round(cost, 1),
             "forcedDropChargeBasis": basis,
             # ``forcedDropReleaseCost`` (above) is the GROSS sum of every

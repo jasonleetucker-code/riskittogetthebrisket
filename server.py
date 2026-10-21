@@ -3444,7 +3444,7 @@ def load_from_disk() -> dict | None:
             str(runtime_path),
             produced_at=runtime_data.get("scrapeTimestamp"),
         )
-        log.info(f"Loaded cached data from {runtime_path.name} ({runtime_count} players)")
+        log.info(f"Loaded cached data from {runtime_path.name} " f"({runtime_count} players)")
         return runtime_data
 
     if checkout_data is not None:
