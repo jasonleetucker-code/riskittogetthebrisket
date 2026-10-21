@@ -177,6 +177,15 @@ canonical cut ladder solves greedily — it is called with `order_key = c` and `
 every `J` (≤ 64 subsets; a trade delivers ≤ 3–4 players) makes `S*` the global optimum. Pinned against brute force
 over every legal `d`-subset (coverage below).
 
+**Search bound, explicit (review F2).** The subset count is `Σ_{j ≤ min(d, |A|)} C(|A|, j)`. Above 64 (e.g. 7 incoming
+with `d = 4` is 99) V5 used to skip the package step silently, i.e. switch to raw charging — a different currency
+presented under the V5 rule id. It now (a) publishes `forcedDropSelection.searchBound` (64) and
+`searchBoundExceeded`, (b) uses the **V5-R selection with package charging** instead (exact and polynomial: one
+ladder, no subset search; a just-acquired release is still netted out of the package), (c) publishes the roster-rational
+rule id (what actually ran) and a note. At or below the bound nothing changes and `searchBoundExceeded` is `false`.
+Pinned: `test_search_bound_exceeded_is_explicit_and_uses_package_charging_review_f2`,
+`test_at_or_below_the_search_bound_nothing_changes`, `test_search_bound_is_published_in_the_capacity_block`.
+
 **No double counting.** An acquired piece in `S*` is removed from `K` and contributes its *credit forgone*,
 `G(K) − G(K \ {f})`, never `c(f)`; so for `overLimitBefore = 0` the net is `G(K \ J) − Σ_{E} c(p)`: the package
 counts each remaining piece once, each existing release is charged once, and a piece received and released counts

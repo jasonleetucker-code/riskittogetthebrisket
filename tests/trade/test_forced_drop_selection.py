@@ -881,6 +881,90 @@ def test_v5_releases_a_dearer_incoming_piece_v5r_the_cheaper_roster_player():
     assert dr.charge_basis == fds.CHARGE_RELEASE
 
 
+def _seven_incoming(d):
+    existing = [_asset(f"e{i}", 1500.0 + 400.0 * i) for i in range(6)]
+    incoming = [_asset(f"in{i}", 700.0 + 350.0 * i) for i in range(7)]
+    labels = [a.player_id for a in incoming]
+    package = fds.PackageSides(
+        sending=(6000.0,), receiving=tuple((a.player_id, a.board_value) for a in incoming)
+    )
+    kw = dict(drops_needed=d, starter_slots=[], waiver_values={"WR": 300.0}, scarcity=None,
+              slot_eligibility=None, package=package)  # fmt: skip
+    return existing, incoming, labels, kw
+
+
+def test_search_bound_exceeded_is_explicit_and_uses_package_charging_review_f2():
+    """Review F2.  Above 64 acquired subsets V5 used to drop the package step
+    SILENTLY (raw charging, a different currency).  Now it says so
+    (``searchBoundExceeded``) and uses the V5-R selection WITH package charging
+    (exact, polynomial).  7 incoming, d = 4 -> 99 subsets > 64."""
+    existing, incoming, labels, kw = _seven_incoming(4)
+    v5 = fds.select_forced_drops(existing, incoming, labels, mode=fds.MODE_PACKAGE_CONSISTENT, **kw)
+    v5r = fds.select_forced_drops(existing, incoming, labels, mode=fds.MODE_ROSTER_RATIONAL, **kw)
+    assert v5.search_bound_exceeded is True and v5.search_bound == fds.MAX_PACKAGE_SUBSETS == 64
+    assert v5r.search_bound_exceeded is False
+    # The V5-R selection WITH package charging, not the raw-charge fallback.
+    assert v5.package_applied is True and v5.mode == fds.MODE_ROSTER_RATIONAL
+    assert [(d.asset.player_id, d.charge, d.charge_basis) for d in v5.drops] == [
+        (d.asset.player_id, d.charge, d.charge_basis) for d in v5r.drops
+    ]
+    acquired = [d for d in v5.drops if d.acquired]
+    assert acquired and all(d.charge_basis == fds.CHARGE_PACKAGE for d in acquired)
+    assert not any(d.charge_basis == fds.CHARGE_NO_PACKAGE for d in v5.drops)
+    assert any("search bound" in n for n in v5.notes)
+    # The raw charge of the same cut set would be strictly higher (credit < c).
+    raw = sum(fds.release_charge(d.asset, {"WR": 300.0}, None)[0] for d in v5.drops)
+    assert v5.total < raw
+
+
+def test_at_or_below_the_search_bound_nothing_changes():
+    """63 subsets would be fine too; 6 incoming, d = 2 -> 22 subsets: the V5
+    subset search runs, publishes ``searchBoundExceeded`` False, and keeps its
+    own mode (no behaviour change at or below the bound)."""
+    existing, incoming, labels, kw = _seven_incoming(2)
+    incoming, labels = incoming[:6], labels[:6]
+    kw["package"] = fds.PackageSides(
+        sending=(6000.0,), receiving=tuple((a.player_id, a.board_value) for a in incoming)
+    )
+    v5 = fds.select_forced_drops(existing, incoming, labels, mode=fds.MODE_PACKAGE_CONSISTENT, **kw)
+    assert v5.search_bound_exceeded is False and v5.mode == fds.MODE_PACKAGE_CONSISTENT
+    assert not any("search bound" in n for n in v5.notes)
+    # d = 4 with 6 incoming is 57 subsets: still within the bound.
+    existing, incoming, labels, kw4 = _seven_incoming(4)
+    incoming, labels = incoming[:6], labels[:6]
+    kw4["package"] = kw["package"]
+    v5_4 = fds.select_forced_drops(
+        existing, incoming, labels, mode=fds.MODE_PACKAGE_CONSISTENT, **kw4
+    )
+    assert v5_4.search_bound_exceeded is False and v5_4.mode == fds.MODE_PACKAGE_CONSISTENT
+
+
+def test_search_bound_is_published_in_the_capacity_block(flag_on):
+    existing, incoming, labels, kw = _seven_incoming(4)
+    rows = [
+        R._row(a.player_id, a.board_value, "WR") for a in [*existing, *incoming]
+    ]  # fmt: skip
+    rows += [R._row("FA WR", 300.0, "WR")]
+    us_names = [a.player_id for a in existing]
+    them_names = [a.player_id for a in incoming]
+    teams = [
+        {"ownerId": "o1", "name": "Us", "players": us_names,
+         "playerIds": [R._pid(n) for n in us_names]},
+        {"ownerId": "o2", "name": "Them", "players": them_names,
+         "playerIds": [R._pid(n) for n in them_names]},
+    ]  # fmt: skip
+    c = {"playersArray": rows, "sleeper": {"teams": teams}}
+    settings = {"teamCount": 2, "rosterSize": 6, "taxiSize": 0, "starters": {"WR": 1}}
+    ctx = RC.build_capacity_context(c, None, teams[0], roster_settings=settings)
+    cap = RC.assess_roster_capacity(
+        ctx, incoming_players=them_names, outgoing_players=[], package=kw["package"]
+    )
+    out = cap.to_dict()["forcedDropSelection"]
+    assert out["searchBound"] == 64 and out["searchBoundExceeded"] is True
+    assert out["rule"] == fds.RULE_ID_ROSTER_RATIONAL and out["packageApplied"] is True
+    assert cap.over_limit_after == 7
+
+
 def test_unknown_selection_mode_is_refused():
     with pytest.raises(ValueError):
         fds.select_forced_drops(

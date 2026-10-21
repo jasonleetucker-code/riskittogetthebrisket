@@ -123,9 +123,13 @@ _RULE_BY_MODE = {
     MODE_ROSTER_RATIONAL: RULE_ID_ROSTER_RATIONAL,
 }
 
-#: Acquired-subset enumeration bound.  A trade delivers a handful of players
-#: (the finder's widest shape is 3), so this never binds in practice; past it
-#: the package step is skipped WITH a note rather than silently truncated.
+#: Acquired-subset enumeration bound of the package-consistent (V5) search.  A
+#: trade delivers a handful of players (the finder's widest shape is 3), so this
+#: never binds in practice.  Past it V5 does NOT fall back to raw charging (that
+#: would silently change the currency): it publishes ``searchBoundExceeded`` and
+#: uses the roster-rational (V5-R) selection WITH package charging, which is
+#: exact and polynomial (one ladder, no subset search).  At or below the bound
+#: nothing changes.
 MAX_PACKAGE_SUBSETS = 64
 
 #: Per-drop ``chargeBasis``.  ``release_value*`` = the player's own ``c``
@@ -299,6 +303,11 @@ class Selection:
     package_applied: bool = False
     notes: list[str] = field(default_factory=list)
     mode: str = MODE_PACKAGE_CONSISTENT
+    #: True when the V5 acquired-subset search would have exceeded
+    #: :data:`MAX_PACKAGE_SUBSETS` and the V5-R selection with package charging
+    #: was used instead (``mode`` then reads ``roster_rational``).
+    search_bound_exceeded: bool = False
+    search_bound: int = MAX_PACKAGE_SUBSETS
 
     @property
     def total(self) -> float:
@@ -452,10 +461,16 @@ def select_forced_drops(
             math.comb(len(acquired_ids), j) for j in range(0, min(d, len(acquired_ids)) + 1)
         )
         if package_ok and mode == MODE_PACKAGE_CONSISTENT and n_subsets > MAX_PACKAGE_SUBSETS:
-            package_ok = False
+            # Explicit, never silent: the roster-rational selection (exact,
+            # polynomial) with package charging replaces the subset search, so
+            # a just-acquired release stays netted out of the package.
+            mode = MODE_ROSTER_RATIONAL
+            sel.mode = mode
+            sel.search_bound_exceeded = True
             sel.notes.append(
-                f"{len(acquired_ids)} incoming players exceed the package-consistent "
-                "search bound; acquired releases are charged their raw release cost"
+                f"{len(acquired_ids)} incoming players with {drops_needed} release(s) exceed the "
+                f"package-consistent search bound ({MAX_PACKAGE_SUBSETS} acquired subsets); the "
+                "roster-rational selection with package charging was used instead"
             )
 
     if package_ok:

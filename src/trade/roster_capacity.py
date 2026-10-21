@@ -357,6 +357,10 @@ class RosterCapacity:
     #: charge resting on one is UNDETERMINABLE, never 0 (not published; the
     #: flag-OFF path never reads it).
     waiver_values_available: bool = True
+    #: Flag ``forced_drop_cheapest_legal`` only: the V5 acquired-subset search
+    #: bound was exceeded and the V5-R selection with package charging ran
+    #: instead (``None`` when the flag is OFF).
+    search_bound_exceeded: bool | None = None
 
     @property
     def requires_drops(self) -> bool | None:
@@ -445,6 +449,8 @@ class RosterCapacity:
                 "rule": self.selection_rule,
                 "flag": fds.FLAG,
                 "packageApplied": self.package_applied,
+                "searchBound": fds.MAX_PACKAGE_SUBSETS,
+                "searchBoundExceeded": self.search_bound_exceeded,
                 "preTradeCleanupCost": (
                     None
                     if self.pre_trade_cleanup_cost is None
@@ -1504,6 +1510,7 @@ def assess_roster_capacity(
             outgoing_not_on_roster=unheld_out,
             notes=notes,
             selection_rule=rule,
+            search_bound_exceeded=False if selecting else None,
         )
 
     # ── Taxi bracket ─────────────────────────────────────────────────
@@ -1569,6 +1576,7 @@ def assess_roster_capacity(
             forced_drop_cut_cost=0.0,
             notes=notes,
             selection_rule=rule,
+            search_bound_exceeded=False if selecting else None,
             **_pre_trade_fields(pre_sel),
             **({"waiver_values_available": bool(context.waiver_values)} if selecting else {}),
         )
@@ -1821,6 +1829,7 @@ def _assess_selected(
         notes=notes,
         selection_rule=fds.rule_id(sel.mode),
         package_applied=sel.package_applied,
+        search_bound_exceeded=sel.search_bound_exceeded,
         waiver_values_available=bool(context.waiver_values),
         **_pre_trade_fields(pre_sel),
     )
