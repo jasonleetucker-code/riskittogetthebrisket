@@ -893,6 +893,7 @@ def trade_history(raw: dict, ctx: dict) -> dict:
 def war_room(ctx, max_opps: int = 5, seed: int = SEED + 2) -> dict:
     from src.trade import analyze_service as AS  # noqa: PLC0415
     from src.trade import analyze_trade as AT  # noqa: PLC0415
+    from src.trade import team_verdicts as TV  # noqa: PLC0415
     from src.trade import trade_decision as TD  # noqa: PLC0415
 
     rng = random.Random(seed)
@@ -1069,7 +1070,7 @@ def war_room(ctx, max_opps: int = 5, seed: int = SEED + 2) -> dict:
             with FR.installed(gap):
                 sim = run(rec["me"], st["_pin"], st["_pout"], False)
                 an = AS.analyze_for_team(sim, contract=contract, counterfactuals=False)
-            cats[t].append(TD.public_category_from_decision(an.get("decision")))
+            cats[t].append(TV.team_category(an.get("decision")))
     assert pm.active_model_id() == pm.GEOM_Q078_V1
     e_out = {}
     for t in TREATMENTS:
@@ -1081,7 +1082,7 @@ def war_room(ctx, max_opps: int = 5, seed: int = SEED + 2) -> dict:
             "transitions": dict(Counter(f"{a}->{b}" for a, b in pairs if a != b)),
         }
     e_res = {
-        "path": "trade_decision.public_category_from_decision over analyze_for_team (asset-only, "
+        "path": "team_verdicts.team_category (formerly trade_decision.public_category_from_decision) over analyze_for_team (asset-only, "
         "counterfactuals off) with each treatment installed in-process behind "
         "package_model._geom_pair (FR.installed, always restored); replacement anchors mapped "
         "per trade from that trade's own assets (value -> c), skipped if ambiguous",
