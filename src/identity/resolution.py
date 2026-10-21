@@ -66,9 +66,12 @@ Non-negotiables inherited from the governance layer:
 
 from __future__ import annotations
 
+import functools
+import math
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping
+from datetime import date
+from typing import Any, Callable, Iterable, Mapping
 
 from src.identity.name_primitives import (
     best_match,
@@ -175,6 +178,9 @@ class SleeperDirectoryIndex:
         self.by_gsis: dict[str, SleeperCandidate] = {}
         self.by_espn: dict[str, SleeperCandidate] = {}
         self.by_canonical: dict[str, list[SleeperCandidate]] = {}
+        #: ``{sleeper id: (birth_date or None, fantasy positions)}`` — V2.1
+        #: Layer A evidence only; no ladder reads it.
+        self.facts_by_sleeper_id: dict[str, tuple[str | None, tuple[str, ...]]] = {}
 
         for pid, pdata in (directory or {}).items():
             if not isinstance(pdata, dict):
@@ -206,6 +212,17 @@ class SleeperDirectoryIndex:
                 self.by_initial_last.setdefault(key, []).append(cand)
 
             self.by_sleeper_id[str(pid)] = cand
+            # Identity facts read only by outlier-integrity V2.1 Layer A (R4
+            # family compatibility, R5 exact age).  A field the directory does
+            # not carry is ``None`` / empty — no evidence, never a default.
+            _bd = str(pdata.get("birth_date") or "").strip() or None
+            _fps = tuple(
+                str(x).strip().upper()
+                for x in (pdata.get("fantasy_positions") or ())
+                if str(x or "").strip()
+            )
+            if _bd or _fps:
+                self.facts_by_sleeper_id[str(pid)] = (_bd, _fps)
             gsis = str(pdata.get("gsis_id") or "").strip()
             if gsis:
                 self.by_gsis.setdefault(gsis, cand)
@@ -822,6 +839,561 @@ def match_row_to_source_entry(
     ):
         return CsvJoinDecision(entry_key=None, via=VIA_SID_CONTRADICTION)
     return decision
+
+
+# ── Layer A: identity evidence (``identity_evidence_v2``; challenger, off) ──
+#
+# Outlier-integrity-v2 Layer A (docs/sources/OUTLIER_INTEGRITY_V2_
+# PREREGISTRATION.md §3.1; architecture §4).  A vote for the wrong player is an
+# IDENTITY fact, decidable from identity evidence, so it is decided HERE — in
+# the identity owner, beside the CSV join it grades — and never by a
+# statistical test.  There is no second matcher and no fuzzy rung: this only
+# grades the decision ``match_row_to_source_entry`` already made, using every
+# non-name field the source itself published (position, team, age, ids)
+# against the board row's own canonical identity.
+#
+# Pure: no flag reads, no I/O.  ``data_contract._enrich_from_source_csvs``
+# calls :func:`assess_identity_evidence` only while ``outlier_integrity_v2``
+# AND ``identity_evidence_v2`` are on; with either off the served
+# ``CONTRACT_CSV_JOIN_V1`` decision is untouched.
+
+IDENTITY_EVIDENCE_V2 = "identity_evidence_v2"
+
+ID_VERIFIED = "VERIFIED"
+ID_NAME_ONLY = "NAME_ONLY"
+ID_CONTRADICTED = "CONTRADICTED"
+ID_UNRESOLVED = "UNRESOLVED"
+
+#: Verdicts whose observation is REFUSED (absent from the row — never zero,
+#: never another player's value).
+ID_REFUSED_VERDICTS = frozenset({ID_CONTRADICTED, ID_UNRESOLVED})
+
+# Reason codes (directive §10 vocabulary; architecture §9).
+ID_REASON_SLEEPER_ID = "identity_contradicted:sleeper_id"
+ID_REASON_VENDOR_ID = "identity_contradicted:vendor_id"
+ID_REASON_JOIN_INCONSISTENT = "identity_contradicted:join_inconsistent"
+ID_REASON_POSITION_GROUP = "identity_contradicted:position_group"
+ID_REASON_ROOKIE_CLASS = "identity_contradicted:rookie_class"
+ID_REASON_AGE = "identity_contradicted:age"
+ID_REASON_AMBIGUOUS_IN_SOURCE = "identity_unresolved:ambiguous_in_source"
+ID_REASON_HOMONYM = "identity_unresolved:homonym"
+ID_REASON_LOW_EVIDENCE_RUNG = "identity_unresolved:low_evidence_rung"
+ID_REASON_TEAM_ONLY_MISMATCH = "identity_unresolved:team_only_mismatch"
+ID_REASON_NAME_ONLY = "voting_name_only_identity"
+
+# ── V2.1 repairs (outlier-integrity V2.1 preregistration §3.2; flag
+# ``outlier_integrity_v21``, default OFF).  Every name below is used only when
+# the caller passes ``v21=True``; with ``v21=False`` the V2 verdict is byte for
+# byte unchanged.
+#: R8: a team-only mismatch without history votes, stamped.
+ID_TEAM_UNCONFIRMED = "TEAM_UNCONFIRMED"
+ID_REASON_TEAM_UNCONFIRMED = "voting_team_unconfirmed"
+#: R4: an incompatible position FAMILY.
+ID_REASON_POSITION_FAMILY = "identity_contradicted:position_family"
+#: R5: fixed a priori (not selected): two age intervals more than this many
+#: years apart contradict.
+V21_TAU_AGE = 1.0
+#: R4: the registered position-family table (fixed now).  EDGE sits in both
+#: DL and LB.
+V21_POSITION_FAMILIES: dict[str, frozenset[str]] = {
+    "QB": frozenset({"QB"}),
+    "RB": frozenset({"RB", "FB", "HB"}),
+    "WR": frozenset({"WR"}),
+    "TE": frozenset({"TE"}),
+    "K": frozenset({"K", "PK"}),
+    "DL": frozenset({"DL", "DE", "DT", "NT", "IDL", "EDGE"}),
+    "LB": frozenset({"LB", "ILB", "OLB", "MLB", "EDGE"}),
+    "DB": frozenset({"DB", "CB", "S", "FS", "SS"}),
+}
+#: R4: allowed drift between families (one person listed at either).
+V21_ALLOWED_DRIFT: frozenset[frozenset[str]] = frozenset(
+    {frozenset({"DL", "LB"}), frozenset({"LB", "DB"}), frozenset({"RB", "FB"})}
+)
+
+
+def v21_position_families(position: object) -> frozenset[str]:
+    """The registered families of one published position (R4).  An unknown or
+    blank position belongs to no family: no evidence, never a mismatch."""
+    return _v21_families_of_raw(str(position or "").strip().upper())
+
+
+@functools.lru_cache(maxsize=512)
+def _v21_families_of_raw(raw: str) -> frozenset[str]:
+    """Pure on the normalized string (the family table is a constant), so it
+    is answered once per distinct position (V2.1 R13 performance)."""
+    if not raw:
+        return frozenset()
+    return frozenset(f for f, members in V21_POSITION_FAMILIES.items() if raw in members)
+
+
+def v21_families_compatible(
+    entry_position: object,
+    row_positions: Iterable[object],
+    alt_positions: Iterable[object] = (),
+) -> bool | None:
+    """R4: ``True`` when the source's published position names a family the
+    row's player holds (Sleeper ``position`` ∪ ``fantasy_positions`` ∪ a
+    registered two-way alt family), or an allowed drift (DL ↔ LB, LB ↔ DB,
+    RB ↔ FB); ``False`` otherwise; ``None`` when either side carries no family
+    (no evidence)."""
+    entry = v21_position_families(entry_position)
+    row: set[str] = set()
+    for p in [*row_positions, *alt_positions]:
+        row |= v21_position_families(p)
+    if not entry or not row:
+        return None
+    if entry & row:
+        return True
+    return any(frozenset({a, b}) in V21_ALLOWED_DRIFT for a in entry for b in row)
+
+
+def v21_age_interval(age: object) -> tuple[float, float] | None:
+    """R5: an integer age ``a`` is the interval ``[a, a + 1)``; a decimal age is
+    a point.  ``None`` when there is no usable age (no evidence)."""
+    if age is None or isinstance(age, bool):
+        return None
+    try:
+        a = float(age)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(a) or a <= 0:
+        return None
+    return (a, a + 1.0) if a.is_integer() else (a, a)
+
+
+def v21_exact_age(birth_date: object, as_of: date | None) -> float | None:
+    """R5: exact age in years at ``as_of`` from an ISO ``birth_date``; ``None``
+    when either is missing or unreadable."""
+    if not birth_date or as_of is None:
+        return None
+    try:
+        bd = date.fromisoformat(str(birth_date)[:10])
+    except ValueError:
+        return None
+    days = (as_of - bd).days
+    if days <= 0:
+        return None
+    return days / 365.2425
+
+
+def v21_age_gap(entry_age: object, row_age: object, row_exact_age: float | None) -> float | None:
+    """R5: the distance in years between the two age intervals (0 when they
+    overlap); ``None`` when either side carries no age."""
+    e = v21_age_interval(entry_age)
+    if row_exact_age is not None and math.isfinite(row_exact_age) and row_exact_age > 0:
+        r: tuple[float, float] | None = (row_exact_age, row_exact_age)
+    else:
+        r = v21_age_interval(row_age)
+    if e is None or r is None:
+        return None
+    return max(0.0, e[0] - r[1], r[0] - e[1])
+
+
+#: The exact (non-fuzzy) rungs of ``CONTRACT_CSV_JOIN_V1``.  A decision that
+#: arrives by any other rung is a low-evidence rung (A5).  None exists on the
+#: board path today; the rule is here so adding one cannot silently vote.
+#: ``scraper_exact`` is the exact attach rung of a payload-attached value
+#: (V2.1 U2, ``capture_evidence.VIA_SCRAPER_EXACT``); the scraper's surname,
+#: fuzzy and first-name-variant rungs are NOT exact and fall under A5.  No CSV
+#: join ever produces it, so V2's verdicts are unchanged.
+EXACT_JOIN_RUNGS = frozenset(
+    {"sleeper_id", "name_group", "name_star", "single_group", "scraper_exact"}
+)
+
+#: Position groups that carry identity evidence (``OTHER`` — empty or unknown —
+#: is no evidence; ``PICK`` rows are pick identity, out of scope here).
+_EVIDENTIAL_GROUPS = frozenset({"OFFENSE", "IDP", "KICKER"})
+
+#: Long-form team spellings the scraper's team set carries
+#: (``name_clean.NFL_TEAM_CODES``) that the NFL team owner
+#: (``playerctx.normalize.normalize_team_code``) does not fold.
+_TEAM_LONG_FORMS = {"GBP": "GB", "KCC": "KC", "NEP": "NE", "TBB": "TB"}
+
+
+def team_evidence(team: object) -> str | None:
+    """A comparable NFL team code, or ``None`` when the field is no evidence.
+
+    Folds provider spellings through the NFL owner
+    (``playerctx.normalize.normalize_team_code``) and the scraper's long forms;
+    a free agent (``FA``), a blank or an unrecognised code is NOT evidence of a
+    team — missing is never a mismatch.
+    """
+    return _team_evidence_of_raw(str(team or "").strip().upper())
+
+
+@functools.lru_cache(maxsize=512)
+def _team_evidence_of_raw(raw: str) -> str | None:
+    """Pure on the normalized string (the NFL team owner's tables are
+    constants), so it is answered once per distinct spelling (V2.1 R13)."""
+    from src.playerctx.normalize import normalize_team_code  # noqa: PLC0415
+    from src.utils.name_clean import NFL_TEAM_CODES  # noqa: PLC0415
+
+    if not raw:
+        return None
+    code = _TEAM_LONG_FORMS.get(raw, normalize_team_code(raw))
+    code = _TEAM_LONG_FORMS.get(code, code)
+    if code == "FA" or code not in NFL_TEAM_CODES:
+        return None
+    return code
+
+
+@dataclass(frozen=True)
+class SourceEntryEvidence:
+    """What ONE source entry published about who it is (U1).
+
+    Every field is the source's own claim, read from its CSV row; a field the
+    source does not publish is ``None`` (no evidence), never a default.
+    ``value`` / ``rank`` are the entry's own observation, carried so that a
+    disambiguated duplicate (A4) votes with its OWN number.
+    """
+
+    raw_name: str
+    position: str | None = None
+    team: str | None = None
+    age: float | None = None
+    vendor_id: str | None = None
+    sleeper_id: str | None = None
+    value: float | None = None
+    rank: float | None = None
+
+    def published_fields(self) -> tuple[str, ...]:
+        out = []
+        if self.position:
+            out.append("position")
+        if self.team:
+            out.append("team")
+        if self.age is not None:
+            out.append("age")
+        if self.vendor_id:
+            out.append("vendorId")
+        if self.sleeper_id:
+            out.append("sleeperId")
+        return tuple(out)
+
+
+@dataclass(frozen=True)
+class RowIdentityEvidence:
+    """The board row's canonical identity, as the contract row carries it."""
+
+    player_id: str | None
+    name: str
+    position: str | None
+    team: str | None = None
+    age: float | None = None
+    years_exp: int | None = None
+    rookie: bool = False
+    #: Extra position groups a registered two-way player may legitimately be
+    #: listed under (``data_contract._TWO_WAY_PLAYERS``).
+    alt_groups: frozenset[str] = frozenset()
+    #: V2.1 only (R4 / R5): the player's Sleeper ``fantasy_positions`` and
+    #: ``birth_date`` where the identity owner's directory carries them, and
+    #: the registered two-way alt POSITION (family-level evidence).
+    fantasy_positions: tuple[str, ...] = ()
+    birth_date: str | None = None
+    alt_positions: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class IdentityVerdict:
+    """Layer A's verdict on one (row, source) join.
+
+    ``selected`` is the index (into the candidate list the caller passed) of
+    the entry that votes when an in-source duplicate was disambiguated to a
+    DIFFERENT entry than the join chose; ``None`` means "the join's own entry".
+    ``evidence`` names the fields that agreed (VERIFIED) or the field that
+    decided a refusal.
+    """
+
+    verdict: str
+    reason: str | None
+    selected: int | None = None
+    evidence: tuple[str, ...] = ()
+
+    @property
+    def refused(self) -> bool:
+        return self.verdict in ID_REFUSED_VERDICTS
+
+    def to_stamp(self) -> dict[str, Any]:
+        out: dict[str, Any] = {"verdict": self.verdict}
+        if self.reason:
+            out["reason"] = self.reason
+        if self.evidence:
+            out["evidence"] = list(self.evidence)
+        return out
+
+
+def _groups_compatible(entry_group: str, row_group: str, alt_groups: frozenset[str]) -> bool | None:
+    """``None`` when either side carries no evidential group."""
+    if entry_group not in _EVIDENTIAL_GROUPS or row_group not in _EVIDENTIAL_GROUPS:
+        return None
+    return entry_group == row_group or entry_group in alt_groups
+
+
+def _families_compatible(a: str, b: str) -> bool:
+    """Position FAMILIES that may name one person: equal, or the DL / LB pair
+    (edge rushers drift between them across sources — the CANONICAL_V2 drift
+    tolerance).  A DB is never the same person as a DL or LB."""
+    if a == b:
+        return True
+    return {a, b} == {"DL", "LB"}
+
+
+def _disambiguate(
+    row: RowIdentityEvidence,
+    candidates: list[SourceEntryEvidence],
+    position_group: Callable[[str | None], str],
+    chosen: int,
+) -> tuple[int | None, bool]:
+    """``(index, ambiguous)`` for a bucket holding several entries of ONE source.
+
+    Narrows only on disambiguating evidence the entries publish — Sleeper id,
+    then position group, then position family (DL / LB drift allowed), then
+    team — never on value: this replaces the loader's "keep the higher value"
+    rule for entries that may be DIFFERENT people (Byron Murphy II, DT, and
+    Byron Murphy Jr., CB, collapse on one key).
+
+    Two outcomes are not an identity ambiguity and keep the join's choice:
+
+    * the survivors carry the SAME observation (one row listed twice);
+    * the survivors are ONE person listed twice — every survivor publishes the
+      same team and a compatible position (FantasyPros IDP lists an edge rusher
+      on both its DL and LB pages).  Which of one person's two observations
+      votes is an observation-selection question, not an identity one, so the
+      join's own choice stands (the higher-valued of that person's listings).
+    """
+    from src.utils.name_clean import normalize_position_family  # noqa: PLC0415
+
+    pool = list(range(len(candidates)))
+    row_sid = str(row.player_id or "").strip()
+    if row_sid:
+        by_sid = [i for i in pool if str(candidates[i].sleeper_id or "").strip() == row_sid]
+        if by_sid:
+            pool = by_sid
+    row_group = position_group(row.position)
+    if len(pool) > 1 and row_group in _EVIDENTIAL_GROUPS:
+        by_group = [
+            i
+            for i in pool
+            if _groups_compatible(position_group(candidates[i].position), row_group, row.alt_groups)
+            is True
+        ]
+        if by_group:
+            pool = by_group
+    row_family = normalize_position_family(str(row.position or ""))
+    if len(pool) > 1 and row_family:
+        by_family = [
+            i
+            for i in pool
+            if candidates[i].position
+            and _families_compatible(
+                normalize_position_family(str(candidates[i].position)), row_family
+            )
+        ]
+        if by_family:
+            pool = by_family
+    row_team = team_evidence(row.team)
+    if len(pool) > 1 and row_team:
+        by_team = [i for i in pool if team_evidence(candidates[i].team) == row_team]
+        if by_team:
+            pool = by_team
+    if len(pool) == 1:
+        return pool[0], False
+    observations = {(candidates[i].value, candidates[i].rank) for i in pool}
+    if len(observations) == 1:
+        return (chosen if chosen in pool else pool[0]), False
+    teams = {team_evidence(candidates[i].team) for i in pool}
+    families = [normalize_position_family(str(candidates[i].position or "")) for i in pool]
+    one_person = (
+        len(teams) == 1
+        and None not in teams
+        and all(families)
+        and all(_families_compatible(a, b) for a in families for b in families)
+    )
+    if one_person:
+        if chosen in pool:
+            return chosen, False
+        best = max(pool, key=lambda i: (candidates[i].value or float("-inf"), -i))
+        return best, False
+    return None, True
+
+
+def assess_identity_evidence(
+    *,
+    row: RowIdentityEvidence,
+    candidates: list[SourceEntryEvidence],
+    chosen: int,
+    via: str,
+    canonical_match_key: Callable[[str], str],
+    position_group: Callable[[str | None], str],
+    rookie_board: bool = False,
+    tau_age: float | None = None,
+    homonyms: list[RowIdentityEvidence] | None = None,
+    team_continuity: bool | None = None,
+    vendor_id_resolver: Callable[[str], str | None] | None = None,
+    sleeper_id_owner: Callable[[str], str | None] | None = None,
+    v21: bool = False,
+    r4: bool = False,
+    r5: bool = False,
+    r8: bool = False,
+    prior_source_team: str | None = None,
+    row_previous_teams: Iterable[str] = (),
+    age_as_of: date | None = None,
+) -> IdentityVerdict:
+    """Layer A's verdict for one join (preregistration §3.1; first match wins).
+
+    ``candidates`` are every entry of this source in the matched bucket (one
+    canonical name, one position group); ``chosen`` the index of the entry
+    ``CONTRACT_CSV_JOIN_V1`` attached.  ``homonyms`` are OTHER board rows sharing
+    the row's canonical name and position group.  ``team_continuity`` is the
+    history lane's answer to "did this source carry this player on this team
+    before" (``None`` = no history, which is no continuity).
+    ``vendor_id_resolver`` maps a vendor id to a Sleeper id where a mapping
+    exists on the board path; none does today (``src/sources/ktc_identity``
+    needs the vendor page), so that branch of A1 abstains — recorded as the
+    named gap, never guessed.  ``sleeper_id_owner`` answers "which canonical
+    player owns this Sleeper id" (``None`` when nobody known does): A1 fires
+    only when the source's id RESOLVES to a different player.  An id that
+    resolves to nobody is no evidence — measured on an exploratory board,
+    Dynasty Nerds published unresolvable ids for four correctly named players,
+    and refusing their votes would punish a vendor's id column for the
+    player's own correct value.  Without an owner lookup, any mismatch counts.
+
+    CONTRADICTED (A1 Sleeper / vendor id; A2 join inconsistency; A3 position
+    group; rookie class; age) → UNRESOLVED (A4 in-source duplicate; homonym; A5
+    low-evidence rung; team-only mismatch without continuity) → VERIFIED (an id
+    agrees, or name + position group + team agree) → NAME_ONLY.
+
+    ``v21=True`` (or ``r4`` / ``r5`` / ``r8`` one at a time, for the registered
+    revert-one-repair sensitivity) applies the V2.1 repairs (outlier-integrity V2.1
+    preregistration §3.2), each superseding the V2 rule it names:
+
+    * **R4** A3 compares position FAMILIES (``V21_POSITION_FAMILIES``) of the
+      source's published position against the row's Sleeper ``position`` ∪
+      ``fantasy_positions`` ∪ a registered two-way alt position, with the
+      allowed drifts DL ↔ LB, LB ↔ DB, RB ↔ FB → ``position_family``.
+    * **R5** ages are intervals (an integer age ``a`` is ``[a, a + 1)``, a
+      decimal age a point; the exact age at ``age_as_of`` from ``birth_date``
+      when the directory carries it), contradicting only beyond
+      ``V21_TAU_AGE`` (1.0 year, fixed a priori).
+    * **R8 / R10** a team-only mismatch is judged on the A4-CHOSEN entry:
+      continuity (``prior_source_team`` — the team on the source's last
+      ACCEPTED observation of this player — equals the published team, or the
+      published team is in ``row_previous_teams``) votes as VERIFIED (team
+      lag); a vendor that previously listed the player at the row's team and
+      now lists a team that is neither current nor previous is UNRESOLVED;
+      otherwise — including every cold start — it VOTES as
+      ``TEAM_UNCONFIRMED``.  Team is never the sole refusal reason without
+      history.
+    """
+    r4, r5, r8 = r4 or v21, r5 or v21, r8 or v21
+    selected: int | None = None
+    entry = candidates[chosen] if 0 <= chosen < len(candidates) else None
+    # A4 — several entries of one source on one key.  A registered two-way
+    # player is listed under both groups legitimately and keeps the join's
+    # choice (its alternate-group evidence is a separate, owned rule).
+    if len(candidates) > 1 and not row.alt_groups:
+        idx, ambiguous = _disambiguate(row, candidates, position_group, chosen)
+        if ambiguous:
+            return IdentityVerdict(ID_UNRESOLVED, ID_REASON_AMBIGUOUS_IN_SOURCE)
+        if idx is not None:
+            entry = candidates[idx]
+            if idx != chosen:
+                selected = idx
+    if entry is None:
+        return IdentityVerdict(ID_NAME_ONLY, ID_REASON_NAME_ONLY)
+
+    def _verdict(verdict: str, reason: str | None, evidence: tuple[str, ...] = ()):
+        return IdentityVerdict(verdict, reason, selected, evidence)
+
+    row_sid = str(row.player_id or "").strip()
+    entry_sid = str(entry.sleeper_id or "").strip()
+    # A1 — an id that names a different player.
+    if row_sid and entry_sid and row_sid != entry_sid:
+        owner = sleeper_id_owner(entry_sid) if sleeper_id_owner is not None else entry_sid
+        if owner:
+            return _verdict(ID_CONTRADICTED, ID_REASON_SLEEPER_ID, ("sleeperId",))
+        entry_sid = ""  # resolves to nobody: no evidence either way
+    vendor_sid: str | None = None
+    if entry.vendor_id and vendor_id_resolver is not None:
+        vendor_sid = vendor_id_resolver(str(entry.vendor_id))
+        if row_sid and vendor_sid and vendor_sid != row_sid:
+            return _verdict(ID_CONTRADICTED, ID_REASON_VENDOR_ID, ("vendorId",))
+    id_agrees = bool(
+        via == "sleeper_id"
+        or (row_sid and entry_sid == row_sid)
+        or (row_sid and vendor_sid == row_sid)
+    )
+    # A2 — the raw name re-resolved through the owner names someone else.  On
+    # the name rungs the keys agree by construction; this fires only when a
+    # non-name rung attached an entry whose own name is a different player and
+    # no id vouches for it.
+    if not id_agrees:
+        entry_key = canonical_match_key(entry.raw_name) if entry.raw_name else ""
+        row_key = canonical_match_key(row.name) if row.name else ""
+        if entry_key and row_key and entry_key != row_key:
+            return _verdict(ID_CONTRADICTED, ID_REASON_JOIN_INCONSISTENT, ("name",))
+    # A3 — incompatible position group.  DL / LB / EDGE drift stays inside the
+    # IDP group (the CANONICAL_V2 drift tolerance); a registered two-way player
+    # may carry its alternate group.  V2.1 (R4): position FAMILY instead.
+    if r4:
+        group_ok = v21_families_compatible(
+            entry.position if entry.position else None,
+            [row.position, *row.fantasy_positions],
+            row.alt_positions,
+        )
+        if group_ok is False:
+            return _verdict(ID_CONTRADICTED, ID_REASON_POSITION_FAMILY, ("position",))
+    else:
+        row_group = position_group(row.position)
+        entry_group = position_group(entry.position) if entry.position else ""
+        group_ok = _groups_compatible(entry_group, row_group, row.alt_groups)
+        if group_ok is False:
+            return _verdict(ID_CONTRADICTED, ID_REASON_POSITION_GROUP, ("position",))
+    # A rookie-board entry on a row outside the class: a known veteran.
+    if rookie_board and row.years_exp is not None and row.years_exp > 0 and not row.rookie:
+        return _verdict(ID_CONTRADICTED, ID_REASON_ROOKIE_CLASS, ("rookieClass",))
+    # Published age against the canonical age.
+    if r5:
+        gap = v21_age_gap(entry.age, row.age, v21_exact_age(row.birth_date, age_as_of))
+        if gap is not None and gap > V21_TAU_AGE:
+            return _verdict(ID_CONTRADICTED, ID_REASON_AGE, ("age",))
+    elif tau_age is not None and entry.age is not None and row.age is not None:
+        if abs(float(entry.age) - float(row.age)) > float(tau_age):
+            return _verdict(ID_CONTRADICTED, ID_REASON_AGE, ("age",))
+
+    row_team = team_evidence(row.team)
+    entry_team = team_evidence(entry.team)
+    team_agrees = bool(row_team and entry_team and row_team == entry_team)
+    # Same-group homonyms the source cannot tell apart.
+    if homonyms and not id_agrees:
+        others = [team_evidence(h.team) for h in homonyms]
+        separable = team_agrees and all(t is not None and t != row_team for t in others)
+        if not separable:
+            return _verdict(ID_UNRESOLVED, ID_REASON_HOMONYM)
+    # A5 — a rung outside the exact join without position AND (team OR id).
+    if via not in EXACT_JOIN_RUNGS and not (group_ok and (team_agrees or id_agrees)):
+        return _verdict(ID_UNRESOLVED, ID_REASON_LOW_EVIDENCE_RUNG)
+    team_mismatch = bool(not id_agrees and row_team and entry_team and row_team != entry_team)
+    if r8 and team_mismatch:
+        # R8 / R10, on the A4-chosen entry (``entry``).
+        prior = team_evidence(prior_source_team)
+        previous = {t for t in (team_evidence(x) for x in row_previous_teams) if t}
+        previous.discard(row_team)
+        if prior == entry_team or entry_team in previous:
+            return _verdict(ID_VERIFIED, None, ("name", "position", "team_lag"))
+        if prior is not None and prior == row_team:
+            return _verdict(ID_UNRESOLVED, ID_REASON_TEAM_ONLY_MISMATCH, ("team",))
+        return _verdict(ID_TEAM_UNCONFIRMED, ID_REASON_TEAM_UNCONFIRMED, ("team",))
+    # Team-only mismatch: the teams differ, no id vouches, and the source's own
+    # history shows no continuity (team lag WITH continuity is released).
+    if team_mismatch and team_continuity is not True:
+        return _verdict(ID_UNRESOLVED, ID_REASON_TEAM_ONLY_MISMATCH, ("team",))
+
+    if id_agrees:
+        return _verdict(ID_VERIFIED, None, ("id",))
+    if group_ok and team_agrees:
+        return _verdict(ID_VERIFIED, None, ("name", "position", "team"))
+    return _verdict(ID_NAME_ONLY, ID_REASON_NAME_ONLY)
 
 
 # ── Dual-read comparator ────────────────────────────────────────────────

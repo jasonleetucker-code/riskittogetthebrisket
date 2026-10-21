@@ -676,3 +676,100 @@ def _decide(
     if effective <= 0.0:
         restore = restore or _RESTORE_ON_PUBLISH
     return status, reason, restore
+
+
+# ── Per-OBSERVATION category (directive §10; outlier integrity V2 / V2.1) ──
+#
+# The board-level ``sourceVotingStatus`` above says whether a SOURCE votes.
+# The table below says, for ONE observation, which directive §10 category its
+# primary reason belongs to.  It is the one vocabulary every per-observation
+# exclusion is mapped through (V2.1 preregistration R7: "mapped through
+# ``src/sources/voting_status.py``, never a fork"); ``src.api.source_integrity``
+# re-exports it rather than keeping a copy.  Decides nothing: it only names
+# what a layer already stamped.
+
+OBS_CATEGORY_VOTING = "voting_normally"
+OBS_CATEGORY_DISSENT = "valid_but_disagreeing"
+OBS_CATEGORY_IDENTITY = "invalid_player_identity"
+OBS_CATEGORY_FORMAT = "source_format_error"
+OBS_CATEGORY_NORMALIZATION = "normalization_scale_error"
+OBS_CATEGORY_STALE = "stale_source"
+OBS_CATEGORY_BROKEN_FEED = "broken_feed"
+OBS_CATEGORY_MISSING = "missing_observation"
+OBS_CATEGORY_HELD = "temporarily_held_by_policy"
+OBS_CATEGORY_RULE = "rejected_by_integrity_rule"
+
+#: The ten directive §10 categories, in the order the census publishes them.
+OBSERVATION_CATEGORIES: tuple[str, ...] = (
+    OBS_CATEGORY_VOTING,
+    OBS_CATEGORY_DISSENT,
+    OBS_CATEGORY_IDENTITY,
+    OBS_CATEGORY_FORMAT,
+    OBS_CATEGORY_NORMALIZATION,
+    OBS_CATEGORY_STALE,
+    OBS_CATEGORY_BROKEN_FEED,
+    OBS_CATEGORY_MISSING,
+    OBS_CATEGORY_HELD,
+    OBS_CATEGORY_RULE,
+)
+
+#: Reason code (or its prefix before ``:`` / ``@``) -> directive §10 category.
+#: A vote that passed identity and integrity is never mapped to the identity,
+#: format, normalization or broken-feed categories: every VOTING reason
+#: (advisories included) maps to ``voting_normally`` or
+#: ``valid_but_disagreeing``.
+OBSERVATION_REASON_CATEGORY: dict[str, str] = {
+    "voting": OBS_CATEGORY_VOTING,
+    "voting_name_only_identity": OBS_CATEGORY_VOTING,
+    # V2.1 R8: a team-only mismatch with no history votes, stamped.
+    "voting_team_unconfirmed": OBS_CATEGORY_VOTING,
+    # V2.1 R1 / R2 / P-3: advisories on votes that still count.
+    "format_minor_discordance": OBS_CATEGORY_VOTING,
+    "segment_too_small": OBS_CATEGORY_VOTING,
+    "released_by_cap": OBS_CATEGORY_VOTING,
+    "kept_dissent": OBS_CATEGORY_DISSENT,
+    "segment_break_unproven": OBS_CATEGORY_DISSENT,
+    # V2.1 P-4: persistence-confirmed but still beyond tau_C (votes, alerted).
+    "persistent_gross_dissent": OBS_CATEGORY_DISSENT,
+    "identity_contradicted": OBS_CATEGORY_IDENTITY,
+    "source_format_error": OBS_CATEGORY_FORMAT,
+    "normalization_untranslated": OBS_CATEGORY_NORMALIZATION,
+    "normalization_dependency_unavailable": OBS_CATEGORY_NORMALIZATION,
+    "normalization_scale_error": OBS_CATEGORY_NORMALIZATION,
+    "normalization_direction_error": OBS_CATEGORY_NORMALIZATION,
+    "withheld_no_bridge": OBS_CATEGORY_NORMALIZATION,
+    "freshness_or_health_zero_weight": OBS_CATEGORY_STALE,
+    "broken_feed": OBS_CATEGORY_BROKEN_FEED,
+    "held_pending_confirmation": OBS_CATEGORY_HELD,
+    "identity_unresolved": OBS_CATEGORY_HELD,
+    "dlf_offense_only_vote": OBS_CATEGORY_HELD,
+    "extreme_uncorroborated_tail": OBS_CATEGORY_RULE,
+    "dlf_values_rank_hill_vote": OBS_CATEGORY_HELD,
+    "policy_vote_hold": OBS_CATEGORY_HELD,
+}
+
+#: Categories that state a defect of the observation itself.  An observation
+#: that never votes for a source-level reason (a policy hold, a stale source)
+#: is labelled with THAT state, never with one of these (V2.1 R7, boards F3).
+INVALID_OBSERVATION_CATEGORIES = frozenset(
+    {
+        OBS_CATEGORY_IDENTITY,
+        OBS_CATEGORY_FORMAT,
+        OBS_CATEGORY_NORMALIZATION,
+        OBS_CATEGORY_BROKEN_FEED,
+    }
+)
+
+
+def observation_reason_category(code: str | None) -> str | None:
+    """The directive §10 category of one observation's reason code, or
+    ``None`` when the code is unknown (never guessed)."""
+    if not code:
+        return None
+    if code in OBSERVATION_REASON_CATEGORY:
+        return OBSERVATION_REASON_CATEGORY[code]
+    for sep in (":", "@"):
+        head = code.split(sep, 1)[0]
+        if head in OBSERVATION_REASON_CATEGORY:
+            return OBSERVATION_REASON_CATEGORY[head]
+    return None

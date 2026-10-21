@@ -34,6 +34,7 @@ import {
   formatHours,
   rowAuthority,
   rowSourceFreshness,
+  sourceDroppedLabel,
   sourceExclusionLabel,
 } from "@/lib/value-explainers";
 import styles from "./value-explain.module.css";
@@ -226,9 +227,9 @@ export function SourceFreshnessList({ row, rawData }) {
                   {s.excluded
                     ? sourceExclusionLabel(s)
                     : s.outlierDropped
-                      ? "dropped as an outlier"
+                      ? sourceDroppedLabel(s)
                       : s.appliedWeight != null
-                        ? `weight ${formatWeight(s.appliedWeight)}${s.baseWeight != null ? ` of ${formatWeight(s.baseWeight)}` : ""}${reduced ? ` · freshness ×${s.rowFreshness.toFixed(2)} here` : ""}`
+                        ? `weight ${formatWeight(s.appliedWeight)}${s.baseWeight != null ? ` of ${formatWeight(s.baseWeight)}` : ""}${reduced ? ` · freshness ×${s.rowFreshness.toFixed(2)} here` : ""}${s.dissent ? " · disagrees with other sources (still voting)" : ""}`
                         : "weight not published"}
                 </span>
               </div>

@@ -1,0 +1,194 @@
+{
+  "schema": "oiv2-thresholds/v1",
+  "status": "frozen_stage2",
+  "note": "Outlier-integrity-v2 thresholds FROZEN at Stage 2 (docs/sources/OUTLIER_INTEGRITY_V2_PREREGISTRATION.md section 3.5): every value selected on E_BASELINE / E_DEV only by the registered rules as executed under DEVIATIONS.md S3-S9 and S15; evidence in docs/sources/outlier_integrity_v2/FROZEN_THRESHOLDS.json. No value here was chosen by looking at V, I or R boards. Read only while outlier_integrity_v2 is on; no production default changes.",
+  "grids": {
+    "tau_age": [
+      1,
+      1.5,
+      2
+    ],
+    "epsilon_b2": [
+      0.01,
+      0.02,
+      0.05
+    ],
+    "n_min": [
+      10,
+      20
+    ],
+    "rho_min": [
+      0.0,
+      0.3
+    ],
+    "tau_gross": [
+      "ln 3",
+      "ln 4"
+    ],
+    "k_c": [
+      4,
+      6,
+      8
+    ],
+    "tau_C": [
+      "ln 4",
+      "ln 5",
+      "ln 6"
+    ]
+  },
+  "selected": {
+    "tau_age": 1.0,
+    "epsilon_b2": 0.01,
+    "n_min": 20,
+    "rho_min": 0.0,
+    "tau_gross": "ln 4",
+    "k_c": 4.0,
+    "tau_C": "ln 4",
+    "tau_board": {
+      "dlfRookieSf|offense": 0.050468,
+      "dlfSf|offense": 0.006612,
+      "draftSharksIdp|idp": 0.027322,
+      "draftSharks|offense": 0.010973,
+      "dynastyDaddySf|offense": 0.00955,
+      "dynastyNerdsSfTep|offense": 0.009221,
+      "fantasyCalc|offense": 0.014142,
+      "fantasyNavigatorSf|offense": 0.00516,
+      "fantasyProsFitzmaurice|offense": 0.007673,
+      "fantasyProsIdp|idp": 0.028915,
+      "fantasyProsSf|offense": 0.007438,
+      "flockFantasySfRookies|offense": 0.049583,
+      "flockFantasySf|offense": 0.010745,
+      "idpShowCombined|idp": 0.005766,
+      "idpShowCombined|offense": 0.008027,
+      "idpTradeCalc|idp": 0.060273,
+      "idpTradeCalc|offense": 0.015,
+      "ktcCrowdSfTep|offense": 0.01957,
+      "ktcTradesSfTep|offense": 0.010553,
+      "otcffbSf|offense": 0.011259,
+      "pfkDynasty|offense": 0.011869,
+      "yahooBoone|offense": 0.009759
+    },
+    "tau_c": {
+      "dlfRookieSf": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "dlfSf": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "draftSharks": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "draftSharksIdp": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "dynastyDaddySf": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "dynastyNerdsSfTep": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "fantasyCalc": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "fantasyNavigatorSf": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "fantasyProsFitzmaurice": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "fantasyProsIdp": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "fantasyProsSf": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "flockFantasySf": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "flockFantasySfRookies": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "idpShowCombined": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "idpTradeCalc": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "ktcCrowdSfTep": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "ktcTradesSfTep": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "otcffbSf": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "pfkDynasty": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      },
+      "yahooBoone": {
+        "151_400": 0.405465,
+        "51_150": 0.405465,
+        "gt400": 0.405465,
+        "le50": 0.405465
+      }
+    }
+  }
+}

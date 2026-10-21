@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 56 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 63 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -322,6 +322,56 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Stays OFF until independent validation and an owner decision.  Rollback if
     # ever switched on: RISKIT_FEATURE_OUTLIER_DISAGREEMENT_POLICY=0 + restart.
     "outlier_disagreement_policy": False,
+    # Outlier integrity v2 (owner directive 2026-10-20 "Fix the outlier filter
+    # and restore DLF IDP voting" + 10:20 UTC addendum; preregistered in
+    # docs/sources/OUTLIER_INTEGRITY_V2_PREREGISTRATION.md before it was built;
+    # src/api/source_integrity.py).  MASTER switch of the layered validation
+    # challenger: Layer A (identity evidence) and Layer B (format, structural
+    # normalization, feed provenance, segment integrity, continuity holds) run
+    # only while this is ON, each named change also behind its own flag below.
+    # OFF: every board pass byte for byte the incumbent.  Mutually exclusive with
+    # ``outlier_disagreement_policy`` (V1): both ON raises at build time.  Stays
+    # OFF until the preregistered verdict, independent review and an explicit
+    # owner decision.  Rollback if ever switched on:
+    # RISKIT_FEATURE_OUTLIER_INTEGRITY_V2=0 + restart.
+    "outlier_integrity_v2": False,
+    # V2 Layer A (identity owner): each CSV join is graded with the source's own
+    # published position / team / age / ids inside src/identity/resolution.py;
+    # CONTRADICTED and UNRESOLVED observations are refused (absent, never zero)
+    # and an in-source duplicate votes only when disambiguated.  Effective only
+    # with ``outlier_integrity_v2``.  Owner-reserved activation.
+    "identity_evidence_v2": False,
+    # V2 B2 (ingestion): a scraper-payload value proven inconsistent with the
+    # vendor's own same-run CSV (board proof across >= 2 position groups, or a
+    # single row > 2x off) is absent and the CSV value votes; no CSV, withheld.
+    # Effective only with ``outlier_integrity_v2``.  Owner-reserved activation.
+    "payload_provenance_guard": False,
+    # V2 B1 (normalization owner): a rookie-board vote the ladder did not
+    # translate is withheld (``normalization_untranslated``) instead of voting a
+    # within-class rank as an overall rank.  Effective only with
+    # ``outlier_integrity_v2``.  Owner-reserved activation.
+    "rookie_ladder_fail_closed": False,
+    # V2 U4 (history owner), RECORD-ONLY: each fresh scrape folds its board into
+    # the source_rank lane (src/history/source_rank.py) that B3 / B4 baselines
+    # read.  Moves no value by itself (reading the lane needs
+    # ``outlier_integrity_v2``).  Owner-reserved activation.
+    "source_rank_history_record": False,
+    # V2 D-1 (confidence change, evaluated separately as V2+D1): a vote held by
+    # B4 becomes a B11 lost-evidence seat, so a hold can never raise confidence.
+    # Effective only with ``outlier_integrity_v2``.  Owner-reserved activation.
+    "integrity_holds_as_withheld": False,
+    # Outlier integrity V2.1 (successor preregistration
+    # docs/sources/OUTLIER_INTEGRITY_V21_PREREGISTRATION.md, committed before
+    # any V2.1 code; owner O-1 decision 2026-10-20).  Applies the registered
+    # repairs R1-R14 and persistence rules P-1..P-4 to the V2 layers (B0
+    # tolerance, B3a / B3b minimums, A3 position families, age intervals,
+    # ordinal-slot preservation, explainer coverage, cold-start team rule,
+    # content-distinct persistence, cap release is not confirmation).
+    # Effective only with ``outlier_integrity_v2``; OFF = V2 exactly, and with
+    # the master OFF the board is byte for byte the incumbent.  Evaluated in
+    # replay only; activation is owner-reserved.  Rollback if ever switched
+    # on: RISKIT_FEATURE_OUTLIER_INTEGRITY_V21=0 + restart.
+    "outlier_integrity_v21": False,
     # SPARSE half: one voting family is stamped ``limitedEvidence`` and the
     # 0.30 single-source retention is not applied.
     "joint_sparse_limited_evidence": False,
@@ -1036,6 +1086,18 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # passes in build_api_data_contract (reaches a request through /api/data);
     # ships OFF (challenger).
     "outlier_disagreement_policy": LIVE,
+    # The outlier-integrity-v2 flags gate src/api/source_integrity.py, called
+    # from data_contract's enrichment and ranking passes on every board build
+    # (reaches a request through /api/data); all ship OFF (challenger).
+    "outlier_integrity_v2": LIVE,
+    "identity_evidence_v2": LIVE,
+    "payload_provenance_guard": LIVE,
+    "rookie_ladder_fail_closed": LIVE,
+    "integrity_holds_as_withheld": LIVE,
+    "outlier_integrity_v21": LIVE,
+    # source_rank_history_record gates the record-only history lane write at
+    # server.py's fresh-scrape recording site; ships OFF.
+    "source_rank_history_record": LIVE,
     # joint_sparse_limited_evidence replaces the single-source haircut with a
     # limitedEvidence stamp in the same function; ships OFF (challenger).
     "joint_sparse_limited_evidence": LIVE,
