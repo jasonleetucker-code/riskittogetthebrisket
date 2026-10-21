@@ -18,6 +18,7 @@ from __future__ import annotations
 import copy
 import dataclasses
 import itertools
+import math
 import random
 
 import pytest
@@ -1270,6 +1271,29 @@ def test_v5r_tie_between_existing_players_only_publishes_nothing():
     (drop,) = sel.drops
     assert drop.charge == 700.0 and not drop.acquired
     assert sel.tie_break is None
+
+
+def test_v5r_tie_past_the_search_bound_is_published_even_between_acquired_pieces():
+    """Review of the follow-up (2026-10-21): past the 64-subset bound the exact
+    search cannot run. A tie between two ACQUIRED pieces (one uncredited) can
+    still move the charge, so it must be labelled, never silent."""
+    existing = [_asset("keeper", 9000.0)]
+    incoming = [_asset("main", 6000.0)] + [_asset(f"f{i:02d}", 2000.0 + i) for i in range(8)]
+    # d = 2: the cheapest piece goes, then exactly ONE of the tied pair (the tie
+    # straddles released/kept, so a second minimum-sum-c set exists).
+    incoming += [
+        _asset("cheap", 200.0),
+        _asset("tie_priced", 300.0),
+        _asset("tie_uncredited", 300.0),
+    ]
+    receiving = [(a.player_id, a.board_value) for a in incoming[:-1]]
+    receiving.append(("tie_uncredited", None))
+    package = fds.PackageSides(sending=(9000.0,), receiving=tuple(receiving))
+    sel = _v5r(existing, incoming, package, d=2)
+    assert sum(math.comb(len(incoming), j) for j in range(3)) > fds.MAX_PACKAGE_SUBSETS
+    assert sel.tie_break is not None
+    assert sel.tie_break["resolvedBy"] == "player_id_search_bound"
+    assert any("search bound" in n for n in sel.notes)
 
 
 @pytest.mark.parametrize("seed", range(60))

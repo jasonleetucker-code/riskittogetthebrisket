@@ -412,21 +412,35 @@ def _ladder_ids(
     return [r.player_id for r in ladder.rungs]
 
 
-def _cross_kind_tie(
+def _release_ties(
     chosen: Sequence[str],
     by_internal: Mapping[str, RosterAsset],
     meta: Mapping[str, tuple],
-) -> bool:
-    """Whether a released candidate has the exact release value ``c`` of a
-    KEPT candidate of the other kind (existing vs just-acquired).  This is the
-    only kind of tie that can change a V5-R charge.  It is used only when the
-    exact tie search is out of bounds."""
+) -> tuple[bool, bool]:
+    """``(any_tie, charge_relevant)`` for the V5-R ladder's cut set.
+
+    ``any_tie``: a released candidate has exactly the release value ``c`` of a
+    KEPT one.  Legal cut sets are the bases of a matroid, so a second minimum
+    ``sum c`` set exists only if such a pair exists.  Without one the ladder's
+    set is the unique minimum and no tie search is needed (exact).
+
+    ``charge_relevant``: such a pair in which at least one side is just
+    acquired.  Two EXISTING players tied on ``c`` charge the same either way.
+    A tie involving an acquired piece (against an existing player, or against
+    another acquired piece, for example one the package did not credit) can
+    change the charge."""
     picked = set(chosen)
-    kept: dict[float, set[bool]] = {}
+    kept: dict[float, list[bool]] = {}
     for pid in by_internal:
         if pid not in picked:
-            kept.setdefault(round(meta[pid][2], 9), set()).add(meta[pid][1])
-    return any((not meta[pid][1]) in kept.get(round(meta[pid][2], 9), ()) for pid in chosen)
+            kept.setdefault(round(meta[pid][2], 9), []).append(meta[pid][1])
+    any_tie = relevant = False
+    for pid in chosen:
+        kinds = kept.get(round(meta[pid][2], 9))
+        if kinds:
+            any_tie = True
+            relevant = relevant or meta[pid][1] or any(kinds)
+    return any_tie, relevant
 
 
 def select_forced_drops(
@@ -663,7 +677,11 @@ def select_forced_drops(
                 rest0 = [pid for pid in rungs if not meta[pid][1]]
                 min_c = sum(meta[pid][2] for pid in rungs)
                 tol = 1e-9 * max(1.0, abs(min_c))
-                if n_subsets <= MAX_PACKAGE_SUBSETS:
+                # Without a charge-relevant tie the ladder's set is the unique
+                # minimum, or its rivals differ only in which tied EXISTING
+                # player is named (same charge): one ladder, no search (exact).
+                _, relevant = _release_ties(rungs, by_internal, meta)
+                if relevant and n_subsets <= MAX_PACKAGE_SUBSETS:
                     # Exact c ties: among the minimum-sum-c sets the LOWEST
                     # CHARGE wins (owner-decision follow-up, 2026-10-21).  The
                     # ladder alone breaks such a tie on player id, which moved
@@ -682,15 +700,15 @@ def select_forced_drops(
                             "resolvedBy": "lowest_charge",
                         }
                         return finish(list(best[3]), list(best[4]))
-                elif _cross_kind_tie(rungs, by_internal, meta):
+                elif relevant:
                     sel.tie_break = {
                         "tiedMinimumSets": None,
                         "chargeSpread": None,
                         "resolvedBy": "player_id_search_bound",
                     }
                     sel.notes.append(
-                        "an existing player and a just-acquired one tied exactly on release "
-                        "value, and the acquired-subset search bound prevented the exact "
+                        "a just-acquired player tied exactly on release value with another "
+                        "candidate, and the acquired-subset search bound prevented the exact "
                         "lowest-charge search; the tie was broken by player id"
                     )
                 return finish(j0, rest0)

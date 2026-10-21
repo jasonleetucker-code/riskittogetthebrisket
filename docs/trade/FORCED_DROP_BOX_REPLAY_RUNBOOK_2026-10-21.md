@@ -88,15 +88,20 @@ ARCHIVE=exports/archive/dynasty_export_20261020_052241.zip
 
 # 0. Preconditions (read-only).
 git -C "$APP" merge-base --is-ancestor <DORMANT_MERGE_SHA> "$CODE_SHA"      # the dormant merge is deployed
-test -z "$(git -C "$APP" status --porcelain --untracked-files=no -- src scripts config)"
-if grep -qi FORCED_DROP "$APP/.env" 2>/dev/null    || systemctl show dynasty.service -p Environment | grep -qi FORCED_DROP; then
+# GIT_OPTIONAL_LOCKS=0: git status must not refresh (write) the application tree's index.
+test -z "$(GIT_OPTIONAL_LOCKS=0 git -C "$APP" status --porcelain --untracked-files=no -- src scripts config)"
+# Capture first: grep -q exiting early under pipefail could SIGPIPE systemctl and hide a match.
+SVC_ENV=$(systemctl show dynasty.service -p Environment -p EnvironmentFiles)
+ENV_FILES=$(printf '%s\n' "$SVC_ENV" | sed -n 's/^EnvironmentFiles=\([^ ]*\).*/\1/p')
+if printf '%s\n' "$SVC_ENV" | grep -qi FORCED_DROP \
+   || grep -qis FORCED_DROP "$APP/.env" $ENV_FILES; then
   echo "forced-drop flag set in the service environment: STOP"; exit 1
 fi
 (cd "$APP" && sha256sum --check - <<'EOF'
 fbfc6100547291598edfb23d38cdd272c265ee2de59a050d7f3c99e615d96d9b  scripts/forced_drop_fix_replay.py
 4841ac8b241c43571cd0551c93bfd711dbcfec5213dc66bef66ddbfe02c67478  scripts/forced_drop_box_support.py
 5c208fe8ee187d78ef7173330efc795a621b970f1ba69ff416c9edf836bc6f18  scripts/research_readonly_guard.py
-57da58e71a4bf10a99228b66daf9c88fcbde0d7aa40af1de83ee2af4e4716532  src/trade/forced_drop_selection.py
+a95d7e18bbd05a2de3fea1adea4189afee6a46afee529c7f9954d74dab5d8f3b  src/trade/forced_drop_selection.py
 c03a1b0e3a91ca3dbcdc09c6de7e26f5c02e987eed573bd8fad289136ccdb065  src/trade/roster_capacity.py
 325ed03514351a486e25daa5b8442f09f91d889ece58c84b9b179e745e661794  src/trade/trade_decision.py
 6a3935bb66b41ca34e281bf85006397968c0a45ffb8384857081e4db44db776e  src/trade/analyze_trade.py
@@ -119,11 +124,11 @@ fi
 
 # 1b. Live inputs the report cannot pin (scarcity and Component B read the box's own data/).
 #     Hashes and counts only, before and after.  No BDVM projections = Component B cannot vote = STOP.
+test -f "$APP/data/ros/aggregate/latest.json" || { echo "no ROS aggregate (scarcity input): STOP"; exit 1; }
 live_inputs() {
   echo "ros_aggregate_sha256 $(sha256sum "$APP/data/ros/aggregate/latest.json" | cut -d' ' -f1)"
   echo "bdvm_projection_files $(find "$APP/data/bdvm/projections" -type f | wc -l)"
-  find "$APP/data/bdvm/projections" -type f -printf '%s %TY-%Tm-%TdT%TH:%TM
-' | sort
+  find "$APP/data/bdvm/projections" -type f -printf '%s %TY-%Tm-%TdT%TH:%TM\n' | sort
 }
 test "$(find "$APP/data/bdvm/projections" -type f | wc -l)" -gt 0 || { echo "no BDVM projections: STOP"; exit 1; }
 live_inputs > "$WORK/out/live_inputs_before.txt"
@@ -146,7 +151,9 @@ ENVV=(env RISKIT_APP_DIR="$APP" PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1
 
 # 3a. MANDATORY rehearsal (same pins, small design).  The box-only paths (real scarcity, Component B through the
 #     guard) were never exercised off the box, so the full run is gated on this.
-"${ENVV[@]}" nice -n 10 timeout 1800 "$PY" scripts/forced_drop_fix_replay.py "${COMMON[@]}"   --war-room-opps 2 --census-per-shape 2 --skip-finder --max-cpu-seconds 1500 --wall-seconds 1700   > "$WORK/out/rehearsal.json" 2> "$WORK/out/rehearsal.err" || { echo "rehearsal exit=$?: STOP"; exit 1; }
+"${ENVV[@]}" nice -n 10 timeout 1800 "$PY" scripts/forced_drop_fix_replay.py "${COMMON[@]}" \
+  --war-room-opps 2 --census-per-shape 2 --skip-finder --max-cpu-seconds 1500 --wall-seconds 1700 \
+  > "$WORK/out/rehearsal.json" 2> "$WORK/out/rehearsal.err" || { echo "rehearsal exit=$?: STOP"; exit 1; }
 "$PY" -I - "$WORK/out/rehearsal.json" <<'EOF'
 import json, sys
 r = json.load(open(sys.argv[1]))
@@ -160,7 +167,10 @@ print("rehearsal gate OK")
 EOF
 
 # 3b. The full run (a non-zero exit is reported, not fatal to the shell, so the exit code is printed).
-"${ENVV[@]}" nice -n 10 timeout 7500 "$PY" scripts/forced_drop_fix_replay.py "${COMMON[@]}"   --max-cpu-seconds 5400 --wall-seconds 7200   > "$WORK/out/forced_drop_box_replay.json" 2> "$WORK/out/stderr.txt" || RC=$?
+RC=0
+"${ENVV[@]}" nice -n 10 timeout 7500 "$PY" scripts/forced_drop_fix_replay.py "${COMMON[@]}" \
+  --max-cpu-seconds 5400 --wall-seconds 7200 \
+  > "$WORK/out/forced_drop_box_replay.json" 2> "$WORK/out/stderr.txt" || RC=$?
 echo "exit=${RC:-0}"
 
 # 3c. Nothing moved during the run.
