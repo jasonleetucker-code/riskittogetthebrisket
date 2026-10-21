@@ -50,6 +50,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from src.sources.ktc_market import KTC_MARKET_KEY
+
 SCHEMA_VERSION = "identity_capture_evidence.v1"
 
 #: The payload-attached sources U2 covers (preregistration §3.7).
@@ -133,7 +135,7 @@ U3_ADDED_COLUMNS: dict[str, tuple[str, ...]] = {
             "fantasyNavigatorSf",
         )
     },
-    **{key: ("team",) for key in ("ktcCrowdSfTep", "ktcTradesSfTep", "ktcCrowdTradesSfTep")},
+    **{key: ("team",) for key in ("ktcCrowdSfTep", "ktcTradesSfTep", KTC_MARKET_KEY)},
 }
 
 
