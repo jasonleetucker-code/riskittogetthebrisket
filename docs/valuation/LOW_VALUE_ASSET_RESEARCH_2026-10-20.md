@@ -8,6 +8,12 @@ adjustment.
 follow-ups, investigations A and B, the disclosure design and a public-fairness consistency audit, run as separate
 workstreams.
 
+> **See the correction addendum, `LOW_VALUE_ASSET_V2_CORRECTION_2026-10-21.md`.** The filler-flip, real-player,
+> calculator, Trade Finder and "naive disclosure" figures below (§0, §4, §8, §9, §11) and the counterfactual cells in
+> §5.2 were measured on the retired `fairness_bands_v1` denominator. Re-measured under `fairness_bands_v2` on the
+> same board: **no frozen-rule outcome changes and R-C still holds.** This body is the as-recorded text and is not
+> rewritten; the addendum lists which sentences it supersedes.
+
 **Unchanged in production:**
 - `geom_q078_v1` (q = 0.78);
 - canonical values and source weights;

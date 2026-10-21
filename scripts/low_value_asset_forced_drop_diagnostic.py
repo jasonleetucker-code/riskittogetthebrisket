@@ -36,6 +36,15 @@ with Team Context), then:
      without that piece) rather than its raw value x scarcity; the receiver
      picks the legal cut set that leaves it best off.
 
+Band basis (added 2026-10-21, ``docs/valuation/LOW_VALUE_ASSET_V2_CORRECTION_2026-10-21.md``).
+The committed evidence was produced when the fairness band divided by the larger
+ADJUSTED side (fairness_bands_v1).  The band's base is read from the production
+lens that took it from the fairness-band owner (``largerPackageUtility``) for the
+production path AND every counterfactual, so they can never disagree again.
+``--band-basis current`` (default) = the engine as it now is (fairness_bands_v2);
+``--band-basis v1_legacy`` runs the engine inside ``legacy_v1_denominator()`` to
+reproduce the committed numbers.  ``--archive`` / ``--csv-rev`` pin the board.
+
 No production code, config, value or served path is changed; every production
 function is only CALLED.  Output:
 ``docs/valuation/evidence/low_value_assets_2026-10-20/forced_drop_diagnostic.json``
@@ -46,6 +55,7 @@ only (checked with ``assert_aggregate_only``).
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import importlib.util
 import itertools
@@ -107,8 +117,10 @@ def _r(x, n=0):
     return None if x is None else round(x, n) if n else round(x)
 
 
-def _ord(net: float, larger: float) -> int:
-    band = fairness_bands.classify(net, larger)
+def _ord(net: float, base: float) -> int:
+    """Signed ordinal of ``net`` against the band base the production lens used (the
+    owner's larger package utility; under ``legacy_v1_denominator`` the v1 base)."""
+    band = fairness_bands.classify(net, base)
     return _sgn(net) * LEVEL_RANK[band["level"]]
 
 
@@ -303,7 +315,7 @@ def run_diagnostic(ctx, max_opps: int, seed: int) -> dict:
             if key not in gap_cache:
                 pin = [_s["y"]["name"]] + [n for n in fill_names if n in fset]
                 a = comp_a(sim(_me, pin, _pout, False), False)
-                gap_cache[key] = (a["vaAdjustedGap"], a["largerAdjustedSide"]) if a else None
+                gap_cache[key] = (a["vaAdjustedGap"], a["largerPackageUtility"]) if a else None
             return gap_cache[key]
 
         rec = {"s": s, "steps": []}
@@ -312,7 +324,7 @@ def run_diagnostic(ctx, max_opps: int, seed: int) -> dict:
             sa, st = sim(me, pin, pout, False), sim(me, pin, pout, True)
             a_ao, a_tc = comp_a(sa, False), comp_a(st, True)
             gap_cache[(si, frozenset(fill_names[:k]))] = (
-                (a_ao["vaAdjustedGap"], a_ao["largerAdjustedSide"]) if a_ao else None
+                (a_ao["vaAdjustedGap"], a_ao["largerPackageUtility"]) if a_ao else None
             )
             rc = st.get("rosterCapacity") or {}
             drops = rc.get("forcedDrops") or []
@@ -321,7 +333,7 @@ def run_diagnostic(ctx, max_opps: int, seed: int) -> dict:
                 "aoOrd": ordinal(a_ao),
                 "tcOrd": ordinal(a_tc),
                 "gap": a_ao["vaAdjustedGap"] if a_ao else None,
-                "larger": a_ao["largerAdjustedSide"] if a_ao else None,
+                "larger": a_ao["largerPackageUtility"] if a_ao else None,
                 "prodCharged": (a_tc or {}).get("forcedReleaseCost"),
                 "prodDrops": drops,
                 "d": int(rc.get("overLimitAfter") or 0),
@@ -691,13 +703,36 @@ def main() -> int:
     ap.add_argument("--out", default=OUT_DEFAULT)
     ap.add_argument("--archive", default=ARCHIVE_DEFAULT)
     ap.add_argument("--war-room-opps", type=int, default=5)
+    ap.add_argument(
+        "--band-basis",
+        choices=("current", "v1_legacy"),
+        default="current",
+        help="current = the engine as it now is (default); v1_legacy = reproduce the recorded "
+        "(larger ADJUSTED side) evidence",
+    )
+    ap.add_argument(
+        "--csv-rev",
+        default=None,
+        help="git revision whose " + ", ".join(S.RPB.CSV_TREE_PATHS) + " the contract build "
+        "reads (default: the working tree); with --archive this pins the whole board",
+    )
     args = ap.parse_args()
     assert pm.active_model_id() == pm.GEOM_Q078_V1, "the incumbent must be the active model"
+    with contextlib.ExitStack() as stack:
+        csv_root, csv_provenance = stack.enter_context(S.RPB.csv_tree(args.csv_rev))
+        stack.enter_context(S.RPB.pinned_contract_builds(csv_root))
+        if args.band_basis == "v1_legacy":
+            stack.enter_context(S.P1.legacy_v1_denominator())
+        return _run(args, csv_provenance)
+
+
+def _run(args, csv_provenance: dict) -> int:
     t0 = time.time()
     member, blob, raw = load_archive(args.archive)
     sha = hashlib.sha256(blob).hexdigest()
     ctx = S.build_context(raw)
     S.classify_assets(ctx)
+    board_sha = S.RPB.built_board_sha256(ctx["rows"])
     diag = run_diagnostic(ctx, args.war_room_opps, S.SEED + 2)
     results = diag["results"]
     variants = {v: classify_flips(results, v) for v in VARIANTS}
@@ -715,8 +750,17 @@ def main() -> int:
             "member": member,
             "sha256": sha,
             "matchesShadowReplayBoard": sha == ARCHIVE_SHA256,
+            "builtBoardSha256": board_sha,
+            "csvTree": {"paths": list(S.RPB.CSV_TREE_PATHS), **csv_provenance},
         },  # fmt: skip
         "codeSha": S.P1._git_sha(),
+        "bandBasis": {
+            "basis": args.band_basis,
+            "receiptOfOwnerInForce": fairness_bands.receipt(),
+            "base": "the band base the production lens used (largerPackageUtility) for PROD and "
+            "every variant; under v1_legacy the engine ran inside legacy_v1_denominator() "
+            "(the larger ADJUSTED side)",
+        },
         "design": "identical to shadow_replay.json S5d_warRoomTeamContext (same archive, seed "
         "SEED+2, sampling loop verbatim, 5 opponents per roster); every dynasty_main roster at "
         "the 58 cap sends a genuine starter X (2,500-6,500) for Y at 86-97% of X, then receives "
@@ -765,8 +809,8 @@ def main() -> int:
         "examples": examples(results),
         "localLimit": "Component B (roster-utility / lineup lens) needs the box-local projection "
         "snapshot and is NOT_ENOUGH_EVIDENCE locally; only Component A (VA gap minus forced "
-        "release) is measured.  Fairness bands computed with the full trade's larger adjusted "
-        "side (as production does) for every variant.",
+        "release) is measured.  Fairness bands use the base the production lens took from the "
+        "fairness-band owner for every variant (v1_legacy: the larger adjusted side).",
         "elapsedSec": round(time.time() - t0, 1),
     }
     assert pm.active_model_id() == pm.GEOM_Q078_V1

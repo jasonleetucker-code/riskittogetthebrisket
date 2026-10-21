@@ -40,6 +40,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import math
@@ -375,8 +376,55 @@ def leader(gap: float, a: float, b: float) -> int:
     return 0 if abs(gap) <= 0.01 * max(a, b) else (1 if gap > 0 else -1)
 
 
-def level(gap: float, adj_a: float, adj_b: float) -> str:
+#: This module (and every historical script that loads it) classifies on the
+#: RETIRED fairness_bands_v1 denominator (the larger ADJUSTED side).  Current
+#: research obtains levels from the fairness-band owner (``classify_packages`` /
+#: ``fairness_base`` + ``classify``); ``tests/scripts/test_research_band_basis_guard.py``
+#: allow-lists the historical scripts that intentionally keep this basis.
+FAIRNESS_BAND_BASIS = "v1_legacy"
+
+
+def level_v1_legacy(gap: float, adj_a: float, adj_b: float) -> str:
+    """LEGACY (fairness_bands_v1): the band on the larger ADJUSTED side.
+
+    Retained ONLY to reproduce evidence recorded under v1.  The owner's base is
+    the larger PACKAGE UTILITY (``fairness_bands.larger_package_utility``); this
+    helper passes the owner's ``classify`` the retired base, so its answer is
+    not the approved methodology's.  Do not use it in new research.
+    """
     return fairness_bands.classify(gap, max(adj_a, adj_b))["level"]
+
+
+#: Historical name, kept so the frozen Phase 1-3 scripts keep running unchanged.
+level = level_v1_legacy
+
+
+@contextlib.contextmanager
+def legacy_v1_denominator():
+    """LEGACY (fairness_bands_v1) reproduction of a PRODUCTION code path.
+
+    Inside the block ``fairness_bands.larger_package_utility`` answers the retired
+    v1 base (``max`` of the two ADJUSTED totals, ``package_model.adjusted_pair_totals``)
+    for every caller that reads it through the module (the analyze lenses, the
+    decision engine, the Trade Finder), so a measurement that runs the real
+    engine reproduces a v1-era number.  In-process only and always restored;
+    nothing is written anywhere.  Never wrap a current-methodology measurement in it.
+    """
+    original = fairness_bands.larger_package_utility
+
+    def v1_base(a, b, *, model_id=None):
+        a_adj, b_adj, _, _ = package_model.adjusted_pair_totals(
+            fairness_bands._require_pieces(a, "side_a_values"),
+            fairness_bands._require_pieces(b, "side_b_values"),
+            model_id=model_id,
+        )
+        return fairness_bands.fairness_base((a_adj, b_adj))
+
+    fairness_bands.larger_package_utility = v1_base
+    try:
+        yield
+    finally:
+        fairness_bands.larger_package_utility = original
 
 
 def run_matrix(p, per_cell: int, seed: int) -> dict:
