@@ -369,6 +369,11 @@ class RosterCapacity:
     #: necessarily the cheapest one (the lineup guard and the package step
     #: couple the choices), so they are not a guaranteed lower bound.
     taxi_bound_cleanup: tuple[float, bool, bool] | None = None
+    #: Flag ``forced_drop_cheapest_legal`` only: set when the package credit of
+    #: a released just-acquired set was clamped to ``[0, release value]``
+    #: (kept side empty, or the KTC rollback package model) — ``{"reasons",
+    #: "rawCredit", "charged"}``; ``None`` when the raw credit was charged.
+    package_credit_clamp: dict[str, Any] | None = None
 
     @property
     def requires_drops(self) -> bool | None:
@@ -459,6 +464,7 @@ class RosterCapacity:
                 "packageApplied": self.package_applied,
                 "searchBound": fds.MAX_PACKAGE_SUBSETS,
                 "searchBoundExceeded": self.search_bound_exceeded,
+                "packageCreditClamp": self.package_credit_clamp,
                 "preTradeCleanupCost": (
                     None
                     if self.pre_trade_cleanup_cost is None
@@ -1882,6 +1888,7 @@ def _assess_selected(
         package_applied=sel.package_applied,
         search_bound_exceeded=sel.search_bound_exceeded,
         taxi_bound_cleanup=taxi_bound,
+        package_credit_clamp=sel.credit_clamp,
         waiver_values_available=bool(context.waiver_values),
         **_pre_trade_fields(pre_sel),
     )

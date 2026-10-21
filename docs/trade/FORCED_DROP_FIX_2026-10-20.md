@@ -455,8 +455,19 @@ market convention differs from the roster answer.
   label the credited/uncredited match is positional. Not reachable with distinct player names.
 * Taxi-partial certainty: the War Room abstains (`uncertain`) while the Finder charges a lower bound — pre-existing,
   unchanged; `dynasty_main` has no taxi.
-* Under the KTC rollback package model (non-monotone) a credit forgone can be negative; the total charge is clamped at
-  0.
+* **Credit clamp (review F4).** A released just-acquired set is charged the package credit forgone, clamped to
+  `[0, Σ c]` of its credited pieces **only** when (a) the kept side would be empty (the credit is then the whole
+  received side, not bounded by the geometric discount, and can exceed the piece's own `base x scarcity` — e.g. a sole
+  incoming piece at scarcity 0.85) or (b) the active package model is not geometric (the KTC rollback `ktc_2026_04`
+  is non-monotone: a piece's credit can be negative — 210 of 3,000 random packages had a negative total, hidden by the
+  total's clamp at 0 — which would reward cutting him). The clamp is applied inside the selection (so V5 still
+  minimises the charge actually made) and publishes `forcedDropSelection.packageCreditClamp`
+  (`reasons`, `rawCredit`, `charged`) and a note; with a geometric model and other pieces remaining nothing changes
+  (`packageCreditClamp` is `null`). Pinned: `test_sole_incoming_release_credit_is_clamped_to_its_release_value_review_f4`,
+  `test_ktc_rollback_negative_credit_is_clamped_at_zero_and_published_review_f4`,
+  `test_credit_is_not_clamped_while_other_pieces_remain_in_a_geometric_package`; the brute-force oracle applies the same
+  rule written from this paragraph. At scarcity 1.0 the clamp binds only when the credit and `c` differ; the §0 / §8
+  replay figures were measured before it and are not re-measured here (named in §11).
 * Angle / Suggestions / Perfect Waivers hold no package: an acquired release there is charged its raw value
   (labelled).
 * UI copy: see the activation blocker in §10.

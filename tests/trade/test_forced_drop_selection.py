@@ -31,6 +31,7 @@ from src.trade import analyze_trade as AT
 from src.trade import roster_capacity as RC
 from src.trade import trade_decision as TD
 from src.trade.analyze_trade import analyze_trade
+from src.valuation_math import package_model as PM
 from src.valuation_math.package_model import adjusted_pair_totals
 from tests.trade import forced_drop_reference as R
 
@@ -756,7 +757,16 @@ class _Brute:
                 lab = self.labels[i - self.n_e]
                 removed[lab] = removed.get(lab, 0) + 1
         if removed:
-            cost += self.package.gap() - self.package.gap(removed)
+            joint = self.package.gap() - self.package.gap(removed)
+            # Review F4: with the kept side empty the credit is clamped to
+            # [0, release value] (written here from the spec, independently of
+            # the module: count what the package still credits).
+            credited_total = sum(1 for _k, v in self.package.receiving if v is not None)
+            released_credited = sum(1 for i in S if i >= self.n_e and i not in self.uncredited)
+            if credited_total - released_credited == 0:
+                ceiling = sum(self.c[i] for i in S if i >= self.n_e and i not in self.uncredited)
+                joint = min(max(joint, 0.0), ceiling)
+            cost += joint
         return cost
 
     def selected(self, cap) -> tuple[int, ...]:
@@ -1015,6 +1025,84 @@ def test_search_bound_is_published_in_the_capacity_block(flag_on):
     assert out["searchBound"] == 64 and out["searchBoundExceeded"] is True
     assert out["rule"] == fds.RULE_ID_ROSTER_RATIONAL and out["packageApplied"] is True
     assert cap.over_limit_after == 7
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_sole_incoming_release_credit_is_clamped_to_its_release_value_review_f4(mode):
+    """Review F4.  When releasing the acquired set EMPTIES the kept side, the
+    package credit is the whole received side — not bounded by the geometric
+    discount — and it can exceed the piece's own release value ``c`` (scarcity
+    0.85 here).  Charged: ``min(max(credit, 0), c)``, with a note and the raw
+    credit published."""
+    sc = {"WR": ScarcityComponents("WR", None, None, 0.0, None, None, None)}
+    mult = DP.scarcity_multiplier(sc["WR"])
+    assert mult < 1.0
+    existing = [_asset("e1", 4000.0), _asset("e2", 5000.0)]
+    incoming = [_asset("sole", 1000.0)]
+    package = fds.PackageSides(sending=(), receiving=(("sole", 1000.0),))
+    sel = fds.select_forced_drops(
+        existing, incoming, ["sole"], drops_needed=1, starter_slots=[],
+        waiver_values={"WR": 300.0}, scarcity=sc, slot_eligibility=None,
+        package=package, mode=mode,
+    )  # fmt: skip
+    (drop,) = sel.drops
+    assert drop.asset.player_id == "sole" and drop.charge_basis == fds.CHARGE_PACKAGE
+    assert package.gap() - package.gap({"sole": 1}) == 1000.0  # the raw credit
+    assert drop.charge == pytest.approx(1000.0 * mult)
+    assert drop.charge < 1000.0
+    assert sel.credit_clamp == {
+        "reasons": [fds.CLAMP_KEPT_SIDE_EMPTY],
+        "rawCredit": 1000.0,
+        "charged": pytest.approx(1000.0 * mult),
+    }
+    assert any("clamped" in n for n in sel.notes)
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_credit_is_not_clamped_while_other_pieces_remain_in_a_geometric_package(mode):
+    existing = [_asset("e1", 4000.0), _asset("e2", 5000.0)]
+    incoming = [_asset("a", 5000.0), _asset("b", 1000.0)]
+    package = fds.PackageSides(sending=(5500.0,), receiving=(("a", 5000.0), ("b", 1000.0)))
+    sel = fds.select_forced_drops(
+        existing, incoming, ["a", "b"], drops_needed=1, starter_slots=[],
+        waiver_values={"WR": 300.0}, scarcity=None, slot_eligibility=None,
+        package=package, mode=mode,
+    )  # fmt: skip
+    assert sel.credit_clamp is None and not any("clamped" in n for n in sel.notes)
+    (drop,) = sel.drops
+    assert drop.asset.player_id == "b"
+    assert drop.charge == pytest.approx(package.gap() - package.gap({"b": 1}))
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_ktc_rollback_negative_credit_is_clamped_at_zero_and_published_review_f4(
+    monkeypatch, mode
+):  # fmt: skip
+    """The KTC rollback model is non-monotone: adding a small piece can flip a
+    gate and LOWER the receiver's gap, so a released piece's credit forgone is
+    negative (here -1,872).  A negative charge would reward cutting him; it is
+    clamped to ``[0, c]`` with the reason published (``non_geom_package_model``)
+    instead of being hidden by the total's clamp at 0."""
+    monkeypatch.setattr(
+        PM, "_config", lambda: {"active": PM.KTC_2026_04, "shadow": [], "state": "ok"}
+    )
+    assert PM.active_model_id() == PM.KTC_2026_04
+    package = fds.PackageSides(sending=(5900.0,), receiving=(("big", 5000.0), ("small", 300.0)))
+    raw = package.gap() - package.gap({"small": 1})
+    assert raw < -1000.0
+    existing = [_asset("e1", 2000.0), _asset("e2", 2500.0)]
+    incoming = [_asset("big", 5000.0), _asset("small", 300.0)]
+    sel = fds.select_forced_drops(
+        existing, incoming, ["big", "small"], drops_needed=1, starter_slots=[],
+        waiver_values={"WR": 300.0}, scarcity=None, slot_eligibility=None,
+        package=package, mode=mode,
+    )  # fmt: skip
+    (drop,) = sel.drops
+    assert drop.asset.player_id == "small" and drop.charge == 0.0
+    assert sel.credit_clamp["reasons"] == [fds.CLAMP_NON_GEOM_MODEL]
+    assert sel.credit_clamp["rawCredit"] == raw and sel.credit_clamp["charged"] == 0.0
+    assert any("clamped" in n for n in sel.notes)
+    assert sel.total >= 0.0
 
 
 def test_unknown_selection_mode_is_refused():

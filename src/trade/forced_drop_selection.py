@@ -85,6 +85,7 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from src.draft.displacement import RosterAsset, effective_cut_cost
 from src.ros.lineup import RosterPlayer
+from src.valuation_math import package_model
 from src.valuation_math.package_model import adjusted_pair_totals
 
 __all__ = [
@@ -203,6 +204,19 @@ class PackageSides:
         send_adj, recv_adj, _sv, _rv = adjusted_pair_totals(list(self.sending), kept)
         return float(recv_adj) - float(send_adj)
 
+    def credited_remaining(self, removed: Mapping[str, int] | None = None) -> int:
+        """How many CREDITED (priced) pieces the package still holds with
+        ``removed`` incoming players taken out."""
+        pending = Counter(dict(removed or {}))
+        n = 0
+        for key, value in self.receiving:
+            if key is not None and pending.get(key, 0) > 0:
+                pending[key] -= 1
+                continue
+            if value is not None:
+                n += 1
+        return n
+
     def player_keys(self) -> Counter:
         return Counter(k for k, _v in self.receiving if k is not None)
 
@@ -280,6 +294,34 @@ def release_charge(
     return float(base) * float(mult), ecc, base, basis, waiver, mult
 
 
+# ── The credit clamp (review F4) ──────────────────────────────────────
+
+CLAMP_KEPT_SIDE_EMPTY = "kept_side_empty"
+CLAMP_NON_GEOM_MODEL = "non_geom_package_model"
+
+
+def _package_model_is_geom() -> bool:
+    """``False`` for the KTC rollback model (non-monotone: a piece's credit can
+    be negative or exceed its value) and for an unreadable registry."""
+    try:
+        return package_model.PACKAGE_MODELS[package_model.active_model_id()]["family"] == "geom"
+    except Exception:  # noqa: BLE001 — unknown model is not geom
+        return False
+
+
+def credit_clamp_reasons(package: PackageSides, removed: Mapping[str, int]) -> list[str]:
+    """Why the joint credit of releasing ``removed`` must be clamped to
+    ``[0, c]``: the geometric model's credit of a piece is bounded by its value
+    only while other pieces remain to be discounted, and the KTC rollback
+    model gives no such bound at all."""
+    reasons: list[str] = []
+    if package.credited_remaining(removed) == 0:
+        reasons.append(CLAMP_KEPT_SIDE_EMPTY)
+    if not _package_model_is_geom():
+        reasons.append(CLAMP_NON_GEOM_MODEL)
+    return reasons
+
+
 # ── Selection ─────────────────────────────────────────────────────────
 
 
@@ -308,6 +350,9 @@ class Selection:
     #: was used instead (``mode`` then reads ``roster_rational``).
     search_bound_exceeded: bool = False
     search_bound: int = MAX_PACKAGE_SUBSETS
+    #: ``None`` unless a released acquired set's package credit was clamped to
+    #: ``[0, c]``: ``{"reasons": [...], "rawCredit": x, "charged": y}``.
+    credit_clamp: dict[str, Any] | None = None
 
     @property
     def total(self) -> float:
@@ -495,9 +540,23 @@ def select_forced_drops(
                 uncredited.add(pid)
             seen[lab] += 1
 
-        def charge_of(J: Sequence[str], rest: Sequence[str]) -> float:
+        def clamped_credit(J: Sequence[str]) -> tuple[float, float, list[str]]:
+            """``(charged, raw, reasons)`` joint credit of releasing ``J``.
+            Clamped to ``[0, sum c]`` of its credited pieces only when the
+            kept side would empty or the model is not geometric (review F4);
+            otherwise the raw credit, unchanged."""
+            if not J:
+                return 0.0, 0.0, []
             removed = Counter(labels[pid] for pid in J)
-            credit = base_gap - package.gap(removed) if J else 0.0
+            raw = base_gap - package.gap(removed)
+            reasons = credit_clamp_reasons(package, removed)
+            if not reasons:
+                return raw, raw, []
+            ceiling = sum(meta[pid][2] for pid in J if pid not in uncredited)
+            return min(max(raw, 0.0), ceiling), raw, reasons
+
+        def charge_of(J: Sequence[str], rest: Sequence[str]) -> float:
+            credit = clamped_credit(J)[0]
             own = sum(meta[pid][2] for pid in J if pid in uncredited)
             return credit + own + sum(meta[pid][2] for pid in rest)
 
@@ -509,13 +568,30 @@ def select_forced_drops(
             shares: list[Selected] = []
             removed: Counter = Counter()
             prev = base_gap
+            charged_joint, raw_joint, reasons = clamped_credit(J)
+            # Sequential shares sum to the raw joint credit; a clamp rescales
+            # them so they sum to the clamped one (0 when it is clamped to 0).
+            scale = 1.0
+            if reasons and raw_joint != charged_joint:
+                scale = charged_joint / raw_joint if raw_joint > 0 else 0.0
+                sel.credit_clamp = {
+                    "reasons": reasons,
+                    "rawCredit": raw_joint,
+                    "charged": charged_joint,
+                }
+                sel.notes.append(
+                    "the package credit of the released just-acquired piece(s) was clamped to "
+                    f"[0, release value] ({' + '.join(reasons)}): raw credit "
+                    f"{raw_joint:.1f}, charged {charged_joint:.1f}"
+                )
             for pid in sorted(J, key=lambda p: (-(meta[p][4]), meta[p][8], meta[p][0])):
                 removed[labels[pid]] += 1
                 now = package.gap(removed)
+                share = (prev - now) * scale
                 if pid in uncredited:
-                    shares.append(make(pid, (prev - now) + meta[pid][2], CHARGE_UNCREDITED))
+                    shares.append(make(pid, share + meta[pid][2], CHARGE_UNCREDITED))
                 else:
-                    shares.append(make(pid, prev - now, CHARGE_PACKAGE))
+                    shares.append(make(pid, share, CHARGE_PACKAGE))
                 prev = now
             drops = [*shares, *(make(pid, meta[pid][2], CHARGE_RELEASE) for pid in rest)]
             sel.drops = sorted(drops, key=lambda s: (s.charge, _norm(s.asset.player_id)))
