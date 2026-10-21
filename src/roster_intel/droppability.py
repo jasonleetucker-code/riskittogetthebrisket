@@ -94,7 +94,7 @@ Pure computation.  No I/O, no network, no clock.
 
 from __future__ import annotations
 
-from typing import Any, Collection, Iterable, Mapping, Sequence
+from typing import Any, Callable, Collection, Iterable, Mapping, Sequence
 
 from src.api.data_contract import contract_slot_eligibility
 from src.draft.context import (
@@ -344,6 +344,8 @@ def pool_cut_ladder(
     scarcity: Mapping[str, Any] | None = None,
     slot_eligibility: Mapping[str, Collection[str]] | None = None,
     max_rungs: int = MAX_LADDER_RUNGS,
+    order_key: Callable[[RosterAsset], Any] | None = None,
+    candidate_ids: Collection[str] | None = None,
 ) -> CutLadder:
     """A cut ladder over an ARBITRARY roster, not one the contract holds.
 
@@ -402,4 +404,8 @@ def pool_cut_ladder(
         # admits anything".  Passing ``{}`` through would empty every ladder.
         slot_eligibility=slot_eligibility or None,
         max_rungs=max_rungs,
+        # Trade-path selection seams (``build_cut_ladder``); ``None`` = the
+        # unchanged ladder.
+        order_key=order_key,
+        candidate_ids=candidate_ids,
     )

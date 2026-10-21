@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, Mapping
 
 from src.valuation_math import fairness_bands, package_model
 
@@ -473,10 +473,75 @@ def _evidence_gaps(
                 count=unpriced_drops,
             )
         )
+    elif "forcedDropCharge" in fd and fd.get("requiresDrops") is True:
+        # Flag ``forced_drop_cheapest_legal`` only (the key is absent when OFF).
+        # A release IS required but its charge is undeterminable (``None``:
+        # e.g. no waiver-level table for an unpriced cut).  The objective treats
+        # a ``None`` charge as uncharged, so without this gap the headline would
+        # silently read as if the cut were free (review F7).  Skipped when the
+        # unpriced-cut gap above already withholds the headline.
+        if fd.get("forcedDropCharge") is None:
+            basis = fd.get("forcedDropChargeBasis") or {}
+            gaps.append(
+                _missing(
+                    "forced_drop_charge_unavailable",
+                    "The roster cut this trade forces cannot be costed, so the cost of the cut is "
+                    "unknown.",
+                    reason=basis.get("reason"),
+                    state=basis.get("state"),
+                )
+            )
     return gaps
 
 
 # ── Components ─────────────────────────────────────────────────────────────
+
+
+def _forced_release_charge_meta(fd: Mapping[str, Any]) -> dict[str, Any]:
+    """Flag ``forced_drop_cheapest_legal`` only: WHAT ``forcedReleaseCost`` is,
+    so a reader never presents a package credit as a player's worth.
+
+    ``forcedReleaseChargeBasis`` — ``release_value`` (every charged cut at its
+    own ``base x scarcity``), ``package_credit_forgone`` (every charged cut is
+    a just-acquired piece, charged the credit the package gave it) or
+    ``mixed``.  ``forcedReleaseChargeState`` — the roster-capacity owner's
+    basis state (``exact`` / ``assumed`` / ``lower_bound`` / ``mixed_bound``),
+    the SAME state the Trade Finder publishes in ``forcedDropCostBasis``.
+    """
+    kinds = {
+        "package_credit_forgone"
+        if (row or {}).get("chargeBasis") == "package_credit_forgone"
+        else "release_value"
+        for row in fd.get("forcedDrops") or []
+    }
+    basis = fd.get("forcedDropChargeBasis") or {}
+    return {
+        "forcedReleaseChargeBasis": (
+            next(iter(kinds)) if len(kinds) == 1 else ("mixed" if kinds else None)
+        ),
+        "forcedReleaseChargeState": basis.get("state"),
+    }
+
+
+def _forced_drop_evidence_extra(fd: Mapping[str, Any]) -> dict[str, Any]:
+    """Flag ``forced_drop_cheapest_legal`` only (empty when OFF, so incumbent
+    evidence is unchanged): what ``forcedDropReleaseCost`` IS beside the number
+    the objective actually subtracts.
+
+    ``forcedDropReleaseCost`` is the GROSS sum of every modelled release at its
+    charge, including releases an over-limit roster owed before the trade; the
+    decision subtracts ``forcedDropCharge`` (marginal to the trade, clamped at
+    0).  Both are published, with the signed marginal, so a reader never takes
+    the gross figure for the charge (a 650 gross against a 350 charge was the
+    review's example, F6).
+    """
+    if "forcedDropCharge" not in fd:
+        return {}
+    return {
+        "forcedDropReleaseCostBasis": "gross_post_trade_cleanup_including_pre_owed",
+        "forcedDropCharge": fd.get("forcedDropCharge"),
+        "forcedDropMarginal": fd.get("forcedDropMarginal"),
+    }
 
 
 def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
@@ -492,7 +557,24 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     fd = feasibility.detail or {}
     release = fd.get("forcedDropReleaseCost")
     charged = None
-    if (
+    charge_meta: dict[str, Any] = {}
+    if "forcedDropCharge" in fd:
+        # Flag ``forced_drop_cheapest_legal``: the ONE charge the roster-capacity
+        # owner publishes (``roster_capacity.forced_drop_cost``) — the same
+        # number the Trade Finder ranks on.  Marginal to the trade, unpriced
+        # drops charged, an acquired release already netted out of the package.
+        # Absent when the flag is OFF, so the incumbent branch below is
+        # unchanged.
+        c = fd.get("forcedDropCharge")
+        if (
+            feasibility.available
+            and isinstance(c, (int, float))
+            and not isinstance(c, bool)
+            and c > 0
+        ):
+            charged = float(c)
+            charge_meta = _forced_release_charge_meta(fd)
+    elif (
         feasibility.available
         and fd.get("state") == "cut_required"
         and fd.get("overLimitBefore") == 0
@@ -515,6 +597,7 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
         "unit": "canonical value points (adjusted package)",
         "vaAdjustedGap": int(round(gap)),
         "forcedReleaseCost": None if charged is None else int(round(charged)),
+        **charge_meta,
         "netGap": int(round(net)),
         "largerAdjustedSide": int(round(larger)),
         "largerPackageUtility": int(round(larger_utility)),
@@ -685,6 +768,7 @@ def _reasons(
                     "state": state,
                     "forcedDrops": names,
                     "forcedDropReleaseCost": fd.get("forcedDropReleaseCost"),
+                    **_forced_drop_evidence_extra(fd),
                 },
             }
         )
@@ -1097,13 +1181,16 @@ def _coverage(
             component="objectiveValue",
             role="gate",
             evidence={
-                k: fd.get(k)
-                for k in (
-                    "state",
-                    "forcedDropReleaseCost",
-                    "ladderExhausted",
-                    "unpricedForcedDrops",
-                )
+                **{
+                    k: fd.get(k)
+                    for k in (
+                        "state",
+                        "forcedDropReleaseCost",
+                        "ladderExhausted",
+                        "unpricedForcedDrops",
+                    )
+                },
+                **_forced_drop_evidence_extra(fd),
             },
             uncertainty={"kind": "none", "value": None},
             contribution={

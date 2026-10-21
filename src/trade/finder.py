@@ -1165,6 +1165,15 @@ def _forced_drop_factor(tc: TradeCandidate, capacity: Any) -> float:
     return factor
 
 
+def _board_package(tc: TradeCandidate) -> Any:
+    """The candidate's board-value package for the roster-capacity owner's
+    package-consistent release (flag ``forced_drop_cheapest_legal`` only;
+    ``None`` otherwise) — ``forced_drop_selection.board_package``."""
+    from src.trade import forced_drop_selection as fds  # noqa: PLC0415
+
+    return fds.board_package(tc.give, tc.receive)
+
+
 def _rerank_with_forced_drop_cost(
     ranked: list[TradeCandidate],
     max_results: int,
@@ -1973,6 +1982,7 @@ def find_trades(
                     capacity_context,
                     incoming_players=player_names_only(tc.receive),
                     outgoing_players=player_names_only(tc.give),
+                    package=_board_package(tc),
                 )
             except Exception:  # noqa: BLE001 — an annotation never drops a trade
                 capacity_by_trade[key] = None

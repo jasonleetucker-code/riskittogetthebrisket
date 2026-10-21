@@ -10122,6 +10122,7 @@ def _generated_trade_team_context(
     def capacity_for(opp, give, receive):
         if capacity_context is None:
             return None, None
+        from src.trade.forced_drop_selection import board_package
         from src.trade.roster_capacity import (
             assess_roster_capacity,
             forced_drop_cost,
@@ -10133,6 +10134,8 @@ def _generated_trade_team_context(
                 capacity_context,
                 incoming_players=player_names_only(receive),
                 outgoing_players=player_names_only(give),
+                # Flag forced_drop_cheapest_legal only (None when OFF).
+                package=board_package(give, receive),
             )
         except Exception:  # noqa: BLE001 — an annotation never drops an offer
             return None, None
