@@ -276,16 +276,24 @@ def measure_registered_source_integrity(
             }
             continue
         cfg = source_paths.get(key)
+        rank_from = ""
         if isinstance(cfg, str):
             rel_path = cfg
             signal = "value"
         elif isinstance(cfg, dict):
             rel_path = str(cfg.get("path") or "")
             signal = str(cfg.get("signal") or "value").lower()
+            rank_from = str(cfg.get("rank_from") or "").lower()
         else:
             rel_path = ""
             signal = "unknown"
 
+        # ``rank_from: value_order`` (DLF Values, owner decision D4): the
+        # source votes as RANK, but its ranks are derived from the published
+        # value order, so the CSV carries a value column and no rank column.
+        # Its integrity is the value column's.
+        derived_rank = signal == "rank" and rank_from == "value_order"
+        basis = "value" if derived_rank else signal
         path = repo_root / rel_path if rel_path else None
         errors: list[str] = []
         warnings: list[str] = []
@@ -320,10 +328,11 @@ def measure_registered_source_integrity(
             value_columns = [name for name in header if _token(name) in value_aliases]
             if not name_columns:
                 errors.append(f"no recognized player/name column in header {header!r}")
-            if signal == "rank" and not rank_columns:
+            if basis == "rank" and not rank_columns:
                 errors.append(f"rank source has no recognized rank column in header {header!r}")
-            if signal == "value" and not value_columns:
-                errors.append(f"value source has no recognized value column in header {header!r}")
+            if basis == "value" and not value_columns:
+                label = "value-order rank source" if derived_rank else "value source"
+                errors.append(f"{label} has no recognized value column in header {header!r}")
 
             seen_names: set[str] = set()
             duplicate_set: set[str] = set()
@@ -341,7 +350,7 @@ def measure_registered_source_integrity(
                         duplicate_set.add(name)
                     seen_names.add(name_key)
 
-                columns = rank_columns if signal == "rank" else value_columns
+                columns = rank_columns if basis == "rank" else value_columns
                 numeric: float | None = None
                 for column in columns:
                     raw_value = str(row.get(column) or "").strip().replace(",", "")
@@ -356,7 +365,7 @@ def measure_registered_source_integrity(
                     signal_rows += 1
                     if numeric == 0:
                         zero_signal_rows += 1
-                    if signal == "rank" and numeric <= 0:
+                    if basis == "rank" and numeric <= 0:
                         errors.append(f"non-positive rank observed: {numeric}")
                         break
                     if (
@@ -374,7 +383,7 @@ def measure_registered_source_integrity(
             if row_count and named_rows < max(1, int(row_count * 0.95)):
                 errors.append(f"name coverage degraded: {named_rows}/{row_count}")
             if row_count and signal_rows < max(1, int(row_count * 0.80)):
-                errors.append(f"numeric {signal} coverage degraded: {signal_rows}/{row_count}")
+                errors.append(f"numeric {basis} coverage degraded: {signal_rows}/{row_count}")
 
             floor = floors.get(key)
             if floor is not None and row_count < int(floor):
@@ -715,12 +724,16 @@ def main() -> int:
         from datetime import datetime as _dt, timezone as _tz  # noqa: PLC0415
 
         from scripts.record_source_datasets import recorded_sources  # noqa: PLC0415
-        from src.sources.freshness import load_source_weightings  # noqa: PLC0415
+        from src.sources.freshness import (  # noqa: PLC0415
+            active_schedule,
+            load_source_weightings,
+        )
 
         weightings = load_source_weightings(
             [k for k, _p, _s in recorded_sources(repo_root)],
             state_dir=repo_root / "data" / "scrape_state",
             as_of=_dt.now(_tz.utc),
+            schedule=active_schedule(),
         )
         for key, sw in weightings.items():
             for subset, sub in sw.subsets.items():

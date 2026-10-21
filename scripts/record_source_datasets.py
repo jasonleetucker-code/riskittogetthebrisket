@@ -68,13 +68,12 @@ PROD_TIMER_OWNED_KEYS: frozenset[str] = frozenset(
 
 #: Sources whose dataset state is recorded BEFORE they are loaded or vote,
 #: because the measurement gate that decides whether they may vote needs their
-#: change history: DLF Trade Analyzer Values (owner directive 2026-09-24).
-#: ``{key: (csv_path, signal)}`` — stated here because such a source is not yet
-#: in ``_SOURCE_CSV_PATHS``.  Recording state never makes a source vote; only
-#: ``_RANKING_SOURCES`` does.
-TRACKED_NON_VOTING_KEYS: dict[str, tuple[str, str]] = {
-    "dlfValuesSfTep": ("CSVs/site_raw/dlfValuesSfTep.csv", "value"),
-}
+#: change history.  ``{key: (csv_path, signal)}`` — stated here only while such
+#: a source is not yet in ``_SOURCE_CSV_PATHS``.  Recording state never makes a
+#: source vote; only ``_RANKING_SOURCES`` does.  Empty since DLF Trade Analyzer
+#: Values was registered (owner closeout 2026-10-18 Decision 4); its state
+#: history continues unchanged under the registered entry.
+TRACKED_NON_VOTING_KEYS: dict[str, tuple[str, str]] = {}
 
 
 def recorded_sources(repo_root: Path = REPO_ROOT) -> list[tuple[str, Path, str]]:
@@ -96,6 +95,13 @@ def recorded_sources(repo_root: Path = REPO_ROOT) -> list[tuple[str, Path, str]]
             rel, signal = cfg, "value"
         elif isinstance(cfg, dict):
             rel, signal = str(cfg.get("path") or ""), str(cfg.get("signal") or "value")
+            if cfg.get("rank_from") == "value_order":
+                # The vote is the VALUE ORDER, so the column the vendor
+                # actually publishes — and the one whose change is a new
+                # publication — is the value column (DLF Trade Analyzer
+                # Values carries no rank column).  Recording it as a rank
+                # board would read FAILED on every fetch.
+                signal = "value"
         else:
             continue
         if rel:

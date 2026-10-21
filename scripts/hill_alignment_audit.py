@@ -1097,7 +1097,14 @@ def dlf_join_probe_spec(rel: str = DLF_VALUES_CSV_REL) -> dict[str, Any]:
     join (``_enrich_from_source_csvs`` -> ``src/identity/resolution``) stamps it on
     the rows it matches. DLF Values is not in ``_RANKING_SOURCES``, so it casts no
     vote; only the join is read from this build (and the caller checks the board
-    did not move)."""
+    did not move).
+
+    Since the owner closeout of 2026-10-18 (Decision 4) DLF Values is a
+    REGISTERED source, so the production build already joins and stamps it; the
+    probe is then the unpatched build (patching its entry to a plain value path
+    would change how a registered rank board is read)."""
+    if DLF_VALUES in dc._SOURCE_CSV_PATHS:
+        return {"kind": "baseline"}
     table = dict(dc._SOURCE_CSV_PATHS)
     table[DLF_VALUES] = rel
     return {"kind": "diagnostic_patch", "patch": ("_SOURCE_CSV_PATHS", table)}
@@ -1106,11 +1113,12 @@ def dlf_join_probe_spec(rel: str = DLF_VALUES_CSV_REL) -> dict[str, Any]:
 def dlf_family_voters() -> list[str]:
     """Every registered voter from DLF Values' provider (B10 correlation group).
 
-    DLF Values is not a registered voter, so ``correlation_group_for`` has no
-    family for it (it returns the key itself). Its provider is DLF, whose family is
-    DLF Rank's (``dlfSf``); that family is the one removed."""
+    Its provider is DLF, whose family is DLF Rank's (``dlfSf``); that family is
+    the one removed.  DLF Values itself is excluded: this audit measures DLF
+    Values AGAINST a board without the rest of DLF (since the owner closeout of
+    2026-10-18 it is a registered member of the same family)."""
     fam = dc.correlation_group_for("dlfSf")
-    return sorted(k for k, f in vr.source_families().items() if f == fam)
+    return sorted(k for k, f in vr.source_families().items() if f == fam and k != DLF_VALUES)
 
 
 def _dlf_rank_space(

@@ -454,6 +454,22 @@ _cache: dict[tuple[str, str, str], tuple[float, dict[str, Any]]] = {}
 _cache_lock = threading.Lock()
 
 
+def drop_expired_payloads_locked(
+    cache: dict[Any, tuple[float, Any]], now: float, ttl: float
+) -> None:
+    """Sweep a ``key -> (stamp, payload)`` memo of entries past ``ttl``.
+
+    Shared by the intel payload memos (memory follow-up 2026-10-20): their
+    expiry was lazy, so an entry stayed resident until the SAME key was asked
+    again or the cap evicted it -- ~350 KB per activity payload, up to its cap
+    of 128.  A reader never returns an entry with ``now - stamp >= ttl``, so
+    dropping those changes no answer.  ``now`` is the putter's request-start
+    clock, which is never later than a concurrent reader's.  Lock held.
+    """
+    for k in [k for k, (stamp, _) in cache.items() if now - stamp >= ttl]:
+        cache.pop(k, None)
+
+
 def cached_manager_profile(
     username: str,
     *,
@@ -480,6 +496,7 @@ def cached_manager_profile(
     )
     if payload.get("status") == STATUS_OK:
         with _cache_lock:
+            drop_expired_payloads_locked(_cache, t, CACHE_TTL_SECONDS)
             if len(_cache) >= _CACHE_MAX_ENTRIES:
                 oldest = min(_cache, key=lambda k: _cache[k][0])
                 _cache.pop(oldest, None)
