@@ -147,7 +147,7 @@ def _side_block(
         "displayName": (
             metrics.display_name_for(snapshot, owner_id) if owner_resolved else "Former manager"
         ),
-        "teamName": metrics.team_name(snapshot, season.league_id, rid),
+        "teamName": metrics.team_name(snapshot, season.league_id, rid, week),
         "points": round(metrics.matchup_points(entry), 2),
         "starters": starters,
         "bench": bench,

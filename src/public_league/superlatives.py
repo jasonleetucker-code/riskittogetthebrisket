@@ -101,13 +101,17 @@ def _activity_counts(snapshot: PublicLeagueSnapshot) -> dict[str, dict[str, int]
     for season in snapshot.seasons:
         for tx in season.trades():
             for rid in tx.get("roster_ids") or []:
-                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                owner_id = metrics.resolve_owner(
+                    snapshot.managers, season.league_id, rid, metrics.tx_week(tx)
+                )
                 if owner_id:
                     out.setdefault(owner_id, {"trades": 0, "waivers": 0})
                     out[owner_id]["trades"] += 1
         for tx in season.waivers():
             for rid in tx.get("roster_ids") or []:
-                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                owner_id = metrics.resolve_owner(
+                    snapshot.managers, season.league_id, rid, metrics.tx_week(tx)
+                )
                 if owner_id:
                     out.setdefault(owner_id, {"trades": 0, "waivers": 0})
                     out[owner_id]["waivers"] += 1
