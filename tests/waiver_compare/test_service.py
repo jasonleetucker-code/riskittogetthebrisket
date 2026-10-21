@@ -176,3 +176,33 @@ def test_roster_failure_after_success_serves_labelled_stale():
 def test_missing_contract_is_503():
     svc, _ = _svc()
     assert svc.payload(None, LEAGUE) == (503, {"ok": False, "error": "values_unavailable"})
+
+
+def test_birth_date_age_beats_the_contract_integer():
+    # Contract says 25 (Sleeper's lagging ``age``); the birth date says 21.
+    nfl = {**NFL, "1": {"full_name": "Owned Star", "birth_date": "2005-01-15"}}
+    assert _payload(nfl_players=nfl)["players"]["1"]["age"] == 21
+
+
+def test_users_failure_keeps_the_last_team_names():
+    now = [0.0]
+    svc, _ = _svc(clock=lambda: now[0])
+    svc.payload(CONTRACT, LEAGUE)
+    svc._fetch_users = _Fetch(("error", None))
+    now[0] = 1000.0
+    status, body = svc.payload(CONTRACT, LEAGUE)
+    assert status == 200 and body["rosters"]["state"] == "live"
+    assert "Zeta Squad" in [t["teamName"] for t in body["teams"]]
+
+
+def test_stale_answer_is_cached_so_an_outage_is_not_hammered():
+    now = [0.0]
+    svc, fr = _svc(clock=lambda: now[0])
+    svc.payload(CONTRACT, LEAGUE)
+    fr.result = ("error", None)
+    now[0] = 1000.0
+    svc.payload(CONTRACT, LEAGUE)
+    calls = fr.calls
+    now[0] = 1010.0
+    assert svc.payload(CONTRACT, LEAGUE)[1]["rosters"]["state"] == "stale"
+    assert fr.calls == calls

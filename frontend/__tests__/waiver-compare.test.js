@@ -129,3 +129,14 @@ describe("unlisted route", () => {
     expect(rules.disallow).toContain("/");
   });
 });
+
+describe("app shell", () => {
+  it("never mounts the private player pipeline on the unlisted page", async () => {
+    const { __routeGates } = await import("@/components/AppShell");
+    expect(__routeGates.privateDataEnabledFor(WAIVER_COMPARE_PATH)).toBe(false);
+    // Unchanged for everything else.
+    expect(__routeGates.privateDataEnabledFor("/rankings")).toBe(true);
+    expect(__routeGates.privateDataEnabledFor("/league")).toBe(false);
+    expect(__routeGates.privateDataEnabledFor("/login")).toBe(false);
+  });
+});

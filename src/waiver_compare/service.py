@@ -114,9 +114,12 @@ def player_record(
         name = valued.name or _sleeper_name(meta)
         position = valued.position or _sleeper_position(meta)
         team = valued.team or meta.get("team")
-        age = _whole(valued.age)
+        # Sleeper's birth_date is exact; the contract's integer ``age`` is
+        # a copy of Sleeper's lagging ``age`` field and can be a year off at
+        # the slider boundary, so it is only the fallback.
+        age = _sleeper_age(meta, today)
         if age is None:
-            age = _sleeper_age(meta, today)
+            age = _whole(valued.age)
         ktc, idptc, value = valued.ktc, valued.idptc, valued.combined
     else:
         name = _sleeper_name(meta)
@@ -294,7 +297,10 @@ class WaiverCompareService:
         kind, rosters = self._fetch_rosters(league_id)
         if kind == "ok" and isinstance(rosters, list) and rosters:
             ukind, users = self._fetch_users(league_id)
-            users = users if ukind == "ok" and isinstance(users, list) else []
+            if not (ukind == "ok" and isinstance(users, list)):
+                # Team names only: keep the last ones we saw rather than
+                # degrading every team to "Team N".
+                users = self._last_good.get(league_id, (None, [], None))[1]
             fetched_at, state = _utc_now_iso(), "live"
             self._last_good[league_id] = (rosters, users, fetched_at)
         elif league_id in self._last_good:
@@ -313,9 +319,10 @@ class WaiverCompareService:
             rosters_state=state,
             value_index=self._index_for(contract),
         )
-        if state == "live":
-            with self._lock:
-                self._cache = (key, now, body)
+        # Stale bodies are cached too: during a Sleeper outage each request
+        # would otherwise re-try Sleeper (and its timeout) in turn.
+        with self._lock:
+            self._cache = (key, now, body)
         return 200, body
 
 
