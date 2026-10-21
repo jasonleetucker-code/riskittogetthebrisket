@@ -144,7 +144,9 @@ def _scoring_summary(
             rid = metrics.roster_id_of(entry)
             if rid is None:
                 continue
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            # The week's manager: weeks before a mid-season hand-off belong
+            # to the outgoing owner, not the roster's current one.
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
             if not owner_id:
                 continue
             pp = entry.get("players_points") or {}
@@ -203,8 +205,11 @@ def _draft_origin(snapshot: PublicLeagueSnapshot, player_id: str) -> dict[str, A
                 if str(p.get("player_id") or "") != pid:
                     continue
                 rid = metrics.roster_id_of(p)
+                # Week 0, as in ``draft._pick_row``: the rookie draft precedes
+                # the season, so a roster handed off mid-season drafted under
+                # its OUTGOING owner — both surfaces must agree.
                 owner_id = (
-                    metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                    metrics.resolve_owner(snapshot.managers, season.league_id, rid, 0)
                     if rid is not None
                     else ""
                 )

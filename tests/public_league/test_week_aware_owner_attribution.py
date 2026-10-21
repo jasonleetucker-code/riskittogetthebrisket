@@ -420,3 +420,128 @@ def test_superlative_activity_counts_follow_the_transaction_week(snap):
     counts = superlatives._activity_counts(snap)
     assert counts[JOEL]["trades"] == 1 and counts[BLAINE]["trades"] == 1
     assert counts[JOHN]["trades"] == 1 and counts[NEW]["trades"] == 1
+
+
+# ── player journey, rookie draft, season awards ─────────────────────────
+#
+# The base fixture carries no players or draft, so these build a variant of
+# it: one player on roster 11 and one on roster 12, started every 2026 week,
+# and a 2026 rookie draft in which both handed-off rosters pick (the draft
+# precedes week 1, so the OUTGOING managers made those picks).
+
+P11 = "journey-p11"
+P12 = "journey-p12"
+R11_PICK = "rookie-r11"
+R12_PICK = "rookie-r12"
+
+
+def _journey_points(pid: str, week: int) -> float:
+    # Week 1 is each player's season low; week 8 the high.
+    return {1: 4.0, 8: 40.0}.get(week, 20.0) + (0.5 if pid == P12 else 0.0)
+
+
+def _journey_snapshot() -> PublicLeagueSnapshot:
+    import dataclasses
+
+    base = _snapshot()
+    s26, s25 = base.seasons
+    matchups = {}
+    for wk, entries in s26.matchups_by_week.items():
+        rows = []
+        for e in entries:
+            e = dict(e)
+            pid = {11: P11, 12: P12}.get(e["roster_id"])
+            if pid:
+                e["players"] = [pid]
+                e["starters"] = [pid]
+                e["players_points"] = {pid: _journey_points(pid, wk)}
+            rows.append(e)
+        matchups[wk] = rows
+    draft_id = "rookie-2026"
+
+    def _pick(rid: int, pick_no: int, pid: str) -> dict:
+        return {
+            "round": 1,
+            "pick_no": pick_no,
+            "roster_id": rid,
+            "player_id": pid,
+            "metadata": {"first_name": "Rookie", "last_name": pid, "position": "WR"},
+        }
+
+    s26 = dataclasses.replace(
+        s26,
+        matchups_by_week=matchups,
+        drafts=[{"draft_id": draft_id, "type": "linear", "status": "complete"}],
+        draft_picks_by_draft={
+            draft_id: [_pick(11, 1, R11_PICK), _pick(12, 2, R12_PICK), _pick(1, 3, "rookie-r1")]
+        },
+    )
+    return dataclasses.replace(base, seasons=[s26, s25])
+
+
+@pytest.fixture(scope="module")
+def jsnap() -> PublicLeagueSnapshot:
+    return _journey_snapshot()
+
+
+@pytest.mark.parametrize(
+    ("pid", "rid", "before", "after", "cutover"),
+    [(P11, 11, JOEL, JOHN, 6), (P12, 12, BLAINE, NEW, 7)],
+)
+def test_player_journey_weeks_belong_to_the_weeks_manager(jsnap, pid, rid, before, after, cutover):
+    from src.public_league import player_journey
+
+    journey = player_journey.build_player_journey(jsnap, pid)
+    season = next(s for s in journey["bySeason"] if s["season"] == "2026")
+    for row in season["weeklyLog"]:
+        assert row["ownerId"] == (before if row["week"] < cutover else after), row
+    by_owner = {r["ownerId"]: r for r in season["byOwner"]}
+    assert by_owner[before]["weeksRostered"] == cutover - 1
+    assert by_owner[after]["weeksRostered"] == 8 - (cutover - 1)
+    pts_before = sum(_journey_points(pid, w) for w in range(1, cutover))
+    assert by_owner[before]["pointsTotal"] == round(pts_before, 2)
+    totals = {r["ownerId"]: r for r in journey["totalsByOwner"]}
+    assert totals[before]["weeksRostered"] == cutover - 1
+    # Week 1 (the low) was the departed manager's; week 8 (the high) the new one's.
+    assert (season["worstWeek"]["week"], season["worstWeek"]["ownerId"]) == (1, before)
+    assert (season["bestWeek"]["week"], season["bestWeek"]["ownerId"]) == (8, after)
+    assert journey["worstWeek"]["ownerId"] == before
+    assert journey["bestWeek"]["ownerId"] == after
+
+
+@pytest.mark.parametrize(
+    ("pid", "drafter", "team"), [(R11_PICK, JOEL, "jstuedle"), (R12_PICK, BLAINE, "ughb")]
+)
+def test_rookie_draft_picks_belong_to_the_outgoing_manager_on_both_surfaces(
+    jsnap, pid, drafter, team
+):
+    from src.public_league import draft, player_journey
+
+    origin = player_journey._draft_origin(jsnap, pid)
+    assert origin["ownerId"] == drafter
+    section = draft.build_section(jsnap)
+    d26 = next(d for d in section["drafts"] if d["season"] == "2026")
+    for rows in (d26["picks"], d26["firstRoundRecap"]):
+        row = next(p for p in rows if p["playerId"] == pid)
+        # ownerId and teamName agree with each other and with the journey.
+        assert (row["ownerId"], row["teamName"]) == (drafter, team)
+    other = next(p for p in d26["picks"] if p["playerId"] == "rookie-r1")
+    assert (other["ownerId"], other["teamName"]) == (JASON, "Jason Team")
+
+
+def test_season_award_team_name_finds_a_departed_managers_roster(jsnap):
+    from src.public_league import awards
+
+    s26, s25 = jsnap.seasons
+    # A departed manager is not on Sleeper's current rosters; the same owner
+    # (ownership.handed_off_roster) supplies the roster, and the name is his
+    # own alias for the league-season, never the successor's team.
+    assert awards._award_team_name(jsnap, s26, JOEL) == "jstuedle"
+    assert awards._award_team_name(jsnap, s26, BLAINE) == "ughb"
+    # Current owners: exactly what metrics.team_name (no week) answers.
+    assert awards._award_team_name(jsnap, s26, JOHN) == JOHN_TEAM
+    assert awards._award_team_name(jsnap, s26, JASON) == metrics.team_name(jsnap, LEAGUE, 1)
+    assert awards._award_team_name(jsnap, s25, OLD11) == "Old Eleven"
+    # A 2026 departed manager held nothing in 2025; an unknown owner nothing.
+    assert awards._award_team_name(jsnap, s25, JOEL) == ""
+    assert awards._award_team_name(jsnap, s26, "") == ""
