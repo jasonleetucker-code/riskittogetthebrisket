@@ -586,6 +586,41 @@ def competitive_posture_for(
     return posture_block_for(postures or {}, meta, team)
 
 
+def _capacity_package(
+    receiving: list[dict[str, Any]],
+    sending: list[dict[str, Any]],
+    unresolved_in: list[str],
+) -> Any:
+    """The trade's package for the roster-capacity owner, or ``None``.
+
+    Only under flag ``forced_drop_cheapest_legal`` (``None`` otherwise, which
+    the owner ignores anyway).  Built from exactly what the market lens prices
+    (``trade_decision.asset_is_priced`` over these same ``receiving`` /
+    ``sending`` lists), so a just-acquired release removed from it changes the
+    gap by exactly what ``analyze_trade.equity_verdict`` would.
+    """
+    from src.trade import forced_drop_selection as fds  # noqa: PLC0415
+
+    if not fds.enabled():
+        return None
+    from src.trade.trade_decision import asset_is_priced  # noqa: PLC0415
+
+    def _value(a: dict[str, Any]) -> Any:
+        return a.get("value") if asset_is_priced(a) else None
+
+    def _is_player(a: dict[str, Any]) -> bool:
+        return str(a.get("assetClass") or "").lower() != "pick" and a.get("pos") != "PICK"
+
+    return fds.package_sides(
+        sending,
+        receiving,
+        value_of=_value,
+        is_player=_is_player,
+        label_of=lambda a: a.get("sourceLabel") or a.get("name"),
+        uncredited_labels=unresolved_in,
+    )
+
+
 def simulate_trade(
     contract: dict[str, Any],
     *,
@@ -1049,6 +1084,7 @@ def simulate_trade(
                 capacity_context,
                 incoming_players=players_in,
                 outgoing_players=capacity_out,
+                package=_capacity_package(receiving, sending, unresolved_in),
             )
             response["rosterCapacity"] = capacity.to_dict()
         except Exception as exc:  # noqa: BLE001

@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 58 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 59 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -820,6 +820,19 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Rollback if ever switched on: RISKIT_FEATURE_PLAYOFF_ROS_COUNTED_ONCE=0
     # + restart.
     "playoff_ros_counted_once": False,
+    # Owner decision 2026-10-20 §2 (forced-drop correctness fix, CANDIDATE).
+    # ``src/trade/forced_drop_selection.py``, read by
+    # ``roster_capacity.assess_roster_capacity``: ON, a trade's forced release
+    # is the cheapest LINEUP-LEGAL cut by the same ``base x scarcity`` it is
+    # charged (no alphabetical choice among sub-waiver players), a
+    # just-acquired piece released is removed from the package rather than
+    # charged its raw value, unpriced drops are charged (never excluded) by
+    # every surface, and the charge is marginal to the trade.  OFF serves the
+    # incumbent byte for byte (tests/trade/test_forced_drop_flag_off_identity.py).
+    # OFF until the owner approves the measured production impact
+    # (docs/trade/FORCED_DROP_FIX_2026-10-20.md §8).  Rollback if ever on:
+    # RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL=0 + restart.
+    "forced_drop_cheapest_legal": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -1142,6 +1155,11 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``rosChampionship``: on, the corrected ROS-once equation; off, the
     # incumbent (Owner Decision 11).
     "playoff_ros_counted_once": LIVE,
+    # ``src/trade/forced_drop_selection.enabled`` — read by
+    # ``roster_capacity.assess_roster_capacity`` on every trade-capacity read
+    # (``/api/trade/simulate``, ``/api/trade/analyze``, ``/api/trade/finder``,
+    # ``/api/angle/*``, suggestions, best offers).  Defaults False.
+    "forced_drop_cheapest_legal": LIVE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger
