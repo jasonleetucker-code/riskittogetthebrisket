@@ -1,5 +1,14 @@
 name: V1 Authenticated Production Verification (ephemeral guest session)
 
+# Commit-to-verification attribution: a run that is named only "V1 ..." cannot
+# be tied to the deploy it verifies without opening its log (the head_sha GitHub
+# shows for a workflow_run is main's tip at trigger time, NOT the deploy's).
+# Informational only; no gate reads the run name.
+run-name: >-
+  V1 verify ${{ github.event_name == 'workflow_run'
+  && format('deploy run {0} @ {1}', github.event.workflow_run.id, github.event.workflow_run.head_sha)
+  || format('manual dispatch @ {0}', github.sha) }}
+
 # The one generic primitive the §9a packet-A tranche was blocked on: an
 # authenticated production session, produced by EXISTING authorized
 # infrastructure instead of an owner grant.
@@ -120,6 +129,8 @@ jobs:
           EXPECTED_SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
           PROD_PUBLIC_URL: ${{ vars.PROD_PUBLIC_URL }}
           BASELINE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
+          DEPLOY_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
+          DEPLOY_COMPLETED_AT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.updated_at || '' }}
         run: |
           set -Eeuo pipefail
           if [ -z "${EXPECTED_SOURCE_SHA:-}" ]; then
@@ -139,6 +150,13 @@ jobs:
             exit 1
           fi
           echo "ORIGIN=${PROD_PUBLIC_URL%/}" >> "$GITHUB_ENV"
+          # Inputs to the report-only failure classifier (scripts/v1_failure_classifier.py):
+          # which revision this run MEANT to verify, which deploy produced it,
+          # and how long it queued behind other production work.  Public values.
+          echo "V1_EXPECTED_SHA=$EXPECTED_SOURCE_SHA" >> "$GITHUB_ENV"
+          echo "V1_JOB_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          echo "V1_DEPLOY_RUN_ID=${DEPLOY_RUN_ID}" >> "$GITHUB_ENV"
+          echo "V1_DEPLOY_COMPLETED_AT=${DEPLOY_COMPLETED_AT}" >> "$GITHUB_ENV"
 
       - name: Configure production SSH
         env:
@@ -355,6 +373,7 @@ jobs:
           python3 - "$ORIGIN" <<'PYEOF'
           import json
           import os
+          import re
           import sys
           import time
           import urllib.error
@@ -397,10 +416,27 @@ jobs:
           _code, status, _took = get("/api/status", 60)
           started = ((status or {}).get("build") or {}).get("process_started_at")
           started = started if isinstance(started, str) else ""
+          # Which commit production is RUNNING (public /api/status build.commit,
+          # read once at process start).  The same request as above -- no extra
+          # load.  Only a full 40-hex SHA is kept; anything else is unknown.
+          commit = ((status or {}).get("build") or {}).get("commit")
+          commit = commit if isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit) else ""
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
               out.write(f"backend_warm={'true' if warm else 'false'}\n")
               out.write(f"backend_started_at={started}\n")
-          print(f"backend warm={warm} process_started_at={started or 'unknown'}")
+              out.write(f"backend_commit={commit}\n")
+          print(f"backend warm={warm} process_started_at={started or 'unknown'} commit={commit or 'unknown'}")
+          expected = os.environ.get("V1_EXPECTED_SHA", "")
+          # Report-only.  The specs of THIS checkout are being run against
+          # whatever production serves; when that is a different revision the
+          # run cannot verify the deploy that triggered it (a V1 run queued
+          # 66-86 min behind a newer deploy ran against that deploy's process).
+          if commit and expected and commit != expected:
+              print(
+                  "::warning title=Production revision differs from the verified revision::"
+                  f"specs are from {expected[:12]} but production runs {commit[:12]}; "
+                  "this run's verdict is not a verdict on the triggering deploy"
+              )
           if not warm:
               print(
                   "::warning title=Backend not warm::production did not answer /api/health "
@@ -522,6 +558,7 @@ jobs:
       # and its revoke proof to a restart at 08:42:49 that nothing in the log
       # named.  Public /api/status only; never fails the job.
       - name: Detect a backend restart during the run (public /api/status)
+        id: restart
         if: ${{ always() && steps.mint.outputs.pass_id != '' }}
         continue-on-error: true
         shell: bash
@@ -532,19 +569,30 @@ jobs:
           python3 - "$ORIGIN" <<'PYEOF'
           import json
           import os
+          import re
           import sys
           import urllib.request
 
           origin = sys.argv[1]
           before = os.environ.get("STARTED_BEFORE") or ""
           after = ""
+          commit_after = ""
           try:
               with urllib.request.urlopen(origin + "/api/status", timeout=60) as resp:
                   body = json.loads(resp.read())
-              value = ((body or {}).get("build") or {}).get("process_started_at")
+              build = (body or {}).get("build") or {}
+              value = build.get("process_started_at")
               after = value if isinstance(value, str) else ""
+              commit = build.get("commit")
+              commit_after = commit if isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit) else ""
           except Exception:  # noqa: BLE001 -- unknown, never "no restart"
               after = ""
+          # Report-only inputs to scripts/v1_failure_classifier.py.  The restart
+          # INSTANT is what lets a restart be attributed to the one test it
+          # overlapped, rather than to every failure in the run.
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"backend_started_after={after}\n")
+              out.write(f"backend_commit_after={commit_after}\n")
           if not before or not after:
               print(f"backend restart during run: unknown (before={before or 'unknown'}, now={after or 'unknown'})")
           elif before != after:
@@ -697,6 +745,37 @@ jobs:
           echo "security_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Security acceptance exit: $rc (0 pass · 2 fail or inconclusive)"
 
+      # REPORT-ONLY failure classification (scripts/v1_failure_classifier.py;
+      # taxonomy in docs/ops/V1_VERIFICATION_TAXONOMY.md).  It reads only the
+      # sanitized prod-auth report, the two security-probe JSONs (status codes
+      # and booleans) and public values from earlier steps, and writes
+      # v1-failure-classification.json + a step summary.  It is NOT a gate:
+      # continue-on-error, nothing below reads its output, and the verdict is
+      # still decided by the next step and by the security acceptance step.
+      # No secret is passed to it.
+      - name: Classify failures (report-only, never a gate)
+        id: classify
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        env:
+          V1_JOB_STATUS: ${{ job.status }}
+          V1_BACKEND_WARM: ${{ steps.warm.outputs.backend_warm }}
+          V1_COMMIT_BEFORE: ${{ steps.warm.outputs.backend_commit }}
+          V1_STARTED_BEFORE: ${{ steps.warm.outputs.backend_started_at }}
+          V1_COMMIT_AFTER: ${{ steps.restart.outputs.backend_commit_after }}
+          V1_STARTED_AFTER: ${{ steps.restart.outputs.backend_started_after }}
+          V1_LOGIN_OUTCOME: ${{ steps.login.outcome }}
+          V1_BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/v1_failure_classifier.py classify \
+            --safe-report tests/e2e/prod-auth-results.json \
+            --probe-login "$RUNNER_TEMP/security_probe_login.json" \
+            --probe-pre-revoke "$RUNNER_TEMP/security_probe_pre_revoke.json" \
+            --out v1-failure-classification.json \
+            --step-summary "$GITHUB_STEP_SUMMARY"
+
       - name: Fail the job on API/lane4/browser verdicts
         shell: bash
         env:
@@ -759,6 +838,7 @@ jobs:
             production-route-baselines.json
             v1-auth-report.json
             security-acceptance.json
+            v1-failure-classification.json
             lane4-remote.json
             tests/e2e/prod-auth-results.json
           if-no-files-found: warn

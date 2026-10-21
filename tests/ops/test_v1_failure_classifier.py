@@ -651,6 +651,26 @@ def test_environment_assembly_computes_queue_wait_and_drops_hostile_values():
     assert report["run"]["queueWaitSeconds"] == 5175
 
 
+def test_a_green_job_status_with_failed_browser_tests_is_reported_as_the_failure_the_verdict_step_will_raise():
+    """The Playwright step records its exit code, so job.status is still success when this runs."""
+    env = {"V1_JOB_STATUS": "success", "V1_BROWSER_OUTCOME": "success"}
+    failing = vfc.evidence_from_environment(
+        env, safe_report={"tests": [_t(ms=900)]}, probe_login=None, probe_pre_revoke=None
+    )
+    assert failing["run"]["conclusion"] == "failure"
+    passing = vfc.evidence_from_environment(
+        env,
+        safe_report={"tests": [_t(status="passed", cls=None)]},
+        probe_login=None,
+        probe_pre_revoke=None,
+    )
+    assert passing["run"]["conclusion"] == "success"
+    cancelled = vfc.evidence_from_environment(
+        {"V1_JOB_STATUS": "cancelled"}, safe_report=None, probe_login=None, probe_pre_revoke=None
+    )
+    assert cancelled["run"]["conclusion"] == "cancelled"
+
+
 def test_a_probe_that_errored_does_not_count_as_unauthenticated():
     assert vfc._probe_authenticated({"authenticated": False, "probeError": True}) is None
     assert vfc._probe_authenticated({"authenticated": False, "probeError": False}) is False

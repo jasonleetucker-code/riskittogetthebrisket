@@ -886,9 +886,15 @@ def evidence_from_environment(
     queue_wait = int((started - deploy_done).total_seconds()) if started and deploy_done else None
     browser_outcome = e("V1_BROWSER_OUTCOME") or None
     tests = tests_from_safe_report(safe_report) if safe_report else []
+    conclusion = e("V1_JOB_STATUS") or None
+    # The Playwright step records its exit code instead of failing, so
+    # ``job.status`` is still "success" when this runs even though the verdict
+    # step that follows will fail the job.  Report what that step will decide.
+    if conclusion == "success" and any(t.get("status") in _FAILED_STATUSES for t in tests):
+        conclusion = "failure"
     return {
         "run": {
-            "conclusion": e("V1_JOB_STATUS") or None,
+            "conclusion": conclusion,
             "deployRunId": _int(int(e("V1_DEPLOY_RUN_ID")))
             if e("V1_DEPLOY_RUN_ID").isdigit()
             else None,
