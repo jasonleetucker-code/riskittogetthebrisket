@@ -44,7 +44,7 @@ scarcity and Component B ... must report the currency anomaly in BOTH directions
   team names, owner names, usernames). Per-trade and per-team detail (examples, illustrations, per-team finder rows) is
   dropped before the check. The repository is public.
 * **What it adds over the local replay.** (1) the scarcity multipliers this host actually resolves
-  (`scarcityObserved`); (2) Component B (the roster-utility lens) and posture as the box has them — a second census
+  (`scarcityObserved`; 1.0 at every position on production, by construction, see §8); (2) Component B (the roster-utility lens) and posture as the box has them — a second census
   decided with the real lens instead of the not-applicable stand-in (`componentBCensus`); (3) both currency-anomaly
   directions, forward and reverse, in all four designs (`currencyAnomalyDirections` and inside
   `warRoom` / `census`); (4) the single-source stress (`singleSourceStress`): the census with every single-source
@@ -167,7 +167,11 @@ import json, sys
 r = json.load(open(sys.argv[1]))
 assert r["provenance"]["pinsMatch"] is True, "pins"
 s = r["scarcityObserved"]
-assert s["inert"] is False and 0.85 <= s["min"] <= s["max"] <= 1.15, ("scarcity", s)
+# Owner decision 2026-10-21 (amended gate): production scarcity is inert by construction (no free agents
+# reach compute_scarcity, so waiver_scarcity is None and every multiplier is 1.0; LI-5 D8 keeps it inert).
+# Inert is EXPECTED.  What the gate still refuses: a scarcity read that did not load at all (the guard or a
+# missing input degrading league_scarcity to None, which reports 0 positions) or a multiplier out of range.
+assert s["positions"] > 0 and 0.85 <= s["min"] <= s["max"] <= 1.15, ("scarcity", s)
 assert r["readOnlyGuard"]["refusedWriteOrProcessAttempts"] == 0, "guard"
 b = r["componentBCensus"]["componentBState"]["off"]
 assert b.get("B available", 0) > 0, ("component B", b)
@@ -225,7 +229,7 @@ Paths are into `forced_drop_box_replay.json`. "Local" is the committed `replay.j
 | `provenance.pinsMatch` | — | — | `true` (else the run did not happen) |
 | `provenance.builtBoardSha256` / `csvTreeSha256` / `archiveSha256` | `eed8df11…` / `31687c60…` / `f660098f…` | | identical (they are pins) |
 | `fairnessBands.version` · `packageModel.id` | `fairness_bands_v2` · `geom_q078_v1` | | identical |
-| `scarcityObserved.inert` · `.min` · `.max` | `true` · 1.0 · 1.0 | | **`false`**, spread inside 0.85–1.15 — otherwise the box did not resolve scarcity and the run is not the test it was prepared for |
+| `scarcityObserved.positions` · `.inert` · `.min` · `.max` | — · `true` · 1.0 · 1.0 | | **`positions` > 0** (the league scarcity read loaded through the guard) and every multiplier inside 0.85–1.15. **Inert (1.0) is production's served state** (amended 2026-10-21; see §8), so the box measures the same scarcity users get |
 | `warRoom.analyzeVerdicts.publicCategoryChanged` (V5) · `warRoom.analyzeVerdictsRosterRational.…` (V5-R) | 109 | 105 | with real scarcity; large moves are sensitivity (verdict analysis §8) |
 | `census.counts.publicCategoryChanged` (V5) · `census.rosterRational.counts.…` (V5-R) | 125 | 127 | same |
 | `census.counts.chargeChanged` / `.dropSetChanged` | 174 / 174 | 174 / 174 | |
@@ -281,7 +285,7 @@ Stop (do not activate the flag; send the finding to the coordinator) if any of t
 4. **Category changes that depend on the single-source tail.** If `singleSourceStress` shows the ON verdicts collapsing
    (the favourable count falling by more than half, as in the local stress) *and* the owner is not prepared to accept
    the cheap-tail values as real, the correction is not established — the verdict analysis' class A rests on it.
-5. **`scarcityObserved.inert` is `true`**, or a multiplier is outside 0.85–1.15: the run did not test what it was for.
+5. **`scarcityObserved.positions` is 0** (the scarcity read degraded: guard refusal or a missing input), or a multiplier is outside 0.85–1.15. *Amended 2026-10-21 by owner decision:* `inert: true` is NOT a stop. Production scarcity is inert by construction (LI-5 design §2.3; owner decision D8 keeps it inert), so the box resolves 1.0 exactly as served. Consequence, stated rather than hidden: scarcity effects cannot be measured because production has none, and V5's reverse anomaly stays structurally 0.
 6. **`componentBCensus.componentBState` shows Component B unavailable on almost every trade**: the box did not
    resolve the lens; the headline is still the stand-in.
 7. **A new evidence gap** appears with the flag ON (`evidenceGapTransitions` lists a gap the OFF side did not have,
@@ -306,6 +310,8 @@ Stop (do not activate the flag; send the finding to the coordinator) if any of t
 * The same pinned command can be re-run later (new board) only by changing the pins together, with the coordinator.
 
 ## 8. Status
+
+**Box rehearsal, 2026-10-21 (20:08–20:27 UTC), owner-authorized: stopped at the scarcity gate; the full run did NOT execute.** Deployed `408742c99`; all eight pins matched; guard self-test clean; `refusedWriteOrProcessAttempts` 0; Component B available on 70 of 70 census trades; posture on 64 of 70. `scarcityObserved` reported 8 positions, every multiplier 1.0, `inert: true`. The gate's premise (that the box would resolve non-inert scarcity) was wrong: `gameplan.py` calls `compute_scarcity` with no free agents, so `waiver_scarcity` is `None` and `displacement.scarcity_multiplier` returns 1.0 (#1888 had already measured `servedMultiplierByPosition` at 1.0). The owner chose to amend the gate rather than hold the replay; the rehearsal's aggregate report is committed as evidence (`docs/trade/evidence/forced_drop_fix_2026-10-20/box_rehearsal_2026-10-21.json`). The read-only guard, every pin, the Component B gate and the deploy-window checks are unchanged.
 
 **Prepared. Not run. Requires owner authorization.**
 
