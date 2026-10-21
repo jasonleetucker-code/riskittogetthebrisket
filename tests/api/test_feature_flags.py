@@ -116,16 +116,30 @@ def test_every_flag_defaults_off_except_safe_additive():
         # 4 top-200 membership changes; IDP and picks unchanged.  Rollback:
         # RISKIT_FEATURE_SOURCE_UNIVERSE_FRESHNESS=0.
         "source_universe_freshness",
-        # Owner directive 2026-10-16 ("DLF vote is offense-only"): the DLF IDP
-        # boards (dlfIdp, dlfRookieIdp) are held from the vote.  Blast radius
-        # MEASURED on the 2026-10-16 export (scripts/board_diff.py, golden
-        # capture ON vs OFF): 213 values move — 175 IDP, 37 current-year
-        # (2027) slot picks that re-tether to the merged rookie pool, and
-        # Travis Hunter via the two-way boost's IDP alt-family value; no other
-        # offense value; 0 rows newly unpriced, 0 zeroed; 65 IDP confidence
-        # buckets flip (34 up, all where DLF IDP itself was the disagreeing /
-        # stale family; 31 down).  Rollback:
-        # RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart.
+        # Owner closeout 2026-10-18 as amended by the owner's source-voting
+        # directive of 2026-10-19 (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md;
+        # measured by scripts/source_voting_consensus_evidence.py on the
+        # 2026-10-19 production board vs main b08f7230d1).  Two-way alt-evidence
+        # fix: Travis Hunter only (3738 -> 3599 with The IDP Show withheld), no
+        # other row.  D5: FantasyPros IDP on its upstream clock -- 0 values today
+        # (labels / freshness axes only).  Rollback for each:
+        # RISKIT_FEATURE_<NAME>=0 + restart.  (D4, dlf_values_rank_hill_vote, is
+        # HELD OFF by the owner -- see ``off_only``.)
+        "two_way_alt_evidence_rules",
+        "fantasypros_idp_upstream_clock",
+        # DLF IDP restore HELD AT RELEASE (temporary, re-applied 2026-10-19).
+        # The owner rescinded the 2026-10-16 policy hold ("DLF vote is
+        # offense-only") and approved the restore in the universal
+        # source-voting directive of 2026-10-19; the restore is implemented
+        # (flag OFF) but held because under the incumbent outlier filter it
+        # drops 31 valid Draft Sharks IDP / FantasyPros IDP / IDPTC votes on 30
+        # rows (7 IDP moves of 34-54%, none from DLF's own vote), which the
+        # same directive forbids (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md).
+        # ON = main's DLF IDP behaviour (decision fields identical to main with
+        # the other PR flags off).  LOCKED by the owner's Option 3 decision
+        # (2026-10-20): lifts only with explicit owner approval after outlier-
+        # filter Version 2 passes every mandatory gate
+        # (tests/api/test_dlf_idp_hold_locked.py).
         "dlf_offense_only_vote",
         # Owner addendum 2026-10-03: Signals' authenticated native values vote
         # (value-ordered rank, FantasyCalc family).  Inert wherever the
@@ -243,6 +257,24 @@ def test_every_flag_defaults_off_except_safe_additive():
         # a passing re-run: flipping it means moving this line, which
         # means writing down which measurement changed.  See ADR-023.
         "consensus_edge",
+        # DLF Values offense voting (D4).  HELD by the owner's decision of
+        # 2026-10-20 ("Hold D4 for V2"): under the incumbent outlier filter it
+        # newly drops other sources' valid votes on 12-13 offense rows (Theo
+        # Johnson -7.4%).  Activates only with explicit owner approval after
+        # outlier-integrity-v2 passes; tests/api/test_dlf_values_hold_locked.py
+        # is the lock.  (Measured when ON, 2026-10-19 board: 299 offense values
+        # move, p90 1.7%, max 5.1%, + 36 tethered picks.)
+        "dlf_values_rank_hill_vote",
+        # The owner's universal freshness step schedule.  Implementation and
+        # percentages APPROVED; ACTIVATION HELD by the owner's decision of
+        # 2026-10-20 on PR #1831 (Option B): under the incumbent outlier
+        # filter a changed voting population can remove legitimate votes,
+        # which outlier-integrity-v2 exists to fix.
+        # tests/api/test_freshness_v2_hold_locked.py is the lock.  (Measured
+        # when ON on the 2026-10-19 export, scripts/freshness_schedule_impact.py:
+        # 918 of 1,029 priced values move, median |d| 0.91%, p90 3.60%, max
+        # 42.86% -- LaJohntay Wester -- and 3 deep IDP rows newly unpriced.)
+        "source_freshness_schedule_v2",
     }
     assert not (safe_on & value_moving_on), "a flag cannot be both no-change and value-moving"
     for name, value in flags.items():

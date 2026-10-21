@@ -1053,6 +1053,7 @@ def cached_manager_career(
     payload = build_manager_career(username, contract=contract, scope=scope, now=now, **kwargs)
     if payload.get("status") == mp.STATUS_OK:
         with _cache_lock:
+            mp.drop_expired_payloads_locked(_cache, t, PAYLOAD_TTL_SECONDS)
             if len(_cache) >= _PAYLOAD_MAX_ENTRIES:
                 oldest = min(_cache, key=lambda k: _cache[k][0])
                 _cache.pop(oldest, None)
