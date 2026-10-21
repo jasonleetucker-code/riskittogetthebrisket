@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Avatar, Card, MeetingCard, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints, nameFor } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
+import { leagueHomeHref } from "@/app/league/advisor-bootstrap";
 import ShareButton from "../../ShareButton.jsx";
 
 function _backend() {
@@ -81,7 +82,7 @@ export async function generateMetadata({ params }) {
 export default async function RivalryPage({ params }) {
   const { pair } = await params;
   const { a, b } = parsePairSlug(pair);
-  const data = await fetchRivalries();
+  const [data, leagueHome] = await Promise.all([fetchRivalries(), leagueHomeHref()]);
   const managers = buildManagerLookup(data?.league);
   const detail = findDetail(data, a, b);
 
@@ -111,7 +112,7 @@ export default async function RivalryPage({ params }) {
     <section>
       <div className="card">
         <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
-          <Link href="/league" style={{ color: "var(--cyan)" }}>← League home</Link>
+          <Link href={leagueHome} style={{ color: "var(--cyan)" }}>← League home</Link>
           {" · "}
           <Link href="/league?tab=rivalries" style={{ color: "var(--cyan)" }}>All rivalries</Link>
         </div>

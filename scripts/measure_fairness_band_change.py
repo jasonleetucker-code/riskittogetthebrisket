@@ -27,6 +27,24 @@ Usage::
     python scripts/measure_fairness_band_change.py \
         --export exports/latest/dynasty_data_2026-10-17.json \
         --out docs/trade/tc-c-fairness-band-impact/results.json
+
+``--compare v1-v2`` (fairness_bands_v2, owner decisions 2026-10-20) measures
+the denominator change instead: OLD = v1's base, the larger ADJUSTED side
+(:func:`v1_basis` swaps ``fairness_bands.larger_package_utility``, which every
+consumer reads its base through); NEW = the committed owner (larger PACKAGE
+UTILITY).  Same cut points, same floor, same gap.  Inputs are pinned to a git
+revision (``--pin-rev``) so the run is reproducible after the board moves::
+
+    python scripts/measure_fairness_band_change.py --compare v1-v2 \
+        --pin-rev 1511ca1d08 --export exports/latest/dynasty_data_2026-10-20.json \
+        --out docs/trade/fairness-bands-v2-impact/results.json
+
+It reports (a) the real own-league trades (per-team results), (b) a synthetic
+grid (1-for-1, deep packages, picks R4-R6, IDP), (c) each live consumer -- the
+private Asset-Only verdict, the /trade meter (through the JS library itself,
+``scripts/measure_fairness_band_meter.mjs``), Best Offers, the Package Builder
+and the suggestions badge -- and (d) League Hub trade-history grades that
+disagree with v2 ``fair`` (OD-F6 input; the history grade is not changed).
 """
 
 from __future__ import annotations
@@ -34,8 +52,12 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import random
+import re
+import subprocess
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -49,9 +71,12 @@ from src.trade import best_offers as bo  # noqa: E402
 from src.trade import package_builder as pb  # noqa: E402
 from src.trade import suggestions as sg  # noqa: E402
 from src.valuation_math import fairness_bands as fb  # noqa: E402
+from src.valuation_math import package_model  # noqa: E402
 from src.valuation_math.package_model import adjusted_pair_totals  # noqa: E402
 
 IDP = {"DL", "LB", "DB", "DE", "DT", "CB", "S", "EDGE", "IDP"}
+#: The committed (v2) denominator, held before any context swaps it.
+REAL_LARGER_PACKAGE_UTILITY = fb.larger_package_utility
 #: "Small package" for this report: the larger adjusted side is under 3,000
 #: canonical points (roughly one mid-tier starter).  A reporting cut only.
 SMALL_PACKAGE = 3000
@@ -71,6 +96,14 @@ def old_bands():
         yield
     finally:
         fb.classify = real
+
+
+#: What the OLD side of a comparison runs under.  ``--compare tcc`` (the
+#: default, the original TC-C measurement): the retired absolute band and Best
+#: Offers' band-win-only rule.  ``--compare v1-v2``: fairness_bands_v1's
+#: denominator (:func:`v1_basis`) with everything else as committed.  Bound in
+#: :func:`main`.
+OLD: dict[str, Any] = {}
 
 
 @contextlib.contextmanager
@@ -104,6 +137,7 @@ def _asset_tags(assets: list[Any]) -> set[str]:
 def _character(give_vals: list[float], recv_vals: list[float], tags: set[str]) -> dict[str, Any]:
     g_adj, r_adj, _, _ = adjusted_pair_totals(give_vals, recv_vals)
     larger = max(g_adj, r_adj)
+    larger_u = REAL_LARGER_PACKAGE_UTILITY(give_vals, recv_vals)
     gap = r_adj - g_adj
     return {
         # unequal piece counts: one side consolidates
@@ -111,6 +145,7 @@ def _character(give_vals: list[float], recv_vals: list[float], tags: set[str]) -
         "larger": round(larger),
         "gap": round(gap),
         "relativePct": round(abs(gap) / larger * 100, 2) if larger > 0 else None,
+        "relativePctUtility": round(abs(gap) / larger_u * 100, 2) if larger_u > 0 else None,
         "small": larger < SMALL_PACKAGE,
         "idp": "idp" in tags,
         "pick": "pick" in tags,
@@ -163,7 +198,7 @@ class _Recorder:
 
         def wrapped(sending, receiving):
             new = real(sending, receiving)
-            with old_bands():
+            with OLD["bands"]():
                 old = real(sending, receiving)
             key = (tuple(sorted(sending)), tuple(sorted(receiving)))
             if key not in rec.seen:
@@ -349,7 +384,7 @@ def measure_qualification(players, teams, contract) -> dict[str, Any]:
         modes = {}
         for mode in ("new", "old"):
             rows: dict[tuple, dict] = {}
-            ctx = old_rules() if mode == "old" else contextlib.nullcontext()
+            ctx = OLD["rules"]() if mode == "old" else contextlib.nullcontext()
             with ctx:
                 for team in teams:
                     me = team["name"]
@@ -421,7 +456,7 @@ def measure_best_offers(players, teams, contract) -> dict[str, Any]:
             if v["new"] != v["old"]:
                 row = _character(v["sending"], v["receiving"], v["tags"])
                 (flips_gained if v["new"] else flips_lost).append(row)
-        with old_rules():
+        with OLD["rules"]():
             res_old = bo.build_best_offers(
                 players, me, teams, contract=contract, use_team_context=False
             )
@@ -485,7 +520,7 @@ def measure_package_builder(players, teams, contract) -> dict[str, Any]:
             )
             with _Recorder(pb, "not_opposes") as rec:
                 new = pb.build_packages(players, team["name"], teams, **kwargs)
-            with old_bands():
+            with OLD["bands"]():
                 old = pb.build_packages(players, team["name"], teams, **kwargs)
             for v in rec.seen.values():
                 cand["judged"] += 1
@@ -553,7 +588,7 @@ def measure_suggestions(teams, contract) -> dict[str, Any]:
     drop_ex, add_ex = [], []
     for team in teams:
         new = {x["key"]: x for x in run(team)}
-        with old_bands():
+        with OLD["bands"]():
             old = {x["key"]: x for x in run(team)}
         for k in new.keys() & old.keys():
             kept += 1
@@ -609,11 +644,8 @@ def _sugg_character(s: dict[str, Any], by_key: dict[str, Any]) -> dict[str, Any]
     return _character([p.display_value for p in give], [p.display_value for p in recv], tags)
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--export", default="exports/latest/dynasty_data_2026-10-17.json")
-    ap.add_argument("--out", required=True)
-    args = ap.parse_args()
+def main_tcc(args: argparse.Namespace) -> int:
+    OLD.update(bands=old_bands, rules=old_rules)
     raw = json.loads((REPO / args.export).read_text(encoding="utf-8"))
     contract = build_api_data_contract(raw)
     players = contract["players"]
@@ -644,6 +676,455 @@ def main() -> int:
     out.write_text(json.dumps(result, indent=1, default=list) + "\n", encoding="utf-8")
     print(f"written {out}")
     return 0
+
+
+# ── --compare v1-v2 (fairness_bands_v2, owner decisions 2026-10-20) ─────────
+
+LEVEL_ORDER = {lvl: i for i, lvl in enumerate(fb.LEVELS)}
+_FROM = re.compile(r"\s*\(from [^)]*\)\s*$", re.I)
+_PICK = re.compile(r"^\d{4}\s")
+_LATE_PICK = re.compile(
+    r"(Round [456]$|Pick [456]\.\d\d$|Early [456]th$|Mid [456]th$|Late [456]th$)"
+)
+
+
+@contextlib.contextmanager
+def v1_basis():
+    """fairness_bands_v1's denominator: the larger ADJUSTED side.  Same owner,
+    same cut points, same floor, same gap -- only the base differs.  Every
+    consumer reads its base through ``fairness_bands.larger_package_utility``
+    (or ``classify_packages``, which calls it), so swapping that one function
+    re-runs every surface under v1."""
+
+    def v1(side_a, side_b, *, model_id=None):
+        a_adj, b_adj, _, _ = package_model.adjusted_pair_totals(
+            list(side_a), list(side_b), model_id=model_id
+        )
+        return fb.fairness_base([a_adj, b_adj])
+
+    fb.larger_package_utility = v1
+    try:
+        yield
+    finally:
+        fb.larger_package_utility = REAL_LARGER_PACKAGE_UTILITY
+
+
+def _git(rev: str, *args: str) -> bytes:
+    return subprocess.run(["git", *args], cwd=REPO, check=True, capture_output=True).stdout
+
+
+def _pinned_json(rev: str | None, path: str) -> tuple[Any, dict[str, str]]:
+    if rev:
+        blob = _git(rev, "rev-parse", f"{rev}:{path}").decode().strip()
+        data = json.loads(_git(rev, "show", f"{rev}:{path}"))
+        return data, {"path": path, "rev": rev, "blob": blob}
+    raw = (REPO / path).read_bytes()
+    blob = (
+        subprocess.run(
+            ["git", "hash-object", "--stdin"], input=raw, capture_output=True, check=True, cwd=REPO
+        )
+        .stdout.decode()
+        .strip()
+    )
+    return json.loads(raw), {"path": path, "rev": None, "blob": blob}
+
+
+def _transition(old: str, new: str) -> str:
+    return f"{old}->{new}"
+
+
+def _stricter(old: str, new: str) -> bool:
+    return LEVEL_ORDER[new] > LEVEL_ORDER[old]
+
+
+def _asset_only_headline(gave: list[float], got: list[float]) -> str:
+    """The private Asset-Only YES / NO for one team's packages, through the
+    real ``analyze_trade`` -> ``trade_decision.decide`` path."""
+    sim = {
+        "receiving": [
+            {"name": f"in{i}", "value": v, "confidenceBucket": "high"} for i, v in enumerate(got)
+        ],
+        "sending": [
+            {"name": f"out{i}", "value": v, "confidenceBucket": "high"} for i, v in enumerate(gave)
+        ],
+        "teamContext": {"applied": False},
+    }
+    return at.analyze_trade(sim, counterfactuals=False)["decision"]["headline"]
+
+
+def _judge(gave: list[float], got: list[float]) -> dict[str, Any]:
+    """One team's packages under v1 and v2: band (equity_verdict) and the
+    Asset-Only headline."""
+    new = at.equity_verdict(gave, got)
+    h_new = _asset_only_headline(gave, got)
+    with v1_basis():
+        old = at.equity_verdict(gave, got)
+        h_old = _asset_only_headline(gave, got)
+    return {
+        "gap": new["vaAdjustedGap"],
+        "v1Base": round(max(old["sendingAdjusted"], old["receivingAdjusted"]), 1),
+        "v2Base": round(new["largerPackageUtility"], 1),
+        "v1Level": old["band"]["level"],
+        "v2Level": new["band"]["level"],
+        "v1RelPct": old["band"]["relativePct"],
+        "v2RelPct": new["band"]["relativePct"],
+        "v1Headline": h_old,
+        "v2Headline": h_new,
+    }
+
+
+def _tally(judged: list[dict[str, Any]]) -> dict[str, Any]:
+    bands = Counter()
+    heads = Counter()
+    stricter = looser = 0
+    for j in judged:
+        if j["v1Level"] != j["v2Level"]:
+            bands[_transition(j["v1Level"], j["v2Level"])] += 1
+            if _stricter(j["v1Level"], j["v2Level"]):
+                stricter += 1
+            else:
+                looser += 1
+        if j["v1Headline"] != j["v2Headline"]:
+            heads[_transition(j["v1Headline"], j["v2Headline"])] += 1
+    return {
+        "judged": len(judged),
+        "bandChanged": sum(bands.values()),
+        "bandStricter": stricter,
+        "bandLooser": looser,
+        "bandTransitions": dict(sorted(bands.items())),
+        "fairToNotFair": sum(v for k, v in bands.items() if k.startswith("fair->")),
+        "notFairToFair": sum(v for k, v in bands.items() if k.endswith("->fair")),
+        "assetOnlyHeadlineChanged": sum(heads.values()),
+        "assetOnlyHeadlineTransitions": dict(sorted(heads.items())),
+    }
+
+
+def _board(contract: dict[str, Any]):
+    from src.api.pick_value_resolution import pick_rows_by_name, resolve_pick_label_value
+    from src.utils.name_clean import normalize_player_name
+
+    rows = contract["playersArray"]
+    cdy = int(contract.get("currentDraftYear"))
+    picks_by_name = pick_rows_by_name(contract)
+    players: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        if r.get("assetClass") in ("offense", "idp"):
+            players[normalize_player_name(r.get("displayName") or "")].append(r)
+
+    def val(r):
+        v = r.get("rankDerivedValue")
+        return (
+            float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else None
+        )
+
+    def price(label: str):
+        name = _FROM.sub("", str(label)).strip()
+        if _PICK.match(name):
+            pv = resolve_pick_label_value(name, rows_by_name=picks_by_name, current_draft_year=cdy)
+            if pv is None or pv.value is None:
+                return None, "pick"
+            return float(pv.value), "pick"
+        cands = players.get(normalize_player_name(name)) or []
+        if len(cands) != 1:
+            return None, "player"
+        return val(cands[0]), cands[0]["assetClass"]
+
+    by_class: dict[str, list[tuple[str, float]]] = defaultdict(list)
+    for r in rows:
+        v = val(r)
+        if v:
+            by_class[r.get("assetClass")].append((str(r.get("displayName")), v))
+    return price, by_class
+
+
+def measure_real_trades(contract, trades) -> dict[str, Any]:
+    """(a) every fully priced own-league trade, per team, plus (d) the League
+    Hub trade-history grade beside the v1 / v2 band on the same quantity."""
+    from src.public_league.trade_grading import grade_trade_sides
+
+    price, _ = _board(contract)
+    census = Counter()
+    judged_all: list[dict[str, Any]] = []
+    by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    trade_fair = Counter()
+    history = Counter()
+    examples = []
+    for t in trades:
+        teams, classes, unpriced = [], set(), False
+        for s in t["sides"]:
+            gave, got = [], []
+            for lab in s.get("gave") or []:
+                v, cls = price(lab)
+                classes.add(cls)
+                unpriced |= v is None
+                gave.append(v)
+            for lab in s.get("got") or []:
+                v, cls = price(lab)
+                classes.add(cls)
+                unpriced |= v is None
+                got.append(v)
+            teams.append({"team": s.get("team"), "gave": gave, "got": got})
+        if unpriced:
+            census["excludedUnpriced"] += 1  # never priced as 0
+            continue
+        census["graded"] += 1
+        n = len(teams)
+        cats = ["all", "multi_team" if n > 2 else "two_team"]
+        if n == 2 and len(teams[0]["gave"]) == 1 and len(teams[0]["got"]) == 1:
+            cats.append("1_for_1")
+        if max(max(len(x["gave"]), len(x["got"])) for x in teams) >= 4:
+            cats.append("deep_4plus_pieces")
+        if "pick" in classes:
+            cats.append("includes_pick")
+        if "idp" in classes:
+            cats.append("includes_idp")
+        grades = grade_trade_sides([(x["got"], x["gave"]) for x in teams])
+        per = []
+        for x, g in zip(teams, grades):
+            j = _judge(x["gave"], x["got"])
+            j["team"] = x["team"]
+            j["shape"] = f"{len(x['gave'])}>{len(x['got'])}"
+            j["historyFair"] = g["grade"]["label"] == "Fair trade"
+            per.append(j)
+            judged_all.append(j)
+            for c in cats:
+                by_cat[c].append(j)
+            history[
+                f"v1:{'agree' if j['historyFair'] == (j['v1Level'] == 'fair') else 'disagree'}"
+            ] += 1
+            history[
+                f"v2:{'agree' if j['historyFair'] == (j['v2Level'] == 'fair') else 'disagree'}"
+            ] += 1
+            if j["historyFair"] != (j["v2Level"] == "fair"):
+                history[
+                    "v2:"
+                    + ("historyFair_v2NotFair" if j["historyFair"] else "historyNotFair_v2Fair")
+                ] += 1
+            if j["v1Level"] != j["v2Level"]:
+                examples.append(
+                    {
+                        "date": datetime.fromtimestamp(t["timestamp"] / 1000, timezone.utc)
+                        .date()
+                        .isoformat(),
+                        "team": x["team"],
+                        "shape": j["shape"],
+                        "gap": j["gap"],
+                        "v1Base": j["v1Base"],
+                        "v2Base": j["v2Base"],
+                        "v1": f"{j['v1Level']} ({j['v1RelPct']}%)",
+                        "v2": f"{j['v2Level']} ({j['v2RelPct']}%)",
+                        "assetOnly": f"{j['v1Headline']} -> {j['v2Headline']}",
+                        "cats": cats,
+                    }
+                )
+        trade_fair["v1AllTeamsFair"] += all(p["v1Level"] == "fair" for p in per)
+        trade_fair["v2AllTeamsFair"] += all(p["v2Level"] == "fair" for p in per)
+    return {
+        "census": dict(census),
+        "teamResults": len(judged_all),
+        "summary": _tally(judged_all),
+        "byCategory": {c: _tally(js) for c, js in sorted(by_cat.items())},
+        "tradeLevelFair": dict(trade_fair),
+        "historyGradeVsBand": dict(sorted(history.items())),
+        "examples": sorted(examples, key=lambda e: (e["date"], e["team"])),
+    }
+
+
+def _synthetic_pairs(by_class, seed: int = 20261020) -> dict[str, list[tuple[list, list]]]:
+    """(b) the synthetic grid.  SYNTHETIC, labelled as such."""
+    rng = random.Random(seed)
+    q = package_model.PACKAGE_MODELS[package_model.GEOM_Q078_V1]["q"]
+    grid: dict[str, list[tuple[list, list]]] = defaultdict(list)
+    # 1-for-1: must be byte-identical (pinned by test; measured here too).
+    levels = (300, 800, 1389, 2000, 2778, 4000, 7143, 9999)
+    for big in levels:
+        for pct in (0, 1, 2, 3, 3.5, 5, 8, 9, 12, 18, 25, 40):
+            grid["one_for_one"].append(([big], [round(big * (1 - pct / 100), 2)]))
+    # Deep packages: a stud vs k equal pieces with a fixed utility shortfall,
+    # in both directions.
+    for stud in (3000.0, 6000.0, 9000.0):
+        for k in (2, 3, 4, 6, 8, 12):
+            w = sum(q**i for i in range(k))
+            for short in (0.0, 0.02, 0.03, 0.05, 0.08, 0.12, 0.18):
+                for sign in (1, -1):
+                    pile = [round(stud * (1 - sign * short) / w, 2)] * k
+                    grid["deep_stud_vs_pile"].append(([stud], pile))
+
+    def draw(pool, n):
+        return [v for _, v in rng.sample(pool, n)]
+
+    def near(pool, n_give, n_get, tries=60):
+        give = draw(pool, n_give)
+        ug = package_model.geom_utility(give, q)
+        best = None
+        for _ in range(tries):
+            got = draw(pool, n_get)
+            d = abs(package_model.geom_utility(got, q) - ug) / max(ug, 1)
+            if best is None or d < best[0]:
+                best = (d, got)
+        return give, best[1]
+
+    offense = by_class.get("offense") or []
+    idp = by_class.get("idp") or []
+    picks = by_class.get("pick") or []
+    late_picks = [(n, v) for n, v in picks if _LATE_PICK.search(n)]
+    shapes = ((1, 2), (2, 2), (2, 3), (1, 3), (1, 4), (2, 5), (1, 6), (3, 8))
+    for name, pool in (("offense", offense), ("idp", idp), ("mixed", offense + idp + picks)):
+        if len(pool) < 20:
+            continue
+        for g, r in shapes:
+            for _ in range(60):
+                grid[f"board_{name}"].append(near(pool, g, r))
+    if len(late_picks) >= 8:
+        for g, r in ((1, 1), (1, 2), (2, 2), (2, 3), (1, 3)):
+            for _ in range(60):
+                grid["picks_r4_r6"].append(near(late_picks, g, r))
+    return grid
+
+
+def measure_synthetic(by_class) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    grid = _synthetic_pairs(by_class)
+    out, pairs = {}, []
+    for name, items in grid.items():
+        judged = []
+        ex = []
+        for give, got in items:
+            j = _judge(give, got)
+            judged.append(j)
+            pairs.append({"set": name, "gave": give, "got": got, "v2Level": j["v2Level"]})
+            if j["v1Level"] != j["v2Level"] and len(ex) < 6:
+                ex.append(
+                    {
+                        "gave": [round(v) for v in give],
+                        "got": [round(v) for v in got],
+                        "gap": j["gap"],
+                        "v1": f"{j['v1Level']} ({j['v1RelPct']}%)",
+                        "v2": f"{j['v2Level']} ({j['v2RelPct']}%)",
+                        "assetOnly": f"{j['v1Headline']} -> {j['v2Headline']}",
+                    }
+                )
+        out[name] = {**_tally(judged), "examples": ex}
+    return out, pairs
+
+
+def measure_meter(pairs: list[dict[str, Any]], out_dir: Path) -> dict[str, Any]:
+    """The /trade meter, through the JS library itself (node).  Side A = the
+    team's gives, side B = its receipts, exactly as /trade lays a 2-team trade
+    out; v1 = classifyGap on the larger ADJUSTED side, v2 = on
+    sideTotalsFairnessBase.  Also checks the JS v2 band equals Python's."""
+    harness = REPO / "scripts" / "measure_fairness_band_meter.mjs"
+    inputs = out_dir / "meter_inputs.json"
+    result = out_dir / "meter_results.json"
+    inputs.write_text(json.dumps(pairs) + "\n", encoding="utf-8")
+    try:
+        subprocess.run(
+            ["node", "--no-warnings", str(harness), str(inputs), str(result)],
+            cwd=REPO,
+            check=True,
+            capture_output=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        return {"state": "not_run", "reason": repr(exc)}
+    rows = json.loads(result.read_text(encoding="utf-8"))
+    inputs.unlink()
+    result.unlink()
+    by_set: dict[str, Counter] = defaultdict(Counter)
+    mismatch = []
+    for p, r in zip(pairs, rows):
+        c = by_set[p["set"]]
+        c["judged"] += 1
+        if r["v1"] != r["v2"]:
+            c[_transition(r["v1"], r["v2"])] += 1
+            c["changed"] += 1
+        if r["v2"] != p["v2Level"]:
+            mismatch.append({"set": p["set"], "js": r["v2"], "python": p["v2Level"]})
+    return {
+        "state": "ran",
+        "bySet": {k: dict(sorted(v.items())) for k, v in sorted(by_set.items())},
+        "pythonParityMismatches": len(mismatch),
+        "pythonParityExamples": mismatch[:5],
+    }
+
+
+def main_v1_v2(args: argparse.Namespace) -> int:
+    OLD.update(bands=v1_basis, rules=v1_basis)
+    raw, export_pin = _pinned_json(args.pin_rev, args.export)
+    trades_doc, trades_pin = _pinned_json(args.pin_rev, "data/sleeper_last_good.json")
+    trades = trades_doc["rosterData"]["trades"]
+    contract = build_api_data_contract(raw)
+    players = contract["players"]
+    teams = (contract.get("sleeper") or {}).get("teams") or []
+    _, by_class = _board(contract)
+    out = REPO / args.out
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    real = measure_real_trades(contract, trades)
+    synthetic, pairs = measure_synthetic(by_class)
+    # Real two-team trades also go through the meter (the first team's view;
+    # a 2-team gap and base are the same from either side).
+    real_pairs = []
+    price, _ = _board(contract)
+    for t in trades:
+        if len(t["sides"]) != 2:
+            continue
+        s = t["sides"][0]
+        gave = [price(lab)[0] for lab in s.get("gave") or []]
+        got = [price(lab)[0] for lab in s.get("got") or []]
+        if any(v is None for v in gave + got):
+            continue
+        j = _judge(gave, got)
+        real_pairs.append(
+            {"set": "real_two_team", "gave": gave, "got": got, "v2Level": j["v2Level"]}
+        )
+    meter = measure_meter(real_pairs + pairs, out.parent)
+
+    consumers: dict[str, Any] = {
+        "state": "skipped",
+        "reason": "export carries no 12-team sleeper block",
+    }
+    if len(teams) == 12:
+        consumers = {
+            "bestOffersCanonicalRule": measure_best_offers(players, teams, contract),
+            "packageBuilderCanonicalRule": measure_package_builder(players, teams, contract),
+            **{
+                f"{k}Qualification": v
+                for k, v in measure_qualification(players, teams, contract).items()
+            },
+            "suggestions": measure_suggestions(teams, contract),
+        }
+    result = {
+        "compare": "fairness_bands_v1 (larger ADJUSTED side) vs fairness_bands_v2 (larger PACKAGE UTILITY)",
+        "inputs": {"export": export_pin, "trades": trades_pin},
+        "boardGeneratedAt": (contract.get("meta") or {}).get("generatedAt"),
+        "packageModel": package_model.receipt(),
+        "newBands": fb.receipt(),
+        "oldBands": {
+            "version": "fairness_bands_v1",
+            "basis": "adjusted_package_totals",
+            "note": "same cut points, floor and gap; base = max(sendAdjusted, recvAdjusted)",
+        },
+        "realTrades": real,
+        "synthetic": synthetic,
+        "meter": meter,
+        "consumers": consumers,
+    }
+    out.write_text(json.dumps(result, indent=1, default=list) + "\n", encoding="utf-8")
+    print(f"written {out}")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--compare", choices=("tcc", "v1-v2"), default="tcc")
+    ap.add_argument("--export", default="exports/latest/dynasty_data_2026-10-17.json")
+    ap.add_argument(
+        "--pin-rev", default=None, help="read --export and the trade ledger from this git revision"
+    )
+    ap.add_argument("--out", required=True)
+    args = ap.parse_args()
+    if args.compare == "v1-v2":
+        return main_v1_v2(args)
+    return main_tcc(args)
 
 
 if __name__ == "__main__":

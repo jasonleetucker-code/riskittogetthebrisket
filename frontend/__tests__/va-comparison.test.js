@@ -26,6 +26,8 @@ import {
   ktcAdjustPackage,
   meterVerdict,
   packageAdjustPair,
+  packageUtilities,
+  sideTotalsFairnessBase,
   tradeGapAdjusted,
 } from "@/lib/trade-logic";
 import {
@@ -265,12 +267,19 @@ describe("agreement, disagreement and the no-adjustment state", () => {
   });
 
   it("the comparator column carries a neutral gap %, never the headline's verdict words", () => {
-    const cmp = compareValueAdjustments([[9000], [8200, 2000]]);
+    const values = [[9000], [8200, 2000]];
+    const cmp = compareValueAdjustments(values);
     for (const ev of [cmp.active, cmp.comparator]) {
       expect(ev).not.toHaveProperty("bandWord");
-      const larger = Math.max(...ev.adjustedTotals);
+      // fairness_bands_v2: relative to the larger package UTILITY under that
+      // model (the KTC method has none, so its adjusted totals stand in).
+      const larger = Math.max(...packageUtilities(values, ev.adjustedTotals, { modelId: ev.modelId }));
       expect(ev.relativeGapPct).toBeCloseTo((Math.abs(ev.gap) / larger) * 100, 1);
     }
+    expect(cmp.comparator.relativeGapPct).toBeCloseTo(
+      (Math.abs(cmp.comparator.gap) / Math.max(...cmp.comparator.adjustedTotals)) * 100,
+      1,
+    );
   });
 
   it("one-for-one: no adjustment under either method, explained instead of numbers", () => {
@@ -329,7 +338,7 @@ describe("the official decision quantities do not change when the comparison is 
       const sideB = b.map(row);
       const before = adjustedSideTotals(sideA, sideB, "full");
       const gapBefore = tradeGapAdjusted(sideA, sideB, "full");
-      const larger = Math.max(before[0].adjusted, before[1].adjusted);
+      const larger = sideTotalsFairnessBase(before);
       const verdictBefore = meterVerdict(gapBefore, larger);
       const cmp = compareValueAdjustments([a, b]);
       expect(cmp.active.adjustedTotals).toEqual(before.map((t) => t.adjusted));

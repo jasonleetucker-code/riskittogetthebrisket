@@ -80,16 +80,34 @@ def _refill(bucket: _Bucket, now: float) -> None:
         bucket.last_refill_hour = now
 
 
+def _site_bucket_key(ip: str) -> str:
+    """The site-wide bucket's key for one client identity (R2-12): the IPv4
+    address unchanged, or the IPv6 ``/64`` — one subscriber is typically
+    handed a whole /64, so keying on the exact address let a single client
+    rotate through 2^64 identities and read public endpoints without limit.
+    The ONE keying rule is ``client_ip.client_key`` (the Trade Advisor
+    limiter's per-client key); non-IP identities pass through unchanged."""
+    from src.api.client_ip import client_key  # noqa: PLC0415
+
+    return client_key(ip)
+
+
 def should_rate_limit(ip: str) -> tuple[bool, int]:
     """Return ``(is_limited, retry_after_seconds)``.
 
-    Thread-safe.  Refills + decrements atomically.  Never blocks.
+    Thread-safe.  Refills + decrements atomically.  Never blocks.  Charged
+    per :func:`_site_bucket_key` (IPv4 address / IPv6 ``/64``).  The bypass
+    list matches the exact address or its bucket key (an operator may list a
+    whole ``/64``).
     """
     if not ip or ip in _BYPASS_IPS:
         return (False, 0)
+    key = _site_bucket_key(ip)
+    if not key or key in _BYPASS_IPS:
+        return (False, 0)
     now = time.time()
     with _lock:
-        bucket = _buckets.get(ip)
+        bucket = _buckets.get(key)
         if bucket is None:
             # Brand-new IP — full buckets.
             bucket = _Bucket(
@@ -98,7 +116,7 @@ def should_rate_limit(ip: str) -> tuple[bool, int]:
                 tokens_hour=_RATE_PER_HOUR - 1,
                 last_refill_hour=now,
             )
-            _buckets[ip] = bucket
+            _buckets[key] = bucket
             _maybe_evict()
             return (False, 0)
         _refill(bucket, now)
@@ -145,6 +163,8 @@ def reset_for_tests() -> None:
         _buckets.clear()
     with _keyed_lock:
         _keyed_buckets.clear()
+    for limiter in list(_LIMITER_INSTANCES):
+        limiter.reset()
     login_reset_for_tests()
 
 
@@ -198,6 +218,102 @@ def should_rate_limit_key(key: str, *, capacity: int, window_seconds: float) -> 
             return (True, max(1, math.ceil((1.0 - bucket.tokens) * per_token)))
         bucket.tokens -= 1.0
         return (False, 0)
+
+
+# ── Isolated keyed limiters (B0-h, 2026-10-19) ─────────────────────────
+#
+# ``should_rate_limit_key`` above shares ONE store, capped at
+# ``_MAX_TRACKED_KEYS`` with oldest-first eviction, between every caller
+# (screenshot OCR, Manager Intelligence).  A public caller able to mint keys
+# could therefore evict another feature's buckets — and its own, resetting its
+# limit.  A ``KeyedLimiter`` owns its store and lock; it reuses the same refill
+# arithmetic (``_refilled``) and clock seam (``_keyed_now``).  A ``ceiling``
+# bucket (a global cap shared by every caller) is never evicted.
+
+
+@dataclass
+class _LimiterBucket:
+    tokens: float
+    last_refill: float
+    ceiling: bool = False
+
+
+@dataclass(frozen=True)
+class KeyedCharge:
+    """One bucket a request is charged to."""
+
+    key: str
+    capacity: int
+    window_seconds: float
+    ceiling: bool = False
+
+
+class KeyedLimiter:
+    """An isolated token-bucket store (see the section comment)."""
+
+    def __init__(self, name: str, *, max_keys: int = 5000) -> None:
+        self.name = str(name)
+        self.max_keys = max(10, int(max_keys))
+        self._buckets: dict[str, _LimiterBucket] = {}
+        self._lock = threading.Lock()
+        _LIMITER_INSTANCES.append(self)
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._buckets)
+
+    def reset(self) -> None:
+        with self._lock:
+            self._buckets.clear()
+
+    def charge(self, charges: list[KeyedCharge]) -> tuple[bool, int]:
+        """``(is_limited, retry_after_seconds)`` for ONE request charged to
+        every bucket in ``charges``.  All-or-nothing: when any bucket is empty
+        nothing is debited (a refused request does not drain the others), and
+        the retry is the longest wait among the empty buckets.  Thread-safe;
+        never blocks.  Charges with an empty key or a non-positive capacity /
+        window are skipped."""
+        live = [c for c in charges if c.key and c.capacity > 0 and c.window_seconds > 0]
+        if not live:
+            return (False, 0)
+        now = _keyed_now()
+        with self._lock:
+            retry = 0
+            for c in live:
+                b = self._buckets.get(c.key)
+                if b is None:
+                    b = _LimiterBucket(tokens=float(c.capacity), last_refill=now, ceiling=c.ceiling)
+                    self._buckets[c.key] = b
+                else:
+                    b.tokens = _refilled(b.tokens, b.last_refill, now, c.capacity, c.window_seconds)
+                    b.last_refill = now
+                    b.ceiling = b.ceiling or c.ceiling
+                if b.tokens < 1.0:
+                    per_token = c.window_seconds / c.capacity
+                    retry = max(retry, max(1, math.ceil((1.0 - b.tokens) * per_token)))
+            if retry:
+                self._evict(protect={c.key for c in live})
+                return (True, retry)
+            for c in live:
+                self._buckets[c.key].tokens -= 1.0
+            self._evict(protect={c.key for c in live})
+            return (False, 0)
+
+    def _evict(self, *, protect: set[str]) -> None:
+        """Drop the oldest 10% of non-ceiling buckets over the cap.  Called
+        under ``self._lock``; never evicts a ceiling or a bucket this request
+        just charged."""
+        if len(self._buckets) <= self.max_keys:
+            return
+        candidates = sorted(
+            ((k, b) for k, b in self._buckets.items() if not b.ceiling and k not in protect),
+            key=lambda kv: kv[1].last_refill,
+        )
+        for k, _ in candidates[: max(1, self.max_keys // 10)]:
+            self._buckets.pop(k, None)
+
+
+_LIMITER_INSTANCES: list[KeyedLimiter] = []
 
 
 # ── Login failure throttle (W22-F003) ────────────────────────────────

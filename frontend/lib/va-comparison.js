@@ -30,11 +30,12 @@
  * only through a structural extension, and the comparator is not extended.
  */
 
-import { classifyGap } from "./fairness-bands.js";
+import { classifyGap, fairnessBase } from "./fairness-bands.js";
 import {
   ACTIVE_PACKAGE_MODEL_ID,
   PACKAGE_MODEL_IDS,
   packageModelReceipt,
+  packageUtilities,
   valueAdjustmentFromSideArrays,
 } from "./trade-logic.js";
 
@@ -73,7 +74,9 @@ const sum = (values) => values.reduce((s, v) => s + v, 0);
  *   moreValueIdx  the side with more adjusted value (null when exactly equal)
  *   leaderIdx     the same, but null inside the headline's fair band
  *                 (`fairness-bands.js::classifyGap`, the ONE band owner)
- *   relativeGapPct |gap| as a % of the larger adjusted side — a neutral
+ *   relativeGapPct |gap| as a % of the larger package utility under THIS
+ *                 model (the fair band's base, fairness_bands_v2; under the
+ *                 KTC method the adjusted totals stand in) — a neutral
  *                 measure, deliberately NOT the headline's verdict words, so
  *                 the comparator column never reads like a second verdict
  *   nearEven      the gap is inside that fair band
@@ -84,7 +87,9 @@ export function evaluatePackageModel(values, modelId) {
   const rawTotals = values.map(sum);
   const adjustedTotals = rawTotals.map((t, i) => t + adjustments[i]);
   const gap = adjustedTotals[0] - adjustedTotals[1];
-  const larger = Math.max(...adjustedTotals);
+  // The band's base under THIS model: the larger package utility (the owner's
+  // rule; the KTC method has no utility, so its adjusted totals stand in).
+  const larger = fairnessBase(packageUtilities(values, adjustedTotals, { modelId }));
   const band = classifyGap(gap, larger);
   const moreValueIdx = gap > 0 ? 0 : gap < 0 ? 1 : null;
   return {

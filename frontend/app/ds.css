@@ -1241,3 +1241,78 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   color: var(--text-secondary);
   flex-shrink: 0;
 }
+
+/* ── Combobox (searchable single-select) ──────────────────────────────────
+   components/ds/Combobox.jsx.  Same control chrome as .ds-input; the list
+   is an overlay (popover) so it is the one place here that takes a shadow
+   and the dropdown z-layer.  44px option rows: it is the first control on
+   a phone-first public page. */
+.ds-combobox {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.ds-combobox__control {
+  position: relative;
+}
+.ds-combobox__input {
+  min-height: 44px;
+}
+.ds-combobox__hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.ds-combobox__list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: var(--z-dropdown);
+  margin: var(--space-1) 0 0;
+  padding: var(--space-1) 0;
+  list-style: none;
+  max-height: min(320px, 50vh);
+  overflow-y: auto;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-1);
+  box-shadow: var(--shadow-2);
+}
+.ds-combobox__list[hidden] {
+  display: none;
+}
+.ds-combobox__option {
+  display: grid;
+  gap: 2px;
+  min-height: 44px;
+  align-content: center;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  color: var(--text-primary);
+}
+.ds-combobox__option--active {
+  background: var(--surface-active);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.ds-combobox__option[aria-selected="true"] .ds-combobox__optionLabel {
+  font-weight: var(--font-weight-semibold);
+}
+.ds-combobox__option[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--text-tertiary);
+}
+.ds-combobox__optionLabel {
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+.ds-combobox__optionMeta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.ds-combobox__empty {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
