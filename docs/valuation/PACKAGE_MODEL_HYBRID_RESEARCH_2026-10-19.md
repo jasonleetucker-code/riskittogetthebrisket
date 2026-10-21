@@ -316,3 +316,10 @@ Nothing here is authorized. For any replacement:
   with today's pipeline over point-in-time raw inputs, not the values served on the trade date.
 * `BLOCKERS:` none for the recommendation. The box run needs box access.
 * `NEXT_ACTION:` owner decision on the recommendation. Optionally, run `--market-ledger` on the box.
+
+## Addendum (2026-10-21): `fairness_bands_v2` re-measurement
+
+The fairness levels in this memo were classified on the retired `fairness_bands_v1` denominator. They are
+re-measured on `fairness_bands_v2` in `PACKAGE_MODEL_PHASES_1_3_V2_REMEASURE_2026-10-21.md` (§4.1). The
+recorded v1 numbers reproduce exactly. **The KEEP recommendation does not change.** This memo and its evidence
+are preserved as recorded.

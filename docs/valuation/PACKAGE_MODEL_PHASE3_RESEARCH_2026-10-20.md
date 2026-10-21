@@ -781,3 +781,10 @@ Locally:
 - (5) The owner decision on this recommendation.
 
 UNRESOLVED: items (1)–(5). None of them blocks the KEEP recommendation.
+
+## Addendum (2026-10-21): `fairness_bands_v2` re-measurement
+
+The fairness levels in this memo were classified on the retired `fairness_bands_v1` denominator. They are
+re-measured on `fairness_bands_v2` in `PACKAGE_MODEL_PHASES_1_3_V2_REMEASURE_2026-10-21.md` (§4.3). The
+recorded v1 numbers reproduce exactly. **The KEEP recommendation does not change.** This memo and its evidence
+are preserved as recorded.

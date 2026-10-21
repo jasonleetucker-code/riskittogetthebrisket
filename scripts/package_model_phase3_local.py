@@ -123,6 +123,7 @@ def build_models() -> dict[str, dict]:
             }
             continue
         u, src = _utility(m)
+        P1.BAND_UTILITY[m] = lambda v, u=u: u(P1._desc(v))  # own-utility v2 base
         diag = m in DIAGNOSTICS
         models[m] = {
             "gap": _gap_from_u(u),
@@ -330,7 +331,7 @@ def _evaluate(models, A, B) -> dict:
             "gapA": round(g),
             "adjA": round(x),
             "adjB": round(y),
-            "level": P1.level(g, x, y),
+            "level": P1.band_level(m, g, a, b),
             "favours": "A" if lead == 1 else ("B" if lead == -1 else "even"),
         }
     return out
@@ -494,7 +495,12 @@ def real_examples(models: dict, rows: dict) -> dict:
     }
     return {
         "convention": "A = side giving fewer pieces; gapA = adjusted A minus adjusted B "
-        "(positive favours A); level = fairness_bands_v1 on adjusted totals",
+        + (
+            "(positive favours A); level = fairness_bands_v1 on adjusted totals"
+            if P1.current_band_basis() == "v1_legacy"
+            else "(positive favours A); level = fairness_bands_v2 (each model on its own "
+            "package utilities; KTC on its adjusted totals, the owner's rule)"
+        ),
         "cases": cases,
         "fillerSweetenerLadder": filler_ladder,
         "flagCounts": flag_counts,
@@ -523,7 +529,7 @@ def fairness_sample(models: dict, rows: dict, n: int = 2000, seed: int = SEED + 
         lv[m], gaps[m] = [], []
         for A, B in trades:
             g, x, y = P2.adjusted(spec["gap"], A, B)
-            lv[m].append((P1.level(g, x, y), P1.leader(g, x, y)))
+            lv[m].append((P1.band_level(m, g, A, B), P1.leader(g, x, y)))
             gaps[m].append(g)
     bins = [P2.structure_bin(*P2.orient(A, B)) for A, B in trades]
     base = lv[INCUMBENT]
