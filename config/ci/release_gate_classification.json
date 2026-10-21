@@ -817,6 +817,12 @@
     "retention-health.yml::probe::Probe retention streams on production": {
       "category": "blocking"
     },
+    "scheduled-refresh.yml::refresh::Record identity evidence upload outcome (loud on failure, never blocking)": {
+      "category": "advisory"
+    },
+    "scheduled-refresh.yml::refresh::Upload identity capture evidence (V2.1 U2/U2b full stamps, kept out of git)": {
+      "category": "advisory"
+    },
     "scheduled-refresh.yml::refresh::Alert on workflow failure": {
       "category": "blocking"
     },
