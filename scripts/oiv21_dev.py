@@ -200,6 +200,123 @@ def cmd_collect(args: argparse.Namespace) -> int:
     return 0
 
 
+# ── collect-b3off: the B3 selection inputs with B4 abstaining (V21-D16) ─
+
+
+def cmd_collect_b3off(args: argparse.Namespace) -> int:
+    """E_DEV only: the clean V2.1 build and the B3-selection injections
+    rebuilt with an EMPTY tau_c table (B4 abstains, as in V2's phase 1,
+    where B3 is selected before k_c and its tau_c table exist), on the
+    same DEV lane as ``collect``."""
+    import dataclasses  # noqa: PLC0415
+
+    from src.api import source_integrity as si  # noqa: PLC0415
+
+    th = dataclasses.replace(D.thresholds_from({}), tau_c={})
+    out_dir = OUT_ROOT / "collect_b3off"
+    t0 = time.time()
+    for entry, cut, raw, root in iterate():
+        if entry["population"] != "E_DEV":
+            continue
+        name = Path(entry["board"]).stem
+        hist = D.history_from(
+            read_gz(OUT_ROOT / "collect" / "_history_before" / f"{name}.json.gz")["history"]
+        )
+        c21 = D.build(raw, root, "v21", history=hist, thresholds=th)
+        b = extract21(c21)
+        rec = {
+            "schema": D.SCHEMA,
+            "stage": "collect_b3off",
+            "board": R2.board_meta(entry, cut),
+            "builds": {
+                "v21": {"sourceIntegrity": b["sourceIntegrity"], "proofSources": b["proofSources"]}
+            },
+        }
+        inj = []
+        for source, ac in SELECTION_INJECT:
+            for kind in G.AD3_KINDS:
+                ov = G.ad3_overrides(c21, source, ac, kind)
+                if not ov:
+                    inj.append({"source": source, "assetClass": ac, "kind": kind, "rows": 0})
+                    continue
+                ci = D.build(
+                    raw, root, "v21", history=hist, thresholds=th, transform=G.transform_for(ov)
+                )
+                integ = ci.get("sourceIntegrity") or {}
+                pref = f"{source}|{ac}|"
+                inj.append(
+                    {
+                        "source": source,
+                        "assetClass": ac,
+                        "kind": kind,
+                        "rows": len(ov),
+                        "segmentStats": {
+                            k: v
+                            for k, v in (integ.get("segmentStats") or {}).items()
+                            if k.startswith(pref)
+                        },
+                        "proofSources": integ.get("proofSources"),
+                        "sourceQuarantine": (integ.get("sourceQuarantines") or {}).get(source),
+                    }
+                )
+        rec["injections"] = inj
+        write_gz(out_dir / f"{name}.json.gz", rec)
+        log(f"b3off {entry['board']} t={time.time() - t0:.0f}s")
+    del si
+    return 0
+
+
+def cmd_select1b(args: argparse.Namespace) -> int:
+    """B3 re-selected on the B4-abstaining inputs (V21-D16); E_BASELINE
+    boards carry no injections and enter only the window, from ``collect``."""
+    from src.robust_filter_shadow import oiv2_select as S  # noqa: PLC0415
+
+    sel = json.loads(SEL_PATH.read_text("utf-8"))
+    base = {r["board"]["archive"]: r for r in _load("collect")}
+    off = {r["board"]["archive"]: r for r in _load("collect_b3off")}
+    recs = []
+    for name, r in sorted(base.items(), key=lambda kv: kv[1]["board"]["addTime"]):
+        if name in off:
+            recs.append(
+                {
+                    "board": r["board"],
+                    "builds": {"v21": off[name]["builds"]["v21"]},
+                    "injections": off[name]["injections"],
+                }
+            )
+        else:
+            recs.append(
+                {"board": r["board"], "builds": {"v21": r["builds"]["v21"]}, "injections": []}
+            )
+    b3 = D.select_b3(recs, sel["tau_board"])
+    sel["evidence"]["b3_b4Active"] = sel["evidence"]["b3"]
+    sel["evidence"]["b3_b4Abstaining"] = b3
+    sel["b3_b4Abstaining"] = b3["selected"]
+    sel["b3Status_b4Abstaining"] = b3["status"]
+    SEL_PATH.write_text(json.dumps(sel, indent=1, sort_keys=True) + "\n", "utf-8")
+    log(
+        json.dumps(
+            {
+                "b3": b3["selected"],
+                "status": b3["status"],
+                "settings": [
+                    (
+                        s["n_min"],
+                        s["rho_min"],
+                        s["tau_gross"],
+                        s["cleanHardFlags"],
+                        s["injectionsCaught"],
+                        s["injections"],
+                    )
+                    for s in b3["settings"]
+                ],
+            }
+        )
+    )
+    del S
+    return 0
+
+
 # ── selection (prereg §3.6), exploratory: never frozen here ─────────────
 
 
@@ -261,6 +378,8 @@ def cmd_select1(args: argparse.Namespace) -> int:
 
 def _partial_thresholds(sel: dict, **over):
     base = dict(sel)
+    if base.get("b3") is None and base.get("b3_b4Abstaining"):
+        base["b3"] = base["b3_b4Abstaining"]  # V21-D16
     if base.get("b3") is None:
         # FAILED_SELECTION: the run cannot reach READY; development continues
         # at V2's registered conservative point so later stages still run.
@@ -1407,6 +1526,272 @@ def cmd_boards(args: argparse.Namespace) -> int:
     return 0
 
 
+# ── evaluate: aggregate every dev record into the committed results ─────
+
+
+def _attribution(rec: dict) -> dict[str, Any]:
+    """Prereg §10 attribution, DEV analogue: every row moving >= 10% (V2.1
+    ARRIVING vs incumbent) attributed to a named vote change (a source whose
+    state differs between the two builds), picks and priced/unpriced switches
+    included."""
+    inc, v21 = rec["inc"]["rows"], rec["v21"]["rows"]
+    movers = []
+    unattributed = []
+    for n in sorted(set(inc) | set(v21)):
+        a, b = inc.get(n) or {}, v21.get(n) or {}
+        va, vb = a.get("v"), b.get("v")
+        switched = (va is None) != (vb is None)
+        if not switched and not (va and vb and abs(vb / va - 1) >= 0.10):
+            continue
+        oa, ob = a.get("obs") or {}, b.get("obs") or {}
+        changes = []
+        for src in sorted(set(oa) | set(ob)):
+            sa = (oa.get(src) or [None, 0, "absent"])[2]
+            sb = (ob.get(src) or [None, 0, "absent"])[2]
+            if sa != sb:
+                changes.append({"source": src, "incumbent": sa, "v21": sb})
+        item = {
+            "row": n,
+            "class": b.get("ac") or a.get("ac"),
+            "from": va,
+            "to": vb,
+            "changes": changes,
+        }
+        movers.append(item)
+        if not changes:
+            unattributed.append(item)
+    return {
+        "movers": len(movers),
+        "unattributed": len(unattributed),
+        "unattributedRows": unattributed[:30],
+        "sample": movers[:30],
+    }
+
+
+def cmd_evaluate(args: argparse.Namespace) -> int:
+    DEV_OUT.mkdir(parents=True, exist_ok=True)
+    out: dict[str, Any] = {
+        "schema": "oiv21-dev-evaluation/v1",
+        "status": "EXPLORATORY_DEV_NOT_GATE_OF_RECORD",
+        "pins": code_pins(),
+    }
+    sel = json.loads(SEL_PATH.read_text("utf-8")) if SEL_PATH.exists() else None
+    if sel:
+        out["selection"] = {
+            k: sel.get(k)
+            for k in (
+                "epsilon_b2",
+                "b3",
+                "b3Status",
+                "k_c",
+                "tau_C",
+                "failedSelection",
+                "devContinuation",
+            )
+        }
+    chain = _load("chain")
+    if chain:
+        from src.robust_filter_shadow import oiv2_select as S  # noqa: PLC0415
+
+        clean = [r for r in chain if S.is_clean_dev({"board": r["board"]})]
+        fe = {}
+        for k in ("v21", "v21nh", "v2", "rpc"):
+            rates = [
+                (
+                    r["board"]["archive"],
+                    r["counts"][k]["rate"] or 0.0,
+                    r["counts"][k]["v21Excluded"],
+                    r["counts"][k]["observations"],
+                )
+                for r in clean
+            ]
+            hard = [
+                (r["board"]["archive"], r["counts"][k]["hardFindings"])
+                for r in clean
+                if r["counts"][k]["hardFindings"]
+            ]
+            layers = __import__("collections").Counter()
+            for r in clean:
+                layers.update(r["counts"][k]["byLayer"])
+            fe[k] = {
+                "boards": len(rates),
+                "maxRate": max((x[1] for x in rates), default=None),
+                "boardsAbove0.5pct": [x for x in rates if x[1] > 0.005],
+                "totalExcluded": sum(x[2] for x in rates),
+                "totalObservations": sum(x[3] for x in rates),
+                "byLayer": dict(layers.most_common()),
+                "boardLevelFalsePositives": hard,
+            }
+        out["cleanBoardFalseExclusions"] = fe
+        lab = {}
+        for variant in ("arriving", "nohist"):
+            h1 = [(r["board"]["archive"], r["labelled"][variant]["H1"]) for r in chain]
+            lab[variant] = {
+                "H1_labelledBoards": sum(1 for _b, x in h1 if x["labelled"]),
+                "H1_boardsAllWithheld": sum(
+                    1
+                    for _b, x in h1
+                    if x["labelled"] and x["voting"] == 0 and x["other"] == 0 and x["withheld"] > 0
+                ),
+                "H1_firesOnUnlabelled": sum(x["withheld"] for _b, x in h1 if not x["labelled"]),
+                "H3H4": {
+                    r["board"]["archive"]: {k: r["labelled"][variant].get(k) for k in ("H3", "H4")}
+                    for r in chain
+                    if "H3" in r["labelled"][variant]
+                },
+                "N6hard": sum(len(r["labelled"][variant]["N6hard"]) for r in chain),
+                "N4": sum(
+                    r["labelled"][variant]["N4"]["v21Excluded"]
+                    + r["labelled"][variant]["N4"]["zeroValueVotes"]
+                    for r in chain
+                ),
+            }
+        out["labelled"] = lab
+        out["invalidCategoryLabels"] = {
+            k: sum(len(r["invalidCategoryLabels"][k]) for r in chain) for k in ("v21", "v21nh")
+        }
+        tot = __import__("collections").Counter()
+        lost = []
+        for r in chain:
+            for tag, v in (r.get("restore") or {}).items():
+                tot[tag + ":pairs"] += v["newlyDroppedByIncumbent"]
+                for k, n in v["retained"].items():
+                    tot[f"{tag}:{k}_retained"] += n
+                for p_ in v["pairs"]:
+                    for k in ("C", "Cnh", "Cp", "Cpnh", "Cpp", "Cppnh"):
+                        f = p_.get("fate_" + k, "absent_key")
+                        if f not in (None, "absent_key"):
+                            lost.append(
+                                {
+                                    "board": r["board"]["archive"],
+                                    "tag": tag,
+                                    "build": k,
+                                    **{kk: p_[kk] for kk in ("row", "source")},
+                                    "fate": f,
+                                }
+                            )
+        out["dlfRestorePairs"] = {
+            "totals": dict(tot),
+            "notRetained": lost[:200],
+            "notRetainedCount": len(lost),
+        }
+        attr = [
+            (r["board"]["archive"], _attribution(r))
+            for r in chain
+            if r["board"]["population"] == "E_DEV"
+        ]
+        out["attribution"] = {
+            "boards": len(attr),
+            "movers": sum(a["movers"] for _b, a in attr),
+            "unattributed": sum(a["unattributed"] for _b, a in attr),
+            "unattributedRows": [
+                dict(board=b, **x) for b, a in attr for x in a["unattributedRows"]
+            ][:40],
+        }
+    gates = {}
+    for f in sorted((OUT_ROOT / "gates").glob("*.json.gz")):
+        rec = read_gz(f)
+        key = f.name[:-8]
+        if rec.get("stage") == "dev_persistent":
+            gates[key] = {
+                "summary": rec["summary"],
+                "windows": rec["windows"],
+                "wallSeconds": rec["wallSeconds"],
+            }
+            continue
+        g = {
+            k: rec.get(k) for k in ("variant", "thresholds", "seed", "wallSeconds", "contamination")
+        }
+        if rec.get("valueGates"):
+            g["valueGates"] = {
+                gate: {kk: vv for kk, vv in v.items() if kk not in ("label",)}
+                for gate, v in rec["valueGates"].items()
+            }
+        if rec.get("AD3"):
+            g["AD3"] = {
+                seam: {
+                    lab: {k: v[k] for k in ("flagged", "boards", "passes16of16")}
+                    | {
+                        "cases": [
+                            {
+                                kk: c.get(kk)
+                                for kk in (
+                                    "source",
+                                    "kind",
+                                    "flagged",
+                                    "flags",
+                                    "votesExcluded",
+                                    "noneBoardMaxLogMove",
+                                    "applied",
+                                )
+                            }
+                            for c in v["cases"]
+                        ]
+                    }
+                    for lab, v in per.items()
+                }
+                for seam, per in rec["AD3"].items()
+            }
+        for k in ("AD2_ID", "AD2_N"):
+            if rec.get(k):
+                g[k] = {kk: vv for kk, vv in rec[k].items() if kk != "records"}
+        for k in ("AD2_SUR", "INJ_DUP", "INJ_H1", "INJ_SEG", "H2_SYN"):
+            if rec.get(k) is not None:
+                g[k] = rec[k]
+        gates[key] = g
+    out["gates"] = gates
+    cs = OUT_ROOT / "coldstart.json.gz"
+    if cs.exists():
+        c = read_gz(cs)
+        out["coldStart"] = {
+            "L4": {
+                lab: {
+                    "boards": len(c["boards"]),
+                    "votes": sum(v[lab]["votes"] for v in c["boards"].values()),
+                    "dropped": sum(v[lab]["dropped"] for v in c["boards"].values()),
+                    "invalidCategoryLabels": sum(
+                        len(v[lab]["invalidCategoryLabels"]) for v in c["boards"].values()
+                    ),
+                    "byLayer": dict(
+                        __import__("collections")
+                        .Counter(d["layer"] for v in c["boards"].values() for d in v[lab]["drops"])
+                        .most_common()
+                    ),
+                    "bySource": dict(
+                        __import__("collections")
+                        .Counter(d["source"] for v in c["boards"].values() for d in v[lab]["drops"])
+                        .most_common()
+                    ),
+                    "drops": [
+                        dict(board=b, **d) for b, v in c["boards"].items() for d in v[lab]["drops"]
+                    ][:120],
+                }
+                for lab in ("withDirectory", "boardRowsOnly")
+            },
+            "N4N6": c["N4N6"],
+        }
+    bd = {}
+    for f in sorted((OUT_ROOT / "boards").glob("*.json.gz")):
+        rec = read_gz(f)
+        bd[f.name[:-8]] = {
+            "comparisons": {
+                k: {kk: (vv if kk != "moversGe10pct" else vv[:25]) for kk, vv in v.items()}
+                for k, v in rec["comparisons"].items()
+            },
+            "restorePairs": {
+                t: {k: v[k] for k in ("newlyDroppedByIncumbent", "retained")}
+                | {"pairs": v["pairs"]}
+                for t, v in rec["restorePairs"].items()
+            },
+            "focus": rec["focus"],
+        }
+    out["boards"] = bd
+    path = DEV_OUT / "evaluation.json"
+    path.write_text(json.dumps(out, indent=1, sort_keys=True, default=str) + "\n", "utf-8")
+    log(f"wrote {path} ({path.stat().st_size} bytes)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument(
@@ -1415,13 +1800,24 @@ def main(argv: list[str] | None = None) -> int:
         help="the identity owner's Sleeper directory snapshot V2.1 builds read",
     )
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("collect", "select1", "kc", "select2", "tauc", "select3", "chain"):
+    for name in (
+        "collect",
+        "collect_b3off",
+        "select1",
+        "select1b",
+        "kc",
+        "select2",
+        "tauc",
+        "select3",
+        "chain",
+    ):
         sub.add_parser(name)
     g = sub.add_parser("gates")
     g.add_argument("--board", required=True)
     g.add_argument("--variant", choices=("ARRIVING", "NOHIST"), required=True)
     g.add_argument("--parts", default="value,ad3,ad2id,ad2sur,ad2n,dup,structural")
     sub.add_parser("coldstart")
+    sub.add_parser("evaluate")
     bb = sub.add_parser("boards")
     bb.add_argument("--board", required=True)
     pp = sub.add_parser("persistent")
@@ -1441,6 +1837,9 @@ def main(argv: list[str] | None = None) -> int:
         "persistent": cmd_persistent,
         "coldstart": cmd_coldstart,
         "boards": cmd_boards,
+        "evaluate": cmd_evaluate,
+        "collect_b3off": cmd_collect_b3off,
+        "select1b": cmd_select1b,
     }
     return cmds[args.cmd](args)
 

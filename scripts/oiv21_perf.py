@@ -95,6 +95,7 @@ def child(tree: str, name: str, repeats: int) -> None:
     root = Path(tree)
     raw = json.loads((root / "payload.json").read_text("utf-8"))
     cfg = _config(name)
+    _apply_env_options()
     t0 = time.perf_counter()
     RP.build(raw, root, cfg)  # warm-up (cold parse caches and memos; reported, not judged)
     first = time.perf_counter() - t0
@@ -131,6 +132,29 @@ def child(tree: str, name: str, repeats: int) -> None:
             }
         )
     )
+
+
+def _apply_env_options() -> None:
+    """Optional production-like inputs for the V2.1 child (dev stage,
+    DEVIATIONS V21-D15): the identity owner's Sleeper directory snapshot
+    (``OIV21_PERF_DIRECTORY``) and a thresholds selection
+    (``OIV21_PERF_THRESHOLDS``, a JSON file in the dev selection's shape).
+    Unset: unchanged behaviour (no directory; V2.1 reads its committed
+    thresholds).  Neither is read by the incumbent build."""
+    import os  # noqa: PLC0415
+
+    d = os.environ.get("OIV21_PERF_DIRECTORY")
+    if d:
+        from src.identity import directory_cache  # noqa: PLC0415
+
+        directory_cache.default_directory_path = lambda: Path(d)
+    t = os.environ.get("OIV21_PERF_THRESHOLDS")
+    if t:
+        from src.api import source_integrity as si  # noqa: PLC0415
+        from src.robust_filter_shadow import oiv21_dev as D  # noqa: PLC0415
+
+        th = D.thresholds_from(json.loads(Path(t).read_text("utf-8")))
+        si.load_thresholds = lambda *_a: th
 
 
 def _flags_for(cfg):
