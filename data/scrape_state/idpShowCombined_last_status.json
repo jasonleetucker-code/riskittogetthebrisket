@@ -1,8 +1,10 @@
 {
   "sourceKey": "idpShowCombined",
-  "state": "HEALTHY",
-  "usable": true,
-  "acquired": true,
-  "rowCount": 665,
-  "observedAt": "2026-10-22T00:32:29.358300+00:00"
+  "state": "UNAVAILABLE",
+  "usable": false,
+  "acquired": false,
+  "rowCount": null,
+  "reason": "article_fetch_failed",
+  "detail": "GET https://www.theidpshow.com/p/combined-idp-offense-dynasty-rankings-fantasy-football failed: HTTP 500",
+  "observedAt": "2026-10-22T02:32:21.368579+00:00"
 }
