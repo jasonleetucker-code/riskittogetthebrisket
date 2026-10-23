@@ -122,10 +122,18 @@ def _write_like_the_scraper(rows: list[list[str]]) -> bytes:
     return buf.getvalue().encode("utf-8")
 
 
+# Byte-exact copies of the last committed boards BEFORE the U3 cutover (blobs from
+# e70200c75, the commit before the first U3 refresh a6e2cff41).  The live
+# CSVs/site_raw files carry the U3 columns from that refresh on, so a hard-gate
+# test must not read them as "pre-U3" -- doing so failed every deploy after the
+# first U3 refresh (deploy run 39695424188).
+PRE_U3 = REPO / "tests" / "fixtures" / "u3_pre_cutover"
+
+
 def test_real_pre_u3_file_and_its_u3_successor_hash_identically():
-    """The committed idpTradeCalc board (CRLF, written by the scraper) against the
+    """The pre-U3 idpTradeCalc board (CRLF, written by the scraper) against the
     same values written the U3 way: one content, one digest."""
-    raw = (REPO / "CSVs" / "site_raw" / "idpTradeCalc.csv").read_bytes()
+    raw = (PRE_U3 / "idpTradeCalc.csv").read_bytes()
     rows = list(csv.reader(io.StringIO(raw.decode("utf-8"), newline="")))
     assert rows[0] == ["name", "value"] and b"\r\n" in raw
     widened = _write_like_the_scraper(
@@ -137,7 +145,7 @@ def test_real_pre_u3_file_and_its_u3_successor_hash_identically():
 
 
 def test_ktc_capture_boards_keep_their_pre_u3_position_column():
-    raw = (REPO / "CSVs" / "site_raw" / "ktcCrowdSfTep.csv").read_bytes()
+    raw = (PRE_U3 / "ktcCrowdSfTep.csv").read_bytes()
     rows = list(csv.reader(io.StringIO(raw.decode("utf-8"), newline="")))
     assert "position" in rows[0] and "team" not in rows[0]
     widened = _write_like_the_scraper([rows[0] + ["team"]] + [r + ["DET"] for r in rows[1:]])
