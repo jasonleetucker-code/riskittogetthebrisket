@@ -18,14 +18,6 @@
   "players": {
    "changeHistory": [
     {
-     "at": "2026-06-05T20:38:01Z",
-     "broad": false,
-     "rowsAdded": 0,
-     "rowsChanged": 6,
-     "rowsRemoved": 0,
-     "rowsTotal": 450
-    },
-    {
      "at": "2026-06-06T20:04:34Z",
      "broad": true,
      "rowsAdded": 0,
@@ -1936,13 +1928,21 @@
      "rowsChanged": 14,
      "rowsRemoved": 0,
      "rowsTotal": 398
+    },
+    {
+     "at": "2026-10-23T01:04:06Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 398
     }
    ],
-   "contentSince": "2026-10-22T22:01:28Z",
-   "fingerprint": "0b4f4b56aa100617edd0fefa",
+   "contentSince": "2026-10-23T01:04:06Z",
+   "fingerprint": "de3b19272d5abe0abac86e68",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-19T19:47:46Z",
-   "lastAnyMeaningfulChangeAt": "2026-10-22T22:01:28Z",
+   "lastAnyMeaningfulChangeAt": "2026-10-23T01:04:06Z",
    "lastBroadDatasetChangeAt": "2026-10-22T22:01:28Z",
    "rowChangedAt": {
     "a.j. brown": "2026-10-21T14:14:29Z",
@@ -2099,7 +2099,7 @@
     "j. michael sturdivant": "2026-10-22T05:29:26Z",
     "j.j. mccarthy": "2026-10-22T05:29:26Z",
     "j.k. dobbins": "2026-10-22T05:29:26Z",
-    "ja'kobi lane": "2026-10-21T14:14:29Z",
+    "ja'kobi lane": "2026-10-23T01:04:06Z",
     "ja'marr chase": "2026-10-21T14:14:29Z",
     "ja'tavion sanders": "2026-10-22T05:29:26Z",
     "jack bech": "2026-10-22T05:29:26Z",
@@ -2251,7 +2251,7 @@
     "oscar delp": "2026-10-22T05:29:26Z",
     "parker washington": "2026-10-22T05:29:26Z",
     "pat bryant": "2026-10-22T05:29:26Z",
-    "pat freiermuth": "2026-10-22T05:29:26Z",
+    "pat freiermuth": "2026-10-23T01:04:06Z",
     "patrick mahomes": "2026-10-20T05:26:10Z",
     "puka nacua": "2026-10-21T14:14:29Z",
     "quentin johnston": "2026-10-22T05:29:26Z",
@@ -2369,10 +2369,10 @@
     386,
     386,
     386,
-    386,
     395,
     395,
     395,
+    398,
     398,
     398,
     398
@@ -2532,7 +2532,7 @@
     "j. michael sturdivant": "1a9cacfe91",
     "j.j. mccarthy": "fe3d6a6d4f",
     "j.k. dobbins": "e130bca426",
-    "ja'kobi lane": "b20f90b471",
+    "ja'kobi lane": "482a3d3e3a",
     "ja'marr chase": "a6d8916728",
     "ja'tavion sanders": "18f6cf921d",
     "jack bech": "42bd66b0af",
@@ -2684,7 +2684,7 @@
     "oscar delp": "fc5c175328",
     "parker washington": "635d298de0",
     "pat bryant": "41067cf276",
-    "pat freiermuth": "482a3d3e3a",
+    "pat freiermuth": "b20f90b471",
     "patrick mahomes": "9d6676b621",
     "puka nacua": "b3ba26ea07",
     "quentin johnston": "e233d0969b",
