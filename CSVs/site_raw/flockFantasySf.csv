@@ -9,8 +9,8 @@ Caleb Williams,8.13,QB,CHI
 Drake Maye,10.13,QB,NE
 Amon-Ra St. Brown,10.25,WR,DET
 Ashton Jeanty,11.88,RB,LV
-Brock Bowers,13.25,TE,LV
 Lamar Jackson,13.25,QB,BAL
+Brock Bowers,13.25,TE,LV
 Malik Nabers,13.38,WR,NYG
 CeeDee Lamb,13.75,WR,DAL
 Jeremiyah Love,14.25,RB,ARI
@@ -55,16 +55,16 @@ Ladd McConkey,59.75,WR,LAC
 Bucky Irving,59.88,RB,TB
 Javonte Williams,60.25,RB,DAL
 Jordan Love,60.63,QB,GB
-Tee Higgins,61.38,WR,CIN
 Matthew Golden,61.38,WR,GB
+Tee Higgins,61.38,WR,CIN
 Omarion Hampton,62.14,RB,LAC
 Bhayshul Tuten,62.5,RB,JAX
 Rashee Rice,63.38,WR,KC
 DeVonta Smith,63.88,WR,PHI
 Jalen Hurts,65.38,QB,PHI
 Bo Nix,66.13,QB,DEN
-Jadarian Price,68.13,RB,SEA
 Quinshon Judkins,68.13,RB,CLE
+Jadarian Price,68.13,RB,SEA
 C.J. Stroud,71.75,QB,HOU
 Sam LaPorta,72.88,TE,DET
 Makai Lemon,75.5,WR,PHI
@@ -72,8 +72,8 @@ Derrick Henry,76.25,RB,BAL
 Kenyon Sadiq,78.88,TE,NYJ
 TreVeyon Henderson,79.25,RB,NE
 Cam Skattebo,79.5,RB,NYG
-Baker Mayfield,81.5,QB,TB
 Denzel Boston,81.5,WR,CLE
+Baker Mayfield,81.5,QB,TB
 D'Andre Swift,81.75,RB,CHI
 Jameson Williams,82.13,WR,DET
 Harold Fannin,83.63,TE,CLE
@@ -169,8 +169,8 @@ Deshaun Watson,192.88,QB,CLE
 T.J. Hockenson,193.63,TE,MIN
 Ollie Gordon II,195.25,RB,MIA
 Nicholas Singleton,196.0,RB,TEN
-Adonai Mitchell,198.38,WR,NYJ
 Jalen McMillan,198.38,WR,TB
+Adonai Mitchell,198.38,WR,NYJ
 Mark Andrews,198.63,TE,BAL
 Geno Smith,200.13,QB,NYJ
 Aaron Jones,201.25,RB,MIN
@@ -257,8 +257,8 @@ Ray Davis,270.0,RB,BUF
 Jack Endries,270.5,TE,CIN
 Xavier Legette,271.29,WR,CAR
 Keenan Allen,272.29,WR,IND
-Cole Payton,275.0,QB,PHI
 Raheim Sanders,275.0,RB,CLE
+Cole Payton,275.0,QB,PHI
 Adam Randall,275.17,RB,BAL
 Jordan James,277.0,RB,SF
 James Conner,278.29,RB,ARI
@@ -297,8 +297,8 @@ Taylen Green,299.2,QB,CLE
 George Holani,300.0,RB,SEA
 J'Mari Taylor,300.0,RB,JAX
 Brenen Thompson,300.75,WR,LAC
-Gabe Davis,301.0,WR,
 Tanner McKee,301.0,QB,PHI
+Gabe Davis,301.0,WR,
 Luke Musgrave,301.4,TE,GB
 Tanner Koziol,301.67,TE,JAX
 Garrett Nussmeier,303.0,QB,KC
@@ -308,8 +308,8 @@ Marvin Mims,303.57,WR,DEN
 Nick Chubb,304.0,RB,
 Sam Roush,304.5,TE,CHI
 Jonnu Smith,304.71,TE,GB
-Dont'e Thornton Jr.,305.0,WR,LV
 Isaac Guerendo,305.0,RB,SF
+Dont'e Thornton Jr.,305.0,WR,LV
 DeMario Douglas,305.57,WR,NE
 Joe Flacco,305.75,QB,CIN
 Zach Ertz,308.0,TE,PHI
@@ -338,16 +338,16 @@ Marlin Klein,322.5,TE,HOU
 Roschon Johnson,323.17,RB,CHI
 LeQuint Allen,323.5,RB,JAX
 Savion Williams,324.2,WR,GB
-Justice Hill,325.0,RB,BAL
 Dillon Gabriel,325.0,QB,CLE
+Justice Hill,325.0,RB,BAL
 C.J. Daniels,326.0,WR,LAR
 Spencer Rattler,326.71,QB,NO
 Treylon Burks,328.0,WR,WAS
 Cole Kmet,329.71,TE,CHI
 Will Shipley,330.4,RB,PHI
 Devin Singletary,330.67,RB,NYG
-Jalin Hyatt,331.0,WR,NYG
 Jaydn Ott,331.0,RB,KC
+Jalin Hyatt,331.0,WR,NYG
 DeAndre Hopkins,331.5,WR,
 Phil Mafah,332.0,RB,NYG
 Dawson Knox,332.5,TE,BUF
@@ -358,15 +358,15 @@ Will Levis,335.0,QB,NYJ
 Isaiah Bond,335.2,WR,CLE
 Adam Thielen,336.0,WR,
 Deuce Vaughn,336.5,RB,HOU
-Daniel Bellinger,339.0,TE,TEN
-Kalel Mullings,339.0,RB,TEN
 Antonio Gibson,339.0,RB,
+Kalel Mullings,339.0,RB,TEN
+Daniel Bellinger,339.0,TE,TEN
 Zonovan Knight,339.67,RB,ARI
 Lewis Bond,340.0,WR,HOU
 Rondale Moore,340.0,WR,
-Diego Pavia,341.0,QB,
 Miles Sanders,341.0,RB,
 Jordan Whittington,341.0,WR,LAR
+Diego Pavia,341.0,QB,
 Emari Demercado,341.0,RB,DAL
 Joshua Palmer,341.17,WR,BUF
 Joe Milton,341.67,QB,PHI
@@ -378,18 +378,18 @@ Jaleel McLaughlin,344.0,RB,CLE
 Xavier Restrepo,344.0,WR,TEN
 Jake Tonges,344.0,TE,SF
 Malachi Corley,344.33,WR,CLE
-Tai Felton,344.5,WR,MIN
 Dameon Pierce,344.5,RB,PHI
+Tai Felton,344.5,WR,MIN
 Javon Baker,345.0,WR,
 Samaje Perine,345.5,RB,CIN
-Quinn Ewers,346.0,QB,JAX
 Aidan O'Connell,346.0,QB,LV
+Quinn Ewers,346.0,QB,JAX
 Noah Fant,346.0,TE,NO
 Noah Brown,347.0,WR,
 Cole Payton,347.0,QB,
+Jonathan Mingo,348.0,WR,DAL
 Jimmy Horn Jr.,348.0,WR,CLE
 Deion Burks,348.0,WR,IND
-Jonathan Mingo,348.0,WR,DAL
 John Metchie,349.0,WR,CAR
 Michael Carter,349.5,RB,TEN
 Jahan Dotson,349.5,WR,ATL
@@ -418,15 +418,15 @@ Will Dissly,375.0,TE,
 Kendrick Bourne,375.67,WR,ARI
 Zay Jones,377.0,WR,
 Jaheim Bell,377.0,TE,
-Tyler Conklin,378.0,TE,DET
 Riley Leonard,378.0,QB,IND
+Tyler Conklin,378.0,TE,DET
 Seydou Traore,379.0,TE,MIA
 Greg Dortch,379.0,WR,BUF
 Matthew Hibner,380.0,TE,BAL
-Odell Beckham,381.0,WR,MIN
 Arian Smith,381.0,WR,NYJ
-Tahj Washington,382.0,WR,
+Odell Beckham,381.0,WR,MIN
 Mike Williams,382.0,WR,
+Tahj Washington,382.0,WR,
 Jermaine Burton,386.5,WR,
 Brevin Jordan,389.0,TE,HOU
 Xavier Hutchinson,390.5,WR,HOU
