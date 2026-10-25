@@ -197,9 +197,18 @@ async function pinBoard(page, extra = null) {
   return state;
 }
 
-function expectPinned(state) {
-  expect(state.rosters, "the page read a board carrying the league's rosters").toBeGreaterThan(0);
-  expect(state.boards, "the page read a board carrying player rows").toBeGreaterThan(0);
+// WAITS for the page to have read a pinned board, then asserts.  The
+// "Loading player pool..." wait in `buildThreeTeamTrade` can pass before the
+// page has even rendered that text (CI mobile, 2026-10-25: 694 ms, the board
+// request still inside `routeBoard`), so reading the counters synchronously
+// races the board fetch.  Same assertions, polled on the page's own budget.
+async function expectPinned(state) {
+  await expect
+    .poll(() => state.rosters, { message: "the page read a board carrying the league's rosters", timeout: 90_000 })
+    .toBeGreaterThan(0);
+  await expect
+    .poll(() => state.boards, { message: "the page read a board carrying player rows", timeout: 90_000 })
+    .toBeGreaterThan(0);
   expect([...state.problems], "the fixture's assets exist on the served board").toEqual([]);
 }
 
@@ -282,7 +291,7 @@ async function buildThreeTeamTrade(page, { pin = null, sides = plan() } = {}) {
   await page.waitForFunction(() => !document.body.innerText.includes("Loading player pool..."), null, {
     timeout: 90_000,
   });
-  if (pin) expectPinned(pin);
+  if (pin) await expectPinned(pin);
   await page.getByRole("button", { name: "Add Team" }).click();
   await expect(page.locator("#trade-side-C")).toBeVisible();
   // Players first, so each side's team is proven by id before its own picks
