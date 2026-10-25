@@ -15,6 +15,9 @@
 # the original PR pin fell behind by three days.
 pytest~=9.0.0
 
+# Validate the focused MCP wire responses against the official MCP JSON Schema.
+jsonschema~=4.0
+
 # ``fastapi.testclient.TestClient`` is a re-export of
 # ``starlette.testclient.TestClient``, which requires ``httpx`` at
 # runtime since Starlette 0.21 / FastAPI 0.87.  It is NOT declared as

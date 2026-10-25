@@ -557,4 +557,3 @@ owned by its author; this campaign changes neither and performs no operations wo
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 # **Chase Upside private ChatGPT MCP plugin (owner directive 2026-10-25).** Scoped read-only owner-only ChatGPT Sites MCP tools for rankings, canonical player identity, league context, Sleeper rosters and trade analysis; reuse API/analytics owners; include IDs, freshness, confidence, provenance and explicit missing states. No public access, writes, merge or deploy. Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c` (`codex/chase-upside-private-mcp`)
     shared files: `.env.example`, `server.py`, `src/api/chase_upside_mcp.py`, `sites/chase-upside-mcp/**`, `tests/api/test_chase_upside_mcp.py`, `docs/ops/CHATGPT_MCP_SETUP.md`, `docs/EXECUTION_PLAN.md`, `docs/OWNER_REQUESTED_TODO.md`, `docs/WORK_CLAIMS.md`
-

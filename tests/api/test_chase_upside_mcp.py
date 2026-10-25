@@ -1,12 +1,30 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
 
 import server
+
+MCP_SCHEMA = json.loads(
+    (Path(__file__).resolve().parents[1] / "fixtures/mcp/schema-2026-07-28.json").read_text(
+        encoding="utf-8"
+    )
+)
+
+
+def _validate_mcp_response(definition, response):
+    schema = {
+        "$schema": MCP_SCHEMA["$schema"],
+        "$defs": MCP_SCHEMA["$defs"],
+        "$ref": f"#/$defs/{definition}",
+    }
+    Draft202012Validator.check_schema(schema)
+    Draft202012Validator(schema).validate(response)
 
 
 def _mcp_client(monkeypatch):
@@ -15,10 +33,30 @@ def _mcp_client(monkeypatch):
     return TestClient(server.app)
 
 
-def _headers():
-    return {
+def _headers(method="tools/list", name=None):
+    headers = {
         "Authorization": f"Bearer {'t' * 48}",
         "X-Chase-Upside-Owner-Id": "site-owner-1",
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": method,
+    }
+    if name is not None:
+        headers["Mcp-Name"] = name
+    return headers
+
+
+def _request(method, request_id, params=None):
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": method,
+        "params": {
+            **(params or {}),
+            "_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientCapabilities": {},
+            },
+        },
     }
 
 
@@ -42,18 +80,34 @@ def test_mcp_discovery_and_tool_list_are_read_only(monkeypatch):
     with _mcp_client(monkeypatch) as client:
         discovery = client.post(
             "/api/chase-upside/mcp",
-            headers=_headers(),
-            json={"jsonrpc": "2.0", "id": 1, "method": "server/discover"},
+            headers=_headers("server/discover"),
+            json=_request("server/discover", 1),
         )
         tools = client.post(
             "/api/chase-upside/mcp",
-            headers=_headers(),
-            json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+            headers=_headers("tools/list"),
+            json=_request("tools/list", 2),
         )
 
     assert discovery.status_code == 200
-    assert discovery.json()["result"]["supportedVersions"] == ["2026-07-28"]
+    _validate_mcp_response("DiscoverResultResponse", discovery.json())
+    discover_result = discovery.json()["result"]
+    assert discover_result["supportedVersions"] == ["2026-07-28"]
+    assert discover_result["resultType"] == "complete"
+    assert discover_result["ttlMs"] == 0
+    assert discover_result["cacheScope"] == "private"
+    assert discover_result["_meta"]["io.modelcontextprotocol/serverInfo"] == {
+        "name": "Chase Upside MCP",
+        "version": "1.0.0",
+    }
+    _validate_mcp_response("ListToolsResultResponse", tools.json())
     listed = tools.json()["result"]["tools"]
+    assert tools.json()["result"]["resultType"] == "complete"
+    assert tools.json()["result"]["ttlMs"] == 0
+    assert tools.json()["result"]["cacheScope"] == "private"
+    assert tools.json()["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == (
+        "Chase Upside MCP"
+    )
     assert {tool["name"] for tool in listed} == {
         "get_player_rankings",
         "resolve_player_identity",
@@ -62,6 +116,8 @@ def test_mcp_discovery_and_tool_list_are_read_only(monkeypatch):
         "analyze_trade",
     }
     assert all("write" not in tool["name"] for tool in listed)
+    assert all(tool["annotations"]["readOnlyHint"] is True for tool in listed)
+    assert all(tool["annotations"]["destructiveHint"] is False for tool in listed)
 
 
 def test_rankings_tool_returns_canonical_rows_and_provenance(monkeypatch):
@@ -97,18 +153,22 @@ def test_rankings_tool_returns_canonical_rows_and_provenance(monkeypatch):
         )
         response = client.post(
             "/api/chase-upside/mcp",
-            headers=_headers(),
-            json={
-                "jsonrpc": "2.0",
-                "id": 3,
-                "method": "tools/call",
-                "params": {
+            headers=_headers("tools/call", "get_player_rankings"),
+            json=_request(
+                "tools/call",
+                3,
+                {
                     "name": "get_player_rankings",
                     "arguments": {"leagueKey": "dynasty_main", "position": "QB"},
                 },
-            },
+            ),
         )
     result = response.json()["result"]["structuredContent"]
+    _validate_mcp_response("CallToolResultResponse", response.json())
+    assert response.json()["result"]["resultType"] == "complete"
+    assert response.json()["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == (
+        "Chase Upside MCP"
+    )
     assert result["dataAsOf"] == "2026-10-25T12:00:00Z"
     assert result["players"] == [
         {
@@ -134,16 +194,15 @@ def test_rankings_tool_reads_the_loaded_backend_contract(monkeypatch):
         monkeypatch.setattr(server, "_scoring_identity_error", lambda _contract, _league: None)
         response = client.post(
             "/api/chase-upside/mcp",
-            headers=_headers(),
-            json={
-                "jsonrpc": "2.0",
-                "id": 33,
-                "method": "tools/call",
-                "params": {
+            headers=_headers("tools/call", "get_player_rankings"),
+            json=_request(
+                "tools/call",
+                33,
+                {
                     "name": "get_player_rankings",
                     "arguments": {"leagueKey": "dynasty_main", "limit": 1},
                 },
-            },
+            ),
         )
     assert response.status_code == 200
     result = response.json()["result"]["structuredContent"]
@@ -158,19 +217,71 @@ def test_tool_arguments_are_allowlisted_and_size_bounded(monkeypatch):
     with _mcp_client(monkeypatch) as client:
         invalid = client.post(
             "/api/chase-upside/mcp",
-            headers=_headers(),
-            json={
-                "jsonrpc": "2.0",
-                "id": 4,
-                "method": "tools/call",
-                "params": {"name": "get_player_rankings", "arguments": {"leak": "private"}},
-            },
+            headers=_headers("tools/call", "get_player_rankings"),
+            json=_request(
+                "tools/call", 4, {"name": "get_player_rankings", "arguments": {"leak": "private"}}
+            ),
         )
         oversized = client.post(
             "/api/chase-upside/mcp",
-            headers=_headers(),
-            content=json.dumps({"payload": "x" * (64 * 1024)}),
+            headers=_headers("tools/list"),
+            content=json.dumps(_request("tools/list", 5, {"payload": "x" * (64 * 1024)})),
         )
     assert invalid.json()["result"]["isError"] is True
     assert "private" not in invalid.text
     assert oversized.status_code == 413
+
+
+def test_protocol_rejects_header_mismatch_and_explicit_null_offset(monkeypatch):
+    with _mcp_client(monkeypatch) as client:
+        mismatch = client.post(
+            "/api/chase-upside/mcp",
+            headers=_headers("tools/list"),
+            json=_request("server/discover", 6),
+        )
+        null_offset = client.post(
+            "/api/chase-upside/mcp",
+            headers=_headers("tools/call", "get_player_rankings"),
+            json=_request(
+                "tools/call",
+                7,
+                {
+                    "name": "get_player_rankings",
+                    "arguments": {"offset": None},
+                },
+            ),
+        )
+    assert mismatch.status_code == 400
+    assert mismatch.json()["error"]["code"] == -32020
+    assert null_offset.json()["result"]["isError"] is True
+    assert null_offset.json()["result"]["structuredContent"]["reason"] == ("invalid_argument_type")
+
+
+def test_protocol_rejects_unsupported_versions_and_mcp_name_mismatch(monkeypatch):
+    with _mcp_client(monkeypatch) as client:
+        unsupported_body = _request("tools/list", 8)
+        unsupported_body["params"]["_meta"]["io.modelcontextprotocol/protocolVersion"] = (
+            "2025-11-25"
+        )
+        unsupported = client.post(
+            "/api/chase-upside/mcp",
+            headers={
+                **_headers("tools/list"),
+                "MCP-Protocol-Version": "2025-11-25",
+            },
+            json=unsupported_body,
+        )
+        name_mismatch = client.post(
+            "/api/chase-upside/mcp",
+            headers=_headers("tools/call", "resolve_player_identity"),
+            json=_request(
+                "tools/call",
+                9,
+                {"name": "get_player_rankings", "arguments": {}},
+            ),
+        )
+    assert unsupported.status_code == 400
+    assert unsupported.json()["error"]["code"] == -32022
+    assert unsupported.json()["error"]["data"]["supported"] == ["2026-07-28"]
+    assert name_mismatch.status_code == 400
+    assert name_mismatch.json()["error"]["code"] == -32020

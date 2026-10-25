@@ -19,12 +19,15 @@ from fastapi.responses import JSONResponse
 router = APIRouter()
 MAX_REQUEST_BYTES = 64 * 1024
 PROTOCOL_VERSION = "2026-07-28"
+SERVER_INFO = {"name": "Chase Upside MCP", "version": "1.0.0"}
+SERVER_INFO_META = {"io.modelcontextprotocol/serverInfo": SERVER_INFO}
 _PYTHON_TYPES = {"string": str, "integer": int, "null": type(None)}
 
 TOOLS = [
     {
         "name": "get_player_rankings",
         "description": "Read the current Chase Upside player rankings for a league.",
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True},
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -39,6 +42,7 @@ TOOLS = [
     {
         "name": "resolve_player_identity",
         "description": "Resolve a player name or platform ID using Chase Upside's canonical identity resolver.",
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True},
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -53,6 +57,7 @@ TOOLS = [
     {
         "name": "get_league_context",
         "description": "Read league scoring and roster settings without exposing Sleeper league credentials.",
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True},
         "inputSchema": {
             "type": "object",
             "properties": {"leagueKey": {"type": "string"}},
@@ -63,6 +68,7 @@ TOOLS = [
     {
         "name": "get_team_roster",
         "description": "Read a team's current roster and available player identifiers for a league.",
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True},
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -77,6 +83,7 @@ TOOLS = [
     {
         "name": "analyze_trade",
         "description": "Analyze a proposed trade with the current Chase Upside trade engine; this does not save or publish the result.",
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True},
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -146,9 +153,86 @@ def _missing(reason: str, *, missing: list[str] | None = None) -> dict[str, Any]
 
 def _tool_result(value: dict[str, Any]) -> dict[str, Any]:
     return {
+        "resultType": "complete",
+        "_meta": SERVER_INFO_META,
         "content": [{"type": "text", "text": json.dumps(value, ensure_ascii=False)}],
         "structuredContent": value,
     }
+
+
+def _cacheable_result(result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **result,
+        "resultType": "complete",
+        "ttlMs": 0,
+        "cacheScope": "private",
+        "_meta": SERVER_INFO_META,
+    }
+
+
+def _protocol_error(request_id: Any, code: int, message: str) -> JSONResponse:
+    return JSONResponse(
+        {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}},
+        status_code=400,
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+def _decode_request_name(value: str) -> str:
+    prefix, suffix = "=?base64?", "?="
+    if value.startswith(prefix) and value.endswith(suffix):
+        import base64  # noqa: PLC0415
+
+        try:
+            return base64.b64decode(value[len(prefix) : -len(suffix)], validate=True).decode(
+                "utf-8"
+            )
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise ValueError("invalid_header_encoding") from exc
+    return value
+
+
+def _validate_protocol_request(request: Request, message: dict[str, Any]) -> JSONResponse | None:
+    request_id = message.get("id")
+    params = message.get("params")
+    if not isinstance(params, dict):
+        return _protocol_error(request_id, -32602, "Invalid params")
+    meta = params.get("_meta")
+    version = (
+        meta.get("io.modelcontextprotocol/protocolVersion") if isinstance(meta, dict) else None
+    )
+    header_version = request.headers.get("mcp-protocol-version")
+    if header_version != version:
+        return _protocol_error(request_id, -32020, "Header mismatch")
+    if version != PROTOCOL_VERSION:
+        return JSONResponse(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32022,
+                    "message": "Unsupported protocol version",
+                    "data": {"supported": [PROTOCOL_VERSION], "requested": version},
+                },
+            },
+            status_code=400,
+            headers={"Cache-Control": "no-store"},
+        )
+    if not isinstance(meta, dict) or not isinstance(
+        meta.get("io.modelcontextprotocol/clientCapabilities"), dict
+    ):
+        return _protocol_error(request_id, -32602, "Invalid params")
+    method = message.get("method")
+    if request.headers.get("mcp-method") != method:
+        return _protocol_error(request_id, -32020, "Header mismatch")
+    if method == "tools/call":
+        try:
+            header_name = _decode_request_name(request.headers.get("mcp-name", ""))
+        except ValueError:
+            return _protocol_error(request_id, -32020, "Header mismatch")
+        if header_name != params.get("name"):
+            return _protocol_error(request_id, -32020, "Header mismatch")
+    return None
 
 
 def _validate_arguments(name: str, arguments: dict[str, Any]) -> None:
@@ -162,10 +246,13 @@ def _validate_arguments(name: str, arguments: dict[str, Any]) -> None:
     if any(key not in arguments for key in schema.get("required", [])):
         raise ValueError("required_argument_missing")
     for key, value in arguments.items():
-        if value is None:
-            continue
         definition = properties[key]
         kind = definition.get("type")
+        if value is None:
+            allowed_types = kind if isinstance(kind, list) else [kind]
+            if "null" not in allowed_types:
+                raise ValueError("invalid_argument_type")
+            continue
         if kind == "string" and not isinstance(value, str):
             raise ValueError("invalid_argument_type")
         if kind == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
@@ -221,8 +308,8 @@ def _rankings(server: Any, args: dict[str, Any]) -> dict[str, Any]:
     if position:
         rows = [row for row in rows if str(row.get("position") or "").upper() == position]
     # Preserve the canonical board's precomputed tie order.
-    offset = max(0, int(args.get("offset") or 0))
-    limit = min(100, max(1, int(args.get("limit") or 50)))
+    offset = max(0, args.get("offset", 0))
+    limit = min(100, max(1, args.get("limit", 50)))
     selected = rows[offset : offset + limit]
     fields = (
         "playerId",
@@ -569,11 +656,18 @@ async def mcp_endpoint(request: Request):
         )
     method = message.get("method")
     request_id = message.get("id")
-    params = message.get("params") or {}
+    if request_id is None or isinstance(request_id, (dict, list, bool)):
+        return _protocol_error(None, -32600, "Invalid Request")
+    protocol_error = _validate_protocol_request(request, message)
+    if protocol_error is not None:
+        return protocol_error
+    params = message.get("params")
     if method == "server/discover":
-        result = {"supportedVersions": [PROTOCOL_VERSION], "capabilities": {"tools": {}}}
+        result = _cacheable_result(
+            {"supportedVersions": [PROTOCOL_VERSION], "capabilities": {"tools": {}}}
+        )
     elif method == "tools/list":
-        result = {"tools": TOOLS}
+        result = _cacheable_result({"tools": TOOLS})
     elif method == "tools/call":
         name = params.get("name") if isinstance(params, dict) else None
         arguments = params.get("arguments") if isinstance(params, dict) else None
@@ -598,7 +692,7 @@ async def mcp_endpoint(request: Request):
             )
             result["isError"] = True
     elif method == "ping":
-        result = {}
+        result = {"resultType": "complete", "_meta": SERVER_INFO_META}
     else:
         return JSONResponse(
             {
@@ -606,7 +700,7 @@ async def mcp_endpoint(request: Request):
                 "id": request_id,
                 "error": {"code": -32601, "message": "Method not found"},
             },
-            status_code=200,
+            status_code=404,
             headers={"Cache-Control": "no-store"},
         )
     return JSONResponse(

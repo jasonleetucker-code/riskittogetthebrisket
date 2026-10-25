@@ -57,19 +57,38 @@ async function handleMcp(request, env) {
 
   let target;
   try {
-    target = new URL("/api/chase-upside/mcp", backend);
+    const backendUrl = new URL(backend);
+    if (backendUrl.protocol !== "https:") return jsonError(503, "https_backend_required");
+    if (
+      backendUrl.hostname !== "chaseupside.com" ||
+      (backendUrl.port && backendUrl.port !== "443") ||
+      backendUrl.username ||
+      backendUrl.password ||
+      backendUrl.search ||
+      backendUrl.hash ||
+      (backendUrl.pathname !== "" && backendUrl.pathname !== "/")
+    ) {
+      return jsonError(503, "trusted_backend_origin_required");
+    }
+    target = new URL("/api/chase-upside/mcp", backendUrl.origin);
   } catch {
     return jsonError(503, "plugin_not_configured");
   }
-  if (target.protocol !== "https:") return jsonError(503, "https_backend_required");
 
   try {
+    const mcpHeaders = {
+      "MCP-Protocol-Version": request.headers.get("MCP-Protocol-Version") ?? "",
+      "Mcp-Method": request.headers.get("Mcp-Method") ?? "",
+    };
+    const mcpName = request.headers.get("Mcp-Name");
+    if (mcpName !== null) mcpHeaders["Mcp-Name"] = mcpName;
     const response = await fetch(target, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         "X-Chase-Upside-Owner-Id": userId,
+        ...mcpHeaders,
       },
       body,
       redirect: "error",
