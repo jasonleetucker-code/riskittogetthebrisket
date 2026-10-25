@@ -15,6 +15,44 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-25 — IDP valuation accuracy, replacement methodology and cross-position fair value
+
+Owner directive 2026-10-25, recorded verbatim in `docs/owner/IDP_VALUATION_ACCURACY_DIRECTIVE_2026-10-25.md`.
+Authorized in `docs/EXECUTION_PLAN.md` (same date) as isolated research and shadow-only candidates. It extends, and
+must reconcile with, Investigation B (`docs/valuation/IDP_REPLACEMENT_AND_SCORING_2026-10-20.md`, PR #1888), LI-5
+(`docs/valuation/LI5_REPLACEMENT_CONSOLIDATION_DESIGN_2026-10-21.md`) and the forced-drop lane.
+
+| # | Owner instruction | Status |
+|---|---|---|
+| IDPV-1 | Pinned research manifest (commit, league `dynasty_main` / `1312006700437352448`, scoring + roster-format fingerprints, data cutoffs, source ids/timestamps, model/param versions, checksums); no private manager data in public artifacts | IN PROGRESS |
+| IDPV-2 | Scoring accuracy vs Sleeper awarded points, event-level (tackles, TFL, sacks/yards, QB hits, PD, INT/FF, returns/TDs, stacking, offense, multi-position eligibility), exceptions enumerated; no performance claims while discrepancies are unexplained (Deliverable A) | IN PROGRESS |
+| IDPV-3 | Baseline ranking diagnostics from the served canonical artifact + native IDPTC distribution + how cross-position bridge values enter consensus (Deliverable C baseline) | IN PROGRESS |
+| IDPV-4 | Shadow replacement definitions compared separately (starter threshold, viable FA, production-qualified FA pool, 3rd-best/median qualified, dynamic optimal-roster, team-specific post-transaction); health/availability/eligibility aware; whole-roster before/after for packages (Deliverable B) | IN PROGRESS |
+| IDPV-5 | Best-ball weekly-volatility utility by archetype and position (Deliverable D) | IN PROGRESS |
+| IDPV-6 | Cross-position multi-season utility; investigate the per-scope quantile-matching limitation of `league_fair_value_v1_shadow`; no IDP multiplier; no IDPTC price as both target and evidence; uncalibrated rather than invented scale (Deliverable F) | IN PROGRESS |
+| IDPV-7 | Scoring-sensitivity experiment (TFL, PD, tackles, sacks, QB hits, INT, FF/FR, TDs) with production scoring unchanged (Deliverable E) | IN PROGRESS |
+| IDPV-8 | Preregistered chronological backtest: champion vs BDVM vs fair-value shadow vs corrected replacement vs cross-position candidate; position-level, bootstrap CIs, multiple-testing correction, no hindsight leakage (Deliverable G) | IN PROGRESS |
+| IDPV-9 | Shadow market-price vs league-utility vs team-transaction comparison for private trade intelligence; public calculator unchanged; recommendations with effect size, n, dates, CIs, owner-approval need (Deliverable H) | IN PROGRESS |
+| IDPV-10 | Production safety: no live scoring, canonical value, voting/weight, IDP ceiling, trade verdict, public fairness, deploy activation or Sleeper change; no duplicate owner; missing never zero; no self-promotion | RECORDED — binding boundary |
+
+## Added 2026-10-25 — Platform-wide research, data-collection and promotion-readiness audit
+
+Owner request 2026-10-25 (chat): a comprehensive, evidence-based, READ-ONLY audit of every initiative across the
+platform that is being researched, monitored, backtested, run in shadow, developed behind a flag or held pending
+validation/approval. It must verify current executable evidence (not documents), inventory initiatives and data
+collectors separately with stable ids, assess promotion readiness per stage (research → candidate → shadow →
+dormant merge → activation → production verification) keeping "enough to decide", "evidence favours" and
+"authorized" as three separate questions, use only pre-existing project-specific thresholds (missing thresholds are
+a blocker, never invented), find stalled/broken/duplicated/abandoned work, list what can be decided now, and save a
+dated report plus a machine-readable inventory. No change to values, flags, parameters, thresholds, endpoints or
+production behaviour.
+
+| # | Owner instruction | Status |
+|---|---|---|
+| RPA-1 | Audit report + JSON inventory under `docs/audits/` (initiatives, collectors, readiness per stage, decision queue, blocker register, evidence index) | IN PROGRESS |
+| RPA-2 | Read-only: no production, flag, value, parameter, threshold or endpoint change while auditing | RECORDED — binding boundary |
+
+
 ## Added 2026-10-25 — 14-day owner requirements inventory (RIT-001 … RIT-088) reconciled
 
 The owner recovered an inventory of 88 requirement tracks for 2026-10-11 to 2026-10-25 (`RiskIt_14Day_Master_Backlog.csv`
