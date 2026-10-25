@@ -12,25 +12,31 @@
  *   - a 3-team trade keeps a persistent summary (the phone's bottom bar);
  *   - no horizontal page scroll at any step.
  *
- * Players are derived from the seeded contract, never hardcoded.  Auth: the
- * test-only session fixture.  Screenshots go to the test's output dir (never
- * a tracked file).
+ * Players are derived from the seeded contract, never hardcoded, and only
+ * from rows /trade will actually PRICE: the seeded contract follows the real
+ * sources, so "the first three valued rows" can include a row whose value the
+ * page withholds (quarantined, or a stale freshness axis) — and a 3-team
+ * trade carrying one reads "not determinable", which is a different journey
+ * (the withheld path is pinned by trade-multi-team.spec.js F2).  #1918.  Auth:
+ * the test-only session fixture.  Screenshots go to the test's output dir
+ * (never a tracked file).
  */
 const { test, expect } = require("../helpers/auth-fixture");
 const { pageUrl, awaitStreamSettled, contractFixture } = require("../helpers/journey");
 const { closeTradeSheet, openTradeSearch } = require("../helpers/trade-builder");
+const { TRADE_DATA_VIEW, boardRow, isTradeableRow } = require("../helpers/trade-board");
 
 test.use({ serviceWorkers: "block" });
 
 const PICK_TOKEN = /\d{4}/;
 
+// Priced AND trusted: a positive canonical value the page does not withhold
+// (helpers/trade-board.js mirrors the page's own withheld rule).
 function pricedPlayers(contract, playerNames, n) {
-  const dict = contract?.players || {};
   const out = [];
   for (const name of playerNames) {
     if (PICK_TOKEN.test(name)) continue;
-    const row = dict[name] || (contract?.playersArray || []).find((p) => p?.displayName === name);
-    if (row && Number(row.rankDerivedValue) > 0) out.push(name);
+    if (isTradeableRow(boardRow(contract, name))) out.push(name);
     if (out.length >= n) break;
   }
   return out;
@@ -62,9 +68,10 @@ test("trade TC-D2: toolbar, builder sheets, drilldown tabs, 3-team summary, no s
   authedPage: page,
 }, testInfo) => {
   const phone = testInfo.project.name.startsWith("mobile");
-  const { contract, playerNames } = await contractFixture(page);
+  // The view /trade itself reads, so the rows chosen are the rows it prices.
+  const { contract, playerNames } = await contractFixture(page, { view: TRADE_DATA_VIEW });
   const [a, b, c] = pricedPlayers(contract, playerNames, 3);
-  test.skip(!c, "seeded contract carries fewer than three priced players");
+  test.skip(!c, "seeded contract carries fewer than three priced, trusted players");
 
   await page.goto(pageUrl("/trade"), { waitUntil: "domcontentloaded" });
   await awaitStreamSettled(page);
