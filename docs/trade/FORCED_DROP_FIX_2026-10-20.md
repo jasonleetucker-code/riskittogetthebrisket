@@ -16,8 +16,16 @@ pinned — §0).
 vs sensitivity, who is affected, the overstatement test and the scarcity / anchor sensitivity —
 [`FORCED_DROP_VERDICT_CHANGE_ANALYSIS_2026-10-21.md`](FORCED_DROP_VERDICT_CHANGE_ANALYSIS_2026-10-21.md)
 (aggregates: [`evidence/forced_drop_fix_2026-10-20/verdict_change_analysis.json`](evidence/forced_drop_fix_2026-10-20/verdict_change_analysis.json)).
-Production-box replay (prepared, **not run**, needs owner authorization):
+Production-box replay runbook:
 [`FORCED_DROP_BOX_REPLAY_RUNBOOK_2026-10-21.md`](FORCED_DROP_BOX_REPLAY_RUNBOOK_2026-10-21.md).
+
+**Box replay RUN 2026-10-22, owner-authorized, read-only, exit 0.** Evidence:
+[`evidence/forced_drop_fix_2026-10-20/box_replay.json`](evidence/forced_drop_fix_2026-10-20/box_replay.json), sha256
+`f10fc997…f2c3`. Analysis, runbook §5 / §6 comparison and the activation recommendation:
+[`FORCED_DROP_BOX_REPLAY_ANALYSIS_2026-10-25.md`](FORCED_DROP_BOX_REPLAY_ANALYSIS_2026-10-25.md).
+
+Every A-driven aggregate equals the local `replay.json` exactly. The box adds the real Component B. The recommendation
+is **not to activate yet**. Activation checklist §10 item 3 is satisfied by this run; the other items stay open.
 
 ## 0. Re-measured 2026-10-21 on main@7f35463ef after train 17 (fairness_bands_v2); pre-train-17 figures superseded
 
