@@ -113,6 +113,20 @@ def _load_prior() -> list[DepthChartEntry]:
     return out
 
 
+def _snapshot_to_keep(
+    prior: list[DepthChartEntry], current: list[DepthChartEntry]
+) -> list[DepthChartEntry]:
+    """The next run's comparison base: this run's fresh charts, plus the
+    LAST GOOD chart of every team this run could not read.
+
+    Writing only ``current`` would drop a team that failed today from the
+    base, so its next good fetch would diff against nothing (every row a
+    "debut", every real move that day lost).  A failed team keeps its prior
+    rows instead — never a fabricated chart, only the last one observed."""
+    fresh_teams = {e.team_abbrev for e in current}
+    return list(current) + [e for e in prior if e.team_abbrev not in fresh_teams]
+
+
 def _events_from_changes(changes: list[dict], *, today: str) -> list[dict]:
     events: list[dict] = []
     for c in changes:
@@ -200,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
         _LOGGER.info("no prior snapshot or no current data — skipping event derivation this run")
 
     if current:
-        _atomic_write_json(_PRIOR_PATH, [e.to_dict() for e in current])
+        _atomic_write_json(_PRIOR_PATH, [e.to_dict() for e in _snapshot_to_keep(prior, current)])
 
     if failed:
         _LOGGER.warning("failures: %s", failed)
