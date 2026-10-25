@@ -1,5 +1,10 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Chase Upside private ChatGPT MCP plugin — owner directive, 2026-10-25
+
+**AUTHORIZED: scoped implementation and PR only.** Build an owner-only, read-only MCP plugin using ChatGPT Sites hosting to support the user's ChatGPT Plus workflow. First tools: player rankings, canonical player identity resolution, league context, Sleeper rosters, and trade analysis. Reuse current API contracts and analytical owners; include IDs, data-as-of stamps, confidence, provenance, and explicit unavailable states. Respect private ranking permissions, source licensing, and feature flags. No write tools, public publication, production deployment, or merge is authorized in this lane. Review and required verification are prerequisites to any later publish/deploy/merge. Follow-on scope for projections, draft capital, waivers and FAAB remains intake-only until the first live path is verified. Intake: `docs/OWNER_REQUESTED_TODO.md` §"Added 2026-10-25 — Chase Upside private ChatGPT MCP plugin".
+
+
 ## Unlisted Waiver Wire Comparison page — owner directive, 2026-10-21
 
 **AUTHORIZED (build, review, merge and deploy in one pass).** A standalone, read-only page at the
