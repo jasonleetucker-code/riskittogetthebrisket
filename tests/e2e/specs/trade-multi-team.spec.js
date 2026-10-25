@@ -20,15 +20,29 @@
  *      produce the static panel.  The local verification boots the backend
  *      with RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=1.
  *
+ * Board drift (#1918).  The seeded board is the committed exports/latest
+ * snapshot, refreshed from the REAL league every few hours.  The fixture is
+ * a recorded trade on the 2026-10-20 rosters; on 2026-10-21 its pick ("2027
+ * Mid 1st (from Kich)") was traded away on Sleeper, so the route-mocked
+ * tests could no longer find it in its sender's inventory.  The route-mocked
+ * tests therefore PIN the served board to the fixture's own state for the
+ * six traded assets (`pinFixtureBoard`): each one sits on the roster the
+ * fixture's ledger says sends it, priced and not withheld, as the engine saw
+ * it.  Every other row, team and pick is the live seeded board.  The live
+ * test cannot be pinned (a flag-ON server verifies ownership against its own
+ * rosters), so it builds its trade from the served board instead
+ * (`livePlan`).
+ *
  * Screenshots go to E2E_SCREENSHOT_DIR when set (local evidence), else to the
  * test's output folder.
  */
 const fs = require("fs");
 const path = require("path");
 const { test, expect } = require("../helpers/auth-fixture");
-const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
+const { pageUrl, awaitStreamSettled, contractFixture } = require("../helpers/journey");
 const AxeBuilder = require("@axe-core/playwright").default;
 const { closeTradeSheet, openTradeSearch } = require("../helpers/trade-builder");
+const { TRADE_DATA_VIEW, boardRow, isTradeableRow } = require("../helpers/trade-board");
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const FIXTURE = JSON.parse(
@@ -80,6 +94,171 @@ function plan() {
   }));
 }
 
+// ── The board the route-mocked tests run on ─────────────────────────────
+//
+// The board responses the page reads, rewritten by `mutate` in place.  One
+// route for every rewrite a test needs (a second `page.route` on the same
+// URL would shadow the first rather than compose with it).
+async function routeBoard(page, mutate) {
+  await page.route(
+    (url) => url.pathname.startsWith("/api/dynasty-data") || url.pathname === "/api/data",
+    async (route) => {
+      const res = await route.fetch();
+      const body = await res.json();
+      mutate(body);
+      await route.fulfill({ response: res, json: body });
+    },
+  );
+}
+
+const PLAYER_ID = /^p:(.+)$/;
+
+/**
+ * Pin the served board to the fixture's own state for the fixture's traded
+ * assets, and only those: each player and the owned pick moves to the roster
+ * the fixture's ledger sends it from (removed from whoever holds it today),
+ * and each player row carries the fixture engine's own evidence — priced
+ * (`valueState: "priced"`), so not quarantined, not stale, and its leg value
+ * where the live row has none.  What the board cannot supply at all (a row
+ * that left the board, a pick no team holds) is reported in
+ * `state.problems`, never invented.
+ */
+function pinFixtureBoard(body, state) {
+  const teams = body?.sleeper?.teams;
+  const legs = FIXTURE.teams.flatMap((t) => t.gives.map((g) => ({ ...g, fromRosterId: t.rosterId })));
+  if (Array.isArray(teams) && teams.length) {
+    const byRoster = new Map(teams.map((t) => [Number(t.roster_id ?? t.rosterId), t]));
+    for (const leg of legs) {
+      const owner = byRoster.get(leg.fromRosterId);
+      if (!owner) {
+        state.problems.add(`roster ${leg.fromRosterId} is not on the served board`);
+        continue;
+      }
+      if (leg.kind === "player") {
+        const id = PLAYER_ID.exec(leg.assetId)?.[1];
+        for (const t of teams) {
+          t.players = (t.players || []).filter((n) => n !== leg.label);
+          t.playerIds = (t.playerIds || []).filter((x) => String(x) !== id);
+        }
+        owner.players = [...(owner.players || []), leg.label];
+        if (id) owner.playerIds = [...(owner.playerIds || []), id];
+      } else {
+        let detail = null;
+        for (const t of teams) {
+          const held = (t.pickDetails || []).find((d) => d?.assetId === leg.assetId);
+          if (!held) continue;
+          detail = held;
+          t.pickDetails = t.pickDetails.filter((d) => d !== held);
+          const i = (t.picks || []).indexOf(held.label);
+          if (i >= 0) t.picks = t.picks.filter((_, k) => k !== i);
+        }
+        if (!detail) {
+          state.problems.add(`no team holds ${leg.assetId} on the served board`);
+          continue;
+        }
+        owner.pickDetails = [...(owner.pickDetails || []), { ...detail, ownerRosterId: leg.fromRosterId }];
+        owner.picks = [...(owner.picks || []), detail.label];
+        if (owner.pickOwnershipState !== "observed") {
+          state.problems.add(`roster ${leg.fromRosterId}'s pick ownership is ${owner.pickOwnershipState}`);
+        }
+      }
+    }
+    state.rosters += 1;
+  }
+  const rows = [
+    ...(Array.isArray(body?.playersArray) ? body.playersArray : []),
+    ...Object.values(body?.players || {}),
+  ];
+  if (rows.length) {
+    for (const leg of legs.filter((g) => g.kind === "player")) {
+      const matches = rows.filter((r) => r?.displayName === leg.label || r?.canonicalName === leg.label);
+      if (body?.players?.[leg.label] && !matches.includes(body.players[leg.label])) {
+        matches.push(body.players[leg.label]); // the legacy dict is keyed by name
+      }
+      if (!matches.length) state.problems.add(`${leg.label} is not on the served board`);
+      for (const r of matches) {
+        r.quarantined = false;
+        if (r.confidenceAxes?.freshness === "low") r.confidenceAxes = { ...r.confidenceAxes, freshness: "high" };
+        if (!(Number(r.rankDerivedValue) > 0)) r.rankDerivedValue = leg.value;
+      }
+    }
+    state.boards += 1;
+  }
+}
+
+// Route-mocked tests: pin the board (plus any `extra` rewrite on top), and
+// assert — once the page has read the board — that the pin found everything.
+async function pinBoard(page, extra = null) {
+  const state = { problems: new Set(), rosters: 0, boards: 0 };
+  await routeBoard(page, (body) => {
+    pinFixtureBoard(body, state);
+    if (extra) extra(body);
+  });
+  return state;
+}
+
+// WAITS for the page to have read a pinned board, then asserts.  The
+// "Loading player pool..." wait in `buildThreeTeamTrade` can pass before the
+// page has even rendered that text (CI mobile, 2026-10-25: 694 ms, the board
+// request still inside `routeBoard`), so reading the counters synchronously
+// races the board fetch.  Same assertions, polled on the page's own budget.
+async function expectPinned(state) {
+  await expect
+    .poll(() => state.rosters, { message: "the page read a board carrying the league's rosters", timeout: 90_000 })
+    .toBeGreaterThan(0);
+  await expect
+    .poll(() => state.boards, { message: "the page read a board carrying player rows", timeout: 90_000 })
+    .toBeGreaterThan(0);
+  expect([...state.problems], "the fixture's assets exist on the served board").toEqual([]);
+}
+
+// ── The live test's trade, from the served board ────────────────────────
+//
+// Three teams by roster id, each sending one player only it holds — a row
+// the page prices (valued, not withheld) under a name that is unique on the
+// board, so search and team inference are unambiguous — around a cycle
+// (A → B → C → A), plus one owned pick of the first team whose board row is
+// priced, sent to C.  `null` when the board cannot form one.
+function livePlan(contract) {
+  const teams = [...(contract?.sleeper?.teams || [])].sort(
+    (a, b) => Number(a.roster_id ?? a.rosterId) - Number(b.roster_id ?? b.rosterId),
+  );
+  const holders = new Map();
+  for (const t of teams) for (const n of t.players || []) holders.set(n, (holders.get(n) || 0) + 1);
+  const names = new Map();
+  for (const r of contract?.playersArray || []) {
+    if (r?.displayName) names.set(r.displayName, (names.get(r.displayName) || 0) + 1);
+  }
+  const playerOf = (team) =>
+    (team.players || [])
+      .filter((n) => !/\d{4}/.test(n) && holders.get(n) === 1 && names.get(n) === 1)
+      .map((n) => ({ n, row: boardRow(contract, n) }))
+      .filter(({ row }) => isTradeableRow(row))
+      .sort((x, y) => Number(y.row.rankDerivedValue) - Number(x.row.rankDerivedValue))[0] || null;
+  const pickOf = (team) =>
+    team.pickOwnershipState === "observed"
+      ? (team.pickDetails || []).find((d) => d?.assetId && isTradeableRow(boardRow(contract, d.boardRowName))) ||
+        null
+      : null;
+  const chosen = [];
+  for (const t of teams) {
+    const player = playerOf(t);
+    if (!player) continue;
+    if (!chosen.length && !pickOf(t)) continue;
+    chosen.push({ t, player });
+    if (chosen.length === 3) break;
+  }
+  if (chosen.length < 3) return null;
+  return chosen.map(({ t, player }, i) => {
+    const gives = [{ kind: "player", label: player.n, assetId: null, to: (i + 1) % 3 }];
+    if (i === 0) {
+      const pick = pickOf(t);
+      gives.push({ kind: "pick", label: pick.label, assetId: pick.assetId, to: 2 });
+    }
+    return { label: "ABC"[i], team: t.name, rosterId: Number(t.roster_id ?? t.rosterId), gives };
+  });
+}
+
 async function addAsset(page, sideLabel, asset) {
   const input = await openTradeSearch(page, sideLabel);
   let result;
@@ -103,7 +282,7 @@ async function addAsset(page, sideLabel, asset) {
   await closeTradeSheet(page);
 }
 
-async function buildThreeTeamTrade(page) {
+async function buildThreeTeamTrade(page, { pin = null, sides = plan() } = {}) {
   await page.goto(pageUrl("/trade"), { waitUntil: "domcontentloaded" });
   await awaitStreamSettled(page);
   await expect(page.getByRole("heading", { level: 1, name: /^Trade Calculator$/ })).toBeVisible({
@@ -112,9 +291,9 @@ async function buildThreeTeamTrade(page) {
   await page.waitForFunction(() => !document.body.innerText.includes("Loading player pool..."), null, {
     timeout: 90_000,
   });
+  if (pin) await expectPinned(pin);
   await page.getByRole("button", { name: "Add Team" }).click();
   await expect(page.locator("#trade-side-C")).toBeVisible();
-  const sides = plan();
   // Players first, so each side's team is proven by id before its own picks
   // are searched (an owned pick is offered from the bound team's inventory).
   for (const side of sides) {
@@ -171,7 +350,8 @@ test("multi-team War Room: 3-team trade, every team's own result, perspective sw
     },
   );
 
-  const sides = await buildThreeTeamTrade(page);
+  const pin = await pinBoard(page);
+  const sides = await buildThreeTeamTrade(page, { pin });
   // Each side is bound to its league team by roster id, inferred from holdings.
   for (const [i, side] of sides.entries()) {
     await expect(page.locator(`#trade-side-team-${i}`)).toHaveValue(String(side.rosterId));
@@ -260,7 +440,8 @@ test("multi-team War Room: flag OFF keeps today's static 3+-team panel", async (
       });
     },
   );
-  await buildThreeTeamTrade(page);
+  const pin = await pinBoard(page);
+  await buildThreeTeamTrade(page, { pin });
   await expect(page.getByTestId("war-room-multi-team-limit")).toBeVisible({ timeout: 30_000 });
   await expect(page.locator("#trade-side-team-0")).toHaveCount(0);
   await expect(page.getByTestId("multi-team-analyze")).toHaveCount(0);
@@ -268,7 +449,12 @@ test("multi-team War Room: flag OFF keeps today's static 3+-team panel", async (
 });
 
 test("multi-team War Room: live stack answers per its own flag", async ({ authedPage: page }, testInfo) => {
-  const sides = await buildThreeTeamTrade(page);
+  // No pin: a flag-ON server verifies ownership against its own rosters, so
+  // the trade is built from what the served board says each team holds.
+  const { contract } = await contractFixture(page, { view: TRADE_DATA_VIEW });
+  const live = livePlan(contract);
+  expect(live, "the served board holds three teams with a priced player each and a priced owned pick").not.toBeNull();
+  const sides = await buildThreeTeamTrade(page, { sides: live });
   const binding = page.locator("#trade-side-team-0");
   const limit = page.getByTestId("war-room-multi-team-limit");
   await expect(binding.or(limit).first()).toBeVisible({ timeout: 30_000 });
@@ -326,23 +512,18 @@ test("multi-team War Room: a quarantined asset is withheld on the preliminary me
   const receiver = FIXTURE.teams.find((t) => t.rosterId === leg.toRosterId);
   const untouched = FIXTURE.teams.find((t) => t.rosterId !== sender.rosterId && t.rosterId !== receiver.rosterId);
 
-  // The board: the same seeded contract, with that one row quarantined.
+  // The board: the seeded contract pinned to the fixture (see the header),
+  // with that one row quarantined on top of the pin.
   let boardRewrites = 0;
-  await page.route(
-    (url) => url.pathname.startsWith("/api/dynasty-data") || url.pathname === "/api/data",
-    async (route) => {
-      const res = await route.fetch();
-      const body = await res.json();
-      for (const r of body.playersArray || []) {
-        if (r?.displayName === leg.label || r?.canonicalName === leg.label) {
-          r.quarantined = true;
-          boardRewrites += 1;
-        }
+  const pin = await pinBoard(page, (body) => {
+    for (const r of body.playersArray || []) {
+      if (r?.displayName === leg.label || r?.canonicalName === leg.label) {
+        r.quarantined = true;
+        boardRewrites += 1;
       }
-      if (body.players && body.players[leg.label]) body.players[leg.label].quarantined = true;
-      await route.fulfill({ response: res, json: body });
-    },
-  );
+    }
+    if (body.players && body.players[leg.label]) body.players[leg.label].quarantined = true;
+  });
 
   const withheldFixture = structuredClone(FIXTURE);
   const unable = (f) => ({
@@ -427,7 +608,7 @@ test("multi-team War Room: a quarantined asset is withheld on the preliminary me
     },
   );
 
-  const sides = await buildThreeTeamTrade(page);
+  const sides = await buildThreeTeamTrade(page, { pin });
   expect(boardRewrites, `the board carries ${leg.label}`).toBeGreaterThan(0);
   for (const [i, side] of sides.entries()) {
     await expect(page.locator(`#trade-side-team-${i}`)).toHaveValue(String(side.rosterId));
