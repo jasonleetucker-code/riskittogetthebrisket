@@ -1,54 +1,44 @@
 {
-  "computedAt": "2026-10-25T05:25:24.856329+00:00",
+  "computedAt": "2026-10-25T12:06:55.682604+00:00",
   "championshipOdds": [
     {
       "ownerId": "1002085133723299840",
       "displayName": "Brent",
-      "championshipOdds": 0.6745,
-      "finalsOdds": 0.9955,
+      "championshipOdds": 0.679,
+      "finalsOdds": 0.998,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 1.33,
+      "expectedFinish": 1.32,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "468418790212759552",
       "displayName": "Jason",
-      "championshipOdds": 0.3255,
-      "finalsOdds": 0.9965,
+      "championshipOdds": 0.321,
+      "finalsOdds": 0.994,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 1.68,
+      "expectedFinish": 1.69,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "1012114412049731584",
       "displayName": "Joey",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.002,
-      "semifinalOdds": 0.7025,
+      "finalsOdds": 0.005,
+      "semifinalOdds": 0.7035,
       "playoffOdds": 1.0,
-      "expectedFinish": 4.12,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "1208452010173538304",
-      "displayName": "Kich",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.001,
-      "playoffOdds": 1.0,
-      "expectedFinish": 5.01,
+      "expectedFinish": 4.11,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "609821340567941120",
       "displayName": "Eric",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.0005,
-      "semifinalOdds": 0.4745,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.4625,
       "playoffOdds": 1.0,
-      "expectedFinish": 5.06,
+      "expectedFinish": 5.12,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
@@ -56,20 +46,40 @@
       "displayName": "MaKayla",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.076,
+      "semifinalOdds": 0.073,
       "playoffOdds": 1.0,
-      "expectedFinish": 5.8,
+      "expectedFinish": 5.81,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "831633191830933504",
       "displayName": "Collin",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.0055,
-      "semifinalOdds": 0.746,
+      "finalsOdds": 0.003,
+      "semifinalOdds": 0.7595,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.99,
+      "expectedFinish": 3.95,
       "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "1208452010173538304",
+      "displayName": "Kich",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.0015,
+      "playoffOdds": 0.9995,
+      "expectedFinish": 5.01,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "711452264774041600",
+      "displayName": "Ed",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.0,
+      "playoffOdds": 0.0005,
+      "expectedFinish": 8.77,
+      "contenderTier": "Rebuilder / Seller"
     },
     {
       "ownerId": "1393410658032177152",
@@ -78,7 +88,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 10.11,
+      "expectedFinish": 10.1,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -98,17 +108,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 8.26,
-      "contenderTier": "Rebuilder / Seller"
-    },
-    {
-      "ownerId": "711452264774041600",
-      "displayName": "Ed",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0,
-      "playoffOdds": 0.0,
-      "expectedFinish": 8.77,
+      "expectedFinish": 8.25,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -118,7 +118,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 10.86,
+      "expectedFinish": 10.87,
       "contenderTier": "Rebuilder / Seller"
     }
   ],
