@@ -654,7 +654,9 @@ class _Cfg:
 def test_script_reports_no_gap_for_a_captured_week(monkeypatch):
     cap = _capture_script(
         monkeypatch,
-        rosters={"id-a": [{"roster_id": 1}, {"roster_id": 2}]},
+        rosters={
+            "id-a": [{"roster_id": 1, "players": ["p1"]}, {"roster_id": 2, "players": ["p2"]}]
+        },
         snaps={
             "a": [_Snap("1", "2026-10-21T20:00:46+00:00"), _Snap("2", "2026-10-22T00:02:46+00:00")]
         },
@@ -665,9 +667,22 @@ def test_script_reports_no_gap_for_a_captured_week(monkeypatch):
 def test_script_reports_a_missing_week_and_fails_closed_without_rosters(monkeypatch):
     cap = _capture_script(
         monkeypatch,
-        rosters={"id-a": [{"roster_id": 1}, {"roster_id": 2}], "id-b": None},
+        rosters={
+            "id-a": [{"roster_id": 1, "players": ["p1"]}, {"roster_id": 2, "players": ["p2"]}],
+            "id-b": None,
+        },
         snaps={"a": [_Snap("1", "2026-10-21T20:00:46+00:00")]},
     )
     gaps = dict(cap._uncaptured_pregame([_Cfg("a"), _Cfg("b")], 2026, 7, _KICKOFF))
     assert gaps["a"] == "no pregame snapshot for team(s) 2"
     assert gaps["b"].startswith("could not verify")
+
+
+def test_a_roster_with_no_players_is_not_a_lost_observation(monkeypatch):
+    # build_capture never captures an empty roster, so it must not page forever.
+    cap = _capture_script(
+        monkeypatch,
+        rosters={"id-a": [{"roster_id": 1, "players": ["p1"]}, {"roster_id": 2, "players": []}]},
+        snaps={"a": [_Snap("1", "2026-10-21T20:00:46+00:00")]},
+    )
+    assert cap._uncaptured_pregame([_Cfg("a")], 2026, 7, _KICKOFF) == []

@@ -7,16 +7,22 @@ first) and persists to disk.  Feeds the depth-chart-validation path
 
 Since 2026-09-01 (Live Waiver Opportunity layer,
 ``docs/faab-live-opportunity-model.md``) it ALSO turns a detected slot
-change into a BDVM structured event (``DEPTH_CHART_PROMOTION`` /
-``DEPTH_CHART_DEMOTION`` — the existing closed ontology, no new types
-needed) that ``src/trade/faab_opportunity.py`` reads.  This is how an
-injury-created vacancy reaches a backup's FAAB price without a separate
-injury-specific propagation join: ESPN re-orders its OWN depth chart
-when a starter goes down, so the SAME diff that catches a clean role
-change also catches the backup's promotion the day it happens.  These
-events carry real confidence (0.85 — a measured API observation, not a
-news headline guess), pinned by
-``tests/trade/test_faab_opportunity_events.py``.
+change into a ``DEPTH_CHART_PROMOTION`` / ``DEPTH_CHART_DEMOTION``
+event (the existing closed ontology; confidence 0.85).
+
+**SHADOW ONLY since 2026-10-25.**  Until then this script had never read a
+single chart (the ESPN path it called answered ``{}``), so the event merge
+into ``data/bdvm/events/<season>.json`` had never actually run.  Repairing
+the fetch would have ACTIVATED it, and that file is loaded by
+``src/bdvm/service.py`` for every BDVM valuation — new live inputs to BDVM
+values, the Fund-gap columns and BDVM signal alerts, arriving as a side
+effect of a fetch repair.  So derived events are written to
+``data/nfl_data/depth_chart_events_shadow.json`` instead, which nothing in
+``src/`` loads, with per-run counts.  Known limits to measure there first:
+the three receiver slots share position ``WR`` (a WR2→WR1 role change at
+slot 1 is not a slot change), and ESPN formation reshuffles can produce
+deltas that are not role changes.  Activating the merge needs measured
+event volume / false positives and owner approval.
 
 Flag-gated on ``depth_chart_validation`` — the function early-
 returns in the individual team fetcher so this script is a no-op
@@ -50,7 +56,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.api import feature_flags  # noqa: E402
-from src.bdvm.events import EVENTS_DIR  # noqa: E402
 from src.nfl_data import cache as _cache  # noqa: E402
 from src.nfl_data.depth_charts import (  # noqa: E402
     NFL_TEAM_IDS,
@@ -65,6 +70,9 @@ _LOGGER = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 _PRIOR_PATH = REPO_ROOT / "data" / "nfl_data" / "depth_charts_prior.json"
+#: Derived events land HERE, never in data/bdvm/events/ (2026-10-25).
+_SHADOW_PATH = REPO_ROOT / "data" / "nfl_data" / "depth_chart_events_shadow.json"
+_SHADOW_MAX_RUNS = 90
 
 # Direct API-observed slot changes, not speculation — real confidence,
 # not the news lane's 0.45.  Category C (documented, not yet fitted).
@@ -111,6 +119,50 @@ def _load_prior() -> list[DepthChartEntry]:
                 )
             )
     return out
+
+
+def _record_shadow_run(
+    changes: list[dict], events: list[dict], *, run_at: str, season: int
+) -> dict:
+    """Append this run's derived events to the SHADOW ledger and return the
+    run record.  Nothing in ``src/`` reads :data:`_SHADOW_PATH`; it exists so
+    event volume and false positives can be measured before anyone decides to
+    let these events reach BDVM.  Bounded to the last
+    :data:`_SHADOW_MAX_RUNS` runs.  An unreadable ledger is replaced rather
+    than appended to (it is evidence for a decision, not a source of truth)."""
+    by_direction: dict[str, int] = {}
+    for c in changes:
+        d = str(c.get("direction"))
+        by_direction[d] = by_direction.get(d, 0) + 1
+    record = {
+        "runAt": run_at,
+        "season": season,
+        "slotDeltas": len(changes),
+        "byDirection": dict(sorted(by_direction.items())),
+        "events": events,
+    }
+    runs: list = []
+    if _SHADOW_PATH.exists():
+        try:
+            raw = json.loads(_SHADOW_PATH.read_text(encoding="utf-8"))
+            runs = raw.get("runs") if isinstance(raw, dict) else None
+            runs = runs if isinstance(runs, list) else []
+        except (OSError, ValueError):
+            runs = []
+    runs = [*runs, record][-_SHADOW_MAX_RUNS:]
+    _atomic_write_json(
+        _SHADOW_PATH,
+        {
+            "status": "shadow_not_loaded",
+            "note": (
+                "Derived DEPTH_CHART_PROMOTION/DEMOTION events, NOT merged into "
+                "data/bdvm/events/. Activating the merge needs measured event volume / "
+                "false positives and owner approval."
+            ),
+            "runs": runs,
+        },
+    )
+    return record
 
 
 def _snapshot_to_keep(
@@ -192,24 +244,20 @@ def main(argv: list[str] | None = None) -> int:
 
     if prior and current:
         changes = detect_slot_changes(prior, current)
-        today = datetime.now(timezone.utc).date().isoformat()
-        new_events = _events_from_changes(changes, today=today)
-        if new_events:
-            from src.bdvm.news_events import merge_events_file  # noqa: PLC0415
-
-            summary = merge_events_file(
-                new_events, season=_current_nfl_season(), base_dir=EVENTS_DIR
-            )
-            if not summary.get("ok", True):
-                _LOGGER.error("event merge failed: %s", summary)
-            else:
-                _LOGGER.info(
-                    "merged %d depth-chart event(s) from %d slot change(s)",
-                    len(new_events),
-                    len(changes),
-                )
-        else:
-            _LOGGER.info("no scored slot changes this run (%d total deltas)", len(changes))
+        now = datetime.now(timezone.utc)
+        new_events = _events_from_changes(changes, today=now.date().isoformat())
+        record = _record_shadow_run(
+            changes, new_events, run_at=now.isoformat(), season=_current_nfl_season(now)
+        )
+        # SHADOW ONLY — see the module docstring.  Nothing reaches the BDVM
+        # events file (src/bdvm/service.py loads that for every valuation).
+        _LOGGER.info(
+            "shadow: %d depth-chart event(s) derived from %d slot delta(s) %s — "
+            "NOT merged into the BDVM events file",
+            len(new_events),
+            len(changes),
+            record["byDirection"],
+        )
     else:
         _LOGGER.info("no prior snapshot or no current data — skipping event derivation this run")
 

@@ -107,11 +107,16 @@ def _uncaptured_pregame(configs, season: int, week: int, kickoff) -> list[tuple[
     for cfg in configs:
         league_id = league_registry.get_sleeper_league_id(cfg.key)
         rosters = sleeper_client.fetch_rosters(league_id) if league_id else None
-        expected = [r.get("roster_id") for r in rosters or () if isinstance(r, dict)]
-        expected = [t for t in expected if t is not None]
-        if not expected:
+        rosters = [
+            r for r in rosters or () if isinstance(r, dict) and r.get("roster_id") is not None
+        ]
+        if not rosters:
             gaps.append((cfg.key, "could not verify: no rosters from Sleeper"))
             continue
+        # A roster with no players is never captured (build_capture reports it,
+        # the archive refuses an empty snapshot), so it cannot be a lost
+        # observation -- counting it would page every run until the week rolls.
+        expected = [r["roster_id"] for r in rosters if r.get("players")]
         missing = pregame_capture_gaps(
             expected_team_ids=expected,
             snapshots=load_snapshots_for_week(cfg.key, season, week, capture_kind="pregame"),
@@ -338,7 +343,7 @@ def main() -> int:
             # is what decides when no kickoff could be resolved): the week
             # having begun is a lost observation only if the archive lacks it.
             if args.capture_kind == "pregame" and not _uncaptured_pregame(
-                [cfg], int(season), int(week), None
+                [cfg], int(season), int(week), kickoff
             ):
                 print(f"    week has begun; pregame already captured for every team ({exc})")
                 continue

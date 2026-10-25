@@ -71,6 +71,11 @@ IOSchedulingClass=idle
 # A kill leaves the temp database and its -journal, which the next run removes
 # before building.
 MemoryMax=2G
+# The ceiling sum is oversubscribed (docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md,
+# 2026-10-25 addendum).  If the HOST ever runs out, the kernel OOM killer must
+# take this research batch job (rebuilt tomorrow from an append-only archive),
+# never the backend that serves the site.
+OOMScoreAdjust=500
 TimeoutStartSec=900
 
 [Install]

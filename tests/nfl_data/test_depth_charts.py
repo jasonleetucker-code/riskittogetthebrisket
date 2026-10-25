@@ -252,3 +252,58 @@ def test_refresh_keeps_last_good_chart_for_a_team_that_failed():
     # BUF is fresh (its prior rows are not carried); MIA failed this run and
     # keeps its last good rows rather than vanishing from the next diff's base.
     assert rdc._snapshot_to_keep(prior, current) == [current[0], prior[1]]
+
+
+def test_derived_events_are_shadow_only_and_never_reach_bdvm(_flag_on, tmp_path, monkeypatch):
+    """Repairing the fetch must not ACTIVATE the BDVM event merge: the BDVM
+    events file feeds every BDVM valuation (src/bdvm/service.py), and the merge
+    had never run.  Events go to a shadow ledger nothing loads."""
+    import ast
+
+    from scripts import refresh_depth_charts as rdc
+    from src.bdvm import news_events
+
+    prior_path = tmp_path / "prior.json"
+    shadow_path = tmp_path / "shadow.json"
+    monkeypatch.setattr(rdc, "_PRIOR_PATH", prior_path)
+    monkeypatch.setattr(rdc, "_SHADOW_PATH", shadow_path)
+    monkeypatch.setattr(
+        news_events,
+        "merge_events_file",
+        lambda *a, **k: pytest.fail("depth-chart events must not be merged into BDVM"),
+    )
+    charts = {
+        "run1": [
+            dc.DepthChartEntry("BUF", "RB", 1, "A", "Ann"),
+            dc.DepthChartEntry("BUF", "RB", 2, "B", "Bob"),
+        ],
+        "run2": [
+            dc.DepthChartEntry("BUF", "RB", 1, "B", "Bob"),
+            dc.DepthChartEntry("BUF", "RB", 2, "A", "Ann"),
+        ],
+    }
+    for run in ("run1", "run2"):
+        monkeypatch.setattr(
+            rdc, "fetch_team_depth_chart", lambda tid, _r=run: charts[_r] if tid == "2" else []
+        )
+        rdc.main([])
+
+    shadow = json.loads(shadow_path.read_text(encoding="utf-8"))
+    assert shadow["status"] == "shadow_not_loaded"
+    assert len(shadow["runs"]) == 1  # run1 had no prior: nothing derived
+    last = shadow["runs"][-1]
+    assert last["byDirection"] == {"demoted": 1, "promoted": 1}
+    assert {e["eventType"] for e in last["events"]} == {
+        "DEPTH_CHART_PROMOTION",
+        "DEPTH_CHART_DEMOTION",
+    }
+
+    # Structural: the script imports neither the BDVM events dir nor the merger.
+    tree = ast.parse(Path(rdc.__file__).read_text(encoding="utf-8"))
+    names = {a.name for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) for a in n.names}
+    assert not names & {"merge_events_file", "EVENTS_DIR"}
+    # And nothing in src/ reads the shadow ledger.
+    src = Path(__file__).resolve().parents[2] / "src"
+    assert not [
+        p for p in src.rglob("*.py") if "depth_chart_events_shadow" in p.read_text(encoding="utf-8")
+    ]
