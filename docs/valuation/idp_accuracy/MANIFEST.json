@@ -1,0 +1,860 @@
+{
+ "manifestVersion": "idp-accuracy-manifest/v1",
+ "directive": "docs/owner/IDP_VALUATION_ACCURACY_DIRECTIVE_2026-10-25.md",
+ "builtAtUtc": "2026-10-25T20:36:33+00:00",
+ "builder": "scripts/idp_accuracy/build_manifest.py",
+ "repo": {
+  "pinnedSha": "bdbc83a1fba1b1278c7862362f9a18a2da69b970",
+  "pinnedCommitDate": "2026-10-25T16:55:01Z",
+  "buildHead": "af616f5316f8ccd996c79538ccc603ab61670fe0",
+  "pathsChangedPinnedToBuildHead": [
+   "data/scrape_state/dlfIdp_last_success",
+   "data/scrape_state/dlfRookieIdp_last_success",
+   "data/scrape_state/dlfRookieSf_last_success",
+   "data/scrape_state/dlfSf_last_success",
+   "data/scrape_state/dlfValuesSfTep_last_success",
+   "data/scrape_state/dlf_last_success",
+   "data/scrape_state/idpShowCombined_last_status.json",
+   "data/scrape_state/idpShowCombined_last_success",
+   "data/scrape_state/idpShow_last_status.json",
+   "data/scrape_state/idpShow_last_success"
+  ],
+  "gitTreeIds": {
+   "CSVs": {
+    "pinned": "aaac05165ac75858179077fa80c8ea43301baf70",
+    "head": "aaac05165ac75858179077fa80c8ea43301baf70"
+   },
+   "config": {
+    "pinned": "cdd58f72a0860d71af1050a2624ed276cbde71fa",
+    "head": "cdd58f72a0860d71af1050a2624ed276cbde71fa"
+   },
+   "src": {
+    "pinned": "5e04b9203beeb100259e45038e2a8784465bad88",
+    "head": "5e04b9203beeb100259e45038e2a8784465bad88"
+   }
+  },
+  "note": "The served board is rebuilt from the pinned archive by today's build_api_data_contract, which also reads CSVs/ and config/ from the working tree; gitTreeIds proves those inputs are byte-identical at the pinned SHA and at the build head (only data/scrape_state fetch stamps moved)."
+ },
+ "league": {
+  "key": "dynasty_main",
+  "sleeperLeagueId": "1312006700437352448",
+  "registryResolvesTo": "1312006700437352448",
+  "registryMatches": true,
+  "registryScoringProfileLabel": "superflex_tep15_ppr1",
+  "season": "2026",
+  "status": "in_season",
+  "previousLeagueId": "1180092661344120832",
+  "snapshotFetchedAtUtc": "2026-10-25T20:15:28Z"
+ },
+ "scoringCard": {
+  "source": "GET https://api.sleeper.app/v1/league/1312006700437352448 .scoring_settings",
+  "scoringFingerprint": "sf1:9e51824690d091f9",
+  "matchesArchiveSleeperBlock": true,
+  "rawCardSha256": "9c8dee8db4b03b9c2bbc80dd2e728a1c14caec0e6b901cfda30003c6f5e6d012",
+  "nonZeroRules": {
+   "blk_kick": 1.0,
+   "bonus_fd_qb": 0.4,
+   "bonus_fd_rb": 1.0,
+   "bonus_fd_te": 1.0,
+   "bonus_fd_wr": 1.0,
+   "bonus_rec_wr": 0.02,
+   "def_2pt": 4.0,
+   "def_3_and_out": 1.0,
+   "def_4_and_stop": 1.0,
+   "def_forced_punts": 1.0,
+   "def_kr_yd": 0.01,
+   "def_pr_yd": 0.01,
+   "def_st_ff": 0.5,
+   "def_st_fum_rec": 0.5,
+   "def_st_td": 6.0,
+   "def_td": 6.0,
+   "fg_ret_yd": 0.01,
+   "fgm_yds": 0.07,
+   "fgmiss_0_19": -4.55,
+   "fgmiss_20_29": -3.85,
+   "fgmiss_30_39": -3.15,
+   "fgmiss_40_49": -2.45,
+   "fgmiss_50_59": -1.75,
+   "fgmiss_60p": -1.05,
+   "fum_lost": -4.0,
+   "fum_rec": 1.0,
+   "fum_rec_td": 6.0,
+   "fum_ret_yd": 0.01,
+   "idp_blk_kick": 5.3,
+   "idp_def_td": 6.36,
+   "idp_ff": 4.24,
+   "idp_fum_rec": 3.19,
+   "idp_fum_ret_yd": 0.1111111111111111,
+   "idp_int": 5.3,
+   "idp_int_ret_yd": 0.1111111111111111,
+   "idp_pass_def": 5.3,
+   "idp_qb_hit": 2.12,
+   "idp_sack": 2.92,
+   "idp_sack_yd": 0.1111111111111111,
+   "idp_safe": 5.3,
+   "idp_tkl_ast": 0.8,
+   "idp_tkl_loss": 4.24,
+   "idp_tkl_solo": 1.33,
+   "int": 1.0,
+   "int_ret_yd": 0.01,
+   "kr_yd": 0.03333333333333333,
+   "pass_2pt": 2.0,
+   "pass_cmp": 0.37,
+   "pass_inc": -0.67,
+   "pass_int": -4.0,
+   "pass_int_td": -2.0,
+   "pass_sack": -1.0,
+   "pass_td": 6.0,
+   "pass_yd": 0.04,
+   "pr_yd": 0.03333333333333333,
+   "pts_allow": -1.0,
+   "pts_allow_0": 45.0,
+   "pts_allow_14_20": 35.0,
+   "pts_allow_1_6": 35.0,
+   "pts_allow_21_27": 35.0,
+   "pts_allow_28_34": 35.0,
+   "pts_allow_35p": 35.0,
+   "pts_allow_7_13": 35.0,
+   "rec": 0.1,
+   "rec_0_4": 0.25,
+   "rec_10_19": 0.75,
+   "rec_20_29": 1.0,
+   "rec_2pt": 2.0,
+   "rec_30_39": 1.25,
+   "rec_40p": 2.0,
+   "rec_5_9": 0.5,
+   "rec_td": 6.0,
+   "rec_yd": 0.1,
+   "rush_2pt": 2.0,
+   "rush_att": 0.01,
+   "rush_td": 6.0,
+   "rush_yd": 0.1,
+   "sack_yd": 0.01,
+   "safe": 4.0,
+   "st_ff": 4.25,
+   "st_fum_rec": 3.19,
+   "st_td": 6.0,
+   "st_tkl_solo": 1.33,
+   "xpm": 2.31,
+   "xpmiss": -3.15,
+   "yds_allow": -0.05
+  },
+  "zeroOrAbsentRulesCount": 62,
+  "notes": {
+   "receptionScoring": {
+    "rec": 0.1,
+    "tiers": {
+     "rec_0_4": 0.25,
+     "rec_5_9": 0.5,
+     "rec_10_19": 0.75,
+     "rec_20_29": 1.0,
+     "rec_30_39": 1.25,
+     "rec_40p": 2.0
+    },
+    "note": "Sleeper rec_<a>_<b> keys pay by the LENGTH of each reception (yards on that catch), on top of the flat rec rate; they are not volume tiers."
+   },
+   "positionReceptionBonuses": {
+    "bonus_rec_te": 0.0,
+    "bonus_rec_wr": 0.02,
+    "bonus_rec_rb": 0.0
+   },
+   "positionFirstDownBonuses": {
+    "bonus_fd_qb": 0.4,
+    "bonus_fd_rb": 1.0,
+    "bonus_fd_wr": 1.0,
+    "bonus_fd_te": 1.0
+   },
+   "tePremium": {
+    "verdict": "NONE on the 2026 card: bonus_rec_te = 0.0, and bonus_fd_te equals bonus_fd_wr / bonus_fd_rb (1.0). The only position-specific reception bonus is bonus_rec_wr = 0.02 per WR catch (a WR premium, tiny). TE scarcity in this league comes from the 2 TE starting slots, not from scoring.",
+    "interactionWithTeppBoards": "The canonical board is anchored on KTC TE++ boards (ktcCrowdSfTep / ktcTradesSfTep) and lifts non-TEP sources' TEs onto that TE++ basis (ADR-015, src/league_intel/te_premium.convert_te_value, CLAUDE.md step 5a). So served TE values embed a TE-PREMIUM-SCORING market price this league's card does not pay. The board is scoring-profile scoped and the target basis is a constant by design; whether two required TE slots justify a comparable premium is an evidence question for Lanes C/D (league-scored lineup utility), not a scoring fact. Recorded here so no lane assumes the TE++ uplift is earned by scoring."
+   },
+   "idpPriceRatios": {
+    "sack_over_solo": 2.195,
+    "tfl_over_solo": 3.188,
+    "pd_over_solo": 3.985,
+    "qbhit_over_solo": 1.594,
+    "assist_over_solo": 0.602,
+    "stacking": "A sack line in Sleeper's feed normally ALSO carries the TFL and QB hit; every key is paid (verified 251/251 on awarded points; see evidence/scorer_reconciliation.json#stacking). A 1-sack/1-TFL/1-hit play pays 9.28 + sack yards."
+   }
+  }
+ },
+ "rosterFormat": {
+  "roster_positions": [
+   "QB",
+   "RB",
+   "RB",
+   "WR",
+   "WR",
+   "WR",
+   "TE",
+   "TE",
+   "FLEX",
+   "FLEX",
+   "SUPER_FLEX",
+   "K",
+   "DL",
+   "DL",
+   "DL",
+   "LB",
+   "LB",
+   "LB",
+   "DB",
+   "DB",
+   "DB",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN",
+   "BN"
+  ],
+  "num_teams": 12,
+  "rosterSize": 58,
+  "starterSlots": [
+   "QB",
+   "RB",
+   "RB",
+   "WR",
+   "WR",
+   "WR",
+   "TE",
+   "TE",
+   "FLEX",
+   "FLEX",
+   "SUPER_FLEX",
+   "K",
+   "DL",
+   "DL",
+   "DL",
+   "LB",
+   "LB",
+   "LB",
+   "DB",
+   "DB",
+   "DB"
+  ],
+  "starterCount": 21,
+  "benchSlots": 37,
+  "taxi_slots": 0,
+  "reserve_slots": 0,
+  "best_ball": 1,
+  "type": 2,
+  "rosterFormatFingerprint": "rf1:10f897578eea2fe4"
+ },
+ "ownerChecklist": {
+  "items": [
+   {
+    "item": "12 teams",
+    "expected": 12,
+    "observed": 12,
+    "pass": true
+   },
+   {
+    "item": "58 roster spots",
+    "expected": 58,
+    "observed": 58,
+    "pass": true
+   },
+   {
+    "item": "best ball",
+    "expected": 1,
+    "observed": 1,
+    "pass": true
+   },
+   {
+    "item": "slot list",
+    "expected": [
+     "QB",
+     "RB",
+     "RB",
+     "WR",
+     "WR",
+     "WR",
+     "TE",
+     "TE",
+     "FLEX",
+     "FLEX",
+     "SUPER_FLEX",
+     "K",
+     "DL",
+     "DL",
+     "DL",
+     "LB",
+     "LB",
+     "LB",
+     "DB",
+     "DB",
+     "DB"
+    ],
+    "observed": [
+     "QB",
+     "RB",
+     "RB",
+     "WR",
+     "WR",
+     "WR",
+     "TE",
+     "TE",
+     "FLEX",
+     "FLEX",
+     "SUPER_FLEX",
+     "K",
+     "DL",
+     "DL",
+     "DL",
+     "LB",
+     "LB",
+     "LB",
+     "DB",
+     "DB",
+     "DB"
+    ],
+    "pass": true
+   },
+   {
+    "item": "21 starters",
+    "expected": 21,
+    "observed": 21,
+    "pass": true
+   },
+   {
+    "item": "9 IDP starters (108 league-wide)",
+    "expected": 9,
+    "observed": 9,
+    "pass": true
+   },
+   {
+    "item": "no IDP FLEX",
+    "expected": false,
+    "observed": false,
+    "pass": true
+   },
+   {
+    "item": "no taxi slots",
+    "expected": 0,
+    "observed": 0,
+    "pass": true
+   },
+   {
+    "item": "no IR / reserve slots",
+    "expected": 0,
+    "observed": 0,
+    "pass": true
+   },
+   {
+    "item": "6-pt passing TD",
+    "expected": 6.0,
+    "observed": 6.0,
+    "pass": true
+   },
+   {
+    "item": "tiered reception scoring present",
+    "expected": true,
+    "observed": true,
+    "pass": true
+   },
+   {
+    "item": "enhanced TFL (idp_tkl_loss > idp_tkl_solo)",
+    "expected": true,
+    "observed": true,
+    "pass": true
+   },
+   {
+    "item": "enhanced PD (idp_pass_def > idp_tkl_solo)",
+    "expected": true,
+    "observed": true,
+    "pass": true
+   },
+   {
+    "item": "no conventional TE reception premium (bonus_rec_te == 0)",
+    "expected": true,
+    "observed": true,
+    "pass": true
+   }
+  ],
+  "discrepancies": []
+ },
+ "statisticsCutoff": {
+  "season": 2026,
+  "seasonType": "regular",
+  "weeksIncluded": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "weeksExcluded": {
+   "7": "in progress on 2026-10-25 (not all games final)"
+  },
+  "sleeperLastScoredLeg": 6,
+  "sleeperCurrentLeg": 7
+ },
+ "pinnedArchive": {
+  "path": "exports/archive/dynasty_export_20261025_120337.zip",
+  "sha256": "50fb251a79bc79abac54bcbcfc98c3018fc6b105115eb6dbd7928e3b6c8dc8f6",
+  "members": {
+   "manifest.json": "31c9e80981305f99f7f7bf6f82791567267928c8f7a56fc238b30cab59a148a9",
+   "dynasty_values.csv": "64036c3d86c97310e1d1f9d1586b6303a84d72cbe1b64de41288e5520429ffcc",
+   "dynasty_data.js": "39dd3affdce64c49d83307bdbbd246659e54274532a625d414d0d6658eb69afc",
+   "dynasty_data_2026-10-25.json": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+   "identity_capture_manifest.json": "e83b1d05fa6534e2f82efbd2c9da1259b39819417d3b9227cf42f7da61da935c",
+   "dynasty_full.csv": "b181d43eed077d8b4cb130f223e9cd1e86fdc412b9393daf6f6418e5fb8e13e6",
+   "site_raw/ktc.csv": "f3a86b174ea3c153c23dfb2f9b175981abcc6af01b4a285b0bf5fb9ed94a9346",
+   "site_raw/draftSharksRosSf.csv": "97829971181943c7c3f21c2283bdc589391cd1ed52c2c9f96cdd112dc0cc39c4",
+   "site_raw/draftSharksIdp.csv": "380f3887b6f456cb7d8464e348e519d4a3d6090eed7eafb309aa3dfe2cc51616",
+   "site_raw/draftSharksSf.csv": "c9014a0a144554caebd77c3f67f1d1c7a2463833a5002fc67a4d45a609e6b8a9",
+   "site_raw/draftSharksRosIdp.csv": "16bbdcbc79bb764f1be7a38fec1016f44a89f4d1f6d23bc6b3b4a664935ae10b",
+   "site_raw/ktcTradesSfTep.csv": "86c197915c773c6efe112913c26fb1b06fb77775994040e8c20602e852d8706f",
+   "site_raw/ktcCrowdSfTep.csv": "9b2a5a1120f57d8666fbfb958bd32ef7b14bf00e59c7079cd6870818d439e58e",
+   "site_raw/idpTradeCalc.csv": "d6fe818d342191686f79b1969b6db55fdc09ef941241e81036fda8dabcf3802a",
+   "site_raw/ktcCrowdTradesSfTep.csv": "6aa4cf021db5518bac21b92392003c3392fd52eab470dba53acbfb5b05b1a6f7",
+   "site_raw/ktcSfTep.csv": "fa10cf2b1a9f8db8b46a59a62412607dd7da949161adfac8915a2d057f2cfd1c"
+  },
+  "boardMember": "dynasty_data_2026-10-25.json",
+  "scrapeTimestamp": "2026-10-25T12:03:37.224572+00:00",
+  "exportGeneratedAt": "2026-10-25T12:03:37.389759",
+  "siteRawFresh": [
+   "idpTradeCalc.csv",
+   "ktc.csv",
+   "ktcCrowdSfTep.csv",
+   "ktcCrowdTradesSfTep.csv",
+   "ktcSfTep.csv",
+   "ktcTradesSfTep.csv"
+  ],
+  "siteRawPreservedNotRefetched": [
+   "draftSharksIdp.csv",
+   "draftSharksRosIdp.csv",
+   "draftSharksRosSf.csv",
+   "draftSharksSf.csv"
+  ],
+  "scraperRun": {
+   "startedAt": "2026-10-25T12:01:14.493637+00:00",
+   "finishedAt": "2026-10-25T12:03:07.467730+00:00",
+   "overallStatus": "complete",
+   "partialRun": false,
+   "completeSources": [
+    "IDPTradeCalc",
+    "KTC"
+   ]
+  },
+  "scraperSources": {
+   "KTC": {
+    "state": "complete",
+    "enabled": true,
+    "startedAt": "2026-10-25T12:01:15.041969+00:00",
+    "finishedAt": "2026-10-25T12:01:34.310569+00:00",
+    "valueCount": 4
+   },
+   "IDPTradeCalc": {
+    "state": "complete",
+    "enabled": true,
+    "startedAt": "2026-10-25T12:01:34.343614+00:00",
+    "finishedAt": "2026-10-25T12:03:07.423675+00:00",
+    "valueCount": 4
+   }
+  },
+  "sleeperBlock": {
+   "leagueId": "1312006700437352448",
+   "rosterFetchedAt": "2026-10-25T12:01:14.491673+00:00",
+   "scoringFingerprint": "sf1:9e51824690d091f9"
+  },
+  "historyFloor": "2026-07-14",
+  "note": "The archive is the scraper's RAW payload. The canonical served board is what build_api_data_contract derives from it; use rankDerivedValue / canonicalConsensusRank / canonicalSiteValues / confidenceBucket / quarantined from that build, never a scraper _composite field."
+ },
+ "servedBoard": {
+  "contractVersion": "2026-03-10.v2",
+  "rows": 1107,
+  "rowsByAssetClass": {
+   "pick": 138,
+   "offense": 540,
+   "idp": 429
+  },
+  "pricedRows": 1008,
+  "rankedRows": 740,
+  "quarantinedRows": 47,
+  "servedBoardSha256": "4e6ba1f5c1695f5968e33d69aa26d5776e9587872e438ea8ea179baeed7d8712",
+  "servedBoardShaFields": [
+   "displayName",
+   "playerId",
+   "rankDerivedValue",
+   "canonicalConsensusRank",
+   "confidenceBucket",
+   "quarantined"
+  ],
+  "sourceVotingStatus": {
+   "asOf": "2026-10-25T12:03:37Z",
+   "freshnessSchedule": "v1_cadence_curve",
+   "votingCount": 17,
+   "registeredCount": 27,
+   "statusCounts": {
+    "active_100": 11,
+    "active_25": 2,
+    "active_50": 1,
+    "active_75": 3,
+    "data_issue": 4,
+    "seasonal": 1,
+    "stale": 2,
+    "testing": 3
+   },
+   "sources": [
+    {
+     "key": "ktcCrowdSfTep",
+     "status": "active_100",
+     "reason": "Last genuine update Oct 25, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+     "effectiveWeight": 1.0,
+     "family": "ktcCrowd"
+    },
+    {
+     "key": "ktcTradesSfTep",
+     "status": "active_100",
+     "reason": "Last genuine update Oct 25, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+     "effectiveWeight": 1.0,
+     "family": "ktcTrades"
+    },
+    {
+     "key": "idpTradeCalc",
+     "status": "active_25",
+     "reason": "Last genuine update Oct 10, 2026 (14 days ago), based on the last time we saw its rankings actually change: votes at 46.3% of its base weight.",
+     "effectiveWeight": 0.4626,
+     "family": "idpTradeCalc"
+    },
+    {
+     "key": "dlfSf",
+     "status": "active_75",
+     "reason": "Last genuine update Oct 21, 2026 (3 days ago), based on the last time we saw its rankings actually change: votes at 97.2% of its base weight.",
+     "effectiveWeight": 0.9717,
+     "family": "dlf"
+    },
+    {
+     "key": "dlfRookieSf",
+     "status": "active_75",
+     "reason": "Last genuine update Oct 21, 2026 (3 days ago), based on the last time we saw its rankings actually change: votes at 97.5% of its base weight.",
+     "effectiveWeight": 0.9749,
+     "family": "dlf"
+    },
+    {
+     "key": "dlfValuesSfTep",
+     "status": "testing",
+     "reason": "Collected and shown, but held from voting by an owner decision (owner closeout 2026-10-18 Decision 4: DLF Values rank -> Hill approved, released only when its activation gates pass. Owner decision 2026-10-20 (Hold D4 for V2): held (temporary) because the incumbent outlier filter drops other sources' valid offense votes when it votes; lifts only with explicit owner approval after outlier-integrity-v2 passes).",
+     "effectiveWeight": 0.0,
+     "family": "dlf"
+    },
+    {
+     "key": "dlfIdp",
+     "status": "testing",
+     "reason": "Collected and shown, but held from voting by an owner decision (owner directive 2026-10-19 approves the DLF IDP restore; held at release (temporary) until the outlier-filter interaction is corrected (CQ-65). Owner decision 2026-10-20 (Option 3): the incumbent filter's moves are not accepted; the hold lifts only with explicit owner approval after outlier-filter Version 2 passes every mandatory gate).",
+     "effectiveWeight": 0.0,
+     "family": "dlf"
+    },
+    {
+     "key": "dlfRookieIdp",
+     "status": "testing",
+     "reason": "Collected and shown, but held from voting by an owner decision (owner directive 2026-10-19 approves the DLF IDP restore; held at release (temporary) until the outlier-filter interaction is corrected (CQ-65). Owner decision 2026-10-20 (Option 3): the incumbent filter's moves are not accepted; the hold lifts only with explicit owner approval after outlier-filter Version 2 passes every mandatory gate).",
+     "effectiveWeight": 0.0,
+     "family": "dlf"
+    },
+    {
+     "key": "idpShowCombined",
+     "status": "stale",
+     "reason": "Its rankings were last genuinely updated on Aug 19, 2026 (66 days ago), based on the date the publisher says it last updated \u2014 older than its freshness limit. We may still download it successfully; unchanged rankings do not count as an update.",
+     "effectiveWeight": 0.0,
+     "family": "idpShow"
+    },
+    {
+     "key": "dynastyNerdsSfTep",
+     "status": "active_100",
+     "reason": "Last genuine update Oct 17, 2026 (8 days ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+     "effectiveWeight": 1.0,
+     "family": "dynastyNerdsSfTep"
+    },
+    {
+     "key": "fantasyCalc",
+     "status": "active_100",
+     "reason": "Last genuine update Oct 25, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+     "effectiveWeight": 1.0,
+     "family": "fantasyCalc"
+    },
+    {
+     "key": "signalsSf",
+     "status": "data_issue",
+     "reason": "Private source that is collected only on the production server; it is not available where this board was built.",
+     "effectiveWeight": 0.0,
+     "family": "fantasyCalc"
+    },
+    {
+     "key": "signalsIdpDl",
+     "status": "data_issue",
+     "reason": "Private source that is collected only on the production server; it is not available where this board was built.",
+     "effectiveWeight": 0.0,
+     "family": "fantasyCalc"
+    },
+    {
+     "key": "signalsIdpLb",
+     "status": "data_issue",
+     "reason": "Private source that is collected only on the production server; it is not available where this board was built.",
+     "effectiveWeight": 0.0,
+     "family": "fantasyCalc"
+    },
+    {
+     "key": "signalsIdpDb",
+     "status": "data_issue",
+     "reason": "Private source that is collected only on the production server; it is not available where this board was built.",
+     "effectiveWeight": 0.0,
+     "family": "fantasyCalc"
+    },
+    {
+     "key": "otcffbSf",
+     "status": "active_100",
+     "reason": "Last genuine update Oct 24, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+     "effectiveWeight": 1.0,
+     "family": "otcffbSf"
+    },
+    {
+     "key": "fantasyNavigatorSf",
+     "status": "stale",
+     "reason": "Its rankings were last genuinely updated on Oct 10, 2026 (14 days ago), based on the last time we saw its rankings actually change \u2014 older than its freshness limit. We may still download it successfully; unchanged rankings do not count as an update.",
+     "effectiveWeight": 0.0,
+     "family": "ktcCrowd"
+    },
+    {
+     "key": "pfkDynasty",
+     "status": "active_100",
+     "reason": "Last genuine update Oct 24, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+     "effectiveWeight": 1.0,
+     "family": "pfkDynasty"
+    },
+    {
+     "key": "dynastyDaddySf",
+     "status": "active_100",
+     "reason": "Last genuine update Oct 25, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+     "effectiveWeight": 1.0,
+     "family": "dynastyDaddySf"
+    },
+    {
+     "key": "fantasyProsSf",
+     "status": "active_75",
+     "reason": "Last genuine update Oct 23, 2026 (2 days ago), based on the last time we saw its rankings actually change: votes at 97.1% of its base weight.",
+     "effectiveWeight": 0.9709,
+     "family": "fantasyPros"
+    },
+    {
+     "key": "fantasyProsIdp",
+     "status": "active_25",
+     "reason": "Last genuine update Sep 04, 2026 (51 days ago), based on the date the publisher says it last updated: votes at 24.1% of its base weight.",
+     "effectiveWeight": 0.2408,
+     "family": "fantasyPros"
+    },
+    {
+     "key": "fantasyProsFitzmaurice",
+     "status": "active_100",
+     "reason": "Last genuine update Oct 02, 2026 (22 days ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+     "effectiveWeight": 1.0,
+     "family": "fantasyPros"
+    },
+    {
+     "key": "flockFantasySf",
+     "status": "active_100",
+     "reason": "Last genuine update Oct 24, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+     "effectiveWeight": 1.0,
+     "family": "flockFantasy"
+    },
+    {
+     "key": "flockFantasySfRookies",
+     "status": "seasonal",
+     "reason": "Rookie board between draft classes: the 2026 rookie class has graduated and the publisher has not posted the next class yet. This is a normal seasonal pause, not stale data.",
+     "effectiveWeight": 0.0,
+     "family": "flockFantasy"
+    },
+    {
+     "key": "yahooBoone",
+     "status": "active_100",
+     "reason": "Last genuine update Oct 14, 2026 (10 days ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+     "effectiveWeight": 1.0,
+     "family": "yahooBoone"
+    },
+    {
+     "key": "draftSharks",
+     "status": "active_100",
+     "reason": "Last genuine update Oct 24, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+     "effectiveWeight": 1.0,
+     "family": "draftSharks"
+    },
+    {
+     "key": "draftSharksIdp",
+     "status": "active_50",
+     "reason": "Last genuine update Oct 24, 2026 (1 day ago), based on the last time we saw its rankings actually change: votes at 62.4% of its base weight.",
+     "effectiveWeight": 0.624,
+     "family": "draftSharks"
+    }
+   ]
+  },
+  "hillCurvesSha256": "d730e285c798890163999915891e5754f7af12b9af4dc10329c2899e4cec8aea",
+  "crossPositionBridgesSha256": "549675f7aba32d905bd9c497384c094a6f18343734eecfe073c7e1dcdcacb9b7"
+ },
+ "projectionProvenance": {
+  "status": "UNAVAILABLE",
+  "reason": "data/bdvm/projections/ is absent in this checkout (gitignored, box-local: produced on the production box by the weekly dynasty-bdvm-refresh timer). No projection snapshot may be pinned from this machine; any lane needing BDVM projections must rebuild the reconstructed baseline itself (scripts/bdvm_build_baseline.py) and record its own provenance, or mark the dependency UNAVAILABLE."
+ },
+ "modelVersions": {
+  "bdvmParams": {
+   "path": "config/bdvm/params_v1.json",
+   "sha256": "1b641fb0eed514fe1ce4c0952fbdbdb97dc78b5ea1fbf235634ddcd24a021147",
+   "paramSetId": "params_v1:01af672b2aff"
+  },
+  "leagueFairValue": {
+   "path": "config/league_valuation/fair_value_v1.json",
+   "sha256": "b0a77a7d0cb210b9adf123888f3deac11fba708303d0bbac7e0270fcca4a645b",
+   "modelVersion": "league_fair_value_v1_shadow",
+   "paramSetId": "league_fair_value_v1:1ba0dfff046b"
+  },
+  "bestballMarginal": {
+   "path": "config/bestball/marginal_v1.json",
+   "sha256": "a2e8d9307cfa44fb472de9781106a668cdfc0d9b32f1f0e2795bedc56ec0299c",
+   "modelVersion": "bestball_marginal_v1",
+   "paramSetId": "48a3a5cdd4fa884b"
+  },
+  "bridges": {
+   "path": "config/bridges/bridges_v1.json",
+   "sha256": "16da3208b40e65b1e8a2e47d0e5072f807e4dd9cdabf84555d63eab3bb581160",
+   "version": "bridges_v1"
+  },
+  "packageModel": {
+   "path": "config/trade/package_model.json",
+   "sha256": "cfed620e6d36f0c0c20cb6b343795125b2cfa2ba19b67fb027e8677b6812aecb",
+   "active": "geom_q078_v1"
+  },
+  "scoringFingerprintVersion": "sf1"
+ },
+ "datasets": {
+  "sleeperPublicApi": {
+   "/league/1312006700437352448": {
+    "sha256": "6e188d550e1fb26714d3ab12c6b84fd966ffcc2a2a62f1ed532ed64b3dde0ce9",
+    "fetchedAtUtc": "2026-10-25T20:15:28Z",
+    "bytes": 5107
+   },
+   "/league/1312006700437352448/matchups/1": {
+    "sha256": "9f4d2663ac8a4960d6299ec97199dccba070828e19e0ff0e15b875314b2221b2",
+    "fetchedAtUtc": "2026-10-25T20:15:29Z",
+    "bytes": 18649
+   },
+   "/league/1312006700437352448/matchups/2": {
+    "sha256": "ac8be4fffb6c0dc35df103295539a6d4843b75195596b77d7ade21a617e3df02",
+    "fetchedAtUtc": "2026-10-25T20:15:30Z",
+    "bytes": 18695
+   },
+   "/league/1312006700437352448/matchups/3": {
+    "sha256": "142ca76bb94e966dad28f699362bb7fd8d6ea71f658c06f82e958807ac1218e0",
+    "fetchedAtUtc": "2026-10-25T20:15:30Z",
+    "bytes": 18672
+   },
+   "/league/1312006700437352448/matchups/4": {
+    "sha256": "c1c28e4add27364429437778d172fdfa65d9894c4637ae12ab839cda77a913a7",
+    "fetchedAtUtc": "2026-10-25T20:15:31Z",
+    "bytes": 18735
+   },
+   "/league/1312006700437352448/matchups/5": {
+    "sha256": "b8c08a1546f9e2a5b68e3c7f62547b23f20b6ff1c4f7ca154ab697004799966e",
+    "fetchedAtUtc": "2026-10-25T20:15:32Z",
+    "bytes": 18732
+   },
+   "/league/1312006700437352448/matchups/6": {
+    "sha256": "3fec893d6fe76fa37901e9aad7f6d4d66bbad200b83a1754dd1b1a3e2b41cdf7",
+    "fetchedAtUtc": "2026-10-25T20:15:32Z",
+    "bytes": 18677
+   },
+   "/league/1312006700437352448/rosters": {
+    "sha256": "5454a5269885d5988fddeceda0acdd0185f087aa4f1f98b420f7ce83f9770604",
+    "fetchedAtUtc": "2026-10-25T20:15:29Z",
+    "bytes": 14759
+   },
+   "/players/nfl": {
+    "sha256": "74b4fa33f905e83f9f81acda9ccebb64e4b9a9906bb2985a79eda69f4300c1ab",
+    "fetchedAtUtc": "2026-10-25T20:15:34Z",
+    "bytes": 14663497
+   },
+   "/stats/nfl/regular/2026/1": {
+    "sha256": "0e2453cc8cbb5315001d5f990f7f5a8e934d675ee0d809a9dde5d491f1d2d5ff",
+    "fetchedAtUtc": "2026-10-25T20:15:32Z",
+    "bytes": 569056
+   },
+   "/stats/nfl/regular/2026/2": {
+    "sha256": "616ce95a9f34e975e12ab2ecba380c525e27bb104e84160c7a748c2e11f5bea1",
+    "fetchedAtUtc": "2026-10-25T20:15:33Z",
+    "bytes": 574480
+   },
+   "/stats/nfl/regular/2026/3": {
+    "sha256": "255fb568b17433754fb1eaa8858fc2646cf667244c083ee44067f992655172d8",
+    "fetchedAtUtc": "2026-10-25T20:15:33Z",
+    "bytes": 573997
+   },
+   "/stats/nfl/regular/2026/4": {
+    "sha256": "6a7e8256ed4e92a61b6a3d73233a54e281ba39c53667b8c61c22be6a43f393d5",
+    "fetchedAtUtc": "2026-10-25T20:15:33Z",
+    "bytes": 585518
+   },
+   "/stats/nfl/regular/2026/5": {
+    "sha256": "11ae27fcc6872eb04f3972259fa63bdb510e22e51314198bd0ce962af4f82070",
+    "fetchedAtUtc": "2026-10-25T20:15:34Z",
+    "bytes": 555127
+   },
+   "/stats/nfl/regular/2026/6": {
+    "sha256": "e9086612023efd3beea10174475c7010ae8401305d0b489923ddfeaeb1e7d77e",
+    "fetchedAtUtc": "2026-10-25T20:15:34Z",
+    "bytes": 513801
+   }
+  },
+  "nflverseStatsPlayerWeek2026": {
+   "rowsScored": 6488,
+   "canonicalRowsSha256": "6e4d9de3b9185997c61031199c5cd4d3ff5c10733d8adcea1bcebabebca5bc56",
+   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv (fetched live; not cached by nflverse_direct \u2014 the canonical-JSON sha256 above pins the rows actually scored)"
+  },
+  "pbpWeekly2026": {
+   "sha256": "46044a8286c72a31796cc930794b7dd58988a6cff40d6c192efcc8085d999484",
+   "weeksCovered": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "builtBy": "src.nfl_data.pbp_weekly.persist_pbp_weekly (complete_through_week=6)"
+  },
+  "cacheLocation": "data/idp_accuracy/cache/ (gitignored; key = sha256(url)[:24])"
+ },
+ "publicArtifactPolicy": "Rules, aggregates and public NFL player names only. No manager/team names, user ids or per-team roster listings."
+}
