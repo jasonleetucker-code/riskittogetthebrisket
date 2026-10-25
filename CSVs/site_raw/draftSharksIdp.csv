@@ -60,9 +60,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 59,,T.J. Edwards,LB,9.10,10,30.2,101,322,482,714,,9
 60,,James Pearce,DL,14.03,11,23,77,285,473,889,,9
 61,,Xavier Watts,DB,5.03,11,24.9,114,341,540,921,,9
-62,,Nic Scourton,DL,20.01,5,22.1,0,302,500,978,,9
+62,,Nic Scourton,DL,20.01,5,22.2,0,302,500,978,,9
 63,,Frankie Luvu,LB,12.12,7,30.1,116,307,460,681,,8
-64,,Donovan Ezeiruaku,LB,13.10,14,23,84,273,453,852,,8
+64,,Donovan Ezeiruaku,LB,13.10,14,23.1,84,273,453,852,,8
 65,,Derrick Harmon,DL,70.04,9,23.2,75,275,466,862,,8
 66,,Laiatu Latu,DL,6.09,13,25.8,96,287,473,721,,8
 67,,Robert Spillane,LB,7.01,11,30.8,134,305,446,636,,8
@@ -104,7 +104,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 103,,Kobie Turner,DL,14.02,11,27.4,81,245,379,576,,5
 104,,Jalon Walker,LB,169.12,11,22.7,0,247,413,779,,5
 105,,Derrick Brown,DL,15.03,5,28.5,102,240,366,530,,5
-106,,Jonathan Greenard,DL,12.06,10,29.3,83,268,361,504,,5
+106,,Jonathan Greenard,DL,12.06,10,29.4,83,268,361,504,,5
 107,,Jalyx Hunt,DL,10.08,10,25.6,65,238,393,599,,5
 108,,Malachi Moore,DB,67.11,13,25.1,24,322,509,868,,5
 109,,Trevon Moehrig,DB,5.08,5,27.3,125,294,454,736,,5
@@ -159,7 +159,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 158,,Brandon Dorlus,DL,75.02,11,25.6,70,187,295,471,,2
 159,,Shavon Revel Jr.,DB,70.06,14,25.5,17,290,444,768,,2
 160,,Mack Wilson,LB,13.11,14,28.7,120,212,323,490,,1
-161,,Dre Greenlaw,LB,13.05,8,29.3,111,214,326,494,,1
+161,,Dre Greenlaw,LB,13.05,8,29.4,111,214,326,494,,1
 162,,Carl Granderson,DL,7.03,8,29.8,93,205,266,385,,1
 163,,Michael Jackson,DB,16.09,5,29.8,125,262,390,565,,1
 164,,Jordan Battle,DB,10.02,6,25.8,115,251,389,644,,1
@@ -228,7 +228,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 227,,Minkah Fitzpatrick,DB,14.04,13,29.9,123,232,348,508,,-1
 228,,Andru Phillips,DB,76.01,8,24.8,83,234,358,618,,-1
 229,,Alim McNeill,DL,41.07,6,26.4,57,149,234,374,,-1
-230,,K'Lavon Chaisson,LB,46.10,7,27.2,54,204,322,464,,-1
+230,,K'Lavon Chaisson,LB,46.10,7,27.3,54,204,322,464,,-1
 231,,Antonio Johnson,DB,21.01,7,24.9,101,220,348,593,,-1
 232,,Christian Benford,DB,32.04,7,26.1,92,223,351,591,,-1
 233,,Dayo Odeyingbo,DL,42.07,10,27.1,58,151,239,345,,-1
@@ -249,7 +249,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 248,,Nolan Smith,DL,19.05,10,25.8,67,179,296,451,,-2
 249,,Keyron Crawford,DL,64.07,13,23,0,142,241,454,,-2
 250,,Nick Herbig,DL,10.10,9,24.9,80,167,281,460,,-2
-251,,R Mason Thomas,DL,18.04,5,22.1,36,127,209,410,,-2
+251,,R Mason Thomas,DL,18.04,5,22.2,36,127,209,410,,-2
 252,,Bradley Chubb,DL,10.07,7,30.3,102,193,250,362,,-2
 253,,Jaycee Horn,DB,27.02,5,26.8,96,212,334,550,,-2
 254,,D.J. Reed,DB,51.12,6,29.9,122,216,321,465,,-2
@@ -291,11 +291,11 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 290,,Keldric Faulk,DL,8.11,9,22.1,29,105,173,348,,-3
 291,,Christen Miller,DL,17.12,8,22.2,21,109,184,357,,-3
 292,,Denzel Ward,DB,54.09,11,29.4,98,200,303,457,,-4
-293,,Harrison Phillips,DL,53.10,13,30.7,56,120,158,222,,-4
+293,,Harrison Phillips,DL,53.10,13,30.8,56,120,158,222,,-4
 294,,Craig Woodson,DB,67.03,11,25.7,80,196,304,503,,-4
 295,,Montaric Brown,DB,36.01,7,27.2,18,218,340,568,,-4
 296,,Akeem Davis-Gaither,LB,15.04,13,29.1,46,170,258,391,,-4
-297,,Ji'ayir Brown,DB,81.05,8,26.7,92,193,297,482,,-4
+297,,Ji'ayir Brown,DB,81.05,8,26.8,92,193,297,482,,-4
 298,,Adam Butler,DL,55.02,13,32.5,58,110,142,211,,-4
 299,,Budda Baker,DB,4.08,14,30.8,120,193,280,396,,-4
 300,,Jamel Dean,DB,28.11,9,30,101,194,289,418,,-4
@@ -332,7 +332,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 331,,Kyler Gordon,DB,34.09,10,26.8,89,164,258,425,,-6
 332,,Jalen Ramsey,DB,60.12,9,32,104,177,253,350,,-6
 333,,Kevin Byard,DB,5.10,11,33.2,95,187,251,343,,-6
-334,,Jaylinn Hawkins,DB,43.11,13,29.1,67,182,275,418,,-6
+334,,Jaylinn Hawkins,DB,43.11,13,29.2,67,182,275,418,,-6
 335,,Bryce Boettcher,LB,64.01,13,24.3,47,126,204,369,,-6
 336,,DeMarcus Lawrence,DL,62.04,11,34.4,71,59,78,139,,-6
 337,,Arik Armstead,DL,61.12,7,32.9,51,69,86,130,,-6

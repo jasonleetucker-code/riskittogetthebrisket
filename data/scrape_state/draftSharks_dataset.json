@@ -18,14 +18,6 @@
   "players": {
    "changeHistory": [
     {
-     "at": "2026-06-10T16:30:52Z",
-     "broad": true,
-     "rowsAdded": 0,
-     "rowsChanged": 151,
-     "rowsRemoved": 0,
-     "rowsTotal": 446
-    },
-    {
      "at": "2026-06-11T16:45:44Z",
      "broad": true,
      "rowsAdded": 0,
@@ -1936,13 +1928,21 @@
      "rowsChanged": 14,
      "rowsRemoved": 0,
      "rowsTotal": 387
+    },
+    {
+     "at": "2026-10-25T05:25:28Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 387
     }
    ],
-   "contentSince": "2026-10-24T22:50:57Z",
-   "fingerprint": "ca79270dffcdee504e108427",
+   "contentSince": "2026-10-25T05:25:28Z",
+   "fingerprint": "fbca521f2cfbf11954462009",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-19T19:47:46Z",
-   "lastAnyMeaningfulChangeAt": "2026-10-24T22:50:57Z",
+   "lastAnyMeaningfulChangeAt": "2026-10-25T05:25:28Z",
    "lastBroadDatasetChangeAt": "2026-10-24T22:50:57Z",
    "rowChangedAt": {},
    "rowCount": 387,
@@ -1964,7 +1964,6 @@
     386,
     386,
     386,
-    386,
     395,
     395,
     395,
@@ -1973,6 +1972,7 @@
     398,
     398,
     395,
+    387,
     387,
     387,
     387,
@@ -2206,7 +2206,7 @@
     "kaelon black": "c64502a0f3",
     "kaleb johnson": "8029caec0f",
     "kalif raymond": "81d09fd660",
-    "kavontae turpin": "e0b2017de7",
+    "kavontae turpin": "a585b0172a",
     "kayshon boutte": "da07918a52",
     "kaytron allen": "e6b808a7d8",
     "kc concepcion": "dbbdb45261",
@@ -2309,7 +2309,7 @@
     "sean tucker": "c3a4381c34",
     "seth mcgowan": "02c2030223",
     "seydou traore": "a1d75f0983",
-    "shedeur sanders": "a585b0172a",
+    "shedeur sanders": "b740d75c2b",
     "sione vaki": "a382c74528",
     "skyler bell": "04c89895c4",
     "stefon diggs": "e3aedcfbdc",
