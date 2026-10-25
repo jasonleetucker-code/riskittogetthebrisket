@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useDynastyData } from "@/components/useDynastyData";
 import { buildTeamByPlayer } from "@/lib/waiver-logic";
+import { isUnlistedPagePath } from "@/lib/public-routes";
 // Both live in the ROOT LAYOUT, so a static import puts them in the
 // chunk set every one of ~90 routes downloads and parses — 69 KB of it,
 // measured. Neither is reachable until the user acts: PlayerPopup needs
@@ -170,6 +171,22 @@ function isNoPlayerDataRoute(pathname) {
   );
 }
 
+// Should this route mount the private player pipeline (useDynastyData →
+// the multi-MB /api/data contract)?  Three independent reasons say no:
+// the public /league subtree (privacy), private pages with no player data
+// (speed), and UNLISTED pages (lib/public-routes.js) — opened by link
+// without a session, served entirely by their own public endpoint.  For an
+// unlisted page the private fetch is a guaranteed 401 for strangers and,
+// for a tab holding an expired session, a redirect to /login off a page
+// that must never require one.
+function privateDataEnabledFor(pathname) {
+  return (
+    !isPublicOnlyRoute(pathname) &&
+    !isNoPlayerDataRoute(pathname) &&
+    !isUnlistedPagePath(pathname)
+  );
+}
+
 // Exported for direct unit testing — these are pure functions and cheap
 // to pin, and a wrong entry breaks a page rather than slowing it.
 export const __routeGates = {
@@ -177,6 +194,7 @@ export const __routeGates = {
   NO_PLAYER_DATA_ROUTE_PREFIXES,
   isPublicOnlyRoute,
   isNoPlayerDataRoute,
+  privateDataEnabledFor,
 };
 
 /**
@@ -198,8 +216,7 @@ export default function AppShell({ children, authenticated = false, capabilities
   // That would serialize the contract fetch behind an auth round-trip on
   // EVERY page — trading a wasted fetch on /login for a slower first
   // paint everywhere.
-  const privateDataEnabled =
-    !isPublicOnlyRoute(pathname) && !isNoPlayerDataRoute(pathname);
+  const privateDataEnabled = privateDataEnabledFor(pathname);
 
   return privateDataEnabled ? (
     <PrivateAppShell authenticated={authenticated} capabilities={capabilities} isAdmin={isAdmin}>
@@ -344,7 +361,15 @@ function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData
 
   // Global keyboard shortcuts for search: "/" (legacy, preserved) and
   // Cmd/Ctrl+K (the standard command-palette chord — R1 additive).
-  useEffect(() => {
+  //
+  // A LAYOUT effect, deliberately: the shortcut is wired in the same commit
+  // that renders its visible affordance (the shell's "Search" button, which
+  // TopBar / MobileTopBar show under the same `authenticated &&
+  // searchEnabled` condition), before the browser paints it.  As a passive
+  // effect it ran after paint, so for a moment the Search button was on
+  // screen while "/" still did nothing.  "The Search control is visible"
+  // now implies "/" works — the readiness signal V1-131's E2E waits on.
+  useLayoutEffect(() => {
     if (!searchEnabled) return undefined;
     function onKeyDown(e) {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {

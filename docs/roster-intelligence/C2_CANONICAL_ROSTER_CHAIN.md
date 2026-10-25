@@ -91,6 +91,22 @@ like they belonged to an engine answering in ROS production units. The row now
 says what the code does, and `scripts/replacement_census.py` **enforces** the
 split rather than asserting it.
 
+**ALGORITHM SHARED, UNITS STILL APART (2026-10-21, owner decision D3 on
+`docs/valuation/LI5_REPLACEMENT_CONSOLIDATION_DESIGN_2026-10-21.md`).** The
+"no merge" above was about the *unit*, and that still holds. What is now shared
+is the *waiver-tier algorithm*: `src/league_intel/replacement.py::waiver_levels`
+(mean of free-agent ranks 1-3, `DEFAULT_BAND`) reads whichever value field its
+caller names. `compute_replacement_levels` calls it in `rosValue` (phase P1,
+byte-identical output); census row A's unit is now "caller-selected value
+field". The free-agent *population* is a separate owner,
+`src/draft/waiver_population.py` (phase P2), composing the rostered set, each
+consumer's own auction-rookie exclusion, the waiver add pool and the
+availability owner. **Neither is wired yet:** `src/draft/` `waiverValue` above
+still answers with the best single unrostered player, and census row G stays
+DISTINCT until phase P3 wires it behind a default-OFF flag (after #1890). No
+served value changes in P1-P2, and the gameplan call still passes no free
+agents, so scarcity stays inert at 1.0 (D8).
+
 ---
 
 ## 4. One roster-row adapter

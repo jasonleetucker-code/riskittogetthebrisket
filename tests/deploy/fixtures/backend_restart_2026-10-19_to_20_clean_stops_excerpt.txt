@@ -1,0 +1,153 @@
+# Excerpt of the public "Production Restart Diagnostics (read-only)" workflow log.
+# Hostname -> "host"; GitHub secret-masking restored.
+# Only allowlisted lifecycle/watchdog lines.
+===== dynasty.service lifecycle (systemd + uvicorn banners only) =====
+2026-10-19T10:04:24.954701+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-19T10:04:25.006994+00:00 host python[5221]: INFO:     Shutting down
+2026-10-19T10:04:25.109311+00:00 host python[5221]: INFO:     Waiting for application shutdown.
+2026-10-19T10:04:25.112573+00:00 host python[5221]: INFO:     Application shutdown complete.
+2026-10-19T10:04:25.114159+00:00 host python[5221]: INFO:     Finished server process [5221]
+2026-10-19T10:04:25.307022+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-19T10:04:25.307538+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T10:04:25.307644+00:00 host systemd[1]: dynasty.service: Consumed 5min 48.168s CPU time, 1.6G memory peak, 0B memory swap peak.
+2026-10-19T10:04:25.330238+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T10:04:32.221287+00:00 host python[57095]: INFO:     Started server process [57095]
+2026-10-19T10:04:32.221287+00:00 host python[57095]: INFO:     Waiting for application startup.
+2026-10-19T10:04:42.445530+00:00 host python[57095]: INFO:     Application startup complete.
+2026-10-19T10:04:42.447472+00:00 host python[57095]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-10-19T11:39:25.986090+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-19T11:39:26.011131+00:00 host python[57095]: INFO:     Shutting down
+2026-10-19T11:39:26.113878+00:00 host python[57095]: INFO:     Waiting for application shutdown.
+2026-10-19T11:39:26.120000+00:00 host python[57095]: INFO:     Application shutdown complete.
+2026-10-19T11:39:26.120000+00:00 host python[57095]: INFO:     Finished server process [57095]
+2026-10-19T11:39:26.517935+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-19T11:39:26.518547+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T11:39:26.518659+00:00 host systemd[1]: dynasty.service: Consumed 15min 35.986s CPU time, 2.2G memory peak, 0B memory swap peak.
+2026-10-19T11:39:26.540885+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T11:39:32.941070+00:00 host python[66127]: INFO:     Started server process [66127]
+2026-10-19T11:39:32.941070+00:00 host python[66127]: INFO:     Waiting for application startup.
+2026-10-19T11:39:44.108108+00:00 host python[66127]: INFO:     Application startup complete.
+2026-10-19T11:39:44.137094+00:00 host python[66127]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-10-19T13:49:34.248703+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-19T13:49:34.253882+00:00 host python[66127]: INFO:     Shutting down
+2026-10-19T13:49:34.355916+00:00 host python[66127]: INFO:     Waiting for application shutdown.
+2026-10-19T13:49:34.359547+00:00 host python[66127]: INFO:     Application shutdown complete.
+2026-10-19T13:49:34.359901+00:00 host python[66127]: INFO:     Finished server process [66127]
+2026-10-19T13:49:34.845959+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-19T13:49:34.846488+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T13:49:34.846612+00:00 host systemd[1]: dynasty.service: Consumed 19min 21.381s CPU time, 2.5G memory peak, 0B memory swap peak.
+2026-10-19T13:49:34.865702+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T13:49:40.360930+00:00 host python[75262]: INFO:     Started server process [75262]
+2026-10-19T13:49:40.360930+00:00 host python[75262]: INFO:     Waiting for application startup.
+2026-10-19T13:49:47.750879+00:00 host python[75262]: INFO:     Application startup complete.
+2026-10-19T13:49:47.750879+00:00 host python[75262]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-10-19T16:21:19.308073+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-19T16:21:19.334575+00:00 host python[75262]: INFO:     Shutting down
+2026-10-19T16:21:19.668656+00:00 host python[75262]: INFO:     Waiting for application shutdown.
+2026-10-19T16:21:19.770495+00:00 host python[75262]: INFO:     Application shutdown complete.
+2026-10-19T16:21:19.770495+00:00 host python[75262]: INFO:     Finished server process [75262]
+2026-10-19T16:21:20.242608+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-19T16:21:20.260948+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T16:21:20.261102+00:00 host systemd[1]: dynasty.service: Consumed 17min 41.292s CPU time, 2.2G memory peak, 0B memory swap peak.
+2026-10-19T16:21:20.312292+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T16:21:29.928202+00:00 host python[88555]: INFO:     Started server process [88555]
+2026-10-19T16:21:29.928202+00:00 host python[88555]: INFO:     Waiting for application startup.
+2026-10-19T16:21:44.543880+00:00 host python[88555]: INFO:     Application startup complete.
+2026-10-19T16:21:44.554682+00:00 host python[88555]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-10-19T17:48:27.407756+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-19T17:48:27.423243+00:00 host python[88555]: INFO:     Shutting down
+2026-10-19T17:48:27.527075+00:00 host python[88555]: INFO:     Waiting for application shutdown.
+2026-10-19T17:48:27.536952+00:00 host python[88555]: INFO:     Application shutdown complete.
+2026-10-19T17:48:27.536952+00:00 host python[88555]: INFO:     Finished server process [88555]
+2026-10-19T17:48:27.776470+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-19T17:48:27.787767+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T17:48:27.790029+00:00 host systemd[1]: dynasty.service: Consumed 9min 54.811s CPU time, 1.4G memory peak, 0B memory swap peak.
+2026-10-19T17:48:27.844749+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T17:48:35.674070+00:00 host python[98290]: INFO:     Started server process [98290]
+2026-10-19T17:48:35.674070+00:00 host python[98290]: INFO:     Waiting for application startup.
+2026-10-19T17:48:47.363205+00:00 host python[98290]: INFO:     Application startup complete.
+2026-10-19T17:48:47.364925+00:00 host python[98290]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-10-19T19:26:14.531087+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-19T19:26:14.539954+00:00 host python[98290]: INFO:     Shutting down
+2026-10-19T19:26:14.641273+00:00 host python[98290]: INFO:     Waiting for application shutdown.
+2026-10-19T19:26:14.642787+00:00 host python[98290]: INFO:     Application shutdown complete.
+2026-10-19T19:26:14.647344+00:00 host python[98290]: INFO:     Finished server process [98290]
+2026-10-19T19:26:15.162711+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-19T19:26:15.169149+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T19:26:15.169288+00:00 host systemd[1]: dynasty.service: Consumed 19min 6.846s CPU time, 2.5G memory peak, 0B memory swap peak.
+2026-10-19T19:26:15.197590+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T19:26:21.712932+00:00 host python[106549]: INFO:     Started server process [106549]
+2026-10-19T19:26:21.712932+00:00 host python[106549]: INFO:     Waiting for application startup.
+2026-10-19T19:26:34.254977+00:00 host python[106549]: INFO:     Application startup complete.
+2026-10-19T19:26:34.261758+00:00 host python[106549]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-10-19T23:56:53.074943+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-19T23:56:53.131462+00:00 host python[106549]: INFO:     Shutting down
+2026-10-19T23:56:53.234429+00:00 host python[106549]: INFO:     Waiting for application shutdown.
+2026-10-19T23:56:53.239280+00:00 host python[106549]: INFO:     Application shutdown complete.
+2026-10-19T23:56:53.239636+00:00 host python[106549]: INFO:     Finished server process [106549]
+2026-10-19T23:56:53.772722+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-19T23:56:53.774172+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T23:56:53.774294+00:00 host systemd[1]: dynasty.service: Consumed 24min 16.639s CPU time, 2.2G memory peak, 0B memory swap peak.
+2026-10-19T23:56:53.991441+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-19T23:57:02.346680+00:00 host python[122844]: INFO:     Started server process [122844]
+2026-10-19T23:57:02.346680+00:00 host python[122844]: INFO:     Waiting for application startup.
+2026-10-19T23:57:14.731162+00:00 host python[122844]: INFO:     Application startup complete.
+2026-10-19T23:57:14.749333+00:00 host python[122844]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-10-20T01:12:30.164257+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-20T01:12:30.181065+00:00 host python[122844]: INFO:     Shutting down
+2026-10-20T01:12:30.292124+00:00 host python[122844]: INFO:     Waiting for application shutdown.
+2026-10-20T01:12:30.299112+00:00 host python[122844]: INFO:     Application shutdown complete.
+2026-10-20T01:12:30.302019+00:00 host python[122844]: INFO:     Finished server process [122844]
+2026-10-20T01:12:30.753238+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-20T01:12:30.754234+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-20T01:12:30.754366+00:00 host systemd[1]: dynasty.service: Consumed 14min 37.321s CPU time, 2.1G memory peak, 0B memory swap peak.
+2026-10-20T01:12:30.777467+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-20T01:12:39.607987+00:00 host python[130105]: INFO:     Started server process [130105]
+2026-10-20T01:12:39.607987+00:00 host python[130105]: INFO:     Waiting for application startup.
+2026-10-20T01:12:51.706267+00:00 host python[130105]: INFO:     Application startup complete.
+2026-10-20T01:12:51.712295+00:00 host python[130105]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-10-20T03:52:20.064699+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-20T03:52:20.162208+00:00 host python[130105]: INFO:     Shutting down
+2026-10-20T03:52:20.265174+00:00 host python[130105]: INFO:     Waiting for application shutdown.
+2026-10-20T03:52:20.270577+00:00 host python[130105]: INFO:     Application shutdown complete.
+2026-10-20T03:52:20.272023+00:00 host python[130105]: INFO:     Finished server process [130105]
+2026-10-20T03:52:20.684456+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-20T03:52:20.685077+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-20T03:52:20.685225+00:00 host systemd[1]: dynasty.service: Consumed 20min 3.297s CPU time, 2.1G memory peak, 0B memory swap peak.
+2026-10-20T03:52:20.698875+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-20T03:52:27.160353+00:00 host python[143218]: INFO:     Started server process [143218]
+2026-10-20T03:52:27.160353+00:00 host python[143218]: INFO:     Waiting for application startup.
+2026-10-20T03:52:37.585622+00:00 host python[143218]: INFO:     Application startup complete.
+2026-10-20T03:52:37.609953+00:00 host python[143218]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-10-20T06:20:47.575095+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-20T06:20:47.609407+00:00 host python[143218]: INFO:     Shutting down
+2026-10-20T06:20:47.718853+00:00 host python[143218]: INFO:     Waiting for application shutdown.
+2026-10-20T06:20:47.718853+00:00 host python[143218]: INFO:     Application shutdown complete.
+2026-10-20T06:20:47.720890+00:00 host python[143218]: INFO:     Finished server process [143218]
+2026-10-20T06:20:48.054697+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-20T06:20:48.057569+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-20T06:20:48.059017+00:00 host systemd[1]: dynasty.service: Consumed 19min 36.590s CPU time, 2.0G memory peak, 0B memory swap peak.
+2026-10-20T06:20:48.110615+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-20T06:20:55.280405+00:00 host python[153426]: INFO:     Started server process [153426]
+2026-10-20T06:20:55.280405+00:00 host python[153426]: INFO:     Waiting for application startup.
+2026-10-20T06:21:08.635577+00:00 host python[153426]: INFO:     Application startup complete.
+2026-10-20T06:21:08.650704+00:00 host python[153426]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-10-20T08:57:40.169328+00:00 host systemd[1]: Stopping dynasty.service - Dynasty Trade Calculator (dynasty)...
+2026-10-20T08:57:40.192205+00:00 host python[153426]: INFO:     Shutting down
+2026-10-20T08:57:40.296176+00:00 host python[153426]: INFO:     Waiting for application shutdown.
+2026-10-20T08:57:40.300861+00:00 host python[153426]: INFO:     Application shutdown complete.
+2026-10-20T08:57:40.303033+00:00 host python[153426]: INFO:     Finished server process [153426]
+2026-10-20T08:57:40.741139+00:00 host systemd[1]: dynasty.service: Deactivated successfully.
+2026-10-20T08:57:40.742737+00:00 host systemd[1]: Stopped dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-20T08:57:40.743458+00:00 host systemd[1]: dynasty.service: Consumed 23min 28.209s CPU time, 2.1G memory peak, 0B memory swap peak.
+2026-10-20T08:57:40.763253+00:00 host systemd[1]: Started dynasty.service - Dynasty Trade Calculator (dynasty).
+2026-10-20T08:57:47.296590+00:00 host python[164442]: INFO:     Started server process [164442]
+2026-10-20T08:57:47.296590+00:00 host python[164442]: INFO:     Waiting for application startup.
+2026-10-20T08:57:56.993550+00:00 host python[164442]: INFO:     Application startup complete.
+2026-10-20T08:57:57.056038+00:00 host python[164442]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+
+===== dynasty-healthcheck verdicts =====
+2026-10-19T23:57:03.706766+00:00 host dynasty-healthcheck.sh[122946]: [healthcheck] LIVENESS FAIL 1/3: no HTTP response from http://127.0.0.1:8000/api/health (curl exit 7)
+2026-10-19T23:58:04.873825+00:00 host dynasty-healthcheck.sh[123084]: [healthcheck] recovered: http://127.0.0.1:8000/api/health responding again after 1 liveness failure(s)
+2026-10-20T08:57:54.534146+00:00 host dynasty-healthcheck.sh[164663]: [healthcheck] LIVENESS FAIL 1/3: no HTTP response from http://127.0.0.1:8000/api/health (curl exit 7)
+2026-10-20T08:59:01.440614+00:00 host dynasty-healthcheck.sh[164821]: [healthcheck] recovered: http://127.0.0.1:8000/api/health responding again after 1 liveness failure(s)

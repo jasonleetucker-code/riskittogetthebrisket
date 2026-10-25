@@ -395,7 +395,11 @@ function leaderOf(totals) {
  *
  * `adjust(sidesValues)` is the active model's per-side adjustment function
  * (`valueAdjustmentFromSideArrays`); injected so this module stays free of
- * the trade-logic import graph and the dispatch has one owner.
+ * the trade-logic import graph and the dispatch has one owner.  For a 3+-team
+ * trade the caller binds the routing into it, so each side's adjustment is
+ * that team's OWN package reading (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md
+ * §5.1); an adjust that cannot answer (``null``) leaves the row with no
+ * numeric verdict.
  */
 export function evaluateOpinion(resolutionsBySide, adjust) {
   const counts = opinionCounts(resolutionsBySide);
@@ -440,6 +444,64 @@ export function evaluateOpinion(resolutionsBySide, adjust) {
     marginPct: adjusted.marginPct,
     gap: adjusted.gap,
     swing: raw.idx !== adjusted.idx,
+  };
+}
+
+/**
+ * ALTERNATE PACKAGE MODEL — a read-only comparison, never an opinion (owner
+ * directive 2026-10-19, part 3).
+ *
+ * The SAME per-asset resolutions the row's opinion used (source value where
+ * eligible, Chase Upside's exact published value as fallback, unpriced →
+ * incomplete) are evaluated a second time under another package model: two
+ * alternative whole-package adjustments of the same packages, never applied
+ * one after the other, never added or averaged.  `adjust` is that model's
+ * per-side adjustment function (`valueAdjustmentFromSideArrays` with a
+ * `modelId`), injected like `evaluateOpinion`'s.
+ *
+ * What it can never do:
+ *   * vote — the result carries no `state`, so `tallyOpinions` cannot count
+ *     it, and the row's own `opinion` is untouched (the active tally is
+ *     byte-identical with or without the comparison);
+ *   * stand for the vendor's own package policy — it is OUR copy of another
+ *     model applied to that source's values, labelled as such by the caller;
+ *   * invent a number — a row with no numeric verdict (INCOMPLETE /
+ *     UNAVAILABLE) has no comparison either, and a 3+-team trade has none
+ *     (the comparator is a two-side model and is not extended).
+ *
+ * `leaderDiffers` is true only when the adjusted leader differs, judged by
+ * the row's own even band (`OPINION_EVEN_TOLERANCE_PCT`) under both models —
+ * the one documented threshold, so a sub-1% wobble is not a disagreement.
+ * Deliberately no "near-even split" marker here (unlike the decision-area
+ * comparison, whose fair band is far wider): inside the owner's 1% band both
+ * models DISPLAY "Even", so there is no shown leader for a marker to
+ * contradict, and a badge on every sub-1% sign wobble is the badge spam the
+ * directive rules out.
+ */
+export const ALTERNATE_UNAVAILABLE = {
+  NO_NUMERIC_VERDICT: "no_numeric_verdict",
+  MULTI_TEAM: "multi_team",
+  MODEL_FAILED: "model_failed",
+};
+
+export function evaluateAlternateOpinion(resolutionsBySide, activeOpinion, adjust) {
+  if (!Array.isArray(resolutionsBySide) || resolutionsBySide.length !== 2) {
+    return { available: false, reason: ALTERNATE_UNAVAILABLE.MULTI_TEAM };
+  }
+  if (!activeOpinion?.rawTotals) {
+    return { available: false, reason: ALTERNATE_UNAVAILABLE.NO_NUMERIC_VERDICT };
+  }
+  const alt = evaluateOpinion(resolutionsBySide, adjust);
+  if (!alt.rawTotals) return { available: false, reason: ALTERNATE_UNAVAILABLE.MODEL_FAILED };
+  return {
+    available: true,
+    adjustments: alt.adjustments,
+    adjustedTotals: alt.adjustedTotals,
+    leaderIdx: alt.leaderIdx,
+    marginPct: alt.marginPct,
+    gap: alt.gap,
+    swing: alt.swing,
+    leaderDiffers: alt.leaderIdx !== activeOpinion.leaderIdx,
   };
 }
 

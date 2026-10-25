@@ -344,7 +344,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 "home": {
                     "ownerId": sideA_oid,
                     "displayName": metrics.display_name_for(snapshot, sideA_oid),
-                    "teamName": metrics.team_name(snapshot, current.league_id, home_rid),
+                    "teamName": metrics.team_name(snapshot, current.league_id, home_rid, week),
                     "rosterId": home_rid,
                     "points": round(metrics.matchup_points(home_entry), 2)
                     if mode == "recap"
@@ -353,7 +353,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 "away": {
                     "ownerId": sideB_oid,
                     "displayName": metrics.display_name_for(snapshot, sideB_oid),
-                    "teamName": metrics.team_name(snapshot, current.league_id, away_rid),
+                    "teamName": metrics.team_name(snapshot, current.league_id, away_rid, week),
                     "rosterId": away_rid,
                     "points": round(metrics.matchup_points(away_entry), 2)
                     if mode == "recap"

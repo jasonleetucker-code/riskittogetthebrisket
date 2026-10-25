@@ -730,7 +730,7 @@ def build_brief(
             "ownerId": owner_id,
             "rosterId": rid,
             "displayName": metrics.display_name_for(snapshot, owner_id),
-            "teamName": metrics.team_name(snapshot, season_snap.league_id, rid),
+            "teamName": metrics.team_name(snapshot, season_snap.league_id, rid, week),
             "playoffSeed": seed,
             "preWeekRecord": {
                 "wins": pre_rec.get("wins", 0),

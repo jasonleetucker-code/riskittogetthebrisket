@@ -175,6 +175,9 @@ class SleeperDirectoryIndex:
         self.by_gsis: dict[str, SleeperCandidate] = {}
         self.by_espn: dict[str, SleeperCandidate] = {}
         self.by_canonical: dict[str, list[SleeperCandidate]] = {}
+        #: ``{sleeper id: (birth_date or None, fantasy positions)}`` — V2.1 Layer A
+        #: evidence only; no ladder reads it.
+        self.facts_by_sleeper_id: dict[str, tuple[str | None, tuple[str, ...]]] = {}
 
         for pid, pdata in (directory or {}).items():
             if not isinstance(pdata, dict):
@@ -206,6 +209,20 @@ class SleeperDirectoryIndex:
                 self.by_initial_last.setdefault(key, []).append(cand)
 
             self.by_sleeper_id[str(pid)] = cand
+            # Identity facts read only by outlier-integrity V2.1 Layer A (R4
+            # family compatibility, R5 exact age).  A field the directory does
+            # not carry is ``None`` / empty — no evidence, never a default.
+            _bd = str(pdata.get("birth_date") or "").strip() or None
+            # Only a list/tuple is a position list: a scalar (``7``, ``"WR"``)
+            # or any other shape is no evidence, never iterated into one.
+            _fps_raw = pdata.get("fantasy_positions")
+            _fps = tuple(
+                str(x).strip().upper()
+                for x in (_fps_raw if isinstance(_fps_raw, (list, tuple)) else ())
+                if str(x or "").strip()
+            )
+            if _bd or _fps:
+                self.facts_by_sleeper_id[str(pid)] = (_bd, _fps)
             gsis = str(pdata.get("gsis_id") or "").strip()
             if gsis:
                 self.by_gsis.setdefault(gsis, cand)
@@ -741,6 +758,24 @@ class CsvJoinDecision:
     policy: str = CONTRACT_CSV_JOIN_V1
 
 
+#: ``CsvJoinDecision.via`` when the opt-in Sleeper-id contradiction guard
+#: refused a NAME match (see ``refuse_sid_contradiction``).
+VIA_SID_CONTRADICTION = "sid_contradiction"
+
+
+def _sid_contradicts(row_player_id: str | None, entry: Mapping[str, Any] | None) -> bool:
+    """A name match whose entry carries a DIFFERENT Sleeper id than the row.
+
+    Both ids must be present: an absent id on either side is no evidence of
+    a contradiction (missing is never a mismatch), so the name match stands.
+    """
+    if not isinstance(entry, Mapping):
+        return False
+    row_sid = str(row_player_id or "").strip()
+    entry_sid = str(entry.get("sleeperId") or "").strip()
+    return bool(row_sid) and bool(entry_sid) and row_sid != entry_sid
+
+
 def match_row_to_source_entry(
     *,
     row_player_id: str | None,
@@ -751,6 +786,7 @@ def match_row_to_source_entry(
     row_groups_by_key: Mapping[str, set[str]],
     canonical_match_key: Callable[[str], str],
     position_group: Callable[[str | None], str],
+    refuse_sid_contradiction: bool = False,
 ) -> CsvJoinDecision:
     """Exact transcription of the identity decision inside
     ``data_contract._enrich_from_source_csvs``'s row loop (4253-4296):
@@ -763,6 +799,15 @@ def match_row_to_source_entry(
     function provably uses the SAME key functions as the caller — a
     second normalization sneaking in here is exactly the defect class
     this unit retires.
+
+    ``refuse_sid_contradiction`` (default ``False`` — the served
+    ``CONTRACT_CSV_JOIN_V1`` decision, byte for byte) is an OPT-IN, per-call
+    guard: a NAME match whose entry carries a Sleeper id that contradicts the
+    row's is refused (``via == VIA_SID_CONTRADICTION``, no entry) instead of
+    attached.  It lives here so the matching logic stays inside the identity
+    owner; a caller passes it for the specific sources it governs (today the
+    Signals IDP family boards behind ``signals_idp_xwalk_v2``) and never for a
+    source whose served matching must not change.
     """
     if sid_index:
         row_sid = str(row_player_id or "").strip()
@@ -776,16 +821,24 @@ def match_row_to_source_entry(
     if not cname:
         return CsvJoinDecision(entry_key=None, via="none")
     grp = position_group(row_position)
+    decision: CsvJoinDecision | None = None
     if f"{cname}::{grp}" in per_source:
-        return CsvJoinDecision(entry_key=f"{cname}::{grp}", via="name_group")
-    if f"{cname}::*" in per_source:
-        return CsvJoinDecision(entry_key=f"{cname}::*", via="name_star")
-    groups = row_groups_by_key.get(cname, set())
-    if len(groups) == 1:
-        only_grp = next(iter(groups))
-        if f"{cname}::{only_grp}" in per_source:
-            return CsvJoinDecision(entry_key=f"{cname}::{only_grp}", via="single_group")
-    return CsvJoinDecision(entry_key=None, via="none")
+        decision = CsvJoinDecision(entry_key=f"{cname}::{grp}", via="name_group")
+    elif f"{cname}::*" in per_source:
+        decision = CsvJoinDecision(entry_key=f"{cname}::*", via="name_star")
+    else:
+        groups = row_groups_by_key.get(cname, set())
+        if len(groups) == 1:
+            only_grp = next(iter(groups))
+            if f"{cname}::{only_grp}" in per_source:
+                decision = CsvJoinDecision(entry_key=f"{cname}::{only_grp}", via="single_group")
+    if decision is None:
+        return CsvJoinDecision(entry_key=None, via="none")
+    if refuse_sid_contradiction and _sid_contradicts(
+        row_player_id, per_source.get(str(decision.entry_key))
+    ):
+        return CsvJoinDecision(entry_key=None, via=VIA_SID_CONTRADICTION)
+    return decision
 
 
 # ── Dual-read comparator ────────────────────────────────────────────────

@@ -538,6 +538,9 @@
     "signals-onbox-verification.yml::verify::Configure production SSH": {
       "category": "blocking"
     },
+    "signals-onbox-verification.yml::verify::Refuse while a production deploy is running or queued": {
+      "category": "blocking"
+    },
     "signals-onbox-verification.yml::verify::Run Signals verification on the host": {
       "category": "blocking"
     },
@@ -659,6 +662,15 @@
       "category": "blocking"
     },
     "prod-e2e-smoke.yml::smoke::Use Node 20": {
+      "category": "blocking"
+    },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Checkout": {
+      "category": "blocking"
+    },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Collect restart evidence": {
+      "category": "blocking"
+    },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Configure production SSH": {
       "category": "blocking"
     },
     "public-league-warmup.yml::warm::Emit metrics snapshot": {
@@ -804,6 +816,12 @@
     },
     "retention-health.yml::probe::Probe retention streams on production": {
       "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Record identity evidence upload outcome (loud on failure, never blocking)": {
+      "category": "advisory"
+    },
+    "scheduled-refresh.yml::refresh::Upload identity capture evidence (V2.1 U2/U2b full stamps, kept out of git)": {
+      "category": "advisory"
     },
     "scheduled-refresh.yml::refresh::Alert on workflow failure": {
       "category": "blocking"
@@ -964,6 +982,54 @@
     "v1-49-host-native-scoring-activation.yml::v1-49-activation::Validate inputs": {
       "category": "blocking"
     },
+    "signals-health-probe.yml::bundle::Checkout": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::bundle::Run Tier 0 on the runner (no credentials)": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::bundle::Upload report": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Checkout": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Refuse unless dispatched from main": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Refuse while a production deploy is running or queued": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Configure production SSH": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Run the deployed script on the host": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Upload report": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Checkout": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Validate inputs": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Configure production SSH": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Roll back and verify the served board": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Restore the captured pre-rollback state": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Job summary": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Upload the report": {
+      "category": "blocking"
+    },
     "v1-authenticated-verification.yml::v1-authenticated::API verification suite": {
       "category": "blocking"
     },
@@ -1011,6 +1077,15 @@
     },
     "v1-authenticated-verification.yml::v1-authenticated::Upload the reports": {
       "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Wait for a warm backend (bounded, public endpoints)": {
+      "category": "advisory"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Detect a backend restart during the run (public /api/status)": {
+      "category": "advisory"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Classify failures (report-only, never a gate)": {
+      "category": "advisory"
     },
     "v1-onbox-checklists.yml::v1-onbox::Configure production SSH": {
       "category": "blocking"

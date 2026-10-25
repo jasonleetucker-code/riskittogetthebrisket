@@ -148,10 +148,10 @@ describe("TradeDecisionReasoning — the decision's own words", () => {
     const rows = coverageRows(ASSET_ONLY.analysis.decision.coverage);
     const immediate = rows.find((r) => r.dimension === "Immediate improvement");
     expect(immediate.state).toBe("Not evaluated (Asset-Only)");
-    expect(immediate.note).toBe("Asset-Only analysis");
+    expect(immediate.note).toBe("Not included in Asset-Only analysis");
     const opportunity = rows.find((r) => r.dimension === "Opportunity cost");
     expect(opportunity.state).toBe("Not evaluated");
-    expect(opportunity.note).toBe("not wired yet");
+    expect(opportunity.note).toBe("Not connected to the analysis yet");
   });
 
   it("an unknown code is shown, never dropped", () => {
@@ -203,13 +203,17 @@ describe("MultiTeamSummaryBar — the multi-team meter's own reading", () => {
     { id: 1, label: "B", assets: [row("b", 4000)] },
     { id: 2, label: "C", assets: [row("c", 3000)] },
   ];
+  // Each side sends and receives one piece, so its package utilities are
+  // those pieces' values (computeSideFlows stamps them; a flow without one is
+  // refused, never read as base 0 -- which used to grade this 2,000 worst gap
+  // FAIR).  Per-team rule: each team's base is the larger of the two.
   const flows = [
-    { given: 5000, received: 3000, net: -2000 },
-    { given: 4000, received: 5000, net: 1000 },
-    { given: 3000, received: 4000, net: 1000 },
+    { given: 5000, received: 3000, net: -2000, utility: 5000, receivedUtility: 3000 },
+    { given: 4000, received: 5000, net: 1000, utility: 4000, receivedUtility: 5000 },
+    { given: 3000, received: 4000, net: 1000, utility: 3000, receivedUtility: 4000 },
   ];
 
-  it("shows each net and the band of the worst gap the meter shows", () => {
+  it("shows each team's own gap and the band of the widest one the meter shows (preliminary)", () => {
     const summary = multiTeamNetSummary(flows);
     render(
       <MultiTeamSummaryBar sides={sides} summary={summary} evalState={{ state: "complete" }} />,
@@ -217,14 +221,18 @@ describe("MultiTeamSummaryBar — the multi-team meter's own reading", () => {
     const bar = screen.getByTestId("trade-multi-summary");
     expect(bar.textContent).toMatch(/A −2,000/);
     expect(bar.textContent).toMatch(/B \+1,000/);
-    expect(bar.textContent).toContain(`${summary.verdict.label} · worst gap 2,000`);
-    expect(bar.textContent).toMatch(/reliable YES \/ NO unavailable for 3 teams/);
+    // Per-team rule: A's own gap (-2,000 of a 5,000 package) is the widest.
+    expect(summary.worstIndex).toBe(0);
+    expect(bar.textContent).toContain(`Preliminary · ${summary.verdict.label} · widest gap Side A −2,000`);
+    expect(bar.textContent).toMatch(/final result in the War Room/);
     expect(within(bar).getByRole("link").getAttribute("href")).toBe("#trade-result");
     // The meter renders the same label from the same helper.
     const { container } = render(
       <TradeMeterMultiTeam sides={sides} sideTotals={[]} flows={flows} />,
     );
     expect(container.querySelector(".trade-meter-verdict").textContent).toBe(summary.verdict.label);
+    // 2,000 / 5,000 = 40%: LOPSIDED, not the FAIR a missing base used to give.
+    expect(summary.verdict.level).toBe("lopsided");
   });
 
   it("an empty or incomplete trade states that, never a band", () => {

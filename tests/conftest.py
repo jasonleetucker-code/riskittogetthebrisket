@@ -481,3 +481,50 @@ def _public_league_process_state(request):
             "install_stubs (restored at module end).",
             pytrace=False,
         )
+
+
+# ── Process-wide state is restored per MODULE (R-TEST-ISOLATION) ──────
+# A test module that replaces or removes a ``sys.modules`` entry, leaves a
+# stub module behind, or changes ``server.app``'s route table,
+# ``dependency_overrides`` or ``user_middleware`` hands every later module in
+# the process a different world from the one it would see alone — the class
+# of leak ``docs/python-coverage-audit.md`` D-5 records.  Owner TODO
+# (2026-09-30, "Test isolation"); the rules and their reasons live in
+# ``tests/process_state_isolation.py``.  The state is restored FIRST and the
+# module failed after, so the leak never reaches the next module either way.
+#
+# Module scope for the same reason as ``_public_league_process_state``: a
+# unittest class mutates in ``setUpClass`` and its tests read through the
+# mutation, so the boundary that must hold is the module's.
+from tests import process_state_isolation as _process_state  # noqa: E402
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _process_state_is_restored(request):
+    before = _process_state.take()
+    yield
+    findings = _process_state.check_and_restore(before)
+    if findings:
+        pytest.fail(
+            f"{request.node.nodeid} left process-wide state changed (now restored; "
+            "later modules would have run against it):\n  "
+            + "\n  ".join(findings.lines())
+            + "\nRestore it in the module's own teardown (monkeypatch, "
+            "monkeypatch.setitem(sys.modules, ...), a fixture finalizer), or "
+            "see tests/process_state_isolation.py.",
+            pytrace=False,
+        )
+
+
+def pytest_report_header(config):
+    """Name a local web stack that drifts from CI's lock (#1534) up front."""
+    drift = _process_state.web_stack_drift()
+    if not drift:
+        return None
+    pairs = ", ".join(
+        f"{name} {have} (lock {want})" for name, (have, want) in sorted(drift.items())
+    )
+    return (
+        f"WARNING: web stack differs from requirements-dev.lock.txt: {pairs} — "
+        "results may not match CI; reinstall from the lock"
+    )

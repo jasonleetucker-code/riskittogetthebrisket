@@ -12,6 +12,7 @@
  * "extends v1-45 to /arbitrage and /trades."
  */
 const { test, expect, prodUrl, getJson, annotate } = require("./helpers");
+const { openPackageScan, openPlayerResearch } = require("../../helpers/arbitrage-page");
 
 const SEL = {
   boardRow: ".ds-table-wrap table tbody tr.rankings-row-clickable",
@@ -88,15 +89,18 @@ test.describe("V1-123 Phase 1: trade journeys beyond /trade (production)", () =>
     await awaitStreamSettled(page);
 
     await expect(pageHeading(page, titleFor("/arbitrage"))).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/Package scan ready/i)).toBeVisible({ timeout: 30_000 });
-
-    const teamSelect = page.getByLabel("Your team");
-    await expect
-      .poll(async () => teamSelect.locator("option").count(), {
-        message: "team selector should populate from the contract",
-        timeout: 60_000,
-      })
-      .toBeGreaterThan(0);
+    // Owner directive 2026-10-18 (d99ac2c13f, "tools first"): Golden Upgrades
+    // is the default tool and the Package Scan is its own tab, and no research
+    // table renders ahead of the tools — the same contract the local journey
+    // (tests/e2e/specs/journey-trade.spec.js) holds the page to.
+    //
+    // openPackageScan waits for the page to HYDRATE (its team selector
+    // populates from the contract) before clicking the tab, then requires the
+    // click to have selected it.  Clicking as soon as the server-rendered
+    // heading painted is what held this test red on production: the tab's
+    // onClick was not attached yet, the click was lost, and "Package scan
+    // ready" never appeared — see tests/e2e/helpers/arbitrage-page.js.
+    await openPackageScan(page);
 
     // Read first, click only when no scan is in flight -- re-clicking is
     // not idempotent (a click on the same tick a scan settles tears the
@@ -139,11 +143,19 @@ test.describe("V1-123 Phase 1: trade journeys beyond /trade (production)", () =>
 
     await expect(pageHeading(page, titleFor("/arbitrage"))).toBeVisible({ timeout: 30_000 });
 
-    const visibleTile = page.getByText("Visible", { exact: false }).first();
+    // Since the 2026-10-18 "tools first" directive the player-level table
+    // lives in the collapsed "Player-level market research" panel, which
+    // does not mount its body until opened.  Open it — after hydration, and
+    // asserting the click took effect (the same lost-click race as the scan
+    // test above) — then scope every lookup to it: the default tool above
+    // may render its own content.
+    const research = await openPlayerResearch(page);
+
+    const visibleTile = research.getByText("Visible", { exact: true });
     await expect(visibleTile).toBeVisible({ timeout: 30_000 });
 
-    const table = page.getByRole("table");
-    const emptyState = page.getByText(/No player-level edges at this threshold/i);
+    const table = research.getByRole("table");
+    const emptyState = research.getByText(/No player-level edges under these filters/i);
     const settled = table.or(emptyState);
     await expect(settled.first()).toBeVisible({ timeout: 30_000 });
 
@@ -157,15 +169,16 @@ test.describe("V1-123 Phase 1: trade journeys beyond /trade (production)", () =>
       annotate(testInfo, "arbitrage-player-level", "explicit empty state at default threshold");
     }
 
-    // Player-type filter narrows the population -- exercise it and
-    // require the page to still resolve to a table or the same empty
-    // state, never an error.
-    const playerType = page.getByLabel("Player type");
-    if (await playerType.isVisible().catch(() => false)) {
-      await playerType.selectOption("idp");
-      await expect(table.or(emptyState).first()).toBeVisible({ timeout: 15_000 });
-      await playerType.selectOption("all");
-    }
+    // The Players filter narrows the population (it replaced "Player
+    // type") -- exercise it and require the panel to still resolve to a
+    // table or the same empty state, never an error.  Asserted, not probed:
+    // a filter that silently vanished used to skip this check.
+    const players = research.getByLabel("Players", { exact: true });
+    await expect(players).toBeVisible({ timeout: 15_000 });
+    await players.selectOption("defense");
+    await expect(table.or(emptyState).first()).toBeVisible({ timeout: 15_000 });
+    await players.selectOption("both");
+    await expect(table.or(emptyState).first()).toBeVisible({ timeout: 15_000 });
   });
 
   test("POST /api/trade/finder returns arbitrage trades for a real roster on production", async ({

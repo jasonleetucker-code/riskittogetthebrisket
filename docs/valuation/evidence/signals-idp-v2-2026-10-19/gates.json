@@ -1,0 +1,223 @@
+{
+  "schema": "signals-idp-v2-gates/1",
+  "preregistrationId": "signals-idp-v2-2026-10-19",
+  "authority": "owner directive 2026-10-19 'Get Signals Fantasy IDP Fully Voting' (docs/owner/SIGNALS_IDP_VOTING_2026-10-19.md, release train 13)",
+  "frozenAt": "the merge of this file to main; evaluation releases are defined against that merge time",
+  "families": ["DL", "LB", "DB"],
+  "familyKeys": {"DL": "signalsIdpDl", "LB": "signalsIdpLb", "DB": "signalsIdpDb"},
+  "bridgeSource": "idpTradeCalc",
+  "independentReference": "draftSharksIdp",
+  "candidates": {
+    "A": {
+      "id": "signals-idp-A-family-ladder-v1",
+      "status": "FAILED_ROUND_1",
+      "promotable": false,
+      "role": "comparison baseline and negative control NC1; never redefined"
+    },
+    "F": {
+      "id": "signals-idp-F-coverage-aligned-v1",
+      "status": "PREREGISTERED",
+      "promotable": true,
+      "vote": "for p in M_F in a tie group of size t starting at competition rank k: r_F(p) = mean(L^M[k-1 .. k+t-2]); vote = Hill_GLOBAL(r_F(p)) through the voting path's own pricing helper, fractional rank passed directly (never translate_position_rank); Signals-only rows withheld",
+      "contributes": "within_family_order",
+      "levelSource": "idpTradeCalc"
+    },
+    "N": {
+      "id": "signals-idp-N-native-league-value-v1",
+      "status": "SLOT_RESERVED",
+      "promotable": "only if admitted under admissionRules, then under the same gates plus E2 rank-space consistency and the information diagnostic",
+      "admissionRules": [
+        "server observation reachable through an operation the shipped app itself issues",
+        "covers DT, DE, LB, CB and S at or above the family board floors",
+        "inputs are scoring and lineup settings only, no roster dependence (keyable by scoring_fingerprint); otherwise leagueKey-scoped and rejected",
+        "deterministic across two reads at least 120 s apart; changes only with a publication",
+        "S1 not falsified: family tops not within 5% of each other and normalised curves not within +/-5% at k = 12 and k = 24",
+        "a dynasty trade value, not a projection: an age/horizon gradient consistent with dynasty value, rookies priced, DYNASTY game type proven per endpoint",
+        "lineage established by observed code paths; the IDP half is not a FantasyCalc or KTC derivative",
+        "licence: the attestation scope covers canonical use, else owner decision 6"
+      ]
+    },
+    "diagnosticOnly": {
+      "H": "smoothed geometric moving-window ranks (window 0.05 m)",
+      "G": "F plus Signals-only rows interpolated between matched neighbours",
+      "N0": "bridge-null voter: the bridge's own within-family order and coverage, priced as A (negative control NC4)",
+      "K": "consensus-level (circular)",
+      "I": "isotonic PAVA fit (in-sample)",
+      "J": "Draft Sharks IDP as reference (the information diagnostic)",
+      "B": "proportional percentile (existing diagnostic)",
+      "FxDeepTail": "F priced with idp_deep_tail_native_challenger on"
+    },
+    "candidate4CompletedTrades": {
+      "status": "UNSUPPORTED_2026",
+      "reentry": "a census of IDP NATIVE_COMPARABLE / VALIDATED_TRANSFORMABLE underlying trades in data/market_trades/underlying_trades.sqlite (Sharp cohort included) of at least 30 per family with concentration and Kish tooling, plus a validated IDP-scoring translator or multi-season accumulation"
+    }
+  },
+  "definitions": {
+    "R_F": "board rows at position F with canonicalSiteValues[bridgeSource] > 0",
+    "c(p)": "p's slot in family_ladder(F), ordered by (-v_beta, lower(pinned name key))",
+    "S_F": "Signals phase-1 eligible set (a native value on the family board, the row held at position F)",
+    "sigma": "Signals' order: competition ranks of the native value within the family",
+    "M_F": "S_F intersect R_F; m = |M_F|; k_M(p) is p's competition rank within M_F",
+    "L^M": "ascending list of c(q) for q in M_F",
+    "Hill_G": "GLOBAL shared_market pricing through the voting path's own helper",
+    "rookieRule": "Signals IDP rookie rows are withheld this round (rookie_unobservable_by_basis)",
+    "withheldReasons": [
+      "unmatched_in_reference",
+      "family_positions_undefined_multi_bridge",
+      "reference_withheld",
+      "sleeper_id_contradiction",
+      "not_a_within_family_rank",
+      "family_mismatch",
+      "rookie_unobservable_by_basis"
+    ],
+    "multiBridge": "more than one bridge contributor withholds every Signals vote (family_positions_undefined_multi_bridge) and fires an alert",
+    "relativeMovement": "|v_variant - v_champion| / max(1, v_champion) per row",
+    "newlyPricedRelativeMovement": 1.0,
+    "newlyPricedNote": "a row priced in one build and unpriced in the other is counted as a 100% move (conservative) and also counted separately",
+    "correctedPanel": "other sources on the row with appliedWeight > 0, not hampelDropped, contributedToBlend not False, numeric valueContribution; at least 2 required; unweighted median",
+    "scriptPanel": "other sources on the row that are not hampelDropped with numeric valueContribution; at least 1 (the round-1 instrument, always printed)",
+    "idpBands": {"elite": [1, 100], "starter": [101, 250], "bench": [251, 500], "deep": [501, null]},
+    "combinedRankBands": {"top": [1, 250], "mid": [251, 500], "tail": [501, null]}
+  },
+  "evaluationReleases": {
+    "baselineRelease": "6ec7bff6bd11",
+    "R1": "the first Signals IDP release with asOf after the merge of this preregistration, contentSha256 != baselineRelease, and at least minRankChangeShare of matched rows changing within-family rank against baselineRelease; otherwise wait for the next release",
+    "R2": "the next release after R1 meeting the same rule against R1",
+    "minRankChangeShare": 0.10,
+    "requireAgreement": ["R1", "R2"],
+    "deadline": "2026-11-16",
+    "deadlineOutcome": "BLOCKED: no_qualifying_release"
+  },
+  "d1": {
+    "mode": "diagnose",
+    "idpReleasePin": "6ec7bff6bd11",
+    "offenseReleasePin": "05e513c37a91",
+    "payloadRef": "f9d1994e59",
+    "forbiddenCandidates": ["F", "H", "G"],
+    "refuseOtherRelease": true
+  },
+  "engineering": [
+    {"id": "G1", "criterion": "no Signals-created cross-family order", "metric": "createdCrossFamilyOrder", "op": "eq", "threshold": 0},
+    {"id": "G2", "criterion": "every Signals vote in shared_market coordinates", "metric": "nonSharedMarketVotes", "op": "eq", "threshold": 0},
+    {"id": "G8", "criterion": "tests: missing ladder, bad identity, unsupported family, stale source", "metric": "ci", "op": "ci", "threshold": null},
+    {"id": "INT-DUP", "criterion": "duplicate Signals observations on a row", "metric": "duplicateSignalsObservationsOnRow", "op": "eq", "threshold": 0},
+    {"id": "INT-SID", "criterion": "sleeper_id_contradiction among voting rows", "metric": "sidContradictionsVoting", "op": "eq", "threshold": 0},
+    {"id": "INT-FAM", "criterion": "family-mismatched rows voting", "metric": "familyMismatchesVoting", "op": "eq", "threshold": 0},
+    {"id": "INT-STALE", "criterion": "stale or invalid observations voting", "metric": "staleOrInvalidVoting", "op": "eq", "threshold": 0},
+    {"id": "INT-SHADOW", "criterion": "shadow wouldContribute differs from the promoted valueContribution", "metric": "shadowPromotedMismatches", "op": "eq", "threshold": 0},
+    {"id": "INT-EXTRAP", "criterion": "extrapolated votes", "metric": "extrapolatedVotes", "op": "eq", "threshold": 0},
+    {"id": "INT-ROOKIE", "criterion": "rookie votes", "metric": "rookieVotes", "op": "eq", "threshold": 0},
+    {"id": "G6b-structural", "criterion": "|b_F - b_N0| on the corrected panel; verifies coverage and permutation integrity under F; NOT evidence of valuation quality", "metric": "g6bStructuralGap", "op": "report", "threshold": 0.05}
+  ],
+  "empirical": [
+    {"id": "G3", "criterion": "watch-list entries within the row range widened by 15%", "metric": "watchWithinRange", "op": "all", "threshold": null, "publicOnlyWhenEntriesAtLeast": 5},
+    {"id": "G4", "criterion": "Signals' own Hampel drops", "metric": "ownHampelDropRate", "op": "le", "threshold": 0.05},
+    {"id": "G4-X-elite-starter", "criterion": "Hampel drops of the independent-level anchor (draftSharksIdp) caused by Signals in the elite and starter bands", "metric": "causedIndependentAnchorDropsEliteStarter", "op": "eq", "threshold": 0},
+    {"id": "G4-X-total", "criterion": "total Hampel drops caused by Signals in other sources, as a share of the family's voting observations", "metric": "causedDropShare", "op": "le", "threshold": 0.05},
+    {"id": "G4-X-explained", "criterion": "every caused drop explained by its filter stamp", "metric": "causedDropsUnexplained", "op": "eq", "threshold": 0},
+    {"id": "G5", "criterion": "family share of the overall top 200 moves", "metric": "top200ShareDeltaPp", "op": "abs_le", "threshold": 3.0},
+    {"id": "G6-median", "criterion": "IDP relative movement median, served configuration, newly priced rows counted", "metric": "idpRelMovementMedian", "op": "le", "threshold": 0.02},
+    {"id": "G6-p90", "criterion": "IDP relative movement p90, served configuration, newly priced rows counted", "metric": "idpRelMovementP90", "op": "le", "threshold": 0.08},
+    {"id": "G6-offense", "criterion": "offense player rows moved (hard FAIL until the #1817 two-way fix is deployed)", "metric": "offensePlayerRowsMoved", "op": "eq", "threshold": 0},
+    {"id": "G6b", "criterion": "per-family signed median of (vote - corrected-panel median) / corrected-panel median, at least 2 other voting sources", "metric": "signedBiasCorrectedPanel", "op": "abs_le", "threshold": 0.05},
+    {"id": "G6-shift", "criterion": "board-level per-family mean shift; absolute and relative movement by mechanism class", "metric": "familyMeanShift", "op": "report", "threshold": null},
+    {"id": "CONF", "criterion": "confidence transition matrix and unjustified-inflation attribution", "metric": "confidence", "op": "report", "threshold": null},
+    {"id": "G7", "criterion": "independent fresh-context review, which must classify Signals' IDP horizon (dynasty vs seasonal)", "metric": "review", "op": "external", "threshold": null},
+    {"id": "G9", "criterion": "completed trades: never presented as validation; INSUFFICIENT below the minimum", "metric": "trades", "op": "insufficient_below", "threshold": 30}
+  ],
+  "dispositions": {
+    "panelDefects": "measurement correction (corrected panel); the script-panel number is always printed; needs owner decision 4",
+    "borrowedLevelBias": "owner decision 1: (a) signed-bias gates not applicable to sources without a level, consequences gated instead (G4-X, G6-shift, confidence), or (b) G6b stays binding",
+    "hillMisfitAndPickCoordinate": "reported; repair belongs to the Hill and bridge owners",
+    "dlHaircutFlips": "owner decision 2: wait for the #1817 haircut finding or accept the flips explicitly; no new served haircut bound",
+    "hampelKnockOn": "gated by G4-X; the filter belongs to the outlier lane",
+    "allowed": ["REPAIRED", "MEASUREMENT_CORRECTION", "OWNER_ACCEPTED"]
+  },
+  "negativeControls": [
+    {"id": "NC1", "control": "Candidate A at DB", "kind": "build"},
+    {"id": "NC2", "control": "seeded random within-family permutation of Signals' matched order, median over draws, panel held fixed", "kind": "in_script", "draws": 200, "seed": 20261019},
+    {"id": "NC3", "control": "fully reversed within-family order, panel held fixed", "kind": "in_script"},
+    {"id": "NC4", "control": "N0 itself", "kind": "build"}
+  ],
+  "negativeControlRule": "each control must FAIL the check a revised or decomposed statistic is used for; if a control passes, that statistic is VOID for the round",
+  "negativeControlScope": "NC2, NC3 and NC4 per family (void that family); NC1 at DB (voids every family); a control passes when |median| <= the statistic's threshold on at least minCell rows",
+  "premises": [
+    {"id": "P1", "premise": "haircut flips account for at least 80% of DL rows at or above the DL relative-movement p90 on the box board", "metric": "dlP90HaircutFlipShare", "op": "ge", "threshold": 0.80},
+    {"id": "P2", "premise": "the box-board N0 LB and DB floor on the corrected panel lies within [-6%, 0%]", "metric": "n0SignedBiasCorrectedPanel", "op": "within", "threshold": [-0.06, 0.0]},
+    {"id": "P3", "premise": "IDP Show is zero-weight on the evaluation board", "metric": "idpShowAppliedWeightRows", "op": "eq", "threshold": 0}
+  ],
+  "premiseRule": "a falsified premise voids every disposition that depends on it",
+  "information": {
+    "target": "draftSharksIdp",
+    "builds": ["leave-target-out without the Signals family", "leave-target-out with the Signals family", "leave-target-out with N0 in place of Signals"],
+    "minMatchedRowsPerFamily": 20,
+    "minDiscordantPairs": 50,
+    "spearmanMargin": 0.01,
+    "sideWithSignalsPositive": 0.55,
+    "sideWithSignalsNegative": 0.45,
+    "verdicts": ["POSITIVE", "NEUTRAL", "NEGATIVE", "INSUFFICIENT"],
+    "rule": "POSITIVE when the with-Signals Spearman against the target beats both the without-Signals and the N0 build by at least spearmanMargin AND Draft Sharks sides with Signals on at least sideWithSignalsPositive of at least minDiscordantPairs pairs where Signals and the bridge disagree; NEGATIVE when both Spearman deltas are at most -spearmanMargin AND the side-with share is at most sideWithSignalsNegative; INSUFFICIENT below minMatchedRowsPerFamily or minDiscordantPairs; otherwise NEUTRAL.  An information metric, never an agreement penalty",
+    "activationWithoutPositive": "owner decision 3"
+  },
+  "reproduction": {
+    "roundOneRun": "39066961689",
+    "tolerances": {"count": "exact", "percentagePoints": 1.0, "tailRelative": 0.10},
+    "figures": [
+      {"id": "idpRowsMoving", "observed": 343, "of": 396, "kind": "count"},
+      {"id": "idpRelMovementMedian", "observed": 0.0137, "kind": "percentage"},
+      {"id": "idpRelMovementP90", "observed": 0.3007, "kind": "tail"},
+      {"id": "signalsOutlierDropRate", "observed": 0.029, "kind": "percentage"},
+      {"id": "lbSignedBias", "observed": -0.0624, "kind": "percentage"},
+      {"id": "dbSignedBias", "observed": -0.0995, "kind": "percentage"},
+      {"id": "offensePlayerRowsMoved", "observed": 1, "kind": "count"},
+      {"id": "scorableIdpTrades", "observed": 0, "kind": "count"}
+    ],
+    "verdicts": ["REPRODUCED", "NOT_REPRODUCED", "EXPLAINED"]
+  },
+  "verdictValues": ["PASS", "FAIL", "INSUFFICIENT", "VOID", "REPORTED", "EXTERNAL"],
+  "privacy": {
+    "minCell": 20,
+    "significantFigures": 2,
+    "forbidMaxMin": true,
+    "watchListPublic": "counts only, {entries, withinRange}, and only when entries >= 5",
+    "publicAllow": [
+      "schema",
+      "mode",
+      "matrixPart",
+      "utc",
+      "preregistrationId",
+      "gatesSha256",
+      "error",
+      "deploy.**",
+      "memory.**",
+      "inputs.freezeManifestSha256",
+      "inputs.fileCount",
+      "inputs.flagsSource",
+      "inputs.flagsSnapshotSha256",
+      "inputs.payloadRef",
+      "inputs.payloadName",
+      "inputs.idpReleasePin",
+      "inputs.idpReleaseFound",
+      "inputs.offenseReleasePin",
+      "inputs.offenseReleaseFound",
+      "inputs.treeKind",
+      "variants.*.status",
+      "variants.*.refusedFlag",
+      "variants.*.voteStates.**",
+      "variants.*.voteStateAsIntended",
+      "variants.*.contractHealthOk",
+      "variants.*.bridgeContributors",
+      "families.*.**",
+      "board.**",
+      "verdicts.**",
+      "reproduction.**",
+      "premises.**",
+      "negativeControls.**",
+      "information.**",
+      "release.**",
+      "coordinates.**",
+      "nativeOffline.**",
+      "trades.**"
+    ]
+  }
+}

@@ -1,0 +1,2291 @@
+{
+ "_fixture": {
+  "description": "Long-term strategy, a near-even 1-for-1 that improves the lineup modestly (LABELLED synthetic WR Mid): the strategy decides NO \u2014 TOO CLOSE.",
+  "generator": "tests/trade/war_room_ui_payloads.py",
+  "request": {
+   "picksIn": [],
+   "picksOut": [],
+   "playersIn": [
+    "WR Mid"
+   ],
+   "playersOut": [
+    "WR Phi"
+   ],
+   "teamName": "Us",
+   "useTeamContext": true
+  },
+  "scenario": "too-close-strategy",
+  "teamGoal": "LONG_TERM"
+ },
+ "after": {
+  "byPosition": {
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 0,
+    "value": 0
+   },
+   "K": {
+    "count": 0,
+    "value": 0
+   },
+   "PICK": {
+    "count": 1,
+    "value": 3500
+   },
+   "QB": {
+    "count": 1,
+    "value": 6000
+   },
+   "RB": {
+    "count": 2,
+    "value": 3000
+   },
+   "TE": {
+    "count": 1,
+    "value": 500
+   },
+   "WR": {
+    "count": 2,
+    "value": 6050
+   }
+  },
+  "tiers": {
+   "depth": 3,
+   "elite": 0,
+   "high": 0,
+   "mid": 4
+  },
+  "totalValue": 19050
+ },
+ "analysis": {
+  "basis": "market_and_roster",
+  "confidence": "MEDIUM",
+  "decision": {
+   "bands": {
+    "absoluteMinimum": 250.0,
+    "basis": "larger_package_utility",
+    "fairTradeLevels": [
+     "fair"
+    ],
+    "lopsidedPct": 18.0,
+    "postLaunchValidation": "OD-F4",
+    "slightPct": 3.5,
+    "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+    "unfairPct": 9.0,
+    "version": "fairness_bands_v2"
+   },
+   "components": {
+    "objectiveValue": {
+     "band": {
+      "absoluteGap": 50.0,
+      "bands": "fairness_bands_v2",
+      "label": "FAIR",
+      "level": "fair",
+      "relativePct": 2.44,
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+     },
+     "direction": "neutral",
+     "evaluated": true,
+     "forcedReleaseCost": null,
+     "kind": "independent",
+     "largerAdjustedSide": 2050,
+     "largerPackageUtility": 2050,
+     "magnitude": null,
+     "netGap": 50,
+     "unit": "canonical value points (adjusted package)",
+     "vaAdjustedGap": 50
+    },
+    "rosterBenefit": {
+     "direction": "favors",
+     "evaluated": true,
+     "kind": "independent",
+     "magnitude": "modest",
+     "neutralBandPpg": 1.0,
+     "ppg": 1.23,
+     "standardError": 0.315,
+     "state": "evaluated",
+     "unit": "expected best-ball points per week (exact league scoring)"
+    }
+   },
+   "confidence": {
+    "axes": {
+     "agreement": "LOW",
+     "assetEvidence": "MEDIUM",
+     "coverage": "HIGH",
+     "margin": "MEDIUM",
+     "precision": "HIGH"
+    },
+    "bottleneck": [
+     "agreement"
+    ],
+    "isProbability": false,
+    "level": "LOW",
+    "statement": "Low confidence \u2014 limited by agreement: value and roster disagree; your strategy decided"
+   },
+   "coverage": [
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": "objectiveValue",
+     "contribution": {
+      "direction": "neutral",
+      "magnitude": null,
+      "unit": "canonical value"
+     },
+     "dimension": "asset_value",
+     "evidence": {
+      "band": {
+       "absoluteGap": 50.0,
+       "bands": "fairness_bands_v2",
+       "label": "FAIR",
+       "level": "fair",
+       "relativePct": 2.44,
+       "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+      },
+      "rawGap": 50,
+      "receivingAdjusted": 2050.0,
+      "sendingAdjusted": 2000.0,
+      "vaAdjustedGap": 50
+     },
+     "evidenceKind": "independent",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "canonical_value",
+     "owner": "src/trade/analyze_trade.py::equity_verdict + src/valuation_math",
+     "role": "decides",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "confidence_bucket",
+      "value": 0
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": "rosterBenefit",
+     "contribution": {
+      "direction": "favors",
+      "magnitude": "modest",
+      "unit": "best-ball ppg"
+     },
+     "dimension": "immediate_improvement",
+     "evidence": {
+      "magnitude": "modest",
+      "neutralBandPpg": 1.0,
+      "ppg": 1.23,
+      "standardError": 0.315
+     },
+     "evidenceKind": "independent",
+     "exclusionReason": null,
+     "freshness": "fresh",
+     "lineage": "league_scored_projection",
+     "owner": "src/roster_intel/best_ball_utility.py",
+     "role": "decides",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "monte_carlo_se",
+      "value": 0.315
+     }
+    },
+    {
+     "applicability": {
+      "reason": "no roster-level long-term quantity is wired; counted once, via asset value",
+      "state": "approximate"
+     },
+     "component": "objectiveValue",
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "long_term",
+     "evidence": {
+      "via": "canonical dynasty value (long-horizon) inside asset_value"
+     },
+     "evidenceKind": "correlated",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "canonical_value",
+     "owner": "src/trade/analyze_trade.py",
+     "role": "explain_only",
+     "state": "partial",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": "objectiveValue",
+     "contribution": {
+      "direction": "context",
+      "magnitude": null,
+      "unit": "release cost charged once to asset value"
+     },
+     "dimension": "roster_construction",
+     "evidence": {
+      "forcedDropReleaseCost": null,
+      "ladderExhausted": false,
+      "state": "fits_cleanly",
+      "unpricedForcedDrops": 0
+     },
+     "evidenceKind": "contextual",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "league_roster_rules",
+     "owner": "src/trade/roster_capacity.py",
+     "role": "gate",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "none",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "market_evidence",
+     "evidence": null,
+     "evidenceKind": "correlated",
+     "exclusionReason": "not_computed",
+     "freshness": "unknown",
+     "lineage": "real_trade_ledger",
+     "owner": "src/trade/comparable_trades.py",
+     "role": "explain_only",
+     "state": "unavailable",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "competitive_strategy",
+     "evidence": {
+      "postureLabel": "PUSH",
+      "strategySource": "user",
+      "strategyUsed": "LONG_TERM"
+     },
+     "evidenceKind": "contextual",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "team_strategy_context",
+     "owner": "src/roster_intel/window.py::competitive_posture",
+     "role": "tiebreak",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "range",
+      "value": 0.9076
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "risk",
+     "evidence": {
+      "lowConfidenceAssets": 0,
+      "sourceDisagreementAssets": 0,
+      "unstampedAssets": 2
+     },
+     "evidenceKind": "explanatory",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": null,
+     "owner": "src/api/confidence.py (stamps) via the evidence lens",
+     "role": "confidence_only",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": "counterparty acceptance is not evaluated",
+      "state": "approximate"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "feasibility",
+     "evidence": {
+      "counterpartyAcceptance": "not_evaluated",
+      "notOwnedBySender": 0,
+      "pickOwnership": "observed"
+     },
+     "evidenceKind": "contextual",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "ownership_records",
+     "owner": "src/identity/picks.py + src/api/trade_simulator.py",
+     "role": "gate",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "opportunity_cost",
+     "evidence": null,
+     "evidenceKind": "independent",
+     "exclusionReason": "not_wired",
+     "freshness": "unknown",
+     "lineage": null,
+     "owner": "(none: best-alternative comparison is not wired)",
+     "role": "explain_only",
+     "state": "unavailable",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": "roster limit only; trade deadline and saved LOCK / EXCLUDE are not applied",
+      "state": "approximate"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "league_constraints",
+     "evidence": {
+      "rosterLimit": 8
+     },
+     "evidenceKind": "contextual",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "league_roster_rules",
+     "owner": "src/trade/roster_capacity.py",
+     "role": "gate",
+     "state": "partial",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    }
+   ],
+   "deciding": "strategy",
+   "executes": false,
+   "headline": "NO_TOO_CLOSE",
+   "headlineText": "NO \u2014 TOO CLOSE",
+   "leaning": "LEAN_MAKE",
+   "mainCounterargument": null,
+   "missingEvidence": [],
+   "posture": {
+    "available": true,
+    "confidence": 0.9076,
+    "evidence": "measured",
+    "label": "PUSH",
+    "paramsVersion": "posture_v1_prior",
+    "probabilities": {
+     "HOLD": 0.0,
+     "PUSH": 0.9076,
+     "REBUILD": 0.0047,
+     "RETOOL": 0.0877
+    },
+    "role": "selects_strategy_never_votes"
+   },
+   "primaryReason": {
+    "component": "strategy",
+    "evidence": {
+     "inferredClassification": "PUSH",
+     "inferredStrategy": "WIN_NOW",
+     "postureProbabilities": {
+      "HOLD": 0.0,
+      "PUSH": 0.9076,
+      "REBUILD": 0.0047,
+      "RETOOL": 0.0877
+     },
+     "source": "user",
+     "used": "LONG_TERM"
+    },
+    "kind": "contextual",
+    "stance": "context",
+    "text": "Strategy: Long-term value. You chose long-term value; your competitive posture is contender (PUSH), which would infer win now."
+   },
+   "reasons": [
+    {
+     "component": "objectiveValue",
+     "evidence": {
+      "band": {
+       "absoluteGap": 50.0,
+       "bands": "fairness_bands_v2",
+       "label": "FAIR",
+       "level": "fair",
+       "relativePct": 2.44,
+       "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+      },
+      "forcedReleaseCost": null,
+      "largerAdjustedSide": 2050,
+      "netGap": 50,
+      "vaAdjustedGap": 50
+     },
+     "kind": "independent",
+     "stance": "neutral",
+     "text": "+50 package value for you after Value Adjustment \u2014 2.4% of the larger package, FAIR band"
+    },
+    {
+     "component": "rosterBenefit",
+     "evidence": {
+      "magnitude": "modest",
+      "neutralBandPpg": 1.0,
+      "ppg": 1.23,
+      "standardError": 0.315
+     },
+     "kind": "independent",
+     "stance": "for",
+     "text": "+1.2 expected best-ball points per week in your legal lineup"
+    },
+    {
+     "component": "feasibility",
+     "evidence": {
+      "forcedDropReleaseCost": null,
+      "forcedDrops": [],
+      "state": "fits_cleanly"
+     },
+     "kind": "contextual",
+     "stance": "neutral",
+     "text": "Fits your roster without a cut"
+    },
+    {
+     "component": "strategy",
+     "evidence": {
+      "inferredClassification": "PUSH",
+      "inferredStrategy": "WIN_NOW",
+      "postureProbabilities": {
+       "HOLD": 0.0,
+       "PUSH": 0.9076,
+       "REBUILD": 0.0047,
+       "RETOOL": 0.0877
+      },
+      "source": "user",
+      "used": "LONG_TERM"
+     },
+     "kind": "contextual",
+     "stance": "context",
+     "text": "Strategy: Long-term value. You chose long-term value; your competitive posture is contender (PUSH), which would infer win now."
+    }
+   ],
+   "receipt": {
+    "analyzeConfig": {
+     "depthNotableLossPpg": 0.5,
+     "largeMultiple": 3.0,
+     "materialityPpg": 1.0
+    },
+    "bands": "fairness_bands_v2",
+    "boardStamp": null,
+    "decisionVersion": "trade_decision_v2",
+    "packageModel": {
+     "classification": "ACTIVE",
+     "family": "geom",
+     "id": "geom_q078_v1",
+     "label": "Geometric Value Adjustment (q = 0.78)",
+     "version": "1"
+    },
+    "postureParamsVersion": "posture_v1_prior",
+    "projectionBasis": {
+     "availability": {
+      "currentWeek": null,
+      "currentWeekSource": "unresolved",
+      "lastWeek": 18,
+      "lastWeekSource": "nfl_regular_season_league_unknown",
+      "overrides": 0,
+      "reason": "current_week_unresolved",
+      "returnEvidence": {
+       "asOf": null,
+       "players": 0,
+       "source": "espn_athlete_current_injury",
+       "state": "unavailable"
+      },
+      "rules": "src/ros/availability.py (bye, override, host status, stated return date)",
+      "schedule": "unavailable",
+      "state": "not_applied",
+      "weeks": []
+     },
+     "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
+     "draws": 400,
+     "drawsPerWeek": null,
+     "families": [
+      "synthetic"
+     ],
+     "horizon": "PRESEASON_FULL_SEASON",
+     "lineupSolver": "src.ros.lineup.solve_optimal_assignment (realized_points)",
+     "pointsModel": {
+      "cvByPosition": {
+       "CB": 0.55,
+       "DB": 0.5,
+       "DE": 0.55,
+       "DL": 0.55,
+       "DT": 0.55,
+       "EDGE": 0.55,
+       "LB": 0.45,
+       "QB": 0.32,
+       "RB": 0.55,
+       "S": 0.5,
+       "TE": 0.65,
+       "WR": 0.6
+      },
+      "defaultCv": 0.55,
+      "generatedAt": null,
+      "rosValuePerPoint": 2.7,
+      "sampleSize": 0,
+      "source": "fallback-constants"
+     },
+     "season": 2026,
+     "seed": 1173,
+     "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
+     "state": "available",
+     "weeks": null
+    },
+    "requestHash": "5e69be2cf37d1c4abf60381169b22959b3fe4691c1106a87acdd2b49f5635352",
+    "scoringFingerprint": null,
+    "strategy": {
+     "inferredClassification": "PUSH",
+     "inferredStrategy": "WIN_NOW",
+     "reasoning": "You chose long-term value; your competitive posture is contender (PUSH), which would infer win now.",
+     "requested": "LONG_TERM",
+     "source": "user",
+     "used": "LONG_TERM"
+    }
+   },
+   "recommendationOnly": true,
+   "strategy": {
+    "inferredClassification": "PUSH",
+    "inferredStrategy": "WIN_NOW",
+    "label": "Long-term value",
+    "options": [
+     {
+      "label": "Win now",
+      "value": "WIN_NOW"
+     },
+     {
+      "label": "Balanced",
+      "value": "BALANCED"
+     },
+     {
+      "label": "Long-term value",
+      "value": "LONG_TERM"
+     }
+    ],
+    "postureMap": {
+     "HOLD": "BALANCED",
+     "PUSH": "WIN_NOW",
+     "REBUILD": "LONG_TERM",
+     "RETOOL": "BALANCED"
+    },
+    "reasoning": "You chose long-term value; your competitive posture is contender (PUSH), which would infer win now.",
+    "requested": "LONG_TERM",
+    "requestedValid": true,
+    "source": "user",
+    "used": "LONG_TERM"
+   },
+   "subtext": null,
+   "version": "trade_decision_v2",
+   "whatWouldChange": [
+    {
+     "evidence": {
+      "assetValue": 275,
+      "searchStep": 25,
+      "side": "receive"
+     },
+     "flipsTo": "YES",
+     "kind": "price",
+     "text": "If you also received an asset worth about 275, the answer would be YES \u2014 MAKE THE TRADE"
+    },
+    {
+     "evidence": {
+      "current": "LONG_TERM",
+      "source": "user",
+      "strategy": "WIN_NOW"
+     },
+     "flipsTo": "YES",
+     "kind": "strategy",
+     "text": "If your strategy were win now, the answer would be YES \u2014 MAKE THE TRADE"
+    },
+    {
+     "evidence": {
+      "current": "LONG_TERM",
+      "source": "user",
+      "strategy": "BALANCED"
+     },
+     "flipsTo": "YES",
+     "kind": "strategy",
+     "text": "If your strategy were balanced, the answer would be YES \u2014 MAKE THE TRADE"
+    }
+   ]
+  },
+  "dimensions": [
+   {
+    "available": true,
+    "detail": {
+     "band": {
+      "absoluteGap": 50.0,
+      "bands": "fairness_bands_v2",
+      "label": "FAIR",
+      "level": "fair",
+      "relativePct": 2.44,
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+     },
+     "bandsReceipt": {
+      "absoluteMinimum": 250.0,
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
+      "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
+      "slightPct": 3.5,
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+      "unfairPct": 9.0,
+      "version": "fairness_bands_v2"
+     },
+     "hypotheticalPicksOut": [],
+     "incomplete": false,
+     "largerPackageUtility": 2050.0,
+     "magnitude": "even",
+     "notOwnedBySender": [],
+     "packageModel": {
+      "classification": "ACTIVE",
+      "family": "geom",
+      "id": "geom_q078_v1",
+      "label": "Geometric Value Adjustment (q = 0.78)",
+      "version": "1"
+     },
+     "rawGap": 50,
+     "receivingAdjusted": 2050.0,
+     "receivingValue": 2050,
+     "receivingValueAdjustment": 0.0,
+     "sendingAdjusted": 2000.0,
+     "sendingValue": 2000,
+     "sendingValueAdjustment": 0.0,
+     "unpricedIn": [],
+     "unpricedOut": [],
+     "unresolvedIn": [],
+     "unresolvedOut": [],
+     "vaAdjustedGap": 50,
+     "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
+    },
+    "dimension": "equity",
+    "direction": "neutral",
+    "lineage": "canonical_value",
+    "votes": true
+   },
+   {
+    "available": true,
+    "detail": {
+     "after": {
+      "expectedLineupPpg": 58.46,
+      "projectedPlayers": 5,
+      "rawProjectedPpg": 61.5,
+      "redundantPpg": 3.04,
+      "rosteredPlayers": 7,
+      "unprojectedPlayerIds": [
+       "RB Unpriced",
+       "ghost player"
+      ]
+     },
+     "assumptions": [
+      "each week is drawn around the player's per-game projection with the league's calibrated per-position variance; players are independent",
+      "injury / availability probabilities are not modelled",
+      "bye weeks are not modelled",
+      "the lineup is re-solved exactly for every simulated week (best ball)"
+     ],
+     "basis": {
+      "availability": {
+       "currentWeek": null,
+       "currentWeekSource": "unresolved",
+       "lastWeek": 18,
+       "lastWeekSource": "nfl_regular_season_league_unknown",
+       "overrides": 0,
+       "reason": "current_week_unresolved",
+       "returnEvidence": {
+        "asOf": null,
+        "players": 0,
+        "source": "espn_athlete_current_injury",
+        "state": "unavailable"
+       },
+       "rules": "src/ros/availability.py (bye, override, host status, stated return date)",
+       "schedule": "unavailable",
+       "state": "not_applied",
+       "weeks": []
+      },
+      "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
+      "draws": 400,
+      "drawsPerWeek": null,
+      "families": [
+       "synthetic"
+      ],
+      "horizon": "PRESEASON_FULL_SEASON",
+      "lineupSolver": "src.ros.lineup.solve_optimal_assignment (realized_points)",
+      "pointsModel": {
+       "cvByPosition": {
+        "CB": 0.55,
+        "DB": 0.5,
+        "DE": 0.55,
+        "DL": 0.55,
+        "DT": 0.55,
+        "EDGE": 0.55,
+        "LB": 0.45,
+        "QB": 0.32,
+        "RB": 0.55,
+        "S": 0.5,
+        "TE": 0.65,
+        "WR": 0.6
+       },
+       "defaultCv": 0.55,
+       "generatedAt": null,
+       "rosValuePerPoint": 2.7,
+       "sampleSize": 0,
+       "source": "fallback-constants"
+      },
+      "season": 2026,
+      "seed": 1173,
+      "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
+      "state": "available",
+      "weeks": null
+     },
+     "before": {
+      "expectedLineupPpg": 57.24,
+      "projectedPlayers": 5,
+      "rawProjectedPpg": 60.0,
+      "redundantPpg": 2.76,
+      "rosteredPlayers": 7,
+      "unprojectedPlayerIds": [
+       "RB Unpriced",
+       "ghost player"
+      ]
+     },
+     "cleanup": {
+      "candidatesTied": false,
+      "forcedDropIds": [],
+      "isUpperBound": false,
+      "state": "none"
+     },
+     "coverage": {
+      "state": "full",
+      "tradedUnprojectedPlayerIds": []
+     },
+     "depth": {
+      "after": {
+       "expectedLineupPpg": 55.5,
+       "meanLossPpg": 10.88,
+       "starters": 4,
+       "worstLossPlayerId": "QB Min",
+       "worstLossPpg": 20.0
+      },
+      "before": {
+       "expectedLineupPpg": 54.0,
+       "meanLossPpg": 10.5,
+       "starters": 4,
+       "worstLossPlayerId": "QB Min",
+       "worstLossPpg": 20.0
+      },
+      "description": "each expected starter removed in turn and the legal lineup re-solved; a deterministic what-if, not an injury probability",
+      "meanLossDeltaPpg": 0.38,
+      "method": "single_starter_absence"
+     },
+     "lineupHoles": {
+      "after": {
+       "emptyBySlot": {},
+       "emptySlotsPerWeek": 0,
+       "noEligiblePlayer": [],
+       "onlyUnprojected": []
+      },
+      "before": {
+       "emptyBySlot": {},
+       "emptySlotsPerWeek": 0,
+       "noEligiblePlayer": [],
+       "onlyUnprojected": []
+      },
+      "description": "starting slots left empty in the simulated weeks (a bye, a stated injury absence, or no projected eligible player), plus slots the roster cannot fill at all",
+      "emptySlotsPerWeekDelta": 0,
+      "method": "unfilled_starting_slots"
+     },
+     "magnitude": "modest",
+     "neutralBandPpg": 1.0,
+     "players": [
+      {
+       "availability": null,
+       "lineupEntryPctAfter": 74.8,
+       "lineupEntryPctBefore": null,
+       "name": "WR Mid",
+       "playerId": "WR Mid",
+       "position": "WR",
+       "projectedPpg": 10.5,
+       "role": "incoming",
+       "usablePpgAfter": 9.58,
+       "usablePpgBefore": null
+      },
+      {
+       "availability": null,
+       "lineupEntryPctAfter": null,
+       "lineupEntryPctBefore": 75.0,
+       "name": "WR Phi",
+       "playerId": "WR Phi",
+       "position": "WR",
+       "projectedPpg": 9.0,
+       "role": "outgoing",
+       "usablePpgAfter": null,
+       "usablePpgBefore": 8.31
+      }
+     ],
+     "ppg": 1.23,
+     "ppgBeforeCleanup": null,
+     "rosterSpot": {
+      "openSpotsGained": 0,
+      "reason": "not_yet_measured: the waiver-pool projection join is pending",
+      "shadowValuePpg": null
+     },
+     "shape": {
+      "label": "swap",
+      "playersIn": 1,
+      "playersOut": 1
+     },
+     "standardError": 0.315,
+     "teamStrength": {
+      "after": 15550.0,
+      "before": 15500.0,
+      "countedAsVote": false,
+      "delta": 50.0,
+      "lineage": "canonical_value",
+      "why": "Team Strength sums canonical values over the meaningful core \u2014 the same lineage the market lens already counts, so it explains but does not vote."
+     },
+     "unit": "expected best-ball points per week (exact league scoring)"
+    },
+    "dimension": "rosterUtility",
+    "direction": "favors",
+    "lineage": "league_scored_projection",
+    "votes": true
+   },
+   {
+    "available": true,
+    "detail": {
+     "candidatesTied": false,
+     "certainty": "exact",
+     "forcedDropReleaseCost": null,
+     "forcedDrops": [],
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no waiver-level values available \u2014 cut costs fall back to raw board value",
+      "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+     ],
+     "openSpotsAfter": 1,
+     "openSpotsBefore": 1,
+     "overLimitAfter": 0,
+     "overLimitBefore": 0,
+     "picksOccupySpots": false,
+     "requiresDrops": false,
+     "rosterLimit": 8,
+     "sizeAfter": 7,
+     "sizeBefore": 7,
+     "state": "fits_cleanly",
+     "unpricedForcedDrops": 0
+    },
+    "dimension": "feasibility",
+    "direction": "neutral",
+    "lineage": "league_roster_rules",
+    "votes": true
+   },
+   {
+    "available": true,
+    "detail": {
+     "lowConfidenceAssets": [],
+     "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+     "projectionCoverage": {
+      "state": "full",
+      "tradedUnprojectedPlayerIds": []
+     },
+     "rosterUtilityStandardError": 0.315,
+     "sourceDisagreementAssets": [],
+     "unstampedAssets": [
+      "WR Mid",
+      "WR Phi"
+     ]
+    },
+    "dimension": "evidence",
+    "direction": null,
+    "lineage": null,
+    "votes": false
+   },
+   {
+    "available": true,
+    "detail": {
+     "components": {
+      "directional": {
+       "PUSH": 0.9186,
+       "REBUILD": 0.0035,
+       "RETOOL": 0.0779
+      },
+      "labelStability": 1.0,
+      "ownFirstRoundPickHeld": true,
+      "timing": {
+       "phase": "offseason",
+       "progressToDeadline": 0.0,
+       "tradeDeadlineWeek": 13,
+       "week": null
+      },
+      "window": {
+       "championship_contender": 0.488,
+       "playoff_contender": 0.4306,
+       "productive_struggle": 0.0062,
+       "rebuild": 0.0004,
+       "retool": 0.0748
+      },
+      "windowInputs": {
+       "competitiveness": 0.85,
+       "competitivenessSource": "championshipOdds",
+       "trajectory": 0.5,
+       "trajectorySample": 8
+      },
+      "windowOverridden": false
+     },
+     "confidence": 0.9076,
+     "evidence": "measured",
+     "label": "PUSH",
+     "notes": [
+      "SYNTHETIC_FIXTURE_WINDOW (LABELLED)"
+     ],
+     "parameterStatus": "PRIOR",
+     "paramsVersion": "posture_v1_prior",
+     "probabilities": {
+      "HOLD": 0.0,
+      "PUSH": 0.9076,
+      "REBUILD": 0.0047,
+      "RETOOL": 0.0877
+     },
+     "role": "context_not_vote",
+     "windowFit": 0.0
+    },
+    "dimension": "strategicPosture",
+    "direction": "context",
+    "lineage": "team_strategy_context",
+    "votes": false
+   },
+   {
+    "available": false,
+    "dimension": "marketCorroboration",
+    "lineage": "real_trade_ledger",
+    "unavailableReason": "not_computed",
+    "votes": false
+   }
+  ],
+  "lenses": {
+   "comparables": {
+    "available": false,
+    "dimension": "marketCorroboration",
+    "lineage": "real_trade_ledger",
+    "unavailableReason": "not_computed",
+    "votes": false
+   },
+   "evidence": {
+    "available": true,
+    "detail": {
+     "lowConfidenceAssets": [],
+     "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+     "projectionCoverage": {
+      "state": "full",
+      "tradedUnprojectedPlayerIds": []
+     },
+     "rosterUtilityStandardError": 0.315,
+     "sourceDisagreementAssets": [],
+     "unstampedAssets": [
+      "WR Mid",
+      "WR Phi"
+     ]
+    },
+    "dimension": "evidence",
+    "direction": null,
+    "lineage": null,
+    "votes": false
+   },
+   "feasibility": {
+    "available": true,
+    "detail": {
+     "candidatesTied": false,
+     "certainty": "exact",
+     "forcedDropReleaseCost": null,
+     "forcedDrops": [],
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no waiver-level values available \u2014 cut costs fall back to raw board value",
+      "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+     ],
+     "openSpotsAfter": 1,
+     "openSpotsBefore": 1,
+     "overLimitAfter": 0,
+     "overLimitBefore": 0,
+     "picksOccupySpots": false,
+     "requiresDrops": false,
+     "rosterLimit": 8,
+     "sizeAfter": 7,
+     "sizeBefore": 7,
+     "state": "fits_cleanly",
+     "unpricedForcedDrops": 0
+    },
+    "dimension": "feasibility",
+    "direction": "neutral",
+    "lineage": "league_roster_rules",
+    "votes": true
+   },
+   "market": {
+    "available": true,
+    "detail": {
+     "band": {
+      "absoluteGap": 50.0,
+      "bands": "fairness_bands_v2",
+      "label": "FAIR",
+      "level": "fair",
+      "relativePct": 2.44,
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+     },
+     "bandsReceipt": {
+      "absoluteMinimum": 250.0,
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
+      "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
+      "slightPct": 3.5,
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+      "unfairPct": 9.0,
+      "version": "fairness_bands_v2"
+     },
+     "hypotheticalPicksOut": [],
+     "incomplete": false,
+     "largerPackageUtility": 2050.0,
+     "magnitude": "even",
+     "notOwnedBySender": [],
+     "packageModel": {
+      "classification": "ACTIVE",
+      "family": "geom",
+      "id": "geom_q078_v1",
+      "label": "Geometric Value Adjustment (q = 0.78)",
+      "version": "1"
+     },
+     "rawGap": 50,
+     "receivingAdjusted": 2050.0,
+     "receivingValue": 2050,
+     "receivingValueAdjustment": 0.0,
+     "sendingAdjusted": 2000.0,
+     "sendingValue": 2000,
+     "sendingValueAdjustment": 0.0,
+     "unpricedIn": [],
+     "unpricedOut": [],
+     "unresolvedIn": [],
+     "unresolvedOut": [],
+     "vaAdjustedGap": 50,
+     "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
+    },
+    "dimension": "equity",
+    "direction": "neutral",
+    "lineage": "canonical_value",
+    "votes": true
+   },
+   "posture": {
+    "available": true,
+    "detail": {
+     "components": {
+      "directional": {
+       "PUSH": 0.9186,
+       "REBUILD": 0.0035,
+       "RETOOL": 0.0779
+      },
+      "labelStability": 1.0,
+      "ownFirstRoundPickHeld": true,
+      "timing": {
+       "phase": "offseason",
+       "progressToDeadline": 0.0,
+       "tradeDeadlineWeek": 13,
+       "week": null
+      },
+      "window": {
+       "championship_contender": 0.488,
+       "playoff_contender": 0.4306,
+       "productive_struggle": 0.0062,
+       "rebuild": 0.0004,
+       "retool": 0.0748
+      },
+      "windowInputs": {
+       "competitiveness": 0.85,
+       "competitivenessSource": "championshipOdds",
+       "trajectory": 0.5,
+       "trajectorySample": 8
+      },
+      "windowOverridden": false
+     },
+     "confidence": 0.9076,
+     "evidence": "measured",
+     "label": "PUSH",
+     "notes": [
+      "SYNTHETIC_FIXTURE_WINDOW (LABELLED)"
+     ],
+     "parameterStatus": "PRIOR",
+     "paramsVersion": "posture_v1_prior",
+     "probabilities": {
+      "HOLD": 0.0,
+      "PUSH": 0.9076,
+      "REBUILD": 0.0047,
+      "RETOOL": 0.0877
+     },
+     "role": "context_not_vote",
+     "windowFit": 0.0
+    },
+    "dimension": "strategicPosture",
+    "direction": "context",
+    "lineage": "team_strategy_context",
+    "votes": false
+   },
+   "roster": {
+    "available": true,
+    "detail": {
+     "after": {
+      "expectedLineupPpg": 58.46,
+      "projectedPlayers": 5,
+      "rawProjectedPpg": 61.5,
+      "redundantPpg": 3.04,
+      "rosteredPlayers": 7,
+      "unprojectedPlayerIds": [
+       "RB Unpriced",
+       "ghost player"
+      ]
+     },
+     "assumptions": [
+      "each week is drawn around the player's per-game projection with the league's calibrated per-position variance; players are independent",
+      "injury / availability probabilities are not modelled",
+      "bye weeks are not modelled",
+      "the lineup is re-solved exactly for every simulated week (best ball)"
+     ],
+     "basis": {
+      "availability": {
+       "currentWeek": null,
+       "currentWeekSource": "unresolved",
+       "lastWeek": 18,
+       "lastWeekSource": "nfl_regular_season_league_unknown",
+       "overrides": 0,
+       "reason": "current_week_unresolved",
+       "returnEvidence": {
+        "asOf": null,
+        "players": 0,
+        "source": "espn_athlete_current_injury",
+        "state": "unavailable"
+       },
+       "rules": "src/ros/availability.py (bye, override, host status, stated return date)",
+       "schedule": "unavailable",
+       "state": "not_applied",
+       "weeks": []
+      },
+      "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
+      "draws": 400,
+      "drawsPerWeek": null,
+      "families": [
+       "synthetic"
+      ],
+      "horizon": "PRESEASON_FULL_SEASON",
+      "lineupSolver": "src.ros.lineup.solve_optimal_assignment (realized_points)",
+      "pointsModel": {
+       "cvByPosition": {
+        "CB": 0.55,
+        "DB": 0.5,
+        "DE": 0.55,
+        "DL": 0.55,
+        "DT": 0.55,
+        "EDGE": 0.55,
+        "LB": 0.45,
+        "QB": 0.32,
+        "RB": 0.55,
+        "S": 0.5,
+        "TE": 0.65,
+        "WR": 0.6
+       },
+       "defaultCv": 0.55,
+       "generatedAt": null,
+       "rosValuePerPoint": 2.7,
+       "sampleSize": 0,
+       "source": "fallback-constants"
+      },
+      "season": 2026,
+      "seed": 1173,
+      "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
+      "state": "available",
+      "weeks": null
+     },
+     "before": {
+      "expectedLineupPpg": 57.24,
+      "projectedPlayers": 5,
+      "rawProjectedPpg": 60.0,
+      "redundantPpg": 2.76,
+      "rosteredPlayers": 7,
+      "unprojectedPlayerIds": [
+       "RB Unpriced",
+       "ghost player"
+      ]
+     },
+     "cleanup": {
+      "candidatesTied": false,
+      "forcedDropIds": [],
+      "isUpperBound": false,
+      "state": "none"
+     },
+     "coverage": {
+      "state": "full",
+      "tradedUnprojectedPlayerIds": []
+     },
+     "depth": {
+      "after": {
+       "expectedLineupPpg": 55.5,
+       "meanLossPpg": 10.88,
+       "starters": 4,
+       "worstLossPlayerId": "QB Min",
+       "worstLossPpg": 20.0
+      },
+      "before": {
+       "expectedLineupPpg": 54.0,
+       "meanLossPpg": 10.5,
+       "starters": 4,
+       "worstLossPlayerId": "QB Min",
+       "worstLossPpg": 20.0
+      },
+      "description": "each expected starter removed in turn and the legal lineup re-solved; a deterministic what-if, not an injury probability",
+      "meanLossDeltaPpg": 0.38,
+      "method": "single_starter_absence"
+     },
+     "lineupHoles": {
+      "after": {
+       "emptyBySlot": {},
+       "emptySlotsPerWeek": 0,
+       "noEligiblePlayer": [],
+       "onlyUnprojected": []
+      },
+      "before": {
+       "emptyBySlot": {},
+       "emptySlotsPerWeek": 0,
+       "noEligiblePlayer": [],
+       "onlyUnprojected": []
+      },
+      "description": "starting slots left empty in the simulated weeks (a bye, a stated injury absence, or no projected eligible player), plus slots the roster cannot fill at all",
+      "emptySlotsPerWeekDelta": 0,
+      "method": "unfilled_starting_slots"
+     },
+     "magnitude": "modest",
+     "neutralBandPpg": 1.0,
+     "players": [
+      {
+       "availability": null,
+       "lineupEntryPctAfter": 74.8,
+       "lineupEntryPctBefore": null,
+       "name": "WR Mid",
+       "playerId": "WR Mid",
+       "position": "WR",
+       "projectedPpg": 10.5,
+       "role": "incoming",
+       "usablePpgAfter": 9.58,
+       "usablePpgBefore": null
+      },
+      {
+       "availability": null,
+       "lineupEntryPctAfter": null,
+       "lineupEntryPctBefore": 75.0,
+       "name": "WR Phi",
+       "playerId": "WR Phi",
+       "position": "WR",
+       "projectedPpg": 9.0,
+       "role": "outgoing",
+       "usablePpgAfter": null,
+       "usablePpgBefore": 8.31
+      }
+     ],
+     "ppg": 1.23,
+     "ppgBeforeCleanup": null,
+     "rosterSpot": {
+      "openSpotsGained": 0,
+      "reason": "not_yet_measured: the waiver-pool projection join is pending",
+      "shadowValuePpg": null
+     },
+     "shape": {
+      "label": "swap",
+      "playersIn": 1,
+      "playersOut": 1
+     },
+     "standardError": 0.315,
+     "teamStrength": {
+      "after": 15550.0,
+      "before": 15500.0,
+      "countedAsVote": false,
+      "delta": 50.0,
+      "lineage": "canonical_value",
+      "why": "Team Strength sums canonical values over the meaningful core \u2014 the same lineage the market lens already counts, so it explains but does not vote."
+     },
+     "unit": "expected best-ball points per week (exact league scoring)"
+    },
+    "dimension": "rosterUtility",
+    "direction": "favors",
+    "lineage": "league_scored_projection",
+    "votes": true
+   }
+  },
+  "reasonsAgainst": [
+   "Outgoing lineup usage today: WR Phi 75%"
+  ],
+  "reasonsFor": [
+   "+1.2 expected best-ball points per week in the legal lineup",
+   "WR Mid enters the optimal lineup in 75% of simulated weeks",
+   "Fits without a cut (1 open spot after)"
+  ],
+  "recommendation": "LEAN_MAKE",
+  "teamContext": {
+   "applied": true,
+   "mode": "team"
+  },
+  "topUncertainty": null,
+  "unavailableDimensions": [
+   {
+    "dimension": "valueUncertainty",
+    "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md \u00a7A) and are not folded into this recommendation until that audit closes.",
+    "reason": "unaudited_model"
+   },
+   {
+    "dimension": "currentSeasonEquity",
+    "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only and has no production caller; playoff/championship deltas wait for that owner.",
+    "reason": "counterfactual_not_wired"
+   }
+  ],
+  "uncertainty": [],
+  "version": "analyze_trade_v3"
+ },
+ "before": {
+  "byPosition": {
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 0,
+    "value": 0
+   },
+   "K": {
+    "count": 0,
+    "value": 0
+   },
+   "PICK": {
+    "count": 1,
+    "value": 3500
+   },
+   "QB": {
+    "count": 1,
+    "value": 6000
+   },
+   "RB": {
+    "count": 2,
+    "value": 3000
+   },
+   "TE": {
+    "count": 1,
+    "value": 500
+   },
+   "WR": {
+    "count": 2,
+    "value": 6000
+   }
+  },
+  "tiers": {
+   "depth": 3,
+   "elite": 0,
+   "high": 0,
+   "mid": 4
+  },
+  "totalValue": 19000
+ },
+ "competitivePosture": {
+  "available": true,
+  "components": {
+   "directional": {
+    "PUSH": 0.9186,
+    "REBUILD": 0.0035,
+    "RETOOL": 0.0779
+   },
+   "labelStability": 1.0,
+   "ownFirstRoundPickHeld": true,
+   "timing": {
+    "phase": "offseason",
+    "progressToDeadline": 0.0,
+    "tradeDeadlineWeek": 13,
+    "week": null
+   },
+   "window": {
+    "championship_contender": 0.488,
+    "playoff_contender": 0.4306,
+    "productive_struggle": 0.0062,
+    "rebuild": 0.0004,
+    "retool": 0.0748
+   },
+   "windowInputs": {
+    "competitiveness": 0.85,
+    "competitivenessSource": "championshipOdds",
+    "trajectory": 0.5,
+    "trajectorySample": 8
+   },
+   "windowOverridden": false
+  },
+  "confidence": 0.9076,
+  "evidence": "measured",
+  "isVerdict": false,
+  "label": "PUSH",
+  "notes": [
+   "SYNTHETIC_FIXTURE_WINDOW (LABELLED)"
+  ],
+  "parameterStatus": "PRIOR",
+  "paramsVersion": "posture_v1_prior",
+  "probabilities": {
+   "HOLD": 0.0,
+   "PUSH": 0.9076,
+   "REBUILD": 0.0047,
+   "RETOOL": 0.0877
+  }
+ },
+ "delta": {
+  "byPosition": {
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 0,
+    "value": 0
+   },
+   "K": {
+    "count": 0,
+    "value": 0
+   },
+   "PICK": {
+    "count": 0,
+    "value": 0
+   },
+   "QB": {
+    "count": 0,
+    "value": 0
+   },
+   "RB": {
+    "count": 0,
+    "value": 0
+   },
+   "TE": {
+    "count": 0,
+    "value": 0
+   },
+   "WR": {
+    "count": 0,
+    "value": 50
+   }
+  },
+  "tiers": {
+   "depth": 0,
+   "elite": 0,
+   "high": 0,
+   "mid": 0
+  },
+  "totalValue": 50
+ },
+ "equity": 50,
+ "finalRosterSimulation": {
+  "available": true,
+  "cleanupApplied": [],
+  "cleanupIsUpperBound": false,
+  "coreAfter": {
+   "available": true,
+   "demand": {
+    "bySlot": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "dedicatedBasis": {
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "flexSlots": [
+     "FLEX"
+    ],
+    "multiplier": 1.5,
+    "multiplierProvenance": "owner_addendum_839_amended_899",
+    "multiplierStatus": "PRIOR",
+    "starterBasis": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "superflexFoldedIntoQb": true,
+    "total": 4
+   },
+   "duplicateIds": [],
+   "members": [
+    {
+     "name": "QB Min",
+     "playerId": "QB Min",
+     "position": "QB",
+     "role": "starter",
+     "slot": "QB",
+     "value": 6000.0
+    },
+    {
+     "name": "RB Min",
+     "playerId": "RB Min",
+     "position": "RB",
+     "role": "starter",
+     "slot": "RB",
+     "value": 3000.0
+    },
+    {
+     "name": "WR Kc",
+     "playerId": "WR Kc",
+     "position": "WR",
+     "role": "starter",
+     "slot": "WR",
+     "value": 4000.0
+    },
+    {
+     "name": "WR Mid",
+     "playerId": "WR Mid",
+     "position": "WR",
+     "role": "starter",
+     "slot": "FLEX",
+     "value": 2050.0
+    },
+    {
+     "name": "TE Free",
+     "playerId": "TE Free",
+     "position": "TE",
+     "role": "reserve",
+     "slot": "FLEX",
+     "value": 500.0
+    }
+   ],
+   "reserveCount": 1,
+   "slotSource": null,
+   "starterCount": 4,
+   "starterSlots": [
+    "QB",
+    "RB",
+    "WR",
+    "FLEX"
+   ],
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "QB",
+    "RB",
+    "WR"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "coreBefore": {
+   "available": true,
+   "demand": {
+    "bySlot": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "dedicatedBasis": {
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "flexSlots": [
+     "FLEX"
+    ],
+    "multiplier": 1.5,
+    "multiplierProvenance": "owner_addendum_839_amended_899",
+    "multiplierStatus": "PRIOR",
+    "starterBasis": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "superflexFoldedIntoQb": true,
+    "total": 4
+   },
+   "duplicateIds": [],
+   "members": [
+    {
+     "name": "QB Min",
+     "playerId": "QB Min",
+     "position": "QB",
+     "role": "starter",
+     "slot": "QB",
+     "value": 6000.0
+    },
+    {
+     "name": "RB Min",
+     "playerId": "RB Min",
+     "position": "RB",
+     "role": "starter",
+     "slot": "RB",
+     "value": 3000.0
+    },
+    {
+     "name": "WR Kc",
+     "playerId": "WR Kc",
+     "position": "WR",
+     "role": "starter",
+     "slot": "WR",
+     "value": 4000.0
+    },
+    {
+     "name": "WR Phi",
+     "playerId": "WR Phi",
+     "position": "WR",
+     "role": "starter",
+     "slot": "FLEX",
+     "value": 2000.0
+    },
+    {
+     "name": "TE Free",
+     "playerId": "TE Free",
+     "position": "TE",
+     "role": "reserve",
+     "slot": "FLEX",
+     "value": 500.0
+    }
+   ],
+   "reserveCount": 1,
+   "slotSource": null,
+   "starterCount": 4,
+   "starterSlots": [
+    "QB",
+    "RB",
+    "WR",
+    "FLEX"
+   ],
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "QB",
+    "RB",
+    "WR"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "displacements": [
+   {
+    "kind": "displaced",
+    "name": "WR Phi",
+    "playerId": "WR Phi",
+    "position": "WR",
+    "roleAfter": null,
+    "roleBefore": "starter",
+    "slotAfter": null,
+    "slotBefore": "FLEX"
+   }
+  ],
+  "isVerdict": false,
+  "movements": [
+   {
+    "kind": "promoted",
+    "name": "WR Mid",
+    "playerId": "WR Mid",
+    "position": "WR",
+    "roleAfter": "starter",
+    "roleBefore": null,
+    "slotAfter": "FLEX",
+    "slotBefore": null
+   },
+   {
+    "kind": "displaced",
+    "name": "WR Phi",
+    "playerId": "WR Phi",
+    "position": "WR",
+    "roleAfter": null,
+    "roleBefore": "starter",
+    "slotAfter": null,
+    "slotBefore": "FLEX"
+   }
+  ],
+  "needsCreated": [],
+  "needsFixed": [],
+  "notes": [],
+  "outgoingNotFound": [],
+  "promotions": [
+   {
+    "kind": "promoted",
+    "name": "WR Mid",
+    "playerId": "WR Mid",
+    "position": "WR",
+    "roleAfter": "starter",
+    "roleBefore": null,
+    "slotAfter": "FLEX",
+    "slotBefore": null
+   }
+  ],
+  "strengthAfter": {
+   "available": true,
+   "byPosition": [
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "QB Min"
+     ],
+     "position": "QB",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 6000.0,
+     "value": 6000.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "RB Min"
+     ],
+     "position": "RB",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 3000.0,
+     "value": 3000.0
+    },
+    {
+     "count": 2,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "WR Kc",
+      "WR Mid"
+     ],
+     "position": "WR",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 2,
+     "starterValue": 6050.0,
+     "value": 6050.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "TE Free"
+     ],
+     "position": "TE",
+     "reserveCount": 1,
+     "reserveValue": 500.0,
+     "starterCount": 0,
+     "starterValue": 0.0,
+     "value": 500.0
+    }
+   ],
+   "fullRosterValue": null,
+   "isComplete": false,
+   "leaguePercentile": null,
+   "leagueRank": null,
+   "positionOrder": [
+    "QB",
+    "RB",
+    "WR",
+    "TE"
+   ],
+   "reserveValue": 500.0,
+   "starterValue": 15050.0,
+   "total": 15550.0,
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "QB",
+    "RB",
+    "WR"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedCount": 2,
+   "unpricedIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "strengthBefore": {
+   "available": true,
+   "byPosition": [
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "QB Min"
+     ],
+     "position": "QB",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 6000.0,
+     "value": 6000.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "RB Min"
+     ],
+     "position": "RB",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 3000.0,
+     "value": 3000.0
+    },
+    {
+     "count": 2,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "WR Kc",
+      "WR Phi"
+     ],
+     "position": "WR",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 2,
+     "starterValue": 6000.0,
+     "value": 6000.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "TE Free"
+     ],
+     "position": "TE",
+     "reserveCount": 1,
+     "reserveValue": 500.0,
+     "starterCount": 0,
+     "starterValue": 0.0,
+     "value": 500.0
+    }
+   ],
+   "fullRosterValue": null,
+   "isComplete": false,
+   "leaguePercentile": null,
+   "leagueRank": null,
+   "positionOrder": [
+    "QB",
+    "RB",
+    "WR",
+    "TE"
+   ],
+   "reserveValue": 500.0,
+   "starterValue": 15000.0,
+   "total": 15500.0,
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "QB",
+    "RB",
+    "WR"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedCount": 2,
+   "unpricedIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "strengthDelta": 50.0,
+  "unavailableReason": null,
+  "unpricedIncoming": [],
+  "weaknessAfter": null,
+  "weaknessBefore": null
+ },
+ "leagueKey": "main",
+ "ownedPickChecks": {
+  "alreadyOwnedByReceiver": [],
+  "hypotheticalPicksOut": [],
+  "incomingPickHolders": [],
+  "notOwnedBySender": [],
+  "repeatedOwnedPick": [],
+  "rule": "src/identity/picks.py::lookup_league_pick_owner",
+  "unverified": []
+ },
+ "receiving": [
+  {
+   "age": null,
+   "assetClass": "offense",
+   "basePos": "WR",
+   "confidenceBucket": null,
+   "hasSourceDisagreement": null,
+   "name": "WR Mid",
+   "playerId": null,
+   "pos": "WR",
+   "quarantined": false,
+   "rank": null,
+   "sourceLabel": "WR Mid",
+   "tier": "depth",
+   "value": 2050,
+   "valueFreshness": null
+  }
+ ],
+ "rosterCapacity": {
+  "certainty": "exact",
+  "forcedDropCutCost": 0.0,
+  "forcedDropReleaseCost": null,
+  "forcedDropValue": 0.0,
+  "forcedDrops": [],
+  "forcedDropsAreUpperBound": false,
+  "incoming": 1,
+  "ladderExhausted": false,
+  "notes": [
+   "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+   "no waiver-level values available \u2014 cut costs fall back to raw board value",
+   "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+  ],
+  "openSpotsAfter": 1,
+  "openSpotsBefore": 1,
+  "outgoing": 1,
+  "outgoingNotOnRoster": 0,
+  "overLimitAfter": 0,
+  "overLimitAfterMax": 0,
+  "overLimitAfterMin": 0,
+  "overLimitBefore": 0,
+  "requiresDrops": false,
+  "rosterLimit": 8,
+  "rungOrderWasTied": false,
+  "sizeAfter": 7,
+  "sizeBefore": 7,
+  "taxiOccupiedMax": 0,
+  "taxiOccupiedMin": 0,
+  "taxiSize": 0,
+  "unpricedForcedDrops": 0,
+  "valueScale": "rankDerivedValue"
+ },
+ "rosterUtility": {
+  "after": {
+   "expectedLineupPpg": 58.46,
+   "projectedPlayers": 5,
+   "rawProjectedPpg": 61.5,
+   "redundantPpg": 3.04,
+   "rosteredPlayers": 7,
+   "unprojectedPlayerIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "afterBeforeCleanup": null,
+  "assumptions": [
+   "each week is drawn around the player's per-game projection with the league's calibrated per-position variance; players are independent",
+   "injury / availability probabilities are not modelled",
+   "bye weeks are not modelled",
+   "the lineup is re-solved exactly for every simulated week (best ball)"
+  ],
+  "available": true,
+  "basis": {
+   "availability": {
+    "currentWeek": null,
+    "currentWeekSource": "unresolved",
+    "lastWeek": 18,
+    "lastWeekSource": "nfl_regular_season_league_unknown",
+    "overrides": 0,
+    "reason": "current_week_unresolved",
+    "returnEvidence": {
+     "asOf": null,
+     "players": 0,
+     "source": "espn_athlete_current_injury",
+     "state": "unavailable"
+    },
+    "rules": "src/ros/availability.py (bye, override, host status, stated return date)",
+    "schedule": "unavailable",
+    "state": "not_applied",
+    "weeks": []
+   },
+   "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
+   "draws": 400,
+   "drawsPerWeek": null,
+   "families": [
+    "synthetic"
+   ],
+   "horizon": "PRESEASON_FULL_SEASON",
+   "lineupSolver": "src.ros.lineup.solve_optimal_assignment (realized_points)",
+   "pointsModel": {
+    "cvByPosition": {
+     "CB": 0.55,
+     "DB": 0.5,
+     "DE": 0.55,
+     "DL": 0.55,
+     "DT": 0.55,
+     "EDGE": 0.55,
+     "LB": 0.45,
+     "QB": 0.32,
+     "RB": 0.55,
+     "S": 0.5,
+     "TE": 0.65,
+     "WR": 0.6
+    },
+    "defaultCv": 0.55,
+    "generatedAt": null,
+    "rosValuePerPoint": 2.7,
+    "sampleSize": 0,
+    "source": "fallback-constants"
+   },
+   "season": 2026,
+   "seed": 1173,
+   "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
+   "state": "available",
+   "weeks": null
+  },
+  "before": {
+   "expectedLineupPpg": 57.24,
+   "projectedPlayers": 5,
+   "rawProjectedPpg": 60.0,
+   "redundantPpg": 2.76,
+   "rosteredPlayers": 7,
+   "unprojectedPlayerIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "cleanup": {
+   "candidatesTied": false,
+   "forcedDropIds": [],
+   "isUpperBound": false,
+   "state": "none"
+  },
+  "coverage": {
+   "state": "full",
+   "tradedUnprojectedPlayerIds": []
+  },
+  "depth": {
+   "after": {
+    "expectedLineupPpg": 55.5,
+    "meanLossPpg": 10.88,
+    "starters": 4,
+    "worstLossPlayerId": "QB Min",
+    "worstLossPpg": 20.0
+   },
+   "before": {
+    "expectedLineupPpg": 54.0,
+    "meanLossPpg": 10.5,
+    "starters": 4,
+    "worstLossPlayerId": "QB Min",
+    "worstLossPpg": 20.0
+   },
+   "description": "each expected starter removed in turn and the legal lineup re-solved; a deterministic what-if, not an injury probability",
+   "meanLossDeltaPpg": 0.38,
+   "method": "single_starter_absence"
+  },
+  "impact": {
+   "ppg": 1.23,
+   "ppgBeforeCleanup": null,
+   "standardError": 0.315
+  },
+  "lineupHoles": {
+   "after": {
+    "emptyBySlot": {},
+    "emptySlotsPerWeek": 0,
+    "noEligiblePlayer": [],
+    "onlyUnprojected": []
+   },
+   "before": {
+    "emptyBySlot": {},
+    "emptySlotsPerWeek": 0,
+    "noEligiblePlayer": [],
+    "onlyUnprojected": []
+   },
+   "description": "starting slots left empty in the simulated weeks (a bye, a stated injury absence, or no projected eligible player), plus slots the roster cannot fill at all",
+   "emptySlotsPerWeekDelta": 0,
+   "method": "unfilled_starting_slots"
+  },
+  "players": [
+   {
+    "availability": null,
+    "lineupEntryPctAfter": 74.8,
+    "lineupEntryPctBefore": null,
+    "name": "WR Mid",
+    "playerId": "WR Mid",
+    "position": "WR",
+    "projectedPpg": 10.5,
+    "role": "incoming",
+    "usablePpgAfter": 9.58,
+    "usablePpgBefore": null
+   },
+   {
+    "availability": null,
+    "lineupEntryPctAfter": null,
+    "lineupEntryPctBefore": 75.0,
+    "name": "WR Phi",
+    "playerId": "WR Phi",
+    "position": "WR",
+    "projectedPpg": 9.0,
+    "role": "outgoing",
+    "usablePpgAfter": null,
+    "usablePpgBefore": 8.31
+   }
+  ],
+  "rosterSpot": {
+   "openSpotsGained": 0,
+   "reason": "not_yet_measured: the waiver-pool projection join is pending",
+   "shadowValuePpg": null
+  },
+  "shape": {
+   "label": "swap",
+   "playersIn": 1,
+   "playersOut": 1
+  },
+  "unit": "expected best-ball points per week (exact league scoring)"
+ },
+ "sending": [
+  {
+   "age": null,
+   "assetClass": "offense",
+   "basePos": "WR",
+   "confidenceBucket": null,
+   "hasSourceDisagreement": null,
+   "name": "WR Phi",
+   "playerId": null,
+   "pos": "WR",
+   "quarantined": false,
+   "rank": null,
+   "sourceLabel": "WR Phi",
+   "tier": "depth",
+   "value": 2000,
+   "valueFreshness": null
+  }
+ ],
+ "team": {
+  "name": "Us",
+  "ownerId": "o1",
+  "rosterId": 1
+ },
+ "teamContext": {
+  "applied": true,
+  "mode": "team"
+ },
+ "teamImpact": {
+  "ageDelta": 0.0,
+  "competitivePosture": "PUSH",
+  "depthDelta": {
+   "QB": 0,
+   "RB": 0,
+   "TE": 0,
+   "WR": 0
+  },
+  "fitScore": 1.2,
+  "lineupDisplacement": {
+   "arrived": [
+    {
+     "name": "WR Mid",
+     "position": "WR",
+     "value": 2050,
+     "valueScale": "rankDerivedValue"
+    }
+   ],
+   "departed": [
+    {
+     "name": "WR Phi",
+     "position": "WR",
+     "value": 2000,
+     "valueScale": "rankDerivedValue"
+    }
+   ],
+   "displaced": [],
+   "isValueDelta": false,
+   "promoted": [],
+   "startersAfter": 4,
+   "startersBefore": 4
+  },
+  "posture": "contender",
+  "postureSource": "canonical",
+  "rationale": [
+   "Shifts WR starter quality (+50.0)"
+  ],
+  "redundancy": [],
+  "scarcityDelta": {
+   "QB": 0.0,
+   "RB": 0.0,
+   "TE": 0,
+   "WR": 25.0
+  },
+  "starterDelta": {
+   "QB": 0,
+   "RB": 0,
+   "TE": 0,
+   "WR": 0
+  },
+  "starterValueDelta": {
+   "QB": 0.0,
+   "RB": 0.0,
+   "TE": 0,
+   "WR": 50.0
+  },
+  "unscalablePositions": [
+   "TE"
+  ],
+  "windowFit": 0.0
+ },
+ "unresolvedIn": [],
+ "unresolvedOut": []
+}

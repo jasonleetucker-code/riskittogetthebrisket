@@ -1,0 +1,1526 @@
+{
+ "board": {
+  "addCommit": "c7070d3326983170ff8ad21d0fdffd3a41823235",
+  "archive": "dynasty_export_20261018_114711.zip",
+  "payloadSha256": "01e141f7cbe69ac9e1027e8c218ca8c995d589b66cf74ec19e4d15decd920380",
+  "population": "V_HELDOUT",
+  "zipSha256": "5c45f77d857c066b2a1903a992c9a54a27c0ea336780eb7a76a80aba712f1461"
+ },
+ "cleanDigests": {
+  "incumbent": "3ad048d9980d25d8f9ee4b43ad5f5f15db6742665fb1ffeac1b3131ee2841c03",
+  "none": "415b6f49c21d0e8bffec3215235a8db1c234df8d601ba3c6dc209162152382ec",
+  "v2": "8cd1c08f4e1c207417339cbca282d04648aa64104f004039f74130ab81a68830"
+ },
+ "codeSha": "8c33447d0a3db52b5cd438d0fc82355e5c9867d7",
+ "contamination": {
+  "incumbent": {
+   "above0.01": [
+    {
+     "batch": 95,
+     "batchCases": [
+      "Josh Sweat|idpTradeCalc",
+      "K'Lavon Chaisson|draftSharksIdp",
+      "Kevin Winston|draftSharksIdp",
+      "Kyle Hamilton|idpTradeCalc",
+      "Laiatu Latu|fantasyProsIdp",
+      "Mike Sainristil|fantasyProsIdp",
+      "SirVocea Dennis|fantasyProsIdp",
+      "Teddye Buchanan|idpTradeCalc",
+      "Tez Johnson|ktcCrowdSfTep",
+      "Tremaine Edmunds|draftSharksIdp"
+     ],
+     "logMove": 0.635972,
+     "row": "Travis Hunter"
+    },
+    {
+     "batch": 98,
+     "batchCases": [
+      "Kayvon Thibodeaux|idpTradeCalc",
+      "Khalil Mack|draftSharksIdp",
+      "Kyle Hamilton|idpTradeCalc",
+      "Laiatu Latu|fantasyProsIdp",
+      "Malaki Starks|draftSharksIdp",
+      "Nate Wiggins|fantasyProsIdp",
+      "Sonny Styles|fantasyProsIdp",
+      "Terrel Bernard|idpTradeCalc",
+      "Trevin Wallace|draftSharksIdp",
+      "Treylon Burks|ktcCrowdSfTep"
+     ],
+     "logMove": 0.635972,
+     "row": "Travis Hunter"
+    },
+    {
+     "batch": 99,
+     "batchCases": [
+      "Khalil Mack|draftSharksIdp",
+      "Kobie Turner|idpTradeCalc",
+      "Kyle Hamilton|idpTradeCalc",
+      "Leonard Williams|fantasyProsIdp",
+      "Malaki Starks|draftSharksIdp",
+      "Nate Wiggins|fantasyProsIdp",
+      "T.J. Edwards|fantasyProsIdp",
+      "Trevin Wallace|draftSharksIdp",
+      "Tyler Johnson|ktcCrowdSfTep",
+      "Tyrel Dodson|idpTradeCalc"
+     ],
+     "logMove": 0.472396,
+     "row": "Travis Hunter"
+    }
+   ],
+   "batches": 169,
+   "batchesAbove0.01": 3,
+   "maxUncorruptedRowLogMove": 0.635972
+  },
+  "none": {
+   "above0.01": [
+    {
+     "batch": 95,
+     "batchCases": [
+      "Josh Sweat|idpTradeCalc",
+      "K'Lavon Chaisson|draftSharksIdp",
+      "Kevin Winston|draftSharksIdp",
+      "Kyle Hamilton|idpTradeCalc",
+      "Laiatu Latu|fantasyProsIdp",
+      "Mike Sainristil|fantasyProsIdp",
+      "SirVocea Dennis|fantasyProsIdp",
+      "Teddye Buchanan|idpTradeCalc",
+      "Tez Johnson|ktcCrowdSfTep",
+      "Tremaine Edmunds|draftSharksIdp"
+     ],
+     "logMove": 0.635972,
+     "row": "Travis Hunter"
+    },
+    {
+     "batch": 98,
+     "batchCases": [
+      "Kayvon Thibodeaux|idpTradeCalc",
+      "Khalil Mack|draftSharksIdp",
+      "Kyle Hamilton|idpTradeCalc",
+      "Laiatu Latu|fantasyProsIdp",
+      "Malaki Starks|draftSharksIdp",
+      "Nate Wiggins|fantasyProsIdp",
+      "Sonny Styles|fantasyProsIdp",
+      "Terrel Bernard|idpTradeCalc",
+      "Trevin Wallace|draftSharksIdp",
+      "Treylon Burks|ktcCrowdSfTep"
+     ],
+     "logMove": 0.635972,
+     "row": "Travis Hunter"
+    },
+    {
+     "batch": 99,
+     "batchCases": [
+      "Khalil Mack|draftSharksIdp",
+      "Kobie Turner|idpTradeCalc",
+      "Kyle Hamilton|idpTradeCalc",
+      "Leonard Williams|fantasyProsIdp",
+      "Malaki Starks|draftSharksIdp",
+      "Nate Wiggins|fantasyProsIdp",
+      "T.J. Edwards|fantasyProsIdp",
+      "Trevin Wallace|draftSharksIdp",
+      "Tyler Johnson|ktcCrowdSfTep",
+      "Tyrel Dodson|idpTradeCalc"
+     ],
+     "logMove": 0.451231,
+     "row": "Travis Hunter"
+    }
+   ],
+   "batches": 169,
+   "batchesAbove0.01": 3,
+   "maxUncorruptedRowLogMove": 0.635972
+  },
+  "v1": {
+   "above0.01": [
+    {
+     "batch": 95,
+     "batchCases": [
+      "Josh Sweat|idpTradeCalc",
+      "K'Lavon Chaisson|draftSharksIdp",
+      "Kevin Winston|draftSharksIdp",
+      "Kyle Hamilton|idpTradeCalc",
+      "Laiatu Latu|fantasyProsIdp",
+      "Mike Sainristil|fantasyProsIdp",
+      "SirVocea Dennis|fantasyProsIdp",
+      "Teddye Buchanan|idpTradeCalc",
+      "Tez Johnson|ktcCrowdSfTep",
+      "Tremaine Edmunds|draftSharksIdp"
+     ],
+     "logMove": 0.635972,
+     "row": "Travis Hunter"
+    },
+    {
+     "batch": 98,
+     "batchCases": [
+      "Kayvon Thibodeaux|idpTradeCalc",
+      "Khalil Mack|draftSharksIdp",
+      "Kyle Hamilton|idpTradeCalc",
+      "Laiatu Latu|fantasyProsIdp",
+      "Malaki Starks|draftSharksIdp",
+      "Nate Wiggins|fantasyProsIdp",
+      "Sonny Styles|fantasyProsIdp",
+      "Terrel Bernard|idpTradeCalc",
+      "Trevin Wallace|draftSharksIdp",
+      "Treylon Burks|ktcCrowdSfTep"
+     ],
+     "logMove": 0.635972,
+     "row": "Travis Hunter"
+    },
+    {
+     "batch": 99,
+     "batchCases": [
+      "Khalil Mack|draftSharksIdp",
+      "Kobie Turner|idpTradeCalc",
+      "Kyle Hamilton|idpTradeCalc",
+      "Leonard Williams|fantasyProsIdp",
+      "Malaki Starks|draftSharksIdp",
+      "Nate Wiggins|fantasyProsIdp",
+      "T.J. Edwards|fantasyProsIdp",
+      "Trevin Wallace|draftSharksIdp",
+      "Tyler Johnson|ktcCrowdSfTep",
+      "Tyrel Dodson|idpTradeCalc"
+     ],
+     "logMove": 0.451231,
+     "row": "Travis Hunter"
+    }
+   ],
+   "batches": 169,
+   "batchesAbove0.01": 3,
+   "maxUncorruptedRowLogMove": 0.635972
+  },
+  "v2": {
+   "above0.01": [
+    {
+     "batch": 95,
+     "batchCases": [
+      "Josh Sweat|idpTradeCalc",
+      "K'Lavon Chaisson|draftSharksIdp",
+      "Kevin Winston|draftSharksIdp",
+      "Kyle Hamilton|idpTradeCalc",
+      "Laiatu Latu|fantasyProsIdp",
+      "Mike Sainristil|fantasyProsIdp",
+      "SirVocea Dennis|fantasyProsIdp",
+      "Teddye Buchanan|idpTradeCalc",
+      "Tez Johnson|ktcCrowdSfTep",
+      "Tremaine Edmunds|draftSharksIdp"
+     ],
+     "logMove": 0.635972,
+     "row": "Travis Hunter"
+    },
+    {
+     "batch": 98,
+     "batchCases": [
+      "Kayvon Thibodeaux|idpTradeCalc",
+      "Khalil Mack|draftSharksIdp",
+      "Kyle Hamilton|idpTradeCalc",
+      "Laiatu Latu|fantasyProsIdp",
+      "Malaki Starks|draftSharksIdp",
+      "Nate Wiggins|fantasyProsIdp",
+      "Sonny Styles|fantasyProsIdp",
+      "Terrel Bernard|idpTradeCalc",
+      "Trevin Wallace|draftSharksIdp",
+      "Treylon Burks|ktcCrowdSfTep"
+     ],
+     "logMove": 0.635972,
+     "row": "Travis Hunter"
+    },
+    {
+     "batch": 99,
+     "batchCases": [
+      "Khalil Mack|draftSharksIdp",
+      "Kobie Turner|idpTradeCalc",
+      "Kyle Hamilton|idpTradeCalc",
+      "Leonard Williams|fantasyProsIdp",
+      "Malaki Starks|draftSharksIdp",
+      "Nate Wiggins|fantasyProsIdp",
+      "T.J. Edwards|fantasyProsIdp",
+      "Trevin Wallace|draftSharksIdp",
+      "Tyler Johnson|ktcCrowdSfTep",
+      "Tyrel Dodson|idpTradeCalc"
+     ],
+     "logMove": 0.450795,
+     "row": "Travis Hunter"
+    }
+   ],
+   "batches": 169,
+   "batchesAbove0.01": 3,
+   "maxUncorruptedRowLogMove": 0.635972
+  }
+ },
+ "gates": {
+  "AD1a": true,
+  "AD1b": true,
+  "AD1c": true,
+  "AD1d": true,
+  "AD2": false,
+  "AD3": false,
+  "AD4": true
+ },
+ "pins": {
+  "dlf_offense_only_vote": true,
+  "dlf_values_rank_hill_vote": false,
+  "identity_evidence_v2": true,
+  "idp_deep_tail_native_challenger": false,
+  "idp_hampel_n3_challenger": false,
+  "integrity_holds_as_withheld": false,
+  "joint_outlier_sparse_challenger": false,
+  "joint_sparse_limited_evidence": false,
+  "outlier_disagreement_policy": false,
+  "outlier_integrity_v2": true,
+  "payload_provenance_guard": true,
+  "rank_space_hampel_challenger": false,
+  "rank_space_hampel_per_vote_challenger": false,
+  "rookie_ladder_fail_closed": true,
+  "source_family_cap": true,
+  "source_freshness_weighting": true,
+  "source_rank_history_record": false
+ },
+ "schema": "oiv2-full-pipeline-gates/v1",
+ "seed": 2033,
+ "status": "gate_of_record_stage4",
+ "summary": {
+  "AD1a": {
+   "bar": 0.9,
+   "cases": 699,
+   "failures": [
+    {
+     "bad": 2295.0,
+     "band": "3",
+     "clean": 459.0,
+     "harmNone": 0.3248,
+     "harmV2": 0.3253,
+     "row": "Deuce Vaughn",
+     "source": "ktcCrowdSfTep"
+    },
+    {
+     "bad": 2475.0,
+     "band": "4-5",
+     "clean": 495.0,
+     "harmNone": 0.4553,
+     "harmV2": 0.4573,
+     "row": "Derius Davis",
+     "source": "ktcCrowdSfTep"
+    },
+    {
+     "bad": 9735.0,
+     "band": "3",
+     "clean": 1947.0,
+     "harmNone": 0.6863,
+     "harmV2": 0.6863,
+     "row": "Cedric Gray",
+     "source": "idpTradeCalc"
+    },
+    {
+     "bad": 2440.0,
+     "band": "3",
+     "clean": 488.0,
+     "harmNone": 0.5853,
+     "harmV2": 0.5853,
+     "row": "Zamir White",
+     "source": "ktcCrowdSfTep"
+    },
+    {
+     "bad": 7890.0,
+     "band": "3",
+     "clean": 1578.0,
+     "harmNone": 0.1249,
+     "harmV2": 0.1249,
+     "row": "Jacob Rodriguez",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "bad": 2250.0,
+     "band": "3",
+     "clean": 450.0,
+     "harmNone": 0.5695,
+     "harmV2": 0.5695,
+     "row": "Sterling Shepard",
+     "source": "ktcCrowdSfTep"
+    },
+    {
+     "bad": 9510.0,
+     "band": "3",
+     "clean": 1902.0,
+     "harmNone": 0.5708,
+     "harmV2": 0.5698,
+     "row": "Myles Garrett",
+     "source": "draftSharksIdp"
+    },
+    {
+     "bad": 3790.0,
+     "band": "3",
+     "clean": 758.0,
+     "harmNone": 0.7549,
+     "harmV2": 0.7534,
+     "row": "Will Johnson",
+     "source": "idpTradeCalc"
+    }
+   ],
+   "incumbent": {
+    "byBand": {
+     "3": 0.013,
+     "4-5": 1.0,
+     ">=6": 1.0
+    },
+    "exclusionReasons": {
+     "filter_dropped": 54,
+     "not_excluded": 228
+    },
+    "passRate": 0.1915,
+    "passed": 54
+   },
+   "label": "Extreme high corruption x5",
+   "material": 282,
+   "v1": {
+    "byBand": {
+     "3": 0.8528,
+     "4-5": 0.8333,
+     ">=6": 0.963
+    },
+    "exclusionReasons": {
+     "filter_dropped": 243,
+     "not_excluded": 39
+    },
+    "passRate": 0.8617,
+    "passed": 243
+   },
+   "v2": {
+    "byBand": {
+     "3": 0.9697,
+     "4-5": 0.9583,
+     ">=6": 1.0
+    },
+    "exclusionReasons": {
+     "held_pending_confirmation:observation_discontinuity": 274,
+     "not_excluded": 8
+    },
+    "passRate": 0.9716,
+    "passed": 274
+   },
+   "v2Passes": true
+  },
+  "AD1b": {
+   "bar": 0.9,
+   "cases": 699,
+   "failures": [
+    {
+     "bad": 741.2,
+     "band": "3",
+     "clean": 3706.0,
+     "harmNone": 0.5766,
+     "harmV2": 0.5766,
+     "row": "Barrett Carter",
+     "source": "draftSharksIdp"
+    },
+    {
+     "bad": 1257.6,
+     "band": "3",
+     "clean": 6288.0,
+     "harmNone": 0.7059,
+     "harmV2": 0.7059,
+     "row": "Cedric Gray",
+     "source": "draftSharksIdp"
+    },
+    {
+     "bad": 1083.8,
+     "band": "3",
+     "clean": 5419.0,
+     "harmNone": 0.7718,
+     "harmV2": 0.771,
+     "row": "Dallas Turner",
+     "source": "idpTradeCalc"
+    },
+    {
+     "bad": 1133.4,
+     "band": "3",
+     "clean": 5667.0,
+     "harmNone": 0.6529,
+     "harmV2": 0.6529,
+     "row": "Jacob Rodriguez",
+     "source": "idpTradeCalc"
+    },
+    {
+     "bad": 679.2,
+     "band": "3",
+     "clean": 3396.0,
+     "harmNone": 0.7611,
+     "harmV2": 0.7597,
+     "row": "Josiah Trotter",
+     "source": "idpTradeCalc"
+    },
+    {
+     "bad": 417.6,
+     "band": "3",
+     "clean": 2088.0,
+     "harmNone": 0.6336,
+     "harmV2": 0.6365,
+     "row": "Nate Wiggins",
+     "source": "draftSharksIdp"
+    },
+    {
+     "bad": 1080.8,
+     "band": "3",
+     "clean": 5404.0,
+     "harmNone": 0.8547,
+     "harmV2": 0.8536,
+     "row": "Micah Parsons",
+     "source": "idpTradeCalc"
+    },
+    {
+     "bad": 1079.8,
+     "band": "3",
+     "clean": 5399.0,
+     "harmNone": 0.7991,
+     "harmV2": 0.7979,
+     "row": "Myles Garrett",
+     "source": "idpTradeCalc"
+    },
+    {
+     "bad": 599.8,
+     "band": "3",
+     "clean": 2999.0,
+     "harmNone": 0.7314,
+     "harmV2": 0.73,
+     "row": "Nick Herbig",
+     "source": "idpTradeCalc"
+    }
+   ],
+   "incumbent": {
+    "byBand": {
+     "3": 0.0,
+     "4-5": 0.0,
+     ">=6": 0.1429
+    },
+    "exclusionReasons": {
+     "filter_dropped": 1,
+     "not_excluded": 198
+    },
+    "passRate": 0.005,
+    "passed": 1
+   },
+   "label": "Extreme low corruption x0.2",
+   "material": 199,
+   "v1": {
+    "byBand": {
+     "3": 0.5714,
+     "4-5": 0.0,
+     ">=6": 0.2857
+    },
+    "exclusionReasons": {
+     "filter_dropped": 106,
+     "not_excluded": 93
+    },
+    "passRate": 0.5327,
+    "passed": 106
+   },
+   "v2": {
+    "byBand": {
+     "3": 0.9505,
+     "4-5": 1.0,
+     ">=6": 1.0
+    },
+    "exclusionReasons": {
+     "held_pending_confirmation:observation_discontinuity": 190,
+     "not_excluded": 9
+    },
+    "passRate": 0.9548,
+    "passed": 190
+   },
+   "v2Passes": true
+  },
+  "AD1c": {
+   "bar": 0.95,
+   "cases": 699,
+   "failures": [],
+   "incumbent": {
+    "byBand": {
+     "3": 0.0043,
+     "4-5": 1.0,
+     ">=6": 1.0
+    },
+    "exclusionReasons": {
+     "filter_dropped": 73,
+     "not_excluded": 231
+    },
+    "passRate": 0.2401,
+    "passed": 73
+   },
+   "label": "Extreme high corruption x20",
+   "material": 304,
+   "v1": {
+    "byBand": {
+     "3": 0.9095,
+     "4-5": 1.0,
+     ">=6": 1.0
+    },
+    "exclusionReasons": {
+     "filter_dropped": 283,
+     "not_excluded": 21
+    },
+    "passRate": 0.9309,
+    "passed": 283
+   },
+   "v2": {
+    "byBand": {
+     "3": 1.0,
+     "4-5": 1.0,
+     ">=6": 1.0
+    },
+    "exclusionReasons": {
+     "held_pending_confirmation:observation_discontinuity": 304
+    },
+    "passRate": 1.0,
+    "passed": 304
+   },
+   "v2Passes": true
+  },
+  "AD1d": {
+   "bar": 0.95,
+   "cases": 699,
+   "failures": [],
+   "incumbent": {
+    "byBand": {
+     "3": 0.0,
+     "4-5": 0.2727,
+     ">=6": 0.5714
+    },
+    "exclusionReasons": {
+     "filter_dropped": 7,
+     "not_excluded": 209
+    },
+    "passRate": 0.0324,
+    "passed": 7
+   },
+   "label": "Extreme low corruption x0.05",
+   "material": 216,
+   "v1": {
+    "byBand": {
+     "3": 0.8788,
+     "4-5": 0.3636,
+     ">=6": 0.7143
+    },
+    "exclusionReasons": {
+     "filter_dropped": 183,
+     "not_excluded": 33
+    },
+    "passRate": 0.8472,
+    "passed": 183
+   },
+   "v2": {
+    "byBand": {
+     "3": 1.0,
+     "4-5": 1.0,
+     ">=6": 1.0
+    },
+    "exclusionReasons": {
+     "held_pending_confirmation:observation_discontinuity": 216
+    },
+    "passRate": 1.0,
+    "passed": 216
+   },
+   "v2Passes": true
+  },
+  "AD2": {
+   "bar": 0.9,
+   "cases": 637,
+   "failures": [
+    {
+     "bad": 2265.0,
+     "band": "3",
+     "clean": 1373.0,
+     "harmNone": 0.2661,
+     "harmV2": 0.2657,
+     "row": "Alex Anzalone",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Troy Franklin"
+    },
+    {
+     "bad": 2786.0,
+     "band": "4-5",
+     "clean": 966.0,
+     "harmNone": 0.2578,
+     "harmV2": 0.2578,
+     "row": "Adam Trautman",
+     "source": "ktcCrowdSfTep",
+     "swappedFrom": "Jordan Mason"
+    },
+    {
+     "bad": 2041.0,
+     "band": "3",
+     "clean": 1233.0,
+     "harmNone": 0.2547,
+     "harmV2": 0.2548,
+     "row": "Antonio Johnson",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Antoine Winfield"
+    },
+    {
+     "bad": 1435.0,
+     "band": "3",
+     "clean": 1967.0,
+     "harmNone": 0.1054,
+     "harmV2": 0.1068,
+     "row": "Azeez Al-Shaair",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Jaquan Brisker"
+    },
+    {
+     "bad": 1388.0,
+     "band": "3",
+     "clean": 3020.0,
+     "harmNone": 0.4144,
+     "harmV2": 0.4131,
+     "row": "Andrew Van Ginkel",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Kamari Lassiter"
+    },
+    {
+     "bad": 1917.0,
+     "band": "3",
+     "clean": 1227.0,
+     "harmNone": 0.2274,
+     "harmV2": 0.2268,
+     "row": "Bryan Cook",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Jordan Battle"
+    },
+    {
+     "bad": 1671.0,
+     "band": ">=6",
+     "clean": 1085.0,
+     "harmNone": 0.1303,
+     "harmV2": 0.1302,
+     "row": "Foster Moreau",
+     "source": "ktcCrowdSfTep",
+     "swappedFrom": "Jauan Jennings"
+    },
+    {
+     "bad": 2095.0,
+     "band": "3",
+     "clean": 1533.0,
+     "harmNone": 0.1475,
+     "harmV2": 0.1454,
+     "row": "Bradley Chubb",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Josh Hines-Allen"
+    },
+    {
+     "bad": 1921.0,
+     "band": "3",
+     "clean": 3144.0,
+     "harmNone": 0.2061,
+     "harmV2": 0.2057,
+     "row": "Blake Cashman",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Leonard Williams"
+    },
+    {
+     "bad": 1936.0,
+     "band": ">=6",
+     "clean": 1004.0,
+     "harmNone": 0.1119,
+     "harmV2": 0.1097,
+     "row": "Efton Chism",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Dexter Lawrence"
+    },
+    {
+     "bad": 1533.0,
+     "band": "3",
+     "clean": 6288.0,
+     "harmNone": 0.6511,
+     "harmV2": 0.6511,
+     "row": "Cedric Gray",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Bradley Chubb"
+    },
+    {
+     "bad": 1961.0,
+     "band": "3",
+     "clean": 3220.0,
+     "harmNone": 0.2436,
+     "harmV2": 0.2429,
+     "row": "Brian Burns",
+     "source": "idpTradeCalc",
+     "swappedFrom": "James Pearce"
+    },
+    {
+     "bad": 2572.0,
+     "band": ">=6",
+     "clean": 1548.0,
+     "harmNone": 0.1432,
+     "harmV2": 0.1431,
+     "row": "Michael Trigg",
+     "source": "ktcCrowdSfTep",
+     "swappedFrom": "Max Klare"
+    },
+    {
+     "bad": 934.0,
+     "band": "3",
+     "clean": 1225.0,
+     "harmNone": 0.1019,
+     "harmV2": 0.1017,
+     "row": "Calen Bullock",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Marlon Humphrey"
+    },
+    {
+     "bad": 1040.0,
+     "band": "4-5",
+     "clean": 1786.0,
+     "harmNone": 0.1061,
+     "harmV2": 0.1047,
+     "row": "Joe Mixon",
+     "source": "pfkDynasty",
+     "swappedFrom": "Garrett Nussmeier"
+    },
+    {
+     "bad": 1734.0,
+     "band": "3",
+     "clean": 1235.0,
+     "harmNone": 0.1638,
+     "harmV2": 0.1634,
+     "row": "Cam Bynum",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Cade Stover"
+    },
+    {
+     "bad": 2889.0,
+     "band": "3",
+     "clean": 1245.0,
+     "harmNone": 0.4414,
+     "harmV2": 0.4406,
+     "row": "Danny Stutsman",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Stefon Diggs"
+    },
+    {
+     "bad": 1562.0,
+     "band": "3",
+     "clean": 1910.0,
+     "harmNone": 0.1005,
+     "harmV2": 0.1003,
+     "row": "Carl Granderson",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Justin Fields"
+    },
+    {
+     "bad": 1397.0,
+     "band": "3",
+     "clean": 3200.0,
+     "harmNone": 0.417,
+     "harmV2": 0.4163,
+     "row": "Chase Young",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Grant Delpit"
+    },
+    {
+     "bad": 3144.0,
+     "band": "3",
+     "clean": 1913.0,
+     "harmNone": 0.2747,
+     "harmV2": 0.2747,
+     "row": "Cole Bishop",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Josh Jacobs"
+    },
+    {
+     "bad": 2137.0,
+     "band": "3",
+     "clean": 3621.0,
+     "harmNone": 0.2021,
+     "harmV2": 0.2021,
+     "row": "Devin Bush",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Cody Barton"
+    },
+    {
+     "bad": 1832.0,
+     "band": "4-5",
+     "clean": 1301.0,
+     "harmNone": 0.1159,
+     "harmV2": 0.1164,
+     "row": "Kaden Wetjen",
+     "source": "fantasyCalc",
+     "swappedFrom": "Darius Cooper"
+    },
+    {
+     "bad": 2004.0,
+     "band": "3",
+     "clean": 3828.0,
+     "harmNone": 0.2304,
+     "harmV2": 0.2304,
+     "row": "David Bailey",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Malaki Starks"
+    },
+    {
+     "bad": 1250.0,
+     "band": "3",
+     "clean": 1935.0,
+     "harmNone": 0.2175,
+     "harmV2": 0.2171,
+     "row": "DeForest Buckner",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Jaquan Brisker"
+    },
+    {
+     "bad": 1431.0,
+     "band": "3",
+     "clean": 1950.0,
+     "harmNone": 0.1167,
+     "harmV2": 0.1183,
+     "row": "Derrick Brown",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Zaven Collins"
+    },
+    {
+     "bad": 2574.0,
+     "band": ">=6",
+     "clean": 913.0,
+     "harmNone": 0.1146,
+     "harmV2": 0.1152,
+     "row": "Konata Mumpfield",
+     "source": "pfkDynasty",
+     "swappedFrom": "Cade Otton"
+    },
+    {
+     "bad": 2285.0,
+     "band": "3",
+     "clean": 1226.0,
+     "harmNone": 0.3212,
+     "harmV2": 0.3211,
+     "row": "Devonte Wyatt",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Mike Gesicki"
+    },
+    {
+     "bad": 1481.0,
+     "band": "3",
+     "clean": 4331.0,
+     "harmNone": 0.3838,
+     "harmV2": 0.3838,
+     "row": "Dillon Thieneman",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Justin Reid"
+    },
+    {
+     "bad": 2236.0,
+     "band": "3",
+     "clean": 1694.0,
+     "harmNone": 0.1375,
+     "harmV2": 0.1355,
+     "row": "Ed Oliver",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Frankie Luvu"
+    },
+    {
+     "bad": 1474.0,
+     "band": "3",
+     "clean": 4376.0,
+     "harmNone": 0.2794,
+     "harmV2": 0.2794,
+     "row": "Jacob Rodriguez",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Trey Hendrickson"
+    },
+    {
+     "bad": 1886.0,
+     "band": "3",
+     "clean": 4964.0,
+     "harmNone": 0.449,
+     "harmV2": 0.449,
+     "row": "Jamien Sherwood",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Will McDonald"
+    },
+    {
+     "bad": 1231.0,
+     "band": "3",
+     "clean": 3609.0,
+     "harmNone": 0.515,
+     "harmV2": 0.5145,
+     "row": "Greg Rousseau",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Brandon Jones"
+    },
+    {
+     "bad": 1200.0,
+     "band": "3",
+     "clean": 945.0,
+     "harmNone": 0.1013,
+     "harmV2": 0.101,
+     "row": "Jev\u00f3n Holland",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Marquise Brown"
+    },
+    {
+     "bad": 2350.0,
+     "band": "3",
+     "clean": 3009.0,
+     "harmNone": 0.127,
+     "harmV2": 0.1269,
+     "row": "Jalen Carter",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Drew Lock"
+    },
+    {
+     "bad": 1447.0,
+     "band": "3",
+     "clean": 2193.0,
+     "harmNone": 0.1425,
+     "harmV2": 0.1447,
+     "row": "Nate Landman",
+     "source": "draftSharksIdp",
+     "swappedFrom": "DeMarcus Lawrence"
+    },
+    {
+     "bad": 1329.0,
+     "band": "3",
+     "clean": 1923.0,
+     "harmNone": 0.1727,
+     "harmV2": 0.1729,
+     "row": "Jalyx Hunt",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Tutu Atwell"
+    },
+    {
+     "bad": 2975.0,
+     "band": "3",
+     "clean": 1916.0,
+     "harmNone": 0.2548,
+     "harmV2": 0.2544,
+     "row": "Mack Wilson",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Mike Washington"
+    },
+    {
+     "bad": 1524.0,
+     "band": "3",
+     "clean": 2224.0,
+     "harmNone": 0.149,
+     "harmV2": 0.1515,
+     "row": "James Pearce",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Harold Landry"
+    },
+    {
+     "bad": 2507.0,
+     "band": "3",
+     "clean": 4783.0,
+     "harmNone": 0.2531,
+     "harmV2": 0.2531,
+     "row": "Nick Bolton",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Tykee Smith"
+    },
+    {
+     "bad": 1637.0,
+     "band": "3",
+     "clean": 4592.0,
+     "harmNone": 0.3793,
+     "harmV2": 0.3793,
+     "row": "Quay Walker",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Dax Hill"
+    },
+    {
+     "bad": 1568.0,
+     "band": "3",
+     "clean": 2185.0,
+     "harmNone": 0.1213,
+     "harmV2": 0.1231,
+     "row": "Quincy Williams",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Daron Payne"
+    },
+    {
+     "bad": 2755.0,
+     "band": "3",
+     "clean": 1517.0,
+     "harmNone": 0.2486,
+     "harmV2": 0.2469,
+     "row": "Joshua Metellus",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Roquan Smith"
+    },
+    {
+     "bad": 1585.0,
+     "band": "3",
+     "clean": 2212.0,
+     "harmNone": 0.1526,
+     "harmV2": 0.1549,
+     "row": "Kamari Lassiter",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Alex Wright"
+    },
+    {
+     "bad": 1522.0,
+     "band": "3",
+     "clean": 2286.0,
+     "harmNone": 0.1524,
+     "harmV2": 0.1542,
+     "row": "T.J. Edwards",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Jalen Thompson"
+    },
+    {
+     "bad": 2697.0,
+     "band": "3",
+     "clean": 928.0,
+     "harmNone": 0.5125,
+     "harmV2": 0.512,
+     "row": "Keisean Nixon",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Tyler Allgeier"
+    },
+    {
+     "bad": 2458.0,
+     "band": "3",
+     "clean": 3608.0,
+     "harmNone": 0.1843,
+     "harmV2": 0.1844,
+     "row": "Roquan Smith",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Theo Johnson"
+    },
+    {
+     "bad": 1912.0,
+     "band": "3",
+     "clean": 1225.0,
+     "harmNone": 0.2174,
+     "harmV2": 0.2169,
+     "row": "Josaiah Stewart",
+     "source": "idpTradeCalc",
+     "swappedFrom": "T.J. Edwards"
+    },
+    {
+     "bad": 2698.0,
+     "band": "3",
+     "clean": 829.0,
+     "harmNone": 0.5654,
+     "harmV2": 0.5643,
+     "row": "Kerby Joseph",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Devaughn Vele"
+    },
+    {
+     "bad": 1543.0,
+     "band": "3",
+     "clean": 3766.0,
+     "harmNone": 0.3333,
+     "harmV2": 0.3333,
+     "row": "Kevin Winston",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Minkah Fitzpatrick"
+    },
+    {
+     "bad": 3040.0,
+     "band": "3",
+     "clean": 1920.0,
+     "harmNone": 0.2549,
+     "harmV2": 0.2545,
+     "row": "Malaki Starks",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Hunter Henry"
+    },
+    {
+     "bad": 1373.0,
+     "band": "3",
+     "clean": 2006.0,
+     "harmNone": 0.144,
+     "harmV2": 0.1438,
+     "row": "Terrel Bernard",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Alex Anzalone"
+    },
+    {
+     "bad": 2362.0,
+     "band": "3",
+     "clean": 1256.0,
+     "harmNone": 0.3402,
+     "harmV2": 0.3403,
+     "row": "Khalil Mack",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Kirk Cousins"
+    },
+    {
+     "bad": 3020.0,
+     "band": "3",
+     "clean": 1229.0,
+     "harmNone": 0.488,
+     "harmV2": 0.4865,
+     "row": "Minkah Fitzpatrick",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Andrew Van Ginkel"
+    },
+    {
+     "bad": 4700.0,
+     "band": "3",
+     "clean": 1926.0,
+     "harmNone": 0.4624,
+     "harmV2": 0.4624,
+     "row": "Zaire Franklin",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Rome Odunze"
+    },
+    {
+     "bad": 1923.0,
+     "band": "3",
+     "clean": 871.0,
+     "harmNone": 0.3158,
+     "harmV2": 0.3151,
+     "row": "Nate Wiggins",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Alex Singleton"
+    },
+    {
+     "bad": 2713.0,
+     "band": "3",
+     "clean": 1225.0,
+     "harmNone": 0.4365,
+     "harmV2": 0.4357,
+     "row": "Reed Blankenship",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Max Klare"
+    },
+    {
+     "bad": 2201.0,
+     "band": "3",
+     "clean": 1718.0,
+     "harmNone": 0.1202,
+     "harmV2": 0.1176,
+     "row": "Trent McDuffie",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Kyle Hamilton"
+    },
+    {
+     "bad": 1955.0,
+     "band": "3",
+     "clean": 1310.0,
+     "harmNone": 0.208,
+     "harmV2": 0.2076,
+     "row": "Upton Stout",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Ollie Gordon"
+    },
+    {
+     "bad": 1801.0,
+     "band": "3",
+     "clean": 2518.0,
+     "harmNone": 0.1024,
+     "harmV2": 0.1031,
+     "row": "Tuli Tuipulotu",
+     "source": "draftSharksIdp",
+     "swappedFrom": "Joseph Ossai"
+    },
+    {
+     "bad": 1793.0,
+     "band": "3",
+     "clean": 1271.0,
+     "harmNone": 0.1671,
+     "harmV2": 0.1667,
+     "row": "Nnamdi Madubuike",
+     "source": "idpTradeCalc",
+     "swappedFrom": "Jalon Daniels"
+    }
+   ],
+   "incumbent": {
+    "byBand": {
+     "3": 0.0,
+     "4-5": 0.7143,
+     ">=6": 0.625
+    },
+    "exclusionReasons": {
+     "filter_dropped": 10,
+     "not_excluded": 119
+    },
+    "passRate": 0.0775,
+    "passed": 10
+   },
+   "label": "Wrong-player matching",
+   "material": 129,
+   "v1": {
+    "byBand": {
+     "3": 0.1491,
+     "4-5": 0.4286,
+     ">=6": 0.5
+    },
+    "exclusionReasons": {
+     "filter_dropped": 24,
+     "not_excluded": 105
+    },
+    "passRate": 0.186,
+    "passed": 24
+   },
+   "v2": {
+    "byBand": {
+     "3": 0.4825,
+     "4-5": 0.5714,
+     ">=6": 0.5
+    },
+    "exclusionReasons": {
+     "held_pending_confirmation:observation_discontinuity": 63,
+     "not_excluded": 66
+    },
+    "passRate": 0.4884,
+    "passed": 63
+   },
+   "v2Passes": false
+  },
+  "AD3": {
+   "boards": 16,
+   "boardsRequired": 16,
+   "cases": [
+    {
+     "assetClass": "offense",
+     "flagged": true,
+     "flags": [
+      "dynastyNerdsSfTep/offense:normalization_scale_error@dynastyNerdsSfTep/offense"
+     ],
+     "kind": "ranks_x2",
+     "rankingPasses": 2,
+     "rows": 284,
+     "source": "dynastyNerdsSfTep",
+     "votesExcluded": 284
+    },
+    {
+     "assetClass": "offense",
+     "flagged": true,
+     "flags": [
+      "dynastyNerdsSfTep/offense:normalization_scale_error@dynastyNerdsSfTep/offense"
+     ],
+     "kind": "ranks_x5",
+     "rankingPasses": 2,
+     "rows": 284,
+     "source": "dynastyNerdsSfTep",
+     "votesExcluded": 284
+    },
+    {
+     "assetClass": "offense",
+     "flagged": false,
+     "flags": [],
+     "kind": "values_x0.01",
+     "rankingPasses": 1,
+     "rows": 284,
+     "source": "dynastyNerdsSfTep",
+     "votesExcluded": 284
+    },
+    {
+     "assetClass": "offense",
+     "flagged": true,
+     "flags": [
+      "dynastyNerdsSfTep/offense/RB:normalization_direction_error@dynastyNerdsSfTep/offense/RB",
+      "dynastyNerdsSfTep/offense/TE:normalization_direction_error@dynastyNerdsSfTep/offense/TE",
+      "dynastyNerdsSfTep/offense/WR:normalization_direction_error@dynastyNerdsSfTep/offense/WR"
+     ],
+     "kind": "reversed",
+     "rankingPasses": 2,
+     "rows": 284,
+     "source": "dynastyNerdsSfTep",
+     "votesExcluded": 272
+    },
+    {
+     "assetClass": "offense",
+     "flagged": true,
+     "flags": [
+      "flockFantasySf/offense:normalization_scale_error@flockFantasySf/offense"
+     ],
+     "kind": "ranks_x2",
+     "rankingPasses": 2,
+     "rows": 403,
+     "source": "flockFantasySf",
+     "votesExcluded": 403
+    },
+    {
+     "assetClass": "offense",
+     "flagged": true,
+     "flags": [
+      "flockFantasySf/offense:normalization_scale_error@flockFantasySf/offense"
+     ],
+     "kind": "ranks_x5",
+     "rankingPasses": 2,
+     "rows": 403,
+     "source": "flockFantasySf",
+     "votesExcluded": 403
+    },
+    {
+     "assetClass": "offense",
+     "flagged": false,
+     "flags": [],
+     "kind": "values_x0.01",
+     "rankingPasses": 1,
+     "rows": 403,
+     "source": "flockFantasySf",
+     "votesExcluded": 402
+    },
+    {
+     "assetClass": "offense",
+     "flagged": true,
+     "flags": [
+      "flockFantasySf/offense/RB:normalization_direction_error@flockFantasySf/offense/RB",
+      "flockFantasySf/offense/TE:normalization_direction_error@flockFantasySf/offense/TE",
+      "flockFantasySf/offense/WR:normalization_direction_error@flockFantasySf/offense/WR"
+     ],
+     "kind": "reversed",
+     "rankingPasses": 2,
+     "rows": 403,
+     "source": "flockFantasySf",
+     "votesExcluded": 390
+    },
+    {
+     "assetClass": "offense",
+     "flagged": true,
+     "flags": [
+      "fantasyCalc/offense:normalization_scale_error@fantasyCalc/offense"
+     ],
+     "kind": "ranks_x2",
+     "rankingPasses": 2,
+     "rows": 389,
+     "source": "fantasyCalc",
+     "votesExcluded": 389
+    },
+    {
+     "assetClass": "offense",
+     "flagged": true,
+     "flags": [
+      "fantasyCalc/offense:normalization_scale_error@fantasyCalc/offense"
+     ],
+     "kind": "ranks_x5",
+     "rankingPasses": 2,
+     "rows": 389,
+     "source": "fantasyCalc",
+     "votesExcluded": 389
+    },
+    {
+     "assetClass": "offense",
+     "flagged": false,
+     "flags": [],
+     "kind": "values_x0.01",
+     "rankingPasses": 1,
+     "rows": 389,
+     "source": "fantasyCalc",
+     "votesExcluded": 389
+    },
+    {
+     "assetClass": "offense",
+     "flagged": true,
+     "flags": [
+      "fantasyCalc/offense/RB:normalization_direction_error@fantasyCalc/offense/RB",
+      "fantasyCalc/offense/TE:normalization_direction_error@fantasyCalc/offense/TE",
+      "fantasyCalc/offense/WR:normalization_direction_error@fantasyCalc/offense/WR"
+     ],
+     "kind": "reversed",
+     "rankingPasses": 2,
+     "rows": 389,
+     "source": "fantasyCalc",
+     "votesExcluded": 373
+    },
+    {
+     "assetClass": "idp",
+     "flagged": true,
+     "flags": [
+      "fantasyProsIdp/idp:normalization_scale_error@fantasyProsIdp/idp"
+     ],
+     "kind": "ranks_x2",
+     "rankingPasses": 2,
+     "rows": 249,
+     "source": "fantasyProsIdp",
+     "votesExcluded": 249
+    },
+    {
+     "assetClass": "idp",
+     "flagged": true,
+     "flags": [
+      "fantasyProsIdp/idp:normalization_scale_error@fantasyProsIdp/idp"
+     ],
+     "kind": "ranks_x5",
+     "rankingPasses": 2,
+     "rows": 249,
+     "source": "fantasyProsIdp",
+     "votesExcluded": 249
+    },
+    {
+     "assetClass": "idp",
+     "flagged": false,
+     "flags": [],
+     "kind": "values_x0.01",
+     "rankingPasses": 1,
+     "rows": 249,
+     "source": "fantasyProsIdp",
+     "votesExcluded": 246
+    },
+    {
+     "assetClass": "idp",
+     "flagged": true,
+     "flags": [
+      "fantasyProsIdp/idp/DB:normalization_direction_error@fantasyProsIdp/idp/DB",
+      "fantasyProsIdp/idp/DL:normalization_direction_error@fantasyProsIdp/idp/DL",
+      "fantasyProsIdp/idp/LB:normalization_direction_error@fantasyProsIdp/idp/LB"
+     ],
+     "kind": "reversed",
+     "rankingPasses": 2,
+     "rows": 249,
+     "source": "fantasyProsIdp",
+     "votesExcluded": 249
+    }
+   ],
+   "flagged": 12,
+   "label": "Wrong-scale board detection",
+   "v2Passes": false
+  },
+  "AD4": {
+   "bar": 0.95,
+   "cases": 223,
+   "failures": [],
+   "incumbent": {
+    "byBand": {
+     "3": 0.0
+    },
+    "exclusionReasons": {
+     "not_excluded": 89
+    },
+    "passRate": 0.0,
+    "passed": 0
+   },
+   "label": "Single-source spike",
+   "material": 89,
+   "v1": {
+    "byBand": {
+     "3": 0.9101
+    },
+    "exclusionReasons": {
+     "filter_dropped": 81,
+     "not_excluded": 8
+    },
+    "passRate": 0.9101,
+    "passed": 81
+   },
+   "v2": {
+    "byBand": {
+     "3": 1.0
+    },
+    "exclusionReasons": {
+     "held_pending_confirmation:observation_discontinuity": 89
+    },
+    "passRate": 1.0,
+    "passed": 89
+   },
+   "v2Passes": true
+  }
+ },
+ "thresholds": {
+  "epsilonB2": 0.01,
+  "kC": 4.0,
+  "nMin": 20,
+  "rhoMin": 0.0,
+  "status": "frozen_stage2",
+  "tauAge": 1.0,
+  "tauBoardCells": 22,
+  "tauCLayerC": 1.386294,
+  "tauCSources": 20,
+  "tauGross": 1.386294
+ },
+ "variant": "ARRIVING",
+ "wallSeconds": 936.8,
+ "workingTreeDirty": false
+}

@@ -118,6 +118,7 @@ function SearchResultRow({
         ? { id: optionId, role: "option", "aria-selected": active, tabIndex: -1 }
         : {})}
       data-active={active || undefined}
+      data-asset-id={row.assetId || undefined}
       {...handlers}
     >
       <PlayerImage
@@ -344,6 +345,7 @@ function AssetRow({
   onRemove,
   onAddCopy,
   onSetDestination,
+  sideLabels = null,
 }) {
   const edge = getPlayerEdge(row);
   const age = formatAssetAge(row);
@@ -495,7 +497,7 @@ function AssetRow({
               {sides.map((s, i) =>
                 i === sideIdx ? null : (
                   <option key={i} value={i}>
-                    Side {s.label}
+                    {sideLabels?.[i] || `Side ${s.label}`}
                   </option>
                 ),
               )}
@@ -542,7 +544,16 @@ function AssetRow({
   );
 }
 
-function IncomingRow({ asset, fromSideIdx, sides, valueMode, settings, valueOverrides, onOpenPlayer }) {
+function IncomingRow({
+  asset,
+  fromSideIdx,
+  sides,
+  valueMode,
+  settings,
+  valueOverrides,
+  onOpenPlayer,
+  sideLabels = null,
+}) {
   const edge = getPlayerEdge(asset);
   return (
     <div className={`${styles.assetRow} ${styles.assetRowIncoming}`}>
@@ -570,7 +581,8 @@ function IncomingRow({ asset, fromSideIdx, sides, valueMode, settings, valueOver
             ) : null}
           </span>
           <span className={styles.assetMeta}>
-            {asset.pos} · from Side {sides[fromSideIdx]?.label || "?"} ·{" "}
+            {asset.pos} · from{" "}
+            {sideLabels?.[fromSideIdx] || `Side ${sides[fromSideIdx]?.label || "?"}`} ·{" "}
             {valueOverrides[tradeEntryKey(asset)] == null && isUnpricedBoardRow(asset)
               ? "not priced"
               : Math.round(
@@ -615,6 +627,11 @@ export function SideCard({
   canRemoveTeam,
   sheetMode = false,
   onOpenSheet,
+  // Multi-team analysis (3+ sides, flag on): this side's league team by
+  // rosterId — `{options: [{rosterId, name}], rosterId, basis, onChange}`.
+  teamBinding = null,
+  // "Side B · Ed" per side for destination menus and incoming rows.
+  sideLabels = null,
 }) {
   const showResults = isFocused && (sideQuery || "").trim().length > 0;
   // Keyboard path for the inline search (TC-E, WAI-ARIA combobox): ArrowDown /
@@ -729,6 +746,33 @@ export function SideCard({
         </div>
       </div>
 
+      {teamBinding ? (
+        <Field
+          label="League team"
+          id={`trade-side-team-${sideIdx}`}
+          hint={
+            teamBinding.basis === "roster"
+              ? "Matched by roster — the one team that holds every asset here."
+              : teamBinding.rosterId == null
+                ? "Pick the team that sends these assets."
+                : undefined
+          }
+        >
+          <Select
+            id={`trade-side-team-${sideIdx}`}
+            value={teamBinding.rosterId == null ? "" : String(teamBinding.rosterId)}
+            onChange={(e) => teamBinding.onChange(e.target.value ? Number(e.target.value) : null)}
+          >
+            <option value="">— choose a team —</option>
+            {teamBinding.options.map((t) => (
+              <option key={t.rosterId} value={t.rosterId}>
+                {t.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : null}
+
       {sheetMode ? (
         /* Phones (TC-D2): one bottom-sheet search per side instead of an
            inline dropdown that runs under the keyboard. */
@@ -826,6 +870,7 @@ export function SideCard({
             onRemove={onRemoveAsset}
             onAddCopy={onAddCopy}
             onSetDestination={onSetDestination}
+            sideLabels={sideLabels}
           />
         ))}
         {side.assets.length === 0 ? (
@@ -850,6 +895,7 @@ export function SideCard({
                   settings={settings}
                   valueOverrides={valueOverrides}
                   onOpenPlayer={onOpenPlayer}
+                  sideLabels={sideLabels}
                 />
               ))
             ) : (

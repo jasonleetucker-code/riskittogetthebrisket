@@ -1,30 +1,30 @@
-name,rank,value
-Jacob Rodriguez,1.50,
-Sonny Styles,2,
-Arvell Reese,3.50,
-David Bailey,3.50,
-Josiah Trotter,5.50,
-Caleb Downs,6,
-Anthony Hill Jr,7,
-Dillon Thieneman,8,
-Rueben Bain Jr,11.50,
-CJ Allen,11.50,
-Akheem Mesidor,13,
-Jaishawn Barham,13,
-Jake Golday,13.50,
-Gabe Jacas,14,
-AJ Haulcy,14.50,
-Cashius Howell,15.50,
-Malachi Lawrence,17.50,
-Kaleb Elarms-Orr,17.50,
-Emmanuel McNeil-Warren,18,
-Peter Woods,19.50,
-Kendal Daniels,20.50,
-R Mason Thomas,22,
-Zion Young,23,
-Keldric Faulk,23.50,
-TJ Parker,24,
-Kyle Louis,24.50,
-Bryce Boettcher,25,
-Harold Perkins Jr,25,
-Treydan Stukes,25.50,
+name,rank,value,position,team
+Sonny Styles,1.50,,LB1,WAS
+Jacob Rodriguez,1.50,,LB2,MIA
+David Bailey,3.50,,DE (DL1),NYJ
+Arvell Reese,4,,LB3,NYG
+Josiah Trotter,5.50,,LB4,TB
+Caleb Downs,6,,S (DB1),DAL
+Anthony Hill Jr,7,,LB5,TEN
+Dillon Thieneman,8,,S (DB2),CHI
+Rueben Bain Jr,11.50,,DE (DL2),TB
+CJ Allen,11.50,,LB6,IND
+Akheem Mesidor,13,,DE (DL3),LAC
+Jaishawn Barham,13,,LB7,DAL
+Jake Golday,13.50,,LB8,MIN
+Gabe Jacas,14,,DE (DL4),NE
+AJ Haulcy,14.50,,S (DB3),IND
+Cashius Howell,15.50,,DE (DL5),CIN
+Malachi Lawrence,17.50,,DE (DL6),DAL
+Kaleb Elarms-Orr,17.50,,LB9,BUF
+Emmanuel McNeil-Warren,18,,S (DB4),CLE
+Peter Woods,19.50,,DT (DL7),KC
+Kendal Daniels,20.50,,LB10,ATL
+R Mason Thomas,22,,DE (DL8),KC
+Zion Young,23,,DE (DL9),BAL
+Keldric Faulk,23.50,,DE (DL10),TEN
+TJ Parker,24,,DE (DL11),BUF
+Kyle Louis,24.50,,LB11,MIA
+Bryce Boettcher,25,,LB12,IND
+Harold Perkins Jr,25,,LB13,ATL
+Treydan Stukes,25.50,,S (DB5),LV

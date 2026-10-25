@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-10-19T05:23:48.949181+00:00",
+ "generatedAt": "2026-10-25T12:03:37.273907+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2008,
+ "calls": 2017,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1984,
- "v2WouldChange": 24,
+ "v2Same": 1990,
+ "v2WouldChange": 27,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -45,15 +45,15 @@
    "v2Reason": "ambiguous"
   },
   {
-   "name": "J.T. Tuimoloau",
+   "name": "Cam Miller",
    "pos": "",
-   "served": "12594",
+   "served": "12688",
    "engineV2": null,
-   "v2Method": "none",
-   "v2Reason": "no_candidate"
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
   },
   {
-   "name": "JT Tuimoloau",
+   "name": "J.T. Tuimoloau",
    "pos": "",
    "served": "12594",
    "engineV2": null,
@@ -125,6 +125,14 @@
    "v2Reason": "no_candidate"
   },
   {
+   "name": "Nathan Carter",
+   "pos": "",
+   "served": "12897",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
    "name": "Nikolas Martin",
    "pos": "",
    "served": "12630",
@@ -157,6 +165,14 @@
    "v2Reason": "no_candidate"
   },
   {
+   "name": "Bam Knight",
+   "pos": "",
+   "served": "6050",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
    "name": "Byron Murphy",
    "pos": "DL",
    "served": "11668",
@@ -171,6 +187,14 @@
    "engineV2": null,
    "v2Method": "exact_clean:name_pos",
    "v2Reason": "ambiguous"
+  },
+  {
+   "name": "D.J. Moore",
+   "pos": "DL",
+   "served": "4983",
+   "engineV2": "4961",
+   "v2Method": "exact_lookup:name_pos",
+   "v2Reason": null
   },
   {
    "name": "Marcus Harris",

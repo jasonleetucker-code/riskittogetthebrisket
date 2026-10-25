@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import fixture from "../../tests/fixtures/package_model_parity_cases.json";
+import floatFixture from "../../tests/fixtures/package_model_float_cases.json";
 import {
   ACTIVE_PACKAGE_MODEL_ID,
   PACKAGE_MODEL_IDS,
@@ -146,5 +147,22 @@ describe("promoted geometric model: structural guarantees, zero failures", () =>
       order: 0,
       scale: 0,
     });
+  });
+});
+
+// Brisket Trade Advisor B0-e: the geometric utility is BIT-identical to the
+// Python owner (iterative w *= q + left fold in both languages; `**` and
+// CPython's compensated sum() diverged).  Twin:
+// tests/valuation_math/test_package_model_float.py.
+describe("package model float determinism", () => {
+  it("geomPackageUtility reproduces the shared float fixture exactly", () => {
+    expect(floatFixture.q).toBe(0.78);
+    expect(floatFixture.cases.length).toBeGreaterThanOrEqual(200);
+    for (const c of floatFixture.cases) {
+      expect(geomPackageUtility(c.team1)).toBe(Number(c.utility1));
+      expect(geomPackageUtility(c.team2)).toBe(Number(c.utility2));
+      const r = packageAdjustPair(c.team1, c.team2, { modelId: GEOM });
+      expect([r.value, r.side, r.displayed]).toEqual(c.expected);
+    }
   });
 });

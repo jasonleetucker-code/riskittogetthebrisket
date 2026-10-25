@@ -446,12 +446,18 @@ def pre_week_standings(
     season: SeasonSnapshot,
     registry: ManagerRegistry,
     week: int,
+    *,
+    owner_week: int | None = None,
 ) -> list[dict[str, Any]]:
     """Standings as of the start of ``week`` — only regular-season games
     completed strictly before ``week`` count.
 
-    Returns a list sorted by standings rank with per-owner totals.
+    Returns a list sorted by standings rank with per-owner totals.  Each
+    roster's line is credited to the owner holding it in ``owner_week``
+    (default ``week``, the week being entered); see the comment at the
+    owner lookup below.
     """
+    attribution_week = week if owner_week is None else owner_week
     by_owner: dict[str, dict[str, Any]] = {}
 
     def _ensure(owner_id: str) -> dict[str, Any]:
@@ -473,8 +479,15 @@ def pre_week_standings(
             if not is_scored(a) and not is_scored(b):
                 continue
             pa, pb = matchup_points(a), matchup_points(b)
-            oa = resolve_owner(registry, season.league_id, a.get("roster_id"))
-            ob = resolve_owner(registry, season.league_id, b.get("roster_id"))
+            # Attributed to whoever holds each roster in ``attribution_week``: the
+            # standings line is the roster's (a hand-off does not reset a
+            # team's record, and Sleeper's own settings record is the
+            # roster's), and the owner is the one that week's matchup resolves
+            # to, so a caller joining this to that week's sides by owner id
+            # finds the row.  No recorded hand-off → the current owner, as
+            # before.
+            oa = resolve_owner(registry, season.league_id, a.get("roster_id"), attribution_week)
+            ob = resolve_owner(registry, season.league_id, b.get("roster_id"), attribution_week)
             if oa:
                 rec_a = _ensure(oa)
                 rec_a["pointsFor"] += pa
@@ -791,11 +804,40 @@ def walk_matchup_pairs(
 
 
 # ── Shared team-name resolver ────────────────────────────────────────────
-def team_name(snapshot: PublicLeagueSnapshot, league_id: str, roster_id: int | None) -> str:
-    """Historical team name for a roster in a league."""
+def team_name(
+    snapshot: PublicLeagueSnapshot,
+    league_id: str,
+    roster_id: int | None,
+    week: Any = None,
+) -> str:
+    """Historical team name for a roster in a league — in ``week`` when given.
+
+    Pass the event's week exactly as for :func:`resolve_owner`: a week before a
+    mid-season hand-off names the roster by the OUTGOING manager's alias for
+    that league-season (``identity.register_handed_off_owners``), never the
+    successor's current team name.  No week keeps the current owner's name.
+    """
     if roster_id is None:
         return ""
-    owner_id = resolve_owner(snapshot.managers, league_id, roster_id)
+    owner_id = resolve_owner(snapshot.managers, league_id, roster_id, week)
+    return team_name_for_owner(snapshot, league_id, roster_id, owner_id)
+
+
+def team_name_for_owner(
+    snapshot: PublicLeagueSnapshot,
+    league_id: str,
+    roster_id: int | None,
+    owner_id: str,
+) -> str:
+    """Team name for ``roster_id`` as ``owner_id`` held it in ``league_id``.
+
+    For a caller that already holds the attributed owner (a per-manager
+    aggregate whose owner came from :func:`resolve_owner` with a week), so the
+    name follows the same attribution instead of re-resolving to the current
+    owner.  :func:`team_name` is this with the owner resolved for it.
+    """
+    if roster_id is None:
+        return ""
     manager = snapshot.managers.by_owner_id.get(owner_id) if owner_id else None
     if not manager:
         return f"Team {roster_id}"

@@ -161,6 +161,38 @@ test("a failure keeps its status and an error CLASS, never the message", () => {
   assert.match(stdout, /FAIL \[prod-desktop\] example\.spec\.js › t1 \(12ms\) \[assertion\]/);
 });
 
+test("a COLOURED value-matcher failure is an assertion, a thrown error stays an error", () => {
+  // The exact shape Playwright produces for toBe / toEqual / toContain: the
+  // matcher hint is wrapped in ANSI dim/colour escapes.  The real message
+  // carries private values after the hint; none of it may be published.
+  const coloured =
+    `Error: a completed week must resolve final (owner ${OWNER_ID})\n\n` +
+    "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m" +
+    "\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: \"final\"\nReceived: \"live\"";
+  const thrown = "TypeError: Cannot read properties of null (reading 'season')";
+  const { report, stdout } = withReporter((r) => {
+    r.onTestEnd(fakeTest("coloured"), {
+      status: "failed",
+      duration: 5,
+      errors: [{ message: coloured, stack: coloured }],
+      annotations: [],
+    });
+    r.onTestEnd(fakeTest("thrown"), {
+      status: "failed",
+      duration: 5,
+      errors: [{ message: thrown, stack: thrown }],
+      annotations: [],
+    });
+    r.onEnd({ status: "failed" });
+  });
+  assert.equal(report.tests[0].errorClass, "assertion");
+  assert.equal(report.tests[1].errorClass, "error");
+  const blob = JSON.stringify(report) + stdout;
+  for (const leak of [OWNER_ID, "live", "final", "\u001b", "Cannot read"]) {
+    assert.ok(!blob.includes(leak), `leaked: ${JSON.stringify(leak)}`);
+  }
+});
+
 test("the report carries no attachments, stdout or raw annotations field", () => {
   const { report } = withReporter((r) => {
     r.onTestEnd(fakeTest("t3"), { status: "passed", duration: 5, errors: [], annotations: [] });
@@ -172,6 +204,9 @@ test("the report carries no attachments, stdout or raw annotations field", () =>
     "durationMs",
     "file",
     "project",
+    // A UTC instant (or null).  Added with the V1 failure classifier so a
+    // restart is attributed only to the tests it overlapped.
+    "startedAt",
     "status",
     "title",
     "withheldCount",
@@ -201,6 +236,7 @@ test("each converted spec emits only allowlisted annotation types", () => {
     "trade-stack-withdrawn.spec.js",
     "trade-war-room.spec.js",
     "train2-private-surfaces.spec.js",
+    "screenshot-import-status.spec.js",
   ];
   for (const file of converted) {
     const src = fs.readFileSync(path.join(__dirname, "specs", "prod-auth", file), "utf-8");
@@ -212,4 +248,112 @@ test("each converted spec emits only allowlisted annotation types", () => {
       assert.ok(keys.some((k) => pattern.test(k)), `${file}: annotation type "${t}" is not allowlisted`);
     }
   }
+});
+
+// ---- failureSignal (V1 failure classification input) ------------------------
+// The signal is one word from a closed vocabulary, derived from the message and
+// published INSTEAD of it.  Every message below is hostile: it carries the
+// cookie, an owner id, a player name and a Received value.
+
+const { SIGNAL_NAMES } = require("./prod-auth-safe-reporter.js");
+
+function signalFor(message, status = "failed") {
+  const { report, stdout } = withReporter((r) => {
+    r.onTestEnd(fakeTest("t"), {
+      status,
+      duration: 7,
+      errors: [{ message, stack: message }],
+      annotations: [],
+      startTime: new Date("2026-10-21T07:50:07.000Z"),
+    });
+    r.onEnd({ status: "failed" });
+  });
+  const blob = JSON.stringify(report) + stdout;
+  for (const leak of [COOKIE, OWNER_ID, "Josh Allen", "Private Player"]) {
+    assert.ok(!blob.includes(leak), `leaked: ${leak}`);
+  }
+  return report.tests[0];
+}
+
+test("failureSignal separates a UI wait that ran out its budget from a wrong value", () => {
+  const wait =
+    `expect(locator).toBeVisible() failed\n\nLocator: getByText('Josh Allen ${OWNER_ID}')\n` +
+    "Expected: visible\nReceived: <element(s) not found>\nTimeout: 60000ms";
+  const value = `expect(received).toBe(expected)\n\nExpected: "final"\nReceived: "Josh Allen"`;
+  const a = signalFor(wait);
+  const b = signalFor(value);
+  // Both are "assertion" to errorClass -- the signal is what tells them apart.
+  assert.equal(a.errorClass, "assertion");
+  assert.equal(b.errorClass, "assertion");
+  assert.equal(a.failureSignal, "expect_timeout");
+  assert.equal(b.failureSignal, "none");
+});
+
+test("failureSignal names infrastructure and HTTP families without their text", () => {
+  const cases = [
+    [`Error: browserType.launch: Executable doesn't exist at /x (${COOKIE})`, "browser_launch_failed"],
+    ["Error: Target page, context or browser has been closed", "browser_closed"],
+    ["page.goto: net::ERR_CONNECTION_RESET at https://chaseupside.com/league", "network_error"],
+    ['page.goto: Timeout 60000ms exceeded.\nwaiting until "domcontentloaded"', "navigation_timeout"],
+    ["apiRequestContext.get: Timeout 30000ms exceeded.", "api_request_timeout"],
+    [`production /league?tab=awards returned HTTP 502 (owner ${OWNER_ID})`, "http_5xx"],
+    ["expect(received).toBe(expected)\n\nExpected: 200\nReceived: 401", "http_401_403"],
+    ["Error: out of memory", "out_of_memory"],
+    ["Error: strict mode violation: getByText('Private Player') resolved to 2 elements", "strict_mode_violation"],
+  ];
+  for (const [message, expected] of cases) {
+    assert.equal(signalFor(message).failureSignal, expected, message.slice(0, 40));
+  }
+});
+
+test("a web-first assertion retried on a WRONG value is not a timeout, even though it ran to the deadline", () => {
+  // Playwright 1.62 retries toHaveText until the deadline when the element
+  // exists but reads wrong, and prints the same "Timeout: Nms" line.
+  const retriedWrongValue =
+    "expect(locator).toHaveText(expected) failed\n\nLocator: getByRole('heading')\n" +
+    'Expected string: "Alpha"\nReceived string: "Beta"\nTimeout: 20000ms\n\nCall log:\n  - waiting for heading';
+  const neverAppeared =
+    "expect(locator).toBeVisible() failed\n\nLocator: getByText('Week 7 matchups')\n" +
+    "Expected: visible\nReceived: <element(s) not found>\nTimeout: 60000ms";
+  const noReceivedLine = "Error: Timeout 20000ms exceeded while waiting for expect(locator).toBeVisible()";
+  assert.equal(signalFor(retriedWrongValue).failureSignal, "none");
+  assert.equal(signalFor(neverAppeared).failureSignal, "expect_timeout");
+  assert.equal(signalFor(noReceivedLine).failureSignal, "expect_timeout");
+});
+
+test("a received NUMBER is not an HTTP status unless the message is about a status", () => {
+  const cases = [
+    ["expect(received).toBe(expected)\n\nExpected: 600\nReceived: 512", "none"], // a count
+    ["expect(received).toBe(expected)\n\nExpected: 3\nReceived: 403", "none"],
+    ["expect(received).toBeGreaterThan(expected)\n\nExpected: > 500\nReceived: 401", "none"],
+    ["expect(received).toBeLessThan(expected)\n\nExpected: < 400\nReceived:   502", "http_5xx"],
+    ["expect(received).toBe(expected)\n\nExpected: 200\nReceived: 503", "http_5xx"],
+    ["Error: /api/sharp/market answered status 504", "http_5xx"],
+    ["Error: upstream said 502 Bad Gateway", "http_5xx"],
+    ["expect(received).toBe(expected)\n\nExpected: 200\nReceived: 403", "http_401_403"],
+    ["Error: response status 401 for the private route", "http_401_403"],
+  ];
+  for (const [message, expected] of cases) {
+    assert.equal(signalFor(message).failureSignal, expected, JSON.stringify(message.slice(-30)));
+  }
+});
+
+test("a spec that EXPECTS a 403 is not an auth failure", () => {
+  const msg = "expect(received).toBe(expected)\n\nExpected: 403\nReceived: 200";
+  assert.equal(signalFor(msg).failureSignal, "none");
+});
+
+test("failureSignal is always inside the declared vocabulary and absent on passes", () => {
+  const { report } = withReporter((r) => {
+    r.onTestEnd(fakeTest("ok"), { status: "passed", duration: 1, errors: [], annotations: [] });
+    r.onTestEnd(fakeTest("to"), { status: "timedOut", duration: 180000, errors: [], annotations: [] });
+    r.onEnd({ status: "failed" });
+  });
+  assert.equal("failureSignal" in report.tests[0], false);
+  assert.ok(SIGNAL_NAMES.includes(report.tests[1].failureSignal));
+  assert.equal(report.tests[1].startedAt, null); // unknown is null, never fabricated
+});
+
+test("startedAt is a UTC ISO instant when Playwright supplies one", () => {
+  assert.equal(signalFor("expect(a).toBe(b)").startedAt, "2026-10-21T07:50:07.000Z");
 });

@@ -82,7 +82,7 @@ publishes only an allowlisted summary.
 | `scripts/verify_v1_authenticated.py` (API suite) | stdout (log) + `--report v1-auth-report.json` (artifact) | Only `public_verification_report` summaries: per check `id`, `row`, `status`, `denominator`, a code-authored `title`, and evidence keys from the script's `PUBLIC_EVIDENCE` allowlist with a declared kind. **`detail` is never published.** Withheld keys are counted in `evidenceWithheld`. A `<label>:crash` check publishes only the exception class name. The full report is written nowhere on the runner. | `scripts/public_verification_report.py` |
 | `scripts/verify_lane4_production.py --mode remote --public-report lane4-remote.json` | stdout (log) + `lane4-remote.json` (artifact) | The same public summary schema (`public-verification-report/v1`). The workflow no longer uses `tee lane4-remote.txt`, and `lane4-remote.txt` is no longer uploaded. | same |
 | workflow C8/C9 step | log | Only `C8/C9 free agent picked from the deployed board (name not logged)`. The player name is no longer echoed. | workflow |
-| prod-auth Playwright suite | stdout (log) + `tests/e2e/prod-auth-results.json` (artifact) | Schema `prod-auth-safe-report/v2`. Per test: project, file, fixed title, status, duration, and an `errorClass` enum on failure (never the message). Annotations appear only when `tests/e2e/prod-auth-annotation-allowlist.js` allows that type for that spec file and the value has the declared kind. `withheldCount` / `annotationsWithheld` count what was dropped. Cookie text is scrubbed. The only reporter is `prod-auth-safe-reporter.js`, with trace, screenshot and video all `off` (`tests/e2e/prod-auth.config.js`). | `tests/e2e/prod-auth-safe-reporter.js` + allowlist |
+| prod-auth Playwright suite | stdout (log) + `tests/e2e/prod-auth-results.json` (artifact) | Schema `prod-auth-safe-report/v2`. Per test: project, file, fixed title, status, duration, and an `errorClass` enum on failure (never the message), plus (since the V1 failure classifier) a closed-vocabulary `failureSignal` and a `startedAt` instant (see `docs/ops/V1_VERIFICATION_TAXONOMY.md`). Annotations appear only when `tests/e2e/prod-auth-annotation-allowlist.js` allows that type for that spec file and the value has the declared kind. `withheldCount` / `annotationsWithheld` count what was dropped. Cookie text is scrubbed. The only reporter is `prod-auth-safe-reporter.js`, with trace, screenshot and video all `off` (`tests/e2e/prod-auth.config.js`). | `tests/e2e/prod-auth-safe-reporter.js` + allowlist |
 | `scripts/verify_v1_authenticated.py security-probe` / `security-summary` (#1724) | stdout (log), `security-acceptance.json` (artifact), job summary | Fixed keys only. Probe values are ints, bools or null. Census values are counts or bools. Check `detail` text is code-authored and interpolates only those ints and bools. | `build_security_summary` |
 | `production-route-baselines.json` | artifact | Unchanged. Already classified safe: fixed-enum states, timings, byte counts, pathname only. Produced only on a manual `suite=baseline` run. | — |
 
@@ -250,3 +250,27 @@ If any check above finds something, go to §5 immediately.
 - The census needs the deployed code. A run against an older production
   build reports the census as unknown and fails. That is correct, not a
   flake.
+- **First automatic run, 2026-10-19 (run 39221318435, deployed `b08f7230d1`):
+  `SEC-POST-REVOKE` was inconclusive because the session died mid-suite.**
+  - Production's public `/api/status` showed `build.process_started_at`
+    `2026-10-19T08:42:49Z` on the same commit. So the backend restarted
+    about 28 minutes into the suite; it was not a deploy.
+  - Before the restart, several specs hit 45 s timeouts on `/api/auth/status`.
+  - On restart, `session_store.hydrate` also applied
+    `PRIVATE_APP_ALLOWED_USERNAMES` to guest rows. The guest username `guest`
+    is never on that list, so every live guest session was deleted (census
+    `guestSessions=0`).
+  - Fixed on `claude/v1-verification-session-survival`:
+    - a bounded guest row now survives the restart, and its pass decides
+      whether it is still valid;
+    - an unreadable pass store refuses the request but no longer ends the
+      session;
+    - the workflow waits (bounded) for a warm backend and reports a mid-run
+      restart;
+    - the safe reporter's `errorClass` strips ANSI colour before it
+      classifies. Playwright colours value-matcher failures (`toBe` /
+      `toEqual` / `toContain`), so the reporter had been publishing them as
+      `error` rather than `assertion`.
+  - Public evidence does not say why the backend restarted. The box's
+    `journalctl -u dynasty -u dynasty-healthcheck` and its OOM log for
+    08:36–08:43 UTC would.

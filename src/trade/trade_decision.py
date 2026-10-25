@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, Mapping
 
 from src.valuation_math import fairness_bands, package_model
 
@@ -254,14 +254,57 @@ def _traded(simulation: dict[str, Any]) -> list[dict[str, Any]]:
     return [*(simulation.get("receiving") or []), *(simulation.get("sending") or [])]
 
 
-def _evidence_gaps(
-    simulation: dict[str, Any],
-    market: Any,
-    roster: Any,
-    feasibility: Any,
-    strategy: dict[str, Any],
-    team_context: bool,
-) -> list[dict[str, Any]]:
+def asset_is_priced(asset: Any) -> bool:
+    """MISSING IS NEVER ZERO: a resolved asset whose canonical value is absent
+    or not positive is UNPRICED, never an asset worth 0.  The one definition
+    the market lens and the evidence gates both use."""
+    v = asset.get("value") if isinstance(asset, dict) else None
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
+
+
+def asset_evidence_codes(asset: Any) -> tuple[str, ...]:
+    """The evidence-gate codes ONE resolved traded asset raises, in gate order:
+    ``unpriced_assets`` (no positive canonical value), ``quarantined_values``
+    (the pipeline's own quarantine verdict) and ``stale_values`` (the
+    confidence owner's freshness axis reads ``low``).  Read, never computed."""
+    if not isinstance(asset, dict):
+        return ()
+    codes: list[str] = []
+    if not asset_is_priced(asset):
+        codes.append("unpriced_assets")
+    if asset.get("quarantined") is True:
+        codes.append("quarantined_values")
+    if asset.get("valueFreshness") == "low":
+        codes.append("stale_values")
+    return tuple(codes)
+
+
+#: The asset half of the evidence gates, in gate order.  Every one is a fact
+#: about the traded assets themselves (priced? on the board? held? quarantined?
+#: fresh?), never about Team Context, so it applies in every mode and is the
+#: half per-team market fairness reads (``src/trade/team_verdicts.py``).
+ASSET_EVIDENCE_GATE_CODES = (
+    "no_priced_assets",
+    "off_board_assets",
+    "unpriced_assets",
+    "unheld_assets",
+    "pick_ownership_unknown",
+    "ownership_unverifiable",
+    "quarantined_values",
+    "stale_values",
+)
+
+
+def asset_evidence_gaps(simulation: dict[str, Any], market: Any) -> list[dict[str, Any]]:
+    """The ASSET half of the evidence gates, in :data:`ASSET_EVIDENCE_GATE_CODES`
+    order (pure).
+
+    ``ownership_unverifiable`` (N-team engine, R1) fires when the simulation
+    carries ``ownershipEvidence.unverifiableAssetIds`` — set only by the N-team
+    ledger (a player held by several rosters, a pick whose ownership is
+    unknown, or rosters that are not ``current``).  Every existing route leaves
+    that key absent, so their gates are unchanged.
+    """
     gaps: list[dict[str, Any]] = []
     md = market.detail or {}
     if not market.available:
@@ -317,7 +360,26 @@ def _evidence_gaps(
                 reason=po.get("reason"),
             )
         )
-    quarantined = [a.get("name") for a in _traded(simulation) if a.get("quarantined") is True]
+    ownership = simulation.get("ownershipEvidence")
+    unverifiable = (
+        [str(x) for x in ownership.get("unverifiableAssetIds") or []]
+        if isinstance(ownership, dict)
+        else []
+    )
+    if unverifiable:
+        gaps.append(
+            _missing(
+                "ownership_unverifiable",
+                "Who owns every asset in this trade could not be confirmed: "
+                + ", ".join(unverifiable),
+                assetIds=unverifiable,
+            )
+        )
+    quarantined = [
+        a.get("name")
+        for a in _traded(simulation)
+        if "quarantined_values" in asset_evidence_codes(a)
+    ]
     if quarantined:
         gaps.append(
             _missing(
@@ -327,7 +389,9 @@ def _evidence_gaps(
                 assets=quarantined,
             )
         )
-    stale = [a.get("name") for a in _traded(simulation) if a.get("valueFreshness") == "low"]
+    stale = [
+        a.get("name") for a in _traded(simulation) if "stale_values" in asset_evidence_codes(a)
+    ]
     if stale:
         gaps.append(
             _missing(
@@ -336,6 +400,18 @@ def _evidence_gaps(
                 assets=stale,
             )
         )
+    return gaps
+
+
+def _evidence_gaps(
+    simulation: dict[str, Any],
+    market: Any,
+    roster: Any,
+    feasibility: Any,
+    strategy: dict[str, Any],
+    team_context: bool,
+) -> list[dict[str, Any]]:
+    gaps = asset_evidence_gaps(simulation, market)
     if not team_context:
         return gaps
 
@@ -397,10 +473,75 @@ def _evidence_gaps(
                 count=unpriced_drops,
             )
         )
+    elif "forcedDropCharge" in fd and fd.get("requiresDrops") is True:
+        # Flag ``forced_drop_cheapest_legal`` only (the key is absent when OFF).
+        # A release IS required but its charge is undeterminable (``None``:
+        # e.g. no waiver-level table for an unpriced cut).  The objective treats
+        # a ``None`` charge as uncharged, so without this gap the headline would
+        # silently read as if the cut were free (review F7).  Skipped when the
+        # unpriced-cut gap above already withholds the headline.
+        if fd.get("forcedDropCharge") is None:
+            basis = fd.get("forcedDropChargeBasis") or {}
+            gaps.append(
+                _missing(
+                    "forced_drop_charge_unavailable",
+                    "The roster cut this trade forces cannot be costed, so the cost of the cut is "
+                    "unknown.",
+                    reason=basis.get("reason"),
+                    state=basis.get("state"),
+                )
+            )
     return gaps
 
 
 # ── Components ─────────────────────────────────────────────────────────────
+
+
+def _forced_release_charge_meta(fd: Mapping[str, Any]) -> dict[str, Any]:
+    """Flag ``forced_drop_cheapest_legal`` only: WHAT ``forcedReleaseCost`` is,
+    so a reader never presents a package credit as a player's worth.
+
+    ``forcedReleaseChargeBasis`` — ``release_value`` (every charged cut at its
+    own ``base x scarcity``), ``package_credit_forgone`` (every charged cut is
+    a just-acquired piece, charged the credit the package gave it) or
+    ``mixed``.  ``forcedReleaseChargeState`` — the roster-capacity owner's
+    basis state (``exact`` / ``assumed`` / ``lower_bound`` / ``mixed_bound``),
+    the SAME state the Trade Finder publishes in ``forcedDropCostBasis``.
+    """
+    kinds = {
+        "package_credit_forgone"
+        if (row or {}).get("chargeBasis") == "package_credit_forgone"
+        else "release_value"
+        for row in fd.get("forcedDrops") or []
+    }
+    basis = fd.get("forcedDropChargeBasis") or {}
+    return {
+        "forcedReleaseChargeBasis": (
+            next(iter(kinds)) if len(kinds) == 1 else ("mixed" if kinds else None)
+        ),
+        "forcedReleaseChargeState": basis.get("state"),
+    }
+
+
+def _forced_drop_evidence_extra(fd: Mapping[str, Any]) -> dict[str, Any]:
+    """Flag ``forced_drop_cheapest_legal`` only (empty when OFF, so incumbent
+    evidence is unchanged): what ``forcedDropReleaseCost`` IS beside the number
+    the objective actually subtracts.
+
+    ``forcedDropReleaseCost`` is the GROSS sum of every modelled release at its
+    charge, including releases an over-limit roster owed before the trade; the
+    decision subtracts ``forcedDropCharge`` (marginal to the trade, clamped at
+    0).  Both are published, with the signed marginal, so a reader never takes
+    the gross figure for the charge (a 650 gross against a 350 charge was the
+    review's example, F6).
+    """
+    if "forcedDropCharge" not in fd:
+        return {}
+    return {
+        "forcedDropReleaseCostBasis": "gross_post_trade_cleanup_including_pre_owed",
+        "forcedDropCharge": fd.get("forcedDropCharge"),
+        "forcedDropMarginal": fd.get("forcedDropMarginal"),
+    }
 
 
 def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
@@ -409,10 +550,31 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     md = market.detail or {}
     gap = float(md["vaAdjustedGap"])
     larger = max(float(md["sendingAdjusted"]), float(md["receivingAdjusted"]))
+    # The band's base is the larger PACKAGE UTILITY the market lens took from
+    # the fairness-band owner (fairness_bands_v2, OD-F2) -- never recomputed
+    # here, never the larger adjusted side.
+    larger_utility = float(md["largerPackageUtility"])
     fd = feasibility.detail or {}
     release = fd.get("forcedDropReleaseCost")
     charged = None
-    if (
+    charge_meta: dict[str, Any] = {}
+    if "forcedDropCharge" in fd:
+        # Flag ``forced_drop_cheapest_legal``: the ONE charge the roster-capacity
+        # owner publishes (``roster_capacity.forced_drop_cost``) — the same
+        # number the Trade Finder ranks on.  Marginal to the trade, unpriced
+        # drops charged, an acquired release already netted out of the package.
+        # Absent when the flag is OFF, so the incumbent branch below is
+        # unchanged.
+        c = fd.get("forcedDropCharge")
+        if (
+            feasibility.available
+            and isinstance(c, (int, float))
+            and not isinstance(c, bool)
+            and c > 0
+        ):
+            charged = float(c)
+            charge_meta = _forced_release_charge_meta(fd)
+    elif (
         feasibility.available
         and fd.get("state") == "cut_required"
         and fd.get("overLimitBefore") == 0
@@ -422,7 +584,7 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     ):
         charged = float(release)
     net = gap - charged if charged is not None else gap
-    band = fairness_bands.classify(net, larger)
+    band = fairness_bands.classify(net, larger_utility)
     if band["level"] == "fair":
         direction, magnitude = "neutral", None
     else:
@@ -435,8 +597,10 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
         "unit": "canonical value points (adjusted package)",
         "vaAdjustedGap": int(round(gap)),
         "forcedReleaseCost": None if charged is None else int(round(charged)),
+        **charge_meta,
         "netGap": int(round(net)),
         "largerAdjustedSide": int(round(larger)),
+        "largerPackageUtility": int(round(larger_utility)),
         "band": band,
         "kind": "independent",
     }
@@ -604,6 +768,7 @@ def _reasons(
                     "state": state,
                     "forcedDrops": names,
                     "forcedDropReleaseCost": fd.get("forcedDropReleaseCost"),
+                    **_forced_drop_evidence_extra(fd),
                 },
             }
         )
@@ -745,7 +910,7 @@ def _a_from_values(send: list[float], recv: list[float], release: float | None) 
     # ``None`` = no cut is charged (not an unknown cost: an unpriced cut is an
     # evidence gate upstream and never reaches this search).
     net = gap - release if release is not None else gap
-    band = fairness_bands.classify(net, max(send_adj, recv_adj))
+    band = fairness_bands.classify(net, fairness_bands.larger_package_utility(send, recv))
     if band["level"] == "fair":
         return {"evaluated": True, "direction": "neutral", "magnitude": None, "band": band}
     return {
@@ -1016,13 +1181,16 @@ def _coverage(
             component="objectiveValue",
             role="gate",
             evidence={
-                k: fd.get(k)
-                for k in (
-                    "state",
-                    "forcedDropReleaseCost",
-                    "ladderExhausted",
-                    "unpricedForcedDrops",
-                )
+                **{
+                    k: fd.get(k)
+                    for k in (
+                        "state",
+                        "forcedDropReleaseCost",
+                        "ladderExhausted",
+                        "unpricedForcedDrops",
+                    )
+                },
+                **_forced_drop_evidence_extra(fd),
             },
             uncertainty={"kind": "none", "value": None},
             contribution={
@@ -1229,8 +1397,17 @@ def decide(
     leaning_result: tuple[str, str, str] | None = None,
     comparables: Any = None,
     provenance: dict[str, Any] | None = None,
+    counterfactuals: bool = True,
 ) -> dict[str, Any]:
-    """The one top-line decision for one analyzed trade (pure)."""
+    """The one top-line decision for one analyzed trade (pure).
+
+    ``counterfactuals=False`` skips the "what would change it" search on the
+    decided path (``whatWouldChange`` is then ``[]``).  The search runs AFTER
+    the headline, leaning and confidence are fixed, so skipping it cannot
+    change any of them; it is a linear scan whose run time grows with the
+    gap, so a caller that must not leak the gap through latency (the public
+    Brisket Trade Advisor) turns it off.
+    """
     strategy = resolve_strategy(posture, team_goal, team_context)
     posture_block = _posture_block(posture, team_context)
     lean = leaning_result or leaning(market, roster, feasibility)
@@ -1381,7 +1558,11 @@ def decide(
         missingEvidence=[],
         components={"objectiveValue": a, "rosterBenefit": b},
         mainCounterargument=counter,
-        whatWouldChange=_what_would_change(simulation, headline, a, b, goal, strategy),
+        whatWouldChange=(
+            _what_would_change(simulation, headline, a, b, goal, strategy)
+            if counterfactuals
+            else []
+        ),
         coverage=_cover(a, b),
         confidence=confidence,
     )

@@ -309,6 +309,24 @@
 .ds-panel--collapsed .ds-panel__disclosure-glyph {
   transform: rotate(-90deg);
 }
+
+/* ══ Hydration gate (components/ds/useHydrated.js) ═════════════════════
+   Server-rendered Tabs / SegmentedControl / panel disclosures render
+   disabled + aria-busy until React attaches their handlers.  The progress
+   cursor is immediate; the dimming waits 400ms so a fast page never
+   flashes, and a slow one plainly reads "not ready yet".  A 0s step, not
+   motion — nothing to switch off under prefers-reduced-motion. */
+.ds-tabs[aria-busy="true"] .ds-tab,
+.ds-segmented[aria-busy="true"] .ds-segmented__option,
+.ds-panel__disclosure[aria-busy="true"] {
+  cursor: progress;
+  animation: ds-hydrating 0s linear 400ms forwards;
+}
+@keyframes ds-hydrating {
+  to {
+    opacity: 0.55;
+  }
+}
 .ds-panel--collapsed .ds-panel__header {
   border-bottom: 0;
 }
@@ -577,9 +595,36 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
     display: none;
   }
 }
-.ds-table__row--interactive:focus-visible {
+.ds-table__row--interactive:focus-visible,
+.ds-table__row--interactive:has(.ds-table__disclosure:focus-visible) {
   outline: none;
   box-shadow: inset var(--focus-ring);
+}
+/* DataTable `isRowExpanded`: the row's disclosure toggle.  Visually hidden
+   (the ROW is the visible control and paints the focus ring above), but
+   IN FLOW rather than `.ds-visually-hidden`'s absolute positioning: an
+   absolutely positioned descendant whose containing block sits outside a
+   `maxHeight` scroller is not scrolled by it, so focusing it would scroll
+   the page instead of bringing the row into view.  The -1px margin nets
+   its 1px box to zero width, so frozen column widths do not move. */
+.ds-table__disclosure {
+  display: inline-block;
+  width: 1px;
+  height: 1px;
+  margin: 0 -1px 0 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+/* In-prose link (WCAG 1.4.1): a link inside running text must differ from
+   it by more than colour.  globals.css resets every <a> to
+   `text-decoration: none`, so a prose link opts back in with this class. */
+.ds-link {
+  text-decoration-line: underline;
 }
 
 /* ══ Tabs ═══════════════════════════════════════════════════════════════ */
@@ -1195,4 +1240,79 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   flex-shrink: 0;
+}
+
+/* ── Combobox (searchable single-select) ──────────────────────────────────
+   components/ds/Combobox.jsx.  Same control chrome as .ds-input; the list
+   is an overlay (popover) so it is the one place here that takes a shadow
+   and the dropdown z-layer.  44px option rows: it is the first control on
+   a phone-first public page. */
+.ds-combobox {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.ds-combobox__control {
+  position: relative;
+}
+.ds-combobox__input {
+  min-height: 44px;
+}
+.ds-combobox__hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.ds-combobox__list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: var(--z-dropdown);
+  margin: var(--space-1) 0 0;
+  padding: var(--space-1) 0;
+  list-style: none;
+  max-height: min(320px, 50vh);
+  overflow-y: auto;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-1);
+  box-shadow: var(--shadow-2);
+}
+.ds-combobox__list[hidden] {
+  display: none;
+}
+.ds-combobox__option {
+  display: grid;
+  gap: 2px;
+  min-height: 44px;
+  align-content: center;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  color: var(--text-primary);
+}
+.ds-combobox__option--active {
+  background: var(--surface-active);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.ds-combobox__option[aria-selected="true"] .ds-combobox__optionLabel {
+  font-weight: var(--font-weight-semibold);
+}
+.ds-combobox__option[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--text-tertiary);
+}
+.ds-combobox__optionLabel {
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+.ds-combobox__optionMeta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.ds-combobox__empty {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
 }

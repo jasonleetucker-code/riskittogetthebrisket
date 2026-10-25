@@ -50,16 +50,21 @@ export default function TradeVerdictHelpBody() {
       <ul>
         <li>
           The badge grades the adjusted gap (raw + VA) as a share of the
-          bigger adjusted package:{" "}
+          bigger package&apos;s depth-discounted value (each piece after the
+          first counted at 78% of the one before it, the same discount the
+          Value Adjustment uses):{" "}
           <strong>FAIR</strong> under 3.5% (or under 250 points),{" "}
           <strong>SLIGHT EDGE</strong> under 9%, <strong>UNFAIR</strong> under
           18%, <strong>LOPSIDED</strong> beyond that. The same bands are used
-          everywhere on the site and are provisional until validated.
+          everywhere on the site. They are an owner-approved starting point
+          (version 2), to be checked against real market trades after launch.
         </li>
         <li>
           Because the bands are relative, a 300-point gap is FAIR between two
-          stars and LOPSIDED between two bench players; the badge and the
-          percentage always agree.
+          stars and LOPSIDED between two bench players. The percentage shown
+          beside the badge is the same share the badge grades, so it always
+          sits inside that badge&apos;s range (a gap under 250 points is FAIR
+          whatever its percentage).
         </li>
         <li>
           This verdict compares package value only. It does not know your
@@ -69,41 +74,38 @@ export default function TradeVerdictHelpBody() {
 
       <h3>Trade War Room — what it does to your team</h3>
       <p>
-        With your team selected, the War Room answers three separate
-        questions and does not average them:
+        With your team selected, the War Room gives one recommendation and answers three separate
+        questions, without averaging them:
       </p>
       <ul>
         <li>
-          <strong>Market</strong> — the package gap after Value Adjustment. It
-          prices the assets at their board values, so value overrides typed in the
-          builder are not applied there. It uses the same fairness bands as the
-          badge.
+          <strong>Trade value</strong> — how much value you receive and send, after Value
+          Adjustment. It prices the assets at their board values, so value overrides typed in the
+          builder are not applied there. It uses the same fairness bands as the badge.
         </li>
         <li>
-          <strong>Roster</strong> — expected points per week from the best
-          legal lineup your roster can field (scored as best ball), before and
-          after, using rest-of-season projections under your league&apos;s
-          scoring.
+          <strong>Impact on your team</strong> — how many more or fewer points per week the best
+          legal lineup your roster can field is projected to score (as best ball), using
+          rest-of-season projections under your league&apos;s scoring.
         </li>
         <li>
-          <strong>Feasibility</strong> — whether the result fits your roster
-          limit, and who would have to be cut. Draft picks do not use roster
-          spots; an unknown limit is reported as unknown, never as room.
+          <strong>Does it fit your roster?</strong> — whether the result fits your roster limit,
+          and who would have to be cut. Draft picks do not use roster spots; an unknown limit is
+          reported as unknown, never as room.
         </li>
       </ul>
       <p>
-        The War Room gives one answer: <strong>Yes, make the trade</strong>,{" "}
-        <strong>No</strong>, <strong>No, too close</strong> (a near tie with
-        complete evidence), or <strong>Not enough evidence</strong> when
-        something material is missing (an unpriced or unheld asset, a stale or
-        quarantined value, an unknown roster or posture) — it names what is
-        missing instead of guessing. It comes from a fixed rule table, not a
-        weighted score. Your strategy (win now, balanced or long-term) is
-        inferred from your competitive posture, is always shown and can be
-        changed; it only decides which answer wins when package value and
-        roster benefit disagree. A trade with no legal roster cleanup is a No.
-        Confidence is a label naming what limits it, never a probability.
-        Switch to <strong>Asset only</strong> to decide on package value alone.
+        The recommendation is one of <strong>Yes, make the trade</strong>, <strong>No</strong>,{" "}
+        <strong>No, too close</strong> (a near tie with complete evidence), or{" "}
+        <strong>Not enough evidence</strong> when something material is missing (an unpriced or
+        unheld asset, a stale or quarantined value, an unknown roster or posture) — it names what
+        is missing instead of guessing. It comes from a fixed rule table, not a weighted score.
+        Your strategy (win now, balanced or long-term) is inferred from your competitive posture
+        and can be changed; it only decides which answer wins when trade value and your lineup
+        disagree. A trade with no legal roster cleanup is a No. Confidence is a label naming what
+        limits it, never a probability. Switch to <strong>Asset only</strong> to decide on trade
+        value alone. While the personalized analysis runs, the War Room shows the calculator&apos;s
+        trade value at once and gives no recommendation until the analysis answers.
       </p>
 
       <h3>Why two even packages can land differently</h3>
@@ -111,18 +113,21 @@ export default function TradeVerdictHelpBody() {
         Equal package value can still help one team and hurt another: an
         incoming player may start every week for one roster and sit on the
         bench behind a better player on another, a trade can force a cut on a
-        full roster, and it can open or close a positional hole. That is the
-        Roster and Feasibility answers — package value never changes because of
-        who receives it.
+        full roster, and it can open or close a positional hole. That is what
+        Impact on your team and Does it fit your roster? answer — package value
+        never changes because of who receives it.
       </p>
 
       <h3>What is uncertain or not included</h3>
       <ul>
         <li>
-          Not included yet: competitive posture (contender or rebuilder),
-          current-season playoff odds, real comparable trades and measured
-          value-uncertainty bands. The War Room lists them under &quot;How this
-          was decided&quot;.
+          Your team&apos;s competitive direction (contender, retooling or
+          rebuilding) sets the strategy but is never counted as a vote, and
+          comparable real trades are shown for reference when the trade ledger
+          has some — they never change the recommendation. Not included yet:
+          the change in this season&apos;s playoff and title odds, and measured
+          value-uncertainty ranges. The War Room lists what is left out under
+          &quot;Sources, simulations and methodology&quot;.
         </li>
         <li>
           The Monte Carlo check, where shown, assumes a ±15% range around any
@@ -130,8 +135,8 @@ export default function TradeVerdictHelpBody() {
           is not the chance the trade works out.
         </li>
         <li>
-          A traded player with no league-scored projection makes the roster
-          answer partial, and it then does not count toward the
+          A traded player with no league-scored projection makes the Impact on
+          your team answer partial, and it then does not count toward the
           recommendation.
         </li>
       </ul>

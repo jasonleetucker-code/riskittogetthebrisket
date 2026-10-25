@@ -16,6 +16,7 @@ Requirements:
 import asyncio
 import base64
 import binascii
+import copy
 import json
 import re
 import math
@@ -91,7 +92,7 @@ from src.history import record as _history_record
 from src.api import push_delivery as _push_delivery
 from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
-from src.api import trade_simulator as _trade_simulator
+from src.api import trade_analyze_runtime as _trade_analyze_runtime
 from src.api import user_kv as _user_kv
 from src.api import league_registry as _league_registry
 from src.api.schemas.leagues import (
@@ -286,19 +287,64 @@ PRIVATE_APP_ALLOWED_USERNAMES = frozenset(
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
 ALERT_COOLDOWN_SEC = 3600
+# Every SMTP socket operation is bounded.  The same 15 s ``_deliver_email_smtp``
+# already uses; ``smtplib``'s default is NO timeout.
+ALERT_SMTP_TIMEOUT_SEC = 15
+# At most one alert delivery in flight.  Also guards ``_last_alert_time``,
+# which the delivery thread writes.
+_alert_lock = threading.Lock()
+_alert_in_flight = False
 
 
 def send_alert(subject: str, body: str):
-    """Send an email alert. Fails silently if not configured."""
-    global _last_alert_time
+    """Send an email alert in the background. Fails silently if not configured.
+
+    Never blocks the caller on the network.  Two callers run ON the event
+    loop — ``get_health`` (stale backups) and ``uptime_watchdog_loop``
+    (consecutive uptime failures) — and this used to connect to
+    ``smtp.gmail.com:465`` synchronously with no timeout, a port the
+    production VPS firewalls (commit 54af3811cc).  A connect to a dropped
+    port waits out the kernel's SYN retries (~127 s per resolved address),
+    and for that span the process answers nothing, ``/api/health``
+    included, which is what the liveness watchdog restarts on.  A failed
+    send never set the cooldown, so every trigger tried again.  Pinned by
+    ``tests/api/test_send_alert_off_loop.py``.
+
+    Delivery runs on a daemon thread with a bounded timeout.  While one is
+    in flight a second alert is dropped (logged), not queued: the first
+    either succeeds, after which the cooldown would suppress the second
+    anyway, or fails against the same unreachable server.
+    """
+    global _alert_in_flight
 
     if not ALERT_ENABLED or not ALERT_FROM or not ALERT_PASSWORD:
         return
 
     now = time.time()
-    if now - _last_alert_time < ALERT_COOLDOWN_SEC:
-        log.info(f"Alert suppressed (cooldown): {subject}")
-        return
+    with _alert_lock:
+        if now - _last_alert_time < ALERT_COOLDOWN_SEC:
+            log.info(f"Alert suppressed (cooldown): {subject}")
+            return
+        if _alert_in_flight:
+            log.info(f"Alert suppressed (another alert is being sent): {subject}")
+            return
+        _alert_in_flight = True
+    try:
+        threading.Thread(
+            target=_deliver_alert,
+            args=(subject, body, now),
+            name="alert-smtp",
+            daemon=True,
+        ).start()
+    except Exception as e:  # noqa: BLE001 — alerting never raises into its caller
+        with _alert_lock:
+            _alert_in_flight = False
+        log.error(f"Failed to start alert delivery: {e}")
+
+
+def _deliver_alert(subject: str, body: str, attempted_at: float) -> None:
+    """The SMTP half of :func:`send_alert`.  Runs on the ``alert-smtp`` thread."""
+    global _last_alert_time, _alert_in_flight
 
     try:
         msg = MIMEMultipart()
@@ -318,14 +364,18 @@ def send_alert(subject: str, body: str):
         """
         msg.attach(MIMEText(html, "html"))
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=ALERT_SMTP_TIMEOUT_SEC) as server:
             server.login(ALERT_FROM, ALERT_PASSWORD)
             server.send_message(msg)
 
-        _last_alert_time = now
+        with _alert_lock:
+            _last_alert_time = attempted_at
         log.info(f"Alert sent: {subject}")
     except Exception as e:
         log.error(f"Failed to send alert email: {e}")
+    finally:
+        with _alert_lock:
+            _alert_in_flight = False
 
 
 # ── PATHS ───────────────────────────────────────────────────────────────
@@ -373,6 +423,11 @@ log = logging.getLogger("dynasty-server")
 # In-memory cache of latest scrape data
 latest_data: dict | None = None
 latest_contract_data: dict | None = None
+#: Set by the lifespan once startup work is done and the app is about to
+#: serve.  CPU-heavy background warm-ups started during the boot prime wait
+#: for it so they do not compete with the prime for the GIL (measured: the
+#: Analyze Trade warm racing the prime added ~5 s to boot-to-ready).
+_SERVING_STARTED = threading.Event()
 latest_data_bytes: bytes | None = None
 latest_data_gzip_bytes: bytes | None = None
 latest_data_etag: str | None = None
@@ -460,6 +515,18 @@ _OVERLAY_PER_FETCH_KEYS = frozenset({"overlayFetchedAt", "tradeWindowStart", "tr
 _OVERRIDES_RESPONSE_CACHE: dict = {}
 _OVERRIDES_ENCODE_LOCKS: dict = {}
 _OVERRIDES_RESPONSE_CACHE_MAX = 16
+# Byte bound (prod memory-pressure follow-up, 2026-10-20).  The count cap
+# alone allowed 16 entries of raw+gzip bytes: measured 6.26-6.5 MiB per delta
+# entry and 16.6-17.3 MiB per ``view=full`` entry, so ~105 / ~280 MB worst
+# case for a client posting distinct ``tep_multiplier`` values.  The budget is
+# sized so that 15 resident delta entries of up to ~8.5 MiB stay under it:
+# for delta bodies (the frontend default) the 16-entry COUNT cap still binds
+# first, so a cycle of distinct delta bodies thrashes at exactly the same
+# point it did before (16), and the byte budget only bites on full-view
+# bodies (~7 resident, worst case ~145 MiB instead of ~280 MB).  Eviction is
+# rebuild-on-next-request (0.9-1.3 s CPU per body measured), never a wrong
+# answer.
+_OVERRIDES_RESPONSE_CACHE_MAX_BYTES = 128 * 1024 * 1024
 latest_data_source: dict = {
     "type": "",
     "path": "",
@@ -973,7 +1040,7 @@ def _get_auth_session(request: Request) -> dict | None:
     expires_at = session.get("expires_at_epoch")
     if isinstance(expires_at, (int, float)) and expires_at > 0:
         if time.time() >= float(expires_at):
-            _drop_auth_session(session_id, "expiry")
+            _drop_auth_session(session_id, "expiry", session=session)
             return None
     # A guest-pass session is only as good as the pass that minted it.
     # Revocation used to only stop NEW logins, so a leaked guest cookie
@@ -981,12 +1048,28 @@ def _get_auth_session(request: Request) -> dict | None:
     # every guest request — a revoke made by ANOTHER process (the
     # verification workflow revokes over SSH, never through this server)
     # takes effect on the very next request, whatever this cache holds.
-    # Fails closed: no expiry, no pass id, an unknown/purged pass or an
-    # unreadable pass store all end the session.
+    # Fails closed, in two strengths:
+    #   * no expiry, no pass id, or a pass that is revoked / expired /
+    #     unknown / purged ENDS the session (evicted from memory and disk);
+    #   * an UNREADABLE pass store refuses THIS request but keeps the
+    #     session.  "Could not read the authority" is not "the authority
+    #     said no": ending the session there turned one transient sqlite
+    #     error into a permanent logout.  Nothing is granted — the next
+    #     request asks again and is refused again until the store answers.
     if str(session.get("auth_method") or "") == "guest_pass":
         bounded = isinstance(expires_at, (int, float)) and expires_at > 0
-        if not bounded or not _guest_passes.session_authority(session.get("guest_pass_id")):
-            _drop_auth_session(session_id, "guest_pass_not_authoritative")
+        if not bounded:
+            _drop_auth_session(session_id, "guest_session_unbounded", session=session)
+            return None
+        authority = _guest_passes.session_authority_state(session.get("guest_pass_id"))
+        if authority == _guest_passes.AUTHORITY_UNKNOWN:
+            log.warning(
+                "auth session refused, kept: reason=guest_pass_store_unreadable guest_pass_id=%s",
+                session.get("guest_pass_id"),
+            )
+            return None
+        if authority != _guest_passes.AUTHORITY_ACTIVE:
+            _drop_auth_session(session_id, "guest_pass_not_authoritative", session=session)
             return None
     # Sliding TTL heartbeat.  Bump ``last_seen_at`` at most once per
     # SESSION_TOUCH_INTERVAL_SECONDS so an actively-used session never
@@ -1013,8 +1096,21 @@ def _get_auth_session(request: Request) -> dict | None:
     return session
 
 
-def _drop_auth_session(session_id: str, reason: str) -> None:
-    """Evict one session from the in-memory cache AND the persistent store."""
+def _drop_auth_session(session_id: str, reason: str, *, session: dict | None = None) -> None:
+    """Evict one session from the in-memory cache AND the persistent store.
+
+    Logs one line naming WHY the session ended, its auth method and — for a
+    guest session — the pass that minted it, so a verification run that loses
+    its session can be read from the journal.  Never the session id or the
+    cookie: the id IS the bearer credential.
+    """
+    info = session if isinstance(session, dict) else {}
+    log.info(
+        "auth session ended: reason=%s auth_method=%s guest_pass_id=%s",
+        reason,
+        str(info.get("auth_method") or "unknown"),
+        info.get("guest_pass_id"),
+    )
     auth_sessions.pop(session_id, None)
     try:
         from src.api import session_store as _ss
@@ -2476,6 +2572,149 @@ def _backup_freshness_uncached() -> dict:
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
+#: Upper bound on how long the warm thread waits for the app to start serving
+#: (the deploy budget for a cold start is ~90 s; past this it warms anyway).
+_ANALYSIS_WARM_BOOT_WAIT_SECONDS = 180.0
+#: How long a warm waits for the prime that started it to publish its board.
+_ANALYSIS_WARM_PUBLISH_WAIT_SECONDS = 120.0
+#: One analysis warm runs at a time, and only the newest one: every prime
+#: bumps the generation, and a warm whose generation is no longer current —
+#: or whose board is not the one being served — exits without warming.
+#: (Startup recovery can prime more than once; a superseded board's warm
+#: must not populate caches ahead of the served one.)
+_ANALYSIS_WARM_LOCK = threading.Lock()
+_ANALYSIS_WARM_GEN_LOCK = threading.Lock()
+_analysis_warm_generation = 0
+
+
+def _next_analysis_warm_generation() -> int:
+    global _analysis_warm_generation
+    with _ANALYSIS_WARM_GEN_LOCK:
+        _analysis_warm_generation += 1
+        return _analysis_warm_generation
+
+
+def _analysis_warm_is_current(contract_payload: dict, generation: int | None) -> bool:
+    """Whether a warm for ``contract_payload`` may still write: it is the newest
+    warm AND its board is the one being served.  ``generation=None`` (a direct
+    call) checks only the board."""
+    if generation is not None and generation != _analysis_warm_generation:
+        return False
+    return latest_contract_data is contract_payload
+
+
+def _warm_trade_analysis_prerequisites(
+    contract_payload: dict, *, generation: int | None = None
+) -> None:
+    """Build what Analyze Trade needs ahead of the first request (sync; runs
+    on the ``trade-analysis-warm`` daemon thread ``_warm_overlays_in_background``
+    starts beside the overlay warm, under the same flag).
+
+    Measured on a production-shaped run: a process-cold ``/api/trade/analyze``
+    spent ~1.6 s building the league's competitive-posture bundle and ~1.2 s
+    loading the projection ensemble and the Sleeper players DB before it
+    simulated anything — on the user's request, after every deploy restart and
+    every new board.  Each step below calls the SAME cached owner the request
+    path calls, with the same inputs, so the request then finds it warm:
+
+    * ``gameplan.get_league_bundle`` for every active league the loaded board
+      may serve (its own league, or one whose scoring is proven identical) —
+      the bundle the posture read builds (it also brings the league's
+      team-strength snapshot current);
+    * ``best_ball_utility._ensemble_index`` for the board's scoring card (a
+      servable league has the same card by definition);
+    * the players DB for every rostered player.
+
+    Warming changes no answer: a cache keyed by its inputs returns what the
+    request would have computed.  Every step degrades silently to "the request
+    builds it itself", which is what happened before this existed.
+
+    Supersession: the prime starts this before it publishes the board, so it
+    first waits (bounded) for ``latest_contract_data`` to BE this board, and
+    re-checks before every step (:func:`_analysis_warm_is_current`).  A warm
+    that is no longer the newest, or whose board is no longer served, stops
+    without starting another step.  A bundle build already under way when a
+    newer board lands is stored under ITS OWN input stamp.  Analyze Trade with
+    Team Context (``build_if_missing=True``) re-checks the stamp and rebuilds,
+    so it is never served there for the newer board; the warm-only readers
+    (Asset-Only analyze, ``/api/trade/simulate``) read that entry unchecked,
+    labelled ``bundleFreshness: last_computed``, until the newer warm —
+    serialized behind this one — builds and replaces it.  In the rare case a
+    late older build lands after the newer one, the next Team Context request
+    pays one rebuild.
+    """
+    started = time.perf_counter()
+    warmed: list[str] = []
+    if generation is not None:
+        deadline = time.monotonic() + _ANALYSIS_WARM_PUBLISH_WAIT_SECONDS
+        while latest_contract_data is not contract_payload:
+            if generation != _analysis_warm_generation or time.monotonic() > deadline:
+                log.info("trade-analysis warm: superseded before its board was served; skipped")
+                return
+            time.sleep(0.25)
+
+    def _current() -> bool:
+        if _analysis_warm_is_current(contract_payload, generation):
+            return True
+        log.info("trade-analysis warm: board superseded; stopping (%s)", ",".join(warmed))
+        return False
+
+    try:
+        meta = contract_payload.get("meta") or {}
+        loaded_league = meta.get("leagueKey")
+        from src.api import gameplan as _gp  # noqa: PLC0415
+
+        for cfg in _league_registry.active_leagues():
+            if not _current():
+                return
+            if (
+                cfg.key != loaded_league
+                and _scoring_identity_error(contract_payload, cfg) is not None
+            ):
+                continue
+            try:
+                _gp.get_league_bundle(
+                    cfg.key, _league_registry.get_scoring_profile(cfg.key), contract_payload
+                )
+                warmed.append(f"bundle:{cfg.key}")
+            except Exception as exc:  # noqa: BLE001 — the request path builds it
+                log.info("trade-analysis warm: bundle %s skipped (%s)", cfg.key, exc)
+        if not _current():
+            return
+        sleeper = contract_payload.get("sleeper") or {}
+        scoring = sleeper.get("scoringSettings") if isinstance(sleeper, dict) else None
+        if isinstance(scoring, dict) and scoring:
+            from src.bdvm.actuals import current_nfl_season  # noqa: PLC0415
+            from src.roster_intel import best_ball_utility as _bbu  # noqa: PLC0415
+
+            season = current_nfl_season()
+            if season is not None:
+                _bbu._ensemble_index(int(season), scoring)  # noqa: SLF001
+                warmed.append("projectionEnsemble")
+        teams = sleeper.get("teams") if isinstance(sleeper, dict) else None
+        rostered = sorted(
+            {
+                str(pid)
+                for t in (teams if isinstance(teams, list) else [])
+                if isinstance(t, dict)
+                for pid in (t.get("playerIds") or [])
+                if pid
+            }
+        )
+        if rostered and _current():
+            from src.api.matchup_intel import players_meta_for_rosters  # noqa: PLC0415
+
+            players_meta_for_rosters([{"players": rostered}])
+            warmed.append("playersDb")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("trade-analysis warm pass failed: %s", exc)
+    log.info(
+        "trade-analysis warm: %s in %.1fs",
+        ",".join(warmed) or "nothing",
+        time.perf_counter() - started,
+    )
+
+
 def _warm_overlays_in_background(contract_payload: dict) -> None:
     """Force-refresh the Sleeper overlay cache for every active league
     on a daemon thread.
@@ -2489,10 +2728,31 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
     Skipped entirely (no thread) when ``SLEEPER_OVERLAY_WARM_ENABLED`` is
     false; requests then fetch the overlay themselves, as they already do
     when they land before the warm finishes.
+
+    Also starts the ``trade-analysis-warm`` thread
+    (:func:`_warm_trade_analysis_prerequisites`) under the same flag — it can
+    reach Sleeper too (a stale team-strength snapshot, the players DB), so it
+    sits behind the same network boundary.
     """
     if not SLEEPER_OVERLAY_WARM_ENABLED:
         log.info("Sleeper overlay warm disabled (SLEEPER_OVERLAY_WARM_ENABLED=false)")
         return
+
+    analysis_generation = _next_analysis_warm_generation()
+
+    def _analysis_worker() -> None:
+        # Analyze Trade's league bundle / projections / players DB, on its
+        # own thread: the loaded league's bundle needs no overlay (the
+        # request path reads the board's own ``sleeper`` block), and the
+        # overlay pass below is ~10 s of Sleeper round-trips a request
+        # arriving right after a restart should not wait behind.  At boot it
+        # starts once the app is serving (never racing the prime); after a
+        # scrape the flag is already set.  One at a time, newest only.
+        _SERVING_STARTED.wait(timeout=_ANALYSIS_WARM_BOOT_WAIT_SECONDS)
+        if analysis_generation != _analysis_warm_generation:
+            return
+        with _ANALYSIS_WARM_LOCK:
+            _warm_trade_analysis_prerequisites(contract_payload, generation=analysis_generation)
 
     def _worker() -> None:
         try:
@@ -2589,6 +2849,14 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
         ).start()
     except Exception as exc:  # noqa: BLE001
         log.warning("post-scrape overlay warm thread failed to start: %s", exc)
+    try:
+        threading.Thread(
+            target=_analysis_worker,
+            name="trade-analysis-warm",
+            daemon=True,
+        ).start()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("trade-analysis warm thread failed to start: %s", exc)
 
 
 # ── Scoring-identity gate (W18-F001) ─────────────────────────────────
@@ -3806,6 +4074,14 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     log.info("retention: %s", _ret.summary())
             except Exception as _ret_exc:  # noqa: BLE001
                 log.warning("retention prune skipped: %s", _ret_exc)
+            # Depth-note shadow counters (LVA-P4): expired days go whatever the
+            # flag says, so retention never depends on the counters running.
+            try:
+                from src.trade import depth_disclosure_shadow as _depth_shadow  # noqa: PLC0415
+
+                _depth_shadow.prune_expired()
+            except Exception as _lvd_exc:  # noqa: BLE001
+                log.warning("depth-disclosure shadow retention skipped: %s", _lvd_exc)
 
             return result
         except Exception as e:
@@ -4035,6 +4311,10 @@ async def lifespan(app: FastAPI):
     log.info(f"Server started — scraping every {SCRAPE_INTERVAL_HOURS}h")
     log.info(f"Dashboard: http://localhost:{PORT}")
 
+    # Background warm-ups that would only slow the boot they race (the
+    # Analyze Trade prerequisites) wait for this.
+    _SERVING_STARTED.set()
+
     yield  # app is running
 
     # Cleanup
@@ -4226,6 +4506,12 @@ _PUBLIC_API_EXACT = frozenset(
         # news" card from this endpoint, so it must be reachable
         # without a session.
         "/api/news",
+        # Unlisted Waiver Wire Comparison page (owner request 2026-10-21).
+        # Read-only: league team names + Sleeper rosters (public on Sleeper)
+        # and two PUBLISHED third-party values (KTC Crowd+Trades, IDPTC)
+        # averaged 50/50.  No canonical/proprietary value is in the payload
+        # (pinned by tests/waiver_compare/test_endpoint.py).
+        "/api/public/waiver-compare",
     }
 )
 # Endpoints that handle their own auth (bearer token, etc.) — the
@@ -4393,33 +4679,16 @@ async def _request_context_middleware(request: Request, call_next):
 
 def _client_ip_from_request(request: Request) -> str:
     """The client identity the RATE LIMITER keys on — attacker-fixed, not
-    attacker-chosen (W22-F002 / V1-103).
+    attacker-chosen (W22-F002 / V1-103; B0-h 2026-10-19).
 
-    ``X-Real-IP`` first: nginx sets it with ``proxy_set_header X-Real-IP
-    $remote_addr`` (deploy/nginx/chaseupside-proxy.conf), which REPLACES
-    anything the client sent — through the proxy it is always the TCP
-    peer nginx actually saw.
-
-    ``X-Forwarded-For`` is different: nginx uses
-    ``$proxy_add_x_forwarded_for``, which APPENDS the real address to
-    whatever the client supplied.  Taking the FIRST entry — what this
-    function did until 2026-08-25 — therefore keyed the limiter on an
-    attacker-chosen string: rotate one header value per request and every
-    public endpoint's limit dissolves.  The one entry our own trusted
-    proxy wrote is the LAST, so the fallback takes that.
-
-    Bare ``request.client.host`` remains for direct (dev/E2E) access.
+    Delegates to the one owner, ``src/api/client_ip.py``: proxy headers
+    (``X-Real-IP``, then the LAST ``X-Forwarded-For`` entry) are honoured only
+    from a trusted peer (loopback nginx or ``RATE_LIMIT_TRUSTED_PROXIES``) and
+    only when they parse as an address; otherwise the TCP peer.
     """
-    real_ip = request.headers.get("x-real-ip", "").strip()
-    if real_ip:
-        return real_ip
-    xff = request.headers.get("x-forwarded-for", "")
-    if xff:
-        last = xff.split(",")[-1].strip()
-        if last:
-            return last
-    client = request.client
-    return client.host if client else ""
+    from src.api.client_ip import client_ip_from_request
+
+    return client_ip_from_request(request)
 
 
 def _overlay_content_identity(overlay: dict) -> str | None:
@@ -4639,15 +4908,27 @@ def _overrides_encode_lock(cache_key) -> asyncio.Lock:
     return lock
 
 
+def _overrides_cache_bytes() -> int:
+    """Raw + gzip bytes held by the overrides memo."""
+    return sum(
+        len(e[0] or b"") + len(e[1] or b"") for e in list(_OVERRIDES_RESPONSE_CACHE.values())
+    )
+
+
 def _evict_overrides_cache_if_oversized(keep_key) -> None:
-    """Bound the overrides memo.  Key space is normally tiny (one stock
-    body × active leagues); the cap only guards against a client
-    spraying distinct bodies.  Held locks are preserved for the same
-    reason as ``_evict_overlay_cache_if_oversized``."""
-    if len(_OVERRIDES_RESPONSE_CACHE) < _OVERRIDES_RESPONSE_CACHE_MAX:
+    """Bound the overrides memo by entry count AND bytes.  Key space is
+    normally tiny (one stock body × active leagues); the caps only guard
+    against a client spraying distinct bodies.  Eviction is the same
+    clear-all-but-``keep_key`` it always was; an evicted body is rebuilt
+    byte-identically on its next request.  Held locks are preserved for
+    the same reason as ``_evict_overlay_cache_if_oversized``."""
+    if (
+        len(_OVERRIDES_RESPONSE_CACHE) < _OVERRIDES_RESPONSE_CACHE_MAX
+        and _overrides_cache_bytes() < _OVERRIDES_RESPONSE_CACHE_MAX_BYTES
+    ):
         return
-    for k in [k for k in _OVERRIDES_RESPONSE_CACHE if k != keep_key]:
-        del _OVERRIDES_RESPONSE_CACHE[k]
+    for k in [k for k in list(_OVERRIDES_RESPONSE_CACHE) if k != keep_key]:
+        _OVERRIDES_RESPONSE_CACHE.pop(k, None)
     for k in [k for k, lk in _OVERRIDES_ENCODE_LOCKS.items() if not lk.locked()]:
         del _OVERRIDES_ENCODE_LOCKS[k]
 
@@ -4866,6 +5147,13 @@ async def get_data(request: Request):
                         requested_league_config=overlay.get("leagueConfig"),
                     )
                 )
+            # B0-g: the overlay's owned picks carry the same canonical
+            # ``boardRowName`` the baked block does (a copy — the overlay's
+            # teams are a shared in-process cache).
+            overlay_full = {
+                **overlay_full,
+                "teams": _overlay_pick_board_rows(overlay_full.get("teams"), canonical),
+            }
             scrubbed["sleeper"] = overlay_full
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
@@ -6557,6 +6845,42 @@ async def get_metrics():
 # a thin adapter: parse query args, delegate, and surface per-provider
 # diagnostics so the frontend can distinguish "empty feed" from "all
 # providers degraded".
+_waiver_compare_service = None
+
+
+@app.get("/api/public/waiver-compare")
+async def get_public_waiver_compare():
+    """Unlisted Waiver Wire Comparison — rosters vs available players, valued.
+
+    Public by owner request; NOT linked anywhere and noindexed.  Values are
+    the plain 50/50 KTC Crowd+Trades / IDPTC average owned by
+    ``src/waiver_compare`` — never ``rankDerivedValue``.
+    """
+    global _waiver_compare_service
+    from src.api import league_registry as _lr  # noqa: PLC0415
+    from src.waiver_compare.service import LEAGUE_KEY, WaiverCompareService  # noqa: PLC0415
+
+    if _waiver_compare_service is None:
+        _waiver_compare_service = WaiverCompareService()
+    cfg = _lr.get_league_by_key(LEAGUE_KEY)
+    league = (
+        {"key": cfg.key, "name": cfg.display_name, "sleeperLeagueId": cfg.sleeper_league_id}
+        if cfg is not None and cfg.active
+        else None
+    )
+    status, body = await run_in_threadpool(
+        _waiver_compare_service.payload, latest_contract_data, league
+    )
+    return JSONResponse(
+        status_code=status,
+        content=body,
+        headers={
+            "Cache-Control": "public, max-age=30" if status == 200 else "no-store",
+            "X-Robots-Tag": "noindex, nofollow",
+        },
+    )
+
+
 @app.get("/api/news")
 async def get_news(request: Request):
     limit_raw = request.query_params.get("limit")
@@ -9025,6 +9349,16 @@ async def get_roster_intelligence(request: Request):
             },
         )
 
+    # Measure the rosters the site SERVES.  ``/api/data`` — where every
+    # page, including /rosters' own team picker and portfolio, gets its
+    # team list — splices the live Sleeper teams overlay over the baked
+    # block.  Reading only the baked block made the Team Strength ladder
+    # lag every membership change by up to one scrape interval, and
+    # indefinitely when a scrape failed: on 2026-10-20 dynasty_main
+    # roster 12 lost its owner, /api/data listed "Team 12", and the
+    # ladder still ranked the departed manager (E2E run 39348160535).
+    contract, roster_membership = await _contract_with_live_rosters(contract, league_cfg)
+
     # The league's DECLARED size, not the roster count: a snapshot
     # missing one roster must not shrink every weakness threshold.
     declared_teams = _roster_intelligence.declared_team_count(league_cfg.key)
@@ -9053,8 +9387,48 @@ async def get_roster_intelligence(request: Request):
             },
         )
 
+    payload["rosterMembership"] = roster_membership
     # Private roster intelligence — never cached by a shared proxy.
     return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
+
+
+async def _contract_with_live_rosters(
+    contract: dict[str, Any], league_cfg: Any
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """``contract`` with its ``sleeper.teams`` replaced by the live teams
+    overlay — the same membership ``/api/data`` serves for the loaded
+    league — plus a ``{source, asOf}`` stamp naming which one was used.
+
+    Only ``teams`` is replaced; every NFL-wide map and league-config field
+    stays the baked block's, exactly as ``/api/data``'s ``live-merge``
+    path does.  A shallow copy: ``latest_contract_data`` is a shared
+    global and must never be mutated.  Any overlay failure degrades to the
+    baked teams with ``source: "contract"`` — the ladder is still correct
+    for the moment that block describes, and the stamp says which moment.
+    Callers must already have proven the contract is for ``league_cfg``.
+    """
+    baked = {"source": "contract", "asOf": None}
+    sleeper = contract.get("sleeper") if isinstance(contract, dict) else None
+    if not isinstance(sleeper, dict):
+        return contract, baked
+    id_map = sleeper.get("idToPlayer")
+    try:
+        overlay = await run_in_threadpool(
+            lambda: _sleeper_overlay.fetch_sleeper_teams_overlay(
+                sleeper_league_id=league_cfg.sleeper_league_id,
+                id_to_player=id_map if isinstance(id_map, dict) else {},
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — degrade to the baked rosters, never 500
+        log.warning("live rosters overlay failed for %s: %s", league_cfg.key, exc)
+        return contract, baked
+    teams = overlay.get("teams") if isinstance(overlay, dict) else None
+    if not isinstance(teams, list) or not teams:
+        return contract, baked
+    return (
+        {**contract, "sleeper": {**sleeper, "teams": teams}},
+        {"source": "live_overlay", "asOf": overlay.get("overlayFetchedAt")},
+    )
 
 
 @app.get("/api/matchup/intel")
@@ -9798,6 +10172,7 @@ def _generated_trade_team_context(
     def capacity_for(opp, give, receive):
         if capacity_context is None:
             return None, None
+        from src.trade.forced_drop_selection import board_package
         from src.trade.roster_capacity import (
             assess_roster_capacity,
             forced_drop_cost,
@@ -9809,6 +10184,8 @@ def _generated_trade_team_context(
                 capacity_context,
                 incoming_players=player_names_only(receive),
                 outgoing_players=player_names_only(give),
+                # Flag forced_drop_cheapest_legal only (None when OFF).
+                package=board_package(give, receive),
             )
         except Exception:  # noqa: BLE001 — an annotation never drops an offer
             return None, None
@@ -11287,6 +11664,36 @@ def _resolve_league_for_request(
     return cfg
 
 
+_OVERLAY_PICK_ROWS_MEMO: dict[str, Any] = {"key": None, "rows": None}
+
+
+def _overlay_pick_board_rows(teams: Any, canonical: Any) -> Any:
+    """Stamp ``boardRowName`` onto overlay ``pickDetails`` (B0-g).
+
+    Same owner as the baked stamp (``pick_value_resolution.
+    stamp_owned_pick_rows``) over the loaded contract's pick rows, indexed
+    once per loaded contract object.
+    """
+    from src.api.data_contract import current_rookie_draft_year
+    from src.api.pick_value_resolution import pick_rows_by_name, stamp_owned_pick_rows
+
+    if not isinstance(canonical, dict) or not isinstance(teams, list):
+        return teams
+    try:
+        # The memo holds the row LIST itself, so identity cannot be reused by
+        # a later contract after this one is garbage-collected.
+        key = canonical.get("playersArray")
+        if _OVERLAY_PICK_ROWS_MEMO["key"] is not key:
+            _OVERLAY_PICK_ROWS_MEMO["rows"] = pick_rows_by_name(canonical)
+            _OVERLAY_PICK_ROWS_MEMO["key"] = key
+        return stamp_owned_pick_rows(
+            teams, _OVERLAY_PICK_ROWS_MEMO["rows"], current_rookie_draft_year()
+        )
+    except Exception:  # noqa: BLE001 — an additive stamp never fails the payload
+        log.warning("overlay boardRowName stamp failed", exc_info=True)
+        return teams
+
+
 def _requested_valuation_mode(request: "Request", body: dict | None = None) -> str:
     """Which board this request is asking for: ``market`` or
     ``leagueAdjusted``.
@@ -11369,10 +11776,9 @@ async def _valuation_scoped_contract(
     # on someone's phone must converge to the canonical answer silently —
     # refusing would turn an obsolete localStorage value into a broken
     # page for a user who never chose anything.
-    requested = _requested_valuation_mode(request, body)
-    if requested == "leagueAdjusted":
-        return source, "market", "league_adjusted_withdrawn: not_canonical"
-    return source, "market", None
+    from src.trade.valuation_scope import scoped_contract  # noqa: PLC0415
+
+    return scoped_contract(source, _requested_valuation_mode(request, body))
 
 
 def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
@@ -12429,8 +12835,17 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     (default), so trades made on Sleeper between scheduled
     refreshes are reflected immediately in per-team dollar totals.
 
-    If the Sleeper join fails or no trades are reported, the
-    workbook's R45:R116 ownership column is used verbatim.
+    Pick ownership is OBSERVED or the board is refused.  The
+    ``/traded_picks`` body is read through
+    ``picks.traded_picks_observation``: a list (even an empty one —
+    "no trades reported", in which case the workbook's R45:R116
+    ownership column stands) is applied.  A failed or non-list fetch,
+    or Sleeper failing before it can be read, refuses the whole board
+    with ``pick_ownership_unavailable`` — the same ``{error, message}``
+    + ``pickOwnershipState`` / ``pickOwnershipReason`` shape as the
+    Sleeper-derived fallback — instead of serving the workbook's
+    hand-entered ownership as current.  With no Sleeper league
+    configured there is nothing to observe and the workbook stands.
 
     ``league_key`` selects which league's Sleeper IDs to use for the
     team-name join.  None resolves to the registry default.
@@ -12503,7 +12918,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     first_name_to_team: dict[str, str] = {}
     all_team_names: list[str] = []
     # (round, slot) → new-owner first name from Sleeper traded_picks.
-    # Empty when Sleeper is unreachable or apply_sleeper_trades=False.
+    # Empty when no trades are reported or apply_sleeper_trades=False
+    # (an unreachable Sleeper refuses the board below instead).
     sleeper_trade_overrides: dict[tuple[int, int], str] = {}
     # Parallel to ``sleeper_trade_overrides`` but carrying the stable
     # roster_id of the pick's new owner.  ``isTraded`` keys off this
@@ -14709,27 +15125,39 @@ def _public_league_metrics_snapshot() -> dict:
 # Best-effort: load the most recent persisted snapshot at process
 # start so a cold-started server can still serve the public /league
 # page while the first Sleeper rebuild is running in the background.
-try:
-    _persisted = public_snapshot_store.load_snapshot()
-    _persisted_error = (
-        _public_snapshot_integrity_error(_persisted) if _persisted is not None else None
-    )
-    if _persisted_error is not None:
-        # A partial snapshot persisted by an older build must not be served
-        # at cold start; the first request rebuilds from Sleeper instead.
-        logging.warning("Ignoring persisted public_league snapshot: %s", _persisted_error)
-        _persisted = None
-    if _persisted is not None and _persisted.seasons:
-        _public_league_cache["snapshot"] = _persisted
-        _public_league_cache["snapshot_league_id"] = _persisted.root_league_id
-        _public_league_cache["fetched_at"] = 0.0  # forces refresh on next hit
-        logging.info(
-            "Loaded persisted public_league snapshot for league %s (%d seasons)",
-            _persisted.root_league_id,
-            len(_persisted.seasons),
+#
+# A FUNCTION, not module-level statements: the snapshot used to be bound
+# to a module global (``_persisted``) that nothing read after boot, so the
+# boot generation stayed reachable for the life of the process after the
+# first rebuild replaced ``_public_league_cache["snapshot"]`` — a second
+# resident copy of the whole multi-season snapshot (measured 46.9 MB on
+# one league; prod memory-pressure incident 2026-10-19).  The cache entry
+# is now the snapshot's only owner.
+def _load_persisted_public_snapshot_at_boot() -> None:
+    try:
+        persisted = public_snapshot_store.load_snapshot()
+        persisted_error = (
+            _public_snapshot_integrity_error(persisted) if persisted is not None else None
         )
-except Exception as _exc:  # noqa: BLE001
-    logging.warning("Public league snapshot load at startup failed: %s", _exc)
+        if persisted_error is not None:
+            # A partial snapshot persisted by an older build must not be served
+            # at cold start; the first request rebuilds from Sleeper instead.
+            logging.warning("Ignoring persisted public_league snapshot: %s", persisted_error)
+            persisted = None
+        if persisted is not None and persisted.seasons:
+            _public_league_cache["snapshot"] = persisted
+            _public_league_cache["snapshot_league_id"] = persisted.root_league_id
+            _public_league_cache["fetched_at"] = 0.0  # forces refresh on next hit
+            logging.info(
+                "Loaded persisted public_league snapshot for league %s (%d seasons)",
+                persisted.root_league_id,
+                len(persisted.seasons),
+            )
+    except Exception as _exc:  # noqa: BLE001
+        logging.warning("Public league snapshot load at startup failed: %s", _exc)
+
+
+_load_persisted_public_snapshot_at_boot()
 
 
 def _is_truthy_flag(value: Any) -> bool:
@@ -15619,6 +16047,14 @@ async def get_league_player_impact(request: Request, season: str = "", playerId:
         computed = _player_impact_cache.get(key)
         if computed is None:
             computed = _player_impact.compute_season(snapshot, target)
+            # A snapshot refresh moves ``generated_at``, so this league's
+            # entries from an older generation can never be looked up again;
+            # drop them instead of letting them occupy the cap (~8.7 MB each,
+            # memory follow-up 2026-10-20).  Other leagues' entries stay.
+            for stale in [
+                k for k in list(_player_impact_cache) if k[0] == key[0] and k[1] != key[1]
+            ]:
+                _player_impact_cache.pop(stale, None)
             while len(_player_impact_cache) >= _PLAYER_IMPACT_CACHE_MAX:
                 _player_impact_cache.pop(next(iter(_player_impact_cache)))
             _player_impact_cache[key] = computed
@@ -17559,6 +17995,9 @@ async def _build_trade_simulation(
     request: Request,
     *,
     for_analysis: bool = False,
+    capture: dict[str, Any] | None = None,
+    clock: "_trade_analyze_runtime.StageClock | None" = None,
+    league_cfg: "_league_registry.LeagueConfig | None" = None,
 ) -> tuple[dict[str, Any] | None, str | None, JSONResponse | None]:
     """Shared body: resolve league/team, run ``trade_simulator.simulate_trade``.
 
@@ -17567,119 +18006,52 @@ async def _build_trade_simulation(
     ``/api/trade/analyze`` (V1-43 / C7-DESK-01) can compose Analyze Trade on
     top of the identical simulation ``/api/trade/simulate`` already returns,
     rather than re-deriving league/team/overlay resolution a second time.
+
+    The simulation itself is ``src.trade.analyze_service.simulate_for_team``
+    (B0-c: the one owner of the 2-team analysis path).  ``capture``, when
+    given, receives the exact ``contract`` the simulation ran against so the
+    analyze path reads provenance from it instead of the global.
+
+    ``clock`` (Analyze Trade only) times each stage of this request; it
+    observes the work and changes none of it.  ``league_cfg``, when given, is
+    the league the caller already resolved for this request (Analyze Trade
+    keys in-flight sharing on it); it is used as-is.
     """
-    session = _get_auth_session(request)
-    if not session:
-        return None, None, JSONResponse(status_code=401, content={"error": "auth_required"})
-    if not latest_contract_data:
-        return (
-            None,
-            None,
-            JSONResponse(
-                status_code=503,
-                content={"error": "No data available yet."},
-            ),
+    clock = clock or _trade_analyze_runtime.StageClock()
+    with clock.stage("resolve"):
+        prepared = await _prepare_trade_simulation(request, league_cfg=league_cfg)
+        if isinstance(prepared, JSONResponse):
+            return None, None, prepared
+        contract, league_cfg, body, session = prepared
+
+        # Lens on top of whatever contract the routing above settled on,
+        # keeping any spliced cross-league ``sleeper`` block.
+        contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+            request, body, league_cfg, base=contract
         )
-    try:
-        body = await request.json()
-    except Exception:
-        body = None
-    if not isinstance(body, dict):
-        return None, None, JSONResponse(status_code=400, content={"error": "invalid_body"})
 
-    # Validate leagueKey but don't require the loaded contract's
-    # leagueKey to match — when the user is on a non-default league
-    # we can splice in a live Sleeper overlay (same trick the
-    # /api/terminal endpoint uses).  Without this, every trade
-    # simulation on League B returns data_not_ready.
-    try:
-        league_cfg = _resolve_league_for_request(request, body=body)
-    except LeagueResolutionError as err:
-        return None, None, err.json_response()
+        team_owner_id = str(body.get("team") or "").strip()
+        team_name = str(body.get("teamName") or "").strip()
 
-    # Build the contract this trade sim runs against.  When the
-    # request league matches the loaded contract, just use it.
-    # When they differ but the scoring is PROVEN to match, splice in
-    # the per-league Sleeper overlay so the resolver can find the
-    # user's team in this league's rosters.
-    contract = latest_contract_data
-    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
-    loaded_league = loaded_meta.get("leagueKey")
-    if loaded_league and loaded_league != league_cfg.key:
-        # Trade simulation needs matching rankings.
-        _scoring_err = _scoring_identity_error(contract, league_cfg)
-        if _scoring_err is not None:
-            return None, None, _scoring_err
-        # Splice in a live overlay for the requested league.
-        loaded_sleeper = contract.get("sleeper") or {}
-        id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else None
-        try:
-            overlay = await run_in_threadpool(
-                _sleeper_overlay.fetch_sleeper_overlay,
-                sleeper_league_id=league_cfg.sleeper_league_id,
-                id_to_player=id_map if isinstance(id_map, dict) else {},
-            )
-        except Exception as exc:  # noqa: BLE001
-            log.warning(
-                "trade-simulate overlay fetch failed for %s: %s",
-                league_cfg.key,
-                exc,
-            )
-            overlay = None
-        if not overlay or not overlay.get("teams"):
+        # Session auto-resolve: if the user didn't pass a team, use
+        # the Sleeper user_id attached to their session.
+        if not team_owner_id and not team_name:
+            team_owner_id = str(session.get("sleeper_user_id") or "").strip()
+
+        resolved_team = _terminal.resolve_team(
+            contract,
+            owner_id=team_owner_id,
+            name=team_name,
+        )
+        if resolved_team is None:
             return (
                 None,
                 None,
                 JSONResponse(
-                    status_code=503,
-                    content={
-                        "error": "data_not_ready",
-                        "message": f"Sleeper overlay for league {league_cfg.key!r} unavailable.",
-                        "leagueKey": league_cfg.key,
-                    },
+                    status_code=404,
+                    content={"error": "team_not_found", "leagueKey": league_cfg.key},
                 ),
             )
-        hybrid_sleeper, _ = _sleeper_overlay.merge_cross_league_sleeper_block(
-            loaded_sleeper=loaded_sleeper if isinstance(loaded_sleeper, dict) else {},
-            overlay=overlay,
-            requested_league_config=overlay.get("leagueConfig"),
-        )
-        contract = {**latest_contract_data, "sleeper": hybrid_sleeper}
-
-    # Lens on top of whatever contract the routing above settled on,
-    # keeping any spliced cross-league ``sleeper`` block.
-    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
-        request, body, league_cfg, base=contract
-    )
-
-    team_owner_id = str(body.get("team") or "").strip()
-    team_name = str(body.get("teamName") or "").strip()
-
-    # Session auto-resolve: if the user didn't pass a team, use
-    # the Sleeper user_id attached to their session.
-    if not team_owner_id and not team_name:
-        team_owner_id = str(session.get("sleeper_user_id") or "").strip()
-
-    resolved_team = _terminal.resolve_team(
-        contract,
-        owner_id=team_owner_id,
-        name=team_name,
-    )
-    if resolved_team is None:
-        return (
-            None,
-            None,
-            JSONResponse(
-                status_code=404,
-                content={"error": "team_not_found", "leagueKey": league_cfg.key},
-            ),
-        )
-
-    def _str_list(key):
-        vs = body.get(key) or []
-        if not isinstance(vs, list):
-            return []
-        return [str(x) for x in vs if isinstance(x, (str, int)) and str(x).strip()]
 
     # Use Team Context (#842): default ON, and only an explicit boolean
     # ``false`` turns it off — the same rule ``/api/trade/finder`` applies.
@@ -17687,6 +18059,12 @@ async def _build_trade_simulation(
     from src.trade.team_context import team_context_requested
 
     use_team_context = team_context_requested(body)
+
+    def _str_list(key):
+        vs = body.get(key) or []
+        if not isinstance(vs, list):
+            return []
+        return [str(x) for x in vs if isinstance(x, (str, int)) and str(x).strip()]
 
     def _picks_with_ids(key: str, ids_key: str) -> tuple[list[str], list[str | None]]:
         # Wave A: ``pickAssetIdsIn`` / ``pickAssetIdsOut`` run PARALLEL to the
@@ -17710,48 +18088,149 @@ async def _build_trade_simulation(
 
     picks_in, pick_ids_in = _picks_with_ids("picksIn", "pickAssetIdsIn")
     picks_out, pick_ids_out = _picks_with_ids("picksOut", "pickAssetIdsOut")
+    # B0-b: ``playerIdsIn`` / ``playerIdsOut`` run PARALLEL to the player
+    # lists (``null`` for a name without an id).  An entry with an id resolves
+    # by Sleeper id only — two players sharing a name cannot price as each
+    # other.  Same alignment rule as the pick ids above.
+    players_in, player_ids_in = _picks_with_ids("playersIn", "playerIdsIn")
+    players_out, player_ids_out = _picks_with_ids("playersOut", "playerIdsOut")
 
+    from src.trade import analyze_service as _analyze_service  # noqa: PLC0415
+
+    # B0-c: posture (Wave B, C7-POST-01 — Analyze Trade may build the league
+    # bundle; a plain simulate reads a warm one only), the simulation and the
+    # ``teamContext`` stamp all come from the ONE 2-team analysis owner.  The
+    # request clock observes its ``posture`` / ``simulation`` stages.
     result = await run_in_threadpool(
-        _trade_simulator.simulate_trade,
+        _analyze_service.simulate_for_team,
         contract,
+        league_key=league_cfg.key,
+        roster_settings=dict(league_cfg.roster_settings or {}),
         resolved_team=resolved_team,
-        players_in=_str_list("playersIn"),
-        players_out=_str_list("playersOut"),
+        players_in=players_in,
+        players_out=players_out,
+        player_ids_in=player_ids_in,
+        player_ids_out=player_ids_out,
         picks_in=picks_in,
         picks_out=picks_out,
-        pick_asset_ids_in=pick_ids_in,
-        pick_asset_ids_out=pick_ids_out,
-        roster_settings=dict(league_cfg.roster_settings or {}),
-        league_key=league_cfg.key,
-        include_roster_utility=for_analysis and use_team_context,
-        # Wave B (C7-POST-01): the canonical posture, resolved here so the
-        # simulator stays pure.  Analyze Trade may build the league bundle;
-        # a plain simulate reads a warm one only.
-        competitive_posture=await run_in_threadpool(
-            _trade_simulator.competitive_posture_for,
-            contract,
-            league_cfg.key,
-            resolved_team,
-            build_if_missing=for_analysis and use_team_context,
-        ),
+        pick_ids_in=pick_ids_in,
+        pick_ids_out=pick_ids_out,
+        team_context=use_team_context,
+        for_analysis=for_analysis,
+        stage=clock.stage,
     )
-    if for_analysis:
-        result["teamContext"] = {
-            "applied": use_team_context,
-            "mode": "team" if use_team_context else "asset_only",
-        }
+    if capture is not None:
+        capture["contract"] = contract
     # Attached AFTER the simulation, never inside it: ``trade_simulator`` does
     # not import exposure, so there is no edge along which it could reach
     # equity, team impact or Analyze Trade (C2-EXP-01 non-influence).
-    result["nflExposure"] = _trade_nfl_exposure_block(
-        contract,
-        resolved_team,
-        players_in=_str_list("playersIn"),
-        players_out=_str_list("playersOut"),
-    )
+    with clock.stage("exposure"):
+        result["nflExposure"] = _trade_nfl_exposure_block(
+            contract,
+            resolved_team,
+            players_in=_str_list("playersIn"),
+            players_out=_str_list("playersOut"),
+        )
     result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    # LVA Package 4 (owner decision 2026-10-21): hidden depth-note SHADOW
+    # counters, default OFF.  Snapshots what it reads and counts on a
+    # background worker: the request never waits, and the payload is
+    # byte-identical either way (tests/trade/test_depth_disclosure_shadow.py).
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    if _ff.is_enabled("low_value_depth_disclosure_shadow"):
+        from src.trade import depth_disclosure_shadow as _depth_shadow  # noqa: PLC0415
+
+        _depth_shadow.submit_evaluation(
+            result,
+            contract=contract,
+            league_key=league_cfg.key,
+            roster_settings=dict(league_cfg.roster_settings or {}),
+            surface="war_room" if for_analysis else "calculator",
+        )
     return result, league_cfg.key, None
+
+
+async def _prepare_trade_simulation(
+    request: Request, *, league_cfg: "_league_registry.LeagueConfig | None" = None
+):
+    """Auth, body, league and cross-league overlay splice for one trade
+    request.  Returns a :class:`JSONResponse` on any refusal, else
+    ``(contract, league_cfg, body, session)``.  A ``league_cfg`` the caller
+    already resolved for this request is used instead of resolving again."""
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    if not latest_contract_data:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "No data available yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+
+    # Validate leagueKey but don't require the loaded contract's
+    # leagueKey to match — when the user is on a non-default league
+    # we can splice in a live Sleeper overlay (same trick the
+    # /api/terminal endpoint uses).  Without this, every trade
+    # simulation on League B returns data_not_ready.
+    if league_cfg is None:
+        try:
+            league_cfg = _resolve_league_for_request(request, body=body)
+        except LeagueResolutionError as err:
+            return err.json_response()
+
+    # Build the contract this trade sim runs against.  When the
+    # request league matches the loaded contract, just use it.
+    # When they differ but the scoring is PROVEN to match, splice in
+    # the per-league Sleeper overlay so the resolver can find the
+    # user's team in this league's rosters.
+    contract = latest_contract_data
+    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+    loaded_league = loaded_meta.get("leagueKey")
+    if loaded_league and loaded_league != league_cfg.key:
+        # Trade simulation needs matching rankings.
+        _scoring_err = _scoring_identity_error(contract, league_cfg)
+        if _scoring_err is not None:
+            return _scoring_err
+        # Splice in a live overlay for the requested league.
+        loaded_sleeper = contract.get("sleeper") or {}
+        id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else None
+        try:
+            overlay = await run_in_threadpool(
+                _sleeper_overlay.fetch_sleeper_overlay,
+                sleeper_league_id=league_cfg.sleeper_league_id,
+                id_to_player=id_map if isinstance(id_map, dict) else {},
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "trade-simulate overlay fetch failed for %s: %s",
+                league_cfg.key,
+                exc,
+            )
+            overlay = None
+        if not overlay or not overlay.get("teams"):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": f"Sleeper overlay for league {league_cfg.key!r} unavailable.",
+                    "leagueKey": league_cfg.key,
+                },
+            )
+        hybrid_sleeper, _ = _sleeper_overlay.merge_cross_league_sleeper_block(
+            loaded_sleeper=loaded_sleeper if isinstance(loaded_sleeper, dict) else {},
+            overlay=overlay,
+            requested_league_config=overlay.get("leagueConfig"),
+        )
+        contract = {**latest_contract_data, "sleeper": hybrid_sleeper}
+
+    return contract, league_cfg, body, session
 
 
 def _trade_nfl_exposure_block(
@@ -17835,67 +18314,621 @@ async def post_trade_analyze(request: Request):
     comparable real trades for the package as the non-voting
     ``marketCorroboration`` lens (TC-09).  Optional body field ``teamGoal``
     overrides the posture-inferred strategy and is echoed back.
-    """
-    result, league_key, error = await _build_trade_simulation(request, for_analysis=True)
-    if error is not None:
-        return error
-    from src.trade import comparable_trades as _comparable  # noqa: PLC0415
-    from src.trade.analyze_trade import analyze_trade
 
-    # Comparable real trades for this exact package — context for the
-    # packet's ``marketCorroboration`` lens, which never votes.  Any failure
-    # is reported as that lens being unavailable, never as a broken analysis.
+    Request runtime (``src.api.trade_analyze_runtime``; additive, every
+    existing field unchanged):
+
+    * ``analysisTiming`` — measured server wall time per stage of THIS request
+      (``resolve`` / ``posture`` / ``simulation`` / ``exposure`` /
+      ``comparables`` / ``decision`` / ``receipt``), also sent as a standard
+      ``Server-Timing`` header.  Diagnostics only; nothing reads it to decide.
+    * ``X-Analysis-Request-Id`` request header (8-64 of ``[A-Za-z0-9_-]``) —
+      the server records which stage this request is executing, readable by
+      the same signed-in user at ``GET /api/trade/analyze/status``.
+    * An identical request from the same user, against the same loaded board,
+      that arrives while the first is still running shares that computation
+      (``analysisTiming.sharedComputation``) when it succeeds or is refused for
+      a request-scoped reason (400 / 404).  If it fails (an exception, a 5xx,
+      a 401), the joiners make one shared retry instead.  Each request still
+      gets its own decision receipt.  Nothing is retained once it finishes.
+      Guest-pass sessions get the total time only, and their status reads
+      give the state and current phase only.
+    """
+    # The clock starts first, so ``resolve`` covers the body parse and the
+    # league resolution below as well as the simulation's own resolve step.
+    clock = _trade_analyze_runtime.StageClock()
+    session = _get_auth_session(request)
+    owner = _trade_analyze_runtime.session_owner(
+        session, request.cookies.get(JASON_AUTH_COOKIE_NAME)
+    )
+    # Guests get the total time only: per-stage times can reveal whether the
+    # shared before-roster cache was warm (someone recently simulated a team).
+    detail = not _trade_analyze_runtime.is_guest(session)
+    request_id = _trade_analyze_runtime.request_id_from(
+        request.headers.get("x-analysis-request-id")
+    )
+    with clock.stage("resolve"):
+        try:
+            _body = await request.json()
+        except Exception:  # noqa: BLE001 -- the simulation reports the bad body
+            _body = None
+        # The league is resolved ONCE, here, and handed to the computation: it
+        # can come from the query string, the body or the user's saved active
+        # league, so it must be part of the sharing key, and the computation
+        # must answer for exactly the league in its key.  An unresolvable
+        # request takes the normal path and gets its normal refusal.
+        league_cfg = None
+        if session and isinstance(_body, dict) and latest_contract_data:
+            try:
+                league_cfg = _resolve_league_for_request(request, body=_body)
+            except LeagueResolutionError:
+                league_cfg = None
+    # Progress is recorded only for a request that passed validation (signed
+    # in, a JSON object body, a board loaded, a league resolved).
+    progress = (
+        _trade_analyze_runtime.PROGRESS.begin(owner, request_id, detail=detail)
+        if owner and request_id and league_cfg is not None
+        else None
+    )
+    clock.progress = progress
+    if progress is not None:
+        progress.stage_done("resolve", round(dict(clock.stages()).get("resolve", 0.0), 1))
+    key = _trade_analyze_runtime.dedup_key(
+        owner,
+        session,
+        _body,
+        latest_contract_data,
+        league_key=league_cfg.key if league_cfg is not None else None,
+        query_items=request.query_params.multi_items(),
+    )
     try:
-        if not league_key:
-            raise LookupError("league not resolved")
-        comparables = await run_in_threadpool(
-            _comparable.comparable_trades,
-            league_key,
-            side_a=_comparable.side_refs_from_assets(result.get("receiving") or []),
-            side_b=_comparable.side_refs_from_assets(result.get("sending") or []),
-            names=_board_names_by_player_id(),
+        if key is None:
+            outcome = await _compute_trade_analysis(request, _body, clock, league_cfg)
+            shared = False
+        else:
+            outcome, shared = await _TRADE_ANALYZE_FLIGHTS.run(
+                key,
+                lambda: _compute_trade_analysis(request, _body, clock, league_cfg),
+                on_join=(
+                    (lambda: progress.phase(_trade_analyze_runtime.JOINED))
+                    if progress is not None
+                    else None
+                ),
+                share_if=_analysis_outcome_shareable,
+                personal_if=_analysis_outcome_personal,
+                label=request_id,
+            )
+    except BaseException as exc:  # CancelledError too: the client went away
+        if progress is not None:
+            progress.finish(
+                _trade_analyze_runtime.CANCELLED
+                if isinstance(exc, asyncio.CancelledError)
+                else _trade_analyze_runtime.FAILED
+            )
+        raise
+    result, league_key, error, shared_stages = outcome
+    if error is not None:
+        if progress is not None:
+            progress.finish(_trade_analyze_runtime.FAILED)
+        if not shared:
+            return error
+        # A request that shared the computation gets its own response object
+        # (same status and body), never one object sent twice.
+        return JSONResponse(
+            status_code=error.status_code,
+            content=json.loads(bytes(error.body).decode("utf-8")),
         )
-    except Exception:  # noqa: BLE001 — evidence-only; the verdict never depends on it
-        log.warning("analyze: comparable trades unavailable", exc_info=True)
-        comparables = {"state": "unavailable", "reason": "comparables_error"}
-    # Owner decision 2 (TC-C): an explicit strategy override travels in the
-    # body as ``teamGoal`` (WIN_NOW / BALANCED / LONG_TERM); the decision
-    # echoes it back.  Absent -> inferred from competitive posture.
-    try:
-        _body = await request.json()
-    except Exception:  # noqa: BLE001 -- the simulation already parsed it
-        _body = {}
-    _team_goal = _body.get("teamGoal") if isinstance(_body, dict) else None
-    _meta = (
-        (latest_contract_data or {}).get("meta") if isinstance(latest_contract_data, dict) else None
-    )
-    result["analysis"] = analyze_trade(
-        result,
-        comparables=comparables,
-        team_goal=_team_goal,
-        provenance={
-            "boardStamp": (_meta or {}).get("generatedAt") if isinstance(_meta, dict) else None,
-            "scoringFingerprint": (_meta or {}).get("scoringFingerprint")
-            if isinstance(_meta, dict)
-            else None,
-        },
-    )
+    # A request that shared another's computation gets its own copy: the
+    # receipt below is per request and must not land in the other's payload.
+    if shared:
+        result = copy.deepcopy(result)
     # Decision receipt (TC-C): one line in the decision's own run log, the
     # AL-P5 arrangement Best Offers uses.  Best effort; never changes the
     # response beyond naming the run.
     from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
 
-    result["analysis"]["decisionRunId"] = record_decision(
-        result["analysis"],
-        league_key=league_key,
-        team=(result.get("team") or {}).get("name")
-        if isinstance(result.get("team"), dict)
-        else None,
+    with clock.stage("receipt"):
+        result["analysis"]["decisionRunId"] = record_decision(
+            result["analysis"],
+            league_key=league_key,
+            team=(result.get("team") or {}).get("name")
+            if isinstance(result.get("team"), dict)
+            else None,
+        )
+    result["analysisTiming"] = clock.to_dict(
+        shared_stages=shared_stages if shared else None, detail=detail
     )
+    if progress is not None:
+        progress.finish("complete")
     return JSONResponse(
         content=result,
-        headers={"Cache-Control": "no-store"},
+        headers={
+            "Cache-Control": "no-store",
+            "Server-Timing": clock.server_timing(detail=detail),
+        },
     )
+
+
+_TRADE_ANALYZE_FLIGHTS = _trade_analyze_runtime.AsyncSingleFlight()
+
+#: Refusals that are a fact about the REQUEST (its body, its league, its
+#: team), so an identical request gets the same one.  Anything else — a 5xx
+#: (possibly transient), a 401/403 (about the leader's session, not the key) —
+#: is never handed to a joiner; the joiners make one shared retry instead.
+_SHAREABLE_REFUSAL_STATUSES = frozenset({400, 404})
+
+
+def _analysis_outcome_shareable(outcome) -> bool:
+    error = outcome[2]
+    return error is None or error.status_code in _SHAREABLE_REFUSAL_STATUSES
+
+
+#: Refusals about the CALLER's own session.  Never handed to another request
+#: at any stage, including from the shared retry after a failed computation.
+_PERSONAL_REFUSAL_STATUSES = frozenset({401, 403})
+
+
+def _analysis_outcome_personal(outcome) -> bool:
+    error = outcome[2]
+    return error is not None and error.status_code in _PERSONAL_REFUSAL_STATUSES
+
+
+async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg=None):
+    """Simulation + comparables + decision for one analyze request.
+
+    Returns ``(result, league_key, error_response, stages)`` — ``stages`` a
+    snapshot of this computation's stage times, frozen when it ends, so a
+    request that shared it never sees the creator's later (per-request)
+    stages.  Everything an identical in-flight request may share; the
+    per-request decision receipt is added by the route.  ``league_cfg`` is the
+    league the route resolved (and keyed the sharing on); ``None`` resolves it
+    here.
+    """
+    _captured: dict[str, Any] = {}
+    result, league_key, error = await _build_trade_simulation(
+        request, for_analysis=True, clock=clock, league_cfg=league_cfg, capture=_captured
+    )
+    if error is not None:
+        return None, None, error, clock.stages()
+    from src.trade import comparable_trades as _comparable  # noqa: PLC0415
+
+    # Comparable real trades for this exact package — context for the
+    # packet's ``marketCorroboration`` lens, which never votes.  Any failure
+    # is reported as that lens being unavailable, never as a broken analysis.
+    with clock.stage("comparables"):
+        try:
+            if not league_key:
+                raise LookupError("league not resolved")
+            comparables = await run_in_threadpool(
+                _comparable.comparable_trades,
+                league_key,
+                side_a=_comparable.side_refs_from_assets(result.get("receiving") or []),
+                side_b=_comparable.side_refs_from_assets(result.get("sending") or []),
+                names=_board_names_by_player_id(),
+            )
+        except Exception:  # noqa: BLE001 — evidence-only; the verdict never depends on it
+            log.warning("analyze: comparable trades unavailable", exc_info=True)
+            comparables = {"state": "unavailable", "reason": "comparables_error"}
+    # Owner decision 2 (TC-C): an explicit strategy override travels in the
+    # body as ``teamGoal`` (WIN_NOW / BALANCED / LONG_TERM); the decision
+    # echoes it back.  Absent -> inferred from competitive posture.
+    _team_goal = body.get("teamGoal") if isinstance(body, dict) else None
+    from src.trade import analyze_service as _analyze_service  # noqa: PLC0415
+
+    # Provenance comes from the contract the simulation ran against (B0-c),
+    # not a second read of the global, which a publish could have swapped.
+    with clock.stage("decision"):
+        result["analysis"] = _analyze_service.analyze_for_team(
+            result,
+            contract=_captured.get("contract"),
+            comparables=comparables,
+            team_goal=_team_goal,
+        )
+    return result, league_key, None, clock.stages()
+
+
+# ── N-team trade analysis (private; spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §3) ──
+
+_TRADE_ANALYZE_MULTI_FLIGHTS = _trade_analyze_runtime.AsyncSingleFlight()
+
+
+def _multi_error(status: int, error: str, message: str, **extra: Any) -> JSONResponse:
+    """The private N-team error shape: ``{error, message, reason?, assetIds?,
+    rosterIds?}``, never cached."""
+    content: dict[str, Any] = {"error": error, "message": message}
+    content.update({k: v for k, v in extra.items() if v not in (None, [], ())})
+    return JSONResponse(status_code=status, content=content, headers={"Cache-Control": "no-store"})
+
+
+_MULTI_REASON_TEXT = {
+    "too_few_teams": "A trade needs at least two teams.",
+    "duplicate_team": "Each team can be listed only once.",
+    "too_many_teams": "This trade has more teams than are supported.",
+    "team_not_in_league": "Every team must belong to this league.",
+    "empty_trade": "Add at least one asset to the trade.",
+    "too_many_assets": "This trade has more assets than are supported.",
+    "unknown_asset": "One or more assets do not exist in this league.",
+    "duplicate_asset": "An asset can move only once in a trade.",
+    "invalid_origin": "Every asset must be sent by a team in the trade.",
+    "invalid_destination": "Every asset must go to a team in the trade.",
+    "destination_is_origin": "An asset cannot be sent to the team that already holds it.",
+    "idle_team": "Every listed team must send or receive at least one asset.",
+    "one_sided_trade": "Every team in the trade must both send and receive at least one asset.",
+    "asset_not_owned": "One or more assets are not held by the team sending them.",
+    "perspective_not_in_trade": "The selected team must be part of the trade.",
+}
+
+
+def _parse_multi_body(body: Any) -> tuple[dict[str, Any] | None, str | None]:
+    """Type-check the ``/api/trade/analyze-multi`` body.  ``(parsed, None)`` or
+    ``(None, field)`` naming the first malformed field.  Use Team Context is
+    read through its one owner (``src.trade.team_context``)."""
+    from src.trade.team_context import team_context_requested  # noqa: PLC0415
+
+    def _int(v: Any) -> bool:
+        return isinstance(v, int) and not isinstance(v, bool)
+
+    if not isinstance(body, dict):
+        return None, "body"
+    teams = body.get("teams")
+    if not isinstance(teams, list) or not all(_int(t) for t in teams):
+        return None, "teams"
+    assets = body.get("assets")
+    if not isinstance(assets, list):
+        return None, "assets"
+    legs = []
+    for a in assets:
+        if not (
+            isinstance(a, dict)
+            and isinstance(a.get("id"), str)
+            and _int(a.get("from"))
+            and _int(a.get("to"))
+        ):
+            return None, "assets"
+        legs.append({"id": a["id"], "from": a["from"], "to": a["to"]})
+    for key in ("useTeamContext", "counterfactuals"):
+        if key in body and not isinstance(body[key], bool):
+            return None, key
+    perspective = body.get("perspectiveRosterId")
+    if perspective is not None and not _int(perspective):
+        return None, "perspectiveRosterId"
+    expected = body.get("expectedGeneration")
+    if expected is not None and not isinstance(expected, str):
+        return None, "expectedGeneration"
+    goals_raw = body.get("teamGoals") or {}
+    if not isinstance(goals_raw, dict):
+        return None, "teamGoals"
+    goals: dict[int, Any] = {}
+    for k, v in goals_raw.items():
+        try:
+            rid = int(k)
+        except (TypeError, ValueError):
+            return None, "teamGoals"
+        if v is not None and not isinstance(v, str):
+            return None, "teamGoals"
+        goals[rid] = v
+    return {
+        "teams": list(teams),
+        "legs": legs,
+        "useTeamContext": team_context_requested(body),
+        "counterfactuals": body.get("counterfactuals", True) is not False,
+        "perspective": perspective,
+        "expectedGeneration": expected,
+        "teamGoals": goals,
+    }, None
+
+
+@app.post("/api/trade/analyze-multi")
+async def post_trade_analyze_multi(request: Request):
+    """N-team Analyze Trade — every participating team's own analysis.
+
+    Gated by ``trade_multi_team_analysis`` (default OFF; 503
+    ``multi_team_analysis_disabled``).  ``/api/trade/analyze`` is unchanged.
+
+    Body::
+
+        {"leagueKey": "...",                 # optional; the normal resolver
+         "teams": [3, 7, 11],                # rosterIds, 2..maxTeams
+         "assets": [{"id": "p:4046", "from": 3, "to": 7}, ...],
+         "useTeamContext": true,             # false -> asset-only
+         "teamGoals": {"3": "WIN_NOW"},      # optional per-team override
+         "counterfactuals": true,
+         "perspectiveRosterId": 3,           # optional; echoed only
+         "expectedGeneration": "..."}        # optional; drives snapshotChanged
+
+    Assets are ``p:<sleeperId>`` or canonical league pick ids; labels never
+    identify an asset.  The ledger is validated against ONE snapshot
+    (``src/trade/trade_ledger.py``), every team is analysed by the shared
+    owner (``analyze_service.analyze_trade_n``: one YES / NO / NO_TOO_CLOSE /
+    NOT_ENOUGH_EVIDENCE decision per team, its category and its market
+    fairness), and the all-team summary is a projection of those — there is
+    no trade-level recommendation.  Recommendation only: nothing executes.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    if not is_enabled("trade_multi_team_analysis"):
+        return _multi_error(
+            503,
+            "multi_team_analysis_disabled",
+            "Multi-team trade analysis is not enabled.",
+        )
+    clock = _trade_analyze_runtime.StageClock()
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    detail = not _trade_analyze_runtime.is_guest(session)
+    owner = _trade_analyze_runtime.session_owner(
+        session, request.cookies.get(JASON_AUTH_COOKIE_NAME)
+    )
+    with clock.stage("resolve"):
+        try:
+            raw_body = await request.json()
+        except Exception:  # noqa: BLE001
+            raw_body = None
+        parsed, bad_field = _parse_multi_body(raw_body)
+        if parsed is None:
+            return _multi_error(
+                400,
+                "invalid_request",
+                "The request body is malformed.",
+                field=bad_field,
+            )
+        prepared = await _prepare_trade_simulation(request)
+        if isinstance(prepared, JSONResponse):
+            return prepared
+        contract, league_cfg, body, session = prepared
+        contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+            request, body, league_cfg, base=contract
+        )
+        meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+        if (
+            meta.get("leagueKey") in (None, league_cfg.key)
+            and meta.get("sleeperDataReady") is False
+        ):
+            return _multi_error(
+                503, "data_not_ready", "League rosters are not ready.", leagueKey=league_cfg.key
+            )
+        from src.trade import analyze_service as _svc  # noqa: PLC0415
+        from src.trade import trade_ledger as _ledger  # noqa: PLC0415
+
+        if not _svc.package_model_ready():
+            return _multi_error(
+                503,
+                "package_model_unavailable",
+                "Multi-team analysis needs the active package model.",
+            )
+        try:
+            snap = _ledger.snapshot_for(
+                contract,
+                league_key=league_cfg.key,
+                roster_settings=dict(league_cfg.roster_settings or {}),
+            )
+        except LookupError:
+            return _multi_error(
+                503, "data_not_ready", "League rosters are not ready.", leagueKey=league_cfg.key
+            )
+        policy = _ledger.private_policy()
+        try:
+            ledger = _ledger.validate_ledger(
+                snap, teams=parsed["teams"], legs=parsed["legs"], policy=policy
+            )
+        except _ledger.LedgerError as err:
+            return _multi_error(
+                err.status,
+                err.error,
+                _MULTI_REASON_TEXT.get(err.reason, "This trade is not valid."),
+                reason=err.reason,
+                assetIds=list(err.asset_ids),
+                rosterIds=list(err.roster_ids),
+            )
+        perspective = parsed["perspective"]
+        if perspective is not None and perspective not in ledger.teams:
+            return _multi_error(
+                400,
+                "invalid_trade",
+                _MULTI_REASON_TEXT["perspective_not_in_trade"],
+                reason="perspective_not_in_trade",
+                rosterIds=[perspective],
+            )
+    mode = "team_context" if parsed["useTeamContext"] else "asset_only"
+    goals = {rid: g for rid, g in parsed["teamGoals"].items() if rid in ledger.teams}
+    league_key = league_cfg.key
+
+    def _comparables(flows, simulation):
+        from src.trade import comparable_trades as _comparable  # noqa: PLC0415
+
+        return _comparable.comparable_trades(
+            league_key,
+            side_a=_comparable.side_refs_from_assets(simulation.get("receiving") or []),
+            side_b=_comparable.side_refs_from_assets(simulation.get("sending") or []),
+            names=_board_names_by_player_id(),
+        )
+
+    def _compute():
+        return _svc.analyze_trade_n(
+            snap,
+            ledger,
+            mode=mode,
+            counterfactuals=parsed["counterfactuals"],
+            team_goals=goals,
+            comparables_provider=_comparables,
+            stage=clock.stage,
+        )
+
+    from src.api import compute_admission as _admission_mod  # noqa: PLC0415
+
+    admission = _admission_mod.admission_for(_admission_mod.ROUTE_ANALYZE_MULTI)
+
+    async def _run():
+        # R2-5: each COMPUTATION takes an admission slot (joined waiters do
+        # not); a full route refuses at once instead of queueing on the GIL.
+        try:
+            return await admission.admit(lambda: run_in_threadpool(_compute)), None
+        except _admission_mod.AdmissionRejected as exc:
+            return None, f"admission_{exc.reason}"
+        except _svc.PackageModelUnavailable:
+            return None, "package_model_unavailable"
+        except _svc.ConservationViolation as exc:
+            log.error("analyze-multi: invariant violation, refusing: %s", exc)
+            return None, "internal_error"
+
+    key = (
+        "analyze-multi",
+        owner,
+        league_key,
+        snap.generation,
+        hashlib.sha256(ledger.canonical_key().encode("utf-8")).hexdigest(),
+        mode,
+        json.dumps({str(k): v for k, v in goals.items()}, sort_keys=True),
+        parsed["counterfactuals"],
+    )
+
+    async def _await_result():
+        if owner:
+            return await _TRADE_ANALYZE_MULTI_FLIGHTS.run(
+                key,
+                _run,
+                # A refusal is about load at that instant, never a result
+                # another caller should inherit: a joiner retries once.
+                share_if=lambda out: not str(out[1] or "").startswith("admission_"),
+            )
+        return await _run(), False
+
+    try:
+        # R2-5: the caller waits at most the route's admission deadline; the
+        # computation itself keeps running (and keeps its slot) until done, so
+        # an identical retry joins it instead of starting another.
+        (result, failure), shared = await admission.within_deadline(_await_result)
+    except _admission_mod.AdmissionRejected as exc:
+        failure, result, shared = f"admission_{exc.reason}", None, False
+    if failure in ("admission_busy", "admission_timeout"):
+        retry = str(_admission_mod.RETRY_AFTER_SECONDS)
+        busy = failure == "admission_busy"
+        resp = _multi_error(
+            503,
+            "analysis_busy" if busy else "analysis_timeout",
+            (
+                "Multi-team analysis is busy right now. Try again in a moment."
+                if busy
+                else "Multi-team analysis took too long to answer. Try again."
+            ),
+            retryable=True,
+            retryAfterSeconds=_admission_mod.RETRY_AFTER_SECONDS,
+        )
+        resp.headers["Retry-After"] = retry
+        return resp
+    if failure == "package_model_unavailable":
+        return _multi_error(
+            503, "package_model_unavailable", "Multi-team analysis needs the active package model."
+        )
+    if failure is not None or result is None:
+        return _multi_error(500, "internal_error", "The trade could not be analysed.")
+    if shared:
+        result = copy.deepcopy(result)
+
+    from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
+
+    response = _svc.multi_team_payload(
+        result,
+        snap=snap,
+        ledger=ledger,
+        league_key=league_key,
+        perspective=perspective,
+        expected_generation=parsed["expectedGeneration"],
+    )
+    decision_run_ids: dict[str, Any] = {}
+    with clock.stage("receipt"):
+        for t in response["teams"]:
+            run_id = record_decision(
+                t["analysis"], league_key=league_key, team=(t.get("team") or {}).get("name")
+            )
+            t["analysis"]["decisionRunId"] = run_id
+            decision_run_ids[str(t["rosterId"])] = run_id
+    response["decisionRunIds"] = decision_run_ids
+    response["tradeRunId"] = uuid.uuid4().hex
+    response["analysisTiming"] = clock.to_dict(detail=detail)
+    _stamp_valuation_mode(response, valuation_mode, valuation_note)
+    return JSONResponse(
+        content=response,
+        headers={
+            "Cache-Control": "no-store",
+            # Server-Timing metric names are tokens; the per-team stage names
+            # carry ':' (``team:<rid>:decision``), which is not a token char.
+            "Server-Timing": clock.server_timing(detail=detail).replace(":", "_"),
+        },
+    )
+
+
+@app.get("/api/trade/depth-disclosure-shadow")
+async def get_trade_depth_disclosure_shadow(request: Request, days: int = 0):
+    """The depth-note SHADOW counters for one league (LVA Package 4, owner
+    decision 2026-10-21).  PRIVATE: aggregate counts only, no names or values.
+
+    An allowlisted admin session first (so nobody else learns the flag
+    state), then 404 unless ``low_value_depth_disclosure_shadow`` is ON, then
+    the session's team must be a member of the requested league in
+    the loaded contract's rosters -- unprovable membership (another league's
+    contract loaded, no team for the session) is refused, never assumed.
+    Never under ``/api/public``; the frontend has no bridge route for it.
+    """
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    if not _ff.is_enabled("low_value_depth_disclosure_shadow"):
+        return JSONResponse(status_code=404, content={"error": "not_found"})
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    contract = latest_contract_data
+    loaded_league = ((contract or {}).get("meta") or {}).get("leagueKey")
+    owner = _requester_owner_id(request, league_cfg)
+    teams = (((contract or {}).get("sleeper") or {}).get("teams")) or []
+    member = bool(owner) and any(
+        isinstance(t, dict) and str(t.get("ownerId") or "") == owner for t in teams
+    )
+    if not contract or loaded_league != league_cfg.key or not member:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "league_membership_required", "leagueKey": league_cfg.key},
+            headers={"Cache-Control": "no-store"},
+        )
+    from src.trade import depth_disclosure_shadow as _depth_shadow  # noqa: PLC0415
+
+    payload = await run_in_threadpool(
+        _depth_shadow.read_counters, league_cfg.key, days=days if days > 0 else None
+    )
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/trade/analyze/status")
+async def get_trade_analyze_status(request: Request, requestId: str = ""):
+    """The stage an Analyze Trade request is executing (see the route above).
+
+    Readable only by the signed-in user who sent the request: entries are
+    keyed by session owner, so another user's request id answers
+    ``unknown``.  Reports what the server is doing now and how long it has
+    taken so far — never an estimate of the time remaining.
+    """
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    rid = _trade_analyze_runtime.request_id_from(requestId)
+    if rid is None:
+        return JSONResponse(status_code=400, content={"error": "invalid_request_id"})
+    snap = _trade_analyze_runtime.PROGRESS.snapshot(
+        _trade_analyze_runtime.session_owner(session, request.cookies.get(JASON_AUTH_COOKIE_NAME)),
+        rid,
+    )
+    if snap is None:
+        return JSONResponse(
+            status_code=404,
+            content={"state": "unknown", "requestId": rid},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=snap, headers={"Cache-Control": "no-store"})
 
 
 def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
@@ -18987,6 +20020,20 @@ from src.public_league import articles_api as _articles_api  # noqa: E402
 
 _articles_api.configure_host(lambda: sys.modules[__name__])
 app.include_router(_articles_api.router)
+
+# ── BRISKET TRADE ADVISOR (public League Hub trade advisor) ───────────
+# Owner directive 2026-10-19.  The three routes live in
+# src/api/public_trade_advisor_api.py under /api/public/league/trade-advisor/
+# (public by the existing prefix rule; no change to _PUBLIC_API_EXACT).  Same
+# late-binding host arrangement as the articles router: the handlers read
+# latest_contract_data / _public_league_key_error / _client_ip_from_request
+# on this module at request time.  Gated by the ``brisket_trade_advisor``
+# flag (default OFF until the frontend lands): off -> 503
+# advisor_unavailable/disabled.
+from src.api import public_trade_advisor_api as _public_trade_advisor_api  # noqa: E402
+
+_public_trade_advisor_api.configure_host(lambda: sys.modules[__name__])
+app.include_router(_public_trade_advisor_api.router)
 
 
 # Static file mount for backend-generated assets (CSS, images if any).

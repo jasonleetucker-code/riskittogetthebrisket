@@ -11,17 +11,38 @@
  */
 
 import { RANKING_SOURCES, SOURCE_VENDOR_LABELS, vendorForSource } from "./dynasty-data.js";
-import { evaluateOpinion, resolveOpinionAsset, tallyOpinions } from "./second-opinions.js";
-import { valueAdjustmentFromSideArrays } from "./trade-logic.js";
+import {
+  evaluateAlternateOpinion,
+  evaluateOpinion,
+  resolveOpinionAsset,
+  tallyOpinions,
+} from "./second-opinions.js";
+import { tradeRoutes, valueAdjustmentFromSideArrays } from "./trade-logic.js";
 
 /**
  * One row per vendor: `{key, family, label, displayName, signal, opinion}`.
  * Empty when no side holds an asset.  `sides` are BARE (`{label, assets}`):
  * a manual override changes the user's headline, never what a source sees.
+ *
+ * `opts.compareModelId` (owner directive 2026-10-19): also evaluate each row
+ * under that package model — the SAME per-asset resolutions, a second whole-
+ * package evaluation — and attach it as `row.comparison`.  `row.opinion` (and
+ * so every tally) is identical whether or not it is asked for.
  */
-export function buildOpinionRows(sides) {
+export function buildOpinionRows(sides, opts = {}) {
+  const compareModelId = opts.compareModelId || null;
+  const compareAdjust = compareModelId
+    ? (sideValues) => valueAdjustmentFromSideArrays(sideValues, { modelId: compareModelId })
+    : null;
   const assetsBySide = (sides || []).map((s) => s?.assets || []);
   if (!assetsBySide.some((a) => a.length > 0)) return [];
+  // 3+ teams: the package adjustment is per team, in that team's own
+  // perspective, so it needs each line's destination (spec
+  // docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §5.1).  Two sides route implicitly.
+  const routes = assetsBySide.length > 2 ? tradeRoutes(sides) : null;
+  const activeAdjust = routes
+    ? (sideValues) => valueAdjustmentFromSideArrays(sideValues, { routes })
+    : valueAdjustmentFromSideArrays;
   const vendorOrder = [];
   const vendorSubs = new Map();
   for (const src of RANKING_SOURCES) {
@@ -42,8 +63,14 @@ export function buildOpinionRows(sides) {
         ...resolveOpinionAsset({ row, mainSubs, rookieSubs }),
       })),
     );
-    const opinion = evaluateOpinion(resolutionsBySide, valueAdjustmentFromSideArrays);
+    const opinion = evaluateOpinion(resolutionsBySide, activeAdjust);
     const primary = subs[0];
+    const comparison = compareAdjust
+      ? {
+          modelId: compareModelId,
+          ...evaluateAlternateOpinion(resolutionsBySide, opinion, compareAdjust),
+        }
+      : undefined;
     return {
       key: vendor,
       family: primary.correlationGroup || vendor,
@@ -55,6 +82,7 @@ export function buildOpinionRows(sides) {
         ? "vendor value"
         : "translated rank (modeled)",
       opinion,
+      ...(comparison ? { comparison } : {}),
     };
   });
 }

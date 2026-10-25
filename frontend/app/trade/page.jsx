@@ -22,7 +22,6 @@ import {
   verdictBarPosition,
   adjustedSideTotals,
   multiAdjustedSideTotals,
-  sideTotal,
   simulationSignature,
   tradeEvaluationState,
   TRADE_EVAL_STATE,
@@ -46,7 +45,10 @@ import {
   MIN_SIDES,
   computeStackAdjustments,
   multiTeamNetSummary,
+  sideTotalsFairnessBase,
+  withheldAssetsBySide,
   tradeSignature,
+  displayValue,
 } from "@/lib/trade-logic";
 import { valuationBasisLabel } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
@@ -58,7 +60,11 @@ import {
   parseShareParam,
   shareLinkLimits,
 } from "@/lib/trade-share";
-import { resolveTeamSide, tradeRequestForTeam } from "@/lib/trade-war-room";
+import {
+  resolveTeamSide,
+  tradeRequestForTeam,
+  warRoomValueSummaryFor,
+} from "@/lib/trade-war-room";
 import { historyOriginFor, sharePayloadOf } from "@/lib/trade-history-origin";
 import {
   PICK_OWNERSHIP_UNAVAILABLE_LABEL,
@@ -76,6 +82,7 @@ import {
   unusedTeamPickEntries,
 } from "@/lib/trade-assets";
 import { useTradeSimulator } from "@/components/useTradeSimulator";
+import { effectiveBindings, probeMultiTeamAnalysis, teamOptions } from "@/lib/trade-team-binding";
 import { useTeam } from "@/components/useTeam";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
 import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanation";
@@ -247,6 +254,20 @@ const TradeNextActions = dyn(
 // before it has anything to show.
 const loadWarRoom = () => import("@/components/trade/TradeWarRoom");
 const TradeWarRoom = dyn(loadWarRoom, "Trade War Room");
+// The Value Adjustment comparison (dual-VA, #1826) renders INSIDE the War Room
+// (its `vaSlot`, right under the at-a-glance rows), so its chunk is prefetched
+// beside the War Room's: no waterfall from War Room chunk -> comparison chunk.
+// Accepted trade-off: a War Room chunk failure also hides the comparison
+// (both sit behind the War Room's resilient section).
+const loadVaComparison = () => import("@/components/trade/ValueAdjustmentComparison");
+// The multi-team War Room (owner directive 2026-10-20 §7): its own lazy chunk,
+// requested only for a 3+-team trade on a server whose private multi-team
+// analysis is switched on (`trade_multi_team_analysis`, default OFF).
+const MultiTeamWarRoom = dyn(
+  () => import("@/components/trade/MultiTeamWarRoom"),
+  "Multi-team Trade War Room",
+);
+const ValueAdjustmentComparison = dyn(loadVaComparison, "Value Adjustment comparison");
 
 // On-demand page sections — the same React.lazy + per-section Suspense
 // pattern, for code that cannot be on screen at first render:
@@ -352,6 +373,17 @@ export default function TradePage() {
   // ``focusedSideIdx`` controls which side's dropdown is visible.
   const [sideQueries, setSideQueries] = useState({});
   const [focusedSideIdx, setFocusedSideIdx] = useState(null);
+  // Pending blur timers, one per side.  Focusing a side's search again
+  // cancels its timer: without that, blurring and re-focusing inside the
+  // 120ms window let the stale timer close the dropdown of a focused input
+  // (Enter then added nothing).
+  const sideBlurTimersRef = useRef({});
+  useEffect(
+    () => () => {
+      Object.values(sideBlurTimersRef.current).forEach(clearTimeout);
+    },
+    [],
+  );
   const sideInputRefs = useRef({});
   const [hydrated, setHydrated] = useState(false);
   // The suggestions desk is always rendered once the pool loads; fetch its
@@ -359,6 +391,7 @@ export default function TradePage() {
   useEffect(() => {
     prefetch(loadSuggestionsDesk);
     prefetch(loadWarRoom);
+    prefetch(loadVaComparison);
   }, []);
 
   // The phone sheet belongs to the phone layout: it closes if the viewport widens.
@@ -624,6 +657,16 @@ export default function TradePage() {
   // preserved.  Choosing the blank option unlocks → back to auto.
   const [sideTeamNames, setSideTeamNames] = useState([]);
   const [sideTeamLocked, setSideTeamLocked] = useState([]);
+  // Multi-team analysis (owner directive 2026-10-20 §7): each side's league
+  // team, by rosterId.  ``undefined`` = follow the side's assets (the one team
+  // that holds them, by id), ``null`` = explicitly none, an int = chosen.
+  const [sideRosterIds, setSideRosterIds] = useState([]);
+  // Is POST /api/trade/analyze-multi switched on?  null until asked; asked
+  // only once a 3rd side exists, so a two-team session never probes.
+  const [multiAvailable, setMultiAvailable] = useState(null);
+  // The authoritative multi-team answer for the trade on screen (reported up
+  // by the War Room), so the preliminary meter and tray never speak over it.
+  const [multiFinal, setMultiFinal] = useState(null);
   useEffect(() => {
     setSideTeamNames((prev) =>
       sides.map((s, i) =>
@@ -1074,9 +1117,10 @@ export default function TradePage() {
   // ── Computed totals for all sides ────────────────────────────────────
   // Both 2-team and N-team trades use the ACTIVE package Value Adjustment
   // (packageAdjustPair — the geometric model, q = 0.78, since 2026-10-17).
-  // For N ≥ 3, each side's VA is computed against the merged opposition
-  // (every other side's assets flattened) — see
-  // ``computeMultiSideAdjustments`` in trade-logic.js.  The draft-capital
+  // For N ≥ 3 each team is read in its OWN perspective — what it sends against
+  // what is routed to it (``perTeamPackageTotals`` in trade-logic.js) — and the
+  // result is PRELIMINARY: the final per-team answer is the multi-team War
+  // Room's (POST /api/trade/analyze-multi).  The draft-capital
   // stack effect is deliberately NOT passed (withdrawn from the verdict,
   // see above): every total here is raw + Value Adjustment.
   const sideTotals = useMemo(() => {
@@ -1089,17 +1133,13 @@ export default function TradePage() {
       );
       return [a, b];
     }
-    if (sidesWithOverrides.length > 2) {
-      return multiAdjustedSideTotals(
-        sidesWithOverrides.map((s) => s.assets),
-        valueMode,
-        settings,
-      );
-    }
-    return sidesWithOverrides.map((s) => {
-      const raw = sideTotal(s.assets, valueMode, settings);
-      return { raw, adjustment: 0, adjusted: raw };
-    });
+    // Any other side count (3+, or a transient 0 / 1): the package model's
+    // own totals, so every total carries its package `utility` (the fairness
+    // band's base, fairness_bands_v2) -- never a hand-built flat sum without
+    // one.  Per-team rule for 3+ (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md
+    // §5.1): the routing decides what each team receives, so the side objects
+    // go in.
+    return multiAdjustedSideTotals(sidesWithOverrides, valueMode, settings);
   }, [sidesWithOverrides, valueMode, settings]);
 
   // Per-side flow totals: given / received / net.  In 2-team trades
@@ -1117,6 +1157,60 @@ export default function TradePage() {
   // section in 3+-team mode so the user doesn't have to mentally
   // reverse-lookup destinations across three separate side cards.
   const sideFlowAssets = useMemo(() => computeSideFlowAssets(sides), [sides]);
+
+  // ── Multi-team analysis (3+ sides; owner directive 2026-10-20 §7) ─────
+  // Probed once, the first time a 3rd side appears: the route answers its
+  // flag before anything else, so the probe runs no analysis.  Flag off (or
+  // unreachable) keeps today's behaviour exactly: the static 3+-team panel.
+  const wantsMulti = sides.length > 2;
+  useEffect(() => {
+    if (!wantsMulti || multiAvailable !== null) return undefined;
+    let live = true;
+    probeMultiTeamAnalysis().then((on) => {
+      if (live) setMultiAvailable(on);
+    });
+    return () => {
+      live = false;
+    };
+  }, [wantsMulti, multiAvailable]);
+  const multiPath = wantsMulti && multiAvailable === true && Boolean(sleeperTeams);
+  const teamChoices = useMemo(() => teamOptions(sleeperTeams), [sleeperTeams]);
+  // Each side's league team, by id: an explicit choice, else the ONE team
+  // that holds every asset on the side (never a display-name guess).
+  const sideBindings = useMemo(
+    () => (multiPath ? effectiveBindings(sides, sideRosterIds, sleeperTeams) : null),
+    [multiPath, sides, sideRosterIds, sleeperTeams],
+  );
+  const boundTeamName = useCallback(
+    (idx) => {
+      const rid = sideBindings?.[idx]?.rosterId;
+      if (rid == null) return null;
+      return teamChoices.find((t) => t.rosterId === rid)?.name || null;
+    },
+    [sideBindings, teamChoices],
+  );
+  // "Side B · Ed" in destination menus and incoming rows once a side is bound.
+  const sideDisplayLabels = useMemo(
+    () =>
+      sides.map((s, i) => {
+        const name = multiPath ? boundTeamName(i) : null;
+        return name ? `Side ${s.label} · ${name}` : `Side ${s.label}`;
+      }),
+    [sides, multiPath, boundTeamName],
+  );
+  // A final answer belongs to the trade it was computed for only.
+  useEffect(() => {
+    if (!multiPath) setMultiFinal(null);
+  }, [multiPath]);
+  // One team per side on screen: with the multi-team path on, the side
+  // cards' team binding is also the draft-capital stack note's team (its own
+  // selector panel is hidden), so two selectors can never disagree.  Declared
+  // after the name-inference effect, so on the same commit this one wins.
+  useEffect(() => {
+    if (!sideBindings) return;
+    setSideTeamNames(sides.map((_, i) => boundTeamName(i)));
+    setSideTeamLocked(sides.map((_, i) => sideBindings[i]?.rosterId != null));
+  }, [sideBindings, sides, boundTeamName]);
 
   // Which side is the user's own roster?  Derived by counting how
   // many of each side's current assets match the user's selected
@@ -1174,20 +1268,47 @@ export default function TradePage() {
   const linTotalA = sideTotals[0]?.raw || 0;
   const linTotalB = sideTotals[1]?.raw || 0;
   const pwGap = pwTotalA - pwTotalB;
-  const pctGap =
-    Math.max(pwTotalA, pwTotalB) > 0
-      ? Math.round((Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB)) * 100)
-      : 0;
-  // The base the ONE fairness-band owner is relative to (TC-C, owner
-  // decision 3): the larger adjusted side.  Every 2-team band on this page
-  // (tray, balancers, the "add to balance" side) reads it.
-  const pwLarger = Math.max(pwTotalA, pwTotalB);
+  // The base the ONE fairness-band owner is relative to (fairness_bands_v2,
+  // OD-F2): the larger PACKAGE UTILITY, never the larger adjusted side.  Every
+  // 2-team band on this page (tray, balancers, the "add to balance" side)
+  // reads it.
+  const pwLarger = sideTotalsFairnessBase(sideTotals.slice(0, 2));
   const pwGapIsFair = isFairGap(pwGap, pwLarger);
+  // The sticky tray's badge + percentage: one band reading (meterVerdict).
+  const trayVerdict = meterVerdict(pwGap, pwLarger);
   // 3+-team: the multi-team meter's own reading (one helper, shared with the
-  // persistent summary bar) -- its base is the largest adjusted package any
-  // side sends (tradeImbalance's base).
-  const multiSummary = useMemo(() => multiTeamNetSummary(sideFlows), [sideFlows]);
-  const multiLarger = multiSummary.largerSide;
+  // persistent summary bar) -- each team graded on its OWN gap against its
+  // OWN larger PACKAGE UTILITY (per-team rule, fairness_bands_v2 OD-F2:
+  // ``teamFairnessBase``), headlined by the worst team.
+  // A team whose part of the trade carries a WITHHELD value (quarantined /
+  // stale) has no preliminary gap or band (``withheldAssetsBySide``).
+  const multiWithheld = useMemo(
+    () => (sides.length > 2 ? withheldAssetsBySide(sidesWithOverrides) : null),
+    [sides.length, sidesWithOverrides],
+  );
+  const multiSummary = useMemo(
+    () => multiTeamNetSummary(sideFlows, multiWithheld),
+    [sideFlows, multiWithheld],
+  );
+  // The War Room's FINAL per-team answer, per side, while it answers the
+  // trade on screen (the War Room reports null the moment the trade changes).
+  // The preliminary meter and tray show these words instead of their own, so
+  // the browser's indicator never speaks over the authoritative result.
+  const multiFinalBySide = useMemo(() => {
+    const rids = multiFinal?.sideRosterIds;
+    if (!multiPath || !multiFinal?.payload || !Array.isArray(rids)) return null;
+    if (rids.length !== sides.length) return null;
+    return rids.map((rid) => {
+      const t = multiFinal.payload.teams.find((x) => x.rosterId === rid);
+      return t
+        ? {
+            fairness: t.fairness?.state || "UNABLE",
+            decision: t.analysis?.decision?.headlineText || null,
+            team: t.team?.name || null,
+          }
+        : null;
+    });
+  }, [multiPath, multiFinal, sides.length]);
 
   // Balancing suggestions (2-team mode only).
   //
@@ -1260,7 +1381,6 @@ export default function TradePage() {
       pwGap,
       pwGapIsFair,
       tradeIsIncomplete,
-      multiLarger,
       inferTeamForSide,
       balancerPool,
     }),
@@ -1271,7 +1391,6 @@ export default function TradePage() {
       pwGap,
       pwGapIsFair,
       tradeIsIncomplete,
-      multiLarger,
       inferTeamForSide,
       balancerPool,
     ],
@@ -1302,53 +1421,20 @@ export default function TradePage() {
     return { list, teamName };
   }, [deferredBalancerInput, settings, valueMode]);
 
-  // For 3+ teams, find balancers for the team getting the best deal
-  // (they should add more to their give to even things out).  Uses
-  // the destination-aware NET flow (received − given) so the target
-  // is whoever profited most after each asset was routed to its
-  // chosen destination.  Falling back to the raw total index would
-  // pick whoever put the fewest pieces on the table — a different
-  // question entirely.
-  const deferredMultiBalancers = useMemo(() => {
-    const b = deferredBalancerInput;
-    if (b.sides.length <= 2) return null;
-    if (b.tradeIsIncomplete) return null;
-    const nets = b.sideFlows.map((f) => f.net);
-    const worstIdx = nets.indexOf(Math.min(...nets)); // most negative = overpaying
-    const bestIdx = nets.indexOf(Math.max(...nets)); // most positive = getting a deal
-    const gap = nets[bestIdx] - nets[worstIdx];
-    if (isFairGap(gap, b.multiLarger)) return null;
-    // Panel renders on the side that needs to GIVE more (the one with
-    // the best deal right now).  Filter the suggestion pool to that
-    // side's Sleeper team so the "add more" list is players they
-    // actually own.  Same fallback to full pool when inference fails.
-    const underpayingSide = b.sides[bestIdx];
-    const underpayingTeam = b.inferTeamForSide(underpayingSide);
-    const { pool, teamName } = b.balancerPool(bestIdx, underpayingTeam);
-    const suggestions = findBalancers(b.sidesWithOverrides, bestIdx, pool, valueMode, {
-      settings,
-      toSideIdx: worstIdx,
-      combos: true,
-    });
-    return {
-      overpayingIdx: worstIdx,
-      underpayingIdx: bestIdx, // panel rendered on the side that needs to give more
-      gap,
-      suggestions,
-      teamName,
-    };
-  }, [deferredBalancerInput, settings, valueMode]);
+  // 3+ teams: no balancing suggestions (spec §5.1 R10d, SD-13).  Adding an
+  // asset from team b to team d moves only gap_b and gap_d, so a 3+-team
+  // balancing objective is an undecided methodology choice; ``findBalancers``
+  // itself returns nothing for 3+ sides, and the page says so under the meter.
 
   const balancersPending = !balancersCurrent;
   const balancers = balancersCurrent ? deferredBalancers : NO_BALANCERS;
-  const multiBalancers = balancersCurrent ? deferredMultiBalancers : null;
   // "Is the 3+-team trade fair?" is immediate math (the same rule the deferred
   // search starts from), so it never waits for the suggestions.
   const multiGapIsFair = useMemo(() => {
     if (sides.length <= 2 || tradeIsIncomplete) return true;
-    const nets = sideFlows.map((f) => f.net);
-    return isFairGap(Math.max(...nets) - Math.min(...nets), multiLarger);
-  }, [sides.length, tradeIsIncomplete, sideFlows, multiLarger]);
+    // Per-team rule: fair only when the WORST team's own gap is in the fair band.
+    return multiSummary.verdict?.level === "fair";
+  }, [sides.length, tradeIsIncomplete, multiSummary]);
 
   // Inline search helper.  Nothing already in the trade is hidden: every
   // asset is repeatable in the calculator (owner decision 2026-10-03), so
@@ -1368,11 +1454,15 @@ export default function TradePage() {
       // old ``/^2026/`` also removed the 72 slot rows the current-year
       // board is priced on, so searching "2026" returned nothing at all
       // (W08-F004).
-      const team = Number.isInteger(sideIdx) ? sideTeamNames[sideIdx] : null;
+      // A side bound to a league team (multi-team analysis) offers THAT
+      // team's own picks — the league picks an authoritative analysis needs.
+      const team = Number.isInteger(sideIdx)
+        ? boundTeamName(sideIdx) || sideTeamNames[sideIdx]
+        : null;
       const owned = team ? pickEntriesByTeam.get(team) || [] : [];
       return searchCalculatorAssets(rows, query, owned);
     },
-    [rows, sideTeamNames, pickEntriesByTeam],
+    [rows, sideTeamNames, pickEntriesByTeam, boundTeamName],
   );
 
   // ── Side management ─────────────────────────────────────────────────
@@ -1422,12 +1512,24 @@ export default function TradePage() {
 
   // Inline-search add: drop the row onto the side, clear that side's
   // query so the dropdown collapses, and re-focus the input so the
-  // soft keyboard stays up for the next addition.
+  // soft keyboard stays up for the next addition.  The re-focus runs a
+  // frame later, so it only reclaims focus that is lost (the tapped option
+  // unmounted) or still inside this side's search: if the user has already
+  // moved on (say, into the other side's search) it never pulls them back.
   function addFromSearch(row, sideIdx) {
     addToSide(row, sideIdx);
     setSideQueries((prev) => ({ ...prev, [sideIdx]: "" }));
     requestAnimationFrame(() => {
-      sideInputRefs.current[sideIdx]?.focus({ preventScroll: true });
+      const input = sideInputRefs.current[sideIdx];
+      if (!input) return;
+      const current = typeof document !== "undefined" ? document.activeElement : null;
+      const movedOn =
+        current &&
+        current !== document.body &&
+        current !== input &&
+        !input.parentElement?.contains(current);
+      if (movedOn) return;
+      input.focus({ preventScroll: true });
     });
   }
 
@@ -1484,6 +1586,23 @@ export default function TradePage() {
     setHistoryOrigin(null);
   }
 
+  // "New trade" in the multi-team War Room: an empty trade AND no team
+  // bindings, so the next trade starts from scratch.
+  function resetMultiTeamTrade() {
+    clearTrade();
+    setSideRosterIds([]);
+    setMultiFinal(null);
+  }
+
+  function setSideRosterId(idx, rosterId) {
+    setSideRosterIds((prev) => {
+      const next = [...prev];
+      while (next.length <= idx) next.push(undefined);
+      next[idx] = rosterId;
+      return next;
+    });
+  }
+
   function swapSides() {
     if (sides.length === 2) {
       // The user's side moves with its assets.
@@ -1492,6 +1611,7 @@ export default function TradePage() {
         { ...prev[1], id: 0, label: "A" },
         { ...prev[0], id: 1, label: "B" },
       ]);
+      setSideRosterIds((prev) => [prev[1], prev[0]]);
       setActiveSide((s) => (s === 0 ? 1 : 0));
     } else {
       // Rotate: side i takes the previous side's assets.  Each asset
@@ -1518,6 +1638,11 @@ export default function TradePage() {
             destinations: nextDestinations,
           };
         });
+      });
+      // A side's team binding travels with its assets.
+      setSideRosterIds((prev) => {
+        const n = sides.length;
+        return Array.from({ length: n }, (_, i) => prev[(i + n - 1) % n]);
       });
     }
   }
@@ -1586,6 +1711,7 @@ export default function TradePage() {
     // can't slide onto the wrong side after a removal.
     setSideTeamNames((prev) => prev.filter((_, i) => i !== idx));
     setSideTeamLocked((prev) => prev.filter((_, i) => i !== idx));
+    setSideRosterIds((prev) => prev.filter((_, i) => i !== idx));
     // Fix activeSide if it's out of bounds
     setActiveSide((prev) => Math.min(prev, sides.length - 2));
   }
@@ -1905,6 +2031,34 @@ export default function TradePage() {
           )
         : null,
     [sides, selectedTeam, teamRosterNames, explicitMySide],
+  );
+  // The War Room's immediate trade-value summary (owner directive 2026-10-19,
+  // Part 4): EXACTLY the calculator headline's totals for the selected team's
+  // side (overrides included), shown while the personalized analysis runs --
+  // never a YES / NO.  An asset with no board value and no override gets no
+  // total at all (MISSING IS NEVER ZERO); `warRoomValueSummaryFor` decides.
+  const warRoomValueSummary = useMemo(
+    () =>
+      sides.length === 2 && warRoomRequest
+        ? warRoomValueSummaryFor({
+            sideTotals,
+            mySide: warRoomRequest.mySide,
+            evaluation: evalState,
+            overrideCount: Object.keys(valueOverrides).length,
+          })
+        : null,
+    [sides.length, warRoomRequest, sideTotals, evalState, valueOverrides],
+  );
+  // The Value Adjustment comparison (#1826), defined once and mounted through
+  // the War Room's `vaSlot` in every War Room view.  Published values, like the
+  // War Room's analysis; the component renders nothing until two sides hold
+  // assets.
+  const vaComparison = (
+    <ValueAdjustmentComparison
+      sideValues={sides.map((s) => s.assets.map((r) => displayValue(r)))}
+      sideLabels={sides.map((s) => s.label)}
+      hasOverrides={Object.keys(valueOverrides).length > 0}
+    />
   );
   // Both sides hold assets but nothing says which one is the team's: ask.
   const sideChoiceNeeded =
@@ -2257,13 +2411,12 @@ export default function TradePage() {
     // side it will answer for, instead of removing the panel as if nothing
     // narrows the gap (unknown is not false).
     if (balancersPending && !tradeIsIncomplete) {
-      const nets = sides.length > 2 ? sideFlows.map((f) => f.net) : null;
-      const target =
-        sides.length === 2
-          ? isUnderpaying
-          : !multiGapIsFair && sideIdx === nets.indexOf(Math.max(...nets));
-      if (target) {
-        return { label: "Finding assets that narrow the gap…", list: [], pending: true };
+      if (sides.length === 2 && isUnderpaying) {
+        return {
+          label: "Finding assets that narrow the gap…",
+          list: [],
+          pending: true,
+        };
       }
     }
     if (sides.length === 2 && isUnderpaying && balancers.list.length > 0) {
@@ -2272,21 +2425,6 @@ export default function TradePage() {
           ? `Add from ${balancers.teamName}'s roster`
           : "To balance, consider adding",
         list: balancers.list,
-      };
-    }
-    if (
-      multiBalancers &&
-      sideIdx === multiBalancers.underpayingIdx &&
-      multiBalancers.suggestions.length > 0
-    ) {
-      const losing = `Side ${sides[multiBalancers.overpayingIdx]?.label} loses ${Math.round(
-        multiBalancers.gap,
-      ).toLocaleString()}`;
-      return {
-        label: multiBalancers.teamName
-          ? `Add from ${multiBalancers.teamName}'s roster (${losing})`
-          : `To balance (${losing})`,
-        list: multiBalancers.suggestions,
       };
     }
     return null;
@@ -2302,13 +2440,7 @@ export default function TradePage() {
   // Which side's card lists the balancing suggestions, for the Next steps
   // pointer (TC-B / TCM-O11) -- read from the page's own balancer state.
   const balancerSideLabel =
-    sides.length === 2
-      ? balancers.list.length
-        ? sides[pwGap > 0 ? 1 : 0]?.label || null
-        : null
-      : multiBalancers?.suggestions?.length
-        ? sides[multiBalancers.underpayingIdx]?.label || null
-        : null;
+    sides.length === 2 && balancers.list.length ? sides[pwGap > 0 ? 1 : 0]?.label || null : null;
 
   return (
     <div className={`main-shell ${styles.page} trade-page psi-editorial`}>
@@ -2593,7 +2725,7 @@ export default function TradePage() {
                 </Banner>
               ) : null}
 
-              {tradeHasPicks && sleeperTeams ? (
+              {tradeHasPicks && sleeperTeams && !multiPath ? (
                 <PickTeamSelectors
                   sides={sides}
                   sleeperTeams={sleeperTeams}
@@ -2650,12 +2782,25 @@ export default function TradePage() {
                     valueMode={valueMode}
                     valueOverrides={valueOverrides}
                     incoming={sideFlowAssets[sideIdx]?.incoming || []}
+                    sideLabels={sideDisplayLabels}
+                    teamBinding={
+                      multiPath
+                        ? {
+                            options: teamChoices,
+                            rosterId: sideBindings?.[sideIdx]?.rosterId ?? null,
+                            basis: sideBindings?.[sideIdx]?.basis || "none",
+                            onChange: (rid) => setSideRosterId(sideIdx, rid),
+                          }
+                        : null
+                    }
                     balancers={balancersForSide(sideIdx)}
                     canRemoveTeam={sides.length > MIN_SIDES}
                     onSideQueryChange={(idx, v) =>
                       setSideQueries((prev) => ({ ...prev, [idx]: v }))
                     }
                     onSideFocus={(idx) => {
+                      clearTimeout(sideBlurTimersRef.current[idx]);
+                      delete sideBlurTimersRef.current[idx];
                       setFocusedSideIdx(idx);
                       setActiveSide(idx);
                     }}
@@ -2663,7 +2808,9 @@ export default function TradePage() {
                       // Delay so a tap on a result registers before the
                       // dropdown unmounts (onMouseDown also pre-empts blur;
                       // this is the belt-and-braces guard for touch).
-                      setTimeout(() => {
+                      clearTimeout(sideBlurTimersRef.current[idx]);
+                      sideBlurTimersRef.current[idx] = setTimeout(() => {
+                        delete sideBlurTimersRef.current[idx];
                         setFocusedSideIdx((prev) => (prev === idx ? null : prev));
                       }, 120);
                     }}
@@ -2740,7 +2887,13 @@ export default function TradePage() {
                   valueMode={valueMode}
                   settings={settings}
                   sidesSend
+                  finalBySide={multiFinalBySide}
                 />
+                {sides.length > 2 && !tradeIsEmpty && !tradeIsIncomplete && !multiGapIsFair ? (
+                  <p className={styles.controlsNote} data-testid="multi-balancers-unavailable">
+                    Balancing suggestions aren&apos;t available for trades with 3 or more teams.
+                  </p>
+                ) : null}
 
                 {/* STACK-NOTE-ONLY:BEGIN — withdrawn stack effect: shown, labelled, NOT in the totals. */}
                 {stackNote && stackNote.some((v) => Math.round(v) !== 0) ? (
@@ -2814,9 +2967,15 @@ export default function TradePage() {
             >
               {/* ── TRADE WAR ROOM (#792 / #1173 / #843 / #842) ────────
                   What this trade does to the selected team's actual
-                  roster: recommendation, then Market / Roster /
-                  Feasibility as three separate answers.  Two-side trades
-                  with a selected team; every number is the backend's. */}
+                  roster, in plain English (owner directive 2026-10-19):
+                  the ONE recommendation, then Trade value / Impact on your
+                  team / Does it fit your roster?  Every number is the
+                  backend's; while the analysis runs the War Room shows the
+                  calculator's own trade value (`valueSummary`), never a
+                  YES / NO. */}
+              {/* The Value Adjustment comparison (#1826) is defined ONCE and
+                  handed to every War Room view through `vaSlot` (two-team,
+                  3+-team and idle): exactly one mount in every state. */}
               {sides.length === 2 ? (
                 <TradeWarRoom
                   request={warRoomRequest}
@@ -2829,19 +2988,30 @@ export default function TradePage() {
                   chosenSide={teamSide.basis === "explicit" ? teamSide.side : null}
                   onChooseSide={setExplicitMySide}
                   onDecision={setDecisionSummary}
+                  valueSummary={warRoomValueSummary}
+                  vaSlot={vaComparison}
+                />
+              ) : multiPath ? (
+                // Owner directive 2026-10-20 §7: every team of a 3+-team trade
+                // gets its own final answer from POST /api/trade/analyze-multi.
+                <MultiTeamWarRoom
+                  sides={sides}
+                  teams={sleeperTeams}
+                  bindings={sideBindings}
+                  leagueKey={selectedLeagueKey || ""}
+                  useTeamContext={useTeamContext}
+                  onTeamContextChange={setUseTeamContext}
+                  perspectiveRosterId={
+                    selectedTeam ? Number(selectedTeam.roster_id ?? selectedTeam.rosterId) : null
+                  }
+                  overrideCount={Object.keys(valueOverrides).length}
+                  onReset={resetMultiTeamTrade}
+                  onFinal={setMultiFinal}
                 />
               ) : (
-                // TC-B / TCM-G09: the decision owner analyses ONE team's side of a
-                // two-team trade.  A 3+-team trade gets no YES / NO, and the page
-                // says so instead of silently dropping the War Room.
-                <Banner tone="info" title="A reliable YES / NO is unavailable">
-                  <span data-testid="war-room-multi-team-limit">
-                    The decision engine can identify your side and account for every
-                    side only in a two-team trade, so no YES / NO is given for this{" "}
-                    {sides.length}-team trade (owner decision, 2026-10-18); the result
-                    meter compares each team&apos;s net flow.
-                  </span>
-                </Banner>
+                // Multi-team analysis switched off (or not yet known): the
+                // existing static panel — no YES / NO for 3+ teams.
+                <TradeWarRoom sideCount={sides.length} vaSlot={vaComparison} />
               )}
             </section>
 
@@ -3115,8 +3285,13 @@ export default function TradePage() {
                         className={`verdict ${colorFromGap(pwGap, pwLarger)}`}
                         data-trade-gap={pwGap}
                       >
-                        {meterVerdict(pwGap, pwLarger).label}
-                        {pctGap > 0 ? ` (${pctGap}%)` : ""}
+                        {trayVerdict.label}
+                        {/* The band's own percentage (relative to the larger
+                            package utility), so it can never sit below the
+                            badge's cut -- not the adjusted-side %. */}
+                        {trayVerdict.percentText && trayVerdict.percentText !== "0"
+                          ? ` (${trayVerdict.percentText}%)`
+                          : ""}
                       </div>
                       <div className={styles.controlsNote}>
                         Gap {Math.round(pwGap).toLocaleString()}
@@ -3138,7 +3313,12 @@ export default function TradePage() {
           ) : (
             // TC-D2: the persistent summary for a 3+-team trade (the multi-team
             // meter's own net flows and band; no YES / NO exists for it).
-            <MultiTeamSummaryBar sides={sides} summary={multiSummary} evalState={evalState} />
+            <MultiTeamSummaryBar
+              sides={sides}
+              summary={multiSummary}
+              evalState={evalState}
+              finalBySide={multiFinalBySide}
+            />
           )}
         </>
       ) : null}

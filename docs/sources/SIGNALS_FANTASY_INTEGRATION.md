@@ -752,3 +752,15 @@ A coverage-corrected rank (Signals' family rank counted only over players the br
 would target the DB failure, but it is not among the declared candidates, so declaring it is an
 owner decision, and it could only be judged on a Signals release published after its
 preregistration.  The session-renewal state should be addressed so the collector keeps running.
+
+#### 10.8.2 Round 2 — preregistered 2026-10-19 (pointer; nothing here is a result)
+
+Round 2 follows the owner directive of 2026-10-19 (`docs/owner/SIGNALS_IDP_VOTING_2026-10-19.md`).
+Its candidates, gates, controls and premises are frozen in
+`docs/valuation/evidence/signals-idp-v2-2026-10-19/` (`PREREGISTRATION.md` + `gates.json`,
+hashed in `FROZEN_SHA256SUMS`); results go to that directory's `RESULTS.md`, not here.
+Candidate A stays FAILED. **Corrections to round 1** are recorded there (§11), not edited in
+place above: §10.2's "it adds none" is false (the family crosswalk inherits the bridge's
+cross-family placement); §10.8.1's "genuine disagreement" reading of the LB bias is
+unsupported; its DL haircut rebuttal counted ranked rows while the lifted haircuts sit on
+off-cap rows; and the "one real collection first" was a minimum-interval skip.

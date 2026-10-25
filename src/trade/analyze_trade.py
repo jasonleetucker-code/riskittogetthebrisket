@@ -168,10 +168,12 @@ def equity_verdict(sending_values: list[float], receiving_values: list[float]) -
     """
     send_adj, recv_adj, send_va, recv_va = adjusted_pair_totals(sending_values, receiving_values)
     gap = recv_adj - send_adj  # positive = the selected team comes out ahead
-    # The ONE fairness-band owner (TC-C, owner decision 3): relative to the
-    # larger adjusted side, with an absolute minimum.  ``magnitude`` keeps its
-    # even / lean / stretch vocabulary for existing consumers.
-    band = fairness_bands.classify(gap, max(send_adj, recv_adj))
+    # The ONE fairness-band owner (fairness_bands_v2, OD-F2): relative to the
+    # larger PACKAGE UTILITY (decided by the owner, never here), with an
+    # absolute minimum.  ``magnitude`` keeps its even / lean / stretch
+    # vocabulary for existing consumers.
+    larger_utility = fairness_bands.larger_package_utility(sending_values, receiving_values)
+    band = fairness_bands.classify(gap, larger_utility)
     magnitude = fairness_bands.legacy_magnitude(band["level"])
     # An "even" gap is inside the market's own fairness band: it neither
     # favors nor opposes, whatever its sign.
@@ -187,6 +189,9 @@ def equity_verdict(sending_values: list[float], receiving_values: list[float]) -
         "band": band,
         "sendingAdjusted": round(send_adj, 1),
         "receivingAdjusted": round(recv_adj, 1),
+        # The band's base (unrounded so a re-classification of a net gap
+        # reproduces the band exactly).
+        "largerPackageUtility": larger_utility,
         "sendingValueAdjustment": round(float(send_va), 1),
         "receivingValueAdjustment": round(float(recv_va), 1),
     }
@@ -202,9 +207,7 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
     # worth nothing, so it never enters the package math as a 0 -- and it is
     # never dropped silently either: it is named in ``unpricedIn`` /
     # ``unpricedOut`` and in the uncertainty list (which caps confidence).
-    def _priced(a: dict[str, Any]) -> bool:
-        v = a.get("value")
-        return isinstance(v, (int, float)) and v > 0
+    _priced = trade_decision.asset_is_priced
 
     def _name(a: dict[str, Any]) -> str:
         return str(a.get("name") or a.get("sourceLabel") or "")
@@ -239,6 +242,7 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
             "bandsReceipt": fairness_bands.receipt(),
             "sendingAdjusted": verdict["sendingAdjusted"],
             "receivingAdjusted": verdict["receivingAdjusted"],
+            "largerPackageUtility": verdict["largerPackageUtility"],
             "sendingValueAdjustment": verdict["sendingValueAdjustment"],
             "receivingValueAdjustment": verdict["receivingValueAdjustment"],
             "valueAdjustment": package_model.receipt()["label"],
@@ -457,6 +461,16 @@ def _feasibility_lens(simulation: dict[str, Any]) -> DimensionResult:
         "picksOccupySpots": False,
         "notes": list(cap.get("notes") or []),
     }
+    if "forcedDropCharge" in cap:
+        # Flag ``forced_drop_cheapest_legal`` only (absent when OFF, so the
+        # incumbent detail is unchanged): the owner's one charge and its rule.
+        detail["forcedDropCharge"] = cap.get("forcedDropCharge")
+        detail["forcedDropChargeBasis"] = cap.get("forcedDropChargeBasis")
+        detail["forcedDropReleaseCostBasis"] = cap.get("forcedDropReleaseCostBasis")
+        detail["forcedDropMarginal"] = cap.get("forcedDropMarginal")
+        detail["forcedDropSelection"] = cap.get("forcedDropSelection")
+        for row, d in zip(detail["forcedDrops"], drops):
+            row["chargeBasis"] = d.get("chargeBasis")
     if state in ("unknown_limit", "uncertain"):
         return DimensionResult(
             name="feasibility",
@@ -472,6 +486,10 @@ def _feasibility_lens(simulation: dict[str, Any]) -> DimensionResult:
         # cost is already inside the roster lens).  Releasing only unpriced
         # or zero-cost players is a burden but not a value loss.
         released = cap.get("forcedDropReleaseCost")
+        if "forcedDropCharge" in cap:
+            # Flag ``forced_drop_cheapest_legal``: direction follows the one
+            # charge the objective subtracts.
+            released = cap.get("forcedDropCharge")
         # An unpriced forced drop's value is UNKNOWN, not zero: it is not
         # claimed as a cost (the reasons still name the cut).
         released_value = isinstance(released, (int, float)) and released > 0
@@ -910,6 +928,7 @@ def analyze_trade(
     *,
     team_goal: Any = None,
     provenance: dict[str, Any] | None = None,
+    counterfactuals: bool = True,
 ) -> dict[str, Any]:
     """Synthesize one Analyze Trade packet from a ``simulate_trade`` payload.
 
@@ -919,6 +938,9 @@ def analyze_trade(
     computed it, the comparable-trades payload for this package (context
     only — see ``_comparables_lens``).  Computes no canonical value and calls
     no engine.
+
+    ``counterfactuals`` is forwarded to :func:`trade_decision.decide` (the
+    "what would change it" search; it never changes the decision).
     """
     cfg = _config()
     team_context_block = simulation.get("teamContext") or {"applied": True, "mode": "team"}
@@ -963,6 +985,7 @@ def analyze_trade(
         # What only the caller knows (board stamp, scoring fingerprint), plus
         # the roster-lens priors this packet ran under -- for the receipt.
         provenance={**(provenance or {}), "analyzeConfig": dict(cfg)},
+        counterfactuals=counterfactuals,
     )
 
     return AnalyzeTradeResult(

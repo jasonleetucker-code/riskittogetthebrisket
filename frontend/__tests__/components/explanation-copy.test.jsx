@@ -61,7 +61,7 @@ describe("trade verdict wording follows the side model", () => {
     render(
       <TradeMeter
         sides={sides}
-        sideTotals={[{ adjusted: 5000 }, { adjusted: 4000 }]}
+        sideTotals={[{ adjusted: 5000, utility: 5000 }, { adjusted: 4000, utility: 4000 }]}
         sidesSend
       />,
     );
@@ -72,7 +72,7 @@ describe("trade verdict wording follows the side model", () => {
   });
 
   it("keeps the original wording where sides are not an exchange (/waivers)", () => {
-    render(<TradeMeter sides={sides} sideTotals={[{ adjusted: 4000 }, { adjusted: 5000 }]} />);
+    render(<TradeMeter sides={sides} sideTotals={[{ adjusted: 4000, utility: 4000 }, { adjusted: 5000, utility: 5000 }]} />);
     expect(screen.getByText("Side B wins by 20%")).toBeInTheDocument();
   });
 
@@ -82,7 +82,7 @@ describe("trade verdict wording follows the side model", () => {
     render(
       <TradeFairnessExplanation
         sides={[{ label: "A", assets: [a] }, { label: "B", assets: [b] }]}
-        sideTotals={[{ adjusted: 5000 }, { adjusted: 4000 }]}
+        sideTotals={[{ adjusted: 5000, utility: 5000 }, { adjusted: 4000, utility: 4000 }]}
       />,
     );
     const note = screen.getByRole("note");
@@ -146,7 +146,13 @@ describe("TradeVerdictHelp — one explanation, matching the code", () => {
     render(<TradeVerdictHelp />);
     const dialog = await openHelp(user, /How the verdict works/, "How the trade verdict works");
     expect(within(dialog).getByText(/Each side lists what that team/)).toBeInTheDocument();
-    expect(dialog.textContent).toMatch(/Not included yet: competitive posture/);
+    // Posture and comparable trades ARE in the analysis now (posture sets the
+    // strategy, comparables are reference only); only the season-odds change
+    // and value-uncertainty ranges are still left out.
+    expect(dialog.textContent).toMatch(/competitive direction .* sets the strategy but is never counted as a vote/);
+    expect(dialog.textContent).toMatch(/comparable real trades are shown for reference/);
+    expect(dialog.textContent).toMatch(/Not included yet: the change in this season's playoff and title odds/);
+    expect(dialog.textContent).not.toMatch(/Not included yet: competitive posture/);
   });
 
   it("never implies the site executes a trade", async () => {

@@ -256,19 +256,27 @@
      "rowsChanged": 5,
      "rowsRemoved": 0,
      "rowsTotal": 29
+    },
+    {
+     "at": "2026-10-22T12:27:54Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
     }
    ],
-   "contentSince": "2026-10-18T12:27:39Z",
-   "fingerprint": "6b7278bee6e0c0b161bc6ef5",
+   "contentSince": "2026-10-22T12:27:54Z",
+   "fingerprint": "4133cced18c9468f52460418",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-21T01:18:59Z",
-   "lastAnyMeaningfulChangeAt": "2026-10-18T12:27:39Z",
+   "lastAnyMeaningfulChangeAt": "2026-10-22T12:27:54Z",
    "lastBroadDatasetChangeAt": "2026-10-18T12:27:39Z",
    "rowChangedAt": {
     "aj haulcy": "2026-10-18T10:27:35Z",
     "akheem mesidor": "2026-10-06T20:27:37Z",
     "anthony hill jr": "2026-10-18T10:27:35Z",
-    "arvell reese": "2026-10-07T04:27:45Z",
+    "arvell reese": "2026-10-22T12:27:54Z",
     "bryce boettcher": "2026-10-06T20:27:37Z",
     "caleb downs": "2026-10-06T20:27:37Z",
     "cashius howell": "2026-10-18T12:27:39Z",
@@ -290,14 +298,13 @@
     "peter woods": "2026-10-06T20:27:37Z",
     "r mason thomas": "2026-10-18T10:27:35Z",
     "rueben bain jr": "2026-10-18T12:27:39Z",
-    "sonny styles": "2026-10-07T04:27:45Z",
+    "sonny styles": "2026-10-22T12:27:54Z",
     "tj parker": "2026-10-06T20:27:37Z",
     "treydan stukes": "2026-10-18T10:27:35Z",
     "zion young": "2026-10-06T20:27:37Z"
    },
    "rowCount": 29,
    "rowCountHistory": [
-    30,
     31,
     30,
     30,
@@ -326,13 +333,14 @@
     29,
     29,
     29,
+    29,
     29
    ],
    "rowHashes": {
     "aj haulcy": "eb5d56e6f8",
     "akheem mesidor": "2bf2498ff1",
     "anthony hill jr": "ab6160e92c",
-    "arvell reese": "c9563178a6",
+    "arvell reese": "42306a8c19",
     "bryce boettcher": "26d20998be",
     "caleb downs": "ac2acbafd8",
     "cashius howell": "7e432c887b",
@@ -354,7 +362,7 @@
     "peter woods": "a4ee3561da",
     "r mason thomas": "35837a55f1",
     "rueben bain jr": "e535470ef1",
-    "sonny styles": "4e05c0b0df",
+    "sonny styles": "dad65303d7",
     "tj parker": "1076059918",
     "treydan stukes": "1c2cfd05b2",
     "zion young": "f2328b1d97"

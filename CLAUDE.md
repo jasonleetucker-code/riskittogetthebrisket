@@ -19,6 +19,17 @@
 > rules again when they are already recorded in the repo.
 
 
+## Permanent engineering throughput / routine auto-merge — owner 2026-10-19
+
+The shared policy imported above by `@docs/AGENT_OPERATING_SYSTEM.md`
+(§3) and its Integration mechanics in `ASSISTANT_COORDINATION.md`
+apply to Claude and every other model. Implement independent approved
+features in isolated branches/worktrees with L0/L1, preserve all required
+L2/L3 checks, and let the designated Integration Authority merge qualifying
+green reviewed routine PRs without another owner "merge it" instruction.
+Consequential owner-only and production promotion gates remain binding.
+This is a navigation pointer, not a separate Claude-specific rule.
+
 ## Calculator Premium UI — permanent parallel rule
 
 PSI / Direction A is the permanent design north star. Do not invent styling. Read
@@ -89,6 +100,12 @@ anything that touches these.
   on that consensus are correlated descendants, not independent votes. Declare
   population, overlap, correlation group, sample size, freshness, coverage,
   missing behavior and provenance before adding a signal. (§3.3)
+  **Agreement between different providers is consensus, not duplication**
+  (owner directive 2026-10-19). A shared family or cap needs credible
+  shared-DATA-lineage evidence: one feed republishing another, a vendor-stated
+  derivation, or identical raw values. Rank or value similarity alone never
+  merges, caps, excludes or haircuts a vote. Record:
+  `docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`.
 - **Champion ≠ challenger.** Evaluation is not activation. Nothing self-promotes.
   (§3.4)
 - **Model evaluation does not authorize production promotion.** The sequence is
@@ -536,7 +553,12 @@ Error behavior on endpoints:
     2026-10-17: with `apply_sleeper_trades` on, an unobserved
     `/traded_picks` (failed fetch, non-list body, or Sleeper failing before
     it) refuses the board with the same `pick_ownership_unavailable` shape
-    instead of serving the workbook's hand-entered ownership.
+    instead of serving the workbook's hand-entered ownership.  Same cache
+    too: the refusal is held for the 300 s TTL and is never answered by the
+    stale-while-revalidate last-valid board (that answers dollars-generation
+    failures only); `?refresh=1` retries.  Success is byte-identical to the
+    pre-fail-closed reader.  Pinned by
+    `tests/api/test_draft_capital_workbook_pick_ownership.py`.
   - **Every owned class is listed — `dynasty_main` only** (owner directive
     2026-10-17; scope corrected by the owner 2026-10-18: `dynasty_main` /
     Risk It to Get the Brisket is the only league in scope, and the $1,200
@@ -774,6 +796,26 @@ Steps:
    ``RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0`` + restart (factor 1.0,
    diagnostics keep reporting).  Full record:
    ``docs/sources/SOURCE_FRESHNESS_WEIGHTING.md``.
+   **The owner's STEP SCHEDULE is implemented and approved but HELD OFF**
+   (flag ``source_freshness_schedule_v2``, **default OFF** — owner decision
+   2026-10-20 on PR #1831, Option B: activation reserved for the owner
+   because the incumbent outlier filter can drop legitimate votes when the
+   voting population changes, which outlier-integrity-v2 is fixing; locked by
+   ``tests/api/test_freshness_v2_hold_locked.py`` and the deploy gate
+   ``scripts/verify_owner_held_flags.py``.  Owner directive "Universal
+   Source Voting and Freshness Policy"; when ON): whole days since the
+   last GENUINE publisher update — 0–7 → 1.00, 8–14 → 0.75, 15–21 → 0.50,
+   22–30 → 0.25, >30 → 0 (``config/sources/freshness_schedule_v2.json``).
+   Clock = a recorded vendor publication time (never later than the last
+   observed content change), else the last observed content change; an
+   unchanged re-download never moves it; an update time we cannot establish
+   votes at 0 (never fresh).  The KTC Market benchmark stays on v1.
+   Per-source voting status (status, reason, restore requirement):
+   ``src/sources/voting_status.py`` → contract ``sourceVotingStatus`` →
+   ``/api/sources/weighting`` ``votingStatus`` (reports the rule actually
+   in force — v1 while the flag is off).  Flag OFF is the cadence curve byte
+   for byte.  Record:
+   ``docs/sources/UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md``.
 4c. Family-capped voting (flag ``source_family_cap``, default ON, owner
    directive 2026-09-24) — after Hampel, EVERY member of a B10
    correlation family votes with its own effective weight and the
@@ -795,8 +837,16 @@ Steps:
    B10 family (no independence bonus).  Its IDP value is normalised per
    family, so IDP is one ``position_idp`` board per family
    (``signalsIdp{Dl,Lb,Db}``), collected and displayed but HELD from voting
-   (``PRIVATE_SOURCE_VOTE_HOLDS``: the positional path prices in IDP-local
-   coordinates — never derive a cross-family order).  It is the first
+   (``PRIVATE_SOURCE_VOTE_HOLDS``), translated in SHADOW only
+   (``sourceShadowMeta``) onto the bridge's shared-market family ladder —
+   never a cross-family order Signals asserted.  A family votes only when
+   ``signals_idp_shared_market`` (the IDP master, which ALONE activates
+   nothing), its own ``signals_idp_{dl,lb,db}_vote`` AND
+   ``signals_idp_xwalk_v2`` (Candidate F, ``src/bridges/family_crosswalk.py``:
+   Signals' within-family ORDER priced at IDPTC's level, stamped
+   ``levelSource``) are all ON; master + family without the crosswalk is
+   ``held: no_qualified_translation``, so Candidate A can never vote.  All
+   default OFF (owner directive 2026-10-19).  It is the first
    **private, box-local** voter: its CSVs live in the gitignored
    ``data/sources/signals/board/`` store written by the box timer
    ``dynasty-signals-values``, never in ``CSVs/site_raw``.  Where that
@@ -946,8 +996,16 @@ The pick stages are NOT in the order this list used to give.  Actual
 live order (corrected 2026-07-29 audit):
 
 12. Synthetic far-future pick derivation (C1-U6, 2026-08-16) — years no
-    vendor publishes (2029 while the active draft is 2026; horizon =
-    current + 3, self-rolling) are derived AT INJECTION
+    vendor publishes, through the horizon, are derived AT INJECTION.  The
+    horizon ENDS three seasons after the latest PROVEN-completed rookie
+    draft (owner decision 2026-10-19; one owner,
+    ``src/identity/pick_lifecycle.py::board_pick_horizon``, stamped as
+    ``pickClassLifecycle.horizon``): 2026 complete → 2027–2029, and 2030
+    arrives only when the 2027 draft is proven complete.  Unproven
+    completion fails closed onto the floor, the class before the active draft
+    year + 3 (``anchor + 2``); only proof that the anchor's own draft
+    completed reaches ``anchor + 3``, so a vendor slot roll cannot add a
+    season on its own.  The derivation itself is unchanged
     (``_inject_far_future_pick_sources``): the nearest published future
     year's tier entries are cloned with every per-source value stepped
     by the **measured vendor year-step** for its (tier, round) cell
@@ -1351,16 +1409,28 @@ The retired rule picks the 1,000 piece, because 1,000 matches 1,000:
 The moment B holds two pieces the consolidation premium fires and credits
 2,032 to side A.
 
-**One representation, every side count.**  Until 2026-08-18 the 2-team meter
-read VA-adjusted side totals while the 3+-team meter read a raw net flow with
-no VA in it at all, so the same trade shape graded differently at 2 teams and
-at 3.  ``computeSideFlows`` is now VA-inclusive: each side's premium is spread
-proportionally across the assets it SENDS, so ``given_i = raw_i + adjustment_i``
-by construction and the premium lands on whichever side receives those pieces.
-``tradeImbalance`` is the single definition of "how far apart is this trade",
-and for N = 2 the identity ``nets[1] === tradeGapAdjusted(A, B)`` holds exactly
-(pinned by test).  Caveat that travels with the number: the multi-side VA is a
-**structural extension** of a 2-side calibration, not a separately fit model.
+**One rule, every side count: each team in its OWN perspective** (2026-10-20,
+spec ``docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`` §5.1).  For a routed trade of any
+N, team i's package reading is ``packageAdjustedPairTotals(G_i, R_i)`` — what it
+sends against everything routed to it, the JS twin of Python
+``package_model.adjusted_pair_totals`` (pinned by
+``tests/fixtures/multi_team_trade_parity_cases.json``).  Its gap is
+``recvAdj − sendAdj`` and its band base is ``max(sendAdj, recvAdj)`` — its OWN
+larger package, never the largest package anyone sends.  ``computeSideFlows``
+publishes that reading (``given`` / ``received`` / ``net`` = ``sendAdj`` /
+``recvAdj`` / gap, perspective values never summed across teams) beside the RAW
+routed flows ``rawGiven`` / ``rawReceived``, the only conserved quantities.
+For N = 2 the two readings are mirror images, every number is unchanged, and
+``nets[1] === tradeGapAdjusted(A, B)`` holds exactly (pinned by test).  For
+N ≥ 3 ``tradeImbalance`` returns ``{perTeam, worst}`` (no ``max(net) −
+min(net)``), and ``findBalancers`` returns nothing (no approved 3+-team
+balancing objective, SD-13).  RETIRED: ``computeMultiSideAdjustments``, which
+priced each side against the flattened union of every OTHER side — the "two
+imaginary sides" collapse directive §6 forbids (on the spec's I14 trade it put
+team A at +4,634 and the trade at "lopsided"; A's own packages differ by +610,
+"slight").  The browser's 3+-team reading is a
+labelled PRELIMINARY indicator; each team's final answer is
+``POST /api/trade/analyze-multi``'s.
 
 **The draft-capital stack effect is INFORMATIONAL ONLY** (owner directive
 2026-09-29, #1527).  ``computeStackAdjustments`` still computes it for a
@@ -1535,6 +1605,54 @@ generated side (``thresholds.topologyRejected``), and the suggestions
 equalizer per addition.  A balancer is never a draft pick (C7-PICKGEN-01
 rule 5: picks enter generated trades only through a posture-aware
 generator).
+
+### Multi-team trade analysis — one owner (N-team engine, owner directive 2026-10-20)
+
+A team-attributed trade of ANY size is one routed ledger evaluated by the SAME
+per-team analysis the 2-team War Room runs.  Spec (binding interface):
+``docs/trade/NTEAM_TRADE_ENGINE_SPEC.md``.
+
+* ``src/trade/trade_ledger.py`` owns the ledger: ONE snapshot per request
+  (``snapshot_for``; rosters, board rows, pick ownership, roster settings, and
+  freshness from ``src/api/roster_freshness.py`` — never a copy), asset refs
+  (``p:<sleeperId>`` / canonical league pick ids; labels never identify),
+  validation in the spec's fixed order (§2.3, stable reason codes), and ownership
+  verified against the snapshot — no request field can assert it.  Only
+  ``current`` rosters prove ownership; ``stale`` / ``unknown`` rosters, a player
+  on several rosters, or an ``unknown`` pick make the asset UNVERIFIABLE, never
+  guessed.
+* ``src/trade/analyze_service.analyze_trade_n`` is the one N-team composer: a
+  per-team loop over ``simulate_for_team`` + ``analyze_for_team`` from that one
+  snapshot.  Each team's roster changes only through its own legs, so all
+  changes are simultaneous by construction — no chain of 2-team trades.  At N = 2
+  a team's ``simulation`` + ``analysis`` equal ``/api/trade/analyze``'s (pinned on
+  real archived trades; the one listed difference is an orphan team's posture
+  reason).  Modes: ``team_context`` / ``asset_only`` (private) and
+  ``market_fairness`` (public: no posture, no capacity, writes nothing).  Refuses
+  unless the package model is ``geom_q078_v1`` with a readable config.
+* ``src/trade/team_verdicts.py`` projects, never computes: the per-team category
+  (the old ``public_category_from_decision`` body), per-team MARKET fairness (the
+  asset evidence gates, then the equity lens's own ``fairness_bands`` band over
+  that team's adjusted (gives, receives) — gross, identical in every mode), the
+  Kleene-AND overall, and the all-team summary.  There is no trade-level
+  recommendation, and no per-team adjusted gap, VA or utility is ever summed into
+  a trade-level number — only RAW priced totals are conserved.
+* ``trade_decision.asset_evidence_gaps`` is the asset half of the evidence gates;
+  its ``ownership_unverifiable`` gate reads the simulator's ``ownershipEvidence``,
+  which only the ledger sets, so every existing route is unchanged.
+* Roster capacity matches an outgoing player to his roster entry BY ID
+  (``roster_capacity.outgoing_roster_names``); names are the fallback only.
+* The private route ``POST /api/trade/analyze-multi`` is gated by
+  ``trade_multi_team_analysis`` (default OFF; rollback
+  ``RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0`` + restart).  The flag gates the
+  route, not the engine.  Bounds: ``config/trade/multi_team.json`` (unreadable →
+  2 teams).  A per-team result that does not reconcile with the ledger raises
+  ``ConservationViolation`` and is never published (500).
+
+Rule for new code: a multi-team surface consumes ``trade_ledger`` +
+``analyze_trade_n``; it never re-implements routing, ownership, valuation, the
+package model, fairness or the decision, and never collapses a multi-team trade
+into two imaginary sides.
 
 ### Competitive Posture — one owner (#840 / C7-POST-01, Wave B)
 

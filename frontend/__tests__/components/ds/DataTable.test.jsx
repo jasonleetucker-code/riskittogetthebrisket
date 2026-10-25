@@ -613,3 +613,106 @@ describe("DataTable scroll region", () => {
     });
   });
 });
+
+// ── Disclosure rows (CQ-30: DataTable aria-expanded) ─────────────────────
+//
+// `aria-expanded` cannot go on the <tr>: ARIA allows it on a row only inside
+// a treegrid, and axe-core fails it on a plain table row
+// (aria-conditional-attr, WCAG 4.1.2).  So an opted-in row carries a real
+// disclosure <button> in its first visible cell, and that button is the
+// row's one keyboard stop.
+describe("DataTable disclosure rows (isRowExpanded)", () => {
+  function Expandable({ onToggle = () => {}, columns = COLUMNS }) {
+    const [open, setOpen] = React.useState(null);
+    return (
+      <DataTable
+        caption="t"
+        columns={columns}
+        rows={ROWS}
+        onRowClick={(row) => {
+          onToggle(row);
+          setOpen((cur) => (cur === row.id ? null : row.id));
+        }}
+        isRowExpanded={(row) => row.id === open}
+        rowExpandLabel={(row) => `Details for ${row.name}`}
+        renderAfterRow={(row) =>
+          row.id === open ? (
+            <tr data-testid={`panel-${row.id}`}>
+              <td colSpan={columns.length}>panel</td>
+            </tr>
+          ) : null
+        }
+      />
+    );
+  }
+
+  it("stamps aria-expanded on a named button, never on the <tr>", async () => {
+    const user = userEvent.setup();
+    render(<Expandable />);
+    const toggle = screen.getByRole("button", { name: "Details for Chase" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveClass("ds-table__disclosure");
+    for (const tr of screen.getAllByRole("row")) {
+      expect(tr).not.toHaveAttribute("aria-expanded");
+    }
+    await user.click(screen.getAllByRole("row")[1]);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("panel-a")).toBeInTheDocument();
+  });
+
+  it("the button is the row's single keyboard stop; Enter/Space toggle once each", async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(<Expandable onToggle={onToggle} />);
+    const row = screen.getAllByRole("row")[1];
+    expect(row).not.toHaveAttribute("tabindex");
+    await user.tab(); // first sort header
+    await user.tab(); // second sort header
+    await user.tab();
+    const toggle = screen.getByRole("button", { name: "Details for Chase" });
+    expect(toggle).toHaveFocus();
+    await user.keyboard("{Enter}");
+    // Not double-fired by the row's own key/click handlers.
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await user.keyboard(" ");
+    expect(onToggle).toHaveBeenCalledTimes(2);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("lives in the first column that is never responsively hidden", () => {
+    const cols = [{ ...COLUMNS[2], hideBelow: "md" }, COLUMNS[0], COLUMNS[1]];
+    const { container } = render(<Expandable columns={cols} />);
+    const firstRow = container.querySelectorAll("tbody tr")[0];
+    expect(firstRow.querySelector('td[data-col="team"] .ds-table__disclosure')).toBeNull();
+    expect(firstRow.querySelector('td[data-col="name"] .ds-table__disclosure')).not.toBeNull();
+  });
+
+  it("defaults the accessible name to 'Details'", () => {
+    render(
+      <DataTable
+        caption="t"
+        columns={COLUMNS}
+        rows={ROWS}
+        onRowClick={() => {}}
+        isRowExpanded={() => false}
+      />,
+    );
+    expect(screen.getAllByRole("button", { name: "Details" })).toHaveLength(ROWS.length);
+  });
+
+  it("without isRowExpanded nothing changes: no disclosure button, row stays a tab stop", () => {
+    const { container } = render(
+      <DataTable caption="t" columns={COLUMNS} rows={ROWS} onRowClick={() => {}} />,
+    );
+    expect(container.querySelector(".ds-table__disclosure")).toBeNull();
+    expect(screen.getAllByRole("row")[1]).toHaveAttribute("tabindex", "0");
+  });
+
+  it("isRowExpanded without onRowClick is inert (nothing to toggle)", () => {
+    const { container } = render(
+      <DataTable caption="t" columns={COLUMNS} rows={ROWS} isRowExpanded={() => true} />,
+    );
+    expect(container.querySelector(".ds-table__disclosure")).toBeNull();
+  });
+});

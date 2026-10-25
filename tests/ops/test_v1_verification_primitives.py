@@ -626,7 +626,8 @@ def _signals_contract(*, sf_votes=True, idp_state="shadow", contributing=150, le
     for i, key in enumerate(("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")):
         row = {"sourceNativeValues": {key: 1.0}, "sourceShadowMeta": {key: {}}}
         if idp_state == "active":
-            row["sourceRankMeta"] = {key: {}}
+            row["sourceRankMeta"] = {key: {"appliedWeight": 1.0, "valueContribution": 3000}}
+            row.pop("sourceShadowMeta")
         rows[f"I{i}"] = row
     avail = {"signalsSf": {"state": "present", "votes": sf_votes, "voteState": "active"}}
     for key in ("signalsIdpDl", "signalsIdpLb", "signalsIdpDb"):
@@ -667,9 +668,37 @@ def test_signals_offense_present_but_not_contributing_fails():
 def test_signals_idp_state_must_match_what_rows_carry():
     auth.CHECKS.clear()
     contract = _signals_contract(idp_state="shadow")
-    contract["players"]["I0"]["sourceRankMeta"] = {"signalsIdpDl": {}}  # votes while "shadow"
+    # A weighted, contributing vote while the state says "shadow".
+    contract["players"]["I0"]["sourceRankMeta"] = {
+        "signalsIdpDl": {"appliedWeight": 1.0, "valueContribution": 3000}
+    }
     auth.check_signals(contract)
     assert _signals_checks()["SIG-IDP"].status == "fail"
+
+
+def test_signals_idp_a_non_contributing_meta_is_not_a_vote():
+    """A freshness-excluded observation is not a vote (weighted, contributing
+    observations only — owner directive 2026-10-19)."""
+    auth.CHECKS.clear()
+    contract = _signals_contract(idp_state="shadow")
+    contract["players"]["I0"]["sourceRankMeta"] = {
+        "signalsIdpDl": {"appliedWeight": 0.0, "contributedToBlend": False}
+    }
+    auth.check_signals(contract)
+    assert _signals_checks()["SIG-IDP"].status == "pass"
+
+
+def test_signals_idp_active_family_must_contribute():
+    auth.CHECKS.clear()
+    auth.check_signals(_signals_contract(idp_state="active"))
+    assert _signals_checks()["SIG-IDP"].status == "pass"
+
+
+def test_signals_idp_held_without_a_qualified_translation_passes_as_shadow():
+    """``held: no_qualified_translation`` keeps the shadow stamp, casts no vote."""
+    auth.CHECKS.clear()
+    auth.check_signals(_signals_contract(idp_state="held"))
+    assert _signals_checks()["SIG-IDP"].status == "pass"
 
 
 def test_signals_without_a_contract_is_unmeasurable():

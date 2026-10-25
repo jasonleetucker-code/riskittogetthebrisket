@@ -1078,7 +1078,10 @@ def gather_inputs(
         except Exception as exc:  # noqa: BLE001
             inputs.standings_reason = f"standings_failed:{_reason(exc)}"
         try:
-            section = luck.build_section(snapshot)
+            # Team-level: a roster's all-play for the season, keyed by its
+            # current owner (the key this forecast joins on), including weeks
+            # played before a mid-season hand-off.
+            section = luck.build_section(snapshot, by_franchise=True)
             inputs.luck_rows = list(section.get("currentSeasonRanked") or [])
         except Exception as exc:  # noqa: BLE001
             inputs.luck_reason = f"all_play_failed:{_reason(exc)}"

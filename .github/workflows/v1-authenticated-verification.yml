@@ -1,5 +1,14 @@
 name: V1 Authenticated Production Verification (ephemeral guest session)
 
+# Commit-to-verification attribution: a run that is named only "V1 ..." cannot
+# be tied to the deploy it verifies without opening its log (the head_sha GitHub
+# shows for a workflow_run is main's tip at trigger time, NOT the deploy's).
+# Informational only; no gate reads the run name.
+run-name: >-
+  V1 verify ${{ github.event_name == 'workflow_run'
+  && format('deploy run {0} @ {1}', github.event.workflow_run.id, github.event.workflow_run.head_sha)
+  || format('manual dispatch @ {0}', github.sha) }}
+
 # The one generic primitive the §9a packet-A tranche was blocked on: an
 # authenticated production session, produced by EXISTING authorized
 # infrastructure instead of an owner grant.
@@ -101,7 +110,8 @@ jobs:
       group: production-deploy
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 45 + the bounded warm wait (5 min) added 2026-10-19.
+    timeout-minutes: 50
     environment: production
     steps:
       - name: Checkout
@@ -119,6 +129,8 @@ jobs:
           EXPECTED_SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
           PROD_PUBLIC_URL: ${{ vars.PROD_PUBLIC_URL }}
           BASELINE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
+          DEPLOY_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
+          DEPLOY_COMPLETED_AT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.updated_at || '' }}
         run: |
           set -Eeuo pipefail
           if [ -z "${EXPECTED_SOURCE_SHA:-}" ]; then
@@ -138,6 +150,13 @@ jobs:
             exit 1
           fi
           echo "ORIGIN=${PROD_PUBLIC_URL%/}" >> "$GITHUB_ENV"
+          # Inputs to the report-only failure classifier (scripts/v1_failure_classifier.py):
+          # which revision this run MEANT to verify, which deploy produced it,
+          # and how long it queued behind other production work.  Public values.
+          echo "V1_EXPECTED_SHA=$EXPECTED_SOURCE_SHA" >> "$GITHUB_ENV"
+          echo "V1_JOB_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          echo "V1_DEPLOY_RUN_ID=${DEPLOY_RUN_ID}" >> "$GITHUB_ENV"
+          echo "V1_DEPLOY_COMPLETED_AT=${DEPLOY_COMPLETED_AT}" >> "$GITHUB_ENV"
 
       - name: Configure production SSH
         env:
@@ -333,6 +352,99 @@ jobs:
             --origin "$ORIGIN" --cookie-file "$RUNNER_TEMP/session_cookie" \
             --out "$RUNNER_TEMP/security_probe_login.json"
 
+      # Bounded wait for a WARM backend before any suite runs.  This job is
+      # dispatched the moment Deploy Production finishes, i.e. seconds after a
+      # restart: the backend's startup scrape then runs for ~4 minutes and
+      # keeps the event loop busy (a cold /api/status measured 28-35 s), so
+      # the first specs were timing the scrape, not the product.  Public
+      # endpoints only — status code, latency and a boolean are printed,
+      # nothing else.  Never fails the job: a backend that does not warm
+      # inside the budget is reported (::warning::) and the suites run
+      # anyway, so their verdict still stands on production as it is.  Also
+      # records the backend's public ``build.process_started_at`` so the
+      # restart check below can tell whether the process restarted mid-run.
+      - name: Wait for a warm backend (bounded, public endpoints)
+        id: warm
+        if: ${{ inputs.suite != 'baseline' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$ORIGIN" <<'PYEOF'
+          import json
+          import os
+          import re
+          import sys
+          import time
+          import urllib.error
+          import urllib.request
+
+          origin = sys.argv[1]
+          BUDGET_SECONDS = 300
+          FAST_SECONDS = 10.0
+          deadline = time.monotonic() + BUDGET_SECONDS
+
+
+          def get(path, timeout):
+              t0 = time.monotonic()
+              try:
+                  with urllib.request.urlopen(origin + path, timeout=timeout) as resp:
+                      code, raw = resp.status, resp.read()
+              except urllib.error.HTTPError as exc:  # /api/health answers 503 while degraded
+                  code, raw = exc.code, exc.read()
+              except Exception:  # noqa: BLE001 -- unreachable/timeout: not warm
+                  return None, None, time.monotonic() - t0
+              try:
+                  body = json.loads(raw)
+              except ValueError:
+                  body = None
+              return code, (body if isinstance(body, dict) else None), time.monotonic() - t0
+
+
+          warm = False
+          while True:
+              code, body, took = get("/api/health", 20)
+              scraping = body.get("scrape_running") if body else None
+              print(f"health HTTP={code or '000'} {took:.1f}s scrape_running={scraping}")
+              if code is not None and took < FAST_SECONDS and scraping is False:
+                  warm = True
+                  break
+              if time.monotonic() >= deadline:
+                  break
+              time.sleep(15)
+
+          _code, status, _took = get("/api/status", 60)
+          started = ((status or {}).get("build") or {}).get("process_started_at")
+          started = started if isinstance(started, str) else ""
+          # Which commit production is RUNNING (public /api/status build.commit,
+          # read once at process start).  The same request as above -- no extra
+          # load.  Only a full 40-hex SHA is kept; anything else is unknown.
+          commit = ((status or {}).get("build") or {}).get("commit")
+          commit = commit if isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit) else ""
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"backend_warm={'true' if warm else 'false'}\n")
+              out.write(f"backend_started_at={started}\n")
+              out.write(f"backend_commit={commit}\n")
+          print(f"backend warm={warm} process_started_at={started or 'unknown'} commit={commit or 'unknown'}")
+          expected = os.environ.get("V1_EXPECTED_SHA", "")
+          # Report-only.  The specs of THIS checkout are being run against
+          # whatever production serves; when that is a different revision the
+          # run cannot verify the deploy that triggered it (a V1 run queued
+          # 66-86 min behind a newer deploy ran against that deploy's process).
+          if commit and expected and commit != expected:
+              print(
+                  "::warning title=Production revision differs from the verified revision::"
+                  f"specs are from {expected[:12]} but production runs {commit[:12]}; "
+                  "this run's verdict is not a verdict on the triggering deploy"
+              )
+          if not warm:
+              print(
+                  "::warning title=Backend not warm::production did not answer /api/health "
+                  f"quickly with no scrape running within {BUDGET_SECONDS}s; the suites run "
+                  "anyway — read slow or timed-out specs with that in mind"
+              )
+          PYEOF
+
       - name: API verification suite
         # The temporary post-deploy Week 1 bridge needs the prod-auth browser
         # artifact for W1-30; API/Lane-4 rows are already independently
@@ -437,6 +549,75 @@ jobs:
             --json production-route-baselines.json || rc=$?
           echo "baseline_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Baseline collection exit: $rc (bounded observations, not campaign acceptance)"
+
+      # Did the backend restart while the suites ran?  A restart is not a
+      # verification failure by itself, but every spec in flight across it
+      # fails (502s, a wedged process before it), and before the 2026-10-19
+      # session_store fix it also deleted this run's guest session on
+      # rehydrate — run 39221318435 lost its session, half its browser specs
+      # and its revoke proof to a restart at 08:42:49 that nothing in the log
+      # named.  Public /api/status only; never fails the job.
+      - name: Detect a backend restart during the run (public /api/status)
+        id: restart
+        if: ${{ always() && steps.mint.outputs.pass_id != '' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          STARTED_BEFORE: ${{ steps.warm.outputs.backend_started_at }}
+        run: |
+          set -Eeuo pipefail
+          python3 - "$ORIGIN" <<'PYEOF'
+          import json
+          import os
+          import re
+          import sys
+          import time
+          import urllib.error
+          import urllib.request
+
+          origin = sys.argv[1]
+          before = os.environ.get("STARTED_BEFORE") or ""
+          after = ""
+          commit_after = ""
+          status_http = ""
+          t0 = time.monotonic()
+          try:
+              with urllib.request.urlopen(origin + "/api/status", timeout=60) as resp:
+                  status_http = str(resp.status)
+                  body = json.loads(resp.read())
+              build = (body or {}).get("build") or {}
+              value = build.get("process_started_at")
+              after = value if isinstance(value, str) else ""
+              commit = build.get("commit")
+              commit_after = commit if isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit) else ""
+          except urllib.error.HTTPError as exc:  # answered, with an error status
+              status_http = str(exc.code)
+              after = ""
+          except Exception:  # noqa: BLE001 -- unknown, never "no restart"
+              after = ""
+          status_seconds = f"{time.monotonic() - t0:.2f}" if status_http else ""
+          # Report-only inputs to scripts/v1_failure_classifier.py.  The restart
+          # INSTANT is what lets a restart be attributed to the one test it
+          # overlapped, rather than to every failure in the run; the HTTP code and
+          # latency of this same request (no extra load) say whether the backend
+          # was answering promptly after the suites.
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"backend_started_after={after}\n")
+              out.write(f"backend_commit_after={commit_after}\n")
+              out.write(f"status_after_http={status_http}\n")
+              out.write(f"status_after_seconds={status_seconds}\n")
+          if not before or not after:
+              print(f"backend restart during run: unknown (before={before or 'unknown'}, now={after or 'unknown'})")
+          elif before != after:
+              print(
+                  "::warning title=Backend restarted mid-run::process_started_at moved from "
+                  f"{before} to {after}; specs in flight across the restart are not product verdicts"
+              )
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+                  summary.write(f"\n**Backend restarted during the run:** `{before}` → `{after}`\n")
+          else:
+              print(f"backend restart during run: none (process_started_at {after})")
+          PYEOF
 
       # The control the security verdict depends on: the SAME session,
       # probed in the step directly before the revoke.  The post-login probe
@@ -577,6 +758,46 @@ jobs:
           echo "security_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Security acceptance exit: $rc (0 pass · 2 fail or inconclusive)"
 
+      # REPORT-ONLY failure classification (scripts/v1_failure_classifier.py;
+      # taxonomy in docs/ops/V1_VERIFICATION_TAXONOMY.md).  It reads only the
+      # sanitized prod-auth report, the two security-probe JSONs (status codes
+      # and booleans) and public values from earlier steps, and writes
+      # v1-failure-classification.json + a step summary.  It is NOT a gate:
+      # continue-on-error, nothing below reads its output, and the verdict is
+      # still decided by the next step and by the security acceptance step.
+      # No secret is passed to it.
+      - name: Classify failures (report-only, never a gate)
+        id: classify
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        env:
+          V1_JOB_STATUS: ${{ job.status }}
+          V1_BACKEND_WARM: ${{ steps.warm.outputs.backend_warm }}
+          V1_COMMIT_BEFORE: ${{ steps.warm.outputs.backend_commit }}
+          V1_STARTED_BEFORE: ${{ steps.warm.outputs.backend_started_at }}
+          V1_COMMIT_AFTER: ${{ steps.restart.outputs.backend_commit_after }}
+          V1_STARTED_AFTER: ${{ steps.restart.outputs.backend_started_after }}
+          V1_LOGIN_OUTCOME: ${{ steps.login.outcome }}
+          V1_BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+          V1_STATUS_AFTER_HTTP: ${{ steps.restart.outputs.status_after_http }}
+          V1_STATUS_AFTER_SECONDS: ${{ steps.restart.outputs.status_after_seconds }}
+          # The exit codes the verdict step below decides on.  job.status still
+          # reads "success" here for a run that step is about to fail, so the
+          # classifier mirrors the verdict step's rule from these same values.
+          V1_API_EXIT: ${{ steps.api.outputs.api_exit }}
+          V1_LANE4_EXIT: ${{ steps.lane4.outputs.lane4_exit }}
+          V1_BROWSER_EXIT: ${{ steps.browser.outputs.browser_exit }}
+          V1_SECURITY_EXIT: ${{ steps.security.outputs.security_exit }}
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/v1_failure_classifier.py classify \
+            --safe-report tests/e2e/prod-auth-results.json \
+            --probe-login "$RUNNER_TEMP/security_probe_login.json" \
+            --probe-pre-revoke "$RUNNER_TEMP/security_probe_pre_revoke.json" \
+            --out v1-failure-classification.json \
+            --step-summary "$GITHUB_STEP_SUMMARY"
+
       - name: Fail the job on API/lane4/browser verdicts
         shell: bash
         env:
@@ -639,6 +860,7 @@ jobs:
             production-route-baselines.json
             v1-auth-report.json
             security-acceptance.json
+            v1-failure-classification.json
             lane4-remote.json
             tests/e2e/prod-auth-results.json
           if-no-files-found: warn

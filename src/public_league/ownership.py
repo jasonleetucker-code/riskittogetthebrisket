@@ -90,3 +90,20 @@ def owner_at(league_id: Any, roster_id: Any, current_owner: str, week: Any = Non
         if wk < change["effectiveWeek"]:
             return change["fromOwnerId"]
     return current_owner
+
+
+def handed_off_roster(league_id: Any, owner_id: Any) -> int | None:
+    """The roster ``owner_id`` handed off mid-season in ``league_id``, or ``None``.
+
+    The outgoing owner of a recorded hand-off is no longer the roster's
+    current owner, so a reverse lookup over Sleeper's current ``owner_id``s
+    cannot find the roster they held for their own weeks.
+    """
+    lid = str(league_id or "")
+    oid = str(owner_id or "")
+    if not (lid and oid):
+        return None
+    for change in all_changes():
+        if change["leagueId"] == lid and change["fromOwnerId"] == oid:
+            return change["rosterId"]
+    return None

@@ -23,7 +23,7 @@ import os
 import sqlite3
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from src.trade import market_trade_archive as archive
 from src.trade import market_trade_eval as ev
@@ -66,6 +66,8 @@ def build_ledger(
     registry: mtf.TranslatorRegistry | None = None,
     lanes: Sequence[str] | None = None,
     target_roster_positions: Sequence[str] | None = None,
+    side_key_secret: bytes | None = None,
+    maturity_resolver: MaturityResolver | None = None,
 ) -> dict[str, Any]:
     built = norm.build_observations(
         archive_path=archive_path,
@@ -74,6 +76,7 @@ def build_ledger(
         league_keys=league_keys,
         ctx=ctx,
         allow_stale_scoring=allow_stale_target_scoring,
+        side_key_secret=side_key_secret,
         **({"lanes": lanes} if lanes is not None else {}),
     )
     observations = built["observations"]
@@ -100,6 +103,9 @@ def build_ledger(
         g["targetPriceAuthority"] = d["targetPriceAuthority"]
         g["broadContextKind"] = d["broadContextKind"]
         g["dispositionReasons"] = d["dispositionReasons"]
+        # Evidence for the trade-market estimator (G9); decides no disposition.
+        g["rosterExclusivity"] = mtf.roster_exclusivity(fmt, host=g.get("host"))
+    attach_league_maturity(grouping.groups, maturity_resolver)
     return {
         "observations": observations,
         "grouping": grouping,
@@ -108,6 +114,66 @@ def build_ledger(
         "targetFormat": tgt,
         "targetLeague": target_league,
     }
+
+
+#: The P3 maturity owner's hook: ``resolver(group) -> mapping | None`` with
+#: ``pointInTime`` / ``asOfBuild`` readings, each
+#: ``{"completedSeasons": int | None, "certainty": "exact" | "lower_bound" |
+#: "unknown"}``, plus optional ``lineageId`` and ``basis``.
+MaturityResolver = Callable[[Mapping[str, Any]], "Mapping[str, Any] | None"]
+
+MATURITY_NOT_RESOLVED = "not_resolved"
+MATURITY_RESOLVED = "resolved"
+MATURITY_RESOLVER_ERROR = "resolver_error"
+MATURITY_NO_RESOLVER = "maturity_resolver_not_provided"
+
+
+def _maturity_reading(raw: Any) -> dict[str, Any]:
+    r = raw if isinstance(raw, Mapping) else {}
+    n = r.get("completedSeasons")
+    n = n if isinstance(n, int) and not isinstance(n, bool) and n >= 0 else None
+    certainty = r.get("certainty")
+    if certainty not in (ev.MATURITY_EXACT, ev.MATURITY_LOWER_BOUND) or n is None:
+        certainty = ev.MATURITY_UNKNOWN
+    return {
+        "completedSeasons": n,
+        "certainty": certainty,
+        "cohort": ev.maturity_cohort(n, certainty),
+    }
+
+
+def attach_league_maturity(
+    groups: Sequence[dict[str, Any]], resolver: MaturityResolver | None
+) -> None:
+    """Stamp ``leagueMaturity`` on every group, under BOTH readings (owner
+    directive V2 §2: three VERIFIED completed seasons via the real
+    ``previous_league_id`` chain).  This module never computes maturity -- the
+    P3 owner (``src.intel.league_filter``) supplies ``resolver``.  Without one,
+    or when it fails or returns nothing, both readings are ``unknown``: never
+    a guessed age, never the existing two-season floor presented as exact."""
+    for g in groups:
+        reason: str | None = MATURITY_NO_RESOLVER
+        state = MATURITY_NOT_RESOLVED
+        raw: Mapping[str, Any] | None = None
+        if resolver is not None:
+            try:
+                raw = resolver(g)
+            except Exception as exc:  # noqa: BLE001 — one failure stays local
+                state, reason = MATURITY_RESOLVER_ERROR, type(exc).__name__
+            else:
+                if isinstance(raw, Mapping):
+                    state, reason = MATURITY_RESOLVED, None
+                else:
+                    reason = "resolver_returned_nothing"
+        raw = raw if isinstance(raw, Mapping) else {}
+        g["leagueMaturity"] = {
+            "state": state,
+            "reason": reason,
+            "pointInTime": _maturity_reading(raw.get("pointInTime")),
+            "asOfBuild": _maturity_reading(raw.get("asOfBuild")),
+            "lineageId": raw.get("lineageId") if isinstance(raw.get("lineageId"), str) else None,
+            "basis": raw.get("basis") if isinstance(raw.get("basis"), str) else None,
+        }
 
 
 def _jsonable_group(g: Mapping[str, Any]) -> dict[str, Any]:
@@ -530,7 +596,73 @@ def coverage_report(result: Mapping[str, Any]) -> dict[str, Any]:
         "lanes": result["lanes"],
         "identity": norm.identity_summary(observations),
         "identityDirectory": result.get("identityDirectory"),
+        # chaseTradeMarket P2 evidence (counts only).
+        "crossFeedOverlap": grp.cross_feed_overlap(groups),
+        "collection": collection_summary(observations),
     }
+
+
+def _latency_days(o: Mapping[str, Any]) -> float | None:
+    """Days from the trade to the box first collecting it; ``None`` when either
+    side is unknown.  KTC dates are day-granular, so its latency is too."""
+    try:
+        first = datetime.fromisoformat(str(o.get("firstCollectedAt")))
+    except (TypeError, ValueError):
+        return None
+    if first.tzinfo is None:
+        first = first.replace(tzinfo=timezone.utc)
+    ms = o.get("occurredAtMs")
+    if isinstance(ms, (int, float)) and not isinstance(ms, bool):
+        occurred = datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+    else:
+        try:
+            occurred = datetime.fromisoformat(str(o.get("occurredDate"))[:10]).replace(
+                tzinfo=timezone.utc
+            )
+        except (TypeError, ValueError):
+            return None
+    return (first - occurred).total_seconds() / 86400.0
+
+
+def collection_summary(observations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Per acquisition channel: how many observations carry the point-in-time
+    collection clock, which crawl wrote the intel-ledger rows, and the
+    collection latency (counts and quantiles only)."""
+    out: dict[str, Any] = {}
+    for o in observations:
+        ch = grp.observation_channel(o) or "unknown"
+        c = out.setdefault(
+            ch,
+            {
+                "observations": 0,
+                "collectedAtKnown": 0,
+                "collectedAtUnknown": 0,
+                "byCollectionPath": {},
+                "_lat": [],
+            },
+        )
+        c["observations"] += 1
+        if o.get("collectedAt"):
+            c["collectedAtKnown"] += 1
+        else:
+            c["collectedAtUnknown"] += 1
+        path = o.get("collectionPath")
+        if path:
+            c["byCollectionPath"][path] = c["byCollectionPath"].get(path, 0) + 1
+        lat = _latency_days(o)
+        if lat is not None:
+            c["_lat"].append(lat)
+    for c in out.values():
+        lat = sorted(c.pop("_lat"))
+
+        def q(p: float, lat: list[float] = lat) -> float | None:
+            if not lat:
+                return None
+            return round(lat[min(len(lat) - 1, int(p * (len(lat) - 1) + 0.5))], 2)
+
+        c["byCollectionPath"] = dict(sorted(c["byCollectionPath"].items()))
+        c["collectionLatencyDays"] = {"n": len(lat), "p50": q(0.5), "p90": q(0.9), "max": q(1.0)}
+    return dict(sorted(out.items()))
 
 
 def evaluation_report(
@@ -543,6 +675,7 @@ def evaluation_report(
     out: dict[str, Any] = {
         "topology": ev.summarize_topology(groups),
         "latentFitReadiness": ev.latent_fit_readiness(groups),
+        "estimatorEvidence": ev.summarize_estimator_evidence(groups),
     }
     if contract is None:
         out["residuals"] = {"available": False, "reason": "no_board_supplied"}

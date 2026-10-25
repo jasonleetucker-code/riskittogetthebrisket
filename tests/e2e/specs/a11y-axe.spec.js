@@ -127,6 +127,9 @@ const ROUTES = [
   "/auction/join",
   "/auction/notifications",
   "/auction/reset",
+  // Unlisted Waiver Wire Comparison (owner request 2026-10-21): public by
+  // exact link, never advertised (lib/public-routes.js isUnlistedPagePath).
+  "/waiver-wire/r7k4q9m2",
 ];
 
 const enc = encodeURIComponent;
@@ -277,33 +280,33 @@ const DYNAMIC_ROUTES = [
  *            focusable × 1              in (tab stop + named group — the
  *                                       /rosters pattern)
  *
- * What remains below needs a VISUAL change to fix — a colour or an
- * underline — and the calculator's look is governed by the PSI design
- * contract (docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md), which this
- * a11y-coverage change is not authorised to alter. Each is a real WCAG AA
- * failure, recorded here so it is counted rather than invisible, and so a
- * fix makes the entry stale and fails the suite until it is deleted.
- * Owner: UI Lane 6 (docs/ui/UI_PARALLEL_LEDGER.md).
+ * The four that needed a VISUAL change — a colour or an underline — were
+ * held here as VISUAL_FIX_REQUIRED until UI Lane 6 fixed them with design
+ * tokens (CQ-30, 2026-10-19), and are now gone from the ratchet:
+ *
+ *   /draft                    color-contrast × 1   the inactive tag tab's
+ *                                                  rookie-count pill sat at
+ *                                                  opacity 0.75 (3.89:1)
+ *   /league-comparison        color-contrast × 1   the method toggle was two
+ *                                                  `btn btn-secondary`
+ *                                                  buttons — classes no
+ *                                                  stylesheet defines — so an
+ *                                                  inline accent label sat on the UA
+ *                                                  #efefef face (1.36:1); now
+ *                                                  the ds SegmentedControl
+ *   /auction/notifications    color-contrast × 5   table headers inherited
+ *                                                  the legacy globals.css
+ *                                                  navy `th` fill (2.61:1);
+ *                                                  now on --surface-1
+ *   /league/franchise/[owner] link-in-text-block × 2  prose links told
+ *                                                  apart by colour only; now
+ *                                                  underlined (.ds-link)
+ *
+ * Every route and viewport is now EMPTY. A new entry needs the same
+ * evidence: the rule, the node count, and why it cannot be fixed in the
+ * change that found it. Owner: UI Lane 6 (docs/ui/UI_PARALLEL_LEDGER.md).
  */
-const VISUAL_FIX_REQUIRED = {
-  // 1.4.3 contrast: the rookie-count pill inside an inactive draft tag tab.
-  "/draft": { "color-contrast": 1 },
-  // 1.4.3 contrast: the active filter button's inline cyan on the
-  // secondary button surface, once the comparison has loaded.
-  "/league-comparison": { "color-contrast": 1 },
-  // 1.4.3 contrast: the notification-devices table header cells.
-  "/auction/notifications": { "color-contrast": 5 },
-  // 1.4.1 use of colour: inline cyan links in franchise prose ("Ty",
-  // "Full draft center →") are distinguished from text only by colour.
-  "/league/franchise/[owner]": { "link-in-text-block": 2 },
-};
-
-const BASELINE = {
-  "/draft|desktop": VISUAL_FIX_REQUIRED["/draft"],
-  "/league-comparison|desktop": VISUAL_FIX_REQUIRED["/league-comparison"],
-  "/auction/notifications|desktop": VISUAL_FIX_REQUIRED["/auction/notifications"],
-  "/league/franchise/[owner]|desktop": VISUAL_FIX_REQUIRED["/league/franchise/[owner]"],
-};
+const BASELINE = {};
 
 function keyFor(route, testInfo) {
   return `${route}|${isMobileProject(testInfo) ? "mobile" : "desktop"}`;
