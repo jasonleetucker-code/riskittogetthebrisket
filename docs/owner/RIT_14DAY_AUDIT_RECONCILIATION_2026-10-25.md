@@ -22,19 +22,29 @@ production probes.
 
 ## 2. Method and evidence
 
-1. **Every cited PR and issue** (128 numbers: 122 PRs and 6 issues) was read from the GitHub API: state, merge time, merge commit and file
-   list. PR titles were not trusted for status.
+1. **Every PR and issue cited here** was read from the GitHub API, except #1921 (named only to exclude it, never
+   opened). That is 134 distinct numbers: the inventory's 128 (122 PRs and 6 issues), plus #1513, #1533, #1907, #1915,
+   #1921 and #1922. For the inventory's PRs, the read covered state, merge time, merge commit and file list. PR titles
+   were not trusted for status.
 2. **Code presence.** For every merged PR, each file it touched was checked on `origin/main` @ `503f08581b`
    (2026-10-25). 6 of the touched files are gone: they were deleted on purpose by later merged work in the same
    lane, for example `trade-retro-value.js`, `TradeDeltaHistogram.jsx` and `test_public_category_mapping.py`. None
    of them is a regression.
 3. **Deployed tree.** Production `/api/status` reports `build.commit` **`40f5dc5694`** (2026-10-25 12:07 UTC). That
-   commit is an ancestor of `origin/main`. **Every merge commit cited in the inventory is contained in it.** In other
-   words, every merged item is in the deployed code. Whether it behaves correctly in production is a separate
+   commit is an ancestor of `origin/main`. **Every merge commit cited in the inventory is contained in it (except the
+   docs-only #1922, merged after that build).** In other words, every merged item is in the deployed code. Whether it behaves correctly in production is a separate
    question, answered per row.
-4. **Flags.** Defaults come from `src/api/feature_flags.py`. Held flags are enforced by
-   `scripts/verify_owner_held_flags.py`. The effective production state is the `featureFlags` block of production
-   `/api/status`, read 2026-10-25 15:32 UTC.
+4. **Flags.** Defaults come from `src/api/feature_flags.py`. The effective production state is the `featureFlags`
+   block of production `/api/status`, read 2026-10-25 15:32 UTC. Held flags fall into two groups:
+   - **Deploy-gate enforced.** Only four flags are checked at deploy time, by `scripts/verify_owner_held_flags.py`
+     (`OWNER_HELD_FLAGS`, run from `deploy/verify-deploy.sh`). `dlf_offense_only_vote` must be ON, because ON is the
+     DLF IDP hold. `dlf_values_rank_hill_vote`, `source_freshness_schedule_v2` and
+     `low_value_depth_disclosure_shadow` must each be OFF.
+   - **Default only.** Every other default-OFF flag discussed in this document is OFF by its registry default and is **not** checked
+     at deploy: `forced_drop_cheapest_legal`, `brisket_trade_advisor`, `trade_multi_team_analysis`, the Signals IDP
+     release flags (`signals_idp_shared_market`, `signals_idp_dl_vote`, `signals_idp_lb_vote`, `signals_idp_db_vote`,
+     `signals_idp_xwalk_v2`), `outlier_disagreement_policy` and `playoff_ros_counted_once`. A separate coordinator
+     fix PR is adding `forced_drop_cheapest_legal` to the deploy gate; it was not merged when this was written.
 5. **Public production probes (read-only, no login):**
    - `/api/status` and `/api/health`;
    - `/api/public/league`, `/api/public/league/rosPower` and `/api/public/league/rosPlayoffOdds`;
@@ -56,7 +66,7 @@ production probes.
 |---|---|
 | `VERIFIED_IN_CODE_AND_TESTS` | The cited PRs are merged and deployed. The owner code and its tests are on `origin/main`. Production behaviour is **not** separately proven unless the row lists a production observation. |
 | `MERGED_PROD_UNVERIFIED` | Merged and deployed, but the requirement depends on runtime, box or session state that was not observed, or that is currently in doubt. |
-| `DORMANT_FLAG_OFF` | Merged behind a default-OFF flag that is held. Production confirms the flag is OFF. Activation is a separate decision. |
+| `DORMANT_FLAG_OFF` | Merged behind a default-OFF flag the owner holds. §2 item 4 says whether the deploy gate also enforces it. Production confirms the flag is OFF. Activation is a separate decision. |
 | `PARTIAL` | Some of the requirement is merged. A named part remains. |
 | `AWAITING_REVIEW` | The carrying PR is open. |
 | `NOT_STARTED` | No implementation and no authorization found. |
@@ -471,7 +481,7 @@ production probes.
 - PRs / issues (verified on GitHub): #1890 merged `02725d18fe` (2026-10-21); #1912 merged `408742c992` (2026-10-21); #1916 merged `e6dd949693` (2026-10-21); replay evidence #1922 merged `3a61d8eef5` (2026-10-25)
 - Owner: `src/trade/forced_drop_selection.py`; `src/trade/roster_capacity.py`; analysis `docs/trade/FORCED_DROP_BOX_REPLAY_ANALYSIS_2026-10-25.md`
 - Tests: `tests/trade/test_forced_drop_selection.py`, `tests/trade/test_forced_drop_flag_off_identity.py`, `tests/trade/test_forced_drop_box_mode.py`
-- Flag: `forced_drop_cheapest_legal` OFF (prod obs. 2026-10-25); held by `scripts/verify_owner_held_flags.py`
+- Flag: `forced_drop_cheapest_legal` OFF (prod obs. 2026-10-25). It is held by its registry default only, **not** by the deploy gate: `scripts/verify_owner_held_flags.py` does not list it. A separate coordinator fix PR is adding it
 - Authorization: §0 "Low-value-asset decision packages 1–5 — 2026-10-21" (develop/dormant only; activation owner-reserved) (P1)
 - Evidence note: The pinned read-only box replay (digest `f10fc997`) and its analysis merged in #1922 (`3a61d8eef5`, 2026-10-25). The analysis judges the run valid evidence that does **not** clear the activation bar (runbook §6 stop condition 4 is live). Its recommendation: do not activate yet.
 - Next action: Owner decision on activation, with the #1922 analysis in hand. Activation stays owner-reserved and the flag stays OFF.
@@ -551,7 +561,7 @@ production probes.
 - Tests: `tests/draft/test_waiver_population.py`
 - Flag: none yet (unwired); P3 ships behind a new default-OFF flag
 - Authorization: **P3 AUTHORIZED** (dormant, flag OFF). `docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md` D2 reads "Yes. Implement P1–P2 now; P3 only after #1890 merges.", and #1890 merged (`02725d18fe`, 2026-10-21). §0 "Low-value-asset decision packages 1–5 — 2026-10-21" (P3). Activation stays owner-reserved
-- Evidence note: Design phases P1–P2 merged unwired (#1909). P3 implementation is in progress on branch `claude/lva-p3-li5-phase3` (coordinator, 2026-10-25; not yet pushed when this was checked).
+- Evidence note: Design phases P1–P2 merged unwired (#1909). P3 implementation in progress on branch `claude/lva-p3-li5-phase3` (coordinator lane); not yet on origin when reconciled.
 - Next action: Finish P3 behind its default-OFF flag; no served replacement-level or scarcity change.
 
 **RIT-038 — Low-value league-aware depth evidence** · `DORMANT_FLAG_OFF`
@@ -1220,7 +1230,7 @@ duplicate.
 | 4 | Root-cause the 2026-10-23/24 KTC / IDPTC timeouts and the ~979-row partial IDPTC scrape from box logs. Scrapes are healthy today | RIT-072, -074 | `Dynasty Scraper.py`; `scripts/check_source_health.py` | §0 2026-10-07 stabilization | not started |
 | 5 | Multi-team Lane E (quality, privacy, verification). Its claim row says "starts once A1 lands"; A1 merged 2026-10-21 and no Lane E branch exists. After Lane E and an independent review, `trade_multi_team_analysis` turns on through the normal release process (spec §6.1). It is not an owner-reserved activation | RIT-019, -020 | `tests/trade/`, `tests/e2e/specs/trade-multi-team*.spec.js` | §0 2026-10-20 Advisor/multi-team | not started |
 | 6 | Review and land #1843, then finish the live Sleeper scoring/rules parity audit (#1842) | RIT-034, -041 | `src/league_comparison/sleeper_scoring.py` + #1843 | §0 2026-10-19 (later) league intelligence | PR open |
-| 7 | LI-5 phase P3, dormant behind its default-OFF flag. **AUTHORIZED**: owner decision D2 (`docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md`) says "P3 only after #1890 merges", and #1890 merged (`02725d18fe`) | RIT-037 | `src/draft/waiver_population.py` | §0 2026-10-21 LVA P3 | implementation in progress on `claude/lva-p3-li5-phase3` (coordinator) |
+| 7 | LI-5 phase P3, dormant behind its default-OFF flag. **AUTHORIZED**: owner decision D2 (`docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md`) says "P3 only after #1890 merges", and #1890 merged (`02725d18fe`) | RIT-037 | `src/draft/waiver_population.py` | §0 2026-10-21 LVA P3 | P3 implementation in progress on branch `claude/lva-p3-li5-phase3` (coordinator lane); not yet on origin when reconciled |
 | 8 | League-intelligence shadow lanes: calibrate the league fair-value challenger and run its preregistered holdout; benchmark best-ball marginal value; validate decision engine v3 against the private champion. All stay shadow until their gates pass | RIT-035, -036, -039 | `src/league_valuation/`, `src/bestball/`, `src/trade/decision_engine/` | §0 2026-10-19 (later) | partial (shadow libraries merged) |
 | 9 | Post-install OCR recognition check with real phone screenshots. Needs a logged-in session | RIT-028 | `src/trade/screenshot_import/` | §0 2026-10-15 | not run |
 | 10 | Records: decide the disposition of PR #1838 (live tracker), and keep claims current (this PR closes 59 stale rows) | RIT-084 | `docs/WORK_CLAIMS.md` | §0 2026-10-07 stabilization | partial |
