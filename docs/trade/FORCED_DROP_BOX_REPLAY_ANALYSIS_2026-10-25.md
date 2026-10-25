@@ -140,7 +140,8 @@ package model's depth discount appearing inside a roster-spot calculation: a lat
 credited 0.61x its value as the third of three, and 0.475x as the fourth of four.
 
 **The owner's choice of V5-R is confirmed by production data.** V5 names a cut no rational manager makes in 85 of the
-135 selections that release an acquired piece. The cost of V5-R is bounded: it charges more on 49 of 180 and 36 of 278
+135 selections that release an acquired piece, counting the War Room and census designs together (49 of 65 plus 36 of
+70; not the 135 War Room steps that need a cut). The cost of V5-R is bounded: it charges more on 49 of 180 and 36 of 278
 trades, and changes category on 20 and 9. The Trade Finder is unaffected.
 
 ---
@@ -180,7 +181,9 @@ A-only stand-in to real Component B as follows:
 | real Component B | 77 | 14 | 85 | 102 |
 | net change | −32 | −29 | **0** | **+61** |
 
-V5 follows the same pattern (−32 / −24 / +1 / +55), and so does flag OFF (−10 / −3 / −31 / +44).
+V5 follows the same pattern (−32 / −24 / +1 / +55). Flag OFF does **not** (−10 / −3 / −31 / +44): its NO count falls
+by 31. Only the rise in withheld verdicts carries over to flag OFF. The paragraph below describes the two flag-ON
+modes.
 
 The decided-unfavourable count is unchanged. Every net loss of a favourable or even verdict is matched by an extra
 withheld one. The aggregates give the net movement only. They cannot exclude offsetting gross moves, such as a few
@@ -326,8 +329,9 @@ band base. This bounds how far the same currency effect moves a displayed net on
 | `package_credit_forgone` | what the trade's package credited a just-acquired piece. **Not** the player's value: 0.78x / 0.61x / 0.475x of value for the 2nd / 3rd / 4th piece, and the sequential split across several released pieces can exceed one piece's own value (record §10 item 10) | `forcedDrops[].chargeBasis`, and summarised in `objectiveValue.forcedReleaseChargeBasis` (flag ON only) |
 | `forcedDropCharge` / `objectiveValue.forcedReleaseCost` | the single marginal number the War Room subtracts: a mix of the two rows above, marginal to the trade, clamped at 0 | War Room reason sentence (§9) |
 
-On the box the incumbent charge fell by a median 1,888 (War Room, V5-R) and 1,664 (census) on every changed step at or
-under the cap. The cause is selection: the cheapest legal cut instead of the first name. 86–97% of the median shift is
+On the box the incumbent charge fell by a median 1,888 in the War Room (V5-R, over the 131 changed steps, all of them
+decreases at or under the cap). In the census the median change was −1,664, taken over all 174 changed trades. Those
+include the 15 over-cap increases (`overLimitBefore:up`); the other 159 are decreases at or under the cap. The cause is selection: the cheapest legal cut instead of the first name. 86–97% of the median shift is
 selection alone (local §2). Package netting of a just-acquired release is small: −7,474 of −282,481 census V5 change.
 
 The headline effect is therefore about **which real player is cut**, not about package credits. But the credits are
@@ -382,8 +386,13 @@ ID-independence of the decisions:
   do not show the new verdicts are right.
 * **The favourable direction rests on the cheap single-source tail.** 254 single-source players are on the board. The
   cheapest legal cuts carry single-source values of 226–440. If those values are not real, census V5-R favourable
-  verdicts fall from 103 to 9. Under the stress the flag still changes about as many categories (122), but mostly from
-  withheld to UNFAVORABLE (12 → 88) and APPROXIMATELY_EVEN (43 → 61). The box reproduces the local stress exactly, so
+  verdicts fall from 103 to 9. The two comparisons below show where they go.
+  * **V5-R, base → stress.** FAVORABLE goes 103 → 9, UNFAVORABLE 12 → 88, APPROXIMATELY_EVEN 43 → 61. Withheld stays at
+    41 in both.
+  * **Under the stress, OFF → V5-R.** Withheld goes 109 → 41 and FAVORABLE 13 → 9.
+
+  So the flag still changes about as many categories under the stress (122 against 127). But the verdicts it decides
+  are now mostly UNFAVORABLE or approximately even, not FAVORABLE. The box reproduces the local stress exactly, so
   production data does not soften it.
 * **The waiver anchors and the cheap tail disagree by an order of magnitude.** Unpriced cuts are charged the
   `assumedWaiver` ceiling of 1,918–2,156, the best unrostered value at the position. Rostered cheap-tail players sit at
@@ -463,7 +472,8 @@ recommendation quality is not established.
    single-source tail is not real. The box reproduces the local stress exactly, so production data did not resolve it.
 2. **With the real Component B, the user-visible gain is smaller and mostly withholding.** OFF → V5-R moves YES 16 → 77
    and NO 120 → 85 of 278, but 102 trades (37%) stay NOT ENOUGH EVIDENCE. A third of the A-only favourable verdicts are
-   withheld once Component B votes, largely because the cheap depth pieces at the heart of the forced-drop question have
+   no longer favourable once Component B votes. On net that is withholding, not opposition, though the aggregates
+   cannot say where each verdict went (§4). The withholding comes largely because the cheap depth pieces at the heart of the forced-drop question have
    no league-scored projection.
 3. **V5-R's non-monotonicity is real** (§6). A better incoming player can lower the displayed net, by up to that piece's
    depth discount, while the roster improves. That must be stated to users (record §10 item 9) or fixed by an
