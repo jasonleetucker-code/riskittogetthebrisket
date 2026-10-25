@@ -101,9 +101,17 @@ from dataclasses import dataclass, field
 from collections import Counter
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from src.draft.context import _league_scarcity, _norm, build_roster_assets, index_contract_rows
+from src.draft import waiver_population
+from src.draft.context import (
+    _league_scarcity,
+    _norm,
+    build_roster_assets,
+    index_contract_rows,
+    league_rostered_keys,
+)
 from src.draft.displacement import (
     RosterAsset,
+    replacement_level_provenance,
     waiver_values_by_position,
 )
 from src.roster_intel import pool_cut_ladder, simulate_roster_change
@@ -377,6 +385,11 @@ class RosterCapacity:
     #: past the search bound, by player id).  See
     #: ``forced_drop_selection.Selection.tie_break``.  ``None`` otherwise.
     selection_tie_break: dict[str, Any] | None = None
+    #: Flag ``replacement_level_li5_consolidation`` only — ``None`` (and nothing
+    #: published) when OFF.  Which waiver-level rule the cut costs were measured
+    #: against (:func:`_li5_waiver_level`), so a reader can tell the banded
+    #: LI-5 level from the incumbent best-free-agent anchor.
+    waiver_level: Mapping[str, Any] | None = None
 
     @property
     def requires_drops(self) -> bool | None:
@@ -443,7 +456,18 @@ class RosterCapacity:
             "ladderExhausted": self.ladder_exhausted,
             "notes": list(self.notes),
             "valueScale": "rankDerivedValue",
-        } | self._selection_dict()
+        } | self._flagged_dict()
+
+    def _flagged_dict(self) -> dict[str, Any]:
+        """Every flag-gated field; empty (so the payload is unchanged) when the
+        flags are OFF."""
+        return self._selection_dict() | self._waiver_level_dict()
+
+    def _waiver_level_dict(self) -> dict[str, Any]:
+        """The LI-5 flag-ON stamp; empty (so the payload is unchanged) when OFF."""
+        if self.waiver_level is None:
+            return {}
+        return {"replacementPopulation": dict(self.waiver_level)}
 
     def _selection_dict(self) -> dict[str, Any]:
         """The flag-ON fields; empty (so the payload is unchanged) when OFF."""
@@ -534,10 +558,51 @@ class CapacityContext:
     #: ITS roster entry whatever display name the caller used
     #: (:func:`outgoing_roster_names`).  Empty for a context built without it.
     roster_player_ids: tuple[str, ...] = ()
+    #: Flag ``replacement_level_li5_consolidation`` only — ``None`` when OFF.
+    #: The ``replacementPopulation`` provenance of ``waiver_values``
+    #: (``displacement.replacement_level_provenance``): who counted as a free
+    #: agent, the served lens and each level's band.  When set, an unpriced
+    #: player's ``assumedWaiver`` base is a banded ESTIMATE, not the best free
+    #: agent's value, so it is no longer a ceiling (design F6).
+    replacement_population: Mapping[str, Any] | None = None
 
 
 def _asset_key(asset: RosterAsset) -> str:
     return _norm(asset.player_id) or _norm(asset.name)
+
+
+def _li5_waiver_level(context: CapacityContext) -> dict[str, Any] | None:
+    """The compact per-capacity stamp of the LI-5 waiver level, or ``None``.
+
+    ``None`` whenever the context was built with the flag OFF, so every
+    flag-OFF ``RosterCapacity`` — and its ``to_dict`` — is unchanged.  The full
+    provenance stays on the context (``replacement_population``); each
+    capacity answer carries the rule, the served lens and the health state its
+    cut costs rest on, because that is what decides whether an
+    ``assumedWaiver`` charge is a ceiling (design F6).
+    """
+    block = context.replacement_population
+    if block is None:
+        return None
+    health = block.get("health") if isinstance(block.get("health"), Mapping) else {}
+    return {
+        "rule": block.get("rule"),
+        "lens": block.get("lens"),
+        "levelOwner": block.get("levelOwner"),
+        "valueKey": block.get("valueKey"),
+        "band": block.get("band"),
+        "health": {"state": health.get("state"), "reason": health.get("reason")},
+        "positionsWithoutLevel": list(block.get("positionsWithoutLevel") or ()),
+        "assumedWaiverBasis": ASSUMED_WAIVER_BASIS_LI5,
+    }
+
+
+#: Flag ``replacement_level_li5_consolidation`` ON: what an unpriced player's
+#: ``assumedWaiver`` base IS.  The incumbent anchor is the best free agent at
+#: the position, which bounds an unpriced roster player from above; LI-5's
+#: level is the mean of free-agent ranks 1-3, which sits BELOW the best free
+#: agent, so it is an estimate and no longer a ceiling (design F6).
+ASSUMED_WAIVER_BASIS_LI5 = "li5_banded_waiver_estimate"
 
 
 #: ``(scarcity, note)`` as :func:`league_scarcity` returns it.
@@ -612,23 +677,22 @@ def build_capacity_context(
         )
 
     # League-wide rostered set: a player on ANY roster is not a waiver option.
-    rostered_keys: set[str] = set()
-    sleeper = contract.get("sleeper") if isinstance(contract, Mapping) else None
-    teams = (sleeper or {}).get("teams") if isinstance(sleeper, Mapping) else None
-    for t in teams if isinstance(teams, list) else []:
-        if not isinstance(t, Mapping):
-            continue
-        for pid in t.get("playerIds") or []:
-            if _norm(pid):
-                rostered_keys.add(_norm(pid))
-        for nm in t.get("players") or []:
-            if _norm(nm):
-                rostered_keys.add(_norm(nm))
+    # The ONE definition (``draft.context.league_rostered_keys``); this used to
+    # be an inline copy of the same loop (LI-5 design §4.4 step 1, folded in
+    # phase P3, parity pinned by ``tests/draft/test_li5_consumer_wiring.py``).
+    rostered_keys = league_rostered_keys(contract)
 
     # NOTE: no auction-rookie exclusion here.  That belongs to Perfect Draft,
     # where the rookies being priced are the lots in the very auction being
-    # optimized.  A trade in August is not bidding against them.
-    waiver_values = waiver_values_by_position(contract, rostered_keys)
+    # optimized.  A trade in August is not bidding against them.  Preserved
+    # under the LI-5 flag too (owner decision D6): capacity's population keeps
+    # unavailable keys ``()``.
+    population = (
+        waiver_population.consumer_population(contract, rostered_keys, ())
+        if waiver_population.enabled()
+        else None
+    )
+    waiver_values = waiver_values_by_position(contract, rostered_keys, population=population)
     if not waiver_values:
         notes.append("no waiver-level values available — cut costs fall back to raw board value")
 
@@ -687,6 +751,9 @@ def build_capacity_context(
         roster_settings=roster_settings if isinstance(roster_settings, Mapping) else None,
         roster_player_ids=(
             tuple(str(a.player_id) for a in assets) if len(assets) == len(names) else ()
+        ),
+        replacement_population=(
+            None if population is None else replacement_level_provenance(population)
         ),
     )
 
@@ -967,7 +1034,13 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
       ``assumed`` or ``mixed_bound``);
     * no waiver-level values at all, with an ``assumedWaiver`` release on
       either side: ``(None, unknown / waiver_values_unavailable)`` — that
-      release's base would be 0, and missing is never zero.
+      release's base would be 0, and missing is never zero;
+    * with flag ``replacement_level_li5_consolidation`` ON as well, the
+      waiver level is LI-5's banded mean, not the best free agent, so the
+      "ceiling" above no longer holds: a direction that rests on an
+      ``assumedWaiver`` value is published as ``bound: "estimate"`` (``"mixed"``
+      beside a genuine lower-bound reason) with ``assumedWaiverBasis:
+      "li5_banded_waiver_estimate"`` (design F6).  ``state`` is unchanged.
     """
     requires = capacity.requires_drops
     common: dict[str, Any] = {"rule": capacity.selection_rule}
@@ -1065,6 +1138,23 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
         state, bound = "assumed", "upper"
     else:
         state, bound = "exact", None
+    # LI-5 consolidation (flag ``replacement_level_li5_consolidation``), design
+    # F6: the "upper" / "lower" direction an ``assumedWaiver`` value gives the
+    # charge holds only while that value is the BEST free agent's — a ceiling
+    # on an unpriced player.  Under the LI-5 level (mean of free-agent ranks
+    # 1-3) it is an estimate, so a direction resting on it is relabelled
+    # ``estimate`` (or ``mixed`` beside a genuine lower-bound reason).  The
+    # ``state`` vocabulary every consumer reads is unchanged.
+    li5_assumed = False
+    if capacity.waiver_level is not None:
+        assumed_upper = bool(upper) and not upper_reasons
+        if capacity.certainty == "exact":
+            assumed_upper = bool(post_a - pre_a)
+        assumed_lower = "pre_trade_cleanup_assumed_waiver" in lower
+        li5_assumed = assumed_upper or assumed_lower
+        if li5_assumed:
+            genuine_lower = [r for r in lower if r != "pre_trade_cleanup_assumed_waiver"]
+            bound = "mixed" if genuine_lower else "estimate"
     basis: dict[str, Any] = {
         "state": state,
         "addedReleases": (
@@ -1081,6 +1171,8 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
     }
     if bound is not None:
         basis["bound"] = bound
+    if li5_assumed:
+        basis["assumedWaiverBasis"] = ASSUMED_WAIVER_BASIS_LI5
     if lower:
         basis["lowerBoundReasons"] = lower
     if upper_reasons:
@@ -1555,6 +1647,7 @@ def assess_roster_capacity(
             notes=notes,
             selection_rule=rule,
             search_bound_exceeded=False if selecting else None,
+            waiver_level=_li5_waiver_level(context),
         )
 
     # ── Taxi bracket ─────────────────────────────────────────────────
@@ -1623,6 +1716,7 @@ def assess_roster_capacity(
             search_bound_exceeded=False if selecting else None,
             **_pre_trade_fields(pre_sel),
             **({"waiver_values_available": bool(context.waiver_values)} if selecting else {}),
+            waiver_level=_li5_waiver_level(context),
         )
 
     # ── The post-trade roster, which is what the ladder must be built on ──
@@ -1767,6 +1861,7 @@ def assess_roster_capacity(
         unpriced_forced_drops=sum(1 for d in drops if d.value is None),
         ladder_exhausted=exhausted,
         notes=notes,
+        waiver_level=_li5_waiver_level(context),
     )
 
 
@@ -1913,6 +2008,7 @@ def _assess_selected(
         selection_tie_break=sel.tie_break,
         waiver_values_available=bool(context.waiver_values),
         **_pre_trade_fields(pre_sel),
+        waiver_level=_li5_waiver_level(context),
     )
 
 

@@ -1,7 +1,8 @@
 """``scripts/verify_owner_held_flags.py`` -- the deploy-time check that the
 LIVE process keeps the owner-held source-vote flags in force (DLF IDP hold ON,
 DLF Values voting OFF, universal freshness schedule v2 OFF; owner decisions
-2026-10-20; the depth-note shadow counters OFF, owner decision 2026-10-21).  It is what covers the
+2026-10-20; the depth-note shadow counters and the LI-5 replacement-level
+consolidation OFF, owner decisions 2026-10-21).  It is what covers the
 production box's untracked ``.env``; ``deploy/verify-deploy.sh`` runs it and a
 non-zero exit fails the deploy (auto-rollback)."""
 
@@ -24,6 +25,7 @@ _GOOD = {
     "dlf_values_rank_hill_vote": False,
     "source_freshness_schedule_v2": False,
     "low_value_depth_disclosure_shadow": False,
+    "replacement_level_li5_consolidation": False,
 }
 
 
@@ -78,9 +80,10 @@ def test_all_wrong_reports_all():
             dlf_values_rank_hill_vote=True,
             source_freshness_schedule_v2=True,
             low_value_depth_disclosure_shadow=True,
+            replacement_level_li5_consolidation=True,
         )
     )
-    assert len(out) == 4
+    assert len(out) == 5
 
 
 def test_depth_disclosure_shadow_on_fails_with_an_explicit_message():
@@ -92,6 +95,17 @@ def test_depth_disclosure_shadow_on_fails_with_an_explicit_message():
     assert "low_value_depth_disclosure_shadow is effectively ON" in msg and "must be OFF" in msg
     assert "RISKIT_FEATURE_LOW_VALUE_DEPTH_DISCLOSURE_SHADOW" in msg and ".env" in msg
     assert "Package 4" in msg and "owner's activation decision" in msg
+
+
+def test_li5_replacement_consolidation_on_fails_with_an_explicit_message():
+    """Owner decision 2026-10-21 (LVA Package 3): the LI-5 waiver level ships
+    dormant; a live process with it ON fails the deploy."""
+    out = v.evaluate(_status(**{**_GOOD, "replacement_level_li5_consolidation": True}))
+    assert len(out) == 1
+    msg = out[0]
+    assert "replacement_level_li5_consolidation is effectively ON" in msg and "must be OFF" in msg
+    assert "RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION" in msg and ".env" in msg
+    assert "Package 3" in msg and "owner's activation decision" in msg
 
 
 @pytest.mark.parametrize(
@@ -139,6 +153,7 @@ def test_the_live_registry_snapshot_shape_passes(monkeypatch):
         "RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE",
         "RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2",
         "RISKIT_FEATURE_LOW_VALUE_DEPTH_DISCLOSURE_SHADOW",
+        "RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION",
     )
     for env in envs:
         monkeypatch.delenv(env, raising=False)
@@ -153,6 +168,7 @@ def test_the_live_registry_snapshot_shape_passes(monkeypatch):
             "RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE",
             "RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2",
             "RISKIT_FEATURE_LOW_VALUE_DEPTH_DISCLOSURE_SHADOW",
+            "RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION",
         ):
             for other in envs:
                 monkeypatch.delenv(other, raising=False)

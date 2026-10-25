@@ -66,16 +66,38 @@ They are never mixed.  Note also that of the six ``ScarcityComponents`` fields
 only the three ``*Scarcity`` ones are dimensionless — ``replacementGap``,
 ``eliteSeparation`` and ``starterSeparation`` are in ``rosValue`` units and
 must never be added to a ``rankDerivedValue``.
+
+**Waiver level: two branches, one flag (LI-5 consolidation, design phase P3).**
+``docs/valuation/LI5_REPLACEMENT_CONSOLIDATION_DESIGN_2026-10-21.md`` §4.2.
+``waiver_values_by_position`` / ``free_agent_ladder`` / ``count_free_agents``
+take an optional ``population`` (``src.draft.waiver_population.WaiverPopulation``).
+``None`` — what every caller passes while the flag
+``replacement_level_li5_consolidation`` is OFF — runs the incumbent code
+verbatim: the single best unrostered player per position.  A population — which
+callers build only when the flag is ON — makes this module a thin ADAPTER: the
+level is ``src.league_intel.replacement.waiver_levels`` (mean of free-agent
+ranks 1-3, the ONE waiver-tier implementation) over that population in
+``rankDerivedValue``, keyed by the board's own position string; the ladder and
+the count read the same population, unbanded.  Nothing here bands a pool into a
+level or decides eligibility or health — those belong to LI-5 and to the
+population owner.  The scarcity multiplier is untouched by either branch and
+stays inert at 1.0 (design D8): the gameplan bundle's LI-5 call still receives
+no free agents, and a market-currency level is never handed to
+``compute_scarcity``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from src.league_intel.replacement import ScarcityComponents
+from src.draft.waiver_population import base_free_agent_rows
+from src.league_intel.replacement import DEFAULT_BAND, ScarcityComponents, waiver_levels
 from src.ros.lineup import RosterPlayer, solve_optimal_assignment
+
+if TYPE_CHECKING:  # pragma: no cover — annotation only, no runtime import
+    from src.draft.waiver_population import WaiverPopulation
 
 __all__ = [
     "FEASIBILITY_OBJECTIVE",
@@ -85,9 +107,15 @@ __all__ = [
     "count_free_agents",
     "effective_cut_cost",
     "free_agent_ladder",
+    "replacement_level_provenance",
     "scarcity_multiplier",
     "waiver_values_by_position",
 ]
+
+#: The value field the displacement consumers read a waiver level in (design
+#: §4.3).  ``rankDerivedValue`` because every comparison downstream — ECC,
+#: release cost, rookie surplus — is against a ``rankDerivedValue``.
+LI5_VALUE_KEY = "rankDerivedValue"
 
 # Ladder length cap.  The optimizer's own bound stops far short of this on any
 # real roster (a full 58-man roster yields single-digit useful rungs once cut
@@ -239,44 +267,40 @@ def _available_players(
     Keys are matched case-insensitively against ``playerId`` and all three name
     fields the contract carries (``legacyRef`` / ``canonicalName`` /
     ``displayName``), mirroring ``board_values_from_contract``.
+
+    Steps 1-2 of the population owner
+    (``waiver_population.base_free_agent_rows``) ARE this selection — picks
+    and position-less rows skipped, a positive numeric ``rankDerivedValue``
+    required; the legacy anchor reads them as ``(value, position)`` pairs, so
+    "who is a free agent before any add-pool or health step" has one definition
+    (design §4.4, folded in phase P3; parity pinned against a frozen copy of
+    the retired loop in ``tests/draft/test_li5_consumer_wiring.py``).
     """
-    if not isinstance(contract, Mapping):
-        return []
-    rows = contract.get("playersArray")
-    if not isinstance(rows, list):
-        return []
+    return [
+        (float(row["rankDerivedValue"]), _board_position(row))
+        for row in base_free_agent_rows(contract, rostered_keys, unavailable_keys)
+    ]
 
-    taken = {str(k).strip().lower() for k in rostered_keys if str(k or "").strip()}
-    taken |= {str(k).strip().lower() for k in unavailable_keys if str(k or "").strip()}
 
-    out: list[tuple[float, str]] = []
-    for row in rows:
-        if not isinstance(row, Mapping):
-            continue
-        # Picks are not waiver-wire replacements for a roster spot.
-        if str(row.get("assetClass") or "").lower() == "pick":
-            continue
-        pos = str(row.get("position") or "").strip().upper()
-        if not pos or pos == "PICK":
-            continue
-        value = row.get("rankDerivedValue")
-        if not isinstance(value, (int, float)) or value <= 0:
-            continue
-        keys = {
-            str(row.get(f) or "").strip().lower()
-            for f in ("playerId", "legacyRef", "canonicalName", "displayName")
-        }
-        keys.discard("")
-        if keys & taken:
-            continue
-        out.append((float(value), pos))
-    return out
+def _board_position(row: Mapping[str, Any]) -> str:
+    """The board's own position string, upper-cased — the key every waiver
+    lookup (``_waiver_value_for``, the client's ``waiverValueFor``) uses."""
+    return str(row.get("position") or "").strip().upper()
+
+
+def _li5_levels(population: WaiverPopulation) -> dict[str, Any]:
+    """LI-5's waiver tier over ``population.rows`` in ``rankDerivedValue``,
+    keyed by the board's own position string (design §4.2: no DE/CB collapse,
+    so every existing lookup resolves unchanged)."""
+    return waiver_levels(population.rows, value_key=LI5_VALUE_KEY, position_of=_board_position)
 
 
 def waiver_values_by_position(
     contract: Mapping[str, Any] | None,
     rostered_keys: Iterable[str],
     unavailable_keys: Iterable[str] = (),
+    *,
+    population: WaiverPopulation | None = None,
 ) -> dict[str, float]:
     """Best available (unrostered) ``rankDerivedValue`` at each position.
 
@@ -285,7 +309,16 @@ def waiver_values_by_position(
     league is not available, so ``rostered_keys`` must be the league-wide set,
     not one team's — and neither is a rookie you would have to outbid eleven
     rivals for, which is what ``unavailable_keys`` removes.
+
+    ``population`` (flag ``replacement_level_li5_consolidation`` ON only): the
+    level is LI-5's waiver tier — the mean of free-agent ranks 1-3 — over that
+    population instead of the single best player (module docstring).  The
+    population was built from the caller's rostered and unavailable keys, so
+    the positional arguments are not re-applied.  A position with no eligible
+    free agent has no key, exactly as in the legacy branch — never a 0.
     """
+    if population is not None:
+        return {pos: float(lvl.value) for pos, lvl in _li5_levels(population).items()}
     out: dict[str, float] = {}
     for value, pos in _available_players(contract, rostered_keys, unavailable_keys):
         if value > out.get(pos, 0.0):
@@ -299,6 +332,7 @@ def free_agent_ladder(
     unavailable_keys: Iterable[str] = (),
     *,
     limit: int = 60,
+    population: WaiverPopulation | None = None,
 ) -> list[float]:
     """The best ``limit`` freely-available values, highest first.
 
@@ -317,7 +351,14 @@ def free_agent_ladder(
     ends, a downstream effect of the TE++ basis this league is scored on.  That
     is what the board says, not a bug here — but it does mean W(k) is largely a
     tight-end ladder for this league.
+
+    ``population`` (flag ON only): the SAME population the level reads, so the
+    level and the ladder cannot disagree about who is free; the ladder stays an
+    unbanded, position-agnostic ordered view, not a level (design §4.2).
     """
+    if population is not None:
+        pool = [float(r[LI5_VALUE_KEY]) for r in population.rows]
+        return sorted(pool, reverse=True)[: max(0, int(limit))]
     values = sorted(
         (v for v, _ in _available_players(contract, rostered_keys, unavailable_keys)),
         reverse=True,
@@ -329,13 +370,48 @@ def count_free_agents(
     contract: Mapping[str, Any] | None,
     rostered_keys: Iterable[str],
     unavailable_keys: Iterable[str] = (),
+    *,
+    population: WaiverPopulation | None = None,
 ) -> int:
     """How many players the free-agent universe actually contains.
 
     Distinct from ``len(free_agent_ladder(...))``, which is capped by ``limit``
     and would otherwise report the cap as if it were the population.
+    ``population`` (flag ON only): the served population's size.
     """
+    if population is not None:
+        return len(population.rows)
     return len(_available_players(contract, rostered_keys, unavailable_keys))
+
+
+def replacement_level_provenance(population: WaiverPopulation) -> dict[str, Any]:
+    """The design's additive ``replacementPopulation`` block (§4.6).
+
+    The population half comes from the population owner
+    (``WaiverPopulation.provenance``); the level half — value field, band,
+    per-position sample size and band window, and the positions the legacy
+    free-agent set had but the served population has no level for — comes from
+    the same ``waiver_levels`` call ``waiver_values_by_position`` makes.  Built
+    only with the flag ON, so a flag-OFF payload carries no such key.
+    """
+    levels = _li5_levels(population)
+    legacy_positions = {_board_position(r) for r in population.base_rows}
+    return {
+        **population.provenance(),
+        "levelOwner": "src/league_intel/replacement.py::waiver_levels",
+        "valueKey": LI5_VALUE_KEY,
+        "band": DEFAULT_BAND,
+        "positionsWithoutLevel": sorted(p for p in legacy_positions - set(levels) if p),
+        "waiverLevelDetail": {
+            pos: {
+                "sampleSize": lvl.sample_size,
+                "thresholdRank": lvl.threshold_rank,
+                "bandLow": lvl.band_low,
+                "bandHigh": lvl.band_high,
+            }
+            for pos, lvl in sorted(levels.items())
+        },
+    }
 
 
 def _waiver_value_for(position: str, waiver_values: Mapping[str, float]) -> float:

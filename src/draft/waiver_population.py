@@ -2,11 +2,16 @@
 
 LI-5 replacement consolidation, design phase **P2**
 (``docs/valuation/LI5_REPLACEMENT_CONSOLIDATION_DESIGN_2026-10-21.md`` §4.4,
-owner decisions D1 / D5 / D6, 2026-10-21).  **Nothing calls this module yet.**
-Wiring it into ``src/draft/displacement.py`` and its consumers is phase P3,
-which waits for the forced-drop correction (#1890) and arrives behind its own
-default-OFF flag.  Until then no served value, verdict or payload can change
-because of this file.
+owner decisions D1 / D5 / D6, 2026-10-21).  **Wired in phase P3, behind the
+default-OFF flag** :data:`FLAG`: the three consumers
+(``src.trade.roster_capacity.build_capacity_context``,
+``src.draft.context.build_roster_context``,
+``src.roster_intel.droppability.team_droppability``) call
+:func:`consumer_population` ONLY when :func:`enabled` is true and hand the
+result to ``src.draft.displacement``.  With the flag OFF nothing below
+:func:`base_free_agent_rows` runs on a served path (that function is the
+legacy free-agent selection, folded here so it has one definition), no players
+DB or availability context is read, and every payload is byte-identical.
 
 Split of responsibility, so neither half grows a second copy of the other:
 
@@ -68,9 +73,14 @@ players DB from disk and never touches the network.
 
 from __future__ import annotations
 
+import hashlib
+import json
+import threading
+import time
+from collections import OrderedDict
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 __all__ = [
@@ -88,9 +98,22 @@ __all__ = [
     "health_applicability",
     "load_health_evidence",
     "build_waiver_population",
+    "FLAG",
+    "RequestInputs",
+    "consumer_population",
+    "enabled",
+    "reset_cache",
+    "resolve_request_inputs",
 ]
 
 POPULATION_RULE = "li5_waiver_tier_v1"
+
+#: The ONE flag that switches the displacement consumers to the LI-5 waiver
+#: tier over this population (design §7).  Default OFF and owner-held
+#: (``scripts/verify_owner_held_flags.py``).  Banding and health are not two
+#: flags: their separate effects are decomposed in the replay
+#: (``scripts/li5_replacement_replay.py``), never served in combination.
+FLAG = "replacement_level_li5_consolidation"
 
 #: D1 option A — served once P3 lands.
 LENS_THIS_SEASON = "this_season_lineup_replacement"
@@ -441,3 +464,205 @@ def build_waiver_population(
         health=health,
         health_by_id=by_id,
     )
+
+
+# ── Phase P3: the flag and the request boundary ──────────────────────────
+
+
+def enabled() -> bool:
+    """``True`` only when :data:`FLAG` is explicitly ON.  An unreadable
+    registry is OFF — the incumbent anchor — never the candidate."""
+    try:
+        from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+        # A literal, not ``FLAG``: the reachability audit reads call sites.
+        return bool(is_enabled("replacement_level_li5_consolidation"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+@dataclass(frozen=True)
+class RequestInputs:
+    """What the population needs from the request boundary, resolved ONCE.
+
+    ``rookies_eligible`` is the add-pool owner's rookie window
+    (``src.trade.suggestions._rookies_eligible_today``) read here and injected,
+    never re-read inside the builder (design §4.4 step 3).  ``availability`` is
+    the league's ``src.ros.availability.AvailabilityContext`` or ``None``;
+    ``availability_reason`` then names why (no NFL season in progress, no
+    league settings, the cache assembly failed) and the health step is
+    ``not_applicable`` — never "everyone is healthy".
+    """
+
+    rookies_eligible: bool
+    availability: Any
+    as_of: date
+    availability_reason: str | None = None
+    #: Identity of the availability inputs, for the population cache.
+    cache_key: tuple = ()
+
+
+#: Short TTLs: both caches only spare one request's repeated contexts (the
+#: N-team engine and the finder build one capacity context per team) the same
+#: work; a stale health read must not outlive a refresh by much.
+_INPUT_TTL_SECONDS = 120.0
+_POPULATION_TTL_SECONDS = 120.0
+_CACHE_MAX = 8
+_lock = threading.Lock()
+_input_cache: OrderedDict[tuple, tuple[float, RequestInputs]] = OrderedDict()
+#: key -> (stored at, the contract object it was built from, population).  The
+#: contract is held so an entry can only answer for the SAME object (``is``),
+#: never for a later contract that reused its ``id()``.
+_population_cache: OrderedDict[tuple, tuple[float, Any, WaiverPopulation]] = OrderedDict()
+
+
+def reset_cache() -> None:
+    """Test / replay hook: forget every cached input and population."""
+    with _lock:
+        _input_cache.clear()
+        _population_cache.clear()
+
+
+def _store(cache: OrderedDict, key: tuple, value: tuple) -> None:
+    with _lock:
+        cache[key] = value
+        cache.move_to_end(key)
+        while len(cache) > _CACHE_MAX:
+            cache.popitem(last=False)
+
+
+def _digest(obj: Any) -> str:
+    blob = json.dumps(obj, sort_keys=True, default=str, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _league_settings(contract: Mapping[str, Any] | None) -> Mapping[str, Any] | None:
+    sleeper = contract.get("sleeper") if isinstance(contract, Mapping) else None
+    settings = sleeper.get("leagueSettings") if isinstance(sleeper, Mapping) else None
+    return settings if isinstance(settings, Mapping) else None
+
+
+def resolve_request_inputs(
+    contract: Mapping[str, Any] | None,
+    *,
+    today: date | None = None,
+    rookies_eligible: bool | None = None,
+) -> RequestInputs:
+    """Resolve the rookie window and the availability context once.
+
+    The availability context is the owner's own request-path assembly
+    (``src.ros.availability.load_context``: box caches only, never a network
+    call) for the CURRENT NFL season (``src.bdvm.actuals.current_nfl_season``)
+    under the contract's own ``sleeper.leagueSettings`` — the same inputs
+    ``/api/trade/simulate``'s roster-utility read uses.  Any missing input is
+    a named reason and a ``None`` context, so health is ``not_applicable``.
+
+    ``today`` / ``rookies_eligible`` are injectable for the replay and tests.
+    """
+    as_of = today or datetime.now(timezone.utc).date()
+    if rookies_eligible is None:
+        from src.trade.suggestions import _rookies_eligible_today  # noqa: PLC0415
+
+        rookies_eligible = bool(_rookies_eligible_today())
+    from src.bdvm.actuals import current_nfl_season  # noqa: PLC0415
+
+    season = current_nfl_season(as_of)
+    settings = _league_settings(contract)
+    if season is None:
+        return RequestInputs(rookies_eligible, None, as_of, "no_current_nfl_season", ("none",))
+    if settings is None:
+        return RequestInputs(rookies_eligible, None, as_of, "no_league_settings", ("none",))
+    key = (int(season), _digest(dict(settings)), as_of.isoformat())
+    now = time.monotonic()
+    with _lock:
+        hit = _input_cache.get(key)
+    if hit is not None and now - hit[0] <= _INPUT_TTL_SECONDS:
+        ctx = hit[1].availability
+        reason = hit[1].availability_reason
+    else:
+        try:
+            from src.ros.availability import load_context  # noqa: PLC0415
+
+            ctx = load_context(season=int(season), league_settings=settings)
+            reason = None
+        except Exception as exc:  # noqa: BLE001 — degraded input, named
+            ctx, reason = None, f"availability_context_unavailable:{type(exc).__name__}"
+        _store(_input_cache, key, (now, RequestInputs(True, ctx, as_of, reason, key)))
+    return RequestInputs(rookies_eligible, ctx, as_of, reason, key)
+
+
+def _contract_stamp(contract: Mapping[str, Any] | None) -> tuple:
+    if not isinstance(contract, Mapping):
+        return (0, None, None, 0)
+    rows = contract.get("playersArray")
+    return (
+        id(contract),
+        contract.get("generatedAt"),
+        contract.get("scrapeTimestamp"),
+        len(rows) if isinstance(rows, list) else 0,
+    )
+
+
+def consumer_population(
+    contract: Mapping[str, Any] | None,
+    rostered_keys: Iterable[str],
+    unavailable_keys: Iterable[str] = (),
+    *,
+    inputs: RequestInputs | None = None,
+    health_loader: Callable[[Iterable[str]], HealthEvidence] | None = None,
+) -> WaiverPopulation:
+    """One consumer's served population, built at its request boundary.
+
+    The consumer passes its OWN rostered and unavailable keys (D6: capacity
+    ``()``, Perfect Draft and droppability the auction rookies); this function
+    never chooses them.  Health evidence is the disk-only players DB
+    (:func:`load_health_evidence`, no network — design F5).  A population is
+    cached for :data:`_POPULATION_TTL_SECONDS` per (contract object, key sets,
+    request inputs) so several contexts of one request share ONE computation
+    (design §8 item 10); an injected ``health_loader`` is never cached.
+
+    Call this only when :func:`enabled` — with the flag OFF no consumer
+    reaches it.
+    """
+    inputs = inputs if inputs is not None else resolve_request_inputs(contract)
+    rostered = sorted({_norm_key(k) for k in rostered_keys if _norm_key(k)})
+    unavailable = sorted({_norm_key(k) for k in unavailable_keys if _norm_key(k)})
+    cacheable = health_loader is None
+    key = (
+        *_contract_stamp(contract),
+        _digest(rostered),
+        _digest(unavailable),
+        bool(inputs.rookies_eligible),
+        inputs.as_of.isoformat(),
+        inputs.cache_key,
+    )
+    now = time.monotonic()
+    if cacheable:
+        with _lock:
+            hit = _population_cache.get(key)
+        if hit is not None and hit[1] is contract and now - hit[0] <= _POPULATION_TTL_SECONDS:
+            return hit[2]
+
+    population = build_waiver_population(
+        contract,
+        rostered,
+        unavailable,
+        rookies_eligible=inputs.rookies_eligible,
+        availability=inputs.availability,
+        health_loader=health_loader or load_health_evidence,
+        as_of=inputs.as_of,
+    )
+    if inputs.availability is None and inputs.availability_reason:
+        # Keep the boundary's specific reason beside the builder's generic one.
+        population = WaiverPopulation(
+            base_rows=population.base_rows,
+            add_pool_rows=population.add_pool_rows,
+            rows=population.rows,
+            unavailable_keys_count=population.unavailable_keys_count,
+            excluded_by_reason=population.excluded_by_reason,
+            health={**population.health, "availabilityReason": inputs.availability_reason},
+            health_by_id=population.health_by_id,
+        )
+    if cacheable:
+        _store(_population_cache, key, (now, contract, population))
+    return population

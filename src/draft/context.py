@@ -34,8 +34,10 @@ from src.draft.displacement import (
     build_cut_ladder,
     count_free_agents,
     free_agent_ladder,
+    replacement_level_provenance,
     waiver_values_by_position,
 )
+from src.draft import waiver_population
 from src.draft.rookie_pool import auction_rookie_keys
 
 __all__ = [
@@ -57,6 +59,13 @@ __all__ = [
 #: v3 (2026-08-04) adds ``rosterByPosition`` / ``startersByPosition`` so the
 #: client can say whether a plan leaves a starting slot unfilled.
 CONTEXT_VERSION = "2026-08-04.v3"
+
+#: Served ONLY with flag ``replacement_level_li5_consolidation`` ON, because
+#: there ``waiverValues`` changes MEANING (best free agent -> LI-5's mean of
+#: free-agent ranks 1-3 over the add-pool / health population) and the payload
+#: gains ``replacementPopulation``.  Flag OFF keeps :data:`CONTEXT_VERSION`
+#: (design §4.6).
+CONTEXT_VERSION_LI5 = "2026-10-25.v4-li5"
 
 
 def _norm(s: Any) -> str:
@@ -314,14 +323,31 @@ def build_roster_context(
     # end was lot number one (see src/draft/rookie_pool.py), which suppressed
     # every rookie TE's surplus by comparing him against himself.
     auction_keys = auction_rookie_keys(contract)
+    # LI-5 consolidation (design phase P3), flag OFF by default: ``None`` keeps
+    # every measurement below on the incumbent best-single-player code path.
+    # ON, the population keeps THIS consumer's own unavailable keys — the
+    # auction rookies (D6) — and adds the add-pool and health steps.
+    population = (
+        waiver_population.consumer_population(contract, rostered_keys, auction_keys)
+        if waiver_population.enabled()
+        else None
+    )
     # The size of the defect this exclusion fixes, measured rather than
     # asserted: the difference between the free-agent universe with the auction
     # in it and without.  Counted this way and not by "auction rookies nobody
     # rosters", which overstates it — a rookie with no position never reached
-    # the free-agent pool to begin with.
-    free_agents_total = count_free_agents(contract, rostered_keys, auction_keys)
-    auction_rookies_excluded = count_free_agents(contract, rostered_keys) - free_agents_total
-    waiver_values = waiver_values_by_position(contract, rostered_keys, auction_keys)
+    # the free-agent pool to begin with.  Always measured on the legacy
+    # free-agent set: it answers what the AUCTION exclusion removes.
+    legacy_free_agents = count_free_agents(contract, rostered_keys, auction_keys)
+    auction_rookies_excluded = count_free_agents(contract, rostered_keys) - legacy_free_agents
+    free_agents_total = (
+        legacy_free_agents
+        if population is None
+        else count_free_agents(contract, rostered_keys, auction_keys, population=population)
+    )
+    waiver_values = waiver_values_by_position(
+        contract, rostered_keys, auction_keys, population=population
+    )
     if not waiver_values:
         notes.append("no waiver-level values available — cut costs fall back to raw board value")
 
@@ -329,7 +355,9 @@ def build_roster_context(
     # free agents, not the single best one k times over.  The cap is generous
     # relative to any plan the optimizer will produce (open spots plus at most
     # MAX_LADDER_RUNGS cuts) so the client never runs off the end of it.
-    waiver_ladder = free_agent_ladder(contract, rostered_keys, auction_keys, limit=90)
+    waiver_ladder = free_agent_ladder(
+        contract, rostered_keys, auction_keys, limit=90, population=population
+    )
     if not waiver_ladder:
         notes.append(
             "no free agents available — replacement level is unmeasurable and "
@@ -382,8 +410,8 @@ def build_roster_context(
         if key:
             starters_by_position[key] = starters_by_position.get(key, 0) + 1
 
-    return {
-        "contextVersion": CONTEXT_VERSION,
+    payload = {
+        "contextVersion": CONTEXT_VERSION if population is None else CONTEXT_VERSION_LI5,
         "leagueKey": league_key,
         "valueScale": "rankDerivedValue",
         "team": {
@@ -421,3 +449,9 @@ def build_roster_context(
         "unmatchedRosterPlayers": unmatched[:25],
         "notes": notes,
     }
+    if population is not None:
+        # Additive, flag-ON only: who counted as a free agent, which lens is
+        # served (``banded_without_health`` in the pre-season — design F4),
+        # and how each positional level was formed.
+        payload["replacementPopulation"] = replacement_level_provenance(population)
+    return payload

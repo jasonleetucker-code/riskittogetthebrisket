@@ -1,8 +1,9 @@
 """Fail a deploy whose RUNNING process has an owner-held vote flag in the
 wrong state.
 
-The repository locks four owner-held flags by owner decision (three
-source-vote flags and one shadow-measurement flag):
+The repository locks five owner-held flags by owner decision (three
+source-vote flags, one shadow-measurement flag and one dormant
+replacement-level flag):
 
 * ``dlf_offense_only_vote`` must be effectively **ON** -- the DLF IDP / DLF
   Rookie IDP vote hold (owner Option 3, 2026-10-20;
@@ -17,7 +18,12 @@ source-vote flags and one shadow-measurement flag):
 * ``low_value_depth_disclosure_shadow`` must be effectively **OFF** -- the
   low-value depth-note shadow counters: implementation authorized, the shadow
   window is the owner's separate decision (owner decision 2026-10-21, LVA
-  Package 4; ``tests/api/test_depth_disclosure_shadow_hold_locked.py``).
+  Package 4; ``tests/api/test_depth_disclosure_shadow_hold_locked.py``);
+* ``replacement_level_li5_consolidation`` must be effectively **OFF** -- the
+  LI-5 replacement-level consolidation: implementation authorized behind a
+  default-OFF flag, no served replacement-level change authorized (owner
+  decision 2026-10-21, LVA Package 3;
+  ``tests/api/test_li5_replacement_hold_locked.py``).
 
 A flag ABSENT from the snapshot fails closed, exactly as for D4: this check
 runs after the restart, against the process the deploy just started, and
@@ -88,6 +94,14 @@ OWNER_HELD_FLAGS: dict[str, tuple[bool, str, str]] = {
         "only'): the hidden depth-note shadow counters are implemented dormant; starting "
         "the production shadow window is the owner's separate decision",
         "the depth-note shadow counters are RECORDING trade evaluations in production",
+    ),
+    "replacement_level_li5_consolidation": (
+        False,
+        "owner decision 2026-10-21, LVA Package 3 (D2: 'Implement behind a default-OFF "
+        "flag. No served replacement-level ... changes are authorized'): the LI-5 waiver "
+        "level is wired dormant; activation is the owner's separate decision (design P4/P5)",
+        "the LI-5 banded waiver level is REPRICING roster-capacity, droppability and "
+        "Perfect Draft cut costs in production",
     ),
 }
 
