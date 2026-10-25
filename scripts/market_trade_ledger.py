@@ -50,6 +50,17 @@ def _latest_export(repo: Path) -> Path | None:
     return files[-1] if files else None
 
 
+def peak_rss_mib() -> float | None:
+    """This process's peak resident set in MiB, or ``None`` where the platform
+    cannot say (no ``resource`` module on Windows) -- never 0."""
+    try:
+        import resource  # noqa: PLC0415
+    except ImportError:
+        return None
+    kib = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss  # KiB on Linux
+    return round(kib / 1024, 1) if kib > 0 else None
+
+
 def read_side_key_secret(path: Path) -> bytes:
     """The box-local HMAC secret.  Refuses a file group/others can read and an
     empty or short secret -- a weak key would make the side keys guessable."""
@@ -209,6 +220,9 @@ def main(argv: list[str] | None = None) -> int:
             "identity": {k: v.get("resolutionRate") for k, v in cov["identity"].items()},
             "topology": payload["evaluation"]["topology"]["byFitSuitability"],
             "reportPath": payload.get("reportPath"),
+            # The unit's MemoryMax is sized from this number; printing it every
+            # run puts the growth trend in the journal (see the unit template).
+            "peakRssMiB": peak_rss_mib(),
         }
         print(json.dumps(summary, indent=1, default=str))
     return 0 if result["observations"] else 2
