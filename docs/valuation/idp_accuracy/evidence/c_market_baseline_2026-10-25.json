@@ -1,0 +1,7516 @@
+{
+ "purpose": "Lane C-market baseline (directive 2026-10-25 \u00a76C/\u00a79). RESEARCH ONLY: no served value, rank, weight, curve, bridge or flag changed.",
+ "generatedAt": "2026-10-25T20:48:59.519705+00:00",
+ "generatedBy": "scripts/idp_accuracy/market_baseline.py",
+ "inputs": {
+  "codeSha": "f9e8d41d8a19e3173138784dea1906778eea7bd8",
+  "pinnedMainSha": "bdbc83a1fba1b1278c7862362f9a18a2da69b970",
+  "leagueKey": "dynasty_main",
+  "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+  "archiveSha256": "50fb251a79bc79abac54bcbcfc98c3018fc6b105115eb6dbd7928e3b6c8dc8f6",
+  "archiveSiteRawSha256": {
+   "site_raw/ktc.csv": "f3a86b174ea3c153c23dfb2f9b175981abcc6af01b4a285b0bf5fb9ed94a9346",
+   "site_raw/draftSharksRosSf.csv": "97829971181943c7c3f21c2283bdc589391cd1ed52c2c9f96cdd112dc0cc39c4",
+   "site_raw/draftSharksIdp.csv": "380f3887b6f456cb7d8464e348e519d4a3d6090eed7eafb309aa3dfe2cc51616",
+   "site_raw/draftSharksSf.csv": "c9014a0a144554caebd77c3f67f1d1c7a2463833a5002fc67a4d45a609e6b8a9",
+   "site_raw/draftSharksRosIdp.csv": "16bbdcbc79bb764f1be7a38fec1016f44a89f4d1f6d23bc6b3b4a664935ae10b",
+   "site_raw/ktcTradesSfTep.csv": "86c197915c773c6efe112913c26fb1b06fb77775994040e8c20602e852d8706f",
+   "site_raw/ktcCrowdSfTep.csv": "9b2a5a1120f57d8666fbfb958bd32ef7b14bf00e59c7079cd6870818d439e58e",
+   "site_raw/idpTradeCalc.csv": "d6fe818d342191686f79b1969b6db55fdc09ef941241e81036fda8dabcf3802a",
+   "site_raw/ktcCrowdTradesSfTep.csv": "6aa4cf021db5518bac21b92392003c3392fd52eab470dba53acbfb5b05b1a6f7",
+   "site_raw/ktcSfTep.csv": "fa10cf2b1a9f8db8b46a59a62412607dd7da949161adfac8915a2d057f2cfd1c"
+  },
+  "contractBuild": {
+   "variant": "baseline",
+   "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+   "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+   "csvTree": {
+    "source": "git revision",
+    "revisionSha": "bdbc83a1fba1b1278c7862362f9a18a2da69b970",
+    "revisionCommittedAt": "2026-10-25T16:55:01Z",
+    "contentSha256": "80e5f8da2c527d5df25dc7ca3aaad2f5d5d19262d6da7b5c0290d8d038c5095a"
+   },
+   "sourceOverrides": null
+  },
+  "scrapeTimestamp": "2026-10-25T12:03:37.224572+00:00",
+  "scoringWeeks": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "week7": "EXCLUDED (in progress on 2026-10-25)",
+  "kickoffUtc": "2026-09-10T00:20:00+00:00",
+  "sleeperCache": {
+   "dir": "data/research_cache/idp_c_market",
+   "files": 15,
+   "combinedSha256": "7798b1743bc470d2e7c4e9f66585d4beec872ce3f1bff019d4b220d16ec2475f"
+  },
+  "rosterCount": 12,
+  "scorerCheck": {
+   "playerWeeksCompared": 3299,
+   "within0.01": 3299,
+   "maxAbsDiff": 0.0044,
+   "nonzeroHostPointsWithNoScoredLine": 0
+  },
+  "hillParamSet": "hill_scope_masters:b131caf5273d88b4",
+  "packageModelUntouched": "geom_q078_v1 (not read or exercised by this script)"
+ },
+ "leagueFormat": {
+  "leagueKey": "dynasty_main",
+  "season": "2026",
+  "scoringFingerprintLive": "sf1:9e51824690d091f9",
+  "scoringFingerprintArchived": "sf1:9e51824690d091f9",
+  "rosterFormatSha256": "4d0914e7e39b6696bcdd11a27198c430b18eab50a32fccb1dbaf4c9ae1605c33",
+  "teams": 12,
+  "rosterSpots": 58,
+  "starterSlots": {
+   "QB": 1,
+   "RB": 2,
+   "WR": 3,
+   "TE": 2,
+   "FLEX": 2,
+   "SUPER_FLEX": 1,
+   "K": 1,
+   "DL": 3,
+   "LB": 3,
+   "DB": 3
+  },
+  "starterSlotCount": 21,
+  "idpStarterSlotsPerTeam": 9,
+  "offenseStarterSlotsPerTeam": 11,
+  "leagueWideIdpStarters": 108,
+  "leagueWideOffenseStarters": 132,
+  "idpShareOfNonKickerStarters": 0.45,
+  "superflex": true,
+  "bestBall": true,
+  "teKeys": {
+   "bonus_rec_te": 0.0,
+   "bonus_fd_te": 1.0,
+   "rec": 0.1
+  },
+  "receptionKeys": {
+   "rec_0_4": 0.25,
+   "rec_10_19": 0.75,
+   "rec_20_29": 1.0,
+   "rec_2pt": 2.0,
+   "rec_30_39": 1.25,
+   "rec_40p": 2.0,
+   "rec_5_9": 0.5,
+   "rec_fd": 0.0,
+   "rec_td": 6.0,
+   "rec_td_40p": 0.0,
+   "rec_td_50p": 0.0,
+   "rec_yd": 0.1
+  },
+  "idpKeys": {
+   "idp_blk_kick": 5.3,
+   "idp_def_td": 6.36,
+   "idp_ff": 4.24,
+   "idp_fum_rec": 3.19,
+   "idp_fum_ret_yd": 0.1111111111111111,
+   "idp_int": 5.3,
+   "idp_int_ret_yd": 0.1111111111111111,
+   "idp_pass_def": 5.3,
+   "idp_pass_def_3p": 0.0,
+   "idp_qb_hit": 2.12,
+   "idp_sack": 2.92,
+   "idp_sack_yd": 0.1111111111111111,
+   "idp_safe": 5.3,
+   "idp_tkl": 0.0,
+   "idp_tkl_ast": 0.8,
+   "idp_tkl_loss": 4.24,
+   "idp_tkl_solo": 1.33
+  },
+  "passTd": 6.0
+ },
+ "baseline": {
+  "top100": {
+   "n": 100,
+   "positionCounts": {
+    "TE": 12,
+    "QB": 20,
+    "RB": 21,
+    "WR": 30,
+    "LB": 9,
+    "PICK": 5,
+    "DL": 3
+   },
+   "groupCounts": {
+    "offense": 83,
+    "idp": 12,
+    "pick": 5
+   },
+   "rows": [
+    {
+     "rank": 1,
+     "name": "Brock Bowers",
+     "pos": "TE",
+     "value": 9983.0
+    },
+    {
+     "rank": 2,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "value": 9961.0
+    },
+    {
+     "rank": 3,
+     "name": "Jahmyr Gibbs",
+     "pos": "RB",
+     "value": 9861.0
+    },
+    {
+     "rank": 4,
+     "name": "Bijan Robinson",
+     "pos": "RB",
+     "value": 9804.0
+    },
+    {
+     "rank": 5,
+     "name": "Jaxon Smith-Njigba",
+     "pos": "WR",
+     "value": 9632.0
+    },
+    {
+     "rank": 6,
+     "name": "Trey McBride",
+     "pos": "TE",
+     "value": 9554.0
+    },
+    {
+     "rank": 7,
+     "name": "Ja'Marr Chase",
+     "pos": "WR",
+     "value": 9432.0
+    },
+    {
+     "rank": 8,
+     "name": "Puka Nacua",
+     "pos": "WR",
+     "value": 9208.0
+    },
+    {
+     "rank": 9,
+     "name": "Drake Maye",
+     "pos": "QB",
+     "value": 8970.0
+    },
+    {
+     "rank": 10,
+     "name": "Caleb Williams",
+     "pos": "QB",
+     "value": 8959.0
+    },
+    {
+     "rank": 11,
+     "name": "Amon-Ra St. Brown",
+     "pos": "WR",
+     "value": 8763.0
+    },
+    {
+     "rank": 12,
+     "name": "Lamar Jackson",
+     "pos": "QB",
+     "value": 8482.0
+    },
+    {
+     "rank": 13,
+     "name": "CeeDee Lamb",
+     "pos": "WR",
+     "value": 8291.0
+    },
+    {
+     "rank": 14,
+     "name": "Joe Burrow",
+     "pos": "QB",
+     "value": 8051.0
+    },
+    {
+     "rank": 15,
+     "name": "Justin Jefferson",
+     "pos": "WR",
+     "value": 7893.0
+    },
+    {
+     "rank": 16,
+     "name": "Malik Nabers",
+     "pos": "WR",
+     "value": 7826.0
+    },
+    {
+     "rank": 17,
+     "name": "Ashton Jeanty",
+     "pos": "RB",
+     "value": 7797.0
+    },
+    {
+     "rank": 18,
+     "name": "Kenneth Walker",
+     "pos": "RB",
+     "value": 7727.0
+    },
+    {
+     "rank": 19,
+     "name": "Brock Purdy",
+     "pos": "QB",
+     "value": 7545.0
+    },
+    {
+     "rank": 20,
+     "name": "Patrick Mahomes",
+     "pos": "QB",
+     "value": 7486.0
+    },
+    {
+     "rank": 21,
+     "name": "Jeremiyah Love",
+     "pos": "RB",
+     "value": 7462.0
+    },
+    {
+     "rank": 22,
+     "name": "Jayden Daniels",
+     "pos": "QB",
+     "value": 7445.0
+    },
+    {
+     "rank": 23,
+     "name": "Trevor Lawrence",
+     "pos": "QB",
+     "value": 7434.0
+    },
+    {
+     "rank": 24,
+     "name": "Drake London",
+     "pos": "WR",
+     "value": 7209.0
+    },
+    {
+     "rank": 25,
+     "name": "Tyler Warren",
+     "pos": "TE",
+     "value": 6975.0
+    },
+    {
+     "rank": 26,
+     "name": "Jonathan Taylor",
+     "pos": "RB",
+     "value": 6858.0
+    },
+    {
+     "rank": 27,
+     "name": "Chris Olave",
+     "pos": "WR",
+     "value": 6839.0
+    },
+    {
+     "rank": 28,
+     "name": "Tetairoa McMillan",
+     "pos": "WR",
+     "value": 6830.0
+    },
+    {
+     "rank": 29,
+     "name": "James Cook",
+     "pos": "RB",
+     "value": 6749.0
+    },
+    {
+     "rank": 30,
+     "name": "Colston Loveland",
+     "pos": "TE",
+     "value": 6609.0
+    },
+    {
+     "rank": 31,
+     "name": "Zay Flowers",
+     "pos": "WR",
+     "value": 6563.0
+    },
+    {
+     "rank": 32,
+     "name": "Garrett Wilson",
+     "pos": "WR",
+     "value": 6520.0
+    },
+    {
+     "rank": 33,
+     "name": "Nico Collins",
+     "pos": "WR",
+     "value": 6450.0
+    },
+    {
+     "rank": 34,
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "value": 6287.0
+    },
+    {
+     "rank": 35,
+     "name": "Jordan Love",
+     "pos": "QB",
+     "value": 6076.0
+    },
+    {
+     "rank": 36,
+     "name": "Bryce Young",
+     "pos": "QB",
+     "value": 5975.0
+    },
+    {
+     "rank": 37,
+     "name": "George Pickens",
+     "pos": "WR",
+     "value": 5968.0
+    },
+    {
+     "rank": 38,
+     "name": "Justin Herbert",
+     "pos": "QB",
+     "value": 5916.0
+    },
+    {
+     "rank": 39,
+     "name": "Jaxson Dart",
+     "pos": "QB",
+     "value": 5828.0
+    },
+    {
+     "rank": 40,
+     "name": "Parker Washington",
+     "pos": "WR",
+     "value": 5802.0
+    },
+    {
+     "rank": 41,
+     "name": "Kyren Williams",
+     "pos": "RB",
+     "value": 5732.0
+    },
+    {
+     "rank": 42,
+     "name": "Sam LaPorta",
+     "pos": "TE",
+     "value": 5732.0
+    },
+    {
+     "rank": 43,
+     "name": "De'Von Achane",
+     "pos": "RB",
+     "value": 5716.0
+    },
+    {
+     "rank": 44,
+     "name": "Dak Prescott",
+     "pos": "QB",
+     "value": 5594.0
+    },
+    {
+     "rank": 45,
+     "name": "Tyler Shough",
+     "pos": "QB",
+     "value": 5588.0
+    },
+    {
+     "rank": 46,
+     "name": "Christian McCaffrey",
+     "pos": "RB",
+     "value": 5568.0
+    },
+    {
+     "rank": 47,
+     "name": "Breece Hall",
+     "pos": "RB",
+     "value": 5525.0
+    },
+    {
+     "rank": 48,
+     "name": "Jalen Hurts",
+     "pos": "QB",
+     "value": 5509.0
+    },
+    {
+     "rank": 49,
+     "name": "C.J. Stroud",
+     "pos": "QB",
+     "value": 5493.0
+    },
+    {
+     "rank": 50,
+     "name": "Jack Campbell",
+     "pos": "LB",
+     "value": 5443.0
+    },
+    {
+     "rank": 51,
+     "name": "Fernando Mendoza",
+     "pos": "QB",
+     "value": 5434.0
+    },
+    {
+     "rank": 52,
+     "name": "Carnell Tate",
+     "pos": "WR",
+     "value": 5416.0
+    },
+    {
+     "rank": 53,
+     "name": "Jared Goff",
+     "pos": "QB",
+     "value": 5408.0
+    },
+    {
+     "rank": 54,
+     "name": "Tucker Kraft",
+     "pos": "TE",
+     "value": 5375.0
+    },
+    {
+     "rank": 55,
+     "name": "Bo Nix",
+     "pos": "QB",
+     "value": 5362.0
+    },
+    {
+     "rank": 56,
+     "name": "Christian Watson",
+     "pos": "WR",
+     "value": 5331.0
+    },
+    {
+     "rank": 57,
+     "name": "Chase Brown",
+     "pos": "RB",
+     "value": 5330.0
+    },
+    {
+     "rank": 58,
+     "name": "2028 Early 1st",
+     "pos": "PICK",
+     "value": 5251.0
+    },
+    {
+     "rank": 59,
+     "name": "Omarion Hampton",
+     "pos": "RB",
+     "value": 5171.0
+    },
+    {
+     "rank": 60,
+     "name": "Harold Fannin",
+     "pos": "TE",
+     "value": 5170.0
+    },
+    {
+     "rank": 61,
+     "name": "Emeka Egbuka",
+     "pos": "WR",
+     "value": 5101.0
+    },
+    {
+     "rank": 62,
+     "name": "Javonte Williams",
+     "pos": "RB",
+     "value": 5085.0
+    },
+    {
+     "rank": 63,
+     "name": "Arvell Reese",
+     "pos": "DL",
+     "value": 5071.0
+    },
+    {
+     "rank": 64,
+     "name": "Luther Burden",
+     "pos": "WR",
+     "value": 5040.0
+    },
+    {
+     "rank": 65,
+     "name": "Bucky Irving",
+     "pos": "RB",
+     "value": 5025.0
+    },
+    {
+     "rank": 66,
+     "name": "Sonny Styles",
+     "pos": "LB",
+     "value": 5023.0
+    },
+    {
+     "rank": 67,
+     "name": "Isaiah Likely",
+     "pos": "TE",
+     "value": 4971.0
+    },
+    {
+     "rank": 68,
+     "name": "Matthew Golden",
+     "pos": "WR",
+     "value": 4859.0
+    },
+    {
+     "rank": 69,
+     "name": "Tee Higgins",
+     "pos": "WR",
+     "value": 4854.0
+    },
+    {
+     "rank": 70,
+     "name": "DeVonta Smith",
+     "pos": "WR",
+     "value": 4832.0
+    },
+    {
+     "rank": 71,
+     "name": "Kenyon Sadiq",
+     "pos": "TE",
+     "value": 4745.0
+    },
+    {
+     "rank": 72,
+     "name": "Dalton Kincaid",
+     "pos": "TE",
+     "value": 4723.0
+    },
+    {
+     "rank": 73,
+     "name": "Jordyn Tyson",
+     "pos": "WR",
+     "value": 4665.0
+    },
+    {
+     "rank": 74,
+     "name": "2028 Mid 1st",
+     "pos": "PICK",
+     "value": 4656.0
+    },
+    {
+     "rank": 75,
+     "name": "Aidan Hutchinson",
+     "pos": "DL",
+     "value": 4642.0
+    },
+    {
+     "rank": 76,
+     "name": "Derrick Henry",
+     "pos": "RB",
+     "value": 4641.0
+    },
+    {
+     "rank": 77,
+     "name": "Quinshon Judkins",
+     "pos": "RB",
+     "value": 4631.0
+    },
+    {
+     "rank": 78,
+     "name": "Jacob Rodriguez",
+     "pos": "LB",
+     "value": 4624.0
+    },
+    {
+     "rank": 79,
+     "name": "2029 Early 1st",
+     "pos": "PICK",
+     "value": 4569.0
+    },
+    {
+     "rank": 80,
+     "name": "A.J. Brown",
+     "pos": "WR",
+     "value": 4564.0
+    },
+    {
+     "rank": 81,
+     "name": "Bhayshul Tuten",
+     "pos": "RB",
+     "value": 4561.0
+    },
+    {
+     "rank": 82,
+     "name": "Ladd McConkey",
+     "pos": "WR",
+     "value": 4540.0
+    },
+    {
+     "rank": 83,
+     "name": "George Kittle",
+     "pos": "TE",
+     "value": 4504.0
+    },
+    {
+     "rank": 84,
+     "name": "Cedric Gray",
+     "pos": "LB",
+     "value": 4444.0
+    },
+    {
+     "rank": 85,
+     "name": "Rashee Rice",
+     "pos": "WR",
+     "value": 4397.0
+    },
+    {
+     "rank": 86,
+     "name": "Nick Bolton",
+     "pos": "LB",
+     "value": 4356.0
+    },
+    {
+     "rank": 87,
+     "name": "Saquon Barkley",
+     "pos": "RB",
+     "value": 4329.0
+    },
+    {
+     "rank": 88,
+     "name": "Fred Warner",
+     "pos": "LB",
+     "value": 4313.0
+    },
+    {
+     "rank": 89,
+     "name": "Jihaad Campbell",
+     "pos": "LB",
+     "value": 4306.0
+    },
+    {
+     "rank": 90,
+     "name": "Denzel Boston",
+     "pos": "WR",
+     "value": 4291.0
+    },
+    {
+     "rank": 91,
+     "name": "D'Andre Swift",
+     "pos": "RB",
+     "value": 4284.0
+    },
+    {
+     "rank": 92,
+     "name": "Will Anderson",
+     "pos": "DL",
+     "value": 4242.0
+    },
+    {
+     "rank": 93,
+     "name": "2028 Late 1st",
+     "pos": "PICK",
+     "value": 4235.0
+    },
+    {
+     "rank": 94,
+     "name": "Kyle Pitts",
+     "pos": "TE",
+     "value": 4223.0
+    },
+    {
+     "rank": 95,
+     "name": "TreVeyon Henderson",
+     "pos": "RB",
+     "value": 4171.0
+    },
+    {
+     "rank": 96,
+     "name": "Edgerrin Cooper",
+     "pos": "LB",
+     "value": 4156.0
+    },
+    {
+     "rank": 97,
+     "name": "2029 Mid 1st",
+     "pos": "PICK",
+     "value": 4131.0
+    },
+    {
+     "rank": 98,
+     "name": "Jameson Williams",
+     "pos": "WR",
+     "value": 4107.0
+    },
+    {
+     "rank": 99,
+     "name": "Jaylen Waddle",
+     "pos": "WR",
+     "value": 4096.0
+    },
+    {
+     "rank": 100,
+     "name": "Makai Lemon",
+     "pos": "WR",
+     "value": 4065.0
+    }
+   ]
+  },
+  "top200": {
+   "n": 200,
+   "positionCounts": {
+    "TE": 28,
+    "QB": 29,
+    "RB": 37,
+    "WR": 52,
+    "LB": 24,
+    "PICK": 11,
+    "DL": 13,
+    "DB": 6
+   },
+   "groupCounts": {
+    "offense": 146,
+    "idp": 43,
+    "pick": 11
+   },
+   "rows": [
+    {
+     "rank": 1,
+     "name": "Brock Bowers",
+     "pos": "TE",
+     "value": 9983.0
+    },
+    {
+     "rank": 2,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "value": 9961.0
+    },
+    {
+     "rank": 3,
+     "name": "Jahmyr Gibbs",
+     "pos": "RB",
+     "value": 9861.0
+    },
+    {
+     "rank": 4,
+     "name": "Bijan Robinson",
+     "pos": "RB",
+     "value": 9804.0
+    },
+    {
+     "rank": 5,
+     "name": "Jaxon Smith-Njigba",
+     "pos": "WR",
+     "value": 9632.0
+    },
+    {
+     "rank": 6,
+     "name": "Trey McBride",
+     "pos": "TE",
+     "value": 9554.0
+    },
+    {
+     "rank": 7,
+     "name": "Ja'Marr Chase",
+     "pos": "WR",
+     "value": 9432.0
+    },
+    {
+     "rank": 8,
+     "name": "Puka Nacua",
+     "pos": "WR",
+     "value": 9208.0
+    },
+    {
+     "rank": 9,
+     "name": "Drake Maye",
+     "pos": "QB",
+     "value": 8970.0
+    },
+    {
+     "rank": 10,
+     "name": "Caleb Williams",
+     "pos": "QB",
+     "value": 8959.0
+    },
+    {
+     "rank": 11,
+     "name": "Amon-Ra St. Brown",
+     "pos": "WR",
+     "value": 8763.0
+    },
+    {
+     "rank": 12,
+     "name": "Lamar Jackson",
+     "pos": "QB",
+     "value": 8482.0
+    },
+    {
+     "rank": 13,
+     "name": "CeeDee Lamb",
+     "pos": "WR",
+     "value": 8291.0
+    },
+    {
+     "rank": 14,
+     "name": "Joe Burrow",
+     "pos": "QB",
+     "value": 8051.0
+    },
+    {
+     "rank": 15,
+     "name": "Justin Jefferson",
+     "pos": "WR",
+     "value": 7893.0
+    },
+    {
+     "rank": 16,
+     "name": "Malik Nabers",
+     "pos": "WR",
+     "value": 7826.0
+    },
+    {
+     "rank": 17,
+     "name": "Ashton Jeanty",
+     "pos": "RB",
+     "value": 7797.0
+    },
+    {
+     "rank": 18,
+     "name": "Kenneth Walker",
+     "pos": "RB",
+     "value": 7727.0
+    },
+    {
+     "rank": 19,
+     "name": "Brock Purdy",
+     "pos": "QB",
+     "value": 7545.0
+    },
+    {
+     "rank": 20,
+     "name": "Patrick Mahomes",
+     "pos": "QB",
+     "value": 7486.0
+    },
+    {
+     "rank": 21,
+     "name": "Jeremiyah Love",
+     "pos": "RB",
+     "value": 7462.0
+    },
+    {
+     "rank": 22,
+     "name": "Jayden Daniels",
+     "pos": "QB",
+     "value": 7445.0
+    },
+    {
+     "rank": 23,
+     "name": "Trevor Lawrence",
+     "pos": "QB",
+     "value": 7434.0
+    },
+    {
+     "rank": 24,
+     "name": "Drake London",
+     "pos": "WR",
+     "value": 7209.0
+    },
+    {
+     "rank": 25,
+     "name": "Tyler Warren",
+     "pos": "TE",
+     "value": 6975.0
+    },
+    {
+     "rank": 26,
+     "name": "Jonathan Taylor",
+     "pos": "RB",
+     "value": 6858.0
+    },
+    {
+     "rank": 27,
+     "name": "Chris Olave",
+     "pos": "WR",
+     "value": 6839.0
+    },
+    {
+     "rank": 28,
+     "name": "Tetairoa McMillan",
+     "pos": "WR",
+     "value": 6830.0
+    },
+    {
+     "rank": 29,
+     "name": "James Cook",
+     "pos": "RB",
+     "value": 6749.0
+    },
+    {
+     "rank": 30,
+     "name": "Colston Loveland",
+     "pos": "TE",
+     "value": 6609.0
+    },
+    {
+     "rank": 31,
+     "name": "Zay Flowers",
+     "pos": "WR",
+     "value": 6563.0
+    },
+    {
+     "rank": 32,
+     "name": "Garrett Wilson",
+     "pos": "WR",
+     "value": 6520.0
+    },
+    {
+     "rank": 33,
+     "name": "Nico Collins",
+     "pos": "WR",
+     "value": 6450.0
+    },
+    {
+     "rank": 34,
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "value": 6287.0
+    },
+    {
+     "rank": 35,
+     "name": "Jordan Love",
+     "pos": "QB",
+     "value": 6076.0
+    },
+    {
+     "rank": 36,
+     "name": "Bryce Young",
+     "pos": "QB",
+     "value": 5975.0
+    },
+    {
+     "rank": 37,
+     "name": "George Pickens",
+     "pos": "WR",
+     "value": 5968.0
+    },
+    {
+     "rank": 38,
+     "name": "Justin Herbert",
+     "pos": "QB",
+     "value": 5916.0
+    },
+    {
+     "rank": 39,
+     "name": "Jaxson Dart",
+     "pos": "QB",
+     "value": 5828.0
+    },
+    {
+     "rank": 40,
+     "name": "Parker Washington",
+     "pos": "WR",
+     "value": 5802.0
+    },
+    {
+     "rank": 41,
+     "name": "Kyren Williams",
+     "pos": "RB",
+     "value": 5732.0
+    },
+    {
+     "rank": 42,
+     "name": "Sam LaPorta",
+     "pos": "TE",
+     "value": 5732.0
+    },
+    {
+     "rank": 43,
+     "name": "De'Von Achane",
+     "pos": "RB",
+     "value": 5716.0
+    },
+    {
+     "rank": 44,
+     "name": "Dak Prescott",
+     "pos": "QB",
+     "value": 5594.0
+    },
+    {
+     "rank": 45,
+     "name": "Tyler Shough",
+     "pos": "QB",
+     "value": 5588.0
+    },
+    {
+     "rank": 46,
+     "name": "Christian McCaffrey",
+     "pos": "RB",
+     "value": 5568.0
+    },
+    {
+     "rank": 47,
+     "name": "Breece Hall",
+     "pos": "RB",
+     "value": 5525.0
+    },
+    {
+     "rank": 48,
+     "name": "Jalen Hurts",
+     "pos": "QB",
+     "value": 5509.0
+    },
+    {
+     "rank": 49,
+     "name": "C.J. Stroud",
+     "pos": "QB",
+     "value": 5493.0
+    },
+    {
+     "rank": 50,
+     "name": "Jack Campbell",
+     "pos": "LB",
+     "value": 5443.0
+    },
+    {
+     "rank": 51,
+     "name": "Fernando Mendoza",
+     "pos": "QB",
+     "value": 5434.0
+    },
+    {
+     "rank": 52,
+     "name": "Carnell Tate",
+     "pos": "WR",
+     "value": 5416.0
+    },
+    {
+     "rank": 53,
+     "name": "Jared Goff",
+     "pos": "QB",
+     "value": 5408.0
+    },
+    {
+     "rank": 54,
+     "name": "Tucker Kraft",
+     "pos": "TE",
+     "value": 5375.0
+    },
+    {
+     "rank": 55,
+     "name": "Bo Nix",
+     "pos": "QB",
+     "value": 5362.0
+    },
+    {
+     "rank": 56,
+     "name": "Christian Watson",
+     "pos": "WR",
+     "value": 5331.0
+    },
+    {
+     "rank": 57,
+     "name": "Chase Brown",
+     "pos": "RB",
+     "value": 5330.0
+    },
+    {
+     "rank": 58,
+     "name": "2028 Early 1st",
+     "pos": "PICK",
+     "value": 5251.0
+    },
+    {
+     "rank": 59,
+     "name": "Omarion Hampton",
+     "pos": "RB",
+     "value": 5171.0
+    },
+    {
+     "rank": 60,
+     "name": "Harold Fannin",
+     "pos": "TE",
+     "value": 5170.0
+    },
+    {
+     "rank": 61,
+     "name": "Emeka Egbuka",
+     "pos": "WR",
+     "value": 5101.0
+    },
+    {
+     "rank": 62,
+     "name": "Javonte Williams",
+     "pos": "RB",
+     "value": 5085.0
+    },
+    {
+     "rank": 63,
+     "name": "Arvell Reese",
+     "pos": "DL",
+     "value": 5071.0
+    },
+    {
+     "rank": 64,
+     "name": "Luther Burden",
+     "pos": "WR",
+     "value": 5040.0
+    },
+    {
+     "rank": 65,
+     "name": "Bucky Irving",
+     "pos": "RB",
+     "value": 5025.0
+    },
+    {
+     "rank": 66,
+     "name": "Sonny Styles",
+     "pos": "LB",
+     "value": 5023.0
+    },
+    {
+     "rank": 67,
+     "name": "Isaiah Likely",
+     "pos": "TE",
+     "value": 4971.0
+    },
+    {
+     "rank": 68,
+     "name": "Matthew Golden",
+     "pos": "WR",
+     "value": 4859.0
+    },
+    {
+     "rank": 69,
+     "name": "Tee Higgins",
+     "pos": "WR",
+     "value": 4854.0
+    },
+    {
+     "rank": 70,
+     "name": "DeVonta Smith",
+     "pos": "WR",
+     "value": 4832.0
+    },
+    {
+     "rank": 71,
+     "name": "Kenyon Sadiq",
+     "pos": "TE",
+     "value": 4745.0
+    },
+    {
+     "rank": 72,
+     "name": "Dalton Kincaid",
+     "pos": "TE",
+     "value": 4723.0
+    },
+    {
+     "rank": 73,
+     "name": "Jordyn Tyson",
+     "pos": "WR",
+     "value": 4665.0
+    },
+    {
+     "rank": 74,
+     "name": "2028 Mid 1st",
+     "pos": "PICK",
+     "value": 4656.0
+    },
+    {
+     "rank": 75,
+     "name": "Aidan Hutchinson",
+     "pos": "DL",
+     "value": 4642.0
+    },
+    {
+     "rank": 76,
+     "name": "Derrick Henry",
+     "pos": "RB",
+     "value": 4641.0
+    },
+    {
+     "rank": 77,
+     "name": "Quinshon Judkins",
+     "pos": "RB",
+     "value": 4631.0
+    },
+    {
+     "rank": 78,
+     "name": "Jacob Rodriguez",
+     "pos": "LB",
+     "value": 4624.0
+    },
+    {
+     "rank": 79,
+     "name": "2029 Early 1st",
+     "pos": "PICK",
+     "value": 4569.0
+    },
+    {
+     "rank": 80,
+     "name": "A.J. Brown",
+     "pos": "WR",
+     "value": 4564.0
+    },
+    {
+     "rank": 81,
+     "name": "Bhayshul Tuten",
+     "pos": "RB",
+     "value": 4561.0
+    },
+    {
+     "rank": 82,
+     "name": "Ladd McConkey",
+     "pos": "WR",
+     "value": 4540.0
+    },
+    {
+     "rank": 83,
+     "name": "George Kittle",
+     "pos": "TE",
+     "value": 4504.0
+    },
+    {
+     "rank": 84,
+     "name": "Cedric Gray",
+     "pos": "LB",
+     "value": 4444.0
+    },
+    {
+     "rank": 85,
+     "name": "Rashee Rice",
+     "pos": "WR",
+     "value": 4397.0
+    },
+    {
+     "rank": 86,
+     "name": "Nick Bolton",
+     "pos": "LB",
+     "value": 4356.0
+    },
+    {
+     "rank": 87,
+     "name": "Saquon Barkley",
+     "pos": "RB",
+     "value": 4329.0
+    },
+    {
+     "rank": 88,
+     "name": "Fred Warner",
+     "pos": "LB",
+     "value": 4313.0
+    },
+    {
+     "rank": 89,
+     "name": "Jihaad Campbell",
+     "pos": "LB",
+     "value": 4306.0
+    },
+    {
+     "rank": 90,
+     "name": "Denzel Boston",
+     "pos": "WR",
+     "value": 4291.0
+    },
+    {
+     "rank": 91,
+     "name": "D'Andre Swift",
+     "pos": "RB",
+     "value": 4284.0
+    },
+    {
+     "rank": 92,
+     "name": "Will Anderson",
+     "pos": "DL",
+     "value": 4242.0
+    },
+    {
+     "rank": 93,
+     "name": "2028 Late 1st",
+     "pos": "PICK",
+     "value": 4235.0
+    },
+    {
+     "rank": 94,
+     "name": "Kyle Pitts",
+     "pos": "TE",
+     "value": 4223.0
+    },
+    {
+     "rank": 95,
+     "name": "TreVeyon Henderson",
+     "pos": "RB",
+     "value": 4171.0
+    },
+    {
+     "rank": 96,
+     "name": "Edgerrin Cooper",
+     "pos": "LB",
+     "value": 4156.0
+    },
+    {
+     "rank": 97,
+     "name": "2029 Mid 1st",
+     "pos": "PICK",
+     "value": 4131.0
+    },
+    {
+     "rank": 98,
+     "name": "Jameson Williams",
+     "pos": "WR",
+     "value": 4107.0
+    },
+    {
+     "rank": 99,
+     "name": "Jaylen Waddle",
+     "pos": "WR",
+     "value": 4096.0
+    },
+    {
+     "rank": 100,
+     "name": "Makai Lemon",
+     "pos": "WR",
+     "value": 4065.0
+    },
+    {
+     "rank": 101,
+     "name": "Chuba Hubbard",
+     "pos": "RB",
+     "value": 4062.0
+    },
+    {
+     "rank": 102,
+     "name": "Jalen Coker",
+     "pos": "WR",
+     "value": 4049.0
+    },
+    {
+     "rank": 103,
+     "name": "Michael Wilson",
+     "pos": "WR",
+     "value": 4019.0
+    },
+    {
+     "rank": 104,
+     "name": "Rome Odunze",
+     "pos": "WR",
+     "value": 4011.0
+    },
+    {
+     "rank": 105,
+     "name": "Sam Darnold",
+     "pos": "QB",
+     "value": 4004.0
+    },
+    {
+     "rank": 106,
+     "name": "Nick Emmanwori",
+     "pos": "DB",
+     "value": 3989.0
+    },
+    {
+     "rank": 107,
+     "name": "Jadarian Price",
+     "pos": "RB",
+     "value": 3986.0
+    },
+    {
+     "rank": 108,
+     "name": "Baker Mayfield",
+     "pos": "QB",
+     "value": 3953.0
+    },
+    {
+     "rank": 109,
+     "name": "KC Concepcion",
+     "pos": "WR",
+     "value": 3914.0
+    },
+    {
+     "rank": 110,
+     "name": "Ernest Jones",
+     "pos": "LB",
+     "value": 3909.0
+    },
+    {
+     "rank": 111,
+     "name": "Quay Walker",
+     "pos": "LB",
+     "value": 3900.0
+    },
+    {
+     "rank": 112,
+     "name": "CJ Allen",
+     "pos": "LB",
+     "value": 3895.0
+    },
+    {
+     "rank": 113,
+     "name": "Cam Skattebo",
+     "pos": "RB",
+     "value": 3892.0
+    },
+    {
+     "rank": 114,
+     "name": "Nakobe Dean",
+     "pos": "LB",
+     "value": 3884.0
+    },
+    {
+     "rank": 115,
+     "name": "Jordyn Brooks",
+     "pos": "LB",
+     "value": 3859.0
+    },
+    {
+     "rank": 116,
+     "name": "Kyler Murray",
+     "pos": "QB",
+     "value": 3849.0
+    },
+    {
+     "rank": 117,
+     "name": "Devin Lloyd",
+     "pos": "LB",
+     "value": 3782.0
+    },
+    {
+     "rank": 118,
+     "name": "Jamien Sherwood",
+     "pos": "LB",
+     "value": 3746.0
+    },
+    {
+     "rank": 119,
+     "name": "Dallas Turner",
+     "pos": "DL",
+     "value": 3725.0
+    },
+    {
+     "rank": 120,
+     "name": "Terrance Ferguson",
+     "pos": "TE",
+     "value": 3705.0
+    },
+    {
+     "rank": 121,
+     "name": "2029 Late 1st",
+     "pos": "PICK",
+     "value": 3705.0
+    },
+    {
+     "rank": 122,
+     "name": "Dillon Thieneman",
+     "pos": "DB",
+     "value": 3688.0
+    },
+    {
+     "rank": 123,
+     "name": "Cam Ward",
+     "pos": "QB",
+     "value": 3672.0
+    },
+    {
+     "rank": 124,
+     "name": "Jaylen Warren",
+     "pos": "RB",
+     "value": 3662.0
+    },
+    {
+     "rank": 125,
+     "name": "Brenton Strange",
+     "pos": "TE",
+     "value": 3661.0
+    },
+    {
+     "rank": 126,
+     "name": "Matthew Stafford",
+     "pos": "QB",
+     "value": 3628.0
+    },
+    {
+     "rank": 127,
+     "name": "Marvin Harrison",
+     "pos": "WR",
+     "value": 3614.0
+    },
+    {
+     "rank": 128,
+     "name": "Travis Hunter",
+     "pos": "WR",
+     "value": 3599.0
+    },
+    {
+     "rank": 129,
+     "name": "DJ Moore",
+     "pos": "WR",
+     "value": 3598.0
+    },
+    {
+     "rank": 130,
+     "name": "Caleb Downs",
+     "pos": "DB",
+     "value": 3526.0
+    },
+    {
+     "rank": 131,
+     "name": "David Bailey",
+     "pos": "DL",
+     "value": 3500.0
+    },
+    {
+     "rank": 132,
+     "name": "Abdul Carter",
+     "pos": "DL",
+     "value": 3480.0
+    },
+    {
+     "rank": 133,
+     "name": "Travis Kelce",
+     "pos": "TE",
+     "value": 3473.0
+    },
+    {
+     "rank": 134,
+     "name": "Michael Penix",
+     "pos": "QB",
+     "value": 3470.0
+    },
+    {
+     "rank": 135,
+     "name": "Josh Jacobs",
+     "pos": "RB",
+     "value": 3450.0
+    },
+    {
+     "rank": 136,
+     "name": "Omar Cooper",
+     "pos": "WR",
+     "value": 3443.0
+    },
+    {
+     "rank": 137,
+     "name": "Zack Baun",
+     "pos": "LB",
+     "value": 3432.0
+    },
+    {
+     "rank": 138,
+     "name": "Dallas Goedert",
+     "pos": "TE",
+     "value": 3420.0
+    },
+    {
+     "rank": 139,
+     "name": "Blake Cashman",
+     "pos": "LB",
+     "value": 3407.0
+    },
+    {
+     "rank": 140,
+     "name": "Juwan Johnson",
+     "pos": "TE",
+     "value": 3407.0
+    },
+    {
+     "rank": 141,
+     "name": "Eli Stowers",
+     "pos": "TE",
+     "value": 3400.0
+    },
+    {
+     "rank": 142,
+     "name": "Brian Thomas",
+     "pos": "WR",
+     "value": 3387.0
+    },
+    {
+     "rank": 143,
+     "name": "Myles Garrett",
+     "pos": "DL",
+     "value": 3381.0
+    },
+    {
+     "rank": 144,
+     "name": "Travis Etienne",
+     "pos": "RB",
+     "value": 3374.0
+    },
+    {
+     "rank": 145,
+     "name": "Ty Simpson",
+     "pos": "QB",
+     "value": 3365.0
+    },
+    {
+     "rank": 146,
+     "name": "Jordan Addison",
+     "pos": "WR",
+     "value": 3360.0
+    },
+    {
+     "rank": 147,
+     "name": "Jake Ferguson",
+     "pos": "TE",
+     "value": 3357.0
+    },
+    {
+     "rank": 148,
+     "name": "Davante Adams",
+     "pos": "WR",
+     "value": 3336.0
+    },
+    {
+     "rank": 149,
+     "name": "Mike Evans",
+     "pos": "WR",
+     "value": 3309.0
+    },
+    {
+     "rank": 150,
+     "name": "Germie Bernard",
+     "pos": "WR",
+     "value": 3293.0
+    },
+    {
+     "rank": 151,
+     "name": "Kyle Monangai",
+     "pos": "RB",
+     "value": 3273.0
+    },
+    {
+     "rank": 152,
+     "name": "Roquan Smith",
+     "pos": "LB",
+     "value": 3260.0
+    },
+    {
+     "rank": 153,
+     "name": "2028 Early 2nd",
+     "pos": "PICK",
+     "value": 3260.0
+    },
+    {
+     "rank": 154,
+     "name": "Devin Bush",
+     "pos": "LB",
+     "value": 3254.0
+    },
+    {
+     "rank": 155,
+     "name": "Daiyan Henley",
+     "pos": "LB",
+     "value": 3252.0
+    },
+    {
+     "rank": 156,
+     "name": "Daniel Jones",
+     "pos": "QB",
+     "value": 3249.0
+    },
+    {
+     "rank": 157,
+     "name": "Kevin Winston",
+     "pos": "DB",
+     "value": 3237.0
+    },
+    {
+     "rank": 158,
+     "name": "Micah Parsons",
+     "pos": "DL",
+     "value": 3231.0
+    },
+    {
+     "rank": 159,
+     "name": "DK Metcalf",
+     "pos": "WR",
+     "value": 3221.0
+    },
+    {
+     "rank": 160,
+     "name": "T.J. Hockenson",
+     "pos": "TE",
+     "value": 3191.0
+    },
+    {
+     "rank": 161,
+     "name": "De'Zhaun Stribling",
+     "pos": "WR",
+     "value": 3188.0
+    },
+    {
+     "rank": 162,
+     "name": "Oronde Gadsden",
+     "pos": "TE",
+     "value": 3171.0
+    },
+    {
+     "rank": 163,
+     "name": "Alec Pierce",
+     "pos": "WR",
+     "value": 3168.0
+    },
+    {
+     "rank": 164,
+     "name": "Josh Downs",
+     "pos": "WR",
+     "value": 3160.0
+    },
+    {
+     "rank": 165,
+     "name": "RJ Harvey",
+     "pos": "RB",
+     "value": 3150.0
+    },
+    {
+     "rank": 166,
+     "name": "Jonah Coleman",
+     "pos": "RB",
+     "value": 3139.0
+    },
+    {
+     "rank": 167,
+     "name": "Malik Willis",
+     "pos": "QB",
+     "value": 3109.0
+    },
+    {
+     "rank": 168,
+     "name": "2028 Mid 2nd",
+     "pos": "PICK",
+     "value": 3096.0
+    },
+    {
+     "rank": 169,
+     "name": "Chig Okonkwo",
+     "pos": "TE",
+     "value": 3092.0
+    },
+    {
+     "rank": 170,
+     "name": "Eli Raridon",
+     "pos": "TE",
+     "value": 3059.0
+    },
+    {
+     "rank": 171,
+     "name": "Rhamondre Stevenson",
+     "pos": "RB",
+     "value": 3058.0
+    },
+    {
+     "rank": 172,
+     "name": "Mark Andrews",
+     "pos": "TE",
+     "value": 3047.0
+    },
+    {
+     "rank": 173,
+     "name": "Foyesade Oluokun",
+     "pos": "LB",
+     "value": 3026.0
+    },
+    {
+     "rank": 174,
+     "name": "Zach Charbonnet",
+     "pos": "RB",
+     "value": 3018.0
+    },
+    {
+     "rank": 175,
+     "name": "Maxx Crosby",
+     "pos": "DL",
+     "value": 3006.0
+    },
+    {
+     "rank": 176,
+     "name": "Xavier Worthy",
+     "pos": "WR",
+     "value": 2996.0
+    },
+    {
+     "rank": 177,
+     "name": "Barrett Carter",
+     "pos": "LB",
+     "value": 2986.0
+    },
+    {
+     "rank": 178,
+     "name": "Blake Corum",
+     "pos": "RB",
+     "value": 2973.0
+    },
+    {
+     "rank": 179,
+     "name": "Michael Mayer",
+     "pos": "TE",
+     "value": 2970.0
+    },
+    {
+     "rank": 180,
+     "name": "Antonio Williams",
+     "pos": "WR",
+     "value": 2960.0
+    },
+    {
+     "rank": 181,
+     "name": "2029 Early 2nd",
+     "pos": "PICK",
+     "value": 2952.0
+    },
+    {
+     "rank": 182,
+     "name": "Greg Rousseau",
+     "pos": "DL",
+     "value": 2950.0
+    },
+    {
+     "rank": 183,
+     "name": "Terry McLaurin",
+     "pos": "WR",
+     "value": 2944.0
+    },
+    {
+     "rank": 184,
+     "name": "Cooper DeJean",
+     "pos": "DB",
+     "value": 2940.0
+    },
+    {
+     "rank": 185,
+     "name": "2028 Late 2nd",
+     "pos": "PICK",
+     "value": 2901.0
+    },
+    {
+     "rank": 186,
+     "name": "David Montgomery",
+     "pos": "RB",
+     "value": 2897.0
+    },
+    {
+     "rank": 187,
+     "name": "Pat Freiermuth",
+     "pos": "TE",
+     "value": 2876.0
+    },
+    {
+     "rank": 188,
+     "name": "Nik Bonitto",
+     "pos": "DL",
+     "value": 2873.0
+    },
+    {
+     "rank": 189,
+     "name": "Ja'Kobi Lane",
+     "pos": "WR",
+     "value": 2844.0
+    },
+    {
+     "rank": 190,
+     "name": "Hunter Henry",
+     "pos": "TE",
+     "value": 2811.0
+    },
+    {
+     "rank": 191,
+     "name": "Kyle Hamilton",
+     "pos": "DB",
+     "value": 2803.0
+    },
+    {
+     "rank": 192,
+     "name": "Chris Bell",
+     "pos": "WR",
+     "value": 2800.0
+    },
+    {
+     "rank": 193,
+     "name": "2029 Mid 2nd",
+     "pos": "PICK",
+     "value": 2800.0
+    },
+    {
+     "rank": 194,
+     "name": "Ollie Gordon",
+     "pos": "RB",
+     "value": 2788.0
+    },
+    {
+     "rank": 195,
+     "name": "AJ Barner",
+     "pos": "TE",
+     "value": 2780.0
+    },
+    {
+     "rank": 196,
+     "name": "DeMarvion Overshown",
+     "pos": "LB",
+     "value": 2774.0
+    },
+    {
+     "rank": 197,
+     "name": "Brian Burns",
+     "pos": "DL",
+     "value": 2769.0
+    },
+    {
+     "rank": 198,
+     "name": "Woody Marks",
+     "pos": "RB",
+     "value": 2741.0
+    },
+    {
+     "rank": 199,
+     "name": "Braelon Allen",
+     "pos": "RB",
+     "value": 2733.0
+    },
+    {
+     "rank": 200,
+     "name": "Laiatu Latu",
+     "pos": "DL",
+     "value": 2732.0
+    }
+   ]
+  },
+  "top25ByPosition": {
+   "DL": [
+    {
+     "posRank": 1,
+     "name": "Arvell Reese",
+     "overallRank": 63,
+     "value": 5071.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 2,
+     "name": "Aidan Hutchinson",
+     "overallRank": 75,
+     "value": 4642.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 3,
+     "name": "Will Anderson",
+     "overallRank": 92,
+     "value": 4242.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 4,
+     "name": "Dallas Turner",
+     "overallRank": 119,
+     "value": 3725.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 5,
+     "name": "David Bailey",
+     "overallRank": 131,
+     "value": 3500.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 6,
+     "name": "Abdul Carter",
+     "overallRank": 132,
+     "value": 3480.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 7,
+     "name": "Myles Garrett",
+     "overallRank": 143,
+     "value": 3381.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 8,
+     "name": "Micah Parsons",
+     "overallRank": 158,
+     "value": 3231.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 9,
+     "name": "Maxx Crosby",
+     "overallRank": 175,
+     "value": 3006.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 10,
+     "name": "Greg Rousseau",
+     "overallRank": 182,
+     "value": 2950.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 11,
+     "name": "Nik Bonitto",
+     "overallRank": 188,
+     "value": 2873.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 12,
+     "name": "Brian Burns",
+     "overallRank": 197,
+     "value": 2769.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 13,
+     "name": "Laiatu Latu",
+     "overallRank": 200,
+     "value": 2732.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 14,
+     "name": "Tuli Tuipulotu",
+     "overallRank": 201,
+     "value": 2723.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 15,
+     "name": "Nick Bosa",
+     "overallRank": 206,
+     "value": 2688.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 16,
+     "name": "Jalen Carter",
+     "overallRank": 209,
+     "value": 2671.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 17,
+     "name": "George Karlaftis",
+     "overallRank": 211,
+     "value": 2652.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 18,
+     "name": "Jared Verse",
+     "overallRank": 216,
+     "value": 2619.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 19,
+     "name": "Josh Hines-Allen",
+     "overallRank": 221,
+     "value": 2604.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 20,
+     "name": "Jeffery Simmons",
+     "overallRank": 224,
+     "value": 2567.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 21,
+     "name": "Chase Young",
+     "overallRank": 229,
+     "value": 2523.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 22,
+     "name": "Byron Murphy",
+     "overallRank": 241,
+     "value": 2451.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 23,
+     "name": "Byron Young",
+     "overallRank": 245,
+     "value": 2419.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 24,
+     "name": "Alex Highsmith",
+     "overallRank": 253,
+     "value": 2355.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 25,
+     "name": "Rueben Bain",
+     "overallRank": 264,
+     "value": 2301.0,
+     "confidence": "low"
+    }
+   ],
+   "LB": [
+    {
+     "posRank": 1,
+     "name": "Carson Schwesinger",
+     "overallRank": 34,
+     "value": 6287.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 2,
+     "name": "Jack Campbell",
+     "overallRank": 50,
+     "value": 5443.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 3,
+     "name": "Sonny Styles",
+     "overallRank": 66,
+     "value": 5023.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 4,
+     "name": "Jacob Rodriguez",
+     "overallRank": 78,
+     "value": 4624.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 5,
+     "name": "Cedric Gray",
+     "overallRank": 84,
+     "value": 4444.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 6,
+     "name": "Nick Bolton",
+     "overallRank": 86,
+     "value": 4356.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 7,
+     "name": "Fred Warner",
+     "overallRank": 88,
+     "value": 4313.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 8,
+     "name": "Jihaad Campbell",
+     "overallRank": 89,
+     "value": 4306.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 9,
+     "name": "Edgerrin Cooper",
+     "overallRank": 96,
+     "value": 4156.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 10,
+     "name": "Ernest Jones",
+     "overallRank": 110,
+     "value": 3909.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 11,
+     "name": "Quay Walker",
+     "overallRank": 111,
+     "value": 3900.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 12,
+     "name": "CJ Allen",
+     "overallRank": 112,
+     "value": 3895.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 13,
+     "name": "Nakobe Dean",
+     "overallRank": 114,
+     "value": 3884.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 14,
+     "name": "Jordyn Brooks",
+     "overallRank": 115,
+     "value": 3859.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 15,
+     "name": "Devin Lloyd",
+     "overallRank": 117,
+     "value": 3782.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 16,
+     "name": "Jamien Sherwood",
+     "overallRank": 118,
+     "value": 3746.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 17,
+     "name": "Zack Baun",
+     "overallRank": 137,
+     "value": 3432.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 18,
+     "name": "Blake Cashman",
+     "overallRank": 139,
+     "value": 3407.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 19,
+     "name": "Roquan Smith",
+     "overallRank": 152,
+     "value": 3260.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 20,
+     "name": "Devin Bush",
+     "overallRank": 154,
+     "value": 3254.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 21,
+     "name": "Daiyan Henley",
+     "overallRank": 155,
+     "value": 3252.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 22,
+     "name": "Foyesade Oluokun",
+     "overallRank": 173,
+     "value": 3026.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 23,
+     "name": "Barrett Carter",
+     "overallRank": 177,
+     "value": 2986.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 24,
+     "name": "DeMarvion Overshown",
+     "overallRank": 196,
+     "value": 2774.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 25,
+     "name": "Patrick Queen",
+     "overallRank": 215,
+     "value": 2620.0,
+     "confidence": "low"
+    }
+   ],
+   "DB": [
+    {
+     "posRank": 1,
+     "name": "Nick Emmanwori",
+     "overallRank": 106,
+     "value": 3989.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 2,
+     "name": "Dillon Thieneman",
+     "overallRank": 122,
+     "value": 3688.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 3,
+     "name": "Caleb Downs",
+     "overallRank": 130,
+     "value": 3526.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 4,
+     "name": "Kevin Winston",
+     "overallRank": 157,
+     "value": 3237.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 5,
+     "name": "Cooper DeJean",
+     "overallRank": 184,
+     "value": 2940.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 6,
+     "name": "Kyle Hamilton",
+     "overallRank": 191,
+     "value": 2803.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 7,
+     "name": "Brian Branch",
+     "overallRank": 218,
+     "value": 2614.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 8,
+     "name": "Tykee Smith",
+     "overallRank": 220,
+     "value": 2604.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 9,
+     "name": "Derwin James",
+     "overallRank": 271,
+     "value": 2274.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 10,
+     "name": "Antoine Winfield",
+     "overallRank": 299,
+     "value": 2154.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 11,
+     "name": "Xavier Watts",
+     "overallRank": 304,
+     "value": 2105.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 12,
+     "name": "Nick Cross",
+     "overallRank": 307,
+     "value": 2093.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 13,
+     "name": "Kool-Aid McKinstry",
+     "overallRank": 319,
+     "value": 2046.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 14,
+     "name": "Chamarri Conner",
+     "overallRank": 334,
+     "value": 1954.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 15,
+     "name": "Devon Witherspoon",
+     "overallRank": 337,
+     "value": 1937.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 16,
+     "name": "Malaki Starks",
+     "overallRank": 338,
+     "value": 1936.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 17,
+     "name": "Cole Bishop",
+     "overallRank": 343,
+     "value": 1922.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 18,
+     "name": "Keionte Scott",
+     "overallRank": 346,
+     "value": 1917.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 19,
+     "name": "Treydan Stukes",
+     "overallRank": 352,
+     "value": 1910.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 20,
+     "name": "Tre'von Moehrig",
+     "overallRank": 354,
+     "value": 1900.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 21,
+     "name": "Malachi Moore",
+     "overallRank": 360,
+     "value": 1882.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 22,
+     "name": "A.J. Haulcy",
+     "overallRank": 363,
+     "value": 1876.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 23,
+     "name": "Kam Curl",
+     "overallRank": 374,
+     "value": 1860.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 24,
+     "name": "Talanoa Hufanga",
+     "overallRank": 376,
+     "value": 1858.0,
+     "confidence": "low"
+    },
+    {
+     "posRank": 25,
+     "name": "Emmanuel McNeil-Warren",
+     "overallRank": 382,
+     "value": 1835.0,
+     "confidence": "low"
+    }
+   ]
+  },
+  "highestRankedDefenders": [
+   {
+    "name": "Carson Schwesinger",
+    "pos": "LB",
+    "rank": 34,
+    "value": 6287.0,
+    "confidence": "low",
+    "anchorValue": 6468.0,
+    "subgroupValue": 4671.0,
+    "votes": {
+     "idpTradeCalc": {
+      "effectiveRank": 54,
+      "valueContribution": 5637,
+      "appliedWeight": 0.424,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "idpShowCombined": {
+      "effectiveRank": 90,
+      "valueContribution": 4164,
+      "appliedWeight": 0.0,
+      "isAnchor": null,
+      "pool": "shared_market",
+      "contributed": false
+     },
+     "fantasyProsIdp": {
+      "effectiveRank": 68,
+      "valueContribution": 4671,
+      "appliedWeight": 0.2408,
+      "isAnchor": false,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "draftSharksIdp": {
+      "effectiveRank": 18,
+      "valueContribution": 7032,
+      "appliedWeight": 0.624,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     }
+    }
+   },
+   {
+    "name": "Jack Campbell",
+    "pos": "LB",
+    "rank": 50,
+    "value": 5443.0,
+    "confidence": "low",
+    "anchorValue": 5474.0,
+    "subgroupValue": 5165.0,
+    "votes": {
+     "idpTradeCalc": {
+      "effectiveRank": 64,
+      "valueContribution": 5414,
+      "appliedWeight": 0.424,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "idpShowCombined": {
+      "effectiveRank": 106,
+      "valueContribution": 3876,
+      "appliedWeight": 0.0,
+      "isAnchor": null,
+      "pool": "shared_market",
+      "contributed": false
+     },
+     "fantasyProsIdp": {
+      "effectiveRank": 52,
+      "valueContribution": 5165,
+      "appliedWeight": 0.2408,
+      "isAnchor": false,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "draftSharksIdp": {
+      "effectiveRank": 43,
+      "valueContribution": 5515,
+      "appliedWeight": 0.624,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     }
+    }
+   },
+   {
+    "name": "Arvell Reese",
+    "pos": "DL",
+    "rank": 63,
+    "value": 5071.0,
+    "confidence": "low",
+    "anchorValue": 5405.0,
+    "subgroupValue": 2074.0,
+    "votes": {
+     "idpTradeCalc": {
+      "effectiveRank": 53,
+      "valueContribution": 5651,
+      "appliedWeight": 0.424,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "idpShowCombined": {
+      "effectiveRank": 110,
+      "valueContribution": 3812,
+      "appliedWeight": 0.0,
+      "isAnchor": null,
+      "pool": "shared_market",
+      "contributed": false
+     },
+     "fantasyProsIdp": {
+      "effectiveRank": 356,
+      "valueContribution": 2074,
+      "appliedWeight": 0.2408,
+      "isAnchor": false,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "draftSharksIdp": {
+      "effectiveRank": 50,
+      "valueContribution": 5238,
+      "appliedWeight": 0.624,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     }
+    }
+   },
+   {
+    "name": "Sonny Styles",
+    "pos": "LB",
+    "rank": 66,
+    "value": 5023.0,
+    "confidence": "low",
+    "anchorValue": 5292.0,
+    "subgroupValue": 2609.0,
+    "votes": {
+     "idpTradeCalc": {
+      "effectiveRank": 116,
+      "valueContribution": 4173,
+      "appliedWeight": 0.424,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "idpShowCombined": {
+      "effectiveRank": 107,
+      "valueContribution": 3860,
+      "appliedWeight": 0.0,
+      "isAnchor": null,
+      "pool": "shared_market",
+      "contributed": false
+     },
+     "fantasyProsIdp": {
+      "effectiveRank": 236,
+      "valueContribution": 2609,
+      "appliedWeight": 0.2408,
+      "isAnchor": false,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "draftSharksIdp": {
+      "effectiveRank": 32,
+      "valueContribution": 6052,
+      "appliedWeight": 0.624,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     }
+    }
+   },
+   {
+    "name": "Aidan Hutchinson",
+    "pos": "DL",
+    "rank": 75,
+    "value": 4642.0,
+    "confidence": "low",
+    "anchorValue": 4467.0,
+    "subgroupValue": 6227.0,
+    "votes": {
+     "idpTradeCalc": {
+      "effectiveRank": 29,
+      "valueContribution": 6444,
+      "appliedWeight": 0.424,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "idpShowCombined": {
+      "effectiveRank": 71,
+      "valueContribution": 4592,
+      "appliedWeight": 0.0,
+      "isAnchor": null,
+      "pool": "shared_market",
+      "contributed": false
+     },
+     "fantasyProsIdp": {
+      "effectiveRank": 29,
+      "valueContribution": 6227,
+      "appliedWeight": 0.2408,
+      "isAnchor": false,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "draftSharksIdp": {
+      "effectiveRank": 167,
+      "valueContribution": 3123,
+      "appliedWeight": 0.624,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     }
+    }
+   },
+   {
+    "name": "Jacob Rodriguez",
+    "pos": "LB",
+    "rank": 78,
+    "value": 4624.0,
+    "confidence": "low",
+    "anchorValue": 4925.0,
+    "subgroupValue": 1922.0,
+    "votes": {
+     "idpTradeCalc": {
+      "effectiveRank": 52,
+      "valueContribution": 5667,
+      "appliedWeight": 0.424,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "idpShowCombined": {
+      "effectiveRank": 111,
+      "valueContribution": 3796,
+      "appliedWeight": 0.0,
+      "isAnchor": null,
+      "pool": "shared_market",
+      "contributed": false
+     },
+     "fantasyProsIdp": {
+      "effectiveRank": 406,
+      "valueContribution": 1922,
+      "appliedWeight": 0.2408,
+      "isAnchor": false,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "draftSharksIdp": {
+      "effectiveRank": 78,
+      "valueContribution": 4421,
+      "appliedWeight": 0.624,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     }
+    }
+   },
+   {
+    "name": "Cedric Gray",
+    "pos": "LB",
+    "rank": 84,
+    "value": 4444.0,
+    "confidence": "low",
+    "anchorValue": 4570.0,
+    "subgroupValue": 3315.0,
+    "votes": {
+     "idpTradeCalc": {
+      "effectiveRank": 420,
+      "valueContribution": 1947,
+      "appliedWeight": 0.424,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "idpShowCombined": {
+      "effectiveRank": 163,
+      "valueContribution": 3161,
+      "appliedWeight": 0.0,
+      "isAnchor": null,
+      "pool": "shared_market",
+      "contributed": false
+     },
+     "fantasyProsIdp": {
+      "effectiveRank": 148,
+      "valueContribution": 3315,
+      "appliedWeight": 0.2408,
+      "isAnchor": false,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "draftSharksIdp": {
+      "effectiveRank": 27,
+      "valueContribution": 6352,
+      "appliedWeight": 0.624,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     }
+    }
+   },
+   {
+    "name": "Nick Bolton",
+    "pos": "LB",
+    "rank": 86,
+    "value": 4356.0,
+    "confidence": "low",
+    "anchorValue": 4309.0,
+    "subgroupValue": 4783.0,
+    "votes": {
+     "idpTradeCalc": {
+      "effectiveRank": 139,
+      "valueContribution": 3611,
+      "appliedWeight": 0.424,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "idpShowCombined": {
+      "effectiveRank": 132,
+      "valueContribution": 3503,
+      "appliedWeight": 0.0,
+      "isAnchor": null,
+      "pool": "shared_market",
+      "contributed": false
+     },
+     "fantasyProsIdp": {
+      "effectiveRank": 64,
+      "valueContribution": 4783,
+      "appliedWeight": 0.2408,
+      "isAnchor": false,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "draftSharksIdp": {
+      "effectiveRank": 64,
+      "valueContribution": 4783,
+      "appliedWeight": 0.624,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     }
+    }
+   },
+   {
+    "name": "Fred Warner",
+    "pos": "LB",
+    "rank": 88,
+    "value": 4313.0,
+    "confidence": "low",
+    "anchorValue": 4227.0,
+    "subgroupValue": 5096.0,
+    "votes": {
+     "idpTradeCalc": {
+      "effectiveRank": 117,
+      "valueContribution": 4169,
+      "appliedWeight": 0.424,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "idpShowCombined": {
+      "effectiveRank": 114,
+      "valueContribution": 3751,
+      "appliedWeight": 0.0,
+      "isAnchor": null,
+      "pool": "shared_market",
+      "contributed": false
+     },
+     "fantasyProsIdp": {
+      "effectiveRank": 54,
+      "valueContribution": 5096,
+      "appliedWeight": 0.2408,
+      "isAnchor": false,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "draftSharksIdp": {
+      "effectiveRank": 85,
+      "valueContribution": 4266,
+      "appliedWeight": 0.624,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     }
+    }
+   },
+   {
+    "name": "Jihaad Campbell",
+    "pos": "LB",
+    "rank": 89,
+    "value": 4306.0,
+    "confidence": "low",
+    "anchorValue": 4493.0,
+    "subgroupValue": 2633.0,
+    "votes": {
+     "idpTradeCalc": {
+      "effectiveRank": 143,
+      "valueContribution": 3605,
+      "appliedWeight": 0.424,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "idpShowCombined": {
+      "effectiveRank": 140,
+      "valueContribution": 3406,
+      "appliedWeight": 0.0,
+      "isAnchor": null,
+      "pool": "shared_market",
+      "contributed": false
+     },
+     "fantasyProsIdp": {
+      "effectiveRank": 232,
+      "valueContribution": 2633,
+      "appliedWeight": 0.2408,
+      "isAnchor": false,
+      "pool": "shared_market",
+      "contributed": true
+     },
+     "draftSharksIdp": {
+      "effectiveRank": 54,
+      "valueContribution": 5096,
+      "appliedWeight": 0.624,
+      "isAnchor": true,
+      "pool": "shared_market",
+      "contributed": true
+     }
+    }
+   }
+  ],
+  "rankBands": [
+   {
+    "band": "1-25",
+    "offense": 25,
+    "idp": 0,
+    "pick": 0,
+    "other": 0,
+    "idpShareOfPlayers": 0.0
+   },
+   {
+    "band": "26-50",
+    "offense": 23,
+    "idp": 2,
+    "pick": 0,
+    "other": 0,
+    "idpShareOfPlayers": 0.08
+   },
+   {
+    "band": "51-100",
+    "offense": 35,
+    "idp": 10,
+    "pick": 5,
+    "other": 0,
+    "idpShareOfPlayers": 0.222
+   },
+   {
+    "band": "101-150",
+    "offense": 33,
+    "idp": 16,
+    "pick": 1,
+    "other": 0,
+    "idpShareOfPlayers": 0.327
+   },
+   {
+    "band": "151-200",
+    "offense": 30,
+    "idp": 15,
+    "pick": 5,
+    "other": 0,
+    "idpShareOfPlayers": 0.333
+   },
+   {
+    "band": "201-300",
+    "offense": 60,
+    "idp": 36,
+    "pick": 4,
+    "other": 0,
+    "idpShareOfPlayers": 0.375
+   },
+   {
+    "band": "301-400",
+    "offense": 46,
+    "idp": 50,
+    "pick": 4,
+    "other": 0,
+    "idpShareOfPlayers": 0.521
+   },
+   {
+    "band": "401-500",
+    "offense": 52,
+    "idp": 46,
+    "pick": 2,
+    "other": 0,
+    "idpShareOfPlayers": 0.469
+   },
+   {
+    "band": "501-800",
+    "offense": 96,
+    "idp": 141,
+    "pick": 3,
+    "other": 0,
+    "idpShareOfPlayers": 0.595
+   }
+  ],
+  "valueQuantiles": {
+   "offense": {
+    "p0": 267.0,
+    "p10": 1035.0,
+    "p25": 1314.5,
+    "p50": 1818.0,
+    "p75": 3164.0,
+    "p90": 5416.0,
+    "p100": 9983.0,
+    "n": 491,
+    "mean": 2587.8
+   },
+   "idp": {
+    "p0": 226.0,
+    "p10": 758.6,
+    "p25": 1233.0,
+    "p50": 1488.0,
+    "p75": 1917.0,
+    "p90": 2785.6,
+    "p100": 6287.0,
+    "n": 397,
+    "mean": 1682.0
+   },
+   "offenseTopStarterPool": {
+    "p0": 3018.0,
+    "p10": 3223.8,
+    "p25": 3610.2,
+    "p50": 4734.0,
+    "p75": 6169.5,
+    "p90": 8035.2,
+    "p100": 9983.0,
+    "n": 132,
+    "mean": 5216.0
+   },
+   "idpTopStarterPool": {
+    "p0": 1882.0,
+    "p10": 1920.8,
+    "p25": 2102.0,
+    "p50": 2545.0,
+    "p75": 3387.5,
+    "p90": 4181.8,
+    "p100": 6287.0,
+    "n": 108,
+    "mean": 2820.1
+   }
+  },
+  "rankQuantiles": {
+   "offense": {
+    "p0": 1.0,
+    "p10": 41.9,
+    "p25": 128.8,
+    "p50": 289.5,
+    "p75": 494.2,
+    "p90": 631.3,
+    "p100": 733.0,
+    "n": 400,
+    "mean": 317.2
+   },
+   "idp": {
+    "p0": 34.0,
+    "p10": 157.5,
+    "p25": 300.5,
+    "p50": 460.5,
+    "p75": 613.5,
+    "p90": 695.5,
+    "p100": 740.0,
+    "n": 316,
+    "mean": 446.2
+   },
+   "pick": {
+    "p0": 58.0,
+    "p10": 83.2,
+    "p25": 145.0,
+    "p50": 229.0,
+    "p75": 340.0,
+    "p90": 504.3,
+    "p100": 643.0,
+    "n": 24,
+    "mean": 262.6
+   }
+  },
+  "kthValues": [
+   {
+    "k": 1,
+    "offense": {
+     "name": "Brock Bowers",
+     "pos": "TE",
+     "value": 9983.0,
+     "rank": 1
+    },
+    "idp": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "value": 6287.0,
+     "rank": 34
+    },
+    "idpOverOffenseValue": 0.63
+   },
+   {
+    "k": 3,
+    "offense": {
+     "name": "Jahmyr Gibbs",
+     "pos": "RB",
+     "value": 9861.0,
+     "rank": 3
+    },
+    "idp": {
+     "name": "Arvell Reese",
+     "pos": "DL",
+     "value": 5071.0,
+     "rank": 63
+    },
+    "idpOverOffenseValue": 0.514
+   },
+   {
+    "k": 5,
+    "offense": {
+     "name": "Jaxon Smith-Njigba",
+     "pos": "WR",
+     "value": 9632.0,
+     "rank": 5
+    },
+    "idp": {
+     "name": "Aidan Hutchinson",
+     "pos": "DL",
+     "value": 4642.0,
+     "rank": 75
+    },
+    "idpOverOffenseValue": 0.482
+   },
+   {
+    "k": 10,
+    "offense": {
+     "name": "Caleb Williams",
+     "pos": "QB",
+     "value": 8959.0,
+     "rank": 10
+    },
+    "idp": {
+     "name": "Jihaad Campbell",
+     "pos": "LB",
+     "value": 4306.0,
+     "rank": 89
+    },
+    "idpOverOffenseValue": 0.481
+   },
+   {
+    "k": 25,
+    "offense": {
+     "name": "Tyler Warren",
+     "pos": "TE",
+     "value": 6975.0,
+     "rank": 25
+    },
+    "idp": {
+     "name": "Abdul Carter",
+     "pos": "DL",
+     "value": 3480.0,
+     "rank": 132
+    },
+    "idpOverOffenseValue": 0.499
+   },
+   {
+    "k": 50,
+    "offense": {
+     "name": "Carnell Tate",
+     "pos": "WR",
+     "value": 5416.0,
+     "rank": 52
+    },
+    "idp": {
+     "name": "Brian Branch",
+     "pos": "DB",
+     "value": 2614.0,
+     "rank": 218
+    },
+    "idpOverOffenseValue": 0.483
+   },
+   {
+    "k": 108,
+    "offense": {
+     "name": "Eli Stowers",
+     "pos": "TE",
+     "value": 3400.0,
+     "rank": 141
+    },
+    "idp": {
+     "name": "Malachi Moore",
+     "pos": "DB",
+     "value": 1882.0,
+     "rank": 360
+    },
+    "idpOverOffenseValue": 0.554
+   }
+  ],
+  "placement": {
+   "topDefender": {
+    "name": "Carson Schwesinger",
+    "pos": "LB",
+    "rank": 34,
+    "value": 6287.0
+   },
+   "idpInTopN": {
+    "25": 0,
+    "50": 2,
+    "100": 12,
+    "200": 43,
+    "300": 79
+   },
+   "familyKthOverallRank": {
+    "DL": {
+     "1": 63,
+     "3": 92,
+     "10": 182,
+     "25": 264
+    },
+    "LB": {
+     "1": 34,
+     "3": 66,
+     "10": 110,
+     "25": 215
+    },
+    "DB": {
+     "1": 106,
+     "3": 130,
+     "10": 299,
+     "25": 382
+    }
+   },
+   "kth": [
+    {
+     "k": 1,
+     "offense": {
+      "name": "Brock Bowers",
+      "pos": "TE",
+      "value": 9983.0,
+      "rank": 1
+     },
+     "idp": {
+      "name": "Carson Schwesinger",
+      "pos": "LB",
+      "value": 6287.0,
+      "rank": 34
+     },
+     "idpOverOffenseValue": 0.63
+    },
+    {
+     "k": 10,
+     "offense": {
+      "name": "Caleb Williams",
+      "pos": "QB",
+      "value": 8959.0,
+      "rank": 10
+     },
+     "idp": {
+      "name": "Jihaad Campbell",
+      "pos": "LB",
+      "value": 4306.0,
+      "rank": 89
+     },
+     "idpOverOffenseValue": 0.481
+    },
+    {
+     "k": 25,
+     "offense": {
+      "name": "Tyler Warren",
+      "pos": "TE",
+      "value": 6975.0,
+      "rank": 25
+     },
+     "idp": {
+      "name": "Abdul Carter",
+      "pos": "DL",
+      "value": 3480.0,
+      "rank": 132
+     },
+     "idpOverOffenseValue": 0.499
+    },
+    {
+     "k": 50,
+     "offense": {
+      "name": "Carnell Tate",
+      "pos": "WR",
+      "value": 5416.0,
+      "rank": 52
+     },
+     "idp": {
+      "name": "Brian Branch",
+      "pos": "DB",
+      "value": 2614.0,
+      "rank": 218
+     },
+     "idpOverOffenseValue": 0.483
+    },
+    {
+     "k": 108,
+     "offense": {
+      "name": "Eli Stowers",
+      "pos": "TE",
+      "value": 3400.0,
+      "rank": 141
+     },
+     "idp": {
+      "name": "Malachi Moore",
+      "pos": "DB",
+      "value": 1882.0,
+      "rank": 360
+     },
+     "idpOverOffenseValue": 0.554
+    }
+   ]
+  },
+  "coverageByPosition": {
+   "QB": {
+    "pricedRows": 73,
+    "votingSourcesPerRow": {
+     "p0": 2.0,
+     "p25": 11.0,
+     "p50": 12.0,
+     "p75": 14.0,
+     "p100": 15.0,
+     "n": 73,
+     "mean": 11.8
+    },
+    "rowsBySource": {
+     "ktcCrowdSfTep": 70,
+     "ktcTradesSfTep": 70,
+     "pfkDynasty": 70,
+     "fantasyCalc": 67,
+     "dynastyDaddySf": 67,
+     "yahooBoone": 66,
+     "otcffbSf": 65,
+     "idpTradeCalc": 64,
+     "flockFantasySf": 63,
+     "fantasyProsSf": 62,
+     "dlfSf": 50,
+     "fantasyProsFitzmaurice": 46,
+     "dynastyNerdsSfTep": 42,
+     "draftSharks": 34,
+     "fantasyNavigatorSf": 11,
+     "dlfRookieSf": 8,
+     "idpShowCombined": 5
+    },
+    "confidenceBuckets": {
+     "low": 16,
+     "high": 29,
+     "medium": 28
+    },
+    "confidenceBucketsTopStarterPool": {
+     "high": 19,
+     "medium": 4,
+     "low": 1
+    },
+    "singleVoterRows": 0
+   },
+   "RB": {
+    "pricedRows": 134,
+    "votingSourcesPerRow": {
+     "p0": 1.0,
+     "p25": 9.0,
+     "p50": 14.0,
+     "p75": 14.0,
+     "p100": 15.0,
+     "n": 134,
+     "mean": 11.3
+    },
+    "rowsBySource": {
+     "ktcCrowdSfTep": 125,
+     "ktcTradesSfTep": 125,
+     "pfkDynasty": 121,
+     "fantasyProsSf": 121,
+     "otcffbSf": 118,
+     "idpTradeCalc": 115,
+     "flockFantasySf": 112,
+     "dynastyDaddySf": 104,
+     "fantasyCalc": 103,
+     "yahooBoone": 98,
+     "draftSharks": 95,
+     "fantasyProsFitzmaurice": 88,
+     "dynastyNerdsSfTep": 80,
+     "dlfSf": 77,
+     "fantasyNavigatorSf": 19,
+     "dlfRookieSf": 12,
+     "idpShowCombined": 1
+    },
+    "confidenceBuckets": {
+     "high": 43,
+     "medium": 54,
+     "low": 37
+    },
+    "confidenceBucketsTopStarterPool": {
+     "high": 21,
+     "medium": 3
+    },
+    "singleVoterRows": 2
+   },
+   "WR": {
+    "pricedRows": 202,
+    "votingSourcesPerRow": {
+     "p0": 1.0,
+     "p25": 9.0,
+     "p50": 13.0,
+     "p75": 14.0,
+     "p100": 15.0,
+     "n": 202,
+     "mean": 11.0
+    },
+    "rowsBySource": {
+     "fantasyProsSf": 194,
+     "ktcTradesSfTep": 188,
+     "ktcCrowdSfTep": 186,
+     "otcffbSf": 179,
+     "pfkDynasty": 178,
+     "idpTradeCalc": 172,
+     "flockFantasySf": 160,
+     "fantasyCalc": 152,
+     "dynastyDaddySf": 149,
+     "draftSharks": 131,
+     "yahooBoone": 120,
+     "dynastyNerdsSfTep": 113,
+     "fantasyProsFitzmaurice": 113,
+     "dlfSf": 109,
+     "fantasyNavigatorSf": 40,
+     "dlfRookieSf": 28,
+     "idpShowCombined": 5
+    },
+    "confidenceBuckets": {
+     "high": 52,
+     "low": 65,
+     "medium": 85
+    },
+    "confidenceBucketsTopStarterPool": {
+     "high": 22,
+     "medium": 2
+    },
+    "singleVoterRows": 4
+   },
+   "TE": {
+    "pricedRows": 82,
+    "votingSourcesPerRow": {
+     "p0": 1.0,
+     "p25": 9.0,
+     "p50": 12.5,
+     "p75": 14.0,
+     "p100": 15.0,
+     "n": 82,
+     "mean": 11.3
+    },
+    "rowsBySource": {
+     "pfkDynasty": 79,
+     "ktcCrowdSfTep": 76,
+     "ktcTradesSfTep": 76,
+     "idpTradeCalc": 76,
+     "fantasyProsSf": 76,
+     "otcffbSf": 75,
+     "fantasyCalc": 65,
+     "dynastyDaddySf": 65,
+     "flockFantasySf": 64,
+     "yahooBoone": 64,
+     "draftSharks": 62,
+     "dynastyNerdsSfTep": 46,
+     "fantasyProsFitzmaurice": 46,
+     "dlfSf": 43,
+     "dlfRookieSf": 10
+    },
+    "confidenceBuckets": {
+     "medium": 46,
+     "low": 19,
+     "high": 17
+    },
+    "confidenceBucketsTopStarterPool": {
+     "high": 17,
+     "medium": 7
+    },
+    "singleVoterRows": 2
+   },
+   "DL": {
+    "pricedRows": 151,
+    "votingSourcesPerRow": {
+     "p0": 1.0,
+     "p25": 2.0,
+     "p50": 3.0,
+     "p75": 3.0,
+     "p100": 3.0,
+     "n": 151,
+     "mean": 2.5
+    },
+    "rowsBySource": {
+     "idpTradeCalc": 146,
+     "draftSharksIdp": 130,
+     "fantasyProsIdp": 106
+    },
+    "confidenceBuckets": {
+     "low": 151
+    },
+    "confidenceBucketsTopStarterPool": {
+     "low": 36
+    },
+    "singleVoterRows": 20
+   },
+   "LB": {
+    "pricedRows": 110,
+    "votingSourcesPerRow": {
+     "p0": 1.0,
+     "p25": 2.0,
+     "p50": 3.0,
+     "p75": 3.0,
+     "p100": 3.0,
+     "n": 110,
+     "mean": 2.5
+    },
+    "rowsBySource": {
+     "idpTradeCalc": 108,
+     "fantasyProsIdp": 77,
+     "draftSharksIdp": 77,
+     "idpShowCombined": 14
+    },
+    "confidenceBuckets": {
+     "low": 110
+    },
+    "confidenceBucketsTopStarterPool": {
+     "low": 36
+    },
+    "singleVoterRows": 13
+   },
+   "DB": {
+    "pricedRows": 136,
+    "votingSourcesPerRow": {
+     "p0": 1.0,
+     "p25": 2.0,
+     "p50": 3.0,
+     "p75": 3.0,
+     "p100": 3.0,
+     "n": 136,
+     "mean": 2.5
+    },
+    "rowsBySource": {
+     "idpTradeCalc": 123,
+     "draftSharksIdp": 114,
+     "fantasyProsIdp": 88,
+     "idpShowCombined": 12
+    },
+    "confidenceBuckets": {
+     "low": 136
+    },
+    "confidenceBucketsTopStarterPool": {
+     "low": 36
+    },
+    "singleVoterRows": 18
+   }
+  },
+  "evidenceCensus": {
+   "byGroup": {
+    "offense": {
+     "rows": 502,
+     "priced": 491,
+     "unpriced": 11,
+     "ranked": 400,
+     "quarantined": 0,
+     "sourceWeightState": {
+      "NORMAL": 488,
+      "DEGRADED": 1,
+      "none": 11,
+      "SEVERELY_DEGRADED": 2
+     },
+     "freshnessExcludedBySource": {
+      "fantasyNavigatorSf": 443,
+      "idpShowCombined": 354
+     },
+     "outlierDroppedBySource": {
+      "draftSharks": 45,
+      "dlfSf": 8,
+      "fantasyProsFitzmaurice": 6,
+      "idpTradeCalc": 5,
+      "yahooBoone": 4,
+      "dynastyNerdsSfTep": 4,
+      "ktcCrowdSfTep": 4,
+      "fantasyProsSf": 2,
+      "ktcTradesSfTep": 2,
+      "flockFantasySf": 2,
+      "pfkDynasty": 1
+     },
+     "anomalyFlags": {
+      "suspicious_disagreement": 19
+     }
+    },
+    "idp": {
+     "rows": 429,
+     "priced": 397,
+     "unpriced": 32,
+     "ranked": 316,
+     "quarantined": 9,
+     "sourceWeightState": {
+      "SEVERELY_DEGRADED": 359,
+      "none": 32,
+      "DEGRADED": 38
+     },
+     "freshnessExcludedBySource": {
+      "idpShowCombined": 301
+     },
+     "outlierDroppedBySource": {},
+     "anomalyFlags": {
+      "suspicious_disagreement": 51,
+      "no_valid_source_values": 9
+     }
+    },
+    "pick": {
+     "rows": 138,
+     "priced": 120,
+     "unpriced": 18,
+     "ranked": 24,
+     "quarantined": 37,
+     "sourceWeightState": {
+      "NORMAL": 36,
+      "none": 54,
+      "SEVERELY_DEGRADED": 48
+     },
+     "freshnessExcludedBySource": {},
+     "outlierDroppedBySource": {},
+     "anomalyFlags": {
+      "no_valid_source_values": 37
+     }
+    }
+   },
+   "rowsUnpricedByBoard": 99,
+   "sourceVotingStatus": [
+    {
+     "key": "ktcCrowdSfTep",
+     "coverage": "offense",
+     "status": "active_100",
+     "voting": true,
+     "daysSinceUpdate": 0,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 1.0,
+     "contributingByUniverse": {
+      "offense": 457,
+      "idp": 0,
+      "pick": 36
+     }
+    },
+    {
+     "key": "ktcTradesSfTep",
+     "coverage": "offense",
+     "status": "active_100",
+     "voting": true,
+     "daysSinceUpdate": 0,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 1.0,
+     "contributingByUniverse": {
+      "offense": 459,
+      "idp": 0,
+      "pick": 36
+     }
+    },
+    {
+     "key": "idpTradeCalc",
+     "coverage": "combined",
+     "status": "active_25",
+     "voting": true,
+     "daysSinceUpdate": 14,
+     "freshnessPct": 46.3,
+     "effectiveWeight": 0.4626,
+     "contributingByUniverse": {
+      "offense": 427,
+      "idp": 377,
+      "pick": 84
+     }
+    },
+    {
+     "key": "dlfSf",
+     "coverage": "offense",
+     "status": "active_75",
+     "voting": true,
+     "daysSinceUpdate": 3,
+     "freshnessPct": 97.2,
+     "effectiveWeight": 0.9717,
+     "contributingByUniverse": {
+      "offense": 279,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "dlfRookieSf",
+     "coverage": "rookie",
+     "status": "active_75",
+     "voting": true,
+     "daysSinceUpdate": 3,
+     "freshnessPct": 97.5,
+     "effectiveWeight": 0.9749,
+     "contributingByUniverse": {
+      "offense": 58,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "dlfValuesSfTep",
+     "coverage": "offense",
+     "status": "testing",
+     "voting": false,
+     "daysSinceUpdate": 0,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 0.0,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "dlfIdp",
+     "coverage": "idp",
+     "status": "testing",
+     "voting": false,
+     "daysSinceUpdate": 0,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 0.0,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "dlfRookieIdp",
+     "coverage": "rookie",
+     "status": "testing",
+     "voting": false,
+     "daysSinceUpdate": 6,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 0.0,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "idpShowCombined",
+     "coverage": "combined",
+     "status": "stale",
+     "voting": false,
+     "daysSinceUpdate": 66,
+     "freshnessPct": 0.0,
+     "effectiveWeight": 0.0,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "dynastyNerdsSfTep",
+     "coverage": "offense",
+     "status": "active_100",
+     "voting": true,
+     "daysSinceUpdate": 8,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 1.0,
+     "contributingByUniverse": {
+      "offense": 281,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "fantasyCalc",
+     "coverage": "offense",
+     "status": "active_100",
+     "voting": true,
+     "daysSinceUpdate": 0,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 1.0,
+     "contributingByUniverse": {
+      "offense": 387,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "signalsSf",
+     "coverage": "offense",
+     "status": "data_issue",
+     "voting": false,
+     "daysSinceUpdate": null,
+     "freshnessPct": null,
+     "effectiveWeight": 0.0,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "signalsIdpDl",
+     "coverage": "idp",
+     "status": "data_issue",
+     "voting": false,
+     "daysSinceUpdate": null,
+     "freshnessPct": null,
+     "effectiveWeight": 0.0,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "signalsIdpLb",
+     "coverage": "idp",
+     "status": "data_issue",
+     "voting": false,
+     "daysSinceUpdate": null,
+     "freshnessPct": null,
+     "effectiveWeight": 0.0,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "signalsIdpDb",
+     "coverage": "idp",
+     "status": "data_issue",
+     "voting": false,
+     "daysSinceUpdate": null,
+     "freshnessPct": null,
+     "effectiveWeight": 0.0,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "otcffbSf",
+     "coverage": "offense",
+     "status": "active_100",
+     "voting": true,
+     "daysSinceUpdate": 0,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 1.0,
+     "contributingByUniverse": {
+      "offense": 437,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "fantasyNavigatorSf",
+     "coverage": "offense",
+     "status": "stale",
+     "voting": false,
+     "daysSinceUpdate": 14,
+     "freshnessPct": 0.0,
+     "effectiveWeight": 0.0,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "pfkDynasty",
+     "coverage": "offense",
+     "status": "active_100",
+     "voting": true,
+     "daysSinceUpdate": 0,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 1.0,
+     "contributingByUniverse": {
+      "offense": 448,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "dynastyDaddySf",
+     "coverage": "offense",
+     "status": "active_100",
+     "voting": true,
+     "daysSinceUpdate": 0,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 1.0,
+     "contributingByUniverse": {
+      "offense": 385,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "fantasyProsSf",
+     "coverage": "offense",
+     "status": "active_75",
+     "voting": true,
+     "daysSinceUpdate": 2,
+     "freshnessPct": 97.1,
+     "effectiveWeight": 0.9709,
+     "contributingByUniverse": {
+      "offense": 453,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "fantasyProsIdp",
+     "coverage": "idp",
+     "status": "active_25",
+     "voting": true,
+     "daysSinceUpdate": 51,
+     "freshnessPct": 24.1,
+     "effectiveWeight": 0.2408,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 271,
+      "pick": 0
+     }
+    },
+    {
+     "key": "fantasyProsFitzmaurice",
+     "coverage": "offense",
+     "status": "active_100",
+     "voting": true,
+     "daysSinceUpdate": 22,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 1.0,
+     "contributingByUniverse": {
+      "offense": 293,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "flockFantasySf",
+     "coverage": "offense",
+     "status": "active_100",
+     "voting": true,
+     "daysSinceUpdate": 0,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 1.0,
+     "contributingByUniverse": {
+      "offense": 399,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "flockFantasySfRookies",
+     "coverage": "rookie",
+     "status": "seasonal",
+     "voting": false,
+     "daysSinceUpdate": 49,
+     "freshnessPct": 23.7,
+     "effectiveWeight": 0.0,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "yahooBoone",
+     "coverage": "offense",
+     "status": "active_100",
+     "voting": true,
+     "daysSinceUpdate": 10,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 1.0,
+     "contributingByUniverse": {
+      "offense": 348,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "draftSharks",
+     "coverage": "offense",
+     "status": "active_100",
+     "voting": true,
+     "daysSinceUpdate": 0,
+     "freshnessPct": 100.0,
+     "effectiveWeight": 1.0,
+     "contributingByUniverse": {
+      "offense": 322,
+      "idp": 0,
+      "pick": 0
+     }
+    },
+    {
+     "key": "draftSharksIdp",
+     "coverage": "idp",
+     "status": "active_50",
+     "voting": true,
+     "daysSinceUpdate": 1,
+     "freshnessPct": 62.4,
+     "effectiveWeight": 0.624,
+     "contributingByUniverse": {
+      "offense": 0,
+      "idp": 321,
+      "pick": 0
+     }
+    }
+   ]
+  }
+ },
+ "starterBenchByTier": {
+  "teams": 12,
+  "weeks": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "slotsPerWeek": 21,
+  "table": [
+   {
+    "group": "offense",
+    "band": "500-1000",
+    "players": 2,
+    "regularStarter": 0,
+    "spotStarter": 0,
+    "neverStarted": 2,
+    "regularShare": 0.0
+   },
+   {
+    "group": "offense",
+    "band": "1000-1500",
+    "players": 58,
+    "regularStarter": 11,
+    "spotStarter": 16,
+    "neverStarted": 31,
+    "regularShare": 0.19
+   },
+   {
+    "group": "offense",
+    "band": "1500-2000",
+    "players": 82,
+    "regularStarter": 21,
+    "spotStarter": 27,
+    "neverStarted": 34,
+    "regularShare": 0.256
+   },
+   {
+    "group": "offense",
+    "band": "2000-3000",
+    "players": 87,
+    "regularStarter": 40,
+    "spotStarter": 30,
+    "neverStarted": 17,
+    "regularShare": 0.46
+   },
+   {
+    "group": "offense",
+    "band": "3000-4500",
+    "players": 57,
+    "regularStarter": 27,
+    "spotStarter": 23,
+    "neverStarted": 7,
+    "regularShare": 0.474
+   },
+   {
+    "group": "offense",
+    "band": "4500+",
+    "players": 74,
+    "regularStarter": 57,
+    "spotStarter": 14,
+    "neverStarted": 3,
+    "regularShare": 0.77
+   },
+   {
+    "group": "offense",
+    "band": "unvalued",
+    "players": 1,
+    "regularStarter": 0,
+    "spotStarter": 0,
+    "neverStarted": 1,
+    "regularShare": 0.0
+   },
+   {
+    "group": "idp",
+    "band": "<500",
+    "players": 16,
+    "regularStarter": 4,
+    "spotStarter": 9,
+    "neverStarted": 3,
+    "regularShare": 0.25
+   },
+   {
+    "group": "idp",
+    "band": "500-1000",
+    "players": 6,
+    "regularStarter": 1,
+    "spotStarter": 2,
+    "neverStarted": 3,
+    "regularShare": 0.167
+   },
+   {
+    "group": "idp",
+    "band": "1000-1500",
+    "players": 79,
+    "regularStarter": 20,
+    "spotStarter": 43,
+    "neverStarted": 16,
+    "regularShare": 0.253
+   },
+   {
+    "group": "idp",
+    "band": "1500-2000",
+    "players": 94,
+    "regularStarter": 37,
+    "spotStarter": 47,
+    "neverStarted": 10,
+    "regularShare": 0.394
+   },
+   {
+    "group": "idp",
+    "band": "2000-3000",
+    "players": 52,
+    "regularStarter": 27,
+    "spotStarter": 19,
+    "neverStarted": 6,
+    "regularShare": 0.519
+   },
+   {
+    "group": "idp",
+    "band": "3000-4500",
+    "players": 30,
+    "regularStarter": 21,
+    "spotStarter": 4,
+    "neverStarted": 5,
+    "regularShare": 0.7
+   },
+   {
+    "group": "idp",
+    "band": "4500+",
+    "players": 6,
+    "regularStarter": 5,
+    "spotStarter": 1,
+    "neverStarted": 0,
+    "regularShare": 0.833
+   },
+   {
+    "group": "idp",
+    "band": "unvalued",
+    "players": 31,
+    "regularStarter": 5,
+    "spotStarter": 20,
+    "neverStarted": 6,
+    "regularShare": 0.161
+   },
+   {
+    "group": "kicker",
+    "band": "unvalued",
+    "players": 21,
+    "regularStarter": 12,
+    "spotStarter": 9,
+    "neverStarted": 0,
+    "regularShare": 0.571
+   }
+  ],
+  "meanStarterPointsBySlot": {
+   "DB": 18.28,
+   "DL": 17.75,
+   "FLEX": 12.13,
+   "K": 11.52,
+   "LB": 17.62,
+   "QB": 27.27,
+   "RB": 18.39,
+   "SUPER_FLEX": 16.53,
+   "TE": 12.51,
+   "WR": 19.12
+  },
+  "slotSource": "sleeper_roster_positions",
+  "rostersFetchedAt": "live Sleeper /rosters (cached <=6h); see inputs.sleeperCache",
+  "rosteredPlayers": 696,
+  "priceBands": [
+   "<500",
+   "500-1000",
+   "1000-1500",
+   "1500-2000",
+   "2000-3000",
+   "3000-4500",
+   "4500+",
+   "unvalued"
+  ],
+  "note": "Rosters are TODAY's; weeks 1-6 are replayed on them (a player acquired mid-season is credited with weeks he was elsewhere).  Realized production, not expected; 'unvalued' = no canonical price (UNKNOWN, never 0)."
+ },
+ "idpTradeCalcNative": {
+  "sourceKey": "idpTradeCalc",
+  "rowsWithValue": {
+   "offense": 432,
+   "idp": 377,
+   "pick": 84
+  },
+  "valueQuantiles": {
+   "offense": {
+    "p0": 763.0,
+    "p10": 1113.3,
+    "p25": 1526.2,
+    "p50": 2334.5,
+    "p75": 3490.2,
+    "p90": 5606.0,
+    "p100": 9999.0,
+    "n": 432,
+    "mean": 2849.2
+   },
+   "idp": {
+    "p0": 756.0,
+    "p10": 767.6,
+    "p25": 848.0,
+    "p50": 1247.0,
+    "p75": 1953.0,
+    "p90": 3188.0,
+    "p100": 6444.0,
+    "n": 377,
+    "mean": 1667.7
+   }
+  },
+  "kthDefenderPlacement": [
+   {
+    "k": 1,
+    "idptcKthDefender": "Aidan Hutchinson",
+    "idptcPlayerRank": 24,
+    "idptcRankWithPicks": 29,
+    "idptcValue": 6444.0,
+    "canonicalKthDefender": "Carson Schwesinger",
+    "canonicalPlayerRank": 34,
+    "canonicalServedRank": 34,
+    "canonicalValue": 6287.0,
+    "canonicalOverNative": 0.976
+   },
+   {
+    "k": 3,
+    "idptcKthDefender": "Jacob Rodriguez",
+    "idptcPlayerRank": 45,
+    "idptcRankWithPicks": 52,
+    "idptcValue": 5667.0,
+    "canonicalKthDefender": "Arvell Reese",
+    "canonicalPlayerRank": 62,
+    "canonicalServedRank": 63,
+    "canonicalValue": 5071.0,
+    "canonicalOverNative": 0.895
+   },
+   {
+    "k": 5,
+    "idptcKthDefender": "Carson Schwesinger",
+    "idptcPlayerRank": 47,
+    "idptcRankWithPicks": 54,
+    "idptcValue": 5637.0,
+    "canonicalKthDefender": "Aidan Hutchinson",
+    "canonicalPlayerRank": 73,
+    "canonicalServedRank": 75,
+    "canonicalValue": 4642.0,
+    "canonicalOverNative": 0.823
+   },
+   {
+    "k": 10,
+    "idptcKthDefender": "Myles Garrett",
+    "idptcPlayerRank": 59,
+    "idptcRankWithPicks": 68,
+    "idptcValue": 5399.0,
+    "canonicalKthDefender": "Jihaad Campbell",
+    "canonicalPlayerRank": 86,
+    "canonicalServedRank": 89,
+    "canonicalValue": 4306.0,
+    "canonicalOverNative": 0.798
+   },
+   {
+    "k": 25,
+    "idptcKthDefender": "Caleb Downs",
+    "idptcPlayerRank": 126,
+    "idptcRankWithPicks": 151,
+    "idptcValue": 3593.0,
+    "canonicalKthDefender": "Abdul Carter",
+    "canonicalPlayerRank": 126,
+    "canonicalServedRank": 132,
+    "canonicalValue": 3480.0,
+    "canonicalOverNative": 0.969
+   },
+   {
+    "k": 50,
+    "idptcKthDefender": "Andrew Van Ginkel",
+    "idptcPlayerRank": 194,
+    "idptcRankWithPicks": 230,
+    "idptcValue": 3020.0,
+    "canonicalKthDefender": "Brian Branch",
+    "canonicalPlayerRank": 206,
+    "canonicalServedRank": 218,
+    "canonicalValue": 2614.0,
+    "canonicalOverNative": 0.866
+   },
+   {
+    "k": 108,
+    "idptcKthDefender": "Jeremy Chinn",
+    "idptcPlayerRank": 374,
+    "idptcRankWithPicks": 435,
+    "idptcValue": 1931.0,
+    "canonicalKthDefender": "Malachi Moore",
+    "canonicalPlayerRank": 341,
+    "canonicalServedRank": 360,
+    "canonicalValue": 1882.0,
+    "canonicalOverNative": 0.975
+   }
+  ],
+  "kthOffenseControl": [
+   {
+    "k": 1,
+    "nativeKth": "Jahmyr Gibbs",
+    "nativeValue": 9999.0,
+    "canonicalKth": "Brock Bowers",
+    "canonicalValue": 9983.0,
+    "canonicalOverNative": 0.998
+   },
+   {
+    "k": 10,
+    "nativeKth": "Caleb Williams",
+    "nativeValue": 7957.0,
+    "canonicalKth": "Caleb Williams",
+    "canonicalValue": 8959.0,
+    "canonicalOverNative": 1.126
+   },
+   {
+    "k": 25,
+    "nativeKth": "Brock Purdy",
+    "nativeValue": 6439.0,
+    "canonicalKth": "Tyler Warren",
+    "canonicalValue": 6975.0,
+    "canonicalOverNative": 1.083
+   },
+   {
+    "k": 50,
+    "nativeKth": "Dak Prescott",
+    "nativeValue": 5278.0,
+    "canonicalKth": "Carnell Tate",
+    "canonicalValue": 5416.0,
+    "canonicalOverNative": 1.026
+   },
+   {
+    "k": 132,
+    "nativeKth": "Dallas Goedert",
+    "nativeValue": 3191.0,
+    "canonicalKth": "Zach Charbonnet",
+    "canonicalValue": 3018.0,
+    "canonicalOverNative": 0.946
+   }
+  ],
+  "idpCountInTopNPlayers": {
+   "25": {
+    "idptcIdp": 1,
+    "canonicalIdp": 0
+   },
+   "50": {
+    "idptcIdp": 5,
+    "canonicalIdp": 2
+   },
+   "100": {
+    "idptcIdp": 13,
+    "canonicalIdp": 12
+   },
+   "200": {
+    "idptcIdp": 53,
+    "canonicalIdp": 47
+   },
+   "300": {
+    "idptcIdp": 64,
+    "canonicalIdp": 87
+   }
+  },
+  "idpRankAgreement": {
+   "n": 377,
+   "spearmanIdptcVsCanonicalAmongIdp": 0.912
+  },
+  "rankBasis": "player-only ranks (picks excluded) on both boards unless 'WithPicks'"
+ },
+ "draftSharksCombinedNative": {
+  "sourceKey": "dsCombined",
+  "rowsWithValue": {
+   "offense": 362,
+   "idp": 295,
+   "pick": 0
+  },
+  "valueQuantiles": {
+   "offense": {
+    "p0": -10.0,
+    "p10": 4.0,
+    "p25": 7.0,
+    "p50": 12.0,
+    "p75": 17.0,
+    "p90": 32.0,
+    "p100": 100.0,
+    "n": 362,
+    "mean": 15.3
+   },
+   "idp": {
+    "p0": -21.0,
+    "p10": -6.0,
+    "p25": -2.0,
+    "p50": 2.0,
+    "p75": 8.0,
+    "p90": 14.0,
+    "p100": 45.0,
+    "n": 295,
+    "mean": 3.0
+   }
+  },
+  "kthDefenderPlacement": [
+   {
+    "k": 1,
+    "idptcKthDefender": "Carson Schwesinger",
+    "idptcPlayerRank": 18,
+    "idptcRankWithPicks": 18,
+    "idptcValue": 45.0,
+    "canonicalKthDefender": "Carson Schwesinger",
+    "canonicalPlayerRank": 34,
+    "canonicalServedRank": 34,
+    "canonicalValue": 6287.0
+   },
+   {
+    "k": 3,
+    "idptcKthDefender": "Sonny Styles",
+    "idptcPlayerRank": 32,
+    "idptcRankWithPicks": 32,
+    "idptcValue": 37.0,
+    "canonicalKthDefender": "Arvell Reese",
+    "canonicalPlayerRank": 62,
+    "canonicalServedRank": 63,
+    "canonicalValue": 5071.0
+   },
+   {
+    "k": 5,
+    "idptcKthDefender": "CJ Allen",
+    "idptcPlayerRank": 45,
+    "idptcRankWithPicks": 45,
+    "idptcValue": 30.0,
+    "canonicalKthDefender": "Aidan Hutchinson",
+    "canonicalPlayerRank": 73,
+    "canonicalServedRank": 75,
+    "canonicalValue": 4642.0
+   },
+   {
+    "k": 10,
+    "idptcKthDefender": "Edgerrin Cooper",
+    "idptcPlayerRank": 69,
+    "idptcRankWithPicks": 69,
+    "idptcValue": 23.0,
+    "canonicalKthDefender": "Jihaad Campbell",
+    "canonicalPlayerRank": 86,
+    "canonicalServedRank": 89,
+    "canonicalValue": 4306.0
+   },
+   {
+    "k": 25,
+    "idptcKthDefender": "Zack Baun",
+    "idptcPlayerRank": 122,
+    "idptcRankWithPicks": 122,
+    "idptcValue": 17.0,
+    "canonicalKthDefender": "Abdul Carter",
+    "canonicalPlayerRank": 126,
+    "canonicalServedRank": 132,
+    "canonicalValue": 3480.0
+   },
+   {
+    "k": 50,
+    "idptcKthDefender": "Jalen Carter",
+    "idptcPlayerRank": 275,
+    "idptcRankWithPicks": 275,
+    "idptcValue": 10.0,
+    "canonicalKthDefender": "Brian Branch",
+    "canonicalPlayerRank": 206,
+    "canonicalServedRank": 218,
+    "canonicalValue": 2614.0
+   },
+   {
+    "k": 108,
+    "idptcKthDefender": "Yaya Diaby",
+    "idptcPlayerRank": 424,
+    "idptcRankWithPicks": 424,
+    "idptcValue": 5.0,
+    "canonicalKthDefender": "Jalyx Hunt",
+    "canonicalPlayerRank": 342,
+    "canonicalServedRank": 371,
+    "canonicalValue": 1866.0
+   }
+  ],
+  "kthOffenseControl": null,
+  "idpCountInTopNPlayers": {
+   "25": {
+    "idptcIdp": 1,
+    "canonicalIdp": 0
+   },
+   "50": {
+    "idptcIdp": 6,
+    "canonicalIdp": 2
+   },
+   "100": {
+    "idptcIdp": 18,
+    "canonicalIdp": 12
+   },
+   "200": {
+    "idptcIdp": 33,
+    "canonicalIdp": 47
+   },
+   "300": {
+    "idptcIdp": 57,
+    "canonicalIdp": 86
+   }
+  },
+  "idpRankAgreement": {
+   "n": 295,
+   "spearmanIdptcVsCanonicalAmongIdp": 0.863
+  },
+  "rankBasis": "player-only ranks (picks excluded) on both boards unless 'WithPicks'"
+ },
+ "bridgeTrace": {
+  "anchorKeys": [
+   "draftSharks",
+   "draftSharksIdp",
+   "idpShowCombined",
+   "idpTradeCalc"
+  ],
+  "ladderSeeds": [
+   "idpTradeCalc"
+  ],
+  "crossPositionBridges": [
+   {
+    "bridgeKey": "idpTradeCalc",
+    "family": "idpTradeCalc",
+    "kind": "CARDINAL",
+    "comparability": "QUALIFIED",
+    "state": "VALID",
+    "usable": true,
+    "capability": {
+     "offenseValues": 516,
+     "idpValues": 377,
+     "ladderStart": 29,
+     "ladderDepth": 377,
+     "combinedDepth": 893,
+     "spansBothPools": true,
+     "isIdentityLadder": false,
+     "capable": true
+    }
+   },
+   {
+    "bridgeKey": "draftSharks",
+    "family": "draftSharks",
+    "kind": "CARDINAL",
+    "comparability": "QUALIFIED",
+    "state": "VALID",
+    "usable": true,
+    "capability": {
+     "offenseValues": 348,
+     "idpValues": 176,
+     "ladderStart": 18,
+     "ladderDepth": 176,
+     "combinedDepth": 524,
+     "spansBothPools": true,
+     "isIdentityLadder": false,
+     "capable": true
+    }
+   },
+   {
+    "bridgeKey": "dynastyDealer",
+    "family": "dynastyDealer",
+    "kind": "CARDINAL",
+    "comparability": "PENDING",
+    "state": "NOT_COMPARABLE",
+    "usable": false,
+    "capability": {
+     "offenseValues": 0,
+     "idpValues": 0,
+     "ladderStart": null,
+     "ladderDepth": 0,
+     "combinedDepth": 0,
+     "spansBothPools": false,
+     "isIdentityLadder": false,
+     "capable": false
+    }
+   }
+  ],
+  "hillCurves": {
+   "global": {
+    "c": 0.112,
+    "s": 0.725,
+    "midpoint": 55.888,
+    "routed": true
+   },
+   "offense": {
+    "c": 0.11,
+    "s": 1.11,
+    "midpoint": 54.89,
+    "routed": true
+   },
+   "idp": {
+    "c": 0.083,
+    "s": 1.11,
+    "midpoint": 41.417,
+    "routed": true
+   },
+   "rookie": {
+    "c": 0.153,
+    "s": 0.885,
+    "midpoint": 76.347,
+    "routed": false
+   }
+  },
+  "votePoolCensus": [
+   {
+    "group": "idp",
+    "source": "draftSharksIdp",
+    "rankCoordinatePool": "shared_market",
+    "method": "ds_combined_cross_market",
+    "sharedMarketTranslated": false,
+    "rows": 321
+   },
+   {
+    "group": "idp",
+    "source": "fantasyProsIdp",
+    "rankCoordinatePool": "shared_market",
+    "method": "exact",
+    "sharedMarketTranslated": true,
+    "rows": 271
+   },
+   {
+    "group": "idp",
+    "source": "idpShowCombined",
+    "rankCoordinatePool": "shared_market",
+    "method": "csv_combined_cross_market",
+    "sharedMarketTranslated": false,
+    "rows": 301
+   },
+   {
+    "group": "idp",
+    "source": "idpTradeCalc",
+    "rankCoordinatePool": "shared_market",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 377
+   },
+   {
+    "group": "offense",
+    "source": "dlfRookieSf",
+    "rankCoordinatePool": "offense",
+    "method": "rookie_ladder_translation_via_ktcCrowdSfTep",
+    "sharedMarketTranslated": false,
+    "rows": 58
+   },
+   {
+    "group": "offense",
+    "source": "dlfSf",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 287
+   },
+   {
+    "group": "offense",
+    "source": "draftSharks",
+    "rankCoordinatePool": "shared_market",
+    "method": "ds_combined_cross_market",
+    "sharedMarketTranslated": false,
+    "rows": 367
+   },
+   {
+    "group": "offense",
+    "source": "dynastyDaddySf",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 385
+   },
+   {
+    "group": "offense",
+    "source": "dynastyNerdsSfTep",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 285
+   },
+   {
+    "group": "offense",
+    "source": "fantasyCalc",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 387
+   },
+   {
+    "group": "offense",
+    "source": "fantasyNavigatorSf",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 443
+   },
+   {
+    "group": "offense",
+    "source": "fantasyProsFitzmaurice",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 299
+   },
+   {
+    "group": "offense",
+    "source": "fantasyProsSf",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 455
+   },
+   {
+    "group": "offense",
+    "source": "flockFantasySf",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 401
+   },
+   {
+    "group": "offense",
+    "source": "idpShowCombined",
+    "rankCoordinatePool": "shared_market",
+    "method": "csv_combined_cross_market",
+    "sharedMarketTranslated": false,
+    "rows": 354
+   },
+   {
+    "group": "offense",
+    "source": "idpTradeCalc",
+    "rankCoordinatePool": "shared_market",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 432
+   },
+   {
+    "group": "offense",
+    "source": "ktcCrowdSfTep",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 461
+   },
+   {
+    "group": "offense",
+    "source": "ktcTradesSfTep",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 461
+   },
+   {
+    "group": "offense",
+    "source": "otcffbSf",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 437
+   },
+   {
+    "group": "offense",
+    "source": "pfkDynasty",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 449
+   },
+   {
+    "group": "offense",
+    "source": "yahooBoone",
+    "rankCoordinatePool": "offense",
+    "method": "direct",
+    "sharedMarketTranslated": false,
+    "rows": 352
+   }
+  ],
+  "topIdpRows": 108,
+  "topIdpAnchorVoterSets": {
+   "draftSharksIdp,idpTradeCalc": 101,
+   "idpTradeCalc": 6,
+   "draftSharksIdp": 1
+  },
+  "topIdpRowsWithNoSubgroupVote": 3,
+  "topIdpMeanAnchorWeight": 0.903,
+  "topIdpLevelAttribution": {
+   "draftSharks": 0.509,
+   "idpTradeCalc": 0.491
+  },
+  "levelAttributionMethod": "per row: anchor block weight (1 - alphaShrinkage) when a subgroup vote exists, else 1; within a block, each contributing source's appliedWeight share.  A shared-market-translated (IDP-only) vote is attributed to the ladder seed.  An APPROXIMATION: the blend is a count-aware weighted mean-median, not a weighted mean, so shares describe influence, not exact derivatives.",
+  "multiBridgeLadderFlag": false,
+  "alphaShrinkage": 0.1,
+  "hierarchicalBlendScope": "IDP and pick rows (offense: flat count-aware blend)"
+ },
+ "perturbations": {
+  "controlBaselineMatchesInProcess": true,
+  "baseline": {
+   "description": "the pinned build, unchanged (control: must equal the in-process build)",
+   "provenance": {
+    "variant": "baseline",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "sourceOverrides": null
+   },
+   "idptcTopIdpSiteValue": 5637,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 1.0,
+    "offenseGeoMeanValueRatio": 1.0,
+    "idpRelativeToOffense": 1.0,
+    "idpMedianValueRatio": 1.0,
+    "offenseMedianValueRatio": 1.0,
+    "idpRelativeToOffenseMedian": 1.0,
+    "idpRowsHalvedOrWorse": 0,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 0,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": 0.0,
+    "idpMeanAbsOverallRankShift": 0.0,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 34,
+     "variantName": "Carson Schwesinger"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 12
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 43
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "rank": 34,
+     "value": 6287.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 2,
+     "100": 12,
+     "200": 43,
+     "300": 79
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 63,
+      "3": 92,
+      "10": 182,
+      "25": 264
+     },
+     "LB": {
+      "1": 34,
+      "3": 66,
+      "10": 110,
+      "25": 215
+     },
+     "DB": {
+      "1": 106,
+      "3": 130,
+      "10": 299,
+      "25": 382
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9983.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Carson Schwesinger",
+       "pos": "LB",
+       "value": 6287.0,
+       "rank": 34
+      },
+      "idpOverOffenseValue": 0.63
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Caleb Williams",
+       "pos": "QB",
+       "value": 8959.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Jihaad Campbell",
+       "pos": "LB",
+       "value": 4306.0,
+       "rank": 89
+      },
+      "idpOverOffenseValue": 0.481
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6975.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "Abdul Carter",
+       "pos": "DL",
+       "value": 3480.0,
+       "rank": 132
+      },
+      "idpOverOffenseValue": 0.499
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "Carnell Tate",
+       "pos": "WR",
+       "value": 5416.0,
+       "rank": 52
+      },
+      "idp": {
+       "name": "Brian Branch",
+       "pos": "DB",
+       "value": 2614.0,
+       "rank": 218
+      },
+      "idpOverOffenseValue": 0.483
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Eli Stowers",
+       "pos": "TE",
+       "value": 3400.0,
+       "rank": 141
+      },
+      "idp": {
+       "name": "Malachi Moore",
+       "pos": "DB",
+       "value": 1882.0,
+       "rank": 360
+      },
+      "idpOverOffenseValue": 0.554
+     }
+    ]
+   }
+  },
+  "no_idpTradeCalc": {
+   "description": "idpTradeCalc removed everywhere (vote AND ladder seed); the next usable bridge (draftSharks) seeds the shared-market ladder",
+   "provenance": {
+    "variant": "no_idpTradeCalc",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "sourceOverrides": {
+     "idpTradeCalc": {
+      "include": false
+     }
+    }
+   },
+   "idptcTopIdpSiteValue": 5637,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 0.9682,
+    "offenseGeoMeanValueRatio": 0.9975,
+    "idpRelativeToOffense": 0.9706,
+    "idpMedianValueRatio": 1.0014,
+    "offenseMedianValueRatio": 0.999,
+    "idpRelativeToOffenseMedian": 1.0023,
+    "idpRowsHalvedOrWorse": 0,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 3,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": 0,
+    "idpMeanAbsOverallRankShift": 52.9,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 30,
+     "variantName": "Carson Schwesinger"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 15
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 41
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "rank": 30,
+     "value": 6793.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 4,
+     "100": 15,
+     "200": 41,
+     "300": 80
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 70,
+      "3": 134,
+      "10": 228,
+      "25": 301
+     },
+     "LB": {
+      "1": 30,
+      "3": 45,
+      "10": 88,
+      "25": 176
+     },
+     "DB": {
+      "1": 92,
+      "3": 129,
+      "10": 257,
+      "25": 356
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9990.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Carson Schwesinger",
+       "pos": "LB",
+       "value": 6793.0,
+       "rank": 30
+      },
+      "idpOverOffenseValue": 0.68
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Amon-Ra St. Brown",
+       "pos": "WR",
+       "value": 8855.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Edgerrin Cooper",
+       "pos": "LB",
+       "value": 4658.0,
+       "rank": 79
+      },
+      "idpOverOffenseValue": 0.526
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6976.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "David Bailey",
+       "pos": "DL",
+       "value": 3558.0,
+       "rank": 131
+      },
+      "idpOverOffenseValue": 0.51
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "Jared Goff",
+       "pos": "QB",
+       "value": 5430.0,
+       "rank": 54
+      },
+      "idp": {
+       "name": "Jared Verse",
+       "pos": "DL",
+       "value": 2389.0,
+       "rank": 236
+      },
+      "idpOverOffenseValue": 0.44
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Brian Thomas",
+       "pos": "WR",
+       "value": 3375.0,
+       "rank": 142
+      },
+      "idp": {
+       "name": "Jonathan Greenard",
+       "pos": "DL",
+       "value": 1891.0,
+       "rank": 357
+      },
+      "idpOverOffenseValue": 0.56
+     }
+    ]
+   }
+  },
+  "no_draftSharks": {
+   "description": "draftSharks + draftSharksIdp removed (the league-synced bridge)",
+   "provenance": {
+    "variant": "no_draftSharks",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "sourceOverrides": {
+     "draftSharks": {
+      "include": false
+     },
+     "draftSharksIdp": {
+      "include": false
+     }
+    }
+   },
+   "idptcTopIdpSiteValue": 6444,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 0.999,
+    "offenseGeoMeanValueRatio": 1.0005,
+    "idpRelativeToOffense": 0.9985,
+    "idpMedianValueRatio": 1.0,
+    "offenseMedianValueRatio": 1.0,
+    "idpRelativeToOffenseMedian": 1.0,
+    "idpRowsHalvedOrWorse": 3,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 0,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": -1.0,
+    "idpMeanAbsOverallRankShift": 51.9,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 34,
+     "variantName": "Aidan Hutchinson"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 12
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 54
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Aidan Hutchinson",
+     "pos": "DL",
+     "rank": 34,
+     "value": 6422.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 3,
+     "100": 12,
+     "200": 54,
+     "300": 77
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 34,
+      "3": 59,
+      "10": 130,
+      "25": 191
+     },
+     "LB": {
+      "1": 50,
+      "3": 60,
+      "10": 127,
+      "25": 273
+     },
+     "DB": {
+      "1": 125,
+      "3": 137,
+      "10": 283,
+      "25": 362
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9983.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Aidan Hutchinson",
+       "pos": "DL",
+       "value": 6422.0,
+       "rank": 34
+      },
+      "idpOverOffenseValue": 0.643
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Amon-Ra St. Brown",
+       "pos": "WR",
+       "value": 8842.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Dallas Turner",
+       "pos": "DL",
+       "value": 5057.0,
+       "rank": 70
+      },
+      "idpOverOffenseValue": 0.572
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6975.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "Edgerrin Cooper",
+       "pos": "LB",
+       "value": 3429.0,
+       "rank": 135
+      },
+      "idpOverOffenseValue": 0.492
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "C.J. Stroud",
+       "pos": "QB",
+       "value": 5423.0,
+       "rank": 53
+      },
+      "idp": {
+       "name": "Danielle Hunter",
+       "pos": "DL",
+       "value": 2962.0,
+       "rank": 191
+      },
+      "idpOverOffenseValue": 0.546
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Brian Thomas",
+       "pos": "WR",
+       "value": 3388.0,
+       "rank": 142
+      },
+      "idp": {
+       "name": "Drake Thomas",
+       "pos": "LB",
+       "value": 1930.0,
+       "rank": 350
+      },
+      "idpOverOffenseValue": 0.57
+     }
+    ]
+   }
+  },
+  "no_idpShowCombined": {
+   "description": "idpShowCombined removed (the third cross-market anchor)",
+   "provenance": {
+    "variant": "no_idpShowCombined",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "sourceOverrides": {
+     "idpShowCombined": {
+      "include": false
+     }
+    }
+   },
+   "idptcTopIdpSiteValue": 5637,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 0.9671,
+    "offenseGeoMeanValueRatio": 0.9977,
+    "idpRelativeToOffense": 0.9694,
+    "idpMedianValueRatio": 1.0,
+    "offenseMedianValueRatio": 1.0,
+    "idpRelativeToOffenseMedian": 1.0,
+    "idpRowsHalvedOrWorse": 3,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 0,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": 0,
+    "idpMeanAbsOverallRankShift": 0.4,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 34,
+     "variantName": "Carson Schwesinger"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 12
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 44
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "rank": 34,
+     "value": 6287.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 2,
+     "100": 12,
+     "200": 44,
+     "300": 79
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 63,
+      "3": 92,
+      "10": 181,
+      "25": 264
+     },
+     "LB": {
+      "1": 34,
+      "3": 66,
+      "10": 110,
+      "25": 215
+     },
+     "DB": {
+      "1": 106,
+      "3": 129,
+      "10": 299,
+      "25": 383
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9983.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Carson Schwesinger",
+       "pos": "LB",
+       "value": 6287.0,
+       "rank": 34
+      },
+      "idpOverOffenseValue": 0.63
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Caleb Williams",
+       "pos": "QB",
+       "value": 8959.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Jihaad Campbell",
+       "pos": "LB",
+       "value": 4306.0,
+       "rank": 89
+      },
+      "idpOverOffenseValue": 0.481
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6975.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "Abdul Carter",
+       "pos": "DL",
+       "value": 3480.0,
+       "rank": 131
+      },
+      "idpOverOffenseValue": 0.499
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "Carnell Tate",
+       "pos": "WR",
+       "value": 5416.0,
+       "rank": 52
+      },
+      "idp": {
+       "name": "Brian Branch",
+       "pos": "DB",
+       "value": 2614.0,
+       "rank": 218
+      },
+      "idpOverOffenseValue": 0.483
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Brian Thomas",
+       "pos": "WR",
+       "value": 3387.0,
+       "rank": 141
+      },
+      "idp": {
+       "name": "Nic Scourton",
+       "pos": "DL",
+       "value": 1874.0,
+       "rank": 364
+      },
+      "idpOverOffenseValue": 0.553
+     }
+    ]
+   }
+  },
+  "ladder_seed_draftSharks": {
+   "description": "same voters; the shared-market ladder is seeded by draftSharks instead of idpTradeCalc (registry order swapped, limit 1)",
+   "provenance": {
+    "variant": "ladder_seed_draftSharks",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "ladderContributors": [
+     "draftSharks"
+    ],
+    "ladderHead": [
+     18,
+     27,
+     32,
+     43,
+     45
+    ],
+    "sourceOverrides": null
+   },
+   "idptcTopIdpSiteValue": 5637,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 1.0036,
+    "offenseGeoMeanValueRatio": 1.0,
+    "idpRelativeToOffense": 1.0036,
+    "idpMedianValueRatio": 1.0022,
+    "offenseMedianValueRatio": 1.0,
+    "idpRelativeToOffenseMedian": 1.0022,
+    "idpRowsHalvedOrWorse": 0,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 0,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": 0.0,
+    "idpMeanAbsOverallRankShift": 2.7,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 34,
+     "variantName": "Carson Schwesinger"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 12
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 43
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "rank": 34,
+     "value": 6285.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 2,
+     "100": 12,
+     "200": 43,
+     "300": 79
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 63,
+      "3": 89,
+      "10": 184,
+      "25": 264
+     },
+     "LB": {
+      "1": 34,
+      "3": 66,
+      "10": 108,
+      "25": 212
+     },
+     "DB": {
+      "1": 103,
+      "3": 130,
+      "10": 301,
+      "25": 383
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9983.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Carson Schwesinger",
+       "pos": "LB",
+       "value": 6285.0,
+       "rank": 34
+      },
+      "idpOverOffenseValue": 0.63
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Caleb Williams",
+       "pos": "QB",
+       "value": 8959.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Will Anderson",
+       "pos": "DL",
+       "value": 4317.0,
+       "rank": 89
+      },
+      "idpOverOffenseValue": 0.482
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6975.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "David Bailey",
+       "pos": "DL",
+       "value": 3502.0,
+       "rank": 132
+      },
+      "idpOverOffenseValue": 0.502
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "Carnell Tate",
+       "pos": "WR",
+       "value": 5416.0,
+       "rank": 52
+      },
+      "idp": {
+       "name": "Josh Hines-Allen",
+       "pos": "DL",
+       "value": 2608.0,
+       "rank": 218
+      },
+      "idpOverOffenseValue": 0.482
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Eli Stowers",
+       "pos": "TE",
+       "value": 3400.0,
+       "rank": 142
+      },
+      "idp": {
+       "name": "Malachi Moore",
+       "pos": "DB",
+       "value": 1882.0,
+       "rank": 360
+      },
+      "idpOverOffenseValue": 0.554
+     }
+    ]
+   }
+  },
+  "ladder_multi_bridge": {
+   "description": "same voters; ladder seeded by every usable bridge (RISKIT_FEATURE_MULTI_BRIDGE_LADDER=1 in the worker process only)",
+   "provenance": {
+    "variant": "ladder_multi_bridge",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "sourceOverrides": null
+   },
+   "idptcTopIdpSiteValue": 5637,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 0.9879,
+    "offenseGeoMeanValueRatio": 1.0,
+    "idpRelativeToOffense": 0.9879,
+    "idpMedianValueRatio": 0.9887,
+    "offenseMedianValueRatio": 1.0,
+    "idpRelativeToOffenseMedian": 0.9887,
+    "idpRowsHalvedOrWorse": 0,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 0,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": 2.0,
+    "idpMeanAbsOverallRankShift": 3.4,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 34,
+     "variantName": "Carson Schwesinger"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 12
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 42
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "rank": 34,
+     "value": 6231.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 2,
+     "100": 12,
+     "200": 42,
+     "300": 78
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 63,
+      "3": 93,
+      "10": 186,
+      "25": 268
+     },
+     "LB": {
+      "1": 34,
+      "3": 67,
+      "10": 111,
+      "25": 217
+     },
+     "DB": {
+      "1": 107,
+      "3": 130,
+      "10": 303,
+      "25": 388
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9983.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Carson Schwesinger",
+       "pos": "LB",
+       "value": 6231.0,
+       "rank": 34
+      },
+      "idpOverOffenseValue": 0.624
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Caleb Williams",
+       "pos": "QB",
+       "value": 8959.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Jihaad Campbell",
+       "pos": "LB",
+       "value": 4252.0,
+       "rank": 91
+      },
+      "idpOverOffenseValue": 0.475
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6975.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "Abdul Carter",
+       "pos": "DL",
+       "value": 3453.0,
+       "rank": 134
+      },
+      "idpOverOffenseValue": 0.495
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "Carnell Tate",
+       "pos": "WR",
+       "value": 5416.0,
+       "rank": 52
+      },
+      "idp": {
+       "name": "Brian Branch",
+       "pos": "DB",
+       "value": 2573.0,
+       "rank": 220
+      },
+      "idpOverOffenseValue": 0.475
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Eli Stowers",
+       "pos": "TE",
+       "value": 3400.0,
+       "rank": 140
+      },
+      "idp": {
+       "name": "Kyle Louis",
+       "pos": "LB",
+       "value": 1853.0,
+       "rank": 370
+      },
+      "idpOverOffenseValue": 0.545
+     }
+    ]
+   }
+  },
+  "ladder_ranks_x0.80": {
+   "description": "shared-market ladder ranks x0.80 (translated IDP-only votes land 20% higher on the combined board)",
+   "provenance": {
+    "variant": "ladder_ranks_x0.80",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "ladderContributors": [
+     "idpTradeCalc"
+    ],
+    "ladderHead": [
+     23,
+     33,
+     42,
+     42,
+     43
+    ],
+    "sourceOverrides": null
+   },
+   "idptcTopIdpSiteValue": 5637,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 1.0113,
+    "offenseGeoMeanValueRatio": 1.0,
+    "idpRelativeToOffense": 1.0113,
+    "idpMedianValueRatio": 1.0115,
+    "offenseMedianValueRatio": 1.0,
+    "idpRelativeToOffenseMedian": 1.0115,
+    "idpRowsHalvedOrWorse": 0,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 0,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": -3.0,
+    "idpMeanAbsOverallRankShift": 3.0,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 34,
+     "variantName": "Carson Schwesinger"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 12
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 44
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "rank": 34,
+     "value": 6330.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 2,
+     "100": 12,
+     "200": 44,
+     "300": 80
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 62,
+      "3": 92,
+      "10": 178,
+      "25": 260
+     },
+     "LB": {
+      "1": 34,
+      "3": 64,
+      "10": 109,
+      "25": 215
+     },
+     "DB": {
+      "1": 103,
+      "3": 130,
+      "10": 290,
+      "25": 378
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9983.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Carson Schwesinger",
+       "pos": "LB",
+       "value": 6330.0,
+       "rank": 34
+      },
+      "idpOverOffenseValue": 0.634
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Caleb Williams",
+       "pos": "QB",
+       "value": 8959.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Jihaad Campbell",
+       "pos": "LB",
+       "value": 4339.0,
+       "rank": 88
+      },
+      "idpOverOffenseValue": 0.484
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6975.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "Abdul Carter",
+       "pos": "DL",
+       "value": 3508.0,
+       "rank": 132
+      },
+      "idpOverOffenseValue": 0.503
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "Carnell Tate",
+       "pos": "WR",
+       "value": 5416.0,
+       "rank": 52
+      },
+      "idp": {
+       "name": "Patrick Queen",
+       "pos": "LB",
+       "value": 2647.0,
+       "rank": 215
+      },
+      "idpOverOffenseValue": 0.489
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Eli Stowers",
+       "pos": "TE",
+       "value": 3400.0,
+       "rank": 142
+      },
+      "idp": {
+       "name": "Malachi Moore",
+       "pos": "DB",
+       "value": 1907.0,
+       "rank": 357
+      },
+      "idpOverOffenseValue": 0.561
+     }
+    ]
+   }
+  },
+  "ladder_ranks_x1.25": {
+   "description": "shared-market ladder ranks x1.25",
+   "provenance": {
+    "variant": "ladder_ranks_x1.25",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "ladderContributors": [
+     "idpTradeCalc"
+    ],
+    "ladderHead": [
+     36,
+     51,
+     65,
+     66,
+     68
+    ],
+    "sourceOverrides": null
+   },
+   "idptcTopIdpSiteValue": 5637,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 0.9895,
+    "offenseGeoMeanValueRatio": 1.0,
+    "idpRelativeToOffense": 0.9895,
+    "idpMedianValueRatio": 0.9894,
+    "offenseMedianValueRatio": 1.0,
+    "idpRelativeToOffenseMedian": 0.9894,
+    "idpRowsHalvedOrWorse": 0,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 0,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": 2.0,
+    "idpMeanAbsOverallRankShift": 2.8,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 34,
+     "variantName": "Carson Schwesinger"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 12
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 42
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "rank": 34,
+     "value": 6247.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 1,
+     "100": 12,
+     "200": 42,
+     "300": 79
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 63,
+      "3": 94,
+      "10": 183,
+      "25": 266
+     },
+     "LB": {
+      "1": 34,
+      "3": 66,
+      "10": 111,
+      "25": 217
+     },
+     "DB": {
+      "1": 107,
+      "3": 130,
+      "10": 300,
+      "25": 387
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9983.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Carson Schwesinger",
+       "pos": "LB",
+       "value": 6247.0,
+       "rank": 34
+      },
+      "idpOverOffenseValue": 0.626
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Caleb Williams",
+       "pos": "QB",
+       "value": 8959.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Fred Warner",
+       "pos": "LB",
+       "value": 4271.0,
+       "rank": 91
+      },
+      "idpOverOffenseValue": 0.477
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6975.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "Abdul Carter",
+       "pos": "DL",
+       "value": 3454.0,
+       "rank": 134
+      },
+      "idpOverOffenseValue": 0.495
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "Carnell Tate",
+       "pos": "WR",
+       "value": 5416.0,
+       "rank": 51
+      },
+      "idp": {
+       "name": "Brian Branch",
+       "pos": "DB",
+       "value": 2581.0,
+       "rank": 219
+      },
+      "idpOverOffenseValue": 0.477
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Eli Stowers",
+       "pos": "TE",
+       "value": 3400.0,
+       "rank": 139
+      },
+      "idp": {
+       "name": "Dexter Lawrence",
+       "pos": "DL",
+       "value": 1865.0,
+       "rank": 366
+      },
+      "idpOverOffenseValue": 0.549
+     }
+    ]
+   }
+  },
+  "idptc_idp_values_x0.80": {
+   "description": "idpTradeCalc DL/LB/DB values x0.80 in its CSV (its cross-position level 20% lower; offense and picks untouched)",
+   "provenance": {
+    "variant": "idptc_idp_values_x0.80",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "rowsScaledCsv": 280,
+    "rowsScaledRaw": 273,
+    "sourceOverrides": null
+   },
+   "idptcTopIdpSiteValue": 4510,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 0.941,
+    "offenseGeoMeanValueRatio": 0.9983,
+    "idpRelativeToOffense": 0.9426,
+    "idpMedianValueRatio": 0.9309,
+    "offenseMedianValueRatio": 1.0,
+    "idpRelativeToOffenseMedian": 0.9309,
+    "idpRowsHalvedOrWorse": 0,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 0,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": 12.5,
+    "idpMeanAbsOverallRankShift": 21.4,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 40,
+     "variantName": "Carson Schwesinger"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 9
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 42
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "rank": 40,
+     "value": 5793.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 1,
+     "100": 9,
+     "200": 42,
+     "300": 72
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 74,
+      "3": 88,
+      "10": 180,
+      "25": 265
+     },
+     "LB": {
+      "1": 40,
+      "3": 71,
+      "10": 111,
+      "25": 230
+     },
+     "DB": {
+      "1": 115,
+      "3": 149,
+      "10": 320,
+      "25": 433
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9983.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Carson Schwesinger",
+       "pos": "LB",
+       "value": 5793.0,
+       "rank": 40
+      },
+      "idpOverOffenseValue": 0.58
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Caleb Williams",
+       "pos": "QB",
+       "value": 8959.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Nick Bolton",
+       "pos": "LB",
+       "value": 4009.0,
+       "rank": 102
+      },
+      "idpOverOffenseValue": 0.447
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6975.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "Myles Garrett",
+       "pos": "DL",
+       "value": 3356.0,
+       "rank": 143
+      },
+      "idpOverOffenseValue": 0.481
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "Carnell Tate",
+       "pos": "WR",
+       "value": 5416.0,
+       "rank": 51
+      },
+      "idp": {
+       "name": "Patrick Queen",
+       "pos": "LB",
+       "value": 2471.0,
+       "rank": 230
+      },
+      "idpOverOffenseValue": 0.456
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Brian Thomas",
+       "pos": "WR",
+       "value": 3387.0,
+       "rank": 138
+      },
+      "idp": {
+       "name": "Kyle Louis",
+       "pos": "LB",
+       "value": 1776.0,
+       "rank": 380
+      },
+      "idpOverOffenseValue": 0.524
+     }
+    ]
+   }
+  },
+  "idptc_idp_values_x1.25": {
+   "description": "idpTradeCalc DL/LB/DB values x1.25",
+   "provenance": {
+    "variant": "idptc_idp_values_x1.25",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "rowsScaledCsv": 280,
+    "rowsScaledRaw": 273,
+    "sourceOverrides": null
+   },
+   "idptcTopIdpSiteValue": 7046,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 1.0718,
+    "offenseGeoMeanValueRatio": 1.0017,
+    "idpRelativeToOffense": 1.07,
+    "idpMedianValueRatio": 1.0849,
+    "offenseMedianValueRatio": 1.0,
+    "idpRelativeToOffenseMedian": 1.0849,
+    "idpRowsHalvedOrWorse": 0,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 0,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": -15.0,
+    "idpMeanAbsOverallRankShift": 20.0,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 29,
+     "variantName": "Carson Schwesinger"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 16
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 47
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "rank": 29,
+     "value": 6800.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 3,
+     "100": 16,
+     "200": 47,
+     "300": 85
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 45,
+      "3": 91,
+      "10": 181,
+      "25": 262
+     },
+     "LB": {
+      "1": 29,
+      "3": 54,
+      "10": 95,
+      "25": 188
+     },
+     "DB": {
+      "1": 92,
+      "3": 120,
+      "10": 233,
+      "25": 349
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9983.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Carson Schwesinger",
+       "pos": "LB",
+       "value": 6800.0,
+       "rank": 29
+      },
+      "idpOverOffenseValue": 0.681
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Caleb Williams",
+       "pos": "QB",
+       "value": 8959.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Jihaad Campbell",
+       "pos": "LB",
+       "value": 4647.0,
+       "rank": 80
+      },
+      "idpOverOffenseValue": 0.519
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6975.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "Dallas Turner",
+       "pos": "DL",
+       "value": 3730.0,
+       "rank": 124
+      },
+      "idpOverOffenseValue": 0.535
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "Carnell Tate",
+       "pos": "WR",
+       "value": 5416.0,
+       "rank": 53
+      },
+      "idp": {
+       "name": "Laiatu Latu",
+       "pos": "DL",
+       "value": 2764.0,
+       "rank": 205
+      },
+      "idpOverOffenseValue": 0.51
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Eli Stowers",
+       "pos": "TE",
+       "value": 3400.0,
+       "rank": 146
+      },
+      "idp": {
+       "name": "Emmanuel McNeil-Warren",
+       "pos": "DB",
+       "value": 2017.0,
+       "rank": 344
+      },
+      "idpOverOffenseValue": 0.593
+     }
+    ]
+   }
+  },
+  "ds_idp_values_x0.80": {
+   "description": "draftSharksIdp '3D Value +' x0.80 (its IDP level lower against its own offense half)",
+   "provenance": {
+    "variant": "ds_idp_values_x0.80",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "rowsScaled": 409,
+    "sourceOverrides": null
+   },
+   "idptcTopIdpSiteValue": 5637,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 0.9606,
+    "offenseGeoMeanValueRatio": 1.001,
+    "idpRelativeToOffense": 0.9597,
+    "idpMedianValueRatio": 0.972,
+    "offenseMedianValueRatio": 1.0003,
+    "idpRelativeToOffenseMedian": 0.9717,
+    "idpRowsHalvedOrWorse": 0,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 0,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": 5.5,
+    "idpMeanAbsOverallRankShift": 9.5,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 39,
+     "variantName": "Carson Schwesinger"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 8
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 40
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "rank": 39,
+     "value": 5824.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 1,
+     "100": 8,
+     "200": 40,
+     "300": 77
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 71,
+      "3": 98,
+      "10": 185,
+      "25": 262
+     },
+     "LB": {
+      "1": 39,
+      "3": 70,
+      "10": 117,
+      "25": 223
+     },
+     "DB": {
+      "1": 112,
+      "3": 159,
+      "10": 304,
+      "25": 378
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9983.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Carson Schwesinger",
+       "pos": "LB",
+       "value": 5824.0,
+       "rank": 39
+      },
+      "idpOverOffenseValue": 0.583
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Caleb Williams",
+       "pos": "QB",
+       "value": 8959.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Cedric Gray",
+       "pos": "LB",
+       "value": 4019.0,
+       "rank": 102
+      },
+      "idpOverOffenseValue": 0.449
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6975.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "Micah Parsons",
+       "pos": "DL",
+       "value": 3226.0,
+       "rank": 151
+      },
+      "idpOverOffenseValue": 0.463
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "Jared Goff",
+       "pos": "QB",
+       "value": 5408.0,
+       "rank": 51
+      },
+      "idp": {
+       "name": "DeMarvion Overshown",
+       "pos": "LB",
+       "value": 2535.0,
+       "rank": 222
+      },
+      "idpOverOffenseValue": 0.469
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Brian Thomas",
+       "pos": "WR",
+       "value": 3403.0,
+       "rank": 135
+      },
+      "idp": {
+       "name": "Talanoa Hufanga",
+       "pos": "DB",
+       "value": 1857.0,
+       "rank": 368
+      },
+      "idpOverOffenseValue": 0.546
+     }
+    ]
+   }
+  },
+  "ds_idp_values_x1.25": {
+   "description": "draftSharksIdp '3D Value +' x1.25",
+   "provenance": {
+    "variant": "ds_idp_values_x1.25",
+    "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+    "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+    "rowsScaled": 409,
+    "sourceOverrides": null
+   },
+   "idptcTopIdpSiteValue": 5637,
+   "vsBaseline": {
+    "idpGeoMeanValueRatio": 1.0475,
+    "offenseGeoMeanValueRatio": 0.9988,
+    "idpRelativeToOffense": 1.0488,
+    "idpMedianValueRatio": 1.0527,
+    "offenseMedianValueRatio": 0.9995,
+    "idpRelativeToOffenseMedian": 1.0532,
+    "idpRowsHalvedOrWorse": 0,
+    "offenseRowsHalvedOrWorse": 0,
+    "idpRowsUnpricedInVariant": 0,
+    "offenseRowsUnpricedInVariant": 0,
+    "idpMedianOverallRankShift": -7.0,
+    "idpMeanAbsOverallRankShift": 11.2,
+    "topDefenderRank": {
+     "baseline": 34,
+     "variant": 30,
+     "variantName": "Carson Schwesinger"
+    },
+    "idpInTop100": {
+     "baseline": 12,
+     "variant": 16
+    },
+    "idpInTop200": {
+     "baseline": 43,
+     "variant": 47
+    }
+   },
+   "placement": {
+    "topDefender": {
+     "name": "Carson Schwesinger",
+     "pos": "LB",
+     "rank": 30,
+     "value": 6752.0
+    },
+    "idpInTopN": {
+     "25": 0,
+     "50": 3,
+     "100": 16,
+     "200": 47,
+     "300": 83
+    },
+    "familyKthOverallRank": {
+     "DL": {
+      "1": 59,
+      "3": 81,
+      "10": 171,
+      "25": 257
+     },
+     "LB": {
+      "1": 30,
+      "3": 48,
+      "10": 94,
+      "25": 186
+     },
+     "DB": {
+      "1": 93,
+      "3": 121,
+      "10": 280,
+      "25": 376
+     }
+    },
+    "kth": [
+     {
+      "k": 1,
+      "offense": {
+       "name": "Brock Bowers",
+       "pos": "TE",
+       "value": 9983.0,
+       "rank": 1
+      },
+      "idp": {
+       "name": "Carson Schwesinger",
+       "pos": "LB",
+       "value": 6752.0,
+       "rank": 30
+      },
+      "idpOverOffenseValue": 0.676
+     },
+     {
+      "k": 10,
+      "offense": {
+       "name": "Caleb Williams",
+       "pos": "QB",
+       "value": 8959.0,
+       "rank": 10
+      },
+      "idp": {
+       "name": "Jihaad Campbell",
+       "pos": "LB",
+       "value": 4578.0,
+       "rank": 82
+      },
+      "idpOverOffenseValue": 0.511
+     },
+     {
+      "k": 25,
+      "offense": {
+       "name": "Tyler Warren",
+       "pos": "TE",
+       "value": 6975.0,
+       "rank": 25
+      },
+      "idp": {
+       "name": "Zack Baun",
+       "pos": "LB",
+       "value": 3715.0,
+       "rank": 123
+      },
+      "idpOverOffenseValue": 0.533
+     },
+     {
+      "k": 50,
+      "offense": {
+       "name": "Fernando Mendoza",
+       "pos": "QB",
+       "value": 5434.0,
+       "rank": 53
+      },
+      "idp": {
+       "name": "Tykee Smith",
+       "pos": "DB",
+       "value": 2777.0,
+       "rank": 205
+      },
+      "idpOverOffenseValue": 0.511
+     },
+     {
+      "k": 108,
+      "offense": {
+       "name": "Eli Stowers",
+       "pos": "TE",
+       "value": 3397.0,
+       "rank": 146
+      },
+      "idp": {
+       "name": "Keionte Scott",
+       "pos": "DB",
+       "value": 1917.0,
+       "rank": 354
+      },
+      "idpOverOffenseValue": 0.564
+     }
+    ]
+   }
+  }
+ },
+ "leagueFormatAlignment": {
+  "statedAssumptions": {
+   "idpTradeCalc": {
+    "superflex": "ON (scraper sets the site's SF toggle; Dynasty Scraper.py ensure_toggles_on)",
+    "tePremium": "ON (scraper sets the site's TEP toggle)",
+    "idpScoring": "UNAVAILABLE: no IDP scoring basis is stated in the ingested payload (name, value, position, team); the calculator is a generic public board, not synced to this league",
+    "teams/roster/IDP starters": "UNAVAILABLE: not stated in the payload"
+   },
+   "draftSharks": {
+    "leagueSync": "the vendor page is driven with its league selector set to this league's synced copy (scripts/fetch_draftsharks.py LEAGUE_ID); the vendor applies scoring client-side",
+    "idpScoring": "UNVERIFIED: whether the vendor reproduces this card's custom keys (tiered reception, TFL, PD) is not observable from the CSV"
+   }
+  },
+  "verifiedLeagueCard": {
+   "leagueKey": "dynasty_main",
+   "season": "2026",
+   "scoringFingerprintLive": "sf1:9e51824690d091f9",
+   "scoringFingerprintArchived": "sf1:9e51824690d091f9",
+   "rosterFormatSha256": "4d0914e7e39b6696bcdd11a27198c430b18eab50a32fccb1dbaf4c9ae1605c33",
+   "teams": 12,
+   "rosterSpots": 58,
+   "starterSlots": {
+    "QB": 1,
+    "RB": 2,
+    "WR": 3,
+    "TE": 2,
+    "FLEX": 2,
+    "SUPER_FLEX": 1,
+    "K": 1,
+    "DL": 3,
+    "LB": 3,
+    "DB": 3
+   },
+   "starterSlotCount": 21,
+   "idpStarterSlotsPerTeam": 9,
+   "offenseStarterSlotsPerTeam": 11,
+   "leagueWideIdpStarters": 108,
+   "leagueWideOffenseStarters": 132,
+   "idpShareOfNonKickerStarters": 0.45,
+   "superflex": true,
+   "bestBall": true,
+   "teKeys": {
+    "bonus_rec_te": 0.0,
+    "bonus_fd_te": 1.0,
+    "rec": 0.1
+   },
+   "receptionKeys": {
+    "rec_0_4": 0.25,
+    "rec_10_19": 0.75,
+    "rec_20_29": 1.0,
+    "rec_2pt": 2.0,
+    "rec_30_39": 1.25,
+    "rec_40p": 2.0,
+    "rec_5_9": 0.5,
+    "rec_fd": 0.0,
+    "rec_td": 6.0,
+    "rec_td_40p": 0.0,
+    "rec_td_50p": 0.0,
+    "rec_yd": 0.1
+   },
+   "idpKeys": {
+    "idp_blk_kick": 5.3,
+    "idp_def_td": 6.36,
+    "idp_ff": 4.24,
+    "idp_fum_rec": 3.19,
+    "idp_fum_ret_yd": 0.1111111111111111,
+    "idp_int": 5.3,
+    "idp_int_ret_yd": 0.1111111111111111,
+    "idp_pass_def": 5.3,
+    "idp_pass_def_3p": 0.0,
+    "idp_qb_hit": 2.12,
+    "idp_sack": 2.92,
+    "idp_sack_yd": 0.1111111111111111,
+    "idp_safe": 5.3,
+    "idp_tkl": 0.0,
+    "idp_tkl_ast": 0.8,
+    "idp_tkl_loss": 4.24,
+    "idp_tkl_solo": 1.33
+   },
+   "passTd": 6.0
+  },
+  "teMismatch": {
+   "leagueBonusRecTe": 0.0,
+   "idptcTepToggle": true,
+   "note": "the IDPTC board is read with TE premium ON while this card's bonus_rec_te is the value above; the same TE++ basis is the canonical board's constant target basis (CLAUDE.md step 5a), so this is a board-wide assumption, not an IDPTC-only one"
+  },
+  "implied": {
+   "idptcIdpShareTop200Players": 0.265,
+   "canonicalIdpShareTop200Players": 0.235,
+   "leagueIdpShareOfStartingSlots": 0.45,
+   "caveat": "a starting-slot share is not a value share (replacement depth differs by position); shown only to place the market's IDP share in context"
+  },
+  "cardAlignment2026wk": {
+   "method": "Spearman(market IDP value, 2026 wk1-N league-card ppg) minus Spearman(same, tackle-heavy reference card ppg), same players, paired bootstrap; DESCRIPTIVE (the boards already know these games: in-sample)",
+   "idpTradeCalc": {
+    "IDP": {
+     "n": 333,
+     "rhoLeague": 0.498,
+     "rhoTackleHeavyRef": 0.485,
+     "leagueMinusRef": 0.014,
+     "ci95": [
+      -0.023,
+      0.048
+     ],
+     "pBoot": 0.4326
+    },
+    "DL": {
+     "n": 108,
+     "rhoLeague": 0.351,
+     "rhoTackleHeavyRef": 0.349,
+     "leagueMinusRef": 0.002,
+     "ci95": [
+      -0.047,
+      0.045
+     ],
+     "pBoot": 0.9241
+    },
+    "LB": {
+     "n": 117,
+     "rhoLeague": 0.708,
+     "rhoTackleHeavyRef": 0.713,
+     "leagueMinusRef": -0.006,
+     "ci95": [
+      -0.047,
+      0.037
+     ],
+     "pBoot": 0.8022
+    },
+    "DB": {
+     "n": 108,
+     "rhoLeague": 0.427,
+     "rhoTackleHeavyRef": 0.472,
+     "leagueMinusRef": -0.045,
+     "ci95": [
+      -0.143,
+      0.039
+     ],
+     "pBoot": 0.3347
+    }
+   },
+   "draftSharksIdp": {
+    "IDP": {
+     "n": 290,
+     "rhoLeague": 0.339,
+     "rhoTackleHeavyRef": 0.38,
+     "leagueMinusRef": -0.041,
+     "ci95": [
+      -0.09,
+      0.005
+     ],
+     "pBoot": 0.0869
+    },
+    "DL": {
+     "n": 95,
+     "rhoLeague": 0.363,
+     "rhoTackleHeavyRef": 0.4,
+     "leagueMinusRef": -0.037,
+     "ci95": [
+      -0.096,
+      0.019
+     ],
+     "pBoot": 0.2128
+    },
+    "LB": {
+     "n": 93,
+     "rhoLeague": 0.447,
+     "rhoTackleHeavyRef": 0.527,
+     "leagueMinusRef": -0.08,
+     "ci95": [
+      -0.151,
+      -0.013
+     ],
+     "pBoot": 0.023
+    },
+    "DB": {
+     "n": 102,
+     "rhoLeague": 0.218,
+     "rhoTackleHeavyRef": 0.257,
+     "leagueMinusRef": -0.039,
+     "ci95": [
+      -0.151,
+      0.071
+     ],
+     "pBoot": 0.5305
+    }
+   },
+   "canonical": {
+    "IDP": {
+     "n": 352,
+     "rhoLeague": 0.447,
+     "rhoTackleHeavyRef": 0.461,
+     "leagueMinusRef": -0.015,
+     "ci95": [
+      -0.05,
+      0.019
+     ],
+     "pBoot": 0.4426
+    },
+    "DL": {
+     "n": 113,
+     "rhoLeague": 0.334,
+     "rhoTackleHeavyRef": 0.332,
+     "leagueMinusRef": 0.001,
+     "ci95": [
+      -0.049,
+      0.048
+     ],
+     "pBoot": 0.9081
+    },
+    "LB": {
+     "n": 117,
+     "rhoLeague": 0.632,
+     "rhoTackleHeavyRef": 0.655,
+     "leagueMinusRef": -0.023,
+     "ci95": [
+      -0.064,
+      0.019
+     ],
+     "pBoot": 0.2967
+    },
+    "DB": {
+     "n": 122,
+     "rhoLeague": 0.357,
+     "rhoTackleHeavyRef": 0.416,
+     "leagueMinusRef": -0.059,
+     "ci95": [
+      -0.147,
+      0.028
+     ],
+     "pBoot": 0.1968
+    }
+   },
+   "holmAdjustedP": {
+    "draftSharksIdp:LB": 0.276,
+    "draftSharksIdp:IDP": 0.9559,
+    "canonical:DB": 1.0,
+    "draftSharksIdp:DL": 1.0,
+    "canonical:LB": 1.0,
+    "idpTradeCalc:DB": 1.0,
+    "idpTradeCalc:IDP": 1.0,
+    "canonical:IDP": 1.0,
+    "draftSharksIdp:DB": 1.0,
+    "idpTradeCalc:LB": 1.0,
+    "canonical:DL": 1.0,
+    "idpTradeCalc:DL": 1.0
+   },
+   "familySize": 12
+  }
+ },
+ "correlationReproduction": {
+  "outcome": "2026 regular-season weeks 1-6 league-scored points per game (players with >= 3 games with gp > 0), live dynasty_main card",
+  "cohort": "every priced player row (rankDerivedValue > 0) joined by Sleeper id, position from the Sleeper player directory; picks and K excluded",
+  "pinnedInSeason_20261025": {
+   "sampleType": "IN-SAMPLE / hindsight: the board was built after weeks 1-6",
+   "offense": {
+    "n": 344,
+    "rho": 0.777,
+    "ci95": [
+     0.732,
+     0.815
+    ]
+   },
+   "idp": {
+    "n": 352,
+    "rho": 0.447,
+    "ci95": [
+     0.356,
+     0.535
+    ]
+   },
+   "QB": {
+    "n": 37,
+    "rho": 0.672,
+    "ci95": [
+     0.428,
+     0.825
+    ]
+   },
+   "RB": {
+    "n": 94,
+    "rho": 0.813,
+    "ci95": [
+     0.73,
+     0.867
+    ]
+   },
+   "WR": {
+    "n": 143,
+    "rho": 0.812,
+    "ci95": [
+     0.744,
+     0.865
+    ]
+   },
+   "TE": {
+    "n": 70,
+    "rho": 0.771,
+    "ci95": [
+     0.646,
+     0.848
+    ]
+   },
+   "DL": {
+    "n": 113,
+    "rho": 0.334,
+    "ci95": [
+     0.145,
+     0.497
+    ]
+   },
+   "LB": {
+    "n": 117,
+    "rho": 0.632,
+    "ci95": [
+     0.5,
+     0.735
+    ]
+   },
+   "DB": {
+    "n": 122,
+    "rho": 0.357,
+    "ci95": [
+     0.2,
+     0.505
+    ]
+   },
+   "offenseMinusIdp": {
+    "diff": 0.33,
+    "ci95": [
+     0.231,
+     0.428
+    ]
+   }
+  },
+  "pointInTimePreseason_20260909": {
+   "sampleType": "OUT-OF-SAMPLE for 2026 data: archive scraped 2026-09-09 21:15 UTC, source tree at that day's refresh commit, both before kickoff.  Methodology is TODAY's code (not the code served that day)",
+   "provenance": {
+    "variant": "baseline",
+    "archive": "exports/archive/dynasty_export_20260909_211525.zip",
+    "archiveRawSha256": "9f5c8a1a066efe4dda62677249071051410e2e5af75c17b292f62b526220c431",
+    "csvTree": {
+     "source": "git revision",
+     "revisionSha": "bd7eda6052a3c40e3dceb2d3bf3f6c8f128078e1",
+     "revisionCommittedAt": "2026-09-09T21:17:57Z",
+     "contentSha256": "cc9f53dd388ae9dac4929deceeaf976140419367c037dd2a8106b048407bad48"
+    },
+    "sourceOverrides": null
+   },
+   "offense": {
+    "n": 324,
+    "rho": 0.669,
+    "ci95": [
+     0.601,
+     0.722
+    ]
+   },
+   "idp": {
+    "n": 343,
+    "rho": 0.442,
+    "ci95": [
+     0.348,
+     0.521
+    ]
+   },
+   "QB": {
+    "n": 36,
+    "rho": 0.513,
+    "ci95": [
+     0.229,
+     0.731
+    ]
+   },
+   "RB": {
+    "n": 88,
+    "rho": 0.706,
+    "ci95": [
+     0.59,
+     0.791
+    ]
+   },
+   "WR": {
+    "n": 135,
+    "rho": 0.704,
+    "ci95": [
+     0.604,
+     0.784
+    ]
+   },
+   "TE": {
+    "n": 65,
+    "rho": 0.642,
+    "ci95": [
+     0.474,
+     0.758
+    ]
+   },
+   "DL": {
+    "n": 108,
+    "rho": 0.31,
+    "ci95": [
+     0.119,
+     0.487
+    ]
+   },
+   "LB": {
+    "n": 116,
+    "rho": 0.61,
+    "ci95": [
+     0.489,
+     0.707
+    ]
+   },
+   "DB": {
+    "n": 119,
+    "rho": 0.342,
+    "ci95": [
+     0.177,
+     0.499
+    ]
+   },
+   "offenseMinusIdp": {
+    "diff": 0.227,
+    "ci95": [
+     0.12,
+     0.329
+    ]
+   }
+  },
+  "investigationB_servedPreseason_20260825": {
+   "sampleType": "OUT-OF-SAMPLE: Investigation B's served 2026-08-25 board, values exactly as served that day",
+   "artifact": "data\\ops\\v1-27\\pre-deploy-golden-board-LIVE-2026-08-25.json",
+   "offense": {
+    "n": 296,
+    "rho": 0.67,
+    "ci95": [
+     0.602,
+     0.728
+    ]
+   },
+   "idp": {
+    "n": 277,
+    "rho": 0.403,
+    "ci95": [
+     0.298,
+     0.495
+    ]
+   },
+   "QB": {
+    "n": 34,
+    "rho": 0.507,
+    "ci95": [
+     0.184,
+     0.722
+    ]
+   },
+   "RB": {
+    "n": 80,
+    "rho": 0.707,
+    "ci95": [
+     0.592,
+     0.795
+    ]
+   },
+   "WR": {
+    "n": 116,
+    "rho": 0.704,
+    "ci95": [
+     0.583,
+     0.795
+    ]
+   },
+   "TE": {
+    "n": 66,
+    "rho": 0.637,
+    "ci95": [
+     0.479,
+     0.755
+    ]
+   },
+   "DL": {
+    "n": 82,
+    "rho": 0.317,
+    "ci95": [
+     0.123,
+     0.5
+    ]
+   },
+   "LB": {
+    "n": 101,
+    "rho": 0.532,
+    "ci95": [
+     0.373,
+     0.646
+    ]
+   },
+   "DB": {
+    "n": 94,
+    "rho": 0.332,
+    "ci95": [
+     0.14,
+     0.498
+    ]
+   },
+   "offenseMinusIdp": {
+    "diff": 0.267,
+    "ci95": [
+     0.146,
+     0.38
+    ]
+   }
+  },
+  "investigationB_inSeasonRebuild_20261020": {
+   "sampleType": "IN-SAMPLE: B's 2026-10-20 archive rebuilt with today's code and the main tree current at that archive (B's own b8008c2a4 tree is not reachable)",
+   "provenance": {
+    "variant": "baseline",
+    "archive": "exports/archive/dynasty_export_20261020_052241.zip",
+    "archiveRawSha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+    "csvTree": {
+     "source": "git revision",
+     "revisionSha": "21009b964c3791829613ad4f4a75ff27536f6d28",
+     "revisionCommittedAt": "2026-10-20T05:33:10Z",
+     "contentSha256": "54698941bdf2828952c3af998e829687e308559a5c43fc261f61f880fd0df993"
+    },
+    "sourceOverrides": null
+   },
+   "offense": {
+    "n": 344,
+    "rho": 0.774,
+    "ci95": [
+     0.727,
+     0.814
+    ]
+   },
+   "idp": {
+    "n": 352,
+    "rho": 0.45,
+    "ci95": [
+     0.359,
+     0.541
+    ]
+   },
+   "QB": {
+    "n": 37,
+    "rho": 0.649,
+    "ci95": [
+     0.391,
+     0.807
+    ]
+   },
+   "RB": {
+    "n": 92,
+    "rho": 0.808,
+    "ci95": [
+     0.722,
+     0.869
+    ]
+   },
+   "WR": {
+    "n": 143,
+    "rho": 0.802,
+    "ci95": [
+     0.731,
+     0.856
+    ]
+   },
+   "TE": {
+    "n": 72,
+    "rho": 0.753,
+    "ci95": [
+     0.624,
+     0.834
+    ]
+   },
+   "DL": {
+    "n": 112,
+    "rho": 0.329,
+    "ci95": [
+     0.129,
+     0.497
+    ]
+   },
+   "LB": {
+    "n": 117,
+    "rho": 0.636,
+    "ci95": [
+     0.505,
+     0.736
+    ]
+   },
+   "DB": {
+    "n": 123,
+    "rho": 0.353,
+    "ci95": [
+     0.182,
+     0.501
+    ]
+   },
+   "offenseMinusIdp": {
+    "diff": 0.324,
+    "ci95": [
+     0.22,
+     0.426
+    ]
+   }
+  },
+  "preseasonSameCohort": {
+   "sampleType": "OUT-OF-SAMPLE; the SAME players (priced on both pre-season boards), so a difference is board date + methodology, not cohort",
+   "pointInTime_20260909": {
+    "offense": {
+     "n": 293,
+     "rho": 0.666,
+     "ci95": [
+      0.592,
+      0.727
+     ]
+    },
+    "idp": {
+     "n": 277,
+     "rho": 0.412,
+     "ci95": [
+      0.301,
+      0.506
+     ]
+    },
+    "QB": {
+     "n": 34,
+     "rho": 0.5,
+     "ci95": [
+      0.19,
+      0.723
+     ]
+    },
+    "RB": {
+     "n": 80,
+     "rho": 0.692,
+     "ci95": [
+      0.567,
+      0.791
+     ]
+    },
+    "WR": {
+     "n": 116,
+     "rho": 0.706,
+     "ci95": [
+      0.592,
+      0.79
+     ]
+    },
+    "TE": {
+     "n": 63,
+     "rho": 0.628,
+     "ci95": [
+      0.466,
+      0.751
+     ]
+    },
+    "DL": {
+     "n": 82,
+     "rho": 0.315,
+     "ci95": [
+      0.111,
+      0.496
+     ]
+    },
+    "LB": {
+     "n": 101,
+     "rho": 0.539,
+     "ci95": [
+      0.384,
+      0.665
+     ]
+    },
+    "DB": {
+     "n": 94,
+     "rho": 0.336,
+     "ci95": [
+      0.152,
+      0.518
+     ]
+    },
+    "offenseMinusIdp": {
+     "diff": 0.255,
+     "ci95": [
+      0.143,
+      0.365
+     ]
+    }
+   },
+   "investigationB_served_20260825": {
+    "offense": {
+     "n": 293,
+     "rho": 0.666,
+     "ci95": [
+      0.592,
+      0.727
+     ]
+    },
+    "idp": {
+     "n": 277,
+     "rho": 0.403,
+     "ci95": [
+      0.294,
+      0.497
+     ]
+    },
+    "QB": {
+     "n": 34,
+     "rho": 0.507,
+     "ci95": [
+      0.189,
+      0.727
+     ]
+    },
+    "RB": {
+     "n": 80,
+     "rho": 0.707,
+     "ci95": [
+      0.586,
+      0.798
+     ]
+    },
+    "WR": {
+     "n": 116,
+     "rho": 0.704,
+     "ci95": [
+      0.592,
+      0.79
+     ]
+    },
+    "TE": {
+     "n": 63,
+     "rho": 0.617,
+     "ci95": [
+      0.442,
+      0.744
+     ]
+    },
+    "DL": {
+     "n": 82,
+     "rho": 0.317,
+     "ci95": [
+      0.114,
+      0.499
+     ]
+    },
+    "LB": {
+     "n": 101,
+     "rho": 0.532,
+     "ci95": [
+      0.378,
+      0.656
+     ]
+    },
+    "DB": {
+     "n": 94,
+     "rho": 0.332,
+     "ci95": [
+      0.146,
+      0.507
+     ]
+    },
+    "offenseMinusIdp": {
+     "diff": 0.263,
+     "ci95": [
+      0.149,
+      0.377
+     ]
+    }
+   }
+  },
+  "investigationB_recorded": {
+   "valueToday_vs_ppg2026ytd": {
+    "offense": {
+     "n": 344,
+     "rho": 0.774,
+     "ci95": [
+      0.727,
+      0.814
+     ]
+    },
+    "idp": {
+     "n": 352,
+     "rho": 0.45,
+     "ci95": [
+      0.36,
+      0.541
+     ]
+    }
+   },
+   "valuePreseasonServed_vs_ppg2026ytd": {
+    "offense": {
+     "n": 296,
+     "rho": 0.67,
+     "ci95": [
+      0.602,
+      0.728
+     ]
+    },
+    "idp": {
+     "n": 277,
+     "rho": 0.403,
+     "ci95": [
+      0.299,
+      0.495
+     ]
+    }
+   }
+  }
+ },
+ "timingSec": 201.8
+}
