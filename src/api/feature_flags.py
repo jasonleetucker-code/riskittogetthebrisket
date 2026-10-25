@@ -849,7 +849,10 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # incumbent byte for byte (tests/trade/test_forced_drop_flag_off_identity.py).
     # OFF until the owner approves the measured production impact
     # (docs/trade/FORCED_DROP_FIX_2026-10-20.md §8).  Rollback if ever on:
-    # RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL=0 + restart.
+    # RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL=0 + restart.  HELD, DEFAULT OFF
+    # (owner decision 2026-10-21, LVA Package 1, item 3: "Keep
+    # forced_drop_cheapest_legal OFF"); deploy/verify-deploy.sh fails a deploy
+    # whose effective flag is ON (scripts/verify_owner_held_flags.py).
     "forced_drop_cheapest_legal": False,
     # LI-5 replacement-level consolidation -- HELD, DEFAULT OFF (owner
     # decision 2026-10-21, LVA Package 3, D2: "Implement behind a default-OFF
