@@ -1,7 +1,7 @@
 {
  "provenance": {
-  "generatedAt": "2026-10-25T15:52:47.239839+00:00",
-  "codeSha": "503f08581b7cc7e9c3860f10c052734f68d23b5c",
+  "generatedAt": "2026-10-25T15:56:05.259345+00:00",
+  "codeSha": "96e6f4b19509ff51c56f3e29c474a973c4d24ad5",
   "archive": "exports/archive/dynasty_export_20261025_120337.zip",
   "archiveMember": "dynasty_data_2026-10-25.json",
   "archiveSha256": "50fb251a79bc79abac54bcbcfc98c3018fc6b105115eb6dbd7928e3b6c8dc8f6",
@@ -2358,16 +2358,16 @@
  "latency": {
   "buildCapacityContext": {
    "flagOff": {
-    "p50ms": 6.01,
-    "p95ms": 7.76
+    "p50ms": 6.05,
+    "p95ms": 7.59
    },
    "flagOnCold": {
-    "p50ms": 9.9,
-    "p95ms": 13.25
+    "p50ms": 10.04,
+    "p95ms": 12.29
    },
    "flagOnCached": {
-    "p50ms": 4.52,
-    "p95ms": 7.55
+    "p50ms": 4.39,
+    "p95ms": 5.92
    }
   }
  },
