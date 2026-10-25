@@ -53,6 +53,19 @@ production behaviour.
 | RPA-2 | Read-only: no production, flag, value, parameter, threshold or endpoint change while auditing | RECORDED — binding boundary |
 
 
+## Added 2026-10-25 — 14-day owner requirements inventory (RIT-001 … RIT-088) reconciled
+
+The owner recovered an inventory of 88 requirement tracks for 2026-10-11 to 2026-10-25 (`RiskIt_14Day_Master_Backlog.csv`
+and `RiskIt_14Day_Development_Audit.md`, both written outside the repository). It is a historical inventory, not
+authority. Every row has been checked against GitHub, `origin/main` and read-only public production probes in
+`docs/owner/RIT_14DAY_AUDIT_RECONCILIATION_2026-10-25.md`, which preserves all 88 IDs with their original request,
+final requirement, verified status, owner path and next action. That document is the incorporation record; its rows
+are not repeated here.
+
+| # | Owner instruction | Status |
+|---|---|---|
+| RIT-001…088 | The 14-day requirement tracks as the inventory states them. Later recorded owner decisions in this file and in `docs/owner/` govern wherever they differ | RECONCILED 2026-10-25. Results: 56 verified in code and tests, 3 merged but not production-verified, 9 dormant behind held flags, 7 partial, 2 awaiting review, 4 blocked, 2 paused, 1 superseded, 2 broken now (RIT-073 box units, RIT-078 E2E), 1 unverifiable, 1 not started (RIT-088, a proposal only, not promoted). The open authorized work (§4) and the owner decisions still required (§5) are listed in the reconciliation document. Nothing is authorized or activated by this entry; `docs/EXECUTION_PLAN.md` §0 is unchanged |
+
 ## Added 2026-10-21 — Unlisted Waiver Wire Comparison page
 
 Owner request 2026-10-21: build, test and deploy a simple standalone page, reachable by anyone with the link
