@@ -134,27 +134,42 @@ def _production_files():
     return files + [REPO / "server.py"]
 
 
-def test_nothing_in_production_imports_the_population_builder_yet():
-    """P2 is unwired by design; P3 wires it behind its own default-OFF flag.
-    Until then no served output can depend on this module."""
-    importers = []
+#: Phase P3 wired exactly these production modules (design §6 P3 row), each
+#: behind ``waiver_population.enabled()``.  displacement imports only the
+#: legacy free-agent selection (``base_free_agent_rows``) unconditionally —
+#: that function IS the incumbent selection, folded here so it has one
+#: definition.  Adding an importer is a new consumer and needs its own review.
+P3_IMPORTERS = {
+    "src/api/draft_optimizer_api.py",
+    "src/draft/context.py",
+    "src/draft/displacement.py",
+    "src/roster_intel/droppability.py",
+    "src/trade/roster_capacity.py",
+}
+
+
+def test_only_the_p3_consumers_import_the_population_builder():
+    """P2 shipped unwired; P3 wires the design's consumers behind the
+    default-OFF flag and nothing else (scripts are research tooling)."""
+    importers = set()
     for path in _production_files():
-        if path == MODULE:
+        if path == MODULE or path.parent.name == "scripts":
             continue
+        rel = path.relative_to(REPO).as_posix()
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == "src.draft.waiver_population":
-                importers.append(path.relative_to(REPO).as_posix())
+                importers.add(rel)
             elif isinstance(node, ast.ImportFrom) and (
                 node.module in ("src.draft", "waiver_population", None) or node.level
             ):
                 named = {a.name for a in node.names} | {node.module or ""}
                 if "waiver_population" in named:
-                    importers.append(path.relative_to(REPO).as_posix())
+                    importers.add(rel)
             elif isinstance(node, ast.Import):
                 if any(a.name == "src.draft.waiver_population" for a in node.names):
-                    importers.append(path.relative_to(REPO).as_posix())
-    assert importers == [], f"P2 must stay unwired; imported by {importers}"
+                    importers.add(rel)
+    assert importers == P3_IMPORTERS
 
 
 @pytest.mark.parametrize(
