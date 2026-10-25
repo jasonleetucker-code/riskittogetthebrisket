@@ -82,6 +82,7 @@ from src.api.data_contract import (
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
+from src.api import chase_upside_mcp as _chase_upside_mcp
 from src.api.build_identity import PROCESS_BUILD, PROCESS_RELEASE
 from src.api import matchup_intel as _matchup_intel
 from src.api import roster_intelligence as _roster_intelligence
@@ -4332,6 +4333,7 @@ app = FastAPI(
     title="Dynasty Trade Calculator",
     lifespan=lifespan,
 )
+app.include_router(_chase_upside_mcp.router)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Global exception handler — catches ANY unhandled exception from
@@ -4519,6 +4521,7 @@ _PUBLIC_API_EXACT = frozenset(
 # check runs.
 _SELF_AUTHED_API_EXACT = frozenset(
     {
+        "/api/chase-upside/mcp",
         "/api/signal-alerts/run",
         # Same bearer-auth pattern as signal-alerts.  Bypass session
         # cookie gate so the systemd timer's curl call hits the
