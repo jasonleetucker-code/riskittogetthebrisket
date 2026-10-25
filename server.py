@@ -4327,9 +4327,9 @@ async def lifespan(app: FastAPI):
     # 3. Start the recurring schedule
     if SCRAPE_SCHEDULER_ENABLED:
         try:
-            from src.api.feature_flags import is_enabled as _flag_on
+            from src.api import feature_flags as _ff  # noqa: PLC0415
 
-            _conditional = _flag_on("conditional_startup_scrape")
+            _conditional = _ff.is_enabled("conditional_startup_scrape")
         except Exception:  # noqa: BLE001 — an unreadable flag keeps the old behaviour
             _conditional = False
         plan = _startup_scrape_plan(
