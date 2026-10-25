@@ -468,13 +468,13 @@ production probes.
 - Original request: Alphabetical sub-waiver cut and inconsistent unpriced charge
 - Final requirement (inventory): Prefer cheapest legal package-consistent cut V5-R; respect roster limits; never silently zero unknowns
 - Inventory said: Approved dormant only; "Merged; forced_drop_cheapest_legal OFF" (Oct 20-21)
-- PRs / issues (verified on GitHub): #1890 merged `02725d18fe` (2026-10-21); #1912 merged `408742c992` (2026-10-21); #1916 merged `e6dd949693` (2026-10-21)
-- Owner: `src/trade/forced_drop_selection.py`; `src/trade/roster_capacity.py`
+- PRs / issues (verified on GitHub): #1890 merged `02725d18fe` (2026-10-21); #1912 merged `408742c992` (2026-10-21); #1916 merged `e6dd949693` (2026-10-21); replay evidence #1922 merged `3a61d8eef5` (2026-10-25)
+- Owner: `src/trade/forced_drop_selection.py`; `src/trade/roster_capacity.py`; analysis `docs/trade/FORCED_DROP_BOX_REPLAY_ANALYSIS_2026-10-25.md`
 - Tests: `tests/trade/test_forced_drop_selection.py`, `tests/trade/test_forced_drop_flag_off_identity.py`, `tests/trade/test_forced_drop_box_mode.py`
 - Flag: `forced_drop_cheapest_legal` OFF (prod obs. 2026-10-25); held by `scripts/verify_owner_held_flags.py`
 - Authorization: §0 "Low-value-asset decision packages 1–5 — 2026-10-21" (develop/dormant only; activation owner-reserved) (P1)
-- Evidence note: The pinned read-only box replay finished 2026-10-22/23 with digest `f10fc997` and identical live inputs (coordinator); its evidence PR is in progress.
-- Next action: Land the replay evidence, then the activation request to the owner.
+- Evidence note: The pinned read-only box replay (digest `f10fc997`) and its analysis merged in #1922 (`3a61d8eef5`, 2026-10-25). The analysis judges the run valid evidence that does **not** clear the activation bar (runbook §6 stop condition 4 is live). Its recommendation: do not activate yet.
+- Next action: Owner decision on activation, with the #1922 analysis in hand. Activation stays owner-reserved and the flag stays OFF.
 
 **RIT-032 — Low-value depth note** · `DORMANT_FLAG_OFF`
 
@@ -549,10 +549,10 @@ production probes.
 - PRs / issues (verified on GitHub): #1899 merged `7d1cc3f026` (2026-10-21); #1909 merged `6d841a1f17` (2026-10-21)
 - Owner: `src/draft/waiver_population.py` (`POPULATION_RULE = li5_waiver_tier_v1`)
 - Tests: `tests/draft/test_waiver_population.py`
-- Flag: none yet (unwired)
-- Authorization: §0 "Low-value-asset decision packages 1–5 — 2026-10-21" (develop/dormant only; activation owner-reserved) (P3)
-- Evidence note: Design phases P1–P2 merged unwired (#1909). P3 was to start only after #1890 merged; #1890 merged 2026-10-21, P3 has not started.
-- Next action: Confirm P3 is in scope, then build it behind its default-OFF flag.
+- Flag: none yet (unwired); P3 ships behind a new default-OFF flag
+- Authorization: **P3 AUTHORIZED** (dormant, flag OFF). `docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md` D2 reads "Yes. Implement P1–P2 now; P3 only after #1890 merges.", and #1890 merged (`02725d18fe`, 2026-10-21). §0 "Low-value-asset decision packages 1–5 — 2026-10-21" (P3). Activation stays owner-reserved
+- Evidence note: Design phases P1–P2 merged unwired (#1909). P3 implementation is in progress on branch `claude/lva-p3-li5-phase3` (coordinator, 2026-10-25; not yet pushed when this was checked).
+- Next action: Finish P3 behind its default-OFF flag; no served replacement-level or scarcity change.
 
 **RIT-038 — Low-value league-aware depth evidence** · `DORMANT_FLAG_OFF`
 
@@ -1150,7 +1150,7 @@ production probes.
 - Tests: `tests/scripts/test_check_work_claims.py`; `scripts/check_planning_integrity.py`
 - Flag: none
 - Authorization: §0 "Repository stabilization / truth-reconciliation campaign — 2026-10-07"
-- Evidence note: PR #1838 (live tracker) is still open. This pass closes 58 stale claim rows.
+- Evidence note: PR #1838 (live tracker) is still open. This pass closes 59 stale claim rows.
 - Next action: Decide #1838's disposition; keep claims current.
 
 #### Deferred
@@ -1216,14 +1216,14 @@ duplicate.
 |---|---|---|---|---|---|
 | 1 | Make the E2E Safety Net green. 3 specs × 2 projects fail at the step `search result for 2027 Mid 1st (from Kich)`, which suggests test-data drift (unconfirmed). Close #1918 on a green run | RIT-078, -019, -020, -027 | `tests/e2e/specs/trade-multi-team.spec.js`, `tests/e2e/specs/trade-tcd2.spec.js` | §0 2026-10-07 stabilization | in progress elsewhere (coordinator) |
 | 2 | Repair the failed box units: depth charts (0/32 since ≥ 10-19), market-trade ledger (timeout 10-25) and Game Day capture (missed its pregame window). The ledger also feeds Comparable Trades and the Trade Database | RIT-073, -012, -011 | box units `dynasty-depth-charts-refresh`, `dynasty-market-trade-ledger`, `dynasty-game-day-capture` | §0 2026-10-07 stabilization | in progress elsewhere (coordinator) |
-| 3 | Land the forced-drop box replay evidence (digest `f10fc997`, coordinator), then send the activation request to the owner | RIT-031, -007 | `src/trade/forced_drop_selection.py`, `docs/trade/FORCED_DROP_BOX_REPLAY_RUNBOOK_2026-10-21.md` | §0 2026-10-21 LVA P1 | evidence PR in progress elsewhere |
+| 3 | Forced-drop box replay evidence (digest `f10fc997`): **merged** in #1922 (`3a61d8eef5`, 2026-10-25). Its recommendation is do not activate yet. What remains is the owner's activation decision (§5), not engineering | RIT-031, -007 | `src/trade/forced_drop_selection.py`, `docs/trade/FORCED_DROP_BOX_REPLAY_ANALYSIS_2026-10-25.md` | §0 2026-10-21 LVA P1 | evidence done; owner decision pending |
 | 4 | Root-cause the 2026-10-23/24 KTC / IDPTC timeouts and the ~979-row partial IDPTC scrape from box logs. Scrapes are healthy today | RIT-072, -074 | `Dynasty Scraper.py`; `scripts/check_source_health.py` | §0 2026-10-07 stabilization | not started |
 | 5 | Multi-team Lane E (quality, privacy, verification). Its claim row says "starts once A1 lands"; A1 merged 2026-10-21 and no Lane E branch exists. After Lane E and an independent review, `trade_multi_team_analysis` turns on through the normal release process (spec §6.1). It is not an owner-reserved activation | RIT-019, -020 | `tests/trade/`, `tests/e2e/specs/trade-multi-team*.spec.js` | §0 2026-10-20 Advisor/multi-team | not started |
 | 6 | Review and land #1843, then finish the live Sleeper scoring/rules parity audit (#1842) | RIT-034, -041 | `src/league_comparison/sleeper_scoring.py` + #1843 | §0 2026-10-19 (later) league intelligence | PR open |
-| 7 | LI-5 phase P3, behind its default-OFF flag. Its precondition (#1890 merged) is met. §0 lists "P1–P2" as authorized and says P3 starts after #1890, so confirm P3 is in scope before building | RIT-037 | `src/draft/waiver_population.py` | §0 2026-10-21 LVA P3 | not started; scope confirmation needed |
+| 7 | LI-5 phase P3, dormant behind its default-OFF flag. **AUTHORIZED**: owner decision D2 (`docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md`) says "P3 only after #1890 merges", and #1890 merged (`02725d18fe`) | RIT-037 | `src/draft/waiver_population.py` | §0 2026-10-21 LVA P3 | implementation in progress on `claude/lva-p3-li5-phase3` (coordinator) |
 | 8 | League-intelligence shadow lanes: calibrate the league fair-value challenger and run its preregistered holdout; benchmark best-ball marginal value; validate decision engine v3 against the private champion. All stay shadow until their gates pass | RIT-035, -036, -039 | `src/league_valuation/`, `src/bestball/`, `src/trade/decision_engine/` | §0 2026-10-19 (later) | partial (shadow libraries merged) |
 | 9 | Post-install OCR recognition check with real phone screenshots. Needs a logged-in session | RIT-028 | `src/trade/screenshot_import/` | §0 2026-10-15 | not run |
-| 10 | Records: decide the disposition of PR #1838 (live tracker), and keep claims current (this PR closes 58 stale rows) | RIT-084 | `docs/WORK_CLAIMS.md` | §0 2026-10-07 stabilization | partial |
+| 10 | Records: decide the disposition of PR #1838 (live tracker), and keep claims current (this PR closes 59 stale rows) | RIT-084 | `docs/WORK_CLAIMS.md` | §0 2026-10-07 stabilization | partial |
 | 11 | Small coverage gaps: pin the nine Package Builder Sending × Receiving combinations (RIT-005), replay a current KTC trade link (RIT-029), re-check Travis Hunter's served value (RIT-071) | RIT-005, -029, -071 | see rows | §0 2026-10-14 / 2026-10-07 / Option 3 | not run |
 
 **Not open work, by decision:**
@@ -1242,7 +1242,7 @@ None of these is answered here. Each is quoted from, or points to, the record th
 |---|---|---|
 | #1852 reserve policy (**Q2**) | `docs/OWNER_REQUESTED_TODO.md` LVA-P5A; census in #1907 | `PROPOSED_PENDING_OWNER_Q2`. No reserve drawn, persisted or exposed |
 | Public Advisor launch: source-permission record (OD-3), admission sizes (AD-1), naming withheld assets publicly (F-1), response floor (RF-1), final launch approval (LA-1), plus the directive §16 exposure decisions (OD-4) | intake "Added 2026-10-20 (~19:45 UTC)"; `docs/owner/TRADE_ADVISOR_MULTITEAM_DIRECTIVE_2026-10-20.md` | each one "OPEN — not asked"; `brisket_trade_advisor` OFF |
-| Activate `forced_drop_cheapest_legal` (V5-R) | LVA-P1 | waits for the replay evidence (open item 3) |
+| Activate `forced_drop_cheapest_legal` (V5-R) | LVA-P1; `docs/trade/FORCED_DROP_BOX_REPLAY_ANALYSIS_2026-10-25.md` (#1922) | the replay evidence is merged; its recommendation is do not activate yet. Flag OFF |
 | Start the depth-disclosure shadow window (`low_value_depth_disclosure_shadow`, G3) | LVA-P4; `docs/trade/LOW_VALUE_DEPTH_DISCLOSURE_DESIGN_2026-10-20.md` §10 | OFF |
 | Any served LI-5 replacement-level or scarcity change, or turning its flag on | LVA-P3 | owner-reserved |
 | Activate `source_freshness_schedule_v2` | FS-B7 (after V2 validation, FS-B6) | OFF |
@@ -1299,14 +1299,14 @@ These are kept apart so a recommendation is not read as authorization.
 ## 8. Records hygiene done with this document
 
 - `docs/OWNER_REQUESTED_TODO.md`: one compact intake pointer to this document ("Added 2026-10-25").
-- `docs/WORK_CLAIMS.md`: 58 claim rows were still `open` / `active` / `in review` / `claimed`, but their PRs are
+- `docs/WORK_CLAIMS.md`: 59 claim rows were still `open` / `active` / `in review` / `claimed`, but their PRs are
   verifiably merged on `origin/main`. Each is now `done` with its merge commit and date, plus "Previously: <old
   status>", following the 2026-10-17 / 2026-10-18 housekeeping convention. This includes the "Unlisted Waiver Wire
-  Comparison page" claim (#1915, `7890a5bef6`, 2026-10-21).
+  Comparison page" claim (#1915, `7890a5bef6`, 2026-10-21) and the LVA-P1 box-replay claim (#1922, `3a61d8eef5`,
+  2026-10-25; activation owner-reserved).
 - Rows left open, on purpose:
   - multi-team Lane E and D-net loopback binds (no PR exists);
   - the calculator completion campaign umbrella;
   - Rookie Auction Phase 2 (#1533 open) and Unified Manager of the Year (#1513 open);
-  - LVA-P1 box replay (its evidence PR is in progress);
   - two rows whose cells do not parse as a five-column row.
 - The Codex MCP lane is not touched.
