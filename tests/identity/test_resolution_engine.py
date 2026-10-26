@@ -314,5 +314,54 @@ class TestFlags(unittest.TestCase):
         self.assertFalse(R.dual_read_enabled(env={"RISKIT_IDENTITY_DUAL_READ": "0"}))
 
 
+class TestResolutionIsExact(_Base):
+    """``Resolution.is_exact``: an exact rung answered -- never a guess."""
+
+    @staticmethod
+    def _res(method: str, *, status: str = R.RESOLVED, tie: bool = False) -> R.Resolution:
+        return R.Resolution(
+            status=status,
+            policy=R.CANONICAL_V2,
+            method=method,
+            sleeper_id="1" if status == R.RESOLVED else None,
+            tie_detected=tie,
+        )
+
+    def test_exact_name_rungs_and_external_ids_are_exact(self):
+        for method in (
+            "exact_clean",
+            "exact_clean:name_team_pos",
+            "exact_lookup:name",
+            "exact_canonical:name_active",
+            "sleeper_id",
+            "gsis_id",
+            "espn_id",
+        ):
+            self.assertTrue(self._res(method).is_exact, method)
+
+    def test_guarded_rungs_are_not_exact(self):
+        for method in (
+            "initial_last",
+            "initial_last_guarded:name_team",
+            "fuzzy_guarded",
+            "fuzzy_guarded:name",
+            "none",
+            "exact",  # not a rung name: a prefix is not a match
+            "exact_cleanish",
+        ):
+            self.assertFalse(self._res(method).is_exact, method)
+
+    def test_unresolved_and_tie_picked_answers_are_not_exact(self):
+        self.assertFalse(self._res("exact_clean", status=R.UNRESOLVED).is_exact)
+        self.assertFalse(self._res("exact_clean", tie=True).is_exact)
+
+    def test_matches_the_real_ladder(self):
+        exact = R.resolve_canonical_v2(self.index, name="Patrick Mahomes", position="QB")
+        self.assertTrue(exact.resolved)
+        self.assertTrue(exact.is_exact, exact.method)
+        unknown = R.resolve_canonical_v2(self.index, name="Nobody Atall Knownhere")
+        self.assertFalse(unknown.is_exact)
+
+
 if __name__ == "__main__":
     unittest.main()

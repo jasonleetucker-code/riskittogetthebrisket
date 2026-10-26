@@ -455,6 +455,89 @@ def _rung_names(payload: dict, k: int = 5) -> list[str]:
     return [r["name"] for r in payload["cutLadder"]["rungs"][:k]]
 
 
+def _transition_label(before: Any, after: Any) -> str:
+    return f"{before}->{after}"
+
+
+def capacity_state_effects(off_answers: dict, on_answers: dict) -> dict:
+    """One forced-drop state's capacity effects, LI-5 flag OFF vs ON.
+
+    ``boundTransitions`` reads ``basis.bound`` only.  ``stateTransitions`` reads
+    ``basis.state`` (``exact`` / ``lower_bound`` / ...), which is where a charge
+    that LI-5 turns from a priced figure into a floor shows up while ``bound``
+    stays ``None`` on both sides (LI-5 P3 review finding F-A: three charges moved
+    ``exact`` -> ``lower_bound`` at 0.0 and ``boundTransitions`` was ``[]``).
+    Both are counted over trades that require drops, and
+    ``stateTransitionTrades`` names every changed trade (with the basis's own
+    ``lowerBoundReasons`` on each side) so none is hidden inside an aggregate.
+    """
+    rows = []
+    for key, a in off_answers.items():
+        b = on_answers[key]
+        da = sorted(d["name"] for d in a["capacity"]["forcedDrops"])
+        db = sorted(d["name"] for d in b["capacity"]["forcedDrops"])
+        rows.append(
+            {
+                "trade": key,
+                "requiresDrops": a["capacity"]["requiresDrops"],
+                "dropSetChanged": da != db,
+                "chargeOff": a["forcedDropCost"],
+                "chargeOn": b["forcedDropCost"],
+                "basisOff": {k: a["forcedDropCostBasis"].get(k) for k in ("state", "bound")},
+                "basisOn": {
+                    k: b["forcedDropCostBasis"].get(k)
+                    for k in ("state", "bound", "assumedWaiverBasis")
+                },
+            }
+        )
+    with_drops = [r for r in rows if r["requiresDrops"]]
+    deltas = [
+        r["chargeOn"] - r["chargeOff"]
+        for r in with_drops
+        if isinstance(r["chargeOn"], (int, float)) and isinstance(r["chargeOff"], (int, float))
+    ]
+    state_changed = [
+        r for r in with_drops if r["basisOff"].get("state") != r["basisOn"].get("state")
+    ]
+    state_counts: dict[str, int] = {}
+    for r in state_changed:
+        label = _transition_label(r["basisOff"].get("state"), r["basisOn"].get("state"))
+        state_counts[label] = state_counts.get(label, 0) + 1
+    return {
+        "trades": len(rows),
+        "tradesRequiringDrops": len(with_drops),
+        "dropSetChanged": sum(1 for r in with_drops if r["dropSetChanged"]),
+        "chargeChanged": sum(1 for d in deltas if abs(d) > 1e-9),
+        "chargeDeltaMean": round(statistics.fmean(deltas), 1) if deltas else None,
+        "chargeDeltaMin": round(min(deltas), 1) if deltas else None,
+        "chargeDeltaMax": round(max(deltas), 1) if deltas else None,
+        "boundTransitions": sorted(
+            {
+                _transition_label(r["basisOff"].get("bound"), r["basisOn"].get("bound"))
+                for r in with_drops
+                if r["basisOff"].get("bound") != r["basisOn"].get("bound")
+            }
+        ),
+        "stateTransitions": dict(sorted(state_counts.items())),
+        "stateTransitionTrades": [
+            {
+                "trade": r["trade"],
+                "state": _transition_label(r["basisOff"].get("state"), r["basisOn"].get("state")),
+                "chargeOff": r["chargeOff"],
+                "chargeOn": r["chargeOn"],
+                "lowerBoundReasonsOff": list(
+                    off_answers[r["trade"]]["forcedDropCostBasis"].get("lowerBoundReasons") or []
+                ),
+                "lowerBoundReasonsOn": list(
+                    on_answers[r["trade"]]["forcedDropCostBasis"].get("lowerBoundReasons") or []
+                ),
+            }
+            for r in state_changed
+        ],
+        "rows": rows,
+    }
+
+
 def consumer_effects(contract: dict, off: dict, on: dict) -> dict:
     from src.draft.rookie_pool import select_rookie_rows  # noqa: PLC0415
 
@@ -497,50 +580,10 @@ def consumer_effects(contract: dict, off: dict, on: dict) -> dict:
             != [u["name"] for u in b["cutLadder"]["undroppable"]],
         }
 
-    capacity = {}
-    for state in ("fds0", "fds1"):
-        rows = []
-        for key, a in off["capacity"][state].items():
-            b = on["capacity"][state][key]
-            da = sorted(d["name"] for d in a["capacity"]["forcedDrops"])
-            db = sorted(d["name"] for d in b["capacity"]["forcedDrops"])
-            rows.append(
-                {
-                    "trade": key,
-                    "requiresDrops": a["capacity"]["requiresDrops"],
-                    "dropSetChanged": da != db,
-                    "chargeOff": a["forcedDropCost"],
-                    "chargeOn": b["forcedDropCost"],
-                    "basisOff": {k: a["forcedDropCostBasis"].get(k) for k in ("state", "bound")},
-                    "basisOn": {
-                        k: b["forcedDropCostBasis"].get(k)
-                        for k in ("state", "bound", "assumedWaiverBasis")
-                    },
-                }
-            )
-        with_drops = [r for r in rows if r["requiresDrops"]]
-        deltas = [
-            r["chargeOn"] - r["chargeOff"]
-            for r in with_drops
-            if isinstance(r["chargeOn"], (int, float)) and isinstance(r["chargeOff"], (int, float))
-        ]
-        capacity[state] = {
-            "trades": len(rows),
-            "tradesRequiringDrops": len(with_drops),
-            "dropSetChanged": sum(1 for r in with_drops if r["dropSetChanged"]),
-            "chargeChanged": sum(1 for d in deltas if abs(d) > 1e-9),
-            "chargeDeltaMean": round(statistics.fmean(deltas), 1) if deltas else None,
-            "chargeDeltaMin": round(min(deltas), 1) if deltas else None,
-            "chargeDeltaMax": round(max(deltas), 1) if deltas else None,
-            "boundTransitions": sorted(
-                {
-                    f"{r['basisOff'].get('bound')}->{r['basisOn'].get('bound')}"
-                    for r in with_drops
-                    if r["basisOff"].get("bound") != r["basisOn"].get("bound")
-                }
-            ),
-            "rows": rows,
-        }
+    capacity = {
+        state: capacity_state_effects(off["capacity"][state], on["capacity"][state])
+        for state in ("fds0", "fds1")
+    }
 
     scarcity = sorted(
         {

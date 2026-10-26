@@ -94,11 +94,29 @@ export function rosterRowsForTeam(rows, rosterNames) {
   );
 }
 
+// ── league FAAB analytics read ─────────────────────────────────
+//
+// The read of `/api/public/league/faabAnalytics` has four states, kept
+// apart on purpose: "no data yet" and "no data to be had" are different
+// facts, and neither is a $0.  `data` is only ever the section body the
+// backend served (src/api/faab_analytics.py) -- this component derives
+// nothing from it beyond display rounding.
+const FEED_IDLE = Object.freeze({ status: "idle", data: null, reason: null });
+const FEED_LOADING = Object.freeze({ status: "loading", data: null, reason: null });
+const feedUnavailable = (reason) => ({ status: "unavailable", data: null, reason });
+const feedReady = (data) => ({ status: "ready", data, reason: null });
+
 /**
- * Always-visible FAAB context — what the user has to spend and what
- * the league usually pays, before any player is picked.
+ * Always-visible FAAB context -- what the league usually pays, and (with
+ * a team selected) what that team has left to spend.
+ *
+ * The two halves are independent.  The league figures are a property of
+ * the LEAGUE (`faabAnalytics` is fetched by `leagueKey`), so they render
+ * whether or not a fantasy team is selected; only "Your FAAB" needs a
+ * team, and without one it stays unknown ("—"), never $0 (V1-56 / #1151).
  */
-function FaabHeaderStat({ selectedTeam, leagueFaab }) {
+function FaabHeaderStat({ selectedTeam, leagueFaab, feed }) {
+  const hasTeam = Boolean(selectedTeam);
   const remaining = selectedTeam?.faabRemaining;
   const budget = selectedTeam?.faabBudget ?? leagueFaab?.leagueBudget;
   const avg = leagueFaab?.leagueAvgWinningBid;
@@ -125,20 +143,54 @@ function FaabHeaderStat({ selectedTeam, leagueFaab }) {
         // that observations exist — but a zero with no count stays
         // ambiguous, and ambiguous renders as unknown rather than as $0.
         (avg != null && avg > 0) || (median != null && median > 0);
-  const bidValue = (v) => (hasBidHistory && v != null ? `$${Math.round(v)}` : "—");
 
-  if (remaining == null && avg == null) return null;
+  // One league tile.  Every non-measured outcome is "—" PLUS the reason,
+  // so an unavailable figure never reads as a zero and never silently
+  // vanishes (UI contract §9: loading / unavailable / missing / zero are
+  // distinct states).
+  const leagueBid = (v) => {
+    if (feed.status === "idle") return { value: "—", meta: "waiting for league" };
+    if (feed.status === "loading") return { value: "—", meta: "loading…" };
+    if (feed.status === "unavailable") {
+      return { value: "—", meta: `unavailable: ${feed.reason}` };
+    }
+    if (hasBidHistory) {
+      return v != null
+        ? { value: `$${Math.round(v)}`, meta: "winning bids" }
+        : { value: "—", meta: "not reported" };
+    }
+    return {
+      value: "—",
+      meta: analyzed === 0 ? "no winning bids on record" : "bid count not reported",
+    };
+  };
+  const avgTile = leagueBid(avg);
+  const medianTile = leagueBid(median);
+
+  // `budget != null`, not truthiness: a $0 budget is a real setting, and
+  // hiding the line would be the same defect one tile over.  Without a
+  // team there is no balance to show -- unknown, with the reason stated.
+  let yourMeta = null;
+  if (!hasTeam) yourMeta = "select a team";
+  else if (remaining == null) yourMeta = "balance not reported";
+  else if (budget != null) yourMeta = `of $${budget.toLocaleString()}`;
+
   return (
-    <div className={styles.faabStrip}>
+    <div
+      className={styles.faabStrip}
+      role="group"
+      aria-label="League FAAB context"
+      data-faab-state={
+        feed.status === "ready" ? (hasBidHistory ? "measured" : "no-history") : feed.status
+      }
+    >
       <StatTile
         label="Your FAAB"
         value={remaining != null ? `$${remaining.toLocaleString()}` : "—"}
-        // `budget != null`, not truthiness: a $0 budget is a real setting,
-        // and hiding the line would be the same defect one tile over.
-        meta={budget != null ? `of $${budget.toLocaleString()}` : null}
+        meta={yourMeta}
       />
-      <StatTile label="League average bid" value={bidValue(avg)} meta="winning bids" />
-      <StatTile label="League median bid" value={bidValue(median)} meta="winning bids" />
+      <StatTile label="League average bid" value={avgTile.value} meta={avgTile.meta} />
+      <StatTile label="League median bid" value={medianTile.value} meta={medianTile.meta} />
     </div>
   );
 }
@@ -308,24 +360,36 @@ export default function ManualAddDrop({
 }) {
   const [dropRow, setDropRow] = useState(null);
   const [addRow, setAddRow] = useState(null);
-  const [leagueFaab, setLeagueFaab] = useState(null);
+  const [faabFeed, setFaabFeed] = useState(() =>
+    leagueKey ? FEED_LOADING : FEED_IDLE,
+  );
+  // The section body (or null) -- the shape FaabRecommendation consumes.
+  const leagueFaab = faabFeed.data;
 
   // Fetch league FAAB analytics once per leagueKey.  Lazy public-league
-  // section, cached client-side until the key changes.  On failure the
-  // context panel simply stays hidden — the bid pills still work
-  // because the recommender does its own analytics lookup server-side.
+  // section, independent of team selection.  A failure is STATED on the
+  // league tiles (unavailable + reason) rather than hidden or zeroed --
+  // the bid pills still work because the recommender does its own
+  // analytics lookup server-side.
   useEffect(() => {
     if (!leagueKey) {
-      setLeagueFaab(null);
+      setFaabFeed(FEED_IDLE);
       return;
     }
     let cancelled = false;
+    // Another league's figures are not "useful prior content" for this
+    // one -- drop them rather than show them under the new league's name.
+    setFaabFeed(FEED_LOADING);
     (async () => {
       try {
         const res = await fetch(
           `/api/public/league/faabAnalytics?leagueKey=${encodeURIComponent(leagueKey)}`,
         );
-        if (!res.ok) return;
+        if (cancelled) return;
+        if (!res.ok) {
+          setFaabFeed(feedUnavailable(`HTTP ${res.status}`));
+          return;
+        }
         const data = await res.json();
         if (cancelled) return;
         // The /api/public/league/{section} endpoint wraps the builder
@@ -339,9 +403,14 @@ export default function ManualAddDrop({
         // history (W11-F006).  No ``|| data`` fallback: a payload
         // without ``data`` has no section body, and pretending the
         // envelope is one is what produced the silent failure.
-        setLeagueFaab(data?.data ?? null);
+        const body = data?.data;
+        setFaabFeed(
+          body && typeof body === "object"
+            ? feedReady(body)
+            : feedUnavailable("response carried no analytics"),
+        );
       } catch {
-        // Silent failure — context panel just stays hidden.
+        if (!cancelled) setFaabFeed(feedUnavailable("request failed"));
       }
     })();
     return () => {
@@ -406,12 +475,22 @@ export default function ManualAddDrop({
         // of /waivers' 0.22 CLS.
         <SkeletonTable rows={12} columns={3} />
       ) : !selectedTeam ? (
-        <p className="muted">
-          Select a team below to use the manual add/drop calculator.
-        </p>
+        // League-level FAAB context is a property of the league, not of a
+        // team (V1-56 / #1151): it renders here too.  Only the add/drop
+        // controls need a selected team.
+        <div className={styles.calc}>
+          <FaabHeaderStat selectedTeam={null} leagueFaab={leagueFaab} feed={faabFeed} />
+          <p className="muted">
+            Select a team below to use the manual add/drop calculator.
+          </p>
+        </div>
       ) : (
         <div className={styles.calc}>
-          <FaabHeaderStat selectedTeam={selectedTeam} leagueFaab={leagueFaab} />
+          <FaabHeaderStat
+            selectedTeam={selectedTeam}
+            leagueFaab={leagueFaab}
+            feed={faabFeed}
+          />
 
           <div className={styles.sides}>
             <SidePicker

@@ -123,15 +123,75 @@ def _utc_now_ms() -> int:
     return int(time.time() * 1000)
 
 
-def _http_get_json(url: str) -> Any:
-    """Fetch a Sleeper endpoint and parse JSON.  Returns ``None`` on
-    any failure — callers treat missing data as "no overlay available"
-    and serve the data-not-ready state.
+# Outcome kinds of :func:`_http_get_json_classified`.  Same vocabulary as
+# ``public_league.sleeper_client`` (``ok`` / ``not_found`` / ``error``) plus the
+# one state only this breaker-guarded path has.
+FETCH_OK = "ok"
+FETCH_NOT_FOUND = "not_found"
+FETCH_ERROR = "error"
+FETCH_BREAKER_OPEN = "breaker_open"
 
-    Protected by the ``sleeper_api`` circuit breaker: after repeated
-    failures the breaker OPENs and this call fails fast (returns
-    None) for 60s, preventing a Sleeper outage from turning into 10
-    minutes of /api/data timeouts.
+
+#: Upper bound on the bytes read from a 404's body to decide whether it is
+#: Sleeper's own (empty / JSON ``null``).  ``null`` plus whitespace is a handful of
+#: bytes; reading ``limit + 1`` is enough to tell "longer than any real one"
+#: without ever buffering an arbitrary error page.  PRIOR, not fitted.
+_NOT_FOUND_BODY_MAX_BYTES = 64
+
+
+def _is_sleepers_own_404(exc: urllib.error.HTTPError) -> bool:
+    """Whether a 404's body is what Sleeper answers for an id that does not exist:
+    empty, or JSON ``null`` (surrounding whitespace aside).
+
+    Reads at most ``_NOT_FOUND_BODY_MAX_BYTES + 1`` bytes.  Anything else -- an
+    HTML page, a gateway / WAF message, a JSON error object, an over-long body, a
+    body that cannot be read -- is NOT recognised, so the caller treats the 404 as
+    an ordinary failure.
+    """
+    try:
+        body = exc.read(_NOT_FOUND_BODY_MAX_BYTES + 1)
+    except Exception:  # noqa: BLE001 -- an unreadable body proves nothing
+        return False
+    if not isinstance(body, (bytes, bytearray)):
+        return False
+    if len(body) > _NOT_FOUND_BODY_MAX_BYTES:
+        return False
+    return bytes(body).strip() in (b"", b"null")
+
+
+def _http_get_json_classified(url: str) -> tuple[str, Any]:
+    """``(kind, payload)`` for one Sleeper GET -- :func:`_http_get_json` with the
+    outcome kept.
+
+    * ``ok`` -- a non-null JSON body;
+    * ``not_found`` -- an HTTP 404 whose body is EMPTY or JSON ``null`` (what
+      Sleeper itself answers for an id that does not exist), or a 200 whose body
+      is JSON ``null`` (same reading as ``sleeper_client.request_json_classified``);
+    * ``breaker_open`` -- the ``sleeper_api`` breaker refused the call, so
+      Sleeper was NOT contacted;
+    * ``error`` -- a transport failure, timeout, any other HTTP status, a
+      non-JSON body, or a 404 with ANY other body (see below).
+
+    **A genuine 404 is an answer, not an availability failure.**  The breaker
+    exists to stop a Sleeper OUTAGE turning into minutes of timeouts.  Sleeper's
+    own 404 for one specific league / draft / user must not count toward the trip
+    threshold: before this, five deleted leagues in a row (the Sharp transaction
+    crawl's queue head held ~598 of them) opened the breaker and every healthy
+    league behind them fast-failed for the rest of the run.
+
+    **But a 404 is reported to the breaker as NOTHING -- neither success nor
+    failure.**  It proves one id is absent, not that Sleeper is healthy, so it
+    must not forgive an outage: a HALF_OPEN probe that gets a 404 stays
+    HALF_OPEN (the next real 200 closes it, a real failure re-opens it).
+
+    **And only Sleeper's own 404 is spared.**  A 404 whose body is anything but
+    empty / JSON ``null`` (an HTML error page, a WAF or gateway answer, a JSON
+    error envelope) is not Sleeper saying "no such league" -- it is something in
+    front of Sleeper refusing the request, which is exactly the outage the breaker
+    exists for.  It is an ``error`` and counts.  The body is read with a hard
+    size bound (:data:`_NOT_FOUND_BODY_MAX_BYTES`); an unreadable or oversized one
+    is not recognised either.  5xx, 429, other statuses, timeouts, transport
+    errors and non-JSON bodies count as before.
     """
     # Circuit breaker: fail fast when Sleeper is tripped.
     try:
@@ -145,7 +205,7 @@ def _http_get_json(url: str) -> Any:
         )
         if not bp.can_call():
             log.warning("sleeper_overlay: breaker OPEN, fast-fail %s", url)
-            return None
+            return FETCH_BREAKER_OPEN, None
     except Exception:  # noqa: BLE001 — never let CB itself break the fetch
         bp = None
 
@@ -153,28 +213,67 @@ def _http_get_json(url: str) -> Any:
         req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
         with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SEC) as resp:
             body = resp.read()
+    except urllib.error.HTTPError as exc:
+        # HTTPError is a URLError subclass, so it must be matched first.
+        if exc.code == 404:
+            if _is_sleepers_own_404(exc):
+                # An answer about one id, not evidence about availability: the
+                # breaker hears nothing (see the docstring).
+                log.info("sleeper_overlay: %s answered 404 (not found)", url)
+                return FETCH_NOT_FOUND, None
+            log.warning(
+                "sleeper_overlay: %s answered 404 with a body that is not Sleeper's "
+                "own (neither empty nor JSON null); counted as a failure",
+                url,
+            )
+            if bp is not None:
+                bp.report_failure("http_404_unrecognised_body")
+            return FETCH_ERROR, None
+        log.warning("sleeper_overlay: fetch %s failed: %s", url, exc)
+        if bp is not None:
+            bp.report_failure(exc)
+        return FETCH_ERROR, None
     except (
         urllib.error.URLError,
-        urllib.error.HTTPError,
         TimeoutError,
         http.client.RemoteDisconnected,
     ) as exc:
         log.warning("sleeper_overlay: fetch %s failed: %s", url, exc)
         if bp is not None:
             bp.report_failure(exc)
-        return None
+        return FETCH_ERROR, None
     try:
         parsed = json.loads(body)
-        if bp is not None:
-            bp.report_success()
-        return parsed
     except (json.JSONDecodeError, ValueError):
         log.warning("sleeper_overlay: non-JSON response from %s", url)
         if bp is not None:
             # JSON-parse failure counts as a failure — Sleeper returning
             # an HTML challenge page means they're blocking us.
             bp.report_failure("non_json")
-        return None
+        return FETCH_ERROR, None
+    if bp is not None:
+        bp.report_success()
+    if parsed is None:
+        return FETCH_NOT_FOUND, None
+    return FETCH_OK, parsed
+
+
+def _http_get_json(url: str) -> Any:
+    """Fetch a Sleeper endpoint and parse JSON.  Returns ``None`` on
+    any failure — callers treat missing data as "no overlay available"
+    and serve the data-not-ready state.
+
+    Protected by the ``sleeper_api`` circuit breaker: after repeated
+    failures the breaker OPENs and this call fails fast (returns
+    None) for 60s, preventing a Sleeper outage from turning into 10
+    minutes of /api/data timeouts.  Sleeper's own 404 (empty / JSON ``null``
+    body) does NOT count as a failure and is not reported to the breaker at all;
+    a 404 with any other body DOES count (see
+    :func:`_http_get_json_classified`).  Either way it still returns ``None``
+    here, so callers that cannot tell "gone" from "failed" read it
+    exactly as before.
+    """
+    return _http_get_json_classified(url)[1]
 
 
 class _BuildFetcher:
