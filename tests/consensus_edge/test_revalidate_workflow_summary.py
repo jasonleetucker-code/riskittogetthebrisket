@@ -23,6 +23,7 @@ nothing about the study, its gate or its thresholds.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -36,7 +37,7 @@ WORKFLOW = REPO / ".github" / "workflows" / "consensus-edge-revalidate.yml"
 SUMMARY_STEP = "Job summary"
 
 DRIFT_TEXT = "The committed measurement no longer describes the code."
-HARNESS_TEXT = "The re-run did not complete, so no verdict was compared."
+HARNESS_TEXT = "The re-run or the comparison did not complete, so no verdict was compared."
 OK_TEXT = "Committed verdicts still describe the code."
 
 
@@ -72,6 +73,48 @@ class TestSummaryIsWiredToTheRightSteps(unittest.TestCase):
         # would make the behaviour below untestable and is the shape that let
         # the two-state version go unexamined.
         self.assertNotIn("${{", _step(SUMMARY_STEP)["run"])
+
+    def test_the_drift_message_is_guarded_on_a_compare_failure(self):
+        # Static, so Windows CI covers it too (the behaviour tests below are
+        # POSIX-only).  The drift message used to sit in a bare ``else``, so
+        # (re-run success, compare skipped/cancelled/empty) printed it even
+        # though no verdict had been compared.  The branch that prints it must
+        # be an ``if``/``elif`` whose condition tests COMPARE_OUTCOME against
+        # ``failure`` -- never an ``else``.
+        script = _step(SUMMARY_STEP)["run"]
+        self.assertEqual(script.count(DRIFT_TEXT.rstrip(".")), 1)
+        header = None
+        guard = None
+        for raw in script.splitlines():
+            line = raw.strip()
+            if line.startswith(("if ", "elif ")) or line == "else":
+                header = line
+            if DRIFT_TEXT.rstrip(".") in line:
+                guard = header
+                break
+        self.assertIsNotNone(guard, "drift message not found in the summary script")
+        self.assertTrue(guard.startswith(("if ", "elif ")), f"drift message is in {guard!r}")
+        self.assertIn("COMPARE_OUTCOME", guard)
+        self.assertRegex(guard, r'==\s*"failure"')
+        self.assertNotIn("!=", guard)
+
+    def test_the_fallthrough_branch_is_the_did_not_complete_message(self):
+        # Whatever is not "success" and not a proven compare failure lands in
+        # the final ``else``, and that branch must be the harness message.
+        script = _step(SUMMARY_STEP)["run"]
+        branches = re.split(r"(?m)^\s*else\s*$", script)
+        self.assertGreaterEqual(
+            len(branches), 2, "expected a final else branch in the summary script"
+        )
+        final = re.split(r"(?m)^\s*fi\s*$", branches[-1], maxsplit=1)[0]
+        self.assertIn(HARNESS_TEXT.rstrip("."), final)
+        self.assertNotIn(DRIFT_TEXT.rstrip("."), final)
+
+    def test_the_summary_script_never_exits_nonzero_on_purpose(self):
+        # A summary must not turn a red job into a differently-red job, nor a
+        # green one red.  Exit status comes from the real steps.
+        script = _step(SUMMARY_STEP)["run"]
+        self.assertNotRegex(script, r"(?m)^\s*exit\s+[1-9]")
 
     def test_the_step_set_is_unchanged(self):
         # config/ci/release_gate_classification.json keys on these names.
@@ -143,6 +186,28 @@ class TestSummaryBehaviour(unittest.TestCase):
         text = self._summary("skipped", "skipped", None)
         self.assertIn(HARNESS_TEXT, text)
         self.assertNotIn(DRIFT_TEXT, text)
+
+    def test_a_cancelled_compare_after_a_good_rerun_is_not_drift(self):
+        # The re-run succeeded but the compare step never reported a verdict.
+        text = self._summary("success", "cancelled", None)
+        self.assertIn(HARNESS_TEXT, text)
+        self.assertIn("re-run step: success, compare step: cancelled", text)
+        self.assertNotIn(DRIFT_TEXT, text)
+        self.assertNotIn(OK_TEXT, text)
+
+    def test_a_skipped_compare_after_a_good_rerun_is_not_drift(self):
+        text = self._summary("success", "skipped", None)
+        self.assertIn(HARNESS_TEXT, text)
+        self.assertIn("re-run step: success, compare step: skipped", text)
+        self.assertNotIn(DRIFT_TEXT, text)
+        self.assertNotIn(OK_TEXT, text)
+
+    def test_an_empty_compare_outcome_after_a_good_rerun_is_not_drift(self):
+        text = self._summary("success", "", None)
+        self.assertIn(HARNESS_TEXT, text)
+        self.assertIn("compare step: unknown", text)
+        self.assertNotIn(DRIFT_TEXT, text)
+        self.assertNotIn(OK_TEXT, text)
 
     def test_a_real_drift_is_still_reported_as_drift(self):
         text = self._summary("success", "failure", "VERDICT DRIFT:\n  - h7 x.json: 'a' -> 'b'\n")

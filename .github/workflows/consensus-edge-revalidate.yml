@@ -170,22 +170,28 @@ jobs:
           # ten consecutive weekly runs (2026-08-05 .. 2026-10-07) a
           # Path.relative_to crash in the re-run was reported here as verdict
           # drift, although no verdict had been compared at all.
+          #
+          # Drift is claimed ONLY when the compare step itself reported
+          # failure (it exits 1 on a changed verdict). Every other
+          # non-success combination -- a failed or skipped re-run, or a
+          # compare step that was skipped, cancelled or never reported --
+          # means no verdict was compared.
           {
             echo "## Consensus Edge — re-validation"
             echo ""
             if [[ "${COMPARE_OUTCOME}" == "success" ]]; then
               echo "Committed verdicts still describe the code."
-            elif [[ "${RERUN_OUTCOME}" != "success" ]]; then
-              echo "**The re-run did not complete, so no verdict was compared.**"
-              echo "This is a harness or environment failure, not verdict drift"
-              echo "(re-run step: ${RERUN_OUTCOME:-unknown}, compare step: ${COMPARE_OUTCOME:-unknown})."
-              echo "Read the log of the failed step; the committed verdicts"
-              echo "have neither been confirmed nor contradicted by this run."
-            else
+            elif [[ "${COMPARE_OUTCOME}" == "failure" && "${RERUN_OUTCOME}" == "success" ]]; then
               echo "**The committed measurement no longer describes the code.**"
               echo "Download the artifact, commit the fresh measurements, and"
               echo "move the flag default to match — see ADR-023 for the shape"
               echo "of that decision."
+            else
+              echo "**The re-run or the comparison did not complete, so no verdict was compared.**"
+              echo "This is a harness or environment failure, not verdict drift"
+              echo "(re-run step: ${RERUN_OUTCOME:-unknown}, compare step: ${COMPARE_OUTCOME:-unknown})."
+              echo "Read the log of the failed step; the committed verdicts"
+              echo "have neither been confirmed nor contradicted by this run."
             fi
             echo ""
             echo '```'

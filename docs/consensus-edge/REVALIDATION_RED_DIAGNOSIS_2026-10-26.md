@@ -93,8 +93,19 @@ visible effect of the fix.
   verdict equalled the committed one, so the compare would have passed.
 * The h14 horizon never ran in those ten runs (`set -e` ended the shell loop
   after h7).
-* The fresh h7 JSON was still uploaded (`if: always()`), so the data exists in
-  the 30-day artifacts; those artifacts have since expired.
+* The fresh h7 JSON was still uploaded (`if: always()`) as a 30-day artifact.
+  Most of those artifacts have expired, but two have not (checked read-only
+  against the Actions artifacts API on 2026-10-26):
+  * run 36708000268 (2026-09-30): artifact **not expired**, expires
+    2026-10-30T11:23Z;
+  * run 37617836143 (2026-10-07): artifact **not expired**, expires
+    2026-11-06T12:02Z.
+
+  These are the only artifacts that could still confirm the red-run JSON
+  itself; the medians, fold counts and verdicts in the table above come from
+  the run logs, not from the artifacts. They were not downloaded for this
+  record. Preserving them before they expire is an owner/ops option; nothing in
+  this PR does it.
 
 ## 4. A residual reporting defect, fixed in this PR
 
@@ -102,12 +113,15 @@ The job summary had two branches: compare succeeded, or "**The committed
 measurement no longer describes the code.**" When the re-run crashed, the
 compare step was skipped, so the second branch fired. Each of the ten red runs
 therefore told its reader the committed measurement was stale, when no verdict
-had been compared. This PR makes it three-way (match, re-run did not complete,
-real drift), keeps every step name (they are keyed in
-`config/ci/release_gate_classification.json`), and adds
+had been compared. This PR makes it three-way (match, re-run or compare did not
+complete, real drift). Drift is reported only when the compare step itself
+failed after a successful re-run; a compare step that was skipped, cancelled or
+never reported is "did not complete", not drift. It keeps every step name
+(they are keyed in `config/ci/release_gate_classification.json`), and adds
 `tests/consensus_edge/test_revalidate_workflow_summary.py`, which runs the real
-summary script for each outcome combination. Study, gate, thresholds and
-comparison logic are unchanged.
+summary script for each outcome combination (POSIX bash only) and statically
+checks that the drift message is guarded on a compare failure (all platforms).
+Study, gate, thresholds and comparison logic are unchanged.
 
 ## 5. What a green run does and does not say
 
@@ -137,10 +151,12 @@ what its name suggests.
 * `ageHours` comes from `data_contract._build_source_timestamps`:
   `payload scrapeTimestamp - data/scrape_state/{source}_last_success`
   (CSV mtime only when no stamp exists), read from the box checkout's own
-  `data/scrape_state`. It is a **fetch-success clock**. The stamp advances on
-  every successful fetch even if the CSV is byte-identical, so it is not a
-  content-change clock (the audit inferred "source-content based"; the code
-  says otherwise).
+  `data/scrape_state`. It is a **fetch-success clock**, not a content-change
+  clock (the audit inferred "source-content based"; the code reads the
+  fetch-success stamp instead). That the stamp advances on every successful
+  fetch even when the CSV is byte-identical is **documented** (`CLAUDE.md`,
+  "Content staleness is not fetch freshness"), not verified in code for this
+  record.
 * The build age is a different pair of columns in the same row:
   `written_at - contract_scraped_at`.
 
@@ -154,11 +170,12 @@ what its name suggests.
   a 24.8 h gap, the longest in October. So that 17.8 h is a real gap in anchor
   fetch successes, not a build delay (the same row's build age is about 1.7 h).
 
-**2026-10-13 / 10-14 (80.4 h and 95.1 h): consistent with a failed-deploy
-streak, not fully reproduced.**
+**2026-10-13 / 10-14 (80.4 h and 95.1 h): the 10-13 value is consistent with a
+failed-deploy streak; the 10-14 row is partially explained, and the 95.1 h value
+is not reproduced.**
 
 * Every `Deploy Production` run from 2026-10-10T02:01Z to 2026-10-14T14:27Z
-  failed or was cancelled. Example, run 38361328867 (2026-10-13T07:13Z):
+  failed. Example, run 38361328867 (2026-10-13T07:13Z):
   `Validate Build Inputs` failed, `Deploy To Production` skipped. The next
   success was 2026-10-14T16:58Z.
 * The last good deploy before the streak (2026-10-09T21:25Z, commit `e0a4de98`)
@@ -179,7 +196,8 @@ analysis choice (see section 8), not something changed here.
 
 ## 7. The missing 2026-10-05 row (RPA-COL-005)
 
-Not a reporting bug. The job wrote nothing because it could not build a board.
+Not a reporting bug. The job most likely wrote nothing because it could not
+build a board.
 
 * **Inferred cause (timing plus shared code path; the box journal was not
   read):** the 2026-10-05 07:30Z run fell inside the "Rankings outage". Per
