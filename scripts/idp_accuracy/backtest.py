@@ -2953,6 +2953,12 @@ def swaps_predicted_mu(
     return out
 
 
+def _worker_init_swaps(spec: dict[str, Any]) -> None:
+    """The stage 1 worker initialiser, plus the swap universe section 9.1 needs."""
+    _worker_init(spec)
+    _W["swaps"] = spec["swaps"]
+
+
 def _worker_swaps(weeks: list[int]) -> dict[str, list[float]]:
     inputs = _W["inputs"]
     port = _W["port"]
@@ -2986,11 +2992,13 @@ def swaps_predicted_d(
     idx = list(range(int(weeks)))
     total = {t: np.zeros(len(lst)) for t, lst in swaps.items()}
     if n <= 1:
-        _worker_init(spec)
+        _worker_init_swaps(spec)
         parts = [_worker_swaps(idx)]
     else:
         chunks = [idx[i :: n * 2] for i in range(n * 2) if idx[i :: n * 2]]
-        with ProcessPoolExecutor(max_workers=n, initializer=_worker_init, initargs=(spec,)) as ex:
+        with ProcessPoolExecutor(
+            max_workers=n, initializer=_worker_init_swaps, initargs=(spec,)
+        ) as ex:
             parts = list(ex.map(_worker_swaps, chunks))
     for part in parts:
         for t, arr in part.items():
@@ -3451,8 +3459,14 @@ def build_wb(
     out_outcomes: Mapping[str, Any],
     manifest: Mapping[str, Any],
     port: SolverPort,
+    *,
+    stand_in_season: int | None = None,
 ) -> dict[str, Any]:
     """The Wb stability window (origin before week 4), built AFTER W0 is unblinded.
+
+    ``stand_in_season`` exists only for the rehearsal: it reads weeks 1-3 of a PUBLIC earlier
+    season where the real run reads 2026 weeks 1-3, so every line of this function runs
+    without touching a 2026 outcome.
 
     Declared deviation D1: its admissible inputs include 2026 weeks 1-3 (section 2.3), which
     are W0 outcome weeks and so cannot be loaded in the blind stage (section 12.1).  Built
@@ -3471,7 +3485,8 @@ def build_wb(
     info = universe["info"]
     card = numeric_card(raw["sleeper"]["scoringSettings"])
     pos_by_id = {pid: i["position"] for pid, i in info.items() if i["position"]}
-    window = [(HISTORY_SEASON, w) for w in HISTORY_WEEKS] + [(SEASON, w) for w in (1, 2, 3)]
+    s_in = stand_in_season or SEASON
+    window = [(HISTORY_SEASON, w) for w in HISTORY_WEEKS] + [(s_in, w) for w in (1, 2, 3)]
     # weeks 1-3 only: the guard is for blind stage 1; here the dumps are read explicitly and by week
     hist: dict[str, dict[tuple[int, int], float]] = defaultdict(dict)
     for season, week in window:
@@ -3498,13 +3513,23 @@ def build_wb(
         if len(ids) != 1:
             continue  # a name collision is dropped, never merged (BDVM's own policy)
         samples = [
-            (w, hist[ids[0]][(SEASON, w)]) for w in (1, 2, 3) if (SEASON, w) in hist.get(ids[0], {})
+            (w, hist[ids[0]][(s_in, w)]) for w in (1, 2, 3) if (s_in, w) in hist.get(ids[0], {})
         ]
         if samples:
             weekly_by_key[k] = samples
     bd = build_bdvm(contract, raw, cutoff_date, actuals=(4, weekly_by_key), age_variants=False)
     pm = project_mu(bd, universe, board)
     mu = pm["mu"]
+    drift = max(
+        (
+            abs(float((e.get("projection") or {}).get("fpg")) - mu[str(e.get("playerId"))])
+            for e in bd["payloads"]["base"].get("players") or []
+            if str(e.get("playerId")) in mu
+        ),
+        default=0.0,
+    )
+    if drift > 5.1e-4:  # the payload publishes fpg rounded to 3 decimals
+        raise SystemExit(f"Wb: P disagrees with BDVM's own posterior (max {drift})")
     a_base, _ = a_scores(bd["payloads"]["base"])
     records = player_records(universe)
     d1 = d1_thresholds(universe, records, port, lambda r: mu.get(r.player_id))
@@ -3748,7 +3773,9 @@ def stage2(args: argparse.Namespace) -> int:
         which: Sequence[str],
         **kw: Any,
     ) -> dict[str, Any]:
-        arr = build_arrays(vec, ids)
+        # only what the variant reads is built, and nothing the variant replaces is
+        # read from the base vectors (a replaced candidate may be defined on other players)
+        arr = build_arrays(vec, ids, only=({"champion", *which} - set(replace)))
         arr = {**arr, **replace}
         d = make_cohort(ids, table, y, arr)
         q = [p for p in qual if len(d.members[p]) >= 3]
@@ -3823,11 +3850,19 @@ def stage2(args: argparse.Namespace) -> int:
 
     # ---- Wb (exploratory; deviation D1) ---------------------------------------------------
     wb_result: dict[str, Any]
-    if rehearsal or args.skip_wb:
-        wb_result = {"state": "skipped" + (" (rehearsal)" if rehearsal else " (--skip-wb)")}
+    if args.skip_wb:
+        wb_result = {"state": "skipped (--skip-wb)"}
     else:
         try:
-            wb = build_wb(args, log, fetch, out, manifest, port)
+            wb = build_wb(
+                args,
+                log,
+                fetch,
+                out,
+                manifest,
+                port,
+                stand_in_season=HISTORY_SEASON if rehearsal else None,
+            )
             data_b = wb.pop("data")
             q_b = wb.pop("qual")
             row_b = variant_row(data_b, cands, [p for p in q_b if p in qual] or q_b)
