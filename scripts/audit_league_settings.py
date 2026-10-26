@@ -1,7 +1,10 @@
 """Read-only league-rules drift and fingerprint audit.
 
 Does not modify production configuration. Use --live for one Sleeper host GET
-or --snapshot for deterministic archived evidence, explicitly labelled.
+or --snapshot for deterministic archived evidence, explicitly labelled.  Add
+--baseline to diff the observed scoring card, key by key, against an archived
+card (the registry itself carries no scoring card, so roster-shape MATCH says
+nothing about scoring).
 """
 
 from __future__ import annotations
@@ -90,7 +93,70 @@ def fingerprint(snapshot: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def audit(registry: dict[str, Any], snapshot: dict[str, Any], league_id: str) -> dict[str, Any]:
+def canonical_scoring_fingerprint(card: Any) -> str | None:
+    """The canonical ``sf1:`` scoring identity, from its single owner.
+
+    ``rules_fingerprint`` below hashes the WHOLE settings block (waiver days,
+    invite flags, ...) so it moves on non-scoring edits.  The identity the
+    product compares leagues on (CLAUDE.md "factual scoring identity") is
+    ``src.league_comparison.sleeper_scoring.scoring_fingerprint``; this script
+    imports it rather than re-implementing it, and it returns ``None`` (never
+    a hash of ``{}``) when there is no card.
+    """
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
+
+    return scoring_fingerprint(card)
+
+
+def scoring_card_diff(baseline: Any, observed: Any) -> dict[str, Any]:
+    """Key-by-key comparison of two Sleeper scoring cards.
+
+    Absent and explicit-zero are reported separately (``is_zero``): a key that
+    was added at 0.0 changes no rate, which is the same normalisation the
+    canonical fingerprint applies.  Non-numeric values raise (fail closed).
+    """
+    if not isinstance(baseline, dict) or not isinstance(observed, dict):
+        raise ValueError("scoring cards must be JSON objects")
+    changed: list[dict[str, Any]] = []
+    added: list[dict[str, Any]] = []
+    removed: list[dict[str, Any]] = []
+    for key in sorted(set(baseline) | set(observed)):
+        in_base, in_obs = key in baseline, key in observed
+        if in_base and in_obs:
+            if float(baseline[key]) != float(observed[key]):
+                changed.append({"key": key, "baseline": baseline[key], "observed": observed[key]})
+        elif in_obs:
+            added.append(
+                {"key": key, "value": observed[key], "is_zero": float(observed[key]) == 0.0}
+            )
+        else:
+            removed.append(
+                {"key": key, "value": baseline[key], "is_zero": float(baseline[key]) == 0.0}
+            )
+    rate_changes = (
+        len(changed)
+        + sum(1 for row in added if not row["is_zero"])
+        + sum(1 for row in removed if not row["is_zero"])
+    )
+    return {
+        "baseline_keys": len(baseline),
+        "observed_keys": len(observed),
+        "changed": changed,
+        "added": added,
+        "removed": removed,
+        "rate_changes": rate_changes,
+        "status": "SCORING_DRIFT" if rate_changes else "SCORING_MATCH",
+    }
+
+
+def audit(
+    registry: dict[str, Any],
+    snapshot: dict[str, Any],
+    league_id: str,
+    baseline: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     reported_id = snapshot.get("league_id")
     if reported_id is not None and str(reported_id) != league_id:
         raise ValueError(f"Snapshot league_id {reported_id} does not match requested {league_id}")
@@ -102,12 +168,13 @@ def audit(registry: dict[str, Any], snapshot: dict[str, Any], league_id: str) ->
         for k in configured
         if configured[k] != observed[k]
     ]
-    return {
+    report: dict[str, Any] = {
         "league_id": league_id,
         "league_key": row.get("key"),
         "season": snapshot.get("season"),
         "rules_fingerprint_schema": "league-rules-sha256-v1",
         "rules_fingerprint": fingerprint(snapshot),
+        "scoring_fingerprint_sf1": canonical_scoring_fingerprint(snapshot["scoring_settings"]),
         "scoring_keys": len(snapshot["scoring_settings"]),
         "registry_shape": configured,
         "sleeper_shape": observed,
@@ -115,9 +182,21 @@ def audit(registry: dict[str, Any], snapshot: dict[str, Any], league_id: str) ->
         "status": "DRIFT" if drift else "MATCH",
         "notes": [
             "The registry scoringProfile is a descriptive label, not proof of exact scoring compatibility.",
+            "The registry carries NO scoring card, so a MATCH status covers roster shape only; "
+            "scoring drift is detected only against an explicit --baseline card.",
             "This audit does not claim the scoring engine consumes every key or validate downstream feature propagation.",
         ],
     }
+    if baseline is not None:
+        base_id = baseline.get("league_id")
+        if base_id is not None and str(base_id) != league_id:
+            raise ValueError(f"Baseline league_id {base_id} does not match requested {league_id}")
+        diff = scoring_card_diff(baseline.get("scoring_settings"), snapshot["scoring_settings"])
+        base_sf1 = canonical_scoring_fingerprint(baseline.get("scoring_settings"))
+        diff["baseline_sf1"] = base_sf1
+        diff["observed_sf1"] = report["scoring_fingerprint_sf1"]
+        report["scoring_baseline"] = diff
+    return report
 
 
 def _live(league_id: str, timeout: int) -> dict[str, Any]:
@@ -140,18 +219,30 @@ def main(argv: list[str] | None = None) -> int:
     source.add_argument(
         "--snapshot", type=Path, help="Explicit archived JSON file; not a live check"
     )
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        help="Archived Sleeper league JSON whose scoring card is diffed key by key "
+        "against the observed card (e.g. config/league_intel/sleeper_league_snapshot_*.json)",
+    )
     parser.add_argument("--timeout", type=int, default=15)
-    parser.add_argument("--strict", action="store_true", help="Exit 1 if registry and host differ")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit 1 if registry and host differ, or the --baseline scoring card has drifted",
+    )
     args = parser.parse_args(argv)
     try:
         registry = _read_json(args.registry)
         snapshot = _live(args.league_id, args.timeout) if args.live else _read_json(args.snapshot)
-        report = audit(registry, snapshot, args.league_id)
+        baseline = _read_json(args.baseline) if args.baseline else None
+        report = audit(registry, snapshot, args.league_id, baseline)
         report["evidence_source"] = (
             "LIVE_SLEEPER_API" if args.live else "EXPLICIT_ARCHIVED_SNAPSHOT"
         )
         print(json.dumps(report, indent=2, sort_keys=True))
-        return int(args.strict and bool(report["drift"]))
+        scoring_drift = report.get("scoring_baseline", {}).get("status") == "SCORING_DRIFT"
+        return int(args.strict and (bool(report["drift"]) or scoring_drift))
     except (OSError, URLError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         print(
             json.dumps(
