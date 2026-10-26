@@ -37,7 +37,10 @@ documented fallback constants: the record names that explicitly
 file is never the hash of empty input. ``contractGeneration`` is ``None`` by
 design: the simulators read the ROS aggregate and team strength -- pinned by
 ``rosAggregateSha256`` / ``rosAggregatedAt`` / ``teamStrengthFileSha256`` -- and
-never the dynasty board, which the runner does not even load.
+never the dynasty board, which the runner does not even load. (Tripwire + scan
+in ``tests/ros/test_forecast_archive.py``: every canonical contract getter is
+armed and the real forecast path is run, and the simulator-path modules are
+scanned for a spelled-out read.)
 
 **Why the store is not under ``data/ros/``**: the scheduled-refresh workflow
 ``git add -f``s the whole of ``data/ros/`` (``.github/workflows/scheduled-refresh.yml``),
@@ -328,7 +331,8 @@ def _inputs(
         # ``rosAggregatedAt`` (the ROS projection snapshot) and
         # ``teamStrengthFileSha256``. If a simulator ever starts reading the
         # contract, stamp ``trade_analyze_runtime.contract_generation`` here;
-        # ``test_simulators_do_not_read_the_dynasty_contract`` fails first.
+        # the tripwire + scan tests (``test_forecast_production_path_reads_no_contract``,
+        # ``test_simulators_do_not_read_the_dynasty_contract``) fail first.
         "contractGeneration": None,
     }
     nulls["inputs.contractGeneration"] = "not_an_input_of_the_playoff_or_title_simulators"

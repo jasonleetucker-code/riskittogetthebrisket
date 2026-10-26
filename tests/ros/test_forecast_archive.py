@@ -14,7 +14,11 @@ Pins, without network or a live board:
 * the points model is identified three ways (artifact hash, the source actually
   used, and -- for the fallback constants, which have no file -- their hash),
   without a missing file ever becoming a hash of empty input, and without
-  moving ``inputsSha256`` or ``simParamsSha256`` for existing inputs.
+  moving ``inputsSha256`` or ``simParamsSha256`` for existing inputs;
+* the playoff / title simulators never read the dynasty contract (which is why
+  ``inputs.contractGeneration`` is ``None`` by design), held by a behavioural
+  tripwire over every canonical contract getter plus a lexical scan of the
+  whole simulator path.
 """
 
 from __future__ import annotations
@@ -24,8 +28,11 @@ import hashlib
 import importlib.util
 import json
 import logging
+import random
 import re
 import subprocess
+import sys
+import types
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -558,7 +565,23 @@ def test_existing_identity_is_unchanged_by_the_new_fields(ros_tmp):
 
 # ── contract generation: not an input of these simulators ───────────
 
-#: Every module the playoff / title simulation runs through to its inputs.
+#: The claim under test: the playoff / title simulators never read the dynasty
+#: contract, so ``inputs.contractGeneration`` is ``None`` by design. It is held
+#: by TWO guards that fail differently, and neither is enough alone:
+#:
+#: * a LEXICAL scan (below) -- cheap and exact about where a read would be
+#:   written, but blind to anything not spelled out (a helper that reads it, a
+#:   name built at runtime);
+#: * a BEHAVIOURAL tripwire (further down) -- arms every canonical contract
+#:   getter, runs the real forecast code, and fails if one is called, however
+#:   the call was spelled, but only for the paths the fixtures execute.
+#:
+#: Directories whose every ``*.py`` is on the simulator path unless it is listed
+#: in ``GUARD_EXCLUDED``. A new module is therefore scanned by default.
+GUARDED_DIRS = ("src/ros", "src/ros/sources", "src/public_league")
+
+#: The original six, kept as a floor so the guard can never silently narrow
+#: back to them (see ``test_guard_covers_the_whole_simulator_path``).
 SIMULATOR_INPUT_MODULES = (
     "playoff_sim",
     "championship",
@@ -567,28 +590,128 @@ SIMULATOR_INPUT_MODULES = (
     "availability",
     "game_day_sim",
 )
-CONTRACT_READERS = ("latest_contract_data", "contract_generation")
+
+#: Modules that are NOT on the playoff / title simulator path, each with the
+#: reason. Archive and analytics modules sit here because they legitimately talk
+#: ABOUT the board (and the archive is the one place that will stamp
+#: ``contract_generation`` if a simulator ever reads it). The behavioural
+#: tripwire still executes the archive's ``collect_context``.
+GUARD_EXCLUDED = {
+    "src/ros/forecast_archive.py": (
+        "the forecast archive itself: the comment on its null ``contractGeneration`` "
+        "says to stamp ``trade_analyze_runtime.contract_generation`` there the day a "
+        "simulator reads the board"
+    ),
+    "src/ros/game_day_archive.py": "Game Day prediction archive (append-only store)",
+    "src/ros/game_day_capture.py": "scheduled caller of the Game Day archive",
+    "src/ros/game_day_live.py": (
+        "Game Day live collector: the current-week scoring lens, a different "
+        "simulation from the playoff / title Monte Carlo; reads "
+        "``src.api.matchup_intel`` for its own lineup lens"
+    ),
+    "src/ros/pick_forecast_snapshot.py": (
+        "dynasty-side pick-forecast CAPTURE (AL-P4): consumes "
+        "``roster_intelligence`` by design, and nothing in the simulators imports it"
+    ),
+    "src/ros/power_snapshots.py": "immutable weekly Power Rankings snapshots (an archive)",
+    "src/ros/projection_source_census.py": "projection-source capability census (analytics)",
+    "src/public_league/public_contract.py": (
+        "the public-section assembler: ``_team_assignment_section`` is handed the "
+        "contract by its HTTP caller, and its field names are the public/private "
+        "DENYLIST. No simulator calls it"
+    ),
+}
+
+#: Reads that are lexically contract-adjacent but are not contract reads, keyed
+#: ``(file, import)``. Anything else the same file imports from the same module
+#: is NOT covered: the key names the exact imported symbol.
+CONTRACT_ADJACENT_IMPORTS = {
+    ("src/ros/playoff_sim.py", "src.api.matchup_intel:players_meta_for_rosters"): (
+        "``_presim_availability`` uses ``players_meta_for_rosters``, which reads "
+        "SLEEPER PLAYER METADATA (the persisted players DB, else the shared "
+        "``players/nfl`` client) to find injured / bye players. It touches no "
+        "board, and ``matchup_intel`` -> ``roster_intelligence`` -> ``data_contract`` "
+        "is only an import-time module load. "
+        "``test_best_ball_presim_availability_reads_no_contract`` runs this exact "
+        "call under the tripwire"
+    ),
+}
+
+#: Names that mean "the loaded dynasty contract" (or its generation, or a
+#: helper that reads one handed to it).
+CONTRACT_READERS = (
+    "latest_contract_data",
+    "latest_data",
+    "contract_generation",
+    "build_api_data_contract",
+    "contract_roster_pools",
+    "contract_slot_eligibility",
+    "capture_contract_roster_settings",
+)
 CONTRACT_VALUE_FIELDS = ("rankDerivedValue", "canonicalConsensusRank")
-CONTRACT_MODULES = ("data_contract", "trade_analyze_runtime")
+#: Import-path fragments of the modules that read a contract. ``roster_intelligence``
+#: and ``team_assignment`` take the contract as an argument; ``matchup_intel``
+#: imports ``roster_intelligence`` (and so ``data_contract``) at load time.
+CONTRACT_MODULES = (
+    "data_contract",
+    "trade_analyze_runtime",
+    "roster_intelligence",
+    "team_assignment",
+    "matchup_intel",
+)
 
 
-def _contract_reads(path):
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+def _contract_reads_in(source):
+    """Every lexical form of a contract read in ``source``: ``(line, kind, detail)``."""
+    tree = ast.parse(source)
     hits = []
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             names = [a.name for a in node.names]
             module = getattr(node, "module", None) or ""
             if any(frag in text for text in [module, *names] for frag in CONTRACT_MODULES):
-                hits.append((node.lineno, "import", module or names))
+                hits.append((node.lineno, "import", f"{module}:{','.join(names)}"))
             hits += [(node.lineno, "import", n) for n in names if n in CONTRACT_READERS]
         elif isinstance(node, ast.Name) and node.id in CONTRACT_READERS:
             hits.append((node.lineno, "name", node.id))
         elif isinstance(node, ast.Attribute) and node.attr in CONTRACT_READERS:
             hits.append((node.lineno, "attribute", node.attr))
-        elif isinstance(node, ast.Constant) and node.value in CONTRACT_VALUE_FIELDS:
-            hits.append((node.lineno, "field", node.value))
+        elif (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and node.value in (*CONTRACT_VALUE_FIELDS, *CONTRACT_READERS)
+        ):
+            # ``getattr(server, "latest_contract_data")`` is a string, not a name.
+            hits.append((node.lineno, "string", node.value))
     return hits
+
+
+def _repo_relative(path):
+    return path.relative_to(REPO_ROOT).as_posix()
+
+
+def _unexcused(rel, hits):
+    """``hits`` minus the named, justified adjacent imports of file ``rel``."""
+    return [
+        hit
+        for hit in hits
+        if not (hit[1] == "import" and (rel, hit[2]) in CONTRACT_ADJACENT_IMPORTS)
+    ]
+
+
+def _contract_reads(path):
+    return _unexcused(_repo_relative(path), _contract_reads_in(path.read_text(encoding="utf-8")))
+
+
+def _guarded_modules():
+    """``{repo-relative path: Path}`` for every scanned simulator-path module."""
+    found = {}
+    for directory in GUARDED_DIRS:
+        for path in sorted((REPO_ROOT / directory).glob("*.py")):
+            rel = _repo_relative(path)
+            if rel not in GUARD_EXCLUDED:
+                found[rel] = path
+    return found
 
 
 def test_simulators_do_not_read_the_dynasty_contract():
@@ -601,13 +724,404 @@ def test_simulators_do_not_read_the_dynasty_contract():
     starts reading the board, this fails: stamp
     ``trade_analyze_runtime.contract_generation`` into ``contractGeneration``
     (and drop the null reason) in the same change.
+
+    This is the LEXICAL half of "tripwire + scan" (the other is
+    ``test_forecast_production_path_reads_no_contract`` and its siblings). It
+    scans every ``src/ros``, ``src/ros/sources`` and ``src/public_league``
+    module except the archive / analytics ones in ``GUARD_EXCLUDED``, for
+    imports of the contract modules and helpers, contract-reading names and
+    attributes, ``getattr(host, "latest_contract_data")`` strings, and the
+    board's value fields. It cannot see a read that is not spelled out; the
+    tripwire can.
     """
     offenders = {}
-    for name in SIMULATOR_INPUT_MODULES:
-        hits = _contract_reads(REPO_ROOT / "src" / "ros" / f"{name}.py")
+    for rel, path in _guarded_modules().items():
+        hits = _contract_reads(path)
         if hits:
-            offenders[name] = hits
-    assert not offenders, f"simulator input modules now read the dynasty contract: {offenders}"
+            offenders[rel] = hits
+    assert not offenders, f"simulator-path modules now read the dynasty contract: {offenders}"
+
+
+def test_guard_covers_the_whole_simulator_path():
+    """The scan cannot silently shrink back to a handful of files."""
+    guarded = _guarded_modules()
+    for name in SIMULATOR_INPUT_MODULES:
+        assert f"src/ros/{name}.py" in guarded
+    # The modules a first review found the original six-file guard missing.
+    for name in (
+        "aggregate",
+        "mapping",
+        "parse",
+        "scrape",
+        "power_v2",
+        "direction",
+        "trade_deadline",
+    ):
+        assert f"src/ros/{name}.py" in guarded, name
+    assert "src/ros/sources/__init__.py" in guarded
+    # ``src/public_league`` is the snapshot / odds / structure the simulator imports.
+    for name in ("playoff_odds", "playoff_structure", "snapshot", "draft_order"):
+        assert f"src/public_league/{name}.py" in guarded, name
+
+    # Every exclusion is real, lives under a guarded directory, and says why.
+    for rel, reason in GUARD_EXCLUDED.items():
+        assert (REPO_ROOT / rel).is_file(), f"stale exclusion: {rel}"
+        assert any(rel.startswith(d + "/") for d in GUARDED_DIRS), rel
+        assert len(reason) > 20, f"{rel} is excluded without a reason"
+
+
+def test_contract_adjacent_exceptions_are_live_and_justified():
+    """An exception that no longer matches the source would be dead weight that
+    silently re-widens: delete it, or it grants a free pass to a different import."""
+    for (rel, detail), reason in CONTRACT_ADJACENT_IMPORTS.items():
+        hits = _contract_reads_in((REPO_ROOT / rel).read_text(encoding="utf-8"))
+        assert any(
+            h[1] == "import" and h[2] == detail for h in hits
+        ), f"{rel} no longer imports {detail}; remove the exception"
+        assert len(reason) > 40
+    # ... and the exception is exactly one symbol, not the module: a second
+    # import from ``matchup_intel`` in the same file is still an offender.
+    widened = (REPO_ROOT / "src/ros/playoff_sim.py").read_text(
+        encoding="utf-8"
+    ) + "\nfrom src.api.matchup_intel import build_matchup_intel\n"
+    still_flagged = [
+        h[2] for h in _unexcused("src/ros/playoff_sim.py", _contract_reads_in(widened))
+    ]
+    assert "src.api.matchup_intel:build_matchup_intel" in still_flagged
+    assert "src.api.matchup_intel:players_meta_for_rosters" not in still_flagged
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from src.api.trade_analyze_runtime import contract_generation",
+        "from src.api import trade_analyze_runtime",
+        "from src.api.data_contract import contract_roster_pools",
+        "from .data_contract import build_api_data_contract",
+        "import server\nserver.latest_contract_data",
+        "x = getattr(srv, 'latest_contract_data', None)",
+        "x = getattr(mod, 'latest_data')",
+        "from src.api import roster_intelligence",
+        "from src.api.roster_intelligence import build_league_roster_intelligence",
+        "from src.api import team_assignment",
+        "from src.api.team_assignment import build_section",
+        "from src.api import matchup_intel as mi",
+        "from src.api.matchup_intel import build_matchup_intel",
+        "row['rankDerivedValue']",
+        "row.get('canonicalConsensusRank')",
+    ],
+)
+def test_contract_scan_flags_every_form_it_claims_to(source):
+    assert _contract_reads_in(source), source
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        '"""latest_contract_data is mentioned only in prose."""',
+        "# trade_analyze_runtime.contract_generation, in a comment",
+        "from src.ros import lineup\nfrom src.public_league import playoff_odds",
+        "from src.roster_intel.core import build_meaningful_core",
+        "value = row['rosValue']",
+    ],
+)
+def test_contract_scan_does_not_flag_prose_or_unrelated_imports(source):
+    assert _contract_reads_in(source) == [], source
+
+
+# ── the behavioural half: arm every contract getter, run the real code ──
+
+#: Every canonical entry point that READS (or builds, or stamps the generation
+#: of) the loaded dynasty contract, as ``(module, names)``. ``roster_intelligence``
+#: and ``team_assignment`` reach the board through ``contract_roster_pools``,
+#: which they bind with ``from ... import``; ``_arm_contract_tripwire`` replaces
+#: every such binding, not only the defining module's.
+CONTRACT_GETTERS = (
+    (
+        "src.api.data_contract",
+        (
+            "build_api_data_contract",
+            "contract_roster_pools",
+            "contract_slot_eligibility",
+            "capture_contract_roster_settings",
+            "build_rankings_delta_payload",
+            "build_api_startup_payload",
+        ),
+    ),
+    ("src.api.trade_analyze_runtime", ("contract_generation",)),
+    (
+        "src.api.roster_intelligence",
+        ("build_league_roster_intelligence", "get_team_roster_intelligence", "team_weakness_for"),
+    ),
+    ("src.api.team_assignment", ("build_section",)),
+)
+#: The host's module globals: ``server.latest_contract_data`` is how ``src/``
+#: reaches the served board (``getattr(server_module, "latest_contract_data")``).
+HOST_CONTRACT_ATTRS = ("latest_contract_data", "latest_data")
+
+SIM_OWNERS = [f"owner{i:02d}" for i in range(1, 7)]
+SIM_STRENGTH = dict(zip(SIM_OWNERS, [41.0, 77.0, 58.0, 90.0, 33.0, 66.0]))
+SIM_SLOTS = ["QB", "RB", "WR", "TE", "SUPER_FLEX"]
+
+
+class _ContractRead(BaseException):
+    """A contract getter was called.
+
+    A ``BaseException`` on purpose: the forecast code degrades on
+    ``except Exception`` in several places (and ``collect_context`` /
+    ``_refresh_sim_caches_for_league`` promise never to raise), so an ordinary
+    exception would be swallowed and the read would go unseen. The tripwire also
+    RECORDS every call, so even a bare ``except:`` cannot hide one.
+    """
+
+
+class _Tripwire:
+    def __init__(self):
+        self.reads: list[str] = []
+        self.armed: list[tuple[str, str]] = []
+
+    def trip(self, what):
+        self.reads.append(what)
+        raise _ContractRead(what)
+
+    def getter(self, what):
+        def _tripped(*args, **kwargs):
+            self.trip(what)
+
+        _tripped.__name__ = what.rsplit(".", 1)[-1]
+        return _tripped
+
+
+def _arm_contract_tripwire(monkeypatch):
+    """Make every way of reading the loaded dynasty contract raise and record.
+
+    Importing the getters' modules is not a read; calling a getter, or reading
+    the host's contract attribute, is.
+    """
+    tripwire = _Tripwire()
+    resolved = []
+    for module_name, names in CONTRACT_GETTERS:
+        module = importlib.import_module(module_name)
+        # ``getattr`` (no default): a renamed getter fails here, loudly, rather
+        # than leaving a tripwire that guards a name nothing calls any more.
+        resolved += [(module_name, name, getattr(module, name)) for name in names]
+    for module_name, name, original in resolved:
+        replacement = tripwire.getter(f"{module_name}.{name}")
+        for holder_name, holder in list(sys.modules.items()):
+            if not isinstance(holder, types.ModuleType):
+                continue
+            if not (holder_name.startswith("src.") or holder_name == "server"):
+                continue
+            if vars(holder).get(name) is original:
+                monkeypatch.setattr(holder, name, replacement)
+                tripwire.armed.append((holder_name, name))
+
+    class _TrippedHost(types.ModuleType):
+        def __getattribute__(self, attr):
+            if attr in HOST_CONTRACT_ATTRS:
+                tripwire.trip(f"server.{attr}")
+            return super().__getattribute__(attr)
+
+    # ``server`` is heavy and usually not imported in a unit test: stand in for
+    # it. If it IS loaded, trap reads on the real module instead.
+    real_host = sys.modules.get("server")
+    if real_host is None:
+        monkeypatch.setitem(sys.modules, "server", _TrippedHost("server"))
+    else:
+        monkeypatch.setattr(real_host, "__class__", _TrippedHost)
+    return tripwire
+
+
+@pytest.fixture
+def contract_tripwire(monkeypatch):
+    return _arm_contract_tripwire(monkeypatch)
+
+
+def _sim_league(*, weeks=6, finished_weeks=3, playoff_teams=4, root="LTRIPWIRE"):
+    """A six-team league mid-season: enough for the real playoff engine."""
+    rng = random.Random(11)
+    n = len(SIM_OWNERS)
+    matchups = {}
+    for wk in range(1, weeks + 1):
+        rot = SIM_OWNERS[:1] + SIM_OWNERS[1:][wk % (n - 1) :] + SIM_OWNERS[1:][: wk % (n - 1)]
+        rows = []
+        for m in range(n // 2):
+            for owner in (rot[m], rot[-(m + 1)]):
+                pts = round(rng.uniform(80, 160), 2) if wk <= finished_weeks else 0.0
+                rows.append(
+                    {"roster_id": SIM_OWNERS.index(owner) + 1, "matchup_id": m + 1, "points": pts}
+                )
+        matchups[wk] = rows
+    season = SimpleNamespace(
+        season="2026",
+        league_id=root,
+        league={
+            "settings": {
+                "last_scored_leg": finished_weeks,
+                "leg": finished_weeks + 1,
+                "playoff_teams": playoff_teams,
+                "playoff_week_start": weeks + 1,
+                "playoff_seed_type": 1,
+                "league_average_match": 0,
+            }
+        },
+        num_teams=n,
+        rosters=[{"roster_id": i + 1, "owner_id": o} for i, o in enumerate(SIM_OWNERS)],
+        matchups_by_week=matchups,
+        regular_season_weeks=list(range(1, weeks + 1)),
+        winners_bracket=[],
+        losers_bracket=[],
+    )
+    managers = SimpleNamespace(
+        roster_to_owner={(root, i + 1): o for i, o in enumerate(SIM_OWNERS)},
+        by_owner_id={o: SimpleNamespace(display_name=o.upper()) for o in SIM_OWNERS},
+        ordered_managers=lambda: [SimpleNamespace(owner_id=o) for o in SIM_OWNERS],
+    )
+    return SimpleNamespace(
+        seasons=[season],
+        current_season=season,
+        managers=managers,
+        root_league_id=root,
+        generated_at="2026-10-07T17:39:18+00:00",
+    )
+
+
+@pytest.fixture
+def sim_env(ros_tmp, monkeypatch):
+    """The real playoff engine on a synthetic league: offline, no developer data."""
+    snap = _sim_league()
+    monkeypatch.setattr(playoff_sim, "ROS_DATA_DIR", ros_tmp.ros)
+    monkeypatch.setattr(playoff_sim, "_load_team_depth_ratios", lambda *a, **k: {})
+    monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: dict(SIM_STRENGTH))
+    monkeypatch.setattr(
+        "src.api.league_registry.default_league_key", lambda *a, **k: "dynasty_main"
+    )
+    monkeypatch.setattr(
+        "src.public_league.draft_order.league_draft_order_rule", lambda *a, **k: None
+    )
+    monkeypatch.setattr("src.public_league.snapshot.build_public_snapshot", lambda *a, **k: snap)
+    return SimpleNamespace(snap=snap, archive=ros_tmp.archive)
+
+
+def test_contract_tripwire_is_armed(contract_tripwire):
+    """A tripwire that cannot trip would make every test below pass vacuously."""
+    host = importlib.import_module("server")
+    for attr in HOST_CONTRACT_ATTRS:
+        with pytest.raises(_ContractRead):
+            getattr(host, attr, None)  # a default does not mask it
+    assert contract_tripwire.reads == [f"server.{a}" for a in HOST_CONTRACT_ATTRS]
+    assert getattr(host, "not_a_contract_name", None) is None  # nothing else is trapped
+
+    # Every binding of every getter, including the ``from ... import`` copies
+    # that patching only the defining module would have missed.
+    armed = contract_tripwire.armed
+    assert ("src.api.data_contract", "contract_roster_pools") in armed
+    assert ("src.api.roster_intelligence", "contract_roster_pools") in armed
+    assert ("src.api.team_assignment", "contract_roster_pools") in armed
+    assert ("src.api.trade_analyze_runtime", "contract_generation") in armed
+    assert len({name for _, name in armed}) == sum(len(names) for _, names in CONTRACT_GETTERS)
+    for module_name, name in armed:
+        with pytest.raises(_ContractRead):
+            getattr(sys.modules[module_name], name)()
+    assert len(contract_tripwire.reads) == len(HOST_CONTRACT_ATTRS) + len(armed)
+
+
+def test_forecast_production_path_reads_no_contract(sim_env, contract_tripwire):
+    """The refresh runner's own entry point -- sim, reshape, archive -- touches no board.
+
+    ``_refresh_sim_caches_for_league`` and ``collect_context`` both swallow
+    errors by design, so this also checks the work actually HAPPENED (both
+    forecasts written and archived): a run that quietly bailed would read no
+    contract either.
+    """
+    cfg = SimpleNamespace(key="dynasty_tripwire", sleeper_league_id="LTRIPWIRE", best_ball=False)
+
+    out = scrape._refresh_sim_caches_for_league(cfg, "dynasty_main")
+
+    assert out is not None and set(out) == {"playoff", "championship"}
+    playoff = json.loads(out["playoff"].read_text())
+    assert len(playoff["playoffOdds"]) == len(SIM_OWNERS)
+    records = list(forecast_archive.iter_records(sim_env.archive))
+    assert {r["kind"] for r in records} == {"playoff", "championship"}
+    for record in records:
+        assert record["inputs"]["contractGeneration"] is None
+        assert record["nullReasons"]["inputs.contractGeneration"]
+    assert contract_tripwire.reads == []
+
+
+def test_context_and_title_simulation_read_no_contract(sim_env, contract_tripwire):
+    """``collect_context`` plus a direct title simulation, called without the scrape."""
+    context = forecast_archive.collect_context(sim_env.snap, best_ball=False)
+    title = championship.simulate_championship_odds(
+        sim_env.snap, n_simulations=300, best_ball=False, rng=random.Random(3)
+    )
+    identity = forecast_archive.build_identity(
+        league_key="dynasty_tripwire",
+        kind="championship",
+        forecast={"computedAt": COMPUTED_AT, **title},
+        context=context,
+    )
+
+    assert len(title["championshipOdds"]) == len(SIM_OWNERS)
+    assert identity["inputs"]["contractGeneration"] is None
+    assert identity["inputs"]["rosAggregateSha256"] is not None  # the inputs it DOES read
+    assert contract_tripwire.reads == []
+
+
+def test_best_ball_presim_availability_reads_no_contract(sim_env, contract_tripwire, monkeypatch):
+    """The ``matchup_intel`` exception, justified by running it.
+
+    ``playoff_sim._presim_availability`` imports ``players_meta_for_rosters``
+    from ``src.api.matchup_intel`` -- a module whose own imports reach
+    ``data_contract``. The lexical guard allows exactly that one symbol; this
+    runs the real call under the tripwire to show it is a Sleeper
+    player-metadata read and nothing else. The calendar, the persisted players DB
+    and the network client are stubbed so the test stays offline and fast.
+    """
+    from src.public_league import sleeper_client
+    from src.ros import availability, game_day_live
+
+    def _player(owner, pos, ros):
+        return {
+            "playerId": f"{owner}_{pos}",
+            "canonicalName": f"{owner} {pos}",
+            "position": pos,
+            "rosValue": ros,
+            "fantasyPositions": [pos],
+        }
+
+    rosters = {
+        owner: {
+            "starters": [
+                _player(owner, "QB", 5000.0 + i * 100),
+                _player(owner, "RB", 4000.0),
+                _player(owner, "WR", 4200.0),
+                _player(owner, "TE", 2500.0),
+            ],
+            "bench": [_player(owner, "QB2", 1800.0)],
+        }
+        for i, owner in enumerate(SIM_OWNERS)
+    }
+    monkeypatch.setattr(playoff_sim, "_load_team_rosters", lambda *a, **k: rosters)
+    monkeypatch.setattr(playoff_sim, "_load_starter_slots", lambda *a, **k: list(SIM_SLOTS))
+    monkeypatch.setattr(
+        availability, "load_context", lambda **k: SimpleNamespace(weeks=[4, 5, 6], basis={})
+    )
+    monkeypatch.setattr(availability, "player_week_states", lambda pid, meta, ctx: {})
+    monkeypatch.setattr(game_day_live, "persisted_players_meta", lambda ids, now=None: None)
+    metadata_reads = []
+    monkeypatch.setattr(
+        sleeper_client, "fetch_nfl_players", lambda *a, **k: metadata_reads.append(1) or {}
+    )
+
+    out = playoff_sim.simulate_playoff_odds(
+        sim_env.snap, n_simulations=200, best_ball=True, rng=random.Random(4)
+    )
+
+    assert metadata_reads == [1], "players_meta_for_rosters did not run; this test proved nothing"
+    assert out["bestBallVarianceMode"] == "depth_aware"
+    assert len(out["playoffOdds"]) == len(SIM_OWNERS)
+    assert contract_tripwire.reads == []
 
 
 def test_missing_identity_is_none_with_a_reason_never_fabricated(ros_tmp, monkeypatch):
