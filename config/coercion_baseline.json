@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 627,
+ "count": 626,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -292,7 +292,6 @@
   "src/api/terminal.py::ts = int(tx.get(\"timestamp\") or 0)",
   "src/api/terminal.py::v = float(value or 0)",
   "src/api/terminal.py::value = ctx.get(\"value\") or 0",
-  "src/api/trade_simulator.py::v = int(a.get(\"value\") or 0)",
   "src/bdvm/actuals.py::if int(raw.get(\"season\") or 0) != int(season):",
   "src/bdvm/actuals.py::week = int(raw.get(\"week\") or 0)",
   "src/bdvm/baseline.py::return float(v or 0)",
