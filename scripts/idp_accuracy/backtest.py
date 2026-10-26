@@ -60,12 +60,6 @@ sys.path.insert(0, str(REPO))
 PREREG_PATH = "docs/valuation/idp_accuracy/G_PREREGISTRATION.md"
 PREREG_COMMIT = "4c53736fb478cf0d158f86185db0eb82c67f03e9"
 PREREG_BLOB = "a60ae89c80617c2837a5ed1d8a0fe90248d9751e"
-# PR #1942 was squash-merged, so on ``main`` the preregistration's first commit
-# is the squash commit below, not ``PREREG_COMMIT``. ``PREREG_COMMIT``, which
-# sits before the blind stage and the results, stays auditable in PR #1942's
-# commit list. The blob pin and the unchanged-since check are what freeze the
-# content, and both still apply.
-PREREG_SQUASH_COMMIT = "22a2ac8f8ce61c5a9ef994b14c67caf04a0e84d5"
 LABEL = "retrospective_point_in_time"
 LEAGUE_KEY = "dynasty_main"
 LEAGUE_ID = "1312006700437352448"
@@ -1399,19 +1393,12 @@ def check_preregistration() -> dict[str, Any]:
     blob = git("hash-object", PREREG_PATH)
     first = git("log", "--diff-filter=A", "--format=%H", "--", PREREG_PATH).splitlines()
     first_commit = first[-1] if first else None
-    accepted_first = {PREREG_COMMIT, PREREG_SQUASH_COMMIT}
-    changed_since = (
-        [
-            c
-            for c in git(
-                "log", "--format=%H", f"{first_commit}..HEAD", "--", PREREG_PATH
-            ).splitlines()
-            if c
-        ]
-        if first_commit
-        else []
-    )
-    ok = blob == PREREG_BLOB and first_commit in accepted_first and not changed_since
+    changed_since = [
+        c
+        for c in git("log", "--format=%H", f"{PREREG_COMMIT}..HEAD", "--", PREREG_PATH).splitlines()
+        if c
+    ]
+    ok = blob == PREREG_BLOB and first_commit == PREREG_COMMIT and not changed_since
     if not ok:
         raise SystemExit(
             f"preregistration is not frozen: blob={blob} first={first_commit} changed={changed_since}"
@@ -2198,6 +2185,46 @@ MIN_EFFECT = {"delta1": 0.05, "delta2": 0.02, "elite": 1.0 / 12.0}
 POINT_FLOOR_PER_POSITION = -0.10
 CROSS_FLOOR_FOR_WITHIN = -0.01
 WITHIN_FLOOR_FOR_CROSS = -0.02
+
+# PR #1942 was squash-merged, so on ``main`` the preregistration's first commit
+# is the squash commit, not ``PREREG_COMMIT``.  ``PREREG_COMMIT``'s place before
+# the blind stage and the results stays auditable in PR #1942's commit list.
+# This lives BELOW the Stage 2 marker on purpose: everything above it is pinned
+# by ``stage1_code_hash`` in the Stage 1 manifest and must not change.
+PREREG_SQUASH_COMMIT = "22a2ac8f8ce61c5a9ef994b14c67caf04a0e84d5"
+
+
+def check_preregistration_post_squash() -> dict[str, Any]:
+    """``check_preregistration`` that also accepts the #1942 squash commit.
+
+    The content freeze is unchanged: the blob must equal ``PREREG_BLOB``, and
+    no commit after the file's first commit may touch it.  Only the identity of
+    that first commit may be either the PR-branch commit or main's squash.
+    """
+    blob = git("hash-object", PREREG_PATH)
+    first = git("log", "--diff-filter=A", "--format=%H", "--", PREREG_PATH).splitlines()
+    first_commit = first[-1] if first else None
+    changed_since = (
+        [
+            c
+            for c in git(
+                "log", "--format=%H", f"{first_commit}..HEAD", "--", PREREG_PATH
+            ).splitlines()
+            if c
+        ]
+        if first_commit
+        else []
+    )
+    ok = (
+        blob == PREREG_BLOB
+        and first_commit in {PREREG_COMMIT, PREREG_SQUASH_COMMIT}
+        and not changed_since
+    )
+    if not ok:
+        raise SystemExit(
+            f"preregistration is not frozen: blob={blob} first={first_commit} changed={changed_since}"
+        )
+    return {"path": PREREG_PATH, "blob": blob, "firstCommit": first_commit, "unchangedSince": True}
 
 
 def midranks(x: np.ndarray) -> np.ndarray:
@@ -3676,7 +3703,7 @@ def stage2(args: argparse.Namespace) -> int:
         print(f"[{time.time() - t0:7.1f}s] {msg}", file=sys.stderr, flush=True)
 
     rehearsal = bool(args.rehearsal)
-    prereg = check_preregistration()
+    prereg = check_preregistration_post_squash()
     manifest, scores = load_stage1()
     rel_manifest = str(MANIFEST_PATH.relative_to(REPO)).replace("\\", "/")
     stage1_commit = git("log", "-1", "--format=%H", "--", rel_manifest)
