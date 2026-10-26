@@ -2730,11 +2730,16 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
     marker = _pregame_failure_path(season, week)
     if path.exists():
         if _read_pregame_archive(path) is not None:
+            # The raw log may be pruned now, so a marker left by an earlier
+            # failed attempt (e.g. a read-back mismatch) no longer describes
+            # a retained log -- clear it so the ops alert resolves.
+            marker.unlink(missing_ok=True)
             return True
         _mark_pregame_failure(marker, now, "archive_unreadable")
         return False
     log = observation_log(NFL_KEY, season, week, SOURCE_WEEKLY)
     if not log.log_path.exists():
+        marker.unlink(missing_ok=True)
         return True
     prior = _read_json(marker)
     if isinstance(prior, dict):
@@ -2781,6 +2786,56 @@ def _mark_pregame_failure(marker: Path, now: float, reason: str) -> None:
         _atomic_write_json(marker, {"failedAt": _iso(now), "reason": reason})
     except OSError:
         pass
+
+
+def pregame_archive_health() -> list[dict[str, Any]] | None:
+    """The NFL-wide weeks whose pregame archive could not be established.
+
+    One row per week that carries a :data:`PREGAME_ARCHIVE_FAILURE_NAME`
+    marker -- written by :func:`ensure_pregame_archive` when it keeps a raw
+    log instead of archiving it, and removed again when the archive is
+    established.  The operator-alert sweep (``src/api/ops_alerts.py``) turns
+    each row into a ``pregame_archive:<league>:<season>:<week>`` alert; a week
+    whose marker is gone drops out, which is how the alert resolves.
+
+    ``[]`` means the store was read and no week is failing.  ``None`` means it
+    could not be read (no store yet, or an I/O error) -- "not checked", which
+    the alerter must never treat as healthy.  Read-only: it archives, prunes
+    and rewrites nothing.
+    """
+    root = LIVE_ROOT / NFL_KEY
+    rows: list[dict[str, Any]] = []
+    try:
+        if not root.is_dir():
+            return None
+        for season_dir in sorted(root.iterdir()):
+            if not (season_dir.is_dir() and season_dir.name.isdigit()):
+                continue
+            for week_dir in sorted(season_dir.iterdir()):
+                name = week_dir.name
+                if not (week_dir.is_dir() and name.startswith("week_") and name[5:].isdigit()):
+                    continue
+                marker = week_dir / PREGAME_ARCHIVE_FAILURE_NAME
+                if not marker.is_file():
+                    continue
+                stored = _read_json(marker)
+                stored = stored if isinstance(stored, dict) else {}
+                reason = stored.get("reason")
+                rows.append(
+                    {
+                        "leagueKey": NFL_KEY,
+                        "season": int(season_dir.name),
+                        "week": int(name[5:]),
+                        # An unreadable marker still means a failure: say so
+                        # rather than dropping the week from the alert.
+                        "reason": str(reason) if reason else "failure_marker_unreadable",
+                        "failedAt": stored.get("failedAt"),
+                        "rawLogRetained": (week_dir / "observations").is_dir(),
+                    }
+                )
+    except OSError:
+        return None
+    return rows
 
 
 def prune_retention(season: int, week: int) -> list[str]:

@@ -14072,6 +14072,22 @@ def _draft_valuation_health() -> list[dict] | None:
         return None
 
 
+def _pregame_archive_health() -> list[dict] | None:
+    """Game Day weeks whose pregame-projections archive build failed (ops alerts).
+
+    Read from the failure markers the collector's prune leaves beside a week
+    whose raw log it is keeping (``game_day_live.pregame_archive_health``).
+    ``None`` -- "not checked", never "healthy" -- when the store is unreadable.
+    """
+    try:
+        from src.ros import game_day_live  # noqa: PLC0415
+
+        return game_day_live.pregame_archive_health()
+    except Exception as exc:  # noqa: BLE001 — the alert sweep never raises
+        logging.warning("pregame archive health check failed: %s", exc)
+        return None
+
+
 @app.get("/api/draft-capital")
 async def get_draft_capital(request: Request, refresh: str = ""):
     """Return draft capital breakdown per team using Sleeper pick ownership
@@ -20061,6 +20077,7 @@ async def run_signal_alerts(request: Request):
             data_age_hours=data_age_hours,
             scrape_interval_hours=float(SCRAPE_INTERVAL_HOURS),
             draft_valuation=await run_in_threadpool(_draft_valuation_health),
+            pregame_archive=await run_in_threadpool(_pregame_archive_health),
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,
         )
