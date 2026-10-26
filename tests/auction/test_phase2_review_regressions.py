@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import time
 
 import httpx
 
 from src.auction import engine, notify
-from src.auction.store import _READ_POOL_MAX
+from src.auction.store import _READ_POOL_MAX, open_store
 from tests.auction.helpers import et
 from tests.auction.test_api_store import (  # noqa: F401 - fixture import
     ORIGIN,
@@ -167,3 +168,32 @@ def test_rooms_from_before_engine_rev_2_keep_their_played_behaviour():
             NOON + 30 + i,
         )
     assert len(s2["auctions"][a1]["bids"]["S1"]["hist"]) == 50
+
+
+def test_view_names_its_store_epoch_and_a_client_ahead_of_the_server_is_answered_at_once(
+    env,  # noqa: F811
+    tmp_path,
+):
+    """Server half of the restore fix: a restore can move a room's revision
+    BACKWARDS, so ``/view`` names the store's epoch (new for every process that
+    opens the store) and the long-poll never parks a client that is AHEAD of the
+    server -- it gets the restored snapshot immediately instead of waiting out
+    the poll while still showing actions the restore lost."""
+    st, app = env
+    owner = _owner_client(app)
+    room = _ready_room(owner)
+    url = f"/api/auction/rooms/{room}/view"
+    first = owner.get(url)
+    assert first.status_code == 200, first.text
+    body = first.json()
+    assert body["storeEpoch"] and body["storeEpoch"] == st.epoch
+    assert owner.get(url).json()["storeEpoch"] == body["storeEpoch"]  # stable within a process
+    reopened = open_store(tmp_path / "other" / "auction" / "auction.sqlite")
+    assert reopened.epoch != st.epoch  # a restart / restore is a new epoch
+    reopened.close()
+
+    started = time.monotonic()
+    ahead = owner.get(url, params={"after": body["revision"] + 25, "wait": 8})
+    assert ahead.status_code == 200, ahead.text
+    assert time.monotonic() - started < 3, "a client ahead of the server must not be parked"
+    assert ahead.json()["revision"] == body["revision"]
