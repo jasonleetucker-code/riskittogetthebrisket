@@ -249,22 +249,37 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
             continue
         league, season, week = row.get("leagueKey"), row.get("season"), row.get("week")
         reason = row.get("reason") or "unknown"
-        retained = "retained" if row.get("rawLogRetained") else "NOT present"
+        failure = f"could not be established ({reason}; failed {row.get('failedAt')})."
+        if row.get("rawLogRetained"):
+            title = f"Pregame projections archive for {season} week {week} not built"
+            detail = (
+                f"The pregame weekly-projections archive for {league} {season} week {week} "
+                f"{failure}  The raw weekly-projection log is retained -- the prune keeps it "
+                "rather than delete evidence it has not archived -- but until the archive "
+                "exists that week's pregame baseline is not preserved for the projection "
+                "scorecard, and its raw observations stay on disk.  The Game Day collector "
+                "retries hourly; see pregame_projections.retained.json beside the week.  This "
+                "resolves when a build succeeds."
+            )
+        else:
+            # No raw log and no readable archive: nothing is left to rebuild
+            # from and the prune never revisits a week without observations/,
+            # so there is no retry and no automatic resolution.
+            title = f"Pregame projections archive for {season} week {week} cannot be rebuilt"
+            detail = (
+                f"The pregame weekly-projections archive for {league} {season} week {week} "
+                f"{failure}  The raw weekly-projection log is gone and no readable archive "
+                "exists, so the week cannot be rebuilt: its pregame baseline is permanently "
+                "missing from the projection scorecard.  The Game Day collector does not "
+                "retry a week that has no raw log.  This alert keeps firing until the failure "
+                "marker (pregame_projections.retained.json beside the week) is removed."
+            )
         alerts.append(
             OpsAlert(
                 severity="warning",
                 category=f"pregame_archive:{league}:{season}:{week}",
-                title=f"Pregame projections archive for {season} week {week} not built",
-                detail=(
-                    f"The pregame weekly-projections archive for {league} {season} week {week} "
-                    f"could not be established ({reason}; failed {row.get('failedAt')}).  The "
-                    f"raw weekly-projection log is {retained} -- the prune keeps it rather than "
-                    "delete evidence it has not archived -- but until the archive exists that "
-                    "week's pregame baseline is not preserved for the projection scorecard, and "
-                    "its raw observations stay on disk.  The Game Day collector retries hourly; "
-                    "see pregame_projections.retained.json beside the week.  This resolves "
-                    "when a build succeeds."
-                ),
+                title=title,
+                detail=detail,
             )
         )
     return alerts
