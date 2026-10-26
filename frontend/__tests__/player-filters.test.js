@@ -282,3 +282,108 @@ describe("filterRows + teamOptions", () => {
     }
   });
 });
+
+// ── NFL team filter on the main /rankings control bar ────────────────
+// The team select is one criterion (``nflTeam``) on the ONE rowMatches
+// pass — these pin the predicate semantics the control relies on:
+// conjunction with every other criterion, unknown teams failing closed,
+// and filtering that hides rows without touching what they carry.
+describe("nflTeam criterion — combined, fail-closed, rank-preserving", () => {
+  const board = () => [
+    row({ name: "Justin Jefferson", pos: "WR", team: "MIN", canonicalConsensusRank: 1, rankDerivedValue: 9541 }),
+    row({ name: "Josh Allen", pos: "QB", team: "BUF", canonicalConsensusRank: 3, rankDerivedValue: 8900 }),
+    row({ name: "T.J. Hockenson", pos: "TE", team: "MIN", canonicalConsensusRank: 29, rankDerivedValue: 6100 }),
+    row({ name: "Brock Bowers", pos: "TE", team: "LV", canonicalConsensusRank: 12, rankDerivedValue: 7400 }),
+    row({ name: "Jordan Addison", pos: "WR", team: "MIN", canonicalConsensusRank: 41, rankDerivedValue: 5200 }),
+    row({ name: "George Pickens", pos: "WR", team: "PIT", canonicalConsensusRank: 18, rankDerivedValue: 6900 }),
+    row({ name: "Null Team Guy", pos: "WR", team: null, canonicalConsensusRank: 90, rankDerivedValue: 3000 }),
+    row({ name: "Empty Team Guy", pos: "RB", team: "", canonicalConsensusRank: 95, rankDerivedValue: 2900 }),
+    row({ name: "Free Agent Guy", pos: "RB", team: "FA", canonicalConsensusRank: 99, rankDerivedValue: 2800 }),
+  ];
+  const names = (rows) => rows.map((r) => r.name);
+
+  it("a team criterion keeps only that franchise (code is case-insensitive)", () => {
+    expect(names(filterRows(board(), { nflTeam: "MIN" }))).toEqual([
+      "Justin Jefferson",
+      "T.J. Hockenson",
+      "Jordan Addison",
+    ]);
+    expect(names(filterRows(board(), { nflTeam: "lv" }))).toEqual(["Brock Bowers"]);
+    expect(names(filterRows(board(), { nflTeam: "PIT" }))).toEqual(["George Pickens"]);
+  });
+
+  it("no team criterion (All NFL Teams) keeps every row, including unknown teams", () => {
+    const rows = board();
+    expect(filterRows(rows, {})).toBe(rows);
+    // An empty-string team is how the "All NFL Teams" option reads if it
+    // ever reached the engine; it must behave as absent, not as "no team".
+    expect(names(filterRows(rows, { nflTeam: "" }))).toEqual(names(rows));
+  });
+
+  it("rows with a null, empty or FA team are hidden when a franchise is selected", () => {
+    for (const team of ["MIN", "BUF", "LV", "PIT"]) {
+      const out = names(filterRows(board(), { nflTeam: team }));
+      expect(out).not.toContain("Null Team Guy");
+      expect(out).not.toContain("Empty Team Guy");
+      expect(out).not.toContain("Free Agent Guy");
+    }
+    // FA is its own explicit option: it selects matched free agents only,
+    // never the unknown-team rows.
+    expect(names(filterRows(board(), { nflTeam: "FA" }))).toEqual(["Free Agent Guy"]);
+  });
+
+  it("team + position conjuncts", () => {
+    expect(names(filterRows(board(), { nflTeam: "MIN", positions: new Set(["WR"]) }))).toEqual([
+      "Justin Jefferson",
+      "Jordan Addison",
+    ]);
+    expect(names(filterRows(board(), { nflTeam: "MIN", positions: new Set(["TE"]) }))).toEqual([
+      "T.J. Hockenson",
+    ]);
+    // a position nobody on that team plays → empty, not "fall back to all"
+    expect(filterRows(board(), { nflTeam: "BUF", positions: new Set(["RB"]) })).toEqual([]);
+  });
+
+  it("team + search conjuncts, and the search cannot widen past the team", () => {
+    expect(names(filterRows(board(), { nflTeam: "MIN", query: "jordan" }))).toEqual(["Jordan Addison"]);
+    // "pos:te" is a search token; the team criterion still binds
+    expect(names(filterRows(board(), { nflTeam: "MIN", query: "pos:te" }))).toEqual(["T.J. Hockenson"]);
+    // the search token "pit" matches PIT players, but team=MIN excludes them
+    expect(filterRows(board(), { nflTeam: "MIN", query: "pit" })).toEqual([]);
+  });
+
+  it("team + advanced criteria (rank range, value floor, age) conjunct", () => {
+    expect(names(filterRows(board(), { nflTeam: "MIN", rankMax: 30 }))).toEqual([
+      "Justin Jefferson",
+      "T.J. Hockenson",
+    ]);
+    expect(names(filterRows(board(), { nflTeam: "MIN", valueMin: 6000 }))).toEqual([
+      "Justin Jefferson",
+      "T.J. Hockenson",
+    ]);
+    expect(filterRows(board(), { nflTeam: "MIN", ageMax: 20 })).toEqual([]);
+  });
+
+  it("filtering only hides rows: survivors are the same objects with rank and value untouched", () => {
+    const rows = board().map((r) => Object.freeze({ ...r }));
+    const out = filterRows(rows, { nflTeam: "MIN" });
+    // Frozen rows would throw on any in-place renumbering/recalculation,
+    // and identity proves nothing was copied-and-rewritten either.
+    for (const survivor of out) {
+      const original = rows.find((r) => r.name === survivor.name);
+      expect(survivor).toBe(original);
+    }
+    expect(out.map((r) => [r.name, r.canonicalConsensusRank, r.rankDerivedValue])).toEqual([
+      ["Justin Jefferson", 1, 9541],
+      ["T.J. Hockenson", 29, 6100],
+      ["Jordan Addison", 41, 5200],
+    ]);
+    // the source array is not reordered or shortened either
+    expect(rows).toHaveLength(9);
+  });
+
+  it("teamOptions is the team picker's source: de-duplicated, upper-cased, FA last, unknowns dropped", () => {
+    expect(teamOptions(board())).toEqual(["BUF", "LV", "MIN", "PIT", "FA"]);
+    expect(teamOptions([row({ team: "min" }), row({ team: " MIN " })])).toEqual(["MIN"]);
+  });
+});
