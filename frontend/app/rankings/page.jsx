@@ -165,6 +165,13 @@ const CONFIDENCE_FILTERS = [
   { key: "low", label: "Low" },
 ];
 
+// Display label for an NFL team code from ``teamOptions``.  The code is
+// the canonical value (and what ``rowMatches`` compares); "FA" is the
+// materialized free-agent sentinel, which reads better spelled out.
+function nflTeamLabel(code) {
+  return code === "FA" ? "Free agent (NFL)" : code;
+}
+
 function posMatchesFilter(pos, assetClass, filter, row) {
   if (filter === "all") return true;
   if (filter === "offense") return assetClass === "offense";
@@ -420,7 +427,18 @@ export default function RankingsPage() {
       return next;
     });
   }, []);
+  // Clears every ``adv`` field INCLUDING the NFL team.  This is the
+  // reset-all path ("Reset filters" on the empty state).
   const clearAdv = useCallback(() => setAdv({}), []);
+  // Clears only the controls that live inside the Filters rail.  The NFL
+  // team select sits in the main control bar (it is ``adv.nflTeam`` — the
+  // same single piece of state, just rendered beside the position and
+  // confidence filters), and it has its own clear affordance, so the
+  // rail's "Clear" must not silently reset a control that is outside it.
+  const clearRailAdv = useCallback(
+    () => setAdv((prev) => (prev.nflTeam ? { nflTeam: prev.nflTeam } : {})),
+    [],
+  );
 
   // If the user is viewing an IDP-only filter and then switches to
   // a league that disables IDP, snap back to "all" so the board
@@ -581,6 +599,12 @@ export default function RankingsPage() {
     return c;
   }, [adv, watchlistLower]);
   const advActiveCount = Object.keys(advCriteria).length;
+  // The "Filters (N)" badge counts what is set INSIDE the rail.  The NFL
+  // team is a criterion like any other (it feeds ``advCriteria`` and so
+  // the one ``rowMatches`` pass), but its control is in the main bar with
+  // its own clear affordance — counting it here would label a rail that
+  // contains nothing active.
+  const railActiveCount = advActiveCount - (advCriteria.nflTeam ? 1 : 0);
 
   // ── Filtered + sorted list (unchanged pipeline) ─────────────────
   const ranked = useMemo(() => {
@@ -765,7 +789,7 @@ export default function RankingsPage() {
   // The ref guard keeps this from firing on mount, where it would clash
   // with the `?pos=` / `?screen=` URL seeding that runs in its own
   // effect and legitimately arrives with a filter already set.
-  const filterSignature = `${query}|${posFilter}|${confFilter}|${advActiveCount}`;
+  const filterSignature = `${query}|${posFilter}|${confFilter}|${advActiveCount}|${adv.nflTeam ?? ""}`;
   const lastFilterSignature = useRef(filterSignature);
   useEffect(() => {
     if (lastFilterSignature.current === filterSignature) return;
@@ -1821,6 +1845,39 @@ export default function RankingsPage() {
                   </optgroup>
                 </Select>
               </span>
+              {/* NFL team — bound to ``adv.nflTeam``, the same single
+                  piece of state the advanced rail used to render it
+                  from, so it still flows through the one ``rowMatches``
+                  pass and cannot disagree with another control.  Options
+                  come from ``nflTeamOptions`` (``teamOptions(eligible)``
+                  — the board's own team codes), never a second list.
+                  Filtering hides rows; ranks and values stay backend
+                  stamps. */}
+              <span className={styles.controlsTeam}>
+                <Select
+                  value={adv.nflTeam ?? ""}
+                  onChange={(e) => setAdvField("nflTeam", e.target.value)}
+                  aria-label="NFL team filter"
+                >
+                  <option value="">All NFL Teams</option>
+                  {nflTeamOptions.map((t) => (
+                    <option key={t} value={t}>
+                      {nflTeamLabel(t)}
+                    </option>
+                  ))}
+                </Select>
+                {adv.nflTeam ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setAdvField("nflTeam", "")}
+                    aria-label={`Clear NFL team filter (${nflTeamLabel(adv.nflTeam)})`}
+                    title="Show all NFL teams"
+                  >
+                    Clear team
+                  </Button>
+                ) : null}
+              </span>
               <span className={styles.controlsSelect}>
                 <Select
                   value={confFilter}
@@ -1845,12 +1902,12 @@ export default function RankingsPage() {
               </Button>
               <Button
                 size="sm"
-                variant={advActiveCount > 0 ? "secondary" : "ghost"}
+                variant={railActiveCount > 0 ? "secondary" : "ghost"}
                 onClick={() => setAdvOpen((v) => !v)}
-                title="Advanced filters: age, experience, NFL team, owner, rank/value range, edge, watchlist"
+                title="Advanced filters: age, experience, owner, rank/value range, edge, watchlist"
                 aria-expanded={advOpen}
               >
-                Filters{advActiveCount > 0 ? ` (${advActiveCount})` : ""}
+                Filters{railActiveCount > 0 ? ` (${railActiveCount})` : ""}
               </Button>
             </div>
 
@@ -1894,18 +1951,6 @@ export default function RankingsPage() {
                   {EXPERIENCE_BUCKETS.map((b) => (
                     <option key={b.key} value={b.key}>
                       {b.label}
-                    </option>
-                  ))}
-                </Select>
-                <Select
-                  value={adv.nflTeam ?? ""}
-                  onChange={(e) => setAdvField("nflTeam", e.target.value)}
-                  aria-label="NFL team"
-                >
-                  <option value="">Any NFL team</option>
-                  {nflTeamOptions.map((t) => (
-                    <option key={t} value={t}>
-                      {t === "FA" ? "Free agent (NFL)" : t}
                     </option>
                   ))}
                 </Select>
@@ -1993,11 +2038,11 @@ export default function RankingsPage() {
                   />
                   Watchlist
                 </label>
-                {advActiveCount > 0 && (
+                {railActiveCount > 0 && (
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={clearAdv}
+                    onClick={clearRailAdv}
                     title="Clear advanced filters"
                   >
                     Clear
@@ -2020,6 +2065,7 @@ export default function RankingsPage() {
               {hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown
               {activeLens !== "consensus" && ` · ${currentLens.label} lens`}
               {confFilter !== "all" && ` · ${confFilter} confidence`}
+              {adv.nflTeam && ` · ${nflTeamLabel(adv.nflTeam)}`}
               {tierGroupingActive && " · grouped by tier"}
               {rowsPending && " · filtering…"}
             </p>
@@ -2078,7 +2124,7 @@ export default function RankingsPage() {
                   title="No players match these filters"
                   description={
                     advActiveCount > 0 || query
-                      ? "Clear the search or advanced filters to widen the board."
+                      ? "Clear the search, NFL team or advanced filters to widen the board."
                       : "Try a different lens, position, or confidence filter."
                   }
                   action={
