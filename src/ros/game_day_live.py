@@ -2683,11 +2683,15 @@ def _last_scoreboard(season: int, week: int) -> Any:
 
 def _read_pregame_archive(path: Path) -> dict[str, Any] | None:
     import gzip
+    import zlib
 
     try:
         with gzip.open(path, "rt", encoding="utf-8") as handle:
             data = json.load(handle)
-    except (OSError, ValueError, EOFError):
+    # ``zlib.error`` is what a corrupt deflate stream raises (it is neither an
+    # OSError nor a ValueError); "does not read back" must be ``None``, not a
+    # crash in the prune or in the health reader.
+    except (OSError, ValueError, EOFError, zlib.error):
         return None
     if not isinstance(data, dict) or data.get("schemaVersion") != PREGAME_ARCHIVE_SCHEMA:
         return None
@@ -2719,6 +2723,24 @@ def _pregame_failure_path(season: int, week: int) -> Path:
     return league_week_dir(NFL_KEY, season, week) / PREGAME_ARCHIVE_FAILURE_NAME
 
 
+def _clear_pregame_failure(marker: Path) -> None:
+    """Remove a failure marker, tolerating an I/O error.
+
+    ``prune_retention`` walks every week and league; a marker that cannot be
+    removed (a permission error, a locked file) must not abort the weeks after
+    it.  The marker simply stays and the ops alert keeps firing, which is the
+    correct outcome for a failure that could not be cleared.
+    """
+    try:
+        marker.unlink(missing_ok=True)
+    except OSError as exc:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "game day: could not clear pregame archive failure marker %s (%s)", marker, exc
+        )
+
+
 def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) -> bool:
     """True when the week's raw weekly-projection log may be pruned: the
     archive already exists and reads back, or there was nothing to preserve,
@@ -2733,13 +2755,13 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
             # The raw log may be pruned now, so a marker left by an earlier
             # failed attempt (e.g. a read-back mismatch) no longer describes
             # a retained log -- clear it so the ops alert resolves.
-            marker.unlink(missing_ok=True)
+            _clear_pregame_failure(marker)
             return True
         _mark_pregame_failure(marker, now, "archive_unreadable")
         return False
     log = observation_log(NFL_KEY, season, week, SOURCE_WEEKLY)
     if not log.log_path.exists():
-        marker.unlink(missing_ok=True)
+        _clear_pregame_failure(marker)
         return True
     prior = _read_json(marker)
     if isinstance(prior, dict):
@@ -2768,7 +2790,7 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
     if reason is not None:
         _mark_pregame_failure(marker, now, reason)
         return False
-    marker.unlink(missing_ok=True)
+    _clear_pregame_failure(marker)
     return True
 
 
@@ -2798,6 +2820,12 @@ def pregame_archive_health() -> list[dict[str, Any]] | None:
     each row into a ``pregame_archive:<league>:<season>:<week>`` alert; a week
     whose marker is gone drops out, which is how the alert resolves.
 
+    A marker whose week has no ``observations/`` directory AND an archive that
+    reads back is a resolved failure the prune can no longer clean up, so it
+    is skipped rather than reported.  A marker with no raw log and no readable
+    archive is still reported (``rawLogRetained: False``): that week's pregame
+    baseline is gone and cannot be rebuilt, which is the loss worth an alert.
+
     ``[]`` means the store was read and no week is failing.  ``None`` means it
     could not be read (no store yet, or an I/O error) -- "not checked", which
     the alerter must never treat as healthy.  Read-only: it archives, prunes
@@ -2818,6 +2846,19 @@ def pregame_archive_health() -> list[dict[str, Any]] | None:
                 marker = week_dir / PREGAME_ARCHIVE_FAILURE_NAME
                 if not marker.is_file():
                     continue
+                raw_log_retained = (week_dir / "observations").is_dir()
+                if (
+                    not raw_log_retained
+                    and _read_pregame_archive(week_dir / PREGAME_ARCHIVE_NAME) is not None
+                ):
+                    # Resolved, just never cleaned up: the archive reads back
+                    # and the raw log is already gone, so there is nothing
+                    # left to retain or retry.  ``prune_retention`` only
+                    # re-checks a week while its ``observations/`` directory
+                    # exists, so it will never remove this marker -- skipping
+                    # it here (read-only; this reader writes nothing) keeps
+                    # the alert from firing forever.
+                    continue
                 stored = _read_json(marker)
                 stored = stored if isinstance(stored, dict) else {}
                 reason = stored.get("reason")
@@ -2830,7 +2871,7 @@ def pregame_archive_health() -> list[dict[str, Any]] | None:
                         # rather than dropping the week from the alert.
                         "reason": str(reason) if reason else "failure_marker_unreadable",
                         "failedAt": stored.get("failedAt"),
-                        "rawLogRetained": (week_dir / "observations").is_dir(),
+                        "rawLogRetained": raw_log_retained,
                     }
                 )
     except OSError:
