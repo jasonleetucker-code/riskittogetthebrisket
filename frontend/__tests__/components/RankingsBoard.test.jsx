@@ -384,6 +384,11 @@ describe("NFL team filter (main control bar)", () => {
   const ALL_NAMES = TEAM_ROWS.map((r) => r.name);
 
   const teamSelect = () => screen.getByLabelText("NFL team filter");
+  /** The ``aria-live`` result line ("N shown · ...") a screen reader announces. */
+  const resultLine = () =>
+    Array.from(document.querySelectorAll('[aria-live="polite"]')).find((el) =>
+      /shown/.test(el.textContent),
+    );
 
   /** [name, rank, value] per rendered row, read from the table cells. */
   function boardCells() {
@@ -428,7 +433,7 @@ describe("NFL team filter (main control bar)", () => {
     expect(screen.getByRole("button", { name: /^Filters/ })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByLabelText("Experience")).toBeNull();
     // Nothing selected, so nothing to clear.
-    expect(screen.queryByRole("button", { name: /Clear NFL team filter/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Clear team/ })).toBeNull();
     expect(renderedNames()).toEqual(ALL_NAMES);
   });
 
@@ -557,20 +562,122 @@ describe("NFL team filter (main control bar)", () => {
   it("shows a Clear team control only while a team is selected, and it resets the select and the board", async () => {
     const user = userEvent.setup();
     render(<RankingsPage />);
-    expect(screen.queryByRole("button", { name: /Clear NFL team filter/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Clear team/ })).toBeNull();
 
     await user.selectOptions(teamSelect(), "MIN");
-    const clear = screen.getByRole("button", { name: "Clear NFL team filter (MIN)" });
+    const clear = screen.getByRole("button", { name: /^Clear team/ });
     // It lives in the same flex item as the select, so it cannot wrap away from it.
     expect(clear.parentElement).toBe(teamSelect().closest("span[class*='controlsTeam']"));
     // The result line names the active team.
-    expect(document.body.textContent).toMatch(/shown · MIN/);
+    expect(resultLine().textContent).toMatch(/shown · NFL team MIN/);
 
     await user.click(clear);
     expect(teamSelect()).toHaveValue("");
-    expect(screen.queryByRole("button", { name: /Clear NFL team filter/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Clear team/ })).toBeNull();
     expect(renderedNames()).toEqual(ALL_NAMES);
-    expect(document.body.textContent).not.toMatch(/shown · MIN/);
+    expect(resultLine().textContent).not.toMatch(/NFL team/);
+  });
+
+  // WCAG 2.5.3 (Label in Name): a voice-control user says what they SEE, so
+  // the accessible name has to start with the visible text.  The team goes
+  // after it, for context.
+  it("the Clear button's accessible name starts with its visible text", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "MIN");
+    const clear = screen.getByRole("button", { name: /^Clear team/ });
+    expect(clear).toHaveTextContent("Clear team");
+    expect(clear).toHaveAccessibleName("Clear team (MIN)");
+    // Nothing in the old, longer wording survives to confuse a name match.
+    expect(screen.queryByRole("button", { name: /Clear NFL team filter/ })).toBeNull();
+  });
+
+  // The button unmounts the instant the filter clears; without an explicit
+  // hand-off, focus falls to <body> and a keyboard user loses their place.
+  it("returns focus to the NFL team select after Clear team (keyboard path included)", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "MIN");
+
+    const clear = screen.getByRole("button", { name: /^Clear team/ });
+    clear.focus();
+    expect(clear).toHaveFocus();
+    await user.keyboard("{Enter}");
+
+    expect(screen.queryByRole("button", { name: /^Clear team/ })).toBeNull();
+    expect(teamSelect()).toHaveValue("");
+    expect(teamSelect()).toHaveFocus();
+    expect(document.body).not.toHaveFocus();
+
+    // Same hand-off on the pointer path.
+    await user.selectOptions(teamSelect(), "BUF");
+    await user.click(screen.getByRole("button", { name: /^Clear team/ }));
+    expect(teamSelect()).toHaveFocus();
+  });
+
+  it("announces the active team in the live region as 'NFL team <code>', not a bare code", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    expect(resultLine()).toHaveAttribute("aria-live", "polite");
+    expect(resultLine().textContent).not.toMatch(/NFL team/);
+
+    await user.selectOptions(teamSelect(), "MIN");
+    expect(resultLine().textContent).toMatch(/shown · NFL team MIN(?: ·|$)/);
+    // The old bare " · MIN" suffix is gone.
+    expect(resultLine().textContent).not.toMatch(/shown · MIN/);
+
+    // The free-agent sentinel reads as words, not "NFL team Free agent (NFL)".
+    await user.selectOptions(teamSelect(), "FA");
+    expect(resultLine().textContent).toMatch(/shown · NFL free agents(?: ·|$)/);
+  });
+
+  // A data refresh or the IDP toggle can drop a code out of ``teamOptions``
+  // while ``adv.nflTeam`` still holds it.  A controlled <select> whose value
+  // matches no <option> silently displays the FIRST option ("All NFL
+  // Teams") — it would claim "no filter" over a board the filter is
+  // emptying.
+  it("keeps a stale selected team visible and selected when it leaves the options", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "MIN");
+    expect(renderedNames()).toHaveLength(3);
+
+    // Data refresh: the board no longer carries a single MIN player.
+    dyn.rows = TEAM_ROWS.filter((r) => r.team !== "MIN");
+    rerender(<RankingsPage />);
+
+    const optionValues = () =>
+      within(teamSelect())
+        .getAllByRole("option")
+        .map((o) => o.getAttribute("value"));
+    expect(teamSelect()).toHaveValue("MIN");
+    expect(teamSelect()).toHaveDisplayValue("MIN");
+    expect(teamSelect()).not.toHaveDisplayValue("All NFL Teams");
+    // The board's own codes plus the one stale code — once, not a second list.
+    const values = optionValues();
+    expect(values.filter((v) => v === "MIN")).toHaveLength(1);
+    expect([...values].sort()).toEqual(["", "BUF", "FA", "LV", "MIN", "PIT"].sort());
+    expect(values.slice(0, 1)).toEqual([""]);
+    // The filter is genuinely still active, which is the point of showing it.
+    expect(screen.getByText(/No players match these filters/)).toBeInTheDocument();
+    expect(resultLine().textContent).toMatch(/NFL team MIN/);
+
+    // It can be cleared, and clearing drops the extra option again.
+    await user.click(screen.getByRole("button", { name: /^Clear team/ }));
+    expect(teamSelect()).toHaveValue("");
+    expect(teamSelect()).toHaveDisplayValue("All NFL Teams");
+    expect(optionValues()).not.toContain("MIN");
+    expect(renderedNames()).toEqual(dyn.rows.map((r) => r.name));
+  });
+
+  it("adds no extra option when the selected team is still on the board", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "PIT");
+    const values = within(teamSelect())
+      .getAllByRole("option")
+      .map((o) => o.getAttribute("value"));
+    expect(values).toEqual(["", "BUF", "LV", "MIN", "PIT", "FA"]);
   });
 
   it("the clear-all control (Reset filters) clears the team along with every other filter", async () => {

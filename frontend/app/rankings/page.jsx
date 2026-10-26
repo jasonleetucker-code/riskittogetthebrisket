@@ -172,6 +172,13 @@ function nflTeamLabel(code) {
   return code === "FA" ? "Free agent (NFL)" : code;
 }
 
+// Wording for the result line's ``aria-live`` suffix.  A bare " · MIN" is
+// read out with no hint of what it filters; name the dimension.  The "FA"
+// sentinel reads as words, not "NFL team Free agent (NFL)".
+function nflTeamAnnouncement(code) {
+  return code === "FA" ? "NFL free agents" : `NFL team ${code}`;
+}
+
 function posMatchesFilter(pos, assetClass, filter, row) {
   if (filter === "all") return true;
   if (filter === "offense") return assetClass === "offense";
@@ -439,6 +446,16 @@ export default function RankingsPage() {
     () => setAdv((prev) => (prev.nflTeam ? { nflTeam: prev.nflTeam } : {})),
     [],
   );
+  // The "Clear team" button unmounts the moment the filter clears, which
+  // would drop focus to <body>.  Clearing hands focus to the team select
+  // (the control the button belongs to) through this ref; the DS ``Select``
+  // spreads ``...rest`` onto its native <select>, and on React 19 ``ref`` is
+  // an ordinary prop, so it lands on the real element — no DOM walking.
+  const nflTeamSelectRef = useRef(null);
+  const clearNflTeam = useCallback(() => {
+    setAdvField("nflTeam", "");
+    nflTeamSelectRef.current?.focus();
+  }, [setAdvField]);
 
   // If the user is viewing an IDP-only filter and then switches to
   // a league that disables IDP, snap back to "all" so the board
@@ -1855,6 +1872,7 @@ export default function RankingsPage() {
                   stamps. */}
               <span className={styles.controlsTeam}>
                 <Select
+                  ref={nflTeamSelectRef}
                   value={adv.nflTeam ?? ""}
                   onChange={(e) => setAdvField("nflTeam", e.target.value)}
                   aria-label="NFL team filter"
@@ -1865,13 +1883,25 @@ export default function RankingsPage() {
                       {nflTeamLabel(t)}
                     </option>
                   ))}
+                  {/* A selected code that has left ``nflTeamOptions`` (data
+                      refresh, IDP toggle) is still the ACTIVE filter.  A
+                      controlled <select> whose value matches no <option>
+                      falls back to showing "All NFL Teams" over a board the
+                      filter is still narrowing, so keep the code visible and
+                      selected.  This is the one stale value, not a second
+                      list — it vanishes when the filter is cleared. */}
+                  {adv.nflTeam && !nflTeamOptions.includes(adv.nflTeam) ? (
+                    <option key={adv.nflTeam} value={adv.nflTeam}>
+                      {nflTeamLabel(adv.nflTeam)}
+                    </option>
+                  ) : null}
                 </Select>
                 {adv.nflTeam ? (
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setAdvField("nflTeam", "")}
-                    aria-label={`Clear NFL team filter (${nflTeamLabel(adv.nflTeam)})`}
+                    onClick={clearNflTeam}
+                    aria-label={`Clear team (${nflTeamLabel(adv.nflTeam)})`}
                     title="Show all NFL teams"
                   >
                     Clear team
@@ -2065,7 +2095,7 @@ export default function RankingsPage() {
               {hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown
               {activeLens !== "consensus" && ` · ${currentLens.label} lens`}
               {confFilter !== "all" && ` · ${confFilter} confidence`}
-              {adv.nflTeam && ` · ${nflTeamLabel(adv.nflTeam)}`}
+              {adv.nflTeam && ` · ${nflTeamAnnouncement(adv.nflTeam)}`}
               {tierGroupingActive && " · grouped by tier"}
               {rowsPending && " · filtering…"}
             </p>
