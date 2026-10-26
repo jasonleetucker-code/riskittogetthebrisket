@@ -91,6 +91,13 @@ REASON_NO_CANDIDATE = "no_candidate"
 REASON_AMBIGUOUS = "ambiguous"
 REASON_BELOW_THRESHOLD = "below_threshold"
 
+#: Rung names (the part of ``Resolution.method`` before any ``:how`` suffix) that
+#: are exact matches -- see :attr:`Resolution.is_exact`.  Deliberately excludes
+#: ``initial_last`` / ``initial_last_guarded`` / ``fuzzy_guarded`` and ``none``.
+_EXACT_METHODS = frozenset(
+    {"sleeper_id", "gsis_id", "espn_id", "exact_clean", "exact_lookup", "exact_canonical"}
+)
+
 
 @dataclass(frozen=True)
 class SleeperCandidate:
@@ -131,6 +138,23 @@ class Resolution:
     @property
     def resolved(self) -> bool:
         return self.status == RESOLVED
+
+    @property
+    def is_exact(self) -> bool:
+        """True when a RESOLVED answer came from an exact rung: an exact external
+        id, or one of the exact-name rungs (``exact_clean`` / ``exact_lookup`` /
+        ``exact_canonical``, with or without a ``:how`` narrowing suffix).
+
+        Never true for a guarded initial-expansion or guarded-fuzzy answer, for
+        an unresolved one, or for one picked out of a tie (``tie_detected``) --
+        those are guesses.  It names the RUNG that answered; it does not say the
+        player is the right one (a lone same-name candidate resolves under
+        ``exact_clean:name`` whatever his team), so a consumer that needs more
+        corroborates with its own evidence.
+        """
+        if not self.resolved or self.tie_detected:
+            return False
+        return str(self.method).split(":", 1)[0] in _EXACT_METHODS
 
     def to_dict(self) -> dict[str, Any]:
         return {
