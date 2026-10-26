@@ -208,11 +208,21 @@ def _status_path() -> Path:
     return Path(override) if override else REPO / "data" / "bdvm" / "refresh_status.json"
 
 
-def _describe(outcome: dict) -> str:
+# What a stage's own soft failure (exit 1) MEANS, per stage.  One phrase for all
+# three was wrong in two of them: the baseline never touches a source table, and
+# Clay's soft failure is an unavailable guide, not an unusable one.
+_SOFT_FAILURE_WORDING = {
+    "baseline": "built nothing",
+    "clay": "guide unavailable",
+    "idpshow": "no usable data",
+}
+
+
+def _describe(stage: str, outcome: dict) -> str:
     status = outcome["status"]
     code = outcome.get("exitCode")
     if status == FAILED:
-        return f"exit {code}: no usable data"
+        return f"exit {code}: {_SOFT_FAILURE_WORDING.get(stage, 'soft failure')}"
     if status == ERROR:
         return f"exit {code}: hard error"
     if status == UNAVAILABLE:
@@ -242,7 +252,7 @@ def _summarize(
         "shadowStages": shadowed,
         "skippedStages": skipped,
     }
-    failed_text = ", ".join(f"{n} ({_describe(outcomes[n])})" for n in not_landed)
+    failed_text = ", ".join(f"{n} ({_describe(n, outcomes[n])})" for n in not_landed)
     tail = ""
     if shadowed:
         tail += (

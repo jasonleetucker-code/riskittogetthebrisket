@@ -232,6 +232,43 @@ class TestHonestReporting(_RunHarness):
         self.assertEqual(status["failedStages"], ["baseline", "clay", "idpshow"])
         self.assertFalse(status["snapshotWritten"])
         self.assertIn("FAILED stages", self.final_line)
+        # Each stage's exit 1 is worded for what THAT stage means by it - one
+        # shared "no usable data" blamed a source table for the baseline.
+        line = self.final_line
+        self.assertIn("baseline (exit 1: built nothing)", line)
+        self.assertIn("clay (exit 1: guide unavailable)", line)
+        self.assertIn("idpshow (exit 1: no usable data)", line)
+
+    def test_a_baseline_soft_failure_is_not_blamed_on_a_source_table(self):
+        # Clay landed, so the run is DEGRADED rather than failed; the baseline's
+        # exit 1 must read as the baseline's own, not as "no usable data".
+        rc, _ = self._run(
+            ["--season", "2026", "--skip-idpshow"], {"baseline": 1, "clay": 0}, session_exists=True
+        )
+        self.assertEqual(rc, 0)
+        line = self.final_line
+        self.assertIn("baseline (exit 1: built nothing)", line)
+        self.assertNotIn("no usable data", line)
+        self.assertEqual(self.read_status()["failedStages"], ["baseline"])
+
+    def test_every_soft_failure_wording_is_stage_specific_and_has_a_fallback(self):
+        failed = {"status": _mod.FAILED, "exitCode": 1}
+        self.assertEqual(_mod._describe("baseline", failed), "exit 1: built nothing")
+        self.assertEqual(_mod._describe("clay", failed), "exit 1: guide unavailable")
+        self.assertEqual(_mod._describe("idpshow", failed), "exit 1: no usable data")
+        # A stage added later without wording degrades to a generic, true phrase.
+        self.assertEqual(_mod._describe("newstage", failed), "exit 1: soft failure")
+        # The other statuses do not depend on the stage.
+        self.assertEqual(
+            _mod._describe("clay", {"status": _mod.ERROR, "exitCode": 2}), "exit 2: hard error"
+        )
+        self.assertEqual(
+            _mod._describe(
+                "idpshow",
+                {"status": _mod.UNAVAILABLE, "exitCode": None, "detail": "no session cookies"},
+            ),
+            "no session cookies",
+        )
 
     def test_hard_error_with_nothing_written_is_exit_2_in_status(self):
         rc, _ = self._run(

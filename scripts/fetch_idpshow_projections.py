@@ -183,7 +183,7 @@ def main() -> int:
                     parse_summary=summary,
                 )
                 print(f"parse diagnostic written to {diag}", file=sys.stderr)
-            except OSError as exc:
+            except (OSError, TypeError, ValueError) as exc:
                 print(f"warn: could not write parse diagnostic: {exc}", file=sys.stderr)
         return 1
 
@@ -205,7 +205,11 @@ def main() -> int:
                 status="parsed",
                 parse_summary=summary,
             )
-        except OSError as exc:
+        except (OSError, TypeError, ValueError) as exc:
+            # OSError is the disk; TypeError / ValueError is the payload
+            # (``json.dump`` on a value it cannot encode).  All three are
+            # "the shadow file could not be written" - the documented exit 2,
+            # not a traceback.
             print(f"ERROR: could not write the shadow file: {exc}", file=sys.stderr)
             return 2
         print(

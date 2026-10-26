@@ -39,6 +39,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import scripts.fetch_idpshow as rankings_fetcher
 import scripts.fetch_idpshow_projections as fetcher
 from src.bdvm import idpshow_projections as idp
 from src.bdvm import projections as bdvm_projections
@@ -145,6 +146,86 @@ class TestPositionRankLayout(unittest.TestCase):
         )
         self.assertEqual(report["positionSource"], "position_column")
         self.assertEqual(rows[0]["position"], "LB")
+
+
+# The two IDP Show parsers read the SAME ``Position Rank`` code and emit different
+# position vocabularies ON PURPOSE: the rankings fetcher normalises through
+# ``_POS_NORM`` (ED->DE, IDL->DT, everything else as published) for the ranking
+# registry, while BDVM maps to its true positions (TRUE_POSITION_MAP plus
+# ED->EDGE, IDL->DT, DI->DT).  What must NOT differ is the MEANING.  So this
+# test, not production code, folds both vocabularies onto three families.
+_FAMILY = {
+    # pass rushers and interior linemen
+    "DE": "DL",
+    "EDGE": "DL",
+    "ED": "DL",
+    "DT": "DL",
+    "IDL": "DL",
+    # off-ball linebackers
+    "LB": "LB",
+    "OLB": "LB",
+    "ILB": "LB",
+    "MLB": "LB",
+    # defensive backs
+    "S": "DB",
+    "CB": "DB",
+    "DB": "DB",
+}
+
+# code -> the family its leading letters name in the IDP Show's own vocabulary.
+RANK_CODE_FAMILIES = {
+    "ED1": "DL",
+    "S69": "DB",
+    "DT46": "DL",
+    "IDL3": "DL",
+    "CB7": "DB",
+    "OLB2": "LB",
+}
+
+
+class TestPositionRankParityWithRankingsFetcher(unittest.TestCase):
+    """``scripts/fetch_idpshow.py::_parse_dataset`` and the projections adapter parse
+    the same ``Position Rank`` column.  Each carries its own copy of the rule
+    (leading letters are the position, the rank digits are not), so a fix or a
+    new label landing in one is silent drift in the other unless this fails."""
+
+    def family(self, side: str, position: str, code: str) -> str:
+        self.assertIn(
+            position,
+            _FAMILY,
+            f"{side} parsed {code!r} to {position!r}, a label this test has no family for",
+        )
+        return _FAMILY[position]
+
+    def rankings_position(self, code: str) -> str:
+        csv_text = f"PLAYER,POSITION RANK,OVERALL\nSomebody,{code},1\n"
+        rows = rankings_fetcher._parse_dataset(csv_text)
+        self.assertEqual(len(rows), 1, code)
+        return rows[0]["position"]
+
+    def projections_position(self, code: str) -> str:
+        csv_text = f"Player,Position Rank,Solo Tackles,Sacks\nSomebody,{code},50,2\n"
+        rows, report = idp.parse_projection_csv(csv_text)
+        self.assertTrue(report["usable"], report)
+        self.assertEqual(report["positionSource"], "position_rank_code")
+        self.assertEqual(len(rows), 1, code)
+        return rows[0]["position"]
+
+    def test_both_parsers_agree_on_what_each_code_means(self):
+        for code, expected in RANK_CODE_FAMILIES.items():
+            with self.subTest(code=code):
+                ranking = self.family("rankings", self.rankings_position(code), code)
+                projection = self.family("projections", self.projections_position(code), code)
+                self.assertEqual(ranking, projection)
+                self.assertEqual(projection, expected)
+
+    def test_the_helper_and_the_csv_path_read_a_code_the_same_way(self):
+        # ``_position_from_rank_code`` is what ``parse_projection_csv`` calls per row.
+        for code in RANK_CODE_FAMILIES:
+            with self.subTest(code=code):
+                self.assertEqual(
+                    idp._position_from_rank_code(code), self.projections_position(code)
+                )
 
 
 class TestMergeSwitch(unittest.TestCase):
@@ -350,6 +431,35 @@ class TestShadowOutputWhileOwnerGateIsClosed(_FetcherHarness):
         self.assertEqual(rc, 2)
         self.assertIn("could not write the shadow file", err)
 
+    def test_a_payload_that_cannot_be_encoded_is_the_same_documented_exit_2(self):
+        # json.dump raises TypeError (unencodable value) or ValueError (circular
+        # reference), not OSError.  Both used to escape as a traceback and an
+        # undocumented exit code.
+        for exc in (TypeError("not JSON serializable"), ValueError("Circular reference detected")):
+            with self.subTest(exc=type(exc).__name__):
+                with mock.patch.object(fetcher, "write_shadow_file", side_effect=exc):
+                    rc, _out, err = self.run_main()
+                self.assertEqual(rc, 2)
+                self.assertIn("could not write the shadow file", err)
+                self.assertIn(str(exc), err)
+        self.assertEqual(self.snapshot_bytes(), {})
+
+    def test_an_unencodable_summary_raises_type_error_and_leaves_no_temp_file(self):
+        # The realistic source of the failure above: write_shadow_file really does
+        # raise TypeError, and cleans up after itself while doing it.
+        with self.assertRaises(TypeError):
+            idp.write_shadow_file(
+                [],
+                season=2026,
+                as_of="2026-10-26",
+                mode="shadow",
+                status="parsed",
+                parse_summary={"tables": {"t": object()}},
+                base_dir=self.shadow_dir,
+            )
+        leftovers = [p for p in self.shadow_dir.rglob("*") if p.is_file()]
+        self.assertEqual(leftovers, [])
+
 
 class TestUnusableTableDiagnostics(_FetcherHarness):
     def setUp(self):
@@ -385,10 +495,16 @@ class TestUnusableTableDiagnostics(_FetcherHarness):
         self.assertEqual(len(self.shadow_files("idpshow_*_no_usable_table.json")), 1)
 
     def test_diagnostic_failure_never_changes_the_exit_code(self):
-        with mock.patch.object(fetcher, "write_shadow_file", side_effect=OSError("read-only fs")):
-            rc, _out, err = self.run_main()
-        self.assertEqual(rc, 1)
-        self.assertIn("could not write parse diagnostic", err)
+        for exc in (
+            OSError("read-only fs"),
+            TypeError("not JSON serializable"),
+            ValueError("Circular reference detected"),
+        ):
+            with self.subTest(exc=type(exc).__name__):
+                with mock.patch.object(fetcher, "write_shadow_file", side_effect=exc):
+                    rc, _out, err = self.run_main()
+                self.assertEqual(rc, 1)
+                self.assertIn("could not write parse diagnostic", err)
 
 
 if __name__ == "__main__":
