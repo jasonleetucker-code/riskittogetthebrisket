@@ -39,7 +39,7 @@ The live card has `bonus_rec_te=0` and `bonus_fd_te=1` (identical to WR and RB) 
 
 ## 3. League configuration propagation matrix — now a separate record
 
-The route-by-route matrix (owner read, correctness against the "scoring controls rankings, league key controls context" split, stale-snapshot behaviour, pinning test) and its metamorphic tests are delivered under #1842 checkboxes 3–4 on branch `claude/li1842-propagation-matrix`: `docs/audits/LEAGUE_CONFIG_PROPAGATION_MATRIX_2026-10-26.md` and `tests/league_intel/test_league_config_metamorphic.py`. The family-level queue that stood here is superseded by it; the rule dimensions to vary stay as listed there. Until that PR lands, treat the table that used to be here as a **work queue, not a PASS**.
+The route-by-route matrix (owner read, correctness against the "scoring controls rankings, league key controls context" split, stale-snapshot behaviour, pinning test) and its metamorphic tests are delivered under #1842 checkboxes 3–4 on branch `claude/li1842-propagation-matrix` (draft PR #1948): `docs/audits/LEAGUE_CONFIG_PROPAGATION_MATRIX_2026-10-26.md` and `tests/league_intel/test_league_config_metamorphic.py` (73 rows; 13 defects pinned `xfail(strict=True)`; 6 further latent mechanisms with repro recipes). The family-level queue that stood here is superseded by it; the rule dimensions to vary stay as listed there. Until that PR lands, treat the table that used to be here as a **work queue, not a PASS**.
 
 ## 4. Confirmed pitfalls to address, without premature behavior changes
 
