@@ -165,6 +165,12 @@ class RosterAsset:
     fantasy_positions: tuple[str, ...] = ()
     injured: bool = False
     bye: bool = False
+    #: ``False`` ONLY for an entry the roster <-> board join found NO row for
+    #: (``build_roster_assets``' unmatched; an unresolvable incoming name).  An
+    #: explicit fact produced by the join - never inferred from empty fields: a
+    #: board-matched row can carry a blank position and no value (a degraded
+    #: board) and is still on the board.  Not part of equality or hashing.
+    on_board: bool = field(default=True, compare=False, repr=False)
 
     def to_lineup_player(self) -> RosterPlayer:
         return RosterPlayer(

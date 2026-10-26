@@ -85,7 +85,10 @@ router = APIRouter()
 _REPO = Path(__file__).resolve().parents[2]
 _CONFIG_PATH = _REPO / "config" / "trade" / "public_advisor.json"
 _NO_STORE = "no-store"
-_ECHO_RE = re.compile(r"^[A-Za-z0-9:_-]{1,64}$")
+# ``\Z``, not ``$``: ``$`` also matches before a trailing newline (same anchor as
+# ``trade_ledger._ECHO_RE``; the inbound ``_AssetId`` pattern below is evaluated
+# by pydantic-core, whose ``$`` is end-of-text only).
+_ECHO_RE = re.compile(r"^[A-Za-z0-9:_-]{1,64}\Z")
 
 _host_provider: Callable[[], Any] | None = None
 

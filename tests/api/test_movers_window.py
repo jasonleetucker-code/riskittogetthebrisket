@@ -32,14 +32,55 @@ def _iso(d) -> str:
     return d.strftime("%Y-%m-%d")
 
 
+def _league(key: str, sleeper_id: str) -> dict:
+    return {
+        "key": key,
+        "displayName": key.title(),
+        "sleeperLeagueId": sleeper_id,
+        "scoringProfile": "superflex_tep15_ppr1",
+        "active": True,
+        "rosterSettings": {"teamCount": 12, "rosterSize": 30, "starters": {"QB": 1, "RB": 2}},
+    }
+
+
 @pytest.fixture
 def movers_env(tmp_path, monkeypatch):
-    monkeypatch.setattr(server, "_is_authenticated", lambda request: True)
-    path = tmp_path / "rank_history.jsonl"
-    path.write_text("", encoding="utf-8")
-    monkeypatch.setattr(rank_history, "HISTORY_PATH", path)
-    monkeypatch.setattr(server, "latest_contract_data", {"playersArray": []})
-    return path
+    """A one-league-loaded server.
+
+    Movers resolve the requested league and follow the board's
+    scoring-identity gate (LI1842-DEFECT-03), exactly as ``/api/data`` does:
+    that needs a registry, and a served contract stamped with the league it
+    was built for (an unstamped one is unproven and refused).  ``alpha`` is
+    the default and the loaded league; ``beta`` is registered but has no
+    scoring snapshot, so its scoring is unproven.
+    """
+    from src.api import league_registry
+
+    registry = tmp_path / "registry.json"
+    registry.write_text(
+        json.dumps(
+            {
+                "defaultLeagueKey": "alpha",
+                "leagues": [_league("alpha", "L-ALPHA"), _league("beta", "L-BETA")],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with monkeypatch.context() as m:
+        m.setenv("LEAGUE_REGISTRY_PATH", str(registry))
+        m.setenv("LEAGUE_SCORING_SNAPSHOT_DIR", str(tmp_path / "cards"))
+        league_registry.reload_registry()
+        m.setattr(server, "_is_authenticated", lambda request: True)
+        path = tmp_path / "rank_history.jsonl"
+        path.write_text("", encoding="utf-8")
+        m.setattr(rank_history, "HISTORY_PATH", path)
+        m.setattr(
+            server,
+            "latest_contract_data",
+            {"meta": {"leagueKey": "alpha"}, "playersArray": []},
+        )
+        yield path
+    league_registry.reload_registry()
 
 
 def _write_history(path, snapshots):
@@ -181,3 +222,53 @@ def test_history_depth_reports_the_log_not_the_trimmed_slice(movers_env):
     # The anchor is still the newest snapshot at or before today−7, i.e.
     # the 9-day-old one — depth and window answer different questions.
     assert body["window"] == 9
+
+
+# ── league scoping (LI1842-DEFECT-03) ───────────────────────────────────────
+
+
+def _two_day_riser(path) -> None:
+    today = datetime.now(timezone.utc).date()
+    _write_history(
+        path,
+        [
+            (_iso(today - timedelta(days=2)), {"Riser::offense": 80}),
+            (_iso(today), {"Riser::offense": 30}),
+        ],
+    )
+
+
+def test_the_loaded_leagues_own_request_is_served_unchanged(movers_env):
+    """The explicit key of the league the board was built for, and the
+    implicit default, both answer 200 with the same movers."""
+    _two_day_riser(movers_env)
+    with TestClient(server.app) as client:
+        implicit = client.get("/api/movers?window=2&threshold=15")
+        explicit = client.get("/api/movers?window=2&threshold=15&leagueKey=alpha")
+    assert implicit.status_code == explicit.status_code == 200
+    assert implicit.json() == explicit.json()
+    assert [r["name"] for r in implicit.json()["risers"]] == ["Riser"]
+
+
+def test_a_league_whose_scoring_is_unproven_gets_the_boards_503_not_its_movers(movers_env):
+    """``/api/data`` refuses the loaded board for ``beta`` (no scoring snapshot,
+    so identity is unproven); the movers ARE that board's rank movement and
+    must not be served under ``beta``'s name."""
+    _two_day_riser(movers_env)
+    with TestClient(server.app) as client:
+        board = client.get("/api/data?leagueKey=beta")
+        movers = client.get("/api/movers?window=2&threshold=15&leagueKey=beta")
+    assert board.status_code == 503
+    assert movers.status_code == 503
+    body = movers.json()
+    assert body["error"] == "data_not_ready"
+    assert body["leagueKey"] == "beta"
+    assert "risers" not in body and "fallers" not in body
+
+
+def test_an_unknown_league_key_is_a_400_like_every_league_route(movers_env):
+    _two_day_riser(movers_env)
+    with TestClient(server.app) as client:
+        res = client.get("/api/movers?window=2&threshold=15&leagueKey=not_a_league")
+    assert res.status_code == 400
+    assert res.json()["error"] == "unknown_league"

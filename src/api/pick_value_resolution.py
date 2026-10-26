@@ -275,8 +275,13 @@ def resolve_pick_asset_value(
 
     1. A canonical league-pick ``asset_id`` resolves by IDENTITY
        (:func:`resolve_owned_pick_value`) — the label grammar cannot change
-       the answer.
-    2. When identity yields no priced row (the board publishes no row for
+       the answer.  When identity lands on a board ROW, that row is the
+       answer *priced or not*: a row the board holds but has not priced
+       (``row_present_but_unpriced``, or an alias whose target is missing)
+       is UNPRICED, never priced from the display label of a different
+       grade (spec §2.5 labels are display only; R14d missing is never a
+       value; LANE-E-DEFECT-I9-PICKLABEL).
+    2. Only when identity finds NO row at all (the board publishes none for
        that grade — e.g. an unslotted current class carrying tiers only, so
        neither a slot row nor the centre-slot convention exists), or there is
        no canonical id, the label's own parse decides
@@ -292,7 +297,7 @@ def resolve_pick_asset_value(
         rows_by_name=rows_by_name,
         current_draft_year=current_draft_year,
     )
-    if pv is not None and pv.value is not None:
+    if pv is not None and (pv.value is not None or pv.basis_row_name):
         return pv
     by_label = resolve_pick_label_value(
         label, rows_by_name=rows_by_name, current_draft_year=current_draft_year

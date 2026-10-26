@@ -401,5 +401,137 @@ class TestLoadOrComputeTeamStrengthPrecedence(unittest.TestCase):
         self.assertEqual(persisted[0]["ownerId"], "alpha")
 
 
+class TestAnUnknownLeagueKeyIsRefusedNeverTheDefault(unittest.TestCase):
+    """LI1842-DEFECT-06: ``get_league_by_key(k) or get_default_league()`` scored
+    one league's rosters under, and fetched the Sleeper overlay of, the DEFAULT
+    league whenever ``k`` named nothing.  No key still means the default; a key
+    that names no registered league means no rows."""
+
+    def _snapshot(self):
+        snapshot = _make_snapshot(rosters=[{"owner_id": "alpha", "roster_id": 1}])
+        snapshot.current_season.rosters[0]["players"] = ["p-alpha"]
+        snapshot.nfl_players = {"p-alpha": {"full_name": "Alphaplayer", "position": "WR"}}
+        return snapshot
+
+    def test_the_overlay_tier_refuses_an_unknown_key_without_a_fetch(self):
+        from src.api import sleeper_overlay
+
+        calls = []
+        with (
+            patch.object(league_registry, "get_default_league", return_value=_fake_cfg()),
+            patch.object(league_registry, "get_league_by_key", return_value=None),
+            patch.object(
+                team_strength, "load_ros_aggregate_players", return_value=_aggregate({"x": 1.0})
+            ),
+            patch.object(
+                sleeper_overlay, "fetch_sleeper_overlay", lambda **k: calls.append(k) or {}
+            ),
+        ):
+            rows = team_strength.compute_team_strength_live("not_a_league")
+        self.assertEqual(rows, [])
+        self.assertEqual(calls, [])
+
+    def test_the_snapshot_tier_refuses_an_unknown_key(self):
+        agg = _aggregate({"alphaplayer": 90.0})
+        with (
+            patch.object(league_registry, "get_default_league", return_value=_fake_cfg()),
+            patch.object(league_registry, "get_league_by_key", return_value=None),
+            patch.object(team_strength, "load_ros_aggregate_players", return_value=agg),
+        ):
+            rows = team_strength.compute_team_strength_from_snapshot(
+                self._snapshot(), league_key="not_a_league"
+            )
+        self.assertEqual(rows, [])
+
+    def test_no_key_still_means_the_default_league(self):
+        agg = _aggregate({"alphaplayer": 90.0})
+        with (
+            patch.object(league_registry, "get_default_league", return_value=_fake_cfg()),
+            patch.object(
+                league_registry,
+                "get_league_by_key",
+                side_effect=AssertionError("no key must not be looked up"),
+            ),
+            patch.object(team_strength, "load_ros_aggregate_players", return_value=agg),
+        ):
+            rows = team_strength.compute_team_strength_from_snapshot(self._snapshot())
+        self.assertEqual(len(rows), 1)
+
+    def test_the_route_is_the_standard_400_unknown_league(self):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from src.ros import api as ros_api
+
+        app = FastAPI()
+        app.include_router(ros_api.router)
+        with (
+            patch.object(league_registry, "get_league_by_key", return_value=None),
+            patch.object(
+                team_strength,
+                "load_or_compute_team_strength",
+                side_effect=AssertionError("an unknown league must not be computed"),
+            ),
+            patch.object(
+                ros_api,
+                "load_or_compute_team_strength",
+                side_effect=AssertionError("an unknown league must not be computed"),
+            ),
+        ):
+            res = TestClient(app).get("/api/ros/team-strength?leagueKey=not_a_league")
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.json()["error"], "unknown_league")
+
+
+class TestThePublicSectionServesOnlyEvidenceTheReadPathWouldServe(unittest.TestCase):
+    """LI1842-DEFECT-09: ``ros.api.build_section`` read the persisted file at
+    any age and stamped it ``source=snapshot, stale=False``.  It now applies the
+    read path's own rule (``persisted_fast_path_rows``: inside
+    ``_TEAM_STRENGTH_SNAPSHOT_MAX_AGE_HOURS`` by mtime AND carrying evidence)."""
+
+    ROWS = [{"ownerId": "o1", "teamRosStrength": 42.0, "startingLineupScore": 42.0}]
+
+    def _section(self, rows, age_hours):
+        import os
+        import time
+        from types import SimpleNamespace
+
+        from src.ros import api as ros_api
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_root = Path(tmp)
+            target = tmp_root / "team_strength" / "latest.json"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(rows))
+            then = time.time() - age_hours * 3600
+            os.utime(target, (then, then))
+            with (
+                patch.object(team_strength, "ROS_DATA_DIR", tmp_root),
+                # no tier below the file can answer, and nothing may reach a network
+                patch.object(league_registry, "get_default_league", return_value=None),
+                patch.object(league_registry, "get_league_by_key", return_value=None),
+            ):
+                return ros_api.build_section(SimpleNamespace(root_league_id=""))
+
+    def test_a_file_inside_the_budget_is_served_as_a_current_snapshot(self):
+        section = self._section(self.ROWS, age_hours=1)
+        self.assertEqual(section["source"], "snapshot")
+        self.assertIs(section["stale"], False)
+        self.assertEqual([t["ownerId"] for t in section["teams"]], ["o1"])
+
+    def test_a_file_past_the_budget_is_not_served_as_current(self):
+        age = team_strength._TEAM_STRENGTH_SNAPSHOT_MAX_AGE_HOURS + 1
+        section = self._section(self.ROWS, age_hours=age)
+        self.assertIsNone(section["source"])
+        self.assertIs(section["stale"], True)
+        self.assertEqual(section["teams"], [])
+
+    def test_a_fresh_file_without_evidence_is_not_served(self):
+        zeros = [{"ownerId": "o1", "teamRosStrength": 0.0, "startingLineupScore": 0.0}]
+        section = self._section(zeros, age_hours=0.1)
+        self.assertIsNone(section["source"])
+        self.assertIs(section["stale"], True)
+
+
 if __name__ == "__main__":
     unittest.main()
