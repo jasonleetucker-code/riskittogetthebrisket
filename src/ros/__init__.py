@@ -22,6 +22,8 @@ Storage convention:
     data/ros/sources/<source_key>.csv          — latest scrape per source
     data/ros/runs/<source_key>__<iso_ts>.json  — per-run metadata
     data/ros/runs/index.json                   — most-recent-run pointer
+    data/ros/content_clock.json                — per-source content hash +
+                                                 last_content_change (reporting)
     data/ros/aggregate/latest.json             — current aggregated values
     data/ros/aggregate/history/<iso_ts>.json   — rolling 30-day archive
     data/ros/team_strength/latest.json         — per-team snapshot
