@@ -95,9 +95,11 @@ class _Outcome:
         return self._name
 
 
-#: The fetcher's answer for a resource Sleeper says does not exist (HTTP 404, or
-#: a 200 with a JSON ``null`` body).  ``None`` stays "the fetch failed" -- the two
-#: used to be indistinguishable, which is how deleted leagues read as an outage.
+#: The fetcher's answer for a resource Sleeper says does not exist (an HTTP 404
+#: with an empty / JSON ``null`` body, or a 200 with a JSON ``null`` body).  A 404
+#: with any other body is NOT this (it is a failure).  ``None`` stays "the fetch
+#: failed" -- the two used to be indistinguishable, which is how deleted leagues
+#: read as an outage.
 NOT_FOUND = _Outcome("NOT_FOUND")
 #: The fetcher's answer when the shared ``sleeper_api`` circuit breaker refused
 #: the call: Sleeper was not contacted at all.
@@ -152,6 +154,14 @@ class SharpCrawlResult:
     # Leagues whose rosters answered 404 / null THIS run (newly marked gone, or
     # re-confirmed after the re-check window).  Not failures; not "no trades".
     leagues_gone: int = 0
+    # Leagues whose rosters answered 404 / null but were NOT marked gone, because
+    # this run's own ``/state/nfl`` call did not answer with a dict: when the
+    # canary endpoint fails too, a wall of 404s is not evidence that those leagues
+    # are deleted (a gateway, a block, a proxy).  Not gone, not failed, not fetched;
+    # they stay in the queue and are asked again next run.
+    leagues_not_found_unconfirmed: int = 0
+    # Whether ``/state/nfl`` answered with a dict this run (the gate on gone marks).
+    state_nfl_confirmed: bool = False
     # Leagues already known gone and still inside the re-check window: left out of
     # the queue, so they cost no budget and are not "pending".
     leagues_gone_skipped: int = 0
@@ -174,6 +184,8 @@ class SharpCrawlResult:
             "leaguesFailed": self.leagues_failed,
             "leaguesPending": self.leagues_pending,
             "leaguesGone": self.leagues_gone,
+            "leaguesNotFoundUnconfirmed": self.leagues_not_found_unconfirmed,
+            "stateNflConfirmed": self.state_nfl_confirmed,
             "leaguesGoneSkipped": self.leagues_gone_skipped,
             "leaguesRecovered": self.leagues_recovered,
             "movementsIngested": self.movements_ingested,
@@ -326,21 +338,29 @@ def _league_order(league_ids: Sequence[str], fetch_state: dict[str, dict[str, An
     )
 
 
-def _current_week(budget: crawler._CallBudget) -> int:
-    """Sleeper's current NFL week, defaulting conservatively.
+def _current_week(budget: crawler._CallBudget) -> tuple[int, bool]:
+    """``(week, confirmed)``: Sleeper's current NFL week, defaulting
+    conservatively, and whether ``/state/nfl`` ANSWERED THIS RUN with a dict.
 
     Week 0 is REAL — Sleeper files preseason trades there — so it is
     never coerced up to 1 (same rule as the intel crawler).
+
+    ``confirmed`` is the run's canary.  ``/state/nfl`` always exists, so a run in
+    which it did not answer (no call budget, a failure, a 404, a refused call, a
+    non-object body) cannot read a 404 on a league as "this league is deleted":
+    :func:`crawl_transactions` records gone marks only when this is True.  A dict
+    with an unusable ``week`` still confirms (the endpoint answered); the week
+    then defaults.
     """
     if not budget.can_call():
-        return 1
+        return 1, False
     state = budget.get(f"{crawler.SLEEPER_BASE}/state/nfl")
     if isinstance(state, dict):
         try:
-            return max(0, min(18, int(state.get("week"))))
+            return max(0, min(18, int(state.get("week")))), True
         except (TypeError, ValueError):
-            pass
-    return 1
+            return 1, True
+    return 1, False
 
 
 def crawl_transactions(
@@ -372,6 +392,13 @@ def crawl_transactions(
     neither heads the queue nor is forgotten.  It is not deleted, and it is not
     "no trades".  ``skip_gone=False`` (an operator naming leagues explicitly)
     fetches a known-gone league like any other.
+
+    **A gone mark needs the run's own canary.**  Marks are persisted only when
+    this run's ``/state/nfl`` call answered with a dict.  If it did not, a league
+    404 proves nothing about the league (the whole of Sleeper, or something in
+    front of it, may be answering 404), so no mark is written or re-confirmed:
+    the league is counted in ``leagues_not_found_unconfirmed``, logged, and asked
+    again next run.
 
     **A refused call stops the pass.**  When the shared ``sleeper_api`` breaker
     refuses a call, Sleeper was not contacted; every remaining league would
@@ -412,8 +439,9 @@ def crawl_transactions(
             skipped = []
             ordered = _league_order(targets, fetch_state)
         result.leagues_gone_skipped = len(skipped)
-        week = _current_week(b)
+        week, state_confirmed = _current_week(b)
         result.week = week
+        result.state_nfl_confirmed = state_confirmed
 
         for idx, lid in enumerate(ordered):
             if not b.can_call(_MIN_CALLS_PER_LEAGUE):
@@ -429,6 +457,12 @@ def crawl_transactions(
                 result.stopped_reason = STOPPED_BREAKER_OPEN
                 break
             if rosters is NOT_FOUND:
+                if not state_confirmed:
+                    # The canary (/state/nfl) did not answer this run, so this 404
+                    # is not evidence the league is deleted.  Persist nothing; it
+                    # is asked again next run.
+                    result.leagues_not_found_unconfirmed += 1
+                    continue
                 # An answer, not an outage: Sleeper says this league does not
                 # exist.  Record it (timestamped, not deleted) so it stops
                 # heading the queue; it is neither a failure nor "no trades".
@@ -593,13 +627,14 @@ def _log_summary(result: SharpCrawlResult) -> None:
     2 means "leagues remain" however the pass ended)."""
     line = (
         "sharp transaction crawl: considered=%d fetched=%d failed=%d gone=%d "
-        "gone_skipped=%d recovered=%d pending=%d calls=%d stopped=%s"
+        "not_found_unconfirmed=%d gone_skipped=%d recovered=%d pending=%d calls=%d stopped=%s"
     )
     args = (
         result.leagues_considered,
         result.leagues_fetched,
         result.leagues_failed,
         result.leagues_gone,
+        result.leagues_not_found_unconfirmed,
         result.leagues_gone_skipped,
         result.leagues_recovered,
         result.leagues_pending,
@@ -615,6 +650,13 @@ def _log_summary(result: SharpCrawlResult) -> None:
         )
     else:
         log.info(line, *args)
+    if result.leagues_not_found_unconfirmed:
+        log.warning(
+            "sharp transaction crawl: /state/nfl did not answer with a dict this run, "
+            "so %d league 404(s) were NOT marked gone (not_found_unconfirmed); "
+            "gone marks are written only when the canary endpoint answers",
+            result.leagues_not_found_unconfirmed,
+        )
 
 
 def crawl_coverage(*, ledger_path: Path | None = None) -> dict[str, Any]:

@@ -58,11 +58,16 @@ timer itself) -- check ``systemctl list-timers 'dynasty-sharp-*'`` first.
 A league whose ``/rosters`` answers HTTP 404 is GONE -- recorded in
 ``sharp_league_gone`` with a timestamp (not deleted, not "no trades", not a
 failure), left out of the queue for a week, then re-checked in a small capped
-trickle (transactions.GONE_RECHECK_MAX_PER_RUN per run). A 404 is an
-answer, not an outage: it does not count toward the shared ``sleeper_api``
-circuit breaker (src/api/sleeper_overlay.py). If that breaker DOES open (a real
-Sleeper outage), the pass stops at once instead of fast-failing the rest of the
-queue, and the JSON says ``"stoppedReason": "sleeper_breaker_open"``.
+trickle (transactions.GONE_RECHECK_MAX_PER_RUN per run). Sleeper's own 404
+(empty / JSON ``null`` body) is an answer, not an outage: it does not count
+toward the shared ``sleeper_api`` circuit breaker (src/api/sleeper_overlay.py),
+and is not reported to it at all. A 404 with any OTHER body (HTML, a gateway or
+WAF message) is not Sleeper's and does count. A gone mark is written only when
+this run's own ``/state/nfl`` call answered with a dict; otherwise the 404s are
+counted in ``leaguesNotFoundUnconfirmed`` (and logged), marked nothing, and asked
+again next run. If the breaker DOES open (a real Sleeper outage), the pass stops
+at once instead of fast-failing the rest of the queue, and the JSON says
+``"stoppedReason": "sleeper_breaker_open"``.
 
 Exit codes: 0 success, 1 failure, 2 leagues left unattempted (transaction or
 format pass). 2 covers BOTH an exhausted budget and a breaker stop; read

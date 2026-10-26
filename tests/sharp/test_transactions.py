@@ -650,6 +650,135 @@ class TestFirstLeaguesAre404ButTheRestAreFetched:
         assert second.leagues_pending == 0
 
 
+class _AllNotFound:
+    """A fetcher for which EVERYTHING is a 404 -- ``/state/nfl`` included."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, url):
+        self.calls.append(url)
+        return transactions.NOT_FOUND
+
+
+class TestGoneMarksNeedTheRunsOwnCanary:
+    """``/state/nfl`` always exists, so a run in which it did not answer cannot
+    read a 404 on a league as "this league is deleted" -- the whole of Sleeper (or
+    something in front of it) may be answering 404.  No mark is written; the
+    leagues are counted as ``not_found_unconfirmed`` and asked again next run."""
+
+    IDS = [f"L{i:02d}" for i in range(6)]
+
+    def _run(self, http, db, ids=None, now_ms=NOW, budget=100):
+        return transactions.crawl_transactions(
+            league_ids=list(ids or self.IDS),
+            budget=budget,
+            sleep_s=0.0,
+            http_get=http,
+            now_ms=now_ms,
+            ledger_path=db,
+        )
+
+    def test_an_all_404_fetcher_marks_nothing_gone(self, db, caplog):
+        http = _AllNotFound()
+        with caplog.at_level("INFO", logger=transactions.log.name):
+            result = self._run(http, db)
+        assert _gone_rows(db) == {}, "a wall of 404s incl. /state/nfl is not evidence"
+        assert result.leagues_gone == 0
+        assert result.leagues_not_found_unconfirmed == len(self.IDS)
+        assert result.state_nfl_confirmed is False
+        assert result.leagues_failed == 0 and result.leagues_fetched == 0
+        assert _fetch_rows(db) == {}, "and none is dressed up as crawled"
+        payload = result.to_dict()
+        assert payload["leaguesNotFoundUnconfirmed"] == len(self.IDS)
+        assert payload["stateNflConfirmed"] is False
+        assert payload["leaguesGone"] == 0
+        # every league was actually asked (nothing silently skipped)
+        asked = [u for u in http.calls if u.endswith("/rosters")]
+        assert len(asked) == len(self.IDS)
+        warned = [r for r in caplog.records if "not_found_unconfirmed" in r.getMessage()]
+        assert warned, "the unconfirmed 404s must be logged"
+        assert any(r.levelname == "WARNING" for r in warned)
+        assert f"not_found_unconfirmed={len(self.IDS)}" in " ".join(
+            r.getMessage() for r in caplog.records
+        )
+
+    @pytest.mark.parametrize(
+        "state",
+        [None, transactions.NOT_FOUND, transactions.BREAKER_OPEN, [], "ok", 7],
+        ids=["failed", "404", "breaker_open", "list", "string", "int"],
+    )
+    def test_a_state_call_that_is_not_a_dict_leaves_every_404_unconfirmed(self, db, state):
+        resp = _mixed(["G1", "G2"], ["H1"])
+        resp[f"{BASE}/state/nfl"] = state
+        result, _ = _crawl(resp, league_ids=["G1", "G2", "H1"], ledger_path=db)
+        assert _gone_rows(db) == {}
+        assert result.leagues_gone == 0
+        assert result.leagues_not_found_unconfirmed == 2
+        assert result.state_nfl_confirmed is False
+
+    def test_the_healthy_leagues_are_still_crawled_while_the_canary_is_down(self, db):
+        """Only the gone MARK is withheld.  A league that answers with rosters is
+        crawled exactly as before (the week simply defaults)."""
+        resp = _mixed(["G1"], ["H1"])
+        resp[f"{BASE}/state/nfl"] = None
+        result, _ = _crawl(resp, league_ids=["G1", "H1"], ledger_path=db)
+        assert result.week == 1
+        assert result.leagues_fetched == 1 and "H1" in _fetch_rows(db)
+        assert result.leagues_not_found_unconfirmed == 1 and _gone_rows(db) == {}
+
+    def test_an_answering_state_call_keeps_the_existing_behaviour(self, db):
+        result, _ = _crawl(_mixed(["G1"], ["H1"]), league_ids=["G1", "H1"], ledger_path=db)
+        assert result.state_nfl_confirmed is True
+        assert result.leagues_gone == 1 and result.leagues_not_found_unconfirmed == 0
+        assert set(_gone_rows(db)) == {"G1"}
+
+    def test_a_dict_without_a_usable_week_still_confirms_the_canary(self, db):
+        """The endpoint ANSWERED; only the week defaults."""
+        resp = _mixed(["G1"], [])
+        resp[f"{BASE}/state/nfl"] = {}
+        result, _ = _crawl(resp, league_ids=["G1"], ledger_path=db)
+        assert result.state_nfl_confirmed is True and result.week == 1
+        assert set(_gone_rows(db)) == {"G1"}
+
+    def test_no_budget_for_the_state_call_cannot_confirm_it(self, db):
+        result, http = _crawl(_mixed(["G1"], []), league_ids=["G1"], ledger_path=db, budget=0)
+        assert http.calls == []
+        assert result.state_nfl_confirmed is False and _gone_rows(db) == {}
+
+    def test_an_unconfirmed_run_does_not_reconfirm_a_known_gone_league(self, db):
+        """Re-checks are marks too: a due league that 404s while the canary is down
+        keeps its row untouched (so it is simply due again next run)."""
+        _crawl(_mixed(["G1"], []), league_ids=["G1"], ledger_path=db)
+        before = _gone_rows(db)["G1"]
+        later = NOW + DEFAULT_RECHECK_MS + DAY_MS
+        resp = _mixed(["G1"], [])
+        resp[f"{BASE}/state/nfl"] = None
+        result, http = _crawl(resp, league_ids=["G1"], ledger_path=db, now_ms=later)
+        assert http.count(f"{BASE}/league/G1/rosters") == 1, "it was re-checked"
+        assert result.leagues_not_found_unconfirmed == 1 and result.leagues_gone == 0
+        assert _gone_rows(db)["G1"] == before, "nothing re-confirmed, nothing moved"
+
+    def test_the_next_confirmed_run_marks_what_the_unconfirmed_run_would_not(self, db):
+        down = _mixed(["G1", "G2"], [])
+        down[f"{BASE}/state/nfl"] = None
+        _crawl(down, league_ids=["G1", "G2"], ledger_path=db)
+        assert _gone_rows(db) == {}
+        result, _ = _crawl(
+            _mixed(["G1", "G2"], []), league_ids=["G1", "G2"], ledger_path=db, now_ms=NOW + DAY_MS
+        )
+        assert result.leagues_gone == 2 and set(_gone_rows(db)) == {"G1", "G2"}
+
+    def test_a_gone_league_that_answers_with_rosters_is_still_recovered_unconfirmed(self, db):
+        """A live roster list is positive evidence on its own; it needs no canary."""
+        _crawl(_mixed(["L1"], []), league_ids=["L1"], ledger_path=db)
+        later = NOW + DEFAULT_RECHECK_MS + DAY_MS
+        resp = responses_for("L1")
+        resp[f"{BASE}/state/nfl"] = None
+        result, _ = _crawl(resp, league_ids=["L1"], ledger_path=db, now_ms=later)
+        assert result.leagues_recovered == 1 and _gone_rows(db) == {}
+
+
 class TestBreakerStopIsExplicit:
     def test_a_refused_call_stops_the_pass_and_says_so(self, db):
         ids = [f"L{i}" for i in range(6)]
@@ -770,6 +899,9 @@ class TestWithTheRealBreaker:
                 outcome = []
             if isinstance(outcome, int):
                 raise urllib.error.HTTPError(url, outcome, "status", {}, io.BytesIO(b""))
+            if isinstance(outcome, tuple):  # (status, raw body bytes)
+                code, raw = outcome
+                raise urllib.error.HTTPError(url, code, "status", {}, io.BytesIO(raw))
             return _Resp(json.dumps(outcome).encode())
 
         monkeypatch.setattr(sleeper_overlay.urllib.request, "urlopen", fake_urlopen)
@@ -812,6 +944,53 @@ class TestWithTheRealBreaker:
         assert result.leagues_pending == 35
         assert len(calls) == 1 + 5, "state + five 503s; the open breaker made no more calls"
         assert result.leagues_gone == 0
+
+    def test_everything_answering_404_incl_state_marks_no_league_gone(self, db, wire):
+        """The production fetcher, the real breaker, the socket faked: Sleeper's own
+        empty 404 for ``/state/nfl`` AND every league.  The breaker stays closed
+        (those are answers) yet nothing is written, because the canary never
+        answered."""
+        responses, _calls, circuit_breaker = wire
+        ids = [f"L{i:02d}" for i in range(10)]
+        responses[f"{BASE}/state/nfl"] = 404
+        for lid in ids:
+            responses[f"{BASE}/league/{lid}/rosters"] = 404
+        result = self._crawl(ids, db)
+        assert _gone_rows(db) == {}
+        assert result.leagues_gone == 0
+        assert result.leagues_not_found_unconfirmed == 10
+        assert result.stopped_reason is None
+        snap = circuit_breaker.get_or_create("sleeper_api").snapshot()
+        assert snap["state"] == "closed" and snap["counters"]["failure"] == 0
+
+    def test_a_gateway_404_page_is_an_outage_not_ten_deleted_leagues(self, db, wire):
+        """The same all-404 world, but the 404s carry an HTML body: not Sleeper's
+        answer, so they count, the breaker opens, the pass stops and nothing is
+        marked gone."""
+        responses, calls, circuit_breaker = wire
+        ids = [f"L{i:02d}" for i in range(40)]
+        page = (404, b"<html><body>404 - blocked by gateway</body></html>")
+        responses[f"{BASE}/state/nfl"] = page
+        for lid in ids:
+            responses[f"{BASE}/league/{lid}/rosters"] = page
+        result = self._crawl(ids, db)
+        snap = circuit_breaker.get_or_create("sleeper_api").snapshot()
+        assert snap["state"] == "open"
+        assert result.stopped_reason == transactions.STOPPED_BREAKER_OPEN
+        assert result.leagues_gone == 0 and _gone_rows(db) == {}
+        assert result.leagues_fetched == 0
+        assert len(calls) < 1 + len(ids), "the open breaker must have cut the pass short"
+
+    def test_sleepers_own_404s_are_still_marked_gone_when_the_canary_answers(self, db, wire):
+        responses, _calls, circuit_breaker = wire
+        responses[f"{BASE}/state/nfl"] = {"week": 2}
+        for lid in ("G1", "G2"):
+            responses[f"{BASE}/league/{lid}/rosters"] = (404, b"null")
+        result = self._crawl(["G1", "G2"], db)
+        assert result.leagues_gone == 2 and set(_gone_rows(db)) == {"G1", "G2"}
+        assert result.leagues_not_found_unconfirmed == 0
+        snap = circuit_breaker.get_or_create("sleeper_api").snapshot()
+        assert snap["counters"]["failure"] == 0
 
 
 class TestOrderingAndCoverage:
