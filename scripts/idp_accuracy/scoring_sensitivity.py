@@ -42,6 +42,7 @@ import itertools
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import time
@@ -2507,6 +2508,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     r.add_argument("--out", type=Path, default=EVIDENCE_PATH)
     r.add_argument("--prereg-commit", default="9a6a82851")
     sub.add_parser("tables", help="print the report tables rendered from the evidence file")
+    sub.add_parser("render-doc", help="refresh the generated tables inside the write-up")
     args = ap.parse_args(argv)
     if args.cmd == "run":
         evidence = run_all(args)
@@ -2514,12 +2516,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.out.write_text(json.dumps(evidence, indent=1, sort_keys=True) + "\n", encoding="utf-8")
         print(f"wrote {args.out} ({args.out.stat().st_size / 1e6:.2f} MB)")
         return 0
-    print(render_tables(json.loads(EVIDENCE_PATH.read_text(encoding="utf-8"))))
+    evidence = json.loads(EVIDENCE_PATH.read_text(encoding="utf-8"))
+    if args.cmd == "render-doc":
+        text = DOC_PATH.read_text(encoding="utf-8")
+        DOC_PATH.write_text(inject_blocks(text, render_blocks(evidence)), encoding="utf-8")
+        print(f"refreshed the generated tables in {DOC_PATH}")
+        return 0
+    print(render_tables(evidence))
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
 
 
 # ── report tables rendered from the evidence file ────────────────────────────────────────────
@@ -3120,11 +3124,22 @@ def render_tables(evidence: Mapping[str, Any]) -> str:
     )
 
 
+_BLOCK_RE = re.compile(r"(<!-- table:(\w+) -->\n)(.*?)(\n<!-- /table:\2 -->)", re.S)
+
+
 def extract_blocks(doc_text: str) -> dict[str, str]:
     """The generated tables embedded in the write-up, by block name."""
-    import re
+    return {m.group(2): m.group(3).strip("\n") for m in _BLOCK_RE.finditer(doc_text)}
 
-    return {
-        m.group(1): m.group(2).strip("\n")
-        for m in re.finditer(r"<!-- table:(\w+) -->\n(.*?)\n<!-- /table:\1 -->", doc_text, re.S)
-    }
+
+def inject_blocks(doc_text: str, blocks: Mapping[str, str]) -> str:
+    """Replace the body of every ``<!-- table:NAME -->`` marker pair with the rendered table."""
+
+    def repl(m: re.Match[str]) -> str:
+        return f"{m.group(1)}{blocks[m.group(2)]}{m.group(4)}"
+
+    return _BLOCK_RE.sub(repl, doc_text)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

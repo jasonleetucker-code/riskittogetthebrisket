@@ -895,7 +895,7 @@ def test_evidence_has_no_manager_team_or_roster_identity():
     )
     for needle in (
         "roster_id", "owner_id", "user_id", "display_name", "team_name", "avatar", "co_owners",
-        "metadata", "taxi", "reserve", "players_points", "starters",
+        "metadata", "taxi", "reserve", "players_points", "matchup_id", "roster", "owner",
     ):  # fmt: skip
         assert f'"{needle}"' not in text, needle
     allowed = {"1312006700437352448", "1180092661344120832", "1090320428817592320"}
@@ -992,7 +992,6 @@ def test_the_module_reads_only_the_scoring_and_lineup_owners():
 
 def test_the_module_writes_only_its_evidence_file():
     text = Path(S.__file__).read_text(encoding="utf-8")
-    assert (
-        len(re.findall(r"\.write_text\(|\.write_bytes\(", text)) == 3
-    )  # evidence + the two cache fills
+    # the evidence file, the write-up's generated tables, and the two cache fills
+    assert len(re.findall(r"\.write_text\(|\.write_bytes\(", text)) == 4
     assert "CONFIG_PATH.write" not in text and "open(CONFIG_PATH" not in text
