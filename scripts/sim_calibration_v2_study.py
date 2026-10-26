@@ -37,6 +37,11 @@ Reproduce::
         docs/league-intelligence/evidence/sim_calibration_v2/challenger_v2_points_model.json \
         --expect-sha256 <sha256> --eval-weeks 7 --out-name evaluation_v2_week7.json
 
+Every hash of a tracked text file this study computes or checks (the scripts, the candidate and challenger
+files, the rosValue snapshots, v1's evaluation) is the sha256 of the LF-normalized bytes (``sha256_file``), so
+a Windows (CRLF) and a Linux or CI (LF) checkout of one commit agree. The receipts for v1's cached HTTP bodies
+are untouched: those files are written with ``write_bytes`` and are byte-exact on every platform.
+
 Exit codes: 0 when the run completed (whatever the verdict), 2 when it refused, 1 on an unexpected error.
 """
 
@@ -44,6 +49,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import json
 import math
 import random
@@ -72,7 +78,11 @@ PREREGISTRATION_COMMIT = "ad8ab042f3b5d1edbaf55f3ac34a28f0a3e8ba46"
 V1_CANDIDATE = (
     REPO / "docs" / "league-intelligence" / "evidence" / "sim_calibration" / v1.CANDIDATE_NAME
 )
-V1_CANDIDATE_SHA256 = "cee877c2901a9f01d24222bc872e5a96c4acce795a5d239db6a696814c92fbb3"
+#: sha256 of the LF-NORMALIZED bytes (see ``sha256_file``). v1's published evidence records
+#: ``cee877c2901a9f01d24222bc872e5a96c4acce795a5d239db6a696814c92fbb3`` for the same file: that is the
+#: hash of the Windows CRLF working-tree rendering, which a Linux or CI checkout cannot reproduce. Both
+#: digests describe one committed blob (git blob ``7412d32d719d1050ebd8572a35c8dbe123483dfd``).
+V1_CANDIDATE_SHA256 = "15fe52f9434786f6ec62e1fb6362ee4cfdf192ea29697c0b36dee832303d051c"
 V1_EVALUATION = (
     REPO / "docs" / "league-intelligence" / "evidence" / "sim_calibration" / "evaluation.json"
 )
@@ -99,6 +109,22 @@ PIT95 = (0.025, 0.975)
 def _rel(p: Path) -> str:
     p = Path(p).resolve()
     return p.relative_to(REPO).as_posix() if REPO in p.parents else p.as_posix()
+
+
+def sha256_lf_bytes(data: bytes) -> str:
+    """sha256 of ``data`` with Windows CRLF folded to LF, so the digest does not depend on the checkout.
+
+    ``git`` stores text files with LF, but a Windows working tree (``core.autocrlf=true``) holds the same
+    blob with CRLF, so a digest of the raw working-tree bytes differs between a Windows and a Linux or CI
+    checkout of one commit. This is the digest of the committed blob's content for every LF-committed
+    text file, which is what this study pins. A lone CR is left alone.
+    """
+    return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
+
+
+def sha256_file(path: Path) -> str:
+    """Line-ending-independent sha256 of a text file (see ``sha256_lf_bytes``)."""
+    return sha256_lf_bytes(Path(path).read_bytes())
 
 
 # ── the research challenger ────────────────────────────────────────────────────────────────────
@@ -808,8 +834,8 @@ def code_identity() -> dict[str, Any]:
     return {
         "codeSha": sha or "UNKNOWN",
         "studyCodeDirty": None if dirty is None else bool(dirty),
-        "scriptSha256": v1.sha256_file(Path(__file__)),
-        "v1ScriptSha256": v1.sha256_file(Path(v1.__file__)),
+        "scriptSha256": sha256_file(Path(__file__)),
+        "v1ScriptSha256": sha256_file(Path(v1.__file__)),
         "preregistration": {
             "path": PREREGISTRATION,
             "commit": PREREGISTRATION_COMMIT,
@@ -833,7 +859,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     eval_path = v1.assert_safe_output(out_dir / args.out_name)
 
     v1_cand = Path(args.v1_candidate)
-    v1_sha = v1.sha256_file(v1_cand)
+    v1_sha = sha256_file(v1_cand)
     if v1_sha != V1_CANDIDATE_SHA256:
         raise v1.StudyRefusal(
             f"v1 candidate sha256 {v1_sha} != preregistered {V1_CANDIDATE_SHA256}"
@@ -911,7 +937,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         p = v1.snapshot_before(cutoff)
         snapshots[label] = {
             "file": _rel(p),
-            "sha256": v1.sha256_file(p),
+            "sha256": sha256_file(p),
             "cutoffUtc": cutoff.isoformat(),
         }
         return v1.load_snapshot_players(p)
@@ -928,7 +954,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     if args.frozen_challenger:
         src = Path(args.frozen_challenger)
-        ch_sha = v1.sha256_file(src)
+        ch_sha = sha256_file(src)
         if args.expect_sha256 and ch_sha != args.expect_sha256:
             raise v1.StudyRefusal(
                 f"frozen challenger sha256 {ch_sha} != expected {args.expect_sha256}"
@@ -952,7 +978,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         challenger = load_challenger(challenger_path)
         challenger_record = {
             "path": _rel(challenger_path),
-            "sha256": v1.sha256_file(challenger_path),
+            "sha256": sha256_file(challenger_path),
             "frozen": False,
             "productionLoaderSource": sc.load_points_model(challenger_path).source,
         }
@@ -1155,7 +1181,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         v1_eval = json.loads(Path(args.v1_evaluation).read_text(encoding="utf-8"))
         evaluation["V2-D6_reproductionOfV1"] = {
             "v1Evaluation": _rel(Path(args.v1_evaluation)),
-            "v1EvaluationSha256": v1.sha256_file(Path(args.v1_evaluation)),
+            "v1EvaluationSha256": sha256_file(Path(args.v1_evaluation)),
             **reproduction_check(evaluation, v1_eval),
         }
     v1.write_json(eval_path, evaluation)

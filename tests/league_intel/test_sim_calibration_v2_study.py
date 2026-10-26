@@ -10,14 +10,18 @@ Pinned here, all on synthetic fixtures (no network, no live data):
 * **the per-family fit**: each family's scale is the owner's fit on that family alone, the floor sends
   a sparse family to the pooled scale, the CV is v1's D2 within-player statistic, and the draw uses the
   family's scale and CV;
-* **the gates**: SC-G1 reads PIT coverage, and its literal v1 reading is reported but never gates.
+* **the gates**: SC-G1 reads PIT coverage, and its literal v1 reading is reported but never gates;
+* **line-ending-independent hashes**: every pinned file hash is the sha256 of the LF-normalized bytes, so a
+  Windows (CRLF) and a Linux or CI (LF) checkout of one commit agree.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import random
 import statistics
+from pathlib import Path
 
 import pytest
 
@@ -463,3 +467,72 @@ def test_reproduction_check_flags_any_drift_from_v1():
     out = v2.reproduction_check(v2_eval, v1_eval)
     assert out["reproduced"] is False
     assert [m["field"] for m in out["mismatches"]] == ["pooled.V1.meanCrps"]
+
+
+# ── line-ending-independent hashes ─────────────────────────────────────────────────────────────
+
+_JSON_LF = b'{\n  "a": 1,\n  "b": [1, 2]\n}\n'
+
+
+def _write_both(directory, content_lf: bytes):
+    lf, crlf = directory / "lf.json", directory / "crlf.json"
+    lf.write_bytes(content_lf)
+    crlf.write_bytes(content_lf.replace(b"\n", b"\r\n"))
+    return lf, crlf
+
+
+def test_the_hash_is_identical_for_crlf_and_lf_copies_of_one_file(tmp_path):
+    lf, crlf = _write_both(tmp_path, _JSON_LF)
+    assert crlf.read_bytes() != lf.read_bytes()
+    assert v2.sha256_file(lf) == v2.sha256_file(crlf) == hashlib.sha256(_JSON_LF).hexdigest()
+    # The defect being closed: v1's raw-byte digest is exactly what differs between the two copies.
+    assert v1.sha256_file(lf) != v1.sha256_file(crlf)
+    assert v2.sha256_lf_bytes(crlf.read_bytes()) == v2.sha256_file(lf)
+
+
+def test_the_hash_still_distinguishes_different_content(tmp_path):
+    lf, _ = _write_both(tmp_path, _JSON_LF)
+    other_dir = tmp_path / "other"
+    other_dir.mkdir()
+    other, _ = _write_both(other_dir, b"{}\n")
+    assert v2.sha256_file(lf) != v2.sha256_file(other)
+    # A lone CR is content, not a line ending, and a mixed file normalizes only its CRLF pairs.
+    assert v2.sha256_lf_bytes(b"a\rb\n") != v2.sha256_lf_bytes(b"a\nb\n")
+    assert v2.sha256_lf_bytes(b"a\r\nb\n") == v2.sha256_lf_bytes(b"a\nb\n")
+
+
+def test_the_pinned_v1_candidate_hash_is_the_lf_normalized_digest_of_either_checkout(tmp_path):
+    lf = v2.V1_CANDIDATE.read_bytes().replace(b"\r\n", b"\n")
+    assert hashlib.sha256(lf).hexdigest() == v2.V1_CANDIDATE_SHA256
+    for name, blob in (("lf.json", lf), ("crlf.json", lf.replace(b"\n", b"\r\n"))):
+        copy = tmp_path / name
+        copy.write_bytes(blob)
+        assert v2.sha256_file(copy) == v2.V1_CANDIDATE_SHA256
+    assert v2.sha256_file(v2.V1_CANDIDATE) == v2.V1_CANDIDATE_SHA256
+
+
+def test_main_accepts_a_crlf_copy_of_the_v1_candidate(tmp_path, capsys):
+    lf = v2.V1_CANDIDATE.read_bytes().replace(b"\r\n", b"\n")
+    crlf = tmp_path / "candidate_crlf.json"
+    crlf.write_bytes(lf.replace(b"\n", b"\r\n"))
+    code = v2.main(
+        [
+            "--out-dir",
+            str(tmp_path / "out"),
+            "--v1-candidate",
+            str(crlf),
+            "--offline",
+            "--cache-dir",
+            str(tmp_path / "empty"),
+        ]
+    )
+    err = capsys.readouterr().err
+    assert code == 2, "there is no cache, so the run refuses, but not at the candidate pin"
+    assert "v1 candidate sha256" not in err
+    assert "offline and not cached" in err
+
+
+def test_no_file_hash_in_the_v2_study_goes_through_the_raw_byte_helper():
+    source = Path(v2.__file__).read_text(encoding="utf-8")
+    assert "v1.sha256_file(" not in source, "v1's raw-byte digest depends on line endings"
+    assert "v1.sha256_bytes(" not in source
