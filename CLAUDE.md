@@ -472,6 +472,7 @@ Error behavior on endpoints:
   PROVEN identical (different fingerprints, or either side unverifiable).
   When it is proven and sleeper is for a different league, serve shared
   rankings with `sleeper: null` + `sleeperDataReady: false`.
+- `/api/movers` — 503 `data_not_ready` when scoring is not PROVEN identical to the loaded board's, the same rule as `/api/data`.
 - `/api/terminal`, `/api/trade/*`, `/api/angle/*` — 503 whenever the
   loaded contract's `leagueKey` doesn't match the request.  These
   endpoints can't meaningfully work without the specific league's

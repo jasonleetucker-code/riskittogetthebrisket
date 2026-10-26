@@ -200,6 +200,21 @@ Each test starts passing the day its defect is fixed; strict mode then fails the
 | DEFECT-12 | `test_f12` | `trade_deadline` loads only `sims/latest_*.json` (the default league's) | src/ros/trade_deadline.py:28-50, 218 | LOW - known follow-on in the module comment; latent (public section serves the default league) | beta's teams classified with playoffOdds 0.95 (default league's) not 0.05 | the requested league's simulation |
 | DEFECT-13 | `test_f13` | auction budget provenance does not name the league of its dollars; room creation takes seats from the loaded contract and budgets from a separately resolved league | src/auction/sources.py:46-101; api.py:403-425, 472, 494-523 | MEDIUM mechanism, LOW frequency (needs saved league != loaded league) | `provenance.get('leagueKey')` is `None` | provenance names the league (and a mismatch is detectable) |
 
+### 3a. Repair status (fix lane, branch `claude/li1842-defect-fixes`, stacked on the matrix PR)
+
+The section 3 register above is the state **as measured on 2026-10-26** and is kept as the evidence record. This lane repairs seven of the thirteen at their canonical owners (each strict `xfail` marker removed in the same change; the test now stands as a regression test). For `dynasty_main` the measured served impact is none (changes land only on league-mismatch, unknown-key or expired-file paths); the per-defect measurement is in the PR body.
+
+| ID | Status | Repair (owner) |
+|---|---|---|
+| DEFECT-01 | **repaired** | `POST /api/intel/leads` resolves with `require_loaded_contract=True` (503 `data_not_ready`, the `/api/trade/*` rule); `server._intel_contract_context(league_key)` abstains on another league's contract |
+| DEFECT-03 | **repaired** | `GET /api/movers` resolves the league and applies `server._scoring_identity_error` (the `/api/data` rule) |
+| DEFECT-04 | **repaired** | `gameplan._resolve_scoring_fit` / `_resolve_reception_fit` memos keyed on `scoring_fingerprint` of both cards (+ season) |
+| DEFECT-06 | **repaired** | `team_strength._league_cfg_for_strength`: no key = default, unknown key = no rows; `/api/ros/team-strength` answers 400 `unknown_league` |
+| DEFECT-09 | **repaired** | `ros.api.build_section` serves the persisted file only via `persisted_fast_path_rows` (existing `_TEAM_STRENGTH_SNAPSHOT_MAX_AGE_HOURS` = 6 h by mtime, plus evidence) |
+| DEFECT-10 | **repaired** | `league_registry._load_from_file` honours `defaultLeagueKey` only when that league is active |
+| DEFECT-11 | **repaired** | `perfect-draft.js` `FLEX_SLOTS` mirrors `lineup._FLEX_SLOT_ELIGIBILITY` + `_SLOT_ALIASES`; exact lockstep test in `tests/lineup/test_single_owner.py` |
+| DEFECT-02, 05, 07, 08, 12, 13 | **open - owner/methodology decision** | not changed; the decision each needs is in the fix PR body (DEFECT-05 was assessed as not the same class as DEFECT-04: its memo is already keyed on the snapshot version, the defect is that the committed snapshot is the intended replayable card) |
+
 Related in-flight work, to avoid duplicate fixes: PR #1937 (Lane E defects) edits `src/trade/roster_capacity.py` (the roster JOIN, not the cap source), `trade_simulator.py`, `team_impact.py`, `draft/context.py`; PR #1930/#1935 add surface-parity/N-team property tests. Re-run `test_f07` after #1937 lands.
 
 ## 4. Latent mechanisms and exact repro recipes (not encoded)
