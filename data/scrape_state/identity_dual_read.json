@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-10-26T12:50:16.040993+00:00",
+ "generatedAt": "2026-10-26T15:31:38.847504+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2017,
+ "calls": 2019,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1990,
- "v2WouldChange": 27,
+ "v2Same": 1993,
+ "v2WouldChange": 26,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -120,14 +120,6 @@
    "name": "Michael Hall",
    "pos": "",
    "served": "11692",
-   "engineV2": null,
-   "v2Method": "none",
-   "v2Reason": "no_candidate"
-  },
-  {
-   "name": "Nathan Carter",
-   "pos": "",
-   "served": "12897",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"

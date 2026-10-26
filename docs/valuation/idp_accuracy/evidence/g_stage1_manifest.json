@@ -1,0 +1,554 @@
+{
+ "preregistration": "idp_accuracy_G_v1",
+ "label": "retrospective_point_in_time",
+ "promotes": false,
+ "stage": 1,
+ "blind": true,
+ "outcomesLoaded": false,
+ "outcomeGuard": "Fetcher(blind=True) refuses /regular/2026/ and /matchups/ URLs",
+ "pins": {
+  "preregistration": {
+   "path": "docs/valuation/idp_accuracy/G_PREREGISTRATION.md",
+   "blob": "a60ae89c80617c2837a5ed1d8a0fe90248d9751e",
+   "firstCommit": "4c53736fb478cf0d158f86185db0eb82c67f03e9",
+   "unchangedSince": true
+  },
+  "codeSha": "86369132463b4c6ab75fca01b882c58cf940af6c",
+  "scriptSha256": "3389a3cd35212360ceccc713143d4bd64f4325443f6620143e5c31fb4e78e714",
+  "stage1CodeSha256": "27e19a04172f5c3e29960169b1e8fba82c61f5389baae27285769d67a0bdabca",
+  "crossPositionSha256": "9b4768c12f2d081dcdd681820d936b8060373a4d91be4f5c9733573f3612f1c5",
+  "replacementShadowSha256": "253eedf6e1e39ed053aed822a15404abb51674685aa80f65fae268495b8a4524",
+  "lineupSha256": "783ffda0e6f34453966770070cf8cb6b816a7b358e259385d7207912cac6ac61",
+  "bdvmParamSetId": "params_v1:01af672b2aff",
+  "replacementShadowParamSetId": "replacement_shadow_v1:2c9789bec6d4",
+  "fairValueParamSetId": "league_fair_value_v1:1ba0dfff046b",
+  "packageModel": "geom_q078_v1 (config/trade/package_model.json)",
+  "seeds": {
+   "bootstrap": 20261026,
+   "simulationD": 20261027,
+   "B": 2000,
+   "simWeeks": 200
+  },
+  "scoringFingerprint": "sf1:9e51824690d091f9"
+ },
+ "windows": {
+  "W0": {
+   "role": "primary",
+   "outcomeWeeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "firstKickoff": {
+    "kickoffUtc": "2026-09-10T00:20:00+00:00",
+    "gameId": "2026_01_NE_SEA",
+    "clock": "nflverse gametime is US Eastern"
+   },
+   "archive": {
+    "name": "dynasty_export_20260909_211525.zip",
+    "sha256": "bfd1f406b3a2f855f6bf9356d0d99cc1b032587c7a2ae357c2ca3a13f67a8972",
+    "generationInstantUsed": "2026-09-09T21:15:25.520881+00:00",
+    "generationSource": "payload.scrapeTimestamp",
+    "manifestGeneratedAt": "2026-09-09T21:15:25.603909",
+    "filenameStamp": "2026-09-09T21:15:25+00:00",
+    "archivesAfterKickoffSeenAsNeighbours": [
+     "dynasty_export_20260910_224947.zip"
+    ]
+   },
+   "cutoffInstant": "2026-09-09T21:15:25.520881+00:00",
+   "knowledgeCutoff": "2026-09-10T00:19:59+00:00"
+  },
+  "Wa": {
+   "role": "stability",
+   "sameOriginAs": "W0",
+   "outcomeWeeks": [
+    1,
+    2,
+    3
+   ]
+  },
+  "Wb": {
+   "role": "stability",
+   "outcomeWeeks": [
+    4,
+    5,
+    6
+   ],
+   "firstKickoff": {
+    "kickoffUtc": "2026-10-02T00:15:00+00:00",
+    "gameId": "2026_04_PIT_CLE",
+    "clock": "nflverse gametime is US Eastern"
+   },
+   "archive": {
+    "name": "dynasty_export_20260930_130404.zip",
+    "sha256": "59338ef068c37d84e66ac68ed24f8c3ed67042bda9d13d59bca754e559cede7e"
+   },
+   "cutoffInstant": "2026-09-30T13:04:04.598312+00:00",
+   "candidateVectors": "NOT_COMPUTED_IN_STAGE_1",
+   "reason": "its admissible inputs include 2026 REG weeks 1-3 (section 2.3), which are outcome weeks of W0 and may not be loaded in the blind stage (section 12.1). Declared here, before any outcome is joined, as a deviation: Wb is built in stage 2 after W0 is unblinded, from weeks 1-3 only, and labelled exploratory."
+  }
+ },
+ "champion": {
+  "mode": "champion_rebuilt",
+  "servedContractInArchive": false,
+  "ledger": {
+   "reader": "src.history.asof.batch_known_before",
+   "lane": "canonical_board",
+   "ledgerPath": "data/temporal_ledger.sqlite",
+   "ledgerFileExists": false,
+   "ledgerFileSha256": null,
+   "knowledgeCutoff": "2026-09-10T00:19:59+00:00",
+   "cutoffInstant": "2026-09-09T21:15:25.520881+00:00",
+   "maxAgeDays": null,
+   "requested": 834,
+   "available": 0,
+   "coverage": 0.0,
+   "unavailableReasons": {
+    "no_prior_observation": 834
+   },
+   "coverageThreshold": 0.95
+  },
+  "rebuilt": {
+   "mode": "champion_rebuilt",
+   "label": "champion_methodology_at_head",
+   "builder": "src.api.data_contract.build_api_data_contract",
+   "leagueContext": {
+    "roster_count": 12,
+    "bonus_rec_te": 0.0,
+    "fetched_from_sleeper": true
+   },
+   "csvRoot": "archive site_raw tree (original mtimes)",
+   "sourceWeighting": "state_dir_missing",
+   "sourceFilesInArchive": [
+    "draftSharksIdp.csv",
+    "draftSharksRosIdp.csv",
+    "draftSharksRosSf.csv",
+    "draftSharksSf.csv",
+    "idpTradeCalc.csv",
+    "ktc.csv",
+    "ktcCrowdSfTep.csv",
+    "ktcCrowdTradesSfTep.csv",
+    "ktcSfTep.csv",
+    "ktcTradesSfTep.csv"
+   ]
+  },
+  "servedVersusRebuiltDrift": "not computable: no served board exists for this cutoff in this repository",
+  "claimLabel": "the comparator is today's market method on point-in-time inputs, not the board users saw",
+  "pricedPlayerRows": 834
+ },
+ "inputs": {
+  "scoringCardKeys": 148,
+  "scoringCardVersusSleeperLeagueNow": {
+   "differences": 0,
+   "keys": []
+  },
+  "starterSlots": [
+   "QB",
+   "RB",
+   "RB",
+   "WR",
+   "WR",
+   "WR",
+   "TE",
+   "TE",
+   "FLEX",
+   "FLEX",
+   "SUPER_FLEX",
+   "K",
+   "DL",
+   "DL",
+   "DL",
+   "LB",
+   "LB",
+   "LB",
+   "DB",
+   "DB",
+   "DB"
+  ],
+  "starterSlotsSource": "sleeper_roster_positions",
+  "rosterSizes": [
+   45,
+   53,
+   57,
+   57,
+   58,
+   58,
+   58,
+   58,
+   58,
+   58,
+   58,
+   58
+  ],
+  "rosterCap": 58,
+  "teams": 12,
+  "historyWindow": "2025 REG weeks 1-18 (host-scored, source=sleeper)",
+  "historyPlayerGames": 9968,
+  "eligibility": "archive sleeper.fantasyPositions (cutoff point-in-time)",
+  "injuryStatus": "not used (cannot be reconstructed point-in-time)",
+  "bdvm": {
+   "tier": "A-proxy",
+   "tierWhy": "no box snapshot with an immutable creation stamp <= C_w exists in this repository; the clean reconstructed baseline is the declared substitute",
+   "baselineSummary": {
+    "playersWithHistory": 2815,
+    "recordsBuilt": 2815,
+    "positionalMeans": {
+     "CB": 8.46,
+     "DL": 7.88,
+     "DT": 5.89,
+     "EDGE": 7.8,
+     "K": 8.85,
+     "LB": 9.01,
+     "QB": 18.02,
+     "RB": 9.34,
+     "S": 8.27,
+     "TE": 6.27,
+     "WR": 8.57
+    },
+    "seasonsSeen": [
+     2023,
+     2024,
+     2025
+    ],
+    "pbpSupplementJoined": true,
+    "seasonCardsResolved": false,
+    "rookiePriorRecords": 198,
+    "undraftedRookiesSkipped": 245,
+    "rookiePriorsAdded": 197
+   },
+   "pbpSeasonsMissing": [],
+   "records": 3012,
+   "allRecordsProxy": true,
+   "pricedByA": 805,
+   "unpricedReasons": {
+    "unsupported_position": 56,
+    "no_projection": 40
+   },
+   "contextPlayers": 23770,
+   "events": "none (no pre-cutoff dated events)",
+   "actuals": null,
+   "asOfStamp": "2026-09-09 (the cutoff date; the CLI would stamp today)",
+   "muMatchesBdvmConsensus": {
+    "checked": 683,
+    "mismatches": 0
+   }
+  },
+  "projectionStatus": {
+   "projected": 726,
+   "no_projection": 65,
+   "name_collision": 2,
+   "rookie_prior_only": 127
+  },
+  "unknownRosteredInEnvironments": 120
+ },
+ "candidates": {
+  "champion": {
+   "evaluable": true,
+   "mode": "champion_rebuilt"
+  },
+  "A": {
+   "evaluable": true,
+   "tier": "A-proxy",
+   "pricedPlayers": 805
+  },
+  "B": {
+   "evaluable": false,
+   "status": "not_evaluable: degenerate_market_exact",
+   "anchor": "champion-rebuilt (no served contract in the archive)",
+   "rowsAvailable": 0,
+   "rowsExcluded": 1067,
+   "rowsMoved": 0,
+   "evidenceStates": {
+    "partial": 805,
+    "unavailable": 40
+   },
+   "topExclusionReasons": {
+    "evidence_partial": 694,
+    "pick": 138,
+    "single_source_haircut": 89,
+    "unsupported_position": 57,
+    "no_market_value": 38,
+    "quarantined": 27,
+    "evidence_unavailable": 21,
+    "off_cap_value_only": 2
+   },
+   "configUnchanged": true,
+   "paramSetId": "league_fair_value_v1:1ba0dfff046b"
+  },
+  "C": {
+   "evaluable": true,
+   "replacement": "D1 median marginal starter (Lane B), from mu on the 12 cutoff rosters",
+   "d1ByPosition": {
+    "QB": 19.0271,
+    "RB": 12.1174,
+    "WR": 10.8156,
+    "TE": 8.4412,
+    "DL": 10.8222,
+    "LB": 11.4215,
+    "DB": 10.673
+   },
+   "d1Interpretation": "section 4.4 'league-wide starter threshold' = PositionThreshold.median_marginal (what the weakest starter produces)",
+   "s3": {
+    "D2": {
+     "QB": 7.8559,
+     "RB": 8.4829,
+     "WR": 6.1823,
+     "TE": 3.4249,
+     "DL": 9.0954,
+     "LB": 9.8019,
+     "DB": 10.3547
+    },
+    "D4": {
+     "QB": 19.0271,
+     "RB": 12.1174,
+     "WR": 10.8156,
+     "TE": 8.4412,
+     "DL": 10.8222,
+     "LB": 11.4215,
+     "DB": 10.673
+    },
+    "fallback": {
+     "D4:QB": "undefined_falls_back_to_D1",
+     "D4:RB": "undefined_falls_back_to_D1",
+     "D4:WR": "undefined_falls_back_to_D1",
+     "D4:TE": "undefined_falls_back_to_D1",
+     "D4:DL": "undefined_falls_back_to_D1",
+     "D4:LB": "undefined_falls_back_to_D1",
+     "D4:DB": "undefined_falls_back_to_D1"
+    },
+    "rank": 3,
+    "D5": "not_evaluable: degenerate_one_pseudo_week_allocation (Lane B finding)",
+    "healthFilter": "not_applied_at_cutoff"
+   },
+   "d1WithPlaceholders": {
+    "QB": 19.0527,
+    "RB": 12.1174,
+    "WR": 11.2085,
+    "TE": 8.5326,
+    "DL": 10.9273,
+    "LB": 11.4215,
+    "DB": 10.7158
+   }
+  },
+  "D": {
+   "evaluable": true,
+   "weeks": 200,
+   "seed": 20261027,
+   "pseudoGames": 4.0,
+   "availabilityPositionMean": {
+    "DB": 0.8647,
+    "DL": 0.8449,
+    "LB": 0.8529,
+    "QB": 0.6,
+    "RB": 0.769,
+    "TE": 0.8479,
+    "WR": 0.7919
+   },
+   "pooledResidualSetSizes": {
+    "DB": 1620,
+    "DL": 1735,
+    "LB": 1347,
+    "QB": 511,
+    "RB": 1230,
+    "TE": 831,
+    "WR": 1817
+   },
+   "unsimulable": {
+    "base": {
+     "no_availability": 44
+    },
+    "sigma0": {
+     "no_availability": 44
+    },
+    "ownteam": {
+     "no_availability": 44
+    },
+    "pc0": {
+     "no_availability": 44
+    },
+    "pc16": {
+     "no_availability": 44
+    },
+    "placeholder": {
+     "no_availability": 44
+    }
+   },
+   "mcStandardErrorMedian": 0.3183,
+   "placeholdersUsedS7": 117
+  },
+  "R0": {
+   "reference": true,
+   "outsideEveryFamily": true
+  },
+  "evaluableSet": [
+   "A",
+   "C",
+   "D"
+  ]
+ },
+ "cohort": {
+  "size": 651,
+  "idsSha256": "4009984454604b206d0a2030106e1d1f452705e0ce10a5ca014508de5e6e5ac1",
+  "byPosition": {
+   "QB": 54,
+   "RB": 94,
+   "WR": 133,
+   "TE": 58,
+   "DL": 118,
+   "LB": 90,
+   "DB": 104
+  },
+  "offense": 339,
+  "idp": 312,
+  "qualifyingPositions": [
+   "QB",
+   "RB",
+   "WR",
+   "TE",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "minNPerPosition": 20,
+  "withinAxisSufficient": true,
+  "crossAxisSufficient": true,
+  "reducedFamily": false,
+  "exclusionCensus": {
+   "A_undefined": 4,
+   "D_undefined:no_availability": 9,
+   "no_champion_value": 86,
+   "no_projection:name_collision": 1,
+   "no_projection:no_projection": 46,
+   "no_projection:rookie_prior_only": 123
+  },
+  "perCandidateMissingAmongProjected": {
+   "A": 4,
+   "D": 10
+  },
+  "rowsWithoutSleeperId": 10,
+  "rookies": "excluded: a rookie's only projection is a draft-slot prior (no prior-season production); this experiment says nothing about rookies"
+ },
+ "families": {
+  "F1": {
+   "m": 6,
+   "withinAxis": "tested",
+   "crossAxis": "tested"
+  },
+  "F2": {
+   "m": 21
+  },
+  "F3": {
+   "m": 6
+  }
+ },
+ "scoreVectorSha256": {
+  "champion": "6f986c918fc933c10daca4dbb9af007bffcb61cfee57680cd8c7096feee1859c",
+  "A_dv": "21347882d13b62cc0c48e8ad8359fa436a27a458ac39f6fae73bacb9b9e04cfa",
+  "A_vorg": "50bc8603b3f015d0f32e0831b2895e3766d53da90c792e369cf665aabef9b39d",
+  "A_tradeValue": "12433f016e08a536dfe990b84aa10eee48fb369649b7cf6678811d9a5f5379b3",
+  "A_dv_age_plus1": "2f6a234de65bc3935bb4c825926c768cc9f1a7cffc9dcab5d86495e80e2e6b8c",
+  "A_vorg_age_plus1": "50bc8603b3f015d0f32e0831b2895e3766d53da90c792e369cf665aabef9b39d",
+  "A_dv_age_minus1": "18678b8bc3dae1d8f07c13a3232a4f5a22d3bbe78bc323aa90858525d21b6fa2",
+  "A_vorg_age_minus1": "50bc8603b3f015d0f32e0831b2895e3766d53da90c792e369cf665aabef9b39d",
+  "R0_mu": "a90fdf3a61480b3f64c5f6d32f661e99e170b29a3dbd6f4bb929c88c11db862d",
+  "C": "eb7531fc1c413543188b40e49e27b2ddbaeda7c3153b6fbdbab70fb8a9a283be",
+  "C_D2": "603cd88ec83cae24529a9893547cfd6df5212a0b3635a1de01581f10d70257df",
+  "C_D4": "eb7531fc1c413543188b40e49e27b2ddbaeda7c3153b6fbdbab70fb8a9a283be",
+  "C_placeholder": "c394975f968315df7e47647eea0155b3558605b9275fd7cd9dd02eddf45533d3",
+  "D": "4dbcb029dbf1eb0d6a4889a5292b219f4a2016472011f5fe20ab501563f5b81e",
+  "D_se": "c3b0a2ff2dfa45e37a2de4c8b69c506b54d37e9382593d24a672ba3367131e5b",
+  "D_sigma0": "db95f34b0c9fe688b2551bd6879afe2c2ec987e98b2826af30ab3ca870479b8a",
+  "D_ownteam": "7676e4a55f79a896f1178077f4cec9cf28c10e785d28c9899770106f5bedbd9f",
+  "D_pc0": "d2e9ad59a00cf8589c0d4d2e46e30a12349ae6769880a9b7d1d5d57e06835351",
+  "D_pc16": "164e8da9705091d3cbc44364c4e126620aa30e092b998e5d7eab09965d7454d8",
+  "D_placeholder": "e66861213148a74af124b0bdfabc669e021bca4b4ac9eaaad4ffe4b8ab570efc"
+ },
+ "scoreVectorFile": "docs/valuation/idp_accuracy/evidence/g_stage1_scores.json",
+ "noiseCeiling": {
+  "w1-6_vs_w7-12": {
+   "QB": {
+    "n": 28,
+    "spearman": 0.382
+   },
+   "RB": {
+    "n": 68,
+    "spearman": 0.7914
+   },
+   "WR": {
+    "n": 102,
+    "spearman": 0.6872
+   },
+   "TE": {
+    "n": 50,
+    "spearman": 0.5592
+   },
+   "DL": {
+    "n": 103,
+    "spearman": 0.4116
+   },
+   "LB": {
+    "n": 78,
+    "spearman": 0.5917
+   },
+   "DB": {
+    "n": 95,
+    "spearman": 0.1075
+   }
+  },
+  "w7-12_vs_w13-18": {
+   "QB": {
+    "n": 27,
+    "spearman": 0.4017
+   },
+   "RB": {
+    "n": 69,
+    "spearman": 0.7825
+   },
+   "WR": {
+    "n": 102,
+    "spearman": 0.6776
+   },
+   "TE": {
+    "n": 46,
+    "spearman": 0.6496
+   },
+   "DL": {
+    "n": 103,
+    "spearman": 0.3816
+   },
+   "LB": {
+    "n": 80,
+    "spearman": 0.6777
+   },
+   "DB": {
+    "n": 93,
+    "spearman": 0.2234
+   }
+  },
+  "note": "pre-cutoff 2025 host-scored ppg only (players with >= 3 games in each window): how much ordering any candidate could achieve at best from production persistence alone"
+ },
+ "powerNote": {
+  "assumptions": {
+   "rhoS": 0.4,
+   "championCandidateScoreCorrelation": 0.8,
+   "reps": 1500
+  },
+  "qualifyingPositions": {
+   "DB": 104,
+   "DL": 118,
+   "LB": 90,
+   "QB": 54,
+   "RB": 94,
+   "TE": 58,
+   "WR": 133
+  },
+  "nullSdPooledDelta1": 0.0259,
+  "detectableDelta1At80Power": 0.0725,
+  "minimumMeaningfulDelta1": 0.05,
+  "note": "informational; changes no threshold"
+ },
+ "timingsSec": 450.4
+}

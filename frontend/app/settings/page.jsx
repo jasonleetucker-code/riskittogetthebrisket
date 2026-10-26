@@ -4,7 +4,7 @@ import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useState } from
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useAuthContext } from "@/app/AppShellWrapper";
-import { FailureState, HelpModal, InfoTip } from "@/components/ds";
+import { FailureState, InfoTip } from "@/components/ds";
 import {
   useSettings,
   SETTINGS_DEFAULTS as DEFAULTS,
@@ -206,7 +206,6 @@ export default function SettingsPage() {
   const { isAdmin } = useAuthContext();
   const {
     settings,
-    hydrated: settingsHydrated,
     update,
     updateSiteWeight,
     resetSiteWeights,
@@ -620,31 +619,27 @@ export default function SettingsPage() {
           style={{ fontSize: "0.72rem", marginBottom: 10 }}
           className="muted"
         >
-          This is the only setting that changes the numbers themselves. It
-          applies everywhere — rankings, the trade calculator, exports.
+          Values are always the market board. This is not a setting.
         </div>
         <div style={{ marginBottom: 8 }}>
           <label style={{ fontSize: "0.82rem", marginRight: 8 }}>
             Value basis
           </label>
-          {/* A <select> has no honest indeterminate state — a blank
-              option would read as a third choice — so this one stays
-              disabled until settings hydrate instead. The displayed
-              value is still the default for that one frame, but the
-              control cannot be acted on while it might be about to
-              change under the user's cursor. The /rankings and /trade
-              toggles get the stronger treatment (no highlight at all);
-              see the note above `getHydratedSnapshot` in useSettings. */}
+          {/* Read-only on purpose.  The "My league" lens was withdrawn
+              2026-08-14 (CLAUDE.md, "valuation_mode: accepted, ignored,
+              and stamped"): the server ignores the request and every
+              fetch helper reads the basis through readValuationMode(),
+              which is always market.  The control stays only so the
+              basis is visible, so it shows market whatever an old
+              device still has in localStorage, and it offers no other
+              choice.  Do not re-thread a selector here. */}
           <select
             aria-label="Valuation mode"
             className="select"
-            value={settings.valuationMode}
-            disabled={!settingsHydrated}
-            aria-busy={!settingsHydrated}
-            onChange={(e) => update("valuationMode", e.target.value)}
+            value="market"
+            disabled
           >
             <option value="market">Market</option>
-            <option value="leagueAdjusted">My league</option>
           </select>
         </div>
         <div
@@ -652,59 +647,16 @@ export default function SettingsPage() {
           className="muted"
         >
           <p>
-            <strong>Market</strong> — the blended consensus board exactly as the
-            pipeline computes it. Shared by every league on the same scoring
-            settings.
+            <strong>Market</strong> — the blended consensus board from the
+            canonical pipeline, shared by every league on the same scoring
+            settings. Rankings, the trade calculator and exports all read it.
+            The source weights and TE premium on this page still apply to it.
           </p>
           <p>
-            <strong>My league</strong> — takes that board and re-prices it by
-            how scarce each position actually is here. We solve your exact
-            starting lineup against the 12 real rosters, measure the drop-off
-            from the best player at a position to the last startable one, and
-            scale every player at that position by up to ±10%. Thin positions
-            lift; deep positions trim. Ranks and tiers are recomputed on the
-            backend.
+            The &quot;My league&quot; positional-scarcity lens was withdrawn and
+            no longer changes any number. A device that still has it saved
+            shows the market board like every other.
           </p>
-          {/* The two definitions above are the choice being made and
-              stay visible.  The rest — scope, exclusions, interaction
-              with custom weights — is reference material a user reads
-              once, so it moves behind a button instead of occupying
-              three paragraphs above the next control. */}
-          <HelpModal
-            title="How the league-adjusted board works"
-            label="What this changes"
-          >
-            <h3>What it does not include, deliberately</h3>
-            <p>
-              <strong>No tight-end premium.</strong> Our market anchor is
-              already KTC&apos;s TE++ board, so applying another would count the
-              same premium twice.
-            </p>
-            <p>
-              <strong>No player projections.</strong> No source we can use
-              publishes raw statistical categories yet, so there is nothing to
-              re-score under your rules.
-            </p>
-            <p>
-              <strong>No per-player judgment.</strong> The adjustment is
-              identical for every player at a position, so it can never reorder
-              your RBs against each other.
-            </p>
-            <h3>What it does change</h3>
-            <p>
-              How positions — and <strong>players versus draft picks</strong> —
-              are priced against one another. Picks carry no scarcity
-              measurement, so they stay at market value while players move
-              around them. That is enough to shift most ranks and to change
-              trade verdicts.
-            </p>
-            <h3>When it does not apply</h3>
-            <p>
-              Not applied while custom source weights are active: the two cannot
-              be combined correctly yet, so the board stays on your custom
-              market values.
-            </p>
-          </HelpModal>
         </div>
       </Section>
 

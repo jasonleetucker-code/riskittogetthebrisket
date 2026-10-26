@@ -110,4 +110,8 @@ scipy~=1.13
 # it.  Imported lazily — a box without it reports the feature unavailable.
 # The OCR engine itself is the system package ``tesseract-ocr`` (apt), NOT a
 # Python dependency; see docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md.
-Pillow~=12.0
+# Pillow 13.0.0 is the first release carrying the fixes for the 2026-10
+# advisory batch (every advisory affects <= 12.3.0), so ``~=13.0`` is a
+# security floor: do not widen it back to 12.x.  Sole call site is
+# src/trade/screenshot_import/image_input.py (PNG / JPEG / WEBP only).
+Pillow~=13.0

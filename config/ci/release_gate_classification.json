@@ -817,6 +817,9 @@
     "retention-health.yml::probe::Probe retention streams on production": {
       "category": "blocking"
     },
+    "scheduled-refresh.yml::refresh::Report browser-driven sources kept from the previous run": {
+      "category": "advisory"
+    },
     "scheduled-refresh.yml::refresh::Record identity evidence upload outcome (loud on failure, never blocking)": {
       "category": "advisory"
     },
