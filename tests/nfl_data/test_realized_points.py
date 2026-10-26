@@ -407,13 +407,25 @@ def test_legacy_column_spellings_score_identically():
     assert out.fantasy_points == 23.5
 
 
-def test_offensive_position_never_picks_up_idp_keys():
-    """The gate that keeps a WR's zeroed def_ block out of the total.
-    Every unified row carries def_* columns for every player."""
-    row = {**_unified_idp_row(), "position": "WR"}
+def test_offensive_position_with_a_zeroed_def_block_picks_up_nothing():
+    """Every unified row carries def_* columns for every player; for a
+    non-defender they are zero, so reading them for all positions adds nothing."""
+    zeroed = {k: 0 for k in _unified_idp_row() if k.startswith(("def_", "fumble_"))}
+    row = {**_unified_idp_row(), **zeroed, "position": "WR"}
     out = rp.compute_weekly_points(row, _idp_scoring(), position="WR")
     assert out is not None
     assert out.fantasy_points == 0.0
+
+
+def test_offensive_position_is_paid_the_defensive_events_it_recorded():
+    """IDPA-DEFECT-01: this used to assert a WR scores 0 on a REAL defensive line
+    (a "gate").  The host pays ``idp_*`` to whoever makes the play.  Assisted
+    tackles stay IDP-only (special-teams assists are indistinguishable), so the
+    WR gets everything the LB does except the 0.5 assist: 37.5 - 0.5 = 37.0."""
+    row = {**_unified_idp_row(), "position": "WR"}
+    out = rp.compute_weekly_points(row, _idp_scoring(), position="WR")
+    assert out is not None
+    assert out.fantasy_points == 37.0
 
 
 def test_tackle_view_matches_the_actuals_store():

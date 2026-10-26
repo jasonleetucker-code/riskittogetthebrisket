@@ -15,10 +15,12 @@ Two production scorer paths are tested, because both are live:
 * nflverse — ``compute_weekly_points(...)`` (default source) on nflverse
   ``stats_player_week`` columns, the in-season BDVM path.
 
-Genuine scorer defects found by the reconciliation are ``xfail(strict=True)`` with
-an ``IDPA-DEFECT-*`` reason: they document the defect without fixing production
-code in this research lane, and the strict flag fails the suite the moment a fix
-lands so the marker is removed deliberately.
+Genuine scorer defects found by the reconciliation (``IDPA-DEFECT-*``) were first
+pinned here as ``xfail(strict=True)`` by the research lane, which fixed nothing.
+They are fixed in ``src/nfl_data/realized_points.py`` (01, 02, 03) and the markers
+are gone: each test below now asserts the corrected behaviour.  IDPA-DEFECT-04 is
+NOT a scorer defect (a provider position-listing disagreement) and is pinned at the
+bottom of the nflverse section as the boundary of what the scorer can know.
 
 No network, no live board.
 """
@@ -31,7 +33,11 @@ from pathlib import Path
 import pytest
 
 from src.league_comparison.sleeper_scoring import scoring_fingerprint
-from src.nfl_data.realized_points import compute_weekly_points
+from src.nfl_data.realized_points import (
+    PBP_SUPPLEMENT_ROW_KEY,
+    compute_weekly_points,
+    sleeper_stat_line_from_row,
+)
 from src.ros.lineup import (
     OBJECTIVE_REALIZED_POINTS,
     RosterPlayer,
@@ -43,6 +49,9 @@ REPO = Path(__file__).resolve().parents[2]
 MANIFEST = json.loads((REPO / "docs/valuation/idp_accuracy/MANIFEST.json").read_text())
 EVIDENCE = json.loads(
     (REPO / "docs/valuation/idp_accuracy/evidence/scorer_reconciliation.json").read_text()
+)
+FIX = json.loads(
+    (REPO / "docs/valuation/idp_accuracy/evidence/scorer_fix_measure.json").read_text()
 )
 CARD: dict[str, float] = MANIFEST["scoringCard"]["nonZeroRules"]
 SLOTS: list[str] = MANIFEST["rosterFormat"]["starterSlots"]
@@ -250,12 +259,19 @@ def test_nflverse_idp_row_stacks_the_same_way():
     assert nflv(row, pos="DE") == pytest.approx(want)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="IDPA-DEFECT-01: nflverse normalization drops def_* stats for a non-IDP "
-    "listed position; Sleeper pays idp_* to any player (80 player-weeks, 2026 wk1-6, "
-    "-117.8 pts; docs/valuation/idp_accuracy/A_SCORING_ACCURACY.md)",
-)
+def nflv_pbp(line: dict, *, pos: str, **supplement: float) -> float:
+    """``nflv`` with the play-by-play supplement attached, as ``bdvm_api`` runs it."""
+    row = {**line, PBP_SUPPLEMENT_ROW_KEY: dict(supplement)}
+    return nflv(row, pos=pos)
+
+
+def stat_line(line: dict, *, pos: str) -> dict:
+    return sleeper_stat_line_from_row({**line, "season": 2026, "week": 1}, position=pos)
+
+
+# IDPA-DEFECT-01 — defensive events are paid whoever records them ──────────────
+
+
 def test_nflverse_pays_idp_stats_to_an_offensive_player():
     row = {"receiving_tds": 1, "def_tackles_solo": 1, "def_fumbles_forced": 1}
     assert nflv(row, pos="WR") == pytest.approx(
@@ -263,30 +279,130 @@ def test_nflverse_pays_idp_stats_to_an_offensive_player():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="IDPA-DEFECT-02: a blocked FG (fg_blocked) is not scored as a miss in its "
-    "distance band; Sleeper counts it as fgmiss_<band> (6 kicker-weeks + 1 blocked PAT)",
-)
+def test_the_listed_position_no_longer_decides_whether_a_defensive_stat_counts():
+    row = {"def_sacks": 1, "def_qb_hits": 1, "def_pass_defended": 1, "def_interceptions": 1}
+    want = nflv(row, pos="DE")
+    assert want > 0
+    for pos in ("QB", "RB", "WR", "TE", "K", "LB", "DB"):
+        assert nflv(row, pos=pos) == pytest.approx(want), pos
+
+
+def test_a_blocked_punt_by_a_non_idp_player_is_paid_idp_blk_kick():
+    # Simi Fehoko (WR) wk1 and Julius Chestnut (RB) wk6, 2026: both carry
+    # idp_blk_kick 1 on Sleeper's own line and were awarded 5.30.
+    assert nflv({"def_punt_blocks": 1}, pos="WR") == pytest.approx(_rate("idp_blk_kick"))
+    assert nflv({"def_punt_blocks": 1}, pos="LB") == pytest.approx(_rate("idp_blk_kick"))
+
+
+def test_special_teams_tackle_is_not_paid_twice_to_an_idp_listed_player():
+    # nflverse charts a punt-coverage tackle in def_tackles_solo; Sleeper pays it as
+    # st_tkl_solo and NOT as idp_tkl_solo.  3 charted = 2 defensive + 1 special-teams
+    # (440 IDP player-weeks in the wide 2026 wk1-6 sample were double-paid before).
+    row = {"def_tackles_solo": 3}
+    got = nflv_pbp(row, pos="LB", st_tkl_solo=1)
+    assert got == pytest.approx(2 * _rate("idp_tkl_solo") + _rate("st_tkl_solo"))
+    # without the supplement the split is unknown: the whole count is paid as before
+    assert nflv(row, pos="LB") == pytest.approx(3 * _rate("idp_tkl_solo"))
+
+
+def test_special_teams_tackle_by_a_non_idp_player_scores_once():
+    row = {"def_tackles_solo": 1}
+    assert nflv_pbp(row, pos="WR", st_tkl_solo=1) == pytest.approx(_rate("st_tkl_solo"))
+    # a defensive tackle alongside a special-teams one is paid on top
+    row = {"def_tackles_solo": 2}
+    assert nflv_pbp(row, pos="TE", st_tkl_solo=1) == pytest.approx(
+        _rate("idp_tkl_solo") + _rate("st_tkl_solo")
+    )
+
+
+def test_special_teams_subtraction_never_goes_negative_and_skips_host_split_rows():
+    # supplement larger than the charted count (a charting difference): clamp at 0
+    assert nflv_pbp({"def_tackles_solo": 1}, pos="LB", st_tkl_solo=2) == pytest.approx(
+        2 * _rate("st_tkl_solo")
+    )
+    # a row that already carries the HOST's defensive split is not reduced again
+    row = {"idp_tkl_solo": 2, "def_tackles_solo": 2}
+    assert nflv_pbp(row, pos="LB", st_tkl_solo=1) == pytest.approx(
+        2 * _rate("idp_tkl_solo") + _rate("st_tkl_solo")
+    )
+
+
+def test_assisted_tackles_stay_idp_only_because_special_teams_assists_cannot_be_separated():
+    """The documented RESIDUAL of IDPA-DEFECT-01.
+
+    nflverse lumps special-teams assists into ``def_tackle_assists``; the host pays
+    them nothing and the supplement has no ``st_tkl_ast``.  For a non-IDP player
+    that column is special-teams on 162 of 175 player-weeks (wk1-6), so it is not
+    paid; an IDP-listed player keeps being paid (his residual over-pay is measured
+    in the doc and needs a ``st_tkl_ast`` supplement key to close).
+    """
+    assert nflv({"def_tackle_assists": 1}, pos="WR") == pytest.approx(0.0)
+    assert nflv({"def_tackle_assists": 1}, pos="LB") == pytest.approx(_rate("idp_tkl_ast"))
+
+
+def test_forced_fumble_is_defensive_only_and_not_reduced_by_special_teams():
+    # nflverse def_fumbles_forced equals Sleeper idp_ff on 26/26 player-weeks, including
+    # three where the same player also forced a special-teams fumble (st_ff): no overlap
+    # to remove, so the supplement's st_ff must NOT be subtracted.
+    got = nflv_pbp({"def_fumbles_forced": 1}, pos="DB", st_ff=1)
+    assert got == pytest.approx(_rate("idp_ff") + _rate("st_ff"))
+
+
+# IDPA-DEFECT-02 — a blocked kick is a MISS ───────────────────────────────────
+
+
 def test_nflverse_blocked_field_goal_scores_as_a_miss():
     row = {"fg_att": 1, "fg_blocked": 1, "fg_blocked_distance": 47, "fg_blocked_list": 47}
     assert nflv(row, pos="K") == pytest.approx(_rate("fgmiss_40_49"))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="IDPA-DEFECT-02: a blocked PAT (pat_blocked) is not scored as xpmiss",
-)
 def test_nflverse_blocked_pat_scores_as_a_miss():
     row = {"pat_att": 1, "pat_blocked": 1}
     assert nflv(row, pos="K") == pytest.approx(_rate("xpmiss"))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="IDPA-DEFECT-03: a defensive fumble-return TD (fumble_recovery_tds on an IDP "
-    "row) is not mapped to idp_def_td (2 player-weeks, -12.72 pts)",
+@pytest.mark.parametrize(
+    "distance,band,wide",
+    [
+        (23, "fgmiss_20_29", None),  # Cairo Santos wk2 2026
+        (49, "fgmiss_40_49", None),  # Tyler Loop wk2
+        (54, "fgmiss_50_59", "fgmiss_50p"),  # Eddy Pineiro wk4
+        (59, "fgmiss_50_59", "fgmiss_50p"),  # Brandon Aubrey wk3
+        (62, "fgmiss_60p", "fgmiss_50p"),  # Brandon Aubrey wk4
+    ],
 )
+def test_blocked_field_goal_lands_in_the_band_sleeper_assigns(distance, band, wide):
+    line = stat_line({"fg_blocked": 1, "fg_blocked_list": distance}, pos="K")
+    assert line[band] == 1.0
+    assert line["fgmiss"] == 1.0
+    assert (line.get(wide) == 1.0) if wide else ("fgmiss_50p" not in line)
+    assert nflv({"fg_blocked": 1, "fg_blocked_list": distance}, pos="K") == pytest.approx(
+        _rate(band)
+    )
+
+
+def test_blocked_and_missed_field_goals_both_count_and_the_string_list_parses():
+    # Aubrey wk4: fg_missed 1 (65 yd) AND fg_blocked 1 (62 yd) -> Sleeper fgmiss_60p 2
+    row = {"fg_missed": 1, "fg_missed_60_": 1, "fg_blocked": 1, "fg_blocked_list": "62"}
+    assert stat_line(row, pos="K")["fgmiss_60p"] == 2.0
+    # two blocked kicks written as a ';' list, as the feed does for fg_made_list
+    line = stat_line({"fg_blocked": 2, "fg_blocked_list": "47;52"}, pos="K")
+    assert line["fgmiss_40_49"] == 1.0 and line["fgmiss_50_59"] == 1.0 and line["fgmiss"] == 2.0
+
+
+def test_blocked_field_goal_with_an_unplaceable_distance_is_not_put_in_a_guessed_band():
+    # count says 2, list says 1: the band cannot be established, so none is invented --
+    # but the (unbanded) miss total is still the observed 2.
+    line = stat_line({"fg_blocked": 2, "fg_blocked_list": "47"}, pos="K")
+    assert not [k for k in line if k.startswith("fgmiss_")]
+    assert line["fgmiss"] == 2.0
+    # a lone blocked kick may be banded from fg_blocked_distance when the list is absent
+    assert stat_line({"fg_blocked": 1, "fg_blocked_distance": 38}, pos="K")["fgmiss_30_39"] == 1.0
+
+
+# IDPA-DEFECT-03 — a defensive fumble-return TD is a defensive TD ──────────────
+
+
 def test_nflverse_fumble_return_td_is_a_defensive_td():
     row = {"def_tackles_solo": 1, "fumble_recovery_opp": 1, "fumble_recovery_yards_opp": 27,
            "fumble_recovery_tds": 1}  # fmt: skip
@@ -295,6 +411,44 @@ def test_nflverse_fumble_return_td_is_a_defensive_td():
         + _rate("idp_def_td")
     )  # fmt: skip
     assert nflv(row, pos="LB") == pytest.approx(want)
+
+
+def test_fumble_return_td_is_capped_at_defensive_recoveries():
+    base = {"fumble_recovery_tds": 1}
+    # the player's own team's fumble recovered in the end zone is not a defensive TD
+    assert stat_line({**base, "fumble_recovery_own": 1}, pos="LB").get("idp_def_td") is None
+    # a special-teams recovery (the supplement says so) is not a defensive TD either
+    row = {**base, "fumble_recovery_opp": 1, PBP_SUPPLEMENT_ROW_KEY: {"st_fum_rec": 1}}
+    assert "idp_def_td" not in stat_line(row, pos="LB")
+    # but a defensive one beside a special-teams one is
+    row = {**base, "fumble_recovery_opp": 2, PBP_SUPPLEMENT_ROW_KEY: {"st_fum_rec": 1}}
+    assert stat_line(row, pos="LB")["idp_def_td"] == 1.0
+
+
+def test_fumble_return_td_is_never_paid_twice_with_def_tds():
+    # a feed that already folds fumble-return TDs into def_tds must not be paid twice
+    row = {"def_tds": 1, "fumble_recovery_opp": 1, "fumble_recovery_tds": 1}
+    assert stat_line(row, pos="LB")["idp_def_td"] == 1.0
+    # and the interception-return TD (def_tds only) is unchanged
+    assert stat_line({"def_tds": 1, "def_interceptions": 1}, pos="DB")["idp_def_td"] == 1.0
+
+
+# IDPA-DEFECT-04 — NOT a scorer defect: the boundary of what the scorer knows ──
+
+
+def test_first_down_bonus_follows_the_position_it_is_given():
+    """Hunter Luepke (nflverse RB, Sleeper FB), 3 player-weeks, +3.0 points.
+
+    ``sleeper_stat_line_from_row`` is faithful: handed ``"FB"`` it pays no
+    ``bonus_fd_*`` (the host prices no FB first down), handed ``"RB"`` it pays the RB
+    rate.  nflverse says RB; the Sleeper listing is not an input on the in-season
+    path, so this is two stat providers listing one player differently, not a
+    scoring error.  Fixing it means bringing Sleeper's position into
+    ``weekly_points_from_rows`` -- a new cross-provider input, not a scorer repair.
+    """
+    row = {"rushing_first_downs": 1}
+    assert stat_line(row, pos="RB")["bonus_fd_rb"] == 1.0
+    assert not [k for k in stat_line(row, pos="FB") if k.startswith("bonus_fd_")]
 
 
 # ── Sleeper multi-position eligibility ────────────────────────────────────────
@@ -364,3 +518,55 @@ def test_host_native_reconciliation_has_no_unexplained_exception():
     assert h["distribution"]["maxAbs"] <= 0.005  # Sleeper's own 2-decimal rounding
     b = h["reproduceInvestigationB"]["reproduced"]
     assert b == {"playerWeeks": 3299, "exactWithin0.01": 3299, "maxAbsDiff": 0.0044}
+
+
+# ── scorer-fix evidence pins (scripts/idp_accuracy/scorer_fix_measure.py) ─────
+
+
+def test_fix_evidence_reruns_the_lane_a_reconciliation_on_the_pinned_rows():
+    assert FIX["inputs"]["matchesPinnedLaneAHash"] is True
+    assert (
+        FIX["inputs"]["nflverseRowsCanonicalSha256"]
+        == EVIDENCE["nflverse"]["nflverseRowsCanonicalSha256"]
+    )
+    before, stage1, final = (
+        FIX["rostered"][k] for k in ("before", "stage1_defects_01_02_03_only", "final")
+    )
+    # "before" is the committed Lane A evidence verbatim
+    assert before["withinTol"] == EVIDENCE["nflverse"]["distribution"]["withinTol"] == 2832
+    assert before["n"] == stage1["n"] == final["n"] == 3095
+    assert before["withinTol"] < stage1["withinTol"] < final["withinTol"] == 2976
+    for group, v in final["byGroup"].items():  # no position gets worse
+        assert v["withinTol"] >= before["byGroup"][group]["withinTol"], group
+    # what is left of the pinned defects, and why: 01 is the deliberately-unpaid
+    # non-IDP assists, 04 is the providers disagreeing on a position listing
+    assert {k: v["playerWeeks"] for k, v in final["defects"].items()} == {
+        "IDPA-DEFECT-01": 5,
+        "IDPA-DEFECT-04": 3,
+    }
+    assert {e["name"] for e in final["exceptions"] if "IDPA-DEFECT-01" in e.get("attribution", [])} == {
+        "Kyle Pitts Sr.", "Drake London", "Jakobi Meyers", "Justin Herbert", "Kimani Vidal",
+    }  # fmt: skip
+
+
+def test_fix_evidence_wide_sample_shows_no_regression_against_the_base_scorer():
+    w = FIX["wideSample"]
+    assert w["joinedPlayerWeeks"] == 6387
+    assert w["newlyWrongVsBase_stage1"] == 0 and w["newlyWrongVsBase_final"] == 0
+    assert w["base"]["withinTol"] < w["stage1_defects_01_02_03_only"]["withinTol"]
+    assert w["stage1_defects_01_02_03_only"]["withinTol"] < w["final"]["withinTol"]
+    for group, v in w["final"]["byGroup"].items():
+        assert v["withinTol"] >= w["base"]["byGroup"][group]["withinTol"], group
+
+
+def test_special_teams_tackle_rule_is_backed_by_the_count_census():
+    c = FIX["tackleCensus"]["idpListed"]
+    assert c["equalOnlyAfterRemovingPbpSpecialTeams"] == 440
+    # the supplement's special-teams count is the host's on all but 2 player-weeks
+    assert c["pbpSpecialTeamsEqualsHostSt"] >= c["playerWeeksWithSoloData"] - 2
+    assert FIX["tackleCensus"]["otherListed"]["equalOnlyAfterRemovingPbpSpecialTeams"] == 162
+    # and the stated residual: special-teams ASSISTS cannot be removed
+    a = FIX["assistCensus"]
+    assert a["other/stSnaps"]["nflverseExceedsHost"] == 161
+    assert a["idp/stSnaps"]["nflverseExceedsHost"] == 411
+    assert a["idp/noStSnaps"]["nflverseExceedsHost"] == 16
