@@ -3,86 +3,82 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-10-26 ~12:50Z.** Agent-OS-Receipt `cb64f74c`. Concurrency limit: four workers (owner 2026-10-26).
+**As of 2026-10-26 ~14:30Z.** Agent-OS-Receipt `cb64f74c`. Concurrency limit: four workers (owner 2026-10-26).
+No subagents are running.
 
-## P0 status: #1939 merged, verification in progress
-- **#1939 is MERGED** (squash `6eddc569f`, 11:33Z). An independent review returned APPROVE_WITH_NITS. Checks were green
-  on the exact head. Main had moved only through automated data commits (BENIGN_AUTOMATION_MOVE).
-- **Deploys:** Deploy Production run 40315867455 is still validating. A newer push deploy, 40322694960, is queued.
-- **Verification refresh:** GitHub throttled the 12:42Z cron slot, so I started refresh run 40325142841 by hand at
-  12:46Z.
-- **Pass criteria for that run:**
-  - the job runs on the 24.04 image, with no Chromium warning;
-  - the `_last_success` stamps for `ktc*`, `idpTradeCalc` and `draftSharks*` move past 2026-10-25T12:06Z;
-  - separately, `lastContentChange` advances for KTC and DraftSharks. It should NOT advance for IDPTC, whose vendor page
-    still says 10/10.
+## Merged + live
+- **#1939** (squash `6eddc569f`, merged 11:33Z): the scheduled refresh is pinned to ubuntu-24.04.
+  - **Production:** `/api/status .build.commit` = `6eddc569f`, process started 13:07:59Z.
+  - **Verified:** refresh run 40325142841 (dispatched 12:46Z) ran on 24.04.
+    - The `_last_success` stamps for `ktc*` and `idpTradeCalc` moved to 12:50:16Z, and `draftSharks*` to 12:52:55Z.
+    - Content changed for KTC and DraftSharks IDP (12:53:33Z).
+    - IDPTC content stays at 2026-10-10. That is vendor staleness, not a fetch failure.
+    - The evidence is posted on #1939.
+- **Nightly E2E:** run 40329220180 (13:16Z) was green. Issue #1918 is closed.
 
-## Draft PRs opened this session
-None of these is merged. L0 Fast Checks is green on all of them; Validate PR is still pending.
+## Draft PRs from this session (none merged)
+Every PR in this table had an independent review, with findings fixed afterwards unless noted.
 
-| PR | branch / head | what | tests (local) |
+| PR | head | review | what |
 |---|---|---|---|
-| #1950 | `claude/auction-rehearsal-rebase` `1e99a02c0` | Auction Phase 2 merged with main + 6 security-review follow-ups (reports mock-only, …) | 390 auction, 27 api, 55 vitest |
-| #1951 | `claude/li1842-defect-fixes` `24052113b` (on #1948) | LI1842 defects 01/03/04/06/09/10/11 | 607+6xf, 209, 120 vitest |
-| #1952 | `claude/injury-feed-parser-fix` `1157499be` | ESPN injuries parse 274 of 800 (was 0); events to a shadow file only | 120 + 43 |
-| #1953 | `claude/refresh-silent-failure-signals` `1669a49e0` | refresh warns on unstamped/preserved browser sources; diagnostic pin | 34 + 70 |
-| #1954 | `claude/fix-misleading-ui-strings` `1fd4a5770` | Settings value-basis truthful; waiver-compare charset | 39 py, 55 vitest |
-| #1955 | `claude/py-security-bumps-locked` `2dbf1fd49` | aiohttp/certifi/pillow with lock refresh; 100 of 111 alerts; prove-* GREEN in CI | 223 OCR, 84 deps |
-| #1956 | `claude/health-dlf-session-path` `f606ba310` | `/api/health` reads the real DLF session jar | 116 |
-| #1957 | `claude/sharp-crawl-404-breaker` `5b544d91a` | 404 leagues no longer trip the `sleeper_api` breaker; gone leagues skipped | 464 + 173 |
-| #1958 | `claude/ros-collector-honest-status` `29de5cdf3` | ROS `kept_previous` status + content clock (reporting only) | 21 new, 989 ros |
+| #1950 | `1e99a02c0` | APPROVE_WITH_NITS; 6 findings fixed | Auction Phase 2 + security follow-ups; supersedes #1533 |
+| #1951 | `7e6b0ef9f` (on #1948) | APPROVE_WITH_NITS; nits fixed | LI1842 defects 01/03/04/06/09/10/11 |
+| #1948 | `155f6d505` | APPROVE_WITH_NITS; nits fixed | config propagation matrix + metamorphic tests |
+| #1952 | `52f373b94` | APPROVE_WITH_NITS; hardened | ESPN injuries parse 274 of 800 (was 0); shadow events only |
+| #1953 | `8bd2cbbc5` | APPROVE_WITH_NITS | refresh browser-source signals; release-gate entry fixed |
+| #1954 | `1fd4a5770` | APPROVE_WITH_NITS | Settings value-basis truthful; waiver-compare charset |
+| #1955 | `2dbf1fd49` | APPROVE_WITH_NITS | aiohttp/certifi/pillow with lock refresh; prove-* green; supersedes #1855/#1895/#1896 |
+| #1956 | `f606ba310` | APPROVE_WITH_NITS | `/api/health` reads the real DLF session jar |
+| #1957 | `c0e535e2e` | APPROVE_WITH_NITS; hardened | Sharp 404s no longer trip the breaker |
+| #1958 | `c741ae050` | APPROVE_WITH_NITS | ROS kept-previous status + content clock; coercion fixed |
+| #1959 | `667274f26` | APPROVE_WITH_NITS; nits fixed | BDVM refresh honest status; IDP Show parser to shadow |
+| #1960 | `748d20a0a` | — | audit report + inventory (125 items, 39 defects) |
 
-#1934 (Agent OS four-worker policy + this handoff) is ready for review.
+Reviews of pre-existing PRs, all posted on the PRs:
+- **APPROVE:** #1935, #1941, #1949.
+- **APPROVE_WITH_NITS:**
+  - #1936, #1940, #1942 (now merged with #1940's head), #1943, #1945 (X2/Q3 relabelled)
+  - #1944, #1946, #1947, #1843
+  - #1938, with an owner decision brief
+- **#1937:** REQUEST_CHANGES, then all five findings fixed at `7c418c4dd`. Replay: only roster 2 (Byron Murphy) differs, and 216 of 216 picks are identical.
 
-**Reviews:**
-- #1939: APPROVE_WITH_NITS (merged).
-- #1950: APPROVE_WITH_NITS. All six of its findings are fixed at `1e99a02c0`.
-- #1952 and #1957: independent review running.
+## Merge order (when authorized)
+1. #1933 (CI unblock), #1934 (Agent OS + handoff)
+2. #1955, #1956, #1953, #1954, #1958, #1952, #1957, #1959, #1950, #1960
+3. #1931, then #1938 (owner decision)
+4. #1935, then #1937 / #1946 / #1949
+5. #1940, then #1942; #1936 / #1941 / #1943 / #1945
+6. #1948, then #1951; #1944, #1947, #1843, #1929
 
-## Running (subagents)
-- Final audit report writer: `docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md` + `.json`, as a draft PR.
-  All 125 items are assessed in `.claude/worktrees/_audit_inputs/` (local, untracked).
-- BDVM projection refresh. It reports failed sources honestly, and moves the IDP Show parser output to a shadow file
-  (`claude/bdvm-idpshow-projection-honesty`).
-- Independent review of #1952 and #1957.
-
-## Integration queue (pre-existing; checks green; none reviewed this session)
-- **Base main:** #1933, #1929, #1931, #1936, #1940, #1941, #1943, #1945, #1944, #1947, #1843.
-- **Stacked:** #1942 on #1940; #1937 / #1946 / #1949 on #1935; #1938 on #1931 (owner decision, changes BDVM);
-  #1951 on #1948.
-- **Superseded once its replacement is reviewed/green:** #1533 by #1950; #1855 / #1895 / #1896 by #1955.
-- **Codex-owned:** #1921.
+Close #1533 after #1950 merges, and #1855 / #1895 / #1896 after #1955 merges.
 
 ## Owner decisions pending
-- **Data and valuation:**
-  - #1938: BDVM nflverse scorer fixes.
-  - Injury events into BDVM (after #1952).
-  - IDP Show projections into BDVM (after the BDVM honesty PR).
-  - ROS freshness multiplier on the content clock (#1958).
-- **League config:** LI1842 open defects 02 (TE multiplier), 05, 07 (roster cap), 08 (POST leagueKey),
-  12 (trade_deadline), 13 (auction provenance).
-- **Ops and monitoring:**
-  - `SHARP_SMOKE_TOKEN`: the Sharp production smoke check has never measured anything.
-  - #804 rank-digest capture cadence.
-  - Whether the DFS tick should keep running while DFS is paused.
-  - Retire the Codex OneDrive orchestrator.
-  - Turning the run red when a browser source is preserved for N runs (#1953, proposed N=3).
+- **#1938 nflverse scorer fixes.** Recommended: ship WITH the special-teams de-dup, after a box before/after of
+  `run_valuation` plus the alert sweep. There is no flag; rollback is a revert.
+- **Activations into BDVM:**
+  - injury events (#1952);
+  - IDP Show projections (#1959 switch);
+  - a ROS content-clock freshness multiplier (#1958).
+- **LI1842 open defects:** 02 TE multiplier, 05, 07 roster cap, 08 POST leagueKey, 12 trade_deadline,
+  13 auction provenance.
+  - Defect 07 may be taxi accounting: 24 roster positions + 3 taxi = 27.
+  - Should `/api/intel/leads` return 503 for a league whose data isn't loaded, or just leave out the fit/value terms?
+- **Credentials and signals:**
+  - provide `SHARP_SMOKE_TOKEN` (the smoke check has never measured anything);
+  - run red after a browser source is preserved for N runs (#1953);
   - Sharp crawl exit-code semantics (#1957).
+- **Housekeeping:** #804 capture cadence; DFS tick while DFS is paused; retire the Codex OneDrive orchestrator.
 - **Earlier, still open:**
-  - cut-ladder tie-break;
-  - forced-drop activation (recommendation: not yet);
-  - Public Waiver Wire scope;
-  - IDP Show board swap;
-  - 2026 holdout;
-  - 17-game re-run;
-  - lineage census box run;
-  - backend memory canary.
+  - cut-ladder tie-break (#1945 X2) and forced-drop activation (recommended: not yet)
+  - Public Waiver Wire scope
+  - IDP Show board swap
+  - 2026 holdout; 17-game re-run
+  - lineage census box run
+  - backend memory canary
 
 ## Hazards
-- **Disk:** freed from 1.9 GB to 121 GB free by removing 48 clean, pushed worktrees and the regenerable folders. 44
-  dirty or unpushed worktrees remain, including Codex ones. Inspect before deleting any of them.
-  `~/.codex/visualizations/2026/09/10/...` holds about 33 GB.
-- **Never use `git stash`.** Commit explicit paths only.
-- **Deploy concurrency:** GitHub keeps only the newest pending run in the `production-deploy` group, so a new push can
-  cancel a queued deploy. Confirm a commit is live from the first FINISHED deploy whose SHA contains it
-  (`/api/status .build`).
+- **Disk:** about 121 GB free after removing 48 clean, pushed worktrees and the regenerable folders. 44 dirty or
+  unpushed worktrees remain (some are Codex's). Inspect before deleting.
+- **Git:** never `git stash`; commit explicit paths only; never junction `node_modules`.
+- **Deploys:** only the newest pending run in the `production-deploy` group survives, so confirm what is live from
+  `/api/status .build`.
