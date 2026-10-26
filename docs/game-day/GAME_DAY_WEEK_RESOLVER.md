@@ -317,37 +317,49 @@ The raw log is deleted the moment the archive is accepted, so acceptance also
 needs the rename that put it there to be durable: the week directory is fsynced
 after it. A failed flush keeps the raw log under reason
 `archive_directory_unflushed` — the verified archive is in place, only its flush
-is pending — with `flushFailure` naming the step that failed (`open`: the
-directory could not be opened, so no `fsync` ran; `fsync`: `fsync` reported an
-error) and `firstFailedAt` when the failure began (`failedAt` stays the latest
-attempt, which the hourly throttle reads; the ops alert shows the start). It is
-retried at most hourly; a pass inside the window touches nothing. While the raw
-weekly log is retained, a bare re-flush of an accepted archive is trusted ONLY
-after a recorded `open` failure (no `fsync` ran, so no write error was consumed).
-After `fsync`, an unrecorded or unknown step, a `candidateFlow` mismatch or any
-other marker beside the archive, or no marker at all, a later flush cannot vouch
-for the rename — Linux reports a write error to one `fsync`, and one on a new
-handle may then succeed although the rename never reached disk; and the marker
-is best effort, so a crash or a failed marker write can lose it. The pass then
-re-establishes the rename by a **byte-identical rewrite**, never a rebuild: the
-accepted archive's bytes are read and hashed (sha256), written to a temp file
-that is fsynced and renamed to `pregame_projections.json.gz.candidate`, read
-back and required to match in size and sha256, renamed over the accepted archive
-(never deleting that first), and the directory is flushed. Nothing the builder
-reads — the cached schedule, the stored scoreboard, the clock — is consulted, so
-the content cannot change. A rewrite that cannot complete (an I/O error, or a
-copy that does not read back identical) leaves the accepted archive untouched,
-keeps the raw log and records `archive_directory_unflushed` (a prior unflushed
-marker's `flushFailure` and `firstFailedAt` kept, else `flushFailure: null`), so
-the next hourly retry rewrites again; on success the marker is cleared, and one
-that cannot be cleared only makes the next pass copy the same bytes again. A
+is pending — with `flushFailure` naming the step of the latest attempt that
+failed (`open`: the directory could not be opened, so no `fsync` ran; `fsync`:
+`fsync` reported an error; `rewrite`: the byte-identical rewrite below could not
+complete, so no flush ran) and `firstFailedAt` when the failure began
+(`failedAt` stays the latest attempt, which the hourly throttle reads; the ops
+alert shows the start). `flushFailure` is diagnostic only: no value decides what
+a retry trusts. While the raw weekly log is retained, an accepted archive is ALWAYS
+re-established by a **byte-identical rewrite** — never a bare re-flush, whatever
+marker is beside it (a recorded `open` failure included), and with no marker at
+all. A later flush cannot vouch for the rename: Linux reports a write error to
+one `fsync`, and one on a new handle may then succeed although the rename never
+reached disk; and every marker is best effort, so a crash or a failed marker
+write can lose it or leave a stale one (a recorded `open` whose later `fsync`
+error never reached the marker). The rewrite is never a rebuild: the accepted
+archive's bytes are read and hashed (sha256), written to a temp file that is
+fsynced and renamed to `pregame_projections.json.gz.candidate`, read back and
+required to have the same sha256, renamed over the accepted archive (never
+deleting that first), and the directory is flushed. Nothing the builder reads —
+the cached schedule, the stored scoreboard, the clock — is consulted, so the
+content cannot change. A rewrite that cannot complete (an I/O error, or a copy
+whose sha256 differs) leaves the accepted archive untouched, keeps the raw log
+and records `archive_directory_unflushed` with `flushFailure: rewrite` (a prior
+unflushed marker's `firstFailedAt` kept), so the next hourly retry rewrites
+again; on success the marker is cleared. With no raw weekly log left there is
+nothing to protect, and the accepted archive is re-flushed only, never
+rewritten. A failure marker of ANY reason whose `failedAt` is inside the hourly
+window stops every pass on the accepted archive: it flushes, rewrites and logs
+nothing. `shutil.rmtree` of `observations/` fails
+silently, so the prune checks the directory is gone before reporting it removed;
+one that survives is logged as a WARNING and, beside the week's archive,
+recorded as `raw_log_prune_failed` (`failedAt` / `firstFailedAt`), which the ops
+alert reports (the archive is in place, the raw log could not be removed, and it
+is retried) and which throttles the next attempt to hourly. With no marker the
+first rewrite runs at once and that marker throttles every pass after it, so no
+state rewrites the archive on every tick while its marker can be written. A
 platform with no directory flush is not a failure (`unsupported`): Windows
 refusing to open a directory (logged at DEBUG), or `fsync` failing with `EINVAL`
 / `ENOTSUP` / `EOPNOTSUPP` (some FUSE, CIFS, 9p and drvfs mounts; logged at INFO
 once per process, then DEBUG). Every other `fsync` error, `EIO` included, is a
 failure. An unreadable file at the archive
 path (`archive_unreadable`) is never overwritten, so it is not rebuilt; it
-resolves when the file reads back or is removed. Archives are kept `PREGAME_ARCHIVE_SEASONS` = 10 seasons back.
+resolves when the file reads back (accepted on the first pass after that
+marker's hourly window) or is removed. Archives are kept `PREGAME_ARCHIVE_SEASONS` = 10 seasons back.
 Measured size: one real week (2,154 projected players) is 1.7 MB as JSON and
 ~0.2 MB gzipped, so ~3.7 MB per 18-week season and under 40 MB at the bound.
 Backup: `deploy/backup/riskit-state-backup.sh` already backs up the whole

@@ -207,7 +207,12 @@ def test_a_stale_marker_is_cleared_once_the_archive_reads_back(kv):
 
     payload = live.build_pregame_projection_archive(SEASON, WEEK, schedule_rows=SCHEDULE, now=NOW)
     live._write_pregame_archive(path, payload)
-    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 60) is True
+    # Like every marker, it throttles the accepted archive to hourly: inside the
+    # window the pass touches nothing and the alert keeps firing ...
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 60) is False
+    assert marker.exists()
+    # ... and the first pass after it accepts the archive.
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 3600) is True
 
     assert not marker.exists()
     assert live.pregame_archive_health() == []
@@ -414,13 +419,37 @@ def _row(reason, *, retained=True, **extra) -> dict:
 
 
 # A build failure's claims that are FALSE for a pending directory flush: the
-# verified archive exists, nothing is rebuilt for it (after an open failure), and
-# the alert resolves when the flush -- not a build -- succeeds.
+# verified archive exists, nothing is rebuilt for it, and the alert resolves
+# when the flush -- not a build -- succeeds.
 _BUILD_FAILURE_CLAIMS = ("not built", "until the archive exists", "resolves when a build succeeds")
+# Every pending-flush kind is retried the same way: the byte-identical rewrite.
+_REWRITE_RETRY = (
+    "Whatever the failed step, the Game Day collector's retry, at most hourly, rewrites the "
+    "accepted archive byte for byte -- its own bytes, read back and checked by sha256, never "
+    "rebuilt from the raw log -- renames that copy over it and flushes the directory again: no "
+    "bare re-flush is trusted"
+)
 
 
-@pytest.mark.parametrize("kind", ["open", "fsync", None])
-def test_a_pending_directory_flush_alert_says_what_is_true(kind):
+def _assert_retry_is_the_rewrite(alert) -> None:
+    assert _REWRITE_RETRY in alert.detail
+    # Round 4's "open" text promised a flush-only retry; nothing does that now.
+    assert "retries only the flush" not in alert.detail
+    assert "size and sha256" not in alert.detail  # one guard: sha256
+    assert "rebuilds the archive" not in alert.detail and "treated as an fsync" not in alert.detail
+
+
+@pytest.mark.parametrize(
+    ("kind", "cause"),
+    [
+        ("open", "The directory could not be opened, so no fsync ran."),
+        ("fsync", "fsync reported an error."),
+        (None, "The failed step is not on record."),
+        ("dir_sync", "The failed step is not on record."),
+    ],
+    ids=["open", "fsync", "null", "unknown"],
+)
+def test_a_pending_directory_flush_alert_says_what_is_true(kind, cause):
     first = live._iso(NOW)
     (alert,) = oa._check_pregame_archive(
         [_row("archive_directory_unflushed", firstFailedAt=first, flushFailure=kind)]
@@ -433,26 +462,92 @@ def test_a_pending_directory_flush_alert_says_what_is_true(kind):
     assert alert.title == (
         f"Pregame projections archive for {SEASON} week {WEEK} awaiting a durable directory flush"
     )
+    # The lead and the closing are round 4's, byte for byte.
     assert alert.detail.startswith(
         f"The verified pregame weekly-projections archive for {live.NFL_KEY} {SEASON} week "
         f"{WEEK} is in place, but the directory holding it could not be flushed to disk "
         f"(archive_directory_unflushed; flush failure: {kind or 'unrecorded'}; "
-        f"failing since {first})."
+        f"failing since {first}).  Until a flush succeeds a power loss could undo the rename "
+        "that put it there, so the raw weekly-projection log is retained"
     )
-    assert "raw weekly-projection log is retained" in alert.detail
     assert alert.detail.endswith("This resolves when the directory flush succeeds.")
+    assert f"  {cause}  {_REWRITE_RETRY}" in alert.detail
     assert live._iso(NOW + 7200) not in alert.detail  # the start, not the latest retry
-    if kind == "open":
-        assert "retries only the flush" in alert.detail
-        assert "does not rebuild the archive" in alert.detail
-        assert "byte for byte" not in alert.detail
-    else:
-        # The retry copies the accepted archive's own bytes; it never rebuilds.
-        assert "rewrites the accepted archive byte for byte" in alert.detail
-        assert "checked by size and sha256, never rebuilt from the raw log" in alert.detail
-        assert "rebuilds the archive" not in alert.detail
-        assert ("not on record" in alert.detail) is (kind is None)
+    _assert_retry_is_the_rewrite(alert)
     assert alert.category == CATEGORY and alert.severity == "warning"
+
+
+def test_a_failed_rewrite_alert_says_the_rewrite_could_not_complete():
+    """``flushFailure: "rewrite"`` -- an I/O error or a sha256 mismatch stopped
+    the rewrite before any flush ran -- must not say the directory "could not be
+    flushed", nor that it resolves when "the directory flush" succeeds."""
+    first = live._iso(NOW)
+    (alert,) = oa._check_pregame_archive(
+        [_row("archive_directory_unflushed", firstFailedAt=first, flushFailure="rewrite")]
+    )
+
+    assert alert.title == (
+        f"Pregame projections archive for {SEASON} week {WEEK} awaiting a durable directory flush"
+    )
+    assert alert.detail.startswith(
+        f"The verified pregame weekly-projections archive for {live.NFL_KEY} {SEASON} week "
+        f"{WEEK} is in place, but the byte-identical rewrite that re-establishes the rename that "
+        "put it there could not complete (archive_directory_unflushed; flush failure: rewrite; "
+        f"failing since {first}).  Until that rewrite and its directory flush succeed a power "
+        "loss could undo the rename, so the raw weekly-projection log is retained"
+    )
+    assert "before any directory flush ran" in alert.detail
+    assert alert.detail.endswith(
+        "This resolves when the byte-identical rewrite and its directory flush succeed."
+    )
+    assert "could not be flushed to disk" not in alert.detail
+    assert "This resolves when the directory flush succeeds." not in alert.detail
+    _assert_retry_is_the_rewrite(alert)
+    for claim in _BUILD_FAILURE_CLAIMS:
+        assert claim not in alert.title + alert.detail
+
+
+def test_a_raw_log_prune_failed_alert_says_what_is_true():
+    """The archive is in place and nothing is lost; only the delete failed, and it
+    is retried at most hourly.  Not a build failure, not a pending flush."""
+    first = live._iso(NOW)
+    (alert,) = oa._check_pregame_archive([_row("raw_log_prune_failed", firstFailedAt=first)])
+
+    assert alert.title == (
+        f"Pregame projections archive for {SEASON} week {WEEK} in place; raw log not removed"
+    )
+    assert alert.detail.startswith(
+        f"The verified pregame weekly-projections archive for {live.NFL_KEY} {SEASON} week "
+        f"{WEEK} is in place, but the week's raw observations could not be removed after it was "
+        f"established (raw_log_prune_failed; failing since {first}).  Nothing is lost"
+    )
+    assert "retries at most hourly" in alert.detail and "byte-identical rewrite" in alert.detail
+    assert alert.detail.endswith("This resolves when the raw log is removed.")
+    assert live._iso(NOW + 7200) not in alert.detail  # the start, not the latest retry
+    for claim in (*_BUILD_FAILURE_CLAIMS, "could not be flushed", "awaiting"):
+        assert claim not in alert.title + alert.detail
+    assert alert.category == CATEGORY and alert.severity == "warning"
+
+
+def test_a_real_raw_log_prune_failure_reaches_the_operator(monkeypatch, kv):
+    """End to end: the real prune with a delete that fails silently, the health
+    reader, the sweep, the sink -- then the alert resolves once the delete works."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    real_rmtree = shutil.rmtree
+    monkeypatch.setattr(shutil, "rmtree", lambda *a, **k: None)
+
+    assert live.prune_retention(SEASON, PRUNE_WEEK, now=NOW) == []
+    sink = Sink()
+    summary = _sweep(kv, sink, live.pregame_archive_health())
+
+    assert summary["categories"] == [CATEGORY] and len(sink.sent) == 1
+    _to, _subject, body = sink.sent[0]
+    assert "raw log not removed" in body and "raw_log_prune_failed" in body
+    assert f"failing since {live._iso(NOW)}" in body
+
+    monkeypatch.setattr(shutil, "rmtree", real_rmtree)
+    assert live.prune_retention(SEASON, PRUNE_WEEK, now=NOW + 3600) == [str(_obs_dir())]
+    assert _sweep(kv, sink, live.pregame_archive_health())["recovered"] == 1
 
 
 def test_a_pending_flush_alert_without_a_start_falls_back_to_the_latest_attempt():
@@ -508,6 +603,7 @@ _GONE_TEXT = (
         (None, True),
         ("archive_unreadable", False),
         ("archive_directory_unflushed", False),
+        ("raw_log_prune_failed", False),
         ("kickoffs_unknown", False),
     ],
 )
@@ -584,7 +680,8 @@ def test_an_unremovable_marker_does_not_abort_the_prune(monkeypatch, caplog):
 
     _deny_marker_unlink(monkeypatch)
     with caplog.at_level(logging.WARNING, logger=live.__name__):
-        removed = live.prune_retention(SEASON, WEEK + live.RAW_RETENTION_WEEKS + 2)
+        # Past the markers' hourly window, which throttles week A's accepted archive.
+        removed = live.prune_retention(SEASON, WEEK + live.RAW_RETENTION_WEEKS + 2, now=NOW + 3600)
 
     # Both weeks were pruned whatever order they were visited in: the first
     # marker's permission error did not abort the walk.

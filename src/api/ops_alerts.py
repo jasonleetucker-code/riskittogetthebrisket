@@ -244,12 +244,13 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
     sweep passes ``None`` -- never an empty list -- when the store could not be
     read.
 
-    Two reasons are not build failures and say so: ``archive_unreadable`` (a
+    Three reasons are not build failures and say so: ``archive_unreadable`` (a
     file at the archive path that does not read back, which the collector never
-    overwrites) and ``archive_directory_unflushed`` (the verified archive is in
-    place; only making its rename durable is pending -- a directory flush,
-    preceded by a byte-identical rewrite of the archive unless the recorded
-    failure is the directory open).
+    overwrites), ``archive_directory_unflushed`` (the verified archive is in
+    place; only making its rename durable is pending -- a byte-identical
+    rewrite of the archive followed by a directory flush, whatever step failed
+    last) and ``raw_log_prune_failed`` (the archive is in place; only removing
+    the raw log failed).
     """
     alerts: list[OpsAlert] = []
     for row in rows or []:
@@ -258,43 +259,69 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
         league, season, week = row.get("leagueKey"), row.get("season"), row.get("week")
         reason = row.get("reason") or "unknown"
         failure = f"could not be established ({reason}; failed {row.get('failedAt')})."
+        since = row.get("firstFailedAt") or row.get("failedAt")
         if row.get("rawLogRetained") and reason == "archive_directory_unflushed":
             kind = row.get("flushFailure")
-            if kind == "open":
-                retry = (
-                    "The directory could not be opened, so no fsync ran: the Game Day collector "
-                    "retries only the flush, at most hourly, and does not rebuild the archive."
+            if kind == "rewrite":
+                # The latest attempt never reached a flush: the rewrite itself
+                # (a write, a read or the sha256 check) could not complete.
+                lead = (
+                    f"The verified pregame weekly-projections archive for {league} {season} week "
+                    f"{week} is in place, but the byte-identical rewrite that re-establishes the "
+                    f"rename that put it there could not complete ({reason}; flush failure: "
+                    f"rewrite; failing since {since}).  Until that rewrite and its directory "
+                    "flush succeed a power loss could undo the rename"
+                )
+                cause = (
+                    "The rewrite stopped before any directory flush ran (an I/O error, or a copy "
+                    "whose sha256 did not match), and the accepted archive was left untouched."
+                )
+                closing = (
+                    "This resolves when the byte-identical rewrite and its directory flush succeed."
                 )
             else:
-                cause = (
-                    "fsync reported an error"
-                    if kind == "fsync"
-                    else (
-                        "The failed step is not on record (a marker written before it was "
-                        "recorded, or a byte-identical rewrite that could not complete), so it "
-                        "is treated as an fsync error"
-                    )
+                lead = (
+                    f"The verified pregame weekly-projections archive for {league} {season} week "
+                    f"{week} is in place, but the directory holding it could not be flushed to disk "
+                    f"({reason}; flush failure: {kind or 'unrecorded'}; failing since "
+                    f"{since}).  Until a flush succeeds a power loss could undo the rename that put "
+                    "it there"
                 )
-                retry = (
-                    f"{cause}, after which a later flush cannot prove the rename durable, so the "
-                    "Game Day collector's retry, at most hourly, rewrites the accepted archive "
-                    "byte for byte -- its own bytes, read back and checked by size and sha256, "
-                    "never rebuilt from the raw log -- renames that copy over it and flushes the "
-                    "directory again."
-                )
+                cause = {
+                    "open": "The directory could not be opened, so no fsync ran.",
+                    "fsync": "fsync reported an error.",
+                }.get(kind, "The failed step is not on record.")
+                closing = "This resolves when the directory flush succeeds."
             title = (
                 f"Pregame projections archive for {season} week {week} "
                 "awaiting a durable directory flush"
             )
             detail = (
+                f"{lead}, so the raw weekly-projection log is retained -- the prune keeps it "
+                "rather than delete evidence the archive may not yet durably hold.  "
+                f"{cause}  Whatever the failed step, the Game Day collector's retry, at most "
+                "hourly, rewrites the accepted archive byte for byte -- its own bytes, read back "
+                "and checked by sha256, never rebuilt from the raw log -- renames that copy over "
+                "it and flushes the directory again: no bare re-flush is trusted, because Linux "
+                "reports a write error to only one fsync and the marker that would record it is "
+                "best effort.  See pregame_projections.retained.json beside the week.  "
+                f"{closing}"
+            )
+        elif row.get("rawLogRetained") and reason == "raw_log_prune_failed":
+            title = (
+                f"Pregame projections archive for {season} week {week} in place; "
+                "raw log not removed"
+            )
+            detail = (
                 f"The verified pregame weekly-projections archive for {league} {season} week "
-                f"{week} is in place, but the directory holding it could not be flushed to disk "
-                f"({reason}; flush failure: {kind or 'unrecorded'}; failing since "
-                f"{row.get('firstFailedAt') or row.get('failedAt')}).  Until a flush succeeds a "
-                "power loss could undo the rename that put it there, so the raw weekly-projection "
-                "log is retained -- the prune keeps it rather than delete evidence the archive "
-                f"may not yet durably hold.  {retry}  See pregame_projections.retained.json "
-                "beside the week.  This resolves when the directory flush succeeds."
+                f"{week} is in place, but the week's raw observations could not be removed after "
+                f"it was established ({reason}; failing since {since}).  Nothing is lost: the raw "
+                "log simply stays on disk.  The Game Day collector retries at most hourly -- each "
+                "retry first makes the archive's rename durable again (by a byte-identical "
+                "rewrite of its own bytes, checked by sha256, while the raw weekly log remains; "
+                "never a rebuild), then removes the raw log again.  See "
+                "pregame_projections.retained.json beside the week.  This resolves when the raw "
+                "log is removed."
             )
         elif row.get("rawLogRetained") and reason == "archive_unreadable":
             title = f"Pregame projections archive for {season} week {week} unreadable"
