@@ -3,7 +3,8 @@
 ## Standing high-throughput development / automatic qualified merges — owner 2026-10-19
 
 Apply the cross-model policy in `docs/AGENT_OPERATING_SYSTEM.md` §3:
-3–5 actual independent coding workers where feasible, separate worktrees,
+independent coding workers within the §3 "Usage efficiency" limit (one
+coordinator, at most two active subagents; owner 2026-10-25), separate worktrees,
 branches, file claims and an Integration coordinator; serialize shared
 canonical interfaces. Implementers run L0/L1 while building unrelated
 authorized work in parallel. L2 remains required at coherent PR integration
