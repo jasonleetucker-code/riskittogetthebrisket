@@ -107,6 +107,7 @@ from src.news import custom_alerts as _custom_alerts
 from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
 from src.diagnostics import proc_probe as _proc_probe
 from src.diagnostics import scrape_telemetry as _scrape_telemetry
+from src.sources import dlf_session as _dlf_session
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
@@ -6642,6 +6643,8 @@ async def get_health():
     _session_configs = {
         # Scraper POSTs DLF_USERNAME/PASSWORD to wp-login on failure,
         # so this file auto-refreshes.  Tracked for visibility only.
+        # Read from the fetch timer's work dir via ``_dlf_session`` (below),
+        # NOT from BASE_DIR: that copy is a bootstrap seed nothing refreshes.
         "dlf_session.json": {"lifetimeDays": 14, "autoRefresh": True},
         # Scraper POSTs DRAFTSHARKS_EMAIL/PASSWORD on failure.
         "draftsharks_session.json": {"lifetimeDays": 30, "autoRefresh": True},
@@ -6653,9 +6656,12 @@ async def get_health():
     for fname, cfg in _session_configs.items():
         lifetime_days = cfg["lifetimeDays"]
         auto_refresh = cfg["autoRefresh"]
-        fpath = BASE_DIR / fname
+        # One resolver for "where is this session file": DLF resolves the way
+        # the fetch timer's script does; the others stay under BASE_DIR.
+        fpath = _dlf_session.health_session_path(fname, BASE_DIR)
         try:
             if not fpath.exists():
+                # Missing is reported as missing -- never as a zero-day-old file.
                 _session_ages[fname] = {"present": False, "autoRefresh": auto_refresh}
                 continue
             mtime_ts = fpath.stat().st_mtime
