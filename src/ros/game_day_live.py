@@ -2707,8 +2707,56 @@ def _write_pregame_archive(path: Path, payload: Mapping[str, Any]) -> None:
         json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
     )
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_bytes(blob)
+    with open(tmp, "wb") as handle:
+        handle.write(blob)
+        handle.flush()
+        # The rename below must never publish a name whose bytes are still only
+        # in the page cache: a crash would leave a zero-length "archive".
+        os.fsync(handle.fileno())
     tmp.replace(path)
+
+
+def _fsync_file(path: Path) -> None:
+    """Flush a file's data to disk.  Raises ``OSError`` if it cannot be.
+
+    Opened read-write because Windows refuses to flush a read-only handle.
+    """
+    fd = os.open(path, os.O_RDWR | getattr(os, "O_BINARY", 0))
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _fsync_dir(directory: Path) -> bool:
+    """Flush a directory entry (a rename) to disk, where the platform allows.
+
+    ``True`` when the directory was flushed.  ``False`` when it could not be:
+    Windows cannot open a directory for ``fsync`` (``os.open`` raises
+    ``PermissionError``), and a filesystem that cannot flush one is no worse
+    off than before.  Never raises -- the file data was already flushed by
+    :func:`_fsync_file`, so this only narrows the window in which a power loss
+    could undo the rename itself.
+    """
+    import logging
+
+    try:
+        fd = os.open(directory, os.O_RDONLY)
+    except OSError as exc:
+        logging.getLogger(__name__).debug(
+            "game day: cannot open %s to flush it (%s); skipping directory fsync", directory, exc
+        )
+        return False
+    try:
+        os.fsync(fd)
+    except OSError as exc:
+        logging.getLogger(__name__).warning(
+            "game day: could not flush directory %s after archiving (%s)", directory, exc
+        )
+        return False
+    finally:
+        os.close(fd)
+    return True
 
 
 #: A week whose archive could not be established is retried at most this
@@ -2731,6 +2779,8 @@ def _pregame_failure_path(season: int, week: int) -> Path:
 PREGAME_ARCHIVE_CANDIDATE_SUFFIX = ".candidate"
 PREGAME_ARCHIVE_MISMATCH_SUFFIX = ".mismatch"
 _PREGAME_READBACK_MISMATCH = "archive_readback_mismatch"
+#: Stamped on a failure marker by the verify-before-accept flow.
+_PREGAME_CANDIDATE_FLOW_KEY = "candidateFlow"
 _PREGAME_COUNTED_KEYS = ("players", "timingUnverified")
 
 
@@ -2811,17 +2861,23 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
         if not (
             isinstance(prior, dict)
             and prior.get("reason") == _PREGAME_READBACK_MISMATCH
+            and not prior.get(_PREGAME_CANDIDATE_FLOW_KEY)
             and log.log_path.exists()
         ):
             # The raw log may be pruned now, so a marker left by an earlier
             # failed attempt no longer describes a retained log -- clear it so
-            # the ops alert resolves.
+            # the ops alert resolves.  This includes a candidate-flow mismatch
+            # marker (``candidateFlow``): the verify-before-accept flow only
+            # ever moves a verified archive to this path, so one that is here
+            # beside such a marker is a good rebuild whose stale marker could
+            # not be unlinked -- keep it, do not rebuild it on every pass.
             _clear_pregame_failure(marker)
             return True
-        # A readable archive beside a read-back-mismatch marker is what the
-        # code that left a failed file in place produced: the archive never
-        # passed verification and nothing re-checked it, so it is not trusted.
-        # Set it aside and rebuild from the raw log, which is still here.
+        # A readable archive beside a read-back-mismatch marker WITHOUT
+        # ``candidateFlow`` is what the code that left a failed file in place
+        # produced: the archive never passed verification and nothing
+        # re-checked it, so it is not trusted.  Set it aside and rebuild from
+        # the raw log, which is still here.
         if not _set_aside_mismatched_archive(path):
             return False
     if not log.log_path.exists():
@@ -2845,21 +2901,45 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
             candidate = path.with_name(path.name + PREGAME_ARCHIVE_CANDIDATE_SUFFIX)
             _write_pregame_archive(candidate, payload)
             if _archive_counts_match(_read_pregame_archive(candidate), payload):
+                # Durable BEFORE it becomes the accepted archive, and the rename
+                # durable before this returns True: ``prune_retention`` deletes
+                # the raw log the moment it does, so a power loss must not be
+                # able to undo the archive after the log is gone.
+                _fsync_file(candidate)
                 candidate.replace(path)  # atomic: verified bytes, nothing else
+                _fsync_dir(path.parent)
             else:
                 reason = _PREGAME_READBACK_MISMATCH
-                _set_aside_mismatched_archive(candidate)
+                if not _set_aside_mismatched_archive(candidate):
+                    import logging
+
+                    logging.getLogger(__name__).warning(
+                        "game day: the mismatched pregame archive candidate %s stays in place "
+                        "(it was not set aside) and is overwritten by the next attempt",
+                        candidate,
+                    )
     except Exception as exc:  # noqa: BLE001 -- any failure keeps the raw evidence
         reason = f"{type(exc).__name__}: {exc}"[:300]
     if reason is not None:
-        _mark_pregame_failure(marker, now, reason)
+        _mark_pregame_failure(
+            marker, now, reason, candidate_flow=reason == _PREGAME_READBACK_MISMATCH
+        )
         return False
     _clear_pregame_failure(marker)
     return True
 
 
-def _mark_pregame_failure(marker: Path, now: float, reason: str) -> None:
-    """Log and persist why a week's raw observations are being kept."""
+def _mark_pregame_failure(
+    marker: Path, now: float, reason: str, *, candidate_flow: bool = False
+) -> None:
+    """Log and persist why a week's raw observations are being kept.
+
+    ``candidate_flow`` stamps ``"candidateFlow": true`` on the marker.  Only the
+    verify-before-accept flow sets it, and only then does a readable archive
+    beside a read-back-mismatch marker mean "a good rebuild whose marker could
+    not be cleared"; a mismatch marker WITHOUT it was left by the code that
+    wrote the failed file in place (see :func:`ensure_pregame_archive`).
+    """
     import logging
 
     logging.getLogger(__name__).warning(
@@ -2869,7 +2949,10 @@ def _mark_pregame_failure(marker: Path, now: float, reason: str) -> None:
         reason,
     )
     try:
-        _atomic_write_json(marker, {"failedAt": _iso(now), "reason": reason})
+        record: dict[str, Any] = {"failedAt": _iso(now), "reason": reason}
+        if candidate_flow:
+            record[_PREGAME_CANDIDATE_FLOW_KEY] = True
+        _atomic_write_json(marker, record)
     except OSError:
         pass
 
@@ -2981,10 +3064,15 @@ def prune_retention(season: int, week: int) -> list[str]:
                     removed.append(str(obs))
                 if s < season - PREGAME_ARCHIVE_SEASONS:
                     archive = week_dir / PREGAME_ARCHIVE_NAME
-                    # The set-aside copy of a failed build ages out with its week.
+                    candidate = archive.with_name(archive.name + PREGAME_ARCHIVE_CANDIDATE_SUFFIX)
+                    # The set-aside copy of a failed build, and a candidate (or
+                    # its writer's temp file) a crash or a failed set-aside left
+                    # behind, age out with their week.
                     for stale in (
                         archive,
                         archive.with_name(archive.name + PREGAME_ARCHIVE_MISMATCH_SUFFIX),
+                        candidate,
+                        candidate.with_name(candidate.name + ".tmp"),
                     ):
                         # One file that cannot be removed must not abort the
                         # weeks after it: it stays and is retried next tick.
