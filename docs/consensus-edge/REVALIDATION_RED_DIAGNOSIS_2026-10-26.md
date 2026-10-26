@@ -123,6 +123,13 @@ summary script for each outcome combination (POSIX bash only) and statically
 checks that the drift message is guarded on a compare failure (all platforms).
 Study, gate, thresholds and comparison logic are unchanged.
 
+A follow-up closes the remaining gap. The compare step also exits 1 on an
+uncaught error, so it now prints `CE_REVALIDATE_RESULT=verdict_drift` as its
+last line before exiting on drift. The summary claims drift only when that
+whole line is in `compare.txt`. A compare failure without it (after a
+successful re-run) is reported as "**The comparison crashed, so no verdict was
+compared.**", in the same style as the "did not complete" message.
+
 ## 5. What a green run does and does not say
 
 (Carried over from the audit, verified against the workflow.)
