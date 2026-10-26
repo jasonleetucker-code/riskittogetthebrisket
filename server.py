@@ -6877,9 +6877,15 @@ async def get_public_waiver_compare():
     status, body = await run_in_threadpool(
         _waiver_compare_service.payload, latest_contract_data, league
     )
+    # The body is UTF-8 (``Dynasty · Crowd+Trades`` goes out as C2 B7).  A bare
+    # ``application/json`` names no charset, and a client that defaults to
+    # ISO-8859-1 when none is declared (Windows PowerShell 5.1's
+    # Invoke-RestMethod / Invoke-WebRequest) renders those two bytes as
+    # ``Â·``.  Say what the body is.
     return JSONResponse(
         status_code=status,
         content=body,
+        media_type="application/json; charset=utf-8",
         headers={
             "Cache-Control": "public, max-age=30" if status == 200 else "no-store",
             "X-Robots-Tag": "noindex, nofollow",
