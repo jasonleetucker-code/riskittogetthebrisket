@@ -536,23 +536,48 @@ class TestGoneLeaguesAreAnObservedState:
         assert result.leagues_considered == 2
         assert result.leagues_pending == 0, "a skipped gone league is not pending work"
 
-    def test_past_the_window_it_is_rechecked_after_every_healthy_league(self, db):
-        resp = _mixed(["A-gone"], ["Z-healthy"])
-        _crawl(resp, league_ids=["A-gone", "Z-healthy"], ledger_path=db)
+    def test_past_the_window_gone_leagues_are_rechecked_as_a_bounded_trickle(self, db):
+        """Not skipped forever (a mistaken 404 must heal) and not a wall: at most
+        GONE_RECHECK_MAX_PER_RUN per run, stalest check first, healthy leagues
+        untouched."""
+        cap = transactions.GONE_RECHECK_MAX_PER_RUN
+        gone = [f"G{i:02d}" for i in range(cap + 5)]
+        resp = _mixed(gone, ["H00"])
+        everything = gone + ["H00"]
+        _crawl(resp, league_ids=everything, ledger_path=db, budget=500)
+        assert len(_gone_rows(db)) == cap + 5
+
         later = NOW + DEFAULT_RECHECK_MS + DAY_MS
-        result, http = _crawl(
-            resp, league_ids=["A-gone", "Z-healthy"], ledger_path=db, now_ms=later
+        result, http = _crawl(resp, league_ids=everything, ledger_path=db, budget=500, now_ms=later)
+        rechecked = [u for u in http.calls if "/league/G" in u and u.endswith("/rosters")]
+        assert len(rechecked) == cap, "the re-check must be capped, not the whole wall"
+        assert result.leagues_gone == cap
+        assert result.leagues_gone_skipped == 5, "due but over the cap: waits for a later run"
+        assert result.leagues_fetched == 1, "the healthy league is fetched in the same run"
+
+        # Re-confirmation keeps first_gone_ms and bumps the count.
+        rows = _gone_rows(db)
+        confirmed = [r for r in rows.values() if r["last_checked_ms"] == later]
+        assert len(confirmed) == cap
+        assert all(r["not_found_count"] == 2 and r["first_gone_ms"] == NOW for r in confirmed)
+
+        # The next run takes the 5 that were over the cap; the 20 just re-checked
+        # are inside a fresh window and are skipped.
+        nxt, http2 = _crawl(
+            resp, league_ids=everything, ledger_path=db, budget=500, now_ms=later + DAY_MS
         )
+        again = [u for u in http2.calls if "/league/G" in u and u.endswith("/rosters")]
+        assert len(again) == 5
+        assert nxt.leagues_gone == 5 and nxt.leagues_gone_skipped == cap
+
+    def test_the_recheck_trickle_goes_stalest_first(self, db):
+        resp = _mixed(["G-old", "G-new"], [])
+        _crawl(resp, league_ids=["G-old"], ledger_path=db, now_ms=NOW)
+        _crawl(resp, league_ids=["G-new"], ledger_path=db, now_ms=NOW + 2 * DAY_MS)
+        later = NOW + DEFAULT_RECHECK_MS + 3 * DAY_MS
+        _, http = _crawl(resp, league_ids=["G-new", "G-old"], ledger_path=db, now_ms=later)
         order = [u for u in http.calls if u.endswith("/rosters")]
-        assert order == [
-            f"{BASE}/league/Z-healthy/rosters",
-            f"{BASE}/league/A-gone/rosters",
-        ], "ids sort A before Z, so only the gone-last rule puts the healthy league first"
-        row = _gone_rows(db)["A-gone"]
-        assert row["not_found_count"] == 2
-        assert row["first_gone_ms"] == NOW, "how long it has been gone must survive a re-check"
-        assert row["last_checked_ms"] == later
-        assert result.leagues_gone == 1 and result.leagues_gone_skipped == 0
+        assert order == [f"{BASE}/league/G-old/rosters", f"{BASE}/league/G-new/rosters"]
 
     def test_a_league_that_answers_again_is_no_longer_gone(self, db):
         _crawl(_mixed(["L1"], []), league_ids=["L1"], ledger_path=db)
@@ -790,25 +815,31 @@ class TestWithTheRealBreaker:
 
 
 class TestOrderingAndCoverage:
-    def test_gone_sorts_behind_never_fetched_and_behind_crawled(self):
-        fetch = {"H-crawled": {"backfilled": True, "lastFetchedMs": NOW}}
-        gone = {"A-gone": {"lastCheckedMs": NOW}}
-        assert transactions._league_order(["A-gone", "H-crawled", "H-new"], fetch, gone) == [
-            "H-new",
-            "H-crawled",
-            "A-gone",
-        ]
-
-    def test_without_gone_state_the_order_is_unchanged(self):
+    def test_the_healthy_order_is_unchanged_by_the_gone_work(self):
         fetch = {"L1": {"backfilled": True, "lastFetchedMs": NOW}}
         assert transactions._league_order(["L1", "L2"], fetch) == ["L2", "L1"]
-        assert transactions._league_order(["L1", "L2"], fetch, {}) == ["L2", "L1"]
 
     def test_split_gone_window_boundary(self):
         gone = {"L1": {"lastCheckedMs": NOW}}
         inside, past = NOW + DEFAULT_RECHECK_MS - 1, NOW + DEFAULT_RECHECK_MS
-        assert transactions._split_gone(["L1", "L2"], gone, now_ms=inside) == (["L2"], ["L1"])
-        assert transactions._split_gone(["L1", "L2"], gone, now_ms=past) == (["L1", "L2"], [])
+        assert transactions._split_gone(["L1", "L2"], gone, now_ms=inside) == (["L2"], [], ["L1"])
+        assert transactions._split_gone(["L1", "L2"], gone, now_ms=past) == (["L2"], ["L1"], [])
+
+    def test_split_gone_caps_the_trickle_and_defers_the_rest(self):
+        gone = {f"G{i}": {"lastCheckedMs": NOW + i} for i in range(5)}
+        healthy, recheck, skipped = transactions._split_gone(
+            ["H", *gone], gone, now_ms=NOW + 2 * DEFAULT_RECHECK_MS, max_recheck=2
+        )
+        assert healthy == ["H"]
+        assert recheck == ["G0", "G1"], "stalest check first"
+        assert skipped == ["G2", "G3", "G4"], "deferred, never dropped"
+
+    def test_split_gone_with_a_zero_cap_rechecks_nothing(self):
+        gone = {"G": {"lastCheckedMs": NOW}}
+        _, recheck, skipped = transactions._split_gone(
+            ["G"], gone, now_ms=NOW + 2 * DEFAULT_RECHECK_MS, max_recheck=0
+        )
+        assert recheck == [] and skipped == ["G"]
 
     def test_a_ledger_without_the_table_reads_as_none_gone(self):
         import sqlite3

@@ -69,11 +69,17 @@ _MIN_CALLS_PER_LEAGUE = 2
 
 # A league whose ``/rosters`` answered 404 is GONE (deleted, or an id that never
 # existed) -- not "failed" and not "no trades".  It is recorded with a timestamp
-# in ``sharp_league_gone`` and left out of the queue for this long, then
-# re-checked LAST, behind every healthy league, so the re-check can never starve
-# them.  Weekly: the same re-check rule the format-capture pass uses
+# in ``sharp_league_gone`` and left out of the queue for this long.  Weekly: the
+# same re-check rule the format-capture pass uses
 # (``league_format_capture.DEFAULT_REFRESH_AFTER_HOURS``).
 GONE_RECHECK_AFTER_HOURS = 168.0
+# Once past that window, at most this many gone leagues (stalest check first) are
+# re-checked per run -- a trickle, not a wall.  A gone league is never skipped
+# forever (a transient or mistaken 404 heals), and the re-check can never again
+# become the 598-league head of the queue: it costs at most this many calls of a
+# run's budget.  PRIOR, not fitted: ~3% of the default 600-call budget, which at
+# four runs a day cycles a few hundred gone leagues in about the weekly window.
+GONE_RECHECK_MAX_PER_RUN = 20
 
 STOPPED_BUDGET_EXHAUSTED = "budget_exhausted"
 STOPPED_BREAKER_OPEN = "sleeper_breaker_open"
@@ -239,9 +245,9 @@ def _load_gone_state(conn) -> dict[str, dict[str, Any]]:
         return {}
     return {
         str(r["league_id"]): {
-            "firstGoneMs": int(r["first_gone_ms"] or 0),
-            "lastCheckedMs": int(r["last_checked_ms"] or 0),
-            "notFoundCount": int(r["not_found_count"] or 0),
+            "firstGoneMs": int(r["first_gone_ms"]),
+            "lastCheckedMs": int(r["last_checked_ms"]),
+            "notFoundCount": int(r["not_found_count"]),
             "endpoint": str(r["endpoint"] or ""),
         }
         for r in rows
@@ -275,42 +281,44 @@ def _split_gone(
     *,
     now_ms: int,
     recheck_after_hours: float = GONE_RECHECK_AFTER_HOURS,
-) -> tuple[list[str], list[str]]:
-    """``(queue, skipped)``.  A league last seen gone INSIDE the re-check window
-    is skipped (it would only 404 again and burn a budget slot); one past the
-    window stays in the queue, to be ordered last by :func:`_league_order`."""
+    max_recheck: int | None = None,
+) -> tuple[list[str], list[str], list[str]]:
+    """``(healthy, recheck, skipped)``.
+
+    * a league with no gone mark is ``healthy`` -- the normal queue;
+    * a gone league INSIDE the re-check window is ``skipped`` (it would only 404
+      again and burn a budget slot);
+    * a gone league PAST the window is due: the ``max_recheck`` stalest-checked
+      go to ``recheck`` (a bounded trickle, see :data:`GONE_RECHECK_MAX_PER_RUN`),
+      the rest are ``skipped`` until a later run.
+    """
     window_ms = int(recheck_after_hours * 3600 * 1000)
-    queue: list[str] = []
+    limit = GONE_RECHECK_MAX_PER_RUN if max_recheck is None else max(0, int(max_recheck))
+    healthy: list[str] = []
+    due: list[str] = []
     skipped: list[str] = []
     for lid in league_ids:
         gone = gone_state.get(str(lid))
-        if gone is not None and (now_ms - int(gone.get("lastCheckedMs") or 0)) < window_ms:
+        if gone is None:
+            healthy.append(lid)
+        elif (now_ms - int(gone["lastCheckedMs"])) < window_ms:
             skipped.append(lid)
         else:
-            queue.append(lid)
-    return queue, skipped
+            due.append(lid)
+    due.sort(key=lambda lid: (int(gone_state[str(lid)]["lastCheckedMs"]), str(lid)))
+    return healthy, due[:limit], skipped + due[limit:]
 
 
-def _league_order(
-    league_ids: Sequence[str],
-    fetch_state: dict[str, dict[str, Any]],
-    gone_state: dict[str, dict[str, Any]] | None = None,
-) -> list[str]:
-    """Healthy leagues first -- never-fetched, then the stalest -- and any league
-    last observed gone LAST.
+def _league_order(league_ids: Sequence[str], fetch_state: dict[str, dict[str, Any]]) -> list[str]:
+    """Never-fetched leagues first, then the stalest.
 
     A budget-capped run must make progress ACROSS the graph rather than
     re-walking whichever leagues happen to sort first — otherwise the
-    tail of the discovery graph never gets crawled at all.  A gone league has
-    no fetch cursor, so it would otherwise sort as "never fetched" and sit at
-    the head of every run: its re-check goes behind everything that can
-    actually produce trades.
+    tail of the discovery graph never gets crawled at all.
     """
-    gone = gone_state or {}
     return sorted(
         league_ids,
         key=lambda lid: (
-            1 if str(lid) in gone else 0,
             1 if fetch_state.get(str(lid), {}).get("backfilled") else 0,
             fetch_state.get(str(lid), {}).get("lastFetchedMs", 0),
             str(lid),
@@ -358,10 +366,12 @@ def crawl_transactions(
     :data:`NOT_FOUND` / :data:`BREAKER_OPEN` (see :func:`_default_http_get`).
 
     **A league whose rosters answer 404 is GONE, not failed.**  It is recorded
-    (``sharp_league_gone``, timestamped), skipped for
-    :data:`GONE_RECHECK_AFTER_HOURS`, then re-checked last.  It is not deleted,
-    and it is not "no trades".  ``skip_gone=False`` (an operator naming leagues
-    explicitly) puts a known-gone league back in the queue.
+    (``sharp_league_gone``, timestamped) and skipped for
+    :data:`GONE_RECHECK_AFTER_HOURS`; after that at most
+    :data:`GONE_RECHECK_MAX_PER_RUN` of them are re-checked per run, so it
+    neither heads the queue nor is forgotten.  It is not deleted, and it is not
+    "no trades".  ``skip_gone=False`` (an operator naming leagues explicitly)
+    fetches a known-gone league like any other.
 
     **A refused call stops the pass.**  When the shared ``sleeper_api`` breaker
     refuses a call, Sleeper was not contacted; every remaining league would
@@ -393,11 +403,15 @@ def crawl_transactions(
         fetch_state = _load_fetch_state(conn)
         gone_state = _load_gone_state(conn)
         if skip_gone:
-            queue, skipped = _split_gone(targets, gone_state, now_ms=now)
+            healthy, recheck, skipped = _split_gone(targets, gone_state, now_ms=now)
+            # The re-check trickle goes first: it is capped, so it costs at most
+            # GONE_RECHECK_MAX_PER_RUN calls; last, it would starve for as long
+            # as healthy leagues use the whole budget (always, at this size).
+            ordered = recheck + _league_order(healthy, fetch_state)
         else:
-            queue, skipped = list(targets), []
+            skipped = []
+            ordered = _league_order(targets, fetch_state)
         result.leagues_gone_skipped = len(skipped)
-        ordered = _league_order(queue, fetch_state, gone_state)
         week = _current_week(b)
         result.week = week
 

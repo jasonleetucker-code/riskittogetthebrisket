@@ -57,7 +57,8 @@ timer itself) -- check ``systemctl list-timers 'dynasty-sharp-*'`` first.
 
 A league whose ``/rosters`` answers HTTP 404 is GONE -- recorded in
 ``sharp_league_gone`` with a timestamp (not deleted, not "no trades", not a
-failure), left out of the queue for a week, then re-checked last. A 404 is an
+failure), left out of the queue for a week, then re-checked in a small capped
+trickle (transactions.GONE_RECHECK_MAX_PER_RUN per run). A 404 is an
 answer, not an outage: it does not count toward the shared ``sleeper_api``
 circuit breaker (src/api/sleeper_overlay.py). If that breaker DOES open (a real
 Sleeper outage), the pass stops at once instead of fast-failing the rest of the
