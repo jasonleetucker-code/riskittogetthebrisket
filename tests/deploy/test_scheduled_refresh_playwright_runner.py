@@ -17,6 +17,19 @@ Two properties are pinned here, and the second is why a green run could hide it:
 
 Moving the image is a deliberate act, together with a Playwright bump verified on
 that image.  Update ``_PLAYWRIGHT_SUPPORTED_IMAGES`` in the same change.
+
+Follow-up signals (same incident; SIGNAL ONLY, no failure semantics changed):
+
+3. ``draftsharks-diagnostic.yml`` drives the same browser, so it is pinned the same
+   way and its install failure is named; it stays FATAL there (that job exists to
+   drive a real browser);
+4. ``stamp_if_present`` no longer skips silently: a CSV that was not rewritten
+   raises ``::warning title=Source not stamped::``, and the skip, the stamp and the
+   exit status are exactly what they were;
+5. a report step after the fetchers lists every browser-dependent CSV that was
+   kept rather than rewritten and cannot fail the job.  The browser-source list
+   is held in ONE place (``scripts/report_browser_source_status.py``), with a
+   drift guard against a new Playwright fetcher being wired in without it.
 """
 
 from __future__ import annotations
@@ -25,10 +38,13 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 import yaml
+
+from scripts import report_browser_source_status as rbs
 
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO / ".github" / "workflows" / "scheduled-refresh.yml"
@@ -96,16 +112,20 @@ def test_browser_install_failure_is_not_swallowed():
     assert "::warning title=Playwright chromium install failed::" in code
 
 
-def _run_install_block(tmp_path: Path, *, exit_code: int) -> subprocess.CompletedProcess:
-    match = _INSTALL_BLOCK.search(_install_script())
-    assert match, "install block not found"
+def _run_install_block(
+    tmp_path: Path, *, exit_code: int, block: str | None = None
+) -> subprocess.CompletedProcess:
+    if block is None:
+        found = _INSTALL_BLOCK.search(_install_script())
+        assert found, "install block not found"
+        block = found.group(0)
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     stub = bin_dir / "python"
     stub.write_text(_STUB_PYTHON, encoding="utf-8", newline="\n")
     stub.chmod(0o755)
     # $PWD, not the native path: a Windows "C:/..." entry would split on ":".
-    script = 'export PATH="$PWD/bin:$PATH"\nset -Eeuo pipefail\n' + match.group(0) + "\n"
+    script = 'export PATH="$PWD/bin:$PATH"\nset -Eeuo pipefail\n' + block + "\n"
     return subprocess.run(
         [_bash(), "-c", script],
         cwd=tmp_path,
@@ -130,3 +150,244 @@ def test_a_successful_browser_install_raises_no_warning(tmp_path):
     proc = _run_install_block(tmp_path, exit_code=0)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "::warning" not in proc.stdout
+
+
+# ── draftsharks-diagnostic.yml: same browser, same pin, failure named but still fatal ──
+
+DIAGNOSTIC = REPO / ".github" / "workflows" / "draftsharks-diagnostic.yml"
+_DIAG_INSTALL_BLOCK = re.compile(
+    r"if ! python -m playwright install chromium; then\n.*?\n\s*fi\b",
+    re.DOTALL,
+)
+
+
+def _diag_job() -> dict:
+    return yaml.safe_load(DIAGNOSTIC.read_text("utf-8"))["jobs"]["probe"]
+
+
+def _diag_install_script() -> str:
+    for step in _diag_job()["steps"]:
+        if step.get("name") == _INSTALL_STEP:
+            return step["run"]
+    raise AssertionError(f"step {_INSTALL_STEP!r} not found in the diagnostic")
+
+
+def test_diagnostic_runs_on_a_pinned_playwright_supported_image():
+    runs_on = _diag_job()["runs-on"]
+    assert (
+        runs_on != "ubuntu-latest"
+    ), "ubuntu-latest floats; the diagnostic drives the same browser"
+    assert (
+        runs_on in _PLAYWRIGHT_SUPPORTED_IMAGES
+    ), f"{runs_on!r} is not an image the locked Playwright is known to support"
+
+
+def test_diagnostic_install_failure_is_named_and_does_not_mask_the_status():
+    script = _diag_install_script()
+    code = "\n".join(_code_lines(script))
+    assert "2>/dev/null" not in code
+    assert "|| true" not in code
+    assert _DIAG_INSTALL_BLOCK.search(script), "install must be guarded by `if ! ...`"
+    assert "::error title=Playwright chromium install failed::" in code
+
+
+def test_diagnostic_install_failure_stays_fatal_and_loud(tmp_path):
+    block = _DIAG_INSTALL_BLOCK.search(_diag_install_script()).group(0)
+    proc = _run_install_block(tmp_path, exit_code=1, block=block)
+    assert (tmp_path / "stub_python_was_called").exists(), proc.stdout + proc.stderr
+    # Unlike the data pipeline, this job exists to drive a real browser.
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "::error title=Playwright chromium install failed::" in proc.stdout
+    assert "stub playwright: -m playwright install chromium" in proc.stderr
+
+
+def test_diagnostic_successful_install_is_silent(tmp_path):
+    block = _DIAG_INSTALL_BLOCK.search(_diag_install_script()).group(0)
+    proc = _run_install_block(tmp_path, exit_code=0, block=block)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "::error" not in proc.stdout and "::warning" not in proc.stdout
+
+
+# ── stamp_if_present: the silent skip is now a named warning, nothing else changed ──
+
+_SCRAPER_STEP = "Run scraper"
+_NOT_STAMPED = "::warning title=Source not stamped::"
+_BEFORE = 1_700_000_000
+_MARKER = 1_700_000_100
+_AFTER = 1_700_000_200
+
+
+def _scraper_script() -> str:
+    for step in _job()["steps"]:
+        if step.get("name") == _SCRAPER_STEP:
+            return step["run"]
+    raise AssertionError(f"step {_SCRAPER_STEP!r} not found")
+
+
+def _stamp_helpers() -> str:
+    """``was_preserved`` + ``stamp_if_present`` exactly as the workflow defines them."""
+    script = _scraper_script()
+    start = script.index('MANIFEST="exports/latest/manifest.json"')
+    end = script.index("\nstamp_if_present ktc ", start)
+    return script[start:end]
+
+
+def _run_stamp(
+    tmp_path: Path,
+    *,
+    csv_mtime: int | None,
+    rows: int,
+    min_lines: int = 100,
+    manifest_preserved: list[str] | None = None,
+) -> tuple[subprocess.CompletedProcess, Path]:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    shim = bin_dir / "python3"
+    shim.write_text(
+        f'#!/usr/bin/env bash\nexec "{Path(sys.executable).as_posix()}" "$@"\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    shim.chmod(0o755)
+
+    marker = tmp_path / "marker"
+    marker.write_text("", encoding="utf-8")
+    os.utime(marker, (_MARKER, _MARKER))
+    csv = tmp_path / "CSVs" / "site_raw" / "ktc.csv"
+    if csv_mtime is not None:
+        csv.parent.mkdir(parents=True)
+        csv.write_text("name,value\n" * rows, encoding="utf-8", newline="\n")
+        os.utime(csv, (csv_mtime, csv_mtime))
+    if manifest_preserved is not None:
+        manifest = tmp_path / "exports" / "latest" / "manifest.json"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(
+            '{"siteRawPreserved": ' + str(manifest_preserved).replace("'", '"') + "}",
+            encoding="utf-8",
+        )
+    script = (
+        'export PATH="$PWD/bin:$PATH"\n'
+        "set -Eeuo pipefail\n"
+        "mkdir -p data/scrape_state\n"
+        'SCRAPE_START_MARKER="$PWD/marker"\n'
+        + _stamp_helpers()
+        + f"\nstamp_if_present ktc CSVs/site_raw/ktc.csv {min_lines}\n"
+    )
+    proc = subprocess.run(
+        [_bash(), "-c", script],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return proc, tmp_path / "data" / "scrape_state" / "ktc_last_success"
+
+
+def test_a_rewritten_csv_is_stamped_without_any_warning(tmp_path):
+    proc, stamp = _run_stamp(tmp_path, csv_mtime=_AFTER, rows=150)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert stamp.exists() and stamp.read_text().strip().isdigit()
+    assert "::warning" not in proc.stdout
+
+
+def test_a_csv_that_was_not_rewritten_is_named_and_not_stamped(tmp_path):
+    proc, stamp = _run_stamp(tmp_path, csv_mtime=_BEFORE, rows=150)
+    assert proc.returncode == 0, proc.stdout + proc.stderr  # exit status unchanged
+    assert not stamp.exists()  # the skip itself is unchanged
+    expected = f"{_NOT_STAMPED}ktc: CSV not rewritten this run (kept previous file)"
+    assert expected in proc.stdout, proc.stdout
+
+
+def test_a_rewritten_but_too_short_csv_is_named_and_not_stamped(tmp_path):
+    proc, stamp = _run_stamp(tmp_path, csv_mtime=_AFTER, rows=7)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not stamp.exists()
+    assert f"{_NOT_STAMPED}ktc: CSV rewritten but only 7 lines (minimum 100)" in proc.stdout
+    assert "kept previous file" not in proc.stdout, "that claim would be false here"
+
+
+def test_a_missing_csv_is_named_and_not_stamped(tmp_path):
+    proc, stamp = _run_stamp(tmp_path, csv_mtime=None, rows=0)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not stamp.exists()
+    assert f"{_NOT_STAMPED}ktc: CSV missing" in proc.stdout
+    assert "kept previous file" not in proc.stdout
+
+
+def test_a_scraper_restored_csv_keeps_its_existing_warning_and_gains_no_second_one(tmp_path):
+    # Current mtime (the restore pass rewrites the file) - only the manifest knows.
+    proc, stamp = _run_stamp(tmp_path, csv_mtime=_AFTER, rows=150, manifest_preserved=["ktc.csv"])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not stamp.exists()
+    assert (
+        "::warning title=ktc not refreshed::Restored last-good board; NOT stamping" in proc.stdout
+    )
+    assert _NOT_STAMPED not in proc.stdout
+
+
+# ── the report step: placed after the fetchers, can never fail the job ──
+
+
+def _steps() -> list[dict]:
+    return _job()["steps"]
+
+
+def _report_step() -> dict:
+    for step in _steps():
+        if "report_browser_source_status.py" in step.get("run", ""):
+            return step
+    raise AssertionError("no step runs scripts/report_browser_source_status.py")
+
+
+def test_report_step_follows_the_scraper_step_and_cannot_fail_the_job():
+    names = [s.get("name") for s in _steps()]
+    report = _report_step()
+    assert names.index(report["name"]) == names.index(_SCRAPER_STEP) + 1
+    assert report.get("continue-on-error") is True
+    # Runs when the scraper step FAILED too (that is when it matters most) but not
+    # when the scraper step was skipped on purpose or the run was cancelled.
+    condition = report["if"]
+    assert "!cancelled()" in condition
+    assert "inputs.skip_scrape != true" in condition
+    assert _steps()[names.index(_SCRAPER_STEP)]["if"] == "${{ inputs.skip_scrape != true }}"
+
+
+def test_report_step_reads_the_marker_the_scraper_step_creates():
+    assert 'SCRAPE_START_MARKER="$RUNNER_TEMP/scrape_start.marker"' in _scraper_script()
+    assert '--marker "$RUNNER_TEMP/scrape_start.marker"' in _report_step()["run"]
+
+
+def test_report_step_adds_no_failure_semantics():
+    run = _report_step()["run"]
+    assert "exit 1" not in run
+    # The reporter itself exits 0 whatever happens (pinned in
+    # tests/scripts/test_report_browser_source_status.py); nothing here may wrap it
+    # into a gate.
+    assert "set -e" not in run.replace("set +e", "")
+
+
+def test_browser_source_list_is_complete_and_wired():
+    """Drift guard: a Playwright fetcher added to the refresh must join the list."""
+    script = _scraper_script()
+    invoked = set(re.findall(r"\bpython (scripts/[\w.]+\.py)\b", script))
+    assert 'python "Dynasty Scraper.py"' in script
+    invoked.add("Dynasty Scraper.py")
+
+    drives_browser = re.compile(r"^\s*(?:from|import)\s+playwright\b", re.MULTILINE)
+    browser_entry_points = {
+        rel for rel in invoked if drives_browser.search((REPO / rel).read_text("utf-8"))
+    }
+    declared = {source.fetcher for source in rbs.BROWSER_SOURCES}
+    assert browser_entry_points == declared, (
+        "the refresh invokes a Playwright-driven entry point that is not in "
+        "scripts/report_browser_source_status.py::BROWSER_SOURCES (or the reverse); "
+        "a browser source missing from the list is the silent failure this report exists for"
+    )
+
+    for source in rbs.BROWSER_SOURCES:
+        assert (REPO / "CSVs" / "site_raw" / source.csv).is_file(), source.csv
+        if source.scraper_owned:
+            pattern = rf"^stamp_if_present {re.escape(source.name)}\s+CSVs/site_raw/{re.escape(source.csv)}\b"
+            assert re.search(
+                pattern, script, re.MULTILINE
+            ), f"{source.name} is listed as scraper-owned but is not stamped by stamp_if_present"

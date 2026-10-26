@@ -311,7 +311,17 @@ jobs:
               lines=$(wc -l < "$csv" 2>/dev/null || echo 0)
               if (( lines >= min_lines )); then
                 printf '%s\n' "$(date -u +%s)" > "data/scrape_state/${key}_last_success"
+              else
+                echo "::warning title=Source not stamped::${key}: CSV rewritten but only ${lines} lines (minimum ${min_lines}); not stamping"
               fi
+            elif [[ -f "$csv" ]]; then
+              # The silent branch of the 2026-10-25 outage: with no Chromium
+              # nothing rewrote the CSV, so this skipped with no output at
+              # all.  A SIGNAL only - the skip itself, the exit status and
+              # the stamp (left where it was) are unchanged.
+              echo "::warning title=Source not stamped::${key}: CSV not rewritten this run (kept previous file)"
+            else
+              echo "::warning title=Source not stamped::${key}: CSV missing (${csv}); nothing to stamp"
             fi
           }
           stamp_if_present ktc                     CSVs/site_raw/ktc.csv                      100
@@ -524,6 +534,25 @@ jobs:
           # marks the source stale.
           python -m src.ros.scrape 2>&1 || echo "::warning title=ROS scrape failed::Non-fatal — orchestrator keeps yesterday's CSV per source"
 
+      - name: Report browser-driven sources kept from the previous run
+        # SIGNAL ONLY.  2026-10-25: the browser fetchers (KTC x5, IDP Trade
+        # Calculator, DraftSharks offense/IDP/ROS) produced nothing for five
+        # runs, last-good CSVs were restored, and every run still concluded
+        # ``success`` - the cause was in the raw log and nowhere a person
+        # looks.  This lists every browser-dependent CSV that was kept rather
+        # than rewritten in the job summary and raises one annotation.  It
+        # reads files only: no CSV, no stamp, no threshold and no exit status
+        # is touched, so it cannot turn a green refresh red.  The source list
+        # lives in scripts/report_browser_source_status.py and nowhere else.
+        # ``!cancelled()`` so it also reports when ``Run scraper`` itself
+        # failed (that is when it matters most); ``continue-on-error`` so the
+        # reporter can never be the thing that fails the job.
+        if: ${{ inputs.skip_scrape != true && !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          python scripts/report_browser_source_status.py --marker "$RUNNER_TEMP/scrape_start.marker"
 
       - name: Upload identity capture evidence (V2.1 U2/U2b full stamps, kept out of git)
         # ``Dynasty Scraper.py`` writes the FULL U2/U2b sidecar (~35 KB

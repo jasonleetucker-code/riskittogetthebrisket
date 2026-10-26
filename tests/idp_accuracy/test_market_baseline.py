@@ -303,14 +303,43 @@ def test_preseason_csv_tree_is_before_kickoff(mb):
     assert datetime.fromisoformat(committed) < datetime.fromisoformat(mb.KICKOFF_UTC)
 
 
+def _imported_modules(path: Path) -> set[str]:
+    """Every module name an ``import`` / ``from ... import`` statement names."""
+    import ast
+
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"))
+    except SyntaxError:
+        return set()
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            names.add(node.module)
+            names.update(f"{node.module}.{alias.name}" for alias in node.names)
+    return names
+
+
 def test_nothing_in_src_imports_the_research_script():
+    # Checks real import statements, not substrings: a docstring citing a
+    # research record under docs/valuation/idp_accuracy/ is not an import
+    # (src/league_valuation/replacement_shadow.py does exactly that).
     hits = [
         p
         for p in (REPO / "src").rglob("*.py")
-        if "idp_accuracy" in p.read_text(encoding="utf-8", errors="ignore")
-        or "market_baseline" in p.read_text(encoding="utf-8", errors="ignore")
+        if any("idp_accuracy" in name or "market_baseline" in name for name in _imported_modules(p))
     ]
     assert hits == []
+
+
+def test_import_guard_catches_a_real_import(tmp_path):
+    probe = tmp_path / "probe.py"
+    probe.write_text("from scripts.idp_accuracy import market_baseline\n", encoding="utf-8")
+    assert any("idp_accuracy" in n for n in _imported_modules(probe))
+    doc_only = tmp_path / "doc_only.py"
+    doc_only.write_text('"""Record: docs/valuation/idp_accuracy/B.md"""\n', encoding="utf-8")
+    assert not any("idp_accuracy" in n for n in _imported_modules(doc_only))
 
 
 def test_variant_registry_is_measurement_only(mb):

@@ -40,7 +40,14 @@ concurrency:
 
 jobs:
   probe:
-    runs-on: ubuntu-latest
+    # PINNED, not ``ubuntu-latest`` - same reason and same contract as
+    # scheduled-refresh.yml.  The floating label moved to ubuntu-26.04 on
+    # 2026-10-25, where the locked Playwright (requirements.lock.txt) answers
+    # "does not support chromium on ubuntu26.04-x64".  This job drives the same
+    # browser, so it would fail there for the same reason.  Move it only
+    # together with a Playwright bump verified on the new image
+    # (tests/deploy/test_scheduled_refresh_playwright_runner.py pins both).
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
 
     steps:
@@ -59,8 +66,14 @@ jobs:
           pip install --require-hashes -r requirements.lock.txt
           # Same install the data pipeline uses (scheduled-refresh.yml).
           # Unlike there, a missing browser here is fatal: the whole point
-          # of this job is to drive a real one.
-          python -m playwright install chromium
+          # of this job is to drive a real one.  Fatal is kept; what is added
+          # is the NAME of the failure (the same annotation title the
+          # pipeline uses), so a red run says why instead of surfacing later
+          # as an unrelated-looking probe error.  stderr stays visible.
+          if ! python -m playwright install chromium; then
+            echo "::error title=Playwright chromium install failed::The browser this diagnostic drives could not be installed on this runner image. Check the Playwright / runner image pairing (requirements.lock.txt)."
+            exit 1
+          fi
 
       - name: Probe the authenticated dynasty board
         env:
