@@ -3,7 +3,7 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-10-26 ~18:50Z.** Agent-OS-Receipt `cb64f74c`. Concurrency limit: four workers (owner 2026-10-26).
+**As of 2026-10-26 ~19:00Z.** Agent-OS-Receipt `cb64f74c`. Concurrency limit: four workers (owner 2026-10-26).
 
 ## Authorization in force
 The owner approved routine merges ("I approve these and all future merges", recorded in `docs/OWNER_REQUESTED_TODO.md`)
@@ -30,22 +30,21 @@ explicit owner decision.
   and KTC and DraftSharks IDP content changed. IDPTC content is still dated 2026-10-10, which is vendor staleness.
 - **Next deploy:** `fa3ee5ea7` was in progress at 18:42Z, carrying #1966 (the NFL Team filter) and later merges.
 
-## Merged on 2026-10-26 (40 PRs)
+## Merged on 2026-10-26 (41 PRs)
 - #1925, #1926 (merged ~01:31Z, before this session's integration train)
 - #1939, #1933, #1934, #1960, #1955, #1956, #1954, #1950, #1959
 - #1929, #1931, #1936, #1940, #1941, #1943, #1944, #1947, #1843, #1935, #1946, #1949
 - #1961, #1948, #1952, #1953, #1957, #1958, #1942, #1945
-- #1966, #1969, #1965, #1937, #1963, #1968, #1951, #1964, #1962
+- #1966, #1969, #1965, #1937, #1963, #1968, #1951, #1964, #1962, #1967
 
 Superseded and closed: #1533 (by #1950), and #1855, #1895, #1896 (by #1955).
 
 ## Open PRs from this session's work (independently reviewed and approved; still drafts, so mark ready, then merge once CI is green)
 
-Other open PRs exist (for example #1921, #1884, #1873, #1852, #1755, #1513 and Dependabot); they are not covered here.
+Independent reviews are posted as PR comments, not formal GitHub approvals: every PR here is authored from the owner's account, which cannot approve its own PR. Other open PRs exist (for example #1921, #1884, #1873, #1852, #1755, #1513 and Dependabot); they are not covered here.
 
 | PR | what |
 |---|---|
-| #1967 | alert when the pregame projections archive build fails (first build window Tue 10-27 to Thu 10-29) |
 | #1970 | `/api/health` backup_health reports the state-backup dir honestly; public payload is an allow-list |
 | #1971 | Sharp smoke says UNVERIFIABLE loudly; stops committing unchanged records; fixes a gate NameError (12 false reds) |
 | #1972 | sim calibration v2 challenger: research and shadow only; failed its gates; LF-safe hashing |
@@ -86,10 +85,10 @@ Other open PRs exist (for example #1921, #1884, #1873, #1852, #1755, #1513 and D
   - the DFS tick while DFS is paused; retiring the Codex OneDrive orchestrator
 
 ## Follow-ups
+- **Actionable now (#1967 merged):** orphan-marker alert text; wrap the two `unlink` calls; behavioural wiring test. A follow-up PR is in progress.
 - **Actionable now (#1962 merged):** use the `STOPPED_COMPLETED` constant; decide whether `unknown` belongs in `STOPPED_SHORT`.
 
 Queued until the parent PR merges:
-- **#1967:** orphan-marker alert text; wrap the two `unlink` calls; a behavioural wiring test.
 - **#1973:** trap every `latest_*` host attribute; match aliases by identity.
 
 ## Hazards
