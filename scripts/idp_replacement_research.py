@@ -290,12 +290,19 @@ def is_healthy_strict(meta: dict) -> bool:
 
 
 def locate(path: str, pattern: str) -> str:
-    text = (REPO / path).read_text().splitlines()
-    rx = re.compile(pattern)
-    for i, line in enumerate(text, 1):
-        if rx.search(line):
-            return f"{path}:{i}"
-    return f"{path}:?"
+    """``path:line`` of the first match of ``pattern`` in ``path``.
+
+    The pattern is searched over the WHOLE file (``^`` still anchors a line
+    start), so it can span lines: a call that a formatter wrapped after its
+    opening parenthesis is found by a pattern that allows whitespace there
+    (``\\(\\s*contract``).  The line reported is the one the match starts on.
+    ``:?`` means no match, never "somewhere".
+    """
+    text = (REPO / path).read_text(encoding="utf-8")
+    m = re.compile(pattern, re.MULTILINE).search(text)
+    if m is None:
+        return f"{path}:?"
+    return f"{path}:{text.count(chr(10), 0, m.start()) + 1}"
 
 
 CONSUMERS = (
@@ -306,7 +313,7 @@ CONSUMERS = (
     ("cut ladder ordered by ECC (ties by name)", "src/draft/displacement.py",
      r"costed.sort\(key=lambda t: \(t\[0\], t\[1\]\)\)"),
     ("Trade Calculator / War Room / Finder / Angle capacity context builds the anchor",
-     "src/trade/roster_capacity.py", r"waiver_values = waiver_values_by_position\(contract"),
+     "src/trade/roster_capacity.py", r"waiver_values = waiver_values_by_position\(\s*contract"),
     ("forced drop release_cost = base x scarcity (unpriced: waiver x scarcity)",
      "src/trade/roster_capacity.py", r"release_cost=float\(rung.base_value\)"),
     ("forced_drop_cost (Team Context charge)", "src/trade/roster_capacity.py",
@@ -319,13 +326,13 @@ CONSUMERS = (
      "src/api/trade_simulator.py", r"capacity_context = build_capacity_context\("),
     ("War Room best-offers capacity charge", "server.py", r"cost, _basis = forced_drop_cost\(cap\)"),
     ("Perfect Draft roster context: positional anchor + position-agnostic FA ladder",
-     "src/draft/context.py", r"waiver_values = waiver_values_by_position\(contract"),
+     "src/draft/context.py", r"waiver_values = waiver_values_by_position\(\s*contract"),
     ("Perfect Draft client surplus = max(0, v*tilt - waiver(pos))",
      "frontend/lib/perfect-draft.js", r"^export function surplusOverReplacement"),
     ("Perfect Draft client releaseCost = baseValue x scarcity", "frontend/lib/perfect-draft.js",
      r"^export function releaseCost"),
     ("Droppability (roster intelligence) cut ladder", "src/roster_intel/droppability.py",
-     r"waiver_values = waiver_values_by_position\(contract"),
+     r"waiver_values = waiver_values_by_position\(\s*contract"),
     ("Perfect Waivers prices cuts with NO waiver anchor ({})", "src/trade/perfect_waivers.py",
      r"effective_cut_cost\(asset, \{\}, None\)"),
     ("FAAB V_repl (position-agnostic: format line blended with live pool's 12th best)",

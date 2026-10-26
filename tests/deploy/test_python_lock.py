@@ -107,3 +107,27 @@ def test_scheduled_refresh_installs_exact_runtime_graph():
     assert "python scripts/python_lock.py check" in workflow
     assert "pip install --require-hashes -r requirements.lock.txt" in workflow
     assert "pip install -r requirements.txt" not in workflow
+
+
+def test_refresh_command_upgrades_only_the_named_transitive_packages():
+    plain = python_lock.compile_command("uv", "requirements.txt", "requirements.lock.txt", [], [])
+    assert "--upgrade-package" not in plain
+    assert plain[-2:] == ["--output-file", "requirements.lock.txt"]
+
+    bumped = python_lock.compile_command(
+        "uv",
+        "requirements-dev.txt",
+        "requirements-dev.lock.txt",
+        ["--constraint", "requirements.lock.txt"],
+        ["aiohttp==3.14.4", "certifi==2026.10.19"],
+    )
+    pairs = [
+        (bumped[i], bumped[i + 1]) for i, arg in enumerate(bumped) if arg == "--upgrade-package"
+    ]
+    assert pairs == [
+        ("--upgrade-package", "aiohttp==3.14.4"),
+        ("--upgrade-package", "certifi==2026.10.19"),
+    ]
+    assert bumped[:5] == ["uv", "-q", "pip", "compile", "requirements-dev.txt"]
+    assert "--generate-hashes" in bumped and "--universal" in bumped
+    assert bumped[-2:] == ["--output-file", "requirements-dev.lock.txt"]

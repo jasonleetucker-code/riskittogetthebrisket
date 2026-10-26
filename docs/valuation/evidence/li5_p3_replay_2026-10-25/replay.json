@@ -1,7 +1,7 @@
 {
  "provenance": {
-  "generatedAt": "2026-10-25T15:56:05.259345+00:00",
-  "codeSha": "96e6f4b19509ff51c56f3e29c474a973c4d24ad5",
+  "generatedAt": "2026-10-26T07:34:46.218318+00:00",
+  "codeSha": "f23d0a2c13dfb054501f8856233513707421d0fe",
   "archive": "exports/archive/dynasty_export_20261025_120337.zip",
   "archiveMember": "dynasty_data_2026-10-25.json",
   "archiveSha256": "50fb251a79bc79abac54bcbcfc98c3018fc6b105115eb6dbd7928e3b6c8dc8f6",
@@ -799,6 +799,41 @@
     "chargeDeltaMin": -1817.0,
     "chargeDeltaMax": 0.0,
     "boundTransitions": [],
+    "stateTransitions": {
+     "exact->lower_bound": 3
+    },
+    "stateTransitionTrades": [
+     {
+      "trade": "team02/2for1",
+      "state": "exact->lower_bound",
+      "chargeOff": 1817.0,
+      "chargeOn": 0.0,
+      "lowerBoundReasonsOff": [],
+      "lowerBoundReasonsOn": [
+       "unpriced_forced_drops_excluded"
+      ]
+     },
+     {
+      "trade": "team08/0for2",
+      "state": "exact->lower_bound",
+      "chargeOff": 1688.0,
+      "chargeOn": 0.0,
+      "lowerBoundReasonsOff": [],
+      "lowerBoundReasonsOn": [
+       "unpriced_forced_drops_excluded"
+      ]
+     },
+     {
+      "trade": "team08/3for1",
+      "state": "exact->lower_bound",
+      "chargeOff": 1688.0,
+      "chargeOn": 0.0,
+      "lowerBoundReasonsOff": [],
+      "lowerBoundReasonsOn": [
+       "unpriced_forced_drops_excluded"
+      ]
+     }
+    ],
     "rows": [
      {
       "trade": "team01/2for1",
@@ -1579,6 +1614,8 @@
     "chargeDeltaMin": 0.0,
     "chargeDeltaMax": 0.0,
     "boundTransitions": [],
+    "stateTransitions": {},
+    "stateTransitionTrades": [],
     "rows": [
      {
       "trade": "team01/2for1",
@@ -2358,16 +2395,16 @@
  "latency": {
   "buildCapacityContext": {
    "flagOff": {
-    "p50ms": 6.05,
-    "p95ms": 7.59
+    "p50ms": 2.41,
+    "p95ms": 2.84
    },
    "flagOnCold": {
-    "p50ms": 10.04,
-    "p95ms": 12.29
+    "p50ms": 3.79,
+    "p95ms": 4.02
    },
    "flagOnCached": {
-    "p50ms": 4.39,
-    "p95ms": 5.92
+    "p50ms": 1.89,
+    "p95ms": 3.09
    }
   }
  },

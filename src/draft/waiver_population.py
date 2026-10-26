@@ -591,6 +591,44 @@ def resolve_request_inputs(
     return RequestInputs(rookies_eligible, ctx, as_of, reason, key)
 
 
+def request_cache_stamp(contract: Mapping[str, Any] | None) -> tuple:
+    """What a flag-ON consumer build reads BESIDE the contract, as a cache-key part.
+
+    A consumer cache that outlives a request (``draft_optimizer_api`` keeps a
+    Perfect Draft context until its contract is replaced) must not answer a
+    flag-ON build from a context built under other request inputs (design
+    ``LI5_REPLACEMENT_CONSOLIDATION_DESIGN_2026-10-21.md`` §8 item 10; LI-5 P3
+    review finding F-B).  The stamp is the inputs :func:`consumer_population`
+    resolves, from the same :func:`resolve_request_inputs` read (so it shares that
+    read's short cache), plus the health evidence's identity:
+
+    * the rookie window (``rookies_eligible``) and the evaluation date — the date
+      also moves the season-edge applicability of the health step;
+    * the league's current week, and why availability is absent when it is;
+    * the persisted players DB's ``fetchedAt`` (``None`` = unknown, never "now")
+      and whether that DB is still inside the age bound the health read enforces,
+      because crossing the bound turns health off without any new ``fetchedAt``.
+
+    Call this only when :func:`enabled`: flag OFF reads none of it (no new reads,
+    design §7), and the caller keeps its flag-OFF key exactly as it was.
+    """
+    from src.ros.game_day_live import (  # noqa: PLC0415
+        PLAYERS_DB_MAX_AGE_SECONDS,
+        persisted_players_db_fetched_at,
+    )
+
+    inputs = resolve_request_inputs(contract)
+    fetched_at = persisted_players_db_fetched_at()
+    return (
+        bool(inputs.rookies_eligible),
+        inputs.as_of.isoformat(),
+        getattr(inputs.availability, "current_week", None),
+        inputs.availability_reason,
+        fetched_at,
+        fetched_at is not None and time.time() - fetched_at <= PLAYERS_DB_MAX_AGE_SECONDS,
+    )
+
+
 def _contract_stamp(contract: Mapping[str, Any] | None) -> tuple:
     if not isinstance(contract, Mapping):
         return (0, None, None, 0)
