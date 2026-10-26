@@ -4189,16 +4189,77 @@ async def scheduled_scrape():
     ).isoformat()
 
 
-async def schedule_loop():
-    """Simple async loop that runs the scraper on an interval."""
+async def schedule_loop(first_delay_seconds: float | None = None):
+    """Simple async loop that runs the scraper on an interval.
+
+    ``first_delay_seconds`` shortens (never lengthens) the FIRST wait, so a boot
+    that skipped its startup scrape (``_startup_scrape_plan``) scrapes when the
+    loaded board turns one interval old instead of one interval after boot.
+    """
     from datetime import timedelta
 
+    interval_s = SCRAPE_INTERVAL_HOURS * 3600
+    delay_s = interval_s
+    if first_delay_seconds is not None:
+        delay_s = min(interval_s, max(0.0, float(first_delay_seconds)))
     while True:
         scrape_status["next_scrape"] = (
-            datetime.now(timezone.utc) + timedelta(hours=SCRAPE_INTERVAL_HOURS)
+            datetime.now(timezone.utc) + timedelta(seconds=delay_s)
         ).isoformat()
-        await asyncio.sleep(SCRAPE_INTERVAL_HOURS * 3600)
+        await asyncio.sleep(delay_s)
         await scheduled_scrape()
+        delay_s = interval_s
+
+
+def _startup_scrape_plan(
+    board_age_hours: float | None,
+    *,
+    has_contract: bool,
+    contract_ok: bool,
+    enabled: bool,
+    interval_hours: float = SCRAPE_INTERVAL_HOURS,
+) -> dict:
+    """Should this boot scrape now, and when is the first scheduled scrape?
+
+    Every restart used to scrape 3 s after boot (Chromium included) whatever
+    the age of the board it had just loaded, and reset the scheduled loop to
+    ``boot + interval`` (docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md §6.1,
+    D-2).  A boot may now SKIP that scrape only when the board it serves was
+    produced less than ONE scrape interval ago -- a third of the
+    ``data_stale`` line (``3 x interval``, ``/api/health``) -- and then scrapes
+    at ``produced + interval``, exactly when an uninterrupted process would
+    have.  The age is ``_board_age_hours`` (the one owner, F-19): unknown, a
+    future stamp, no primed contract, a primed contract whose
+    ``contractHealth`` is not ok (a scrape is the recovery attempt), or the
+    flag off (``conditional_startup_scrape``, default OFF) all scrape at boot
+    as before.  So the maximum age of the served board is unchanged; what goes
+    is the redundant scrape of a board that is still within its interval.
+
+    Returns ``{"run_now", "first_delay_seconds", "reason", "board_age_hours"}``.
+    """
+    interval_s = float(interval_hours) * 3600.0
+    plan = {
+        "run_now": True,
+        "first_delay_seconds": interval_s,
+        "board_age_hours": board_age_hours,
+    }
+    if not enabled:
+        return {**plan, "reason": "flag_off"}
+    if not has_contract:
+        return {**plan, "reason": "no_primed_contract"}
+    if not contract_ok:
+        return {**plan, "reason": "contract_unhealthy"}
+    if board_age_hours is None:
+        return {**plan, "reason": "board_age_unknown"}
+    if board_age_hours < 0 or board_age_hours >= float(interval_hours):
+        return {**plan, "reason": "board_due"}
+    remaining = interval_s - board_age_hours * 3600.0
+    return {
+        **plan,
+        "run_now": False,
+        "first_delay_seconds": max(0.0, remaining),
+        "reason": "board_within_interval",
+    }
 
 
 # ── APP LIFECYCLE ───────────────────────────────────────────────────────
@@ -4257,15 +4318,51 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         log.warning("session_store hydrate on startup failed: %s", exc)
 
-    # 2. Start first scrape in background (don't block startup)
+    # 2. Start first scrape in background (don't block startup) -- unless the
+    # board just loaded is still within its scrape interval (D-2,
+    # ``_startup_scrape_plan``); then the schedule scrapes when it comes due.
     async def initial_scrape():
         await asyncio.sleep(3)  # small delay to let server finish booting
         await run_scraper(trigger="startup")
 
     # 3. Start the recurring schedule
     if SCRAPE_SCHEDULER_ENABLED:
-        scrape_task = asyncio.create_task(initial_scrape())
-        scheduler_task = asyncio.create_task(schedule_loop())
+        try:
+            from src.api import feature_flags as _ff  # noqa: PLC0415
+
+            _conditional = _ff.is_enabled("conditional_startup_scrape")
+        except Exception:  # noqa: BLE001 — an unreadable flag keeps the old behaviour
+            _conditional = False
+        plan = _startup_scrape_plan(
+            _board_age_hours(),
+            has_contract=latest_contract_data is not None,
+            contract_ok=bool((contract_health or {}).get("ok")),
+            enabled=_conditional,
+        )
+        if plan["run_now"]:
+            scrape_task = asyncio.create_task(initial_scrape())
+        else:
+            scrape_task = None
+            log.info(
+                "Startup scrape skipped: board is %.2fh old (< %sh interval); "
+                "first scheduled scrape in %.0fs",
+                plan["board_age_hours"],
+                SCRAPE_INTERVAL_HOURS,
+                plan["first_delay_seconds"],
+            )
+        if _conditional:
+            # Flag OFF records nothing new: the default boot is today's boot.
+            _record_scrape_event(
+                "startup_scrape_plan",
+                message="startup scrape " + ("started" if plan["run_now"] else "skipped"),
+                run_now=plan["run_now"],
+                reason=plan["reason"],
+                board_age_hours=plan["board_age_hours"],
+                first_delay_seconds=plan["first_delay_seconds"],
+            )
+        scheduler_task = asyncio.create_task(
+            schedule_loop(plan["first_delay_seconds"] if _conditional else None)
+        )
     else:
         scrape_task = scheduler_task = None
         log.info("Scrape scheduler disabled (SCRAPE_SCHEDULER_ENABLED=false)")
