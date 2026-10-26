@@ -156,20 +156,45 @@ jobs:
       - name: Job summary
         if: always()
         shell: bash
+        env:
+          # Outcomes arrive as environment variables, not as expressions
+          # spliced into the script text, so the three states below can be
+          # exercised by a test.
+          RERUN_OUTCOME: ${{ steps.rerun.outcome }}
+          COMPARE_OUTCOME: ${{ steps.compare.outcome }}
+          CE_RERUN_DIR: /tmp/ce-rerun
         run: |
+          # Three distinct states. The summary used to have two, and the
+          # second one ("no longer describes the code") was also printed when
+          # the re-run itself crashed and the compare step was SKIPPED. For
+          # ten consecutive weekly runs (2026-08-05 .. 2026-10-07) a
+          # Path.relative_to crash in the re-run was reported here as verdict
+          # drift, although no verdict had been compared at all.
+          #
+          # Drift is claimed ONLY when the compare step itself reported
+          # failure (it exits 1 on a changed verdict). Every other
+          # non-success combination -- a failed or skipped re-run, or a
+          # compare step that was skipped, cancelled or never reported --
+          # means no verdict was compared.
           {
             echo "## Consensus Edge — re-validation"
             echo ""
-            if [[ "${{ steps.compare.outcome }}" == "success" ]]; then
+            if [[ "${COMPARE_OUTCOME}" == "success" ]]; then
               echo "Committed verdicts still describe the code."
-            else
+            elif [[ "${COMPARE_OUTCOME}" == "failure" && "${RERUN_OUTCOME}" == "success" ]]; then
               echo "**The committed measurement no longer describes the code.**"
               echo "Download the artifact, commit the fresh measurements, and"
               echo "move the flag default to match — see ADR-023 for the shape"
               echo "of that decision."
+            else
+              echo "**The re-run or the comparison did not complete, so no verdict was compared.**"
+              echo "This is a harness or environment failure, not verdict drift"
+              echo "(re-run step: ${RERUN_OUTCOME:-unknown}, compare step: ${COMPARE_OUTCOME:-unknown})."
+              echo "Read the log of the failed step; the committed verdicts"
+              echo "have neither been confirmed nor contradicted by this run."
             fi
             echo ""
             echo '```'
-            cat /tmp/ce-rerun/compare.txt 2>/dev/null || echo "(the re-run did not get far enough to compare)"
+            cat "${CE_RERUN_DIR}/compare.txt" 2>/dev/null || echo "(the re-run did not get far enough to compare)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
