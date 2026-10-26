@@ -232,7 +232,7 @@
     "C4-FAAB-01",
     "C3-CON-01"
    ],
-   "reality": "Only /api/waiver/suggestions (value-ranked free agents), best-available-idp and faab-recommend exist; droppability.py docstring names Perfect Waivers as a future consumer. Draft optimizer's k-decomposition/ECC ladder are reusable.",
+   "reality": "Only /api/waiver/suggestions (value-ranked free agents), best-available-idp and faab-recommend exist; droppability.py docstring names Perfect Waivers as a future consumer. Draft optimizer's k-decomposition/ECC ladder are reusable. Corrected 2026-10-26 by the RPA audit: Perfect Waivers is shipped, not absent. PR #1717 merged 2026-10-16 (037f4c779): src/trade/perfect_waivers.py, POST /api/waiver/perfect (server.py) and the PerfectWaiversPanel on /waivers. The audit records it live with unit tests only and no outcome backtest (RPA-LGI-017). The disposition, evidence and nextAction fields are left as recorded; a re-disposition is a ledger-owner action.",
    "prOrBranch": null,
    "evidence": "server.py:6597 post_waiver_suggestions",
    "nextAction": "Implement the add/drop matching optimizer reusing src/draft/displacement + lineup solver; matching test; PSI on /waivers.",

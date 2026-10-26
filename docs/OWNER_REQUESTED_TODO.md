@@ -15,6 +15,20 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-26 — standing merge authorization
+
+Owner instruction 2026-10-26 (chat), recorded here as relayed to the coordinator session. It extends the
+2026-10-19 standing merge authorization recorded below; it does not authorize any implementation
+(`docs/EXECUTION_PLAN.md` remains the sole implementation-authorization record).
+
+- The owner approved merging the reviewed integration queue and "all future merges". The Integration
+  Authority merges reviewed PRs whose required checks are green on the exact head commit, without asking
+  again.
+- The authorization does NOT cover owner-reserved methodology or value activations. Those still need an
+  explicit owner decision: flag flips, BDVM or valuation changes such as #1938, held-flag activations, and
+  production actions reserved by `docs/EXECUTION_PLAN.md` §0.
+- Source: the owner's chat, 2026-10-26.
+
 ## Added 2026-10-25 — IDP valuation accuracy, replacement methodology and cross-position fair value
 
 Owner directive 2026-10-25, recorded verbatim in `docs/owner/IDP_VALUATION_ACCURACY_DIRECTIVE_2026-10-25.md`.
