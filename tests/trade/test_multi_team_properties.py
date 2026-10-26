@@ -55,9 +55,10 @@ Invariant -> where it is already pinned -> what this module adds
 * I9 renaming -- TAM ``test_i9_renaming_teams_and_labels_changes_no_verdict``
   (one ledger, player labels).  ADDED: generator; pick labels renamed;
   names swapped, named like another asset's id / a pick row, shared team
-  names, shuffled pick labels; players sharing a display name.  DEFECTS FOUND:
-  ``LANE-E-DEFECT-I9-PICKLABEL``, ``LANE-E-DEFECT-I9-DUPNAME`` (strict xfails
-  at the end of the module).
+  names, shuffled pick labels; players sharing a display name.  DEFECTS FOUND
+  AND FIXED: ``LANE-E-DEFECT-I9-PICKLABEL``, ``LANE-E-DEFECT-I9-DUPNAME``
+  (regression pins at the end of the module); the residual cross-team rename
+  case is ``LANE-E-DEFECT-I9-TIEBREAK`` (strict xfail).
 * I10 locality -- TAM ``test_i10_locality_a_leg_between_other_teams_leaves_a_team_unchanged``
   (one ledger).  ADDED: seeded extra legs between other participants, and
   between NEW teams (N grows; the only difference allowed is the SD-12
@@ -78,7 +79,7 @@ Invariant -> where it is already pinned -> what this module adds
   to the board; current-year exact-slot picks, unknown-slot future picks and
   picks held by someone other than their origin (value follows the origin);
   an unpriced pick row (R14d) is ``value: None`` + UNABLE, never 0;
-  quarantined / stale picks withheld on both sides.  DEFECT FOUND:
+  quarantined / stale picks withheld on both sides.  DEFECT FOUND AND FIXED:
   ``LANE-E-DEFECT-I13-PICKSTATE``.
 * I14 directional correctness -- TAM ``test_i14_one_to_many_directional_numbers``
   and ``test_multi_team_parity_fixture::test_i14_numbers_match_the_spec``.
@@ -116,7 +117,7 @@ Invariant -> where it is already pinned -> what this module adds
   judged by an independent oracle written from the §2.3 table (first failing
   check decides; stable reason; echoed ids sorted, safe-shaped, capped), a
   named matrix of structural abuses (duplicate legs, idle teams, one-sided
-  gifts, non-int endpoints, check precedence).  DEFECT FOUND:
+  gifts, non-int endpoints, check precedence).  DEFECT FOUND AND FIXED:
   ``LANE-E-DEFECT-ECHO-NEWLINE``.
 * §2.9 summary -- TTV ``test_summary_is_ordered_by_roster_id_and_carries_no_trade_level_verdict``.
   ADDED: key whitelist, per-team projection and ``lines`` text over every
@@ -134,9 +135,13 @@ projections and every decision would otherwise be ``roster_unknown``.  No live
 board value or count is asserted (CI two-lane rule); flags are never touched
 (``analyze_trade_n`` is not flag-gated).
 
-Defects are kept as ``xfail(strict=True)`` tests whose reason starts with
+Defects are pinned as ``xfail(strict=True)`` tests whose reason starts with
 ``LANE-E-DEFECT-<id>`` and whose docstring is the minimal repro; fixing the
 defect makes the strict xfail fail, which is the cue to delete the marker.
+The fixed ones (ECHO-NEWLINE, I9-PICKLABEL, I9-DUPNAME, I13-PICKSTATE) are now
+plain regression tests; ``LANE-E-DEFECT-I18-PICKINV`` and the newly isolated
+``LANE-E-DEFECT-I9-TIEBREAK`` (the cut ladder's display-name tie-break) are
+still strict xfails.
 """
 
 from __future__ import annotations
@@ -353,6 +358,18 @@ def board_value(contract: dict[str, Any], aid: str) -> float | None:
         row = next((r for r in rows if r.get("canonicalName") == name), None)
         v = row.get("rankDerivedValue") if row else None
     return float(v) if isinstance(v, (int, float)) and v > 0 else None
+
+
+def pick_row_on_board(contract: dict[str, Any], aid: str) -> bool:
+    """Whether the pick's grade has a board ROW at all (priced or not) - the
+    oracle for "a held pick that is unpriced still counts as a held pick"."""
+    season, rnd, origin = _pick_parts(aid)
+    name = (
+        f"{season} Pick {rnd}.{_slot(origin):02d}"
+        if season == CURRENT_YEAR
+        else f"{season} Round {rnd}"
+    )
+    return any(r.get("canonicalName") == name for r in contract["playersArray"])
 
 
 # ══ Generators ═════════════════════════════════════════════════════════════
@@ -676,9 +693,9 @@ def test_unpriced_pick_row_is_none_and_unable_never_zero():
         sent = out["teams"][1]["gives"][0]
         got = out["teams"][2]["receives"][0]
         assert (sent["value"], got["value"]) == (None, None)
-        # Withheld in both views, never priced (the exact state name is
-        # LANE-E-DEFECT-I13-PICKSTATE, pinned separately below).
-        assert sent["valueState"] == got["valueState"] != "priced"
+        # Withheld in both views, never priced; the state is ``unpriced``
+        # (LANE-E-DEFECT-I13-PICKSTATE, pinned separately below).
+        assert sent["valueState"] == got["valueState"] == "unpriced"
         for t in out["teams"].values():
             assert (t["fairness"]["state"], t["fairness"]["reasonCode"]) == (
                 "UNABLE",
@@ -688,23 +705,17 @@ def test_unpriced_pick_row_is_none_and_unable_never_zero():
         assert out["summary"]["conservation"]["pricedRawSent"] == 7000
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LANE-E-DEFECT-I13-PICKSTATE: a pick whose board row exists but is "
-        "unpriced (provenance unavailable) reads valueState 'off_board' / gate "
-        "off_board_assets; spec I13 (R14d) says it is UNPRICED"
-    ),
-)
 def test_lane_e_defect_i13_unpriced_pick_row_reads_unpriced():
-    """Minimal repro.  Synthetic league; the ``2027 Round 2`` board row is
+    """FIXED LANE-E-DEFECT-I13-PICKSTATE (was a strict xfail).  Minimal repro.
+    Synthetic league; the ``2027 Round 2`` board row is
     present with ``rankDerivedValue: None`` and ``pickValueProvenance:
     {"state": "unavailable"}``.  Team 1 sends ``pick:synth:2027:r2:o1`` to
     team 2 for ``p:201`` (7000).  Spec I13: "A pick whose provenance is
-    ``unavailable`` is unpriced, giving UNABLE (R14d)."  Actual: UNABLE holds
-    (``asset_not_evaluable``), but both rows read ``valueState: "off_board"``,
-    the simulation lists the pick in ``unresolvedOut`` / ``unresolvedIn`` and
-    the decision gap is ``off_board_assets`` — the asset IS on the board."""
+    ``unavailable`` is unpriced, giving UNABLE (R14d)."  It used to read
+    ``valueState: "off_board"`` (the simulation listed the pick in
+    ``unresolvedOut`` / ``unresolvedIn``; gate ``off_board_assets``) although
+    the asset IS on the board; it now reads ``unpriced`` (gate
+    ``unpriced_assets``), never off-board and never 0."""
     _contract, snap = _board("pick_unpriced")
     legs = [
         {"id": f"pick:{KEY}:2027:r2:o1", "from": 1, "to": 2},
@@ -714,6 +725,9 @@ def test_lane_e_defect_i13_unpriced_pick_row_reads_unpriced():
     assert out["teams"][1]["gives"][0]["valueState"] == "unpriced"
     codes = [g["code"] for g in out["teams"][1]["analysis"]["decision"]["missingEvidence"]]
     assert "unpriced_assets" in codes
+    assert "off_board_assets" not in codes
+    assert out["teams"][1]["gives"][0]["value"] is None
+    assert out["teams"][2]["receives"][0]["valueState"] == "unpriced"
 
 
 def test_current_year_slot_and_future_generic_picks_carry_one_value():
@@ -1490,8 +1504,10 @@ def _expected_roster_delta(
 ) -> tuple[float, collections.Counter]:
     """What team ``rid``'s roster must change by, read off the LABELLED board
     and the ledger alone: net board value, and a head-count per position bucket.
-    A player with a board row counts (even unpriced); a rostered player with no
-    row and a pick with no price are counted nowhere (missing is not a zero-
+    A player with a board row counts (even unpriced), and so does a pick whose
+    grade has a board row (even unpriced: a held asset whose value is unknown,
+    adding nothing to the value total); a rostered player with no row and a
+    pick with no board row at all are counted nowhere (missing is not a zero-
     value asset)."""
     rows = {r["playerId"]: r for r in contract["playersArray"] if r.get("playerId")}
     total, counts = 0.0, collections.Counter()
@@ -1506,7 +1522,7 @@ def _expected_roster_delta(
                 continue
             counts[_bucket(row["position"])] += sign
         else:
-            if value is None:
+            if value is None and not pick_row_on_board(contract, aid):
                 continue
             counts["PICK"] += sign
         total += sign * (value or 0.0)
@@ -1668,15 +1684,10 @@ def test_i9_swapped_and_odd_unique_labels_change_no_verdict_or_forced_cut(mode):
     are the next test and a strict xfail."""
     compared = 0
     for k, (scenario, contract, snap, teams, legs) in enumerate(_cases(91, 4)):
-        # ``pick_unpriced`` keeps its pick labels: relabelling there is the strict
-        # xfail below (LANE-E-DEFECT-I9-PICKLABEL); every other rename still runs.
+        # ``pick_unpriced`` relabels too (LANE-E-DEFECT-I9-PICKLABEL is fixed:
+        # an unpriced identity row stays unpriced whatever its label says).
         chaos = _snapshot(
-            _label_chaos(
-                contract,
-                1000 + k,
-                relabel_picks=scenario != "pick_unpriced",
-                duplicate_names=False,
-            ),
+            _label_chaos(contract, 1000 + k, relabel_picks=True, duplicate_names=False),
             scenario,
         )
         ledger = _validate(snap, teams, legs)
@@ -1693,13 +1704,16 @@ def test_i9_swapped_and_odd_unique_labels_change_no_verdict_or_forced_cut(mode):
 
 
 @pytest.mark.parametrize("mode", ["market_fairness", "asset_only"])
-def test_i9_players_sharing_a_display_name_change_no_verdict_unless_a_cut_is_needed(mode):
+def test_i9_players_sharing_a_display_name_change_no_verdict_or_forced_cut(mode):
     """Players who share a display name (and case / whitespace twins) must not
-    move any verdict.  A team that must RELEASE someone is the one place the
-    capacity owner still joins the roster to the board by NAME - that is the
-    strict xfail ``LANE-E-DEFECT-I9-DUPNAME`` below, so a team the baseline says
-    needs a cut is excluded from this comparison and pinned there instead."""
-    compared = skipped = 0
+    move any verdict or any forced-cut COUNT.  A team that must RELEASE someone
+    used to be carved out (the capacity owner joined the roster to the board by
+    NAME, ``LANE-E-DEFECT-I9-DUPNAME``, fixed: the join is id-first), so the
+    teams the baseline says need a cut are compared too.  Which tied candidate is
+    released is the cut ladder's display-name tie-break, a separate strict xfail
+    (``LANE-E-DEFECT-I9-TIEBREAK``), so the forced-cut IDS are not compared here -
+    their number, the roster sizes and the exhausted flag are."""
+    compared = needing_a_cut = 0
     for k, (scenario, contract, snap, teams, legs) in enumerate(_cases(92, 5)):
         collided = _snapshot(
             _label_chaos(contract, 2000 + k, relabel_picks=False, duplicate_names=True), scenario
@@ -1708,15 +1722,15 @@ def test_i9_players_sharing_a_display_name_change_no_verdict_unless_a_cut_is_nee
         a = _run(snap, ledger, mode)
         b = _run(collided, _validate(collided, teams, legs), mode)
         for rid in ledger.teams:
-            if _needs_a_cut(a["teams"][rid]):
-                skipped += 1
-                continue
             ctx = (scenario, mode, rid, legs)
             assert _verdict(a["teams"][rid]) == _verdict(b["teams"][rid]), ctx
+            ca, cb = _capacity_view(a["teams"][rid]), _capacity_view(b["teams"][rid])
+            assert (ca[:4], len(ca[4]), ca[5]) == (cb[:4], len(cb[4]), cb[5]), ctx
+            needing_a_cut += _needs_a_cut(a["teams"][rid])
             compared += 1
     assert compared >= 90
     if mode == "asset_only":
-        assert skipped > 0  # the sweep really did reach the cut path it is carving out
+        assert needing_a_cut > 0  # the sweep really does reach the cut path
 
 
 # ══ Traded picks: value follows the ORIGIN, ownership follows the HOLDER ═══
@@ -2008,8 +2022,7 @@ def test_an_alias_of_a_real_asset_id_is_never_accepted(alias):
             _validate(snap, [1, 2], legs)
         e = exc.value
         assert (e.status, e.error, e.reason) == (400, "invalid_trade", "unknown_asset")
-        if alias != ECHO_NEWLINE_ALIAS:  # LANE-E-DEFECT-ECHO-NEWLINE, pinned below
-            assert all(re.fullmatch(r"[A-Za-z0-9:_-]{1,64}", a) for a in e.asset_ids)
+        assert all(re.fullmatch(r"[A-Za-z0-9:_-]{1,64}", a) for a in e.asset_ids)
         assert set(e.asset_ids) <= {str(alias)}  # only what the request supplied, never a real id
 
 
@@ -2393,21 +2406,12 @@ def test_a_team_the_ledger_does_not_list_is_never_analysed_or_touched(mode):
     assert (snap.teams_by_roster_id[3], snap.teams_by_roster_id[4]) == frozen
 
 
-# ══ Defects found by this lane (strict xfails; fix -> remove the marker) ═══
+# ══ Defects found by this lane: fixed regression pins + one open xfail ════
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LANE-E-DEFECT-ECHO-NEWLINE: trade_ledger._ECHO_RE ends in '$', which in "
-        "Python also matches just BEFORE a trailing newline, so an unknown asset id "
-        "'p:101\\n' is echoed back in LedgerError.asset_ids (spec 2.3: an echo "
-        "carries only ids of the safe shape [A-Za-z0-9:_-]{1,64}); the public "
-        "advisor's own _ECHO_RE has the same anchor"
-    ),
-)
 def test_lane_e_defect_error_echo_rejects_a_trailing_newline():
-    """Minimal repro.  Synthetic league.  Legs ``[("p:101\\n", 1, 2),
+    """FIXED LANE-E-DEFECT-ECHO-NEWLINE (was a strict xfail).  Minimal repro.
+    Synthetic league.  Legs ``[("p:101\\n", 1, 2),
     ("p:201", 2, 1)]`` -> 400 ``unknown_asset`` (correct).  Expected
     ``asset_ids == ()`` - the id is not of the echo shape.  Actual
     ``('p:101\\n',)``: ``re.match(r"^[A-Za-z0-9:_-]{1,64}$", "p:101\\n")`` matches.
@@ -2432,26 +2436,17 @@ def _relabelled_pick(contract: dict[str, Any], asset_id: str, label: str) -> dic
     return c
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LANE-E-DEFECT-I9-PICKLABEL: when a pick's identity-resolved board row is "
-        "unpriced, trade_simulator.resolve_pick_board_row falls back to its display "
-        "LABEL; a label that names ANOTHER grade prices the pick at that grade's "
-        "value (spec 2.5: labels are display only; I9 / I13 / R14d: an unpriced "
-        "pick is UNABLE, never priced from a label)"
-    ),
-)
 @pytest.mark.parametrize("mode", ["market_fairness", "asset_only"])
 def test_lane_e_defect_i9_pick_label_prices_an_unpriced_pick(mode):
-    """Minimal repro.  Synthetic league whose ``2027 Round 2`` board row is
+    """FIXED LANE-E-DEFECT-I9-PICKLABEL (was a strict xfail).  Minimal repro.
+    Synthetic league whose ``2027 Round 2`` board row is
     unpriced (``pickValueProvenance.state == "unavailable"``).  Team 3 sends
     ``p:305`` (1800) to team 4 for ``pick:synth:2027:r2:o4`` (a ROUND-2 pick).
     Baseline (label ``2027 Round 2``): both teams UNABLE
-    ``asset_not_evaluable``, the pick ``off_board`` with ``value: None``.
+    ``asset_not_evaluable``, the pick ``unpriced`` with ``value: None``.
     Only team 4's DISPLAY label for that pick is changed to ``2027 Round 1``:
-    expected, no verdict moves (I9); actual, the pick is ``priced`` at 3600
-    (the ROUND-1 grade), team 3 reads STRONGLY_FAVORABLE and team 4
+    no verdict moves (I9).  It used to price the pick at 3600 (the ROUND-1
+    grade named by the label): team 3 read STRONGLY_FAVORABLE and team 4
     STRONGLY_UNFAVORABLE, both fairness NOT_FAIR."""
     contract, snap = _board("pick_unpriced")
     aid = f"pick:{KEY}:2027:r2:o4"
@@ -2461,6 +2456,7 @@ def test_lane_e_defect_i9_pick_label_prices_an_unpriced_pick(mode):
     other = _run(relabelled, _validate(relabelled, [3, 4], legs), mode)
     for rid in (3, 4):
         assert _verdict(base["teams"][rid]) == _verdict(other["teams"][rid])
+        assert base["teams"][rid]["fairness"]["state"] == "UNABLE"
 
 
 def _with_duplicate_name(contract: dict[str, Any], renamed: str, like: str) -> dict[str, Any]:
@@ -2476,55 +2472,66 @@ def _with_duplicate_name(contract: dict[str, Any], renamed: str, like: str) -> d
     return c
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LANE-E-DEFECT-I9-DUPNAME: roster_capacity builds the cut ladder from "
-        "src/draft/context.py::build_roster_assets, which joins each roster entry "
-        "to the board by NAME before id, so two players sharing a display name get "
-        "one board row / player_id between them; the ladder keys on player_id, so "
-        "the forced-cut set changes (or the ladder 'exhausts') with the names alone "
-        "(spec I9 / 2.4: identity is the assetId; B0-b: names are the fallback only)"
-    ),
-)
 @pytest.mark.parametrize(
     "renamed, like",
-    [("104", "105"), ("104", "304")],
+    [
+        ("104", "105"),
+        pytest.param(
+            "104",
+            "304",
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason=(
+                    "LANE-E-DEFECT-I9-TIEBREAK: no longer a join collision (the roster "
+                    "<-> board join is id-first and both entries keep their own row and "
+                    "id) - renaming 104 to 'C Depth' re-orders it AFTER 105 'A Unpriced' "
+                    "in the cut ladder's tie-break (src/draft/displacement.py::"
+                    "build_cut_ladder sorts equal effective-cut-costs by "
+                    "asset.name.lower(), 'equal costs break by name so the ladder is "
+                    "stable'), so the forced cut moves 104 -> 105 with a label change "
+                    "alone (spec I9).  Changing the tie-break key changes WHICH player "
+                    "every tied real roster releases, so it is an owner decision, not "
+                    "this lane's fix"
+                ),
+            ),
+        ),
+    ],
     ids=["two_players_on_one_roster", "same_name_as_another_teams_player"],
 )
 def test_lane_e_defect_i9_duplicate_display_names_change_the_forced_cut(renamed, like):
-    """Minimal repro.  Synthetic league, roster limit 5 (``over_cap``); team 1
+    """FIXED LANE-E-DEFECT-I9-DUPNAME (was a strict xfail; the roster <-> board
+    join in ``build_roster_assets`` was name-first, it is now id-first).
+    Minimal repro.  Synthetic league, roster limit 5 (``over_cap``); team 1
     holds exactly 5 (101-105).  Team 2 gifts ``p:201`` to team 1, so team 1 is
     at 6 of 5 and must release exactly one player.  Baseline: the forced cut is
     ``104`` ("A Depth"), the ladder is not exhausted.  Only the DISPLAY NAME of
     ``renamed`` is changed to ``like``'s.  Expected: the same forced cut.
-    Actual: ``("104", "105")`` -> ``forcedDrops == []`` with ``ladderExhausted``
-    ("cut ladder offers 0 release(s) but 1 are needed"), and in ``team_context``
-    team 1 flips from YES / FAVORABLE to NO / UNFAVORABLE ``executionGate``
-    ("roster can't fit this trade"); ``("104", "304")`` -> the cut becomes
-    ``105`` (the entry takes team 3's player's row)."""
+    ``("104", "105")`` used to give ``forcedDrops == []`` with
+    ``ladderExhausted`` ("cut ladder offers 0 release(s) but 1 are needed"),
+    and in ``team_context`` team 1 flipped from YES / FAVORABLE to NO /
+    UNFAVORABLE ``executionGate`` ("roster can't fit this trade"): FIXED.
+    ``("104", "304")`` used to take team 3's player's board row (the join
+    collision, also FIXED) and still moves the cut to ``105`` for a different
+    reason - the ladder's display-name tie-break, strict xfail
+    ``LANE-E-DEFECT-I9-TIEBREAK`` (the cost of 104 and 105 are tied at 0)."""
     contract, snap = _board("over_cap")
     renamed_snap = _snapshot(_with_duplicate_name(contract, renamed, like), "over_cap")
     legs = [{"id": "p:201", "from": 2, "to": 1}]
     a = _run(snap, _validate(snap, [1, 2], legs), "asset_only")
     b = _run(renamed_snap, _validate(renamed_snap, [1, 2], legs), "asset_only")
     assert _capacity_view(a["teams"][1]) == _capacity_view(b["teams"][1])
+    assert _capacity_view(a["teams"][1])[4] == ["104"]  # the baseline cut, by id
+    assert _capacity_view(a["teams"][1])[5] is False  # ladder not exhausted
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LANE-E-DEFECT-I9-DUPNAME (verdict level): two of a team's own players sharing "
-        "a display name turn a legal over-the-cap trade into 'roster can't fit' "
-        "(NO / executionGate) in team_context - same root cause as above"
-    ),
-)
 def test_lane_e_defect_i9_duplicate_display_names_flip_a_team_context_decision(monkeypatch):
-    """Same repro as the capacity test, read at the decision.  The roster lens
+    """FIXED LANE-E-DEFECT-I9-DUPNAME, verdict level (was a strict xfail).
+    Same repro as the capacity test, read at the decision.  The roster lens
     is pinned to a constant (+0.9 ppg) so it cannot depend on names.  Baseline
-    team 1: YES / FAVORABLE (one cut, charged and fit).  After renaming player
-    104 to player 105's display name: NO, deciding ``executionGate``,
-    UNFAVORABLE - ``roster_limit`` - although nothing but a label changed."""
+    team 1: YES / FAVORABLE (one cut, charged and fit).  Renaming player 104
+    to player 105's display name used to flip it to NO, deciding
+    ``executionGate``, UNFAVORABLE - ``roster_limit`` - although nothing but a
+    label changed."""
     from src.trade import roster_capacity
 
     monkeypatch.setattr(roster_capacity, "evaluate_final_roster_utility", _constant_utility(0.9))
@@ -2534,3 +2541,73 @@ def test_lane_e_defect_i9_duplicate_display_names_flip_a_team_context_decision(m
     a = _run(snap, _validate(snap, [1, 2], legs), "team_context")
     b = _run(renamed, _validate(renamed, [1, 2], legs), "team_context")
     assert _verdict(a["teams"][1]) == _verdict(b["teams"][1])
+
+
+@pytest.mark.parametrize(
+    "renamed, like",
+    [("104", "105"), ("105", "104")],
+    ids=["kept_entry_shares_the_senders_name", "sent_entry_shares_the_kept_name"],
+)
+def test_lane_e_defect_i9_a_sent_player_sharing_a_name_leaves_by_entry_not_by_name(renamed, like):
+    """FOUND WHILE FIXING I9-DUPNAME (same root cause, outgoing half).  Synthetic
+    league, roster limit 5; team 1 holds exactly 5 (101-105) and SENDS ``p:105``
+    for ``p:201`` + ``p:202`` (6 of 5 afterwards, one forced cut).  Baseline cut:
+    ``104``.  Two of its players then share a display name (104 <-> 105).  Once
+    the roster <-> board join keeps same-named players apart (id-first), removing
+    the sent player as "the FIRST roster entry with that name" releases the wrong
+    one of them: the post-trade roster still holds the player just traded away
+    and the forced cut names him.  The sent player is the entry his Sleeper id
+    resolved to (``roster_capacity.OutgoingRoster``), so the answer cannot move
+    with a label.  (The pre-fix name-first join hid this by collapsing the two
+    entries onto one row; this pins the completed fix, not the old output.)"""
+    contract, snap = _board("over_cap")
+    legs = [
+        {"id": "p:105", "from": 1, "to": 2},
+        {"id": "p:201", "from": 2, "to": 1},
+        {"id": "p:202", "from": 2, "to": 1},
+    ]
+    a = _run(snap, _validate(snap, [1, 2], legs), "asset_only")
+    base_view = _capacity_view(a["teams"][1])
+    assert base_view[4] == ["104"] and base_view[5] is False  # sanity: a real forced cut
+    renamed_snap = _snapshot(_with_duplicate_name(contract, renamed, like), "over_cap")
+    b = _run(renamed_snap, _validate(renamed_snap, [1, 2], legs), "asset_only")
+    assert _capacity_view(b["teams"][1]) == base_view
+    assert "105" not in _capacity_view(b["teams"][1])[4]  # never cuts the player just sent
+
+
+def test_lane_e_defect_i9_lineup_displacement_tells_same_named_players_apart():
+    """FOUND WHILE FIXING I9-DUPNAME (the ``teamImpact.lineupDisplacement``
+    symptom; same defect class, a different site: ``team_impact._starter_identity``
+    keyed the before/after starter diff by DISPLAY NAME).  Synthetic league.
+    (1) Team 1 sends WR ``p:101`` ("A Six") for WR ``p:201`` renamed "A Six":
+    ``arrived`` and ``departed`` both read EMPTY (the swap looked like nobody
+    moved).  (2) Two of team 1's own starters share a name: the diff refused
+    (``teamImpact: {"unavailable": "ValueError"}``).  Both now read the players
+    by id; the block is identical to the unrenamed league's."""
+    contract, snap = _board("clean")
+
+    def _block(c, scenario, legs):
+        s = _snapshot(c, scenario)
+        out = _run(s, _validate(s, [1, 2], legs), "asset_only")
+        return {rid: out["teams"][rid]["simulation"].get("teamImpact") for rid in (1, 2)}
+
+    swap = [{"id": "p:101", "from": 1, "to": 2}, {"id": "p:201", "from": 2, "to": 1}]
+    base = _block(contract, "clean", swap)
+    same_name = _block(_with_duplicate_name(contract, "201", "101"), "clean", swap)
+    for rid in (1, 2):
+        got = same_name[rid]["lineupDisplacement"]
+        want = base[rid]["lineupDisplacement"]
+        assert (len(got["arrived"]), len(got["departed"])) == (1, 1), (rid, got)
+        assert (got["startersBefore"], got["startersAfter"]) == (
+            want["startersBefore"],
+            want["startersAfter"],
+        )
+        assert [r["position"] for r in got["arrived"]] == [r["position"] for r in want["arrived"]]
+        assert [r["position"] for r in got["departed"]] == [r["position"] for r in want["departed"]]
+
+    other = [{"id": "p:103", "from": 1, "to": 2}, {"id": "p:201", "from": 2, "to": 1}]
+    base = _block(contract, "clean", other)
+    twins = _block(_with_duplicate_name(contract, "102", "101"), "clean", other)
+    assert "unavailable" not in twins[1]
+    assert twins[1]["lineupDisplacement"] == base[1]["lineupDisplacement"]
+    assert twins[2]["lineupDisplacement"] == base[2]["lineupDisplacement"]

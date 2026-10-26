@@ -163,6 +163,43 @@ def test_unresolvable_stays_unresolved_never_zero():
 
 
 @pytest.mark.usefixtures("clock")
+def test_an_unpriced_identity_row_stays_unpriced_whatever_the_label_names():
+    """LANE-E-DEFECT-I9-PICKLABEL / I13-PICKSTATE.  The board HOLDS the row the
+    pick's identity resolves to (``2028 Round 1``) but has not priced it.  A
+    label that names ANOTHER, priced grade must not price the pick: it is
+    UNPRICED - resolved to its own row with no positive value - never off-board,
+    never the other grade's number, never 0 presented as a price."""
+    c = _board()
+    for row in c["playersArray"]:
+        if row["canonicalName"] == "2028 Round 1":
+            row["rankDerivedValue"] = None
+            row["pickValueProvenance"] = {"state": "unavailable"}
+    aid = "pick:dynasty_main:2028:r1:o1"
+    for label in ("2028 Mid 1st (own)", "2028 Early 1st", "2028 1st", "anything at all"):
+        hit = _resolve(c, label, aid)
+        assert hit is not None, label  # on the board: not an off-board name
+        assert hit["name"] == "2028 Round 1", label
+        assert not hit["value"], label  # no positive canonical value: unpriced
+    # No identity: the label still prices (unchanged), so the fix is not a blanket refusal.
+    assert _resolve(c, "2028 Mid 1st")["value"] == 4635
+    # The server-side stamp agrees: no board row is named for an unpriced pick.
+    stamped = stamp_owned_pick_rows(c["sleeper"]["teams"], pick_rows_by_name(c), CDY)
+    own = next(d for d in stamped[0]["pickDetails"] if d["assetId"] == aid)
+    assert own["boardRowName"] is None
+
+
+@pytest.mark.usefixtures("clock")
+def test_identity_with_no_board_row_at_all_keeps_the_label_fallback():
+    """The documented exception: when the board publishes NO row for the
+    identity's grade (here the 2028 generic row is absent, tiers only), the
+    label's own stated grade still decides - the pre-identity behaviour."""
+    c = _board()
+    c["playersArray"] = [r for r in c["playersArray"] if r["canonicalName"] != "2028 Round 1"]
+    hit = _resolve(c, "2028 Mid 1st (own)", "pick:dynasty_main:2028:r1:o1")
+    assert hit is not None and hit["name"] == "2028 Mid 1st" and hit["value"] == 4635
+
+
+@pytest.mark.usefixtures("clock")
 def test_a_non_canonical_id_falls_back_to_the_label():
     c = _board()
     assert _resolve(c, "2028 Mid 1st", "pick:2028:1")["name"] == "2028 Mid 1st"

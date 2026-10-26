@@ -558,6 +558,15 @@ class CapacityContext:
     #: ITS roster entry whatever display name the caller used
     #: (:func:`outgoing_roster_names`).  Empty for a context built without it.
     roster_player_ids: tuple[str, ...] = ()
+    #: The roster's assets, one per ``roster_player_names`` entry and in the
+    #: same order (``build_roster_assets`` emits exactly one per name).  Every
+    #: read of "who is this roster entry" goes through :func:`_roster_assets`,
+    #: i.e. by POSITION: ``assets_by_key`` is keyed by player id, so a lookup by
+    #: display name only ever hit when the id happened to equal the name, and
+    #: everything else was silently re-joined to the board by NAME - which hands
+    #: two players sharing a display name one board row between them
+    #: (LANE-E-DEFECT-I9-DUPNAME).  Empty for a context built without it.
+    roster_assets: tuple[RosterAsset, ...] = ()
     #: Flag ``replacement_level_li5_consolidation`` only — ``None`` when OFF.
     #: The ``replacementPopulation`` provenance of ``waiver_values``
     #: (``displacement.replacement_level_provenance``): who counted as a free
@@ -569,6 +578,41 @@ class CapacityContext:
 
 def _asset_key(asset: RosterAsset) -> str:
     return _norm(asset.player_id) or _norm(asset.name)
+
+
+def _ladder_asset(asset: RosterAsset) -> RosterAsset:
+    """The asset the cut ladder sees for one roster entry.
+
+    A joined entry is the board's own asset.  An entry that joined to NO board
+    row (``position`` empty, ``board_value`` ``None``) keeps the identity the
+    ladder has always given it - its normalised NAME, what an unresolved name
+    becomes in :func:`_resolve_incoming` - while ``roster_player_ids`` keeps the
+    roster's own id.  It is never re-joined to a board row by name, which is the
+    collision this module exists to avoid (an unmatched "Byron Murphy" is not the
+    board's other "Byron Murphy").
+    """
+    if asset.position or asset.board_value is not None:
+        return asset
+    if _norm(asset.player_id) == _norm(asset.name):
+        return asset
+    return RosterAsset(player_id=_norm(asset.name), name=asset.name, position="", board_value=None)
+
+
+def _roster_assets(context: CapacityContext) -> list[RosterAsset]:
+    """One asset per roster entry, in roster order, resolved by POSITION.
+
+    The roster <-> board join was done once, id-first, by ``build_roster_assets``
+    and kept in ``context.roster_assets``; this reads it back entry for entry, so
+    two entries that share a display name stay two assets with their own board
+    rows and ids.  A context built without it (hand-constructed in a test)
+    falls back to the per-name re-join this replaced.
+    """
+    if context.roster_assets and len(context.roster_assets) == len(context.roster_player_names):
+        return list(context.roster_assets)
+    return [
+        context.assets_by_key.get(_norm(name)) or _resolve_incoming(name, context.by_name)
+        for name in context.roster_player_names
+    ]
 
 
 def _li5_waiver_level(context: CapacityContext) -> dict[str, Any] | None:
@@ -752,10 +796,67 @@ def build_capacity_context(
         roster_player_ids=(
             tuple(str(a.player_id) for a in assets) if len(assets) == len(names) else ()
         ),
+        roster_assets=(
+            tuple(_ladder_asset(a) for a in assets) if len(assets) == len(names) else ()
+        ),
         replacement_population=(
             None if population is None else replacement_level_provenance(population)
         ),
     )
+
+
+class OutgoingRoster(list):
+    """Outgoing roster names that remember WHICH roster entries they are.
+
+    A plain ``list[str]`` of names (every consumer that reads it as one is
+    unchanged), plus ``entry_indexes``: for each name, the index of the roster
+    entry the Sleeper id resolved to, or ``None`` when the name is all there is.
+    The roster owner removes an outgoing player by that entry rather than by
+    name, because two roster players can share one display name and removing
+    "the first entry with that name" can release - or keep - the wrong player
+    (LANE-E-DEFECT-I9-DUPNAME).  A plain list (a caller that never had ids)
+    behaves exactly as before: name multiplicity.
+    """
+
+    entry_indexes: tuple[int | None, ...] = ()
+
+
+def _removal_indexes(
+    context: CapacityContext, outgoing: Sequence[str]
+) -> tuple[set[int], list[str]]:
+    """``(roster entries a trade removes, outgoing names no entry holds)``.
+
+    An entry the outgoing names pinned by id (:class:`OutgoingRoster`) is removed
+    as that entry; every other name removes the first still-present roster entry
+    of that name, by MULTIPLICITY (two outgoing "A" remove two roster "A"s, one
+    outgoing "A" removes one).  The one definition ``assess_roster_capacity`` and
+    ``final_legal_roster`` both remove entries by, so the capacity answer and the
+    roster it is simulated on cannot disagree about who left.
+    """
+    names = context.roster_player_names
+    hints = getattr(outgoing, "entry_indexes", ())
+    removed: set[int] = set()
+    rest: list[str] = []
+    for i, name in enumerate(outgoing):
+        if not str(name or "").strip():
+            continue
+        hint = hints[i] if i < len(hints) else None
+        if hint is not None and 0 <= hint < len(names) and hint not in removed:
+            removed.add(hint)
+        else:
+            rest.append(str(name))
+    pending = Counter(_norm(n) for n in rest)
+    for k, entry_name in enumerate(names):
+        key = _norm(entry_name)
+        if k not in removed and pending.get(key, 0) > 0:
+            pending[key] -= 1
+            removed.add(k)
+    unplaced: list[str] = []
+    for n in rest:
+        if pending.get(_norm(n), 0) > 0:
+            pending[_norm(n)] -= 1
+            unplaced.append(n)
+    return removed, unplaced
 
 
 def outgoing_roster_names(
@@ -772,13 +873,17 @@ def outgoing_roster_names(
     roster (a board display name, a suffix) still frees the spot he occupies.
     An entry with no id, or whose id is on no roster entry, keeps its name:
     name matching is the fallback only, exactly as before.  Pure.
+
+    The list returned is an :class:`OutgoingRoster`: the same names, plus the
+    roster entry each id resolved to, so the removal is by ENTRY.
     """
     ids = list(ids or [])
     roster_ids = list(context.roster_player_ids)
     if len(roster_ids) != len(context.roster_player_names):
         roster_ids = []
     used: set[int] = set()
-    out: list[str] = []
+    out = OutgoingRoster()
+    entry_indexes: list[int | None] = []
     for i, name in enumerate(names):
         pid = ids[i] if i < len(ids) else None
         key = _norm(pid) if pid else ""
@@ -790,9 +895,12 @@ def outgoing_roster_names(
             )
         if hit is None:
             out.append(str(name))
+            entry_indexes.append(None)
             continue
         used.add(hit)
         out.append(context.roster_player_names[hit])
+        entry_indexes.append(hit)
+    out.entry_indexes = tuple(entry_indexes)
     return out
 
 
@@ -1327,22 +1435,20 @@ def final_legal_roster(
     spots, and removing one removes exactly one (the rule ``_surviving_keys``
     and ``simulate_trade`` already follow).
     """
-    before = tuple(
-        context.assets_by_key.get(_norm(name)) or _resolve_incoming(name, context.by_name)
-        for name in context.roster_player_names
-    )
+    before = tuple(_roster_assets(context))
     on_roster = {a.player_id for a in before}
     incoming = tuple(_resolve_incoming(n, context.by_name) for n in incoming_players)
     drop_ids = tuple(d.player_id for d in capacity.forced_drops)
     acquired_drop_ids = tuple(d.player_id for d in capacity.forced_drops if d.acquired_in_trade)
-    outgoing_ids = tuple(
-        a.player_id
-        for a in (
-            context.assets_by_key.get(_norm(n)) or _resolve_incoming(n, context.by_name)
-            for n in outgoing_players
-        )
-        if a.player_id in on_roster
-    )
+    # The outgoing players are the roster ENTRIES ``assess_roster_capacity``
+    # removed (``_removal_indexes``: the entry the id pinned, else the first
+    # of that name), so each leaves with the id the before-roster above carries.
+    # A name no entry holds keeps the board-name resolution it always had.
+    removed_entries, unplaced = _removal_indexes(context, outgoing_players)
+    outgoing_assets = [before[k] for k in sorted(removed_entries)] + [
+        _resolve_incoming(n, context.by_name) for n in unplaced
+    ]
+    outgoing_ids = tuple(a.player_id for a in outgoing_assets if a.player_id in on_roster)
     removed_ids = tuple(
         sorted(
             set(outgoing_ids) | ({i for i in drop_ids if i in on_roster} - set(acquired_drop_ids))
@@ -1720,17 +1826,12 @@ def assess_roster_capacity(
         )
 
     # ── The post-trade roster, which is what the ladder must be built on ──
-    outgoing_keys = {_norm(n) for n in outgoing}
-    surviving: list[RosterAsset] = []
-    for name in context.roster_player_names:
-        key = _norm(name)
-        if key in outgoing_keys:
-            outgoing_keys.discard(key)  # by multiplicity, not set membership
-            continue
-        asset = context.assets_by_key.get(key)
-        if asset is None:
-            asset = _resolve_incoming(name, context.by_name)
-        surviving.append(asset)
+    # Entries leave by ENTRY (the one the id pinned, else the first of that
+    # name - multiplicity), never by "every entry with this name".
+    removed_entries, _unplaced = _removal_indexes(context, outgoing_players)
+    surviving: list[RosterAsset] = [
+        asset for k, asset in enumerate(_roster_assets(context)) if k not in removed_entries
+    ]
 
     acquired_keys: set[str] = set()
     for name in incoming:
@@ -2014,10 +2115,7 @@ def _assess_selected(
 
 def _pre_trade_cleanup(context: CapacityContext, over_before: int) -> fds.Selection:
     """The cheapest legal cleanup the PRE-trade roster owes on its own."""
-    roster_before = [
-        context.assets_by_key.get(_norm(n)) or _resolve_incoming(n, context.by_name)
-        for n in context.roster_player_names
-    ]
+    roster_before = _roster_assets(context)
     return fds.cleanup_selection(
         roster_before,
         over_before,

@@ -381,7 +381,7 @@ def _resolve_asset(
             # canonical resolver decides the row, so one asset carries one
             # value whichever grammar named it.  Anything unparseable stays
             # unresolved — identity never guesses.
-            row, _res = resolve_pick_board_row(
+            row, res = resolve_pick_board_row(
                 str(name),
                 row_index=row_index,
                 pick_rows=pick_rows,
@@ -389,7 +389,17 @@ def _resolve_asset(
                 pick_slots=pick_slots,
             )
             if not row:
-                return None
+                # Identity landed on a board row the pipeline declined to price
+                # (``row_present_but_unpriced`` / alias target missing): the
+                # asset IS on the board, UNPRICED -- it resolves with that row
+                # (value 0 here is the "no positive canonical value" marker the
+                # evidence gates read as ``unpriced_assets``, never a price), not
+                # as an off-board name (spec R14d / LANE-E-DEFECT-I13-PICKSTATE).
+                # No row at all stays unresolved: identity never guesses.
+                unpriced_name = res.basis_row_name if res is not None else None
+                row = row_index.get(unpriced_name.strip().lower()) if unpriced_name else None
+                if not row:
+                    return None
     value = int(_row_value(row))
     pos = _normalize_pos(row.get("pos") or row.get("position"))
     age = row.get("age")
