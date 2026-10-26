@@ -3,8 +3,8 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-10-26 ~21:50Z.** Agent-OS-Receipt `47a8b19f`. Concurrency limit: four workers, and the coordinator's own
-coding counts toward the four (owner 2026-10-26).
+**As of 2026-10-26 ~21:45Z.** Agent-OS-Receipt `47a8b19f`. Concurrency limit: four workers, and the coordinator's own
+coding counts toward the four (`docs/EXECUTION_PLAN.md` line 178, Agent OS §3 "Usage efficiency").
 
 ## Authorization in force
 The owner approved routine merges ("I approve these and all future merges", recorded in `docs/OWNER_REQUESTED_TODO.md`)
@@ -23,7 +23,7 @@ separately, because it changes BDVM scoring. Owner-held flags, activations and m
 explicit owner decision.
 
 ## Production
-- **Live:** `b3072d2ea`, deployed about 21:05Z and carrying every merge through #1974.
+- **Live:** `b3072d2ea`, deployed about 21:24Z (run 40391996001 completed 21:27Z) and carrying every merge through #1974.
 - **Verified on that build:**
   - `/api/health` returns 200 and ok.
   - `backup_health` is now `backup-health.v2` (#1970). `stateBackup` reports `unverifiable` / `permission_denied`,
@@ -31,8 +31,9 @@ explicit owner decision.
     backup owner decision is below.
 - **#1966 (the NFL Team filter on `/rankings`) is in the live build**, but nobody has looked at it in a signed-in
   browser yet. The built-in browser is not signed in, and agents do not enter passwords.
-- **Next deploy:** run `184a9f756` was in progress at 21:50Z, carrying #1977 and #1972 (the earlier queued runs were
-  superseded as expected).
+- **Next deploy:** run `184a9f756` was in progress at about 21:45Z, carrying #1977 and #1972 (the earlier queued runs
+  were superseded as expected). `main`'s tip is ahead of it at `ddf79dae1` (an automated Hill refit-evidence commit
+  touching `config/model_registry/`); no deploy run had started for it yet.
 
 ## Merged on 2026-10-26 (48 PRs)
 - #1925, #1926 (merged ~01:31Z, before this session's integration train)
@@ -51,7 +52,7 @@ Independent reviews are posted as PR comments; the owner's account cannot approv
 |---|---|---|
 | #1981 | **ready**, independently approved | Hotfix for a flaky test on `main`. `tests/parity/test_multi_team_surface_parity_real_board.py` gets a 429 from the global public rate limiter on a fast runner (it failed #1979's CI). Merge it once Validate PR is green. |
 | #1979 | draft, approved with nits | Hardens the forecast tripwire. It went red only because of the #1981 flake. After #1981 merges, merge `origin/main` into the branch to get a fresh run, then merge. |
-| #1980 | draft, approved at `5a13f4f62`; fix commits since | The Consensus Edge summary no longer reports a crash, partial compare, missing measurement or lost `pipefail` as drift or success. A fix for a no-fresh-measurement false green is in flight, then a delta review. |
+| #1980 | draft, approved at `5a13f4f62`; one fix commit since (`4acec6efa`) | The Consensus Edge summary no longer reports a crash, partial compare, missing committed measurement or lost `pipefail` as drift or success. `4acec6efa` fixed the three review nits. One more fix was not yet pushed at checkpoint time: if the study exits 0 without writing a fresh measurement, the summary still reports a match. That is a false green. A delta review follows it. |
 | #1976 | draft, approved | Pregame archive alert follow-ups. Its first CI run passed its unit tests but was cancelled at the 120-minute job limit. Re-run in progress. |
 | #1978 | draft, stacked on #1976 | Pregame archive durability. Review rounds: round 1 (four lenses) found a non-fail-closed directory flush and a legacy-marker loop. Round 2 found the flush alert wording, the set-aside order, EINVAL and errseq. Round 3 was **blocked**: the errseq retry rebuilt the archive from inputs that can change. Round 4 (a byte-identical rewrite, never a rebuild) is in progress, followed by a fresh review. After #1976 merges, merge `origin/main` into it. |
 
@@ -60,9 +61,9 @@ Other open PRs exist (#1921 Codex MCP, #1884, #1873, #1852, #1755, #1513, Depend
 ## Owner decisions pending
 - **#1938** (BDVM nflverse scorer fixes). The review recommends shipping it WITH the special-teams de-dup, after a box
   before/after of `run_valuation` plus the alert sweep. There is no flag; it can only be reverted.
-- **CI duration.** The hard pytest suite takes 57-95 minutes on most runners, but 117.6 minutes on #1976's run. That run
-  was cancelled at the 120-minute limit after its tests passed. The deploy validate job peaked at 99 minutes, against
-  the same limit. Decide between:
+- **CI duration.** The hard pytest suite takes 57-95 minutes on most of the day's Validate PR runs. On #1976's run
+  40382459009 it took 117.6 minutes, and that run was cancelled at the 120-minute limit after its tests passed. The
+  deploy validate job peaked at 99.2 minutes in run 40359329972 (the `6dcb80df0` deploy), against the same limit. Decide between:
   - parallelising the suite (pytest-xdist or a split), which is the durable fix and not yet authorized;
   - a timeout raise, which is headroom only and weakens no gate.
 - **Dependency vulnerabilities.** GitHub reports 11 on `main` (2 high). Several Dependabot PRs are open.
@@ -98,6 +99,9 @@ Other open PRs exist (#1921 Codex MCP, #1884, #1873, #1852, #1755, #1513, Depend
   - the DFS tick while DFS is paused; retiring the Codex OneDrive orchestrator
 
 ## Follow-ups (low)
+- **#1976 review nits:**
+  - the `_check_pregame_archive` docstring is stale for `rawLogRetained: False` rows;
+  - `prune_retention` has an unguarded `archive.unlink`. Check it against #1978 before fixing it.
 - **#1970:** `newestBackupPath` exposes a filesystem path on the public health payload. Add a value-vocabulary test for
   backup health.
 - **#1979 nit:** `_identity_bearing` treats interned strings as identity-bearing. It is latent, and the failure mode is a
@@ -111,7 +115,8 @@ Other open PRs exist (#1921 Codex MCP, #1884, #1873, #1852, #1755, #1513, Depend
   runtime-data-isolation detector.
 - **Usage limits can cut an agent off mid-edit.** Before reusing an interrupted worktree, back up `git diff`, read the
   agent's last tool calls, and confirm no mutation-test revert was left in place.
-- **Disk:** about 121 GB free. Many dirty or unpushed worktrees remain, some of them Codex's. Inspect before deleting.
+- **Disk:** only about 25 GB free (95% of 476 GB used) at 21:45Z, down from 121 GB that morning. Many worktrees
+  remain (83), some dirty or unpushed and some of them Codex's. Inspect before deleting.
 - **Git:** never `git stash`. Commit explicit paths only. Never junction `node_modules`.
 - **Squash merges** break PR-branch commit pins. Pin blob ids, not commit SHAs (see #1964).
 - **Deploys:** only the newest pending run in the `production-deploy` group survives. Confirm what's live with
