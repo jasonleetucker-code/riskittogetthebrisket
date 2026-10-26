@@ -22,7 +22,16 @@ Flow
    (src/bdvm/idpshow_projections.py) — tables that don't clearly look
    like player projections are rejected; the parse report says which
    columns mapped and which approximations applied.
-5. Merge into the latest BDVM projection snapshot: real records
+5. OWNER GATE (default OFF).  Merging these records into a BDVM
+   projection snapshot changes the fundamental values BDVM serves, so
+   it only happens when the owner switches it on
+   (``BDVM_IDPSHOW_MERGE_INTO_SNAPSHOT=1`` or ``--merge-into-snapshot``;
+   ``src/bdvm/idpshow_switch.py``).  With the switch OFF the parsed
+   records are written to a SHADOW file,
+   ``data/bdvm/shadow/idpshow_projections/<season>/idpshow_<date>.json``
+   (parse report + a read-only merge preview + the records), which no
+   BDVM reader opens, and NO snapshot is touched.
+   With the switch ON: merge into the latest snapshot - real records
    supersede reconstructed-baseline proxies for the players covered;
    write a NEW immutable snapshot (never mutate the old one).
 
@@ -35,8 +44,11 @@ Run
     python3 scripts/fetch_idpshow_projections.py --season 2026
     python3 scripts/fetch_idpshow_projections.py --season 2026 --dry-run
 
-Exit codes: 0 snapshot written (or today's already exists — no-op),
-1 no usable data / paywalled, 2 error.
+Exit codes: 0 snapshot written (or today's already exists - no-op), or,
+with the owner switch OFF, records parsed and written to the shadow file
+(NOT a snapshot); 1 no usable data / paywalled; 2 error.  A caller that
+needs to tell "merged" from "shadowed" evaluates the same switch
+(``merge_into_snapshot_enabled``) - it is deliberately not a fourth code.
 """
 
 from __future__ import annotations
@@ -56,7 +68,9 @@ from src.bdvm.idpshow_projections import (  # noqa: E402
     merge_into_snapshot,
     pick_best_table,
     records_from_rows,
+    write_shadow_file,
 )
+from src.bdvm.idpshow_switch import MERGE_ENV_VAR, merge_into_snapshot_enabled  # noqa: E402
 from src.bdvm.projections import ProjectionError  # noqa: E402
 from src.utils.name_clean import normalize_player_name  # noqa: E402
 
@@ -101,7 +115,17 @@ def main() -> int:
         "--csv", type=Path, default=None, help="parse a locally downloaded CSV instead of fetching"
     )
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--merge-into-snapshot",
+        action="store_true",
+        help=(
+            "OWNER-RESERVED: merge the parsed records into the BDVM projection "
+            f"snapshot (also enabled by {MERGE_ENV_VAR}=1). Default OFF: records go "
+            "to a shadow file BDVM does not read."
+        ),
+    )
     args = parser.parse_args()
+    merging = merge_into_snapshot_enabled(args.merge_into_snapshot)
 
     as_of = datetime.now(timezone.utc).date().isoformat()
 
@@ -137,7 +161,30 @@ def main() -> int:
     rows, summary = pick_best_table(candidates)
     print(json.dumps(summary, indent=1))
     if not rows:
-        print("no usable projection table — nothing written", file=sys.stderr)
+        print("no usable projection table - nothing written", file=sys.stderr)
+        # Say WHY, per table: a layout change must not read as an auth failure.
+        for label, report in (summary.get("tables") or {}).items():
+            print(
+                f"  {label}: reason={report.get('reason')} "
+                f"missingRoles={report.get('missingRoles')} "
+                f"headers={report.get('headerColumns')}",
+                file=sys.stderr,
+            )
+        if not args.dry_run:
+            # Leave a machine-readable diagnostic beside the shadow output. It can
+            # never change the exit code: diagnostics must not break the contract.
+            try:
+                diag = write_shadow_file(
+                    [],
+                    season=args.season,
+                    as_of=as_of,
+                    mode="merge" if merging else "shadow",
+                    status="no_usable_table",
+                    parse_summary=summary,
+                )
+                print(f"parse diagnostic written to {diag}", file=sys.stderr)
+            except OSError as exc:
+                print(f"warn: could not write parse diagnostic: {exc}", file=sys.stderr)
         return 1
 
     records = records_from_rows(
@@ -145,7 +192,27 @@ def main() -> int:
     )
     print(f"projection records: {len(records)}")
     if args.dry_run:
-        print("dry run — snapshot not written")
+        print("dry run - snapshot not written")
+        return 0
+    if not merging:
+        # Owner gate closed: parse and keep the evidence, change nothing BDVM serves.
+        try:
+            shadow = write_shadow_file(
+                records,
+                season=args.season,
+                as_of=as_of,
+                mode="shadow",
+                status="parsed",
+                parse_summary=summary,
+            )
+        except OSError as exc:
+            print(f"ERROR: could not write the shadow file: {exc}", file=sys.stderr)
+            return 2
+        print(
+            f"SHADOW MODE: {len(records)} records parsed and written to {shadow}; "
+            "NOT merged into any BDVM snapshot (owner-reserved - set "
+            f"{MERGE_ENV_VAR}=1 or pass --merge-into-snapshot to activate)."
+        )
         return 0
     try:
         _path, merge_summary = merge_into_snapshot(records, season=args.season, as_of=as_of)
