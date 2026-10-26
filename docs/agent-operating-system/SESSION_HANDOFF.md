@@ -47,6 +47,10 @@ not refreshed while runs report success. Merging restores fresh market values. O
 - **#1842:** propagation matrix + #1843 reconcile (agent running when this was written).
 - **Lane E parity/privacy tests:** agent running when this was written.
 - **Lane E measure script:** not started.
-- **Promotion-readiness audit.** Discovery + dedupe were done but lost to the usage limit. Resume as ONE agent per
-  category, never a fan-out.
+- **Promotion-readiness audit.** Inputs in `.claude/worktrees/_audit_inputs/` (local, untracked). Assessed so far: the
+  19 original + TRD/DRF (19) + LGI (19). Remaining: OPS+GOV (agent running), SRC 7 + VAL 3, collectors 38, then the
+  report writer (`docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md` + `.json`). ONE agent per batch.
+- **Injury feed parses 0 of 800 (LGI-016).** ESPN dropped `athlete.id`, so `_parse_espn_payload` skips every entry
+  while the shape check passes. A fix must divert derived events to a shadow file and seed the prior silently
+  (~274 events would otherwise hit the BDVM events file), the same trap #1926 closed for depth charts.
 - **ChatGPT MCP (#1921):** owned by the Codex session; not touched here.
