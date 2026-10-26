@@ -39,9 +39,27 @@ if str(REPO) not in sys.path:
 
 from scripts import sim_calibration_study as v1  # noqa: E402
 
-#: Holdout (2026 weeks 5-6) player-weeks per gated family, from the v2 preregistration §6.1.
-FAMILY_N = {"QB": 64, "RB": 122, "WR": 181, "TE": 90, "DL": 133, "LB": 161, "DB": 170}
-TEAM_WEEKS = 24
+#: The v2 study's committed evidence. It is the single source of the holdout
+#: sample sizes, so they are read from there rather than restated.
+EVIDENCE = REPO / "docs/league-intelligence/evidence/sim_calibration_v2/evaluation_v2.json"
+
+
+def _holdout_sizes() -> tuple[dict[str, int], int]:
+    """Holdout (2026 weeks 5-6) player-weeks per gated family, and team-weeks.
+
+    Read from the committed evidence (``V2-D2_sizeAwareReading`` and
+    ``teamWeek.n``). These are sample SIZES of the holdout, not a lineup
+    demand. A missing or malformed evidence file is an error, never a guessed
+    default.
+    """
+    doc = json.loads(EVIDENCE.read_text(encoding="utf-8"))
+    sizes = {fam: int(row["n"]) for fam, row in doc["V2-D2_sizeAwareReading"].items()}
+    if not sizes:
+        raise SystemExit(f"no gated-family sizes in {EVIDENCE}")
+    return sizes, int(doc["teamWeek"]["n"])
+
+
+FAMILY_N, TEAM_WEEKS = _holdout_sizes()
 PIT80, PIT95 = (0.10, 0.90), (0.025, 0.975)
 EPS = 1e-9  # v1's band tolerance (``_within``)
 
