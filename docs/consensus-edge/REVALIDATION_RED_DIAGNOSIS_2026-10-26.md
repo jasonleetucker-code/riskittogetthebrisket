@@ -123,12 +123,33 @@ summary script for each outcome combination (POSIX bash only) and statically
 checks that the drift message is guarded on a compare failure (all platforms).
 Study, gate, thresholds and comparison logic are unchanged.
 
-A follow-up closes the remaining gap. The compare step also exits 1 on an
-uncaught error, so it now prints `CE_REVALIDATE_RESULT=verdict_drift` as its
-last line before exiting on drift. The summary claims drift only when that
-whole line is in `compare.txt`. A compare failure without it (after a
-successful re-run) is reported as "**The comparison crashed, so no verdict was
-compared.**", in the same style as the "did not complete" message.
+A follow-up (PR #1980) closes the remaining gaps. The compare step also exits 1
+on an uncaught error, so a failing comparison now ends with exactly one result
+line, printed last, right before its `exit 1`:
+`CE_REVALIDATE_RESULT=verdict_drift` when at least one verdict differs from a
+committed one (even if another horizon also has no committed measurement), or
+`CE_REVALIDATE_RESULT=missing_committed_measurement` when no compared verdict
+differs but at least one fresh horizon has no committed measurement to compare
+against. Both keep the job red. The summary reads them as whole lines of
+`compare.txt`:
+
+* compare step passed, its closing match line present, neither result line
+  present: "Committed verdicts still describe the code.";
+* compare step passed in any other case (for example, a lost `pipefail` let
+  `tee` hide python's exit 1): a harness inconsistency, never success;
+* compare step failed after a successful re-run: drift with the drift line
+  (commit the fresh measurements, move the flag default per ADR-023); a missing
+  committed measurement with that line (commit the fresh measurement for each
+  of those horizons, no flag advice); with neither, "**The comparison did not
+  finish, so this run reached no verdict.**";
+* anything else: "**The re-run or the comparison did not complete, so this run
+  reached no verdict.**"
+
+The compare step reads the fresh files in sorted order (`h14` before `h7`), so
+a crash or a cancellation can leave real per-horizon lines in `compare.txt`.
+No message says that nothing was compared; the non-result messages say those
+lines are partial and are not a result. The test file also pins that the
+compare step sets `pipefail` before its `| tee`.
 
 ## 5. What a green run does and does not say
 

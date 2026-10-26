@@ -109,6 +109,9 @@ jobs:
         id: compare
         shell: bash
         run: |
+          # pipefail is load-bearing: it carries python's exit status through
+          # ``| tee``. Without it the pipeline reports tee's 0, so a drift or a
+          # crash would read as a passing step.
           set -Eeuo pipefail
           python - <<'PY' | tee /tmp/ce-rerun/compare.txt
           import json, os, sys
@@ -122,6 +125,7 @@ jobs:
               by_horizon.setdefault(int(blob.get("horizonDays") or 0), []).append((path, blob))
 
           drift = []
+          missing = []
           for fresh_path in sorted(Path("/tmp/ce-rerun").glob("board-validation-h*.json")):
               fresh = json.loads(fresh_path.read_text())
               horizon = int(fresh.get("horizonDays") or 0)
@@ -135,17 +139,33 @@ jobs:
                   if old_call != fresh_call:
                       drift.append(f"h{horizon} {path.name}: {old_call!r} -> {fresh_call!r}")
               if not by_horizon.get(horizon):
-                  drift.append(f"h{horizon}: no committed measurement to compare against")
+                  missing.append(f"h{horizon}: no committed measurement to compare against")
 
-          if drift:
-              print("\nVERDICT DRIFT:")
-              for line in drift:
-                  print(f"  - {line}")
-              # The one line that says "every verdict was compared and one
-              # changed". It is printed last, right before the exit, so a
-              # crash part-way through (bad JSON, a KeyError) can never carry
-              # it; the job summary claims drift only when it is present.
-              print("CE_REVALIDATE_RESULT=verdict_drift")
+          if drift or missing:
+              if drift:
+                  print("\nVERDICT DRIFT:")
+                  for line in drift:
+                      print(f"  - {line}")
+              if missing:
+                  print("\nNO COMMITTED MEASUREMENT:")
+                  for line in missing:
+                      print(f"  - {line}")
+              # Exactly one result line, printed last, right before the exit,
+              # so a crash part-way through (bad JSON, a KeyError) can never
+              # carry it. ``verdict_drift``: every fresh horizon was read and
+              # at least one verdict differs from a committed one, whether or
+              # not another horizon also lacks a committed measurement.
+              # ``missing_committed_measurement``: no compared verdict differs,
+              # but at least one fresh horizon has no committed measurement to
+              # compare against. Both exit 1, so the job stays red. The job
+              # summary reads these lines; a failure without one is a
+              # comparison that did not finish.
+              marker = (
+                  "CE_REVALIDATE_RESULT=verdict_drift"
+                  if drift
+                  else "CE_REVALIDATE_RESULT=missing_committed_measurement"
+              )
+              print(marker)
               sys.exit(1)
           print("\nCommitted verdicts still describe the code.")
           PY
@@ -169,49 +189,82 @@ jobs:
           COMPARE_OUTCOME: ${{ steps.compare.outcome }}
           CE_RERUN_DIR: /tmp/ce-rerun
         run: |
-          # Four distinct states. The summary used to have two, and the
-          # second one ("no longer describes the code") was also printed when
-          # the re-run itself crashed and the compare step was SKIPPED. For
-          # ten consecutive weekly runs (2026-08-05 .. 2026-10-07) a
-          # Path.relative_to crash in the re-run was reported here as verdict
-          # drift, although no verdict had been compared at all.
+          # Six states, each worded to claim only what the run proves. The
+          # summary used to have two, and the second one ("no longer describes
+          # the code") was also printed when the re-run itself crashed and the
+          # compare step was SKIPPED. For ten consecutive weekly runs
+          # (2026-08-05 .. 2026-10-07) a Path.relative_to crash in the re-run
+          # was reported here as verdict drift, although no verdict had been
+          # compared at all.
           #
-          # Drift is claimed ONLY when the compare step failed after a
-          # successful re-run AND its output carries the drift marker line
-          # (``CE_REVALIDATE_RESULT=verdict_drift``, printed last, right
-          # before its ``exit 1``). The compare step also exits 1 on any
-          # uncaught Python error, so a failure without the marker is the
-          # comparison crashing, not drift. Every other non-success
-          # combination -- a failed or skipped re-run, or a compare step that
-          # was skipped, cancelled or never reported -- means no verdict was
-          # compared.
+          # The compare step ends a failing comparison with exactly one result
+          # line, printed last, right before its ``exit 1``:
+          # ``CE_REVALIDATE_RESULT=verdict_drift`` (a verdict changed) or
+          # ``CE_REVALIDATE_RESULT=missing_committed_measurement`` (no compared
+          # verdict changed, but a fresh horizon had nothing committed to
+          # compare against). It also exits 1 on any uncaught Python error,
+          # which prints neither. So:
+          #
+          #   * success is claimed only when the step passed AND compare.txt
+          #     has the compare step's closing match line and neither result
+          #     line. A passing step whose output says otherwise -- e.g. a
+          #     lost ``pipefail`` let ``tee`` hide python's exit 1 -- is a
+          #     harness inconsistency, never success;
+          #   * after a successful re-run, a failed compare step is drift only
+          #     with the drift line, a missing committed measurement only with
+          #     that line, and otherwise a comparison that did not finish;
+          #   * anything else (a failed or skipped re-run, a compare step that
+          #     was skipped, cancelled or never reported) is a run that did not
+          #     complete.
+          #
+          # A crash or a cancellation can stop the compare step after it has
+          # printed some per-horizon lines, so no non-result message may say
+          # that nothing was compared: those lines are partial, not a result.
           {
             echo "## Consensus Edge — re-validation"
             echo ""
-            if [[ "${COMPARE_OUTCOME}" == "success" ]]; then
+            if [[ "${COMPARE_OUTCOME}" == "success" ]] && grep -qxF "Committed verdicts still describe the code." "${CE_RERUN_DIR}/compare.txt" 2>/dev/null && ! grep -qxF -e "CE_REVALIDATE_RESULT=verdict_drift" -e "CE_REVALIDATE_RESULT=missing_committed_measurement" "${CE_RERUN_DIR}/compare.txt" 2>/dev/null; then
               echo "Committed verdicts still describe the code."
+            elif [[ "${COMPARE_OUTCOME}" == "success" ]]; then
+              echo "**The compare step passed, but its output does not show a completed match, so no verdict is reported.**"
+              echo "The step's outcome is success, yet its output either lacks the"
+              echo "closing match line or carries a failing result line. That is an"
+              echo "inconsistency in the harness (for example, a lost \`pipefail\`"
+              echo "lets \`tee\` hide python's exit status), not a match and not"
+              echo "drift, and the job's status is not evidence either way"
+              echo "(re-run step: ${RERUN_OUTCOME:-unknown}, compare step: ${COMPARE_OUTCOME})."
+              echo "Read the output below and the compare step's log."
             elif [[ "${COMPARE_OUTCOME}" == "failure" && "${RERUN_OUTCOME}" == "success" ]] && grep -qxF "CE_REVALIDATE_RESULT=verdict_drift" "${CE_RERUN_DIR}/compare.txt" 2>/dev/null; then
               echo "**The committed measurement no longer describes the code.**"
               echo "Download the artifact, commit the fresh measurements, and"
               echo "move the flag default to match — see ADR-023 for the shape"
               echo "of that decision."
+            elif [[ "${COMPARE_OUTCOME}" == "failure" && "${RERUN_OUTCOME}" == "success" ]] && grep -qxF "CE_REVALIDATE_RESULT=missing_committed_measurement" "${CE_RERUN_DIR}/compare.txt" 2>/dev/null; then
+              echo "**A fresh measurement has no committed measurement to compare against.**"
+              echo "No compared verdict changed, but the horizons listed under"
+              echo "NO COMMITTED MEASUREMENT below were not compared at all. This is"
+              echo "not verdict drift. Download the artifact and commit the fresh"
+              echo "measurement for each of those horizons, so the next run has a"
+              echo "committed verdict to compare against."
             elif [[ "${COMPARE_OUTCOME}" == "failure" && "${RERUN_OUTCOME}" == "success" ]]; then
-              echo "**The comparison crashed, so no verdict was compared.**"
-              echo "The compare step failed without reporting verdict drift (no"
-              echo "drift marker in its output), so this is an error in the"
+              echo "**The comparison did not finish, so this run reached no verdict.**"
+              echo "The compare step failed after a successful re-run without"
+              echo "printing its final result line, so this is an error in the"
               echo "comparison itself, not verdict drift"
               echo "(re-run step: ${RERUN_OUTCOME}, compare step: ${COMPARE_OUTCOME})."
-              echo "Read the compare step's log for the traceback; the committed"
-              echo "verdicts have neither been confirmed nor contradicted by this run."
+              echo "Any per-horizon lines printed below are partial and are not a"
+              echo "result. Read the compare step's log for the error."
             else
-              echo "**The re-run or the comparison did not complete, so no verdict was compared.**"
-              echo "This is a harness or environment failure, not verdict drift"
+              echo "**The re-run or the comparison did not complete, so this run reached no verdict.**"
+              echo "This is not verdict drift: a result counts only when the re-run"
+              echo "succeeded and the compare step ran to its end"
               echo "(re-run step: ${RERUN_OUTCOME:-unknown}, compare step: ${COMPARE_OUTCOME:-unknown})."
-              echo "Read the log of the failed step; the committed verdicts"
-              echo "have neither been confirmed nor contradicted by this run."
+              echo "Read the log of the step that failed, was skipped or was"
+              echo "cancelled. Any per-horizon lines printed below are partial and"
+              echo "are not a result."
             fi
             echo ""
             echo '```'
-            cat "${CE_RERUN_DIR}/compare.txt" 2>/dev/null || echo "(the re-run did not get far enough to compare)"
+            cat "${CE_RERUN_DIR}/compare.txt" 2>/dev/null || echo "(no comparison output was written)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
