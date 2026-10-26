@@ -55,10 +55,20 @@ def test_concurrent_duplicate_admin_request_acts_once(env):  # noqa: F811
     before = float(st.room_row(room)["clock_offset"])
     headers = {**ORIGIN, "Idempotency-Key": "same-key-00000001"}
 
+    # ``owner`` is Starlette's TestClient.  Depending on the pinned Starlette it
+    # is built on httpx or httpx2, so ``owner.cookies`` is not necessarily an
+    # ``httpx.Cookies``: handing a foreign Cookies object to ``httpx.AsyncClient``
+    # makes httpx iterate its cookie NAMES as Cookie objects (AttributeError
+    # 'str' has no attribute 'domain').  A name -> value mapping is the portable
+    # form; the session cookie is still sent, so the idempotency assertion below
+    # is unchanged.
+    session_cookies = dict(owner.cookies.items())
+    assert session_cookies, "the owner client must carry a session cookie"
+
     async def go():
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://testserver", cookies=owner.cookies
+            transport=transport, base_url="http://testserver", cookies=session_cookies
         ) as c:
             return await asyncio.gather(
                 *[
