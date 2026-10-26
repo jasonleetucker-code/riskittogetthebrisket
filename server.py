@@ -2520,12 +2520,15 @@ def _backup_freshness() -> dict:
     process cannot list is reported ``unverifiable`` / ``permission_denied``,
     never healthy and never missing.  ``legacySqliteBackup`` is the older
     ``backup_user_kv.sh`` job (``/var/backups/riskit`` or the dynasty-owned
-    ``/home/dynasty/backups/riskit``) under its own name.  The four original
-    top-level keys (``newestBackupAgeHours`` / ``newestBackupPath`` /
-    ``backupDirUsed`` / ``dbCount``) still describe the LEGACY backup only —
-    ``health-check.yml`` and the stale-backup alert in ``get_health`` read
-    them — and the payload says so (``legacyKeysDescribe``).  Unknown ages and
-    counts are ``None``.  Owner: ``src/api/backup_health.py``.  Never raises.
+    ``/home/dynasty/backups/riskit``) under its own name.  The original
+    top-level keys (``newestBackupAgeHours`` / ``backupDirUsed`` /
+    ``dbCount``) still describe the LEGACY backup only — ``health-check.yml``
+    and the stale-backup alert in ``get_health`` read them — and the payload
+    says so (``legacyKeysDescribe``).  Unknown ages and counts are ``None``.
+    The block is served anonymously, so it carries no filesystem path
+    (``filesystemPaths: "withheld"``); the alert e-mail gets the newest file
+    from ``_backup_alert_path``.  Owner: ``src/api/backup_health.py``.  Never
+    raises.
 
     Memoized 30s (see ``_DISK_PROBE_MEMO``) — treat as read-only.
     """
@@ -2540,13 +2543,32 @@ def _backup_freshness_uncached() -> dict:
     except Exception:  # noqa: BLE001 — monitoring helper must never raise
         return {
             "newestBackupAgeHours": None,
-            "newestBackupPath": None,
             "backupDirUsed": "none",
             "dbCount": None,
             "legacyKeysDescribe": "legacySqliteBackup",
+            "filesystemPaths": "withheld",
             "legacySqliteBackup": {"state": "unverifiable", "reason": "probe_error"},
             "stateBackup": {"state": "unverifiable", "reason": "probe_error"},
         }
+
+
+def _backup_alert_path() -> str | None:
+    """The newest legacy backup FILE, for the operator's stale-backup e-mail.
+
+    PRIVATE: never served.  The anonymous ``backup_health`` block withholds
+    filesystem paths; the e-mail goes to the operator, so it keeps naming the
+    file it always named.  Memoized 30s like the block.  Never raises.
+    """
+
+    def _build() -> str | None:
+        try:
+            from src.api.backup_health import newest_legacy_backup_path
+
+            return newest_legacy_backup_path()
+        except Exception:  # noqa: BLE001 — monitoring helper must never raise
+            return None
+
+    return _disk_probe_memo("backup_alert_path", _build)
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
@@ -6834,10 +6856,14 @@ async def get_health():
     backup_health = _backup_freshness()
     _bage = backup_health.get("newestBackupAgeHours")
     if _bage is None or _bage > 36:
+        # No age means no backup file was observed, so there is no path to
+        # look up; otherwise the private reader names it (the public block
+        # does not carry it).
+        _bpath = None if _bage is None else _backup_alert_path()
         send_alert(
             "Risk It: SQLite backups stale",
             f"Newest backup age: {_bage}h (dir={backup_health.get('backupDirUsed')}, "
-            f"path={backup_health.get('newestBackupPath')}, dbCount="
+            f"path={_bpath}, dbCount="
             f"{backup_health.get('dbCount')}). Expected a fresh backup within 24h "
             f"from riskit-backup.timer (02:00 UTC). Check "
             f"deploy/backup_user_kv.sh and /var/log/riskit-backup.log.",

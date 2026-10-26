@@ -29,23 +29,32 @@ could not see:
 
 Missing is never zero.  An age or count that was not observed is ``None``.
 
-The four pre-existing top-level keys (``newestBackupAgeHours``,
-``newestBackupPath``, ``backupDirUsed``, ``dbCount``) are kept because
-``.github/workflows/health-check.yml`` reads them from ``/api/status``; they
-describe the LEGACY backup only and the payload says so
-(``legacyKeysDescribe``).
+The pre-existing top-level keys ``newestBackupAgeHours``, ``backupDirUsed`` and
+``dbCount`` are kept because ``.github/workflows/health-check.yml`` reads them
+from ``/api/status``; they describe the LEGACY backup only and the payload says
+so (``legacyKeysDescribe``).  The fourth, ``newestBackupPath``, is a filesystem
+path and is PRIVATE (below).
 
 **Public vs private.**  ``/api/health`` and ``/api/status`` are anonymous, and
 neither has an authenticated or detail mode, so the block they serve is the
 PUBLIC projection only (``build_backup_health``): per root and for the top-level
 ``stateBackup``, just ``state`` / ``reason`` / ``ageHours`` / ``generationCount``
-/ ``directoryInspected`` / ``inspectionReason`` / ``evidenceSource``.  The
+/ ``directoryRole`` / ``inspectionReason`` / ``evidenceSource``.  The
 coverage detail -- which optional stores a generation shed, whether each ledger
 is in it and how large, the generation date, the artifact count, the off-box
 mirror's age -- is operational intelligence about where the data is NOT
 protected.  It is still computed (``build_backup_health_detail`` /
 ``python -m src.api.backup_health``, for an operator on the box) and is served by
 no endpoint; a future admin-gated surface may call the detail builder.
+
+**No filesystem path is public.**  The detail names the directory it inspected
+(``directoryInspected``, each root's ``path``) and the newest legacy file
+(``newestBackupPath``); the public block carries only the coarse, path-free
+``directoryRole`` (``canonical`` / ``writer_fallback``) and the legacy
+``backupDirUsed`` label, and says the paths were withheld on purpose
+(``filesystemPaths: "withheld"``) so their absence cannot read as "no backup".
+The stale-backup alert e-mail, which goes to the operator, still names the file
+(``newest_legacy_backup_path``).
 
 Reporting only.  Nothing here changes ``/api/health``'s status code, ``is_ok``
 or the alert the endpoint sends.
@@ -66,7 +75,9 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
-SCHEMA_VERSION = "backup-health.v2"
+#: v3: filesystem paths left the public block (``newestBackupPath`` and every
+#: ``directoryInspected``); ``directoryRole`` and ``filesystemPaths`` joined it.
+SCHEMA_VERSION = "backup-health.v3"
 
 #: Newest backup older than this is ``stale``.  Same figure the alert in
 #: ``server.get_health`` uses ("anything older than 36h"): a nightly job that
@@ -94,6 +105,11 @@ LEDGER_ARTIFACTS = ("temporal_ledger.sqlite", "intel_ledger.sqlite3")
 # -- legacy SQLite backup (mirrors deploy/backup_user_kv.sh) -----------------
 LEGACY_PRIMARY_DIR = "/var/backups/riskit/daily"
 LEGACY_FALLBACK_DIR = "/home/dynasty/backups/riskit/daily"
+#: ``(label, directory)`` in resolution order; the label is ``backupDirUsed``.
+LEGACY_DIRS: tuple[tuple[str, str], ...] = (
+    ("primary", LEGACY_PRIMARY_DIR),
+    ("fallback", LEGACY_FALLBACK_DIR),
+)
 _LEGACY_PATTERN = "*.sqlite.gz"
 
 _DATED_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -405,6 +421,9 @@ def state_backup_health(
         "reason": None,
         "evidenceSource": None,
         "directoryInspected": root,
+        # The same root as ``directoryInspected``, without the path: the
+        # public block carries this one.
+        "directoryRole": canonical["role"],
         "inspectionReason": None,
         "canonicalRoot": root,
         "staleAfterHours": STALE_AFTER_HOURS,
@@ -423,6 +442,7 @@ def state_backup_health(
     if blocked is not None:
         out.update(state="unverifiable", reason=blocked["reason"])
         out["directoryInspected"] = blocked["path"]
+        out["directoryRole"] = blocked["role"]
         out["inspectionReason"] = (
             "canonical_root_unreadable"
             if blocked["role"] == "canonical"
@@ -434,6 +454,7 @@ def state_backup_health(
     if doubtful is not None:
         out.update(state="unverifiable", reason=doubtful["reason"])
         out["directoryInspected"] = doubtful["path"]
+        out["directoryRole"] = doubtful["role"]
         out["inspectionReason"] = "newest_generation_untrustworthy"
         return out
 
@@ -447,6 +468,7 @@ def state_backup_health(
         else:
             why = "writer_fallback_root"
             out["directoryInspected"] = reports[-1]["path"]
+            out["directoryRole"] = reports[-1]["role"]
         observed = [r["generationCount"] for r in reports if r["verdict"] == "none"]
         out.update(
             state="missing",
@@ -472,6 +494,7 @@ def state_backup_health(
         reason=reason,
         evidenceSource="directory_listing",
         directoryInspected=chosen["path"],
+        directoryRole=chosen["role"],
         inspectionReason=why,
         newestGeneration=chosen["newestGeneration"],
         newestGenerationAgeHours=chosen["newestGenerationAgeHours"],
@@ -488,10 +511,7 @@ def state_backup_health(
 # -- legacy SQLite backup -----------------------------------------------------
 def legacy_sqlite_backup_health(
     *,
-    dirs: tuple[tuple[str, str], ...] = (
-        ("primary", LEGACY_PRIMARY_DIR),
-        ("fallback", LEGACY_FALLBACK_DIR),
-    ),
+    dirs: tuple[tuple[str, str], ...] = LEGACY_DIRS,
     now_epoch: float | None = None,
 ) -> dict[str, Any]:
     """The legacy ``*.sqlite.gz`` backups, reported under their own name.
@@ -583,7 +603,7 @@ PUBLIC_STATE_KEYS = (
     "reason",
     "ageHours",
     "generationCount",
-    "directoryInspected",
+    "directoryRole",
     "inspectionReason",
     "evidenceSource",
 )
@@ -591,10 +611,72 @@ PUBLIC_STATE_KEYS = (
 #: counts -- stays private too).
 PUBLIC_LEGACY_KEYS = ("state", "reason", "ageHours")
 
+#: Stated in place of the paths the public block withholds, so a path that is
+#: not there reads as policy, never as "no backup".
+FILESYSTEM_PATHS_WITHHELD = "withheld"
+
 _ROLE_INSPECTION_REASON = {
     "canonical": "canonical_root",
     "writer_fallback": "writer_fallback_root",
 }
+
+# -- the public value vocabulary ----------------------------------------------
+#: Every value an enumerated field of the PUBLIC block may take.  Closed on
+#: both sides: ``tests/api/test_backup_health.py`` drives every branch and fails
+#: on a value missing here AND on a value listed here that no branch produces.
+PUBLIC_STATES = frozenset({"healthy", "stale", "missing", "unverifiable"})
+PUBLIC_REASONS = frozenset(
+    {
+        # a located backup (``_verdict``)
+        "within_threshold",
+        "older_than_threshold",
+        # ``_verdict(None)``: defensive -- every caller passes an observed age
+        "age_unknown",
+        # a directory this process may not list (``_classify_oserror``)
+        "permission_denied",
+        "io_error",
+        # nothing located
+        "directory_not_found",
+        "no_generations",
+        "no_backups",
+        # located, but not trustworthy
+        "generation_unresolvable",
+        "generation_clock_skew",
+        "newest_backup_clock_skew",
+        # the probe itself failed (``_probe_failed``)
+        "probe_error",
+    }
+)
+PUBLIC_INSPECTION_REASONS = frozenset(
+    {
+        *_ROLE_INSPECTION_REASON.values(),
+        "canonical_root_unreadable",
+        "writer_fallback_root_unreadable",
+        "newest_generation_untrustworthy",
+        "no_candidate_root_exists",
+        "canonical_root_absent_writer_fallback",
+        "canonical_root_empty_writer_fallback",
+        "writer_fallback_root_newer",
+    }
+)
+PUBLIC_EVIDENCE_SOURCES = frozenset({"directory_listing"})
+PUBLIC_DIRECTORY_ROLES = frozenset(_ROLE_INSPECTION_REASON)
+PUBLIC_LEGACY_DIR_LABELS = frozenset({label for label, _ in LEGACY_DIRS} | {"none"})
+PUBLIC_VALUE_VOCABULARY: dict[str, frozenset[str]] = {
+    "schemaVersion": frozenset({SCHEMA_VERSION}),
+    "state": PUBLIC_STATES,
+    "reason": PUBLIC_REASONS,
+    "inspectionReason": PUBLIC_INSPECTION_REASONS,
+    "evidenceSource": PUBLIC_EVIDENCE_SOURCES,
+    "directoryRole": PUBLIC_DIRECTORY_ROLES,
+    "backupDirUsed": PUBLIC_LEGACY_DIR_LABELS,
+    "legacyKeysDescribe": frozenset({"legacySqliteBackup"}),
+    "filesystemPaths": frozenset({FILESYSTEM_PATHS_WITHHELD}),
+}
+#: Enumerated fields that may be ``None``: not observed, or not applicable
+#: (no evidence for an unverifiable root; no root when the probe itself
+#: failed).  Every other enumerated field always carries a listed value.
+PUBLIC_NULLABLE_FIELDS = frozenset({"evidenceSource", "inspectionReason", "directoryRole"})
 
 
 def _public_root(rep: dict[str, Any]) -> dict[str, Any]:
@@ -617,7 +699,7 @@ def _public_root(rep: dict[str, Any]) -> dict[str, Any]:
         "reason": reason,
         "ageHours": age,
         "generationCount": rep.get("generationCount"),
-        "directoryInspected": rep.get("path"),
+        "directoryRole": rep.get("role"),
         "inspectionReason": _ROLE_INSPECTION_REASON.get(rep.get("role")),
         "evidenceSource": evidence,
     }
@@ -634,7 +716,7 @@ def public_state_backup(detail: dict[str, Any]) -> dict[str, Any]:
         "reason": detail.get("reason"),
         "ageHours": detail.get("newestGenerationAgeHours"),
         "generationCount": detail.get("generationCount"),
-        "directoryInspected": detail.get("directoryInspected"),
+        "directoryRole": detail.get("directoryRole"),
         "inspectionReason": detail.get("inspectionReason"),
         "evidenceSource": detail.get("evidenceSource"),
     }
@@ -692,7 +774,8 @@ def build_backup_health_detail(
     return {
         "schemaVersion": SCHEMA_VERSION,
         # Pre-existing keys, kept for health-check.yml.  They describe the
-        # LEGACY backup only; the state backup is ``stateBackup``.
+        # LEGACY backup only; the state backup is ``stateBackup``.  The public
+        # block drops ``newestBackupPath`` (a filesystem path).
         "newestBackupAgeHours": legacy.get("newestBackupAgeHours"),
         "newestBackupPath": legacy.get("newestBackupPath"),
         "backupDirUsed": legacy.get("backupDirUsed", "none"),
@@ -712,7 +795,9 @@ def build_backup_health(
 ) -> dict[str, Any]:
     """The ``backup_health`` block served by ``/api/health`` and ``/api/status``.
 
-    Anonymous-safe: the detail is projected away (``PUBLIC_*_KEYS``).
+    Anonymous-safe: the detail is projected away (``PUBLIC_*_KEYS``), and so is
+    every filesystem path -- ``newestBackupPath`` stays in the detail, and
+    ``filesystemPaths`` says it was withheld rather than not found.
     """
     detail = build_backup_health_detail(
         state_root=state_root,
@@ -723,13 +808,27 @@ def build_backup_health(
     return {
         "schemaVersion": detail["schemaVersion"],
         "newestBackupAgeHours": detail["newestBackupAgeHours"],
-        "newestBackupPath": detail["newestBackupPath"],
         "backupDirUsed": detail["backupDirUsed"],
         "dbCount": detail["dbCount"],
         "legacyKeysDescribe": detail["legacyKeysDescribe"],
+        "filesystemPaths": FILESYSTEM_PATHS_WITHHELD,
         "legacySqliteBackup": public_legacy_backup(detail["legacySqliteBackup"]),
         "stateBackup": public_state_backup(detail["stateBackup"]),
     }
+
+
+def newest_legacy_backup_path(
+    *,
+    dirs: tuple[tuple[str, str], ...] = LEGACY_DIRS,
+    now_epoch: float | None = None,
+) -> str | None:
+    """PRIVATE: the newest legacy ``*.sqlite.gz`` file, or ``None`` when none
+    was observed.
+
+    For the operator's stale-backup alert e-mail (``server.get_health``) only;
+    no endpoint serves it.
+    """
+    return legacy_sqlite_backup_health(dirs=dirs, now_epoch=now_epoch).get("newestBackupPath")
 
 
 def main() -> int:
