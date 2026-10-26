@@ -3710,8 +3710,8 @@ def stage2(args: argparse.Namespace) -> int:
 
     # ---- outcomes: the first and only place they are read ----------------------------------
     fetch = Fetcher(blind=False, offline=args.offline)
+    weeks = HOLD_OUT_WEEKS
     if rehearsal:
-        weeks = HOLD_OUT_WEEKS
         out = load_outcomes(
             fetch, P["card"], season=HISTORY_SEASON, weeks=weeks, with_matchups=False
         )
