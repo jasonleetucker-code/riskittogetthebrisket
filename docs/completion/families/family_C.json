@@ -611,7 +611,7 @@
     "C2-REPL-01",
     "SI-B/remainder"
    ],
-   "reality": "Blocked on C5-WAR-01, which is absent on main (donor #969 is closed).",
+   "reality": "Blocked on C5-WAR-01, which is absent on main (donor #969 is closed). Corrected 2026-10-26 by the RPA audit: that is stale. C5-WAR-01's deterministic core merged as #1692 on 2026-10-08 (src/public_league/player_impact.py; private route GET /api/league/player-impact), so the WAR/WAB dependency is met. The disposition and the other dependsOn items are left as recorded.",
    "prOrBranch": null,
    "evidence": null,
    "nextAction": null,
@@ -704,7 +704,7 @@
     "C5-PLAY-01",
     "C5-PROJ-C"
    ],
-   "reality": "Engine and UI are merged and deployed: #1244 (f922d0daf) sim, #1445 (b7d9a7a52) backend, #1446 (4f3316054) PSI UI. Week-1 contract rows W1-18..28 are VERIFIED, and the 2026-09-29 box diagnostic showed the collector writing a generation about every minute for both leagues. The manifest's own acceptance (Brier/reliability) has no code, and live win% is withheld in production.",
+   "reality": "Engine and UI are merged and deployed: #1244 (f922d0daf) sim, #1445 (b7d9a7a52) backend, #1446 (4f3316054) PSI UI. Week-1 contract rows W1-18..28 are VERIFIED, and the 2026-09-29 box diagnostic showed the collector writing a generation about every minute for both leagues. The manifest's own acceptance (Brier/reliability) has no code, and live win% is withheld in production. Corrected 2026-10-26 by the RPA audit: the 'has no code' clause is stale. AL-4a merged as #1691 on 2026-10-08 (src/model_registry/game_day_calibration.py, run by scripts/game_day_calibration_scorecard.py; report-only, promotes nothing). It is unscheduled: nothing under .github or deploy runs it, so it yields no recurring evidence. The nextAction below (build it) is stale; scheduling it is the open work.",
    "prOrBranch": "#1445 b7d9a7a52; #1446 4f3316054",
    "evidence": "W1 contract; box diagnostic run 36511519687",
    "nextAction": "Build the AL-4a calibration scorecard (the acceptance evidence for this row)",
@@ -1004,7 +1004,7 @@
     "C5-GD-02",
     "AL-0"
    ],
-   "reality": "No Game Day Brier/logloss/reliability code exists (Brier only in bdvm/backtest.py and trade/pick_market.py). AL-0 is merged (#1597 9ce3ea04c), and generations.jsonl holds as-known win% and beat-median% from week 3.",
+   "reality": "No Game Day Brier/logloss/reliability code exists (Brier only in bdvm/backtest.py and trade/pick_market.py). AL-0 is merged (#1597 9ce3ea04c), and generations.jsonl holds as-known win% and beat-median% from week 3. Corrected 2026-10-26 by the RPA audit: the first sentence is stale. The scorecard exists: AL-4a merged as #1691 on 2026-10-08 (src/model_registry/game_day_calibration.py, scripts/game_day_calibration_scorecard.py; report-only, promotes nothing). It is unscheduled (no workflow or systemd unit under .github or deploy runs it). The prOrBranch, evidence and nextAction fields are left as recorded; a re-disposition is a ledger-owner action.",
    "prOrBranch": null,
    "evidence": null,
    "nextAction": "Report-only AL-4a scorecard: generations.jsonl win%/beat-median% vs host finals, emitted as AL-0 evaluation receipts",
@@ -1210,7 +1210,7 @@
     "C5-PROJ-C",
     "G1"
    ],
-   "reality": "The archive half exists (BDVM snapshots, #1525 pregame archive, forecast archive). No leakage-safe projection backtest or scorecard exists in src or scripts; AL-3b is the backtest half.",
+   "reality": "The archive half exists (BDVM snapshots, #1525 pregame archive, forecast archive). No leakage-safe projection backtest or scorecard exists in src or scripts; AL-3b is the backtest half. Corrected 2026-10-26 by the RPA audit: the scorecard half now exists. AL-3b merged as #1691 on 2026-10-08 (src/model_registry/projection_scorecard.py, scripts/projection_scorecard.py; report-only). It is unscheduled (no workflow or systemd unit under .github or deploy runs it).",
    "prOrBranch": "#1525",
    "evidence": null,
    "nextAction": "Build AL-3b",
@@ -1255,7 +1255,7 @@
     "AL-0",
     "G1"
    ],
-   "reality": "AL-0 (#1597 9ce3ea04c) and AL-1a (#1612) are merged; no scorecard code exists. Realized Weeks 1-5 exist, but there is only one weekly family.",
+   "reality": "AL-0 (#1597 9ce3ea04c) and AL-1a (#1612) are merged; no scorecard code exists. Realized Weeks 1-5 exist, but there is only one weekly family. Corrected 2026-10-26 by the RPA audit: 'no scorecard code exists' is stale. AL-3b merged as #1691 on 2026-10-08 (src/model_registry/projection_scorecard.py, scripts/projection_scorecard.py; report-only, promotes nothing). It is unscheduled (no workflow or systemd unit under .github or deploy runs it). The prOrBranch and nextAction fields are left as recorded; a re-disposition is a ledger-owner action.",
    "prOrBranch": null,
    "evidence": null,
    "nextAction": "AL-3b scorecard using the Week 3+ Sleeper archive plus Clay/IDP Show season snapshots, emitted as evaluation receipts",
@@ -1335,7 +1335,7 @@
     "C2-REPL-01",
     "C1-HIST-01"
    ],
-   "reality": "Nothing on main (no WAR/WAB/game-changer symbols). Donor #969 closed unmerged 2026-09-09 (diff kept on GitHub). Dependencies are met: C2-REPL-01 = V1-29 VERIFIED (#933 6eb847c39, #987 faa50ba9a, VORP fix #1364 a0d937156) and the temporal ledger exists. The owner approves only the final MVP composite weights (spec §14).",
+   "reality": "Nothing on main (no WAR/WAB/game-changer symbols). Donor #969 closed unmerged 2026-09-09 (diff kept on GitHub). Dependencies are met: C2-REPL-01 = V1-29 VERIFIED (#933 6eb847c39, #987 faa50ba9a, VORP fix #1364 a0d937156) and the temporal ledger exists. The owner approves only the final MVP composite weights (spec §14). Corrected 2026-10-26 by the RPA audit: 'Nothing on main' is stale. The deterministic core (realized lineup VORP, Actual WAR, Wins Above Bench, Game Changer Points) merged as #1692 on 2026-10-08 (src/public_league/player_impact.py; private read-only route GET /api/league/player-impact; nothing consumes it yet). xWAR is deliberately not computed (no archived no-lookahead league-week distribution). The disposition, nextAction and prOrBranch fields are left as recorded; a re-disposition is a ledger-owner action.",
    "prOrBranch": null,
    "evidence": null,
    "nextAction": "Build the deterministic core (realized lineup VORP, actual WAR, wins above bench) on src/ros/lineup.py + the canonical replacement owner, harvesting #969",
@@ -1959,7 +1959,7 @@
     "C5-WAR-01",
     "SI-E"
    ],
-   "reality": "Open docs-only PR #1505 edits only docs/PLAYER_IMPACT_WAR_MVP_SPEC.md; the owner direction (2026-09-27) is not on main's spec. No code; a win-impact component needs WAR/WAB, which are absent. Any official MVP formula change also needs owner approval (shadow only until then).",
+   "reality": "Open docs-only PR #1505 edits only docs/PLAYER_IMPACT_WAR_MVP_SPEC.md; the owner direction (2026-09-27) is not on main's spec. No code; a win-impact component needs WAR/WAB, which are absent. Any official MVP formula change also needs owner approval (shadow only until then). Corrected 2026-10-26 by the RPA audit: #1505 merged 2026-10-07 (the 2026-09-27 owner direction is on main's docs/PLAYER_IMPACT_WAR_MVP_SPEC.md, sections 8 and 14), and WAR/WAB now exist (C5-WAR-01 core, #1692, 2026-10-08; private route only, no MVP consumer yet). The 'Open docs-only PR #1505', 'No code' and 'absent' statements are stale.",
    "prOrBranch": "#1505",
    "evidence": null,
    "nextAction": "Reconcile and merge docs-only #1505 so the spec carries the intent; the build waits for C5-WAR-01",

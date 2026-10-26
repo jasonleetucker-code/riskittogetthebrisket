@@ -1318,7 +1318,7 @@
    "dependsOn": [
     "C2-REPL-01"
    ],
-   "reality": "Backend duplicate find_drop_candidates deleted (V1-40 VERIFIED L2); trade forced drops observed in production today. /waivers 'Droppable' (frontend/lib/waiver-logic.js) still ranks by raw value with no lineup legality.",
+   "reality": "Backend duplicate find_drop_candidates deleted (V1-40 VERIFIED L2); trade forced drops observed in production today. /waivers 'Droppable' (frontend/lib/waiver-logic.js) still ranks by raw value with no lineup legality. Corrected 2026-10-26 by the RPA audit: that last sentence is stale. Since 2026-10-07 every /waivers drop, including the Droppable list, is a rung of the canonical cut ladder (src/draft/displacement.py via GET /api/roster/intelligence?droppability=1; commits ba45f9743 and 9de694c2d, PR #1696 per the family_Z_coordinator override). When the ladder is unavailable the drop side is stated unavailable (dropState), never recomputed from raw values (frontend/lib/waiver-logic.js header; frontend/app/waivers/page.jsx).",
    "prOrBranch": "#1017 55daf1e58, #914",
    "evidence": "tests/roster_intel/test_droppability.py",
    "nextAction": "Feed /waivers Droppable from team_droppability (/api/roster/intelligence?droppability=1)",
@@ -2506,7 +2506,7 @@
    "dependsOn": [
     "AL-3b"
    ],
-   "reality": "Nothing built; defined as AL-3d after the AL-3b projection scorecard, which has not started (AL-3b is ready, owner-free).",
+   "reality": "Nothing built; defined as AL-3d after the AL-3b projection scorecard, which has not started (AL-3b is ready, owner-free). Corrected 2026-10-26 by the RPA audit: the AL-3b projection scorecard has been built (merged as #1691 on 2026-10-08, src/model_registry/projection_scorecard.py; report-only and unscheduled). AL-3d itself is still nothing built.",
    "prOrBranch": null,
    "evidence": "none",
    "nextAction": "Start AL-3b",

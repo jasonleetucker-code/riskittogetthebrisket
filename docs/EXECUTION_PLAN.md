@@ -609,6 +609,16 @@ qualification/finish distributions (B remainder, separate model id; the finish s
 library code and is not published), then D (valid slot swaps, retrospective playoff sensitivity);
 E stays behind `C5-WAR-01`.
 
+**Corrected 2026-10-26 by the RPA audit:** "WAR/WAB are absent on main" and "E stays behind `C5-WAR-01`" above were true on
+2026-10-03 and are stale. `C5-WAR-01`'s deterministic core (realized lineup VORP, Actual WAR, Wins
+Above Bench, Game Changer Points) merged as #1692 on 2026-10-08 (`src/public_league/player_impact.py`;
+private, read-only route `GET /api/league/player-impact`), so Milestone E's WAR/WAB dependency is met.
+Unchanged: xWAR is deliberately not computed (no archived no-lookahead league-week distribution
+exists); nothing consumes the player-impact contract yet, so no award or MVP formula uses it; B
+remainder, C and D keep their dependency order; an official MVP formula change stays shadow-only until
+the owner approves it. Evidence: `gh pr view 1692` (MERGED 2026-10-08);
+`docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md` (RPA-LGI-009).
+
 **Not authorized by this directive:** changing the official Power Rankings formula or the official
 League MVP formula (both stay behind the existing owner/methodology gates — candidates ship in
 shadow); any schedule generator, optimizer, adoptable schedule or write to Sleeper (X-01 stands;
@@ -2140,6 +2150,15 @@ C10 Closure
 
 **Units 1–4 are CLOSED. Unit 5 of this list (`C1-U6`) is AUTHORIZED. Unit 4 of this list (`C1-U5`) is
 DEFERRED; unit 6 is NOT authorized.** Original rationale in `docs/POST_B_RECONCILIATION_2026-08-14.md` §30.
+
+> **Corrected 2026-10-26 by the RPA audit:** the header's "`C1-U5` is DEFERRED" (and item 4's "DEFERRED — NOT AUTHORIZED")
+> recorded the owner's 2026-08-16 checkpoint choice and was true then; it is stale. `C1-U5` /
+> `C1-CONF-01` was executed and merged as PR #876 on 2026-08-17 (merge `1bfa83699`,
+> `docs/confidence/C1_U5_CONFIDENCE_NAMING.md`) and is recorded as in production, checklist unexecuted,
+> in the §0.3 merge queue above (that status was not re-verified here). Likewise `C1-U6` (unit 5) is no
+> longer merely "AUTHORIZED": its own section above records it CLOSED. Unit 6 remains NOT authorized. The
+> 2026-08-16 deferral text is left as written. Evidence: `gh pr view 876` (MERGED 2026-08-17);
+> `docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md` (RPA-GOV-005).
 
 PR-sized units within C1A, in order:
 

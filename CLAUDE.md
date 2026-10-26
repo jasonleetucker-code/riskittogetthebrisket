@@ -2762,9 +2762,13 @@ attaches a `pickOwnership` note (outgoing picks still count on both sides, so
 `observed`.  The frontend's one reader is `frontend/lib/pick-ownership.js`
 (constants pinned to the Python owner by test); `/bdvm`, `/rosters`, the
 TeamSwitcher, the Terminal portfolio and the Pick Projector render the unknown
-state.  **`/trade` does not yet** (`app/trade/page.jsx`, `lib/trade-assets.js`
-still read `team.picks || []`) — named follow-up, held off while the
-trade-calculator quantity rework owns those files.  **`sleeperDataReady` is deliberately NOT flipped** by it:
+state.  **`/trade` joined them 2026-10-17** (TC-A, `ad927d0fe`): `app/trade/page.jsx` and
+`lib/trade-assets.js` (`teamPickLabels` / `teamPickInventory`) read the state through
+`lib/pick-ownership.js` and render an unknown inventory as "pick ownership unavailable", never `[]`.
+*(Corrected 2026-10-26 by the RPA audit: this sentence used to say `/trade` did not yet, and that
+those two files still read `team.picks || []`.  The one remaining place that maps an unavailable
+inventory to an empty list is `lib/pick-stack.js::entriesOf`, the informational-only draft-capital
+stack note.)*  **`sleeperDataReady` is deliberately NOT flipped** by it:
 readiness is about whether the block belongs to the requested league and its
 league CONFIG is complete; the rosters are still real, and the pick fields
 carry their own explicit unknown — degrading the one field rather than
