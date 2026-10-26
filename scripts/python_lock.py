@@ -124,7 +124,33 @@ def check() -> None:
             raise ValueError(f"dev/runtime lock divergence: {name}")
 
 
-def refresh(uv: str) -> None:
+def compile_command(
+    uv: str, manifest: str, lock: str, extra: list[str], upgrade: list[str]
+) -> list[str]:
+    """The one ``uv pip compile`` invocation that produces a lock.
+
+    uv prefers the versions already pinned in the existing output file, so a
+    package that no manifest declares (a transitive security fix such as
+    aiohttp or certifi) only moves when it is named in ``upgrade``.
+    """
+    return [
+        uv,
+        "-q",
+        "pip",
+        "compile",
+        manifest,
+        *extra,
+        *(arg for spec in upgrade for arg in ("--upgrade-package", spec)),
+        "--universal",
+        "--python-version",
+        "3.12",
+        "--generate-hashes",
+        "--output-file",
+        lock,
+    ]
+
+
+def refresh(uv: str, upgrade: list[str] | None = None) -> None:
     version = subprocess.check_output([uv, "--version"], text=True).strip()
     if not version.startswith(f"uv {GENERATOR_VERSION} ("):
         raise ValueError(f"expected uv {GENERATOR_VERSION}; got {version}")
@@ -137,20 +163,7 @@ def refresh(uv: str) -> None:
         ),
     ):
         subprocess.run(
-            [
-                uv,
-                "-q",
-                "pip",
-                "compile",
-                manifest,
-                *extra,
-                "--universal",
-                "--python-version",
-                "3.12",
-                "--generate-hashes",
-                "--output-file",
-                lock,
-            ],
+            compile_command(uv, manifest, lock, extra, upgrade or []),
             cwd=ROOT,
             check=True,
         )
@@ -182,9 +195,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("check", "refresh"))
     parser.add_argument("--uv", default="uv", help="uv executable for refresh")
+    parser.add_argument(
+        "--upgrade-package",
+        action="append",
+        default=[],
+        metavar="SPEC",
+        help=(
+            "refresh only: move this locked package (for example "
+            "aiohttp==3.14.4); repeatable. Needed for transitive packages, "
+            "which uv otherwise keeps at their existing pin"
+        ),
+    )
     args = parser.parse_args()
+    if args.upgrade_package and args.action != "refresh":
+        parser.error("--upgrade-package is only valid with refresh")
     if args.action == "refresh":
-        refresh(args.uv)
+        refresh(args.uv, args.upgrade_package)
     else:
         check()
     print("Python dependency lock: OK")

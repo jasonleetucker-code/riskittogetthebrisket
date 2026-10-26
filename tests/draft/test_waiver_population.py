@@ -153,9 +153,11 @@ def test_only_the_p3_consumers_import_the_population_builder():
     default-OFF flag and nothing else (scripts are research tooling)."""
     importers = set()
     for path in _production_files():
-        if path == MODULE or path.parent.name == "scripts":
-            continue
         rel = path.relative_to(REPO).as_posix()
+        # Any file under scripts/ (including subfolders such as
+        # scripts/idp_accuracy/) is research tooling, per the docstring.
+        if path == MODULE or rel.split("/", 1)[0] == "scripts":
+            continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == "src.draft.waiver_population":

@@ -19,6 +19,24 @@ On Windows, invoke the same command with the installed `uv.exe` path through
 `config/python-lock.json` in one PR. A Dependabot edit to either manifest must
 refresh both locks in that PR. Do not use `pip freeze` for these files.
 
+uv keeps every version already pinned in the existing lock, so a package that no
+manifest declares (a transitive dependency such as `aiohttp` or `certifi`) does
+not move on a plain refresh. To take a security fix for one, name it:
+
+```sh
+python scripts/python_lock.py refresh \
+    --upgrade-package aiohttp==3.14.4 --upgrade-package certifi==2026.10.19
+python scripts/python_lock.py check
+```
+
+`--upgrade-package` is repeatable and valid only with `refresh`; it is passed to
+both `uv pip compile` runs, and `config/python-lock.json` is rewritten in the
+same invocation. A Dependabot PR that edits only `requirements*.lock.txt` fails
+`python scripts/python_lock.py check` ("dependency input changed without lock
+refresh") because the recorded digests are stale; re-run the refresh above on the
+same bump instead of hand-editing `config/python-lock.json`. The lock is
+platform-universal, so the refresh runs on Windows and Linux alike.
+
 PR validation, release-candidate and scheduled refresh install from the
 hash-pinned locks. Normal v2 production deployment instead installs the CI
 built wheelhouse offline using per-wheel hashes and isolated pip configuration;

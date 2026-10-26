@@ -41,7 +41,18 @@ permissions:
 jobs:
   refresh:
     name: Scrape + Rebuild + Deploy
-    runs-on: ubuntu-latest
+    # PINNED, not ``ubuntu-latest``.  The browser-driven fetchers (KTC,
+    # IDP Trade Calculator, DraftSharks offense + IDP + ROS) need a Chromium
+    # that the locked Playwright (requirements.lock.txt) can install.  The
+    # floating label moved to ubuntu-26.04 on 2026-10-25 (first affected run
+    # 16:49Z; the 11:59Z run was still ubuntu-24.04), where the locked
+    # Playwright answers "does not support chromium on ubuntu26.04-x64".
+    # Every browser fetch then failed, last-good CSVs were restored, and the
+    # run still finished green, so KTC / IDPTC / DraftSharks stopped
+    # advancing.  Move this only together with a Playwright bump that is
+    # verified on the new image (tests/deploy/
+    # test_scheduled_refresh_playwright_runner.py pins the contract).
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -63,11 +74,17 @@ jobs:
           python scripts/check_env.py --runtime
           # Playwright package itself is declared in requirements.txt;
           # this step only installs the Chromium *browser binary* that
-          # the scraper drives.  The `2>/dev/null || true` is
-          # deliberate — a transient Chromium download failure should
-          # not block the scheduled refresh when a browser is already
-          # cached on the runner.
-          python -m playwright install chromium 2>/dev/null || true
+          # the scraper drives.  A failed install stays NON-FATAL on
+          # purpose — a transient Chromium download failure should not
+          # block the scheduled refresh when a browser is already cached
+          # on the runner, and the HTTP-only fetchers still run.  It must
+          # not be SILENT, though: the old `2>/dev/null || true` hid the
+          # "does not support chromium on ubuntu26.04-x64" failure while
+          # every browser fetcher failed behind a green run
+          # (2026-10-25).  stderr is kept and an annotation is raised.
+          if ! python -m playwright install chromium; then
+            echo "::warning title=Playwright chromium install failed::Browser-driven fetchers (KTC, IDP Trade Calculator, DraftSharks) cannot run this cycle. Last-good CSVs are restored and their freshness stamps are NOT advanced."
+          fi
 
       - name: Sync Draft Data from Google Sheet
         shell: bash
