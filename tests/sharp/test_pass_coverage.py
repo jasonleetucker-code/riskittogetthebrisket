@@ -146,6 +146,7 @@ class TestSharedHelpers:
             ("work_pending", logging.WARNING),
             ("cap_reached", logging.WARNING),
             ("upstream_data_missing", logging.WARNING),
+            ("unknown", logging.WARNING),
             ("completed", logging.INFO),
             ("no_work", logging.INFO),
             ("skipped_by_caller", logging.INFO),
@@ -1072,6 +1073,27 @@ class TestActivityCoverage:
 
     def test_a_summary_that_does_not_say_whether_the_budget_stopped_it_is_unknown(self):
         cov = activity_coverage(refresh={"callsUsed": 19})
+        assert cov["stoppedReason"] == "unknown"
+
+    def test_an_unknown_stop_is_not_proven_healthy_so_it_logs_at_warning(self, caplog):
+        """``unknown`` means nothing established the pass finished.  It used to
+        log at INFO beside ``completed``; it is now in the WARNING set with the
+        other not-proven-healthy states."""
+        assert pass_coverage.STOPPED_UNKNOWN == "unknown"
+        assert pass_coverage.STOPPED_UNKNOWN in pass_coverage.STOPPED_SHORT
+        assert pass_coverage.STOPPED_COMPLETED not in pass_coverage.STOPPED_SHORT
+
+        # A real activity run whose summary says nothing about how it ended.
+        cov = activity_coverage(refresh={"callsUsed": 19})
+        assert cov["stoppedReason"] == pass_coverage.STOPPED_UNKNOWN
+        logger = logging.getLogger("test.pass_coverage.unknown")
+        with caplog.at_level(logging.DEBUG, logger="test.pass_coverage.unknown"):
+            used = pass_coverage.log_pass_summary(logger, cov)
+        assert used == logging.WARNING
+        lines = [r for r in caplog.records if r.name == "test.pass_coverage.unknown"]
+        assert len(lines) == 1 and lines[0].levelno == logging.WARNING
+        assert "stoppedReason=unknown" in lines[0].getMessage()
+        # The level is logging only: the reason is not rewritten.
         assert cov["stoppedReason"] == "unknown"
 
     def test_an_empty_cohort_is_a_measured_zero(self):

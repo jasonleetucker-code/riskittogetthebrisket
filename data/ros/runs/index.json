@@ -1,50 +1,80 @@
 {
-  "rebuiltAt": "2026-10-26T15:34:41.920159+00:00",
+  "rebuiltAt": "2026-10-26T21:17:55.101487+00:00",
   "sources": {
     "fantasyProsRosSf": {
       "status": "ok",
       "player_count": 536,
       "rows_written": 536,
-      "started_at": "2026-10-26T15:34:40.407669+00:00",
-      "completed_at": "2026-10-26T15:34:40.554651+00:00",
+      "started_at": "2026-10-26T21:17:53.795939+00:00",
+      "completed_at": "2026-10-26T21:17:53.892751+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosSf__2026-10-26T15-34-40.554651+00-00.json"
+      "run_path": "runs/fantasyProsRosSf__2026-10-26T21-17-53.892751+00-00.json",
+      "kept_previous": null,
+      "kept_previous_rows": null,
+      "content_hash": "e2bb0f2048b24b6d5cd282c6af6035abdf02108641dd5cdd185be1a48f9eb48b",
+      "content_state": "baseline",
+      "content_first_observed_at": "2026-10-26T21:17:53.892751+00:00",
+      "last_content_change": null
     },
     "draftSharksRosSf": {
       "status": "ok",
-      "player_count": 711,
-      "rows_written": 711,
-      "started_at": "2026-10-26T15:34:40.612312+00:00",
-      "completed_at": "2026-10-26T15:34:40.647645+00:00",
+      "player_count": 712,
+      "rows_written": 712,
+      "started_at": "2026-10-26T21:17:53.945148+00:00",
+      "completed_at": "2026-10-26T21:17:54.002733+00:00",
       "error": null,
-      "run_path": "runs/draftSharksRosSf__2026-10-26T15-34-40.647645+00-00.json"
+      "run_path": "runs/draftSharksRosSf__2026-10-26T21-17-54.002733+00-00.json",
+      "kept_previous": null,
+      "kept_previous_rows": null,
+      "content_hash": "a650706add5178c80f52637f53b5ea2a8d14c379b03f834d68aa417ee45c3863",
+      "content_state": "baseline",
+      "content_first_observed_at": "2026-10-26T21:17:54.002733+00:00",
+      "last_content_change": null
     },
     "fantasyProsRosIdp": {
       "status": "ok",
       "player_count": 319,
       "rows_written": 319,
-      "started_at": "2026-10-26T15:34:40.956526+00:00",
-      "completed_at": "2026-10-26T15:34:40.957426+00:00",
+      "started_at": "2026-10-26T21:17:54.225646+00:00",
+      "completed_at": "2026-10-26T21:17:54.226391+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosIdp__2026-10-26T15-34-40.957426+00-00.json"
+      "run_path": "runs/fantasyProsRosIdp__2026-10-26T21-17-54.226391+00-00.json",
+      "kept_previous": null,
+      "kept_previous_rows": null,
+      "content_hash": "b4967a83b2cef7d9c237a2f7d78326724f9af2f7a63983cff3fb13bd1620d9da",
+      "content_state": "baseline",
+      "content_first_observed_at": "2026-10-26T21:17:54.226391+00:00",
+      "last_content_change": null
     },
     "fantasyProsRosOverall": {
       "status": "ok",
-      "player_count": 380,
-      "rows_written": 380,
-      "started_at": "2026-10-26T15:34:40.973421+00:00",
-      "completed_at": "2026-10-26T15:34:41.123887+00:00",
+      "player_count": 381,
+      "rows_written": 381,
+      "started_at": "2026-10-26T21:17:54.238512+00:00",
+      "completed_at": "2026-10-26T21:17:54.415564+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosOverall__2026-10-26T15-34-41.123887+00-00.json"
+      "run_path": "runs/fantasyProsRosOverall__2026-10-26T21-17-54.415564+00-00.json",
+      "kept_previous": null,
+      "kept_previous_rows": null,
+      "content_hash": "0417084fd57c4fbcb8f5d5006e65f1a99f250c00e07c37834efd03facc1a4a17",
+      "content_state": "baseline",
+      "content_first_observed_at": "2026-10-26T21:17:54.415564+00:00",
+      "last_content_change": null
     },
     "ffc2qbAdp": {
       "status": "ok",
       "player_count": 126,
       "rows_written": 126,
-      "started_at": "2026-10-26T15:34:41.457559+00:00",
-      "completed_at": "2026-10-26T15:34:41.843660+00:00",
+      "started_at": "2026-10-26T21:17:54.650446+00:00",
+      "completed_at": "2026-10-26T21:17:55.045271+00:00",
       "error": null,
-      "run_path": "runs/ffc2qbAdp__2026-10-26T15-34-41.843660+00-00.json"
+      "run_path": "runs/ffc2qbAdp__2026-10-26T21-17-55.045271+00-00.json",
+      "kept_previous": null,
+      "kept_previous_rows": null,
+      "content_hash": "66262930484f9862126851b562c3b284476f3f7ddd4b89f6dca22a5ede54f731",
+      "content_state": "baseline",
+      "content_first_observed_at": "2026-10-26T21:17:55.045271+00:00",
+      "last_content_change": null
     }
   }
 }
