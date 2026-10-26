@@ -468,8 +468,8 @@ def capacity_state_effects(off_answers: dict, on_answers: dict) -> dict:
     stays ``None`` on both sides (LI-5 P3 review finding F-A: three charges moved
     ``exact`` -> ``lower_bound`` at 0.0 and ``boundTransitions`` was ``[]``).
     Both are counted over trades that require drops, and
-    ``stateTransitionTrades`` names every changed trade so none is hidden inside
-    an aggregate.
+    ``stateTransitionTrades`` names every changed trade (with the basis's own
+    ``lowerBoundReasons`` on each side) so none is hidden inside an aggregate.
     """
     rows = []
     for key, a in off_answers.items():
@@ -525,6 +525,12 @@ def capacity_state_effects(off_answers: dict, on_answers: dict) -> dict:
                 "state": _transition_label(r["basisOff"].get("state"), r["basisOn"].get("state")),
                 "chargeOff": r["chargeOff"],
                 "chargeOn": r["chargeOn"],
+                "lowerBoundReasonsOff": list(
+                    off_answers[r["trade"]]["forcedDropCostBasis"].get("lowerBoundReasons") or []
+                ),
+                "lowerBoundReasonsOn": list(
+                    on_answers[r["trade"]]["forcedDropCostBasis"].get("lowerBoundReasons") or []
+                ),
             }
             for r in state_changed
         ],
