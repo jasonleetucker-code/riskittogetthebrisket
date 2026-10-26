@@ -115,11 +115,18 @@ def test_unverifiable_is_reported_as_a_warning_not_a_pass_or_a_failure():
     the last recorded result, 2026-08-05).  Failing on that would fail
     every push for a credential the workflow was never given; passing
     silently would let a real outage hide.  It warns.
+
+    2026-10-26 (audit RPA-F-019): the warning is retitled ``Sharp smoke
+    UNVERIFIABLE`` and now also lands in the job summary.  The disposition
+    is unchanged -- still a warning, still exit 0 -- and
+    ``test_sharp_smoke_unverifiable_is_loud.py`` executes the gate to pin
+    both the wording and the conclusion.
     """
     text = WORKFLOW.read_text(encoding="utf-8")
     gate = text[text.index("Enforce healthy population") :]
     assert 'status == "unverifiable_unauthenticated"' in gate
-    assert "::warning title=Sharp smoke cannot verify::" in gate
+    assert "::warning title=Sharp smoke UNVERIFIABLE::" in gate
+    assert "::warning title=Sharp smoke cannot verify::" not in gate
     assert (
         "Sharp production smoke is not healthy" in gate
     ), "a status that is neither healthy nor unverifiable must still fail the gate"
@@ -216,6 +223,51 @@ def test_the_record_is_written_only_when_it_has_something_new_to_say():
         "output.write_text runs before (or without) the decide_write check, so the "
         "condition does not gate the write it exists to gate"
     )
+
+
+def _smoke_step_runnable() -> str:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    smoke = text[
+        text.index("Wait for deploy and Sharp population") : text.index(
+            "Commit production smoke result"
+        )
+    ]
+    return "\n".join(line for line in smoke.splitlines() if not line.lstrip().startswith("#"))
+
+
+def test_the_tracked_record_is_written_from_the_persist_decision_not_the_raw_run():
+    """2026-10-26: the file used to flap between two statuses.
+
+    The push-triggered run wrote ``unverifiable_unauthenticated``; the
+    deploy-triggered run wrote ``deploy_superseded``; each flip changed the
+    fingerprint, so each flip was a commit to main and a new ``stateSince``
+    (the key the #951 tracker dedups on).  16 record commits in 24 hours.
+
+    ``record_to_persist`` is the one place that decides a run which probed
+    nothing leaves the standing record alone.  This pins that the workflow
+    writes ITS answer, and asks ``decide_write`` about it.
+    """
+    smoke = _smoke_step_runnable()
+    assert "record_to_persist(previous, record)" in smoke
+    assert "decide_write(previous, persisted)" in smoke
+    assert "output.write_text(persisted_rendered)" in smoke
+    assert "output.write_text(rendered)" not in smoke, (
+        "the tracked record is written from this run's raw view again, so a run that "
+        "probed nothing overwrites the standing state and the file flaps"
+    )
+
+
+def test_the_gate_still_grades_this_runs_own_view_not_the_persisted_record():
+    """The other half of the above, and the dangerous one to get backwards.
+
+    Shielding the DURABLE file from a no-verdict run is right.  Shielding the
+    GATE'S input would make a superseded run grade as the standing
+    ``unverifiable_unauthenticated`` -- opening a tracker comment and a
+    credential-regression check for a run that never probed anything.
+    """
+    smoke = _smoke_step_runnable()
+    assert "current.write_text(rendered)" in smoke
+    assert "current.write_text(persisted_rendered)" not in smoke
 
 
 def test_every_run_still_reports_even_when_it_leaves_no_commit():
