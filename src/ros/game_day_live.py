@@ -2728,35 +2728,63 @@ def _fsync_file(path: Path) -> None:
         os.close(fd)
 
 
-def _fsync_dir(directory: Path) -> bool:
-    """Flush a directory entry (a rename) to disk, where the platform allows.
+#: :func:`_fsync_dir` outcomes.  Only ``"failed"`` means a flush that should
+#: have happened did not; ``"unsupported"`` is the platform offering none.
+_DIR_FLUSHED = "flushed"
+_DIR_FLUSH_UNSUPPORTED = "unsupported"
+_DIR_FLUSH_FAILED = "failed"
 
-    ``True`` when the directory was flushed.  ``False`` when it could not be:
-    Windows cannot open a directory for ``fsync`` (``os.open`` raises
-    ``PermissionError``), and a filesystem that cannot flush one is no worse
-    off than before.  Never raises -- the file data was already flushed by
-    :func:`_fsync_file`, so this only narrows the window in which a power loss
-    could undo the rename itself.
+
+def _fsync_dir(directory: Path) -> str:
+    """Flush a directory entry (a rename) to disk.
+
+    Returns one of three outcomes:
+
+    * ``"flushed"`` -- the directory was opened and ``fsync`` succeeded.
+    * ``"unsupported"`` -- ONLY the expected platform refusal: on Windows
+      (``os.name == "nt"``) ``os.open`` on a directory raises
+      ``PermissionError``, and there is no other way to flush one from here.
+      The rename's durability is then the filesystem's own, which this code
+      cannot strengthen.  Logged at DEBUG: it is not a fault.
+    * ``"failed"`` -- any other failure to open the directory (``EMFILE``,
+      ``EACCES`` on POSIX, ``ENOENT``, ...) or a failed ``fsync``.  Logged as
+      a WARNING; the caller must not treat the rename as durable.
+
+    An I/O error never escapes: one closing the handle is logged and leaves
+    the outcome to the ``fsync`` that ran before it.
     """
     import logging
 
+    logger = logging.getLogger(__name__)
     try:
         fd = os.open(directory, os.O_RDONLY)
+    except PermissionError as exc:
+        if os.name == "nt":
+            logger.debug(
+                "game day: this platform cannot open directory %s to flush it (%s)",
+                directory,
+                exc,
+            )
+            return _DIR_FLUSH_UNSUPPORTED
+        logger.warning("game day: could not open directory %s to flush it (%s)", directory, exc)
+        return _DIR_FLUSH_FAILED
     except OSError as exc:
-        logging.getLogger(__name__).debug(
-            "game day: cannot open %s to flush it (%s); skipping directory fsync", directory, exc
-        )
-        return False
+        logger.warning("game day: could not open directory %s to flush it (%s)", directory, exc)
+        return _DIR_FLUSH_FAILED
+    outcome = _DIR_FLUSHED
     try:
         os.fsync(fd)
     except OSError as exc:
-        logging.getLogger(__name__).warning(
+        logger.warning(
             "game day: could not flush directory %s after archiving (%s)", directory, exc
         )
-        return False
+        outcome = _DIR_FLUSH_FAILED
     finally:
-        os.close(fd)
-    return True
+        try:
+            os.close(fd)
+        except OSError as exc:
+            logger.warning("game day: could not close directory %s (%s)", directory, exc)
+    return outcome
 
 
 #: A week whose archive could not be established is retried at most this
@@ -2779,6 +2807,10 @@ def _pregame_failure_path(season: int, week: int) -> Path:
 PREGAME_ARCHIVE_CANDIDATE_SUFFIX = ".candidate"
 PREGAME_ARCHIVE_MISMATCH_SUFFIX = ".mismatch"
 _PREGAME_READBACK_MISMATCH = "archive_readback_mismatch"
+#: The verified archive is at the accepted path but the directory holding that
+#: rename could not be flushed (:func:`_fsync_dir` ``"failed"``), so the raw log
+#: is kept until a later pass flushes it.  The archive itself is not rebuilt.
+_PREGAME_DIRECTORY_UNFLUSHED = "archive_directory_unflushed"
 #: Stamped on a failure marker by the verify-before-accept flow.
 _PREGAME_CANDIDATE_FLOW_KEY = "candidateFlow"
 _PREGAME_COUNTED_KEYS = ("players", "timingUnverified")
@@ -2836,6 +2868,29 @@ def _set_aside_mismatched_archive(path: Path) -> bool:
     return True
 
 
+def _adopt_legacy_mismatch_marker(marker: Path, prior: Mapping[str, Any]) -> None:
+    """Re-stamp a pre-fix read-back-mismatch marker as ``candidateFlow``.
+
+    Called once its leftover archive has been set aside: from then on the
+    accepted path can only receive a verified candidate, so the marker must say
+    so -- otherwise a later pass that finds the good rebuild beside a marker
+    that could not be cleared would set it aside (over the ``.mismatch``
+    diagnosis copy) and rebuild it, every pass.  Every other field, ``failedAt``
+    included, is kept, so the retry throttle is unchanged.  Never raises: a
+    marker that cannot be rewritten is logged and keeps its old meaning.
+    """
+    record = dict(prior)
+    record[_PREGAME_CANDIDATE_FLOW_KEY] = True
+    try:
+        _atomic_write_json(marker, record)
+    except OSError as exc:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "game day: could not re-stamp pregame archive failure marker %s (%s)", marker, exc
+        )
+
+
 def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) -> bool:
     """True when the week's raw weekly-projection log may be pruned: a
     VERIFIED archive exists, or there was nothing to preserve.  False (keep
@@ -2848,6 +2903,15 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
     new archive is built beside it, read back, count-checked against the
     payload, and only then moved into place; one that fails the check never
     reaches the accepted path (it is set aside as ``.mismatch``).
+
+    Durability, because ``prune_retention`` deletes the raw log the moment this
+    returns True: the archive's bytes are fsynced before it is renamed into
+    place, and True is returned for an archive only after the directory holding
+    that rename was flushed (:func:`_fsync_dir` ``"flushed"``) or the platform
+    offers no way to flush one (``"unsupported"``: Windows).  A flush that
+    ``"failed"`` keeps the raw log (False, marker
+    ``archive_directory_unflushed``); the verified archive stays where it is and
+    the next pass retries only the flush -- it never rebuilds it.
     """
     path = pregame_archive_path(season, week)
     now = time.time() if now is None else now
@@ -2864,13 +2928,22 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
             and not prior.get(_PREGAME_CANDIDATE_FLOW_KEY)
             and log.log_path.exists()
         ):
+            # Accepted.  This includes a candidate-flow mismatch marker
+            # (``candidateFlow``): the verify-before-accept flow only ever
+            # moves a verified archive to this path, so one that is here beside
+            # such a marker is a good rebuild whose stale marker could not be
+            # unlinked -- keep it, do not rebuild it on every pass.  It also
+            # includes an archive whose directory flush failed on an earlier
+            # pass (``archive_directory_unflushed``): only the flush is retried.
+            #
+            # The rename that put it here must be durable before the raw log
+            # may go, on this pass as much as on the one that wrote it.
+            if _fsync_dir(path.parent) == _DIR_FLUSH_FAILED:
+                _mark_pregame_failure(marker, now, _PREGAME_DIRECTORY_UNFLUSHED)
+                return False
             # The raw log may be pruned now, so a marker left by an earlier
             # failed attempt no longer describes a retained log -- clear it so
-            # the ops alert resolves.  This includes a candidate-flow mismatch
-            # marker (``candidateFlow``): the verify-before-accept flow only
-            # ever moves a verified archive to this path, so one that is here
-            # beside such a marker is a good rebuild whose stale marker could
-            # not be unlinked -- keep it, do not rebuild it on every pass.
+            # the ops alert resolves.
             _clear_pregame_failure(marker)
             return True
         # A readable archive beside a read-back-mismatch marker WITHOUT
@@ -2880,6 +2953,10 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
         # the raw log, which is still here.
         if not _set_aside_mismatched_archive(path):
             return False
+        # Only now, with the leftover out of the accepted path: from here on
+        # that path holds nothing but verified candidates, so the marker takes
+        # the candidate-flow meaning (its ``failedAt`` and throttle unchanged).
+        _adopt_legacy_mismatch_marker(marker, prior)
     if not log.log_path.exists():
         _clear_pregame_failure(marker)
         return True
@@ -2901,13 +2978,19 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
             candidate = path.with_name(path.name + PREGAME_ARCHIVE_CANDIDATE_SUFFIX)
             _write_pregame_archive(candidate, payload)
             if _archive_counts_match(_read_pregame_archive(candidate), payload):
-                # Durable BEFORE it becomes the accepted archive, and the rename
-                # durable before this returns True: ``prune_retention`` deletes
-                # the raw log the moment it does, so a power loss must not be
-                # able to undo the archive after the log is gone.
+                # The bytes are durable BEFORE they become the accepted archive
+                # (``_fsync_file`` raises if they cannot be flushed, and the
+                # candidate is then never renamed).  After the rename, True is
+                # returned only when the directory flush did not fail, because
+                # ``prune_retention`` deletes the raw log as soon as True is
+                # returned and a power loss must not be able to undo the rename
+                # after the log is gone.  On ``"failed"`` the verified archive
+                # stays in place and the next pass retries the flush, not the
+                # build.
                 _fsync_file(candidate)
                 candidate.replace(path)  # atomic: verified bytes, nothing else
-                _fsync_dir(path.parent)
+                if _fsync_dir(path.parent) == _DIR_FLUSH_FAILED:
+                    reason = _PREGAME_DIRECTORY_UNFLUSHED
             else:
                 reason = _PREGAME_READBACK_MISMATCH
                 if not _set_aside_mismatched_archive(candidate):
