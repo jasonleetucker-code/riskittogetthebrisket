@@ -43,6 +43,17 @@ not refreshed while runs report success. Merging restores fresh market values. O
 - **Lineage census box run.**
 - **Backend memory canary** (numbers in `docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md`).
 
+## Stopped at the usage limit (2026-10-26 ~10:00Z) — resume these
+Four agents were stopped mid-task. Their worktrees under `.claude/worktrees/agent-*` may hold uncommitted work, so
+inspect them before redoing anything.
+- **#1948 defect fixes.** Branch `claude/li1842-defect-fixes`. Defects 1, 3, 4, 5, 6, 7 plus the memo.
+- **#1533 auction rebase.** Merge origin/main into `claude/auction-rehearsal`, then open a NEW draft PR.
+- **Injury-feed parser fix.** Branch `claude/injury-feed-parser-fix`. Had just started.
+- **OPS+GOV audit batch.** Had just started; nothing written yet.
+- **Done tonight, not on the queue above:** #1946 (Lane E parity/privacy, which absorbs #1930) and #1949 (Lane E
+  measurement script, stacked on #1935; all budgets pass, worst route cold p95 is 3.8 s against 30 s). A stale
+  unpushed branch `claude/lane-e-measure-script`, in worktree `wf_7e9bc4dc-8d8-4`, duplicates #1949 and can be retired.
+
 ## Not finished
 - **#1842:** propagation matrix + #1843 reconcile (agent running when this was written).
 - **Lane E parity/privacy tests:** agent running when this was written.
