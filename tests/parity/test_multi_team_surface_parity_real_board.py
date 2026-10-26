@@ -67,6 +67,7 @@ from typing import Any
 import pytest
 
 from src.api import feature_flags
+from src.api import rate_limit
 from src.trade import analyze_service as svc
 from src.trade import public_advisor as pa
 from src.trade import team_verdicts as tv
@@ -188,6 +189,11 @@ def surfaces(app, flag_on, monkeypatch):
     feature_flags.reload()
     monkeypatch.setattr(api, "_launch_gate_reason", lambda: None)
     monkeypatch.setattr(api, "_limiter", lambda: _Unlimited())
+    # The server's public-path middleware limiter as well, the same way
+    # ``tests/parity/surface_harness.py`` does: these tests send hundreds of
+    # identical-IP public requests, so on a fast runner they fill its window
+    # and the next public call answers 429 ``rate_limited``.
+    monkeypatch.setattr(rate_limit, "should_rate_limit", lambda ip: (False, 0))
     monkeypatch.setattr("src.bdvm.actuals.current_nfl_season", lambda today=None: 2026)
     _install_ppg(monkeypatch, _labelled_ppg("A"))
     seen: list[Any] = []
