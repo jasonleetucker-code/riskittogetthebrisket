@@ -300,7 +300,13 @@ replays to nothing), the raw log is kept, a warning is logged, and
 `pregame_projections.retained.json` beside the week records when and why — the
 collector is a fresh process every minute, so that file is also what limits
 retries to hourly. An existing archive is never rewritten from
-later evidence. Archives are kept `PREGAME_ARCHIVE_SEASONS` = 10 seasons back.
+later evidence. The file at `pregame_projections.json.gz` is always a VERIFIED
+one: a build is written to `pregame_projections.json.gz.candidate`, read back and
+count-checked against the payload, and only then moved into place, because the
+retry trusts whatever sits at that path. One that fails the check is set aside as
+`pregame_projections.json.gz.mismatch` (kept to diagnose, never read) and the raw
+log is kept; a readable archive found beside an `archive_readback_mismatch`
+marker is treated the same way when the raw log still exists to rebuild it from. Archives are kept `PREGAME_ARCHIVE_SEASONS` = 10 seasons back.
 Measured size: one real week (2,154 projected players) is 1.7 MB as JSON and
 ~0.2 MB gzipped, so ~3.7 MB per 18-week season and under 40 MB at the bound.
 Backup: `deploy/backup/riskit-state-backup.sh` already backs up the whole

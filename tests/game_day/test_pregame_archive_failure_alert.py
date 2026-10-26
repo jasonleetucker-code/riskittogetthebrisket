@@ -192,8 +192,10 @@ def test_a_successful_build_resolves_the_prior_alert(monkeypatch, kv):
 
 
 def test_a_stale_marker_is_cleared_once_the_archive_reads_back(kv):
-    """A read-back mismatch leaves a marker beside an archive that DOES parse;
-    the next pass returns True (and prunes the raw log), so the marker must go."""
+    """An unreadable archive leaves a marker; once an archive that DOES parse is
+    in place the next pass returns True (and prunes the raw log), so the marker
+    must go.  (A read-back MISMATCH marker is different: the archive beside it
+    is not trusted -- see ``test_pregame_archive_readback_recheck.py``.)"""
     _record(PRE_KICKOFF_FETCH, REAL_FETCH)
     path = live.pregame_archive_path(SEASON, WEEK)
     path.write_bytes(b"not gzip")
@@ -413,10 +415,12 @@ def _deny_marker_unlink(monkeypatch) -> None:
 
 def test_an_unremovable_marker_does_not_abort_the_prune(monkeypatch, caplog):
     # Week A: a readable archive plus a stale marker (the "archive reads back" clear).
+    # The marker is an earlier "unreadable" failure; a read-back-mismatch marker
+    # would make the archive beside it untrusted rather than clearing.
     _record(PRE_KICKOFF_FETCH, REAL_FETCH)
     _write_valid_archive()
     marker_a = live._pregame_failure_path(SEASON, WEEK)
-    live._mark_pregame_failure(marker_a, NOW, "archive_readback_mismatch")
+    live._mark_pregame_failure(marker_a, NOW, "archive_unreadable")
     # Week B: a raw-log directory with no weekly log (the "nothing to preserve" clear).
     week_b = WEEK + 1
     obs_b = live.league_week_dir(live.NFL_KEY, SEASON, week_b) / "observations"

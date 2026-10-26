@@ -2723,47 +2723,110 @@ def _pregame_failure_path(season: int, week: int) -> Path:
     return league_week_dir(NFL_KEY, season, week) / PREGAME_ARCHIVE_FAILURE_NAME
 
 
-def _clear_pregame_failure(marker: Path) -> None:
-    """Remove a failure marker, tolerating an I/O error.
+#: A freshly built archive is written here and verified BEFORE it is moved to
+#: :data:`PREGAME_ARCHIVE_NAME`, so the accepted path only ever holds an
+#: archive that already read back with the payload's counts.  One that failed
+#: that check is set aside under :data:`PREGAME_ARCHIVE_MISMATCH_SUFFIX` (kept
+#: for diagnosis, never read by anything).
+PREGAME_ARCHIVE_CANDIDATE_SUFFIX = ".candidate"
+PREGAME_ARCHIVE_MISMATCH_SUFFIX = ".mismatch"
+_PREGAME_READBACK_MISMATCH = "archive_readback_mismatch"
+_PREGAME_COUNTED_KEYS = ("players", "timingUnverified")
 
-    ``prune_retention`` walks every week and league; a marker that cannot be
+
+def _unlink_tolerating_oserror(path: Path, action: str) -> bool:
+    """``path.unlink(missing_ok=True)`` that survives an I/O error.
+
+    ``prune_retention`` walks every week and league; a file that cannot be
     removed (a permission error, a locked file) must not abort the weeks after
-    it.  The marker simply stays and the ops alert keeps firing, which is the
-    correct outcome for a failure that could not be cleared.
+    it.  The file simply stays, which is the safe outcome for every caller: a
+    failure marker keeps the ops alert firing, an expired archive is retried
+    on the next tick.  Returns whether the file is gone.
     """
     try:
-        marker.unlink(missing_ok=True)
+        path.unlink(missing_ok=True)
+    except OSError as exc:
+        import logging
+
+        logging.getLogger(__name__).warning("game day: could not %s %s (%s)", action, path, exc)
+        return False
+    return True
+
+
+def _clear_pregame_failure(marker: Path) -> None:
+    """Remove a failure marker, tolerating an I/O error (see
+    :func:`_unlink_tolerating_oserror`): the marker stays and the alert keeps
+    firing, which is the correct outcome for a failure that could not be
+    cleared."""
+    _unlink_tolerating_oserror(marker, "clear pregame archive failure marker")
+
+
+def _archive_counts_match(back: Mapping[str, Any] | None, payload: Mapping[str, Any]) -> bool:
+    """Whether an archive read back from disk holds what was just built."""
+    return back is not None and all(
+        len(back.get(key) or {}) == len(payload[key]) for key in _PREGAME_COUNTED_KEYS
+    )
+
+
+def _set_aside_mismatched_archive(path: Path) -> bool:
+    """Move an archive that failed verification out of the way, for diagnosis.
+
+    ``False`` when it could not be moved.  Never raises.
+    """
+    target = path.with_name(PREGAME_ARCHIVE_NAME + PREGAME_ARCHIVE_MISMATCH_SUFFIX)
+    try:
+        path.replace(target)
     except OSError as exc:
         import logging
 
         logging.getLogger(__name__).warning(
-            "game day: could not clear pregame archive failure marker %s (%s)", marker, exc
+            "game day: could not set aside mismatched pregame archive %s (%s)", path, exc
         )
+        return False
+    return True
 
 
 def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) -> bool:
-    """True when the week's raw weekly-projection log may be pruned: the
-    archive already exists and reads back, or there was nothing to preserve,
-    or it was just built, written and verified.  False (keep the raw log)
-    whenever that cannot be established -- fail closed.  An existing archive
-    is never rewritten."""
+    """True when the week's raw weekly-projection log may be pruned: a
+    VERIFIED archive exists, or there was nothing to preserve.  False (keep
+    the raw log) whenever that cannot be established -- fail closed.  An
+    existing archive is never rewritten from later evidence.
+
+    "Verified" is a property of the file at :func:`pregame_archive_path`, not
+    of the pass that wrote it, because a later pass (the collector is a fresh
+    process every minute, retrying hourly) trusts whatever sits there.  So a
+    new archive is built beside it, read back, count-checked against the
+    payload, and only then moved into place; one that fails the check never
+    reaches the accepted path (it is set aside as ``.mismatch``).
+    """
     path = pregame_archive_path(season, week)
     now = time.time() if now is None else now
     marker = _pregame_failure_path(season, week)
+    log = observation_log(NFL_KEY, season, week, SOURCE_WEEKLY)
+    prior = _read_json(marker)
     if path.exists():
-        if _read_pregame_archive(path) is not None:
+        if _read_pregame_archive(path) is None:
+            _mark_pregame_failure(marker, now, "archive_unreadable")
+            return False
+        if not (
+            isinstance(prior, dict)
+            and prior.get("reason") == _PREGAME_READBACK_MISMATCH
+            and log.log_path.exists()
+        ):
             # The raw log may be pruned now, so a marker left by an earlier
-            # failed attempt (e.g. a read-back mismatch) no longer describes
-            # a retained log -- clear it so the ops alert resolves.
+            # failed attempt no longer describes a retained log -- clear it so
+            # the ops alert resolves.
             _clear_pregame_failure(marker)
             return True
-        _mark_pregame_failure(marker, now, "archive_unreadable")
-        return False
-    log = observation_log(NFL_KEY, season, week, SOURCE_WEEKLY)
+        # A readable archive beside a read-back-mismatch marker is what the
+        # code that left a failed file in place produced: the archive never
+        # passed verification and nothing re-checked it, so it is not trusted.
+        # Set it aside and rebuild from the raw log, which is still here.
+        if not _set_aside_mismatched_archive(path):
+            return False
     if not log.log_path.exists():
         _clear_pregame_failure(marker)
         return True
-    prior = _read_json(marker)
     if isinstance(prior, dict):
         failed_at = _epoch(prior.get("failedAt"))
         if failed_at is not None and now - failed_at < _PREGAME_ARCHIVE_RETRY_SECONDS:
@@ -2779,12 +2842,13 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
             if log.log_path.stat().st_size > 0 and not log.observations(ok_only=False):
                 reason = "weekly_log_unreadable"
         else:
-            _write_pregame_archive(path, payload)
-            back = _read_pregame_archive(path)
-            if back is None or any(
-                len(back.get(k) or {}) != len(payload[k]) for k in ("players", "timingUnverified")
-            ):
-                reason = "archive_readback_mismatch"
+            candidate = path.with_name(path.name + PREGAME_ARCHIVE_CANDIDATE_SUFFIX)
+            _write_pregame_archive(candidate, payload)
+            if _archive_counts_match(_read_pregame_archive(candidate), payload):
+                candidate.replace(path)  # atomic: verified bytes, nothing else
+            else:
+                reason = _PREGAME_READBACK_MISMATCH
+                _set_aside_mismatched_archive(candidate)
     except Exception as exc:  # noqa: BLE001 -- any failure keeps the raw evidence
         reason = f"{type(exc).__name__}: {exc}"[:300]
     if reason is not None:
@@ -2915,10 +2979,19 @@ def prune_retention(season: int, week: int) -> list[str]:
                         continue  # fail closed: keep the raw evidence
                     shutil.rmtree(obs, ignore_errors=True)
                     removed.append(str(obs))
-                archive = week_dir / PREGAME_ARCHIVE_NAME
-                if archive.exists() and s < season - PREGAME_ARCHIVE_SEASONS:
-                    archive.unlink(missing_ok=True)
-                    removed.append(str(archive))
+                if s < season - PREGAME_ARCHIVE_SEASONS:
+                    archive = week_dir / PREGAME_ARCHIVE_NAME
+                    # The set-aside copy of a failed build ages out with its week.
+                    for stale in (
+                        archive,
+                        archive.with_name(archive.name + PREGAME_ARCHIVE_MISMATCH_SUFFIX),
+                    ):
+                        # One file that cannot be removed must not abort the
+                        # weeks after it: it stays and is retried next tick.
+                        if stale.exists() and _unlink_tolerating_oserror(
+                            stale, "remove expired pregame archive"
+                        ):
+                            removed.append(str(stale))
     return removed
 
 
