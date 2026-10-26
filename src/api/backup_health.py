@@ -53,8 +53,10 @@ no endpoint; a future admin-gated surface may call the detail builder.
 ``directoryRole`` (``canonical`` / ``writer_fallback``) and the legacy
 ``backupDirUsed`` label, and says the paths were withheld on purpose
 (``filesystemPaths: "withheld"``) so their absence cannot read as "no backup".
-The stale-backup alert e-mail, which goes to the operator, still names the file
-(``newest_legacy_backup_path``).
+The stale-backup alert e-mail, which goes to the operator, still names the file:
+``build_backup_health_snapshot`` returns it beside the public block as a PRIVATE
+sidecar, taken from the SAME detail pass, so the e-mail's age, directory, count
+and file always describe one scan.
 
 Reporting only.  Nothing here changes ``/api/health``'s status code, ``is_ok``
 or the alert the endpoint sends.
@@ -786,25 +788,13 @@ def build_backup_health_detail(
     }
 
 
-def build_backup_health(
-    *,
-    state_root: str = STATE_BACKUP_ROOT,
-    state_fallback_root: str = STATE_BACKUP_FALLBACK_ROOT,
-    legacy_dirs: tuple[tuple[str, str], ...] | None = None,
-    now_epoch: float | None = None,
-) -> dict[str, Any]:
-    """The ``backup_health`` block served by ``/api/health`` and ``/api/status``.
+def _public_block(detail: dict[str, Any]) -> dict[str, Any]:
+    """The anonymous-safe projection of one ``build_backup_health_detail`` report.
 
-    Anonymous-safe: the detail is projected away (``PUBLIC_*_KEYS``), and so is
-    every filesystem path -- ``newestBackupPath`` stays in the detail, and
-    ``filesystemPaths`` says it was withheld rather than not found.
+    The detail is projected away (``PUBLIC_*_KEYS``), and so is every filesystem
+    path -- ``newestBackupPath`` stays in the detail, and ``filesystemPaths``
+    says it was withheld rather than not found.
     """
-    detail = build_backup_health_detail(
-        state_root=state_root,
-        state_fallback_root=state_fallback_root,
-        legacy_dirs=legacy_dirs,
-        now_epoch=now_epoch,
-    )
     return {
         "schemaVersion": detail["schemaVersion"],
         "newestBackupAgeHours": detail["newestBackupAgeHours"],
@@ -817,18 +807,54 @@ def build_backup_health(
     }
 
 
-def newest_legacy_backup_path(
+def build_backup_health_snapshot(
     *,
-    dirs: tuple[tuple[str, str], ...] = LEGACY_DIRS,
+    state_root: str = STATE_BACKUP_ROOT,
+    state_fallback_root: str = STATE_BACKUP_FALLBACK_ROOT,
+    legacy_dirs: tuple[tuple[str, str], ...] | None = None,
     now_epoch: float | None = None,
-) -> str | None:
-    """PRIVATE: the newest legacy ``*.sqlite.gz`` file, or ``None`` when none
-    was observed.
+) -> tuple[dict[str, Any], str | None]:
+    """``(public block, alert path)`` from ONE detail pass.
 
-    For the operator's stale-backup alert e-mail (``server.get_health``) only;
-    no endpoint serves it.
+    The public block is what ``/api/health`` and ``/api/status`` serve.  The
+    alert path is its PRIVATE sidecar: the newest legacy ``*.sqlite.gz`` file
+    that same pass found (``None`` when it found none), for the operator's
+    stale-backup e-mail (``server.get_health``) only.  It is never part of the
+    public block, and no endpoint serves it.
+
+    Both come from one report on purpose.  A second, separate lookup for the
+    path could land after the next nightly backup and name today's fresh file
+    in an e-mail whose age, directory and count describe yesterday's stale one.
     """
-    return legacy_sqlite_backup_health(dirs=dirs, now_epoch=now_epoch).get("newestBackupPath")
+    detail = build_backup_health_detail(
+        state_root=state_root,
+        state_fallback_root=state_fallback_root,
+        legacy_dirs=legacy_dirs,
+        now_epoch=now_epoch,
+    )
+    return _public_block(detail), detail.get("newestBackupPath")
+
+
+def build_backup_health(
+    *,
+    state_root: str = STATE_BACKUP_ROOT,
+    state_fallback_root: str = STATE_BACKUP_FALLBACK_ROOT,
+    legacy_dirs: tuple[tuple[str, str], ...] | None = None,
+    now_epoch: float | None = None,
+) -> dict[str, Any]:
+    """The ``backup_health`` block served by ``/api/health`` and ``/api/status``.
+
+    Anonymous-safe (see ``_public_block``).  The server takes it from
+    ``build_backup_health_snapshot``, which also returns the private alert path.
+    """
+    return _public_block(
+        build_backup_health_detail(
+            state_root=state_root,
+            state_fallback_root=state_fallback_root,
+            legacy_dirs=legacy_dirs,
+            now_epoch=now_epoch,
+        )
+    )
 
 
 def main() -> int:

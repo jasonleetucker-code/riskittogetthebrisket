@@ -26,19 +26,25 @@ newest legacy file (``newestBackupPath``) and every directory it inspected
 (``directoryInspected``, top level and per root); it now carries the path-free
 ``directoryRole`` and states ``filesystemPaths: "withheld"``.  The detail and
 the operator's stale-backup e-mail keep the paths.  Pinned below by a
-recursive no-path walk and by a closed value vocabulary for every enumerated
-field.
+recursive no-path walk and by a closed value vocabulary: every scalar the
+public block carries, list elements included, is an enumerated value of its
+field or a declared number.
+
+The e-mail's file is the PRIVATE sidecar of the same snapshot as the block it
+alerts on (one pass, one memo timestamp), so its age, directory, count and file
+always describe one scan -- pinned against the recovery-window skew the #1983
+review reproduced.
 """
 
 from __future__ import annotations
 
 import asyncio
 import errno
-import functools
 import gzip
 import json
 import os
 import re
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -492,7 +498,7 @@ def test_a_probe_failure_is_unverifiable_never_an_exception(tmp_path, monkeypatc
 
 
 def test_server_helper_serves_the_new_block_and_never_raises(monkeypatch):
-    block = server._backup_freshness_uncached()
+    block, _alert_path = server._backup_snapshot_uncached()
     assert block["legacyKeysDescribe"] == "legacySqliteBackup"
     assert "stateBackup" in block and "legacySqliteBackup" in block
     for key in _MONITOR_KEYS:
@@ -502,8 +508,9 @@ def test_server_helper_serves_the_new_block_and_never_raises(monkeypatch):
     def boom(**_kw):
         raise RuntimeError("module unavailable")
 
-    monkeypatch.setattr(bh, "build_backup_health", boom)
-    fallback = server._backup_freshness_uncached()
+    monkeypatch.setattr(bh, "build_backup_health_snapshot", boom)
+    fallback, fallback_path = server._backup_snapshot_uncached()
+    assert fallback_path is None  # no scan, so no file -- not a guess
     assert fallback["stateBackup"] == {"state": "unverifiable", "reason": "probe_error"}
     assert fallback["newestBackupAgeHours"] is None
     assert fallback["dbCount"] is None
@@ -771,7 +778,7 @@ def test_the_anonymous_endpoints_serve_no_coverage_detail(monkeypatch, tmp_path,
 
 
 def test_server_helper_serves_the_public_projection_not_the_detail():
-    block = server._backup_freshness_uncached()
+    block = server._backup_snapshot_uncached()[0]
     assert not (_all_keys(block) & _DETAIL_ONLY_KEYS)
 
 
@@ -997,8 +1004,8 @@ _TREE_SCENARIOS = {
 
 
 def _server_import_failure(tmp_path, mp):
-    mp.setattr(bh, "build_backup_health", _probe_explodes)
-    return server._backup_freshness_uncached()
+    mp.setattr(bh, "build_backup_health_snapshot", _probe_explodes)
+    return server._backup_snapshot_uncached()[0]
 
 
 def _root_projection_without_an_age(tmp_path, mp):
@@ -1010,7 +1017,7 @@ def _root_projection_without_an_age(tmp_path, mp):
 #: Public payloads that do not come from ``build_backup_health`` over a tree.
 _OTHER_PUBLIC_PAYLOADS = {
     "server_import_failure": _server_import_failure,
-    "server_helper_on_this_host": lambda tmp_path, mp: server._backup_freshness_uncached(),
+    "server_helper_on_this_host": lambda tmp_path, mp: server._backup_snapshot_uncached()[0],
     "root_projection_without_an_age": _root_projection_without_an_age,
 }
 
@@ -1050,42 +1057,82 @@ def test_production_shape_names_roots_by_role_only(tmp_path, monkeypatch):
 
 
 # -- the closed value vocabulary ------------------------------------------------
-def _walk_enumerated(node, where: str, seen: dict, nulls: set, problems: list) -> None:
+def _is_hours(value) -> bool:
+    return value is None or (isinstance(value, (int, float)) and not isinstance(value, bool))
+
+
+def _is_count(value) -> bool:
+    return value is None or (isinstance(value, int) and not isinstance(value, bool))
+
+
+#: The public fields whose values are NOT enumerated, each with the check its
+#: value must pass.  Numbers only: the public block carries no timestamp today,
+#: and a timestamp field added later is listed here with a parser.  A string is
+#: never waved through for want of a vocabulary.
+_NON_ENUMERATED_FIELDS = {
+    "ageHours": _is_hours,
+    "newestBackupAgeHours": _is_hours,
+    "generationCount": _is_count,
+    "dbCount": _is_count,
+}
+
+
+def _walk_enumerated(
+    node, where: str, seen: dict, nulls: set, problems: list, field: str | None = None
+) -> None:
+    """Check every scalar under ``node`` against its FIELD.
+
+    A scalar's field is the key it sits under, and a list element inherits the
+    key of its list.  So a string is acceptable only as an enumerated value of
+    its own field, and a number only under a declared numeric field, wherever
+    it sits -- list elements, and lists inside lists, included.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            _walk_enumerated(value, f"{where}.{key}", seen, nulls, problems, key)
+        return
     if isinstance(node, list):
-        for i, v in enumerate(node):
-            _walk_enumerated(v, f"{where}[{i}]", seen, nulls, problems)
+        for i, value in enumerate(node):
+            _walk_enumerated(value, f"{where}[{i}]", seen, nulls, problems, field)
         return
-    if not isinstance(node, dict):
-        return
-    for key, value in node.items():
-        here = f"{where}.{key}"
-        if isinstance(value, (dict, list)):
-            _walk_enumerated(value, here, seen, nulls, problems)
-        elif key in bh.PUBLIC_VALUE_VOCABULARY:
-            if value is None:
-                nulls.add(key)
-                if key not in bh.PUBLIC_NULLABLE_FIELDS:
-                    problems.append(f"{here} is None but {key} is not nullable")
-            elif value not in bh.PUBLIC_VALUE_VOCABULARY[key]:
-                problems.append(f"{here} = {value!r} is not in the {key} vocabulary")
-            else:
-                seen.setdefault(key, set()).add(value)
-        elif isinstance(value, str):
-            # Every string the public block carries is an enumerated value; a
-            # free-text field (a path, a message) is a new disclosure.
-            problems.append(f"{here} = {value!r} is free text outside the vocabulary")
+    if field in bh.PUBLIC_VALUE_VOCABULARY:
+        if node is None:
+            nulls.add(field)
+            if field not in bh.PUBLIC_NULLABLE_FIELDS:
+                problems.append(f"{where} is None but {field} is not nullable")
+        elif node not in bh.PUBLIC_VALUE_VOCABULARY[field]:
+            problems.append(f"{where} = {node!r} is not in the {field} vocabulary")
+        else:
+            seen.setdefault(field, set()).add(node)
+    elif field in _NON_ENUMERATED_FIELDS:
+        if not _NON_ENUMERATED_FIELDS[field](node):
+            problems.append(f"{where} = {node!r} is not a valid {field} value")
+    else:
+        # Free text (a path, a host, a user name, a message) or a scalar under
+        # a field nobody declared: a new disclosure until it is declared.
+        problems.append(f"{where} = {node!r} sits under {field!r}, which has no vocabulary")
+
+
+def _vocabulary_problems(payload) -> list[str]:
+    problems: list[str] = []
+    _walk_enumerated(payload, "backup_health", {}, set(), problems)
+    return problems
 
 
 def test_public_value_vocabulary_is_closed(tmp_path):
     seen: dict[str, set] = {}
     nulls: set[str] = set()
     problems: list[str] = []
+    keys: set[str] = set()
     for name in _ALL_PUBLIC:
         with pytest.MonkeyPatch.context() as mp:
             sub = tmp_path / name
             sub.mkdir()
             payload = _public_payload(name, sub, mp)
         _walk_enumerated(payload, name, seen, nulls, problems)
+        keys |= _all_keys(payload)
+    # Every declared number is a field some payload carries (a typo in the list).
+    assert set(_NON_ENUMERATED_FIELDS) <= keys
 
     # No branch emits an unlisted value (a typo, or a new reason nobody listed) ...
     assert not problems, "\n".join(problems)
@@ -1098,6 +1145,46 @@ def test_public_value_vocabulary_is_closed(tmp_path):
     assert not unreached, f"vocabulary values no branch produces: {unreached}"
     # The nullable list is exactly the fields that are ever None.
     assert nulls == set(bh.PUBLIC_NULLABLE_FIELDS)
+
+
+def _append_to_roots(value):
+    return lambda public: public["stateBackup"]["roots"].append(value)
+
+
+def _nest_in_a_root(public):
+    public["stateBackup"]["roots"][0]["owners"] = ["jason"]
+
+
+def _list_under_an_enumerated_field(public):
+    public["stateBackup"]["state"] = ["healthy", "db01.internal.example"]
+
+
+@pytest.mark.parametrize(
+    "inject,leaked",
+    [
+        (_append_to_roots("db01.internal.example"), "db01.internal.example"),
+        (_append_to_roots(["jason"]), "jason"),
+        (_nest_in_a_root, "jason"),
+        (_list_under_an_enumerated_field, "db01.internal.example"),
+        (_append_to_roots(22), "22"),
+    ],
+    ids=[
+        "hostname-as-a-list-element",
+        "user-name-in-a-list-inside-a-list",
+        "user-name-in-a-list-inside-a-root",
+        "free-text-beside-an-enumerated-value",
+        "undeclared-number-as-a-list-element",
+    ],
+)
+def test_free_text_inside_a_public_list_fails_the_vocabulary(tmp_path, inject, leaked):
+    """A hostname or a user name has no ``/`` for ``_path_like`` to catch; the
+    vocabulary must catch it, inside lists too."""
+    _rich_tree(tmp_path)
+    public = build(tmp_path)
+    assert _vocabulary_problems(public) == []  # the injection alone fails below
+    inject(public)
+    problems = _vocabulary_problems(public)
+    assert any(leaked in p for p in problems), problems
 
 
 def test_vocabulary_constants_are_the_module_s_own():
@@ -1113,10 +1200,11 @@ def test_vocabulary_constants_are_the_module_s_own():
     assert bh.PUBLIC_DIRECTORY_ROLES == {"canonical", "writer_fallback"}
     assert bh.PUBLIC_LEGACY_DIR_LABELS == {label for label, _ in bh.LEGACY_DIRS} | {"none"}
     assert bh._verdict(None)[1] in bh.PUBLIC_REASONS
-    # Every enumerated field the public blocks declare has a vocabulary.
-    numeric = {"ageHours", "generationCount"}
-    declared = set(bh.PUBLIC_STATE_KEYS) | set(bh.PUBLIC_LEGACY_KEYS)
-    assert declared - numeric <= set(vocab)
+    # Every field the public blocks declare is enumerated or a declared
+    # number -- never both, never neither.
+    declared = set(bh.PUBLIC_STATE_KEYS) | set(bh.PUBLIC_LEGACY_KEYS) | set(_MONITOR_KEYS)
+    assert not (set(vocab) & set(_NON_ENUMERATED_FIELDS))
+    assert declared <= set(vocab) | set(_NON_ENUMERATED_FIELDS)
 
 
 # -- the private view keeps the paths ---------------------------------------
@@ -1153,66 +1241,186 @@ def test_the_private_detail_keeps_every_path_the_public_block_withholds(tmp_path
     # The detail is path-bearing by design; the public block, never.
     assert _path_like(private)
     assert _path_like(public) == []
-    # The private reader the alert e-mail uses names the same file.
-    legacy_dirs = _paths(tmp_path)["legacy_dirs"]
-    assert bh.newest_legacy_backup_path(dirs=legacy_dirs, now_epoch=NOW) == newest
+    # The snapshot the server memoizes pairs the SAME public block with the
+    # same file, as its private sidecar.
+    snapshot_block, alert_path = bh.build_backup_health_snapshot(**_paths(tmp_path))
+    assert snapshot_block == public
+    assert alert_path == newest
 
 
-def test_newest_legacy_backup_path_is_none_when_no_file_was_observed(tmp_path):
-    legacy_dirs = _paths(tmp_path)["legacy_dirs"]
-    assert bh.newest_legacy_backup_path(dirs=legacy_dirs, now_epoch=NOW) is None
+def test_the_snapshot_sidecar_is_none_when_no_file_was_observed(tmp_path):
+    block, alert_path = bh.build_backup_health_snapshot(**_paths(tmp_path))
+    assert alert_path is None
+    assert block["newestBackupAgeHours"] is None  # no file, no age: one scan
 
 
 # -- the operator alert e-mail still names the file -------------------------
-def _health_with_alerts(monkeypatch, tmp_path) -> tuple[dict, list[str]]:
+# These drive the REAL memo and the REAL default directories: the module's own
+# defaults are redirected into ``tmp_path`` through its filesystem seams, so
+# ``server`` builds, memoizes and alerts exactly as it does on the box.
+_ALERT_SUBJECT = "Risk It: SQLite backups stale"
+
+
+def _alert_body(age, directory, path, db_count) -> str:
+    """The stale-backup e-mail as ``get_health`` has always written it -- the
+    pre-#1983 text, verbatim, so a format change fails here."""
+    return (
+        f"Newest backup age: {age}h (dir={directory}, "
+        f"path={path}, dbCount="
+        f"{db_count}). Expected a fresh backup within 24h "
+        f"from riskit-backup.timer (02:00 UTC). Check "
+        f"deploy/backup_user_kv.sh and /var/log/riskit-backup.log."
+    )
+
+
+@pytest.fixture
+def box(tmp_path, monkeypatch) -> Path:
+    """The module's default backup directories, redirected into ``tmp_path``,
+    and an empty memo that cannot expire mid-test on a slow runner."""
+    mapping = {
+        bh.LEGACY_PRIMARY_DIR: tmp_path / "legacy_primary",
+        bh.LEGACY_FALLBACK_DIR: tmp_path / "legacy_fallback",
+        bh.STATE_BACKUP_ROOT: tmp_path / "state",
+        bh.STATE_BACKUP_FALLBACK_ROOT: tmp_path / "state_fb",
+    }
+
+    def remap(path: str) -> str:
+        for virtual, real in mapping.items():
+            if path == virtual or (path.startswith(virtual) and path[len(virtual)] in "/\\"):
+                return str(real) + path[len(virtual) :]
+        raise AssertionError(f"a backup probe reached outside the redirected box: {path}")
+
+    for seam in ("_stat", "_listdir", "_read_text"):
+        real_seam = getattr(bh, seam)
+        monkeypatch.setattr(bh, seam, lambda path, _real=real_seam: _real(remap(path)))
+    monkeypatch.setattr(server, "_DISK_PROBE_MEMO", {})
+    monkeypatch.setattr(server, "_DISK_PROBE_TTL_SEC", 3600.0)
+    return tmp_path
+
+
+def _land_legacy_backup(directory: Path, stamp: str, *, mtime: float) -> None:
+    """Two databases of one nightly run; ``auction`` is the newest file."""
+    directory.mkdir(parents=True, exist_ok=True)
+    for name, offset in (("user_kv", 0.5 * HOUR), ("auction", 0.0)):
+        f = directory / f"{name}.{stamp}.sqlite.gz"
+        f.write_bytes(gzip.compress(b"db"))
+        os.utime(f, (mtime - offset, mtime - offset))
+
+
+def _box_file(stamp: str) -> str:
+    """The newest file as the server names it on the box."""
+    return os.path.join(bh.LEGACY_FALLBACK_DIR, f"auction.{stamp}.sqlite.gz")
+
+
+def _health_alerts(monkeypatch) -> tuple[dict, list[str]]:
     sent: list[tuple[str, str]] = []
-    monkeypatch.setattr(server, "_backup_freshness", lambda: build(tmp_path))
     monkeypatch.setattr(server, "send_alert", lambda subject, body: sent.append((subject, body)))
     response = asyncio.run(server.get_health())
-    bodies = [body for subject, body in sent if subject == "Risk It: SQLite backups stale"]
+    bodies = [body for subject, body in sent if subject == _ALERT_SUBJECT]
     return json.loads(response.body)["backup_health"], bodies
 
 
-def test_stale_backup_alert_names_the_file_the_public_block_withholds(tmp_path, monkeypatch):
-    make_legacy(tmp_path / "legacy_fallback", mtime=NOW - 48 * HOUR, stamp="2026-10-24")
-    monkeypatch.setattr(server, "_DISK_PROBE_MEMO", {})
-    monkeypatch.setattr(
-        bh,
-        "newest_legacy_backup_path",
-        functools.partial(
-            bh.newest_legacy_backup_path, dirs=_paths(tmp_path)["legacy_dirs"], now_epoch=NOW
-        ),
-    )
-    served, bodies = _health_with_alerts(monkeypatch, tmp_path)
+def test_stale_backup_alert_names_the_file_the_public_block_withholds(box, monkeypatch):
+    _land_legacy_backup(box / "legacy_fallback", "2026-10-24", mtime=time.time() - 48 * HOUR)
+    served, bodies = _health_alerts(monkeypatch)
 
-    expected = detail(tmp_path)["newestBackupPath"]
-    assert expected.endswith(".2026-10-24.sqlite.gz")
-    assert len(bodies) == 1 and f"path={expected}," in bodies[0]
+    assert served["backupDirUsed"] == "fallback" and served["dbCount"] == 2
+    assert bodies == [
+        _alert_body(served["newestBackupAgeHours"], "fallback", _box_file("2026-10-24"), 2)
+    ]
     # ... while the response it rode in on carries no path.
     assert _path_like(served) == []
-    assert expected not in json.dumps(served)
+    assert "auction.2026-10-24" not in json.dumps(served)
 
 
-def test_no_backup_alert_looks_up_no_path(tmp_path, monkeypatch):
-    def must_not_run():
-        raise AssertionError("no backup file was observed; there is no path to look up")
+def test_stale_backup_email_describes_one_scan_across_a_recovery(box, monkeypatch):
+    """The #1983 review's reproduction.  The e-mail used to take its file from
+    a SECOND lookup with its own memo, made only when the alert fired: inside
+    one memo window it could pair the memoized stale block with the fresh file
+    that had just landed, naming the new backup as the stale one."""
+    legacy = box / "legacy_fallback"
+    _land_legacy_backup(legacy, "2026-10-24", mtime=time.time() - 40 * HOUR)
+    # Request A -- /api/status, say, which sends no alert -- builds and
+    # memoizes the block while the backup is stale.
+    block = server._backup_freshness()
+    assert block["newestBackupAgeHours"] > 36
+    assert (block["backupDirUsed"], block["dbCount"]) == ("fallback", 2)
 
-    monkeypatch.setattr(server, "_backup_alert_path", must_not_run)
-    _served_block, bodies = _health_with_alerts(monkeypatch, tmp_path)
-    assert len(bodies) == 1 and "path=None," in bodies[0]
+    # Still inside the memo window, the timer recovers: today's backup lands.
+    _land_legacy_backup(legacy, "2026-10-26", mtime=time.time())
+
+    # Request B -- /api/health, same window -- serves the memoized stale block
+    # and alerts on it.  Every value in the e-mail is that block's scan.
+    served, bodies = _health_alerts(monkeypatch)
+    assert served == block
+    assert bodies == [
+        _alert_body(block["newestBackupAgeHours"], "fallback", _box_file("2026-10-24"), 2)
+    ]
+    assert "2026-10-26" not in bodies[0]
 
 
-def test_fresh_backup_sends_no_alert_and_looks_up_no_path(tmp_path, monkeypatch):
-    def must_not_run():
-        raise AssertionError("a fresh backup sends no alert; no path lookup")
+def test_block_and_sidecar_come_from_one_scan(box, monkeypatch):
+    """One pass: no backup directory is listed twice to build the snapshot.  A
+    second lookup for the path is how the recovery-window skew got in."""
+    _land_legacy_backup(box / "legacy_fallback", "2026-10-24", mtime=time.time() - 40 * HOUR)
+    listed: list[str] = []
+    redirected = bh._listdir
+    monkeypatch.setattr(bh, "_listdir", lambda path: listed.append(path) or redirected(path))
 
-    make_legacy(tmp_path / "legacy_fallback", mtime=NOW - HOUR)
-    monkeypatch.setattr(server, "_backup_alert_path", must_not_run)
-    _served_block, bodies = _health_with_alerts(monkeypatch, tmp_path)
+    block, alert_path = server._backup_snapshot_uncached()
+
+    assert alert_path == _box_file("2026-10-24") and block["dbCount"] == 2
+    assert bh.LEGACY_FALLBACK_DIR in listed
+    assert len(listed) == len(set(listed)), sorted(listed)
+
+
+def test_no_backup_alert_says_path_none(box, monkeypatch):
+    served, bodies = _health_alerts(monkeypatch)
+    assert served["newestBackupAgeHours"] is None
+    assert bodies == [_alert_body(None, "none", None, None)]
+
+
+def test_fresh_backup_sends_no_alert(box, monkeypatch):
+    _land_legacy_backup(box / "legacy_fallback", "2026-10-26", mtime=time.time() - HOUR)
+    served, bodies = _health_alerts(monkeypatch)
+    assert served["newestBackupAgeHours"] < 36
     assert bodies == []
 
 
-def test_alert_path_reader_never_raises(monkeypatch):
-    monkeypatch.setattr(server, "_DISK_PROBE_MEMO", {})
-    monkeypatch.setattr(bh, "newest_legacy_backup_path", _probe_explodes)
-    assert server._backup_alert_path() is None
+def test_the_alert_path_is_only_the_sidecar_of_the_memoized_block(box, monkeypatch):
+    _land_legacy_backup(box / "legacy_fallback", "2026-10-24", mtime=time.time() - 40 * HOUR)
+    block = server._backup_freshness()
+    assert server._backup_alert_path(block) == _box_file("2026-10-24")
+
+    # A block that is not the memoized one -- an equal copy, or one built
+    # elsewhere -- gets no file: unknown, never another scan's.
+    assert server._backup_alert_path(dict(block)) is None
+    assert server._backup_alert_path(bh.build_backup_health()) is None
+
+    # The reader makes no filesystem lookup of its own: with every seam closed
+    # it still answers, from the snapshot.
+    for seam in ("_stat", "_listdir", "_read_text"):
+        monkeypatch.setattr(bh, seam, _probe_explodes)
+    assert server._backup_alert_path(block) == _box_file("2026-10-24")
+
+
+@pytest.mark.parametrize("handler_name", ["get_health", "get_status"])
+def test_the_alert_sidecar_is_never_serialized(box, monkeypatch, handler_name):
+    _land_legacy_backup(box / "legacy_fallback", "2026-10-24", mtime=time.time() - 40 * HOUR)
+    block = server._backup_freshness()
+    sidecar = server._backup_alert_path(block)
+    assert sidecar == _box_file("2026-10-24")
+
+    monkeypatch.setattr(server, "send_alert", lambda *a, **k: None)
+    response = asyncio.run(getattr(server, handler_name)())
+    body = json.loads(response.body)
+    assert body["backup_health"] == block
+    text = response.body.decode("utf-8")
+    for leaked in ("auction.2026-10-24", "sqlite.gz", "backups/riskit"):
+        assert leaked not in text, leaked
+
+
+@pytest.mark.parametrize("memo_entry", [(0.0, None), (0.0, "junk"), (0.0, ()), "junk"])
+def test_alert_path_reader_never_raises(monkeypatch, memo_entry):
+    monkeypatch.setattr(server, "_DISK_PROBE_MEMO", {"backup_freshness": memo_entry})
+    assert server._backup_alert_path({}) is None

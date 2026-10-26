@@ -2526,49 +2526,64 @@ def _backup_freshness() -> dict:
     and the stale-backup alert in ``get_health`` read them — and the payload
     says so (``legacyKeysDescribe``).  Unknown ages and counts are ``None``.
     The block is served anonymously, so it carries no filesystem path
-    (``filesystemPaths: "withheld"``); the alert e-mail gets the newest file
-    from ``_backup_alert_path``.  Owner: ``src/api/backup_health.py``.  Never
-    raises.
+    (``filesystemPaths: "withheld"``); the alert e-mail reads the newest file
+    from the private sidecar memoized with it (``_backup_alert_path``).
+    Owner: ``src/api/backup_health.py``.  Never raises.
 
     Memoized 30s (see ``_DISK_PROBE_MEMO``) — treat as read-only.
     """
-    return _disk_probe_memo("backup_freshness", _backup_freshness_uncached)
+    return _backup_snapshot()[0]
 
 
-def _backup_freshness_uncached() -> dict:
-    try:
-        from src.api.backup_health import build_backup_health
+def _backup_snapshot() -> tuple[dict, str | None]:
+    """``(public block, private alert path)``: ONE memo entry, ONE timestamp.
 
-        return build_backup_health()
-    except Exception:  # noqa: BLE001 — monitoring helper must never raise
-        return {
-            "newestBackupAgeHours": None,
-            "backupDirUsed": "none",
-            "dbCount": None,
-            "legacyKeysDescribe": "legacySqliteBackup",
-            "filesystemPaths": "withheld",
-            "legacySqliteBackup": {"state": "unverifiable", "reason": "probe_error"},
-            "stateBackup": {"state": "unverifiable", "reason": "probe_error"},
-        }
-
-
-def _backup_alert_path() -> str | None:
-    """The newest legacy backup FILE, for the operator's stale-backup e-mail.
-
-    PRIVATE: never served.  The anonymous ``backup_health`` block withholds
-    filesystem paths; the e-mail goes to the operator, so it keeps naming the
-    file it always named.  Memoized 30s like the block.  Never raises.
+    Both halves come from the same uncached pass, so the stale-backup e-mail
+    can never pair one scan's age, directory and count with another scan's
+    file.  Only the block reaches a payload (``_backup_freshness``); the path
+    is read by ``_backup_alert_path`` alone and is never serialized.
     """
+    return _disk_probe_memo("backup_freshness", _backup_snapshot_uncached)
 
-    def _build() -> str | None:
-        try:
-            from src.api.backup_health import newest_legacy_backup_path
 
-            return newest_legacy_backup_path()
-        except Exception:  # noqa: BLE001 — monitoring helper must never raise
-            return None
+def _backup_snapshot_uncached() -> tuple[dict, str | None]:
+    try:
+        from src.api.backup_health import build_backup_health_snapshot
 
-    return _disk_probe_memo("backup_alert_path", _build)
+        return build_backup_health_snapshot()
+    except Exception:  # noqa: BLE001 — monitoring helper must never raise
+        return (
+            {
+                "newestBackupAgeHours": None,
+                "backupDirUsed": "none",
+                "dbCount": None,
+                "legacyKeysDescribe": "legacySqliteBackup",
+                "filesystemPaths": "withheld",
+                "legacySqliteBackup": {"state": "unverifiable", "reason": "probe_error"},
+                "stateBackup": {"state": "unverifiable", "reason": "probe_error"},
+            },
+            None,
+        )
+
+
+def _backup_alert_path(block: dict) -> str | None:
+    """The newest legacy backup FILE behind ``block``, for the operator's
+    stale-backup e-mail.
+
+    PRIVATE: never served.  It is the sidecar memoized WITH ``block`` (same
+    pass, same timestamp), so the e-mail's age, dir, dbCount and path describe
+    one scan.  It reads the memo only and makes no lookup of its own: when
+    ``block`` is not the memoized block (the memo was rebuilt since, or the
+    block came from elsewhere) the answer is ``None`` — unknown, never another
+    scan's file.  Never raises.
+    """
+    try:
+        hit = _DISK_PROBE_MEMO.get("backup_freshness")
+        if hit is not None and hit[1][0] is block:
+            return hit[1][1]
+    except Exception:  # noqa: BLE001 — monitoring helper must never raise
+        pass
+    return None
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
@@ -6856,10 +6871,10 @@ async def get_health():
     backup_health = _backup_freshness()
     _bage = backup_health.get("newestBackupAgeHours")
     if _bage is None or _bage > 36:
-        # No age means no backup file was observed, so there is no path to
-        # look up; otherwise the private reader names it (the public block
-        # does not carry it).
-        _bpath = None if _bage is None else _backup_alert_path()
+        # The public block carries no path.  The file is the private sidecar
+        # memoized with THIS block, so age, dir, path and dbCount below all
+        # describe one scan (no backup observed: the sidecar is None).
+        _bpath = _backup_alert_path(backup_health)
         send_alert(
             "Risk It: SQLite backups stale",
             f"Newest backup age: {_bage}h (dir={backup_health.get('backupDirUsed')}, "
