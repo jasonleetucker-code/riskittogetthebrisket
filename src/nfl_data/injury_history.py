@@ -226,6 +226,9 @@ class EspnIdResolver:
         from src.identity.resolution import build_sleeper_index  # noqa: PLC0415
 
         self._index = build_sleeper_index(directory) if directory else None
+        # Kept only so :meth:`espn_id_of` can read a player's OWN ``espn_id`` off
+        # the directory this resolver was built from -- no second table.
+        self._directory = directory
         counts: Counter[str] = Counter()
         for pdata in (directory or {}).values():
             if isinstance(pdata, dict):
@@ -242,6 +245,19 @@ class EspnIdResolver:
         for a consumer that adds its own EXACT rung after the id rung misses
         (``src.nfl_data.injury_identity``).  Read-only."""
         return self._index
+
+    def espn_id_of(self, sleeper_id: Any) -> str:
+        """The ESPN athlete id the directory records for ``sleeper_id``, or ``""``
+        when it records none (Sleeper's ``espn_id`` is sparse, so empty is common
+        and means *unknown*, not *different*).
+
+        A consumer that matched a player by something weaker than this id (a name)
+        uses it to refuse a match the directory contradicts.
+        """
+        pdata = (self._directory or {}).get(str(sleeper_id or "").strip())
+        if not isinstance(pdata, dict):
+            return ""
+        return str(pdata.get("espn_id") or "").strip()
 
     def resolve(self, espn_id: Any) -> dict[str, Any]:
         eid = str(espn_id or "").strip()

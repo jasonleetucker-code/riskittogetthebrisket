@@ -40,6 +40,32 @@ DIRECTORY = {
     "401": {"full_name": "Delta Twin", "position": "WR", "team": "DAL", "active": True},
     # reachable only by a guarded (initial-expansion) rung: a guess, so refused
     "500": {"full_name": "Jaxon Smith-Njigba", "position": "WR", "team": "SEA", "active": True},
+    # a LONE same-name player who already has a (different) ESPN id: a name hit on
+    # him is a homonym, not the entry (``exact_clean:name`` resolves a lone
+    # candidate whatever his team)
+    "700": {
+        "full_name": "Homonym Solo",
+        "position": "WR",
+        "team": "DAL",
+        "active": True,
+        "espn_id": "5001",
+    },
+    # the same name on two teams, each with its own ESPN id: team narrows to one
+    # candidate, who still has another ESPN id than the entry's
+    "710": {
+        "full_name": "Twin Name",
+        "position": "WR",
+        "team": "BUF",
+        "active": True,
+        "espn_id": "5101",
+    },
+    "711": {
+        "full_name": "Twin Name",
+        "position": "WR",
+        "team": "DAL",
+        "active": True,
+        "espn_id": "5102",
+    },
 }
 
 
@@ -119,10 +145,73 @@ def test_no_directory_refuses_everything_with_one_reason():
 
 
 def test_two_espn_ids_for_one_sleeper_player_are_both_refused():
-    entries = [_entry("9001", "Alpha Player"), _entry("7777", "Alpha Player", "WR", "BUF")]
+    # Neither id is on Sleeper's record for Beta Player (it records none), so both
+    # name-match him: one player cannot be two reports.
+    entries = [
+        _entry("7777", "Beta Player", "RB", "SF"),
+        _entry("7778", "Beta Player", "RB", "SF"),
+    ]
     resolved, report = _resolve(entries)
     assert resolved == []
     assert report.unresolved_by_reason == {"sleeper_id_claimed_by_multiple_espn_ids": 2}
+
+
+def test_a_name_hit_on_a_player_who_has_another_espn_id_is_refused():
+    """The id rung missed 7777; the name finds Alpha Player, whom Sleeper pins to
+    ESPN 9001.  7777 is a different athlete with his name -- refused, and the
+    genuine 9001 report is untouched (it no longer collides with a name guess)."""
+    entries = [_entry("9001", "Alpha Player"), _entry("7777", "Alpha Player", "WR", "BUF")]
+    resolved, report = _resolve(entries)
+    assert [(e.espn_athlete_id, e.sleeper_id) for e in resolved] == [("9001", "100")]
+    assert report.by_method == {"espn_id": 1}
+    assert report.unresolved_by_reason == {"name_match_has_other_espn_id": 1}
+
+
+def test_a_lone_same_name_homonym_with_a_different_espn_id_is_refused():
+    # Only ONE "Homonym Solo" exists, so the name rung would resolve him even on
+    # another team -- but Sleeper says he is ESPN 5001, not 6001.
+    resolved, report = _resolve([_entry("6001", "Homonym Solo", "WR", "BUF")])
+    assert resolved == []
+    assert report.unresolved_by_reason == {"name_match_has_other_espn_id": 1}
+
+
+def test_same_name_on_a_different_team_with_a_different_espn_id_is_refused():
+    # Team BUF narrows "Twin Name" to Sleeper 710, who is ESPN 5101; the entry is 6101.
+    resolved, report = _resolve([_entry("6101", "Twin Name", "WR", "BUF")])
+    assert resolved == []
+    assert report.unresolved_by_reason == {"name_match_has_other_espn_id": 1}
+
+
+def test_the_real_homonym_still_resolves_by_his_own_id():
+    """The refusal is on the NAME rung only: each Twin Name finds his own row by id."""
+    resolved, report = _resolve(
+        [
+            _entry("5101", "Twin Name", "WR", "BUF"),
+            _entry("5102", "Twin Name", "WR", "DAL"),
+        ]
+    )
+    assert sorted((e.espn_athlete_id, e.sleeper_id) for e in resolved) == [
+        ("5101", "710"),
+        ("5102", "711"),
+    ]
+    assert report.by_method == {"espn_id": 2}
+
+
+def test_a_matched_player_with_no_recorded_espn_id_is_not_contradicted():
+    """Sleeper's espn_id is sparse: empty is unknown, not different (Beta Player)."""
+    resolved, report = _resolve([_entry("7777", "Beta Player", "RB", "SF")])
+    assert [e.sleeper_id for e in resolved] == ["200"]
+    assert report.unresolved_by_reason == {}
+
+
+def test_espn_id_of_reads_the_directory_the_resolver_was_built_from():
+    resolver = injury_history.EspnIdResolver(DIRECTORY)
+    assert resolver.espn_id_of("100") == "9001"
+    assert resolver.espn_id_of(100) == "9001"
+    assert resolver.espn_id_of("200") == ""  # the directory records none
+    assert resolver.espn_id_of("no-such-player") == ""
+    assert resolver.espn_id_of(None) == ""
+    assert injury_history.EspnIdResolver(None).espn_id_of("100") == ""
 
 
 def test_order_is_preserved_and_unresolved_are_dropped():

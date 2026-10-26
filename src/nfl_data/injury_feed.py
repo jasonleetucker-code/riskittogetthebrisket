@@ -37,7 +37,16 @@ Degradation
 * **Silent-empty alarm.**  A body that is injuries-SHAPED but from which the
   parser recovers nothing (or loses more than :data:`MAX_PARSE_LOSS_FRACTION` of
   the rows that carry an injury status) is drift too -- this is exactly how the
-  2026-10 id change read as "a fetch with zero injuries" for weeks.
+  2026-10 id change read as "a fetch with zero injuries" for weeks.  A row whose
+  status the parser does not know (vocabulary drift, e.g. ESPN renaming ``Out``)
+  counts as a loss just like a lost id; only the explicitly tolerated
+  non-injury statuses (:data:`_TOLERATED_UNTRACKED_STATUSES`, today
+  ``Suspension``) and healthy ``Active`` rows do not.
+* **Proven empty report.**  A non-empty body in which EVERY row is a healthy
+  ``Active`` listing, with no structural loss, is a real report that lists no
+  injuries -- not drift.  It is accepted and carries a counted note
+  (:data:`NOTE_PROVEN_EMPTY`) in the parse report.  Anything else that parses to
+  nothing (a changed id source, a changed status vocabulary) still alarms.
 
 The caller (signal engine) is responsible for fanning out
 BUY/SELL transitions across rosters -- this module only fetches +
@@ -76,12 +85,13 @@ TTL_IN_SEASON_SECONDS = _TTL_IN_SEASON
 _TIMEOUT_SEC = 8.0
 
 #: Share of the rows that carry an injury status that may be lost to structural
-#: problems (no athlete, no / malformed / ambiguous id, conflicting duplicates)
-#: before the whole fetch is called drift.  Measured 0 of 275 on the 2026-10-26
-#: payload.  10% tolerates a handful of odd rows (~27 at league size) while an
-#: upstream change that drops or renames the id source (100% loss) or breaks a
-#: team's block trips it at once.  Below :data:`MIN_ROWS_FOR_FRACTION` a ratio is
-#: noise (one odd row of eight is 12%), so only the zero-parsed rule applies.
+#: problems (no athlete, no / malformed / ambiguous id, conflicting duplicates, a
+#: status outside the known vocabulary) before the whole fetch is called drift.
+#: Measured 0 of 275 on the 2026-10-26 payload.  10% tolerates a handful of odd
+#: rows (~27 at league size) while an upstream change that drops or renames the id
+#: source or the status vocabulary (100% loss) or breaks a team's block trips it
+#: at once.  Below :data:`MIN_ROWS_FOR_FRACTION` a ratio is noise (one odd row of
+#: eight is 12%), so only the zero-parsed rule applies.
 MAX_PARSE_LOSS_FRACTION = 0.10
 MIN_ROWS_FOR_FRACTION = 20
 
@@ -103,6 +113,16 @@ _ACTIVE_STATUSES = frozenset(
 #: lists news-only players as ``Active``).  An expected non-injury, not a loss.
 _HEALTHY_STATUSES = frozenset({"ACTIVE", "HEALTHY"})
 
+#: Statuses outside :data:`_ACTIVE_STATUSES` that are known, expected NON-injuries
+#: and so do not count toward the structural-loss rule.  Every other unknown status
+#: does: it may be a renamed injury status, and silently skipping those is how a
+#: vocabulary change would read as a quiet league.  Keep this list explicit and
+#: short; the key is the normalized status (``_normalize_status`` output).
+_TOLERATED_UNTRACKED_STATUSES = frozenset({"SUSPENSION"})
+
+#: The counted note a PROVEN empty report carries (value = healthy rows listed).
+NOTE_PROVEN_EMPTY = "proven_empty_report_all_status_active"
+
 # Skip-reason vocabulary (stable codes -- logged, recorded in the shadow ledger).
 REASON_ENTRY_NOT_OBJECT = "entry_not_object"
 REASON_TEAM_BLOCK_MALFORMED = "team_block_malformed"
@@ -117,7 +137,9 @@ REASON_STATUS_ACTIVE = "status_active"
 REASON_STATUS_UNTRACKED_PREFIX = "status_untracked:"
 
 #: Reasons that mean a row which carried (or may have carried) an injury status
-#: could not be turned into an entry.  These -- and only these -- are "losses".
+#: could not be turned into an entry.  These -- plus an untracked status that is
+#: not in :data:`_TOLERATED_UNTRACKED_STATUSES` (``status_untracked:<STATUS>``,
+#: see :func:`is_structural_loss_reason`) -- are "losses".
 _STRUCTURAL_LOSS_REASONS = frozenset(
     {
         REASON_ENTRY_NOT_OBJECT,
@@ -129,6 +151,17 @@ _STRUCTURAL_LOSS_REASONS = frozenset(
         REASON_DUPLICATE_CONFLICTING,
     }
 )
+
+
+def is_structural_loss_reason(reason: str) -> bool:
+    """Whether a skip reason counts toward the structural-loss rule."""
+    if reason in _STRUCTURAL_LOSS_REASONS:
+        return True
+    if reason.startswith(REASON_STATUS_UNTRACKED_PREFIX):
+        status = reason[len(REASON_STATUS_UNTRACKED_PREFIX) :]
+        return status not in _TOLERATED_UNTRACKED_STATUSES
+    return False
+
 
 _DIGITS = re.compile(r"^\d+$")
 #: ``/nfl/player/_/id/4427728/bam-knight``, ``/nfl/player/stats/_/id/4427728/...``
@@ -190,12 +223,37 @@ class ParseReport:
 
     @property
     def structural_losses(self) -> int:
-        return sum(n for r, n in self.skipped.items() if r in _STRUCTURAL_LOSS_REASONS)
+        return sum(n for r, n in self.skipped.items() if is_structural_loss_reason(r))
 
     @property
     def candidate_rows(self) -> int:
         """Rows that carried an injury status: the ones we meant to parse."""
         return self.parsed + self.structural_losses
+
+    @property
+    def proven_empty(self) -> bool:
+        """A non-empty report whose every row was a healthy ``Active`` listing.
+
+        Nothing parsed, nothing lost, and nothing skipped for any other reason:
+        ESPN really listed no injured player.  Any other skip reason (a missing
+        id, an unknown status, a malformed block) means the parser may be missing
+        something, so this is False and the zero-parsed alarm stands.
+        """
+        active = self.skipped.get(REASON_STATUS_ACTIVE, 0)
+        return (
+            self.raw_entries > 0
+            and self.parsed == 0
+            and self.structural_losses == 0
+            and set(self.skipped) == {REASON_STATUS_ACTIVE}
+            and active == self.raw_entries
+        )
+
+    @property
+    def notes(self) -> dict[str, int]:
+        """Counted observations that are not errors (today: a proven empty report)."""
+        if self.proven_empty:
+            return {NOTE_PROVEN_EMPTY: self.skipped[REASON_STATUS_ACTIVE]}
+        return {}
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -204,6 +262,7 @@ class ParseReport:
             "candidateRows": self.candidate_rows,
             "structuralLosses": self.structural_losses,
             "skipped": dict(sorted(self.skipped.items())),
+            "notes": self.notes,
         }
 
 
@@ -355,11 +414,15 @@ def payload_shape_error(payload: Any, *, parsed: ParseResult | None = None) -> s
     shape check while the parser recovered nothing):
 
     * ``no_injury_entries_parsed``: raw entries exist but none parsed.  Strict by
-      design -- a league-wide report with zero injuries does not occur in season,
-      and a false alarm only changes nothing and exits non-zero.
+      design -- a false alarm only changes nothing and exits non-zero -- with ONE
+      exception: a report whose every row is a healthy ``Active`` listing, with no
+      structural loss, is a PROVEN empty report (:attr:`ParseReport.proven_empty`)
+      and is not an error; it carries the counted note :data:`NOTE_PROVEN_EMPTY`.
     * ``parse_loss_above_10pct``: more than :data:`MAX_PARSE_LOSS_FRACTION` of
-      the rows that carried an injury status were lost to structural problems
-      (only judged over :data:`MIN_ROWS_FOR_FRACTION` or more such rows).
+      the rows that carried an injury status were lost to structural problems --
+      including a status outside the known vocabulary, except the tolerated
+      non-injury ones (:data:`_TOLERATED_UNTRACKED_STATUSES`) -- judged only over
+      :data:`MIN_ROWS_FOR_FRACTION` or more such rows.
 
     ``parsed`` lets a caller that already parsed avoid doing it twice.
     """
@@ -377,6 +440,8 @@ def payload_shape_error(payload: Any, *, parsed: ParseResult | None = None) -> s
 
 
 def parse_health_error(report: ParseReport) -> str | None:
+    if report.proven_empty:
+        return None
     if report.raw_entries > 0 and report.parsed == 0:
         return f"no_injury_entries_parsed:raw={report.raw_entries},skipped={_fmt_skips(report)}"
     candidates = report.candidate_rows
@@ -471,7 +536,8 @@ def parse_espn_payload(payload: Any) -> ParseResult:
 
     Row handling, in order -- each skip is counted by reason, none is guessed:
     non-object row; blank status; healthy (``Active``) status; untracked status
-    (e.g. ``Suspension``); missing athlete; missing / non-numeric / conflicting id;
+    (``Suspension`` is tolerated; any other unknown status counts as a loss);
+    missing athlete; missing / non-numeric / conflicting id;
     then a per-id duplicate pass (identical copies collapse to one, conflicting
     copies are ALL dropped -- which copy is current is not knowable).
     """

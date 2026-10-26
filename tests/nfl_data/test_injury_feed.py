@@ -380,6 +380,7 @@ def test_current_shape_fixture_parses_to_expected_rows():
         "candidateRows": 8,
         "structuralLosses": 0,
         "skipped": {"status_active": 1, "status_untracked:SUSPENSION": 1},
+        "notes": {},
     }
     assert injury_feed.payload_shape_error(_current_payload(), parsed=result) is None
 
@@ -533,12 +534,80 @@ def test_alarm_raw_rows_but_zero_parsed_is_drift():
     assert "athlete_id_missing:8" in err
 
 
-def test_alarm_all_healthy_rows_is_also_flagged_strict_by_design():
+def test_a_report_of_only_healthy_active_rows_is_a_proven_empty_report_not_drift():
     payload = _current_payload()
     for row in _rows(payload):
         row["status"] = "Active"
-    err = injury_feed.payload_shape_error(payload)
+    result = injury_feed.parse_espn_payload(payload)
+    assert result.report.parsed == 0 and result.report.structural_losses == 0
+    assert result.report.skipped == {"status_active": 10}
+    assert result.report.proven_empty is True
+    assert injury_feed.parse_health_error(result.report) is None
+    assert injury_feed.payload_shape_error(payload, parsed=result) is None
+    # ...and the proof is COUNTED, in the report the refresh logs and ledgers.
+    assert result.report.to_dict()["notes"] == {injury_feed.NOTE_PROVEN_EMPTY: 10}
+
+
+def test_proven_empty_needs_every_skipped_row_to_be_healthy():
+    """One row of any other kind and the zero-parsed alarm stands."""
+    # (a) the id source changed: rows are Out but their ids are unreadable
+    ids_gone = _strip_all_ids(_current_payload())
+    err = injury_feed.payload_shape_error(ids_gone)
     assert err is not None and err.startswith("no_injury_entries_parsed:raw=10")
+    # (b) the status vocabulary changed: every row says something unknown
+    drifted = _current_payload()
+    for row in _rows(drifted):
+        row["status"] = "Inactive"
+    err = injury_feed.payload_shape_error(drifted)
+    assert err is not None and err.startswith("no_injury_entries_parsed:raw=10")
+    assert "status_untracked:INACTIVE:10" in err
+    # (c) all healthy, plus one row we cannot read: not proven (a lost id may hide
+    #     an injured player)
+    mixed = _current_payload()
+    for row in _rows(mixed):
+        row["status"] = "Active"
+    _rows(mixed)[0]["status"] = "Out"
+    _rows(mixed)[0]["athlete"].pop("id", None)
+    _rows(mixed)[0]["athlete"]["links"] = []
+    result = injury_feed.parse_espn_payload(mixed)
+    assert result.report.proven_empty is False and result.report.notes == {}
+    assert injury_feed.parse_health_error(result.report) is not None
+    # (d) all healthy plus a tolerated Suspension: still not a report we can call
+    #     empty by the strict rule
+    suspended = _current_payload()
+    for row in _rows(suspended):
+        row["status"] = "Active"
+    _rows(suspended)[0]["status"] = "Suspension"
+    assert injury_feed.parse_espn_payload(suspended).report.proven_empty is False
+    # (e) a malformed team block beside the healthy rows
+    broken_block = _current_payload()
+    for row in _rows(broken_block):
+        row["status"] = "Active"
+    broken_block["injuries"].append("not a block")
+    assert injury_feed.parse_espn_payload(broken_block).report.proven_empty is False
+
+
+def test_a_proven_empty_report_is_cached_as_a_real_empty_fetch(
+    monkeypatch, tmp_path, _fresh_breaker
+):
+    from src.nfl_data import cache as nfl_cache
+
+    monkeypatch.setenv("RISKIT_FEATURE_ESPN_INJURY_FEED", "1")
+    feature_flags.reload()
+    injury_feed.clear_last_fetch_report()
+    payload = _current_payload()
+    for row in _rows(payload):
+        row["status"] = "Active"
+    body = json.dumps(payload).encode("utf-8")
+    out = injury_feed.fetch_injuries(
+        _url_opener=lambda req, timeout=None: io.BytesIO(body), cache_dir=tmp_path
+    )
+    assert out == []
+    report = injury_feed.last_fetch_report()
+    assert report["outcome"] == "ok" and report["error"] is None
+    assert report["parse"]["notes"] == {injury_feed.NOTE_PROVEN_EMPTY: 10}
+    # proven, so the cache entry exists and a caller can tell it from a failed fetch
+    assert nfl_cache.entry_fetched_at(injury_feed.CACHE_KEY, cache_dir=tmp_path) is not None
 
 
 def test_alarm_does_not_fire_on_a_genuinely_empty_report():
@@ -570,6 +639,63 @@ def test_alarm_parse_loss_fraction_boundaries():
     bad = injury_feed.parse_espn_payload(_synthetic_current_payload(26, 4))
     err = injury_feed.parse_health_error(bad.report)
     assert err is not None and err.startswith("parse_loss_above_10pct:4/30,skipped=")
+
+
+def _status_mix_payload(n_good: int, **other_status_counts: int):
+    """``n_good`` readable ``Out`` rows plus N rows per extra status (readable ids)."""
+
+    def row(i, status):
+        href = f"https://www.espn.com/nfl/player/_/id/{9000 + i}/p-{i}"
+        athlete = {
+            "displayName": f"Player {i}",
+            "position": {"abbreviation": "WR"},
+            "team": {"abbreviation": "BUF"},
+            "links": [{"href": href}],
+        }
+        return {"id": str(-i), "status": status, "date": "2026-10-26T00:00Z", "athlete": athlete}
+
+    rows = [row(i, "Out") for i in range(n_good)]
+    n = n_good
+    for status, count in other_status_counts.items():
+        for _ in range(count):
+            rows.append(row(n, status.replace("_", " ")))
+            n += 1
+    return {"injuries": [{"id": "2", "displayName": "Buffalo Bills", "injuries": rows}]}
+
+
+def test_unknown_statuses_count_toward_the_loss_rule_but_suspension_does_not():
+    # 3 unknown-status rows of 30 candidates = exactly 10%: tolerated (like 3 lost ids).
+    ok = injury_feed.parse_espn_payload(_status_mix_payload(27, Inactive=3))
+    assert ok.report.skipped == {"status_untracked:INACTIVE": 3}
+    assert ok.report.parsed == 27 and ok.report.structural_losses == 3
+    assert ok.report.candidate_rows == 30
+    assert injury_feed.parse_health_error(ok.report) is None
+    # 4 of 30 = 13.3%: a renamed status vocabulary is drift, not a quiet league.
+    bad = injury_feed.parse_espn_payload(_status_mix_payload(26, Inactive=4))
+    assert bad.report.structural_losses == 4
+    err = injury_feed.parse_health_error(bad.report)
+    assert err is not None and err.startswith("parse_loss_above_10pct:4/30,skipped=")
+    assert "status_untracked:INACTIVE:4" in err
+    # The same four rows as SUSPENSION are an expected non-injury: no loss at all.
+    fine = injury_feed.parse_espn_payload(_status_mix_payload(26, Suspension=4))
+    assert fine.report.skipped == {"status_untracked:SUSPENSION": 4}
+    assert fine.report.structural_losses == 0
+    assert fine.report.candidate_rows == 26
+    assert injury_feed.parse_health_error(fine.report) is None
+    # Many suspensions never trip the rule however large their share.
+    many = injury_feed.parse_espn_payload(_status_mix_payload(25, Suspension=25))
+    assert many.report.structural_losses == 0
+    assert injury_feed.parse_health_error(many.report) is None
+
+
+def test_every_untracked_status_but_the_tolerated_ones_is_a_structural_loss():
+    assert injury_feed.is_structural_loss_reason("status_untracked:INACTIVE") is True
+    assert injury_feed.is_structural_loss_reason("status_untracked:") is True
+    assert injury_feed.is_structural_loss_reason("status_untracked:SUSPENSION") is False
+    assert injury_feed.is_structural_loss_reason("status_active") is False
+    assert injury_feed.is_structural_loss_reason("athlete_id_missing") is True
+    assert injury_feed.is_structural_loss_reason("duplicate_identical_collapsed") is False
+    assert injury_feed.is_structural_loss_reason("team_block_malformed") is False
 
 
 def test_alarm_parse_loss_fraction_is_not_judged_below_the_floor():
