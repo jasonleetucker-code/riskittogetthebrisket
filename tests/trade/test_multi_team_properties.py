@@ -1172,7 +1172,9 @@ def test_i19_gift_values_either_side_of_the_absolute_floor():
 
 # ══ §2.3 adversarial ledgers against an independent oracle ═══════════════
 
-_ECHO = re.compile(r"^[A-Za-z0-9:_-]{1,64}$")
+# ``\Z``, not ``$``: ``$`` also matches before a trailing newline, and the
+# oracle must reject "p:1\n" exactly as the engine's echo filter does.
+_ECHO = re.compile(r"^[A-Za-z0-9:_-]{1,64}\Z")
 JUNK_IDS = (
     "p:777",
     "p:12-3",

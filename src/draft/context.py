@@ -239,6 +239,36 @@ def match_team(
     return None
 
 
+def _ids_parallel_to_names(
+    names: Sequence[str],
+    ids: Sequence[str],
+    by_id: Mapping[str, Mapping[str, Any]],
+) -> bool:
+    """Are ``ids`` VERIFIABLY the parallel list of ``names`` (``ids[i]`` is
+    ``names[i]``'s Sleeper id)?
+
+    Equal lengths, at least one id that resolves to a board row, and EVERY id
+    that resolves sits at an index whose name that row answers to.  Positional
+    pairing is never assumed: it is the ``sleeper_overlay`` shape, the scraper
+    sorts the two lists independently (8 of 696 entries line up on the
+    2026-10-25 board), and neither shape carries a marker saying which it is.
+    A sorted pair of lists can pass only by agreeing at every resolvable index,
+    in which case the pairing it implies is the true one for those entries.
+    Pure.
+    """
+    if not names or len(names) != len(ids):
+        return False
+    verified = 0
+    for name, pid in zip(names, ids):
+        row = by_id.get(_norm(pid))
+        if row is None:
+            continue
+        if _norm(name) not in _row_name_keys(row):
+            return False
+        verified += 1
+    return verified > 0
+
+
 def build_roster_assets(
     team: Mapping[str, Any],
     by_name: Mapping[str, Mapping[str, Any]],
@@ -267,7 +297,11 @@ def build_roster_assets(
     ``players`` and ``playerIds`` are NOT parallel lists in the live contract
     (names sorted alphabetically, ids by id: 8 of 696 entries line up on the
     2026-10-25 board), so the ids are used as a SET to scope who a name can mean,
-    never positionally.  The assets come back one per name, in name order.
+    never positionally to JOIN.  The one positional read is an unmatched entry's
+    own id, and only for rosters whose lists are VERIFIED parallel (the
+    ``sleeper_overlay`` shape; :func:`_ids_parallel_to_names`).  The assets come
+    back one per name, in name order; an entry the board has no row for is
+    ``on_board=False`` - the join's own fact, not a guess from empty fields.
     """
     names = [str(n) for n in (team.get("players") or []) if str(n or "").strip()]
     ids = [str(i) for i in (team.get("playerIds") or []) if str(i or "").strip()]
@@ -299,8 +333,23 @@ def build_roster_assets(
             if row is not None and _norm(row.get("playerId")) in own_ids:
                 consumed_ids.add(_norm(row.get("playerId")))
         joined.append((name, row))
-    # An unmatched entry's own id is known only when it is the single one left
-    # over; with several, which id is whose cannot be told, so none is guessed.
+    # An unmatched entry's own Sleeper id.  Two producer shapes, told apart by
+    # what the board can VERIFY (:func:`_ids_parallel_to_names`):
+    #
+    # * ``sleeper_overlay`` rosters (every non-default league) publish ``players``
+    #   and ``playerIds`` as PARALLEL lists - ``playerIds[i]`` is entry ``i``'s
+    #   id.  When every id that resolves to a board row sits at an index whose
+    #   name that row answers to, the pairing is verified and an unmatched entry
+    #   keeps its positional id (what this join always gave it).
+    # * the scraper's rosters (the default league) sort the two lists
+    #   independently, so no index means anything.  An unmatched entry's id is
+    #   then known only when it is the single one left over; with several,
+    #   which id is whose cannot be told, so none is guessed.
+    #
+    # A roster whose pairing cannot be verified (nothing resolves, or one pair
+    # contradicts) reads as the scraper shape - the safe reading: it can
+    # withhold an id, never assign another entry's.
+    parallel = _ids_parallel_to_names(names, ids, by_id)
     leftover_ids = [i for i in ids if _norm(i) not in consumed_ids]
     only_unmatched_id = (
         leftover_ids[0]
@@ -309,17 +358,18 @@ def build_roster_assets(
     )
     assets: list[RosterAsset] = []
     unmatched: list[str] = []
-    for name, row in joined:
+    for idx, (name, row) in enumerate(joined):
         if row is None:
             unmatched.append(name)
             # Still occupies a roster spot, and is a legitimate cut candidate —
             # dropping him from the model would understate roster pressure.
             assets.append(
                 RosterAsset(
-                    player_id=only_unmatched_id or _norm(name),
+                    player_id=(ids[idx] if parallel else only_unmatched_id) or name,
                     name=name,
                     position="",
                     board_value=None,
+                    on_board=False,
                 )
             )
             continue

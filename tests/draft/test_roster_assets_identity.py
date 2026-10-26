@@ -85,3 +85,63 @@ def test_a_roster_without_ids_still_joins_by_name():
     assert unmatched == ["Ghost"]
     assert (assets[0].player_id, assets[0].board_value) == ("1", 3000.0)
     assert assets[1].board_value is None
+    assert (assets[0].on_board, assets[1].on_board) == (True, False)
+    assert assets[1].player_id == "Ghost"  # no id anywhere: the name, as ever
+
+
+def test_parallel_lists_keep_each_unmatched_entrys_positional_id():
+    """The ``sleeper_overlay`` shape (every non-default league): ``players[i]``
+    and ``playerIds[i]`` describe one entry.  Every id that resolves sits at an
+    index whose name its row answers to, so the pairing is VERIFIED and each
+    unmatched entry keeps its OWN id - even with several unmatched."""
+    rows = [_row("1", "Alpha", "WR", 3000.0), _row("3", "Charlie", "QB", 1000.0)]
+    assets, unmatched = _join(
+        rows,
+        {"players": ["Alpha", "Bravo", "Charlie", "Delta"], "playerIds": ["1", "2", "3", "4"]},
+    )
+    assert unmatched == ["Bravo", "Delta"]
+    assert [(a.name, a.player_id, a.on_board) for a in assets] == [
+        ("Alpha", "1", True),
+        ("Bravo", "2", False),
+        ("Charlie", "3", True),
+        ("Delta", "4", False),
+    ]
+
+
+def test_sorted_lists_never_lend_an_unmatched_entry_another_entrys_id():
+    """The scraper shape (the default league) sorts ``players`` and ``playerIds``
+    independently, so no index means anything.  Here a positional read would
+    hand "Delta" id 4 - which is Alpha's.  The pairing fails verification (the
+    row for id 4 is not Delta), so two unmatched entries with two ids left
+    over get NO guessed id: each keeps its name."""
+    rows = [_row("4", "Alpha", "WR", 3000.0), _row("3", "Charlie", "QB", 1000.0)]
+    assets, unmatched = _join(
+        rows,
+        {"players": ["Alpha", "Bravo", "Charlie", "Delta"], "playerIds": ["1", "2", "3", "4"]},
+    )
+    assert unmatched == ["Bravo", "Delta"]
+    by_name = {a.name: a for a in assets}
+    assert by_name["Alpha"].player_id == "4" and by_name["Charlie"].player_id == "3"
+    assert by_name["Bravo"].player_id == "Bravo" and by_name["Delta"].player_id == "Delta"
+    assert not by_name["Bravo"].on_board and not by_name["Delta"].on_board
+
+
+def test_sorted_lists_with_one_leftover_id_still_name_it():
+    """A sorted roster with exactly one unmatched entry and one id left over:
+    that id is his, whatever the indexes say."""
+    rows = [_row("4", "Alpha", "WR", 3000.0), _row("3", "Charlie", "QB", 1000.0)]
+    assets, unmatched = _join(
+        rows, {"players": ["Alpha", "Bravo", "Charlie"], "playerIds": ["2", "3", "4"]}
+    )
+    assert unmatched == ["Bravo"]
+    assert {a.name: a.player_id for a in assets} == {"Alpha": "4", "Bravo": "2", "Charlie": "3"}
+
+
+def test_an_unverifiable_pairing_is_read_as_sorted():
+    """Nothing resolves, so nothing can verify the pairing: the safe reading is
+    the scraper shape - a lone leftover id is named, several are not."""
+    assets, unmatched = _join([], {"players": ["A", "B"], "playerIds": ["1", "2"]})
+    assert unmatched == ["A", "B"]
+    assert [a.player_id for a in assets] == ["A", "B"]
+    assets, unmatched = _join([], {"players": ["A"], "playerIds": ["1"]})
+    assert [a.player_id for a in assets] == ["1"]

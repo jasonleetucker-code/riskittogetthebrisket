@@ -583,19 +583,26 @@ def _asset_key(asset: RosterAsset) -> str:
 def _ladder_asset(asset: RosterAsset) -> RosterAsset:
     """The asset the cut ladder sees for one roster entry.
 
-    A joined entry is the board's own asset.  An entry that joined to NO board
-    row (``position`` empty, ``board_value`` ``None``) keeps the identity the
-    ladder has always given it - its normalised NAME, what an unresolved name
-    becomes in :func:`_resolve_incoming` - while ``roster_player_ids`` keeps the
-    roster's own id.  It is never re-joined to a board row by name, which is the
+    A joined entry is the board's own asset - id, position, value, injury,
+    eligibility and all.  An entry the join found NO board row for
+    (``asset.on_board`` is ``False``: the join's explicit fact, not a guess from
+    empty ``position`` / ``board_value``, which a board-matched row on a
+    degraded board can carry too) keeps the identity the ladder has always given
+    it - its normalised NAME, what an unresolved name becomes in
+    :func:`_resolve_incoming` - while ``roster_player_ids`` keeps the roster's
+    own id.  It is never re-joined to a board row by name, which is the
     collision this module exists to avoid (an unmatched "Byron Murphy" is not the
     board's other "Byron Murphy").
     """
-    if asset.position or asset.board_value is not None:
+    if asset.on_board:
         return asset
-    if _norm(asset.player_id) == _norm(asset.name):
-        return asset
-    return RosterAsset(player_id=_norm(asset.name), name=asset.name, position="", board_value=None)
+    return RosterAsset(
+        player_id=_norm(asset.name),
+        name=asset.name,
+        position="",
+        board_value=None,
+        on_board=False,
+    )
 
 
 def _roster_assets(context: CapacityContext) -> list[RosterAsset]:
@@ -821,42 +828,52 @@ class OutgoingRoster(list):
     entry_indexes: tuple[int | None, ...] = ()
 
 
-def _removal_indexes(
+def _removal_order(
     context: CapacityContext, outgoing: Sequence[str]
-) -> tuple[set[int], list[str]]:
-    """``(roster entries a trade removes, outgoing names no entry holds)``.
+) -> tuple[list[int], list[str]]:
+    """``(roster entries a trade removes, in outgoing order; names no entry holds)``.
 
     An entry the outgoing names pinned by id (:class:`OutgoingRoster`) is removed
     as that entry; every other name removes the first still-present roster entry
     of that name, by MULTIPLICITY (two outgoing "A" remove two roster "A"s, one
-    outgoing "A" removes one).  The one definition ``assess_roster_capacity`` and
-    ``final_legal_roster`` both remove entries by, so the capacity answer and the
-    roster it is simulated on cannot disagree about who left.
+    outgoing "A" removes one).  Pinned entries are reserved BEFORE any name is
+    placed, so a name-only "A" can never take the very entry another leg pinned.
+    The one definition ``assess_roster_capacity`` and ``final_legal_roster`` both
+    remove entries by, so the capacity answer and the roster it is simulated on
+    cannot disagree about who left.
     """
     names = context.roster_player_names
     hints = getattr(outgoing, "entry_indexes", ())
-    removed: set[int] = set()
-    rest: list[str] = []
+    taken: set[int] = set()
+    placed: dict[int, int] = {}  # outgoing position -> roster entry
+    rest: list[tuple[int, str]] = []
     for i, name in enumerate(outgoing):
         if not str(name or "").strip():
             continue
         hint = hints[i] if i < len(hints) else None
-        if hint is not None and 0 <= hint < len(names) and hint not in removed:
-            removed.add(hint)
+        if hint is not None and 0 <= hint < len(names) and hint not in taken:
+            taken.add(hint)
+            placed[i] = hint
         else:
-            rest.append(str(name))
-    pending = Counter(_norm(n) for n in rest)
-    for k, entry_name in enumerate(names):
-        key = _norm(entry_name)
-        if k not in removed and pending.get(key, 0) > 0:
-            pending[key] -= 1
-            removed.add(k)
+            rest.append((i, str(name)))
     unplaced: list[str] = []
-    for n in rest:
-        if pending.get(_norm(n), 0) > 0:
-            pending[_norm(n)] -= 1
-            unplaced.append(n)
-    return removed, unplaced
+    for i, name in rest:
+        key = _norm(name)
+        entry = next((k for k, n in enumerate(names) if k not in taken and _norm(n) == key), None)
+        if entry is None:
+            unplaced.append(name)
+        else:
+            taken.add(entry)
+            placed[i] = entry
+    return [placed[i] for i in sorted(placed)], unplaced
+
+
+def _removal_indexes(
+    context: CapacityContext, outgoing: Sequence[str]
+) -> tuple[set[int], list[str]]:
+    """:func:`_removal_order` as a set - ``(entries removed, names no entry holds)``."""
+    order, unplaced = _removal_order(context, outgoing)
+    return set(order), unplaced
 
 
 def outgoing_roster_names(
@@ -1299,7 +1316,9 @@ def _resolve_incoming(
     """
     row = by_name.get(_norm(name))
     if row is None:
-        return RosterAsset(player_id=_norm(name), name=name, position="", board_value=None)
+        return RosterAsset(
+            player_id=_norm(name), name=name, position="", board_value=None, on_board=False
+        )
     value = row.get("rankDerivedValue")
     fantasy = row.get("fantasyPositions")
     # ``ros_value`` drives LINEUP FEASIBILITY only, never cost arithmetic
@@ -1327,29 +1346,33 @@ def _outgoing_held(
 ) -> tuple[int, list[str]]:
     """How many outgoing names the roster actually holds, and which it does not.
 
-    Matched by MULTIPLICITY, the same rule ``_surviving_keys`` and the roster
-    rebuild use.  Before this existed ``size_after`` subtracted ``len(outgoing)``
-    flat while both of those removed only what was there, so the two definitions
-    of the post-trade roster disagreed whenever a caller named a player the
-    roster did not hold — and they disagreed in the direction that HIDES roster
-    pressure, reporting a spot freed that never existed.
+    Removal is by ROSTER ENTRY - :func:`_removal_indexes`, the one definition
+    ``_surviving_keys``, the post-trade roster rebuild and
+    :func:`final_legal_roster` all remove by - so the count of spots freed, the
+    taxi relief and the roster the ladder is built on cannot disagree about who
+    left, same-named players included.  Before this existed ``size_after``
+    subtracted ``len(outgoing)`` flat while the others removed only what was
+    there, so the definitions of the post-trade roster disagreed whenever a
+    caller named a player the roster did not hold — and they disagreed in the
+    direction that HIDES roster pressure, reporting a spot freed that never
+    existed.  ``outgoing`` may be an :class:`OutgoingRoster` (entries pinned by
+    id); a plain list removes by name multiplicity.
     """
 
-    held = Counter(_norm(n) for n in context.roster_player_names)
-    asked = Counter(_norm(n) for n in outgoing)
-    matched = sum(min(held[key], count) for key, count in asked.items())
+    removed, unplaced = _removal_indexes(context, outgoing)
     # DISTINCT names for the note — asking to send the same player twice when
     # the roster holds one copy is one shortfall, not two names.  The COUNT is
-    # ``len(outgoing) - matched``, which is what the caller publishes.
-    short = {key for key, count in asked.items() if count > held[key]}
+    # ``len(outgoing) - matched``, which is what the caller publishes.  Listed
+    # in the order the trade first named them.
+    short = {_norm(n) for n in unplaced}
     seen: set[str] = set()
     absent: list[str] = []
     for name in outgoing:
         key = _norm(name)
-        if key in short and key not in seen:
+        if key in short and key not in seen and str(name or "").strip():
             seen.add(key)
-            absent.append(name)
-    return matched, absent
+            absent.append(str(name))
+    return len(removed), absent
 
 
 def _surviving_keys(
@@ -1359,18 +1382,15 @@ def _surviving_keys(
 ) -> set[str]:
     """Normalised keys of the roster AFTER the trade.
 
-    Removal is by MULTIPLICITY, matching the roster rebuild below and the rule
-    ``simulate_trade`` had to learn for picks: two entries sharing a key are
-    two assets, and trading one removes one.
+    The entries :func:`_removal_indexes` removes leave (the entry an id pinned,
+    else the first of that name, once per outgoing name): two entries sharing a
+    key are two assets, trading one removes one, and trading both removes both.
+    The old set-of-outgoing-keys form removed a name at most ONCE however many
+    copies were sent, so a taxi member sent in duplicate still read as on the
+    surviving roster.
     """
-    pending = {_norm(n) for n in outgoing}
-    keys: set[str] = set()
-    for name in context.roster_player_names:
-        key = _norm(name)
-        if key in pending:
-            pending.discard(key)
-            continue
-        keys.add(key)
+    removed, _unplaced = _removal_indexes(context, outgoing)
+    keys = {_norm(n) for k, n in enumerate(context.roster_player_names) if k not in removed}
     keys.update(_norm(n) for n in incoming)
     return keys
 
@@ -1441,11 +1461,12 @@ def final_legal_roster(
     drop_ids = tuple(d.player_id for d in capacity.forced_drops)
     acquired_drop_ids = tuple(d.player_id for d in capacity.forced_drops if d.acquired_in_trade)
     # The outgoing players are the roster ENTRIES ``assess_roster_capacity``
-    # removed (``_removal_indexes``: the entry the id pinned, else the first
-    # of that name), so each leaves with the id the before-roster above carries.
-    # A name no entry holds keeps the board-name resolution it always had.
-    removed_entries, unplaced = _removal_indexes(context, outgoing_players)
-    outgoing_assets = [before[k] for k in sorted(removed_entries)] + [
+    # removed (``_removal_order``: the entry the id pinned, else the first
+    # of that name), so each leaves with the id the before-roster above carries,
+    # in the order the trade named them.  A name no entry holds keeps the
+    # board-name resolution it always had.
+    removed_order, unplaced = _removal_order(context, outgoing_players)
+    outgoing_assets = [before[k] for k in removed_order] + [
         _resolve_incoming(n, context.by_name) for n in unplaced
     ]
     outgoing_ids = tuple(a.player_id for a in outgoing_assets if a.player_id in on_roster)
@@ -1726,7 +1747,9 @@ def assess_roster_capacity(
     notes = list(context.notes)
 
     size_before = len(context.roster_player_names)
-    held_out, absent_out = _outgoing_held(context, outgoing)
+    # ``outgoing_players`` itself, not the filtered copy: an ``OutgoingRoster``
+    # carries the roster ENTRY each id pinned, which a plain list would lose.
+    held_out, absent_out = _outgoing_held(context, outgoing_players)
     size_after = size_before - held_out + len(incoming)
     unheld_out = len(outgoing) - held_out
     if unheld_out:
@@ -1767,7 +1790,7 @@ def assess_roster_capacity(
     elif context.taxi_membership_known:
         # Count the taxi members that SURVIVE the trade, capped at the number
         # of slots that exist — a source can list more than the league allows.
-        surviving_keys = _surviving_keys(context, incoming, outgoing)
+        surviving_keys = _surviving_keys(context, incoming, outgoing_players)
         occupied = len(context.taxi_member_keys & surviving_keys)
         taxi_lo = taxi_hi = min(context.taxi_size, occupied)
         certainty = "exact"
