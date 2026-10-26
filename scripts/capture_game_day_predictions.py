@@ -19,10 +19,13 @@ an already-captured skip rather than an error — so a retried cron, or a
 second run in the same window, is safe.
 
 Exit codes
-    0  every requested league is captured (newly, or already was)
+    0  every requested league is captured (newly, or already was — including
+       after kickoff, when the archive already holds every team's pregame
+       snapshot taken before it)
     1  at least one league failed
     2  nothing to do — no leagues configured, or no week resolved
-    3  refused — the pregame window has closed for a requested league
+    3  refused — the pregame window has closed for a requested league AND
+       its pregame observation is missing (or could not be verified)
 """
 
 from __future__ import annotations
@@ -35,13 +38,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.api import league_registry  # noqa: E402
 from src.public_league import sleeper_client  # noqa: E402
-from src.ros.game_day_archive import GameDayArchiveError, record_snapshot  # noqa: E402
+from src.ros.game_day_archive import (  # noqa: E402
+    GameDayArchiveError,
+    load_snapshots_for_week,
+    record_snapshot,
+)
 from src.ros.game_day_capture import (  # noqa: E402
     CAPTURE_WINDOW_HOURS,
     GameDayCaptureRefusal,
     build_capture,
     estimate_index_from_ensemble,
     first_kickoff_utc,
+    pregame_capture_gaps,
     pregame_window_state,
     week_one_waiver_guard,
 )
@@ -87,6 +95,36 @@ def _resolve_estimates(
         tuple(result.sources_loaded),
         tuple(result.sources_unavailable),
     )
+
+
+def _uncaptured_pregame(configs, season: int, week: int, kickoff) -> list[tuple[str, str]]:
+    """``(league_key, reason)`` for every league whose pregame observation for
+    this week is NOT fully in the archive -- empty means nothing was lost.
+
+    Fails closed: a league whose roster list cannot be read is reported as a
+    gap ("could not verify"), never assumed captured."""
+    gaps: list[tuple[str, str]] = []
+    for cfg in configs:
+        league_id = league_registry.get_sleeper_league_id(cfg.key)
+        rosters = sleeper_client.fetch_rosters(league_id) if league_id else None
+        rosters = [
+            r for r in rosters or () if isinstance(r, dict) and r.get("roster_id") is not None
+        ]
+        if not rosters:
+            gaps.append((cfg.key, "could not verify: no rosters from Sleeper"))
+            continue
+        # A roster with no players is never captured (build_capture reports it,
+        # the archive refuses an empty snapshot), so it cannot be a lost
+        # observation -- counting it would page every run until the week rolls.
+        expected = [r["roster_id"] for r in rosters if r.get("players")]
+        missing = pregame_capture_gaps(
+            expected_team_ids=expected,
+            snapshots=load_snapshots_for_week(cfg.key, season, week, capture_kind="pregame"),
+            first_kickoff=kickoff,
+        )
+        if missing:
+            gaps.append((cfg.key, f"no pregame snapshot for team(s) {', '.join(missing)}"))
+    return gaps
 
 
 def main() -> int:
@@ -201,6 +239,19 @@ def main() -> int:
         state, why = pregame_window_state(first_kickoff=kickoff, window_hours=args.window_hours)
         print(f"Pregame window: {state} — {why}")
         if state == "closed":
+            # Closed is only a LOST observation if the archive lacks it.  The
+            # timer fires every 4h until Sleeper rolls the week (~5 days after
+            # a Thursday opener), so a week captured before kickoff must not
+            # page as "unrecoverable" on every one of those runs.
+            gaps = _uncaptured_pregame(configs, int(season), int(week), kickoff)
+            if not gaps:
+                print(
+                    f"Nothing to do: week {week}'s pregame observation was captured "
+                    "before kickoff for every league."
+                )
+                return 0
+            for key, reason in gaps:
+                print(f"  {key}: {reason}", file=sys.stderr)
             print("REFUSED: first kickoff has passed.", file=sys.stderr)
             return 3
         if args.ignore_window:
@@ -288,6 +339,14 @@ def main() -> int:
                 sources_unavailable=unavailable,
             )
         except GameDayCaptureRefusal as exc:
+            # Same rule as the schedule gate above, for the score gate (which
+            # is what decides when no kickoff could be resolved): the week
+            # having begun is a lost observation only if the archive lacks it.
+            if args.capture_kind == "pregame" and not _uncaptured_pregame(
+                [cfg], int(season), int(week), kickoff
+            ):
+                print(f"    week has begun; pregame already captured for every team ({exc})")
+                continue
             print(f"    REFUSED: {exc}", file=sys.stderr)
             refusals += 1
             continue

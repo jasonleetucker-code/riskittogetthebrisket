@@ -493,6 +493,43 @@ def pregame_window_state(
     )
 
 
+def pregame_capture_gaps(
+    *,
+    expected_team_ids: Sequence[Any],
+    snapshots: Sequence[Any],
+    first_kickoff: datetime | None,
+) -> list[str]:
+    """Team ids of one league-week that have NO pregame snapshot captured
+    before ``first_kickoff`` -- sorted, empty when the week is fully captured.
+
+    This is the question a closed window actually asks.  "Kickoff has passed"
+    alone is not a lost observation: the timer keeps firing every four hours
+    until Sleeper rolls the week, so a week captured on Tuesday evening would
+    otherwise be REFUSED (exit 3, "unrecoverable") on every run from Thursday
+    night to the next Tuesday while the evidence sits in the archive.
+
+    A snapshot counts only if its ``captured_at`` is a real instant strictly
+    before the first kickoff (with no kickoff to compare against, any
+    pregame snapshot counts -- the archive's own write path refuses a
+    post-kickoff pregame capture).  An expected team with nothing qualifying
+    is a gap; an empty ``expected_team_ids`` proves nothing and is the
+    caller's to refuse.
+    """
+    captured: set[str] = set()
+    for snap in snapshots:
+        if getattr(snap, "capture_kind", None) != "pregame":
+            continue
+        if first_kickoff is not None:
+            try:
+                at = datetime.fromisoformat(str(getattr(snap, "captured_at", "")))
+            except ValueError:
+                continue
+            if at.tzinfo is None or at >= first_kickoff:
+                continue
+        captured.add(str(getattr(snap, "team_id", "")))
+    return sorted({str(t) for t in expected_team_ids} - captured)
+
+
 def week_one_waiver_guard(
     *,
     season: int,

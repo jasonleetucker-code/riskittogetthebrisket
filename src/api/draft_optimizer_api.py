@@ -18,6 +18,7 @@ from collections import OrderedDict
 from collections.abc import Mapping
 from typing import Any
 
+from src.draft import waiver_population
 from src.draft.context import build_roster_context, list_draft_teams
 
 __all__ = ["get_draft_teams", "get_roster_context", "reset_cache"]
@@ -64,13 +65,25 @@ def get_roster_context(
     Propagates :class:`ValueError` from the engine (``no_rosters_loaded`` /
     ``unknown_team``) so the route can turn it into a precise error code.
     """
+    li5 = waiver_population.enabled()
     key = (
         *_contract_stamp(contract),
         str(league_key or ""),
         str(owner_id or ""),
         str(roster_id or ""),
         str(team_name or "").strip().lower(),
+        # The LI-5 waiver-level flag changes ``waiverValues`` / ``waiverLadder``
+        # / the cut ladder, so a flip must never be answered from a context
+        # built under the other state (design §7).
+        li5,
     )
+    if li5:
+        # Flag ON only: that build also reads the date's rookie window, the
+        # league week and the players DB's ``fetchedAt`` (design §8 item 10), so
+        # the key carries them; a change rebuilds instead of serving a context
+        # built under the old inputs.  Flag OFF reads none of this and its key
+        # is exactly the tuple above.
+        key = (*key, waiver_population.request_cache_stamp(contract))
     with _lock:
         hit = _context_cache.get(key)
         if hit is not None:

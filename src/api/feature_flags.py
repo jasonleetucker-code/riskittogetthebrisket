@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 60 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 62 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -624,6 +624,21 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # public API terms apply.  Off → 503 feature_disabled and the nav item
     # disappears.  Rollback: RISKIT_FEATURE_MANAGER_INTELLIGENCE=0 + restart.
     "manager_intelligence": True,
+    # D-2 (docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md §6.1).  ON: a backend
+    # boot skips its 3 s startup scrape (and its Chromium launch) only when
+    # the board it just primed is healthy and was produced less than one
+    # SCRAPE_INTERVAL_HOURS ago; the first scheduled scrape then runs at
+    # produced + interval.  Any other boot scrapes immediately, so the maximum
+    # served-board age does not change.  Decision owner:
+    # ``server._startup_scrape_plan`` (lifespan).  OFF (the default) is
+    # today's behaviour byte for byte: every boot scrapes after 3 s.
+    # Default OFF because it is NOT a pure no-risk change: a deploy that ships
+    # scraper code no longer exercises it until the board comes due (up to one
+    # interval), boot no longer refreshes rosters at once, and it changes the
+    # per-restart memory profile the owner-reserved MemoryHigh canary
+    # (§5.2) measures.  Activation: RISKIT_FEATURE_CONDITIONAL_STARTUP_SCRAPE=1
+    # + restart; rollback =0 + restart.
+    "conditional_startup_scrape": False,
     # Brisket Trade Advisor (owner directive 2026-10-19; FAIRNESS-ONLY
     # amendment 2026-10-20): the public League Hub trade advisor,
     # ``/api/public/league/trade-advisor/*`` (src/api/public_trade_advisor_api.py).
@@ -849,8 +864,30 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # incumbent byte for byte (tests/trade/test_forced_drop_flag_off_identity.py).
     # OFF until the owner approves the measured production impact
     # (docs/trade/FORCED_DROP_FIX_2026-10-20.md §8).  Rollback if ever on:
-    # RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL=0 + restart.
+    # RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL=0 + restart.  HELD, DEFAULT OFF
+    # (owner decision 2026-10-21, LVA Package 1, item 3: "Keep
+    # forced_drop_cheapest_legal OFF"); deploy/verify-deploy.sh fails a deploy
+    # whose effective flag is ON (scripts/verify_owner_held_flags.py).
     "forced_drop_cheapest_legal": False,
+    # LI-5 replacement-level consolidation -- HELD, DEFAULT OFF (owner
+    # decision 2026-10-21, LVA Package 3, D2: "Implement behind a default-OFF
+    # flag. No served replacement-level ... changes are authorized";
+    # docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md; design
+    # docs/valuation/LI5_REPLACEMENT_CONSOLIDATION_DESIGN_2026-10-21.md §7).
+    # ON: the displacement consumers (roster capacity -> Trade Calculator /
+    # War Room / Finder / Best Offers / Angle / Suggestions, Perfect Draft
+    # roster context, droppability) read the per-position waiver level as
+    # LI-5's ``waiver_levels`` (mean of free-agent ranks 1-3) over the
+    # ``src/draft/waiver_population.py`` population (each consumer's own
+    # rostered / auction-rookie keys, the waiver add pool, the availability
+    # owner), with an additive ``replacementPopulation`` stamp.  OFF: the
+    # best-single-unrostered anchor, every payload byte-identical
+    # (tests/draft/test_li5_consumer_wiring.py).  Changes no board value,
+    # vote or scarcity (inert 1.0).  Activation is a separate owner decision
+    # (design P4/P5); deploy/verify-deploy.sh fails a deploy whose effective
+    # flag is ON (scripts/verify_owner_held_flags.py).  Rollback:
+    # RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION=0 + restart.
+    "replacement_level_li5_consolidation": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -991,6 +1028,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # manager_intelligence gates the /api/manager-intel router mounted in
     # server.py: off → 503 feature_disabled, on → the profile.
     "manager_intelligence": LIVE,
+    # conditional_startup_scrape gates the startup scrape in server.py's
+    # lifespan (``_startup_scrape_plan``): off → every boot scrapes after 3 s.
+    "conditional_startup_scrape": LIVE,
     # brisket_trade_advisor gates the /api/public/league/trade-advisor/*
     # router mounted in server.py: off → 503 advisor_unavailable, on → the
     # public advisor payloads.
@@ -1184,6 +1224,12 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # (``/api/trade/simulate``, ``/api/trade/analyze``, ``/api/trade/finder``,
     # ``/api/angle/*``, suggestions, best offers).  Defaults False.
     "forced_drop_cheapest_legal": LIVE,
+    # ``src/draft/waiver_population.enabled`` -- read by
+    # ``roster_capacity.build_capacity_context`` (every trade-capacity read),
+    # ``draft.context.build_roster_context`` (/api/draft/roster-context) and
+    # ``roster_intel.droppability.team_droppability``
+    # (/api/roster/intelligence).  Defaults False.
+    "replacement_level_li5_consolidation": LIVE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger
