@@ -580,6 +580,12 @@ def yoy(inp: D.Inputs) -> dict[str, Any]:
 
 def winners_curse(inp: D.Inputs) -> dict[str, Any]:
     """2025: do players ranked in the replacement band by weeks 1-6 keep their weekly mean after?"""
+    # Starter band = the league's own dedicated slots x teams, from the one
+    # lineup-demand owner (never a local table).
+    from src.ros.lineup import resolve_league_slot_demand  # noqa: PLC0415
+
+    demand = resolve_league_slot_demand(roster_positions=inp.league.get("roster_positions"))
+    n_teams = int((inp.league.get("settings") or {}).get("num_teams") or len(inp.rosters))
     out = {}
     for fam in ("DL", "LB", "DB", "RB", "WR", "TE"):
         rows = []
@@ -604,7 +610,10 @@ def winners_curse(inp: D.Inputs) -> dict[str, Any]:
             continue
         rows.sort(key=lambda t: -t[0])
         arr = np.array(rows)
-        k = {"DL": 36, "LB": 36, "DB": 36, "RB": 24, "WR": 36, "TE": 24}[fam]
+        per_team = demand.required(fam, basis="dedicated")
+        if per_team is None:
+            continue  # league lineup unresolved: no band, never a guessed one
+        k = int(round(per_team * n_teams))
         band = arr[k : k + 80]
         top = arr[:k]
         out[fam] = {
