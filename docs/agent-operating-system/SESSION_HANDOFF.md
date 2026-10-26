@@ -3,65 +3,59 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-10-26 overnight (BUILD MODE: no merges, no deploys).** Agent-OS-Receipt `cb64f74c`.
+**As of 2026-10-26 ~11:40Z.** Agent-OS-Receipt `cb64f74c`. Concurrency limit: four workers (owner 2026-10-26).
 
-## P0 — do first in the morning
-**#1939** pins `scheduled-refresh.yml` to `ubuntu-24.04`. Since 2026-10-25 ~12:00Z the runner image moved to
-ubuntu-26.04, where the pinned Python Playwright 1.58.0 cannot launch Chromium. KTC, IDPTC and DraftSharks have
-not refreshed while runs report success. Merging restores fresh market values. Other Playwright workflows
-(npm Playwright) are unaffected.
+## Done this session
+- **#1939 MERGED** (squash `6eddc569f`, 11:33Z), after an independent review (APPROVE_WITH_NITS) with green
+  exact-head checks; main movement BENIGN_AUTOMATION_MOVE. It pins `scheduled-refresh.yml` to ubuntu-24.04.
+  - Deploy Production run 40315867455 was in progress at 11:36Z.
+  - **Still to verify** on the first scheduled refresh after the merge (about 12:42Z):
+    - the job runs on the 24.04 image, with no Chromium warning;
+    - the `_last_success` stamps for `ktc*`, `idpTradeCalc` and `draftSharks*` move past 2026-10-25T12:06Z;
+    - separately, `lastContentChange` advances. It should NOT advance for IDPTC, whose vendor page still says 10/10.
+- **#1950 (draft):** auction Phase 2 merged with main (branch `claude/auction-rehearsal-rebase`, head `d557f3f4b`).
+  - Tests: 404 passed locally, 377 on the CI-pinned stack, 54 vitest.
+  - The official gate stays OFF.
+  - Supersedes #1533. Do not close #1533 until #1950 is reviewed.
+- **#1951 (draft, stacked on #1948):** repairs LI1842 defects 01, 03, 04, 06, 09, 10 and 11 (head `24052113b`).
+  - Tests: 607 passed + 6 xfail; 209 passed; 120 vitest.
+  - Defects 02, 05, 07, 08, 12 and 13 stay strict xfail, pending owner or design decisions.
+- **#1934:** concurrency limit raised to four workers in the Agent OS, `ASSISTANT_COORDINATION.md` and `EXECUTION_PLAN.md`.
 
-## Merged before build mode
-#1922 forced-drop replay evidence · #1923 E2E fix · #1924 RIT reconciliation · #1925 docs/tests-only deploy skip ·
-#1926 box unit repairs · #1927 LI-5 P3 dormant + deploy-gate locks · #1928 IDP + audit intake.
+## Running (subagents)
+| task | where | output |
+|---|---|---|
+| Injury-feed parser fix, shadow-safe | own worktree, branch `claude/injury-feed-parser-fix` | draft PR |
+| Audit OPS+GOV (20) | read-only | `_audit_inputs/assessed_OPS_GOV.json` |
+| Audit SRC+VAL remainder (10) | read-only | `_audit_inputs/assessed_SRC_VAL.json` |
+| Independent security review of #1950 | read-only | verdict |
 
-## Integration queue (recommended order)
-| order | PR | what | state |
-|---|---|---|---|
-| 1 | #1939 | scheduled refresh runner pin (P0) + IDP staleness report | FEATURE_GREEN; needs review |
-| 2 | #1933 | unblock CI: pick-refinement withheld-source coverage | approved; CI pending |
-| 3 | #1934 | Agent OS usage-efficiency policy + this handoff | approved |
-| 4 | #1929 | conditional startup scrape (default OFF) | approved; CI re-run after flag-count fix |
-| 5 | #1931 | IDP Lane A scoring manifest + reconciliation | approved |
-| 6 | #1936 #1940 #1941 #1943 | IDP Lanes C, B, D, E (research) | FEATURE_GREEN; need review |
-| 7 | #1942 | preregistered backtest (stacked on #1940); no candidate advances | FEATURE_GREEN |
-| 8 | #1945 | IDP recommendations (Deliverable H) | FEATURE_GREEN |
-| 9 | #1935 → #1937 | multi-team invariant tests → defect fixes (stacked) | #1937 IMPLEMENTED_UNVALIDATED |
-| 10 | #1944 | LI-5 review follow-ups F-A/F-B/F-C | FEATURE_GREEN |
-| owner | #1938 | nflverse scorer fixes (changes BDVM in-season values) | needs owner decision |
+The audit inputs live in `.claude/worktrees/_audit_inputs/`, which is local and untracked. Assessed so far: the 19
+original items (in the `alreadyAssessed` lists of `cat_*.json`), TRD/DRF (19) and LGI (19). Still to do after the two
+running batches: collectors (38, in two batches), then the synthesis writer, which produces
+`docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md` + `.json`.
+
+## Integration queue (all checks green unless noted; none reviewed)
+- **Stand-alone, base main:** #1933, #1934 (CI pending after the push), #1929, #1931, #1936, #1940, #1941, #1943, #1945,
+  #1944, #1947, #1843, #1950.
+- **Stacked:**
+  - #1942 on #1940
+  - #1937 / #1946 / #1949 on #1935
+  - #1938 on #1931 (needs an owner decision; it changes BDVM)
+  - #1951 on #1948
+- **Codex-owned:** #1921 (ChatGPT MCP), not touched here.
 
 ## Owner decisions pending
-- **Public Waiver Wire scope.** Nothing in the repo authorizes it. Options: (A) promote the unlisted page,
-  (B) A plus factual league waiver activity, (C) public recommendations, which crosses the public/private boundary.
 - **#1938 BDVM scorer fixes**, with or without the special-teams tackle de-duplication.
-- **Cut-ladder name tie-break** (costs up to 12.19 lineup pts/wk), which interacts with `forced_drop_cheapest_legal`.
-- **Forced-drop activation.** Recommendation: not yet.
-- **IDP Show board swap**, combined board → IDP-only board.
-- **2026 as a clean holdout** for `league_fair_value_v1`.
-- **17-game re-run.**
-- **`SHARP_SMOKE_TOKEN`** (#1727).
-- **Lineage census box run.**
-- **Backend memory canary** (numbers in `docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md`).
+- **Injury events into BDVM.** Once the parser fix lands, events go to a shadow file only.
+- **LI1842 open defects** 02 (TE multiplier), 05, 07 (roster cap), 08 (POST leagueKey), 12 (trade_deadline),
+  13 (auction provenance).
+- **Cut-ladder name tie-break**, and forced-drop activation (recommendation: not yet).
+- **Public Waiver Wire scope**, options A/B/C.
+- **IDP Show board swap**, the 2026 holdout, the 17-game re-run, `SHARP_SMOKE_TOKEN`, the lineage census box run,
+  and the backend memory canary.
 
-## Stopped at the usage limit (2026-10-26 ~10:00Z) — resume these
-Four agents were stopped mid-task. Their worktrees under `.claude/worktrees/agent-*` may hold uncommitted work, so
-inspect them before redoing anything.
-- **#1948 defect fixes.** Branch `claude/li1842-defect-fixes`. Defects 1, 3, 4, 5, 6, 7 plus the memo.
-- **#1533 auction rebase.** Merge origin/main into `claude/auction-rehearsal`, then open a NEW draft PR.
-- **Injury-feed parser fix.** Branch `claude/injury-feed-parser-fix`. Had just started.
-- **OPS+GOV audit batch.** Had just started; nothing written yet.
-- **Done tonight, not on the queue above:** #1946 (Lane E parity/privacy, which absorbs #1930) and #1949 (Lane E
-  measurement script, stacked on #1935; all budgets pass, worst route cold p95 is 3.8 s against 30 s). A stale
-  unpushed branch `claude/lane-e-measure-script`, in worktree `wf_7e9bc4dc-8d8-4`, duplicates #1949 and can be retired.
-
-## Not finished
-- **#1842:** propagation matrix + #1843 reconcile (agent running when this was written).
-- **Lane E parity/privacy tests:** agent running when this was written.
-- **Lane E measure script:** not started.
-- **Promotion-readiness audit.** Inputs in `.claude/worktrees/_audit_inputs/` (local, untracked). Assessed so far: the
-  19 original + TRD/DRF (19) + LGI (19). Remaining: OPS+GOV (agent running), SRC 7 + VAL 3, collectors 38, then the
-  report writer (`docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md` + `.json`). ONE agent per batch.
-- **Injury feed parses 0 of 800 (LGI-016).** ESPN dropped `athlete.id`, so `_parse_espn_payload` skips every entry
-  while the shape check passes. A fix must divert derived events to a shadow file and seed the prior silently
-  (~274 events would otherwise hit the BDVM events file), the same trap #1926 closed for depth charts.
-- **ChatGPT MCP (#1921):** owned by the Codex session; not touched here.
+## Hazards
+- **The local disk is full**, with about 1.9 GB free on C:. Agents have hit ENOSPC. Nearly 100 worktrees exist,
+  including Codex ones. Do not delete any without inspecting them; that needs the owner's or the owning session's say.
+- **Never `git stash`.** The stash stack is shared across worktrees. Commit explicit paths only.
