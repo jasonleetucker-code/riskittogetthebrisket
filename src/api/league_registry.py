@@ -284,6 +284,17 @@ def _load_from_file(path: Path) -> tuple[dict[str, LeagueConfig], str | None]:
     if default_key_raw and default_key_raw in registry and registry[default_key_raw].active:
         default_key = default_key_raw
     else:
+        if default_key_raw and default_key_raw in registry:
+            # An operator who named a default and then retired that league
+            # would otherwise see every implicit request quietly move to a
+            # different league.  The fallback below is the right behaviour;
+            # doing it silently is not.
+            log.warning(
+                "league registry %s: defaultLeagueKey %r is inactive, so it is "
+                "not served implicitly; falling back to the first active league",
+                path,
+                default_key_raw,
+            )
         # Fall back to first active league; if nothing's active, first
         # listed.  Keeps the "default league" concept well-defined
         # even when operators forget to set it explicitly.

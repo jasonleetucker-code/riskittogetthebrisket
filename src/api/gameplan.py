@@ -1453,6 +1453,9 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
     # re-measures, a call that cannot read the cards is not memoised.
     by_name: dict[str, float] | None = None
     cards_key: tuple[str, str, int] | None = None
+    # See :func:`_resolve_scoring_fit`: only a call that READ the season's
+    # stat rows may memoise its answer.
+    stats_read = False
     try:
         from src.api.league_registry import get_sleeper_league_id  # noqa: PLC0415
         from src.league_comparison.scoring_engine import (  # noqa: PLC0415
@@ -1489,6 +1492,7 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
             if cards_key is not None and hit is not None and hit[0] == cards_key:
                 return hit[1]
             rows = fetch_weekly_stats([season])
+            stats_read = bool(rows)
             if mine and baseline and rows:
                 # Reception share is measured under the BASELINE card:
                 # that is the card the market prices on, so it is the
@@ -1553,7 +1557,7 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
         _LOGGER.warning("reception fit unavailable for %s: %r", league_key, exc)
         by_name = None
 
-    if cards_key is not None:
+    if cards_key is not None and stats_read:
         _RECEPTION_FIT_CACHE[league_key] = (cards_key, by_name)
     return by_name
 
@@ -1575,7 +1579,8 @@ def _resolve_scoring_fit(league_key: str) -> Any | None:
     up instead of being served until restart (LI1842-DEFECT-04); the
     cards come from ``fetch_league_scoring``, which is itself cached for
     an hour, so the warm path is two dict lookups.  A call that cannot
-    read the cards answers None and is NOT memoised.
+    read the cards, or whose season stat rows came back empty (a transient
+    outage), answers None and is NOT memoised.
     """
     from src.api import feature_flags  # noqa: PLC0415
 
@@ -1584,6 +1589,14 @@ def _resolve_scoring_fit(league_key: str) -> Any | None:
 
     measurement = None
     cards_key: tuple[str, str, int] | None = None
+    # True only once the season's stat rows were actually read.  The ingest
+    # layer answers ``[]`` when a fetch fails or the data layer is gated off,
+    # so "no rows" is "stats unavailable", not "measured and found nothing":
+    # memoising a ``None`` taken under it would serve that None for as long as
+    # the (readable, unchanged) cards stay the same -- a transient stats
+    # outage pinned until restart.  A measurement that ran and REFUSED itself
+    # is a result and is memoised.
+    stats_read = False
     try:
         from src.api.league_registry import get_sleeper_league_id  # noqa: PLC0415
         from src.league_comparison.service import _load_config  # noqa: PLC0415
@@ -1611,13 +1624,14 @@ def _resolve_scoring_fit(league_key: str) -> Any | None:
             if cards_key is not None and hit is not None and hit[0] == cards_key:
                 return hit[1]
             rows = fetch_weekly_defensive_stats([season])
+            stats_read = bool(rows)
             if mine and baseline and rows:
                 measurement = measure_positional_scoring_fit(rows, mine, baseline, season=season)
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("scoring fit unavailable for %s: %r", league_key, exc)
         measurement = None
 
-    if cards_key is not None:
+    if cards_key is not None and stats_read:
         _SCORING_FIT_CACHE[league_key] = (cards_key, measurement)
     return measurement
 

@@ -297,7 +297,7 @@ class TestTheFitMemosFollowTheScoringCards:
 
         def rows(*_a, **_k):
             stat_calls.append(1)
-            return []
+            return [{}]  # rows WERE read (a measurement that ran may be memoised)
 
         monkeypatch.setattr(
             "src.nfl_data.reception_depth.load_reception_depth", lambda *a, **k: {"x": 1}
@@ -310,6 +310,82 @@ class TestTheFitMemosFollowTheScoringCards:
         cards["cards"]["M"] = {"rec": 0.08, "pass_td": 6.0}
         gameplan._resolve_reception_fit("dynasty_main")
         assert len(stat_calls) == 2  # changed card: re-measured
+
+    # Review nit on LI1842-DEFECT-04: a fit is memoised only when the season's
+    # stat rows were actually read.  The ingest layer answers ``[]`` for a failed
+    # fetch (and a gated-off data layer), so an empty read is "stats unavailable",
+    # and memoising the ``None`` it produces pinned a transient outage for as
+    # long as the readable cards stayed unchanged -- i.e. until restart.
+
+    def test_a_transient_idp_stats_outage_is_not_memoised(self, cards, monkeypatch):
+        from src.league_comparison.sleeper_scoring import scoring_fingerprint
+        from src.league_intel import scoring_fit as li_scoring_fit
+        from src.nfl_data import ingest
+
+        outcomes = iter([[], OSError("nflverse timeout"), [{}]])
+        calls: list[int] = []
+
+        def rows(*_a, **_k):
+            calls.append(1)
+            outcome = next(outcomes)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+        monkeypatch.setattr(ingest, "fetch_weekly_defensive_stats", rows)
+        monkeypatch.setattr(
+            li_scoring_fit,
+            "measure_positional_scoring_fit",
+            lambda _rows, mine, _base, season=None: scoring_fingerprint(mine),
+        )
+        assert gameplan._resolve_scoring_fit("dynasty_main") is None  # empty read
+        assert gameplan._resolve_scoring_fit("dynasty_main") is None  # fetch raised
+        assert gameplan._SCORING_FIT_CACHE == {}  # ...and neither was remembered
+        recovered = gameplan._resolve_scoring_fit("dynasty_main")  # stats are back
+        assert recovered == scoring_fingerprint(cards["cards"]["M"])
+        assert gameplan._resolve_scoring_fit("dynasty_main") == recovered
+        assert len(calls) == 3  # the recovered measurement IS memoised
+
+    def test_a_measurement_that_refused_itself_is_still_memoised(self, cards, monkeypatch):
+        from src.league_intel import scoring_fit as li_scoring_fit
+        from src.nfl_data import ingest
+
+        calls: list[int] = []
+
+        def rows(*_a, **_k):
+            calls.append(1)
+            return [{}]
+
+        monkeypatch.setattr(ingest, "fetch_weekly_defensive_stats", rows)
+        monkeypatch.setattr(
+            li_scoring_fit, "measure_positional_scoring_fit", lambda *_a, **_k: None
+        )
+        assert gameplan._resolve_scoring_fit("dynasty_main") is None
+        assert gameplan._resolve_scoring_fit("dynasty_main") is None
+        assert len(calls) == 1  # a result (even a refusal) is expensive to recompute
+
+    def test_a_transient_reception_stats_outage_is_not_memoised(self, cards, monkeypatch):
+        outcomes = iter([[], OSError("nflverse timeout"), [{}], [{}]])
+        calls: list[int] = []
+
+        def rows(*_a, **_k):
+            calls.append(1)
+            outcome = next(outcomes)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+        monkeypatch.setattr(
+            "src.nfl_data.reception_depth.load_reception_depth", lambda *a, **k: {"x": 1}
+        )
+        monkeypatch.setattr("src.nfl_data.ingest.fetch_weekly_stats", rows)
+
+        gameplan._resolve_reception_fit("dynasty_main")  # empty read
+        gameplan._resolve_reception_fit("dynasty_main")  # fetch raised
+        assert gameplan._RECEPTION_FIT_CACHE == {}
+        gameplan._resolve_reception_fit("dynasty_main")  # stats are back: measured...
+        gameplan._resolve_reception_fit("dynasty_main")  # ...and remembered
+        assert len(calls) == 3
 
 
 class TestCrossConsumerAgreement:
