@@ -90,8 +90,11 @@ HOLDOUT_2026_WEEKS: tuple[int, ...] = (5, 6)
 CONFIRM_2026_WEEKS: tuple[int, ...] = (7,)
 SEASON = 2026
 
-#: Positions the best-ball sim draws (``PointsModel.cv_for`` keys + K via the default CV).
-SIM_POSITIONS = frozenset({"QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"})
+#: Lineup families this league's slots use (``lineup_position`` vocabulary).  The sim draws a player
+#: under his RAW directory position (``cv_for("CB")``, ``cv_for("DE")`` ...), and the directory
+#: carries fine IDP positions (CB, DE, DT, NT) and FB for ~68 rostered player-weeks a week, so
+#: eligibility is decided on the family, never on the raw label (deviation 1, results doc).
+SIM_FAMILIES = frozenset({"QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"})
 FAMILY_ORDER = ("QB", "RB", "WR", "TE", "K", "DL", "LB", "DB")
 
 SEED = 20261026
@@ -403,13 +406,29 @@ class PlayerWeek:
     season: int
     week: int
     pid: str
-    position: str
+    position: str  # RAW directory position: the key the sim's ``cv_for`` is asked
     status: str
     points: float | None  # host-native; None unless a row was scored
+    family: str = ""  # lineup family (``lineup_position``), "" when there is none
 
-    @property
-    def family(self) -> str:
-        return lineup_position(self.position)
+
+def lineup_family(meta: Mapping[str, Any] | None) -> str | None:
+    """The lineup family a player can fill, or ``None``.
+
+    ``lineup_position(position)`` first (CB -> DB, DE/DT/NT -> DL); when the raw position has no
+    family (FB), the first of his ``fantasy_positions`` that has one — the same field the exact
+    solver reads for slot eligibility.
+    """
+    if not meta:
+        return None
+    fam = lineup_position(str(meta.get("position") or ""))
+    if fam in SIM_FAMILIES:
+        return fam
+    for fp in meta.get("fantasy_positions") or ():
+        fam = lineup_position(str(fp or ""))
+        if fam in SIM_FAMILIES:
+            return fam
+    return None
 
 
 def classify_player_week(
@@ -422,18 +441,19 @@ def classify_player_week(
 ) -> PlayerWeek:
     """One rostered player-week, classified; points only from the host-native scorer."""
     position = str((meta or {}).get("position") or "").upper()
-    if not meta or position not in SIM_POSITIONS:
+    family = lineup_family(meta)
+    if family is None:
         return PlayerWeek(season, week, pid, position, UNKNOWN_POSITION, None)
     if row is None:
-        return PlayerWeek(season, week, pid, position, NO_STAT_LINE, None)
+        return PlayerWeek(season, week, pid, position, NO_STAT_LINE, None, family)
     res = compute_weekly_points(
         {**row, "player_id": pid, "season": season, "week": week},
         dict(card),
-        position=lineup_position(position),
+        position=family,
         source="sleeper",
     )
     if res is None:
-        return PlayerWeek(season, week, pid, position, TEAM_ENTRY, None)
+        return PlayerWeek(season, week, pid, position, TEAM_ENTRY, None, family)
     pts = float(res.fantasy_points)
     appeared = (
         _num(row.get("gp")) > 0
@@ -441,7 +461,8 @@ def classify_player_week(
         or _num(row.get("def_snp")) > 0
         or abs(pts) > 1e-9
     )
-    return PlayerWeek(season, week, pid, position, APPEARED if appeared else NO_APPEARANCE, pts)
+    status = APPEARED if appeared else NO_APPEARANCE
+    return PlayerWeek(season, week, pid, position, status, pts, family)
 
 
 def rostered_by_week(matchups: Sequence[Mapping[str, Any]] | None) -> dict[int, list[str]]:
@@ -600,6 +621,21 @@ def covered(y: float, mu: float, sigma: float, level: float) -> bool:
     return lo - 1e-12 <= ys <= hi + 1e-12
 
 
+def interval_content(mu: float, sigma: float, level: float) -> float:
+    """Model probability that ``X = max(0, N(mu, sigma^2))`` falls in the preregistered interval.
+
+    POST-HOC, NON-GATING (deviation 2, results doc).  When the lower bound is censored to 0 the
+    interval also holds the point mass at 0, so its content is ``P(Y <= hi)`` — 0.975 for the
+    "95%" interval — not ``level``.  The preregistered SC-G1 compares observed coverage with
+    ``level``; this reports what a calibrated model would actually show.
+    """
+    lo, hi = censored_interval(mu, sigma, level)
+    upper = norm_cdf((hi - mu) / sigma)
+    if lo <= 0.0:
+        return upper
+    return upper - norm_cdf((lo - mu) / sigma)
+
+
 def censored_pit(y: float, mu: float, sigma: float, u: float) -> float:
     ys = max(0.0, y)
     if ys <= 0.0:
@@ -722,19 +758,20 @@ class Scored:
 
 
 def score_predictions(
-    rows: Iterable[tuple[str, int, str, float, float]],
+    rows: Iterable[tuple[str, int, str, str, float, float]],
     models: Mapping[str, sc.PointsModel],
     *,
     seed: int = SEED,
 ) -> list[Scored]:
-    """``rows`` are ``(pid, week, position, rosValue, y)``; one shared uniform per row (CRN)."""
+    """``rows`` are ``(pid, week, raw position, family, rosValue, y)``; one uniform per row (CRN).
+
+    The CV is looked up under the RAW position, exactly as the sim's ``cv_for`` is asked.
+    """
     rng = random.Random(seed)
     out: list[Scored] = []
-    for pid, week, position, ros_value, y in rows:
+    for pid, week, position, family, ros_value, y in rows:
         u = rng.random()
-        rec = Scored(
-            pid, week, lineup_position(position), position, ros_value, y, {}, {}, {}, {}, {}, {}, {}
-        )
+        rec = Scored(pid, week, family, position, ros_value, y, {}, {}, {}, {}, {}, {}, {})
         for name, model in models.items():
             mu, sigma = predictive_params(model, ros_value, position)
             rec.mu[name] = mu
@@ -761,6 +798,22 @@ def summarize_group(recs: list[Scored], *, b: int, seed: int) -> dict[str, Any]:
             "meanCrps": round(statistics.fmean(r.crps[m] for r in recs), 5),
             "coverage80": round(statistics.fmean(1.0 if r.cov80[m] else 0.0 for r in recs), 5),
             "coverage95": round(statistics.fmean(1.0 if r.cov95[m] else 0.0 for r in recs), 5),
+            # POST-HOC, NON-GATING (deviation 2): what the preregistered interval would cover under
+            # the model itself, and coverage of the exact-content PIT intervals.
+            "postHoc": {
+                "coverage80ModelImplied": round(
+                    statistics.fmean(interval_content(r.mu[m], r.sigma[m], 0.80) for r in recs), 5
+                ),
+                "coverage95ModelImplied": round(
+                    statistics.fmean(interval_content(r.mu[m], r.sigma[m], 0.95) for r in recs), 5
+                ),
+                "pitCoverage80": round(
+                    statistics.fmean(1.0 if 0.10 <= r.pit[m] <= 0.90 else 0.0 for r in recs), 5
+                ),
+                "pitCoverage95": round(
+                    statistics.fmean(1.0 if 0.025 <= r.pit[m] <= 0.975 else 0.0 for r in recs), 5
+                ),
+            },
             "pit": ks_uniform([r.pit[m] for r in recs]),
             "meanPredictedMean": round(statistics.fmean(mus), 4),
             "meanRealized": round(statistics.fmean(ys), 4),
@@ -1222,7 +1275,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     unpriced[f"{SEASON}-w{w:02d}"] += 1
                     continue
                 eval_rows.append(
-                    (pid, w, str(r.get("position") or pw.position), rv, float(pw.points))
+                    (
+                        pid,
+                        w,
+                        str(r.get("position") or pw.position).upper(),
+                        pw.family,
+                        rv,
+                        float(pw.points),
+                    )
                 )
             own = realized_best_ball_total(roster_pids, pts_by_pid, directory, slots)
             d = abs(own - awarded.get(rid, float("nan")))

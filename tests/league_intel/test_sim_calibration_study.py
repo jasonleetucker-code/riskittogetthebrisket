@@ -199,6 +199,25 @@ def test_classification_never_turns_missing_into_zero():
     assert team.status == st.TEAM_ENTRY
 
 
+def test_fine_directory_positions_keep_their_raw_key_and_join_their_family():
+    """The directory says CB / DE / DT / NT / FB for real rostered players; the sim draws them under
+    that raw key (``cv_for("CB")``), so they are in the population, keyed raw, grouped by family."""
+    cases = {
+        ("CB", ("DB",)): "DB",
+        ("DE", ("DL", "LB")): "DL",
+        ("DT", ("DL",)): "DL",
+        ("NT", ("DL",)): "DL",
+        ("FB", ("RB",)): "RB",
+        ("LB", ("DL", "LB")): "LB",
+    }
+    for (pos, fps), fam in cases.items():
+        meta = {"position": pos, "fantasy_positions": list(fps)}
+        assert st.lineup_family(meta) == fam
+        pw = st.classify_player_week("42", {"gp": 1, "idp_tkl_solo": 3}, meta, CARD, 2026, 5)
+        assert pw.status == st.APPEARED and pw.position == pos and pw.family == fam
+    assert st.lineup_family({"position": "OL", "fantasy_positions": ["OL"]}) is None
+
+
 def test_appeared_points_are_the_host_native_score():
     row = {"gp": 1, "pass_td": 2, "pass_yd": 250}
     pw = st.classify_player_week("4034", row, {"position": "QB"}, CARD, 2026, 5)
@@ -319,15 +338,32 @@ def test_coverage_and_pit_are_nominal_on_the_models_own_draws():
     rows = []
     for i in range(12000):
         ros = 5.0 + (i % 60)
-        pos = ("QB", "WR", "LB", "DB")[i % 4]
-        rows.append((f"p{i}", 5, pos, ros, model.draw(ros, pos, rng)))
+        pos = ("QB", "WR", "LB", "CB")[i % 4]
+        rows.append((f"p{i}", 5, pos, "x", ros, model.draw(ros, pos, rng)))
     scored = st.score_predictions(rows, {"C": model, "F": model}, seed=5)
     cov80 = statistics.fmean(1.0 if r.cov80["C"] else 0.0 for r in scored)
     cov95 = statistics.fmean(1.0 if r.cov95["C"] else 0.0 for r in scored)
-    assert cov80 == pytest.approx(0.80, abs=0.015)
-    assert cov95 == pytest.approx(0.95, abs=0.01)
+    # The preregistered interval's content is NOT the nominal level once its lower bound is
+    # censored to 0 (CB at cv 0.55 > 1/1.96): a calibrated model over-covers.  The observed rate
+    # matches the model-implied content, and the PIT intervals hold exactly the nominal level.
+    implied80 = statistics.fmean(st.interval_content(r.mu["C"], r.sigma["C"], 0.80) for r in scored)
+    implied95 = statistics.fmean(st.interval_content(r.mu["C"], r.sigma["C"], 0.95) for r in scored)
+    assert implied95 > 0.955, "fixture must exercise the censored-lower-bound case"
+    assert cov80 == pytest.approx(implied80, abs=0.012)
+    assert cov95 == pytest.approx(implied95, abs=0.008)
+    pit80 = statistics.fmean(1.0 if 0.10 <= r.pit["C"] <= 0.90 else 0.0 for r in scored)
+    pit95 = statistics.fmean(1.0 if 0.025 <= r.pit["C"] <= 0.975 else 0.0 for r in scored)
+    assert pit80 == pytest.approx(0.80, abs=0.015)
+    assert pit95 == pytest.approx(0.95, abs=0.008)
     ks = st.ks_uniform([r.pit["C"] for r in scored])
     assert ks["ksD"] < 0.02 and ks["ksP"] > 0.01
+
+
+def test_interval_content_is_exact_without_censoring():
+    assert st.interval_content(30.0, 3.0, 0.80) == pytest.approx(0.80, abs=1e-9)
+    assert st.interval_content(30.0, 3.0, 0.95) == pytest.approx(0.95, abs=1e-9)
+    # cv 0.6 > 1/1.96: the 95% lower bound censors to 0 and the content becomes P(Y <= hi) = 0.975.
+    assert st.interval_content(10.0, 6.0, 0.95) == pytest.approx(0.975, abs=1e-9)
 
 
 def test_ks_and_kolmogorov_reference_values():
