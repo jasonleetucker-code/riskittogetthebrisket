@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import functools
+import hashlib
 import io
 import json
 import logging
@@ -37,7 +39,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from src.auction import accounts, engine, sources
+from src.auction import accounts, engine, feedback, sources
 from src.auction.engine import AuctionError
 from src.auction.rules import BINDING_OWNER_RULES, PROPOSED_RULE_KEYS, TIMING_PRESETS, default_rules
 from src.auction.store import StoreUnavailable, get_store, new_room_id
@@ -167,6 +169,24 @@ def _set_cookie(resp: Response, token: str) -> None:
     )
 
 
+def _retire_presented_session(request: Request, new_user_id: int) -> None:
+    """A sign-in that replaces ANOTHER account's cookie on this browser ends
+    that account's session and silences its push devices here, so the old
+    account's alerts never keep arriving on a browser someone else now uses.
+    The same person signing in again keeps their devices."""
+    token = request.cookies.get(COOKIE_NAME)
+    if not token:
+        return
+    prior = accounts.session_user(get_store(), token, _now())
+    if prior is None or prior.id == new_user_id:
+        return
+    from src.auction import notify
+
+    with get_store().write() as conn:
+        notify.disable_devices_for_session(conn, token, _now())
+    accounts.revoke_session(get_store(), token, _now())
+
+
 def _mutation_guard(request: Request) -> JSONResponse | None:
     gate = _gate()
     if gate:
@@ -174,6 +194,123 @@ def _mutation_guard(request: Request) -> JSONResponse | None:
     if not _origin_ok(request):
         return _err("bad_origin", "cross-origin request refused", 403)
     return None
+
+
+_RECEIPT_TTL_SECONDS = 7 * 24 * 3600
+_IN_PROGRESS = 0  # route_receipts.status while the first request is running
+
+
+def _idempotent_route(fn=None, *, secret_response: bool = False):
+    """Room-changing routes outside the command log (room creation, invites,
+    mock clock, clone, reset links, member removal) require an
+    ``Idempotency-Key``.  The key is CLAIMED atomically before the route runs,
+    so two concurrent requests with one key can never both act: the second
+    gets 409 ``in_progress`` while the first runs, then the first answer.
+    Same key, different request: 409.  A 5xx or exception releases the claim
+    so it can be retried.  ``secret_response`` routes (invite / reset links:
+    the token is shown ONCE and stored only hashed) keep no copy of the body;
+    a replay answers 409 ``already_issued`` instead of re-disclosing it."""
+    if fn is None:
+        return functools.partial(_idempotent_route, secret_response=secret_response)
+
+    @functools.wraps(fn)
+    async def wrapper(*args, **kwargs):
+        request: Request = kwargs["request"]
+        guard = _mutation_guard(request)
+        if guard:
+            return guard
+        key = request.headers.get("idempotency-key") or ""
+        if not _IDEM_RE.match(key):
+            return _err(
+                "idempotency_key_required",
+                "send an Idempotency-Key header (8-100 url-safe chars)",
+                400,
+            )
+        user = await run_in_threadpool(_user, request)
+        if user is None:
+            return await fn(*args, **kwargs)
+        raw = await request.body()
+        scope = f"{request.method} {request.url.path}"
+        digest = hashlib.sha256(scope.encode() + b"\n" + raw).hexdigest()
+        now = _now()
+
+        def _claim():
+            with get_store().write() as conn:
+                conn.execute(
+                    "DELETE FROM route_receipts WHERE created_at < ?", (now - _RECEIPT_TTL_SECONDS,)
+                )
+                prior = conn.execute(
+                    "SELECT * FROM route_receipts WHERE user_id=? AND key=?", (user.id, key)
+                ).fetchone()
+                if prior is not None:
+                    return dict(prior)
+                conn.execute(
+                    "INSERT INTO route_receipts (user_id, key, scope, payload_hash, status, body_json, created_at)"
+                    " VALUES (?,?,?,?,?,?,?)",
+                    (user.id, key, scope, digest, _IN_PROGRESS, "", now),
+                )
+                return None
+
+        prior = await run_in_threadpool(_claim)
+        if prior is not None:
+            if prior["payload_hash"] != digest:
+                return _err(
+                    "idempotency_conflict",
+                    "this Idempotency-Key was used for a different request",
+                    409,
+                )
+            if int(prior["status"]) == _IN_PROGRESS:
+                return _err(
+                    "in_progress",
+                    "this request is already being processed — try again shortly",
+                    409,
+                )
+            return JSONResponse(
+                status_code=int(prior["status"]),
+                content=json.loads(prior["body_json"]),
+                headers={"Idempotent-Replay": "true"},
+            )
+
+        def _release():
+            with get_store().write() as conn:
+                conn.execute("DELETE FROM route_receipts WHERE user_id=? AND key=?", (user.id, key))
+
+        try:
+            resp = await fn(*args, **kwargs)
+            # Inside the try: a body that cannot be serialised must release the
+            # claim like any other failure, not strand the key ``in_progress``.
+            if not isinstance(resp, Response):
+                resp = JSONResponse(resp)
+        except BaseException:
+            await run_in_threadpool(_release)
+            raise
+        if resp.status_code >= 500 or not isinstance(resp, JSONResponse):
+            await run_in_threadpool(_release)
+            return resp
+        if secret_response and resp.status_code < 400:
+            status, body_text = (
+                409,
+                json.dumps(
+                    {
+                        "error": "already_issued",
+                        "message": "This request already created a link. Links are shown once — create a new one if it was lost.",
+                    }
+                ),
+            )
+        else:
+            status, body_text = resp.status_code, bytes(resp.body).decode("utf-8")
+
+        def _save():
+            with get_store().write() as conn:
+                conn.execute(
+                    "UPDATE route_receipts SET status=?, body_json=? WHERE user_id=? AND key=?",
+                    (status, body_text, user.id, key),
+                )
+
+        await run_in_threadpool(_save)
+        return resp
+
+    return wrapper
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +360,7 @@ async def auth_login(request: Request):
         rate_limit.login_record_failure(ip, throttle_key)
         return _err("bad_credentials", "Handle or password is incorrect.", 401)
     rate_limit.login_record_success(ip, throttle_key)
+    await run_in_threadpool(_retire_presented_session, request, user.id)
     token = await run_in_threadpool(accounts.issue_session, get_store(), user.id, _now())
     resp = JSONResponse({"user": user.public()})
     _set_cookie(resp, token)
@@ -245,6 +383,7 @@ async def auth_site_owner(request: Request):
         display_name=str(session.get("displayName") or session.get("username")),
         now=_now(),
     )
+    await run_in_threadpool(_retire_presented_session, request, user.id)
     token = await run_in_threadpool(accounts.issue_session, get_store(), user.id, _now())
     resp = JSONResponse({"user": user.public()})
     _set_cookie(resp, token)
@@ -278,7 +417,7 @@ async def auth_password(request: Request):
     if guard:
         return guard
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         body = await _json_body(request)
         await run_in_threadpool(
             accounts.change_password,
@@ -331,7 +470,7 @@ async def invite_claim(request: Request):
         return guard
     try:
         body = await _json_body(request)
-        existing = _user(request)
+        existing = await run_in_threadpool(_user, request)
         user = await run_in_threadpool(
             accounts.claim_invite,
             get_store(),
@@ -346,6 +485,7 @@ async def invite_claim(request: Request):
         return _auction_error(exc)
     resp = JSONResponse({"user": user.public()})
     if existing is None:
+        await run_in_threadpool(_retire_presented_session, request, user.id)
         token = await run_in_threadpool(accounts.issue_session, get_store(), user.id, _now())
         _set_cookie(resp, token)
     return resp
@@ -374,16 +514,20 @@ async def auction_meta(request: Request):
         "proposedRules": PROPOSED_RULE_KEYS,
         "presets": {k: {kk: vv for kk, vv in v.items()} for k, v in TIMING_PRESETS.items()},
         "officialLaunchEnabled": False,
+        # The deployed commit (a public repo), so rehearsal evidence and
+        # defect reports can name exactly which code they ran against.
+        "codeSha": feedback.code_sha(),
     }
 
 
 @router.post("/rooms")
+@_idempotent_route
 async def create_room(request: Request):
     guard = _mutation_guard(request)
     if guard:
         return guard
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         if not user.is_site_admin:
             raise AuctionError("forbidden", "only the site owner can create rooms", 403)
         body = await _json_body(request)
@@ -538,6 +682,7 @@ def _view(room_id: str, user: accounts.User, member: dict, now_real: float) -> d
         vis.add("commissioner")
     out = {
         "revision": int(row["revision"]),
+        "storeEpoch": store.epoch,
         "serverNow": now_real,
         "roomNow": room_now,
         "clockOffset": float(row["clock_offset"]) if row["room_type"] == "mock" else 0.0,
@@ -575,7 +720,7 @@ async def room_view(request: Request, room_id: str, after: int = -1, wait: float
     if gate:
         return gate
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         member = await run_in_threadpool(_member_or_admin, room_id, user)
     except AuctionError as exc:
         return _auction_error(exc)
@@ -587,15 +732,17 @@ async def room_view(request: Request, room_id: str, after: int = -1, wait: float
         if rev is None:
             rev = int(store.room_row(room_id)["revision"])
             store._revisions.setdefault(room_id, rev)
-        while rev is not None and rev <= after and time.monotonic() < deadline:
-            await asyncio.sleep(0.25)
+        # Wait only while the client is exactly current.  A client AHEAD of the
+        # server (a restore rewound the revision) gets the snapshot at once.
+        while rev is not None and rev == after and time.monotonic() < deadline:
+            await asyncio.sleep(0.1)  # in-memory revision check; ~0.1 s wake latency
             if await request.is_disconnected():
                 return Response(status_code=204)
             rev = store.cached_revision(room_id)
         # Re-check authorisation after the wait: a revoked session or a
         # removed member must not receive the next snapshot.
         try:
-            user = _require_user(request)
+            user = await run_in_threadpool(_require_user, request)
             member = await run_in_threadpool(_member_or_admin, room_id, user)
         except AuctionError as exc:
             return _auction_error(exc)
@@ -612,7 +759,7 @@ async def room_pool(request: Request, room_id: str):
     if gate:
         return gate
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         await run_in_threadpool(_member_or_admin, room_id, user)
         state, _, _ = get_store().load(room_id)
     except AuctionError as exc:
@@ -667,7 +814,7 @@ async def room_command(request: Request, room_id: str):
             "idempotency_key_required", "send an Idempotency-Key header (8-100 url-safe chars)", 400
         )
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         member = await run_in_threadpool(_member_or_admin, room_id, user)
         body = await _json_body(request)
         kind = str(body.get("kind") or "")
@@ -702,7 +849,7 @@ async def room_receipt(request: Request, room_id: str, key: str):
     if gate:
         return gate
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         await run_in_threadpool(_member_or_admin, room_id, user)
     except AuctionError as exc:
         return _auction_error(exc)
@@ -713,12 +860,13 @@ async def room_receipt(request: Request, room_id: str, key: str):
 
 
 @router.post("/rooms/{room_id}/invites")
+@_idempotent_route(secret_response=True)
 async def room_invite(request: Request, room_id: str):
     guard = _mutation_guard(request)
     if guard:
         return guard
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         member = await run_in_threadpool(_member_or_admin, room_id, user)
         if member["role"] != "commissioner":
             raise AuctionError("forbidden", "commissioner only", 403)
@@ -768,12 +916,13 @@ async def room_invite(request: Request, room_id: str):
 
 
 @router.post("/rooms/{room_id}/clock")
+@_idempotent_route
 async def room_clock(request: Request, room_id: str):
     guard = _mutation_guard(request)
     if guard:
         return guard
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         member = await run_in_threadpool(_member_or_admin, room_id, user)
         if member["role"] != "commissioner":
             raise AuctionError("forbidden", "commissioner only", 403)
@@ -794,6 +943,7 @@ async def room_clock(request: Request, room_id: str):
 
 
 @router.post("/rooms/{room_id}/clone")
+@_idempotent_route
 async def room_clone(request: Request, room_id: str):
     """A NEW mock run from a room's reviewed configuration.  Never promotes a
     played mock and never touches the source room."""
@@ -801,7 +951,7 @@ async def room_clone(request: Request, room_id: str):
     if guard:
         return guard
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         member = await run_in_threadpool(_member_or_admin, room_id, user)
         if member["role"] != "commissioner" or not user.is_site_admin:
             raise AuctionError("forbidden", "commissioner only", 403)
@@ -845,13 +995,22 @@ async def room_clone(request: Request, room_id: str):
     return {"roomId": new_id}
 
 
+def _csv_safe(v: Any) -> Any:
+    """Names come from league members' own Sleeper display names; a leading
+    = + - @ (or tab/CR) would run as a formula in Excel/Sheets.  Numbers pass
+    through untouched."""
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + v
+    return v
+
+
 @router.get("/rooms/{room_id}/export")
 async def room_export(request: Request, room_id: str, format: str = "json"):
     gate = _gate()
     if gate:
         return gate
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         member = await run_in_threadpool(_member_or_admin, room_id, user)
         state, revision, offset = get_store().load(room_id)
     except AuctionError as exc:
@@ -900,7 +1059,7 @@ async def room_export(request: Request, room_id: str, format: str = "json"):
         w = csv.DictWriter(buf, fieldnames=fields)
         w.writeheader()
         for r in rows:
-            w.writerow(r)
+            w.writerow({k: _csv_safe(v) for k, v in r.items()})
         return Response(
             buf.getvalue(),
             media_type="text/csv",
@@ -941,7 +1100,7 @@ async def notify_state(request: Request):
     if gate:
         return gate
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
     except AuctionError as exc:
         return _auction_error(exc)
     from src.api import push_delivery
@@ -975,7 +1134,7 @@ async def notify_register(request: Request):
     from src.auction import notify
 
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         body = await _json_body(request)
         token = request.cookies.get(COOKIE_NAME)
 
@@ -1005,7 +1164,7 @@ async def notify_disable(request: Request):
     from src.auction import notify
 
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         body = await _json_body(request)
         dev = body.get("deviceId")
         dev = dev if isinstance(dev, int) and not isinstance(dev, bool) else None
@@ -1035,7 +1194,7 @@ async def notify_prefs(request: Request):
     from src.auction import notify
 
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         body = await _json_body(request)
 
         def _set():
@@ -1056,7 +1215,7 @@ async def notify_test(request: Request):
     from src.auction import notify
 
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         body = await _json_body(request)
         dev = body.get("deviceId")
         dev = dev if isinstance(dev, int) and not isinstance(dev, bool) else None
@@ -1077,7 +1236,7 @@ async def notify_test_confirm(request: Request):
     if guard:
         return guard
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         body = await _json_body(request)
         oid = body.get("outboxId")
         if isinstance(oid, bool) or not isinstance(oid, int):
@@ -1115,7 +1274,7 @@ async def notify_inbox(request: Request, roomId: str | None = None):
     from src.auction import notify
 
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         if roomId:
             await run_in_threadpool(_member_or_admin, roomId, user)
     except AuctionError as exc:
@@ -1138,7 +1297,7 @@ async def notify_inbox_read(request: Request):
     if guard:
         return guard
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         body = await _json_body(request)
         ids = [
             i for i in (body.get("ids") or []) if isinstance(i, int) and not isinstance(i, bool)
@@ -1173,7 +1332,7 @@ async def notify_email(request: Request):
     from src.auction import notify
 
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         body = await _json_body(request)
         srv = sys.modules.get("server") or sys.modules.get("__main__")
         if getattr(srv, "_deliver_email_smtp", None) is None:
@@ -1210,7 +1369,7 @@ async def notify_email_verify(request: Request):
     from src.auction import notify
 
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         body = await _json_body(request)
 
         def _ver():
@@ -1231,7 +1390,7 @@ async def room_watch(request: Request, room_id: str):
     if guard:
         return guard
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         await run_in_threadpool(_member_or_admin, room_id, user)
         body = await _json_body(request)
         aid = str(body.get("auction") or "")
@@ -1271,6 +1430,16 @@ async def room_watch(request: Request, room_id: str):
 # ---------------------------------------------------------------------------
 
 
+_ADVICE_SEMAPHORE: asyncio.Semaphore | None = None
+
+
+def _advice_builds() -> asyncio.Semaphore:
+    global _ADVICE_SEMAPHORE
+    if _ADVICE_SEMAPHORE is None:
+        _ADVICE_SEMAPHORE = asyncio.Semaphore(2)
+    return _ADVICE_SEMAPHORE
+
+
 @router.get("/rooms/{room_id}/advice-context")
 async def room_advice_context(request: Request, room_id: str):
     """Roster context for Perfect Draft, for the CALLER's seat only.
@@ -1287,9 +1456,9 @@ async def room_advice_context(request: Request, room_id: str):
     if gate:
         return gate
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         member = await run_in_threadpool(_member_or_admin, room_id, user)
-        state, _, _ = get_store().load(room_id)
+        state, _, _ = await run_in_threadpool(get_store().load, room_id)
     except AuctionError as exc:
         return _auction_error(exc)
     seat_id = member.get("seat_id")
@@ -1344,12 +1513,17 @@ async def room_advice_context(request: Request, room_id: str):
     try:
         from src.api import draft_optimizer_api
 
-        ctx = await run_in_threadpool(
-            draft_optimizer_api.get_roster_context,
-            contract,
-            state["league_key"],
-            owner_id=str(seat["sleeper_user_id"]),
-        )
+        # At most two cold roster-context builds at once: when every manager
+        # opens the room together (e.g. right after a board refresh) twelve
+        # simultaneous builds starved bid handling (bid p95 ~4.9 s in the first
+        # 10 s of the load rehearsal).  Advice waits; bids never do.
+        async with _advice_builds():
+            ctx = await run_in_threadpool(
+                draft_optimizer_api.get_roster_context,
+                contract,
+                state["league_key"],
+                owner_id=str(seat["sleeper_user_id"]),
+            )
     except ValueError as exc:
         out["reason"] = str(exc)[:80]
         out["status"] = "values_only"
@@ -1377,6 +1551,7 @@ def _require_commissioner(room_id: str, user: accounts.User) -> dict:
 
 
 @router.post("/rooms/{room_id}/members/{member_id}/reset-link")
+@_idempotent_route(secret_response=True)
 async def member_reset_link(request: Request, room_id: str, member_id: int):
     guard = _mutation_guard(request)
     if guard:
@@ -1384,7 +1559,7 @@ async def member_reset_link(request: Request, room_id: str, member_id: int):
     from src.auction import recovery
 
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         await run_in_threadpool(_require_commissioner, room_id, user)
         token = await run_in_threadpool(
             lambda: recovery.issue_reset(
@@ -1416,6 +1591,7 @@ async def auth_reset(request: Request):
             body.get("password"),
             _now(),
         )
+        await run_in_threadpool(_retire_presented_session, request, user.id)
         token = await run_in_threadpool(accounts.issue_session, get_store(), user.id, _now())
     except AuctionError as exc:
         return _auction_error(exc)
@@ -1425,6 +1601,7 @@ async def auth_reset(request: Request):
 
 
 @router.post("/rooms/{room_id}/members/{member_id}/remove")
+@_idempotent_route
 async def member_remove(request: Request, room_id: str, member_id: int):
     guard = _mutation_guard(request)
     if guard:
@@ -1432,7 +1609,7 @@ async def member_remove(request: Request, room_id: str, member_id: int):
     from src.auction import recovery
 
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         await run_in_threadpool(_require_commissioner, room_id, user)
         body = await _json_body(request)
         out = await run_in_threadpool(
@@ -1458,7 +1635,7 @@ async def room_preflight(request: Request, room_id: str):
     from src.auction import recovery
 
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         await run_in_threadpool(_require_commissioner, room_id, user)
         out = await run_in_threadpool(recovery.preflight, get_store(), room_id, _now())
     except AuctionError as exc:
@@ -1474,7 +1651,7 @@ async def room_pf_preview(request: Request, room_id: str):
     from src.auction import recovery
 
     try:
-        user = _require_user(request)
+        user = await run_in_threadpool(_require_user, request)
         await run_in_threadpool(_require_commissioner, room_id, user)
         state, _, _ = get_store().load(room_id)
         if not state.get("league_key"):
@@ -1496,3 +1673,60 @@ async def room_pf_preview(request: Request, room_id: str):
         r.pop("owner_id", None)  # no Sleeper ids to the UI
     out["complete"] = len(out["seatOrder"]) == len(state["seats"]) and not out["missing"]
     return out
+
+
+# ---------------------------------------------------------------------------
+# Rehearsal problem reports — traceable to room, revision, rules and code SHA
+# ---------------------------------------------------------------------------
+
+
+@router.post("/rooms/{room_id}/reports")
+async def room_report(request: Request, room_id: str):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    key = request.headers.get("idempotency-key") or ""
+    if not _IDEM_RE.match(key):
+        return _err(
+            "idempotency_key_required", "send an Idempotency-Key header (8-100 url-safe chars)", 400
+        )
+    try:
+        user = await run_in_threadpool(_require_user, request)
+        member = await run_in_threadpool(_member_or_admin, room_id, user)
+        body = await _json_body(request)
+        report = await run_in_threadpool(
+            lambda: feedback.file_report(
+                get_store(),
+                room_id=room_id,
+                user_id=user.id,
+                member=member,
+                idem_key=key,
+                body=body,
+                user_agent=request.headers.get("user-agent"),
+                now_real=_now(),
+            )
+        )
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return report
+
+
+@router.get("/rooms/{room_id}/reports")
+async def room_reports(request: Request, room_id: str):
+    gate = _gate()
+    if gate:
+        return gate
+    try:
+        user = await run_in_threadpool(_require_user, request)
+        member = await run_in_threadpool(_member_or_admin, room_id, user)
+        reports = await run_in_threadpool(
+            lambda: feedback.list_reports(
+                get_store(),
+                room_id=room_id,
+                user_id=user.id,
+                see_all=member["role"] == "commissioner",
+            )
+        )
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return {"reports": reports, "codeSha": feedback.code_sha()}
