@@ -108,6 +108,33 @@ When that contract reaches 30/30, stop the launch-completion campaign and fall b
 
 ## 3. Default operating posture
 
+### Usage efficiency (owner directive 2026-10-25) — supersedes parallelism targets where they conflict
+
+Goal: the most verified progress per unit of model usage, not the most agents. Binding on every model.
+Product requirements, safety rules and owner gates are unchanged; mandatory verification is never skipped to save usage.
+
+1. **Concurrency:** one coordinator plus at most **two** active subagents. Never launch 10–20 simultaneous
+   research or engineering agents or large fan-out workflows. Delegate only a concrete, independently executable
+   deliverable; release the agent when it delivers. Do not delegate what one deterministic command verifies.
+   (Measured 2026-10-25: one fan-out audit workflow spent ~8.8M subagent tokens across 150 agents before a usage
+   limit stopped it with 30 finished; three other workflows spent ~4.7M with zero finished agents.)
+2. **Model routing:** cheapest sufficient model and effort — Haiku for search, classification, extraction and
+   mechanical edits; Sonnet for routine coding, debugging, tests and PR preparation; Opus only for hard
+   architecture, mathematics, security-sensitive reasoning or unresolved complex defects. Low/medium effort by
+   default. Do not have an expensive model re-analyse an already validated decision.
+3. **No repeated rediscovery:** follow the startup procedure, then read targeted ranges and search; reuse
+   committed evidence and the latest session handoff (`docs/agent-operating-system/SESSION_HANDOFF.md`) instead of
+   re-reading whole planning files or re-running audits that have no new input.
+4. **Testing and polling:** targeted tests during development; full validation only at the integration/release
+   gate; deterministic scripts before LLM analysis; no continuous CI polling (one blocking `gh pr checks --watch`
+   per head, or the host's CI monitor); batch status checks.
+5. **Work packages:** each subagent gets exact files, acceptance criteria, dependencies and relevant prior evidence
+   — not the full project history. Prefer finishing open PRs over starting new investigations.
+6. **Context:** keep the session handoff current; recommend `/compact` when context grows large and a fresh session
+   for a genuinely new task once state is saved.
+7. **Measure:** report actual usage data where the runtime exposes it (agent counts, models, token totals from task
+   notifications); never invent cost estimates.
+
 ### Standing owner directive (2026-10-19): parallel implementation and qualified autonomous merging
 
 **Binding process policy for every model/engineer; not product-scope authority.**
@@ -118,8 +145,10 @@ launch, deployment, security, spending, access or destructive-action gates.
 
 1. **Dispatch independent units concurrently.** Inspect main, open PRs,
    current execution authority, `docs/WORK_CLAIMS.md`, active completion
-   contracts, shared-file owners and dependency overlap. Target **3–5 actual
-   implementation agents** where the runtime and resource budget allow, each
+   contracts, shared-file owners and dependency overlap. Run independent
+   units concurrently within the usage limit in "Usage efficiency" above
+   (normally at most **two** active subagents; the earlier 3–5 target is
+   superseded), each
    on its own Git worktree/branch with disjoint file/defect claims. Coordinate
    shared canonical interfaces centrally; never invent agents, have multiple
    writers to one branch/file, or do unauthorized work to occupy a worker.
