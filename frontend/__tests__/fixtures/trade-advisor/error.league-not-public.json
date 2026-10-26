@@ -1,0 +1,5 @@
+{
+  "error": "league_not_public",
+  "message": "That league has no public trade advisor.",
+  "leagueKey": "side"
+}

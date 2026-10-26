@@ -27,6 +27,7 @@ const {
   titleFor,
   awaitStreamSettled,
 } = require("../helpers/journey");
+const { openPackageScan } = require("../helpers/arbitrage-page");
 
 test.describe("journey: trade surfaces", () => {
   test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
@@ -156,14 +157,23 @@ test.describe("journey: trade surfaces", () => {
       timeout: 30_000,
     });
 
+    // Owner directive 2026-10-18: the tools come first and Golden Upgrades is
+    // the default tool, so the Package Scan tab is opened explicitly.  No
+    // research table may render before the tools.
+    const tabs = page.getByRole("tab");
+    await expect(tabs.first()).toHaveText("Golden Upgrades", { timeout: 30_000 });
+    await expect(page.getByRole("table")).toHaveCount(0);
+
     // Before any scan the page states what it wants, rather than showing
     // an empty table that reads like a broken board.  #1071 rewrote this
     // empty state ("Package scan ready" / "Choose your team and a
     // counterparty") without updating this assertion, which held the E2E
     // Safety Net red on every PR from 2026-08-24 until this line caught up.
-    await expect(page.getByText(/Package scan ready/i)).toBeVisible({
-      timeout: 30_000,
-    });
+    // openPackageScan clicks the tab only once the page has hydrated: a
+    // click on the server-rendered tab before React attaches its handler is
+    // lost, which is what held the production copy of this test red
+    // (tests/e2e/helpers/arbitrage-page.js).
+    await openPackageScan(page);
 
     // The team selector populates from the live contract; wait for a real
     // option rather than clicking into a disabled control.

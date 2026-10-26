@@ -8,8 +8,18 @@ import Link from "next/link";
 import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtNumber } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
+import { leagueHomeHref } from "@/app/league/advisor-bootstrap";
 import ShareButton from "../../ShareButton.jsx";
 import RosterComparePanel from "@/components/RosterComparePanel";
+import {
+  PickChips,
+  PickChipsLegend,
+  PickOwnershipUnavailableNote,
+  draftOwnershipUnavailableReason,
+} from "../../pick-chips.jsx";
+import { ImpactValue, ScheduleImpactSummary } from "@/components/league/ScheduleImpact";
+import { teamRowFor } from "@/lib/schedule-impact";
+import { fetchBackendJson } from "@/lib/server-backend";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -30,6 +40,16 @@ async function fetchFranchise(ownerId) {
   } catch {
     return null;
   }
+}
+
+// Schedule Intelligence: the canonical schedule-impact contract rides on
+// the public luck section.  Fetched server-side with the same cache window;
+// a failure only hides the schedule context, never the franchise page.
+// Bounded (fetchBackendJson's visitor budget) so a slow luck section can
+// never hold the whole document.
+async function fetchScheduleBlock() {
+  const body = await fetchBackendJson("/api/public/league/luck", { revalidate: 60 });
+  return body?.data?.scheduleImpact || null;
 }
 
 export async function generateMetadata({ params }) {
@@ -68,9 +88,24 @@ export async function generateMetadata({ params }) {
 export default async function FranchisePage({ params }) {
   const { owner } = await params;
   const ownerId = decodeURIComponent(String(owner || ""));
-  const data = await fetchFranchise(ownerId);
+  const [data, schedule, leagueHome] = await Promise.all([
+    fetchFranchise(ownerId),
+    fetchScheduleBlock(),
+    leagueHomeHref(),
+  ]);
   const fr = data?.franchiseDetail || data?.data?.detail?.[ownerId] || null;
   const managers = buildManagerLookup(data?.league);
+  const scheduleSeason = schedule?.currentSeason || null;
+  const scheduleContract =
+    schedule?.state === "failed"
+      ? { state: "failed" }
+      : scheduleSeason
+        ? schedule?.bySeason?.[scheduleSeason] || null
+        : null;
+  const scheduleRow = teamRowFor(schedule, scheduleSeason, ownerId);
+  // Per-season column only when the contract answered; a failed block is
+  // explained once, in the card, not as a column of dashes.
+  const seasonColumn = Boolean(schedule) && schedule.state !== "failed";
 
   if (!fr) {
     return (
@@ -78,7 +113,7 @@ export default async function FranchisePage({ params }) {
         <div className="card">
           <EmptyState title="Franchise not found" message={`No public franchise record for owner ${ownerId}.`} />
           <div style={{ marginTop: 10 }}>
-            <Link href="/league" style={{ color: "var(--cyan)" }}>← Back to league</Link>
+            <Link href={leagueHome} style={{ color: "var(--cyan)" }}>← Back to league</Link>
           </div>
         </div>
       </section>
@@ -89,7 +124,7 @@ export default async function FranchisePage({ params }) {
     <section>
       <div className="card">
         <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
-          <Link href="/league" style={{ color: "var(--cyan)" }}>← League home</Link>
+          <Link href={leagueHome} style={{ color: "var(--cyan)" }}>← League home</Link>
           {" · "}
           <Link href="/league?tab=franchise" style={{ color: "var(--cyan)" }}>All franchises</Link>
         </div>
@@ -110,8 +145,11 @@ export default async function FranchisePage({ params }) {
             {fr.topRival && (
               <div>
                 Top rival:{" "}
+                {/* In-prose link: underlined (ds-link) so it is not told
+                    apart from the sentence by colour alone (WCAG 1.4.1). */}
                 <Link
                   href={`/league/franchise/${encodeURIComponent(fr.topRival.ownerId)}`}
+                  className="ds-link"
                   style={{ color: "var(--cyan)" }}
                 >
                   {fr.topRival.displayName}
@@ -152,41 +190,50 @@ export default async function FranchisePage({ params }) {
         </div>
       </Card>
 
-      {fr.draftCapital && (
-        <Card title="Draft capital">
-          <div style={{ fontSize: "0.78rem", color: "var(--subtext)", marginBottom: 6 }}>
-            Weighted score {fr.draftCapital.weightedScore} · {fr.draftCapital.totalPicks} owned picks
-          </div>
-          {(fr.draftCapital.picks || []).length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {(fr.draftCapital.picks || []).map((p, i) => (
-                <span
-                  key={i}
-                  style={{
-                    fontFamily: "var(--mono)",
-                    fontSize: "0.7rem",
-                    border: "1px solid var(--border)",
-                    padding: "2px 6px",
-                    borderRadius: 4,
-                    color: p.isTraded ? "var(--amber)" : "var(--text)",
-                  }}
-                >
-                  {p.label}{p.isTraded ? "*" : ""}
-                </span>
-              ))}
-            </div>
-          )}
-          <div style={{ fontSize: "0.66rem", color: "var(--subtext)", marginTop: 6 }}>
-            * acquired via trade ·{" "}
-            <Link href="/league?tab=draft" style={{ color: "var(--cyan)" }}>
-              Full draft center →
+      {schedule ? (
+        <Card title={`Schedule impact${scheduleSeason ? ` — ${scheduleSeason}` : ""}`}>
+          <ScheduleImpactSummary row={scheduleRow} contract={scheduleContract} />
+          <div style={{ fontSize: "0.72rem", marginTop: 8 }}>
+            <Link href="/league?tab=luck" style={{ color: "var(--cyan)" }}>
+              Every team&apos;s schedule impact →
             </Link>
           </div>
+        </Card>
+      ) : null}
+
+      {fr.draftCapital && (
+        <Card title="Draft capital">
+          {draftOwnershipUnavailableReason(fr.draftCapital) ? (
+            <PickOwnershipUnavailableNote reason={draftOwnershipUnavailableReason(fr.draftCapital)} />
+          ) : (
+            <>
+              <div style={{ fontSize: "0.78rem", color: "var(--subtext)", marginBottom: 6 }}>
+                Weighted score {fr.draftCapital.weightedScore} · {fr.draftCapital.totalPicks} owned picks
+              </div>
+              {(fr.draftCapital.picks || []).length > 0 && (
+                <PickChips picks={fr.draftCapital.picks} size="sm" />
+              )}
+            </>
+          )}
+          <PickChipsLegend>
+            {" "}·{" "}
+            <Link href="/league?tab=draft" className="ds-link" style={{ color: "var(--cyan)" }}>
+              Full draft center →
+            </Link>
+          </PickChipsLegend>
         </Card>
       )}
 
       <Card title="Season results">
-        <div className="table-wrap">
+        {/* Sideways-scrolling on narrow viewports: a keyboard tab stop
+            (axe scrollable-region-focusable), named so it is not an
+            unlabelled stop — the /rosters pattern. */}
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          role="group"
+          aria-label="Season results table, scrolls horizontally"
+        >
           <table>
             <thead>
               <tr>
@@ -197,6 +244,11 @@ export default async function FranchisePage({ params }) {
                 <th style={{ textAlign: "right" }}>PA</th>
                 <th style={{ textAlign: "right" }}>Seed</th>
                 <th style={{ textAlign: "right" }}>Final</th>
+                {seasonColumn ? (
+                  <th style={{ textAlign: "right" }} title="Actual head-to-head wins minus the wins the same scores average against an equally likely opponent each week.">
+                    Schedule
+                  </th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -215,6 +267,20 @@ export default async function FranchisePage({ params }) {
                   </td>
                   <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.standing}</td>
                   <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.finalPlace ?? "—"}</td>
+                  {seasonColumn ? (
+                    <td style={{ textAlign: "right" }}>
+                      {teamRowFor(schedule, r.season, ownerId) ? (
+                        <span>
+                          <ImpactValue value={teamRowFor(schedule, r.season, ownerId).scheduleImpact} />
+                          {schedule.bySeason?.[String(r.season)]?.state === "partial" ? (
+                            <span style={{ color: "var(--subtext)", fontSize: "0.72rem" }}> (partial)</span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>

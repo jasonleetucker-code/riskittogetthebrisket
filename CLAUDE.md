@@ -19,6 +19,17 @@
 > rules again when they are already recorded in the repo.
 
 
+## Permanent engineering throughput / routine auto-merge — owner 2026-10-19
+
+The shared policy imported above by `@docs/AGENT_OPERATING_SYSTEM.md`
+(§3) and its Integration mechanics in `ASSISTANT_COORDINATION.md`
+apply to Claude and every other model. Implement independent approved
+features in isolated branches/worktrees with L0/L1, preserve all required
+L2/L3 checks, and let the designated Integration Authority merge qualifying
+green reviewed routine PRs without another owner "merge it" instruction.
+Consequential owner-only and production promotion gates remain binding.
+This is a navigation pointer, not a separate Claude-specific rule.
+
 ## Calculator Premium UI — permanent parallel rule
 
 PSI / Direction A is the permanent design north star. Do not invent styling. Read
@@ -89,6 +100,12 @@ anything that touches these.
   on that consensus are correlated descendants, not independent votes. Declare
   population, overlap, correlation group, sample size, freshness, coverage,
   missing behavior and provenance before adding a signal. (§3.3)
+  **Agreement between different providers is consensus, not duplication**
+  (owner directive 2026-10-19). A shared family or cap needs credible
+  shared-DATA-lineage evidence: one feed republishing another, a vendor-stated
+  derivation, or identical raw values. Rank or value similarity alone never
+  merges, caps, excludes or haircuts a vote. Record:
+  `docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`.
 - **Champion ≠ challenger.** Evaluation is not activation. Nothing self-promotes.
   (§3.4)
 - **Model evaluation does not authorize production promotion.** The sequence is
@@ -143,8 +160,13 @@ separately evidence-gated and owner-approved.
 ## Trade History — three distinct questions
 
 Full methodology in `docs/TRADE_HISTORY_AGING_SPEC.md`.
-Not currently authorized for implementation. The guardrails that must survive
-any future work:
+**Authorized and implemented by owner decision 2026-10-17** (sitewide trade Value
+Adjustment package): all three questions use the ONE active package model;
+At-the-Time reads the canonical ledger via `POST /api/trades/asof-grades`
+(`src/api/trade_history_asof.py`, the public `/league` grade's own resolver and
+grading function); How It Aged = change in ADJUSTED net with ±200 as a labelled
+PRIOR; Winners & Losers = Σ per-trade adjusted nets.  The guardrails that
+still hold:
 
 - **Current Grade** — this trade evaluated with today's canonical values and
   today's canonical trade methodology.
@@ -244,7 +266,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ### Starting the Stack
 
 ```powershell
-.\start_dynasty.bat          # Start Python backend (port 8000)
+python server.py            # Start Python backend (port 8000; there is no start_dynasty.bat)
 .\start_frontend.bat         # Start Next.js dev server (port 3000)
 .\start_stack.bat            # Start both in separate windows
 ```
@@ -434,6 +456,13 @@ Contract annotations:
   builder raises).  No empty-but-present value counts as complete.  The
   one merge that can produce this state is
   `sleeper_overlay.merge_cross_league_sleeper_block`; do not re-inline it.
+  **One explicit exception: pick ownership.**  `sleeper.teams[].picks` /
+  `pickDetails` may be explicitly UNAVAILABLE (`null` +
+  `pickOwnershipState: "unavailable"`) while `sleeperDataReady` is
+  `true` — a failed `/traded_picks` fetch degrades only those two fields,
+  never the rosters.  Consumers must read the per-team state, not
+  readiness, before trusting picks.  See "League pick OWNERSHIP is
+  observed or unknown" under Pick identity.
 - `meta.sleeperLoadedLeagueKey` — which league the `sleeper` block
   *would* be for, when `sleeperDataReady: false` (diagnostic only).
   Deleting it would hide a chimera, not prevent one.
@@ -450,8 +479,11 @@ Error behavior on endpoints:
 - `/api/draft-capital` — 503 `data_not_ready` only when NO contract is
   loaded, and only on the non-default path.  It deliberately does NOT
   503 on a league *mismatch*.
-  - The default league is served from `CSVs/Draft Data.xlsx` and never
-    consults the contract, so contract readiness is irrelevant to it.
+  - The default league takes its ownership grid and standings from
+    `CSVs/Draft Data.xlsx` and its pick dollars from the canonical
+    rookie-auction generation reader (Batch F, below) — neither consults the
+    contract, so contract readiness is irrelevant to its budgets (only the
+    per-rookie ladder reads the contract's rookie pool).
   - A non-default league takes the Sleeper-derived fallback
     (`src/api/draft_capital_fallback.py`), which fetches **that
     league's own** rosters and traded picks.  It needs the contract
@@ -499,11 +531,129 @@ Error behavior on endpoints:
     fabricated slot certainty, no owned-pick forecasting — that is
     C1-U7).  Consequence: the $1200 pool redistributes across BOTH
     generated seasons again, with real generic values rather than the
-    deleted constants.
+    deleted constants.  (This fallback serves non-default leagues only and
+    is out of the owner's current scope — 2026-10-18 scope correction; the
+    "$1,200 per draft class" basis below applies to ``dynasty_main``.)
   - Pinned by `tests/api/test_draft_capital_data_not_ready.py` (which
     fails if a future change re-resolves D-2 by accident in either
     direction) and `tests/api/test_draft_capital_fallback.py` (which
     pins the unpriced-exclusion arithmetic).
+  - The fallback's `/traded_picks` read goes through
+    `picks.traded_picks_observation` (2026-10-02).  A failed or non-list
+    fetch is NOT "no trades": the board is refused with
+    `{"error": "pick_ownership_unavailable", "message": …}` plus
+    `pickOwnershipState` / `pickOwnershipReason` — the same `{error,
+    message}` shape as `sleeper_unreachable`, which both consumers
+    (`/league` draft-capital tab, `/draft` loader) already render, because
+    every `picks` / `teamTotals` number on this board is a function of
+    ownership and there is no partial board worth serving.  Success is
+    byte-identical.  Known caveat: the route caches error results for its
+    300 s TTL like any other result.  The DEFAULT-league workbook path
+    (`server.py::_fetch_draft_capital`) follows the same rule since
+    2026-10-17: with `apply_sleeper_trades` on, an unobserved
+    `/traded_picks` (failed fetch, non-list body, or Sleeper failing before
+    it) refuses the board with the same `pick_ownership_unavailable` shape
+    instead of serving the workbook's hand-entered ownership.  Same cache
+    too: the refusal is held for the 300 s TTL and is never answered by the
+    stale-while-revalidate last-valid board (that answers dollars-generation
+    failures only); `?refresh=1` retries.  Success is byte-identical to the
+    pre-fail-closed reader.  Pinned by
+    `tests/api/test_draft_capital_workbook_pick_ownership.py`.
+  - **Every owned class is listed — `dynasty_main` only** (owner directive
+    2026-10-17; scope corrected by the owner 2026-10-18: `dynasty_main` /
+    Risk It to Get the Brisket is the only league in scope, and the $1,200
+    approval does not extend to any other league).  The workbook is ONE
+    draft, so the default league used to offer only that class in the
+    /league year selector.  The league's other owned classes
+    (`league_draft_years.owned_pick_seasons` — 2028 and 2029 beside the
+    workbook's 2027) now arrive in `additionalClassPicks` — canonical fold
+    (`build_pick_ownership`) over the observed `/traded_picks`, priced on the
+    canonical rookie-auction curve (Batch E, below;
+    `src/api/draft_capital_classes.py`), round-level unless Sleeper has set
+    that class's order (`slotStatus: "unknown"` / `"known"`),
+    `dollarValueEstimated: true`.  `picks` /
+    `teamTotals` / `coveredPickYears` are unchanged (the workbook class = the
+    auction budgets /draft, the auction room and the /trade stack read); the
+    year views, `allYearsTeamTotals` and `allYearsSummary` cover every class,
+    each pick once.  **Budget basis — OWNER DECISION 2026-10-18: "$1,200 per
+    draft class"** for `dynasty_main` (12 teams x 6 rounds = 72 picks per
+    class).  Each class is its own $1200 pool; All Years sums the classes,
+    each pick once.  **One reader (Batch F, `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`
+    consumer census):** every consumer of rookie-auction dollars reads
+    `src/draft/rookie_auction/generation.py` — the upcoming (workbook) class
+    as much as the later ones.  The workbook's L2:L73 is the SAME quantity for
+    the class it was built for, so it is no longer read as dollars, only
+    compared (`workbookParity`, diagnostic).  Every class carries the receipt
+    `generationHash` / `curveVersion` / `targetDraftYear` /
+    `actualInputClassYear` / `spineYears` / `inputMode` / `allocationState`
+    from its SERVED record (`draftValuationGeneration`, `draftValuation`,
+    `budgetPolicy.classes[year]`); `rookieKtcValue` is
+    `generation.rookie_ladder` (canonical curve, exactly 72 rookies, else
+    missing — `rookieDollarLadder` says which).  A failed dollars generation
+    is answered with the SAME year's last valid board, labelled
+    `staleWhileRevalidate` (≤ 6 h, retried after 60 s); ownership / Sleeper
+    refusals still refuse.  Degraded classes alert through `ops_alerts`
+    (`draft_valuation:<league>:<year>`).  **Whole dollars only** (owner
+    decision 2026-10-18): the class's half-dollar reference curve
+    (`workbookReferenceDollarValue`, the served record's) is mathematical
+    REFERENCE data; its published pick dollars come from the
+    canonical rookie-auction calculation's final whole-dollar step
+    (`src/draft/rookie_auction/apportion.py`: floor, integer residual by
+    largest fractional remainder, earlier pick first, floors / caps / order
+    verified, refusal `draft_dollars_refused` rather than any total other than
+    $1200), receipt in `wholeDollarAllocation`; every team budget is the exact
+    integer sum of the picks it owns — never rounded on its own (the retired
+    `server._round_to_budget` rounded team totals independently of their
+    picks).  **Last-known-good** (owner addendum 2026-10-18): the 72-pick
+    class is resolved through `src/draft/rookie_auction/published.py` — a
+    verified fresh canonical curve publishes `current`; a refresh that fails
+    keeps the SAME year's last verified allocation (`draftValuation.allocationState:
+    "last_known_good"`, `failedRefresh`, `lastValidAt`, `warning`); with
+    nothing applicable the board is refused (`draft_dollars_unavailable`),
+    never $0 and never another year's curve.  The store holds dollar curves
+    only — ownership always comes from the live Sleeper fold (repo seed
+    `config/draft_valuation/published_allocations/`, box-local
+    `data/draft_valuation/published_allocations/`, redirected per test by
+    `tests/runtime_data_isolation.py`).  Stamped as `budgetPolicy`
+    (`basis: "per_class_pool"`, `status: "owner_confirmed"`).  **Later classes
+    on the same formula (Batch E, `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`):**
+    each later class is its own 72-pick whole-dollar allocation — the
+    spreadsheet formula over the frozen 2026 provisional inputs and THAT
+    class's spine (three most recent completed classes before it), resolved
+    per year through the same `published.py` resolver (current / that year's
+    last known good / unavailable; repo seeds for 2028 and 2029; Batch D's
+    promoted generation is served ahead of the frozen-fallback candidate once
+    it exists).  `inputMode: "frozen_fallback"` classes are labelled a
+    provisional estimate.  A class with no Sleeper draft order is round-level:
+    each round keeps its exact curve dollars, shared equally in whole dollars
+    (<= $1 apart, extra dollars in sha256-of-`assetId` order) — no slot is
+    invented.  Every class totals exactly $1,200; team totals are exact sums
+    of owned picks.  Per year: `budgetPolicy.classes[year]` (`budgetBasis`,
+    `curveId`, `spineYears`, `inputMode`, `allocationState`, …), read from the
+    served record.  Any league but `dynasty_main`: later classes UNPRICED
+    (`league_not_configured`), never adapted.  The interim generic-market
+    curve (`interim_generic_market`, `allocate_class_budget`) is RETIRED.
+    **Draft order** for the workbook class follows THE owner
+    (`src/public_league/draft_order.py`, `reverse_record_lower_pf`) through
+    `src/api/draft_capital_order.py`: verified final standings →
+    `slotStatus: "final_standings"`; standings to date → a labelled forecast
+    (`projected`).  The old Points-For-only in-season reshuffle is gone.
+  - **The Sleeper-derived fallback is out of scope and UNCHANGED** (owner
+    scope correction 2026-10-18).  Every non-default league takes it; it
+    keeps its pre-decision behavior (one $1200 spread across the seasons it
+    emits in `picks`, no `budgetPolicy`).  The shared consumers read both
+    shapes: `draft_capital_years.attach_year_views` sums whatever per-pick
+    dollars a builder assigned, and the frontend states no multi-class basis
+    for a payload without `budgetPolicy`.  Do not extend new draft-capital
+    features to it without a new owner decision.
+  - **Auction budgets: one reader, never $0.**
+    `frontend/lib/draft-capital-budgets.js` is the single client reader of
+    `teamTotals` budgets: a payload stamping `teamTotalsState:
+    "unavailable"`, or whose rows carry no numeric `auctionDollars`, is shown
+    as unavailable — /draft refuses to load the budgets, the auction room
+    leaves every seat `missing` (`src/auction/sources.py`), the /league
+    simulator is replaced by a notice, and the /trade stack note is off with
+    its panel saying why — never coerced to $0.
 
 Rule for new code:
 - Need rankings / values / player data?  →  resolve the scoring
@@ -548,7 +698,14 @@ League-aware endpoints (all stamp `leagueKey` on their response):
 - `POST /api/angle/find`, `POST /api/angle/packages`
 - `GET /api/draft-capital`
 - `POST /api/scrape` (non-default leagueKey returns 501 today; multi-league scrape is future work)
-- `GET /api/public/league/*` (routes through `_public_league_id()` which reads the registry)
+- `GET /api/public/league*` — every public route, `.csv` included, takes an optional
+  `leagueKey` validated by `server.py::_public_league_key_error` (unknown → 400
+  `unknown_league`, inactive → 400 `inactive_league`, a league with no public
+  snapshot → 404 `league_not_public`, never the default substituted). Public
+  payloads carry NO raw Sleeper league/draft id: `public_contract.public_payload`
+  is the one serving projection (`RAW_SLEEPER_ID_FIELDS`, fail-closed in
+  `assert_public_payload_safe`); seasons are named by label, the league by
+  `leagueKey` (CSV: `X-League-Key` header)
 
 Backend map the frontend relies on: `leagueKey` → `sleeperLeagueId`
 + `rosterSettings` + `idpEnabled`.  Lookups go through
@@ -599,8 +756,19 @@ Steps:
 
 1. Common 0-9999 internal value scale
 2. Percentile normalization against a FIXED 500-rank combined-pool
-   reference (``_PERCENTILE_REFERENCE_N`` — ranks past 500 clamp to
-   the curve tail; this is deliberate top-500-board behavior)
+   reference (``_PERCENTILE_REFERENCE_N``, owned by
+   ``src/canonical/player_valuation.py::PERCENTILE_REFERENCE_N``).  500 is
+   the coordinate UNIT, ``p = (rank − 1) / 499``, not the tail boundary:
+   ranks past 500 keep resolving (``p > 1``) and only ranks past
+   ``src/canonical/tail_policy.py::TAIL_SATURATION_RANK`` (904, the
+   deepest source rank observed across retained evidence) share the
+   curve's tail value.  (Corrected 2026-10-18: this line used to say ranks
+   past 500 clamp, which was the pre-B4 behaviour, W30-F023.  Measured on
+   ``dynasty_export_20261018_161125``: 447 rank-Hill contributions sit at
+   effective ranks 501-703 carrying 215 distinct values; under a 500 clamp
+   they would share one.  Contract ``hillCurves.*.saturationRank`` stamps
+   904.  Board rank is a separate question, capped by
+   ``OVERALL_RANK_LIMIT`` = 800.)
 3. Hill-style percentile-to-value conversion via scope-level master
    curves in ``src/canonical/player_valuation.py``
 4. Value-direct voting for ``_VALUE_BASED_SOURCES`` (today exactly
@@ -628,6 +796,26 @@ Steps:
    ``RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0`` + restart (factor 1.0,
    diagnostics keep reporting).  Full record:
    ``docs/sources/SOURCE_FRESHNESS_WEIGHTING.md``.
+   **The owner's STEP SCHEDULE is implemented and approved but HELD OFF**
+   (flag ``source_freshness_schedule_v2``, **default OFF** — owner decision
+   2026-10-20 on PR #1831, Option B: activation reserved for the owner
+   because the incumbent outlier filter can drop legitimate votes when the
+   voting population changes, which outlier-integrity-v2 is fixing; locked by
+   ``tests/api/test_freshness_v2_hold_locked.py`` and the deploy gate
+   ``scripts/verify_owner_held_flags.py``.  Owner directive "Universal
+   Source Voting and Freshness Policy"; when ON): whole days since the
+   last GENUINE publisher update — 0–7 → 1.00, 8–14 → 0.75, 15–21 → 0.50,
+   22–30 → 0.25, >30 → 0 (``config/sources/freshness_schedule_v2.json``).
+   Clock = a recorded vendor publication time (never later than the last
+   observed content change), else the last observed content change; an
+   unchanged re-download never moves it; an update time we cannot establish
+   votes at 0 (never fresh).  The KTC Market benchmark stays on v1.
+   Per-source voting status (status, reason, restore requirement):
+   ``src/sources/voting_status.py`` → contract ``sourceVotingStatus`` →
+   ``/api/sources/weighting`` ``votingStatus`` (reports the rule actually
+   in force — v1 while the flag is off).  Flag OFF is the cadence curve byte
+   for byte.  Record:
+   ``docs/sources/UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md``.
 4c. Family-capped voting (flag ``source_family_cap``, default ON, owner
    directive 2026-09-24) — after Hampel, EVERY member of a B10
    correlation family votes with its own effective weight and the
@@ -643,6 +831,31 @@ Steps:
    Fitzmaurice, FantasyCalc, OTCFFB after their rank-signal
    conversions — votes via rank → percentile → Hill.  (The refit
    workflow trains the scope masters on value-based observations.)
+   **Signals Fantasy** offense (``signalsSf``; ACTIVE since the owner
+   addendum of 2026-10-03) votes the same way: its authenticated native
+   VALUE order is the rank (labelled derived), inside the ``fantasyCalc``
+   B10 family (no independence bonus).  Its IDP value is normalised per
+   family, so IDP is one ``position_idp`` board per family
+   (``signalsIdp{Dl,Lb,Db}``), collected and displayed but HELD from voting
+   (``PRIVATE_SOURCE_VOTE_HOLDS``), translated in SHADOW only
+   (``sourceShadowMeta``) onto the bridge's shared-market family ladder —
+   never a cross-family order Signals asserted.  A family votes only when
+   ``signals_idp_shared_market`` (the IDP master, which ALONE activates
+   nothing), its own ``signals_idp_{dl,lb,db}_vote`` AND
+   ``signals_idp_xwalk_v2`` (Candidate F, ``src/bridges/family_crosswalk.py``:
+   Signals' within-family ORDER priced at IDPTC's level, stamped
+   ``levelSource``) are all ON; master + family without the crosswalk is
+   ``held: no_qualified_translation``, so Candidate A can never vote.  All
+   default OFF (owner directive 2026-10-19).  It is the first
+   **private, box-local** voter: its CSVs live in the gitignored
+   ``data/sources/signals/board/`` store written by the box timer
+   ``dynasty-signals-values``, never in ``CSVs/site_raw``.  Where that
+   collector never ran (CI, dev) ``private_source_availability`` says
+   ``not_provisioned``: no vote, not expected, no error in either CI lane;
+   a provisioned host whose CSV vanished IS ``source_missing``.  Public
+   positional Signals boards never vote.  Rollback
+   ``RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0`` + restart.  Full record:
+   ``docs/sources/SIGNALS_FANTASY_INTEGRATION.md`` §9.
 5. Scope-appropriate curve routing (cross-market → GLOBAL, overall
    IDP → IDP, everything else → OFFENSE; the ROOKIE master is refit
    tooling only — rookie sources ladder-translate first)
@@ -783,8 +996,16 @@ The pick stages are NOT in the order this list used to give.  Actual
 live order (corrected 2026-07-29 audit):
 
 12. Synthetic far-future pick derivation (C1-U6, 2026-08-16) — years no
-    vendor publishes (2029 while the active draft is 2026; horizon =
-    current + 3, self-rolling) are derived AT INJECTION
+    vendor publishes, through the horizon, are derived AT INJECTION.  The
+    horizon ENDS three seasons after the latest PROVEN-completed rookie
+    draft (owner decision 2026-10-19; one owner,
+    ``src/identity/pick_lifecycle.py::board_pick_horizon``, stamped as
+    ``pickClassLifecycle.horizon``): 2026 complete → 2027–2029, and 2030
+    arrives only when the 2027 draft is proven complete.  Unproven
+    completion fails closed onto the floor, the class before the active draft
+    year + 3 (``anchor + 2``); only proof that the anchor's own draft
+    completed reaches ``anchor + 3``, so a vendor slot roll cannot add a
+    season on its own.  The derivation itself is unchanged
     (``_inject_far_future_pick_sources``): the nearest published future
     year's tier entries are cloned with every per-source value stepped
     by the **measured vendor year-step** for its (tier, round) cell
@@ -1082,6 +1303,14 @@ them without reading why (WS-J F-3/F-4):
 | `suggestions.py` | `BOARD_TOP_N_FILTER` (150) | **our blended board** — `display_value` order, covers every asset class |
 | `finder.py` | `MARKET_TOP_N_FILTER` (150) | **the retail market, per market** — KTC Market (`ktcCrowdTradesSfTep`, via `src/sources/ktc_market.py`) for offense + picks, `idpTradeCalc` for IDP, each ranked within its own population |
 
+`suggestions.py`'s quality pool is the top-150 **plus a positional floor**
+(2026-10-14, owner inventory 2.3/2.4): every position the league starts also
+admits its top `starters x teamCount` board players, because the global top-150
+held no defensive backs and DB targets never existed.  Roster ANALYSIS reads
+the whole roster; what may be OFFERED stays inside that pool.  Needs come from
+the canonical Team Weakness owner when the submitted roster is exactly a league
+team's, else the count-based need with `needSource.weaknessUnavailableReason`.
+
 `finder.py` must anchor on a real retail value because its whole
 premise is arbitrage between our board and the market — the market
 number is load-bearing in its arithmetic. `suggestions.py` only needs
@@ -1134,16 +1363,28 @@ which shipped on two surfaces at once.
 * **Raw canonical value** — ``rankDerivedValue``.  One number per asset,
   owned by ``_compute_unified_rankings``.  Value Adjustment never mutates it;
   a player is worth the same whatever package he is in.
-* **Adjusted side total** — ``raw + VA − stack``.  The comparison quantity
+* **Adjusted side total** — ``raw + VA``, nothing else.  The comparison quantity
   for ONE specific pairing of packages.  It is a property of the trade, not
   of any asset in it, and it is what every fairness verdict, meter and gap
   in this repo is measured on.
 
+**Which model computes VA (owner decision 2026-10-17):** the ACTIVE package
+model is the geometric ``geom_q078_v1`` (sorted package utility
+``U = Σ q^(i-1)·v_i``, q = 0.78, shown as a positive-only adjustment so
+``adjustedA − adjustedB = U_A − U_B``); KTC's ``adjustPackage`` port
+(``ktc_2026_04``) is retained as the explicit rollback model.  Every consumer
+goes through the one dispatch (``src/valuation_math/package_model.py`` /
+``trade-logic.js::packageAdjustPair``, active id in
+``config/trade/package_model.json``); record:
+``docs/valuation/PACKAGE_MODEL_OWNER_ACTIVATION_2026-10-17.md``.  The
+equalizer evidence below was measured under KTC.
+
 **The consequence that is easy to get wrong: VA is a function of BOTH sides'
 complete value arrays.**  Adding a piece of raw value *V* does NOT move the
-adjusted gap by *V* — it re-runs ``ktc_adjust_package`` from scratch, so the
-piece count changes, the progressive-nerf ladder shifts, the recipient side
-can flip, and the 1-v-1 / 3.3% display gates snap on or off.  Anything that
+adjusted gap by *V* — it re-runs the package model from scratch, so the piece
+order and discounts change, the recipient side can flip, and (under the KTC
+rollback model) the progressive-nerf ladder shifts and the 1-v-1 / 3.3%
+display gates snap on or off.  Anything that
 wants to close a gap must **simulate the post-add adjusted gap**, never
 subtract a raw value from it.
 
@@ -1168,28 +1409,50 @@ The retired rule picks the 1,000 piece, because 1,000 matches 1,000:
 The moment B holds two pieces the consolidation premium fires and credits
 2,032 to side A.
 
-**One representation, every side count.**  Until 2026-08-18 the 2-team meter
-read VA-adjusted side totals while the 3+-team meter read a raw net flow with
-no VA in it at all, so the same trade shape graded differently at 2 teams and
-at 3.  ``computeSideFlows`` is now VA-inclusive: each side's premium is spread
-proportionally across the assets it SENDS, so ``given_i = raw_i + adjustment_i``
-by construction and the premium lands on whichever side receives those pieces.
-``tradeImbalance`` is the single definition of "how far apart is this trade",
-and for N = 2 the identity ``nets[1] === tradeGapAdjusted(A, B)`` holds exactly
-(pinned by test).  Caveat that travels with the number: the multi-side VA is a
-**structural extension** of a 2-side calibration, not a separately fit model.
+**One rule, every side count: each team in its OWN perspective** (2026-10-20,
+spec ``docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`` §5.1).  For a routed trade of any
+N, team i's package reading is ``packageAdjustedPairTotals(G_i, R_i)`` — what it
+sends against everything routed to it, the JS twin of Python
+``package_model.adjusted_pair_totals`` (pinned by
+``tests/fixtures/multi_team_trade_parity_cases.json``).  Its gap is
+``recvAdj − sendAdj`` and its band base is ``max(sendAdj, recvAdj)`` — its OWN
+larger package, never the largest package anyone sends.  ``computeSideFlows``
+publishes that reading (``given`` / ``received`` / ``net`` = ``sendAdj`` /
+``recvAdj`` / gap, perspective values never summed across teams) beside the RAW
+routed flows ``rawGiven`` / ``rawReceived``, the only conserved quantities.
+For N = 2 the two readings are mirror images, every number is unchanged, and
+``nets[1] === tradeGapAdjusted(A, B)`` holds exactly (pinned by test).  For
+N ≥ 3 ``tradeImbalance`` returns ``{perTeam, worst}`` (no ``max(net) −
+min(net)``), and ``findBalancers`` returns nothing (no approved 3+-team
+balancing objective, SD-13).  RETIRED: ``computeMultiSideAdjustments``, which
+priced each side against the flattened union of every OTHER side — the "two
+imaginary sides" collapse directive §6 forbids (on the spec's I14 trade it put
+team A at +4,634 and the trade at "lopsided"; A's own packages differ by +610,
+"slight").  The browser's 3+-team reading is a
+labelled PRELIMINARY indicator; each team's final answer is
+``POST /api/trade/analyze-multi``'s.
 
-Known, pre-existing, NOT fixed here: the draft-capital stack term is accounted
-differently by the two paths — ``adjustedSideTotals`` debits both sides' stack
-into the gap while a net flow credits only the side's own.  Zero for every
-trade with no pick routing; it belongs to whoever revisits the stack model.
+**The draft-capital stack effect is INFORMATIONAL ONLY** (owner directive
+2026-09-29, #1527).  ``computeStackAdjustments`` still computes it for a
+labelled "experimental, not calibrated" note on /trade, but no decision helper
+accepts it: side totals, the gap/verdict, side flows, ``tradeImbalance`` and
+``findBalancers`` are raw + VA.  Its acceptance audit found it dominating whole
+packages through data seams (2027 picks counted twice in team stacks,
+synthesized future-pick dollars, picks "sent" by teams that do not hold them, a
+2026/2027 draft-year split); a league-pool conversion rate fixed only the
+self-referential-rate defect and still produced a −963 side.  It returns to the
+totals only through an owner-approved methodology meeting issue #1529's
+prerequisites.  ``frontend/__tests__/trade-stack-withdrawn.test.js`` fails if
+it re-enters any decision path — updating it IS that methodology decision.
 
 Owners:
 
 | concept | owner |
 |---|---|
-| Value Adjustment (Python) | ``src/trade/ktc_va.py`` — ``market_value_adjustment.py`` is a re-export |
-| Value Adjustment (JS) | ``frontend/lib/trade-logic.js::ktcAdjustPackage`` |
+| package model dispatch (Python) | ``src/valuation_math/package_model.py`` — ACTIVE ``geom_q078_v1``; KTC rollback ``ktc_2026_04`` |
+| package model dispatch (JS) | ``frontend/lib/trade-logic.js::packageAdjustPair`` (same ids) |
+| KTC rollback model (Python) | ``src/trade/ktc_va.py`` / ``ktc_va_core.py`` — ``market_value_adjustment.py`` is a re-export |
+| KTC rollback model (JS) | ``frontend/lib/trade-logic.js::ktcAdjustPackage`` |
 | adjusted gap / imbalance | ``tradeGapAdjusted`` + ``tradeImbalance`` (JS), ``_va_gap`` (Python) |
 | equalizer / balancers | ``findBalancers`` (JS), ``suggestions._find_balancers`` (Python) |
 
@@ -1301,9 +1564,11 @@ current ``suggestions.py`` shape (1-for-1, 2-for-1) can exceed a cap, so the
 forced-drop path is reachable there only on an already-over-limit roster.  A
 test fails if a 1-for-2 suggestion generator is added, which is when that
 changes.  The shapes that DO go over are the finder's ``PackageShape(1, 2)``
-and Angle's N+1 counter-package — the latter on ANY roster at the cap, with no
-over-limit precondition, which makes ``/api/angle/packages`` the surface where
-the forced-drop path is genuinely exercised.
+and ``PackageShape(2, 3)`` (Wave B) and Angle's N+1 counter-package — the
+latter on ANY roster at the cap, with no over-limit precondition, which makes
+``/api/angle/packages`` the surface where the forced-drop path is genuinely
+exercised.  With Team Context ON the finder's forced releases also REORDER its
+results (``forcedDropCost``, below); they still filter nothing.
 
 **The finder's Value Adjustment is no longer a monkeypatch.**
 ``src/trade/__init__.py`` used to rebind ``finder._score_trade`` and
@@ -1316,6 +1581,117 @@ inert.  Pinned by ``tests/trade/test_finder_va_is_not_bypassable.py``, which
 tests the PROPERTY (the premium is applied and published) plus AST guards that
 no generator bypasses the adjusting scorer and the ``__init__`` has no
 executable statements.
+
+**Forced-drop opportunity cost and both teams (Wave B, C3-CAP-01).**
+``roster_capacity.forced_drop_cost`` prices the releases a trade ADDS —
+``min(overLimitAfter, net roster growth)``, from ``ForcedDrop.release_cost`` —
+so a roster already over the cap is not charged its existing overage.  ``None``
+when undeterminable (never free); taxi-unknown / unpriced / exhausted-ladder
+answers are labelled lower bounds.  With Team Context ON the finder charges it
+as ``rankingFactors.forcedDropCost = -(cost / give_model) x _BOARD_EDGE_WEIGHT``
+— the board-edge scale, no second coefficient — via a lazy top-K bounded to
+``5 x max_results``.  It only lowers a score, so the rule above still holds:
+it reorders, it filters nothing.  Asset-only keeps capacity a pure report.
+Every finder / angle candidate also carries ``counterpartyRosterCapacity``
+(``counterparty_context_resolver`` + ``counterparty_capacity_block``, same
+owner); it is reported, never ranked — the counterparty's acceptance is scored
+on the market board, and pricing its releases on ours would mix scales.
+
+**Generated-trade topology (C3-TOPO-01).**  Every generator applies
+``src/packages/construction.py::topology_is_allowed`` (``abs(players_A -
+players_B) <= 1``, picks are not players): the finder through
+``enumerate_packages`` (default mode adds top-6 2v2 / 3v2 / 2v3), angle per
+generated side (``thresholds.topologyRejected``), and the suggestions
+equalizer per addition.  A balancer is never a draft pick (C7-PICKGEN-01
+rule 5: picks enter generated trades only through a posture-aware
+generator).
+
+### Multi-team trade analysis — one owner (N-team engine, owner directive 2026-10-20)
+
+A team-attributed trade of ANY size is one routed ledger evaluated by the SAME
+per-team analysis the 2-team War Room runs.  Spec (binding interface):
+``docs/trade/NTEAM_TRADE_ENGINE_SPEC.md``.
+
+* ``src/trade/trade_ledger.py`` owns the ledger: ONE snapshot per request
+  (``snapshot_for``; rosters, board rows, pick ownership, roster settings, and
+  freshness from ``src/api/roster_freshness.py`` — never a copy), asset refs
+  (``p:<sleeperId>`` / canonical league pick ids; labels never identify),
+  validation in the spec's fixed order (§2.3, stable reason codes), and ownership
+  verified against the snapshot — no request field can assert it.  Only
+  ``current`` rosters prove ownership; ``stale`` / ``unknown`` rosters, a player
+  on several rosters, or an ``unknown`` pick make the asset UNVERIFIABLE, never
+  guessed.
+* ``src/trade/analyze_service.analyze_trade_n`` is the one N-team composer: a
+  per-team loop over ``simulate_for_team`` + ``analyze_for_team`` from that one
+  snapshot.  Each team's roster changes only through its own legs, so all
+  changes are simultaneous by construction — no chain of 2-team trades.  At N = 2
+  a team's ``simulation`` + ``analysis`` equal ``/api/trade/analyze``'s (pinned on
+  real archived trades; the one listed difference is an orphan team's posture
+  reason).  Modes: ``team_context`` / ``asset_only`` (private) and
+  ``market_fairness`` (public: no posture, no capacity, writes nothing).  Refuses
+  unless the package model is ``geom_q078_v1`` with a readable config.
+* ``src/trade/team_verdicts.py`` projects, never computes: the per-team category
+  (the old ``public_category_from_decision`` body), per-team MARKET fairness (the
+  asset evidence gates, then the equity lens's own ``fairness_bands`` band over
+  that team's adjusted (gives, receives) — gross, identical in every mode), the
+  Kleene-AND overall, and the all-team summary.  There is no trade-level
+  recommendation, and no per-team adjusted gap, VA or utility is ever summed into
+  a trade-level number — only RAW priced totals are conserved.
+* ``trade_decision.asset_evidence_gaps`` is the asset half of the evidence gates;
+  its ``ownership_unverifiable`` gate reads the simulator's ``ownershipEvidence``,
+  which only the ledger sets, so every existing route is unchanged.
+* Roster capacity matches an outgoing player to his roster entry BY ID
+  (``roster_capacity.outgoing_roster_names``); names are the fallback only.
+* The private route ``POST /api/trade/analyze-multi`` is gated by
+  ``trade_multi_team_analysis`` (default OFF; rollback
+  ``RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0`` + restart).  The flag gates the
+  route, not the engine.  Bounds: ``config/trade/multi_team.json`` (unreadable →
+  2 teams).  A per-team result that does not reconcile with the ledger raises
+  ``ConservationViolation`` and is never published (500).
+
+Rule for new code: a multi-team surface consumes ``trade_ledger`` +
+``analyze_trade_n``; it never re-implements routing, ownership, valuation, the
+package model, fairness or the decision, and never collapses a multi-team trade
+into two imaginary sides.
+
+### Competitive Posture — one owner (#840 / C7-POST-01, Wave B)
+
+``src/roster_intel/window.py::competitive_posture`` publishes PUSH / HOLD /
+RETOOL / REBUILD as an explained probabilistic classification over the
+continuous competitive window (owner decision 2026-09-24; map owner-chosen
+2026-10-03, every constant a declared PRIOR, ``paramsVersion
+posture_v1_prior``): PUSH = both contender states; RETOOL / REBUILD split
+``productive_struggle`` by trajectory; ``season_timing`` (week + the LEAGUE's
+own ``trade_deadline``) sharpens the split toward the deadline; HOLD is the
+share of a 3x3 perturbation grid over the window's measured inputs on which
+the directional label flips — no probability cut, and labels change direction
+only through HOLD (pinned by a sweep).  No competitiveness evidence is HOLD.
+
+Consumers read it, never re-derive it: ``gameplan.league_competitive_postures``
+(the cached league bundle's windows; warm-only mode for latency-sensitive
+callers), ``trade_simulator.competitive_posture_for`` (resolved by the ROUTE so
+``simulate_trade`` stays pure), ``team_impact`` window fit (the hard-threshold
+``_classify_window`` is retired; no posture = ``windowFit: null``), and Analyze
+Trade's ``strategicPosture`` lens, which has ``votes=False`` — posture
+interprets evidence the other lenses already carry, so voting would count it
+twice, and it is never a veto.  ``ros/direction.py`` (public deadline
+buyer/seller) and BDVM's direction remain separately named concepts.
+
+Use Team Context is read in ONE place: ``src/trade/team_context.py``.
+
+### Rookie-draft order — one owner (owner decision 2026-10-04)
+
+``src/public_league/draft_order.py`` owns "which team picks where": reverse
+final REGULAR-SEASON record, teams tied on record ordered by LOWER total Points
+For, recursively (``config/leagues/draft_order_rules.json`` records it for
+``dynasty_main``; any other league is UNKNOWN and gets no slot forecast).  Not
+Max PF, all-play or Team Strength rank — predictive evidence forecasts record
+and PF, it never decides order.  ``playoff_sim`` applies the rule per simulation
+and publishes ``draftSlotDistribution`` / ``finalWins`` / ``finalPointsFor``;
+``src/trade/pick_market.py`` turns that into the generated-trade market side
+(``P_used = c x P + (1-c)/3`` over KTC's native tiers; provisional ``c`` until
+calibrated against realized drafts).  Never the canonical pick value.  Full
+record: ``docs/picks/DRAFT_ORDER_RULE.md``.
 
 ### FAAB recommendations — one engine, two separate answers
 ``src/trade/faab_engine.py`` is the ONLY place a FAAB dollar figure is
@@ -1856,9 +2232,36 @@ confidence. Do not reintroduce a range as the deciding statistic.
 
 Picks keep their own coefficient-of-variation rule
 (``assess_pick_confidence``) because rank spread on picks is dominated by
-the flat-value regions in R3-R6 — but it is family-aware, and its
-independence bar is 2 markets rather than 5 because the pick population
-only HAS 2-4 families (KTC + IDPTC).
+the flat-value regions in R3-R6.  Its independence unit is the PROVIDER, not
+the family (owner directive 2026-10-07, IDP Trade Calculator quarantine
+cutoff): providers come from ``config/sources/source_lineage.json`` via
+``source_census.provider_of``, and the pick markets are only two providers —
+KeepTradeCut and IDP Trade Calculator.  KTC Crowd + KTC Trades stay two B10
+families with their own value votes, but are ONE provider, so a pick priced by
+KTC alone is ``low — single pick provider``; KTC Market is never read.  An
+unrecorded provider, or an unreadable registry, FAILS CLOSED (``low — pick
+provider identity unknown``), never back to per-key counting.  The bar is 2
+providers rather than 5.  A withheld (``freshnessExcludedSources``) market
+can only LOWER a pick's confidence, and ``pickEvidence`` names the voting /
+withheld providers per pick — on tether-priced current-year slots too
+(``valueBasis: rookie_pool_tether``).
+
+**Losing evidence never raises confidence** (same directive).  On a row with a
+withheld source, ``assess_confidence(withheld=…)`` seats the lost families in
+every share axis' denominator and credits them nothing; independence and
+coverage count voting families only.  The seats are decided exactly, with no
+second blend (``_lost_evidence_seats``): the unweighted outlier test is re-run
+on the OBSERVED panel (voting + withheld values), which reproduces the verdict
+from while the source still voted — so a withheld source the panel would have
+rejected anyway is not a loss, and a Hampel rejection is seated only when the
+lost vote CAUSED it.  Exact at a fixed published value; the one accepted
+residual (coordinator, 2026-10-07) is the agreement axis re-measured against a
+value that itself moved (1 row on the simulated cutoff).  Validator warnings
+``source_votes_withheld:*`` / ``pick_evidence_reduced_to_single_provider:*`` /
+``pick_evidence_reduced_tether_priced:*`` / ``pick_evidence_provider_unknown:*``
+plus status ``degraded`` (never an error, either lane) and the
+``content:<key>:votes_withheld`` alert report it.  Pinned by
+``tests/api/test_idptc_cutoff_readiness.py``.
 
 Per-row fields: ``confidenceBucket`` / ``confidenceLabel`` /
 ``confidenceAxes`` / ``confidenceReasons``. ``metrics`` stays on the
@@ -2163,6 +2566,59 @@ around:
   league id meant a budget-capped run re-collected the same prefix
   forever and never reached the tail.
 
+**League FORMAT captures for the completed-trade ledger** live in
+`src/sharp/league_format_capture.py` — the one owner of "what format was this
+Sharp league in, and when did we see it".  Append-only, dated, hashed rows
+(`sharp_league_format_captures`; a mid-season settings change is a NEW row,
+never an overwrite) recorded from league objects discovery and the roster crawl
+already fetch, plus a budgeted `GET /v1/league/{id}` catch-up pass run by the
+transaction-crawl timer (`--format-budget`).  The ledger normalizer picks the
+capture in force at each trade (`capture_in_force`: nearest prior →
+`sleeper_league_capture_full`; only a later one → `…_post_trade`, never exact;
+none → UNKNOWN).  Evidence only — it touches no value.  **Exact at trade time
+is a BRACKET**: a capture at or before the trade AND a later observation, at or
+after the trade, that saw the SAME payload hash with no different hash between
+(`confirm_after_trade`, over the append-only `sharp_league_format_observations`
+log of unchanged re-observations plus later captures).  The nearest prior
+capture alone only SELECTS the axes — a capture months old certifies nothing.
+`formatEvidence` travels onto the group and
+`market_trade_format.format_timing_cap` holds every unproven case off
+NATIVE_COMPARABLE with the reason named — `format_unconfirmed_after_trade`,
+`format_changed_after_trade`, post-trade, trade-time-unknown, undated snapshot.
+Such a verified-dynasty trade is BROAD_CONTEXT `timing_limited`
+(`targetPriceAuthority` 0) — the fourth disposition, owner decision 2
+(2026-10-01): NATIVE / VALIDATED_TRANSFORMABLE carry authority 1, BROAD_CONTEXT
+(differs / unknown / untranslated / timing-limited) and TARGET_UNSUPPORTED (hard
+insufficiency only) carry 0; definitions in
+`docs/market_trades/TARGET_FORMAT_CENSUS.md`.  Latency: exact at the league's next
+observation (discovery / roster crawl daily, else the weekly catch-up re-check).
+Residual: a change AND revert strictly between two observations is invisible.  Dynasty leagues only (best ball and
+non-target dynasty formats kept); retention via `prune_captures` from
+`ledger.prune`; the catch-up pass stops on HTTP 429 and must not overlap another
+Sharp timer.
+
+**Own-league trades use THEIR OWN season's format, not today's.**  Sleeper
+chains our leagues year to year under new ids (`dynasty_main` 2025 had 10 teams,
+different slots and `bonus_rec_te` 0.35), so `src/trade/own_league_format_capture.py`
+walks each registry league's `previous_league_id` chain and records every
+season-league's format with the SAME capture owner functions, in its own
+box-local store (`data/leagues/own_league_format_captures.sqlite`, kept
+indefinitely — the intel ledger's prune would drop completed seasons).  It runs
+as the third pass of the transaction-crawl timer; a completed season is fetched
+once, then frozen; the current season is re-fetched every run (own budget,
+`--own-league-format-budget`; skipped when the Sharp pass hit a 429).
+`market_trade_normalize._own_league_format` decides: a season capture at or
+before the trade → `season_league_settings`, exact only under the same BRACKET
+(a later re-fetch confirmed the same hash — ~6 h latency at the 4x/day timer);
+only a later one — including a completed season's final settings fetched now,
+which cannot rule out a mid-season change → `…_post_trade` (capped); current
+season with no season capture yet → the registry format, ALWAYS capped
+(`…_unproven_at_trade` — its slots / team count are undated config; the old
+exact `registry_and_scoring_card` label is retired); no season-league → format
+UNKNOWN, never today's.  Every own-league label is in
+`CAPTURE_FORMAT_SOURCES`, so a row without dated evidence fails closed, and an
+undated legacy snapshot (`…_time_unknown`) is capped even before the trade.
+
 `server.py` calls `_sharp_service.register_http_routes()` explicitly
 after importing the module. The import-time side effect alone is not
 enough: anything that imports `src.sharp.service` before the app exists
@@ -2247,6 +2703,87 @@ deferred migration held in lockstep by
 never parse, compare, or mint pick identity outside the owner; identity says
 WHAT the asset is — valuation stays in the pipeline.  Full record:
 `docs/identity/C1_ID_02_PICK_IDENTITY.md`.
+
+**League pick OWNERSHIP is observed or unknown, never assumed** (2026-10-02).
+The fold seeds default ownership and applies `/traded_picks` as a diff, so a
+failed fetch and "no trades" used to produce the same published answer.  Three
+producers now read the response through `picks.traded_picks_observation` — a
+list, even empty, is an observation; anything else is `None`:
+`sleeper_overlay._build_pick_ownership`, the scraper's `fetch_sleeper_rosters`,
+and `draft_capital_fallback.build_sleeper_derived` (which refuses the whole
+board with `picks.PICK_OWNERSHIP_UNAVAILABLE_ERROR`).  The public `/league`
+snapshot joined them 2026-10-17 (P0: the Draft tab showed one manager eight
+2027 firsts): `sleeper_client.fetch_traded_picks_observed` feeds
+`SeasonSnapshot.traded_picks_state`, persisted as `tradedPicksState` (a
+snapshot without it loads as `pick_ownership_unstated`), and
+`public_league/draft.py::pick_inventory` is a view of `build_pick_ownership`
+over the CURRENT league's `/traded_picks` only — older leagues' rows are past
+ownership STATES and never redefine the present; movement counts come from
+completed trade transactions, de-duplicated by id.  The default-league
+workbook path `server.py::_fetch_draft_capital` joined them 2026-10-17: an
+unobserved `/traded_picks` refuses the board (`pick_ownership_unavailable`)
+instead of keeping the workbook's own ownership columns, and its later owned
+classes are folded by `build_pick_ownership`.  On `None` the two
+`sleeper.teams` producers do not fold:
+every team publishes
+`picks: null` / `pickDetails: null` (never `[]`, which says "owns no picks")
+with `pickOwnershipState: "unavailable"` + `pickOwnershipReason:
+"traded_picks_fetch_failed"`, and `"observed"` / `null` on success
+(`picks.pick_ownership_fields`, one vocabulary).  Consumers read it through
+`picks.team_pick_ownership_unavailable_reason`: the Pick Projector refuses
+(`picks: null`, reason in `meta`; route `error: "pick_ownership_unavailable"`),
+BDVM `pickCount` is `None` + `pickCountUnavailableReason`, the trade simulator
+attaches a `pickOwnership` note (outgoing picks still count on both sides, so
+`delta` stays right), and the Pick Forecast capture keys on the stated
+`observed`.  The frontend's one reader is `frontend/lib/pick-ownership.js`
+(constants pinned to the Python owner by test); `/bdvm`, `/rosters`, the
+TeamSwitcher, the Terminal portfolio and the Pick Projector render the unknown
+state.  **`/trade` does not yet** (`app/trade/page.jsx`, `lib/trade-assets.js`
+still read `team.picks || []`) — named follow-up, held off while the
+trade-calculator quantity rework owns those files.  **`sleeperDataReady` is deliberately NOT flipped** by it:
+readiness is about whether the block belongs to the requested league and its
+league CONFIG is complete; the rosters are still real, and the pick fields
+carry their own explicit unknown — degrading the one field rather than
+dropping the whole block.
+
+### Draft years and owned-pick ownership — two named scopes, one resolver each (Wave A, 2026-10-03)
+
+"Draft year" is two concepts, deliberately kept separate and separately named:
+
+| scope | question | owner | read via |
+|---|---|---|---|
+| **BOARD** (scoring profile) | which pick classes the shared canonical board still prices | `current_rookie_draft_year()` + `pick_lifecycle.board_class_lifecycle` (retired only when EVERY served league proves it) | contract `currentDraftYear`, `pickClassLifecycle` |
+| **LEAGUE** (leagueKey) | this league's upcoming rookie draft and the seasons it owns picks in | `src/identity/pick_lifecycle.py::league_draft_years`, fed by `src/api/draft_class_evidence.py::league_draft_years_for` | draft-capital `upcomingDraftYear` / `leagueDraftYears` |
+
+The league resolver anchors at `max(calendar year, Sleeper league.season)` (both floors, never
+retirement verdicts), steps past classes THIS league has proven retired (completion AND roster
+consumption — the #1414 rule), and spans `OWNED_PICK_HORIZON_CLASSES = 4` classes from the anchor.
+Every league-scoped surface reads it: both `/api/draft-capital` paths (workbook `season` used to be
+"Sleeper season + 1 on any complete draft"), the Sleeper overlay's and the scraper's pick ownership
+(which used 3 vs 4 calendar years — the overlay never published the third future class), the
+public-league pick inventory (`season + 1, + 2`), and the `/trade` stack anchor (which read the
+BOARD's `firstActiveClass` — 2026 — while the league's draft capital was 2027's).  Board pricing
+is unchanged.  Rule for new code: a league-scoped surface never derives a draft year itself.
+
+**Draft-capital payloads say what they cover.**  Both builders stamp `coveredPickYears` (the
+workbook is one season), `upcomingDraftYear`, `leagueDraftYears`, a stable `rosterId` / `ownerId`
+on each `teamTotals` row (only when the display name maps to exactly one roster), and per pick row
+`originRosterId` / `currentOwnerRosterId` / the canonical `assetId`.  The workbook used to stamp no
+coverage, so `/trade` re-added the upcoming class from roster ownership (top stack $1,677 vs about
+$854), and joined teams by display name across two name spaces.  The stack now joins by roster key
+and counts each `assetId` once (`frontend/lib/pick-stack.js::ownedPickStackInventory`).
+
+**Who holds an owned pick is one lookup.**  `src/identity/picks.py::lookup_league_pick_owner`
+indexes `sleeper.teams[].pickDetails[].assetId` (the canonical fold, not re-folded) and answers
+`owned` / `unknown` (an unpublished inventory — e.g. a failed `/traded_picks`, #1618 — or two teams
+claiming one id) / `absent`.  Every TEAM-ATTRIBUTED path consumes it: `/api/trade/simulate` and
+`/api/trade/analyze` accept `pickAssetIdsIn` / `pickAssetIdsOut` (parallel to the pick lists) and
+debit a team only for a pick it holds, reporting the rest in `ownedPickChecks.notOwnedBySender`
+with the actual owner; a generic pick (no id) is priced as sent but never removes a real pick (the
+board-row fallback that removed "some pick on that row" now applies to players only); one real pick
+counts at most once.  The `/trade` stack note applies the same rule client-side
+(`stackPickMoves`).  The hypothetical calculator itself still never refuses a copy (#1619).  The
+stack effect stays informational only — this is a prerequisite for #1529, not its authorization.
 
 ### Per-source pick boards — one owner (C1-U6-D1, 2026-08-17)
 
@@ -2553,3 +3090,8 @@ production. Automatic canonical promotion is allowed only through the fail-close
 Autopilot path; today it may change OFFENSE only, carrying GLOBAL/IDP/ROOKIE from the
 incumbent until those scopes have their own promotable evidence. Never bypass this with
 `--override-scope` in automation and never hand-edit the live Hill constants.
+Since owner decision 1 (2026-10-01) the board-holdout gates are necessary, not sufficient:
+automatic promotion also needs an eligible preregistered independent validation target
+(`src/model_registry/independent_validation.py`, empty today, so every run is
+`AUTO_PROMOTION_BLOCKED: no_independent_validation_target` while refits and evidence
+continue). See gate 7 in `docs/valuation/HILL_AUTOPILOT_V2.md`.

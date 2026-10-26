@@ -54,10 +54,16 @@ from src.ros.lineup import RosterPlayer, is_priced
 __all__ = [
     "COMPETITIVE_STATES",
     "ORDERING_CAVEAT",
+    "POSTURE_LABELS",
+    "POSTURE_PARAMS_VERSION",
     "STATE_ORDER",
+    "CompetitivePosture",
     "CompetitiveWindow",
+    "SeasonTiming",
     "WindowInputs",
+    "competitive_posture",
     "compute_window",
+    "season_timing",
     "league_competitiveness",
     "trajectory_score",
 ]
@@ -162,6 +168,9 @@ class CompetitiveWindow:
     overridden: bool = False
     override_reason: str | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
+    #: The softmax temperature the affinities were produced at, kept so the
+    #: posture layer can re-solve perturbed inputs on the SAME surface.
+    temperature: float = DEFAULT_TEMPERATURE
 
     @property
     def confidence(self) -> float:
@@ -218,8 +227,28 @@ def league_competitiveness(
     """
     if playoff_odds:
         rows = [r for r in playoff_odds if r.get("ownerId")]
-        champ = {str(r["ownerId"]): float(r.get("championshipOdds") or 0.0) for r in rows}
-        if champ and any(v > 0 for v in champ.values()):
+
+        def _odds(r: Mapping[str, Any], key: str) -> float:
+            v = r.get(key)
+            return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0.0
+
+        # Championship odds first; ties broken by playoff then bye odds.
+        # Late in a season most rosters sit at exactly 0% title odds, and a
+        # championship-only percentile then ranks a 99.98%-playoff roster
+        # level with an eliminated one (measured 2026-10-03: 9 of 12
+        # ``dynasty_main`` rosters tied at 0.0).  The tuple is a strict
+        # refinement — identical whenever title odds differ.
+        # A tie-break key is used only when EVERY row carries it: a row
+        # missing playoff odds is unknown there, not 0%.
+        keys = ["championshipOdds"] + [
+            k
+            for k in ("playoffOdds", "byeOdds")
+            if all(
+                isinstance(r.get(k), (int, float)) and not isinstance(r.get(k), bool) for r in rows
+            )
+        ]
+        champ = {str(r["ownerId"]): tuple(_odds(r, k) for k in keys) for r in rows}
+        if champ and any(v[0] > 0 for v in champ.values()):
             mine = champ.get(str(owner_id))
             if mine is not None:
                 # Percentile against the league, so the scale is
@@ -379,5 +408,275 @@ def compute_window(
         probabilities=probs,
         inputs=WindowInputs(comp, traj, comp_src, sample),
         most_likely=most_likely,
+        notes=tuple(notes),
+        temperature=temperature,
+    )
+
+
+# ── Competitive Posture (#840 / C7-POST-01) ──────────────────────────
+#
+# The strategic interpretation of the window above, published as PUSH /
+# HOLD / RETOOL / REBUILD.  Owner decision 2026-09-24: the MODEL stays
+# continuous and evidence-driven; the product may publish the four labels
+# only as an explained probabilistic classification, with confidence and
+# component evidence, no single hard threshold, HOLD when the evidence is
+# balanced or ambiguous, and never as a veto.  Mapping chosen by the owner
+# 2026-10-03 ("declared map + timing"):
+#
+# * PUSH    = championship_contender + playoff_contender
+# * RETOOL  = retool + productive_struggle x trajectory
+# * REBUILD = rebuild + productive_struggle x (1 - trajectory)
+#   (a young weak roster leans toward retooling around its core; an old
+#   weak one toward rebuilding)
+# * season timing sharpens the three-way split as the league's trade
+#   deadline approaches: the same competitiveness is a firmer strategic
+#   signal in deadline week than before Week 1
+# * HOLD is the share of a small deterministic perturbation grid over the
+#   window's own measured inputs on which the directional label FLIPS — so
+#   HOLD wins exactly when the classification is not robust to the
+#   uncertainty in the evidence it rests on.  No probability threshold.
+#
+# Every constant below is a PRIOR: declared, not fitted, and nothing scores
+# these labels against what teams actually did.  ``paramsVersion`` travels
+# with every answer.  Posture is derived from the same lineage as Team
+# Strength / playoff odds / age-value, so a consumer must treat it as an
+# interpretation of that evidence, never as an additional independent vote.
+
+POSTURE_LABELS = ("PUSH", "HOLD", "RETOOL", "REBUILD")
+_DIRECTIONAL = ("PUSH", "RETOOL", "REBUILD")
+POSTURE_PARAMS_VERSION = "posture_v1_prior"
+
+#: Exponent on the directional split at the trade deadline (1.0 = no
+#: sharpening, used whenever timing is unknown or out of season).  PRIOR.
+_POSTURE_DEADLINE_SHARPEN = 2.0
+#: Half-width of the perturbation grid, per input and source.  Wider where the
+#: measurement is weaker (a lineup-score rank is a structural proxy; no ages
+#: means the trajectory axis is a neutral default).  PRIOR.
+_POSTURE_COMPETITIVENESS_DELTA = {"championshipOdds": 0.08, "lineupScoreRank": 0.15}
+_POSTURE_TRAJECTORY_DELTA = 0.10
+_POSTURE_TRAJECTORY_DELTA_NO_AGES = 0.25
+#: The last NFL regular-season week; a configured deadline beyond it is a
+#: "no deadline" sentinel, not a week.
+_LAST_REGULAR_SEASON_WEEK = 18
+
+
+@dataclass(frozen=True)
+class SeasonTiming:
+    """Where the league is in its season, from facts only.
+
+    ``progress`` runs 0 → 1 from Week 1 to the league's trade deadline, and is
+    ``None`` when it cannot be known (in season with no deadline on record) —
+    never guessed from a default deadline week.
+    """
+
+    phase: str  # offseason | regular | post_deadline | unknown
+    week: int | None
+    trade_deadline_week: int | None
+    progress: float | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "phase": self.phase,
+            "week": self.week,
+            "tradeDeadlineWeek": self.trade_deadline_week,
+            "progressToDeadline": None if self.progress is None else round(self.progress, 4),
+        }
+
+
+def season_timing(
+    week: int | None,
+    in_season: bool | None,
+    trade_deadline_week: Any = None,
+) -> SeasonTiming:
+    """Resolve :class:`SeasonTiming` from the week and the league's own deadline.
+
+    ``week`` / ``in_season`` come from the caller's season clock (e.g.
+    ``faab_engine.current_nfl_week``); ``trade_deadline_week`` is the league's
+    configured ``trade_deadline`` (Sleeper ``league.settings``).  A missing or
+    non-positive deadline is UNKNOWN.
+    """
+    try:
+        deadline = int(trade_deadline_week) if trade_deadline_week is not None else None
+    except (TypeError, ValueError):
+        deadline = None
+    if deadline is not None and (deadline <= 0 or deadline > _LAST_REGULAR_SEASON_WEEK):
+        # Non-positive, or a sentinel past the regular season (Sleeper's
+        # "no deadline" is a large week number): no deadline on record.
+        deadline = None
+    if in_season is None or (in_season and week is None):
+        return SeasonTiming("unknown", None, deadline, None)
+    if not in_season:
+        return SeasonTiming("offseason", None, deadline, 0.0)
+    if deadline is None:
+        return SeasonTiming("regular", int(week), None, None)
+    if week > deadline:
+        return SeasonTiming("post_deadline", int(week), deadline, 1.0)
+    progress = (week - 1) / max(1, deadline - 1)
+    return SeasonTiming("regular", int(week), deadline, _clamp01(progress))
+
+
+@dataclass(frozen=True)
+class CompetitivePosture:
+    """PUSH / HOLD / RETOOL / REBUILD as an explained probabilistic classification."""
+
+    probabilities: dict[str, float]
+    label: str
+    directional: dict[str, float]
+    stability: float
+    timing: SeasonTiming
+    window: CompetitiveWindow
+    own_first_round_pick_held: bool | None = None
+    notes: tuple[str, ...] = field(default_factory=tuple)
+    #: ``"measured"`` or ``"none"``.  With no competitiveness evidence the
+    #: label is HOLD by definition, and that is NOT a confident HOLD: the
+    #: confidence is published as ``None`` rather than a fake 100%.
+    evidence: str = "measured"
+
+    @property
+    def confidence(self) -> float | None:
+        if self.evidence != "measured":
+            return None
+        return self.probabilities.get(self.label, 0.0)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "label": self.label,
+            "evidence": self.evidence,
+            "probabilities": (
+                _round_preserving_sum(self.probabilities) if self.evidence == "measured" else None
+            ),
+            "confidence": None if self.confidence is None else round(self.confidence, 4),
+            "components": {
+                "directional": _round_preserving_sum(self.directional),
+                "labelStability": round(self.stability, 4),
+                "window": _round_preserving_sum(self.window.probabilities),
+                "windowInputs": self.window.inputs.to_dict(),
+                "windowOverridden": self.window.overridden,
+                "timing": self.timing.to_dict(),
+                "ownFirstRoundPickHeld": self.own_first_round_pick_held,
+            },
+            "paramsVersion": POSTURE_PARAMS_VERSION,
+            "parameterStatus": "PRIOR",
+            "isVerdict": False,
+            "notes": list(self.notes),
+        }
+
+
+def _directional(affinities: Mapping[str, float], trajectory: float, k: float) -> dict[str, float]:
+    ps = affinities.get("productive_struggle", 0.0)
+    raw = {
+        "PUSH": affinities.get("championship_contender", 0.0)
+        + affinities.get("playoff_contender", 0.0),
+        "RETOOL": affinities.get("retool", 0.0) + ps * trajectory,
+        "REBUILD": affinities.get("rebuild", 0.0) + ps * (1.0 - trajectory),
+    }
+    powered = {lab: max(0.0, v) ** k for lab, v in raw.items()}
+    total = sum(powered.values())
+    if total <= 0:
+        return {lab: 1.0 / len(raw) for lab in raw}
+    return {lab: v / total for lab, v in powered.items()}
+
+
+#: Tie preference: an exact tie is ambiguity, and ambiguity is HOLD.
+_TIE_ORDER = ("HOLD", "PUSH", "RETOOL", "REBUILD")
+
+
+def _argmax(d: Mapping[str, float]) -> str:
+    order = {lab: i for i, lab in enumerate(_TIE_ORDER)}
+    return max(d, key=lambda lab: (d[lab], -order[lab]))
+
+
+def competitive_posture(
+    window: CompetitiveWindow,
+    timing: SeasonTiming,
+    *,
+    own_first_round_pick_held: bool | None = None,
+) -> CompetitivePosture:
+    """Classify one roster's strategic posture from its competitive window.
+
+    ``own_first_round_pick_held`` is reported as a component and changes no
+    probability: owning one's own first is what makes a weak finish a
+    draft-capital benefit at all, and that judgement belongs to the consumer
+    weighing a specific trade — the posture never treats losing as good.
+    """
+    notes: list[str] = []
+    k = 1.0
+    if timing.progress is None:
+        notes.append(
+            "season timing unknown (no league trade deadline on record) — no "
+            "deadline sharpening applied"
+        )
+    else:
+        k = 1.0 + (_POSTURE_DEADLINE_SHARPEN - 1.0) * timing.progress
+
+    inputs = window.inputs
+    if window.overridden:
+        directional = _directional(window.probabilities, inputs.trajectory, k)
+        probs = {"HOLD": 0.0, **directional}
+        notes.append("window pinned by a manual override; posture follows the stated intent")
+        return CompetitivePosture(
+            probabilities={lab: probs[lab] for lab in POSTURE_LABELS},
+            label=_argmax(probs),
+            directional=directional,
+            stability=1.0,
+            timing=timing,
+            window=window,
+            own_first_round_pick_held=own_first_round_pick_held,
+            notes=tuple(notes),
+        )
+
+    if inputs.competitiveness_source not in _POSTURE_COMPETITIVENESS_DELTA:
+        # Competitiveness defaulted to the league median: there is no
+        # evidence to classify on.  That is HOLD by definition, not a guess.
+        directional = _directional(window.probabilities, inputs.trajectory, k)
+        notes.append("no competitiveness evidence — posture is HOLD until it exists")
+        return CompetitivePosture(
+            probabilities={"PUSH": 0.0, "HOLD": 1.0, "RETOOL": 0.0, "REBUILD": 0.0},
+            label="HOLD",
+            directional=directional,
+            stability=0.0,
+            timing=timing,
+            window=window,
+            own_first_round_pick_held=own_first_round_pick_held,
+            notes=tuple(notes),
+            evidence="none",
+        )
+
+    dc = _POSTURE_COMPETITIVENESS_DELTA[inputs.competitiveness_source]
+    dt = (
+        _POSTURE_TRAJECTORY_DELTA if inputs.trajectory_sample else _POSTURE_TRAJECTORY_DELTA_NO_AGES
+    )
+    central = _directional(window.probabilities, inputs.trajectory, k)
+    central_label = _argmax(central)
+    grid: list[dict[str, float]] = []
+    for c_off in (-dc, 0.0, dc):
+        for t_off in (-dt, 0.0, dt):
+            comp = _clamp01(inputs.competitiveness + c_off)
+            traj = _clamp01(inputs.trajectory + t_off)
+            aff = _softmax_affinities(comp, traj, window.temperature)
+            grid.append(_directional(aff, traj, k))
+    agree = sum(1 for d in grid if _argmax(d) == central_label)
+    stability = agree / len(grid)
+    mean_dir = {lab: sum(d[lab] for d in grid) / len(grid) for lab in _DIRECTIONAL}
+    hold = 1.0 - stability
+    probs = {"HOLD": hold, **{lab: (1.0 - hold) * mean_dir[lab] for lab in _DIRECTIONAL}}
+    label = _argmax(probs)
+    if label == "HOLD":
+        notes.append(
+            "the directional read flips within the uncertainty of its own inputs; "
+            "HOLD keeps options open rather than committing to a side"
+        )
+    if inputs.competitiveness_source == "lineupScoreRank":
+        notes.append(
+            "competitiveness is a lineup-score rank (structural proxy), not simulated odds"
+        )
+    return CompetitivePosture(
+        probabilities={lab: probs[lab] for lab in POSTURE_LABELS},
+        label=label,
+        directional=central,
+        stability=stability,
+        timing=timing,
+        window=window,
+        own_first_round_pick_held=own_first_round_pick_held,
         notes=tuple(notes),
     )

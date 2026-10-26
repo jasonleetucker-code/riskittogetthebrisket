@@ -452,6 +452,15 @@ jobs:
         run: |
           set -Eeuo pipefail
           TRACKER_TITLE="Sharp production gate cannot measure: /api/sharp/* has no credential"
+          # Report a STATE, not a run.  This step used to comment on every
+          # run that could not measure — 812 identical comments on #951 by
+          # 2026-10-07, which buries the one comment that matters (the state
+          # changing) under hundreds that say nothing new.  The (status,
+          # since) pair is the state; it is stamped into every body this step
+          # writes as a hidden marker, and a run whose marker is already on
+          # the tracker stays quiet.  A changed `since` (the state re-entered)
+          # or a tracker that predates the marker gets exactly one comment.
+          STATE_MARKER="<!-- sharp-tracker-state: unverifiable_unauthenticated|${STATE_SINCE} -->"
           gh label create sharp-unverifiable \
             --color FBCA04 \
             --description "Auto-opened when the Sharp production smoke cannot measure what it gates on" \
@@ -481,6 +490,8 @@ jobs:
           env var).
 
           This issue closes itself on the first run that reports \`healthy\`.
+
+          ${STATE_MARKER}
           EOF
           )
           # A lookup that FAILS must not read like a lookup that found
@@ -530,7 +541,21 @@ jobs:
             EXISTING=""
           fi
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
-            gh issue comment "$EXISTING" --body "$BODY"
+            # Has this exact state already been reported on the tracker?  A
+            # view that FAILS is not "already reported": say so and comment,
+            # because a duplicate comment is cheaper than a lost state change.
+            if THREAD=$(gh issue view "$EXISTING" --json body,comments); then
+              SEEN=$(printf '%s' "$THREAD" \
+                | jq -r --arg m "$STATE_MARKER" '[.body] + [.comments[].body] | map(select(. != null and contains($m))) | length')
+            else
+              echo "::warning title=Tracker view failed::gh issue view #${EXISTING} failed; commenting rather than risk losing a state change"
+              SEEN=0
+            fi
+            if [[ "$SEEN" != "0" ]]; then
+              echo "::notice title=Sharp tracker unchanged::#${EXISTING} already reports this state (since ${STATE_SINCE:-unknown}); not commenting again"
+            else
+              gh issue comment "$EXISTING" --body "$BODY"
+            fi
           else
             gh issue create --title "$TRACKER_TITLE" --body "$BODY" --label sharp-unverifiable
           fi

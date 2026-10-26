@@ -8,11 +8,13 @@ import {
   DataTable,
   Panel,
   PageHeader,
+  PlayerNameButton,
   Select,
   StatTile,
 } from "@/components/ds";
 import { LoadingState } from "@/components/ui";
 import { apiErrorMessage } from "@/lib/api-error";
+import { sharpAssetPlayerId } from "@/lib/sharp-roster-percentage";
 
 const WINDOWS = ["48h", "7d", "14d", "30d", "90d", "all"];
 const SOURCES = [
@@ -187,7 +189,15 @@ export default function SharpTrackerPage() {
         accessor: (row) => row.displayName || row.assetId,
         render: (row) => (
           <div>
-            <div style={{ fontWeight: 650 }}>{row.displayName || row.assetId}</div>
+            <div style={{ fontWeight: 650 }}>
+              {/* #1337: a player row opens his Player File; the link sits in
+                  a DataTable row whose click expands the source breakdown,
+                  and the table ignores activations that start in a link. */}
+              <PlayerNameButton
+                name={row.displayName || row.assetId}
+                playerId={sharpAssetPlayerId(row)}
+              />
+            </div>
             <div className="muted" style={{ fontSize: "0.68rem" }}>
               {row.position || row.assetType}
               {row.nflTeam ? ` · ${row.nflTeam}` : ""}
@@ -292,7 +302,7 @@ export default function SharpTrackerPage() {
   );
 
   return (
-    <main className="page">
+    <div className="page">
       <PageHeader
         title="Sharp Tracker"
         description="One normalized market view combining qualified-manager activity from Sleeper and configured FFPC public sources."
@@ -406,6 +416,8 @@ export default function SharpTrackerPage() {
             onRowClick={(row) =>
               setExpandedAssetId((current) => (current === row.assetId ? null : row.assetId))
             }
+            isRowExpanded={(row) => row.assetId === expandedAssetId}
+            rowExpandLabel={(row) => `Source breakdown for ${row.displayName || row.assetId}`}
             renderAfterRow={(row) =>
               row.assetId === expandedAssetId ? (
                 <tr key={`${row.assetId}-detail`}>
@@ -442,6 +454,6 @@ export default function SharpTrackerPage() {
           identities cannot satisfy automated multi-league qualification.
         </p>
       </Panel>
-    </main>
+    </div>
   );
 }

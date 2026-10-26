@@ -175,7 +175,7 @@ PY
     url="http://${FRONTEND_HOST}:${FRONTEND_PORT}/_next/${asset}"
     # --globoff: literal [ and ] in Next.js dynamic-route chunk names
     # must not be interpreted as curl glob/range syntax.
-    code="$(curl --silent --show-error --globoff --output /dev/null --write-out '%{http_code}' --max-time "${VERIFY_CURL_TIMEOUT}" "${url}" || echo 000)"
+    code="$(curl --silent --show-error --globoff --output /dev/null --write-out '%{http_code}' --max-time "${VERIFY_CURL_TIMEOUT}" "${url}")" || code=000
     if [[ "${code}" != "200" ]]; then
       error "Frontend _next asset probe failed: ${url} -> HTTP ${code}"
       return 1
@@ -348,6 +348,41 @@ main() {
     fi
   else
     warn "Source-coverage gate skipped (VERIFY_SOURCE_COVERAGE=0)."
+  fi
+
+  # ── Owner-held vote flags ────────────────────────────────────────
+  # The repository locks three owner-held vote flags by owner decision
+  # (2026-10-20): the DLF IDP hold (dlf_offense_only_vote) must be
+  # effectively ON, DLF Values offense voting (dlf_values_rank_hill_vote)
+  # effectively OFF, and the universal freshness step schedule
+  # (source_freshness_schedule_v2; PR #1831 Option B) effectively OFF.  Tests pin the registry defaults and every TRACKED
+  # surface; this reads the LIVE process's effective flags from
+  # /api/status so the untracked ${APP_DIR}/.env cannot silently activate a
+  # held source.  Fails closed.  A failure fails the deploy, which trips
+  # deploy.sh's auto-rollback; the rollback does not edit .env, so remove
+  # the offending RISKIT_FEATURE_* override before redeploying.  There is
+  # deliberately no escape hatch: changing a required state IS the owner's
+  # activation decision (tests/api/test_dlf_idp_hold_locked.py,
+  # tests/api/test_dlf_values_hold_locked.py,
+  # tests/api/test_freshness_v2_hold_locked.py).
+  local held_python="python3"
+  local held_venv_dir="${VENV_DIR:-${APP_DIR:-.}/.venv}"
+  if [[ -x "${held_venv_dir}/bin/python" ]]; then
+    held_python="${held_venv_dir}/bin/python"
+  fi
+  log "Verifying owner-held vote flags on the live process via /api/status"
+  if ( cd "${APP_DIR}" && "${held_python}" \
+        scripts/verify_owner_held_flags.py \
+        "http://${APP_HOST}:${APP_PORT}" ); then
+    log "Owner-held vote flags are in force."
+  else
+    error "An owner-held source-vote flag is in the WRONG effective state on the"
+    error "live process (or could not be read).  DLF IDP must stay held, DLF"
+    error "Values must not vote and the freshness schedule v2 must stay off until"
+    error "the owner explicitly approves.  Failing the"
+    error "deploy so auto-rollback runs; remove the RISKIT_FEATURE_* override from"
+    error "${APP_DIR}/.env (or the service environment) before redeploying."
+    exit 1
   fi
 
   # Source weighting report — ADVISORY, never fails or skips the deploy.

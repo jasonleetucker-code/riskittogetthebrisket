@@ -94,7 +94,7 @@ Pure computation.  No I/O, no network, no clock.
 
 from __future__ import annotations
 
-from typing import Any, Collection, Iterable, Mapping, Sequence
+from typing import Any, Callable, Collection, Iterable, Mapping, Sequence
 
 from src.api.data_contract import contract_slot_eligibility
 from src.draft.context import (
@@ -104,6 +104,7 @@ from src.draft.context import (
     league_rostered_keys,
     match_team,
 )
+from src.draft import waiver_population
 from src.draft.rookie_pool import auction_rookie_keys
 from src.draft.displacement import (
     FEASIBILITY_OBJECTIVE,
@@ -112,6 +113,7 @@ from src.draft.displacement import (
     CutLadder,
     RosterAsset,
     build_cut_ladder,
+    replacement_level_provenance,
     scarcity_multiplier,
     waiver_values_by_position,
 )
@@ -232,7 +234,16 @@ def team_droppability(
         waiver_source = "caller"
 
     rostered = league_rostered_keys(contract)
-    waiver_values = waiver_values_by_position(contract, rostered, excluded)
+    # LI-5 consolidation (design phase P3), flag OFF by default: ``None`` is
+    # the incumbent best-single-player anchor.  ON, the population keeps this
+    # surface's own unavailable keys (``excluded`` above — D6) and adds the
+    # add-pool and health steps.
+    population = (
+        waiver_population.consumer_population(contract, rostered, excluded)
+        if waiver_population.enabled()
+        else None
+    )
+    waiver_values = waiver_values_by_position(contract, rostered, excluded, population=population)
 
     slots, slot_source = _slots_for(contract, starter_slots)
 
@@ -267,7 +278,7 @@ def team_droppability(
             f"{SCARCITY_REORDER_RATIO:.3f}x"
         )
 
-    return {
+    payload = {
         "contractVersion": DROPPABILITY_CONTRACT_VERSION,
         "owner": "src/draft/displacement.py",
         "valueScale": "rankDerivedValue",
@@ -286,7 +297,7 @@ def team_droppability(
         "waiverPopulation": {
             "source": waiver_source,
             "excludedKeys": len(excluded),
-            "freeAgents": count_free_agents(contract, rostered, excluded),
+            "freeAgents": count_free_agents(contract, rostered, excluded, population=population),
         },
         "cutLadder": ladder.to_dict(),
         "counts": {
@@ -299,6 +310,10 @@ def team_droppability(
         "unmatchedRosterPlayers": unmatched[:25],
         "notes": notes,
     }
+    if population is not None:
+        # Additive, flag-ON only (design §4.6).
+        payload["replacementPopulation"] = replacement_level_provenance(population)
+    return payload
 
 
 def league_droppability(
@@ -344,6 +359,8 @@ def pool_cut_ladder(
     scarcity: Mapping[str, Any] | None = None,
     slot_eligibility: Mapping[str, Collection[str]] | None = None,
     max_rungs: int = MAX_LADDER_RUNGS,
+    order_key: Callable[[RosterAsset], Any] | None = None,
+    candidate_ids: Collection[str] | None = None,
 ) -> CutLadder:
     """A cut ladder over an ARBITRARY roster, not one the contract holds.
 
@@ -402,4 +419,8 @@ def pool_cut_ladder(
         # admits anything".  Passing ``{}`` through would empty every ladder.
         slot_eligibility=slot_eligibility or None,
         max_rungs=max_rungs,
+        # Trade-path selection seams (``build_cut_ladder``); ``None`` = the
+        # unchanged ladder.
+        order_key=order_key,
+        candidate_ids=candidate_ids,
     )

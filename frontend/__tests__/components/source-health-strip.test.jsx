@@ -466,3 +466,98 @@ describe("SourceHealthStrip · server-resolved attribution (F-12 / V1-76)", () =
     expect(document.body.textContent).toMatch(/mystery outage/);
   });
 });
+
+// ── Declared absence (stabilization CLEANUP-3, 2026-10-07) ───────────
+// SEASONALLY INACTIVE != BROKEN and PRIVATE SOURCE NOT PRESENT != FAILED.
+// Measured on production: ``flockFantasySfRookies`` (seasonally inactive,
+// CSV last fetched days ago) rendered red off the age fallback, and the
+// Signals boards (private, not provisioned / held) were listed under
+// "Missing:".  Also: a source with no per-source age borrowed the whole
+// run's age and could render green — missing is not the run's value.
+describe("SourceHealthStrip · declared absence", () => {
+  const oldIso = new Date(Date.now() - 170 * 3600 * 1000).toISOString();
+  const BODY = {
+    served_seasonal_inactive: ["flockFantasySfRookies"],
+    served_private_absent_by_design: ["signalsIdpDb"],
+    source_health: {
+      source_runtime: {
+        overall_status: "complete",
+        enabled_sources: ["KTC"],
+        failed_sources: [],
+        partial_sources: [],
+        finished_at: new Date().toISOString(),
+      },
+      registered_sources: ["flockFantasySfRookies", "ktcSfTep", "neverStamped", "signalsIdpDb"],
+      source_counts: { flockFantasySfRookies: 0, ktcSfTep: 500, neverStamped: 10, signalsIdpDb: 0 },
+      // An older backend lists declared absences as missing; the strip must
+      // still not call them missing.
+      missing_sources: ["flockFantasySfRookies", "signalsIdpDb"],
+      unmeasured_sources: [],
+      sources: {
+        flockFantasySfRookies: { lastFetched: oldIso, ageHours: 170 },
+        ktcSfTep: { lastFetched: new Date().toISOString(), ageHours: 0.2 },
+        signalsIdpDb: {},
+        // neverStamped: no per-source age at all
+      },
+      source_failures: [],
+    },
+  };
+
+  async function renderExpanded() {
+    mockStatus({ body: BODY });
+    const utils = render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+    await waitFor(() =>
+      expect(utils.container.querySelectorAll(".source-health-row").length).toBe(4),
+    );
+    return utils.container;
+  }
+
+  function rowFor(container, name) {
+    return [...container.querySelectorAll(".source-health-row")].find(
+      (r) => r.querySelector(".source-health-name")?.textContent === name,
+    );
+  }
+
+  it("does not paint a seasonally inactive source red off its old CSV", async () => {
+    const c = await renderExpanded();
+    const row = rowFor(c, "flockFantasySfRookies");
+    expect(row.className).not.toMatch(/--down|--warn/);
+    expect(row.textContent).toMatch(/seasonally inactive/);
+  });
+
+  it("labels a private absent-by-design source instead of calling it missing", async () => {
+    const c = await renderExpanded();
+    expect(rowFor(c, "signalsIdpDb").textContent).toMatch(/absent by design/);
+    expect(c.querySelector(".source-health-missing")).toBeNull();
+    expect(c.querySelector(".source-health-absent-by-design").textContent).toMatch(
+      /flockFantasySfRookies.*signalsIdpDb/,
+    );
+  });
+
+  it("never lends the run's age to a source that has none", async () => {
+    const c = await renderExpanded();
+    const row = rowFor(c, "neverStamped");
+    expect(row.className).toMatch(/--flat/);
+    expect(row.className).not.toMatch(/--up/);
+  });
+
+  it("keeps a genuinely fresh source green", async () => {
+    const c = await renderExpanded();
+    expect(rowFor(c, "ktcSfTep").className).toMatch(/--up/);
+  });
+
+  it("a declared source whose run actually failed still renders as a failure", async () => {
+    const body = JSON.parse(JSON.stringify(BODY));
+    body.source_health.source_runtime.failed_source_keys = ["flockFantasySfRookies"];
+    mockStatus({ body });
+    const utils = render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+    await waitFor(() =>
+      expect(utils.container.querySelectorAll(".source-health-row").length).toBe(4),
+    );
+    expect(rowFor(utils.container, "flockFantasySfRookies").className).toMatch(/--down/);
+  });
+});

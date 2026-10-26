@@ -1,0 +1,46 @@
+{
+ "builtFrom": "1511ca1d08dfffad4b48d113b2ac9a20d7a5de4b",
+ "completeCounts": {
+  "EXCLUDED:True": 1,
+  "E_BASELINE:False": 35,
+  "E_DEV:True": 44,
+  "I_INDEPENDENT:True": 7,
+  "R_REGRESSION_PIN:True": 1,
+  "V_HELDOUT:True": 61
+ },
+ "countsByPopulation": {
+  "EXCLUDED": 1,
+  "E_BASELINE": 35,
+  "E_DEV": 44,
+  "I_INDEPENDENT": 7,
+  "R_REGRESSION_PIN": 3,
+  "V_HELDOUT": 61
+ },
+ "files": {
+  "EXCLUDED.json": {
+   "count": 1,
+   "sha256": "a1a7d55406e81cd5195d7b98e79f327adb165136c7c104c99cc5f50b94b4f670"
+  },
+  "E_BASELINE.json": {
+   "count": 35,
+   "sha256": "ee852d4cdc020ffe854ba8a040d7844f876d99f2132ec4f9e55f7c85ab3bcb69"
+  },
+  "E_DEV.json": {
+   "count": 44,
+   "sha256": "9c03249890ce5762fd9a657c0b75ff7ba3d26edb4baaa33f579817e4c94fe53c"
+  },
+  "I_INDEPENDENT.json": {
+   "count": 7,
+   "sha256": "2f60eceae9480f18df0c215a1690e6ee7d6762859d4b6087927145c404a0f1c6"
+  },
+  "R_REGRESSION_PIN.json": {
+   "count": 3,
+   "sha256": "dcb7ea03792bd0be7a74e8ae02fc59d03e2ae51f2f2ddc294a525dacf27c5897"
+  },
+  "V_HELDOUT.json": {
+   "count": 61,
+   "sha256": "94929e2ade1af15662dea168f5eb41b918fd51fca4afe11f320cb2911c475abc"
+  }
+ },
+ "schema": "oiv2-population-manifest/v1"
+}

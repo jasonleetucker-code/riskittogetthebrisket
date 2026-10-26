@@ -6,30 +6,51 @@
 // only, gated by ``settings.showRosTradePanel``.
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ds";
 import { buildRosIndex, rosEntryForRow, tagsForPlayer } from "@/lib/ros-index";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
-const _cache = { data: null, fetchedAt: 0, inflight: null };
+// Keyed by league (TC-A): buyer/seller direction is league-scoped (it is
+// about THIS league's teams), so one league's answer must never be served
+// for another.  This panel used to fetch without a leagueKey -- the public
+// route then answers for the DEFAULT league whatever league /trade is on.
+const _caches = new Map();
 
-async function _loadDirections() {
-  if (_cache.data && Date.now() - _cache.fetchedAt < CACHE_TTL_MS) {
-    return _cache.data;
+export function rosTradeDeadlineUrl(leagueKey) {
+  const base = "/api/public/league/rosTradeDeadline";
+  return leagueKey ? `${base}?leagueKey=${encodeURIComponent(leagueKey)}` : base;
+}
+
+export async function _loadDirections(leagueKey = "") {
+  const key = leagueKey || "";
+  let cache = _caches.get(key);
+  if (!cache) {
+    cache = { data: null, fetchedAt: 0, inflight: null };
+    _caches.set(key, cache);
   }
-  if (_cache.inflight) return _cache.inflight;
-  const promise = fetch("/api/public/league/rosTradeDeadline")
-    .then((r) => (r.ok ? r.json() : null))
+  if (cache.data && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
+    return cache.data;
+  }
+  if (cache.inflight) return cache.inflight;
+  const promise = fetch(rosTradeDeadlineUrl(key))
+    .then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
     .then((payload) => {
       const body = payload?.data || payload?.section || payload;
-      _cache.data = body || { teams: [] };
-      _cache.fetchedAt = Date.now();
-      _cache.inflight = null;
-      return _cache.data;
+      cache.data = body || { teams: [] };
+      cache.fetchedAt = Date.now();
+      cache.inflight = null;
+      return cache.data;
     })
     .catch(() => {
-      _cache.inflight = null;
-      return _cache.data || { teams: [] };
+      cache.inflight = null;
+      // A failed fetch is UNAVAILABLE (null), never "no teams" (TC-E): the
+      // last good answer is reused if there is one; a failure is not cached.
+      return cache.data || null;
     });
-  _cache.inflight = promise;
+  cache.inflight = promise;
   return promise;
 }
 
@@ -58,35 +79,88 @@ const LABEL_COLOR = {
 // Pure tag classifier — mirrors src/ros/tags.py::tags_for_player so
 // the trade-calc can label players without a backend round-trip per
 // row.  Stays in sync via the parity test (PR-future).
-export default function RosTradeFitPanel({ sides, settings }) {
+export default function RosTradeFitPanel({ sides, settings, leagueKey = "" }) {
   const [directions, setDirections] = useState({ teams: [] });
   const [valuesByName, setValuesByName] = useState(() => new Map());
+  // TC-E: each of the two reads has an explicit state, so the Season tab is
+  // never blank -- loading, unavailable (with Try again) and a partial answer
+  // each say what they are.
+  const [load, setLoad] = useState({ directions: "loading", values: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  const off = settings?.showRosTradePanel === false;
 
   useEffect(() => {
-    if (settings?.showRosTradePanel === false) return;
+    if (off) return;
     let active = true;
-    _loadDirections().then((d) => {
-      if (!active || !d) return;
+    setDirections({ teams: [] });
+    setLoad({ directions: "loading", values: "loading" });
+    _loadDirections(leagueKey).then((d) => {
+      if (!active) return;
+      if (!d) {
+        setLoad((prev) => ({ ...prev, directions: "error" }));
+        return;
+      }
       setDirections(d);
+      setLoad((prev) => ({ ...prev, directions: "ok" }));
     });
     fetch("/api/ros/player-values?limit=2000")
       .then((r) => (r.ok ? r.json() : null))
       .then((payload) => {
-        if (!active || !payload) return;
+        if (!active) return;
+        if (!payload) {
+          setLoad((prev) => ({ ...prev, values: "error" }));
+          return;
+        }
         // Canonical name KEY, not the raw string — see lib/ros-index.js.
         // The raw join here matched almost nothing, so `tagsForPlayer`
         // saw rosValue undefined for every asset and the panel below
         // dropped itself on essentially every trade.
         setValuesByName(buildRosIndex(payload.players));
+        setLoad((prev) => ({ ...prev, values: "ok" }));
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setLoad((prev) => ({ ...prev, values: "error" }));
+      });
     return () => {
       active = false;
     };
-  }, [settings?.showRosTradePanel]);
+  }, [off, leagueKey, attempt]);
 
-  if (settings?.showRosTradePanel === false) return null;
+  if (off) {
+    return (
+      <p className="muted" data-testid="ros-fit-off" style={{ fontSize: "0.8rem" }}>
+        Rest-of-season fit is turned off in Settings.
+      </p>
+    );
+  }
   if (!sides || sides.length < 2) return null;
+  const retry = () => setAttempt((n) => n + 1);
+  if (load.directions === "loading" || load.values === "loading") {
+    return (
+      <p className="muted" data-testid="ros-fit-loading" aria-busy="true" style={{ fontSize: "0.8rem" }}>
+        Loading rest-of-season fit…
+      </p>
+    );
+  }
+  if (load.directions === "error" && load.values === "error") {
+    return (
+      <div data-testid="ros-fit-error" style={{ fontSize: "0.8rem" }}>
+        <p className="muted" style={{ margin: "0 0 6px" }}>
+          Rest-of-season data is unavailable right now. This is missing evidence, not a neutral
+          read; the trade math above is unaffected.
+        </p>
+        <Button size="sm" variant="ghost" onClick={retry}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+  const partialNote =
+    load.directions === "error"
+      ? "Team trade-deadline directions are unavailable right now; player tags below use rest-of-season values only."
+      : load.values === "error"
+        ? "Player rest-of-season values are unavailable right now, so player tags cannot be computed."
+        : "";
 
   // Resolve incoming + outgoing players per side -> their ROS tags.
   const enriched = sides.map((side) => {
@@ -109,11 +183,18 @@ export default function RosTradeFitPanel({ sides, settings }) {
     return { sideLabel: side.label || "?", tagged };
   });
 
-  // Drop the panel entirely when no asset has a ROS read AND no team
-  // direction is available — nothing useful to show.
+  // Nothing to show is said, never rendered as a blank tab (TC-E).
   const hasAnyTags = enriched.some((s) => s.tagged.some((p) => p.tags.length));
   const hasDirections = (directions?.teams || []).length > 0;
-  if (!hasAnyTags && !hasDirections) return null;
+  if (!hasAnyTags && !hasDirections && !partialNote) {
+    return (
+      <p className="muted" data-testid="ros-fit-empty" style={{ fontSize: "0.8rem" }}>
+        {enriched.some((s) => s.tagged.length)
+          ? "No rest-of-season read for these assets or this league's teams."
+          : "Add assets to see their rest-of-season fit."}
+      </p>
+    );
+  }
 
   return (
     <div
@@ -138,6 +219,30 @@ export default function RosTradeFitPanel({ sides, settings }) {
         Informational short-term context.  Does NOT change the trade math
         above — your dynasty value calculation is unaffected.
       </div>
+      {/* TC-B / TCM-K13: these tags come from the PUBLIC rest-of-season
+          trade-deadline view, a separate concept from Competitive Posture
+          (src/roster_intel/window.py), which is what the War Room's strategy
+          reads.  Say so, so the two never read as one label. */}
+      <div
+        data-testid="ros-fit-public-deadline-note"
+        style={{
+          fontSize: "0.7rem",
+          color: "var(--subtext)",
+          marginBottom: 8,
+        }}
+      >
+        Public trade-deadline view: rest-of-season tags only. This is not your
+        team&apos;s Competitive Posture (push / hold / retool / rebuild) — the
+        War Room&apos;s strategy uses that.
+      </div>
+      {partialNote ? (
+        <div data-testid="ros-fit-partial" style={{ fontSize: "0.7rem", color: "var(--subtext)", marginBottom: 8 }}>
+          {partialNote}{" "}
+          <Button size="sm" variant="ghost" onClick={retry}>
+            Try again
+          </Button>
+        </div>
+      ) : null}
       <div
         style={{
           display: "grid",

@@ -31,6 +31,8 @@ import {
   tabPanelId,
 } from "@/components/ds";
 import { useBdvmEndpoint } from "@/components/useBdvm";
+import BdvmScoringNotice from "@/components/BdvmScoringNotice";
+import { PICK_OWNERSHIP_UNAVAILABLE_LABEL } from "@/lib/pick-ownership";
 import {
   BDVM_STRATEGIES,
   BDVM_SURPLUS_MODES,
@@ -44,6 +46,7 @@ import {
   formatBdvmDecimal,
   formatBdvmGap,
   formatBdvmValue,
+  BDVM_PICK_MID_OUTCOME_INFO,
 } from "@/lib/bdvm";
 import styles from "./bdvm.module.css";
 
@@ -195,6 +198,14 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
               proxy
             </Badge>
           ) : null}
+          {r.unscoredKeys.length > 0 ? (
+            <Badge
+              tone="neutral"
+              title={`Partial total — unscored league rules: ${r.unscoredKeys.join(", ")}. Each may push the true total up or down.`}
+            >
+              partial
+            </Badge>
+          ) : null}
         </span>
       ),
     },
@@ -297,8 +308,12 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
       render: (r) => (r.pHit == null ? "—" : `${Math.round(r.pHit * 100)}%`),
     },
     {
+      // API field is `median`, but the backend (src/bdvm/picks.py) sets it
+      // to the value of the prior table's "mid" outcome bucket — not the
+      // median of the distribution.  Label what it is.
       key: "median",
-      header: "Median",
+      header: "Mid outcome",
+      headerInfo: BDVM_PICK_MID_OUTCOME_INFO,
       numeric: true,
       hideBelow: "md",
       render: (r) => formatBdvmValue(r.median),
@@ -334,6 +349,11 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
           meta={meta.paramSetId}
         />
       </div>
+
+      {/* Card rules the projections could not score: partial totals,
+          signed per rule (never described as a floor). Renders nothing
+          when the census is empty or absent. */}
+      <BdvmScoringNotice payload={data} />
 
       <Panel
         flush
@@ -562,12 +582,17 @@ function RostersTab({ active }) {
         onRowClick={(r) =>
           setExpandedKey((k) => (k === r.key ? "" : r.key))
         }
+        isRowExpanded={(r) => r.key === expandedKey}
+        rowExpandLabel={(r) => `Top assets for ${r.name || r.key}`}
         renderAfterRow={(r) =>
           r.key === expandedKey ? (
             <tr>
               <td colSpan={columns.length} className={styles.drawerCell}>
                 <p className={styles.drawerTitle}>
-                  Top assets ({r.assetCount} matched, {r.pickCount} picks)
+                  Top assets ({r.assetCount} matched,{" "}
+                  {r.pickCount == null
+                    ? PICK_OWNERSHIP_UNAVAILABLE_LABEL.toLowerCase()
+                    : `${r.pickCount} picks`})
                 </p>
                 <ul className={styles.drawerList}>
                   {r.assets.slice(0, 12).map((a) => (
@@ -785,7 +810,7 @@ export default function BdvmPage() {
       <PageHeader
         eyebrow="Rankings"
         title="Fundamental Values"
-        description="BDVM projection-driven dynasty values — fundamentals first, market strictly after. A second value concept beside the market board, never merged into it."
+        description="Fundamental value (BDVM) · provisional priors — not the market board. Projection-driven dynasty values, fundamentals first, market strictly after; a second value concept beside the market board, never merged into it."
       />
       <Tabs
         idPrefix="bdvm"

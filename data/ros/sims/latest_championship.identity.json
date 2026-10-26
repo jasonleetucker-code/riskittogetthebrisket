@@ -1,0 +1,108 @@
+{
+  "computedAt": "2026-10-26T08:08:30.390259+00:00",
+  "forecastSha256": "bcc43d273f968e9fb5bbf7be18f06db2bb91517c88a3474e435088d231071b11",
+  "inputs": {
+    "contractGeneration": null,
+    "inputsSha256": "2adf3be0c22788f4ef1a24692bc7cc70087b52ad6ac414c85d95bbe06f507eec",
+    "leagueSnapshotGeneratedAt": "2026-10-26T08:08:24+00:00",
+    "leagueSnapshotScope": [
+      "season",
+      "league_id",
+      "league",
+      "rosters",
+      "matchups_by_week",
+      "winners_bracket",
+      "losers_bracket"
+    ],
+    "leagueSnapshotSha256": "b7da2811fb88e7a2d0b5d824a89e8e3be2a67b3ccd49bcdc865ebced0b654bbf",
+    "pointsModelFileSha256": null,
+    "rosAggregateSha256": "1e0e179d03507d7f988ee404f2547de0f968ee5e2f2fae16a544590f06a3cad3",
+    "rosAggregatedAt": "2026-10-26T08:08:16.531461+00:00",
+    "teamStrengthFileFresh": true,
+    "teamStrengthFileSha256": "57ab810f4b262a32f22c45e237c1dbc0c9ff0b82d343b2f08509bfe317facef2"
+  },
+  "kind": "championship",
+  "lastScoredWeek": 6,
+  "leagueKey": "dynasty_main",
+  "model": {
+    "codeSha": "6afb032a78e2412566be40da0e3bcb43efd09169",
+    "codeShaCapturedAt": "2026-10-26T08:08:14.224649+00:00",
+    "codeShaSource": "refs/heads/main",
+    "simParams": {
+      "bestBall": true,
+      "championship": {
+        "ENGINE": "src.ros.playoff_sim",
+        "_ROW_FIELDS": [
+          "championshipOdds",
+          "finalsOdds",
+          "semifinalOdds",
+          "playoffOdds",
+          "expectedFinish"
+        ]
+      },
+      "playoffSim": {
+        "BEST_BALL_PRESIM_MAX_WEEKS": 1200,
+        "BEST_BALL_PRESIM_MIN_WEEKS": 120,
+        "BEST_BALL_VARIANCE_BUMP": 1.1,
+        "DEFAULT_SIMULATIONS": 10000,
+        "DEPTH_VARIANCE_LIFT_MAX": 0.15,
+        "DRAFT_ORDER_RECORD_BASIS": "head_to_head_with_half_win_ties",
+        "MAX_SIMULATIONS": 60000,
+        "MIN_SIMULATIONS": 2000,
+        "ODDS_SE_TOLERANCE": 0.005,
+        "PRESIM_CHECK_EVERY": 40,
+        "PRESIM_MEAN_TOLERANCE": 0.01,
+        "ROS_BLEND": 0.2,
+        "ROS_EVIDENCE_INCUMBENT": "incumbent_presim_plus_ros_multiplier",
+        "ROS_EVIDENCE_ONCE": "ros_counted_once",
+        "SEED_TYPE_RESEED": "reseed",
+        "SIM_CHECK_EVERY": 1000,
+        "SIM_COUNT_MISSING": "canonical_forecast_simulation_count_missing",
+        "TEAM_STRENGTH_UNAVAILABLE": "team_strength_unavailable",
+        "_BRACKET_ROW_FIELDS": [
+          "championshipOdds",
+          "finalsOdds",
+          "semifinalOdds",
+          "expectedFinish"
+        ],
+        "_FINAL_TEAMS_LEFT": 2,
+        "_SEMIFINAL_LOSER_PLACEMENT": 3,
+        "_SEMIFINAL_TEAMS_LEFT": 4,
+        "_SIM_CACHE_TTL_SEC": 21600,
+        "_TRADE_IMPACT_METHODOLOGY": "Both arms run on one shared RNG seed and an identical simulation count, so the reported delta is the trade's effect rather than the difference between two independent Monte Carlo runs. Intervals are paired (McNemar-style, conservative on the discordant-pair count). A delta whose interval spans zero is flagged significant=false and must not be presented as a result."
+      },
+      "pointsModel": {
+        "cvByPosition": {
+          "CB": 0.55,
+          "DB": 0.5,
+          "DE": 0.55,
+          "DL": 0.55,
+          "DT": 0.55,
+          "EDGE": 0.55,
+          "LB": 0.45,
+          "QB": 0.32,
+          "RB": 0.55,
+          "S": 0.5,
+          "TE": 0.65,
+          "WR": 0.6
+        },
+        "defaultCv": 0.55,
+        "generatedAt": null,
+        "rosValuePerPoint": 2.7,
+        "sampleSize": 0,
+        "source": "fallback-constants"
+      },
+      "rosEvidenceMethod": "incumbent_presim_plus_ros_multiplier"
+    },
+    "simParamsSha256": "fbcb6fe9897112660d6c34f22c5fc58bc0aeed26898c058616a0c27083d28136"
+  },
+  "nSimulations": 2000,
+  "nullReasons": {
+    "inputs.contractGeneration": "not_an_input_of_the_playoff_or_title_simulators",
+    "inputs.pointsModelFileSha256": "file_absent"
+  },
+  "producer": "src.ros.scrape._refresh_sim_caches_for_league",
+  "schema": "ros-forecast-identity/v1",
+  "season": "2026",
+  "week": 7
+}

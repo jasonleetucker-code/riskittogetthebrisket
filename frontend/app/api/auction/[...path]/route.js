@@ -8,11 +8,13 @@
  * method, body, cookies, Idempotency-Key and query string, and returns the
  * backend's status, body and Set-Cookie unchanged.  The backend's same-origin
  * CSRF check compares Origin with ITS host, which here is the backend's own
- * address, so the bridge performs the browser-origin check itself (Origin
- * must equal this Next request's origin) and then presents the backend
- * origin.  A cross-site POST is refused here exactly as the backend would.
+ * address, so the bridge performs the browser-origin check itself
+ * (lib/bridge-origin.js: Origin must equal the host the browser addressed)
+ * and then presents the backend origin.  A cross-site POST is refused here
+ * exactly as the backend would.
  */
 import { NextResponse } from "next/server";
+import { isSameOriginRequest } from "@/lib/bridge-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,10 @@ const BACKEND = (process.env.BACKEND_API_URL || "http://127.0.0.1:8000").replace
 
 async function forward(request, { params }) {
   const { path = [] } = await params;
+  // Dot segments would be resolved by URL() and step out of /api/auction/.
+  if (path.some((p) => p === "." || p === "..")) {
+    return NextResponse.json({ error: "bad_path", message: "invalid path" }, { status: 400 });
+  }
   const incoming = new URL(request.url);
   const target = new URL(`/api/auction/${path.map(encodeURIComponent).join("/")}`, BACKEND);
   target.search = incoming.search;
@@ -29,8 +35,7 @@ async function forward(request, { params }) {
   if (idem) headers["Idempotency-Key"] = idem;
   let body;
   if (request.method !== "GET" && request.method !== "HEAD") {
-    const origin = request.headers.get("origin");
-    if (!origin || origin !== incoming.origin) {
+    if (!isSameOriginRequest(request)) {
       return NextResponse.json({ error: "bad_origin", message: "cross-origin request refused" }, { status: 403 });
     }
     headers.Origin = new URL(BACKEND).origin;

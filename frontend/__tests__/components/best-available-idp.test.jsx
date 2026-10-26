@@ -10,7 +10,7 @@
  * structure DataTable already guarantees.
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 const mockUseBestAvailableIdp = vi.fn();
 vi.mock("@/components/useBestAvailableIdp", () => ({
@@ -169,5 +169,56 @@ describe("BestAvailableIdps — mobile-safe table structure", () => {
     // overflow at ~390px is confirmed manually per the plan's
     // verification checklist).
     expect(container.querySelector(".ds-table-wrap")).toBeTruthy();
+  });
+});
+
+describe("BestAvailableIdps — source clock is a FETCH, not a vendor update", () => {
+  function openFormulaTip(sourceFreshness) {
+    mockUseBestAvailableIdp.mockReturnValue({
+      payload: {
+        ownershipResolved: true,
+        candidates: [candidate()],
+        availableCount: 1,
+        sources: { idpTradeCalc: { populationSize: 10 }, idpShowCombined: { populationSize: 10 } },
+        degraded: { ownershipUnresolved: false, missingSources: [] },
+        sourceFreshness,
+      },
+      loading: false,
+    });
+    const { container } = render(<BestAvailableIdps leagueKey="main" idpEnabled />);
+    fireEvent.click(screen.getByRole("button", { name: "What is the combined IDP score?" }));
+    return container;
+  }
+
+  it("labels the fetch-stamp age as 'last fetched', never 'updated'", () => {
+    // ``sourceTimestamps`` entries: the *_last_success fetch stamp age.
+    const container = openFormulaTip({
+      idpTradeCalc: { mtime: "2026-10-07T10:00:00+00:00", ageHours: 3.2, staleness: "fresh" },
+      idpShowCombined: { mtime: "2026-10-07T12:00:00+00:00", ageHours: 1.4, staleness: "fresh" },
+    });
+    const text = container.textContent;
+    expect(text).not.toMatch(/updated/i);
+    expect(text).toContain("IDP Trade Calculator last fetched: 3h ago");
+    expect(text).toContain("The IDP Show last fetched: 1h ago");
+    expect(text).toContain("A fetch is not a vendor update");
+  });
+
+  it("an unmeasured fetch age is unknown, never '<1h ago'", () => {
+    const container = openFormulaTip({
+      idpTradeCalc: { mtime: null, ageHours: null, staleness: "unknown" },
+      idpShowCombined: { mtime: null, ageHours: null, staleness: "missing" },
+    });
+    const text = container.textContent;
+    expect(text).toContain("IDP Trade Calculator last fetched: at an unknown time");
+    expect(text).not.toContain("<1h ago");
+    expect(text).toContain("The IDP Show last fetched: no data");
+  });
+
+  it("an overdue fetch says the FETCH is overdue", () => {
+    const container = openFormulaTip({
+      idpTradeCalc: { ageHours: 40, staleness: "stale" },
+      idpShowCombined: { ageHours: 2, staleness: "fresh" },
+    });
+    expect(container.textContent).toContain("IDP Trade Calculator last fetched: 40h ago (fetch overdue)");
   });
 });

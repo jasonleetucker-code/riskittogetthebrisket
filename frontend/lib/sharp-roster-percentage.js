@@ -16,6 +16,22 @@
  * and a wrong one the moment the denominator rule changes.
  */
 
+/**
+ * The canonical player id behind a sharp-board row, or null (#1337).
+ *
+ * Both sharp boards key rows on the ledger's `canonicalAssetId`, and for a
+ * PLAYER that id IS the Sleeper player id (`src/platforms/assets.py` anchors
+ * the catalog on it) — the same key `/players/[playerId]` resolves.  A pick
+ * (`pick:<season>:<round>...`) has no Player File, so it yields null and its
+ * name stays plain text.  No name is ever turned into an id here.
+ */
+export function sharpAssetPlayerId(row) {
+  if (!row || row.assetType === "pick") return null;
+  const id = String(row.assetId ?? "").trim();
+  if (!id || id.startsWith("pick:")) return null;
+  return id;
+}
+
 /** Percentage, or an em dash when the backend published nothing. */
 export function formatPct(value, { digits = 1 } = {}) {
   if (typeof value !== "number" || Number.isNaN(value)) return "—";

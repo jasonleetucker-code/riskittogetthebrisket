@@ -1,0 +1,200 @@
+"""The on-box Signals verification script runs end to end on a synthetic box.
+
+It is executed for real only on the production host (workflow
+``signals-onbox-verification.yml``); this keeps it from rotting in between by
+driving its builders and reports against the synthetic Signals fixture used by
+``tests/api/test_signals_active_source.py``.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "tests" / "api"))
+
+import test_signals_active_source as fixture  # noqa: E402
+
+
+def _load_script():
+    spec = importlib.util.spec_from_file_location(
+        "verify_signals_onbox", REPO / "scripts" / "verify_signals_onbox.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.fixture(scope="module")
+def box(tmp_path_factory):
+    root = tmp_path_factory.mktemp("box")
+    fixture._write_store(root)
+    (root / "data").mkdir(exist_ok=True)
+    (root / "data" / "dynasty_data_2026-10-03.json").write_text(
+        json.dumps(fixture._raw_payload()), encoding="utf-8"
+    )
+    return root
+
+
+def test_builds_and_reports(box):
+    mod = _load_script()
+    champion, shipped, promoted, payload = mod.build_three(box)
+    assert payload == "dynasty_data_2026-10-03.json"
+    off = mod.offense_report(champion, shipped, mod.collector_state(box))
+    assert off["availability"]["votes"] is True
+    assert off["rowsVoted"] > 50
+    assert off["fantasyCalcFamilyCap"]["maxCombinedPostCap"] <= 1.0 + 1e-9
+    idp = mod.idp_report(shipped, promoted, mod._family_ladders())
+    for fam, rep in idp["families"].items():
+        assert rep["translated"] > 10, fam
+        assert rep["extrapolated"] == 0
+        assert rep["familyMismatches"] == 0
+        assert rep["coordinatePools"] == ["shared_market"]
+    assert idp["offensePlayerRowsMovedIfPromoted"] == 0
+    assert "pickRowsMovedIfPromoted" in idp
+    for rep in idp["families"].values():
+        assert rep["signedRelBiasMedian"] is not None
+        assert rep["bridgeRowsSignalsLacks"] >= 0
+    watch = mod.watch_list(shipped, promoted)
+    assert any(w["why"].endswith("_elite") for w in watch)
+    trades = mod.trade_check(box, shipped, promoted)
+    assert trades == {"available": False, "reason": "ledger_not_built_on_this_host"}
+
+
+def test_offense_build_without_signals_is_the_champion(box):
+    mod = _load_script()
+    champion, shipped, _promoted, _ = mod.build_three(box)
+    assert champion["privateSourceAvailability"]["signalsSf"]["votes"] is False
+    assert shipped["privateSourceAvailability"]["signalsSf"]["votes"] is True
+
+
+def _pin_deployed_commits(monkeypatch, mod, shas):
+    """The fixture app dir is not a git checkout: answer ``git rev-parse
+    HEAD`` with ``shas`` in order (start of run, end of run)."""
+    real_run = mod._run
+    seq = iter(shas)
+
+    def fake_run(cmd, timeout=60):
+        if cmd[:1] == ["git"] and cmd[-2:] == ["rev-parse", "HEAD"]:
+            return 0, next(seq) + "\n"
+        return real_run(cmd, timeout)
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+
+def test_a_deploy_landing_mid_run_makes_the_run_unusable(box, capsys, monkeypatch):
+    """The workflow has its own concurrency group (a queued deploy cancelled a
+    pending run into silence), so overlap with a deploy is DETECTED: a moved
+    HEAD exits non-zero and says so, never a quiet mixed-revision report."""
+    mod = _load_script()
+    monkeypatch.setattr(mod, "check_timer", lambda app_dir: {"timer": "stub"})
+    monkeypatch.setattr(mod, "check_session", lambda: {"state": "connected"})
+    _pin_deployed_commits(monkeypatch, mod, ["a" * 40, "b" * 40])
+    monkeypatch.setattr(sys, "argv", ["verify", "--app-dir", str(box), "--skip-builds"])
+    monkeypatch.chdir(REPO)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    assert mod.main() == 3
+    public = json.loads(capsys.readouterr().out)
+    assert public["deployIntervened"] is True
+    assert public["deployedCommit"] != public["deployedCommitAtEnd"]
+
+
+def test_the_workflow_does_not_share_the_deploy_queue():
+    text = (REPO / ".github/workflows/signals-onbox-verification.yml").read_text()
+    assert "group: production-deploy" not in text
+    assert "group: signals-onbox-verification" in text
+
+
+def test_what_leaves_the_box_is_aggregates_only(box, capsys, monkeypatch):
+    """The repository is public: the workflow log and artifact must carry no
+    player name, Signals per-player number or private board value.  The full
+    report stays 0600 in the private store."""
+    import os
+
+    mod = _load_script()
+    monkeypatch.setattr(mod, "check_timer", lambda app_dir: {"timer": "stub"})
+    monkeypatch.setattr(
+        mod,
+        "check_session",
+        lambda: {"state": "connected", "capturedAt": "2026-10-04T00:00:00Z"},
+    )
+    _pin_deployed_commits(monkeypatch, mod, ["a" * 40, "a" * 40])
+    monkeypatch.setattr(sys, "argv", ["verify", "--app-dir", str(box), "--candidate-f"])
+    # main() chdirs into the app dir and prepends it to sys.path, as a
+    # script on the box should; pin both so they are restored afterwards
+    # (a leaked cwd broke a later subprocess test: `No module named 'src'`).
+    monkeypatch.chdir(REPO)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    assert mod.main() == 0
+    text = capsys.readouterr().out
+    public = json.loads(text)
+
+    _c, shipped, _p, _ = mod.build_three(box)
+    names = [r["displayName"] for r in shipped["playersArray"] if r.get("displayName")]
+    for name in names:
+        assert f'"{name}"' not in text, name
+    for key in (
+        "familyRank",
+        "wouldContribute",
+        "valueContribution",
+        "sourceShadowMeta",
+        "watchList",
+        "largestDisagreements",
+        "capturedAt",
+    ):
+        assert f'"{key}"' not in text, key
+    assert public["deployIntervened"] is False
+    assert public["session"] == {"state": "connected"}
+    assert public["watchList_outcomes"], "the gate outcomes are still reported"
+    assert all("label" in w and "player" not in w for w in public["watchList_outcomes"])
+
+    private = box / public["privateReport"]
+    assert private.is_file()
+    assert oct(os.stat(private).st_mode & 0o777) == "0o600"
+    full = json.loads(private.read_text(encoding="utf-8"))
+    assert full["watchList"] and "player" in full["watchList"][0]
+
+
+def test_candidate_f_statistics_are_quarantined_unless_requested(box, capsys, monkeypatch):
+    """Plan 4.3 (D1 quarantine): no F-promoted build, and so no F movement /
+    family-share / bias statistic, unless ``--candidate-f`` is passed.  The
+    workflow passes nothing, so a dispatch before R1 computes none."""
+    mod = _load_script()
+    seen = {}
+    real = mod.build_three
+
+    def spy(app_dir, *, promote=True):
+        seen["promote"] = promote
+        return real(app_dir, promote=promote)
+
+    monkeypatch.setattr(mod, "build_three", spy)
+    monkeypatch.setattr(mod, "check_timer", lambda app_dir: {"timer": "stub"})
+    monkeypatch.setattr(mod, "check_session", lambda: {"state": "connected"})
+    _pin_deployed_commits(monkeypatch, mod, ["a" * 40, "a" * 40])
+    monkeypatch.setattr(sys, "argv", ["verify", "--app-dir", str(box)])
+    monkeypatch.chdir(REPO)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    assert mod.main() == 0
+    public = json.loads(capsys.readouterr().out)
+    assert seen["promote"] is False
+    assert public["idpPromotedBuild"].startswith("quarantined_until_R1")
+    assert "idp" not in public and "watchList_outcomes" not in public
+    assert (
+        "--candidate-f"
+        not in (REPO / ".github/workflows/signals-onbox-verification.yml").read_text()
+    )
+
+
+def test_the_guard_refuses_a_name_or_a_forbidden_key():
+    mod = _load_script()
+    with pytest.raises(ValueError):
+        mod.assert_public_safe({"a": ["Josh Allen"]}, ["Josh Allen"])
+    with pytest.raises(ValueError):
+        mod.assert_public_safe({"x": {"wouldContribute": 1}}, [])
+    mod.assert_public_safe({"counts": {"DL": 3}}, ["Josh Allen"])

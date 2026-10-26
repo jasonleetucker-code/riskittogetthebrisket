@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/components/useDynastyData", () => ({
@@ -27,7 +27,8 @@ vi.mock("@/components/useTeam", () => ({
   useTeam: () => ({ selectedLeagueKey: "dynasty_main", selectedOwnerId: "me" }),
 }));
 
-vi.mock("@/lib/market-arbitrage", () => ({
+vi.mock("@/lib/market-arbitrage", async (importOriginal) => ({
+  ...(await importOriginal()),
   buildArbitrageRows: () => [],
 }));
 
@@ -88,6 +89,16 @@ function payload(receiveName) {
   };
 }
 
+// Owner directive 2026-10-18: Golden Upgrades is the default tool, so the
+// Package Scan tab is opened first.
+function openPackageScan() {
+  fireEvent.click(screen.getByRole("tab", { name: "Package Scan" }));
+}
+
+function requestBody(call) {
+  return JSON.parse(call[1].body);
+}
+
 function arbitrageControl(call) {
   const body = JSON.parse(call[1].body);
   return body.opponentTeams.find(
@@ -100,6 +111,7 @@ describe("/arbitrage package refinement", () => {
 
   beforeEach(() => {
     originalFetch = global.fetch;
+    window.localStorage.clear();
   });
 
   afterEach(() => {
@@ -107,9 +119,9 @@ describe("/arbitrage package refinement", () => {
     vi.restoreAllMocks();
   });
 
-  it("requests equal-count packages and X reruns without the player on either side", async () => {
+  it("requests equal-count packages; Skip reruns without that target (incoming only)", async () => {
     const user = userEvent.setup();
-    let resolveExcludedSearch;
+    let resolveSkippedSearch;
 
     global.fetch = vi
       .fn()
@@ -117,65 +129,197 @@ describe("/arbitrage package refinement", () => {
       .mockImplementationOnce(
         () =>
           new Promise((resolve) => {
-            resolveExcludedSearch = () => resolve(response(payload("Target Charlie")));
+            resolveSkippedSearch = () => resolve(response(payload("Target Charlie")));
           }),
       )
       .mockResolvedValueOnce(response(payload("Target Bob")));
 
     render(<ArbitragePage />);
+    openPackageScan();
 
     await user.click(screen.getByRole("button", { name: "Find trade packages" }));
 
-    const excludeBob = await screen.findByRole("button", {
-      name: "Exclude Target Bob from suggestions",
+    const skipBob = await screen.findByRole("button", {
+      name: "Don't target Target Bob in this scan",
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(arbitrageControl(global.fetch.mock.calls[0])).toEqual({
       equalCountOnly: true,
-      excludePlayers: [],
+      skipTargets: [],
     });
+    expect(requestBody(global.fetch.mock.calls[0]).refinement).toEqual({ lock: [], exclude: [] });
 
-    await user.click(excludeBob);
+    await user.click(skipBob);
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
     expect(arbitrageControl(global.fetch.mock.calls[1])).toEqual({
       equalCountOnly: true,
-      excludePlayers: ["Target Bob"],
+      skipTargets: ["Target Bob"],
     });
-
-    // The UI records the exclusion immediately instead of waiting for the
-    // network response. The backend test separately proves the rerun removes
-    // the player from both pools before package enumeration.
-    expect(
-      screen.getByRole("button", { name: "Restore Target Bob to suggestions" }),
-    ).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Exclude Target Bob from suggestions" }),
-    ).toBeNull();
+    // Skip is a search filter, never a constraint: it does not travel as
+    // refinement and is never stored.
+    expect(requestBody(global.fetch.mock.calls[1]).refinement).toEqual({ lock: [], exclude: [] });
+    expect(window.localStorage.length).toBe(0);
+    expect(screen.getByRole("button", { name: "Remove skip: Target Bob" })).toBeTruthy();
 
     await act(async () => {
-      resolveExcludedSearch();
+      resolveSkippedSearch();
     });
+    await screen.findByRole("button", { name: "Don't target Target Charlie in this scan" });
 
-    await screen.findByRole("button", {
-      name: "Exclude Target Charlie from suggestions",
-    });
-
-    await user.click(
-      screen.getByRole("button", { name: "Restore Target Bob to suggestions" }),
-    );
-
+    await user.click(screen.getByRole("button", { name: "Remove skip: Target Bob" }));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
     expect(arbitrageControl(global.fetch.mock.calls[2])).toEqual({
       equalCountOnly: true,
-      excludePlayers: [],
+      skipTargets: [],
     });
-    await screen.findByRole("button", {
-      name: "Exclude Target Bob from suggestions",
+  });
+
+  it("LOCK and EXCLUDE are outgoing-only, mutually exclusive, regenerate, and persist until cleared", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(response(payload("Target Bob")));
+    render(<ArbitragePage />);
+    openPackageScan();
+
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Lock Send Alpha into every package" }),
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    expect(requestBody(global.fetch.mock.calls[1]).refinement).toEqual({
+      lock: ["Send Alpha"],
+      exclude: [],
+    });
+    const key = "rit.refinement.v1:me:dynasty_main:arbitrage:My Team|all";
+    expect(JSON.parse(window.localStorage.getItem(key))).toEqual({
+      lock: ["Send Alpha"],
+      exclude: [],
+    });
+    // The receive side never offers LOCK / EXCLUDE.
+    expect(screen.queryByRole("button", { name: "Lock Target Bob into every package" })).toBeNull();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Exclude Send Alpha from outgoing packages" }),
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
+    expect(requestBody(global.fetch.mock.calls[2]).refinement).toEqual({
+      lock: [],
+      exclude: ["Send Alpha"],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Clear refinements" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
+    expect(requestBody(global.fetch.mock.calls[3]).refinement).toEqual({ lock: [], exclude: [] });
+    expect(window.localStorage.getItem(key)).toBeNull();
+  });
+
+  it("restores a saved refinement for this team and opponent context", async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(
+      "rit.refinement.v1:me:dynasty_main:arbitrage:My Team|all",
+      JSON.stringify({ lock: [], exclude: ["Send Alpha"] }),
+    );
+    global.fetch = vi.fn().mockResolvedValue(response(payload("Target Bob")));
+    render(<ArbitragePage />);
+    openPackageScan();
+
+    expect(await screen.findByRole("button", { name: "Remove exclusion: Send Alpha" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    expect(requestBody(global.fetch.mock.calls[0]).refinement).toEqual({
+      lock: [],
+      exclude: ["Send Alpha"],
+    });
+  });
+
+  it("sends Team Context ON by default and re-scans in Asset-only when switched (C3-CTX-01)", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(response(payload("Target Bob")));
+    render(<ArbitragePage />);
+    openPackageScan();
+
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    await screen.findByRole("button", { name: "Don't target Target Bob in this scan" });
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body).useTeamContext).toBe(true);
+
+    await user.click(screen.getByRole("radio", { name: "Asset only" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(global.fetch.mock.calls[1][1].body).useTeamContext).toBe(false);
+  });
+
+  it("shows both teams' roster consequence and names the counterparty", async () => {
+    const user = userEvent.setup();
+    const body = payload("Target Bob");
+    body.trades[0].counterparty = "Other Team";
+    body.trades[0].rosterCapacity = {
+      requiresDrops: true,
+      forcedDropsAreUpperBound: false,
+      rosterLimit: 58,
+      forcedDrops: [{ name: "Bench Guy" }],
+    };
+    body.trades[0].counterpartyRosterCapacity = {
+      requiresDrops: null,
+      rosterLimit: 58,
+      forcedDrops: [],
+    };
+    global.fetch = vi.fn().mockResolvedValue(response(body));
+    render(<ArbitragePage />);
+    openPackageScan();
+
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    const list = await screen.findByRole("list", { name: "Roster consequences" });
+    expect(list).toHaveTextContent("Your roster: must release 1: Bench Guy");
+    expect(list).toHaveTextContent(
+      "Other Team's roster: may need a release (taxi occupancy unknown)",
+    );
+  });
+
+  it("labels a derived pick market value as derived, never a native price", async () => {
+    const user = userEvent.setup();
+    const body = payload("Target Bob");
+    body.trades[0].give.push({
+      name: "2027 1st (My Team)",
+      position: "PICK",
+      modelValue: 5800,
+      ktcValue: 5967,
+      marketDerivation: { basis: "plain_ktc_tier_average", isNativeMarketPrice: false },
+    });
+    global.fetch = vi.fn().mockResolvedValue(response(body));
+    render(<ArbitragePage />);
+    openPackageScan();
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    expect(await screen.findByText(/KTC tier average — slot unknown/)).toBeInTheDocument();
+  });
+
+  it("drops a stale scan when the mode is switched mid-flight", async () => {
+    const user = userEvent.setup();
+    let resolveFirst;
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(response(payload("Target Bob")))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = () => resolve(response(payload("Stale Asset Pick")));
+          }),
+      )
+      .mockResolvedValueOnce(response(payload("Target Charlie")));
+    render(<ArbitragePage />);
+    openPackageScan();
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    await screen.findByRole("button", { name: "Don't target Target Bob in this scan" });
+
+    await user.click(screen.getByRole("radio", { name: "Asset only" })); // slow, will be stale
+    await user.click(screen.getByRole("radio", { name: "Team context" })); // latest
+    await screen.findByRole("button", { name: "Don't target Target Charlie in this scan" });
+    await act(async () => {
+      resolveFirst();
     });
     expect(
-      screen.queryByRole("button", { name: "Restore Target Bob to suggestions" }),
+      screen.queryByRole("button", { name: "Don't target Stale Asset Pick in this scan" }),
     ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Don't target Target Charlie in this scan" }),
+    ).toBeTruthy();
   });
 });

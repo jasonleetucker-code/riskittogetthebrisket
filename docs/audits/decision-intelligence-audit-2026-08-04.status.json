@@ -3,9 +3,9 @@
  "severity": "Critical",
  "total": 43,
  "tally": {
-  "open": 18,
+  "open": 17,
   "needs_review": 2,
-  "closed": 22,
+  "closed": 23,
   "deferred": 1
  },
  "findings": [
@@ -95,16 +95,16 @@
    "auditEvidence": "GIVE convention \u2014 frontend/lib/trade-logic.js:1392-1393 `const value = ...effectiveValue(asset...); result[i].given += value;` then `result[dest].received += value`; frontend/app/trade/trade-sections.jsx:808 `<div className={styles.sideGroupLabel}>Giving</div>` over `side.assets`; frontend/components/graphs/MultiTradeFlow.jsx:80 \"Each side appears once on the left (giver)\"; frontend/app/trade/page",
    "auditId": "T-1",
    "path": "frontend/lib/trade-logic.js",
-   "signature": "result[i].given += value",
+   "signature": "given: t.sendAdj,",
    "status": "open",
-   "verifiedBy": "The GIVE convention is live at :1393 while the verdict names the bigger pile the winner. Both conventions still present.",
+   "verifiedBy": "The GIVE convention is live at :1393 while the verdict names the bigger pile the winner. Both conventions still present. Re-pointed 2026-10-20 (PR #1883): computeSideFlows now reads each team from perTeamPackageTotals, and the GIVE convention lives on as `given: t.sendAdj` (what the side SENDS); the old `result[i].given += value` accumulator is gone, not the convention. Status unchanged \u2014 nothing here decided the direction question.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
     "result": "signature_present",
     "path": "frontend/lib/trade-logic.js",
-    "needle": "result[i].given += value"
+    "needle": "given: t.sendAdj,"
    }
   },
   {
@@ -370,17 +370,17 @@
    "complexity": "Medium",
    "auditEvidence": "src/model_registry/holdout.py:74-79 defines the holdout set as FantasyCalc (CSVs/site_raw/fantasyCalc.csv), OTCFFB (otcffbSf.csv), PFKDynasty (pfkDynasty.csv) and FantasyNavigator (fantasyNavigatorSf.csv). All four are registered LIVE BLEND SOURCES: src/api/data_contract.py:1302 (\"key\": \"fantasyCalc\"), :1327 (\"key\": \"otcffbSf\"), :1361 (\"key\": \"fantasyNavigatorSf\"), :1388 (\"key\": \"pfkDynasty\"). I e",
    "auditId": "V-2",
-   "path": "src/model_registry/holdout.py",
-   "signature": "\"FantasyCalc\": (\"CSVs/site_raw/fantasyCalc.csv\", \"value\")",
+   "path": "src/model_registry/training_manifest.py",
+   "signature": "BoardSpec(\"FantasyCalc\", \"fantasyCalc\", \"OFFENSE\", ROLE_HOLDOUT, \"value\")",
    "status": "open",
-   "verifiedBy": "All four holdout boards are still registered live blend sources.",
+   "verifiedBy": "The holdout boards are still registered live blend sources. Since the Hill trainer repair (#1588) the holdout role is assigned in the one training manifest rather than a literal in holdout.py; the mechanism moved, the defect did not (FantasyCalc / OTCFFB / PFKDynasty still vote).",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
     "result": "signature_present",
-    "path": "src/model_registry/holdout.py",
-    "needle": "\"FantasyCalc\": (\"CSVs/site_raw/fantasyCalc.csv\", \"value\")"
+    "path": "src/model_registry/training_manifest.py",
+    "needle": "BoardSpec(\"FantasyCalc\", \"fantasyCalc\", \"OFFENSE\", ROLE_HOLDOUT, \"value\")"
    }
   },
   {
@@ -465,16 +465,16 @@
    "auditEvidence": "src/trade/finder.py:665 `if len(give) > len(receive):` gates MULTI_FOR_ONE_MIN_RATIO (0.55), ELITE_MULTI_MIN_RATIO (0.65) and PACKAGE_ANCHOR_MIN_PCT (0.35). Nothing constrains `len(receive) > len(give)`. Measured across all 12 live rosters: package shapes returned were `Counter({'1-for-2': 441, '1-for-1': 8})` \u2014 zero 2-for-1s survived, and every 1-for-2 bypassed every ratio guard.",
    "auditId": "T-7",
    "path": "src/trade/finder.py",
-   "signature": "if len(give) > len(receive):",
+   "signature": "if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):",
    "status": "open",
-   "verifiedBy": "Multi-piece guards still gate on the give-more direction only; the 1-for-N direction is unguarded.",
+   "verifiedBy": "Multi-piece guards still gate on the give-more direction only; the 1-for-N direction is unguarded.\n\nSIGNATURE RESPELLED 2026-10-04 (C3-TOPO-01), STATUS DELIBERATELY UNCHANGED. Wave B counts the guard's sides in PLAYERS (a pick added to a 1-for-1 is not a two-fillers-for-an-elite package), so the old needle `if len(give) > len(receive):` stopped matching. The cited MECHANISM changed; the defect did not: the guard still fires only when the requester gives more players, and the 1-for-N direction is still unguarded. The needle follows the new spelling of the same one-directional comparison.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
     "result": "signature_present",
     "path": "src/trade/finder.py",
-    "needle": "if len(give) > len(receive):"
+    "needle": "if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):"
    }
   },
   {
@@ -486,13 +486,13 @@
    "auditId": "T-9",
    "path": "src/trade/suggestions.py",
    "signature": "analyze_roster(roster_names, pool",
-   "status": "open",
-   "verifiedBy": "Still called with a name list the pool can only partly resolve.\n\nSIGNATURE RESPELLED 2026-08-19 (C3-CON-01), STATUS DELIBERATELY UNCHANGED. The call site gained a `constraints=` keyword when the recommendation-constraint owner was wired in, so the old needle `analyze_roster(roster_names, pool, starter_needs)` stopped matching and the probe flipped to signature_absent. That is the case this module's own docstring warns about: an absent signature means the cited MECHANISM changed, not that the defect is fixed. It is not fixed \u2014 C3-CON-01 decides which resolved assets may be OFFERED and does nothing whatever about resolution, which is what T-9 is about. The needle is respelled to the part that IS the defect (the name list reaching `analyze_roster`) rather than to the full argument list, so a further keyword cannot flip it again and invite a second close-on-a-respelling.",
+   "status": "closed",
+   "verifiedBy": "CLOSED 2026-10-14 (trade-discovery Batch 1, claude/trade-constraints-lock-exclude). The roster is now analysed against the WHOLE priced board (`analysis_pool = roster_pool`, built with `ktc_top_n=0` by the route), not the top-150 quality pool that only gates what may be proposed. Measured on the 2026-10-14 archive board: roster visibility 86-97% per team (was 3-36% against the top-150 pool); teams with zero suggestions 10 -> 4 of 12, each with a named `noResultReason`. The remaining 3-14% are players with no board price at all and are published by name in `metadata.rosterUnpriced` rather than dropped. Tripwire: the needle is the retired call shape \u2014 passing the top-N `pool` to `analyze_roster` again would re-open T-9.\n\nHistory: respelled 2026-08-19 (C3-CON-01) while still open; the C3-CON-01 constraints keyword decided what may be OFFERED and did nothing about resolution.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
+    "result": "signature_absent",
     "path": "src/trade/suggestions.py",
     "needle": "analyze_roster(roster_names, pool"
    }

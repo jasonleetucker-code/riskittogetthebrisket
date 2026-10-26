@@ -141,3 +141,83 @@ class TestUnknownIsNotZero:
         kept, named for what they are."""
         snap = srv._build_source_health_snapshot(_payload_with_anchor_only_sites())
         assert snap["anchor_row_counts"] == {"ktc": 500, "idpTradeCalc": 900}
+
+
+class TestDeclaredAbsenceIsNotMissing:
+    """SEASONALLY INACTIVE != BROKEN; PRIVATE SOURCE NOT PRESENT != FAILED.
+
+    The served board declares two kinds of zero-vote source on purpose:
+    ``served_seasonal_inactive`` (e.g. a rookie board out of season) and
+    ``served_private_absent_by_design`` (a private source this host does
+    not carry a vote from).  The coverage gate already excuses exactly
+    these; the status snapshot used to ignore both and list them under
+    ``missing_sources``, which ``SourceHealthStrip`` renders as "Missing:".
+    Measured on production 2026-10-07: ``flockFantasySfRookies`` and the
+    Signals boards appeared there.
+    """
+
+    def _three_keys(self):
+        registered = get_ranking_source_keys()
+        assert len(registered) >= 3, "precondition"
+        return registered, registered[-1], registered[-2], registered[-3]
+
+    def test_declared_absent_sources_are_not_missing(self):
+        registered, seasonal, private, silent = self._three_keys()
+        coverage = {k: 100 for k in registered if k not in {seasonal, private, silent}}
+
+        snap = srv._build_source_health_snapshot(
+            _payload_with_anchor_only_sites(),
+            coverage=coverage,
+            seasonal_inactive=[seasonal],
+            private_absent_by_design=[private],
+        )
+
+        assert seasonal not in snap["missing_sources"]
+        assert private not in snap["missing_sources"]
+        assert snap["seasonally_inactive_sources"] == [seasonal]
+        assert snap["absent_by_design_sources"] == [private]
+        # An UNDECLARED zero-vote source is still missing — the exemption is
+        # the declaration, never "zero rows" on its own.
+        assert snap["missing_sources"] == [silent]
+        # Absent is still not data: counts stay a measured zero.
+        assert snap["source_counts"][seasonal] == 0
+        assert snap["source_counts"][private] == 0
+        assert snap["sources_with_data"] == len(registered) - 3
+
+    def test_a_declared_source_that_voted_counts_as_available(self):
+        registered, seasonal, private, _ = self._three_keys()
+        coverage = {k: 100 for k in registered}
+
+        snap = srv._build_source_health_snapshot(
+            _payload_with_anchor_only_sites(),
+            coverage=coverage,
+            seasonal_inactive=[seasonal],
+            private_absent_by_design=[private],
+        )
+
+        assert snap["missing_sources"] == []
+        assert snap["seasonally_inactive_sources"] == []
+        assert snap["absent_by_design_sources"] == []
+        assert snap["sources_with_data"] == len(registered)
+
+    def test_declarations_do_not_turn_unmeasured_into_absent(self):
+        """No coverage map = unknown for everyone, declared or not."""
+        registered, seasonal, private, _ = self._three_keys()
+        snap = srv._build_source_health_snapshot(
+            _payload_with_anchor_only_sites(),
+            coverage={},
+            seasonal_inactive=[seasonal],
+            private_absent_by_design=[private],
+        )
+        assert snap["unmeasured_sources"] == sorted(registered)
+        assert snap["seasonally_inactive_sources"] == []
+        assert snap["absent_by_design_sources"] == []
+
+    def test_status_route_passes_the_served_declarations(self):
+        """The one production caller must hand over the served board's own
+        declarations; a correct helper nobody calls fixes nothing."""
+        import inspect
+
+        src = inspect.getsource(srv.get_status)
+        assert "seasonal_inactive=served_seasonal_inactive" in src
+        assert "private_absent_by_design=served_private_absent_by_design" in src

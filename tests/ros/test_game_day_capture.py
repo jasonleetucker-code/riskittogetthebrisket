@@ -11,6 +11,8 @@ these run in the hard gate rather than under `livedata`.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 
 from src.ros.game_day_archive import load_snapshots_for_week, record_snapshot
@@ -572,3 +574,115 @@ def test_capture_timer_has_a_timer_section():
     assert parser["Timer"]["OnCalendar"]
     assert parser["Timer"]["Unit"] == "__SERVICE_NAME__-game-day-capture.service"
     assert "OnCalendar" not in parser["Unit"]
+
+
+# ── a closed window is a LOST observation only if the archive lacks it ──
+#
+# 2026-10-25, box: week 7 was captured 2026-10-21T20:00Z (12 + 10 teams), the
+# first kickoff was 2026-10-23T00:15Z, and every 4-hourly run after it exited 3
+# "REFUSED ... cannot be recovered" until Sleeper rolled the week -- the unit sat
+# `failed` for days over evidence that was safely in the archive.
+
+
+class _Snap:
+    def __init__(self, team_id, captured_at, capture_kind="pregame"):
+        self.team_id = team_id
+        self.captured_at = captured_at
+        self.capture_kind = capture_kind
+
+
+_KICKOFF = datetime(2026, 10, 23, 0, 15, tzinfo=timezone.utc)
+
+
+def test_a_fully_captured_week_has_no_gaps():
+    from src.ros.game_day_capture import pregame_capture_gaps
+
+    snaps = [_Snap(str(t), "2026-10-21T20:00:46+00:00") for t in range(1, 13)]
+    assert (
+        pregame_capture_gaps(
+            expected_team_ids=list(range(1, 13)), snapshots=snaps, first_kickoff=_KICKOFF
+        )
+        == []
+    )
+
+
+def test_a_missing_team_is_a_gap():
+    from src.ros.game_day_capture import pregame_capture_gaps
+
+    snaps = [_Snap(str(t), "2026-10-21T20:00:46+00:00") for t in range(1, 12)]
+    assert pregame_capture_gaps(
+        expected_team_ids=list(range(1, 13)), snapshots=snaps, first_kickoff=_KICKOFF
+    ) == ["12"]
+
+
+@pytest.mark.parametrize(
+    "snap",
+    [
+        _Snap("1", "2026-10-23T00:15:00+00:00"),  # at kickoff is not pregame
+        _Snap("1", "2026-10-23T04:00:00+00:00"),  # after kickoff
+        _Snap("1", "2026-10-21T20:00:46"),  # naive: not a provable instant
+        _Snap("1", "not a time"),
+        _Snap("1", "2026-10-21T20:00:46+00:00", capture_kind="in_game"),
+    ],
+)
+def test_only_a_pregame_snapshot_taken_before_kickoff_counts(snap):
+    from src.ros.game_day_capture import pregame_capture_gaps
+
+    assert pregame_capture_gaps(
+        expected_team_ids=[1], snapshots=[snap], first_kickoff=_KICKOFF
+    ) == ["1"]
+
+
+def _capture_script(monkeypatch, *, rosters, snaps):
+    from scripts import capture_game_day_predictions as cap
+
+    monkeypatch.setattr(cap.league_registry, "get_sleeper_league_id", lambda key: f"id-{key}")
+    monkeypatch.setattr(cap.sleeper_client, "fetch_rosters", lambda lid: rosters.get(lid))
+    monkeypatch.setattr(
+        cap,
+        "load_snapshots_for_week",
+        lambda key, season, week, capture_kind=None: snaps.get(key, []),
+    )
+    return cap
+
+
+class _Cfg:
+    def __init__(self, key):
+        self.key = key
+
+
+def test_script_reports_no_gap_for_a_captured_week(monkeypatch):
+    cap = _capture_script(
+        monkeypatch,
+        rosters={
+            "id-a": [{"roster_id": 1, "players": ["p1"]}, {"roster_id": 2, "players": ["p2"]}]
+        },
+        snaps={
+            "a": [_Snap("1", "2026-10-21T20:00:46+00:00"), _Snap("2", "2026-10-22T00:02:46+00:00")]
+        },
+    )
+    assert cap._uncaptured_pregame([_Cfg("a")], 2026, 7, _KICKOFF) == []
+
+
+def test_script_reports_a_missing_week_and_fails_closed_without_rosters(monkeypatch):
+    cap = _capture_script(
+        monkeypatch,
+        rosters={
+            "id-a": [{"roster_id": 1, "players": ["p1"]}, {"roster_id": 2, "players": ["p2"]}],
+            "id-b": None,
+        },
+        snaps={"a": [_Snap("1", "2026-10-21T20:00:46+00:00")]},
+    )
+    gaps = dict(cap._uncaptured_pregame([_Cfg("a"), _Cfg("b")], 2026, 7, _KICKOFF))
+    assert gaps["a"] == "no pregame snapshot for team(s) 2"
+    assert gaps["b"].startswith("could not verify")
+
+
+def test_a_roster_with_no_players_is_not_a_lost_observation(monkeypatch):
+    # build_capture never captures an empty roster, so it must not page forever.
+    cap = _capture_script(
+        monkeypatch,
+        rosters={"id-a": [{"roster_id": 1, "players": ["p1"]}, {"roster_id": 2, "players": []}]},
+        snaps={"a": [_Snap("1", "2026-10-21T20:00:46+00:00")]},
+    )
+    assert cap._uncaptured_pregame([_Cfg("a")], 2026, 7, _KICKOFF) == []

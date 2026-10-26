@@ -25,6 +25,16 @@ evidence the artifact is there.  ``--require`` names the streams whose
 absence should FAIL a caller, so a stream that is legitimately not
 provisioned yet on a given host can be reported without turning the
 signal permanently red — a check nobody trusts is a check nobody reads.
+
+EVERY STREAM IS REPORTED ON ITS OWN
+───────────────────────────────────
+One red job for eight streams lets one known-bad stream hide the rest:
+``C1-RET-07`` was red every day for months, so when ``C1-RET-08`` went stale
+on 2026-09-23..27 the job's signal did not change.  The exit code stays a
+single verdict, but ``--github-annotations`` emits one GitHub Actions
+``::error`` annotation PER failing stream, titled with its id, so each
+failure is listed separately on the run (and a new one is visible beside a
+known one) from one job and one probe.
 """
 
 from __future__ import annotations
@@ -53,6 +63,24 @@ _GLYPH = {
 }
 
 
+_CR, _LF = chr(13), chr(10)
+
+
+def _escape(text: str) -> str:
+    """GitHub workflow-command escaping for annotation data."""
+    return str(text).replace("%", "%25").replace(_CR, "%0D").replace(_LF, "%0A")
+
+
+def _annotation(stream: dict) -> str:
+    title = f"{stream['id']} {stream['state']}".replace(",", "%2C").replace("::", ": :")
+    age = stream.get("ageHours")
+    age_txt = f" (age {age}h, budget {stream.get('budgetHours')}h)" if age is not None else ""
+    return (
+        f"::error title={_escape(title)}::{_escape(stream.get('title', ''))}{age_txt}: "
+        + _escape(stream.get("detail", ""))
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", action="store_true", help="emit the raw report")
@@ -71,6 +99,11 @@ def main() -> int:
             "only these stream ids decide the exit code. Omit to require "
             "every stream. Pass an empty list to report without failing."
         ),
+    )
+    ap.add_argument(
+        "--github-annotations",
+        action="store_true",
+        help="also emit one GitHub Actions ::error annotation per failing stream",
     )
     args = ap.parse_args()
 
@@ -125,6 +158,14 @@ def main() -> int:
         ]
 
     if failing:
+        for s in failing:
+            # One line per stream, so a newly failing stream is its own
+            # line rather than a longer suffix on a line already red.
+            print(
+                f"retention-health: {s['id']} {s['state']}: {s.get('detail', '')}", file=sys.stderr
+            )
+            if args.github_annotations:
+                print(_annotation(s))
         ids = ", ".join(f"{s['id']}={s['state']}" for s in failing)
         print(f"retention-health: NOT OK — {ids}", file=sys.stderr)
         return 2

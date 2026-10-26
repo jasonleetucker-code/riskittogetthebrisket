@@ -249,3 +249,71 @@ def test_a_fully_unpriced_board_prices_nothing(monkeypatch):
     assert result["unpricedPickCount"] == 8  # 1 team × 4 rounds × 2 seasons
     assert all(p["dollarValue"] is None for p in result["picks"])
     assert all(t["auctionDollars"] == 0 for t in result["teamTotals"])
+
+
+# ── /traded_picks fail-closed (missing is never zero) ────────────────
+#
+# A failed /traded_picks fetch used to read as "no trades" (``... or []``):
+# the board folded DEFAULT ownership and priced every team's capital off
+# it.  A 200 list -- even an empty one -- is an observation; anything else
+# is unknown and the board is refused with the module's {error, message}
+# shape.  The rule is ``src/identity/picks.traded_picks_observation``.
+
+
+def _two_team_responses(traded):
+    return {
+        "/rosters": [
+            {"roster_id": 1, "owner_id": "u1"},
+            {"roster_id": 2, "owner_id": "u2"},
+        ],
+        "/users": [
+            {"user_id": "u1", "display_name": "Alpha"},
+            {"user_id": "u2", "display_name": "Beta"},
+        ],
+        "/traded_picks": traded,
+    }
+
+
+def _build(monkeypatch, traded):
+    monkeypatch.setattr(dcf, "_fetch_json", _stub_fetch_json(_two_team_responses(traded)))
+    return dcf.build_sleeper_derived(
+        "L1", _contract_with_picks(), current_season=2026, draft_rounds=1
+    )
+
+
+def test_a_failed_traded_picks_fetch_refuses_the_board_not_defaults(monkeypatch):
+    # ``_fetch_json`` returns None on ANY failure — the failed-fetch signal.
+    result = _build(monkeypatch, None)
+    assert result.get("error") == "pick_ownership_unavailable"
+    assert result["message"]
+    assert result["pickOwnershipState"] == "unavailable"
+    assert result["pickOwnershipReason"] == "traded_picks_fetch_failed"
+    # No owned picks and no capital are emitted on top of unknown ownership.
+    assert "picks" not in result
+    assert "teamTotals" not in result
+
+
+def test_a_non_list_200_body_is_unavailable(monkeypatch):
+    for body in ({"error": "rate limited"}, "oops", 0):
+        result = _build(monkeypatch, body)
+        assert result.get("error") == "pick_ownership_unavailable", body
+        assert "picks" not in result
+
+
+def test_an_empty_successful_list_still_gives_default_ownership(monkeypatch):
+    result = _build(monkeypatch, [])
+    assert "error" not in result
+    assert result["picks"]
+    assert not any(p["isTraded"] for p in result["picks"])
+    assert all(p["currentOwner"] == p["originalOwner"] for p in result["picks"])
+    # Success adds no state keys: the board shape is unchanged.
+    assert "pickOwnershipState" not in result
+    assert "pickOwnershipReason" not in result
+
+
+def test_rosters_unreachable_still_wins_over_traded_picks(monkeypatch):
+    """Ordering is unchanged: no rosters is ``sleeper_unreachable`` even when
+    /traded_picks also failed."""
+    monkeypatch.setattr(dcf, "_fetch_json", lambda _url: None)
+    result = dcf.build_sleeper_derived("L1", _contract_with_picks(), current_season=2026)
+    assert result["error"] == "sleeper_unreachable"

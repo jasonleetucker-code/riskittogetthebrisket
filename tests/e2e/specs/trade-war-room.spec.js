@@ -17,6 +17,7 @@ const path = require("path");
 const { test, expect } = require("../helpers/auth-fixture");
 const { pageUrl, awaitStreamSettled, contractFixture } = require("../helpers/journey");
 const AxeBuilder = require("@axe-core/playwright").default;
+const { closeTradeSheet, openTradeSearch } = require("../helpers/trade-builder");
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const FIXTURES = path.resolve(__dirname, "../../../frontend/__tests__/fixtures/trade-war-room");
@@ -51,8 +52,7 @@ async function pickTrade(page) {
 }
 
 async function addToSide(page, sideLabel, name) {
-  const input = page.getByLabel(`Search to add a player to Side ${sideLabel}`);
-  await input.click();
+  const input = await openTradeSearch(page, sideLabel);
   await input.fill(name);
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const result = page
@@ -61,10 +61,11 @@ async function addToSide(page, sideLabel, name) {
     .first();
   await expect(result).toBeVisible({ timeout: 15_000 });
   await result.click();
+  await closeTradeSheet(page);
   await expect(page.getByRole("button", { name: `Remove ${name} from Side ${sideLabel}` })).toBeVisible();
 }
 
-test("trade war room: recommendation, three answers, Asset-Only round trip, no sideways scroll, axe clean", async ({
+test("trade war room: recommendation, three plain answers, Asset-Only round trip, no sideways scroll, axe clean", async ({
   authedPage: page,
 }, testInfo) => {
   const errors = [];
@@ -101,11 +102,27 @@ test("trade war room: recommendation, three answers, Asset-Only round trip, no s
   const room = page.locator('[data-war-room="ok"]');
   await expect(room).toBeVisible({ timeout: 30_000 });
   const consolidation = load("consolidation");
-  await expect(room.getByText("Make the trade")).toBeVisible();
+  // TC-C: the ONE decision headline, verbatim from the backend.  The graded
+  // leaning and the supporting arguments sit behind their disclosures (owner
+  // directive 2026-10-19: immediate answer first, detail on request).
+  await expect(room.getByTestId("decision-headline")).toHaveText(consolidation.analysis.decision.headlineText);
   for (const lens of ["market", "roster", "feasibility"]) {
     await expect(room.locator(`[data-lens="${lens}"]`)).toBeVisible();
   }
-  await expect(room.getByText(consolidation.analysis.reasonsFor[0])).toBeVisible();
+  await room.getByRole("button", { name: "Sources, simulations and methodology" }).click();
+  // The bands are named by their version number, never by their id.
+  expect(consolidation.analysis.decision.bands.version).toBe("fairness_bands_v2");
+  await expect(room.getByTestId("decision-bands")).toContainText("Fairness bands, version 2");
+  // One official answer: no legacy graded leaning anywhere in the War Room.
+  await expect(room).not.toContainText(/leaning/i);
+  await room.getByRole("button", { name: "Arguments, objections and uncertainty" }).click();
+  // The legacy gap word ("(stretch gap)") reads in the canonical band words.
+  expect(consolidation.analysis.lenses.market.detail.band.level).toBe("lopsided");
+  await expect(
+    room.getByText(
+      consolidation.analysis.reasonsFor[0].replace("(stretch gap)", "(a lopsided gap)") + ".",
+    ),
+  ).toBeVisible();
   // The page asked about THIS trade for THIS team.
   const first = requests.at(-1);
   expect(first.teamName).toBe(trade.team.name);

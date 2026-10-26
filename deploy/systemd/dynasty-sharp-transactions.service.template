@@ -33,6 +33,19 @@ Wants=network-online.target
 # IDEMPOTENT: movements dedupe on the roster-slot key (D10), so an
 # interrupted pass or a re-run ingests nothing twice.
 #
+# SECOND PASS, SAME RUN: league FORMAT capture
+# (src/sharp/league_format_capture.py).  A separately budgeted pass
+# (--format-budget, default 300 calls) fetches GET /v1/league/{id} for
+# trade-bearing / sharp-eligible leagues and appends a dated, hashed
+# capture of roster slots + scoring card + settings that the
+# completed-trade ledger reads to classify each trade's format at its
+# timestamp.  Never-captured leagues first, then the oldest check; a
+# captured league is re-checked at most weekly, a `complete` one never.
+# Discovery and the roster crawl record the league objects they already
+# fetch for free, so this pass only covers what they miss.  A failure in
+# it is reported in the JSON and never fails the transaction pass.
+# Worst case per run: 600 + 300 calls at 0.12s pacing.
+#
 # WHY A PROD-SIDE TIMER AND NOT CI: writes the SQLite ledger under
 # data/intel/, which is gitignored, so a crawl on a CI runner never
 # reaches the VPS.  Same reasoning as discovery, records, BDVM and

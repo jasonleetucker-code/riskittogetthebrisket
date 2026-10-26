@@ -47,7 +47,12 @@ jobs:
   candidate:
     name: Validate Release Candidate
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 60 -> 80 (2026-10-02), matching PR Validation (#1605) and Deploy: the
+    # full suite now routinely takes 58-60 min. Runner headroom only.
+    # 80 -> 120 (2026-10-19), matching PR Validation and Deploy: the suite
+    # now takes ~77 min (PR Validation run 39212246131 was cancelled at the
+    # 80-minute wall after its unit tests passed). Runner headroom only.
+    timeout-minutes: 120
     steps:
       - name: Checkout (full history — the check diffs base against head)
         uses: actions/checkout@v7
@@ -61,21 +66,24 @@ jobs:
           python-version: "3.12"
           cache: "pip"
           cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
+            requirements-dev.lock.txt
 
       - name: Install dependencies
         shell: bash
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements-dev.lock.txt
 
       - name: Release-candidate freshness (STRICT)
         shell: bash
         run: |
           set -Eeuo pipefail
-          git fetch origin "${{ inputs.base_ref }}" --depth=200
+          # No --depth: the checkout is fetch-depth 0, and a depth-limited
+          # fetch rewrites .git/shallow, which made the unit-test step's
+          # feature-dictionary lock-history gate fail as "shallow boundary".
+          git fetch --no-tags origin "${{ inputs.base_ref }}"
           python scripts/check_release_candidate.py \
             --base "origin/${{ inputs.base_ref }}" \
             --head HEAD \
@@ -117,7 +125,14 @@ jobs:
           UPTIME_CHECK_ENABLED: "0"
         run: |
           set -Eeuo pipefail
-          python -m pytest tests/ -x -q --tb=short -m "not livedata"
+          # Runner speed varies ~1.8x between GitHub-hosted runners: over 38
+          # jobs (CQ-29, 2026-10-19) this step's time tracked the same job's
+          # live-data step at r=0.98 (40-77 min), so the variance is the
+          # machine, not the suite.  Record the CPU and the slowest tests so a
+          # slow run is diagnosable from its own log.  Output only — the
+          # command, markers and -x are unchanged.
+          grep -m1 'model name' /proc/cpuinfo || true
+          python -m pytest tests/ -x -q --tb=short -m "not livedata" --durations=30 --durations-min=5
 
       - name: API data contract check (structural lane)
         shell: bash

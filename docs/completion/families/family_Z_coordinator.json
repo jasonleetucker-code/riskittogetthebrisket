@@ -1,0 +1,1591 @@
+{
+  "family": "Z — coordinator reconciliation (manifest residue + post-audit status changes)",
+  "auditedAt": "2026-10-07T21:45:00Z",
+  "mainSha": "37ccfbb68",
+  "rows": [
+    {
+      "id": "X-02",
+      "aliases": [],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#X",
+      "productFamily": "Out of scope",
+      "capability": "Money / dues / Constitution / League Media",
+      "disposition": "REJECTED",
+      "userVisibleOutcome": "Not built (owner-rejected).",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "Manifest X-02: OWNER-REJECTED (inventory §0). No code exists.",
+      "prOrBranch": null,
+      "evidence": "docs/C_SERIES_SCOPE_MANIFEST.md line 449",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    }
+  ],
+  "overrides": [
+    {
+      "id": "PICK-PROJECTOR-1652",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
+      "disposition": "INTEGRATED_NOT_DEPLOYED",
+      "nextAction": "Verify deploy, then authenticated /api/ros/pick-projections shows meta.source == season_simulation."
+    },
+    {
+      "id": "#1652",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
+      "disposition": "INTEGRATED_NOT_DEPLOYED",
+      "nextAction": "Verify deploy, then authenticated /api/ros/pick-projections shows meta.source == season_simulation."
+    },
+    {
+      "id": "#1505",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (docs-only intent now on main)",
+      "nextAction": "C5-WAR-01 core (deterministic VORP/WAR/WAB) unblocks the MVP win-impact build."
+    },
+    {
+      "id": "C1-PICK-03",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1652)",
+      "nextAction": "Verify deploy + authenticated pick-projections; slot-probability calibration waits on realized 2027 slots."
+    },
+    {
+      "id": "SIG-IDP-GATE-2026-10-03",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1654)",
+      "nextAction": "After deploy: dispatch signals-onbox-verification.yml with collect:true, append §10.8 results, independent review; verdict PROMOTE/HOLD/REJECT/INSUFFICIENT_EVIDENCE under the preregistered gate."
+    },
+    {
+      "id": "C8-A11Y-01",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1682 fixes the /waivers scroll-region failure; E2E green on the train head)",
+      "nextAction": "Extend the axe route list to every route family (lane in flight: claude/player-destination-and-axe-coverage)."
+    },
+    {
+      "id": "C10-CLOSE-03",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1678 + #1682)",
+      "nextAction": "After deploy: the scheduled V1 authenticated verification should go green; then fix #1473 startup-window timing and extend prod-auth specs."
+    },
+    {
+      "id": "C10-CLOSE-04",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1680 tracker dedupe)",
+      "nextAction": "C1-RET-07 probe re-point (#1676; lane claude/league-correctness-wave1 in flight); re-verify #1409 units."
+    },
+    {
+      "id": "C4-SRC-02",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1675)",
+      "nextAction": "Integrate #1684 + #1685 (reviewed) via the next train."
+    },
+    {
+      "id": "AL-12",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Re-evaluate when the Wave-3 candidate exists; nothing to build before then."
+    },
+    {
+      "id": "IC-9/GOVERNANCE",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Build the Model Lab backend (AL-0b / IC-5) so non-Hill families have a registry disposition surface."
+    },
+    {
+      "id": "IC-9/PROJECTION",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "AL-3b projection scorecard (lane claude/learning-scorecards-al4a-al3b in flight), then challengers."
+    },
+    {
+      "id": "IC-9/TRADE",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "AL-2 ops: run the accumulated trade census on the box, then the per-axis translation-readiness table (AL-2b0)."
+    },
+    {
+      "id": "DFS-ADD-05",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Owner-provided official DK/FD entry templates (OWNER: DFS-§5-02) then verify the export round-trip."
+    },
+    {
+      "id": "DFS-ADD-11",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Implement the field/payout-aware objective (DFS-§6-02) on the existing contest presets."
+    },
+    {
+      "id": "DFS-ADD-15",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Wire odds/ownership/news freshness rows as their sources exist; keep 'unavailable' until then."
+    },
+    {
+      "id": "DFS-ADD-16",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Populate independence groups from measured source overlap once >1 family exists per sport."
+    },
+    {
+      "id": "DFS-ADD-18",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Game context stays DFF/nflverse; sportsbook markets wait on the owner's licensed-feed decision (DFS-§14-01)."
+    },
+    {
+      "id": "DFS-ADD-20",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Import the first real contest results (needs owner contest-standings exports, DFS-MOD-09)."
+    },
+    {
+      "id": "DFS-AUTO-03",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "NBA/NHL automatic slates (DFS-AUTO-19) — seasons start October; MMA stays external (DFS-AUTO-20)."
+    },
+    {
+      "id": "DFS-AUTO-09",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Verify DK/FD scoring cards against official rules (owner confirmation DFS-§5-02) and drop the UNVERIFIED label."
+    },
+    {
+      "id": "DFS-MOD-03",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Calibrate the marginal priors against archived slate outcomes once results accumulate."
+    },
+    {
+      "id": "DFS-MOD-05",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Compare against a real observed field once contest-standings data exists (DFS-MOD-09)."
+    },
+    {
+      "id": "DFS-MOD-06",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Fit on real contests once standings data exists (DFS-MOD-09); keep synthetic-recovery tests."
+    },
+    {
+      "id": "DFS-MOD-08",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Historical evaluation once archived slates + results accumulate."
+    },
+    {
+      "id": "DFS-§12-02",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Fold the modelled distributions (DFS-MOD-03) into the outcome percentiles; keep owner-imported overrides."
+    },
+    {
+      "id": "DFS-§13-02",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Add a permitted NBA projection/slate source (with DFS-AUTO-19)."
+    },
+    {
+      "id": "DFS-§13-03",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Add permitted NHL projections + line assignments (DFS-AUTO-22 candidate) with DFS-AUTO-19."
+    },
+    {
+      "id": "DFS-§20-02",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Run replay/champion-challenger once real contest results exist (DFS-MOD-09)."
+    },
+    {
+      "id": "DFS-§28-01..14",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Close the remaining user stories in dependency order after AUTO-19 and the live/rooting view (DFS-§20-01)."
+    },
+    {
+      "id": "DFS-§8-05",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "NHL line stacks after line assignments land (DFS-AUTO-22)."
+    },
+    {
+      "id": "DFS-§9-04",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Measure DFF vs RotoWire independence once a second NFL family exists; keep one vote per family."
+    },
+    {
+      "id": "R-DEPLOY-SHA-PIN",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Observe a manual (workflow_dispatch) deploy end-to-end and record the resolved SHA used by every stage."
+    },
+    {
+      "id": "R-ER-P10",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Backlog item (not product authorization): add an import-boundary check when a canonical-owner leak is next found."
+    },
+    {
+      "id": "R-G6",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "On-box read-only count of the Sharp + own-league per-season format captures."
+    },
+    {
+      "id": "R-PSI-LANE6",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Tracked per route in C8-PSI-03/*; next: /waivers family migration."
+    },
+    {
+      "id": "AL-10/11",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Manager tendency module (C6-MGR-01) over acquisition + waiver + trade ledgers (Wave 3)."
+    },
+    {
+      "id": "AL-2a",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Run the accumulated census on the box (AL-2 ops) and commit public counts only."
+    },
+    {
+      "id": "AL-8",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Re-evaluate after AL-2b0 readiness table exists."
+    },
+    {
+      "id": "SRC-STALEPRES-2026-10-01",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): RESOLVED by owner decision 2026-10-07 (docs/OWNER_REQUESTED_TODO.md 'Added 2026-10-07 — IDP Trade Calculator freshness cutoff (owner decision, final)'; docs/sources/SOURCE_FRESHNESS_WEIGHTING.md §G): quarantineBelow 0.02 stays exactly as-is, no minimum voting floor; quarantined IDPTC observations preserved as history; post-cutoff picks stay finite with single-provider/reduced-coverage stamps and confidence never rising; no manufactured second vote from KTC-derived signals. The stale-floor idea survives only as an AUTHORIZED shadow-only challenger.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "verify post-cutoff pick behavior (lane claude/idptc-cutoff-readiness): after 2026-10-09 13:10Z confirm finite pick values, single-current-provider + reduced-coverage stamps, confidence not raised, degraded-evidence alert/report (not an outage); optional stale-floor challenger stays shadow-only",
+      "blocker": null
+    },
+    {
+      "id": "F-EXT-02",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Owner attestation 2026-09-25 (docs/OWNER_REQUESTED_TODO.md 'Owner attestation — source access (2026-09-25, explicit, in writing). Canonical posture: OWNER_ATTESTED_AUTHORIZED'; record docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md) names IDP Trade Calculator explicitly and states these sources 'are no longer owner decision required' and 'need no per-source re-approval'. Manifest F-EXT-02 ('no record of any kind') is stale; OD-01's IDPTC half is decided.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Record OWNER_ATTESTED_AUTHORIZED (2026-09-25 attestation) for idpTradeCalc in C_SERIES_SCOPE_MANIFEST F-EXT-02 / §6 OD-01 and MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC §19.2 beside F-EXT-01; then mark COMPLETE_AND_PROVEN",
+      "blocker": null
+    },
+    {
+      "id": "F-EXT-03",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Same owner attestation 2026-09-25 (docs/OWNER_REQUESTED_TODO.md, OWNER_ATTESTED_AUTHORIZED) explicitly covers DLF, DraftSharks, IDP Show and Flock Fantasy ('every other source already in Calculator's ingestion system'); credentials are owner-configured env/secrets (already present on prod per /api/health). One consistent posture already exists; only the manifest record is stale.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Record the single OWNER_ATTESTED_AUTHORIZED posture for DLF / DraftSharks / IDP Show / Flock in C_SERIES_SCOPE_MANIFEST F-EXT-03 and §6 OD-01 (closing OD-01 entirely); then mark COMPLETE_AND_PROVEN",
+      "blocker": null
+    },
+    {
+      "id": "TODO-2026-09-26-D3",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Decided by existing records, not open methodology: median games are a FACT of dynasty_main's host rules (league_average_match=1; host shows 4-0 where the simulator shows 2-0, intake 2026-09-26). Owner rules already define the record as the league's official standings: 2026-09-29 eligibility rule ('official regular-season winning percentage ... under the league's canonical standings semantics', OWNER_REQUESTED_TODO 2026-09-29 + BRISKET_HONORS_ELIGIBILITY_SPEC) and the 2026-10-04 draft-order rule ('final regular-season record', the standings convention, docs/picks/DRAFT_ORDER_RULE.md). CLAUDE.md / AGENT_OPERATING_SYSTEM §11 invariant 'exact league scoring and factual scoring identity'. The same 2026-09-26 intake fixed D1/D4/D5 as factual defects without an owner decision; a simulator whose record disagrees with the host's is the same class.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Count median W/L in current and simulated records and seeding exactly as the host does (gated on league_average_match from the league's own settings, never assumed); pin current-record parity against Sleeper standings for both leagues; run it through the P6 champion/challenger shadow comparison and promote as a factual-defect fix via normal review",
+      "blocker": null
+    },
+    {
+      "id": "AL-5c",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Building and scoring calibration challengers in shadow does not require D2/D3 decisions — those gate PROMOTION only (docs/research/ADAPTIVE_LEARNING_2026-09-26.md §21.5 and its promotion table: 'owner approval; D2/D3 open'; AL-5c = 'calibration challengers before any simulation rebuild; D2 as a challenger'). Shadow challengers are authorized by EXECUTION_PLAN §0 (IC-1..IC-9 batch). The real blocker is the AL-5b season-end calibration dependency.",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "nextAction": "After AL-5b (season-end calibration) lands, build the D2 challenger (and the D3 median-games variant) in shadow, scored by weekly log-loss/PIT on finalized weeks; champion unchanged; evidence feeds the owner's D2 decision",
+      "blocker": null
+    },
+    {
+      "id": "TODO-2026-09-19-week-in-progress-note",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): The 'product call' framing was an implementing agent's caution (OWNER_REQUESTED_TODO 'Power Rankings PPG/Recent accuracy' deferred follow-up 2), not an owner reservation. Existing owner preference decides it: every decision surface preserves explicit partial/stale states (MASTER_PRODUCT_PLAN §3.2, CLAUDE.md 'MISSING IS NEVER ZERO'); the PSI contract requires partial states and stale-data communication (docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md §1/§3); owner directive 2026-09-23 requires the Power methodology to show what is not yet counted ('including 0% components that are not yet active').",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Render 'Week N in progress — not yet counted' on Power/Luck from the published partialWeeks field using an existing PSI partial-state primitive (Lane 6); component test + phone/desktop screenshot during Week 5 games",
+      "blocker": null
+    },
+    {
+      "id": "C3-CALC-03/open-decisions",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): All three are decided by existing records. (1) Partial-row votes: binding owner UX requirement on #791 (2026-08-11): 'use a native-covered vote only when enough of the trade is actually covered'; otherwise 'classify that vendor as PARTIAL/INCOMPLETE' — partially covered rows never vote. (2) Source-unavailable state: MISSING IS NEVER ZERO / stale != current (MASTER_PRODUCT_PLAN §3.2, AGENT_OPERATING_SYSTEM §11) requires an explicit unavailable state rather than silent exclusion. (3) 'Even' threshold: ONE CONCEPT, ONE CANONICAL OWNER — reuse the canonical trade verdict's even band (trade-logic tradeImbalance/verdict) instead of a new constant; the historical <1-point rule stays only if it already equals that band.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Keep partial rows non-voting (#791) with a test; materialize a source-unavailable (freshness-excluded) state onto Second Opinions rows; derive 'Even' from the canonical trade verdict band; small config + test PR, then close #791 follow-ups",
+      "blocker": null
+    },
+    {
+      "id": "#1529 draft-capital stack rebuild",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): No owner ask is pending: the owner withdrew the stack effect (directive 2026-09-29; CLAUDE.md 'The draft-capital stack effect is INFORMATIONAL ONLY', #1527), issue #1529 is titled 'LATER, NOT AUTHORIZED', and the 2026-10-03 batch lists #1529 as out of scope (OWNER_REQUESTED_TODO 'Added 2026-10-03 — Calculator batch'). There is no proposed methodology to approve; it is owner-deferred future work.",
+      "disposition": "INTENTIONALLY_FUTURE",
+      "nextAction": "None until an owner-approved methodology meeting #1529's prerequisites exists; frontend/__tests__/trade-stack-withdrawn.test.js keeps the guard",
+      "blocker": null
+    },
+    {
+      "id": "OD-06",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): CE-28 is explicitly NOT owner-approved (docs/CE_REGISTRY.md: 'carries no owner approval and must not be built on the strength of this row'; no surface, trigger, contract or acceptance criteria). The 2026-10-07 completion directive's denominator is owner-approved requirements only (EXECUTION_PLAN §0), so this is not a requirement; it stays registered as an idea and needs no owner action unless the owner raises it.",
+      "disposition": "NOT_ACTUALLY_REQUIRED",
+      "nextAction": null,
+      "blocker": null
+    },
+    {
+      "id": "DFS-MOD-13",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): The requirement itself is conditional ('re-investigated only if useful; never fabricated') and docs/dfs/TRACEABILITY.md marks it LATER; leaving the six seeds as unresolved_identity is the compliant state. No owner action is needed to satisfy it.",
+      "disposition": "INTENTIONALLY_FUTURE",
+      "nextAction": "None; seeds stay unresolved_identity. Re-open only if a concrete product need for one of the six names appears",
+      "blocker": null
+    },
+    {
+      "id": "C9-UR-02",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Existing doctrine already chooses: lost windows are 'recorded, never backfilled as exact' (docs/BRISKET_IDEAS.md §13.3, perishable-evidence directive 2026-09-29), and the temporal-history owner defines 'nearest-prior' as a legitimate labelled fidelity (CLAUDE.md 'Temporal history — one owner'); the owner-approved AL roadmap applies exactly this pattern to lost forecasts (AL-5a backfill 'labelled nearest-prior ... never exact'). So 2026 = labelled nearest-prior retrospective, 2027 = exact edition. The real blocker is C9-UR-01 (DEPENDENCY_BLOCKED).",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "nextAction": "When C9-UR-01 lands: publish the 2026 preseason baseline as a labelled nearest-prior retrospective (never exact) from the temporal ledger + dynasty_main Power week_00; schedule the 2027 exact edition for the Tuesday before Week 1",
+      "blocker": null
+    },
+    {
+      "id": "C6-POD-01",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Scope and source target are owner-decided (OWNER_REQUESTED_TODO 2026-08-11 binding decisions 8/33/35/38-40: ~50 reputable dynasty sources, extracted-take freshness), and the owner's binding low-cost posture (decisions 13, 18, 49) already prefers zero-spend paths; public RSS metadata + publisher-provided transcripts + self-hosted transcription need no spend. Paid transcription is only an ask if the zero-cost path proves insufficient. The real blocker is C6-ANA-01 (PARTIAL, no producer yet).",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "nextAction": "After C6-ANA-01's first producer: check in the source registry via normal source intake (new providers per the 2026-09-25 attestation scope boundary), ingest RSS metadata, prefer publisher transcripts/self-hosted extraction; raise OD-03 paid-transcription spend only with measured coverage evidence",
+      "blocker": null
+    },
+    {
+      "id": "AUC-PF-ORDER",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): The rule is already owner-decided (2026-09-29 directive, OWNER_REQUESTED_TODO 'Rookie Auction Room': 'points-for (lowest first) nomination order'; docs/auction/ROOKIE_AUCTION_ROOM.md); computing it from final Sleeper standings is mechanical. What remains is the 2026 regular season finishing; any exact PF ties (flagged by the preview) are confirmed at launch inside AUC-OFFICIAL-LAUNCH.",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "nextAction": "After the 2026 regular season is final (~mid-Dec 2026): generate the lowest-PF-first order from the room preview, apply via audited set_order to the launch configuration, surface only unresolved exact ties for owner confirmation at launch",
+      "blocker": null
+    },
+    {
+      "id": "CLEANUP-1",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "reason": "deployed and production-verified 2026-10-07: deploy run for 37ccfbb68 succeeded; /api/status build.commit 37ccfbb68, health 200, contract healthy, missing_sources [], flockFantasySfRookies seasonal-inactive, Signals IDP absent-by-design, timers/services installed and current, build manifest verified",
+      "nextAction": "None."
+    },
+    {
+      "id": "R-STAB-CLEANUP-1",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "reason": "deployed and production-verified 2026-10-07: deploy run for 37ccfbb68 succeeded; /api/status build.commit 37ccfbb68, health 200, contract healthy, missing_sources [], flockFantasySfRookies seasonal-inactive, Signals IDP absent-by-design, timers/services installed and current, build manifest verified",
+      "nextAction": "None."
+    },
+    {
+      "id": "CLEANUP-4",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "reason": "deployed and production-verified 2026-10-07: deploy run for 37ccfbb68 succeeded; /api/status build.commit 37ccfbb68, health 200, contract healthy, missing_sources [], flockFantasySfRookies seasonal-inactive, Signals IDP absent-by-design, timers/services installed and current, build manifest verified",
+      "nextAction": "Further extractions only under the characterization-first rule (new rows)."
+    },
+    {
+      "id": "R-STAB-CLEANUP-5",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "reason": "deployed and production-verified 2026-10-07: deploy run for 37ccfbb68 succeeded; /api/status build.commit 37ccfbb68, health 200, contract healthy, missing_sources [], flockFantasySfRookies seasonal-inactive, Signals IDP absent-by-design, timers/services installed and current, build manifest verified; ruleset JSON + test merged. Applying the ruleset is the separate owner row R-STAB-RULESET.",
+      "nextAction": "None (application tracked as C10-CLOSE-06/branch-protection owner ask)."
+    },
+    {
+      "id": "CLEANUP-3",
+      "disposition": "PARTIAL",
+      "reason": "deployed and production-verified 2026-10-07: deploy run for 37ccfbb68 succeeded; /api/status build.commit 37ccfbb68, health 200, contract healthy, missing_sources [], flockFantasySfRookies seasonal-inactive, Signals IDP absent-by-design, timers/services installed and current, build manifest verified; remaining source-state display/backend follow-ups are open PRs #1684 + #1685",
+      "nextAction": "Integrate #1684 + #1685 through the next train, deploy, verify."
+    },
+    {
+      "id": "#1667-ai-architecture-train",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "reason": "#1667 merged as ffdb139f2 and served in production 2026-10-08 (/api/status build.commit ffdb139f2; served frontend_artifact_id f08689db...6595 == the validation job's artifact id; backend wheel artifact identity populated; health 200; contract healthy; post-deploy smoke + live contract steps green). Deploy run 37700964086 still FAILED its last step 'Verify live frontend matches the tested artifact' (frontend bytes mismatch read ~4 min after Next started; suspected ISR runtime rewrites under .next/server) - a deploy-gate defect under repair",
+      "nextAction": "Land the deploy-gate fix (live artifact check vs Next ISR rewrites), get one fully green deploy run, then COMPLETE."
+    },
+    {
+      "id": "R-ER-P2",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "reason": "#1667 merged as ffdb139f2 and served in production 2026-10-08 (/api/status build.commit ffdb139f2; served frontend_artifact_id f08689db...6595 == the validation job's artifact id; backend wheel artifact identity populated; health 200; contract healthy; post-deploy smoke + live contract steps green). Deploy run 37700964086 still FAILED its last step 'Verify live frontend matches the tested artifact' (frontend bytes mismatch read ~4 min after Next started; suspected ISR runtime rewrites under .next/server) - a deploy-gate defect under repair",
+      "nextAction": "Confirm on the next fully green deploy run."
+    },
+    {
+      "id": "R-ER-P6",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "reason": "#1667 merged as ffdb139f2 and served in production 2026-10-08 (/api/status build.commit ffdb139f2; served frontend_artifact_id f08689db...6595 == the validation job's artifact id; backend wheel artifact identity populated; health 200; contract healthy; post-deploy smoke + live contract steps green). Deploy run 37700964086 still FAILED its last step 'Verify live frontend matches the tested artifact' (frontend bytes mismatch read ~4 min after Next started; suspected ISR runtime rewrites under .next/server) - a deploy-gate defect under repair",
+      "nextAction": "Confirm on the next fully green deploy run."
+    },
+    {
+      "id": "R-STAB-CLEANUP-2",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "reason": "#1667 merged as ffdb139f2 and served in production 2026-10-08 (/api/status build.commit ffdb139f2; served frontend_artifact_id f08689db...6595 == the validation job's artifact id; backend wheel artifact identity populated; health 200; contract healthy; post-deploy smoke + live contract steps green). Deploy run 37700964086 still FAILED its last step 'Verify live frontend matches the tested artifact' (frontend bytes mismatch read ~4 min after Next started; suspected ISR runtime rewrites under .next/server) - a deploy-gate defect under repair",
+      "nextAction": "Land the deploy-gate fix and confirm on a fully green deploy run."
+    },
+    {
+      "id": "C5-PLAY-01",
+      "reason": "#1699 (one canonical playoff/title engine, src/ros/playoff_sim.py; parity + AST guard tests) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Production probe 2026-10-08 ~05:40Z of the public sections on bc51e7e2d: playoffOdds (engine src.ros.playoff_sim, numSims 8000, seedType reseed), rosPlayoffOdds and rosChampionship (engine src.ros.playoff_sim, n 8000) publish IDENTICAL playoff odds for all 12 dynasty_main owners (0 mismatches; e.g. Kich 0.7742 / Collin 0.9951 on all three, the pair that disagreed 99.0% vs 77.2% / 85.1% vs 99.4% in the 2026-10-07 probe) and identical title/finals/semifinal/expectedFinish between rosPlayoffOdds and rosChampionship. The public product covers one league (dynasty_new answers league_not_public). Calibration of the engine is AL-5b; D2/D3 stay separate rows.",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "prOrBranch": "#1699 (train #1709 bc51e7e2d)",
+      "evidence": "deploy run 37726496110; prod /api/public/league/{playoffOdds,rosPlayoffOdds,rosChampionship} probe 2026-10-08",
+      "nextAction": "None (season-end calibration is AL-5b; D2/D3 tracked separately)."
+    },
+    {
+      "id": "C9-HIST-02",
+      "reason": "#1693 removed the 3-season window (walk to Sleeper's '0' terminator; 25-season safety cap reported as 'truncated'; coverage stamped) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Production probe 2026-10-08 ~05:42Z: /api/public/league header league.historyCoverage = {state: complete, seasonsWalked: 3, cap: 25, stoppedAtLeagueId: null}; the 2027 rollover can no longer drop 2024. Pagination was the row's alternative fix, not required (payload growth ~150-280 KB/season measured in #1693).",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "prOrBranch": "#1693 (train #1709 bc51e7e2d)",
+      "evidence": "prod /api/public/league historyCoverage probe 2026-10-08",
+      "nextAction": "None."
+    },
+    {
+      "id": "SI-FIND-luck-orphan-power-bye",
+      "reason": "#1693 fixed both findings with fail-on-old regressions on real dynasty_new 2024 matchups (Luck consumes the canonical schedule_impact; power_v2 bye week records no result) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Production probe 2026-10-08 ~05:42Z: /api/public/league/luck on bc51e7e2d publishes the new seasonStates block (2026/2025/2024 complete, 0 issues) and scheduleImpact. dynasty_main (the only public league; even team count, no orphan rosters) is byte-identical by design (measured in #1693), so the corrected numbers are not reachable on any live surface today; the requirement (no orphan-roster mismatch, no phantom bye loss) holds on the served build.",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "prOrBranch": "#1693 (train #1709 bc51e7e2d)",
+      "evidence": "prod /api/public/league/luck seasonStates probe 2026-10-08; tests/public_league/test_luck_orphan_rosters.py, tests/ros/test_power_v2_bye_week.py",
+      "nextAction": "None. (Named follow-up outside this row: Power's all-play field still drops orphan rosters, #1693 out-of-scope note.)"
+    },
+    {
+      "id": "R-STAB-CLEANUP-2",
+      "reason": "#1667 merged as ffdb139f2 under exact-head RC; its only red was deploy run 37700964086's false live-artifact failure (Next runtime route-cache rewrites), fixed by #1707. train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []) with the #1667 changes still served (backend wheels installed offline from the verified archive; served artifact identity matches the validation job). The integration requirement of this row is met and proven. The train's capability outcomes are tracked on #1667-ai-architecture-train / R-ER-P2 / R-ER-P3 / R-ER-P6.",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "evidence": "deploy runs 37700964086 (false fail) and 37726496110 (all steps green); /api/status build.release",
+      "nextAction": "None."
+    },
+    {
+      "id": "#1667-ai-architecture-train",
+      "reason": "Live-artifact gate fixed by #1707 and passed in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []); request trace correlation observed in prod (traceparent / x-trace-id / x-request-id headers on /api/health 2026-10-08). NOT yet evidenced, both named as final gates in #1667's own body: (1) production rollback evidence - no rollback or rollback drill has run on the box since #1667 (deploy log shows AUTO_ROLLBACK armed only; rollback.sh is covered by CI tests); (2) the bounded Class-B model workflow dispatched on merged main - class-b-model-branch.yml has only pull_request runs on the train branch (latest 37693405672).",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "evidence": "deploy run 37726496110; gh run list class-b-model-branch.yml 2026-10-08",
+      "nextAction": "Record rollback evidence on the box (an operator-run rollback drill to the previous retained release and back, with /api/status identity before/after) and dispatch class-b-model-branch.yml on main to produce the bounded review PR; then COMPLETE."
+    },
+    {
+      "id": "R-ER-P2",
+      "reason": "The #1667 typed /api/leagues pilot + generated frontend contract is deployed and served (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])). The row is the whole Priority 2 chain (docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md: Pydantic response models on important boundaries -> OpenAPI -> generated types -> Schemathesis/adversarial lane); only the pilot endpoint exists, so the row is PARTIAL, not awaiting verification.",
+      "disposition": "PARTIAL",
+      "nextAction": "Extend response_model contracts to the next critical endpoints (e.g. /api/trade/simulate, /api/draft-capital) and add the OpenAPI-driven contract-test lane (backlog item, not product authorization)."
+    },
+    {
+      "id": "R-ER-P6",
+      "reason": "#1667 request trace correlation is deployed (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])) and observed in production: /api/health returns traceparent, x-trace-id and x-request-id (probe 2026-10-08). The row is the whole Priority 6 (the doc also requires a small set of user-facing SLOs with burn-rate alerting); SLOs are not defined, so PARTIAL.",
+      "disposition": "PARTIAL",
+      "nextAction": "Define the Priority-6 SLO set (availability, authenticated core-flow success, data freshness, API latency, CWV) with error-budget alerting (backlog item, not product authorization)."
+    },
+    {
+      "id": "R-ER-P3",
+      "reason": "#1667 landed and is verified in production: train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []); /api/status build.release carries dependency_lock_sha256, frontend_lock_sha256 and the CI frontend artifact id; backend wheels install offline from the verified archive. Remaining from the Priority 3 chain: attestation/SBOM, and the production venv is still updated in place (historical extra distributions may remain, per #1667).",
+      "nextAction": "Attestation/SBOM for the release archive and a clean (non-in-place) venv build per release (backlog item, not product authorization)."
+    },
+    {
+      "id": "G4",
+      "reason": "#1690 (as-known injury history + news metadata archive, crash-safe append ledger, backup + restore proof) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Retention backup + restore proof run 37732356131 (pinned to bc51e7e2d): 'G4 as-known news metadata: restored 2 file(s)' - the news half is captured and backed up on the box; 'G4 as-known injury history: SOURCE ABSENT ... stream has not started' - the 4-hourly injury timer had not run since the deploy. Half evidenced.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1690 (train #1709 bc51e7e2d)",
+      "evidence": "retention proof run 37732356131",
+      "nextAction": "After the dynasty-injury-feed timer's first post-deploy run, re-run the retention backup + restore proof and confirm 'G4 as-known injury history: restored N file(s)'."
+    },
+    {
+      "id": "R-G4",
+      "reason": "Same delivery as G4 (#1690): news metadata archive captured and restored in retention proof run 37732356131; injury history store not yet started on the box at that run. train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []).",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1690 (train #1709 bc51e7e2d)",
+      "evidence": "retention proof run 37732356131",
+      "nextAction": "Confirm the injury history store in the next retention proof after the injury timer runs (see G4)."
+    },
+    {
+      "id": "IC-1",
+      "reason": "G4 (as-known injury/news capture) delivered by #1690 and deployed in train 2 (news half proven on the box, injury half pending its first timer run). Remaining members unchanged: AL-P5 decision receipts, AL-P7 Sharp retention, G5 draft-time state.",
+      "nextAction": "Close AL-P5 (decision receipts), then AL-P7 and G5; confirm G4's injury half on the box."
+    },
+    {
+      "id": "G1",
+      "reason": "#1690 added the pregame_projections listing to deploy/diagnostics/game_day_live_inventory.sh (AL-P8 observability half), deployed in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). The observation itself (first prune ~2026-10-13) has not happened.",
+      "nextAction": "Run deploy/diagnostics/game_day_live_inventory.sh on the box after the first prune (~2026-10-13), confirm Week 3+ pregame archives exist, and record Weeks 1-2 as lost."
+    },
+    {
+      "id": "AL-4a",
+      "reason": "#1691 (report-only Game Day calibration scorecard over generations.jsonl, AL-0 receipts, temporal guard) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). No scorecard has been run on the box (the evidence lives only there; the local dry run exits 2 with no data/game_day/live).",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1691 (train #1709 bc51e7e2d)",
+      "nextAction": "Run scripts/game_day_calibration_scorecard.py on the box with RISKIT_RECEIPTS_ENABLED=1 and record the first receipt (insufficient_sample cohorts expected early)."
+    },
+    {
+      "id": "AL-3b",
+      "reason": "#1691 (report-only projection scorecard vs the equal-family champion; weekly + season legs) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Not yet run against the box's archives.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1691 (train #1709 bc51e7e2d)",
+      "nextAction": "Run scripts/projection_scorecard.py --league dynasty_main --season 2026 --fetch-realized on the box with receipts enabled and record the first receipt."
+    },
+    {
+      "id": "AL-0b",
+      "reason": "#1694 (read-only, admin-only Model Lab contract GET /api/model-lab[/{family}]) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). The V1 authenticated verification does not exercise it (guest session, no admin spec), and an anonymous 401 proves nothing here because the middleware 401s every private path.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1694 (train #1709 bc51e7e2d)",
+      "nextAction": "Admin-session GET /api/model-lab on production: every family present with the fixed field set, Hill registry versions listed incl. REJECTED, drift 'unmeasured'."
+    },
+    {
+      "id": "IC-6",
+      "reason": "Its only dependency, the AL-0b Model Lab contract, is merged and deployed (#1694, train 2 bc51e7e2d), so the UI unit is buildable now.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Build the internal Model Lab page over /api/model-lab (Lane 6, PSI Direction A, admin-only)."
+    },
+    {
+      "id": "C2-DROP-01",
+      "reason": "#1696 feeds every /waivers drop (Droppable, best moves, unique upgrade set, Addable best drop) from the canonical cut ladder via ?droppability=1, with explicit unavailable states and no raw-value fallback; in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). #1696 itself states no live browser check was done, and no V1 prod-auth spec covers the Droppable panel.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1017 55daf1e58, #914, #1696",
+      "nextAction": "Authenticated production check of /waivers Droppable (desktop + mobile): drops equal the served cut-ladder order; a lineup-needed player is never offered."
+    },
+    {
+      "id": "C2-CORE-01",
+      "reason": "The last named non-consumer, /rosters TradeTargetsCard's raw full-roster sums, is replaced by the served weakness/strength blocks (#1696) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Not exercised by the V1 prod-auth specs.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#900, #914, #922 b3739f095, #1696",
+      "nextAction": "Authenticated production check of /rosters Trade Targets: Weakest/Strongest equal the served team.weakness / strength.byPosition for the selected team."
+    },
+    {
+      "id": "C2-WEAK-01",
+      "reason": "#1696 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])) removed the /rosters page-local need rule and the /api/gameplan engine.position_needs 'urgent' verdict. #1696 names the remaining second need flag: profiles.PositionProfile.urgent_need (published as positions[].urgentNeed in /api/gameplan, consumed by targets.py / packages.py).",
+      "nextAction": "Route profiles.urgent_need through roster_intel/weakness.py (its own unit, trade-adjacent), then verify /rosters Trade Targets on production."
+    },
+    {
+      "id": "SRC-STALEPRES-2026-10-01",
+      "reason": "#1697 readiness (provider-aware pick confidence, monotone confidence on lost evidence, votes_withheld alert, history preserved; 0 values moved today, 12 KTC-only 2029 tier picks high->low) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Parts remain: the cutoff itself has not happened (projected 2026-10-16T23:30Z at the learned cadence; 2026-10-09 13:10Z is the safe bound) so post-cutoff behaviour is unverified on production, and the optional shadow stale-floor challenger was not built. Parkinson low->medium agreement residual accepted by the coordinator as value-driven (option c; (a)/(b) violate the one-board and determinism invariants).",
+      "disposition": "PARTIAL",
+      "prOrBranch": "#1592 fc130ed88; #1697",
+      "nextAction": "After the IDPTC cutoff (earliest 2026-10-09 13:10Z; projected 2026-10-16T23:30Z): confirm on production that every pick stays finite with provenance, single_provider + reducedCoverage stamps, source_votes_withheld warning / votes_withheld alert, no confidence rise; optional shadow stale-floor challenger."
+    },
+    {
+      "id": "#1337",
+      "reason": "#1698 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])) adopted PlayerNameButton on /trade asset rows, /arbitrage, /players/compare, the Sharp tracker and Sharp roster %, and fixed public award standings to link /league/player/[id]; a source-ratchet guard allowlists every remaining raw render. Remaining per #1698: producers must stamp real Sleeper ids (angle/finder assets, BDVM rows, draft rookies, roster-capacity/team-impact entries), /trades cards need restructuring, and /rosters + /waivers were left to another lane.",
+      "nextAction": "Stamp canonical Sleeper ids on the id-less producers, restructure /trades entries, convert /rosters and /waivers names."
+    },
+    {
+      "id": "R-1337",
+      "reason": "Same delivery as #1337 (#1698, train 2 bc51e7e2d): second slice adopted; id-less producers, /trades, /rosters, /waivers remain.",
+      "nextAction": "See #1337."
+    },
+    {
+      "id": "C8-A11Y-01",
+      "reason": "#1698 extended the axe spec from 10 routes to all 52 page route families on both CI projects (106/106 locally; E2E green on the train head) with a filesystem coverage test; in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Four colour/underline findings are BASELINED (VISUAL_FIX_REQUIRED, PSI-owned): /draft color-contrast x1, /league-comparison x1, /auction/notifications x5, /league/franchise/[owner] link-in-text-block x2.",
+      "nextAction": "PSI Lane 6 colour/underline fixes for the four baselined findings, then remove them from BASELINE."
+    },
+    {
+      "id": "IC-7",
+      "reason": "#1703 shipped the 'why it moved' half (two-generation contributing evidence on the Player File, non-additive, missing never zero; private route) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). The 'player discrepancy diagnostic generated from actual pipeline state' half is NOT built (#1703 remaining item 3).",
+      "disposition": "PARTIAL",
+      "prOrBranch": "#1703 (train #1709 bc51e7e2d)",
+      "nextAction": "Build the player discrepancy diagnostic from actual pipeline state (overlaps value-explain v2 / value replay); verify the Player File disclosure on production."
+    },
+    {
+      "id": "UI-contract§10/value-movement",
+      "reason": "#1703 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])): GET /api/players/{player}/value-movement + collapsed 'Why it moved' panel on the Player File (per-source deltas from the source_value lane, appeared/disappeared, value/rank/tier/confidence change, pipeline-version change). Not met from this row's spec: weight/freshness/vote-state/flag deltas are published as 'unobserved' because the ledger does not record them per generation (needs IC-1 recording), rank-signal sources have no per-generation values, and it is a separate route rather than part of value-explain. No production render check (private Player File not in the V1 specs).",
+      "disposition": "PARTIAL",
+      "prOrBranch": "#1703 (train #1709 bc51e7e2d)",
+      "nextAction": "Record per-generation weights/freshness/vote state/flags in src/history (IC-1), surface them in value-movement, and verify the panel on production."
+    },
+    {
+      "id": "C3-CON-02",
+      "reason": "#1704 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])): authenticated GET/PUT /api/user/trade-protections (owner-validated, per-user per-league, idempotent, BEGIN IMMEDIATE user_kv writes) + /settings Trade protections editor; the manifest's Jason+league MIN acceptance test passes end to end in CI (finder and angle acquire). Production not exercised: guest-pass sessions get 403 guest_read_only on PUT, and no V1 prod-auth spec reads the endpoint.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1704 (train #1709 bc51e7e2d)",
+      "nextAction": "Production check: authenticated GET /api/user/trade-protections?leagueKey=dynasty_main returns nflTeamOptions from the board, and (owner session) a saved MIN protection blocks MIN players from generated outgoing sides."
+    },
+    {
+      "id": "C6-SIG-01",
+      "reason": "#1705 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])) shipped the backend half: src/signals/reconciler.py (dedup/lineage only, structurally no arithmetic/weights, transitive lineage DAG, conflicts labelled never averaged, withheld precedence, unobserved vs silent) + private GET /api/signals/reconciled; dead unified_signal_engine.py retired. The UI half (consuming surfaces) remains, per #1705.",
+      "disposition": "PARTIAL",
+      "prOrBranch": "#1705 (train #1709 bc51e7e2d)",
+      "nextAction": "Consume /api/signals/reconciled in the existing signal surfaces (C6-SIG-02 ticker, C7-ALERT-01), PSI Direction A."
+    },
+    {
+      "id": "C6-SIG-02",
+      "reason": "Its dependency's backend (the central reconciler endpoint /api/signals/reconciled, #1705) is merged and deployed in train 2 (bc51e7e2d); the ticker consumer can be built now.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "MarketTicker consumes /api/signals/reconciled: BUY global, SELL only for the selected roster (consumer-side filter per C6-SIG-01 record); rule test."
+    },
+    {
+      "id": "C5-WAR-01",
+      "reason": "#1692 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])) delivered the deterministic core only: Realized VORP, Actual WAR (median recomputed by roster id), WAB + Game Changer via exact best-ball re-solve, finished weeks only, contradicted-settings seasons withheld; private GET /api/league/player-impact, shadow only (no consumer). xWAR is NOT built, and the spec's §10 immutable history store (C1-HIST-01 provenance) is not wired.",
+      "disposition": "PARTIAL",
+      "prOrBranch": "#1692 (train #1709 bc51e7e2d); donor #969",
+      "nextAction": "xWAR on the pregame projection archive (G1) with temporal-leakage tests; wire the immutable history store; then the shadow MVP win-impact candidate (SI-E)."
+    },
+    {
+      "id": "#1505",
+      "reason": "C5-WAR-01's deterministic core (VORP/WAR/WAB) landed in #1692 (train 2 bc51e7e2d). Still blocked on SI-E (schedule-neutral shadow candidate), which waits on SI-B/remainder; any official MVP formula change needs owner approval.",
+      "nextAction": "After SI-B/remainder and SI-E: build the shadow MVP win-impact candidate on /api/league/player-impact."
+    },
+    {
+      "id": "SI-E",
+      "reason": "C5-WAR-01's deterministic core landed (#1692, train 2 bc51e7e2d); C2-REPL-01 is complete; the remaining dependency is SI-B/remainder (not started).",
+      "nextAction": "After SI-B/remainder: schedule-neutral realized impact on the #1692 player-impact owner, as a shadow MVP win-impact candidate."
+    },
+    {
+      "id": "CLEANUP-3",
+      "reason": "#1684 (source-state display: scrape vs build clock, fetch vs update, exclusion reasons) and #1685 (D1 first-observation baseline, D8 seasonal validator, D9 as-of confidence freshness; 0 values/ranks moved) integrated and deployed in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []); #1701 fixed the prod-smoke probe's '200000' status capture. Still open: prod-e2e-smoke last ran red 2026-10-07 21:18Z (before #1701), retention-health red through 2026-10-07 (re-pointed by #1693), smoke-test cancelled and consensus-edge-revalidate red on their last scheduled runs, plus #1684's named follow-ups (board-utils sourceObservation excludedReason only for Hampel drops; SourceAgreementRadar plots not-voting observations).",
+      "nextAction": "Confirm the next scheduled prod-e2e-smoke, retention-health, smoke-test and consensus-edge-revalidate runs green on bc51e7e2d+, then fix the two #1684 display follow-ups."
+    },
+    {
+      "id": "C4-SRC-02",
+      "reason": "#1685 (D1/D8/D9) and #1684 deployed in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []); production contract healthy with 0 source-health errors and seasonal/private absences declared. #1065 (IDPTC vendor content stale vs fetch healthy, end to end) is still OPEN.",
+      "nextAction": "Close #1065 end to end (content-staleness visible on every source-health surface), then verify."
+    },
+    {
+      "id": "C10-CLOSE-03",
+      "reason": "post-deploy V1 Authenticated Production Verification run 37732356062 green (96 passed, 26 project-skipped; 31 prod-auth specs) on bc51e7e2d; E2E Safety Net green on the train head; prod-e2e-smoke has not run since #1701 fixed its probe; #1473 (verification inside the startup window) still open.",
+      "nextAction": "Confirm the next scheduled prod-e2e-smoke green; fix #1473; extend prod-auth specs to the train-2 private surfaces (Model Lab, trade protections, Why it moved, Droppable, Trade Targets)."
+    },
+    {
+      "id": "C10-CLOSE-04",
+      "reason": "C1-RET-07 probe re-pointed with per-stream annotations by #1693 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])); not yet observed on a scheduled retention-health run (cron 06:40 UTC; last run 37632085170 red 2026-10-07).",
+      "nextAction": "Confirm the next retention-health run is green on bc51e7e2d+, re-verify #1409 dynasty-* refresh units and consensus-edge-revalidate."
+    },
+    {
+      "id": "C1-RET-07",
+      "reason": "#1693 re-pointed the probe at data/scrape_state/identity_dual_read.json generatedAt (48h budget), recorded the legacy identity reports as a frozen archive, and made annotations per stream; in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). #1693 itself says the box proof is the first scheduled retention-health run, which has not happened since the deploy.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1693 (train #1709 bc51e7e2d)",
+      "nextAction": "Confirm the next scheduled retention-health run (cron 06:40 UTC) reports C1-RET-07 ok on bc51e7e2d+."
+    },
+    {
+      "id": "C10-CLOSE-02",
+      "reason": "Train 2 (bc51e7e2d) retired three duplicates: the second/third playoff engines (#1699, verified identical on production), the dead unified_signal_engine Buy/Sell 'single entry point' (#1705, reconciler backend live), and the /rosters + /api/gameplan need verdicts (#1696). Still duplicated: replacement/PAR census, remaining need flag (profiles.urgent_need), Buy/Sell emitter consumers, share rendering, IDP_POSITIONS.",
+      "nextAction": "Re-run the W30 duplicate census on bc51e7e2d+ (#1214) and retire in owner order (replacement/PAR next)."
+    },
+    {
+      "id": "SIG-IDP-GATE-2026-10-03",
+      "reason": "Signals On-Box Verification (collect) run 37732469435 on deployed bc51e7e2d SUCCESS: collector healthy (consecutiveFailures 0), offense voteState active (votes true), IDP families present but held in shadow (shared_market_crosswalk_in_shadow_pending_promotion; votesWhenPromoted DL 147 / LB 101 reported).",
+      "nextAction": "Append that run's results to SIGNALS_FANTASY_INTEGRATION.md §10.8, independent review, verdict PROMOTE/HOLD/REJECT/INSUFFICIENT_EVIDENCE under the preregistered gate."
+    },
+    {
+      "id": "PICK-PROJECTOR-1652",
+      "reason": "train 1 (#1686, merge 37ccfbb68) deployed by deploy run 37689853189 SUCCESS (2026-10-07) and served (/api/status build.commit 37ccfbb68 recorded in the CLEANUP-1 override); its code remains served in train 2's bc51e7e2d (deploy run 37726496110). Not production-verified: no authenticated read of /api/ros/pick-projections has been recorded (the V1 prod-auth specs do not cover it).",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "nextAction": "Authenticated production GET /api/ros/pick-projections?leagueKey=dynasty_main shows meta.source == season_simulation."
+    },
+    {
+      "id": "#1652",
+      "reason": "train 1 (#1686, merge 37ccfbb68) deployed by deploy run 37689853189 SUCCESS (2026-10-07) and served (/api/status build.commit 37ccfbb68 recorded in the CLEANUP-1 override); its code remains served in train 2's bc51e7e2d (deploy run 37726496110). Not production-verified: no authenticated read of /api/ros/pick-projections has been recorded (the V1 prod-auth specs do not cover it).",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "nextAction": "Authenticated production GET /api/ros/pick-projections?leagueKey=dynasty_main shows meta.source == season_simulation."
+    },
+    {
+      "id": "DFS-ADD-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at OWNER_ACTION_REQUIRED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner approves a SportsDataIO plan and sets SPORTSDATAIO_API_KEY on the box (never committed), or keeps loading the platform file for the final upload"
+    },
+    {
+      "id": "DFS-ADD-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-ADD-04",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: FanDuel entry-file import (header-detected, unverified)"
+    },
+    {
+      "id": "DFS-ADD-05",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner-provided official DK/FD entry templates (OWNER: DFS-§5-02) then verify the export round-trip."
+    },
+    {
+      "id": "DFS-ADD-06",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-ADD-07",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Add contest family taxonomy"
+    },
+    {
+      "id": "DFS-ADD-08",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Quick-mode preset chips on the home flow"
+    },
+    {
+      "id": "DFS-ADD-09",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-ADD-11",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Implement the field/payout-aware objective (DFS-§6-02) on the existing contest presets."
+    },
+    {
+      "id": "DFS-ADD-13",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Strategy + lineup-count chips on the home flow (Lane 6)"
+    },
+    {
+      "id": "DFS-ADD-14",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Per-player notes/tags"
+    },
+    {
+      "id": "DFS-ADD-15",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Wire odds/ownership/news freshness rows as their sources exist; keep 'unavailable' until then."
+    },
+    {
+      "id": "DFS-ADD-16",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Populate independence groups from measured source overlap once >1 family exists per sport."
+    },
+    {
+      "id": "DFS-ADD-18",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Game context stays DFF/nflverse; sportsbook markets wait on the owner's licensed-feed decision (DFS-§14-01)."
+    },
+    {
+      "id": "DFS-ADD-20",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Import the first real contest results (needs owner contest-standings exports, DFS-MOD-09)."
+    },
+    {
+      "id": "DFS-ADD-21",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPENDENCY_BLOCKED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: none recorded"
+    },
+    {
+      "id": "DFS-ADD-23",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-ADD-24",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Stale-snapshot serving policy with explicit STALE_CRITICAL_INPUT"
+    },
+    {
+      "id": "DFS-ADD-28",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Add LOCK_PASSED and STALE_CRITICAL_INPUT"
+    },
+    {
+      "id": "DFS-ADD-29",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at OWNER_ACTION_REQUIRED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner confirms each rule set or drops official salary + blank upload/entry templates into tests/dfs/fixtures/templates/"
+    },
+    {
+      "id": "DFS-ADD-30",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: After AUTO-18 unblock: run the scenario end to end in production with the owner"
+    },
+    {
+      "id": "DFS-AUTO-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Derive Showdown single-game slates from the schedule"
+    },
+    {
+      "id": "DFS-AUTO-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: NBA/NHL automatic slates (DFS-AUTO-19) — seasons start October; MMA stays external (DFS-AUTO-20)."
+    },
+    {
+      "id": "DFS-AUTO-04",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Read-only box check: systemctl list-timers dynasty-dfs-auto-refresh + last run exit code"
+    },
+    {
+      "id": "DFS-AUTO-05",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-AUTO-06",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-AUTO-07",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-AUTO-08",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-AUTO-09",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Verify DK/FD scoring cards against official rules (owner confirmation DFS-§5-02) and drop the UNVERIFIED label."
+    },
+    {
+      "id": "DFS-AUTO-10",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Measure DFF vs RotoWire agreement/lineage per week and record the family decision"
+    },
+    {
+      "id": "DFS-AUTO-11",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Role/usage model from playerctx snap share + depth charts (existing owners)"
+    },
+    {
+      "id": "DFS-AUTO-13",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-AUTO-15",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-AUTO-16",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-AUTO-17",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Box check that data/dfs PIT store grows each refresh (also in AL-P2 backup set)"
+    },
+    {
+      "id": "DFS-AUTO-18",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at OWNER_ACTION_REQUIRED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner approves a SportsDataIO plan and sets SPORTSDATAIO_API_KEY on the box (never committed), or keeps loading the platform file for the final upload"
+    },
+    {
+      "id": "DFS-AUTO-19",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Add NBA + NHL schedule sources (official league schedule endpoints/public JSON within terms) and slate windows; reuse DFF pools"
+    },
+    {
+      "id": "DFS-AUTO-20",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at EXTERNAL_DATA_OR_PROVIDER_BLOCKED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Provider publishes a permitted feed, or owner approves a paid one"
+    },
+    {
+      "id": "DFS-AUTO-22",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Login-free robots-respecting connector for RotoGrinders /lineups/* (NBA/NHL starters, NHL lines)"
+    },
+    {
+      "id": "DFS-AUTO-23",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner opens /dfs on Sunday main slate, builds a DK lineup, records result (screenshot) in docs/dfs/HANDOFF.md"
+    },
+    {
+      "id": "DFS-MOD-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-MOD-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Collect projected-ownership snapshots pre-lock from permitted free sources (DFF if it publishes) for later scoring"
+    },
+    {
+      "id": "DFS-MOD-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Calibrate the marginal priors against archived slate outcomes once results accumulate."
+    },
+    {
+      "id": "DFS-MOD-04",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Fit NFL pair correlations from nflverse weekly history (free)"
+    },
+    {
+      "id": "DFS-MOD-05",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Compare against a real observed field once contest-standings data exists (DFS-MOD-09)."
+    },
+    {
+      "id": "DFS-MOD-06",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Fit on real contests once standings data exists (DFS-MOD-09); keep synthetic-recovery tests."
+    },
+    {
+      "id": "DFS-MOD-07",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Run simulations as jobs (jobs.py) off the request thread"
+    },
+    {
+      "id": "DFS-MOD-08",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Historical evaluation once archived slates + results accumulate."
+    },
+    {
+      "id": "DFS-MOD-09",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at OWNER_ACTION_REQUIRED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner downloads DK/FD contest-standings exports for contests he enters (or approves a licensed results source) and imports them via /dfs Results"
+    },
+    {
+      "id": "DFS-MOD-10",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Projection scorecard vs realized NFL fantasy points from the auto-slate PIT archive (no contest data needed)"
+    },
+    {
+      "id": "DFS-MOD-11",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPENDENCY_BLOCKED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: none recorded"
+    },
+    {
+      "id": "DFS-MOD-12",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Adapt the next free permitted source (RotoGrinders lineups, DFS-AUTO-22)"
+    },
+    {
+      "id": "DFS-MOD-14",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at OWNER_ACTION_REQUIRED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner confirms each rule set or drops official salary + blank upload/entry templates into tests/dfs/fixtures/templates/"
+    },
+    {
+      "id": "DFS-MOD-16",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Model-health summary card on the slate view"
+    },
+    {
+      "id": "DFS-MOD-17",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Cache simulation results by inputs digest + model versions"
+    },
+    {
+      "id": "DFS-§10-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Record per-source rights assessment from public terms"
+    },
+    {
+      "id": "DFS-§10-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Generalize sources_dff.py fetch path into a shared connector with quota/backoff/circuit state"
+    },
+    {
+      "id": "DFS-§11-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Record per-build input digests and flag builds whose inputs changed"
+    },
+    {
+      "id": "DFS-§12-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Archive weekly DFS projections vs realized NFL points (nflverse) to build held-out evidence"
+    },
+    {
+      "id": "DFS-§12-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Fold the modelled distributions (DFS-MOD-03) into the outcome percentiles; keep owner-imported overrides."
+    },
+    {
+      "id": "DFS-§13-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Fit NFL outcome distributions from nflverse weekly history (free) behind the distributions interface"
+    },
+    {
+      "id": "DFS-§13-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Add a permitted NBA projection/slate source (with DFS-AUTO-19)."
+    },
+    {
+      "id": "DFS-§13-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Add permitted NHL projections + line assignments (DFS-AUTO-22 candidate) with DFS-AUTO-19."
+    },
+    {
+      "id": "DFS-§13-04",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPENDENCY_BLOCKED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: none recorded"
+    },
+    {
+      "id": "DFS-§14-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at OWNER_ACTION_REQUIRED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner approves a licensed odds aggregator (price/licence unknown) and installs its key"
+    },
+    {
+      "id": "DFS-§15-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Podcast RSS discovery for the 29 seeds + transcript acquisition only where rights allow"
+    },
+    {
+      "id": "DFS-§18-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Allocate a lineup pool across several contest profiles under one bankroll ceiling"
+    },
+    {
+      "id": "DFS-§19-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Column-mapping preview UI for unrecognised headers"
+    },
+    {
+      "id": "DFS-§19-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at OWNER_ACTION_REQUIRED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner confirms each rule set or drops official salary + blank upload/entry templates into tests/dfs/fixtures/templates/"
+    },
+    {
+      "id": "DFS-§19-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner-marked 'I submitted this' state linked to settlement imports (no platform write)"
+    },
+    {
+      "id": "DFS-§19-04",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Cross-entry coordinated late swap"
+    },
+    {
+      "id": "DFS-§2-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§20-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Rooting view reusing the Game Day live collector for NFL slates"
+    },
+    {
+      "id": "DFS-§20-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Run replay/champion-challenger once real contest results exist (DFS-MOD-09)."
+    },
+    {
+      "id": "DFS-§21-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§21-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Route large builds through jobs.py with progress/cancel"
+    },
+    {
+      "id": "DFS-§21-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: scripts/dfs_cli.py wrapping api-layer functions"
+    },
+    {
+      "id": "DFS-§22-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§22-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Production desktop + 390 px screenshots with an owner session"
+    },
+    {
+      "id": "DFS-§22-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Measure /dfs useful-state timing with the #1338 harness"
+    },
+    {
+      "id": "DFS-§23-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Cost dashboard over providers.json cost fields"
+    },
+    {
+      "id": "DFS-§24-xx",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Enumerate uncovered items and add deterministic tests"
+    },
+    {
+      "id": "DFS-§26-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§28-01..14",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Close the remaining user stories in dependency order after AUTO-19 and the live/rooting view (DFS-§20-01)."
+    },
+    {
+      "id": "DFS-§3-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Write the adoption matrix from public product documentation (no paid trials) per SOURCES.md §4"
+    },
+    {
+      "id": "DFS-§4-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§4-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Build Sources area (provider matrix + freshness already served) then Research area"
+    },
+    {
+      "id": "DFS-§4-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Persist slate/contest/objective/build-version in the context bar"
+    },
+    {
+      "id": "DFS-§5-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§5-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at OWNER_ACTION_REQUIRED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner confirms each rule set or drops official salary + blank upload/entry templates into tests/dfs/fixtures/templates/"
+    },
+    {
+      "id": "DFS-§5-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Encode FD NFL single-game MVP as an UNVERIFIED research-mode rule set with brute-force parity"
+    },
+    {
+      "id": "DFS-§5-04",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Encode FD MMA as UNVERIFIED research-mode set if layout is documented publicly"
+    },
+    {
+      "id": "DFS-§5-05",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Contest-file import behind an 'assumed layout' label, mirroring entry-file handling"
+    },
+    {
+      "id": "DFS-§5-06",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Version scoring cards per (platform,sport,ruleVersion) with hashes in build provenance"
+    },
+    {
+      "id": "DFS-§6-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§6-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Expose cash vs GPP objectives in research mode with 'model output, not evidence' disclosure; keep 409 for money mode"
+    },
+    {
+      "id": "DFS-§6-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Mark presets runnable in research mode once §6-02 lands"
+    },
+    {
+      "id": "DFS-§6-04",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§6-05",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§6-06",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Add a forced-include re-solve that reports the objective delta for 'why not X'"
+    },
+    {
+      "id": "DFS-§6-07",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPENDENCY_BLOCKED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: none recorded"
+    },
+    {
+      "id": "DFS-§7-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§7-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§7-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Surface the within-model count on the build flow with its disclosure"
+    },
+    {
+      "id": "DFS-§8-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§8-02",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§8-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§8-04",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Add per-shape target share constraints across the N-lineup build"
+    },
+    {
+      "id": "DFS-§8-05",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: NHL line stacks after line assignments land (DFS-AUTO-22)."
+    },
+    {
+      "id": "DFS-§8-06",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Add group/team-scoped exposure caps"
+    },
+    {
+      "id": "DFS-§8-07",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§8-08",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at DEPLOYED_NOT_PRODUCTION_VERIFIED. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Owner (signed in) opens https://chaseupside.com/dfs and confirms; agents cannot mint sessions."
+    },
+    {
+      "id": "DFS-§8-09",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Implement scenario copies + diff on top of stored builds; undo/redo in the pool editor"
+    },
+    {
+      "id": "DFS-§8-10",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at AUTHORIZED_AND_READY. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Deterministic NL->rule parser with mandatory preview (no auto-apply)"
+    },
+    {
+      "id": "DFS-§9-01",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Add AuditEvent entity for owner edits/exports"
+    },
+    {
+      "id": "DFS-§9-03",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Extend src/identity with a sport dimension before NBA/NHL automation"
+    },
+    {
+      "id": "DFS-§9-04",
+      "reason": "DFS implementation OWNER_PAUSED by the owner (2026-10-18, PR #1810; owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)); paused, not rejected or complete; deployed DFS functionality preserved",
+      "disposition": "OWNER_PAUSED",
+      "nextAction": "Paused at PARTIAL. Resume only on an explicit owner directive resuming DFS; until then no DFS feature, evidence-expansion or provider work. Prior next action: Measure DFF vs RotoWire independence once a second NFL family exists; keep one vote per family."
+    },
+    {
+      "id": "#1428",
+      "reason": "D14: owner chose the high-contrast categorical palette (--chart-1..6 = #986400 #2264af #ac386a #6752b6 #087650 #aa3c17) on cream editorial surfaces — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "AUTHORIZED_AND_READY",
+      "blocker": null,
+      "nextAction": "Implement D14 centrally through the semantic chart-token owner; validate every chart background and mark treatment, light and dark separately, colour-vision deficiency (labels / patterns / markers), existing order kept, movement-up blue / movement-down orange untouched; real desktop + mobile evidence and axe; then ungate the /design chart previews."
+    },
+    {
+      "id": "R-1428",
+      "reason": "D14: palette decided (same decision as #1428) — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "AUTHORIZED_AND_READY",
+      "blocker": null,
+      "nextAction": "Same unit as #1428: apply the D14 tokens across approved PSI chart surfaces through the chart-token owner, with per-surface contrast evidence."
+    },
+    {
+      "id": "#1513",
+      "reason": "D12: unified Manager of the Year stays a validation-only candidate; official method and display unchanged; earliest eligible official season 2027 — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "PARTIAL",
+      "blocker": null,
+      "nextAction": "Keep #1513 validation-only with its approved weights; apply the D12 interim rules (unavailable components stay UNAVAILABLE and are never redistributed, no definitive 100-point score from incomplete evidence, outcome ranges over point winners, decision-time values only); promotion no earlier than 2027 through normal gates."
+    },
+    {
+      "id": "TODO-2026-09-26-D2",
+      "reason": "D11: removing a proven duplicate ROS influence is approved as policy; the replacement ships only through the AL-5c shadow (or an equivalent preregistered) comparison — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "AUTHORIZED_AND_READY",
+      "blocker": null,
+      "nextAction": "Build the AL-5c shadow comparison: incumbent and corrected equations stated, proof ROS evidence counts once, historical calibration / distribution / uncertainty / league-format sensitivity; replace only if it meets the established acceptance standard, otherwise keep the incumbent. Official Power Rankings formula untouched."
+    },
+    {
+      "id": "OD-IDPTC-CAP",
+      "reason": "D2 approves an IDP-scoped shared correlation cap for idpTradeCalc + idpShowCombined (defensive rows only); D3 excludes an unproven extra IDPTC offense vote — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "AUTHORIZED_AND_READY",
+      "blocker": null,
+      "nextAction": "D2: implement the IDP-only cap through source lineage + family-cap owners behind a default-off flag, baseline-vs-challenger replay with independent confidence-count checks, validated release before any served value moves. D3: measure the existing IDPTC offense voting behaviour; never an extra independent KTC-family vote."
+    },
+    {
+      "id": "SRC-DLFVAL-2026-09-24/vote",
+      "reason": "D4: rank-to-Hill DLF Values approved as an offense-only member of the existing DLF family, conditionally (raw/max rejected) — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "AUTHORIZED_AND_READY",
+      "blocker": null,
+      "nextAction": "Conditional activation behind the D4 gates: split the existing DLF cap (never a new family), verify timestamps / completeness / longitudinal stability / top-player movement, offense + picks + IDP-noninterference + geometric-package tests, reversible observable release; keep the current policy if any gate fails."
+    },
+    {
+      "id": "DRAFTCAP-2029-INVENTORY",
+      "reason": "D13: the dynasty_main 2027-2029 inventory and $1,200-per-class policy were already approved (owner 2026-10-17/18); the request is obsolete; dynasty_new is out of scope — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "blocker": null,
+      "nextAction": "dynasty_main only: #1785 (selector 2027/2028/2029, $1,200 per class, whole dollars, last-known-good) merged via release train 6 #1794 and deployed; Batch E (later classes on the workbook curve) rides release train 8 #1809. Observe /league?tab=draft-capital for dynasty_main after train 8 deploys."
+    },
+    {
+      "id": "R-DRAFTCAP-INVENTORY",
+      "reason": "D13: the dynasty_main 2027-2029 inventory and $1,200-per-class policy were already approved (owner 2026-10-17/18); the request is obsolete; dynasty_new is out of scope — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "blocker": null,
+      "nextAction": "dynasty_main only: #1785 (selector 2027/2028/2029, $1,200 per class, whole dollars, last-known-good) merged via release train 6 #1794 and deployed; Batch E (later classes on the workbook curve) rides release train 8 #1809. Observe /league?tab=draft-capital for dynasty_main after train 8 deploys."
+    },
+    {
+      "id": "Draft Capital 2028/2029 inventory",
+      "reason": "D13: the dynasty_main 2027-2029 inventory and $1,200-per-class policy were already approved (owner 2026-10-17/18); the request is obsolete; dynasty_new is out of scope — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "blocker": null,
+      "nextAction": "dynasty_main only: #1785 (selector 2027/2028/2029, $1,200 per class, whole dollars, last-known-good) merged via release train 6 #1794 and deployed; Batch E (later classes on the workbook curve) rides release train 8 #1809. Observe /league?tab=draft-capital for dynasty_main after train 8 deploys."
+    },
+    {
+      "id": "DRAFT-ORDER-DYNASTY-NEW",
+      "reason": "D13: dynasty_new draft order is out of current scope; no lottery or playoff-finish rule may be presumed; existing fail-closed behaviour preserved — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "INTENTIONALLY_FUTURE",
+      "blocker": null,
+      "nextAction": "Deferred until the owner requests dynasty_new draft-order methodology. dynasty_new keeps failing closed (no slot forecast)."
+    },
+    {
+      "id": "dynasty_new draft-order rule",
+      "reason": "D13: dynasty_new draft order is out of current scope; no lottery or playoff-finish rule may be presumed; existing fail-closed behaviour preserved — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "INTENTIONALLY_FUTURE",
+      "blocker": null,
+      "nextAction": "Deferred until the owner requests dynasty_new draft-order methodology. dynasty_new keeps failing closed (no slot forecast)."
+    },
+    {
+      "id": "C7-AI-01",
+      "reason": "D16: paid AI inference stays OFF until a documented cost, privacy and value case exists — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "INTENTIONALLY_FUTURE",
+      "blocker": null,
+      "nextAction": "No paid inference or credits. Existing permitted deterministic features continue. Reopen only with a documented cost/privacy/value case and an owner decision."
+    },
+    {
+      "id": "C7-GATE-01",
+      "reason": "D15: Chase Upside stays read-only with respect to real Sleeper roster and league transactions (OD-02 answered: not now) — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "INTENTIONALLY_FUTURE",
+      "blocker": null,
+      "nextAction": "No authenticated trading, waiver claims, drops or commissioner changes. Read-only recommendations continue. Automated league writes need a separate future owner directive."
+    },
+    {
+      "id": "PROJ-KEYED-ADAPTERS",
+      "reason": "D17: no automatic subscription to SportsDataIO, Fantasy Nerds or other paid services — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "INTENTIONALLY_FUTURE",
+      "blocker": null,
+      "nextAction": "Keep the adapters credential-gated and default-off; show honest unavailable states. Reopen only on an owner spend decision."
+    },
+    {
+      "id": "AUC-OPEN-OFFERS",
+      "reason": "D20: an unaccepted trade offer does not reserve auction money; money moves only after a verified accepted transaction (matches the engine rule) — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "blocker": null,
+      "nextAction": "Rule already enforced in src/auction/engine.py and pinned by tests/auction/test_trades.py; observe in a mock room that an open offer leaves spendable budget unchanged."
+    },
+    {
+      "id": "C10-CLOSE-06/branch-protection",
+      "reason": "D18: protected PR-based merging without routine administrator bypass decided; applying it needs an admin token — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "blocker": {
+        "what": "Apply the main ruleset (admin bypass_mode pull_request: no routine bypass) and retire unused write deploy keys only after confirming the deploy path",
+        "whyReal": "Repository settings and deploy keys need an admin token; agents never change repository settings",
+        "doneAround": "Everything else proceeds; PR-only practice by convention",
+        "ownerOrExternalAction": "Follow docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md §1-§2: back up ruleset 19976839, dry-run, apply deploy/github/main-protection-ruleset.json, verify bot pushes bypass; inventory deploy keys and retire 145025388 / 148579683 only after confirming they are not the box's push key",
+        "afterUnblock": "Record the applied ruleset and key inventory in the security record"
+      }
+    },
+    {
+      "id": "R-STAB-RULESET",
+      "reason": "D18: ruleset policy decided (same as C10-CLOSE-06/branch-protection) — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "blocker": {
+        "what": "Apply the main branch ruleset",
+        "whyReal": "Repository security settings need an admin token; must not deadlock the 2-hourly refresh",
+        "doneAround": "Advisory release-candidate gate",
+        "ownerOrExternalAction": "Apply per docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md §1 (admin bypass pull_request, decided D18)",
+        "afterUnblock": "Verify DeployKey / Actions bypass on the next automated pushes"
+      }
+    },
+    {
+      "id": "AUC-DR-WINDOW",
+      "reason": "D20: hourly on-host backup + restore verification suffices for mocks; official operation needs a validated encrypted off-host recovery copy or a documented risk acceptance before launch — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "blocker": {
+        "what": "Off-host encrypted recovery copy or documented risk acceptance for the OFFICIAL auction",
+        "whyReal": "Choosing a storage target / accepting residual risk is the owner's; not needed for mocks",
+        "doneAround": "Mocks run on the hourly verified on-host backups",
+        "ownerOrExternalAction": "Before official launch: provision a free off-host target and run the restore drill (docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md §5), or record a risk acceptance",
+        "afterUnblock": "Record in docs/auction/LAUNCH_CHECKLIST.md"
+      }
+    },
+    {
+      "id": "AUC-RULES-CONFIRM",
+      "reason": "D20: the proposed timing and nomination rules are for mock testing only; official confirmation stays with the official launch and is not demanded now — owner decision closeout 2026-10-18 (docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md; register docs/owner/OWNER_DECISION_REGISTER.md)",
+      "blocker": {
+        "what": "Official rule confirmation (at official launch)",
+        "whyReal": "Binding auction rules are owner methodology; D20 defers it to the launch",
+        "doneAround": "Mocks use the proposed defaults",
+        "ownerOrExternalAction": "At official launch: confirm the PROPOSED_RULE_KEYS on the room's rule screen (open offers already decided: no reservation, D20)",
+        "afterUnblock": "Official-room preflight rule item turns ok"
+      }
+    }
+  ],
+  "ownerAsks": [
+    {
+      "id": "BALLDONTLIE-TRIAL",
+      "alsoCovers": [
+        "TODO-2026-09-24-game-day-live-dashboard"
+      ],
+      "criterion": "b",
+      "urgency": "URGENT",
+      "dueBy": "each live Sunday without it loses Game Day live evidence (non-blocking for unrelated features, D17)",
+      "ask": "Optional free path (D17): if BALLDONTLIE's terms and reliability support it, create the free account and add BALLDONTLIE_API_KEY to the box .env so the shadow flag can run on a live slate. No paid tier is authorized; without a key Game Day keeps its honest unavailable state.",
+      "justification": "Owner already decided 'try BALLDONTLIE' (OWNER_REQUESTED_TODO); account creation/key install is owner-only (2026-09-25 attestation: 'Credentials ... configured by the owner'). ESPN 403 must not be bypassed. Blocks the Game Day PRIORITY deliverable's live verification."
+    },
+    {
+      "id": "C10-CLOSE-06/branch-protection",
+      "alsoCovers": [
+        "R-STAB-RULESET"
+      ],
+      "criterion": "b",
+      "urgency": "URGENT",
+      "dueBy": null,
+      "ask": "Policy DECIDED (D18: protected PR merging, admin bypass pull_request, no routine bypass). Apply deploy/github/apply-branch-protection.sh with an admin token and retire the unused write deploy keys 145025388/148579683 only after confirming they are not the deploy path (docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md §1-§2).",
+      "justification": "Repository security settings and admin credentials are owner-only; the 2026-10-07 stabilization directive asks for exactly this as 'one explicit bounded decision'. #1677 merged 2026-10-07T21:30Z, so the payload is ready; today any write account can push to main and deploy."
+    },
+    {
+      "id": "C10-CLOSE-06/credential-rotation",
+      "alsoCovers": [],
+      "criterion": "b",
+      "urgency": "URGENT",
+      "dueBy": null,
+      "ask": "Rotate JASON_LOGIN_PASSWORD in the box .env (D18; a literal once sat in public git history) and record only the rotation date (docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md §3). Never share the value.",
+      "justification": "Credential action only the owner performs; no rotation record exists anywhere in docs/. Open security exposure on a public repo (not deadline-driven, but unbounded risk)."
+    },
+    {
+      "id": "C7-CE-01/CE-29",
+      "alsoCovers": [
+        "AUC-002"
+      ],
+      "criterion": "b",
+      "urgency": "SEASON",
+      "dueBy": "before auction human rehearsals (~March 2027); useful immediately for all push",
+      "ask": "Generate a VAPID key pair (one-liner in .env.example) and set VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_CONTACT in /home/dynasty/trade-calculator/.env, then restart the backend.",
+      "justification": "Free and self-signed, but a production secret: credentials are owner-configured (2026-09-25 attestation; docs/auction/LAUNCH_CHECKLIST.md §C). Prod /api/push/public-key -> 503 push_not_configured (2026-10-07)."
+    },
+    {
+      "id": "AUC-REHEARSAL-HUMAN",
+      "alsoCovers": [],
+      "criterion": "b",
+      "urgency": "SEASON",
+      "dueBy": "before the official 2027 rookie auction (after the late-April 2027 NFL draft)",
+      "ask": "After VAPID keys and AUC-PHASE2 land, run docs/auction/REHEARSAL_GUIDE.md: iPhone + Android notification tests, denied-permission recovery, and a multi-day rehearsal with at least 3 league-mates.",
+      "justification": "Device-observed and multi-human evidence can only come from the owner and league-mates (LAUNCH_CHECKLIST §A: 'cannot be done by an agent')."
+    },
+    {
+      "id": "AUC-RULES-CONFIRM",
+      "alsoCovers": [],
+      "criterion": "f",
+      "urgency": "SEASON",
+      "dueBy": "before the official 2027 rookie auction (after the late-April 2027 NFL draft)",
+      "ask": "At official launch only (D20 defers it): confirm the PROPOSED_RULE_KEYS rules on the room's rule screen. Open offers already decided: an unaccepted offer reserves no money.",
+      "justification": "Binding auction rules are reserved to the owner (OWNER_REQUESTED_TODO 2026-09-29: rules 'must be confirmed together on the room's rule-confirmation screen'; LAUNCH_CHECKLIST §B). #1533 adds open-offer reservation to the same rule package, so it is one decision."
+    },
+    {
+      "id": "AUC-DR-WINDOW",
+      "alsoCovers": [],
+      "criterion": "f",
+      "urgency": "SEASON",
+      "dueBy": "before the official 2027 rookie auction",
+      "ask": "Before the official launch (D20): provide a validated encrypted off-host recovery copy (free target) or record a documented risk acceptance; mocks keep the hourly on-host backups (docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md §5).",
+      "justification": "Risk acceptance is reserved in LAUNCH_CHECKLIST §B; the 2026-10-07 completion directive's 'no paid storage' already narrows it to accept vs a free target."
+    },
+    {
+      "id": "AUC-OFFICIAL-LAUNCH",
+      "alsoCovers": [
+        "AUC-2027-POOL"
+      ],
+      "criterion": "c",
+      "urgency": "SEASON",
+      "dueBy": "after the 2027 NFL draft (late April 2027), once checklist A-C are complete",
+      "ask": "Approve the official 2027 rookie pool and the official launch (flip the official-room gate in a reviewed PR), including any exact points-for ties the preview flags.",
+      "justification": "Official real-world launch is an explicit owner-only gate (EXECUTION_PLAN §0: bring it to READY_FOR_OWNER_LAUNCH). The 2027 pool cannot exist before the NFL draft and its approval is part of the same launch sign-off."
+    },
+    {
+      "id": "C5-FIT-01/college",
+      "alsoCovers": [],
+      "criterion": "b",
+      "urgency": "WHENEVER",
+      "dueBy": "useful before the 2027 rookie draft",
+      "ask": "Optional free path (D17): create a free CollegeFootballData account and install its API key if its terms support it. No paid service; missing key must not block unrelated features.",
+      "justification": "New-provider account/key is owner-only (2026-09-25 attestation scope boundary; agents never create accounts). The NFL half (C5-FIT-01/nfl) is authorized and goes first."
+    },
+    {
+      "id": "C3-IMPORT-IMAGE",
+      "alsoCovers": [],
+      "criterion": "f",
+      "urgency": "WHENEVER",
+      "dueBy": null,
+      "ask": "Install the approved free local OCR engine on the VPS (D19): sudo apt-get update && sudo apt-get install -y tesseract-ocr, then the post-install checks in docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md §4.",
+      "justification": "System packages need root on the box; the deploy's sudo allowlist cannot install them. Until then the import reports unavailable honestly."
+    },
+    {
+      "id": "AUTH-VERIFY-REENABLE",
+      "alsoCovers": [
+        "C10-CLOSE-03"
+      ],
+      "criterion": "f",
+      "urgency": "URGENT",
+      "dueBy": null,
+      "ask": "Re-enable the two paused production verification workflows per docs/ops/AUTH_VERIFICATION_REENABLE.md (preconditions met: release train 4 merged and deployed). Many DEPLOYED_NOT_PRODUCTION_VERIFIED rows wait on its authenticated run.",
+      "justification": "Workflows are disabled_manually since the 2026-10-08 security incident; enabling them is a repository action reserved for the owner (agents change no repository settings)."
+    },
+    {
+      "id": "DRAFT-ORDER-MEDIAN",
+      "alsoCovers": [
+        "TODO-2026-09-26-D3"
+      ],
+      "criterion": "f",
+      "urgency": "SEASON",
+      "dueBy": "before the 2026 regular season ends (the final standings fix the 2027 rookie-draft order)",
+      "ask": "Does the dynasty_main rookie-draft order rank on the official Sleeper record including league-median results, or on head-to-head only? One yes/no (docs/picks/DRAFT_ORDER_RULE.md, 'Median games').",
+      "justification": "A league-rule fact the 2026-10-04 rule and the league's history do not settle; not covered by the 2026-10-18 directive. Forecasts stay labelled head_to_head_with_half_win_ties until then."
+    }
+  ]
+}

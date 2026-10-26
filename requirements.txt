@@ -6,10 +6,9 @@
 # live in ``requirements-dev.txt`` which chains in this file via
 # ``-r requirements.txt`` so there is no duplication.
 #
-# Versions use compatible-release (``~=``) pins so patch/minor
-# bumps flow in but a surprise major-version bump cannot silently
-# break CI or production.  To lock exact versions for reproducibility,
-# run ``pip freeze > requirements.lock.txt`` after a clean install.
+# Versions here express update intent. CI and production install the exact,
+# hash-pinned resolution in requirements.lock.txt. Refresh both locks with
+# ``python scripts/python_lock.py refresh`` using uv 0.9.26.
 #
 # Do NOT add test/dev-only dependencies here.  Add them to
 # ``requirements-dev.txt`` instead.
@@ -96,3 +95,19 @@ tzdata~=2026.1; sys_platform == "win32"
 # Without nfl_data_py installed, every src/nfl_data/* fetch returns
 # [] (guarded import in ingest._nfl_data_py_or_none()) — no crash,
 # observable via /api/status.nflDataProvider.installed=False.
+
+# DFS lineup optimizer (src/dfs/optimizer.py): HiGHS MILP through
+# scipy.optimize.milp.  BSD (scipy/numpy) + MIT (HiGHS).  Imported lazily
+# inside the solver so server startup never pays for it.  Decision record:
+# docs/dfs/DECISIONS.md ADR-DFS-001.
+numpy~=2.0
+scipy~=1.13
+
+# Image decoding for "Import Trade from Screenshot"
+# (src/trade/screenshot_import/image_input.py): magic-byte allowlist,
+# decompression-bomb guard, EXIF transpose, grayscale + dark-mode invert,
+# metadata-stripping PNG re-encode before the local tesseract binary reads
+# it.  Imported lazily — a box without it reports the feature unavailable.
+# The OCR engine itself is the system package ``tesseract-ocr`` (apt), NOT a
+# Python dependency; see docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md.
+Pillow~=12.0

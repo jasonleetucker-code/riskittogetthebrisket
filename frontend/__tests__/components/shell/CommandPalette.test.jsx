@@ -163,6 +163,17 @@ describe("combobox semantics", () => {
     expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
   });
 
+  it("offers admin-only Ops pages (Model Lab) to admins only", async () => {
+    const user = userEvent.setup();
+    const { unmount } = palette();
+    await user.type(screen.getByRole("combobox"), "model lab");
+    expect(screen.queryByRole("option", { name: /Model Lab/ })).toBeNull();
+    unmount();
+    palette({ isAdmin: true });
+    await user.type(screen.getByRole("combobox"), "model lab");
+    expect(screen.getByRole("option", { name: /Model Lab/ })).toBeInTheDocument();
+  });
+
   it("shows an empty state for no matches", async () => {
     const user = userEvent.setup();
     palette();

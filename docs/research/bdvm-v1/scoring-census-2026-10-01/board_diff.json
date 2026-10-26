@@ -1,0 +1,712 @@
+{
+  "scope": "LOCAL",
+  "leagueKey": "dynasty_main",
+  "season": 2026,
+  "asOf": "2026-10-01",
+  "pins": {
+    "code": {
+      "sha": "a3101467dde09e7ef0cef705fc08fb1c8f91e4bd",
+      "dirty": false,
+      "baseRef": "61af3f953"
+    },
+    "realizedPointsBlob": {
+      "before": "4815ba0fea7dec3bb6b168bccfbef05dbe652c15",
+      "after": "ca1e3a494d27f024e3ae6da04a7824201b78e846"
+    },
+    "weeklyJson": {
+      "path": "weekly_2023_2025.json.gz",
+      "sha256": "de550684855bea7b2b799046c03dd4be02de0a7f97b4463d08234fcb10e7ddee"
+    },
+    "contract": {
+      "path": "dynasty_data_2026-09-30.json",
+      "sha256": "69a0f4b4e26486c1265fe9211cabffc72ea4fefcffefddf8501ffe89b5d49bba",
+      "note": "built from the raw export with build_api_data_contract at head",
+      "builtSha256": "ccb2b06eb6553b639940d4a76c92ceac8b7347803137ce28420c1dbee7f41301"
+    },
+    "pbpDir": {
+      "pbp_weekly_2025.jsonl": "f8dc2ce3a2be1a04c95db618faadbf13891752bec9ce5b6dcfc9a1f04b35c2d7"
+    },
+    "actualsJson": {
+      "path": "weekly_2026_wk1_3.json.gz",
+      "sha256": "a43ce196190b966d4c1132394624ad6f9855085ba89d70bf9a5341b50fc8deda"
+    }
+  },
+  "notBuilt": [
+    "rookie draft-slot priors (network context fetch)",
+    "player context feed: context={} (age/draft capital from the contract rows only)",
+    "Clay / IDP Show real projections (no local snapshot) \u2014 Clay offense would move by the same mechanism and is NOT measured here",
+    "events (events=[])"
+  ],
+  "pbpSeasonsMissing": [
+    2023,
+    2024
+  ],
+  "baselineRecords": 2815,
+  "baselineRecordFpgMoves": {
+    "count": 911,
+    "maxAbs": 0.1154,
+    "positionalMeansBefore": {
+      "CB": 8.33,
+      "DL": 7.73,
+      "DT": 5.82,
+      "EDGE": 7.71,
+      "K": 8.83,
+      "LB": 8.81,
+      "QB": 18.09,
+      "RB": 8.9,
+      "S": 8.02,
+      "TE": 5.53,
+      "WR": 7.28
+    },
+    "positionalMeansAfter": {
+      "CB": 8.33,
+      "DL": 7.73,
+      "DT": 5.82,
+      "EDGE": 7.71,
+      "K": 8.83,
+      "LB": 8.81,
+      "QB": 18.09,
+      "RB": 8.9,
+      "S": 8.02,
+      "TE": 5.53,
+      "WR": 7.34
+    }
+  },
+  "boards": {
+    "preseason": {
+      "pricedBefore": 739,
+      "pricedAfter": 739,
+      "pricedInBoth": 739,
+      "onlyBefore": [],
+      "onlyAfter": [],
+      "playersChanged": 359,
+      "playersWithRankChange": 186,
+      "maxAbsBalancedDelta": 50.778,
+      "maxAbsRankMove": 4,
+      "top200MembershipChanges": [
+        "Jaylen Warren [8228]",
+        "Josh Downs [9500]"
+      ],
+      "byPosition": {
+        "CB": {
+          "changed": 54,
+          "rankMoves": 7,
+          "maxAbsBalancedDelta": 0.976
+        },
+        "DL": {
+          "changed": 2,
+          "rankMoves": 2,
+          "maxAbsBalancedDelta": 0.0
+        },
+        "DT": {
+          "changed": 5,
+          "rankMoves": 5,
+          "maxAbsBalancedDelta": 0.0
+        },
+        "EDGE": {
+          "changed": 11,
+          "rankMoves": 11,
+          "maxAbsBalancedDelta": 0.0
+        },
+        "LB": {
+          "changed": 17,
+          "rankMoves": 17,
+          "maxAbsBalancedDelta": 0.0
+        },
+        "QB": {
+          "changed": 9,
+          "rankMoves": 9,
+          "maxAbsBalancedDelta": 0.0
+        },
+        "RB": {
+          "changed": 21,
+          "rankMoves": 21,
+          "maxAbsBalancedDelta": 0.0
+        },
+        "S": {
+          "changed": 65,
+          "rankMoves": 15,
+          "maxAbsBalancedDelta": 0.034
+        },
+        "TE": {
+          "changed": 12,
+          "rankMoves": 12,
+          "maxAbsBalancedDelta": 0.0
+        },
+        "WR": {
+          "changed": 163,
+          "rankMoves": 87,
+          "maxAbsBalancedDelta": 50.778
+        }
+      },
+      "largestChanges": [
+        {
+          "name": "Puka Nacua [9493]",
+          "position": "WR",
+          "fpgDelta": 0.112,
+          "balancedBefore": 6356.245,
+          "balancedAfter": 6407.023,
+          "balancedDelta": 50.778,
+          "rankBefore": 6,
+          "rankAfter": 5
+        },
+        {
+          "name": "Jaxon Smith-Njigba [9488]",
+          "position": "WR",
+          "fpgDelta": 0.098,
+          "balancedBefore": 5909.274,
+          "balancedAfter": 5955.782,
+          "balancedDelta": 46.508,
+          "rankBefore": 12,
+          "rankAfter": 11
+        },
+        {
+          "name": "Ja'Marr Chase [7564]",
+          "position": "WR",
+          "fpgDelta": 0.115,
+          "balancedBefore": 5104.122,
+          "balancedAfter": 5149.745,
+          "balancedDelta": 45.622,
+          "rankBefore": 19,
+          "rankAfter": 19
+        },
+        {
+          "name": "Amon-Ra St. Brown [7547]",
+          "position": "WR",
+          "fpgDelta": 0.11,
+          "balancedBefore": 4780.983,
+          "balancedAfter": 4822.446,
+          "balancedDelta": 41.463,
+          "rankBefore": 22,
+          "rankAfter": 22
+        },
+        {
+          "name": "Tetairoa McMillan [12526]",
+          "position": "WR",
+          "fpgDelta": 0.073,
+          "balancedBefore": 6166.839,
+          "balancedAfter": 6202.06,
+          "balancedDelta": 35.22,
+          "rankBefore": 8,
+          "rankAfter": 8
+        },
+        {
+          "name": "Drake London [8112]",
+          "position": "WR",
+          "fpgDelta": 0.088,
+          "balancedBefore": 3656.928,
+          "balancedAfter": 3685.082,
+          "balancedDelta": 28.154,
+          "rankBefore": 38,
+          "rankAfter": 38
+        },
+        {
+          "name": "Emeka Egbuka [12514]",
+          "position": "WR",
+          "fpgDelta": 0.067,
+          "balancedBefore": 4659.279,
+          "balancedAfter": 4686.275,
+          "balancedDelta": 26.997,
+          "rankBefore": 24,
+          "rankAfter": 24
+        },
+        {
+          "name": "Malik Nabers [11632]",
+          "position": "WR",
+          "fpgDelta": 0.077,
+          "balancedBefore": 3153.363,
+          "balancedAfter": 3179.484,
+          "balancedDelta": 26.121,
+          "rankBefore": 52,
+          "rankAfter": 52
+        },
+        {
+          "name": "CeeDee Lamb [6786]",
+          "position": "WR",
+          "fpgDelta": 0.101,
+          "balancedBefore": 2919.687,
+          "balancedAfter": 2945.712,
+          "balancedDelta": 26.025,
+          "rankBefore": 60,
+          "rankAfter": 60
+        },
+        {
+          "name": "Wan'Dale Robinson [8126]",
+          "position": "WR",
+          "fpgDelta": 0.088,
+          "balancedBefore": 1628.592,
+          "balancedAfter": 1652.817,
+          "balancedDelta": 24.226,
+          "rankBefore": 128,
+          "rankAfter": 127
+        },
+        {
+          "name": "Ladd McConkey [11635]",
+          "position": "WR",
+          "fpgDelta": 0.077,
+          "balancedBefore": 2906.934,
+          "balancedAfter": 2930.572,
+          "balancedDelta": 23.638,
+          "rankBefore": 62,
+          "rankAfter": 61
+        },
+        {
+          "name": "Brian Thomas [11631]",
+          "position": "WR",
+          "fpgDelta": 0.071,
+          "balancedBefore": 3619.249,
+          "balancedAfter": 3642.315,
+          "balancedDelta": 23.065,
+          "rankBefore": 40,
+          "rankAfter": 39
+        },
+        {
+          "name": "George Pickens [8137]",
+          "position": "WR",
+          "fpgDelta": 0.081,
+          "balancedBefore": 3703.752,
+          "balancedAfter": 3726.19,
+          "balancedDelta": 22.438,
+          "rankBefore": 37,
+          "rankAfter": 37
+        },
+        {
+          "name": "Luther Burden [12519]",
+          "position": "WR",
+          "fpgDelta": 0.059,
+          "balancedBefore": 3356.431,
+          "balancedAfter": 3377.335,
+          "balancedDelta": 20.904,
+          "rankBefore": 45,
+          "rankAfter": 45
+        },
+        {
+          "name": "Garrett Wilson [8146]",
+          "position": "WR",
+          "fpgDelta": 0.087,
+          "balancedBefore": 1718.771,
+          "balancedAfter": 1738.031,
+          "balancedDelta": 19.26,
+          "rankBefore": 116,
+          "rankAfter": 114
+        },
+        {
+          "name": "Justin Jefferson [6794]",
+          "position": "WR",
+          "fpgDelta": 0.09,
+          "balancedBefore": 2156.76,
+          "balancedAfter": 2175.368,
+          "balancedDelta": 18.608,
+          "rankBefore": 85,
+          "rankAfter": 85
+        },
+        {
+          "name": "Chris Olave [8144]",
+          "position": "WR",
+          "fpgDelta": 0.085,
+          "balancedBefore": 1961.655,
+          "balancedAfter": 1980.25,
+          "balancedDelta": 18.595,
+          "rankBefore": 96,
+          "rankAfter": 95
+        },
+        {
+          "name": "Zay Flowers [9997]",
+          "position": "WR",
+          "fpgDelta": 0.082,
+          "balancedBefore": 2211.72,
+          "balancedAfter": 2229.889,
+          "balancedDelta": 18.168,
+          "rankBefore": 80,
+          "rankAfter": 80
+        },
+        {
+          "name": "Nico Collins [7569]",
+          "position": "WR",
+          "fpgDelta": 0.082,
+          "balancedBefore": 2384.066,
+          "balancedAfter": 2398.751,
+          "balancedDelta": 14.686,
+          "rankBefore": 73,
+          "rankAfter": 73
+        },
+        {
+          "name": "Rashee Rice [10229]",
+          "position": "WR",
+          "fpgDelta": 0.081,
+          "balancedBefore": 1661.135,
+          "balancedAfter": 1675.63,
+          "balancedDelta": 14.495,
+          "rankBefore": 126,
+          "rankAfter": 125
+        },
+        {
+          "name": "DeVonta Smith [7525]",
+          "position": "WR",
+          "fpgDelta": 0.081,
+          "balancedBefore": 1522.779,
+          "balancedAfter": 1536.267,
+          "balancedDelta": 13.488,
+          "rankBefore": 140,
+          "rankAfter": 139
+        },
+        {
+          "name": "Josh Downs [9500]",
+          "position": "WR",
+          "fpgDelta": 0.072,
+          "balancedBefore": 1097.35,
+          "balancedAfter": 1110.805,
+          "balancedDelta": 13.455,
+          "rankBefore": 201,
+          "rankAfter": 199
+        },
+        {
+          "name": "Jordan Addison [9756]",
+          "position": "WR",
+          "fpgDelta": 0.065,
+          "balancedBefore": 2168.891,
+          "balancedAfter": 2181.979,
+          "balancedDelta": 13.088,
+          "rankBefore": 84,
+          "rankAfter": 84
+        },
+        {
+          "name": "Xavier Worthy [11624]",
+          "position": "WR",
+          "fpgDelta": 0.061,
+          "balancedBefore": 1728.181,
+          "balancedAfter": 1740.978,
+          "balancedDelta": 12.798,
+          "rankBefore": 115,
+          "rankAfter": 113
+        },
+        {
+          "name": "Marvin Harrison [11628]",
+          "position": "WR",
+          "fpgDelta": 0.064,
+          "balancedBefore": 2179.255,
+          "balancedAfter": 2191.159,
+          "balancedDelta": 11.904,
+          "rankBefore": 83,
+          "rankAfter": 83
+        }
+      ]
+    },
+    "inSeason": {
+      "pricedBefore": 739,
+      "pricedAfter": 739,
+      "pricedInBoth": 739,
+      "onlyBefore": [],
+      "onlyAfter": [],
+      "playersChanged": 727,
+      "playersWithRankChange": 309,
+      "maxAbsBalancedDelta": -76.972,
+      "maxAbsRankMove": 6,
+      "top200MembershipChanges": [],
+      "byPosition": {
+        "CB": {
+          "changed": 54,
+          "rankMoves": 13,
+          "maxAbsBalancedDelta": 19.89
+        },
+        "DL": {
+          "changed": 3,
+          "rankMoves": 1,
+          "maxAbsBalancedDelta": 4.208
+        },
+        "DT": {
+          "changed": 34,
+          "rankMoves": 9,
+          "maxAbsBalancedDelta": 30.293
+        },
+        "EDGE": {
+          "changed": 47,
+          "rankMoves": 11,
+          "maxAbsBalancedDelta": 39.079
+        },
+        "LB": {
+          "changed": 133,
+          "rankMoves": 49,
+          "maxAbsBalancedDelta": 23.726
+        },
+        "QB": {
+          "changed": 61,
+          "rankMoves": 18,
+          "maxAbsBalancedDelta": 64.554
+        },
+        "RB": {
+          "changed": 104,
+          "rankMoves": 63,
+          "maxAbsBalancedDelta": 76.972
+        },
+        "S": {
+          "changed": 65,
+          "rankMoves": 26,
+          "maxAbsBalancedDelta": 17.589
+        },
+        "TE": {
+          "changed": 63,
+          "rankMoves": 21,
+          "maxAbsBalancedDelta": 63.271
+        },
+        "WR": {
+          "changed": 163,
+          "rankMoves": 98,
+          "maxAbsBalancedDelta": 12.45
+        }
+      },
+      "largestChanges": [
+        {
+          "name": "Jahmyr Gibbs [9221]",
+          "position": "RB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 8666.771,
+          "balancedAfter": 8589.799,
+          "balancedDelta": -76.972,
+          "rankBefore": 4,
+          "rankAfter": 4
+        },
+        {
+          "name": "Bijan Robinson [9509]",
+          "position": "RB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 7437.492,
+          "balancedAfter": 7369.61,
+          "balancedDelta": -67.882,
+          "rankBefore": 6,
+          "rankAfter": 6
+        },
+        {
+          "name": "Brock Purdy [8183]",
+          "position": "QB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 9258.627,
+          "balancedAfter": 9194.073,
+          "balancedDelta": -64.554,
+          "rankBefore": 2,
+          "rankAfter": 2
+        },
+        {
+          "name": "Brock Bowers [11604]",
+          "position": "TE",
+          "fpgDelta": 0.0,
+          "balancedBefore": 9074.605,
+          "balancedAfter": 9011.334,
+          "balancedDelta": -63.271,
+          "rankBefore": 3,
+          "rankAfter": 3
+        },
+        {
+          "name": "Ashton Jeanty [12527]",
+          "position": "RB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 6059.026,
+          "balancedAfter": 6001.699,
+          "balancedDelta": -57.327,
+          "rankBefore": 8,
+          "rankAfter": 8
+        },
+        {
+          "name": "Harold Fannin [12506]",
+          "position": "TE",
+          "fpgDelta": 0.0,
+          "balancedBefore": 8204.008,
+          "balancedAfter": 8146.808,
+          "balancedDelta": -57.2,
+          "rankBefore": 5,
+          "rankAfter": 5
+        },
+        {
+          "name": "Josh Allen [4984]",
+          "position": "QB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 6644.753,
+          "balancedAfter": 6598.424,
+          "balancedDelta": -46.329,
+          "rankBefore": 7,
+          "rankAfter": 7
+        },
+        {
+          "name": "Kenneth Walker [8151]",
+          "position": "RB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 4060.155,
+          "balancedAfter": 4020.222,
+          "balancedDelta": -39.932,
+          "rankBefore": 21,
+          "rankAfter": 21
+        },
+        {
+          "name": "Will Anderson [10892]",
+          "position": "EDGE",
+          "fpgDelta": 0.0,
+          "balancedBefore": 5604.97,
+          "balancedAfter": 5565.89,
+          "balancedDelta": -39.079,
+          "rankBefore": 9,
+          "rankAfter": 9
+        },
+        {
+          "name": "Jaxson Dart [12508]",
+          "position": "QB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 4974.283,
+          "balancedAfter": 4939.601,
+          "balancedDelta": -34.682,
+          "rankBefore": 11,
+          "rankAfter": 11
+        },
+        {
+          "name": "Tyler Warren [12518]",
+          "position": "TE",
+          "fpgDelta": 0.0,
+          "balancedBefore": 4947.52,
+          "balancedAfter": 4913.025,
+          "balancedDelta": -34.495,
+          "rankBefore": 12,
+          "rankAfter": 12
+        },
+        {
+          "name": "Trey McBride [8130]",
+          "position": "TE",
+          "fpgDelta": 0.0,
+          "balancedBefore": 4710.745,
+          "balancedAfter": 4677.9,
+          "balancedDelta": -32.845,
+          "rankBefore": 13,
+          "rankAfter": 13
+        },
+        {
+          "name": "Caleb Williams [11560]",
+          "position": "QB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 4630.431,
+          "balancedAfter": 4598.147,
+          "balancedDelta": -32.285,
+          "rankBefore": 14,
+          "rankAfter": 14
+        },
+        {
+          "name": "Tyler Shough [12545]",
+          "position": "QB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 4524.733,
+          "balancedAfter": 4493.186,
+          "balancedDelta": -31.548,
+          "rankBefore": 15,
+          "rankAfter": 15
+        },
+        {
+          "name": "Jared Goff [3163]",
+          "position": "QB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 4418.872,
+          "balancedAfter": 4388.063,
+          "balancedDelta": -30.81,
+          "rankBefore": 16,
+          "rankAfter": 17
+        },
+        {
+          "name": "Mason Graham [12573]",
+          "position": "DT",
+          "fpgDelta": 0.0,
+          "balancedBefore": 4344.809,
+          "balancedAfter": 4314.516,
+          "balancedDelta": -30.293,
+          "rankBefore": 18,
+          "rankAfter": 18
+        },
+        {
+          "name": "Quinshon Judkins [12512]",
+          "position": "RB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 2765.269,
+          "balancedAfter": 2735.636,
+          "balancedDelta": -29.633,
+          "rankBefore": 46,
+          "rankAfter": 46
+        },
+        {
+          "name": "TreVeyon Henderson [12529]",
+          "position": "RB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 2699.654,
+          "balancedAfter": 2670.513,
+          "balancedDelta": -29.14,
+          "rankBefore": 49,
+          "rankAfter": 49
+        },
+        {
+          "name": "Kyren Williams [8150]",
+          "position": "RB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 2765.843,
+          "balancedAfter": 2737.023,
+          "balancedDelta": -28.82,
+          "rankBefore": 45,
+          "rankAfter": 45
+        },
+        {
+          "name": "Jonathan Taylor [6813]",
+          "position": "RB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 2873.542,
+          "balancedAfter": 2844.78,
+          "balancedDelta": -28.762,
+          "rankBefore": 43,
+          "rankAfter": 43
+        },
+        {
+          "name": "Colston Loveland [12517]",
+          "position": "TE",
+          "fpgDelta": 0.0,
+          "balancedBefore": 4103.2,
+          "balancedAfter": 4074.591,
+          "balancedDelta": -28.609,
+          "rankBefore": 19,
+          "rankAfter": 19
+        },
+        {
+          "name": "Lamar Jackson [4881]",
+          "position": "QB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 4082.384,
+          "balancedAfter": 4053.921,
+          "balancedDelta": -28.463,
+          "rankBefore": 20,
+          "rankAfter": 20
+        },
+        {
+          "name": "James Pearce [12585]",
+          "position": "EDGE",
+          "fpgDelta": 0.0,
+          "balancedBefore": 3997.218,
+          "balancedAfter": 3969.348,
+          "balancedDelta": -27.87,
+          "rankBefore": 22,
+          "rankAfter": 22
+        },
+        {
+          "name": "Breece Hall [8155]",
+          "position": "RB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 2524.96,
+          "balancedAfter": 2497.188,
+          "balancedDelta": -27.772,
+          "rankBefore": 55,
+          "rankAfter": 56
+        },
+        {
+          "name": "James Cook [8138]",
+          "position": "RB",
+          "fpgDelta": 0.0,
+          "balancedBefore": 2672.079,
+          "balancedAfter": 2644.337,
+          "balancedDelta": -27.743,
+          "rankBefore": 50,
+          "rankAfter": 50
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,211 @@
+/* Best Trade to Send Each Team — PSI Direction A: cream surfaces, dark type,
+   thin rules, minimal radii, tabular numbers, no decorative containers. */
+
+.view {
+  display: grid;
+  gap: var(--space-3, 12px);
+  /* .psi-editorial scopes the editorial tokens on this view but does not
+     repaint it; without its own canvas the editorial ink (--text-primary
+     #1c1712) sat on the terminal Panel (#131519) at 1.03:1 — axe
+     color-contrast on /arbitrage once Golden Upgrades became the default
+     view.  Same full-bleed paint as /managers and /market/trade-database:
+     on --surface-1 primary 16.48:1, secondary 9.26:1, tertiary 5.63:1. */
+  background: var(--surface-1);
+  color: var(--text-primary);
+  padding: var(--space-3);
+  min-width: 0;
+}
+
+.lede,
+.muted {
+  color: var(--text-secondary, var(--text-tertiary));
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3, 12px);
+}
+
+.count {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: var(--space-3, 12px);
+}
+
+.card {
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: var(--surface-1, transparent);
+  padding: var(--space-3, 12px);
+  display: grid;
+  gap: var(--space-2, 8px);
+  min-width: 0;
+}
+
+.card[aria-busy="true"] {
+  opacity: 0.6;
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 6px;
+}
+
+.team {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.verdicts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.86rem;
+}
+
+.sep {
+  color: var(--text-tertiary);
+}
+
+.sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3, 12px);
+}
+
+.sideLabel {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.assets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.asset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.assetName {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.why {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+  font-size: 0.86rem;
+}
+
+.why dt {
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.why dd {
+  margin: 0;
+}
+
+.facts {
+  margin: 0;
+  padding-left: 1.1em;
+  font-size: 0.8rem;
+  color: var(--text-secondary, var(--text-tertiary));
+}
+
+.caveat {
+  color: var(--text-tertiary);
+}
+
+.noResult {
+  font-size: 0.9rem;
+}
+
+.noResult p {
+  margin: 4px 0 0;
+  color: var(--text-secondary, var(--text-tertiary));
+}
+
+.factors {
+  font-size: 0.82rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 6px;
+}
+
+.factors summary {
+  cursor: pointer;
+  color: var(--text-tertiary);
+}
+
+.factors dl {
+  margin: 6px 0 0;
+  display: grid;
+  gap: 2px;
+}
+
+.factorRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.factorRow dt {
+  color: var(--text-tertiary);
+}
+
+.factorRow dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.cardFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 6px;
+}
+
+@media (max-width: 640px) {
+  .sides {
+    grid-template-columns: 1fr;
+  }
+
+  .verdicts {
+    margin-left: 0;
+  }
+}

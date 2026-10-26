@@ -5,7 +5,6 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeSleeperTradeHistory,
-  analyzeTradeTendencies,
   buildCombinedPairTrade,
   buildSleeperIdentityMaps,
 } from "@/lib/league-analysis";
@@ -334,7 +333,7 @@ describe("analyzeSleeperTradeHistory — side shape (gave + got + net)", () => {
     // 3-team trade where the positive net is split across two small
     // winners (<3% each) but one side takes a big loss.  The headline
     // must surface the loser's 'overpaid by N%' rather than rounding
-    // to 'Fair trade', so the card stays consistent with per-side
+    // to 'Evenly valued', so the card stays consistent with per-side
     // grades and W/L credit.
     const rawData = {
       sleeper: {
@@ -376,23 +375,26 @@ describe("analyzeSleeperTradeHistory — side shape (gave + got + net)", () => {
   });
 
   it("names ONE winner — winner/loser and the grades read the same board", () => {
-    // Four 4000-value pieces for one 9000 stud.  The pile side is +7000
-    // on raw sums, but KTC's value adjustment hands 8622 back to the
-    // consolidating side, so the canonical net is −1622 and the pile
-    // side's OWN grade is "Overpay" at −9.2%.
+    // Thirty 1333-value pieces for one 9999 stud (scenario rebuilt for
+    // the geometric active package model, geom_q078_v1, 2026-10-17 — the
+    // KTC-era 4 x 4000 vs 9000 shape no longer separates the two nets).
+    // The pile side is +29,991 on raw sums, but the geometric value
+    // adjustment discounts the k-th piece by 0.78^(k-1): thirty 1333s are
+    // worth only ~6,060 of package utility against the stud's 9,999, so
+    // the canonical net favours the stud side and the pile side's OWN
+    // grade is "Overpay" (about −9%).
     //
-    // The alpha-weighted net disagrees, and not marginally: 4 ×
-    // 4000^1.65 beats 9000^1.65 by ~165,000.  Ranking sides on
-    // ``netWeighted`` — which is what ``winner``/``loser`` did until
-    // the 2026-08-04 math audit (finding C3) — therefore crowned the
-    // pile team while every other field on the same card, including
-    // ``winnerGrade``, called them the loser.  One trade, two notions
-    // of who won.
+    // The alpha-weighted net disagrees: 30 x 1333^1.65 beats
+    // 9999^1.65.  Ranking sides on ``netWeighted`` — which is what
+    // ``winner``/``loser`` did until the 2026-08-04 math audit (finding
+    // C3) — therefore crowned the pile team while every other field on
+    // the same card, including ``winnerGrade``, called them the loser.
+    // One trade, two notions of who won.
     const bigRows = [
-      { name: "Test Elite", pos: "WR", values: { full: 9000, raw: 9000 } },
-      { name: "Test Piece", pos: "RB", values: { full: 4000, raw: 4000 } },
+      { name: "Test Elite", pos: "WR", values: { full: 9999, raw: 9999 } },
+      { name: "Test Piece", pos: "RB", values: { full: 1333, raw: 1333 } },
     ];
-    const pile = ["Test Piece", "Test Piece", "Test Piece", "Test Piece"];
+    const pile = Array.from({ length: 30 }, () => "Test Piece");
     const rawData = {
       sleeper: {
         teams: [
@@ -460,116 +462,6 @@ describe("analyzeSleeperTradeHistory — side shape (gave + got + net)", () => {
       expect(bucket.won).toBe(0);
       expect(bucket.lost).toBe(0);
     }
-  });
-});
-
-describe("analyzeTradeTendencies — ownerId aggregation", () => {
-  it("splits orphan takeovers by owner", () => {
-    const rawData = {
-      sleeper: {
-        teams: [
-          { name: "New Manager", roster_id: 5, ownerId: "user-new" },
-          { name: "Opponent", roster_id: 6, ownerId: "user-opponent" },
-        ],
-        positions: { "Test Star": "QB", "Test Mid": "RB" },
-        trades: [
-          mkTrade({
-            offsetDaysAgo: 90,
-            sides: [
-              { team: "Previous Manager", rosterId: 5, ownerId: "user-prev", got: ["Test Star"], gave: ["Test Mid"] },
-              { team: "Opponent", rosterId: 6, ownerId: "user-opponent", got: ["Test Mid"], gave: ["Test Star"] },
-            ],
-          }),
-          mkTrade({
-            offsetDaysAgo: 5,
-            sides: [
-              { team: "New Manager", rosterId: 5, ownerId: "user-new", got: ["Test Mid"], gave: ["Test Star"] },
-              { team: "Opponent", rosterId: 6, ownerId: "user-opponent", got: ["Test Star"], gave: ["Test Mid"] },
-            ],
-          }),
-        ],
-      },
-    };
-
-    const tendencies = analyzeTradeTendencies(rawData, rows);
-    const managers = tendencies.map((t) => t.manager).sort();
-    // 3 managers: user-prev under historical name, user-new under
-    // current name, user-opponent under current name.
-    expect(managers).toEqual(["New Manager", "Opponent", "Previous Manager"]);
-  });
-});
-
-describe("analyzeTradeTendencies — an unpriced asset is not worth zero", () => {
-  // Audit 2026-08-17.  `resolveAssetValue` used `row.values?.full || 0`
-  // on both branches, so an asset the board declines to price counted
-  // as a measured zero in totalGot / totalGiven.  It matters most for
-  // picks: every 2027/2028 5th and 6th is unpriced, so a manager who
-  // trades late picks had them valued at exactly nothing.
-  //
-  // `boardValueOrNull` — the correct helper — was already defined 900
-  // lines above in the same file, with a comment about this exact
-  // coercion.  This function had simply never adopted it.
-  const rowsWithUnpriced = [
-    ...rows,
-    // A row the board explicitly declines to price.
-    { name: "Unpriced Guy", pos: "WR", values: { full: null, raw: null } },
-  ];
-
-  function tendenciesFor(got, gave, rowSet) {
-    const rawData = {
-      sleeper: {
-        teams: [
-          { name: "A", roster_id: 1, ownerId: "u-a" },
-          { name: "B", roster_id: 2, ownerId: "u-b" },
-        ],
-        positions: {},
-        trades: [
-          mkTrade({
-            sides: [
-              { team: "A", rosterId: 1, ownerId: "u-a", got, gave },
-              { team: "B", rosterId: 2, ownerId: "u-b", got: gave, gave: got },
-            ],
-          }),
-        ],
-      },
-    };
-    return analyzeTradeTendencies(rawData, rowSet);
-  }
-
-  it("omits an unpriced asset from the total instead of adding 0", () => {
-    const withUnpriced = tendenciesFor(["Test Star", "Unpriced Guy"], ["Test Mid"], rowsWithUnpriced);
-    const a = withUnpriced.find((t) => t.manager === "A");
-    // 5000 from Test Star, and NOTHING from the unpriced row — not 0
-    // added, but the asset excluded and disclosed.
-    expect(a.avgGot).toBe(5000);
-    expect(a.unpricedAssets).toBe(1);
-  });
-
-  it("an asset with no board row at all is unpriced, not zero", () => {
-    const t = tendenciesFor(["Test Star", "Nobody Has Heard Of Him"], ["Test Mid"], rows);
-    const a = t.find((t) => t.manager === "A");
-    expect(a.avgGot).toBe(5000);
-    expect(a.unpricedAssets).toBe(1);
-  });
-
-  it("reports zero unpriced when every asset prices", () => {
-    const t = tendenciesFor(["Test Star"], ["Test Mid"], rows);
-    const a = t.find((t) => t.manager === "A");
-    expect(a.avgGot).toBe(5000);
-    expect(a.avgGiven).toBe(2000);
-    expect(a.unpricedAssets).toBe(0);
-  });
-
-  it("does not let an unpriced asset drag the net toward zero", () => {
-    // The defect's visible symptom: adding an unpriced asset to the GOT
-    // side used to leave the total unchanged while the asset counted
-    // toward nothing, making a manager look like they got less value.
-    const clean = tendenciesFor(["Test Star"], ["Test Mid"], rows);
-    const withExtra = tendenciesFor(["Test Star", "Unpriced Guy"], ["Test Mid"], rowsWithUnpriced);
-    const a1 = clean.find((t) => t.manager === "A");
-    const a2 = withExtra.find((t) => t.manager === "A");
-    expect(a2.net).toBe(a1.net);
-    expect(a2.unpricedAssets).toBeGreaterThan(a1.unpricedAssets);
   });
 });
 

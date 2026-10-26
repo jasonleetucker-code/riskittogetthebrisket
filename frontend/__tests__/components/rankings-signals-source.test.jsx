@@ -1,0 +1,277 @@
+/**
+ * Signals Fantasy in the Rankings source/ranks column (owner addendum
+ * 2026-10-03, acceptance item 5).
+ *
+ * Rows here are LABELLED SYNTHETIC (no real Signals values). Pinned:
+ *   - an offense and an IDP Signals observation render with the source
+ *     name, the native value, "value-ordered rank (derived)", VALUE vs
+ *     RANK-fallback, the dataset, the format and the as-of — on the desktop
+ *     cell title, the mobile chip and the expanded audit card alike;
+ *   - a RANK-fallback row (rank stamped, no native value) says so and is
+ *     never labelled as derived from a value;
+ *   - a row Signals did not list renders "—" (missing, never zero);
+ *   - nothing here computes a rank: every number is a backend stamp.
+ */
+import { describe, expect, it } from "vitest";
+import React from "react";
+import { render, screen } from "@testing-library/react";
+
+import { RANKING_SOURCES } from "@/lib/dynasty-data";
+import {
+  formatSourceCell,
+  sourceObservation,
+  sourceObservationText,
+} from "@/app/rankings/board-utils";
+import { MobileSourceStrip, SourceAuditPanel } from "@/app/rankings/board-sections";
+
+const SIGNALS_SF = RANKING_SOURCES.find((s) => s.key === "signalsSf");
+const SIGNALS_IDP = RANKING_SOURCES.find((s) => s.key === "signalsIdpDl");
+
+const RAW = {
+  privateSourceAvailability: {
+    signalsSf: { state: "present", votes: true, voteState: "active" },
+    signalsIdpDl: {
+      state: "present",
+      votes: false,
+      voteState: "shadow",
+      heldFromVote: "shared_market_crosswalk_in_shadow_pending_promotion",
+    },
+  },
+  sourceWeighting: {
+    sources: {
+      signalsSf: { subsets: { players: { sourceDataAsOf: "2026-10-03T11:30:00Z", state: "ON_SCHEDULE" } } },
+      signalsIdpDl: { subsets: { players: { sourceDataAsOf: "2026-09-30T20:00:00Z", state: "OVERDUE" } } },
+    },
+  },
+};
+
+function offenseRow(overrides = {}) {
+  return {
+    name: "Synthetic Receiver",
+    pos: "WR",
+    canonicalSites: { signalsSf: 997100 },
+    sourceRanks: { signalsSf: 31 },
+    sourceOriginalRanks: { signalsSf: 29 },
+    sourceNativeValues: { signalsSf: 6400 },
+    sourceRankMeta: { signalsSf: { valueContribution: 6123, appliedWeight: 0.5 } },
+    sourceAudit: { matchedSources: ["signalsSf"], expectedSources: ["signalsSf"] },
+    ...overrides,
+  };
+}
+
+function idpRow() {
+  return {
+    name: "Synthetic Edge",
+    pos: "DL",
+    canonicalSites: { signalsIdpDl: 998700 },
+    sourceRanks: { signalsIdpDl: 61 },
+    sourceOriginalRanks: { signalsIdpDl: 13 },
+    sourceNativeValues: { signalsIdpDl: 4310 },
+    sourceRankMeta: { signalsIdpDl: { valueContribution: 3420, appliedWeight: 1 } },
+    sourceShadowMeta: {
+      signalsIdpDl: {
+        familyRank: 13,
+        translatedRank: 88,
+        rankCoordinatePool: "shared_market",
+        wouldContribute: 4987,
+        withheldReason: null,
+      },
+    },
+    sourceAudit: { matchedSources: ["signalsIdpDl"], expectedSources: ["signalsIdpDl"] },
+  };
+}
+
+describe("registry mirror", () => {
+  it("declares both Signals datasets with display provenance", () => {
+    expect(SIGNALS_SF).toMatchObject({
+      isRankSignal: true,
+      isTepPremium: false,
+      correlationGroup: "fantasyCalc",
+      observationDataset: "Offense",
+    });
+    expect(SIGNALS_SF.observationFormat).toMatch(/Superflex/);
+    expect(SIGNALS_SF.observationFormat).toMatch(/non-TEP/);
+    // One board per family through the positional IDP path; never a
+    // cross-family order (independent review of #1627).
+    for (const fam of ["DL", "LB", "DB"]) {
+      const src = RANKING_SOURCES.find((s) => s.key === `signalsIdp${fam[0]}${fam[1].toLowerCase()}`);
+      expect(src).toMatchObject({
+        scope: "position_idp",
+        positionGroup: fam,
+        needsSharedMarketTranslation: false,
+        correlationGroup: "fantasyCalc",
+        observationDataset: `IDP — ${fam}`,
+      });
+      expect(src.observationFormat).toMatch(new RegExp(`ranked within ${fam} only`));
+    }
+    expect(RANKING_SOURCES.find((s) => s.key === "signalsIdp")).toBeUndefined();
+  });
+});
+
+describe("sourceObservation", () => {
+  it("offense VALUE: native value + derived rank + format + as-of", () => {
+    const obs = sourceObservation(offenseRow(), SIGNALS_SF, RAW);
+    expect(obs).toMatchObject({
+      basis: "VALUE",
+      nativeValue: 6400,
+      rankLabel: "#29 value-ordered rank (derived)",
+      dataset: "Offense",
+      asOf: "2026-10-03T11:30:00Z",
+      state: "ON_SCHEDULE",
+    });
+    const text = sourceObservationText(obs);
+    expect(text).toContain("native value 6,400 (VALUE)");
+    expect(text).toContain("value-ordered rank (derived)");
+    expect(text).toContain("Offense dataset");
+    expect(text).toContain("Dynasty · Superflex · non-TEP (TE++ converted)");
+    expect(text).toContain("as of 2026-10-03 (ON_SCHEDULE)");
+  });
+
+  it("RANK fallback: a stamped rank without a value is never called derived", () => {
+    const row = offenseRow({ sourceNativeValues: {} });
+    const obs = sourceObservation(row, SIGNALS_SF, RAW);
+    expect(obs.basis).toBe("RANK");
+    expect(obs.rankLabel).toBe("#29 published rank");
+    expect(sourceObservationText(obs)).toContain("RANK fallback");
+    expect(sourceObservationText(obs)).not.toContain("derived");
+  });
+
+  it("is null for an unlisted row and for sources without provenance", () => {
+    expect(sourceObservation({ name: "x" }, SIGNALS_SF, RAW)).toBeNull();
+    const fc = RANKING_SOURCES.find((s) => s.key === "fantasyCalc");
+    expect(sourceObservation(offenseRow(), fc, RAW)).toBeNull();
+  });
+
+  it("unknown as-of stays unknown, never borrowed", () => {
+    const obs = sourceObservation(offenseRow(), SIGNALS_SF, {});
+    expect(obs.asOf).toBeNull();
+    expect(sourceObservationText(obs)).not.toContain("as of");
+  });
+});
+
+describe("Rankings source column", () => {
+  it("desktop cell: Hill value + effective rank, provenance in the title", () => {
+    const cell = formatSourceCell(offenseRow(), SIGNALS_SF, RAW);
+    expect(cell.hasVal).toBe(true);
+    expect(cell.primary).toBe("6,123");
+    expect(cell.rankLabel).toBe("#31");
+    expect(cell.title).toContain("Signals Fantasy Dynasty SF");
+    expect(cell.title).toContain("native value 6,400 (VALUE)");
+    expect(cell.title).not.toContain("original rank");
+  });
+
+  it("an unlisted player is a dash, never zero", () => {
+    const cell = formatSourceCell({ name: "x" }, SIGNALS_SF, RAW);
+    expect(cell.hasVal).toBe(false);
+    expect(cell.primary).toBe("—");
+  });
+
+  it("mobile chip shows the basis, derived rank and as-of (no hover needed)", () => {
+    render(
+      <MobileSourceStrip
+        row={offenseRow()}
+        formatSourceCell={(r, s) => formatSourceCell(r, s, RAW)}
+      />,
+    );
+    const chip = screen.getByTestId("source-observation-signalsSf");
+    expect(chip.textContent).toContain("native 6,400");
+    expect(chip.textContent).toContain("value-ordered rank (derived)");
+    expect(chip.textContent).toContain("2026-10-03");
+  });
+
+  it("IDP audit card: native value, derived rank, IDP dataset, format, as-of", () => {
+    render(
+      <SourceAuditPanel
+        row={idpRow()}
+        rawData={RAW}
+        val={3500}
+        edge={{ label: "—", title: "" }}
+        confidence={{ label: "Medium", reasons: [] }}
+      />,
+    );
+    expect(screen.getByText("VALUE (native value)")).toBeTruthy();
+    expect(screen.getByText("Native value")).toBeTruthy();
+    // IDP is collected, shown and translated in SHADOW — never a vote.
+    expect(screen.getByText("Shadow — not voting")).toBeTruthy();
+    expect(screen.getByText(/Signals ranks this player within DL/)).toBeTruthy();
+    expect(
+      screen.getByText("DL13 → shared-market #88 · would contribute 4,987"),
+    ).toBeTruthy();
+    expect(screen.getByText("4,310")).toBeTruthy();
+    expect(screen.getByText("#13 value-ordered DL rank (derived)")).toBeTruthy();
+    expect(screen.getByText("IDP — DL")).toBeTruthy();
+    expect(screen.getByText(/ranked within DL only/)).toBeTruthy();
+    expect(screen.getByText("2026-09-30 · OVERDUE")).toBeTruthy();
+  });
+});
+
+describe("Signals vote states", () => {
+  it("shadow IDP says so in the cell title; offense says nothing of the kind", () => {
+    const idp = formatSourceCell({ ...idpRow(), sourceRankMeta: {} }, SIGNALS_IDP, RAW);
+    expect(idp.title).toContain("Shadow — not voting");
+    expect(idp.title).toContain("would contribute 4,987 (shadow)");
+    const off = formatSourceCell(offenseRow(), SIGNALS_SF, RAW);
+    expect(off.title).not.toContain("not voting");
+  });
+
+  it("a non-voting IDP cell shows its family rank and state, never a contribution", () => {
+    const idp = formatSourceCell({ ...idpRow(), sourceRankMeta: {} }, SIGNALS_IDP, RAW);
+    expect(idp.hasVal).toBe(false);
+    expect(idp.mutedText).toBe("DL13 · shadow");
+  });
+
+  it("each backend state gets the owner's label; old payloads fall back honestly", () => {
+    const states = {
+      active: "Active",
+      shadow: "Shadow — not voting",
+      held: "Collected — not voting",
+      rolled_back: "Rolled back — not voting",
+    };
+    for (const [voteState, label] of Object.entries(states)) {
+      const raw = {
+        privateSourceAvailability: {
+          signalsIdpDl: { state: "present", votes: voteState === "active", voteState },
+        },
+      };
+      expect(sourceObservation(idpRow(), SIGNALS_IDP, raw).voteLabel).toBe(label);
+    }
+    const legacy = {
+      privateSourceAvailability: {
+        signalsIdpDl: { state: "present", votes: false, heldFromVote: "x" },
+      },
+    };
+    expect(sourceObservation(idpRow(), SIGNALS_IDP, legacy).voteState).toBe("held");
+  });
+
+  it("a withheld shadow translation names its reason", () => {
+    const row = {
+      ...idpRow(),
+      sourceShadowMeta: {
+        signalsIdpDl: { familyRank: 90, withheldReason: "beyond_family_ladder" },
+      },
+    };
+    const obs = sourceObservation(row, SIGNALS_IDP, RAW);
+    expect(sourceObservationText(obs)).toContain(
+      "shadow withheld: deeper than the market's own list for this family",
+    );
+  });
+
+  it("offense audit card states the FantasyCalc family cap and an outlier drop", () => {
+    render(
+      <SourceAuditPanel
+        row={offenseRow({
+          sourceRankMeta: {
+            signalsSf: { valueContribution: 6123, appliedWeight: 0, hampelDropped: true },
+          },
+        })}
+        rawData={RAW}
+        val={6000}
+        edge={{ label: "—", title: "" }}
+        confidence={{ label: "Medium", reasons: [] }}
+      />,
+    );
+    expect(screen.getByText("Active")).toBeTruthy();
+    expect(screen.getByText(/fantasyCalc family \(family-capped\)/)).toBeTruthy();
+    expect(screen.getByText(/outlier/)).toBeTruthy();
+  });
+});

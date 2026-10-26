@@ -1,0 +1,200 @@
+import React from "react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import AutoSlates, { activeAutoSlateId, degradedMarkerText } from "@/components/dfs/AutoSlates";
+
+function jsonResponse(status, body) {
+  return { ok: status >= 200 && status < 300, status, json: async () => body };
+}
+
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn());
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+describe("AutoSlates — daily sports (DFS-AUTO-19)", () => {
+  it("asks for the selected sport and opens its listed slate with no upload", async () => {
+    const calls = [];
+    const LIST = {
+      sport: "nhl",
+      state: "AVAILABLE",
+      derivationNote: "Game set is the NHL slate Daily Fantasy Fuel lists for each platform.",
+      slates: [
+        {
+          autoSlateId: "draftkings:nhl:2026:d20261007:listed",
+          platform: "draftkings",
+          sport: "nhl",
+          slateKey: "listed",
+          slateDate: "2026-10-07",
+          week: null,
+          label: "DraftKings NHL · Wed Oct 7 · 3 games",
+          lockAt: "2026-10-07T23:30:00+00:00",
+          contentHash: "nhlhash",
+          summary: { games: 3, players: 66, projected: 64 },
+          freshness: { state: "CURRENT", locked: false, ageMinutes: 2, degraded: [] },
+        },
+      ],
+    };
+    fetch.mockImplementation(async (url, init) => {
+      const u = String(url);
+      calls.push({ u, body: init?.body ? JSON.parse(init.body) : null });
+      if (u.includes("/auto/slates?")) return jsonResponse(200, LIST);
+      if (u.endsWith("/auto/slates/select")) return jsonResponse(201, { snapshotId: "s1", contentHash: "nhlhash" });
+      return jsonResponse(404, {});
+    });
+    const onSelected = vi.fn();
+    render(<AutoSlates sport="nhl" platform="draftkings" selectedHash={null} onSelected={onSelected} />);
+    expect(await screen.findByText("DraftKings NHL · Wed Oct 7 · 3 games")).toBeInTheDocument();
+    expect(calls[0].u).toContain("sport=nhl");
+    // No "main" key on a daily sport: the next unlocked listed slate opens by default.
+    await waitFor(() => expect(onSelected).toHaveBeenCalledWith({ snapshotId: "s1", contentHash: "nhlhash" }));
+    const select = calls.find((c) => c.u.endsWith("/auto/slates/select"));
+    expect(select.body).toEqual({ autoSlateId: "draftkings:nhl:2026:d20261007:listed" });
+    expect(screen.getByText(/Daily Fantasy Fuel lists/)).toBeInTheDocument();
+  });
+
+  it("shows a source error as an error, never as an off day", async () => {
+    fetch.mockImplementation(async () =>
+      jsonResponse(200, {
+        sport: "nhl",
+        state: "SOURCE_ERROR",
+        slates: [],
+        reason: "Daily Fantasy Fuel listed 22 NHL players for a day with 3 scheduled games, but none matched the schedule (team_unknown_for_sport x11). This is a data error, not an off day.",
+      }),
+    );
+    render(<AutoSlates sport="nhl" platform="draftkings" selectedHash={null} onSelected={() => {}} />);
+    expect(await screen.findByText("Automatic slates: source error")).toBeInTheDocument();
+    expect(screen.getByText(/not an off day/)).toBeInTheDocument();
+  });
+
+  it("says NBA/NHL await owner approval of the schedule source", async () => {
+    const calls = [];
+    fetch.mockImplementation(async (url) => {
+      calls.push(String(url));
+      return jsonResponse(200, {
+        sport: "nba",
+        state: "AWAITING_APPROVAL",
+        slates: [],
+        reason: "Automatic NBA slates are built and waiting for the owner to approve their schedule source.",
+      });
+    });
+    const onSelected = vi.fn();
+    render(<AutoSlates sport="nba" platform="fanduel" selectedHash={null} onSelected={onSelected} />);
+    expect(await screen.findByText("Awaiting owner approval of the schedule source")).toBeInTheDocument();
+    expect(onSelected).not.toHaveBeenCalled();
+    expect(calls.some((u) => u.endsWith("/auto/slates/select"))).toBe(false);
+  });
+
+  it("words the lock-may-be-early marker instead of showing the raw code", async () => {
+    fetch.mockImplementation(async (url) => {
+      if (String(url).includes("/auto/slates?")) {
+        return jsonResponse(200, {
+          sport: "nhl",
+          state: "AVAILABLE",
+          slates: [
+            {
+              autoSlateId: "draftkings:nhl:2026:d20261007:listed",
+              platform: "draftkings",
+              sport: "nhl",
+              slateKey: "listed",
+              label: "DraftKings NHL · Wed Oct 7 · 3 games",
+              lockAt: "2026-10-07T23:30:00+00:00",
+              contentHash: "nhlhash",
+              summary: { games: 3, players: 66, projected: 64 },
+              freshness: {
+                state: "DEGRADED",
+                locked: false,
+                ageMinutes: 2,
+                degraded: [
+                  "listed_rows_unmatched:game_not_on_schedule=2",
+                  "lock_may_be_early:untimed_listed_rows",
+                ],
+              },
+            },
+          ],
+        });
+      }
+      return jsonResponse(201, { snapshotId: "s1", contentHash: "nhlhash" });
+    });
+    render(<AutoSlates sport="nhl" platform="draftkings" selectedHash={null} onSelected={() => {}} />);
+    expect(await screen.findByText(/Lock may be earlier than shown: some listed players/)).toBeInTheDocument();
+    expect(screen.queryByText(/lock_may_be_early/)).not.toBeInTheDocument();
+  });
+
+  it("degradedMarkerText words any lock-early reason and passes other markers through", () => {
+    expect(degradedMarkerText("lock_may_be_early:untimed_listed_rows")).toMatch(
+      /^Lock may be earlier than shown: some listed players could not be placed/,
+    );
+    expect(degradedMarkerText("lock_may_be_early:new_reason")).toBe("Lock may be earlier than shown: new reason");
+    expect(degradedMarkerText("schedule_partial")).toBe("schedule_partial");
+  });
+
+  it("says plainly when a sport has no automatic path", async () => {
+    fetch.mockImplementation(async () =>
+      jsonResponse(200, {
+        sport: "mma",
+        state: "UNAVAILABLE",
+        slates: [],
+        reason: "Automatic slates are live for NFL, NBA and NHL; this sport still needs its platform file (Advanced).",
+      }),
+    );
+    render(<AutoSlates sport="mma" platform="draftkings" selectedHash={null} onSelected={() => {}} />);
+    expect(await screen.findByText(/live for NFL, NBA and NHL/)).toBeInTheDocument();
+  });
+
+  describe("two live slates with identical content", () => {
+    const slate = (key, label) => ({
+      autoSlateId: `draftkings:nfl:2026:w6:${key}`,
+      platform: "draftkings",
+      sport: "nfl",
+      slateKey: key,
+      label,
+      lockAt: "2026-10-18T17:00:00+00:00",
+      contentHash: "samehash",
+      summary: { games: 13, players: 400, projected: 380 },
+      freshness: { state: "CURRENT", locked: false, ageMinutes: 2, degraded: [] },
+    });
+    const SLATES = [slate("full_week", "DraftKings NFL · Full week"), slate("main", "DraftKings NFL · Main")];
+    const MAIN = "draftkings:nfl:2026:w6:main";
+
+    function Harness() {
+      const [hash, setHash] = React.useState(null);
+      return <AutoSlates sport="nfl" platform="draftkings" selectedHash={hash} onSelected={(b) => setHash(b.contentHash)} />;
+    }
+
+    it("marks only the slate that was selected as in use", async () => {
+      fetch.mockImplementation(async (url) => {
+        if (String(url).includes("/auto/slates?")) {
+          return jsonResponse(200, { sport: "nfl", state: "AVAILABLE", slates: SLATES });
+        }
+        return jsonResponse(201, { snapshotId: "s1", contentHash: "samehash" });
+      });
+      render(<Harness />);
+      // The default ("main") opens; the identical "Full week" row must not also claim it.
+      await waitFor(() => expect(screen.getAllByRole("button", { name: "In use" })).toHaveLength(1));
+      const mainRow = screen.getByText("DraftKings NFL · Main").closest("li");
+      expect(mainRow).toHaveTextContent("In use");
+      // Choosing the other one moves the marker; there is still exactly one.
+      fireEvent.click(screen.getByRole("button", { name: "Use this slate" }));
+      await waitFor(() => expect(screen.getByText("DraftKings NFL · Full week").closest("li")).toHaveTextContent("In use"));
+      expect(screen.getAllByRole("button", { name: "In use" })).toHaveLength(1);
+      expect(mainRow).toHaveTextContent("Use this slate");
+      // Selecting must not reload the slate list (it used to, because the
+      // inline onSelected changed identity): the row is the same DOM node.
+      expect(mainRow.isConnected).toBe(true);
+      expect(fetch.mock.calls.filter(([u]) => String(u).includes("/auto/slates?"))).toHaveLength(1);
+    });
+
+    it("activeAutoSlateId picks one row for an externally loaded hash", () => {
+      expect(activeAutoSlateId(SLATES, "samehash", null)).toBe("draftkings:nfl:2026:w6:full_week");
+      expect(activeAutoSlateId(SLATES, "samehash", MAIN)).toBe(MAIN);
+      // A selection whose content is no longer loaded (e.g. an uploaded file replaced it) is not "in use".
+      expect(activeAutoSlateId(SLATES, "otherhash", MAIN)).toBe(null);
+      expect(activeAutoSlateId(SLATES, null, MAIN)).toBe(null);
+    });
+  });
+});

@@ -4,6 +4,9 @@ const input = vi.hoisted(() => ({ team: null, league: null }));
 vi.mock("@/components/AppShell", () => ({ useApp: () => ({ rows: [], rawData: {}, loading: false, error: null }) }));
 vi.mock("@/components/useLeague", () => ({ useLeague: () => ({ selectedLeague: input.league }) }));
 vi.mock("@/components/useTeam", () => ({ useTeam: () => ({ selectedTeam: input.team, leagueMismatch: false, availableTeams: [] }) }));
+// The cut-ladder GET (C2-DROP-01) is covered in waiver-cut-ladder.test.jsx;
+// stubbed here so `pending[0]` stays the bid POST these cases are about.
+vi.mock("@/components/useRosterIntelligence", () => ({ useRosterIntelligence: () => ({ loading: false, data: null, failure: { kind: "error", message: "stub" } }) }));
 import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
 import { useBestAvailableIdp } from "@/components/useBestAvailableIdp";
 import { waiverBidForRow } from "@/lib/waiver-faab";

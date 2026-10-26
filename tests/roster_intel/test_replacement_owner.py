@@ -90,8 +90,17 @@ def test_the_census_detects_a_reintroduced_duplicate(tmp_path):
 
     Writes a module that calls a retired symbol and asserts the scan sees
     it. Without this the "zero duplicates remain" verdict is unfalsifiable.
+
+    The probe lives in ``tmp_path`` and reaches the scan through the
+    census's ``extra`` seam, never ``src/``: a file planted in the tree is
+    seen by every other tree scan running concurrently under pytest-xdist
+    (``test_the_census_runs_clean_at_head``, the KTC identity guard), which
+    then fails on a duplicate that is not in the tree — or crashes reading
+    a file this test has already deleted. That tree discovery itself works
+    is proven by ``test_every_declared_owner_is_consumed``, which can only
+    pass if the scan found the real callers under ``src/``.
     """
-    probe = REPO / "src" / "_v129_census_probe.py"
+    probe = tmp_path / "_v129_census_probe.py"
     probe.write_text(
         "from src.scoring.replacement_level import vorp_table\n"
         "def f(rows, slots):\n"
@@ -99,8 +108,12 @@ def test_the_census_detects_a_reintroduced_duplicate(tmp_path):
         encoding="utf-8",
     )
     try:
-        assert retired_reachable(), "the census did NOT detect a reintroduced retired symbol"
-        assert main([]) == EXIT_VIOLATION, "the census exited clean with a duplicate present"
+        assert retired_reachable(
+            extra=probe
+        ), "the census did NOT detect a reintroduced retired symbol"
+        assert (
+            main([], extra=probe) == EXIT_VIOLATION
+        ), "the census exited clean with a duplicate present"
     finally:
         probe.unlink(missing_ok=True)
 
@@ -116,7 +129,7 @@ def test_no_owner_symbol_is_defined_outside_its_declared_path():
     assert undeclared_owner_definitions() == {}
 
 
-def test_the_guard_catches_a_same_named_duplicate_nobody_calls():
+def test_the_guard_catches_a_same_named_duplicate_nobody_calls(tmp_path):
     """MR1, reproduced as a positive control.
 
     A new module defining its own ``replacement_per_game`` — the OWNER
@@ -126,26 +139,27 @@ def test_the_guard_catches_a_same_named_duplicate_nobody_calls():
     NEW guard must catch it anyway: an undeclared owner is a defect the
     moment it is defined, whether or not it is ever invoked.
     """
-    probe = REPO / "src" / "league_intel" / "_v129_dup_probe.py"
+    # Outside the tree, for the reason in the first positive control.
+    probe = tmp_path / "_v129_dup_probe.py"
     probe.write_text(
         "def replacement_per_game(rows, position):\n"
         "    return sum(r.get('points', 0.0) for r in rows) / max(len(rows), 1)\n",
         encoding="utf-8",
     )
     try:
-        dups = undeclared_owner_definitions()
+        dups = undeclared_owner_definitions(extra=probe)
         assert (
             "replacement_per_game" in dups
         ), "the guard did NOT detect an undeclared duplicate definition (MR1)"
-        assert "src/league_intel/_v129_dup_probe.py" in dups["replacement_per_game"]
+        assert probe.as_posix() in dups["replacement_per_game"]
         assert (
-            main([]) == EXIT_VIOLATION
+            main([], extra=probe) == EXIT_VIOLATION
         ), "the census exited clean with an undeclared owner present"
     finally:
         probe.unlink(missing_ok=True)
 
 
-def test_the_guard_catches_a_same_named_duplicate_with_a_call_site():
+def test_the_guard_catches_a_same_named_duplicate_with_a_call_site(tmp_path):
     """MR2, reproduced as a positive control.
 
     Same duplicate as MR1, but now it is live code with a real caller —
@@ -155,7 +169,8 @@ def test_the_guard_catches_a_same_named_duplicate_with_a_call_site():
     it). The guard must still fail: a second definition is the defect,
     independent of whether it is called.
     """
-    probe = REPO / "src" / "league_intel" / "_v129_dup_probe.py"
+    # Outside the tree, for the reason in the first positive control.
+    probe = tmp_path / "_v129_dup_probe.py"
     probe.write_text(
         "def replacement_per_game(rows, position):\n"
         "    return sum(r.get('points', 0.0) for r in rows) / max(len(rows), 1)\n"
@@ -166,11 +181,13 @@ def test_the_guard_catches_a_same_named_duplicate_with_a_call_site():
         encoding="utf-8",
     )
     try:
-        dups = undeclared_owner_definitions()
+        dups = undeclared_owner_definitions(extra=probe)
         assert (
             "replacement_per_game" in dups
         ), "the guard did NOT detect an undeclared duplicate definition with a call site (MR2)"
-        assert main([]) == EXIT_VIOLATION, "the census exited clean with a called, undeclared owner"
+        assert (
+            main([], extra=probe) == EXIT_VIOLATION
+        ), "the census exited clean with a called, undeclared owner"
     finally:
         probe.unlink(missing_ok=True)
 
@@ -206,3 +223,122 @@ def test_units_are_declared_and_distinct_rows_are_not_merged():
 @pytest.mark.parametrize("row", CENSUS, ids=lambda r: r.key)
 def test_every_row_declares_a_known_disposition(row):
     assert row.disposition in {OWNER, ADAPTER, DISTINCT, DEAD, RETIRED}
+
+
+# ── LI-5 consolidation P1 (design 2026-10-21, D3) ───────────────────────
+#
+# docs/valuation/LI5_REPLACEMENT_CONSOLIDATION_DESIGN_2026-10-21.md §4.1,
+# §4.8 item 1, §8 items 7-8.  The waiver tier has ONE algorithm owner,
+# ``waiver_levels`` in LI-5, used in whichever unit its caller names.
+# Units stay apart by argument; what is shared is the algorithm.
+
+LI5_PATH = "src/league_intel/replacement.py"
+
+
+def _li5_tree() -> ast.Module:
+    return ast.parse((REPO / LI5_PATH).read_text(encoding="utf-8"))
+
+
+def test_waiver_levels_is_a_guarded_owner_symbol_of_row_a():
+    row_a = next(r for r in CENSUS if r.key == "A")
+    assert row_a.disposition == OWNER
+    assert row_a.path == LI5_PATH
+    assert "waiver_levels" in row_a.call_names
+    # The unit is the caller's argument, and the row says so.
+    assert "caller-selected value field" in row_a.unit
+    assert "rosValue" in row_a.unit and "rankDerivedValue" in row_a.unit
+    # Consumed: compute_replacement_levels calls it (intra-module).
+    built = {r.key: r for r in build_census()}["A"]
+    assert f"{LI5_PATH}::waiver_levels" in built.intra
+
+
+def test_displacement_is_an_adapter_over_the_li5_waiver_tier():
+    """Row G became an ADAPTER in design phase P3 (after #1890 merged): its
+    flag-ON branch calls ``waiver_levels`` and reads the population owner.
+    The census claim is backed only while the code does both, and while
+    displacement keeps no banding of its own."""
+    row_g = next(r for r in CENSUS if r.key == "G")
+    assert row_g.disposition == ADAPTER
+    tree = ast.parse((REPO / row_g.path).read_text(encoding="utf-8"))
+    called = {
+        n.func.id if isinstance(n.func, ast.Name) else getattr(n.func, "attr", "")
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call)
+    }
+    assert "waiver_levels" in called, "row G is ADAPTER but displacement no longer delegates"
+    assert "base_free_agent_rows" in called, "the free-agent set must come from its one owner"
+    # Design §8 item 7: no second level implementation in the adapter.
+    assert "_banded_value" not in called
+    imported = {n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module}
+    assert "statistics" not in imported
+
+
+def test_the_waiver_tier_is_computed_in_exactly_one_function():
+    """No second waiver-tier implementation inside LI-5 itself.
+
+    The waiver tier is the banded window anchored at rank 1
+    (``_banded_value(pool, 1, band)``).  That call may appear only inside
+    ``waiver_levels``, and ``compute_replacement_levels`` must reach the
+    tier by calling ``waiver_levels``.
+    """
+    tree = _li5_tree()
+    funcs = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+
+    def rank_one_banded_calls(node: ast.AST) -> int:
+        return sum(
+            1
+            for c in ast.walk(node)
+            if isinstance(c, ast.Call)
+            and isinstance(c.func, ast.Name)
+            and c.func.id == "_banded_value"
+            and len(c.args) >= 2
+            and isinstance(c.args[1], ast.Constant)
+            and c.args[1].value == 1
+        )
+
+    owners = [name for name, fn in funcs.items() if rank_one_banded_calls(fn)]
+    assert owners == ["waiver_levels"], owners
+    calls = {
+        c.func.id
+        for c in ast.walk(funcs["compute_replacement_levels"])
+        if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+    }
+    assert "waiver_levels" in calls
+
+
+def test_the_guard_catches_a_second_waiver_levels_definition(tmp_path):
+    """Non-vacuity for the new OWNER symbol: a same-named definition
+    anywhere else is an undeclared second owner, called or not."""
+    probe = tmp_path / "_li5_waiver_dup_probe.py"
+    probe.write_text(
+        "def waiver_levels(free_agents, *, value_key):\n"
+        "    best = max((r.get(value_key) or 0 for r in free_agents), default=None)\n"
+        "    return {'WR': best}\n",
+        encoding="utf-8",
+    )
+    try:
+        dups = undeclared_owner_definitions(extra=probe)
+        assert "waiver_levels" in dups, "a second waiver_levels definition went undetected"
+        assert main([], extra=probe) == EXIT_VIOLATION
+    finally:
+        probe.unlink(missing_ok=True)
+
+
+def test_the_gameplan_call_still_passes_no_free_agents():
+    """Scarcity stays inert (design D8, §8 item 6): the production LI-5 call
+    supplies no free agents, so no waiver tier and no waiverScarcity."""
+    tree = ast.parse((REPO / "src" / "api" / "gameplan.py").read_text(encoding="utf-8"))
+    calls = [
+        c
+        for c in ast.walk(tree)
+        if isinstance(c, ast.Call)
+        and isinstance(c.func, ast.Name)
+        and c.func.id in {"compute_replacement_levels", "waiver_levels"}
+    ]
+    assert calls, "gameplan no longer calls LI-5; re-check the scarcity chain"
+    for c in calls:
+        assert c.func.id == "compute_replacement_levels"
+        kwargs = {k.arg for k in c.keywords}
+        assert "free_agents" not in kwargs
+        assert None not in kwargs, "a **splat could carry free_agents into the waiver tier"
+        assert len(c.args) <= 2, "a positional free_agents argument would feed the waiver tier"

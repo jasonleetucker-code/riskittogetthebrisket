@@ -137,6 +137,21 @@ class TestKnownDivergenceIsStillPresentUntilTheMigration(unittest.TestCase):
         js = TRADE_LOGIC.read_text(encoding="utf-8")
         self.assertIn('slot <= 4 ? "early" : slot <= 8 ? "mid" : "late"', js)
 
+    def test_the_hardcode_lives_once_and_matches_the_owner_at_12_teams(self):
+        """TC-A: the structured pick search (``parsePickQuery`` /
+        ``pickRowMatchesQuery``) reuses ``tierForSlot``, the frontend's one
+        slot->tier rule, so its 12-team cut points must equal the owner's."""
+        from src.picks.site_pick_map import slot_tier_ranges
+
+        js = TRADE_LOGIC.read_text(encoding="utf-8")
+        found = re.findall(r'slot <= (\d+) \? "early" : slot <= (\d+) \? "mid" : "late"', js)
+        self.assertEqual(len(found), 1, "the slot->tier rule must have exactly one JS site")
+        ranges = slot_tier_ranges(12)
+        self.assertEqual(
+            (int(found[0][0]), int(found[0][1])), (ranges["early"][1], ranges["mid"][1])
+        )
+        self.assertIn("export function tierForSlot(slot)", js)
+
 
 if __name__ == "__main__":
     unittest.main()

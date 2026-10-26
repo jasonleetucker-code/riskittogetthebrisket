@@ -134,10 +134,15 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C05": (
         "T-1",
         "frontend/lib/trade-logic.js",
-        "result[i].given += value",
+        "given: t.sendAdj,",
         OPEN,
         "The GIVE convention is live at :1393 while the verdict names the "
-        "bigger pile the winner. Both conventions still present.",
+        "bigger pile the winner. Both conventions still present. "
+        "Re-pointed 2026-10-20 (PR #1883): computeSideFlows now reads each "
+        "team from perTeamPackageTotals, and the GIVE convention lives on as "
+        "`given: t.sendAdj` (what the side SENDS); the old "
+        "`result[i].given += value` accumulator is gone, not the convention. "
+        "Status unchanged — nothing here decided the direction question.",
     ),
     "C06": (
         "W-1",
@@ -381,10 +386,13 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     ),
     "C20": (
         "V-2",
-        "src/model_registry/holdout.py",
-        '"FantasyCalc": ("CSVs/site_raw/fantasyCalc.csv", "value")',
+        "src/model_registry/training_manifest.py",
+        'BoardSpec("FantasyCalc", "fantasyCalc", "OFFENSE", ROLE_HOLDOUT, "value")',
         OPEN,
-        "All four holdout boards are still registered live blend sources.",
+        "The holdout boards are still registered live blend sources. Since the "
+        "Hill trainer repair (#1588) the holdout role is assigned in the one "
+        "training manifest rather than a literal in holdout.py; the mechanism "
+        "moved, the defect did not (FantasyCalc / OTCFFB / PFKDynasty still vote).",
     ),
     "C21": (
         "V-2b",
@@ -424,30 +432,37 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C25": (
         "T-7",
         "src/trade/finder.py",
-        "if len(give) > len(receive):",
+        "if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):",
         OPEN,
         "Multi-piece guards still gate on the give-more direction only; "
-        "the 1-for-N direction is unguarded.",
+        "the 1-for-N direction is unguarded.\n\n"
+        "SIGNATURE RESPELLED 2026-10-04 (C3-TOPO-01), STATUS DELIBERATELY "
+        "UNCHANGED. Wave B counts the guard's sides in PLAYERS (a pick added "
+        "to a 1-for-1 is not a two-fillers-for-an-elite package), so the old "
+        "needle `if len(give) > len(receive):` stopped matching. The cited "
+        "MECHANISM changed; the defect did not: the guard still fires only "
+        "when the requester gives more players, and the 1-for-N direction is "
+        "still unguarded. The needle follows the new spelling of the same "
+        "one-directional comparison.",
     ),
     "C26": (
         "T-9",
         "src/trade/suggestions.py",
         "analyze_roster(roster_names, pool",
-        OPEN,
-        "Still called with a name list the pool can only partly resolve.\n\n"
-        "SIGNATURE RESPELLED 2026-08-19 (C3-CON-01), STATUS DELIBERATELY "
-        "UNCHANGED. The call site gained a `constraints=` keyword when the "
-        "recommendation-constraint owner was wired in, so the old needle "
-        "`analyze_roster(roster_names, pool, starter_needs)` stopped matching "
-        "and the probe flipped to signature_absent. That is the case this "
-        "module's own docstring warns about: an absent signature means the "
-        "cited MECHANISM changed, not that the defect is fixed. It is not "
-        "fixed — C3-CON-01 decides which resolved assets may be OFFERED and "
-        "does nothing whatever about resolution, which is what T-9 is about. "
-        "The needle is respelled to the part that IS the defect (the name "
-        "list reaching `analyze_roster`) rather than to the full argument "
-        "list, so a further keyword cannot flip it again and invite a second "
-        "close-on-a-respelling.",
+        CLOSED,
+        "CLOSED 2026-10-14 (trade-discovery Batch 1, claude/trade-constraints-lock-exclude). "
+        "The roster is now analysed against the WHOLE priced board "
+        "(`analysis_pool = roster_pool`, built with `ktc_top_n=0` by the route), not the "
+        "top-150 quality pool that only gates what may be proposed. Measured on the "
+        "2026-10-14 archive board: roster visibility 86-97% per team (was 3-36% against "
+        "the top-150 pool); teams with zero suggestions 10 -> 4 of 12, each with a named "
+        "`noResultReason`. The remaining 3-14% are players with no board price at all "
+        "and are published by name in `metadata.rosterUnpriced` rather than dropped. "
+        "Tripwire: the needle is the retired call shape — passing the top-N `pool` to "
+        "`analyze_roster` again would re-open T-9.\n\n"
+        "History: respelled 2026-08-19 (C3-CON-01) while still open; the C3-CON-01 "
+        "constraints keyword decided what may be OFFERED and did nothing about "
+        "resolution.",
     ),
     "C27": (
         "T-10",

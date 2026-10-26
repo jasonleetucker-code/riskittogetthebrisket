@@ -21,7 +21,7 @@
  */
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { effectiveValue } from "@/lib/trade-logic";
 import { useSettings } from "@/components/useSettings";
 
@@ -91,26 +91,48 @@ export function _payloadFromSides(sides, valueMode, settings) {
 }
 
 
-function _renderPlainSummary(result, sides) {
+export function _renderPlainSummary(result, sides, sidesSend = false) {
   const winA = (result.winProbA != null ? result.winProbA : (result.winPct || 0) / 100);
   const pct = Math.round(winA * 100);
   const sims = (result.nSims || 0).toLocaleString();
 
-  let headline, subline;
-  if (pct >= 80) {
+  // `winProbA` is how often Side A's TOTAL came out bigger.  On /trade
+  // (`sidesSend`) each side lists what that team sends, so a bigger Side A
+  // is Side A giving up more — calling it the "winner" named the team that
+  // overpays.  There the copy names the package, as a sensitivity count.
+  let headline, subline, tone;
+  if (sidesSend) {
+    // TC-D (decision-engine audit §7.8, V5): on /trade this is a
+    // value-sensitivity check, never a verdict.  No "winner", "favored",
+    // "clearly" or "probably" -- the one YES / NO is the War Room's -- and no
+    // strong/lean tone: the share is reported as a plain count.
+    const lead = pct >= 50 ? "A" : "B";
+    const share = lead === "A" ? pct : 100 - pct;
+    headline = "Value-sensitivity check";
+    tone = "even";
+    subline =
+      pct >= 40 && pct < 60
+        ? `Neither package is consistently bigger: Side A's came out bigger in ${pct}% of ${sims} simulations.`
+        : `Side ${lead}'s package came out bigger in ${share}% of ${sims} simulations.`;
+  } else if (pct >= 80) {
     headline = "Side A is the clear winner.";
+    tone = "strong";
     subline = `Side A came out ahead in ${pct}% of ${sims} simulations.`;
   } else if (pct >= 60) {
     headline = "Side A is favored.";
+    tone = "lean";
     subline = `Side A won ${pct}% of ${sims} simulations.`;
   } else if (pct >= 40) {
     headline = "Coin flip.";
+    tone = "even";
     subline = `Side A won ${pct}% of ${sims} simulations — no clear winner.`;
   } else if (pct >= 20) {
     headline = "Side B is favored.";
+    tone = "lean";
     subline = `Side B won ${100 - pct}% of ${sims} simulations.`;
   } else {
     headline = "Side B is the clear winner.";
+    tone = "strong";
     subline = `Side B came out ahead in ${100 - pct}% of ${sims} simulations.`;
   }
 
@@ -118,6 +140,9 @@ function _renderPlainSummary(result, sides) {
   let deltaLine;
   if (Math.abs(meanDelta) < 100) {
     deltaLine = "On average, the two sides are within 100 points of each other.";
+  } else if (sidesSend) {
+    const bigger = meanDelta > 0 ? "A" : "B";
+    deltaLine = `On average, Side ${bigger}'s package was ${Math.abs(meanDelta).toLocaleString()} points bigger.`;
   } else if (meanDelta > 0) {
     deltaLine = `On average, Side A's total beat Side B's by ${meanDelta.toLocaleString()} points.`;
   } else {
@@ -137,23 +162,49 @@ function _renderPlainSummary(result, sides) {
     }
   }
 
-  return { headline, subline, deltaLine, rangeLine };
+  return { headline, subline, tone, deltaLine, rangeLine };
 }
 
 
-export default function MonteCarloButton({ sides, valueMode = "full" }) {
+/**
+ * Identity of the question a simulation answers: the exact payload it would
+ * post (names, centres, bands).  A result is shown only while the current
+ * trade still produces the same key (TC-A / UX audit P0-2: a result used to
+ * survive every edit and Clear Trade, so "Side A probably worth more" sat
+ * under a trade that now favoured Side B by 46%).
+ */
+export function _simulationKey(sides, valueMode, settings) {
+  const { sideA, sideB, unpriced } = _payloadFromSides(sides, valueMode, settings);
+  return JSON.stringify([sideA, sideB, unpriced]);
+}
+
+export default function MonteCarloButton({ sides, valueMode = "full", sidesSend = false }) {
   const { settings } = useSettings();
   const [state, setState] = useState("idle");
   const [result, setResult] = useState(null);
+  const [resultKey, setResultKey] = useState("");
   const [err, setErr] = useState("");
+  // An error belongs to the trade it was raised for, like a result (TC-E):
+  // "Can't simulate: X has no value" must not outlive removing X.
+  const [errKey, setErrKey] = useState("");
+  // Request sequence: only the latest run may publish (an older response
+  // arriving after a newer click is dropped).
+  const seqRef = useRef(0);
+  const currentKey = useMemo(
+    () => _simulationKey(sides, valueMode, settings),
+    [sides, valueMode, settings],
+  );
 
   const totalAssets = (sides?.[0]?.assets?.length || 0) + (sides?.[1]?.assets?.length || 0);
   if (totalAssets === 0) return null;
 
   async function run() {
+    const seq = (seqRef.current += 1);
+    const key = currentKey;
     try {
       setState("running");
       setErr("");
+      setErrKey(key);
       const { sideA, sideB, unpriced } = _payloadFromSides(sides, valueMode, settings);
       if (unpriced.length > 0) {
         setErr(
@@ -168,6 +219,7 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (seq !== seqRef.current) return;
       if (res.status === 503) {
         setState("disabled");
         return;
@@ -178,13 +230,20 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
         return;
       }
       const json = await res.json();
+      if (seq !== seqRef.current) return;
       setResult(json);
+      setResultKey(key);
       setState("ok");
     } catch (e) {
+      if (seq !== seqRef.current) return;
       setErr(e?.message || "Simulation failed");
       setState("error");
     }
   }
+
+  // A result computed for a different trade is never rendered as if it
+  // answered this one.
+  const stale = state === "ok" && result && resultKey !== currentKey;
 
   if (state === "disabled") {
     return (
@@ -198,7 +257,8 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
     );
   }
 
-  const summary = state === "ok" && result ? _renderPlainSummary(result, sides) : null;
+  const summary =
+    state === "ok" && result && !stale ? _renderPlainSummary(result, sides, sidesSend) : null;
   const synthetic = Number(result?.bandSources?.synthetic_flat_15pct) || 0;
   const va = result?.vaAdjustment;
   const vaText =
@@ -215,14 +275,23 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
         onClick={run}
         style={{ alignSelf: "flex-start" }}
       >
-        {state === "running" ? "Simulating..." : "Simulate (Monte Carlo)"}
+        {state === "running"
+          ? "Simulating..."
+          : sidesSend
+            ? "Simulate value sensitivity"
+            : "Simulate (Monte Carlo)"}
       </button>
-      {err && (
-        <div className="text-xs" style={{ color: "var(--amber)" }}>
+      {err && errKey === currentKey && (
+        <div className="text-xs" role="status" style={{ color: "var(--amber)" }}>
           {err}
         </div>
       )}
-      {state === "ok" && summary && (
+      {stale ? (
+        <div className="text-xs" data-testid="mc-stale" style={{ color: "var(--subtext)" }}>
+          The trade changed since the last simulation — run it again.
+        </div>
+      ) : null}
+      {summary && (
         <div
           className="card"
           style={{
@@ -235,11 +304,9 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
             style={{
               fontSize: "1rem", fontWeight: 700, marginBottom: 6,
               color:
-                summary.headline.startsWith("Side A is the clear") ||
-                summary.headline.startsWith("Side B is the clear")
+                summary.tone === "strong"
                   ? "var(--green)"
-                  : summary.headline.startsWith("Side A is favored") ||
-                    summary.headline.startsWith("Side B is favored")
+                  : summary.tone === "lean"
                   ? "var(--cyan)"
                   : "var(--subtext)",
             }}

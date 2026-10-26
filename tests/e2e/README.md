@@ -42,6 +42,17 @@ if anything is missing it tells you exactly what to fix.  `npm run e2e`:
 npm run e2e:report                # open the HTML report afterwards
 ```
 
+For a bounded machine-readable record of the same deterministic assertions,
+set `E2E_JOURNEY_EVIDENCE=1` before the run. The configured reporters still
+include the stack-death and flaky-test guards. The extra reporter writes
+`tests/e2e/playwright-report/journey-evidence.json` with per-test spec, project,
+outcome, retry count, duration and artifact-presence flags. It stores only the
+API and page origins, never URL paths, credentials, raw errors, DOM content or
+attachment paths. The report is ignored by Git. The existing E2E workflow
+enables it and includes it in the 14-day Playwright report artifact. A green
+outcome proves the selected assertions against that run's target, not an
+unmerged branch in production.
+
 ### Why `npm ci` and not `npm install`
 
 Both lockfiles are committed.  `npm ci` installs exactly what they
@@ -106,6 +117,7 @@ webkit `mobile-390` / `mobile-430` projects, which need
 | `E2E_FRONTEND_CMD` | Override the frontend `webServer` command (default: production build + start) |
 | `E2E_CHROMIUM_PATH` | Launch a pre-installed Chromium binary instead of the revision-pinned download (sandboxes / air-gapped runners) |
 | `SKIP_VISUAL_REGRESSION=1` | Skip the two visual-regression specs entirely |
+| `E2E_ADVISOR_E2E=1` | Register the Brisket Trade Advisor flows that need a stack SERVING the advisor (`league-trade-advisor.spec.js` beyond "landing", all of `advisor-e2e-keyboard-a11y.spec.js`).  Unset, they are not registered at all — never skipped — because no CI stack can serve the advisor: its launch gate needs owner-reserved inputs.  Set, a stack that does not serve the advisor FAILS them.  Serve it only from a throwaway local process (flag on, gate opened in-process), never a committed config change |
 
 ## Spec inventory
 

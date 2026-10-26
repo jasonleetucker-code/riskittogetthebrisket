@@ -583,12 +583,17 @@ class TestOffenseAndIdpResponseToOverrides(unittest.TestCase):
         base = build_api_data_contract(_fixture_raw_payload())
         override = build_api_data_contract(
             _fixture_raw_payload(),
-            source_overrides={"dlfIdp": {"include": False}},
+            source_overrides={"fantasyProsIdp": {"include": False}},
         )
         base_by_name = _by_name(base)
         override_by_name = _by_name(override)
-        self.assertIn("dlfIdp", base_by_name["Myles Garrett"].get("sourceRanks") or {})
-        self.assertNotIn("dlfIdp", override_by_name["Myles Garrett"].get("sourceRanks") or {})
+        # ``fantasyProsIdp``, not ``dlfIdp``: the DLF IDP boards are held from
+        # the vote by owner policy (2026-10-16), so they are on no row's
+        # stamp to begin with.
+        self.assertIn("fantasyProsIdp", base_by_name["Myles Garrett"].get("sourceRanks") or {})
+        self.assertNotIn(
+            "fantasyProsIdp", override_by_name["Myles Garrett"].get("sourceRanks") or {}
+        )
 
 
 class TestBuildRankingsDeltaPayload(unittest.TestCase):
@@ -701,7 +706,20 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
         # benchmark block and the per-row source-weight state.  Freshness
         # stamps were trimmed to reduced observations only before measuring:
         # 66,459 bytes on this fixture.
-        self.assertLess(delta_bytes, 70_000)
+        #
+        # Bumped 70KB → 75KB 2026-10-19 (owner directives of 2026-10-19,
+        # docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md): DLF Values
+        # votes offense-only (D4), so one more voter carries its sourceRanks /
+        # sourceRankMeta / effectiveSourceRanks entries on every covered
+        # offense row.  Measured on this fixture: main 67,963; DLF Values
+        # registered and displayed 68,399 (+436); its vote 70,898 (+2,499),
+        # over 70KB on its own.  D4 is HELD at release (owner decision
+        # 2026-10-20), so the default build carries 68,399; the bound keeps
+        # covering the vote for when the owner releases it.  The approved DLF IDP
+        # restore is held at release (dlf_offense_only_vote ON); lifting the
+        # hold measures 72,134 (+1,236), so the bound also covers the lift.
+        # Ratio 0.334 held / 0.336 lifted, unaffected.
+        self.assertLess(delta_bytes, 75_000)
         self.assertLess(delta_bytes / full_bytes, 0.60)
 
     def test_delta_carries_all_override_sensitive_fields(self) -> None:

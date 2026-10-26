@@ -25,16 +25,16 @@
     "slightly differently in a browser than in Node or CPython."
   ],
   "bands": {
-    "why": "Cut points shared by both implementations. Each entry is the LOWEST |pctGap| that lands in that band; the band below owns everything under it.",
+    "why": "Cut points shared by both implementations. Each entry is the LOWEST |pctGap| that lands in that band; the band below owns everything under it. Letters are MONOTONE (TC-A, 2026-10-17): a bigger win never earns a lower letter and a bigger overpay never a higher one. The winner letters used to run A, A, A-, B+, A+, so a Clear win read below a Slight win and B+ meant both 'Clear win' and 'Slight overpay'. Cut points are unchanged (PRIOR, owner recalibration pending). The lowest band reads 'Evenly valued' (OD-F6 option A, owner 2026-10-21; it read 'Fair trade', the market-fairness verdict's word for a different predicate). Relabelled only: no cut point or letter moved. Owner of the cut and word: src/public_league/trade_grading.py::HISTORY_EVEN_PCT / HISTORY_EVEN_LABEL.",
     "winner": [
-      { "atLeast": 0, "grade": "A", "label": "Fair trade" },
+      { "atLeast": 0, "grade": "A", "label": "Evenly valued" },
       { "atLeast": 3, "grade": "A", "label": "Slight win" },
-      { "atLeast": 8, "grade": "A-", "label": "Good win" },
-      { "atLeast": 15, "grade": "B+", "label": "Clear win" },
+      { "atLeast": 8, "grade": "A", "label": "Good win" },
+      { "atLeast": 15, "grade": "A+", "label": "Clear win" },
       { "atLeast": 25, "grade": "A+", "label": "Big win" }
     ],
     "loser": [
-      { "atLeast": 0, "grade": "A", "label": "Fair trade" },
+      { "atLeast": 0, "grade": "A", "label": "Evenly valued" },
       { "atLeast": 3, "grade": "B+", "label": "Slight overpay" },
       { "atLeast": 8, "grade": "B", "label": "Overpay" },
       { "atLeast": 15, "grade": "C", "label": "Bad deal" },
@@ -45,27 +45,27 @@
   "bandCases": [
     {
       "id": "even-swap",
-      "why": "Identical sides: zero net, zero pct, fair on both ends.",
+      "why": "Identical sides: zero net, zero pct, evenly valued on both ends.",
       "got": [5000],
       "gave": [5000],
       "vaNet": 0,
       "pctGap": 0.0,
       "grade": "A",
-      "label": "Fair trade"
+      "label": "Evenly valued"
     },
     {
       "id": "just-under-fair-edge",
-      "why": "299/10000 = 2.99% — still inside the fairness band.",
+      "why": "299/10000 = 2.99% — still inside the evenly-valued band.",
       "got": [10000],
       "gave": [9701],
       "vaNet": 0,
       "pctGap": 2.99,
       "grade": "A",
-      "label": "Fair trade"
+      "label": "Evenly valued"
     },
     {
       "id": "exactly-fair-edge",
-      "why": "300/10000 = 3.00% — the edge belongs to the band above, so this is a Slight win, not a Fair trade. Same letter, different label.",
+      "why": "300/10000 = 3.00% — the edge belongs to the band above, so this is a Slight win, not Evenly valued. Same letter, different label.",
       "got": [10000],
       "gave": [9700],
       "vaNet": 0,
@@ -75,32 +75,32 @@
     },
     {
       "id": "good-win-edge",
-      "why": "800/10000 = 8.00% — bottom of the A- band.",
+      "why": "800/10000 = 8.00% — bottom of the Good win band.",
       "got": [10000],
       "gave": [9200],
       "vaNet": 0,
       "pctGap": 8.0,
-      "grade": "A-",
+      "grade": "A",
       "label": "Good win"
     },
     {
       "id": "ten-pct-linear-edge",
-      "why": "Finding C3's headline case. 1000/10000 = 10.0% linear -> Good win (A-). The retired public formula raised each asset to 1.65 first, scoring the same trade at 1 - 0.9^1.65 = 15.95% -> Clear win (B+): a full band higher off the same two numbers.",
+      "why": "Finding C3's headline case. 1000/10000 = 10.0% linear -> Good win. The retired public formula raised each asset to 1.65 first, scoring the same trade at 1 - 0.9^1.65 = 15.95% -> Clear win: a full band higher off the same two numbers.",
       "got": [10000],
       "gave": [9000],
       "vaNet": 0,
       "pctGap": 10.0,
-      "grade": "A-",
+      "grade": "A",
       "label": "Good win"
     },
     {
       "id": "clear-win-edge",
-      "why": "1500/10000 = 15.00% — bottom of the B+ band.",
+      "why": "1500/10000 = 15.00% — bottom of the Clear win band.",
       "got": [10000],
       "gave": [8500],
       "vaNet": 0,
       "pctGap": 15.0,
-      "grade": "B+",
+      "grade": "A+",
       "label": "Clear win"
     },
     {
@@ -180,7 +180,7 @@
       "gave": [8000],
       "vaNet": 2000,
       "pctGap": 20.0,
-      "grade": "B+",
+      "grade": "A+",
       "label": "Clear win"
     },
     {
@@ -221,7 +221,7 @@
       "vaNet": 0,
       "pctGap": 0.0,
       "grade": "A",
-      "label": "Fair trade"
+      "label": "Evenly valued"
     },
     {
       "id": "received-nothing",
@@ -255,13 +255,13 @@
     },
     {
       "id": "multi-asset-linear-sum",
-      "why": "6000 of pieces for 6000 of pieces is fair. Under the retired alpha formula the concentrated side would have scored far ahead.",
+      "why": "6000 of pieces for 6000 of pieces is evenly valued. Under the retired alpha formula the concentrated side would have scored far ahead.",
       "got": [3000, 2000, 1000],
       "gave": [5000, 1000],
       "vaNet": 0,
       "pctGap": 0.0,
       "grade": "A",
-      "label": "Fair trade"
+      "label": "Evenly valued"
     }
   ],
   "tradeCases": [
@@ -273,7 +273,7 @@
         { "got": [9000], "gave": [10000] }
       ],
       "expected": [
-        { "vaNet": 0, "pctGap": 10.0, "grade": "A-", "label": "Good win" },
+        { "vaNet": 0, "pctGap": 10.0, "grade": "A", "label": "Good win" },
         { "vaNet": 0, "pctGap": -10.0, "grade": "B", "label": "Overpay" }
       ]
     },
@@ -285,13 +285,13 @@
         { "got": [5000], "gave": [5000] }
       ],
       "expected": [
-        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Fair trade" },
-        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Fair trade" }
+        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Evenly valued" },
+        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Evenly valued" }
       ]
     },
     {
       "id": "t-3team-graded-on-own-net",
-      "why": "Three-way where sent and received pools do not pair up. Every side is 1-for-1 so the VA stays suppressed. Team C receives the SECOND-smallest pile (3000) yet is a clear winner because it only sent 1000 — ranking sides by received total would have called it the unremarkable middle and stamped it Fair.",
+      "why": "Three-way where sent and received pools do not pair up. Every side is 1-for-1 so the VA stays suppressed. Team C receives the SECOND-smallest pile (3000) yet is a clear winner because it only sent 1000 — ranking sides by received total would have called it the unremarkable middle and stamped it Evenly valued.",
       "sides": [
         { "got": [1000], "gave": [8000] },
         { "got": [8000], "gave": [3000] },
@@ -323,8 +323,8 @@
         { "got": [1000], "gave": [1000, null, -50, 0, "abc"] }
       ],
       "expected": [
-        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Fair trade" },
-        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Fair trade" }
+        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Evenly valued" },
+        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Evenly valued" }
       ]
     }
   ],

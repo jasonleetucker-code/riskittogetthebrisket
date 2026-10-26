@@ -121,10 +121,15 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
             continue
         if value_int <= 0:
             continue
+        # V2.1 U3 identity evidence: the position and team the vendor
+        # published for this row (blank when it did not).  Written as trailing
+        # CSV columns; nothing that ranks or values reads them.
         out.append(
             {
                 "name": name,
                 "value": value_int,
+                "position": pos,
+                "team": str(entry.get("team") or "").strip().upper(),
             }
         )
     # Sort descending by value so the CSV reads naturally.
@@ -141,7 +146,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     # ``src/api/data_contract.py``): without a ``rank`` column in the
     # CSV, that join silently produces zero coverage.
     path.parent.mkdir(parents=True, exist_ok=True)
-    fields = ["name", "value", "rank"]
+    fields = ["name", "value", "rank", "position", "team"]
     with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
@@ -151,6 +156,8 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
                     "name": row["name"],
                     "value": row["value"],
                     "rank": idx,
+                    "position": row.get("position", ""),
+                    "team": row.get("team", ""),
                 }
             )
 

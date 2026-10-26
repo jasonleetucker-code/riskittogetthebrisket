@@ -1,5 +1,23 @@
 # Assistant Coordination
 
+## Standing high-throughput development / automatic qualified merges — owner 2026-10-19
+
+Apply the cross-model policy in `docs/AGENT_OPERATING_SYSTEM.md` §3:
+3–5 actual independent coding workers where feasible, separate worktrees,
+branches, file claims and an Integration coordinator; serialize shared
+canonical interfaces. Implementers run L0/L1 while building unrelated
+authorized work in parallel. L2 remains required at coherent PR integration
+and L3 at production release.
+
+**Integration may merge eligible PRs without another owner message.** Its
+exclusive authority already exists below. After objective green required
+exact-tree CI, independent review, dependency/conflict checks, branch
+protections and accepted feature evidence, merge promptly. This supersedes
+generic older per-merge approval prompts, *not* specific owner-only
+methodology, source/model promotion, launch/deploy or other consequential
+gates. Writers do not merge over Integration; missing/failed checks are not
+green; independent work continues while PR CI runs.
+
 ## Permanent parallel UI coordination — 2026-09-24 (#1421)
 
 UI policy: ALWAYS_PARALLEL_UNTIL_UI_COMPLETE

@@ -36,6 +36,14 @@ The states
                  what it used to.  Distinct from ``PARSE_FAILED`` because the
                  remedy is different: one is a bug, the other is the vendor
                  moving.
+``SEASONALLY_INACTIVE``  a response arrived, matched a source's DECLARED
+                 expected-empty signature, inside its declared seasonal window
+                 (``src/sources/seasonal_policy.py``; owner decision
+                 2026-10-03).  The board is legitimately absent this phase.
+                 It is acquired (a real empty board, ``rowCount`` 0) and NOT
+                 usable: it casts no current vote.  Only a declared policy
+                 can produce it; for every other source an empty board stays
+                 a failure.
 ``NO_CROSS_POSITION_COVERAGE``  the board was acquired successfully and does
                  not connect offense to IDP.  This is a statement about the
                  CONTENT, not the acquisition, and it is here because it is
@@ -61,6 +69,8 @@ __all__ = [
     "PARSE_FAILED",
     "PARTIAL",
     "SCHEMA_CHANGED",
+    "SEASONALLY_INACTIVE",
+    "SEASONALLY_INACTIVE_EXIT_CODE",
     "STALE",
     "UNAVAILABLE",
     "USABLE_ACQUISITION_STATES",
@@ -76,6 +86,15 @@ AUTH_REQUIRED = "AUTH_REQUIRED"
 PARSE_FAILED = "PARSE_FAILED"
 SCHEMA_CHANGED = "SCHEMA_CHANGED"
 NO_CROSS_POSITION_COVERAGE = "NO_CROSS_POSITION_COVERAGE"
+SEASONALLY_INACTIVE = "SEASONALLY_INACTIVE"
+
+#: The exit code a fetcher returns for a verified :data:`SEASONALLY_INACTIVE`
+#: outcome.  Deliberately not 3 (``fetch_yahoo_boone.py`` already uses 3 for a
+#: partial scrape).  Non-zero on purpose: ``scheduled-refresh.yml::run_fetcher``
+#: stamps ``*_last_success`` only on exit 0, and an inactive board is not a
+#: success.  The fetcher records the state itself; the code only lets the
+#: workflow log it as a notice instead of a fetch failure.
+SEASONALLY_INACTIVE_EXIT_CODE = 4
 
 ACQUISITION_STATES: frozenset[str] = frozenset(
     {
@@ -87,6 +106,7 @@ ACQUISITION_STATES: frozenset[str] = frozenset(
         PARSE_FAILED,
         SCHEMA_CHANGED,
         NO_CROSS_POSITION_COVERAGE,
+        SEASONALLY_INACTIVE,
     }
 )
 
@@ -106,7 +126,12 @@ class AcquisitionStateError(ValueError):
     """An outcome was constructed that cannot be true."""
 
 
-def state_from_exit_code(code: int, *, schema_regression_code: int = 2) -> str:
+def state_from_exit_code(
+    code: int,
+    *,
+    schema_regression_code: int = 2,
+    source_key: str | None = None,
+) -> str:
     """Map a fetcher's exit code onto a state.
 
     This is the ONE place the repo's ``0 / 1 / 2`` convention is turned into
@@ -116,12 +141,33 @@ def state_from_exit_code(code: int, *, schema_regression_code: int = 2) -> str:
     when the fetcher says so and otherwise the weaker ``UNAVAILABLE``.  A
     fetcher that knows better should construct the outcome directly rather
     than round-tripping through an integer.
+
+    Exit :data:`SEASONALLY_INACTIVE_EXIT_CODE` maps to
+    :data:`SEASONALLY_INACTIVE` ONLY for a ``source_key`` that has a declared
+    seasonal policy (``src/sources/seasonal_policy.py``, the one owner of
+    "is this board expected to exist right now?").  For any other source —
+    or no source named, or an unreadable policy file — exit 4 is just a
+    non-zero failure, ``UNAVAILABLE``: an integer alone can never declare a
+    source seasonal.
     """
     if code == 0:
         return HEALTHY
     if code == schema_regression_code:
         return SCHEMA_CHANGED
+    if code == SEASONALLY_INACTIVE_EXIT_CODE and _has_declared_seasonal_policy(source_key):
+        return SEASONALLY_INACTIVE
     return UNAVAILABLE
+
+
+def _has_declared_seasonal_policy(source_key: str | None) -> bool:
+    if not source_key:
+        return False
+    try:
+        from src.sources.seasonal_policy import load_policies  # noqa: PLC0415
+
+        return source_key in load_policies()
+    except Exception:  # noqa: BLE001 — unreadable policy fails closed
+        return False
 
 
 @dataclass(frozen=True)

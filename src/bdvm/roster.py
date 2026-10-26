@@ -29,6 +29,7 @@ from typing import Any, Mapping
 
 from src.bdvm.params import ParamSet
 from src.bdvm.trade_math import package_value
+from src.identity.picks import team_pick_ownership_unavailable_reason
 from src.ros.lineup import RosterPlayer, assign_lineup
 
 _IDP_GROUPS = frozenset({"DL", "LB", "DB"})
@@ -46,10 +47,16 @@ _REBUILD_RATIO = 1.0 / 1.15
 
 
 def rosters_from_contract(contract: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Normalize the contract's sleeper.teams block."""
+    """Normalize the contract's sleeper.teams block.
+
+    ``picks`` is ``None`` — never ``[]`` — when the team's pick ownership
+    is UNKNOWN (a failed ``/traded_picks`` fetch; vocabulary in
+    ``src/identity/picks.py``), with the reason in ``pickOwnershipReason``.
+    """
     teams = (contract.get("sleeper") or {}).get("teams") or []
     out = []
     for t in teams:
+        unknown_reason = team_pick_ownership_unavailable_reason(t)
         out.append(
             {
                 "name": t.get("name") or t.get("sleeperTeamName") or f"roster_{t.get('roster_id')}",
@@ -57,7 +64,12 @@ def rosters_from_contract(contract: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "rosterId": t.get("roster_id"),
                 "playerIds": [str(x) for x in (t.get("playerIds") or [])],
                 "playerNames": list(t.get("players") or []),
-                "picks": list(t.get("pickDetails") or t.get("picks") or []),
+                "picks": (
+                    None
+                    if unknown_reason is not None
+                    else list(t.get("pickDetails") or t.get("picks") or [])
+                ),
+                "pickOwnershipReason": unknown_reason,
             }
         )
     return out
@@ -207,7 +219,9 @@ def analyze_rosters(
                 "valueWeightedAge": round(weighted_age, 2),
                 "starterFpg": round(_starter_fpg(assets, starters, flex), 1),
                 "positionalSurplus": surplus,
-                "pickCount": len(roster["picks"]),
+                # Unknown ownership is not 0 picks: None + the reason.
+                "pickCount": None if roster["picks"] is None else len(roster["picks"]),
+                "pickCountUnavailableReason": roster["pickOwnershipReason"],
                 "assets": sorted(assets, key=lambda a: -a["tradeValue"].get("balanced", 0.0)),
             }
         )
@@ -260,11 +274,24 @@ def scan_double_positive_trades(
     *,
     team: str | None = None,
     max_results: int = MAX_RESULTS,
+    constraints: Any | None = None,
+    constrained_owner_id: str | None = None,
 ) -> dict[str, Any]:
     """Find trades that are positive for BOTH sides in their own currency.
 
     ``team`` filters side A by owner id or roster name (case-insensitive);
     None scans every ordered pair.
+
+    ``constraints`` (C3-CON-01, ``src/trade/constraints``) are the requester's
+    persistent protections.  They block assets on the giving side of the ONE
+    roster they belong to — ``constrained_owner_id``, the requester's roster,
+    whichever side of a pair it is on (never simply side A: a request naming
+    another ``team`` must not constrain that team) — and are applied BEFORE the
+    per-side asset cap.  Applying them
+    league-wide would block, say, every MIN player on every roster and stop the
+    requester acquiring their own protected names.  Active constraints with no
+    resolvable owner fail closed: no trades and a reason, never an
+    unconstrained scan.
     """
     rosters = roster_analysis.get("rosters") or []
     if team is not None:
@@ -277,20 +304,37 @@ def scan_double_positive_trades(
     else:
         side_a_rosters = rosters
 
+    constraints_active = constraints is not None and getattr(constraints, "active", False)
+    if constraints_active and not constrained_owner_id:
+        return {
+            "trades": [],
+            "scanned": 0,
+            "noResultReason": "constraints_owner_unresolved",
+            "warnings": [
+                "Your trade protections could not be matched to a roster in this league, "
+                "so no trade was generated."
+            ],
+        }
+
+    def _sendable(roster: Mapping[str, Any], assets: list[Any]) -> list[Any]:
+        if not constraints_active or roster["ownerId"] != constrained_owner_id:
+            return assets
+        return [a for a in assets if constraints.block_reason(a) is None]
+
     results: list[dict[str, Any]] = []
     seen: set[tuple] = set()
     for ra in side_a_rosters:
         a_assets = [
             a for a in ra["assets"] if a["tradeValue"].get("balanced", 0.0) >= MIN_ASSET_VALUE
         ]
-        a_assets = a_assets[:TOP_ASSETS_PER_SIDE]
+        a_assets = _sendable(ra, a_assets)[:TOP_ASSETS_PER_SIDE]
         for rb in rosters:
             if rb is ra or rb["ownerId"] == ra["ownerId"]:
                 continue
             b_assets = [
                 a for a in rb["assets"] if a["tradeValue"].get("balanced", 0.0) >= MIN_ASSET_VALUE
             ]
-            b_assets = b_assets[:TOP_ASSETS_PER_SIDE]
+            b_assets = _sendable(rb, b_assets)[:TOP_ASSETS_PER_SIDE]
             shapes: list[tuple[list, list]] = []
             shapes += [([x], [y]) for x in a_assets for y in b_assets]
             shapes += [(list(pair), [y]) for pair in combinations(a_assets, 2) for y in b_assets]

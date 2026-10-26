@@ -32,6 +32,9 @@ import json as _json
 from dataclasses import dataclass
 from typing import Any
 
+from src.identity import picks as _pick_identity
+from src.identity.pick_lifecycle import OWNED_PICK_DEFAULT_ROUNDS
+
 _LOGGER = logging.getLogger(__name__)
 
 # Matches the workbook's total so the bar chart stays comparable.
@@ -155,8 +158,9 @@ def _pick_value_from_contract(
 
 #: Last-resort round count.  Kept because Sleeper can be unreachable, but it is
 #: now a fallback rather than the only value the function ever sees — see
-#: ``resolve_draft_rounds``.
-DEFAULT_DRAFT_ROUNDS = 4
+#: ``resolve_draft_rounds``.  The ONE shared unknown-league default (Wave A),
+#: owned by ``pick_lifecycle`` — the board's own round count.
+DEFAULT_DRAFT_ROUNDS = OWNED_PICK_DEFAULT_ROUNDS
 
 #: Sleeper's own clamp; a league cannot configure a rookie draft outside it.
 MIN_DRAFT_ROUNDS = 1
@@ -211,6 +215,7 @@ def build_sleeper_derived(
     draft_rounds: int | None = None,
     declared_draft_rounds: Any = None,
     rookies: list[dict[str, Any]] | None = None,
+    league_draft_years: Any = None,
 ) -> dict[str, Any]:
     """Fetch owner / pick data from Sleeper and produce a draft-
     capital board.  Returns the same shape as the workbook path so
@@ -236,6 +241,12 @@ def build_sleeper_derived(
     context"), and the two live leagues share ``superflex_tep15_ppr1``.  The
     caller is responsible for checking that; omit the argument and the board
     renders exactly as before, with no rookie fields at all.
+
+    ``league_draft_years`` is the league-scoped canonical answer
+    (``pick_lifecycle.LeagueDraftYears``) the caller derived
+    ``current_season`` from; it is stamped on the payload so consumers read
+    the league's upcoming draft from the payload rather than re-deriving it
+    (Wave A).  ``upcomingDraftYear`` is ``current_season`` either way.
     """
     rounds_source = "explicit"
     if draft_rounds is None:
@@ -244,8 +255,13 @@ def build_sleeper_derived(
 
     rosters = _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/rosters")
     users = _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users")
-    traded = (
-        _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks") or []
+    # A 200 list (possibly empty) is an OBSERVATION of the trade diff;
+    # anything else (failed fetch → None, error object, scalar) observed
+    # nothing.  Folding default ownership over a missing diff would publish
+    # "no pick was ever traded" as fact and price every team's capital off
+    # it, so the board is refused instead (one rule, src/identity/picks.py).
+    traded = _pick_identity.traded_picks_observation(
+        _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks")
     )
 
     if not rosters or not users:
@@ -258,6 +274,29 @@ def build_sleeper_derived(
             "error": "sleeper_unreachable",
             "message": "Unexpected Sleeper response shape.",
         }
+    if traded is None:
+        # Every number on this board (picks, teamTotals[].auctionDollars) is
+        # a function of who owns which pick, so with ownership unknown there
+        # is no partial board worth serving — refuse with the same
+        # {error, message} shape the consumers already render.
+        return {
+            "error": _pick_identity.PICK_OWNERSHIP_UNAVAILABLE_ERROR,
+            "message": "Could not fetch traded picks from Sleeper; pick ownership is unknown.",
+            _pick_identity.PICK_OWNERSHIP_STATE_FIELD: _pick_identity.PICK_OWNERSHIP_UNAVAILABLE,
+            _pick_identity.PICK_OWNERSHIP_REASON_FIELD: (
+                _pick_identity.PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED
+            ),
+        }
+
+    # Canonical owned-pick ids (C1-ID-02) for each generated row, minted only
+    # under a REGISTRY key — an unregistered league gets none (fail closed).
+    league_key = None
+    try:
+        from src.api.league_registry import league_key_for_sleeper_id  # noqa: PLC0415
+
+        league_key = league_key_for_sleeper_id(sleeper_league_id)
+    except Exception:  # noqa: BLE001
+        league_key = None
 
     # roster_id → owner display name.
     user_map = {
@@ -270,6 +309,7 @@ def build_sleeper_derived(
         if isinstance(u, dict)
     }
     roster_name_by_id: dict[int, str] = {}
+    owner_id_by_rid: dict[int, str] = {}
     for r in rosters:
         if not isinstance(r, dict):
             continue
@@ -278,6 +318,23 @@ def build_sleeper_derived(
             continue
         owner_id = str(r.get("owner_id") or "")
         roster_name_by_id[int(rid)] = user_map.get(owner_id, f"Team {rid}")
+        if owner_id:
+            owner_id_by_rid[int(rid)] = owner_id
+    # Stable team keys for ``teamTotals`` (Wave A): a display name maps to a
+    # roster only when exactly one roster carries it.
+    rids_by_name: dict[str, list[int]] = {}
+    for _rid, _nm in roster_name_by_id.items():
+        rids_by_name.setdefault(_nm, []).append(_rid)
+
+    def _team_row(team: str, dollars: int) -> dict[str, Any]:
+        rids = rids_by_name.get(team) or []
+        rid = rids[0] if len(rids) == 1 else None
+        return {
+            "team": team,
+            "auctionDollars": dollars,
+            "rosterId": rid,
+            "ownerId": owner_id_by_rid.get(rid) if rid is not None else None,
+        }
 
     actual_num_teams = max(len(rosters), 1)
 
@@ -301,6 +358,7 @@ def build_sleeper_derived(
     # standings — which for this view is fine (ordering is not the
     # point, value + ownership is).
     picks: list[SleeperDerivedPick] = []
+    owner_rids: list[tuple[int, int]] = []  # (origin, current) per pick, same order
     for season in (current_season, current_season + 1):
         for round_n in range(1, draft_rounds + 1):
             for slot in range(1, actual_num_teams + 1):
@@ -308,6 +366,7 @@ def build_sleeper_derived(
                 current_rid = traded_map.get((season, round_n, original_rid), original_rid)
                 is_traded = current_rid != original_rid
                 value = _pick_value_from_contract(contract, season, round_n, slot)
+                owner_rids.append((original_rid, current_rid))
                 picks.append(
                     SleeperDerivedPick(
                         pick=f"{round_n}.{slot:02d}",
@@ -349,7 +408,7 @@ def build_sleeper_derived(
 
     unpriced = [p for p in picks if p.raw_value is None]
 
-    return {
+    result = {
         "season": current_season,
         "numTeams": actual_num_teams,
         "draftRounds": draft_rounds,
@@ -390,14 +449,41 @@ def build_sleeper_derived(
         "source": "sleeper_derived",
         "viewLabel": "Sleeper-derived, contract-priced",
         "teamTotals": [
-            {"team": t, "auctionDollars": d}
-            for t, d in sorted(team_totals.items(), key=lambda kv: -kv[1])
+            _team_row(t, d) for t, d in sorted(team_totals.items(), key=lambda kv: -kv[1])
         ],
+        # League-scoped draft years (Wave A) — the /trade stack anchors here.
+        "upcomingDraftYear": int(current_season),
+        "leagueDraftYears": (
+            league_draft_years.to_dict() if hasattr(league_draft_years, "to_dict") else None
+        ),
         "rookieSource": "contract" if rookies else "none",
         "picks": [
             _serialize_pick(p, i, current_season, rookies or []) for i, p in enumerate(picks)
         ],
     }
+    # Stable ids per row (Wave A), beside the display names.
+    from src.identity.picks import LeaguePickIdentity  # noqa: PLC0415
+
+    for row, p, (origin_rid, current_rid) in zip(result["picks"], picks, owner_rids):
+        row["originRosterId"] = origin_rid
+        row["currentOwnerRosterId"] = current_rid
+        row["assetId"] = (
+            LeaguePickIdentity(
+                league_key=league_key,
+                season=int(p.season),
+                round_num=int(p.round),
+                origin_roster_id=int(origin_rid),
+            ).canonical_id
+            if league_key
+            else None
+        )
+    # Per-season views for the /league year selector: a season's capital is
+    # the sum of the SAME normalized per-pick dollars that make up
+    # ``teamTotals`` (one $1200 pool across every priced pick — never
+    # re-spread per season), so the seasons add back up to each total.
+    from src.api.draft_capital_years import attach_year_views  # noqa: PLC0415
+
+    return attach_year_views(result)
 
 
 def _serialize_pick(

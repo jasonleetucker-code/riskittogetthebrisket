@@ -78,13 +78,19 @@ vi.mock("@/components/useBdvm", () => ({ useBdvmEndpoint: (...args) => {
   return { data: bdvm.data, failure: null };
 } }));
 
+const DEFAULT_RAW_DATA = {
+  dataFreshness: { generatedAt: "2026-07-26T00:00:00Z" },
+  // Board built from an EARLIER scrape — the two clocks differ.
+  scrapeTimestamp: "2026-07-25T18:00:00Z",
+};
+const dyn = vi.hoisted(() => ({ rawData: null }));
 vi.mock("@/components/useDynastyData", () => ({
   useDynastyData: () => ({
     loading: false,
     error: "",
     source: "test",
     rows: ROWS,
-    rawData: { dataFreshness: { generatedAt: "2026-07-26T00:00:00Z" } },
+    rawData: dyn.rawData || DEFAULT_RAW_DATA,
   }),
 }));
 vi.mock("@/components/AppShell", () => ({
@@ -133,6 +139,7 @@ function renderedNames() {
 }
 
 beforeEach(() => {
+  dyn.rawData = null;
   openPlayerPopup.mockClear();
   bdvm.data = null;
   bdvm.request.mockClear();
@@ -218,6 +225,61 @@ describe("rankings board", () => {
     expect(screen.queryByText(/Source Audit:/)).toBeNull();
   });
 
+  // C8-U2 2026-09-29: the expanded row rendered through the legacy
+  // `source-audit-*` globals — the retired dark terminal palette — and
+  // measured 283 axe color-contrast nodes at 1366px on the live board.
+  it("the expanded audit panel renders on the editorial module, not the legacy dark classes", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.click(within(screen.getAllByRole("row")[1]).getByText("WR"));
+    expect(document.querySelector(".source-audit-panel")).toBeNull();
+    expect(document.querySelector("[class*='source-audit-']")).toBeNull();
+    const auditRow = document.querySelector("tr.rankings-audit-row");
+    expect(auditRow.className).toMatch(/auditRow/);
+  });
+
+  it("names the board-built and scrape clocks instead of calling build time 'Last scraped'", () => {
+    render(<RankingsPage />);
+    expect(screen.queryByText(/Last scraped/)).toBeNull();
+    expect(screen.getByText(/Board built/)).toBeInTheDocument();
+    expect(screen.getByText(/from the scrape of/)).toBeInTheDocument();
+  });
+
+  it("never presents the board BUILD time as an update: header names the scrape clock", () => {
+    // Board rebuilt just now (e.g. a restart) from a scrape 3 days old.
+    const now = Date.now();
+    dyn.rawData = {
+      dataFreshness: { generatedAt: new Date(now).toISOString() },
+      scrapeTimestamp: new Date(now - 3 * 86_400_000).toISOString(),
+    };
+    render(<RankingsPage />);
+    const header = document.body.textContent;
+    expect(header).not.toMatch(/Updated/);
+    expect(screen.getByText("Chase Upside Consensus / Scraped 3d ago")).toBeInTheDocument();
+  });
+
+  it("falls back to the build clock, labelled as the build clock, when no scrape time is published", () => {
+    const now = Date.now();
+    dyn.rawData = { dataFreshness: { generatedAt: new Date(now - 2 * 3_600_000).toISOString() } };
+    render(<RankingsPage />);
+    expect(screen.getByText("Chase Upside Consensus / Board built 2h ago")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Updated/);
+  });
+
+  it("describes confidence with the current rule, not the retired spread rule", () => {
+    render(<RankingsPage />);
+    expect(screen.queryByText("2+ src, tight")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "What is confidence?" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "What is Value?" })).toBeInTheDocument();
+  });
+
+  it("keeps the primary value on the phone board: Consensus (a diagnostic) hides below md", () => {
+    render(<RankingsPage />);
+    const firstRow = screen.getAllByRole("row")[1];
+    expect(firstRow.querySelector("td[data-col='score']").className).toMatch(/ds-col-hide-md/);
+    expect(firstRow.querySelector("td[data-col='value']").className).not.toMatch(/ds-col-hide/);
+  });
+
   it("a player-name click opens the profile instead of expanding the row", async () => {
     const user = userEvent.setup();
     render(<RankingsPage />);
@@ -271,4 +333,26 @@ it("opts only rankings into board and preserves full/board gap display, sorting 
     }
     expect(outputs[1]).toEqual(outputs[0]);
   } finally {click.mockRestore();vi.unstubAllGlobals();}
+});
+
+it("labels the Fund gap column's fundamental side as provisional BDVM, not the market board", async () => {
+  const user = userEvent.setup();
+  bdvm.data = {
+    status: "ok",
+    players: ROWS.map((row) => ({
+      playerId: row.raw.playerId,
+      name: row.name,
+      market: { gap: 10, marketValue: 100 },
+      tradeValue: { balanced: 110 },
+      signal: { signal: "BUY", reason: "backend reason" },
+      projection: { anyProxy: false },
+    })),
+  };
+  render(<RankingsPage />);
+  const trigger = screen.getByRole("button", { name: "What is Fund gap?" });
+  trigger.focus();
+  await user.keyboard("{Enter}");
+  expect(screen.getByRole("region", { name: "Fund gap" })).toHaveTextContent(
+    "Fundamental value (BDVM) · provisional priors — not the market board.",
+  );
 });

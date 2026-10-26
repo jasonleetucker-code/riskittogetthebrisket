@@ -1,0 +1,20 @@
+[Unit]
+Description=Joint robust-filter shadow ledger (twice daily, 07:55 and 19:55 UTC) for __SERVICE_NAME__
+# No Requires= on the service: [Timer] Unit= already binds it, and a
+# Requires= here would start the service on every boot and let a service
+# failure stop the timer. Persistent=true is the catch-up.
+
+[Timer]
+# Twice a day at :55 -- after the :42 two-hourly data refresh has settled and
+# clear of the 07:10 board snapshot and 07:30 consensus-edge snapshot. The
+# evaluation thins to one origin board per UTC day, so two records a day (one
+# spare against a missed run) are ample; more would add ledger growth (~140 KB
+# per record + a ~37 KB panel), not independent observations.
+OnCalendar=*-*-* 07,19:55:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-joint-filter-shadow.service
+
+[Install]
+WantedBy=timers.target

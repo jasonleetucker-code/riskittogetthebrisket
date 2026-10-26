@@ -1,0 +1,835 @@
+{
+ "allExpected": false,
+ "baseline": {
+  "filterRows": 706,
+  "safeguardsFiredOnRealBoard": {
+   "dominant_evidence_kept": 0,
+   "kept_to_avoid_single_family": 0
+  }
+ },
+ "board": {
+  "archive": "dynasty_export_20260930_130404.zip",
+  "csvCommit": "10c9d7429a91aecc4300f25916a5a0444f3ea510"
+ },
+ "dominantSafeguardReachability": {
+  "diagnosticK": {
+   "k": 0.5,
+   "reasons": {
+    "dominant_evidence_kept": 504,
+    "kept_to_avoid_single_family": 44674,
+    "outlier": 72131
+   }
+  },
+  "productionK": {
+   "k": 2.75,
+   "reasons": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 7544,
+    "outlier": 34801
+   }
+  },
+  "seed": 1571,
+  "trials": 20000
+ },
+ "fullPipeline": [
+  {
+   "case": "FP_A4_dlfSf_ranks_x5",
+   "counts": {
+    "challengerDrops": 247,
+    "filterRows": 706,
+    "incumbentDrops": 239,
+    "nameCollisions": 0,
+    "obsChallengerOnlyDrop": 43,
+    "obsIncumbentOnlyDrop": 35,
+    "reproducedChallenger": 59,
+    "reproducedIncumbent": 59,
+    "reproductionChecked": 59,
+    "rows": 1041,
+    "rowsDisagree": 59,
+    "rowsValueChanged": 59
+   },
+   "csvRankSlice": [
+    0,
+    60
+   ],
+   "csvRowsChanged": 60,
+   "focusFreshnessMedian": null,
+   "focusObservations": {
+    "perturbedChallengerDropped": 97,
+    "perturbedIncumbentDropped": 97,
+    "perturbedObservations": 276,
+    "unchangedChallengerDropped": 2,
+    "unchangedIncumbentDropped": 2,
+    "unchangedObservations": 12
+   },
+   "focusSources": [
+    "dlfSf"
+   ],
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   }
+  },
+  {
+   "case": "FP_A4_dlfSf_ranks_x0.2",
+   "counts": {
+    "challengerDrops": 341,
+    "filterRows": 706,
+    "incumbentDrops": 333,
+    "nameCollisions": 0,
+    "obsChallengerOnlyDrop": 39,
+    "obsIncumbentOnlyDrop": 31,
+    "reproducedChallenger": 53,
+    "reproducedIncumbent": 54,
+    "reproductionChecked": 54,
+    "rows": 1041,
+    "rowsDisagree": 54,
+    "rowsValueChanged": 54
+   },
+   "csvRankSlice": [
+    150,
+    250
+   ],
+   "csvRowsChanged": 100,
+   "focusFreshnessMedian": null,
+   "focusObservations": {
+    "perturbedChallengerDropped": 184,
+    "perturbedIncumbentDropped": 184,
+    "perturbedObservations": 222,
+    "unchangedChallengerDropped": 3,
+    "unchangedIncumbentDropped": 3,
+    "unchangedObservations": 66
+   },
+   "focusSources": [
+    "dlfSf"
+   ],
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   }
+  },
+  {
+   "agedDays": 3,
+   "agedFreshness": {
+    "dynastyDaddySf": 0.0435,
+    "fantasyCalc": 0.0435,
+    "pfkDynasty": 0.9755
+   },
+   "case": "FP_A2_three_sources_stale",
+   "counts": {
+    "challengerDrops": 168,
+    "filterRows": 706,
+    "incumbentDrops": 159,
+    "nameCollisions": 0,
+    "obsChallengerOnlyDrop": 38,
+    "obsIncumbentOnlyDrop": 29,
+    "reproducedChallenger": 50,
+    "reproducedIncumbent": 51,
+    "reproductionChecked": 51,
+    "rows": 1041,
+    "rowsDisagree": 51,
+    "rowsValueChanged": 49
+   },
+   "focusFreshnessMedian": 0.0435,
+   "focusObservations": {
+    "unchangedChallengerDropped": 15,
+    "unchangedIncumbentDropped": 13,
+    "unchangedObservations": 1219
+   },
+   "focusSources": [
+    "dynastyDaddySf",
+    "fantasyCalc",
+    "pfkDynasty"
+   ],
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   }
+  }
+ ],
+ "functionLevel": [
+  {
+   "case": "A1_trap",
+   "descriptive": {
+    "incumbentDropsFresh": 25
+   },
+   "examples": [
+    {
+     "challengerCentre": 9902.612903225807,
+     "challengerDropped": [],
+     "expected": true,
+     "familiesPresent": 4,
+     "familiesSurvivingChallenger": 4,
+     "fresh": "dynastyNerdsSfTep",
+     "freshProtectedBy": "weighted_centre",
+     "incumbentCentre": 6781.137096774193,
+     "incumbentDropped": [
+      "dynastyNerdsSfTep"
+     ],
+     "incumbentDropsFresh": true,
+     "reasons": {
+      "dlfSf": "kept_to_avoid_single_family",
+      "draftSharks": "kept_to_avoid_single_family",
+      "dynastyDaddySf": "kept_to_avoid_single_family"
+     },
+     "row": "James Cook"
+    },
+    {
+     "challengerCentre": 9889.258064516129,
+     "challengerDropped": [],
+     "expected": true,
+     "familiesPresent": 4,
+     "familiesSurvivingChallenger": 4,
+     "fresh": "dynastyNerdsSfTep",
+     "freshProtectedBy": "weighted_centre",
+     "incumbentCentre": 6771.991935483871,
+     "incumbentDropped": [
+      "dynastyNerdsSfTep"
+     ],
+     "incumbentDropsFresh": true,
+     "reasons": {
+      "dlfSf": "kept_to_avoid_single_family",
+      "draftSharks": "kept_to_avoid_single_family",
+      "dynastyDaddySf": "kept_to_avoid_single_family"
+     },
+     "row": "Omarion Hampton"
+    },
+    {
+     "challengerCentre": 9826.193548387097,
+     "challengerDropped": [],
+     "expected": true,
+     "familiesPresent": 4,
+     "familiesSurvivingChallenger": 4,
+     "fresh": "dynastyNerdsSfTep",
+     "freshProtectedBy": "weighted_centre",
+     "incumbentCentre": 6728.806451612903,
+     "incumbentDropped": [
+      "dynastyNerdsSfTep"
+     ],
+     "incumbentDropsFresh": true,
+     "reasons": {
+      "dlfSf": "kept_to_avoid_single_family",
+      "draftSharks": "kept_to_avoid_single_family",
+      "dynastyDaddySf": "kept_to_avoid_single_family"
+     },
+     "row": "Jonathan Taylor"
+    }
+   ],
+   "expectedHeld": 25,
+   "failures": [],
+   "rows": 25,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 75
+   }
+  },
+  {
+   "case": "A1b_trap_full_row",
+   "descriptive": {
+    "incumbentDropsFresh": 22
+   },
+   "examples": [
+    {
+     "challengerCentre": 9902.612903225807,
+     "challengerDropped": [],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 14,
+     "fresh": "dlfSf",
+     "incumbentCentre": 6787.5,
+     "incumbentDropped": [
+      "dlfSf",
+      "draftSharks",
+      "fantasyNavigatorSf"
+     ],
+     "incumbentDropsFresh": true,
+     "reasons": {
+      "draftSharks": "kept_to_avoid_single_family",
+      "dynastyDaddySf": "kept_to_avoid_single_family",
+      "dynastyNerdsSfTep": "kept_to_avoid_single_family",
+      "fantasyCalc": "kept_to_avoid_single_family",
+      "fantasyNavigatorSf": "kept_to_avoid_single_family",
+      "fantasyProsFitzmaurice": "kept_to_avoid_single_family",
+      "fantasyProsSf": "kept_to_avoid_single_family",
+      "flockFantasySf": "kept_to_avoid_single_family",
+      "idpShowCombined": "kept_to_avoid_single_family",
+      "idpTradeCalc": "kept_to_avoid_single_family",
+      "ktcCrowdSfTep": "kept_to_avoid_single_family",
+      "ktcTradesSfTep": "kept_to_avoid_single_family",
+      "otcffbSf": "kept_to_avoid_single_family",
+      "pfkDynasty": "kept_to_avoid_single_family",
+      "yahooBoone": "kept_to_avoid_single_family"
+     },
+     "row": "James Cook"
+    },
+    {
+     "challengerCentre": 9889.258064516129,
+     "challengerDropped": [],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 14,
+     "fresh": "dlfSf",
+     "incumbentCentre": 6780.0,
+     "incumbentDropped": [
+      "dlfSf"
+     ],
+     "incumbentDropsFresh": true,
+     "reasons": {
+      "draftSharks": "kept_to_avoid_single_family",
+      "dynastyDaddySf": "kept_to_avoid_single_family",
+      "dynastyNerdsSfTep": "kept_to_avoid_single_family",
+      "fantasyCalc": "kept_to_avoid_single_family",
+      "fantasyNavigatorSf": "kept_to_avoid_single_family",
+      "fantasyProsFitzmaurice": "kept_to_avoid_single_family",
+      "fantasyProsSf": "kept_to_avoid_single_family",
+      "flockFantasySf": "kept_to_avoid_single_family",
+      "idpShowCombined": "kept_to_avoid_single_family",
+      "idpTradeCalc": "kept_to_avoid_single_family",
+      "ktcCrowdSfTep": "kept_to_avoid_single_family",
+      "ktcTradesSfTep": "kept_to_avoid_single_family",
+      "otcffbSf": "kept_to_avoid_single_family",
+      "pfkDynasty": "kept_to_avoid_single_family",
+      "yahooBoone": "kept_to_avoid_single_family"
+     },
+     "row": "Omarion Hampton"
+    },
+    {
+     "challengerCentre": 9826.193548387097,
+     "challengerDropped": [],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 14,
+     "fresh": "dlfSf",
+     "incumbentCentre": 6671.5,
+     "incumbentDropped": [
+      "dlfSf",
+      "otcffbSf"
+     ],
+     "incumbentDropsFresh": true,
+     "reasons": {
+      "draftSharks": "kept_to_avoid_single_family",
+      "dynastyDaddySf": "kept_to_avoid_single_family",
+      "dynastyNerdsSfTep": "kept_to_avoid_single_family",
+      "fantasyCalc": "kept_to_avoid_single_family",
+      "fantasyNavigatorSf": "kept_to_avoid_single_family",
+      "fantasyProsFitzmaurice": "kept_to_avoid_single_family",
+      "fantasyProsSf": "kept_to_avoid_single_family",
+      "flockFantasySf": "kept_to_avoid_single_family",
+      "idpShowCombined": "kept_to_avoid_single_family",
+      "idpTradeCalc": "kept_to_avoid_single_family",
+      "ktcCrowdSfTep": "kept_to_avoid_single_family",
+      "ktcTradesSfTep": "kept_to_avoid_single_family",
+      "otcffbSf": "kept_to_avoid_single_family",
+      "pfkDynasty": "kept_to_avoid_single_family",
+      "yahooBoone": "kept_to_avoid_single_family"
+     },
+     "row": "Jonathan Taylor"
+    }
+   ],
+   "expectedHeld": 25,
+   "failures": [],
+   "rows": 25,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 311
+   }
+  },
+  {
+   "case": "A2_stale_cluster_vs_fresh_single",
+   "descriptive": {
+    "incumbentDropsFresh": 25
+   },
+   "examples": [
+    {
+     "challengerCentre": 5999.4,
+     "challengerDropped": [],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 14,
+     "fresh": "yahooBoone",
+     "incumbentCentre": 9999.0,
+     "incumbentDropped": [
+      "yahooBoone"
+     ],
+     "incumbentDropsFresh": true,
+     "reasons": {
+      "dlfSf": "kept_to_avoid_single_family",
+      "draftSharks": "kept_to_avoid_single_family",
+      "dynastyDaddySf": "kept_to_avoid_single_family",
+      "dynastyNerdsSfTep": "kept_to_avoid_single_family",
+      "fantasyCalc": "kept_to_avoid_single_family",
+      "fantasyNavigatorSf": "kept_to_avoid_single_family",
+      "fantasyProsFitzmaurice": "kept_to_avoid_single_family",
+      "fantasyProsSf": "kept_to_avoid_single_family",
+      "flockFantasySf": "kept_to_avoid_single_family",
+      "idpShowCombined": "kept_to_avoid_single_family",
+      "idpTradeCalc": "kept_to_avoid_single_family",
+      "ktcCrowdSfTep": "kept_to_avoid_single_family",
+      "ktcTradesSfTep": "kept_to_avoid_single_family",
+      "otcffbSf": "kept_to_avoid_single_family",
+      "pfkDynasty": "kept_to_avoid_single_family"
+     },
+     "row": "Josh Allen"
+    },
+    {
+     "challengerCentre": 5987.4,
+     "challengerDropped": [
+      "dlfSf",
+      "dynastyDaddySf",
+      "dynastyNerdsSfTep",
+      "fantasyCalc",
+      "fantasyNavigatorSf",
+      "fantasyProsFitzmaurice",
+      "fantasyProsSf",
+      "flockFantasySf",
+      "idpShowCombined",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "otcffbSf",
+      "pfkDynasty"
+     ],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 2,
+     "fresh": "yahooBoone",
+     "incumbentCentre": 9977.5,
+     "incumbentDropped": [
+      "draftSharks",
+      "fantasyProsSf",
+      "idpShowCombined",
+      "yahooBoone"
+     ],
+     "incumbentDropsFresh": true,
+     "reasons": {
+      "dlfSf": "outlier",
+      "dynastyDaddySf": "outlier",
+      "dynastyNerdsSfTep": "outlier",
+      "fantasyCalc": "outlier",
+      "fantasyNavigatorSf": "outlier",
+      "fantasyProsFitzmaurice": "outlier",
+      "fantasyProsSf": "outlier",
+      "flockFantasySf": "outlier",
+      "idpShowCombined": "outlier",
+      "idpTradeCalc": "outlier",
+      "ktcCrowdSfTep": "outlier",
+      "ktcTradesSfTep": "outlier",
+      "otcffbSf": "outlier",
+      "pfkDynasty": "outlier"
+     },
+     "row": "Brock Bowers"
+    },
+    {
+     "challengerCentre": 5911.5,
+     "challengerDropped": [],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 14,
+     "fresh": "yahooBoone",
+     "incumbentCentre": 9852.5,
+     "incumbentDropped": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "incumbentDropsFresh": true,
+     "reasons": {
+      "dlfSf": "kept_to_avoid_single_family",
+      "draftSharks": "kept_to_avoid_single_family",
+      "dynastyDaddySf": "kept_to_avoid_single_family",
+      "dynastyNerdsSfTep": "kept_to_avoid_single_family",
+      "fantasyCalc": "kept_to_avoid_single_family",
+      "fantasyNavigatorSf": "kept_to_avoid_single_family",
+      "fantasyProsFitzmaurice": "kept_to_avoid_single_family",
+      "fantasyProsSf": "kept_to_avoid_single_family",
+      "flockFantasySf": "kept_to_avoid_single_family",
+      "idpShowCombined": "kept_to_avoid_single_family",
+      "idpTradeCalc": "kept_to_avoid_single_family",
+      "ktcCrowdSfTep": "kept_to_avoid_single_family",
+      "ktcTradesSfTep": "kept_to_avoid_single_family",
+      "otcffbSf": "kept_to_avoid_single_family",
+      "pfkDynasty": "kept_to_avoid_single_family"
+     },
+     "row": "Bijan Robinson"
+    }
+   ],
+   "expectedHeld": 25,
+   "failures": [],
+   "rows": 25,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 345
+   }
+  },
+  {
+   "case": "A3_correlated_family_members",
+   "descriptive": {
+    "challengerDropsCluster": 10,
+    "challengerDropsIndependent": 2,
+    "challengerNoWorseThanIncumbent": 25,
+    "incumbentDropsIndependent": 6
+   },
+   "examples": [
+    {
+     "challengerCentre": 9999.0,
+     "challengerDropped": [],
+     "challengerDropsCluster": false,
+     "challengerDropsIndependent": false,
+     "challengerNoWorseThanIncumbent": true,
+     "expected": true,
+     "familiesPresent": 3,
+     "familiesSurvivingChallenger": 3,
+     "family": "fantasyPros",
+     "incumbentCentre": 9999.0,
+     "incumbentDropped": [],
+     "incumbentDropsIndependent": false,
+     "members": [
+      "fantasyProsFitzmaurice",
+      "fantasyProsSf"
+     ],
+     "reasons": {},
+     "row": "Josh Allen"
+    },
+    {
+     "challengerCentre": 9345.0,
+     "challengerDropped": [],
+     "challengerDropsCluster": false,
+     "challengerDropsIndependent": false,
+     "challengerNoWorseThanIncumbent": true,
+     "expected": true,
+     "familiesPresent": 3,
+     "familiesSurvivingChallenger": 3,
+     "family": "fantasyPros",
+     "incumbentCentre": 9672.0,
+     "incumbentDropped": [
+      "draftSharks"
+     ],
+     "incumbentDropsIndependent": true,
+     "members": [
+      "fantasyProsFitzmaurice",
+      "fantasyProsSf"
+     ],
+     "reasons": {},
+     "row": "Bijan Robinson"
+    },
+    {
+     "challengerCentre": 9481.0,
+     "challengerDropped": [
+      "draftSharks"
+     ],
+     "challengerDropsCluster": false,
+     "challengerDropsIndependent": true,
+     "challengerNoWorseThanIncumbent": true,
+     "expected": false,
+     "familiesPresent": 3,
+     "familiesSurvivingChallenger": 2,
+     "family": "fantasyPros",
+     "incumbentCentre": 9740.0,
+     "incumbentDropped": [
+      "draftSharks"
+     ],
+     "incumbentDropsIndependent": true,
+     "members": [
+      "fantasyProsFitzmaurice",
+      "fantasyProsSf"
+     ],
+     "reasons": {
+      "draftSharks": "outlier"
+     },
+     "row": "Jahmyr Gibbs"
+    }
+   ],
+   "expectedHeld": 23,
+   "failures": [
+    {
+     "challengerCentre": 9481.0,
+     "challengerDropped": [
+      "draftSharks"
+     ],
+     "challengerDropsCluster": false,
+     "challengerDropsIndependent": true,
+     "challengerNoWorseThanIncumbent": true,
+     "expected": false,
+     "familiesPresent": 3,
+     "familiesSurvivingChallenger": 2,
+     "family": "fantasyPros",
+     "incumbentCentre": 9740.0,
+     "incumbentDropped": [
+      "draftSharks"
+     ],
+     "incumbentDropsIndependent": true,
+     "members": [
+      "fantasyProsFitzmaurice",
+      "fantasyProsSf"
+     ],
+     "reasons": {
+      "draftSharks": "outlier"
+     },
+     "row": "Jahmyr Gibbs"
+    },
+    {
+     "challengerCentre": 9617.0,
+     "challengerDropped": [
+      "draftSharks"
+     ],
+     "challengerDropsCluster": false,
+     "challengerDropsIndependent": true,
+     "challengerNoWorseThanIncumbent": true,
+     "expected": false,
+     "familiesPresent": 3,
+     "familiesSurvivingChallenger": 2,
+     "family": "fantasyPros",
+     "incumbentCentre": 9808.0,
+     "incumbentDropped": [
+      "draftSharks"
+     ],
+     "incumbentDropsIndependent": true,
+     "members": [
+      "fantasyProsFitzmaurice",
+      "fantasyProsSf"
+     ],
+     "reasons": {
+      "draftSharks": "outlier"
+     },
+     "row": "Lamar Jackson"
+    }
+   ],
+   "rows": 25,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   }
+  },
+  {
+   "case": "A4_broken_scale_x5",
+   "descriptive": {
+    "incumbentDropsBroken": 25
+   },
+   "examples": [
+    {
+     "broken": "idpTradeCalc",
+     "challengerCentre": 2426.0,
+     "challengerDropped": [
+      "idpTradeCalc"
+     ],
+     "expected": true,
+     "familiesPresent": 11,
+     "familiesSurvivingChallenger": 10,
+     "incumbentCentre": 2429.5,
+     "incumbentDropped": [
+      "idpTradeCalc"
+     ],
+     "incumbentDropsBroken": true,
+     "reasons": {
+      "idpTradeCalc": "outlier"
+     },
+     "row": "Darren Waller"
+    },
+    {
+     "broken": "idpTradeCalc",
+     "challengerCentre": 2163.9967664235983,
+     "challengerDropped": [
+      "idpTradeCalc"
+     ],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 13,
+     "incumbentCentre": 2201.0,
+     "incumbentDropped": [
+      "idpTradeCalc"
+     ],
+     "incumbentDropsBroken": true,
+     "reasons": {
+      "idpTradeCalc": "outlier"
+     },
+     "row": "Deshaun Watson"
+    },
+    {
+     "broken": "idpShowCombined",
+     "challengerCentre": 1924.9999999999998,
+     "challengerDropped": [
+      "idpShowCombined"
+     ],
+     "expected": true,
+     "familiesPresent": 4,
+     "familiesSurvivingChallenger": 3,
+     "incumbentCentre": 1925.0,
+     "incumbentDropped": [
+      "idpShowCombined"
+     ],
+     "incumbentDropsBroken": true,
+     "reasons": {
+      "idpShowCombined": "outlier"
+     },
+     "row": "Kaleb Elarms-Orr"
+    }
+   ],
+   "expectedHeld": 25,
+   "failures": [],
+   "rows": 25,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   }
+  },
+  {
+   "case": "A4_broken_scale_x0.2",
+   "descriptive": {
+    "incumbentDropsBroken": 25
+   },
+   "examples": [
+    {
+     "broken": "idpTradeCalc",
+     "challengerCentre": 9999.0,
+     "challengerDropped": [
+      "idpTradeCalc"
+     ],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 13,
+     "incumbentCentre": 9999.0,
+     "incumbentDropped": [
+      "idpTradeCalc"
+     ],
+     "incumbentDropsBroken": true,
+     "reasons": {
+      "idpTradeCalc": "outlier"
+     },
+     "row": "Josh Allen"
+    },
+    {
+     "broken": "idpTradeCalc",
+     "challengerCentre": 9979.0,
+     "challengerDropped": [
+      "draftSharks",
+      "fantasyProsSf",
+      "idpShowCombined",
+      "idpTradeCalc"
+     ],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 11,
+     "incumbentCentre": 9979.0,
+     "incumbentDropped": [
+      "draftSharks",
+      "fantasyProsSf",
+      "idpShowCombined",
+      "idpTradeCalc"
+     ],
+     "incumbentDropsBroken": true,
+     "reasons": {
+      "draftSharks": "outlier",
+      "fantasyProsSf": "outlier",
+      "idpShowCombined": "outlier",
+      "idpTradeCalc": "outlier"
+     },
+     "row": "Brock Bowers"
+    },
+    {
+     "broken": "idpTradeCalc",
+     "challengerCentre": 9787.230969742963,
+     "challengerDropped": [
+      "draftSharks",
+      "idpTradeCalc"
+     ],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 12,
+     "incumbentCentre": 9787.0,
+     "incumbentDropped": [
+      "draftSharks",
+      "idpTradeCalc"
+     ],
+     "incumbentDropsBroken": true,
+     "reasons": {
+      "draftSharks": "outlier",
+      "idpTradeCalc": "outlier"
+     },
+     "row": "Bijan Robinson"
+    }
+   ],
+   "expectedHeld": 25,
+   "failures": [],
+   "rows": 25,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   }
+  },
+  {
+   "case": "A4b_dominant_broken_kept_limitation",
+   "descriptive": {
+    "incumbentDropsBroken": 15
+   },
+   "examples": [
+    {
+     "broken": "dlfSf",
+     "challengerCentre": 9999.0,
+     "challengerDropped": [],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 14,
+     "incumbentCentre": 9999.0,
+     "incumbentDropped": [],
+     "incumbentDropsBroken": false,
+     "reasons": {},
+     "row": "Josh Allen"
+    },
+    {
+     "broken": "dlfSf",
+     "challengerCentre": 9999.0,
+     "challengerDropped": [
+      "draftSharks",
+      "fantasyProsSf",
+      "idpShowCombined"
+     ],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 12,
+     "incumbentCentre": 9979.0,
+     "incumbentDropped": [
+      "draftSharks",
+      "fantasyProsSf",
+      "idpShowCombined"
+     ],
+     "incumbentDropsBroken": false,
+     "reasons": {
+      "draftSharks": "outlier",
+      "fantasyProsSf": "outlier",
+      "idpShowCombined": "outlier"
+     },
+     "row": "Brock Bowers"
+    },
+    {
+     "broken": "dlfSf",
+     "challengerCentre": 9999.0,
+     "challengerDropped": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "expected": true,
+     "familiesPresent": 14,
+     "familiesSurvivingChallenger": 12,
+     "incumbentCentre": 9883.0,
+     "incumbentDropped": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "incumbentDropsBroken": false,
+     "reasons": {
+      "draftSharks": "outlier",
+      "yahooBoone": "outlier"
+     },
+     "row": "Bijan Robinson"
+    }
+   ],
+   "expectedHeld": 25,
+   "failures": [],
+   "rows": 25,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 152
+   }
+  }
+ ],
+ "schema": "joint-filter-shadow/v1/adversarial"
+}

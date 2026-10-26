@@ -1,0 +1,14 @@
+{
+  "bandsRoot": "origin/claude/fairness-bands-v2@19ec3f7394",
+  "hasCountsAsFairTrade": true,
+  "levels": {
+    "fair": 833,
+    "lopsided": 15702,
+    "slight": 1231,
+    "unfair": 2234
+  },
+  "samples": 20000,
+  "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+  "swapMismatches": 0,
+  "version": "fairness_bands_v2"
+}

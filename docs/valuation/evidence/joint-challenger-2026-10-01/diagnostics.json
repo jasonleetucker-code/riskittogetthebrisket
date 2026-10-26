@@ -1,0 +1,2487 @@
+{
+ "challenger": "joint-robust-v2",
+ "archive": "dynasty_export_20260930_130404.zip",
+ "rows": 1041,
+ "pins": {
+  "codeRevision": "f2819ff965daa279194015001f80525db0c700a1",
+  "workingTreeDirty": false,
+  "payload": {
+   "archive": "dynasty_export_20260930_130404.zip",
+   "sha256": "27ffe6b9dce4e9957fa12bec19d77fce208a36e0f54b523887ce8b19afc58428",
+   "scrapeTimestamp": "2026-09-30T13:04:04.598312+00:00"
+  },
+  "sourceCsvs": {
+   "dlfIdp.csv": "3fe56fb6f9e74e9cfbf52acf90e8654d272afd811c4e93e9ba2fcbe1be090b0e",
+   "dlfRookieIdp.csv": "2eef67a693ab312232e934287effffebf4112063eb62aa33f50d225f9a0fdb88",
+   "dlfRookieSf.csv": "e2bb108f7d389a7dc518eff38874d734eade305819947ecc62a6933e32d0dcdd",
+   "dlfSf.csv": "9c0f7b83ec22beea013aab829b1b1d31e676f820cfba3150015890668f6bdc12",
+   "dlfValuesSfTep.csv": "38284bc9f52a8929cd865cf15a218a724820959b6ad782984b0e542bb8eac187",
+   "dlfValuesSfTepPicks.csv": "be71d397997b7c51e5942f4fae1bc79a5a2bb4a217c831006f45f0df563dd2d1",
+   "draftSharksIdp.csv": "2eccf4cd00e0e6e72d89688ad9e2422fafcce416fd335ecc5d51ce17052b0aec",
+   "draftSharksRosIdp.csv": "2fdf19819be2a94fe043760660ed620806ebb58627d4366aa8763c403afed6bf",
+   "draftSharksRosSf.csv": "ff8dd0b0dfafc718605e88efe716678594ab089ba4e1205cad97baef5448680c",
+   "draftSharksSf.csv": "f591d3d5c5bdd013f2460c5a9c4e0969e3959aa64ead4783c763d27ee5919e81",
+   "dynastyDaddySf.csv": "399f0eb5b268b8ffdbe5198c127e4a03d0ad501c06ad808641f079638dc1605a",
+   "dynastyNerdsSfTep.csv": "96c1e6c9d1dd4a9ee7cf8b9d722020e5ed69463e77386ae853390d74237ca576",
+   "fantasyCalc.csv": "4e3f64fea007142d7c1e333f063028ed20726b0f0db4bae337cf74fc218db408",
+   "fantasyNavigatorSf.csv": "957dd43f5594096c43cefbcee5005ce926aef36967c845d3c450b32744b5b5a5",
+   "fantasyProsFitzmaurice.csv": "d398e8a676fdbeb81994568158a085358e12b57b78e2d7b4a0414e2e65d281a8",
+   "fantasyProsIdp.csv": "41ee06ebf745092293d9478316e6b8247ba7c6d31a2f8cb753e6a76608414a56",
+   "fantasyProsSf.csv": "8b744b5854de52854320d794ac7b9758864c10a512e7df492afdf1e00a454b63",
+   "flockFantasySf.csv": "40ca625084e0f7636403e9eff2f649f57a6ba8bd8c7e56804b0ed98e6ed2d587",
+   "flockFantasySfRookies.csv": "0a0219625ea4e542bd4c26745285633d128d1af6ad9b8f822c7840174b1fa7de",
+   "idpShow.csv": "b8d1a6e116421573045e680625795040a6bf93d7a6c225479db1fe79c0cc03f0",
+   "idpShowCombined.csv": "1d7c30daecb24d62dfcc5e991d190888bad908262a44a661f817f73db0f15ba4",
+   "idpTradeCalc.csv": "75abdac13302fb855ab170ce869216380baa133c377695782cf384eacb2f9e47",
+   "ktc.csv": "c208f1c542e97e749c20574c22098d8a445cb0537760c771d41dc2891866ef6f",
+   "ktcCrowdSfTep.csv": "c53263b3f40c3cb7371760e44093bec00f6d3d4af7ce3bc4ab7c862ce8d9f915",
+   "ktcCrowdTradesSfTep.csv": "fa1b4497982cd7e5951bc77832b5a02417436df1e7d489e1222d166b4ad9c716",
+   "ktcSfTep.csv": "80cd550a8d6020569140eab585a999779d6429c6869731280640ee0f40eb101d",
+   "ktcTradesSfTep.csv": "e001133041cee34f28c26ece213704deb80e4e5d036f99da2e2912439972e86f",
+   "otcffbSf.csv": "d7020aacc3e92e365e5e191f05d8e61f65102eda126400bcd4154bb44ef61cfb",
+   "pfkDynasty.csv": "39c9bb8e97a7e55a7c1d0c1db28557abba42afffa95226fac91d2e4876bbe235",
+   "yahooBoone.csv": "2003a09a82f88cc5204f8a3f584baab4611be03f0ba5257e25bf96b4504b5ca4"
+  },
+  "freshnessState": {
+   "dlfIdp_dataset.json": "112b8f1ba6ca780d9cbe8a51f826d5388833b3916f5afeb84886a11ade240c2e",
+   "dlfRookieIdp_dataset.json": "fb67b6e0af1504c4d2655ac16a81e8fb2b791e4f728fb59b12631fb9deb9978d",
+   "dlfRookieSf_dataset.json": "22506f53a92960fca01e4995d11cb1a786b03fd5820562ba0ab71109d2e177fd",
+   "dlfSf_dataset.json": "1c555024fed2fb1391f7059f67383bebcccb9869a4b976765eff44c47e0b48f6",
+   "dlfValuesSfTep_dataset.json": "1a1563c4b5a86ec3773261ecfe0d67259a50c0daa53ca150d5590912ec883c7b",
+   "draftSharks_dataset.json": "d6cad76989223282195b6948fdbd03943d8c99e90729471351ef40ef80f3ac85",
+   "draftSharksIdp_dataset.json": "a2aa182737a4ee09b8afba2a2b5c179f615fd64a384d4336d09653ef9b31ef51",
+   "dynastyDaddySf_dataset.json": "1be4647485188ea62230e271938198595c5c8c0f0054a6cbf765ba0c188053b1",
+   "dynastyNerdsSfTep_dataset.json": "fd8b3691ca4116dec85b94b347dd275260aa475bf245755845d42dc015fa1e39",
+   "fantasyCalc_dataset.json": "893085e4d651a4399561b9830778f55a3aa326beb4785a936f0f956fcdd73394",
+   "fantasyNavigatorSf_dataset.json": "093a8a4b1020a6e186010d5be048ab23b746f33b19f631b27ea681ef2f7959b2",
+   "fantasyProsFitzmaurice_dataset.json": "453f7951dd5917c20fc62ed3fbb100f3d3ee21131e1bb88176ca34ed3cc8db09",
+   "fantasyProsIdp_dataset.json": "b8b28a5204381ad0772df1967e4cc18060d6f1a364f9109df6bb3283e6f2ebe5",
+   "fantasyProsSf_dataset.json": "7c404b8ee09c8465b16767ff90f21131ffe22988d4da2fbe9a5efdcbedce6495",
+   "flockFantasySf_dataset.json": "a41228001e70d46a50880e665d0e7e1ad6f04d9b345ec4a2fddd6ad58b6be1ad",
+   "flockFantasySfRookies_dataset.json": "c941c1d406e13e811fc15fbc7ed12996976f82867a45b5a7a55e210d17974293",
+   "idpShowCombined_dataset.json": "7f3b1fe7496913a49c0fdb6ab04a8b1ecdc46e0984d0850ab46058478e5a59c5",
+   "idpTradeCalc_dataset.json": "9cdb1dfc831d3b914d62854dfc268e88498433e30fe19d38ff77e0093d727485",
+   "ktcCrowdSfTep_dataset.json": "7e318ce937e4c6fb85920434a79ce555975c0fd63edb3b0e23d585bccea79130",
+   "ktcCrowdTradesSfTep_dataset.json": "3e7512d08fda9288187aa26a2a8eb15473a2eb0613f0c6d4f7c7840a57d7d38b",
+   "ktcTradesSfTep_dataset.json": "2dc644d16cb8a121f98c2d6a5ca36e6a16bb075952870d414d5e265442aa4f76",
+   "otcffbSf_dataset.json": "c374a391b553b2426edbb2cbcbbb2950ce7359d55393403c2708f0b0627cca4f",
+   "pfkDynasty_dataset.json": "4232cf0c1c69b9a16ad43623e91c5a40acef10a53bcbaa0120ba5b78554aac9a",
+   "yahooBoone_dataset.json": "b7f0a1f3b9de3024b56de279d1184cace7a0f8c0eb2936df716d5e7f002bd650"
+  },
+  "fetchStamps": {
+   "dlf_last_success": "1790843254",
+   "dlfIdp_last_success": "1790843254",
+   "dlfRookieIdp_last_success": "1790843254",
+   "dlfRookieSf_last_success": "1790843254",
+   "dlfSf_last_success": "1790843254",
+   "dlfValuesSfTep_last_success": "1790843254",
+   "draftSharks_last_success": "1790836806",
+   "draftSharksIdp_last_success": "1790836806",
+   "draftSharksRos_last_success": "1790836819",
+   "dynastyDaddy_last_success": "1790836642",
+   "dynastyDaddySf_last_success": "1790836642",
+   "dynastyNerdsSfTep_last_success": "1790836821",
+   "fantasyCalc_last_success": "1790836643",
+   "fantasyNavigatorSf_last_success": "1790836644",
+   "fantasyProsFitzmaurice_last_success": "1790836820",
+   "fantasyProsIdp_last_success": "1790836822",
+   "fantasyProsSf_last_success": "1790836821",
+   "flockFantasy_last_success": "1790836646",
+   "flockFantasyRookies_last_success": "1790773448",
+   "flockFantasySf_last_success": "1790836646",
+   "flockFantasySfRookies_last_success": "1790773448",
+   "idpShow_last_success": "1790843532",
+   "idpShowCombined_last_success": "1790843532",
+   "idpTradeCalc_last_success": "1790836641",
+   "ktc_last_success": "1790836641",
+   "ktcCrowdSfTep_last_success": "1790836641",
+   "ktcCrowdTradesSfTep_last_success": "1790836641",
+   "ktcSfTep_last_success": "1790836641",
+   "ktcTradesSfTep_last_success": "1790836641",
+   "otcffbSf_last_success": "1790836643",
+   "pfkDynasty_last_success": "1790836645",
+   "sleeper_last_success": "1790836476.921358",
+   "yahooBoone_last_success": "1790836826"
+  },
+  "freshnessConfig": "3ccf97aff37d6ea5166001669fd7408d5ba4ab458b3ec92888641fdb2445c681",
+  "config": {
+   "config/bdvm/event_types_v1.json": "a3b40bc5b0699d5a40d6fd48b466f803c788c3ac4e00ea0f43817fc70082c14c",
+   "config/bdvm/params_v1.json": "1b641fb0eed514fe1ce4c0952fbdbdb97dc78b5ea1fbf235634ddcd24a021147",
+   "config/bdvm/pick_outcomes_v1.json": "5af5e5bcd171a6d68f7824d1079c846bebf65c42a28f7a8fb44fe1ca13bff7a6",
+   "config/bridges/bridges_v1.json": "16da3208b40e65b1e8a2e47d0e5072f807e4dd9cdabf84555d63eab3bb581160",
+   "config/ci/release_gate_classification.json": "78521d112a8e81c2c7cfa474d5da2b1fd72884da169e2a6521c92a9bcdb8f137",
+   "config/coercion_baseline.json": "7aa7db318be317f74ea79ddcd602c76ad2c691a803336ebf43c6bdb1ee7d2b79",
+   "config/confidence/gate_v1.json": "fcb4846670a7cb2b56c19a4b1b6f9c4b2ee96b675f35cf888193bb7dd1d1a79b",
+   "config/consensus_edge/params_v1.json": "890d54132a63e5522f7cde38e74a18113f60b338ff1e205fe2922f798798ac04",
+   "config/dfs/presets.json": "69fc9429d5704f5ee8245fc4f5439cc08b4669e37d9531a50b6bb7ca44fd4b82",
+   "config/dfs/providers.json": "8b0092510358ec94a38d15e294625a1eb4d88db8c2525c118383adf9780faf6b",
+   "config/dfs/rulesets.json": "f455c12f3bf2fe4854a80601017513fde92a1e36a20543f26e7810aea48a95f4",
+   "config/dfs/source_seeds.json": "7c7c169d997b4049ab3b3e10eab290afbdcb4a19141d5c7378aae327022d7085",
+   "config/espn_schema_baseline.json": "39efbd12c9af9845bcfb3086ed0c94ac7b2fb2bbebb3df3abf4bcd9b6e9ca958",
+   "config/identity/id_overrides.json": "cdaf9f2749a2a57ee72303da0544451ed553f5ef34c22fbd4efd86a4e5b27392",
+   "config/league_comparison.json": "9a021d66b4284274ebbb031c3ad65f70ff1d13d79e81e0ca20f87c5a019e89aa",
+   "config/league_intel/dynasty_new/sleeper_league_snapshot_2026-08-25.json": "537122e8442f9bc6b569ff4c84c14bf42070ae544872a997a7f2d416864d5071",
+   "config/league_intel/sleeper_league_snapshot_2026-07-26.json": "81c6c6c0dde12952c3c0032e533e92292e93bd588832ab825b760899ae7fe962",
+   "config/leagues/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "config/leagues/award_eligibility_overrides.json": "b456c4707cfac1474eee9923e1e9321c0939d74f219b711642d2af84774b518e",
+   "config/leagues/default_superflex_idp.template.json": "85437b5718dd0e6770370089d440c46c4ed7a0661fc9d06a858ab4f10d7c480e",
+   "config/leagues/owner_names.json": "853c9332e7a236ff28d80bd2180ab29c95ca03b9e82c2c7ad492595c33a08b06",
+   "config/leagues/README.md": "47b437463084015faa923a21958e939e86d6e29d5ab54884413834b426458a21",
+   "config/leagues/registry.json": "ef61b7719df83dfec76a0b21f170d38ba9d55ecacca0080325e263fa7c219766",
+   "config/model_registry/hill_autopilot_policy.json": "63cc861479808252d44f35ffe16af58722ddaf1b94d0bd48e000e1e64abd3f5f",
+   "config/model_registry/hill_autopilot_runs.jsonl": "a685d949dc985ab8617b4d229f75f3d3ae3e5efd6371ec69a93c29da242f0bff",
+   "config/model_registry/hill_scope_masters.json": "6740a880cee8f2744f04b0fd99f9e8f6cb50e00decae4f393628c9f04e521f39",
+   "config/power/attested/dynasty_main_2026_week_00.json": "9d7cc617762301dadcaa06191e9633cbdc697946f969310bf62beb51656a6005",
+   "config/projections/source_capability_census.json": "b47d7396cefeee2b733257dd96e90e894135c93a673fb23ab6fb9944d249e6c1",
+   "config/roster_intel/meaningful_core.json": "62e04092c107d5313d984ac88c6a74ecda44321a04c2257dd9cdcab3a40770a0",
+   "config/sharp/curated_universe.json": "398510e998bf1f675d982b22f26947eecf7f7aeabb0502d95beb853abea1d9c0",
+   "config/sharp/discovery_seeds.json": "a7fc8059a5f45f7344acfd1154a32d52ae25959e110230684236c6128f6d8590",
+   "config/sharp/ffpc_asset_mappings.json": "e3566b3a06430868d71e9287dfd6c6c520a3da027aabea01951d407ee131dc2f",
+   "config/sharp/ffpc_sources.json": "f1b286ee6709b0d9493ce72c9aa88e255e48ecc766f718a29d91a3c3c220becb",
+   "config/sharp/scoring_v2.json": "9a5af740ae9f13adffb2f63a80f2844cfb64e0cd253b8a0ec62482973570b626",
+   "config/sharp/workbooks/dynasty_fantasy_football_sharps_100.xlsx": "3f032b006b0f44b069fb83dde5eb23f6cffe9f9dfd12fb42d72fe17bbedd014d",
+   "config/source_staleness.json": "6a0b926cb03ec9ac6d8a0dcc18e511ddfdac88123f258ad627074feb9db62d22",
+   "config/sources/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "config/sources/dlf_sources.template.json": "3845d2d85a9eb46d3fb452ee84118cf84b8f8939932cb42262e491955ff2e864",
+   "config/sources/freshness_v1.json": "3ccf97aff37d6ea5166001669fd7408d5ba4ab458b3ec92888641fdb2445c681",
+   "config/steward/contracts.schema.json": "521d2f57dcfc1285a5bbd06182fc70948808467d7f6e9a84d3c38c01315421ea",
+   "config/steward/routing.json": "db3e2a9a911eb70c26192aaf9847064d258e78adb59b46903a66fa94bd0ef902",
+   "config/team_assignment.json": "a318ea0c3ce03b7826fc06d4eedf44945f5a0d24299f4c84394b8445e5f18938",
+   "config/thresholds.json": "d90b241f01127a0402a4adf7b870445b1577988ef156fc996c754cc37729b2d8",
+   "config/tiers/thresholds.json": "b535c97465766b354de3d84a96ec385bc1707a51aab452da9b036cf4df40709b",
+   "config/trade/analyze_trade.json": "dc8e05b4825f521f1c17a266843b37199ebecc8203b505aa87b9ec78286792b3",
+   "config/trade/faab.json": "4a7d3b20f839aee4e5b0ba62b2f9d1ff3637a29714a593d810d6ac120694e637",
+   "config/trade/team_impact.json": "65a13865aec0b92d8d55fe8f3f25769f973d8dbc77bb2f16fc4f6e8a56bc9729",
+   "config/weights/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "config/weights/default_weights.json": "fd937579d42898a347d60c4d09fa927874a51411b25543b3505f3a724c039ea7",
+   "config/weights/pick_year_discount.json": "071d34f9000632dc551d5b57b0dbc8c22b0870edac2586a5c66af36d0e961a79",
+   "config/weights/source_row_floors.json": "f242b931113d111f4e9399cdcbb2502ecb35cb2f4bce82d9137523629720a542",
+   "config/weights/te_premium_curve.json": "2dd219751770f3fe6ca3af938f0b3525c5a9aec96548976605e77803d92f0bac",
+   "config/weights/top50_coverage_floors.json": "67056b2cf5335f20928ef2bd9fc82f3015e87b028d6ba8bd6a09904db6abc923"
+  },
+  "localLeagueSnapshots": {
+   "tracked": false,
+   "files": {
+    "draft_classes_1.json": "b8a7185edddf0bbdb67456077b1c3e4cfd1126362670614b42ef46f50eac0457",
+    "draft_classes_1312006700437352448.json": "acf3a512b18223a4c72cf33f887f2c66cf8c655b326d4e6a78d504bbac13383c",
+    "draft_classes_1320092771247222784.json": "5899a826fa9b5b5dab7fb6560572fd101d55b75d664c759f9daa791b248cde43",
+    "draft_classes_2.json": "10122934e8bab4ad4cc3832cd437af7b516f3ecaf139517b35cb197687a9c32f",
+    "scoring_1312006700437352448.json": "1d786cd19cf2bf0253dae8315a0d6b29976d00071a9c5f2b4381eb529d34dc79",
+    "scoring_1320092771247222784.json": "abca7371e9983dd773477e434498282280524ffd77b558117af38b50a87fb3dc"
+   },
+   "note": "gitignored; a checkout without them keeps completed-draft picks (1131 vs 1041 rows on 2026-09-30)"
+  },
+  "flags": {
+   "multi_bridge_ladder": false,
+   "source_freshness_weighting": true,
+   "source_family_cap": true,
+   "source_universe_freshness": true,
+   "joint_outlier_sparse_challenger": false,
+   "joint_sparse_limited_evidence": false,
+   "ledger_rank_change": true,
+   "unified_id_mapper": false,
+   "nfl_data_ingest": true,
+   "realized_points_api": true,
+   "value_confidence_intervals": false,
+   "positional_tiers": false,
+   "usage_signals": false,
+   "espn_injury_feed": false,
+   "depth_chart_validation": false,
+   "monte_carlo_trade": true,
+   "dynamic_source_weights": false,
+   "te_basis_conversion": true,
+   "idp_scoring_fit": true,
+   "reception_scoring_fit": true,
+   "bdvm_engine": true,
+   "perfect_draft": true,
+   "rookie_auction": true,
+   "dfs_workspace": true,
+   "dfs_sportsdataio_slates": false,
+   "dfs_auto_slates": true,
+   "consensus_edge": false,
+   "host_native_scoring": false,
+   "waiver_live_opportunity": true,
+   "game_day_live_game_state": true,
+   "sleeper_weekly_projections": true,
+   "sportsdataio_live_game_state": false,
+   "balldontlie_live_game_state": false,
+   "fantasynerds_weekly_projections": false,
+   "sportsdataio_weekly_projections": false
+  },
+  "contractVersion": "2026-03-10.v2",
+  "hampel": {
+   "k": 2.75,
+   "minN": 4,
+   "minThreshold": 1000.0
+  },
+  "singleSourceRetention": 0.3
+ },
+ "incumbentTotalDrops": 161,
+ "filterOnly": {
+  "boardDiff": {
+   "rowsCompared": 1041,
+   "rowsChanged": 54,
+   "byGroup": {
+    "IDP": {
+     "changed": 20,
+     "medianAbs": 395.5,
+     "p90Abs": 783,
+     "maxAbs": 1464
+    },
+    "QB": {
+     "changed": 8,
+     "medianAbs": 17.5,
+     "p90Abs": 60,
+     "maxAbs": 116
+    },
+    "RB": {
+     "changed": 10,
+     "medianAbs": 74.0,
+     "p90Abs": 135,
+     "maxAbs": 176
+    },
+    "TE": {
+     "changed": 6,
+     "medianAbs": 53.5,
+     "p90Abs": 76,
+     "maxAbs": 87
+    },
+    "WR": {
+     "changed": 10,
+     "medianAbs": 75.0,
+     "p90Abs": 105,
+     "maxAbs": 183
+    }
+   },
+   "top200MembershipChanges": 8,
+   "largestMoves": [
+    {
+     "asset": "Cedric Gray",
+     "group": "IDP",
+     "delta": 1464,
+     "rankBefore": 177,
+     "rankAfter": 83
+    },
+    {
+     "asset": "Kool-Aid McKinstry",
+     "group": "IDP",
+     "delta": 785,
+     "rankBefore": null,
+     "rankAfter": 409
+    },
+    {
+     "asset": "Kevin Winston",
+     "group": "IDP",
+     "delta": -783,
+     "rankBefore": 197,
+     "rankAfter": 302
+    },
+    {
+     "asset": "Josiah Trotter",
+     "group": "IDP",
+     "delta": -633,
+     "rankBefore": 190,
+     "rankAfter": 272
+    },
+    {
+     "asset": "Rueben Bain",
+     "group": "IDP",
+     "delta": -630,
+     "rankBefore": 224,
+     "rankAfter": 321
+    },
+    {
+     "asset": "Jamien Sherwood",
+     "group": "IDP",
+     "delta": -618,
+     "rankBefore": 194,
+     "rankAfter": 276
+    },
+    {
+     "asset": "Trey Hendrickson",
+     "group": "IDP",
+     "delta": -596,
+     "rankBefore": 289,
+     "rankAfter": 495
+    },
+    {
+     "asset": "Derwin James",
+     "group": "IDP",
+     "delta": -581,
+     "rankBefore": 192,
+     "rankAfter": 263
+    },
+    {
+     "asset": "Ernest Jones",
+     "group": "IDP",
+     "delta": 547,
+     "rankBefore": 159,
+     "rankAfter": 115
+    },
+    {
+     "asset": "Jonathan Greenard",
+     "group": "IDP",
+     "delta": -454,
+     "rankBefore": 265,
+     "rankAfter": 365
+    },
+    {
+     "asset": "Nick Emmanwori",
+     "group": "IDP",
+     "delta": -337,
+     "rankBefore": 109,
+     "rankAfter": 134
+    },
+    {
+     "asset": "Jalen Coker",
+     "group": "WR",
+     "delta": 183,
+     "rankBefore": 155,
+     "rankAfter": 139
+    },
+    {
+     "asset": "Derrick Henry",
+     "group": "RB",
+     "delta": -176,
+     "rankBefore": 97,
+     "rankAfter": 108
+    },
+    {
+     "asset": "Omarion Hampton",
+     "group": "RB",
+     "delta": -135,
+     "rankBefore": 30,
+     "rankAfter": 32
+    },
+    {
+     "asset": "Cooper DeJean",
+     "group": "IDP",
+     "delta": -121,
+     "rankBefore": 166,
+     "rankAfter": 181
+    }
+   ]
+  },
+  "filterReasonCounts": {
+   "outlier": 173
+  },
+  "dropSetChanges": [
+   {
+    "asset": "Ashton Jeanty",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsFitzmaurice"
+    ],
+    "valueOff": 8296,
+    "valueOn": 8360
+   },
+   {
+    "asset": "Bijan Robinson",
+    "incumbentDropped": [
+     "draftSharks",
+     "yahooBoone"
+    ],
+    "challengerDropped": [
+     "draftSharks"
+    ],
+    "valueOff": 9807,
+    "valueOn": 9753
+   },
+   {
+    "asset": "Blake Cashman",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "dlfIdp"
+    ],
+    "valueOff": 3216,
+    "valueOn": 3276
+   },
+   {
+    "asset": "Brock Purdy",
+    "incumbentDropped": [
+     "fantasyProsSf",
+     "pfkDynasty"
+    ],
+    "challengerDropped": [
+     "fantasyProsSf",
+     "idpTradeCalc",
+     "pfkDynasty"
+    ],
+    "valueOff": 6834,
+    "valueOn": 6836
+   },
+   {
+    "asset": "Caleb Downs",
+    "incumbentDropped": [
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3534,
+    "valueOn": 3482
+   },
+   {
+    "asset": "Carson Schwesinger",
+    "incumbentDropped": [
+     "draftSharksIdp"
+    ],
+    "challengerDropped": [
+     "draftSharksIdp",
+     "idpShowCombined"
+    ],
+    "valueOff": 5531,
+    "valueOn": 5605
+   },
+   {
+    "asset": "Cedric Gray",
+    "incumbentDropped": [
+     "draftSharksIdp",
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3052,
+    "valueOn": 4516
+   },
+   {
+    "asset": "Chris Olave",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "pfkDynasty"
+    ],
+    "valueOff": 6379,
+    "valueOn": 6312
+   },
+   {
+    "asset": "Christian McCaffrey",
+    "incumbentDropped": [
+     "fantasyCalc",
+     "fantasyNavigatorSf"
+    ],
+    "challengerDropped": [],
+    "valueOff": 5320,
+    "valueOn": 5404
+   },
+   {
+    "asset": "Colston Loveland",
+    "incumbentDropped": [
+     "yahooBoone"
+    ],
+    "challengerDropped": [],
+    "valueOff": 7293,
+    "valueOn": 7369
+   },
+   {
+    "asset": "Cooper DeJean",
+    "incumbentDropped": [
+     "dlfIdp",
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3124,
+    "valueOn": 3003
+   },
+   {
+    "asset": "Dak Prescott",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [],
+    "valueOff": 5734,
+    "valueOn": 5794
+   },
+   {
+    "asset": "Derrick Henry",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "fantasyCalc",
+     "ktcTradesSfTep"
+    ],
+    "valueOff": 4150,
+    "valueOn": 3974
+   },
+   {
+    "asset": "Derwin James",
+    "incumbentDropped": [
+     "draftSharksIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 2911,
+    "valueOn": 2330
+   },
+   {
+    "asset": "Devaughn Vele",
+    "incumbentDropped": [
+     "pfkDynasty"
+    ],
+    "challengerDropped": [],
+    "valueOff": 1974,
+    "valueOn": 2056
+   },
+   {
+    "asset": "DeVonta Smith",
+    "incumbentDropped": [
+     "draftSharks",
+     "dynastyNerdsSfTep"
+    ],
+    "challengerDropped": [
+     "draftSharks"
+    ],
+    "valueOff": 5533,
+    "valueOn": 5455
+   },
+   {
+    "asset": "Dillon Thieneman",
+    "incumbentDropped": [
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3630,
+    "valueOn": 3582
+   },
+   {
+    "asset": "Drake Maye",
+    "incumbentDropped": [
+     "ktcCrowdSfTep"
+    ],
+    "challengerDropped": [],
+    "valueOff": 8753,
+    "valueOn": 8724
+   },
+   {
+    "asset": "Elijah Sarratt",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharks"
+    ],
+    "valueOff": 1932,
+    "valueOn": 1893
+   },
+   {
+    "asset": "Emmett Johnson",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "flockFantasySfRookies"
+    ],
+    "valueOff": 2731,
+    "valueOn": 2738
+   },
+   {
+    "asset": "Ernest Jones",
+    "incumbentDropped": [
+     "draftSharksIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3222,
+    "valueOn": 3769
+   },
+   {
+    "asset": "George Kittle",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "dynastyNerdsSfTep"
+    ],
+    "valueOff": 4338,
+    "valueOn": 4383
+   },
+   {
+    "asset": "Jake Ferguson",
+    "incumbentDropped": [
+     "yahooBoone"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3773,
+    "valueOn": 3686
+   },
+   {
+    "asset": "Jalen Coker",
+    "incumbentDropped": [
+     "ktcCrowdSfTep",
+     "ktcTradesSfTep"
+    ],
+    "challengerDropped": [
+     "dynastyNerdsSfTep",
+     "ktcCrowdSfTep"
+    ],
+    "valueOff": 3288,
+    "valueOn": 3471
+   },
+   {
+    "asset": "Jalen Hurts",
+    "incumbentDropped": [
+     "dlfSf"
+    ],
+    "challengerDropped": [
+     "dlfSf",
+     "fantasyProsSf",
+     "idpShowCombined",
+     "idpTradeCalc",
+     "ktcCrowdSfTep"
+    ],
+    "valueOff": 7208,
+    "valueOn": 7324
+   },
+   {
+    "asset": "James Cook",
+    "incumbentDropped": [
+     "dlfSf",
+     "draftSharks",
+     "fantasyNavigatorSf"
+    ],
+    "challengerDropped": [
+     "dlfSf",
+     "fantasyNavigatorSf"
+    ],
+    "valueOff": 6862,
+    "valueOn": 6759
+   },
+   {
+    "asset": "Jamien Sherwood",
+    "incumbentDropped": [
+     "draftSharksIdp",
+     "idpTradeCalc"
+    ],
+    "challengerDropped": [
+     "draftSharksIdp"
+    ],
+    "valueOff": 2897,
+    "valueOn": 2279
+   },
+   {
+    "asset": "Joe Burrow",
+    "incumbentDropped": [
+     "draftSharks",
+     "fantasyProsSf",
+     "ktcCrowdSfTep",
+     "yahooBoone"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsSf",
+     "idpTradeCalc",
+     "ktcCrowdSfTep",
+     "yahooBoone"
+    ],
+    "valueOff": 8233,
+    "valueOn": 8239
+   },
+   {
+    "asset": "Jonathan Greenard",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "idpTradeCalc"
+    ],
+    "valueOff": 2352,
+    "valueOn": 1898
+   },
+   {
+    "asset": "Jonathan Taylor",
+    "incumbentDropped": [
+     "dynastyDaddySf",
+     "fantasyCalc",
+     "otcffbSf"
+    ],
+    "challengerDropped": [
+     "otcffbSf"
+    ],
+    "valueOff": 6610,
+    "valueOn": 6726
+   },
+   {
+    "asset": "Jonathon Brooks",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "idpTradeCalc"
+    ],
+    "valueOff": 2776,
+    "valueOn": 2772
+   },
+   {
+    "asset": "Jordan Love",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsFitzmaurice"
+    ],
+    "valueOff": 5637,
+    "valueOn": 5634
+   },
+   {
+    "asset": "Jordyn Brooks",
+    "incumbentDropped": [
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3730,
+    "valueOn": 3814
+   },
+   {
+    "asset": "Josiah Trotter",
+    "incumbentDropped": [
+     "draftSharksIdp",
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 2936,
+    "valueOn": 2303
+   },
+   {
+    "asset": "Justin Herbert",
+    "incumbentDropped": [
+     "draftSharks",
+     "fantasyProsFitzmaurice",
+     "ktcCrowdSfTep",
+     "yahooBoone"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsFitzmaurice",
+     "yahooBoone"
+    ],
+    "valueOff": 6907,
+    "valueOn": 6863
+   },
+   {
+    "asset": "Justin Jefferson",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharks"
+    ],
+    "valueOff": 8053,
+    "valueOn": 8158
+   },
+   {
+    "asset": "Kevin Winston",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharksIdp",
+     "idpShowCombined"
+    ],
+    "valueOff": 2873,
+    "valueOn": 2090
+   },
+   {
+    "asset": "Kool-Aid McKinstry",
+    "incumbentDropped": [
+     "draftSharksIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 1021,
+    "valueOn": 1806
+   },
+   {
+    "asset": "Kyle Pitts",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "dynastyNerdsSfTep",
+     "fantasyProsFitzmaurice",
+     "idpTradeCalc"
+    ],
+    "valueOff": 4537,
+    "valueOn": 4475
+   },
+   {
+    "asset": "Malik Nabers",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "idpShowCombined",
+     "ktcCrowdSfTep"
+    ],
+    "valueOff": 7818,
+    "valueOn": 7835
+   },
+   {
+    "asset": "Nick Cross",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "fantasyProsIdp"
+    ],
+    "valueOff": 2101,
+    "valueOn": 2049
+   },
+   {
+    "asset": "Nick Emmanwori",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharksIdp"
+    ],
+    "valueOff": 3879,
+    "valueOn": 3542
+   },
+   {
+    "asset": "Omarion Hampton",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "dynastyNerdsSfTep",
+     "otcffbSf"
+    ],
+    "valueOff": 6702,
+    "valueOn": 6567
+   },
+   {
+    "asset": "Puka Nacua",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "ktcCrowdSfTep"
+    ],
+    "valueOff": 9051,
+    "valueOn": 9124
+   },
+   {
+    "asset": "Quincy Williams",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "fantasyProsIdp"
+    ],
+    "valueOff": 2107,
+    "valueOn": 2046
+   },
+   {
+    "asset": "Rueben Bain",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "idpTradeCalc"
+    ],
+    "valueOff": 2647,
+    "valueOn": 2017
+   },
+   {
+    "asset": "Ryan Flournoy",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharks"
+    ],
+    "valueOff": 1623,
+    "valueOn": 1594
+   },
+   {
+    "asset": "Saquon Barkley",
+    "incumbentDropped": [
+     "pfkDynasty"
+    ],
+    "challengerDropped": [],
+    "valueOff": 5009,
+    "valueOn": 4957
+   },
+   {
+    "asset": "Sonny Styles",
+    "incumbentDropped": [
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 4930,
+    "valueOn": 4833
+   },
+   {
+    "asset": "Terry McLaurin",
+    "incumbentDropped": [
+     "pfkDynasty"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3392,
+    "valueOn": 3315
+   },
+   {
+    "asset": "Trevor Lawrence",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsFitzmaurice",
+     "idpShowCombined",
+     "idpTradeCalc"
+    ],
+    "valueOff": 7285,
+    "valueOn": 7286
+   },
+   {
+    "asset": "Trey Hendrickson",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "idpTradeCalc"
+    ],
+    "valueOff": 2189,
+    "valueOn": 1593
+   },
+   {
+    "asset": "Trey McBride",
+    "incumbentDropped": [
+     "draftSharks",
+     "fantasyProsSf"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsSf",
+     "idpShowCombined"
+    ],
+    "valueOff": 9541,
+    "valueOn": 9545
+   },
+   {
+    "asset": "Tyler Warren",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsSf"
+    ],
+    "valueOff": 7185,
+    "valueOn": 7204
+   }
+  ],
+  "totalDrops": 173,
+  "limitedEvidenceRows": 0,
+  "membership": {
+   "top50": {
+    "entered": [
+     "Carson Schwesinger"
+    ],
+    "left": [
+     "DeVonta Smith"
+    ]
+   },
+   "top100": {
+    "entered": [
+     "Cedric Gray"
+    ],
+    "left": [
+     "Derrick Henry"
+    ]
+   },
+   "top200": {
+    "entered": [
+     "Antonio Williams",
+     "Laiatu Latu",
+     "Rhamondre Stevenson",
+     "Tuli Tuipulotu"
+    ],
+    "left": [
+     "Derwin James",
+     "Jamien Sherwood",
+     "Josiah Trotter",
+     "Kevin Winston"
+    ]
+   },
+   "top400": {
+    "entered": [
+     "Luke Schoonmaker"
+    ],
+    "left": [
+     "Trey Hendrickson"
+    ]
+   }
+  }
+ },
+ "sparseOnly": {
+  "boardDiff": {
+   "rowsCompared": 1041,
+   "rowsChanged": 51,
+   "byGroup": {
+    "IDP": {
+     "changed": 41,
+     "medianAbs": 563,
+     "p90Abs": 1045,
+     "maxAbs": 1274
+    },
+    "RB": {
+     "changed": 1,
+     "medianAbs": 1020,
+     "p90Abs": 1020,
+     "maxAbs": 1020
+    },
+    "TE": {
+     "changed": 3,
+     "medianAbs": 1550,
+     "p90Abs": 1550,
+     "maxAbs": 1624
+    },
+    "WR": {
+     "changed": 6,
+     "medianAbs": 819.5,
+     "p90Abs": 938,
+     "maxAbs": 1226
+    }
+   },
+   "top200MembershipChanges": 0,
+   "largestMoves": [
+    {
+     "asset": "DJ Rogers",
+     "group": "TE",
+     "delta": 1624,
+     "rankBefore": null,
+     "rankAfter": 271
+    },
+    {
+     "asset": "John Michael Gyllenborg",
+     "group": "TE",
+     "delta": 1550,
+     "rankBefore": null,
+     "rankAfter": 287
+    },
+    {
+     "asset": "RJ Maryland",
+     "group": "TE",
+     "delta": 1533,
+     "rankBefore": null,
+     "rankAfter": 291
+    },
+    {
+     "asset": "Avieon Terrell",
+     "group": "IDP",
+     "delta": 1274,
+     "rankBefore": null,
+     "rankAfter": 407
+    },
+    {
+     "asset": "Emmanuel Henderson",
+     "group": "WR",
+     "delta": 1226,
+     "rankBefore": null,
+     "rankAfter": 442
+    },
+    {
+     "asset": "Kyle Dugger",
+     "group": "IDP",
+     "delta": 1102,
+     "rankBefore": null,
+     "rankAfter": 502
+    },
+    {
+     "asset": "Jermod McCoy",
+     "group": "IDP",
+     "delta": 1095,
+     "rankBefore": null,
+     "rankAfter": 509
+    },
+    {
+     "asset": "Zyon McCollum",
+     "group": "IDP",
+     "delta": 1078,
+     "rankBefore": null,
+     "rankAfter": 522
+    },
+    {
+     "asset": "DJ Turner",
+     "group": "IDP",
+     "delta": 1045,
+     "rankBefore": null,
+     "rankAfter": 555
+    },
+    {
+     "asset": "James Pierre",
+     "group": "IDP",
+     "delta": 1021,
+     "rankBefore": null,
+     "rankAfter": 570
+    },
+    {
+     "asset": "Desmond Reid",
+     "group": "RB",
+     "delta": 1020,
+     "rankBefore": null,
+     "rankAfter": 571
+    },
+    {
+     "asset": "Jaylen Watson",
+     "group": "IDP",
+     "delta": 1006,
+     "rankBefore": null,
+     "rankAfter": 583
+    },
+    {
+     "asset": "Taurean York",
+     "group": "IDP",
+     "delta": 1002,
+     "rankBefore": null,
+     "rankAfter": 586
+    },
+    {
+     "asset": "Dee Alford",
+     "group": "IDP",
+     "delta": 998,
+     "rankBefore": null,
+     "rankAfter": 594
+    },
+    {
+     "asset": "Deontae Lawson",
+     "group": "IDP",
+     "delta": 998,
+     "rankBefore": null,
+     "rankAfter": 595
+    }
+   ]
+  },
+  "filterReasonCounts": {},
+  "dropSetChanges": [],
+  "totalDrops": 161,
+  "limitedEvidenceRows": 51,
+  "membership": {
+   "top50": {
+    "entered": [],
+    "left": []
+   },
+   "top100": {
+    "entered": [],
+    "left": []
+   },
+   "top200": {
+    "entered": [],
+    "left": []
+   },
+   "top400": {
+    "entered": [
+     "DJ Rogers",
+     "John Michael Gyllenborg",
+     "RJ Maryland"
+    ],
+    "left": [
+     "Alex Singleton",
+     "Dexter Lawrence",
+     "Jack Endries"
+    ]
+   }
+  }
+ },
+ "both": {
+  "boardDiff": {
+   "rowsCompared": 1041,
+   "rowsChanged": 105,
+   "byGroup": {
+    "IDP": {
+     "changed": 61,
+     "medianAbs": 547,
+     "p90Abs": 1021,
+     "maxAbs": 1464
+    },
+    "QB": {
+     "changed": 8,
+     "medianAbs": 17.5,
+     "p90Abs": 60,
+     "maxAbs": 116
+    },
+    "RB": {
+     "changed": 11,
+     "medianAbs": 84,
+     "p90Abs": 176,
+     "maxAbs": 1020
+    },
+    "TE": {
+     "changed": 9,
+     "medianAbs": 76,
+     "p90Abs": 1550,
+     "maxAbs": 1624
+    },
+    "WR": {
+     "changed": 16,
+     "medianAbs": 93.5,
+     "p90Abs": 864,
+     "maxAbs": 1226
+    }
+   },
+   "top200MembershipChanges": 8,
+   "largestMoves": [
+    {
+     "asset": "DJ Rogers",
+     "group": "TE",
+     "delta": 1624,
+     "rankBefore": null,
+     "rankAfter": 266
+    },
+    {
+     "asset": "John Michael Gyllenborg",
+     "group": "TE",
+     "delta": 1550,
+     "rankBefore": null,
+     "rankAfter": 284
+    },
+    {
+     "asset": "RJ Maryland",
+     "group": "TE",
+     "delta": 1533,
+     "rankBefore": null,
+     "rankAfter": 288
+    },
+    {
+     "asset": "Cedric Gray",
+     "group": "IDP",
+     "delta": 1464,
+     "rankBefore": 177,
+     "rankAfter": 83
+    },
+    {
+     "asset": "Avieon Terrell",
+     "group": "IDP",
+     "delta": 1274,
+     "rankBefore": null,
+     "rankAfter": 406
+    },
+    {
+     "asset": "Emmanuel Henderson",
+     "group": "WR",
+     "delta": 1226,
+     "rankBefore": null,
+     "rankAfter": 442
+    },
+    {
+     "asset": "Kyle Dugger",
+     "group": "IDP",
+     "delta": 1102,
+     "rankBefore": null,
+     "rankAfter": 503
+    },
+    {
+     "asset": "Jermod McCoy",
+     "group": "IDP",
+     "delta": 1095,
+     "rankBefore": null,
+     "rankAfter": 510
+    },
+    {
+     "asset": "Zyon McCollum",
+     "group": "IDP",
+     "delta": 1078,
+     "rankBefore": null,
+     "rankAfter": 523
+    },
+    {
+     "asset": "DJ Turner",
+     "group": "IDP",
+     "delta": 1045,
+     "rankBefore": null,
+     "rankAfter": 556
+    },
+    {
+     "asset": "James Pierre",
+     "group": "IDP",
+     "delta": 1021,
+     "rankBefore": null,
+     "rankAfter": 571
+    },
+    {
+     "asset": "Desmond Reid",
+     "group": "RB",
+     "delta": 1020,
+     "rankBefore": null,
+     "rankAfter": 572
+    },
+    {
+     "asset": "Jaylen Watson",
+     "group": "IDP",
+     "delta": 1006,
+     "rankBefore": null,
+     "rankAfter": 584
+    },
+    {
+     "asset": "Taurean York",
+     "group": "IDP",
+     "delta": 1002,
+     "rankBefore": null,
+     "rankAfter": 587
+    },
+    {
+     "asset": "Dee Alford",
+     "group": "IDP",
+     "delta": 998,
+     "rankBefore": null,
+     "rankAfter": 595
+    }
+   ]
+  },
+  "filterReasonCounts": {
+   "outlier": 173
+  },
+  "dropSetChanges": [
+   {
+    "asset": "Ashton Jeanty",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsFitzmaurice"
+    ],
+    "valueOff": 8296,
+    "valueOn": 8360
+   },
+   {
+    "asset": "Bijan Robinson",
+    "incumbentDropped": [
+     "draftSharks",
+     "yahooBoone"
+    ],
+    "challengerDropped": [
+     "draftSharks"
+    ],
+    "valueOff": 9807,
+    "valueOn": 9753
+   },
+   {
+    "asset": "Blake Cashman",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "dlfIdp"
+    ],
+    "valueOff": 3216,
+    "valueOn": 3276
+   },
+   {
+    "asset": "Brock Purdy",
+    "incumbentDropped": [
+     "fantasyProsSf",
+     "pfkDynasty"
+    ],
+    "challengerDropped": [
+     "fantasyProsSf",
+     "idpTradeCalc",
+     "pfkDynasty"
+    ],
+    "valueOff": 6834,
+    "valueOn": 6836
+   },
+   {
+    "asset": "Caleb Downs",
+    "incumbentDropped": [
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3534,
+    "valueOn": 3482
+   },
+   {
+    "asset": "Carson Schwesinger",
+    "incumbentDropped": [
+     "draftSharksIdp"
+    ],
+    "challengerDropped": [
+     "draftSharksIdp",
+     "idpShowCombined"
+    ],
+    "valueOff": 5531,
+    "valueOn": 5605
+   },
+   {
+    "asset": "Cedric Gray",
+    "incumbentDropped": [
+     "draftSharksIdp",
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3052,
+    "valueOn": 4516
+   },
+   {
+    "asset": "Chris Olave",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "pfkDynasty"
+    ],
+    "valueOff": 6379,
+    "valueOn": 6312
+   },
+   {
+    "asset": "Christian McCaffrey",
+    "incumbentDropped": [
+     "fantasyCalc",
+     "fantasyNavigatorSf"
+    ],
+    "challengerDropped": [],
+    "valueOff": 5320,
+    "valueOn": 5404
+   },
+   {
+    "asset": "Colston Loveland",
+    "incumbentDropped": [
+     "yahooBoone"
+    ],
+    "challengerDropped": [],
+    "valueOff": 7293,
+    "valueOn": 7369
+   },
+   {
+    "asset": "Cooper DeJean",
+    "incumbentDropped": [
+     "dlfIdp",
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3124,
+    "valueOn": 3003
+   },
+   {
+    "asset": "Dak Prescott",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [],
+    "valueOff": 5734,
+    "valueOn": 5794
+   },
+   {
+    "asset": "Derrick Henry",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "fantasyCalc",
+     "ktcTradesSfTep"
+    ],
+    "valueOff": 4150,
+    "valueOn": 3974
+   },
+   {
+    "asset": "Derwin James",
+    "incumbentDropped": [
+     "draftSharksIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 2911,
+    "valueOn": 2330
+   },
+   {
+    "asset": "Devaughn Vele",
+    "incumbentDropped": [
+     "pfkDynasty"
+    ],
+    "challengerDropped": [],
+    "valueOff": 1974,
+    "valueOn": 2056
+   },
+   {
+    "asset": "DeVonta Smith",
+    "incumbentDropped": [
+     "draftSharks",
+     "dynastyNerdsSfTep"
+    ],
+    "challengerDropped": [
+     "draftSharks"
+    ],
+    "valueOff": 5533,
+    "valueOn": 5455
+   },
+   {
+    "asset": "Dillon Thieneman",
+    "incumbentDropped": [
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3630,
+    "valueOn": 3582
+   },
+   {
+    "asset": "Drake Maye",
+    "incumbentDropped": [
+     "ktcCrowdSfTep"
+    ],
+    "challengerDropped": [],
+    "valueOff": 8753,
+    "valueOn": 8724
+   },
+   {
+    "asset": "Elijah Sarratt",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharks"
+    ],
+    "valueOff": 1932,
+    "valueOn": 1893
+   },
+   {
+    "asset": "Emmett Johnson",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "flockFantasySfRookies"
+    ],
+    "valueOff": 2731,
+    "valueOn": 2738
+   },
+   {
+    "asset": "Ernest Jones",
+    "incumbentDropped": [
+     "draftSharksIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3222,
+    "valueOn": 3769
+   },
+   {
+    "asset": "George Kittle",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "dynastyNerdsSfTep"
+    ],
+    "valueOff": 4338,
+    "valueOn": 4383
+   },
+   {
+    "asset": "Jake Ferguson",
+    "incumbentDropped": [
+     "yahooBoone"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3773,
+    "valueOn": 3686
+   },
+   {
+    "asset": "Jalen Coker",
+    "incumbentDropped": [
+     "ktcCrowdSfTep",
+     "ktcTradesSfTep"
+    ],
+    "challengerDropped": [
+     "dynastyNerdsSfTep",
+     "ktcCrowdSfTep"
+    ],
+    "valueOff": 3288,
+    "valueOn": 3471
+   },
+   {
+    "asset": "Jalen Hurts",
+    "incumbentDropped": [
+     "dlfSf"
+    ],
+    "challengerDropped": [
+     "dlfSf",
+     "fantasyProsSf",
+     "idpShowCombined",
+     "idpTradeCalc",
+     "ktcCrowdSfTep"
+    ],
+    "valueOff": 7208,
+    "valueOn": 7324
+   },
+   {
+    "asset": "James Cook",
+    "incumbentDropped": [
+     "dlfSf",
+     "draftSharks",
+     "fantasyNavigatorSf"
+    ],
+    "challengerDropped": [
+     "dlfSf",
+     "fantasyNavigatorSf"
+    ],
+    "valueOff": 6862,
+    "valueOn": 6759
+   },
+   {
+    "asset": "Jamien Sherwood",
+    "incumbentDropped": [
+     "draftSharksIdp",
+     "idpTradeCalc"
+    ],
+    "challengerDropped": [
+     "draftSharksIdp"
+    ],
+    "valueOff": 2897,
+    "valueOn": 2279
+   },
+   {
+    "asset": "Joe Burrow",
+    "incumbentDropped": [
+     "draftSharks",
+     "fantasyProsSf",
+     "ktcCrowdSfTep",
+     "yahooBoone"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsSf",
+     "idpTradeCalc",
+     "ktcCrowdSfTep",
+     "yahooBoone"
+    ],
+    "valueOff": 8233,
+    "valueOn": 8239
+   },
+   {
+    "asset": "Jonathan Greenard",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "idpTradeCalc"
+    ],
+    "valueOff": 2352,
+    "valueOn": 1898
+   },
+   {
+    "asset": "Jonathan Taylor",
+    "incumbentDropped": [
+     "dynastyDaddySf",
+     "fantasyCalc",
+     "otcffbSf"
+    ],
+    "challengerDropped": [
+     "otcffbSf"
+    ],
+    "valueOff": 6610,
+    "valueOn": 6726
+   },
+   {
+    "asset": "Jonathon Brooks",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "idpTradeCalc"
+    ],
+    "valueOff": 2776,
+    "valueOn": 2772
+   },
+   {
+    "asset": "Jordan Love",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsFitzmaurice"
+    ],
+    "valueOff": 5637,
+    "valueOn": 5634
+   },
+   {
+    "asset": "Jordyn Brooks",
+    "incumbentDropped": [
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3730,
+    "valueOn": 3814
+   },
+   {
+    "asset": "Josiah Trotter",
+    "incumbentDropped": [
+     "draftSharksIdp",
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 2936,
+    "valueOn": 2303
+   },
+   {
+    "asset": "Justin Herbert",
+    "incumbentDropped": [
+     "draftSharks",
+     "fantasyProsFitzmaurice",
+     "ktcCrowdSfTep",
+     "yahooBoone"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsFitzmaurice",
+     "yahooBoone"
+    ],
+    "valueOff": 6907,
+    "valueOn": 6863
+   },
+   {
+    "asset": "Justin Jefferson",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharks"
+    ],
+    "valueOff": 8053,
+    "valueOn": 8158
+   },
+   {
+    "asset": "Kevin Winston",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharksIdp",
+     "idpShowCombined"
+    ],
+    "valueOff": 2873,
+    "valueOn": 2090
+   },
+   {
+    "asset": "Kool-Aid McKinstry",
+    "incumbentDropped": [
+     "draftSharksIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 1021,
+    "valueOn": 1806
+   },
+   {
+    "asset": "Kyle Pitts",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "dynastyNerdsSfTep",
+     "fantasyProsFitzmaurice",
+     "idpTradeCalc"
+    ],
+    "valueOff": 4537,
+    "valueOn": 4475
+   },
+   {
+    "asset": "Malik Nabers",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "idpShowCombined",
+     "ktcCrowdSfTep"
+    ],
+    "valueOff": 7818,
+    "valueOn": 7835
+   },
+   {
+    "asset": "Nick Cross",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "fantasyProsIdp"
+    ],
+    "valueOff": 2101,
+    "valueOn": 2049
+   },
+   {
+    "asset": "Nick Emmanwori",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharksIdp"
+    ],
+    "valueOff": 3879,
+    "valueOn": 3542
+   },
+   {
+    "asset": "Omarion Hampton",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "dynastyNerdsSfTep",
+     "otcffbSf"
+    ],
+    "valueOff": 6702,
+    "valueOn": 6567
+   },
+   {
+    "asset": "Puka Nacua",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "ktcCrowdSfTep"
+    ],
+    "valueOff": 9051,
+    "valueOn": 9124
+   },
+   {
+    "asset": "Quincy Williams",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "fantasyProsIdp"
+    ],
+    "valueOff": 2107,
+    "valueOn": 2046
+   },
+   {
+    "asset": "Rueben Bain",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "idpTradeCalc"
+    ],
+    "valueOff": 2647,
+    "valueOn": 2017
+   },
+   {
+    "asset": "Ryan Flournoy",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "draftSharks"
+    ],
+    "valueOff": 1623,
+    "valueOn": 1594
+   },
+   {
+    "asset": "Saquon Barkley",
+    "incumbentDropped": [
+     "pfkDynasty"
+    ],
+    "challengerDropped": [],
+    "valueOff": 5009,
+    "valueOn": 4957
+   },
+   {
+    "asset": "Sonny Styles",
+    "incumbentDropped": [
+     "fantasyProsIdp"
+    ],
+    "challengerDropped": [],
+    "valueOff": 4930,
+    "valueOn": 4833
+   },
+   {
+    "asset": "Terry McLaurin",
+    "incumbentDropped": [
+     "pfkDynasty"
+    ],
+    "challengerDropped": [],
+    "valueOff": 3392,
+    "valueOn": 3315
+   },
+   {
+    "asset": "Trevor Lawrence",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsFitzmaurice",
+     "idpShowCombined",
+     "idpTradeCalc"
+    ],
+    "valueOff": 7285,
+    "valueOn": 7286
+   },
+   {
+    "asset": "Trey Hendrickson",
+    "incumbentDropped": [],
+    "challengerDropped": [
+     "idpTradeCalc"
+    ],
+    "valueOff": 2189,
+    "valueOn": 1593
+   },
+   {
+    "asset": "Trey McBride",
+    "incumbentDropped": [
+     "draftSharks",
+     "fantasyProsSf"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsSf",
+     "idpShowCombined"
+    ],
+    "valueOff": 9541,
+    "valueOn": 9545
+   },
+   {
+    "asset": "Tyler Warren",
+    "incumbentDropped": [
+     "draftSharks"
+    ],
+    "challengerDropped": [
+     "draftSharks",
+     "fantasyProsSf"
+    ],
+    "valueOff": 7185,
+    "valueOn": 7204
+   }
+  ],
+  "totalDrops": 173,
+  "limitedEvidenceRows": 51,
+  "membership": {
+   "top50": {
+    "entered": [
+     "Carson Schwesinger"
+    ],
+    "left": [
+     "DeVonta Smith"
+    ]
+   },
+   "top100": {
+    "entered": [
+     "Cedric Gray"
+    ],
+    "left": [
+     "Derrick Henry"
+    ]
+   },
+   "top200": {
+    "entered": [
+     "Antonio Williams",
+     "Laiatu Latu",
+     "Rhamondre Stevenson",
+     "Tuli Tuipulotu"
+    ],
+    "left": [
+     "Derwin James",
+     "Jamien Sherwood",
+     "Josiah Trotter",
+     "Kevin Winston"
+    ]
+   },
+   "top400": {
+    "entered": [
+     "DJ Rogers",
+     "John Michael Gyllenborg",
+     "RJ Maryland"
+    ],
+    "left": [
+     "Dexter Lawrence",
+     "Jack Endries",
+     "Trey Hendrickson"
+    ]
+   }
+  }
+ },
+ "formerHaircutRows": [
+  {
+   "asset": "DJ Rogers",
+   "valueOff": 695,
+   "valueSparse": 2319,
+   "rankSparse": 271,
+   "position": "TE",
+   "sources": [
+    "draftSharks"
+   ]
+  },
+  {
+   "asset": "John Michael Gyllenborg",
+   "valueOff": 664,
+   "valueSparse": 2214,
+   "rankSparse": 287,
+   "position": "TE",
+   "sources": [
+    "draftSharks"
+   ]
+  },
+  {
+   "asset": "RJ Maryland",
+   "valueOff": 657,
+   "valueSparse": 2190,
+   "rankSparse": 291,
+   "position": "TE",
+   "sources": [
+    "draftSharks"
+   ]
+  },
+  {
+   "asset": "Avieon Terrell",
+   "valueOff": 546,
+   "valueSparse": 1820,
+   "rankSparse": 407,
+   "position": "DB",
+   "sources": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "asset": "Emmanuel Henderson",
+   "valueOff": 525,
+   "valueSparse": 1751,
+   "rankSparse": 442,
+   "position": "WR",
+   "sources": [
+    "draftSharks"
+   ]
+  },
+  {
+   "asset": "Kyle Dugger",
+   "valueOff": 472,
+   "valueSparse": 1574,
+   "rankSparse": 502,
+   "position": "DB",
+   "sources": [
+    "fantasyProsIdp"
+   ]
+  },
+  {
+   "asset": "Jermod McCoy",
+   "valueOff": 469,
+   "valueSparse": 1564,
+   "rankSparse": 509,
+   "position": "DB",
+   "sources": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "asset": "Zyon McCollum",
+   "valueOff": 462,
+   "valueSparse": 1540,
+   "rankSparse": 522,
+   "position": "DB",
+   "sources": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "asset": "DJ Turner",
+   "valueOff": 447,
+   "valueSparse": 1492,
+   "rankSparse": 555,
+   "position": "DB",
+   "sources": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "asset": "James Pierre",
+   "valueOff": 437,
+   "valueSparse": 1458,
+   "rankSparse": 570,
+   "position": "DB",
+   "sources": [
+    "fantasyProsIdp"
+   ]
+  },
+  {
+   "asset": "Desmond Reid",
+   "valueOff": 437,
+   "valueSparse": 1457,
+   "rankSparse": 571,
+   "position": "RB",
+   "sources": [
+    "flockFantasySf"
+   ]
+  },
+  {
+   "asset": "Jaylen Watson",
+   "valueOff": 431,
+   "valueSparse": 1437,
+   "rankSparse": 583,
+   "position": "DB",
+   "sources": [
+    "fantasyProsIdp"
+   ]
+  },
+  {
+   "asset": "Taurean York",
+   "valueOff": 429,
+   "valueSparse": 1431,
+   "rankSparse": 586,
+   "position": "LB",
+   "sources": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "asset": "Dee Alford",
+   "valueOff": 427,
+   "valueSparse": 1425,
+   "rankSparse": 594,
+   "position": "DB",
+   "sources": [
+    "fantasyProsIdp"
+   ]
+  },
+  {
+   "asset": "Deontae Lawson",
+   "valueOff": 427,
+   "valueSparse": 1425,
+   "rankSparse": 595,
+   "position": "LB",
+   "sources": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "asset": "LT Overton",
+   "valueOff": 426,
+   "valueSparse": 1423,
+   "rankSparse": 596,
+   "position": "DL",
+   "sources": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "asset": "Sheldon Rankins",
+   "valueOff": 426,
+   "valueSparse": 1421,
+   "rankSparse": 598,
+   "position": "DL",
+   "sources": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "asset": "Cam Hart",
+   "valueOff": 424,
+   "valueSparse": 1416,
+   "rankSparse": 602,
+   "position": "DB",
+   "sources": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "asset": "Colton Hood",
+   "valueOff": 419,
+   "valueSparse": 1397,
+   "rankSparse": 626,
+   "position": "DB",
+   "sources": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "asset": "Eric McAlister",
+   "valueOff": 401,
+   "valueSparse": 1339,
+   "rankSparse": 664,
+   "position": "WR",
+   "sources": [
+    "flockFantasySf"
+   ]
+  },
+  {
+   "asset": "Isaiah Williams",
+   "valueOff": 370,
+   "valueSparse": 1234,
+   "rankSparse": 725,
+   "position": "WR",
+   "sources": [
+    "fantasyCalc"
+   ]
+  },
+  {
+   "asset": "Branson Combs",
+   "valueOff": 367,
+   "valueSparse": 1226,
+   "rankSparse": 729,
+   "position": "LB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Jaylahn Tuimoloau",
+   "valueOff": 367,
+   "valueSparse": 1225,
+   "rankSparse": 731,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Eric Rivers",
+   "valueOff": 331,
+   "valueSparse": 1106,
+   "rankSparse": null,
+   "position": "WR",
+   "sources": [
+    "fantasyProsSf"
+   ]
+  },
+  {
+   "asset": "Laquon Treadwell",
+   "valueOff": 292,
+   "valueSparse": 976,
+   "rankSparse": null,
+   "position": "WR",
+   "sources": [
+    "fantasyNavigatorSf"
+   ]
+  },
+  {
+   "asset": "T'Vondre Sweat",
+   "valueOff": 285,
+   "valueSparse": 951,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Ashton Gillotte",
+   "valueOff": 278,
+   "valueSparse": 928,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Chris Moore",
+   "valueOff": 268,
+   "valueSparse": 894,
+   "rankSparse": null,
+   "position": "WR",
+   "sources": [
+    "fantasyNavigatorSf"
+   ]
+  },
+  {
+   "asset": "Omarr Norman-Lott",
+   "valueOff": 247,
+   "valueSparse": 825,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Princely Umanmielen",
+   "valueOff": 246,
+   "valueSparse": 822,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Gracen Halton",
+   "valueOff": 241,
+   "valueSparse": 804,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Red Murdock",
+   "valueOff": 237,
+   "valueSparse": 790,
+   "rankSparse": null,
+   "position": "LB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Isaiah McGuire",
+   "valueOff": 233,
+   "valueSparse": 777,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Brandon Cisse",
+   "valueOff": 231,
+   "valueSparse": 773,
+   "rankSparse": null,
+   "position": "DB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Christian Izien",
+   "valueOff": 231,
+   "valueSparse": 772,
+   "rankSparse": null,
+   "position": "DB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Malcolm Koonce",
+   "valueOff": 230,
+   "valueSparse": 767,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Travis Jones",
+   "valueOff": 229,
+   "valueSparse": 766,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Jalen Huskey",
+   "valueOff": 229,
+   "valueSparse": 765,
+   "rankSparse": null,
+   "position": "DB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Jalon Kilgore",
+   "valueOff": 229,
+   "valueSparse": 764,
+   "rankSparse": null,
+   "position": "DB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Joey Bosa",
+   "valueOff": 228,
+   "valueSparse": 763,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Keion White",
+   "valueOff": 228,
+   "valueSparse": 761,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Jeremiah Trotter",
+   "valueOff": 227,
+   "valueSparse": 759,
+   "rankSparse": null,
+   "position": "LB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Landon Jackson",
+   "valueOff": 227,
+   "valueSparse": 759,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Tommy Eichenberg",
+   "valueOff": 227,
+   "valueSparse": 759,
+   "rankSparse": null,
+   "position": "LB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Quan Martin",
+   "valueOff": 227,
+   "valueSparse": 758,
+   "rankSparse": null,
+   "position": "DB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Terrion Arnold",
+   "valueOff": 227,
+   "valueSparse": 758,
+   "rankSparse": null,
+   "position": "DB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Azeez Ojulari",
+   "valueOff": 227,
+   "valueSparse": 757,
+   "rankSparse": null,
+   "position": "LB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Chris Braswell",
+   "valueOff": 227,
+   "valueSparse": 757,
+   "rankSparse": null,
+   "position": "LB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Jordan Magee",
+   "valueOff": 227,
+   "valueSparse": 757,
+   "rankSparse": null,
+   "position": "LB",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Arnold Ebiketie",
+   "valueOff": 226,
+   "valueSparse": 756,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "asset": "Lee Hunter",
+   "valueOff": 226,
+   "valueSparse": 756,
+   "rankSparse": null,
+   "position": "DL",
+   "sources": [
+    "idpTradeCalc"
+   ]
+  }
+ ],
+ "outlierCensusOff": {
+  "dropsBySource": {
+   "draftSharks": 45,
+   "draftSharksIdp": 22,
+   "fantasyProsIdp": 13,
+   "yahooBoone": 13,
+   "pfkDynasty": 10,
+   "ktcCrowdSfTep": 10,
+   "idpShowCombined": 9,
+   "dlfSf": 7,
+   "fantasyProsSf": 6,
+   "dynastyNerdsSfTep": 5,
+   "idpTradeCalc": 5,
+   "fantasyNavigatorSf": 4,
+   "fantasyProsFitzmaurice": 3,
+   "fantasyCalc": 2,
+   "ktcTradesSfTep": 2,
+   "dynastyDaddySf": 2,
+   "dlfIdp": 1,
+   "otcffbSf": 1,
+   "flockFantasySf": 1
+  },
+  "rowsWithBothKtcDropped": 1,
+  "exampleRowsWithBothKtcDropped": [
+   "Jalen Coker"
+  ]
+ },
+ "outlierCensusFilter": {
+  "dropsBySource": {
+   "draftSharks": 47,
+   "draftSharksIdp": 19,
+   "idpShowCombined": 15,
+   "idpTradeCalc": 13,
+   "ktcCrowdSfTep": 11,
+   "yahooBoone": 10,
+   "pfkDynasty": 8,
+   "fantasyProsIdp": 8,
+   "dynastyNerdsSfTep": 8,
+   "fantasyProsSf": 8,
+   "fantasyProsFitzmaurice": 7,
+   "dlfSf": 7,
+   "fantasyNavigatorSf": 3,
+   "ktcTradesSfTep": 2,
+   "otcffbSf": 2,
+   "dlfIdp": 1,
+   "fantasyCalc": 1,
+   "flockFantasySfRookies": 1,
+   "dynastyDaddySf": 1,
+   "flockFantasySf": 1
+  },
+  "rowsWithBothKtcDropped": 0,
+  "exampleRowsWithBothKtcDropped": []
+ }
+}

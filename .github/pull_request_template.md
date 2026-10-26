@@ -2,6 +2,16 @@
 
 Bounded outcome, authority, related issue and canonical owner.
 
+## Implementation and integration state
+
+- Implementation: IMPLEMENTING / IMPLEMENTED_UNVALIDATED / FEATURE_GREEN / READY_FOR_INTEGRATION
+- Integration: NOT_READY / VALIDATING / INTEGRATION_GREEN / MERGED
+- Exact-tree CI head + required status checks:
+- Independent review, dependencies, file claims, conflict/freshness triage:
+- Owner-only promotion/launch/security gates: N/A / PASSED / BLOCKED (explain)
+- Integration Authority can merge automatically when *all required* gates are green; no routine owner "please merge" prompt is needed.
+- Deployment and production VERIFIED status must be recorded separately.
+
 ## Validation and evidence
 
 Exact commands, tested SHA, results and limitations. Separate local/CI from production.

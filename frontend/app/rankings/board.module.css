@@ -412,6 +412,19 @@
   gap: var(--space-2);
   min-width: 200px;
 }
+/* Mobile parity (C8-U2, 2026-09-29): at 390px the fixed 200px floor
+   plus a single-line flex row (photo + name + star + meta + movement
+   glyph + chips) made the Player column 279px, pushing Value — the
+   primary decision number — to x=497, behind a horizontal scroll. The
+   cell now wraps its secondary items under the name and drops the
+   floor, so the table fits the phone and nothing is hidden. */
+@media (width < 768px) {
+  .playerCell {
+    flex-wrap: wrap;
+    row-gap: 0;
+    min-width: 0;
+  }
+}
 .playerMeta {
   font-size: var(--font-size-2xs);
   color: var(--text-tertiary);
@@ -562,8 +575,12 @@
   padding: 2px var(--space-2);
   font-size: var(--font-size-2xs);
 }
+/* A missing source reads as missing through a dashed rule and the "—"
+   value, not through opacity: opacity 0.5 blended the tertiary label
+   below AA on every surface (217 axe color-contrast nodes on one
+   expanded row at 390px, 2026-09-29). */
 .mobileSourceChipEmpty {
-  opacity: 0.5;
+  border-style: dashed;
 }
 .mobileSourceLabel {
   color: var(--text-tertiary);
@@ -574,6 +591,138 @@
 }
 .mobileSourceRank {
   color: var(--text-tertiary);
+}
+
+/* ── Expanded row: source audit panel (C8-U2, 2026-09-29) ──
+   Replaces the legacy globals.css `source-audit-*` / `rankings-audit-row`
+   paint, which is the retired dark terminal palette. The row keeps its
+   `rankings-audit-row` hook (RankingsBoard.test.jsx); this class wins
+   the background on specificity (0,2,1 over 0,1,1). */
+.page .auditRow > td {
+  background: var(--surface-1);
+  border-top: none;
+  border-bottom: 1px solid var(--border-default);
+}
+.auditPanel {
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-primary);
+  /* The panel sits in a table cell, which inherits the table's
+     nowrap — without this, card text runs into the next column. */
+  white-space: normal;
+}
+@media (width < 768px) {
+  .auditPanel {
+    padding: var(--space-3) var(--space-2);
+  }
+}
+.auditHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+.auditReason {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+.auditAllowlist {
+  font-size: var(--font-size-2xs);
+  padding: 1px var(--space-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-1);
+  color: var(--warning-text);
+}
+.auditGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 0 var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.auditCard {
+  min-width: 0;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-size-xs);
+}
+.auditCardMissing .auditCardHeader strong {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+.auditCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.auditStatus {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+.auditStatus[data-status="matched"] {
+  color: var(--positive-text);
+}
+.auditStatus[data-status="missing"] {
+  color: var(--negative-text);
+  font-weight: var(--font-weight-semibold);
+}
+.auditStatus[data-status="expected"] {
+  color: var(--warning-text);
+}
+.auditCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.auditField {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.auditLabel {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xs);
+  flex: 0 0 auto;
+}
+.auditVal {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.auditMissing {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+.auditSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.auditSummary strong {
+  color: var(--text-primary);
+}
+.auditReasons {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
 }
 
 /* ── Audit graphs grid ── */

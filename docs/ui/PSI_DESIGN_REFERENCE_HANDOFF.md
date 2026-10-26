@@ -5,13 +5,24 @@ Branch: `codex/psi-design-reference`, separate and stacked on the reviewable gov
 head until Integration lands it. Initial reservation has advanced to implementation; inspect the current PR/evidence before resuming. Deployment and production proof remain separate gates.
 Agent-OS-Receipt at audit: cdca1dca8385f70c0989302dece8d1bd4ce4843c; regenerate for the implementation session.
 
-## Current integration checkpoint — incremental foundation, not full chart acceptance
+## Current checkpoint (2026-10-18) — Owner Decision 14 closes the #1428 palette question
+
+Owner Decision 14 approved the categorical light-surface steps (`--chart-1..6` =
+`#986400 #2264af #ac386a #6752b6 #087650 #aa3c17`) in the canonical token owner
+`frontend/app/tokens.css` (`.psi-editorial` and the light scaffold; the dark slots
+are unchanged). Branch `claude/chart-palette-d14` (stacked on #1809) retires the
+/design chart gate and proves contrast + CVD in
+`frontend/__tests__/components/ds/chart-palette-contrast.test.js`; evidence in
+`docs/ui/evidence/D14_CHART_PALETTE_2026-10-18/`. The text below is the historical
+#1429 checkpoint. Merge, deploy and production proof remain separate gates.
+
+## Historical integration checkpoint — incremental foundation, not full chart acceptance
 
 The owner subsequently requested push and merge. Governance #1426 is integrated.
 PR #1429 releases only the independently usable gallery foundation: all unapproved
 categorical previews are explicitly gated, with honest pending-state messaging and
 numeric fixture history retained. No product chart, palette, DS owner or design
-precedence is changed. #1428 remains OPEN; the gallery stays PARTIAL / MIGRATING,
+precedence is changed. #1428's palette selection was DECIDED by the owner on 2026-10-18 (D14 — tokens in `docs/ui/UI_PARALLEL_LEDGER.md`); its implementation and acceptance are a separate unit, so the gallery stays PARTIAL / MIGRATING,
 not PSI_VERIFIED. Enabling previews requires separately approved treatment and proof.
 
 Current-head integration validation, screenshot provenance and deployment status must

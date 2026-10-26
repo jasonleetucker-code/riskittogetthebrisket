@@ -154,7 +154,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements.lock.txt
 
       - name: Use Node 20
         uses: actions/setup-node@v7
@@ -178,7 +179,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          node --test tests/e2e/route-baseline-unit.test.mjs tests/e2e/route-useful-state.test.mjs
+          node --test tests/e2e/route-baseline-unit.test.mjs tests/e2e/route-useful-state.test.mjs tests/e2e/structured-journey-reporter.test.js tests/e2e/prod-auth-safe-reporter.test.js
 
       - name: Preflight (compile checks, contract validation, data seed)
         shell: bash
@@ -268,7 +269,7 @@ jobs:
             sleep 2
           done
           for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login || echo 000)
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login) || code=000
             if [[ "$code" == "200" ]]; then
               echo "frontend ready (attempt $i)"; break
             fi
@@ -330,12 +331,12 @@ jobs:
             # ingestion now, whatever the verdict; the poll below is what
             # actually gates the suite.
             code=$(curl -s -o /dev/null -w '%{http_code}' -m 900 -b "$jar" \
-              "http://127.0.0.1:8000/api/bdvm/values?leagueKey=$key" || echo 000)
+              "http://127.0.0.1:8000/api/bdvm/values?leagueKey=$key") || code=000
             echo "bdvm warm leagueKey=$key -> $code"
           done
           for i in $(seq 1 90); do
             code=$(curl -s -o /dev/null -w '%{http_code}' -m 120 -b "$jar" \
-              "http://127.0.0.1:3000/api/dynasty-data?view=app" || echo 000)
+              "http://127.0.0.1:3000/api/dynasty-data?view=app") || code=000
             if [[ "$code" == "200" ]]; then
               echo "data bridge serves the contract (attempt $i)"; break
             fi
@@ -370,6 +371,7 @@ jobs:
           # so pixel comparisons are skipped; the visual specs still
           # run their structural chart/render assertions.
           SKIP_VISUAL_REGRESSION: "1"
+          E2E_JOURNEY_EVIDENCE: "1"
         run: |
           set -Eeuo pipefail
           # Chromium desktop + chromium mobile viewport.  The webkit

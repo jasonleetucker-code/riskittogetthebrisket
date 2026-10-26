@@ -1,0 +1,257 @@
+/* value-explain.module.css — ValueExplain.jsx. Semantic tokens only;
+   no page-local colors, radii, shadows or breakpoints. Dense aligned
+   rows separated by thin rules, per the PSI contract — no cards. */
+
+.owner {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-data);
+}
+
+.muted {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  margin: 0;
+}
+
+/* ── Confidence evidence ── */
+.evidence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.evidenceLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+}
+.level {
+  font-family: var(--font-data);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.axes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 0 var(--space-4);
+  margin: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.axis {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-size-xs);
+}
+.axis dt {
+  color: var(--text-secondary);
+}
+.axis dd {
+  margin: 0;
+  font-family: var(--font-data);
+  color: var(--text-primary);
+}
+/* Non-color cue as well: the weak checks are bold, not only tinted. */
+.axis dd[data-level="low"],
+.axis dd[data-level="none"] {
+  font-weight: var(--font-weight-semibold);
+  color: var(--negative-text);
+}
+.reasons {
+  margin: 0;
+  padding-left: var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
+/* ── Board clocks ── */
+.clocks {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-data);
+}
+
+/* ── Per-source freshness ── */
+.freshness {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.authority {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+.sourceList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.sourceItem {
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sourceLine {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.sourceName {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sourceWeight {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.sourceItem[data-voting="false"] .sourceWeight {
+  color: var(--negative-text);
+  font-weight: var(--font-weight-semibold);
+}
+.sourceMeta {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-data);
+  line-height: var(--line-height-normal);
+}
+.sourceMeta [data-state="STALE"],
+.sourceMeta [data-state="SEVERELY_STALE"],
+.sourceMeta [data-state="QUARANTINED"] {
+  color: var(--warning-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── value-explain/v2 detail (ValueExplainDetail.jsx) ──
+   Same dense, rule-separated rhythm as the freshness list above: typography
+   and thin rules organize it, no nested cards. Tokens only. */
+.explain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.explain section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.qualifier {
+  font-weight: var(--font-weight-regular);
+  color: var(--text-secondary);
+}
+.facts {
+  margin: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.fact {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-size-xs);
+}
+.fact dt {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.fact dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.attribution {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+.attribution strong {
+  color: var(--text-primary);
+}
+.notVoting {
+  color: var(--negative-text);
+  font-weight: var(--font-weight-semibold);
+}
+/* DataTable cells are nowrap; long source names and exclusion reasons wrap
+   instead of pushing the table wider than a phone. */
+.wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.unknown {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+.detailRow td {
+  padding-top: 0;
+}
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-data);
+  color: var(--text-tertiary);
+  white-space: normal;
+}
+.detailLine {
+  margin: 0;
+  line-height: var(--line-height-normal);
+}
+.detailKey {
+  color: var(--text-secondary);
+}
+.clockList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+  margin: 0;
+}
+.clockItem {
+  display: flex;
+  gap: var(--space-1);
+}
+.clockItem dt {
+  color: var(--text-secondary);
+}
+.clockItem dt::after {
+  content: ":";
+}
+.clockItem dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.failure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}

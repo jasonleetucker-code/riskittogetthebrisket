@@ -67,7 +67,11 @@ import time
 from collections import Counter
 from typing import Any, Collection, Mapping, Sequence
 
-from src.api.data_contract import contract_roster_pools, contract_slot_eligibility
+from src.api.data_contract import (
+    contract_roster_pools,
+    contract_slot_eligibility,
+    roster_pool_key,
+)
 from src.roster_intel.age_portfolio import (
     build_age_portfolio,
     build_youth_curve,
@@ -88,7 +92,9 @@ __all__ = [
     "ROSTER_INTELLIGENCE_CONTRACT_VERSION",
     "TeamNotInLeague",
     "build_league_roster_intelligence",
+    "declared_team_count",
     "get_team_roster_intelligence",
+    "team_weakness_for",
     "trade_nfl_exposure",
 ]
 
@@ -109,6 +115,70 @@ _RANK_POPULATION = "contract_board_priced_players"
 
 class TeamNotInLeague(Exception):
     """The requested owner has no roster in this league."""
+
+
+def declared_team_count(league_key: str | None) -> int | None:
+    """The league's DECLARED team count from the registry, or ``None``.
+
+    Declared, not the roster count: a snapshot missing one roster must
+    not shrink every weakness threshold (``k × teamCount``).  ``None``
+    lets :func:`build_league_roster_intelligence` fall back to the
+    contract's own roster count, which is what it always did.  One
+    resolver for every consumer of the weakness chain — the route and
+    ``/api/gameplan`` used to need their own copies.
+    """
+    if not league_key:
+        return None
+    try:
+        from src.api import league_registry  # noqa: PLC0415
+
+        settings = league_registry.get_league_roster_settings(league_key) or {}
+    except Exception:  # noqa: BLE001 — the registry is optional here
+        return None
+    raw = settings.get("teamCount")
+    return raw if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0 else None
+
+
+#: Stamped on a weakness block this module could not produce, so "no
+#: need was measured" never reads as "no need".
+_WEAKNESS_UNAVAILABLE_NOTE = (
+    "canonical Team Weakness (src/roster_intel/weakness.py) could not be "
+    "computed for this team; nothing is computed in its place"
+)
+
+
+def team_weakness_for(
+    contract: Mapping[str, Any] | None,
+    owner_id: str,
+    *,
+    team_count: int | None = None,
+) -> dict[str, Any]:
+    """ONE team's canonical weakness block — exactly what
+    ``GET /api/roster/intelligence`` serves as ``team.weakness``.
+
+    For a consumer that needs the need answer and nothing else
+    (``/api/gameplan``).  It reads the same league build the route does,
+    so the two cannot disagree; it computes nothing of its own.
+
+    Never raises for an absent team or an empty contract: those return an
+    explicit ``available: false`` block with the reason, because a
+    payload that silently drops its need section reads as "no needs".
+    """
+    league = build_league_roster_intelligence(contract, team_count=team_count)
+    team = league["teams"].get(str(owner_id))
+    if team is None:
+        reason = "team_not_in_contract" if league["teams"] else "no_rosters_loaded"
+        return {
+            "available": False,
+            "unavailableReason": reason,
+            "needs": [],
+            "urgentPositions": [],
+            "note": _WEAKNESS_UNAVAILABLE_NOTE,
+            "owner": "src/roster_intel/weakness.py",
+        }
+    block = dict(team["weakness"])
+    block["owner"] = "src/roster_intel/weakness.py"
+    return block
 
 
 def _board_players(
@@ -305,16 +375,29 @@ def build_league_roster_intelligence(
 
 
 def _team_names(contract: Mapping[str, Any] | None) -> dict[str, str]:
-    """``{ownerId: teamName}`` from the contract's sleeper block."""
+    """``{rosterPoolKey: teamName}`` from the contract's sleeper block.
+
+    Keyed by :func:`roster_pool_key` — the SAME key
+    :func:`contract_roster_pools` gives each pool — never by ``ownerId``
+    alone.  An ownerless (orphaned) roster carries ``ownerId: ""``; its
+    pool is keyed positionally, so an ownerId-keyed name map left it
+    ranked on the ladder under a blank label while every other surface
+    listed it as ``"Team <roster_id>"`` (2026-10-20, dynasty_main
+    roster 12).
+    """
     out: dict[str, str] = {}
     sleeper = (contract or {}).get("sleeper")
     if not isinstance(sleeper, Mapping):
         return out
-    for team in sleeper.get("teams") or []:
+    teams = sleeper.get("teams")
+    if not isinstance(teams, list):
+        return out
+    # ``enumerate`` BEFORE the isinstance skip — the index is part of the
+    # key and must match the builder's (see ``roster_pool_key``).
+    for index, team in enumerate(teams):
         if isinstance(team, Mapping):
-            oid = str(team.get("ownerId") or "")
-            if oid:
-                out[oid] = str(team.get("name") or team.get("sleeperTeamName") or "")
+            key = roster_pool_key(teams, index, team)
+            out[key] = str(team.get("name") or team.get("sleeperTeamName") or "")
     return out
 
 
@@ -335,6 +418,23 @@ def _league_context_order(item: tuple[str, Mapping[str, Any]]) -> tuple[bool, fl
     owner_id, team = item
     rank = team["strength"]["leagueRank"]
     return (rank is None, math.inf if rank is None else float(rank), owner_id)
+
+
+def _need_projection(weakness: Mapping[str, Any]) -> dict[str, Any]:
+    """The two weakness fields a league-context row carries.
+
+    A projection of the owner's own ``to_dict`` output — levels and the
+    urgent list verbatim, in the owner's worst-first order.  No level is
+    derived here.
+    """
+    if not weakness.get("available"):
+        return {"needLevelByPosition": None, "urgentPositions": None}
+    return {
+        "needLevelByPosition": {
+            str(n["position"]): n["level"] for n in weakness.get("needs") or []
+        },
+        "urgentPositions": list(weakness.get("urgentPositions") or []),
+    }
 
 
 def get_team_roster_intelligence(
@@ -380,6 +480,13 @@ def get_team_roster_intelligence(
             "strengthRank": t["strength"]["leagueRank"],
             "youngCoreIndex": t["agePortfolio"]["youngCoreIndex"],
             "valueWeightedCoreAge": t["agePortfolio"]["valueWeightedCoreAge"],
+            # The canonical need answer for every OTHER team, projected
+            # rather than re-shipped in full: /rosters' Trade Targets card
+            # asks "is that team deep at my need?" and "what do they
+            # need?", and without these it had to answer both itself from
+            # raw full-roster sums (C2-WEAK-01).  ``None`` — never ``{}``
+            # — when that team's weakness was not measured.
+            **_need_projection(t["weakness"]),
         }
         for oid, t in sorted(league["teams"].items(), key=_league_context_order)
     ]

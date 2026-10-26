@@ -40,8 +40,11 @@ describe("confBadgeClass", () => {
   it("returns red for low", () => {
     expect(confBadgeClass("low")).toBe("badge badge-red");
   });
-  it("returns red for none", () => {
-    expect(confBadgeClass("none")).toBe("badge badge-red");
+  // "none" = no evidence to grade (C1-U5). It used to share LOW's red,
+  // which graded an ungraded asset — MISSING IS NEVER ZERO.
+  it("returns a neutral badge for none / missing, not LOW's red", () => {
+    expect(confBadgeClass("none")).toBe("badge");
+    expect(confBadgeClass(undefined)).toBe("badge");
   });
 });
 
@@ -55,8 +58,9 @@ describe("confBadgeLabel", () => {
   it("returns Low for low", () => {
     expect(confBadgeLabel("low")).toBe("Low");
   });
-  it("returns Low for unknown", () => {
-    expect(confBadgeLabel("none")).toBe("Low");
+  it("returns None — not Low — for an ungraded / unknown bucket", () => {
+    expect(confBadgeLabel("none")).toBe("None");
+    expect(confBadgeLabel(undefined)).toBe("None");
   });
 });
 

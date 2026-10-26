@@ -116,6 +116,23 @@ def log(msg: str) -> None:
     print(f"[ce-validate] {msg}", flush=True)
 
 
+def display_path(path: Path) -> str:
+    """Repo-relative when the path lives inside the repo, absolute otherwise.
+
+    ``--out`` is a free path.  The weekly re-validation workflow writes to
+    ``/tmp/ce-rerun/...``, and ``Path.relative_to(REPO)`` raises ValueError
+    for anything outside the checkout -- AFTER the report was written, so
+    the run exited 1 having done its work and the comparison step never ran
+    (red every week since at least 2026-09-02).  A log line must not be able
+    to fail the study it reports on.
+    """
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(REPO).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
 def _mean(values: list[float]) -> float | None:
     return statistics.fmean(values) if values else None
 
@@ -743,7 +760,7 @@ def main(argv: list[str] | None = None) -> int:
         / f"consensus-edge-board-validation-{date.today().isoformat()}-h{args.horizon_days}.json"
     )
     out.write_text(json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8")
-    log(f"wrote {out.relative_to(REPO)}")
+    log(f"wrote {display_path(out)}")
     return 0
 
 

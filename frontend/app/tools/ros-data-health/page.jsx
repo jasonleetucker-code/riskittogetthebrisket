@@ -38,10 +38,17 @@ function ageColor(seconds, thresholds = { green: 6 * 3600, amber: 24 * 3600 }) {
   return "var(--red)";
 }
 
+// Green is earned, not the fallthrough: only a recorded "ok" run with a
+// known, recent completion time is healthy.  "no run" (no record at all),
+// an unrecognised status, or an ok run whose completion time is unknown
+// render neutral — absence of a failure is not evidence of health.
 function statusColor(status, ageHours) {
   if (status === "failed") return "var(--red)";
   if (status === "partial") return "var(--amber)";
-  if (ageHours != null && ageHours > 12) return "var(--amber)";
+  if (status !== "ok" || ageHours == null || !Number.isFinite(ageHours)) {
+    return "var(--subtext)";
+  }
+  if (ageHours > 12) return "var(--amber)";
   return "var(--green)";
 }
 

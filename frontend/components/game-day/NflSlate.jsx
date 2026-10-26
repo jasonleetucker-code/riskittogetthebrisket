@@ -113,7 +113,9 @@ export default function NflSlate({ payload }) {
                     {key ? <span className={styles.heroEyebrow}>Key game</span> : null}
                     {relevant ? (
                       <span>
-                        {mine} yours · {theirs} theirs
+                        {/* The page can view ANY team (?team=), so
+                            "yours" was wrong whenever it was not yours. */}
+                        {mine} selected · {theirs} opponent
                       </span>
                     ) : (
                       <span>No players in this matchup</span>
@@ -138,9 +140,12 @@ export default function NflSlate({ payload }) {
                       <>
                         {lev ? (
                           <p className={styles.note}>
-                            Win chance {formatPct(lev.winPctWhenGameFavorsTeam) ?? "—"} if this game
-                            goes your way, {formatPct(lev.winPctWhenGameFavorsOpponent) ?? "—"} if it
-                            goes theirs.
+                            {/* LEVERAGE_DEFINITION (game_day_sim): the draws
+                                split at this game's MEDIAN net outcome, not
+                                at zero. */}
+                            Win chance {formatPct(lev.winPctWhenGameFavorsTeam) ?? "—"} when this game
+                            beats its typical outcome for the selected team,{" "}
+                            {formatPct(lev.winPctWhenGameFavorsOpponent) ?? "—"} when it falls short.
                           </p>
                         ) : null}
                         <Suspense fallback={<SkeletonText lines={2} />}>
@@ -149,6 +154,7 @@ export default function NflSlate({ payload }) {
                             index={index}
                             teamName={teamName}
                             opponentName={opponentName}
+                            pending={payload?.probabilityState === "PENDING"}
                           />
                         </Suspense>
                       </>

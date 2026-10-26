@@ -67,7 +67,18 @@ jobs:
     # This changes only runner headroom; no test, gate, or tolerance is
     # weakened. Sixty minutes preserves a finite hang bound while allowing
     # the current full suite to complete.
-    timeout-minutes: 60
+    # 60 → 80 (2026-10-01): the full suite now routinely takes 58-60 min
+    # (measured: #1599 58.6 min, #1597 59.4 min on 2026-10-01), and #1597's
+    # rerun-worthy run 36917378085 was cancelled at the 60-minute wall while
+    # still running unit tests. Same rationale as before: runner headroom only;
+    # no test, gate, or tolerance weakened; a finite hang bound is preserved.
+    # 80 -> 120 (2026-10-19): the full suite now takes ~77 min. Release
+    # train 11's PR Validation run 39212246131 spent 77:22 in unit tests
+    # (the hard gate PASSED) and was then cancelled at the 80-minute wall,
+    # skipping every later blocking step; its release check passed with
+    # ~4 min to spare. Same rationale as each step above: runner headroom
+    # only; no test, gate or tolerance weakened; a finite hang bound remains.
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -82,19 +93,15 @@ jobs:
           python-version: "3.12"
           cache: "pip"
           cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
+            requirements-dev.lock.txt
 
       - name: Install dependencies
         shell: bash
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          # requirements-dev.txt chains in requirements.txt via ``-r``,
-          # so this single install keeps local dev, CI, and production
-          # (runtime-only) walking the same dependency graph.  No
-          # ad-hoc ``pip install pytest`` calls sprinkled elsewhere.
-          pip install -r requirements-dev.txt
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements-dev.lock.txt
 
       - name: Detect changed systems (tiered-validation path-awareness)
         # Single owner: scripts/ci_change_scope.py. See
@@ -122,7 +129,12 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          git fetch origin main --depth=200 || true
+          # No --depth: the checkout is fetch-depth 0, and a depth-limited
+          # fetch here rewrites .git/shallow and truncates history for every
+          # later step — which made the feature-dictionary lock-history gate
+          # (tests/model_registry/test_feature_dictionary.py) fail as
+          # "shallow boundary" on every PR running the backend suite.
+          git fetch --no-tags origin main || true
           python scripts/ci_change_scope.py --base origin/main --head HEAD --github-output
 
       - name: Validate dependency graph (pip check)
@@ -262,6 +274,27 @@ jobs:
           import server
           print("Runtime import gate passed.")
           PY
+      - name: Check generated leagues contract
+        shell: bash
+        env:
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
+          UPTIME_CHECK_ENABLED: "0"
+        run: |
+          set -Eeuo pipefail
+          python -m scripts.generate_leagues_contract --check
+      - name: Install tesseract-ocr (screenshot import OCR tests)
+        # The screenshot trade importer (C3-IMPORT-IMAGE) shells out to the
+        # tesseract binary.  Installing it here makes the real-OCR tests
+        # (``@pytest.mark.tesseract``) RUN in the hard gate instead of
+        # skipping; without the binary they skip and only the fake-engine
+        # tests cover the pipeline.
+        if: ${{ steps.scope.outputs.python == 'true' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends tesseract-ocr
+          tesseract --version | head -1
       - name: Run unit tests (hard gate — pure logic)
         # Path-aware (tiered-validation L2): skipped only when this diff
         # touches neither backend/tooling code nor a high-risk shared
@@ -289,7 +322,14 @@ jobs:
           set -Eeuo pipefail
           # Hard gate: everything EXCEPT data-coupled tests.  A real
           # code regression must fail here and block the PR.
-          python -m pytest tests/ -x -q --tb=short -m "not livedata"
+          # Runner speed varies ~1.8x between GitHub-hosted runners: over 38
+          # jobs (CQ-29, 2026-10-19) this step's time tracked the same job's
+          # live-data step at r=0.98 (40-77 min), so the variance is the
+          # machine, not the suite.  Record the CPU and the slowest tests so a
+          # slow run is diagnosable from its own log.  Output only — the
+          # command, markers and -x are unchanged.
+          grep -m1 'model name' /proc/cpuinfo || true
+          python -m pytest tests/ -x -q --tb=short -m "not livedata" --durations=30 --durations-min=5
 
       - name: Run live-data tests (advisory — non-blocking)
         # Data-coupled tests (live scraped board/exports).  A routine
@@ -434,4 +474,27 @@ jobs:
           set -Eeuo pipefail
           npm run build:nocheck
           npm run check:bundles
+
+      # Exercise the real Next output through the same manifest, tar layout,
+      # checksum and extracted-byte verifier used by the deploy cutover.
+      - name: Package and verify frontend release candidate
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          commit="$(git rev-parse HEAD)"
+          python -m scripts.release_artifact create \
+            --commit "${commit}" --node-version "$(node --version)" \
+            --run-id "${GITHUB_RUN_ID}"
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
+            --exclude='frontend/.next/cache' \
+            -cf calculator-release.tar \
+            release-manifest.json requirements.lock.txt \
+            frontend/package-lock.json frontend/.next
+          sha256sum calculator-release.tar > calculator-release.tar.sha256
+          sha256sum -c calculator-release.tar.sha256
+          verify_dir="$(mktemp -d)"
+          tar -xf calculator-release.tar -C "${verify_dir}"
+          python -m scripts.release_artifact verify \
+            --root "${verify_dir}" --commit "${commit}"
 

@@ -1,8 +1,19 @@
 """Team-aware trade impact analyzer.
 
-Produces a roster-shape-aware verdict on a proposed trade — the dynasty
-manager's actual question: *does this trade FIT my roster*, not just
-*is the equity fair*.
+Reports what a proposed trade does to the team's roster — the dynasty
+manager's question *does this trade FIT my roster*, beside (never instead
+of) *is the equity fair*.  It is roster INFORMATION, not a recommendation:
+starting-lineup changes, starter-value deltas by position, depth, bench
+overflow, redundancy, displacement and posture window fit.
+
+Owner decision 5 (2026-10-18): the former accept / lean accept / neutral /
+lean decline / decline ``verdict`` (``0.55 * fitScore + 0.45 * equityScore``,
+the equity half a RAW canonical sum with no package Value Adjustment) is
+RETIRED, together with ``compositeScore`` and ``equityScore``.  It was a
+second YES/NO beside the one canonical trade decision
+(``src/trade/analyze_trade.py``), summing two incompatible normalized
+quantities.  The roster information below feeds that engine; it never
+votes on its own.
 
 Pure functions; no I/O.  Inputs are the same resolved-asset dicts that
 ``src/api/trade_simulator.py`` already builds, plus the league's
@@ -100,18 +111,8 @@ def _load_default_weights() -> dict[str, Any]:
                 "depth": 0.25,
                 "overflow": 0.6,
                 "fitNormalization": 4000,
-                "equityNormalization": 2500,
-                "compositeFitWeight": 0.55,
-                "compositeEquityWeight": 0.45,
-            },
-            "verdictThresholds": {
-                "accept": 20,
-                "leanAccept": 8,
-                "leanDecline": -8,
-                "decline": -20,
             },
             "windowFit": {
-                "contendIndexThreshold": 0.15,
                 "youngStarterMaxAge": 23,
                 "primeStarterMinAge": 24,
                 "primeStarterMaxAge": 29,
@@ -411,61 +412,19 @@ def _clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
 
-def _classify_window(
-    before_assets: list[dict[str, Any]],
-    config: dict[str, Any],
-) -> str:
-    """Posture from current roster: contender / balanced / rebuilder.
-
-    Heuristic:
-      contendIndex = top10 WIN-NOW value share
-                   - (rookie pick share + young (<24) player share)
-
-    "Win-now" means an asset that is neither a rookie pick nor a young
-    player — i.e. the ones that score points for you THIS season.  The
-    top-10 slice used to be taken over every asset, which counted the
-    future twice with opposite signs: a rebuilder whose ten most
-    valuable assets ARE first-round picks scored a near-1.0
-    ``top10_share`` and a near-1.0 ``pick_share``, the two cancelled,
-    and the engine called them "balanced".  Excluding picks and kids
-    from the positive term makes every dollar feed at most one side of
-    the subtraction, so a pick-stuffed roster reads as the rebuilder it
-    is.
-
-    Picks are also excluded from ``young_value`` — a pick row that
-    carries an ``age`` (defensive; they normally don't) would otherwise
-    be charged to the negative term twice.
-    """
-    threshold = float(config.get("windowFit", {}).get("contendIndexThreshold", 0.15))
-    young_max = int(config.get("windowFit", {}).get("youngStarterMaxAge", 23))
-
-    def _is_pick(asset: dict[str, Any]) -> bool:
-        return (asset.get("assetClass") or "").lower() == "pick"
-
-    def _is_young(asset: dict[str, Any]) -> bool:
-        return isinstance(asset.get("age"), int) and asset["age"] <= young_max
-
-    total_value = sum(int(a.get("value") or 0) for a in before_assets) or 1
-
-    win_now = [a for a in before_assets if not _is_pick(a) and not _is_young(a)]
-    by_value = sorted(win_now, key=lambda a: int(a.get("value") or 0), reverse=True)
-    top10_value = sum(int(a.get("value") or 0) for a in by_value[:10])
-    top10_share = top10_value / total_value
-
-    pick_value = sum(int(a.get("value") or 0) for a in before_assets if _is_pick(a))
-    pick_share = pick_value / total_value
-
-    young_value = sum(
-        int(a.get("value") or 0) for a in before_assets if not _is_pick(a) and _is_young(a)
-    )
-    young_share = young_value / total_value
-
-    contend_index = top10_share - (pick_share + young_share)
-    if contend_index > threshold:
-        return "contender"
-    if contend_index < -threshold:
-        return "rebuilder"
-    return "balanced"
+#: Competitive Posture (#840 / C7-POST-01) -> the window-fit vocabulary this
+#: module scores assets with.  The posture itself has ONE owner,
+#: ``src.roster_intel.window.competitive_posture``; the hard-threshold
+#: ``_classify_window`` (``contendIndex`` vs a fixed 0.15) that used to
+#: decide it here was a second, competing posture owner and is retired.
+#: RETOOL scores as the future-tilting side: it moves present value toward
+#: younger / liquid / future assets while keeping a core.
+_WINDOW_FOR_POSTURE = {
+    "PUSH": "contender",
+    "RETOOL": "rebuilder",
+    "REBUILD": "rebuilder",
+    "HOLD": "balanced",
+}
 
 
 def _window_fit_for_asset(
@@ -540,18 +499,6 @@ def _redundancy(
     return out
 
 
-def _verdict(composite: float, thresholds: dict[str, Any]) -> str:
-    if composite >= float(thresholds.get("accept", 20)):
-        return "accept"
-    if composite >= float(thresholds.get("leanAccept", 8)):
-        return "lean accept"
-    if composite > float(thresholds.get("leanDecline", -8)):
-        return "neutral"
-    if composite > float(thresholds.get("decline", -20)):
-        return "lean decline"
-    return "decline"
-
-
 def _rationale(
     *,
     starter_value_delta: dict[str, int],
@@ -563,7 +510,7 @@ def _rationale(
     equity: int,
     fit_score: float,
 ) -> list[str]:
-    """Top 5 bullets ranked by absolute contribution to verdict."""
+    """Top 5 roster-information bullets, largest magnitude first."""
     bullets: list[tuple[float, str]] = []
     for pos, dv in starter_value_delta.items():
         if dv == 0:
@@ -586,7 +533,11 @@ def _rationale(
             (abs(window_fit) * 1000, f"Trade {word} a {posture} window ({window_fit:+.1f})")
         )
     if abs(equity) >= 500:
-        bullets.append((abs(equity) * 0.3, f"Net KTC equity {equity:+d}"))
+        # ``equity`` is the RAW canonical sum (receiving - sending), before
+        # any package Value Adjustment -- never a KTC number (TC-A).  It used
+        # to read "Net KTC equity", naming a vendor for a quantity that is
+        # neither KTC nor the active package model's adjusted gap.
+        bullets.append((abs(equity) * 0.3, f"Net raw equity {equity:+d} (before Value Adjustment)"))
     if abs(fit_score) >= 5:
         bullets.append((abs(fit_score) * 5, f"Roster-shape fit score {fit_score:+.0f}"))
     bullets.sort(key=lambda b: b[0], reverse=True)
@@ -602,13 +553,17 @@ def compute(
     equity: int,
     roster_settings: dict[str, Any],
     config: dict[str, Any] | None = None,
+    canonical_posture: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Build the ``teamImpact`` payload.  Returns ``None`` when
     ``roster_settings`` lacks starter slots (no fit analysis possible).
+
+    ``canonical_posture`` is the Competitive Posture owner's block for this
+    team.  Without it the window fit is NOT computed (``posture: None``,
+    ``windowFit: None``) — no posture is guessed here.
     """
     cfg = config or _load_default_weights()
     weights = cfg.get("weights", {})
-    thresholds = cfg.get("verdictThresholds", {})
 
     if not _starter_slots(roster_settings):
         return None
@@ -692,22 +647,25 @@ def compute(
         fit_raw -= w_overflow * max(0, overflow_delta[p]) * scale
 
     fit_score = _clamp(100.0 * fit_raw / fit_norm, -100.0, 100.0)
-    equity_norm = float(weights.get("equityNormalization", 2500)) or 2500.0
-    equity_score = _clamp(100.0 * float(equity) / equity_norm, -100.0, 100.0)
 
-    cw_fit = float(weights.get("compositeFitWeight", 0.55))
-    cw_eq = float(weights.get("compositeEquityWeight", 0.45))
-    composite = cw_fit * fit_score + cw_eq * equity_score
-
-    posture = _classify_window(before_assets, cfg)
+    # Window fit is weighted by the posture's PROBABILITIES, never collapsed
+    # to its label: a 55/45 PUSH/RETOOL roster scores a prime-age addition as
+    # mostly-but-not-entirely aligned.  No measured probabilities (no posture,
+    # or a no-evidence HOLD) = not computed.
+    block = canonical_posture or {}
+    label = block.get("label") if isinstance(block.get("label"), str) else None
+    probs = block.get("probabilities") if isinstance(block.get("probabilities"), dict) else None
+    posture = _WINDOW_FOR_POSTURE.get(label) if (label and probs) else None
     window_score = 0.0
-    moving = []
-    for a in receiving:
-        moving.append(_window_fit_for_asset(a, posture, cfg, sign=+1))
-    for a in sending:
-        moving.append(_window_fit_for_asset(a, posture, cfg, sign=-1))
-    if moving:
-        window_score = sum(moving) / len(moving)
+    if posture is not None and (receiving or sending):
+        for lab, p in probs.items():
+            vocab = _WINDOW_FOR_POSTURE.get(lab)
+            if vocab is None or not isinstance(p, (int, float)) or p <= 0:
+                continue
+            moving = [_window_fit_for_asset(a, vocab, cfg, sign=+1) for a in receiving] + [
+                _window_fit_for_asset(a, vocab, cfg, sign=-1) for a in sending
+            ]
+            window_score += float(p) * (sum(moving) / len(moving))
 
     def _avg_age(assets: list[dict[str, Any]]) -> float | None:
         ages = [a["age"] for a in assets if isinstance(a.get("age"), int)]
@@ -744,15 +702,17 @@ def compute(
     )
 
     return {
+        # Roster-shape score (starter value + first depth piece - bench
+        # overflow), normalized.  Information, not a verdict: no
+        # accept/decline is derived from it (owner decision 5, 2026-10-18).
         "fitScore": round(fit_score, 1),
-        "equityScore": round(equity_score, 1),
-        "compositeScore": round(composite, 1),
-        "verdict": _verdict(composite, thresholds),
         "posture": posture,
+        "competitivePosture": label if posture is not None else None,
+        "postureSource": "canonical" if posture is not None else "unavailable",
         "starterDelta": {p: starter_delta[p] for p in active},
         "starterValueDelta": {p: starter_value_delta[p] for p in active},
         "depthDelta": {p: depth_delta[p] for p in active},
-        "windowFit": round(window_score, 2),
+        "windowFit": round(window_score, 2) if posture is not None else None,
         "ageDelta": round(age_delta, 1),
         "scarcityDelta": scarcity_delta,
         "redundancy": redundancy,

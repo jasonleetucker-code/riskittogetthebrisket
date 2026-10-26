@@ -37,7 +37,9 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 16
+    # Trigger (<= 10 x (30 s curl + 30 s wait) = 10 min worst case) plus
+    # the ~12 min status poll, plus setup.  16 could not hold both.
+    timeout-minutes: 24
     steps:
       - name: Resolve target URL
         id: url
@@ -83,7 +85,7 @@ jobs:
               --request POST \
               --header "Authorization: Bearer ${TOKEN}" \
               --output "${body_file}" --write-out '%{http_code}' \
-              "${URL}/api/intel/refresh?leagueKey=all" || echo 000)"
+              "${URL}/api/intel/refresh?leagueKey=all")" || code=000
             echo "trigger attempt ${attempt}: status=${code}"
             cat "${body_file}" || true
             if [[ "${code}" == "202" ]]; then
@@ -128,10 +130,28 @@ jobs:
               echo "::error title=Intel refresh auth failed::HTTP 401 from ${URL}/api/intel/refresh — token mismatch or server-side token not configured; see step log for the checklist"
               exit 1
             fi
+            # A TRANSPORT failure (curl 000: timeout / connection refused)
+            # or a gateway 5xx says nothing about the endpoint — the
+            # 2026-10-18 run died on ONE 30 s connect timeout on attempt 1
+            # and filed #1795.  Retry those inside the same bounded loop.
+            # Safe to repeat: if the timed-out POST did start the crawl, the
+            # retry gets 409 with leagueKey "all" and adopts it above, so a
+            # retry can never start a second all-league run.  Every other
+            # code (4xx, 500) is a real answer and still fails at once.
+            if [[ "${code}" == "000" || "${code}" == "502" || "${code}" == "503" || "${code}" == "504" ]]; then
+              last_transient="${code}"
+              echo "Transient trigger failure (HTTP ${code}) — waiting 30s before retrying."
+              sleep 30
+              continue
+            fi
             echo "::error title=Intel refresh trigger failed::HTTP ${code} from ${URL}/api/intel/refresh"
             exit 1
           done
           if [[ -z "${started}" ]]; then
+            if [[ -n "${last_transient:-}" ]]; then
+              echo "::error title=Intel refresh trigger failed::Backend unreachable or erroring through every retry (last HTTP ${last_transient}) from ${URL}/api/intel/refresh"
+              exit 1
+            fi
             echo "::error title=Intel refresh trigger failed::Another (non-all) run kept the lock through every retry"
             exit 1
           fi
@@ -151,7 +171,7 @@ jobs:
             code="$(curl --silent --show-error --globoff --max-time 20 \
               --header "Authorization: Bearer ${TOKEN}" \
               --output "${body_file}" --write-out '%{http_code}' \
-              "${URL}/api/intel/refresh/status" || echo 000)"
+              "${URL}/api/intel/refresh/status")" || code=000
             if [[ "${code}" != "200" ]]; then
               echo "attempt ${attempt}: status endpoint HTTP ${code} — retrying"
               continue
@@ -257,13 +277,26 @@ jobs:
             --color B60205 \
             --description "Auto-opened when the daily intel refresh fails" \
             2>/dev/null || true
-          EXISTING=$(gh issue list --state open --label intel-stale \
-                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          # A lookup that FAILS must not read like one that found nothing:
+          # say so, then still file — losing the alert is worse than a
+          # duplicate.  `2>/dev/null || echo ""` erased that difference.
+          # OLDEST wins (min), not `.[0]` over gh's newest-first order.
+          #
+          # Identity is LABEL + exact TITLE (#958, as e2e.yml and
+          # verify-sharp-production.yml do), so a human issue that happens to
+          # wear `intel-stale` is neither commented on nor closed.
+          TRACKER_TITLE="Daily intel refresh failing"
+          if ! EXISTING=$(gh issue list --state open --label intel-stale \
+                            --limit 1000 --json number,title \
+                            --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | min // empty"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; filing an alert without deduplicating against the existing tracker"
+            EXISTING=""
+          fi
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
             gh issue comment "$EXISTING" --body "$BODY"
           else
             gh issue create \
-              --title "Daily intel refresh failing" \
+              --title "$TRACKER_TITLE" \
               --body "$BODY" \
               --label intel-stale
           fi
@@ -281,13 +314,27 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # REQUIRED, for the reason the alert step's note gives: this job
+          # never checks out the repository, so without it `gh` dies with
+          # "not a git repository".  It was missing HERE, and the error was
+          # swallowed below, so every green run since 2026-09-21 logged
+          # "nothing to close" while #737 sat open (run 37491346018).
+          # Pinned by tests/deploy/test_workflow_gh_repo_context.py.
+          GH_REPO: ${{ github.repository }}
         run: |
           set -Eeuo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          # Close EVERY open one: the alert step reads `.[0].number`, so
-          # duplicates would otherwise be orphaned forever.
-          OPEN=$(gh issue list --state open --label intel-stale \
-                   --json number --jq '.[].number' 2>/dev/null || echo "")
+          # Close EVERY open tracker (duplicates would otherwise be orphaned),
+          # keyed on the same LABEL + exact TITLE as the alert step.  A lookup
+          # that FAILS fails the step: reading "could not ask" as "nothing to
+          # close" is a silent all-clear, which is exactly how #737 survived.
+          TRACKER_TITLE="Daily intel refresh failing"
+          if ! OPEN=$(gh issue list --state open --label intel-stale \
+                        --limit 1000 --json number,title \
+                        --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | sort | .[]"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; the green all-clear did NOT run and any open intel-stale tracker is still open"
+            exit 1
+          fi
           if [[ -z "$OPEN" ]]; then
             echo "no open intel-stale issue; nothing to close"
             exit 0

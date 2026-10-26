@@ -19,8 +19,14 @@ import { useMemo } from "react";
 import { useJsonEndpoint } from "@/components/useJsonEndpoint";
 import { classifyRosterIntelligenceFailure } from "@/lib/roster-intelligence";
 
-export function useRosterIntelligence({ ownerId = "", enabled = true } = {}) {
-  const params = useMemo(() => ({ team: ownerId || "" }), [ownerId]);
+export function useRosterIntelligence({ ownerId = "", enabled = true, droppability = false } = {}) {
+  // `droppability: true` adds the team's canonical cut ladder
+  // (C2-DROP-01, `src/draft/displacement.py`) — opt-in on the backend
+  // because it re-runs the lineup solver once per rung.
+  const params = useMemo(
+    () => ({ team: ownerId || "", droppability: droppability ? "1" : "" }),
+    [ownerId, droppability],
+  );
   return useJsonEndpoint("/api/roster/intelligence", {
     params,
     enabled,

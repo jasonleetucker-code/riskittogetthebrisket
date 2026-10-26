@@ -68,16 +68,24 @@ _RENAMED = {"alice": "zeta", "bob": "yank", "carol": "xray", "dave": "west"}
 
 
 def _snapshot(playoff_teams: int):
+    season = SimpleNamespace(
+        season="2026",
+        league_id="L1",
+        league={
+            "settings": {
+                "playoff_teams": playoff_teams,
+                "playoff_week_start": 15,
+                "playoff_seed_type": 1,
+            }
+        },
+        rosters=[],
+        matchups_by_week={},
+        regular_season_weeks=[],
+    )
     return SimpleNamespace(
         managers=SimpleNamespace(by_owner_id={}),
-        current_season=SimpleNamespace(
-            season="2026",
-            league_id="L1",
-            league={"settings": {"playoff_teams": playoff_teams, "playoff_week_start": 15}},
-            rosters=[],
-            matchups_by_week={},
-            regular_season_weeks=[],
-        ),
+        current_season=season,
+        seasons=[season],
     )
 
 
@@ -95,7 +103,14 @@ def _level_league(names: list[str]):
 def _run(engine: str, names: list[str], *, playoff_teams: int = 2, sims: int = 2000):
     dists, schedule = _level_league(names)
     with (
-        mock.patch.object(playoff_sim, "_current_record", lambda *a, **k: {o: {} for o in names}),
+        mock.patch.object(
+            playoff_sim,
+            "_current_standings",
+            lambda *a, **k: (
+                {o: {} for o in names},
+                {"medianGame": False, "state": "not_applicable"},
+            ),
+        ),
         mock.patch.object(playoff_sim, "_remaining_schedule", lambda *a, **k: schedule),
         mock.patch.object(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {}),
         mock.patch.object(playoff_sim, "_league_best_ball", lambda *a, **k: False),
@@ -271,8 +286,85 @@ def test_ros_engines_state_their_tiebreak_choice():
                 f"{rel}:{node.lineno}: standings_from_sim called without an "
                 "explicit rng= — that path falls back to the ownerId"
             )
-    assert total == len(_ROS_ENGINES), (
-        f"expected one canonical standings call per ROS engine, found {total}. "
-        "If an engine stopped ordering standings, say so here; if it was "
-        "renamed, this guard is now blind."
+    # ONE call: since C5-PLAY-01 ``championship.py`` is an adapter over
+    # ``playoff_sim``'s forecast and orders no standings of its own, so the
+    # only simulation that seeds a bracket is the canonical engine's.
+    assert total == 1, (
+        f"expected exactly one canonical standings call across the ROS "
+        f"modules (the one engine's), found {total}. A second call means a "
+        "second simulation has appeared; none means this guard is now blind."
     )
+
+
+# ── Draft-slot distribution (owner draft-order rule, 2026-10-04) ──────
+
+
+def _run_spread(league_key, *, sims=600):
+    """A league the simulator CAN separate, so slots carry information."""
+    names = ["aa", "bb", "cc", "dd"]
+    means = {"aa": 80.0, "bb": 95.0, "cc": 110.0, "dd": 125.0}
+    dists = {
+        o: playoff_sim._TeamDist(owner_id=o, mean=means[o], sd=10.0, pf_to_date=0.0) for o in names
+    }
+    schedule = [
+        (w, names[i], names[j])
+        for w in range(1, 4)
+        for i in range(len(names))
+        for j in range(i + 1, len(names))
+    ]
+    with (
+        mock.patch.object(
+            playoff_sim,
+            "_current_standings",
+            lambda *a, **k: (
+                {o: {} for o in names},
+                {"medianGame": False, "state": "not_applicable"},
+            ),
+        ),
+        mock.patch.object(playoff_sim, "_remaining_schedule", lambda *a, **k: schedule),
+        mock.patch.object(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {}),
+        mock.patch.object(playoff_sim, "_league_best_ball", lambda *a, **k: False),
+        mock.patch.object(
+            playoff_sim,
+            "_build_team_distributions",
+            lambda *a, **k: (dists, {o: 0.0 for o in names}),
+        ),
+        mock.patch("src.ros.team_strength.resolve_snapshot_league_key", lambda *a, **k: league_key),
+    ):
+        return playoff_sim.simulate_playoff_odds(
+            _snapshot(2),
+            n_simulations=sims,
+            min_simulations=sims,
+            max_simulations=sims,
+            rng=random.Random(5),
+        )
+
+
+def test_slot_distribution_follows_the_canonical_rule():
+    out = _run_spread("dynasty_main")
+    assert out["draftOrderRule"] == "reverse_record_lower_pf"
+    assert out["season"] == 2026
+    rows = {r["ownerId"]: r for r in out["playoffOdds"]}
+    for r in rows.values():
+        assert sum(r["draftSlotDistribution"]) == pytest.approx(1.0)
+        assert r["finalWins"]["p10"] <= r["finalWins"]["p50"] <= r["finalWins"]["p90"]
+    for slot in range(4):
+        assert sum(r["draftSlotDistribution"][slot] for r in rows.values()) == pytest.approx(1.0)
+    # The weakest team most often picks first; the strongest most often last.
+    assert rows["aa"]["draftSlotDistribution"][0] > 0.5
+    assert rows["dd"]["draftSlotDistribution"][3] > 0.5
+
+
+def test_no_recorded_rule_publishes_no_slots_and_leaves_the_odds_unchanged():
+    with_rule = _run_spread("dynasty_main")
+    without = _run_spread("unknown_league")
+    assert without["draftOrderRule"] is None
+    assert all("draftSlotDistribution" not in r for r in without["playoffOdds"])
+
+    # The draft-order draws use their own stream: playoff odds are identical.
+    def key(o):
+        return sorted(
+            (r["ownerId"], r["playoffOdds"], r["championshipOdds"]) for r in o["playoffOdds"]
+        )
+
+    assert key(with_rule) == key(without)

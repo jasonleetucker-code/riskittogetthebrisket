@@ -1,0 +1,3497 @@
+{
+ "schema": "lineage-integrity-sweep/v1",
+ "asOf": "2026-10-01T15:00:00+00:00",
+ "codeSha": "455ff0104b1acf6b921c244326ef7b6d5794c370",
+ "historyDays": 120,
+ "universeIndexSize": 1103,
+ "sources": {
+  "ktcCrowdSfTep": {
+   "voting": true,
+   "csv": "CSVs/site_raw/ktcCrowdSfTep.csv",
+   "semantics": {
+    "rows": 500,
+    "identities": 500,
+    "header": [
+     "name",
+     "value",
+     "rank",
+     "player_id",
+     "position"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 462,
+     "idp": 0,
+     "pick": 36,
+     "unresolved": 2
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 722.0,
+     "distinct": 459,
+     "tiedRows": 5,
+     "integerShare": 1.0,
+     "gapsInRun": 263
+    },
+    "value": {
+     "min": 259.0,
+     "max": 9999.0,
+     "distinct": 468,
+     "tiedRows": 32,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 464,
+     "tiedValueRowsWithDistinctRanks": 50
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "picks": {
+      "rowCount": 36,
+      "firstObservedAt": "2026-09-09T13:40:42Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T13:07:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T13:07:33Z",
+      "changeEvents": 101
+     },
+     "players": {
+      "rowCount": 464,
+      "firstObservedAt": "2026-09-09T13:40:42Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T13:07:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T13:07:33Z",
+      "changeEvents": 101
+     }
+    }
+   },
+   "cadence": {
+    "picks": {
+     "broadEventsTrailing": 101,
+     "closedIntervals": 100,
+     "observedP50Hours": 4.8,
+     "observedP75Hours": 6.3,
+     "declared": {
+      "seedHours": 12,
+      "minHours": 12,
+      "maxHours": 48
+     },
+     "declaredBoundBinding": "minHours"
+    },
+    "players": {
+     "broadEventsTrailing": 101,
+     "closedIntervals": 100,
+     "observedP50Hours": 4.8,
+     "observedP75Hours": 6.3,
+     "declared": {
+      "seedHours": 12,
+      "minHours": 12,
+      "maxHours": 48
+     },
+     "declaredBoundBinding": "minHours"
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-09T13:40:43+00:00",
+    "gitContentVersions": 103,
+    "meaningfulVersions": 103,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 101,
+    "meaningfulMatched": 101,
+    "meaningfulWithoutEvent": 2,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   }
+  },
+  "ktcTradesSfTep": {
+   "voting": true,
+   "csv": "CSVs/site_raw/ktcTradesSfTep.csv",
+   "semantics": {
+    "rows": 500,
+    "identities": 500,
+    "header": [
+     "name",
+     "value",
+     "rank",
+     "player_id",
+     "position"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 462,
+     "idp": 0,
+     "pick": 36,
+     "unresolved": 2
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 805.0,
+     "distinct": 464,
+     "tiedRows": 0,
+     "integerShare": 1.0,
+     "gapsInRun": 341
+    },
+    "value": {
+     "min": 221.0,
+     "max": 9311.0,
+     "distinct": 477,
+     "tiedRows": 23,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 464,
+     "tiedValueRowsWithDistinctRanks": 35
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "picks": {
+      "rowCount": 36,
+      "firstObservedAt": "2026-09-09T13:40:42Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T13:07:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T13:07:33Z",
+      "changeEvents": 101
+     },
+     "players": {
+      "rowCount": 464,
+      "firstObservedAt": "2026-09-09T13:40:42Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T13:07:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T13:07:33Z",
+      "changeEvents": 101
+     }
+    }
+   },
+   "cadence": {
+    "picks": {
+     "broadEventsTrailing": 101,
+     "closedIntervals": 100,
+     "observedP50Hours": 4.8,
+     "observedP75Hours": 6.3,
+     "declared": {
+      "seedHours": 12,
+      "minHours": 12,
+      "maxHours": 48
+     },
+     "declaredBoundBinding": "minHours"
+    },
+    "players": {
+     "broadEventsTrailing": 101,
+     "closedIntervals": 100,
+     "observedP50Hours": 4.8,
+     "observedP75Hours": 6.3,
+     "declared": {
+      "seedHours": 12,
+      "minHours": 12,
+      "maxHours": 48
+     },
+     "declaredBoundBinding": "minHours"
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-09T13:40:43+00:00",
+    "gitContentVersions": 103,
+    "meaningfulVersions": 103,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 101,
+    "meaningfulMatched": 101,
+    "meaningfulWithoutEvent": 2,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   }
+  },
+  "idpTradeCalc": {
+   "voting": true,
+   "csv": "CSVs/site_raw/idpTradeCalc.csv",
+   "semantics": {
+    "rows": 900,
+    "identities": 899,
+    "header": [
+     "name",
+     "value"
+    ],
+    "rankColumn": null,
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 1,
+    "duplicateExamples": [
+     {
+      "identity": "demario douglas",
+      "raw": [
+       "Demario Douglas",
+       "DeMario Douglas"
+      ],
+      "sameSignal": true
+     }
+    ],
+    "population": {
+     "offense": 432,
+     "idp": 365,
+     "pick": 84,
+     "unresolved": 18
+    },
+    "value": {
+     "min": 756.0,
+     "max": 9997.0,
+     "distinct": 731,
+     "tiedRows": 168,
+     "integerShare": 1.0
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [
+     "8 duplicate name occurrence(s)"
+    ],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "picks": {
+      "rowCount": 84,
+      "firstObservedAt": "2026-04-16T14:34:45Z",
+      "lastAnyMeaningfulChangeAt": "2026-08-28T01:13:39Z",
+      "lastBroadDatasetChangeAt": "2026-08-28T01:13:39Z",
+      "changeEvents": 4
+     },
+     "players": {
+      "rowCount": 816,
+      "firstObservedAt": "2026-04-16T14:34:45Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-23T21:54:29Z",
+      "lastBroadDatasetChangeAt": "2026-09-23T21:54:29Z",
+      "changeEvents": 41
+     }
+    }
+   },
+   "cadence": {
+    "picks": {
+     "broadEventsTrailing": 3,
+     "closedIntervals": 2,
+     "observedP50Hours": 988.6,
+     "observedP75Hours": 1128.4,
+     "declared": {
+      "seedHours": 120,
+      "minHours": 48,
+      "maxHours": 240
+     },
+     "declaredBoundBinding": "maxHours"
+    },
+    "players": {
+     "broadEventsTrailing": 23,
+     "closedIntervals": 22,
+     "observedP50Hours": 82.0,
+     "observedP75Hours": 159.4,
+     "declared": {
+      "seedHours": 120,
+      "minHours": 48,
+      "maxHours": 240
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 13,
+    "meaningfulVersions": 13,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 13,
+    "meaningfulMatched": 13,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   }
+  },
+  "dlfSf": {
+   "voting": true,
+   "csv": "CSVs/site_raw/dlfSf.csv",
+   "semantics": {
+    "rows": 286,
+    "identities": 286,
+    "header": [
+     "name",
+     "rank",
+     "value"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 284,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 2
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 250.83,
+     "distinct": 266,
+     "tiedRows": 20,
+     "integerShare": 0.133,
+     "gapsInRun": null
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 286,
+      "firstObservedAt": "2026-04-21T01:18:59Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T20:27:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T20:27:33Z",
+      "changeEvents": 71
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 55,
+     "closedIntervals": 54,
+     "observedP50Hours": 20.0,
+     "observedP75Hours": 47.5,
+     "declared": {
+      "seedHours": 72,
+      "minHours": 24,
+      "maxHours": 168
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 11,
+    "meaningfulVersions": 11,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 11,
+    "meaningfulMatched": 11,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 59,
+    "changeEvents": 57,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "dlfRookieSf": {
+   "voting": true,
+   "csv": "CSVs/site_raw/dlfRookieSf.csv",
+   "semantics": {
+    "rows": 58,
+    "identities": 58,
+    "header": [
+     "name",
+     "rank",
+     "value"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 58,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 0
+    },
+    "rank": {
+     "min": 1.14,
+     "max": 48.0,
+     "distinct": 53,
+     "tiedRows": 5,
+     "integerShare": 0.086,
+     "gapsInRun": null
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 58,
+      "firstObservedAt": "2026-04-21T01:18:59Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-29T20:27:38Z",
+      "lastBroadDatasetChangeAt": "2026-09-29T20:27:38Z",
+      "changeEvents": 63
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 49,
+     "closedIntervals": 48,
+     "observedP50Hours": 25.0,
+     "observedP75Hours": 54.5,
+     "declared": {
+      "seedHours": 72,
+      "minHours": 24,
+      "maxHours": 336
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 7,
+    "meaningfulVersions": 7,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 7,
+    "meaningfulMatched": 7,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 52,
+    "changeEvents": 50,
+    "orderPreservingEvents": 2,
+    "orderPreservingWithRankShift>=5": 1,
+    "examples": [
+     {
+      "added": 0,
+      "removed": 0,
+      "common": 55,
+      "rankKeyChanged": 9,
+      "orderPreserving": true,
+      "at": "2026-08-16T22:27:26+00:00"
+     }
+    ]
+   }
+  },
+  "dlfIdp": {
+   "voting": true,
+   "csv": "CSVs/site_raw/dlfIdp.csv",
+   "semantics": {
+    "rows": 172,
+    "identities": 172,
+    "header": [
+     "name",
+     "rank",
+     "value"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 0,
+     "idp": 171,
+     "pick": 0,
+     "unresolved": 1
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 150.5,
+     "distinct": 132,
+     "tiedRows": 40,
+     "integerShare": 0.535,
+     "gapsInRun": null
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 172,
+      "firstObservedAt": "2026-04-16T14:34:45Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-24T12:27:48Z",
+      "lastBroadDatasetChangeAt": "2026-09-24T12:27:48Z",
+      "changeEvents": 27
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 17,
+     "closedIntervals": 16,
+     "observedP50Hours": 120.0,
+     "observedP75Hours": 174.0,
+     "declared": {
+      "seedHours": 72,
+      "minHours": 24,
+      "maxHours": 168
+     },
+     "declaredBoundBinding": "maxHours"
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 5,
+    "meaningfulVersions": 5,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 5,
+    "meaningfulMatched": 5,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 18,
+    "changeEvents": 17,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "dlfRookieIdp": {
+   "voting": true,
+   "csv": "CSVs/site_raw/dlfRookieIdp.csv",
+   "semantics": {
+    "rows": 30,
+    "identities": 30,
+    "header": [
+     "name",
+     "rank",
+     "value"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 0,
+     "idp": 30,
+     "pick": 0,
+     "unresolved": 0
+    },
+    "rank": {
+     "min": 1.33,
+     "max": 24.67,
+     "distinct": 22,
+     "tiedRows": 8,
+     "integerShare": 0.067,
+     "gapsInRun": null
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 30,
+      "firstObservedAt": "2026-04-21T01:18:59Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-29T12:27:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-29T12:27:33Z",
+      "changeEvents": 23
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 12,
+     "closedIntervals": 11,
+     "observedP50Hours": 198.0,
+     "observedP75Hours": 321.0,
+     "declared": {
+      "seedHours": 72,
+      "minHours": 24,
+      "maxHours": 336
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 6,
+    "meaningfulVersions": 6,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 6,
+    "meaningfulMatched": 6,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 17,
+    "changeEvents": 16,
+    "orderPreservingEvents": 1,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "idpShowCombined": {
+   "voting": true,
+   "csv": "CSVs/site_raw/idpShowCombined.csv",
+   "semantics": {
+    "rows": 665,
+    "identities": 662,
+    "header": [
+     "name",
+     "position",
+     "rank"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": null,
+    "unnamedRows": 0,
+    "duplicateIdentities": 3,
+    "duplicateExamples": [
+     {
+      "identity": "travis hunter",
+      "raw": [
+       "Travis Hunter",
+       "Travis Hunter"
+      ],
+      "sameSignal": false
+     },
+     {
+      "identity": "byron murphy",
+      "raw": [
+       "Byron Murphy",
+       "Byron Murphy"
+      ],
+      "sameSignal": false
+     },
+     {
+      "identity": "justin jefferson",
+      "raw": [
+       "Justin Jefferson",
+       "Justin Jefferson"
+      ],
+      "sameSignal": false
+     }
+    ],
+    "population": {
+     "offense": 357,
+     "idp": 303,
+     "pick": 0,
+     "unresolved": 2
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 667.0,
+     "distinct": 662,
+     "tiedRows": 0,
+     "integerShare": 1.0,
+     "gapsInRun": 5
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [
+     "3 duplicate name occurrence(s)"
+    ],
+    "upstream": {
+     "publishedAt": "2026-08-19T17:50:16.000Z",
+     "version": "U8I37/v4"
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 665,
+      "firstObservedAt": "2026-08-20T23:28:28Z",
+      "lastAnyMeaningfulChangeAt": "2026-08-20T23:28:28Z",
+      "lastBroadDatasetChangeAt": "2026-08-20T23:28:28Z",
+      "changeEvents": 0
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 0,
+     "closedIntervals": 0,
+     "observedP50Hours": null,
+     "observedP75Hours": null,
+     "declared": {
+      "seedHours": 168,
+      "minHours": 72,
+      "maxHours": 336,
+      "style": "EXPLICIT_UPSTREAM_TIMESTAMP"
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 0,
+    "meaningfulVersions": 0,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 0,
+    "meaningfulMatched": 0,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 1,
+    "changeEvents": 0,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "dynastyNerdsSfTep": {
+   "voting": true,
+   "csv": "CSVs/site_raw/dynastyNerdsSfTep.csv",
+   "semantics": {
+    "rows": 294,
+    "identities": 294,
+    "header": [
+     "Name",
+     "Rank",
+     "Value",
+     "SleeperId",
+     "Pos",
+     "Team"
+    ],
+    "rankColumn": "Rank",
+    "valueColumn": "Value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 292,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 2
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 294.0,
+     "distinct": 294,
+     "tiedRows": 0,
+     "integerShare": 1.0,
+     "gapsInRun": 0
+    },
+    "value": {
+     "min": 9.0,
+     "max": 10256.0,
+     "distinct": 262,
+     "tiedRows": 32,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 294,
+     "tiedValueRowsWithDistinctRanks": 53
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 294,
+      "firstObservedAt": "2026-04-16T14:34:45Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-11T16:52:14Z",
+      "lastBroadDatasetChangeAt": "2026-09-11T16:52:14Z",
+      "changeEvents": 7
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 5,
+     "closedIntervals": 4,
+     "observedP50Hours": 176.2,
+     "observedP75Hours": 356.0,
+     "declared": {
+      "seedHours": 720,
+      "minHours": 240,
+      "maxHours": 1080
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 1,
+    "meaningfulVersions": 1,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 1,
+    "meaningfulMatched": 1,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 6,
+    "changeEvents": 5,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "fantasyCalc": {
+   "voting": true,
+   "csv": "CSVs/site_raw/fantasyCalc.csv",
+   "semantics": {
+    "rows": 397,
+    "identities": 397,
+    "header": [
+     "name",
+     "value",
+     "rank"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 389,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 8
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 397.0,
+     "distinct": 357,
+     "tiedRows": 40,
+     "integerShare": 1.0,
+     "gapsInRun": 40
+    },
+    "value": {
+     "min": 4.0,
+     "max": 10969.0,
+     "distinct": 357,
+     "tiedRows": 40,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 397,
+     "tiedValueRowsWithDistinctRanks": 0
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 397,
+      "firstObservedAt": "2026-05-13T07:46:12Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T13:07:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T13:07:33Z",
+      "changeEvents": 240
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 240,
+     "closedIntervals": 239,
+     "observedP50Hours": 3.9,
+     "observedP75Hours": 5.9,
+     "declared": {
+      "seedHours": 24,
+      "minHours": 12,
+      "maxHours": 96
+     },
+     "declaredBoundBinding": "minHours"
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 136,
+    "meaningfulVersions": 136,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 134,
+    "meaningfulMatched": 134,
+    "meaningfulWithoutEvent": 2,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 684,
+    "changeEvents": 682,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "otcffbSf": {
+   "voting": true,
+   "csv": "CSVs/site_raw/otcffbSf.csv",
+   "semantics": {
+    "rows": 370,
+    "identities": 370,
+    "header": [
+     "name",
+     "value",
+     "rank"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 367,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 3
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 370.0,
+     "distinct": 194,
+     "tiedRows": 176,
+     "integerShare": 1.0,
+     "gapsInRun": 176
+    },
+    "value": {
+     "min": 0.9,
+     "max": 100.0,
+     "distinct": 194,
+     "tiedRows": 176,
+     "integerShare": 0.132
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 370,
+     "tiedValueRowsWithDistinctRanks": 0
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [
+     "3 duplicate name occurrence(s)"
+    ],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 370,
+      "firstObservedAt": "2026-05-15T22:06:35Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-29T19:45:43Z",
+      "lastBroadDatasetChangeAt": "2026-09-29T19:45:43Z",
+      "changeEvents": 190
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 116,
+     "closedIntervals": 115,
+     "observedP50Hours": 23.9,
+     "observedP75Hours": 24.5,
+     "declared": {
+      "seedHours": 24,
+      "minHours": 12,
+      "maxHours": 96
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 29,
+    "meaningfulVersions": 29,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 29,
+    "meaningfulMatched": 29,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 116,
+    "changeEvents": 115,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "fantasyNavigatorSf": {
+   "voting": true,
+   "csv": "CSVs/site_raw/fantasyNavigatorSf.csv",
+   "semantics": {
+    "rows": 769,
+    "identities": 769,
+    "header": [
+     "name",
+     "value",
+     "rank"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 461,
+     "idp": 1,
+     "pick": 0,
+     "unresolved": 307
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 709.0,
+     "distinct": 312,
+     "tiedRows": 457,
+     "integerShare": 1.0,
+     "gapsInRun": 397
+    },
+    "value": {
+     "min": 1.0,
+     "max": 9867.0,
+     "distinct": 312,
+     "tiedRows": 457,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 769,
+     "tiedValueRowsWithDistinctRanks": 0
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 769,
+      "firstObservedAt": "2026-07-26T00:31:45Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-29T13:27:32Z",
+      "lastBroadDatasetChangeAt": "2026-09-29T13:27:32Z",
+      "changeEvents": 9
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 9,
+     "closedIntervals": 8,
+     "observedP50Hours": 24.7,
+     "observedP75Hours": 26.9,
+     "declared": {
+      "seedHours": 24,
+      "minHours": 12,
+      "maxHours": 96
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 11,
+    "meaningfulVersions": 9,
+    "byteOnlyVersions": 2,
+    "recordedChangeInstants": 9,
+    "meaningfulMatched": 9,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 12,
+    "changeEvents": 9,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "pfkDynasty": {
+   "voting": true,
+   "csv": "CSVs/site_raw/pfkDynasty.csv",
+   "semantics": {
+    "rows": 496,
+    "identities": 496,
+    "header": [
+     "name",
+     "value",
+     "rank",
+     "sleeper_id"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 458,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 38
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 496.0,
+     "distinct": 479,
+     "tiedRows": 17,
+     "integerShare": 1.0,
+     "gapsInRun": 17
+    },
+    "value": {
+     "min": 107.0,
+     "max": 9999.0,
+     "distinct": 479,
+     "tiedRows": 17,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 496,
+     "tiedValueRowsWithDistinctRanks": 0
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 496,
+      "firstObservedAt": "2026-07-26T00:31:45Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T06:05:51Z",
+      "lastBroadDatasetChangeAt": "2026-09-29T19:45:43Z",
+      "changeEvents": 30
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 29,
+     "closedIntervals": 28,
+     "observedP50Hours": 34.6,
+     "observedP75Hours": 60.0,
+     "declared": {
+      "seedHours": 72,
+      "minHours": 24,
+      "maxHours": 336
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 14,
+    "meaningfulVersions": 14,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 14,
+    "meaningfulMatched": 13,
+    "meaningfulWithoutEvent": 1,
+    "eventsWithoutVersion": 1,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 31,
+    "changeEvents": 29,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "dynastyDaddySf": {
+   "voting": true,
+   "csv": "CSVs/site_raw/dynastyDaddySf.csv",
+   "semantics": {
+    "rows": 381,
+    "identities": 381,
+    "header": [
+     "name",
+     "value",
+     "rank"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 380,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 1
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 381.0,
+     "distinct": 381,
+     "tiedRows": 0,
+     "integerShare": 1.0,
+     "gapsInRun": 0
+    },
+    "value": {
+     "min": 3.0,
+     "max": 10200.0,
+     "distinct": 343,
+     "tiedRows": 38,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 381,
+     "tiedValueRowsWithDistinctRanks": 73
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 381,
+      "firstObservedAt": "2026-04-22T05:18:47Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T13:07:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T13:07:33Z",
+      "changeEvents": 240
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 240,
+     "closedIntervals": 239,
+     "observedP50Hours": 3.5,
+     "observedP75Hours": 5.6,
+     "declared": {
+      "seedHours": 24,
+      "minHours": 12,
+      "maxHours": 96
+     },
+     "declaredBoundBinding": "minHours"
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 144,
+    "meaningfulVersions": 144,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 142,
+    "meaningfulMatched": 142,
+    "meaningfulWithoutEvent": 2,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 857,
+    "changeEvents": 856,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "fantasyProsSf": {
+   "voting": true,
+   "csv": "CSVs/site_raw/fantasyProsSf.csv",
+   "semantics": {
+    "rows": 397,
+    "identities": 397,
+    "header": [
+     "name",
+     "Rank",
+     "position",
+     "team"
+    ],
+    "rankColumn": "Rank",
+    "valueColumn": null,
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 395,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 2
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 397.0,
+     "distinct": 397,
+     "tiedRows": 0,
+     "integerShare": 1.0,
+     "gapsInRun": 0
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 397,
+      "firstObservedAt": "2026-04-16T14:34:45Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T06:05:51Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T06:05:51Z",
+      "changeEvents": 148
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 131,
+     "closedIntervals": 130,
+     "observedP50Hours": 9.2,
+     "observedP75Hours": 16.0,
+     "declared": {
+      "seedHours": 168,
+      "minHours": 48,
+      "maxHours": 336
+     },
+     "declaredBoundBinding": "minHours"
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 62,
+    "meaningfulVersions": 47,
+    "byteOnlyVersions": 15,
+    "recordedChangeInstants": 47,
+    "meaningfulMatched": 46,
+    "meaningfulWithoutEvent": 1,
+    "eventsWithoutVersion": 1,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 184,
+    "changeEvents": 146,
+    "orderPreservingEvents": 1,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "fantasyProsIdp": {
+   "voting": true,
+   "csv": "CSVs/site_raw/fantasyProsIdp.csv",
+   "semantics": {
+    "rows": 299,
+    "identities": 283,
+    "header": [
+     "name",
+     "originalRank",
+     "effectiveRank",
+     "derivationMethod",
+     "family",
+     "normalizedValue",
+     "matchedSourceName",
+     "position",
+     "team"
+    ],
+    "rankColumn": "effectiveRank",
+    "valueColumn": "normalizedValue",
+    "unnamedRows": 0,
+    "duplicateIdentities": 16,
+    "duplicateExamples": [
+     {
+      "identity": "dallas turner",
+      "raw": [
+       "Dallas Turner",
+       "Dallas Turner"
+      ],
+      "sameSignal": false
+     },
+     {
+      "identity": "gregory rousseau",
+      "raw": [
+       "Greg Rousseau",
+       "Greg Rousseau"
+      ],
+      "sameSignal": false
+     },
+     {
+      "identity": "josh hines allen",
+      "raw": [
+       "Josh Hines-Allen",
+       "Josh Hines-Allen"
+      ],
+      "sameSignal": false
+     },
+     {
+      "identity": "trey hendrickson",
+      "raw": [
+       "Trey Hendrickson",
+       "Trey Hendrickson"
+      ],
+      "sameSignal": false
+     },
+     {
+      "identity": "jaelan phillips",
+      "raw": [
+       "Jaelan Phillips",
+       "Jaelan Phillips"
+      ],
+      "sameSignal": false
+     }
+    ],
+    "population": {
+     "offense": 0,
+     "idp": 283,
+     "pick": 0,
+     "unresolved": 0
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 473.0,
+     "distinct": 244,
+     "tiedRows": 39,
+     "integerShare": 1.0,
+     "gapsInRun": 229
+    },
+    "value": {
+     "min": 702.0,
+     "max": 9999.0,
+     "distinct": 244,
+     "tiedRows": 39,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 283,
+     "tiedValueRowsWithDistinctRanks": 0
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 299,
+      "firstObservedAt": "2026-04-16T14:34:45Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-23T21:54:29Z",
+      "lastBroadDatasetChangeAt": "2026-09-23T21:54:29Z",
+      "changeEvents": 11
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 10,
+     "closedIntervals": 9,
+     "observedP50Hours": 147.3,
+     "observedP75Hours": 253.0,
+     "declared": {
+      "seedHours": 168,
+      "minHours": 48,
+      "maxHours": 336
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 6,
+    "meaningfulVersions": 4,
+    "byteOnlyVersions": 2,
+    "recordedChangeInstants": 4,
+    "meaningfulMatched": 4,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 16,
+    "changeEvents": 9,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "fantasyProsFitzmaurice": {
+   "voting": true,
+   "csv": "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+   "semantics": {
+    "rows": 297,
+    "identities": 297,
+    "header": [
+     "name",
+     "team",
+     "position",
+     "value",
+     "rank"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 295,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 2
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 294.0,
+     "distinct": 79,
+     "tiedRows": 218,
+     "integerShare": 1.0,
+     "gapsInRun": 215
+    },
+    "value": {
+     "min": 2.0,
+     "max": 100.0,
+     "distinct": 79,
+     "tiedRows": 218,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 297,
+     "tiedValueRowsWithDistinctRanks": 0
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 297,
+      "firstObservedAt": "2026-04-22T05:11:54Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-01T12:07:14Z",
+      "lastBroadDatasetChangeAt": "2026-09-01T12:07:14Z",
+      "changeEvents": 7
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 5,
+     "closedIntervals": 4,
+     "observedP50Hours": 369.8,
+     "observedP75Hours": 713.4,
+     "declared": {
+      "seedHours": 840,
+      "minHours": 336,
+      "maxHours": 1080
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 0,
+    "meaningfulVersions": 0,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 0,
+    "meaningfulMatched": 0,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 5,
+    "changeEvents": 4,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "flockFantasySf": {
+   "voting": true,
+   "csv": "CSVs/site_raw/flockFantasySf.csv",
+   "semantics": {
+    "rows": 436,
+    "identities": 435,
+    "header": [
+     "name",
+     "Rank"
+    ],
+    "rankColumn": "Rank",
+    "valueColumn": null,
+    "unnamedRows": 0,
+    "duplicateIdentities": 1,
+    "duplicateExamples": [
+     {
+      "identity": "cole payton",
+      "raw": [
+       "Cole Payton",
+       "Cole Payton"
+      ],
+      "sameSignal": false
+     }
+    ],
+    "population": {
+     "offense": 407,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 28
+    },
+    "rank": {
+     "min": 2.0,
+     "max": 419.0,
+     "distinct": 399,
+     "tiedRows": 36,
+     "integerShare": 0.255,
+     "gapsInRun": null
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 436,
+      "firstObservedAt": "2026-04-17T01:36:34Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T13:07:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T13:07:33Z",
+      "changeEvents": 231
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 78,
+     "closedIntervals": 77,
+     "observedP50Hours": 20.2,
+     "observedP75Hours": 52.3,
+     "declared": {
+      "seedHours": 48,
+      "minHours": 24,
+      "maxHours": 168
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 39,
+    "meaningfulVersions": 29,
+    "byteOnlyVersions": 10,
+    "recordedChangeInstants": 29,
+    "meaningfulMatched": 29,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 458,
+    "changeEvents": 111,
+    "orderPreservingEvents": 12,
+    "orderPreservingWithRankShift>=5": 1,
+    "examples": [
+     {
+      "added": 0,
+      "removed": 0,
+      "common": 436,
+      "rankKeyChanged": 6,
+      "orderPreserving": true,
+      "at": "2026-06-19T00:20:04+00:00"
+     }
+    ]
+   }
+  },
+  "flockFantasySfRookies": {
+   "voting": true,
+   "csv": "CSVs/site_raw/flockFantasySfRookies.csv",
+   "semantics": {
+    "rows": 48,
+    "identities": 48,
+    "header": [
+     "name",
+     "Rank"
+    ],
+    "rankColumn": "Rank",
+    "valueColumn": null,
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 48,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 0
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 48.0,
+     "distinct": 48,
+     "tiedRows": 0,
+     "integerShare": 1.0,
+     "gapsInRun": 0
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 48,
+      "firstObservedAt": "2026-04-21T08:47:38Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-05T13:23:25Z",
+      "lastBroadDatasetChangeAt": "2026-09-05T13:23:25Z",
+      "changeEvents": 50
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 14,
+     "closedIntervals": 13,
+     "observedP50Hours": 97.6,
+     "observedP75Hours": 314.0,
+     "declared": {
+      "seedHours": 336,
+      "minHours": 168,
+      "maxHours": 720
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 1,
+    "meaningfulVersions": 1,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 1,
+    "meaningfulMatched": 1,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 183,
+    "changeEvents": 13,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "yahooBoone": {
+   "voting": true,
+   "csv": "CSVs/site_raw/yahooBoone.csv",
+   "semantics": {
+    "rows": 410,
+    "identities": 410,
+    "header": [
+     "name",
+     "pos",
+     "rank",
+     "boone_value"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "boone_value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 408,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 2
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 405.0,
+     "distinct": 96,
+     "tiedRows": 314,
+     "integerShare": 1.0,
+     "gapsInRun": 309
+    },
+    "value": {
+     "min": 0.0,
+     "max": 141.0,
+     "distinct": 96,
+     "tiedRows": 314,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 410,
+     "tiedValueRowsWithDistinctRanks": 0
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 410,
+      "firstObservedAt": "2026-04-19T10:03:55Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-03T19:33:41Z",
+      "lastBroadDatasetChangeAt": "2026-09-03T19:33:41Z",
+      "changeEvents": 12
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 4,
+     "closedIntervals": 3,
+     "observedP50Hours": 697.3,
+     "observedP75Hours": 851.9,
+     "declared": {
+      "seedHours": 840,
+      "minHours": 336,
+      "maxHours": 1080
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 1,
+    "meaningfulVersions": 1,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 1,
+    "meaningfulMatched": 1,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   },
+   "rankChangeCensus": {
+    "versions": 4,
+    "changeEvents": 3,
+    "orderPreservingEvents": 0,
+    "orderPreservingWithRankShift>=5": 0,
+    "examples": []
+   }
+  },
+  "draftSharks": {
+   "voting": true,
+   "csv": "CSVs/site_raw/draftSharksSf.csv",
+   "semantics": {
+    "rows": 391,
+    "identities": 391,
+    "header": [
+     "Rank",
+     "Team",
+     "Player",
+     "Fantasy Position",
+     "ADP",
+     "Bye",
+     "Age",
+     "1yr. Proj",
+     "3yr. Proj",
+     "5yr. Proj",
+     "10yr. Proj",
+     "DS Analysis",
+     "3D Value +"
+    ],
+    "rankColumn": "Rank",
+    "valueColumn": "3D Value +",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 389,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 2
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 391.0,
+     "distinct": 391,
+     "tiedRows": 0,
+     "integerShare": 1.0,
+     "gapsInRun": 0
+    },
+    "value": {
+     "min": -19.0,
+     "max": 100.0,
+     "distinct": 65,
+     "tiedRows": 326,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 0.9992,
+     "n": 391,
+     "tiedValueRowsWithDistinctRanks": 370
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 391,
+      "firstObservedAt": "2026-04-19T19:47:46Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T13:07:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T13:07:33Z",
+      "changeEvents": 240
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 135,
+     "closedIntervals": 134,
+     "observedP50Hours": 8.6,
+     "observedP75Hours": 18.3,
+     "declared": {
+      "seedHours": 24,
+      "minHours": 12,
+      "maxHours": 96
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 114,
+    "meaningfulVersions": 76,
+    "byteOnlyVersions": 38,
+    "recordedChangeInstants": 74,
+    "meaningfulMatched": 74,
+    "meaningfulWithoutEvent": 2,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   }
+  },
+  "draftSharksIdp": {
+   "voting": true,
+   "csv": "CSVs/site_raw/draftSharksIdp.csv",
+   "semantics": {
+    "rows": 409,
+    "identities": 408,
+    "header": [
+     "Rank",
+     "Team",
+     "Player",
+     "Fantasy Position",
+     "ADP",
+     "Bye",
+     "Age",
+     "1yr. Proj",
+     "3yr. Proj",
+     "5yr. Proj",
+     "10yr. Proj",
+     "DS Analysis",
+     "3D Value +"
+    ],
+    "rankColumn": "Rank",
+    "valueColumn": "3D Value +",
+    "unnamedRows": 0,
+    "duplicateIdentities": 1,
+    "duplicateExamples": [
+     {
+      "identity": "byron murphy",
+      "raw": [
+       "Byron Murphy II",
+       "Byron Murphy"
+      ],
+      "sameSignal": false
+     }
+    ],
+    "population": {
+     "offense": 0,
+     "idp": 407,
+     "pick": 0,
+     "unresolved": 1
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 409.0,
+     "distinct": 408,
+     "tiedRows": 0,
+     "integerShare": 1.0,
+     "gapsInRun": 1
+    },
+    "value": {
+     "min": -21.0,
+     "max": 46.0,
+     "distinct": 50,
+     "tiedRows": 358,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 0.9989,
+     "n": 408,
+     "tiedValueRowsWithDistinctRanks": 396
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 409,
+      "firstObservedAt": "2026-04-19T19:47:46Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T06:05:51Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T06:05:51Z",
+      "changeEvents": 114
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 68,
+     "closedIntervals": 67,
+     "observedP50Hours": 10.4,
+     "observedP75Hours": 27.7,
+     "declared": {
+      "seedHours": 24,
+      "minHours": 12,
+      "maxHours": 96
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-01T15:00:00+00:00",
+    "gitContentVersions": 83,
+    "meaningfulVersions": 46,
+    "byteOnlyVersions": 37,
+    "recordedChangeInstants": 46,
+    "meaningfulMatched": 46,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   }
+  },
+  "ktc": {
+   "voting": false,
+   "csv": "CSVs/site_raw/ktc.csv",
+   "semantics": {
+    "rows": 500,
+    "identities": 500,
+    "header": [
+     "name",
+     "value"
+    ],
+    "rankColumn": null,
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 462,
+     "idp": 0,
+     "pick": 36,
+     "unresolved": 2
+    },
+    "value": {
+     "min": 259.0,
+     "max": 9999.0,
+     "distinct": 465,
+     "tiedRows": 35,
+     "integerShare": 1.0
+    }
+   },
+   "datasetState": null
+  },
+  "ktcSfTep": {
+   "voting": false,
+   "csv": "CSVs/site_raw/ktcSfTep.csv",
+   "semantics": {
+    "rows": 500,
+    "identities": 500,
+    "header": [
+     "name",
+     "value"
+    ],
+    "rankColumn": null,
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 462,
+     "idp": 0,
+     "pick": 36,
+     "unresolved": 2
+    },
+    "value": {
+     "min": 259.0,
+     "max": 9999.0,
+     "distinct": 468,
+     "tiedRows": 32,
+     "integerShare": 1.0
+    }
+   },
+   "datasetState": null
+  },
+  "ktcCrowdTradesSfTep": {
+   "voting": false,
+   "csv": "CSVs/site_raw/ktcCrowdTradesSfTep.csv",
+   "semantics": {
+    "rows": 500,
+    "identities": 500,
+    "header": [
+     "name",
+     "value",
+     "rank",
+     "player_id",
+     "position"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 462,
+     "idp": 0,
+     "pick": 36,
+     "unresolved": 2
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 601.0,
+     "distinct": 464,
+     "tiedRows": 0,
+     "integerShare": 1.0,
+     "gapsInRun": 137
+    },
+    "value": {
+     "min": 379.0,
+     "max": 9651.0,
+     "distinct": 472,
+     "tiedRows": 28,
+     "integerShare": 1.0
+    },
+    "rankValueConcordance": {
+     "spearman": 1.0,
+     "n": 464,
+     "tiedValueRowsWithDistinctRanks": 48
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "picks": {
+      "rowCount": 36,
+      "firstObservedAt": "2026-09-09T13:40:42Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T13:07:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T13:07:33Z",
+      "changeEvents": 101
+     },
+     "players": {
+      "rowCount": 464,
+      "firstObservedAt": "2026-09-09T13:40:42Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-30T13:07:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-30T13:07:33Z",
+      "changeEvents": 101
+     }
+    }
+   },
+   "cadence": {
+    "picks": {
+     "broadEventsTrailing": 101,
+     "closedIntervals": 100,
+     "observedP50Hours": 4.8,
+     "observedP75Hours": 6.3,
+     "declared": {
+      "seedHours": 12,
+      "minHours": 12,
+      "maxHours": 48
+     },
+     "declaredBoundBinding": "minHours"
+    },
+    "players": {
+     "broadEventsTrailing": 101,
+     "closedIntervals": 100,
+     "observedP50Hours": 4.8,
+     "observedP75Hours": 6.3,
+     "declared": {
+      "seedHours": 12,
+      "minHours": 12,
+      "maxHours": 48
+     },
+     "declaredBoundBinding": "minHours"
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-09T13:40:43+00:00",
+    "gitContentVersions": 103,
+    "meaningfulVersions": 103,
+    "byteOnlyVersions": 0,
+    "recordedChangeInstants": 101,
+    "meaningfulMatched": 101,
+    "meaningfulWithoutEvent": 2,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   }
+  },
+  "idpShow": {
+   "voting": false,
+   "csv": "CSVs/site_raw/idpShow.csv",
+   "semantics": {
+    "rows": 350,
+    "identities": 349,
+    "header": [
+     "name",
+     "position",
+     "rank"
+    ],
+    "rankColumn": "rank",
+    "valueColumn": null,
+    "unnamedRows": 0,
+    "duplicateIdentities": 1,
+    "duplicateExamples": [
+     {
+      "identity": "byron murphy",
+      "raw": [
+       "Byron Murphy II",
+       "Byron Murphy Jr."
+      ],
+      "sameSignal": false
+     }
+    ],
+    "population": {
+     "offense": 0,
+     "idp": 347,
+     "pick": 0,
+     "unresolved": 2
+    },
+    "rank": {
+     "min": 1.0,
+     "max": 350.0,
+     "distinct": 349,
+     "tiedRows": 0,
+     "integerShare": 1.0,
+     "gapsInRun": 1
+    }
+   },
+   "datasetState": null
+  },
+  "dlfValuesSfTep": {
+   "voting": false,
+   "csv": "CSVs/site_raw/dlfValuesSfTep.csv",
+   "semantics": {
+    "rows": 323,
+    "identities": 323,
+    "header": [
+     "name",
+     "pos",
+     "team",
+     "value"
+    ],
+    "rankColumn": null,
+    "valueColumn": "value",
+    "unnamedRows": 0,
+    "duplicateIdentities": 0,
+    "duplicateExamples": [],
+    "population": {
+     "offense": 321,
+     "idp": 0,
+     "pick": 0,
+     "unresolved": 2
+    },
+    "value": {
+     "min": 0.0063,
+     "max": 984.7047,
+     "distinct": 323,
+     "tiedRows": 0,
+     "integerShare": 0.0
+    }
+   },
+   "datasetState": {
+    "health": "HEALTHY",
+    "warnings": [],
+    "upstream": {
+     "publishedAt": null,
+     "version": null
+    },
+    "subsets": {
+     "players": {
+      "rowCount": 323,
+      "firstObservedAt": "2026-09-25T02:27:37Z",
+      "lastAnyMeaningfulChangeAt": "2026-09-29T12:27:33Z",
+      "lastBroadDatasetChangeAt": "2026-09-29T12:27:33Z",
+      "changeEvents": 5
+     }
+    }
+   },
+   "cadence": {
+    "players": {
+     "broadEventsTrailing": 5,
+     "closedIntervals": 4,
+     "observedP50Hours": 24.0,
+     "observedP75Hours": 24.5,
+     "declared": {
+      "seedHours": 72,
+      "minHours": 24,
+      "maxHours": 336
+     },
+     "declaredBoundBinding": null
+    }
+   },
+   "clockHonesty": {
+    "windowStart": "2026-09-25T02:27:38+00:00",
+    "gitContentVersions": 7,
+    "meaningfulVersions": 5,
+    "byteOnlyVersions": 2,
+    "recordedChangeInstants": 5,
+    "meaningfulMatched": 5,
+    "meaningfulWithoutEvent": 0,
+    "eventsWithoutVersion": 0,
+    "byteOnlyCoincidingWithEvent": 0
+   }
+  }
+ },
+ "namedPairDependence": [
+  {
+   "a": "ktcCrowdSfTep",
+   "b": "ktcTradesSfTep",
+   "universe": "offense",
+   "spearman": 0.9656,
+   "n": 462,
+   "leavePairOutResidual": 0.6153,
+   "nResidual": 449
+  },
+  {
+   "a": "fantasyNavigatorSf",
+   "b": "ktcCrowdSfTep",
+   "universe": "offense",
+   "spearman": 0.9047,
+   "n": 437,
+   "leavePairOutResidual": 0.0383,
+   "nResidual": 428
+  },
+  {
+   "a": "fantasyNavigatorSf",
+   "b": "ktcTradesSfTep",
+   "universe": "offense",
+   "spearman": 0.9147,
+   "n": 437,
+   "leavePairOutResidual": 0.1913,
+   "nResidual": 428
+  },
+  {
+   "a": "fantasyNavigatorSf",
+   "b": "ktcCrowdTradesSfTep",
+   "universe": "offense",
+   "spearman": 0.9144,
+   "n": 437,
+   "leavePairOutResidual": 0.056,
+   "nResidual": 435
+  },
+  {
+   "a": "pfkDynasty",
+   "b": "ktcCrowdSfTep",
+   "universe": "offense",
+   "spearman": 0.9769,
+   "n": 448,
+   "leavePairOutResidual": 0.6872,
+   "nResidual": 439
+  },
+  {
+   "a": "pfkDynasty",
+   "b": "ktcTradesSfTep",
+   "universe": "offense",
+   "spearman": 0.9559,
+   "n": 448,
+   "leavePairOutResidual": 0.3824,
+   "nResidual": 439
+  },
+  {
+   "a": "fantasyCalc",
+   "b": "dynastyDaddySf",
+   "universe": "offense",
+   "spearman": 0.963,
+   "n": 366,
+   "leavePairOutResidual": 0.6346,
+   "nResidual": 366
+  },
+  {
+   "a": "otcffbSf",
+   "b": "fantasyCalc",
+   "universe": "offense",
+   "spearman": 0.9566,
+   "n": 359,
+   "leavePairOutResidual": 0.5108,
+   "nResidual": 358
+  },
+  {
+   "a": "otcffbSf",
+   "b": "ktcCrowdSfTep",
+   "universe": "offense",
+   "spearman": 0.91,
+   "n": 364,
+   "leavePairOutResidual": -0.204,
+   "nResidual": 364
+  },
+  {
+   "a": "otcffbSf",
+   "b": "ktcTradesSfTep",
+   "universe": "offense",
+   "spearman": 0.9115,
+   "n": 364,
+   "leavePairOutResidual": -0.1456,
+   "nResidual": 364
+  },
+  {
+   "a": "idpTradeCalc",
+   "b": "ktcCrowdSfTep",
+   "universe": "offense",
+   "spearman": 0.9621,
+   "n": 431,
+   "leavePairOutResidual": 0.5351,
+   "nResidual": 430
+  },
+  {
+   "a": "idpTradeCalc",
+   "b": "ktcTradesSfTep",
+   "universe": "offense",
+   "spearman": 0.9615,
+   "n": 431,
+   "leavePairOutResidual": 0.5318,
+   "nResidual": 430
+  },
+  {
+   "a": "idpTradeCalc",
+   "b": "idpShowCombined",
+   "universe": "offense",
+   "spearman": 0.9505,
+   "n": 352,
+   "leavePairOutResidual": 0.1913,
+   "nResidual": 352
+  },
+  {
+   "a": "fantasyProsFitzmaurice",
+   "b": "fantasyProsSf",
+   "universe": "offense",
+   "spearman": 0.9532,
+   "n": 290,
+   "leavePairOutResidual": -0.0391,
+   "nResidual": 290
+  },
+  {
+   "a": "fantasyProsFitzmaurice",
+   "b": "dynastyNerdsSfTep",
+   "universe": "offense",
+   "spearman": 0.9639,
+   "n": 274,
+   "leavePairOutResidual": 0.6428,
+   "nResidual": 274
+  },
+  {
+   "a": "flockFantasySf",
+   "b": "flockFantasySfRookies",
+   "universe": "offense",
+   "spearman": 0.9188,
+   "n": 48,
+   "leavePairOutResidual": 0.1944,
+   "nResidual": 48
+  },
+  {
+   "a": "dlfSf",
+   "b": "dlfRookieSf",
+   "universe": "offense",
+   "spearman": 0.9615,
+   "n": 40,
+   "leavePairOutResidual": 0.6066,
+   "nResidual": 40
+  },
+  {
+   "a": "dlfSf",
+   "b": "dlfValuesSfTep",
+   "universe": "offense",
+   "spearman": 0.9698,
+   "n": 284,
+   "leavePairOutResidual": 0.704,
+   "nResidual": 284
+  },
+  {
+   "a": "dlfSf",
+   "b": "ktcCrowdSfTep",
+   "universe": "offense",
+   "spearman": 0.9003,
+   "n": 284,
+   "leavePairOutResidual": -0.4471,
+   "nResidual": 284
+  },
+  {
+   "a": "idpTradeCalc",
+   "b": "idpShowCombined",
+   "universe": "idp",
+   "spearman": 0.9439,
+   "n": 303,
+   "leavePairOutResidual": 0.8056,
+   "nResidual": 158
+  },
+  {
+   "a": "idpTradeCalc",
+   "b": "idpShow",
+   "universe": "idp",
+   "spearman": 0.9979,
+   "n": 347,
+   "leavePairOutResidual": 0.9919,
+   "nResidual": 243
+  },
+  {
+   "a": "idpShowCombined",
+   "b": "idpShow",
+   "universe": "idp",
+   "spearman": 0.9488,
+   "n": 301,
+   "leavePairOutResidual": 0.7958,
+   "nResidual": 241
+  },
+  {
+   "a": "dlfIdp",
+   "b": "dlfRookieIdp",
+   "universe": "idp",
+   "spearman": null,
+   "n": 21,
+   "leavePairOutResidual": null,
+   "nResidual": 20
+  },
+  {
+   "a": "fantasyProsIdp",
+   "b": "idpShowCombined",
+   "universe": "idp",
+   "spearman": 0.7087,
+   "n": 231,
+   "leavePairOutResidual": 0.3492,
+   "nResidual": 151
+  },
+  {
+   "a": "fantasyProsIdp",
+   "b": "idpTradeCalc",
+   "universe": "idp",
+   "spearman": 0.6357,
+   "n": 248,
+   "leavePairOutResidual": -0.0291,
+   "nResidual": 151
+  },
+  {
+   "a": "dlfIdp",
+   "b": "idpTradeCalc",
+   "universe": "idp",
+   "spearman": 0.8705,
+   "n": 171,
+   "leavePairOutResidual": 0.3578,
+   "nResidual": 156
+  },
+  {
+   "a": "draftSharksIdp",
+   "b": "idpTradeCalc",
+   "universe": "idp",
+   "spearman": 0.6553,
+   "n": 304,
+   "leavePairOutResidual": 0.4638,
+   "nResidual": 158
+  }
+ ],
+ "votingMatrixTop": {
+  "offense": [
+   {
+    "a": "ktcCrowdSfTep",
+    "b": "pfkDynasty",
+    "universe": "offense",
+    "spearman": 0.9769,
+    "n": 448,
+    "leavePairOutResidual": 0.6872,
+    "nResidual": 439
+   },
+   {
+    "a": "dynastyNerdsSfTep",
+    "b": "fantasyProsFitzmaurice",
+    "universe": "offense",
+    "spearman": 0.9639,
+    "n": 274,
+    "leavePairOutResidual": 0.6428,
+    "nResidual": 274
+   },
+   {
+    "a": "dynastyDaddySf",
+    "b": "fantasyCalc",
+    "universe": "offense",
+    "spearman": 0.963,
+    "n": 366,
+    "leavePairOutResidual": 0.6346,
+    "nResidual": 366
+   },
+   {
+    "a": "ktcCrowdSfTep",
+    "b": "ktcTradesSfTep",
+    "universe": "offense",
+    "spearman": 0.9656,
+    "n": 462,
+    "leavePairOutResidual": 0.6153,
+    "nResidual": 449
+   },
+   {
+    "a": "dlfRookieSf",
+    "b": "dlfSf",
+    "universe": "offense",
+    "spearman": 0.9615,
+    "n": 40,
+    "leavePairOutResidual": 0.6066,
+    "nResidual": 40
+   },
+   {
+    "a": "fantasyNavigatorSf",
+    "b": "fantasyProsSf",
+    "universe": "offense",
+    "spearman": 0.9703,
+    "n": 357,
+    "leavePairOutResidual": 0.597,
+    "nResidual": 354
+   },
+   {
+    "a": "idpTradeCalc",
+    "b": "ktcCrowdSfTep",
+    "universe": "offense",
+    "spearman": 0.9621,
+    "n": 431,
+    "leavePairOutResidual": 0.5351,
+    "nResidual": 430
+   },
+   {
+    "a": "idpTradeCalc",
+    "b": "ktcTradesSfTep",
+    "universe": "offense",
+    "spearman": 0.9615,
+    "n": 431,
+    "leavePairOutResidual": 0.5318,
+    "nResidual": 430
+   },
+   {
+    "a": "dlfSf",
+    "b": "dynastyNerdsSfTep",
+    "universe": "offense",
+    "spearman": 0.9438,
+    "n": 271,
+    "leavePairOutResidual": 0.53,
+    "nResidual": 271
+   },
+   {
+    "a": "fantasyCalc",
+    "b": "otcffbSf",
+    "universe": "offense",
+    "spearman": 0.9566,
+    "n": 359,
+    "leavePairOutResidual": 0.5108,
+    "nResidual": 358
+   },
+   {
+    "a": "dlfRookieSf",
+    "b": "dynastyNerdsSfTep",
+    "universe": "offense",
+    "spearman": 0.9566,
+    "n": 46,
+    "leavePairOutResidual": 0.4839,
+    "nResidual": 46
+   },
+   {
+    "a": "flockFantasySf",
+    "b": "idpShowCombined",
+    "universe": "offense",
+    "spearman": 0.9656,
+    "n": 345,
+    "leavePairOutResidual": 0.4767,
+    "nResidual": 344
+   }
+  ],
+  "idp": [
+   {
+    "a": "idpShowCombined",
+    "b": "idpTradeCalc",
+    "universe": "idp",
+    "spearman": 0.9439,
+    "n": 303,
+    "leavePairOutResidual": 0.8056,
+    "nResidual": 158
+   },
+   {
+    "a": "draftSharksIdp",
+    "b": "idpTradeCalc",
+    "universe": "idp",
+    "spearman": 0.6553,
+    "n": 304,
+    "leavePairOutResidual": 0.4638,
+    "nResidual": 158
+   },
+   {
+    "a": "dlfIdp",
+    "b": "idpTradeCalc",
+    "universe": "idp",
+    "spearman": 0.8705,
+    "n": 171,
+    "leavePairOutResidual": 0.3578,
+    "nResidual": 156
+   },
+   {
+    "a": "fantasyProsIdp",
+    "b": "idpShowCombined",
+    "universe": "idp",
+    "spearman": 0.7087,
+    "n": 231,
+    "leavePairOutResidual": 0.3492,
+    "nResidual": 151
+   },
+   {
+    "a": "draftSharksIdp",
+    "b": "idpShowCombined",
+    "universe": "idp",
+    "spearman": 0.6679,
+    "n": 260,
+    "leavePairOutResidual": 0.3356,
+    "nResidual": 158
+   },
+   {
+    "a": "dlfIdp",
+    "b": "idpShowCombined",
+    "universe": "idp",
+    "spearman": 0.8345,
+    "n": 169,
+    "leavePairOutResidual": 0.2654,
+    "nResidual": 156
+   },
+   {
+    "a": "dlfIdp",
+    "b": "fantasyProsIdp",
+    "universe": "idp",
+    "spearman": 0.68,
+    "n": 157,
+    "leavePairOutResidual": 0.2318,
+    "nResidual": 149
+   },
+   {
+    "a": "dlfIdp",
+    "b": "draftSharksIdp",
+    "universe": "idp",
+    "spearman": 0.6255,
+    "n": 164,
+    "leavePairOutResidual": 0.14,
+    "nResidual": 156
+   }
+  ]
+ },
+ "laggedValueIdentity": [
+  {
+   "subject": "fantasyNavigatorSf",
+   "comparator": "ktc",
+   "windowDays": 10,
+   "best": {
+    "comparatorVersion": "10c9d7429",
+    "comparatorAt": "2026-09-30T13:07:33+00:00",
+    "identity": {
+     "n": 437,
+     "exactEqual": 0,
+     "exactShare": 0.0,
+     "within1pct": 2,
+     "within1pctShare": 0.005,
+     "medianRatio": 0.0928
+    },
+    "versionsScanned": 40,
+    "versionsInWindow": 40
+   }
+  },
+  {
+   "subject": "fantasyNavigatorSf",
+   "comparator": "ktcCrowdSfTep",
+   "windowDays": 10,
+   "best": {
+    "comparatorVersion": "10c9d7429",
+    "comparatorAt": "2026-09-30T13:07:33+00:00",
+    "identity": {
+     "n": 437,
+     "exactEqual": 0,
+     "exactShare": 0.0,
+     "within1pct": 2,
+     "within1pctShare": 0.005,
+     "medianRatio": 0.09
+    },
+    "versionsScanned": 40,
+    "versionsInWindow": 40
+   }
+  },
+  {
+   "subject": "pfkDynasty",
+   "comparator": "ktc",
+   "windowDays": 10,
+   "best": {
+    "comparatorVersion": "8ea2c1849",
+    "comparatorAt": "2026-09-29T19:45:43+00:00",
+    "identity": {
+     "n": 447,
+     "exactEqual": 1,
+     "exactShare": 0.002,
+     "within1pct": 4,
+     "within1pctShare": 0.009,
+     "medianRatio": 0.6686
+    },
+    "versionsScanned": 40,
+    "versionsInWindow": 40
+   }
+  },
+  {
+   "subject": "pfkDynasty",
+   "comparator": "ktcCrowdSfTep",
+   "windowDays": 10,
+   "best": {
+    "comparatorVersion": "8ea2c1849",
+    "comparatorAt": "2026-09-29T19:45:43+00:00",
+    "identity": {
+     "n": 447,
+     "exactEqual": 1,
+     "exactShare": 0.002,
+     "within1pct": 3,
+     "within1pctShare": 0.007,
+     "medianRatio": 0.6226
+    },
+    "versionsScanned": 40,
+    "versionsInWindow": 40
+   }
+  },
+  {
+   "subject": "fantasyCalc",
+   "comparator": "dynastyDaddySf",
+   "windowDays": 4,
+   "best": {
+    "comparatorVersion": "1d6c9f5c5",
+    "comparatorAt": "2026-09-30T00:04:23+00:00",
+    "identity": {
+     "n": 365,
+     "exactEqual": 2,
+     "exactShare": 0.005,
+     "within1pct": 22,
+     "within1pctShare": 0.06,
+     "medianRatio": 1.0175
+    },
+    "versionsScanned": 12,
+    "versionsInWindow": 12
+   }
+  },
+  {
+   "subject": "dynastyDaddySf",
+   "comparator": "fantasyCalc",
+   "windowDays": 4,
+   "best": {
+    "comparatorVersion": "c9dc390f1",
+    "comparatorAt": "2026-09-28T23:36:36+00:00",
+    "identity": {
+     "n": 369,
+     "exactEqual": 4,
+     "exactShare": 0.011,
+     "within1pct": 16,
+     "within1pctShare": 0.043,
+     "medianRatio": 0.9464
+    },
+    "versionsScanned": 12,
+    "versionsInWindow": 12
+   }
+  },
+  {
+   "subject": "otcffbSf",
+   "comparator": "ktc",
+   "windowDays": 10,
+   "best": {
+    "comparatorVersion": "10c9d7429",
+    "comparatorAt": "2026-09-30T13:07:33+00:00",
+    "identity": {
+     "n": 364,
+     "exactEqual": 0,
+     "exactShare": 0.0,
+     "within1pct": 0,
+     "within1pctShare": 0.0,
+     "medianRatio": 0.0039
+    },
+    "versionsScanned": 40,
+    "versionsInWindow": 40
+   }
+  },
+  {
+   "subject": "ktcTradesSfTep",
+   "comparator": "ktcCrowdSfTep",
+   "windowDays": 3,
+   "best": {
+    "comparatorVersion": "10c9d7429",
+    "comparatorAt": "2026-09-30T13:07:33+00:00",
+    "identity": {
+     "n": 462,
+     "exactEqual": 2,
+     "exactShare": 0.004,
+     "within1pct": 38,
+     "within1pctShare": 0.082,
+     "medianRatio": 1.0018
+    },
+    "versionsScanned": 8,
+    "versionsInWindow": 8
+   }
+  }
+ ],
+ "lineageHistory": {
+  "idpTradeCalcOffenseBatchesVsKtcBaseSf": [
+   {
+    "subjectBatchAt": "2026-04-16T14:34:45+00:00",
+    "best": {
+     "comparatorAt": "2026-04-16T14:34:45+00:00",
+     "lagHours": 0.0,
+     "identity": {
+      "n": 352,
+      "exactEqual": 0,
+      "exactShare": 0.0,
+      "within1pct": 142,
+      "within1pctShare": 0.403,
+      "medianRatio": 1.002
+     }
+    }
+   },
+   {
+    "subjectBatchAt": "2026-04-25T19:36:36+00:00",
+    "best": {
+     "comparatorAt": "2026-04-19T22:08:30+00:00",
+     "lagHours": 141.5,
+     "identity": {
+      "n": 355,
+      "exactEqual": 69,
+      "exactShare": 0.194,
+      "within1pct": 349,
+      "within1pctShare": 0.983,
+      "medianRatio": 1.0
+     }
+    }
+   },
+   {
+    "subjectBatchAt": "2026-06-06T16:01:41+00:00",
+    "best": {
+     "comparatorAt": "2026-06-03T00:25:52+00:00",
+     "lagHours": 87.6,
+     "identity": {
+      "n": 357,
+      "exactEqual": 286,
+      "exactShare": 0.801,
+      "within1pct": 357,
+      "within1pctShare": 1.0,
+      "medianRatio": 1.0
+     }
+    }
+   },
+   {
+    "subjectBatchAt": "2026-07-06T05:03:15+00:00",
+    "best": {
+     "comparatorAt": "2026-07-02T23:49:52+00:00",
+     "lagHours": 77.2,
+     "identity": {
+      "n": 358,
+      "exactEqual": 10,
+      "exactShare": 0.028,
+      "within1pct": 181,
+      "within1pctShare": 0.506,
+      "medianRatio": 1.001
+     }
+    }
+   },
+   {
+    "subjectBatchAt": "2026-08-28T01:13:39+00:00",
+    "best": {
+     "comparatorAt": "2026-08-26T07:36:55+00:00",
+     "lagHours": 41.6,
+     "identity": {
+      "n": 359,
+      "exactEqual": 212,
+      "exactShare": 0.591,
+      "within1pct": 359,
+      "within1pctShare": 1.0,
+      "medianRatio": 1.0
+     }
+    }
+   }
+  ],
+  "idpTradeCalcIdpOrderVsOtherIdpBoards": {
+   "idpShow": {
+    "n": 347,
+    "discordantShare": 0.0093
+   },
+   "idpShowCombined": {
+    "n": 303,
+    "discordantShare": 0.092
+   },
+   "dlfIdp": {
+    "n": 171,
+    "discordantShare": 0.1523
+   },
+   "fantasyProsIdp": {
+    "n": 248,
+    "discordantShare": 0.271
+   },
+   "draftSharksIdp": {
+    "n": 304,
+    "discordantShare": 0.2622
+   }
+  },
+  "idpTradeCalcIdpLeadLagVsIdpShow": {
+   "subjectVersions": 35,
+   "comparatorPublications": [
+    "2026-06-16T14:32:02+00:00",
+    "2026-07-21T22:14:58+00:00",
+    "2026-08-18T20:32:13+00:00",
+    "2026-08-20T18:32:10+00:00",
+    "2026-08-26T16:32:25+00:00"
+   ],
+   "afterEachPublication": [
+    {
+     "comparatorAt": "2026-06-16T14:32:02+00:00",
+     "subjectBeforeShare": 0.105,
+     "firstSubjectAt": "2026-06-24T13:10:45+00:00",
+     "firstShare": 0.1082,
+     "minShareUntilNextPublication": 0.0091
+    },
+    {
+     "comparatorAt": "2026-07-21T22:14:58+00:00",
+     "subjectBeforeShare": 0.0274,
+     "firstSubjectAt": "2026-07-22T04:04:27+00:00",
+     "firstShare": 0.0004,
+     "minShareUntilNextPublication": 0.0004
+    },
+    {
+     "comparatorAt": "2026-08-18T20:32:13+00:00",
+     "subjectBeforeShare": 0.0277,
+     "firstSubjectAt": "2026-08-20T07:32:46+00:00",
+     "firstShare": 0.035,
+     "minShareUntilNextPublication": 0.035
+    },
+    {
+     "comparatorAt": "2026-08-20T18:32:10+00:00",
+     "subjectBeforeShare": 0.038,
+     "firstSubjectAt": "2026-08-20T19:25:39+00:00",
+     "firstShare": 0.0,
+     "minShareUntilNextPublication": 0.0
+    },
+    {
+     "comparatorAt": "2026-08-26T16:32:25+00:00",
+     "subjectBeforeShare": 0.0041,
+     "firstSubjectAt": "2026-08-26T18:29:28+00:00",
+     "firstShare": 0.0,
+     "minShareUntilNextPublication": 0.0
+    }
+   ],
+   "discordantShareMin": 0.0,
+   "discordantShareMax": 0.1082,
+   "latest": {
+    "subjectAt": "2026-09-23T21:54:29+00:00",
+    "comparatorAt": "2026-08-26T16:32:25+00:00",
+    "n": 347,
+    "discordantShare": 0.0093
+   }
+  }
+ },
+ "identityJoin": {
+  "payload": "exports\\latest\\dynasty_data_2026-09-30.json",
+  "joinPolicy": "contract_csv_join_v1",
+  "sources": {
+   "ktcCrowdSfTep": {
+    "csvIdentities": 500,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 499,
+    "attachedIdentities": 499,
+    "notAttached": 1,
+    "notAttachedExamples": [
+     "bam knight"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "ktcTradesSfTep": {
+    "csvIdentities": 500,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 499,
+    "attachedIdentities": 499,
+    "notAttached": 1,
+    "notAttachedExamples": [
+     "bam knight"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "idpTradeCalc": {
+    "csvIdentities": 899,
+    "csvDuplicateKeys": [
+     "demario douglas"
+    ],
+    "boardRowsCarryingSource": 900,
+    "attachedIdentities": 896,
+    "notAttached": 3,
+    "notAttachedExamples": [
+     "bam knight",
+     "dru phillips",
+     "jt tuimoloau"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 1
+   },
+   "dlfSf": {
+    "csvIdentities": 286,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 286,
+    "attachedIdentities": 286,
+    "notAttached": 0,
+    "notAttachedExamples": [],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "dlfRookieSf": {
+    "csvIdentities": 58,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 116,
+    "attachedIdentities": 58,
+    "notAttached": 0,
+    "notAttachedExamples": [],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "dlfIdp": {
+    "csvIdentities": 172,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 172,
+    "attachedIdentities": 172,
+    "notAttached": 0,
+    "notAttachedExamples": [],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "dlfRookieIdp": {
+    "csvIdentities": 30,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 30,
+    "attachedIdentities": 30,
+    "notAttached": 0,
+    "notAttachedExamples": [],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "idpShowCombined": {
+    "csvIdentities": 662,
+    "csvDuplicateKeys": [
+     "byron murphy",
+     "justin jefferson",
+     "travis hunter"
+    ],
+    "boardRowsCarryingSource": 658,
+    "attachedIdentities": 658,
+    "notAttached": 4,
+    "notAttachedExamples": [
+     "dru phillips",
+     "haynes king",
+     "jt tuimoloau",
+     "zach wilson"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 3
+   },
+   "dynastyNerdsSfTep": {
+    "csvIdentities": 294,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 294,
+    "attachedIdentities": 294,
+    "notAttached": 0,
+    "notAttachedExamples": [],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "fantasyCalc": {
+    "csvIdentities": 397,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 390,
+    "attachedIdentities": 390,
+    "notAttached": 7,
+    "notAttachedExamples": [
+     "andy dalton",
+     "cooper rush",
+     "deejay dallas",
+     "jimmy garoppolo",
+     "sterling shepard",
+     "tommy devito",
+     "tyrod taylor"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "otcffbSf": {
+    "csvIdentities": 370,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 369,
+    "attachedIdentities": 369,
+    "notAttached": 1,
+    "notAttachedExamples": [
+     "cooper rush"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "fantasyNavigatorSf": {
+    "csvIdentities": 769,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 455,
+    "attachedIdentities": 455,
+    "notAttached": 314,
+    "notAttachedExamples": [
+     "abram smith",
+     "ainias smith",
+     "albert okwuegbunam",
+     "alexander mattison",
+     "allen lazard",
+     "allen robinson",
+     "amari cooper",
+     "amari rodgers"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "pfkDynasty": {
+    "csvIdentities": 496,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 460,
+    "attachedIdentities": 460,
+    "notAttached": 36,
+    "notAttachedExamples": [
+     "ainias smith",
+     "alexander mattison",
+     "antonio gibson",
+     "austin hooper",
+     "cam akers",
+     "curtis samuel",
+     "deuce vaughn",
+     "elijah mitchell"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "dynastyDaddySf": {
+    "csvIdentities": 381,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 381,
+    "attachedIdentities": 381,
+    "notAttached": 0,
+    "notAttachedExamples": [],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "fantasyProsSf": {
+    "csvIdentities": 397,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 387,
+    "attachedIdentities": 387,
+    "notAttached": 10,
+    "notAttachedExamples": [
+     "austin hooper",
+     "bam knight",
+     "chase roberts",
+     "dallen bentley",
+     "dean connors",
+     "jaren kanak",
+     "jelani woods",
+     "kareem hunt"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "fantasyProsIdp": {
+    "csvIdentities": 283,
+    "csvDuplicateKeys": [
+     "bradley chubb",
+     "byron murphy",
+     "carl granderson",
+     "dallas turner",
+     "gregory rousseau",
+     "harold landry",
+     "jaelan phillips",
+     "jonathan greenard",
+     "josh hines allen",
+     "khalil mack",
+     "klavon chaisson",
+     "nick herbig",
+     "rashan gary",
+     "trey hendrickson",
+     "uchenna nwosu",
+     "yaya diaby"
+    ],
+    "boardRowsCarryingSource": 257,
+    "attachedIdentities": 257,
+    "notAttached": 26,
+    "notAttachedExamples": [
+     "aj terrell",
+     "al quadin muhammad",
+     "brandon stephens",
+     "calais campbell",
+     "cameron jordan",
+     "carlton davis",
+     "dangelo ponds",
+     "darien porter"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 16
+   },
+   "fantasyProsFitzmaurice": {
+    "csvIdentities": 297,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 297,
+    "attachedIdentities": 297,
+    "notAttached": 0,
+    "notAttachedExamples": [],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "flockFantasySf": {
+    "csvIdentities": 435,
+    "csvDuplicateKeys": [
+     "cole payton"
+    ],
+    "boardRowsCarryingSource": 408,
+    "attachedIdentities": 408,
+    "notAttached": 27,
+    "notAttachedExamples": [
+     "alexander mattison",
+     "amari cooper",
+     "antonio gibson",
+     "chris manhertz",
+     "curtis samuel",
+     "deuce vaughn",
+     "diego pavia",
+     "jaheim bell"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 1
+   },
+   "flockFantasySfRookies": {
+    "csvIdentities": 48,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 47,
+    "attachedIdentities": 47,
+    "notAttached": 1,
+    "notAttachedExamples": [
+     "seydou traore"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "yahooBoone": {
+    "csvIdentities": 410,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 388,
+    "attachedIdentities": 388,
+    "notAttached": 22,
+    "notAttachedExamples": [
+     "andy dalton",
+     "bam knight",
+     "blake whiteheart",
+     "brevyn spann ford",
+     "cj williams",
+     "corey kiner",
+     "darius cooper",
+     "durham smythe"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "draftSharks": {
+    "csvIdentities": 391,
+    "csvDuplicateKeys": [],
+    "boardRowsCarryingSource": 375,
+    "attachedIdentities": 375,
+    "notAttached": 16,
+    "notAttachedExamples": [
+     "anthony gould",
+     "bauer sharp",
+     "behren morton",
+     "cj dippre",
+     "cj williams",
+     "cooper rush",
+     "dallen bentley",
+     "devin culp"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 0
+   },
+   "draftSharksIdp": {
+    "csvIdentities": 408,
+    "csvDuplicateKeys": [
+     "byron murphy"
+    ],
+    "boardRowsCarryingSource": 319,
+    "attachedIdentities": 319,
+    "notAttached": 89,
+    "notAttachedExamples": [
+     "adam butler",
+     "aj terrell",
+     "alfred collins",
+     "anthony nelson",
+     "arik armstead",
+     "benjamin morrison",
+     "bj ojulari",
+     "brandon stephens"
+    ],
+    "withheldCrossGroupCollisions": [],
+    "rowsWithAmbiguousEntry": 1
+   }
+  }
+ }
+}

@@ -20,12 +20,13 @@ The engine does NOT modify any internal canonical values or calibration.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from src.canonical.calibration import to_display_value
-from src.packages import PackageAsset, adapt_assets, side_key
-from src.trade.ktc_va import adjusted_pair_totals
+from src.packages import PackageAsset, adapt_assets, side_key, topology_is_allowed
+from src.valuation_math import fairness_bands
+from src.valuation_math.package_model import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
 from src.ros.lineup import resolve_league_slot_demand
 from src.roster_intel.weakness import position_depth
@@ -133,14 +134,14 @@ def starter_needs_for_league(league_key: str | None = None) -> dict[str, int] | 
 # it suppresses 477 of the 812 priced rows and is doing real work.
 MIN_RELEVANT_VALUE = 500
 
-# Fairness band: how close two trade sides need to be (display scale).
-# NOTE (2026-07-25 audit F-7): this scale (even <256 / lean <769 /
-# stretch ≥769, see _fairness_label) is INDEPENDENT of the trade
-# page's verdict bands (350/900/1800 in frontend/lib/trade-logic.js)
-# — the two surfaces intentionally use different vocabularies and the
-# old "~1 Lean verdict worth" comment here was wrong.  769's origin
-# is undocumented legacy tuning; change it only with before/after
-# suggestion-volume measurement.
+# Generation tolerance: how far apart a candidate's two sides may be for
+# the generator to propose it at all.  NOT a fairness verdict -- the badge
+# shown to the user comes from the ONE fairness-band owner
+# (src/valuation_math/fairness_bands.py, TC-C owner decision 3), which
+# replaced the private even <256 / lean <769 / stretch band.  769's origin
+# is undocumented legacy tuning (PRIOR, calibrated under KTC, pending
+# recalibration); change it only with before/after suggestion-volume
+# measurement.
 FAIRNESS_TOLERANCE = 769
 
 # How many suggestions per category
@@ -337,6 +338,9 @@ class RosterAnalysis:
     sendable_keys: frozenset[str] = frozenset()
     #: ``[(asset, reason), ...]`` — why the sendable view is shorter.
     constrained_out: tuple[tuple[PlayerAsset, str], ...] = ()
+    #: Roster names the analysis pool could not price (T-9): reported, never
+    #: silently dropped from the roster the user sees analysed.
+    unmatched: tuple[str, ...] = ()
     #: Whether a constraint set was consulted at all.  "Nothing is protected"
     #: and "nobody asked" are different claims and this keeps them apart.
     constraints_applied: bool = False
@@ -348,6 +352,11 @@ class RosterAnalysis:
     #: analysis constructed without one carries an empty demand, and
     #: ``analyze_roster`` refuses to build one at all.
     starter_needs: dict[str, int] = field(default_factory=dict)
+    #: C3-CON-03 LOCK, by ``_identity_key``.  Generators move locked players to
+    #: the FRONT of every candidate list before their own caps (top-3 sells,
+    #: top-2 per surplus room, the 6x8 consolidation pairs), so a lock is
+    #: reached during generation instead of being filtered for afterwards.
+    locked_keys: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         """An analysis built without constraints has consulted none.
@@ -837,10 +846,12 @@ def analyze_roster(
 
     by_position: dict[str, list[PlayerAsset]] = {}
     matched = 0
+    unmatched: list[str] = []
     for rn in roster_names:
         key = _identity_key(rn)
         a = pool_by_name.get(key)
         if a is None:
+            unmatched.append(str(rn))
             continue
         matched += 1
         by_position.setdefault(a.position, []).append(a)
@@ -889,6 +900,7 @@ def analyze_roster(
     )
 
     return RosterAnalysis(
+        unmatched=tuple(unmatched),
         roster_size=matched,
         by_position=by_position,
         surplus_positions=surplus_positions,
@@ -901,6 +913,18 @@ def analyze_roster(
         constraints_applied=True,
         starter_needs=dict(needs),
     )
+
+
+def _locked_first(players: list[PlayerAsset], roster: RosterAnalysis) -> list[PlayerAsset]:
+    """``players`` with LOCKED ones moved to the front (stable otherwise).
+
+    Applied before a generator's caps, so the cap cannot cut a locked player
+    out of the candidates — the difference between LOCK as a generation rule
+    and LOCK as a post-filter that can miss the real best (spec §6).
+    """
+    if not roster.locked_keys:
+        return players
+    return sorted(players, key=lambda p: _identity_key(p.name) not in roster.locked_keys)
 
 
 def _trade_is_idp_free(give: list[PlayerAsset], receive: list[PlayerAsset]) -> bool:
@@ -918,30 +942,30 @@ def _trade_is_idp_free(give: list[PlayerAsset], receive: list[PlayerAsset]) -> b
 
 
 def _va_gap(give_vals: list[int], recv_vals: list[int]) -> int:
-    """Trade gap after KTC's Value Adjustment.
+    """Trade gap after the ACTIVE package Value Adjustment.
 
-    The trade analyzer applies KTC's VA before computing its
-    "Major gap" verdict (frontend/lib/trade-logic.js, backed by the
-    same src.trade.ktc_va port).  Suggestions must use the identical
-    math or they propose packages that look even on raw totals but
-    show a major gap once loaded into the builder — e.g. 2-for-1
-    consolidations where KTC's quantity discount inflates the
+    The trade analyzer applies the package VA before computing its
+    "Major gap" verdict (frontend/lib/trade-logic.js::packageAdjustPair,
+    twin of src.valuation_math.package_model — the geometric model,
+    q = 0.78, since 2026-10-17; KTC retained as rollback).  Suggestions
+    must use the identical math or they propose packages that look even
+    on raw totals but show a major gap once loaded into the builder —
+    e.g. 2-for-1 consolidations where the per-piece discount inflates the
     single-stud side.  Callers MUST pass the individual piece values
     (not a pre-summed total) so the per-piece discount actually
-    triggers; for genuine 1-for-1s KTC suppresses VA, so the result
+    triggers; a genuine 1-for-1 carries no adjustment, so the result
     equals the raw difference.
     """
     give_adj, recv_adj, _, _ = adjusted_pair_totals(give_vals, recv_vals)
     return int(round(give_adj - recv_adj))
 
 
-def _fairness_label(gap: int) -> str:
-    a = abs(gap)
-    if a < 256:
-        return "even"
-    if a < 769:
-        return "lean"
-    return "stretch"
+def _fairness_label(gap: int, give_vals: list[int], recv_vals: list[int]) -> str:
+    """The suggestion badge (even / lean / stretch) from the ONE fairness-band
+    owner (fairness_bands_v2): relative to the larger PACKAGE UTILITY, with an
+    absolute minimum.  It replaced a private 256 / 769 absolute band."""
+    level = fairness_bands.classify_packages(gap, give_vals, recv_vals)["level"]
+    return fairness_bands.legacy_magnitude(level)
 
 
 def _strategy_for_player(player: PlayerAsset) -> str:
@@ -1181,11 +1205,14 @@ def _generate_sell_high(
         need = roster.starter_needs.get(pos, 1)
         # Depth is measured on the FULL room (a protected player is still
         # depth); the candidates we may offer come from the sendable view.
-        sell_candidates = [
-            p
-            for p in players[need:]
-            if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
-        ]
+        sell_candidates = _locked_first(
+            [
+                p
+                for p in players[need:]
+                if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
+            ],
+            roster,
+        )
         if not sell_candidates:
             continue
 
@@ -1215,7 +1242,7 @@ def _generate_sell_high(
                         give_total=give_val,
                         receive_total=recv_val,
                         gap=gap,
-                        fairness=_fairness_label(gap),
+                        fairness=_fairness_label(gap, [give_val], [recv_val]),
                         rationale=f"You have {pos} surplus ({len(players)} rostered, need {need}). "
                         f"Move {sell.name} for a {need_pos} upgrade.",
                         why_this_helps=f"Converts {pos} depth into a {need_pos} you actually need.",
@@ -1259,11 +1286,14 @@ def _generate_buy_low(
             for surplus_pos in roster.surplus_positions:
                 depth = roster.by_position.get(surplus_pos, [])
                 need = roster.starter_needs.get(surplus_pos, 1)
-                tradeable = [
-                    p
-                    for p in depth[need:]
-                    if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
-                ]
+                tradeable = _locked_first(
+                    [
+                        p
+                        for p in depth[need:]
+                        if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
+                    ],
+                    roster,
+                )
                 for sell in tradeable[:2]:
                     give_val = sell.display_value
                     recv_val = target.display_value
@@ -1277,7 +1307,7 @@ def _generate_buy_low(
                                 give_total=give_val,
                                 receive_total=recv_val,
                                 gap=gap,
-                                fairness=_fairness_label(gap),
+                                fairness=_fairness_label(gap, [give_val], [recv_val]),
                                 rationale=f"Target {target.name} ({need_pos}) fills your roster need. "
                                 f"You can afford to trade {sell.name} from {surplus_pos} surplus.",
                                 why_this_helps=f"Adds a starter-caliber {need_pos} without weakening "
@@ -1320,6 +1350,7 @@ def _generate_consolidation(
                 tradeable.append(p)
 
     tradeable.sort(key=lambda x: -x.display_value)
+    tradeable = _locked_first(tradeable, roster)
     if len(tradeable) < 2:
         return []
 
@@ -1384,7 +1415,7 @@ def _generate_consolidation(
                         give_total=give_total,
                         receive_total=recv_total,
                         gap=gap,
-                        fairness=_fairness_label(gap),
+                        fairness=_fairness_label(gap, [give_p1, give_p2], [recv_total]),
                         rationale=f"Package {p1.name} + {p2.name} into {target.name}{pos_note}. "
                         f"Turns two depth pieces into one difference-maker.",
                         why_this_helps=f"Upgrades roster quality by condensing {p1.position}/{p2.position} "
@@ -1416,11 +1447,14 @@ def _generate_positional_upgrades(
             continue
 
         starters = players[:need]
-        depth = [
-            p
-            for p in players[need:]
-            if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
-        ]
+        depth = _locked_first(
+            [
+                p
+                for p in players[need:]
+                if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
+            ],
+            roster,
+        )
         if not starters or not depth:
             continue
 
@@ -1462,12 +1496,24 @@ def _generate_positional_upgrades(
                     sp_need = roster.starter_needs.get(sp, 1)
                     for p in sp_depth[sp_need:]:
                         sp_ev = p.display_value
-                        if sp_ev >= MIN_RELEVANT_VALUE and abs(sp_ev - gap_needed) < surplus_tol:
+                        # ``can_send``: the widened fallback used to skip the
+                        # constraint check every other offered asset gets, so
+                        # a protected surplus player could ride along as the
+                        # sweetener.
+                        if (
+                            sp_ev >= MIN_RELEVANT_VALUE
+                            and abs(sp_ev - gap_needed) < surplus_tol
+                            and roster.can_send(p)
+                            and p.name != weakest_starter.name
+                        ):
                             sweeteners.append(p)
             if not sweeteners:
                 continue
 
             sweeteners.sort(key=lambda s: abs(s.display_value - gap_needed))
+            # A locked sweetener inside the tolerance is preferred over a
+            # closer unlocked one.
+            sweeteners = _locked_first(sweeteners, roster)
             sweetener = sweeteners[0]
             give_ws = weakest_starter.display_value
             give_sw = sweetener.display_value
@@ -1486,7 +1532,7 @@ def _generate_positional_upgrades(
                     give_total=give_total,
                     receive_total=recv_total,
                     gap=gap,
-                    fairness=_fairness_label(gap),
+                    fairness=_fairness_label(gap, [give_ws, give_sw], [recv_total]),
                     rationale=f"Upgrade {pos} starter: move {weakest_starter.name} + {sweetener.name} "
                     f"for {target.name}.",
                     why_this_helps=f"Replaces your {pos}{need} with a higher-caliber {pos} starter.",
@@ -1530,7 +1576,7 @@ def _find_balancers(
     That arithmetic is only valid if adding a piece worth ``V`` moves
     the adjusted gap by ``V``, and it does not.  VA is a function of
     BOTH sides' complete value arrays, so adding a piece re-runs
-    :func:`src.trade.ktc_va.ktc_adjust_package` from scratch — the piece
+    :func:`src.valuation_math.package_model.adjust_pair` from scratch — the piece
     count changes, the progressive-nerf ladder shifts, the recipient
     side can flip, and the 1-v-1 / 3.3% display gates snap on or off.
 
@@ -1546,7 +1592,13 @@ def _find_balancers(
     """
 
     gap = int(suggestion.gap)
-    if abs(gap) < 256:
+    # Inside the fair band (the ONE fairness-band owner, TC-C): nothing to
+    # balance.  Replaced a private absolute 256.
+    larger_utility = fairness_bands.larger_package_utility(
+        [int(p.display_value) for p in suggestion.give],
+        [int(p.display_value) for p in suggestion.receive],
+    )
+    if fairness_bands.is_even(gap, larger_utility):
         return ([], "", [])
     side = "you_add" if gap < 0 else "they_add"
 
@@ -1560,6 +1612,30 @@ def _find_balancers(
             roster_names_set,
             exclude_names,
         )
+    if not candidates:
+        return ([], side, [])
+
+    # A balancer is an asset chosen to make totals line up, so it obeys the
+    # generated-trade rules (Wave B, B0):
+    #
+    # * C7-PICKGEN-01 rule 5 — "do not use a pick merely to make raw totals
+    #   line up".  Picks enter generated trades only through the posture-aware
+    #   generator, which reasons about BOTH teams' strategy; never as filler.
+    # * C3-TOPO-01 — the package after the addition must still pass
+    #   ``topology_is_allowed`` (adding a player to the larger side of a
+    #   2-for-1 proposes a 3-for-1).
+    give_side = adapt_assets(suggestion.give)
+    receive_side = adapt_assets(suggestion.receive)
+
+    def _admissible(candidate: PlayerAsset) -> bool:
+        (added,) = adapt_assets([candidate])
+        if added.is_pick:
+            return False
+        if side == "you_add":
+            return topology_is_allowed([*give_side, added], receive_side)
+        return topology_is_allowed(give_side, [*receive_side, added])
+
+    candidates = [c for c in candidates if _admissible(c)]
     if not candidates:
         return ([], side, [])
 
@@ -1832,6 +1908,10 @@ def generate_suggestions_from_pool(
     ktc_top_n: int | None = None,
     capacity_context: Any | None = None,
     constraints: Any | None = None,
+    roster_pool: list[PlayerAsset] | None = None,
+    team_count: int | None = None,
+    weakness_needs: list[str] | None = None,
+    weakness_unavailable_reason: str | None = None,
 ) -> dict[str, Any]:
     """Generate trade suggestions against a pre-built asset pool.
 
@@ -1854,6 +1934,37 @@ def generate_suggestions_from_pool(
     failure mode as a balancer that does not say where it lands.  Refusing
     over-cap packages is right for ``roster_intel.packages``, which is choosing
     what to put on a Pareto frontier — a different question.
+
+    ``roster_pool`` (the UNFILTERED board, every row ranked) fixes two measured
+    defects (owner inventory 2.3/2.4; audit W09-F001, W27-F002), and
+    ``team_count`` sizes the second fix:
+
+    * **The roster is a fact, not a quality gate.**  Roster analysis used to
+      join the roster against the top-``board_top_n`` pool, so every rostered
+      player outside it vanished from the analysis: deep rooms read as empty,
+      teams lost their surplus, and generators that need a surplus or a need
+      returned nothing — whole teams got zero suggestions with no reason.
+      With ``roster_pool`` the analysis (depth, need, surplus) sees the whole
+      roster; what may be OFFERED stays inside the quality pool, so the
+      top-N gate still governs both sides of every proposal.
+    * **A positional floor for demanded positions.**  The global top-N held
+      0 defensive backs on the audited board, so every IDP team read as
+      "needs DB" while DB targets were empty.  The pool now also admits, per
+      position the league starts, the top ``starters x team_count`` players —
+      the league's starter-caliber population at that position.  Offense
+      positions are already inside the top-N in practice; IDP rooms re-enter.
+
+    Without ``roster_pool`` the behaviour is exactly the legacy one.
+
+    ``weakness_needs`` are the positions the canonical Team Weakness owner
+    (``src/roster_intel/weakness.py`` via ``build_league_roster_intelligence``)
+    rates ``critical`` / ``high`` for THIS team.  When supplied they REPLACE the
+    startable-count need, which cannot discriminate on deep rosters: measured
+    on the 2026-10-14 board, with whole 58-man rosters analysed, every team in
+    ``dynasty_main`` had zero count-based needs (a hole only opens when a room
+    has fewer startable bodies than slots).  ``None`` keeps the count-based need
+    and stamps why the owner's answer was not used
+    (``weakness_unavailable_reason``) — never a fabricated need.
     """
     if board_top_n is None:
         board_top_n = BOARD_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
@@ -1865,8 +1976,49 @@ def generate_suggestions_from_pool(
     # non-rookies; the assets stay in the user's roster (so the
     # roster analysis is correct), they just can't appear as trade
     # TARGETS.  Re-enabled May 12 each year.
-    if not _rookies_eligible_today():
+    rookies_eligible = _rookies_eligible_today()
+    if not rookies_eligible:
         pool = [p for p in pool if not p.rookie]
+
+    positional_floor: dict[str, Any] | None = None
+    # Identity keys the positional floor admitted beyond the top-N: every
+    # offered asset is stamped with the gate that let it in (``qualityGate``),
+    # so the response never advertises one gate while applying two.
+    floor_keys: set[str] = set()
+    if roster_pool is not None and starter_needs:
+        if team_count and team_count > 1:
+            pool_keys = {_identity_key(p.name) for p in pool}
+            added_by_position: dict[str, int] = {}
+            additions: list[PlayerAsset] = []
+            for pos, need in sorted(starter_needs.items()):
+                quota = int(need) * int(team_count)
+                if quota < 1:
+                    continue
+                ranked = sorted(
+                    (p for p in roster_pool if p.position == pos),
+                    key=lambda p: (p.board_rank or 10**9, -p.display_value),
+                )
+                for p in ranked[:quota]:
+                    key = _identity_key(p.name)
+                    if key in pool_keys or (p.rookie and not rookies_eligible):
+                        continue
+                    pool_keys.add(key)
+                    floor_keys.add(key)
+                    additions.append(p)
+                    added_by_position[pos] = added_by_position.get(pos, 0) + 1
+            if additions:
+                pool = sorted(
+                    [*pool, *additions],
+                    key=lambda p: (p.board_rank or 10**9, -p.display_value),
+                )
+            positional_floor = {
+                "applied": True,
+                "rule": "per demanded position: top (starters x teamCount) on the board",
+                "teamCount": int(team_count),
+                "addedByPosition": dict(sorted(added_by_position.items())),
+            }
+        else:
+            positional_floor = {"applied": False, "reason": "team_count_unknown"}
 
     if not starter_needs:
         # Fail closed.  Without the league's lineup there is no honest way to
@@ -1885,13 +2037,19 @@ def generate_suggestions_from_pool(
                 "noResultReason": "league_lineup_unresolved",
             },
         }
-    roster = analyze_roster(roster_names, pool, starter_needs, constraints=constraints)
+    analysis_pool = roster_pool if roster_pool is not None else pool
+    roster = analyze_roster(roster_names, analysis_pool, starter_needs, constraints=constraints)
     if roster.roster_size and not roster.sendable_keys:
         # Every asset we could offer is protected or excluded.  Say so rather
         # than returning four empty categories, which reads as "nothing to
-        # suggest" — the failure §4 forbids by name.
+        # suggest" — the failure §4 forbids by name.  Same camelCase shape as
+        # every other return path (this one used to answer snake_case keys and
+        # no ``totalSuggestions``, so a client reading the normal shape saw
+        # ``undefined`` rather than an empty list).
         return {
-            **{c: [] for c in ("sell_high", "buy_low", "consolidation", "positional_upgrade")},
+            "rosterAnalysis": _serialize_roster(roster),
+            **{c: [] for c in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades")},
+            "totalSuggestions": 0,
             "warnings": [
                 "Every asset on your roster is protected or excluded from outgoing "
                 "recommendations, so no suggestion could be generated."
@@ -1904,18 +2062,109 @@ def generate_suggestions_from_pool(
                 "noResultReason": "all_outgoing_assets_constrained",
             },
         }
+    if roster_pool is not None:
+        # The analysis saw the whole roster; what may be OFFERED stays inside
+        # the quality pool, so the top-N gate still holds on the give side.
+        quality_keys = {_identity_key(p.name) for p in pool}
+        roster = replace(
+            roster,
+            sendable_by_position={
+                pos: [p for p in room if _identity_key(p.name) in quality_keys]
+                for pos, room in roster.sendable_by_position.items()
+            },
+            sendable_keys=frozenset(k for k in roster.sendable_keys if k in quality_keys),
+        )
+
+    # C3-CON-03 LOCK.  Resolved against the whole roster; an unsatisfiable lock
+    # is an honest no-result, never a silently unlocked list (§4).
+    from src.trade.constraints import constraint_key, resolve_locked_outgoing  # noqa: PLC0415
+
+    everyone = [p for room in roster.by_position.values() for p in room]
+    lock = resolve_locked_outgoing(everyone, constraints)
+    if not lock.satisfiable:
+        return {
+            "rosterAnalysis": _serialize_roster(roster),
+            **{c: [] for c in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades")},
+            "totalSuggestions": 0,
+            "warnings": ["A locked player cannot be included in a suggestion."],
+            "metadata": {
+                "rosterMatched": roster.roster_size,
+                "rosterProvided": len(roster_names),
+                "lockedOutgoing": lock.to_dict(),
+                "noResultReason": lock.no_result_reason,
+                "noResultLabel": "No qualifying trade found under current constraints",
+            },
+        }
+    locked_keys = frozenset(constraint_key(a.name) for a in lock.required)
+    if lock.required:
+        outside = [a.name for a in lock.required if not roster.can_send(a)]
+        if outside:
+            # On the roster, but below the quality pool this engine offers
+            # from: it cannot be proposed here, and saying "unsatisfiable"
+            # would misstate why.
+            return {
+                "rosterAnalysis": _serialize_roster(roster),
+                **{c: [] for c in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades")},
+                "totalSuggestions": 0,
+                "warnings": [
+                    "A locked player sits below the suggestion quality pool, so no "
+                    "suggestion can include him: " + ", ".join(sorted(outside))
+                ],
+                "metadata": {
+                    "rosterMatched": roster.roster_size,
+                    "rosterProvided": len(roster_names),
+                    "lockedOutgoing": lock.to_dict(),
+                    "noResultReason": "locked_player_outside_quality_pool",
+                    "noResultLabel": "No qualifying trade found under current constraints",
+                },
+            }
+        roster = replace(
+            roster, locked_keys=frozenset(_identity_key(a.name) for a in lock.required)
+        )
+    if weakness_needs is not None:
+        roster = replace(
+            roster,
+            need_positions=[pos for pos in weakness_needs if pos in roster.starter_needs],
+        )
+    need_source = {
+        "source": ("team_weakness_owner" if weakness_needs is not None else "startable_count"),
+        **(
+            {"weaknessUnavailableReason": weakness_unavailable_reason}
+            if weakness_needs is None and weakness_unavailable_reason
+            else {}
+        ),
+    }
     roster_set = {_identity_key(n) for n in roster_names}
 
     sell_high = _generate_sell_high(roster, pool, roster_set)
     buy_low = _generate_buy_low(roster, pool, roster_set)
     consolidation = _generate_consolidation(roster, pool, roster_set)
     upgrades = _generate_positional_upgrades(roster, pool, roster_set)
+    if locked_keys:
+        # LOCK on these hand-rolled generators: locked players were moved to
+        # the front of every candidate list before the generators' caps
+        # (``_locked_first``), so they are REACHED during generation; this keeps
+        # only the candidates that send every lock (with two locks a 1-for-1
+        # cannot hold them).  Before enrichment, ranking and the quality pass.
+        def _sends_locks(sug: TradeSuggestion) -> bool:
+            return locked_keys <= {constraint_key(p.name) for p in sug.give}
+
+        sell_high = [x for x in sell_high if _sends_locks(x)]
+        buy_low = [x for x in buy_low if _sends_locks(x)]
+        consolidation = [x for x in consolidation if _sends_locks(x)]
+        upgrades = [x for x in upgrades if _sends_locks(x)]
+    generated_counts = {
+        "sellHigh": len(sell_high),
+        "buyLow": len(buy_low),
+        "consolidation": len(consolidation),
+        "positionalUpgrades": len(upgrades),
+    }
 
     # Phase 3: Opponent-aware analysis (if league rosters provided)
     opponent_analyses: dict[str, RosterAnalysis] = {}
     if league_rosters:
         opponent_analyses = _analyze_opponent_rosters(
-            league_rosters, pool, starter_needs=roster.starter_needs
+            league_rosters, analysis_pool, starter_needs=roster.starter_needs
         )
 
     # Enrich all suggestions with edge signals, balancers, opponent fit
@@ -1987,12 +2236,62 @@ def generate_suggestions_from_pool(
 
     all_suggestions = sell_high + buy_low + consolidation + upgrades
 
-    return {
-        "rosterAnalysis": _serialize_roster(roster),
+    # W09-F001: an empty answer must say WHY.  Four empty lists with no reason
+    # read as "no trade exists for this team" when the real answer may be "the
+    # roster has no surplus to sell and no hole to fill" or "the quality pass
+    # removed every candidate".
+    no_result: dict[str, Any] = {}
+    if not all_suggestions:
+        # Depth beyond the starters, at a surplus position, that may be offered
+        # (constraints AND the quality pool).  Every generator but the upgrade
+        # path sells from exactly this set, so zero here is the usual answer on
+        # a deep roster whose spare bodies all sit below the quality gate.
+        offerable_surplus = sum(
+            1
+            for pos in roster.surplus_positions
+            for p in roster.by_position.get(pos, [])[roster.starter_needs.get(pos, 1) :]
+            if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
+        )
+        if sum(generated_counts.values()) == 0:
+            if locked_keys:
+                reason = "no_trade_includes_locked_player"
+            elif not roster.surplus_positions and not roster.need_positions:
+                reason = "no_surplus_or_need"
+            elif offerable_surplus == 0:
+                reason = "no_offerable_surplus_in_quality_pool"
+            elif not roster.need_positions:
+                reason = "no_need_positions"
+            else:
+                reason = "no_targets_in_pool"
+        else:
+            reason = "quality_filters_removed_all"
+        no_result = {
+            "noResultReason": reason,
+            "noResultLabel": (
+                "No qualifying trade found under current constraints"
+                if locked_keys or roster.constrained_out
+                else "No qualifying trade found"
+            ),
+            "generatorDiagnostics": {
+                "generated": generated_counts,
+                "surplusPositions": list(roster.surplus_positions),
+                "needPositions": list(roster.need_positions),
+                "sendableAssets": len(roster.sendable_keys),
+                "offerableSurplusDepth": offerable_surplus,
+                "qualityPoolSize": len(pool),
+            },
+        }
+
+    buckets = {
         "sellHigh": [_serialize_suggestion(s, roster) for s in sell_high],
         "buyLow": [_serialize_suggestion(s, roster) for s in buy_low],
         "consolidation": [_serialize_suggestion(s, roster) for s in consolidation],
         "positionalUpgrades": [_serialize_suggestion(s, roster) for s in upgrades],
+    }
+    _stamp_quality_gates(buckets, floor_keys)
+    return {
+        "rosterAnalysis": _serialize_roster(roster),
+        **buckets,
         "totalSuggestions": len(all_suggestions),
         "metadata": {
             "assetPoolSize": len(pool),
@@ -2001,6 +2300,8 @@ def generate_suggestions_from_pool(
             "ktcTopNFilter": board_top_n,
             "rosterMatched": roster.roster_size,
             "rosterProvided": len(roster_names),
+            # T-9: the roster players the analysis could not price, by name.
+            "rosterUnpriced": list(roster.unmatched),
             # C3-CON-01.  Published because a shorter list with no explanation
             # reads as "no trades exist" rather than "you protect these".
             "constraintsBlockedOutgoing": len(roster.constrained_out),
@@ -2008,6 +2309,11 @@ def generate_suggestions_from_pool(
             "starterNeeds": roster.starter_needs,
             "opponentRostersProvided": len(league_rosters) if league_rosters else 0,
             "opponentRostersAnalyzed": len(opponent_analyses),
+            "needSource": need_source,
+            **({"positionalFloor": positional_floor} if positional_floor is not None else {}),
+            **({"rosterAnalysisPool": "full_board"} if roster_pool is not None else {}),
+            **({"lockedOutgoing": lock.to_dict()} if locked_keys else {}),
+            **no_result,
         },
     }
 
@@ -2070,6 +2376,25 @@ def _serialize_player(p: PlayerAsset) -> dict[str, Any]:
         # Deprecated alias — never a KTC rank (WS-J F-4).
         result["ktcRank"] = p.board_rank
     return result
+
+
+QUALITY_GATE_TOP_N = "top_n"
+QUALITY_GATE_POSITIONAL_FLOOR = "positional_floor"
+
+
+def _stamp_quality_gates(buckets: dict[str, list[dict[str, Any]]], floor_keys: set[str]) -> None:
+    """Name, on every offered asset, the gate that admitted it to the quality
+    pool: ``positional_floor`` for an asset only the per-position starter floor
+    let in (it may rank past ``boardTopNFilter``), ``top_n`` otherwise."""
+    for suggestions in buckets.values():
+        for sug in suggestions:
+            for side in ("give", "receive"):
+                for asset in sug.get(side) or []:
+                    asset["qualityGate"] = (
+                        QUALITY_GATE_POSITIONAL_FLOOR
+                        if _identity_key(asset.get("name") or "") in floor_keys
+                        else QUALITY_GATE_TOP_N
+                    )
 
 
 def _serialize_suggestion(

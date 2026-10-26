@@ -68,4 +68,48 @@ describe("PlayoffOddsChart — why the odds are missing", () => {
     );
     expect(screen.queryByText(/make playoffs/i)).toBeNull();
   });
+
+  // C5-PLAY-01: the section is the ONE canonical engine's forecast, which
+  // can refuse mid-season (e.g. no team evidence). That is neither a
+  // preseason promise nor an unknown bracket — say what the backend said.
+  it("names a mid-season refusal instead of claiming preseason", () => {
+    render(
+      <PlayoffOddsChart
+        data={{
+          scheduleCertainty: "posted",
+          playoffSpots: 7,
+          numSims: 0,
+          simulated: false,
+          owners: OWNERS,
+          unsimulable: {
+            reason: "team_strength_unavailable",
+            detail: "ROS team strength is unavailable. This is not an equal chance for everyone.",
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText(/Playoff odds unavailable/i)).toBeTruthy();
+    expect(screen.getByText(/not an equal chance/i)).toBeTruthy();
+    expect(screen.queryByText(/Preseason/i)).toBeNull();
+  });
+
+  it("labels un-posted weeks as not simulated rather than round-robin", () => {
+    const { container } = render(
+      <PlayoffOddsChart
+        data={{
+          scheduleCertainty: "posted_weeks_only",
+          playoffSpots: 7,
+          numSims: 8000,
+          weeksPlayed: 4,
+          weeksRemaining: 10,
+          owners: [
+            { ownerId: "a", displayName: "Alice", playoffProbability: 0.8 },
+            { ownerId: "b", displayName: "Bob", playoffProbability: 0.2 },
+          ],
+        }}
+      />,
+    );
+    expect(container.textContent).toMatch(/Posted weeks only \(un-posted weeks not simulated\)/);
+    expect(container.textContent).not.toMatch(/round-robin/i);
+  });
 });

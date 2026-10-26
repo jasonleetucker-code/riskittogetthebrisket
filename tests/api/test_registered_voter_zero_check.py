@@ -178,3 +178,87 @@ def test_reported_order_is_deterministic() -> None:
         e for e in _lane(_payload(silent=None, total=260)) if e.startswith("source_missing:")
     ]
     assert missing == sorted(missing)
+
+
+# ── D8 (2026-10-07 audit): SEASONALLY INACTIVE is not BROKEN ─────────────
+#
+# A declared seasonal source (``src/sources/seasonal_policy.py``, owner
+# decision 2026-10-03) that the board itself records as inactive at its own
+# time casts no current vote BY DESIGN.  Its absence is the declared phase,
+# not a lost source, so it is a warning — exactly as a private source the
+# board declares absent by design is.  The excuse is read through the SAME
+# owner the served-board coverage gate uses (``contract_inactive_sources``,
+# reading the payload's own ``sourceSeasonalState`` stamp), and it fails
+# closed: no stamp, a malformed stamp, or a different key excuses nothing.
+
+_SEASONAL_KEY = "flockFantasySfRookies"
+
+
+def _seasonal_stamp(*keys: str) -> dict:
+    return {
+        "asOf": "2026-10-07T17:36:08Z",
+        "inactive": {
+            k: {
+                "state": "seasonally_inactive",
+                "policyId": "flock_prospects_sf_class_graduation_v1",
+                "since": "2026-10-03T05:48:40Z",
+                "classYear": 2026,
+                "lastInactiveVerifiedAt": "2026-10-07T17:36:12Z",
+            }
+            for k in keys
+        },
+    }
+
+
+def test_a_declared_seasonally_inactive_source_with_no_rows_is_a_warning_not_missing() -> None:
+    assert _SEASONAL_KEY in _REGISTERED
+    payload = _payload(silent=_SEASONAL_KEY)
+    payload["sourceSeasonalState"] = _seasonal_stamp(_SEASONAL_KEY)
+    health = validate_api_data_contract(payload)
+    assert f"source_missing:{_SEASONAL_KEY}" not in (health.get("sourceHealthErrors") or [])
+    assert f"source_seasonally_inactive:{_SEASONAL_KEY}" in (health.get("warnings") or [])
+
+
+def test_the_seasonal_excuse_covers_only_the_declared_key() -> None:
+    other = next(k for k in _REGISTERED if k != _SEASONAL_KEY)
+    payload = _payload(silent=other)
+    payload["sourceSeasonalState"] = _seasonal_stamp(_SEASONAL_KEY)
+    assert f"source_missing:{other}" in _lane(payload)
+
+
+@pytest.mark.parametrize(
+    "stamp",
+    [None, {}, {"inactive": None}, {"inactive": [_SEASONAL_KEY]}, "seasonally_inactive"],
+)
+def test_a_missing_or_malformed_seasonal_stamp_fails_closed(stamp) -> None:
+    payload = _payload(silent=_SEASONAL_KEY)
+    if stamp is not None:
+        payload["sourceSeasonalState"] = stamp
+    assert f"source_missing:{_SEASONAL_KEY}" in _lane(payload)
+
+
+def test_an_undeclared_key_in_the_seasonal_stamp_excuses_nothing() -> None:
+    """The stamp is payload DATA.  A corrupted or hand-edited payload naming a
+    source with no declared seasonal policy (here a KTC market input) must not
+    turn its ``source_missing`` into a warning."""
+    from src.sources.seasonal_policy import load_policies
+
+    key = "ktcCrowdSfTep"
+    assert key in _REGISTERED and key not in load_policies()
+    payload = _payload(silent=key)
+    payload["sourceSeasonalState"] = _seasonal_stamp(key)
+    health = validate_api_data_contract(payload)
+    assert f"source_missing:{key}" in (health.get("sourceHealthErrors") or [])
+    assert f"source_seasonally_inactive:{key}" not in (health.get("warnings") or [])
+
+
+def test_an_unreadable_seasonal_policy_excuses_nothing(monkeypatch) -> None:
+    from src.sources import seasonal_policy as sp
+
+    def broken(path=None):
+        raise sp.SeasonalPolicyError("malformed")
+
+    monkeypatch.setattr(sp, "load_policies", broken)
+    payload = _payload(silent=_SEASONAL_KEY)
+    payload["sourceSeasonalState"] = _seasonal_stamp(_SEASONAL_KEY)
+    assert f"source_missing:{_SEASONAL_KEY}" in _lane(payload)

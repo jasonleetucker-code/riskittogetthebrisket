@@ -82,7 +82,13 @@ _DELIBERATELY_ABSENT = frozenset(
 
 
 def _doc_source_keys() -> set[str]:
-    rows = re.findall(r"^\| `([A-Za-z0-9_]+)` \| overall", DOC.read_text(encoding="utf-8"), re.M)
+    # ``position_idp`` joined the registry with Signals' per-family IDP
+    # boards (2026-10-03), the first source to use that scope.
+    rows = re.findall(
+        r"^\| `([A-Za-z0-9_]+)` \| (?:overall|position_idp)",
+        DOC.read_text(encoding="utf-8"),
+        re.M,
+    )
     return set(rows)
 
 

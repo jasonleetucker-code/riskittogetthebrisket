@@ -2,6 +2,23 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTeam } from "@/components/useTeam";
+import {
+  PICK_OWNERSHIP_UNAVAILABLE_LABEL,
+  pickOwnershipUnavailableReason,
+} from "@/lib/pick-ownership";
+
+/**
+ * The option row's pick count.  Unknown ownership (failed /traded_picks)
+ * reads "—", never "0pk" — a team whose picks we cannot see is not a team
+ * with no picks.
+ */
+export function teamSwitcherPickMeta(team) {
+  if (pickOwnershipUnavailableReason(team)) {
+    return { text: "—pk", title: PICK_OWNERSHIP_UNAVAILABLE_LABEL };
+  }
+  const count = Array.isArray(team?.picks) ? team.picks.length : 0;
+  return { text: `${count}pk`, title: undefined };
+}
 
 /**
  * TeamSwitcher — dropdown that binds the signed-in user's "my team"
@@ -84,7 +101,7 @@ export default function TeamSwitcher({ variant = "desktop" }) {
             const name = t?.name || "";
             const active = selectedTeam?.name === name;
             const playerCount = Array.isArray(t?.players) ? t.players.length : 0;
-            const pickCount = Array.isArray(t?.picks) ? t.picks.length : 0;
+            const pickMeta = teamSwitcherPickMeta(t);
             return (
               <li key={name || t?.ownerId || Math.random()}>
                 <button
@@ -95,8 +112,8 @@ export default function TeamSwitcher({ variant = "desktop" }) {
                   onClick={() => choose(name)}
                 >
                   <span className="team-switcher-option-name">{name || "Unnamed"}</span>
-                  <span className="team-switcher-option-meta">
-                    {playerCount}p · {pickCount}pk
+                  <span className="team-switcher-option-meta" title={pickMeta.title}>
+                    {playerCount}p · {pickMeta.text}
                   </span>
                 </button>
               </li>

@@ -24,14 +24,18 @@ States: IMPLEMENTED → MOCK READY → HUMAN REHEARSAL PASSED → LIVE-READY →
       65 active-hour lot clock, 1 active-hour extension, 13 active-hour nomination timeout + audited pass,
       earliest-accepted tie rule, withdrawal policy, outage policy (pause + fair window), money-spent and
       rights-exhausted endings, six rounds = six nomination turns, commissioner corrections, and whether open
-      trade offers reserve money (`open_trade_offers`; current rule: they do not, settlement re-checks).
+      trade offers reserve money (`open_trade_offers`; decided 2026-10-18, owner directive D20: they do not,
+      settlement re-checks — still confirmed on the rule screen like every other proposed rule).
 - [ ] Supply/confirm the official **points-for nomination order** (the room's preview reads Sleeper and says
       whether the season is final; ties are flagged for you to decide).
 - [ ] Approve the **official 2027 rookie pool** (no official class exists in the data yet; mocks use a labelled
       fixture). The room refuses to start an official room without it.
 - [ ] Accept the **disaster-recovery window** or authorise an off-host copy: hourly verified backups bound a
       process/database fault to ~1 hour, but they are on the same host; losing the disk loses everything since
-      the last off-host copy.
+      the last off-host copy. *Owner directive D20 (2026-10-18): on-host backups suffice for mocks; for official
+      operation provide a validated encrypted off-host recovery copy or a documented risk acceptance before
+      launch (`docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md` §5).*
+- [x] Decide whether open trade offers should reserve money — **decided 2026-10-18 (owner directive D20): they do not**; money moves only after a verified accepted transaction (the engine's existing rule; settlement re-checks).
 - [ ] Approve launch (flip the official-room gate in a reviewed PR).
 
 ## C. Engineering (agent-closable; status in `ROOKIE_AUCTION_ROOM.md`)

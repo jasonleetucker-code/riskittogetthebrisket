@@ -37,6 +37,25 @@ os.environ.setdefault(
     "RISKIT_RETENTION_DIR",
     os.path.join(tempfile.gettempdir(), f"riskit-retention-test-{os.getpid()}"),
 )
+# Same reason for the two as-known capture stores (Adaptive Learning G4): a
+# suite that refreshes the news service or runs the injury refresh must never
+# append fixture rows to the box-local evidence logs.  Both modules read the
+# variable at call time.
+os.environ.setdefault(
+    "RISKIT_NEWS_ARCHIVE_DIR",
+    os.path.join(tempfile.gettempdir(), f"riskit-news-archive-test-{os.getpid()}"),
+)
+os.environ.setdefault(
+    "RISKIT_INJURY_HISTORY_DIR",
+    os.path.join(tempfile.gettempdir(), f"riskit-injury-history-test-{os.getpid()}"),
+)
+# And the served trade-decision run log (TC-C decision receipts): every
+# /api/trade/analyze test appends a line; it must never reach ``data/``.
+# ``src.trade.trade_decision_log`` reads the variable at call time.
+os.environ.setdefault(
+    "RISKIT_TRADE_DECISION_LOG_DIR",
+    os.path.join(tempfile.gettempdir(), f"riskit-trade-decisions-test-{os.getpid()}"),
+)
 
 # ── The suite does not depend on the live site being up ───────────────
 # ``server`` reads UPTIME_CHECK_ENABLED at import (production default
@@ -60,6 +79,29 @@ os.environ.setdefault(
 # ``.github/workflows/pr-validation.yml`` states it again in the
 # unit-test step so the CI policy is visible rather than inherited.
 os.environ.setdefault("UPTIME_CHECK_ENABLED", "0")
+
+# ── No real scrape from a test's lifespan ─────────────────────────────
+# The lifespan starts ``run_scraper(trigger="startup")`` 3 s after boot.
+# That executes ``Dynasty Scraper.py``'s top level: a live Sleeper fetch
+# that rewrites the TRACKED ``data/sleeper_last_good.json`` and
+# ``data/scrape_state/sleeper_last_success`` (deploy dispatch keys on
+# commits to ``data/scrape_state``), on a worker thread the lifespan
+# cannot cancel.  Measured 2026-10-18: under ``pytest -n 6`` a TestClient
+# held open past 3 s did exactly that, mid-suite, from whichever test
+# happened to be running.  Same explicit boundary as above; a test that
+# wants the scheduler sets the variable itself.
+os.environ.setdefault("SCRAPE_SCHEDULER_ENABLED", "0")
+
+# ── No Sleeper overlay warm from a test's lifespan ────────────────────
+# The lifespan's startup prime hands the cached contract to
+# ``_warm_overlays_in_background``, whose ``sleeper-overlay-warm`` daemon
+# thread warms Sleeper's global trending-adds feed even when no league is
+# registered.  Measured 2026-10-18: every TestClient lifespan requested
+# ``api.sleeper.app/v1/players/nfl/trending/add`` on a thread the lifespan
+# never joins.  Same explicit boundary as above (production default ON);
+# a test that wants the warm pass sets the server flag itself.  Pinned by
+# ``tests/infra/test_unit_suite_does_not_probe_production.py``.
+os.environ.setdefault("SLEEPER_OVERLAY_WARM_ENABLED", "0")
 
 # ── Game Day live network feeds OFF for the suite ─────────────────────
 # ``game_day_live_game_state`` (ESPN scoreboard) and
@@ -160,7 +202,8 @@ _runtime_data.activate(_RUNTIME_DATA_BASE / "collection")
 _runtime_data_counter = itertools.count()
 # The REAL directories as this session found them.  A local server or
 # scrape may legitimately own these files; the suite may not touch them.
-_RUNTIME_DATA_BASELINE = {"value": _runtime_data.fingerprint()}
+with _runtime_data.real_paths_lock():
+    _RUNTIME_DATA_BASELINE = {"value": _runtime_data.fingerprint()}
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -177,16 +220,22 @@ def _real_runtime_data_is_untouched():
     class).  Re-baselines after reporting so one write is one failure.
     """
     yield
-    now = _runtime_data.fingerprint()
+    # Under the lock: tests/test_runtime_data_isolation.py plants poison at
+    # the real paths on purpose, and another worker comparing mid-plant
+    # would report it as this test's write.
+    with _runtime_data.real_paths_lock():
+        now = _runtime_data.fingerprint()
     before = _RUNTIME_DATA_BASELINE["value"]
     if now != before:
         _RUNTIME_DATA_BASELINE["value"] = now
         changes = "\n  ".join(_runtime_data.describe_changes(before, now))
         pytest.fail(
-            "the real gitignored runtime directories changed during this test "
-            "(tests must write to the isolated root — see "
-            "tests/runtime_data_isolation.py; a local server or scrape running "
-            f"at the same time can also cause this):\n  {changes}",
+            "the real gitignored runtime directories or tracked scraper "
+            "artifacts changed during this test (tests must write to the "
+            "isolated root and never to data/scrape_state or "
+            "data/sleeper_last_good.json — see tests/runtime_data_isolation.py; "
+            "a local server or scrape running at the same time can also cause "
+            f"this):\n  {changes}",
             pytrace=False,
         )
 
@@ -264,6 +313,11 @@ _LIVEDATA_MODULES = frozenset(
         # data.  ``test_livedata_policy.py`` records it as open.
         "test_fantasypros_idp_integration.py",
         "test_ktc_reconciliation.py",
+        # ``test_ktc_import_live.py`` — added 2026-10-13.  The only test that
+        # fetches keeptradecut.com; split out of ``test_ktc_import_e2e.py`` so
+        # that module's deterministic tests stay blocking.  Hard-gate twin:
+        # ``tests/trade/test_ktc_import_player_map.py`` (captured fixtures).
+        "test_ktc_import_live.py",
         "test_fetch_flock_fantasy_rookies.py",
         # ``test_faab_calibration.py`` — added 2026-08-16.  Its own
         # docstring says what it is: "These are the tests that would
@@ -304,6 +358,11 @@ def pytest_configure(config):
         "evidence in metrics.final_regular_season_weeks instead of the "
         "suite-wide 'every NFL week is final' stand-in (see "
         "_synthetic_seasons_have_finished_nfl_weeks in tests/conftest.py).",
+    )
+    config.addinivalue_line(
+        "markers",
+        "tesseract: runs the REAL local tesseract OCR binary; skipped when "
+        "the binary is not installed (see tests/trade/screenshot_import).",
     )
 
 
@@ -363,3 +422,109 @@ def _reset_overlay_content_memos():
             if isinstance(memo, dict):
                 memo.clear()
     yield
+
+
+# ── Public-league process state is restored per MODULE ────────────────
+# ``tests/public_league/fixtures.install_stubs`` replaces ``sleeper_client``
+# entry points process-wide, and the route tests also set
+# ``SLEEPER_LEAGUE_ID`` and seed ``server``'s public snapshot cache, all in
+# ``setUpClass``.  Nothing undid any of it, so every later module in the
+# process ran against the stubbed fixture league: measured 2026-10-07,
+# ``tests/api/test_public_league_privacy_boundary.py`` skipped in isolation
+# and FAILED after ``tests/public_league/test_server_routes.py`` — and the
+# leaked league id sent ``data_contract`` to the real Sleeper API.
+#
+# Module scope, not function scope: a class installs once in
+# ``setUpClass`` and all of its tests read through the stubs.  A module
+# fixture wraps that class fixture, so it restores after the last class.
+#
+# The pristine ``sleeper_client`` callables are captured HERE, at conftest
+# import, before any test module can touch them.  A drift that did NOT go
+# through ``install_stubs`` (e.g. a bare ``sleeper_client.fetch_x = ...``)
+# is restored too, and the module is failed so the leak gets fixed rather
+# than silently absorbed.
+def _sleeper_client_callables() -> dict:
+    from src.public_league import sleeper_client as _sc
+
+    return {
+        name: value
+        for name, value in vars(_sc).items()
+        if callable(value)
+        and not name.startswith("__")
+        and getattr(value, "__module__", None) == _sc.__name__
+    }
+
+
+_PRISTINE_SLEEPER_CLIENT = _sleeper_client_callables()
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _public_league_process_state(request):
+    from src.public_league import sleeper_client as _sc
+    from tests.public_league import fixtures as _pl_fixtures
+
+    restore = _pl_fixtures.capture_public_league_process_state()
+    yield
+    sanctioned = set(_pl_fixtures._STUBBED_ORIGINALS)
+    restore()
+    unsanctioned = []
+    for name, original in _PRISTINE_SLEEPER_CLIENT.items():
+        if getattr(_sc, name, None) is not original:
+            setattr(_sc, name, original)
+            if name not in sanctioned:
+                unsanctioned.append(name)
+    if unsanctioned:
+        pytest.fail(
+            f"{request.node.nodeid} replaced sleeper_client.{', '.join(sorted(unsanctioned))} "
+            "without restoring it; later modules would have run against the "
+            "replacement.  Use monkeypatch, or tests.public_league.fixtures."
+            "install_stubs (restored at module end).",
+            pytrace=False,
+        )
+
+
+# ── Process-wide state is restored per MODULE (R-TEST-ISOLATION) ──────
+# A test module that replaces or removes a ``sys.modules`` entry, leaves a
+# stub module behind, or changes ``server.app``'s route table,
+# ``dependency_overrides`` or ``user_middleware`` hands every later module in
+# the process a different world from the one it would see alone — the class
+# of leak ``docs/python-coverage-audit.md`` D-5 records.  Owner TODO
+# (2026-09-30, "Test isolation"); the rules and their reasons live in
+# ``tests/process_state_isolation.py``.  The state is restored FIRST and the
+# module failed after, so the leak never reaches the next module either way.
+#
+# Module scope for the same reason as ``_public_league_process_state``: a
+# unittest class mutates in ``setUpClass`` and its tests read through the
+# mutation, so the boundary that must hold is the module's.
+from tests import process_state_isolation as _process_state  # noqa: E402
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _process_state_is_restored(request):
+    before = _process_state.take()
+    yield
+    findings = _process_state.check_and_restore(before)
+    if findings:
+        pytest.fail(
+            f"{request.node.nodeid} left process-wide state changed (now restored; "
+            "later modules would have run against it):\n  "
+            + "\n  ".join(findings.lines())
+            + "\nRestore it in the module's own teardown (monkeypatch, "
+            "monkeypatch.setitem(sys.modules, ...), a fixture finalizer), or "
+            "see tests/process_state_isolation.py.",
+            pytrace=False,
+        )
+
+
+def pytest_report_header(config):
+    """Name a local web stack that drifts from CI's lock (#1534) up front."""
+    drift = _process_state.web_stack_drift()
+    if not drift:
+        return None
+    pairs = ", ".join(
+        f"{name} {have} (lock {want})" for name, (have, want) in sorted(drift.items())
+    )
+    return (
+        f"WARNING: web stack differs from requirements-dev.lock.txt: {pairs} — "
+        "results may not match CI; reinstall from the lock"
+    )

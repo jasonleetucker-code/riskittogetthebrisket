@@ -91,6 +91,12 @@ class LeagueConfig:
     # optimizer can credit best-ball depth as well as starting
     # strength; dynasty rankings + trade calculator are unaffected.
     best_ball: bool = False
+    # Which OPTIONAL facts the entry actually stated (``"bestBall"``,
+    # ``"idpEnabled"``).  ``best_ball`` / ``idp_enabled`` default when absent,
+    # and a default is not a fact: a consumer that must not turn an unstated
+    # default into evidence (the Market Trade Ledger's format comparison)
+    # reads this.  Every existing consumer keeps reading the plain fields.
+    stated_fields: frozenset[str] = field(default_factory=frozenset)
 
     def public_dict(self) -> dict[str, Any]:
         """Safe payload for /api/leagues — no Sleeper ID leakage.
@@ -186,6 +192,7 @@ def _parse_league_entry(entry: dict[str, Any]) -> LeagueConfig:
         active=active,
         aliases=aliases,
         best_ball=best_ball,
+        stated_fields=frozenset(k for k in ("bestBall", "idpEnabled") if k in entry),
     )
 
 
@@ -215,6 +222,9 @@ def _synthesise_from_env() -> tuple[dict[str, LeagueConfig], str | None]:
         default_team_map={},
         active=True,
         aliases=("main",),
+        stated_fields=frozenset(
+            {"idpEnabled"} if os.getenv("SLEEPER_LEAGUE_IDP_ENABLED", "").strip() else ()
+        ),
     )
     return {"default": entry}, "default"
 

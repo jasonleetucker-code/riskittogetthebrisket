@@ -40,7 +40,7 @@ worst claim was one nobody would think to double-check:
 > *"No CI/CD configured — tests run manually. Deployment is manual SSH +
 > restart."*
 
-There are **14 workflows**. `pr-validation.yml` gates every pull request and
+There are **14 workflows** (41 as of 2026-10-07). `pr-validation.yml` gates every pull request and
 `deploy.yml` ships every push to `main` to production with health
 verification and auto-rollback. Anyone trusting that sentence would have
 built a second deployment pipeline beside a working one.
@@ -48,7 +48,9 @@ built a second deployment pipeline beside a working one.
 It was wrong about the rest of the stack too. It documented a `Caddyfile`
 that is not in the tree (production is nginx), a `Static/` vanilla-JS
 frontend that has been removed (`FRONTEND_RUNTIME` is hardcoded to `"next"`
-and pinned by `tests/api/test_frontend_migration.py`), a
+and pinned by `tests/api/test_frontend_migration.py` — *corrected 2026-10-07:*
+`FRONTEND_RUNTIME` itself was later deleted with the page proxy in #555, and
+that test now only asserts the static runtime cannot return), a
 `scripts/run_canonical_pipeline.py` that does not exist (the offline
 canonical path was retired), and `DN_EMAIL` / `DN_PASS` env vars that appear
 nowhere in the codebase.
@@ -75,6 +77,11 @@ straight to Next, `server.py`'s page routes are **not** in the production
 path. Page protection is `frontend/middleware.js`; the backend's default-deny
 `/api/` gate is the real authority.
 
+**CURRENT (2026-10-07):** stronger than that — since #555 (2026-07-31) `server.py`
+registers **no** page routes at all (a page path on `:8000` returns a JSON 404)
+and does not proxy Next. `frontend/middleware.js` + `frontend/lib/public-routes.js`
+are the only page auth gate (`CLAUDE.md` "Frontend Runtime").
+
 **Health.** `contract_ok: true`, 1,094 players, all 21 ranking sources
 fetched within 3 hours, `scrape_success_rate_24h: 1.0`.
 
@@ -83,7 +90,10 @@ fetched within 3 hours, `scrape_success_rate_24h: 1.0`.
 Ingestion is `Dynasty Scraper.py` plus `scripts/fetch_*.py`, **not** one
 adapter per source — `src/adapters/` holds only `base.py` (the frozen
 contract, imported by tests), `scraper_bridge_adapter.py`,
-`sleeper_trending.py` and `ktc_crowd_faab.py`.
+`sleeper_trending.py` and `ktc_crowd_faab.py`. *Corrected 2026-10-07:*
+`ktc_crowd_faab.py` was retired 2026-08-18; the directory now holds `base.py`,
+`scraper_bridge_adapter.py`, `sleeper_trending.py` and `sleeper_trending_history.py`,
+and `_RANKING_SOURCES` has 26 entries (21 on the 2026-07-29 date above).
 
 **Tests.** ~5,350 Python (25 skipped, 470 subtests) and ~1,518 frontend.
 `make test` locally; `Validate PR` runs the same gates in CI.
@@ -97,7 +107,12 @@ could not be re-confirmed was dropped rather than carried forward on faith.
 
 ### Security
 
-1. **No login rate limiting — STILL OPEN.** `src/api/rate_limit.py` is a
+1. **No login rate limiting — FIXED 2026-08-25 (#1115, `ff4986e41`).** Current:
+   `src/api/rate_limit.py` now carries a dedicated login FAILURE throttle
+   (W22-F003): 5 free failures per window, then exponential backoff capped at
+   60 s, keyed by IP and IP+username (never username alone), pinned by
+   `tests/api/test_login_throttle.py`. *Historical (2026-07-29) text follows:*
+   "STILL OPEN." `src/api/rate_limit.py` is a
    generic per-IP limiter (60/min, 1000/hour) with no login-specific lockout,
    and `server.py` has no failed-attempt counter. Brute-force against the
    single operator account is slowed only by the generic limit.

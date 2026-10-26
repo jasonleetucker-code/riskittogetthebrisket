@@ -67,6 +67,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Full history: the proof script is read from the commit the box
+          # actually runs (see "Pin the proof script" below), which is
+          # usually OLDER than the default-branch HEAD this checkout lands on.
+          fetch-depth: 0
 
       - name: Configure production SSH
         env:
@@ -83,6 +88,40 @@ jobs:
           chmod 644 "$HOME/.ssh/known_hosts"
           ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
           echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Pin the proof script to the deployed commit
+        # A workflow_run checkout lands on the default branch's CURRENT HEAD,
+        # not the commit the box runs.  When main moved between the deploy and
+        # this run, a newer proof script asserted stores the deployed writer
+        # did not produce yet -- run 36970578552 (2026-10-02) FAILED nine
+        # AL-P2 artifacts that the very next run, on matching code, proved
+        # intact.  The skew can equally fake a PASS, so read the proof from
+        # the box's own HEAD; a HEAD this repository does not contain fails.
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          box_sha="$(ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "git -C $(printf %q "$APP_DIR") rev-parse HEAD")"
+          if [[ ! "$box_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::box HEAD is not a full commit SHA: '${box_sha}'"
+            exit 1
+          fi
+          if ! git cat-file -e "${box_sha}^{commit}" 2>/dev/null; then
+            echo "::error::box HEAD ${box_sha} is not in this repository; refusing to prove an unknown tree"
+            exit 1
+          fi
+          git show "${box_sha}:deploy/diagnostics/retention_backup_restore_proof.sh" \
+            > "$RUNNER_TEMP/retention_backup_restore_proof.sh"
+          echo "PROOF_SCRIPT=$RUNNER_TEMP/retention_backup_restore_proof.sh" >> "$GITHUB_ENV"
+          echo "proof script pinned to deployed commit ${box_sha} (workflow checkout $(git rev-parse HEAD))"
 
       - name: Run backup and prove restore on production
         env:
@@ -103,4 +142,4 @@ jobs:
             -o ConnectTimeout=15 -o ServerAliveInterval=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
             "APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") RUN_BACKUP=$(printf %q "$RUN_BACKUP") bash -s" \
-            < deploy/diagnostics/retention_backup_restore_proof.sh
+            < "$PROOF_SCRIPT"

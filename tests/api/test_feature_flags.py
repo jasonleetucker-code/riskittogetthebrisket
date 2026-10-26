@@ -37,6 +37,14 @@ def test_every_flag_defaults_off_except_safe_additive():
         "nfl_data_ingest",  # guarded import; empty [] if missing
         "realized_points_api",  # endpoint-only, inert until called
         "rookie_auction",  # own router + own store; mock rooms only; moves no existing number
+        "dfs_workspace",  # own private router + own store under data/dfs/; never reads or writes the dynasty board
+        "dfs_auto_slates",  # automatic DFS slates; writes only data/dfs/ (system:auto); manual path unaffected
+        # Import Trade from Screenshot: own endpoint, local OCR, identities only
+        # (never values); writes and retains nothing; 503 when tesseract is absent.
+        "trade_screenshot_import",
+        # Manager Intelligence: own private endpoint + page; reads Sleeper and the
+        # canonical board, writes nothing, never changes a canonical value.
+        "manager_intelligence",
         "value_confidence_intervals",  # additive valueBand field
         "positional_tiers",  # additive tierId field
         "usage_signals",  # freshness + starter-guarded
@@ -101,6 +109,45 @@ def test_every_flag_defaults_off_except_safe_additive():
         # 352-525 of ~1,040 values move per day, median |d| 0.35-0.83%,
         # top-50 max 1.7%.  Rollback: RISKIT_FEATURE_SOURCE_FAMILY_CAP=0.
         "source_family_cap",
+        # #1555 V2-1 (2026-09-30): a source pricing offense AND IDP on one board
+        # ages each row from its own universe's broad-change clock, capped at
+        # the source clock (only ever older).  Blast radius measured on the
+        # 2026-09-30 board: 427 offense rows move, median |d| ~26, max 155,
+        # 4 top-200 membership changes; IDP and picks unchanged.  Rollback:
+        # RISKIT_FEATURE_SOURCE_UNIVERSE_FRESHNESS=0.
+        "source_universe_freshness",
+        # Owner closeout 2026-10-18 as amended by the owner's source-voting
+        # directive of 2026-10-19 (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md;
+        # measured by scripts/source_voting_consensus_evidence.py on the
+        # 2026-10-19 production board vs main b08f7230d1).  Two-way alt-evidence
+        # fix: Travis Hunter only (3738 -> 3599 with The IDP Show withheld), no
+        # other row.  D5: FantasyPros IDP on its upstream clock -- 0 values today
+        # (labels / freshness axes only).  Rollback for each:
+        # RISKIT_FEATURE_<NAME>=0 + restart.  (D4, dlf_values_rank_hill_vote, is
+        # HELD OFF by the owner -- see ``off_only``.)
+        "two_way_alt_evidence_rules",
+        "fantasypros_idp_upstream_clock",
+        # DLF IDP restore HELD AT RELEASE (temporary, re-applied 2026-10-19).
+        # The owner rescinded the 2026-10-16 policy hold ("DLF vote is
+        # offense-only") and approved the restore in the universal
+        # source-voting directive of 2026-10-19; the restore is implemented
+        # (flag OFF) but held because under the incumbent outlier filter it
+        # drops 31 valid Draft Sharks IDP / FantasyPros IDP / IDPTC votes on 30
+        # rows (7 IDP moves of 34-54%, none from DLF's own vote), which the
+        # same directive forbids (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md).
+        # ON = main's DLF IDP behaviour (decision fields identical to main with
+        # the other PR flags off).  LOCKED by the owner's Option 3 decision
+        # (2026-10-20): lifts only with explicit owner approval after outlier-
+        # filter Version 2 passes every mandatory gate
+        # (tests/api/test_dlf_idp_hold_locked.py).
+        "dlf_offense_only_vote",
+        # Owner addendum 2026-10-03: Signals' authenticated native values vote
+        # (value-ordered rank, FantasyCalc family).  Inert wherever the
+        # box-local private store is absent (CI, dev).  Whole-board impact
+        # measured on the production box: see the PR / docs/sources/
+        # SIGNALS_FANTASY_INTEGRATION.md §9.  Rollback:
+        # RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0 + restart.
+        "signals_active_source",
         # Collaborative audit finding F.  Replaces the flat 1.15 TE
         # alignment multiplier with KTC's measured base → TE++ curve.
         # Blast radius measured against the 2026-07-27 live board (810
@@ -210,6 +257,24 @@ def test_every_flag_defaults_off_except_safe_additive():
         # a passing re-run: flipping it means moving this line, which
         # means writing down which measurement changed.  See ADR-023.
         "consensus_edge",
+        # DLF Values offense voting (D4).  HELD by the owner's decision of
+        # 2026-10-20 ("Hold D4 for V2"): under the incumbent outlier filter it
+        # newly drops other sources' valid votes on 12-13 offense rows (Theo
+        # Johnson -7.4%).  Activates only with explicit owner approval after
+        # outlier-integrity-v2 passes; tests/api/test_dlf_values_hold_locked.py
+        # is the lock.  (Measured when ON, 2026-10-19 board: 299 offense values
+        # move, p90 1.7%, max 5.1%, + 36 tethered picks.)
+        "dlf_values_rank_hill_vote",
+        # The owner's universal freshness step schedule.  Implementation and
+        # percentages APPROVED; ACTIVATION HELD by the owner's decision of
+        # 2026-10-20 on PR #1831 (Option B): under the incumbent outlier
+        # filter a changed voting population can remove legitimate votes,
+        # which outlier-integrity-v2 exists to fix.
+        # tests/api/test_freshness_v2_hold_locked.py is the lock.  (Measured
+        # when ON on the 2026-10-19 export, scripts/freshness_schedule_impact.py:
+        # 918 of 1,029 priced values move, median |d| 0.91%, p90 3.60%, max
+        # 42.86% -- LaJohntay Wester -- and 3 deep IDP rows newly unpriced.)
+        "source_freshness_schedule_v2",
     }
     assert not (safe_on & value_moving_on), "a flag cannot be both no-change and value-moving"
     for name, value in flags.items():

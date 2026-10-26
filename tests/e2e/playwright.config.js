@@ -73,6 +73,16 @@ const chromiumExecutablePath = resolveChromiumPath();
 //     live ranking sites.
 const selfBooted = !process.env.E2E_BASE_URL;
 
+// An external, non-loopback target (prod-e2e-smoke.yml points this config
+// at PRODUCTION).  Its traces/screenshots/videos would be uploaded as a
+// PUBLIC artifact on a public repo, so capture is OFF there (security S3):
+// production data is never recorded into files.  Loopback targets — the
+// self-booted stack and e2e.yml's 127.0.0.1 run — keep their debugging.
+const targetsExternalOrigin = Boolean(
+  process.env.E2E_BASE_URL &&
+    !/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(process.env.E2E_BASE_URL),
+);
+
 // Deterministic across the runner and every worker process (each
 // worker re-requires this config, so a random value would differ per
 // worker and the fixture's secret wouldn't match the server's).  Only
@@ -204,12 +214,17 @@ module.exports = defineConfig({
     // dozen connection-refused failures that read as a mass product
     // regression.  See stack-death-reporter.js.
     [require.resolve("./stack-death-reporter.js")],
+    // Opt-in, bounded machine-readable evidence. Keep the guard reporter
+    // above loaded; a CLI --reporter flag would replace this whole list.
+    ...(process.env.E2E_JOURNEY_EVIDENCE === "1"
+      ? [[require.resolve("./structured-journey-reporter.js")]]
+      : []),
   ],
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://127.0.0.1:8000",
-    trace: "on-first-retry",
-    screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    trace: targetsExternalOrigin ? "off" : "on-first-retry",
+    screenshot: targetsExternalOrigin ? "off" : "only-on-failure",
+    video: targetsExternalOrigin ? "off" : "retain-on-failure",
     ...(chromiumExecutablePath
       ? { launchOptions: { executablePath: chromiumExecutablePath } }
       : {}),
@@ -272,6 +287,12 @@ module.exports = defineConfig({
       // Used for the public /league page suite which doesn't depend on
       // Safari-specific behavior.
       name: "mobile-chromium",
+      // a11y-axe.spec.js scans every route family on desktop-1366 and only
+      // a declared subset on mobile (CI time budget). The rest are tagged
+      // and filtered OUT here rather than test.skip()ped, so they never
+      // count against stack-death-reporter's skip ceiling — a skip there
+      // means "a layer stopped running", which these are not.
+      grepInvert: /@a11y-desktop-only/,
       use: {
         browserName: "chromium",
         viewport: { width: 390, height: 844 },
@@ -281,6 +302,7 @@ module.exports = defineConfig({
     },
     {
       name: "mobile-390",
+      grepInvert: /@a11y-desktop-only/,
       use: {
         ...devices["iPhone 13"],
         viewport: { width: 390, height: 844 },
@@ -288,6 +310,7 @@ module.exports = defineConfig({
     },
     {
       name: "mobile-430",
+      grepInvert: /@a11y-desktop-only/,
       use: {
         ...devices["iPhone 14 Pro Max"],
         viewport: { width: 430, height: 932 },

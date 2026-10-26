@@ -17,14 +17,26 @@ snapshots). This line said "Private repo" while `SECURITY.md` and
   Sleeper-login allowlist; public routes hit `/api/public/league/*`.
 - **Feature flags** (`src/api/feature_flags.py`): every new
   capability from the 2026-04 upgrade ships flag-gated. Defaults are
-  **per-flag**: 15 of the 26 in `_DEFAULTS` ship enabled (`ledger_rank_change`, `bdvm_engine`,
+  **per-flag**: 24 of the 61 in `_DEFAULTS` ship enabled (`ledger_rank_change`, `bdvm_engine`,
   `te_basis_conversion`, `monte_carlo_trade`, `idp_scoring_fit`,
   `reception_scoring_fit`, `nfl_data_ingest`, `realized_points_api`,
   `perfect_draft`, `waiver_live_opportunity`, `source_freshness_weighting`,
-  `source_family_cap`, `game_day_live_game_state`,
-  `sleeper_weekly_projections`, `rookie_auction`),
+  `source_family_cap`, `source_universe_freshness`, `signals_active_source`,
+  `dlf_offense_only_vote`,
+  `two_way_alt_evidence_rules`, `fantasypros_idp_upstream_clock`, `game_day_live_game_state`,
+  `sleeper_weekly_projections`, `rookie_auction`, `dfs_workspace`,
+  `dfs_auto_slates`, `trade_screenshot_import`, `manager_intelligence`),
   several deliberately. For those the env var is a rollback lever, not an
   opt-in. Read `_DEFAULTS` before assuming a capability is dormant.
+  Signals IDP votes per family with AND semantics: the master
+  `signals_idp_shared_market` alone activates nothing; a family needs the
+  master, its `signals_idp_{dl,lb,db}_vote` flag and `signals_idp_xwalk_v2`.
+
+**Standing engineering delivery process (2026-10-19):** read
+`docs/AGENT_OPERATING_SYSTEM.md` §3 and
+`ASSISTANT_COORDINATION.md` for cross-model parallel isolated feature
+development, tiered CI and qualified Integration-led automatic routine
+merges. Existing owner-only, required review and release gates remain.
 
 **AI/agent entrypoint:**
 - [`AI_INSTRUCTIONS.md`](AI_INSTRUCTIONS.md) — universal instructions for Claude, Codex, Gemini, ChatGPT, Copilot, and future agents
@@ -44,12 +56,17 @@ For first-time server setup and deploy hardening, use:
 
 ## Environment Setup (Linux / macOS / WSL)
 
-**Single source of truth for Python deps.** Local dev, CI, and production
-all install from the same two manifests:
+**Python dependency intent and exact resolution.** The manifests declare
+dependencies; local setup, CI and production install their committed locks:
 
 - `requirements.txt` — runtime deps (what the server + scrapers need).
 - `requirements-dev.txt` — chains in `requirements.txt` via `-r` and adds
   test-only deps (`pytest`, `httpx` for `fastapi.testclient`).
+- `requirements.lock.txt` — exact, hash-pinned runtime graph.
+- `requirements-dev.lock.txt` — exact test graph with identical runtime versions.
+
+See [Python dependency lock](docs/engineering/PYTHON_DEPENDENCY_LOCK.md) for
+updates and the Windows install command.
 
 One-command bootstrap on a clean checkout:
 
@@ -61,14 +78,12 @@ make test         # runs pytest exactly like CI does
 `make setup` wraps `scripts/setup.sh`, which:
 
 1. Creates a `.venv/` virtualenv (so nothing leaks from the system Python).
-2. Installs `requirements-dev.txt` into it.
+2. Checks both locks and installs `requirements-dev.lock.txt` with hash verification.
 3. Runs `pip check` — fails fast on conflicting pins.
 4. Runs `scripts/check_env.py` — validates every expected module imports.
 5. Installs the Playwright Chromium browser (set `SKIP_PLAYWRIGHT=1` to skip).
 
-If `make test` passes on your machine, it will pass in CI — every
-workflow runs the same install + preflight path (`pip install -r
-requirements-dev.txt && pip check && python scripts/check_env.py`).
+CI runs the same lock check and hash-verified installation before its tests.
 
 ## Quick Start (Windows / PowerShell)
 
@@ -148,7 +163,7 @@ This repo is now wired so both sides can work together:
   - CI check via `scripts/validate_api_contract.py`
 
 ## One-click helpers
-- `start_dynasty.bat` → starts Python server
+- `python server.py` → starts the Python server (`start_stack.bat` starts backend + frontend)
 - `start_frontend.bat` → starts Next dev server
 - `start_stack.bat` → starts backend + frontend together (separate terminal windows)
 - `sync.bat` → git add + commit + push on current branch (no-op safe if nothing changed)

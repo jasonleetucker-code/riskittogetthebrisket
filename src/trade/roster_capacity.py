@@ -99,15 +99,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from collections import Counter
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from src.draft.context import _league_scarcity, _norm, build_roster_assets, index_contract_rows
+from src.draft import waiver_population
+from src.draft.context import (
+    _league_scarcity,
+    _norm,
+    build_roster_assets,
+    index_contract_rows,
+    league_rostered_keys,
+)
 from src.draft.displacement import (
     RosterAsset,
+    replacement_level_provenance,
     waiver_values_by_position,
 )
 from src.roster_intel import pool_cut_ladder, simulate_roster_change
 from src.ros.lineup import RosterPlayer
+from src.trade import forced_drop_selection as fds
 
 __all__ = [
     "CapacityContext",
@@ -115,8 +124,14 @@ __all__ = [
     "RosterCapacity",
     "assess_roster_capacity",
     "build_capacity_context",
+    "league_scarcity",
+    "capacity_context_for_team",
+    "counterparty_capacity_block",
+    "counterparty_context_resolver",
+    "forced_drop_cost",
     "league_roster_limit",
     "league_taxi_size",
+    "outgoing_roster_names",
 ]
 
 
@@ -244,9 +259,18 @@ class ForcedDrop:
     #: real signal, and suppressing it would make the cheapest legal path
     #: invisible.
     acquired_in_trade: bool = False
+    #: Flag ``forced_drop_cheapest_legal`` only (``None`` and unpublished when
+    #: OFF): how ``release_cost`` was charged — ``release_value`` (``base x
+    #: scarcity``), ``package_credit_forgone`` (a just-acquired piece removed
+    #: from the package, charged the credit the package gave it — NOT the
+    #: player's value), ``release_value_uncredited`` (acquired, but the package
+    #: never credited it: its own ``base x scarcity``, at the ``assumedWaiver``
+    #: ceiling when unpriced) or ``release_value_no_package`` (acquired, but the
+    #: caller held no package).
+    charge_basis: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out = {
             "playerId": self.player_id,
             "name": self.name,
             "position": self.position,
@@ -260,6 +284,9 @@ class ForcedDrop:
             "acquiredInTrade": self.acquired_in_trade,
             "valueScale": "rankDerivedValue",
         }
+        if self.charge_basis is not None:
+            out["chargeBasis"] = self.charge_basis
+        return out
 
 
 @dataclass(frozen=True)
@@ -317,6 +344,52 @@ class RosterCapacity:
     #: mean opposite things.
     ladder_exhausted: bool = False
     notes: list[str] = field(default_factory=list)
+    #: Flag ``forced_drop_cheapest_legal`` only — ``None`` (and nothing below
+    #: published) when OFF.  The selection rule that chose ``forced_drops``.
+    selection_rule: str | None = None
+    #: Whether the just-acquired releases were removed from the trade's
+    #: package (the caller supplied it) rather than charged their raw value.
+    package_applied: bool | None = None
+    #: Cost of the cheapest legal cleanup the PRE-trade roster already owes
+    #: (an over-limit roster); the trade is charged only what it adds.
+    pre_trade_cleanup_cost: float | None = None
+    pre_trade_cleanup_exhausted: bool = False
+    #: ``(player_id, value_basis)`` of that pre-trade cleanup — decides whether
+    #: the MARGINAL charge rests on an ``assumedWaiver`` value (not published).
+    pre_trade_cleanup_drops: tuple[tuple[str, str], ...] = ()
+    #: Flag ``forced_drop_cheapest_legal`` only: whether the league produced
+    #: any waiver-level values.  With none, an unpriced (``assumedWaiver``)
+    #: release has a base of 0 (``displacement._waiver_value_for``), so a
+    #: charge resting on one is UNDETERMINABLE, never 0 (not published; the
+    #: flag-OFF path never reads it).
+    waiver_values_available: bool = True
+    #: Flag ``forced_drop_cheapest_legal`` only: the V5 acquired-subset search
+    #: bound was exceeded and the V5-R selection with package charging ran
+    #: instead (``None`` when the flag is OFF).
+    search_bound_exceeded: bool | None = None
+    #: Flag ``forced_drop_cheapest_legal`` and taxi-unknown (``certainty
+    #: "partial"``) only: ``(cost, exhausted, assumed)`` of the cheapest legal
+    #: cleanup of the GUARANTEED number of releases (``over_limit_after_min``,
+    #: capped at the roster's growth), RE-SELECTED at that count.  The cheapest
+    #: ``k`` drops of the worst-case cleanup are a legal ``k``-set but not
+    #: necessarily the cheapest one (the lineup guard and the package step
+    #: couple the choices), so they are not a guaranteed lower bound.
+    taxi_bound_cleanup: tuple[float, bool, bool] | None = None
+    #: Flag ``forced_drop_cheapest_legal`` only: set when the package credit of
+    #: a released just-acquired set was clamped to ``[0, release value]``
+    #: (kept side empty, or the KTC rollback package model) — ``{"reasons",
+    #: "rawCredit", "charged"}``; ``None`` when the raw credit was charged.
+    package_credit_clamp: dict[str, Any] | None = None
+    #: Flag ``forced_drop_cheapest_legal``, V5-R only: set when an exact
+    #: release-value tie between cut sets was resolved by the lower charge (or,
+    #: past the search bound, by player id).  See
+    #: ``forced_drop_selection.Selection.tie_break``.  ``None`` otherwise.
+    selection_tie_break: dict[str, Any] | None = None
+    #: Flag ``replacement_level_li5_consolidation`` only — ``None`` (and nothing
+    #: published) when OFF.  Which waiver-level rule the cut costs were measured
+    #: against (:func:`_li5_waiver_level`), so a reader can tell the banded
+    #: LI-5 level from the incumbent best-free-agent anchor.
+    waiver_level: Mapping[str, Any] | None = None
 
     @property
     def requires_drops(self) -> bool | None:
@@ -383,6 +456,61 @@ class RosterCapacity:
             "ladderExhausted": self.ladder_exhausted,
             "notes": list(self.notes),
             "valueScale": "rankDerivedValue",
+        } | self._flagged_dict()
+
+    def _flagged_dict(self) -> dict[str, Any]:
+        """Every flag-gated field; empty (so the payload is unchanged) when the
+        flags are OFF."""
+        return self._selection_dict() | self._waiver_level_dict()
+
+    def _waiver_level_dict(self) -> dict[str, Any]:
+        """The LI-5 flag-ON stamp; empty (so the payload is unchanged) when OFF."""
+        if self.waiver_level is None:
+            return {}
+        return {"replacementPopulation": dict(self.waiver_level)}
+
+    def _selection_dict(self) -> dict[str, Any]:
+        """The flag-ON fields; empty (so the payload is unchanged) when OFF."""
+        if self.selection_rule is None:
+            return {}
+        cost, basis = forced_drop_cost(self)
+        marginal = forced_drop_marginal(self)
+        return {
+            # The ONE charge function (``forced_drop_cost``).  Surfaces that
+            # hand the capacity owner the trade's package read a charge with an
+            # acquired release netted out of it: the War Room / Trade
+            # Calculator (``/api/trade/analyze``, ``/simulate``), the Trade
+            # Finder and Best Offers.  Surfaces that pass no package (Angle,
+            # Suggestions, Perfect Waivers, the counterparty block) read the
+            # same function with an acquired release at its raw
+            # ``release_value_no_package``; the droppability ladder and Perfect
+            # Draft keep the ECC order (they never call this).
+            "forcedDropCharge": None if cost is None else round(cost, 1),
+            "forcedDropChargeBasis": basis,
+            # ``forcedDropReleaseCost`` (above) is the GROSS sum of every
+            # modelled release, including ones an over-limit roster owed before
+            # the trade; the charge a consumer subtracts is ``forcedDropCharge``.
+            "forcedDropReleaseCostBasis": "gross_post_trade_cleanup_including_pre_owed",
+            # The SIGNED marginal the charge is clamped from: negative when the
+            # trade SPARES an over-limit roster a release it already owed
+            # (e.g. sends 2, receives 1).  Published, never charged or credited
+            # (``conservative_clamp``).  ``None`` when not determinable.
+            "forcedDropMarginal": None if marginal is None else round(marginal, 1),
+            "forcedDropSelection": {
+                "rule": self.selection_rule,
+                "flag": fds.FLAG,
+                "packageApplied": self.package_applied,
+                "searchBound": fds.MAX_PACKAGE_SUBSETS,
+                "searchBoundExceeded": self.search_bound_exceeded,
+                "packageCreditClamp": self.package_credit_clamp,
+                "tieBreak": self.selection_tie_break,
+                "preTradeCleanupCost": (
+                    None
+                    if self.pre_trade_cleanup_cost is None
+                    else round(self.pre_trade_cleanup_cost, 1)
+                ),
+                "chargeUnit": "rankDerivedValue x scarcity (package credit for an acquired piece)",
+            },
         }
 
 
@@ -419,10 +547,83 @@ class CapacityContext:
     #: use.  ``None`` means nothing configured, NOT nothing eligible.
     slot_eligibility: Mapping[str, Any] | None = None
     notes: tuple[str, ...] = ()
+    #: The roster settings this context was built under, kept so a context for
+    #: ANOTHER team in the same league (the counterparty) resolves the same cap
+    #: and slots instead of falling back to a different source.
+    roster_settings: Mapping[str, Any] | None = None
+    #: The player id of each ``roster_player_names`` entry, position for
+    #: position (``build_roster_assets`` emits exactly one asset per name, in
+    #: order): the board row's ``playerId`` when the entry joined, else the
+    #: roster's own id.  Lets an outgoing leg that carries a Sleeper id find
+    #: ITS roster entry whatever display name the caller used
+    #: (:func:`outgoing_roster_names`).  Empty for a context built without it.
+    roster_player_ids: tuple[str, ...] = ()
+    #: Flag ``replacement_level_li5_consolidation`` only — ``None`` when OFF.
+    #: The ``replacementPopulation`` provenance of ``waiver_values``
+    #: (``displacement.replacement_level_provenance``): who counted as a free
+    #: agent, the served lens and each level's band.  When set, an unpriced
+    #: player's ``assumedWaiver`` base is a banded ESTIMATE, not the best free
+    #: agent's value, so it is no longer a ceiling (design F6).
+    replacement_population: Mapping[str, Any] | None = None
 
 
 def _asset_key(asset: RosterAsset) -> str:
     return _norm(asset.player_id) or _norm(asset.name)
+
+
+def _li5_waiver_level(context: CapacityContext) -> dict[str, Any] | None:
+    """The compact per-capacity stamp of the LI-5 waiver level, or ``None``.
+
+    ``None`` whenever the context was built with the flag OFF, so every
+    flag-OFF ``RosterCapacity`` — and its ``to_dict`` — is unchanged.  The full
+    provenance stays on the context (``replacement_population``); each
+    capacity answer carries the rule, the served lens and the health state its
+    cut costs rest on, because that is what decides whether an
+    ``assumedWaiver`` charge is a ceiling (design F6).
+    """
+    block = context.replacement_population
+    if block is None:
+        return None
+    health = block.get("health") if isinstance(block.get("health"), Mapping) else {}
+    return {
+        "rule": block.get("rule"),
+        "lens": block.get("lens"),
+        "levelOwner": block.get("levelOwner"),
+        "valueKey": block.get("valueKey"),
+        "band": block.get("band"),
+        "health": {"state": health.get("state"), "reason": health.get("reason")},
+        "positionsWithoutLevel": list(block.get("positionsWithoutLevel") or ()),
+        "assumedWaiverBasis": ASSUMED_WAIVER_BASIS_LI5,
+    }
+
+
+#: Flag ``replacement_level_li5_consolidation`` ON: what an unpriced player's
+#: ``assumedWaiver`` base IS.  The incumbent anchor is the best free agent at
+#: the position, which bounds an unpriced roster player from above; LI-5's
+#: level is the mean of free-agent ranks 1-3, which sits BELOW the best free
+#: agent, so it is an estimate and no longer a ceiling (design F6).
+ASSUMED_WAIVER_BASIS_LI5 = "li5_banded_waiver_estimate"
+
+
+#: ``(scarcity, note)`` as :func:`league_scarcity` returns it.
+ScarcityReading = tuple[Mapping[str, Any] | None, str | None]
+
+
+def league_scarcity(
+    league_key: str | None,
+    contract: Mapping[str, Any] | None,
+) -> ScarcityReading:
+    """The league's positional scarcity for capacity, or ``(None, reason)``.
+
+    The ONE read capacity makes (``src.draft.context._league_scarcity``, which
+    routes through the shared gameplan bundle).  A caller evaluating several
+    teams of ONE request — the N-team engine — reads it once here and hands
+    the same reading to every team's :func:`build_capacity_context`, because
+    the bundle's inputs are re-loaded on every call (and can fall to the live
+    team-strength fallback, TTL-cached for 120 s), so per-team reads could
+    score teams of the same trade against different scarcity (R1-1).
+    """
+    return _league_scarcity(league_key, contract)
 
 
 def build_capacity_context(
@@ -431,6 +632,7 @@ def build_capacity_context(
     team: Mapping[str, Any] | None,
     *,
     roster_settings: Mapping[str, Any] | None = None,
+    scarcity_reading: ScarcityReading | None = None,
 ) -> CapacityContext:
     """Assemble the per-(team, board) constants.
 
@@ -438,6 +640,10 @@ def build_capacity_context(
     worth having — the counts are the load-bearing part — so a missing board,
     missing starter slots or missing scarcity each produce a note, not an
     exception.
+
+    ``scarcity_reading`` is a :func:`league_scarcity` result the caller
+    already holds for this league and board (one read per request); ``None``
+    (the default) reads it here, exactly as before.
     """
     notes: list[str] = []
     roster_limit = league_roster_limit(league_key, roster_settings)
@@ -471,23 +677,22 @@ def build_capacity_context(
         )
 
     # League-wide rostered set: a player on ANY roster is not a waiver option.
-    rostered_keys: set[str] = set()
-    sleeper = contract.get("sleeper") if isinstance(contract, Mapping) else None
-    teams = (sleeper or {}).get("teams") if isinstance(sleeper, Mapping) else None
-    for t in teams if isinstance(teams, list) else []:
-        if not isinstance(t, Mapping):
-            continue
-        for pid in t.get("playerIds") or []:
-            if _norm(pid):
-                rostered_keys.add(_norm(pid))
-        for nm in t.get("players") or []:
-            if _norm(nm):
-                rostered_keys.add(_norm(nm))
+    # The ONE definition (``draft.context.league_rostered_keys``); this used to
+    # be an inline copy of the same loop (LI-5 design §4.4 step 1, folded in
+    # phase P3, parity pinned by ``tests/draft/test_li5_consumer_wiring.py``).
+    rostered_keys = league_rostered_keys(contract)
 
     # NOTE: no auction-rookie exclusion here.  That belongs to Perfect Draft,
     # where the rookies being priced are the lots in the very auction being
-    # optimized.  A trade in August is not bidding against them.
-    waiver_values = waiver_values_by_position(contract, rostered_keys)
+    # optimized.  A trade in August is not bidding against them.  Preserved
+    # under the LI-5 flag too (owner decision D6): capacity's population keeps
+    # unavailable keys ``()``.
+    population = (
+        waiver_population.consumer_population(contract, rostered_keys, ())
+        if waiver_population.enabled()
+        else None
+    )
+    waiver_values = waiver_values_by_position(contract, rostered_keys, population=population)
     if not waiver_values:
         notes.append("no waiver-level values available — cut costs fall back to raw board value")
 
@@ -522,7 +727,9 @@ def build_capacity_context(
     except Exception:  # noqa: BLE001 — an optional rule must not fail capacity
         slot_eligibility = None
 
-    scarcity, scarcity_note = _league_scarcity(league_key, contract)
+    scarcity, scarcity_note = (
+        scarcity_reading if scarcity_reading is not None else league_scarcity(league_key, contract)
+    )
     if scarcity_note:
         notes.append(scarcity_note)
 
@@ -541,7 +748,436 @@ def build_capacity_context(
         by_name=by_name,
         by_id=by_id,
         notes=tuple(notes),
+        roster_settings=roster_settings if isinstance(roster_settings, Mapping) else None,
+        roster_player_ids=(
+            tuple(str(a.player_id) for a in assets) if len(assets) == len(names) else ()
+        ),
+        replacement_population=(
+            None if population is None else replacement_level_provenance(population)
+        ),
     )
+
+
+def outgoing_roster_names(
+    context: CapacityContext,
+    names: Sequence[str],
+    ids: Sequence[str | None] | None = None,
+) -> list[str]:
+    """The roster's OWN name for each outgoing player (B0-b parity).
+
+    ``ids`` runs parallel to ``names`` (``None`` for an entry without one).
+    An entry whose Sleeper id matches a roster entry's id is translated to that
+    entry's roster name — matched by MULTIPLICITY, each roster entry consumed
+    once — so a caller that names the player differently from the Sleeper
+    roster (a board display name, a suffix) still frees the spot he occupies.
+    An entry with no id, or whose id is on no roster entry, keeps its name:
+    name matching is the fallback only, exactly as before.  Pure.
+    """
+    ids = list(ids or [])
+    roster_ids = list(context.roster_player_ids)
+    if len(roster_ids) != len(context.roster_player_names):
+        roster_ids = []
+    used: set[int] = set()
+    out: list[str] = []
+    for i, name in enumerate(names):
+        pid = ids[i] if i < len(ids) else None
+        key = _norm(pid) if pid else ""
+        hit = None
+        if key:
+            hit = next(
+                (k for k, rid in enumerate(roster_ids) if k not in used and _norm(rid) == key),
+                None,
+            )
+        if hit is None:
+            out.append(str(name))
+            continue
+        used.add(hit)
+        out.append(context.roster_player_names[hit])
+    return out
+
+
+def capacity_context_for_team(
+    base: CapacityContext,
+    contract: Mapping[str, Any] | None,
+    team: Mapping[str, Any] | None,
+) -> CapacityContext:
+    """A context for another team in ``base``'s league — the counterparty.
+
+    Same league key and roster settings as ``base``, so both sides of a trade
+    are measured against one cap and one set of starter slots.  Nothing is
+    re-derived here: it is :func:`build_capacity_context` for the other team.
+    """
+    return build_capacity_context(
+        contract, base.league_key, team, roster_settings=base.roster_settings
+    )
+
+
+def counterparty_context_resolver(
+    base: CapacityContext | None,
+    contract: Mapping[str, Any] | None,
+    sleeper_teams: Sequence[Any] | None,
+) -> Callable[[str | None], CapacityContext | None]:
+    """``team key -> CapacityContext`` for counterparties, memoised.
+
+    A key matches a team's ``ownerId`` or its display ``name``.  ``None`` for
+    an unknown team or a failed build — a report that cannot be made is
+    reported as unavailable by the caller, never guessed.
+    """
+    cache: dict[str, CapacityContext | None] = {}
+    teams = [t for t in (sleeper_teams or []) if isinstance(t, Mapping)]
+
+    def resolve(key: str | None) -> CapacityContext | None:
+        if base is None or not key:
+            return None
+        k = str(key)
+        if k not in cache:
+            team = next(
+                (t for t in teams if k in (str(t.get("ownerId") or ""), str(t.get("name") or ""))),
+                None,
+            )
+            try:
+                cache[k] = capacity_context_for_team(base, contract, team) if team else None
+            except Exception:  # noqa: BLE001 — a report never fails its caller
+                cache[k] = None
+        return cache[k]
+
+    return resolve
+
+
+def counterparty_capacity_block(
+    context: CapacityContext | None,
+    *,
+    incoming_players: Sequence[str],
+    outgoing_players: Sequence[str],
+) -> dict[str, Any]:
+    """The counterparty's capacity read, or a NAMED unavailable."""
+    if context is None:
+        return {
+            "unavailable": "counterparty_unresolved",
+            "notes": ["the counterparty's roster did not resolve"],
+        }
+    try:
+        return assess_roster_capacity(
+            context,
+            incoming_players=incoming_players,
+            outgoing_players=outgoing_players,
+        ).to_dict()
+    except Exception:  # noqa: BLE001
+        return {
+            "unavailable": "assessment_failed",
+            "notes": ["counterparty roster capacity could not be computed"],
+        }
+
+
+def forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, Any]]:
+    """What the releases a trade ADDS are known to cost, on the board scale.
+
+    Wave B (C3-CAP-01): the opportunity cost of the cleanup a trade forces,
+    for a consumer that ranks on it.  Built from ``ForcedDrop.release_cost``
+    (``base x scarcity`` — the same "what does releasing him cost" rule
+    Perfect Draft and Analyze Trade read), never a constant.
+
+    MARGINAL to the trade.  A roster already over the cap owes its existing
+    overage whether or not it trades, so only the drops the trade adds are
+    charged: ``min(over_after, net roster growth)``.  The cleanup releases the
+    ladder's cheapest rungs first, so the drops the trade adds are the
+    most expensive of the selected set.
+
+    Returns ``(cost, basis)``:
+
+    * ``None`` when it cannot be known — cap unknown, or taxi occupancy makes
+      "any drop at all" undetermined.  MISSING IS NEVER ZERO: the caller must
+      not read ``None`` as free.
+    * ``0.0`` when the trade adds no release (legal after, or not growing).
+    * otherwise the cost of the added releases.  With unknown taxi membership
+      only ``over_limit_after_min`` drops are certain, so the cheapest
+      guaranteed added releases are charged and the answer is a lower bound.
+      Unpriced drops and an exhausted ladder likewise make it a lower bound;
+      ``basis`` says so.
+    """
+    if capacity.selection_rule is not None:
+        return _selected_forced_drop_cost(capacity)
+    requires = capacity.requires_drops
+    if requires is None:
+        return None, {"state": "unknown", "reason": "drop_requirement_undetermined"}
+    if requires is False:
+        return 0.0, {"state": "none"}
+    growth = max(0, capacity.size_after - capacity.size_before)
+    # Ordered by what each release COSTS (name breaks ties), never by ladder
+    # rung: rungs carry the ladder's ECC order, which is not release-cost order
+    # across positions, and on a full roster every ECC ties at 0.0 so the rung
+    # order is merely alphabetical (independent review, Wave B).
+    drops = sorted(capacity.forced_drops, key=lambda d: (d.release_cost, d.name))
+    lower_bound_reasons: list[str] = []
+    over = (
+        capacity.over_limit_after_min
+        if capacity.certainty != "exact"
+        else capacity.over_limit_after
+    )
+    if over is None:  # requires_drops proved it known; stay explicit anyway
+        return None, {"state": "unknown", "reason": "overage_undetermined"}
+    added = min(over, growth)
+    if added == 0:
+        return 0.0, {"state": "none", "reason": "trade_adds_no_release"}
+    if capacity.certainty != "exact":
+        # Lower bound: the cheapest that-many of the drops.
+        charged = drops[:added]
+        lower_bound_reasons.append("taxi_occupancy_unknown_guaranteed_drops_only")
+    else:
+        # The overage owed before the trade takes the cheapest releases; the
+        # releases the trade ADDS are the most expensive of the selected set.
+        charged = drops[max(0, len(drops) - added) :]
+    if len(charged) < added:
+        lower_bound_reasons.append("fewer_drops_modelled_than_added")
+    priced = [d for d in charged if d.value is not None]
+    if len(priced) < len(charged):
+        lower_bound_reasons.append("unpriced_forced_drops_excluded")
+    if capacity.ladder_exhausted:
+        lower_bound_reasons.append("cut_ladder_exhausted")
+    cost = float(sum(d.release_cost for d in priced))
+    basis: dict[str, Any] = {
+        "state": "lower_bound" if lower_bound_reasons else "exact",
+        "addedReleases": added,
+        "valueScale": "releaseCost (rankDerivedValue x scarcity)",
+    }
+    if lower_bound_reasons:
+        basis["lowerBoundReasons"] = lower_bound_reasons
+    return cost, basis
+
+
+def forced_drop_marginal(capacity: RosterCapacity) -> float | None:
+    """Flag ``forced_drop_cheapest_legal`` only: the SIGNED marginal release
+    cost, ``cost(post-trade cleanup) - cost(pre-trade cleanup)``.
+
+    Negative when the trade relieves an over-limit roster of a release it
+    already owed — a roster one over that sends two and receives one is spared
+    a cut.  :func:`forced_drop_cost` clamps it at 0 (``conservative_clamp``:
+    relief is reported, never credited to the trade).  ``None`` unless the
+    count is exact and the flag selected the drops, and ``None`` when either
+    cleanup is exhausted (stops short of legal size) or rests on an unpriced
+    release with no waiver table — an incomplete or undeterminable cleanup is
+    never reported as an exact signed marginal.
+    """
+    if capacity.selection_rule is None or capacity.certainty != "exact":
+        return None
+    if capacity.requires_drops is None:
+        return None
+    owed = _pre_trade_owed(capacity)
+    if owed is None:
+        return None  # what the roster already owed is not known
+    # An incomplete cleanup on either side is not a signed EXACT marginal:
+    # the modelled drops stop short of legal size, so the difference is of
+    # two different quantities (re-review finding 1a).
+    if capacity.ladder_exhausted or capacity.pre_trade_cleanup_exhausted:
+        return None
+    if _rests_on_missing_waiver(capacity):
+        return None
+    total = float(sum(d.release_cost for d in capacity.forced_drops))
+    return total - owed
+
+
+def _pre_trade_owed(capacity: RosterCapacity) -> float | None:
+    """What the PRE-trade roster already owed in releases, or ``None``.
+
+    0 only when the roster was proven within its cap (``over_limit_before``
+    <= 0: it owed no cleanup); the pre-trade cleanup cost when it was over; and
+    ``None`` when the cap is unknown or the over-limit cleanup was not
+    computed — an unknown is never netted as zero.
+    """
+    over = capacity.over_limit_before
+    if over is None:
+        return None
+    if over <= 0:
+        return 0.0
+    if capacity.pre_trade_cleanup_cost is None:
+        return None
+    return float(capacity.pre_trade_cleanup_cost)
+
+
+def _rests_on_missing_waiver(capacity: RosterCapacity) -> bool:
+    """Flag-ON only: the league has no waiver-level values AND some release on
+    either side of the marginal is priced at ``assumedWaiver`` — whose base is
+    then 0 (``displacement._waiver_value_for``), i.e. an unpriced cut that
+    would be charged nothing.  Such a charge is undeterminable, never 0."""
+    if capacity.waiver_values_available:
+        return False
+    if any(
+        d.value_basis == "assumedWaiver" and d.charge_basis != fds.CHARGE_PACKAGE
+        for d in capacity.forced_drops
+    ):
+        return True
+    return any(vb == "assumedWaiver" for _pid, vb in capacity.pre_trade_cleanup_drops)
+
+
+def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, Any]]:
+    """:func:`forced_drop_cost` under flag ``forced_drop_cheapest_legal``.
+
+    Same vocabulary (``unknown`` / ``none`` / ``exact`` / ``lower_bound``) plus
+    ``assumed`` and ``mixed_bound``, so every consumer reads it unchanged:
+
+    * an unpriced drop is CHARGED at its ``assumedWaiver`` release cost and
+      counted (``assumedWaiverDrops``) — never excluded as zero.  A charge that
+      rests on such a value is NOT ``exact``: ``assumed`` (an upper bound — the
+      waiver level is the unpriced player's documented ceiling) when the
+      assumed drop is in the post-trade cleanup only, ``lower_bound`` (reason
+      ``pre_trade_cleanup_assumed_waiver``) when only in the pre-trade cleanup
+      it is netted against, ``mixed_bound`` when both;
+    * marginal = ``max(0, cost(post-trade cleanup) - cost(pre-trade cleanup))``,
+      so an over-limit roster is charged only what the trade adds; the signed
+      value is :func:`forced_drop_marginal` and the clamp is labelled
+      ``conservative_clamp`` whenever it binds;
+    * an exhausted post-trade cleanup (``cut_ladder_exhausted``) is a lower
+      bound even when the netted marginal is 0 — exhaustion is checked before
+      the "adds no release cost" return; an exhausted PRE-trade cleanup
+      understates what the roster owed, so the marginal is an upper bound
+      (``upperBoundReasons: ["pre_trade_cleanup_exhausted"]``, state
+      ``assumed`` or ``mixed_bound``);
+    * no waiver-level values at all, with an ``assumedWaiver`` release on
+      either side: ``(None, unknown / waiver_values_unavailable)`` — that
+      release's base would be 0, and missing is never zero;
+    * with flag ``replacement_level_li5_consolidation`` ON as well, the
+      waiver level is LI-5's banded mean, not the best free agent, so the
+      "ceiling" above no longer holds: a direction that rests on an
+      ``assumedWaiver`` value is published as ``bound: "estimate"`` (``"mixed"``
+      beside a genuine lower-bound reason) with ``assumedWaiverBasis:
+      "li5_banded_waiver_estimate"`` (design F6).  ``state`` is unchanged.
+    """
+    requires = capacity.requires_drops
+    common: dict[str, Any] = {"rule": capacity.selection_rule}
+    signed = forced_drop_marginal(capacity)
+    if signed is not None and signed < 0:
+        common["signedMarginal"] = round(signed, 1)
+        common["marginalClamp"] = "conservative_clamp"
+    if requires is None:
+        return None, {"state": "unknown", "reason": "drop_requirement_undetermined", **common}
+    if requires is False:
+        return 0.0, {"state": "none", **common}
+    if _rests_on_missing_waiver(capacity):
+        # No waiver table: an unpriced release would be charged 0 (re-review
+        # finding 3).  MISSING IS NEVER ZERO — refuse the number.
+        return None, {"state": "unknown", "reason": "waiver_values_unavailable", **common}
+
+    def _assumed(d: ForcedDrop) -> bool:
+        # A just-acquired piece charged its package credit is not charged its
+        # (assumed) value, so it does not make the charge assumed.
+        return d.value_basis == "assumedWaiver" and d.charge_basis != fds.CHARGE_PACKAGE
+
+    assumed = sum(1 for d in capacity.forced_drops if _assumed(d))
+    credit = sum(
+        d.release_cost for d in capacity.forced_drops if d.charge_basis == fds.CHARGE_PACKAGE
+    )
+    lower: list[str] = []
+    upper_reasons: list[str] = []
+    upper = False
+    if capacity.certainty != "exact":
+        over = capacity.over_limit_after_min
+        if over is None:
+            return None, {"state": "unknown", "reason": "overage_undetermined", **common}
+        growth = max(0, capacity.size_after - capacity.size_before)
+        added = min(over, growth)
+        if added == 0:
+            return 0.0, {"state": "none", "reason": "trade_adds_no_release", **common}
+        lower.append("taxi_occupancy_unknown_guaranteed_drops_only")
+        if capacity.taxi_bound_cleanup is not None:
+            # RE-SELECTED at the guaranteed count: the cheapest legal cleanup
+            # of ``added`` releases, so the lower bound is a lower bound.
+            cost, bound_exhausted, upper = capacity.taxi_bound_cleanup
+            if bound_exhausted:
+                lower.append("fewer_drops_modelled_than_added")
+        else:
+            charged = sorted(capacity.forced_drops, key=lambda d: (d.release_cost, d.player_id))[
+                :added
+            ]
+            if len(charged) < added:
+                lower.append("fewer_drops_modelled_than_added")
+            cost = float(sum(d.release_cost for d in charged))
+            upper = any(_assumed(d) for d in charged)
+        if capacity.over_limit_before is not None and capacity.over_limit_before > 0:
+            # A roster already over the cap owes a cleanup under ANY taxi occupancy and the
+            # guaranteed post-trade releases are not netted against it, so the only honest
+            # lower bound on the trade's marginal cost is 0 (independent final review, F3).
+            cost = 0.0
+            lower.append("pre_trade_overage_not_netted_taxi_unknown")
+    else:
+        total = float(sum(d.release_cost for d in capacity.forced_drops))
+        pre = _pre_trade_owed(capacity)
+        if pre is None:
+            return None, {"state": "unknown", "reason": "pre_trade_owed_undetermined", **common}
+        cost = max(0.0, total - pre)
+        # Exhaustion is checked BEFORE the zero early return: a cleanup that
+        # stops short of legal size must not read as an exact zero
+        # (re-review finding 1b).
+        if (
+            cost <= 0.0
+            and not capacity.ladder_exhausted
+            and not capacity.pre_trade_cleanup_exhausted
+        ):
+            return 0.0, {"state": "none", "reason": "trade_adds_no_release_cost", **common}
+        if capacity.pre_trade_cleanup_exhausted:
+            common["preTradeCleanupExhausted"] = True
+            # The pre-trade cleanup stops short of what the roster owed, so
+            # the netted ``pre`` understates it and the marginal is an UPPER
+            # bound (re-review finding 1c).
+            upper_reasons.append("pre_trade_cleanup_exhausted")
+        # Does the MARGINAL rest on an assumed value?  A drop owed both
+        # before and after the trade cancels out of it.
+        post_a = Counter(d.player_id for d in capacity.forced_drops if _assumed(d))
+        pre_a = Counter(
+            pid for pid, vb in capacity.pre_trade_cleanup_drops if vb == "assumedWaiver"
+        )
+        upper = bool(post_a - pre_a) or bool(upper_reasons)
+        if pre_a - post_a:
+            lower.append("pre_trade_cleanup_assumed_waiver")
+    if capacity.ladder_exhausted:
+        lower.append("cut_ladder_exhausted")
+    if lower and upper:
+        state, bound = "mixed_bound", "mixed"
+    elif lower:
+        state, bound = "lower_bound", "lower"
+    elif upper:
+        state, bound = "assumed", "upper"
+    else:
+        state, bound = "exact", None
+    # LI-5 consolidation (flag ``replacement_level_li5_consolidation``), design
+    # F6: the "upper" / "lower" direction an ``assumedWaiver`` value gives the
+    # charge holds only while that value is the BEST free agent's — a ceiling
+    # on an unpriced player.  Under the LI-5 level (mean of free-agent ranks
+    # 1-3) it is an estimate, so a direction resting on it is relabelled
+    # ``estimate`` (or ``mixed`` beside a genuine lower-bound reason).  The
+    # ``state`` vocabulary every consumer reads is unchanged.
+    li5_assumed = False
+    if capacity.waiver_level is not None:
+        assumed_upper = bool(upper) and not upper_reasons
+        if capacity.certainty == "exact":
+            assumed_upper = bool(post_a - pre_a)
+        assumed_lower = "pre_trade_cleanup_assumed_waiver" in lower
+        li5_assumed = assumed_upper or assumed_lower
+        if li5_assumed:
+            genuine_lower = [r for r in lower if r != "pre_trade_cleanup_assumed_waiver"]
+            bound = "mixed" if genuine_lower else "estimate"
+    basis: dict[str, Any] = {
+        "state": state,
+        "addedReleases": (
+            None
+            if capacity.over_limit_after_max is None or capacity.over_limit_before is None
+            else max(0, capacity.over_limit_after_max - capacity.over_limit_before)
+        ),
+        "valueScale": (
+            "releaseCost (rankDerivedValue x scarcity; package credit for an acquired piece)"
+        ),
+        "assumedWaiverDrops": assumed,
+        "packageCreditForgone": round(credit, 1),
+        **common,
+    }
+    if bound is not None:
+        basis["bound"] = bound
+    if li5_assumed:
+        basis["assumedWaiverBasis"] = ASSUMED_WAIVER_BASIS_LI5
+    if lower:
+        basis["lowerBoundReasons"] = lower
+    if upper_reasons:
+        basis["upperBoundReasons"] = upper_reasons
+    return cost, basis
 
 
 def _resolve_incoming(
@@ -818,8 +1454,22 @@ def evaluate_final_roster_utility(
     season: int | None,
     scoring_settings: Mapping[str, Any] | None,
     draws: int | None = None,
+    league_settings: Mapping[str, Any] | None = None,
+    availability_context: Any = None,
+    cache_scope: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """#1173 best-ball utility for the FINAL LEGAL roster (C3-CAP-01's last step).
+
+    ``cache_scope`` is forwarded to ``evaluate_trade_utility`` so the BEFORE
+    roster's simulation is reused across trades for one team (exact reuse,
+    content-addressed; see ``best_ball_utility._before_side``).
+
+    Availability (owner master package 2026-10-17, P0): when the league's
+    remaining fantasy weeks resolve, every player carries his per-week
+    availability from ``src.ros.availability`` and the simulation runs over
+    those real weeks — a player out for all of them enters no lineup.
+    ``availability_context`` is injectable for tests; by default it is
+    assembled from the box's caches (no network).
 
     Same rosters ``simulate_final_legal_roster`` solves (``final_legal_roster``),
     evaluated by ``src.roster_intel.best_ball_utility`` on league-scored
@@ -858,6 +1508,22 @@ def evaluate_final_roster_utility(
             "basis": basis,
         }
 
+    from src.ros import availability as av  # noqa: PLC0415
+
+    ctx = availability_context
+    if ctx is None:
+        ctx = av.load_context(season=int(season), league_settings=league_settings)
+    weeks = list(ctx.weeks) if ctx.weeks else None
+    meta = _players_meta_for(sorted({a.player_id for a in all_assets})) if weeks else {}
+    states = (
+        {
+            a.player_id: av.player_week_states(a.player_id, meta.get(a.player_id), ctx)
+            for a in all_assets
+        }
+        if weeks
+        else {}
+    )
+
     def _players(assets: Sequence[RosterAsset]) -> list[bbu.UtilityPlayer]:
         return [
             bbu.UtilityPlayer(
@@ -866,6 +1532,14 @@ def evaluate_final_roster_utility(
                 position=a.position,
                 ppg=ppg.get(a.player_id),
                 fantasy_positions=tuple(a.fantasy_positions or ()),
+                availability=(
+                    {w: st.state for w, st in states[a.player_id].items()}
+                    if a.player_id in states
+                    else None
+                ),
+                availability_summary=(
+                    av.summarize(states[a.player_id]) if a.player_id in states else None
+                ),
             )
             for a in assets
         ]
@@ -885,7 +1559,18 @@ def evaluate_final_roster_utility(
         slot_eligibility=context.slot_eligibility,
         draws=draws or bbu.DEFAULT_DRAWS,
         basis=basis,
+        weeks=weeks,
+        availability_basis=ctx.basis,
+        cache_scope=cache_scope,
     )
+    if not weeks:
+        # No remaining-week calendar resolved: the legacy calendar-free
+        # simulation ran, and the response says why rather than implying
+        # availability was checked.
+        result.setdefault("basis", {})["availability"] = {
+            **dict(ctx.basis),
+            "state": "not_applied",
+        }
     result["cleanup"] = {
         "state": "uncertain" if uncertain else "applied" if cleanup_applied else "none",
         "forcedDropIds": list(rosters.forced_drop_ids) if cleanup_applied else [],
@@ -897,11 +1582,25 @@ def evaluate_final_roster_utility(
     return result
 
 
+def _players_meta_for(player_ids: Sequence[str]) -> dict[str, Any]:
+    """Sleeper player records for availability (the same players-DB read the
+    projection join uses).  An unreadable DB answers ``{}`` — every player is
+    then ``unknown``, never ``available``."""
+    try:
+        from src.api.matchup_intel import players_meta_for_rosters  # noqa: PLC0415
+
+        meta = players_meta_for_rosters([{"players": list(player_ids)}])
+    except Exception:  # noqa: BLE001 — degraded input, surfaced as unknown
+        return {}
+    return meta if isinstance(meta, dict) else {}
+
+
 def assess_roster_capacity(
     context: CapacityContext,
     *,
     incoming_players: Sequence[str] = (),
     outgoing_players: Sequence[str] = (),
+    package: fds.PackageSides | None = None,
 ) -> RosterCapacity:
     """What this trade does to this roster's legality.
 
@@ -910,7 +1609,12 @@ def assess_roster_capacity(
 
     Counts come from the names, not from what resolved: an unjoinable player
     still takes a spot.
+
+    ``package`` (the trade's package from this team's side) is read only under
+    flag ``forced_drop_cheapest_legal``; OFF ignores it entirely.
     """
+    selecting = fds.enabled()
+    rule = fds.rule_id() if selecting else None
     incoming = [str(n) for n in incoming_players if str(n or "").strip()]
     outgoing = [str(n) for n in outgoing_players if str(n or "").strip()]
     notes = list(context.notes)
@@ -941,6 +1645,9 @@ def assess_roster_capacity(
             certainty="partial",
             outgoing_not_on_roster=unheld_out,
             notes=notes,
+            selection_rule=rule,
+            search_bound_exceeded=False if selecting else None,
+            waiver_level=_li5_waiver_level(context),
         )
 
     # ── Taxi bracket ─────────────────────────────────────────────────
@@ -977,6 +1684,14 @@ def assess_roster_capacity(
 
     if over_after_max == 0:
         # Legal under every taxi assignment, so the bracket is moot.
+        pre_sel = (
+            # Flag ``forced_drop_cheapest_legal`` only: an over-limit roster the
+            # trade brings back to legal size is spared a cleanup it owed —
+            # published as a signed marginal, never credited.
+            _pre_trade_cleanup(context, over_before)
+            if selecting and over_before > 0 and certainty == "exact"
+            else None
+        )
         return RosterCapacity(
             roster_limit=limit,
             taxi_size=context.taxi_size,
@@ -997,6 +1712,11 @@ def assess_roster_capacity(
             forced_drop_value=0.0,
             forced_drop_cut_cost=0.0,
             notes=notes,
+            selection_rule=rule,
+            search_bound_exceeded=False if selecting else None,
+            **_pre_trade_fields(pre_sel),
+            **({"waiver_values_available": bool(context.waiver_values)} if selecting else {}),
+            waiver_level=_li5_waiver_level(context),
         )
 
     # ── The post-trade roster, which is what the ladder must be built on ──
@@ -1017,6 +1737,19 @@ def assess_roster_capacity(
         asset = _resolve_incoming(name, context.by_name)
         acquired_keys.add(_asset_key(asset))
         surviving.append(asset)
+
+    if selecting:
+        return _assess_selected(
+            context,
+            surviving=surviving,
+            incoming=incoming,
+            package=package,
+            notes=notes,
+            counts=(size_before, size_after, len(outgoing), unheld_out, limit, open_before),
+            certainty=certainty,
+            taxi=(taxi_lo, taxi_hi),
+            over=(over_before, over_after, over_after_min, over_after_max),
+        )
 
     # Only as deep as this trade actually needs.  ``build_cut_ladder``
     # defaults to 30 rungs and re-solves the lineup for each one, so asking
@@ -1128,7 +1861,183 @@ def assess_roster_capacity(
         unpriced_forced_drops=sum(1 for d in drops if d.value is None),
         ladder_exhausted=exhausted,
         notes=notes,
+        waiver_level=_li5_waiver_level(context),
     )
+
+
+def _assess_selected(
+    context: CapacityContext,
+    *,
+    surviving: list[RosterAsset],
+    incoming: list[str],
+    package: fds.PackageSides | None,
+    notes: list[str],
+    counts: tuple[int, int, int, int, int, int],
+    certainty: str,
+    taxi: tuple[int, int],
+    over: tuple[int, int | None, int, int],
+) -> RosterCapacity:
+    """The over-limit branch of :func:`assess_roster_capacity` under flag
+    ``forced_drop_cheapest_legal``.  Counts, the taxi bracket and the notes are
+    the incumbent's; only WHO is released and WHAT that is charged come from
+    ``forced_drop_selection``."""
+    size_before, size_after, n_outgoing, unheld_out, limit, open_before = counts
+    over_before, over_after, over_after_min, over_after_max = over
+    n_existing = len(surviving) - len(incoming)
+    existing, arrivals = surviving[:n_existing], surviving[n_existing:]
+    common: dict[str, Any] = dict(
+        starter_slots=list(context.starter_slots),
+        waiver_values=context.waiver_values,
+        scarcity=context.scarcity,
+        slot_eligibility=context.slot_eligibility,
+    )
+    if not context.starter_slots:
+        notes.append(
+            "no starter slots configured for this league — cut ladder built "
+            "without a lineup-feasibility guard"
+        )
+    sel = fds.select_forced_drops(
+        existing,
+        arrivals,
+        incoming,
+        drops_needed=over_after_max,
+        package=package,
+        **common,
+    )
+    notes.extend(sel.notes)
+    drops = [
+        ForcedDrop(
+            player_id=s.asset.player_id,
+            name=s.asset.name,
+            position=s.asset.position,
+            value=s.asset.board_value,
+            effective_cut_cost=s.ecc,
+            release_cost=s.charge,
+            waiver_value=float(s.waiver),
+            scarcity_multiplier=float(s.mult),
+            value_basis=s.value_basis,
+            rung=i + 1,
+            acquired_in_trade=s.acquired,
+            charge_basis=s.charge_basis,
+        )
+        for i, s in enumerate(sel.drops)
+    ]
+    if sel.exhausted:
+        notes.append(
+            f"cut ladder offers {len(drops)} release(s) but {over_after_max} are needed — "
+            "every remaining player is required to fill a starting slot, so no legal "
+            "path back to roster size was modelled"
+        )
+
+    # What the roster owed BEFORE the trade (an over-limit roster): the trade is
+    # charged only the difference (``_selected_forced_drop_cost``).
+    pre_sel = (
+        _pre_trade_cleanup(context, over_before)
+        if over_before > 0 and certainty == "exact"
+        else None
+    )
+
+    taxi_bound = None
+    if certainty != "exact":
+        # Taxi membership unknown: the charge is a lower bound on the releases
+        # GUARANTEED under every assignment.  Re-run the selection at that
+        # count (a subset of the worst-case cleanup is legal but not
+        # necessarily the cheapest legal set of that size).
+        added = min(over_after_min, max(0, size_after - size_before))
+        if added <= 0:
+            lb = None
+        elif added == over_after_max and sel.mode == fds.MODE_PACKAGE_CONSISTENT:
+            lb = sel
+        else:
+            # Always the charge-minimising (V5) selection, whichever mode is
+            # served: the roster-rational set minimises ``sum c``, not the
+            # charge, so its cost at a smaller count is not a lower bound.
+            lb = fds.select_forced_drops(
+                existing,
+                arrivals,
+                incoming,
+                drops_needed=added,
+                package=package,
+                mode=fds.MODE_PACKAGE_CONSISTENT,
+                **common,
+            )
+        if lb is not None:
+            taxi_bound = (
+                lb.total,
+                lb.exhausted,
+                any(
+                    d.value_basis == "assumedWaiver" and d.charge_basis != fds.CHARGE_PACKAGE
+                    for d in lb.drops
+                ),
+            )
+
+    priced = [d.value for d in drops if d.value is not None]
+    taxi_lo, taxi_hi = taxi
+    return RosterCapacity(
+        roster_limit=limit,
+        taxi_size=context.taxi_size,
+        size_before=size_before,
+        size_after=size_after,
+        incoming=len(incoming),
+        outgoing=n_outgoing,
+        open_spots_before=open_before,
+        open_spots_after=0 if certainty == "exact" else None,
+        over_limit_before=over_before,
+        over_limit_after=over_after,
+        certainty=certainty,
+        outgoing_not_on_roster=unheld_out,
+        over_limit_after_min=over_after_min,
+        over_limit_after_max=over_after_max,
+        taxi_occupied_min=taxi_lo,
+        taxi_occupied_max=taxi_hi,
+        forced_drops=drops,
+        forced_drop_value=float(sum(priced)) if priced else 0.0,
+        forced_drop_cut_cost=float(sum(d.effective_cut_cost for d in drops)),
+        forced_drop_release_cost=float(sum(d.release_cost for d in drops)),
+        # Drops are in charge order by construction; the incumbent's "rung
+        # order carried no priority" condition cannot arise.
+        rung_order_was_tied=False,
+        unpriced_forced_drops=sum(1 for d in drops if d.value is None),
+        ladder_exhausted=sel.exhausted,
+        notes=notes,
+        selection_rule=fds.rule_id(sel.mode),
+        package_applied=sel.package_applied,
+        search_bound_exceeded=sel.search_bound_exceeded,
+        taxi_bound_cleanup=taxi_bound,
+        package_credit_clamp=sel.credit_clamp,
+        selection_tie_break=sel.tie_break,
+        waiver_values_available=bool(context.waiver_values),
+        **_pre_trade_fields(pre_sel),
+        waiver_level=_li5_waiver_level(context),
+    )
+
+
+def _pre_trade_cleanup(context: CapacityContext, over_before: int) -> fds.Selection:
+    """The cheapest legal cleanup the PRE-trade roster owes on its own."""
+    roster_before = [
+        context.assets_by_key.get(_norm(n)) or _resolve_incoming(n, context.by_name)
+        for n in context.roster_player_names
+    ]
+    return fds.cleanup_selection(
+        roster_before,
+        over_before,
+        starter_slots=list(context.starter_slots),
+        waiver_values=context.waiver_values,
+        scarcity=context.scarcity,
+        slot_eligibility=context.slot_eligibility,
+    )
+
+
+def _pre_trade_fields(pre: fds.Selection | None) -> dict[str, Any]:
+    if pre is None:
+        return {}
+    return {
+        "pre_trade_cleanup_cost": pre.total,
+        "pre_trade_cleanup_exhausted": pre.exhausted,
+        "pre_trade_cleanup_drops": tuple(
+            (str(d.asset.player_id), d.value_basis) for d in pre.drops
+        ),
+    }
 
 
 def player_names_only(assets: Iterable[Any]) -> list[str]:

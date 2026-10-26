@@ -13,6 +13,8 @@
 // pure materializer.
 
 import { useMemo, useState } from "react";
+import { ScheduleImpactTable } from "@/components/league/ScheduleImpact";
+import { ScheduleMultiverseTable } from "@/components/league/ScheduleMultiverse";
 import {
   Avatar,
   Card,
@@ -307,8 +309,20 @@ export default function LuckSection({ data, managers }) {
     new Set(seasonRows.map((r) => r.season))
   ).sort((a, b) => Number(b) - Number(a));
 
+  // Schedule Intelligence (canonical contract; the same numbers every
+  // surface reads).  Current season with every team.
+  const schedule = data?.scheduleImpact;
+  const scheduleContract =
+    schedule?.state === "failed"
+      ? { state: "failed" }
+      : schedule?.bySeason?.[schedule?.currentSeason] || null;
+
   return (
     <section>
+      {schedule ? <ScheduleImpactTable contract={scheduleContract} /> : null}
+      {/* Milestone B: a different model (timing_only_v1), shown beside -- never
+          blended into -- the equal-opponent table.  Absent on an older payload. */}
+      {scheduleContract?.timingOnly ? <ScheduleMultiverseTable contract={scheduleContract} /> : null}
       {/* Headline cards */}
       <div
         className="card"

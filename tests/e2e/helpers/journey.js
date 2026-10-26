@@ -59,10 +59,13 @@ const TITLE = {
   "/edge": "Source Disagreement",
   "/market/sharp-tracker": "Sharp Tracker",
   "/market/sharp-roster-percentage": "Sharp Roster Percentage",
+  "/market/trade-database": "Trade Database",
+  "/managers": "Manager Intelligence",
   "/league/insider-trading": "Insider Trading",
   "/league": "Hub",
   "/league/activity": "Activity",
   "/league-comparison": "Scoring Comparison",
+  "/dfs": "DFS Workspace",
 };
 
 /**
@@ -604,6 +607,13 @@ function routeUsefulSnapshot(path) {
   const pending = () => result("pending", "data_pending");
   const main = document.querySelector("main") || document;
   if (path === "/league") {
+    // Brisket Trade Advisor landing (DEFAULT_TAB when the backend serves
+    // it): useful once the server-rendered team picker is interactive.
+    const advisor = document.querySelector('#league-panel-trade-advisor[role="tabpanel"]');
+    if (visible(advisor)) {
+      const picker = advisor.querySelector('input[role="combobox"]#advisor-your-team');
+      return visible(picker) ? result("useful", "public_advisor_team_step") : pending();
+    }
     const topLevelEmpty = all(main, "h2,h3,h4,.empty-state-title").some(el => !el.closest('[role="tabpanel"]') && ["League data unavailable", "No public league data"].includes(text(el)));
     const panel = document.querySelector('#league-panel-overview[role="tabpanel"]');
     if (!visible(panel)) return topLevelEmpty ? result("unavailable", "public_data_unavailable") : pending();
@@ -692,7 +702,25 @@ async function baselineUsefulState(page, path, timeout) {
   if (path === "/trade") {
     await waitVisible(page.locator(SEL.tradeControls));
     // Fixed, non-private query; any eligible match proves the pool is usable.
-    const search = page.locator('.mobile-quick-add-input:visible, .trade-side-search-input:visible').first();
+    // Desktop/tablet: the inline per-side search.  Phones (TC-D2): no inline
+    // search exists; the side's "Add to Side A" button opens a bottom-sheet
+    // search first.  Poll for whichever entry point this layout renders —
+    // inline first, so the desktop path probes nothing extra.
+    const search = page.locator('.trade-side-search-input:visible').first();
+    const addA = page.locator('button[aria-haspopup="dialog"]:has-text("Add to Side A"):visible').first();
+    for (;;) {
+      const inline = await search.isVisible();
+      checkDeadline();
+      if (inline) break;
+      const sheet = await addA.isVisible();
+      checkDeadline();
+      if (sheet) {
+        await addA.click({ timeout: remaining() });
+        checkDeadline();
+        break;
+      }
+      await page.waitForTimeout(Math.min(BASELINE_READINESS_PROTOCOL.pollMs, remaining()));
+    }
     await search.fill("a", { timeout: remaining() });
     checkDeadline();
     await waitVisible(page.locator('.trade-side-search-result:visible').first());

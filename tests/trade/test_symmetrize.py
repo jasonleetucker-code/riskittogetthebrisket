@@ -173,3 +173,18 @@ def test_symmetrized_result_keeps_the_band_disclosure():
     assert "synthesized" in out["disclaimer"]
     assert "not a measurement" in out["disclaimer"]
     assert "Direction-symmetrized" in out["disclaimer"]
+
+
+def test_enrich_applied_adjustment_without_a_value_is_not_zero_shifted():
+    """TC-A: an "applied" adjustment carrying no numeric value is UNKNOWN, so
+    ``adjustedDelta`` stays raw instead of being shifted by a coerced 0 (or by
+    any guessed figure)."""
+    a, b = [_p("A", 5000)], [_p("B", 4500)]
+    out = sym.enrich_with_decision_shape(
+        {"vaAdjustment": {"applied": True, "side": 1, "value": None}, "winProbA": 0.6}, a, b
+    )
+    assert out["adjustedDelta"] == out["valueDelta"]
+    shifted = sym.enrich_with_decision_shape(
+        {"vaAdjustment": {"applied": True, "side": 2, "value": 300}, "winProbA": 0.6}, a, b
+    )
+    assert shifted["adjustedDelta"] == shifted["valueDelta"] - 300

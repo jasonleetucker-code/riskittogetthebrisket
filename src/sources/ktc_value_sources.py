@@ -76,6 +76,11 @@ class KtcValueObservation:
     base_rank: float | None
     tepp_value: float | None
     tepp_rank: float | None
+    #: Identity evidence the same in-page row publishes (outlier-integrity
+    #: V2.1 U2/U3).  Not part of ``_content_hash``: the board's content is its
+    #: values, and adding evidence must not mint a new dataset.
+    team: str | None = None
+    age: float | None = None
 
 
 @dataclass(frozen=True)
@@ -195,6 +200,10 @@ def observations_from_players_array(
                 base_rank=_rank(sf.get(rank_field)),
                 tepp_value=_num(tepp.get(value_field) if isinstance(tepp, Mapping) else tepp),
                 tepp_rank=_rank(tepp.get(rank_field) if isinstance(tepp, Mapping) else tepp),
+                team=(str(row.get("team")).strip() or None)
+                if row.get("team") is not None
+                else None,
+                age=_num(row.get("age")),
             )
         )
     return tuple(out)
@@ -361,6 +370,8 @@ async def selected_players_array(page: Any) -> list[dict[str, Any]]:
               playerName: p.playerName,
               name: p.name,
               position: p.position,
+              team: p.team,
+              age: p.age,
               superflexValues: { ...selectFields(sf), tepp: selectFields(sf.tepp) },
               // Keep null-only SF-to-top-level fallback in the Python owner.
               tepp: selectFields(p.tepp)
@@ -550,9 +561,13 @@ def write_capture_artifacts(
 ) -> set[str]:
     """Persist the three KTC source modes and one provenance sidecar.
 
-    This is the ONE writer for KTC three-source artifacts. Crowd/Trades are
-    diagnostic same-family observations; writing them does not register votes.
-    Missing Tradesourced values are omitted from its CSV rather than zeroed.
+    This is the ONE writer for KTC three-source artifacts. Writing a CSV
+    registers nothing: whether a file votes is decided only by
+    ``src/api/data_contract.py::_RANKING_SOURCES``. Since the 2026-09-23
+    owner directive Crowd and Trades ARE registered model inputs (families
+    ``ktcCrowd`` / ``ktcTrades``); Crowd+Trades is the benchmark only and is
+    refused registration. Missing Tradesourced values are omitted from its CSV
+    rather than zeroed.
     """
     validate_capture_set(captures)
     site_raw_dir.mkdir(parents=True, exist_ok=True)
@@ -569,7 +584,9 @@ def write_capture_artifacts(
         out = site_raw_dir / f"{file_key}.csv"
         with out.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle)
-            writer.writerow(["name", "value", "rank", "player_id", "position"])
+            # ``team`` trails (V2.1 U3 identity evidence, as KTC publishes it):
+            # never a value, rank or Sleeper-id column.
+            writer.writerow(["name", "value", "rank", "player_id", "position", "team"])
             for row in sorted(priced_rows, key=lambda item: item.name.casefold()):
                 writer.writerow(
                     [
@@ -578,6 +595,7 @@ def write_capture_artifacts(
                         "" if row.tepp_rank is None else row.tepp_rank,
                         "" if row.player_id is None else row.player_id,
                         row.position or "",
+                        row.team or "",
                     ]
                 )
         written.add(out.name)

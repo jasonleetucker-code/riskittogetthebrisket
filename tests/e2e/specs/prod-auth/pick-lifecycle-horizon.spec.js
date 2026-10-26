@@ -4,8 +4,9 @@
  * The deployed board must carry exactly the classes the owner decided:
  * the completed 2026 rookie class RETIRED (draft complete, rookies rostered
  * — evidence-derived by `src/identity/pick_lifecycle.py`), the supported
- * future-pick horizon 2027–2029 present, and NO 2030 (retiring 2026 does not
- * advance the horizon).
+ * future-pick horizon 2027–2029 present, and NO 2030 (the horizon ends three
+ * seasons after the latest completed draft, so 2030 waits for the 2027 draft —
+ * owner decision 2026-10-19, `board_pick_horizon`).
  *
  * Two layers, both asserted:
  *   1. consistency with the lifecycle OWNER — every year the contract's own
@@ -41,14 +42,11 @@ test.describe("#1442 pick lifecycle on production", () => {
       const y = Number(m[1]);
       byYear.set(y, (byYear.get(y) || 0) + 1);
     }
-    const census = [...byYear.entries()].sort((a, b) => a[0] - b[0]).map(([y, n]) => `${y}:${n}`);
-    annotate(testInfo, "pick-census", census.join(" "));
-    annotate(testInfo, "retired-years", JSON.stringify(retired));
-    annotate(
-      testInfo,
-      "class-2026-status",
-      JSON.stringify((lifecycle.classes || {})["2026"] || null),
-    );
+    // Public artifact (security S3): fixed-key counts and a boolean only.
+    annotate(testInfo, "retired-2026", String(retired.includes(2026)));
+    for (const y of [2026, 2027, 2028, 2029, 2030]) {
+      annotate(testInfo, `pick-rows-${y}`, String(byYear.get(y) || 0));
+    }
 
     // 1. Consistent with the owner: a retired class has no rows.
     for (const y of retired) {

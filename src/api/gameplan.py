@@ -126,6 +126,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from src.api import roster_intelligence as _roster_intelligence
 from src.league_intel.cross_market import DEFAULT_GATE_PCT
 from src.league_intel.replacement import (
     PositionReplacement,
@@ -250,6 +251,9 @@ class LeagueInputs:
     source_stamp: str
     notes: tuple[str, ...] = ()
     roster_limit: int | None = None
+    #: The same forecast's ``championshipUnavailable`` block (``{reason,
+    #: detail}``) when it withheld title odds; cited by the roster engine.
+    championship_unavailable: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -420,6 +424,7 @@ def load_league_inputs(
         )
 
     playoff_odds: tuple[Mapping[str, Any], ...] | None = None
+    championship_unavailable: Mapping[str, Any] | None = None
     sim_path = _sim_playoff_path(league_key)
     try:
         if sim_path.exists():
@@ -427,6 +432,9 @@ def load_league_inputs(
             raw = payload.get("playoffOdds") if isinstance(payload, Mapping) else None
             if isinstance(raw, list) and raw:
                 playoff_odds = tuple(r for r in raw if isinstance(r, Mapping))
+                withheld = payload.get("championshipUnavailable")
+                if isinstance(withheld, Mapping):
+                    championship_unavailable = dict(withheld)
     except (OSError, json.JSONDecodeError) as exc:
         notes.append(f"playoff-sim cache unreadable ({exc.__class__.__name__}); odds omitted")
 
@@ -467,6 +475,7 @@ def load_league_inputs(
         source_stamp=stamp,
         notes=tuple(notes),
         roster_limit=roster_limit,
+        championship_unavailable=championship_unavailable,
     )
 
 
@@ -521,6 +530,7 @@ def build_league_bundle(inputs: LeagueInputs) -> LeagueBundle:
             player_meta=inputs.player_meta,
             playoff_odds=odds_rows,
             lineup_scores=lineup_scores,
+            championship_unavailable=inputs.championship_unavailable,
         )
 
     starter_levels = {
@@ -649,6 +659,131 @@ def get_league_bundle(
     return bundle, cached or shared
 
 
+# ── Competitive Posture (C7-POST-01) ────────────────────────────────
+
+
+def _league_settings_for(contract: Mapping[str, Any] | None, league_key: str) -> Mapping[str, Any]:
+    """This league's Sleeper ``leagueSettings``, only when the contract is ITS.
+
+    ``leagueSettings`` is a leagueKey field; reading another league's
+    deadline would time this league's posture by someone else's calendar.
+    """
+    if not isinstance(contract, Mapping):
+        return {}
+    meta = contract.get("meta") or {}
+    if meta.get("leagueKey") not in (None, league_key):
+        return {}
+    sleeper = contract.get("sleeper") or {}
+    settings = sleeper.get("leagueSettings") if isinstance(sleeper, Mapping) else None
+    return settings if isinstance(settings, Mapping) else {}
+
+
+def _own_first_round_pick_held(contract: Mapping[str, Any] | None, owner_id: str) -> bool | None:
+    """Whether this team holds its OWN first in the league's upcoming class.
+
+    Read off the overlay's canonical pick fold (``sleeper.teams[].pickDetails``,
+    whose seasons already come from ``pick_lifecycle.league_draft_years``) —
+    nothing here derives a draft year.  The upcoming class is the earliest
+    season any team's published inventory carries.  ``None`` when any
+    inventory is unpublished (#1618) or the team is absent: unknown, never
+    "does not own it".
+    """
+    sleeper = (contract or {}).get("sleeper") if isinstance(contract, Mapping) else None
+    teams = (sleeper or {}).get("teams") if isinstance(sleeper, Mapping) else None
+    if not isinstance(teams, list):
+        return None
+    seasons: list[int] = []
+    mine: Mapping[str, Any] | None = None
+    for t in teams:
+        if not isinstance(t, Mapping):
+            continue
+        details = t.get("pickDetails")
+        if not isinstance(details, list):
+            return None
+        for d in details:
+            try:
+                seasons.append(int(d.get("season")))
+            except (TypeError, ValueError, AttributeError):
+                continue
+        if str(t.get("ownerId") or "") == str(owner_id):
+            mine = t
+    if mine is None or not seasons:
+        return None
+    upcoming = min(seasons)
+    rid = mine.get("roster_id", mine.get("rosterId"))
+    if rid is None:
+        return None
+    for d in mine.get("pickDetails") or []:
+        try:
+            if (
+                int(d.get("season")) == upcoming
+                and int(d.get("round")) == 1
+                and int(d.get("fromRosterId")) == int(rid)
+            ):
+                return True
+        except (TypeError, ValueError, AttributeError):
+            continue
+    return False
+
+
+def league_competitive_postures(
+    league_key: str,
+    scoring_profile: str,
+    contract: Mapping[str, Any] | None,
+    *,
+    week: int | None = None,
+    in_season: bool | None = None,
+    build_if_missing: bool = True,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """``({ownerId: CompetitivePosture}, meta)`` for every roster in the league.
+
+    ``meta.bundleFreshness`` is ``"current"`` when the bundle was checked
+    against this call's inputs, ``"last_computed"`` on the warm-only path.
+
+    Consumes the cached league bundle's competitive windows (the same windows
+    ``/api/gameplan`` publishes — playoff odds, ages and ROS values already
+    supplied) and the canonical posture owner in ``src.roster_intel.window``.
+    ``week`` / ``in_season`` default to the shared season clock
+    (``faab_engine.current_nfl_week``).  Raises :class:`GameplanUnavailable`
+    when the bundle cannot be built; callers degrade to a named unavailable.
+    """
+    from src.roster_intel.window import competitive_posture, season_timing  # noqa: PLC0415
+
+    if in_season is None and week is None:
+        from src.trade.faab_engine import current_nfl_week  # noqa: PLC0415
+
+        week, in_season = current_nfl_week()
+    if build_if_missing:
+        bundle, _hit = get_league_bundle(league_key, scoring_profile, contract)
+        freshness = "current"
+    else:
+        # A latency-sensitive caller (every /trade simulate) reads the LAST
+        # built bundle from memory — no input load, no disk, no network, never
+        # the live-compute fallback.  It may predate the latest scrape, and
+        # says so: stale is never presented as current.
+        with _CACHE_LOCK:
+            cached = _BUNDLE_CACHE.get(league_key)
+        if cached is None:
+            raise GameplanUnavailable(
+                "league_bundle_not_warm",
+                "The league's roster-intelligence bundle has not been built yet; "
+                "posture is computed by Analyze Trade and /api/gameplan.",
+            )
+        bundle = cached[1]
+        freshness = "last_computed"
+    settings = _league_settings_for(contract, league_key)
+    timing = season_timing(week, in_season, settings.get("trade_deadline"))
+    postures = {
+        owner_id: competitive_posture(
+            intel.window,
+            timing,
+            own_first_round_pick_held=_own_first_round_pick_held(contract, owner_id),
+        )
+        for owner_id, intel in bundle.intel.items()
+    }
+    return postures, {"bundleFreshness": freshness, "notes": list(bundle.notes)}
+
+
 # ── Candidate assembly ───────────────────────────────────────────────
 
 
@@ -755,7 +890,7 @@ FIELD_POLICY: dict[str, Any] = {
                 "targetPositions[].winNowWeight",
                 "targetPositions[].marketEfficiency",
                 "targetPlayers[].marketEdge",
-                "needs[].replacementBaseline",
+                "roster.positionDeficits[].replacementBaseline",
             ],
             "reason": (
                 "null means the quantity was not measured. It is never collapsed "
@@ -937,14 +1072,23 @@ def build_gameplan(
     bundle: LeagueBundle,
     owner_id: str,
     *,
+    weakness: Mapping[str, Any],
     partner_owner_id: str | None = None,
     cache_hit: bool = False,
+    constraints: Any | None = None,
+    partner_constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Assemble one team's gameplan payload.
 
     Engine ``to_dict()`` output is passed through unchanged rather than
     re-projected field by field — a hand-rolled projection is how a
     caveat gets dropped in a refactor.
+
+    ``weakness`` is the canonical need block for this team, from
+    ``roster_intelligence.team_weakness_for`` — the same answer
+    ``GET /api/roster/intelligence`` serves.  Required, not defaulted:
+    a gameplan with no need answer must say so explicitly (the helper
+    returns ``available: false`` with a reason), never omit the section.
     """
     t0 = time.perf_counter()
     team = bundle.team(owner_id)
@@ -1000,14 +1144,21 @@ def build_gameplan(
     # ── packages (only against a named counterparty) ─────────────────
     packages_payload: dict[str, Any] | None = None
     if partner_owner_id:
-        packages_payload = _build_packages(bundle, owner_id, partner_owner_id)
+        packages_payload = _build_packages(
+            bundle, owner_id, partner_owner_id, constraints, partner_constraints
+        )
 
     payload: dict[str, Any] = {
         "contractVersion": GAMEPLAN_CONTRACT_VERSION,
         "leagueKey": bundle.inputs.league_key,
         "scoringProfile": bundle.inputs.scoring_profile,
         "team": {"ownerId": team.owner_id, "teamName": team.team_name},
-        "roster": ri.to_dict(),
+        # The canonical need answer rides inside ``roster`` beside the
+        # engine's deficit MEASUREMENTS (``positionDeficits``), which no
+        # longer carry a verdict of their own (C2-WEAK-01, 2026-10-07).
+        # ``roster.needs`` was retired with that change — it was a second
+        # need rule ("urgent") on a different scale and population.
+        "roster": {**ri.to_dict(), "weakness": dict(weakness)},
         "partners": [p.to_dict() for p in partners],
         "targetPositions": [t.to_dict() for t in target_positions],
         "targetPlayers": [t.to_dict() for t in target_players],
@@ -1041,8 +1192,23 @@ def build_gameplan(
     return payload
 
 
-def _build_packages(bundle: LeagueBundle, owner_id: str, partner_owner_id: str) -> dict[str, Any]:
-    """Trade Package Generator output against one counterparty."""
+def _build_packages(
+    bundle: LeagueBundle,
+    owner_id: str,
+    partner_owner_id: str,
+    constraints: Any | None = None,
+    partner_constraints: Any | None = None,
+) -> dict[str, Any]:
+    """Trade Package Generator output against one counterparty.
+
+    Recommendation constraints (C3-CON-01, ``src/trade/constraints``) bind the
+    REQUESTER's outgoing side, wherever that is.  ``constraints`` applies when
+    the requester is the subject team (``owner_id``): our assets, before the
+    per-side cap, inside ``generate_packages``.  ``partner_constraints`` applies
+    when the requester is the PARTNER — what the generator asks the partner for
+    is what the requester would send, so those assets are partitioned before
+    the cap too.  The route passes at most one of the two.
+    """
     partner_team = bundle.team(partner_owner_id)
     if partner_team is None:
         return {
@@ -1052,14 +1218,27 @@ def _build_packages(bundle: LeagueBundle, owner_id: str, partner_owner_id: str) 
             "bestBy": {},
         }
 
-    ours = _trade_assets(bundle, owner_id, surplus_only=True)[:MAX_PACKAGE_ASSETS_PER_SIDE]
-    theirs = _trade_assets(bundle, partner_owner_id, surplus_only=True)[
-        :MAX_PACKAGE_ASSETS_PER_SIDE
-    ]
+    # Uncapped here: the cap is applied by the generator AFTER the constraints,
+    # so a protected player cannot occupy a slot and then vanish.
+    ours = _trade_assets(bundle, owner_id, surplus_only=True)
+    theirs_all = _trade_assets(bundle, partner_owner_id, surplus_only=True)
+    partner_blocked: list = []
+    if partner_constraints is not None:
+        from src.trade.constraints import partition_sendable  # noqa: PLC0415
+
+        theirs_all, partner_blocked = partition_sendable(theirs_all, partner_constraints)
+    theirs = list(theirs_all)[:MAX_PACKAGE_ASSETS_PER_SIDE]
     # Cornerstones must come from their FULL roster: derived from the
     # filtered ask list, every asset looks elite relative to that list
     # and the premium rule refuses almost every package.
     their_full = _trade_assets(bundle, partner_owner_id, surplus_only=False)
+
+    if constraints is not None:
+        from src.trade.constraints import partition_sendable  # noqa: PLC0415
+
+        ours_sendable, _ours_blocked = partition_sendable(ours, constraints)
+    else:
+        ours_sendable = list(ours)
 
     roster_settings = bundle.inputs.roster_limit
     result = _packages.generate_packages(
@@ -1073,13 +1252,20 @@ def _build_packages(bundle: LeagueBundle, owner_id: str, partner_owner_id: str) 
         their_signal=bundle.signals[partner_owner_id],
         roster_limit=roster_settings,
         gate_pct=DEFAULT_GATE_PCT,
+        constraints=constraints,
+        our_limit=MAX_PACKAGE_ASSETS_PER_SIDE,
     )
+    if partner_constraints is not None:
+        result["partnerConstraintsBlockedOutgoing"] = len(partner_blocked)
     result["partner"] = {
         "ownerId": partner_owner_id,
         "teamName": partner_team.team_name,
     }
     result["assetPolicy"] = {
-        "ourAssetsOffered": len(ours),
+        # Counted by the constraint owner itself rather than read back from
+        # the generator's payload, so the figure cannot depend on a key a
+        # caller (or a stub) omits.
+        "ourAssetsOffered": min(MAX_PACKAGE_ASSETS_PER_SIDE, len(ours_sendable)),
         "theirAssetsOffered": len(theirs),
         "maxPerSide": MAX_PACKAGE_ASSETS_PER_SIDE,
         "filter": "tradeable surplus that the contract prices on the dynasty market",
@@ -1113,6 +1299,8 @@ def get_team_gameplan(
     owner_id: str,
     *,
     partner_owner_id: str | None = None,
+    constraints: Any | None = None,
+    partner_constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Cached end-to-end build for one team.  Runs off the event loop.
 
@@ -1126,7 +1314,20 @@ def get_team_gameplan(
         raise TeamNotInLeague(owner_id)
 
     stamp = bundle.inputs.source_stamp
-    cache_key = "\x00".join([league_key, stamp, owner_id, partner_owner_id or ""])
+    # The package section depends on the requester's protections, so an active
+    # constraint set is part of the key — one user's untouchables must never be
+    # served from (or into) another user's cached packages.
+    constraints_key = ""
+    active = [
+        (side, c.to_dict())
+        for side, c in (("ours", constraints), ("partner", partner_constraints))
+        if c is not None and getattr(c, "active", False)
+    ]
+    if partner_owner_id and active:
+        constraints_key = hashlib.sha1(
+            json.dumps(active, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+    cache_key = "\x00".join([league_key, stamp, owner_id, partner_owner_id or "", constraints_key])
     with _CACHE_LOCK:
         cached = _TEAM_CACHE.get(cache_key)
         if cached is not None and cached[0] == stamp:
@@ -1151,8 +1352,21 @@ def get_team_gameplan(
             if epoch == _CACHE_EPOCH and cached is not None and cached[0] == stamp:
                 _TEAM_CACHE.move_to_end(cache_key)
                 return cached[1], True
+        # The canonical need block, from the owner the roster-intelligence
+        # route serves — never re-derived from the bundle's ROS snapshot.
+        weakness = _roster_intelligence.team_weakness_for(
+            contract,
+            owner_id,
+            team_count=_roster_intelligence.declared_team_count(league_key),
+        )
         payload = build_gameplan(
-            bundle, owner_id, partner_owner_id=partner_owner_id, cache_hit=cache_hit
+            bundle,
+            owner_id,
+            weakness=weakness,
+            partner_owner_id=partner_owner_id,
+            cache_hit=cache_hit,
+            constraints=constraints,
+            partner_constraints=partner_constraints,
         )
         with _CACHE_LOCK:
             if epoch == _CACHE_EPOCH:

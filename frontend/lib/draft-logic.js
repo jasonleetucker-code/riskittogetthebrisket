@@ -178,8 +178,8 @@ export const DEFAULT_TEAMS = [
   { name: "Eric", initialBudget: 71 },
   { name: "Collin", initialBudget: 71 },
   { name: "Roy", initialBudget: 71 },
-  { name: "Blaine", initialBudget: 71 },
-  { name: "Joel", initialBudget: 73 },
+  { name: "schoeppeya", initialBudget: 71 },
+  { name: "John", initialBudget: 73 },
 ];
 
 // ── Seed rookie pool ────────────────────────────────────────────────────
@@ -985,7 +985,7 @@ export function computeDraftStats(workspace) {
 
   // ── Nominations summary ────────────────────────────────────────────
   // Surface the raw nominations plus a per-tier count so the UI can
-  // show "Joel has logged 3 S-tier noms" as a quick-read signal.
+  // show "John has logged 3 S-tier noms" as a quick-read signal.
   const nominationsEnriched = nominations.map((n) => ({
     ...n,
     player: enrichedPlayerById.get(n.playerId) || null,

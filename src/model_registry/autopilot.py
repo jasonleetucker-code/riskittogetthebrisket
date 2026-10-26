@@ -8,6 +8,27 @@ Until GLOBAL and IDP have their own independent scorers, autopilot composes
 an OFFENSE-only parameter set: the winning OFFENSE (c, s) plus the current
 champion's other six constants.  That makes the existing per-scope promotion
 gate an additional hard backstop rather than something autopilot overrides.
+
+Owner methodology decision 1 (2026-10-01): the board-holdout gates are
+NECESSARY, NOT SUFFICIENT. ``decide`` additionally requires the
+``independent_validation`` gate -- at least one eligible, preregistered
+independent validation target (``src/model_registry/independent_validation.py``)
+that the winner passes. With none, the outcome is ``AUTO_PROMOTION_BLOCKED``
+with reason exactly ``no_independent_validation_target``.
+
+Reason precedence (most specific blocker first, each test-pinned):
+
+1. no eligible standing challenger -> ``HOLD``, "no eligible standing challenger";
+2. any board evidence gate fails -> ``HOLD``, "blocked by: <failed board gates>"
+   (the independent-validation verdict is still recorded in ``gates`` and
+   ``independent_validation_reason``);
+3. every board gate passes but independent validation does not ->
+   ``AUTO_PROMOTION_BLOCKED`` with ``reason`` = the independent-validation reason;
+4. everything passes -> ``AUTO_PROMOTION_READY``.
+
+Blocking changes only the outcome: winner selection, the stability cluster and
+forward persistence are computed and returned exactly as before, so evidence
+keeps accumulating while promotion is blocked.
 """
 
 from __future__ import annotations
@@ -17,6 +38,32 @@ from itertools import product
 from math import isfinite
 from statistics import mean, median
 from typing import Mapping, Sequence
+
+from src.model_registry.independent_validation import (
+    REASON_EVIDENCE_MISMATCH,
+    REASON_NO_TARGET,
+    IndependentValidationEvidence,
+)
+
+OUTCOME_READY = "AUTO_PROMOTION_READY"
+#: A board evidence gate (or the winner) is not cleared; the champion stands.
+OUTCOME_HOLD = "HOLD"
+#: Every board gate cleared, but independent validation did not.
+OUTCOME_BLOCKED = "AUTO_PROMOTION_BLOCKED"
+
+#: The dependent-board evidence gates, in report order. ``independent_validation``
+#: is deliberately not one of them: it is the additional, separate requirement.
+BOARD_GATES: tuple[str, ...] = (
+    "winner",
+    "current_margin",
+    "per_source",
+    "leave_one_market_out",
+    "cross_market_bootstrap",
+    "row_health",
+    "parameter_stability",
+    "forward_persistence",
+)
+INDEPENDENT_GATE = "independent_validation"
 
 
 @dataclass(frozen=True)
@@ -75,6 +122,23 @@ class AutopilotDecision:
     forward_win_rate: float | None = None
     forward_median_improvement: float | None = None
     bootstrap_lower_improvement: float | None = None
+    outcome: str = OUTCOME_HOLD
+    #: ``None`` only when independent validation passed.
+    independent_validation_reason: str | None = REASON_NO_TARGET
+
+
+def independent_validation_reason(
+    evidence: IndependentValidationEvidence | None, winner_version: int | None
+) -> str | None:
+    """The independent-validation verdict for ``winner_version`` (``None`` = passed).
+
+    No evidence and an empty registry both mean no eligible target was
+    established, so both read ``no_independent_validation_target``."""
+    if evidence is None or evidence.registry_size == 0:
+        return REASON_NO_TARGET
+    if evidence.challenger_version != winner_version:
+        return REASON_EVIDENCE_MISMATCH
+    return evidence.reason
 
 
 def _rel_close(a: float, b: float, tolerance: float) -> bool:
@@ -196,6 +260,7 @@ def decide(
     forward_scores: Sequence[ForwardScore],
     policy: AutopilotPolicy,
     recent_row_health_ok: bool = True,
+    independent_validation: IndependentValidationEvidence | None = None,
 ) -> AutopilotDecision:
     req = required_improvement(champion_criterion, policy)
     winner = choose_winner(candidates)
@@ -207,6 +272,10 @@ def decide(
             reason="no eligible standing challenger",
             required_improvement=req,
             current_improvement=None,
+            outcome=OUTCOME_HOLD,
+            independent_validation_reason=independent_validation_reason(
+                independent_validation, None
+            ),
         )
 
     improvement = champion_criterion - winner.criterion
@@ -282,13 +351,20 @@ def decide(
         "parameter_stability": stability_gate,
         "forward_persistence": forward_gate,
     }
+    iv_reason = independent_validation_reason(independent_validation, winner.version)
+    gates[INDEPENDENT_GATE] = iv_reason is None
+
+    board_failed = [name for name in BOARD_GATES if not gates[name]]
     ready = all(gates.values())
-    failed = [name for name, ok in gates.items() if not ok]
-    reason = (
-        "all automatic-promotion evidence gates cleared"
-        if ready
-        else "blocked by: " + ", ".join(failed)
-    )
+    if board_failed:
+        outcome = OUTCOME_HOLD
+        reason = "blocked by: " + ", ".join(board_failed)
+    elif iv_reason is not None:
+        outcome = OUTCOME_BLOCKED
+        reason = iv_reason
+    else:
+        outcome = OUTCOME_READY
+        reason = "all automatic-promotion evidence gates cleared"
     return AutopilotDecision(
         ready=ready,
         winner_version=winner.version,
@@ -301,6 +377,8 @@ def decide(
         forward_win_rate=win_rate,
         forward_median_improvement=(med if improvements else None),
         bootstrap_lower_improvement=bootstrap_lower,
+        outcome=outcome,
+        independent_validation_reason=iv_reason,
     )
 
 

@@ -157,8 +157,11 @@ class TestReportingHonesty:
         r = _run("--challenger-json", str(path), "--dry-run")
         assert "champion v" in r.stdout
         assert "challenger" in r.stdout
-        for board in ("FantasyCalc", "OTCFFB", "PFKDynasty", "FantasyNavigator"):
+        for board in ("FantasyCalc", "OTCFFB", "PFKDynasty"):
             assert board in r.stdout
+        # KTC-derived (ktcCrowd family) while KTC trains: never an independent
+        # holdout (Batch 3 Unit D, H5).
+        assert "FantasyNavigator" not in r.stdout
 
     def test_no_drift_short_circuits_before_the_gate(self, tmp_path):
         """An identical challenger is not worth scoring."""

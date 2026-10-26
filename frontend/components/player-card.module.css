@@ -67,7 +67,7 @@
 }
 .quietNote {
   font-size: var(--font-size-2xs);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 
 /* ── Player context (contracts / snaps / depth — playerctx) ── */

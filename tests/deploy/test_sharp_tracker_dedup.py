@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -52,14 +53,24 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 class Spec:
     """One workflow's tracker pair.  Both carried the identical predicate, so
     both carried the identical defect — e2e.yml first (F-23, 14 duplicates),
-    verify-sharp-production.yml by inheritance (#958, 4 in 67 minutes)."""
+    verify-sharp-production.yml by inheritance (#958, 4 in 67 minutes), and
+    health-check.yml, which kept the author clause after #958 fixed the other
+    two (18 open duplicates on 2026-10-07, none ever closed).
 
-    def __init__(self, workflow, label, title, open_step, close_step):
+    ``reports_state_changes_only``: the tracker comments when the STATE it
+    reports changes, not on every run (verify-sharp-production.yml — 812
+    identical comments on #951 before that was fixed).  Every other tracker
+    comments once per failing run, which is the alert's whole point."""
+
+    def __init__(
+        self, workflow, label, title, open_step, close_step, reports_state_changes_only=False
+    ):
         self.workflow = WORKFLOWS / workflow
         self.label = label
         self.title = title
         self.open_step = open_step
         self.close_step = close_step
+        self.reports_state_changes_only = reports_state_changes_only
 
     def __repr__(self):  # pragma: no cover - test ids only
         return self.workflow.name
@@ -72,6 +83,21 @@ SPECS = [
         "Sharp production gate cannot measure: /api/sharp/* has no credential",
         "Track that the Sharp gate cannot measure",
         "Close the unmeasurable-gate tracker once the smoke can measure",
+        reports_state_changes_only=True,
+    ),
+    Spec(
+        "health-check.yml",
+        "production-health",
+        "Production health check failing",
+        "Open or update the tracking issue on failure",
+        "Close the tracking issue on a green run",
+    ),
+    Spec(
+        "intel-refresh.yml",
+        "intel-stale",
+        "Daily intel refresh failing",
+        "Alert on workflow failure",
+        "Close the tracking issue when the run is green",
     ),
     Spec(
         "e2e.yml",
@@ -122,24 +148,35 @@ if argv[:2] == ["issue", "list"]:
     label = None
     want_state = None
     jq_expr = None
+    # gh's own default.  The window is real behaviour, not a detail: a
+    # tracker outside it is invisible, and an invisible tracker gets a
+    # duplicate (#1672 beside #898, 2026-10-06).
+    limit = 30
     i = 2
     while i < len(argv):
         if argv[i] == "--label":
             label = argv[i + 1]; i += 2
         elif argv[i] == "--state":
             want_state = argv[i + 1]; i += 2
+        elif argv[i] == "--limit":
+            limit = int(argv[i + 1]); i += 2
         elif argv[i] == "--json":
             i += 2
         elif argv[i] == "--jq":
             jq_expr = argv[i + 1]; i += 2
         else:
             i += 1
+    matching = [
+        it for it in state["issues"]
+        if (want_state is None or it["state"] == want_state)
+        and (label is None or label in it["labels"])
+    ]
+    # Newest first, then truncated to the window — what gh returns.
+    matching.sort(key=lambda it: it["number"], reverse=True)
     rows = [
         {"number": it["number"], "title": it["title"],
          "author": {"login": it["author"], "is_bot": True}}
-        for it in state["issues"]
-        if (want_state is None or it["state"] == want_state)
-        and (label is None or label in it["labels"])
+        for it in matching[:limit]
     ]
     state["list_calls"] = state.get("list_calls", 0) + 1
     save(state)
@@ -159,23 +196,39 @@ if argv[:2] == ["issue", "list"]:
 if argv[:2] == ["issue", "create"]:
     title = argv[argv.index("--title") + 1]
     labels = [argv[argv.index("--label") + 1]] if "--label" in argv else []
+    body = argv[argv.index("--body") + 1] if "--body" in argv else ""
     number = state["next_number"]
     state["next_number"] += 1
     state["issues"].append({"number": number, "title": title,
                             "author": state["bot_login"], "state": "open",
-                            "labels": labels, "comments": 0})
+                            "labels": labels, "comments": 0, "body": body,
+                            "comment_bodies": []})
     save(state)
     print(f"https://github.com/o/r/issues/{number}")
     sys.exit(0)
 
 if argv[:2] == ["issue", "comment"]:
     n = int(argv[2])
+    body = argv[argv.index("--body") + 1] if "--body" in argv else ""
     for it in state["issues"]:
         if it["number"] == n:
             it["comments"] += 1
+            it.setdefault("comment_bodies", []).append(body)
     save(state)
     print(f"https://github.com/o/r/issues/{n}#issuecomment-1")
     sys.exit(0)
+
+if argv[:2] == ["issue", "view"]:
+    n = int(argv[2])
+    for it in state["issues"]:
+        if it["number"] == n:
+            sys.stdout.write(json.dumps({
+                "body": it.get("body", ""),
+                "comments": [{"body": b} for b in it.get("comment_bodies", [])],
+            }))
+            sys.exit(0)
+    sys.stderr.write(f"no issue {n}\n")
+    sys.exit(1)
 
 if argv[:2] == ["issue", "close"]:
     n = int(argv[2])
@@ -212,11 +265,13 @@ class Harness:
         gh.chmod(0o755)
         self.bindir = bindir
 
-    def run(self, script: str) -> subprocess.CompletedProcess:
+    def run(
+        self, script: str, extra_env: dict[str, str] | None = None
+    ) -> subprocess.CompletedProcess:
         env = os.environ.copy()
         env.update(
             {
-                "PATH": f"{self.bindir}:{env['PATH']}",
+                "PATH": f"{self.bindir}{os.pathsep}{env['PATH']}",
                 "GH_STUB_STATE": str(self.state_path),
                 "GH_TOKEN": "stub",
                 "GITHUB_SERVER_URL": "https://github.com",
@@ -229,6 +284,7 @@ class Harness:
                 "GITHUB_EVENT_NAME": "schedule",
             }
         )
+        env.update(extra_env or {})
         return subprocess.run(
             ["bash", "-c", script], env=env, capture_output=True, text=True, cwd=self.dir
         )
@@ -273,7 +329,13 @@ def test_second_identical_run_reuses_the_tracker_and_does_not_duplicate(tmp_path
         f"second identical run must reuse the tracker, not open another "
         f"(login {bot_login!r}): {h.issues}"
     )
-    assert trackers[0]["comments"] == 1, "the second run must COMMENT on the tracker"
+    if spec.reports_state_changes_only:
+        assert trackers[0]["comments"] == 0, (
+            "an identical second run reports no new state, so it must stay quiet "
+            "(812 identical comments on #951 is what commenting every run produced)"
+        )
+    else:
+        assert trackers[0]["comments"] == 1, "the second run must COMMENT on the tracker"
 
 
 @pytest.mark.parametrize("spec", SPECS, ids=repr)
@@ -395,3 +457,202 @@ def test_lookup_failure_stays_actionable_and_is_not_silently_healthy(tmp_path, s
     closed = h.run(_step_script(spec, spec.close_step))
     assert "::error title=Tracker lookup failed" in closed.stdout + closed.stderr
     assert closed.returncode != 0, "the all-clear must FAIL, not pass silently"
+
+
+# --------------------------------------------------------------------------
+# Defect D: the Sharp tracker reports a STATE, not a run.
+# --------------------------------------------------------------------------
+
+SHARP = SPECS[0]
+assert SHARP.workflow.name == "verify-sharp-production.yml"
+
+
+def test_sharp_tracker_comments_again_when_the_state_changes(tmp_path):
+    """A new ``since`` means the gate re-entered the state: that IS news."""
+    h = Harness(tmp_path, SHARP, "app/github-actions")
+    script = _step_script(SHARP, SHARP.open_step)
+    assert h.run(script).returncode == 0
+    assert h.run(script).returncode == 0  # identical: quiet
+    changed = h.run(script, {"STATE_SINCE": "2026-10-07T20:00:00+00:00"})
+    assert changed.returncode == 0, changed.stderr
+    again = h.run(script, {"STATE_SINCE": "2026-10-07T20:00:00+00:00"})
+    assert again.returncode == 0, again.stderr
+
+    trackers = h.open_trackers()
+    assert len(trackers) == 1, h.issues
+    assert trackers[0]["comments"] == 1, (
+        "exactly one comment: the state change, and nothing for the identical runs "
+        f"either side of it: {h.issues}"
+    )
+
+
+def test_sharp_tracker_that_predates_the_marker_gets_one_comment_then_quiet(tmp_path):
+    """#951 exists today with 812 marker-less comments.  The first run after
+    this change must report once (so the tracker carries the marker), and the
+    runs after it must not."""
+    seed = [
+        {
+            "number": 951,
+            "title": SHARP.title,
+            "author": "app/github-actions",
+            "state": "open",
+            "labels": [SHARP.label],
+            "comments": 812,
+            "body": "legacy body with no state marker",
+            "comment_bodies": ["legacy comment"] * 3,
+        }
+    ]
+    h = Harness(tmp_path, SHARP, "app/github-actions", seed=seed)
+    script = _step_script(SHARP, SHARP.open_step)
+    for _ in range(3):
+        result = h.run(script)
+        assert result.returncode == 0, result.stderr
+    assert h.open_trackers()[0]["comments"] == 813, h.issues
+
+
+def test_sharp_tracker_view_failure_comments_rather_than_going_silent(tmp_path):
+    """If the thread cannot be read, the step cannot know the state was
+    reported, so it must comment (loud) rather than skip (silent)."""
+    seed = [
+        {
+            "number": 951,
+            "title": SHARP.title,
+            "author": "app/github-actions",
+            "state": "open",
+            "labels": [SHARP.label],
+            "comments": 0,
+        }
+    ]
+    h = Harness(tmp_path, SHARP, "app/github-actions", seed=seed)
+    stub = (h.bindir / "gh").read_text()
+    (h.bindir / "gh").write_text(
+        stub.replace(
+            'if argv[:2] == ["issue", "view"]:', 'if argv[:2] == ["issue", "view-disabled"]:'
+        )
+    )
+    result = h.run(_step_script(SHARP, SHARP.open_step))
+    assert "Tracker view failed" in result.stdout + result.stderr
+    assert h.open_trackers()[0]["comments"] == 1
+
+
+# --------------------------------------------------------------------------
+# Defect B: a title-only lookup must see the whole open backlog.
+# --------------------------------------------------------------------------
+#
+# audit-rank-form-drift.yml and refit-hill-curves.yml look their tracker up
+# by exact title with NO label filter, so `--limit` bounds the search to the
+# N newest open issues in the whole repository.  At `--limit 50` and 89 open
+# issues, #898 was invisible and run 37479152470 filed #1672 beside it.
+
+CALIBRATION_OPEN = [
+    Spec(
+        "audit-rank-form-drift.yml",
+        "calibration",
+        "Rank-form curve drift: reconstruction constants are stale",
+        "Open or update an issue on drift",
+        "Close the tracking issue when the drift audit is green",
+    ),
+    Spec(
+        "refit-hill-curves.yml",
+        "calibration",
+        "Hill Autopilot: board-impact gate is blocking promotion",
+        "File an issue when the board-impact gate blocks promotion",
+        None,  # deliberately no auto-close: it is a work item, not an alert
+    ),
+]
+
+
+def _render(script: str, tmp_path: Path) -> str:
+    """Replace GitHub expressions so the step is plain bash, and point the
+    drift report at a file that exists."""
+    report = tmp_path / "rank_form_drift.txt"
+    report.write_text("drift report\n")
+    script = re.sub(r"\$\{\{[^}]*\}\}", "x", script)
+    return script.replace("/tmp/rank_form_drift.txt", str(report))
+
+
+def _old_tracker_behind_newer_issues(spec: Spec, newer: int = 60) -> list[dict]:
+    seed = [
+        {
+            "number": 898,
+            "title": spec.title,
+            "author": "app/github-actions",
+            "state": "open",
+            "labels": [],  # #898 really is unlabelled: the label fallback filed it
+            "comments": 0,
+        }
+    ]
+    seed += [
+        {
+            "number": 1000 + i,
+            "title": f"Unrelated owner issue {i}",
+            "author": "jasonleetucker-code",
+            "state": "open",
+            "labels": [],
+            "comments": 0,
+        }
+        for i in range(newer)
+    ]
+    return seed
+
+
+@pytest.mark.parametrize("spec", CALIBRATION_OPEN, ids=repr)
+def test_a_tracker_older_than_60_newer_issues_is_found_not_duplicated(tmp_path, spec):
+    h = Harness(tmp_path, spec, "app/github-actions", seed=_old_tracker_behind_newer_issues(spec))
+    result = h.run(_render(_step_script(spec, spec.open_step), tmp_path))
+    assert result.returncode == 0, result.stderr
+    trackers = h.open_trackers()
+    assert [t["number"] for t in trackers] == [898], (
+        f"the 60 newer issues pushed #898 out of the lookup window and a duplicate was filed: "
+        f"{[t['number'] for t in trackers]}"
+    )
+    assert trackers[0]["comments"] == 1, "the existing tracker must be COMMENTED on"
+
+
+def test_the_drift_all_clear_reaches_a_tracker_older_than_60_newer_issues(tmp_path):
+    spec = CALIBRATION_OPEN[0]
+    h = Harness(tmp_path, spec, "app/github-actions", seed=_old_tracker_behind_newer_issues(spec))
+    result = h.run(_render(_step_script(spec, spec.close_step), tmp_path))
+    assert result.returncode == 0, result.stderr
+    assert h.open_trackers() == [], f"#898 must close on a green run: {h.issues}"
+    assert len([i for i in h.issues if i["state"] == "open"]) == 60, "only the tracker closes"
+
+
+def test_the_drift_all_clear_fails_loudly_when_it_cannot_look(tmp_path):
+    spec = CALIBRATION_OPEN[0]
+    h = Harness(tmp_path, spec, "app/github-actions")
+    (h.bindir / "gh").write_text("#!/bin/bash\nexit 7\n")
+    result = h.run(_render(_step_script(spec, spec.close_step), tmp_path))
+    assert "::error title=Tracker lookup failed" in result.stdout + result.stderr
+    assert result.returncode != 0, "a lookup that failed must not read as 'nothing to close'"
+
+
+# --------------------------------------------------------------------------
+# Static guard: no tracker may key on the author login again.
+# --------------------------------------------------------------------------
+
+
+def test_no_workflow_selects_an_issue_by_author_login():
+    """Three tries, three wrong guesses at one spelling (F-23, #958, and
+    health-check.yml's 18 duplicates).  `gh` emits `app/github-actions` for
+    `--json author`, and no normalisation anyone wrote matched it.  Identity is
+    LABEL + exact TITLE; an author predicate in a `select(` is the regression."""
+    offenders: list[str] = []
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for job_name, job in (document.get("jobs") or {}).items():
+            if not isinstance(job, dict):
+                continue
+            for step in job.get("steps") or []:
+                if not isinstance(step, dict):
+                    continue
+                script = step.get("run") or ""
+                if re.search(r"select\([^)]*\.author\.login", script) or re.search(
+                    r"\.author\.login[^\n]*==", script
+                ):
+                    offenders.append(f"{path.name} :: {job_name} :: {step.get('name')}")
+    assert not offenders, (
+        "a workflow identifies its tracker by author login, which gh reports as "
+        "`app/github-actions` and every normalisation so far has missed:\n  "
+        + "\n  ".join(offenders)
+    )

@@ -1,0 +1,35 @@
+{
+  "id": "best_offers_prior_v3",
+  "status": "PRIOR_UNVALIDATED",
+  "owner": "src/trade/best_offers.py",
+  "decided": "2026-10-14 — owner chose a declared, transparent prior with recorded receipts until a validation target exists (OWNER_PRODUCT_BACKLOG_SPEC.md §2.3: exact ranking weights require validation before production).",
+  "note": "These weights ORDER candidates that already passed every hard rule (canonical win, opponent even-or-better on a whole-package-covered external calculator, topology, posture-justified picks, constraints). They never qualify or disqualify a trade. Each factor is in [0, 1]; forcedDropCost, calculatorDivergence and contraryCalculator are COSTS and are subtracted. A factor that cannot be computed is reported as null; inside the roster-aware rerank head an unknown lineupImpact / forcedDropCost ranks as the head's worst known value (rankingImputations), never as free.",
+  "antiExploit": "v3 (2026-10-14, second review): the prior must not reward the size of the disagreement between our board and the external calculator (OWNER_PRODUCT_BACKLOG_SPEC.md §2.3). canonicalEdge saturates early and externalComfort is a plateau that declines past externalExploitBandPct, so full credit is reached by a modest offer. calculatorDivergence (cost) is the larger of (a) PACKAGE disagreement — our canonical edge % plus the opponent's margin % on the qualifying calculator, 0 at divergenceTolerancePct, 1 at divergenceSaturationPct — and (b) the WORST single asset's |ln(board / native)|, 0 at assetDivergenceTolerancePct, 1 at assetDivergenceSaturationRatio. contraryCalculator (cost) is 1 when another approved calculator that prices every asset grades the trade a loss for the opponent. Unknown rerank factors take the head's worst known value, and a benefit is never imputed above zero. All bands are declared priors, not validated thresholds.",
+  "weights": {
+    "mutualBalance": 0.25,
+    "canonicalEdge": 0.15,
+    "externalComfort": 0.15,
+    "lineupImpact": 0.15,
+    "ourNeedFit": 0.08,
+    "theirNeedFit": 0.08,
+    "simplicity": 0.07,
+    "confidence": 0.07,
+    "forcedDropCost": 0.15,
+    "calculatorDivergence": 0.25,
+    "contraryCalculator": 0.1
+  },
+  "scales": {
+    "canonicalEdgeSaturationPct": 15.0,
+    "externalComfortSaturationPct": 10.0,
+    "externalExploitBandPct": 25.0,
+    "externalExploitZeroPct": 50.0,
+    "confidenceSourceBaseline": 8.0,
+    "divergenceTolerancePct": 25.0,
+    "divergenceSaturationPct": 60.0,
+    "assetDivergenceTolerancePct": 25.0,
+    "assetDivergenceSaturationRatio": 2.0
+  },
+  "search": {
+    "lineupRerankTopK": 5
+  }
+}

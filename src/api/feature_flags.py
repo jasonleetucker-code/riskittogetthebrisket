@@ -9,14 +9,18 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-15 of the 26 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 61 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
 ``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
-``source_freshness_weighting``, ``source_family_cap``,
-``game_day_live_game_state``, ``sleeper_weekly_projections`` and
-``rookie_auction`` — several with comments
+``source_freshness_weighting``, ``source_family_cap``, ``source_universe_freshness``,
+``signals_active_source``, ``dlf_offense_only_vote``,
+``two_way_alt_evidence_rules``,
+``fantasypros_idp_upstream_clock``,
+``game_day_live_game_state``, ``sleeper_weekly_projections``,
+``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates``,
+``trade_screenshot_import`` and ``manager_intelligence`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -97,6 +101,31 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # dynamic factors are still computed and stamped on every row, so
     # observability survives rollback, but only the base weight is applied.
     "source_freshness_weighting": True,
+    # The owner's universal freshness SCHEDULE -- HELD, DEFAULT OFF (owner
+    # decision 2026-10-20 on PR #1831, Option B;
+    # docs/owner/PR1831_OPTION_B_DECISION_2026-10-20.md).  The implementation
+    # and the freshness percentages are APPROVED (owner directive 2026-10-19,
+    # "Universal Source Voting and Freshness Policy" §2;
+    # docs/sources/UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md): every dynasty
+    # ranking source's freshness factor is a step function of whole days since
+    # its last GENUINE publisher update -- 0-7 days 1.00, 8-14 0.75, 15-21
+    # 0.50, 22-30 0.25, >30 0 (config/sources/freshness_schedule_v2.json) --
+    # on the vendor-stated publication time where one is recorded, else the
+    # last observed content change; an update time that cannot be established
+    # votes at 0.  ACTIVATION IS HELD for the owner: turned on it moved 918
+    # values (LaJohntay Wester +42.9%), and the INCUMBENT outlier filter can
+    # remove legitimate source votes when the voting population changes --
+    # the defect outlier-integrity-v2 exists to fix.  Setting this default
+    # True (or RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2 true-y in any
+    # deploy/config/env surface) IS the owner's freshness activation decision
+    # and may only be made with the owner's explicit approval --
+    # ``tests/api/test_freshness_v2_hold_locked.py`` fails otherwise, and
+    # deploy/verify-deploy.sh fails a production deploy whose effective flag
+    # is ON.  OFF: the v1 cadence-relative curve, byte for byte (the board is
+    # identical to main); the per-source voting status reports the v1 rule.
+    # ``source_freshness_weighting`` still decides whether ANY freshness
+    # factor is applied.  Activation, once approved: flip this default.
+    "source_freshness_schedule_v2": False,
     # Family-capped source voting (owner directive 2026-09-24;
     # docs/sources/SOURCE_FRESHNESS_WEIGHTING.md).  ON: every member of a
     # correlation family votes with its own effective weight and the
@@ -106,6 +135,207 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # family-head selection — the registry-first member votes, the rest
     # are stamped supersededBy.
     "source_family_cap": True,
+    # Universe-aware source freshness (#1555 V2-1, 2026-09-30).  ON: a source
+    # whose one board prices offense AND IDP players (IDP Trade Calculator) ages
+    # each row from its own universe's broad-change clock, capped at the source
+    # clock -- an IDP-only publication no longer refreshes unchanged offense rows
+    # (src/sources/freshness.py::SubsetFreshness.universe_clock).  It can only
+    # make evidence OLDER, never fresher.  OFF (RISKIT_FEATURE_SOURCE_UNIVERSE_
+    # FRESHNESS=0 + restart): one clock per subset, the prior behaviour.
+    "source_universe_freshness": True,
+    # Signals Fantasy as an ACTIVE canonical source (owner addendum
+    # 2026-10-03; docs/sources/SIGNALS_FANTASY_INTEGRATION.md §9).  ON: the
+    # authenticated native-value boards vote (``signalsSf``; the IDP family
+    # boards ``signalsIdp{Dl,Lb,Db}`` are collected and run in SHADOW until
+    # ``signals_idp_shared_market`` — ``data_contract.PRIVATE_SOURCE_VOTE_HOLDS``)
+    # as value-ordered rank signals inside the FantasyCalc B10 family
+    # wherever the box-local private store is present.  OFF
+    # (RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0 + restart): both keys leave the
+    # active source set exactly as a disabled source does — no vote, not
+    # expected — while their native values stay visible; the contract stamps
+    # ``privateSourceAvailability[*].rolledBack``.
+    "signals_active_source": True,
+    # Signals IDP MASTER switch (2026-10-04; meaning narrowed 2026-10-19, owner
+    # directive SIGNALS_IDP_VOTING_2026-10-19).  OFF: the three Signals IDP
+    # boards (signalsIdpDl/Lb/Db) run in SHADOW — their within-family rank is
+    # translated onto the shared market (the bridge owner's family ladder)
+    # and published per row as ``sourceShadowMeta``, with no vote.
+    # ALONE IT NO LONGER ACTIVATES ANYTHING: a family votes only when this,
+    # its own family flag (``signals_idp_{dl,lb,db}_vote``) AND
+    # ``signals_idp_xwalk_v2`` are all ON (AND semantics,
+    # ``data_contract.PRIVATE_SOURCE_HOLD_RELEASE_FLAGS``).  With this ON and
+    # every other release flag OFF the board is byte-identical to the default.
+    # Rollback of ALL Signals IDP: RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0
+    # + restart.
+    "signals_idp_shared_market": False,
+    # Signals IDP FAMILY-scoped quarantine (owner directive 2026-10-19,
+    # PR-H).  OFF (incumbent): one IDP family failing its own floor /
+    # collapse check withholds the whole IDP release — every family keeps
+    # its last good board.  ON: only the failing family is withheld (its
+    # CSV, clock and ``_last_success`` untouched); the passing families
+    # publish with their own clocks.  Any internal error in the
+    # family-scoped path falls back to release-level quarantine.  The gate
+    # runs in the ``dynasty-signals-values`` collector
+    # (``src/sources/signals.py::collect_value_dataset``), whose unit has no
+    # EnvironmentFile, so the registry default governs it; it moves no
+    # served value by itself (a family board votes only through its own vote
+    # state).  Rollback: revert the default (or set the env var in the unit).
+    "signals_idp_family_quarantine": False,
+    # Per-family Signals IDP release switches (owner directive 2026-10-19).
+    # Each lifts ONE family's hold, and only together with the master
+    # (``signals_idp_shared_market``) and ``signals_idp_xwalk_v2``.  Default
+    # OFF; flipped per family only after that family's preregistered gates,
+    # independent review and the applicable owner decisions.  Rollback of one
+    # family: RISKIT_FEATURE_SIGNALS_IDP_<FAM>_VOTE=0 + restart.
+    "signals_idp_dl_vote": False,
+    "signals_idp_lb_vote": False,
+    "signals_idp_db_vote": False,
+    # Candidate F, the coverage-aligned within-family crosswalk
+    # (``src/bridges/family_crosswalk.py``; docs/sources/
+    # SIGNALS_FANTASY_INTEGRATION.md).  ON: the Signals IDP shadow stamps (and
+    # any released family's vote) use F — votes are a permutation of the
+    # matched players' bridge coordinates; Signals-only and rookie rows are
+    # withheld with a reason — plus the Signals-scoped Sleeper-id
+    # contradiction guard.  OFF: the shadow keeps Candidate A, which can never
+    # vote: master + family ON with this OFF is ``held:
+    # no_qualified_translation``.  Rollback of the method:
+    # RISKIT_FEATURE_SIGNALS_IDP_XWALK_V2=0 + restart (held, never A).
+    "signals_idp_xwalk_v2": False,
+    # DLF IDP HOLD -- TEMPORARY, AND LOCKED BY THE OWNER (Option 3,
+    # 2026-10-20).  This flag is NOT an exclusion of DLF's IDP opinion: the
+    # universal source-voting directive of 2026-10-19 approves restoring
+    # ``dlfIdp`` / ``dlfRookieIdp`` inside DLF's one provider-family cap, and
+    # the restore is implemented (this flag OFF).  It stays ON because
+    # restoring DLF IDP under the INCUMBENT outlier filter
+    # (``_hampel_filter_per_player``) drops valid Draft Sharks IDP /
+    # FantasyPros IDP / IDP Trade Calculator votes -- 34-54% moves on rows
+    # such as Trevin Wallace, none from DLF's own vote.  On 2026-10-20 the
+    # owner chose Option 3: do NOT accept those moves, do NOT activate the
+    # candidate replacement filter (it failed 3 of its 6 mandatory
+    # adversarial tests), and keep DLF IDP voting disabled until a
+    # PREREGISTERED outlier-filter Version 2 passes EVERY mandatory gate.
+    # Lifting this hold (default False, or RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE
+    # set false-y in any deploy/config/env surface) IS the owner's DLF IDP
+    # activation decision and may only be made with the owner's explicit
+    # approval -- ``tests/api/test_dlf_idp_hold_locked.py`` fails otherwise.
+    # ON: the DLF IDP boards stay ingested and displayed but are held from
+    # the vote through ``data_contract.POLICY_SOURCE_VOTE_HOLDS`` (the same
+    # active-source gate seasonal inactivity and private holds use);
+    # ``dlfSf`` / ``dlfRookieSf`` / ``dlfValuesSfTep`` vote unchanged.
+    "dlf_offense_only_vote": True,
+    # DLF VALUES RANK -> HILL VOTE -- HELD, DEFAULT OFF (owner decision
+    # 2026-10-20, "Hold D4 for V2").  HELD pending outlier-integrity-v2 +
+    # explicit owner approval.  The implementation (owner closeout 2026-10-18
+    # Decision 4, kept by the source-voting directive of 2026-10-19) is
+    # intact: ``dlfValuesSfTep`` is registered as an offense-only member of
+    # the existing ``dlf`` family (its native value ORDER -> percentile ->
+    # Hill; raw/max rejected) and SPLITS DLF's one provider cap with DLF
+    # Rank.  It is held because under the INCUMBENT outlier filter
+    # (``_hampel_filter_per_player``) turning it on newly drops OTHER
+    # sources' valid votes on 12-13 offense rows (6 Draft Sharks, plus IDPTC,
+    # Yahoo/Boone, KTC Crowd, FantasyPros; e.g. Theo Johnson -7.4%) -- the
+    # same mechanism class the owner rejected for DLF IDP.  The owner's
+    # outlier-integrity-v2 directive
+    # (docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md, addendum)
+    # makes D4 a second restoration target.  Setting this default True (or
+    # RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE true-y in any deploy/config/
+    # env surface) IS the owner's D4 activation decision and may only be made
+    # with the owner's explicit approval after V2 passes --
+    # ``tests/api/test_dlf_values_hold_locked.py`` fails otherwise, and
+    # deploy/verify-deploy.sh fails a production deploy whose effective flag
+    # is ON.  OFF: collected and displayed, held from the vote by the
+    # owner-policy vote-hold gate (``data_contract.POLICY_SOURCE_VOTE_HOLDS``);
+    # decision fields identical to main.  Activation, once approved:
+    # flip this default (the only step).
+    "dlf_values_rank_hill_vote": False,
+    # Two-way boost alt-family evidence (PR #1817 review + owner source-voting
+    # directive 2026-10-19).  ON: ``data_contract._apply_two_way_player_boost``
+    # prices a two-way player's alt-family value as a REAL member of that
+    # family with the same observations would be priced: only sources that
+    # VOTE there on this build (the blend loop's own per-(row, source) weight
+    # owner, after holds, freshness and user overrides), the incumbent blend,
+    # and the single-source retention applied once when the alt evidence rests
+    # on one B10 family.  A correctness fix: a quarantined, held or disabled
+    # source no longer prices a player through the side door.  OFF
+    # (RISKIT_FEATURE_TWO_WAY_ALT_EVIDENCE_RULES=0 + restart): the prior boost,
+    # byte for byte.
+    "two_way_alt_evidence_rules": True,
+    # FantasyPros IDP on its actual upstream clock (owner closeout 2026-10-18
+    # Decision 5, kept by the 2026-10-19 directive).  ON: the ``style:
+    # EXPLICIT_UPSTREAM_TIMESTAMP`` that ``config/sources/freshness_v1.json``
+    # declares for ``fantasyProsIdp`` (``styleFlag``) is in force, so the
+    # voting clock is the vendor's stated expert-update time and re-scraping an
+    # old ranking can never refresh its age.  Today it moves confidence
+    # labels/axes only; once a second non-anchor IDP voter exists the lower
+    # weight reaches values.  OFF
+    # (RISKIT_FEATURE_FANTASYPROS_IDP_UPSTREAM_CLOCK=0 + restart): the style is
+    # dropped and the prior broad-change clock applies.
+    "fantasypros_idp_upstream_clock": True,
+    # Joint outlier + sparse-evidence CHALLENGER (#1555 Batch 2 Unit C,
+    # owner decision B 2026-10-01) -- two separately promotable halves, both
+    # OFF until the owner approves that specific candidate (valuation
+    # methodology).  Measured: docs/valuation/evidence/joint-challenger-2026-10-01/.
+    # FILTER half: the per-player outlier filter weighs family-capped evidence
+    # (src/api/joint_robust_filter.py -- weak evidence cannot remove dominant
+    # evidence; never manufactures a single-family row).  Needs
+    # source_family_cap; with the cap off it stands down to the incumbent.
+    "joint_outlier_sparse_challenger": False,
+    # Rank-space Hampel challenger (owner master package 2026-10-17, audit F1;
+    # docs/valuation/evidence/rank-space-hampel-2026-10-17/PREREGISTRATION.md):
+    # the same per-player outlier filter computed in the Hill curve's
+    # percentile coordinates instead of values.  Shadow evaluation only;
+    # promotion is an owner decision after the preregistered rule passes.
+    "rank_space_hampel_challenger": False,
+    # Per-vote rank-space Hampel challenger (owner follow-up 2026-10-17;
+    # docs/valuation/evidence/rank-space-hampel-per-vote-2026-10-17/
+    # PREREGISTRATION.md): the same filter with each vote inverted through the
+    # forward map (curve + TE transform) that produced it.  A separate
+    # experiment from rank_space_hampel_challenger, whose NOT BETTER result
+    # stands.  Shadow evaluation only; promotion is an owner decision.
+    "rank_space_hampel_per_vote_challenger": False,
+    # IDP three-voter Hampel challenger ``idp-hampel-n3-v1`` (owner closeout
+    # 2026-10-18, Decision 1; docs/valuation/evidence/idp-outlier-n3-2026-10-18/
+    # PREREGISTRATION.md): the served per-player outlier filter, unchanged,
+    # with min n = 3 on ``assetClass == "idp"`` rows only.  Offense and pick
+    # rows take the incumbent path byte for byte, and every other filter
+    # challenger takes precedence.  Shadow evaluation only; the DLF IDP vote
+    # hold is independent of it.  Promotion is an owner decision.
+    "idp_hampel_n3_challenger": False,
+    # IDP deep-tail native-value challenger ``idp-deep-tail-native-v1`` (owner
+    # closeout 2026-10-18, Decision 6; docs/valuation/evidence/
+    # idp-deep-tail-native-2026-10-18/PREREGISTRATION.md): an IDP row's
+    # shared-market rank vote at effective rank 500 < r <= 904 is priced at the
+    # IDP Trade Calculator's own native value for that rank
+    # (src/canonical/deep_tail_native.py) instead of the Hill/tail
+    # extrapolation.  No Hill constant, reference N, tail saturation rank or
+    # coordinate changes.  Shadow evaluation only; promotion is an owner decision.
+    "idp_deep_tail_native_challenger": False,
+    # Disagreement-preserving outlier policy ``outlier-corroborated-v1`` (owner
+    # directive 2026-10-19 "Universal source voting and freshness", §6;
+    # src/api/outlier_policy.py; preregistered in docs/valuation/evidence/
+    # outlier-disagreement-2026-10-19/PREREGISTRATION.md before it was run).
+    # ON: the per-player filter rejects only a gross, uncorroborated vote (more
+    # than 4x off the other families in implied rank AND 1,000 points off, with
+    # no other family within 2x) or the votes of a board the scale screen finds
+    # mis-scaled; valid disagreement keeps its vote.  OFF: the incumbent Hampel
+    # filter, byte for byte.  Every other filter challenger takes precedence.
+    # Stays OFF until independent validation and an owner decision.  Rollback if
+    # ever switched on: RISKIT_FEATURE_OUTLIER_DISAGREEMENT_POLICY=0 + restart.
+    "outlier_disagreement_policy": False,
+    # SPARSE half: one voting family is stamped ``limitedEvidence`` and the
+    # 0.30 single-source retention is not applied.
+    "joint_sparse_limited_evidence": False,
+    # Sparse-evidence ESTIMATOR (Batch 3 Unit E, 2026-10-01) -- a CHALLENGER,
+    # OFF until a preregistered gate passes and is independently reviewed
+    # (valuation methodology).  ON: the rows the 0.30 single-source retention
+    # would hit keep their one family's observation as central evidence,
+    # bounded above by healthy eligible families that did NOT list the player
+    # (censor-aware, counted by family; src/api/sparse_evidence.py), and carry
+    # an additive ``sparseEvidence`` block.  OFF: the incumbent haircut, byte
+    # for byte.  Evidence: docs/valuation/evidence/sparse-evidence-2026-10-01/.
+    # Rollback if ever switched on: RISKIT_FEATURE_SPARSE_EVIDENCE_ESTIMATOR=0
+    # and restart (flag reads are cached per process).
+    "sparse_evidence_estimator": False,
     # C1-U4 — ledger-derived rankChange on the canonical contract.  ON
     # derives each ranked row's rankChange from the temporal ledger's
     # previous recorded board; OFF stamps None on every row (deliberately
@@ -352,6 +582,88 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # /api/auction/* route 503s feature_disabled and the runtime loop does
     # not start.  Rollback: RISKIT_FEATURE_ROOKIE_AUCTION=0 and restart.
     "rookie_auction": True,
+    # DFS workspace (``src/dfs/``, owner directive 2026-09-30).  Private
+    # /api/dfs/* router: slate import, projection-baseline lineup builds and
+    # upload-CSV export.  Additive — it reads and writes only data/dfs/ and
+    # never touches the dynasty board.  Off → every /api/dfs/* route 503s
+    # FEATURE_DISABLED.  Rollback: RISKIT_FEATURE_DFS_WORKSPACE=0 + restart.
+    "dfs_workspace": True,
+    # DFS licensed slate feed (``src/dfs/providers.py``, owner addendum
+    # 2026-09-30): SportsDataIO DfsSlatesByDate → canonical slate.  DEFAULT
+    # OFF: the feed is paid, no SPORTSDATAIO_API_KEY is provisioned, and its
+    # DraftKings/FanDuel coverage is documented but not verified.  Off → the
+    # provider endpoints answer PROVIDER_UNAVAILABLE and the official platform
+    # CSV remains the path.  Enable only after owner approval of the plan:
+    # RISKIT_FEATURE_DFS_SPORTSDATAIO_SLATES=1 + the key + restart.
+    "dfs_sportsdataio_slates": False,
+    # DFS automatic slates (``src/dfs/auto/``, permanent owner requirement
+    # 2026-09-30: zero manual CSV imports).  NFL DraftKings + FanDuel slates
+    # derived from the schedule, priced from the owner-authorised Daily
+    # Fantasy Fuel pages, projected from independent families.  Additive: it
+    # writes only data/dfs/ (system:auto snapshots) and never touches the
+    # dynasty board.  Off → /api/dfs/auto/slates answers FEATURE_DISABLED,
+    # queues no refresh, and the timer tick exits 2; the manual file path is
+    # unaffected.  Rollback: RISKIT_FEATURE_DFS_AUTO_SLATES=0 + restart.
+    "dfs_auto_slates": True,
+    # Import Trade from Screenshot (C3-IMPORT-IMAGE): ``POST
+    # /api/trade/import-screenshot`` reads an uploaded screenshot with the
+    # LOCAL tesseract binary and returns asset identities + sides only
+    # (never values).  Additive: it writes nothing, retains nothing, and the
+    # calculator still prices every asset from the canonical board.  A box
+    # without the ``tesseract-ocr`` package answers 503 ``ocr_unavailable``
+    # rather than failing.  Off → the route answers 404 feature_disabled and
+    # the status endpoint reports ``enabled: false``.
+    # Rollback: RISKIT_FEATURE_TRADE_SCREENSHOT_IMPORT=0 + restart.
+    "trade_screenshot_import": True,
+    # Manager Intelligence (owner directive 2026-10-16): ``GET
+    # /api/manager-intel/profile`` resolves any Sleeper username and
+    # aggregates that manager's league rosters into one player portfolio,
+    # priced by the canonical board.  Private (signed-in users only),
+    # rate-limited, read-only, writes nothing.  Default ON: the owner
+    # confirmed 2026-10-17 the site is non-commercial, so Sleeper's free
+    # public API terms apply.  Off → 503 feature_disabled and the nav item
+    # disappears.  Rollback: RISKIT_FEATURE_MANAGER_INTELLIGENCE=0 + restart.
+    "manager_intelligence": True,
+    # Brisket Trade Advisor (owner directive 2026-10-19; FAIRNESS-ONLY
+    # amendment 2026-10-20): the public League Hub trade advisor,
+    # ``/api/public/league/trade-advisor/*`` (src/api/public_trade_advisor_api.py).
+    # Returns team / asset identities and, per team of a 2-4-team trade, FAIR /
+    # NOT FAIR / UNABLE TO DETERMINE from the shared N-team engine — never a
+    # value and never a take/pass recommendation.  Default OFF until the owner
+    # approves launch; even ON, every route stays 503 until the launch gate in
+    # config/trade/public_advisor.json passes (measured floor, approved
+    # non-provisional fairness version, source-permission record).  Off → 503
+    # advisor_unavailable/disabled, private calculator unaffected.
+    # Enable: RISKIT_FEATURE_BRISKET_TRADE_ADVISOR=1 + restart.
+    "brisket_trade_advisor": False,
+    # N-team trade analysis (owner directive 2026-10-20; spec
+    # docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §6.1): gates the private
+    # ``POST /api/trade/analyze-multi`` route (and, through the frontend flag
+    # path, the multi-team War Room).  It does NOT gate the shared engine
+    # (``analyze_service.analyze_trade_n``), which the public advisor also
+    # reads.  Default OFF until the Lane E regressions and independent review
+    # pass; turned on only through the normal release process.  Off → 503
+    # multi_team_analysis_disabled; the 2-team routes are unchanged either way.
+    # Rollback: RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0 + restart.
+    "trade_multi_team_analysis": False,
+    # Low-value depth disclosure SHADOW COUNTERS -- HELD, DEFAULT OFF (owner
+    # decision 2026-10-21, LVA Package 4, V4 "approved for shadow measurement
+    # only"; docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md).  ON: each private
+    # 2-team evaluation (/api/trade/simulate = calculator, /api/trade/analyze =
+    # War Room) asks ``src/trade/depth_disclosure.py`` whether the depth note
+    # WOULD fire (rule A-guarded, floor threshold, picks included, guard kept)
+    # and adds aggregate COUNTS to the box-local
+    # data/trade/depth_disclosure_shadow/ store (``depth_disclosure_shadow``),
+    # read only through the admin + league-member route
+    # GET /api/trade/depth-disclosure-shadow.  It never changes a response,
+    # renders no copy, and stores no name or value.  OFF: nothing runs, every
+    # payload byte-identical, the read route answers 404.  Turning it on is the
+    # owner's G3 shadow-window decision (design
+    # docs/trade/LOW_VALUE_DEPTH_DISCLOSURE_DESIGN_2026-10-20.md §10);
+    # deploy/verify-deploy.sh fails a deploy whose effective flag is ON
+    # (scripts/verify_owner_held_flags.py).  Rollback:
+    # RISKIT_FEATURE_LOW_VALUE_DEPTH_DISCLOSURE_SHADOW=0 + restart.
+    "low_value_depth_disclosure_shadow": False,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -511,6 +823,56 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # fetch.
     "fantasynerds_weekly_projections": False,
     "sportsdataio_weekly_projections": False,
+    # Owner Decision 11 (2026-10-18) — playoff / title odds count a team's ROS
+    # evidence ONCE.  ``src/ros/playoff_sim._compose_team_distribution``: on a
+    # best-ball pre-sim basis (itself drawn from each player's rosValue) the
+    # incumbent re-applies the ROS z-score mean multiplier and the
+    # roster-depth variance lift, both summaries of the same rosValues.  ON
+    # serves the corrected equation; OFF serves the incumbent byte for byte.
+    # Start/sit leagues (empirical basis) are identical either way.  OFF
+    # (shadow only) because the preregistered comparison failed gate G4
+    # (docs/research/PLAYOFF_ROS_DOUBLE_COUNT_D11.md): it improved weekly
+    # log loss 1.133 -> 0.661 but its score distribution was worse
+    # calibrated (mean PIT 0.95 vs 0.83).  Turning it on is a disposition
+    # change that needs a re-run that passes every gate, not an opt-in.
+    # Rollback if ever switched on: RISKIT_FEATURE_PLAYOFF_ROS_COUNTED_ONCE=0
+    # + restart.
+    "playoff_ros_counted_once": False,
+    # Owner decision 2026-10-20 §2 (forced-drop correctness fix, CANDIDATE).
+    # ``src/trade/forced_drop_selection.py``, read by
+    # ``roster_capacity.assess_roster_capacity``: ON, a trade's forced release
+    # is the cheapest LINEUP-LEGAL cut by the same ``base x scarcity`` it is
+    # charged (no alphabetical choice among sub-waiver players), a
+    # just-acquired piece released is removed from the package rather than
+    # charged its raw value, unpriced drops are charged (never excluded) by
+    # every surface, and the charge is marginal to the trade.  OFF serves the
+    # incumbent byte for byte (tests/trade/test_forced_drop_flag_off_identity.py).
+    # OFF until the owner approves the measured production impact
+    # (docs/trade/FORCED_DROP_FIX_2026-10-20.md §8).  Rollback if ever on:
+    # RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL=0 + restart.  HELD, DEFAULT OFF
+    # (owner decision 2026-10-21, LVA Package 1, item 3: "Keep
+    # forced_drop_cheapest_legal OFF"); deploy/verify-deploy.sh fails a deploy
+    # whose effective flag is ON (scripts/verify_owner_held_flags.py).
+    "forced_drop_cheapest_legal": False,
+    # LI-5 replacement-level consolidation -- HELD, DEFAULT OFF (owner
+    # decision 2026-10-21, LVA Package 3, D2: "Implement behind a default-OFF
+    # flag. No served replacement-level ... changes are authorized";
+    # docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md; design
+    # docs/valuation/LI5_REPLACEMENT_CONSOLIDATION_DESIGN_2026-10-21.md §7).
+    # ON: the displacement consumers (roster capacity -> Trade Calculator /
+    # War Room / Finder / Best Offers / Angle / Suggestions, Perfect Draft
+    # roster context, droppability) read the per-position waiver level as
+    # LI-5's ``waiver_levels`` (mean of free-agent ranks 1-3) over the
+    # ``src/draft/waiver_population.py`` population (each consumer's own
+    # rostered / auction-rookie keys, the waiver add pool, the availability
+    # owner), with an additive ``replacementPopulation`` stamp.  OFF: the
+    # best-single-unrostered anchor, every payload byte-identical
+    # (tests/draft/test_li5_consumer_wiring.py).  Changes no board value,
+    # vote or scarcity (inert 1.0).  Activation is a separate owner decision
+    # (design P4/P5); deploy/verify-deploy.sh fails a deploy whose effective
+    # flag is ON (scripts/verify_owner_held_flags.py).  Rollback:
+    # RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION=0 + restart.
+    "replacement_level_li5_consolidation": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -637,6 +999,34 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # rookie_auction gates the /api/auction/* router mounted in server.py
     # and the auction runtime loop started in lifespan.
     "rookie_auction": LIVE,
+    # dfs_workspace gates the /api/dfs/* router mounted in server.py.
+    "dfs_workspace": LIVE,
+    # dfs_sportsdataio_slates gates src/dfs/providers.py, reached through the
+    # /api/dfs/provider-slates* routes mounted in server.py.
+    "dfs_sportsdataio_slates": LIVE,
+    # dfs_auto_slates gates src/dfs/auto (the /api/dfs/auto/* routes mounted
+    # in server.py, and scripts/refresh_dfs_auto_slates.py on its timer).
+    "dfs_auto_slates": LIVE,
+    # trade_screenshot_import gates /api/trade/import-screenshot inline in
+    # server.py: off → 404 feature_disabled, on → the extraction payload.
+    "trade_screenshot_import": LIVE,
+    # manager_intelligence gates the /api/manager-intel router mounted in
+    # server.py: off → 503 feature_disabled, on → the profile.
+    "manager_intelligence": LIVE,
+    # brisket_trade_advisor gates the /api/public/league/trade-advisor/*
+    # router mounted in server.py: off → 503 advisor_unavailable, on → the
+    # public advisor payloads.
+    "brisket_trade_advisor": LIVE,
+    # trade_multi_team_analysis gates /api/trade/analyze-multi inline in
+    # server.py: off → 503 multi_team_analysis_disabled, on → the per-team
+    # analysis.  Default False (see its _DEFAULTS entry).
+    "trade_multi_team_analysis": LIVE,
+    # low_value_depth_disclosure_shadow gates the depth-note shadow counters
+    # inline in server.py (``_build_trade_simulation``, reached by
+    # /api/trade/simulate and /api/trade/analyze) and the private read route
+    # GET /api/trade/depth-disclosure-shadow.  It changes no trade response
+    # either way (shadow by design); off -> the read route answers 404.
+    "low_value_depth_disclosure_shadow": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,
@@ -654,11 +1044,94 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # a request through ``/api/data`` and every engine that reads the board;
     # off → base weights only, factors still stamped.
     "source_freshness_weighting": LIVE,
+    # source_freshness_schedule_v2 selects the freshness RULE (owner step
+    # schedule vs the v1 cadence curve) in
+    # ``data_contract._source_weighting_resolution``, read on every board
+    # build, which reaches a request through ``/api/data`` and every engine
+    # that reads the board.
+    "source_freshness_schedule_v2": LIVE,
     # source_family_cap gates whether correlated family members all vote
     # under a family cap or the family head alone votes, in
     # ``data_contract._compute_unified_rankings``, which reaches a request
     # through ``/api/data`` and every engine that reads the board.
     "source_family_cap": LIVE,
+    # dlf_offense_only_vote gates the vote hold on the DLF IDP boards in
+    # ``data_contract._policy_source_vote_holds`` -- a TEMPORARY hold
+    # re-applied 2026-10-19 (default ON): the owner rescinded the 2026-10-16
+    # policy hold, but restoring DLF IDP under the incumbent outlier filter
+    # drops valid Draft Sharks / FantasyPros / IDPTC IDP votes (30 rows, up to
+    # 54%), so the restore is held.  LOCKED by the owner's Option 3 decision
+    # of 2026-10-20: it lifts only with explicit owner approval after a
+    # preregistered outlier-filter Version 2 passes every mandatory gate
+    # (tests/api/test_dlf_idp_hold_locked.py).  Mechanism of a lift:
+    # RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart.  Read by
+    # ``build_api_data_contract`` on every board build, which reaches a
+    # request through ``/api/data`` and every engine that reads the board.
+    "dlf_offense_only_vote": LIVE,
+    # dlf_values_rank_hill_vote releases the DLF Values hold inside
+    # ``data_contract._policy_source_vote_holds``; two_way_alt_evidence_rules
+    # gates ``data_contract._apply_two_way_player_boost``'s evidence rules;
+    # fantasypros_idp_upstream_clock gates the configured freshness style in
+    # ``src/sources/freshness.load_config``.  All read on every board build,
+    # which reaches a request through ``/api/data``.
+    "dlf_values_rank_hill_vote": LIVE,
+    "two_way_alt_evidence_rules": LIVE,
+    "fantasypros_idp_upstream_clock": LIVE,
+    # source_universe_freshness caps each row's freshness clock at its own asset
+    # universe's broad-change clock on mixed offense+IDP boards (#1555 V2-1).
+    "source_universe_freshness": LIVE,
+    # signals_active_source gates the Signals voters in
+    # ``data_contract._private_source_vote_state``, reached through
+    # ``build_api_data_contract`` on every /api/data build.
+    "signals_active_source": LIVE,
+    # signals_idp_shared_market (the Signals IDP master) and the three
+    # per-family release flags gate the Signals IDP vote hold in
+    # ``data_contract._private_source_vote_state`` (AND semantics), reached
+    # through ``build_api_data_contract`` on every /api/data build.
+    "signals_idp_shared_market": LIVE,
+    # signals_idp_family_quarantine gates the IDP family-scoped quarantine in
+    # ``src/sources/signals.py`` (imported by server.py, so it measures LIVE);
+    # the gate itself runs in the dynasty-signals-values collector process.
+    "signals_idp_family_quarantine": LIVE,
+    "signals_idp_dl_vote": LIVE,
+    "signals_idp_lb_vote": LIVE,
+    "signals_idp_db_vote": LIVE,
+    # signals_idp_xwalk_v2 selects the Signals IDP crosswalk (Candidate F) in
+    # ``data_contract._compute_unified_rankings`` and the Signals-scoped
+    # identity guard in ``_enrich_from_source_csvs``, both on every board build.
+    "signals_idp_xwalk_v2": LIVE,
+    # joint_outlier_sparse_challenger swaps the per-player outlier filter and
+    # the single-source haircut in ``data_contract._compute_unified_rankings``,
+    # which reaches a request through ``/api/data``; ships OFF (challenger).
+    "joint_outlier_sparse_challenger": LIVE,
+    # rank_space_hampel_challenger swaps the per-player outlier filter's
+    # coordinate system in data_contract._compute_unified_rankings (reaches a
+    # request through /api/data); ships OFF (challenger).
+    "rank_space_hampel_challenger": LIVE,
+    # rank_space_hampel_per_vote_challenger swaps the same filter for its
+    # per-vote coordinate form in the same function (reaches a request through
+    # /api/data); ships OFF (challenger).
+    "rank_space_hampel_per_vote_challenger": LIVE,
+    # idp_hampel_n3_challenger lowers the per-player outlier filter's minimum
+    # voter count to 3 on IDP rows in the same function (reaches a request
+    # through /api/data); ships OFF (challenger).
+    "idp_hampel_n3_challenger": LIVE,
+    # idp_deep_tail_native_challenger reprices deep IDP shared-market rank votes
+    # in the same function's blend loop (reaches a request through /api/data);
+    # ships OFF (challenger).
+    "idp_deep_tail_native_challenger": LIVE,
+    # outlier_disagreement_policy replaces the per-player outlier filter's
+    # decision in the same function and screens each board between two ranking
+    # passes in build_api_data_contract (reaches a request through /api/data);
+    # ships OFF (challenger).
+    "outlier_disagreement_policy": LIVE,
+    # joint_sparse_limited_evidence replaces the single-source haircut with a
+    # limitedEvidence stamp in the same function; ships OFF (challenger).
+    "joint_sparse_limited_evidence": LIVE,
+    # sparse_evidence_estimator replaces the single-source haircut with a
+    # censor-aware central estimate in the same function, which reaches a
+    # request through ``/api/data``; ships OFF (challenger).
+    "sparse_evidence_estimator": LIVE,
     # host_native_scoring gates the stat vocabulary
     # ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats``
     # emits, which reaches a request through ``historical_stats`` →
@@ -722,6 +1195,23 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # False, and they also need their credential env var.
     "fantasynerds_weekly_projections": UNREACHABLE,
     "sportsdataio_weekly_projections": UNREACHABLE,
+    # ``src/ros/playoff_sim.ros_counted_once_enabled`` — read by
+    # ``_build_team_distributions`` on every canonical forecast, reached
+    # through ``/api/public/league/rosPlayoffOdds`` / ``playoffOdds`` /
+    # ``rosChampionship``: on, the corrected ROS-once equation; off, the
+    # incumbent (Owner Decision 11).
+    "playoff_ros_counted_once": LIVE,
+    # ``src/trade/forced_drop_selection.enabled`` — read by
+    # ``roster_capacity.assess_roster_capacity`` on every trade-capacity read
+    # (``/api/trade/simulate``, ``/api/trade/analyze``, ``/api/trade/finder``,
+    # ``/api/angle/*``, suggestions, best offers).  Defaults False.
+    "forced_drop_cheapest_legal": LIVE,
+    # ``src/draft/waiver_population.enabled`` -- read by
+    # ``roster_capacity.build_capacity_context`` (every trade-capacity read),
+    # ``draft.context.build_roster_context`` (/api/draft/roster-context) and
+    # ``roster_intel.droppability.team_droppability``
+    # (/api/roster/intelligence).  Defaults False.
+    "replacement_level_li5_consolidation": LIVE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger

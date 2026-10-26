@@ -1,0 +1,867 @@
+{
+  "_comment": "DFS contest rule sets + capability matrix (owner directive 2026-09-30, docs/dfs/README.md). A rule set is VERSIONED and carries its own verification state. 'unverified' rule sets may power research-mode builds only; money-ready optimization and verified exports fail closed until verification.state == 'verified' with official evidence. Never edit a released version in place: add a new version and supersede.",
+  "schemaVersion": 1,
+  "rulesets": [
+    {
+      "id": "draftkings.nfl.classic",
+      "version": "2026.1",
+      "platform": "draftkings",
+      "sport": "nfl",
+      "format": "classic",
+      "label": "DraftKings NFL Classic",
+      "salaryCap": 50000,
+      "slots": [
+        {
+          "name": "QB",
+          "eligible": [
+            "QB"
+          ]
+        },
+        {
+          "name": "RB",
+          "eligible": [
+            "RB"
+          ]
+        },
+        {
+          "name": "RB",
+          "eligible": [
+            "RB"
+          ]
+        },
+        {
+          "name": "WR",
+          "eligible": [
+            "WR"
+          ]
+        },
+        {
+          "name": "WR",
+          "eligible": [
+            "WR"
+          ]
+        },
+        {
+          "name": "WR",
+          "eligible": [
+            "WR"
+          ]
+        },
+        {
+          "name": "TE",
+          "eligible": [
+            "TE"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "RB",
+            "WR",
+            "TE"
+          ]
+        },
+        {
+          "name": "DST",
+          "eligible": [
+            "DST"
+          ]
+        }
+      ],
+      "maxPlayersPerTeam": null,
+      "minTeams": null,
+      "minGames": 2,
+      "salaryImport": "draftkings_salary_csv_v1",
+      "export": {
+        "format": "draftkings_lineup_upload_v1",
+        "header": [
+          "QB",
+          "RB",
+          "RB",
+          "WR",
+          "WR",
+          "WR",
+          "TE",
+          "FLEX",
+          "DST"
+        ],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official DraftKings upload template has been round-trip tested in this repo yet. Owner action: download a blank lineup-upload template for a real NFL Classic contest and add it as tests/dfs/fixtures/templates/draftkings_nfl_classic_upload.csv."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.draftkings.com/help/rules/nfl returned HTTP 403 to automated fetch and the built-in browser refused the domain under its safety policy (2026-09-30). The roster/cap values here are the commonly documented Classic shape and have NOT been checked against the official page. Owner action: confirm against the official rules page (or supply an official salary/upload template) so this version can be marked verified.",
+        "unverifiedFields": [
+          "salaryCap",
+          "slots",
+          "minGames",
+          "maxPlayersPerTeam"
+        ]
+      }
+    },
+    {
+      "id": "fanduel.nfl.classic",
+      "version": "2026.1",
+      "platform": "fanduel",
+      "sport": "nfl",
+      "format": "classic",
+      "label": "FanDuel NFL Full Roster",
+      "salaryCap": 60000,
+      "slots": [
+        {
+          "name": "QB",
+          "eligible": [
+            "QB"
+          ]
+        },
+        {
+          "name": "RB",
+          "eligible": [
+            "RB"
+          ]
+        },
+        {
+          "name": "RB",
+          "eligible": [
+            "RB"
+          ]
+        },
+        {
+          "name": "WR",
+          "eligible": [
+            "WR"
+          ]
+        },
+        {
+          "name": "WR",
+          "eligible": [
+            "WR"
+          ]
+        },
+        {
+          "name": "WR",
+          "eligible": [
+            "WR"
+          ]
+        },
+        {
+          "name": "TE",
+          "eligible": [
+            "TE"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "RB",
+            "WR",
+            "TE"
+          ]
+        },
+        {
+          "name": "DEF",
+          "eligible": [
+            "D"
+          ]
+        }
+      ],
+      "maxPlayersPerTeam": 4,
+      "minTeams": 3,
+      "minGames": null,
+      "salaryImport": "fanduel_player_list_csv_v1",
+      "export": {
+        "format": "fanduel_lineup_upload_v1",
+        "header": [
+          "QB",
+          "RB",
+          "RB",
+          "WR",
+          "WR",
+          "WR",
+          "TE",
+          "FLEX",
+          "DEF"
+        ],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official FanDuel upload template has been round-trip tested in this repo yet. Owner action: download a blank lineup-upload template for a real NFL contest and add it as tests/dfs/fixtures/templates/fanduel_nfl_classic_upload.csv."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.fanduel.com/rules returned HTTP 403 to automated fetch (2026-09-30). The roster/cap/team values here are the commonly documented Full Roster shape and have NOT been checked against the official page. Owner action: confirm against the official rules page (or supply an official player-list/upload template) so this version can be marked verified.",
+        "unverifiedFields": [
+          "salaryCap",
+          "slots",
+          "maxPlayersPerTeam",
+          "minTeams"
+        ]
+      }
+    },
+    {
+      "id": "draftkings.nba.classic",
+      "version": "2026.1",
+      "platform": "draftkings",
+      "sport": "nba",
+      "format": "classic",
+      "label": "DraftKings NBA Classic",
+      "salaryCap": 50000,
+      "slots": [
+        {
+          "name": "PG",
+          "eligible": [
+            "PG"
+          ]
+        },
+        {
+          "name": "SG",
+          "eligible": [
+            "SG"
+          ]
+        },
+        {
+          "name": "SF",
+          "eligible": [
+            "SF"
+          ]
+        },
+        {
+          "name": "PF",
+          "eligible": [
+            "PF"
+          ]
+        },
+        {
+          "name": "C",
+          "eligible": [
+            "C"
+          ]
+        },
+        {
+          "name": "G",
+          "eligible": [
+            "PG",
+            "SG"
+          ]
+        },
+        {
+          "name": "F",
+          "eligible": [
+            "SF",
+            "PF"
+          ]
+        },
+        {
+          "name": "UTIL",
+          "eligible": [
+            "PG",
+            "SG",
+            "SF",
+            "PF",
+            "C"
+          ]
+        }
+      ],
+      "maxPlayersPerTeam": null,
+      "minTeams": null,
+      "minGames": 2,
+      "salaryImport": "draftkings_salary_csv_v1",
+      "export": {
+        "format": "draftkings_lineup_upload_v1",
+        "header": [
+          "PG",
+          "SG",
+          "SF",
+          "PF",
+          "C",
+          "G",
+          "F",
+          "UTIL"
+        ],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official upload template round-trip tested yet. Owner action: add a blank DraftKings NBA Classic upload template under tests/dfs/fixtures/templates/."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.draftkings.com/help/rules/nba was not checked (the platform's rules pages refuse automated access; 2026-09-30). Values are the commonly documented shape, encoded for research mode only; the platform file's own per-player roster slots are cross-checked on every import. Owner action: confirm against the official rules or supply an official template.",
+        "unverifiedFields": [
+          "salaryCap",
+          "slots",
+          "minGames",
+          "maxPlayersPerTeam"
+        ]
+      }
+    },
+    {
+      "id": "fanduel.nba.classic",
+      "version": "2026.1",
+      "platform": "fanduel",
+      "sport": "nba",
+      "format": "classic",
+      "label": "FanDuel NBA",
+      "salaryCap": 60000,
+      "slots": [
+        {
+          "name": "PG",
+          "eligible": [
+            "PG"
+          ]
+        },
+        {
+          "name": "PG",
+          "eligible": [
+            "PG"
+          ]
+        },
+        {
+          "name": "SG",
+          "eligible": [
+            "SG"
+          ]
+        },
+        {
+          "name": "SG",
+          "eligible": [
+            "SG"
+          ]
+        },
+        {
+          "name": "SF",
+          "eligible": [
+            "SF"
+          ]
+        },
+        {
+          "name": "SF",
+          "eligible": [
+            "SF"
+          ]
+        },
+        {
+          "name": "PF",
+          "eligible": [
+            "PF"
+          ]
+        },
+        {
+          "name": "PF",
+          "eligible": [
+            "PF"
+          ]
+        },
+        {
+          "name": "C",
+          "eligible": [
+            "C"
+          ]
+        }
+      ],
+      "maxPlayersPerTeam": 4,
+      "minTeams": 3,
+      "minGames": null,
+      "salaryImport": "fanduel_player_list_csv_v1",
+      "export": {
+        "format": "fanduel_lineup_upload_v1",
+        "header": [
+          "PG",
+          "PG",
+          "SG",
+          "SG",
+          "SF",
+          "SF",
+          "PF",
+          "PF",
+          "C"
+        ],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official upload template round-trip tested yet. Owner action: add a blank FanDuel NBA upload template under tests/dfs/fixtures/templates/."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.fanduel.com/rules was not checked (the platform's rules pages refuse automated access; 2026-09-30). Values are the commonly documented shape, encoded for research mode only; the platform file's own per-player roster slots are cross-checked on every import. Owner action: confirm against the official rules or supply an official template.",
+        "unverifiedFields": [
+          "salaryCap",
+          "slots",
+          "maxPlayersPerTeam",
+          "minTeams"
+        ]
+      }
+    },
+    {
+      "id": "draftkings.nhl.classic",
+      "version": "2026.1",
+      "platform": "draftkings",
+      "sport": "nhl",
+      "format": "classic",
+      "label": "DraftKings NHL Classic",
+      "salaryCap": 50000,
+      "slots": [
+        {
+          "name": "C",
+          "eligible": [
+            "C"
+          ]
+        },
+        {
+          "name": "C",
+          "eligible": [
+            "C"
+          ]
+        },
+        {
+          "name": "W",
+          "eligible": [
+            "W",
+            "LW",
+            "RW"
+          ]
+        },
+        {
+          "name": "W",
+          "eligible": [
+            "W",
+            "LW",
+            "RW"
+          ]
+        },
+        {
+          "name": "W",
+          "eligible": [
+            "W",
+            "LW",
+            "RW"
+          ]
+        },
+        {
+          "name": "D",
+          "eligible": [
+            "D"
+          ]
+        },
+        {
+          "name": "D",
+          "eligible": [
+            "D"
+          ]
+        },
+        {
+          "name": "G",
+          "eligible": [
+            "G"
+          ]
+        },
+        {
+          "name": "UTIL",
+          "eligible": [
+            "C",
+            "W",
+            "LW",
+            "RW",
+            "D"
+          ]
+        }
+      ],
+      "maxPlayersPerTeam": null,
+      "minTeams": null,
+      "minGames": 2,
+      "salaryImport": "draftkings_salary_csv_v1",
+      "export": {
+        "format": "draftkings_lineup_upload_v1",
+        "header": [
+          "C",
+          "C",
+          "W",
+          "W",
+          "W",
+          "D",
+          "D",
+          "G",
+          "UTIL"
+        ],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official upload template round-trip tested yet. Owner action: add a blank DraftKings NHL Classic upload template under tests/dfs/fixtures/templates/."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.draftkings.com/help/rules/nhl was not checked (the platform's rules pages refuse automated access; 2026-09-30). Values are the commonly documented shape, encoded for research mode only; the platform file's own per-player roster slots are cross-checked on every import. Owner action: confirm against the official rules or supply an official template.",
+        "unverifiedFields": [
+          "salaryCap",
+          "slots",
+          "minGames",
+          "minTeams",
+          "maxPlayersPerTeam"
+        ]
+      }
+    },
+    {
+      "id": "fanduel.nhl.classic",
+      "version": "2026.1",
+      "platform": "fanduel",
+      "sport": "nhl",
+      "format": "classic",
+      "label": "FanDuel NHL",
+      "salaryCap": 55000,
+      "slots": [
+        {
+          "name": "C",
+          "eligible": [
+            "C"
+          ]
+        },
+        {
+          "name": "C",
+          "eligible": [
+            "C"
+          ]
+        },
+        {
+          "name": "W",
+          "eligible": [
+            "W",
+            "LW",
+            "RW"
+          ]
+        },
+        {
+          "name": "W",
+          "eligible": [
+            "W",
+            "LW",
+            "RW"
+          ]
+        },
+        {
+          "name": "D",
+          "eligible": [
+            "D"
+          ]
+        },
+        {
+          "name": "D",
+          "eligible": [
+            "D"
+          ]
+        },
+        {
+          "name": "UTIL",
+          "eligible": [
+            "C",
+            "W",
+            "LW",
+            "RW",
+            "D"
+          ]
+        },
+        {
+          "name": "UTIL",
+          "eligible": [
+            "C",
+            "W",
+            "LW",
+            "RW",
+            "D"
+          ]
+        },
+        {
+          "name": "G",
+          "eligible": [
+            "G"
+          ]
+        }
+      ],
+      "maxPlayersPerTeam": 4,
+      "minTeams": 3,
+      "minGames": null,
+      "salaryImport": "fanduel_player_list_csv_v1",
+      "export": {
+        "format": "fanduel_lineup_upload_v1",
+        "header": [
+          "C",
+          "C",
+          "W",
+          "W",
+          "D",
+          "D",
+          "UTIL",
+          "UTIL",
+          "G"
+        ],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official upload template round-trip tested yet. Owner action: add a blank FanDuel NHL upload template under tests/dfs/fixtures/templates/."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.fanduel.com/rules was not checked (the platform's rules pages refuse automated access; 2026-09-30). Values are the commonly documented shape, encoded for research mode only; the platform file's own per-player roster slots are cross-checked on every import. Owner action: confirm against the official rules or supply an official template.",
+        "unverifiedFields": [
+          "salaryCap",
+          "slots",
+          "maxPlayersPerTeam",
+          "minTeams"
+        ]
+      }
+    },
+    {
+      "id": "draftkings.nfl.showdown_captain",
+      "version": "2026.1",
+      "platform": "draftkings",
+      "sport": "nfl",
+      "format": "showdown_captain",
+      "label": "DraftKings NFL Showdown Captain",
+      "salaryCap": 50000,
+      "slots": [
+        {
+          "name": "CPT",
+          "eligible": [
+            "CPT"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "FLEX"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "FLEX"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "FLEX"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "FLEX"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "FLEX"
+          ]
+        }
+      ],
+      "eligibilityBasis": "platform_slots",
+      "athletePositions": [
+        "QB",
+        "RB",
+        "WR",
+        "TE",
+        "K",
+        "DST"
+      ],
+      "slotPointsMultipliers": {
+        "CPT": 1.5
+      },
+      "maxPlayersPerTeam": 5,
+      "minTeams": 2,
+      "minGames": null,
+      "salaryImport": "draftkings_salary_csv_v1",
+      "export": {
+        "format": "draftkings_lineup_upload_v1",
+        "header": [
+          "CPT",
+          "FLEX",
+          "FLEX",
+          "FLEX",
+          "FLEX",
+          "FLEX"
+        ],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official Showdown upload template round-trip tested yet. Owner action: add a blank DraftKings NFL Showdown upload template under tests/dfs/fixtures/templates/."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.draftkings.com/help/rules/nfl was not checked (403 to automated fetch; the in-app browser refuses the domain). Captain 1.5x points, 1 CPT + 5 FLEX, both teams represented and the salary cap are the commonly documented Showdown shape, encoded for research mode only. The CPT row's 1.5x salary comes from the platform file itself. Owner action: confirm against the official rules or supply an official Showdown salary file + upload template.",
+        "unverifiedFields": [
+          "salaryCap",
+          "slots",
+          "slotPointsMultipliers",
+          "minTeams",
+          "maxPlayersPerTeam"
+        ]
+      }
+    },
+    {
+      "id": "draftkings.mma.classic",
+      "version": "2026.1",
+      "platform": "draftkings",
+      "sport": "mma",
+      "format": "classic",
+      "label": "DraftKings MMA Classic",
+      "salaryCap": 50000,
+      "slots": [
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        },
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        },
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        },
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        },
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        },
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        }
+      ],
+      "maxPlayersPerTeam": null,
+      "minTeams": null,
+      "minGames": null,
+      "salaryImport": "draftkings_salary_csv_v1",
+      "export": {
+        "format": "draftkings_lineup_upload_v1",
+        "header": [
+          "F",
+          "F",
+          "F",
+          "F",
+          "F",
+          "F"
+        ],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official MMA upload template round-trip tested yet. Owner action: add a blank DraftKings MMA upload template under tests/dfs/fixtures/templates/."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.draftkings.com/help/rules/mma was not checked (the platform's rules pages refuse automated access; 2026-09-30). Six fighter slots under a $50,000 cap is the commonly documented Classic shape, encoded for research mode only. NO same-fight restriction is encoded because whether both fighters of one bout may be rostered is unverified — use an 'if A then not B' rule to impose one. Scoring (strikes, takedowns, finish/round bonuses) is not modelled here: builds use the owner's projections. Owner action: confirm against the official rules or supply an official MMA salary file + upload template.",
+        "unverifiedFields": [
+          "salaryCap",
+          "slots",
+          "minGames",
+          "maxPlayersPerTeam"
+        ]
+      }
+    }
+  ],
+  "capabilities": [
+    {
+      "platform": "draftkings",
+      "sport": "nfl",
+      "format": "classic",
+      "ruleset": "draftkings.nfl.classic"
+    },
+    {
+      "platform": "fanduel",
+      "sport": "nfl",
+      "format": "classic",
+      "ruleset": "fanduel.nfl.classic"
+    },
+    {
+      "platform": "draftkings",
+      "sport": "nfl",
+      "format": "showdown_captain",
+      "ruleset": "draftkings.nfl.showdown_captain"
+    },
+    {
+      "platform": "fanduel",
+      "sport": "nfl",
+      "format": "single_game_mvp",
+      "ruleset": null,
+      "reason": "Single-game MVP rules not encoded yet — DFS-RULES-02."
+    },
+    {
+      "platform": "draftkings",
+      "sport": "nba",
+      "format": "classic",
+      "ruleset": "draftkings.nba.classic"
+    },
+    {
+      "platform": "fanduel",
+      "sport": "nba",
+      "format": "classic",
+      "ruleset": "fanduel.nba.classic"
+    },
+    {
+      "platform": "draftkings",
+      "sport": "nhl",
+      "format": "classic",
+      "ruleset": "draftkings.nhl.classic"
+    },
+    {
+      "platform": "fanduel",
+      "sport": "nhl",
+      "format": "classic",
+      "ruleset": "fanduel.nhl.classic"
+    },
+    {
+      "platform": "draftkings",
+      "sport": "mma",
+      "format": "classic",
+      "ruleset": "draftkings.mma.classic"
+    },
+    {
+      "platform": "fanduel",
+      "sport": "mma",
+      "format": "classic",
+      "ruleset": null,
+      "reason": "Whether FanDuel currently offers MMA DFS is unverified — DFS-RULES-05. Not advertised until verified."
+    }
+  ]
+}

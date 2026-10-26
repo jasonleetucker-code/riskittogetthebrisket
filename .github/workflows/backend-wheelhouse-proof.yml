@@ -1,0 +1,89 @@
+name: Backend Wheelhouse Proof
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/backend-wheelhouse-proof.yml'
+      - 'scripts/backend_wheelhouse.py'
+      - 'scripts/build_backend_wheelhouse.sh'
+      - 'scripts/stage_backend_artifact.py'
+      - 'tests/deploy/test_stage_backend_artifact.py'
+      - 'tests/scripts/test_backend_wheelhouse.py'
+      - 'requirements.lock.txt'
+      - 'requirements-dev.lock.txt'
+      - 'requirements-build.lock.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-wheelhouse-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  prove-linux-wheels:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Verify lock and artifact logic
+        run: |
+          set -Eeuo pipefail
+          python scripts/python_lock.py check
+      - name: Download locked Linux packages and test an offline wheel install
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build_backend_wheelhouse.sh \
+            requirements-dev.lock.txt calculator-backend-wheels.tar
+          calculator-backend-wheels.tar.work/offline-venv/bin/python -m pytest -q \
+            tests/scripts/test_backend_wheelhouse.py \
+            tests/deploy/test_stage_backend_artifact.py
+      - name: Bind wheel bytes to the tested lock and runtime
+        run: |
+          set -Eeuo pipefail
+          sha256sum -c calculator-backend-wheels.tar.sha256
+      - name: Upload measured backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: calculator-backend-wheels-${{ github.event.pull_request.head.sha }}
+          path: |
+            calculator-backend-wheels.tar
+            calculator-backend-wheels.tar.sha256
+          compression-level: 0
+          if-no-files-found: error
+
+  prove-runtime-wheels:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout runtime proof without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Python for runtime proof
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Build and verify production runtime wheels offline
+        run: |
+          set -Eeuo pipefail
+          python scripts/python_lock.py check
+          bash scripts/build_backend_wheelhouse.sh \
+            requirements.lock.txt backend-wheelhouse.tar
+          sha256sum -c backend-wheelhouse.tar.sha256
+      - name: Upload production runtime wheel proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: calculator-runtime-wheels-${{ github.event.pull_request.head.sha }}
+          path: |
+            backend-wheelhouse.tar
+            backend-wheelhouse.tar.sha256
+          compression-level: 0
+          if-no-files-found: error

@@ -11,8 +11,15 @@
 // the row level — you can see *which* sources were rejected without
 // pivoting to the audit panel.
 //
+// Not-voting markers: an observation the backend kept in sourceRankMeta
+// with ``contributedToBlend: false`` (zero freshness/health weight, or
+// superseded by its provider family) did NOT enter the blend.  Its
+// ``valueContribution`` is the would-be vote, so it is drawn muted and
+// labelled "(not voting)" — never as a contributing bar.
+//
 // Input contract:
-//   row.sourceRankMeta: { [sourceKey]: { valueContribution: number } }
+//   row.sourceRankMeta: { [sourceKey]: { valueContribution: number,
+//                                        contributedToBlend?: boolean } }
 //   row.droppedSources: string[]  (optional — pre-Hampel rows stamp ``[]``)
 //   labelFor(sourceKey): string   (optional — short column label)
 //
@@ -39,6 +46,7 @@ export default function SourceContributionBars({
       key,
       value: Number(m?.valueContribution ?? 0),
       dropped: droppedSet.has(key),
+      notVoting: m?.contributedToBlend === false,
     }))
     .filter((e) => Number.isFinite(e.value) && e.value > 0)
     .sort((a, b) => b.value - a.value);
@@ -69,8 +77,12 @@ export default function SourceContributionBars({
         {entries.map((e, i) => {
           const y = i * bandHeight + (bandHeight - barHeight) / 2;
           const w = x(e.value);
-          const fill = e.dropped ? CHART_COLORS.danger : CHART_COLORS.accent;
-          const opacity = e.dropped ? 0.35 : 0.9;
+          const fill = e.notVoting
+            ? CHART_COLORS.axis
+            : e.dropped
+              ? CHART_COLORS.danger
+              : CHART_COLORS.accent;
+          const opacity = e.dropped || e.notVoting ? 0.35 : 0.9;
           return (
             <g key={e.key}>
               <text
@@ -92,7 +104,7 @@ export default function SourceContributionBars({
                 fillOpacity={opacity}
                 rx={2}
               />
-              {e.dropped ? (
+              {e.dropped && !e.notVoting ? (
                 <line
                   x1={0}
                   x2={w}
@@ -110,7 +122,7 @@ export default function SourceContributionBars({
                 fill={CHART_COLORS.axisLabel}
               >
                 {formatNumber(e.value)}
-                {e.dropped ? " (dropped)" : ""}
+                {e.notVoting ? " (not voting)" : e.dropped ? " (dropped)" : ""}
               </text>
             </g>
           );

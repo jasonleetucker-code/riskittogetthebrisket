@@ -1,0 +1,4087 @@
+{
+ "phase": 2,
+ "hunter": {
+  "held": false,
+  "reason": "recorded-revision board carries the recorded value"
+ },
+ "memo": "docs/valuation/PACKAGE_MODEL_PHASE2_RESEARCH_2026-10-19.md",
+ "board": {
+  "rawPayload": "exports/latest/dynasty_data_2026-10-19.json",
+  "atRevision": "f2e0f614bcd2a47618426a05592efbd8a3942fb0",
+  "sha256": "b639608f68176b9a395527e6e9ea992e324baa75d997b8ea289e587e61eae11c",
+  "source": "built by the recorded revision's own pipeline (extracted)",
+  "file": "board_p1p2.json",
+  "extractSha256": "2d5992397b11dedeb31b8d01956c9b7750bd3331ea8b5a3259cda2f925a54002",
+  "revision": "79c32282868f20c3298ae28d5abf9b030c5293fe",
+  "checkoutClean": true,
+  "recordedRunProvenance": {
+   "rawPayload": "exports\\latest\\dynasty_data_2026-10-19.json",
+   "rawPayloadSha256": "d5c5f9e43a87d6056a415d2cb13d10e1acf97a5c1ec5db001159f4d66dcd5207",
+   "codeSha": "79c32282868f20c3298ae28d5abf9b030c5293fe",
+   "pricedAssets": 1029,
+   "byClass": {
+    "offense": 488,
+    "idp": 397,
+    "pick": 144
+   }
+  },
+  "pricedAssets": 1029,
+  "builtBoardSha256": "3cee7fc7fc15454be6d2f44ed999d1b19b8b0db5b514b89dfcc1a9d0784f28e6"
+ },
+ "reproduction": [
+  {
+   "section": "depthVsFiller",
+   "leavesRecorded": 293,
+   "leavesRerun": 293,
+   "leavesCompared": 293,
+   "leavesEqual": 293,
+   "onlyInRecorded": 0,
+   "onlyInRerun": 0,
+   "bandDependentLeavesDifferent": 0,
+   "differences": []
+  },
+  {
+   "section": "asymmetric",
+   "leavesRecorded": 180,
+   "leavesRerun": 180,
+   "leavesCompared": 180,
+   "leavesEqual": 180,
+   "onlyInRecorded": 0,
+   "onlyInRerun": 0,
+   "bandDependentLeavesDifferent": 0,
+   "differences": []
+  },
+  {
+   "section": "realExamples",
+   "leavesRecorded": 291,
+   "leavesRerun": 291,
+   "leavesCompared": 291,
+   "leavesEqual": 291,
+   "onlyInRecorded": 0,
+   "onlyInRerun": 0,
+   "bandDependentLeavesDifferent": 0,
+   "differences": []
+  }
+ ],
+ "depthVsFiller": {
+  "v1_legacy": [
+   {
+    "case": "six starters, raw 1.8x",
+    "package": [
+     2700,
+     2700,
+     2700,
+     2700,
+     2700,
+     2700
+    ],
+    "raw": 16200,
+    "effectiveCount": 6.0,
+    "GEOM_78": {
+     "starLead": -509,
+     "level": "fair"
+    },
+    "KTC": {
+     "starLead": 3552,
+     "level": "unfair"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 1522,
+     "level": "slight"
+    },
+    "FGEOM_70_20": {
+     "starLead": -593,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "starLead": -3558,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "starLead": -2986,
+     "level": "lopsided"
+    },
+    "EFD_115": {
+     "starLead": -3824,
+     "level": "lopsided"
+    },
+    "EFD_130": {
+     "starLead": -1714,
+     "level": "unfair"
+    },
+    "GEOM_85": {
+     "starLead": -2211,
+     "level": "unfair"
+    },
+    "LP_150": {
+     "starLead": 85,
+     "level": "fair"
+    }
+   },
+   {
+    "case": "six starters, raw 1.2x",
+    "package": [
+     1800,
+     1800,
+     1800,
+     1800,
+     1800,
+     1800
+    ],
+    "raw": 10800,
+    "effectiveCount": 6.0,
+    "GEOM_78": {
+     "starLead": 2661,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "starLead": 6120,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 4390,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "starLead": 2605,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "starLead": 628,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "starLead": 1009,
+     "level": "slight"
+    },
+    "EFD_115": {
+     "starLead": 451,
+     "level": "slight"
+    },
+    "EFD_130": {
+     "starLead": 1857,
+     "level": "unfair"
+    },
+    "GEOM_85": {
+     "starLead": 1526,
+     "level": "unfair"
+    },
+    "LP_150": {
+     "starLead": 3057,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "six filler, raw 0.3x",
+    "package": [
+     450,
+     450,
+     450,
+     450,
+     450,
+     450
+    ],
+    "raw": 2700,
+    "effectiveCount": 6.0,
+    "GEOM_78": {
+     "starLead": 7415,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "starLead": 8477,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 7946,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "starLead": 7401,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "starLead": 6907,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "starLead": 7002,
+     "level": "lopsided"
+    },
+    "EFD_115": {
+     "starLead": 6863,
+     "level": "lopsided"
+    },
+    "EFD_130": {
+     "starLead": 7214,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "starLead": 7131,
+     "level": "lopsided"
+    },
+    "LP_150": {
+     "starLead": 7514,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "2 starters + 4 filler, raw 1.2x",
+    "package": [
+     4500,
+     4500,
+     450,
+     450,
+     450,
+     450
+    ],
+    "raw": 10800,
+    "effectiveCount": 3.29,
+    "GEOM_78": {
+     "starLead": 206,
+     "level": "fair"
+    },
+    "KTC": {
+     "starLead": 4233,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 2220,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "starLead": 273,
+     "level": "fair"
+    },
+    "HYBRID_50": {
+     "starLead": -121,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "starLead": 162,
+     "level": "fair"
+    },
+    "EFD_115": {
+     "starLead": -225,
+     "level": "fair"
+    },
+    "EFD_130": {
+     "starLead": 746,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "starLead": -361,
+     "level": "fair"
+    },
+    "LP_150": {
+     "starLead": 1559,
+     "level": "unfair"
+    }
+   },
+   {
+    "case": "1 near-star + 5 filler, raw 1.2x",
+    "package": [
+     8550,
+     450,
+     450,
+     450,
+     450,
+     450
+    ],
+    "raw": 10800,
+    "effectiveCount": 2.05,
+    "GEOM_78": {
+     "starLead": -685,
+     "level": "slight"
+    },
+    "KTC": {
+     "starLead": 186,
+     "level": "fair"
+    },
+    "BLEND_G50_K50": {
+     "starLead": -250,
+     "level": "fair"
+    },
+    "FGEOM_70_20": {
+     "starLead": -699,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "starLead": -845,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "starLead": -570,
+     "level": "slight"
+    },
+    "EFD_115": {
+     "starLead": -795,
+     "level": "slight"
+    },
+    "EFD_130": {
+     "starLead": -257,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "starLead": -969,
+     "level": "slight"
+    },
+    "LP_150": {
+     "starLead": 109,
+     "level": "fair"
+    }
+   },
+   {
+    "case": "six even, raw 1.2x (same total as row 2)",
+    "package": [
+     1800,
+     1800,
+     1800,
+     1800,
+     1800,
+     1800
+    ],
+    "raw": 10800,
+    "effectiveCount": 6.0,
+    "GEOM_78": {
+     "starLead": 2661,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "starLead": 6120,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 4390,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "starLead": 2605,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "starLead": 628,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "starLead": 1009,
+     "level": "slight"
+    },
+    "EFD_115": {
+     "starLead": 451,
+     "level": "slight"
+    },
+    "EFD_130": {
+     "starLead": 1857,
+     "level": "unfair"
+    },
+    "GEOM_85": {
+     "starLead": 1526,
+     "level": "unfair"
+    },
+    "LP_150": {
+     "starLead": 3057,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "ten starters, raw 2.5x",
+    "package": [
+     2250,
+     2250,
+     2250,
+     2250,
+     2250,
+     2250,
+     2250,
+     2250,
+     2250,
+     2250
+    ],
+    "raw": 22500,
+    "effectiveCount": 10.0,
+    "GEOM_78": {
+     "starLead": -375,
+     "level": "fair"
+    },
+    "KTC": {
+     "starLead": -14,
+     "level": "fair"
+    },
+    "BLEND_G50_K50": {
+     "starLead": -194,
+     "level": "fair"
+    },
+    "FGEOM_70_20": {
+     "starLead": -1331,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "starLead": -7472,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "starLead": -6278,
+     "level": "lopsided"
+    },
+    "EFD_115": {
+     "starLead": -7663,
+     "level": "lopsided"
+    },
+    "EFD_130": {
+     "starLead": -4226,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "starLead": -3047,
+     "level": "unfair"
+    },
+    "LP_150": {
+     "starLead": -1444,
+     "level": "slight"
+    }
+   },
+   {
+    "case": "ten filler, raw 0.5x",
+    "package": [
+     450,
+     450,
+     450,
+     450,
+     450,
+     450,
+     450,
+     450,
+     450,
+     450
+    ],
+    "raw": 4500,
+    "effectiveCount": 10.0,
+    "GEOM_78": {
+     "starLead": 7125,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "starLead": 8170,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 7648,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "starLead": 6934,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "starLead": 5706,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "starLead": 5944,
+     "level": "lopsided"
+    },
+    "EFD_115": {
+     "starLead": 5667,
+     "level": "lopsided"
+    },
+    "EFD_130": {
+     "starLead": 6355,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "starLead": 6591,
+     "level": "lopsided"
+    },
+    "LP_150": {
+     "starLead": 6911,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "three good starters, raw 1.3x",
+    "package": [
+     4500,
+     4050,
+     3150
+    ],
+    "raw": 11700,
+    "effectiveCount": 2.96,
+    "GEOM_78": {
+     "starLead": -575,
+     "level": "slight"
+    },
+    "KTC": {
+     "starLead": 4044,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 1734,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "starLead": -443,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "starLead": -927,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "starLead": -748,
+     "level": "slight"
+    },
+    "EFD_115": {
+     "starLead": -1154,
+     "level": "unfair"
+    },
+    "EFD_130": {
+     "starLead": -109,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "starLead": -1218,
+     "level": "unfair"
+    },
+    "LP_150": {
+     "starLead": 845,
+     "level": "slight"
+    }
+   },
+   {
+    "case": "four starters, raw 1.4x",
+    "package": [
+     3600,
+     3150,
+     3150,
+     2700
+    ],
+    "raw": 12600,
+    "effectiveCount": 3.98,
+    "GEOM_78": {
+     "starLead": -255,
+     "level": "fair"
+    },
+    "KTC": {
+     "starLead": 4811,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 2278,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "starLead": -140,
+     "level": "fair"
+    },
+    "HYBRID_50": {
+     "starLead": -1279,
+     "level": "unfair"
+    },
+    "EFD_78": {
+     "starLead": -991,
+     "level": "slight"
+    },
+    "EFD_115": {
+     "starLead": -1524,
+     "level": "unfair"
+    },
+    "EFD_130": {
+     "starLead": -164,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "starLead": -1212,
+     "level": "unfair"
+    },
+    "LP_150": {
+     "starLead": 1042,
+     "level": "slight"
+    }
+   }
+  ],
+  "current": [
+   {
+    "case": "six starters, raw 1.8x",
+    "package": [
+     2700,
+     2700,
+     2700,
+     2700,
+     2700,
+     2700
+    ],
+    "raw": 16200,
+    "effectiveCount": 6.0,
+    "GEOM_78": {
+     "starLead": -509,
+     "level": "slight"
+    },
+    "KTC": {
+     "starLead": 3552,
+     "level": "unfair"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 1522,
+     "level": "slight"
+    },
+    "FGEOM_70_20": {
+     "starLead": -593,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "starLead": -3558,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "starLead": -2986,
+     "level": "lopsided"
+    },
+    "EFD_115": {
+     "starLead": -3824,
+     "level": "lopsided"
+    },
+    "EFD_130": {
+     "starLead": -1714,
+     "level": "unfair"
+    },
+    "GEOM_85": {
+     "starLead": -2211,
+     "level": "lopsided"
+    },
+    "LP_150": {
+     "starLead": 85,
+     "level": "fair"
+    }
+   },
+   {
+    "case": "six starters, raw 1.2x",
+    "package": [
+     1800,
+     1800,
+     1800,
+     1800,
+     1800,
+     1800
+    ],
+    "raw": 10800,
+    "effectiveCount": 6.0,
+    "GEOM_78": {
+     "starLead": 2661,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "starLead": 6120,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 4390,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "starLead": 2605,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "starLead": 628,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "starLead": 1009,
+     "level": "unfair"
+    },
+    "EFD_115": {
+     "starLead": 451,
+     "level": "slight"
+    },
+    "EFD_130": {
+     "starLead": 1857,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "starLead": 1526,
+     "level": "unfair"
+    },
+    "LP_150": {
+     "starLead": 3057,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "six filler, raw 0.3x",
+    "package": [
+     450,
+     450,
+     450,
+     450,
+     450,
+     450
+    ],
+    "raw": 2700,
+    "effectiveCount": 6.0,
+    "GEOM_78": {
+     "starLead": 7415,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "starLead": 8477,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 7946,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "starLead": 7401,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "starLead": 6907,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "starLead": 7002,
+     "level": "lopsided"
+    },
+    "EFD_115": {
+     "starLead": 6863,
+     "level": "lopsided"
+    },
+    "EFD_130": {
+     "starLead": 7214,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "starLead": 7131,
+     "level": "lopsided"
+    },
+    "LP_150": {
+     "starLead": 7514,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "2 starters + 4 filler, raw 1.2x",
+    "package": [
+     4500,
+     4500,
+     450,
+     450,
+     450,
+     450
+    ],
+    "raw": 10800,
+    "effectiveCount": 3.29,
+    "GEOM_78": {
+     "starLead": 206,
+     "level": "fair"
+    },
+    "KTC": {
+     "starLead": 4233,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 2220,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "starLead": 273,
+     "level": "fair"
+    },
+    "HYBRID_50": {
+     "starLead": -121,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "starLead": 162,
+     "level": "fair"
+    },
+    "EFD_115": {
+     "starLead": -225,
+     "level": "fair"
+    },
+    "EFD_130": {
+     "starLead": 746,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "starLead": -361,
+     "level": "slight"
+    },
+    "LP_150": {
+     "starLead": 1559,
+     "level": "unfair"
+    }
+   },
+   {
+    "case": "1 near-star + 5 filler, raw 1.2x",
+    "package": [
+     8550,
+     450,
+     450,
+     450,
+     450,
+     450
+    ],
+    "raw": 10800,
+    "effectiveCount": 2.05,
+    "GEOM_78": {
+     "starLead": -685,
+     "level": "slight"
+    },
+    "KTC": {
+     "starLead": 186,
+     "level": "fair"
+    },
+    "BLEND_G50_K50": {
+     "starLead": -250,
+     "level": "fair"
+    },
+    "FGEOM_70_20": {
+     "starLead": -699,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "starLead": -845,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "starLead": -570,
+     "level": "slight"
+    },
+    "EFD_115": {
+     "starLead": -795,
+     "level": "slight"
+    },
+    "EFD_130": {
+     "starLead": -257,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "starLead": -969,
+     "level": "unfair"
+    },
+    "LP_150": {
+     "starLead": 109,
+     "level": "fair"
+    }
+   },
+   {
+    "case": "six even, raw 1.2x (same total as row 2)",
+    "package": [
+     1800,
+     1800,
+     1800,
+     1800,
+     1800,
+     1800
+    ],
+    "raw": 10800,
+    "effectiveCount": 6.0,
+    "GEOM_78": {
+     "starLead": 2661,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "starLead": 6120,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 4390,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "starLead": 2605,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "starLead": 628,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "starLead": 1009,
+     "level": "unfair"
+    },
+    "EFD_115": {
+     "starLead": 451,
+     "level": "slight"
+    },
+    "EFD_130": {
+     "starLead": 1857,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "starLead": 1526,
+     "level": "unfair"
+    },
+    "LP_150": {
+     "starLead": 3057,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "ten starters, raw 2.5x",
+    "package": [
+     2250,
+     2250,
+     2250,
+     2250,
+     2250,
+     2250,
+     2250,
+     2250,
+     2250,
+     2250
+    ],
+    "raw": 22500,
+    "effectiveCount": 10.0,
+    "GEOM_78": {
+     "starLead": -375,
+     "level": "slight"
+    },
+    "KTC": {
+     "starLead": -14,
+     "level": "fair"
+    },
+    "BLEND_G50_K50": {
+     "starLead": -194,
+     "level": "fair"
+    },
+    "FGEOM_70_20": {
+     "starLead": -1331,
+     "level": "unfair"
+    },
+    "HYBRID_50": {
+     "starLead": -7472,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "starLead": -6278,
+     "level": "lopsided"
+    },
+    "EFD_115": {
+     "starLead": -7663,
+     "level": "lopsided"
+    },
+    "EFD_130": {
+     "starLead": -4226,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "starLead": -3047,
+     "level": "lopsided"
+    },
+    "LP_150": {
+     "starLead": -1444,
+     "level": "unfair"
+    }
+   },
+   {
+    "case": "ten filler, raw 0.5x",
+    "package": [
+     450,
+     450,
+     450,
+     450,
+     450,
+     450,
+     450,
+     450,
+     450,
+     450
+    ],
+    "raw": 4500,
+    "effectiveCount": 10.0,
+    "GEOM_78": {
+     "starLead": 7125,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "starLead": 8170,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 7648,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "starLead": 6934,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "starLead": 5706,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "starLead": 5944,
+     "level": "lopsided"
+    },
+    "EFD_115": {
+     "starLead": 5667,
+     "level": "lopsided"
+    },
+    "EFD_130": {
+     "starLead": 6355,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "starLead": 6591,
+     "level": "lopsided"
+    },
+    "LP_150": {
+     "starLead": 6911,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "three good starters, raw 1.3x",
+    "package": [
+     4500,
+     4050,
+     3150
+    ],
+    "raw": 11700,
+    "effectiveCount": 2.96,
+    "GEOM_78": {
+     "starLead": -575,
+     "level": "slight"
+    },
+    "KTC": {
+     "starLead": 4044,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 1734,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "starLead": -443,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "starLead": -927,
+     "level": "unfair"
+    },
+    "EFD_78": {
+     "starLead": -748,
+     "level": "slight"
+    },
+    "EFD_115": {
+     "starLead": -1154,
+     "level": "unfair"
+    },
+    "EFD_130": {
+     "starLead": -109,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "starLead": -1218,
+     "level": "unfair"
+    },
+    "LP_150": {
+     "starLead": 845,
+     "level": "unfair"
+    }
+   },
+   {
+    "case": "four starters, raw 1.4x",
+    "package": [
+     3600,
+     3150,
+     3150,
+     2700
+    ],
+    "raw": 12600,
+    "effectiveCount": 3.98,
+    "GEOM_78": {
+     "starLead": -255,
+     "level": "fair"
+    },
+    "KTC": {
+     "starLead": 4811,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "starLead": 2278,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "starLead": -140,
+     "level": "fair"
+    },
+    "HYBRID_50": {
+     "starLead": -1279,
+     "level": "unfair"
+    },
+    "EFD_78": {
+     "starLead": -991,
+     "level": "unfair"
+    },
+    "EFD_115": {
+     "starLead": -1524,
+     "level": "unfair"
+    },
+    "EFD_130": {
+     "starLead": -164,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "starLead": -1212,
+     "level": "unfair"
+    },
+    "LP_150": {
+     "starLead": 1042,
+     "level": "unfair"
+    }
+   }
+  ]
+ },
+ "asymmetric": {
+  "v1_legacy": [
+   {
+    "shape": "2v3",
+    "A": [
+     9000,
+     3600
+    ],
+    "B": [
+     4950,
+     4500,
+     4050
+    ],
+    "rawA": 12600,
+    "rawB": 13500,
+    "GEOM_78": {
+     "gapA": 884,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 3739,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2312,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 968,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": 92,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": 196,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": 359,
+     "level": "fair"
+    }
+   },
+   {
+    "shape": "2v5 useful",
+    "A": [
+     9000,
+     3600
+    ],
+    "B": [
+     3150,
+     3150,
+     3150,
+     3150,
+     3150
+    ],
+    "rawA": 12600,
+    "rawB": 15750,
+    "GEOM_78": {
+     "gapA": 1624,
+     "level": "unfair"
+    },
+    "KTC": {
+     "gapA": 5685,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 3654,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 1598,
+     "level": "unfair"
+    },
+    "HYBRID_50": {
+     "gapA": -950,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "gapA": -590,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "gapA": 378,
+     "level": "fair"
+    }
+   },
+   {
+    "shape": "2v5 filler-heavy",
+    "A": [
+     9000,
+     3600
+    ],
+    "B": [
+     6300,
+     4500,
+     900,
+     900,
+     900
+    ],
+    "rawA": 12600,
+    "rawB": 13500,
+    "GEOM_78": {
+     "gapA": 690,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 4391,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2540,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 703,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": 178,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": 416,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": 262,
+     "level": "fair"
+    }
+   },
+   {
+    "shape": "3v6 useful",
+    "A": [
+     9000,
+     5400,
+     3600
+    ],
+    "B": [
+     3600,
+     3600,
+     3600,
+     3600,
+     3600,
+     3600
+    ],
+    "rawA": 18000,
+    "rawB": 21600,
+    "GEOM_78": {
+     "gapA": 2724,
+     "level": "unfair"
+    },
+    "KTC": {
+     "gapA": 6740,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 4732,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 2445,
+     "level": "unfair"
+    },
+    "HYBRID_50": {
+     "gapA": -1289,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "gapA": -809,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "gapA": 1243,
+     "level": "slight"
+    }
+   },
+   {
+    "shape": "3v6 filler-heavy",
+    "A": [
+     9000,
+     5400,
+     3600
+    ],
+    "B": [
+     8100,
+     6300,
+     1800,
+     1800,
+     1800,
+     1800
+    ],
+    "rawA": 18000,
+    "rawB": 21600,
+    "GEOM_78": {
+     "gapA": -747,
+     "level": "fair"
+    },
+    "KTC": {
+     "gapA": 0,
+     "level": "fair"
+    },
+    "BLEND_G50_K50": {
+     "gapA": -374,
+     "level": "fair"
+    },
+    "FGEOM_70_20": {
+     "gapA": -880,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -1998,
+     "level": "unfair"
+    },
+    "EFD_78": {
+     "gapA": -1578,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "gapA": -1408,
+     "level": "slight"
+    }
+   },
+   {
+    "shape": "4v8 useful",
+    "A": [
+     9000,
+     6300,
+     4500,
+     2700
+    ],
+    "B": [
+     3600,
+     3600,
+     3600,
+     3600,
+     3600,
+     3600,
+     3600,
+     3600
+    ],
+    "rawA": 22500,
+    "rawB": 28800,
+    "GEOM_78": {
+     "gapA": 3811,
+     "level": "unfair"
+    },
+    "KTC": {
+     "gapA": 7117,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 5464,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 2926,
+     "level": "unfair"
+    },
+    "HYBRID_50": {
+     "gapA": -2962,
+     "level": "unfair"
+    },
+    "EFD_78": {
+     "gapA": -2170,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "gapA": 1804,
+     "level": "slight"
+    }
+   },
+   {
+    "shape": "4v8 filler-heavy",
+    "A": [
+     9000,
+     6300,
+     4500,
+     2700
+    ],
+    "B": [
+     8100,
+     7200,
+     1350,
+     1350,
+     1350,
+     1350,
+     1350,
+     1350
+    ],
+    "rawA": 22500,
+    "rawB": 23400,
+    "GEOM_78": {
+     "gapA": 1324,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 3773,
+     "level": "unfair"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2548,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 984,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -9,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": 404,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": 994,
+     "level": "slight"
+    }
+   }
+  ],
+  "current": [
+   {
+    "shape": "2v3",
+    "A": [
+     9000,
+     3600
+    ],
+    "B": [
+     4950,
+     4500,
+     4050
+    ],
+    "rawA": 12600,
+    "rawB": 13500,
+    "GEOM_78": {
+     "gapA": 884,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 3739,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2312,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 968,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": 92,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": 196,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": 359,
+     "level": "fair"
+    }
+   },
+   {
+    "shape": "2v5 useful",
+    "A": [
+     9000,
+     3600
+    ],
+    "B": [
+     3150,
+     3150,
+     3150,
+     3150,
+     3150
+    ],
+    "rawA": 12600,
+    "rawB": 15750,
+    "GEOM_78": {
+     "gapA": 1624,
+     "level": "unfair"
+    },
+    "KTC": {
+     "gapA": 5685,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 3654,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 1598,
+     "level": "unfair"
+    },
+    "HYBRID_50": {
+     "gapA": -950,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "gapA": -590,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "gapA": 378,
+     "level": "fair"
+    }
+   },
+   {
+    "shape": "2v5 filler-heavy",
+    "A": [
+     9000,
+     3600
+    ],
+    "B": [
+     6300,
+     4500,
+     900,
+     900,
+     900
+    ],
+    "rawA": 12600,
+    "rawB": 13500,
+    "GEOM_78": {
+     "gapA": 690,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 4391,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2540,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 703,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": 178,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": 416,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "gapA": 262,
+     "level": "fair"
+    }
+   },
+   {
+    "shape": "3v6 useful",
+    "A": [
+     9000,
+     5400,
+     3600
+    ],
+    "B": [
+     3600,
+     3600,
+     3600,
+     3600,
+     3600,
+     3600
+    ],
+    "rawA": 18000,
+    "rawB": 21600,
+    "GEOM_78": {
+     "gapA": 2724,
+     "level": "unfair"
+    },
+    "KTC": {
+     "gapA": 6740,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 4732,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 2445,
+     "level": "unfair"
+    },
+    "HYBRID_50": {
+     "gapA": -1289,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "gapA": -809,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "gapA": 1243,
+     "level": "slight"
+    }
+   },
+   {
+    "shape": "3v6 filler-heavy",
+    "A": [
+     9000,
+     5400,
+     3600
+    ],
+    "B": [
+     8100,
+     6300,
+     1800,
+     1800,
+     1800,
+     1800
+    ],
+    "rawA": 18000,
+    "rawB": 21600,
+    "GEOM_78": {
+     "gapA": -747,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 0,
+     "level": "fair"
+    },
+    "BLEND_G50_K50": {
+     "gapA": -374,
+     "level": "fair"
+    },
+    "FGEOM_70_20": {
+     "gapA": -880,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -1998,
+     "level": "unfair"
+    },
+    "EFD_78": {
+     "gapA": -1578,
+     "level": "unfair"
+    },
+    "GEOM_85": {
+     "gapA": -1408,
+     "level": "slight"
+    }
+   },
+   {
+    "shape": "4v8 useful",
+    "A": [
+     9000,
+     6300,
+     4500,
+     2700
+    ],
+    "B": [
+     3600,
+     3600,
+     3600,
+     3600,
+     3600,
+     3600,
+     3600,
+     3600
+    ],
+    "rawA": 22500,
+    "rawB": 28800,
+    "GEOM_78": {
+     "gapA": 3811,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "gapA": 7117,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 5464,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 2926,
+     "level": "unfair"
+    },
+    "HYBRID_50": {
+     "gapA": -2962,
+     "level": "unfair"
+    },
+    "EFD_78": {
+     "gapA": -2170,
+     "level": "unfair"
+    },
+    "GEOM_85": {
+     "gapA": 1804,
+     "level": "unfair"
+    }
+   },
+   {
+    "shape": "4v8 filler-heavy",
+    "A": [
+     9000,
+     6300,
+     4500,
+     2700
+    ],
+    "B": [
+     8100,
+     7200,
+     1350,
+     1350,
+     1350,
+     1350,
+     1350,
+     1350
+    ],
+    "rawA": 22500,
+    "rawB": 23400,
+    "GEOM_78": {
+     "gapA": 1324,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 3773,
+     "level": "unfair"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2548,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 984,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -9,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": 404,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": 994,
+     "level": "slight"
+    }
+   }
+  ]
+ },
+ "realExamples": {
+  "v1_legacy": [
+   {
+    "case": "1-for-6 genuine starters (each ~30% of the star)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Pat Freiermuth (2957)",
+     "Blake Corum (2951)",
+     "Eli Raridon (2944)",
+     "Xavier Worthy (2939)",
+     "Antonio Williams (2938)",
+     "David Montgomery (2990)"
+    ],
+    "rawA": 9869,
+    "rawB": 17719,
+    "effectiveCountB": 6.0,
+    "GEOM_78": {
+     "gapA": -556,
+     "level": "fair"
+    },
+    "KTC": {
+     "gapA": 4174,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 1809,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": -647,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -3866,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "gapA": -3241,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "gapA": -2412,
+     "level": "unfair"
+    }
+   },
+   {
+    "case": "1-for-6 bench (each ~18%)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Tommy Tremble (1777)",
+     "Elijah Sarratt (1775)",
+     "Kaytron Allen (1775)",
+     "Noah Gray (1778)",
+     "Tyrone Tracy (1774)",
+     "Demond Claiborne (1771)"
+    ],
+    "rawA": 9869,
+    "rawB": 10650,
+    "effectiveCountB": 6.0,
+    "GEOM_78": {
+     "gapA": 3615,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "gapA": 7304,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 5460,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 3560,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "gapA": 1614,
+     "level": "unfair"
+    },
+    "EFD_78": {
+     "gapA": 1989,
+     "level": "unfair"
+    },
+    "GEOM_85": {
+     "gapA": 2496,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "1-for-6 filler (each ~5%)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Devin Duvernay (482)",
+     "Travis Homer (474)",
+     "Eric McAlister (383)",
+     "Johnny Wilson (620)",
+     "Zamir White (631)",
+     "LaJohntay Wester (651)"
+    ],
+    "rawA": 9869,
+    "rawB": 3241,
+    "effectiveCountB": 5.88,
+    "GEOM_78": {
+     "gapA": 7834,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "gapA": 9257,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 8546,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 7829,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "gapA": 7349,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "gapA": 7463,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "gapA": 7520,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "1-for-3 three starters (~40% each)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "KC Concepcion (3968)",
+     "Sam Darnold (3988)",
+     "Baker Mayfield (3858)"
+    ],
+    "rawA": 9869,
+    "rawB": 11814,
+    "effectiveCountB": 3.0,
+    "GEOM_78": {
+     "gapA": 439,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 5401,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2920,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 581,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -134,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": 47,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": -279,
+     "level": "fair"
+    }
+   },
+   {
+    "case": "1-for-4 four starters (~33% each)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Alec Pierce (3240)",
+     "Kyle Monangai (3289)",
+     "Josh Downs (3291)",
+     "Omar Cooper (3215)"
+    ],
+    "rawA": 9869,
+    "rawB": 13035,
+    "effectiveCountB": 4.0,
+    "GEOM_78": {
+     "gapA": 516,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 5443,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2980,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 635,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -754,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "gapA": -456,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": -533,
+     "level": "slight"
+    }
+   },
+   {
+    "case": "1-for-10 starters (~22% each)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Aaron Rodgers (2173)",
+     "Devaughn Vele (2173)",
+     "Theo Johnson (2164)",
+     "Evan Engram (2181)",
+     "Nicholas Singleton (2181)",
+     "Mac Jones (2155)",
+     "J.J. McCarthy (2151)",
+     "David Njoku (2193)",
+     "Tre Tucker (2149)",
+     "Kenny Gainwell (2207)"
+    ],
+    "rawA": 9869,
+    "rawB": 21727,
+    "effectiveCountB": 10.0,
+    "GEOM_78": {
+     "gapA": 768,
+     "level": "fair"
+    },
+    "KTC": {
+     "gapA": 2812,
+     "level": "unfair"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 1790,
+     "level": "slight"
+    },
+    "FGEOM_70_20": {
+     "gapA": -147,
+     "level": "fair"
+    },
+    "HYBRID_50": {
+     "gapA": -6037,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "gapA": -4884,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "gapA": -1807,
+     "level": "slight"
+    }
+   },
+   {
+    "case": "1-for-6: 2 starters + 4 filler",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "DeVonta Smith (4922)",
+     "C.J. Stroud (4961)",
+     "RJ Maryland (655)",
+     "Brycen Tremayne (313)",
+     "DJ Rogers (700)",
+     "Noah Whittington (277)"
+    ],
+    "rawA": 9869,
+    "rawB": 11828,
+    "effectiveCountB": 3.24,
+    "GEOM_78": {
+     "gapA": 136,
+     "level": "fair"
+    },
+    "KTC": {
+     "gapA": 5727,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2932,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 227,
+     "level": "fair"
+    },
+    "HYBRID_50": {
+     "gapA": -136,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": 164,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": -470,
+     "level": "slight"
+    }
+   },
+   {
+    "case": "IDP 1-for-4 starters",
+    "A": [
+     "Carson Schwesinger (6246)"
+    ],
+    "B": [
+     "Donovan Ezeiruaku (2059)",
+     "James Pearce (2041)",
+     "Kool-Aid McKinstry (2031)",
+     "Azeez Al-Shaair (2104)"
+    ],
+    "rawA": 6246,
+    "rawB": 8235,
+    "effectiveCountB": 4.0,
+    "GEOM_78": {
+     "gapA": 330,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 3389,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 1860,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 405,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -465,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "gapA": -277,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": -330,
+     "level": "slight"
+    }
+   },
+   {
+    "case": "IDP 1-for-6 filler",
+    "A": [
+     "Carson Schwesinger (6246)"
+    ],
+    "B": [
+     "Deone Walker (373)",
+     "Ashton Gillotte (367)",
+     "Colton Hood (420)",
+     "Deonte Banks (422)",
+     "Sheldon Rankins (426)",
+     "LT Overton (427)"
+    ],
+    "rawA": 6246,
+    "rawB": 2435,
+    "effectiveCountB": 5.99,
+    "GEOM_78": {
+     "gapA": 4787,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "gapA": 5799,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 5293,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 4777,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "gapA": 4358,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "gapA": 4444,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "gapA": 4537,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "star for 3 firsts",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "2027 Pick 1.12 (3968)",
+     "2027 Pick 2.01 (3918)",
+     "2029 Mid 1st (4046)"
+    ],
+    "rawA": 9869,
+    "rawB": 11932,
+    "effectiveCountB": 3.0,
+    "GEOM_78": {
+     "gapA": 344,
+     "level": "fair"
+    },
+    "KTC": {
+     "gapA": 5333,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2838,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 488,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -234,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": -51,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": -381,
+     "level": "fair"
+    }
+   },
+   {
+    "case": "star for 2 firsts + 2 starters",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "2027 Pick 2.05 (3403)",
+     "2027 Pick 2.06 (3397)",
+     "Zach Charbonnet (2991)",
+     "Germie Bernard (2855)"
+    ],
+    "rawA": 9869,
+    "rawB": 12646,
+    "effectiveCountB": 3.99,
+    "GEOM_78": {
+     "gapA": 642,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 5679,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 3160,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 759,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -443,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "gapA": -154,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": -336,
+     "level": "fair"
+    }
+   },
+   {
+    "case": "mixed: star for IDP + offense depth (5)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Cooper DeJean (2961)",
+     "Foyesade Oluokun (2956)",
+     "Jonah Coleman (3068)",
+     "Chris Bell (2830)",
+     "Chig Okonkwo (2812)"
+    ],
+    "rawA": 9869,
+    "rawB": 14627,
+    "effectiveCountB": 5.0,
+    "GEOM_78": {
+     "gapA": 309,
+     "level": "fair"
+    },
+    "KTC": {
+     "gapA": 5094,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2702,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 356,
+     "level": "fair"
+    },
+    "HYBRID_50": {
+     "gapA": -1723,
+     "level": "unfair"
+    },
+    "EFD_78": {
+     "gapA": -1292,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "gapA": -1057,
+     "level": "slight"
+    }
+   }
+  ],
+  "current": [
+   {
+    "case": "1-for-6 genuine starters (each ~30% of the star)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Pat Freiermuth (2957)",
+     "Blake Corum (2951)",
+     "Eli Raridon (2944)",
+     "Xavier Worthy (2939)",
+     "Antonio Williams (2938)",
+     "David Montgomery (2990)"
+    ],
+    "rawA": 9869,
+    "rawB": 17719,
+    "effectiveCountB": 6.0,
+    "GEOM_78": {
+     "gapA": -556,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 4174,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 1809,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": -647,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -3866,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "gapA": -3241,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "gapA": -2412,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "1-for-6 bench (each ~18%)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Tommy Tremble (1777)",
+     "Elijah Sarratt (1775)",
+     "Kaytron Allen (1775)",
+     "Noah Gray (1778)",
+     "Tyrone Tracy (1774)",
+     "Demond Claiborne (1771)"
+    ],
+    "rawA": 9869,
+    "rawB": 10650,
+    "effectiveCountB": 6.0,
+    "GEOM_78": {
+     "gapA": 3615,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "gapA": 7304,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 5460,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 3560,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "gapA": 1614,
+     "level": "unfair"
+    },
+    "EFD_78": {
+     "gapA": 1989,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "gapA": 2496,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "1-for-6 filler (each ~5%)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Devin Duvernay (482)",
+     "Travis Homer (474)",
+     "Eric McAlister (383)",
+     "Johnny Wilson (620)",
+     "Zamir White (631)",
+     "LaJohntay Wester (651)"
+    ],
+    "rawA": 9869,
+    "rawB": 3241,
+    "effectiveCountB": 5.88,
+    "GEOM_78": {
+     "gapA": 7834,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "gapA": 9257,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 8546,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 7829,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "gapA": 7349,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "gapA": 7463,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "gapA": 7520,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "1-for-3 three starters (~40% each)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "KC Concepcion (3968)",
+     "Sam Darnold (3988)",
+     "Baker Mayfield (3858)"
+    ],
+    "rawA": 9869,
+    "rawB": 11814,
+    "effectiveCountB": 3.0,
+    "GEOM_78": {
+     "gapA": 439,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 5401,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2920,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 581,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -134,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": 47,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": -279,
+     "level": "fair"
+    }
+   },
+   {
+    "case": "1-for-4 four starters (~33% each)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Alec Pierce (3240)",
+     "Kyle Monangai (3289)",
+     "Josh Downs (3291)",
+     "Omar Cooper (3215)"
+    ],
+    "rawA": 9869,
+    "rawB": 13035,
+    "effectiveCountB": 4.0,
+    "GEOM_78": {
+     "gapA": 516,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 5443,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2980,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 635,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -754,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "gapA": -456,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "gapA": -533,
+     "level": "slight"
+    }
+   },
+   {
+    "case": "1-for-10 starters (~22% each)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Aaron Rodgers (2173)",
+     "Devaughn Vele (2173)",
+     "Theo Johnson (2164)",
+     "Evan Engram (2181)",
+     "Nicholas Singleton (2181)",
+     "Mac Jones (2155)",
+     "J.J. McCarthy (2151)",
+     "David Njoku (2193)",
+     "Tre Tucker (2149)",
+     "Kenny Gainwell (2207)"
+    ],
+    "rawA": 9869,
+    "rawB": 21727,
+    "effectiveCountB": 10.0,
+    "GEOM_78": {
+     "gapA": 768,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 2812,
+     "level": "unfair"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 1790,
+     "level": "slight"
+    },
+    "FGEOM_70_20": {
+     "gapA": -147,
+     "level": "fair"
+    },
+    "HYBRID_50": {
+     "gapA": -6037,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "gapA": -4884,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "gapA": -1807,
+     "level": "unfair"
+    }
+   },
+   {
+    "case": "1-for-6: 2 starters + 4 filler",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "DeVonta Smith (4922)",
+     "C.J. Stroud (4961)",
+     "RJ Maryland (655)",
+     "Brycen Tremayne (313)",
+     "DJ Rogers (700)",
+     "Noah Whittington (277)"
+    ],
+    "rawA": 9869,
+    "rawB": 11828,
+    "effectiveCountB": 3.24,
+    "GEOM_78": {
+     "gapA": 136,
+     "level": "fair"
+    },
+    "KTC": {
+     "gapA": 5727,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2932,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 227,
+     "level": "fair"
+    },
+    "HYBRID_50": {
+     "gapA": -136,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": 164,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": -470,
+     "level": "slight"
+    }
+   },
+   {
+    "case": "IDP 1-for-4 starters",
+    "A": [
+     "Carson Schwesinger (6246)"
+    ],
+    "B": [
+     "Donovan Ezeiruaku (2059)",
+     "James Pearce (2041)",
+     "Kool-Aid McKinstry (2031)",
+     "Azeez Al-Shaair (2104)"
+    ],
+    "rawA": 6246,
+    "rawB": 8235,
+    "effectiveCountB": 4.0,
+    "GEOM_78": {
+     "gapA": 330,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 3389,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 1860,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 405,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -465,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "gapA": -277,
+     "level": "slight"
+    },
+    "GEOM_85": {
+     "gapA": -330,
+     "level": "slight"
+    }
+   },
+   {
+    "case": "IDP 1-for-6 filler",
+    "A": [
+     "Carson Schwesinger (6246)"
+    ],
+    "B": [
+     "Deone Walker (373)",
+     "Ashton Gillotte (367)",
+     "Colton Hood (420)",
+     "Deonte Banks (422)",
+     "Sheldon Rankins (426)",
+     "LT Overton (427)"
+    ],
+    "rawA": 6246,
+    "rawB": 2435,
+    "effectiveCountB": 5.99,
+    "GEOM_78": {
+     "gapA": 4787,
+     "level": "lopsided"
+    },
+    "KTC": {
+     "gapA": 5799,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 5293,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 4777,
+     "level": "lopsided"
+    },
+    "HYBRID_50": {
+     "gapA": 4358,
+     "level": "lopsided"
+    },
+    "EFD_78": {
+     "gapA": 4444,
+     "level": "lopsided"
+    },
+    "GEOM_85": {
+     "gapA": 4537,
+     "level": "lopsided"
+    }
+   },
+   {
+    "case": "star for 3 firsts",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "2027 Pick 1.12 (3968)",
+     "2027 Pick 2.01 (3918)",
+     "2029 Mid 1st (4046)"
+    ],
+    "rawA": 9869,
+    "rawB": 11932,
+    "effectiveCountB": 3.0,
+    "GEOM_78": {
+     "gapA": 344,
+     "level": "fair"
+    },
+    "KTC": {
+     "gapA": 5333,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2838,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 488,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -234,
+     "level": "fair"
+    },
+    "EFD_78": {
+     "gapA": -51,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": -381,
+     "level": "slight"
+    }
+   },
+   {
+    "case": "star for 2 firsts + 2 starters",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "2027 Pick 2.05 (3403)",
+     "2027 Pick 2.06 (3397)",
+     "Zach Charbonnet (2991)",
+     "Germie Bernard (2855)"
+    ],
+    "rawA": 9869,
+    "rawB": 12646,
+    "effectiveCountB": 3.99,
+    "GEOM_78": {
+     "gapA": 642,
+     "level": "slight"
+    },
+    "KTC": {
+     "gapA": 5679,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 3160,
+     "level": "lopsided"
+    },
+    "FGEOM_70_20": {
+     "gapA": 759,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -443,
+     "level": "slight"
+    },
+    "EFD_78": {
+     "gapA": -154,
+     "level": "fair"
+    },
+    "GEOM_85": {
+     "gapA": -336,
+     "level": "fair"
+    }
+   },
+   {
+    "case": "mixed: star for IDP + offense depth (5)",
+    "A": [
+     "Jahmyr Gibbs (9869)"
+    ],
+    "B": [
+     "Cooper DeJean (2961)",
+     "Foyesade Oluokun (2956)",
+     "Jonah Coleman (3068)",
+     "Chris Bell (2830)",
+     "Chig Okonkwo (2812)"
+    ],
+    "rawA": 9869,
+    "rawB": 14627,
+    "effectiveCountB": 5.0,
+    "GEOM_78": {
+     "gapA": 309,
+     "level": "fair"
+    },
+    "KTC": {
+     "gapA": 5094,
+     "level": "lopsided"
+    },
+    "BLEND_G50_K50": {
+     "gapA": 2702,
+     "level": "unfair"
+    },
+    "FGEOM_70_20": {
+     "gapA": 356,
+     "level": "slight"
+    },
+    "HYBRID_50": {
+     "gapA": -1723,
+     "level": "unfair"
+    },
+    "EFD_78": {
+     "gapA": -1292,
+     "level": "unfair"
+    },
+    "GEOM_85": {
+     "gapA": -1057,
+     "level": "unfair"
+    }
+   }
+  ]
+ },
+ "finder": {
+  "method": "each model replayed once (the engines read no band denominator); its trades re-tagged on each basis with FR.classify's preregistered rule",
+  "models": [
+   "GEOM_78",
+   "EFD_78",
+   "HYBRID_50",
+   "FGEOM_70_20",
+   "BLEND_G50_K50",
+   "KTC"
+  ],
+  "replaySource": {
+   "engine": "recorded revision (extracted)",
+   "files": [
+    {
+     "file": "finder2_GEOM_78.json",
+     "sha256": "46fd11a8e6c1c7af5dfe2a10fe683731aab38c96395300b86fca9359683f3810",
+     "revision": "79c32282868f20c3298ae28d5abf9b030c5293fe",
+     "checkoutClean": true,
+     "models": [
+      "GEOM_78",
+      "EFD_78"
+     ]
+    },
+    {
+     "file": "finder2_HYBRID_50.json",
+     "sha256": "4998f08a6f248866e7cedde97623083e904b90b0fdb885ad2bace426dbc88e66",
+     "revision": "79c32282868f20c3298ae28d5abf9b030c5293fe",
+     "checkoutClean": true,
+     "models": [
+      "HYBRID_50",
+      "FGEOM_70_20"
+     ]
+    },
+    {
+     "file": "finder2_BLEND_G50_K50.json",
+     "sha256": "c4a3b96e059f9981e5f2548a7e3d66c2e5d6c75acc4cc73e4ccad0036ba6e57b",
+     "revision": "79c32282868f20c3298ae28d5abf9b030c5293fe",
+     "checkoutClean": true,
+     "models": [
+      "BLEND_G50_K50",
+      "KTC"
+     ]
+    }
+   ]
+  },
+  "timingsSec": {
+   "GEOM_78": 386.0,
+   "EFD_78": 416.3,
+   "HYBRID_50": 395.5,
+   "FGEOM_70_20": 411.1,
+   "BLEND_G50_K50": 566.0,
+   "KTC": 520.5
+  },
+  "retagV1SelfCheckChangedTags": 0,
+  "reproduction": {
+   "section": "finder",
+   "leavesRecorded": 443,
+   "leavesRerun": 443,
+   "leavesCompared": 443,
+   "leavesEqual": 442,
+   "onlyInRecorded": 0,
+   "onlyInRerun": 0,
+   "bandDependentLeavesDifferent": 0,
+   "differences": [
+    {
+     "path": "$.FGEOM_70_20.star_builder.keptButReordered",
+     "recorded": 163,
+     "rerun": 165
+    }
+   ]
+  },
+  "v1_legacy": {
+   "comparison": {
+    "GEOM_78": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 0,
+      "meanUserRawGainAppeared": null,
+      "meanUserRawGainDisappeared": null,
+      "appear": 0,
+      "disappear": 0,
+      "kept": 480,
+      "keptButReordered": 0,
+      "meanTop10Overlap": 1.0,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 423,
+      "multiPiece3plus": 0,
+      "elite": 356,
+      "idp": 480,
+      "levels": {
+       "lopsided": 286,
+       "unfair": 165,
+       "slight": 29
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 0,
+      "meanUserRawGainAppeared": null,
+      "meanUserRawGainDisappeared": null,
+      "appear": 0,
+      "disappear": 0,
+      "kept": 480,
+      "keptButReordered": 0,
+      "meanTop10Overlap": 1.0,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 34,
+      "multiPiece3plus": 10,
+      "elite": 433,
+      "idp": 390,
+      "levels": {
+       "unfair": 219,
+       "lopsided": 247,
+       "slight": 14
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 0,
+      "meanUserRawGainAppeared": null,
+      "meanUserRawGainDisappeared": null,
+      "appear": 0,
+      "disappear": 0,
+      "kept": 132,
+      "keptButReordered": 0,
+      "meanTop10Overlap": 1.0,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 92,
+      "multiPiece3plus": 4,
+      "elite": 63,
+      "idp": 96,
+      "levels": {
+       "lopsided": 100,
+       "unfair": 26,
+       "fair": 1,
+       "slight": 5
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 0,
+      "meanUserRawGainAppeared": null,
+      "meanUserRawGainDisappeared": null,
+      "appear": 0,
+      "disappear": 0,
+      "kept": 660,
+      "keptButReordered": 0,
+      "meanTop10Overlap": 1.0,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 165,
+      "multiPiece3plus": 120,
+      "elite": 567,
+      "idp": 269,
+      "levels": {
+       "unfair": 396,
+       "lopsided": 136,
+       "fair": 60,
+       "slight": 68
+      }
+     }
+    },
+    "EFD_78": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 72,
+      "meanUserRawGainAppeared": 2803,
+      "meanUserRawGainDisappeared": 2009,
+      "appear": 91,
+      "disappear": 91,
+      "kept": 389,
+      "keptButReordered": 367,
+      "meanTop10Overlap": 0.717,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 439,
+      "multiPiece3plus": 0,
+      "elite": 367,
+      "idp": 480,
+      "levels": {
+       "lopsided": 292,
+       "slight": 30,
+       "unfair": 158
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 10,
+      "meanUserRawGainAppeared": 1028,
+      "meanUserRawGainDisappeared": 1395,
+      "appear": 117,
+      "disappear": 117,
+      "kept": 363,
+      "keptButReordered": 326,
+      "meanTop10Overlap": 0.675,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 1,
+      "sensibleDepth": 30,
+      "multiPiece3plus": 25,
+      "elite": 432,
+      "idp": 388,
+      "levels": {
+       "unfair": 226,
+       "lopsided": 236,
+       "slight": 17,
+       "fair": 1
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 17,
+      "meanUserRawGainAppeared": 2416,
+      "meanUserRawGainDisappeared": 2398,
+      "appear": 27,
+      "disappear": 27,
+      "kept": 105,
+      "keptButReordered": 38,
+      "meanTop10Overlap": 0.783,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 93,
+      "multiPiece3plus": 6,
+      "elite": 65,
+      "idp": 95,
+      "levels": {
+       "lopsided": 91,
+       "unfair": 38,
+       "fair": 1,
+       "slight": 2
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 55,
+      "meanUserRawGainAppeared": 1603,
+      "meanUserRawGainDisappeared": 1325,
+      "appear": 241,
+      "disappear": 241,
+      "kept": 419,
+      "keptButReordered": 210,
+      "meanTop10Overlap": 0.6,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 186,
+      "multiPiece3plus": 117,
+      "elite": 572,
+      "idp": 263,
+      "levels": {
+       "unfair": 404,
+       "lopsided": 124,
+       "fair": 76,
+       "slight": 56
+      }
+     }
+    },
+    "HYBRID_50": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 69,
+      "meanUserRawGainAppeared": 2795,
+      "meanUserRawGainDisappeared": 2010,
+      "appear": 89,
+      "disappear": 89,
+      "kept": 391,
+      "keptButReordered": 369,
+      "meanTop10Overlap": 0.733,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 440,
+      "multiPiece3plus": 0,
+      "elite": 367,
+      "idp": 480,
+      "levels": {
+       "lopsided": 300,
+       "slight": 29,
+       "unfair": 151
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 6,
+      "meanUserRawGainAppeared": 1140,
+      "meanUserRawGainDisappeared": 1343,
+      "appear": 82,
+      "disappear": 82,
+      "kept": 398,
+      "keptButReordered": 331,
+      "meanTop10Overlap": 0.758,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 2,
+      "sensibleDepth": 34,
+      "multiPiece3plus": 26,
+      "elite": 434,
+      "idp": 390,
+      "levels": {
+       "unfair": 222,
+       "lopsided": 241,
+       "slight": 16,
+       "fair": 1
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 16,
+      "meanUserRawGainAppeared": 2569,
+      "meanUserRawGainDisappeared": 2425,
+      "appear": 23,
+      "disappear": 23,
+      "kept": 109,
+      "keptButReordered": 25,
+      "meanTop10Overlap": 0.825,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 93,
+      "multiPiece3plus": 8,
+      "elite": 66,
+      "idp": 96,
+      "levels": {
+       "lopsided": 90,
+       "unfair": 37,
+       "fair": 1,
+       "slight": 4
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 53,
+      "meanUserRawGainAppeared": 1733,
+      "meanUserRawGainDisappeared": 1277,
+      "appear": 219,
+      "disappear": 219,
+      "kept": 441,
+      "keptButReordered": 209,
+      "meanTop10Overlap": 0.667,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 189,
+      "multiPiece3plus": 126,
+      "elite": 575,
+      "idp": 255,
+      "levels": {
+       "unfair": 405,
+       "slight": 61,
+       "lopsided": 135,
+       "fair": 59
+      }
+     }
+    },
+    "FGEOM_70_20": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 25,
+      "meanUserRawGainAppeared": 2005,
+      "meanUserRawGainDisappeared": 2526,
+      "appear": 28,
+      "disappear": 28,
+      "kept": 452,
+      "keptButReordered": 358,
+      "meanTop10Overlap": 0.875,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 420,
+      "multiPiece3plus": 0,
+      "elite": 351,
+      "idp": 479,
+      "levels": {
+       "lopsided": 279,
+       "slight": 31,
+       "unfair": 170
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 1,
+      "meanUserRawGainAppeared": 863,
+      "meanUserRawGainDisappeared": 1493,
+      "appear": 36,
+      "disappear": 36,
+      "kept": 444,
+      "keptButReordered": 365,
+      "meanTop10Overlap": 0.825,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 34,
+      "multiPiece3plus": 10,
+      "elite": 433,
+      "idp": 394,
+      "levels": {
+       "unfair": 219,
+       "lopsided": 252,
+       "slight": 9
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 4,
+      "meanUserRawGainAppeared": 1658,
+      "meanUserRawGainDisappeared": 2185,
+      "appear": 7,
+      "disappear": 7,
+      "kept": 125,
+      "keptButReordered": 20,
+      "meanTop10Overlap": 0.933,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 92,
+      "multiPiece3plus": 5,
+      "elite": 63,
+      "idp": 97,
+      "levels": {
+       "lopsided": 96,
+       "unfair": 30,
+       "fair": 1,
+       "slight": 5
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 15,
+      "meanUserRawGainAppeared": 752,
+      "meanUserRawGainDisappeared": 1273,
+      "appear": 65,
+      "disappear": 65,
+      "kept": 595,
+      "keptButReordered": 165,
+      "meanTop10Overlap": 0.883,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 163,
+      "multiPiece3plus": 115,
+      "elite": 567,
+      "idp": 272,
+      "levels": {
+       "unfair": 399,
+       "lopsided": 129,
+       "slight": 68,
+       "fair": 64
+      }
+     }
+    },
+    "BLEND_G50_K50": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 300,
+      "meanUserRawGainAppeared": 1679,
+      "meanUserRawGainDisappeared": 2372,
+      "appear": 340,
+      "disappear": 340,
+      "kept": 140,
+      "keptButReordered": 132,
+      "meanTop10Overlap": 0.2,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 281,
+      "multiPiece3plus": 0,
+      "elite": 367,
+      "idp": 453,
+      "levels": {
+       "unfair": 105,
+       "lopsided": 364,
+       "slight": 11
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 21,
+      "meanUserRawGainAppeared": 1050,
+      "meanUserRawGainDisappeared": 1144,
+      "appear": 426,
+      "disappear": 426,
+      "kept": 54,
+      "keptButReordered": 53,
+      "meanTop10Overlap": 0.083,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 92,
+      "multiPiece3plus": 55,
+      "elite": 355,
+      "idp": 416,
+      "levels": {
+       "unfair": 90,
+       "slight": 23,
+       "lopsided": 367
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 58,
+      "meanUserRawGainAppeared": 570,
+      "meanUserRawGainDisappeared": 2530,
+      "appear": 85,
+      "disappear": 85,
+      "kept": 47,
+      "keptButReordered": 29,
+      "meanTop10Overlap": 0.325,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 54,
+      "multiPiece3plus": 11,
+      "elite": 76,
+      "idp": 101,
+      "levels": {
+       "lopsided": 91,
+       "unfair": 39,
+       "slight": 2
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 103,
+      "meanUserRawGainAppeared": 13,
+      "meanUserRawGainDisappeared": 1322,
+      "appear": 494,
+      "disappear": 494,
+      "kept": 166,
+      "keptButReordered": 112,
+      "meanTop10Overlap": 0.225,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 174,
+      "multiPiece3plus": 133,
+      "elite": 555,
+      "idp": 285,
+      "levels": {
+       "unfair": 416,
+       "lopsided": 160,
+       "fair": 18,
+       "slight": 66
+      }
+     }
+    },
+    "KTC": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 378,
+      "meanUserRawGainAppeared": 1553,
+      "meanUserRawGainDisappeared": 2349,
+      "appear": 425,
+      "disappear": 425,
+      "kept": 55,
+      "keptButReordered": 51,
+      "meanTop10Overlap": 0.125,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 205,
+      "multiPiece3plus": 0,
+      "elite": 373,
+      "idp": 427,
+      "levels": {
+       "lopsided": 431,
+       "unfair": 47,
+       "slight": 2
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 29,
+      "meanUserRawGainAppeared": 1668,
+      "meanUserRawGainDisappeared": 1177,
+      "appear": 463,
+      "disappear": 463,
+      "kept": 17,
+      "keptButReordered": 16,
+      "meanTop10Overlap": 0.033,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 164,
+      "multiPiece3plus": 58,
+      "elite": 281,
+      "idp": 386,
+      "levels": {
+       "unfair": 99,
+       "lopsided": 377,
+       "slight": 4
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 76,
+      "meanUserRawGainAppeared": -253,
+      "meanUserRawGainDisappeared": 2601,
+      "appear": 108,
+      "disappear": 108,
+      "kept": 24,
+      "keptButReordered": 16,
+      "meanTop10Overlap": 0.142,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 62,
+      "multiPiece3plus": 13,
+      "elite": 87,
+      "idp": 83,
+      "levels": {
+       "lopsided": 116,
+       "unfair": 16
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 133,
+      "meanUserRawGainAppeared": -191,
+      "meanUserRawGainDisappeared": 1439,
+      "appear": 564,
+      "disappear": 564,
+      "kept": 96,
+      "keptButReordered": 66,
+      "meanTop10Overlap": 0.158,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 313,
+      "multiPiece3plus": 143,
+      "elite": 552,
+      "idp": 273,
+      "levels": {
+       "unfair": 402,
+       "lopsided": 216,
+       "slight": 33,
+       "fair": 9
+      }
+     }
+    }
+   },
+   "starForPile": {
+    "GEOM_78": [],
+    "EFD_78": [
+     {
+      "surface": "finder_all_shapes",
+      "trade": "Cam Skattebo + Denzel Boston + Sam Darnold  ->  Josh Allen + Terrel Bernard",
+      "level": "slight",
+      "newVsIncumbent": true
+     }
+    ],
+    "HYBRID_50": [
+     {
+      "surface": "finder_all_shapes",
+      "trade": "Cam Skattebo + Denzel Boston + Sam Darnold  ->  Josh Allen + Terrel Bernard",
+      "level": "slight",
+      "newVsIncumbent": true
+     },
+     {
+      "surface": "finder_all_shapes",
+      "trade": "Denzel Boston + Makai Lemon + Sam Darnold  ->  Josh Allen + Terrel Bernard",
+      "level": "slight",
+      "newVsIncumbent": true
+     }
+    ],
+    "FGEOM_70_20": [],
+    "BLEND_G50_K50": [],
+    "KTC": []
+   }
+  },
+  "current": {
+   "comparison": {
+    "GEOM_78": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 0,
+      "meanUserRawGainAppeared": null,
+      "meanUserRawGainDisappeared": null,
+      "appear": 0,
+      "disappear": 0,
+      "kept": 480,
+      "keptButReordered": 0,
+      "meanTop10Overlap": 1.0,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 423,
+      "multiPiece3plus": 0,
+      "elite": 356,
+      "idp": 480,
+      "levels": {
+       "lopsided": 350,
+       "unfair": 106,
+       "slight": 24
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 0,
+      "meanUserRawGainAppeared": null,
+      "meanUserRawGainDisappeared": null,
+      "appear": 0,
+      "disappear": 0,
+      "kept": 480,
+      "keptButReordered": 0,
+      "meanTop10Overlap": 1.0,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 34,
+      "multiPiece3plus": 10,
+      "elite": 433,
+      "idp": 390,
+      "levels": {
+       "lopsided": 297,
+       "unfair": 177,
+       "slight": 6
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 0,
+      "meanUserRawGainAppeared": null,
+      "meanUserRawGainDisappeared": null,
+      "appear": 0,
+      "disappear": 0,
+      "kept": 132,
+      "keptButReordered": 0,
+      "meanTop10Overlap": 1.0,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 92,
+      "multiPiece3plus": 4,
+      "elite": 63,
+      "idp": 96,
+      "levels": {
+       "lopsided": 109,
+       "unfair": 18,
+       "fair": 1,
+       "slight": 4
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 0,
+      "meanUserRawGainAppeared": null,
+      "meanUserRawGainDisappeared": null,
+      "appear": 0,
+      "disappear": 0,
+      "kept": 660,
+      "keptButReordered": 0,
+      "meanTop10Overlap": 1.0,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 165,
+      "multiPiece3plus": 120,
+      "elite": 567,
+      "idp": 269,
+      "levels": {
+       "unfair": 355,
+       "lopsided": 195,
+       "fair": 48,
+       "slight": 62
+      }
+     }
+    },
+    "EFD_78": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 72,
+      "meanUserRawGainAppeared": 2803,
+      "meanUserRawGainDisappeared": 2009,
+      "appear": 91,
+      "disappear": 91,
+      "kept": 389,
+      "keptButReordered": 367,
+      "meanTop10Overlap": 0.717,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 439,
+      "multiPiece3plus": 0,
+      "elite": 367,
+      "idp": 480,
+      "levels": {
+       "lopsided": 349,
+       "unfair": 106,
+       "slight": 25
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 10,
+      "meanUserRawGainAppeared": 1028,
+      "meanUserRawGainDisappeared": 1395,
+      "appear": 117,
+      "disappear": 117,
+      "kept": 363,
+      "keptButReordered": 326,
+      "meanTop10Overlap": 0.675,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 30,
+      "multiPiece3plus": 25,
+      "elite": 432,
+      "idp": 388,
+      "levels": {
+       "unfair": 158,
+       "lopsided": 309,
+       "slight": 12,
+       "fair": 1
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 17,
+      "meanUserRawGainAppeared": 2416,
+      "meanUserRawGainDisappeared": 2398,
+      "appear": 27,
+      "disappear": 27,
+      "kept": 105,
+      "keptButReordered": 38,
+      "meanTop10Overlap": 0.783,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 93,
+      "multiPiece3plus": 6,
+      "elite": 65,
+      "idp": 95,
+      "levels": {
+       "lopsided": 103,
+       "unfair": 26,
+       "fair": 1,
+       "slight": 2
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 55,
+      "meanUserRawGainAppeared": 1603,
+      "meanUserRawGainDisappeared": 1325,
+      "appear": 241,
+      "disappear": 241,
+      "kept": 419,
+      "keptButReordered": 210,
+      "meanTop10Overlap": 0.6,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 186,
+      "multiPiece3plus": 117,
+      "elite": 572,
+      "idp": 263,
+      "levels": {
+       "lopsided": 206,
+       "unfair": 334,
+       "slight": 56,
+       "fair": 64
+      }
+     }
+    },
+    "HYBRID_50": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 69,
+      "meanUserRawGainAppeared": 2795,
+      "meanUserRawGainDisappeared": 2010,
+      "appear": 89,
+      "disappear": 89,
+      "kept": 391,
+      "keptButReordered": 369,
+      "meanTop10Overlap": 0.733,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 440,
+      "multiPiece3plus": 0,
+      "elite": 367,
+      "idp": 480,
+      "levels": {
+       "lopsided": 351,
+       "unfair": 105,
+       "slight": 24
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 6,
+      "meanUserRawGainAppeared": 1140,
+      "meanUserRawGainDisappeared": 1343,
+      "appear": 82,
+      "disappear": 82,
+      "kept": 398,
+      "keptButReordered": 331,
+      "meanTop10Overlap": 0.758,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 34,
+      "multiPiece3plus": 26,
+      "elite": 434,
+      "idp": 390,
+      "levels": {
+       "unfair": 176,
+       "lopsided": 292,
+       "slight": 12
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 16,
+      "meanUserRawGainAppeared": 2569,
+      "meanUserRawGainDisappeared": 2425,
+      "appear": 23,
+      "disappear": 23,
+      "kept": 109,
+      "keptButReordered": 25,
+      "meanTop10Overlap": 0.825,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 93,
+      "multiPiece3plus": 8,
+      "elite": 66,
+      "idp": 96,
+      "levels": {
+       "lopsided": 106,
+       "unfair": 22,
+       "fair": 1,
+       "slight": 3
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 53,
+      "meanUserRawGainAppeared": 1733,
+      "meanUserRawGainDisappeared": 1277,
+      "appear": 219,
+      "disappear": 219,
+      "kept": 441,
+      "keptButReordered": 209,
+      "meanTop10Overlap": 0.667,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 189,
+      "multiPiece3plus": 126,
+      "elite": 575,
+      "idp": 255,
+      "levels": {
+       "lopsided": 202,
+       "unfair": 347,
+       "slight": 63,
+       "fair": 48
+      }
+     }
+    },
+    "FGEOM_70_20": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 25,
+      "meanUserRawGainAppeared": 2005,
+      "meanUserRawGainDisappeared": 2526,
+      "appear": 28,
+      "disappear": 28,
+      "kept": 452,
+      "keptButReordered": 358,
+      "meanTop10Overlap": 0.875,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 420,
+      "multiPiece3plus": 0,
+      "elite": 351,
+      "idp": 479,
+      "levels": {
+       "lopsided": 346,
+       "unfair": 108,
+       "slight": 26
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 1,
+      "meanUserRawGainAppeared": 863,
+      "meanUserRawGainDisappeared": 1493,
+      "appear": 36,
+      "disappear": 36,
+      "kept": 444,
+      "keptButReordered": 365,
+      "meanTop10Overlap": 0.825,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 34,
+      "multiPiece3plus": 10,
+      "elite": 433,
+      "idp": 394,
+      "levels": {
+       "lopsided": 301,
+       "unfair": 171,
+       "slight": 8
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 4,
+      "meanUserRawGainAppeared": 1658,
+      "meanUserRawGainDisappeared": 2185,
+      "appear": 7,
+      "disappear": 7,
+      "kept": 125,
+      "keptButReordered": 20,
+      "meanTop10Overlap": 0.933,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 92,
+      "multiPiece3plus": 5,
+      "elite": 63,
+      "idp": 97,
+      "levels": {
+       "lopsided": 105,
+       "unfair": 23,
+       "fair": 1,
+       "slight": 3
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 15,
+      "meanUserRawGainAppeared": 752,
+      "meanUserRawGainDisappeared": 1273,
+      "appear": 65,
+      "disappear": 65,
+      "kept": 595,
+      "keptButReordered": 165,
+      "meanTop10Overlap": 0.883,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 163,
+      "multiPiece3plus": 115,
+      "elite": 567,
+      "idp": 272,
+      "levels": {
+       "unfair": 346,
+       "lopsided": 199,
+       "fair": 50,
+       "slight": 65
+      }
+     }
+    },
+    "BLEND_G50_K50": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 300,
+      "meanUserRawGainAppeared": 1679,
+      "meanUserRawGainDisappeared": 2372,
+      "appear": 340,
+      "disappear": 340,
+      "kept": 140,
+      "keptButReordered": 132,
+      "meanTop10Overlap": 0.2,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 281,
+      "multiPiece3plus": 0,
+      "elite": 367,
+      "idp": 453,
+      "levels": {
+       "unfair": 105,
+       "lopsided": 364,
+       "slight": 11
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 21,
+      "meanUserRawGainAppeared": 1050,
+      "meanUserRawGainDisappeared": 1144,
+      "appear": 426,
+      "disappear": 426,
+      "kept": 54,
+      "keptButReordered": 53,
+      "meanTop10Overlap": 0.083,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 92,
+      "multiPiece3plus": 55,
+      "elite": 355,
+      "idp": 416,
+      "levels": {
+       "unfair": 90,
+       "slight": 23,
+       "lopsided": 367
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 58,
+      "meanUserRawGainAppeared": 570,
+      "meanUserRawGainDisappeared": 2530,
+      "appear": 85,
+      "disappear": 85,
+      "kept": 47,
+      "keptButReordered": 29,
+      "meanTop10Overlap": 0.325,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 54,
+      "multiPiece3plus": 11,
+      "elite": 76,
+      "idp": 101,
+      "levels": {
+       "lopsided": 91,
+       "unfair": 39,
+       "slight": 2
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 103,
+      "meanUserRawGainAppeared": 13,
+      "meanUserRawGainDisappeared": 1322,
+      "appear": 494,
+      "disappear": 494,
+      "kept": 166,
+      "keptButReordered": 112,
+      "meanTop10Overlap": 0.225,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 174,
+      "multiPiece3plus": 133,
+      "elite": 555,
+      "idp": 285,
+      "levels": {
+       "unfair": 416,
+       "lopsided": 160,
+       "fair": 18,
+       "slight": 66
+      }
+     }
+    },
+    "KTC": {
+     "package_scan": {
+      "lostSensibleDepthVsIncumbent": 378,
+      "meanUserRawGainAppeared": 1553,
+      "meanUserRawGainDisappeared": 2349,
+      "appear": 425,
+      "disappear": 425,
+      "kept": 55,
+      "keptButReordered": 51,
+      "meanTop10Overlap": 0.125,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 205,
+      "multiPiece3plus": 0,
+      "elite": 373,
+      "idp": 427,
+      "levels": {
+       "lopsided": 431,
+       "unfair": 47,
+       "slight": 2
+      }
+     },
+     "finder_all_shapes": {
+      "lostSensibleDepthVsIncumbent": 29,
+      "meanUserRawGainAppeared": 1668,
+      "meanUserRawGainDisappeared": 1177,
+      "appear": 463,
+      "disappear": 463,
+      "kept": 17,
+      "keptButReordered": 16,
+      "meanTop10Overlap": 0.033,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 480,
+      "starForPile": 0,
+      "sensibleDepth": 164,
+      "multiPiece3plus": 58,
+      "elite": 281,
+      "idp": 386,
+      "levels": {
+       "unfair": 99,
+       "lopsided": 377,
+       "slight": 4
+      }
+     },
+     "best_offers": {
+      "lostSensibleDepthVsIncumbent": 76,
+      "meanUserRawGainAppeared": -253,
+      "meanUserRawGainDisappeared": 2601,
+      "appear": 108,
+      "disappear": 108,
+      "kept": 24,
+      "keptButReordered": 16,
+      "meanTop10Overlap": 0.142,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 132,
+      "starForPile": 0,
+      "sensibleDepth": 62,
+      "multiPiece3plus": 13,
+      "elite": 87,
+      "idp": 83,
+      "levels": {
+       "lopsided": 116,
+       "unfair": 16
+      }
+     },
+     "star_builder": {
+      "lostSensibleDepthVsIncumbent": 133,
+      "meanUserRawGainAppeared": -191,
+      "meanUserRawGainDisappeared": 1439,
+      "appear": 564,
+      "disappear": 564,
+      "kept": 96,
+      "keptButReordered": 66,
+      "meanTop10Overlap": 0.158,
+      "enumerationIdenticalToIncumbent": true,
+      "trades": 660,
+      "starForPile": 0,
+      "sensibleDepth": 313,
+      "multiPiece3plus": 143,
+      "elite": 552,
+      "idp": 273,
+      "levels": {
+       "unfair": 402,
+       "lopsided": 216,
+       "slight": 33,
+       "fair": 9
+      }
+     }
+    }
+   },
+   "starForPile": {
+    "GEOM_78": [],
+    "EFD_78": [],
+    "HYBRID_50": [],
+    "FGEOM_70_20": [],
+    "BLEND_G50_K50": [],
+    "KTC": []
+   }
+  }
+ },
+ "purpose": "RESEARCH ONLY. v1_legacy reproduces the recorded evidence; current is fairness_bands_v2. geom_q078_v1 stays active; nothing is promoted.",
+ "generatedBy": "scripts/package_model_v2_remeasure.py",
+ "codeSha": "ce22d5de7b433f70b04108d12088e95e0e044d4d",
+ "fairnessBands": {
+  "version": "fairness_bands_v2",
+  "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+  "basis": "larger_package_utility",
+  "absoluteMinimum": 250.0,
+  "slightPct": 3.5,
+  "unfairPct": 9.0,
+  "lopsidedPct": 18.0,
+  "fairTradeLevels": [
+   "fair"
+  ],
+  "postLaunchValidation": "OD-F4"
+ },
+ "activeModelAtRun": "geom_q078_v1",
+ "totalSec": 1.4
+}

@@ -74,6 +74,78 @@
     "audit-rank-form-drift.yml::audit::Set up Python": {
       "category": "blocking"
     },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Checkout without persisted credentials": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Set up Python": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Verify lock and artifact logic": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Download locked Linux packages and test an offline wheel install": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Bind wheel bytes to the tested lock and runtime": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Upload measured backend artifact": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Checkout runtime proof without persisted credentials": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Set up Python for runtime proof": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Build and verify production runtime wheels offline": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Upload production runtime wheel proof": {
+      "category": "blocking"
+    },
+    "class-b-branch-pilot.yml::fixed-document-task::Checkout without persisted credentials": {
+      "category": "blocking"
+    },
+    "class-b-branch-pilot.yml::fixed-document-task::Run credential-free worker and independently verify exact output": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Checkout without persisted credentials": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Set up Python": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Test model task and trusted publisher policy": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Download exact free model and runtime": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Run model in credential-free container": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Independently verify exact proposal and refusal evidence": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Upload verified proposal for trusted publisher": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Checkout trusted default branch": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Set up Python": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Download verified proposal": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Verify again and push only the fixed review branch": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Open review-only pull request": {
+      "category": "blocking"
+    },
     "c1a-closure-diagnostics.yml::inventory::Checkout": {
       "category": "blocking"
     },
@@ -110,6 +182,12 @@
       "category": "blocking"
     },
     "c1a-run-playerctx-push.yml::push::Start the unit and report what it published": {
+      "category": "blocking"
+    },
+    "class-b-isolation.yml::isolation::Checkout without persisted credentials": {
+      "category": "blocking"
+    },
+    "class-b-isolation.yml::isolation::Exercise denied and allowed container actions": {
       "category": "blocking"
     },
     "claude.yml::claude::Checkout repository": {
@@ -157,10 +235,16 @@
     "crowd-faab-diagnostics.yml::crowd-faab-status::Probe crowd FAAB on production": {
       "category": "blocking"
     },
+    "deploy.yml::deploy::Assert the resolved target is present in this clone": {
+      "category": "blocking"
+    },
     "deploy.yml::deploy::Assert post-deploy verification will actually run": {
       "category": "blocking"
     },
     "deploy.yml::deploy::Checkout (full history for the deploy-skip guard)": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Download tested release artifact": {
       "category": "blocking"
     },
     "deploy.yml::deploy::Guard against skipping or reversing a deploy": {
@@ -181,7 +265,16 @@
     "deploy.yml::deploy::SSH preflight (connectivity + remote paths)": {
       "category": "blocking"
     },
+    "deploy.yml::deploy::Transfer tested release archive to production": {
+      "category": "blocking"
+    },
     "deploy.yml::deploy::Validate known_hosts entry for target host": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Verify downloaded archive is the validated archive": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Verify live frontend matches the tested artifact": {
       "category": "blocking"
     },
     "deploy.yml::deploy::Validate live data contract": {
@@ -190,10 +283,28 @@
         "conditional_skip"
       ]
     },
+    "deploy.yml::resolve::Checkout (workflow commit, full history for resolution)": {
+      "category": "blocking"
+    },
+    "deploy.yml::resolve::Classify exact target release mode": {
+      "category": "blocking"
+    },
+    "deploy.yml::resolve::Resolve the requested ref to one full commit SHA": {
+      "category": "blocking"
+    },
     "deploy.yml::validate::API data contract check (FULL lane \u2014 blocking)": {
       "category": "blocking"
     },
+    "deploy.yml::validate::Assert the validated tree is the resolved target": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Check generated leagues contract": {
+      "category": "blocking"
+    },
     "deploy.yml::validate::Checkout": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Build and test offline backend runtime wheelhouse": {
       "category": "blocking"
     },
     "deploy.yml::validate::Deploy script syntax gate (existing scripts only)": {
@@ -203,6 +314,9 @@
       "category": "blocking"
     },
     "deploy.yml::validate::Install dependencies (requirements-dev.txt)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Package tested release artifact": {
       "category": "blocking"
     },
     "deploy.yml::validate::Preflight environment check": {
@@ -230,6 +344,9 @@
       "category": "blocking"
     },
     "deploy.yml::validate::Set up Python": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Upload tested release artifact": {
       "category": "blocking"
     },
     "deploy.yml::validate::Validate dependency graph (pip check)": {
@@ -415,10 +532,40 @@
     "lane4-onbox-verification.yml::lane4-onbox::Upload the report": {
       "category": "blocking"
     },
+    "signals-onbox-verification.yml::verify::Checkout": {
+      "category": "blocking"
+    },
+    "signals-onbox-verification.yml::verify::Configure production SSH": {
+      "category": "blocking"
+    },
+    "signals-onbox-verification.yml::verify::Refuse while a production deploy is running or queued": {
+      "category": "blocking"
+    },
+    "signals-onbox-verification.yml::verify::Run Signals verification on the host": {
+      "category": "blocking"
+    },
+    "signals-onbox-verification.yml::verify::Upload report": {
+      "category": "blocking"
+    },
+    "idpshow-onbox-verification.yml::verify::Checkout": {
+      "category": "blocking"
+    },
+    "idpshow-onbox-verification.yml::verify::Configure production SSH": {
+      "category": "blocking"
+    },
+    "idpshow-onbox-verification.yml::verify::Run IDP Show verification on the host": {
+      "category": "blocking"
+    },
+    "idpshow-onbox-verification.yml::verify::Upload report": {
+      "category": "blocking"
+    },
     "pr-validation.yml::validate::API data contract check (structural lane \u2014 blocking)": {
       "category": "blocking"
     },
     "pr-validation.yml::validate::Audit finding-status drift gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Check generated leagues contract": {
       "category": "blocking"
     },
     "pr-validation.yml::validate::Checkout": {
@@ -436,6 +583,9 @@
     "pr-validation.yml::validate::Frontend build + bundle-size budget": {
       "category": "blocking"
     },
+    "pr-validation.yml::validate::Package and verify frontend release candidate": {
+      "category": "blocking"
+    },
     "pr-validation.yml::validate::Frontend unit tests (vitest)": {
       "category": "blocking"
     },
@@ -443,6 +593,9 @@
       "category": "blocking"
     },
     "pr-validation.yml::validate::Install frontend dependencies": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Install tesseract-ocr (screenshot import OCR tests)": {
       "category": "blocking"
     },
     "pr-validation.yml::validate::Planning integrity gate": {
@@ -505,10 +658,19 @@
     "prod-e2e-smoke.yml::smoke::Run public /league spec against prod": {
       "category": "blocking"
     },
-    "prod-e2e-smoke.yml::smoke::Upload Playwright trace artifacts on failure": {
+    "prod-e2e-smoke.yml::smoke::Upload the Playwright report on failure": {
       "category": "blocking"
     },
     "prod-e2e-smoke.yml::smoke::Use Node 20": {
+      "category": "blocking"
+    },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Checkout": {
+      "category": "blocking"
+    },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Collect restart evidence": {
+      "category": "blocking"
+    },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Configure production SSH": {
       "category": "blocking"
     },
     "public-league-warmup.yml::warm::Emit metrics snapshot": {
@@ -569,6 +731,12 @@
       "category": "blocking"
     },
     "refit-hill-curves.yml::refit::Trigger deploy after canonical promotion": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Verify the challenger reproduces from its own pins": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Verify the tournament winner reproduces from its own pins": {
       "category": "blocking"
     },
     "release-candidate.yml::candidate::API data contract check (structural lane)": {
@@ -634,6 +802,9 @@
     "retention-backup-proof.yml::prove::Configure production SSH": {
       "category": "blocking"
     },
+    "retention-backup-proof.yml::prove::Pin the proof script to the deployed commit": {
+      "category": "blocking"
+    },
     "retention-backup-proof.yml::prove::Run backup and prove restore on production": {
       "category": "blocking"
     },
@@ -645,6 +816,12 @@
     },
     "retention-health.yml::probe::Probe retention streams on production": {
       "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Record identity evidence upload outcome (loud on failure, never blocking)": {
+      "category": "advisory"
+    },
+    "scheduled-refresh.yml::refresh::Upload identity capture evidence (V2.1 U2/U2b full stamps, kept out of git)": {
+      "category": "advisory"
     },
     "scheduled-refresh.yml::refresh::Alert on workflow failure": {
       "category": "blocking"
@@ -662,6 +839,12 @@
       "category": "blocking"
     },
     "scheduled-refresh.yml::refresh::Contract coverage watchdog": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Draft valuation alerts": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Draft valuation readiness (Batch D)": {
       "category": "blocking"
     },
     "scheduled-refresh.yml::refresh::Install dependencies": {
@@ -709,6 +892,15 @@
     "scoring-snapshot-diagnostics.yml::inventory::Configure production SSH": {
       "category": "blocking"
     },
+    "scrape-source-lifecycle-proof.yml::source-lifecycle::Checkout proof code without persisted credentials": {
+      "category": "blocking"
+    },
+    "scrape-source-lifecycle-proof.yml::source-lifecycle::Configure production SSH": {
+      "category": "blocking"
+    },
+    "scrape-source-lifecycle-proof.yml::source-lifecycle::Prove a recent source lifecycle without transferring raw telemetry": {
+      "category": "blocking"
+    },
     "scrape-telemetry-diagnostics.yml::fetch-telemetry::Configure production SSH": {
       "category": "blocking"
     },
@@ -751,9 +943,6 @@
     "smoke-test.yml::validate::Python syntax gate": {
       "category": "blocking"
     },
-    "smoke-test.yml::validate::Run unit tests": {
-      "category": "blocking"
-    },
     "smoke-test.yml::validate::Set up Python": {
       "category": "blocking"
     },
@@ -793,6 +982,54 @@
     "v1-49-host-native-scoring-activation.yml::v1-49-activation::Validate inputs": {
       "category": "blocking"
     },
+    "signals-health-probe.yml::bundle::Checkout": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::bundle::Run Tier 0 on the runner (no credentials)": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::bundle::Upload report": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Checkout": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Refuse unless dispatched from main": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Refuse while a production deploy is running or queued": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Configure production SSH": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Run the deployed script on the host": {
+      "category": "blocking"
+    },
+    "signals-health-probe.yml::onbox::Upload report": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Checkout": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Validate inputs": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Configure production SSH": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Roll back and verify the served board": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Restore the captured pre-rollback state": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Job summary": {
+      "category": "blocking"
+    },
+    "signals-idp-family-rollback.yml::rollback::Upload the report": {
+      "category": "blocking"
+    },
     "v1-authenticated-verification.yml::v1-authenticated::API verification suite": {
       "category": "blocking"
     },
@@ -823,8 +1060,32 @@
     "v1-authenticated-verification.yml::v1-authenticated::Revoke the pass (always)": {
       "category": "blocking"
     },
+    "v1-authenticated-verification.yml::v1-authenticated::Security probe after login (control)": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Security probe immediately before revocation (control)": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Security probe after revocation (same session)": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::On-box guest-session census (count-only, content read-only)": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Security acceptance summary (incident 2026-10-08)": {
+      "category": "blocking"
+    },
     "v1-authenticated-verification.yml::v1-authenticated::Upload the reports": {
       "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Wait for a warm backend (bounded, public endpoints)": {
+      "category": "advisory"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Detect a backend restart during the run (public /api/status)": {
+      "category": "advisory"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Classify failures (report-only, never a gate)": {
+      "category": "advisory"
     },
     "v1-onbox-checklists.yml::v1-onbox::Configure production SSH": {
       "category": "blocking"

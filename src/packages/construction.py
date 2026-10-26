@@ -440,6 +440,23 @@ class EnumerationReport:
     #: True once an outgoing policy was actually applied, so an empty result
     #: under constraints is distinguishable from an empty result without any.
     outgoing_constrained: bool = False
+    #: C3-CON-03 LOCK: assets forced onto every SEND side of
+    #: :func:`enumerate_packages`, and the shapes too small to hold them.
+    #: Published only when a lock was given, so an unlocked call's report is
+    #: byte-identical to before the seam existed.
+    required_send: int = 0
+    shapes_skipped_for_required: list[str] = field(default_factory=list)
+    #: The RECEIVE-side mirror: a desired incoming asset (Package Builder) on
+    #: every receive side.  Published only when given.
+    required_receive: int = 0
+    shapes_skipped_for_required_receive: list[str] = field(default_factory=list)
+    #: Receive-side ANCHOR (owner directive 2026-10-18, Target Quality): every
+    #: emitted receive side must hold at least one asset the caller's
+    #: predicate admits.  Counted when a combination is refused for lacking
+    #: one, BEFORE the emission budget, so a budget is spent only on packages
+    #: the request can accept.  Published only when an anchor was given.
+    receive_anchor_applied: bool = False
+    receive_anchor_rejected: int = 0
 
     @property
     def truncated(self) -> bool:
@@ -470,6 +487,29 @@ class EnumerationReport:
             # Assets that had no canonical id and fell back to a name key.
             # Non-zero means the dedup identity is weaker for those rows.
             "nameKeyedAssets": self.name_keyed_assets,
+            **(
+                {
+                    "requiredSend": self.required_send,
+                    "shapesSkippedForRequired": list(self.shapes_skipped_for_required),
+                }
+                if self.required_send
+                else {}
+            ),
+            **(
+                {
+                    "requiredReceive": self.required_receive,
+                    "shapesSkippedForRequiredReceive": list(
+                        self.shapes_skipped_for_required_receive
+                    ),
+                }
+                if self.required_receive
+                else {}
+            ),
+            **(
+                {"receiveAnchorRejected": self.receive_anchor_rejected}
+                if self.receive_anchor_applied
+                else {}
+            ),
         }
 
 
@@ -642,6 +682,9 @@ def enumerate_packages(
     max_packages: int | None = None,
     rank_key: Callable[[PackageAsset], Any] | None = None,
     adapt: bool = True,
+    required_send: Sequence[Any] = (),
+    required_receive: Sequence[Any] = (),
+    receive_anchor: Callable[[Any], bool] | None = None,
 ) -> tuple[Iterator[SidePair], EnumerationReport]:
     """Enumerate every legal package shape between two pools.
 
@@ -662,6 +705,30 @@ def enumerate_packages(
     :data:`UNCONSTRAINED_OUTGOING`; there is no default, so the ninth consumer
     of this substrate cannot generate an unconstrained recommendation by
     forgetting a keyword.
+
+    ``required_send`` is the C3-CON-03 LOCK seam: those assets appear on EVERY
+    send side, exactly as ``required`` does in :func:`enumerate_sides`.  They
+    count against each shape's send size (a 1-for-1 cannot hold two locks, so
+    that shape is skipped and reported), they skip ``policy`` (a locked player
+    is not being asked whether he is roster clog), and they do NOT escape the
+    outgoing policy — forcing a protected player raises
+    :class:`ConstraintMisapplied`, because persistent protection outranks a
+    temporary lock (§3.3).  Topology is still enforced: a lock never licenses a
+    3-for-1.
+
+    ``required_receive`` is the mirror on the RECEIVE side — a desired incoming
+    asset that every package must bring back (Package Builder, C7-PKGB-01).  It
+    skips ``policy`` for the same reason a lock does, the outgoing policy never
+    applies to it (receive side, §2.2), shapes too small to hold it are skipped
+    and reported, and topology is still enforced.
+
+    ``receive_anchor`` is a predicate over the caller's ORIGINAL asset objects
+    (``PackageAsset.source``): every emitted receive side must contain at least
+    one asset it admits (the "at least one incoming player meets Target
+    Quality" rule).  It is checked during enumeration, before the emission
+    budget is charged, so a package the request cannot accept never consumes
+    the budget or reaches a scorer — and a pile of non-qualifying pieces can
+    never satisfy it through combined value, because the test is per asset.
     """
     outgoing = _resolve_outgoing(outgoing_policy, side=SEND)
     policy = policy or EligibilityPolicy()
@@ -670,9 +737,28 @@ def enumerate_packages(
 
     ours = adapt_assets(our_assets) if adapt else list(our_assets)
     theirs = adapt_assets(their_assets) if adapt else list(their_assets)
+    fixed = tuple(adapt_assets(required_send) if adapt else list(required_send))
     report.our_pool_size = len(ours)
     report.their_pool_size = len(theirs)
     report.name_keyed_assets = sum(1 for a in (*ours, *theirs) if a.key_is_name_fallback)
+    report.required_send = len(fixed)
+    report.receive_anchor_applied = receive_anchor is not None
+
+    if fixed and outgoing is not None:
+        forced = [a for a in fixed if not outgoing.admits(a)]
+        if forced:
+            raise ConstraintMisapplied(
+                "required outgoing asset(s) are constrained and cannot be forced "
+                f"into a recommendation: {', '.join(sorted(a.name for a in forced))}"
+            )
+    fixed_keys = {a.key for a in fixed}
+    if fixed_keys:
+        ours = [a for a in ours if a.key not in fixed_keys]
+    fixed_recv = tuple(adapt_assets(required_receive) if adapt else list(required_receive))
+    report.required_receive = len(fixed_recv)
+    fixed_recv_keys = {a.key for a in fixed_recv}
+    if fixed_recv_keys:
+        theirs = [a for a in theirs if a.key not in fixed_recv_keys]
 
     ours = _eligible(ours, policy, report, ours=True, outgoing=outgoing)
     # No ``outgoing=`` here, and that is the whole of §2.2.
@@ -693,16 +779,34 @@ def enumerate_packages(
     plan = list(shapes) if shapes else _default_shapes(max_per_side, max_side_difference)
     report.shapes = [f"{s.send}-for-{s.receive}" for s in plan]
 
+    if fixed:
+        report.shapes_skipped_for_required = [
+            f"{s.send}-for-{s.receive}" for s in plan if s.send < len(fixed)
+        ]
+    if fixed_recv:
+        report.shapes_skipped_for_required_receive = [
+            f"{s.send}-for-{s.receive}" for s in plan if s.receive < len(fixed_recv)
+        ]
+
     def _iter() -> Iterator[SidePair]:
         seen: set[tuple[tuple[str, ...], tuple[str, ...]]] = set()
         for shape in plan:
-            if len(ours) < shape.send or len(theirs) < shape.receive:
+            free = shape.send - len(fixed)
+            free_recv = shape.receive - len(fixed_recv)
+            if free < 0 or free_recv < 0 or len(ours) < free or len(theirs) < free_recv:
                 continue
-            for send in combinations(ours, shape.send):
+            for fillers in combinations(ours, free):
+                send = (*fixed, *fillers)
                 send_keys = {a.key for a in send}
                 if len(send_keys) != len(send):
                     continue  # the same asset twice on one side
-                for receive in combinations(theirs, shape.receive):
+                for recv_fillers in combinations(theirs, free_recv):
+                    receive = (*fixed_recv, *recv_fillers)
+                    if receive_anchor is not None and not any(
+                        receive_anchor(a.source if a.source is not None else a) for a in receive
+                    ):
+                        report.receive_anchor_rejected += 1
+                        continue
                     if max_packages is not None and report.emitted >= max_packages:
                         report.budget_exhausted = True
                         return

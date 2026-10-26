@@ -16,7 +16,7 @@ ACTUAL_RUFF_VERSION="$(python -m ruff --version | awk '{print $2}')"
 
 if [[ "$ACTUAL_RUFF_VERSION" != "$EXPECTED_RUFF_VERSION" ]]; then
   echo "ERROR: Ruff version mismatch: expected $EXPECTED_RUFF_VERSION, got $ACTUAL_RUFF_VERSION" >&2
-  echo "Install the repo toolchain with: python -m pip install -r requirements-dev.txt" >&2
+  echo "Install the repo toolchain with: python -m pip install --require-hashes -r requirements-dev.lock.txt" >&2
   exit 2
 fi
 

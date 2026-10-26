@@ -175,8 +175,9 @@ class TestTheLivedataMarkingIsPreserved:
 
 class TestKtcRemainsATrainingSource:
     def test_ktc_is_a_training_source(self):
-        offense_block = FIT.read_text(encoding="utf-8").split("OFFENSE_SOURCES")[1].split("}")[0]
-        assert "ktc.csv" in offense_block
+        from scripts import fit_hill_curve_percentile as fitter
+
+        assert fitter.OFFENSE_SOURCES["KTC"][0] == "CSVs/site_raw/ktc.csv"
         assert "KTC" in OFFENSE_TRAINING_SOURCES
 
     def test_the_guard_scores_the_constants_ktc_trains(self):
@@ -193,28 +194,28 @@ class TestKtcRemainsATrainingSource:
 
 
 class TestParityWithTheFitSourceList:
-    """``holdout.py`` mirrors OFFENSE_SOURCES as a literal. If the fit
-    gains a source and the mirror does not, a training board silently
-    becomes eligible as holdout."""
+    """``holdout.py`` used to mirror the fit's OFFENSE_SOURCES as a literal,
+    pinned by parsing the fit script's text. Both are now views of ONE
+    training manifest (Batch 3 Unit D); this asserts they cannot diverge.
+    The stronger manifest-vs-registry checks live in
+    ``tests/model_registry/test_training_manifest.py``."""
 
     def test_training_mirror_matches_the_fit_script(self):
-        block = FIT.read_text(encoding="utf-8").split(
-            "OFFENSE_SOURCES: dict[str, tuple[str, str]] = {"
-        )[1]
-        block = block.split("}")[0]
-        found = set(re.findall(r'^\s*"([A-Za-z]+)":', block, re.MULTILINE))
-        assert found == set(OFFENSE_TRAINING_SOURCES), (
-            f"fit script has {sorted(found)}, holdout mirror has "
-            f"{sorted(OFFENSE_TRAINING_SOURCES)} — update src/model_registry/holdout.py"
-        )
+        from scripts import fit_hill_curve_percentile as fitter
+        from src.model_registry.training_manifest import default_manifest
 
-    def test_mirrored_paths_match_the_fit_script(self):
-        block = FIT.read_text(encoding="utf-8").split(
-            "OFFENSE_SOURCES: dict[str, tuple[str, str]] = {"
-        )[1]
-        block = block.split("}")[0]
-        for label, (path, _) in OFFENSE_TRAINING_SOURCES.items():
-            assert path in block, f"{label} path {path} not in the fit script"
+        assert fitter.OFFENSE_SOURCES == OFFENSE_TRAINING_SOURCES
+        assert OFFENSE_TRAINING_SOURCES == default_manifest().csv_table("OFFENSE", "train")
+
+    def test_neither_side_keeps_a_literal_list(self):
+        for path in (FIT, REPO / "src" / "model_registry" / "holdout.py"):
+            assert "OFFENSE_SOURCES: dict[str, tuple[str, str]] = {" not in path.read_text(
+                encoding="utf-8"
+            )
+            assert not re.search(
+                r"OFFENSE_TRAINING_SOURCES: dict\[str, tuple\[str, str\]\] = \{",
+                path.read_text(encoding="utf-8"),
+            )
 
 
 @pytest.mark.livedata

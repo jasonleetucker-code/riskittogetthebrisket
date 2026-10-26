@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildActivityEvents, filterEvents, familyOfPos } from "@/lib/activity-feed";
+import {
+  buildActivityEvents,
+  buildPublicActivityEvents,
+  filterEvents,
+  familyOfPos,
+} from "@/lib/activity-feed";
 import { familyOf as moversFamilyOf } from "@/lib/movers";
 import { POS_FAMILY } from "@/lib/position-family";
 
@@ -65,6 +70,57 @@ describe("buildActivityEvents", () => {
   it("returns [] when given empty inputs", () => {
     expect(buildActivityEvents(null, null)).toEqual([]);
     expect(buildActivityEvents({}, [])).toEqual([]);
+  });
+});
+
+// The exact shape GET /api/public/league/activity serves
+// (src/public_league/activity.py::serving_view): players carry
+// ``playerName``, picks carry ``label``, and an ungraded side carries
+// only ``{available, grade, color, label}``.
+const SERVED_PUBLIC_TRADE = {
+  transactionId: "1410387162507075584",
+  season: "2026",
+  week: 3,
+  createdAt: 1790625012570,
+  totalAssets: 3,
+  sides: [
+    {
+      rosterId: 1,
+      ownerId: "ownA",
+      displayName: "Jason",
+      teamName: "Medical Murrayjuana",
+      receivedAssets: [
+        { kind: "player", playerName: "Emeka Egbuka", position: "WR" },
+        { kind: "pick", season: "2028", round: 2, label: "2028 R2" },
+      ],
+      grade: { grade: "B+", color: "#2ecc71", label: "Slight overpay" },
+    },
+    {
+      rosterId: 5,
+      ownerId: "ownB",
+      displayName: "MaKayla",
+      teamName: "Rage Against The Achane",
+      receivedAssets: [{ kind: "player", playerName: "Malik Nabers", position: "WR" }],
+      grade: { available: false, grade: null, color: null, label: "Insufficient historical evidence" },
+    },
+  ],
+};
+
+describe("buildPublicActivityEvents", () => {
+  it("names players from playerName and picks from label", () => {
+    const [event] = buildPublicActivityEvents([SERVED_PUBLIC_TRADE], []);
+    expect(event.playerNames).toEqual(["Emeka Egbuka", "2028 R2", "Malik Nabers"]);
+    expect(event.detail).toBe("Emeka Egbuka · 2028 R2 · Malik Nabers");
+  });
+
+  it("keeps team, owner and roster identity plus honest grade states", () => {
+    const [event] = buildPublicActivityEvents([SERVED_PUBLIC_TRADE], []);
+    expect(event.title).toBe("Medical Murrayjuana ↔ Rage Against The Achane");
+    expect(event.ownerIds).toEqual(["ownA", "ownB"]);
+    expect(event.rosterIds).toEqual([1, 5]);
+    expect(event.grades[0]).toMatchObject({ grade: "B+", label: "Slight overpay" });
+    // An unavailable grade stays unavailable — never a letter.
+    expect(event.grades[1]).toMatchObject({ available: false, grade: null });
   });
 });
 

@@ -1,5 +1,12 @@
 # Market Trade Ledger — Format-Aware Recent Trades & Actionable Market Evidence
 
+> **OWNER DECISION — 2026-09-30 (#1555).** The owner states he holds explicit permission from KeepTradeCut to
+> scrape **all KTC data**. That owner-reported authorization IS the recorded authorization: KTC scraping is no
+> longer classified as absent or pending an artifact, and no permission document is to be invented. It does not
+> disclose KTC's proprietary Tradesourced formula, does not transfer to Signals, IDP Trade Calculator or any other
+> provider, and grants no redistribution or commercial rights beyond what was granted; request hygiene and
+> technical limits still apply. Map: `docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md` §B.
+>
 > **RECONCILIATION AMENDMENT — 2026-08-14.** Promoted to `main` verbatim from PR #809 by the post-B master
 > reconciliation (`docs/POST_B_RECONCILIATION_2026-08-14.md`). Body unchanged.
 >
@@ -291,7 +298,7 @@ Every discovered league must have its own league/format metadata captured from t
 
 The owner reports having received direct permission from KeepTradeCut to use KTC data for this project. Treat **KTC Trade Database ingestion as an authorized acquisition lane**, not as a hypothetical future source that must be rejected merely because generic public terms would otherwise restrict automated collection.
 
-Implementation must still remain inside the actual scope of the permission granted. Before production collection, preserve/document whatever permission evidence, contact, scope, permitted collection method, rate expectations, attribution requirements, redistribution limits, and revocation/update terms are available. If the grant is ambiguous on a specific method or use, clarify that point rather than assuming broader rights than were granted.
+**Owner decision 2026-09-30 (#1555):** the owner-reported permission covers scraping **all KTC data** and is the recorded authorization; no further artifact is required before collection, and none is to be invented. Implementation must still remain inside the actual scope of the permission granted. Preserve/document whatever permission evidence, contact, scope, permitted collection method, rate expectations, attribution requirements, redistribution limits, and revocation/update terms become available. If the grant is ambiguous on a specific method or use, clarify that point rather than assuming broader rights than were granted.
 
 Subject to that granted scope, Brisket should ingest KTC's recent-trade population because it provides valuable broad-market coverage and format metadata such as QB setting, PPR, team count, TE premium, starter count and package size.
 

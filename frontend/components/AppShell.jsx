@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useDynastyData } from "@/components/useDynastyData";
 import { buildTeamByPlayer } from "@/lib/waiver-logic";
+import { isUnlistedPagePath } from "@/lib/public-routes";
 // Both live in the ROOT LAYOUT, so a static import puts them in the
 // chunk set every one of ~90 routes downloads and parses — 69 KB of it,
 // measured. Neither is reachable until the user acts: PlayerPopup needs
@@ -157,12 +158,32 @@ const NO_PLAYER_DATA_ROUTE_PREFIXES = [
   "/admin",
   "/tools/source-health",
   "/tools/ros-data-health",
+  // /dfs reads only /api/dfs/* (its own slate snapshots) — no useApp() /
+  // useDynastyData() consumer in its tree, and DFS data is deliberately
+  // separate from the dynasty board.
+  "/dfs",
 ];
 
 function isNoPlayerDataRoute(pathname) {
   if (!pathname) return false;
   return NO_PLAYER_DATA_ROUTE_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+  );
+}
+
+// Should this route mount the private player pipeline (useDynastyData →
+// the multi-MB /api/data contract)?  Three independent reasons say no:
+// the public /league subtree (privacy), private pages with no player data
+// (speed), and UNLISTED pages (lib/public-routes.js) — opened by link
+// without a session, served entirely by their own public endpoint.  For an
+// unlisted page the private fetch is a guaranteed 401 for strangers and,
+// for a tab holding an expired session, a redirect to /login off a page
+// that must never require one.
+function privateDataEnabledFor(pathname) {
+  return (
+    !isPublicOnlyRoute(pathname) &&
+    !isNoPlayerDataRoute(pathname) &&
+    !isUnlistedPagePath(pathname)
   );
 }
 
@@ -173,6 +194,7 @@ export const __routeGates = {
   NO_PLAYER_DATA_ROUTE_PREFIXES,
   isPublicOnlyRoute,
   isNoPlayerDataRoute,
+  privateDataEnabledFor,
 };
 
 /**
@@ -182,7 +204,7 @@ export const __routeGates = {
  * For PUBLIC-only routes, AppShell refuses to hydrate private data.
  * See PUBLIC_ONLY_ROUTE_PREFIXES above.
  */
-export default function AppShell({ children, authenticated = false, capabilities = null }) {
+export default function AppShell({ children, authenticated = false, capabilities = null, isAdmin = false }) {
   const pathname = usePathname();
   // Two INDEPENDENT reasons to skip the player pipeline, composed rather
   // than merged: one is a privacy boundary, one is "this page has no use
@@ -194,21 +216,20 @@ export default function AppShell({ children, authenticated = false, capabilities
   // That would serialize the contract fetch behind an auth round-trip on
   // EVERY page — trading a wasted fetch on /login for a slower first
   // paint everywhere.
-  const privateDataEnabled =
-    !isPublicOnlyRoute(pathname) && !isNoPlayerDataRoute(pathname);
+  const privateDataEnabled = privateDataEnabledFor(pathname);
 
   return privateDataEnabled ? (
-    <PrivateAppShell authenticated={authenticated} capabilities={capabilities}>
+    <PrivateAppShell authenticated={authenticated} capabilities={capabilities} isAdmin={isAdmin}>
       {children}
     </PrivateAppShell>
   ) : (
-    <NoPlayerDataAppShell authenticated={authenticated} capabilities={capabilities}>
+    <NoPlayerDataAppShell authenticated={authenticated} capabilities={capabilities} isAdmin={isAdmin}>
       {children}
     </NoPlayerDataAppShell>
   );
 }
 
-function PrivateAppShell({ children, authenticated, capabilities }) {
+function PrivateAppShell({ children, authenticated, capabilities, isAdmin }) {
   const { loading, error, failure, retry, rows, siteKeys, rawData } =
     useDynastyData();
   return (
@@ -223,6 +244,7 @@ function PrivateAppShell({ children, authenticated, capabilities }) {
       privateDataEnabled={true}
       authenticated={authenticated}
       capabilities={capabilities}
+      isAdmin={isAdmin}
     >
       {children}
     </InnerAppShell>
@@ -233,7 +255,7 @@ function PrivateAppShell({ children, authenticated, capabilities }) {
 // /api/data would leak private data, and private routes that simply have
 // no player data to show.  Named for what it does (no player data) rather
 // than for either reason, since it now answers to two.
-function NoPlayerDataAppShell({ children, authenticated, capabilities }) {
+function NoPlayerDataAppShell({ children, authenticated, capabilities, isAdmin }) {
   // No useDynastyData call — the public page pipeline must never
   // hydrate from /api/data.  The search + popup components render
   // against an empty rows list so they simply no-op rather than
@@ -250,13 +272,14 @@ function NoPlayerDataAppShell({ children, authenticated, capabilities }) {
       privateDataEnabled={false}
       authenticated={authenticated}
       capabilities={capabilities}
+      isAdmin={isAdmin}
     >
       {children}
     </InnerAppShell>
   );
 }
 
-function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData, privateDataEnabled, authenticated, capabilities, children }) {
+function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData, privateDataEnabled, authenticated, capabilities, isAdmin = false, children }) {
   // Player search requires an authenticated session.  Search against
   // the private contract leaks ranking data and private identifiers
   // to logged-out visitors on otherwise-public surfaces.
@@ -338,7 +361,15 @@ function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData
 
   // Global keyboard shortcuts for search: "/" (legacy, preserved) and
   // Cmd/Ctrl+K (the standard command-palette chord — R1 additive).
-  useEffect(() => {
+  //
+  // A LAYOUT effect, deliberately: the shortcut is wired in the same commit
+  // that renders its visible affordance (the shell's "Search" button, which
+  // TopBar / MobileTopBar show under the same `authenticated &&
+  // searchEnabled` condition), before the browser paints it.  As a passive
+  // effect it ran after paint, so for a moment the Search button was on
+  // screen while "/" still did nothing.  "The Search control is visible"
+  // now implies "/" works — the readiness signal V1-131's E2E waits on.
+  useLayoutEffect(() => {
     if (!searchEnabled) return undefined;
     function onKeyDown(e) {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
@@ -426,6 +457,8 @@ function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData
           // the menus — hiding an entry from the drawer while ⌘K still
           // routes there would leave V1-131 half-fixed.
           capabilities={capabilities}
+          // Ops destinations are admin-only, same filter as the System menu.
+          isAdmin={isAdmin}
           isOpen={searchOpen}
           onClose={() => setSearchOpen(false)}
           onSelect={(row) => openPlayerPopup(row)}

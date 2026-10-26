@@ -43,6 +43,25 @@ game, 2 two-week rounds) changes how rounds are *scheduled*, not how
 many teams qualify or sit out round one, so it is deliberately not
 modelled here.
 
+Re-seeding vs a fixed bracket is READ, not assumed (C5-PLAY-01 review B2)
+──────────────────────────────────────────────────────────────────────
+Sleeper's ``playoff_seed_type`` decides who meets whom after round one:
+
+* ``1`` — **re-seed**: every round the best surviving seed meets the worst;
+* ``0`` — **fixed bracket**: the standard power-of-two bracket, byes going
+  to the top seeds, pairings never redrawn.  For six teams that is
+  1 vs winner(4/5) and 2 vs winner(3/6) — exactly what Sleeper generated
+  for ``dynasty_new`` in 2025 and 2026 (``winners_bracket``: round-two
+  matches take ``t2_from: {w: 1}`` / ``{w: 2}``), and for five teams 1 vs
+  winner(4/5), 2 vs 3 (``dynasty_main`` 2025).
+
+Measured 2026-10-07: ``dynasty_main`` publishes ``1`` and ``dynasty_new``
+``0``.  The canonical engine re-seeded both until this was read.  Any
+other value (or none) is UNKNOWN: the bracket's pairings cannot be
+reproduced, so title odds fail closed (``seed_type is None`` with
+``seed_type_reason``) while qualifying — which seeding does not affect —
+still resolves.
+
 Missing is never six
 ────────────────────
 A league that does not publish ``playoff_teams`` has an UNKNOWN bracket,
@@ -60,6 +79,8 @@ from dataclasses import dataclass
 from typing import Any
 
 __all__ = [
+    "SEED_TYPE_FIXED",
+    "SEED_TYPE_RESEED",
     "PlayoffStructure",
     "byes_for_teams",
     "resolve_playoff_structure",
@@ -70,6 +91,14 @@ REASON_NO_SEASON = "no_current_season"
 REASON_NO_SETTINGS = "league_has_no_settings_block"
 REASON_NO_PLAYOFF_TEAMS = "league_settings_omit_playoff_teams"
 REASON_IMPLAUSIBLE = "playoff_teams_outside_a_plausible_range"
+REASON_NO_SEED_TYPE = "league_settings_omit_playoff_seed_type"
+REASON_UNKNOWN_SEED_TYPE = "playoff_seed_type_not_recognised"
+
+#: ``playoff_seed_type`` -> bracket rule.  Only the two values the host
+#: documents in its settings UI (default / re-seed) are recognised.
+SEED_TYPE_FIXED = "fixed"
+SEED_TYPE_RESEED = "reseed"
+_SEED_TYPES = {0: SEED_TYPE_FIXED, 1: SEED_TYPE_RESEED}
 
 #: A bracket smaller than two cannot be played, and one larger than the
 #: league cannot be filled.  Both are refusals rather than clamps: a
@@ -98,6 +127,11 @@ class PlayoffStructure:
     week_start: int | None
     source: str
     reason: str = ""
+    #: ``"reseed"`` / ``"fixed"`` from ``playoff_seed_type``, or ``None`` when
+    #: the league does not say (``seed_type_reason`` names why).  Affects the
+    #: bracket only — qualifying (``known``) does not depend on it.
+    seed_type: str | None = None
+    seed_type_reason: str = ""
 
     @property
     def known(self) -> bool:
@@ -109,6 +143,12 @@ class PlayoffStructure:
         """
         return self.teams is not None
 
+    @property
+    def bracket_known(self) -> bool:
+        """True only when the bracket can be PLAYED as the host plays it:
+        the field is known and so is how its later rounds are paired."""
+        return self.known and self.seed_type is not None
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "playoffTeams": self.teams,
@@ -116,6 +156,8 @@ class PlayoffStructure:
             "playoffWeekStart": self.week_start,
             "source": self.source,
             "reason": self.reason,
+            "seedType": self.seed_type,
+            "seedTypeReason": self.seed_type_reason,
         }
 
 
@@ -151,4 +193,19 @@ def resolve_playoff_structure(season: Any) -> PlayoffStructure:
         # Refused, not clamped — see ``_MIN_TEAMS``.
         return PlayoffStructure(None, None, week_start, "unavailable", REASON_IMPLAUSIBLE)
 
-    return PlayoffStructure(teams, byes_for_teams(teams), week_start, "league_settings")
+    raw_seed_type = settings.get("playoff_seed_type")
+    seed_type: str | None
+    if raw_seed_type is None:
+        seed_type, seed_reason = None, REASON_NO_SEED_TYPE
+    else:
+        code = _int_or_none(raw_seed_type)
+        seed_type = _SEED_TYPES.get(code) if code is not None else None
+        seed_reason = "" if seed_type is not None else REASON_UNKNOWN_SEED_TYPE
+    return PlayoffStructure(
+        teams,
+        byes_for_teams(teams),
+        week_start,
+        "league_settings",
+        seed_type=seed_type,
+        seed_type_reason=seed_reason,
+    )

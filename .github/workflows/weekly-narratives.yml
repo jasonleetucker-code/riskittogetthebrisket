@@ -123,16 +123,17 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements.lock.txt
 
       - name: Install anthropic SDK (generate mode only)
         if: ${{ steps.action.outputs.action == 'generate' }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          # Only the optional on-demand API path needs this — export and
-          # import never call an LLM API, so they never need the SDK.
-          pip install anthropic
+          # This SDK is already in the exact runtime lock. Keep this named
+          # workflow gate as an explicit generate-mode import verification.
+          python -c "import anthropic"
 
       - name: Require ANTHROPIC_API_KEY (generate mode only)
         if: ${{ steps.action.outputs.action == 'generate' }}

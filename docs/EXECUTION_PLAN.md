@@ -1,5 +1,197 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## IDP valuation accuracy + platform research/promotion-readiness audit — owner directives, 2026-10-25
+
+**AUTHORIZED NOW (research, tests and shadow-only candidates; NOT activation).** IDP valuation accuracy,
+replacement methodology and cross-position fair value, verbatim in
+`docs/owner/IDP_VALUATION_ACCURACY_DIRECTIVE_2026-10-25.md`: a pinned research manifest; scorer verification against
+Sleeper awarded points; baseline diagnostics from the served canonical artifact; shadow replacement definitions;
+best-ball utility; cross-position multi-season utility candidates (reusing BDVM, `src/ros/lineup.py`, LI-5, the
+`league_fair_value_v1_shadow` package and the knowledge-cutoff replay rather than adding owners); a scoring-sensitivity
+experiment; a preregistered chronological backtest; and an evidence-backed recommendation package. New shadow code is
+unwired or behind default-OFF flags and isolated like `src/league_valuation/` (`tests/league_valuation/test_isolation.py`).
+It must not collide with LI-5 (#1927) or the forced-drop lane: their files are consumed, never edited here.
+
+**Also AUTHORIZED NOW (read-only):** the platform-wide research, data-collection and promotion-readiness audit
+(intake "Added 2026-10-25 — Platform-wide research…"): a dated report and machine-readable inventory under
+`docs/audits/`.
+
+**Owner-reserved (NOT authorized):** any live scoring, canonical value or rank, source voting or weight, IDP ceiling,
+Hill curve, package model (`geom_q078_v1`, q = 0.78), fairness methodology (`fairness_bands_v2`), trade verdict,
+public output or league-setting change; turning any flag ON in any registry, deploy, config or env surface;
+promoting any challenger; Sleeper writes; paid data. Changing live canonical methodology needs an independent
+evidence package and explicit owner approval. Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-25".
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel.
+
+## Unlisted Waiver Wire Comparison page — owner directive, 2026-10-21
+
+**AUTHORIZED (build, review, merge and deploy in one pass).** A standalone, read-only page at the
+unlisted URL `/waiver-wire/r7k4q9m2`: pick a `dynasty_main` team, see every rostered player's value,
+and the top available waiver players (50 at a time) with position/age/sort filters. Value = plain
+50/50 average of KTC (Dynasty, Crowd+Trades, SF, TE++) and IDP Trade Calculator (SF, TEP, offense +
+IDP); a lone value is used unchanged; neither = N/A. Explicitly NO replacement line, drop advice or
+other math, and NO change to canonical values, source weights, the trade calculator or any model.
+Owner: `src/waiver_compare/` (isolated value concept) + `GET /api/public/waiver-compare`. Public by
+link only: not in nav, robots or the sitemap, and noindexed. Intake:
+`docs/OWNER_REQUESTED_TODO.md` §"Added 2026-10-21 — Unlisted Waiver Wire Comparison page".
+
+## Low-value-asset decision packages 1–5 — owner decisions, 2026-10-21 (~12:40 UTC)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-21 (~12:40 UTC)" (LVA-P1 to LVA-P5C). The verbatim text is
+in `docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md`. It answers §J of
+`docs/owner/LVA_INTEGRATION_REPORT_AND_DECISIONS_2026-10-21.md`. Develop/dormant-merge authorization is kept
+separate from activation authorization: **every item below is develop or dormant only.**
+
+**Authorized now:**
+- **P1, forced-drop fix #1890.** The mode constant becomes V5-R (`roster_rational`). Dormant merge once the exact
+  head passes required CI, independent review and merge checks. The flag `forced_drop_cheapest_legal` stays OFF and
+  `scripts/verify_owner_held_flags.py` keeps holding it OFF. After that deploys dormant: one pinned, read-only
+  production-box replay per `docs/trade/FORCED_DROP_BOX_REPLAY_RUNBOOK_2026-10-21.md`, run as the service user, with
+  aggregate-only output. It reports real scarcity, Component B, both anomaly directions, the trade-recommendation
+  changes and an investigation of V5-R's non-monotonicity (a better incoming player worsening the result).
+- **P2, OD-F6 option A.** Relabel the League Hub history tier and state its basis, with the 3% criterion defined in
+  one authoritative place. Zero numerical grade changes. The wording has to be verified against what the metric
+  measures first: if it is valuation balance, the label is "Evenly valued" or similar, not "Even outcome", and the
+  distinction is documented. Also, at low priority: re-measure Package VA Phases 1–3 under `fairness_bands_v2` as
+  research only, additive to the original evidence.
+- **P3, LI-5 (C2-REPL-01) phases P1–P2** of `docs/valuation/LI5_REPLACEMENT_CONSOLIDATION_DESIGN_2026-10-21.md`,
+  per D1–D8 as recommended, behind a new default-OFF flag. P3 (which touches #1890's files) starts only after #1890
+  merges.
+- **P4, depth disclosure V4 shadow counters**: hidden, private-access-protected, behind a default-OFF flag, measuring
+  fire rates and false positives (A-guarded, floor threshold, picks included). Calculator and War Room first. War
+  Room Team Context stays held until #1890 is settled.
+- **P5A, #1852**: the read-only census of eligible manager-lineage components (sizes, concentration, coverage,
+  allocation alternatives). No reserve is drawn, persisted or exposed, and Q2 stays `PROPOSED_PENDING_OWNER_Q2`.
+- **P5B, #1884**: the owning session reconciles and revalidates it. Priority is extracting the research records and
+  the separately reviewed identity prerequisites for 2026-11-04.
+- **P5C, #1873**: prepare the pinned manual command for the early-November prospective evaluation. #1873 stays open
+  and unmerged.
+
+**Owner-reserved (NOT authorized):** turning `forced_drop_cheapest_legal`, the LI-5 flag or the disclosure-counter
+flag ON in any registry, deploy, config or env surface; any served replacement-level, IDP valuation, voting or
+scarcity change; any user-facing or public depth note, or public probing route; drawing or persisting the #1852
+reserve; merging the whole #1884 V2/V2.1 implementation; merging #1873; running the #1873 command on the box; any
+change to `geom_q078_v1`, q = 0.78 or the fairness methodology; any change to numerical history grades.
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel.
+
+## fairness_bands_v2 — owner decisions, 2026-10-20 (~19:45 UTC): OD-F1 / OD-F2 / OD-F3 / OD-F5
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~19:45 UTC)". Verbatim text: `docs/owner/FAIRNESS_V2_DECISIONS_2026-10-20.md`. Evidence: `docs/trade/FAIRNESS_BANDS_V2_2026-10-20.md`.
+
+**Authorized now:**
+- **`fairness_bands_v2` in the ONE fairness-band owner** (`src/valuation_math/fairness_bands.py` + `config/trade/fairness_bands.json`, pinned JS mirror `frontend/lib/fairness-bands.js`): the gap divided by the larger package utility (OD-F2), the 250 floor kept as an owner-approved prior (OD-F3), FAIR TRADE = `fair` only recorded in the owner (OD-F1), status `PRIOR_OWNER_APPROVED_2026-10-20` (OD-F5), non-finite input refused identically in both languages. Every consumer (private Asset-Only YES / NO, /trade meter, balancers, Best Offers, Package Builder, suggestions badge) moves with the owner; impact measured with `scripts/measure_fairness_band_change.py --compare v1-v2`. Branch `claude/fairness-bands-v2`, through the normal release train / HEAD-FREEZE gates.
+
+**Owner-reserved (NOT authorized):** changing the League Hub trade-history grade (OD-F6 decided 2026-10-21 as relabel only, no grade change; see the LVA entry above); public advisor launch (OD-3, admission sizes, F-1, response floor, launch approval open); calling v2 validated before OD-F4 runs; any change to `package_model`, q, `geom_q078_v1`, curves or values; enabling any flag.
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel.
+
+## PR #1831 universal freshness schedule — owner decision, 2026-10-20 (~12:25 UTC): OPTION B (merge disabled, activation held)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~12:25 UTC)" (FS-B1..FS-B10). Verbatim text: `docs/owner/PR1831_OPTION_B_DECISION_2026-10-20.md`. Amends the 2026-10-19 universal-source-voting V5 authorization: the schedule is implemented and approved but NOT activated.
+
+**Authorized now:**
+- **PR #1831 merges with `source_freshness_schedule_v2` default OFF** through the normal release process (release train / HEAD-FREEZE gates), reconciled with current `main` (incl. #1817), flag-off board identical to `main` (`board_diff --expect-no-value-change`), approved percentages and their tests intact, `sourceVotingStatus` reporting the rule in force plus a labelled non-voting v2 shadow. Locked by `tests/api/test_freshness_v2_hold_locked.py` and the deploy-time live-process check `scripts/verify_owner_held_flags.py` (now also requires this flag OFF).
+- **Regression data for outlier-integrity-v2**: the flag-ON affected rows (LaJohntay Wester, the newly unpriced IDP rows, every changed outlier verdict) at `tests/fixtures/outlier_integrity_v2/freshness_v2_affected_rows_2026-10-20.json`; the V2 lane wires them into its regression / integration tests.
+- **After V2 is validated**: a combined SHADOW impact analysis with the intended DLF voting changes and the freshness schedule (FS-B6), reported without treating legitimate disagreement as corruption.
+
+**Owner-reserved (NOT authorized):** activating the freshness schedule (`source_freshness_schedule_v2` → ON in the registry or any deploy / config / env surface); DLF IDP and D4 activation (unchanged); any DEGRADED-health rule change, coverage-factor rule change or pick-specific freshness exemption without separate evidence and approval.
+
+**Unaffected and not blocked:** Release Train 16, production stability work and the public/private multi-team calculators continue in parallel (FS-B9).
+
+## outlier-integrity-v2 implementation directive + "Hold D4 for V2" — owner, 2026-10-20 (~10:20 UTC)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~10:20 UTC)" (IV2-D4, IV2-1..IV2-13, IV2-A). Verbatim text: `docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md`. Amends the Option 3 entry below: its (a) no longer releases D4, and its (b) is now governed by this directive's fuller gates.
+
+**Authorized now:**
+- **(a′) PR #1817 ships D2/D3 withdrawal, D5 and TW; D4 is HELD.** `dlf_values_rank_hill_vote` defaults OFF (implementation intact; the default flip is the only activation step), locked by `tests/api/test_dlf_values_hold_locked.py` and by the deploy-time live-process check `scripts/verify_owner_held_flags.py` in `deploy/verify-deploy.sh` (also enforces the DLF IDP hold). Reason: under the incumbent outlier filter D4 newly drops other sources' valid votes on 12–13 offense rows (Theo Johnson −7.4%).
+- **(b′) outlier-integrity-v2** per the directive: layered validation (identity, source integrity/normalization, legitimate disagreement, confidence), preregistered before evaluation, every previously failed safety case at its required rate, boards A–D plus the addendum's A′–D′ for D4, historical replay, independent review, default-OFF flag with incumbent-preserving disabled state, deliverables A–H ending in exactly one of READY FOR APPROVAL / MORE RESEARCH REQUIRED / BLOCKED. Implementation lane: branch `claude/outlier-integrity-v2` (separate lane owner). No served value moves.
+
+**Owner-reserved (NOT authorized):** activating V2 in production; lifting the DLF IDP hold; activating D4 (`dlf_values_rank_hill_vote` → ON in the registry or in any deploy / config / env surface). Each goes to the owner as an activation package with the directive's evidence.
+
+**Boundary (IV2-8):** no change to rank→value curves, Hill constants, source weights, legitimate correlation groups, family caps, freshness policy, Package Value Adjustment, `geom_q078_v1`, Trade Calculator fairness math or Trade Finder logic.
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel (IV2-12).
+
+## PR #1817 safe-portion release + outlier-filter Version 2 research — owner decision, 2026-10-20 (Option 3)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20" (O3-1..O3-10). Verbatim text: `docs/owner/OUTLIER_FILTER_V2_OPTION3_2026-10-20.md`. Refines the 2026-10-19 source-voting bullet "DLF IDP and DLF Rookie IDP return to voting": the return is HELD until the gates below pass and the owner approves it.
+
+**Authorized now:**
+- **(a) PR #1817 safe-portion release** at its release defaults, through the normal train / HEAD-FREEZE / deploy / production-verification gates: D2 and D3 withdrawn (deleted); ~~D4 DLF Values rank → Hill inside DLF's family cap (`dlf_values_rank_hill_vote` ON)~~ — **D4 HELD, default OFF, by the owner's later decision the same day ("Hold D4 for V2", entry above)**; D5 FantasyPros IDP upstream clock (`fantasypros_idp_upstream_clock` ON); TW Travis Hunter two-way alt-evidence correction (`two_way_alt_evidence_rules` ON). The DLF IDP hold `dlf_offense_only_vote` stays ON — TEMPORARY and locked by `tests/api/test_dlf_idp_hold_locked.py`.
+- **(b) Outlier-filter Version 2 research** in an isolated research branch / worktree, **shadow only** (now governed by the outlier-integrity-v2 directive, entry above). The algorithm, expected behaviour and acceptance criteria are preregistered (separate commit) BEFORE any evaluation. Mandatory gates: all six existing adversarial tests pass unweakened; regression coverage for Trevin Wallace, Myles Garrett and every defensive player whose valid votes the incumbent discarded; legitimate disagreement (Draft Sharks, FantasyPros, IDP Trade Calculator, DLF) is not removed merely for disagreeing; mathematical consistency, determinism, family caps and small-sample handling verified; an exact before / after valuation report with source contributions; a shadow run against the current production board with every unexpected large move explained and reviewed. No served value moves.
+
+**Owner-reserved (NOT authorized):** activating outlier-filter V2 in production, and lifting the DLF IDP hold (`dlf_offense_only_vote` → OFF in the registry or in any deploy / config / env surface). When V2 passes every mandatory gate, the activation package goes to the owner for explicit approval. Rejected outright: the incumbent filter's 34–54% DLF-IDP-restore moves, and the #1847 candidate (failed 3 of 6 mandatory adversarial tests).
+
+**Unaffected and not blocked:** Train 12, Train 13, V1 verification and every other §0 authorization continue in parallel. The production stability investigation (W8, `claude/prod-memory-pressure`) stays a separate high-priority lane: verify the actual restart mechanism (the 2.6 GB peak over the 2.5 GB soft limit is plausible, not proven), fix cache growth safely, and validate any memory-limit proposal against the 8 GB host before it is applied.
+
+## League intelligence, trade decision engine and three source / advisor directives — owner, 2026-10-19 (later)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-19 (later)". Verbatim texts in `docs/owner/`.
+
+**Authorized now (implementation, behind flags or in shadow until each gate passes):**
+- **League intelligence and trade decision engine**, stages A–F of `docs/owner/LEAGUE_INTELLIGENCE_TRADE_DECISION_ENGINE_2026-10-19.md`, built in parallel workstreams. The stages are: exact-league scoring and projections, the projection ensemble, best-ball marginal utility, dynasty-horizon forecasts, the league-aware valuation challenger, and the hierarchical YES / NO decision engine inside the existing Trade Calculator.
+  - Experimental models never change served values or recommendations until they pass promotion gates written down before the holdout is examined.
+  - Promoting a league-aware canonical value follows the model-governance sequence (fit → backtest → validate → compare → human approval → promote → monitor → rollback). The evidence and the decision go to the owner together.
+- **Brisket Trade Advisor** (public League Hub): implement, test and ship under the public / private boundary. *Refined 2026-10-20:* multi-team is now required, the public result is fairness-only, and public launch is owner-reserved. See §0 "Brisket Trade Advisor completion and multi-team trade support".
+- **Signals Fantasy IDP voting**: root cause, preregistered candidates and validation. Per-family activation only after the directive's gates pass.
+- **Chase Upside Trade Market**: the shadow source, its validation and the research view, labelled "Experimental — Not Voting". Voting needs owner authorization.
+
+**Unchanged:** geometric VA `geom_q078_v1`; no arbitrary positional multipliers; the withdrawn league-adjusted lens stays withdrawn; MISSING IS NEVER ZERO; DFS and League Tycoon shelved; no paid data or paid inference without the owner; no Sleeper writes.
+
+## Site completion and universal source voting — owner directives, 2026-10-19
+
+**Authorized now:** every item in `docs/COMPLETION_QUEUE.md` whose blocker is `NONE`, executed in the queue's batches and priority order (P0 → P4). Release trains go through exact-head CI, E2E and the Release Candidate gate, then merge, deploy and production verification. Sources:
+- the master directive "Finish Chase Upside" (`docs/owner/MASTER_DIRECTIVE_FINISH_CHASE_UPSIDE_2026-10-19.md`);
+- the Trade Calculator clarity / dual VA / speed directive;
+- the Source Voting Consensus directive (`docs/owner/SOURCE_VOTING_CONSENSUS_2026-10-19.md`);
+- the Universal Source Voting and Freshness Policy (`docs/owner/UNIVERSAL_SOURCE_VOTING_FRESHNESS_2026-10-19.md`).
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-19".
+
+**Source voting (supersedes the conflicting parts of D1, D2, D3 and the cadence-relative freshness method):**
+- similarity is not lineage;
+- IDP Trade Calculator and The IDP Show both vote;
+- IDP Trade Calculator's offense values vote;
+- DLF IDP and DLF Rookie IDP return to voting under the DLF family cap;
+- the universal freshness schedule is 0–7 days → 100%, 8–14 → 75%, 15–21 → 50%, 22–30 → 25%, more than 30 → 0%, on the publisher's genuine-update clock;
+- the IDP outlier-filter interaction is corrected through reproducible, adversarial, independently validated comparison;
+- per-source voting status is transparent on Settings and Source Health.
+
+Each mathematical change ships behind its own flag. A change that fails validation is held without blocking the others. The existing single-source haircut stays; any revision runs as a challenger.
+
+**Unchanged and binding:**
+- geometric VA `geom_q078_v1` (q = 0.78), with KTC kept as comparison / rollback;
+- the strict FantasyPros upstream clock (D5);
+- the DLF family cap;
+- no missing value treated as zero;
+- no extra weight for agreement;
+- DFS and League Tycoon shelved;
+- no paid data, no paid inference and no Sleeper writes;
+- the official 2027 rookie auction stays gated.
+
+## Standing owner delivery method — 2026-10-19
+
+**PROCESS ONLY, NOT NEW FEATURE AUTHORIZATION.** The authorized work in
+§0 should be built by the maximum safe number of independent workers
+(target 3–5 isolated branches/worktrees when supported) instead of
+serializing behind unrelated full CI. Keep L0/L1 checks during coding,
+full required L2 at each PR integration boundary, and strict L3 at the
+existing release boundary. The **exclusive Integration Authority** may
+merge objectively ready, reviewed, exact-tree-green routine PRs without
+a new owner merge request. This newer standing instruction supersedes
+older *generic* per-merge signoff/stop-and-wait language, not specific
+owner-only gates for model/source promotion, methodology, launch/deploy,
+spending, security, destructive changes or OWNER_PAUSED DFS/League Tycoon.
+The active §0 authorizations and frozen completion contracts stay intact.
+A qualifying merge to `main` runs the existing automated Deploy Production
+pipeline, whose own validate gate still applies. That automatic deploy is
+part of the routine merge, not a separate owner gate; production
+verification is still recorded separately from the merge.
+Canonical policy: `docs/AGENT_OPERATING_SYSTEM.md` §3;
+mechanics: `ASSISTANT_COORDINATION.md`.
+
 ## Permanent parallel Premium UI — owner directive, 2026-09-24 (#1421)
 
 UI policy: ALWAYS_PARALLEL_UNTIL_UI_COMPLETE
@@ -20,7 +212,7 @@ globally defer UI under this newer instruction. Backend complete / UI incomplete
 product incomplete. First safe unit: #1422 `/design`, on its own branch/claim.
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
+**Last reconciled:** 2026-10-18 (owner decision closeout D1–D20 recorded at the top of §0; DFS and League Tycoon OWNER_PAUSED; stale decision markers closed in place — `docs/owner/OWNER_DECISION_REGISTER.md`). Earlier: 2026-10-17 (records reconciliation: the 2026-10-16/17 manager-replacement, Manager Intelligence and sitewide trade Value Adjustment owner directives recorded in §0 with their merge evidence; no other authorization changed). Earlier: 2026-10-16 (records reconciliation: the 2026-10-14 trade-discovery and 2026-10-15 screenshot-import owner directives recorded in §0 with their merge/deploy evidence, plus the 2026-10-16 audit-batch directive incl. the DLF offense-only vote decision; no other authorization changed). Earlier: 2026-10-07 (CLEANUP-1 reconciliation only: the two 2026-10-07 owner directives recorded at the top of §0 — repository stabilization AUTHORIZED NOW, learning-loop batch IC-1..IC-9 sequenced after it — plus a pointer to the 2026-10-03 directive, the #1338 closure note and AL merge evidence; no other authorization changed). Earlier: 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -62,6 +254,405 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
+## Brisket Trade Advisor completion and multi-team trade support — owner directive, 2026-10-20
+
+**AUTHORIZED NOW (implementation and validation; NOT activation).** The directive and its same-day FAIRNESS-ONLY
+amendment are recorded verbatim in `docs/owner/TRADE_ADVISOR_MULTITEAM_DIRECTIVE_2026-10-20.md`. Intake:
+`docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-20"). Binding interface contract:
+`docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`.
+
+Five lanes, in isolated branches:
+
+| lane | scope | branch |
+|---|---|---|
+| A | canonical N-team engine and private route | `claude/trade-nteam-engine` |
+| B | private calculator and War Room | `claude/trade-multi-team-ui` |
+| C | public fairness-only backend, reconciling #1861 | `claude/advisor-public-backend` |
+| D | League Hub frontend, reconciling #1866 | `claude/advisor-hub-frontend` |
+| E | quality, privacy, verification | test-only branches |
+
+There is also a separate owner-visible deploy unit, D-net (loopback binds).
+
+- **OD-1 resolved YES:** genuine 2/3/4-team evaluation in both products. Each team gets its own result, from ONE
+  shared server-side engine. Nothing is duplicated in the public endpoint.
+- **Flags:**
+  - the new private `trade_multi_team_analysis` ships default OFF and is enabled only through the normal release
+    process after Lane E's regressions and independent review;
+  - the public `brisket_trade_advisor` stays OFF.
+- **Public launch is OWNER-RESERVED.** All eleven directive §16 criteria must pass. That includes OD-3 source
+  permission, OD-4 exposure, OD-F1 to OD-F6 fairness threshold, and explicit owner approval. The spec's §6.3 launch
+  gate makes the threshold and source-permission blocks executable. No lane enables the flag or any production
+  default.
+- **Unchanged:** `geom_q078_v1` (q = 0.78) is the only active package model (no LP_150, no q change, no player-value
+  change); `fairness_bands_v1` is used unchanged; no new weights, thresholds or formulas without evidence and owner
+  authorization; the two-team routes are not regressed. The private 3+-team browser meter fix (spec §5.1) is a
+  directive-§6 correctness fix, shown to the owner with before/after evidence.
+- Merges and deploys keep their normal gates. A merge is not launch approval.
+
+## Trade Calculator clarity, dual Value Adjustment and speed — owner directive, 2026-10-19
+
+**AUTHORIZED NOW** (non-DFS, already-active Calculator feature, under the 2026-10-07 completion campaign and the
+2026-10-17 Trade Calculator authorization). Verbatim: `docs/owner/TRADE_CALC_CLARITY_DUAL_VA_SPEED_2026-10-19.md`;
+intake `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-19 — Trade Calculator clarity…"). Three lanes, separate PRs:
+War Room clarity (UI), dual Value Adjustment + Second Opinions comparison, `/api/trade/analyze` speed. **Unchanged:**
+`geom_q078_v1`, q = 0.78, is the only authoritative package model — the KTC adjustment method is a read-only
+comparator, never blended, added, averaged or voted; the backend decision stays the only recommendation; no
+simulation, scoring or evidence reduction for speed. Merges and deploys keep their gates.
+
+## Hybrid Value Adjustment research — owner directive, 2026-10-19
+
+**AUTHORIZED NOW: research and, only if justified, a disabled-by-default non-voting challenger.** Verbatim:
+`docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_2026-10-19.md`; intake `docs/OWNER_REQUESTED_TODO.md` ("Added
+2026-10-19 — Hybrid Value Adjustment research"). `geom_q078_v1` (q = 0.78) stays active and `ktc_2026_04` stays
+the read-only comparator until the owner explicitly approves a replacement (also D8, 2026-10-18). No verdict,
+fairness band, Trade History, Finder, War Room or Second Opinions behaviour changes. Must not interrupt the
+completion campaign or PR #1826. Result: `docs/valuation/PACKAGE_MODEL_HYBRID_RESEARCH_2026-10-19.md`
+(recommendation: keep `geom_q078_v1`; no KTC blend at any weight; no challenger registered). Owner decision pending. Phase 2 (same day, verbatim `docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_PHASE2_2026-10-19.md`): research only, same production bounds; result `docs/valuation/PACKAGE_MODEL_PHASE2_RESEARCH_2026-10-19.md` (KEEP). Phase 3 (2026-10-20, verbatim `docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_PHASE3_2026-10-20.md`): **AUTHORIZED NOW** — analysis of the production-ledger report, challenger research with preregistered held-out validation, isolated disabled-by-default shadow candidates only if justified; production `geom_q078_v1` and every served path unchanged; activation is not authorized. **Owner decision 2026-10-20: Phase 3 KEEP approved** (`geom_q078_v1`, q = 0.78, unchanged). **Low-value-asset research program — AUTHORIZED NOW (high priority, research + isolated shadow experiments only)**: verbatim `docs/owner/LOW_VALUE_ASSET_RESEARCH_2026-10-20.md`; investigate canonical-curve error vs a separate trade-currency adjustment vs informational-only; preregister before confirmatory evaluation; no production values, weights, Value Adjustment, fairness classification, recommendation or public-calculator methodology change; must not interrupt the public multi-team calculator, outlier V2 or other authorized lanes. **Final follow-up 2026-10-20 — AUTHORIZED NOW (research only)**, verbatim `docs/owner/LOW_VALUE_ASSET_FINAL_FOLLOWUP_2026-10-20.md`: validate the owner-run box report under the frozen preregistration and complete the owner report (result: R-C, informational disclosure only); targeted investigations A (forced-drop valuation) and B (IDP replacement values), research only. No valuation change, fairness-threshold change or public activation is authorized. **Owner decisions 2026-10-20 (verbatim `docs/owner/LOW_VALUE_ASSET_OWNER_DECISIONS_2026-10-20.md`):** R-C approved (no haircut, no trade-currency adjustment; `geom_q078_v1` and canonical values retained); #1833 approved to merge as research-only once its latest head passes required CI and independent review. **AUTHORIZED NOW**, in isolated worktrees, without interrupting the multi-team implementation, outlier-integrity-v2, source freshness or production stability releases: (A, HIGH PRIORITY) forced-drop cut selection/charge correctness fix as a separate isolated PR, implemented as a properly gated candidate — any change to served trade recommendations needs the owner's explicit approval with the exact production impact first; (B) IDP replacement anchors and league-specific IDP scoring research, no IDP value or source-weight change; (C) optional league-aware informational disclosure design, exact copy and triggers to the owner before activation, public copy shows no proprietary numbers; (§5) public fairness consistency audit — the public product is a neutral FAIR / NOT FAIR / UNABLE TO DETERMINE calculator on one market-fairness methodology for 2, 3 and 4 teams, not a personalized recommendation; private calculator and War Room stay roster-aware; the public threshold is not activated or modified independently and fairness_bands_v2 keeps its owner approval and validation requirements.
+
+## Owner decision closeout + evidence unblock — owner directive, 2026-10-18 (D1–D20)
+
+**AUTHORIZED NOW, within the gates the directive names.** Verbatim: `docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md`;
+register of every previously open or stale owner decision with live status: `docs/owner/OWNER_DECISION_REGISTER.md`;
+residual blockers: `docs/owner/RESIDUAL_BLOCKERS_2026-10-18.md`; intake `docs/OWNER_REQUESTED_TODO.md` ("Added
+2026-10-18 — Owner decision closeout"). The decisions it resolves are delegated; do not re-ask them.
+
+- **Authorized now (no further owner decision):** the Part 9 evidence work — run `idp-hampel-n3-v1` exactly as
+  preregistered (D1), Signals IDP dependence on the box-local data (D7), the geometric package-model evaluation on
+  the production trade archive (D8), draft-valuation verification / 216-pick reconciliation / rollback testing,
+  the Trade Calculator matrix and authenticated desktop/mobile verification, Manager Intelligence proof under
+  authentication, source freshness / family-cap validation, broken scheduled workflows and unreliable CI tests,
+  dashboard regeneration from refreshed evidence; challengers D2 (IDP-scoped shared cap replay), D6 (deep-tail
+  normalization) and D11 (AL-5c playoff shadow); D3 verification of the existing IDP Trade Calculator offense
+  vote; D5 `EXPLICIT_UPSTREAM_TIMESTAMP` for FantasyPros plus the duplicate-identity analysis; TC-B…TC-F in the
+  D10 priority order (share-link format frozen; no fabricated 3+-team YES/NO); D9 TCM-K06 "Unavailable — reason"
+  in Second Opinions; the D14 chart palette through the semantic chart-token owner (Lane 6); D12 interim rules on
+  the validation-only unified Manager of the Year.
+- **Conditional activations — gates still apply, not complete until they pass:** DLF IDP vote restoration (D1:
+  only after the challenger passes and independent board validation), the IDP shared cap (D2: validated release
+  before served values move), DLF Values rank-to-Hill (D4), any deep-tail or playoff-engine replacement (D6, D11).
+  "Approved direction" is never a passing result; no source weight, q or model-gate change outside these decisions.
+- **Unchanged (D8):** `geom_q078_v1`, q = 0.78, stays the active package model (KTC = rollback / comparison); the
+  250-point Best Offers rule, fairness classifications and the YES/NO engine are not reopened.
+- **OWNER_PAUSED:** **DFS** — all further DFS implementation (the DFS section below and PR #1810; deployed DFS
+  preserved; supersedes "DFS" in the 2026-10-07 campaign list) — and **League Tycoon** (no integration, contract
+  dynasty or migration work, and no configuration / capture / credential requests; Sleeper stays the platform).
+  Both resume only on a fresh explicit owner directive. Paused ≠ rejected ≠ complete.
+- **Standing policies:** Chase Upside stays **read-only** toward real Sleeper roster and league transactions (D15);
+  **no paid inference** (D16) and **no paid data subscriptions** (D17 — free BALLDONTLIE / CollegeFootballData
+  only if terms allow and an authorized key exists); `dynasty_new` draft order out of scope (D13); OCR stays local
+  Tesseract (D19); rookie auction stays mock-first — no official room, invites, budgets or roster writes (D20).
+- **Still gated / human-only:** applying the main ruleset, deploy-key retirement and the `JASON_LOGIN_PASSWORD`
+  rotation (D18), the Tesseract install (D19), re-enabling the paused authenticated verification workflows, VAPID
+  keys, the official auction launch and its pre-launch items (D20) — `docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md`.
+  Merges and deploys keep their gates; never mark merged code production-verified without observing it.
+
+## Calculator completion campaign — owner directive, 2026-10-07 ("FINISH THE CALCULATOR SITE")
+
+**AUTHORIZED NOW.** Execute EVERY owner-approved Calculator requirement in the canonical completion denominator
+through the normal branch → CI → independent review → integration → deploy → production-verification path,
+in dependency order, until each requirement is COMPLETE_AND_PROVEN or carries a truthful final disposition
+(owner-gated, external, intentionally future, superseded, rejected or proven unnecessary). Includes NOW / NEXT /
+dependency-ready C-Series work, remaining V1 residue, Lane 6 Premium UI, Adaptive Learning (incl. the IC-1..IC-9
+learning-loop batch below), DFS (OWNER_PAUSED 2026-10-18), performance, Schedule Intelligence, mock/rehearsal rookie auction,
+source/reliability, trade/roster/pick, Game Day / league intelligence. Older "not currently authorized"
+markers on owner-approved Calculator scope are superseded by this directive. **The denominator and its live
+status are `docs/completion/CALCULATOR_COMPLETION_DASHBOARD.md`** (generated by `scripts/completion_ledger.py`
+from per-family evidence under `docs/completion/families/`; zero unexplained rows, requirement-weighted).
+**Still owner-gated (not unlocked by this directive):** spending / paid subscriptions or trials / commercial
+terms; credentials; contest entry or wagering; autonomous trades or waiver claims/drops; sending real
+trades/messages; launching the OFFICIAL rookie auction (bring it to READY_FOR_OWNER_LAUNCH); real league
+roster/budget changes; activating a methodology/model/source before its preregistered evidence gate passes;
+weakening independent validation; exposing paid/private data; provider-terms violations; silent owner-methodology
+changes. The stabilization campaign below has integrated (train #1686, `37ccfbb68`) and leaves explicit
+non-conflicting blockers (#1667 train: deploy/rollback blockers B1–B4, fix PR #1681), so the IC batch's start
+condition is met. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-07 — Calculator completion campaign").
+
+## DFS IMPLEMENTATION PAUSED — owner directive, 2026-10-18 (supersedes earlier DFS build-now instructions)
+
+**OWNER SHELVED ALL DFS IMPLEMENTATION.** Until the owner explicitly resumes DFS, do not start, continue, merge or deploy DFS-specific feature, optimizer, projection, model, slate/feed, connector, UI, research, or evidence-expansion work. Do not buy/subscribe to a feed or pursue DFS provider onboarding. Freeze the DFS roadmap and DFS-related owner-decision requests; they are **deferred, not rejected, complete, or forgotten**. No further DFS changes belong in an otherwise authorized release train. Keep all existing live DFS routes, data, records, test coverage and flags intact; do not turn the deployed product off or delete scope merely because work is paused. Existing sitewide maintenance and urgent security/production break-fix remain allowed where strictly necessary and must not be used as a pretext for feature expansion. The general Calculator completion directive remains active for every **non-DFS** lane; all prior spending, methodology, credential, league-write and merge gates still apply. Track this as a reversible *owner pause* in the dashboard/reconciliation instead of incorrectly counting paused work as completed.
+
+## Draft valuation automation — owner directive, 2026-10-18
+
+**AUTHORIZED; IN PROGRESS (PR #1786, not merged)** — added to the active queue alongside existing work; it displaces nothing, and
+merges and deploys keep their existing gates (the owner's $1,200-per-class decision approves no PR merge,
+including #1785). Reproduce the owner-approved `Draft Data` spreadsheet formula exactly in one canonical
+owner (`src/draft/rookie_auction/`), then automate it: Batch A spreadsheet parity, B canonical rookie values
++ frozen provisional 2026 fallback, C immutable completed-class spine + rollover, D automated class
+readiness / guarded promotion, E multi-year draft capital (integrates #1785; $1,200 per class for `dynasty_main` — the only league in
+scope per the owner's 2026-10-18 correction;
+workbook curve replaces #1785's interim generic-market curve; draft order `reverse_record_lower_pf`), F
+sitewide integration / monitoring / cache, G end-to-end verification and release. Final owner decisions
+and per-batch acceptance: `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`; intake
+`docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-18 — Draft valuation automation"). **Not authorized by
+it:** changing source voting, canonical 0–9999 pick values or the trade package model; any Google Sheet
+write; promoting a new rookie class past the Batch D gates.
+
+## Trade discovery — owner directive, 2026-10-14 (under the 2026-10-07 completion authorization)
+
+**AUTHORIZED (recorded 2026-10-16; executed 2026-10-14..15).** Finish the trade-discovery surfaces through
+the protected path, consuming the canonical owners only (finder enumeration, constraint owner, VA, roster
+capacity, posture). Shipped and deployed (production `build.commit` 47a9f561b), production verification
+pending authenticated verification:
+- Batch 1 — protections on every generator, LOCK / EXCLUDE (C3-CON-01/03), suggestions coverage — #1739
+- Batches 2–3 — Best Trade to Send Each Team (C7-BEST-TRADE), Golden Upgrades (C7-GOLD-01), Package
+  Builder (C7-PKGB-01) — #1741; Acquire / Sell / Improve modes — #1746
+- Recent real trades on /trade (C3-CALC-01 TC-07+TC-10) + Manager Scout (C6-MGR-01) — train #1740
+- Comparable real trades (C4-MTL-03 / TC-09) + Trade Database (TC-08) — train #1744
+- Manager Scout evidence on cards (#1745), AL-P5 decision receipts (#1747), Trade Desk watchlist
+  (C7-DESK-01/trade-desk, #1748), adversarial test sweep (#1749), Analyze Trade comparables lens (#1752) —
+  train #1753
+No canonical value, weight or methodology change. Recommendation only — nothing sends or executes.
+
+## Trade Finder meaningful discovery — owner directive, 2026-10-18 (under the 2026-10-14 trade-discovery authorization)
+
+**AUTHORIZED; IN PROGRESS.** `/arbitrage` discovery finds trades that matter: tools first (Golden Upgrades
+default), the player-level table moved below as research, one shared Target Quality (canonical overall rank,
+incoming only, at least one incoming player) / Players to target (Offense / Defense / Both via the canonical
+position owners) / Most Impactful vocabulary (`src/trade/discovery.py`, declared prior
+`config/trade/discovery_impact_prior.json`, `PRIOR_UNVALIDATED`) applied during candidate generation in
+Golden Upgrades, Package Scan and Best Offers (Batch 1, `claude/trade-finder-meaningful`), then Package
+Builder Sending / Receiving across all nine combinations (Batch 2, stacked). Consumes the canonical owners
+only (finder enumeration via the substrate's receive anchor, `equity_verdict` + the active package model,
+lineup solver, Team Weakness, B11 confidence, roster capacity). No canonical value, Value Adjustment, fairness
+band or engine qualification rule changes. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-18").
+Evaluation: `docs/trade/DISCOVERY_IMPACT_EVALUATION_2026-10-18.md`.
+
+## Universal Trade Screenshot Import (C3-IMPORT-IMAGE) — owner directive, 2026-10-15
+
+**AUTHORIZED; DEPLOYED 2026-10-16** (#1751 via train #1753, `47a9f561b`). Reader = free local OCR
+(Tesseract); no paid API, no new credentials (owner decision 2026-10-15). Screenshots supply identities and
+sides only — our values decide everything. **Owner action:** `sudo apt-get install -y tesseract-ocr` on the
+VPS (the deploy's sudo allowlist cannot); until then the status endpoint reports unavailable and the UI says
+so. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-15"). Runbook: `docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md`.
+
+## League scope correction — owner directive, 2026-10-18 (binding on every lane)
+
+**`dynasty_main` (Risk It to Get the Brisket) is the only league authorized for building and
+optimizing.** Ignore `dynasty_new`: no new feature work, budget change, valuation change or
+league-specific improvement for it. Do not delete it, its configuration, history or data, and do not
+disable existing behavior — shared infrastructure must still not regress for it. The $1,200-per-class
+draft-capital approval applies to `dynasty_main` only; any earlier wording extending it to both
+leagues is superseded. Draft valuation Batches A–G are scoped to `dynasty_main` (12 teams, 6 rounds,
+72 picks per class, 2027/2028/2029). Intake: `docs/OWNER_REQUESTED_TODO.md` ("OWNER SCOPE CORRECTION
+(2026-10-18)"). Applied in #1785 by restoring the Sleeper-derived fallback path to `main`.
+
+## Whole-dollar rookie-draft allocation — owner directive, 2026-10-18 (binding, `dynasty_main`)
+
+The `dynasty_main` rookie auction uses **whole dollars only**; the earlier recommendation to publish
+half-dollar team totals is **rejected**. For every draft class: 12 teams x 6 rounds = 72 picks; exactly
+$1,200; every final pick-dollar amount an integer; every manager budget an integer equal to the exact
+sum of the picks that manager owns; the 12 budgets total exactly $1,200; All Years reconciles the three
+separate $1,200 classes with each pick counted once. Rounding and budget conservation happen in ONE
+step: the spreadsheet's 60/40 formula, spine, decay, floors and caps are unchanged (intermediate
+fractions allowed; the workbook's half-dollar column — 28 picks ending in 50 cents — is kept as
+mathematical reference data), then a separately identified, deterministic, exact-arithmetic final step
+floors every pick, distributes the integer residual by largest fractional remainder (ties to the
+earlier draft position), verifies non-increasing order, floors, caps, integrality and the exact total,
+and REFUSES publication on any conflict — the $1,200 is never changed. The spreadsheet RANK tie at the
+award cutoff (which could publish $1,206) is resolved the same way: earlier draft position first. One
+canonical owner: the rookie-auction calculation (`src/draft/rookie_auction/`, #1786); #1785 consumes it
+for the workbook class and the later classes — team budgets are never rounded independently of their
+picks. Intake: `docs/OWNER_REQUESTED_TODO.md` ("WHOLE-DOLLAR ALLOCATION (2026-10-18)").
+
+**Follow-up owner decisions, same day (binding):** (1) every completed class keeps BOTH
+`referenceDollars` (the spreadsheet curve at original precision — the ONLY input to the three-year
+historical spine) and `finalWholeDollars` (the published integers — every pick allocation, budget,
+draft-capital display and auction transaction), immutably, with receipts; fractional dollars are never
+spendable budget. (2) Constraint-aware fallback: largest remainder is used unchanged whenever it is
+valid; otherwise the exact constrained integer problem (integers, exact $1,200, floors/caps,
+non-increasing, minimum total deviation from the reference, deterministic earlier-position tie-break)
+is solved with a documented, independently verified method before any refusal. Refusal only for genuine
+infeasibility, missing essential data or failed verification; safe refusal / last-known-good kept.
+**Addendum (binding):** last-known-good — the most recent independently verified 72-pick whole-dollar
+allocation per draft year is preserved (immutable, with provenance and receipt) and kept on a failed
+refresh with an explicit warning; the dollar curve never carries ownership (old ownership is never
+substituted; unverifiable ownership → unavailable, never $0); no cross-year reuse without a validated
+policy; no applicable allocation → fail closed with a named reason.
+
+## Sitewide trade Value Adjustment package — owner directive, 2026-10-17
+
+**AUTHORIZED; MERGED via release train #1768 (`00d652bd2`).** One versioned package model for every
+package-equity surface (`config/trade/package_model.json`; KTC `ktc_2026_04` stays active, GEOM q=0.78
+registered shadow-only — *superseded 2026-10-17: the owner approved GEOM activation, #1771 merged 2026-10-17 and
+deployed; D8 of the 2026-10-18 closeout keeps it active*); Second Opinions = source values + the exact published canonical value for
+missing assets + our active VA once, hybrids never vote; Trade History Current / At-the-Time / How It
+Aged on the same model (aging = change in adjusted net, ±200 a labelled PRIOR), Winners & Losers = Σ
+per-trade adjusted nets, public `/league` current-grade band (band + label only); shadow evaluation
+memo `docs/valuation/PACKAGE_MODEL_EVALUATION_2026-10-17.md`. Owner answers and full scope:
+`docs/OWNER_REQUESTED_TODO.md` → "Added 2026-10-17 — Sitewide trade Value Adjustment…". **Not
+authorized by it:** promoting GEOM (separate owner decision on held-out evidence), roster-aware
+calculator inputs, Market Edge Lab. The train also carried the DFS AutoSlates fix (selection reloaded the
+whole slate list; its flaky test had failed the #1761 deploy).
+
+## Trade Calculator completion — owner directive, 2026-10-17
+
+**AUTHORIZED NOW, added to the active queue alongside (not ahead of) the in-flight injury-availability, IDP
+rehabilitation, geometric VA activation and Manager Intelligence work.** Audit every Trade Calculator requirement,
+research competitors, redesign `/trade` for desktop and mobile, finish the missing functionality, and complete one
+unified YES / NO decision engine (extending `C7-DESK-01` / `analyze_trade`). Batches TC-0 (audit + research) → TC-A
+correctness → TC-B missing functionality → TC-C decision engine → TC-D redesign → TC-E reliability → TC-F release, per
+`docs/trade/TRADE_CALCULATOR_COMPLETION_WORKSTREAM.md`. **Not authorized by it:** changing the approved package model
+or q, promoting experimental models, League Tycoon contract features, purchases. Merges and deploys keep their gates.
+**Owner decisions 2026-10-18 (all five TC-C questions DECIDED):** near tie → "NO — TOO CLOSE"; default strategy
+inferred from competitive posture and overridable; fairness bands → relative with an absolute minimum, provisional
+until validated; Second Opinions even = within 1%; `teamImpact.verdict` retired (text in the workstream TC-C section).
+**Owner decision 2026-10-18 (final):** RETOOL → BALANCED (PUSH → win now, REBUILD → long-term, HOLD → balanced).
+
+## Manager Intelligence (Batch A) — owner directive, 2026-10-16
+
+**AUTHORIZED; MERGED #1762 (`048bcbf8a`, 2026-10-17).** Sleeper username lookup → cross-league dynasty
+portfolio on `/managers`, signed-in users only, rate-limited; flag `manager_intelligence` default ON on
+the owner's non-commercial basis (`docs/OWNER_REQUESTED_TODO.md`). Batches B–F follow in the owner's
+order, each its own PR. League Tycoon stays parked.
+
+**Addendum 2026-10-17 — Batches B–F AUTHORIZED (queued behind the in-flight injury-availability, IDP
+rehabilitation and Value Adjustment activation work, which keep their order).** B1 Recent Trades and B2
+Recently Acquired Players first, with a unified activity feed. Then B3 draft capital and trade
+intelligence, C league-wide opponent scouting, D trade-tool integration, E career / archetypes /
+comparisons, F saved managers / alerts / scoped leaderboards. Deliverables, dependencies, tests and
+completion criteria: `docs/intel/MANAGER_INTELLIGENCE_WORKSTREAM.md`. Merges and deploys keep their normal
+gates and owner approvals.
+
+## League manager replacement — owner directive, 2026-10-16 (corrected 2026-10-17)
+
+**AUTHORIZED; MERGED #1761 (`7bafeb886`, 2026-10-17).** `dynasty_main` roster 11 passes from Joel
+(jstuedle) to John (jnesselhauf) from week 6; Joel's weeks 1–5 history is preserved and names resolve by
+Sleeper user id; both are ineligible for the 2026 Waiver King.
+
+## Repository audit next batch — owner directive, 2026-10-16
+
+**AUTHORIZED NOW (implementation; merges and deploys need explicit owner approval per this directive).**
+Four lanes: (A) release train 4 landing the green 2026-10-08 PRs #1724, #1725 (security, the authenticated
+verification re-enable gate), #1714, #1715, #1717, #1720, #1723; (B) truthful automation signals — the
+scheduled-refresh staleness watchdog must not fail on a vendor-frozen source already withheld from voting
+(#1726) and the E2E safety net must be green (#1730); (C) **owner decision: DLF vote is offense-only** —
+`dlfIdp` / `dlfRookieIdp` stay ingested and displayed but never vote (rollback flag), plus fail-closed
+source-policy fallbacks; (D) this records reconciliation. Not authorized by it: re-enabling the disabled
+verification workflows (owner action), any other value/methodology change, League Tycoon (parked — owner PR
+#1755), Market Edge Lab.
+**Merged:** A #1759 (`15cbad9e4`, 2026-10-16, deploy verified); B #1757 (`d4520198b`, 2026-10-16); C #1758
+(`a7c732e1e`, 2026-10-17, owner-approved re-measured impact; deploy verified — `voteHold` on dlfIdp /
+dlfRookieIdp); D this records reconciliation (#1756).
+
+## Repository stabilization / truth-reconciliation campaign — owner directive, 2026-10-07
+
+**AUTHORIZED NOW.** Bounded cleanup/stabilization through the normal protected branch, test, review,
+integration, deployment and verification path — not a feature campaign. Goals: know exactly what is on
+`main` and deployed; give every open PR a truthful disposition (ACTIVE_AND_NEEDED, READY_FOR_INTEGRATION,
+SUPERSEDED_BY_MAIN, ABSORBED_INTO_INTEGRATION_TRAIN, VALIDATION_ONLY_DO_NOT_MERGE,
+BLOCKED_WITH_SPECIFIC_UNBLOCK, STALE_CLOSE_CANDIDATE, OWNER_DECISION_REQUIRED); make every active work
+claim actually active and every planning/status/handoff record match reality; make CI and production
+health trustworthy (one live failure → one actionable incident); make repository data retention
+intentional; correct dangerous direct-main/deploy behaviour or present it to the owner as one explicit
+bounded decision (main ruleset: smallest protection that keeps legitimate automation commits, no refresh
+deadlock, reviewed path for human/agent code, explicit emergency-bypass actors). Source-state audit keeps
+MISSING ≠ ZERO, FETCHED RECENTLY ≠ CONTENT FRESH, PRIVATE ABSENT ≠ FAILED PUBLIC, SEASONALLY INACTIVE ≠
+BROKEN. #1667 (AI-architecture train) is integrated only if the BENIGN/RELEVANT main-movement policy,
+exact-head RC gates and independent review are satisfied, otherwise reported with a precise blocker;
+#1648 is validation-only and must not merge; #1652 must preserve the locked draft-order rule
+(`docs/picks/DRAFT_ORDER_RULE.md`). Suggested units CLEANUP-1..5 (claims/status + red-main fixes; #1667
+train; CI/source-state/incident reliability; footprint + legacy, at most a few behaviour-preserving
+extractions from `server.py` / `data_contract.py`; canonical docs + production verification).
+**Not authorized:** deleting irreplaceable evidence; changing canonical player values, source weights or
+Hill methodology as cleanup; promoting challengers; activating Signals IDP; purchasing data/services;
+launching the official rookie auction; entering DFS contests; changing league rules; weakening tests;
+hiding failures; autonomous trade/waiver actions; broad speculative rewrites. Intake:
+`docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-07").
+
+## Calculator continuous-improvement learning-loop batch (IC-1..IC-9) — owner directive, 2026-10-07
+
+**Authorized to begin ONLY after the stabilization campaign above completes or leaves explicit,
+non-conflicting blockers**, from current `main`. Mission: close ONE evidence-driven learning loop across
+source evidence, point-in-time history, trade-market evidence, projection outcomes, recommendation receipts,
+champion/challenger evaluation, drift, explainability and the Model Lab — reusing the existing owners
+(Adaptive Learning / `C10-ML-01`, Batch 3, model registry, source census, completed-trade ledger, temporal
+ledger, learning receipts, BDVM, Model Lab); no second feature store, registry, receipt DB, point-in-time
+abstraction, census, trade ledger, DFS-specific learning platform or parallel "AI service". Units
+(plan-local labels, adjusted from live evidence): IC-1 evidence closure; IC-2 Source Intelligence evaluator
++ target-lineage matrix; IC-3 trade learning (readiness states, at most one preregistered shadow translator);
+IC-4 projection / BDVM scorecards; IC-5 Model Lab backend; IC-6 Model Lab Premium UI (Lane 6); IC-7
+explainability; IC-8 cadence/freshness shadow challengers; IC-9 integration / production closure of the
+SOURCE, TRADE, PROJECTION and MODEL GOVERNANCE loops. Authorizes capture, evaluation, scorecards, receipts,
+shadow challengers, drift measurement, explainability, internal Model Lab UX and bounded performance work
+for these surfaces; promotion ONLY through an already-authorized model-specific mechanism with every
+pre-existing gate satisfied. **Not authorized:** lowering a promotion gate or bypassing P6 / model-registry
+governance; automatic retraining or promotion on drift; self-promotion; autonomous trades/waivers; DFS entry;
+buying data; Signals IDP activation without its preregistered gate; treating user edits or dependent sources
+as independent evidence; learning facts/rules; optimizing for agreement with the current Calculator. Detail,
+test classes and success definition: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-07").
+
+*Pointer (2026-10-07 reconciliation):* the 2026-10-03 owner directive — Waves A/B, the Signals ACTIVE
+addendum and the 2026-10-04 canonical draft-order decision — is recorded in `docs/OWNER_REQUESTED_TODO.md`
+("Added 2026-10-03"); its work merged as #1626 (Wave A), #1642 (Wave B) and #1627 (Signals offense active).
+
+## Schedule Intelligence — owner directive, 2026-09-29 (#1530)
+
+The owner authorizes building one canonical Schedule Intelligence system and integrating it across
+Calculator: equal-opponent and league-valid schedule baselines, schedule impact in win-credit units,
+opponent difficulty, record/finish/qualification distributions, a read-only Schedule Multiverse,
+valid schedule-slot swaps, retrospective playoff sensitivity, a Hard Luck statistical distinction,
+schedule context on team pages / League Hub / Power Rankings / recaps / share cards / history, and
+a schedule-neutral realized player-impact measure feeding an MVP win-impact candidate. Delivered in
+dependency order (milestones A–E, `docs/SCHEDULE_INTELLIGENCE_SPEC.md`, portfolio #1530), each
+substantial batch with Foundation/Backend + Lane 6 Premium UI + independent verification.
+**Authorized now:** Milestone A (canonical contract, exact equal-opponent baseline, oracle fixtures,
+reusable UI, League Hub table) and, as their dependencies clear, B–D. Milestone E is authorized
+behind `C5-WAR-01` (WAR/WAB are absent on main).
+
+**Status (2026-10-03):** A (#1531), C1 team pages + Power Rankings context (#1540) and B core —
+`timing_only_v1` exact week-order distributions + read-only Schedule Multiverse (#1541) — are merged,
+deployed and verified on production data. **Next in dependency order:** C (recap/report statements
+from the contract, schedule share card, league-wide history view, Hard Luck distinction —
+coordinate with the open awards claim), then the league-valid alternative-calendar model and
+qualification/finish distributions (B remainder, separate model id; the finish sampler exists as
+library code and is not published), then D (valid slot swaps, retrospective playoff sensitivity);
+E stays behind `C5-WAR-01`.
+
+**Not authorized by this directive:** changing the official Power Rankings formula or the official
+League MVP formula (both stay behind the existing owner/methodology gates — candidates ship in
+shadow); any schedule generator, optimizer, adoptable schedule or write to Sleeper (X-01 stands;
+this is read-only retrospective analysis); changing League MVP eligibility (actual playoff field
+and a .500-or-better official record), adding a gate to Unified Manager of the Year, or changing
+OPOY/DPOY/ROY/positional awards; touching dynasty values, Hill curves, consensus weights, pick
+values or trade prices; auto-publishing league messages. Extends `C5-U4` (power context), `C5-U5`
+/ `C9-U2` (WAR, awards) and `C9-U4` (reports) without replacing their gates.
+
+## DFS — owner directive, 2026-09-30 (build now, research-mode first)
+
+The owner authorizes building a dedicated **DFS** section of ChaseUpside (`/dfs` route family,
+normal navigation) for **NFL, NBA, NHL and MMA/UFC** on **DraftKings and FanDuel**: contest and
+rule contracts, owner-controlled construction, projections/ensembles, source and podcast evidence,
+ownership/field/duplication models, contest-aware optimization, portfolios and entry counts,
+exports, late swap, live/rooting views, settlement and evaluation — delivered in verified phases
+(`docs/dfs/ROADMAP.md`, requirement map `docs/dfs/TRACEABILITY.md`, index `docs/dfs/README.md`).
+The owner's full mandate is the requirements source; prior-conversation claims are hypotheses to
+reverify.
+
+Binding boundaries: DFS projections/salaries/ownership/outputs never enter canonical dynasty
+valuation, source weights, curves or rankings (typed sharing of seasonal evidence only through an
+approved contract); missing ≠ zero; unresolved identity is quarantined; unverified platform rules
+fail closed for money-ready use (research mode stays available and labelled); evaluation never
+self-promotes a model. **Not authorized:** purchases, paid subscriptions or billable trials,
+sportsbook wagering, contest entry, deposits/withdrawals, platform account automation, or
+bypassing access controls. Existing review/CI/merge/deploy gates apply unchanged. Lane 6 (PSI
+Direction A) stays active in every DFS batch. First slice: `claude/dfs-foundation`.
+
+**Addendum, same day (owner):** platform + slate ingestion is first-class and comes first
+(Phases A–H in `docs/dfs/ROADMAP.md`): canonical slate model, DraftKings/FanDuel adapters,
+licensed slate feeds where verified, official CSV import/export, slate ≠ contest. No production
+dependency on unofficial DraftKings/FanDuel endpoints, scraping or account automation. Licensed
+feed subscriptions (e.g. SportsDataIO) still need separate owner approval before any spend.
+
+
+**Permanent requirement (owner, 2026-09-30, third directive): automated data first, manual file
+fallback second.** The primary DFS workflow must need no downloaded or uploaded files: the site
+acquires, normalizes, refreshes and displays slates, salaries, eligibility, schedules, projections,
+injury and market context automatically, with honest freshness, from legitimate sources only
+(the addendum's ban on unofficial DK/FD endpoints, scraping and account automation stands). Manual
+import remains an emergency fallback / override under "Advanced". Authorized now: the automated
+vertical slice (NFL DK + FD first), reusing Calculator's Game Day weekly-projection lane, identity
+owner, scheduler conventions and freshness vocabulary. Not authorized: purchasing or activating any
+paid feed. Requirement IDs DFS-AUTO-01..24 (`docs/dfs/TRACEABILITY.md`).
 ## Rookie Auction Room — owner directive, 2026-09-29 (mock-first, live-gated)
 
 The owner authorizes implementing Chase Upside's shared slow rookie auction room now, so the owner,
@@ -95,7 +686,7 @@ and Trade work, and the permanent parallel PSI UI lane. No infrastructure, signi
 system or new valuation owner is presumed necessary. Deliver small dependency-aware
 PRs, with current measurements and independent review; production claims require the
 actual deployed identity and Linux/resource/browser evidence. #1338 stays open until
-the complete current-product acceptance requirements are met. Execution/evidence:
+the complete current-product acceptance requirements are met. *Status (2026-10-07): issue #1338 was closed (COMPLETED) 2026-09-26; later follow-ups (e.g. the activity-section lane, #1623) treat it as closed — open a successor issue rather than treating #1338 as live.* Execution/evidence:
 `performance/CURRENT_ARCHITECTURE.md`; intake: `OWNER_REQUESTED_TODO.md`.
 
 ### Expanded performance search and terminal hunt — owner, 2026-09-26
@@ -137,6 +728,232 @@ the site's broader completion campaign, recurring paid inference, unattended
 execution, source activation, or changes to merge/deploy authority.
 Week 1 remains a literal 30-row contract. Runtime entry and state contracts:
 `docs/agent-operating-system/STEWARD_RUNTIME.md`.
+
+## Adaptive Learning / Continuous Improvement — owner directive, 2026-10-01
+
+**Authorized:** implementing the dependency-ready Adaptive Learning foundations and roadmap units below,
+through the normal protected path (claim, tests, independent review, merge, deploy where the unit ships
+code, production verification). Plan, owners and acceptance: `docs/research/ADAPTIVE_LEARNING_2026-09-26.md`
+Part II (§16–§25). Intake: `docs/OWNER_REQUESTED_TODO.md` (2026-10-01 entry). Governance owner: `C10-ML-01` +
+P6. Unit labels `AL-*` are plan-local, not new manifest IDs.
+
+**Not authorized:** an unvalidated model changing any production output. Methodology promotion keeps its P6
+evidence gates: a preregistered, leakage-safe, independently reviewed gate, then promotion only through that
+model family's explicit policy (Hill Autopilot for Hill; Batch 3 §N for Batch 3 candidates; explicit owner
+approval for every other family). Also not authorized: a generic feature store, separate per-domain ML
+infrastructure, wiring the old `dynamic_source_weights` fitter into production, automatic retraining or
+promotion on drift, R14 private-offer capture (still CANDIDATE), purchases or paid sources, and anything
+in directive sections 9+, which were truncated in delivery and are pending owner re-send.
+*Update, same day:* sections 9–31 were re-sent and are reconciled; their authorization is the next section
+("Adaptive Learning — sections 9–31, Wave 1 and campaign sequencing").
+
+**Invariant:** facts and rules do not learn (`MASTER_PRODUCT_PLAN.md` §3.8; plan §18).
+
+| unit | scope | priority | depends on |
+|---|---|---|---|
+| **AL-0** | shared learning receipt contract (12 kinds, references into native stores) + evaluation receipt + versioned feature dictionary + two producer adapters (Hill `trainingRun`; one non-Hill shadow/evaluation producer) | **MERGED** #1597 (`9ce3ea04c`, 2026-10-01) — was NOW, first foundation unit | #1588 merged (claims `src/model_registry/`; AL-0 consumes its pins) |
+| AL-1a–d | Valuation Trust / source learning: Batch 3 outputs as receipts + accumulation; evidence-based base-authority challenger shrunk toward equal-family; utility-decay challenger; cohort reliability | AL-1a MERGED #1612 (`f6d5c135e`) + #1614 (`3464ae0ef`), 2026-10-02; AL-1b–d NOW (highest roadmap priority) | AL-0; #1589, #1591, #1592 |
+| AL-2a | target-format evidence census over the completed-trade ledger (report-only) | MERGED #1595 (`73c345b40`, 2026-10-01) — was NOW | #1586 merged |
+| AL-2b → AL-2c | format translator challengers, then the shadow format-aware latent transaction-price model for `dynasty_main` | NOW → NEXT | AL-2a; paired-format evidence |
+| AL-3a | projection archive completeness (every usable pregame/ROS projection captured pre-event; `data/bdvm/` into the backup set) | NOW | none (own claim on `deploy/backup/`; serial owner — AL-0's A9 backup line lands through or after it) |
+| AL-3b | projection scorecard (raw stats + exact league scoring) vs the equal-family champion | NOW | AL-0 |
+| AL-3c / AL-3d | ensemble reliability challengers; BDVM component calibration + MEASURED/MECHANICAL/PRIOR labels (AL-3d = Batch 3 J2) | NEXT | AL-3b |
+| AL-4a / AL-4b | Game Day calibration scorecard over existing generations; shadow challengers | NEXT | AL-0 |
+| AL-5a / AL-5b / AL-5c | point-in-time playoff/title forecast archive; season-end calibration; calibration challengers (owner D2 decided as policy 2026-10-18 — D11, evidence gate stays; D3 standings half fixed in #1712, the draft-order median question stays open) | NEXT | AL-0 (5b/5c) |
+
+**AL-0 acceptance (A1–A10, plan §23):** point-in-time guard with property tests; append-only, idempotent,
+conflict-surfacing store; missing never zero; feature-dictionary validation; no PROMOTION RECORD or champion
+move written; adapters leave producer outputs byte-identical; import/write boundary keeps the substrate away
+from canonical value, league-config, identity and contract fields (board hash unchanged); drift receipts
+trigger nothing; store backed up and retention-registered; reproducible from pinned inputs; independent review.
+The engineering applicability check is recorded in plan §23.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
+## Adaptive Learning — sections 9–31, Wave 1 and campaign sequencing (owner re-send, 2026-10-01)
+
+The owner re-sent the full directive the same day. Sections 9–31 and the continuation instructions are reconciled
+in `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` Part III (§26–§38); intake: `docs/OWNER_REQUESTED_TODO.md`
+("sections 9–31 + continuation instructions"); perishable audit: `docs/BRISKET_IDEAS.md` §13.4. This section
+**extends** the one above; nothing in it relaxes a gate.
+
+**Authorized (directive §28):** planning reconciliation; required archive / capture work; shared learning receipts;
+evaluation infrastructure; shadow challengers; scorecards; drift monitoring; domain evaluation loops; the
+dependency-ready Wave 1 units below, and later-wave units when dependency-ready (plan §28). Objective correctness
+fixes merge after normal gates.
+
+**Not authorized:** autonomous trades; autonomous waiver claims or drops; autonomous DFS entries; hidden
+recommendation changes; self-promotion of any model outside its approved gate; spending on new paid data or
+services; R14 private-offer capture (still CANDIDATE). **Learned numerical methodology changes require the
+existing P6 / model-registry acceptance process** — no promotion authority is created here.
+
+**Champion — unchanged:** equal-family base authority; `freshness × health × coverage`; family caps; the current
+Hill champion; the current outlier filter; the current 0.30 sparse retention.
+
+**Wave 1 units (NOW).** Labels are plan-local; no new manifest IDs.
+
+| unit | scope | depends on | acceptance |
+|---|---|---|---|
+| **AL-P1** | KTC Trade DB production capture: deploy `main` ≥ #1586, verify `dynasty-ktc-trades` / `dynasty-market-trade-ledger` from `systemctl`, first capture, archive backed up | deploy chain | served SHA ≥ #1586; timers firing; first-capture record (raw / new / known / resolution / unresolved / format coverage); archive in the backup set + retention register; board hash unchanged |
+| **AL-P2** | backup coverage (G7 widened) — market-trade archive, Consensus Edge, `data/bdvm`, `data/dfs`, shadow ledgers, `data/learning`, temporal ledger or written rebuild rationale, online intel; reinstall the stale root-owned copy | none (serial owner of `deploy/backup/`, = AL-3a's backup half; AL-0's A9 line lands through it) | the nightly generation (not only the post-deploy one) proven to contain every listed artifact; restore proof green |
+| **AL-P3** | KTC unselected format variants → `src/source_archive/` (G3) | AL-P2 for backup | zero extra requests; one provider family; archive never production-eligible; board hash unchanged |
+| AL-P4 | dated private pick-forecast + team-strength snapshot | none | first-write-wins per (league, season, week); model identity; backed up |
+| AL-P5 | decision / recommendation receipts at serve time (finder, suggestions, angle, FAAB, Perfect Draft server half) | AL-0 | private store; producer outputs byte-identical; NON-ACTION only where observable |
+| AL-P6 | playoff / title dated forecast archive with model identity (= AL-5a capture) | none | write-once; commit-history backfill labelled `nearest-prior` |
+| AL-P7 | Sharp trade retention past the 400-day intel prune | none | no Sharp trade movement deleted without an append-only copy |
+| AL-P8 | projection archive completeness (= AL-3a archive half) | none | first `pregame_projections.json.gz` build observed on the box; Weeks 1–2 recorded as lost |
+| AL-0 | shared receipt + evaluation receipt + feature dictionary (#1597) | #1588 (merged); **round-two review** | A1–A10 (section above) **plus** the round-two conditions: store restricted to `data/learning` with explicit test injection; feature lock compares a real prior baseline and fails closed; conflicting inserts surface; correction chains acyclic, latest = latest valid revision; artifact `knownAt` passes the temporal guard. No production writer yet |
+| AL-0b | Model Lab backend contract (internal, read-only, no UI) | AL-0 | eleven fields per family populated or explicitly unobserved; rejected challengers listed; never on a public route |
+| AL-1a | prospective receipts for sparse-evidence shadow, robust-filter shadow, source-quality evaluator, Hill refits, translator and latent-price experiments; then projection-family evaluation, then Game Day calibration | AL-0 | every producer round-trips into receipts; nothing promotes |
+| AL-1b–d | base-authority challenger; utility-decay challenger; cohort reliability | AL-1a | per plan §24; promotion only via Batch 3 §N |
+| AL-2 ops | first production capture; **BOOTSTRAP / INITIAL COVERAGE** census; per-capture cumulative unique trade ids, window overlap, turnover, gap flags; **ACCUMULATED COVERAGE — POST WINDOW TURNOVER** census (identical code) after ≥ 1 complete gap-free window turnover | AL-P1 | no translator fit from the bootstrap census; collector age never reported as market sparsity; IDP inventory in every accumulated census |
+| AL-2a′ | BROAD_CONTEXT disposition, own PR, owner's four definitions verbatim (plan §35 T1), refined by owner decision 2 into timing-limited / format-mismatch sub-kinds (plan §35 T8; unit MD-2 below) | bootstrap census | regression: the former #1595 verified-dynasty-candidate population maps to BROAD_CONTEXT unless another hard failure applies; `targetPriceAuthority = 0`; no canonical value change |
+| AL-2b0 | translator readiness table per axis (1QB↔SF, 1TE↔2TE, TE scoring edge, team count, roster depth, total IDP starter depth, DL/LB/DB structure, selected IDP scoring families) | accumulated census | each axis READY_FOR_PREREGISTERED_TEST / PROMISING_BUT_CONFOUNDED / INSUFFICIENT_SAMPLE / NOT_IDENTIFIABLE from counts, never a subjective score |
+| AL-2b | **at most one** preregistered shadow translator, only on an identifiable axis | AL-2b0 | A exclude / B naive / C candidate scored on real held-out target-like trades, never against current Calculator values; BDVM ratio only as a tested structural prior |
+| AL-2c | shadow latent transaction-price model | AL-2b | shadow only; native dominates translated |
+| AL-3a / AL-3b | projection archive completeness; scorecard vs the equal-family champion | AL-3a none; AL-3b AL-0 | per plan §24 |
+
+**Status (2026-10-07 reconciliation):** merged — AL-0 #1597; AL-1a #1612 + #1614; AL-2a #1595; AL-2a′ #1610; AL-P2 #1611; AL-P3 #1603; AL-P6 #1602; AL-P4 delivered via release train #1602 (its own PR #1604 closed unmerged); the Wave 1 league-format capture gap via #1607 (#1606 closed into it). Units not named here keep their stated state.
+
+**Campaign sequencing (continuation instructions — current order):** (1) deploy verification — served SHA,
+health, ledger / KTC / sparse-shadow timers from actual `systemctl` state; (2) first KTC production capture;
+(3) bootstrap census; (4) per-capture turnover tracking; (5) accumulated census after window turnover;
+(6) BROAD_CONTEXT PR; (7) IDP inventory; (8) translator readiness table; (9) at most one preregistered shadow
+translator; (10) AL-0 merge after round-two review — gated ONLY by that review, CI and grader, never by the
+census/translator steps above (the list is not a dependency chain for AL-0); (11) AL-1a in the order above. AL-P2…AL-P8 run in parallel
+where files do not collide. D2 (#1598) stays evidence only — no promotion of c3, repaired constants, H1–H3 or DLF
+native spacing from OTC alone; if OTC proves not ancestry-safe (#1599), mark #1598's external-validity
+limitation without rewriting it and stop treating OTC as a sole promotion target. *#1599 found OTC not
+ancestry-safe; owner decision 3 keeps that exclusion and keeps #1599's thresholds descriptive (section
+"Owner methodology decisions — follow-through" below).* #1594 merged on green
+Linux CI drift tests, before its drift-reinstall invariant was observed on the box — a deviation from
+the owner instruction; the invariant is verified on the box at the next deploy.
+
+**Completion standard (directive §30):** Wave 1 is complete only when the SOURCE, TRADE, PROJECTION and MODEL
+GOVERNANCE loops each run end to end in code on real data (plan §34). A planning record is not completion.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
+## Owner methodology decisions — follow-through (2026-10-01)
+
+The owner's three final methodology decisions (intake: `docs/OWNER_REQUESTED_TODO.md`, "Owner methodology
+decisions — final"; plan: `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` §35 T8–T10 and §35.1). This section
+**extends** the two Adaptive Learning sections above and relaxes no gate.
+
+**No promotion authority is created here.** Decision 1 *narrows* an existing automatic-promotion path; it grants
+none. Learned numerical methodology changes still require the P6 / model-registry acceptance process, and no
+canonical player value changes merely from recording these decisions.
+
+| unit | scope | branch | acceptance |
+|---|---|---|---|
+| **MD-1** Hill independent-target gate (decision 1; follow-through 1–2) | Hill Autopilot promotes OFFENSE automatically only when at least one preregistered, genuinely independent validation target is eligible; otherwise `AUTO_PROMOTION_BLOCKED: no_independent_validation_target`. Board gates stay (necessary, not sufficient); fitting, evaluation, persistence counting and shadow runs continue | `claude/hill-autopilot-independent-gate` | focused tests: blocked with no target; board gates unchanged and still required; challenger evidence still accumulates; no fake target; no Hill constant or served value moves |
+| **MD-2** BROAD_CONTEXT sub-kinds (decision 2; follow-through 3–4) = AL-2a′ refined | strict NATIVE bracket kept; BROAD_CONTEXT timing-limited (reason stamps, e.g. `season_final_settings`, `post_trade_capture`, `format_unconfirmed_at_trade`, `all_observed_axes_match_target`) and format-mismatch sub-kinds; TARGET_UNSUPPORTED narrowed to hard failures | `claude/broad-context-disposition` | AL-2a′ acceptance (below) plus: season-final / post-trade matching dynasty trades land in BROAD_CONTEXT timing-limited, never NATIVE; `targetPriceAuthority = 0`; no canonical value change |
+| **MD-3** prospective lineage policy (decision 3; follow-through 5–6) | `lineage-policy/v1` preregistered (`docs/sources/lineage_policy/LINEAGE_DEPENDENCE_POLICY_v1_PREREGISTRATION.md`, own commit `94e16c4f1a986ecc3045d1b4702ce6efe0d8cc05` (committed 2026-10-02T01:10:52Z — the §14.1 retrospective/prospective boundary; this PR must merge with a merge commit so the SHA stays on main), normative block hash-pinned by test); #1599 artifacts immutable | `claude/owner-methodology-decisions-2026-10-01` | DONE as a policy record. Its instrument extensions and category vocabulary are a separate reviewed unit (not started), and each future dependence experiment commits its own run preregistration first |
+
+Standing: OTC stays excluded as a KTC-family holdout (#1599, +0.45 / 21 of 21); #1598 (D2) keeps its
+external-validity limitation without being rewritten; #1599's thresholds are descriptive history only.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
+## Valuation Trust Program — Batch 3 — owner directive, 2026-10-01
+
+**Authorized.** Objective: Calculator's dynasty values earn trust through evidence. It
+combines independent evidence, measures which evidence has been useful, handles
+stale, thin and correlated evidence honestly, keeps a separate fundamental model, and
+validates itself against future information and real completed trades.
+
+Four concepts are kept apart, never circular, and never averaged into one hidden
+number:
+
+- canonical market value;
+- independent fundamental value (BDVM);
+- the observed transaction market;
+- roster-specific impact.
+
+**Units (owner directive, Sections A–P):**
+
+| unit | scope | wave |
+|---|---|---|
+| A — source trust census | generated from canonical registries / dataset state / temporal ledger; every voting source + KTC Market + Signals; no subjective score | 1 |
+| D — Hill trainer / Autopilot repair | one source/trainer manifest; full pins; rank-only teaches order not spacing; family-aware holdouts (Fantasy Navigator never an independent KTC holdout); reproducible point-in-time refit | 1 |
+| J1 — BDVM correctness | fumble-recovery own/opp resolved by host-golden test (+ IDP Show adapter); `ProjectionRecord` source vocabulary/capability → per-player `unscoredKeys` | 1 |
+| I — completed-trade ledger | KTC Trade Database append-only raw archive + Sleeper transactions → canonical identities → underlying-trade groups with overlap uncertainty; evaluation harness first, no value rewrites | 1 |
+| G — ingestion / lineage integrity | per-family format / parser / identity / coverage / clocks / lineage revalidation, named open questions | 2 |
+| B/C — source-quality evaluator + weight challengers | leakage-safe, point-in-time, leave-family-out targets; lead/lag, transaction fit, stability, event response, fundamental foresight (secondary); preregistered gates; equal-family champion | 2 |
+| E — sparse-evidence estimator | central estimate vs uncertainty; censor-aware coverage only where semantics support it; must solve 4600→1380 without the ×3.33 deep-board explosion | 2 (data_contract writer) |
+| F — joint robust-filter shadow ledger | the #1571 filter half runs in shadow on every production board with an archived comparison | 2 |
+| D2 — clean Hill/KTC/DLF rerun | preregistered after D; KTC c3 / DLF Rank / DLF native spacing | 3 |
+| H — Signals authenticated inventory | when the owner session exists; second opinion until it is comparable and evaluated | when access exists |
+| J2 — BDVM projection challengers | reception-distance and first-down components, horizon-aware projection evaluation, prior calibration | 3 |
+| K/L — disagreement matrix + source trust scorecard | research-only; no blended number | 3 |
+| O — recurring evidence accumulation | automatic evaluation artifacts; no self-promotion | with each unit |
+
+**Promotion policy (Section N).**
+- Objective correctness fixes merge normally after tests and review.
+- Methodology candidates stay shadowed until a **preregistered, leakage-safe,
+  independently reviewed** gate passes. Such a pass is authorized to promote through
+  the model registry or feature-flag path, with a before/after board, rollback and an
+  ongoing shadow comparison.
+- Near-ties keep the incumbent. Gates are never lowered.
+- Never in this batch:
+  - activate the old `dynamic_source_weights`;
+  - ship the haircut removal alone;
+  - promote KTC c3 on the earlier post-hoc run;
+  - let Signals vote merely because authentication works;
+  - let completed trades rewrite values before dedupe and topology are validated;
+  - let BDVM become canonical market value.
+
+`data_contract.py` keeps one writer at a time. Units run in separate worktrees and PRs;
+there is no single "valuation rewrite" PR.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
+## #1555 Batch 2 — owner directive, 2026-10-01
+
+Signals permission resolved by owner attestation (*"I have explicit permission to use signals how I see
+fit"*). Authorized:
+- Signals read-only collection, normalization, private retention, analysis and authenticated displays,
+  under the existing private/public boundary.
+- Manual-deploy SHA pinning (decision C).
+- A disabled/shadow joint outlier + sparse-source challenger (decision B).
+- The read-only Hill / native-source audit.
+- BDVM scoring-coverage follow-through.
+- Lane 6 information-age, provenance and scoring-coverage UI.
+
+Bounded non-promotional units may be implemented, independently reviewed, merged and deployed when gates
+pass (decision E). Not authorized: self-promotion of an unvalidated model or weight change (candidate-
+specific owner approval stays in force), Hill constant edits outside the Hill Autopilot / model registry,
+purchases, paid trials, access-control bypass, and exposure of raw paid / league-private data. Map and
+claims: `docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md` §G.
+
+## Valuation advancement + comprehensive Signals — owner directive, 2026-09-30 (#1555)
+
+The owner directed the valuation-advancement program in #1555 (incorporated into #792) and extended it
+with a comprehensive Signals integration. It executes through EXISTING authority, not a new grant: the
+2026-09-24 Calculator completion campaign lanes C (freshness + valuation hardening, including Hill /
+native-source alignment), D (scoring/projection correctness) and 6 (Premium UI) cover implementation,
+tests, review, merge, deploy and production verification of reproduced-defect corrections and the
+replay tooling through the normal protected path, each as its own reviewable unit with whole-board
+evidence and a rollback. Not authorized by this entry: methodology replacement without validation,
+production promotion of challengers or new sources outside their gates, Hill constant edits outside
+the Hill Autopilot / model registry, purchases, or new deploy-policy changes (manual-deploy SHA pinning
+stays approval-gated). Signals live collection is BLOCKED on Signals' prior written consent; discovery,
+adapter design and labelled synthetic fixtures proceed. KeepTradeCut: owner-reported authorization to
+scrape all KTC data is recorded (manifest `F-EXT-01`). Map and next batch:
+`docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md`.
+
+## Served build identity — owner authorization, 2026-09-30
+
+The owner accepted the recommendation from the 2026-09-30 harness reconciliation
+(`docs/engineering/AGENT_HARNESS_EXTERNAL_GUIDANCE_RECONCILIATION_2026-09-12.md` Part H.5, item 1;
+owner reply: "Whatever you recommend"). Authorized: one bounded unit, including merge, deploy and
+production verification through the normal protected path — `/api/status` reports the commit the
+running process loaded (`build.commit`, one owner `src/api/build_identity.py`, unknown stays `null`),
+and the Deploy Production smoke test fails when the served build is not the shipped commit.
+Engineering-reliability Priority 3 (+6). Not authorized: the rest of the Part H.5 queue, artifact
+attestation, or any change to what is deployed. Also recorded: the recommended DEFERRAL of re-running
+the closed PR #1344 CLAUDE.md/skill progressive-disclosure audit (high collision with active lanes,
+low current value); it stays open, not dropped.
 
 ## Freshness-aware source weighting + KTC signal separation — owner directive, 2026-09-23
 
@@ -228,7 +1045,8 @@ single authorization record for the batch; ideas inside it do not get their own 
   Autopilot / model registry; DLF Values stay non-voting until their gate passes and the owner
   approves the vote; the Power Rankings methodology stays backend-owned (#1401).
 * **Owner gates still open:** #1428 categorical-chart contrast (OWNER UI DECISION REQUIRED; does
-  not block other UI work); the DLF Values vote.
+  not block other UI work); the DLF Values vote. *Both closed 2026-10-18: palette DECIDED (D14); DLF Values
+  rank-to-Hill conditionally approved (D4) behind its evidence gates.*
 
 Intake and the full decision text: `docs/OWNER_REQUESTED_TODO.md` (2026-09-24, "Calculator
 completion campaign").

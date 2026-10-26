@@ -65,7 +65,8 @@ jobs:
           # pip resolution broke; removed so a genuine install failure
           # surfaces as a red workflow instead of a green-but-useless run.
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements.lock.txt
           pip check
           python scripts/check_env.py --runtime
 

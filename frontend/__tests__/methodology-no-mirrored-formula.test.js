@@ -69,6 +69,12 @@ describe("methodology panel carries no mirrored curve constants", () => {
 
   it("reads the formula from the contract instead", () => {
     expect(code).toMatch(/methodology\?\.formula/);
-    expect(code).toMatch(/methodology\?\.confidenceBuckets/);
+    // B11 replaced the spread buckets with the five-axis gate; the
+    // contract publishes `methodology.confidenceGate` and no longer
+    // publishes `confidenceBuckets`. Reading the dead key sent every
+    // board to a fallback that described the retired spread signal.
+    expect(code).toMatch(/methodology\?\.confidenceGate/);
+    expect(code).not.toMatch(/methodology\?\.confidenceBuckets/);
+    expect(code).not.toMatch(/spread signal/);
   });
 });

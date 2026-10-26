@@ -129,7 +129,7 @@ Required semantics:
 
 - generic / hypothetical / repeatable pick representations may be added more than once or represented with quantity > 1 on either side;
 - multiple **distinct real owned picks** must all be addable even when they currently render to the same descriptive tier/label (for example two different owned picks both shown as “Mid 2027 1st”);
-- the **same exact unique owned-pick identity** remains non-duplicable, so one real pick cannot be accidentally counted twice;
+- ~~the **same exact unique owned-pick identity** remains non-duplicable, so one real pick cannot be accidentally counted twice;~~ **SUPERSEDED 2026-10-03 (owner decision):** every calculator asset — owned picks and players included — is repeatable without limit. Trade Calculator assets are hypothetical quantities, not inventory-enforced unique objects; real uniqueness remains in ownership records, transaction history, pick identity and roster-aware recommendations. Pointer: `docs/OWNER_REQUESTED_TODO.md` → "Added 2026-10-03 — Trade Calculator: unlimited asset quantity + Early/Mid/Late market picks";
 - value, Value Adjustment, package math, equalizers, share URLs, persistence, exports and mobile/desktop round-trips must preserve every valid copy or distinct identity;
 - removing one generic copy removes only that copy, not every matching label.
 

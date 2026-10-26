@@ -27,16 +27,22 @@ export function posBadgeClass(row) {
 export function confBadgeClass(bucket) {
   if (bucket === "high") return "badge badge-green";
   if (bucket === "medium") return "badge badge-amber";
-  return "badge badge-red";
+  if (bucket === "low") return "badge badge-red";
+  // "none" (or a missing bucket) means there was no evidence to grade —
+  // a neutral badge, not the red of a LOW grade (MISSING IS NEVER ZERO;
+  // src/api/confidence.py CONFIDENCE_LEVELS / C1-U5 confidenceBasis).
+  return "badge";
 }
 
 /**
- * Return a short human label for a confidence bucket.
+ * Return a short human label for a confidence bucket. "none" / missing
+ * reads "None" — it used to read "Low", which graded an ungraded asset.
  */
 export function confBadgeLabel(bucket) {
   if (bucket === "high") return "High";
   if (bucket === "medium") return "Med";
-  return "Low";
+  if (bucket === "low") return "Low";
+  return "None";
 }
 
 // ── Eligibility filters ─────────────────────────────────────────────────────

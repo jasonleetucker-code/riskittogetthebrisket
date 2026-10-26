@@ -97,7 +97,11 @@ for token in ${REQUIRE}; do
     fi
 done
 
-ARGS=()
+# One ::error annotation per failing stream (scripts/retention_health.py):
+# the run lists every unhealthy stream separately, so a known-bad stream
+# cannot mask a newly failing one.  Printed to stdout, which ssh relays to
+# the runner, where Actions turns each line into its own annotation.
+ARGS=(--github-annotations)
 [[ -n "${DATA_DIR}" ]] && ARGS+=(--data-dir "${DATA_DIR}")
 
 if [[ "${REQUIRE}" == "ALL" ]]; then

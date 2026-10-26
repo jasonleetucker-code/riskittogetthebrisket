@@ -1,0 +1,72 @@
+{
+  "_comment": [
+    "THE fairness-band owner.  One band definition for the /trade meter, sticky",
+    "tray, balancers, the fairness explanation, the Analyze Trade market lens /",
+    "private Asset-Only decision, Best Offers, the package builder, the",
+    "suggestions badge, and any multi-team / public adapter.  Python reads this",
+    "file (src/valuation_math/fairness_bands.py); the JS mirror",
+    "(frontend/lib/fairness-bands.js) is pinned to it by",
+    "tests/valuation_math/test_fairness_bands.py.",
+    "",
+    "fairness_bands_v2 (owner decisions 2026-10-20, recorded verbatim in",
+    "docs/owner/FAIRNESS_V2_DECISIONS_2026-10-20.md; evidence in",
+    "docs/trade/FAIRNESS_BANDS_V2_2026-10-20.md).  A gap is classified against",
+    "the LARGER PACKAGE UTILITY (OD-F2): relativePct = |gap| / max(U_A, U_B),",
+    "where U is the active package model's depth-discounted package utility",
+    "(geom_q078_v1: U = sum q^i * v_i over the package's values, best first).",
+    "The gap itself is unchanged (recvAdjusted - sendAdjusted, which equals",
+    "U_R - U_G under geom), so numerator and denominator now share one scale.",
+    "v1 divided by the larger ADJUSTED side, which adds the discarded depth",
+    "back and widened the fair band as packages got deeper.  A 1-for-1 is",
+    "byte-identical to v1 (U = v = adjusted total).  The rollback package model",
+    "(ktc_2026_04) has no per-package utility, so under it the pair's adjusted",
+    "totals stand in -- exactly the v1 basis.",
+    "  fair     |gap| < absoluteMinimum  OR  relativePct < slightPct",
+    "  slight   relativePct < unfairPct",
+    "  unfair   relativePct < lopsidedPct",
+    "  lopsided otherwise",
+    "Non-finite input (NaN, Infinity, null, non-number, negative base) is",
+    "REFUSED in both languages (FairnessInputError, code",
+    "fairness_input_not_finite) -- never classified, never 'fair'.",
+    "",
+    "Cut points 3.5 / 9 / 18 % are unchanged from v1 (KTC-era 350 / 900 / 1800",
+    "meter bands over a 10,000-point one-star package).  The 250-point floor is",
+    "kept EXPLICITLY as an owner-approved prior (OD-F3).  Every number is a",
+    "declared PRIOR, owner-approved for launch (OD-F5) and validated after",
+    "launch against at-the-time market trades (OD-F4, postLaunchValidation).",
+    "fairTradeLevels is OD-F1: which band level(s) count as a FAIR TRADE for a",
+    "binary fair / not-fair answer (a public adapter reads it from here, never",
+    "a literal).  q = 0.78 is not a band and is never modified here."
+  ],
+  "version": "fairness_bands_v2",
+  "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+  "basis": "larger_package_utility",
+  "absoluteMinimum": 250,
+  "absoluteMinimumStatus": "PRIOR_OWNER_APPROVED_2026-10-20",
+  "slightPct": 3.5,
+  "unfairPct": 9.0,
+  "lopsidedPct": 18.0,
+  "fairTradeLevels": ["fair"],
+  "ownerDecisions": {
+    "record": "docs/owner/FAIRNESS_V2_DECISIONS_2026-10-20.md",
+    "decidedAt": "2026-10-20",
+    "OD-F1": "FAIR TRADE = band 'fair' only (matches the private NO - TOO CLOSE definition); overall FAIR still requires every team to be FAIR",
+    "OD-F2": "Gap denominator = the larger package utility (not the larger adjusted side); 1-for-1 unchanged; one shared rule, so the private meter, Best Offers and the Package Builder move with it",
+    "OD-F3": "Keep the 250-point absolute minimum explicitly, as an owner-approved prior",
+    "OD-F5": "Publish fairness_bands_v2 as an owner-approved prior; validate after launch (OD-F4)"
+  },
+  "postLaunchValidation": {
+    "id": "OD-F4",
+    "state": "PENDING",
+    "target": "at-the-time market trades: point-in-time canonical values on identity-proven market-trade groups (box-local data/intel plus the temporal ledger), chronological holdout",
+    "until": "every number in this file remains a declared prior; a validated replacement is a new version"
+  },
+  "retired": {
+    "fairness_bands_v1": {
+      "status": "PROVISIONAL",
+      "basis": "adjusted_package_totals",
+      "retiredAt": "2026-10-20",
+      "note": "Descriptive only, not loadable.  Same cut points and floor; the denominator was max(sendAdjusted, recvAdjusted).  Receipts stamped v1 were produced under that rule."
+    }
+  }
+}

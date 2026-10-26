@@ -63,10 +63,13 @@ export const CANON = {
   // (ownership) rather than repeating "Sharp Tracker" with a suffix,
   // which would make the two read as one feature split in half.
   "/market/sharp-roster-percentage": "Sharp Roster Percentage",
+  "/market/trade-database": "Trade Database",
+  "/managers": "Manager Intelligence",
   "/league/insider-trading": "Insider Trading",
   "/league": "Hub",
   "/league/activity": "Activity",
   "/league-comparison": "Scoring Comparison",
+  "/dfs": "DFS Workspace",
 };
 
 /**

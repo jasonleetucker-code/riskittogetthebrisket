@@ -46,11 +46,15 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from src.identity.pick_lifecycle import (
+    OWNED_PICK_HORIZON_CLASSES,
     ClassLifecycle,
     LeagueDraftEvidence,
+    LeagueDraftYears,
     board_class_lifecycle,
     evidence_from_sleeper,
     league_class_lifecycles,
+    league_draft_anchor_year,
+    league_draft_years,
     retired_seasons,
 )
 
@@ -219,6 +223,33 @@ def active_seasons_for_league(sleeper_league_id: str | None, seasons: Iterable[i
     seasons = [int(s) for s in seasons]
     retired = retired_seasons(league_lifecycles_for_sleeper_id(sleeper_league_id, seasons))
     return [s for s in seasons if s not in retired]
+
+
+_FROM_SNAPSHOT: Any = object()
+
+
+def league_draft_years_for(
+    sleeper_league_id: str | None,
+    *,
+    league_season: Any = None,
+    evidence: LeagueDraftEvidence | None | Any = _FROM_SNAPSHOT,
+    calendar_year: int | None = None,
+) -> LeagueDraftYears:
+    """Every league-scoped surface's draft years, through the one owner rule.
+
+    ``evidence`` defaults to this league's persisted snapshot (never a
+    request-time fetch); a caller that already holds fresher evidence (the
+    scraper collects it in-run) passes it.  ``league_season`` is Sleeper's
+    ``league.season`` when the caller has it — a floor on the anchor, see
+    :func:`league_draft_anchor_year`.  ``calendar_year`` is injectable for
+    tests; it defaults to the current UTC year.
+    """
+    if calendar_year is None:
+        calendar_year = datetime.now(timezone.utc).year
+    anchor = league_draft_anchor_year(league_season, calendar_year=calendar_year)
+    ev = read_snapshot(sleeper_league_id) if evidence is _FROM_SNAPSHOT else evidence
+    lifecycles = league_class_lifecycles(range(anchor, anchor + OWNED_PICK_HORIZON_CLASSES), ev)
+    return league_draft_years(anchor, lifecycles)
 
 
 def served_league_evidence(

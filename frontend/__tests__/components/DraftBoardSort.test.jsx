@@ -30,7 +30,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-import { RookieBoard } from "@/app/draft/page";
+import { BdvmPickValuesTable, RookieBoard } from "@/app/draft/page";
 import { buildBdvmIndex } from "@/lib/bdvm";
 
 function player(id, name, rank, winBid, tier = "A") {
@@ -243,5 +243,41 @@ describe("draft board BDVM fund gap column", () => {
     await user.click(screen.getByRole("button", { name: "Fund gap" }));
     // Ascending: −240, +512 — unpriced STILL last.
     expect(boardOrder()).toEqual(["Bravo Wide", "Alpha Back", "Charlie End"]);
+  });
+});
+
+/**
+ * "Fundamental pick values (BDVM)" table — the API field `median` is the
+ * value of the prior table's "mid" outcome bucket (src/bdvm/picks.py), not
+ * the distribution's median, so the column must not be labelled "Median".
+ */
+describe("BdvmPickValuesTable labels", () => {
+  const rows = [
+    {
+      name: "2026 1.01",
+      ev: 6100,
+      pHit: 0.62,
+      median: 4300,
+      ceiling: 9100,
+      marketValue: 5900,
+      marketSource: "ktcCrowdTradesSfTep",
+    },
+  ];
+
+  it("labels the mid-bucket value truthfully and explains it on demand", async () => {
+    const user = userEvent.setup();
+    render(<BdvmPickValuesTable rows={rows} />);
+    const headers = screen.getAllByRole("columnheader").map((th) => th.textContent.trim());
+    expect(headers).not.toContain("Median");
+    expect(headers).toContain("Mid outcome");
+    // value still rendered from the unchanged API field
+    expect(screen.getByText((4300).toLocaleString())).toBeInTheDocument();
+
+    const trigger = screen.getByRole("button", { name: "What is Mid outcome?" });
+    trigger.focus();
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("region", { name: "Mid outcome" })).toHaveTextContent(
+      "Value of the middle outcome bucket in the prior pick-outcome table — not the median of the distribution.",
+    );
   });
 });

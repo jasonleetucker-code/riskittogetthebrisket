@@ -85,8 +85,8 @@ def _build_h2h_index(
     """
     idx: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for season, wk, a, b, is_playoff in metrics.walk_matchup_pairs(snapshot):
-        oa = metrics.resolve_owner(snapshot.managers, season.league_id, a.get("roster_id"))
-        ob = metrics.resolve_owner(snapshot.managers, season.league_id, b.get("roster_id"))
+        oa = metrics.resolve_owner(snapshot.managers, season.league_id, a.get("roster_id"), wk)
+        ob = metrics.resolve_owner(snapshot.managers, season.league_id, b.get("roster_id"), wk)
         if not oa or not ob or oa == ob:
             continue
         pa = metrics.matchup_points(a)
@@ -151,7 +151,7 @@ def _recent_form_for_owner(
             rid = metrics.roster_id_of(me)
             if rid is None:
                 continue
-            oid = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            oid = metrics.resolve_owner(snapshot.managers, season.league_id, rid, wk)
             if oid != owner_id:
                 continue
             my_pts = metrics.matchup_points(me)
@@ -318,8 +318,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     out_matchups: list[dict[str, Any]] = []
     is_playoff = week >= current.playoff_week_start
     for a, b in pairs:
-        oa = metrics.resolve_owner(snapshot.managers, current.league_id, a.get("roster_id"))
-        ob = metrics.resolve_owner(snapshot.managers, current.league_id, b.get("roster_id"))
+        oa = metrics.resolve_owner(snapshot.managers, current.league_id, a.get("roster_id"), week)
+        ob = metrics.resolve_owner(snapshot.managers, current.league_id, b.get("roster_id"), week)
         if not oa or not ob:
             continue
         key = _pair_key(oa, ob)
@@ -344,7 +344,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 "home": {
                     "ownerId": sideA_oid,
                     "displayName": metrics.display_name_for(snapshot, sideA_oid),
-                    "teamName": metrics.team_name(snapshot, current.league_id, home_rid),
+                    "teamName": metrics.team_name(snapshot, current.league_id, home_rid, week),
                     "rosterId": home_rid,
                     "points": round(metrics.matchup_points(home_entry), 2)
                     if mode == "recap"
@@ -353,7 +353,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 "away": {
                     "ownerId": sideB_oid,
                     "displayName": metrics.display_name_for(snapshot, sideB_oid),
-                    "teamName": metrics.team_name(snapshot, current.league_id, away_rid),
+                    "teamName": metrics.team_name(snapshot, current.league_id, away_rid, week),
                     "rosterId": away_rid,
                     "points": round(metrics.matchup_points(away_entry), 2)
                     if mode == "recap"

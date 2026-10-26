@@ -140,18 +140,22 @@ def _rel(path: Path) -> str:
 # different QUANTITY from the IDP-only board above — a cross-market ordering
 # that ranks Bijan Robinson against Patrick Queen — not a re-cut of it.
 #
-# Acquired and preserved; it votes NOTHING.  Two reasons, both load-bearing:
+# Since the 2026-08-20 owner decision THIS combined board is the provider
+# family's SOLE voting source (``idpShowCombined`` in
+# ``src/api/data_contract.py::_RANKING_SOURCES``); the IDP-only board above is
+# still fetched for diagnostics but is unregistered and cannot vote.  Never
+# register both: they are the same PROVIDER, so admitting both as independent
+# votes would manufacture agreement out of one opinion — the KTC
+# Off/TE+/TE++/TE+++ defect family CLAUDE.md names explicitly
+# (``tests/api/test_idpshow_combined_source.py::TestExactlyOneVotingIdpShowKey``).
 #
-#   * It is the same PROVIDER, so admitting both as independent votes would
-#     manufacture agreement out of one opinion — the KTC Off/TE+/TE++/TE+++
-#     defect family CLAUDE.md names explicitly.
-#   * Measured 2026-08-20, the swap is not a free upgrade: the combined board
-#     carries 250 players (170 offense / 80 IDP) against the IDP board's 350,
-#     and only 79 of our current IDP players appear on it.  Switching wholesale
-#     would strip an IDP Show vote from 278 defenders to gain 170 offense rows.
-#
-# Which board should VOTE is an owner decision with a measured cost, not a URL
-# swap.  This fetcher's job is to make the evidence available either way.
+# History, kept because it explains the widest-chart selection below: the
+# first measurement (2026-08-20) read the post's 250-row EXCERPT chart
+# (170 offense / 80 IDP) and concluded the combined board could not replace
+# the 350-row IDP board.  The full board in the same post carries 665 rows
+# (357 offense / 303 IDP on 2026-10-01), which is why the fetcher now picks
+# the post's widest Datawrapper chart.  (This comment described the combined board
+# as non-voting until the Batch 3 Unit G integrity sweep, 2026-10-01.)
 COMBINED_ARTICLE_URL = (
     "https://www.theidpshow.com/p/combined-idp-offense-dynasty-rankings-fantasy-football"
 )

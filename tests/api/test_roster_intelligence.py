@@ -248,6 +248,9 @@ def test_team_view_returns_the_team_plus_league_context():
         "strengthRank",
         "youngCoreIndex",
         "valueWeightedCoreAge",
+        # C2-WEAK-01: each team's canonical need answer, projected.
+        "needLevelByPosition",
+        "urgentPositions",
     }
 
 
@@ -459,3 +462,99 @@ def test_a_player_with_no_declared_eligibility_is_not_given_extra_slots():
     qb = next(p for p in pools["o0"] if p.position == "QB")
     assert qb.fantasy_positions == ()
     assert solve_optimal_assignment([qb], ["LB"]) == {}
+
+
+# ══ C2-WEAK-01 — one need answer, every consumer ═══════════════════
+
+
+def test_league_context_carries_each_teams_canonical_need_projection():
+    """``/rosters``' Trade Targets card reads OTHER teams' needs from here.
+    The projection must be the owner's own levels and urgent list,
+    verbatim — not a re-derivation."""
+    c = _contract()
+    out = ri.get_team_roster_intelligence(c, "o0", team_count=12)
+    league = ri.build_league_roster_intelligence(c, team_count=12)
+    assert len(out["leagueContext"]) == 4
+    for row in out["leagueContext"]:
+        weakness = league["teams"][row["ownerId"]]["weakness"]
+        assert row["needLevelByPosition"] == {n["position"]: n["level"] for n in weakness["needs"]}
+        assert row["urgentPositions"] == weakness["urgentPositions"]
+
+
+def test_an_unmeasured_weakness_projects_none_never_an_empty_map():
+    """``{}`` reads as "measured, no needs"; an unmeasured team says so."""
+    assert ri._need_projection({"available": False, "needs": []}) == {
+        "needLevelByPosition": None,
+        "urgentPositions": None,
+    }
+
+
+def test_team_weakness_for_is_the_routes_team_weakness():
+    """``/api/gameplan`` consumes this; it must be the same answer the
+    roster-intelligence route serves, byte for byte, plus the owner stamp."""
+    c = _contract()
+    served = ri.get_team_roster_intelligence(c, "o1", team_count=12)["team"]["weakness"]
+    block = ri.team_weakness_for(c, "o1", team_count=12)
+    assert block.pop("owner") == "src/roster_intel/weakness.py"
+    assert block == served
+
+
+def test_team_weakness_for_an_absent_team_is_explicitly_unavailable():
+    c = _contract()
+    block = ri.team_weakness_for(c, "nobody", team_count=12)
+    assert block["available"] is False
+    assert block["unavailableReason"] == "team_not_in_contract"
+    assert block["needs"] == [] and block["urgentPositions"] == []
+    empty = ri.team_weakness_for(_contract(teams_present=False), "o0")
+    assert empty["available"] is False
+    assert empty["unavailableReason"] == "no_rosters_loaded"
+
+
+def test_declared_team_count_is_none_for_an_unknown_league_not_a_constant():
+    assert ri.declared_team_count(None) is None
+    assert ri.declared_team_count("definitely_not_a_league_key") is None
+
+
+# ══ An ownerless (orphaned) roster is still a team in the league ═══════
+#
+# Sleeper publishes ``owner_id: null`` for a roster whose manager left the
+# league, and both producers then write ``ownerId: ""`` and name the team
+# ``"Team <roster_id>"``.  Measured live on 2026-10-20: dynasty_main roster 12
+# lost its owner, ``/api/data`` listed "Team 12", and the canonical Team
+# Strength ladder had no row of that name.  The pool is keyed positionally by
+# ``roster_pool_key``; the NAME must follow the same key or the team is ranked
+# under a blank label.
+
+
+def _contract_with_orphan():
+    c = _contract(n_teams=4)
+    orphan = c["sleeper"]["teams"][-1]
+    orphan["ownerId"] = ""
+    orphan["name"] = "Team 12"
+    return c
+
+
+def test_an_orphaned_roster_is_ranked_under_its_contract_name():
+    c = _contract_with_orphan()
+    league = ri.build_league_roster_intelligence(c, team_count=4)
+    names = sorted(t["teamName"] for t in league["teams"].values())
+    assert names == sorted(t["name"] for t in c["sleeper"]["teams"])
+    assert "" not in names
+
+
+def test_the_league_context_ladder_names_the_orphaned_roster():
+    c = _contract_with_orphan()
+    payload = ri.get_team_roster_intelligence(c, "o0", team_count=4)
+    ladder = [row["teamName"] for row in payload["leagueContext"]]
+    assert len(ladder) == 4
+    assert "Team 12" in ladder
+
+
+def test_two_orphaned_rosters_keep_their_own_names():
+    c = _contract(n_teams=4)
+    for team, label in zip(c["sleeper"]["teams"][-2:], ("Team 11", "Team 12")):
+        team["ownerId"] = ""
+        team["name"] = label
+    league = ri.build_league_roster_intelligence(c, team_count=4)
+    names = sorted(t["teamName"] for t in league["teams"].values())
+    assert names == sorted(["Team o0", "Team o1", "Team 11", "Team 12"])

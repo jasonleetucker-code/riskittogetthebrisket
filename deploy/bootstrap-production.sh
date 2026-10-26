@@ -88,7 +88,7 @@ resolve_required_sudo_binaries() {
 }
 
 canonical_requirements_file() {
-  printf '%s\n' "requirements.txt"
+  printf '%s\n' "requirements.lock.txt"
 }
 
 record_state() {
@@ -144,8 +144,9 @@ main() {
   fi
 
   log "Installing Python dependencies from ${req_file}"
+  python3 scripts/python_lock.py check
   "${VENV_DIR}/bin/python" -m pip install --upgrade pip
-  "${VENV_DIR}/bin/pip" install -r "${req_file}"
+  "${VENV_DIR}/bin/pip" install --require-hashes -r "${req_file}"
 
   if [[ "${INSTALL_PLAYWRIGHT_BROWSER}" == "true" || "${INSTALL_PLAYWRIGHT_BROWSER}" == "1" || "${INSTALL_PLAYWRIGHT_BROWSER}" == "yes" ]]; then
     log "Installing Playwright browser runtime (${PLAYWRIGHT_BROWSER})"

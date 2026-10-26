@@ -237,3 +237,45 @@ def test_production_config_is_uniform_24h():
         "idpShow",
     ):
         assert thresholds[vendor] == 24, f"{vendor} threshold drifted from the universal 24h policy"
+
+
+# ── freshness D1: a first-observation baseline alert says what it knows ──
+
+
+def _baseline_weighting(baseline: bool) -> dict:
+    sub = {
+        "state": "SEVERELY_STALE",
+        "ageHours": 480.0,
+        "expectedCadenceHours": 72.0,
+        "sourceDataAsOf": None if baseline else "2026-09-17T12:00:00Z",
+        "clockIsObservationBaseline": baseline,
+        "observationBaselineAt": "2026-09-17T12:00:00Z" if baseline else None,
+        "ageIsLowerBound": baseline,
+    }
+    return {"sources": {"dlfSf": {"health": "HEALTHY", "subsets": {"players": sub}}}}
+
+
+def test_a_baseline_content_alert_carries_its_first_observation_time():
+    alerts = [
+        a
+        for a in sha.detect_content_alerts(_baseline_weighting(True))
+        if a.source == "content:dlfSf/players"
+    ]
+    assert len(alerts) == 1
+    alert = alerts[0]
+    assert alert.last_seen_iso == "2026-09-17T12:00:00Z"
+    assert alert.age_is_lower_bound is True
+    body = sha._format_body([alert])
+    assert "at least 480.0h stale" in body
+    assert "first observed 2026-09-17T12:00:00Z" in body
+    assert "last seen" not in body
+
+
+def test_a_measured_content_alert_keeps_its_wording():
+    alert = next(
+        a
+        for a in sha.detect_content_alerts(_baseline_weighting(False))
+        if a.source == "content:dlfSf/players"
+    )
+    assert alert.age_is_lower_bound is False
+    assert "last seen 2026-09-17T12:00:00Z" in sha._format_body([alert])

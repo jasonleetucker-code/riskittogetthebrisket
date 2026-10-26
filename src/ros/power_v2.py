@@ -145,7 +145,12 @@ METHODOLOGY_VERSION = "canonical-power-2026.09-v2"
 #: owner enumeration and never reaches ``_score_state``.
 _EMPTY_SEASON_STATE: dict[str, float | int] = {
     "points": 0.0,
+    # Scored weeks: the denominator for PPG and all-play.
     "games": 0,
+    # Weeks with an actual head-to-head RESULT: the denominator for the W/L
+    # record and luck.  Smaller than ``games`` only for an unpaired (bye)
+    # week, which is a real scored week but no game (#1530 finding B).
+    "decided": 0,
     "wins": 0.0,
     "losses": 0.0,
 }
@@ -652,13 +657,14 @@ def _score_state(
         ppg = points / games if games else None
         rb = state["recent"].get(oid, [])
         recent = sum(rb) / len(rb) if rb else None
-        computed_wl = float(s.get("wins", 0.0)) / games if games else None
+        decided = int(s.get("decided", games))
+        computed_wl = float(s.get("wins", 0.0)) / decided if decided else None
         wl = official_record.get(oid, computed_wl)
         all_play = state["allplay"].get(oid)
         outcomes = (state.get("outcomes") or {}).get(oid, [])
         streak = _streak_score_from_outcomes(outcomes)
         expected_total = float((state.get("expected") or {}).get(oid, 0.0))
-        luck_delta = (float(s.get("wins", 0.0)) - expected_total) / games if games else 0.0
+        luck_delta = (float(s.get("wins", 0.0)) - expected_total) / decided if decided else 0.0
         luck_score = max(0.0, min(1.0, 0.5 - luck_delta))
         inputs[oid] = {
             "games_used": games,
@@ -1045,10 +1051,10 @@ def build_section(
     # Historical presence remains separate from the season-scoped scoring
     # state. A manager who rejoined after missing a season must not disappear.
     career_state: dict[str, dict[str, float | int]] = defaultdict(
-        lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0}
+        lambda: {"points": 0.0, "games": 0, "decided": 0, "wins": 0.0, "losses": 0.0}
     )
     season_state: dict[str, dict[str, float | int]] = defaultdict(
-        lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0}
+        lambda: {"points": 0.0, "games": 0, "decided": 0, "wins": 0.0, "losses": 0.0}
     )
     recent_window: dict[str, list[float]] = defaultdict(list)
     last_season_allplay_share: dict[str, float] = {}
@@ -1067,8 +1073,22 @@ def build_section(
     # the prior-season guard after this loop.
     state_season_label: str | None = None
 
+    # Power ranks TEAMS, so the current season's games follow the roster to its
+    # CURRENT owner (``by_franchise``), the key the record, ROS strength and
+    # the remaining schedule already use.  The per-week owner split
+    # (``ownership.owner_at``) is right for manager history and wrong here: a
+    # mid-season hand-off gave the outgoing (retired, never ranked) manager
+    # every pre-hand-off week and scored the roster's current franchise on
+    # nothing -- dynasty_main roster 11, 2026: ``gamesUsed 0``, ranked 11th
+    # (CQ-09).  Completed seasons keep the per-week split; they are history.
+    franchise_league_id = (
+        str(snapshot.current_season.league_id) if snapshot.current_season is not None else None
+    )
     for season in seasons_sorted:
-        week_scores = luck._season_weekly_scores(season, registry)
+        by_franchise = franchise_league_id is not None and (
+            str(season.league_id) == franchise_league_id
+        )
+        week_scores = luck._season_weekly_scores(season, registry, by_franchise=by_franchise)
         if not week_scores:
             continue
 
@@ -1076,7 +1096,9 @@ def build_section(
         partial_weeks = []
         state_season_label = str(season.season)
 
-        season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
+        season_state = defaultdict(
+            lambda: {"points": 0.0, "games": 0, "decided": 0, "wins": 0.0, "losses": 0.0}
+        )
         recent_window = defaultdict(list)
         last_season_allplay_share = {}
         allplay_share_total = defaultdict(float)
@@ -1086,7 +1108,7 @@ def build_section(
 
         for wk in sorted(week_scores.keys()):
             scores = week_scores[wk]
-            actuals, _ = luck._actual_week_results(season, wk, registry)
+            actuals, _ = luck._actual_week_results(season, wk, registry, by_franchise=by_franchise)
             all_play = luck._all_play_week(scores)
             scored_week_by_season[str(season.season)] = int(wk)
 
@@ -1114,20 +1136,29 @@ def build_section(
                 )
 
             for oid, pts in scores:
-                actual_share = actuals.get(oid, 0.0)
+                # Scored but never PAIRED -- a bye (odd team count) or a
+                # matchup row Sleeper did not group -- is a real scored week
+                # (PPG, recent form, all-play) but NOT a game: it has no
+                # result.  ``actuals.get(oid, 0.0)`` charged it a phantom
+                # 0-point LOSS in wins/losses, the W/L record, the streak and
+                # the luck input (#1530 finding B).  MISSING IS NEVER ZERO:
+                # ``None`` here records no result, and every result-based
+                # quantity divides by ``decided``, not by ``games``.
+                actual_share = actuals.get(oid)
 
                 career = career_state[oid]
                 career["points"] += pts
                 career["games"] += 1
-                career["wins"] += actual_share
-                career["losses"] += 1.0 - actual_share
 
                 current = season_state[oid]
                 current["points"] += pts
                 current["games"] += 1
-                current["wins"] += actual_share
-                current["losses"] += 1.0 - actual_share
-                season_outcomes[oid].append(actual_share)
+                if actual_share is not None:
+                    for acc in (career, current):
+                        acc["decided"] += 1
+                        acc["wins"] += actual_share
+                        acc["losses"] += 1.0 - actual_share
+                    season_outcomes[oid].append(actual_share)
 
                 recent = recent_buffer[oid]
                 recent.append(pts)
@@ -1137,7 +1168,9 @@ def build_section(
 
                 expected_share = float((all_play.get(oid) or {}).get("expectedShare", 0.0))
                 allplay_share_total[oid] += expected_share
-                expected_share_total[oid] += expected_share
+                if actual_share is not None:
+                    # Luck compares expected with ACTUAL over the same games.
+                    expected_share_total[oid] += expected_share
                 # Season-to-date all-play, not "last week" wearing a broad
                 # label. This is the schedule-independent earned-performance
                 # signal named by the canonical spec.
@@ -1177,7 +1210,14 @@ def build_section(
             preseason=preseason,
             as_of_season=current_label,
             reason="current_league_membership_incomplete",
-            detail=membership_error,
+            # Not ``membership_error`` itself: that names the current
+            # season's raw Sleeper league id and the unresolved owner ids,
+            # and this section is served on the PUBLIC /league route.  The
+            # full text is in the log line above.
+            detail=(
+                f"current season {current_label or '?'} league membership is "
+                "incomplete in the snapshot"
+            ),
         )
     host_scored_through = (
         _metrics.last_scored_week(current_season) if current_season is not None else None
@@ -1216,7 +1256,9 @@ def build_section(
         and current_label is not None
         and state_season_label != current_label
     ):
-        season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
+        season_state = defaultdict(
+            lambda: {"points": 0.0, "games": 0, "decided": 0, "wins": 0.0, "losses": 0.0}
+        )
         recent_window = defaultdict(list)
         last_season_allplay_share = {}
         season_outcomes = defaultdict(list)
@@ -1292,6 +1334,7 @@ def build_section(
         if current_season is not None
         else (seasons_sorted[-1].league_id if seasons_sorted else None)
     )
+    roster_id_by_owner: dict[str, int] = {}
     for row in rankings:
         rid = (
             luck._roster_id_for_owner(registry, current_league_id, row["ownerId"])
@@ -1301,13 +1344,16 @@ def build_section(
         row["teamName"] = (
             _metrics.team_name(snapshot, current_league_id, rid) if current_league_id else None
         )
+        if rid is not None:
+            roster_id_by_owner[row["ownerId"]] = rid
         if row["ownerId"] in official_record_strings:
             row["record"] = official_record_strings[row["ownerId"]]
             row["recordSource"] = "sleeper"
         else:
             current = season_state.get(row["ownerId"], _EMPTY_SEASON_STATE)
             wins = round(float(current.get("wins", 0.0)))
-            games = int(current.get("games", 0))
+            # A bye week is not a game: the record counts decided games only.
+            games = int(current.get("decided", current.get("games", 0)))
             row["record"] = f"{wins}-{games - wins}" if games else "0-0"
             row["recordSource"] = "matchups"
 
@@ -1378,6 +1424,24 @@ def build_section(
                         if baseline is not None
                         else {"status": "no_prior_publication", "week": as_of_week - 1}
                     )
+                # Week N-1's publication is keyed to whoever held each roster
+                # THEN, and a recorded mid-season hand-off means that is not
+                # today's owner (CQ-09: the week-5 card names Joel for the
+                # roster John holds now).  Movement is a FRANCHISE question,
+                # so each row names the owner its roster had in week N-1 and
+                # the comparison looks that row up -- through the recorded
+                # hand-off only (``ownership.owner_at``), never by guessing.
+                # ``movement_against_previous`` stamps whose rank it was.
+                if as_of_week >= 1 and current_season is not None:
+                    for row in rankings:
+                        rid = roster_id_by_owner.get(row["ownerId"])
+                        if rid is None:
+                            continue
+                        baseline_owner = _metrics.resolve_owner(
+                            registry, current_season.league_id, rid, as_of_week - 1
+                        )
+                        if baseline_owner:
+                            row["franchiseBaselineOwnerId"] = baseline_owner
                 if as_of_week >= 0:
                     movement = power_snapshots.movement_against_previous(
                         league_key=league_key,

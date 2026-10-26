@@ -126,7 +126,16 @@ class TestCorrelationGroups(unittest.TestCase):
         # measured 52 players that DLF was voting on more than once.
         # The property under test is unchanged — an independent source
         # expands to itself — so it needs a source that is still one.
-        self.assertEqual(dc.expand_correlation_groups(["fantasyCalc"]), {"fantasyCalc"})
+        #
+        # ``fantasyCalc`` stopped being one on 2026-10-03: the two Signals
+        # voters joined its family (owner addendum, no independence bonus),
+        # so the singleton is now ``otcffbSf`` and FantasyCalc's family is
+        # pinned explicitly below.
+        self.assertEqual(dc.expand_correlation_groups(["otcffbSf"]), {"otcffbSf"})
+        self.assertEqual(
+            dc.expand_correlation_groups(["fantasyCalc"]),
+            {"fantasyCalc", "signalsSf", "signalsIdpDl", "signalsIdpLb", "signalsIdpDb"},
+        )
 
     def test_a_declared_family_member_expands_to_the_whole_family(self):
         """The companion the suite lacked.
@@ -135,9 +144,11 @@ class TestCorrelationGroups(unittest.TestCase):
         only the singleton case above would notice — which is the
         direction that does NOT fail closed.
         """
+        # DLF Values joined the DLF family as its offense-only rank -> Hill
+        # member (owner decision D4, 2026-10-18), sharing DLF's one cap.
         self.assertEqual(
             dc.expand_correlation_groups(["dlfSf"]),
-            {"dlfSf", "dlfRookieSf", "dlfIdp", "dlfRookieIdp"},
+            {"dlfSf", "dlfRookieSf", "dlfIdp", "dlfRookieIdp", "dlfValuesSfTep"},
         )
 
     def test_an_unknown_key_passes_through_rather_than_raising(self):
@@ -788,18 +799,39 @@ class TestTheGuardIsACapabilityNotAFlag(unittest.TestCase):
         an anchor-free board reported ``["dlfIdp", "fantasyProsIdp",
         "idpShow"]`` as having fallen back, and those fallbacks put IDP #1 on
         the board as asset #1. Now no untranslated rank is recorded at all.
+
+        One documented residual is carved out, not hidden: a rookie-ladder
+        source whose ladder reference is excluded still votes its
+        within-class rank on the IDP curve
+        (``test_curve_routing_coordinate_pool.py::
+        test_a_skipped_rookie_ladder_also_stays_idp_local`` pins that, and
+        calls it the separately-tracked ``scale_integrity_lost`` condition).
+        ``scale_integrity_lost`` DECLARES those sources broken and
+        ``compute_fair_values`` refuses every row whose vote came from one, so
+        a row resting ONLY on declared-broken sources never reaches a user.
+        This test used to pass that residual by accident: while The IDP Show
+        (cross-market) still voted, it carried those rows too.  Since its
+        2026-10 staleness quarantine, DLF Rookie IDP alone priced Arvell Reese
+        at 9,665 here, and this hard-gate test flipped on one provider's
+        freshness with our code byte-identical.
         """
-        board = fv.leave_one_out_board(
-            _RAW, exclude=["idpTradeCalc", "draftSharks", "draftSharksIdp"]
-        )
+        excluded = ["idpTradeCalc", "draftSharks", "draftSharksIdp"]
+        board = fv.leave_one_out_board(_RAW, exclude=excluded)
         rows = board.get("playersArray") or []
         self.assertEqual(dc.shared_market_crosswalk_failed(rows), {})
+        declared_broken = set(dc.scale_integrity_lost(excluded)["sources"])
+
+        def _only_declared_broken(r):
+            voters = set(r.get("effectiveSourceRanks") or {})
+            return bool(voters) and voters <= declared_broken
+
         idp_at_ceiling = [
             r
             for r in rows
             if str(r.get("position") or "").upper() in {"DL", "LB", "DB"}
             and isinstance(r.get("rankDerivedValue"), (int, float))
             and float(r["rankDerivedValue"]) >= 9000
+            and not _only_declared_broken(r)
         ]
         self.assertEqual(
             idp_at_ceiling,

@@ -10,10 +10,12 @@ import {
   Badge,
   Banner,
   Button,
+  Combobox,
   DataTable,
   Drawer,
   EmptyState,
   Field,
+  FileDropzone,
   Icon,
   Input,
   Meter,
@@ -72,11 +74,9 @@ const SEMANTIC = [
 ];
 const CHARTS = [1, 2, 3, 4, 5, 6];
 
-// #1428: the inherited categorical colors are not approved for PSI cream plots.
-// Keep only these reference previews gated; never infer acceptance from axe.
-// No URL/env switch: enabling requires the separately recorded design decision,
-// contrast proof and updated desktop/phone evidence. Product charts are untouched.
-const CHART_PREVIEWS_APPROVED = false;
+// Chart previews render the --chart-* slots this scope defines (Owner
+// Decision 14, 2026-10-18, closing #1428). Contrast and CVD proof:
+// __tests__/components/ds/chart-palette-contrast.test.js.
 
 const TYPE_SCALE = [
   ["2xs", "11px · micro labels"],
@@ -106,10 +106,12 @@ function Swatch({ token, note, height = 56 }) {
 
 export default function DesignGallery() {
   const [segment, setSegment] = useState("7d");
+  const [comboTeam, setComboTeam] = useState(1);
   const [tab, setTab] = useState("tokens");
   const [density, setDensity] = useState("regular");
   const [modalOpen, setModalOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [demoFiles, setDemoFiles] = useState([]);
 
   return (
     <div className={`psi-editorial ${styles.page}`} data-testid="psi-gallery">
@@ -126,11 +128,6 @@ export default function DesignGallery() {
         league data. Example actions do not send, save or export anything.
       </Banner>
 
-      <Banner tone="warning" title="Chart previews unavailable">
-        This reference is partially complete. Chart examples await an approved
-        contrast-safe treatment (#1428). Fixture numbers remain available below;
-        no replacement colors or chart-completion claim are implied.
-      </Banner>
 
       {/* ── Color ─────────────────────────────────────────────────── */}
       <Panel
@@ -174,7 +171,7 @@ export default function DesignGallery() {
           </div>
           <div>
             <p className={styles.demoLabel}>
-              Chart token inventory — fixed order; plot acceptance pending #1428
+              Chart series slots — fixed order, never cycled; for charts of up to six categories
             </p>
             <div className={`${styles.grid} ${styles.cols3}`}>
               {CHARTS.map((i) => (
@@ -295,6 +292,21 @@ export default function DesignGallery() {
               />
             </Field>
             <div>
+              <p className={styles.demoLabel}>Combobox (searchable single-select, disabled options say why)</p>
+              <Combobox
+                label="Fixture team"
+                placeholder="Search teams"
+                value={comboTeam}
+                onChange={setComboTeam}
+                hint="Fixture options only."
+                options={[
+                  { value: 1, label: "Fixture Team One", description: "Manager A" },
+                  { value: 2, label: "Fixture Team Two", description: "Manager B" },
+                  { value: 3, label: "Fixture Team Three", description: "Manager C", disabled: true, disabledReason: "in trade" },
+                ]}
+              />
+            </div>
+            <div>
               <p className={styles.demoLabel}>SegmentedControl (radiogroup, arrow keys)</p>
               <SegmentedControl
                 label="Window"
@@ -302,6 +314,20 @@ export default function DesignGallery() {
                 onChange={setSegment}
                 options={[{ value: "1d" }, { value: "7d" }, { value: "30d" }]}
               />
+            </div>
+            <div>
+              <p className={styles.demoLabel}>FileDropzone (pick, drop or paste; nothing uploads here)</p>
+              <FileDropzone
+                label="Choose screenshots"
+                help="PNG, JPEG or WebP, up to 4. Drop files here."
+                multiple
+                maxFiles={4}
+                pasteTarget="none"
+                onFiles={(files) => setDemoFiles(files.map((f) => f.name))}
+              />
+              {demoFiles.length ? (
+                <p className={styles.demoLabel}>Chosen: {demoFiles.join(", ")}</p>
+              ) : null}
             </div>
           </div>
         </Panel>
@@ -421,13 +447,7 @@ export default function DesignGallery() {
               key: "trend",
               header: "Trend",
               render: (r) => (
-                CHART_PREVIEWS_APPROVED ? (
-                  <Sparkline values={r.trend} label={`${r.name} 6-week trend`} series={1} />
-                ) : (
-                  <span className="ds-mono" aria-label={`${r.name} 6-week fixture values`}>
-                    {r.trend.join(" → ")}
-                  </span>
-                )
+                <Sparkline values={r.trend} label={`${r.name} 6-week trend`} series={1} />
               ),
             },
           ]}
@@ -530,9 +550,9 @@ export default function DesignGallery() {
       {/* ── Small charts ──────────────────────────────────────────── */}
       <Panel
         title="Small charts"
-        subtitle="Sparkline + Meter previews are gated pending #1428. Existing fixture numbers are preserved."
+        subtitle="Sparkline + Meter on the --chart-* slots. Every mark carries an accessible label; Meter shows its value as text."
       >
-        {CHART_PREVIEWS_APPROVED ? <div className={styles.stack}>
+        <div className={styles.stack}>
           <div className={styles.row} style={{ gap: "var(--space-6)" }}>
             <Sparkline values={[20, 24, 22, 30, 34, 33, 40]} label="Value trend, rising" width={140} height={32} />
             <Sparkline values={[40, 38, 39, 31, 28, 26, 22]} label="Value trend, falling" series={3} width={140} height={32} />
@@ -543,19 +563,7 @@ export default function DesignGallery() {
             <Meter value={6120} max={10000} label="Draft capital" series={2} />
             <Meter value={2870} max={10000} label="Bench depth" series={4} />
           </div>
-        </div> : (
-          <div className={styles.stack} data-testid="chart-preview-gate">
-            <Banner tone="info" title="Chart treatment pending">
-              These numerical fixtures are not an approved graphical chart reference.
-            </Banner>
-            <p className="ds-mono">Rising fixture: 20 → 24 → 22 → 30 → 34 → 33 → 40</p>
-            <p className="ds-mono">Falling fixture: 40 → 38 → 39 → 31 → 28 → 26 → 22</p>
-            <p className="ds-mono">Variable fixture: 10 → 14 → 8 → 16 → 12 → 18 → 13; baseline 12</p>
-            <p className="ds-mono">Jefferson value: 9,541 / 10,000</p>
-            <p className="ds-mono">Draft capital: 6,120 / 10,000</p>
-            <p className="ds-mono">Bench depth: 2,870 / 10,000</p>
-          </div>
-        )}
+        </div>
       </Panel>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Trade proposal example">
@@ -576,14 +584,7 @@ export default function DesignGallery() {
             <StatTile bare label="Value" value="9,541" movement={<Movement delta={128} confidence={0.9} />} />
             <StatTile bare label="Overall" value="#1" meta="WR1" />
           </div>
-          {CHART_PREVIEWS_APPROVED ? (
-            <Sparkline className={styles.drawerChart} values={[88, 90, 91, 93, 96, 97]} label="Jefferson 6-week value trend" width={360} height={48} />
-          ) : (
-            <div data-testid="drawer-chart-gate">
-              <p className="ds-mono">Six-week fixture values: 88 → 90 → 91 → 93 → 96 → 97</p>
-              <Banner tone="info">Chart preview unavailable pending approved treatment (#1428).</Banner>
-            </div>
-          )}
+          <Sparkline className={styles.drawerChart} values={[88, 90, 91, 93, 96, 97]} label="Jefferson 6-week value trend" width={360} height={48} />
           <Banner tone="info">Example player detail only. Real player links converge on the canonical Player File.</Banner>
         </div>
       </Drawer>

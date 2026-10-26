@@ -1,0 +1,5980 @@
+{
+ "purpose": "RESEARCH ONLY, EXPLORATORY (prereg 160cc28b5). geom_q078_v1 (q = 0.78) stays active; no canonical value, band, recommendation or served path changed.",
+ "generatedBy": "scripts/low_value_asset_shadow_replay.py",
+ "activeModelAtRun": "geom_q078_v1",
+ "board": {
+  "archive": "exports/archive/dynasty_export_20261020_052241.zip",
+  "member": "dynasty_data_2026-10-20.json",
+  "sha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+  "methodology": "built through src.api.data_contract.build_api_data_contract with today's code (today's methodology), not the archived contract",
+  "pricedAssets": 1003,
+  "byClass": {
+   "pick": 120,
+   "offense": 486,
+   "idp": 397
+  }
+ },
+ "codeSha": "160cc28b5301b8d0abe7354477fb37b157a881a7",
+ "treatments": {
+  "GEOM_78": {
+   "approach": "incumbent",
+   "anchor": null
+  },
+  "A_curve_market": {
+   "approach": "A",
+   "anchor": "market"
+  },
+  "A_curve_replacement": {
+   "approach": "A",
+   "anchor": "replacement"
+  },
+  "B_currency_market": {
+   "approach": "B",
+   "anchor": "market"
+  },
+  "B_currency_replacement": {
+   "approach": "B",
+   "anchor": "replacement"
+  }
+ },
+ "S1_replacementAnchors": {
+  "rule": "prereg \u00a72 (frozen 160cc28b5): c_pos = src/draft/displacement.waiver_values_by_position (best unrostered rankDerivedValue at the position, newest board, dynasty_main rosters); '*' (unknown position AND every pick) = FAAB V_repl from src/trade/faab_engine.resolve_anchors, built as server.py's FAAB route builds it",
+  "replacementAnchorDict": {
+   "*": 1687,
+   "DB": 2156,
+   "DL": 1918,
+   "LB": 2149,
+   "QB": 1923,
+   "RB": 1626,
+   "TE": 2061,
+   "WR": 1802
+  },
+  "byPosition": {
+   "QB": {
+    "waiverBestUnrostered_PRIMARY": 1923,
+    "li5_starterMedianMarginal": 5388,
+    "li5_bestBallStarter": 2553,
+    "li5_roster_lastRostered": 997,
+    "li5_waiverBanded": 1661,
+    "lowestStarterAcross12OptimalLineups": 1988,
+    "boardRowsPriced": 72,
+    "anchorUsed": 1923,
+    "anchorSource": "waiver_values_by_position"
+   },
+   "RB": {
+    "waiverBestUnrostered_PRIMARY": 1626,
+    "li5_starterMedianMarginal": 2963,
+    "li5_bestBallStarter": 1826,
+    "li5_roster_lastRostered": 1109,
+    "li5_waiverBanded": 1569,
+    "lowestStarterAcross12OptimalLineups": 1653,
+    "boardRowsPriced": 132,
+    "anchorUsed": 1626,
+    "anchorSource": "waiver_values_by_position"
+   },
+   "WR": {
+    "waiverBestUnrostered_PRIMARY": 1802,
+    "li5_starterMedianMarginal": 3480,
+    "li5_bestBallStarter": 1768,
+    "li5_roster_lastRostered": 1026,
+    "li5_waiverBanded": 1633,
+    "lowestStarterAcross12OptimalLineups": 1510,
+    "boardRowsPriced": 198,
+    "anchorUsed": 1802,
+    "anchorSource": "waiver_values_by_position"
+   },
+   "TE": {
+    "waiverBestUnrostered_PRIMARY": 2061,
+    "li5_starterMedianMarginal": 3200,
+    "li5_bestBallStarter": 1834,
+    "li5_roster_lastRostered": 1669,
+    "li5_waiverBanded": 1972,
+    "lowestStarterAcross12OptimalLineups": 1671,
+    "boardRowsPriced": 84,
+    "anchorUsed": 2061,
+    "anchorSource": "waiver_values_by_position"
+   },
+   "K": {
+    "waiverBestUnrostered_PRIMARY": null,
+    "li5_starterMedianMarginal": null,
+    "li5_bestBallStarter": null,
+    "li5_roster_lastRostered": null,
+    "li5_waiverBanded": null,
+    "lowestStarterAcross12OptimalLineups": null,
+    "boardRowsPriced": 0,
+    "anchorUsed": 1687,
+    "anchorSource": "* (FAAB V_repl) \u2014 no priced unrostered player at this position on the board"
+   },
+   "DL": {
+    "waiverBestUnrostered_PRIMARY": 1918,
+    "li5_starterMedianMarginal": 2070,
+    "li5_bestBallStarter": 1668,
+    "li5_roster_lastRostered": 241,
+    "li5_waiverBanded": 1860,
+    "lowestStarterAcross12OptimalLineups": 1539,
+    "boardRowsPriced": 150,
+    "anchorUsed": 1918,
+    "anchorSource": "waiver_values_by_position"
+   },
+   "LB": {
+    "waiverBestUnrostered_PRIMARY": 2149,
+    "li5_starterMedianMarginal": 2330,
+    "li5_bestBallStarter": 1628,
+    "li5_roster_lastRostered": 779,
+    "li5_waiverBanded": 1946,
+    "lowestStarterAcross12OptimalLineups": 1474,
+    "boardRowsPriced": 110,
+    "anchorUsed": 2149,
+    "anchorSource": "waiver_values_by_position"
+   },
+   "DB": {
+    "waiverBestUnrostered_PRIMARY": 2156,
+    "li5_starterMedianMarginal": 1658,
+    "li5_bestBallStarter": 1384,
+    "li5_roster_lastRostered": 301,
+    "li5_waiverBanded": 1994,
+    "lowestStarterAcross12OptimalLineups": 1335,
+    "boardRowsPriced": 137,
+    "anchorUsed": 2156,
+    "anchorSource": "waiver_values_by_position"
+   }
+  },
+  "faab": {
+   "vAllIn": 2387.0,
+   "vReplacement": 1687.0,
+   "band": 700.0,
+   "starterSlots": 240,
+   "source": "board+pool",
+   "livePoolReplacement": 1839.0,
+   "formatReplacement": 1573.0,
+   "bandWidened": true
+  },
+  "faabInputs": {
+   "teamCount": 12,
+   "startersPerTeamExclK": 20,
+   "boardPlayerValues": 883,
+   "unrosteredPlayerValues": 242
+  },
+  "picks": "Picks take '*' = league-wide FAAB V_repl.  A pick is not a waiver-wire replacement for a roster spot (displacement._available_players excludes picks), so no per-position waiver level exists for it; V_repl is the league's format-level replacement value (board rank ~2x the starting pool, blended with the live pool).",
+  "notes": [
+   "Kickers carry no canonical value on this board (0 priced K rows), so K has no anchor of its own and no K asset enters any trade below.",
+   "li5_* tiers run the exact lineup optimizer with rosValue := rankDerivedValue (canonical scale), so they are canonical-value replacement levels, not projections."
+  ],
+  "optimalLineupsAvailable": 12,
+  "starterSlots": [
+   "QB",
+   "RB",
+   "RB",
+   "WR",
+   "WR",
+   "WR",
+   "TE",
+   "TE",
+   "FLEX",
+   "FLEX",
+   "SUPER_FLEX",
+   "K",
+   "DL",
+   "DL",
+   "DL",
+   "LB",
+   "LB",
+   "LB",
+   "DB",
+   "DB",
+   "DB"
+  ]
+ },
+ "S2_classification": {
+  "rule": "prereg \u00a73: genuine starter = in a dynasty_main roster's canonical optimal lineup (contract sleeper.teams[].optimalLineup.starters); an UNROSTERED asset is a starter when its value >= the lowest starter value at its position across the 12 lineups; usable depth = not a starter and value >= its position anchor; expendable filler = value < its position anchor.  Picks: value vs '*' (never 'starter'; >= '*' is reported as depth).  Rookie-class picks (e.g. '2027 Pick 1.10') and future-year tier picks are reported separately and never pooled with players.",
+  "counts": {
+   "byPositionAndClass": {
+    "PICK_rookie_class": {
+     "filler": {
+      "n": 5,
+      "rostered": 0,
+      "valueMin": 1664,
+      "valueMax": 1686
+     },
+     "depth": {
+      "n": 67,
+      "rostered": 0,
+      "valueMin": 1703,
+      "valueMax": 7234
+     },
+     "starter": {
+      "n": 0,
+      "rostered": 0,
+      "valueMin": null,
+      "valueMax": null
+     }
+    },
+    "PICK_future": {
+     "filler": {
+      "n": 22,
+      "rostered": 0,
+      "valueMin": 1128,
+      "valueMax": 1686
+     },
+     "depth": {
+      "n": 26,
+      "rostered": 0,
+      "valueMin": 1712,
+      "valueMax": 5402
+     },
+     "starter": {
+      "n": 0,
+      "rostered": 0,
+      "valueMin": null,
+      "valueMax": null
+     }
+    },
+    "WR": {
+     "filler": {
+      "n": 107,
+      "rostered": 56,
+      "valueMin": 383,
+      "valueMax": 1794
+     },
+     "depth": {
+      "n": 40,
+      "rostered": 40,
+      "valueMin": 1823,
+      "valueMax": 4587
+     },
+     "starter": {
+      "n": 51,
+      "rostered": 48,
+      "valueMin": 1510,
+      "valueMax": 9645
+     }
+    },
+    "RB": {
+     "filler": {
+      "n": 60,
+      "rostered": 24,
+      "valueMin": 278,
+      "valueMax": 1605
+     },
+     "depth": {
+      "n": 37,
+      "rostered": 36,
+      "valueMin": 1626,
+      "valueMax": 4673
+     },
+     "starter": {
+      "n": 35,
+      "rostered": 35,
+      "valueMin": 1653,
+      "valueMax": 9864
+     }
+    },
+    "QB": {
+     "filler": {
+      "n": 32,
+      "rostered": 21,
+      "valueMin": 914,
+      "valueMax": 1884
+     },
+     "depth": {
+      "n": 17,
+      "rostered": 16,
+      "valueMin": 1923,
+      "valueMax": 5905
+     },
+     "starter": {
+      "n": 23,
+      "rostered": 23,
+      "valueMin": 1988,
+      "valueMax": 9968
+     }
+    },
+    "DL": {
+     "filler": {
+      "n": 99,
+      "rostered": 61,
+      "valueMin": 226,
+      "valueMax": 1874
+     },
+     "depth": {
+      "n": 6,
+      "rostered": 6,
+      "valueMin": 2261,
+      "valueMax": 2696
+     },
+     "starter": {
+      "n": 45,
+      "rostered": 37,
+      "valueMin": 1539,
+      "valueMax": 5090
+     }
+    },
+    "TE": {
+     "filler": {
+      "n": 29,
+      "rostered": 13,
+      "valueMin": 656,
+      "valueMax": 1987
+     },
+     "depth": {
+      "n": 20,
+      "rostered": 20,
+      "valueMin": 2085,
+      "valueMax": 4707
+     },
+     "starter": {
+      "n": 35,
+      "rostered": 27,
+      "valueMin": 1671,
+      "valueMax": 9985
+     }
+    },
+    "DB": {
+     "filler": {
+      "n": 91,
+      "rostered": 66,
+      "valueMin": 227,
+      "valueMax": 1944
+     },
+     "depth": {
+      "n": 0,
+      "rostered": 0,
+      "valueMin": null,
+      "valueMax": null
+     },
+     "starter": {
+      "n": 46,
+      "rostered": 35,
+      "valueMin": 1335,
+      "valueMax": 4002
+     }
+    },
+    "LB": {
+     "filler": {
+      "n": 62,
+      "rostered": 34,
+      "valueMin": 226,
+      "valueMax": 1950
+     },
+     "depth": {
+      "n": 8,
+      "rostered": 8,
+      "valueMin": 2189,
+      "valueMax": 3163
+     },
+     "starter": {
+      "n": 40,
+      "rostered": 35,
+      "valueMin": 1474,
+      "valueMax": 6229
+     }
+    }
+   },
+   "totals": {
+    "depth": 221,
+    "filler": 507,
+    "starter": 275
+   },
+   "quarantinedExcludedFromTradePools": 47
+  },
+  "examples": {
+   "offense:filler": [
+    "Colby Parkinson (TE, 1987)",
+    "Josh Cuevas (TE, 1608)",
+    "Dont'e Thornton (WR, 1394)",
+    "Riley Leonard (QB, 1211)",
+    "Laquon Treadwell (WR, 1062)",
+    "Sincere McCormick (RB, 551)"
+   ],
+   "idp:filler": [
+    "Alex Singleton (LB, 1950)",
+    "Grant Delpit (DB, 1558)",
+    "Bryce Boettcher (LB, 1376)",
+    "Lathan Ransom (DB, 1228)",
+    "L'Jarius Sneed (DB, 796)",
+    "Lee Hunter (DL, 226)"
+   ],
+   "picks:filler": [
+    "2027 Pick 6.08 (PICK, 1686)",
+    "2027 Pick 6.10 (PICK, 1675)",
+    "2029 Early 5th (PICK, 1557)",
+    "2028 Mid 6th (PICK, 1434)",
+    "2029 Mid 5th (PICK, 1349)",
+    "2029 Late 5th (PICK, 1231)"
+   ],
+   "offense:depth": [
+    "Dak Prescott (QB, 5905)",
+    "Oronde Gadsden (TE, 3327)",
+    "Jonathon Brooks (RB, 2623)",
+    "Mason Taylor (TE, 2332)",
+    "Mac Jones (QB, 2104)",
+    "Ray Davis (RB, 1700)"
+   ],
+   "idp:depth": [
+    "Daiyan Henley (LB, 3163)",
+    "DeMarvion Overshown (LB, 2785)",
+    "Anthony Hill (LB, 2640)",
+    "Byron Murphy (DL, 2409)",
+    "Andrew Van Ginkel (DL, 2283)",
+    "Jonathan Greenard (DL, 2261)"
+   ],
+   "picks:depth": [
+    "2027 Pick 1.01 (PICK, 7234)",
+    "2027 Pick 1.12 (PICK, 3942)",
+    "2028 Late 2nd (PICK, 2872)",
+    "2028 Round 3 (PICK, 2275)",
+    "2027 Pick 5.01 (PICK, 1897)",
+    "2028 Early 5th (PICK, 1712)"
+   ],
+   "offense:starter": [
+    "Brock Bowers (TE, 9985)",
+    "James Cook (RB, 6784)",
+    "C.J. Stroud (QB, 5109)",
+    "Travis Hunter (WR, 3738)",
+    "Cade Otton (TE, 2524)",
+    "Seth McGowan (RB, 1653)"
+   ],
+   "idp:starter": [
+    "Carson Schwesinger (LB, 6229)",
+    "Zack Baun (LB, 3435)",
+    "Alex Highsmith (DL, 2455)",
+    "Jalon Walker (DL, 1925)",
+    "Teddye Buchanan (LB, 1739)",
+    "Marlon Humphrey (DB, 1335)"
+   ]
+  }
+ },
+ "S3_fillerFlipStudy": {
+  "design": {
+   "bases": 2825,
+   "cases": 32180,
+   "perCell": 30,
+   "shapes": [
+    "1v1",
+    "1v2",
+    "2v2",
+    "2v3"
+   ],
+   "tiersOfTopAsset": {
+    "elite": [
+     7000,
+     null
+    ],
+    "high": [
+     4000,
+     7000
+    ],
+    "mid": [
+     2000,
+     4000
+    ],
+    "low": [
+     0,
+     2000
+    ]
+   },
+   "rawGapWithin": "10% of the larger raw side",
+   "compositions": "'any' (assets of the class drawn freely) and 'starters_only' (every base asset a \u00a73 genuine starter); picks have no starters_only bases",
+   "sweeteners": "1-4 assets drawn ONCE per base and category (filler / depth / starter, same class as the base; mixed draws across classes) and added to the side that is behind on raw value; identical cases for every treatment",
+   "flip": "PRIMARY flips = the verdict crosses a region for the sweetening side (disfavoured -> fair, disfavoured -> favoured, or fair -> favoured), the shared classifier (fairness_bands_v1) on adjusted totals; this is what F1/F3 count.  Secondary: verdictChanged = any change of the signed level (e.g. lopsided -> unfair against); winnerFlipped = disfavoured -> favoured; unfairMadeFair = disfavoured -> FAIR",
+   "basesByClass": {
+    "offense": 900,
+    "idp": 664,
+    "picks": 390,
+    "mixed": 871
+   },
+   "basesByComposition": {
+    "offense:any": 480,
+    "offense:starters_only": 420,
+    "idp:any": 360,
+    "idp:starters_only": 304,
+    "picks:any": 390,
+    "mixed:any": 480,
+    "mixed:starters_only": 391
+   },
+   "basesByShape": {
+    "1v1": 720,
+    "1v2": 660,
+    "2v2": 780,
+    "2v3": 665
+   },
+   "criteriaThresholds": "F1 filler-only flips fall >= 80% vs GEOM_78; F2 starter-only base trades level changes <= 2%; F3 usable-depth flips fall <= 25%; <100 flip cases (or <100 starter-only bases for F2) = insufficient",
+   "incumbentNote": "GEOM_78 here is the exact geometric utility (q = 0.78); production rounds the adjustment to an integer, which moves no level in this study by design of the bands (absolute minimum 250)."
+  },
+  "byClass": {
+   "offense": {
+    "filler": {
+     "GEOM_78": {
+      "cases": 3600,
+      "flips": 3017,
+      "verdictChanged": 3581,
+      "winnerFlipped": 510,
+      "unfairMadeFair": 143
+     },
+     "A_curve_market": {
+      "cases": 3600,
+      "flips": 2178,
+      "verdictChanged": 3003,
+      "winnerFlipped": 121,
+      "unfairMadeFair": 399
+     },
+     "A_curve_replacement": {
+      "cases": 3600,
+      "flips": 2250,
+      "verdictChanged": 3034,
+      "winnerFlipped": 143,
+      "unfairMadeFair": 385
+     },
+     "B_currency_market": {
+      "cases": 3600,
+      "flips": 2319,
+      "verdictChanged": 3122,
+      "winnerFlipped": 218,
+      "unfairMadeFair": 382
+     },
+     "B_currency_replacement": {
+      "cases": 3600,
+      "flips": 2367,
+      "verdictChanged": 3175,
+      "winnerFlipped": 239,
+      "unfairMadeFair": 370
+     }
+    },
+    "depth": {
+     "GEOM_78": {
+      "cases": 3600,
+      "flips": 3047,
+      "verdictChanged": 3599,
+      "winnerFlipped": 638,
+      "unfairMadeFair": 34
+     },
+     "A_curve_market": {
+      "cases": 3600,
+      "flips": 2609,
+      "verdictChanged": 3554,
+      "winnerFlipped": 600,
+      "unfairMadeFair": 173
+     },
+     "A_curve_replacement": {
+      "cases": 3600,
+      "flips": 2662,
+      "verdictChanged": 3508,
+      "winnerFlipped": 614,
+      "unfairMadeFair": 163
+     },
+     "B_currency_market": {
+      "cases": 3600,
+      "flips": 2648,
+      "verdictChanged": 3465,
+      "winnerFlipped": 688,
+      "unfairMadeFair": 123
+     },
+     "B_currency_replacement": {
+      "cases": 3600,
+      "flips": 2675,
+      "verdictChanged": 3485,
+      "winnerFlipped": 694,
+      "unfairMadeFair": 110
+     }
+    },
+    "starter": {
+     "GEOM_78": {
+      "cases": 3600,
+      "flips": 3048,
+      "verdictChanged": 3599,
+      "winnerFlipped": 657,
+      "unfairMadeFair": 15
+     },
+     "A_curve_market": {
+      "cases": 3600,
+      "flips": 2652,
+      "verdictChanged": 3571,
+      "winnerFlipped": 758,
+      "unfairMadeFair": 61
+     },
+     "A_curve_replacement": {
+      "cases": 3600,
+      "flips": 2694,
+      "verdictChanged": 3522,
+      "winnerFlipped": 754,
+      "unfairMadeFair": 60
+     },
+     "B_currency_market": {
+      "cases": 3600,
+      "flips": 2665,
+      "verdictChanged": 3469,
+      "winnerFlipped": 796,
+      "unfairMadeFair": 34
+     },
+     "B_currency_replacement": {
+      "cases": 3600,
+      "flips": 2691,
+      "verdictChanged": 3487,
+      "winnerFlipped": 790,
+      "unfairMadeFair": 32
+     }
+    },
+    "F2_starterOnlyBases": {
+     "GEOM_78": {
+      "bases": 420,
+      "levelChanged": 0,
+      "share": 0.0,
+      "excluding1v1": {
+       "bases": 300,
+       "levelChanged": 0,
+       "share": 0.0
+      }
+     },
+     "A_curve_market": {
+      "bases": 420,
+      "levelChanged": 142,
+      "share": 0.3381,
+      "excluding1v1": {
+       "bases": 300,
+       "levelChanged": 142,
+       "share": 0.4733
+      }
+     },
+     "A_curve_replacement": {
+      "bases": 420,
+      "levelChanged": 155,
+      "share": 0.369,
+      "excluding1v1": {
+       "bases": 300,
+       "levelChanged": 154,
+       "share": 0.5133
+      }
+     },
+     "B_currency_market": {
+      "bases": 420,
+      "levelChanged": 157,
+      "share": 0.3738,
+      "excluding1v1": {
+       "bases": 300,
+       "levelChanged": 157,
+       "share": 0.5233
+      }
+     },
+     "B_currency_replacement": {
+      "bases": 420,
+      "levelChanged": 156,
+      "share": 0.3714,
+      "excluding1v1": {
+       "bases": 300,
+       "levelChanged": 156,
+       "share": 0.52
+      }
+     }
+    }
+   },
+   "idp": {
+    "filler": {
+     "GEOM_78": {
+      "cases": 2656,
+      "flips": 2249,
+      "verdictChanged": 2585,
+      "winnerFlipped": 424,
+      "unfairMadeFair": 57
+     },
+     "A_curve_market": {
+      "cases": 2656,
+      "flips": 1806,
+      "verdictChanged": 2270,
+      "winnerFlipped": 129,
+      "unfairMadeFair": 259
+     },
+     "A_curve_replacement": {
+      "cases": 2656,
+      "flips": 1776,
+      "verdictChanged": 2254,
+      "winnerFlipped": 116,
+      "unfairMadeFair": 248
+     },
+     "B_currency_market": {
+      "cases": 2656,
+      "flips": 1835,
+      "verdictChanged": 2287,
+      "winnerFlipped": 244,
+      "unfairMadeFair": 223
+     },
+     "B_currency_replacement": {
+      "cases": 2656,
+      "flips": 1830,
+      "verdictChanged": 2285,
+      "winnerFlipped": 241,
+      "unfairMadeFair": 224
+     }
+    },
+    "depth": {
+     "GEOM_78": {
+      "cases": 2656,
+      "flips": 2320,
+      "verdictChanged": 2656,
+      "winnerFlipped": 495,
+      "unfairMadeFair": 1
+     },
+     "A_curve_market": {
+      "cases": 2656,
+      "flips": 2124,
+      "verdictChanged": 2636,
+      "winnerFlipped": 483,
+      "unfairMadeFair": 81
+     },
+     "A_curve_replacement": {
+      "cases": 2656,
+      "flips": 2121,
+      "verdictChanged": 2627,
+      "winnerFlipped": 461,
+      "unfairMadeFair": 80
+     },
+     "B_currency_market": {
+      "cases": 2656,
+      "flips": 2112,
+      "verdictChanged": 2537,
+      "winnerFlipped": 583,
+      "unfairMadeFair": 53
+     },
+     "B_currency_replacement": {
+      "cases": 2656,
+      "flips": 2111,
+      "verdictChanged": 2534,
+      "winnerFlipped": 582,
+      "unfairMadeFair": 53
+     }
+    },
+    "starter": {
+     "GEOM_78": {
+      "cases": 2656,
+      "flips": 2320,
+      "verdictChanged": 2656,
+      "winnerFlipped": 488,
+      "unfairMadeFair": 8
+     },
+     "A_curve_market": {
+      "cases": 2656,
+      "flips": 2100,
+      "verdictChanged": 2611,
+      "winnerFlipped": 453,
+      "unfairMadeFair": 92
+     },
+     "A_curve_replacement": {
+      "cases": 2656,
+      "flips": 2089,
+      "verdictChanged": 2595,
+      "winnerFlipped": 432,
+      "unfairMadeFair": 86
+     },
+     "B_currency_market": {
+      "cases": 2656,
+      "flips": 2091,
+      "verdictChanged": 2530,
+      "winnerFlipped": 550,
+      "unfairMadeFair": 65
+     },
+     "B_currency_replacement": {
+      "cases": 2656,
+      "flips": 2087,
+      "verdictChanged": 2523,
+      "winnerFlipped": 548,
+      "unfairMadeFair": 65
+     }
+    },
+    "F2_starterOnlyBases": {
+     "GEOM_78": {
+      "bases": 304,
+      "levelChanged": 0,
+      "share": 0.0,
+      "excluding1v1": {
+       "bases": 214,
+       "levelChanged": 0,
+       "share": 0.0
+      }
+     },
+     "A_curve_market": {
+      "bases": 304,
+      "levelChanged": 93,
+      "share": 0.3059,
+      "excluding1v1": {
+       "bases": 214,
+       "levelChanged": 93,
+       "share": 0.4346
+      }
+     },
+     "A_curve_replacement": {
+      "bases": 304,
+      "levelChanged": 93,
+      "share": 0.3059,
+      "excluding1v1": {
+       "bases": 214,
+       "levelChanged": 91,
+       "share": 0.4252
+      }
+     },
+     "B_currency_market": {
+      "bases": 304,
+      "levelChanged": 110,
+      "share": 0.3618,
+      "excluding1v1": {
+       "bases": 214,
+       "levelChanged": 110,
+       "share": 0.514
+      }
+     },
+     "B_currency_replacement": {
+      "bases": 304,
+      "levelChanged": 109,
+      "share": 0.3586,
+      "excluding1v1": {
+       "bases": 214,
+       "levelChanged": 109,
+       "share": 0.5093
+      }
+     }
+    }
+   },
+   "picks": {
+    "filler": {
+     "GEOM_78": {
+      "cases": 1400,
+      "flips": 1098,
+      "verdictChanged": 1398,
+      "winnerFlipped": 380,
+      "unfairMadeFair": 66
+     },
+     "A_curve_market": {
+      "cases": 1400,
+      "flips": 851,
+      "verdictChanged": 1264,
+      "winnerFlipped": 66,
+      "unfairMadeFair": 237
+     },
+     "A_curve_replacement": {
+      "cases": 1400,
+      "flips": 871,
+      "verdictChanged": 1283,
+      "winnerFlipped": 88,
+      "unfairMadeFair": 231
+     },
+     "B_currency_market": {
+      "cases": 1400,
+      "flips": 912,
+      "verdictChanged": 1304,
+      "winnerFlipped": 133,
+      "unfairMadeFair": 195
+     },
+     "B_currency_replacement": {
+      "cases": 1400,
+      "flips": 949,
+      "verdictChanged": 1337,
+      "winnerFlipped": 152,
+      "unfairMadeFair": 179
+     }
+    },
+    "depth": {
+     "GEOM_78": {
+      "cases": 1560,
+      "flips": 1244,
+      "verdictChanged": 1560,
+      "winnerFlipped": 468,
+      "unfairMadeFair": 16
+     },
+     "A_curve_market": {
+      "cases": 1560,
+      "flips": 1098,
+      "verdictChanged": 1545,
+      "winnerFlipped": 356,
+      "unfairMadeFair": 82
+     },
+     "A_curve_replacement": {
+      "cases": 1560,
+      "flips": 1109,
+      "verdictChanged": 1553,
+      "winnerFlipped": 369,
+      "unfairMadeFair": 80
+     },
+     "B_currency_market": {
+      "cases": 1560,
+      "flips": 1131,
+      "verdictChanged": 1515,
+      "winnerFlipped": 391,
+      "unfairMadeFair": 56
+     },
+     "B_currency_replacement": {
+      "cases": 1560,
+      "flips": 1155,
+      "verdictChanged": 1536,
+      "winnerFlipped": 377,
+      "unfairMadeFair": 58
+     }
+    },
+    "starter": {
+     "GEOM_78": {
+      "cases": 0,
+      "flips": 0,
+      "verdictChanged": 0,
+      "winnerFlipped": 0,
+      "unfairMadeFair": 0
+     },
+     "A_curve_market": {
+      "cases": 0,
+      "flips": 0,
+      "verdictChanged": 0,
+      "winnerFlipped": 0,
+      "unfairMadeFair": 0
+     },
+     "A_curve_replacement": {
+      "cases": 0,
+      "flips": 0,
+      "verdictChanged": 0,
+      "winnerFlipped": 0,
+      "unfairMadeFair": 0
+     },
+     "B_currency_market": {
+      "cases": 0,
+      "flips": 0,
+      "verdictChanged": 0,
+      "winnerFlipped": 0,
+      "unfairMadeFair": 0
+     },
+     "B_currency_replacement": {
+      "cases": 0,
+      "flips": 0,
+      "verdictChanged": 0,
+      "winnerFlipped": 0,
+      "unfairMadeFair": 0
+     }
+    },
+    "F2_starterOnlyBases": {
+     "GEOM_78": {
+      "bases": 0,
+      "levelChanged": 0,
+      "share": null,
+      "excluding1v1": {
+       "bases": 0,
+       "levelChanged": 0,
+       "share": null
+      }
+     },
+     "A_curve_market": {
+      "bases": 0,
+      "levelChanged": 0,
+      "share": null,
+      "excluding1v1": {
+       "bases": 0,
+       "levelChanged": 0,
+       "share": null
+      }
+     },
+     "A_curve_replacement": {
+      "bases": 0,
+      "levelChanged": 0,
+      "share": null,
+      "excluding1v1": {
+       "bases": 0,
+       "levelChanged": 0,
+       "share": null
+      }
+     },
+     "B_currency_market": {
+      "bases": 0,
+      "levelChanged": 0,
+      "share": null,
+      "excluding1v1": {
+       "bases": 0,
+       "levelChanged": 0,
+       "share": null
+      }
+     },
+     "B_currency_replacement": {
+      "bases": 0,
+      "levelChanged": 0,
+      "share": null,
+      "excluding1v1": {
+       "bases": 0,
+       "levelChanged": 0,
+       "share": null
+      }
+     }
+    }
+   },
+   "mixed": {
+    "filler": {
+     "GEOM_78": {
+      "cases": 3484,
+      "flips": 2909,
+      "verdictChanged": 3429,
+      "winnerFlipped": 570,
+      "unfairMadeFair": 133
+     },
+     "A_curve_market": {
+      "cases": 3484,
+      "flips": 2194,
+      "verdictChanged": 2905,
+      "winnerFlipped": 132,
+      "unfairMadeFair": 398
+     },
+     "A_curve_replacement": {
+      "cases": 3484,
+      "flips": 2159,
+      "verdictChanged": 2892,
+      "winnerFlipped": 159,
+      "unfairMadeFair": 390
+     },
+     "B_currency_market": {
+      "cases": 3484,
+      "flips": 2292,
+      "verdictChanged": 3040,
+      "winnerFlipped": 254,
+      "unfairMadeFair": 372
+     },
+     "B_currency_replacement": {
+      "cases": 3484,
+      "flips": 2301,
+      "verdictChanged": 3059,
+      "winnerFlipped": 254,
+      "unfairMadeFair": 367
+     }
+    },
+    "depth": {
+     "GEOM_78": {
+      "cases": 3484,
+      "flips": 2962,
+      "verdictChanged": 3483,
+      "winnerFlipped": 708,
+      "unfairMadeFair": 14
+     },
+     "A_curve_market": {
+      "cases": 3484,
+      "flips": 2646,
+      "verdictChanged": 3438,
+      "winnerFlipped": 654,
+      "unfairMadeFair": 156
+     },
+     "A_curve_replacement": {
+      "cases": 3484,
+      "flips": 2627,
+      "verdictChanged": 3413,
+      "winnerFlipped": 691,
+      "unfairMadeFair": 146
+     },
+     "B_currency_market": {
+      "cases": 3484,
+      "flips": 2666,
+      "verdictChanged": 3370,
+      "winnerFlipped": 772,
+      "unfairMadeFair": 104
+     },
+     "B_currency_replacement": {
+      "cases": 3484,
+      "flips": 2663,
+      "verdictChanged": 3383,
+      "winnerFlipped": 767,
+      "unfairMadeFair": 106
+     }
+    },
+    "starter": {
+     "GEOM_78": {
+      "cases": 3484,
+      "flips": 2962,
+      "verdictChanged": 3484,
+      "winnerFlipped": 699,
+      "unfairMadeFair": 23
+     },
+     "A_curve_market": {
+      "cases": 3484,
+      "flips": 2639,
+      "verdictChanged": 3428,
+      "winnerFlipped": 725,
+      "unfairMadeFair": 86
+     },
+     "A_curve_replacement": {
+      "cases": 3484,
+      "flips": 2620,
+      "verdictChanged": 3400,
+      "winnerFlipped": 742,
+      "unfairMadeFair": 93
+     },
+     "B_currency_market": {
+      "cases": 3484,
+      "flips": 2658,
+      "verdictChanged": 3368,
+      "winnerFlipped": 796,
+      "unfairMadeFair": 71
+     },
+     "B_currency_replacement": {
+      "cases": 3484,
+      "flips": 2647,
+      "verdictChanged": 3375,
+      "winnerFlipped": 783,
+      "unfairMadeFair": 73
+     }
+    },
+    "F2_starterOnlyBases": {
+     "GEOM_78": {
+      "bases": 391,
+      "levelChanged": 0,
+      "share": 0.0,
+      "excluding1v1": {
+       "bases": 301,
+       "levelChanged": 0,
+       "share": 0.0
+      }
+     },
+     "A_curve_market": {
+      "bases": 391,
+      "levelChanged": 139,
+      "share": 0.3555,
+      "excluding1v1": {
+       "bases": 301,
+       "levelChanged": 139,
+       "share": 0.4618
+      }
+     },
+     "A_curve_replacement": {
+      "bases": 391,
+      "levelChanged": 157,
+      "share": 0.4015,
+      "excluding1v1": {
+       "bases": 301,
+       "levelChanged": 154,
+       "share": 0.5116
+      }
+     },
+     "B_currency_market": {
+      "bases": 391,
+      "levelChanged": 152,
+      "share": 0.3887,
+      "excluding1v1": {
+       "bases": 301,
+       "levelChanged": 152,
+       "share": 0.505
+      }
+     },
+     "B_currency_replacement": {
+      "bases": 391,
+      "levelChanged": 163,
+      "share": 0.4169,
+      "excluding1v1": {
+       "bases": 301,
+       "levelChanged": 163,
+       "share": 0.5415
+      }
+     }
+    }
+   }
+  },
+  "criteria": {
+   "offense": {
+    "A_curve_market": {
+     "F1_fillerFlipFall": 0.2781,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.3381,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.1437,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 3017,
+      "depth": 3047
+     }
+    },
+    "A_curve_replacement": {
+     "F1_fillerFlipFall": 0.2542,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.369,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.1264,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 3017,
+      "depth": 3047
+     }
+    },
+    "B_currency_market": {
+     "F1_fillerFlipFall": 0.2314,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.3738,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.1309,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 3017,
+      "depth": 3047
+     }
+    },
+    "B_currency_replacement": {
+     "F1_fillerFlipFall": 0.2154,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.3714,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.1221,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 3017,
+      "depth": 3047
+     }
+    }
+   },
+   "idp": {
+    "A_curve_market": {
+     "F1_fillerFlipFall": 0.197,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.3059,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.0845,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 2249,
+      "depth": 2320
+     }
+    },
+    "A_curve_replacement": {
+     "F1_fillerFlipFall": 0.2103,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.3059,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.0858,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 2249,
+      "depth": 2320
+     }
+    },
+    "B_currency_market": {
+     "F1_fillerFlipFall": 0.1841,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.3618,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.0897,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 2249,
+      "depth": 2320
+     }
+    },
+    "B_currency_replacement": {
+     "F1_fillerFlipFall": 0.1863,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.3586,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.0901,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 2249,
+      "depth": 2320
+     }
+    }
+   },
+   "picks": {
+    "A_curve_market": {
+     "F1_fillerFlipFall": 0.225,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": null,
+     "F2": "not_applicable (no starter picks)",
+     "F3_depthFlipFall": 0.1174,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 1098,
+      "depth": 1244
+     }
+    },
+    "A_curve_replacement": {
+     "F1_fillerFlipFall": 0.2067,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": null,
+     "F2": "not_applicable (no starter picks)",
+     "F3_depthFlipFall": 0.1085,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 1098,
+      "depth": 1244
+     }
+    },
+    "B_currency_market": {
+     "F1_fillerFlipFall": 0.1694,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": null,
+     "F2": "not_applicable (no starter picks)",
+     "F3_depthFlipFall": 0.0908,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 1098,
+      "depth": 1244
+     }
+    },
+    "B_currency_replacement": {
+     "F1_fillerFlipFall": 0.1357,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": null,
+     "F2": "not_applicable (no starter picks)",
+     "F3_depthFlipFall": 0.0715,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 1098,
+      "depth": 1244
+     }
+    }
+   },
+   "mixed": {
+    "A_curve_market": {
+     "F1_fillerFlipFall": 0.2458,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.3555,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.1067,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 2909,
+      "depth": 2962
+     }
+    },
+    "A_curve_replacement": {
+     "F1_fillerFlipFall": 0.2578,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.4015,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.1131,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 2909,
+      "depth": 2962
+     }
+    },
+    "B_currency_market": {
+     "F1_fillerFlipFall": 0.2121,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.3887,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.0999,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 2909,
+      "depth": 2962
+     }
+    },
+    "B_currency_replacement": {
+     "F1_fillerFlipFall": 0.209,
+     "F1": "fail",
+     "F2_starterBaseLevelChangedShare": 0.4169,
+     "F2": "fail",
+     "F3_depthFlipFall": 0.1009,
+     "F3": "pass",
+     "incumbentFlipCases": {
+      "filler": 2909,
+      "depth": 2962
+     }
+    }
+   }
+  },
+  "C_informationalDisclosure": {
+   "filler": {
+    "cases": 11140,
+    "disclosureFires": 6586
+   },
+   "depth": {
+    "cases": 11300,
+    "disclosureFires": 2118
+   },
+   "starter": {
+    "cases": 9740,
+    "disclosureFires": 1249
+   }
+  },
+  "fillerFlipsBySweetenerTotal": {
+   "500-1500": {
+    "cases": 1851,
+    "GEOM_78": 1521,
+    "A_curve_market": 774,
+    "A_curve_replacement": 760,
+    "B_currency_market": 857,
+    "B_currency_replacement": 876
+   },
+   ">=3000": {
+    "cases": 6056,
+    "GEOM_78": 5098,
+    "A_curve_market": 4320,
+    "A_curve_replacement": 4346,
+    "B_currency_market": 4490,
+    "B_currency_replacement": 4527
+   },
+   "1500-3000": {
+    "cases": 3080,
+    "GEOM_78": 2618,
+    "A_curve_market": 1935,
+    "A_curve_replacement": 1950,
+    "B_currency_market": 2009,
+    "B_currency_replacement": 2041
+   },
+   "<500": {
+    "cases": 153,
+    "GEOM_78": 36,
+    "A_curve_market": 0,
+    "A_curve_replacement": 0,
+    "B_currency_market": 2,
+    "B_currency_replacement": 3
+   }
+  },
+  "verdictChangedByBaseTier": {
+   "elite": {
+    "filler": {
+     "GEOM_78": 1645,
+     "A_curve_market": 973,
+     "A_curve_replacement": 1039,
+     "B_currency_market": 1217,
+     "B_currency_replacement": 1262
+    },
+    "depth": {
+     "GEOM_78": 1697,
+     "A_curve_market": 1466,
+     "A_curve_replacement": 1501,
+     "B_currency_market": 1594,
+     "B_currency_replacement": 1618
+    },
+    "starter": {
+     "GEOM_78": 1454,
+     "A_curve_market": 1279,
+     "A_curve_replacement": 1299,
+     "B_currency_market": 1356,
+     "B_currency_replacement": 1366
+    }
+   },
+   "high": {
+    "filler": {
+     "GEOM_78": 2576,
+     "A_curve_market": 1851,
+     "A_curve_replacement": 1835,
+     "B_currency_market": 1977,
+     "B_currency_replacement": 2004
+    },
+    "depth": {
+     "GEOM_78": 2636,
+     "A_curve_market": 2329,
+     "A_curve_replacement": 2342,
+     "B_currency_market": 2388,
+     "B_currency_replacement": 2411
+    },
+    "starter": {
+     "GEOM_78": 2284,
+     "A_curve_market": 2007,
+     "A_curve_replacement": 2011,
+     "B_currency_market": 2052,
+     "B_currency_replacement": 2062
+    }
+   },
+   "mid": {
+    "filler": {
+     "GEOM_78": 2768,
+     "A_curve_market": 2114,
+     "A_curve_replacement": 2091,
+     "B_currency_market": 2121,
+     "B_currency_replacement": 2129
+    },
+    "depth": {
+     "GEOM_78": 2832,
+     "A_curve_market": 2362,
+     "A_curve_replacement": 2360,
+     "B_currency_market": 2347,
+     "B_currency_replacement": 2347
+    },
+    "starter": {
+     "GEOM_78": 2424,
+     "A_curve_market": 2027,
+     "A_curve_replacement": 2020,
+     "B_currency_market": 2018,
+     "B_currency_replacement": 2009
+    }
+   },
+   "low": {
+    "filler": {
+     "GEOM_78": 2284,
+     "A_curve_market": 2091,
+     "A_curve_replacement": 2091,
+     "B_currency_market": 2043,
+     "B_currency_replacement": 2052
+    },
+    "depth": {
+     "GEOM_78": 2408,
+     "A_curve_market": 2320,
+     "A_curve_replacement": 2316,
+     "B_currency_market": 2228,
+     "B_currency_replacement": 2228
+    },
+    "starter": {
+     "GEOM_78": 2168,
+     "A_curve_market": 2078,
+     "A_curve_replacement": 2073,
+     "B_currency_market": 1988,
+     "B_currency_replacement": 1988
+    }
+   }
+  },
+  "exampleFillerFlipsRemovedByB_replacement": [
+   {
+    "class": "offense",
+    "A": [
+     "Rome Odunze (WR, 4163)",
+     "Kaelon Black (RB, 2624)"
+    ],
+    "B": [
+     "Dohnte Meyers (WR, 1506)",
+     "Jared Goff (QB, 5307)"
+    ],
+    "sweetenersToSideBehind": [
+     "Quinn Ewers (QB, 1209)"
+    ],
+    "sideBehind": "A"
+   },
+   {
+    "class": "offense",
+    "A": [
+     "Bucky Irving (RB, 5012)",
+     "TreVeyon Henderson (RB, 4351)"
+    ],
+    "B": [
+     "Trevor Lawrence (QB, 7343)",
+     "Tank Bigsby (RB, 2021)"
+    ],
+    "sweetenersToSideBehind": [
+     "James Conner (RB, 1489)"
+    ],
+    "sideBehind": "A"
+   },
+   {
+    "class": "offense",
+    "A": [
+     "Derrick Henry (RB, 4820)"
+    ],
+    "B": [
+     "Antonio Williams (WR, 2922)",
+     "John Michael Gyllenborg (TE, 1887)"
+    ],
+    "sweetenersToSideBehind": [
+     "Tai Felton (WR, 1213)"
+    ],
+    "sideBehind": "B"
+   },
+   {
+    "class": "offense",
+    "A": [
+     "A.J. Brown (WR, 4617)"
+    ],
+    "B": [
+     "Jayden Higgins (WR, 2724)",
+     "John Michael Gyllenborg (TE, 1887)"
+    ],
+    "sweetenersToSideBehind": [
+     "Eric Rivers (WR, 1179)"
+    ],
+    "sideBehind": "B"
+   },
+   {
+    "class": "offense",
+    "A": [
+     "Jayden Daniels (QB, 7358)",
+     "Wan'Dale Robinson (WR, 2774)"
+    ],
+    "B": [
+     "George Kittle (TE, 4397)",
+     "Parker Washington (WR, 5705)"
+    ],
+    "sweetenersToSideBehind": [
+     "Chris Brooks (RB, 1295)"
+    ],
+    "sideBehind": "B"
+   },
+   {
+    "class": "offense",
+    "A": [
+     "Denzel Boston (WR, 4204)",
+     "Makai Lemon (WR, 4091)"
+    ],
+    "B": [
+     "Jayden Higgins (WR, 2724)",
+     "Breece Hall (RB, 5578)"
+    ],
+    "sweetenersToSideBehind": [
+     "Elijah Moore (WR, 1141)"
+    ],
+    "sideBehind": "A"
+   },
+   {
+    "class": "offense",
+    "A": [
+     "George Kittle (TE, 4397)",
+     "Michael Trigg (TE, 1737)"
+    ],
+    "B": [
+     "Terry McLaurin (WR, 3206)",
+     "Antonio Williams (WR, 2922)"
+    ],
+    "sweetenersToSideBehind": [
+     "Stetson Bennett (QB, 984)"
+    ],
+    "sideBehind": "B"
+   },
+   {
+    "class": "offense",
+    "A": [
+     "Colston Loveland (TE, 6501)",
+     "Omarion Hampton (RB, 5325)"
+    ],
+    "B": [
+     "Zach Charbonnet (RB, 3070)",
+     "Caleb Williams (QB, 8918)"
+    ],
+    "sweetenersToSideBehind": [
+     "Demarcus Robinson (WR, 1121)",
+     "Trevor Etienne (RB, 1449)"
+    ],
+    "sideBehind": "A"
+   }
+  ]
+ },
+ "S4_realExamples": {
+  "convention": "gapA = adjusted A minus adjusted B (positive favours A); level = fairness_bands_v1 on adjusted totals (shared classifier); values = today's board; \u00a73 class in each label",
+  "cases": [
+   {
+    "case": "\u00a78.1 Hurts vs Egbuka",
+    "A": [
+     "Jalen Hurts (QB, 5919, starter)"
+    ],
+    "B": [
+     "Emeka Egbuka (WR, 5197, starter)"
+    ],
+    "rawA": 5919,
+    "rawB": 5197,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": 722,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "A_curve_market": {
+      "gapA": 671,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 609,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 722,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 722,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": false
+     }
+    }
+   },
+   {
+    "case": "\u00a78.1 \u2026 + Isaiah Hodgins",
+    "A": [
+     "Jalen Hurts (QB, 5919, starter)"
+    ],
+    "B": [
+     "Emeka Egbuka (WR, 5197, starter)",
+     "Isaiah Hodgins (WR, 897, filler)"
+    ],
+    "rawA": 5919,
+    "rawB": 6094,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": 22,
+      "level": "fair",
+      "favours": "even"
+     },
+     "A_curve_market": {
+      "gapA": 455,
+      "level": "slight",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 376,
+      "level": "slight",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 444,
+      "level": "slight",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 424,
+      "level": "slight",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    }
+   },
+   {
+    "case": "\u00a78.1 \u2026 + four fillers",
+    "A": [
+     "Jalen Hurts (QB, 5919, starter)"
+    ],
+    "B": [
+     "Emeka Egbuka (WR, 5197, starter)",
+     "Isaiah Hodgins (WR, 897, filler)",
+     "Frank Gore (RB, 910, filler)",
+     "Khalil Herbert (RB, 889, filler)",
+     "Mason Tipton (WR, 915, filler)"
+    ],
+    "rawA": 5919,
+    "rawB": 8808,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": -1300,
+      "level": "unfair",
+      "favours": "B"
+     },
+     "A_curve_market": {
+      "gapA": 41,
+      "level": "fair",
+      "favours": "even"
+     },
+     "A_curve_replacement": {
+      "gapA": -94,
+      "level": "fair",
+      "favours": "B"
+     },
+     "B_currency_market": {
+      "gapA": -86,
+      "level": "fair",
+      "favours": "even"
+     },
+     "B_currency_replacement": {
+      "gapA": -179,
+      "level": "fair",
+      "favours": "B"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    }
+   },
+   {
+    "case": "\u00a78.1 Gibbs vs Smith + Higgins",
+    "A": [
+     "Jahmyr Gibbs (RB, 9864, starter)"
+    ],
+    "B": [
+     "DeVonta Smith (WR, 4962, starter)",
+     "Tee Higgins (WR, 4911, starter)"
+    ],
+    "rawA": 9864,
+    "rawB": 9873,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": 1071,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "A_curve_market": {
+      "gapA": 1943,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 2026,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 1412,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 1309,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": false
+     }
+    }
+   },
+   {
+    "case": "\u00a78.1 \u2026 + four ~1,000 fillers",
+    "A": [
+     "Jahmyr Gibbs (RB, 9864, starter)"
+    ],
+    "B": [
+     "DeVonta Smith (WR, 4962, starter)",
+     "Tee Higgins (WR, 4911, starter)",
+     "Nick Westbrook-Ikhine (WR, 1003, filler)",
+     "Kalel Mullings (RB, 1006, filler)",
+     "Xavier Restrepo (WR, 1011, filler)",
+     "Jarrett Stidham (QB, 975, filler)"
+    ],
+    "rawA": 9864,
+    "rawB": 13868,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": -674,
+      "level": "slight",
+      "favours": "B"
+     },
+     "A_curve_market": {
+      "gapA": 1360,
+      "level": "slight",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 1392,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 665,
+      "level": "slight",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 497,
+      "level": "fair",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    }
+   },
+   {
+    "case": "\u00a78.1 Gibbs vs Young + Kraft",
+    "A": [
+     "Jahmyr Gibbs (RB, 9864, starter)"
+    ],
+    "B": [
+     "Bryce Young (QB, 5493, starter)",
+     "Tucker Kraft (TE, 5439, starter)"
+    ],
+    "rawA": 9864,
+    "rawB": 10932,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": 129,
+      "level": "fair",
+      "favours": "A"
+     },
+     "A_curve_market": {
+      "gapA": 1072,
+      "level": "slight",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 1323,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 394,
+      "level": "fair",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 356,
+      "level": "fair",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": false
+     }
+    }
+   },
+   {
+    "case": "\u00a78.1 Gibbs vs six starters",
+    "A": [
+     "Jahmyr Gibbs (RB, 9864, starter)"
+    ],
+    "B": [
+     "Blake Corum (RB, 2968, depth)",
+     "Pat Freiermuth (TE, 2943, starter)",
+     "Eli Raridon (TE, 2953, depth)",
+     "Xavier Worthy (WR, 2955, depth)",
+     "David Montgomery (RB, 2981, depth)",
+     "Antonio Williams (WR, 2922, starter)"
+    ],
+    "rawA": 9864,
+    "rawB": 17722,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": -564,
+      "level": "fair",
+      "favours": "B"
+     },
+     "A_curve_market": {
+      "gapA": 1977,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 1926,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 1191,
+      "level": "slight",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 871,
+      "level": "slight",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    }
+   },
+   {
+    "case": "\u00a78.1 Wilson vs Ferguson + Kelce",
+    "A": [
+     "Garrett Wilson (WR, 6472, starter)"
+    ],
+    "B": [
+     "Jake Ferguson (TE, 3529, starter)",
+     "Travis Kelce (TE, 3490, depth)"
+    ],
+    "rawA": 6472,
+    "rawB": 7019,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": 221,
+      "level": "fair",
+      "favours": "A"
+     },
+     "A_curve_market": {
+      "gapA": 961,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 1123,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 724,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 749,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    }
+   },
+   {
+    "case": "\u00a78.1 IDP Schwesinger vs Baun + Parsons",
+    "A": [
+     "Carson Schwesinger (LB, 6229, starter)"
+    ],
+    "B": [
+     "Zack Baun (LB, 3435, starter)",
+     "Micah Parsons (DL, 3357, starter)"
+    ],
+    "rawA": 6229,
+    "rawB": 6792,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": 176,
+      "level": "fair",
+      "favours": "A"
+     },
+     "A_curve_market": {
+      "gapA": 903,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 847,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 690,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 658,
+      "level": "slight",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    }
+   },
+   {
+    "case": "\u00a78.1 Picks Love vs 2027 1.10 + 2028 Late 1st",
+    "A": [
+     "Jeremiyah Love (RB, 7234, starter)"
+    ],
+    "B": [
+     "2027 Pick 1.10 (PICK, 4137, depth)",
+     "2028 Late 1st (PICK, 4207, depth)"
+    ],
+    "rawA": 7234,
+    "rawB": 8344,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": -200,
+      "level": "fair",
+      "favours": "B"
+     },
+     "A_curve_market": {
+      "gapA": 640,
+      "level": "slight",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 611,
+      "level": "slight",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 238,
+      "level": "fair",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 88,
+      "level": "fair",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    }
+   },
+   {
+    "case": "IDP-depth 1: IDP star vs IDP starter + IDP usable depth",
+    "A": [
+     "Carson Schwesinger (LB, 6229, starter)"
+    ],
+    "B": [
+     "Nakobe Dean (LB, 3855, starter)",
+     "Byron Murphy (DL, 2409, depth)"
+    ],
+    "rawA": 6229,
+    "rawB": 6264,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": 495,
+      "level": "slight",
+      "favours": "A"
+     },
+     "A_curve_market": {
+      "gapA": 1150,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 1110,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 1058,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 1033,
+      "level": "unfair",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    },
+    "withoutSweetener": {
+     "B": [
+      "Nakobe Dean (LB, 3855, starter)"
+     ],
+     "treatments": {
+      "GEOM_78": {
+       "gapA": 2374,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "A_curve_market": {
+       "gapA": 2177,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "A_curve_replacement": {
+       "gapA": 2156,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "B_currency_market": {
+       "gapA": 2374,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "B_currency_replacement": {
+       "gapA": 2374,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "C_informational": {
+       "disclosure": false
+      }
+     }
+    }
+   },
+   {
+    "case": "IDP-depth 2: WR starter vs IDP starter + two DB fillers",
+    "A": [
+     "Denzel Boston (WR, 4204, starter)"
+    ],
+    "B": [
+     "David Bailey (DL, 3475, starter)",
+     "Jadon Canady (DB, 1124, filler)",
+     "Zakee Wheatley (DB, 1125, filler)"
+    ],
+    "rawA": 4204,
+    "rawB": 5724,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": -832,
+      "level": "unfair",
+      "favours": "B"
+     },
+     "A_curve_market": {
+      "gapA": 81,
+      "level": "fair",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 168,
+      "level": "fair",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 9,
+      "level": "fair",
+      "favours": "even"
+     },
+     "B_currency_replacement": {
+      "gapA": 43,
+      "level": "fair",
+      "favours": "even"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    },
+    "withoutSweetener": {
+     "B": [
+      "David Bailey (DL, 3475, starter)"
+     ],
+     "treatments": {
+      "GEOM_78": {
+       "gapA": 729,
+       "level": "unfair",
+       "favours": "A"
+      },
+      "A_curve_market": {
+       "gapA": 643,
+       "level": "unfair",
+       "favours": "A"
+      },
+      "A_curve_replacement": {
+       "gapA": 704,
+       "level": "unfair",
+       "favours": "A"
+      },
+      "B_currency_market": {
+       "gapA": 729,
+       "level": "unfair",
+       "favours": "A"
+      },
+      "B_currency_replacement": {
+       "gapA": 729,
+       "level": "unfair",
+       "favours": "A"
+      },
+      "C_informational": {
+       "disclosure": false
+      }
+     }
+    }
+   },
+   {
+    "case": "IDP-depth 3: two IDP starters vs IDP starter + LB usable depth",
+    "A": [
+     "Nakobe Dean (LB, 3855, starter)",
+     "Dallas Turner (DL, 3737, starter)"
+    ],
+    "B": [
+     "Jacob Rodriguez (LB, 4591, starter)",
+     "Anthony Hill (LB, 2640, depth)"
+    ],
+    "rawA": 7592,
+    "rawB": 7231,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": 120,
+      "level": "fair",
+      "favours": "A"
+     },
+     "A_curve_market": {
+      "gapA": 67,
+      "level": "fair",
+      "favours": "even"
+     },
+     "A_curve_replacement": {
+      "gapA": 139,
+      "level": "fair",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 196,
+      "level": "fair",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 278,
+      "level": "slight",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    },
+    "withoutSweetener": {
+     "B": [
+      "Jacob Rodriguez (LB, 4591, starter)"
+     ],
+     "treatments": {
+      "GEOM_78": {
+       "gapA": 2179,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "A_curve_market": {
+       "gapA": 1239,
+       "level": "unfair",
+       "favours": "A"
+      },
+      "A_curve_replacement": {
+       "gapA": 1274,
+       "level": "unfair",
+       "favours": "A"
+      },
+      "B_currency_market": {
+       "gapA": 1698,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "B_currency_replacement": {
+       "gapA": 1734,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "C_informational": {
+       "disclosure": false
+      }
+     }
+    }
+   },
+   {
+    "case": "Rookie-pick 1: top rookie vs two firsts + a filler pick",
+    "A": [
+     "Jeremiyah Love (RB, 7234, starter)"
+    ],
+    "B": [
+     "2027 Pick 1.12 (PICK, 3942, depth)",
+     "2029 Late 1st (PICK, 3719, depth)",
+     "2029 Late 4th (PICK, 1325, filler)"
+    ],
+    "rawA": 7234,
+    "rawB": 8986,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": -415,
+      "level": "slight",
+      "favours": "B"
+     },
+     "A_curve_market": {
+      "gapA": 844,
+      "level": "slight",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 796,
+      "level": "slight",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 462,
+      "level": "slight",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 279,
+      "level": "fair",
+      "favours": "A"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    },
+    "withoutSweetener": {
+     "B": [
+      "2027 Pick 1.12 (PICK, 3942, depth)",
+      "2029 Late 1st (PICK, 3719, depth)"
+     ],
+     "treatments": {
+      "GEOM_78": {
+       "gapA": 391,
+       "level": "slight",
+       "favours": "A"
+      },
+      "A_curve_market": {
+       "gapA": 1166,
+       "level": "unfair",
+       "favours": "A"
+      },
+      "A_curve_replacement": {
+       "gapA": 1150,
+       "level": "unfair",
+       "favours": "A"
+      },
+      "B_currency_market": {
+       "gapA": 874,
+       "level": "unfair",
+       "favours": "A"
+      },
+      "B_currency_replacement": {
+       "gapA": 734,
+       "level": "slight",
+       "favours": "A"
+      },
+      "C_informational": {
+       "disclosure": false
+      }
+     }
+    }
+   },
+   {
+    "case": "Rookie-pick 2: early first vs late first + two filler picks",
+    "A": [
+     "2027 Pick 1.04 (PICK, 5090, depth)"
+    ],
+    "B": [
+     "2027 Pick 1.12 (PICK, 3942, depth)",
+     "2029 Late 4th (PICK, 1325, filler)",
+     "2029 Mid 4th (PICK, 1452, filler)"
+    ],
+    "rawA": 5090,
+    "rawB": 6719,
+    "treatments": {
+     "GEOM_78": {
+      "gapA": -791,
+      "level": "unfair",
+      "favours": "B"
+     },
+     "A_curve_market": {
+      "gapA": 241,
+      "level": "fair",
+      "favours": "A"
+     },
+     "A_curve_replacement": {
+      "gapA": 184,
+      "level": "fair",
+      "favours": "A"
+     },
+     "B_currency_market": {
+      "gapA": 125,
+      "level": "fair",
+      "favours": "A"
+     },
+     "B_currency_replacement": {
+      "gapA": 22,
+      "level": "fair",
+      "favours": "even"
+     },
+     "C_informational": {
+      "disclosure": true
+     }
+    },
+    "withoutSweetener": {
+     "B": [
+      "2027 Pick 1.12 (PICK, 3942, depth)"
+     ],
+     "treatments": {
+      "GEOM_78": {
+       "gapA": 1148,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "A_curve_market": {
+       "gapA": 1039,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "A_curve_replacement": {
+       "gapA": 1062,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "B_currency_market": {
+       "gapA": 1148,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "B_currency_replacement": {
+       "gapA": 1148,
+       "level": "lopsided",
+       "favours": "A"
+      },
+      "C_informational": {
+       "disclosure": false
+      }
+     }
+    }
+   }
+  ],
+  "missingAssets": []
+ },
+ "S5a_calculatorFairnessSample": {
+  "n": 2000,
+  "seed": 20261021,
+  "population": "Phase 3 local \u00a7D population: assets drawn from the top 500 non-quarantined board assets; 1-3 v na..min(na+4, 7); raw gap <= 25% of the larger raw side",
+  "binCounts": {
+   "equal": 935,
+   "ordinary": 588,
+   "deep": 319,
+   "1vN_small": 158
+  },
+  "C_informational": {
+   "disclosureFires": 657,
+   "note": "numbers unchanged (GEOM_78); the disclosure fires when B_currency_replacement changes the signed level"
+  },
+  "byTreatment": {
+   "GEOM_78": {
+    "levelChanged": 0,
+    "leaderFlipped": 0,
+    "transitions": {
+     "fair->fair": 429,
+     "lopsided->lopsided": 421,
+     "slight->slight": 485,
+     "unfair->unfair": 665
+    },
+    "levelCounts": {
+     "fair": 429,
+     "slight": 485,
+     "unfair": 665,
+     "lopsided": 421
+    },
+    "byStructureBin": {
+     "equal": {
+      "n": 935,
+      "levelChanged": 0,
+      "leaderFlipped": 0
+     },
+     "ordinary": {
+      "n": 588,
+      "levelChanged": 0,
+      "leaderFlipped": 0
+     },
+     "deep": {
+      "n": 319,
+      "levelChanged": 0,
+      "leaderFlipped": 0
+     },
+     "1vN_small": {
+      "n": 158,
+      "levelChanged": 0,
+      "leaderFlipped": 0
+     }
+    }
+   },
+   "A_curve_market": {
+    "levelChanged": 827,
+    "leaderFlipped": 140,
+    "transitions": {
+     "fair->fair": 279,
+     "fair->slight": 110,
+     "fair->unfair": 40,
+     "lopsided->lopsided": 306,
+     "lopsided->unfair": 115,
+     "slight->fair": 162,
+     "slight->lopsided": 2,
+     "slight->slight": 188,
+     "slight->unfair": 133,
+     "unfair->fair": 44,
+     "unfair->lopsided": 93,
+     "unfair->slight": 117,
+     "unfair->unfair": 411
+    },
+    "levelCounts": {
+     "fair": 485,
+     "slight": 415,
+     "unfair": 699,
+     "lopsided": 401
+    },
+    "byStructureBin": {
+     "equal": {
+      "n": 935,
+      "levelChanged": 209,
+      "leaderFlipped": 0
+     },
+     "ordinary": {
+      "n": 588,
+      "levelChanged": 316,
+      "leaderFlipped": 57
+     },
+     "deep": {
+      "n": 319,
+      "levelChanged": 181,
+      "leaderFlipped": 36
+     },
+     "1vN_small": {
+      "n": 158,
+      "levelChanged": 121,
+      "leaderFlipped": 47
+     }
+    }
+   },
+   "A_curve_replacement": {
+    "levelChanged": 852,
+    "leaderFlipped": 163,
+    "transitions": {
+     "fair->fair": 264,
+     "fair->slight": 119,
+     "fair->unfair": 46,
+     "lopsided->fair": 1,
+     "lopsided->lopsided": 324,
+     "lopsided->unfair": 96,
+     "slight->fair": 160,
+     "slight->lopsided": 6,
+     "slight->slight": 177,
+     "slight->unfair": 142,
+     "unfair->fair": 54,
+     "unfair->lopsided": 99,
+     "unfair->slight": 108,
+     "unfair->unfair": 404
+    },
+    "levelCounts": {
+     "fair": 479,
+     "slight": 404,
+     "unfair": 688,
+     "lopsided": 429
+    },
+    "byStructureBin": {
+     "equal": {
+      "n": 935,
+      "levelChanged": 253,
+      "leaderFlipped": 19
+     },
+     "ordinary": {
+      "n": 588,
+      "levelChanged": 294,
+      "leaderFlipped": 59
+     },
+     "deep": {
+      "n": 319,
+      "levelChanged": 188,
+      "leaderFlipped": 36
+     },
+     "1vN_small": {
+      "n": 158,
+      "levelChanged": 117,
+      "leaderFlipped": 49
+     }
+    }
+   },
+   "B_currency_market": {
+    "levelChanged": 622,
+    "leaderFlipped": 108,
+    "transitions": {
+     "fair->fair": 289,
+     "fair->slight": 102,
+     "fair->unfair": 38,
+     "lopsided->lopsided": 417,
+     "lopsided->unfair": 4,
+     "slight->fair": 123,
+     "slight->lopsided": 2,
+     "slight->slight": 213,
+     "slight->unfair": 147,
+     "unfair->fair": 20,
+     "unfair->lopsided": 121,
+     "unfair->slight": 59,
+     "unfair->unfair": 465
+    },
+    "levelCounts": {
+     "fair": 432,
+     "slight": 374,
+     "unfair": 654,
+     "lopsided": 540
+    },
+    "byStructureBin": {
+     "equal": {
+      "n": 935,
+      "levelChanged": 20,
+      "leaderFlipped": 0
+     },
+     "ordinary": {
+      "n": 588,
+      "levelChanged": 296,
+      "leaderFlipped": 41
+     },
+     "deep": {
+      "n": 319,
+      "levelChanged": 186,
+      "leaderFlipped": 27
+     },
+     "1vN_small": {
+      "n": 158,
+      "levelChanged": 120,
+      "leaderFlipped": 40
+     }
+    }
+   },
+   "B_currency_replacement": {
+    "levelChanged": 657,
+    "leaderFlipped": 100,
+    "transitions": {
+     "fair->fair": 286,
+     "fair->slight": 104,
+     "fair->unfair": 39,
+     "lopsided->lopsided": 408,
+     "lopsided->unfair": 13,
+     "slight->fair": 125,
+     "slight->lopsided": 4,
+     "slight->slight": 216,
+     "slight->unfair": 140,
+     "unfair->fair": 20,
+     "unfair->lopsided": 134,
+     "unfair->slight": 71,
+     "unfair->unfair": 440
+    },
+    "levelCounts": {
+     "fair": 431,
+     "slight": 391,
+     "unfair": 632,
+     "lopsided": 546
+    },
+    "byStructureBin": {
+     "equal": {
+      "n": 935,
+      "levelChanged": 93,
+      "leaderFlipped": 1
+     },
+     "ordinary": {
+      "n": 588,
+      "levelChanged": 274,
+      "leaderFlipped": 38
+     },
+     "deep": {
+      "n": 319,
+      "levelChanged": 170,
+      "leaderFlipped": 24
+     },
+     "1vN_small": {
+      "n": 158,
+      "levelChanged": 120,
+      "leaderFlipped": 37
+     }
+    }
+   }
+  }
+ },
+ "S5b_tradeFinderReplay": {
+  "run": true,
+  "context": "context-free (use_team_context=False), as Phase 2/3",
+  "harness": "scripts/package_model_finder_replay.py; treatment installed behind package_model._geom_pair in-process, always restored",
+  "modelsCovered": [
+   "GEOM_78",
+   "A_curve_market",
+   "B_currency_market"
+  ],
+  "notCovered": {
+   "A_curve_replacement / B_currency_replacement": "not covered: the installed dispatch sees values only, and on this board value -> anchor is not a function (159 canonical values are shared by assets with different anchors, almost all a pick and a player), so a replacement anchor cannot be attached unambiguously"
+  },
+  "surfaces": [
+   "package_scan",
+   "finder_all_shapes",
+   "best_offers",
+   "star_builder"
+  ],
+  "teamCount": 12,
+  "timingsSec": {
+   "GEOM_78": 289.0,
+   "A_curve_market": 329.5,
+   "B_currency_market": 344.2
+  },
+  "comparisonVsIncumbent": {
+   "GEOM_78": {
+    "package_scan": {
+     "lostSensibleDepthVsIncumbent": 0,
+     "meanUserRawGainAppeared": null,
+     "meanUserRawGainDisappeared": null,
+     "appear": 0,
+     "disappear": 0,
+     "kept": 480,
+     "keptButReordered": 0,
+     "meanTop10Overlap": 1.0,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 480,
+     "starForPile": 0,
+     "sensibleDepth": 416,
+     "multiPiece3plus": 0,
+     "elite": 394,
+     "idp": 479,
+     "levels": {
+      "lopsided": 287,
+      "unfair": 161,
+      "slight": 32
+     }
+    },
+    "finder_all_shapes": {
+     "lostSensibleDepthVsIncumbent": 0,
+     "meanUserRawGainAppeared": null,
+     "meanUserRawGainDisappeared": null,
+     "appear": 0,
+     "disappear": 0,
+     "kept": 480,
+     "keptButReordered": 0,
+     "meanTop10Overlap": 1.0,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 480,
+     "starForPile": 0,
+     "sensibleDepth": 26,
+     "multiPiece3plus": 12,
+     "elite": 436,
+     "idp": 387,
+     "levels": {
+      "lopsided": 265,
+      "unfair": 203,
+      "slight": 12
+     }
+    },
+    "best_offers": {
+     "lostSensibleDepthVsIncumbent": 0,
+     "meanUserRawGainAppeared": null,
+     "meanUserRawGainDisappeared": null,
+     "appear": 0,
+     "disappear": 0,
+     "kept": 132,
+     "keptButReordered": 0,
+     "meanTop10Overlap": 1.0,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 132,
+     "starForPile": 0,
+     "sensibleDepth": 95,
+     "multiPiece3plus": 4,
+     "elite": 62,
+     "idp": 95,
+     "levels": {
+      "lopsided": 108,
+      "unfair": 20,
+      "fair": 1,
+      "slight": 3
+     }
+    },
+    "star_builder": {
+     "lostSensibleDepthVsIncumbent": 0,
+     "meanUserRawGainAppeared": null,
+     "meanUserRawGainDisappeared": null,
+     "appear": 0,
+     "disappear": 0,
+     "kept": 660,
+     "keptButReordered": 0,
+     "meanTop10Overlap": 1.0,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 660,
+     "starForPile": 0,
+     "sensibleDepth": 162,
+     "multiPiece3plus": 124,
+     "elite": 566,
+     "idp": 291,
+     "levels": {
+      "unfair": 369,
+      "lopsided": 162,
+      "slight": 72,
+      "fair": 57
+     }
+    }
+   },
+   "A_curve_market": {
+    "package_scan": {
+     "lostSensibleDepthVsIncumbent": 83,
+     "meanUserRawGainAppeared": 2264,
+     "meanUserRawGainDisappeared": 2423,
+     "appear": 93,
+     "disappear": 93,
+     "kept": 387,
+     "keptButReordered": 370,
+     "meanTop10Overlap": 0.558,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 480,
+     "starForPile": 0,
+     "sensibleDepth": 416,
+     "multiPiece3plus": 0,
+     "elite": 365,
+     "idp": 479,
+     "levels": {
+      "lopsided": 254,
+      "unfair": 181,
+      "slight": 45
+     }
+    },
+    "finder_all_shapes": {
+     "lostSensibleDepthVsIncumbent": 13,
+     "meanUserRawGainAppeared": 1047,
+     "meanUserRawGainDisappeared": 1202,
+     "appear": 388,
+     "disappear": 388,
+     "kept": 92,
+     "keptButReordered": 87,
+     "meanTop10Overlap": 0.142,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 480,
+     "starForPile": 0,
+     "sensibleDepth": 77,
+     "multiPiece3plus": 24,
+     "elite": 380,
+     "idp": 413,
+     "levels": {
+      "lopsided": 286,
+      "unfair": 143,
+      "slight": 50,
+      "fair": 1
+     }
+    },
+    "best_offers": {
+     "lostSensibleDepthVsIncumbent": 64,
+     "meanUserRawGainAppeared": 1025,
+     "meanUserRawGainDisappeared": 2532,
+     "appear": 88,
+     "disappear": 88,
+     "kept": 44,
+     "keptButReordered": 32,
+     "meanTop10Overlap": 0.325,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 132,
+     "starForPile": 0,
+     "sensibleDepth": 55,
+     "multiPiece3plus": 9,
+     "elite": 78,
+     "idp": 98,
+     "levels": {
+      "lopsided": 62,
+      "unfair": 57,
+      "slight": 10,
+      "fair": 3
+     }
+    },
+    "star_builder": {
+     "lostSensibleDepthVsIncumbent": 108,
+     "meanUserRawGainAppeared": 671,
+     "meanUserRawGainDisappeared": 1456,
+     "appear": 450,
+     "disappear": 450,
+     "kept": 210,
+     "keptButReordered": 134,
+     "meanTop10Overlap": 0.317,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 660,
+     "starForPile": 0,
+     "sensibleDepth": 154,
+     "multiPiece3plus": 76,
+     "elite": 558,
+     "idp": 279,
+     "levels": {
+      "unfair": 363,
+      "lopsided": 115,
+      "slight": 132,
+      "fair": 50
+     }
+    }
+   },
+   "B_currency_market": {
+    "package_scan": {
+     "lostSensibleDepthVsIncumbent": 58,
+     "meanUserRawGainAppeared": 2508,
+     "meanUserRawGainDisappeared": 2112,
+     "appear": 78,
+     "disappear": 78,
+     "kept": 402,
+     "keptButReordered": 370,
+     "meanTop10Overlap": 0.783,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 480,
+     "starForPile": 0,
+     "sensibleDepth": 423,
+     "multiPiece3plus": 0,
+     "elite": 401,
+     "idp": 479,
+     "levels": {
+      "lopsided": 307,
+      "unfair": 151,
+      "slight": 22
+     }
+    },
+    "finder_all_shapes": {
+     "lostSensibleDepthVsIncumbent": 8,
+     "meanUserRawGainAppeared": 925,
+     "meanUserRawGainDisappeared": 1273,
+     "appear": 291,
+     "disappear": 291,
+     "kept": 189,
+     "keptButReordered": 182,
+     "meanTop10Overlap": 0.342,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 480,
+     "starForPile": 0,
+     "sensibleDepth": 57,
+     "multiPiece3plus": 10,
+     "elite": 421,
+     "idp": 391,
+     "levels": {
+      "lopsided": 281,
+      "unfair": 178,
+      "slight": 20,
+      "fair": 1
+     }
+    },
+    "best_offers": {
+     "lostSensibleDepthVsIncumbent": 43,
+     "meanUserRawGainAppeared": 1463,
+     "meanUserRawGainDisappeared": 2288,
+     "appear": 66,
+     "disappear": 66,
+     "kept": 66,
+     "keptButReordered": 37,
+     "meanTop10Overlap": 0.517,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 132,
+     "starForPile": 0,
+     "sensibleDepth": 78,
+     "multiPiece3plus": 6,
+     "elite": 75,
+     "idp": 95,
+     "levels": {
+      "lopsided": 85,
+      "unfair": 41,
+      "slight": 6
+     }
+    },
+    "star_builder": {
+     "lostSensibleDepthVsIncumbent": 86,
+     "meanUserRawGainAppeared": 917,
+     "meanUserRawGainDisappeared": 1442,
+     "appear": 361,
+     "disappear": 361,
+     "kept": 299,
+     "keptButReordered": 148,
+     "meanTop10Overlap": 0.425,
+     "enumerationIdenticalToIncumbent": true,
+     "trades": 660,
+     "starForPile": 0,
+     "sensibleDepth": 143,
+     "multiPiece3plus": 89,
+     "elite": 566,
+     "idp": 285,
+     "levels": {
+      "unfair": 373,
+      "lopsided": 147,
+      "slight": 80,
+      "fair": 60
+     }
+    }
+   }
+  },
+  "examples": {
+   "A_curve_market": {
+    "package_scan": {
+     "appeared": [
+      {
+       "key": "Aidan Hutchinson + Isaiah Likely  ->  George Karlaftis + Lamar Jackson",
+       "give": [
+        [
+         "Isaiah Likely",
+         4826
+        ],
+        [
+         "Aidan Hutchinson",
+         4737
+        ]
+       ],
+       "receive": [
+        [
+         "Lamar Jackson",
+         8510
+        ],
+        [
+         "George Karlaftis",
+         2625
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Isaiah Likely  ->  CeeDee Lamb + Jared Verse",
+       "give": [
+        [
+         "Isaiah Likely",
+         4826
+        ],
+        [
+         "Aidan Hutchinson",
+         4737
+        ]
+       ],
+       "receive": [
+        [
+         "CeeDee Lamb",
+         8389
+        ],
+        [
+         "Jared Verse",
+         2662
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Isaiah Likely  ->  Drake Maye + Rueben Bain",
+       "give": [
+        [
+         "Isaiah Likely",
+         4826
+        ],
+        [
+         "Aidan Hutchinson",
+         4737
+        ]
+       ],
+       "receive": [
+        [
+         "Drake Maye",
+         8524
+        ],
+        [
+         "Rueben Bain",
+         2324
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Rashee Rice  ->  Kendal Daniels + Lamar Jackson",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Rashee Rice",
+         4447
+        ]
+       ],
+       "receive": [
+        [
+         "Lamar Jackson",
+         8510
+        ],
+        [
+         "Kendal Daniels",
+         1703
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      }
+     ],
+     "disappeared": [
+      {
+       "key": "Aidan Hutchinson + Kenyon Sadiq  ->  Caleb Williams + Devin Bush",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Kenyon Sadiq",
+         4707
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ],
+        [
+         "Devin Bush",
+         3306
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Kenyon Sadiq  ->  Ashton Jeanty + Ernest Jones",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Kenyon Sadiq",
+         4707
+        ]
+       ],
+       "receive": [
+        [
+         "Ashton Jeanty",
+         8041
+        ],
+        [
+         "Ernest Jones",
+         3898
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Harold Fannin + Isaiah Likely  ->  Caleb Williams + Jamien Sherwood",
+       "give": [
+        [
+         "Harold Fannin",
+         5332
+        ],
+        [
+         "Isaiah Likely",
+         4826
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ],
+        [
+         "Jamien Sherwood",
+         3661
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Kenyon Sadiq  ->  Ashton Jeanty + Dillon Thieneman",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Kenyon Sadiq",
+         4707
+        ]
+       ],
+       "receive": [
+        [
+         "Ashton Jeanty",
+         8041
+        ],
+        [
+         "Dillon Thieneman",
+         3687
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      }
+     ],
+     "appearedStarForPile": []
+    },
+    "finder_all_shapes": {
+     "appeared": [
+      {
+       "key": "Aidan Hutchinson + Maxx Crosby  ->  Caleb Williams",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Maxx Crosby",
+         3190
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Josh Jacobs  ->  Caleb Williams",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Josh Jacobs",
+         3346
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Mike Evans  ->  Caleb Williams",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Mike Evans",
+         3355
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Travis Kelce  ->  Caleb Williams",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Travis Kelce",
+         3490
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      }
+     ],
+     "disappeared": [
+      {
+       "key": "Aidan Hutchinson + Myles Garrett  ->  Josh Allen",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Myles Garrett",
+         3531
+        ]
+       ],
+       "receive": [
+        [
+         "Josh Allen",
+         9968
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Myles Garrett  ->  Bijan Robinson",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Myles Garrett",
+         3531
+        ]
+       ],
+       "receive": [
+        [
+         "Bijan Robinson",
+         9748
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Myles Garrett  ->  Jaxon Smith-Njigba",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Myles Garrett",
+         3531
+        ]
+       ],
+       "receive": [
+        [
+         "Jaxon Smith-Njigba",
+         9645
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Myles Garrett  ->  Jahmyr Gibbs",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Myles Garrett",
+         3531
+        ]
+       ],
+       "receive": [
+        [
+         "Jahmyr Gibbs",
+         9864
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      }
+     ],
+     "appearedStarForPile": []
+    },
+    "best_offers": {
+     "appeared": [
+      {
+       "key": "Aidan Hutchinson + Myles Garrett  ->  Caleb Williams",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Myles Garrett",
+         3531
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Omarion Hampton  ->  Brock Bowers",
+       "give": [
+        [
+         "Omarion Hampton",
+         5325
+        ],
+        [
+         "Aidan Hutchinson",
+         4737
+        ]
+       ],
+       "receive": [
+        [
+         "Brock Bowers",
+         9985
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Travis Etienne  ->  Drake Maye",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Travis Etienne",
+         3463
+        ]
+       ],
+       "receive": [
+        [
+         "Drake Maye",
+         8524
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Myles Garrett  ->  Lamar Jackson",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Myles Garrett",
+         3531
+        ]
+       ],
+       "receive": [
+        [
+         "Lamar Jackson",
+         8510
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      }
+     ],
+     "disappeared": [
+      {
+       "key": "Aidan Hutchinson + Myles Garrett  ->  Brock Bowers",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Myles Garrett",
+         3531
+        ]
+       ],
+       "receive": [
+        [
+         "Brock Bowers",
+         9985
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Amon-Ra St. Brown  ->  CeeDee Lamb + Jamien Sherwood",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "CeeDee Lamb",
+         8389
+        ],
+        [
+         "Jamien Sherwood",
+         3661
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Amon-Ra St. Brown  ->  Drake Maye + Tremaine Edmunds",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Drake Maye",
+         8524
+        ],
+        [
+         "Tremaine Edmunds",
+         2756
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Derwin James + Myles Garrett  ->  Tetairoa McMillan",
+       "give": [
+        [
+         "Myles Garrett",
+         3531
+        ],
+        [
+         "Derwin James",
+         2266
+        ]
+       ],
+       "receive": [
+        [
+         "Tetairoa McMillan",
+         6876
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": false,
+        "idp": true
+       }
+      }
+     ],
+     "appearedStarForPile": []
+    },
+    "star_builder": {
+     "appeared": [
+      {
+       "key": "Amon-Ra St. Brown  ->  Braelon Allen + Ja'Marr Chase",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "Braelon Allen",
+         2731
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": false
+       }
+      },
+      {
+       "key": "Amon-Ra St. Brown  ->  DJ Moore + Ja'Marr Chase",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "DJ Moore",
+         3634
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": false
+       }
+      },
+      {
+       "key": "Amon-Ra St. Brown  ->  DK Metcalf + Ja'Marr Chase",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "DK Metcalf",
+         3142
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": false
+       }
+      },
+      {
+       "key": "Omarion Hampton  ->  Bryce Young + Byron Murphy",
+       "give": [
+        [
+         "Omarion Hampton",
+         5325
+        ]
+       ],
+       "receive": [
+        [
+         "Bryce Young",
+         5493
+        ],
+        [
+         "Byron Murphy",
+         2409
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": false,
+        "idp": true
+       }
+      }
+     ],
+     "disappeared": [
+      {
+       "key": "Amon-Ra St. Brown  ->  Emanuel Wilson + Ja'Marr Chase",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "Emanuel Wilson",
+         2027
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": false
+       }
+      },
+      {
+       "key": "Amon-Ra St. Brown  ->  Ja'Marr Chase + MarShawn Lloyd",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "MarShawn Lloyd",
+         2329
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": false
+       }
+      },
+      {
+       "key": "Amon-Ra St. Brown  ->  Ja'Marr Chase + Nicholas Singleton",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "Nicholas Singleton",
+         2205
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": false
+       }
+      },
+      {
+       "key": "Jonathan Taylor  ->  Bryce Young + Caleb Downs",
+       "give": [
+        [
+         "Jonathan Taylor",
+         6810
+        ]
+       ],
+       "receive": [
+        [
+         "Bryce Young",
+         5493
+        ],
+        [
+         "Caleb Downs",
+         3563
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": false,
+        "idp": true
+       }
+      }
+     ],
+     "appearedStarForPile": []
+    }
+   },
+   "B_currency_market": {
+    "package_scan": {
+     "appeared": [
+      {
+       "key": "Aidan Hutchinson + Isaiah Likely  ->  Ja'Marr Chase + Tremaine Edmunds",
+       "give": [
+        [
+         "Isaiah Likely",
+         4826
+        ],
+        [
+         "Aidan Hutchinson",
+         4737
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "Tremaine Edmunds",
+         2756
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Kenyon Sadiq  ->  Caleb Williams + Zack Baun",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Kenyon Sadiq",
+         4707
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ],
+        [
+         "Zack Baun",
+         3435
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Isaiah Likely  ->  Lamar Jackson + Roquan Smith",
+       "give": [
+        [
+         "Isaiah Likely",
+         4826
+        ],
+        [
+         "Aidan Hutchinson",
+         4737
+        ]
+       ],
+       "receive": [
+        [
+         "Lamar Jackson",
+         8510
+        ],
+        [
+         "Roquan Smith",
+         3309
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Harold Fannin  ->  Ja'Marr Chase + Tremaine Edmunds",
+       "give": [
+        [
+         "Harold Fannin",
+         5332
+        ],
+        [
+         "Aidan Hutchinson",
+         4737
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "Tremaine Edmunds",
+         2756
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      }
+     ],
+     "disappeared": [
+      {
+       "key": "Aidan Hutchinson + Isaiah Likely  ->  Drake Maye + Foyesade Oluokun",
+       "give": [
+        [
+         "Isaiah Likely",
+         4826
+        ],
+        [
+         "Aidan Hutchinson",
+         4737
+        ]
+       ],
+       "receive": [
+        [
+         "Drake Maye",
+         8524
+        ],
+        [
+         "Foyesade Oluokun",
+         2950
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Isaiah Likely  ->  Drake Maye + Pat Freiermuth",
+       "give": [
+        [
+         "Isaiah Likely",
+         4826
+        ],
+        [
+         "Aidan Hutchinson",
+         4737
+        ]
+       ],
+       "receive": [
+        [
+         "Drake Maye",
+         8524
+        ],
+        [
+         "Pat Freiermuth",
+         2943
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Kenyon Sadiq  ->  Drake Maye + Tremaine Edmunds",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Kenyon Sadiq",
+         4707
+        ]
+       ],
+       "receive": [
+        [
+         "Drake Maye",
+         8524
+        ],
+        [
+         "Tremaine Edmunds",
+         2756
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Isaiah Likely  ->  Germie Bernard + Lamar Jackson",
+       "give": [
+        [
+         "Isaiah Likely",
+         4826
+        ],
+        [
+         "Aidan Hutchinson",
+         4737
+        ]
+       ],
+       "receive": [
+        [
+         "Lamar Jackson",
+         8510
+        ],
+        [
+         "Germie Bernard",
+         2910
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      }
+     ],
+     "appearedStarForPile": []
+    },
+    "finder_all_shapes": {
+     "appeared": [
+      {
+       "key": "Aidan Hutchinson + Maxx Crosby  ->  Caleb Williams",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Maxx Crosby",
+         3190
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Myles Garrett + Rashee Rice  ->  Caleb Williams",
+       "give": [
+        [
+         "Rashee Rice",
+         4447
+        ],
+        [
+         "Myles Garrett",
+         3531
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Josh Jacobs  ->  Caleb Williams",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Josh Jacobs",
+         3346
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Mike Evans  ->  Caleb Williams",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Mike Evans",
+         3355
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      }
+     ],
+     "disappeared": [
+      {
+       "key": "Aidan Hutchinson + Mike Evans  ->  Ja'Marr Chase",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Mike Evans",
+         3355
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Myles Garrett  ->  Brock Bowers",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Myles Garrett",
+         3531
+        ]
+       ],
+       "receive": [
+        [
+         "Brock Bowers",
+         9985
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Maxx Crosby  ->  Ja'Marr Chase",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Maxx Crosby",
+         3190
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Maxx Crosby + Myles Garrett  ->  Caleb Williams",
+       "give": [
+        [
+         "Myles Garrett",
+         3531
+        ],
+        [
+         "Maxx Crosby",
+         3190
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      }
+     ],
+     "appearedStarForPile": []
+    },
+    "best_offers": {
+     "appeared": [
+      {
+       "key": "Aidan Hutchinson + Myles Garrett  ->  Caleb Williams",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Myles Garrett",
+         3531
+        ]
+       ],
+       "receive": [
+        [
+         "Caleb Williams",
+         8918
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Derwin James  ->  Malik Nabers",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Derwin James",
+         2266
+        ]
+       ],
+       "receive": [
+        [
+         "Malik Nabers",
+         7692
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson + Travis Etienne  ->  Drake Maye",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ],
+        [
+         "Travis Etienne",
+         3463
+        ]
+       ],
+       "receive": [
+        [
+         "Drake Maye",
+         8524
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Myles Garrett + Travis Etienne  ->  Brock Purdy",
+       "give": [
+        [
+         "Myles Garrett",
+         3531
+        ],
+        [
+         "Travis Etienne",
+         3463
+        ]
+       ],
+       "receive": [
+        [
+         "Brock Purdy",
+         7469
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      }
+     ],
+     "disappeared": [
+      {
+       "key": "Amon-Ra St. Brown  ->  CeeDee Lamb + Jamien Sherwood",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "CeeDee Lamb",
+         8389
+        ],
+        [
+         "Jamien Sherwood",
+         3661
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Amon-Ra St. Brown  ->  Drake Maye + Tremaine Edmunds",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Drake Maye",
+         8524
+        ],
+        [
+         "Tremaine Edmunds",
+         2756
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": true
+       }
+      },
+      {
+       "key": "Derwin James + Myles Garrett  ->  Tetairoa McMillan",
+       "give": [
+        [
+         "Myles Garrett",
+         3531
+        ],
+        [
+         "Derwin James",
+         2266
+        ]
+       ],
+       "receive": [
+        [
+         "Tetairoa McMillan",
+         6876
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "2v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": false,
+        "idp": true
+       }
+      },
+      {
+       "key": "Aidan Hutchinson  ->  Nico Collins",
+       "give": [
+        [
+         "Aidan Hutchinson",
+         4737
+        ]
+       ],
+       "receive": [
+        [
+         "Nico Collins",
+         6470
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v1",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": false,
+        "idp": true
+       }
+      }
+     ],
+     "appearedStarForPile": []
+    },
+    "star_builder": {
+     "appeared": [
+      {
+       "key": "Amon-Ra St. Brown  ->  Braelon Allen + Ja'Marr Chase",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "Braelon Allen",
+         2731
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": false
+       }
+      },
+      {
+       "key": "Amon-Ra St. Brown  ->  DK Metcalf + Ja'Marr Chase",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "DK Metcalf",
+         3142
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": false
+       }
+      },
+      {
+       "key": "Omarion Hampton  ->  Bryce Young + Byron Murphy",
+       "give": [
+        [
+         "Omarion Hampton",
+         5325
+        ]
+       ],
+       "receive": [
+        [
+         "Bryce Young",
+         5493
+        ],
+        [
+         "Byron Murphy",
+         2409
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": false,
+        "idp": true
+       }
+      },
+      {
+       "key": "Omarion Hampton  ->  Bryce Young + Tykee Smith",
+       "give": [
+        [
+         "Omarion Hampton",
+         5325
+        ]
+       ],
+       "receive": [
+        [
+         "Bryce Young",
+         5493
+        ],
+        [
+         "Tykee Smith",
+         2624
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": false,
+        "idp": true
+       }
+      }
+     ],
+     "disappeared": [
+      {
+       "key": "Amon-Ra St. Brown  ->  Ja'Marr Chase + MarShawn Lloyd",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "MarShawn Lloyd",
+         2329
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": false
+       }
+      },
+      {
+       "key": "Amon-Ra St. Brown  ->  Ja'Marr Chase + Nicholas Singleton",
+       "give": [
+        [
+         "Amon-Ra St. Brown",
+         8925
+        ]
+       ],
+       "receive": [
+        [
+         "Ja'Marr Chase",
+         9437
+        ],
+        [
+         "Nicholas Singleton",
+         2205
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "lopsided",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": true,
+        "idp": false
+       }
+      },
+      {
+       "key": "Garrett Wilson  ->  Bryce Young + DeMarvion Overshown",
+       "give": [
+        [
+         "Garrett Wilson",
+         6472
+        ]
+       ],
+       "receive": [
+        [
+         "Bryce Young",
+         5493
+        ],
+        [
+         "DeMarvion Overshown",
+         2785
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": true,
+        "multiPiece3plus": false,
+        "elite": false,
+        "idp": true
+       }
+      },
+      {
+       "key": "Chris Olave  ->  Bryce Young + Tykee Smith",
+       "give": [
+        [
+         "Chris Olave",
+         6786
+        ]
+       ],
+       "receive": [
+        [
+         "Bryce Young",
+         5493
+        ],
+        [
+         "Tykee Smith",
+         2624
+        ]
+       ],
+       "tags": {
+        "priced": true,
+        "shape": "1v2",
+        "level": "unfair",
+        "starForPile": false,
+        "sensibleDepth": false,
+        "multiPiece3plus": false,
+        "elite": false,
+        "idp": true
+       }
+      }
+     ],
+     "appearedStarForPile": []
+    }
+   }
+  }
+ },
+ "S5c_tradeHistory": {
+  "label": "own-league trades in the newest archive's sleeper.trades, graded with TODAY's canonical values (not at-the-time values), through trade_grading.grade_trade_side with each treatment's package adjustment as va_net",
+  "trades": 107,
+  "sidesGraded": 196,
+  "sidesWithAnUnpricedAsset": 63,
+  "unpricedNote": "unpriced = a 2026 pick of the completed draft (now a player) or a player the board does not price; graded on its priced assets only (as the frontend resolver does) and also reported on fully-priced sides alone",
+  "pickLabelsResolvedVia_pick_value_resolution": {
+   "alias_centre_slot": 66
+  },
+  "fullyPricedSides": 150,
+  "gradeBucketChangedVsGEOM_78_fullyPricedSides": {
+   "GEOM_78": 0,
+   "A_curve_market": 84,
+   "A_curve_replacement": 84,
+   "B_currency_market": 63,
+   "B_currency_replacement": 57
+  },
+  "productionDispatchVsExactGeomLetterMismatches": 0,
+  "gradeBucketChangedVsGEOM_78": {
+   "GEOM_78": 0,
+   "A_curve_market": 99,
+   "A_curve_replacement": 100,
+   "B_currency_market": 76,
+   "B_currency_replacement": 67
+  },
+  "letterTransitions": {
+   "A_curve_market": {
+    "B Overpay -> B+ Slight overpay": 6,
+    "A Good win -> A Slight win": 6,
+    "A+ Big win -> A+ Clear win": 10,
+    "F Fleeced -> C Bad deal": 4,
+    "A Fair trade -> A Slight win": 6,
+    "A Fair trade -> B+ Slight overpay": 6,
+    "A Fair trade -> A Good win": 1,
+    "A Fair trade -> B Overpay": 1,
+    "A Slight win -> A Fair trade": 3,
+    "B+ Slight overpay -> A Fair trade": 3,
+    "C Bad deal -> B+ Slight overpay": 3,
+    "A+ Clear win -> A Slight win": 3,
+    "A+ Clear win -> A Good win": 8,
+    "C Bad deal -> B Overpay": 8,
+    "B Overpay -> A Fair trade": 2,
+    "A Good win -> A Fair trade": 2,
+    "A+ Big win -> A Good win": 3,
+    "D Robbery -> B Overpay": 3,
+    "D Robbery -> C Bad deal": 6,
+    "F Fleeced -> D Robbery": 5,
+    "A Slight win -> B+ Slight overpay": 2,
+    "B+ Slight overpay -> A Slight win": 2,
+    "A Slight win -> A Good win": 2,
+    "B+ Slight overpay -> B Overpay": 2,
+    "B Overpay -> C Bad deal": 1,
+    "A Good win -> A+ Clear win": 1
+   },
+   "A_curve_replacement": {
+    "B Overpay -> B+ Slight overpay": 6,
+    "A Good win -> A Slight win": 6,
+    "A+ Big win -> A+ Clear win": 11,
+    "F Fleeced -> C Bad deal": 4,
+    "B+ Slight overpay -> A Fair trade": 5,
+    "A Slight win -> A Fair trade": 5,
+    "A Fair trade -> A Good win": 1,
+    "A Fair trade -> B Overpay": 1,
+    "C Bad deal -> A Fair trade": 1,
+    "A+ Clear win -> A Fair trade": 1,
+    "A+ Clear win -> A Good win": 9,
+    "C Bad deal -> B Overpay": 9,
+    "B Overpay -> A Fair trade": 2,
+    "A Good win -> A Fair trade": 2,
+    "A+ Big win -> A Good win": 2,
+    "D Robbery -> B Overpay": 2,
+    "D Robbery -> C Bad deal": 7,
+    "F Fleeced -> D Robbery": 6,
+    "A Fair trade -> A Slight win": 3,
+    "A Fair trade -> B+ Slight overpay": 3,
+    "B+ Slight overpay -> B Overpay": 4,
+    "A Slight win -> A Good win": 4,
+    "A+ Clear win -> A Slight win": 1,
+    "C Bad deal -> B+ Slight overpay": 1,
+    "B Overpay -> C Bad deal": 1,
+    "A Good win -> A+ Clear win": 1,
+    "A Slight win -> B+ Slight overpay": 1,
+    "B+ Slight overpay -> A Slight win": 1
+   },
+   "B_currency_market": {
+    "B Overpay -> B+ Slight overpay": 4,
+    "A Good win -> A Slight win": 4,
+    "F Fleeced -> D Robbery": 5,
+    "A Fair trade -> A Slight win": 5,
+    "A Fair trade -> B+ Slight overpay": 5,
+    "A Fair trade -> A Good win": 1,
+    "A Fair trade -> B Overpay": 1,
+    "A Slight win -> A Fair trade": 4,
+    "B+ Slight overpay -> A Fair trade": 4,
+    "C Bad deal -> B+ Slight overpay": 1,
+    "A+ Clear win -> A Slight win": 1,
+    "B Overpay -> A Fair trade": 1,
+    "A Good win -> A Fair trade": 1,
+    "A+ Clear win -> A Good win": 6,
+    "A+ Big win -> A+ Clear win": 7,
+    "D Robbery -> C Bad deal": 7,
+    "C Bad deal -> B Overpay": 5,
+    "B Overpay -> C Bad deal": 2,
+    "A Good win -> A+ Clear win": 2,
+    "B+ Slight overpay -> B Overpay": 4,
+    "A Slight win -> A Good win": 4,
+    "A+ Clear win -> A+ Big win": 1,
+    "C Bad deal -> D Robbery": 1
+   },
+   "B_currency_replacement": {
+    "B Overpay -> B+ Slight overpay": 4,
+    "A Good win -> A Slight win": 4,
+    "F Fleeced -> D Robbery": 5,
+    "A Fair trade -> A Good win": 1,
+    "A Fair trade -> B Overpay": 1,
+    "A Slight win -> A Fair trade": 4,
+    "B+ Slight overpay -> A Fair trade": 4,
+    "C Bad deal -> B+ Slight overpay": 1,
+    "A+ Clear win -> A Slight win": 1,
+    "A+ Clear win -> A Good win": 4,
+    "A+ Big win -> A+ Clear win": 6,
+    "D Robbery -> C Bad deal": 6,
+    "C Bad deal -> B Overpay": 3,
+    "A Fair trade -> A Slight win": 3,
+    "A Fair trade -> B+ Slight overpay": 3,
+    "B Overpay -> C Bad deal": 3,
+    "A Good win -> A+ Clear win": 3,
+    "B+ Slight overpay -> B Overpay": 4,
+    "A Slight win -> A Good win": 4,
+    "C Bad deal -> D Robbery": 2,
+    "A+ Clear win -> A+ Big win": 1
+   }
+  },
+  "C_informational": {
+   "disclosureFires": 67
+  },
+  "examples": [
+   {
+    "got": [
+     "Mike Evans (3355, depth)",
+     "Chuba Hubbard (3828, depth)",
+     "Nakobe Dean (3855, starter)"
+    ],
+    "gave": [
+     "Trenton Simpson (1235, filler)",
+     "George Holani (1475, filler)",
+     "Travis Hunter (3738, starter)",
+     "Mark Andrews (3109, starter)",
+     "Rashod Bateman (1747, filler)",
+     "2029 Mid 1st (4087, depth)"
+    ],
+    "GEOM_78": {
+     "grade": "B Overpay",
+     "pctGap": -11.3
+    },
+    "A_curve_market": {
+     "grade": "B+ Slight overpay",
+     "pctGap": -5.0
+    },
+    "A_curve_replacement": {
+     "grade": "B+ Slight overpay",
+     "pctGap": -5.5
+    },
+    "B_currency_market": {
+     "grade": "B+ Slight overpay",
+     "pctGap": -6.2
+    },
+    "B_currency_replacement": {
+     "grade": "B+ Slight overpay",
+     "pctGap": -5.6
+    }
+   },
+   {
+    "got": [
+     "Trenton Simpson (1235, filler)",
+     "George Holani (1475, filler)",
+     "Travis Hunter (3738, starter)",
+     "Mark Andrews (3109, starter)",
+     "Rashod Bateman (1747, filler)",
+     "2029 Mid 1st (4087, depth)"
+    ],
+    "gave": [
+     "Mike Evans (3355, depth)",
+     "Chuba Hubbard (3828, depth)",
+     "Nakobe Dean (3855, starter)"
+    ],
+    "GEOM_78": {
+     "grade": "A Good win",
+     "pctGap": 11.3
+    },
+    "A_curve_market": {
+     "grade": "A Slight win",
+     "pctGap": 5.0
+    },
+    "A_curve_replacement": {
+     "grade": "A Slight win",
+     "pctGap": 5.5
+    },
+    "B_currency_market": {
+     "grade": "A Slight win",
+     "pctGap": 6.2
+    },
+    "B_currency_replacement": {
+     "grade": "A Slight win",
+     "pctGap": 5.6
+    }
+   },
+   {
+    "got": [
+     "Marcus Mariota (1645, filler)"
+    ],
+    "gave": [
+     "2027 Mid 5th (1859, depth)",
+     "2028 Mid 4th (1686, filler)"
+    ],
+    "GEOM_78": {
+     "grade": "F Fleeced",
+     "pctGap": -43.1
+    },
+    "A_curve_market": {
+     "grade": "C Bad deal",
+     "pctGap": -21.3
+    },
+    "A_curve_replacement": {
+     "grade": "C Bad deal",
+     "pctGap": -24.6
+    },
+    "B_currency_market": {
+     "grade": "D Robbery",
+     "pctGap": -27.8
+    },
+    "B_currency_replacement": {
+     "grade": "D Robbery",
+     "pctGap": -29.8
+    }
+   },
+   {
+    "got": [
+     "Marvin Harrison (3693, depth)",
+     "Bryce Young (5493, starter)"
+    ],
+    "gave": [
+     "AJ Barner (2761, depth)",
+     "Brian Thomas (3418, depth)",
+     "Ja'Kobi Lane (2699, depth)",
+     "Jameis Winston (2041, depth)"
+    ],
+    "GEOM_78": {
+     "grade": "A Fair trade",
+     "pctGap": 1.7
+    },
+    "A_curve_market": {
+     "grade": "A Good win",
+     "pctGap": 8.8
+    },
+    "A_curve_replacement": {
+     "grade": "A Good win",
+     "pctGap": 8.7
+    },
+    "B_currency_market": {
+     "grade": "A Good win",
+     "pctGap": 8.6
+    },
+    "B_currency_replacement": {
+     "grade": "A Good win",
+     "pctGap": 8.9
+    }
+   },
+   {
+    "got": [
+     "AJ Barner (2761, depth)",
+     "Brian Thomas (3418, depth)",
+     "Ja'Kobi Lane (2699, depth)",
+     "Jameis Winston (2041, depth)"
+    ],
+    "gave": [
+     "Marvin Harrison (3693, depth)",
+     "Bryce Young (5493, starter)"
+    ],
+    "GEOM_78": {
+     "grade": "A Fair trade",
+     "pctGap": -1.7
+    },
+    "A_curve_market": {
+     "grade": "B Overpay",
+     "pctGap": -8.8
+    },
+    "A_curve_replacement": {
+     "grade": "B Overpay",
+     "pctGap": -8.7
+    },
+    "B_currency_market": {
+     "grade": "B Overpay",
+     "pctGap": -8.6
+    },
+    "B_currency_replacement": {
+     "grade": "B Overpay",
+     "pctGap": -8.9
+    }
+   },
+   {
+    "got": [
+     "Emeka Egbuka (5197, starter)",
+     "2028 Mid 2nd (3075, depth)",
+     "2028 Mid 4th (1686, filler)",
+     "2028 Mid 2nd (3075, depth)"
+    ],
+    "gave": [
+     "J.J. McCarthy (2274, depth)",
+     "Malik Nabers (7692, starter)"
+    ],
+    "GEOM_78": {
+     "grade": "A Slight win",
+     "pctGap": 6.1
+    },
+    "A_curve_market": {
+     "grade": "A Fair trade",
+     "pctGap": -2.6
+    },
+    "A_curve_replacement": {
+     "grade": "A Fair trade",
+     "pctGap": -1.3
+    },
+    "B_currency_market": {
+     "grade": "A Fair trade",
+     "pctGap": 0.6
+    },
+    "B_currency_replacement": {
+     "grade": "A Fair trade",
+     "pctGap": 2.5
+    }
+   }
+  ]
+ },
+ "S5d_warRoomTeamContext": {
+  "path": "src/trade/analyze_service.simulate_for_team (+ analyze_trade lenses and trade_decision._objective_value = Component A: VA gap minus the forced-release cost of the cuts the trade ADDS) \u2014 production GEOM_78 only, Team Context ON vs Asset-Only",
+  "design": "every dynasty_main roster at exactly the 58 cap receives: sends one of its own genuine starters X (2,500-6,500) for an opponent asset Y at 86-97% of X, then 1-3 of that opponent's expendable fillers (>= 300, non-quarantined) are added to what it receives",
+  "samples": 45,
+  "sweetenedSteps": 135,
+  "fillerFlipsAssetOnly": 133,
+  "flipsNeutralisedByTeamContext": 85,
+  "flipsOverAbsorbed_verdictMovesAgainstReceiver": 43,
+  "flipsSurvivingTeamContext": 5,
+  "forcedDropBasis": {
+   "assumedWaiver": 57,
+   "board": 213
+  },
+  "forcedDropsThatAreTheJustAcquiredFiller": 26,
+  "releaseCostPerForcedDropMedian": 1655,
+  "fillerVaCreditMedian": 1982,
+  "releaseChargedMedian": 3128,
+  "releaseAsShareOfFillerCreditMedian": 1.648,
+  "localLimit": "the roster-utility lens (lineup effect, Component B) needs the box-local projection snapshot; locally it is 'projection_basis_no_projection_snapshot', so every Team-Context headline is NOT_ENOUGH_EVIDENCE here.  Component A (the forced-drop release charge) is fully computed and is what is measured.",
+  "flipDefinition": "same region rule as S3 (receiver disfavoured / fair / favoured)",
+  "elapsedSec": 45.1,
+  "examples": [
+   {
+    "send": "Aidan Hutchinson (4737)",
+    "receive": "Jordyn Tyson (4587)",
+    "fillers": [
+     "Dohnte Meyers (1506)",
+     "Dru Phillips (1293)",
+     "Justice Hill (1461)"
+    ],
+    "steps": [
+     {
+      "k": 0,
+      "assetOnlyOrd": 0,
+      "teamCtxOrd": 0,
+      "vaGap": -150,
+      "releaseCharged": null,
+      "forcedDrops": 0,
+      "dropValues": [],
+      "dropReleaseCosts": [],
+      "dropBasis": [],
+      "dropAcquiredInTrade": []
+     },
+     {
+      "k": 1,
+      "assetOnlyOrd": 2,
+      "teamCtxOrd": -2,
+      "vaGap": 1025,
+      "releaseCharged": 1918,
+      "forcedDrops": 1,
+      "dropValues": [
+       null
+      ],
+      "dropReleaseCosts": [
+       1918.0
+      ],
+      "dropBasis": [
+       "assumedWaiver"
+      ],
+      "dropAcquiredInTrade": [
+       false
+      ]
+     },
+     {
+      "k": 2,
+      "assetOnlyOrd": 3,
+      "teamCtxOrd": -3,
+      "vaGap": 1811,
+      "releaseCharged": 3836,
+      "forcedDrops": 2,
+      "dropValues": [
+       null,
+       null
+      ],
+      "dropReleaseCosts": [
+       1918.0,
+       1918.0
+      ],
+      "dropBasis": [
+       "assumedWaiver",
+       "assumedWaiver"
+      ],
+      "dropAcquiredInTrade": [
+       false,
+       false
+      ]
+     },
+     {
+      "k": 3,
+      "assetOnlyOrd": 3,
+      "teamCtxOrd": -3,
+      "vaGap": 2527,
+      "releaseCharged": 5786,
+      "forcedDrops": 3,
+      "dropValues": [
+       null,
+       null,
+       1950.0
+      ],
+      "dropReleaseCosts": [
+       1918.0,
+       1918.0,
+       1950.0
+      ],
+      "dropBasis": [
+       "assumedWaiver",
+       "assumedWaiver",
+       "board"
+      ],
+      "dropAcquiredInTrade": [
+       false,
+       false,
+       false
+      ]
+     }
+    ]
+   },
+   {
+    "send": "Cedric Gray (4471)",
+    "receive": "Jordyn Brooks (3900)",
+    "fillers": [
+     "Deone Walker (373)",
+     "Danny Stutsman (1541)",
+     "Tahj Brooks (1331)"
+    ],
+    "steps": [
+     {
+      "k": 0,
+      "assetOnlyOrd": -2,
+      "teamCtxOrd": -2,
+      "vaGap": -571,
+      "releaseCharged": null,
+      "forcedDrops": 0,
+      "dropValues": [],
+      "dropReleaseCosts": [],
+      "dropBasis": [],
+      "dropAcquiredInTrade": []
+     },
+     {
+      "k": 1,
+      "assetOnlyOrd": -1,
+      "teamCtxOrd": -3,
+      "vaGap": -280,
+      "releaseCharged": 1918,
+      "forcedDrops": 1,
+      "dropValues": [
+       null
+      ],
+      "dropReleaseCosts": [
+       1918.0
+      ],
+      "dropBasis": [
+       "assumedWaiver"
+      ],
+      "dropAcquiredInTrade": [
+       false
+      ]
+     },
+     {
+      "k": 2,
+      "assetOnlyOrd": 2,
+      "teamCtxOrd": -3,
+      "vaGap": 858,
+      "releaseCharged": 3836,
+      "forcedDrops": 2,
+      "dropValues": [
+       null,
+       null
+      ],
+      "dropReleaseCosts": [
+       1918.0,
+       1918.0
+      ],
+      "dropBasis": [
+       "assumedWaiver",
+       "assumedWaiver"
+      ],
+      "dropAcquiredInTrade": [
+       false,
+       false
+      ]
+     },
+     {
+      "k": 3,
+      "assetOnlyOrd": 3,
+      "teamCtxOrd": -3,
+      "vaGap": 1618,
+      "releaseCharged": 5786,
+      "forcedDrops": 3,
+      "dropValues": [
+       null,
+       null,
+       1950.0
+      ],
+      "dropReleaseCosts": [
+       1918.0,
+       1918.0,
+       1950.0
+      ],
+      "dropBasis": [
+       "assumedWaiver",
+       "assumedWaiver",
+       "board"
+      ],
+      "dropAcquiredInTrade": [
+       false,
+       false,
+       false
+      ]
+     }
+    ]
+   },
+   {
+    "send": "Omarion Hampton (5325)",
+    "receive": "Derrick Henry (4820)",
+    "fillers": [
+     "Calvin Ridley (1496)",
+     "Uchenna Nwosu (1386)",
+     "DaRon Bland (1293)"
+    ],
+    "steps": [
+     {
+      "k": 0,
+      "assetOnlyOrd": -2,
+      "teamCtxOrd": -2,
+      "vaGap": -505,
+      "releaseCharged": null,
+      "forcedDrops": 0,
+      "dropValues": [],
+      "dropReleaseCosts": [],
+      "dropBasis": [],
+      "dropAcquiredInTrade": []
+     },
+     {
+      "k": 1,
+      "assetOnlyOrd": 2,
+      "teamCtxOrd": -3,
+      "vaGap": 662,
+      "releaseCharged": 1918,
+      "forcedDrops": 1,
+      "dropValues": [
+       null
+      ],
+      "dropReleaseCosts": [
+       1918.0
+      ],
+      "dropBasis": [
+       "assumedWaiver"
+      ],
+      "dropAcquiredInTrade": [
+       false
+      ]
+     },
+     {
+      "k": 2,
+      "assetOnlyOrd": 3,
+      "teamCtxOrd": -3,
+      "vaGap": 1505,
+      "releaseCharged": 3836,
+      "forcedDrops": 2,
+      "dropValues": [
+       null,
+       null
+      ],
+      "dropReleaseCosts": [
+       1918.0,
+       1918.0
+      ],
+      "dropBasis": [
+       "assumedWaiver",
+       "assumedWaiver"
+      ],
+      "dropAcquiredInTrade": [
+       false,
+       false
+      ]
+     },
+     {
+      "k": 3,
+      "assetOnlyOrd": 3,
+      "teamCtxOrd": -3,
+      "vaGap": 2119,
+      "releaseCharged": 5786,
+      "forcedDrops": 3,
+      "dropValues": [
+       null,
+       null,
+       1950.0
+      ],
+      "dropReleaseCosts": [
+       1918.0,
+       1918.0,
+       1950.0
+      ],
+      "dropBasis": [
+       "assumedWaiver",
+       "assumedWaiver",
+       "board"
+      ],
+      "dropAcquiredInTrade": [
+       false,
+       false,
+       false
+      ]
+     }
+    ]
+   },
+   {
+    "send": "Garrett Wilson (6472)",
+    "receive": "Jalen Hurts (5919)",
+    "fillers": [
+     "Upton Stout (1422)",
+     "Caleb Banks (1259)",
+     "Dax Hill (1469)"
+    ],
+    "steps": [
+     {
+      "k": 0,
+      "assetOnlyOrd": -1,
+      "teamCtxOrd": -1,
+      "vaGap": -553,
+      "releaseCharged": null,
+      "forcedDrops": 0,
+      "dropValues": [],
+      "dropReleaseCosts": [],
+      "dropBasis": [],
+      "dropAcquiredInTrade": []
+     },
+     {
+      "k": 1,
+      "assetOnlyOrd": 1,
+      "teamCtxOrd": -3,
+      "vaGap": 556,
+      "releaseCharged": 1918,
+      "forcedDrops": 1,
+      "dropValues": [
+       null
+      ],
+      "dropReleaseCosts": [
+       1918.0
+      ],
+      "dropBasis": [
+       "assumedWaiver"
+      ],
+      "dropAcquiredInTrade": [
+       false
+      ]
+     },
+     {
+      "k": 2,
+      "assetOnlyOrd": 2,
+      "teamCtxOrd": -3,
+      "vaGap": 1322,
+      "releaseCharged": 3836,
+      "forcedDrops": 2,
+      "dropValues": [
+       null,
+       null
+      ],
+      "dropReleaseCosts": [
+       1918.0,
+       1918.0
+      ],
+      "dropBasis": [
+       "assumedWaiver",
+       "assumedWaiver"
+      ],
+      "dropAcquiredInTrade": [
+       false,
+       false
+      ]
+     },
+     {
+      "k": 3,
+      "assetOnlyOrd": 3,
+      "teamCtxOrd": -3,
+      "vaGap": 2055,
+      "releaseCharged": 5786,
+      "forcedDrops": 3,
+      "dropValues": [
+       null,
+       null,
+       1950.0
+      ],
+      "dropReleaseCosts": [
+       1918.0,
+       1918.0,
+       1950.0
+      ],
+      "dropBasis": [
+       "assumedWaiver",
+       "assumedWaiver",
+       "board"
+      ],
+      "dropAcquiredInTrade": [
+       false,
+       false,
+       false
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "S5e_publicCategoryShadow": {
+  "path": "trade_decision.public_category_from_decision over analyze_for_team (asset-only, counterfactuals off) with each treatment installed in-process behind package_model._geom_pair (FR.installed, always restored); replacement anchors mapped per trade from that trade's own assets (value -> c), skipped if ambiguous",
+  "sample": "the War Room trades (base + 1..3 filler sweeteners)",
+  "skippedAmbiguousValueMap": 0,
+  "noPublicPathChanged": "no public route exists for a fairness-only calculator yet; this is a shadow of the category mapping only, and the production dispatch was restored after every call (asserted)",
+  "byTreatment": {
+   "GEOM_78": {
+    "evaluated": 180,
+    "categoryChangedVsGEOM_78": 0,
+    "categoryCounts": {
+     "APPROXIMATELY_EVEN": 18,
+     "STRONGLY_FAVORABLE": 126,
+     "STRONGLY_UNFAVORABLE": 22,
+     "UNFAVORABLE": 8,
+     "FAVORABLE": 6
+    },
+    "transitions": {}
+   },
+   "A_curve_market": {
+    "evaluated": 180,
+    "categoryChangedVsGEOM_78": 84,
+    "categoryCounts": {
+     "APPROXIMATELY_EVEN": 48,
+     "FAVORABLE": 43,
+     "STRONGLY_FAVORABLE": 61,
+     "STRONGLY_UNFAVORABLE": 14,
+     "UNFAVORABLE": 14
+    },
+    "transitions": {
+     "STRONGLY_FAVORABLE->FAVORABLE": 43,
+     "UNFAVORABLE->STRONGLY_UNFAVORABLE": 1,
+     "STRONGLY_FAVORABLE->APPROXIMATELY_EVEN": 22,
+     "STRONGLY_UNFAVORABLE->UNFAVORABLE": 8,
+     "FAVORABLE->APPROXIMATELY_EVEN": 6,
+     "STRONGLY_UNFAVORABLE->APPROXIMATELY_EVEN": 1,
+     "UNFAVORABLE->APPROXIMATELY_EVEN": 2,
+     "APPROXIMATELY_EVEN->UNFAVORABLE": 1
+    }
+   },
+   "A_curve_replacement": {
+    "evaluated": 180,
+    "categoryChangedVsGEOM_78": 92,
+    "categoryCounts": {
+     "APPROXIMATELY_EVEN": 50,
+     "FAVORABLE": 41,
+     "STRONGLY_FAVORABLE": 60,
+     "STRONGLY_UNFAVORABLE": 20,
+     "UNFAVORABLE": 9
+    },
+    "transitions": {
+     "STRONGLY_FAVORABLE->FAVORABLE": 41,
+     "UNFAVORABLE->STRONGLY_UNFAVORABLE": 4,
+     "STRONGLY_FAVORABLE->APPROXIMATELY_EVEN": 25,
+     "STRONGLY_UNFAVORABLE->UNFAVORABLE": 2,
+     "FAVORABLE->APPROXIMATELY_EVEN": 5,
+     "APPROXIMATELY_EVEN->UNFAVORABLE": 4,
+     "STRONGLY_UNFAVORABLE->APPROXIMATELY_EVEN": 6,
+     "UNFAVORABLE->APPROXIMATELY_EVEN": 2,
+     "APPROXIMATELY_EVEN->STRONGLY_UNFAVORABLE": 2,
+     "FAVORABLE->UNFAVORABLE": 1
+    }
+   },
+   "B_currency_market": {
+    "evaluated": 180,
+    "categoryChangedVsGEOM_78": 43,
+    "categoryCounts": {
+     "APPROXIMATELY_EVEN": 42,
+     "FAVORABLE": 16,
+     "STRONGLY_FAVORABLE": 91,
+     "STRONGLY_UNFAVORABLE": 24,
+     "UNFAVORABLE": 7
+    },
+    "transitions": {
+     "STRONGLY_FAVORABLE->FAVORABLE": 16,
+     "UNFAVORABLE->STRONGLY_UNFAVORABLE": 1,
+     "STRONGLY_FAVORABLE->APPROXIMATELY_EVEN": 19,
+     "FAVORABLE->APPROXIMATELY_EVEN": 6,
+     "APPROXIMATELY_EVEN->STRONGLY_UNFAVORABLE": 1
+    }
+   },
+   "B_currency_replacement": {
+    "evaluated": 180,
+    "categoryChangedVsGEOM_78": 45,
+    "categoryCounts": {
+     "APPROXIMATELY_EVEN": 42,
+     "FAVORABLE": 18,
+     "STRONGLY_FAVORABLE": 89,
+     "STRONGLY_UNFAVORABLE": 24,
+     "UNFAVORABLE": 7
+    },
+    "transitions": {
+     "STRONGLY_FAVORABLE->FAVORABLE": 18,
+     "UNFAVORABLE->STRONGLY_UNFAVORABLE": 1,
+     "STRONGLY_FAVORABLE->APPROXIMATELY_EVEN": 19,
+     "FAVORABLE->APPROXIMATELY_EVEN": 6,
+     "APPROXIMATELY_EVEN->STRONGLY_UNFAVORABLE": 1
+    }
+   }
+  }
+ },
+ "S6_mathematicalProperties": {
+  "cases": 3000,
+  "seed": 20261023,
+  "piecesPerSide": [
+   1,
+   6
+  ],
+  "valueRange": [
+   100,
+   9999
+  ],
+  "anchors": "this board's replacement dict for *_replacement; 2,000 for *_market",
+  "byTreatment": {
+   "GEOM_78": {
+    "approach": "incumbent",
+    "anchor": null,
+    "failures": {
+     "addAssetNeverHurts": 0,
+     "raiseValueNeverHurts": 0,
+     "orderInvariance": 0,
+     "swapNegatesGap": 0,
+     "oneForOneIsRawGap": 0,
+     "addedPieceAddsAtMostItsValue": 0,
+     "continuityEpsilon": 0,
+     "homogeneity": 0,
+     "unbundlingNeverHelps": 0
+    },
+    "oneForOneChangedOver0p5": 0,
+    "summary": {
+     "addAssetNeverHurts": "PASS",
+     "raiseValueNeverHurts": "PASS",
+     "orderInvariance": "PASS",
+     "swapNegatesGap": "PASS",
+     "oneForOneIsRawGap": "PASS",
+     "addedPieceAddsAtMostItsValue": "PASS",
+     "continuityEpsilon": "PASS",
+     "homogeneity": "PASS",
+     "unbundlingNeverHelps": "PASS"
+    }
+   },
+   "A_curve_market": {
+    "approach": "A",
+    "anchor": "market",
+    "failures": {
+     "addAssetNeverHurts": 0,
+     "raiseValueNeverHurts": 0,
+     "orderInvariance": 0,
+     "swapNegatesGap": 0,
+     "oneForOneIsRawGap": 3000,
+     "addedPieceAddsAtMostItsValue": 0,
+     "continuityEpsilon": 0,
+     "homogeneity": 3000,
+     "unbundlingNeverHelps": 0
+    },
+    "oneForOneChangedOver0p5": 2997,
+    "summary": {
+     "addAssetNeverHurts": "PASS",
+     "raiseValueNeverHurts": "PASS",
+     "orderInvariance": "PASS",
+     "swapNegatesGap": "PASS",
+     "oneForOneIsRawGap": "FAIL (3000/3000)",
+     "addedPieceAddsAtMostItsValue": "PASS",
+     "continuityEpsilon": "PASS",
+     "homogeneity": "FAIL (3000/3000)",
+     "unbundlingNeverHelps": "PASS"
+    }
+   },
+   "A_curve_replacement": {
+    "approach": "A",
+    "anchor": "replacement",
+    "failures": {
+     "addAssetNeverHurts": 0,
+     "raiseValueNeverHurts": 0,
+     "orderInvariance": 0,
+     "swapNegatesGap": 0,
+     "oneForOneIsRawGap": 3000,
+     "addedPieceAddsAtMostItsValue": 0,
+     "continuityEpsilon": 0,
+     "homogeneity": 3000,
+     "unbundlingNeverHelps": 0
+    },
+    "oneForOneChangedOver0p5": 2996,
+    "summary": {
+     "addAssetNeverHurts": "PASS",
+     "raiseValueNeverHurts": "PASS",
+     "orderInvariance": "PASS",
+     "swapNegatesGap": "PASS",
+     "oneForOneIsRawGap": "FAIL (3000/3000)",
+     "addedPieceAddsAtMostItsValue": "PASS",
+     "continuityEpsilon": "PASS",
+     "homogeneity": "FAIL (3000/3000)",
+     "unbundlingNeverHelps": "PASS"
+    }
+   },
+   "B_currency_market": {
+    "approach": "B",
+    "anchor": "market",
+    "failures": {
+     "addAssetNeverHurts": 0,
+     "raiseValueNeverHurts": 0,
+     "orderInvariance": 0,
+     "swapNegatesGap": 0,
+     "oneForOneIsRawGap": 0,
+     "addedPieceAddsAtMostItsValue": 0,
+     "continuityEpsilon": 0,
+     "homogeneity": 2922,
+     "unbundlingNeverHelps": 0
+    },
+    "oneForOneChangedOver0p5": 0,
+    "summary": {
+     "addAssetNeverHurts": "PASS",
+     "raiseValueNeverHurts": "PASS",
+     "orderInvariance": "PASS",
+     "swapNegatesGap": "PASS",
+     "oneForOneIsRawGap": "PASS",
+     "addedPieceAddsAtMostItsValue": "PASS",
+     "continuityEpsilon": "PASS",
+     "homogeneity": "FAIL (2922/3000)",
+     "unbundlingNeverHelps": "PASS"
+    }
+   },
+   "B_currency_replacement": {
+    "approach": "B",
+    "anchor": "replacement",
+    "failures": {
+     "addAssetNeverHurts": 0,
+     "raiseValueNeverHurts": 0,
+     "orderInvariance": 0,
+     "swapNegatesGap": 0,
+     "oneForOneIsRawGap": 0,
+     "addedPieceAddsAtMostItsValue": 0,
+     "continuityEpsilon": 0,
+     "homogeneity": 2922,
+     "unbundlingNeverHelps": 0
+    },
+    "oneForOneChangedOver0p5": 0,
+    "summary": {
+     "addAssetNeverHurts": "PASS",
+     "raiseValueNeverHurts": "PASS",
+     "orderInvariance": "PASS",
+     "swapNegatesGap": "PASS",
+     "oneForOneIsRawGap": "PASS",
+     "addedPieceAddsAtMostItsValue": "PASS",
+     "continuityEpsilon": "PASS",
+     "homogeneity": "FAIL (2922/3000)",
+     "unbundlingNeverHelps": "PASS"
+    }
+   }
+  },
+  "pinnedBy": "tests/scripts/test_low_value_asset_treatments.py (treatment math)"
+ },
+ "timingsSec": {
+  "board+anchors": 3.4,
+  "flipStudy": 14.0,
+  "fairnessSample": 1.4,
+  "warRoom+public": 115.8,
+  "total": 347.6
+ }
+}

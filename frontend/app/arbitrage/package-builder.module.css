@@ -1,0 +1,127 @@
+.view {
+  display: grid;
+  gap: 10px;
+  /* .psi-editorial scopes the editorial tokens on this view but does not
+     repaint it; without its own canvas the editorial ink (--text-primary
+     #1c1712) sat on the terminal Panel (#131519) at 1.03:1 — axe
+     color-contrast on /arbitrage once Golden Upgrades became the default
+     view.  Same full-bleed paint as /managers and /market/trade-database:
+     on --surface-1 primary 16.48:1, secondary 9.26:1, tertiary 5.63:1. */
+  background: var(--surface-1);
+  color: var(--text-primary);
+  padding: var(--space-3);
+  min-width: 0;
+}
+
+.lede,
+.muted,
+.count {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-tertiary);
+}
+
+.form,
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.86rem;
+}
+
+.positions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.groupLabel {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.chip {
+  padding: 3px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.chip[aria-pressed="true"] {
+  border-color: var(--text-primary, currentColor);
+  font-weight: 600;
+}
+
+.outgoing summary {
+  cursor: pointer;
+  font-size: 0.86rem;
+}
+
+.outgoingList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 4px 12px;
+  margin-top: 6px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.rowHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.assets {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.facts {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.82rem;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 640px) {
+  .sides {
+    grid-template-columns: 1fr;
+  }
+}

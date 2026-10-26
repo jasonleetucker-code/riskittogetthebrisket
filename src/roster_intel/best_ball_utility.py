@@ -45,24 +45,42 @@ TRADED player is unprojected the utility is computed over the priced players
 and ``coverage.state`` says ``partial`` — the decision layer must abstain on
 it rather than read a partial number as complete.
 
-Not modelled, and said so in ``assumptions`` rather than invented: injury /
-availability probabilities, bye weeks, player-to-player correlation.  The
-depth measure is therefore a deterministic single-starter-absence scenario,
-not an injury forecast.
+Availability (owner master package 2026-10-17, P0).  When the caller passes
+the league's remaining fantasy ``weeks`` and each player's per-week
+availability (``src.ros.availability`` — the one owner of "can this player
+score in week w"), every simulated scenario is a real remaining week: draw
+``d`` is week ``weeks[d % len(weeks)]``, and a player that week's owner calls
+``unavailable`` (a bye, an injury whose stated return is after that game, an
+override) is REMOVED from that scenario's pool before the solve.  Removed, not
+given 0.0: a 0.0 player still fills a slot nobody else can and would count as a
+lineup entry.  ``uncertain`` / ``unknown`` weeks stay in the pool and are
+reported per player, so no number silently rests on a guess.  Without
+``weeks`` the legacy calendar-free behaviour is unchanged and the assumptions
+say availability was not modelled.
+
+Still not modelled, and said so in ``assumptions``: the probability that an
+``uncertain`` player plays, and player-to-player correlation.  The depth
+measure is a deterministic single-starter-absence scenario, not an injury
+forecast.
 """
 
 from __future__ import annotations
 
+import copy
+import hashlib
+import json
 import math
 import random
 import threading
 import time
 import zlib
+from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from src.league_intel.sim_calibration import PointsModel, load_points_model
+from src.utils.singleflight import SingleFlight
 from src.ros.lineup import (
     OBJECTIVE_REALIZED_POINTS,
     RosterPlayer,
@@ -98,6 +116,12 @@ class UtilityPlayer:
     position: str
     ppg: float | None
     fantasy_positions: tuple[str, ...] = ()
+    #: week -> availability state (``src.ros.availability`` vocabulary).  Only
+    #: ``"unavailable"`` removes the player from that week; ``None`` means the
+    #: caller supplied no availability for him (legacy: always in the pool).
+    availability: Mapping[int, str] | None = None
+    #: The availability owner's per-player summary, reported verbatim.
+    availability_summary: Mapping[str, Any] | None = None
 
 
 class _Draws:
@@ -131,6 +155,9 @@ class _RosterRun:
     raw_ppg: float
     priced: int
     unpriced_ids: tuple[str, ...]
+    #: slot name -> mean unfilled count per simulated week (TC-B / TCM-H12).
+    #: ``None`` when no player could be simulated (unknown, never "all empty").
+    empty_by_slot: dict[str, float] | None = None
 
 
 def _roster_player(p: UtilityPlayer, value: float) -> RosterPlayer:
@@ -143,12 +170,55 @@ def _roster_player(p: UtilityPlayer, value: float) -> RosterPlayer:
     )
 
 
+UNAVAILABLE = "unavailable"
+
+
+def _plays(p: UtilityPlayer, week: int | None) -> bool:
+    """False only when the availability owner said this week is unavailable."""
+    if week is None or p.availability is None:
+        return True
+    return p.availability.get(week) != UNAVAILABLE
+
+
+def _eligible_share(p: UtilityPlayer, weeks: Sequence[int] | None) -> float:
+    if not weeks:
+        return 1.0
+    return sum(1 for w in weeks if _plays(p, w)) / len(weeks)
+
+
+def _roster_eligibility(
+    roster: Sequence[UtilityPlayer],
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Any] | None,
+) -> dict[str, tuple[int, ...]] | None:
+    """Slot eligibility for every roster member, derived ONCE per roster.
+
+    Eligibility depends only on ``position`` / ``fantasy_positions`` (never on
+    a value or a week), and the map is keyed by player id, so handing it to
+    every solve over any SUBSET of this roster is exactly what each solve
+    would derive for itself (``precompute_slot_eligibility``'s contract) — the
+    same seam :func:`_run` already uses for its per-draw solves.
+
+    ``None`` (each solve derives its own, as before) in the one case an
+    id-keyed map could differ from a per-object derivation: two entries
+    sharing an id with different position data.
+    """
+    seen: dict[str, tuple[str, tuple[str, ...]]] = {}
+    for p in roster:
+        shape = (p.position, tuple(p.fantasy_positions or ()))
+        if seen.setdefault(p.player_id, shape) != shape:
+            return None
+    template = [_roster_player(p, 0.0) for p in roster]
+    return precompute_slot_eligibility(template, list(slots), slot_eligibility=slot_eligibility)
+
+
 def _run(
     roster: Sequence[UtilityPlayer],
     slots: Sequence[str],
     slot_eligibility: Mapping[str, Any] | None,
     draws: _Draws,
     n: int,
+    weeks: Sequence[int] | None = None,
 ) -> _RosterRun:
     priced = [p for p in roster if p.ppg is not None]
     unpriced = tuple(sorted(p.player_id for p in roster if p.ppg is None))
@@ -156,14 +226,18 @@ def _run(
         return _RosterRun(0.0, [0.0] * n, {}, {}, 0.0, 0, unpriced)
     series = {p.player_id: draws.of(p) for p in priced}
     template = [_roster_player(p, 0.0) for p in priced]
+    # Keyed by player id, so solving any SUBSET of this pool (a week's
+    # available players) against it is exact — absent ids are never read.
     eligibility = precompute_slot_eligibility(
         template, list(slots), slot_eligibility=slot_eligibility
     )
     in_count: dict[str, int] = {p.player_id: 0 for p in priced}
     usable_sum: dict[str, float] = {p.player_id: 0.0 for p in priced}
+    empty_count: dict[str, int] = {}
     per_draw: list[float] = []
     for d in range(n):
-        pool = [_roster_player(p, series[p.player_id][d]) for p in priced]
+        week = weeks[d % len(weeks)] if weeks else None
+        pool = [_roster_player(p, series[p.player_id][d]) for p in priced if _plays(p, week)]
         assignment = solve_optimal_assignment(
             pool,
             list(slots),
@@ -176,32 +250,103 @@ def _run(
             score += v
             in_count[pl.player_id] += 1
             usable_sum[pl.player_id] += v
+        # The solver fills every fillable slot, so an unfilled slot is one no
+        # available projected player is eligible for this week.
+        for i, slot in enumerate(slots):
+            if i not in assignment:
+                empty_count[slot] = empty_count.get(slot, 0) + 1
         per_draw.append(score)
     return _RosterRun(
         mean=sum(per_draw) / n,
         per_draw=per_draw,
         lep={pid: c / n for pid, c in in_count.items()},
         usable={pid: s / n for pid, s in usable_sum.items()},
-        raw_ppg=sum(float(p.ppg) for p in priced),
+        # Raw production the roster could field, availability-weighted: a
+        # player out for every remaining week contributes nothing here either.
+        raw_ppg=sum(float(p.ppg) * _eligible_share(p, weeks) for p in priced),
         priced=len(priced),
         unpriced_ids=unpriced,
+        empty_by_slot={slot: c / n for slot, c in empty_count.items()},
     )
+
+
+def _structural_holes(
+    roster: Sequence[UtilityPlayer],
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Any] | None,
+) -> dict[str, list[str]]:
+    """Starting slots the roster cannot fill at all, and those only an
+    unprojected player can fill (TC-B / TCM-H12).
+
+    Eligibility only — every rostered player is offered at the same weight,
+    with no week, availability or projection — through the ONE exact solver.
+    ``noEligiblePlayer``: no rostered player may start there (a true hole).
+    ``onlyUnprojected``: fillable, but only by players with no league-scored
+    projection, so the simulation counts it as empty every week.
+    """
+    everyone = [_roster_player(p, 1.0) for p in roster]
+    projected = [_roster_player(p, 1.0) for p in roster if p.ppg is not None]
+
+    def _unfilled(pool: list[RosterPlayer]) -> list[str]:
+        if not pool:
+            return list(slots)
+        assignment = solve_optimal_assignment(
+            pool,
+            list(slots),
+            slot_eligibility=slot_eligibility,
+            objective=OBJECTIVE_REALIZED_POINTS,
+        )
+        return [slot for i, slot in enumerate(slots) if i not in assignment]
+
+    none_eligible = _unfilled(everyone)
+    unfilled_projected = _unfilled(projected)
+    only_unprojected = list(unfilled_projected)
+    for slot in none_eligible:
+        if slot in only_unprojected:
+            only_unprojected.remove(slot)
+    return {"noEligiblePlayer": none_eligible, "onlyUnprojected": only_unprojected}
+
+
+def _holes_summary(
+    run: _RosterRun,
+    roster: Sequence[UtilityPlayer],
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    by_slot = run.empty_by_slot
+    return {
+        # Mean unfilled starting slots per simulated week: byes, injuries
+        # whose stated return is later, and slots no projected player fits.
+        "emptySlotsPerWeek": None if by_slot is None else round(sum(by_slot.values()), 2),
+        "emptyBySlot": None
+        if by_slot is None
+        else {k: round(v, 2) for k, v in sorted(by_slot.items())},
+        **_structural_holes(roster, slots, slot_eligibility),
+    }
 
 
 def _expected_lineup_score(
     roster: Sequence[UtilityPlayer],
     slots: Sequence[str],
     slot_eligibility: Mapping[str, Any] | None,
+    week: int | None = None,
+    eligibility: Mapping[str, Sequence[int]] | None = None,
 ) -> tuple[float, list[str]]:
     """One solve on the MEANS — used only by the absence scenario, which asks a
-    deterministic what-if and says so."""
-    pool = [_roster_player(p, float(p.ppg)) for p in roster if p.ppg is not None]
+    deterministic what-if and says so.
+
+    ``eligibility`` is :func:`_roster_eligibility` over a roster this pool is a
+    subset of; ``None`` derives it inside the solve (identical result)."""
+    pool = [
+        _roster_player(p, float(p.ppg)) for p in roster if p.ppg is not None and _plays(p, week)
+    ]
     if not pool:
         return 0.0, []
     assignment = solve_optimal_assignment(
         pool,
         list(slots),
         slot_eligibility=slot_eligibility,
+        precomputed_eligibility=eligibility,
         objective=OBJECTIVE_REALIZED_POINTS,
     )
     return (
@@ -210,32 +355,64 @@ def _expected_lineup_score(
     )
 
 
-def _absence_depth(
+def _absence_depth_week(
     roster: Sequence[UtilityPlayer],
     slots: Sequence[str],
     slot_eligibility: Mapping[str, Any] | None,
-) -> dict[str, Any] | None:
-    """Single-starter absence: remove each expected starter in turn, re-solve.
-
-    ``meanLossPpg`` — how much the expected lineup loses, on average, when one
-    starter is out.  Lower means deeper/more resilient.  A deterministic
-    scenario over the means, NOT an injury probability (none is modelled).
-    """
-    base, starters = _expected_lineup_score(roster, slots, slot_eligibility)
+    week: int | None,
+    eligibility: Mapping[str, Sequence[int]] | None = None,
+) -> tuple[float, list[tuple[float, str]]] | None:
+    base, starters = _expected_lineup_score(roster, slots, slot_eligibility, week, eligibility)
     if not starters:
         return None
     losses: list[tuple[float, str]] = []
     for sid in starters:
         rest = [p for p in roster if p.player_id != sid]
-        without, _ = _expected_lineup_score(rest, slots, slot_eligibility)
+        without, _ = _expected_lineup_score(rest, slots, slot_eligibility, week, eligibility)
         losses.append((base - without, sid))
-    worst = max(losses)
+    return base, losses
+
+
+def _starters_avg(per_week: Sequence[tuple[float, list[tuple[float, str]]]]) -> float | int:
+    avg = sum(len(ls) for _, ls in per_week) / len(per_week)
+    return int(avg) if avg == int(avg) else round(avg, 1)
+
+
+def _absence_depth(
+    roster: Sequence[UtilityPlayer],
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Any] | None,
+    weeks: Sequence[int] | None = None,
+) -> dict[str, Any] | None:
+    """Single-starter absence: remove each expected starter in turn, re-solve.
+
+    ``meanLossPpg`` — how much the expected lineup loses, on average, when one
+    starter is out.  Lower means deeper/more resilient.  A deterministic
+    scenario over the means, NOT an injury probability.  With ``weeks`` it is
+    solved per remaining week over that week's available players and averaged.
+    """
+    # One eligibility derivation for the whole scenario set: every solve below
+    # is over a subset of ``roster`` (a week's available players, minus one
+    # starter), so the id-keyed map is exact for each of them.
+    eligibility = _roster_eligibility(roster, slots, slot_eligibility)
+    per_week = [
+        r
+        for r in (
+            _absence_depth_week(roster, slots, slot_eligibility, w, eligibility)
+            for w in (weeks or [None])
+        )
+        if r is not None
+    ]
+    if not per_week:
+        return None
+    all_losses = [loss for _, losses in per_week for loss in losses]
+    worst = max(all_losses)
     return {
-        "expectedLineupPpg": round(base, 2),
-        "meanLossPpg": round(sum(loss for loss, _ in losses) / len(losses), 2),
+        "expectedLineupPpg": round(sum(b for b, _ in per_week) / len(per_week), 2),
+        "meanLossPpg": round(sum(loss for loss, _ in all_losses) / len(all_losses), 2),
         "worstLossPpg": round(worst[0], 2),
         "worstLossPlayerId": worst[1],
-        "starters": len(starters),
+        "starters": _starters_avg(per_week),
     }
 
 
@@ -262,6 +439,168 @@ def _roster_summary(run: _RosterRun, roster_size: int) -> dict[str, Any]:
     }
 
 
+# ── Before-roster reuse ──────────────────────────────────────────────────
+#
+# The BEFORE roster's simulation (its 400 paired-draw lineup solves, its
+# lineup holes, and its single-starter-absence scenarios) is roughly half of
+# every evaluation, and it is identical for every trade a team evaluates: the
+# trade only changes the AFTER roster.  It is reused, never approximated:
+#
+# * keyed by a hash of EVERY input those three computations read — each
+#   player's id / name / position / per-game points / fantasy positions /
+#   per-week availability (in roster order), the slots, the league's slot
+#   eligibility rule, the points model, draw count, seed and weeks — plus the
+#   caller's scope, so a different roster, projection, calendar or league rule
+#   is a different key by construction;
+# * stored with the before players' own draws, which seed the caller's shared
+#   draw cache exactly as computing the before roster first would have, so the
+#   AFTER roster's paired draws are byte-identical either way;
+# * returned as deep copies, so no caller can mutate the cached entry.
+#
+# Bounded LRU, process-local, holds only numbers derived from those inputs.
+
+_BEFORE_CACHE_MAX = 32
+_before_cache: OrderedDict[tuple[Any, ...], dict[str, Any]] = OrderedDict()
+_before_lock = threading.Lock()
+_before_flights = SingleFlight()
+#: Observability (and the deterministic performance guard in the tests).
+before_side_stats: dict[str, int] = {"computed": 0, "reused": 0}
+
+
+def _count(kind: str) -> None:
+    with _before_lock:
+        before_side_stats[kind] = before_side_stats.get(kind, 0) + 1
+
+
+def _before_fingerprint(
+    before: Sequence[UtilityPlayer],
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Any] | None,
+    model: PointsModel,
+    n: int,
+    seed: int,
+    weeks: Sequence[int] | None,
+) -> str:
+    doc = {
+        "players": [
+            [
+                p.player_id,
+                p.name,
+                p.position,
+                p.ppg,
+                list(p.fantasy_positions or ()),
+                None
+                if p.availability is None
+                else [[repr(k), p.availability[k]] for k in sorted(p.availability, key=repr)],
+            ]
+            for p in before
+        ],
+        "slots": list(slots),
+        # Key order kept (the rule's own normalisation is last-wins), each
+        # slot's positions as a sorted list (the rule reads them as a set).
+        "slotEligibility": None
+        if slot_eligibility is None
+        else [
+            [str(k), v] if isinstance(v, str) else [str(k), sorted(str(x) for x in v)]
+            for k, v in slot_eligibility.items()
+        ],
+        "model": model.to_dict(),
+        "draws": n,
+        "seed": seed,
+        "weeks": None if weeks is None else list(weeks),
+    }
+    raw = json.dumps(doc, sort_keys=True, separators=(",", ":"), default=repr)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _compute_before_side(
+    before: Sequence[UtilityPlayer],
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Any] | None,
+    draws: _Draws,
+    n: int,
+    weeks: Sequence[int] | None,
+) -> tuple[_RosterRun, dict[str, Any], dict[str, Any] | None]:
+    run = _run(before, slots, slot_eligibility, draws, n, weeks)
+    holes = _holes_summary(run, before, slots, slot_eligibility)
+    depth = _absence_depth(before, slots, slot_eligibility, weeks)
+    return run, holes, depth
+
+
+def _before_side(
+    before: Sequence[UtilityPlayer],
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Any] | None,
+    shared: _Draws,
+    n: int,
+    weeks: Sequence[int] | None,
+    *,
+    model: PointsModel,
+    seed: int,
+    cache_scope: Sequence[str] | None,
+) -> tuple[_RosterRun, dict[str, Any], dict[str, Any] | None]:
+    """``(run, holes, depth)`` for the before roster — reused when the scope
+    and every input match (see the block comment above)."""
+    if cache_scope is None:
+        _count("computed")
+        return _compute_before_side(before, slots, slot_eligibility, shared, n, weeks)
+
+    key = (
+        tuple(str(x) for x in cache_scope),
+        _before_fingerprint(before, slots, slot_eligibility, model, n, seed, weeks),
+    )
+
+    def _lookup() -> dict[str, Any] | None:
+        with _before_lock:
+            hit = _before_cache.get(key)
+            if hit is not None:
+                _before_cache.move_to_end(key)
+            return hit
+
+    def _build() -> dict[str, Any]:
+        cached = _lookup()
+        if cached is not None:
+            return cached
+        own = _Draws(model, n, seed)
+        run, holes, depth = _compute_before_side(before, slots, slot_eligibility, own, n, weeks)
+        entry = {
+            "run": copy.deepcopy(run),
+            "holes": copy.deepcopy(holes),
+            "depth": copy.deepcopy(depth),
+            "draws": {pid: tuple(series) for pid, series in own._cache.items()},
+        }
+        with _before_lock:
+            _before_cache[key] = entry
+            _before_cache.move_to_end(key)
+            while len(_before_cache) > _BEFORE_CACHE_MAX:
+                _before_cache.popitem(last=False)
+        _count("computed")
+        return entry
+
+    entry = _lookup()
+    if entry is None:
+        entry, shared_flight = _before_flights.run_sharing_success(key, _build)
+        if shared_flight:
+            _count("reused")
+    else:
+        _count("reused")
+    # Seed the caller's draw cache with the before players' own series —
+    # exactly the state computing the before roster first leaves it in.
+    for pid, series in entry["draws"].items():
+        shared._cache.setdefault(pid, list(series))
+    return (
+        copy.deepcopy(entry["run"]),
+        copy.deepcopy(entry["holes"]),
+        copy.deepcopy(entry["depth"]),
+    )
+
+
+def clear_before_side_cache() -> None:
+    """Test / operator hook: drop every reused before-roster entry."""
+    with _before_lock:
+        _before_cache.clear()
+
+
 def evaluate_trade_utility(
     *,
     before: Sequence[UtilityPlayer],
@@ -274,14 +613,29 @@ def evaluate_trade_utility(
     draws: int = DEFAULT_DRAWS,
     seed: int = DEFAULT_SEED,
     basis: Mapping[str, Any] | None = None,
+    weeks: Sequence[int] | None = None,
+    availability_basis: Mapping[str, Any] | None = None,
+    cache_scope: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """BBLI and its explanation for one trade from one team's side.
+
+    ``weeks`` — the league's remaining fantasy weeks — turns on the calendar
+    (see the module docstring); each player's ``availability`` then decides
+    which weeks he can enter a lineup.  An empty ``weeks`` (the season is
+    over) is refused rather than simulated.
 
     ``after`` is the FINAL LEGAL roster (forced cleanup applied);
     ``after_before_cleanup`` is the roster the moment the trade lands, given
     only when a cleanup changed it, so "the apparent gain" and "the gain once
     the roster is legal" are both visible.  ``roles`` maps the player ids the
     trade touches to ``incoming`` / ``outgoing`` / ``forcedDrop``.
+
+    ``cache_scope`` (e.g. ``(leagueKey, ownerId)``) lets the BEFORE roster's
+    simulation be reused across trades evaluated for the same team: it does
+    not depend on the trade.  The reuse is content-addressed — keyed by every
+    input the before-side computation reads (see :func:`_before_fingerprint`)
+    — so a hit is the identical computation, never an approximation.  ``None``
+    (the default) computes everything fresh.
     """
     if not slots:
         return {
@@ -289,14 +643,32 @@ def evaluate_trade_utility(
             "unavailableReason": "starter_slots_unresolved",
             "unit": UNIT,
         }
+    if weeks is not None and not list(weeks):
+        return {
+            "available": False,
+            "unavailableReason": "no_remaining_fantasy_weeks",
+            "unit": UNIT,
+            "availability": dict(availability_basis or {}),
+        }
+    weeks = list(weeks) if weeks is not None else None
     model = points_model or load_points_model()
     n = max(2, int(draws))
     shared = _Draws(model, n, seed)
 
-    run_before = _run(before, slots, slot_eligibility, shared, n)
-    run_after = _run(after, slots, slot_eligibility, shared, n)
+    run_before, holes_before, depth_before = _before_side(
+        before,
+        slots,
+        slot_eligibility,
+        shared,
+        n,
+        weeks,
+        model=model,
+        seed=seed,
+        cache_scope=cache_scope,
+    )
+    run_after = _run(after, slots, slot_eligibility, shared, n, weeks)
     run_pre = (
-        _run(after_before_cleanup, slots, slot_eligibility, shared, n)
+        _run(after_before_cleanup, slots, slot_eligibility, shared, n, weeks)
         if after_before_cleanup is not None
         else None
     )
@@ -337,6 +709,12 @@ def evaluate_trade_utility(
             "usablePpgAfter": None
             if pid not in run_after.usable
             else round(run_after.usable[pid], 2),
+            # How many of the simulated remaining weeks he could play, and
+            # why not — reported beside every lineup share so a share is
+            # never read without its denominator.
+            "availability": None
+            if p is None or p.availability_summary is None
+            else dict(p.availability_summary),
         }
 
     for pid, role in sorted(roles.items(), key=lambda kv: (kv[1], kv[0])):
@@ -346,9 +724,13 @@ def evaluate_trade_utility(
     # Players the trade never names whose lineup role it changes (a FLEX seat
     # vacated, a bench player promoted, a starter pushed out).
     common = set(run_before.lep) & set(run_after.lep)
+    # Ties broken by player id.  Ordering by magnitude alone left equal shifts
+    # in SET iteration order, which follows the per-process string-hash seed —
+    # so the same trade listed (and, at the MAX_AFFECTED cut, chose) different
+    # players after a restart.  The numbers never depended on it.
     shifts = sorted(
         ((run_after.lep[pid] - run_before.lep[pid], pid) for pid in common if pid not in listed),
-        key=lambda t: -abs(t[0]),
+        key=lambda t: (-abs(t[0]), t[1]),
     )
     for shift, pid in shifts[:MAX_AFFECTED]:
         if abs(shift) * 100 < AFFECTED_LEP_PP:
@@ -359,8 +741,15 @@ def evaluate_trade_utility(
     n_out = sum(1 for r in roles.values() if r == "outgoing")
     shape = "consolidation" if n_out > n_in else "expansion" if n_in > n_out else "swap"
 
-    depth_before = _absence_depth(before, slots, slot_eligibility)
-    depth_after = _absence_depth(after, slots, slot_eligibility)
+    holes_after = _holes_summary(run_after, after, slots, slot_eligibility)
+    holes_delta = (
+        round(holes_after["emptySlotsPerWeek"] - holes_before["emptySlotsPerWeek"], 2)
+        if holes_before["emptySlotsPerWeek"] is not None
+        and holes_after["emptySlotsPerWeek"] is not None
+        else None
+    )
+
+    depth_after = _absence_depth(after, slots, slot_eligibility, weeks)
     depth_delta = (
         round(depth_after["meanLossPpg"] - depth_before["meanLossPpg"], 2)
         if depth_before and depth_after
@@ -403,6 +792,22 @@ def evaluate_trade_utility(
             # Positive = a missing starter hurts MORE after the trade.
             "meanLossDeltaPpg": depth_delta,
         },
+        # Holes and bye coverage (TC-B / TCM-H12): reported beside the
+        # lineup it explains, never a separate vote — BBLI already scores
+        # the empty slots as zero points, so counting them again would be
+        # double counting.
+        "lineupHoles": {
+            "method": "unfilled_starting_slots",
+            "description": (
+                "starting slots left empty in the simulated weeks (a bye, a stated "
+                "injury absence, or no projected eligible player), plus slots the "
+                "roster cannot fill at all"
+            ),
+            "before": holes_before,
+            "after": holes_after,
+            # Positive = more empty starting slots per week after the trade.
+            "emptySlotsPerWeekDelta": holes_delta,
+        },
         "rosterSpot": {
             "openSpotsGained": max(0, n_out - n_in),
             "shadowValuePpg": None,
@@ -418,15 +823,37 @@ def evaluate_trade_utility(
             "seed": seed,
             "pointsModel": model.to_dict(),
             "lineupSolver": "src.ros.lineup.solve_optimal_assignment (realized_points)",
+            "weeks": weeks,
+            "drawsPerWeek": None if not weeks else round(n / len(weeks), 1),
+            "availability": dict(availability_basis or {}) if weeks else None,
         },
-        "assumptions": [
-            "each week is drawn around the player's per-game projection with the league's "
-            "calibrated per-position variance; players are independent",
+        "assumptions": _assumptions(weeks),
+    }
+
+
+def _assumptions(weeks: Sequence[int] | None) -> list[str]:
+    draw = (
+        "each week is drawn around the player's per-game projection with the league's "
+        "calibrated per-position variance; players are independent"
+    )
+    solve = "the lineup is re-solved exactly for every simulated week (best ball)"
+    if not weeks:
+        return [
+            draw,
             "injury / availability probabilities are not modelled",
             "bye weeks are not modelled",
-            "the lineup is re-solved exactly for every simulated week (best ball)",
-        ],
-    }
+            solve,
+        ]
+    return [
+        draw,
+        solve,
+        f"simulated weeks are the league's remaining fantasy weeks ({weeks[0]}-{weeks[-1]})",
+        "a player is removed from a week on a bye, or when an injury's stated expected "
+        "return is after that week's game, or by a recorded override",
+        "uncertain availability (questionable, reserve list with no stated return) is "
+        "kept in the lineup pool and reported, not assigned a probability",
+        "the per-game projection is a full-season rate, not a weekly projection",
+    ]
 
 
 # ── Projection basis (trade path) ────────────────────────────────────────
@@ -440,6 +867,9 @@ def evaluate_trade_utility(
 _ENSEMBLE_TTL_SECONDS = 900.0
 _ensemble_cache: dict[tuple[int, str], tuple[float, dict[str, float], dict[str, Any]]] = {}
 _ensemble_lock = threading.Lock()
+#: One ensemble build per (season, scoring card) in flight: concurrent cold
+#: requests used to each load and rescore every projection snapshot.
+_ensemble_flights = SingleFlight()
 
 
 def _ensemble_index(
@@ -447,8 +877,6 @@ def _ensemble_index(
 ) -> tuple[dict[str, float], dict[str, Any]]:
     """``(normalized name -> per-game points, basis)`` for one league scoring card."""
     from src.league_comparison.sleeper_scoring import scoring_fingerprint
-    from src.ros.game_day_capture import estimate_index_from_ensemble
-    from src.ros.projection_ensemble import build_ros_full_season_ensemble
 
     fingerprint = scoring_fingerprint(dict(scoring_settings or {}))
     if fingerprint is None:
@@ -457,6 +885,37 @@ def _ensemble_index(
     now = time.time()
     with _ensemble_lock:
         hit = _ensemble_cache.get(key)
+    if hit is not None and now - hit[0] < _ENSEMBLE_TTL_SECONDS:
+        return hit[1], hit[2]
+    # Only a non-empty ensemble is shared; a caller whose concurrent leader
+    # failed (raised, or found nothing) joins ONE shared retry (two builds max).
+    (index, basis), _shared = _ensemble_flights.run_sharing_success(
+        key,
+        lambda: _build_ensemble_index(key, season, scoring_settings, fingerprint),
+        failed=lambda result: not result[0],
+        retry=lambda: _build_ensemble_index(
+            key, season, scoring_settings, fingerprint, check_cache=False
+        ),
+    )
+    return index, basis
+
+
+def _build_ensemble_index(
+    key: tuple[int, str],
+    season: int,
+    scoring_settings: Mapping[str, Any],
+    fingerprint: str,
+    *,
+    check_cache: bool = True,
+) -> tuple[dict[str, float], dict[str, Any]]:
+    from src.ros.game_day_capture import estimate_index_from_ensemble
+    from src.ros.projection_ensemble import build_ros_full_season_ensemble
+
+    now = time.time()
+    hit = None
+    if check_cache:
+        with _ensemble_lock:
+            hit = _ensemble_cache.get(key)
     if hit is not None and now - hit[0] < _ENSEMBLE_TTL_SECONDS:
         return hit[1], hit[2]
     result = build_ros_full_season_ensemble(
@@ -482,8 +941,28 @@ def _ensemble_index(
         "families": families,
         "playersProjected": len(index),
     }
+    return _store_ensemble(key, now, index, basis)
+
+
+def _store_ensemble(
+    key: tuple[int, str], built_at: float, index: dict[str, float], basis: dict[str, Any]
+) -> tuple[dict[str, float], dict[str, Any]]:
+    """Record an ensemble build; returns the ``(index, basis)`` to answer with.
+
+    Never last-writer-wins: a build that started before the cached entry does
+    not replace it, and an empty build (a failure) does not replace a
+    non-empty one still inside its TTL.  When this build is empty but a fresh
+    non-empty one is cached, that one is the answer.
+    """
     with _ensemble_lock:
-        _ensemble_cache[key] = (now, index, basis)
+        existing = _ensemble_cache.get(key)
+        if existing is not None:
+            fresh_success = bool(existing[1]) and time.time() - existing[0] < _ENSEMBLE_TTL_SECONDS
+            if existing[0] > built_at or (fresh_success and not index):
+                if not index and fresh_success:
+                    return existing[1], existing[2]
+                return index, basis
+        _ensemble_cache[key] = (built_at, index, basis)
     return index, basis
 
 

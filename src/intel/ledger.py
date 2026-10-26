@@ -770,7 +770,13 @@ def prune(
     path: Path | None = None,
 ) -> int:
     """Drop movements older than the retention horizon, then any
-    transaction left with no movements.  Returns movements removed."""
+    transaction left with no movements.  Returns movements removed.
+
+    Then applies the Sharp league-format capture retention
+    (``src/sharp/league_format_capture.prune_captures``) at the same horizon,
+    AFTER the movement prune so "in force for a retained trade" is judged
+    against what is actually retained.  A failure there is logged and never
+    undoes or fails the movement prune (already committed)."""
     own_conn = conn is None
     conn = conn or connect(path)
     now = now_ms if now_ms is not None else _now_ms()
@@ -782,6 +788,15 @@ def prune(
             "DELETE FROM transactions WHERE tx_id NOT IN (SELECT DISTINCT tx_id FROM asset_movements)"
         )
         conn.commit()
+        try:
+            from src.sharp import league_format_capture  # noqa: PLC0415 — imports this module
+
+            league_format_capture.prune_captures(
+                conn, now_ms=int(now), retention_days=int(retention_days)
+            )
+        except Exception:  # noqa: BLE001 — capture retention never fails the movement prune
+            log.warning("intel.ledger: league format capture prune failed", exc_info=True)
+            conn.rollback()
     finally:
         if own_conn:
             conn.close()

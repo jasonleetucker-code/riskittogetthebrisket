@@ -1,0 +1,103 @@
+{
+  "engine": {
+    "name": "tesseract",
+    "version": "5.3.4"
+  },
+  "ignored": [
+    {
+      "raw": "9:41",
+      "reason": "outside_trade_region"
+    },
+    {
+      "raw": "example.com/trade-calculator",
+      "reason": "outside_trade_region"
+    },
+    {
+      "raw": "Trade Calculator",
+      "reason": "label"
+    },
+    {
+      "raw": "Menu",
+      "reason": "navigation"
+    },
+    {
+      "raw": "1QB Superflex TE Premium",
+      "reason": "outside_trade_region"
+    },
+    {
+      "raw": "Search for a player",
+      "reason": "search_placeholder"
+    },
+    {
+      "raw": "5542",
+      "reason": "value_number"
+    },
+    {
+      "raw": "QB: NYG: 23.4 y.0.",
+      "reason": "not_an_asset"
+    },
+    {
+      "raw": "1 Total Pieces",
+      "reason": "label"
+    },
+    {
+      "raw": "5,542",
+      "reason": "value_number"
+    },
+    {
+      "raw": "Want a better offer?",
+      "reason": "outside_trade_region"
+    },
+    {
+      "raw": "Pro members see trade grades",
+      "reason": "outside_trade_region"
+    },
+    {
+      "raw": "Start free trial",
+      "reason": "outside_trade_region"
+    }
+  ],
+  "imageIndex": 0,
+  "layout": {
+    "confidence": 0.9,
+    "kind": "stacked"
+  },
+  "ok": true,
+  "sides": [
+    {
+      "anchorFamily": "team 1/team 2",
+      "anchorSlot": 0,
+      "items": [
+        {
+          "boardName": "Jaxson Dart",
+          "candidates": [],
+          "conf": 0.945,
+          "hints": {
+            "position": null,
+            "team": null
+          },
+          "kind": "player",
+          "lineIndex": 7,
+          "raw": "Jaxson Dart",
+          "reason": null,
+          "sleeperId": "12508",
+          "status": "resolved",
+          "suggestions": []
+        }
+      ],
+      "label": "Team 1 gets",
+      "labelSource": "anchor"
+    },
+    {
+      "anchorFamily": "team 1/team 2",
+      "anchorSlot": 1,
+      "items": [],
+      "label": "Team 2 gets",
+      "labelSource": "anchor"
+    }
+  ],
+  "unassigned": [],
+  "warnings": [
+    "missing_side"
+  ]
+}

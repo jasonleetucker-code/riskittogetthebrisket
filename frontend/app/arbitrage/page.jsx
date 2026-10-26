@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useTeam } from "@/components/useTeam";
@@ -8,18 +8,90 @@ import {
   Badge,
   Banner,
   Button,
+  CollapsiblePanel,
   EmptyState,
   Field,
+  Input,
   PageHeader,
   Panel,
+  PlayerNameButton,
+  SegmentedControl,
   Select,
   SkeletonTable,
   StatTile,
+  Tabs,
+  canonicalPlayerId,
+  tabId,
+  tabPanelId,
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
-import { buildArbitrageRows } from "@/lib/market-arbitrage";
+import { parseArbitrageQuery } from "@/lib/arbitrage-links";
+import { buildArbitrageRows, rosterCapacityLine } from "@/lib/market-arbitrage";
+import {
+  emptyRefinement,
+  loadRefinement,
+  refinementKey,
+  saveRefinement,
+  toRequest,
+  toggleExclude,
+  toggleLock,
+  toggleSkip,
+} from "@/lib/trade-refinement";
+import {
+  IncomingSkip,
+  OutgoingRefinement,
+  RefinementBar,
+} from "@/components/trade/RefinementControls";
+import DiscoveryControls from "@/components/trade/DiscoveryControls";
+import {
+  DEFAULT_TABLE_SORT,
+  PLAYER_SCOPE_OPTIONS,
+  TABLE_SORT_OPTIONS,
+  TARGET_QUALITY_OPTIONS,
+  DEFAULT_TARGET_QUALITY,
+  broaderQualityOptions,
+  defaultDiscovery,
+  discoveryEmptyText,
+  discoveryRequest,
+  discoverySummary,
+  fmtSignedPctValue,
+  rankValueLine,
+} from "@/lib/trade-discovery";
+
+// C3-CTX-01 — the same Team context / Asset only switch the Trade War Room
+// uses.  ON lets this team's roster (needs, forced releases) shape the order;
+// OFF ranks on asset value and market appeal alone.  Values never change.
+const CONTEXT_OPTIONS = [
+  { value: "team", label: "Team context" },
+  { value: "asset", label: "Asset only" },
+];
 import styles from "./arbitrage.module.css";
+import BestOffersView from "./BestOffersView";
+import GoldenUpgradesView from "./GoldenUpgradesView";
+import PackageBuilderView from "./PackageBuilderView";
+import TradeDeskView from "./TradeDeskView";
+
+// Owner directive 2026-10-18 (Trade Finder meaningful discovery): the tools
+// come FIRST, directly under the header, in this order, with Golden Upgrades
+// the default.  Golden Upgrades (C7-GOLD-01) — same-position 1-for-1
+// inversions; Package Scan — the equal-count arbitrage scan; Best Offer by
+// Opponent (C7-BEST-TRADE); Package Builder (C7-PKGB-01); Trade Desk (Part
+// 12), the user's private list of saved packages.  The player-level research
+// table moves BELOW the tools into a collapsed section.
+export const TOOL_TABS = [
+  { id: "golden", label: "Golden Upgrades" },
+  { id: "scan", label: "Package Scan" },
+  { id: "best", label: "Best Offer by Opponent" },
+  { id: "builder", label: "Package Builder" },
+  { id: "desk", label: "Trade Desk" },
+];
+export const DEFAULT_TOOL = "golden";
+// The views that read the shared Target Quality / Players to target / Sort.
+const DISCOVERY_TOOLS = new Set(["golden", "scan", "best", "builder"]);
+// Rows the research table renders before "Show all" (a 300-row table used to
+// push every tool 26 printed pages down the page).
+const RESEARCH_ROW_LIMIT = 50;
 
 // ── /arbitrage — board-vs-public-market arbitrage finder ─────────────
 //
@@ -66,21 +138,21 @@ function PlayerEdgeTable({ opportunities }) {
   if (!opportunities.length) {
     return (
       <EmptyState
-        title="No player-level edges at this threshold"
-        description="Missing public prices stay missing rather than becoming zero. Lower the threshold or switch asset class to inspect more of the board."
+        title="No player-level edges under these filters"
+        description="Missing public prices stay missing rather than becoming zero. Lower the edge threshold, broaden Target quality or switch Players to inspect more of the board."
       />
     );
   }
 
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div className={styles.tableScroll}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
         <thead>
           <tr>
             {[
               "Player",
               "Pos",
-              "Our rank",
+              "Canonical rank",
               "Our value",
               "Public market",
               "Public value",
@@ -103,10 +175,16 @@ function PlayerEdgeTable({ opportunities }) {
           {opportunities.map(({ row, edge }) => (
             <tr key={row.playerId || `${row.name}-${row.pos}`}>
               <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>
-                <strong>{row.name}</strong>
+                <strong>
+                  <PlayerNameButton name={row.name} playerId={canonicalPlayerId(row)} />
+                </strong>
               </td>
               <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{row.pos}</td>
-              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{row.rank ?? "—"}</td>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>
+                {/* The backend-stamped canonical rank only; a row past the
+                    ranked cap is unranked, never a display ordinal. */}
+                {row.canonicalConsensusRank ?? "unranked"}
+              </td>
               <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{fmt(edge.ourValue)}</td>
               <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{edge.marketLabel}</td>
               <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{fmt(edge.marketValue)}</td>
@@ -136,7 +214,7 @@ function PlayerEdgeTable({ opportunities }) {
   );
 }
 
-function AssetList({ assets, onExclude }) {
+function AssetList({ assets, side, refine }) {
   if (!assets?.length) return <span className={styles.muted}>—</span>;
   return (
     <ul className={styles.assetList}>
@@ -146,18 +224,28 @@ function AssetList({ assets, onExclude }) {
           <Badge tone="neutral">{a.position}</Badge>
           <span className={styles.assetValues}>
             board {fmt(a.modelValue)}
-            {a.ktcValue != null ? ` · market ${fmt(a.ktcValue)}` : " · unpriced"}
+            {a.ktcValue == null
+              ? " · unpriced"
+              : a.marketDerivation
+                ? ` · market ≈${fmt(a.ktcValue)} (KTC tier average — slot unknown)`
+                : ` · market ${fmt(a.ktcValue)}`}
           </span>
-          {onExclude && a.name ? (
-            <button
-              type="button"
-              className={styles.excludeButton}
-              aria-label={`Exclude ${a.name} from suggestions`}
-              title="Exclude from this scan"
-              onClick={() => onExclude(a.name)}
-            >
-              ×
-            </button>
+          {refine && a.name && side === "give" ? (
+            <OutgoingRefinement
+              name={a.name}
+              refinement={refine.refinement}
+              onLock={refine.onLock}
+              onExclude={refine.onExclude}
+              disabled={refine.disabled}
+            />
+          ) : null}
+          {refine && a.name && side === "receive" ? (
+            <IncomingSkip
+              name={a.name}
+              refinement={refine.refinement}
+              onSkip={refine.onSkip}
+              disabled={refine.disabled}
+            />
           ) : null}
         </li>
       ))}
@@ -165,25 +253,31 @@ function AssetList({ assets, onExclude }) {
   );
 }
 
-function TradeCard({ trade, myTeam, opponent, onExclude }) {
+function TradeCard({ trade, myTeam, opponent, refine }) {
   const boardDelta = Number(trade.boardDelta || 0);
   const ktcDelta = Number(trade.ktcDelta || 0);
+  const counterparty = trade.counterparty || (opponent && opponent !== "all" ? opponent : null);
+  const mine = rosterCapacityLine(trade.rosterCapacity);
+  const theirs = rosterCapacityLine(trade.counterpartyRosterCapacity);
 
   const openInCalculator = useMemo(() => {
-    const give = (trade.give || []).map((a) => a.name).filter(Boolean);
-    const receive = (trade.receive || []).map((a) => a.name).filter(Boolean);
+    // A pick travels as its canonical board row ("2027 Round 1"), the name
+    // the calculator can resolve — not the "2027 1st (Team)" display label.
+    const asCalculatorName = (a) => a.boardRowName || a.name;
+    const give = (trade.give || []).map(asCalculatorName).filter(Boolean);
+    const receive = (trade.receive || []).map(asCalculatorName).filter(Boolean);
     if (!give.length && !receive.length) return null;
     try {
       return buildShareUrl({
         sides: [
           { name: myTeam || "You", players: give },
-          { name: opponent && opponent !== "all" ? opponent : "Them", players: receive },
+          { name: counterparty || "Them", players: receive },
         ],
       });
     } catch {
       return null;
     }
-  }, [trade, myTeam, opponent]);
+  }, [trade, myTeam, counterparty]);
 
   return (
     <Panel className={`${styles.tradeCard} arbitrage-trade-card`}>
@@ -207,14 +301,25 @@ function TradeCard({ trade, myTeam, opponent, onExclude }) {
           </Badge>
         ) : null}
       </div>
+      <DiscoveryFacts trade={trade} />
+      {mine || theirs ? (
+        <ul className={styles.capacityList} aria-label="Roster consequences">
+          {mine ? <li>Your roster: {mine}</li> : null}
+          {theirs ? (
+            <li>
+              {counterparty ? `${counterparty}'s` : "Their"} roster: {theirs}
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
       <div className={styles.tradeBody}>
         <div className={styles.side}>
           <h4 className={styles.sideLabel}>You give</h4>
-          <AssetList assets={trade.give} onExclude={onExclude} />
+          <AssetList assets={trade.give} side="give" refine={refine} />
         </div>
         <div className={styles.side}>
           <h4 className={styles.sideLabel}>You get</h4>
-          <AssetList assets={trade.receive} onExclude={onExclude} />
+          <AssetList assets={trade.receive} side="receive" refine={refine} />
         </div>
       </div>
       {openInCalculator ? (
@@ -225,6 +330,74 @@ function TradeCard({ trade, myTeam, opponent, onExclude }) {
         </div>
       ) : null}
     </Panel>
+  );
+}
+
+// Owner directive 2026-10-18: what a Package Scan trade MEANS, from the
+// server's discovery metrics (src/trade/discovery) — best incoming player and
+// rank, the other pieces, the VA-adjusted canonical difference, team context,
+// market plausibility and evidence.  Display only.
+function DiscoveryFacts({ trade }) {
+  const d = trade?.discovery;
+  if (!d) return null;
+  const best = d.bestIncoming;
+  const lineup = d.lineupImpact;
+  const fitBasis = d.factorBasis?.rosterFit;
+  let teamLine = "Team context: not applied";
+  if (lineup?.available && Number.isFinite(lineup.ourDelta)) {
+    const v = lineup.ourDelta;
+    teamLine = `Team context: starting lineup ${v > 0 ? "+" : ""}${v.toFixed(1)} rest-of-season pts`;
+  } else if (fitBasis === "team_weakness") {
+    teamLine =
+      d.factors?.rosterFit > 0
+        ? "Team context: fills a rated need"
+        : "Team context: no rated need filled";
+  }
+  const appeal = Number(trade.opponentKtcAppeal);
+  return (
+    <div className={styles.discovery}>
+      {trade.whyItMatters ? (
+        <p className={styles.why}>
+          <strong>Why it matters:</strong> {trade.whyItMatters}
+        </p>
+      ) : null}
+      <dl className={styles.factList}>
+        <div>
+          <dt>Best incoming</dt>
+          <dd>
+            {best ? `${best.name} (${rankValueLine(best.rank, best.value)})` : "a pick only"}
+          </dd>
+        </div>
+        {d.otherIncoming?.length ? (
+          <div>
+            <dt>Also incoming</dt>
+            <dd>{d.otherIncoming.join(", ")}</dd>
+          </div>
+        ) : null}
+        <div>
+          <dt>Adjusted canonical difference</dt>
+          <dd>
+            {fmtSigned(d.gain)} ({fmtSignedPctValue(d.gainPct)})
+          </dd>
+        </div>
+        <div>
+          <dt>Market plausibility</dt>
+          <dd>
+            {Number.isFinite(appeal)
+              ? `they gain ${Math.round(appeal * 100)}% on their market`
+              : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt>Evidence</dt>
+          <dd>
+            {trade.confidenceTier || "unknown"} confidence ·{" "}
+            {trade.ktcCoverage || "unknown"} market coverage
+          </dd>
+        </div>
+      </dl>
+      <p className={styles.muted}>{teamLine}</p>
+    </div>
   );
 }
 
@@ -254,65 +427,95 @@ export default function ArbitragePage() {
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
-  const [edgeAction, setEdgeAction] = useState("buy");
-  const [edgeClass, setEdgeClass] = useState("all");
-  const [edgeFloor, setEdgeFloor] = useState(0.05);
-  const [excludedPlayers, setExcludedPlayers] = useState([]);
+  // C3-CON-03 LOCK / EXCLUDE (+ the incoming-only "Skip target").  Kept per
+  // (team, league, scan context) in localStorage until cleared — never in the
+  // persistent trade-protection store.
+  const [refinement, setRefinement] = useState(emptyRefinement);
+  const [useTeamContext, setUseTeamContext] = useState(true);
+  const [tool, setTool] = useState(DEFAULT_TOOL);
+  // A Package Builder seed from a link (Manager Intelligence Batch D:
+  // `?tool=builder&league=…&opponent=<owner id>[&target=…]`), read by the
+  // deep-link effect below; the view resolves the owner id to a team.
+  const [builderSeed, setBuilderSeed] = useState(null);
+  // One discovery request shared by Golden Upgrades, Package Scan and Best
+  // Offers, so the same filters mean the same thing in every view.
+  const [discovery, setDiscovery] = useState(defaultDiscovery);
+  // Only the LATEST scan may write the result: a mode switch mid-scan starts a
+  // new request, and a slower earlier response must not paint the other
+  // mode's order under the current switch position.
+  const scanSeq = useRef(0);
+
+  // Deep links — /trade "Next steps" (`?tool=&team=&opponent=`, TC-B /
+  // TCM-O11) and Manager Intelligence builder seeds — are written and parsed
+  // by ONE owner (lib/arbitrage-links.js), which tells the two shapes apart.
+  // Read from window (SSR-safe) until the league's teams load: a team this
+  // league does not have is dropped, never guessed.
+  const deepLinkApplied = useRef(false);
+  useEffect(() => {
+    if (deepLinkApplied.current || typeof window === "undefined") return;
+    const names = teams.map((t) => t.name);
+    const q = parseArbitrageQuery(window.location.search, names);
+    if (q.tool) setTool(q.tool);
+    if (q.seed) setBuilderSeed((prev) => prev || q.seed);
+    if (!names.length) return;
+    deepLinkApplied.current = true;
+    if (q.team) setMyTeam(q.team);
+    if (q.opponent) setOpponent(q.opponent);
+  }, [teams]);
 
   const effectiveTeam = myTeam || defaultTeam;
 
-  const playerEdges = useMemo(
+  const storageKey = useMemo(
     () =>
-      buildArbitrageRows(rows, {
-        action: edgeAction,
-        assetClass: edgeClass,
-        minEdge: edgeFloor,
+      refinementKey({
+        owner: selectedOwnerId,
+        leagueKey: selectedLeagueKey,
+        surface: "arbitrage",
+        context: `${effectiveTeam}|${opponent}`,
       }),
-    [rows, edgeAction, edgeClass, edgeFloor],
+    [selectedOwnerId, selectedLeagueKey, effectiveTeam, opponent],
   );
 
-  const buyCount = useMemo(
-    () => buildArbitrageRows(rows, { action: "buy", minEdge: edgeFloor }).length,
-    [rows, edgeFloor],
-  );
-  const sellCount = useMemo(
-    () => buildArbitrageRows(rows, { action: "sell", minEdge: edgeFloor }).length,
-    [rows, edgeFloor],
-  );
-  const winWinCount = useMemo(
-    () => buildArbitrageRows(rows, { action: "winwin", minEdge: edgeFloor }).length,
-    [rows, edgeFloor],
-  );
+  useEffect(() => {
+    setRefinement(loadRefinement(storageKey));
+  }, [storageKey]);
 
-  async function run(nextExcluded = excludedPlayers) {
+  async function run(
+    nextRefinement = refinement,
+    teamContext = useTeamContext,
+    nextDiscovery = discovery,
+  ) {
     if (!effectiveTeam) return;
-    const normalizedExcluded = Array.from(
-      new Set((nextExcluded || []).map((name) => String(name || "").trim()).filter(Boolean)),
-    );
     const selectedOpponents =
       opponent === "all"
         ? teams.filter((t) => t.name !== effectiveTeam).map((t) => t.name)
         : [opponent];
 
+    const seq = ++scanSeq.current;
     setRunning(true);
     setError("");
     try {
       const body = {
         myTeam: effectiveTeam,
-        // The backend route currently validates only that opponentTeams is a
-        // list before passing it through to src/trade/finder.py.  The reserved
-        // control object lets the arbitrage page request session-local search
-        // policy without changing persistent trade constraints or valuation.
+        // The reserved control object carries this page's search policy
+        // (equal-count shapes; incoming-only skipped targets).  LOCK / EXCLUDE
+        // travel as `refinement`, validated and applied by the server's one
+        // constraint owner during generation.
         opponentTeams: [
           ...selectedOpponents,
           {
             [ARBITRAGE_CONTROL_KEY]: {
               equalCountOnly: true,
-              excludePlayers: normalizedExcluded,
+              skipTargets: [...(nextRefinement?.skip || [])],
             },
           },
         ],
+        refinement: toRequest(nextRefinement),
+        // Target Quality / Players to target / Sort — applied by the server
+        // during candidate generation (src/trade/discovery).
+        discovery: discoveryRequest(nextDiscovery),
       };
+      body.useTeamContext = teamContext !== false;
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
       const res = await fetch("/api/trade/finder", {
         method: "POST",
@@ -321,6 +524,7 @@ export default function ArbitragePage() {
         body: JSON.stringify(withValuationMode(body)),
       });
       const data = await res.json().catch(() => ({}));
+      if (seq !== scanSeq.current) return;
       if (!res.ok) {
         setError(data?.error || `Request failed (${res.status})`);
         setResult(null);
@@ -328,223 +532,425 @@ export default function ArbitragePage() {
         setResult(data);
       }
     } catch (err) {
+      if (seq !== scanSeq.current) return;
       setError(err?.message || "Request failed");
       setResult(null);
     } finally {
-      setRunning(false);
+      if (seq === scanSeq.current) setRunning(false);
     }
   }
 
-  function excludePlayer(playerName) {
-    const name = String(playerName || "").trim();
-    if (!name || excludedPlayers.includes(name)) return;
-    const next = [...excludedPlayers, name];
-    setExcludedPlayers(next);
-    // Remove the stale suggestion immediately, then ask the backend to search
-    // the reduced pools.  The rerun is not a post-filter: finder.py receives
-    // the same exclusion and removes the player before package enumeration.
-    setResult((prev) =>
-      prev
-        ? {
-            ...prev,
-            trades: (prev.trades || []).filter((trade) => !tradeContainsPlayer(trade, name)),
-          }
-        : prev,
-    );
+  // Every refinement change regenerates immediately (spec §3.3).  The rerun is
+  // not a post-filter: the server applies the same refinement before package
+  // enumeration.  A newly excluded / skipped player's stale cards are removed
+  // at once so the page never shows a package the user just ruled out.
+  function applyRefinement(next, removedName = null) {
+    setRefinement(next);
+    saveRefinement(storageKey, next);
+    if (removedName) {
+      setResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              trades: (prev.trades || []).filter(
+                (trade) => !tradeContainsPlayer(trade, removedName),
+              ),
+            }
+          : prev,
+      );
+    }
     void run(next);
   }
 
-  function restorePlayer(playerName) {
-    const next = excludedPlayers.filter((name) => name !== playerName);
-    setExcludedPlayers(next);
-    void run(next);
+  function lockPlayer(name) {
+    applyRefinement(toggleLock(refinement, name));
   }
 
-  function clearExclusions() {
-    setExcludedPlayers([]);
-    void run([]);
+  function excludePlayer(name) {
+    const next = toggleExclude(refinement, name);
+    const nowExcluded = (next.exclude || []).includes(String(name || "").trim());
+    applyRefinement(next, nowExcluded ? name : null);
+  }
+
+  function skipTarget(name) {
+    const next = toggleSkip(refinement, name);
+    const nowSkipped = (next.skip || []).includes(String(name || "").trim());
+    applyRefinement(next, nowSkipped ? name : null);
+  }
+
+  function clearRefinements() {
+    applyRefinement(emptyRefinement());
   }
 
   function resetPackageScan() {
-    setExcludedPlayers([]);
+    // The refinement for the new (team, opponent) context is loaded from
+    // storage by the effect above; only the stale result is cleared here.
     setResult(null);
     setError("");
   }
 
+  // A discovery change re-runs an existing Package Scan result (the other
+  // views watch the same state themselves); never a stale list under new
+  // filters.
+  function changeDiscovery(next) {
+    setDiscovery(next);
+    if (result && tool === "scan") void run(refinement, useTeamContext, next);
+  }
+
+  const refine = {
+    refinement,
+    onLock: lockPlayer,
+    onExclude: excludePlayer,
+    onSkip: skipTarget,
+    disabled: running,
+  };
+
   const meta = result?.metadata;
+  const discoveryMeta = meta?.discovery;
 
   return (
     <div className={styles.page}>
       <PageHeader
         eyebrow="Trades"
         title="Arbitrage"
-        description="Find players our canonical board values above or below the public market, then turn those edges into trades that can still look fair to the counterparty."
+        description="Find trades that matter: better players your league's markets undervalue, built into packages the other side can still see as fair."
       />
 
       {dataError ? <Banner tone="negative">{String(dataError)}</Banner> : null}
 
-      <Panel>
-        <h3 style={{ marginTop: 0 }}>Player-level inefficiencies</h3>
-        <p className={styles.muted}>
-          Offense is compared directly with KTC. IDP is compared directly with IDP Trade Calculator. Source disagreement is not required; that remains a separate Rankings research lens.
-        </p>
-        <div className={styles.controls}>
-          <Field label="Signal">
-            <Select value={edgeAction} onChange={(e) => setEdgeAction(e.target.value)}>
-              <option value="buy">Buy arbitrage</option>
-              <option value="sell">Sell arbitrage</option>
-              <option value="winwin">Win-win on public market</option>
-              <option value="all">All edges</option>
-            </Select>
-          </Field>
-          <Field label="Player type">
-            <Select value={edgeClass} onChange={(e) => setEdgeClass(e.target.value)}>
-              <option value="all">All players</option>
-              <option value="offense">Offense — KTC</option>
-              <option value="idp">IDP — IDP Trade Calculator</option>
-            </Select>
-          </Field>
-          <Field label="Minimum edge">
-            <Select value={String(edgeFloor)} onChange={(e) => setEdgeFloor(Number(e.target.value))}>
-              <option value="0.05">5%+</option>
-              <option value="0.10">10%+</option>
-              <option value="0.15">15%+</option>
-              <option value="0.20">20%+</option>
-            </Select>
-          </Field>
-        </div>
-        <div className={styles.stats}>
-          <StatTile label="Buy edges" value={fmt(buyCount)} />
-          <StatTile label="Sell edges" value={fmt(sellCount)} />
-          <StatTile label="Win-win offers" value={fmt(winWinCount)} />
-          <StatTile label="Visible" value={fmt(playerEdges.length)} />
-        </div>
-        {dataLoading ? <SkeletonTable rows={5} /> : <PlayerEdgeTable opportunities={playerEdges} />}
-      </Panel>
+      <Tabs
+        idPrefix="trade-finder"
+        label="Trade discovery tools"
+        tabs={TOOL_TABS}
+        active={tool}
+        onChange={setTool}
+      />
 
-      <Panel>
-        <h3 style={{ marginTop: 0 }}>Turn the edge into a trade</h3>
-        <p className={styles.muted}>
-          This second layer scans actual rosters for 1-for-1 or 2-for-2 packages that gain on our board while remaining plausible on the counterparty market. Use the × beside any player to remove them from this scan and search again without them.
-        </p>
-        <div className={styles.controls}>
-          <Field label="Your team">
-            <Select
-              value={effectiveTeam}
-              onChange={(e) => {
-                setMyTeam(e.target.value);
-                resetPackageScan();
-              }}
-              disabled={dataLoading || !teams.length}
-            >
-              {teams.map((t) => (
-                <option key={t.name} value={t.name}>
-                  {t.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Opponent">
-            <Select
-              value={opponent}
-              onChange={(e) => {
-                setOpponent(e.target.value);
-                resetPackageScan();
-              }}
-              disabled={dataLoading || !teams.length}
-            >
-              <option value="all">All teams</option>
-              {teams
-                .filter((t) => t.name !== effectiveTeam)
-                .map((t) => (
-                  <option key={t.name} value={t.name}>
-                    {t.name}
-                  </option>
-                ))}
-            </Select>
-          </Field>
-          <Button onClick={() => run(excludedPlayers)} disabled={running || dataLoading || !effectiveTeam}>
-            {running ? "Scanning…" : "Find trade packages"}
-          </Button>
-        </div>
-        {excludedPlayers.length ? (
-          <div className={styles.exclusionBar} aria-label="Excluded players">
-            <span className={styles.muted}>Excluded from this scan:</span>
-            <div className={styles.exclusionChips}>
-              {excludedPlayers.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  className={styles.exclusionChip}
-                  aria-label={`Restore ${name} to suggestions`}
-                  title="Undo exclusion"
-                  onClick={() => restorePlayer(name)}
+      <div
+        role="tabpanel"
+        id={tabPanelId("trade-finder", tool)}
+        aria-labelledby={tabId("trade-finder", tool)}
+        className={styles.toolPanel}
+      >
+        {tool !== "desk" ? (
+          <Panel>
+            <div className={styles.controls}>
+              <Field label="Your team">
+                <Select
+                  value={effectiveTeam}
+                  onChange={(e) => {
+                    setMyTeam(e.target.value);
+                    resetPackageScan();
+                  }}
+                  disabled={dataLoading || !teams.length}
                 >
-                  {name} ×
-                </button>
-              ))}
+                  {teams.map((t) => (
+                    <option key={t.name} value={t.name}>
+                      {t.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {DISCOVERY_TOOLS.has(tool) ? (
+                <DiscoveryControls
+                  value={discovery}
+                  onChange={changeDiscovery}
+                  disabled={running}
+                  idPrefix="trade-finder-discovery"
+                  // The Package Builder has its own independent Sending /
+                  // Receiving controls in place of Players to target.
+                  showScope={tool !== "builder"}
+                />
+              ) : null}
             </div>
-            <Button size="sm" variant="secondary" onClick={clearExclusions} disabled={running}>
-              Clear exclusions
-            </Button>
-          </div>
+          </Panel>
         ) : null}
-      </Panel>
 
-      {error ? <Banner tone="negative">{error}</Banner> : null}
-
-      {result?.warnings?.map((w, i) => (
-        <Banner key={i} tone="warning">
-          {w}
-        </Banner>
-      ))}
-
-      {meta ? (
-        <div className={styles.stats}>
-          <StatTile label="Qualified" value={fmt(meta.totalQualified)} />
-          <StatTile label="Shown" value={fmt(meta.returned)} />
-          <StatTile label="Asset pool" value={fmt(meta.assetPoolSize)} />
-          <StatTile label="Market coverage" value={`${meta.marketCoveragePercent ?? 0}%`} />
-          <StatTile label="Unpriced by board" value={fmt(meta.assetsUnpricedByBoard)} />
-          <StatTile label="Mixed-market" value={fmt(meta.mixedMarketTrades)} />
-        </div>
-      ) : null}
-
-      {meta?.valueSource && meta.valueSource !== "rankDerivedValue" ? (
-        <Banner tone="warning">
-          This run valued assets off <code>{meta.valueSource}</code>, not the board you see. Results
-          are not comparable to the rankings page.
-        </Banner>
-      ) : null}
-
-      {running ? <SkeletonTable rows={4} /> : null}
-
-      {!running && result && !result.trades?.length ? (
-        <EmptyState
-          title="No package arbitrage found"
-          description="Every candidate either lost value on our board, used an excluded player, or looked too lopsided on the counterparty's market to be plausible."
-        />
-      ) : null}
-
-      {!running && result?.trades?.length ? (
-        <div className={styles.trades}>
-          {result.trades.map((t, i) => (
-            <TradeCard
-              key={i}
-              trade={t}
+        {tool === "golden" ? (
+          <Panel>
+            <GoldenUpgradesView
               myTeam={effectiveTeam}
-              opponent={opponent}
-              onExclude={excludePlayer}
+              leagueKey={selectedLeagueKey}
+              ownerKey={selectedOwnerId}
+              discovery={discovery}
+              onDiscoveryChange={setDiscovery}
             />
-          ))}
-        </div>
-      ) : null}
+          </Panel>
+        ) : null}
 
-      {!result && !running ? (
-        <EmptyState
-          title="Package scan ready"
-          description="The player-level opportunities above are live immediately. Choose your team and a counterparty to search actual trade constructions."
-        />
+        {tool === "best" ? (
+          <Panel>
+            <BestOffersView
+              myTeam={effectiveTeam}
+              leagueKey={selectedLeagueKey}
+              ownerKey={selectedOwnerId}
+              opponentNames={teams.filter((t) => t.name !== effectiveTeam).map((t) => t.name)}
+              discovery={discovery}
+            />
+          </Panel>
+        ) : null}
+
+        {tool === "builder" ? (
+          <Panel>
+            <PackageBuilderView
+              myTeam={effectiveTeam}
+              leagueKey={selectedLeagueKey}
+              ownerKey={selectedOwnerId}
+              teams={teams}
+              discovery={discovery}
+              seed={builderSeed}
+            />
+          </Panel>
+        ) : null}
+
+        {tool === "desk" ? (
+          <Panel>
+            <TradeDeskView leagueKey={selectedLeagueKey} />
+          </Panel>
+        ) : null}
+
+        {tool === "scan" ? (
+          <>
+            <Panel>
+              <p className={styles.muted}>
+                Scans actual rosters for 1-for-1 or 2-for-2 packages that gain on our board while remaining plausible on the counterparty market. Every package brings back at least one player inside Target quality. On a player you would send, Lock keeps them in every regenerated package and Exclude keeps them out; on a player you would receive, Skip leaves them out of this scan. Locks and exclusions stay until you clear them and never change your saved trade protections.
+              </p>
+              <div className={styles.controls}>
+                <Field label="Opponent">
+                  <Select
+                    value={opponent}
+                    onChange={(e) => {
+                      setOpponent(e.target.value);
+                      resetPackageScan();
+                    }}
+                    disabled={dataLoading || !teams.length}
+                  >
+                    <option value="all">All teams</option>
+                    {teams
+                      .filter((t) => t.name !== effectiveTeam)
+                      .map((t) => (
+                        <option key={t.name} value={t.name}>
+                          {t.name}
+                        </option>
+                      ))}
+                  </Select>
+                </Field>
+                <SegmentedControl
+                  label="Analysis mode"
+                  options={CONTEXT_OPTIONS}
+                  value={useTeamContext ? "team" : "asset"}
+                  onChange={(v) => {
+                    const next = v === "team";
+                    setUseTeamContext(next);
+                    // Re-scan an existing result in the new mode; never silently
+                    // keep showing the other mode's order.
+                    if (result) run(refinement, next);
+                  }}
+                />
+                <Button onClick={() => run(refinement)} disabled={running || dataLoading || !effectiveTeam}>
+                  {running ? "Scanning…" : "Find trade packages"}
+                </Button>
+              </div>
+              <RefinementBar
+                refinement={refinement}
+                onLock={lockPlayer}
+                onExclude={excludePlayer}
+                onSkip={skipTarget}
+                onClear={clearRefinements}
+                disabled={running}
+              />
+            </Panel>
+
+            {error ? <Banner tone="negative">{error}</Banner> : null}
+
+            {result?.warnings?.map((w, i) => (
+              <Banner key={i} tone="warning">
+                {w}
+              </Banner>
+            ))}
+
+            {meta ? (
+              <div className={styles.stats}>
+                <StatTile label="Qualified" value={fmt(meta.totalQualified)} />
+                <StatTile label="Shown" value={fmt(meta.returned)} />
+                <StatTile label="Asset pool" value={fmt(meta.assetPoolSize)} />
+                <StatTile label="Market coverage" value={`${meta.marketCoveragePercent ?? 0}%`} />
+                <StatTile label="Unpriced by board" value={fmt(meta.assetsUnpricedByBoard)} />
+                <StatTile label="Mixed-market" value={fmt(meta.mixedMarketTrades)} />
+              </div>
+            ) : null}
+
+            {discoveryMeta ? (
+              <p className={styles.muted} role="note">
+                Filters: {discoverySummary(discovery)}.
+                {discoveryMeta.report?.unknownPosition
+                  ? ` ${discoveryMeta.report.unknownPosition} incoming player(s) with a missing or ambiguous position were ${discovery.playersToTarget === "both" ? "kept but are unclassified" : "excluded"}.`
+                  : ""}
+              </p>
+            ) : null}
+
+            {meta?.valueSource && meta.valueSource !== "rankDerivedValue" ? (
+              <Banner tone="warning">
+                This run valued assets off <code>{meta.valueSource}</code>, not the board you see. Results
+                are not comparable to the rankings page.
+              </Banner>
+            ) : null}
+
+            {running ? <SkeletonTable rows={4} /> : null}
+
+            {!running && result && !result.trades?.length ? (
+              <>
+                <EmptyState
+                  title={meta?.noResultLabel || "No package arbitrage found"}
+                  description={
+                    meta?.noResultReason === "lock_conflicts_with_protection"
+                      ? "A locked player is also protected or excluded, so no package can include him. Unlock him or change the protection."
+                      : meta?.noResultReason === "locked_player_unavailable"
+                        ? "A locked player is not on this roster's tradeable list, so no package can include him."
+                        : discoveryEmptyText(discoveryMeta?.emptyReason, discoveryMeta?.emptyDetail) ||
+                          "Every candidate either lost value on our board, used an excluded player, or looked too lopsided on the counterparty's market to be plausible."
+                  }
+                />
+                <BroadenButtons
+                  current={discovery.targetQuality}
+                  onBroaden={(level) => changeDiscovery({ ...discovery, targetQuality: level })}
+                />
+              </>
+            ) : null}
+
+            {!running && result?.trades?.length ? (
+              <div className={styles.trades}>
+                {result.trades.map((t, i) => (
+                  <TradeCard
+                    key={i}
+                    trade={t}
+                    myTeam={effectiveTeam}
+                    opponent={opponent}
+                    refine={refine}
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            {!result && !running ? (
+              <EmptyState
+                title="Package scan ready"
+                description="Choose your team and a counterparty to search actual trade constructions. Every package brings back at least one player inside Target quality."
+              />
+            ) : null}
+          </>
+        ) : null}
+      </div>
+
+      <CollapsiblePanel
+        title="Player-level market research"
+        subtitle="Players our canonical board values above or below the public market. Research only — use the tools above to build trades."
+        defaultCollapsed
+        mountCollapsedChildren={false}
+      >
+        <PlayerResearch rows={rows} loading={dataLoading} />
+      </CollapsiblePanel>
+    </div>
+  );
+}
+
+function BroadenButtons({ current, onBroaden }) {
+  const options = broaderQualityOptions(current);
+  if (!options.length) return null;
+  return (
+    <div className={styles.controls} role="group" aria-label="Broaden Target Quality">
+      {options.map((o) => (
+        <Button key={o.value} size="sm" variant="secondary" onClick={() => onBroaden(o.value)}>
+          Search {o.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+// The player-level arbitrage table — a research lens, below the tools.  Its
+// own controls default to the same vocabulary as the tools (Top 250, Both)
+// and its default sort is the largest ABSOLUTE opportunity; deep low-value
+// arbitrage stays one explicit choice away (All Players + Highest % edge).
+// Filters read backend-stamped fields only (canonicalConsensusRank,
+// rankDerivedValue, position); nothing is recomputed.
+function PlayerResearch({ rows, loading }) {
+  const [edgeAction, setEdgeAction] = useState("buy");
+  const [edgeFloor, setEdgeFloor] = useState(0.05);
+  const [quality, setQuality] = useState(DEFAULT_TARGET_QUALITY);
+  const [scope, setScope] = useState("both");
+  const [minValue, setMinValue] = useState("");
+  const [sort, setSort] = useState(DEFAULT_TABLE_SORT);
+  const [showAll, setShowAll] = useState(false);
+
+  const filters = { targetQuality: quality, scope, minValue, minEdge: edgeFloor };
+  const playerEdges = useMemo(
+    () => buildArbitrageRows(rows, { ...filters, action: edgeAction, sort }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, edgeAction, edgeFloor, quality, scope, minValue, sort],
+  );
+  const counts = useMemo(() => {
+    const n = (action) => buildArbitrageRows(rows, { ...filters, action }).length;
+    return { buy: n("buy"), sell: n("sell"), winwin: n("winwin") };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, edgeFloor, quality, scope, minValue]);
+  const visible = showAll ? playerEdges : playerEdges.slice(0, RESEARCH_ROW_LIMIT);
+
+  return (
+    <div className={styles.research}>
+      <p className={styles.muted}>
+        Offense is compared directly with KTC. IDP is compared directly with IDP Trade Calculator. Source disagreement is not required; that remains a separate Rankings research lens.
+      </p>
+      <div className={styles.controls}>
+        <Field label="Signal">
+          <Select value={edgeAction} onChange={(e) => setEdgeAction(e.target.value)}>
+            <option value="buy">Buy arbitrage</option>
+            <option value="sell">Sell arbitrage</option>
+            <option value="winwin">Win-win on public market</option>
+            <option value="all">All edges</option>
+          </Select>
+        </Field>
+        <Field label="Target quality">
+          <Select value={quality} onChange={(e) => setQuality(e.target.value)} options={TARGET_QUALITY_OPTIONS} />
+        </Field>
+        <Field label="Players">
+          <Select value={scope} onChange={(e) => setScope(e.target.value)} options={PLAYER_SCOPE_OPTIONS} />
+        </Field>
+        <Field label="Sort">
+          <Select value={sort} onChange={(e) => setSort(e.target.value)} options={TABLE_SORT_OPTIONS} />
+        </Field>
+        <Field label="Minimum edge">
+          <Select value={String(edgeFloor)} onChange={(e) => setEdgeFloor(Number(e.target.value))}>
+            <option value="0.05">5%+</option>
+            <option value="0.10">10%+</option>
+            <option value="0.15">15%+</option>
+            <option value="0.20">20%+</option>
+          </Select>
+        </Field>
+        <Field label="Minimum value" hint="Canonical value; blank = none">
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={9999}
+            step={100}
+            value={minValue}
+            placeholder="None"
+            onChange={(e) => setMinValue(e.target.value)}
+          />
+        </Field>
+      </div>
+      <div className={styles.stats}>
+        <StatTile label="Buy edges" value={fmt(counts.buy)} />
+        <StatTile label="Sell edges" value={fmt(counts.sell)} />
+        <StatTile label="Win-win offers" value={fmt(counts.winwin)} />
+        <StatTile label="Visible" value={fmt(playerEdges.length)} />
+      </div>
+      {loading ? <SkeletonTable rows={5} /> : <PlayerEdgeTable opportunities={visible} />}
+      {!loading && playerEdges.length > visible.length ? (
+        <Button size="sm" variant="secondary" onClick={() => setShowAll(true)}>
+          Show all {playerEdges.length} rows
+        </Button>
       ) : null}
     </div>
   );

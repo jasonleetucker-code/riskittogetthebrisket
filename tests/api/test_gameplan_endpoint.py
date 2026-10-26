@@ -573,7 +573,7 @@ def test_engine_notes_and_semantics_survive_serialization(league, monkeypatch):
     STRONGEST position reported as its biggest hole.  Stripping it in
     the API layer re-arms that."""
     body = _payload(monkeypatch)
-    needs = body["roster"]["needs"]
+    needs = body["roster"]["positionDeficits"]
     assert needs
     for need in needs.values():
         semantics = need["_semantics"]
@@ -800,3 +800,21 @@ def test_rosters_follow_the_league_and_ages_follow_the_scoring_profile(league, m
     assert coverage["ageCoverage"]["withAge"] == coverage["rosteredPlayers"]
     assert "scoring-profile scoped" in coverage["ageCoverage"]["source"]
     assert coverage["marketPriceCoverage"]["priced"] == coverage["rosteredPlayers"]
+
+
+def test_gameplan_publishes_the_canonical_weakness_and_no_second_need_rule(league, monkeypatch):
+    """C2-WEAK-01.  ``roster.needs`` was a second need verdict ("urgent",
+    over the ROS 0-100 index) beside ``weakness.py``.  The verdict is
+    retired; the deficit MEASUREMENTS are renamed for what they are, and
+    the need answer is the canonical block, stated unavailable here
+    because this fixture's contract carries no rosters — never omitted,
+    never fabricated from the bundle."""
+    body = _payload(monkeypatch)
+    roster = body["roster"]
+    assert "needs" not in roster
+    assert all("urgent" not in d for d in roster["positionDeficits"].values())
+    weakness = roster["weakness"]
+    assert weakness["owner"] == "src/roster_intel/weakness.py"
+    assert weakness["available"] is False
+    assert weakness["unavailableReason"] == "no_rosters_loaded"
+    assert weakness["needs"] == []

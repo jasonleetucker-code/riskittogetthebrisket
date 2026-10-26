@@ -290,8 +290,16 @@ APPDIR=/home/dynasty/trade-calculator
 sudo mkdir -p /etc/nginx/snippets
 sudo install -m 0644 "$APPDIR/deploy/nginx/chaseupside-proxy.conf" \
      /etc/nginx/snippets/chaseupside-proxy.conf
-sudo install -m 0644 "$APPDIR/deploy/nginx/chaseupside.com.conf" \
-     /etc/nginx/sites-available/chaseupside.com
+# :443 binds the box's PUBLIC addresses explicitly (never the wildcard --
+# Tailscale Serve owns :443 on the tailnet address; incident 2026-10-01).
+# Render them from the box's default-route interface, check, then install.
+PUB4=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')
+PUB6=$(ip -6 route get 2606:4700:4700::1111 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')
+echo "public IPv4=${PUB4:?no public IPv4} IPv6=${PUB6:-none}"
+sed -e "s/__PUBLIC_IPV4__/${PUB4}/" "$APPDIR/deploy/nginx/chaseupside.com.conf" > /tmp/chaseupside.com.conf
+if [ -n "${PUB6}" ]; then sed -i "s/__PUBLIC_IPV6__/${PUB6}/" /tmp/chaseupside.com.conf; else sed -i '/__PUBLIC_IPV6__/d' /tmp/chaseupside.com.conf; fi
+! grep -n "__PUBLIC_IPV" /tmp/chaseupside.com.conf
+sudo install -m 0644 /tmp/chaseupside.com.conf /etc/nginx/sites-available/chaseupside.com
 
 # Atomic swap: dynasty out, chaseupside.com in.
 sudo rm -f /etc/nginx/sites-enabled/dynasty
@@ -611,6 +619,19 @@ Actions → **Deploy** → *Run workflow* with `deploy_ref` set to the last
 known-good commit and `allow_non_fast_forward=true` (required — the
 workflow blocks backwards deploys by default). Or run
 `deploy/rollback.sh` on the box.
+
+Since 2026-10-01 the workflow resolves `deploy_ref` once to a full commit SHA
+(branch name, tag name or full SHA; abbreviated SHAs and expressions such as
+`origin/main` or `HEAD~1` are refused) and every stage consumes that SHA. Two
+consequences for a rollback:
+
+* **Validate tests the TARGET tree with the CURRENT workflow's steps.** A target
+  older than a validation step's script (for example
+  `scripts/validate_api_contract.py --lane`, 2026-08-16) fails validate. That
+  is a refusal, not a deploy — nothing reached the box. Roll back to a commit
+  the current gates can validate, or use `deploy/rollback.sh` on the box.
+* **The box deploys exactly that commit or nothing.** If the commit cannot be
+  fetched there, `deploy.sh` refuses instead of falling back to `main`.
 
 **12c. [GITHUB] Abandoning the cutover.**
 

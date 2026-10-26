@@ -164,6 +164,13 @@ class DiscoveryResult:
     frontier_users: list[str] = field(default_factory=list)
     frontier_leagues: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    # Leagues whose host-format capture (for the Market Trade Ledger) failed.
+    # Counted here, not debug-logged only: a silent rise means discovery rows
+    # are losing the format facts the ledger must never infer.
+    market_format_capture_failures: int = 0
+    # Outcomes of the dated format capture (``league_format_capture``):
+    # ``new`` / ``unchanged`` / ``incomplete``.
+    market_format_captures: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -181,6 +188,8 @@ class DiscoveryResult:
             "excludedFromSharp": self.excluded_from_sharp,
             "frontierUsers": len(self.frontier_users),
             "frontierLeagues": len(self.frontier_leagues),
+            "marketFormatCaptureFailures": self.market_format_capture_failures,
+            "marketFormatCaptures": dict(self.market_format_captures),
             "errors": self.errors,
         }
 
@@ -199,6 +208,47 @@ def _league_roster_count_ok(league: dict[str, Any], cfg: dict[str, Any]) -> bool
     lo = int(cfg.get("minLeagueRosters", 6))
     hi = int(cfg.get("maxLeagueRosters", 32))
     return lo <= n <= hi
+
+
+def _record_market_formats(
+    observed: list[tuple[dict[str, Any], int]], conn: Any, result: DiscoveryResult
+) -> None:
+    """Append dated host-format captures for the trade ledger
+    (``src/sharp/league_format_capture.py``) from league objects this run
+    ALREADY fetched.  A capture problem can never break discovery itself: each
+    failure is COUNTED in :class:`DiscoveryResult`, never only debug-logged —
+    a silent rise would mean the ledger is losing format facts it must never
+    infer."""
+    if not observed:
+        return
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    for league, captured_ms in observed:
+        try:
+            outcome = lfc.record_capture(
+                conn, league, captured_ms=captured_ms, source=lfc.SOURCE_DISCOVERY
+            )
+        except Exception:  # noqa: BLE001
+            log.debug("market format capture failed for a league", exc_info=True)
+            result.market_format_capture_failures += 1
+            continue
+        result.market_format_captures[outcome] = result.market_format_captures.get(outcome, 0) + 1
+
+
+def _ensure_format_capture_schema(conn: Any) -> bool:
+    """Create the capture tables and run the one-shot legacy-snapshot
+    migration BEFORE ``upsert_leagues`` runs: that upsert replaces
+    ``settings_json`` wholesale, so migrating afterwards would lose every
+    earlier-dated ``marketFormat`` snapshot a re-discovered league carried."""
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    try:
+        lfc.ensure_schema(conn)
+        conn.commit()
+        return True
+    except Exception:  # noqa: BLE001
+        log.warning("league format capture schema unavailable", exc_info=True)
+        return False
 
 
 def discover(
@@ -267,6 +317,8 @@ def discover(
     users_batch: list[dict[str, Any]] = []
     leagues_batch: list[dict[str, Any]] = []
     memberships: list[tuple[str, str, str | None]] = []
+    # (league object, fetch ms) for the dated format capture.
+    format_observed: list[tuple[dict[str, Any], int]] = []
     deepest = 0
 
     while (league_q or user_q) and b.can_call():
@@ -380,6 +432,13 @@ def discover(
                     )
 
                 settings = lg.get("settings") if isinstance(lg.get("settings"), dict) else {}
+                # The league's REAL format rides in the object this call
+                # already returned — no extra request.  Recorded as a DATED,
+                # append-only capture at persistence time (never as an
+                # overwrite inside settings_json), so the Market Trade Ledger
+                # can pick the format in force at each trade's timestamp and
+                # never infers it from the manager who led us here.
+                format_observed.append((lg, int(time.time() * 1000)))
                 leagues_batch.append(
                     {
                         "league_id": lid,
@@ -394,6 +453,12 @@ def discover(
                                 "signalEligible": signal_ok,
                                 "sharpEligible": sharp_ok,
                                 "ageSeasons": league_filter.league_age_seasons(lg),
+                                # How the league entered the sample (spec
+                                # §19.1 provenance), not who is a sharp.
+                                # FIRST-seen route; ``_keep_first_seen_
+                                # discovery`` preserves it across re-runs and
+                                # records this run's route as ``lastSeen``.
+                                "discovery": {"generation": gen, "viaUserId": uid},
                             }
                         ),
                     }
@@ -414,17 +479,73 @@ def discover(
     # nothing rather than duplicating.
     conn = ledger.connect(ledger_path)
     try:
+        capture_schema_ok = _ensure_format_capture_schema(conn)
         if users_batch:
             ledger.upsert_users(users_batch, conn=conn)
         if leagues_batch:
+            _keep_first_seen_discovery(leagues_batch, conn)
             ledger.upsert_leagues(leagues_batch, conn=conn)
         if memberships:
             ledger.upsert_memberships(memberships, conn=conn)
+        if capture_schema_ok:
+            _record_market_formats(format_observed, conn, result)
+        else:
+            result.market_format_capture_failures += len(format_observed)
+        conn.commit()
     finally:
         conn.close()
 
     log.info("sharp.discovery: %s", result.to_dict())
     return result
+
+
+def _keep_first_seen_discovery(leagues_batch: list[dict[str, Any]], conn: Any) -> None:
+    """Preserve each league's FIRST-seen discovery route.
+
+    ``upsert_leagues`` replaces ``settings_json`` wholesale, so without this a
+    league re-reached through a different manager would have its §19.1 sample
+    provenance rewritten on every run.  The first-seen ``generation`` /
+    ``viaUserId`` stay at the top of ``discovery`` (what the ledger reads); the
+    current run's route is kept separately as ``lastSeen``.
+    """
+    ids = [str(row["league_id"]) for row in leagues_batch if row.get("league_id")]
+    existing: dict[str, dict[str, Any]] = {}
+    for k in range(0, len(ids), 500):
+        chunk = ids[k : k + 500]
+        marks = ",".join("?" for _ in chunk)
+        try:
+            rows = conn.execute(
+                f"SELECT league_id, settings_json FROM leagues WHERE league_id IN ({marks})",
+                chunk,
+            ).fetchall()
+        except Exception:  # noqa: BLE001 - provenance must never break discovery
+            log.debug("could not read prior discovery provenance", exc_info=True)
+            return
+        for lid, raw in rows:
+            try:
+                prior = json.loads(raw) if raw else {}
+            except (TypeError, ValueError):
+                continue
+            disc = prior.get("discovery") if isinstance(prior, dict) else None
+            if isinstance(disc, dict) and disc.get("viaUserId"):
+                existing[str(lid)] = disc
+    for row in leagues_batch:
+        try:
+            settings = json.loads(row.get("settings_json") or "{}")
+        except (TypeError, ValueError):
+            continue
+        current = settings.get("discovery")
+        if not isinstance(current, dict):
+            continue
+        last = {"generation": current.get("generation"), "viaUserId": current.get("viaUserId")}
+        prior = existing.get(str(row.get("league_id")))
+        first = (
+            {"generation": prior.get("generation"), "viaUserId": prior.get("viaUserId")}
+            if prior
+            else last
+        )
+        settings["discovery"] = {**first, "lastSeen": last}
+        row["settings_json"] = json.dumps(settings)
 
 
 def signal_eligible_league_ids(

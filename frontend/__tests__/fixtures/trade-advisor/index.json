@@ -1,0 +1,127 @@
+{
+  "teams.success": {
+    "method": "GET",
+    "path": "/api/public/league/trade-advisor/teams",
+    "status": 200
+  },
+  "teams.rosters-stale": {
+    "method": "GET",
+    "path": "/api/public/league/trade-advisor/teams",
+    "status": 200
+  },
+  "assets.position_alpha": {
+    "method": "GET",
+    "path": "/api/public/league/trade-advisor/teams/1/assets",
+    "status": 200
+  },
+  "assets.pick-ownership-unavailable": {
+    "method": "GET",
+    "path": "/api/public/league/trade-advisor/teams/2/assets",
+    "status": 200
+  },
+  "analyze.fair-two-team": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 200
+  },
+  "analyze.not-fair-two-team": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 200
+  },
+  "analyze.three-team-fair": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 200
+  },
+  "analyze.four-team-mixed": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 200
+  },
+  "analyze.unable-asset": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 200
+  },
+  "analyze.unable-stale-rosters": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 200
+  },
+  "error.invalid-request-schema": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 400
+  },
+  "error.invalid-request-json": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 400
+  },
+  "error.invalid-request-sort": {
+    "method": "GET",
+    "path": "/api/public/league/trade-advisor/teams/1/assets",
+    "status": 400
+  },
+  "error.invalid-trade-one-sided": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 400
+  },
+  "error.invalid-trade-duplicate-asset": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 400
+  },
+  "error.invalid-trade-perspective": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 400
+  },
+  "error.unknown-league": {
+    "method": "GET",
+    "path": "/api/public/league/trade-advisor/teams",
+    "status": 400
+  },
+  "error.league-not-public": {
+    "method": "GET",
+    "path": "/api/public/league/trade-advisor/teams",
+    "status": 404
+  },
+  "error.unknown-team": {
+    "method": "GET",
+    "path": "/api/public/league/trade-advisor/teams/7/assets",
+    "status": 404
+  },
+  "error.stale-assets": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 409
+  },
+  "error.payload-too-large": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 413
+  },
+  "error.unsupported-media-type": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 415
+  },
+  "error.rate-limited": {
+    "method": "POST",
+    "path": "/api/public/league/trade-advisor/analyze",
+    "status": 429
+  },
+  "error.disabled": {
+    "method": "GET",
+    "path": "/api/public/league/trade-advisor/teams",
+    "status": 503
+  },
+  "error.not-ready": {
+    "method": "GET",
+    "path": "/api/public/league/trade-advisor/teams",
+    "status": 503
+  }
+}

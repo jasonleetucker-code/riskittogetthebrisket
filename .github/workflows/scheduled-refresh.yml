@@ -57,7 +57,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements.lock.txt
           pip check
           python scripts/check_env.py --runtime
           # Playwright package itself is declared in requirements.txt;
@@ -83,9 +84,12 @@ jobs:
           SHEET_ID="17wa6qdZ1Y8ckb4TIVZ4_C71g0skvtk9UZy43zSFzRlA"
 
           echo "Downloading Draft Data workbook..."
+          # A transport failure (DNS, reset, timeout) must reach the "keep
+          # existing workbook" branch below, not abort the step under
+          # `set -e`.  Assign the fallback on failure; never concatenate it.
           HTTP_CODE=$(curl -sL -w "%{http_code}" \
             "https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx" \
-            -o "CSVs/Draft Data.xlsx.tmp")
+            -o "CSVs/Draft Data.xlsx.tmp") || HTTP_CODE=000
 
           if [[ "$HTTP_CODE" != "200" ]]; then
             echo "::warning title=Sheet sync failed::Google Sheets returned HTTP ${HTTP_CODE} — keeping existing workbook"
@@ -132,6 +136,11 @@ jobs:
           # idpShow and the prod systemd timer remains its only
           # producer, which is the behaviour before this secret existed.
           IDPSHOW_SESSION_JSON: ${{ secrets.IDPSHOW_SESSION_JSON }}
+          # V2.1 VID: this step is the ONE writer of the append-only
+          # data/identity/vendor_id_map.jsonl (committed below).  The box's
+          # own scrapes do not set it, so they never append to a file every
+          # deploy would reset (src/identity/vendor_ids.py::WRITER_ENV).
+          IDENTITY_VID_WRITER: "1"
         run: |
           set -Eeuo pipefail
 
@@ -160,10 +169,20 @@ jobs:
           # the list for backward compatibility (e.g. the
           # ``Assert DLF freshness`` step still reads ``dlf_last_success``).
           mkdir -p data/scrape_state
+          # Exit 4 (SEASONALLY_INACTIVE_EXIT_CODE, src/sources/acquisition_state.py)
+          # is a verified, DECLARED between-phases empty board
+          # (config/sources/seasonal_policy_v1.json; owner decision 2026-10-03).
+          # It is NOT a success: no stamp is written, exactly as for a failure.
+          # The fetcher records the explicit state in
+          # data/scrape_state/<key>_seasonal.json itself; this branch only
+          # logs it as a notice instead of a fetch failure.  Only fetchers with
+          # a declared seasonal policy return 4.
           run_fetcher() {
             local stamp_keys="$1"; shift
             local label="$1"; shift
-            if "$@" 2>&1; then
+            local rc=0
+            "$@" 2>&1 || rc=$?
+            if (( rc == 0 )); then
               local now_epoch
               now_epoch="$(date -u +%s)"
               local IFS=':'
@@ -171,6 +190,8 @@ jobs:
                 [[ -z "$key" ]] && continue
                 printf '%s\n' "$now_epoch" > "data/scrape_state/${key}_last_success"
               done
+            elif (( rc == 4 )); then
+              echo "::notice title=${label} seasonally inactive::Declared between-phases empty board; state recorded, no success stamp, no current vote"
             else
               echo "::warning title=${label} fetch failed::Non-fatal — continuing with stale CSV"
             fi
@@ -428,6 +449,24 @@ jobs:
             # surface as an indistinguishable "paywall" failure.
             if python -c "import json,sys; d=json.load(open('idpshow_session.json')); sys.exit(0 if d.get('cookies') else 1)" 2>/dev/null; then
               run_fetcher idpShow "IDP Show" python scripts/fetch_idpshow.py
+              # The COMBINED board is the provider family's VOTING board.
+              # Fetching it here as well makes the secret a complete
+              # credential path when the prod timer's jar has lapsed
+              # (2026-10-17: the timer committed nothing after 10-07).
+              # Its dataset state is recorded only on a successful fetch,
+              # exactly as the timer does (the general recording step
+              # below keeps skipping it so one failed run cannot write a
+              # false state).  A success stamp proves a FETCH; whether the
+              # vendor published anything new is the upstream clock in
+              # idpShowCombined_upstream.json, which freshness weighting
+              # reads — a re-fetch of an unchanged chart stays stale.
+              if python scripts/fetch_idpshow.py --combined 2>&1; then
+                date -u +%s > data/scrape_state/idpShowCombined_last_success
+                python scripts/record_source_datasets.py --only idpShowCombined \
+                  || echo "::warning title=IDP Show (combined) dataset state::recording failed; state left at its last observation"
+              else
+                echo "::warning title=IDP Show (combined) fetch failed::Non-fatal — continuing with the committed board"
+              fi
             else
               echo "::warning title=IDP Show secret malformed::IDPSHOW_SESSION_JSON is set but is not JSON with a non-empty 'cookies' array. Skipping; the prod timer still covers idpShow."
             fi
@@ -468,6 +507,43 @@ jobs:
           # marks the source stale.
           python -m src.ros.scrape 2>&1 || echo "::warning title=ROS scrape failed::Non-fatal — orchestrator keeps yesterday's CSV per source"
 
+
+      - name: Upload identity capture evidence (V2.1 U2/U2b full stamps, kept out of git)
+        # ``Dynasty Scraper.py`` writes the FULL U2/U2b sidecar (~35 KB
+        # gzipped) to the gitignored ``data/identity_capture_evidence/`` and
+        # only a checksummed manifest to ``data/scrape_state/`` + the export
+        # bundle, so git history stays bounded.  This runner is ephemeral,
+        # so the full file is kept as a run artifact; the manifest names
+        # this artifact (``capture_evidence.artifact_name``, same two
+        # values) and carries the sha256 it must verify against.
+        # Retention 90 days = this public repository's maximum.  Non-fatal:
+        # evidence must never block shipping a good scrape.
+        # Bounded: a hung upload must not eat the 30-minute job budget and
+        # cancel the commit steps below.
+        id: identity_upload
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v7
+        with:
+          name: identity-capture-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: data/identity_capture_evidence/*.json.gz
+          retention-days: 90
+          if-no-files-found: warn
+          compression-level: 0
+
+      - name: Record identity evidence upload outcome (loud on failure, never blocking)
+        # Appends this run's outcome to the committed, bounded ledger
+        # data/scrape_state/identity_capture_uploads.jsonl (committed with
+        # data/scrape_state/ below) and raises an ::error annotation plus a
+        # step-summary line on a failed upload.  The manifest itself is not
+        # rewritten: a copy is already sealed in the archive zip.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          python scripts/record_identity_capture_upload.py --outcome "${{ steps.identity_upload.outcome }}" || true
 
       - name: Persist freshness stamps
         # Runs even when ``Run scraper`` exited non-zero so the
@@ -548,16 +624,40 @@ jobs:
         # when its DATA last changed (fetch time is not data freshness).
         # Success-gated AFTER the sanity gate, so state only ever describes
         # CSV content that is actually committed.  The prod-timer-owned
-        # boards (DLF, IDP Show) are skipped: their timers record their own
-        # state, and one writer per file keeps the pushes conflict-free.
+        # boards (DLF, IDP Show, Signals) are skipped: their timers record
+        # their own state, and one writer per file keeps the pushes
+        # conflict-free.  Signals is also PRIVATE: its CSV exists only on the
+        # box, so a state file written here would be a false FAILED record.
         # Non-fatal: a recording hiccup must never block shipping a good
         # scrape (the state simply stays at its last recorded observation).
         shell: bash
         run: |
           set -Eeuo pipefail
           python scripts/record_source_datasets.py \
-            --skip dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep idpShowCombined \
+            --skip dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep idpShowCombined signalsSf signalsIdpDl signalsIdpLb signalsIdpDb \
             || echo "::warning title=Source dataset state::recording failed; state left at its last observation"
+
+      - name: Draft valuation readiness (Batch D)
+        # Owner decision 12 (2026-10-18), docs/draft/BATCH_D_PREREGISTRATION_2026-10-18.md.
+        # One readiness evaluation of dynasty_main's upcoming rookie class per
+        # fresh build, under the preregistered thresholds in
+        # config/draft_valuation/promotion_policy.json.  ``promotionMode`` in
+        # that file is the live switch: ``dry_run`` (the shipped default)
+        # computes, records and alerts but NEVER switches a generation; only
+        # ``live`` lets a class that stayed PROMOTABLE for 48 h be promoted.
+        # Before the class window opens (2027-05-01 for 2027) no contract is
+        # built and only state transitions are recorded.  Records are written
+        # create-only under config/draft_valuation/ and committed by the next
+        # step.  Success-gated after the sanity gate so it only ever sees a
+        # board that is about to be committed.  Non-fatal: a failure here
+        # must never block shipping a good scrape, and every failure keeps the
+        # previous generation serving.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/draft_valuation.py evaluate --league dynasty_main \
+            --alerts-out "${RUNNER_TEMP}/draft_valuation_alerts.md" \
+            || echo "::warning title=Draft valuation::evaluation step failed; the previous generation keeps serving"
 
       - name: Commit updated data
         shell: bash
@@ -580,7 +680,14 @@ jobs:
           # scraper's Sleeper-outage fallback for NFL-team tags.  Fresh
           # runners start from the repo, so an unstaged map would never
           # survive to the run that needs it (Codex round 7 on PR #535).
-          for p in CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/player_map/ data/ros/ data/scrape_state/ data/sleeper_last_good.json; do
+          # config/draft_valuation/*: the Batch D create-only stores written by
+          # the step above (decision 12 item 7) — evaluations, transitions,
+          # generation snapshots, promoted allocations, the promotion pointer
+          # and (live mode only) newly finalized completed-class curves.
+          for p in CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/player_map/ data/ros/ data/scrape_state/ data/sleeper_last_good.json \
+                   config/draft_valuation/readiness_evaluations/ config/draft_valuation/promotion_transitions/ \
+                   config/draft_valuation/class_snapshots/ config/draft_valuation/promoted_allocations/ \
+                   config/draft_valuation/promotion_pointers/ config/draft_valuation/historical_curves/; do
             if [ -e "$p" ]; then
               git add -f -- "$p"
             elif [ -n "$(git ls-files -- "$p")" ]; then
@@ -611,6 +718,41 @@ jobs:
             # didn't match the staged paths).
             git pull --rebase --autostash origin main
             git push
+          fi
+
+      - name: Draft valuation alerts
+        # One alert per NEW Batch D state transition, never repeated: the
+        # evaluation step emits a block only when it CREATED a transition
+        # record, and this step runs only after "Commit updated data"
+        # succeeded, i.e. once that record is on main.  If the commit fails
+        # the record is absent and the next run alerts instead — exactly once.
+        # Same rolling-issue plumbing as the stale-sources alert below.
+        # Mainline only (see the note on the alert step, #716).
+        if: success() && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          ALERTS="${RUNNER_TEMP}/draft_valuation_alerts.md"
+          if [[ ! -s "$ALERTS" ]]; then
+            echo "no new draft valuation state transitions"
+            exit 0
+          fi
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY="$(printf 'Draft valuation state transition (Batch D) — %s\n\n%s\n\nDiagnose: python scripts/draft_valuation.py status --league dynasty_main --year <Y>\nRollback: python scripts/draft_valuation.py rollback --league dynasty_main --year <Y> --reason "..."\n' "$RUN_URL" "$(cat "$ALERTS")")"
+          gh label create draft-valuation \
+            --color 0E8A16 \
+            --description "Draft valuation Batch D state transitions (one per transition)" \
+            2>/dev/null || true
+          EXISTING=$(gh issue list --state open --label draft-valuation \
+                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
+            gh issue comment "$EXISTING" --body "$BODY" || echo "::warning title=Draft valuation::alert comment failed"
+          else
+            gh issue create --title "Draft valuation state transitions" \
+              --body "$BODY" --label draft-valuation \
+              || echo "::warning title=Draft valuation::alert issue create failed"
           fi
 
       - name: Trigger deploy
@@ -729,6 +871,12 @@ jobs:
       - name: Staleness watchdog
         # Fails the workflow when any registered ranking source is
         # older than its threshold in ``config/source_staleness.json``.
+        # One narrow exception, reported loudly as DEGRADED rather than
+        # hidden: a source with an unexpired owner-tracked entry in
+        # ``acknowledgedFetchOutages`` that this run's own board proves
+        # casts no vote (#1726).  A stale source that still votes, an
+        # expired entry, or an unbuildable board stays red.  It prints a
+        # ``degraded:`` line per such source for the two steps below.
         # Uses the same freshness signal the live alert engine reads
         # (``data/scrape_state/{key}_last_success`` stamps, falling
         # back to CSV mtime), so a green watchdog run guarantees the
@@ -782,9 +930,15 @@ jobs:
           # Pull the watchdog's stale-source summary (if it ran) so the
           # issue names what's actually stale instead of a generic blurb.
           STALE_SUMMARY="(see the Run scraper / watchdog steps)"
+          DEGRADED_SUMMARY="none"
           if [[ -f "${RUNNER_TEMP}/staleness.log" ]]; then
             LINE=$(grep -E '^(fail|ok):' "${RUNNER_TEMP}/staleness.log" | tail -n1 || true)
             [[ -n "$LINE" ]] && STALE_SUMMARY="$LINE"
+            # Acknowledged fetch outages (non-fatal by themselves) are
+            # still named, so a run that fails for ANOTHER reason never
+            # reads as if the degraded source were healthy.
+            DEG=$(grep -E '^degraded:' "${RUNNER_TEMP}/staleness.log" | sed 's/^/  - /' || true)
+            [[ -n "$DEG" ]] && DEGRADED_SUMMARY=$'\n'"$DEG"
           fi
           BODY=$(cat <<EOF
           Scheduled data refresh failed.
@@ -793,13 +947,15 @@ jobs:
           - Commit: ${GITHUB_SHA}
           - Triggered: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
           - Freshness watchdog: ${STALE_SUMMARY}
+          - Degraded (acknowledged fetch outage, withheld from voting, non-fatal): ${DEGRADED_SUMMARY}
 
           Likely causes:
           1. A fetcher crashed (check the **Run scraper** step).
           2. KTC produced too few rows (primary-source guard tripped).
           3. The DLF freshness guard tripped (>24h since last DLF stamp).
           4. The staleness watchdog flagged one or more sources past
-             threshold (see the run summary table).
+             threshold (see the run summary table) — including any
+             acknowledged fetch outage that expired or started voting.
 
           The cron will retry automatically on the next 2h cycle.  If
           the same failure recurs, fix the root cause and trigger a
@@ -863,6 +1019,16 @@ jobs:
                    --json number --jq '.[].number' 2>/dev/null || echo "")
           if [[ -z "$OPEN" ]]; then
             echo "no open stale-sources issue; nothing to close"
+            exit 0
+          fi
+          # Green is not all-clear while an acknowledged fetch outage is
+          # only DEGRADED: that issue is the outage's tracking record
+          # (config/source_staleness.json ``acknowledgedFetchOutages``),
+          # and closing it would announce a recovery nobody measured.
+          if [[ -f "${RUNNER_TEMP}/staleness.log" ]] \
+             && grep -qE '^degraded:' "${RUNNER_TEMP}/staleness.log"; then
+            echo "gates passed, but an acknowledged fetch outage is still DEGRADED; leaving the tracking issue open:"
+            grep -E '^degraded:' "${RUNNER_TEMP}/staleness.log"
             exit 0
           fi
           for N in $OPEN; do

@@ -407,8 +407,11 @@ def test_prod_auth_config_reports_annotations_as_evidence():
     which is precisely what V1-45's L4 bar asks.
     """
     cfg = (REPO_ROOT / "tests" / "e2e" / "prod-auth.config.js").read_text()
-    assert '["json"' in cfg, "no json reporter: annotations never leave the runner"
-    assert "prod-auth-results.json" in cfg
+    # The structured report is the sanitized one (security S3): the raw
+    # Playwright ``json`` reporter would publish Received values.
+    assert "prod-auth-safe-reporter.js" in cfg, "no structured report: annotations never leave"
+    reporter = (REPO_ROOT / "tests" / "e2e" / "prod-auth-safe-reporter.js").read_text()
+    assert "prod-auth-results.json" in reporter and "annotations" in reporter
 
     wf = (REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml").read_text()
     assert (
@@ -606,3 +609,99 @@ def test_v20_records_fail_when_the_gate_lets_a_rogue_source_through(monkeypatch)
         "redraft": False,
         "absent": False,
     }
+
+
+# ── Signals Fantasy on the deployed response ────────────────────────────
+
+
+def _signals_contract(*, sf_votes=True, idp_state="shadow", contributing=150, legacy=True):
+    rows = {}
+    for i in range(200):
+        meta = (
+            {"signalsSf": {"appliedWeight": 0.5, "valueContribution": 5000}}
+            if i < contributing
+            else {}
+        )
+        rows[f"P{i}"] = {"sourceRankMeta": meta, "sourceNativeValues": {"signalsSf": 1.0}}
+    for i, key in enumerate(("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")):
+        row = {"sourceNativeValues": {key: 1.0}, "sourceShadowMeta": {key: {}}}
+        if idp_state == "active":
+            row["sourceRankMeta"] = {key: {"appliedWeight": 1.0, "valueContribution": 3000}}
+            row.pop("sourceShadowMeta")
+        rows[f"I{i}"] = row
+    avail = {"signalsSf": {"state": "present", "votes": sf_votes, "voteState": "active"}}
+    for key in ("signalsIdpDl", "signalsIdpLb", "signalsIdpDb"):
+        avail[key] = {"state": "present", "votes": idp_state == "active", "voteState": idp_state}
+    contract = {"privateSourceAvailability": avail}
+    if legacy:
+        contract["players"] = rows  # view=app: legacy dict only
+    else:
+        contract["playersArray"] = list(rows.values())
+    return contract
+
+
+def _signals_checks():
+    return {c.check_id: c for c in auth.CHECKS if c.check_id.startswith("SIG-")}
+
+
+@pytest.mark.parametrize("legacy", [True, False])
+def test_signals_offense_and_idp_shadow_pass(legacy):
+    auth.CHECKS.clear()
+    auth.check_signals(_signals_contract(legacy=legacy))
+    checks = _signals_checks()
+    assert checks["SIG-OFF"].status == "pass"
+    assert checks["SIG-IDP"].status == "pass"
+
+
+def test_signals_offense_not_voting_fails():
+    auth.CHECKS.clear()
+    auth.check_signals(_signals_contract(sf_votes=False))
+    assert _signals_checks()["SIG-OFF"].status == "fail"
+
+
+def test_signals_offense_present_but_not_contributing_fails():
+    auth.CHECKS.clear()
+    auth.check_signals(_signals_contract(contributing=10))
+    assert _signals_checks()["SIG-OFF"].status == "fail"
+
+
+def test_signals_idp_state_must_match_what_rows_carry():
+    auth.CHECKS.clear()
+    contract = _signals_contract(idp_state="shadow")
+    # A weighted, contributing vote while the state says "shadow".
+    contract["players"]["I0"]["sourceRankMeta"] = {
+        "signalsIdpDl": {"appliedWeight": 1.0, "valueContribution": 3000}
+    }
+    auth.check_signals(contract)
+    assert _signals_checks()["SIG-IDP"].status == "fail"
+
+
+def test_signals_idp_a_non_contributing_meta_is_not_a_vote():
+    """A freshness-excluded observation is not a vote (weighted, contributing
+    observations only — owner directive 2026-10-19)."""
+    auth.CHECKS.clear()
+    contract = _signals_contract(idp_state="shadow")
+    contract["players"]["I0"]["sourceRankMeta"] = {
+        "signalsIdpDl": {"appliedWeight": 0.0, "contributedToBlend": False}
+    }
+    auth.check_signals(contract)
+    assert _signals_checks()["SIG-IDP"].status == "pass"
+
+
+def test_signals_idp_active_family_must_contribute():
+    auth.CHECKS.clear()
+    auth.check_signals(_signals_contract(idp_state="active"))
+    assert _signals_checks()["SIG-IDP"].status == "pass"
+
+
+def test_signals_idp_held_without_a_qualified_translation_passes_as_shadow():
+    """``held: no_qualified_translation`` keeps the shadow stamp, casts no vote."""
+    auth.CHECKS.clear()
+    auth.check_signals(_signals_contract(idp_state="held"))
+    assert _signals_checks()["SIG-IDP"].status == "pass"
+
+
+def test_signals_without_a_contract_is_unmeasurable():
+    auth.CHECKS.clear()
+    auth.check_signals(None)
+    assert {c.status for c in _signals_checks().values()} == {"unmeasurable"}

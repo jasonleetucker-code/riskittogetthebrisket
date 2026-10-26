@@ -165,11 +165,9 @@ export const SETTINGS_DEFAULTS = {
   // never modifies dynasty values or trade math.  These flags gate
   // the new UI surfaces (added in PR1; PR2-5 wire more consumers).
   rosEnabled: true,
-  // PR3 shipped ros-playoff-odds.  Default flipped to true on
-  // 2026-04-29; the ROS-blended Monte Carlo replaces the empirical-
-  // only v1 by default.  Users who prefer v1 can flip back via
-  // /settings.
-  useRosPlayoffOdds: true,
+  // ``useRosPlayoffOdds`` is RETIRED (C5-PLAY-01): there is one playoff
+  // engine, so there is nothing to switch between.  The toggle was never
+  // read by any page; a stored value is simply ignored.
   // PR4 ships the trade-calculator ROS-fit panel + player-popup tags.
   showRosTradePanel: true,
   showRosTags: true,

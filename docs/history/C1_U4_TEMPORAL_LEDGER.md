@@ -252,6 +252,12 @@ file as raw evidence, not a live decision surface). `pipeline_version` moved to
 
 ## 11. Durability / retention posture
 
+> **CORRECTED 2026-10-01 (AL-P2).** The rebuildability claim below does not
+> hold in full: measured on production, ~2.0 M of ~3.3 M rows are 2-hourly
+> `live:server` observations that no feed reproduces (the rebuild restores the
+> daily backfill and the two migrated recorders only). The ledger is now in the
+> nightly backup set — `docs/retention/RETENTION_REGISTER.md`, AL-P2 addendum §3.
+
 The ledger is **deterministically rebuildable** from its feeds: git-tracked
 archives + the nightly-backed-up `rank_history.jsonl.gz` and
 `board_history.sqlite.gz` + ongoing recording (whose facts land in those backed-up

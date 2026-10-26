@@ -63,7 +63,7 @@ optimisation is also the source of its worst value inconsistency.** The
 byte-faithful to it — but the frontend fires it with `tep_multiplier=1.15` on every
 session, which makes the board it returns disagree with `GET /api/data` on 135 values
 and 627 ranks (W07-F001, P0, verifier verdict *rescoped*, severity held). See
-[Optimisations that serve a different answer](#optimisations-that-serve-a-different-answer).
+[Optimisations that serve a different answer](#7-optimisations-that-serve-a-different-answer).
 
 ---
 

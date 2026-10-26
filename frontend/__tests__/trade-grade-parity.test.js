@@ -31,6 +31,11 @@ import {
   gradeTradeSides,
   sanitizeSideValues,
 } from "@/lib/league-analysis";
+import {
+  ACTIVE_PACKAGE_MODEL_ID,
+  PACKAGE_MODEL_IDS,
+  packageAdjustPair,
+} from "@/lib/trade-logic";
 
 const REPO_ROOT = path.resolve(__dirname, "../..");
 const FIXTURE_PATH = path.join(
@@ -117,30 +122,54 @@ describe("gradeTradeSides — whole trade, VA computed", () => {
   }
 });
 
-describe("KTC value adjustment against keeptradecut.com captures", () => {
+// vaEngineCases are real keeptradecut.com captures — external ground truth
+// for KTC's adjustPackage.  Since the owner promoted geom_q078_v1 to ACTIVE
+// (2026-10-17) they pin the retained KTC ROLLBACK model, selected explicitly.
+describe("KTC rollback package model against keeptradecut.com captures", () => {
   const { tolerance, cases } = FIXTURE.vaEngineCases;
+  const KTC = { modelId: PACKAGE_MODEL_IDS.KTC_2026_04 };
   for (const c of cases) {
     it(`${c.id}: ${c.why}`, () => {
       const got = computeTradeVANet(
         sanitizeSideValues(c.got),
         sanitizeSideValues(c.gave),
+        KTC,
       );
       expect(Math.abs(got - c.vaNet)).toBeLessThanOrEqual(tolerance);
     });
   }
 
-  it("is antisymmetric — swapping got and gave flips the sign", () => {
+  it("is antisymmetric — swapping got and gave flips the sign (active and KTC)", () => {
     // Otherwise a two-team trade could grade both sides as winners.
+    for (const opts of [{}, KTC]) {
+      for (const c of cases) {
+        const forward = computeTradeVANet(
+          sanitizeSideValues(c.got),
+          sanitizeSideValues(c.gave),
+          opts,
+        );
+        const reverse = computeTradeVANet(
+          sanitizeSideValues(c.gave),
+          sanitizeSideValues(c.got),
+          opts,
+        );
+        expect(forward, c.id).toBeCloseTo(-reverse, 9);
+      }
+    }
+  });
+
+  it("defaults to the ACTIVE package model", () => {
     for (const c of cases) {
-      const forward = computeTradeVANet(
-        sanitizeSideValues(c.got),
-        sanitizeSideValues(c.gave),
-      );
-      const reverse = computeTradeVANet(
-        sanitizeSideValues(c.gave),
-        sanitizeSideValues(c.got),
-      );
-      expect(forward, c.id).toBeCloseTo(-reverse, 9);
+      const got = sanitizeSideValues(c.got);
+      const gave = sanitizeSideValues(c.gave);
+      const r = packageAdjustPair(got, gave);
+      const expected =
+        !r.displayed || r.value <= 0 ? 0 : r.side === 1 ? r.value : -r.value;
+      expect(computeTradeVANet(got, gave), c.id).toBe(expected);
+      expect(
+        computeTradeVANet(got, gave, { modelId: ACTIVE_PACKAGE_MODEL_ID }),
+        c.id,
+      ).toBe(expected);
     }
   });
 });

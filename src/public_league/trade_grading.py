@@ -46,11 +46,33 @@ from typing import Any, Iterable
 
 from src.valuation_math.ktc_va_core import KTC_VARIANCE_PCT as _KTC_VARIANCE_PCT
 from src.valuation_math.ktc_va_core import adjust_package_raw as _adjust_package_raw
+from src.valuation_math.package_model import adjust_pair as _package_adjust_pair
+
+# ── The evenly-valued criterion (OD-F6 option A, owner 2026-10-21) ─────────
+# The ONE authoritative definition of the history grade's lowest tier.  The JS
+# mirror is ``frontend/lib/trade-history-grade-policy.js`` (pinned to these two
+# names by ``tests/public_league/test_history_grade_relabel_no_change.py``);
+# the shared parity fixture ``tests/fixtures/trade_grade_parity_cases.json``
+# states the same cut and word for both languages.
+#
+# What it measures: VALUE BALANCE.  ``pctGap`` (``grade_trade_side``) is the
+# side's package-adjusted net -- board values plus the active package model's
+# value adjustment -- over the larger adjusted side, on one stated date (the
+# at-the-time ledger value or today's board).  No points scored, no results.
+# So the tier reads "Evenly valued", not "Even outcome".  It used to read
+# "Fair trade", the market-fairness verdict's word for a DIFFERENT predicate
+# (``fairness_bands_v2``: 3.5 % of the larger package utility, or a gap under
+# the 250-point floor); the owner chose to rename it with no grade change.
+# Record: ``docs/trade/HISTORY_GRADE_RELABEL_OD_F6_2026-10-21.md``.
+HISTORY_EVEN_PCT = 3.0
+HISTORY_EVEN_LABEL = "Evenly valued"
 
 # ── Band table ───────────────────────────────────────────────────────────
 # Mirrors ``gradeTradeHistorySide`` in ``frontend/lib/league-analysis.js``
 # exactly — same cut points, same letters, same labels, same colors.
-_GRADE_PCT_FAIR = 3.0
+# ``_GRADE_PCT_FAIR`` keeps its historical name because read-only research
+# scripts read it; its value is the criterion above, never a second literal.
+_GRADE_PCT_FAIR = HISTORY_EVEN_PCT
 _GRADE_PCT_SLIGHT = 8.0
 _GRADE_PCT_GOOD = 15.0
 _GRADE_PCT_CLEAR = 25.0
@@ -63,14 +85,19 @@ def grade_from_pct(pct: float, is_winner: bool) -> dict[str, str]:
     ``pct`` is ``abs(pctGap)``; ``is_winner`` is ``pctGap > 0``.
     """
     if pct < _GRADE_PCT_FAIR:
-        return {"grade": "A", "color": "var(--green)", "label": "Fair trade"}
+        return {"grade": "A", "color": "var(--green)", "label": HISTORY_EVEN_LABEL}
+    # Letters are MONOTONE in the margin (TC-A, 2026-10-17): a bigger win
+    # never earns a lower letter, a bigger overpay never a higher one.  The
+    # winner letters used to run A, A, A-, B+, A+ (a Clear win below a Slight
+    # win; B+ meaning both "Clear win" and "Slight overpay").  Cut points are
+    # unchanged (PRIOR, owner recalibration pending).
     if is_winner:
         if pct < _GRADE_PCT_SLIGHT:
             return {"grade": "A", "color": "var(--green)", "label": "Slight win"}
         if pct < _GRADE_PCT_GOOD:
-            return {"grade": "A-", "color": "var(--green)", "label": "Good win"}
+            return {"grade": "A", "color": "var(--green)", "label": "Good win"}
         if pct < _GRADE_PCT_CLEAR:
-            return {"grade": "B+", "color": "#2ecc71", "label": "Clear win"}
+            return {"grade": "A+", "color": "#00ff88", "label": "Clear win"}
         return {"grade": "A+", "color": "#00ff88", "label": "Big win"}
     if pct < _GRADE_PCT_SLIGHT:
         return {"grade": "B+", "color": "#2ecc71", "label": "Slight overpay"}
@@ -121,20 +148,32 @@ def ktc_adjust_package(team1_vals: Iterable[float], team2_vals: Iterable[float])
     return {"value": value, "side": side, "displayed": displayed}
 
 
-def trade_va_net(got_values: list[float], gave_values: list[float]) -> float:
-    """Signed KTC value adjustment for ONE team's got-vs-gave equation.
+def trade_va_net(
+    got_values: list[float],
+    gave_values: list[float],
+    *,
+    model_id: str | None = None,
+) -> float:
+    """Signed package value adjustment for ONE team's got-vs-gave equation.
 
     Positive means this team RECEIVED the stud premium; negative means
     they gave the studs away.  Mirrors ``computeTradeVANet`` in
-    ``frontend/lib/league-analysis.js``: got is KTC's team1, gave is
-    team2, so ``side === 1`` is a bonus and ``side === 2`` a penalty.
+    ``frontend/lib/league-analysis.js``: got is the dispatch's team1, gave
+    is team2, so ``side === 1`` is a bonus and ``side === 2`` a penalty.
+
+    ``model_id=None`` uses the ACTIVE package model
+    (``src.valuation_math.package_model``); an explicit id (e.g. the KTC
+    rollback model) selects that model — same twin parameter as the JS
+    ``opts.modelId``.
     """
     if not got_values or not gave_values:
         return 0.0
-    result = ktc_adjust_package(got_values, gave_values)
-    if not result["displayed"] or result["value"] <= 0:
+    got = [float(v) for v in got_values if _finite(v) and float(v) > 0]
+    gave = [float(v) for v in gave_values if _finite(v) and float(v) > 0]
+    value, side, displayed = _package_adjust_pair(got, gave, model_id=model_id)
+    if not displayed or value <= 0:
         return 0.0
-    return float(result["value"]) if result["side"] == 1 else -float(result["value"])
+    return float(value) if side == 1 else -float(value)
 
 
 # ── The canonical grade ──────────────────────────────────────────────────

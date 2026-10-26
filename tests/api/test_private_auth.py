@@ -45,10 +45,19 @@ PRIVATE_API_PATHS = [
     # census found no anonymous consumer.
     "/api/scaffold/status",
     "/api/user/state",
+    "/api/user/trade-protections",
     "/api/player/12345/realized",  # Phase 11 follow-on — realized points
     "/api/admin/nfl-data/flush",
     "/api/admin/sessions/force-logout-all",
     "/api/admin/signal-state/migrate",
+    # Signals Fantasy second opinion (#1555): authenticated surfaces only.
+    "/api/second-opinion/signals",
+    # Model Lab (AL-0b / IC-5): private + admin-only development metrics.
+    "/api/model-lab",
+    "/api/model-lab/hill_scope_masters",
+    # Trade History At-the-Time grades (owner package 2026-10-17): the
+    # private response carries raw sums and adjusted nets.
+    "/api/trades/asof-grades",
 ]
 PRIVATE_POST_PATHS = {
     "/api/trade/suggestions",
@@ -58,6 +67,7 @@ PRIVATE_POST_PATHS = {
     "/api/angle/find",
     "/api/angle/packages",
     "/api/rankings/overrides",
+    "/api/trades/asof-grades",
     # Phase 11 admin endpoints
     "/api/admin/nfl-data/flush",
     "/api/admin/sessions/force-logout-all",

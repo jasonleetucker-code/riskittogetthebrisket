@@ -233,6 +233,36 @@ class PublicOverviewMemoTests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(self.calls["n"], 1)
 
+    def test_a_rebuild_publishes_its_snapshot_only_after_seeding(self) -> None:
+        # While the rebuild builds the contract, requests must still see the
+        # PREVIOUS snapshot (still memoized).  Publishing first put the new
+        # generation key in front of requests with nothing memoized under
+        # it, and each one built the contract inline: the overview p95.
+        old = self.server._public_league_cache["snapshot"]
+        self.server._public_league_cache["fetched_at"] = 0.0  # due for a rebuild
+        seen = []
+        counting = self.server.build_public_contract
+
+        def observing(*args, **kwargs):
+            seen.append(self.server._public_league_cache["snapshot"])
+            return counting(*args, **kwargs)
+
+        self.server.build_public_contract = observing
+        persist = self.server._PUBLIC_LEAGUE_PERSIST
+        self.server._PUBLIC_LEAGUE_PERSIST = True
+        try:
+            new = self.server._rebuild_public_snapshot("L2025", trigger="test")
+        finally:
+            self.server._PUBLIC_LEAGUE_PERSIST = persist
+        self.assertIsNot(new, old)
+        self.assertEqual(len(seen), 1)
+        self.assertIs(seen[0], old)
+        self.assertIs(self.server._public_league_cache["snapshot"], new)
+        # The first request after the swap is a memo hit, not a build.
+        r = self.client.get("/api/public/league/overview")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.calls["n"], 1)
+
     def test_memoized_overview_equals_a_direct_section_build(self) -> None:
         import json
 

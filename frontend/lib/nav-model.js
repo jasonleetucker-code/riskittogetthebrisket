@@ -21,6 +21,8 @@
  *   My Team  — "what do I do with my roster?"
  *   Market   — "what is the market doing that I can exploit?"
  *   League   — "how is my league doing?"  Public, community-facing.
+ *   DFS      — "what lineup should I enter?"  Daily fantasy; separate
+ *              from dynasty value by design.
  *
  * This replaced a grouping that had drifted: three tools whose names
  * all meant "finder" sat adjacent in one menu, player-value views
@@ -236,6 +238,27 @@ export const NAV_MODEL = [
         hint: "Which players the sharp cohort actually rosters",
         keywords: ["sharp", "roster percentage", "ownership", "rostered", "exposure"],
       },
+      // Recorded real dynasty trades (TC-08).  Market, not League: the
+      // ledger spans external leagues; this league's own trades appear in it
+      // only for this league (the same visibility rules as /trade's panel).
+      {
+        href: "/market/trade-database",
+        label: "Trade Database",
+        hint: "Browse recorded real dynasty trades by asset, date and format",
+        keywords: ["trade database", "real trades", "comps", "comparable trades", "ktc trades"],
+      },
+      // Manager Intelligence (C6-MGR-02): any Sleeper username's dynasty
+      // portfolio across all their leagues.  Market, not League: it reads
+      // leagues far outside ours.  CAPABILITY-GATED on the
+      // `manager_intelligence` flag so a switched-off deployment never
+      // offers a page whose API answers 503.
+      {
+        href: "/managers",
+        label: "Manager Intelligence",
+        hint: "Look up any Sleeper manager's dynasty portfolio",
+        keywords: ["manager", "sleeper", "portfolio", "exposure", "username", "scout", "stalker"],
+        capability: "managerIntelligence",
+      },
     ],
   },
   {
@@ -257,6 +280,24 @@ export const NAV_MODEL = [
         label: "Scoring Comparison",
         hint: "Your league's scoring vs a standard baseline",
         keywords: ["league comp", "baseline", "settings"],
+      },
+    ],
+  },  // DFS — "what lineup should I enter tonight?"  A separate product
+  // family from dynasty (owner directive 2026-09-30, docs/dfs/README.md):
+  // its own group so its data and vocabulary never read as part of the
+  // dynasty board. Future DFS surfaces (contests, research, results) join
+  // this group rather than new top-level entries.
+  {
+    key: "dfs",
+    label: "DFS",
+    href: "/dfs",
+    hint: "Daily fantasy lineups",
+    items: [
+      {
+        href: "/dfs",
+        label: "DFS Workspace",
+        hint: "Import a slate, set your rules, build and export lineups",
+        keywords: ["dfs", "daily fantasy", "draftkings", "fanduel", "optimizer", "lineup", "salary"],
       },
     ],
   },
@@ -284,6 +325,9 @@ export const SYSTEM_MODEL = {
     { href: "/tools/ros-data-health", label: "ROS Data Health", hint: "Rest-of-season pipeline health", section: "Ops", adminOnly: true },
     { href: "/tools/trade-coverage", label: "Trade Coverage", hint: "Per-team coverage audit", section: "Ops", adminOnly: true },
     { href: "/admin", label: "Admin", hint: "Operator flags + actions", section: "Ops", adminOnly: true },
+    // Read-only champion/challenger evidence for every model family (IC-6).
+    // Admin-only twice over: hidden here, and 403 from /api/model-lab.
+    { href: "/admin/model-lab", label: "Model Lab", hint: "Champion vs challenger evidence (read-only)", section: "Ops", adminOnly: true, keywords: ["challenger", "champion", "hill", "models", "promotion"] },
   ],
 };
 
@@ -430,13 +474,18 @@ export function flattenNav(groups) {
  * hitting ⌘K and typing "consensus" would still land on the dead page.
  * Called with no capabilities (the pre-existing signature) it fails
  * closed and omits every gated destination.
+ *
+ * The System items go through `systemItemsFor({ isAdmin })` — the same
+ * filter TopBar, MobileChrome and /more use — so an admin-only Ops page
+ * (/admin, /admin/model-lab, /tools/*) is never offered to a non-admin
+ * here either.  `isAdmin` absent fails closed, like `capabilities`.
  */
-export function paletteTargets({ capabilities } = {}) {
+export function paletteTargets({ capabilities, isAdmin = false } = {}) {
   const seen = new Set();
   const out = [];
   for (const item of [
     ...flattenNav(navGroupsFor({ capabilities })),
-    ...SYSTEM_MODEL.items.map((i) => ({ ...i, group: "System" })),
+    ...systemItemsFor({ isAdmin }).map((i) => ({ ...i, group: "System" })),
     ...PALETTE_EXTRA_TARGETS.map((i) => ({ ...i, group: null })),
   ]) {
     if (seen.has(item.href)) continue;

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from src.api import league_registry
+
 from . import (
     activity,
     archives,
@@ -338,6 +340,14 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "waiver_gems",
         "arbitrageScore",
         "arbitrage_score",
+        # Manager Scout (C6-MGR-01) — per-manager tendencies are private
+        # decision intelligence (OWNER_PRODUCT_BACKLOG_SPEC §7).  Its
+        # distinctive block names may never reach a public payload.
+        "managerScout",
+        "tradeTendencies",
+        "waiverTendencies",
+        "faabTendencies",
+        "lineupTendencies",
         # Scraper / pipeline internals
         "rawSources",
         "raw_sources",
@@ -345,40 +355,185 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "source_health",
         "pickAliases",
         "pick_aliases",
+        # Signals Fantasy second opinion — authenticated surfaces only (#1555)
+        "signalsPositionalRank",
+        # Per-source vendor numbers.  Since 2026-10-03 these carry Signals'
+        # PAID authenticated native values and derived ranks (registry keys
+        # signalsSf / signalsIdpDl / signalsIdpLb / signalsIdpDb), which may
+        # never reach a public payload (docs/sources/SIGNALS_FANTASY_
+        # INTEGRATION.md §2) — nor may any other vendor's per-source number,
+        # nor a shadow source's would-be contribution.
+        "sourceNativeValues",
+        "sourceOriginalRanks",
+        "sourceShadowMeta",
+        # A released Signals IDP family's per-row withhold stamp (carries its
+        # within-family rank).
+        "sourceWithheldMeta",
+        # Aggregates only, and unreachable publicly today; blocked anyway as
+        # defence in depth (it names which private sources are configured).
+        "privateSourceAvailability",
+        "signalsSf",
+        "signalsIdp",
+        "signalsIdpDl",
+        "signalsIdpLb",
+        "signalsIdpDb",
     )
 )
+
+
+# ── Raw Sleeper identifiers never leave a public route ────────────────
+#
+# CLAUDE.md "League-aware routing": frontend callers use the stable
+# registry ``key`` from ``/api/leagues``; "no endpoint exposes raw Sleeper
+# IDs to the UI".  The public payloads did — the ``league`` header carried
+# ``rootLeagueId`` / ``leagueIds`` / ``currentLeagueId``, and ~20 section
+# builders stamp a per-row ``leagueId`` (records, streaks, rivalries,
+# weekly, …), measured at 300+ occurrences in one fixture contract.  A
+# Sleeper league id is also the key to that league's whole Sleeper API
+# surface, and it changes every season as Sleeper chains leagues, so it is
+# neither a safe nor a stable public identifier.
+#
+# Builders keep emitting ``leagueId`` because it is a real INTERNAL join
+# key — ``archives`` re-reads the activity / draft rows, award eligibility
+# matches rules on it, ``roster_to_owner`` is keyed on it.  The boundary is
+# what is SERVED: ``public_payload`` projects every assembled payload onto
+# its public view by dropping these fields, and the same names sit in the
+# raising blocklist below, so a payload that reaches a public route
+# WITHOUT that projection fails closed (500) rather than leaking.
+#
+# ``draftId`` is included for the same reason: a Sleeper draft id resolves
+# to its league through Sleeper's own API.  Sleeper PLAYER ids and owner
+# (user) ids are deliberately NOT here — they are the public routes' own
+# path keys (``/player/{player_id}``, ``?owner=``) and the team identifier
+# already visible in public standings (see ``PRIVATE_INTELLIGENCE_SECTIONS``).
+RAW_SLEEPER_ID_FIELDS: frozenset[str] = frozenset(
+    {
+        "leagueId",
+        "rootLeagueId",
+        "leagueIds",
+        "currentLeagueId",
+        "previousLeagueId",
+        "stoppedAtLeagueId",
+        "failedLeagueId",
+        "draftId",
+    }
+)
+_RAW_SLEEPER_ID_FIELDS_LOWER: frozenset[str] = frozenset(k.lower() for k in RAW_SLEEPER_ID_FIELDS)
 
 
 def assert_public_payload_safe(payload: Any, path: str = "$") -> None:
     """Raise ``AssertionError`` if any blocked field name appears anywhere
     in ``payload``.  Checks dict keys at every depth.
+
+    Raw Sleeper id fields (``RAW_SLEEPER_ID_FIELDS``) are blocked too: a
+    served payload must have gone through ``public_payload`` first.
     """
     if isinstance(payload, dict):
         for key, value in payload.items():
             if not isinstance(key, str):
                 continue
-            if key.lower() in _PRIVATE_FIELD_BLOCKLIST:
+            lowered = key.lower()
+            if lowered in _PRIVATE_FIELD_BLOCKLIST:
                 raise AssertionError(f"Public payload contains blocked field {key!r} at {path}")
+            if lowered in _RAW_SLEEPER_ID_FIELDS_LOWER:
+                raise AssertionError(f"Public payload contains raw Sleeper id {key!r} at {path}")
             assert_public_payload_safe(value, f"{path}.{key}")
     elif isinstance(payload, (list, tuple)):
         for i, item in enumerate(payload):
             assert_public_payload_safe(item, f"{path}[{i}]")
 
 
+def _without_raw_sleeper_ids(value: Any) -> Any:
+    """A copy of ``value`` with every ``RAW_SLEEPER_ID_FIELDS`` key dropped.
+
+    Copies rather than mutating: section builders memoize their results
+    (activity, awards, overview) and their internal readers still need the
+    join keys this removes.
+    """
+    if isinstance(value, dict):
+        return {
+            k: _without_raw_sleeper_ids(v)
+            for k, v in value.items()
+            if not (isinstance(k, str) and k.lower() in _RAW_SLEEPER_ID_FIELDS_LOWER)
+        }
+    if isinstance(value, (list, tuple)):
+        return [_without_raw_sleeper_ids(v) for v in value]
+    return value
+
+
+def public_payload(payload: Any) -> Any:
+    """Project an assembled payload onto what a public route may serve.
+
+    The ONE serving boundary for ``/api/public/league*``: raw Sleeper ids
+    are dropped, then the private-field walk runs over exactly the result.
+    Every public JSON response is built through this (the section and full
+    contract builders here, and the matchup / player routes in
+    ``server.py``).
+    """
+    out = _without_raw_sleeper_ids(payload)
+    assert_public_payload_safe(out)
+    return out
+
+
 def _league_header(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    """The public ``league`` header.  Names the league by ``leagueKey`` on
+    the envelope and by season labels here — never by a Sleeper id."""
     current = snapshot.current_season
     name = ""
     if current is not None:
         name = str(current.league.get("name") or "")
     return {
-        "rootLeagueId": snapshot.root_league_id,
         "leagueName": name,
         "seasonsCovered": snapshot.season_ids,
-        "leagueIds": snapshot.league_ids,
-        "currentLeagueId": current.league_id if current else "",
+        # Whether ``seasonsCovered`` is the league's WHOLE history (C9-HIST-02):
+        # ``complete`` / ``truncated`` / ``unverified``, or ``None`` = unknown.
+        "historyCoverage": getattr(snapshot, "history_coverage", None),
+        "currentSeason": current.season if current is not None else None,
         "generatedAt": snapshot.generated_at,
         "managers": snapshot.managers.to_public_list(),
     }
+
+
+def public_league_key(root_league_id: str | None) -> str | None:
+    """The stable registry ``key`` of the league a snapshot describes.
+
+    Every league-aware endpoint names the league it answered for
+    (CLAUDE.md "League-aware routing"); the public-league responses did
+    not, so a caller served another league's payload could not tell.
+    The answer is the REGISTRY key, resolved by the registry's own
+    reverse lookup — never the raw Sleeper id, which changes every season
+    as Sleeper chains leagues.  ``None`` when the registry cannot name
+    the snapshot's league: unknown is published as unknown, never as the
+    default league's key and never as a best guess.
+    """
+    return league_registry.league_key_for_sleeper_id(root_league_id)
+
+
+def public_envelope(
+    contract_version: str, league_header: dict[str, Any], league_key: str | None
+) -> dict[str, Any]:
+    """The head every public-league JSON response starts with.
+
+    The ONE place ``leagueKey`` is stamped onto the full contract, every
+    section payload and the activity serving body.  ``league_key`` comes
+    from ``public_league_key(snapshot.root_league_id)`` — or, for a payload
+    re-wrapped from an already-built contract, that contract's own
+    ``leagueKey`` — because the header no longer carries the raw id it
+    used to be derived from.
+    """
+    return {
+        "contractVersion": contract_version,
+        "leagueKey": league_key,
+        "league": league_header,
+    }
+
+
+def _snapshot_envelope(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    return public_envelope(
+        PUBLIC_CONTRACT_VERSION,
+        _league_header(snapshot),
+        public_league_key(snapshot.root_league_id),
+    )
 
 
 def _build_overview(snapshot: PublicLeagueSnapshot, sections: dict[str, Any]) -> dict[str, Any]:
@@ -426,6 +581,44 @@ def _build_activity_section(
     if activity_valuation is None:
         return activity.build_section(snapshot)
     return activity.build_section(snapshot, valuation_factory=activity_valuation)
+
+
+def activity_serving_payload(
+    contract_version: str,
+    league_header: dict[str, Any],
+    league_key: str | None,
+    section_body: dict[str, Any],
+) -> dict[str, Any]:
+    """The ``GET /api/public/league/activity`` response body.
+
+    ``section_body`` is a full ``activity.build_section`` result — either
+    the one a full contract build already holds in
+    ``sections["activity"]`` or a fresh activity-only build — reduced to
+    its HTTP readers' fields by ``activity.serving_view``.  The serving
+    projection (``public_payload``) runs here, exactly once, over exactly
+    what is served.
+    """
+    payload = {
+        **public_envelope(contract_version, league_header, league_key),
+        "section": "activity",
+        "data": activity.serving_view(section_body),
+    }
+    return public_payload(payload)
+
+
+def build_activity_serving_payload(
+    snapshot: PublicLeagueSnapshot,
+    *,
+    activity_valuation: activity._ResolverFactory | None = None,
+) -> dict[str, Any]:
+    """Build ONLY the activity section and wrap it for serving — the
+    per-generation memo's miss path (see ``server.py``)."""
+    return activity_serving_payload(
+        PUBLIC_CONTRACT_VERSION,
+        _league_header(snapshot),
+        public_league_key(snapshot.root_league_id),
+        _build_activity_section(snapshot, activity_valuation),
+    )
 
 
 def build_section_payload(
@@ -484,15 +677,12 @@ def build_section_payload(
         section_body = _LAZY_SECTION_BUILDERS[section](snapshot)
     else:
         raise KeyError(f"Unknown public-league section: {section!r}")
-    header = _league_header(snapshot)
     payload = {
-        "contractVersion": PUBLIC_CONTRACT_VERSION,
-        "league": header,
+        **_snapshot_envelope(snapshot),
         "section": section,
         "data": section_body,
     }
-    assert_public_payload_safe(payload)
-    return payload
+    return public_payload(payload)
 
 
 def build_public_contract(
@@ -504,7 +694,6 @@ def build_public_contract(
 
     See ``build_section_payload`` for the ``activity_valuation`` arg.
     """
-    header = _league_header(snapshot)
     sections: dict[str, Any] = {}
     for key, builder in _SECTION_BUILDERS.items():
         if key == "activity":
@@ -518,10 +707,8 @@ def build_public_contract(
             sections[key] = builder(snapshot)
     sections[OVERVIEW_SECTION] = _build_overview(snapshot, sections)
     payload = {
-        "contractVersion": PUBLIC_CONTRACT_VERSION,
-        "league": header,
+        **_snapshot_envelope(snapshot),
         "sections": sections,
         "sectionKeys": list(PUBLIC_SECTION_KEYS),
     }
-    assert_public_payload_safe(payload)
-    return payload
+    return public_payload(payload)

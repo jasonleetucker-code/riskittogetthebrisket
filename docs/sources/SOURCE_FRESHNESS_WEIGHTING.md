@@ -9,6 +9,18 @@ Evidence for every number below:
 `docs/sources/evidence/FRESHNESS_WEIGHTING_2026-09-23/` (source table, player
 explanations, 14-day backtest). Board as of `2026-09-23T18:41:31Z`.
 
+> **2026-10-19 — the freshness CURVE is superseded for dynasty ranking
+> sources.** Owner directive "Universal Source Voting and Freshness Policy"
+> replaced the cadence-relative curve in §G with the owner's step schedule on
+> whole days since the last genuine publisher update (0–7 days 100%, 8–14
+> 75%, 15–21 50%, 22–30 25%, >30 0%), flag `source_freshness_schedule_v2`
+> (**default OFF** — implementation and percentages owner-approved, activation
+> HELD for the owner by the owner decision of 2026-10-20 on PR #1831, Option B;
+> while it is off this document's curve is the one in force, byte for byte). The clocks, the dataset-state owner, the
+> health and coverage factors and the family cap described here are
+> unchanged. Full record:
+> [`UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md`](UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md).
+
 ## 0. The architecture in one picture
 
 ```text
@@ -51,7 +63,8 @@ explanations, 14-day backtest). Board as of `2026-09-23T18:41:31Z`.
 | ktcCrowdTradesSfTep | KeepTradeCut published Crowd+Trades | value | — | offense + picks | **no** | **KTC Market** |
 | idpTradeCalc | IDP Trade Calculator | value | idpTradeCalc | full roster + picks | yes | — |
 | idpShowCombined | The IDP Show (Adamidp) Combined | rank | idpShow | IDP | yes | — |
-| dlfSf / dlfRookieSf / dlfIdp / dlfRookieIdp | Dynasty League Football | rank | dlf | offense / IDP | yes | — |
+| dlfSf / dlfRookieSf | Dynasty League Football | rank | dlf | offense | yes | — |
+| dlfIdp / dlfRookieIdp | Dynasty League Football IDP | rank | dlf | IDP | **no** — held (`POLICY_SOURCE_VOTE_HOLDS`): the 2026-10-16 policy hold was rescinded 2026-10-19 and the restore approved, but it is held at release pending the outlier-filter fix (`docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`; lift `RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`) | — |
 | dynastyNerdsSfTep | Dynasty Nerds | rank | own | offense | yes | — |
 | fantasyCalc | FantasyCalc | rank | own | offense | yes | — |
 | otcffbSf | OTC Fantasy Football | rank | own | offense | yes | — |
@@ -249,6 +262,25 @@ Clocks that do **not** move:
 
 These change health only. The last valid content is kept.
 
+### One board, two universes (flag `source_universe_freshness`, default ON — #1555 V2-1, 2026-09-30)
+
+A source that prices offense AND IDP players on one board (IDP Trade Calculator) can publish an
+IDP-only update large enough to count as a broad change for the whole board. Before this, row age was
+`max(row clock, board broad clock)`, so offense rows that did not move were credited with it. It was
+measured in the tracked state: 442 rows, the offense board, last changed 2026-08-28, while the broad
+events of 09-15 (184 rows) and 09-23 (28 rows) were IDP-only.
+
+`SubsetFreshness.universe_clock` derives each universe's latest broad change from the per-row clocks
+already kept. It is the latest time at which at least `max(5, 2%)` of that universe's rows last changed
+together, and it only **caps** the source clock (`min`), so evidence can only get older. It applies only
+where a subset spans two universes with at least 5 tracked rows each. Single-universe sources, EXPLICIT
+vendor timestamps and sources without row clocks are unchanged.
+
+Stated assumption: offense rows age against the source's learned cadence, because no per-universe
+cadence is recorded. Measured on the 2026-09-30 board: IDPTC offense freshness goes from 0.98 to 0.06;
+427 offense rows move (median |d| ~26, max 155); 4 top-200 membership changes; IDP and picks are
+unchanged. Rollback: `RISKIT_FEATURE_SOURCE_UNIVERSE_FRESHNESS=0` + restart.
+
 ### Publication style (derived from the last 20 change events, ≥ 5 required)
 
 | style | rule | freshness clock |
@@ -306,6 +338,32 @@ clock.
   evidence only if it was fetched on time **and** its content freshness is
   ≥ `freshForConfidence` (0.5). Under the rollback flag it reverts to the
   fetch-only answer.
+
+### Owner decision 2026-10-07: the quarantine line stays; no stale-authority floor
+
+The integrity sweep (`docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md` §8.1) asked whether
+`quarantineBelow 0.02` conflicts with "stale valid evidence keeps voting at reduced authority".
+**Owner decision (final unless new empirical evidence materially changes the situation):** the line stays
+exactly as configured. Stale evidence is not current truth and is not entitled to permanent authority;
+missing is not zero, and stale is not current. In production there is **no minimum voting floor**, including
+when quarantining a source (first case: IDP Trade Calculator offense + pick rows, projected ~2026-10-09
+13:10Z) leaves pick values resting on one provider (KTC). Consequences, all binding:
+
+* the quarantined observation is **preserved as historical evidence** (dataset state, temporal ledger,
+  archives) — never deleted, never zero;
+* canonical pick values stay **finite** where the existing architecture prices them honestly;
+* the reduced evidence is **stamped**, not hidden: single current provider, reduced coverage, and the
+  existing confidence penalty — **confidence may never rise** because a source aged out;
+* no second "independent" vote is manufactured from another KTC-derived signal; KTC Crowd, KTC Trades and
+  KTC Market are not counted as independent providers for evidence/confidence reporting where they share
+  lineage (Crowd and Trades remain separate value families per the 2026-09-23 directive; Market never votes);
+* the degraded state is **alerted/reported**, but is not a production outage while the remaining canonical
+  value is valid;
+* restoring or replacing independent IDP / pick evidence continues through the authorized source path.
+
+A small stale-source floor may be evaluated **only as a shadow challenger** through the normal evidence and
+promotion gates; it never affects production unless it passes them. Intake:
+`docs/OWNER_REQUESTED_TODO.md` ("2026-10-07 — IDP Trade Calculator freshness cutoff").
 
 ### Rollback
 
@@ -737,6 +795,34 @@ prints, per source and subset:
 It is **advisory**: a failure only warns
 (`VERIFY_SOURCE_WEIGHTING_REPORT=0` disables it), so it can never fail or
 skip a deploy.
+
+## A first observation is a lower bound, not a publication time (D1, 2026-10-07)
+
+The first time a board is seen, `dataset_state.observe` can only stamp the
+data clocks with the OBSERVATION (fetch) time, and marks the subset
+`firstObservationIsBaseline`. The content was published at some unknown time
+at or before that, so while the baseline is still the clock its age is a
+**lower bound**. `freshness.assess_subset` therefore:
+
+* keeps the factor that lower bound implies (it can prove a board is at least
+  so stale — no blend weight moves);
+* never reports it `ON_SCHEDULE`: a baseline that would read on schedule is
+  `UNMEASURED`, whose factor is the same neutral 1.0;
+* publishes `sourceDataAsOf: null`, `clockIsObservationBaseline: true`,
+  `observationBaselineAt`, `ageIsLowerBound: true`, and does not present the
+  baseline as a `lastBroadDatasetChangeAt` / `lastAnyMeaningfulChangeAt`.
+
+The first genuine broad change after the baseline restores the normal clock; a
+vendor-stated publication time (`EXPLICIT_UPSTREAM_TIMESTAMP`) is a real clock
+and never a baseline. Pinned by `tests/sources/test_first_observation_baseline.py`.
+
+The B11 confidence gate's FETCH flags (`data_contract._source_freshness_flags`)
+are likewise measured at the board's own as-of against its own `csv_root`, never
+the wall clock (D9) — `tests/api/test_confidence_freshness_as_of.py`. The
+reference time is published as `dataFreshness.sourceTimestampsAsOf`, so every
+`sourceTimestamps[*].ageHours` reads as "fetch age at the board's scrape time".
+A seasonal-inactivity excuse in the contract validator (D8) is honoured only for
+keys with a DECLARED policy in `config/sources/seasonal_policy_v1.json`.
 
 ## Relationship to `dynamic_source_weights`
 

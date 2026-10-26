@@ -1,0 +1,150 @@
+{
+  "_comment": "Source rehabilitation lifecycle (owner master package 2026-10-17, Workstream J). EVERY source that is ingested but not voting at full authority has an entry: why, the evidence, the named recovery action, who/what owns it, the next evaluation trigger, the promotion gate, and a review-by date. 'permanent_role' entries (benchmarks, mirrors, seasonal-lane boards) are not candidates and carry no gate. Owner module: src/sources/rehabilitation.py. Pinned by tests/sources/test_rehabilitation_registry.py (every held / non-voting / shadow key must appear). Overdue entries are reported by scripts/check_source_health.py. An entry never makes a source vote: activation stays behind its own gate and, where stated, owner approval.",
+  "states": [
+    "auth_blocked",
+    "upstream_inactive",
+    "evaluation_pending",
+    "shadow",
+    "policy_held",
+    "degraded",
+    "seasonal_inactive",
+    "permanent_role",
+    "not_integrable"
+  ],
+  "entries": {
+    "idpShowCombined": {
+      "state": "upstream_inactive",
+      "reason": "collection RECOVERED: the prod collector (dynasty-idpshow-fetch) has authenticated and committed every 2 h since 2026-10-17T20:32Z (665 rows, HEALTHY). The vendor's combined chart U8I37 is still v4, lastModifiedAt 2026-08-19, so freshness weighting quarantines it (freshness 0, ~60 days old) — the established safeguard",
+      "evidence": "docs/sources/IDP_SHOW_RECOVERY_2026-10-17.md; docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md §1; data/scrape_state/idpShowCombined_dataset.json (upstream U8I37/v4)",
+      "recoveryAction": "none on our side; the quarantine lifts automatically when the vendor publishes a new chart version. When it votes again it votes as its OWN family beside the IDP Trade Calculator (owner directive 2026-10-19: agreement between providers is consensus; the Decision 2 shared cap was withdrawn before release, docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md)",
+      "owner": "automation:dynasty-idpshow-fetch (collection)",
+      "nextTrigger": "vendor publishes U8I37 v5 or later (each 2-hourly fetch reads the chart version)",
+      "promotionGate": "freshness weighting releases the quarantine only when the vendor's chart lastModifiedAt advances; a re-fetch of an unchanged chart stays stale",
+      "reviewBy": "2026-11-01"
+    },
+    "idpShow": {
+      "state": "evaluation_pending",
+      "reason": "IDP-only cut of the vendor's board; unregistered since 2026-08-20 to avoid double-counting idpShowCombined. The authenticated 2026-10-17 capture of the vendor's 2026-10-08 republication is ORDER-IDENTICAL to IDP Trade Calculator's IDP board: 0.00% discordant pairs on 346 players for every IDP Trade Calculator version since 2026-10-10T02:01Z (7.5% before the vendor republished). It carries no information beyond a voter that already counts",
+      "evidence": "docs/sources/IDP_SHOW_RECOVERY_2026-10-17.md; docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md §3",
+      "recoveryAction": "do NOT make this IDP-only cut an additional voter (same provider as idpShowCombined: one family vote for the provider, closeout 2026-10-18). Its order similarity to the IDP Trade Calculator is a diagnostic only and merges no vote (owner directive 2026-10-19, docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md)",
+      "owner": "claude (evaluation) / owner (approval)",
+      "nextTrigger": "a measured divergence of the two IDP orders (owner closeout Decision 2: the IDP-only board must not become an additional voter)",
+      "promotionGate": "coverage / identity / position check, lineage check against IDP Trade Calculator (config/sources/source_lineage.json), one family vote for the provider, owner approval to switch the family's voting board",
+      "reviewBy": "2026-11-15"
+    },
+    "signalsIdpDl": {
+      "state": "shadow",
+      "reason": "Candidate A shared-market crosswalk failed round 1 (criteria 6 and 6b) on production 2026-10-17",
+      "evidence": "docs/sources/SIGNALS_FANTASY_INTEGRATION.md §10.8.1; PR #1773",
+      "recoveryAction": "hold maintained (D7, 2026-10-18): obtain the box-local evidence and diagnose the round-1 failures (counts-only movement decomposition in the on-box verifier); any genuinely different candidate is preregistered by engineering before testing, never by relaxing thresholds, timestamps or denominators (owner decision closeout 2026-10-18, docs/owner/OWNER_DECISION_REGISTER.md)",
+      "owner": "claude (diagnostic) / owner (new candidate)",
+      "nextTrigger": "next Signals IDP release (contentSha256 != 6ec7bff6bd11) or a committed preregistration of a genuinely different candidate",
+      "promotionGate": "§10.6 gate, all of 1-8, unchanged thresholds",
+      "reviewBy": "2026-10-31"
+    },
+    "signalsIdpLb": {
+      "state": "shadow",
+      "reason": "Candidate A failed round 1; LB shows genuine disagreement (signed bias -6.24%), not a coverage artifact",
+      "evidence": "docs/sources/SIGNALS_FANTASY_INTEGRATION.md §10.8.1",
+      "recoveryAction": "as signalsIdpDl",
+      "owner": "claude / owner",
+      "nextTrigger": "as signalsIdpDl",
+      "promotionGate": "§10.6 gate, unchanged",
+      "reviewBy": "2026-10-31"
+    },
+    "signalsIdpDb": {
+      "state": "shadow",
+      "reason": "Candidate A failed round 1; DB signed bias -9.95% consistent with coverage asymmetry (Signals carries 25 DBs the bridge lacks)",
+      "evidence": "docs/sources/SIGNALS_FANTASY_INTEGRATION.md §10.8.1",
+      "recoveryAction": "as signalsIdpDl",
+      "owner": "claude / owner",
+      "nextTrigger": "as signalsIdpDl",
+      "promotionGate": "§10.6 gate, unchanged",
+      "reviewBy": "2026-10-31"
+    },
+    "dlfIdp": {
+      "state": "policy_held",
+      "reason": "restore APPROVED by the owner's universal source-voting directive of 2026-10-19 (it rescinds the 2026-10-16 hold and supersedes D1) and implemented in PR #1817 behind dlf_offense_only_vote, but HELD AT RELEASE (flag default ON, re-applied 2026-10-19): under the incumbent outlier filter the restore drops 31 valid Draft Sharks IDP / FantasyPros IDP / IDP Trade Calculator votes on 30 rows (8 IDP moves of 30-54% on the 2026-10-19 board, none from DLF's own vote, whose own effect is at most 5.75%), which the same directive forbids. TEMPORARY, not an indefinite exclusion. OWNER DECISION 2026-10-20 (Option 3, docs/owner/OUTLIER_FILTER_V2_OPTION3_2026-10-20.md): the incumbent filter's 34-54% moves are NOT accepted and the #1847 candidate (3 of 6 mandatory adversarial tests failed) is NOT activated; the hold is LOCKED ON (tests/api/test_dlf_idp_hold_locked.py)",
+      "evidence": "docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md (DLF IDP restore: implemented, held at release); outlier lane branch claude/outlier-filter-disagreement (preregistration b579a5fdd5); docs/sources/DLF_IDP_REEVALUATION_2026-10-17.md",
+      "recoveryAction": "a PREREGISTERED outlier-filter Version 2 (isolated research branch, shadow only) passes EVERY mandatory gate (all six existing adversarial tests unweakened; regression coverage for Trevin Wallace, Myles Garrett and every defensive player whose valid votes the incumbent discarded; legitimate disagreement preserved; determinism, family caps, small samples; exact before/after report; shadow run on the current production board with large moves explained); THEN an activation package goes to the owner, and the hold lifts (flip the default in a reviewed PR) ONLY with the owner's explicit approval",
+      "owner": "owner (explicit DLF IDP activation approval) / outlier-filter V2 research lane / integration (combined validation)",
+      "nextTrigger": "outlier-filter Version 2 passes every mandatory gate (owner Option 3, 2026-10-20), followed by the owner's explicit approval",
+      "promotionGate": "no unexplained 40-50% moves: on the restored board every move of 30% or more is DLF's own vote, or the validated outlier fix keeps the other sources' valid IDP votes (reproducible comparison, adversarial testing, independent validation); DLF IDP + DLF Rookie IDP stay inside the one DLF family cap",
+      "reviewBy": "2026-10-31"
+    },
+    "dlfRookieIdp": {
+      "state": "policy_held",
+      "reason": "as dlfIdp: restore approved 2026-10-19, held and LOCKED by the owner (Option 3, 2026-10-20) until outlier-filter Version 2 passes every mandatory gate and the owner approves; seasonal inactivity between draft classes still applies",
+      "evidence": "docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md",
+      "recoveryAction": "as dlfIdp",
+      "owner": "as dlfIdp",
+      "nextTrigger": "as dlfIdp",
+      "promotionGate": "as dlfIdp",
+      "reviewBy": "2026-10-31"
+    },
+    "dlfValuesSfTep": {
+      "state": "policy_held",
+      "reason": "rank-to-Hill as an offense-only dlf family member splitting DLF's one cap (owner closeout Decision 4, kept by the 2026-10-19 directive) is implemented in PR #1817 behind dlf_values_rank_hill_vote, and its 2026-10-19 activation gates passed, but OWNER DECISION 2026-10-20 ('Hold D4 for V2'): under the incumbent outlier filter turning it on newly drops other sources' valid votes on 12-13 offense rows (6 Draft Sharks, plus IDPTC, Yahoo/Boone, KTC Crowd, FantasyPros; e.g. Theo Johnson -7.4%), the same mechanism class the owner rejected for DLF IDP. The flag ships OFF and is LOCKED (tests/api/test_dlf_values_hold_locked.py; deploy/verify-deploy.sh fails a deploy whose live process has it ON). raw/max stays rejected (Hampel drop 0.897)",
+      "evidence": "docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md (addendum); docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md; docs/sources/IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md; docs/sources/DLF_VALUES_GATE_2026-09-25.md",
+      "recoveryAction": "outlier-integrity-v2 (owner implementation directive 2026-10-20) treats D4 as a second restoration target: preregistered, every mandatory gate passed, every offense row whose valid vote the incumbent newly drops with D4 on (Theo Johnson explicitly) in its regression set, exact D4 activation impact reported; THEN the hold lifts (flip the registry default in a reviewed PR) ONLY with the owner's explicit approval",
+      "owner": "owner (explicit D4 activation approval) / outlier-integrity-v2 lane (claude/outlier-integrity-v2) / integration (combined validation)",
+      "nextTrigger": "outlier-integrity-v2 passes every mandatory gate, followed by the owner's explicit approval",
+      "promotionGate": "stays inside the DLF provider family (one cap, one B11 family); with D4 on, no other source's valid vote is dropped by the outlier filter. Any change of representation (e.g. raw/max) needs its own gate",
+      "reviewBy": "2026-11-15"
+    },
+    "dlfValuesSfTepPicks": {
+      "state": "permanent_role",
+      "reason": "pick-audit only (header-only CSV today); never a model input"
+    },
+    "ktcCrowdTradesSfTep": {
+      "state": "permanent_role",
+      "reason": "KTC Market — benchmark only (src/sources/ktc_market.py); voting would count KTC twice"
+    },
+    "ktcSfTep": {
+      "state": "permanent_role",
+      "reason": "mirror of KTC Crowd (identical values); voting would double-count"
+    },
+    "ktc": {
+      "state": "permanent_role",
+      "reason": "KTC Crowd at base calibration — a calibration state of the same crowd, not a vote"
+    },
+    "draftSharksRosSf": {
+      "state": "permanent_role",
+      "reason": "rest-of-season board — seasonal lane only; barred from dynasty values by the source-domain boundary"
+    },
+    "draftSharksRosIdp": {
+      "state": "permanent_role",
+      "reason": "rest-of-season board — seasonal lane only; barred from dynasty values"
+    },
+    "flockFantasySfRookies": {
+      "state": "seasonal_inactive",
+      "reason": "class 2026 drafted; declared between-phases board since 2026-10-01",
+      "evidence": "config/sources/seasonal_policy_v1.json (reactivation first_valid_nonempty_response); src/sources/seasonal_policy.py",
+      "recoveryAction": "reactivates automatically when the vendor publishes the next class board",
+      "owner": "automation:scheduled-refresh",
+      "nextTrigger": "next rookie-class publication",
+      "promotionGate": "existing seasonal window",
+      "reviewBy": "2027-03-01"
+    },
+    "fantasyProsIdp": {
+      "state": "degraded",
+      "reason": "FantasyPros dynasty IDP experts have not updated since 2026-09-04 (page last_updated 9/04; 2 of 6 experts included); our clock reads 09-23 because an upstream revert counted as a broad change, and 15 edge rushers appear twice (DL and LB pages)",
+      "evidence": "freshness investigation 2026-10-17 (fantasypros.com/nfl/rankings/dynasty-idp.php ecrData)",
+      "recoveryAction": "DONE 2026-10-18 (owner closeout Decision 5; flag fantasypros_idp_upstream_clock, default ON): voting freshness now runs on the vendor-stated expert-update clock (freshness_v1.json style EXPLICIT_UPSTREAM_TIMESTAMP; clock 2026-09-04, SEVERELY_STALE 0.18 on the 2026-10-18 board, quarantined automatically below 0.02, never a zero value). Dual-family duplicate analysis completed: no vote amplification (one vote per player). Fetcher dedupe still deferred (one false cadence interval)",
+      "owner": "claude (parser) / automation (freshness weighting)",
+      "nextTrigger": "each scheduled refresh; vendor expert update",
+      "promotionGate": "full weight returns only when FantasyPros experts publish new dynasty IDP rankings (freshness weighting); never by editing a clock",
+      "reviewBy": "2026-10-31"
+    },
+    "fantasyNavigatorSf": {
+      "state": "degraded",
+      "reason": "vendor has published no snapshot since 2026-10-09 (API newest _insert_date); fetch, URL and parser work; freshness weighting will quarantine around 2026-10-18",
+      "evidence": "freshness investigation 2026-10-17 (fantasy-navigator-latest.onrender.com/ranks?platform=sf)",
+      "recoveryAction": "none on our side; recovers automatically on the next vendor snapshot",
+      "owner": "automation:scheduled-refresh",
+      "nextTrigger": "next vendor snapshot",
+      "promotionGate": "freshness weighting (automatic)",
+      "reviewBy": "2026-11-07"
+    }
+  }
+}

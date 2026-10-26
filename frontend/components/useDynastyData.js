@@ -89,6 +89,9 @@ export function useDynastyData() {
   // Both are published because eight routes read `error` today and a
   // flag-day rename would be a bigger change than the repair.
   const [failure, setFailure] = useState(null);
+  // The requested custom source/TE mix could not be applied and the board
+  // shown is the DEFAULT one.  Separate from `failure`: the board is real.
+  const [overrideFailure, setOverrideFailure] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [source, setSource] = useState("");
   const [rawData, setRawData] = useState(null);
@@ -153,6 +156,7 @@ export function useDynastyData() {
         if (!active) return;
 
         const data = payload?.data || null;
+        setOverrideFailure(payload?.overrideFailure || null);
         setRawData(data);
         setSource(String(payload?.source || ""));
 
@@ -255,6 +259,8 @@ export function useDynastyData() {
     error,
     // The classified failure: { kind, code, message, retryable } or null.
     failure,
+    // Set when the custom mix failed and the default board is showing.
+    overrideFailure,
     source,
     rawData,
     rows,

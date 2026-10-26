@@ -70,7 +70,8 @@ from src.api.data_contract import (
 #: from provenance — the vendor each feed is fetched from — not from
 #: output similarity.
 KNOWN_MULTI_BOARD_PROVIDERS = {
-    "dlf": {"dlfSf", "dlfRookieSf", "dlfIdp", "dlfRookieIdp"},
+    # DLF Values joined DLF's family (owner closeout 2026-10-18, Decision 4).
+    "dlf": {"dlfSf", "dlfRookieSf", "dlfValuesSfTep", "dlfIdp", "dlfRookieIdp"},
     "fantasyPros": {"fantasyProsSf", "fantasyProsIdp", "fantasyProsFitzmaurice"},
     "flockFantasy": {"flockFantasySf", "flockFantasySfRookies"},
     "draftSharks": {"draftSharks", "draftSharksIdp"},
@@ -130,12 +131,19 @@ class TestEveryMultiBoardProviderIsDeclared:
     def test_independent_family_count_is_lower_than_source_count(self):
         """The number this exists to make available to B10-T3.
 
-        22 source keys, 14 independent provider families (KTC Crowd and KTC
+        27 source keys, 14 independent provider families (KTC Crowd and KTC
         Trades are two families by owner ruling, 2026-09-23). Any aggregation
         step whose mathematical meaning is "how much independent evidence
         is there" must use the second number.
+
+        Signals (``signalsSf`` + the per-family IDP boards ``signalsIdpDl`` /
+        ``signalsIdpLb`` / ``signalsIdpDb``, owner addendum 2026-10-03) added
+        four keys and NO family: all are declared inside FantasyCalc's group.
+        (FantasyCalc has no IDP, so on IDP rows that group is Signals alone.)
+        DLF Values (owner closeout 2026-10-18) likewise added a key and no
+        family: it is declared inside DLF's group.
         """
-        assert len(_RANKING_SOURCES) == 22
+        assert len(_RANKING_SOURCES) == 27
         assert len(_groups()) == 14
 
 

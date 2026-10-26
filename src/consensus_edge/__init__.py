@@ -4,9 +4,14 @@ The platform accumulated six overlapping answers to "is this player a
 buy?" — the Sharps market signal, the ``/edge`` retail-vs-consensus rank
 gap, BDVM's market alpha, the frontend ``signal-engine.js`` rule
 hierarchy, ``roster_intel.targets``, and a never-wired
-``news.unified_signal_engine``.  They measure different things, disagree,
-and none has ever been validated against an outcome.  "Buy" means a
-different thing on each screen.
+``news.unified_signal_engine`` (since retired).  They measure different
+things, disagree, and none has ever been validated against an outcome.
+"Buy" means a different thing on each screen.
+
+Putting those emitters side by side — this one included — is owned by
+``src/signals/reconciler.py`` (C6-SIG-01), which dedups by lineage and
+never blends.  Inside it, Consensus Edge is one labelled emitter whose
+``Withheld`` verdict takes precedence.
 
 This package is the intended single answer, and it is honest about how
 far that has got.  It scores its components on one scale and — crucially

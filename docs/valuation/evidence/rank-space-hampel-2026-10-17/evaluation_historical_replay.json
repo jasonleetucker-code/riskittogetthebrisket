@@ -1,0 +1,2856 @@
+{
+ "bootstrapSeed": 17,
+ "challenger": "rank_space",
+ "challengerVersion": "rank-space-hampel-v1",
+ "codeRevisions": [
+  "996f70b7d9eeae5abbbe8b764cb611894d90e159"
+ ],
+ "computedAt": "2026-10-17T21:59:03Z",
+ "label": "archived inputs rebuilt through today's pipeline code -- NOT what production served that day",
+ "mode": "historical_replay",
+ "preregistration": "docs/valuation/evidence/rank-space-hampel-2026-10-17/PREREGISTRATION.md",
+ "primary": {
+  "boards": 103,
+  "decision": {
+   "accumulation": null,
+   "minimumSample": {
+    "blocks": 8,
+    "met": true,
+    "originDays": 53,
+    "rejectedObs": 2912,
+    "rescuedObs": 2827
+   },
+   "reasons": [
+    "rescued evidence was led-to LESS than rejected evidence (\u0394 upper95 < 0)"
+   ],
+   "secondaryHorizonsWithPositiveDelta": 0,
+   "verdict": "NOT_BETTER"
+  },
+  "horizons": {
+   "14": {
+    "blocks": 7,
+    "census": {
+     "judgedK": 2497,
+     "judgedR": 5352,
+     "judgedX": 2382,
+     "noTargetK": 86,
+     "noTargetR": 4,
+     "noTargetX": 17,
+     "originsWithoutTarget": 14,
+     "pairs": 46,
+     "rowsNoTarget": 87
+    },
+    "delta": {
+     "blocks": 7,
+     "hi95": -0.0174,
+     "lo95": -0.0419,
+     "point": -0.0296,
+     "resamplesUsed": 4000
+    },
+    "g1": {
+     "blocks": 7,
+     "hi95": 0.0148,
+     "lo95": -0.0017,
+     "point": 0.0056,
+     "resamplesUsed": 4000
+    },
+    "g1PersistenceRelative": {
+     "blocks": 7,
+     "hi95": 0.0012,
+     "lo95": -0.001,
+     "point": -0.0,
+     "resamplesUsed": 4000
+    },
+    "g1Rows": 4196,
+    "originDays": 46,
+    "sides": {
+     "K": {
+      "classes": {
+       "ABANDONED": 216,
+       "DELISTED": 162,
+       "LED": 28,
+       "UNRESOLVED": 2005
+      },
+      "delisted": 162,
+      "meanLeadShare": {
+       "blocks": 7,
+       "hi95": 0.0079,
+       "lo95": -0.0029,
+       "point": 0.0034,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.1049,
+      "n": 2411,
+      "originDays": 46
+     },
+     "R": {
+      "classes": {
+       "ABANDONED": 1520,
+       "DELISTED": 145,
+       "LED": 23,
+       "UNRESOLVED": 3660
+      },
+      "delisted": 145,
+      "meanLeadShare": {
+       "blocks": 7,
+       "hi95": 0.0143,
+       "lo95": -0.0033,
+       "point": 0.0048,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.2821,
+      "n": 5348,
+      "originDays": 46
+     },
+     "X": {
+      "classes": {
+       "ABANDONED": 226,
+       "DELISTED": 37,
+       "LED": 27,
+       "UNRESOLVED": 2075
+      },
+      "delisted": 38,
+      "meanLeadShare": {
+       "blocks": 7,
+       "hi95": 0.0445,
+       "lo95": 0.0213,
+       "point": 0.033,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.1002,
+      "n": 2365,
+      "originDays": 46
+     }
+    }
+   },
+   "21": {
+    "blocks": 6,
+    "census": {
+     "judgedK": 2178,
+     "judgedR": 4783,
+     "judgedX": 1974,
+     "noTargetK": 93,
+     "noTargetR": 4,
+     "noTargetX": 7,
+     "originsWithoutTarget": 20,
+     "pairs": 40,
+     "rowsNoTarget": 86
+    },
+    "delta": {
+     "blocks": 6,
+     "hi95": -0.0334,
+     "lo95": -0.0573,
+     "point": -0.0458,
+     "resamplesUsed": 4000
+    },
+    "g1": {
+     "blocks": 6,
+     "hi95": 0.0124,
+     "lo95": -0.0021,
+     "point": 0.0045,
+     "resamplesUsed": 4000
+    },
+    "g1PersistenceRelative": {
+     "blocks": 6,
+     "hi95": 0.0003,
+     "lo95": -0.0022,
+     "point": -0.001,
+     "resamplesUsed": 4000
+    },
+    "g1Rows": 3553,
+    "originDays": 40,
+    "sides": {
+     "K": {
+      "classes": {
+       "ABANDONED": 261,
+       "DELISTED": 205,
+       "LED": 60,
+       "UNRESOLVED": 1559
+      },
+      "delisted": 205,
+      "meanLeadShare": {
+       "blocks": 6,
+       "hi95": 0.0089,
+       "lo95": -0.0017,
+       "point": 0.0031,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.1548,
+      "n": 2085,
+      "originDays": 40
+     },
+     "R": {
+      "classes": {
+       "ABANDONED": 2180,
+       "DELISTED": 161,
+       "LED": 60,
+       "UNRESOLVED": 2378
+      },
+      "delisted": 161,
+      "meanLeadShare": {
+       "blocks": 6,
+       "hi95": 0.0137,
+       "lo95": -0.0054,
+       "point": 0.0021,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.4585,
+      "n": 4779,
+      "originDays": 40
+     },
+     "X": {
+      "classes": {
+       "ABANDONED": 190,
+       "DELISTED": 43,
+       "LED": 61,
+       "UNRESOLVED": 1673
+      },
+      "delisted": 44,
+      "meanLeadShare": {
+       "blocks": 6,
+       "hi95": 0.0584,
+       "lo95": 0.0361,
+       "point": 0.0489,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.1005,
+      "n": 1967,
+      "originDays": 40
+     }
+    }
+   },
+   "3": {
+    "blocks": 9,
+    "census": {
+     "judgedK": 3044,
+     "judgedR": 6321,
+     "judgedX": 3176,
+     "noTargetK": 27,
+     "noTargetR": 3,
+     "noTargetX": 18,
+     "originsWithoutTarget": 3,
+     "pairs": 57,
+     "rowsNoTarget": 38
+    },
+    "delta": {
+     "blocks": 9,
+     "hi95": 0.0018,
+     "lo95": -0.0049,
+     "point": -0.0012,
+     "resamplesUsed": 4000
+    },
+    "g1": {
+     "blocks": 9,
+     "hi95": 0.0116,
+     "lo95": -0.0032,
+     "point": 0.0033,
+     "resamplesUsed": 4000
+    },
+    "g1PersistenceRelative": {
+     "blocks": 9,
+     "hi95": -0.0002,
+     "lo95": -0.0022,
+     "point": -0.0012,
+     "resamplesUsed": 4000
+    },
+    "g1Rows": 5414,
+    "originDays": 57,
+    "sides": {
+     "K": {
+      "classes": {
+       "ABANDONED": 68,
+       "DELISTED": 53,
+       "UNRESOLVED": 2896
+      },
+      "delisted": 53,
+      "meanLeadShare": {
+       "blocks": 9,
+       "hi95": 0.0084,
+       "lo95": 0.0009,
+       "point": 0.0046,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.0295,
+      "n": 3017,
+      "originDays": 57
+     },
+     "R": {
+      "classes": {
+       "ABANDONED": 396,
+       "DELISTED": 69,
+       "UNRESOLVED": 5853
+      },
+      "delisted": 69,
+      "meanLeadShare": {
+       "blocks": 9,
+       "hi95": 0.0041,
+       "lo95": -0.0005,
+       "point": 0.0019,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.0625,
+      "n": 6318,
+      "originDays": 57
+     },
+     "X": {
+      "classes": {
+       "ABANDONED": 125,
+       "DELISTED": 40,
+       "LED": 2,
+       "UNRESOLVED": 2991
+      },
+      "delisted": 40,
+      "meanLeadShare": {
+       "blocks": 9,
+       "hi95": 0.011,
+       "lo95": 0.0011,
+       "point": 0.0058,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.0384,
+      "n": 3158,
+      "originDays": 57
+     }
+    }
+   },
+   "7": {
+    "blocks": 8,
+    "census": {
+     "judgedK": 2884,
+     "judgedR": 5995,
+     "judgedX": 2930,
+     "noTargetK": 57,
+     "noTargetR": 4,
+     "noTargetX": 18,
+     "originsWithoutTarget": 7,
+     "pairs": 53,
+     "rowsNoTarget": 65
+    },
+    "delta": {
+     "blocks": 8,
+     "hi95": -0.0053,
+     "lo95": -0.0204,
+     "point": -0.0127,
+     "resamplesUsed": 4000
+    },
+    "g1": {
+     "blocks": 8,
+     "hi95": 0.0127,
+     "lo95": -0.0036,
+     "point": 0.0036,
+     "resamplesUsed": 4000
+    },
+    "g1PersistenceRelative": {
+     "blocks": 8,
+     "hi95": 0.001,
+     "lo95": -0.0022,
+     "point": -0.0008,
+     "resamplesUsed": 4000
+    },
+    "g1Rows": 5029,
+    "originDays": 53,
+    "sides": {
+     "K": {
+      "classes": {
+       "ABANDONED": 160,
+       "DELISTED": 94,
+       "LED": 9,
+       "UNRESOLVED": 2564
+      },
+      "delisted": 94,
+      "meanLeadShare": {
+       "blocks": 8,
+       "hi95": 0.0099,
+       "lo95": -0.0066,
+       "point": 0.0027,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.0612,
+      "n": 2827,
+      "originDays": 53
+     },
+     "R": {
+      "classes": {
+       "ABANDONED": 843,
+       "DELISTED": 111,
+       "LED": 3,
+       "UNRESOLVED": 5034
+      },
+      "delisted": 111,
+      "meanLeadShare": {
+       "blocks": 8,
+       "hi95": 0.0077,
+       "lo95": -0.0015,
+       "point": 0.0035,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.1401,
+      "n": 5991,
+      "originDays": 53
+     },
+     "X": {
+      "classes": {
+       "ABANDONED": 220,
+       "DELISTED": 50,
+       "LED": 12,
+       "UNRESOLVED": 2630
+      },
+      "delisted": 50,
+      "meanLeadShare": {
+       "blocks": 8,
+       "hi95": 0.0243,
+       "lo95": 0.0071,
+       "point": 0.0155,
+       "resamplesUsed": 4000
+      },
+      "meanRetreatShare": 0.0696,
+      "n": 2912,
+      "originDays": 53
+     }
+    }
+   }
+  },
+  "originDays": 60,
+  "span": [
+   "2026-08-18",
+   "2026-10-17"
+  ]
+ },
+ "schema": "joint-filter-shadow/v1/evaluation",
+ "sensitivities": {
+  "S1_all_archives": {
+   "boards": 138,
+   "decision": {
+    "accumulation": null,
+    "minimumSample": {
+     "blocks": 13,
+     "met": true,
+     "originDays": 88,
+     "rejectedObs": 3715,
+     "rescuedObs": 4170
+    },
+    "reasons": [
+     "rescued evidence was led-to LESS than rejected evidence (\u0394 upper95 < 0)",
+     "challenger's published values sit further from later consensus (G1 lower95 > 0)"
+    ],
+    "secondaryHorizonsWithPositiveDelta": 0,
+    "verdict": "NOT_BETTER"
+   },
+   "horizons": {
+    "14": {
+     "blocks": 12,
+     "census": {
+      "judgedK": 3874,
+      "judgedR": 10086,
+      "judgedX": 3191,
+      "noTargetK": 145,
+      "noTargetR": 4,
+      "noTargetX": 24,
+      "originsWithoutTarget": 14,
+      "pairs": 81,
+      "rowsNoTarget": 143
+     },
+     "delta": {
+      "blocks": 12,
+      "hi95": -0.01,
+      "lo95": -0.0333,
+      "point": -0.0219,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 12,
+      "hi95": 0.0191,
+      "lo95": 0.0035,
+      "point": 0.0108,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 12,
+      "hi95": 0.0002,
+      "lo95": -0.0025,
+      "point": -0.001,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 5990,
+     "originDays": 81,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 291,
+        "DELISTED": 334,
+        "LED": 28,
+        "UNRESOLVED": 3076
+       },
+       "delisted": 334,
+       "meanLeadShare": {
+        "blocks": 12,
+        "hi95": 0.0097,
+        "lo95": 0.0007,
+        "point": 0.0054,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0965,
+       "n": 3729,
+       "originDays": 81
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 1635,
+        "DELISTED": 327,
+        "LED": 23,
+        "UNRESOLVED": 8097
+       },
+       "delisted": 327,
+       "meanLeadShare": {
+        "blocks": 12,
+        "hi95": 0.0134,
+        "lo95": 0.0008,
+        "point": 0.0068,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.159,
+       "n": 10082,
+       "originDays": 81
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 329,
+        "DELISTED": 66,
+        "LED": 28,
+        "UNRESOLVED": 2744
+       },
+       "delisted": 67,
+       "meanLeadShare": {
+        "blocks": 12,
+        "hi95": 0.0375,
+        "lo95": 0.0165,
+        "point": 0.0273,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1107,
+       "n": 3167,
+       "originDays": 81
+      }
+     }
+    },
+    "21": {
+     "blocks": 11,
+     "census": {
+      "judgedK": 3555,
+      "judgedR": 9517,
+      "judgedX": 2783,
+      "noTargetK": 182,
+      "noTargetR": 4,
+      "noTargetX": 14,
+      "originsWithoutTarget": 20,
+      "pairs": 75,
+      "rowsNoTarget": 158
+     },
+     "delta": {
+      "blocks": 11,
+      "hi95": -0.0199,
+      "lo95": -0.0458,
+      "point": -0.0344,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 11,
+      "hi95": 0.0188,
+      "lo95": 0.0031,
+      "point": 0.0106,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 11,
+      "hi95": -0.0002,
+      "lo95": -0.0024,
+      "point": -0.0013,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 5331,
+     "originDays": 75,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 371,
+        "DELISTED": 297,
+        "LED": 60,
+        "UNRESOLVED": 2645
+       },
+       "delisted": 297,
+       "meanLeadShare": {
+        "blocks": 11,
+        "hi95": 0.0111,
+        "lo95": 0.002,
+        "point": 0.0063,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1369,
+       "n": 3373,
+       "originDays": 75
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 2334,
+        "DELISTED": 267,
+        "LED": 60,
+        "UNRESOLVED": 6852
+       },
+       "delisted": 267,
+       "meanLeadShare": {
+        "blocks": 11,
+        "hi95": 0.0147,
+        "lo95": 0.0009,
+        "point": 0.0074,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.237,
+       "n": 9513,
+       "originDays": 75
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 332,
+        "DELISTED": 50,
+        "LED": 65,
+        "UNRESOLVED": 2322
+       },
+       "delisted": 51,
+       "meanLeadShare": {
+        "blocks": 11,
+        "hi95": 0.0499,
+        "lo95": 0.0282,
+        "point": 0.0406,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1259,
+       "n": 2769,
+       "originDays": 75
+      }
+     }
+    },
+    "3": {
+     "blocks": 14,
+     "census": {
+      "judgedK": 4421,
+      "judgedR": 11055,
+      "judgedX": 3985,
+      "noTargetK": 47,
+      "noTargetR": 3,
+      "noTargetX": 20,
+      "originsWithoutTarget": 3,
+      "pairs": 92,
+      "rowsNoTarget": 60
+     },
+     "delta": {
+      "blocks": 14,
+      "hi95": 0.0027,
+      "lo95": -0.0048,
+      "point": -0.0009,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 14,
+      "hi95": 0.0175,
+      "lo95": 0.0013,
+      "point": 0.009,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 14,
+      "hi95": -0.0005,
+      "lo95": -0.0024,
+      "point": -0.0014,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 7242,
+     "originDays": 92,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 104,
+        "DELISTED": 155,
+        "LED": 2,
+        "UNRESOLVED": 4113
+       },
+       "delisted": 155,
+       "meanLeadShare": {
+        "blocks": 14,
+        "hi95": 0.0078,
+        "lo95": 0.0018,
+        "point": 0.0048,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.028,
+       "n": 4374,
+       "originDays": 92
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 424,
+        "DELISTED": 159,
+        "UNRESOLVED": 10469
+       },
+       "delisted": 159,
+       "meanLeadShare": {
+        "blocks": 14,
+        "hi95": 0.0036,
+        "lo95": 0.0002,
+        "point": 0.0019,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0383,
+       "n": 11052,
+       "originDays": 92
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 144,
+        "DELISTED": 50,
+        "LED": 2,
+        "UNRESOLVED": 3769
+       },
+       "delisted": 50,
+       "meanLeadShare": {
+        "blocks": 14,
+        "hi95": 0.0103,
+        "lo95": 0.0016,
+        "point": 0.0057,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0371,
+       "n": 3965,
+       "originDays": 92
+      }
+     }
+    },
+    "7": {
+     "blocks": 13,
+     "census": {
+      "judgedK": 4261,
+      "judgedR": 10729,
+      "judgedX": 3739,
+      "noTargetK": 91,
+      "noTargetR": 4,
+      "noTargetX": 24,
+      "originsWithoutTarget": 7,
+      "pairs": 88,
+      "rowsNoTarget": 101
+     },
+     "delta": {
+      "blocks": 13,
+      "hi95": -0.003,
+      "lo95": -0.0172,
+      "point": -0.0104,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 13,
+      "hi95": 0.0182,
+      "lo95": 0.0014,
+      "point": 0.0094,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 13,
+      "hi95": 0.0002,
+      "lo95": -0.003,
+      "point": -0.0014,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 6843,
+     "originDays": 88,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 208,
+        "DELISTED": 297,
+        "LED": 9,
+        "UNRESOLVED": 3656
+       },
+       "delisted": 297,
+       "meanLeadShare": {
+        "blocks": 13,
+        "hi95": 0.0092,
+        "lo95": -0.0026,
+        "point": 0.0036,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0544,
+       "n": 4170,
+       "originDays": 88
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 892,
+        "DELISTED": 294,
+        "LED": 3,
+        "UNRESOLVED": 9536
+       },
+       "delisted": 294,
+       "meanLeadShare": {
+        "blocks": 13,
+        "hi95": 0.0078,
+        "lo95": 0.0001,
+        "point": 0.0041,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0833,
+       "n": 10725,
+       "originDays": 88
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 274,
+        "DELISTED": 70,
+        "LED": 12,
+        "UNRESOLVED": 3359
+       },
+       "delisted": 70,
+       "meanLeadShare": {
+        "blocks": 13,
+        "hi95": 0.0219,
+        "lo95": 0.0066,
+        "point": 0.014,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0714,
+       "n": 3715,
+       "originDays": 88
+      }
+     }
+    }
+   },
+   "originDays": 95,
+   "span": [
+    "2026-07-14",
+    "2026-10-17"
+   ]
+  },
+  "S2_episode_dedupe": {
+   "boards": 103,
+   "decision": {
+    "accumulation": {
+     "currentBlocks": 8,
+     "currentHalfWidth": 0.0154,
+     "minimumEffectOfInterest": 0.1,
+     "note": "projection assuming SE \u221d 1/sqrt(blocks); not a promise",
+     "projectedAdditionalWeeks": 0,
+     "projectedBlocksForHalfWidth": 1
+    },
+    "minimumSample": {
+     "blocks": 8,
+     "met": true,
+     "originDays": 52,
+     "rejectedObs": 705,
+     "rescuedObs": 519
+    },
+    "reasons": [
+     "no detectable advantage; near-ties keep the incumbent"
+    ],
+    "secondaryHorizonsWithPositiveDelta": 1,
+    "verdict": "INCONCLUSIVE"
+   },
+   "horizons": {
+    "14": {
+     "blocks": 7,
+     "census": {
+      "judgedK": 2497,
+      "judgedR": 5352,
+      "judgedX": 2382,
+      "noTargetK": 86,
+      "noTargetR": 4,
+      "noTargetX": 17,
+      "originsWithoutTarget": 14,
+      "pairs": 46,
+      "rowsNoTarget": 87
+     },
+     "delta": {
+      "blocks": 7,
+      "hi95": -0.002,
+      "lo95": -0.0463,
+      "point": -0.0217,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 7,
+      "hi95": 0.0148,
+      "lo95": -0.0017,
+      "point": 0.0056,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 7,
+      "hi95": 0.0012,
+      "lo95": -0.001,
+      "point": -0.0,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 4196,
+     "originDays": 45,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 52,
+        "DELISTED": 14,
+        "LED": 14,
+        "UNRESOLVED": 356
+       },
+       "delisted": 14,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": 0.0386,
+        "lo95": -0.0018,
+        "point": 0.0212,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1214,
+       "n": 436,
+       "originDays": 44
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 57,
+        "DELISTED": 16,
+        "LED": 11,
+        "UNRESOLVED": 445
+       },
+       "delisted": 16,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": 0.0451,
+        "lo95": 0.0115,
+        "point": 0.0258,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0932,
+       "n": 529,
+       "originDays": 46
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 60,
+        "DELISTED": 12,
+        "LED": 12,
+        "UNRESOLVED": 471
+       },
+       "delisted": 13,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": 0.0549,
+        "lo95": 0.027,
+        "point": 0.043,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0857,
+       "n": 555,
+       "originDays": 45
+      }
+     }
+    },
+    "21": {
+     "blocks": 6,
+     "census": {
+      "judgedK": 2178,
+      "judgedR": 4783,
+      "judgedX": 1974,
+      "noTargetK": 93,
+      "noTargetR": 4,
+      "noTargetX": 7,
+      "originsWithoutTarget": 20,
+      "pairs": 40,
+      "rowsNoTarget": 86
+     },
+     "delta": {
+      "blocks": 6,
+      "hi95": -0.024,
+      "lo95": -0.0815,
+      "point": -0.0479,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 6,
+      "hi95": 0.0124,
+      "lo95": -0.0021,
+      "point": 0.0045,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 6,
+      "hi95": 0.0003,
+      "lo95": -0.0022,
+      "point": -0.001,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 3553,
+     "originDays": 40,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 47,
+        "DELISTED": 32,
+        "LED": 24,
+        "UNRESOLVED": 257
+       },
+       "delisted": 32,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0479,
+        "lo95": -0.0065,
+        "point": 0.0232,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1469,
+       "n": 360,
+       "originDays": 39
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 62,
+        "DELISTED": 23,
+        "LED": 16,
+        "UNRESOLVED": 349
+       },
+       "delisted": 23,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0511,
+        "lo95": 0.0118,
+        "point": 0.0255,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1142,
+       "n": 450,
+       "originDays": 40
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 49,
+        "DELISTED": 14,
+        "LED": 30,
+        "UNRESOLVED": 362
+       },
+       "delisted": 15,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0919,
+        "lo95": 0.0549,
+        "point": 0.0711,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0878,
+       "n": 455,
+       "originDays": 39
+      }
+     }
+    },
+    "3": {
+     "blocks": 9,
+     "census": {
+      "judgedK": 3044,
+      "judgedR": 6321,
+      "judgedX": 3176,
+      "noTargetK": 27,
+      "noTargetR": 3,
+      "noTargetX": 18,
+      "originsWithoutTarget": 3,
+      "pairs": 57,
+      "rowsNoTarget": 38
+     },
+     "delta": {
+      "blocks": 9,
+      "hi95": 0.0191,
+      "lo95": 0.0036,
+      "point": 0.0117,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 9,
+      "hi95": 0.0116,
+      "lo95": -0.0032,
+      "point": 0.0033,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 9,
+      "hi95": -0.0002,
+      "lo95": -0.0022,
+      "point": -0.0012,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 5414,
+     "originDays": 56,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 14,
+        "DELISTED": 6,
+        "UNRESOLVED": 549
+       },
+       "delisted": 6,
+       "meanLeadShare": {
+        "blocks": 9,
+        "hi95": 0.0229,
+        "lo95": 0.0135,
+        "point": 0.0184,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0441,
+       "n": 569,
+       "originDays": 55
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 35,
+        "DELISTED": 14,
+        "UNRESOLVED": 624
+       },
+       "delisted": 14,
+       "meanLeadShare": {
+        "blocks": 9,
+        "hi95": 0.0143,
+        "lo95": 0.0033,
+        "point": 0.0082,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0399,
+       "n": 673,
+       "originDays": 57
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 35,
+        "DELISTED": 11,
+        "LED": 1,
+        "UNRESOLVED": 731
+       },
+       "delisted": 11,
+       "meanLeadShare": {
+        "blocks": 9,
+        "hi95": 0.0135,
+        "lo95": 0.001,
+        "point": 0.0066,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0399,
+       "n": 778,
+       "originDays": 56
+      }
+     }
+    },
+    "7": {
+     "blocks": 8,
+     "census": {
+      "judgedK": 2884,
+      "judgedR": 5995,
+      "judgedX": 2930,
+      "noTargetK": 57,
+      "noTargetR": 4,
+      "noTargetX": 18,
+      "originsWithoutTarget": 7,
+      "pairs": 53,
+      "rowsNoTarget": 65
+     },
+     "delta": {
+      "blocks": 8,
+      "hi95": 0.0208,
+      "lo95": -0.0101,
+      "point": 0.0074,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 8,
+      "hi95": 0.0127,
+      "lo95": -0.0036,
+      "point": 0.0036,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 8,
+      "hi95": 0.001,
+      "lo95": -0.0022,
+      "point": -0.0008,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 5029,
+     "originDays": 52,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 27,
+        "DELISTED": 15,
+        "LED": 6,
+        "UNRESOLVED": 471
+       },
+       "delisted": 15,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.0341,
+        "lo95": 0.015,
+        "point": 0.0257,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.058,
+       "n": 519,
+       "originDays": 51
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 47,
+        "DELISTED": 18,
+        "LED": 2,
+        "UNRESOLVED": 542
+       },
+       "delisted": 18,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.025,
+        "lo95": 0.0073,
+        "point": 0.0145,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0644,
+       "n": 609,
+       "originDays": 53
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 64,
+        "DELISTED": 15,
+        "LED": 8,
+        "UNRESOLVED": 618
+       },
+       "delisted": 15,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.0302,
+        "lo95": 0.0067,
+        "point": 0.0183,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0687,
+       "n": 705,
+       "originDays": 52
+      }
+     }
+    }
+   },
+   "originDays": 60,
+   "span": [
+    "2026-08-18",
+    "2026-10-17"
+   ]
+  },
+  "S3_idp": {
+   "boards": 103,
+   "decision": {
+    "accumulation": null,
+    "minimumSample": {
+     "blocks": 8,
+     "met": true,
+     "originDays": 50,
+     "rejectedObs": 746,
+     "rescuedObs": 520
+    },
+    "reasons": [
+     "rescued evidence was led-to LESS than rejected evidence (\u0394 upper95 < 0)"
+    ],
+    "secondaryHorizonsWithPositiveDelta": 0,
+    "verdict": "NOT_BETTER"
+   },
+   "horizons": {
+    "14": {
+     "blocks": 7,
+     "census": {
+      "judgedK": 2497,
+      "judgedR": 5352,
+      "judgedX": 2382,
+      "noTargetK": 86,
+      "noTargetR": 4,
+      "noTargetX": 17,
+      "originsWithoutTarget": 14,
+      "pairs": 46,
+      "rowsNoTarget": 87
+     },
+     "delta": {
+      "blocks": 7,
+      "hi95": -0.0123,
+      "lo95": -0.0854,
+      "point": -0.0452,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 7,
+      "hi95": 0.0066,
+      "lo95": -0.0181,
+      "point": -0.0067,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 7,
+      "hi95": 0.0158,
+      "lo95": -0.0025,
+      "point": 0.0057,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 1001,
+     "originDays": 43,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 27,
+        "UNRESOLVED": 398
+       },
+       "delisted": 0,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": -0.0019,
+        "lo95": -0.0859,
+        "point": -0.0362,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0439,
+       "n": 425,
+       "originDays": 43
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 22,
+        "DELISTED": 5,
+        "UNRESOLVED": 597
+       },
+       "delisted": 5,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": -0.006,
+        "lo95": -0.0308,
+        "point": -0.0173,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0476,
+       "n": 624,
+       "originDays": 43
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 2,
+        "LED": 1,
+        "UNRESOLVED": 612
+       },
+       "delisted": 0,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": 0.0357,
+        "lo95": -0.0115,
+        "point": 0.009,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.029,
+       "n": 615,
+       "originDays": 43
+      }
+     }
+    },
+    "21": {
+     "blocks": 6,
+     "census": {
+      "judgedK": 2178,
+      "judgedR": 4783,
+      "judgedX": 1974,
+      "noTargetK": 93,
+      "noTargetR": 4,
+      "noTargetX": 7,
+      "originsWithoutTarget": 20,
+      "pairs": 40,
+      "rowsNoTarget": 86
+     },
+     "delta": {
+      "blocks": 6,
+      "hi95": -0.0155,
+      "lo95": -0.099,
+      "point": -0.0545,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 6,
+      "hi95": 0.002,
+      "lo95": -0.0255,
+      "point": -0.0115,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 6,
+      "hi95": 0.0132,
+      "lo95": -0.008,
+      "point": 0.0021,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 846,
+     "originDays": 37,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 16,
+        "UNRESOLVED": 334
+       },
+       "delisted": 0,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": -0.0131,
+        "lo95": -0.1071,
+        "point": -0.0526,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.038,
+       "n": 350,
+       "originDays": 37
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 13,
+        "DELISTED": 5,
+        "UNRESOLVED": 515
+       },
+       "delisted": 5,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": -0.0159,
+        "lo95": -0.0481,
+        "point": -0.0298,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0669,
+       "n": 533,
+       "originDays": 37
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 2,
+        "DELISTED": 1,
+        "LED": 2,
+        "UNRESOLVED": 522
+       },
+       "delisted": 1,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0297,
+        "lo95": -0.0204,
+        "point": 0.0019,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0238,
+       "n": 527,
+       "originDays": 37
+      }
+     }
+    },
+    "3": {
+     "blocks": 8,
+     "census": {
+      "judgedK": 3044,
+      "judgedR": 6321,
+      "judgedX": 3176,
+      "noTargetK": 27,
+      "noTargetR": 3,
+      "noTargetX": 18,
+      "originsWithoutTarget": 3,
+      "pairs": 57,
+      "rowsNoTarget": 38
+     },
+     "delta": {
+      "blocks": 8,
+      "hi95": -0.0016,
+      "lo95": -0.0185,
+      "point": -0.0093,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 8,
+      "hi95": -0.0034,
+      "lo95": -0.0273,
+      "point": -0.015,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 8,
+      "hi95": 0.0016,
+      "lo95": -0.0047,
+      "point": -0.0012,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 1268,
+     "originDays": 51,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 8,
+        "UNRESOLVED": 527
+       },
+       "delisted": 0,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.0006,
+        "lo95": -0.0326,
+        "point": -0.0119,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0144,
+       "n": 535,
+       "originDays": 51
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 6,
+        "DELISTED": 9,
+        "UNRESOLVED": 725
+       },
+       "delisted": 9,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.0015,
+        "lo95": -0.0058,
+        "point": -0.0015,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.011,
+       "n": 740,
+       "originDays": 51
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 3,
+        "UNRESOLVED": 769
+       },
+       "delisted": 0,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.0062,
+        "lo95": -0.0155,
+        "point": -0.0026,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0043,
+       "n": 772,
+       "originDays": 51
+      }
+     }
+    },
+    "7": {
+     "blocks": 8,
+     "census": {
+      "judgedK": 2884,
+      "judgedR": 5995,
+      "judgedX": 2930,
+      "noTargetK": 57,
+      "noTargetR": 4,
+      "noTargetX": 18,
+      "originsWithoutTarget": 7,
+      "pairs": 53,
+      "rowsNoTarget": 65
+     },
+     "delta": {
+      "blocks": 8,
+      "hi95": -0.0063,
+      "lo95": -0.0532,
+      "point": -0.0288,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 8,
+      "hi95": -0.0018,
+      "lo95": -0.0257,
+      "point": -0.0131,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 8,
+      "hi95": 0.0067,
+      "lo95": -0.0037,
+      "point": 0.0012,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 1223,
+     "originDays": 50,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 15,
+        "UNRESOLVED": 505
+       },
+       "delisted": 0,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.0008,
+        "lo95": -0.0705,
+        "point": -0.0289,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0256,
+       "n": 520,
+       "originDays": 50
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 15,
+        "DELISTED": 12,
+        "UNRESOLVED": 701
+       },
+       "delisted": 12,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.0006,
+        "lo95": -0.0115,
+        "point": -0.0055,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0243,
+       "n": 728,
+       "originDays": 50
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 3,
+        "LED": 4,
+        "UNRESOLVED": 739
+       },
+       "delisted": 0,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.0198,
+        "lo95": -0.0206,
+        "point": -0.0001,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0122,
+       "n": 746,
+       "originDays": 50
+      }
+     }
+    }
+   },
+   "originDays": 60,
+   "span": [
+    "2026-08-18",
+    "2026-10-17"
+   ]
+  },
+  "S3_offense": {
+   "boards": 103,
+   "decision": {
+    "accumulation": null,
+    "minimumSample": {
+     "blocks": 8,
+     "met": true,
+     "originDays": 53,
+     "rejectedObs": 2166,
+     "rescuedObs": 2307
+    },
+    "reasons": [
+     "rescued evidence was led-to LESS than rejected evidence (\u0394 upper95 < 0)",
+     "challenger's published values sit further from later consensus (G1 lower95 > 0)"
+    ],
+    "secondaryHorizonsWithPositiveDelta": 0,
+    "verdict": "NOT_BETTER"
+   },
+   "horizons": {
+    "14": {
+     "blocks": 7,
+     "census": {
+      "judgedK": 2497,
+      "judgedR": 5352,
+      "judgedX": 2382,
+      "noTargetK": 86,
+      "noTargetR": 4,
+      "noTargetX": 17,
+      "originsWithoutTarget": 14,
+      "pairs": 46,
+      "rowsNoTarget": 87
+     },
+     "delta": {
+      "blocks": 7,
+      "hi95": -0.008,
+      "lo95": -0.051,
+      "point": -0.0295,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 7,
+      "hi95": 0.0183,
+      "lo95": 0.0024,
+      "point": 0.0095,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 7,
+      "hi95": 0.0004,
+      "lo95": -0.0043,
+      "point": -0.0018,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 3195,
+     "originDays": 46,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 189,
+        "DELISTED": 162,
+        "LED": 28,
+        "UNRESOLVED": 1607
+       },
+       "delisted": 162,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": 0.0205,
+        "lo95": 0.0042,
+        "point": 0.0119,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1191,
+       "n": 1986,
+       "originDays": 46
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 1498,
+        "DELISTED": 140,
+        "LED": 23,
+        "UNRESOLVED": 3063
+       },
+       "delisted": 140,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": 0.0207,
+        "lo95": -0.0022,
+        "point": 0.0077,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.3138,
+       "n": 4724,
+       "originDays": 46
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 224,
+        "DELISTED": 37,
+        "LED": 26,
+        "UNRESOLVED": 1463
+       },
+       "delisted": 38,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": 0.0573,
+        "lo95": 0.0225,
+        "point": 0.0414,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1257,
+       "n": 1750,
+       "originDays": 46
+      }
+     }
+    },
+    "21": {
+     "blocks": 6,
+     "census": {
+      "judgedK": 2178,
+      "judgedR": 4783,
+      "judgedX": 1974,
+      "noTargetK": 93,
+      "noTargetR": 4,
+      "noTargetX": 7,
+      "originsWithoutTarget": 20,
+      "pairs": 40,
+      "rowsNoTarget": 86
+     },
+     "delta": {
+      "blocks": 6,
+      "hi95": -0.026,
+      "lo95": -0.0747,
+      "point": -0.0518,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 6,
+      "hi95": 0.0168,
+      "lo95": 0.0035,
+      "point": 0.0095,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 6,
+      "hi95": 0.001,
+      "lo95": -0.0049,
+      "point": -0.0019,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 2707,
+     "originDays": 40,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 245,
+        "DELISTED": 205,
+        "LED": 60,
+        "UNRESOLVED": 1225
+       },
+       "delisted": 205,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0256,
+        "lo95": 0.0044,
+        "point": 0.0143,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1815,
+       "n": 1735,
+       "originDays": 40
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 2167,
+        "DELISTED": 156,
+        "LED": 60,
+        "UNRESOLVED": 1863
+       },
+       "delisted": 156,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0244,
+        "lo95": -0.0035,
+        "point": 0.0062,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.509,
+       "n": 4246,
+       "originDays": 40
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 188,
+        "DELISTED": 42,
+        "LED": 59,
+        "UNRESOLVED": 1151
+       },
+       "delisted": 43,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0817,
+        "lo95": 0.0435,
+        "point": 0.0661,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1294,
+       "n": 1440,
+       "originDays": 40
+      }
+     }
+    },
+    "3": {
+     "blocks": 9,
+     "census": {
+      "judgedK": 3044,
+      "judgedR": 6321,
+      "judgedX": 3176,
+      "noTargetK": 27,
+      "noTargetR": 3,
+      "noTargetX": 18,
+      "originsWithoutTarget": 3,
+      "pairs": 57,
+      "rowsNoTarget": 38
+     },
+     "delta": {
+      "blocks": 9,
+      "hi95": 0.0043,
+      "lo95": -0.0051,
+      "point": -0.0004,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 9,
+      "hi95": 0.0182,
+      "lo95": 0.0016,
+      "point": 0.0089,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 9,
+      "hi95": -0.0003,
+      "lo95": -0.0021,
+      "point": -0.0012,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 4146,
+     "originDays": 57,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 60,
+        "DELISTED": 53,
+        "UNRESOLVED": 2369
+       },
+       "delisted": 53,
+       "meanLeadShare": {
+        "blocks": 9,
+        "hi95": 0.0118,
+        "lo95": 0.0046,
+        "point": 0.0081,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0329,
+       "n": 2482,
+       "originDays": 57
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 390,
+        "DELISTED": 60,
+        "UNRESOLVED": 5128
+       },
+       "delisted": 60,
+       "meanLeadShare": {
+        "blocks": 9,
+        "hi95": 0.0049,
+        "lo95": -0.0001,
+        "point": 0.0023,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0694,
+       "n": 5578,
+       "originDays": 57
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 122,
+        "DELISTED": 40,
+        "LED": 2,
+        "UNRESOLVED": 2222
+       },
+       "delisted": 40,
+       "meanLeadShare": {
+        "blocks": 9,
+        "hi95": 0.0135,
+        "lo95": 0.0043,
+        "point": 0.0085,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0496,
+       "n": 2386,
+       "originDays": 57
+      }
+     }
+    },
+    "7": {
+     "blocks": 8,
+     "census": {
+      "judgedK": 2884,
+      "judgedR": 5995,
+      "judgedX": 2930,
+      "noTargetK": 57,
+      "noTargetR": 4,
+      "noTargetX": 18,
+      "originsWithoutTarget": 7,
+      "pairs": 53,
+      "rowsNoTarget": 65
+     },
+     "delta": {
+      "blocks": 8,
+      "hi95": -0.0021,
+      "lo95": -0.0203,
+      "point": -0.011,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 8,
+      "hi95": 0.0189,
+      "lo95": 0.0012,
+      "point": 0.009,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 8,
+      "hi95": 0.0,
+      "lo95": -0.0026,
+      "point": -0.0014,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 3806,
+     "originDays": 53,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 145,
+        "DELISTED": 94,
+        "LED": 9,
+        "UNRESOLVED": 2059
+       },
+       "delisted": 94,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.014,
+        "lo95": 0.0053,
+        "point": 0.0099,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0695,
+       "n": 2307,
+       "originDays": 53
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 828,
+        "DELISTED": 99,
+        "LED": 3,
+        "UNRESOLVED": 4333
+       },
+       "delisted": 99,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.01,
+        "lo95": -0.0013,
+        "point": 0.0047,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1561,
+       "n": 5263,
+       "originDays": 53
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 217,
+        "DELISTED": 50,
+        "LED": 8,
+        "UNRESOLVED": 1891
+       },
+       "delisted": 50,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.0314,
+        "lo95": 0.0105,
+        "point": 0.0208,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0898,
+       "n": 2166,
+       "originDays": 53
+      }
+     }
+    }
+   },
+   "originDays": 60,
+   "span": [
+    "2026-08-18",
+    "2026-10-17"
+   ]
+  },
+  "S4_ktc_split_era": {
+   "boards": 103,
+   "decision": {
+    "accumulation": null,
+    "minimumSample": {
+     "blocks": 5,
+     "met": true,
+     "originDays": 31,
+     "rejectedObs": 2082,
+     "rescuedObs": 1617
+    },
+    "reasons": [
+     "rescued evidence was led-to LESS than rejected evidence (\u0394 upper95 < 0)"
+    ],
+    "secondaryHorizonsWithPositiveDelta": 0,
+    "verdict": "NOT_BETTER"
+   },
+   "horizons": {
+    "14": {
+     "blocks": 4,
+     "census": {
+      "judgedK": 1230,
+      "judgedR": 1834,
+      "judgedX": 1551,
+      "noTargetR": 1,
+      "noTargetX": 16,
+      "originsWithoutTarget": 14,
+      "pairs": 24,
+      "rowsNoTarget": 21
+     },
+     "delta": {
+      "blocks": 4,
+      "hi95": -0.0135,
+      "lo95": -0.061,
+      "point": -0.034,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 4,
+      "hi95": 0.0036,
+      "lo95": -0.0029,
+      "point": -0.0003,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 4,
+      "hi95": 0.0022,
+      "lo95": -0.0017,
+      "point": -0.0002,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 2443,
+     "originDays": 24,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 82,
+        "DELISTED": 27,
+        "LED": 28,
+        "UNRESOLVED": 1093
+       },
+       "delisted": 27,
+       "meanLeadShare": {
+        "blocks": 4,
+        "hi95": 0.0139,
+        "lo95": -0.0183,
+        "point": 0.0019,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0783,
+       "n": 1230,
+       "originDays": 24
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 148,
+        "DELISTED": 28,
+        "LED": 23,
+        "UNRESOLVED": 1634
+       },
+       "delisted": 28,
+       "meanLeadShare": {
+        "blocks": 4,
+        "hi95": 0.0263,
+        "lo95": -0.0059,
+        "point": 0.0114,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0708,
+       "n": 1833,
+       "originDays": 24
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 190,
+        "DELISTED": 27,
+        "LED": 27,
+        "UNRESOLVED": 1291
+       },
+       "delisted": 28,
+       "meanLeadShare": {
+        "blocks": 4,
+        "hi95": 0.0487,
+        "lo95": 0.0197,
+        "point": 0.0359,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1201,
+       "n": 1535,
+       "originDays": 24
+      }
+     }
+    },
+    "21": {
+     "blocks": 3,
+     "census": {
+      "judgedK": 911,
+      "judgedR": 1265,
+      "judgedX": 1143,
+      "noTargetR": 1,
+      "noTargetX": 7,
+      "originsWithoutTarget": 20,
+      "pairs": 18,
+      "rowsNoTarget": 10
+     },
+     "delta": {
+      "blocks": 3,
+      "hi95": -0.0344,
+      "lo95": -0.072,
+      "point": -0.0527,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 3,
+      "hi95": 0.001,
+      "lo95": -0.002,
+      "point": -0.0008,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 3,
+      "hi95": 0.0016,
+      "lo95": -0.0022,
+      "point": -0.0003,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 1810,
+     "originDays": 18,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 67,
+        "DELISTED": 27,
+        "LED": 60,
+        "UNRESOLVED": 757
+       },
+       "delisted": 27,
+       "meanLeadShare": {
+        "blocks": 3,
+        "hi95": 0.0099,
+        "lo95": -0.004,
+        "point": 0.002,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0853,
+       "n": 911,
+       "originDays": 18
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 125,
+        "DELISTED": 19,
+        "LED": 47,
+        "UNRESOLVED": 1073
+       },
+       "delisted": 19,
+       "meanLeadShare": {
+        "blocks": 3,
+        "hi95": 0.0287,
+        "lo95": -0.0033,
+        "point": 0.0162,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0833,
+       "n": 1264,
+       "originDays": 18
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 142,
+        "DELISTED": 27,
+        "LED": 59,
+        "UNRESOLVED": 908
+       },
+       "delisted": 28,
+       "meanLeadShare": {
+        "blocks": 3,
+        "hi95": 0.068,
+        "lo95": 0.0317,
+        "point": 0.0547,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1214,
+       "n": 1136,
+       "originDays": 18
+      }
+     }
+    },
+    "3": {
+     "blocks": 6,
+     "census": {
+      "judgedK": 1777,
+      "judgedR": 2803,
+      "judgedX": 2345,
+      "noTargetR": 1,
+      "noTargetX": 17,
+      "originsWithoutTarget": 3,
+      "pairs": 35,
+      "rowsNoTarget": 17
+     },
+     "delta": {
+      "blocks": 6,
+      "hi95": 0.0048,
+      "lo95": -0.0076,
+      "point": -0.0009,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 6,
+      "hi95": 0.0011,
+      "lo95": -0.0064,
+      "point": -0.0024,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 6,
+      "hi95": 0.0007,
+      "lo95": -0.0025,
+      "point": -0.001,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 3616,
+     "originDays": 35,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 44,
+        "DELISTED": 21,
+        "UNRESOLVED": 1712
+       },
+       "delisted": 21,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0092,
+        "lo95": -0.0006,
+        "point": 0.0045,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0288,
+       "n": 1777,
+       "originDays": 35
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 95,
+        "DELISTED": 38,
+        "UNRESOLVED": 2669
+       },
+       "delisted": 38,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.006,
+        "lo95": -0.0024,
+        "point": 0.0017,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0358,
+       "n": 2802,
+       "originDays": 35
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 114,
+        "DELISTED": 40,
+        "LED": 2,
+        "UNRESOLVED": 2172
+       },
+       "delisted": 40,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0116,
+        "lo95": -0.0003,
+        "point": 0.0054,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0477,
+       "n": 2328,
+       "originDays": 35
+      }
+     }
+    },
+    "7": {
+     "blocks": 5,
+     "census": {
+      "judgedK": 1617,
+      "judgedR": 2477,
+      "judgedX": 2099,
+      "noTargetR": 1,
+      "noTargetX": 17,
+      "originsWithoutTarget": 7,
+      "pairs": 31,
+      "rowsNoTarget": 21
+     },
+     "delta": {
+      "blocks": 5,
+      "hi95": -0.0035,
+      "lo95": -0.0274,
+      "point": -0.0162,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 5,
+      "hi95": 0.0015,
+      "lo95": -0.0081,
+      "point": -0.0026,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 5,
+      "hi95": 0.0016,
+      "lo95": -0.0034,
+      "point": -0.0011,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 3254,
+     "originDays": 31,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 97,
+        "DELISTED": 27,
+        "LED": 9,
+        "UNRESOLVED": 1484
+       },
+       "delisted": 27,
+       "meanLeadShare": {
+        "blocks": 5,
+        "hi95": 0.014,
+        "lo95": -0.0166,
+        "point": 0.0009,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0591,
+       "n": 1617,
+       "originDays": 31
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 146,
+        "DELISTED": 51,
+        "LED": 3,
+        "UNRESOLVED": 2276
+       },
+       "delisted": 51,
+       "meanLeadShare": {
+        "blocks": 5,
+        "hi95": 0.011,
+        "lo95": -0.0052,
+        "point": 0.0034,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0583,
+       "n": 2476,
+       "originDays": 31
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 197,
+        "DELISTED": 50,
+        "LED": 12,
+        "UNRESOLVED": 1823
+       },
+       "delisted": 50,
+       "meanLeadShare": {
+        "blocks": 5,
+        "hi95": 0.0283,
+        "lo95": 0.0062,
+        "point": 0.0171,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0837,
+       "n": 2082,
+       "originDays": 31
+      }
+     }
+    }
+   },
+   "originDays": 38,
+   "span": [
+    "2026-09-09",
+    "2026-10-17"
+   ]
+  },
+  "S6_ktc_merged_targets": {
+   "boards": 103,
+   "decision": {
+    "accumulation": null,
+    "minimumSample": {
+     "blocks": 8,
+     "met": true,
+     "originDays": 53,
+     "rejectedObs": 2911,
+     "rescuedObs": 2827
+    },
+    "reasons": [
+     "rescued evidence was led-to LESS than rejected evidence (\u0394 upper95 < 0)"
+    ],
+    "secondaryHorizonsWithPositiveDelta": 0,
+    "verdict": "NOT_BETTER"
+   },
+   "horizons": {
+    "14": {
+     "blocks": 7,
+     "census": {
+      "judgedK": 2497,
+      "judgedR": 5352,
+      "judgedX": 2382,
+      "noTargetK": 86,
+      "noTargetR": 4,
+      "noTargetX": 17,
+      "originsWithoutTarget": 14,
+      "pairs": 46,
+      "rowsNoTarget": 87
+     },
+     "delta": {
+      "blocks": 7,
+      "hi95": -0.024,
+      "lo95": -0.0448,
+      "point": -0.0342,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 7,
+      "hi95": 0.0162,
+      "lo95": -0.0004,
+      "point": 0.0069,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 7,
+      "hi95": 0.0014,
+      "lo95": -0.0009,
+      "point": 0.0001,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 4196,
+     "originDays": 46,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 215,
+        "DELISTED": 162,
+        "LED": 26,
+        "UNRESOLVED": 2008
+       },
+       "delisted": 162,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": 0.0044,
+        "lo95": -0.0094,
+        "point": -0.0019,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1047,
+       "n": 2411,
+       "originDays": 46
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 1517,
+        "DELISTED": 145,
+        "LED": 22,
+        "UNRESOLVED": 3664
+       },
+       "delisted": 145,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": 0.0116,
+        "lo95": -0.0078,
+        "point": 0.0012,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.2823,
+       "n": 5348,
+       "originDays": 46
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 227,
+        "DELISTED": 37,
+        "LED": 25,
+        "UNRESOLVED": 2076
+       },
+       "delisted": 38,
+       "meanLeadShare": {
+        "blocks": 7,
+        "hi95": 0.0441,
+        "lo95": 0.0198,
+        "point": 0.0323,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1018,
+       "n": 2365,
+       "originDays": 46
+      }
+     }
+    },
+    "21": {
+     "blocks": 6,
+     "census": {
+      "judgedK": 2178,
+      "judgedR": 4783,
+      "judgedX": 1974,
+      "noTargetK": 93,
+      "noTargetR": 4,
+      "noTargetX": 7,
+      "originsWithoutTarget": 20,
+      "pairs": 40,
+      "rowsNoTarget": 86
+     },
+     "delta": {
+      "blocks": 6,
+      "hi95": -0.0417,
+      "lo95": -0.0622,
+      "point": -0.0525,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 6,
+      "hi95": 0.0142,
+      "lo95": -0.0012,
+      "point": 0.0059,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 6,
+      "hi95": 0.0004,
+      "lo95": -0.0017,
+      "point": -0.0007,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 3553,
+     "originDays": 40,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 262,
+        "DELISTED": 205,
+        "LED": 60,
+        "UNRESOLVED": 1558
+       },
+       "delisted": 205,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0013,
+        "lo95": -0.0102,
+        "point": -0.0047,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1544,
+       "n": 2085,
+       "originDays": 40
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 2179,
+        "DELISTED": 161,
+        "LED": 63,
+        "UNRESOLVED": 2376
+       },
+       "delisted": 161,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0101,
+        "lo95": -0.0086,
+        "point": -0.0016,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.4587,
+       "n": 4779,
+       "originDays": 40
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 192,
+        "DELISTED": 43,
+        "LED": 58,
+        "UNRESOLVED": 1674
+       },
+       "delisted": 44,
+       "meanLeadShare": {
+        "blocks": 6,
+        "hi95": 0.0562,
+        "lo95": 0.0365,
+        "point": 0.0478,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1017,
+       "n": 1967,
+       "originDays": 40
+      }
+     }
+    },
+    "3": {
+     "blocks": 9,
+     "census": {
+      "judgedK": 3044,
+      "judgedR": 6321,
+      "judgedX": 3176,
+      "noTargetK": 27,
+      "noTargetR": 3,
+      "noTargetX": 19,
+      "originsWithoutTarget": 3,
+      "pairs": 57,
+      "rowsNoTarget": 39
+     },
+     "delta": {
+      "blocks": 9,
+      "hi95": 0.0005,
+      "lo95": -0.0072,
+      "point": -0.0029,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 9,
+      "hi95": 0.0127,
+      "lo95": -0.0013,
+      "point": 0.0049,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 9,
+      "hi95": 0.0001,
+      "lo95": -0.0023,
+      "point": -0.001,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 5413,
+     "originDays": 57,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 68,
+        "DELISTED": 53,
+        "UNRESOLVED": 2896
+       },
+       "delisted": 53,
+       "meanLeadShare": {
+        "blocks": 9,
+        "hi95": 0.0079,
+        "lo95": -0.0025,
+        "point": 0.0027,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0294,
+       "n": 3017,
+       "originDays": 57
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 398,
+        "DELISTED": 69,
+        "UNRESOLVED": 5851
+       },
+       "delisted": 69,
+       "meanLeadShare": {
+        "blocks": 9,
+        "hi95": 0.0034,
+        "lo95": -0.0022,
+        "point": 0.0008,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0627,
+       "n": 6318,
+       "originDays": 57
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 124,
+        "DELISTED": 40,
+        "LED": 1,
+        "UNRESOLVED": 2992
+       },
+       "delisted": 40,
+       "meanLeadShare": {
+        "blocks": 9,
+        "hi95": 0.0115,
+        "lo95": -0.0001,
+        "point": 0.0057,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.039,
+       "n": 3157,
+       "originDays": 57
+      }
+     }
+    },
+    "7": {
+     "blocks": 8,
+     "census": {
+      "judgedK": 2884,
+      "judgedR": 5995,
+      "judgedX": 2930,
+      "noTargetK": 57,
+      "noTargetR": 4,
+      "noTargetX": 19,
+      "originsWithoutTarget": 7,
+      "pairs": 53,
+      "rowsNoTarget": 66
+     },
+     "delta": {
+      "blocks": 8,
+      "hi95": -0.0091,
+      "lo95": -0.0226,
+      "point": -0.0155,
+      "resamplesUsed": 4000
+     },
+     "g1": {
+      "blocks": 8,
+      "hi95": 0.0135,
+      "lo95": -0.0018,
+      "point": 0.005,
+      "resamplesUsed": 4000
+     },
+     "g1PersistenceRelative": {
+      "blocks": 8,
+      "hi95": 0.0008,
+      "lo95": -0.0019,
+      "point": -0.0006,
+      "resamplesUsed": 4000
+     },
+     "g1Rows": 5028,
+     "originDays": 53,
+     "sides": {
+      "K": {
+       "classes": {
+        "ABANDONED": 160,
+        "DELISTED": 94,
+        "LED": 7,
+        "UNRESOLVED": 2566
+       },
+       "delisted": 94,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.0083,
+        "lo95": -0.0105,
+        "point": -0.0002,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0612,
+       "n": 2827,
+       "originDays": 53
+      },
+      "R": {
+       "classes": {
+        "ABANDONED": 843,
+        "DELISTED": 111,
+        "LED": 1,
+        "UNRESOLVED": 5036
+       },
+       "delisted": 111,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.007,
+        "lo95": -0.0049,
+        "point": 0.0013,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.1404,
+       "n": 5991,
+       "originDays": 53
+      },
+      "X": {
+       "classes": {
+        "ABANDONED": 218,
+        "DELISTED": 50,
+        "LED": 11,
+        "UNRESOLVED": 2632
+       },
+       "delisted": 50,
+       "meanLeadShare": {
+        "blocks": 8,
+        "hi95": 0.0238,
+        "lo95": 0.0069,
+        "point": 0.0153,
+        "resamplesUsed": 4000
+       },
+       "meanRetreatShare": 0.0709,
+       "n": 2911,
+       "originDays": 53
+      }
+     }
+    }
+   },
+   "originDays": 60,
+   "span": [
+    "2026-08-18",
+    "2026-10-17"
+   ]
+  }
+ }
+}

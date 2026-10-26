@@ -516,3 +516,121 @@ class TestTeamScopedFuzzy:
             overrides_path=no_overrides,
         )
         assert set(records) == {"00-0910001"}  # best full-pool fuzzy match
+
+
+class TestCrossPositionGroupRefused:
+    """The position-blind name rung may not cross a position GROUP.
+
+    Production 2026-10-05: OTC lists the Jaguars' edge rusher as "Josh
+    Allen, ED".  ``ED`` was unmapped, Sleeper calls him Josh Hines-Allen,
+    so the row fell to the name-only rung, landed on QB Josh Allen, and
+    overwrote his real contract with a $5.7M rookie deal "thru 2022".
+    """
+
+    @pytest.fixture
+    def no_overrides(self, tmp_path):
+        p = tmp_path / "no_overrides.json"
+        p.write_text("{}", encoding="utf-8")
+        return p
+
+    @pytest.fixture
+    def allen_pool(self) -> dict[str, dict[str, str]]:
+        return {
+            "4984": {
+                "player_id": "4984",
+                "full_name": "Josh Allen",
+                "position": "QB",
+                "team": "BUF",
+                "gsis_id": "00-0034857",
+                "espn_id": "3918298",
+            },
+            "5844": {
+                "player_id": "5844",
+                "full_name": "Josh Hines-Allen",
+                "position": "DL",
+                "team": "JAX",
+                "gsis_id": "00-0035640",
+                "espn_id": "4047365",
+            },
+        }
+
+    def _qb_and_edge_rows(self) -> list[dict]:
+        qb = {**_contract("Josh Allen", "BUF", "QB"), "apy": 43_000_000, "endYear": 2026}
+        edge = {**_contract("Josh Allen", "JAX", "ED"), "apy": 5_685_659, "endYear": 2022}
+        return [qb, edge]
+
+    @pytest.mark.parametrize("order", [1, -1])
+    def test_edge_rusher_row_never_overwrites_the_qb(self, allen_pool, no_overrides, order):
+        records, stats = norm.build_player_context(
+            contracts=self._qb_and_edge_rows()[::order],
+            snaps=[],
+            depth=[],
+            players_dir=allen_pool,
+            overrides_path=no_overrides,
+        )
+        assert records["00-0034857"]["contract"]["apy"] == 43_000_000
+        assert stats["contracts"]["matched"] == 1
+        assert stats["crossGroupRefused"] == 1
+        # Missing, not guessed: the edge rusher's own record gets nothing.
+        assert "00-0035640" not in records
+
+    @pytest.mark.parametrize("ol_position", ["C", "LT", "RG", "LS", "FB"])
+    def test_non_fantasy_row_never_lands_on_a_fantasy_player(
+        self, players_dir, no_overrides, ol_position
+    ):
+        records, stats = norm.build_player_context(
+            contracts=[_contract("Justin Jefferson", "", ol_position)],
+            snaps=[],
+            depth=[],
+            players_dir=players_dir,
+            overrides_path=no_overrides,
+        )
+        assert records == {}
+        assert stats["crossGroupRefused"] == 1
+
+    def test_offense_to_idp_snap_row_is_refused(self, players_dir, no_overrides):
+        records, _ = norm.build_player_context(
+            contracts=[],
+            snaps=[_snap("Micah Parsons", "", "WR")],
+            depth=[],
+            players_dir=players_dir,
+            overrides_path=no_overrides,
+        )
+        assert records == {}
+
+    def test_within_group_position_drift_still_joins(self, players_dir, no_overrides):
+        # A real player whose listed position drifted inside his group
+        # (DLF-style LB vs Sleeper DL) keeps joining.
+        records, stats = norm.build_player_context(
+            contracts=[_contract("Micah Parsons", "", "LB")],
+            snaps=[],
+            depth=[],
+            players_dir=players_dir,
+            overrides_path=no_overrides,
+        )
+        assert set(records) == {"00-0036933"}
+        assert stats["crossGroupRefused"] == 0
+
+    @pytest.mark.parametrize("otc_position", ["ED", "IDL"])
+    def test_otc_dl_spellings_join_by_name_and_position(
+        self, players_dir, no_overrides, otc_position
+    ):
+        records, stats = norm.build_player_context(
+            contracts=[_contract("Micah Parsons", "DAL", otc_position)],
+            snaps=[],
+            depth=[],
+            players_dir=players_dir,
+            overrides_path=no_overrides,
+        )
+        assert set(records) == {"00-0036933"}
+        assert stats["crossGroupRefused"] == 0
+
+    def test_positionless_row_keeps_the_name_rung(self, players_dir, no_overrides):
+        records, _ = norm.build_player_context(
+            contracts=[_contract("Justin Jefferson", "", "")],
+            snaps=[],
+            depth=[],
+            players_dir=players_dir,
+            overrides_path=no_overrides,
+        )
+        assert set(records) == {"00-0036322"}

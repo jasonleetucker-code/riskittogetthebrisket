@@ -85,6 +85,18 @@ def join_budgets(
         "unmatchedSeats": unmatched,
         "unmatchedBudgetRows": sorted(k for k in by_team if k not in matched_keys),
         "duplicateTeamNames": sorted(dupes),
+        # The payload's own statement about its budgets.  When it is
+        # ``unavailable`` every ``auctionDollars`` is null, so every seat above
+        # is ``missing`` — never an opening budget of $0.
+        "teamTotalsState": (draft_capital or {}).get("teamTotalsState"),
+        "teamTotalsReason": (draft_capital or {}).get("teamTotalsReason"),
+        # Which dollars generation the budgets came from (Batch F receipt:
+        # generationHash, curveVersion, targetDraftYear, spineYears,
+        # inputMode, allocationState …), snapshotted with the room.  ``None``
+        # when the payload carried none (a board that predates the receipt).
+        "draftValuationGeneration": (draft_capital or {}).get("draftValuationGeneration"),
+        # Set only when the board was a stale-while-revalidate answer.
+        "staleWhileRevalidate": (draft_capital or {}).get("staleWhileRevalidate"),
     }
     return out, provenance
 

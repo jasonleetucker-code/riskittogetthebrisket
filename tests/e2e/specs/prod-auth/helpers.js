@@ -18,6 +18,7 @@
  */
 const fs = require("node:fs");
 const base = require("@playwright/test");
+const { DISCLOSURE_SELECTOR, readCellText } = require("./table-cells");
 
 const ORIGIN = String(process.env.PROD_ORIGIN || "").replace(/\/+$/, "");
 const COOKIE_FILE = String(process.env.PROD_SESSION_COOKIE_FILE || "");
@@ -91,7 +92,7 @@ function normName(name) {
 
 /**
  * Replicas of the two display formatters SimulationPanel uses
- * (frontend/app/trade/trade-sections.jsx).  Replicated so the spec can
+ * (frontend/app/trade/trade-simulation-panel.jsx).  Replicated so the spec can
  * state the EXPECTED rendering from the backend response — the
  * assertion is "the page shows the backend's number under the backend's
  * formatting", so the formatter must match character-for-character
@@ -219,4 +220,6 @@ module.exports = {
   strengthText,
   desktopOnly,
   mobileOnly,
+  DISCLOSURE_SELECTOR,
+  readCellText,
 };

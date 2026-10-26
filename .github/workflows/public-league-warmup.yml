@@ -95,7 +95,7 @@ jobs:
           echo "Waiting for ${URL}/api/health …"
           for _i in $(seq 1 40); do
             _hc=$(curl --silent --globoff --output /dev/null --max-time 10 \
-              --write-out '%{http_code}' "${URL}/api/health" || echo "000")
+              --write-out '%{http_code}' "${URL}/api/health") || _hc=000
             if [[ "${_hc}" == "200" ]]; then
               echo "  health ready after ~$(( _i * 5 ))s"
               exit 0
@@ -133,7 +133,7 @@ jobs:
           for attempt in 1 2 3; do
             code="$(curl --silent --show-error --globoff --max-time "${BUDGET}" \
               --output "${body_file}" --write-out '%{http_code}' \
-              "${TARGET}" || echo 000)"
+              "${TARGET}")" || code=000
             size=$(wc -c < "${body_file}" 2>/dev/null || echo 0)
             echo "attempt ${attempt}: status=${code} size=${size}"
             [[ "${code}" == "200" ]] && break

@@ -74,6 +74,7 @@ import {
 import { classifyPos } from "@/lib/dynasty-data";
 import { useBdvmEndpoint } from "@/components/useBdvm";
 import {
+  BDVM_PICK_MID_OUTCOME_INFO,
   buildBdvmIndex,
   buildBdvmPickRows,
   bdvmEntryForRow,
@@ -96,6 +97,7 @@ import {
   StatTile,
   ValueBasisNote,
 } from "@/components/ds";
+import { draftCapitalBudgetRows } from "@/lib/draft-capital-budgets";
 import styles from "./draft.module.css";
 
 // Code-split so the Perfect Draft panel and its optimizer stay OUT of the
@@ -483,12 +485,14 @@ function TeamPanel({
                 <input
                   type="radio"
                   name="myTeam"
+                  aria-label={`My team: ${workspace.teams[t.idx]?.name || `Team ${t.idx + 1}`}`}
                   checked={t.isMine}
                   onChange={() => onSettings({ myTeamIdx: t.idx })}
                 />
               </label>
               <input
                 className="draft-inline-input"
+                aria-label={`Team ${t.idx + 1} name`}
                 value={workspace.teams[t.idx]?.name ?? ""}
                 onChange={(e) => onTeam(t.idx, { name: e.target.value })}
                 placeholder={`Team ${t.idx + 1}`}
@@ -497,6 +501,7 @@ function TeamPanel({
                 className="draft-inline-input draft-money-input"
                 type="number"
                 min="0"
+                aria-label={`${workspace.teams[t.idx]?.name || `Team ${t.idx + 1}`} starting budget`}
                 value={workspace.teams[t.idx]?.initialBudget ?? 0}
                 onChange={(e) =>
                   onTeam(t.idx, {
@@ -1128,6 +1133,67 @@ function QuickRecordRow({
   );
 }
 
+/**
+ * The "Fundamental pick values (BDVM)" table.  Display-only: every number
+ * is a backend BDVM value (buildBdvmPickRows only reshapes).  Exported for
+ * tests, same pattern as RookieBoard.
+ */
+export function BdvmPickValuesTable({ rows }) {
+  return (
+    <div className="draft-table-wrap">
+      <table className="draft-table">
+        <thead>
+          <tr>
+            <th style={{ textAlign: "left" }}>Pick</th>
+            <th style={{ width: 90, textAlign: "right" }}>EV</th>
+            <th
+              style={{ width: 80, textAlign: "right" }}
+              title="Probability the pick returns a startable player"
+            >
+              Hit %
+            </th>
+            {/* API field `median` is the prior table's "mid"
+                outcome bucket, not a distribution median. */}
+            <th style={{ width: 90, textAlign: "right" }}>
+              Mid outcome
+              <InfoTip label="Mid outcome">
+                {BDVM_PICK_MID_OUTCOME_INFO}
+              </InfoTip>
+            </th>
+            <th style={{ width: 90, textAlign: "right" }}>Ceiling</th>
+            <th style={{ width: 100, textAlign: "right" }}>Market</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.name}>
+              <td>{row.name}</td>
+              <td className="draft-money">{formatBdvmValue(row.ev)}</td>
+              <td className="draft-money">
+                {row.pHit == null
+                  ? "—"
+                  : `${Math.round(row.pHit * 100)}%`}
+              </td>
+              <td className="draft-money">
+                {formatBdvmValue(row.median)}
+              </td>
+              <td className="draft-money">
+                {formatBdvmValue(row.ceiling)}
+              </td>
+              <td
+                className="draft-money"
+                title={row.marketSource || undefined}
+              >
+                {formatBdvmValue(row.marketValue)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // Exported for tests only (same pattern as ``describeCustomMix`` on
 // the rankings page): the draft board's sortable-header semantics are
 // a11y-critical and need coverage without mounting the whole 5k-line
@@ -1470,6 +1536,7 @@ export function RookieBoard({
                         type="number"
                         className="draft-inline-input draft-money-input"
                         min="0"
+                        aria-label={`${p.name} PreDraft price`}
                         value={p.preDraft}
                         onChange={(e) =>
                           onEditPreDraft(p.id, Number(e.target.value) || 0)
@@ -2026,6 +2093,7 @@ function ParSheet({
                     <input
                       type="number"
                       className="input draft-money-input"
+                      aria-label={`${row.name} fair value`}
                       autoFocus
                       value={editingValue}
                       min="0"
@@ -3917,12 +3985,9 @@ export default function DraftDashboardPage() {
         // when the requested league's data isn't loaded.
         const data = await capitalLoaderRef.current(selectedLeagueKey);
         if (activeLeagueRef.current !== selectedLeagueKey) return;
-        const teamTotals = Array.isArray(data?.teamTotals)
-          ? data.teamTotals
-          : [];
-        if (teamTotals.length === 0) {
-          throw new Error("Draft capital feed had no team totals.");
-        }
+        // MISSING IS NEVER ZERO: unavailable budgets throw (the error banner
+        // names why) and leave the workspace untouched — never $0 budgets.
+        const teamTotals = draftCapitalBudgetRows(data);
         // Raw picks array — retained for callers; no longer used to
         // derive a per-team rookie cap (there isn't one).  Per-team slot
         // counts (how many rookie picks each team currently owns).
@@ -4768,7 +4833,7 @@ export default function DraftDashboardPage() {
 
   if (checking || authenticated == null) {
     return (
-      <main className={`main-shell ${styles.page}`}>
+      <div className={`main-shell ${styles.page}`}>
         {/* Same three constants as the settled header below — they are
             constants, not data, so rendering them here is the honest
             value rather than a placeholder.  Omitting the description
@@ -4797,7 +4862,7 @@ export default function DraftDashboardPage() {
         <Panel>
           <SkeletonTable rows={10} columns={5} />
         </Panel>
-      </main>
+      </div>
     );
   }
   if (authenticated === false) {
@@ -4812,7 +4877,7 @@ export default function DraftDashboardPage() {
     : null;
 
   return (
-    <main className={`main-shell ${styles.page} draft-page`}>
+    <div className={`main-shell ${styles.page} draft-page`}>
       <PageHeader
         eyebrow={DRAFT_PAGE_EYEBROW}
         title={DRAFT_PAGE_TITLE}
@@ -5073,50 +5138,7 @@ export default function DraftDashboardPage() {
           subtitle="Rookie-pick EV in the balanced strategy currency — hit rate and outcome spread from the fundamental model, market anchor beside it"
           defaultCollapsed
         >
-          <div className="draft-table-wrap">
-            <table className="draft-table">
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left" }}>Pick</th>
-                  <th style={{ width: 90, textAlign: "right" }}>EV</th>
-                  <th
-                    style={{ width: 80, textAlign: "right" }}
-                    title="Probability the pick returns a startable player"
-                  >
-                    Hit %
-                  </th>
-                  <th style={{ width: 90, textAlign: "right" }}>Median</th>
-                  <th style={{ width: 90, textAlign: "right" }}>Ceiling</th>
-                  <th style={{ width: 100, textAlign: "right" }}>Market</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bdvmPickRows.map((row) => (
-                  <tr key={row.name}>
-                    <td>{row.name}</td>
-                    <td className="draft-money">{formatBdvmValue(row.ev)}</td>
-                    <td className="draft-money">
-                      {row.pHit == null
-                        ? "—"
-                        : `${Math.round(row.pHit * 100)}%`}
-                    </td>
-                    <td className="draft-money">
-                      {formatBdvmValue(row.median)}
-                    </td>
-                    <td className="draft-money">
-                      {formatBdvmValue(row.ceiling)}
-                    </td>
-                    <td
-                      className="draft-money"
-                      title={row.marketSource || undefined}
-                    >
-                      {formatBdvmValue(row.marketValue)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <BdvmPickValuesTable rows={bdvmPickRows} />
           <p
             className="muted"
             style={{
@@ -5306,6 +5328,6 @@ export default function DraftDashboardPage() {
           </div>
         </Modal>
       )}
-    </main>
+    </div>
   );
 }

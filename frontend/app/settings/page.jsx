@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useAuthContext } from "@/app/AppShellWrapper";
@@ -16,9 +16,21 @@ import {
   detectActivePreset,
 } from "@/lib/weight-presets";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
+import { sourceVoteFields } from "@/lib/source-vote-state";
 import { ROS_SOURCES } from "@/lib/ros-sources";
+import { votingStatusBlock } from "@/lib/source-voting-status";
 import PushNotificationToggle from "@/components/PushNotificationToggle";
 import CustomAlertsConfigurator from "@/components/CustomAlertsConfigurator";
+import { useLeague } from "@/components/useLeague";
+
+// Code-split (React.lazy, not next/dynamic — see CLAUDE.md "Perfect Draft"):
+// the editor sits in a collapsed section and loads only when opened.
+const TradeProtectionsEditor = lazy(() => import("@/components/TradeProtectionsEditor"));
+// The Source Voting table (owner directive 2026-10-19 §8) is split the same
+// way: a static import put DataTable + the ds status primitives on this
+// page's critical path (page + shared chunks 180.1 -> 208.3 KB, measured);
+// lazy keeps that at 186.5 KB and loads the table just after first paint.
+const SourceVotingStatus = lazy(() => import("@/components/SourceVotingStatus"));
 
 // The settings page enumerates the canonical ranking registry directly
 // so a newly registered source automatically shows up here without any
@@ -61,7 +73,9 @@ function Section({ title, defaultOpen = true, children }) {
         </span>
       </button>
       <div id={bodyId} hidden={!open} style={open ? { marginTop: 10 } : undefined}>
-        {children}
+        {/* A function child mounts only while open, so a lazily loaded
+            panel's chunk is fetched when someone opens it, not on page load. */}
+        {typeof children === "function" ? (open ? children() : null) : children}
       </div>
     </div>
   );
@@ -204,6 +218,7 @@ export default function SettingsPage() {
     setNotifications,
     toggleWatchlist,
   } = useUserState();
+  const { selectedLeague, selectedLeagueKey } = useLeague();
   const [watchAddName, setWatchAddName] = useState("");
   const [hydrated, setHydrated] = useState(true);
   const [emailDraft, setEmailDraft] = useState("");
@@ -321,8 +336,16 @@ export default function SettingsPage() {
         Number.isFinite(Number(ov.weight)) && Number(ov.weight) >= 0
           ? Number(ov.weight)
           : Number(src.weight ?? 1);
+      // Private sources carry a backend vote state.  A source that is not
+      // voting (Signals IDP in shadow) is shown with its state and offers
+      // no include/weight control — a control would imply it moves the
+      // blend, and it does not.
+      const vote = sourceVoteFields(
+        rawData?.privateSourceAvailability?.[src.key],
+      );
       return {
         ...src,
+        ...vote,
         covered,
         live: covered > 0,
         userInclude,
@@ -335,11 +358,12 @@ export default function SettingsPage() {
       offense: RANKING_SOURCES.filter((s) => s.scope === "overall_offense").map(
         decorate,
       ),
-      idp: RANKING_SOURCES.filter((s) => s.scope === "overall_idp").map(
-        decorate,
-      ),
+      // Family-scoped IDP boards (Signals DL / LB / DB) are IDP sources too.
+      idp: RANKING_SOURCES.filter(
+        (s) => s.scope === "overall_idp" || s.scope === "position_idp",
+      ).map(decorate),
     };
-  }, [rows, settings?.siteWeights]);
+  }, [rows, settings?.siteWeights, rawData?.privateSourceAvailability]);
 
   if (!hydrated) return null;
 
@@ -710,6 +734,44 @@ export default function SettingsPage() {
         />
       </Section>
 
+      {/* Owner directive 2026-10-19 §8: every source's actual voting
+          status on the canonical board — Last Updated, Freshness, Voting
+          Weight, Status and why.  Read from the contract's
+          `sourceVotingStatus` (already loaded; no second fetch).  Same
+          component as /tools/source-health. */}
+      <Section title="Source Voting" defaultOpen>
+        <div
+          style={{ fontSize: "0.72rem", marginBottom: 10 }}
+          className="muted"
+        >
+          How each ranking source votes on the site&apos;s consensus values
+          right now: when it last genuinely updated, how much voting power its
+          freshness keeps, the weight it votes with, and why. Your own source
+          weights below are applied on top of this. Full diagnostics are on{" "}
+          <Link href="/tools/source-health">Source Health</Link>.
+        </div>
+        {!rawData && failure ? (
+          <p className="muted" style={{ fontSize: "0.72rem" }}>
+            Source voting status needs the board data, which did not load (see
+            the message above).
+          </p>
+        ) : (
+          <Suspense
+            fallback={
+              <p className="muted" role="status" style={{ fontSize: "0.72rem" }}>
+                Loading source voting status…
+              </p>
+            }
+          >
+            <SourceVotingStatus
+              block={votingStatusBlock(rawData)}
+              loading={loading && !rawData}
+              context="source voting status"
+            />
+          </Suspense>
+        )}
+      </Section>
+
       <Section title="Ranking Sources" defaultOpen>
         <div
           style={{ fontSize: "0.72rem", marginBottom: 10 }}
@@ -793,12 +855,6 @@ export default function SettingsPage() {
           checked={settings.rosEnabled !== false}
           onChange={(v) => update("rosEnabled", v)}
           hint="Master switch.  Off hides every ROS-driven surface (Championship tab, Trade-deadline dashboard, ROS Fit panel, player tags).  Does not affect the Power tab — it has no v1 fallback to fall back to (V1-52 retired it)."
-        />
-        <ToggleRow
-          label="Use ROS-driven Playoff Odds"
-          checked={!!settings.useRosPlayoffOdds}
-          onChange={(v) => update("useRosPlayoffOdds", v)}
-          hint="When enabled, the playoff Monte Carlo uses ROS-blended weekly score distributions instead of empirical-only.  PR-future toggle for the playoff-odds section swap; ROS Championship tab uses ROS by default."
         />
         <ToggleRow
           label="Show ROS Fit panel on Trade Calculator"
@@ -1080,6 +1136,24 @@ export default function SettingsPage() {
 
       </SettingsGroup>
 
+      <SettingsGroup
+        title="Trade recommendations"
+        description="Personal rules for generated trade ideas in the selected league. They never change any value."
+      >
+      <Section title="Trade protections" defaultOpen={false}>
+        {() => (
+          <Suspense fallback={<p className="muted" role="status">Loading trade protections…</p>}>
+            <TradeProtectionsEditor
+              enabled={!!serverBacked}
+              leagueKey={selectedLeagueKey}
+              leagueName={selectedLeague?.displayName}
+              players={rows}
+            />
+          </Suspense>
+        )}
+      </Section>
+      </SettingsGroup>
+
       <div
         className="muted"
         style={{
@@ -1163,8 +1237,13 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                 : src.isBackbone
                   ? "Backbone (IDP)"
                   : "Expert consensus";
-              const statusLabel = src.live ? "Live" : "Idle";
-              const statusColor = src.live ? "var(--green)" : "var(--subtext)";
+              const statusLabel = src.nonVoting
+                ? src.voteLabel
+                : src.live
+                  ? "Live"
+                  : "Idle";
+              const statusColor =
+                src.live && !src.nonVoting ? "var(--green)" : "var(--subtext)";
               const enabled = src.userInclude !== false;
               return (
                 <tr
@@ -1250,43 +1329,61 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                   >
                     {role}
                   </td>
-                  <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                    <input
-                      type="checkbox"
-                      checked={enabled}
-                      onChange={(e) => onToggle?.(src.key, e.target.checked)}
-                      aria-label={`Include ${src.displayName} in blend`}
-                      className="settings-src-toggle"
-                      style={{ cursor: "pointer" }}
-                    />
-                  </td>
-                  <td
-                    style={{
-                      padding: "6px 8px",
-                      textAlign: "right",
-                      fontFamily: "var(--mono)",
-                    }}
-                  >
-                    <input
-                      type="number"
-                      min={0}
-                      max={5}
-                      step={0.1}
-                      value={Number(src.userWeight).toFixed(1)}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        if (Number.isFinite(v) && v >= 0)
-                          onWeight?.(src.key, v);
-                      }}
-                      disabled={!enabled}
-                      className="input weight-input"
+                  {src.nonVoting ? (
+                    <td
+                      colSpan={2}
+                      data-testid={`settings-src-vote-state-${src.key}`}
+                      title="Collected and shown on Rankings; it does not vote, so there is nothing to include or weight."
                       style={{
-                        textAlign: "right",
-                        fontFamily: "var(--mono)",
+                        padding: "6px 8px",
+                        textAlign: "center",
+                        fontSize: "0.68rem",
+                        color: "var(--subtext)",
                       }}
-                      aria-label={`${src.displayName} weight`}
-                    />
-                  </td>
+                    >
+                      {src.voteLabel}
+                    </td>
+                  ) : (
+                    <>
+                      <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(e) => onToggle?.(src.key, e.target.checked)}
+                          aria-label={`Include ${src.displayName} in blend`}
+                          className="settings-src-toggle"
+                          style={{ cursor: "pointer" }}
+                        />
+                      </td>
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          textAlign: "right",
+                          fontFamily: "var(--mono)",
+                        }}
+                      >
+                        <input
+                          type="number"
+                          min={0}
+                          max={5}
+                          step={0.1}
+                          value={Number(src.userWeight).toFixed(1)}
+                          onChange={(e) => {
+                            const v = Number(e.target.value);
+                            if (Number.isFinite(v) && v >= 0)
+                              onWeight?.(src.key, v);
+                          }}
+                          disabled={!enabled}
+                          className="input weight-input"
+                          style={{
+                            textAlign: "right",
+                            fontFamily: "var(--mono)",
+                          }}
+                          aria-label={`${src.displayName} weight`}
+                        />
+                      </td>
+                    </>
+                  )}
                   <td
                     className="settings-src-col-covered"
                     style={{

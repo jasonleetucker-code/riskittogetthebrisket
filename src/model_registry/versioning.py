@@ -108,6 +108,21 @@ class ModelVersion:
     #: Stored rather than recomputed so a reader sees what the gate actually
     #: concluded, not what it would conclude against today's code.
     scope_validation: dict[str, str] = field(default_factory=dict)
+    #: The pinned, point-in-time training run that produced ``params``
+    #: (``src/model_registry/training_run.py``): code identity, manifest hash,
+    #: every input's hash, dataset state, freshness/health/coverage at the
+    #: cutoff, families, populations, configuration and the challenger hash.
+    #: ``None`` for every version recorded before the substrate repair — those
+    #: cannot be reproduced from their own record, and Hill Autopilot does not
+    #: tournament them (``training_run.is_tournament_eligible``).
+    training_run: dict[str, Any] | None = None
+    #: What the promotion gate concluded for a NON-Hill family
+    #: (``promotion_gates.check_generic_family``): parameter completeness, the
+    #: verified evaluation receipt id + content hash, and the owner approval.
+    #: ``None`` for Hill versions (their evidence is ``scope_validation``) and for
+    #: every version never promoted through the generic gate — absent from the
+    #: serialized record then, so the committed Hill registry stays byte-identical.
+    promotion_gate: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         if self.status not in VERSION_STATUSES:
@@ -141,6 +156,16 @@ class ModelVersion:
         return "measured" if len(sources) >= 3 else "provisional"
 
     def to_dict(self) -> dict[str, Any]:
+        out = self._to_dict_base()
+        # Absent (not null) for pre-repair versions, so re-saving the committed
+        # registry leaves every historical record byte-identical.
+        if self.training_run is None:
+            out.pop("trainingRun")
+        if self.promotion_gate is None:
+            out.pop("promotionGate")
+        return out
+
+    def _to_dict_base(self) -> dict[str, Any]:
         return {
             "modelId": self.model_id,
             "version": self.version,
@@ -157,6 +182,8 @@ class ModelVersion:
             "retiredAt": self.retired_at,
             "appliedAt": self.applied_at,
             "scopeValidation": dict(self.scope_validation),
+            "trainingRun": self.training_run,
+            "promotionGate": None if self.promotion_gate is None else dict(self.promotion_gate),
         }
 
     @classmethod
@@ -177,6 +204,12 @@ class ModelVersion:
             scope_validation={
                 str(k): str(v) for k, v in (blob.get("scopeValidation") or {}).items()
             },
+            training_run=blob.get("trainingRun"),
+            promotion_gate=(
+                {str(k): str(v) for k, v in blob["promotionGate"].items()}
+                if isinstance(blob.get("promotionGate"), Mapping)
+                else None
+            ),
         )
 
 
@@ -338,6 +371,8 @@ class ModelRegistry:
         reason: str,
         override_scopes: Iterable[str] = (),
         override_reason: str = "",
+        evaluation_receipt: Any = None,
+        owner_approval: str = "",
     ) -> ModelVersion:
         """Make ``version`` the champion; retire the incumbent.
 
@@ -369,6 +404,17 @@ class ModelRegistry:
         ``rollback``: reinstating a former champion returns production to
         a state it already ran, so demanding fresh evidence for it would
         block the documented undo.
+
+        **Which gate runs is decided by** ``promotion_gates.run_promotion_gate``
+        (chaseTradeMarket P5 / G10), fail closed: a model id with a registered
+        ``FamilyPromotionPolicy`` runs the GENERIC gate — declared parameters
+        complete and in bounds, a reproducible evaluation receipt re-verified
+        against its recorded content hash (pass it as ``evaluation_receipt``),
+        and ``owner_approval`` when the family requires it; Hill-shaped
+        parameters run the scope gate above plus a completeness check (a
+        constant the champion carries may not silently go missing); anything
+        else is refused, because the scope gate alone passed every non-Hill
+        model vacuously.
         """
         if not reason.strip():
             raise RegistryError("promote() requires a non-empty reason")
@@ -382,15 +428,17 @@ class ModelRegistry:
                 "retired champions must use rollback()."
             )
 
-        from src.model_registry.scope_validation import assert_promotable
+        from src.model_registry.promotion_gates import run_promotion_gate
 
         incumbent = next((v for v in self._versions if v.status == "champion"), None)
-        scope_states = assert_promotable(
-            incumbent.params if incumbent else {},
-            target.params,
-            validated_scopes={"OFFENSE"} if target.qualified else (),
+        outcome = run_promotion_gate(
+            self.model_id,
+            incumbent=incumbent,
+            target=target,
             override_scopes=override_scopes,
             override_reason=override_reason,
+            evaluation_receipt=evaluation_receipt,
+            owner_approval=owner_approval,
         )
 
         now = _utcnow()
@@ -405,7 +453,8 @@ class ModelRegistry:
                         status="champion",
                         promoted_at=now,
                         notes=(*v.notes, f"promoted: {reason.strip()}"),
-                        scope_validation=scope_states,
+                        scope_validation=outcome.scope_validation,
+                        promotion_gate=outcome.promotion_gate,
                     )
                 )
             else:
@@ -445,6 +494,27 @@ class ModelRegistry:
         self._validate()
         return self.get(version)
 
+    def rollback_target(self, *, to_version: int | None = None) -> ModelVersion:
+        """The version :meth:`rollback` would reinstate — read-only, mutates nothing.
+
+        The single selection rule, shared by ``rollback`` and by readers that
+        need to NAME the rollback identity without performing it (the Model
+        Lab): with no ``to_version``, the most recently retired former
+        champion; otherwise ``to_version``, which must be a former champion.
+        Raises :class:`RegistryError` when there is no valid target.
+        """
+        former = [v for v in self._versions if v.status == "retired" and v.promoted_at]
+        if not former:
+            raise RegistryError(f"{self.model_id!r} has no former champion to roll back to")
+        if to_version is None:
+            return max(former, key=lambda v: (v.retired_at or "", v.version))
+        target = self.get(to_version)
+        if target.status != "retired" or not target.promoted_at:
+            raise RegistryError(
+                f"v{to_version} was never a champion; rollback targets former champions only"
+            )
+        return target
+
     def rollback(self, *, to_version: int | None = None, reason: str) -> ModelVersion:
         """Reinstate a previous champion — the single documented undo.
 
@@ -457,17 +527,7 @@ class ModelRegistry:
         if not reason.strip():
             raise RegistryError("rollback() requires a non-empty reason")
 
-        former = [v for v in self._versions if v.status == "retired" and v.promoted_at]
-        if not former:
-            raise RegistryError(f"{self.model_id!r} has no former champion to roll back to")
-        if to_version is None:
-            target = max(former, key=lambda v: (v.retired_at or "", v.version))
-        else:
-            target = self.get(to_version)
-            if target.status != "retired" or not target.promoted_at:
-                raise RegistryError(
-                    f"v{to_version} was never a champion; rollback targets former champions only"
-                )
+        target = self.rollback_target(to_version=to_version)
 
         now = _utcnow()
         out: list[ModelVersion] = []

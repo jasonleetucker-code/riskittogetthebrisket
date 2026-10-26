@@ -160,3 +160,56 @@ describe("BdvmPage states", () => {
     expect(valuesCalls()).toBe(1);
   });
 });
+
+describe("BdvmPage truthful value labels", () => {
+  const PICK_PAYLOAD = {
+    ...OK_PAYLOAD,
+    picks: [
+      {
+        name: "2026 1.01",
+        yearsOut: 0,
+        distribution: {
+          balanced: { ev: 6100, p_hit: 0.62, median: 4300, ceiling: 9100 },
+        },
+        market: { marketValue: 5900, marketSource: "ktcCrowdTradesSfTep" },
+      },
+    ],
+  };
+
+  it("labels the page as fundamental, provisional, and not the market board", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, OK_PAYLOAD));
+    render(<BdvmPage />);
+    await screen.findByText("Elite Backer");
+    expect(
+      screen.getByText(
+        /Fundamental value \(BDVM\) · provisional priors — not the market board/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("calls the pick `median` field a mid outcome, with a keyboard-reachable explanation", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, PICK_PAYLOAD));
+    const user = userEvent.setup();
+    render(<BdvmPage />);
+    await screen.findByText("2026 1.01");
+    // The API field is still `median`; the rendered value is unchanged.
+    expect(screen.getByText((4300).toLocaleString())).toBeInTheDocument();
+    // ...but nothing calls it a median any more.
+    expect(screen.queryByRole("columnheader", { name: /^Median/ })).toBeNull();
+    expect(screen.getByText("Mid outcome")).toBeInTheDocument();
+
+    const trigger = screen.getByRole("button", { name: "What is Mid outcome?" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    trigger.focus();
+    await user.keyboard("{Enter}");
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const region = screen.getByRole("region", { name: "Mid outcome" });
+    expect(region).toHaveTextContent(
+      "Value of the middle outcome bucket in the prior pick-outcome table — not the median of the distribution.",
+    );
+    expect(trigger).toHaveAttribute("aria-controls", region.id);
+    await user.keyboard("{Escape}");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveFocus();
+  });
+});

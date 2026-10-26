@@ -1,0 +1,42 @@
+{
+  "layoutKind": "two_column",
+  "mustBeIgnored": [
+    "Chris Jones"
+  ],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "Patrick Mahomes",
+          "text": "Patrick Mahomes"
+        },
+        {
+          "boardName": "2027 Round 1",
+          "text": "2027 1st"
+        },
+        {
+          "boardName": "Quay Walker",
+          "text": "Quay Walker"
+        }
+      ],
+      "label": "You give"
+    },
+    {
+      "assets": [
+        {
+          "boardName": "Bijan Robinson",
+          "text": "Bijan Robinson"
+        },
+        {
+          "boardName": "Jaxon Smith-Njigba",
+          "text": "Jaxon Smith-Njigba"
+        },
+        {
+          "boardName": "2028 Early 2nd",
+          "text": "2028 Early 2nd"
+        }
+      ],
+      "label": "You get"
+    }
+  ]
+}

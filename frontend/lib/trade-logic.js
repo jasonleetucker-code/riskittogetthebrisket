@@ -10,42 +10,68 @@
 // relative imports, but vitest's node environment does not — the
 // missing extension silently broke the entire trade-logic test suite
 // (including the KTC-VA parity pins) until the 2026-07-25 audit (F-4).
-import { effectiveAuctionPower } from "./auction-power.js";
+import { effectiveAuctionPowerExact } from "./auction-power.js";
 import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
+import {
+  classifyGap,
+  fairnessBase,
+  FairnessInputError,
+  FAIRNESS_INPUT_ERROR_CODE,
+  FAIRNESS_LABELS,
+  isFiniteNumber,
+  relativeGapPct,
+} from "./fairness-bands.js";
 import {
   canAddEntry,
   deserializeEntry,
-  dedupeUniqueAcrossSides,
   removeOneEntry,
+  searchMatchTier,
+  searchPickEntries,
   serializeEntry,
   tradeEntryKey,
-  uniqueKeysInTrade,
 } from "./trade-assets.js";
 
 // ── Value Modes ──────────────────────────────────────────────────────────
-export const VALUE_MODES = [
-  { key: "full", label: "Our Value" },
-  { key: "raw", label: "Raw" },
-];
+// Trade math runs on ONE value: the canonical ``rankDerivedValue`` carried as
+// ``values.full``.  The "Raw" mode is RETIRED (TC-A, UX audit P0-4): it read
+// ``values.raw`` -- the legacy scraper ``rawComposite`` (0.27x-2.08x of
+// canonical) -- so a display toggle rewired the meter, the tray, the
+// balancers and the CSV onto a non-canonical number, while the side cards'
+// "Raw" (canonical BEFORE Value Adjustment) meant something else and the War
+// Room, Monte Carlo and Second Opinions stayed canonical.  "Raw" on /trade
+// now means only canonical-before-VA, shown on the side cards.  A workspace
+// saved with ``valueMode: "raw"`` restores as ``"full"``.
+export const VALUE_MODES = [{ key: "full", label: "Our Value" }];
+
+/** The value mode trade math uses: always canonical. */
+export const TRADE_VALUE_MODE = "full";
 
 // ── Persistence Keys ─────────────────────────────────────────────────────
 export const STORAGE_KEY = "next_trade_workspace_v1";
 export const RECENT_KEY = "next_trade_recent_assets_v1";
 export const SETTINGS_KEY = "next_settings_v2";
 
-// ── Verdict Thresholds (1–9999 scale) ────────────────────────────────────
-const VERDICT_NEAR_EVEN = 350;
-const VERDICT_LEAN = 900;
-const VERDICT_STRONG_LEAN = 1800;
+// ── Verdict bands ────────────────────────────────────────────────────────
+// The KTC-era absolute bands (350 / 900 / 1800) are RETIRED (TC-C, owner
+// decision 3).  Every package-gap label on /trade comes from the ONE
+// fairness-band owner (./fairness-bands.js, pinned to
+// config/trade/fairness_bands.json): fairness_bands_v2, relative to the larger
+// PACKAGE UTILITY (`packageUtilities` below, stamped as `utility` on side
+// totals and side flows), with an absolute minimum.  Owner-approved prior,
+// validated after launch.
 
 // ── Legacy Power-Weighted Alpha (trade history only) ─────────────────────
-// The Trade Calculator no longer uses this; it has moved to the KTC-style
-// Value Adjustment model below.  `TRADE_ALPHA` is kept as a retrospective
-// grading exponent for past trades on the `/trades` history page, where a
-// consolidation premium can't be attributed after the fact.
+// The Trade Calculator no longer uses this; it has moved to the package
+// Value Adjustment model below (packageAdjustPair).  `TRADE_ALPHA` is kept
+// as a retrospective grading exponent for past trades on the `/trades`
+// history page, where a consolidation premium can't be attributed after
+// the fact.
 export const TRADE_ALPHA = 1.65;
 
-// ── Value Adjustment: ONE owner, and it is ktcAdjustPackage ─────────────
+// ── Value Adjustment: ONE owner — the packageAdjustPair dispatch ────────
+//
+// (ACTIVE model: geom_q078_v1 since 2026-10-17; ktcAdjustPackage is the
+// retained KTC rollback model behind the same dispatch.)
 //
 // RETIRED 2026-08-18: the V2 scarcity constants (VA_SCARCITY_SLOPE,
 // VA_SCARCITY_INTERCEPT, VA_SCARCITY_CAP, VA_PER_EXTRA_BOOST,
@@ -109,6 +135,30 @@ export function effectiveValue(row, valueMode, _settings) {
   return Number(row.values?.[valueMode] || 0);
 }
 
+/**
+ * Identity of a trade's CONTENTS: every side's lines in order (name, owned
+ * pick id, override) plus 3+-team routing.  Expensive results computed for
+ * a trade (Simulate impact, Monte Carlo) are keyed to it, so a result is
+ * never shown under a trade it was not computed for (TC-A / UX audit P0-2).
+ */
+export function tradeSignature(sides) {
+  return JSON.stringify(
+    (sides || []).map((s) => [
+      (s?.assets || []).map((a) => [a?.name ?? "", a?.assetId ?? null, a?.customValue ?? null]),
+      s?.destinations || {},
+    ]),
+  );
+}
+
+/**
+ * The question "Simulate impact" answers: the trade's contents plus the team
+ * and league it is simulated for.  The page shows a result only while this
+ * still matches the trade on screen (TC-A / UX audit P0-2).
+ */
+export function simulationSignature(sides, teamName = "", leagueKey = "") {
+  return JSON.stringify([tradeSignature(sides), teamName || "", leagueKey || ""]);
+}
+
 /** Simple linear total (sum of values). */
 export function sideTotal(side, valueMode, settings = null) {
   return side.reduce((sum, r) => sum + effectiveValue(r, valueMode, settings), 0);
@@ -169,6 +219,115 @@ export function unpricedAssetsOnSide(side) {
   );
 }
 
+/**
+ * Whether a trade can be evaluated at all — the gate every headline verdict
+ * (meter badge, winner text, sticky tray) passes before it may speak.
+ *
+ *   empty       no asset on any side: "nothing to evaluate" is not an
+ *               evaluation, so no band is rendered (UX audit P0-6).
+ *   incomplete  some asset is unpriced by the board (and not overridden):
+ *               its 0 inside the totals is an arithmetic neutral, not a
+ *               value, so no verdict is computed over it (MISSING IS
+ *               NEVER ZERO).  ``unpriced`` names each one by side.
+ *   complete    every asset carries a value.
+ *
+ * Pass the OVERRIDE-APPLIED sides: a user value on an unpriced row prices it.
+ */
+export const TRADE_EVAL_STATE = Object.freeze({
+  EMPTY: "empty",
+  INCOMPLETE: "incomplete",
+  COMPLETE: "complete",
+});
+
+export function tradeEvaluationState(sides) {
+  const list = Array.isArray(sides) ? sides : [];
+  if (!list.some((s) => (s?.assets || []).length > 0)) {
+    return { state: TRADE_EVAL_STATE.EMPTY, unpriced: [] };
+  }
+  const unpriced = [];
+  list.forEach((s, side) => {
+    for (const r of unpricedAssetsOnSide(s?.assets)) {
+      unpriced.push({ side, name: r?.name || r?.displayName || "An asset" });
+    }
+  });
+  if (unpriced.length) return { state: TRADE_EVAL_STATE.INCOMPLETE, unpriced };
+  return { state: TRADE_EVAL_STATE.COMPLETE, unpriced: [] };
+}
+
+/**
+ * Why a board row's value is WITHHELD from a team result, or ``null``.
+ *
+ * Reads the pipeline's own stamps, in the engine's gate order
+ * (``src/trade/trade_decision.py::asset_evidence_codes``, which gives the
+ * leg ``valueState`` quarantined / stale in ``analyze_service._value_entry``):
+ *
+ *   ``"quarantined"``  the row-level quarantine verdict (``quarantined``)
+ *   ``"stale"``        the confidence owner's freshness axis reads ``low``
+ *                      (``confidenceAxes.freshness``, carried on ``raw``)
+ *
+ * Read, never computed: no threshold or freshness rule lives here, and an
+ * absent stamp is not withheld (the engine treats it the same way).  A value
+ * the user typed on the line (``customValue``) is the user's own number, not
+ * the withheld board value, so it is not withheld — the same rule
+ * ``unpricedAssetsOnSide`` applies to an unpriced row.
+ */
+export function withheldValueState(row) {
+  if (!row || row.customValue != null) return null;
+  if (row.quarantined === true || row.raw?.quarantined === true) return "quarantined";
+  const freshness = row.confidenceAxes?.freshness ?? row.raw?.confidenceAxes?.freshness;
+  if (freshness === "low") return "stale";
+  return null;
+}
+
+/**
+ * Per side, every WITHHELD asset in that team's part of a routed trade —
+ * what it sends AND what is routed to it (``tradeRoutes``), because a team's
+ * package gap reads both.  ``[{ name, state, direction: "out" | "in",
+ * fromSide, toSide }]`` per side, in side order; ``[]`` for a side with none.
+ *
+ * The preliminary meter shows such a team as WITHHELD with the reason —
+ * never its gap, never a band — and the multi-team headline as not
+ * determinable (``multiTeamNetSummary``).  Pass the OVERRIDE-APPLIED sides.
+ */
+export function withheldAssetsBySide(sides) {
+  const list = Array.isArray(sides) ? sides : [];
+  const out = list.map(() => []);
+  if (list.length < 2) return out;
+  const routes = tradeRoutes(list);
+  list.forEach((side, i) => {
+    (Array.isArray(side?.assets) ? side.assets : []).forEach((asset, k) => {
+      const state = withheldValueState(asset);
+      if (!state) return;
+      const to = routes[i]?.[k];
+      const name = String(asset?.name || asset?.displayName || "An asset");
+      out[i].push({ name, state, direction: "out", fromSide: i, toSide: to });
+      if (Number.isInteger(to) && out[to]) {
+        out[to].push({ name, state, direction: "in", fromSide: i, toSide: to });
+      }
+    });
+  });
+  return out;
+}
+
+const WITHHELD_STATE_WORDS = { quarantined: "quarantined", stale: "stale" };
+
+/**
+ * One side's withheld assets as words: "B Seven (sent, quarantined)".
+ * ``null`` when there are none.
+ */
+export function withheldReasonText(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  if (!list.length) return null;
+  return list
+    .map(
+      (e) =>
+        `${e.name} (${e.direction === "in" ? "received" : "sent"}, ${
+          WITHHELD_STATE_WORDS[e.state] || "withheld"
+        })`,
+    )
+    .join(", ");
+}
+
 /** Descending-sorted effective values for a side. */
 function sortedSideValues(side, valueMode, settings) {
   return side
@@ -185,10 +344,9 @@ function sortedSideValues(side, valueMode, settings) {
  * clamping when small.length ≥ large.length — this function assumes
  * ``large`` is strictly longer than ``small``.
  *
- * Factored out so both the 2-side ``computeValueAdjustment`` path and
- * the N-side ``computeMultiSideAdjustments`` path share exactly the
- * same math — no divergence between how a 2-team trade is graded vs
- * how the same shape is graded inside a 3-team trade.
+ * (Historical note: the V2 formula is retired; the active package model
+ * is ``packageAdjustPair``, and every team of an N-team trade is read through
+ * ``packageAdjustedPairTotals`` in its own perspective.)
  */
 // ── KTC NATIVE ALGORITHM (ported from keeptradecut.com site.min.js) ────
 //
@@ -510,15 +668,153 @@ export function ktcAdjustPackage(team1Vals, team2Vals, opts = {}) {
   return { value: Math.round(value), side, displayed: true };
 }
 
+// ── Package Value Adjustment model dispatch ──────────────────────────────
+//
+// Owner package 2026-10-17: every surface that publishes package-level trade
+// equity uses the SAME named, versioned model.  This is the JS half of the
+// dispatch (Python twin: src/valuation_math/package_model.py, parity pinned by
+// tests/fixtures/package_model_parity_cases.json).  ACTIVE_PACKAGE_MODEL_ID is
+// pinned equal to config/trade/package_model.json "active" by
+// tests/valuation_math/test_package_model.py — promoting a challenger changes
+// both in one PR, and only with the owner's explicit approval.
+//
+// * ktc_2026_04 — rollback: ktcAdjustPackage above, unchanged (its known
+//   non-monotone cases are pinned as KNOWN_DEFECT in trade-logic.test.js).
+// * geom_q078_v1 — owner-approved ACTIVE (2026-10-17): sorted package utility
+//   U = sum q^(i-1) * v_i (q = 0.78, a PRIOR), shown as a positive-only
+//   adjustment to the side that discarded less depth, so
+//   adjustedA - adjustedB === U_A - U_B (up to integer rounding).
+
+export const PACKAGE_MODEL_IDS = Object.freeze({
+  KTC_2026_04: "ktc_2026_04",
+  GEOM_Q078_V1: "geom_q078_v1",
+});
+
+export const PACKAGE_MODELS = Object.freeze({
+  [PACKAGE_MODEL_IDS.KTC_2026_04]: Object.freeze({
+    id: PACKAGE_MODEL_IDS.KTC_2026_04,
+    family: "ktc",
+    version: "2026-04",
+    label: "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
+    classification: "FALLBACK",
+  }),
+  [PACKAGE_MODEL_IDS.GEOM_Q078_V1]: Object.freeze({
+    id: PACKAGE_MODEL_IDS.GEOM_Q078_V1,
+    family: "geom",
+    version: "1",
+    q: 0.78,
+    label: "Geometric Value Adjustment (q = 0.78)",
+    classification: "ACTIVE",
+  }),
+});
+
+export const ACTIVE_PACKAGE_MODEL_ID = PACKAGE_MODEL_IDS.GEOM_Q078_V1;
+
+export function packageModelReceipt(modelId = ACTIVE_PACKAGE_MODEL_ID) {
+  const spec = PACKAGE_MODELS[modelId];
+  if (!spec) throw new Error(`unknown package model ${modelId}`);
+  const { id, family, version, label, classification } = spec;
+  return { id, family, version, label, classification };
+}
+
+function positiveDesc(values) {
+  return [...(values || [])]
+    .map((v) => Number(v) || 0)
+    .filter((v) => v > 0)
+    .sort((a, b) => b - a);
+}
+
 /**
- * Compute the KTC-style Value Adjustment between two sides.
+ * sum q^i * v_i over positive values sorted descending.
  *
- * Uses V12 — KTC's actual published formula.  The side with the
- * bigger raw_adjustment_sum receives the displayed VA bonus.  KTC's
- * algorithm is symmetric: equal-count trades (e.g. 2v2 stud-vs-pile)
- * fire VA when one side has bigger studs, and unequal-count trades
- * (the canonical 1v2/1v3) fire VA on the consolidator side.  The
- * one empirical exception is 1v1 trades, where KTC suppresses VA.
+ * Weights are built iteratively (w *= q) and summed left to right — never
+ * `**` / Math.pow, whose results differ between V8 and CPython from i = 4 —
+ * so this and src/valuation_math/package_model.py::geom_utility are the same
+ * IEEE-754 operations in the same order (bit-identical; pinned by
+ * tests/fixtures/package_model_float_cases.json).
+ */
+export function geomPackageUtility(values, q = PACKAGE_MODELS.geom_q078_v1.q) {
+  let total = 0;
+  let w = 1;
+  for (const v of positiveDesc(values)) {
+    total += v * w;
+    w *= q;
+  }
+  return total;
+}
+
+/**
+ * {value, side, displayed} for one package pairing under a model — KTC's
+ * shape (side 1 = team1 receives, 2 = team2, 0 = none), so every consumer
+ * keeps its contract.  modelId defaults to the ACTIVE model.
+ */
+export function packageAdjustPair(team1Vals, team2Vals, opts = {}) {
+  const modelId = opts.modelId ?? ACTIVE_PACKAGE_MODEL_ID;
+  const spec = PACKAGE_MODELS[modelId];
+  if (!spec) throw new Error(`unknown package model ${modelId}`);
+  const t1 = positiveDesc(team1Vals);
+  const t2 = positiveDesc(team2Vals);
+  if (t1.length === 0 || t2.length === 0) {
+    return { value: 0, side: 0, displayed: false };
+  }
+  if (spec.family === "ktc") return ktcAdjustPackage(t1, t2);
+  // Left-to-right addition, the same order as package_model._left_sum.
+  const sum = (a) => a.reduce((acc, v) => acc + v, 0);
+  const depth1 = sum(t1) - geomPackageUtility(t1, spec.q);
+  const depth2 = sum(t2) - geomPackageUtility(t2, spec.q);
+  // Math.round is half-up for positive numbers, matching ktc_va_core.js_round.
+  const value = Math.round(Math.abs(depth1 - depth2));
+  if (value <= 0) return { value: 0, side: 0, displayed: false };
+  return { value, side: depth2 > depth1 ? 1 : 2, displayed: true };
+}
+
+/**
+ * Each package's UTILITY under a model -- the fairness band's base
+ * (fairness_bands_v2, OD-F2; Python twin:
+ * src/valuation_math/fairness_bands.py::package_utilities).
+ *
+ * geom family: the depth-discounted utility `geomPackageUtility` of each
+ * side's values.  ktc family (the rollback model) has no per-package utility,
+ * so each side's ADJUSTED total stands in -- exactly the v1 basis, so a
+ * package-model rollback restores v1 denominators.
+ *
+ * Every piece must be a finite number, else FairnessInputError (code
+ * `fairness_input_not_finite`): `geomPackageUtility` prices a NaN piece as an
+ * absent one, so without this check a missing value would be priced as 0
+ * (MISSING IS NEVER ZERO).  Same refusal as the Python twin.
+ *
+ * @param {number[][]} valueArrays  one array of piece values per side
+ * @param {number[]} adjustedTotals each side's adjusted total (raw + VA),
+ *   read only under the ktc family
+ * @param {{modelId?: string}} [opts]
+ * @returns {number[]}
+ */
+export function packageUtilities(valueArrays, adjustedTotals, opts = {}) {
+  const modelId = opts.modelId ?? ACTIVE_PACKAGE_MODEL_ID;
+  const spec = PACKAGE_MODELS[modelId];
+  if (!spec) throw new Error(`unknown package model ${modelId}`);
+  const refuse = (what, v) => {
+    throw new FairnessInputError(`${FAIRNESS_INPUT_ERROR_CODE}: ${what}=${String(v)}`);
+  };
+  if (!Array.isArray(valueArrays)) refuse("valueArrays", valueArrays);
+  for (const values of valueArrays) {
+    if (!Array.isArray(values)) refuse("side values", values);
+    for (const v of values) if (!isFiniteNumber(v)) refuse("piece", v);
+  }
+  if (spec.family === "ktc") return valueArrays.map((_, i) => Number(adjustedTotals?.[i]));
+  return valueArrays.map((values) => geomPackageUtility(values, spec.q));
+}
+
+/**
+ * Compute the package Value Adjustment between two sides under the ACTIVE
+ * package model (packageAdjustPair — the owner-approved geometric model,
+ * geom_q078_v1, since 2026-10-17; KTC's adjustPackage port is the
+ * rollback model).
+ *
+ * Under the geometric model each side's pieces are sorted best-first and
+ * discounted by q^(i-1); the side that discarded less depth receives the
+ * difference, so adjustedA - adjustedB === U_A - U_B.  Equal-count trades
+ * can fire; a 1-for-1 never does.
  *
  * Returns { adjustment, recipientIdx } where:
  *   - adjustment: ≥ 0 bonus to apply to the receiving side's total
@@ -536,10 +832,10 @@ export function computeValueAdjustment(sideA, sideB, valueMode, settings = null)
   if (aValues.length === 0 || bValues.length === 0) {
     return { adjustment: 0, recipientIdx: null };
   }
-  // Direct port path: ktcAdjustPackage returns side ∈ {0, 1, 2}
-  // matching KTC's team1/team2 convention.  Map to our 0-indexed
+  // packageAdjustPair returns side ∈ {0, 1, 2} in the team1/team2
+  // convention (inherited from KTC's port).  Map to our 0-indexed
   // recipientIdx.
-  const result = ktcAdjustPackage(aValues, bValues);
+  const result = packageAdjustPair(aValues, bValues);
   if (!result.displayed || result.value <= 0 || result.side === 0) {
     return { adjustment: 0, recipientIdx: null };
   }
@@ -550,53 +846,180 @@ export function computeValueAdjustment(sideA, sideB, valueMode, settings = null)
 }
 
 /**
- * Compute per-side Value Adjustments for a multi-team trade (N ≥ 2).
+ * One team's package totals under the ACTIVE package model — the JS twin of
+ * ``src/valuation_math/package_model.py::adjusted_pair_totals`` (spec
+ * docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §5.1 item 1).
  *
- * Each side's VA is computed as if that side is the "small" side in a
- * 2-side trade, and the merged opposition is the flattened union of
- * every OTHER side's received assets.  This generalization reduces to
- * the 2-side ``computeValueAdjustment`` behavior when N = 2, and lets
- * every side that consolidated relative to what they gave up earn an
- * independent premium in 3+-team deals.
+ * ``sendValues`` are the values the team GIVES, ``recvValues`` the values it
+ * RECEIVES — the first argument is always the gives.  Rules, all the owner's:
+ *   * positive filtering: non-positive and non-finite values are dropped
+ *     (an unpriced piece never enters as 0);
+ *   * an empty side gets no adjustment: ``sendAdj = ΣG``, ``recvAdj = ΣR``;
+ *   * otherwise ``packageAdjustPair`` decides: ``side === 1`` → the FIRST
+ *     argument (the gives) carries the VA; it applies only when
+ *     ``displayed && value > 0``.
  *
- * Returns an array of numeric adjustments — one per side, in the same
- * order as the input.  A side's adjustment is ≥ 0; sides without a
- * piece-count advantage over the rest of the trade receive 0.
+ * ``gap = recvAdj − sendAdj`` is the team's own adjusted gap.  The band base
+ * is NOT decided here: it is the larger PACKAGE UTILITY of the team's
+ * (gives, receives) (fairness_bands_v2, OD-F2 — ``teamFairnessBase``).
  *
- * Caveat: the V2 coefficients were calibrated against 2-side KTC
- * observations.  Multi-side output is a structural extension of that
- * calibration, NOT a separately fit formula.  If KTC's real multi-team
- * VA diverges from this, we'll know when we have multi-team KTC data.
- *
- * @param {object[][]} sides  — array of asset arrays, one per side
- * @param {string} valueMode
- * @param {object} [settings]
- * @returns {number[]}
+ * @param {number[]} sendValues
+ * @param {number[]} recvValues
+ * @param {{modelId?: string}} [opts]
+ * @returns {{sendRaw:number, recvRaw:number, sendAdj:number, recvAdj:number, sendVA:number, recvVA:number}}
  */
-export function computeMultiSideAdjustments(sides, valueMode, settings = null) {
-  if (!Array.isArray(sides) || sides.length < 2) {
-    return (sides || []).map(() => 0);
-  }
-  const allValues = sides.map((side) =>
-    sortedSideValues(side, valueMode, settings),
+export function packageAdjustedPairTotals(sendValues, recvValues, opts = {}) {
+  const keep = (xs) =>
+    (Array.isArray(xs) ? xs : []).map(Number).filter((v) => Number.isFinite(v) && v > 0);
+  const g = keep(sendValues);
+  const r = keep(recvValues);
+  // Left-to-right sums, the same order as package_model._left_sum.
+  const sendRaw = g.reduce((acc, v) => acc + v, 0);
+  const recvRaw = r.reduce((acc, v) => acc + v, 0);
+  const none = {
+    sendRaw,
+    recvRaw,
+    sendAdj: sendRaw,
+    recvAdj: recvRaw,
+    sendVA: 0,
+    recvVA: 0,
+  };
+  if (g.length === 0 || r.length === 0) return none;
+  const { value, side, displayed } = packageAdjustPair(
+    g,
+    r,
+    opts.modelId ? { modelId: opts.modelId } : {},
   );
-  // For each side, fold the rest into one synthetic opposing side and
-  // ask ktcAdjustPackage if THIS side is the recipient.  This is the
-  // direct N-side generalization of the 2-side ktcAdjustPackage call,
-  // matching the prior _vaFromSortedSides semantic of "what does this
-  // side receive given the rest as opposition".
-  return allValues.map((thisSide, i) => {
-    if (thisSide.length === 0) return 0;
-    const others = [];
-    for (let j = 0; j < allValues.length; j++) {
-      if (j !== i) others.push(...allValues[j]);
-    }
-    if (others.length === 0) return 0;
-    const result = ktcAdjustPackage(thisSide, others);
-    if (!result.displayed || result.value <= 0) return 0;
-    // side === 1 means team1 (i.e. thisSide) gets the VA
-    return result.side === 1 ? result.value : 0;
+  if (!displayed || !(value > 0)) return none;
+  return side === 1
+    ? { ...none, sendAdj: sendRaw + value, sendVA: value }
+    : { ...none, recvAdj: recvRaw + value, recvVA: value };
+}
+
+/**
+ * Destination of every line in a trade: ``routes[i][k]`` is the side the k-th
+ * asset of side i goes to.  Two sides route implicitly to each other; three
+ * or more read ``side.destinations`` and fall back to ``defaultDestination``
+ * (the same visible seed ``addToSide`` writes) for a missing, self or
+ * out-of-range entry.  This is the preliminary indicator's routing only: the
+ * authoritative ledger (lib/trade-multi-team.js) refuses such a line instead.
+ */
+export function tradeRoutes(sides) {
+  const n = Array.isArray(sides) ? sides.length : 0;
+  return (sides || []).map((side, i) =>
+    (Array.isArray(side?.assets) ? side.assets : []).map((asset) => {
+      if (n === 2) return 1 - i;
+      const parsed = Number((side?.destinations || {})[tradeEntryKey(asset)]);
+      return Number.isInteger(parsed) && parsed >= 0 && parsed < n && parsed !== i
+        ? parsed
+        : defaultDestination(i, n);
+    }),
+  );
+}
+
+/**
+ * Per-team package reading of a routed trade of ANY side count (spec §5.1):
+ * for each side i, G_i = what it sends, R_i = everything routed to it, and
+ * ``packageAdjustedPairTotals(G_i, R_i)``.  Each team is valued in its OWN
+ * perspective — there is no "union of every other side" opposition (the
+ * retired ``computeMultiSideAdjustments`` collapse, directive §6).
+ *
+ * ``values[i][k]`` is the value of side i's k-th asset; ``routes`` as
+ * ``tradeRoutes``.  Returns, per side:
+ *   rawGiven / rawReceived  RAW routed flows (conserved: Σ given = Σ received)
+ *   sendAdj / recvAdj / sendVA / recvVA  the team's own package totals
+ *   gap      recvAdj − sendAdj (the team's adjusted gap)
+ *   larger   max(sendAdj, recvAdj) — a DISPLAY number only (v1's base)
+ *   utility / receivedUtility  the package utility of what the team sends /
+ *            receives (``packageUtilities``; null when a piece is not finite)
+ *   largerUtility  the band base: ``fairnessBase([utility, receivedUtility])``
+ *            — the owner's larger package utility (Python twin:
+ *            ``fairness_bands.larger_package_utility(G_i, R_i)``)
+ *   band     classifyGap(gap, largerUtility) — null when either is unknown
+ */
+export function perTeamPackageTotals(values, routes, opts = {}) {
+  const n = Array.isArray(values) ? values.length : 0;
+  const gives = Array.from({ length: n }, () => []);
+  const recvs = Array.from({ length: n }, () => []);
+  for (let i = 0; i < n; i++) {
+    const vs = Array.isArray(values[i]) ? values[i] : [];
+    vs.forEach((v, k) => {
+      gives[i].push(v);
+      const dest = routes?.[i]?.[k];
+      if (Number.isInteger(dest) && dest >= 0 && dest < n) recvs[dest].push(v);
+    });
+  }
+  return gives.map((g, i) => {
+    const t = packageAdjustedPairTotals(g, recvs[i], opts);
+    const gap = t.recvAdj - t.sendAdj;
+    const larger = Math.max(t.sendAdj, t.recvAdj);
+    // fairness_bands_v2 (OD-F2): the base is the larger PACKAGE UTILITY of
+    // this team's (gives, receives), from the package-model layer and the
+    // owner's fairnessBase.  A piece that is not a finite number is refused
+    // there (FairnessInputError) and leaves the team UNKNOWN (null), never
+    // priced as 0 and never read as fair.
+    const util = teamPackageUtilities(g, recvs[i], t, opts);
+    const band =
+      util && Number.isFinite(gap) ? classifyGap(gap, util.largerUtility) : null;
+    return {
+      rawGiven: t.sendRaw,
+      rawReceived: t.recvRaw,
+      sendAdj: t.sendAdj,
+      recvAdj: t.recvAdj,
+      sendVA: t.sendVA,
+      recvVA: t.recvVA,
+      gap,
+      larger,
+      utility: util ? util.utility : null,
+      receivedUtility: util ? util.receivedUtility : null,
+      largerUtility: util ? util.largerUtility : null,
+      band,
+    };
   });
+}
+
+/**
+ * One team's package utilities under the active package model —
+ * ``{utility, receivedUtility, largerUtility}`` for what it sends / receives
+ * and the fairness band's base, or ``null`` when the owner refuses an input
+ * (a non-finite piece).  ``totals`` is the team's
+ * ``packageAdjustedPairTotals`` (read only by the ktc rollback family).
+ */
+function teamPackageUtilities(gives, receives, totals, opts = {}) {
+  // No Number() coercion: a null/undefined/non-number piece must reach the
+  // owner's finite check and be refused (MISSING IS NEVER ZERO), exactly as the
+  // Python twin raises on a None piece.  Number(null) would price it as 0.
+  const sortDesc = (xs) => [...xs].sort((a, b) => b - a);
+  try {
+    const [utility, receivedUtility] = packageUtilities(
+      [sortDesc(gives), sortDesc(receives)],
+      [totals.sendAdj, totals.recvAdj],
+      opts.modelId ? { modelId: opts.modelId } : {},
+    );
+    return { utility, receivedUtility, largerUtility: fairnessBase([utility, receivedUtility]) };
+  } catch (err) {
+    if (err instanceof FairnessInputError) return null;
+    throw err;
+  }
+}
+
+/**
+ * The fairness band's base for ONE team of a routed trade (fairness_bands_v2,
+ * OD-F2): the owner's ``fairnessBase`` over the package utility of what the
+ * team sends (``utility``) and what it receives (``receivedUtility``).
+ * ``null`` when either is missing or not finite — the team is UNKNOWN, never
+ * fair and never priced at 0.  Python twin:
+ * ``fairness_bands.larger_package_utility(G_i, R_i)``.
+ * @param {{utility:number, receivedUtility:number}} flow
+ * @returns {number|null}
+ */
+export function teamFairnessBase(flow) {
+  try {
+    return fairnessBase([flow?.utility, flow?.receivedUtility]);
+  } catch (err) {
+    if (err instanceof FairnessInputError) return null;
+    throw err;
+  }
 }
 
 /**
@@ -609,43 +1032,49 @@ export function computeMultiSideAdjustments(sides, valueMode, settings = null) {
  * doesn't rank); those are dropped before the VA math so a missing
  * source value doesn't erase an otherwise-present piece-count premium.
  *
- * Returns an array of adjustments matching the input order.  Exactly
- * one element is populated for a 2-side trade; for N ≥ 3 each side
- * that consolidated relative to the rest earns its own adjustment
- * (mirrors ``computeMultiSideAdjustments``).
+ * Returns an array of adjustments matching the input order — the VA each
+ * side's OWN package (what it sends) carries.  Exactly one element is
+ * populated for a 2-side trade.  For N ≥ 3 the adjustment is per team, in
+ * that team's own perspective (``packageAdjustedPairTotals(G_i, R_i).sendVA``),
+ * so it needs the routing: ``opts.routes`` (``tradeRoutes`` shape).  Without
+ * it a 3+-side call returns ``null`` — there is no routing-free per-side
+ * number, and the retired "union of every other side" stand-in is gone
+ * (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §5.1, directive §6).
+ *
+ * ``opts.modelId`` selects a registered package model (default: the ACTIVE
+ * one).  Only the read-only comparison surfaces pass it (owner directive
+ * 2026-10-19: the KTC adjustment method beside Chase Upside's, never blended)
+ * — every decision path calls this with no model option.
  *
  * @param {number[][]} sidesValues  — array of raw-value arrays, one per side
- * @returns {number[]}
+ * @param {{modelId?: string, routes?: number[][]}} [opts]
+ * @returns {number[] | null}
  */
-export function valueAdjustmentFromSideArrays(sidesValues) {
+export function valueAdjustmentFromSideArrays(sidesValues, opts = {}) {
+  const pairOpts = opts.modelId ? { modelId: opts.modelId } : {};
   if (!Array.isArray(sidesValues) || sidesValues.length < 2) {
     return (sidesValues || []).map(() => 0);
   }
-  const sorted = sidesValues.map((raw) =>
-    (Array.isArray(raw) ? raw : [])
-      .map((v) => Number(v) || 0)
-      .filter((v) => v > 0)
-      .sort((a, b) => b - a),
-  );
-  // 2-side fast path: direct ktcAdjustPackage call.  N-side path folds
-  // every other side into the opposing array, mirroring
-  // computeMultiSideAdjustments.
-  if (sorted.length === 2) {
-    const result = ktcAdjustPackage(sorted[0], sorted[1]);
+  if (sidesValues.length === 2) {
+    const sorted = sidesValues.map((raw) =>
+      (Array.isArray(raw) ? raw : [])
+        .map((v) => Number(v) || 0)
+        .filter((v) => v > 0)
+        .sort((a, b) => b - a),
+    );
+    const result = packageAdjustPair(sorted[0], sorted[1], pairOpts);
     if (!result.displayed || result.value <= 0) return [0, 0];
     return result.side === 1 ? [result.value, 0] : [0, result.value];
   }
-  return sorted.map((thisSide, i) => {
-    if (thisSide.length === 0) return 0;
-    const others = [];
-    for (let j = 0; j < sorted.length; j++) {
-      if (j !== i) others.push(...sorted[j]);
-    }
-    if (others.length === 0) return 0;
-    const result = ktcAdjustPackage(thisSide, others);
-    if (!result.displayed || result.value <= 0) return 0;
-    return result.side === 1 ? result.value : 0;
-  });
+  if (!Array.isArray(opts.routes) || opts.routes.length !== sidesValues.length) return null;
+  // Values pass through UNCOERCED: the k-th entry must stay aligned with the
+  // k-th route, and packageAdjustedPairTotals drops non-finite / non-positive
+  // entries itself, so an unpriced piece is excluded — never priced at 0.
+  return perTeamPackageTotals(
+    sidesValues.map((raw) => (Array.isArray(raw) ? raw : [])),
+    opts.routes,
+    pairOpts,
+  ).map((t) => t.sendVA);
 }
 
 // ── Draft-capital stack effect ───────────────────────────────────────────
@@ -654,29 +1083,43 @@ export function valueAdjustmentFromSideArrays(sidesValues) {
 // capital.  Given the routing (which pick auction-$ moves between which
 // teams), recompute the league's zero-sum effective auction power
 // before/after the trade; each team's CHANGE in premium-over-raw is the
-// stack effect of this trade for that team.  It's returned in
-// board-value units (converted via the trade's own pick board-$ ratio)
-// so it folds straight into the fairness gap, and surfaced explicitly
-// (never a silent verdict shift).
+// stack effect of this trade for that team, in board-value units at the
+// LEAGUE DRAFT POOL's board-per-$ rate (``poolBoardPerDollar``).
+//
+// INFORMATIONAL ONLY (owner directive 2026-09-29).  No decision helper in
+// this file consumes it -- side totals, the gap/verdict, side flows,
+// imbalance and balancers are raw + Value Adjustment, and none of them
+// accepts a stack input (pinned by __tests__/trade-stack-withdrawn.test.js).
+// The acceptance audit on #1527 found it dominating whole packages through
+// data seams: 2027 picks counted twice in team stacks, synthesized
+// future-pick dollars, picks "sent" by teams that do not hold them, and a
+// 2026/2027 draft-year split.  The retired per-trade moved-pick rate made a
+// $1 late pick price the whole league-wide premium shift at ~1,000+ points
+// per $; the pool rate fixed that defect and not the others.  It returns to
+// the totals only through a new owner-approved methodology meeting the
+// prerequisites recorded in issue #1529 (Calculator Ideas, NOT AUTHORIZED).
 //
 // stackContext = {
-//   sideTeams:   string[]            // side idx → league team (null = unset)
-//   leagueStacks:{ [team]: number }  // auction $ for every league team
-//   moves:       [{ from, to, dollars, board }]  // from/to are side idx
+//   sideTeams:      string[]            // side idx → league team (null = unset)
+//   leagueStacks:   { [team]: number }  // auction $ for every league team
+//   moves:          [{ from, to, dollars }]  // from/to are side idx
+//   boardPerDollar: number              // league pool rate; absent → withheld
 // }
 // Returns number[] (board-unit stack adjustment per side); zeros when
 // the context is absent/insufficient.
 export function computeStackAdjustments(numSides, stackContext) {
   const zeros = Array(numSides).fill(0);
   if (!stackContext) return zeros;
-  const { sideTeams, leagueStacks, moves } = stackContext;
+  const { sideTeams, leagueStacks, moves, boardPerDollar } = stackContext;
   if (!Array.isArray(sideTeams) || !leagueStacks || !Array.isArray(moves)) {
     return zeros;
   }
   if (moves.length === 0) return zeros;
+  // No pool rate → no defensible conversion: the effect is withheld.
+  const k = Number(boardPerDollar);
+  if (!(Number.isFinite(k) && k > 0)) return zeros;
 
   const post = { ...leagueStacks };
-  let sumBoard = 0;
   let sumDollars = 0;
   for (const mv of moves) {
     const fromT = sideTeams[mv.from];
@@ -687,14 +1130,15 @@ export function computeStackAdjustments(numSides, stackContext) {
     if (!(toT in post)) post[toT] = 0;
     post[fromT] -= d;
     post[toT] += d;
-    sumBoard += Number(mv.board) || 0;
     sumDollars += d;
   }
   if (sumDollars <= 0) return zeros;
-  const k = sumBoard / sumDollars; // $ → board-value units
 
-  const before = effectiveAuctionPower(leagueStacks);
-  const after = effectiveAuctionPower(post);
+  // Unrounded: the premium CHANGE is a difference of two effective
+  // values, and whole-dollar rounding would dominate it (see
+  // effectiveAuctionPowerExact).
+  const before = effectiveAuctionPowerExact(leagueStacks);
+  const after = effectiveAuctionPowerExact(post);
   return sideTeams.map((team) => {
     if (team == null || !(team in leagueStacks)) return 0;
     const premiumBefore = (before[team] || 0) - (leagueStacks[team] || 0);
@@ -705,92 +1149,104 @@ export function computeStackAdjustments(numSides, stackContext) {
 
 /**
  * Adjusted per-side totals for 2-team trade display.
- * Each entry is { raw, adjustment, adjusted, stackAdjustment } where
- * `adjusted = raw + adjustment + stackAdjustment`.  The KTC value
- * adjustment only credits the recipient side; the draft-capital stack
- * effect (optional `stackContext`) can credit/debit either side.
+ * Each entry is { raw, adjustment, adjusted } where
+ * `adjusted = raw + adjustment` -- the whole of it.  The KTC value
+ * adjustment only credits the recipient side.  The draft-capital stack
+ * effect is informational only and is not an input here.
  */
-export function adjustedSideTotals(
-  sideA,
-  sideB,
-  valueMode,
-  settings = null,
-  stackContext = null,
-) {
+export function adjustedSideTotals(sideA, sideB, valueMode, settings = null) {
   const rawA = sideTotal(sideA, valueMode, settings);
   const rawB = sideTotal(sideB, valueMode, settings);
   const { adjustment, recipientIdx } = computeValueAdjustment(sideA, sideB, valueMode, settings);
   const adjA = recipientIdx === 0 ? adjustment : 0;
   const adjB = recipientIdx === 1 ? adjustment : 0;
-  const [stackA, stackB] = computeStackAdjustments(2, stackContext);
-  // stackX = the premium team X GAINS from the picks it RECEIVES in
-  // this trade (positive = its stack improved).  A side that benefits
-  // from what it's receiving effectively gives up LESS, so the premium
-  // is SUBTRACTED from that side's giving total — never added to the
-  // side that happened to hold the pick.
+  // `utility` is each package's depth-discounted value: the fairness band's
+  // base (fairness_bands_v2) -- read it through `fairnessBase`, never the
+  // larger `adjusted`.
+  const [utilA, utilB] = packageUtilities(
+    [sortedSideValues(sideA, valueMode, settings), sortedSideValues(sideB, valueMode, settings)],
+    [rawA + adjA, rawB + adjB],
+  );
   return [
-    { raw: rawA, adjustment: adjA, stackAdjustment: stackA, adjusted: rawA + adjA - stackA },
-    { raw: rawB, adjustment: adjB, stackAdjustment: stackB, adjusted: rawB + adjB - stackB },
+    { raw: rawA, adjustment: adjA, adjusted: rawA + adjA, utility: utilA },
+    { raw: rawB, adjustment: adjB, adjusted: rawB + adjB, utility: utilB },
   ];
 }
 
 /**
  * Adjusted per-side totals for N-team trade display (N ≥ 2).
  *
- * Each entry is { raw, adjustment, adjusted }.  For N = 2 this matches
- * ``adjustedSideTotals`` exactly.  For N ≥ 3 each side can earn its
- * own consolidation premium — see ``computeMultiSideAdjustments``.
+ * ``sides`` are side objects (``{assets, destinations}``); a bare asset array
+ * is accepted as a side with no explicit routing.  For N = 2 this is exactly
+ * ``adjustedSideTotals`` (one adjusted total per side).  For N ≥ 3 each entry
+ * is that team's OWN package reading (``perTeamPackageTotals``):
+ * ``{raw, adjustment, adjusted, sendAdj, recvAdj, sendVA, recvVA, gap, larger,
+ * band}`` with ``adjustment = sendVA`` and ``adjusted = raw + sendVA`` — the
+ * package the side sends as that side values it.  It is a perspective value,
+ * not a conserved flow: the same asset can carry a different VA in its
+ * receiver's view, so these numbers are never summed across teams.
  *
- * @param {object[][]} sides  — array of asset arrays
+ * @param {Array<object|object[]>} sides
  * @param {string} valueMode
  * @param {object} [settings]
  */
-export function multiAdjustedSideTotals(
-  sides,
-  valueMode,
-  settings = null,
-  stackContext = null,
-) {
-  const adjustments = computeMultiSideAdjustments(sides, valueMode, settings);
-  const stack = computeStackAdjustments(sides.length, stackContext);
-  return sides.map((side, i) => {
-    const raw = sideTotal(side, valueMode, settings);
-    const adjustment = adjustments[i] || 0;
-    const stackAdjustment = stack[i] || 0;
-    return {
-      raw,
-      adjustment,
-      stackAdjustment,
-      // Premium a side gains from what it receives reduces what it
-      // effectively gives up (see adjustedSideTotals).
-      adjusted: raw + adjustment - stackAdjustment,
-    };
+export function multiAdjustedSideTotals(sides, valueMode, settings = null) {
+  const list = (sides || []).map((s) => (Array.isArray(s) ? { assets: s } : s || {}));
+  const assets = list.map((s) => (Array.isArray(s.assets) ? s.assets : []));
+  if (list.length === 2) return adjustedSideTotals(assets[0], assets[1], valueMode, settings);
+  if (list.length < 2) {
+    return assets.map((a) => {
+      const raw = sideTotal(a, valueMode, settings);
+      // `utility`: the package's depth-discounted value (fairness_bands_v2).
+      const [utility] = packageUtilities([sortedSideValues(a, valueMode, settings)], [raw]);
+      return { raw, adjustment: 0, adjusted: raw, utility };
+    });
+  }
+  const values = assets.map((a) =>
+    a.map((r) => Math.max(0, effectiveValue(r, valueMode, settings))),
+  );
+  const teams = perTeamPackageTotals(values, tradeRoutes(list));
+  return teams.map((t, i) => {
+    const raw = sideTotal(assets[i], valueMode, settings);
+    return { raw, adjustment: t.sendVA, adjusted: raw + t.sendVA, ...t };
   });
 }
 
-/** Gap = Side A adjusted total − Side B adjusted total (KTC-style). */
-export function tradeGapAdjusted(
-  sideA,
-  sideB,
-  valueMode,
-  settings = null,
-  stackContext = null,
-) {
-  const totals = adjustedSideTotals(sideA, sideB, valueMode, settings, stackContext);
+/**
+ * The fairness band's base for a set of side totals (fairness_bands_v2,
+ * OD-F2): the largest package `utility` they carry (`fairnessBase`).  A
+ * missing container, a missing side total, or a side total without a finite
+ * `utility` is refused by the owner (FairnessInputError), never read as 0.
+ * Every producer (`adjustedSideTotals`, `multiAdjustedSideTotals`) stamps it,
+ * including on an empty side (utility 0).
+ * @param {{utility: number}[]} sideTotals
+ */
+export function sideTotalsFairnessBase(sideTotals) {
+  return fairnessBase(Array.isArray(sideTotals) ? sideTotals.map((t) => t?.utility) : sideTotals);
+}
+
+/** Gap = Side A adjusted total − Side B adjusted total (active package model). */
+export function tradeGapAdjusted(sideA, sideB, valueMode, settings = null) {
+  const totals = adjustedSideTotals(sideA, sideB, valueMode, settings);
   return totals[0].adjusted - totals[1].adjusted;
 }
 
 // ── Verdict ──────────────────────────────────────────────────────────────
-export function verdictFromGap(gap) {
-  const abs = Math.abs(gap);
-  if (abs < VERDICT_NEAR_EVEN) return "Near even";
-  if (abs < VERDICT_LEAN) return "Lean";
-  if (abs < VERDICT_STRONG_LEAN) return "Strong lean";
-  return "Major gap";
+// `largerUtility` is the larger PACKAGE UTILITY (`fairnessBase` over the
+// sides' `utility`): the band is relative to it (fairness_bands_v2, OD-F2).
+const VERDICT_WORDS = {
+  fair: "Near even",
+  slight: "Lean",
+  unfair: "Strong lean",
+  lopsided: "Major gap",
+};
+
+export function verdictFromGap(gap, largerUtility) {
+  return VERDICT_WORDS[classifyGap(gap, largerUtility).level];
 }
 
-export function colorFromGap(gap) {
-  if (Math.abs(gap) < VERDICT_NEAR_EVEN) return "";
+export function colorFromGap(gap, largerUtility) {
+  if (classifyGap(gap, largerUtility).level === "fair") return "";
   return gap > 0 ? "green" : "red";
 }
 
@@ -922,6 +1378,17 @@ export function getPlayerEdge(row) {
 const ROUND_LABELS = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th", "6": "6th" };
 
 /**
+ * "early" | "mid" | "late" for a slot number — the frontend's ONE slot→tier
+ * rule (12-team convention).  Mirrors the tier OWNER,
+ * src/picks/site_pick_map.py::slot_tier_ranges(12); the literal is pinned
+ * and checked against the owner by
+ * tests/identity/test_pick_grammar_frontend_parity.py.
+ */
+export function tierForSlot(slot) {
+  return slot <= 4 ? "early" : slot <= 8 ? "mid" : "late";
+}
+
+/**
  * Parse a pick token string into structured parts.
  * Handles: "2026 1.06", "2026 early 1st", "2026 1st", "2026 mid 2nd"
  * @returns {{ year: string, round: string, tier: string|null, slot: number|null }}
@@ -934,8 +1401,7 @@ export function parsePickToken(token) {
   if (slotMatch) {
     const round = ROUND_LABELS[slotMatch[2]] || `${slotMatch[2]}th`;
     const slot = parseInt(slotMatch[3], 10);
-    const tier = slot <= 4 ? "early" : slot <= 8 ? "mid" : "late";
-    return { year: slotMatch[1], round, tier, slot };
+    return { year: slotMatch[1], round, tier: tierForSlot(slot), slot };
   }
 
   // "2026 early 1st" or "2026 1st" format
@@ -1108,34 +1574,164 @@ export function isUnpricedBoardRow(row) {
   return !Number(row.values?.full);
 }
 
+// ── Structured pick search ──────────────────────────────────────────────
+//
+// TC-A / UX audit P1-8: "2027 1st", "2027 Mid" and "2027 Round 1" returned
+// "No matches" — the current class is priced on SLOT rows ("2027 Pick 1.05")
+// and its tier rows are suppressed aliases, so plain text matching could not
+// connect a round / tier / generic query to the rows that price it.  A pick
+// query is parsed with the same grammar as ``parsePickToken`` and matched
+// against each pick row's own shape (slot / tier / generic grade).  Nothing
+// here prices anything: it only decides which existing board rows a query
+// names.
+
+/** A board pick row name → its {year, round, tier, slot}, or null. */
+export function pickRowShape(name) {
+  const s = String(name || "").trim();
+  const generic = s.match(/^(\d{4})\s+round\s+([1-6])$/i);
+  if (generic) return { year: generic[1], round: ROUND_LABELS[generic[2]], tier: null, slot: null };
+  const parsed = parsePickToken(s.replace(/^(\d{4})\s+pick\s+/i, "$1 "));
+  if (!parsed) return null;
+  return { year: parsed.year, round: parsed.round, tier: parsed.tier || null, slot: parsed.slot ?? null };
+}
+
 /**
- * Board rows matching a search query, excluding anything already in the
- * trade. Sorted by blended source rank so the most relevant dynasty
- * assets come first — the KTC trade-calculator UX.
+ * Parse a search query as a pick query, or null when it is not one.  Accepts
+ * any order of: a year ("2027"), a slot ("1.05"), a tier ("early/mid/late"), a
+ * round ("1st", "round 1", "rd 1", "r1"), and the word "pick(s)".  It must
+ * name a round, slot or tier, plus a year unless it gives a slot or round
+ * (a bare "mid" is not a pick query).  Any other word → null.
+ */
+export function parsePickQuery(query) {
+  let q = String(query || "").toLowerCase().trim();
+  if (!q) return null;
+  const out = { year: null, round: null, tier: null, slot: null };
+  const take = (re, fn) => {
+    const m = q.match(re);
+    if (!m) return;
+    fn(m);
+    q = q.replace(m[0], " ");
+  };
+  take(/\b(\d)\.(\d{1,2})\b/, (m) => {
+    out.round = ROUND_LABELS[m[1]] || null;
+    out.slot = parseInt(m[2], 10);
+  });
+  take(/\b(19|20)(\d{2})\b/, (m) => {
+    out.year = `${m[1]}${m[2]}`;
+  });
+  take(/\b(early|mid|late)\b/, (m) => {
+    out.tier = m[1];
+  });
+  take(/\b([1-6])(st|nd|rd|th)\b/, (m) => {
+    out.round = ROUND_LABELS[m[1]];
+  });
+  take(/\b(?:round|rd|r)\s*([1-6])\b/, (m) => {
+    out.round = ROUND_LABELS[m[1]];
+  });
+  q = q.replace(/\bpicks?\b/g, " ");
+  if (q.trim()) return null;
+  if (!out.round && !out.slot && !out.tier) return null;
+  if (!out.year && !out.round && !out.slot) return null;
+  return out;
+}
+
+/** Does a pick row (by name) satisfy a parsed pick query? */
+export function pickRowMatchesQuery(name, pq) {
+  if (!pq) return false;
+  const shape = pickRowShape(name);
+  if (!shape) return false;
+  if (pq.year && shape.year !== pq.year) return false;
+  if (pq.round && shape.round !== pq.round) return false;
+  if (pq.slot != null) {
+    // An exact slot row, or -- when the query names its year -- the tier
+    // row that slot belongs to (future classes are priced at tier grade).
+    // Never a generic row.
+    if (shape.slot != null) return shape.slot === pq.slot;
+    if (!pq.year || !shape.tier || shape.tier !== tierForSlot(pq.slot)) return false;
+  }
+  if (pq.tier) {
+    const rowTier = shape.slot != null ? tierForSlot(shape.slot) : shape.tier;
+    if (rowTier !== pq.tier) return false;
+  }
+  return true;
+}
+
+// Structured pick matches rank with the loosest text matches (tier 3).
+const PICK_QUERY_MATCH_TIER = 3;
+
+/**
+ * Board rows matching a search query, most relevant first.
+ *
+ * Relevance is ``searchMatchTier`` (exact > prefix > substring > every
+ * word present), so "2027 Late 1st" returns exactly that row first; within
+ * a tier, rows sort by blended source rank — the most relevant dynasty
+ * assets first, the KTC trade-calculator UX.
+ *
+ * Nothing is excluded for being in the trade: every asset is repeatable
+ * (owner decision 2026-10-03), so a row already in the trade stays
+ * searchable.  There is deliberately no exclusion parameter.
  *
  * Extracted from `/trade`'s `searchAssets` so the asset-eligibility
  * rule is one testable function rather than an inline predicate
  * repeated beside three other copies of itself.
  */
-export function searchTradeAssets(rows, query, excludedNames, limit = 5) {
-  const q = String(query || "")
-    .trim()
-    .toLowerCase();
-  if (!q) return [];
-  const excluded =
-    excludedNames instanceof Set ? excludedNames : new Set(excludedNames || []);
-  const list = (rows || []).filter(
-    (r) =>
-      r &&
-      !excluded.has(r.name) &&
-      isTradeableBoardRow(r) &&
-      String(r.name).toLowerCase().includes(q),
-  );
-  list.sort(
+export function searchTradeAssets(rows, query, limit = 5) {
+  if (!String(query || "").trim()) return [];
+  const pq = parsePickQuery(query);
+  const scored = [];
+  for (const r of rows || []) {
+    if (!r || !isTradeableBoardRow(r)) continue;
+    let tier = searchMatchTier(r.name, query);
+    if (tier < 0 && pq && r.assetClass === "pick" && pickRowMatchesQuery(r.name, pq)) {
+      tier = PICK_QUERY_MATCH_TIER;
+    }
+    if (tier >= 0) scored.push({ r, tier });
+  }
+  scored.sort(
     (a, b) =>
-      (a.blendedSourceRank ?? Infinity) - (b.blendedSourceRank ?? Infinity),
+      a.tier - b.tier ||
+      (a.r.blendedSourceRank ?? Infinity) - (b.r.blendedSourceRank ?? Infinity),
   );
-  return list.slice(0, limit);
+  return scored.slice(0, limit).map((x) => x.r);
+}
+
+// Per-group limits for the calculator search (see ``searchCalculatorAssets``).
+export const SEARCH_BOARD_LIMIT = 8;
+export const SEARCH_OWNED_LIMIT = 5;
+
+/**
+ * The calculator's search: board rows FIRST, then the side's owned picks,
+ * each group with its OWN limit — the single composition both search
+ * boxes on /trade use.
+ *
+ *   1. board rows (players, Early/Mid/Late tier picks for every active
+ *      future year, current-year slot picks) via ``searchTradeAssets`` —
+ *      exact-query relevance first, nothing hidden for being in the trade;
+ *   2. ``ownedEntries`` (the side's team's owned picks, each carrying its
+ *      canonical ``assetId``) via ``searchPickEntries``.
+ *
+ * Owned picks used to come first and share one short list, so on a phone
+ * with the keyboard up a team's own "2027 1st / 2nd" rows were all that was
+ * visible and the 2027 Early/Mid/Late market references — present, priced
+ * and unsuppressed on the board — read as missing.  Market references and
+ * owned picks are different assets and both stay addable.  Values are the
+ * board rows' own canonical values; nothing here prices anything.
+ */
+export function searchCalculatorAssets(
+  rows,
+  query,
+  ownedEntries = [],
+  { boardLimit = SEARCH_BOARD_LIMIT, ownedLimit = SEARCH_OWNED_LIMIT } = {},
+) {
+  const board = searchTradeAssets(rows, query, boardLimit);
+  const pq = parsePickQuery(query);
+  const owned = searchPickEntries(
+    (ownedEntries || []).filter((e) => e && e.assetId),
+    query,
+    ownedLimit,
+    pq ? (e) => pickRowMatchesQuery(e.name, pq) : null,
+  );
+  return [...board, ...owned];
 }
 
 /**
@@ -1207,10 +1803,65 @@ export function resolvePickRow(rawLabel, rowLookup, pickAliases) {
   return null;
 }
 
+/**
+ * The row a trade entry should be priced on.
+ *
+ * A suppressed generic-tier pick row ("2027 Mid 1st" once 2027 is the
+ * current class) carries no value: the board aliases it to its slot row
+ * ("2027 Pick 1.06") through ``pickAliases``.  Search already hides those
+ * rows, but every path that turns a NAME back into a row — a saved
+ * workspace, a share link, a KTC import, a trade imported from history —
+ * matched the name exactly and landed on the unpriced alias.  A trade saved
+ * while 2027 was still a future class then rehydrated as "—" / unpriced
+ * after the class roll.
+ *
+ * Follows the alias (``resolvePickRow``); an owned pick keeps its canonical
+ * ``assetId`` and label.  When nothing resolves the entry is returned
+ * unchanged — still visible and labelled unpriced, never dropped.
+ */
+export function canonicalTradeEntry(entry, rowLookup, pickAliases) {
+  if (!entry || !isSuppressedGenericPickRow(entry)) return entry;
+  const target = resolvePickRow(entry.name, rowLookup, pickAliases);
+  if (!target || target === entry) return entry;
+  if (!entry.assetId) return target;
+  return { ...target, assetId: entry.assetId, assetLabel: entry.assetLabel || entry.name };
+}
+
+/**
+ * ``sides`` with every suppressed-alias entry re-anchored to its priced row
+ * (``canonicalTradeEntry``).  Destinations keyed by the old entry key move
+ * with the entry.  Returns the SAME array when nothing changed, so a React
+ * effect can call it on every board refresh without looping.
+ */
+export function reanchorSuppressedPickEntries(sides, rowLookup, pickAliases) {
+  let changed = false;
+  const next = (sides || []).map((side) => {
+    const assets = side?.assets || [];
+    if (!assets.some(isSuppressedGenericPickRow)) return side;
+    const destinations = { ...(side.destinations || {}) };
+    const mapped = assets.map((entry) => {
+      const fixed = canonicalTradeEntry(entry, rowLookup, pickAliases);
+      if (fixed !== entry) {
+        changed = true;
+        const oldKey = tradeEntryKey(entry);
+        const newKey = tradeEntryKey(fixed);
+        if (oldKey in destinations && oldKey !== newKey) {
+          if (!(newKey in destinations)) destinations[newKey] = destinations[oldKey];
+          delete destinations[oldKey];
+        }
+      }
+      return fixed;
+    });
+    return { ...side, assets: mapped, destinations };
+  });
+  return changed ? next : sides;
+}
+
 // ── Trade Side Helpers ───────────────────────────────────────────────────
-// Identity and quantity rules live in ./trade-assets.js (T-NEW-02): only
-// UNIQUE entries (players, owned picks) refuse a second copy; repeatable
-// market-reference picks may repeat, and removal takes ONE copy.
+// Identity and quantity rules live in ./trade-assets.js.  Every asset is
+// repeatable in the calculator (owner decision 2026-10-03, superseding
+// T-NEW-02's uniqueness rule): an add is never refused, and removal takes
+// ONE copy.
 export function addAssetToSide(side, row) {
   if (!row) return side;
   if (!canAddEntry([side], row)) return side;
@@ -1232,8 +1883,8 @@ export function isAssetInTrade(sideA, sideB, key) {
  * ──────────────────────────────────────────────────────────────────────
  * Why this simulates instead of matching a value (defect #800)
  * ──────────────────────────────────────────────────────────────────────
- * The gap on screen is the ADJUSTED gap — ``raw + Value Adjustment −
- * stack``, from ``adjustedSideTotals`` / ``tradeImbalance``.  This
+ * The gap on screen is the ADJUSTED gap — ``raw + Value Adjustment``
+ * (the draft-capital stack effect is informational only), from ``adjustedSideTotals`` / ``tradeImbalance``.  This
  * function used to be handed that number and then rank candidates by
  * ``Math.abs(candidate.rawValue − |gap|)``: a RAW player value matched
  * against an ADJUSTED target.
@@ -1257,16 +1908,20 @@ export function isAssetInTrade(sideA, sideB, key) {
  * with that candidate on the sweetening side and re-measuring through
  * ``tradeImbalance`` — the same path the meter renders.
  *
- * @param {object[]} sides       — side objects (``{ assets, destinations }``)
+ * @param {object[]} sides       — the two side objects (``{ assets }``); a
+ *        3+-team trade returns ``[]`` (no balancing objective is approved)
  * @param {number} behindIdx     — index of the side that must sweeten
  * @param {object[]} rosterRows  — candidate rows to choose from
  * @param {string} valueMode
  * @param {object}  [opts]
  * @param {object}  [opts.settings]
- * @param {object}  [opts.stackContext]
  * @param {number}  [opts.maxResults=5]
- * @param {number}  [opts.toSideIdx] — destination for the added asset in
- *        N >= 3 trades; defaults to the side netting the least.
+ * @param {boolean} [opts.combos=false] — TC-B / TCM-F03: when NO single
+ *        candidate lands inside the fair band, also try every PAIR of the
+ *        best ``BALANCER_PAIR_POOL`` singles, each pair simulated through the
+ *        same ``tradeImbalance`` path (never the sum of two raw values), and
+ *        lead with up to ``BALANCER_MAX_PAIRS`` pairs that land closer than
+ *        the best single.  A pair is ``{isCombo: true, entries: [a, b]}``.
  * @returns {{name: string, pos: string, value: number, gapBefore: number|null,
  *            gapAfter: number|null, imbalanceBefore: number,
  *            imbalanceAfter: number}[]}
@@ -1274,45 +1929,40 @@ export function isAssetInTrade(sideA, sideB, key) {
  *        nothing in the pool improves it.
  */
 export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}) {
-  const { settings = null, stackContext = null, maxResults = 5 } = opts;
+  const { settings = null, maxResults = 5, combos = false } = opts;
   if (!Array.isArray(sides) || sides.length < 2) return [];
+  // Disabled for 3+ teams (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §5.1
+  // R10d, SD-13): adding an asset from team b to team d moves only gap_b and
+  // gap_d, so a 3+-team balancing objective is an undecided methodology
+  // choice.  The page says so ("Balancing suggestions aren't available …").
+  if (sides.length > 2) return [];
   if (!Number.isInteger(behindIdx) || behindIdx < 0 || behindIdx >= sides.length) {
     return [];
   }
 
-  const before = tradeImbalance(sides, valueMode, settings, stackContext);
-  if (before.imbalance < VERDICT_NEAR_EVEN) return [];
+  const before = tradeImbalance(sides, valueMode, settings);
+  // Inside the fair band (the ONE fairness-band owner): nothing to balance.
+  if (classifyGap(before.imbalance, before.largerUtility).level === "fair") return [];
 
-  // In an N >= 3 trade an added asset needs somewhere to go.  Default to
-  // the side currently netting the least — the team this side is
-  // shorting — rather than the circular default, which would route the
-  // sweetener to whoever happens to sit next in the list.
-  let toSideIdx = opts.toSideIdx;
-  if (!Number.isInteger(toSideIdx) || toSideIdx === behindIdx) {
-    toSideIdx = before.nets.indexOf(Math.min(...before.nets));
-    if (toSideIdx === behindIdx) {
-      toSideIdx = behindIdx === 0 ? 1 : 0;
-    }
-  }
-
-  const withCandidate = (row) => {
-    const next = sides.map((side, i) => {
-      if (i !== behindIdx) return side;
-      const assets = [...(Array.isArray(side?.assets) ? side.assets : []), row];
-      if (sides.length === 2) return { ...side, assets };
-      return {
-        ...side,
-        assets,
-        destinations: { ...(side?.destinations || {}), [tradeEntryKey(row)]: toSideIdx },
-      };
-    });
-    return tradeImbalance(next, valueMode, settings, stackContext);
-  };
+  const withCandidates = (rows) =>
+    tradeImbalance(
+      sides.map((side, i) =>
+        i === behindIdx
+          ? {
+              ...side,
+              assets: [...(Array.isArray(side?.assets) ? side.assets : []), ...rows],
+            }
+          : side,
+      ),
+      valueMode,
+      settings,
+    );
+  const withCandidate = (row) => withCandidates([row]);
 
   const scored = [];
   // Candidates are scored per IDENTITY, not per label: two distinct owned
   // picks that both read "2027 Mid 1st" are two candidates, while the same
-  // repeatable market row offered twice is one (T-NEW-02).
+  // market row offered twice in the pool is one suggestion.
   const scoredKeys = new Set();
   for (const row of rosterRows || []) {
     const key = tradeEntryKey(row);
@@ -1337,17 +1987,59 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
       gapAfter: after.gap,
       imbalanceBefore: before.imbalance,
       imbalanceAfter: after.imbalance,
+      largerUtilityAfter: after.largerUtility,
     });
   }
 
-  scored.sort(
-    (a, b) =>
-      a.imbalanceAfter - b.imbalanceAfter ||
-      a.name.localeCompare(b.name) ||
-      a.key.localeCompare(b.key),
-  );
-  return scored.slice(0, maxResults);
+  const byLanding = (a, b) =>
+    a.imbalanceAfter - b.imbalanceAfter ||
+    a.name.localeCompare(b.name) ||
+    a.key.localeCompare(b.key);
+  scored.sort(byLanding);
+  const singles = scored.slice(0, maxResults);
+  if (!combos || !scored.length) return singles;
+  const best = scored[0];
+  if (classifyGap(best.imbalanceAfter, best.largerUtilityAfter).level === "fair") return singles;
+
+  // No single asset closes the gap: try pairs of the best singles.  Each pair
+  // is re-simulated as a whole -- two pieces change the package count, so
+  // their effect is NOT the sum of their single effects (defect #800).
+  const pool = scored.slice(0, BALANCER_PAIR_POOL);
+  const pairs = [];
+  for (let i = 0; i < pool.length; i += 1) {
+    for (let j = i + 1; j < pool.length; j += 1) {
+      const a = pool[i];
+      const b = pool[j];
+      const after = withCandidates([a.entry, b.entry]);
+      if (!(after.imbalance < best.imbalanceAfter)) continue;
+      pairs.push({
+        isCombo: true,
+        entries: [a.entry, b.entry],
+        name: `${a.name} + ${b.name}`,
+        key: `${a.key}|${b.key}`,
+        label: `${a.label} + ${b.label}`,
+        pos: `${a.pos} + ${b.pos}`,
+        value: a.value + b.value,
+        gapBefore: before.gap,
+        gapAfter: after.gap,
+        imbalanceBefore: before.imbalance,
+        imbalanceAfter: after.imbalance,
+        largerUtilityAfter: after.largerUtility,
+      });
+    }
+  }
+  pairs.sort(byLanding);
+  return [...pairs.slice(0, BALANCER_MAX_PAIRS), ...singles];
 }
+
+/**
+ * Pair search bounds for ``findBalancers({combos: true})`` (TC-B / TCM-F03).
+ * Declared PRIORs, not fitted: the best 8 singles give 28 pair simulations
+ * (bounded, one trade at a time), and at most 2 pairs are offered so the
+ * single-asset suggestions stay visible beside them.
+ */
+export const BALANCER_PAIR_POOL = 8;
+export const BALANCER_MAX_PAIRS = 2;
 
 // ── Multi-Team Verdict Helpers ───────────────────────────────────────────
 
@@ -1387,6 +2079,50 @@ export function defaultDestination(sideIdx, sideCount) {
   if (sideCount < 2) return 0;
   if (sideIdx < 0 || sideIdx >= sideCount) return 0;
   return (sideIdx + 1) % sideCount;
+}
+
+/**
+ * Load an imported trade (KTC URL, screenshot) into sides A and B — the ONE
+ * bulk-load rule both importers share, so they cannot drift apart.
+ *
+ *   mode "replace" — sides A and B take exactly the imported entries; any
+ *                    3rd+ side is left untouched.  Destinations are rebuilt
+ *                    from scratch: in a 3+-team trade each imported entry is
+ *                    seeded with ``defaultDestination``; a 2-team trade keeps
+ *                    an empty map (``computeSideFlows`` routes implicitly).
+ *                    Old routing for entries no longer present is dropped.
+ *   mode "add"     — the imported entries are APPENDED to sides A and B.
+ *                    Existing routing is kept; a newly seen line in a 3+-team
+ *                    trade gets the default, exactly as ``addToSide`` does.
+ *
+ * Nothing is deduped, in either mode: an asset imported twice is two copies,
+ * and adding an asset already in the trade adds another copy (owner decision
+ * 2026-10-03, lib/trade-assets).  Entries are the caller's board rows,
+ * unchanged — nothing here values anything.  Pure: returns a new array; the
+ * input sides are not mutated and untouched sides keep their identity.
+ *
+ * @param {Array} sides - current trade sides (``createSide`` shape)
+ * @param {[Array, Array]} importedSides - entries for side A and side B
+ * @param {"replace"|"add"} mode
+ */
+export function applyImportedSides(sides, importedSides, mode = "replace") {
+  const list = Array.isArray(sides) ? sides : [];
+  const n = list.length;
+  const add = mode === "add";
+  return list.map((s, i) => {
+    if (i !== 0 && i !== 1) return s; // leave 3rd+ sides alone
+    const incoming = Array.isArray(importedSides?.[i]) ? importedSides[i] : [];
+    const assets = add ? [...(s.assets || []), ...incoming] : [...incoming];
+    const destinations = add ? { ...(s.destinations || {}) } : {};
+    if (n > 2) {
+      for (const asset of incoming) {
+        const key = tradeEntryKey(asset);
+        if (destinations[key] == null)
+          destinations[key] = defaultDestination(i, n);
+      }
+    }
+    return { ...s, assets, destinations };
+  });
 }
 
 /**
@@ -1443,165 +2179,213 @@ export function computeSideFlowAssets(sides) {
 }
 
 /**
- * Compute per-side flow for a multi-team trade with explicit destinations.
+ * Per-side package reading for a routed trade of ANY side count — the
+ * calculator's PRELIMINARY indicator (the final multi-team result comes from
+ * ``POST /api/trade/analyze-multi``).
  *
- * Returns an array of ``{ given, received, net }`` per side in the same
- * order as ``sides``.  ``net = received − given``, so a side with a
- * positive net is gaining value and a negative net is losing value.
+ * Each side i is read in its OWN perspective (``perTeamPackageTotals``, spec
+ * docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §5.1): G_i = what it sends, R_i =
+ * everything routed to it.  Returns, per side and in order:
  *
- * In 2-team trades (sides.length === 2), destinations are implicit:
- * every asset goes to the OTHER side, regardless of the destinations
- * map.  In 3+-team trades, each asset's destination is read from
- * ``side.destinations[assetName]`` (0-based index).  If the map is
- * missing a destination, or it points at itself / out of range, the
- * default destination (next side circular) is used so stale or
- * partially-configured state still produces sensible flows.
+ *   given / received  ``sendAdj`` / ``recvAdj`` — the adjusted package it
+ *                     sends and the one it receives, as THAT team values them
+ *   net               ``recvAdj − sendAdj`` — the team's own adjusted gap
+ *   adjustment        ``sendVA``
+ *   rawGiven / rawReceived  RAW routed flows, the only conserved quantities
+ *                     (Σ rawGiven === Σ rawReceived)
+ *   sendAdj, recvAdj, sendVA, recvVA, gap, larger, utility, receivedUtility,
+ *   largerUtility, band  (perTeamPackageTotals; ``utility`` is the package
+ *   utility of what the side SENDS — every flow carries it, fairness_bands_v2)
+ *
+ * ``given`` / ``received`` / ``net`` are perspective values: an asset can
+ * carry a different VA in its receiver's view than in its sender's, so they
+ * are never added across teams and never drawn as routed flows.  For N = 2
+ * every number is what it was before the per-team rule (the two teams'
+ * readings are mirror images), and ``nets[1] === tradeGapAdjusted(A, B)``.
+ *
+ * Routing: two sides route implicitly to each other; three or more read
+ * ``side.destinations`` (``tradeRoutes``, with the visible default seed for a
+ * missing or invalid entry).
  *
  * @param {object[]} sides  - array of side objects
  * @param {string} valueMode
  * @param {object} [settings]
- * @returns {{given: number, received: number, net: number}[]}
  */
-export function computeSideFlows(
-  sides,
-  valueMode,
-  settings = null,
-  stackContext = null,
-) {
+export function computeSideFlows(sides, valueMode, settings = null) {
   const n = Array.isArray(sides) ? sides.length : 0;
-  const result = [];
-  for (let i = 0; i < n; i++) result.push({ given: 0, received: 0, net: 0, adjustment: 0 });
-  if (n < 2) return result;
-
-  const sideAssets = sides.map((side) =>
-    Array.isArray(side?.assets) ? side.assets : [],
+  if (n < 2) {
+    return Array.from({ length: n }, () => ({
+      given: 0,
+      received: 0,
+      net: 0,
+      adjustment: 0,
+      rawGiven: 0,
+      rawReceived: 0,
+      utility: 0,
+      receivedUtility: 0,
+      largerUtility: 0,
+    }));
+  }
+  const values = sides.map((side) =>
+    (Array.isArray(side?.assets) ? side.assets : []).map((a) =>
+      Math.max(0, effectiveValue(a, valueMode, settings)),
+    ),
   );
-  // Value Adjustment is a property of the PACKAGE, so it has to travel
-  // with the assets when they are routed.  Each side's premium is
-  // spread proportionally across the assets it sends, which makes
-  // ``given_i = raw_i + adjustment_i`` by construction and lets the
-  // premium land on whichever side actually receives those pieces.
-  const adjustments = computeMultiSideAdjustments(sideAssets, valueMode, settings);
+  return perTeamPackageTotals(values, tradeRoutes(sides)).map((t) => ({
+    given: t.sendAdj,
+    received: t.recvAdj,
+    net: t.gap,
+    adjustment: t.sendVA,
+    ...t,
+  }));
+}
 
-  for (let i = 0; i < n; i++) {
-    const assets = sideAssets[i];
-    const destinations = sides[i]?.destinations || {};
-    let rawTotal = 0;
-    for (const asset of assets) {
-      rawTotal += Math.max(0, effectiveValue(asset, valueMode, settings));
+const BAND_SEVERITY = { fair: 0, slight: 1, unfair: 2, lopsided: 3 };
+
+/**
+ * The team with the worst package band in a 3+-team trade (spec §5.1 R10c):
+ * lopsided > unfair > slight > fair, ties broken by the larger relative gap,
+ * then the lower side index.  A flow whose gap is not a finite number is
+ * INDETERMINATE and wins outright (``level: null``) — an unknown is never
+ * read as fair.  Flows are ``computeSideFlows`` entries: ``net`` and the band
+ * base ``teamFairnessBase(flow)`` — the team's larger PACKAGE UTILITY
+ * (fairness_bands_v2, OD-F2).  A flow without a finite ``utility`` /
+ * ``receivedUtility`` is INDETERMINATE.  ``null`` for an empty list.
+ */
+export function worstTeamBand(flows) {
+  const list = Array.isArray(flows) ? flows : [];
+  let worst = null;
+  list.forEach((f, index) => {
+    const gap = Number(f?.net);
+    const largerUtility = teamFairnessBase(f);
+    if (!Number.isFinite(gap) || largerUtility == null) {
+      if (!worst || worst.level != null)
+        worst = { index, level: null, relPct: null, gap: null, largerUtility: null };
+      return;
     }
-    const rawAdjustment = Number(adjustments[i]);
-    // A non-finite premium means the VA could not be computed for this
-    // side, which is "no premium to attribute", not "a premium of zero
-    // that we measured".  Both land on 0 here because the arithmetic
-    // neutral is the same, but the distinction is why this is written
-    // out rather than coerced with ``|| 0``.
-    const adjustment = Number.isFinite(rawAdjustment) && rawAdjustment > 0 ? rawAdjustment : 0;
-    // A side whose pieces are all unpriced has nothing to scale, so the
-    // premium is dropped rather than divided by zero.  The assets are
-    // still counted; they just carry no premium nobody can attribute.
-    const scale = rawTotal > 0 ? (rawTotal + adjustment) / rawTotal : 1;
-    result[i].adjustment = rawTotal > 0 ? adjustment : 0;
-
-    for (const asset of assets) {
-      const value = Math.max(0, effectiveValue(asset, valueMode, settings)) * scale;
-      result[i].given += value;
-
-      let dest;
-      if (n === 2) {
-        dest = 1 - i; // implicit: the other side
-      } else {
-        const raw = destinations[tradeEntryKey(asset)];
-        const parsed = Number(raw);
-        if (
-          Number.isInteger(parsed) &&
-          parsed >= 0 &&
-          parsed < n &&
-          parsed !== i
-        ) {
-          dest = parsed;
-        } else {
-          dest = defaultDestination(i, n);
-        }
-      }
-      result[dest].received += value;
+    if (worst && worst.level == null) return;
+    const band = classifyGap(gap, largerUtility);
+    // Tie-break only (the band already decided severity); an empty pairing
+    // (base 0) can only be in the fair band, where every rel ties at 0.
+    const rel = largerUtility > 0 ? Math.abs(gap) / largerUtility : 0;
+    const cand = {
+      index,
+      level: band.level,
+      relPct: band.relativePct,
+      gap,
+      largerUtility,
+      rel,
+    };
+    if (
+      !worst ||
+      BAND_SEVERITY[cand.level] > BAND_SEVERITY[worst.level] ||
+      (BAND_SEVERITY[cand.level] === BAND_SEVERITY[worst.level] && cand.rel > worst.rel)
+    ) {
+      worst = cand;
     }
-  }
-  // Fold the draft-capital stack premium into net so the multi-team
-  // verdict bar (which renders from net, not adjusted totals) reflects
-  // the same stack-aware result as the 2-team path.  A team's premium
-  // from the picks it receives is extra value it nets.
-  const stack = computeStackAdjustments(n, stackContext);
-  for (let i = 0; i < n; i++) {
-    result[i].net = result[i].received - result[i].given + (stack[i] || 0);
-  }
-  return result;
+  });
+  if (worst && "rel" in worst) delete worst.rel;
+  return worst;
 }
 
 /**
- * The single imbalance number for a trade of ANY side count.
+ * The package imbalance of a trade, for ANY side count.
  *
- * ONE REPRESENTATION, EVERY N.  Before 2026-08-18 the 2-team meter read
- * VA-adjusted side totals while the 3+-team meter read a raw net flow
- * with no Value Adjustment in it at all, so the same trade shape graded
- * differently at 2 teams and at 3.  ``computeSideFlows`` is now
- * VA-inclusive and this is the one place the imbalance is defined.
+ * N = 2: ``{ imbalance, nets, gap, largerUtility }`` — the signed gap (side A
+ * minus side B), its magnitude, the per-side nets and the larger PACKAGE
+ * UTILITY the band is relative to (fairness_bands_v2, OD-F2: the owner's
+ * ``fairnessBase`` over each side's ``utility``).  ``nets[1] ===
+ * tradeGapAdjusted(A, B)`` holds exactly, and a test pins it.
  *
- * Returns ``{ imbalance, nets, gap }``:
- *   - ``nets``  — per-side net flow (received − given + stack)
- *   - ``gap``   — the signed 2-team gap (side A minus side B), or
- *                 ``null`` for N >= 3 where "which side is ahead" is not
- *                 a single signed number
- *   - ``imbalance`` — magnitude, comparable across N: ``|gap|`` for
- *                 N = 2, ``max(net) - min(net)`` for N >= 3.
+ * N ≥ 3 (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §5.1 R10c):
+ * ``{ perTeam: [{gap, larger, largerUtility, level}], worst: {index, level,
+ * relPct, largerUtility}, largerUtility, nets, gap: null }``.  Each team is
+ * graded on its OWN gap against its OWN larger package utility
+ * (``teamFairnessBase``); ``worst`` (``worstTeamBand``) is the only scalar and
+ * the top-level ``largerUtility`` is its base (``null`` when it is unknown).  There is no
+ * "max(net) − min(net)": per-team gaps are perspective quantities and do
+ * not subtract across teams.
  *
- * KNOWN, PRE-EXISTING, OUT OF SCOPE: the draft-capital stack term is
- * accounted differently by the two paths — ``adjustedSideTotals``
- * debits BOTH sides' stack into the gap while a net flow credits only
- * the side's own.  That difference predates this function, is zero for
- * every trade with no pick routing, and belongs to whoever revisits the
- * stack model.  With no ``stackContext`` the N = 2 identity
- * ``nets[1] === tradeGapAdjusted(A, B)`` holds exactly, and a test pins it.
+ * The draft-capital stack effect is not an input (informational only, owner
+ * directive 2026-09-29).
  */
-export function tradeImbalance(
-  sides,
-  valueMode,
-  settings = null,
-  stackContext = null,
-) {
+export function tradeImbalance(sides, valueMode, settings = null) {
   const n = Array.isArray(sides) ? sides.length : 0;
-  if (n < 2) return { imbalance: 0, nets: [], gap: null };
-  const nets = computeSideFlows(sides, valueMode, settings, stackContext).map(
-    (f) => f.net,
-  );
+  // No sides is an empty pairing: base 0 (the owner's `fairnessBase([])`).
+  if (n < 2) return { imbalance: 0, nets: [], gap: null, largerUtility: 0 };
+  const flows = computeSideFlows(sides, valueMode, settings);
+  const nets = flows.map((f) => f.net);
   if (n === 2) {
+    // The base the fairness band is relative to (fairness_bands_v2, OD-F2): the
+    // larger PACKAGE UTILITY of the two packages, max(U_A, U_B) --
+    // byte-identical to the larger adjusted side on a 1-for-1.
+    const largerUtility = fairnessBase(flows.map((f) => f.utility));
     const gap = tradeGapAdjusted(
       Array.isArray(sides[0]?.assets) ? sides[0].assets : [],
       Array.isArray(sides[1]?.assets) ? sides[1].assets : [],
       valueMode,
       settings,
-      stackContext,
     );
-    return { imbalance: Math.abs(gap), nets, gap };
+    return { imbalance: Math.abs(gap), nets, gap, largerUtility };
   }
+  const worst = worstTeamBand(flows);
   return {
-    imbalance: Math.max(...nets) - Math.min(...nets),
+    perTeam: flows.map((f) => ({
+      gap: f.gap,
+      larger: f.larger,
+      largerUtility: f.largerUtility ?? null,
+      level: f.band?.level ?? null,
+    })),
+    worst: worst
+      ? {
+          index: worst.index,
+          level: worst.level,
+          relPct: worst.relPct,
+          largerUtility: worst.largerUtility,
+        }
+      : null,
+    largerUtility: worst ? worst.largerUtility : null,
     nets,
     gap: null,
   };
 }
 
 /**
- * Compute the granular trade-meter verdict label from an absolute gap.
- * More categories than verdictFromGap for the inline meter badge.
- * @param {number} absGap - Absolute point gap
- * @returns {{ label: string, level: 'fair'|'slight'|'unfair'|'lopsided' }}
+ * The meter badge for a package gap -- the Immediate Result, package only.
+ * Bands from the ONE fairness-band owner (./fairness-bands.js): relative to
+ * the larger PACKAGE UTILITY, with an absolute minimum (fairness_bands_v2; it
+ * replaced v1's larger adjusted side, which replaced the absolute 350 / 900 /
+ * 1800).  It labels the package gap; the trade DECISION is the backend's
+ * (POST /api/trade/analyze).
+ *
+ * `percentText` is THE percentage to print beside the badge: the band's own
+ * relative gap (|gap| / larger package utility), floored to one decimal and
+ * printed without a trailing ".0".  Flooring the UNROUNDED value keeps it on
+ * the same side of every cut as the badge (cuts 3.5 / 9 / 18 are exact at one
+ * decimal and IEEE multiplication is monotone), so SLIGHT EDGE never sits
+ * beside "3%" and FAIR (on the relative test) never beside "3.5%".  A gap
+ * under ABSOLUTE_MINIMUM is FAIR whatever its percentage.  `null` when the
+ * base is 0.  Never print `percentageGap` (the adjusted-side basis) beside a
+ * badge.
+ * @param {number} gap - package gap (sign ignored)
+ * @param {number} largerUtility - larger package utility (`fairnessBase`)
+ * @returns {{ label: string, level: 'fair'|'slight'|'unfair'|'lopsided', relativePct: number|null, percentText: string|null }}
  */
-export function meterVerdict(absGap) {
-  if (absGap < 350) return { label: "FAIR", level: "fair" };
-  if (absGap < 900) return { label: "SLIGHT EDGE", level: "slight" };
-  if (absGap < 1800) return { label: "UNFAIR", level: "unfair" };
-  return { label: "LOPSIDED", level: "lopsided" };
+export function meterVerdict(gap, largerUtility) {
+  const band = classifyGap(gap, largerUtility);
+  const rel = relativeGapPct(gap, largerUtility);
+  return {
+    label: FAIRNESS_LABELS[band.level],
+    level: band.level,
+    relativePct: band.relativePct,
+    percentText: rel == null ? null : formatBandPct(rel),
+  };
+}
+
+/** One decimal, floored (see meterVerdict); "20" not "20.0". */
+function formatBandPct(rel) {
+  const tenths = Math.floor(rel * 10);
+  return tenths % 10 === 0 ? String(tenths / 10) : (tenths / 10).toFixed(1);
 }
 
 /**
@@ -1646,6 +2430,93 @@ export function multiTeamAnalysis(totals) {
   return { shares, overall, perTeam };
 }
 
+/**
+ * The 3+-team package reading the multi-team meter renders, as ONE helper so
+ * the meter and the persistent summary bar cannot drift (TC-D2).  PRELIMINARY:
+ * the final per-team result comes from ``POST /api/trade/analyze-multi``.
+ *
+ * Per-team rule (spec §5.1, fairness_bands_v2 OD-F2): each side's ``net`` is
+ * its OWN adjusted gap and its band is ``meterVerdict(net,
+ * teamFairnessBase(flow))`` — the team's own larger PACKAGE UTILITY (what it
+ * sends vs what it receives), never the largest package anyone sends and
+ * never an adjusted side.  The headline is the worst team (``worstTeamBand``).
+ * Package-only; never a decision.
+ *
+ * Returns ``{ nets, perTeam, worstIndex, worst, largerUtility, verdict,
+ * withheld }``: ``worst`` is the worst team's |gap|, ``largerUtility`` its
+ * band base, and ``verdict`` its meter badge — or ``{label: "Indeterminate",
+ * level: null}`` when a team's gap or package utility is not a number
+ * (unknown, never fair).  A team that is not withheld but states no finite
+ * ``utility`` / ``receivedUtility`` is REFUSED: this throws
+ * FairnessInputError, which the meter renders as NO VERDICT.
+ *
+ * ``withheldBySide`` (``withheldAssetsBySide``, optional): a team whose part
+ * of the trade carries a WITHHELD value (quarantined / stale) has no gap and
+ * no band — its ``net`` is ``null`` (never the sum the withheld number is
+ * in, never 0) and it is INDETERMINATE for the headline, whose verdict then
+ * reads ``{label: "Withheld", level: null}``.  ``withheld[i]`` says which.
+ * @param {{given:number, received:number, net:number, utility:number, receivedUtility:number}[]} flows
+ * @param {object[][]} [withheldBySide]
+ */
+export function multiTeamNetSummary(flows, withheldBySide = null) {
+  const raw = Array.isArray(flows) ? flows : [];
+  const withheld = raw.map((_, i) =>
+    Array.isArray(withheldBySide?.[i]) ? withheldBySide[i].length > 0 : false,
+  );
+  // A withheld team's gap is not a number: it enters the band reading as
+  // indeterminate (``worstTeamBand``), exactly like any other unknown gap.
+  const list = raw.map((f, i) => (withheld[i] ? { ...f, net: Number.NaN } : f));
+  // Every team that is not withheld must state BOTH package utilities
+  // (computeSideFlows stamps them, 0 for an empty package): a flow without
+  // one is refused by the owner (FairnessInputError -- the meter renders NO
+  // VERDICT), never dropped from the base and never read as 0.
+  list.forEach((f, i) => {
+    if (!withheld[i]) fairnessBase([f?.utility, f?.receivedUtility]);
+  });
+  // A net that is not a number stays unknown (null), never a fabricated 0.
+  const nets = list.map((f) => {
+    const n = Number(f?.net);
+    return Number.isFinite(n) ? n : null;
+  });
+  const perTeam = list.map((f, i) => {
+    const largerUtility = teamFairnessBase(f);
+    return nets[i] == null || largerUtility == null ? null : meterVerdict(nets[i], largerUtility);
+  });
+  const unknown = (label) => ({ label, level: null, relativePct: null, percentText: null });
+  const w = worstTeamBand(list);
+  if (!w) {
+    return {
+      nets,
+      perTeam,
+      worstIndex: null,
+      worst: 0,
+      largerUtility: 0,
+      verdict: meterVerdict(0, 0),
+      withheld,
+    };
+  }
+  if (w.level == null) {
+    return {
+      nets,
+      perTeam,
+      worstIndex: w.index,
+      worst: null,
+      largerUtility: null,
+      verdict: withheld.some(Boolean) ? unknown("Withheld") : unknown("Indeterminate"),
+      withheld,
+    };
+  }
+  return {
+    nets,
+    perTeam,
+    worstIndex: w.index,
+    worst: Math.abs(w.gap),
+    largerUtility: w.largerUtility,
+    verdict: meterVerdict(w.gap, w.largerUtility),
+    withheld,
+  };
+}
+
 // ── Workspace Serialization ──────────────────────────────────────────────
 export function serializeWorkspace(sideA, sideB, valueMode, activeSide) {
   return {
@@ -1670,9 +2541,9 @@ export function serializeWorkspaceMulti(sides, valueMode, activeSide) {
     valueMode,
     activeSide,
     sides: sides.map((s) => {
-      // One item per COPY (a generic pick x3 is three items), and an owned
-      // pick keeps its canonical id — see ./trade-assets.js.  Players and
-      // repeatable picks stay bare names, so this is byte-identical to the
+      // One item per COPY (Jefferson x4 is four items), and an owned pick
+      // keeps its canonical id — see ./trade-assets.js.  Players and market
+      // picks stay bare names, so this is byte-identical to the
       // pre-T-NEW-02 format for any trade that has no owned pick.
       const assets = (s.assets || []).map(serializeEntry).filter((x) => x != null);
       const destSource = s.destinations || {};
@@ -1711,11 +2582,15 @@ export function tradeWorkspaceToCSV(sides, valueMode = "full", valueBasis = "") 
   };
   const pickVal = (r) => {
     const vals = (r && r.values) || {};
-    const v = valueMode === "raw" ? (vals.raw ?? vals.full) : (vals.full ?? vals.raw);
+    // Canonical only (TC-A P0-4): the legacy composite (``values.raw``) is
+    // never exported as the trade value, whatever mode a caller passes, and
+    // a missing canonical value is a blank cell, never the composite.
+    void valueMode;
+    const v = vals.full;
     return v == null ? "" : Math.round(Number(v));
   };
   const basis = valueBasis || "unspecified";
-  // One line per COPY, so a generic pick x2 exports as two lines and the
+  // One line per COPY, so any asset x2 exports as two lines and the
   // column sums agree with the calculator.  ``Asset ID`` carries an owned
   // pick's canonical identity, which the label alone cannot: two distinct
   // owned picks may both read "2027 Mid 1st" (T-NEW-02).
@@ -1756,16 +2631,14 @@ export function deserializeWorkspaceMulti(parsed, rowByName) {
     const activeSide = typeof parsed.activeSide === "number" ? parsed.activeSide : 0;
     const sideCount = parsed.sides.length;
     // Items are bare names (every payload ever written, and players /
-    // repeatable picks now) or ``{name, assetId, label}`` for an owned
-    // pick.  Repeated items are copies and all survive; a UNIQUE identity
-    // appearing twice (a corrupted or hand-edited payload) keeps its
-    // first occurrence only, so it cannot count twice.
-    const entryLists = dedupeUniqueAcrossSides(
-      parsed.sides.map((s) =>
-        Array.isArray(s?.assets)
-          ? s.assets.map((item) => deserializeEntry(item, rowByName)).filter(Boolean)
-          : [],
-      ),
+    // market picks now) or ``{name, assetId, label}`` for an owned pick.
+    // Repeated items are copies and ALL survive, for every kind of asset
+    // and on both sides at once — calculator quantities are hypothetical,
+    // not inventory (owner decision 2026-10-03).
+    const entryLists = parsed.sides.map((s) =>
+      Array.isArray(s?.assets)
+        ? s.assets.map((item) => deserializeEntry(item, rowByName)).filter(Boolean)
+        : [],
     );
     const sides = parsed.sides.map((s, i) => {
       const assets = entryLists[i];
@@ -1815,12 +2688,12 @@ export function addRecent(recentNames, name) {
   return [name, ...recentNames.filter((x) => x !== name)].slice(0, 20);
 }
 
-export function filterPickerRows(rows, sideA, sideB, query, filter) {
-  // Only UNIQUE identities already in the trade are hidden; a repeatable
-  // market pick stays pickable after its first copy (T-NEW-02).
-  const inTrade = uniqueKeysInTrade([sideA, sideB]);
+// ``sideA`` / ``sideB`` are kept for call-site stability.  Nothing already
+// in the trade is hidden: every asset stays pickable after its first copy
+// (owner decision 2026-10-03).
+export function filterPickerRows(rows, _sideA, _sideB, query, filter) {
   const q = query.trim().toLowerCase();
-  let list = rows.filter((r) => !inTrade.has(tradeEntryKey(r)));
+  let list = rows.filter(Boolean);
   if (filter !== "all") list = list.filter((r) => r.assetClass === filter);
   if (q) list = list.filter((r) => r.name.toLowerCase().includes(q));
   return list.slice(0, 80);

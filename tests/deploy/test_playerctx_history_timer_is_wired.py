@@ -186,5 +186,7 @@ def test_the_installer_reinstalls_on_a_template_change():
     file in the repo said one thing and the unit on the box said
     another."""
     body = _installer()
-    assert 'cmp -s "${tmp_playerctx_service}" "${playerctx_service_path}"' in body
-    assert 'cmp -s "${tmp_pchist_service}" "${pchist_service_path}"' in body
+    # Compared WITHOUT sudo through installed_matches (cmp -s); `sudo -n cmp`
+    # is refused on the box, which read as drift on every deploy.
+    assert 'installed_matches "${tmp_playerctx_service}" "${playerctx_service_path}"' in body
+    assert 'installed_matches "${tmp_pchist_service}" "${pchist_service_path}"' in body

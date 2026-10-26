@@ -582,6 +582,37 @@ class TestSellSideIsMarkedUnvalidated(unittest.TestCase):
         self.assertIn('view === "sells"', page)
 
 
+class TestTheWriteLogCannotFailTheStudy(unittest.TestCase):
+    """``--out`` outside the checkout must not crash the run after it wrote.
+
+    consensus-edge-revalidate.yml passes ``--out /tmp/ce-rerun/...``, and the
+    old ``out.relative_to(REPO)`` raised ValueError there -- after the report
+    was already on disk -- so every weekly run exited 1 and the comparison
+    step never executed.
+    """
+
+    def test_a_path_outside_the_repo_is_shown_absolute(self):
+        import tempfile
+
+        outside = Path(tempfile.gettempdir()) / "ce-rerun" / "board-validation-h7.json"
+        shown = STUDY.display_path(outside)
+        self.assertEqual(shown, str(outside.resolve()))
+
+    def test_a_path_inside_the_repo_is_shown_relative(self):
+        inside = REPO / "data" / "consensus_edge" / "x.json"
+        self.assertEqual(STUDY.display_path(inside), "data/consensus_edge/x.json")
+
+    def test_a_relative_path_does_not_crash(self):
+        # A bare relative --out is resolved against the CWD, not REPO, so it
+        # must be resolved before it is compared.
+        self.assertTrue(STUDY.display_path(Path("report.json")))
+
+    def test_main_logs_through_the_safe_helper(self):
+        source = (REPO / "scripts" / "validate_consensus_edge_board.py").read_text(encoding="utf-8")
+        self.assertNotIn("out.relative_to(REPO)", source)
+        self.assertIn('log(f"wrote {display_path(out)}")', source)
+
+
 # Kept at the very bottom on purpose. This line used to sit two thirds of
 # the way up the file, so `python tests/consensus_edge/test_board_validation.py`
 # ran only the classes defined above it — the classes below had not been

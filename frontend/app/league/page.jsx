@@ -16,11 +16,15 @@ import { cache } from "react";
 import { connection } from "next/server";
 import LeagueClient from "./LeagueClient.jsx";
 import { fetchBackendJson } from "../../lib/server-backend.js";
+import { fetchAdvisorBootstrap as readAdvisorBootstrap } from "./advisor-bootstrap.js";
 import {
-  DEFAULT_TAB,
   PIECE_OF_SHIT_RANKINGS_TAB,
   PIECE_OF_SHIT_RANKINGS_TITLE,
+  TRADE_ADVISOR_SUBTITLE,
+  TRADE_ADVISOR_TAB,
+  TRADE_ADVISOR_TITLE,
   normalizeTabKey,
+  resolveTab,
   sectionForTab,
 } from "./tabs.js";
 
@@ -98,16 +102,44 @@ const fetchSection = cache(async function fetchSection(section) {
   return data;
 });
 
+// The Brisket Trade Advisor's team list — public, value-free identities
+// (roster id, manager and team names).  Read on EVERY /league render, in
+// parallel with the overview section, because it answers two questions at
+// once: whether the advisor tab exists at all (only a confirmed "ready"
+// offers it; flag off, a closed launch gate, a 404 or no answer → the hub
+// lands on Overview exactly as before), and the real team picker for the
+// first paint.  Classified
+// and ALLOWLISTED by `classifyTeamsResult` before it becomes a prop, so
+// nothing beyond those identities can reach the RSC payload.  The read and
+// classification are ./advisor-bootstrap.js's (one owner, shared with the
+// landing page, the sitemap and the detail pages' back-links).
+const fetchAdvisorBootstrap = cache(async function fetchAdvisorBootstrap() {
+  await connection();
+  return readAdvisorBootstrap();
+});
+
+function rawTabFrom(sp) {
+  return typeof sp.tab === "string" ? sp.tab : Array.isArray(sp.tab) ? sp.tab[0] : null;
+}
+
 export async function generateMetadata({ searchParams } = {}) {
   const sp = (await searchParams) || {};
-  const rawTab =
-    typeof sp.tab === "string"
-      ? sp.tab
-      : Array.isArray(sp.tab)
-        ? sp.tab[0]
-        : DEFAULT_TAB;
+  const rawTab = rawTabFrom(sp);
   const isPieceOfShitRankings =
     normalizeTabKey(rawTab) === PIECE_OF_SHIT_RANKINGS_TAB;
+  if (!isPieceOfShitRankings && resolveTab(rawTab) === TRADE_ADVISOR_TAB) {
+    const advisor = await fetchAdvisorBootstrap();
+    if (advisor.state === "ready") {
+      const title = `${TRADE_ADVISOR_TITLE} — Risk It To Get The Brisket`;
+      const description = TRADE_ADVISOR_SUBTITLE;
+      return {
+        title,
+        description,
+        openGraph: { title, description, type: "website" },
+        twitter: { card: "summary", title, description },
+      };
+    }
+  }
   const data = await fetchSection("overview");
   if (!data) {
     if (isPieceOfShitRankings) {
@@ -164,15 +196,11 @@ export async function generateMetadata({ searchParams } = {}) {
 
 export default async function LeagueRoute({ searchParams }) {
   const sp = (await searchParams) || {};
-  // Default tab matches DEFAULT_TAB ("overview") — LeagueClient
-  // validates the key against VALID_TABS so an unknown ?tab= value
-  // falls back safely.
-  const rawTab =
-    typeof sp.tab === "string"
-      ? sp.tab
-      : Array.isArray(sp.tab)
-        ? sp.tab[0]
-        : DEFAULT_TAB;
+  // No ?tab= lands on DEFAULT_TAB (the Brisket Trade Advisor), or on
+  // Overview when the advisor is not served — `resolveTab` decides, here
+  // and in LeagueClient, from the same advisor bootstrap.  An unknown
+  // ?tab= value resolves the same way.
+  const rawTab = rawTabFrom(sp);
 
   // ``overview`` is always fetched, not only for the overview tab: the
   // page header's season label reads it on every tab.  A deep link to
@@ -195,13 +223,29 @@ export default async function LeagueRoute({ searchParams }) {
   // sees the shell rather than the table.  Archives is a waiver / draft /
   // trade log, not the shareable surface; ``overview``, which carries the
   // OG title and description, still server-renders on every tab.
+  //
+  // ``activity`` was considered for this list (2026-10-03) and deliberately
+  // stays server-rendered: its slow SSR fetch was the backend REBUILDING
+  // the section per request (document 3.1 s, then a client retry that ran
+  // out the 5 s deadline).  The backend now serves it as prepared,
+  // trimmed bytes (~174 KB, was ~421 KB), so SSR is a memo read again, and
+  // ``/league?tab=activity`` is in the sitemap — skipping SSR would show
+  // crawlers and first paint a spinner for no measured gain.
+  //
+  // The advisor bootstrap runs in parallel with the section fetches; unless
+  // it says "ready" the landing resolves to Overview, which is always
+  // fetched anyway.
+  const advisorPromise = fetchAdvisorBootstrap();
   const landing = sectionForTab(normalizeTabKey(rawTab));
   const ssrSkip = new Set(["archives"]);
   const wanted =
     landing && landing !== "overview" && !ssrSkip.has(landing)
       ? ["overview", landing]
       : ["overview"];
-  const payloads = await Promise.all(wanted.map((s) => fetchSection(s)));
+  const [initialAdvisor, ...payloads] = await Promise.all([
+    advisorPromise,
+    ...wanted.map((s) => fetchSection(s)),
+  ]);
 
   let league = null;
   let contractVersion = null;
@@ -217,5 +261,11 @@ export default async function LeagueRoute({ searchParams }) {
   // which is the behaviour that already existed for an SSR failure.
   const initialContract = league ? { contractVersion, league, sections } : null;
 
-  return <LeagueClient initialContract={initialContract} initialTab={rawTab} />;
+  return (
+    <LeagueClient
+      initialContract={initialContract}
+      initialTab={rawTab}
+      initialAdvisor={initialAdvisor}
+    />
+  );
 }

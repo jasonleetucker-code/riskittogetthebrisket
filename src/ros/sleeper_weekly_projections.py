@@ -457,6 +457,67 @@ def fetch_weekly_projection_rows(
 # ── Parse + exact-league rescoring ───────────────────────────────────
 
 
+def _check_row(
+    row: Any,
+    *,
+    season: int,
+    week: int,
+    season_type: str,
+    expected_company: str,
+) -> tuple[str | None, dict[str, float], tuple[str, ...]]:
+    """The per-row validity rule: ``(refusal reason or None, stats, positions)``.
+
+    Everything :func:`build_weekly_observations` checks about ONE row -- the
+    per-fetch duplicate check is the caller's.
+    """
+    if not isinstance(row, Mapping):
+        return "not_a_mapping", {}, ()
+    if not str(row.get("player_id") or "").strip():
+        return "missing_player_id", {}, ()
+    if str(row.get("season") or "") != str(season):
+        return "season_mismatch", {}, ()
+    try:
+        row_week = int(row.get("week"))
+    except (TypeError, ValueError):
+        row_week = None
+    if row_week != int(week):
+        return "week_mismatch", {}, ()
+    if str(row.get("season_type") or "") != season_type:
+        return "season_type_mismatch", {}, ()
+    stats = _numeric_stat_line(row.get("stats"))
+    if not any(_is_event_key(k) for k in stats):
+        return "placeholder_no_projection", {}, ()
+    if not str(row.get("game_id") or "").strip():
+        return "no_game_id", {}, ()
+    if str(row.get("company") or "") != expected_company:
+        # A different model would be a different independence family;
+        # relabelling it as the censused one would double-count or
+        # misattribute evidence.
+        return "model_company_mismatch", {}, ()
+    player = row.get("player") if isinstance(row.get("player"), Mapping) else {}
+    raw_positions = player.get("fantasy_positions") or [player.get("position")]
+    positions = tuple(
+        dict.fromkeys(p for p in (normalize_position(x) for x in raw_positions) if p in POSITIONS)
+    )
+    if not positions:
+        return "unrecognized_position", {}, ()
+    return None, stats, positions
+
+
+def row_refusal_reason(
+    row: Any, *, season: int, week: int, season_type: str = "regular"
+) -> str | None:
+    """Why :func:`build_weekly_observations` would refuse this row, or ``None``.
+
+    Public so an archive of raw rows keeps exactly the rows the scoring path
+    accepts, instead of a second validity rule.
+    """
+    expected_company = str((_census_entry().get("modelAncestry") or {}).get("model") or "")
+    return _check_row(
+        row, season=season, week=week, season_type=season_type, expected_company=expected_company
+    )[0]
+
+
 def build_weekly_observations(
     rows: Iterable[Any],
     *,
@@ -491,50 +552,17 @@ def build_weekly_observations(
     accepted: list[tuple[Mapping[str, Any], dict[str, float], tuple[str, ...]]] = []
     seen_ids: set[str] = set()
     for row in rows:
-        if not isinstance(row, Mapping):
-            refuse("not_a_mapping")
+        reason, stats, positions = _check_row(
+            row,
+            season=season,
+            week=week,
+            season_type=season_type,
+            expected_company=expected_company,
+        )
+        if reason is not None:
+            refuse(reason)
             continue
         pid = str(row.get("player_id") or "").strip()
-        if not pid:
-            refuse("missing_player_id")
-            continue
-        if str(row.get("season") or "") != str(season):
-            refuse("season_mismatch")
-            continue
-        try:
-            row_week = int(row.get("week"))
-        except (TypeError, ValueError):
-            row_week = None
-        if row_week != int(week):
-            refuse("week_mismatch")
-            continue
-        if str(row.get("season_type") or "") != season_type:
-            refuse("season_type_mismatch")
-            continue
-        stats = _numeric_stat_line(row.get("stats"))
-        if not any(_is_event_key(k) for k in stats):
-            refuse("placeholder_no_projection")
-            continue
-        if not str(row.get("game_id") or "").strip():
-            refuse("no_game_id")
-            continue
-        company = str(row.get("company") or "")
-        if company != expected_company:
-            # A different model would be a different independence family;
-            # relabelling it as the censused one would double-count or
-            # misattribute evidence.
-            refuse("model_company_mismatch")
-            continue
-        player = row.get("player") if isinstance(row.get("player"), Mapping) else {}
-        raw_positions = player.get("fantasy_positions") or [player.get("position")]
-        positions = tuple(
-            dict.fromkeys(
-                p for p in (normalize_position(x) for x in raw_positions) if p in POSITIONS
-            )
-        )
-        if not positions:
-            refuse("unrecognized_position")
-            continue
         if pid in seen_ids:
             refuse("duplicate_player_id")
             continue
@@ -551,7 +579,6 @@ def build_weekly_observations(
 
     observations = []
     for row, stats, positions in accepted:
-        player = row.get("player") if isinstance(row.get("player"), Mapping) else {}
         pid = str(row["player_id"]).strip()
         breakdown = score_stat_line(stats, scoring)
         native = stats.get("pts_ppr")

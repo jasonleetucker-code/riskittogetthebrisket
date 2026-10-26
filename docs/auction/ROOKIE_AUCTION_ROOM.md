@@ -195,7 +195,11 @@ path), virtual clock jumps, clone-to-new-run. A played mock is never promoted.
 
 Official values for every `PROPOSED_RULE_KEYS` entry; the 2027 points-for nomination order (owner
 supplies it; 2026 partial PF is not assumed final); the official 2027 rookie pool; acceptance of the
-disaster-recovery window; whether open trade offers reserve money (milestone C).
+disaster-recovery window; ~~whether open trade offers reserve money (milestone C)~~ — **decided 2026-10-18
+(owner directive D20):** an unaccepted trade offer reserves no auction money and money moves only after a
+verified accepted transaction (the engine's existing rule). D20 also defers the official items above to the
+official launch (mock-first continues) and recommends a validated encrypted off-host recovery copy, or a
+documented risk acceptance, before official operation.
 
 ## 9. Decision register (living — owner ideas during rehearsal land here)
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from src.league_intel.replacement import PositionReplacement, ReplacementLevel
-from src.roster_intel.engine import analyze_roster, position_needs
+from src.roster_intel.engine import analyze_roster, position_deficits
 from src.roster_intel.marginal import to_roster_players
 from src.roster_intel.profiles import build_position_profiles
 
@@ -111,7 +111,7 @@ class TestFragilityIsNotDeficiency:
         """MECHANISM TEST. The engine's own deficit must name a WEAK
         position, not the strong one."""
         prof = build_position_profiles(self._qb_strong(), SLOTS, replacement=REPLACEMENT)
-        needs = position_needs(prof, REPLACEMENT)
+        needs = position_deficits(prof, REPLACEMENT)
         assert needs["QB"].deficit == 0.0
         worst = max(needs, key=lambda k: needs[k].deficit)
         assert worst != "QB"
@@ -119,7 +119,7 @@ class TestFragilityIsNotDeficiency:
 
     def test_concentration_and_deficit_are_reported_separately(self):
         prof = build_position_profiles(self._qb_strong(), SLOTS, replacement=REPLACEMENT)
-        needs = position_needs(prof, REPLACEMENT)
+        needs = position_deficits(prof, REPLACEMENT)
         qb = needs["QB"]
         # Strong AND concentrated: high risk, zero deficit. Both true.
         assert qb.concentration_risk > 0.0
@@ -129,7 +129,7 @@ class TestFragilityIsNotDeficiency:
         """The semantics must travel WITH the data — a consumer reading
         only the payload has to be able to tell these apart."""
         prof = build_position_profiles(self._qb_strong(), SLOTS, replacement=REPLACEMENT)
-        blob = position_needs(prof, REPLACEMENT)["QB"].to_dict()
+        blob = position_deficits(prof, REPLACEMENT)["QB"].to_dict()
         sem = blob["_semantics"]
         assert "acquire a starter" in sem["deficit"]
         assert "acquire insurance" in sem["concentrationRisk"]
@@ -151,18 +151,21 @@ class TestDeficit:
                 _p("te1", "TE", 35),
             ]
         )
-        needs = position_needs(
+        needs = position_deficits(
             build_position_profiles(pool, SLOTS, replacement=REPLACEMENT), REPLACEMENT
         )
         assert needs["RB"].deficit > 0
-        assert needs["RB"].urgent is True
+        # No verdict rides on the measurement (C2-WEAK-01): "is RB a
+        # need" is weakness.py's question, not this one's.
+        assert not hasattr(needs["RB"], "urgent")
+        assert "urgent" not in needs["RB"].to_dict()
         assert any("replacement-level" in r for r in needs["RB"].reasons)
 
     def test_no_replacement_levels_means_no_fabricated_deficit(self):
         """Without levels there is no baseline; inventing one would be
         the 'constant masquerading as a score' failure again."""
         pool = to_roster_players([_p("qb1", "QB", 90), _p("rb1", "RB", 5)])
-        needs = position_needs(build_position_profiles(pool, SLOTS))
+        needs = position_deficits(build_position_profiles(pool, SLOTS))
         assert all(n.deficit == 0.0 for n in needs.values())
         assert all(n.replacement_baseline is None for n in needs.values())
 
@@ -170,10 +173,10 @@ class TestDeficit:
         """Two dedicated RB slots need twice the replacement-level
         contribution of one."""
         pool = to_roster_players([_p("rb1", "RB", 5)])
-        one = position_needs(
+        one = position_deficits(
             build_position_profiles(pool, ["RB"], replacement=REPLACEMENT), REPLACEMENT
         )["RB"]
-        two = position_needs(
+        two = position_deficits(
             build_position_profiles(pool, ["RB", "RB"], replacement=REPLACEMENT),
             REPLACEMENT,
         )["RB"]
@@ -305,12 +308,15 @@ class TestShape:
             "values",
             "lineupScore",
             "positions",
-            "needs",
+            "positionDeficits",
             "competitiveWindow",
             "playoffOdds",
             "championshipOdds",
             "oddsSource",
         }
+        # The need VERDICT lives in weakness.py (C2-WEAK-01); this payload
+        # carries the deficit measurements under their own name only.
+        assert "needs" not in blob
         assert blob["competitiveWindow"]["probabilities"]
         assert sum(blob["competitiveWindow"]["probabilities"].values()) == pytest.approx(1.0)
 
@@ -336,7 +342,7 @@ class TestShape:
                 replacement=REPLACEMENT,
                 lineup_scores={f"t{j}": 300.0 + j * 40 for j in range(12)},
             )
-            seen.add((round(intel.lineup_score, 3), round(intel.needs["RB"].deficit, 3)))
+            seen.add((round(intel.lineup_score, 3), round(intel.deficits["RB"].deficit, 3)))
         assert len(seen) == 12
 
 

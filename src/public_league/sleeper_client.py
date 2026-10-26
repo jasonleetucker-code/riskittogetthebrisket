@@ -7,9 +7,11 @@ returns ``None`` / ``[]`` rather than raising, so the snapshot can
 still render with partial sections instead of failing the whole
 page.
 
-Exactly two dynasty seasons are supported right now: the current
-league and its direct ``previous_league_id``.  The chain walk is
-capped so a badly-configured league cannot recurse forever.
+History depth: the WHOLE ``previous_league_id`` chain.  The walk stops at
+Sleeper's terminator (``"0"`` / empty), at a link it cannot read, at a
+loop, or at a 25-season SAFETY cap -- and it says which
+(:func:`walk_league_chain_status`), so a truncated history can never pass
+for a complete one (C9-HIST-02).
 
 Network layer:
     Uses a module-level ``requests.Session`` with a pooled
@@ -24,25 +26,49 @@ from __future__ import annotations
 import logging
 import os as _os
 import threading
-from typing import Any
+from typing import Any, Callable
 
 import requests
 from requests.adapters import HTTPAdapter
+
+from src.utils.singleflight import SingleFlight
 
 log = logging.getLogger(__name__)
 
 SLEEPER_BASE = "https://api.sleeper.app/v1"
 
-# Max dynasty seasons the public pipeline surfaces.  Widened to 3
-# after the 2025 playoffs + 2026 offseason shipped — unlocks deeper
-# Hall of Fame + Best Rebuild signal.  Tunable via env override below
-# so ops can raise or lower without a code change.  Every section
-# module iterates ``snapshot.seasons`` so this constant is the single
-# knob that controls horizon.
+# SAFETY cap on the dynasty seasons the public pipeline walks -- not a
+# retention window.  "All-time" records, archives, Hall of Fame and every
+# other section iterate ``snapshot.seasons``, so this constant decides how
+# much league history exists for them.  It used to be 3, which made
+# "all-time" a rolling 3-season window that was correct only by coincidence
+# (dynasty_main's chain was exactly 3 seasons long) and would have silently
+# dropped 2024 at the 2027 rollover (C9-HIST-02 / W19-F017).  25 is a guard
+# against a malformed or cyclic chain, far past any real league's age; if a
+# chain ever reaches it the walk reports ``truncated`` instead of passing
+# the partial history off as complete.  Env override retained for ops.
+DEFAULT_PUBLIC_MAX_SEASONS = 25
 try:
-    PUBLIC_MAX_SEASONS = max(1, int(_os.getenv("PUBLIC_MAX_SEASONS", "3")))
+    PUBLIC_MAX_SEASONS = max(
+        1, int(_os.getenv("PUBLIC_MAX_SEASONS", str(DEFAULT_PUBLIC_MAX_SEASONS)))
+    )
 except ValueError:
-    PUBLIC_MAX_SEASONS = 3
+    PUBLIC_MAX_SEASONS = DEFAULT_PUBLIC_MAX_SEASONS
+
+#: Sleeper's ``previous_league_id`` for a league with no predecessor.
+_CHAIN_TERMINATORS = frozenset({"", "0"})
+
+#: :func:`walk_league_chain_status` outcomes.
+CHAIN_COMPLETE = "complete"  # reached the first season of the league
+CHAIN_TRUNCATED = "truncated"  # hit the safety cap with history still pending
+CHAIN_UNVERIFIED = "unverified"  # a link could not be read, looped, or has no type
+# The predecessor is a real league but not a DYNASTY one (Sleeper
+# ``settings.type`` != 2): a redraft/keeper season is not this dynasty's
+# history, so the walk stops there rather than mixing it in.
+CHAIN_NON_DYNASTY = "non_dynasty_predecessor"
+
+#: Sleeper ``league.settings.type``: 0 redraft, 1 keeper, 2 dynasty.
+SLEEPER_DYNASTY_TYPE = 2
 
 _DEFAULT_TIMEOUT = 8.0
 
@@ -75,6 +101,16 @@ _session: requests.Session | None = None
 
 _request_cache_lock = threading.Lock()
 _request_cache: dict[str, tuple[float, Any]] = {}
+
+# Memory bound (prod memory-pressure incident 2026-10-19).  Expiry used to be
+# LAZY: an entry was dropped only when the SAME url was read again past its
+# TTL, so every url fetched once (each season x week matchups/transactions
+# payload of every league chain walked) stayed resident for the life of the
+# process although it could never be served again — measured ~10 MB of dead
+# payloads on one league locally, on top of the shared players dump.  A put
+# now sweeps expired entries and caps the live set; the TTL rule a reader
+# sees is unchanged (an expired entry was never returned anyway).
+_REQUEST_CACHE_MAX_ENTRIES = 512
 
 
 def _get_session() -> requests.Session:
@@ -133,8 +169,25 @@ def _cache_put(url: str, payload: Any) -> None:
         return
     import time as _time
 
+    now = _time.time()
     with _request_cache_lock:
-        _request_cache[url] = (_time.time(), payload)
+        _request_cache.pop(url, None)
+        _request_cache[url] = (now, payload)
+        _evict_request_cache_locked(now)
+
+
+def _evict_request_cache_locked(now: float) -> None:
+    """Drop expired entries, then the oldest beyond the cap.  Lock held.
+
+    Insertion order is put order (a re-put moves its key to the end), so the
+    first keys are the oldest.  Expired entries are never served, so dropping
+    them changes no answer; the cap only evicts the oldest still-live entries,
+    whose next read becomes an ordinary miss.
+    """
+    for key in [k for k, (ts, _) in _request_cache.items() if (now - ts) > _CACHE_TTL_SECONDS]:
+        _request_cache.pop(key, None)
+    while len(_request_cache) > _REQUEST_CACHE_MAX_ENTRIES:
+        _request_cache.pop(next(iter(_request_cache)))
 
 
 def reset_request_cache() -> None:
@@ -174,6 +227,56 @@ def _request_json(url: str, timeout: float = _DEFAULT_TIMEOUT) -> Any:
     return payload
 
 
+#: Outcome kinds of :func:`request_json_classified`.
+FETCH_OK = "ok"
+FETCH_NOT_FOUND = "not_found"
+FETCH_RATE_LIMITED = "rate_limited"
+FETCH_ERROR = "error"
+
+
+def request_json_classified(url: str, timeout: float = _DEFAULT_TIMEOUT) -> tuple[str, Any]:
+    """``(kind, payload)`` for one GET — the variant for paced batch crawls
+    that must tell "Sleeper refused us" apart from "this object is gone".
+
+    :func:`_request_json` maps every non-200 to ``None``, so a 429 reads
+    exactly like a deleted league; its other callers rely on that and are left
+    alone.  Here:
+
+    * ``ok`` — 200 with a non-null JSON body;
+    * ``not_found`` — 200 with a JSON ``null`` body (Sleeper's answer for a
+      league id that does not exist) or a 404;
+    * ``rate_limited`` — HTTP 429;
+    * ``error`` — transport failure, any other status, or an undecodable body.
+
+    Shares the response cache with :func:`_request_json` for ``ok`` answers only.
+    """
+    cached = _cache_get(url)
+    if cached is not None:
+        return FETCH_OK, cached
+    try:
+        resp = _get_session().get(url, timeout=timeout)
+    except Exception as exc:  # noqa: BLE001 — every transport failure is an error
+        log.warning("sleeper_client GET failed for %s: %s", url, exc)
+        return FETCH_ERROR, None
+    if resp.status_code == 429:
+        log.warning("sleeper_client GET %s rate limited (429)", url)
+        return FETCH_RATE_LIMITED, None
+    if resp.status_code == 404:
+        return FETCH_NOT_FOUND, None
+    if resp.status_code != 200:
+        log.warning("sleeper_client GET %s returned status %d", url, resp.status_code)
+        return FETCH_ERROR, None
+    try:
+        payload = resp.json()
+    except ValueError as exc:
+        log.warning("sleeper_client JSON decode failed for %s: %s", url, exc)
+        return FETCH_ERROR, None
+    if payload is None:
+        return FETCH_NOT_FOUND, None
+    _cache_put(url, payload)
+    return FETCH_OK, payload
+
+
 def fetch_nfl_state() -> dict[str, Any] | None:
     """Sleeper's own ``/state/nfl``: the host's answer to "what season and
     week is it right now".
@@ -186,6 +289,134 @@ def fetch_nfl_state() -> dict[str, Any] | None:
     """
     data = _request_json(f"{SLEEPER_BASE}/state/nfl")
     return data if isinstance(data, dict) else None
+
+
+def fetch_user_classified(username_or_id: str) -> tuple[str, Any]:
+    """``(kind, user)`` for ``/user/{username_or_id}`` — see
+    :func:`request_json_classified` for the kinds.
+
+    Sleeper resolves either a username or a numeric user id here, and
+    answers a JSON ``null`` (``not_found``) for one that does not exist.
+    The handle is URL-quoted; it is never trusted to be URL-safe.
+    """
+    from urllib.parse import quote  # noqa: PLC0415
+
+    handle = quote(str(username_or_id or "").strip(), safe="")
+    if not handle:
+        return FETCH_NOT_FOUND, None
+    kind, payload = request_json_classified(f"{SLEEPER_BASE}/user/{handle}")
+    if kind == FETCH_OK and not (isinstance(payload, dict) and payload.get("user_id")):
+        return FETCH_NOT_FOUND, None
+    return kind, payload
+
+
+def fetch_user_leagues_classified(user_id: str, season: str | int) -> tuple[str, Any]:
+    """``(kind, leagues)`` for ``/user/{user_id}/leagues/nfl/{season}``.
+
+    ``ok`` always carries a list (possibly empty — a real answer: the user is
+    in no league that season), so callers can tell "no leagues" apart from a
+    failed fetch.
+    """
+    kind, payload = request_json_classified(
+        f"{SLEEPER_BASE}/user/{str(user_id).strip()}/leagues/nfl/{str(season).strip()}"
+    )
+    if kind == FETCH_NOT_FOUND:
+        return FETCH_OK, []
+    if kind == FETCH_OK and not isinstance(payload, list):
+        return FETCH_ERROR, None
+    return kind, payload
+
+
+def fetch_rosters_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, rosters)`` for ``/league/{league_id}/rosters``."""
+    kind, payload = request_json_classified(f"{SLEEPER_BASE}/league/{league_id}/rosters")
+    if kind == FETCH_OK and not isinstance(payload, list):
+        return FETCH_ERROR, None
+    return kind, payload
+
+
+def _classified_list(url: str, *, missing_is_empty: bool) -> tuple[str, Any]:
+    """``(kind, list)`` — ``ok`` always carries a list; a non-list body is an
+    ``error``.  ``missing_is_empty``: Sleeper answers a JSON ``null`` (or 404)
+    for "nothing here" on some list endpoints, which is then a real empty
+    answer rather than a missing object."""
+    kind, payload = request_json_classified(url)
+    if kind == FETCH_NOT_FOUND and missing_is_empty:
+        return FETCH_OK, []
+    if kind == FETCH_OK and not isinstance(payload, list):
+        return FETCH_ERROR, None
+    return kind, payload
+
+
+def fetch_transactions_classified(league_id: str, week: int) -> tuple[str, Any]:
+    """``(kind, transactions)`` for ``/league/{id}/transactions/{week}``.
+
+    Unlike :func:`fetch_transactions`, a 429 is ``rate_limited`` and a
+    transport failure ``error`` — neither ever reads as "no transactions"."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/league/{str(league_id).strip()}/transactions/{int(week)}",
+        missing_is_empty=True,
+    )
+
+
+def fetch_league_users_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, users)`` for ``/league/{id}/users`` (display names and the
+    commissioner's ``is_owner`` flag)."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/league/{str(league_id).strip()}/users", missing_is_empty=False
+    )
+
+
+def fetch_drafts_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, drafts)`` for ``/league/{id}/drafts``; an empty list is a real
+    "this league has no draft"."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/league/{str(league_id).strip()}/drafts", missing_is_empty=True
+    )
+
+
+def fetch_draft_picks_classified(draft_id: str) -> tuple[str, Any]:
+    """``(kind, picks)`` for ``/draft/{id}/picks``."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/draft/{str(draft_id).strip()}/picks", missing_is_empty=True
+    )
+
+
+def fetch_traded_picks_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, traded_picks)`` for ``/league/{id}/traded_picks``.
+
+    A JSON ``null`` / 404 is NOT read as "no traded picks" (unlike the
+    transaction list): an existing league answers ``[]`` for that, so a missing
+    body proves nothing and ownership must stay unknown (``not_found``).
+    Callers still pass an ``ok`` body through
+    ``picks.traded_picks_observation`` — the one rule every pick-ownership
+    producer uses."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/league/{str(league_id).strip()}/traded_picks", missing_is_empty=False
+    )
+
+
+def fetch_league_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, league)`` for ``/league/{id}``.  Sleeper answers a JSON
+    ``null`` for an id that does not exist (``not_found``); an ``ok`` body
+    without a ``league_id`` is an ``error``, never a league."""
+    kind, payload = request_json_classified(f"{SLEEPER_BASE}/league/{str(league_id).strip()}")
+    if kind == FETCH_OK and not (isinstance(payload, dict) and payload.get("league_id")):
+        return FETCH_ERROR, None
+    return kind, payload
+
+
+def fetch_winners_bracket_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, bracket)`` for ``/league/{id}/winners_bracket``.
+
+    A JSON ``null`` / 404 is NOT read as "no playoffs": it proves nothing
+    about who made the bracket, so it stays ``not_found`` and the caller's
+    playoff finish stays unknown (unlike :func:`fetch_winners_bracket`, which
+    collapses every failure to ``[]``)."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/league/{str(league_id).strip()}/winners_bracket",
+        missing_is_empty=False,
+    )
 
 
 def fetch_league(league_id: str) -> dict[str, Any] | None:
@@ -229,8 +460,25 @@ def fetch_draft_picks(draft_id: str) -> list[dict[str, Any]]:
 
 
 def fetch_traded_picks(league_id: str) -> list[dict[str, Any]]:
+    """Legacy collapsing read: a failed fetch reads as ``[]``.
+
+    Ownership must NOT be derived from this — use
+    :func:`fetch_traded_picks_observed`, which keeps "no trades" and "could not
+    read" apart.  Kept for callers that only want rows when they exist.
+    """
     data = _request_json(f"{SLEEPER_BASE}/league/{league_id}/traded_picks")
     return data if isinstance(data, list) else []
+
+
+def fetch_traded_picks_observed(league_id: str) -> list[dict[str, Any]] | None:
+    """``/traded_picks`` as an ownership OBSERVATION: a list (even empty) when
+    Sleeper answered, ``None`` when the read failed or was malformed — the
+    ``picks.traded_picks_observation`` rule every pick-ownership producer uses."""
+    from src.identity.picks import traded_picks_observation
+
+    return traded_picks_observation(
+        _request_json(f"{SLEEPER_BASE}/league/{league_id}/traded_picks")
+    )
 
 
 def fetch_winners_bracket(league_id: str) -> list[dict[str, Any]]:
@@ -248,6 +496,11 @@ def fetch_losers_bracket(league_id: str) -> list[dict[str, Any]]:
 # every subsequent snapshot build.  ~5 MB from Sleeper — we cache it
 # for the life of the process.
 _nfl_players_cache: dict[str, Any] | None = None
+#: One ``players/nfl`` download in flight: a cold process used to start a
+#: second ~5 MB download (and JSON parse) for every caller arriving while the
+#: first was still running — e.g. the Analyze Trade warm and the first
+#: analyze request after a restart.
+_nfl_players_flight = SingleFlight()
 
 
 def fetch_nfl_players() -> dict[str, Any]:
@@ -265,14 +518,25 @@ def fetch_nfl_players() -> dict[str, Any]:
     rostered player at zero.  Callers that need names must treat ``{}``
     as unavailable, never as "the NFL has no players".
     """
-    global _nfl_players_cache
     if _nfl_players_cache is not None:
         return _nfl_players_cache
-    data = _request_json(f"{SLEEPER_BASE}/players/nfl", timeout=30.0)
-    if isinstance(data, dict) and data:
-        _nfl_players_cache = data
-        return data
-    return {}
+
+    def _download() -> dict[str, Any]:
+        global _nfl_players_cache
+        if _nfl_players_cache is not None:
+            return _nfl_players_cache
+        data = _request_json(f"{SLEEPER_BASE}/players/nfl", timeout=30.0)
+        if isinstance(data, dict) and data:
+            _nfl_players_cache = data
+            return data
+        return {}
+
+    # Only a successful download is shared: a caller whose concurrent leader
+    # got ``{}`` (failed) joins ONE shared retry (bounded: two downloads per wave).
+    result, _shared = _nfl_players_flight.run_sharing_success(
+        "players/nfl", _download, failed=lambda data: not data
+    )
+    return result
 
 
 def reset_nfl_players_cache() -> None:
@@ -281,30 +545,118 @@ def reset_nfl_players_cache() -> None:
     _nfl_players_cache = None
 
 
-def walk_league_chain(
-    start_league_id: str, max_seasons: int = PUBLIC_MAX_SEASONS
-) -> list[dict[str, Any]]:
-    """Follow ``previous_league_id`` links up to ``max_seasons`` hops.
+def walk_league_chain_status(
+    start_league_id: str,
+    max_seasons: int = PUBLIC_MAX_SEASONS,
+    *,
+    fetch_league_fn: Callable[[str], tuple[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Follow ``previous_league_id`` links to the league's first DYNASTY season.
 
-    Returns a list of league objects ordered current → previous.  When
-    the chain is shorter than ``max_seasons`` (e.g. league only has one
-    completed dynasty season), the returned list is simply shorter —
-    callers must handle the short case.
+    Returns ``(chain, coverage)``: league objects ordered current -> oldest,
+    and how the walk ended, so a consumer can tell full history from a
+    partial one:
 
-    Graceful fallback: any missing league object or broken link ends
-    the walk without raising.
+    * ``complete`` -- reached Sleeper's terminator (``"0"`` / empty): every
+      season of the league is in ``chain``;
+    * ``truncated`` -- stopped at ``max_seasons`` while an older season was
+      still linked.  Logged as a warning; never silent;
+    * ``non_dynasty_predecessor`` -- the next older league is not a dynasty
+      league (``settings.type`` != 2), so it is not this dynasty's history
+      and is left out;
+    * ``unverified`` -- a linked league could not be fetched
+      (``predecessor_fetch_failed``), the chain looped (``chain_loop``), or a
+      predecessor carries no league type (``predecessor_type_unknown`` --
+      unknown is not dynasty, so it fails closed).
+
+    ``coverage`` = ``{"state", "reason", "seasonsWalked", "cap",
+    "stoppedAtLeagueId"}``; ``stoppedAtLeagueId`` is the league the walk did
+    NOT include (``None`` when it reached the terminator).  The starting
+    league is the current season and is included whatever its type; the
+    dynasty gate applies to predecessors.  Network failures never raise.
+
+    ``fetch_league_fn`` (optional) is a CLASSIFIED league fetcher returning
+    ``(kind, league)`` — e.g. a caller's call-budgeted, memoised
+    :func:`fetch_league_classified`.  With it a failed link names its cause:
+    ``start_rate_limited`` / ``predecessor_rate_limited`` for Sleeper's 429,
+    ``start_budget_exhausted`` / ``predecessor_budget_exhausted`` when the
+    caller's budget refused the call (kind ``"budget"``), otherwise the
+    ``*_fetch_failed`` reasons above.  Without it the walk is unchanged.
     """
-    if max_seasons <= 0:
-        return []
     chain: list[dict[str, Any]] = []
-    seen: set[str] = set()
+
+    def _cov(state: str, reason: str | None, stopped: str | None) -> dict[str, Any]:
+        return {
+            "state": state,
+            "reason": reason,
+            "seasonsWalked": len(chain),
+            "cap": max_seasons,
+            "stoppedAtLeagueId": stopped,
+        }
+
     cur = str(start_league_id or "").strip()
-    while cur and cur not in seen and len(chain) < max_seasons:
+    if max_seasons <= 0:
+        return chain, _cov(CHAIN_TRUNCATED, "safety_cap", cur or None)
+    if cur in _CHAIN_TERMINATORS:
+        # No start id at all: nothing was walked, so nothing is proven complete.
+        return chain, _cov(CHAIN_UNVERIFIED, "no_start_league", None)
+    seen: set[str] = set()
+    while cur not in _CHAIN_TERMINATORS:
+        if cur in seen:
+            log.warning("sleeper_client: previous_league_id chain loops at %s", cur)
+            return chain, _cov(CHAIN_UNVERIFIED, "chain_loop", cur)
+        if len(chain) >= max_seasons:
+            log.warning(
+                "sleeper_client: league history TRUNCATED at the %d-season safety cap "
+                "(older season %s still linked)",
+                max_seasons,
+                cur,
+            )
+            return chain, _cov(CHAIN_TRUNCATED, "safety_cap", cur)
         seen.add(cur)
-        league = fetch_league(cur)
+        prefix = "predecessor" if chain else "start"
+        if fetch_league_fn is None:
+            league = fetch_league(cur)
+            kind = FETCH_OK if league else FETCH_ERROR
+        else:
+            kind, league = fetch_league_fn(cur)
+            if kind != FETCH_OK or not isinstance(league, dict):
+                league = None
         if not league:
-            break
+            suffix = {FETCH_RATE_LIMITED: "rate_limited", "budget": "budget_exhausted"}.get(
+                kind, "fetch_failed"
+            )
+            return chain, _cov(CHAIN_UNVERIFIED, f"{prefix}_{suffix}", cur)
+        if chain:
+            raw_type = (league.get("settings") or {}).get("type")
+            try:
+                league_type = int(raw_type)
+            except (TypeError, ValueError):
+                league_type = None
+            if league_type is None:
+                log.warning("sleeper_client: predecessor league %s has no league type", cur)
+                return chain, _cov(CHAIN_UNVERIFIED, "predecessor_type_unknown", cur)
+            if league_type != SLEEPER_DYNASTY_TYPE:
+                log.warning(
+                    "sleeper_client: predecessor league %s is type %s, not dynasty; "
+                    "history stops before it",
+                    cur,
+                    league_type,
+                )
+                return chain, _cov(CHAIN_NON_DYNASTY, f"league_type_{league_type}", cur)
         chain.append(league)
         nxt = league.get("previous_league_id") or league.get("previous_league") or ""
         cur = str(nxt or "").strip()
-    return chain
+    return chain, _cov(CHAIN_COMPLETE, None, None)
+
+
+def walk_league_chain(
+    start_league_id: str, max_seasons: int = PUBLIC_MAX_SEASONS
+) -> list[dict[str, Any]]:
+    """The chain alone, current -> oldest; see :func:`walk_league_chain_status`
+    for how the walk ended (complete / truncated / unverified).
+
+    Graceful fallback: any missing league object or broken link ends the
+    walk without raising -- callers must handle the short case.
+    """
+    return walk_league_chain_status(start_league_id, max_seasons)[0]

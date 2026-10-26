@@ -1,0 +1,429 @@
+{
+  "label": "before",
+  "at": "2026-09-29T12:32:23.068Z",
+  "runs": [
+    {
+      "page": "rankings",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "rankings-facts",
+      "vp": "desktop",
+      "facts": {
+        "eyebrow": "Chase Upside Consensus / Updated 7m ago",
+        "rows": 30,
+        "zeroVals": 0,
+        "visibleHeaders": [
+          "#",
+          "Tier",
+          "Player",
+          "Pos",
+          "Consensus",
+          "Value",
+          "Sources",
+          "Confidence",
+          "Edge",
+          "Signal"
+        ]
+      }
+    },
+    {
+      "page": "rankings-expand",
+      "vp": "desktop",
+      "facts": {
+        "expandedAria": null
+      }
+    },
+    {
+      "page": "rankings-expanded",
+      "vp": "desktop",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 283,
+          "sample": [
+            ".source-audit-header > .muted",
+            ".source-audit-card-active.source-audit-card:nth-child(1) > .source-audit-card-header > strong",
+            ".source-audit-card-active.source-audit-card:nth-child(1) > .source-audit-card-header > .badge-green.badge"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "howitworks",
+      "vp": "desktop",
+      "facts": {
+        "text": "How rankings work\nSource ingestion — Raw values from KeepTradeCut Crowd SF-TE++, KeepTradeCut Trades SF-TE++, IDP Trade Calculator, Dynasty League Football Superflex, Dynasty League Football Rookie SF, Dynasty League Football IDP, Dynasty League Football Rookie IDP, The IDP Show — Combined (Adamidp), Dynasty Nerds SF-TEP, FantasyCalc Dynasty SF, OTC Fantasy Football SF, Fantasy Navigator SF, Play for Keeps Dynasty, Dynasty Daddy Superflex, FantasyPros Dynasty Superflex, FantasyPros Dynasty IDP, FantasyPros / Pat Fitzmaurice SF-TEP, Flock Fantasy Superflex, Flock Fantasy Rookie SF, Yahoo / Justin Boone SF-TEP, Draft Sharks Dynasty, Draft Sharks IDP Dynasty.\nPer-source ranking — Each player ranked within each source by raw value (highest = rank 1).\nRank normalization — Per-source ranks converted to 1–9,999 values via Hill-curve formula so sources are comparable.\nBlended ranking — Multi-source players get averaged normalized values. Single-source players keep their one value.\nUnified sort — All players sorted by blended value into one board. Top 800 get a consensus rank.\nTier detection — Natural value clusters detected via gap analysis. Tier breaks appear where adjacent players have unusually large value gaps.\nConfidence scoring — multi-source agreement, measured on the backend’s spread signal.\nIdentity validation — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).\nHill curve (percentile form, scope masters): p = clamp((rank-1)/(referenceN-1), 0, 1); value = clamp(9999/(1 + (p/c)^s), 1, 9999) (referenceN = 500)"
+      }
+    },
+    {
+      "page": "howitworks-modal",
+      "vp": "desktop",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 283,
+          "sample": [
+            ".source-audit-header > .muted",
+            ".source-audit-card-active.source-audit-card:nth-child(1) > .source-audit-card-header > strong",
+            ".source-audit-card-active.source-audit-card:nth-child(1) > .source-audit-card-header > .badge-green.badge"
+          ]
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1,
+          "sample": [
+            ".ds-dialog__body"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "popup",
+      "vp": "desktop",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 283,
+          "sample": [
+            ".source-audit-header > .muted",
+            ".source-audit-card-active.source-audit-card:nth-child(1) > .source-audit-card-header > strong",
+            ".source-audit-card-active.source-audit-card:nth-child(1) > .source-audit-card-header > .badge-green.badge"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "popup",
+      "vp": "desktop",
+      "facts": {
+        "text": "Josh Allen\nQB\nBUF\nage 30\n8 yr exp\nRank #1\nOwned by\nBlaine\n· QB1 on roster\nFull profile\nWatch\nCompare\nOUR VALUE\n9,978\nROS · no data yet\nValue chain — how we got 9,978\n1 stage\nValue history unavailable.\n\nSOURCE BREAKDOWN\n\nKTC Trades\n9,999\nDLF SF\n9,999\nFC\n9,999 (11,344)\nFN\n9,999 (9,871)\nPFK\n9,999 (9,999)\nDD\n9,999 (10,200)\nFP SF\n9,999\nFitzmaurice\n9,999 (100)\nBoone\n9,999 (141)\nDS\n9,999\nKTC Crowd\n9,997\nktcSfTep\n9,997\nIDPTC\n9,996\nDN SF-TEP\n9,883 (10,018)\nOTC\n9,752 (94.2)\nktcCrowdTradesSfTep\n9,645\nFF\n9,617\nIDP Show Combined\n9,486\n\nStrong consensus (CV 2%) — sources agree closely\n\n16 sources contributing · Tier 1"
+      }
+    },
+    {
+      "page": "player-allen",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "player-allen",
+      "vp": "desktop",
+      "facts": {
+        "h1": "Josh Allen",
+        "tiles": [
+          "Our Value9,978",
+          "Overall rank#1",
+          "Position rankQB1",
+          "ConfidenceLow — limited by freshness",
+          "Sources16Tier 1"
+        ],
+        "text": "PLAYER FILE / QB — BUF\n\nJosh Allen\n\nOwned by Blaine · QB1 on roster\n\nWatch\nCompare\nOpen in Trade Calculator\nQB\nBUF\nage 30\n8 yr exp\nOUR VALUE\n9,978\nOVERALL RANK\n#1\nPOSITION RANK\nQB1\nCONFIDENCE\nLow — limited by freshness\nSOURCES\n16\nTier 1\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nAnchor value\nIDPTC percentile-Hill — the universal offense+IDP baseline\n9,989\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-garrett",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "player-garrett",
+      "vp": "desktop",
+      "facts": {
+        "h1": "Myles Garrett",
+        "tiles": [
+          "Our Value5,223",
+          "Overall rank#61",
+          "Position rankDL3",
+          "ConfidenceLow — limited by freshness",
+          "Sources5Tier 12"
+        ],
+        "text": "PLAYER FILE / DL — LAR\n\nMyles Garrett\n\nOwned by Brent · DL2 on roster\n\nWatch\nCompare\nOpen in Trade Calculator\nDL\nLAR\nage 30\n9 yr exp\nOUR VALUE\n5,223\nOVERALL RANK\n#61\nPOSITION RANK\nDL3\nCONFIDENCE\nLow — limited by freshness\nSOURCES\n5\nTier 12\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nAnchor value\nIDPTC percentile-Hill — the universal offense+IDP baseline\n5,331\n2\nSubgroup adjustment ×0.10\nSubgroup blend 4252 − anchor 5331 = Δ-1079; shrunk by α=0.10\n5,223\n108\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-longname",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "player-longname",
+      "vp": "desktop",
+      "facts": {
+        "h1": "John Michael Gyllenborg",
+        "tiles": [
+          "Our Value672",
+          "Overall rank#983",
+          "Position rankTE84",
+          "ConfidenceLow — limited by independence, coverage, freshness, agreement",
+          "Sources1"
+        ],
+        "text": "PLAYER FILE / TE — KC\n\nJohn Michael Gyllenborg\n\nUnrostered in your league\n\nWatch\nCompare\nOpen in Trade Calculator\nTE\nKC\nage 24\nrookie year\nROOKIE\nOUR VALUE\n672\nOVERALL RANK\n#983\nPOSITION RANK\nTE84\nCONFIDENCE\nLow — limited by independence, coverage, freshness, agreement\nSOURCES\n1\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nAnchor value\nIDPTC percentile-Hill — the universal offense+IDP baseline\n2,242\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-notfound",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "player-notfound",
+      "vp": "desktop",
+      "facts": {
+        "tiles": [],
+        "text": "Player not found\n\nNo player on the current board matches this link — it may be misspelled, or the player may not be ranked today.\n\nBack to Rankings"
+      }
+    },
+    {
+      "page": "console",
+      "vp": "desktop",
+      "facts": {
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)"
+        ]
+      }
+    },
+    {
+      "page": "rankings",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "rankings-facts",
+      "vp": "mobile",
+      "facts": {
+        "eyebrow": "Chase Upside Consensus / Updated 7m ago",
+        "rows": 28,
+        "zeroVals": 0,
+        "visibleHeaders": [
+          "#",
+          "Player",
+          "Pos",
+          "Consensus",
+          "Value"
+        ]
+      }
+    },
+    {
+      "page": "rankings-expand",
+      "vp": "mobile",
+      "facts": {
+        "expandedAria": null
+      }
+    },
+    {
+      "page": "rankings-expanded",
+      "vp": "mobile",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 217,
+          "sample": [
+            ".board_mobileSourceChipEmpty__0bTPk.board_mobileSourceChip__eCWSf:nth-child(5) > .board_mobileSourceLabel__K_1Od",
+            ".board_mobileSourceChipEmpty__0bTPk.board_mobileSourceChip__eCWSf:nth-child(6) > .board_mobileSourceLabel__K_1Od",
+            ".board_mobileSourceChipEmpty__0bTPk.board_mobileSourceChip__eCWSf:nth-child(7) > .board_mobileSourceLabel__K_1Od"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "howitworks",
+      "vp": "mobile",
+      "facts": {
+        "text": "How rankings work\nSource ingestion — Raw values from KeepTradeCut Crowd SF-TE++, KeepTradeCut Trades SF-TE++, IDP Trade Calculator, Dynasty League Football Superflex, Dynasty League Football Rookie SF, Dynasty League Football IDP, Dynasty League Football Rookie IDP, The IDP Show — Combined (Adamidp), Dynasty Nerds SF-TEP, FantasyCalc Dynasty SF, OTC Fantasy Football SF, Fantasy Navigator SF, Play for Keeps Dynasty, Dynasty Daddy Superflex, FantasyPros Dynasty Superflex, FantasyPros Dynasty IDP, FantasyPros / Pat Fitzmaurice SF-TEP, Flock Fantasy Superflex, Flock Fantasy Rookie SF, Yahoo / Justin Boone SF-TEP, Draft Sharks Dynasty, Draft Sharks IDP Dynasty.\nPer-source ranking — Each player ranked within each source by raw value (highest = rank 1).\nRank normalization — Per-source ranks converted to 1–9,999 values via Hill-curve formula so sources are comparable.\nBlended ranking — Multi-source players get averaged normalized values. Single-source players keep their one value.\nUnified sort — All players sorted by blended value into one board. Top 800 get a consensus rank.\nTier detection — Natural value clusters detected via gap analysis. Tier breaks appear where adjacent players have unusually large value gaps.\nConfidence scoring — multi-source agreement, measured on the backend’s spread signal.\nIdentity validation — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).\nHill curve (percentile form, scope masters): p = clamp((rank-1)/(referenceN-1), 0, 1); value = clamp(9999/(1 + (p/c)^s), 1, 9999) (referenceN = 500)"
+      }
+    },
+    {
+      "page": "howitworks-modal",
+      "vp": "mobile",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 217,
+          "sample": [
+            ".board_mobileSourceChipEmpty__0bTPk.board_mobileSourceChip__eCWSf:nth-child(5) > .board_mobileSourceLabel__K_1Od",
+            ".board_mobileSourceChipEmpty__0bTPk.board_mobileSourceChip__eCWSf:nth-child(6) > .board_mobileSourceLabel__K_1Od",
+            ".board_mobileSourceChipEmpty__0bTPk.board_mobileSourceChip__eCWSf:nth-child(7) > .board_mobileSourceLabel__K_1Od"
+          ]
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1,
+          "sample": [
+            ".ds-dialog__body"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "popup",
+      "vp": "mobile",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodes": 217,
+          "sample": [
+            ".board_mobileSourceChipEmpty__0bTPk.board_mobileSourceChip__eCWSf:nth-child(5) > .board_mobileSourceLabel__K_1Od",
+            ".board_mobileSourceChipEmpty__0bTPk.board_mobileSourceChip__eCWSf:nth-child(6) > .board_mobileSourceLabel__K_1Od",
+            ".board_mobileSourceChipEmpty__0bTPk.board_mobileSourceChip__eCWSf:nth-child(7) > .board_mobileSourceLabel__K_1Od"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "popup",
+      "vp": "mobile",
+      "facts": {
+        "text": "Josh Allen\nQB\nBUF\nage 30\n8 yr exp\nRank #1\nOwned by\nBlaine\n· QB1 on roster\nFull profile\nWatch\nCompare\nOUR VALUE\n9,978\nROS · no data yet\nValue chain — how we got 9,978\n1 stage\nValue history unavailable.\n\nSOURCE BREAKDOWN\n\nKTC Trades\n9,999\nDLF SF\n9,999\nFC\n9,999 (11,344)\nFN\n9,999 (9,871)\nPFK\n9,999 (9,999)\nDD\n9,999 (10,200)\nFP SF\n9,999\nFitzmaurice\n9,999 (100)\nBoone\n9,999 (141)\nDS\n9,999\nKTC Crowd\n9,997\nktcSfTep\n9,997\nIDPTC\n9,996\nDN SF-TEP\n9,883 (10,018)\nOTC\n9,752 (94.2)\nktcCrowdTradesSfTep\n9,645\nFF\n9,617\nIDP Show Combined\n9,486\n\nStrong consensus (CV 2%) — sources agree closely\n\n16 sources contributing · Tier 1"
+      }
+    },
+    {
+      "page": "player-allen",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "player-allen",
+      "vp": "mobile",
+      "facts": {
+        "h1": "Josh Allen",
+        "tiles": [
+          "Our Value9,978",
+          "Overall rank#1",
+          "Position rankQB1",
+          "ConfidenceLow — limited by freshness",
+          "Sources16Tier 1"
+        ],
+        "text": "PLAYER FILE / QB — BUF\n\nJosh Allen\n\nOwned by Blaine · QB1 on roster\n\nWatch\nCompare\nOpen in Trade Calculator\nQB\nBUF\nage 30\n8 yr exp\nOUR VALUE\n9,978\nOVERALL RANK\n#1\nPOSITION RANK\nQB1\nCONFIDENCE\nLow — limited by freshness\nSOURCES\n16\nTier 1\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nAnchor value\nIDPTC percentile-Hill — the universal offense+IDP baseline\n9,989\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-garrett",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "player-garrett",
+      "vp": "mobile",
+      "facts": {
+        "h1": "Myles Garrett",
+        "tiles": [
+          "Our Value5,223",
+          "Overall rank#61",
+          "Position rankDL3",
+          "ConfidenceLow — limited by freshness",
+          "Sources5Tier 12"
+        ],
+        "text": "PLAYER FILE / DL — LAR\n\nMyles Garrett\n\nOwned by Brent · DL2 on roster\n\nWatch\nCompare\nOpen in Trade Calculator\nDL\nLAR\nage 30\n9 yr exp\nOUR VALUE\n5,223\nOVERALL RANK\n#61\nPOSITION RANK\nDL3\nCONFIDENCE\nLow — limited by freshness\nSOURCES\n5\nTier 12\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nAnchor value\nIDPTC percentile-Hill — the universal offense+IDP baseline\n5,331\n2\nSubgroup adjustment ×0.10\nSubgroup blend 4252 − anchor 5331 = Δ-1079; shrunk by α=0.10\n5,223\n108\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-longname",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "player-longname",
+      "vp": "mobile",
+      "facts": {
+        "h1": "John Michael Gyllenborg",
+        "tiles": [
+          "Our Value672",
+          "Overall rank#983",
+          "Position rankTE84",
+          "ConfidenceLow — limited by independence, coverage, freshness, agreement",
+          "Sources1"
+        ],
+        "text": "PLAYER FILE / TE — KC\n\nJohn Michael Gyllenborg\n\nUnrostered in your league\n\nWatch\nCompare\nOpen in Trade Calculator\nTE\nKC\nage 24\nrookie year\nROOKIE\nOUR VALUE\n672\nOVERALL RANK\n#983\nPOSITION RANK\nTE84\nCONFIDENCE\nLow — limited by independence, coverage, freshness, agreement\nSOURCES\n1\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nAnchor value\nIDPTC percentile-Hill — the universal offense+IDP baseline\n2,242\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-notfound",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "player-notfound",
+      "vp": "mobile",
+      "facts": {
+        "tiles": [],
+        "text": "Player not found\n\nNo player on the current board matches this link — it may be misspelled, or the player may not be ranked today.\n\nBack to Rankings"
+      }
+    },
+    {
+      "page": "console",
+      "vp": "mobile",
+      "facts": {
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)"
+        ]
+      }
+    }
+  ]
+}

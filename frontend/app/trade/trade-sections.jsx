@@ -10,22 +10,28 @@
  * NO trade math lives in this file.  Totals, gaps, adjustments, stack
  * effects and simulation results all arrive as props from lib/trade-logic
  * or the /api/trade/* responses.
+ *
+ * Sections that only render AFTER an interaction, or below the fold, live
+ * in their own modules so the /trade page loads them on demand
+ * (React.lazy in app/trade/page.jsx — see the note there):
+ * ./trade-simulation-panel.jsx (Simulate impact result),
+ * ./trade-ktc-import.jsx (Import KTC) and ./trade-suggestions-desk.jsx
+ * (Trade suggestions).  Do not re-export them from here — a static
+ * re-export puts them straight back into the page chunk.
  */
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Badge,
   Banner,
   Button,
-  DataTable,
   Field,
   Icon,
-  Input,
-  Movement,
   Panel,
+  PlayerNameButton,
   Select,
   SkeletonText,
-  StatTile,
+  canonicalPlayerId,
 } from "@/components/ds";
 import { PlayerImage } from "@/components/ui";
 import {
@@ -36,14 +42,27 @@ import {
   unpricedAssetsOnSide,
   getPlayerEdge,
 } from "@/lib/trade-logic";
-import { groupSideEntries, tradeEntryKey, tradeEntryLabel } from "@/lib/trade-assets";
+import {
+  formatAssetAge,
+  groupSideEntries,
+  groupTradeSearchResults,
+  packageCompositionText,
+  tradeEntryKey,
+  tradeEntryLabel,
+} from "@/lib/trade-assets";
+import { derivedPickDisclosure } from "@/lib/pick-provenance";
+import { ValueAdjustmentTip } from "@/components/help/TradeHelp";
+import { draftCapitalBudgetsUnavailableText } from "@/lib/draft-capital-budgets";
 import styles from "./trade.module.css";
 
 // ── Shared bits ───────────────────────────────────────────────────────
 
 export const SUGGESTION_RAIL_LABELS = {
-  sellHigh: { label: "Sell High", hint: "These pieces have peaked — convert before the market cools." },
-  buyLow: { label: "Buy Low", hint: "Undervalued by the consensus right now." },
+  // Hints describe what the generators in src/trade/suggestions.py actually
+  // do. Neither one detects a value peak or an undervalued player: both
+  // pair depth at a position you are deep in with a need elsewhere.
+  sellHigh: { label: "Sell High", hint: "Move depth from a position you are deep at for help where you are thin." },
+  buyLow: { label: "Buy Low", hint: "Target a starter at a position you need, paid for from your surplus." },
   consolidation: { label: "Consolidation", hint: "Trade a pile of assets for a single anchor." },
   positionalUpgrades: { label: "Upgrade", hint: "Direct positional swaps that net you value." },
 };
@@ -55,55 +74,52 @@ export const SUGG_TYPES = [
   { key: "positionalUpgrades", label: "Upgrades" },
 ];
 
-export function fairnessLabel(f) {
-  if (f === "even") return "Even value";
-  if (f === "lean") return "Slight lean";
-  return "Stretch";
-}
-
-/** Fairness/confidence/edge all map onto Badge tones — the meaning is
- *  carried by the label text, tone is reinforcement. */
-export function fairnessTone(f) {
-  if (f === "even") return "positive";
-  if (f === "lean") return "warning";
-  return "negative";
-}
-
-export function confidenceMeta(c) {
-  if (c === "high") return { label: "High consensus", tone: "positive" };
-  if (c === "medium") return { label: "Moderate consensus", tone: "warning" };
-  return { label: "Low consensus", tone: "neutral" };
-}
-
-export function edgeMeta(edge) {
-  if (edge === "market_discount") return { text: "Buy Low", tone: "positive" };
-  if (edge === "market_premium") return { text: "Sell High", tone: "negative" };
-  if (edge === "high_dispersion") return { text: "Sources Disagree", tone: "warning" };
-  return null;
-}
-
-function fmtSigned(n) {
-  const v = Math.round(Number(n) || 0);
-  return `${v >= 0 ? "+" : "−"}${Math.abs(v).toLocaleString()}`;
-}
-
-/** A search result row, shared by the mobile quick-add and per-side search. */
-function SearchResultRow({ row, settings, onPick, keyPrefix }) {
+/**
+ * A search result row, shared by the per-side search and the phone sheet.
+ * `activateOn="press"` (the inline dropdown) picks on mouse/touch DOWN so the
+ * input never blurs and the dropdown never unmounts under the finger;
+ * `"click"` (the phone sheet, TC-D2) picks on a completed tap, so a scroll
+ * gesture that starts on a row in the sheet's long list adds nothing.
+ */
+function SearchResultRow({
+  row,
+  settings,
+  onPick,
+  keyPrefix,
+  activateOn = "press",
+  optionId,
+  active = false,
+}) {
+  const handlers =
+    activateOn === "click"
+      ? { onClick: () => onPick(row) }
+      : {
+          onMouseDown: (e) => {
+            // Prevent input blur so focus stays in the search field after a
+            // tap — the mobile keyboard doesn't dismiss between additions.
+            e.preventDefault();
+            onPick(row);
+          },
+          onTouchStart: (e) => {
+            e.preventDefault();
+            onPick(row);
+          },
+        };
   return (
     <button
       key={`${keyPrefix}-${tradeEntryKey(row)}`}
       type="button"
       className="trade-side-search-result button-reset"
-      onMouseDown={(e) => {
-        // Prevent input blur so focus stays in the search field after a
-        // tap — the mobile keyboard doesn't dismiss between additions.
-        e.preventDefault();
-        onPick(row);
-      }}
-      onTouchStart={(e) => {
-        e.preventDefault();
-        onPick(row);
-      }}
+      // The inline dropdown is a combobox listbox (TC-E): the input keeps
+      // focus and points at the active row with aria-activedescendant, so a
+      // row is an option and leaves the tab order.  The phone sheet keeps
+      // plain buttons, reached with Tab inside the dialog.
+      {...(optionId
+        ? { id: optionId, role: "option", "aria-selected": active, tabIndex: -1 }
+        : {})}
+      data-active={active || undefined}
+      data-asset-id={row.assetId || undefined}
+      {...handlers}
     >
       <PlayerImage
         playerId={row.raw?.playerId}
@@ -128,93 +144,53 @@ function SearchResultRow({ row, settings, onPick, keyPrefix }) {
   );
 }
 
-// ── Mobile quick-add ──────────────────────────────────────────────────
-
 /**
- * Mobile-only sticky quick-add bar.  The per-side search inputs live
- * deep in the page; on a 390px viewport that is ~600-800px of scroll
- * before a user can type a name.  This surfaces one search at the top
- * with an explicit active-side indicator and a one-tap side toggle.
+ * A search result list, market references first and owned picks second
+ * (``groupTradeSearchResults``).  Headings render only when both groups
+ * are present, so a plain player search looks exactly as before.  Keys
+ * carry the group so a row offered in both groups cannot collide.
  */
-export function MobileQuickAddBar({
-  activeSide,
-  sides,
-  onAddToActiveSide,
-  searchAssets,
+export function SearchResultList({
+  results,
   settings,
-  onSetActiveSide,
+  onPick,
+  keyPrefix,
+  activateOn,
+  optionIdPrefix,
+  activeIndex = -1,
 }) {
-  const [query, setQuery] = useState("");
-  const [focused, setFocused] = useState(false);
-  const inputRef = useRef(null);
-
-  const trimmed = query.trim();
-  const results = focused && trimmed ? searchAssets(query) : [];
-  const showResults = focused && trimmed.length > 0;
-  const sideLabel = sides[activeSide]?.label || sides[0]?.label || "A";
-
-  function handleAdd(row) {
-    onAddToActiveSide(row);
-    setQuery("");
-    requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
-  }
-
-  return (
-    <div
-      className="mobile-quick-add mobile-only"
-      role="region"
-      aria-label="Quick add player to trade"
-    >
-      <div className="mobile-quick-add-row">
-        <button
-          type="button"
-          className="mobile-quick-add-side-badge"
-          onClick={() => {
-            if (sides.length >= 2) onSetActiveSide((activeSide + 1) % sides.length);
-          }}
-          aria-label={`Currently adding to Side ${sideLabel}. Activate to switch sides.`}
-          disabled={sides.length < 2}
-        >
-          <span className="mobile-quick-add-side-letter">{sideLabel}</span>
-          {sides.length >= 2 ? (
-            <Icon name="swap" aria-hidden="true" />
-          ) : null}
-        </button>
-        <input
-          ref={inputRef}
-          className="input mobile-quick-add-input"
-          placeholder={`Quick add to Side ${sideLabel}…`}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setTimeout(() => setFocused(false), 120)}
-          inputMode="search"
-          enterKeyHint="search"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck="false"
-          aria-label={`Quick add a player to Side ${sideLabel}`}
-        />
-      </div>
-      {showResults ? (
-        <div className="mobile-quick-add-results">
-          {results.length === 0 ? (
-            <div className="mobile-quick-add-empty muted">No matches.</div>
-          ) : (
-            results.map((r) => (
-              <SearchResultRow
-                key={`mobile-quick-${tradeEntryKey(r)}`}
-                row={r}
-                settings={settings}
-                onPick={handleAdd}
-                keyPrefix="mobile-quick"
-              />
-            ))
-          )}
+  // Options are numbered in RENDERED order (market group, then owned picks),
+  // the order ArrowDown walks (`orderedSearchResults`).
+  let index = -1;
+  return groupTradeSearchResults(results).map((group) => (
+    <div key={`${keyPrefix}-${group.key}`} role="group" aria-label={group.label || undefined}>
+      {group.label ? (
+        <div className={styles.searchGroupLabel} aria-hidden={optionIdPrefix ? true : undefined}>
+          {group.label}
         </div>
       ) : null}
+      {group.entries.map((r) => {
+        index += 1;
+        return (
+          <SearchResultRow
+            key={`${keyPrefix}-${group.key}-${tradeEntryKey(r)}`}
+            row={r}
+            settings={settings}
+            onPick={onPick}
+            keyPrefix={`${keyPrefix}-${group.key}`}
+            activateOn={activateOn}
+            optionId={optionIdPrefix ? `${optionIdPrefix}-${index}` : undefined}
+            active={index === activeIndex}
+          />
+        );
+      })}
     </div>
-  );
+  ));
+}
+
+/** The search results in the order SearchResultList renders them. */
+export function orderedSearchResults(results) {
+  return groupTradeSearchResults(results).flatMap((g) => g.entries);
 }
 
 // ── Proactive suggestion rail ─────────────────────────────────────────
@@ -299,566 +275,7 @@ export function ProactiveSuggestionsRail({ suggestions, onApply }) {
   );
 }
 
-// ── Simulation impact ─────────────────────────────────────────────────
 
-const VERDICT_TONE = {
-  accept: "positive",
-  "lean accept": "positive",
-  neutral: "neutral",
-  "lean decline": "negative",
-  decline: "negative",
-};
-
-/**
- * `finalRosterSimulation` refusal copy, keyed by the backend's own
- * `unavailableReason`.  The backend refuses for reasons that mean
- * genuinely different things to a user, so they are not collapsed into
- * one "unavailable" line.
- */
-const FINAL_ROSTER_UNAVAILABLE_COPY = {
-  capacity_uncertain:
-    "taxi occupancy is unknown, so the forced-drop set is a range rather than a determined set — see Roster capacity above",
-  starter_slots_unresolved:
-    "the league's starting slots did not resolve, so no lineup could be solved",
-};
-
-/**
- * Why the final roster was not simulated.
- *
- * Reads BOTH shapes the backend can stamp: `{available: false,
- * unavailableReason}` for a deliberate refusal, and `{unavailable:
- * "<ExcType>"}` for an error — the second carries no `available` key at
- * all, which is why the caller tests `available === true` rather than
- * `available !== false`.
- */
-function finalRosterUnavailableText(frs) {
-  const reason = frs?.unavailableReason || frs?.unavailable || "reason not reported";
-  return `Not simulated — ${FINAL_ROSTER_UNAVAILABLE_COPY[reason] || reason}.`;
-}
-
-/** Backend-stamped number for display. Missing stays missing, never 0. */
-function strengthText(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
-}
-
-export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) {
-  if (!simResult && !simError) return null;
-
-  const teamName =
-    simResult?.team?.name || selectedTeam?.name || "your team";
-  const ti = simResult?.teamImpact;
-  const starterEntries = Object.entries(ti?.starterValueDelta || {}).filter(
-    ([, v]) => v !== 0,
-  );
-  const unresolved = [
-    ...(simResult?.unresolvedIn || []),
-    ...(simResult?.unresolvedOut || []),
-  ];
-  const rc = simResult?.rosterCapacity;
-  // V1-45 / V1-42. `rosterCapacity` says WHO must go; this says what the
-  // roster IS once they have — the lineup re-solved over the post-trade,
-  // post-cleanup roster. Absent (not null) whenever there is no resolved
-  // team, and absent must render nothing at all.
-  const frs = simResult?.finalRosterSimulation;
-
-  return (
-    <Panel
-      title={`Impact on ${teamName}`}
-      headingLevel={2}
-      actions={
-        <Button variant="ghost" size="sm" onClick={onReset}>
-          Clear simulation
-        </Button>
-      }
-    >
-      {simError ? (
-        <Banner tone="negative" title="Simulation failed">
-          {simError}
-        </Banner>
-      ) : null}
-
-      {simResult ? (
-        <>
-          <div className={styles.simGrid}>
-            <StatTile
-              label="Before"
-              value={Math.round(simResult.before?.totalValue || 0).toLocaleString()}
-            />
-            <StatTile
-              label="After"
-              value={Math.round(simResult.after?.totalValue || 0).toLocaleString()}
-            />
-            <StatTile
-              label="Change"
-              value={fmtSigned(simResult.delta?.totalValue)}
-              movement={
-                <Movement
-                  delta={simResult.delta?.totalValue || 0}
-                  format={(n) => n.toLocaleString()}
-                />
-              }
-            />
-          </div>
-
-          <div className={styles.simPosGrid} style={{ marginTop: "var(--space-3)" }}>
-            {["QB", "RB", "WR", "TE"].map((pos) => {
-              const row = simResult.delta?.byPosition?.[pos];
-              if (!row) return null;
-              return (
-                <StatTile
-                  key={pos}
-                  label={pos}
-                  value={fmtSigned(row.value)}
-                  meta={row.count !== 0 ? `${row.count > 0 ? "+" : ""}${row.count} players` : null}
-                />
-              );
-            })}
-          </div>
-
-          {ti ? (
-            <div className={styles.simSection} style={{ marginTop: "var(--space-3)" }}>
-              <div className={styles.simSectionHead}>
-                <span className={styles.simSectionTitle}>Roster fit</span>
-                <span className={styles.simVerdict}>
-                  <Badge tone={VERDICT_TONE[ti.verdict] || "neutral"}>{ti.verdict}</Badge>
-                  <span className={styles.simScore}>
-                    {ti.compositeScore >= 0 ? "+" : ""}
-                    {ti.compositeScore.toFixed(1)}
-                  </span>
-                </span>
-              </div>
-              <div className={styles.simGrid}>
-                <StatTile
-                  label="Fit"
-                  value={`${ti.fitScore >= 0 ? "+" : ""}${ti.fitScore.toFixed(1)}`}
-                />
-                <StatTile
-                  label="Equity"
-                  value={`${ti.equityScore >= 0 ? "+" : ""}${ti.equityScore.toFixed(1)}`}
-                />
-                <StatTile
-                  label={ti.posture || "Window"}
-                  value={`${ti.windowFit >= 0 ? "+" : ""}${ti.windowFit.toFixed(2)}`}
-                  meta="window fit"
-                />
-              </div>
-              {starterEntries.length > 0 ? (
-                <div className={styles.simStarterGrid}>
-                  {starterEntries.map(([pos, dv]) => (
-                    <StatTile
-                      key={pos}
-                      label={`${pos} starter`}
-                      value={fmtSigned(dv)}
-                      bare
-                    />
-                  ))}
-                </div>
-              ) : null}
-              {ti.rationale?.length > 0 ? (
-                <ul className={styles.simRationale}>
-                  {ti.rationale.map((r, i) => (
-                    <li key={i}>{r}</li>
-                  ))}
-                </ul>
-              ) : null}
-              {ti.redundancy?.length > 0 ? (
-                <Banner tone="warning">
-                  Redundant: {ti.redundancy.map((r) => `${r.name} (${r.pos})`).join(", ")}
-                </Banner>
-              ) : null}
-            </div>
-          ) : null}
-
-          {rc && rc.requiresDrops === true ? (
-            <Banner tone="warning" title="Roster capacity">
-              {`Forces ${rc.forcedDrops.length} release${rc.forcedDrops.length === 1 ? "" : "s"}` +
-                (rc.rosterLimit != null ? ` to fit the ${rc.rosterLimit}-man limit` : "") +
-                (rc.forcedDropValue != null
-                  ? ` — ${Math.round(rc.forcedDropValue).toLocaleString()} value released`
-                  : "") +
-                (rc.forcedDropsAreUpperBound ? " (worst case; taxi occupancy uncertain)" : "") +
-                (rc.ladderExhausted ? " — no fully legal cleanup found" : "")}
-              {rc.forcedDrops.length > 0 ? (
-                <ul className={styles.simRationale}>
-                  {rc.forcedDrops.map((d) => (
-                    <li key={d.playerId || d.name}>
-                      {d.name} ({d.position}) —{" "}
-                      {d.value != null ? Math.round(d.value).toLocaleString() : "unpriced"}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </Banner>
-          ) : null}
-
-          {rc && rc.requiresDrops === null ? (
-            <Banner tone="neutral" title="Roster capacity">
-              {rc.rosterLimit == null
-                ? "Roster capacity unknown for this league."
-                : "Roster capacity uncertain — taxi occupancy unknown; this trade may or may not require a release."}
-            </Banner>
-          ) : null}
-
-          {/* Final roster — renders AFTER the capacity blocks on purpose:
-              the backend's own `capacity_uncertain` note says "see
-              rosterCapacity", so it must read after what it refers to.
-              Pure display of backend stamps; nothing here is derived. */}
-          {frs ? (
-            frs.available === true ? (
-              <div className={styles.simSection} style={{ marginTop: "var(--space-3)" }}>
-                <div className={styles.simSectionHead}>
-                  <span className={styles.simSectionTitle}>Final roster</span>
-                </div>
-                <div className={styles.simGrid}>
-                  <StatTile label="Strength before" value={strengthText(frs.strengthBefore?.total)} />
-                  <StatTile label="Strength after" value={strengthText(frs.strengthAfter?.total)} />
-                  <StatTile
-                    label="Strength change"
-                    /* The BACKEND's delta. Never `after - before`: this
-                       file computes no trade math, and a client-side
-                       subtraction would silently republish a different
-                       quantity under a canonical field's name. */
-                    value={
-                      Number.isFinite(Number(frs.strengthDelta))
-                        ? fmtSigned(frs.strengthDelta)
-                        : "—"
-                    }
-                  />
-                </div>
-
-                {frs.promotions?.length > 0 ? (
-                  <ul className={styles.simRationale}>
-                    {frs.promotions.map((m) => (
-                      <li key={`promo-${m.playerId || m.name}`}>
-                        Promoted: {m.name} ({m.position}) →{" "}
-                        {m.slotAfter || "lineup"}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-
-                {frs.displacements?.length > 0 ? (
-                  <ul className={styles.simRationale}>
-                    {frs.displacements.map((m) => (
-                      <li key={`disp-${m.playerId || m.name}`}>
-                        Displaced: {m.name} ({m.position}) — {m.slotBefore || "lineup"} → bench
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-
-                {/* Both directions, with equal weight. RosterSimulation's
-                    own docstring: "A simulation that only showed what
-                    improved would be an advocacy tool." */}
-                {frs.needsFixed?.length > 0 || frs.needsCreated?.length > 0 ? (
-                  <ul className={styles.simRationale}>
-                    {frs.needsFixed?.length > 0 ? (
-                      <li>Needs closed: {frs.needsFixed.join(", ")}</li>
-                    ) : null}
-                    {frs.needsCreated?.length > 0 ? (
-                      <li>Needs opened: {frs.needsCreated.join(", ")}</li>
-                    ) : null}
-                  </ul>
-                ) : null}
-
-                {frs.cleanupApplied?.length > 0 ? (
-                  <p className={styles.suggestMeta}>
-                    {`Solved after ${frs.cleanupApplied.length} required release` +
-                      `${frs.cleanupApplied.length === 1 ? "" : "s"} — named under Roster capacity.`}
-                  </p>
-                ) : null}
-
-                {frs.unpricedIncoming?.length > 0 ? (
-                  <p className={styles.suggestMeta}>
-                    Incoming, not priced by the board: {frs.unpricedIncoming.join(", ")}
-                  </p>
-                ) : null}
-
-                {frs.outgoingNotFound?.length > 0 ? (
-                  <p className={styles.suggestMeta}>
-                    Sent but not found on this roster: {frs.outgoingNotFound.join(", ")}
-                  </p>
-                ) : null}
-
-                {frs.cleanupIsUpperBound ? (
-                  <Banner tone="warning">
-                    The releases this was solved against are a worst case, so this final
-                    roster is one of a range rather than a determined set.
-                  </Banner>
-                ) : null}
-              </div>
-            ) : (
-              <Banner tone="neutral" title="Final roster">
-                {finalRosterUnavailableText(frs)}
-              </Banner>
-            )
-          ) : null}
-
-          {unresolved.length > 0 ? (
-            <Banner tone="warning" title="Unresolved assets">
-              {unresolved.join(", ")}
-            </Banner>
-          ) : null}
-
-          <p className={styles.suggestMeta} style={{ marginTop: "var(--space-2)" }}>
-            Equity (receiving − sending): {fmtSigned(simResult.equity)}
-          </p>
-
-          {/* Secondary context, deliberately AFTER every verdict-bearing
-              block: exposure feeds no value, equity or verdict
-              (C2-EXP-01), so it must not read as part of the grade. */}
-          <NflExposureSection exposure={simResult.nflExposure} />
-        </>
-      ) : null}
-    </Panel>
-  );
-}
-
-// ── NFL team exposure (C2-EXP-01) ─────────────────────────────────────
-
-/**
- * Backend share (0–100 scale, already a percentage) for display.
- * Missing stays missing: `null` is an UNMEASURED share, never 0%.
- */
-function exposurePct(v) {
-  if (v == null) return "—";
-  const n = Number(v);
-  return Number.isFinite(n) ? `${n.toFixed(1)}%` : "—";
-}
-
-/** Backend Herfindahl index (0–10,000) for display; missing stays missing. */
-function exposureHhi(v) {
-  if (v == null) return "—";
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
-}
-
-/** Magnitude formatter for <Movement>: percentage points, never a bare 0.0. */
-function ppMagnitude(m) {
-  return m > 0 && m < 0.05 ? "<0.1 pp" : `${m.toFixed(1)} pp`;
-}
-
-function exposureIds(ids) {
-  return Array.isArray(ids) ? ids.filter(Boolean) : [];
-}
-
-const EXPOSURE_SCOPE_COPY = {
-  full_roster: "Share of full-roster board value",
-};
-
-const EXPOSURE_MOVE_COLUMNS = [
-  {
-    key: "team",
-    header: "NFL team",
-    render: (r) => (r.isFranchise === false ? `${r.team} (not an NFL franchise)` : r.team),
-  },
-  { key: "shareBefore", header: "Before", numeric: true, render: (r) => exposurePct(r.shareBefore) },
-  { key: "shareAfter", header: "After", numeric: true, render: (r) => exposurePct(r.shareAfter) },
-  {
-    key: "delta",
-    header: "Change",
-    numeric: true,
-    // The BACKEND's delta, in percentage points — never after − before
-    // recomputed here.
-    render: (r) => {
-      const d = Number(r.delta);
-      if (r.delta == null || !Number.isFinite(d)) return "—";
-      const words = ppMagnitude(Math.abs(d)).replace("pp", "percentage points");
-      return (
-        <Movement
-          delta={d}
-          format={ppMagnitude}
-          srLabel={d === 0 ? "unchanged" : `${d > 0 ? "up" : "down"} ${words}`}
-        />
-      );
-    },
-  },
-];
-
-const EXPOSURE_CONCENTRATION_COLUMNS = [
-  { key: "measure", header: "Measure" },
-  { key: "before", header: "Before", numeric: true },
-  { key: "after", header: "After", numeric: true },
-];
-
-/**
- * "NFL team exposure" — value-weighted NFL-franchise share of the team's
- * roster before → after the simulated trade (`nflExposure` on
- * `POST /api/trade/simulate`, owner `src/roster_intel/exposure.py`).
- *
- * PURE RENDERER: every share, delta and concentration figure is a backend
- * stamp; nothing is summed, differenced or re-derived here. Collapsed by
- * default and labelled as context — the owner ruled exposure never
- * influences the grade, so it must not present as part of the verdict.
- *
- * States: absent (render nothing), `unavailable`, populated with moves,
- * populated with no team moved, and coverage gaps (`unpricedIds`,
- * `unknownTeamIds`, `outgoingNotOnRoster`), which are always named —
- * missing is never zero.
- */
-export function NflExposureSection({ exposure }) {
-  const headingId = useId();
-  if (!exposure || typeof exposure !== "object") return null;
-
-  const heading = (
-    <div className={styles.simSectionHead}>
-      <h3 id={headingId} className={`${styles.simSectionTitle} ${styles.exposureTitle}`}>
-        NFL team exposure
-      </h3>
-      <span className={styles.suggestMeta}>Context only — not part of the verdict</span>
-    </div>
-  );
-
-  const before = exposure.before;
-  const after = exposure.after;
-  if (exposure.unavailable || !before || !after) {
-    const note = exposureIds(exposure.notes)[0];
-    return (
-      <section className={styles.simSection} aria-labelledby={headingId} data-testid="nfl-exposure">
-        {heading}
-        <p className={styles.suggestMeta}>
-          {`Unavailable — ${note || "NFL-team exposure could not be computed for this trade"}.`}
-          {exposure.unavailable ? ` (${exposure.unavailable})` : ""}
-        </p>
-      </section>
-    );
-  }
-
-  const moved = Array.isArray(exposure.moved)
-    ? exposure.moved
-    : Array.isArray(exposure.changes)
-      ? exposure.changes
-      : [];
-  const gaps = [
-    ["Not priced by the board — excluded, never counted as zero (before)", exposureIds(before.unpricedIds)],
-    ["Not priced by the board — excluded, never counted as zero (after)", exposureIds(after.unpricedIds)],
-    ["Priced, but NFL team unknown — excluded (before)", exposureIds(before.unknownTeamIds)],
-    ["Priced, but NFL team unknown — excluded (after)", exposureIds(after.unknownTeamIds)],
-    ["Sent but not on this roster — frees nothing", exposureIds(exposure.outgoingNotOnRoster)],
-  ].filter(([, ids]) => ids.length > 0);
-
-  const concentration = [
-    {
-      measure: "Largest single team",
-      before: exposurePct(before.topFranchiseShare),
-      after: exposurePct(after.topFranchiseShare),
-    },
-    {
-      measure: "Concentration index (HHI, 0–10,000)",
-      before: exposureHhi(before.franchiseHHI),
-      after: exposureHhi(after.franchiseHHI),
-    },
-  ];
-
-  const summary =
-    moved.length > 0
-      ? `Show ${moved.length} team${moved.length === 1 ? "" : "s"} that moved`
-      : "Show detail — no team's share changed";
-
-  return (
-    <section className={styles.simSection} aria-labelledby={headingId} data-testid="nfl-exposure">
-      {heading}
-      {gaps.length > 0 ? (
-        <p className={styles.suggestMeta}>
-          Coverage incomplete — some players are excluded; they are named in the detail.
-        </p>
-      ) : null}
-      <details>
-        <summary className={styles.exposureSummary}>{summary}</summary>
-        <div className={styles.exposureBody}>
-          <p className={styles.suggestMeta}>
-            {EXPOSURE_SCOPE_COPY[exposure.scope] ||
-              `Share of board value${exposure.scope ? ` (${exposure.scope})` : ""}`}
-            , before → after the trade as entered. Draft picks carry no NFL team and are not
-            included.
-          </p>
-          <DataTable
-            columns={EXPOSURE_MOVE_COLUMNS}
-            rows={moved}
-            rowKey="team"
-            density="compact"
-            caption="NFL team share of roster value, before and after the trade"
-            emptyState={
-              <p className={styles.suggestMeta}>No NFL team&apos;s share of roster value changed.</p>
-            }
-          />
-          <DataTable
-            columns={EXPOSURE_CONCENTRATION_COLUMNS}
-            rows={concentration}
-            rowKey="measure"
-            density="compact"
-            caption="Roster concentration across NFL teams, before and after the trade"
-          />
-          {gaps.length > 0 ? (
-            <ul className={styles.simRationale}>
-              {gaps.map(([label, ids]) => (
-                <li key={label}>
-                  {label}: {ids.join(", ")}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      </details>
-    </section>
-  );
-}
-
-// ── KTC import ────────────────────────────────────────────────────────
-
-export function KtcImportPanel({
-  url,
-  onUrlChange,
-  busy,
-  error,
-  onSubmit,
-  onCancel,
-}) {
-  return (
-    <Panel
-      title="Import from KeepTradeCut"
-      headingLevel={2}
-      subtitle="Replaces sides A and B; extra sides (3+ team trades) are left untouched."
-    >
-      <div className={styles.importRow}>
-        <Input
-          className={styles.importInput}
-          type="text"
-          placeholder="https://keeptradecut.com/trade-calculator?teamOne=…&teamTwo=…"
-          value={url}
-          onChange={(e) => onUrlChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !busy) onSubmit();
-            if (e.key === "Escape") onCancel();
-          }}
-          disabled={busy}
-          aria-label="KeepTradeCut trade-calculator URL"
-          autoFocus
-        />
-        <Button
-          variant="primary"
-          onClick={onSubmit}
-          disabled={busy || !url.trim()}
-          loading={busy}
-        >
-          Load trade
-        </Button>
-        <Button onClick={onCancel} disabled={busy}>
-          Cancel
-        </Button>
-      </div>
-      <p className={styles.suggestMeta} style={{ marginTop: "var(--space-2)" }}>
-        Unknown KTC IDs and players we can&apos;t match by name are reported here.
-      </p>
-      {error ? (
-        <Banner tone="negative" title="Import failed">
-          {error}
-        </Banner>
-      ) : null}
-    </Panel>
-  );
-}
 
 // ── Pick-team selectors ───────────────────────────────────────────────
 
@@ -868,13 +285,14 @@ export function PickTeamSelectors({
   sideTeamNames,
   onSetTeam,
   stackGateUnmet,
+  stackBudgetsUnavailable = null,
 }) {
   return (
     <Panel
       dense
       title="Draft-capital stacks"
       headingLevel={2}
-      subtitle="Picks are in this trade — their worth depends on each team's stack. Select the team on each side."
+      subtitle="Picks are in this trade. Select the team on each side to see the draft-capital stack note (not included in the verdict)."
     >
       <div className={styles.pickTeams}>
         {sides.map((s, i) => (
@@ -896,8 +314,14 @@ export function PickTeamSelectors({
       </div>
       {stackGateUnmet ? (
         <Banner tone="info">
-          Verdict is showing pure board value. Assign a team to every side a
-          pick is traded to or from to apply the draft-capital stack effect.
+          Assign a team to every side a pick is traded to or from to see the
+          draft-capital stack note. The verdict does not use it.
+        </Banner>
+      ) : null}
+      {stackBudgetsUnavailable ? (
+        <Banner tone="info">
+          {draftCapitalBudgetsUnavailableText(stackBudgetsUnavailable)} The draft-capital
+          stack note is off for this league.
         </Banner>
       ) : null}
     </Panel>
@@ -909,7 +333,6 @@ export function PickTeamSelectors({
 function AssetRow({
   row,
   count = 1,
-  repeatable = false,
   sideIdx,
   sides,
   side,
@@ -922,11 +345,18 @@ function AssetRow({
   onRemove,
   onAddCopy,
   onSetDestination,
+  sideLabels = null,
 }) {
   const edge = getPlayerEdge(row);
-  // One line per IDENTITY (lib/trade-assets): a repeated generic pick is
-  // one line with a quantity, two owned picks that share a label are two
-  // lines.  Routing, overrides and removal all key on the line identity.
+  const age = formatAssetAge(row);
+  // A pick priced by a declared-prior derivation (no market row) says so on
+  // the row (TC-B / TCM-B04) -- the generic "2027 Round 1" grade above all,
+  // whose slot is not yet known.
+  const derived = derivedPickDisclosure(row);
+  // One line per IDENTITY (lib/trade-assets): any repeated asset is one
+  // line with a quantity, two owned picks that share a label are two
+  // lines.  Routing, overrides and removal all key on the line identity,
+  // so every copy on a line shares that line's destination.
   const key = tradeEntryKey(row);
   const label = tradeEntryLabel(row);
   // 3+-team trades give every asset an explicit destination so the
@@ -943,7 +373,14 @@ function AssetRow({
       : defaultDestination(sideIdx, sides.length);
 
   return (
-    <div className={styles.assetRow}>
+    // A routed row (3+ teams) carries a destination select; on a phone its
+    // actions wrap under the name instead of clipping the name away (UI
+    // contract §6: never clip player names into ambiguity).
+    <div
+      className={
+        sides.length > 2 ? `${styles.assetRow} ${styles.assetRowRouted}` : styles.assetRow
+      }
+    >
       <div className={styles.assetMain}>
         <PlayerImage
           playerId={row.raw?.playerId}
@@ -954,13 +391,15 @@ function AssetRow({
         />
         <div className={styles.assetBody}>
           <span className={styles.assetName}>
-            <button
-              type="button"
+            {/* #1337: a player with a canonical id opens his Player File;
+                a pick (no id) keeps the quick-view popup. */}
+            <PlayerNameButton
+              name={label}
+              row={row}
+              playerId={canonicalPlayerId(row)}
+              onOpen={onOpenPlayer}
               className={styles.assetNameButton}
-              onClick={() => onOpenPlayer?.(row)}
-            >
-              {label}
-            </button>
+            />
             {count > 1 ? (
               <Badge tone="outline" title={`${count} copies, each counted in the totals`}>
                 ×{count}
@@ -971,6 +410,18 @@ function AssetRow({
                 Owned pick
               </Badge>
             ) : null}
+            {derived ? (
+              <Badge
+                tone="outline"
+                data-testid="trade-asset-derived-pick"
+                title={`No market row: derived from ${derived.basis || "board values"}${
+                  derived.isPrior ? " (a declared prior, not a market price)" : ""
+                }.`}
+              >
+                {derived.label}
+                {derived.isPrior ? " (prior)" : ""}
+              </Badge>
+            ) : null}
             {edge.signal ? (
               <Badge tone={edge.signal === "BUY" ? "positive" : "negative"}>
                 {edge.signal} {edge.edgePct}%
@@ -979,7 +430,8 @@ function AssetRow({
           </span>
           <span className={styles.assetMeta}>
             <span className={styles.assetMetaText}>
-              {row.pos} · Consensus{" "}
+              {row.pos}
+              {age ? ` · ${age}` : ""} · Consensus{" "}
               {row.blendedSourceRank != null ? row.blendedSourceRank.toFixed(1) : "—"}
               {" · "}
               {Number.isFinite(row.sourceCount) ? row.sourceCount : 0} src
@@ -1024,16 +476,10 @@ function AssetRow({
                   : "Override this player's value for this trade only"
               }
             />
-            {valueOverrides[key] != null ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onClearValueOverride(key)}
-                aria-label={`Reset ${label} to the default value`}
-              >
-                Reset
-              </Button>
-            ) : null}
+            {/* No per-player reset affordance (owner intake #781, TC-B /
+                TCM-D14): an override is visually silent and is cleared by the
+                ONE top-level "Reset Values", by emptying the input, or by
+                removing the asset. */}
           </span>
         </div>
       </div>
@@ -1051,56 +497,63 @@ function AssetRow({
               {sides.map((s, i) =>
                 i === sideIdx ? null : (
                   <option key={i} value={i}>
-                    Side {s.label}
+                    {sideLabels?.[i] || `Side ${s.label}`}
                   </option>
                 ),
               )}
             </Select>
           </label>
         ) : null}
-        {repeatable ? (
-          /* Quantity control for a repeatable market pick (T-NEW-02):
-             "−" removes ONE copy, "+" adds another.  Unique assets
-             (players, owned picks) keep the plain Remove. */
-          <span className={styles.assetQuantity} role="group" aria-label={`${label} quantity`}>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="trade-remove-btn"
-              onClick={() => onRemove(key, sideIdx)}
-              aria-label={`Remove one ${label} from Side ${side.label}`}
-            >
-              −
-            </Button>
-            <span className={styles.assetQuantityCount} aria-live="polite">
-              {count}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAddCopy?.(row, sideIdx)}
-              aria-label={`Add another ${label} to Side ${side.label}`}
-            >
-              +
-            </Button>
-          </span>
-        ) : (
+        {/* Quantity control on EVERY line (owner decision 2026-10-03:
+            every calculator asset is repeatable, players and owned picks
+            included).  "+" adds one copy with no maximum; "−" removes
+            exactly one copy, and at quantity 1 it removes the line. */}
+        <span className={styles.assetQuantity} role="group" aria-label={`${label} quantity`}>
           <Button
             variant="ghost"
             size="sm"
-            className="trade-remove-btn"
+            className={styles.assetQuantityButton}
             onClick={() => onRemove(key, sideIdx)}
-            aria-label={`Remove ${label} from Side ${side.label}`}
+            aria-label={
+              count > 1
+                ? `Remove one ${label} from Side ${side.label}`
+                : `Remove ${label} from Side ${side.label}`
+            }
           >
-            Remove
+            −
           </Button>
-        )}
+          <span
+            className={styles.assetQuantityCount}
+            aria-live="polite"
+            data-testid="trade-asset-quantity"
+          >
+            {count}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={styles.assetQuantityButton}
+            onClick={() => onAddCopy?.(row, sideIdx)}
+            aria-label={`Add another ${label} to Side ${side.label}`}
+          >
+            +
+          </Button>
+        </span>
       </div>
     </div>
   );
 }
 
-function IncomingRow({ asset, fromSideIdx, sides, valueMode, settings, valueOverrides, onOpenPlayer }) {
+function IncomingRow({
+  asset,
+  fromSideIdx,
+  sides,
+  valueMode,
+  settings,
+  valueOverrides,
+  onOpenPlayer,
+  sideLabels = null,
+}) {
   const edge = getPlayerEdge(asset);
   return (
     <div className={`${styles.assetRow} ${styles.assetRowIncoming}`}>
@@ -1114,13 +567,13 @@ function IncomingRow({ asset, fromSideIdx, sides, valueMode, settings, valueOver
         />
         <div className={styles.assetBody}>
           <span className={styles.assetName}>
-            <button
-              type="button"
+            <PlayerNameButton
+              name={tradeEntryLabel(asset)}
+              row={asset}
+              playerId={canonicalPlayerId(asset)}
+              onOpen={onOpenPlayer}
               className={styles.assetNameButton}
-              onClick={() => onOpenPlayer?.(asset)}
-            >
-              {tradeEntryLabel(asset)}
-            </button>
+            />
             {edge.signal ? (
               <Badge tone={edge.signal === "BUY" ? "positive" : "negative"}>
                 {edge.signal} {edge.edgePct}%
@@ -1128,7 +581,8 @@ function IncomingRow({ asset, fromSideIdx, sides, valueMode, settings, valueOver
             ) : null}
           </span>
           <span className={styles.assetMeta}>
-            {asset.pos} · from Side {sides[fromSideIdx]?.label || "?"} ·{" "}
+            {asset.pos} · from{" "}
+            {sideLabels?.[fromSideIdx] || `Side ${sides[fromSideIdx]?.label || "?"}`} ·{" "}
             {valueOverrides[tradeEntryKey(asset)] == null && isUnpricedBoardRow(asset)
               ? "not priced"
               : Math.round(
@@ -1171,17 +625,65 @@ export function SideCard({
   onAddBalancer,
   registerInputRef,
   canRemoveTeam,
+  sheetMode = false,
+  onOpenSheet,
+  // Multi-team analysis (3+ sides, flag on): this side's league team by
+  // rosterId — `{options: [{rosterId, name}], rosterId, basis, onChange}`.
+  teamBinding = null,
+  // "Side B · Ed" per side for destination menus and incoming rows.
+  sideLabels = null,
 }) {
   const showResults = isFocused && (sideQuery || "").trim().length > 0;
+  // Keyboard path for the inline search (TC-E, WAI-ARIA combobox): ArrowDown /
+  // ArrowUp move the active option, Enter adds it, Escape clears the query.
+  // Focus never leaves the input, so the dropdown cannot unmount under a Tab
+  // (it closes on blur) and a keyboard pick works like a tap.
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const [lastAdded, setLastAdded] = useState("");
+  useEffect(() => {
+    setActiveIdx(-1);
+  }, [sideQuery, isFocused]);
+  const listboxId = `trade-search-${side.label}-listbox`;
+  const optionIdPrefix = `trade-search-${side.label}-opt`;
+  const ordered = showResults ? orderedSearchResults(searchResults) : [];
+  const active = activeIdx >= 0 && activeIdx < ordered.length ? activeIdx : -1;
+  useEffect(() => {
+    if (active < 0 || typeof document === "undefined") return;
+    document.getElementById(`${optionIdPrefix}-${active}`)?.scrollIntoView?.({ block: "nearest" });
+  }, [active, optionIdPrefix]);
+  const pickFromSearch = (row) => {
+    setLastAdded(`Added ${tradeEntryLabel(row)} to Side ${side.label}.`);
+    onAddFromSearch(row, sideIdx);
+  };
+  const onSearchKeyDown = (e) => {
+    if (e.key === "ArrowDown" && ordered.length) {
+      e.preventDefault();
+      setActiveIdx(active < 0 ? 0 : Math.min(active + 1, ordered.length - 1));
+    } else if (e.key === "ArrowUp" && ordered.length) {
+      e.preventDefault();
+      setActiveIdx(active <= 0 ? ordered.length - 1 : active - 1);
+    } else if (e.key === "Enter" && active >= 0) {
+      e.preventDefault();
+      pickFromSearch(ordered[active]);
+    } else if (e.key === "Escape" && (sideQuery || "").length) {
+      e.preventDefault();
+      onSideQueryChange(sideIdx, "");
+    }
+  };
   // Assets the board declined to price contribute 0 to this side's
   // total — a legitimate arithmetic neutral inside the sum, but not
   // something a published total may stay quiet about. 282 of 1,094 live
   // rows are unpriced; without this the side reads as a complete
   // valuation of pieces we never valued.
   const unpriced = unpricedAssetsOnSide(side.assets);
+  // A total that includes a user override is not the canonical total; say so
+  // on the total itself (TC-A, UX audit P0-7).
+  const overriddenCount = (side.assets || []).filter(
+    (r) => valueOverrides?.[tradeEntryKey(r)] != null,
+  ).length;
 
   return (
-    <Panel className={isMySide ? styles.mySide : undefined}>
+    <Panel className={isMySide ? styles.mySide : undefined} id={`trade-side-${side.label}`}>
       <div className={styles.sideHeader}>
         <div className={styles.sideHeaderLeft}>
           <h3 style={{ margin: 0 }}>Side {side.label}</h3>
@@ -1199,23 +701,38 @@ export function SideCard({
             </Button>
           ) : null}
         </div>
-        <div className={styles.sideTotals}>
+        {/* Exact numbers for production arithmetic checks
+            (tests/e2e/specs/prod-auth/trade-stack-withdrawn.spec.js):
+            adjusted = raw + adjustment, nothing else. */}
+        <div
+          className={styles.sideTotals}
+          data-side-total={total.adjusted}
+          data-side-raw={total.raw}
+          data-side-va={total.adjustment}
+        >
           <div className={styles.sideTotal}>
             {Math.round(total.adjusted).toLocaleString()}
           </div>
-          {total.adjustment > 0 ? (
-            <div
-              className={styles.sideTotalMeta}
-              title="Consolidation / roster-spot premium: the side with fewer pieces frees a roster spot, so KTC-style math adds this bonus on top of the raw total."
-            >
-              Raw {Math.round(total.raw).toLocaleString()} + VA{" "}
-              {Math.round(total.adjustment).toLocaleString()}
+          {/* The headline total is raw + VA -- nothing else (adjustedSideTotals;
+              the draft-capital stack effect is informational only and is shown
+              separately under the meter).  VA is shown as the difference of the
+              rounded figures, so the visible parts always add up to the headline.
+              The retired `title=` said VA was a roster-spot bonus for the side
+              with fewer pieces — the package model (packageAdjustPair; geometric
+              q = 0.78 since 2026-10-17) credits concentration, fires on
+              equal counts too, and a hover title never reached touch users. */}
+          <div className={styles.sideTotalMeta}>
+            Raw {Math.round(total.raw).toLocaleString()}
+            {total.adjustment > 0
+              ? ` + VA ${(Math.round(total.adjusted) - Math.round(total.raw)).toLocaleString()}`
+              : ""}
+            {total.adjustment > 0 ? <ValueAdjustmentTip /> : null}
+          </div>
+          {overriddenCount ? (
+            <div className={styles.sideTotalMeta} data-testid="side-total-edited">
+              Includes {overriddenCount} edited value{overriddenCount === 1 ? "" : "s"}
             </div>
-          ) : (
-            <div className={styles.sideTotalMeta}>
-              Raw {Math.round(total.raw).toLocaleString()}
-            </div>
-          )}
+          ) : null}
           {unpriced.length ? (
             <div
               className={styles.sideTotalMeta}
@@ -1229,40 +746,110 @@ export function SideCard({
         </div>
       </div>
 
-      {/* Inline search — type 2-3 letters, a compact dropdown of the top
-          matches appears, tap one to add and keep typing. */}
-      <div className="trade-side-search">
-        <input
-          ref={(el) => registerInputRef(sideIdx, el)}
-          className="input trade-side-search-input"
-          placeholder={`Search to add to Side ${side.label}…`}
-          value={sideQuery || ""}
-          onChange={(e) => onSideQueryChange(sideIdx, e.target.value)}
-          onFocus={() => onSideFocus(sideIdx)}
-          onBlur={() => onSideBlur(sideIdx)}
-          aria-label={`Search to add a player to Side ${side.label}`}
-        />
-        {showResults ? (
-          <div className="trade-side-search-results">
-            {searchResults.length === 0 ? (
-              <div className="trade-side-search-empty muted">No matches.</div>
-            ) : (
-              searchResults.map((r) => (
-                <SearchResultRow
-                  key={`search-${side.label}-${tradeEntryKey(r)}`}
-                  row={r}
-                  settings={settings}
-                  onPick={(row) => onAddFromSearch(row, sideIdx)}
-                  keyPrefix={`search-${side.label}`}
-                />
-              ))
-            )}
+      {teamBinding ? (
+        <Field
+          label="League team"
+          id={`trade-side-team-${sideIdx}`}
+          hint={
+            teamBinding.basis === "roster"
+              ? "Matched by roster — the one team that holds every asset here."
+              : teamBinding.rosterId == null
+                ? "Pick the team that sends these assets."
+                : undefined
+          }
+        >
+          <Select
+            id={`trade-side-team-${sideIdx}`}
+            value={teamBinding.rosterId == null ? "" : String(teamBinding.rosterId)}
+            onChange={(e) => teamBinding.onChange(e.target.value ? Number(e.target.value) : null)}
+          >
+            <option value="">— choose a team —</option>
+            {teamBinding.options.map((t) => (
+              <option key={t.rosterId} value={t.rosterId}>
+                {t.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : null}
+
+      {sheetMode ? (
+        /* Phones (TC-D2): one bottom-sheet search per side instead of an
+           inline dropdown that runs under the keyboard. */
+        <Button
+          className={styles.sheetAdd}
+          icon={<Icon name="search" size={14} />}
+          onClick={() => onOpenSheet?.(sideIdx)}
+          aria-haspopup="dialog"
+        >
+          Add to Side {side.label}
+        </Button>
+      ) : (
+        <>
+          {/* Inline search — type 2-3 letters, a compact dropdown of the top
+              matches appears, tap one to add and keep typing. */}
+          <div className="trade-side-search">
+            <input
+              ref={(el) => registerInputRef(sideIdx, el)}
+              className="input trade-side-search-input"
+              placeholder={`Search to add to Side ${side.label}…`}
+              value={sideQuery || ""}
+              onChange={(e) => onSideQueryChange(sideIdx, e.target.value)}
+              onFocus={() => onSideFocus(sideIdx)}
+              onBlur={() => onSideBlur(sideIdx)}
+              onKeyDown={onSearchKeyDown}
+              aria-label={`Search to add a player to Side ${side.label}`}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={showResults && ordered.length > 0}
+              aria-controls={showResults && ordered.length > 0 ? listboxId : undefined}
+              aria-activedescendant={active >= 0 ? `${optionIdPrefix}-${active}` : undefined}
+              autoComplete="off"
+            />
+            {showResults ? (
+              /* Bounded + scrollable (globals.css) so the market group stays
+                 reachable above an open phone keyboard. */
+              searchResults.length === 0 ? (
+                <div className="trade-side-search-results">
+                  <div className="trade-side-search-empty muted" role="status">
+                    No matches.
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="trade-side-search-results"
+                  role="listbox"
+                  id={listboxId}
+                  aria-label={`Results for Side ${side.label}`}
+                >
+                  <SearchResultList
+                    results={searchResults}
+                    settings={settings}
+                    onPick={pickFromSearch}
+                    keyPrefix={`search-${side.label}`}
+                    optionIdPrefix={optionIdPrefix}
+                    activeIndex={active}
+                  />
+                </div>
+              )
+            ) : null}
+            <span className="ds-visually-hidden" role="status">
+              {lastAdded}
+            </span>
           </div>
-        ) : null}
-      </div>
+        </>
+      )}
 
       {sides.length > 2 ? (
         <div className={styles.sideGroupLabel}>Giving</div>
+      ) : null}
+
+      {/* Position mix of what this side sends, one count per copy (TC-B /
+          TCM-A02).  Display only. */}
+      {side.assets.length ? (
+        <div className={styles.sideTotalMeta} data-testid="trade-side-composition">
+          {packageCompositionText(side.assets)}
+        </div>
       ) : null}
 
       <div className={styles.assetList}>
@@ -1271,7 +858,6 @@ export function SideCard({
             key={`${side.label}-${g.key}`}
             row={g.entry}
             count={g.count}
-            repeatable={g.repeatable}
             side={side}
             sideIdx={sideIdx}
             sides={sides}
@@ -1284,6 +870,7 @@ export function SideCard({
             onRemove={onRemoveAsset}
             onAddCopy={onAddCopy}
             onSetDestination={onSetDestination}
+            sideLabels={sideLabels}
           />
         ))}
         {side.assets.length === 0 ? (
@@ -1308,6 +895,7 @@ export function SideCard({
                   settings={settings}
                   valueOverrides={valueOverrides}
                   onOpenPlayer={onOpenPlayer}
+                  sideLabels={sideLabels}
                 />
               ))
             ) : (
@@ -1320,7 +908,11 @@ export function SideCard({
       ) : null}
 
       {balancers ? (
-        <div className={styles.balancers}>
+        <div
+          className={styles.balancers}
+          id={`trade-side-${side.label}-balancers`}
+          aria-busy={balancers.pending ? "true" : undefined}
+        >
           <span className={styles.balancerLabel}>{balancers.label}</span>
           {balancers.list.map((b) => (
             <Button
@@ -1339,6 +931,7 @@ export function SideCard({
                   : undefined
               }
             >
+              {b.isCombo ? "Both: " : ""}
               {b.label || b.name} ({b.pos}) · {b.value.toLocaleString()}
               {Number.isFinite(b.imbalanceAfter) ? (
                 <span className={styles.balancerResidual}>
@@ -1350,309 +943,6 @@ export function SideCard({
           ))}
         </div>
       ) : null}
-    </Panel>
-  );
-}
-
-// ── Suggestion desk ───────────────────────────────────────────────────
-
-function SuggestionCard({ suggestion: s, index, onApply }) {
-  const eb = edgeMeta(s.edge);
-  const cb = confidenceMeta(s.confidence);
-  const rs = s.rankScore;
-  const isTopPick = index === 0 && rs && rs.total >= 12;
-
-  return (
-    <div
-      className={`${styles.suggestCard} ${isTopPick ? styles.suggestCardTop : ""}`}
-    >
-      <div className={styles.suggestBody}>
-        <div className={styles.suggestLines}>
-          <span className={styles.suggestRank}>#{index + 1}</span>
-          <div className={styles.suggestSides}>
-            <div className={styles.suggestSide}>
-              <span className={`${styles.suggestSideLabel} ${styles.suggestSideGive}`}>
-                Give{" "}
-              </span>
-              {s.give.map((p, pi) => (
-                <span key={pi}>
-                  {pi > 0 ? " + " : ""}
-                  {p.name}
-                  <span className={styles.suggestPlayerMeta}>
-                    {" "}
-                    {p.position} {p.displayValue.toLocaleString()}
-                  </span>
-                </span>
-              ))}
-            </div>
-            <div className={styles.suggestSide}>
-              <span className={`${styles.suggestSideLabel} ${styles.suggestSideGet}`}>
-                Get{" "}
-              </span>
-              {s.receive.map((p, pi) => (
-                <span key={pi}>
-                  {pi > 0 ? " + " : ""}
-                  {p.name}
-                  <span className={styles.suggestPlayerMeta}>
-                    {" "}
-                    {p.position} {p.displayValue.toLocaleString()}
-                  </span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.suggestBadges}>
-          <Badge tone={fairnessTone(s.fairness)}>
-            {fairnessLabel(s.fairness)}
-            {s.gap !== 0
-              ? ` (${s.gap > 0 ? "+" : ""}${s.gap.toLocaleString()})`
-              : ""}
-          </Badge>
-          <Badge tone={cb.tone}>{cb.label}</Badge>
-          {s.strategy !== "neutral" ? (
-            <Badge tone="neutral">
-              {s.strategy === "contender" ? "Contender move" : "Rebuilder move"}
-            </Badge>
-          ) : null}
-          {eb ? <Badge tone={eb.tone}>{eb.text}</Badge> : null}
-        </div>
-
-        <div className={styles.suggestNotes}>
-          <span>{s.rationale}</span>
-          {s.whyThisHelps ? (
-            <span className={styles.suggestWhy}>{s.whyThisHelps}</span>
-          ) : null}
-          {s.edgeExplanation ? <span>{s.edgeExplanation}</span> : null}
-          {s.suggestedBalancers?.length > 0 ? (
-            <span>
-              To even it out, add:{" "}
-              {s.suggestedBalancers
-                .map((b) => `${b.name} (${b.displayValue.toLocaleString()})`)
-                .join(", ")}
-            </span>
-          ) : null}
-          {s.opponentFit ? (
-            <span className={styles.suggestWhy}>{s.opponentFit}</span>
-          ) : null}
-        </div>
-
-        {rs ? (
-          <details>
-            <summary className={styles.suggestMeta}>
-              Why #{index + 1}? Score {rs.total}
-            </summary>
-            <div className={styles.suggestScore}>
-              Value {rs.base_value} + Fairness {rs.fairness} + Consensus{" "}
-              {rs.confidence}
-              {rs.need_severity > 0 ? ` + Need ${rs.need_severity}` : ""}
-              {rs.edge > 0 ? ` + Edge ${rs.edge}` : ""}
-              {rs.opponent_fit > 0 ? ` + Partner ${rs.opponent_fit}` : ""} ={" "}
-              {rs.total}
-            </div>
-          </details>
-        ) : null}
-      </div>
-
-      <Button size="sm" onClick={() => onApply(s)}>
-        Load trade
-      </Button>
-    </div>
-  );
-}
-
-const EMPTY_SUGGESTION_COPY = {
-  sellHigh:
-    "No sell-high opportunities found. You may not have enough depth at any position to move a piece.",
-  buyLow:
-    "No buy-low targets found. Your surplus positions may not have tradeable pieces in the right value range.",
-  consolidation:
-    "No consolidation trades found. This requires 2+ depth pieces that combine into a single upgrade.",
-  positionalUpgrades:
-    "No positional upgrades found. Your starters may already be top-tier, or no upgrade targets match your depth value.",
-};
-
-export function SuggestionsDesk({
-  sleeperTeams,
-  selectedTeamIdx,
-  onSelectTeam,
-  leagueRosters,
-  rosterInput,
-  onRosterInputChange,
-  onFetch,
-  loading,
-  error,
-  suggestions,
-  suggestionTab,
-  onTabChange,
-  suggestionCounts,
-  rosterCount,
-  onApply,
-}) {
-  const analysis = suggestions?.rosterAnalysis;
-  const list = suggestions?.[suggestionTab] || [];
-
-  return (
-    <Panel
-      title="Trade suggestions"
-      headingLevel={2}
-      subtitle={
-        sleeperTeams
-          ? "Select your team from the league, or enter a roster manually."
-          : "Enter your roster to get roster-aware trade ideas."
-      }
-    >
-      <div className={styles.suggestControls}>
-        {sleeperTeams ? (
-          <div className={styles.suggestRow}>
-            <Field label="Your team" id="suggest-team">
-              <Select
-                id="suggest-team"
-                value={selectedTeamIdx}
-                onChange={(e) => onSelectTeam(e.target.value)}
-              >
-                <option value={-1}>Select your team…</option>
-                {sleeperTeams.map((t, i) => (
-                  <option key={i} value={i}>
-                    {t.name} ({(t.players || []).length} players,{" "}
-                    {(t.picks || []).length} picks)
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            {selectedTeamIdx >= 0 && sleeperTeams[selectedTeamIdx] ? (
-              <span className={styles.suggestMeta}>
-                Loaded {(sleeperTeams[selectedTeamIdx].players || []).length}{" "}
-                players + {(sleeperTeams[selectedTeamIdx].picks || []).length}{" "}
-                picks
-                {leagueRosters ? ` · ${leagueRosters.length} opponents` : ""}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
-        <Field label="Roster" id="suggest-roster">
-          <textarea
-            id="suggest-roster"
-            className={`ds-input ${styles.suggestTextarea}`}
-            placeholder="Enter roster (comma or newline separated): Josh Allen, Bijan Robinson, Ja'Marr Chase, …"
-            value={rosterInput}
-            onChange={(e) => onRosterInputChange(e.target.value)}
-            rows={3}
-          />
-        </Field>
-
-        <div className={styles.suggestRow}>
-          <Button variant="primary" onClick={onFetch} disabled={loading} loading={loading}>
-            Get suggestions
-          </Button>
-          {suggestions ? (
-            <span className={styles.suggestMeta}>
-              {suggestions.totalSuggestions} suggestions ·{" "}
-              {suggestions.metadata?.rosterMatched || 0}/{rosterCount} matched
-              {(suggestions.metadata?.opponentRostersAnalyzed || 0) > 0
-                ? ` · ${suggestions.metadata.opponentRostersAnalyzed} opponents analyzed`
-                : ""}
-            </span>
-          ) : null}
-        </div>
-
-        {error ? (
-          <Banner tone="negative" title="Suggestions failed">
-            {error}
-          </Banner>
-        ) : null}
-
-        {analysis ? (
-          <div className={styles.suggestAnalysis}>
-            {analysis.surplusPositions.length > 0 ? (
-              <span>
-                Can trade from{" "}
-                <Badge tone="positive">{analysis.surplusPositions.join(", ")}</Badge>
-              </span>
-            ) : null}
-            {analysis.needPositions.length > 0 ? (
-              <span>
-                Should target{" "}
-                <Badge tone="negative">{analysis.needPositions.join(", ")}</Badge>
-              </span>
-            ) : null}
-            {analysis.surplusPositions.length === 0 &&
-            analysis.needPositions.length === 0 ? (
-              <span className={styles.suggestMeta}>
-                Roster is balanced — no clear surplus or need detected.
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
-        {suggestions && suggestions.totalSuggestions > 0 ? (
-          <>
-            {/* Filter toggles, not tabs. These were `role="tablist"` +
-                `role="tab"` + `aria-selected` with no `role="tabpanel"`
-                and no `aria-controls` anywhere in the file — the list
-                below is a plain div. A tab that controls nothing is not
-                a tab: a screen reader announces "tab, 1 of 4" and then
-                finds no tabpanel to move to, which is worse than plain
-                buttons because it promises a structure that isn't there.
-                Hand-adding `aria-controls` would have made it worse
-                still, by naming a region that does not exist.
-                These are pressed-state filters over one list, so that is
-                what they now say. Guarded by
-                __tests__/a11y-tab-roles.test.js. */}
-            <div
-              className={styles.suggestBadges}
-              role="group"
-              aria-label="Suggestion category"
-            >
-              {SUGG_TYPES.map((t) => {
-                const count = suggestionCounts[t.key] || 0;
-                const isActive = suggestionTab === t.key;
-                return (
-                  <Button
-                    key={t.key}
-                    size="sm"
-                    variant={isActive ? "primary" : "ghost"}
-                    aria-pressed={isActive}
-                    onClick={() => onTabChange(t.key)}
-                    disabled={count === 0 && !isActive}
-                  >
-                    {t.label}
-                    {count > 0 ? ` (${count})` : ""}
-                  </Button>
-                );
-              })}
-            </div>
-
-            <div className={styles.suggestList}>
-              {list.map((s, i) => (
-                <SuggestionCard
-                  key={`${suggestionTab}-${i}`}
-                  suggestion={s}
-                  index={i}
-                  onApply={onApply}
-                />
-              ))}
-              {list.length === 0 ? (
-                <p className={styles.suggestMeta}>
-                  {EMPTY_SUGGESTION_COPY[suggestionTab]}
-                </p>
-              ) : null}
-            </div>
-          </>
-        ) : null}
-
-        {suggestions && suggestions.totalSuggestions === 0 ? (
-          <Banner tone="info" title="No trade suggestions found">
-            {suggestions.metadata?.rosterMatched < 5
-              ? `Only ${suggestions.metadata?.rosterMatched || 0} of ${rosterCount} players matched our database. Check spelling or add more players.`
-              : suggestions.rosterAnalysis?.surplusPositions?.length === 0
-                ? "Your roster has no clear positional surplus. The engine needs at least one position with depth beyond starters to suggest trades."
-                : "Your roster appears well-balanced. No actionable trades met our quality threshold."}
-          </Banner>
-        ) : null}
-      </div>
     </Panel>
   );
 }

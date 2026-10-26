@@ -1,0 +1,20 @@
+[Unit]
+Description=6-hourly Signals Fantasy public-board collection for __SERVICE_NAME__
+# Deliberately NO Requires= on the service here: [Timer] Unit= already
+# binds it (same reasoning as the crowd-faab timer).
+
+[Timer]
+# Every 6 hours.  The boards claim a WEEKLY rebuild while the methodology
+# pages claim DAILY models; 4 conditional GETs a day per board resolve that
+# from observed Published / Last-Modified stamps without hammering a static
+# CloudFront page (an unchanged board answers 304 and moves no clock).
+# The script's --min-interval-hours 5 also bounds manual + timer overlap.
+# Offset :47 keeps it off the top of the hour and the other timers.
+OnCalendar=*-*-* 00/6:47:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-signals-fetch.service
+
+[Install]
+WantedBy=timers.target

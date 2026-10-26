@@ -568,46 +568,150 @@ def _probe_league_events(data_dir: Path) -> dict[str, Any]:
     )
 
 
-# ── C1-RET-07: per-source raw ingest + identity reports ──────────────
+# ── C1-RET-07: identity-resolution evidence ──────────────────────────
+#
+# TWO stores, deliberately graded differently (#1676).
+#
+# * LIVE stream -- ``data/scrape_state/identity_dual_read.json``.  Since the
+#   C1-ID-01 cut-over (2026-08-16) the canonical identity owner
+#   (``src/identity/resolution.py``) serves every scraper decision, and the
+#   scraper rewrites this record every cycle with what it decided
+#   (``calls``, ``v2WouldChange``, ``generatedAt``).  That is the identity
+#   evidence that is actually being produced, so freshness is graded HERE,
+#   on the record's own ``generatedAt`` -- never on mtime, which a checkout
+#   or deploy rewrites (the file is git-tracked).  Budget:
+#   ``IDENTITY_EVIDENCE_BUDGET_H`` -- see its comment for why it is NOT the
+#   scrape-cadence budget.
+#
+# * LEGACY archive -- ``data/identity/identity_{resolution,report}_*.json``.
+#   Its producer (``scripts/identity_resolve.py`` on the retired Jenkins
+#   pipeline) stopped on 2026-04-20 and #173 retired it.  Those reports keep
+#   INDEFINITE retention (git-tracked, backed up nightly, protected by
+#   ``retention.py``) but they are a FROZEN archive: no freshness SLA can be
+#   met without a producer, and grading one made this stream red every day
+#   for months -- which hid the 2026-09-23..27 C1-RET-08 staleness behind a
+#   job that was already failing.  It is reported (artifact count, newest,
+#   its own filename-derived age) and never deleted; it no longer decides
+#   the stream's state.
+
+# WHICH COPY THE PROBE READS, AND WHY THE BUDGET IS NOT 6 h.  On the
+# production host the probe reads ``APP_DIR/data/scrape_state/
+# identity_dual_read.json``.  The box's own scrape loop (``server.py``
+# ``schedule_loop``, every ``SCRAPE_INTERVAL_HOURS`` = 2 h, plus one at every
+# startup) rewrites it; data-only commits never deploy (``deploy.yml``
+# ignores ``data/**``).  But the file is git-TRACKED, so every CODE deploy's
+# ``git checkout --force`` / ``reset --hard`` puts back the COMMITTED copy
+# until the restart's startup scrape replaces it.  The committed copy is only
+# as fresh as the last data commit: measured on main (2026-10, 97 commits)
+# median 5.5 h, 36 gaps over 6 h, max 9.3 h.  A ``SCRAPE_BUDGET_H`` (6 h)
+# budget would therefore turn a HEALTHY system red whenever the daily probe
+# lands inside a post-deploy window -- a watchdog that cries wolf is one
+# nobody reads.  So the budget is the module's daily rule (two missed daily
+# probes), which no healthy post-deploy window can exceed.  The 2 h scrape
+# cadence itself is not left unwatched: ``/api/status`` flags ``data_stale``
+# at ``SCRAPE_INTERVAL_HOURS * 3``; this stream answers the different
+# question "is identity evidence still being produced at all".
+IDENTITY_EVIDENCE_BUDGET_H = DAILY_BUDGET_H
+
+LEGACY_IDENTITY_RETIRED = {
+    "retiredBy": "#173",
+    "producerLastRan": "2026-04-20",
+    "retention": "indefinite",
+    "freshnessSla": None,
+}
+
+
+def _legacy_identity_archive(data_dir: Path) -> dict[str, Any]:
+    ident_dir = data_dir / "identity"
+    files: list[Path] = []
+    if ident_dir.is_dir():
+        for pattern in ("identity_resolution_*.json", "identity_report_*.json"):
+            files.extend(ident_dir.glob(pattern))
+    out: dict[str, Any] = {
+        "path": str(ident_dir),
+        "state": "frozen" if files else "absent",
+        "artifacts": len(files),
+        **LEGACY_IDENTITY_RETIRED,
+    }
+    if files:
+        newest, stamp, stamp_source = _newest_dated(files)
+        age = age_hours(stamp)
+        out.update(
+            {
+                "newest": newest.name if newest else None,
+                "lastObservedAt": stamp,
+                "ageHours": round(age, 2) if isinstance(age, float) else None,
+                "stampSource": stamp_source,
+            }
+        )
+    return out
 
 
 def _probe_identity_reports(data_dir: Path) -> dict[str, Any]:
-    ident_dir = data_dir / "identity"
-    patterns = ("identity_resolution_*.json", "identity_report_*.json")
-    files: list[Path] = []
-    if ident_dir.is_dir():
-        for pattern in patterns:
-            files.extend(ident_dir.glob(pattern))
-    if not files:
+    title = "Identity resolution evidence (canonical owner dual-read record)"
+    record = data_dir / "scrape_state" / "identity_dual_read.json"
+    legacy = _legacy_identity_archive(data_dir)
+    extra: dict[str, Any] = {"legacyArchive": legacy}
+    legacy_note = (
+        f" Legacy data/identity/ archive: {legacy['state']}, "
+        f"{legacy['artifacts']} artifact(s), retired by #173, retained indefinitely."
+    )
+    if not record.exists():
         return _stream(
             "C1-RET-07",
-            "Identity resolution reports",
+            title,
             state=STATE_MISSING,
-            budget_h=DAILY_BUDGET_H,
-            primary_store=str(ident_dir),
-            detail="no identity report artifacts on disk",
+            budget_h=IDENTITY_EVIDENCE_BUDGET_H,
+            primary_store=str(record),
+            detail="no identity dual-read record on disk; the scraper has not written one."
+            + legacy_note,
+            extra=extra,
         )
-    newest, stamp, stamp_source = _newest_dated(files)
-    state, age = _grade(present=True, last_observed=stamp, budget_h=DAILY_BUDGET_H, rows=len(files))
+    try:
+        payload = json.loads(record.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return _stream(
+            "C1-RET-07",
+            title,
+            state=STATE_UNKNOWN,
+            budget_h=IDENTITY_EVIDENCE_BUDGET_H,
+            primary_store=str(record),
+            detail=f"dual-read record present but unreadable: {exc}." + legacy_note,
+            extra=extra,
+        )
+    if not isinstance(payload, dict):
+        payload = {}
+    generated = payload.get("generatedAt")
+    calls = payload.get("calls")
+    # A record of ZERO identity decisions is no evidence that resolution is
+    # running (``_grade`` reads rows <= 0 as unknown); a record with no
+    # ``calls`` at all cannot say, which is not the same as zero.
+    rows = calls if isinstance(calls, int) and not isinstance(calls, bool) else None
+    state, age = _grade(
+        present=True, last_observed=generated, budget_h=IDENTITY_EVIDENCE_BUDGET_H, rows=rows
+    )
+    extra.update(
+        {
+            "calls": calls,
+            "v2WouldChange": payload.get("v2WouldChange"),
+            "servedPolicy": payload.get("servedPolicy"),
+            "stampSource": "generatedAt" if generated else "unavailable",
+        }
+    )
     return _stream(
         "C1-RET-07",
-        "Identity resolution reports",
+        title,
         state=state,
-        budget_h=DAILY_BUDGET_H,
-        last_observed=stamp,
+        budget_h=IDENTITY_EVIDENCE_BUDGET_H,
+        last_observed=generated,
         age_h=age,
-        primary_store=str(ident_dir),
+        primary_store=str(record),
         detail=(
-            f"{len(files)} artifact(s); newest {newest.name if newest else '(undated)'}. "
-            "/api/scaffold/identity serves the newest file, so a halted "
-            "collector presents an old report as current unless the response "
-            "is labelled."
+            f"{calls if calls is not None else '?'} identity decision(s) by "
+            f"{payload.get('servedBy') or '?'} ({payload.get('servedPolicy') or '?'})."
+            + legacy_note
         ),
-        extra={
-            "artifacts": len(files),
-            "newest": newest.name if newest else None,
-            "stampSource": stamp_source,
-        },
+        extra=extra,
     )
 
 

@@ -188,3 +188,28 @@ def test_empty_league_reports_empty_not_an_error(db):
     summary = market_ledger_summary(LEAGUE, path=db)
     assert summary["totalTrades"] == 0
     assert summary["oldestOccurredAtMs"] is None
+
+
+def test_each_team_side_carries_the_recorded_user_or_none(db):
+    """C6-MGR-01: a roster id means nothing outside one season's league, so
+    each side names the Sleeper USER the events recorded — or ``None`` when
+    the roster could not be attributed.  Never a guess."""
+    events = events_from_transaction(
+        _trade_tx("t1", adds={"4034": 1, "1111": 2}, drops={"4034": 2, "1111": 1}),
+        league_key=LEAGUE,
+        owner_by_roster={1: "U1"},  # roster 2 unattributed
+    )
+    store_mod.write_events(events, path=db)
+
+    teams = market_trades(LEAGUE, path=db)[0]["teams"]
+    assert teams["1"]["ownerUserId"] == "U1"
+    assert teams["2"]["ownerUserId"] is None
+
+
+def test_acquisition_store_presence_is_asked_without_creating_it(db):
+    from src.trade.market_trade_ledger import acquisition_store_present
+
+    assert acquisition_store_present(db) is False
+    assert not db.exists()
+    _ingest(db, [_trade_tx("t1", adds={"4034": 1}, drops={"4034": 2})])
+    assert acquisition_store_present(db) is True

@@ -109,44 +109,18 @@ def _load_alert_state(
     return {}
 
 
-def detect_signal_transitions(
-    username: str,
+def _next_alert_state(
+    user_state: dict[str, Any],
     signals: list[dict[str, Any]],
-    *,
-    path: Any = None,
-    league_key: str | None = None,
-) -> list[dict[str, Any]]:
-    """Compare the live signal list to the user's last-seen state
-    and return the subset that represents a newly-actionable
-    transition.
-
-    A transition qualifies when:
-      * ``signal in ACTIONABLE_SIGNALS``
-      * AND either no prior signal exists OR the prior signal was
-        different
-      * AND we haven't already notified on this same
-        (leagueKey, key, signal) within _MIN_NOTIFY_INTERVAL_HOURS
-
-    ``league_key`` scopes the cooldown state.  Omitted / empty →
-    treated as the legacy single-league path (reads + writes the
-    un-nested ``signalAlertState`` for back-compat with pre-
-    multi-league deployments).  Passed explicitly for each
-    active league during the alert sweep so cooldowns don't
-    bleed.
-
-    Writes the new state back to user_kv.  Returns the list of
-    alerts to deliver (the caller actually sends them).
-    """
-    if not username or not signals:
-        return []
-
-    user_state = _user_kv.get_user_state(username, path=path)
+    league_key: str | None,
+    transitions: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Pure: the league bucket after this sweep; appends the transitions."""
     alert_state = _load_alert_state(user_state, league_key)
 
     now = _utc_now_ms()
     min_interval_ms = int(_MIN_NOTIFY_INTERVAL_HOURS * 3600 * 1000)
 
-    transitions: list[dict[str, Any]] = []
     new_state: dict[str, dict[str, Any]] = dict(alert_state)
 
     for entry in signals:
@@ -200,35 +174,78 @@ def detect_signal_transitions(
             "notifiedAt": now,
         }
 
-    # Persist the updated state even when no transitions fired —
-    # we still want to remember "last seen" so the first evaluation
-    # after a quiet period doesn't flood the user.
-    #
-    # Storage shape: when a league_key is present, nest under
-    # ``signalAlertStateByLeague[leagueKey]``.  When absent (legacy
-    # single-league callers) keep writing the flat field — that's
-    # what pre-migration state reads on the next run.
+    return new_state
+
+
+def _store_alert_state(
+    user_state: dict[str, Any],
+    league_key: str | None,
+    new_state: dict[str, dict[str, Any]],
+) -> None:
+    """Write one league's bucket into ``user_state`` in place.
+
+    Persist the updated state even when no transitions fired -- we still want
+    to remember "last seen" so the first evaluation after a quiet period
+    doesn't flood the user.
+
+    Storage shape: when a league_key is present, nest under
+    ``signalAlertStateByLeague[leagueKey]``, leaving every other league's
+    bucket as it is NOW.  When absent (legacy single-league callers) keep
+    writing the flat field -- that's what pre-migration state reads on the
+    next run.
+    """
     key = str(league_key or "").strip()
     if key:
-        # Merge with whatever other leagues are already stored so
-        # we don't clobber them.  ``merge_user_state`` does shallow
-        # dict-merge at the top level, so nesting one extra level
-        # means each league's bucket updates atomically.
         existing_by_league = user_state.get("signalAlertStateByLeague") or {}
         if not isinstance(existing_by_league, dict):
             existing_by_league = {}
-        next_by_league = {**existing_by_league, key: new_state}
-        _user_kv.merge_user_state(
-            username,
-            {"signalAlertStateByLeague": next_by_league},
-            path=path,
-        )
+        user_state["signalAlertStateByLeague"] = {**existing_by_league, key: new_state}
     else:
-        _user_kv.merge_user_state(
-            username,
-            {"signalAlertState": new_state},
-            path=path,
-        )
+        user_state["signalAlertState"] = new_state
+
+
+def detect_signal_transitions(
+    username: str,
+    signals: list[dict[str, Any]],
+    *,
+    path: Any = None,
+    league_key: str | None = None,
+) -> list[dict[str, Any]]:
+    """Compare the live signal list to the user's last-seen state
+    and return the subset that represents a newly-actionable
+    transition.
+
+    A transition qualifies when:
+      * ``signal in ACTIONABLE_SIGNALS``
+      * AND either no prior signal exists OR the prior signal was
+        different
+      * AND we haven't already notified on this same
+        (leagueKey, key, signal) within _MIN_NOTIFY_INTERVAL_HOURS
+
+    ``league_key`` scopes the cooldown state.  Omitted / empty →
+    treated as the legacy single-league path (reads + writes the
+    un-nested ``signalAlertState`` for back-compat with pre-
+    multi-league deployments).  Passed explicitly for each
+    active league during the alert sweep so cooldowns don't
+    bleed.
+
+    Writes the new state back to user_kv.  Returns the list of
+    alerts to deliver (the caller actually sends them).
+    """
+    if not username or not signals:
+        return []
+
+    transitions: list[dict[str, Any]] = []
+
+    # The whole evaluation runs on the CURRENT state, inside the user_kv write
+    # lock: reading first and rewriting the field later discarded whatever
+    # another league's (or the migration's) concurrent write put there.
+    def _evaluate(user_state: dict[str, Any]) -> None:
+        transitions.clear()
+        new_state = _next_alert_state(user_state, signals, league_key, transitions)
+        _store_alert_state(user_state, league_key, new_state)
+
+    _user_kv.mutate_user_state(username, _evaluate, path=path)
     return transitions
 
 

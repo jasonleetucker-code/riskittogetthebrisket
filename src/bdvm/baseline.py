@@ -92,8 +92,10 @@ def realized_ppg_history(
     points; the per-week result reports them in ``unscored`` either way, so
     the shortfall is visible rather than silent.  A season the producer has
     not built is left alone rather than zeroed — unlike the card resolver,
-    the season is NOT skipped, because a partial line is still a real lower
-    bound while an unknown rule set makes the whole line meaningless.
+    the season is NOT skipped, because a partial line is still a real
+    partial total (its unscored rules are named, and their omitted
+    contribution may be positive or negative — not a lower bound) while an
+    unknown rule set makes the whole line meaningless.
     """
     totals: dict[tuple[str, int], float] = {}
     games: dict[tuple[str, int], int] = {}
@@ -132,8 +134,9 @@ def realized_ppg_history(
         totals[(key, season)] = totals.get((key, season), 0.0) + rp.fantasy_points
         games[(key, season)] = games.get((key, season), 0) + 1
         # Union across weeks — one week that could not supply a rule makes
-        # the season's PPG a lower bound, and that has to survive the
-        # roll-up or the caller sees a complete-looking rate.
+        # the season's PPG partial (not a lower bound: an unscored rule may
+        # be a penalty), and that has to survive the roll-up or the caller
+        # sees a complete-looking rate.
         if rp.unscored:
             bucket = unscored.setdefault((key, season), {})
             for unscored_key, rate in rp.unscored:
@@ -183,6 +186,32 @@ def positional_means(
     return {pos: sums[pos] / counts[pos] for pos in sums if counts[pos] > 0}
 
 
+def _uniform_card_fingerprint(
+    history: Mapping[str, tuple[str, list[RealizedSeason]]],
+    scoring_settings: Mapping[str, Any],
+    scoring_for_season: Callable[[int], Mapping[str, Any] | None] | None,
+) -> str | None:
+    """The card fingerprint to stamp on declared proxy coverage, or ``None``.
+
+    Declared omissions describe ONE card.  When seasons are scored under their
+    own resolved cards (``scoring_for_season``), a rule that is nonzero now but
+    was zero in an earlier season would read as covered; so the stamp is given
+    only when every resolved season card has the current fingerprint, and
+    otherwise ``None`` (the record then reports ``unverifiable``).
+    """
+    from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
+
+    current = scoring_fingerprint(dict(scoring_settings))
+    if current is None or scoring_for_season is None:
+        return current
+    seasons = {s.season for _pos, seasons_ in history.values() for s in seasons_}
+    for season_ in seasons:
+        card = scoring_for_season(season_)
+        if card is None or scoring_fingerprint(dict(card)) != current:
+            return None
+    return current
+
+
 def build_baseline_records(
     *,
     season: int,
@@ -202,8 +231,13 @@ def build_baseline_records(
         pbp_for_season=pbp_for_season,
     )
     means = positional_means(history)
+    stamp = _uniform_card_fingerprint(history, scoring_settings, scoring_for_season)
     records = build_reconstructed_baseline(
-        history, season=season, as_of=as_of, positional_means=means
+        history,
+        season=season,
+        as_of=as_of,
+        positional_means=means,
+        card_fingerprint=stamp,
     )
     summary = {
         "playersWithHistory": len(history),
@@ -243,6 +277,7 @@ def build_rookie_prior_records(
     history: Mapping[str, tuple[str, list[RealizedSeason]]],
     context: Mapping[str, Any],
     source: str = "rookieDraftSlotPrior",
+    card_fingerprint: str | None = None,
 ) -> tuple[list[ProjectionRecord], dict[str, Any]]:
     """Proxy µ(0) for incoming rookies from historical rookie-season PPG
     by (position, draft-round bucket).
@@ -258,6 +293,10 @@ def build_rookie_prior_records(
     counts: dict[tuple[str, str], int] = {}
     pos_sums: dict[str, float] = {}
     pos_counts: dict[str, int] = {}
+    # Realized rules the contributing rookie seasons could not score: the
+    # prior is a mean of partial totals, so it carries their union.
+    unscored: dict[tuple[str, str], set[str]] = {}
+    pos_unscored: dict[str, set[str]] = {}
 
     for key, (pos, seasons) in history.items():
         ctx = context.get(key)
@@ -274,13 +313,16 @@ def build_rookie_prior_records(
         counts[(pos, bucket)] = counts.get((pos, bucket), 0) + 1
         pos_sums[pos] = pos_sums.get(pos, 0.0) + ppg
         pos_counts[pos] = pos_counts.get(pos, 0) + 1
+        missed = {k for k, _rate in rookie_rows[0].unscored}
+        unscored.setdefault((pos, bucket), set()).update(missed)
+        pos_unscored.setdefault(pos, set()).update(missed)
 
-    def _bucket_mean(pos: str, bucket: str) -> float | None:
+    def _bucket_mean(pos: str, bucket: str) -> tuple[float, tuple[str, ...]] | None:
         n = counts.get((pos, bucket), 0)
         if n >= _ROOKIE_MIN_BUCKET_N:
-            return sums[(pos, bucket)] / n
+            return sums[(pos, bucket)] / n, tuple(sorted(unscored.get((pos, bucket), ())))
         if pos_counts.get(pos, 0) >= _ROOKIE_MIN_BUCKET_N:
-            return pos_sums[pos] / pos_counts[pos]
+            return pos_sums[pos] / pos_counts[pos], tuple(sorted(pos_unscored.get(pos, ())))
         return None
 
     records: list[ProjectionRecord] = []
@@ -295,9 +337,10 @@ def build_rookie_prior_records(
         pos = ctx.true_position
         if pos is None:
             continue
-        mu = _bucket_mean(pos, bucket)
-        if mu is None:
+        resolved = _bucket_mean(pos, bucket)
+        if resolved is None:
             continue
+        mu, declared = resolved
         records.append(
             ProjectionRecord(
                 source=source,
@@ -309,6 +352,8 @@ def build_rookie_prior_records(
                 fpg=mu,
                 scoring_native=True,
                 is_proxy=True,
+                declared_unscored=declared,
+                declared_card_fingerprint=card_fingerprint,
             )
         )
     summary = {
@@ -373,6 +418,9 @@ def fetch_and_build_baseline(
             as_of=as_of,
             history=history,
             context=context,
+            card_fingerprint=_uniform_card_fingerprint(
+                history, scoring_settings, scoring_for_season
+            ),
         )
         existing = {r.player_key for r in records}
         added = [r for r in rookie_records if r.player_key not in existing]

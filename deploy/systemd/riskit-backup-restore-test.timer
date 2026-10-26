@@ -1,6 +1,11 @@
 [Unit]
 Description=Weekly backup restore-test
-Requires=riskit-backup-restore-test.service
+# No Requires= on the service: a timer already triggers the unit of the
+# same name, and a [Unit] Requires= also STARTS the service whenever the
+# timer is started — so every `systemctl enable --now` / `start` of this
+# timer (an installer refresh mid-deploy, a boot) ran the job immediately,
+# off schedule.  Measured: the 2026-08-15 state-backup install ran an
+# unscheduled backup.  Same convention as every dynasty-*.timer template.
 
 [Timer]
 # Every Monday at 03:30 UTC — after the daily backup runs at 02:00.

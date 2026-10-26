@@ -95,9 +95,12 @@ def _now() -> float:
 
 
 def _client_ip(request: Request) -> str:
-    return request.headers.get("x-real-ip") or (
-        request.client.host if request.client else "unknown"
-    )
+    # The one client-identity owner (B0-h): X-Real-IP used to be trusted
+    # from ANY peer here, so the auction login throttle could be dodged by
+    # rotating the header on a direct connection.
+    from src.api.client_ip import client_ip_from_request
+
+    return client_ip_from_request(request) or "unknown"
 
 
 def _origin_ok(request: Request) -> bool:

@@ -206,8 +206,14 @@ def test_write_csv_preserves_native_value_separately_from_rank(dlf_module, tmp_p
     # prefers Henderson. Both facts must survive; collapsing them is the
     # exact production defect this regression protects against.
     assert written == [
-        {"name": "Bucky Irving", "rank": "74", "value": "207.5"},
-        {"name": "TreVeyon Henderson", "rank": "77.17", "value": "244.5"},
+        {"name": "Bucky Irving", "rank": "74", "value": "207.5", "position": "", "team": ""},
+        {
+            "name": "TreVeyon Henderson",
+            "rank": "77.17",
+            "value": "244.5",
+            "position": "",
+            "team": "",
+        },
     ]
     assert float(written[1]["value"]) > float(written[0]["value"])
 
@@ -308,7 +314,28 @@ def test_missing_native_value_writes_rank_with_an_empty_value_column(dlf_module,
     out = tmp_path / "dlfSf.csv"
     dlf_module._write_csv(out, [{"name": "Josh Allen", "avg": "1.2", "value": ""}])
     with out.open() as f:
-        assert list(csv.DictReader(f)) == [{"name": "Josh Allen", "rank": "1.20", "value": ""}]
+        assert list(csv.DictReader(f)) == [
+            {"name": "Josh Allen", "rank": "1.20", "value": "", "position": "", "team": ""}
+        ]
+
+
+def test_write_csv_carries_published_position_and_team(dlf_module, tmp_path: Path):
+    """V2.1 U3: the table's own Pos / Team cells, verbatim, as trailing columns
+    — never folded into the rank or value columns."""
+    out = tmp_path / "dlfIdp.csv"
+    dlf_module._write_csv(
+        out,
+        [
+            {"name": "Aidan Hutchinson", "avg": "1", "value": "", "pos": "de", "team": "DET "},
+            {"name": "Fred Warner", "avg": "2", "value": "", "pos": "LB", "team": ""},
+        ],
+    )
+    with out.open() as f:
+        reader = csv.DictReader(f)
+        assert reader.fieldnames == ["name", "rank", "value", "position", "team"]
+        rows = list(reader)
+    assert [(r["position"], r["team"]) for r in rows] == [("DE", "DET"), ("LB", "")]
+    assert [r["rank"] for r in rows] == ["1", "2"]
 
 
 def test_candidate_table_headers_skips_small_tables(dlf_module):

@@ -115,3 +115,26 @@ Two cross-checks worth doing every time:
 sampler spawn. The instrumentation never raises — a monitoring helper
 that can break the thing it monitors is worse than none — so switching it
 off should never be necessary to keep a scrape running.
+
+## Correlated source lifecycle proof
+
+The manual `Scrape Source Lifecycle Proof (read-only)` workflow sends the
+reviewed parser code over SSH and executes it on the production host. The
+parser reads the existing `data/diagnostics/scrape_events.jsonl` locally;
+only an allowlisted JSON summary crosses SSH. It reports a checkout SHA
+observed at proof time, one `worker_id`, source name, terminal event,
+start/end timestamps and elapsed seconds. That SHA is **not** provenance for
+the selected source event. Raw `message` and `meta` fields never leave the
+host through this workflow. The proof fails if there is no matching
+`source_start` and `source_complete`, `source_partial`, or `source_failed` for
+the same worker/source within two hours, or if the latest complete pair is
+older than 48 hours. This read-only workflow has no shared deploy concurrency
+group and performs no scrape, product write, restart, or deployment.
+
+This proves the server-driven background path: scraper callback → server
+progress adapter → existing durable JSONL sink. The standalone scheduled
+refresh runs the scraper without the server callback, so this proof does not
+cover that separate runner path. Source events currently carry `worker_id`
+rather than W3C parent/child span IDs, and `sourceRunSummary` does not carry
+that worker ID. Treat this as a correlated diagnostic lifecycle, not a full
+cross-system trace or a source SLO.

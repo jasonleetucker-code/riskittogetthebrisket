@@ -10,8 +10,8 @@
  * Reuses (no duplication):
  *   - SharedTradeMeter        ← components/trade/TradeMeter
  *   - SharedTradeSourceBreakdown ← components/trade/TradeSourceBreakdown
- *   - effectiveValue + sideTotal + adjustedSideTotals from
- *     lib/trade-logic (KTC V13 Value Adjustment math)
+ *   - effectiveValue + adjustedSideTotals from
+ *     lib/trade-logic (active package Value Adjustment math)
  *   - ResilientSection wrapper for crash isolation
  *
  * Why a purpose-built waiver picker (and not a generic SideAssetList
@@ -29,7 +29,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { adjustedSideTotals, effectiveValue, sideTotal } from "@/lib/trade-logic";
+import { adjustedSideTotals, effectiveValue } from "@/lib/trade-logic";
 import {
   buildOwnedNameSet,
   buildTopWaiverPool,
@@ -382,24 +382,15 @@ export default function ManualAddDrop({
     [dropRow, addRow],
   );
 
-  // Both sides populated ⇒ full KTC V13 Value Adjustment.  Otherwise a
-  // flat sum so the meter still renders a sensible "0 vs N" preview.
-  const sideTotals = useMemo(() => {
-    const both = sides[0].assets.length > 0 && sides[1].assets.length > 0;
-    if (both) {
-      const [a, b] = adjustedSideTotals(
-        sides[0].assets,
-        sides[1].assets,
-        valueMode,
-        settings,
-      );
-      return [a, b];
-    }
-    return sides.map((s) => {
-      const raw = sideTotal(s.assets, valueMode, settings);
-      return { raw, adjustment: 0, adjusted: raw };
-    });
-  }, [sides, valueMode, settings]);
+  // Always the package model's own totals (active model).  With one side
+  // empty the Value Adjustment is 0, so the meter still reads "0 vs N" -- and
+  // every total carries its package `utility`, which the fairness band's base
+  // reads (fairness_bands_v2).  A hand-built flat-sum total here had no
+  // utility, so the meter's base was refused as soon as ONE side was picked.
+  const sideTotals = useMemo(
+    () => adjustedSideTotals(sides[0].assets, sides[1].assets, valueMode, settings),
+    [sides, valueMode, settings],
+  );
 
   return (
     <Panel

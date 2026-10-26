@@ -22,19 +22,21 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useUserState } from "@/components/useUserState";
 import { LoadingState, PlayerImage } from "@/components/ui";
 import {
   Badge,
   Button,
+  CollapsiblePanel,
   EmptyState,
   FailureState,
   Icon,
   Movement,
   Panel,
   PageHeader,
+  SkeletonText,
   StatTile,
   Tabs,
   tabId,
@@ -54,7 +56,26 @@ import {
 } from "@/components/PlayerPopup";
 import { getPlayerEdge } from "@/lib/trade-logic";
 import { resolvedRank } from "@/lib/dynasty-data";
+import { confidenceDisplay } from "@/lib/value-explainers";
+import {
+  BoardClocks,
+  ConfidenceEvidence,
+  ExplainTip,
+  SourceFreshnessList,
+  ValueExplainHelp,
+} from "@/components/ValueExplain";
 import styles from "./player-file.module.css";
+
+// The backend value explanation (value-explain/v2) is fetched on demand and
+// code-split: React.lazy + Suspense, the repo's established pattern (NOT
+// next/dynamic — see CLAUDE.md "Perfect Draft"). The collapsed panel below
+// does not mount it until opened, so neither the chunk nor the fetch costs
+// anything until a reader asks.
+const ValueExplainDetail = lazy(() => import("@/components/ValueExplainDetail"));
+// "Why it moved" (IC-7): the contributing evidence between the current
+// board generation and the previous one, read from the temporal ledger.
+// Same lazy, mount-on-open posture as the value explanation above.
+const ValueMovementDetail = lazy(() => import("@/components/ValueMovementDetail"));
 
 function findRowByPlayerId(rows, rawParam) {
   if (!Array.isArray(rows) || !rawParam) return null;
@@ -131,6 +152,7 @@ export default function PlayerFilePage() {
   const valueChain = useMemo(() => computeValueChain(row), [row]);
   const siteDetails = useMemo(() => computeSiteDetails(row, []), [row]);
   const consensusText = useMemo(() => computeConsensusText(siteDetails), [siteDetails]);
+  const confidence = useMemo(() => confidenceDisplay(row), [row]);
 
   // Every return path — including these early ones — renders inside
   // the same .psi-editorial-scoped section. A first version returned
@@ -230,6 +252,7 @@ export default function PlayerFilePage() {
             <Button as={Link} href="/trade" size="sm" variant="primary">
               Open in Trade Calculator
             </Button>
+            <ValueExplainHelp methodology={rawData?.methodology} />
           </div>
         }
       />
@@ -254,14 +277,49 @@ export default function PlayerFilePage() {
       </div>
 
       <div className={styles.summaryStrip}>
+        {/* Each headline number carries its own short explanation (one
+            copy owner: lib/value-explainers.js); the long form is the
+            "How values work" dialog in the header. */}
         <StatTile
           size="lg"
-          label="Our Value"
+          label={
+            <>
+              Our Value
+              <ExplainTip topic="value" label="Our Value" />
+            </>
+          }
           value={value != null ? value.toLocaleString() : "not priced"}
         />
-        {rank < Infinity && <StatTile label="Overall rank" value={`#${rank}`} />}
+        {rank < Infinity && (
+          <StatTile
+            label={
+              <>
+                Overall rank
+                <ExplainTip topic="rankVsValue" label="rank vs value" />
+              </>
+            }
+            value={`#${rank}`}
+            // Past the backend's rank limit the board shows a DISPLAY
+            // position (value order), not an official rank — say so
+            // rather than present #983 as if it were one.
+            meta={row.canonicalConsensusRank == null ? "display order — not officially ranked" : undefined}
+          />
+        )}
         {positionRank != null && <StatTile label="Position rank" value={`${row.pos}${positionRank}`} />}
-        {row.confidenceLabel && <StatTile label="Confidence" value={row.confidenceLabel} />}
+        {/* Always rendered: a missing grade reads "None — …", never an
+            absent tile a reader could mistake for "not applicable". */}
+        <StatTile
+          label={
+            <>
+              Confidence
+              <ExplainTip
+                topic={confidence.level === "none" ? "missingConfidence" : "confidence"}
+                label="confidence"
+              />
+            </>
+          }
+          value={confidence.label}
+        />
         {row.siteCount > 0 && (
           <StatTile
             label="Sources"
@@ -314,9 +372,39 @@ export default function PlayerFilePage() {
               ))}
             </Panel>
           )}
+          <Panel
+            title="Why this confidence"
+            subtitle="The evidence checks behind the value; the label names the limiting ones"
+            dense
+          >
+            <ConfidenceEvidence row={row} />
+          </Panel>
           <Panel title="Rank history" subtitle="180-day trajectory" flush>
             <PlayerRankHistoryChart row={row} />
           </Panel>
+          {/* Why the value moved since the previous board: contributing
+              evidence from the temporal ledger, never an asserted cause and
+              never an additive split (private, session-gated endpoint). */}
+          <CollapsiblePanel
+            title="Why it moved"
+            subtitle="What changed in the recorded evidence since the previous board — not additive"
+            defaultCollapsed
+            mountCollapsedChildren={false}
+            dense
+          >
+            <Suspense
+              fallback={
+                <div role="status" aria-label="Loading why the value moved">
+                  <SkeletonText lines={4} />
+                </div>
+              }
+            >
+              <ValueMovementDetail
+                playerKey={String(row.raw?.playerId || row.playerId || row.name || "")}
+                customMix={Boolean(rawData?.rankingsOverride?.isCustomized)}
+              />
+            </Suspense>
+          </CollapsiblePanel>
         </div>
       </TabPanel>
 
@@ -351,6 +439,57 @@ export default function PlayerFilePage() {
               description="No ranking source has this player priced individually today."
             />
           )}
+          {/* KTC Market is the benchmark our value is compared against —
+              shown under its own name, never inside the breakdown of
+              sources that voted. An uncovered asset says so; no 0. */}
+          {row.ktcMarket && (
+            <p className={styles.benchmark}>
+              KTC Market benchmark:{" "}
+              {Number(row.ktcMarket.value) > 0
+                ? Math.round(Number(row.ktcMarket.value)).toLocaleString()
+                : "not covered by KTC"}
+              <span className={styles.benchmarkNote}>
+                {" "}— KTC&rsquo;s own published Crowd+Trades number, for comparison only; it is not blended into Our Value.
+              </span>
+              <ExplainTip topic="provenance" label="where values come from" side="top" />
+            </p>
+          )}
+          <Panel
+            title={
+              <>
+                Source freshness
+                <ExplainTip topic="freshness" label="source freshness" />
+              </>
+            }
+            subtitle={<BoardClocks rawData={rawData} tip={false} />}
+            dense
+          >
+            <SourceFreshnessList row={row} rawData={rawData} />
+          </Panel>
+          {/* The backend's own explanation of THIS value (private,
+              session-gated endpoint — this page is private; never render
+              it on a public /league page). Renders the contract verbatim:
+              no frontend recomputation of values, weights or confidence. */}
+          <CollapsiblePanel
+            title="How this value was computed"
+            subtitle="Estimator, every source's clocks and exclusions, and a leave-one-out"
+            defaultCollapsed
+            mountCollapsedChildren={false}
+            dense
+          >
+            <Suspense
+              fallback={
+                <div role="status" aria-label="Loading the value explanation">
+                  <SkeletonText lines={4} />
+                </div>
+              }
+            >
+              <ValueExplainDetail
+                playerKey={String(row.raw?.playerId || row.playerId || row.name || "")}
+                customMix={Boolean(rawData?.rankingsOverride?.isCustomized)}
+              />
+            </Suspense>
+          </CollapsiblePanel>
           {row?.assetClass === "pick" &&
             Number.isFinite(row?.pickProjectedDraftValue) &&
             Number(row?.pickProjectedDraftValueGain) > 0 && (

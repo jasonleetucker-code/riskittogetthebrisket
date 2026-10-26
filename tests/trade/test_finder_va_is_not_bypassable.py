@@ -27,7 +27,7 @@ from pathlib import Path
 
 
 from src.trade.finder import Asset, TradeCandidate, _score_trade, _score_trade_on_values
-from src.trade.ktc_va import ktc_adjust_package
+from src.valuation_math import package_model
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -91,15 +91,21 @@ def test_the_scorer_applies_the_package_adjustment():
     that notices — no import-order archaeology required.
     """
     give, receive = _two_for_one()
-    expected = ktc_adjust_package([a.market_value for a in give], [a.market_value for a in receive])
-    assert expected.displayed, "fixture chosen so KTC fires a VA — otherwise this proves nothing"
+    # Expected from the canonical owner's ACTIVE model (geom_q078_v1 since
+    # the owner's 2026-10-17 promotion), not from KTC's port directly.
+    value, _side, displayed = package_model.adjust_pair(
+        [a.market_value for a in give], [a.market_value for a in receive]
+    )
+    assert (
+        displayed
+    ), "fixture chosen so the active model fires a VA — otherwise this proves nothing"
 
     scored = _score_trade(give, receive)
     unadjusted = _score_trade_on_values(give, receive)
 
     assert scored is not None
     assert unadjusted is not None
-    assert scored.market_value_adjustment == expected.value
+    assert scored.market_value_adjustment == value
     assert scored.market_value_adjustment_side in {"give", "receive"}
     # The two scorers must DISAGREE.  If they agreed, the adjustment did
     # nothing and every assertion above would pass vacuously.
@@ -139,7 +145,7 @@ def test_the_payload_publishes_raw_and_adjusted_totals():
 
 
 def test_a_one_for_one_is_scored_without_an_adjustment():
-    """KTC suppresses VA on 1-v-1, so the finder must too."""
+    """Neither package model adjusts a 1-v-1 (geom: equal depth; KTC: suppressed), so the finder must not either."""
     give, receive = _one_for_one()
     scored = _score_trade(give, receive)
     assert scored is not None
