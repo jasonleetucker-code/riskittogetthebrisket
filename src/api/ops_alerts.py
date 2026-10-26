@@ -11,6 +11,9 @@ when any of these conditions hold:
     * Data freshness > 3 × scrape interval
     * A draft-capital dollars generation serving last-known-good or
       unavailable (Batch F, one alert per league + draft class)
+    * A Game Day pregame-projections archive that could not be built, so
+      its week's raw weekly-projection log is being kept (one alert per
+      league + season + week)
 
 Cooldown: each alert class has a 4-hour re-alert cooldown keyed
 on the synthetic user ``_system_ops_alerts`` in user_kv so the
@@ -227,6 +230,46 @@ def _check_draft_valuation(rows: list[dict[str, Any]]) -> list[OpsAlert]:
     return alerts
 
 
+def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
+    """Game Day pregame-projections archives that could not be established.
+
+    One alert per (league, season, week), keyed
+    ``pregame_archive:<league>:<season>:<week>`` so the cooldown and recovery
+    bookkeeping apply per week.  A row comes from
+    ``src/ros/game_day_live.pregame_archive_health``: it exists exactly while
+    ``ensure_pregame_archive`` is keeping that week's raw log because the
+    archive could not be built, written or read back (fail closed -- nothing
+    is deleted).  The row disappears when a build succeeds, which is how the
+    recovery notice fires.  No rows means "nothing failing"; the sweep passes
+    ``None`` -- never an empty list -- when the store could not be read.
+    """
+    alerts: list[OpsAlert] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        league, season, week = row.get("leagueKey"), row.get("season"), row.get("week")
+        reason = row.get("reason") or "unknown"
+        retained = "retained" if row.get("rawLogRetained") else "NOT present"
+        alerts.append(
+            OpsAlert(
+                severity="warning",
+                category=f"pregame_archive:{league}:{season}:{week}",
+                title=f"Pregame projections archive for {season} week {week} not built",
+                detail=(
+                    f"The pregame weekly-projections archive for {league} {season} week {week} "
+                    f"could not be established ({reason}; failed {row.get('failedAt')}).  The "
+                    f"raw weekly-projection log is {retained} -- the prune keeps it rather than "
+                    "delete evidence it has not archived -- but until the archive exists that "
+                    "week's pregame baseline is not preserved for the projection scorecard, and "
+                    "its raw observations stay on disk.  The Game Day collector retries hourly; "
+                    "see pregame_projections.retained.json beside the week.  This resolves "
+                    "when a build succeeds."
+                ),
+            )
+        )
+    return alerts
+
+
 def _load_ops_state(path: Any = None) -> dict[str, Any]:
     state = user_kv.get_user_state(_OPS_STATE_USER, path=path)
     return dict(state.get("opsAlertState") or {})
@@ -358,6 +401,7 @@ def check_and_alert(
     data_age_hours: float | None = None,
     scrape_interval_hours: float = 2.0,
     draft_valuation: list[dict[str, Any]] | None = None,
+    pregame_archive: list[dict[str, Any]] | None = None,
     delivery: Callable[[str, str, str], bool] | None = None,
     to_email: str | None = None,
     kv_path: Any = None,
@@ -378,6 +422,7 @@ def check_and_alert(
     if df:
         alerts.append(df)
     alerts.extend(_check_draft_valuation(draft_valuation or []))
+    alerts.extend(_check_pregame_archive(pregame_archive or []))
 
     active_categories = {a.category for a in alerts}
     now = time.time()
@@ -386,6 +431,9 @@ def check_and_alert(
         # Not checked this sweep is UNKNOWN, not recovered: keep any firing
         # draft-valuation class out of the recovery notices.
         active_categories |= {c for c in state if str(c).startswith("draft_valuation:")}
+    if pregame_archive is None:
+        # Likewise: an unreadable Game Day store is UNKNOWN, not recovered.
+        active_categories |= {c for c in state if str(c).startswith("pregame_archive:")}
 
     # Recovery alerts first — for conditions that were firing but
     # aren't now.
