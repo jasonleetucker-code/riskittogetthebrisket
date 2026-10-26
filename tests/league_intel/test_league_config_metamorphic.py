@@ -19,7 +19,8 @@ B. slot change (SFLEX / TE / IDP) moves lineup-dependent outputs
 C. same ``scoringProfile`` label, different cards: never share
 D. multi-league isolation
 E. a stale or missing card fails closed
-F. genuine defects, pinned ``xfail(strict=True)`` with their exact repro
+F. genuine defects: still-open ones pinned ``xfail(strict=True)`` with their exact
+   repro; repaired ones stand as ordinary regression tests
 
 A section-F test that starts passing fails the suite (strict): remove its
 marker in the same change that repairs the defect.  Nothing here changes a
@@ -687,20 +688,13 @@ def test_e_a_zero_filled_card_is_not_an_identity():
     assert scoring_fingerprint(None) is None
 
 
-# ── F. genuine defects (xfail strict) ─────────────────────────────────────────
+# ── F. genuine defects (open: xfail strict; repaired: regression tests) ───────
 #
 # Each reason starts with its id so a grep for ``LI1842-DEFECT-`` is the defect
 # register.  The prose, repro and severity live in the matrix document.
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LI1842-DEFECT-01: POST /api/intel/leads for league B ranks B's members against the "
-        "LOADED league A's rosters, owners and board values (server.py::_build_intel_leads reads "
-        "latest_contract_data with no loaded-league or scoring-identity check)."
-    ),
-)
+# LI1842-DEFECT-01 -- REPAIRED: POST /api/intel/leads is a 503 data_not_ready for a league the loaded contract was not built for, and the context helper abstains.
 def test_f01_intel_leads_do_not_borrow_another_leagues_rosters_or_values(world, monkeypatch):
     import server
     from src.intel import lead_service
@@ -750,14 +744,7 @@ def test_f02_a_manual_tep_multiplier_cannot_move_the_canonical_board():
     assert values(1.45) == baseline
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LI1842-DEFECT-03: GET /api/movers applies no scoring-identity gate. For a league whose "
-        "scoring is not proven identical to the loaded board, /api/data is refused (503) but the "
-        "loaded board's rank movers are served 200 (home Terminal MoversPanel renders them)."
-    ),
-)
+# LI1842-DEFECT-03 -- REPAIRED: GET /api/movers follows the board's _scoring_identity_error gate.
 def test_f03_movers_follow_the_same_scoring_gate_as_the_board(world, monkeypatch, tmp_path):
     import server
     from src.api import rank_history
@@ -781,14 +768,7 @@ def test_f03_movers_follow_the_same_scoring_gate_as_the_board(world, monkeypatch
     assert not served_risers  # ... so its movers must not be served either
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LI1842-DEFECT-04: gameplan._resolve_scoring_fit memoises the IDP scoring-fit by leagueKey "
-        "for the process lifetime (invalidate_* has no production caller), so a commissioner "
-        "scoring change (21 keys on dynasty_main, 2026-08-19) is never picked up until restart."
-    ),
-)
+# LI1842-DEFECT-04 -- REPAIRED: the scoring-fit / reception-fit memos are keyed on the cards' scoring fingerprints.
 def test_f04_the_scoring_fit_memo_notices_a_changed_card(monkeypatch):
     from src.api import feature_flags, gameplan
     from src.league_comparison import service as lc_service
@@ -851,15 +831,7 @@ def test_f05_consensus_edge_fit_does_not_score_with_a_card_the_league_no_longer_
     assert mine is None or scoring_fingerprint(mine) == scoring_fingerprint(live)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LI1842-DEFECT-06: team_strength.compute_team_strength_live('<unknown key>') falls back to "
-        "the DEFAULT league (`get_league_by_key(k) or get_default_league()`) and fetches its "
-        "Sleeper overlay; /api/ros/team-strength echoes the bogus key and persists the result "
-        "under it."
-    ),
-)
+# LI1842-DEFECT-06 -- REPAIRED: an unknown league key is refused (no rows; 400 unknown_league at the route), never the default league.
 def test_f06_an_unknown_league_key_never_computes_another_leagues_team_strength(world, monkeypatch):
     from src.api import sleeper_overlay
     from src.ros import team_strength
@@ -924,14 +896,7 @@ def test_f08_the_overrides_request_carries_the_pages_league_key():
     assert "leagueKey" in text[start:end]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LI1842-DEFECT-09: the public hub rosTeamStrength section (ros.api.build_section) reads the "
-        "persisted team-strength file with load_team_strength_snapshot and no age or evidence "
-        "gate, so a 30-day-old all-zero file is served as source=snapshot, stale=False."
-    ),
-)
+# LI1842-DEFECT-09 -- REPAIRED: rosTeamStrength serves the persisted file only under the read path's freshness + evidence rule.
 def test_f09_public_ros_team_strength_does_not_serve_an_expired_file_as_current(
     tmp_path, monkeypatch
 ):
@@ -950,28 +915,13 @@ def test_f09_public_ros_team_strength_does_not_serve_an_expired_file_as_current(
     assert not (section["source"] == "snapshot" and section["stale"] is False)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LI1842-DEFECT-10: league_registry.get_default_league() returns an explicit "
-        "defaultLeagueKey even when that league is inactive (membership test only), contradicting "
-        "its docstring ('set + active') and the 400 inactive_league an explicit request gets."
-    ),
-)
+# LI1842-DEFECT-10 -- REPAIRED: an inactive defaultLeagueKey is not served implicitly.
 def test_f10_an_inactive_default_league_is_not_served_implicitly(world):
     world.write_registry(_registry(default="alpha", alpha_active=False))
     assert lr.get_default_league().key == "beta"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LI1842-DEFECT-11: frontend/lib/perfect-draft.js FLEX_SLOTS omits the canonical flex slots "
-        "WR_RB_FLEX, DL_LB, DB_LB, DL_DB that src/ros/lineup.py emits (flatten_starter_slots "
-        "renames dynasty_new's WRRB_FLEX to WR_RB_FLEX), so a flex slot is counted as an "
-        "unfillable position need."
-    ),
-)
+# LI1842-DEFECT-11 -- REPAIRED: FLEX_SLOTS mirrors the owner's flex vocabulary (exact lockstep: tests/lineup/test_single_owner.py).
 def test_f11_the_perfect_draft_flex_vocabulary_covers_every_canonical_flex_slot():
     from src.ros import lineup
 

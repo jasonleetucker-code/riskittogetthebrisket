@@ -1390,15 +1390,41 @@ def get_team_gameplan(
 
 _LOGGER = logging.getLogger(__name__)
 
-_SCORING_FIT_CACHE: dict[str, Any] = {}
+#: ``league_key -> (cards_key, measurement)``.  The measurement is valid for
+#: the pair of scoring cards it was taken under (:func:`_fit_cards_key`), not
+#: for the league key alone: a host editing the card must not be served the
+#: old card's tilt until restart (LI1842-DEFECT-04).
+_SCORING_FIT_CACHE: dict[str, tuple[tuple[str, str, int], Any]] = {}
 
 
 def invalidate_scoring_fit_cache() -> None:
-    """Drop the memoised measurement.  Tests and a scoring change."""
+    """Drop the memoised measurement.  Tests, and an operator override;
+    a scoring change no longer needs it (the memo is keyed on the cards)."""
     _SCORING_FIT_CACHE.clear()
 
 
-_RECEPTION_FIT_CACHE: dict[str, Any] = {}
+def _fit_cards_key(
+    mine: Mapping[str, Any] | None, baseline: Mapping[str, Any] | None, season: int
+) -> tuple[str, str, int] | None:
+    """What a scoring-fit measurement was taken under: the factual identity
+    (``scoring_fingerprint``) of "my" card and the baseline card, plus the
+    season whose stats were scored.
+
+    ``None`` when either card has no usable identity -- an unverifiable
+    measurement is never memoised, because a memo whose key cannot change
+    cannot notice that its card did.  The fingerprint, not the display
+    ``scoring_hash`` and never the ``scoringProfile`` label (W18-F001).
+    """
+    from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
+
+    fp_mine = scoring_fingerprint(mine)
+    fp_baseline = scoring_fingerprint(baseline)
+    if not fp_mine or not fp_baseline:
+        return None
+    return (fp_mine, fp_baseline, int(season))
+
+
+_RECEPTION_FIT_CACHE: dict[str, tuple[tuple[str, str, int], Any]] = {}
 
 
 def invalidate_reception_fit_cache() -> None:
@@ -1421,10 +1447,12 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
 
     if not feature_flags.is_enabled("reception_scoring_fit"):
         return None
-    if league_key in _RECEPTION_FIT_CACHE:
-        return _RECEPTION_FIT_CACHE[league_key]
 
+    # Memoised per league AND per scoring fingerprint, exactly as
+    # :func:`_resolve_scoring_fit` (LI1842-DEFECT-04): a card change
+    # re-measures, a call that cannot read the cards is not memoised.
     by_name: dict[str, float] | None = None
+    cards_key: tuple[str, str, int] | None = None
     try:
         from src.api.league_registry import get_sleeper_league_id  # noqa: PLC0415
         from src.league_comparison.scoring_engine import (  # noqa: PLC0415
@@ -1456,6 +1484,10 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
         if mine_id and base_id and season and depth:
             mine = fetch_league_scoring(mine_id).scoring_settings
             baseline = fetch_league_scoring(base_id).scoring_settings
+            cards_key = _fit_cards_key(mine, baseline, season)
+            hit = _RECEPTION_FIT_CACHE.get(league_key)
+            if cards_key is not None and hit is not None and hit[0] == cards_key:
+                return hit[1]
             rows = fetch_weekly_stats([season])
             if mine and baseline and rows:
                 # Reception share is measured under the BASELINE card:
@@ -1521,7 +1553,8 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
         _LOGGER.warning("reception fit unavailable for %s: %r", league_key, exc)
         by_name = None
 
-    _RECEPTION_FIT_CACHE[league_key] = by_name
+    if cards_key is not None:
+        _RECEPTION_FIT_CACHE[league_key] = (cards_key, by_name)
     return by_name
 
 
@@ -1533,19 +1566,24 @@ def _resolve_scoring_fit(league_key: str) -> Any | None:
     measurement refuses itself. Never raises: an optional lens must not
     be able to take down the board it decorates.
 
-    Memoised per league. The measurement scores ~19k player-weeks under
-    two rate cards, which is far too expensive for a per-request path,
-    and its inputs (a completed season's stats, two rate cards) change
-    on the order of weeks.
+    Memoised per league AND per scoring fingerprint. The measurement
+    scores ~19k player-weeks under two rate cards, which is far too
+    expensive for a per-request path, and its inputs (a completed
+    season's stats, two rate cards) change on the order of weeks.  The
+    memo is keyed on the two cards' factual identity
+    (``scoring_fingerprint``), so a commissioner scoring change is picked
+    up instead of being served until restart (LI1842-DEFECT-04); the
+    cards come from ``fetch_league_scoring``, which is itself cached for
+    an hour, so the warm path is two dict lookups.  A call that cannot
+    read the cards answers None and is NOT memoised.
     """
     from src.api import feature_flags  # noqa: PLC0415
 
     if not feature_flags.is_enabled("idp_scoring_fit"):
         return None
-    if league_key in _SCORING_FIT_CACHE:
-        return _SCORING_FIT_CACHE[league_key]
 
     measurement = None
+    cards_key: tuple[str, str, int] | None = None
     try:
         from src.api.league_registry import get_sleeper_league_id  # noqa: PLC0415
         from src.league_comparison.service import _load_config  # noqa: PLC0415
@@ -1568,6 +1606,10 @@ def _resolve_scoring_fit(league_key: str) -> Any | None:
         if mine_id and base_id and season:
             mine = fetch_league_scoring(mine_id).scoring_settings
             baseline = fetch_league_scoring(base_id).scoring_settings
+            cards_key = _fit_cards_key(mine, baseline, season)
+            hit = _SCORING_FIT_CACHE.get(league_key)
+            if cards_key is not None and hit is not None and hit[0] == cards_key:
+                return hit[1]
             rows = fetch_weekly_defensive_stats([season])
             if mine and baseline and rows:
                 measurement = measure_positional_scoring_fit(rows, mine, baseline, season=season)
@@ -1575,7 +1617,8 @@ def _resolve_scoring_fit(league_key: str) -> Any | None:
         _LOGGER.warning("scoring fit unavailable for %s: %r", league_key, exc)
         measurement = None
 
-    _SCORING_FIT_CACHE[league_key] = measurement
+    if cards_key is not None:
+        _SCORING_FIT_CACHE[league_key] = (cards_key, measurement)
     return measurement
 
 

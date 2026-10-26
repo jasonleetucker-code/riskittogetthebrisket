@@ -379,6 +379,24 @@ def load_ros_aggregate_players() -> list[dict[str, Any]]:
     return players if isinstance(players, list) else []
 
 
+def _league_cfg_for_strength(league_key: str | None) -> Any:
+    """The registry league a team-strength computation is FOR, or ``None``.
+
+    No key means the registry default -- the historical implicit path of
+    every caller that does not name a league.  A key that names NO
+    registered league is ``None``, never the default: scoring one league's
+    rosters under (and fetching the Sleeper overlay of) the DEFAULT league
+    answers the wrong league's question and, through the persist step,
+    stores it under the bogus key (LI1842-DEFECT-06).  Callers treat
+    ``None`` as "cannot compute" and return no rows.
+    """
+    from src.api.league_registry import get_default_league, get_league_by_key  # noqa: PLC0415
+
+    if league_key:
+        return get_league_by_key(league_key)
+    return get_default_league()
+
+
 def compute_team_strength_from_snapshot(
     snapshot: "PublicLeagueSnapshot",
     *,
@@ -400,10 +418,12 @@ def compute_team_strength_from_snapshot(
         if current is None or not current.rosters:
             return []
 
-        from src.api.league_registry import get_default_league, get_league_by_key  # noqa: PLC0415
         from src.public_league import metrics  # noqa: PLC0415
 
-        cfg = (get_league_by_key(league_key) if league_key else None) or get_default_league()
+        cfg = _league_cfg_for_strength(league_key)
+        if cfg is None:
+            LOG.warning("[ros] team-strength live fallback: unknown league %r", league_key)
+            return []
         starter_slots = flatten_starter_slots(
             (getattr(cfg, "roster_settings", None) or {}).get("starters")
         )
@@ -466,10 +486,9 @@ def compute_team_strength_live(
     Returns ``[]`` on any failure; never raises.
     """
     try:
-        from src.api.league_registry import get_default_league, get_league_by_key  # noqa: PLC0415
         from src.api.sleeper_overlay import fetch_sleeper_overlay  # noqa: PLC0415
 
-        cfg = (get_league_by_key(league_key) if league_key else None) or get_default_league()
+        cfg = _league_cfg_for_strength(league_key)
         sleeper_league_id = getattr(cfg, "sleeper_league_id", None)
         if not cfg or not sleeper_league_id:
             return []

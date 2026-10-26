@@ -5374,7 +5374,24 @@ async def get_movers(request: Request):
     ``perSourceDelta`` for exactly this reason; this docstring lagged
     the rename and promised a breakdown of "which sources drove the
     move" that was never computed.
+
+    **League scoping (LI1842-DEFECT-03).**  The movers are the LOADED
+    board's rank movement (names, current values, source ranks), so they
+    follow the board's scoring rule exactly: a league whose scoring is not
+    proven identical to the loaded board's gets the same 503
+    ``data_not_ready`` ``/api/data`` returns
+    (``_scoring_identity_error``), not the board's movers under its name.
+    An unknown / inactive ``leagueKey`` is the usual 400.
     """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    if latest_contract_data:
+        _scoring_err = _scoring_identity_error(latest_contract_data, league_cfg)
+        if _scoring_err is not None:
+            return _scoring_err
+
     try:
         window = int(request.query_params.get("window", 14))
     except (TypeError, ValueError):
@@ -20282,15 +20299,28 @@ async def get_intel_summary(request: Request):
     return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
 
 
-def _intel_contract_context() -> dict:
+def _intel_contract_context(league_key: str | None = None) -> dict:
     """Position, value and team maps from the loaded contract.
 
     Every piece is optional: a missing contract yields empty maps, which
     makes the partner-fit and value-match terms abstain rather than
     taking the whole lead list down with them.
+
+    ``league_key`` is the league the leads are FOR.  The loaded contract
+    is ONE league's rosters and board (``meta.leagueKey``); when it was
+    built for a different league every map here would be that other
+    league's owners and values, so the context abstains instead
+    (LI1842-DEFECT-01).  ``POST /api/intel/leads`` already refuses such a
+    request with the standard 503 before it gets here
+    (``require_loaded_contract=True``); this is the second line so a
+    direct caller cannot reintroduce the leak.  An unstamped contract is
+    treated as "nothing proven to the contrary", as the resolver does.
     """
     try:
         contract = latest_contract_data or {}
+        loaded_key = (contract.get("meta") or {}).get("leagueKey")
+        if league_key and loaded_key and loaded_key != league_key:
+            return {"teams": [], "positions": {}, "values": {}}
         sleeper_block = contract.get("sleeper") or {}
         teams = sleeper_block.get("teams") or []
         positions = {}
@@ -20317,7 +20347,7 @@ def _build_intel_leads(league_cfg, asset_id: str, mode: str) -> dict:
     """Assemble one lead list.  Runs in a threadpool — pure sync."""
     from src.intel import lead_service, roster_shape
 
-    ctx = _intel_contract_context()
+    ctx = _intel_contract_context(league_cfg.key)
     teams = ctx["teams"]
     positions = ctx["positions"]
     values = ctx["values"]
@@ -20379,8 +20409,12 @@ async def post_intel_leads(request: Request):
 
     # Body parsed BEFORE the resolver so a body leagueKey reaches it —
     # the POST convention used by the other league-scoped endpoints.
+    # ``require_loaded_contract``: the roster-fit and value terms read the
+    # loaded contract, which is one league's.  Another league's request is
+    # a 503 ``data_not_ready`` (the ``/api/trade/*`` rule), never that
+    # league's owners and values served as this one's (LI1842-DEFECT-01).
     try:
-        league_cfg = _resolve_league_for_request(request, body=body)
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
     except LeagueResolutionError as err:
         return err.json_response()
 

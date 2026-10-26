@@ -141,6 +141,65 @@ def test_default_league_falls_back_to_first_active(tmp_path, monkeypatch):
     assert league_registry.get_default_league().key == "active_one"
 
 
+def _two_leagues(default: str, *, first_active: bool, second_active: bool) -> dict:
+    return {
+        "defaultLeagueKey": default,
+        "leagues": [
+            {
+                "key": "first",
+                "displayName": "First",
+                "sleeperLeagueId": "1",
+                "active": first_active,
+                "rosterSettings": {},
+            },
+            {
+                "key": "second",
+                "displayName": "Second",
+                "sleeperLeagueId": "2",
+                "active": second_active,
+                "rosterSettings": {},
+            },
+        ],
+    }
+
+
+def test_an_explicit_default_is_honoured_when_it_is_active(tmp_path, monkeypatch):
+    """LI1842-DEFECT-10 positive control: the live registry shape is unchanged."""
+    path = _write_registry(tmp_path, _two_leagues("second", first_active=True, second_active=True))
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    assert league_registry.get_default_league().key == "second"
+    assert league_registry.default_league_key() == "second"
+
+
+def test_an_explicit_default_that_is_inactive_is_not_served_implicitly(tmp_path, monkeypatch):
+    """LI1842-DEFECT-10: ``get_default_league`` documents ``defaultLeagueKey``
+    as honoured when set AND active, matching the ``inactive_league`` 400 an
+    explicit request for it gets.  A retired default falls to the first active
+    league instead of answering every implicit request as the home league."""
+    path = _write_registry(tmp_path, _two_leagues("first", first_active=False, second_active=True))
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    assert league_registry.get_default_league().key == "second"
+    assert league_registry.default_league_key() == "second"
+    # ...while the retired league itself is still looked up (and refused by the resolver).
+    assert league_registry.get_league_by_key("first").active is False
+
+
+def test_with_nothing_active_the_first_listed_league_is_still_the_default(tmp_path, monkeypatch):
+    """The documented last resort is unchanged: an all-inactive registry
+    still has a well-defined (if retired) default rather than none."""
+    path = _write_registry(
+        tmp_path, _two_leagues("second", first_active=False, second_active=False)
+    )
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    assert league_registry.get_default_league().key == "first"
+
+
 def test_active_leagues_excludes_inactive(tmp_path, monkeypatch):
     path = _write_registry(
         tmp_path,

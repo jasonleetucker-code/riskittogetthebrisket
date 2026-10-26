@@ -239,8 +239,9 @@ def _env_bool(name: str, default: bool) -> bool:
 def _load_from_file(path: Path) -> tuple[dict[str, LeagueConfig], str | None]:
     """Parse the registry JSON and return ``({key: cfg}, default_key)``.
 
-    ``default_key`` honours ``defaultLeagueKey`` in the file; if absent,
-    uses the first active league; if still none, returns None.  The
+    ``default_key`` honours ``defaultLeagueKey`` in the file when that league
+    is active; if absent or inactive, uses the first active league; if still
+    none, the first listed league (or None for an empty registry).  The
     file format is documented in ``config/leagues/README.md``.
     """
     try:
@@ -276,7 +277,11 @@ def _load_from_file(path: Path) -> tuple[dict[str, LeagueConfig], str | None]:
 
     default_key_raw = str(raw.get("defaultLeagueKey") or "").strip()
     default_key: str | None = None
-    if default_key_raw and default_key_raw in registry:
+    # ``defaultLeagueKey`` is honoured only when that league is ACTIVE, the
+    # rule an explicit request for an inactive league already gets
+    # (``inactive_league``, 400): a retired league must not keep answering
+    # every implicit request as the home league (LI1842-DEFECT-10).
+    if default_key_raw and default_key_raw in registry and registry[default_key_raw].active:
         default_key = default_key_raw
     else:
         # Fall back to first active league; if nothing's active, first

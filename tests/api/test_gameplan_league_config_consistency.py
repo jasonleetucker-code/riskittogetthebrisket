@@ -209,6 +209,109 @@ class TestScoringFitResolvesTheRequestedLeague:
         )
 
 
+class TestTheFitMemosFollowTheScoringCards:
+    """LI1842-DEFECT-04: both resolvers memoised by ``league_key`` for the
+    process lifetime, so a commissioner scoring change (21 keys on
+    ``dynasty_main``, 2026-08-19) was never picked up until restart.  The memo
+    is now keyed on the two cards' factual identity (``scoring_fingerprint``):
+    unchanged cards hit it, a changed card on EITHER side re-measures, and a
+    call that cannot read the cards is not memoised."""
+
+    @pytest.fixture
+    def cards(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from src.league_comparison import service as lc_service
+        from src.league_comparison import sleeper_scoring
+
+        state = {
+            "cards": {
+                "M": {"rec": 1.0, "pass_td": 4.0},
+                "B": {"rec": 0.5, "pass_td": 4.0},
+            },
+            "down": False,
+        }
+        monkeypatch.setattr(feature_flags, "is_enabled", lambda *_a, **_k: True)
+        monkeypatch.setattr(
+            lc_service, "_load_config", lambda: {"baseline_league": {"id": "B"}, "seasons": [2025]}
+        )
+        monkeypatch.setattr(league_registry, "get_sleeper_league_id", lambda key=None: "M")
+
+        def fetch(league_id, **_kw):
+            if state["down"]:
+                raise OSError("sleeper unreachable")
+            return SimpleNamespace(scoring_settings=dict(state["cards"][league_id]))
+
+        monkeypatch.setattr(sleeper_scoring, "fetch_league_scoring", fetch)
+        return state
+
+    def _idp_stats(self, monkeypatch):
+        from src.league_intel import scoring_fit as li_scoring_fit
+        from src.league_comparison.sleeper_scoring import scoring_fingerprint
+        from src.nfl_data import ingest
+
+        stat_calls: list[int] = []
+
+        def rows(*_a, **_k):
+            stat_calls.append(1)
+            return [{}]
+
+        monkeypatch.setattr(ingest, "fetch_weekly_defensive_stats", rows)
+        monkeypatch.setattr(
+            li_scoring_fit,
+            "measure_positional_scoring_fit",
+            lambda _rows, mine, base, season=None: (
+                scoring_fingerprint(mine),
+                scoring_fingerprint(base),
+            ),
+        )
+        return stat_calls
+
+    def test_unchanged_cards_hit_the_memo(self, cards, monkeypatch):
+        stat_calls = self._idp_stats(monkeypatch)
+        first = gameplan._resolve_scoring_fit("dynasty_main")
+        second = gameplan._resolve_scoring_fit("dynasty_main")
+        assert first is not None and second is first
+        assert len(stat_calls) == 1  # the expensive measurement ran once
+
+    def test_a_changed_card_on_either_side_re_measures(self, cards, monkeypatch):
+        stat_calls = self._idp_stats(monkeypatch)
+        first = gameplan._resolve_scoring_fit("dynasty_main")
+        cards["cards"]["M"] = {"rec": 0.08, "pass_td": 6.0}  # the host edits MY card
+        second = gameplan._resolve_scoring_fit("dynasty_main")
+        cards["cards"]["B"] = {"rec": 0.25, "pass_td": 4.0}  # ...and the baseline card moves
+        third = gameplan._resolve_scoring_fit("dynasty_main")
+        assert len({first, second, third}) == 3
+        assert len(stat_calls) == 3
+
+    def test_unreadable_cards_answer_none_and_are_not_memoised(self, cards, monkeypatch):
+        stat_calls = self._idp_stats(monkeypatch)
+        cards["down"] = True
+        assert gameplan._resolve_scoring_fit("dynasty_main") is None
+        cards["down"] = False  # recovery: the earlier failure must not stick until restart
+        assert gameplan._resolve_scoring_fit("dynasty_main") is not None
+        assert len(stat_calls) == 1
+
+    def test_the_reception_resolver_follows_the_cards_too(self, cards, monkeypatch):
+        stat_calls: list[int] = []
+
+        def rows(*_a, **_k):
+            stat_calls.append(1)
+            return []
+
+        monkeypatch.setattr(
+            "src.nfl_data.reception_depth.load_reception_depth", lambda *a, **k: {"x": 1}
+        )
+        monkeypatch.setattr("src.nfl_data.ingest.fetch_weekly_stats", rows)
+
+        gameplan._resolve_reception_fit("dynasty_main")
+        gameplan._resolve_reception_fit("dynasty_main")
+        assert len(stat_calls) == 1  # unchanged cards: memo hit
+        cards["cards"]["M"] = {"rec": 0.08, "pass_td": 6.0}
+        gameplan._resolve_reception_fit("dynasty_main")
+        assert len(stat_calls) == 2  # changed card: re-measured
+
+
 class TestCrossConsumerAgreement:
     """The concrete W18-F005 / P1-12-R16 acceptance bar: two independent
     consumers -- ``src/league_comparison/service.py::build_comparison``
