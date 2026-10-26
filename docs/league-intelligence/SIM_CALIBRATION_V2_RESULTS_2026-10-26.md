@@ -305,11 +305,14 @@ seed 20261026, against the exact result (a multinomial for SC-G1, the finite-n K
 | SC-G4, D ≤ 0.08 in every gated family | 0.019 | 0.0175 | 0.0178 |
 | SC-G4, QB / TE alone | 0.22 / 0.42 | 0.222 / 0.417 | 0.223 / 0.416 |
 | SC-G1 and SC-G4 together | 0.007 | 0.0067 | not computed |
-| SC-G5 coverage halves (n = 24) | 0.91 | 0.902 | 0.903 |
+| SC-G5 coverage halves (n = 24) | 0.91 | 0.902 | 0.908 (nested multinomial; 0.903 is the independence product) |
 
-The claim stands: a perfect model passes SC-G4 about 2% of the time, SC-G1 about 27% and both under 1%. Two printed
-figures were slightly off the exact values (SC-G4 0.019 against 0.0178, SC-G5 0.91 against 0.903). The preregistration
-is frozen and keeps them. Neither changes a conclusion, and the SC-G5 coverage halves are not the hard part. The numbers
+The claim stands: a perfect model passes SC-G4 about 2% of the time, SC-G1 about 27% and both under 1%. One printed
+figure was slightly off the exact value (SC-G4 0.019 against 0.0178). For SC-G5 the preregistered 0.91 is the closer
+figure: the 80% and 95% counts are nested counts of the same 24 team-weeks, so the exact joint (a nested multinomial)
+is 0.908, while the committed script draws them as independent binomials (0.902; independence product 0.903).
+The preregistration is frozen and keeps its figures. Neither changes a conclusion, and the SC-G5 coverage halves are
+not the hard part. (Correction after independent review, 2026-10-26.) The numbers
 are lower bounds on difficulty, because each player appears in up to two holdout weeks.
 
 ## UNRESOLVED
