@@ -1,0 +1,1928 @@
+{
+  "schema": "sim-calibration-study/1",
+  "promotes": false,
+  "status": "RESEARCH_EVIDENCE_NOT_FOR_PROMOTION",
+  "generatedAtUtc": "2026-10-26T14:49:18.196020+00:00",
+  "preregistration": {
+    "path": "docs/league-intelligence/SIM_CALIBRATION_PREREGISTRATION_2026-10-26.md",
+    "commit": "d86f30238e0a63ebb48e24f5b92a1e8610b7b376"
+  },
+  "codeSha": "e6d2eb4a4e897b5fa146dc7b7419a33e39e06b74",
+  "studyCodeDirty": false,
+  "scriptSha256": "ed1651db90fc663de6be61cfe8fb03506139011dca6e68dfd146a1a8479f35dc",
+  "card": {
+    "leagueKey": "dynasty_main",
+    "fingerprint": "sf1:9e51824690d091f9",
+    "pinned": "sf1:9e51824690d091f9",
+    "source": "GET /v1/league/1312006700437352448 scoring_settings"
+  },
+  "split": {
+    "fit": [
+      "2025-w01",
+      "2025-w02",
+      "2025-w03",
+      "2025-w04",
+      "2025-w05",
+      "2025-w06",
+      "2025-w07",
+      "2025-w08",
+      "2025-w09",
+      "2025-w10",
+      "2025-w11",
+      "2025-w12",
+      "2025-w13",
+      "2025-w14",
+      "2025-w15",
+      "2025-w16",
+      "2025-w17",
+      "2026-w01",
+      "2026-w02",
+      "2026-w03",
+      "2026-w04"
+    ],
+    "evaluated": [
+      "2026-w05",
+      "2026-w06"
+    ],
+    "confirmation": [
+      "2026-w07"
+    ],
+    "rostersWithoutPlayersExcludedWeeks": []
+  },
+  "seeds": {
+    "seed": 20261026,
+    "bootstrapB": 2000,
+    "teamWeekDraws": 2000,
+    "teamWeekSeed": "int(sha256(f'{seed}:{week}:{rosterId}')[:12], 16), shared by C and F"
+  },
+  "candidate": {
+    "path": "docs/league-intelligence/evidence/sim_calibration/candidate_sim_points_model.json",
+    "sha256": "cee877c2901a9f01d24222bc872e5a96c4acce795a5d239db6a696814c92fbb3",
+    "frozen": false,
+    "loadedSource": "calibrated"
+  },
+  "models": {
+    "C": {
+      "rosValuePerPoint": 1.4764,
+      "defaultCv": 0.55,
+      "source": "calibrated",
+      "generatedAt": "2026-10-26T14:40:08.041139+00:00",
+      "sampleSize": 9708,
+      "cvByPosition": {
+        "QB": 0.752,
+        "RB": 0.8749,
+        "WR": 0.8902,
+        "TE": 0.9246,
+        "DL": 0.9638,
+        "DE": 0.9237,
+        "DT": 0.8187,
+        "EDGE": 0.55,
+        "LB": 0.6857,
+        "DB": 0.7076,
+        "S": 0.5,
+        "CB": 0.669,
+        "FB": 0.55,
+        "K": 0.5023,
+        "SS": 0.55
+      }
+    },
+    "F": {
+      "rosValuePerPoint": 2.7,
+      "defaultCv": 0.55,
+      "source": "fallback-constants",
+      "generatedAt": null,
+      "sampleSize": 0,
+      "cvByPosition": {
+        "QB": 0.32,
+        "RB": 0.55,
+        "WR": 0.6,
+        "TE": 0.65,
+        "DL": 0.55,
+        "DE": 0.55,
+        "DT": 0.55,
+        "EDGE": 0.55,
+        "LB": 0.45,
+        "DB": 0.5,
+        "S": 0.5,
+        "CB": 0.55
+      }
+    }
+  },
+  "fit": {
+    "refit": true,
+    "scale": {
+      "rosValuePerPoint": 1.4764,
+      "r2": 0.3266,
+      "n": 615
+    },
+    "byPosition": {
+      "CB": {
+        "cv": 0.669,
+        "meanPoints": 10.175,
+        "n": 266,
+        "measured": true
+      },
+      "DB": {
+        "cv": 0.7076,
+        "meanPoints": 10.557,
+        "n": 1238,
+        "measured": true
+      },
+      "DE": {
+        "cv": 0.9237,
+        "meanPoints": 11.82,
+        "n": 402,
+        "measured": true
+      },
+      "DL": {
+        "cv": 0.9638,
+        "meanPoints": 9.176,
+        "n": 505,
+        "measured": true
+      },
+      "DT": {
+        "cv": 0.8187,
+        "meanPoints": 9.73,
+        "n": 216,
+        "measured": true
+      },
+      "FB": {
+        "cv": 0.55,
+        "meanPoints": 0.343,
+        "n": 4,
+        "measured": false
+      },
+      "K": {
+        "cv": 0.5023,
+        "meanPoints": 9.679,
+        "n": 329,
+        "measured": true
+      },
+      "LB": {
+        "cv": 0.6857,
+        "meanPoints": 12.171,
+        "n": 1479,
+        "measured": true
+      },
+      "QB": {
+        "cv": 0.752,
+        "meanPoints": 18.158,
+        "n": 683,
+        "measured": true
+      },
+      "RB": {
+        "cv": 0.8749,
+        "meanPoints": 11.13,
+        "n": 1461,
+        "measured": true
+      },
+      "SS": {
+        "cv": 0.55,
+        "meanPoints": 6.712,
+        "n": 9,
+        "measured": false
+      },
+      "TE": {
+        "cv": 0.9246,
+        "meanPoints": 8.021,
+        "n": 945,
+        "measured": true
+      },
+      "WR": {
+        "cv": 0.8902,
+        "meanPoints": 9.844,
+        "n": 2171,
+        "measured": true
+      }
+    },
+    "sampleSize": 9708,
+    "calls": {
+      "varianceCall": {
+        "weeks": [
+          202501,
+          202502,
+          202503,
+          202504,
+          202505,
+          202506,
+          202507,
+          202508,
+          202509,
+          202510,
+          202511,
+          202512,
+          202513,
+          202514,
+          202515,
+          202516,
+          202517,
+          202601,
+          202602,
+          202603,
+          202604
+        ],
+        "sampleSize": 9708,
+        "scaleDiscarded": {
+          "rosValuePerPoint": 2.7,
+          "r2": 0.0,
+          "n": 0
+        }
+      },
+      "scaleCall": {
+        "weeks": [
+          202601,
+          202602,
+          202603,
+          202604
+        ],
+        "sampleSize": 2161,
+        "scale": {
+          "rosValuePerPoint": 1.4764,
+          "r2": 0.3266,
+          "n": 615
+        },
+        "pricedPlayers": 638,
+        "unpricedPlayerWeeksExcluded": 126
+      }
+    },
+    "D2_withinPlayerCv": {
+      "QB": {
+        "withinPlayerCv": 0.6618,
+        "playerSeasons": 67,
+        "playerWeeks": 604
+      },
+      "RB": {
+        "withinPlayerCv": 0.6654,
+        "playerSeasons": 146,
+        "playerWeeks": 1354
+      },
+      "WR": {
+        "withinPlayerCv": 0.7169,
+        "playerSeasons": 228,
+        "playerWeeks": 2036
+      },
+      "TE": {
+        "withinPlayerCv": 0.7662,
+        "playerSeasons": 101,
+        "playerWeeks": 886
+      },
+      "K": {
+        "withinPlayerCv": 0.4537,
+        "playerSeasons": 39,
+        "playerWeeks": 310
+      },
+      "DL": {
+        "withinPlayerCv": 0.7661,
+        "playerSeasons": 124,
+        "playerWeeks": 1007
+      },
+      "LB": {
+        "withinPlayerCv": 0.5714,
+        "playerSeasons": 165,
+        "playerWeeks": 1389
+      },
+      "DB": {
+        "withinPlayerCv": 0.5893,
+        "playerSeasons": 164,
+        "playerWeeks": 1347
+      }
+    },
+    "D3_rawPathParity": {
+      "rows": 9708,
+      "rowsOffBy>0.01": 0,
+      "maxAbsDelta": 0.0
+    },
+    "D6_scaleByFamilyFitWindow": {
+      "C": {
+        "QB": {
+          "n": 130,
+          "meanRealized": 19.059,
+          "meanPredicted": 20.295,
+          "realizedOverPredicted": 0.9391
+        },
+        "RB": {
+          "n": 294,
+          "meanRealized": 10.695,
+          "meanPredicted": 14.564,
+          "realizedOverPredicted": 0.7343
+        },
+        "WR": {
+          "n": 450,
+          "meanRealized": 9.924,
+          "meanPredicted": 11.5,
+          "realizedOverPredicted": 0.863
+        },
+        "TE": {
+          "n": 220,
+          "meanRealized": 7.357,
+          "meanPredicted": 7.521,
+          "realizedOverPredicted": 0.9783
+        },
+        "K": {
+          "n": 74,
+          "meanRealized": 9.624,
+          "meanPredicted": 4.099,
+          "realizedOverPredicted": 2.3481
+        },
+        "DL": {
+          "n": 285,
+          "meanRealized": 8.826,
+          "meanPredicted": 10.025,
+          "realizedOverPredicted": 0.8804
+        },
+        "LB": {
+          "n": 341,
+          "meanRealized": 12.127,
+          "meanPredicted": 12.119,
+          "realizedOverPredicted": 1.0007
+        },
+        "DB": {
+          "n": 367,
+          "meanRealized": 9.693,
+          "meanPredicted": 9.83,
+          "realizedOverPredicted": 0.986
+        }
+      },
+      "F": {
+        "QB": {
+          "n": 130,
+          "meanRealized": 19.059,
+          "meanPredicted": 11.098,
+          "realizedOverPredicted": 1.7173
+        },
+        "RB": {
+          "n": 294,
+          "meanRealized": 10.695,
+          "meanPredicted": 7.964,
+          "realizedOverPredicted": 1.3429
+        },
+        "WR": {
+          "n": 450,
+          "meanRealized": 9.924,
+          "meanPredicted": 6.288,
+          "realizedOverPredicted": 1.5782
+        },
+        "TE": {
+          "n": 220,
+          "meanRealized": 7.357,
+          "meanPredicted": 4.112,
+          "realizedOverPredicted": 1.789
+        },
+        "K": {
+          "n": 74,
+          "meanRealized": 9.624,
+          "meanPredicted": 2.241,
+          "realizedOverPredicted": 4.2941
+        },
+        "DL": {
+          "n": 285,
+          "meanRealized": 8.826,
+          "meanPredicted": 5.482,
+          "realizedOverPredicted": 1.6101
+        },
+        "LB": {
+          "n": 341,
+          "meanRealized": 12.127,
+          "meanPredicted": 6.627,
+          "realizedOverPredicted": 1.8301
+        },
+        "DB": {
+          "n": 367,
+          "meanRealized": 9.693,
+          "meanPredicted": 5.375,
+          "realizedOverPredicted": 1.8032
+        }
+      }
+    }
+  },
+  "census": {
+    "D5": {
+      "total": {
+        "appeared": 10720,
+        "no_stat_line": 1566,
+        "no_appearance": 1068
+      },
+      "byWeek": {
+        "2025-w01": {
+          "appeared": 471,
+          "no_stat_line": 30,
+          "no_appearance": 31
+        },
+        "2025-w02": {
+          "appeared": 471,
+          "no_stat_line": 38,
+          "no_appearance": 30
+        },
+        "2025-w03": {
+          "appeared": 462,
+          "no_appearance": 37,
+          "no_stat_line": 41
+        },
+        "2025-w04": {
+          "appeared": 469,
+          "no_appearance": 37,
+          "no_stat_line": 36
+        },
+        "2025-w05": {
+          "appeared": 406,
+          "no_stat_line": 104,
+          "no_appearance": 30
+        },
+        "2025-w06": {
+          "appeared": 434,
+          "no_stat_line": 74,
+          "no_appearance": 32
+        },
+        "2025-w07": {
+          "appeared": 438,
+          "no_appearance": 33,
+          "no_stat_line": 68
+        },
+        "2025-w08": {
+          "no_stat_line": 131,
+          "appeared": 383,
+          "no_appearance": 29
+        },
+        "2025-w09": {
+          "appeared": 411,
+          "no_appearance": 40,
+          "no_stat_line": 91
+        },
+        "2025-w10": {
+          "appeared": 403,
+          "no_appearance": 36,
+          "no_stat_line": 100
+        },
+        "2025-w11": {
+          "appeared": 438,
+          "no_appearance": 35,
+          "no_stat_line": 68
+        },
+        "2025-w12": {
+          "appeared": 405,
+          "no_stat_line": 98,
+          "no_appearance": 40
+        },
+        "2025-w13": {
+          "appeared": 465,
+          "no_appearance": 47,
+          "no_stat_line": 29
+        },
+        "2025-w14": {
+          "appeared": 416,
+          "no_appearance": 36,
+          "no_stat_line": 90
+        },
+        "2025-w15": {
+          "appeared": 462,
+          "no_stat_line": 33,
+          "no_appearance": 45
+        },
+        "2025-w16": {
+          "appeared": 452,
+          "no_stat_line": 35,
+          "no_appearance": 53
+        },
+        "2025-w17": {
+          "appeared": 435,
+          "no_stat_line": 39,
+          "no_appearance": 66
+        },
+        "2026-w01": {
+          "appeared": 578,
+          "no_appearance": 54,
+          "no_stat_line": 59
+        },
+        "2026-w02": {
+          "appeared": 582,
+          "no_appearance": 64,
+          "no_stat_line": 48
+        },
+        "2026-w03": {
+          "appeared": 565,
+          "no_stat_line": 61,
+          "no_appearance": 68
+        },
+        "2026-w04": {
+          "appeared": 562,
+          "no_appearance": 78,
+          "no_stat_line": 57
+        },
+        "2026-w05": {
+          "appeared": 520,
+          "no_appearance": 74,
+          "no_stat_line": 105
+        },
+        "2026-w06": {
+          "appeared": 492,
+          "no_appearance": 73,
+          "no_stat_line": 131
+        }
+      }
+    },
+    "evaluatedPlayerWeeks": 957,
+    "unpricedEvaluatedPlayerWeeks": {
+      "2026-w05": 26,
+      "2026-w06": 29
+    }
+  },
+  "playerLevel": {
+    "pooled": {
+      "n": 957,
+      "players": 579,
+      "C": {
+        "meanLogScore": -13.97652,
+        "meanCrps": 5.90809,
+        "coverage80": 0.78161,
+        "coverage95": 0.84953,
+        "postHoc": {
+          "coverage80ModelImplied": 0.85653,
+          "coverage95ModelImplied": 0.97411,
+          "pitCoverage80": 0.74922,
+          "pitCoverage95": 0.83699
+        },
+        "pit": {
+          "n": 957,
+          "ksD": 0.12794,
+          "ksP": 0.0,
+          "hist10": [
+            57,
+            143,
+            148,
+            129,
+            74,
+            73,
+            51,
+            50,
+            49,
+            183
+          ]
+        },
+        "meanPredictedMean": 12.7454,
+        "meanRealized": 10.9642,
+        "meanBias": 1.7813,
+        "realizedOverPredicted": 0.8602,
+        "observedZeroShare": 0.05852,
+        "predictedZeroMass": 0.11081
+      },
+      "F": {
+        "meanLogScore": -31.37135,
+        "meanCrps": 5.6925,
+        "coverage80": 0.4326,
+        "coverage95": 0.6092,
+        "postHoc": {
+          "coverage80ModelImplied": 0.80502,
+          "coverage95ModelImplied": 0.96614,
+          "pitCoverage80": 0.42529,
+          "pitCoverage95": 0.58725
+        },
+        "pit": {
+          "n": 957,
+          "ksD": 0.36211,
+          "ksP": 0.0,
+          "hist10": [
+            121,
+            64,
+            60,
+            43,
+            40,
+            46,
+            49,
+            44,
+            61,
+            429
+          ]
+        },
+        "meanPredictedMean": 6.9694,
+        "meanRealized": 10.9642,
+        "meanBias": -3.9948,
+        "realizedOverPredicted": 1.5732,
+        "observedZeroShare": 0.05852,
+        "predictedZeroMass": 0.04424
+      },
+      "deltaLogScore": {
+        "n": 957,
+        "clusters": 579,
+        "mean": 17.394833,
+        "ci95": [
+          11.232137,
+          24.983782
+        ]
+      },
+      "deltaCrps": {
+        "n": 957,
+        "clusters": 579,
+        "mean": -0.215592,
+        "ci95": [
+          -0.553077,
+          0.113807
+        ]
+      }
+    },
+    "byFamily": {
+      "QB": {
+        "n": 64,
+        "players": 39,
+        "C": {
+          "meanLogScore": -23.52152,
+          "meanCrps": 8.10519,
+          "coverage80": 0.76562,
+          "coverage95": 0.875,
+          "postHoc": {
+            "coverage80ModelImplied": 0.80313,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.76562,
+            "pitCoverage95": 0.84375
+          },
+          "pit": {
+            "n": 64,
+            "ksD": 0.12974,
+            "ksP": 0.215412,
+            "hist10": [
+              4,
+              10,
+              11,
+              4,
+              4,
+              6,
+              2,
+              4,
+              8,
+              11
+            ]
+          },
+          "meanPredictedMean": 17.5956,
+          "meanRealized": 17.908,
+          "meanBias": -0.3124,
+          "realizedOverPredicted": 1.0178,
+          "observedZeroShare": 0.07812,
+          "predictedZeroMass": 0.0983
+        },
+        "F": {
+          "meanLogScore": -82.75231,
+          "meanCrps": 9.7388,
+          "coverage80": 0.23438,
+          "coverage95": 0.375,
+          "postHoc": {
+            "coverage80ModelImplied": 0.80469,
+            "coverage95ModelImplied": 0.95195,
+            "pitCoverage80": 0.23438,
+            "pitCoverage95": 0.375
+          },
+          "pit": {
+            "n": 64,
+            "ksD": 0.48507,
+            "ksP": 0.0,
+            "hist10": [
+              13,
+              2,
+              3,
+              3,
+              2,
+              2,
+              0,
+              2,
+              1,
+              36
+            ]
+          },
+          "meanPredictedMean": 9.6215,
+          "meanRealized": 17.908,
+          "meanBias": -8.2864,
+          "realizedOverPredicted": 1.8612,
+          "observedZeroShare": 0.07812,
+          "predictedZeroMass": 0.01677
+        },
+        "deltaLogScore": {
+          "n": 64,
+          "clusters": 39,
+          "mean": 59.23079,
+          "ci95": [
+            11.863685,
+            137.780575
+          ]
+        },
+        "deltaCrps": {
+          "n": 64,
+          "clusters": 39,
+          "mean": 1.633611,
+          "ci95": [
+            -0.404477,
+            3.656157
+          ]
+        }
+      },
+      "RB": {
+        "n": 122,
+        "players": 75,
+        "C": {
+          "meanLogScore": -7.68149,
+          "meanCrps": 5.52019,
+          "coverage80": 0.82787,
+          "coverage95": 0.90984,
+          "postHoc": {
+            "coverage80ModelImplied": 0.9,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.81148,
+            "pitCoverage95": 0.90984
+          },
+          "pit": {
+            "n": 122,
+            "ksD": 0.12604,
+            "ksP": 0.037814,
+            "hist10": [
+              2,
+              15,
+              20,
+              26,
+              8,
+              10,
+              3,
+              10,
+              7,
+              21
+            ]
+          },
+          "meanPredictedMean": 13.4554,
+          "meanRealized": 10.9501,
+          "meanBias": 2.5052,
+          "realizedOverPredicted": 0.8138,
+          "observedZeroShare": 0.02459,
+          "predictedZeroMass": 0.12686
+        },
+        "F": {
+          "meanLogScore": -17.49417,
+          "meanCrps": 5.08707,
+          "coverage80": 0.47541,
+          "coverage95": 0.63115,
+          "postHoc": {
+            "coverage80ModelImplied": 0.80328,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.47541,
+            "pitCoverage95": 0.61475
+          },
+          "pit": {
+            "n": 122,
+            "ksD": 0.36508,
+            "ksP": 0.0,
+            "hist10": [
+              11,
+              8,
+              10,
+              6,
+              4,
+              8,
+              8,
+              9,
+              5,
+              53
+            ]
+          },
+          "meanPredictedMean": 7.3576,
+          "meanRealized": 10.9501,
+          "meanBias": -3.5925,
+          "realizedOverPredicted": 1.4883,
+          "observedZeroShare": 0.02459,
+          "predictedZeroMass": 0.04135
+        },
+        "deltaLogScore": {
+          "n": 122,
+          "clusters": 75,
+          "mean": 9.812676,
+          "ci95": [
+            3.973406,
+            17.56826
+          ]
+        },
+        "deltaCrps": {
+          "n": 122,
+          "clusters": 75,
+          "mean": -0.433118,
+          "ci95": [
+            -1.35522,
+            0.457513
+          ]
+        }
+      },
+      "WR": {
+        "n": 181,
+        "players": 107,
+        "C": {
+          "meanLogScore": -6.17235,
+          "meanCrps": 5.14615,
+          "coverage80": 0.8232,
+          "coverage95": 0.86188,
+          "postHoc": {
+            "coverage80ModelImplied": 0.9,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.74586,
+            "pitCoverage95": 0.8453
+          },
+          "pit": {
+            "n": 181,
+            "ksD": 0.13038,
+            "ksP": 0.003779,
+            "hist10": [
+              14,
+              14,
+              26,
+              27,
+              19,
+              16,
+              18,
+              7,
+              8,
+              32
+            ]
+          },
+          "meanPredictedMean": 11.5822,
+          "meanRealized": 10.8667,
+          "meanBias": 0.7156,
+          "realizedOverPredicted": 0.9382,
+          "observedZeroShare": 0.09945,
+          "predictedZeroMass": 0.13175
+        },
+        "F": {
+          "meanLogScore": -21.96337,
+          "meanCrps": 5.25554,
+          "coverage80": 0.43646,
+          "coverage95": 0.64641,
+          "postHoc": {
+            "coverage80ModelImplied": 0.80608,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.41989,
+            "pitCoverage95": 0.60773
+          },
+          "pit": {
+            "n": 181,
+            "ksD": 0.3697,
+            "ksP": 0.0,
+            "hist10": [
+              22,
+              10,
+              4,
+              10,
+              11,
+              4,
+              12,
+              10,
+              15,
+              83
+            ]
+          },
+          "meanPredictedMean": 6.3333,
+          "meanRealized": 10.8667,
+          "meanBias": -4.5333,
+          "realizedOverPredicted": 1.7158,
+          "observedZeroShare": 0.09945,
+          "predictedZeroMass": 0.05712
+        },
+        "deltaLogScore": {
+          "n": 181,
+          "clusters": 107,
+          "mean": 15.791013,
+          "ci95": [
+            7.956898,
+            25.63661
+          ]
+        },
+        "deltaCrps": {
+          "n": 181,
+          "clusters": 107,
+          "mean": 0.109395,
+          "ci95": [
+            -0.489089,
+            0.696165
+          ]
+        }
+      },
+      "TE": {
+        "n": 90,
+        "players": 53,
+        "C": {
+          "meanLogScore": -12.68993,
+          "meanCrps": 4.12756,
+          "coverage80": 0.86667,
+          "coverage95": 0.91111,
+          "postHoc": {
+            "coverage80ModelImplied": 0.9,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.74444,
+            "pitCoverage95": 0.86667
+          },
+          "pit": {
+            "n": 90,
+            "ksD": 0.13555,
+            "ksP": 0.066762,
+            "hist10": [
+              11,
+              10,
+              16,
+              7,
+              9,
+              8,
+              3,
+              7,
+              7,
+              12
+            ]
+          },
+          "meanPredictedMean": 8.1054,
+          "meanRealized": 7.806,
+          "meanBias": 0.2994,
+          "realizedOverPredicted": 0.9631,
+          "observedZeroShare": 0.14444,
+          "predictedZeroMass": 0.14385
+        },
+        "F": {
+          "meanLogScore": -17.83504,
+          "meanCrps": 4.43614,
+          "coverage80": 0.45556,
+          "coverage95": 0.67778,
+          "postHoc": {
+            "coverage80ModelImplied": 0.80667,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.43333,
+            "pitCoverage95": 0.61111
+          },
+          "pit": {
+            "n": 90,
+            "ksD": 0.33449,
+            "ksP": 0.0,
+            "hist10": [
+              14,
+              9,
+              7,
+              5,
+              2,
+              5,
+              2,
+              0,
+              9,
+              37
+            ]
+          },
+          "meanPredictedMean": 4.4321,
+          "meanRealized": 7.806,
+          "meanBias": -3.3739,
+          "realizedOverPredicted": 1.7612,
+          "observedZeroShare": 0.14444,
+          "predictedZeroMass": 0.07537
+        },
+        "deltaLogScore": {
+          "n": 90,
+          "clusters": 53,
+          "mean": 5.145111,
+          "ci95": [
+            2.144335,
+            8.421559
+          ]
+        },
+        "deltaCrps": {
+          "n": 90,
+          "clusters": 53,
+          "mean": 0.308575,
+          "ci95": [
+            -0.36629,
+            1.038803
+          ]
+        }
+      },
+      "K": {
+        "n": 36,
+        "players": 21,
+        "C": {
+          "meanLogScore": -18.86908,
+          "meanCrps": 5.238,
+          "coverage80": 0.27778,
+          "coverage95": 0.27778,
+          "postHoc": {
+            "coverage80ModelImplied": 0.80556,
+            "coverage95ModelImplied": 0.95139,
+            "pitCoverage80": 0.27778,
+            "pitCoverage95": 0.27778
+          },
+          "pit": {
+            "n": 36,
+            "ksD": 0.61835,
+            "ksP": 0.0,
+            "hist10": [
+              3,
+              2,
+              3,
+              1,
+              0,
+              2,
+              0,
+              1,
+              1,
+              23
+            ]
+          },
+          "meanPredictedMean": 4.0995,
+          "meanRealized": 9.0047,
+          "meanBias": -4.9052,
+          "realizedOverPredicted": 2.1965,
+          "observedZeroShare": 0.08333,
+          "predictedZeroMass": 0.03568
+        },
+        "F": {
+          "meanLogScore": -48.18994,
+          "meanCrps": 6.56399,
+          "coverage80": 0.19444,
+          "coverage95": 0.30556,
+          "postHoc": {
+            "coverage80ModelImplied": 0.81111,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.16667,
+            "pitCoverage95": 0.22222
+          },
+          "pit": {
+            "n": 36,
+            "ksD": 0.70354,
+            "ksP": 0.0,
+            "hist10": [
+              3,
+              0,
+              0,
+              1,
+              0,
+              1,
+              3,
+              0,
+              1,
+              27
+            ]
+          },
+          "meanPredictedMean": 2.2417,
+          "meanRealized": 9.0047,
+          "meanBias": -6.7631,
+          "realizedOverPredicted": 4.017,
+          "observedZeroShare": 0.08333,
+          "predictedZeroMass": 0.05732
+        },
+        "deltaLogScore": {
+          "n": 36,
+          "clusters": 21,
+          "mean": 29.320867,
+          "ci95": [
+            12.464045,
+            49.977272
+          ]
+        },
+        "deltaCrps": {
+          "n": 36,
+          "clusters": 21,
+          "mean": 1.325987,
+          "ci95": [
+            0.852784,
+            1.845569
+          ]
+        }
+      },
+      "DL": {
+        "n": 133,
+        "players": 83,
+        "C": {
+          "meanLogScore": -6.88207,
+          "meanCrps": 6.40156,
+          "coverage80": 0.80451,
+          "coverage95": 0.84962,
+          "postHoc": {
+            "coverage80ModelImplied": 0.89925,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.78195,
+            "pitCoverage95": 0.84962
+          },
+          "pit": {
+            "n": 133,
+            "ksD": 0.13609,
+            "ksP": 0.01298,
+            "hist10": [
+              3,
+              20,
+              25,
+              19,
+              13,
+              11,
+              5,
+              4,
+              7,
+              26
+            ]
+          },
+          "meanPredictedMean": 12.131,
+          "meanRealized": 9.9851,
+          "meanBias": 2.1459,
+          "realizedOverPredicted": 0.8231,
+          "observedZeroShare": 0.03008,
+          "predictedZeroMass": 0.13856
+        },
+        "F": {
+          "meanLogScore": -42.15104,
+          "meanCrps": 5.93796,
+          "coverage80": 0.44361,
+          "coverage95": 0.66917,
+          "postHoc": {
+            "coverage80ModelImplied": 0.80075,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.44361,
+            "pitCoverage95": 0.64662
+          },
+          "pit": {
+            "n": 133,
+            "ksD": 0.33586,
+            "ksP": 0.0,
+            "hist10": [
+              17,
+              11,
+              10,
+              5,
+              5,
+              10,
+              4,
+              5,
+              9,
+              57
+            ]
+          },
+          "meanPredictedMean": 6.6334,
+          "meanRealized": 9.9851,
+          "meanBias": -3.3517,
+          "realizedOverPredicted": 1.5053,
+          "observedZeroShare": 0.03008,
+          "predictedZeroMass": 0.03594
+        },
+        "deltaLogScore": {
+          "n": 133,
+          "clusters": 83,
+          "mean": 35.268968,
+          "ci95": [
+            10.105509,
+            72.53334
+          ]
+        },
+        "deltaCrps": {
+          "n": 133,
+          "clusters": 83,
+          "mean": -0.463601,
+          "ci95": [
+            -1.323435,
+            0.34606
+          ]
+        }
+      },
+      "LB": {
+        "n": 161,
+        "players": 95,
+        "C": {
+          "meanLogScore": -21.94908,
+          "meanCrps": 7.72419,
+          "coverage80": 0.75776,
+          "coverage95": 0.8882,
+          "postHoc": {
+            "coverage80ModelImplied": 0.80373,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.75776,
+            "pitCoverage95": 0.87578
+          },
+          "pit": {
+            "n": 161,
+            "ksD": 0.24939,
+            "ksP": 0.0,
+            "hist10": [
+              15,
+              45,
+              23,
+              20,
+              5,
+              9,
+              8,
+              6,
+              6,
+              24
+            ]
+          },
+          "meanPredictedMean": 17.8368,
+          "meanRealized": 10.9788,
+          "meanBias": 6.858,
+          "realizedOverPredicted": 0.6155,
+          "observedZeroShare": 0.04348,
+          "predictedZeroMass": 0.08575
+        },
+        "F": {
+          "meanLogScore": -29.66452,
+          "meanCrps": 5.58429,
+          "coverage80": 0.45342,
+          "coverage95": 0.62733,
+          "postHoc": {
+            "coverage80ModelImplied": 0.80497,
+            "coverage95ModelImplied": 0.95202,
+            "pitCoverage80": 0.45342,
+            "pitCoverage95": 0.62733
+          },
+          "pit": {
+            "n": 161,
+            "ksD": 0.30572,
+            "ksP": 0.0,
+            "hist10": [
+              30,
+              11,
+              19,
+              8,
+              6,
+              8,
+              5,
+              8,
+              8,
+              58
+            ]
+          },
+          "meanPredictedMean": 9.7534,
+          "meanRealized": 10.9788,
+          "meanBias": -1.2253,
+          "realizedOverPredicted": 1.1256,
+          "observedZeroShare": 0.04348,
+          "predictedZeroMass": 0.03342
+        },
+        "deltaLogScore": {
+          "n": 161,
+          "clusters": 95,
+          "mean": 7.715436,
+          "ci95": [
+            3.474072,
+            13.359155
+          ]
+        },
+        "deltaCrps": {
+          "n": 161,
+          "clusters": 95,
+          "mean": -2.139901,
+          "ci95": [
+            -3.180517,
+            -1.10256
+          ]
+        }
+      },
+      "DB": {
+        "n": 170,
+        "players": 106,
+        "C": {
+          "meanLogScore": -20.85479,
+          "meanCrps": 5.14911,
+          "coverage80": 0.77647,
+          "coverage95": 0.83529,
+          "postHoc": {
+            "coverage80ModelImplied": 0.80353,
+            "coverage95ModelImplied": 0.975,
+            "pitCoverage80": 0.77059,
+            "pitCoverage95": 0.82941
+          },
+          "pit": {
+            "n": 170,
+            "ksD": 0.14701,
+            "ksP": 0.001113,
+            "hist10": [
+              5,
+              27,
+              24,
+              25,
+              16,
+              11,
+              12,
+              11,
+              5,
+              34
+            ]
+          },
+          "meanPredictedMean": 11.5949,
+          "meanRealized": 11.3031,
+          "meanBias": 0.2918,
+          "realizedOverPredicted": 0.9748,
+          "observedZeroShare": 0.01765,
+          "predictedZeroMass": 0.08211
+        },
+        "F": {
+          "meanLogScore": -28.79124,
+          "meanCrps": 5.45995,
+          "coverage80": 0.48235,
+          "coverage95": 0.60588,
+          "postHoc": {
+            "coverage80ModelImplied": 0.80647,
+            "coverage95ModelImplied": 0.95559,
+            "pitCoverage80": 0.47647,
+            "pitCoverage95": 0.60588
+          },
+          "pit": {
+            "n": 170,
+            "ksD": 0.37713,
+            "ksP": 0.0,
+            "hist10": [
+              11,
+              13,
+              7,
+              5,
+              10,
+              8,
+              15,
+              10,
+              13,
+              78
+            ]
+          },
+          "meanPredictedMean": 6.3403,
+          "meanRealized": 11.3031,
+          "meanBias": -4.9629,
+          "realizedOverPredicted": 1.7828,
+          "observedZeroShare": 0.01765,
+          "predictedZeroMass": 0.0404
+        },
+        "deltaLogScore": {
+          "n": 170,
+          "clusters": 106,
+          "mean": 7.936443,
+          "ci95": [
+            4.421679,
+            12.373386
+          ]
+        },
+        "deltaCrps": {
+          "n": 170,
+          "clusters": 106,
+          "mean": 0.310839,
+          "ci95": [
+            -0.276882,
+            0.94212
+          ]
+        }
+      }
+    }
+  },
+  "teamWeek": {
+    "pool": "oracle availability: rostered players who appeared that week",
+    "realizedCrossCheck": {
+      "teamWeeks": 24,
+      "matchWithin0.01": 23,
+      "maxAbsDelta": 0.0111
+    },
+    "n": 24,
+    "C": {
+      "meanCrps": 85.7119,
+      "coverage80": 0.33333,
+      "coverage95": 0.625,
+      "meanBias": 115.7743,
+      "pitSorted": [
+        0.0,
+        0.001,
+        0.002,
+        0.0025,
+        0.0025,
+        0.005,
+        0.0085,
+        0.018,
+        0.019,
+        0.0265,
+        0.038,
+        0.039,
+        0.0595,
+        0.06,
+        0.067,
+        0.0785,
+        0.1015,
+        0.126,
+        0.1285,
+        0.1295,
+        0.19,
+        0.3125,
+        0.33,
+        0.79
+      ],
+      "pit": {
+        "n": 24,
+        "ksD": 0.70383,
+        "ksP": 0.0,
+        "hist10": [
+          16,
+          5,
+          0,
+          2,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0
+        ]
+      }
+    },
+    "F": {
+      "meanCrps": 95.3714,
+      "coverage80": 0.0,
+      "coverage95": 0.08333,
+      "meanBias": -108.8754,
+      "pitSorted": [
+        0.942,
+        0.969,
+        0.9805,
+        0.987,
+        0.9885,
+        0.9975,
+        0.9985,
+        0.9995,
+        0.9995,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "pit": {
+        "n": 24,
+        "ksD": 0.942,
+        "ksP": 0.0,
+        "hist10": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          24
+        ]
+      }
+    }
+  },
+  "D4_teamWeekNoAvailabilityFilter": {
+    "n": 24,
+    "C": {
+      "meanCrps": 158.55,
+      "coverage80": 0.04167,
+      "coverage95": 0.16667,
+      "meanBias": 195.9569,
+      "pitSorted": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0005,
+        0.0005,
+        0.003,
+        0.0055,
+        0.0065,
+        0.0065,
+        0.01,
+        0.017,
+        0.0245,
+        0.0295,
+        0.0435,
+        0.0455,
+        0.428
+      ],
+      "pit": {
+        "n": 24,
+        "ksD": 0.91283,
+        "ksP": 0.0,
+        "hist10": [
+          23,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "F": {
+      "meanCrps": 63.0371,
+      "coverage80": 0.29167,
+      "coverage95": 0.375,
+      "meanBias": -73.7295,
+      "pitSorted": [
+        0.4605,
+        0.598,
+        0.689,
+        0.697,
+        0.726,
+        0.779,
+        0.8855,
+        0.9145,
+        0.9595,
+        0.986,
+        0.995,
+        0.995,
+        0.9955,
+        0.9995,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "pit": {
+        "n": 24,
+        "ksD": 0.6355,
+        "ksP": 0.0,
+        "hist10": [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1,
+          2,
+          2,
+          1,
+          17
+        ]
+      }
+    }
+  },
+  "gates": {
+    "SC-G1": {
+      "pass": false,
+      "gatedFamilies": [
+        "QB",
+        "RB",
+        "WR",
+        "TE",
+        "DL",
+        "LB",
+        "DB"
+      ],
+      "failingFamilies": [
+        "QB",
+        "WR",
+        "TE",
+        "DL",
+        "LB",
+        "DB"
+      ],
+      "rule": "C coverage80 in [0.75, 0.85] and coverage95 in [0.9, 1.0], every gated family"
+    },
+    "SC-G2": {
+      "pass": true,
+      "familiesSignificantlyWorse": [],
+      "pooled": {
+        "n": 957,
+        "clusters": 579,
+        "mean": 17.394833,
+        "ci95": [
+          11.232137,
+          24.983782
+        ]
+      },
+      "rule": "pooled mean dLS > 0, CI lower > 0; no gated family CI upper < 0"
+    },
+    "SC-G3": {
+      "pass": false,
+      "familiesSignificantlyWorse": [
+        "LB"
+      ],
+      "pooled": {
+        "n": 957,
+        "clusters": 579,
+        "mean": -0.215592,
+        "ci95": [
+          -0.553077,
+          0.113807
+        ]
+      },
+      "rule": "pooled mean dCRPS > 0, CI lower > 0; no gated family CI upper < 0"
+    },
+    "SC-G4": {
+      "pass": false,
+      "failingFamilies": [
+        "QB",
+        "RB",
+        "WR",
+        "TE",
+        "DL",
+        "LB",
+        "DB"
+      ],
+      "pooledKsD": {
+        "C": 0.12794,
+        "F": 0.36211
+      },
+      "rule": "C ks D <= 0.08 every gated family; pooled D_C < D_F"
+    },
+    "SC-G5": {
+      "pass": false,
+      "C": {
+        "coverage80": 0.33333,
+        "coverage95": 0.625,
+        "meanCrps": 85.7119
+      },
+      "F": {
+        "coverage80": 0.0,
+        "coverage95": 0.08333,
+        "meanCrps": 95.3714
+      },
+      "n": 24,
+      "rule": "C coverage80 in [0.65, 0.95], coverage95 >= 0.85, meanCrps_C <= F"
+    }
+  },
+  "verdict": "CANDIDATE_DOES_NOT_BEAT_FALLBACK",
+  "failingGates": [
+    "SC-G1",
+    "SC-G3",
+    "SC-G4",
+    "SC-G5"
+  ],
+  "inputs": {
+    "sleeperAndNflverseBodies": {
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/1": {
+        "sha256": "0c6ba6f9db92525fa5002ad9283961d7d24a8ba3fc510542be95be9288ffffaf",
+        "bytes": 14587,
+        "cachedAtUtc": "2026-10-26T14:36:24Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/10": {
+        "sha256": "d7af1cb0e7efe04b7be0d400a4904bc99933b5e1865001ff991dbc548df3ba09",
+        "bytes": 14744,
+        "cachedAtUtc": "2026-10-26T14:36:27Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/11": {
+        "sha256": "c607f0382f0062f85ba55de74630d5fe94e70d6f88266aaf026e8721d758528d",
+        "bytes": 14732,
+        "cachedAtUtc": "2026-10-26T14:36:28Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/12": {
+        "sha256": "82bbdc2871f259b499a649b17f9ad311fef5274af4631ce4571fd69941ca1c0a",
+        "bytes": 14749,
+        "cachedAtUtc": "2026-10-26T14:36:28Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/13": {
+        "sha256": "c1dfec8668faf7f46f7ab25bb2cf02429564468239cbecee1b90bd6be1759f7b",
+        "bytes": 14822,
+        "cachedAtUtc": "2026-10-26T14:36:28Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/14": {
+        "sha256": "bd4990e6463dfca26e9b5ddf1884bf4629f1456ba76fd3edb24ef59024fb6a7c",
+        "bytes": 14762,
+        "cachedAtUtc": "2026-10-26T14:36:29Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/15": {
+        "sha256": "ed6e10fcd6107a5c0fedfdaac0a69f44e4cba242693fc5e6ff10c2e9f56f506b",
+        "bytes": 14802,
+        "cachedAtUtc": "2026-10-26T14:36:29Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/16": {
+        "sha256": "997ea1dd560ea7d70b98be81a1af308853066323f181ed771395066bd2efc722",
+        "bytes": 14773,
+        "cachedAtUtc": "2026-10-26T14:36:29Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/17": {
+        "sha256": "a03ad2dd8e183e010c8a3ab052f6e74742496eef3c1f8df40a4d01146c5f7009",
+        "bytes": 14146,
+        "cachedAtUtc": "2026-10-26T14:36:30Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/2": {
+        "sha256": "1a44688c7848f55b6a6bce6b6abb00589b0697f8473eb1d15cda4e56b2f91d24",
+        "bytes": 14767,
+        "cachedAtUtc": "2026-10-26T14:36:24Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/3": {
+        "sha256": "38745b1696595348e96cdcd3e86f42c5a2e848ef5d0f8d25af1a11a674621c89",
+        "bytes": 14733,
+        "cachedAtUtc": "2026-10-26T14:36:25Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/4": {
+        "sha256": "1c43889086624f0bef1a80095edda1bbba4d0911bf049ac0f08dbec595f76416",
+        "bytes": 14819,
+        "cachedAtUtc": "2026-10-26T14:36:25Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/5": {
+        "sha256": "aa236593a2994e3af713d491962a1bee2de8ab0b6c4461b2b759e20827766b64",
+        "bytes": 14721,
+        "cachedAtUtc": "2026-10-26T14:36:26Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/6": {
+        "sha256": "85e3f6e941aece13090c1fe4ff27406fefd23530c157324571f4ba271fceb715",
+        "bytes": 14677,
+        "cachedAtUtc": "2026-10-26T14:36:26Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/7": {
+        "sha256": "e88cffce4c46b1a38c0a81544514ed1c56c997eeb02e6dcb4d8ce5a00f04bdab",
+        "bytes": 14709,
+        "cachedAtUtc": "2026-10-26T14:36:26Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/8": {
+        "sha256": "bc4a85575d6ee358eaa6d6d91f75a781f52540667cb73bb90443e2e9e7b589f5",
+        "bytes": 14708,
+        "cachedAtUtc": "2026-10-26T14:36:27Z"
+      },
+      "https://api.sleeper.app/v1/league/1180092661344120832/matchups/9": {
+        "sha256": "6c846667ad06d35704703055f8ce5c6f1fad34134b1d0d0e6baa1521ea77700b",
+        "bytes": 14760,
+        "cachedAtUtc": "2026-10-26T14:36:27Z"
+      },
+      "https://api.sleeper.app/v1/league/1312006700437352448": {
+        "sha256": "6e188d550e1fb26714d3ab12c6b84fd966ffcc2a2a62f1ed532ed64b3dde0ce9",
+        "bytes": 5107,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/league/1312006700437352448/matchups/1": {
+        "sha256": "9f4d2663ac8a4960d6299ec97199dccba070828e19e0ff0e15b875314b2221b2",
+        "bytes": 18649,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/league/1312006700437352448/matchups/2": {
+        "sha256": "ac8be4fffb6c0dc35df103295539a6d4843b75195596b77d7ade21a617e3df02",
+        "bytes": 18695,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/league/1312006700437352448/matchups/3": {
+        "sha256": "142ca76bb94e966dad28f699362bb7fd8d6ea71f658c06f82e958807ac1218e0",
+        "bytes": 18672,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/league/1312006700437352448/matchups/4": {
+        "sha256": "c1c28e4add27364429437778d172fdfa65d9894c4637ae12ab839cda77a913a7",
+        "bytes": 18735,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/league/1312006700437352448/matchups/5": {
+        "sha256": "b8c08a1546f9e2a5b68e3c7f62547b23f20b6ff1c4f7ca154ab697004799966e",
+        "bytes": 18732,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/league/1312006700437352448/matchups/6": {
+        "sha256": "3fec893d6fe76fa37901e9aad7f6d4d66bbad200b83a1754dd1b1a3e2b41cdf7",
+        "bytes": 18677,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/players/nfl": {
+        "sha256": "74b4fa33f905e83f9f81acda9ccebb64e4b9a9906bb2985a79eda69f4300c1ab",
+        "bytes": 14663497,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/1": {
+        "sha256": "9da73f45a624eacee0845b1f5a6fba4e48b7b15e9bf7fb31f749d090c820623b",
+        "bytes": 636644,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/10": {
+        "sha256": "41a2bbe01ad43fb9e274b4fca7d79c8a9ab2582c24a4a36067a1f34775f46a74",
+        "bytes": 564443,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/11": {
+        "sha256": "c11e7b73ccc95bf7630d6299b3aca96785451afe4eb6390cb995c49b1a667902",
+        "bytes": 605031,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/12": {
+        "sha256": "2297479d7320a1c4df81d3842f977dcc85e79bf07aab7f4f9e1579ca80fde5f4",
+        "bytes": 566304,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/13": {
+        "sha256": "07d794085a486777438201c8f5b8b6ca7b05d8d3c275828f113c94c45b46faeb",
+        "bytes": 641813,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/14": {
+        "sha256": "80355cb49a4b73c4b68a5a01cad510e283ea96b83c6897f3040b5f67b481b440",
+        "bytes": 572043,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/15": {
+        "sha256": "9fb58b87a6d516f551c7686a580f75cdbf57dac1d6a82116fa36a6be5b1918fa",
+        "bytes": 640284,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/16": {
+        "sha256": "1c108b547aeefee22beceb52b0c622e12df251d6ceb6999d714f3db045143235",
+        "bytes": 654466,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/17": {
+        "sha256": "c541f08e4deff10333aa9e5865538a1ba0e62a887b4b15e227f921b7aa120b80",
+        "bytes": 648364,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/2": {
+        "sha256": "dec9fd5c04139218dc7512ea7f5d4ead03145abaae34fffeee0a19ff515a9504",
+        "bytes": 649557,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/3": {
+        "sha256": "a332e1679f169a691799d242553b7495398658e576266f2750bc3d2a73279241",
+        "bytes": 641172,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/4": {
+        "sha256": "ae3fd6f5d910dfcc1527372ecd6a86700e59f5665b0184c6149d4302b7024187",
+        "bytes": 644061,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/5": {
+        "sha256": "adb01a340f89a5e754d51a5592dfdd28c2c7ca82a7bb36bba67d9c0bd37a43d9",
+        "bytes": 567788,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/6": {
+        "sha256": "ac82637e9bb5ad3f011abd16db7b28f0920fd871cfabcfb29cf9679d98cc49da",
+        "bytes": 599613,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/7": {
+        "sha256": "5b8544f8fc606d65cdb2baa730683b4433234d0b36452b9dfb8c502d8feed7d3",
+        "bytes": 603196,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/8": {
+        "sha256": "636221306c465d148e1371f88eac6271c6391a961c955f8ef7b8d1a0b2e4a856",
+        "bytes": 526502,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2025/9": {
+        "sha256": "4bf224b81992dad7d3f863800adf38c9d3deb783ac9ee09b3a3c402b2d4465b9",
+        "bytes": 566549,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2026/1": {
+        "sha256": "0e2453cc8cbb5315001d5f990f7f5a8e934d675ee0d809a9dde5d491f1d2d5ff",
+        "bytes": 569056,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2026/2": {
+        "sha256": "616ce95a9f34e975e12ab2ecba380c525e27bb104e84160c7a748c2e11f5bea1",
+        "bytes": 574480,
+        "cachedAtUtc": "2026-10-26T04:18:30Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2026/3": {
+        "sha256": "255fb568b17433754fb1eaa8858fc2646cf667244c083ee44067f992655172d8",
+        "bytes": 573997,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2026/4": {
+        "sha256": "6a7e8256ed4e92a61b6a3d73233a54e281ba39c53667b8c61c22be6a43f393d5",
+        "bytes": 585518,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2026/5": {
+        "sha256": "11ae27fcc6872eb04f3972259fa63bdb510e22e51314198bd0ce962af4f82070",
+        "bytes": 555127,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://api.sleeper.app/v1/stats/nfl/regular/2026/6": {
+        "sha256": "e9086612023efd3beea10174475c7010ae8401305d0b489923ddfeaeb1e7d77e",
+        "bytes": 513801,
+        "cachedAtUtc": "2026-10-26T04:18:31Z"
+      },
+      "https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv": {
+        "sha256": "168ff6524ab562cd9cf010743092e3cb266b57033cccc1c5f9984208037ecbeb",
+        "bytes": 2186534,
+        "cachedAtUtc": "2026-10-26T04:19:38Z"
+      }
+    },
+    "rosSnapshots": {
+      "preseason": {
+        "file": "data/ros/aggregate/history/2026-09-09T21-17-37.092580+00-00.json",
+        "sha256": "6585f7dcec86286db16055c85e30a2e2a2097c2200838c0ea2173c0278ad8cae",
+        "cutoffUtc": "2026-09-10T00:20:00+00:00"
+      },
+      "week5": {
+        "file": "data/ros/aggregate/history/2026-10-08T20-15-39.079400+00-00.json",
+        "sha256": "538cd0566b3b507e554c2370ba8b655266755a5411a777f8542c50732112d570",
+        "cutoffUtc": "2026-10-09T00:15:00+00:00"
+      },
+      "week6": {
+        "file": "data/ros/aggregate/history/2026-10-15T21-53-29.185259+00-00.json",
+        "sha256": "cc059ae846980afadc75624a86f87a0225d1535f7aa7981206a478203759622f",
+        "cutoffUtc": "2026-10-16T00:15:00+00:00"
+      }
+    },
+    "networkCalls": 0
+  }
+}
