@@ -277,11 +277,13 @@ def _idempotent_route(fn=None, *, secret_response: bool = False):
 
         try:
             resp = await fn(*args, **kwargs)
+            # Inside the try: a body that cannot be serialised must release the
+            # claim like any other failure, not strand the key ``in_progress``.
+            if not isinstance(resp, Response):
+                resp = JSONResponse(resp)
         except BaseException:
             await run_in_threadpool(_release)
             raise
-        if not isinstance(resp, Response):
-            resp = JSONResponse(resp)
         if resp.status_code >= 500 or not isinstance(resp, JSONResponse):
             await run_in_threadpool(_release)
             return resp

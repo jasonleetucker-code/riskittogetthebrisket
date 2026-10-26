@@ -10,6 +10,13 @@ no revision of its own, and never resets or archives the run it describes.
 Visibility: the reporter sees their own reports; the commissioner sees every
 report in the room.  Report text is the person's own words and is never
 parsed for, or joined to, anyone's private maximum.
+
+Mock rooms only.  The commissioner also bids (as a seat), and a report is free
+text that people naturally fill with their own bid amounts ("my $5 bid showed
+as $6") — so in a room with real stakes the commissioner's read-everything
+view would be a channel for a rival's private maximum.  Rehearsals are mocks
+(nothing real is at stake), so filing AND reading are refused for any other
+room type: ``reports_mock_only``.
 """
 
 from __future__ import annotations
@@ -17,7 +24,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import threading
 from pathlib import Path
 
 from src.auction.engine import AuctionError
@@ -52,38 +58,78 @@ CREATE INDEX IF NOT EXISTS rehearsal_reports_room ON rehearsal_reports(room_id, 
 
 _TEXT_LIMITS = {"what_happened": 2000, "expected": 2000, "observed_when": 120, "player_label": 120}
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_SHA_LOCK = threading.Lock()
-_SHA: str | None = None
+# Revisions are plain counters; JS-safe so a client number round-trips exactly.
+_MAX_CLIENT_REVISION = 2**53 - 1
 
 
 def ensure_schema(conn) -> None:
     conn.executescript(SCHEMA)
 
 
+def _resolve_code_sha() -> str:
+    """The deployed commit.  ``RISKIT_CODE_SHA`` wins when set; otherwise one
+    ``git rev-parse HEAD`` (production deploys are a git checkout); unknown
+    stays ``"unknown"`` rather than a guess.  Runs ONCE, at import — process
+    startup — never on a request path: a subprocess inside ``store.write()``
+    or on the event loop would stall every room."""
+    env = os.getenv("RISKIT_CODE_SHA", "").strip()
+    if env:
+        return env
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        sha = out.stdout.strip()
+        return sha if out.returncode == 0 and len(sha) == 40 else "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
+_SHA: str = _resolve_code_sha()
+
+
 def code_sha() -> str:
-    """The deployed commit, read once per process (production deploys are a
-    git checkout).  ``RISKIT_CODE_SHA`` wins when set; unknown stays
-    ``"unknown"`` rather than a guess."""
-    global _SHA
-    with _SHA_LOCK:
-        if _SHA is None:
-            env = os.getenv("RISKIT_CODE_SHA", "").strip()
-            if env:
-                _SHA = env
-            else:
-                try:
-                    out = subprocess.run(
-                        ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                        check=False,
-                    )
-                    sha = out.stdout.strip()
-                    _SHA = sha if out.returncode == 0 and len(sha) == 40 else "unknown"
-                except (OSError, subprocess.SubprocessError):
-                    _SHA = "unknown"
-        return _SHA
+    """The deployed commit, resolved at import.  Never shells out."""
+    return _SHA
+
+
+def _require_mock_room(conn, room_id: str):
+    """The room row, or the refusal for a room that is not a mock."""
+    row = conn.execute(
+        "SELECT room_type, revision, state_json, clock_offset FROM rooms WHERE id=?",
+        (room_id,),
+    ).fetchone()
+    if row is None:
+        raise AuctionError("unknown_room", "no such room", 404)
+    if row["room_type"] != "mock":
+        raise AuctionError(
+            "reports_mock_only",
+            "Problem reports are for mock rehearsal rooms only.",
+            409,
+        )
+    return row
+
+
+def _parse_client_revision(body: dict) -> int | None:
+    """The revision the reporter's screen showed.  Unparseable → not recorded;
+    parseable but outside any real revision (negative, non-finite, beyond the
+    JS-safe range) → a 400, never an OverflowError from ``int()`` or from
+    SQLite's 64-bit binding."""
+    if "client_revision" not in body:
+        return None
+    try:
+        value = int(body["client_revision"])
+    except (TypeError, ValueError):
+        return None
+    except OverflowError:
+        value = -1  # inf / -inf
+    if not 0 <= value <= _MAX_CLIENT_REVISION:
+        raise AuctionError("bad_client_revision", "client_revision is out of range", 400)
+    return value
 
 
 def _clean(body: dict, field: str) -> str | None:
@@ -108,19 +154,15 @@ def file_report(
     what = _clean(body, "what_happened")
     if not what:
         raise AuctionError("report_empty", "say what happened")
+    client_rev = _parse_client_revision(body)
     with store.write() as conn:
+        row = _require_mock_room(conn, room_id)
         dup = conn.execute(
             "SELECT * FROM rehearsal_reports WHERE room_id=? AND user_id=? AND idem_key=?",
             (room_id, user_id, idem_key),
         ).fetchone()
         if dup is not None:
             return {**public_report(dup), "replayed": True}
-        row = conn.execute(
-            "SELECT room_type, revision, state_json, clock_offset FROM rooms WHERE id=?",
-            (room_id,),
-        ).fetchone()
-        if row is None:
-            raise AuctionError("unknown_room", "no such room", 404)
         state = json.loads(row["state_json"])
         room_now = store.room_now(row, now_real)
         aid = _clean(body, "auction")
@@ -130,10 +172,6 @@ def file_report(
             if lot is None:
                 raise AuctionError("unknown_auction", "no such auction", 404)
             player_id = lot.get("player")
-        try:
-            client_rev = int(body["client_revision"]) if "client_revision" in body else None
-        except (TypeError, ValueError):
-            client_rev = None
         cur = conn.execute(
             "INSERT INTO rehearsal_reports (room_id, user_id, idem_key, role, seat_id, room_type,"
             " revision, client_revision, room_now, created_at, auction_id, player_id, player_label,"
@@ -202,6 +240,7 @@ def public_report(row) -> dict:
 
 def list_reports(store, *, room_id: str, user_id: int, see_all: bool) -> list[dict]:
     with store.read() as conn:
+        _require_mock_room(conn, room_id)
         if see_all:
             rows = conn.execute(
                 "SELECT * FROM rehearsal_reports WHERE room_id=? ORDER BY id DESC", (room_id,)

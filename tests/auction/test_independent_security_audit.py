@@ -154,6 +154,7 @@ def _read_routes(room, *, commissioner=False):
         f"/api/auction/rooms/{room}/pool",
         f"/api/auction/rooms/{room}/export",
         f"/api/auction/rooms/{room}/advice-context",
+        f"/api/auction/rooms/{room}/reports",
         "/api/auction/notify/inbox",
         f"/api/auction/notify/inbox?roomId={room}",
         "/api/auction/notify/state",
@@ -185,6 +186,16 @@ def fake_roster_context(monkeypatch):
 def test_no_route_leaks_a_rivals_private_maximum(env, fake_roster_context):  # noqa: F811
     w = _world(env)
     room = w["room"]
+    # The report list is swept with real rows in it (the commissioner reads every
+    # report and also bids): the server stores a report's words and the room's
+    # pinned revision, and joins it to no one's bid.
+    for who in ("alice", "bob"):
+        r = w[who].post(
+            f"/api/auction/rooms/{room}/reports",
+            json={"what_happened": "the countdown looked off", "auction": w["aid"]},
+            headers=idem(),
+        )
+        assert r.status_code == 200, r.text
     for who in ("owner", "bob", "obs"):
         c = w[who]
         for url in _read_routes(room, commissioner=(who == "owner")):
@@ -1155,11 +1166,15 @@ def test_commands_require_a_well_formed_idempotency_key(env):  # noqa: F811
     assert st.load(room) == before
 
 
+# Every room-changing route that is NOT a command (commands have their own key
+# check above).  Each is wrapped in ``api._idempotent_route``.
 _NON_COMMAND_MUTATIONS = [
     ("invites", {"seat": "S4"}),
     ("clock", {"advanceSeconds": 60}),
     ("clone", {}),
     ("remove", {"reason": "x"}),
+    ("reset-link", {}),
+    ("create_room", {"name": "Another mock", "budgetSource": "equal", "seatSource": "generic"}),
 ]
 
 
@@ -1167,12 +1182,23 @@ _NON_COMMAND_MUTATIONS = [
 def test_every_mutation_requires_an_idempotency_key(env, path, body):  # noqa: F811
     w = _world(env)
     room, owner = w["room"], w["owner"]
+    before = w["st"].load(room)
+    with w["st"].read() as conn:
+        rooms_before = conn.execute("SELECT COUNT(*) FROM rooms").fetchone()[0]
     if path == "remove":
         url = f"/api/auction/rooms/{room}/members/{w['ids']['bob']}/remove"
+    elif path == "reset-link":
+        url = f"/api/auction/rooms/{room}/members/{w['ids']['bob']}/reset-link"
+    elif path == "create_room":
+        url = "/api/auction/rooms"
     else:
         url = f"/api/auction/rooms/{room}/{path}"
     r = owner.post(url, json=body, headers=ORIGIN)  # Origin OK, no Idempotency-Key
-    assert r.status_code == 400
+    assert r.status_code == 400 and r.json()["error"] == "idempotency_key_required", r.text
+    # ... and nothing happened: no room created, the room untouched
+    with w["st"].read() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM rooms").fetchone()[0] == rooms_before
+    assert w["st"].load(room) == before
 
 
 def _set_cookie_headers(resp):

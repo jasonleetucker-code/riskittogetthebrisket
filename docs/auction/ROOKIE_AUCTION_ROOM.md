@@ -320,5 +320,9 @@ pause; received money reactivates capped proxies.
 A report stores the person's words plus what the server knew: room, committed revision, room clock, rules
 version, pool version, the lot (if named) and the deployed commit (`git rev-parse HEAD`, or `RISKIT_CODE_SHA`).
 Reporter sees their own; the commissioner sees all. It is not a room command, so the revision does not move.
+**Mock rooms only**: filing and reading are refused (`409 reports_mock_only`) for any other room type, because the
+commissioner reads every report and also bids as a seat, and report text is free text a person may fill with their own
+maximum. The panel is hidden outside mock rooms and tells people not to type their maximum; the text is never parsed.
+`RISKIT_CODE_SHA` (else one `git rev-parse` at process start) names the deployed commit; it is never resolved per request.
 It is idempotent and same-origin. `/meta` and preflight also publish `codeSha`. Rooms are never deleted, so a
 failed run stays replayable. Owner-facing steps: `REHEARSAL_GUIDE.md`.

@@ -8,7 +8,8 @@ Sleeper, real rosters, real budgets or official price history.
 **When something looks wrong:** press **Report a problem** in the room (right column, bottom). Say what happened
 and what you expected, and pick the lot if it was about one. The server records the exact room revision, room
 clock, rules version, pool version and deployed commit with your words, so the run can be replayed. You don't
-need a screenshot. Failed rooms are never reset or deleted. Keep playing, or clone the room to start over.
+need a screenshot. Don't type your maximum bid in a report (the commissioner can read every report) — say what
+you saw instead. Failed rooms are never reset or deleted. Keep playing, or clone the room to start over.
 
 ## 0. Before the first mock (one time)
 

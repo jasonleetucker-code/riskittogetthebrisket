@@ -47,4 +47,15 @@ describe("ReportProblem", () => {
     expect(await screen.findByText("Say what happened.")).toBeTruthy();
     expect(spy.mock.calls.every(([, init]) => !init || init.method !== "POST")).toBe(true);
   });
+
+  it("does not invite bid amounts: the commissioner reads every report and also bids", () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ reports: [] }), { status: 200 }));
+    render(<ReportProblem view={view} players={{}} roomId="r_1" />);
+    fireEvent.click(screen.getByRole("button", { name: "Report" }));
+    const field = screen.getByLabelText("What happened?");
+    // No dollar amounts in the example the form suggests ...
+    expect(field.getAttribute("placeholder")).not.toMatch(/\$|\d/);
+    // ... and an explicit note not to include a maximum.
+    expect(screen.getByText(/do not include your maximum bid/i)).toBeTruthy();
+  });
 });

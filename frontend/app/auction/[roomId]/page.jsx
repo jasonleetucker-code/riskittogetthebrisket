@@ -1066,7 +1066,7 @@ export default function AuctionRoomPage() {
           <Budgets view={view} />
           {view.me.role === "commissioner" ? <Commissioner view={view} roomId={roomId} onAccepted={onAccepted} /> : null}
           <Rules view={view} />
-          <ReportProblem view={view} players={players} roomId={roomId} />
+          {pub.room_type === "mock" ? <ReportProblem view={view} players={players} roomId={roomId} /> : null}
         </div>
       </div>
     </section>

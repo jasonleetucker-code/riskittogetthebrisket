@@ -6,6 +6,10 @@
  * SHA (src/auction/feedback.py), so a rehearsal defect can be replayed from
  * the command log.  Reporters see their own reports; the commissioner sees
  * every report in the room.  Filing a report never changes the room.
+ *
+ * Mock rooms only (the server refuses reports anywhere else), and the form
+ * never invites bid amounts: the commissioner reads every report AND bids as a
+ * seat, so a typed maximum would be a rival's private number.
  */
 import { useEffect, useState } from "react";
 import { Button, Field, Input, Panel, Select } from "@/components/ds";
@@ -89,8 +93,11 @@ export default function ReportProblem({ view, players, roomId }) {
     >
       {open ? (
         <div className={styles.col}>
-          <Field label="What happened?">
-            <Input value={what} maxLength={2000} onChange={(e) => setWhat(e.target.value)} placeholder="e.g. my $5 bid showed as $6" />
+          <Field
+            label="What happened?"
+            hint="Describe what you saw. Do not include your maximum bid (or anyone else's) — the commissioner can read every report."
+          >
+            <Input value={what} maxLength={2000} onChange={(e) => setWhat(e.target.value)} placeholder="e.g. the timer jumped back after I refreshed" />
           </Field>
           <Field label="What did you expect?">
             <Input value={expected} maxLength={2000} onChange={(e) => setExpected(e.target.value)} />
