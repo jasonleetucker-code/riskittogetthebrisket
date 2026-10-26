@@ -718,6 +718,7 @@ def test_f01_intel_leads_do_not_borrow_another_leagues_rosters_or_values(world, 
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-02: a manual tep_multiplier in the POST /api/rankings/overrides body still "
         "changes rankDerivedValue (110 rows on the 2026-10-25 board) although the client comment "
@@ -806,6 +807,7 @@ def test_f04_the_scoring_fit_memo_notices_a_changed_card(monkeypatch):
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-05: consensus_edge.scoring_fit._scoring_cards reads the committed "
         "2026-07-26 dated snapshot (sf1:b7ad1575925091f6, 141 keys) via load_canonical_config and "
@@ -847,6 +849,7 @@ def test_f06_an_unknown_league_key_never_computes_another_leagues_team_strength(
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-07: the trade-side roster cap (roster_capacity.league_roster_limit) reads "
         "only the registry rosterSize; the live sleeper.rosterPositions that the lineup ladder "
@@ -877,12 +880,21 @@ def test_f07_roster_capacity_reports_a_disagreement_with_the_live_slot_list():
     ctx = rc.build_capacity_context(
         contract, "beta", team, roster_settings=registry_settings, scarcity_reading=(None, None)
     )
-    notes = " ".join(ctx.notes).lower()
-    assert ctx.roster_limit == len(live_slots) or "disagree" in notes or "live" in notes
+    # Asserted on the STRUCTURED field only.  ``roster_capacity`` defines no
+    # disagreement note yet, so there is no exact string a fix "would emit"; the
+    # earlier ``"disagree" in notes or "live" in notes`` disjunct was satisfied by
+    # any unrelated note that merely contained those letters (``alive``,
+    # ``delivered``, a future scarcity message) and could turn this xfail into a
+    # false XPASS.  The matrix's stated remediation is "cap equals the live
+    # count"; if the fix is instead a reported disagreement, that fix must define
+    # its note (or a structured field) and THIS assertion is then extended to pin
+    # it exactly -- never to a substring.
+    assert ctx.roster_limit == len(live_slots)
 
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-08: the client builds the rankings override POST body without a leagueKey "
         "(and the URL is only ?view=delta) while every other league-scoped fetch in "
@@ -934,6 +946,7 @@ def test_f11_the_perfect_draft_flex_vocabulary_covers_every_canonical_flex_slot(
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-12: ros.trade_deadline._load_playoff_odds_map/_load_championship_map are "
         "hard-wired to sims/latest_*.json, so build_team_directions(league_key=<non-default>) "
@@ -963,6 +976,7 @@ def test_f12_trade_deadline_reads_the_requested_leagues_simulation(tmp_path, mon
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-13: auction.sources.join_budgets joins seats to draft-capital teamTotals by "
         "team NAME and its provenance does not name the league the dollars came from, so a room "
