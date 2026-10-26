@@ -41,12 +41,29 @@ The compare step's exit status reaches the job only through ``set -o pipefail``
 summary claims a match only when the step passed AND its output ends the way a
 match ends; a passing step whose output says otherwise is reported as a harness
 inconsistency, never as success.
+
+A third result line closes a false green.  The compare step used to compare
+whatever fresh files it found, so a re-run that exited 0 but wrote no ``--out``
+file (or fewer files than the horizons it was asked for, or a dispatch of only
+spaces, which runs the loop zero times) compared nothing and still printed the
+match line.  It now reads the horizons the re-run step recorded
+(``steps.rerun.outputs.horizons``, ``7 14`` unless a dispatch named others) and
+requires a fresh measurement for every one of them:
+
+* ``CE_REVALIDATE_RESULT=no_fresh_measurement`` -- no compared verdict changed,
+  but a requested horizon has no fresh measurement (or none was requested).
+
+Precedence, one line only: ``verdict_drift``, then ``no_fresh_measurement``,
+then ``missing_committed_measurement``.  The summary says the run reached no
+verdict for the named horizons and gives no flag advice; its success branch
+rejects any line that starts ``CE_REVALIDATE_RESULT=``.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -61,6 +78,7 @@ REPO = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO / ".github" / "workflows" / "consensus-edge-revalidate.yml"
 SUMMARY_STEP = "Job summary"
 COMPARE_STEP = "Compare the fresh verdict against the committed one"
+RERUN_STEP = "Re-run the board validation"
 #: Every step, in order.  config/ci/release_gate_classification.json keys on
 #: these names, so none of them may change.
 STEP_NAMES = [
@@ -68,7 +86,7 @@ STEP_NAMES = [
     "Set up Python",
     "Install dependencies",
     "Self-test the gate before trusting it",
-    "Re-run the board validation",
+    RERUN_STEP,
     COMPARE_STEP,
     "Upload the fresh measurements",
     SUMMARY_STEP,
@@ -80,6 +98,10 @@ INCONSISTENT_TEXT = (
     "so no verdict is reported."
 )
 DRIFT_TEXT = "The committed measurement no longer describes the code."
+NO_FRESH_TEXT = (
+    "The re-run produced no fresh measurement for the named horizons, "
+    "so this run reached no verdict for them."
+)
 MISSING_TEXT = "A fresh measurement has no committed measurement to compare against."
 CRASH_TEXT = "The comparison did not finish, so this run reached no verdict."
 HARNESS_TEXT = "The re-run or the comparison did not complete, so this run reached no verdict."
@@ -94,12 +116,48 @@ FALSE_WHEN_PARTIAL = (
     "did not get far enough",
 )
 NO_OUTPUT_TEXT = "(no comparison output was written)"
-#: The compare step's result lines.
+#: Every message the summary can give, in the order its branches test them.
+ALL_TEXTS = (
+    OK_TEXT,
+    INCONSISTENT_TEXT,
+    DRIFT_TEXT,
+    NO_FRESH_TEXT,
+    MISSING_TEXT,
+    CRASH_TEXT,
+    HARNESS_TEXT,
+)
+#: The compare step's result lines, in order of precedence.
+RESULT_PREFIX = "CE_REVALIDATE_RESULT="
 DRIFT_MARKER = "CE_REVALIDATE_RESULT=verdict_drift"
+NO_FRESH_MARKER = "CE_REVALIDATE_RESULT=no_fresh_measurement"
 MISSING_MARKER = "CE_REVALIDATE_RESULT=missing_committed_measurement"
+ALL_MARKERS = (DRIFT_MARKER, NO_FRESH_MARKER, MISSING_MARKER)
 #: Where the compare step reads the fresh measurements (substituted in tests).
 RERUN_DIR = "/tmp/ce-rerun"
 TEE_LINE_END = "<<'PY' | tee /tmp/ce-rerun/compare.txt"
+#: How the compare step learns which horizons the re-run was asked for.
+REQUESTED_ENV = "CE_REQUESTED_HORIZONS"
+REQUESTED_EXPR = "${{ steps.rerun.outputs.horizons }}"
+#: What the re-run step records when no dispatch input named horizons.
+DEFAULT_HORIZONS = "7 14"
+#: The pieces of the re-run step a behaviour test substitutes.
+HORIZON_INPUT_EXPR = "${{ inputs.horizon_days }}"
+STUDY_CALL = "python scripts/validate_consensus_edge_board.py"
+#: A stand-in for the study that always exits 0 and writes its ``--out`` file
+#: only for a horizon with a prepared measurement in ``$CE_STUB_DIR``: the shape
+#: of a study run that succeeds without measuring.
+STUB_STUDY = """ce_stub_study() {
+  local h="" out=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --horizon-days) h="$2"; shift 2 ;;
+      --out) out="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  if [[ -f "${CE_STUB_DIR}/h${h}.json" ]]; then cp "${CE_STUB_DIR}/h${h}.json" "${out}"; fi
+}
+"""
 
 #: A POSIX bash for the behaviour tests (CI runs ubuntu).  Never resolved on
 #: Windows, where ``bash`` on PATH may be WSL's.
@@ -248,12 +306,108 @@ def _run_summary(
     )
 
 
+def _base_env() -> dict[str, str]:
+    return {k: os.environ[k] for k in ("PATH", "SYSTEMROOT") if k in os.environ}
+
+
+def _run_rerun_step(
+    root: Path, rerun_dir: Path, horizon_input: str, writes: dict[str, str]
+) -> tuple[subprocess.CompletedProcess, dict[str, str]]:
+    """The real re-run step, with the study replaced by :data:`STUB_STUDY`.
+
+    ``horizon_input`` stands in for ``${{ inputs.horizon_days }}`` (empty on a
+    schedule); ``writes`` maps ``h7`` / ``h14`` to the measurement the stub
+    writes for that horizon.  Returns the step's result and its outputs.
+    """
+    run = _step(RERUN_STEP)["run"]
+    assert run.count(HORIZON_INPUT_EXPR) == 1, "the re-run step reads its input differently"
+    assert run.count(STUDY_CALL) == 1, "the re-run step calls the study differently"
+    assert run.count(RERUN_DIR) == 2, "the re-run step moved its output"
+    stub_dir = root / "stub"
+    stub_dir.mkdir()
+    for tag, text in writes.items():
+        _write_lf(stub_dir / f"{tag}.json", text)
+    outputs = root / "github_output"
+    _write_lf(outputs, "")
+    script = STUB_STUDY + (
+        run.replace(HORIZON_INPUT_EXPR, horizon_input)
+        .replace(STUDY_CALL, "ce_stub_study")
+        .replace(RERUN_DIR, rerun_dir.as_posix())
+    )
+    done = subprocess.run(  # noqa: S603 -- fixed argv, script text from the repo
+        [BASH, "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", script],
+        cwd=root,
+        env={
+            **_base_env(),
+            "GITHUB_OUTPUT": outputs.as_posix(),
+            "CE_STUB_DIR": stub_dir.as_posix(),
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    recorded: dict[str, str] = {}
+    for line in outputs.read_text(encoding="utf-8").splitlines():
+        key, sep, value = line.partition("=")
+        if sep:
+            recorded[key] = value
+    return done, recorded
+
+
+def _run_compare_step(
+    root: Path, rerun_dir: Path, requested: str, mutate=None
+) -> subprocess.CompletedProcess:
+    """The compare step's whole bash script, under plain ``bash``.
+
+    Only the fresh-measurement directory and the interpreter are substituted;
+    ``requested`` is what ``${{ steps.rerun.outputs.horizons }}`` resolves to.
+    """
+    run = _step(COMPARE_STEP)["run"]
+    assert run.count(RERUN_DIR) == 2, "the compare step moved its input or output"
+    assert run.count("python - <<'PY'") == 1
+    if mutate is not None:
+        run = mutate(run)
+    assert not any(c.isspace() for c in rerun_dir.as_posix()), "tee's path is unquoted"
+    script = run.replace(RERUN_DIR, rerun_dir.as_posix()).replace(
+        "python - <<'PY'", f"{shlex.quote(PYTHON)} - <<'PY'"
+    )
+    return subprocess.run(  # noqa: S603 -- fixed argv, script text from the repo
+        [BASH, "--noprofile", "--norc", "-c", script],
+        cwd=root,
+        env={**_base_env(), REQUESTED_ENV: requested},
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+
+
 class TestSummaryIsWiredToTheRightSteps(unittest.TestCase):
     """Static, so Windows CI covers it too (the bash behaviour tests are POSIX-only)."""
 
     def test_the_rerun_and_compare_steps_keep_their_ids(self):
-        self.assertEqual(_step("Re-run the board validation").get("id"), "rerun")
+        self.assertEqual(_step(RERUN_STEP).get("id"), "rerun")
         self.assertEqual(_step(COMPARE_STEP).get("id"), "compare")
+
+    def test_the_compare_step_reads_the_horizons_the_rerun_recorded(self):
+        # The re-run step's own record of what it was asked for -- never a
+        # second copy of the ``7 14`` default -- and as an environment
+        # variable, so the compare step's script splices no expression.
+        step = _step(COMPARE_STEP)
+        self.assertEqual((step.get("env") or {}).get(REQUESTED_ENV), REQUESTED_EXPR)
+        self.assertNotIn("${{", step["run"])
+        self.assertIn(f'os.environ["{REQUESTED_ENV}"]', _compare_script())
+        self.assertNotIn(DEFAULT_HORIZONS, _compare_script())
+
+    def test_the_rerun_step_records_every_horizon_it_was_asked_for(self):
+        # What the compare step requires is exactly what the loop runs and
+        # where each run is told to write.
+        run = _step(RERUN_STEP)["run"]
+        self.assertIn(f'if [[ -z "${{HORIZONS}}" ]]; then HORIZONS="{DEFAULT_HORIZONS}"; fi', run)
+        self.assertIn("for h in ${HORIZONS}; do", run)
+        self.assertIn(f'--out "{RERUN_DIR}/board-validation-h${{h}}.json"', run)
+        self.assertIn('echo "horizons=${HORIZONS}" >> "$GITHUB_OUTPUT"', run)
 
     def test_the_summary_reads_both_outcomes(self):
         env = _step(SUMMARY_STEP).get("env") or {}
@@ -271,28 +425,29 @@ class TestSummaryIsWiredToTheRightSteps(unittest.TestCase):
 
     def test_the_branches_are_in_this_order(self):
         # Success first, then its inconsistency; after a compare failure the
-        # two marker branches before the marker-less one; everything else last.
+        # three marker branches, in the compare step's order of precedence,
+        # before the marker-less one; everything else last.
         script = _step(SUMMARY_STEP)["run"]
-        order = [OK_TEXT, INCONSISTENT_TEXT, DRIFT_TEXT, MISSING_TEXT, CRASH_TEXT, HARNESS_TEXT]
         branches = _branches(script)
-        self.assertEqual(len(branches), len(order), [h for h, _ in branches])
-        for (_header, echoed), text in zip(branches, order):
+        self.assertEqual(len(branches), len(ALL_TEXTS), [h for h, _ in branches])
+        for (_header, echoed), text in zip(branches, ALL_TEXTS):
             self.assertIn(text, echoed)
 
     def test_success_is_claimed_only_with_the_match_line_and_no_result_line(self):
         # COMPARE_OUTCOME alone is not enough: if ``pipefail`` were lost, a
         # drift (or a crash) would still be "success".  The match message needs
-        # the compare step's own closing match line, and neither result line.
+        # the compare step's own closing match line, and no result line of any
+        # kind: every line that starts ``CE_REVALIDATE_RESULT=`` blocks it,
+        # including one added after this test was written.
         guard = _guard_of(_step(SUMMARY_STEP)["run"], OK_TEXT)
         self.assertIsNotNone(guard, "match message not found in the summary script")
         self.assertTrue(guard.startswith("if "), f"match message is in {guard!r}")
         self.assertRegex(guard, r'^if \[\[ "\$\{COMPARE_OUTCOME\}" == "success" \]\] && ')
         self.assertIn(f'grep -qxF "{OK_TEXT}" "${{CE_RERUN_DIR}}/compare.txt"', guard)
-        self.assertIn(
-            f'! grep -qxF -e "{DRIFT_MARKER}" -e "{MISSING_MARKER}" "${{CE_RERUN_DIR}}/compare.txt"',
-            guard,
-        )
+        self.assertIn(f'&& ! grep -q "^{RESULT_PREFIX}" "${{CE_RERUN_DIR}}/compare.txt"', guard)
         self.assertNotIn("||", guard)
+        for marker in ALL_MARKERS:
+            self.assertTrue(marker.startswith(RESULT_PREFIX), marker)
 
     def test_any_other_passing_compare_is_a_harness_inconsistency(self):
         script = _step(SUMMARY_STEP)["run"]
@@ -336,6 +491,7 @@ class TestSummaryIsWiredToTheRightSteps(unittest.TestCase):
         self.assertIsNotNone(guard)
         self.assertIn(f'grep -qxF "{DRIFT_MARKER}" "${{CE_RERUN_DIR}}/compare.txt"', guard)
         self.assertNotIn(MISSING_MARKER, guard)
+        self.assertNotIn(NO_FRESH_MARKER, guard)
         # ... joined with ``&&`` to the outcome test, not offered as an alternative.
         self.assertNotIn("||", guard)
         self.assertRegex(guard, r"\]\]\s*&&\s*grep ")
@@ -349,8 +505,35 @@ class TestSummaryIsWiredToTheRightSteps(unittest.TestCase):
         self.assertRegex(guard, r'RERUN_OUTCOME\}"\s*==\s*"success"')
         self.assertIn(f'grep -qxF "{MISSING_MARKER}" "${{CE_RERUN_DIR}}/compare.txt"', guard)
         self.assertNotIn(DRIFT_MARKER, guard)
+        self.assertNotIn(NO_FRESH_MARKER, guard)
         self.assertNotIn("||", guard)
         self.assertRegex(guard, r"\]\]\s*&&\s*grep ")
+
+    def test_a_missing_fresh_measurement_has_its_own_guarded_message(self):
+        script = _step(SUMMARY_STEP)["run"]
+        self.assertEqual(script.count(NO_FRESH_TEXT.rstrip(".")), 1)
+        guard = _guard_of(script, NO_FRESH_TEXT)
+        self.assertIsNotNone(guard, "no-fresh-measurement message not found")
+        self.assertTrue(guard.startswith("elif "), f"no-fresh-measurement message is in {guard!r}")
+        self.assertRegex(guard, r'COMPARE_OUTCOME\}"\s*==\s*"failure"')
+        self.assertRegex(guard, r'RERUN_OUTCOME\}"\s*==\s*"success"')
+        self.assertIn(f'grep -qxF "{NO_FRESH_MARKER}" "${{CE_RERUN_DIR}}/compare.txt"', guard)
+        self.assertNotIn(DRIFT_MARKER, guard)
+        self.assertNotIn(MISSING_MARKER, guard)
+        self.assertNotIn("!=", guard)
+        self.assertNotIn("||", guard)
+        self.assertRegex(guard, r"\]\]\s*&&\s*grep ")
+
+    def test_the_no_fresh_message_reaches_no_verdict_and_gives_no_flag_advice(self):
+        # Those horizons were never measured, so there is nothing to agree or
+        # disagree with the committed verdict, and no flag decision to make.
+        said = _branch_said(_step(SUMMARY_STEP)["run"], NO_FRESH_TEXT)
+        self.assertNotIn("flag", said.lower())
+        self.assertNotIn("ADR-023", said)
+        self.assertNotIn("commit the fresh", said.lower())
+        self.assertIn("not verdict drift and not a match", said)
+        self.assertIn("NO FRESH MEASUREMENT", said)
+        self.assertIn("No compared verdict changed.", said)
 
     def test_the_missing_measurement_message_gives_no_flag_advice(self):
         # Nothing was found to disagree with the committed verdict, so there is
@@ -371,14 +554,12 @@ class TestSummaryIsWiredToTheRightSteps(unittest.TestCase):
         self.assertTrue(guard.startswith("elif "), f"did-not-finish message is in {guard!r}")
         self.assertRegex(guard, r'COMPARE_OUTCOME\}"\s*==\s*"failure"')
         self.assertRegex(guard, r'RERUN_OUTCOME\}"\s*==\s*"success"')
-        # It comes AFTER both marker-guarded branches, so only a failure with
-        # neither result line reaches it.
-        self.assertLess(script.index(DRIFT_TEXT.rstrip(".")), script.index(CRASH_TEXT.rstrip(".")))
-        self.assertLess(
-            script.index(MISSING_TEXT.rstrip(".")), script.index(CRASH_TEXT.rstrip("."))
-        )
-        self.assertNotIn(DRIFT_MARKER, guard)
-        self.assertNotIn(MISSING_MARKER, guard)
+        # It comes AFTER every marker-guarded branch, so only a failure with no
+        # result line reaches it.
+        for text in (DRIFT_TEXT, NO_FRESH_TEXT, MISSING_TEXT):
+            self.assertLess(script.index(text.rstrip(".")), script.index(CRASH_TEXT.rstrip(".")))
+        for marker in ALL_MARKERS:
+            self.assertNotIn(marker, guard)
 
     def test_the_did_not_finish_message_claims_only_what_is_true(self):
         # h14 is compared before h7, so a crash on h7 leaves real h14 lines in
@@ -447,20 +628,35 @@ class TestCompareStepScript(unittest.TestCase):
     def test_each_result_line_is_printed_last_right_before_the_exit(self):
         # One print, as the step's final act before ``sys.exit(1)``: a crash
         # anywhere earlier -- including while printing the lists -- leaves it
-        # out, so its presence means every fresh horizon was read.
+        # out, so its presence means every fresh horizon was read.  The chain
+        # that picks it is the order of precedence: drift, then a missing fresh
+        # measurement, then a missing committed one.
         script = _compare_script()
-        self.assertEqual(script.count(DRIFT_MARKER), 1)
-        self.assertEqual(script.count(MISSING_MARKER), 1)
+        for marker in ALL_MARKERS:
+            self.assertEqual(script.count(marker), 1, marker)
         self.assertEqual(script.count("sys.exit(1)"), 1)
         code = _code_lines(script)
         at = code.index("print(marker)")
         self.assertEqual(code[at + 1], "sys.exit(1)")
         self.assertEqual(code.count("print(marker)"), 1)
-        assigned = code.index("marker = (")
+        chosen = code.index(f'marker = "{DRIFT_MARKER}"') - 1
         self.assertEqual(
-            code[assigned:at],
-            ["marker = (", f'"{DRIFT_MARKER}"', "if drift", f'else "{MISSING_MARKER}"', ")"],
+            code[chosen:at],
+            [
+                "if drift:",
+                f'marker = "{DRIFT_MARKER}"',
+                "elif no_fresh:",
+                f'marker = "{NO_FRESH_MARKER}"',
+                "else:",
+                f'marker = "{MISSING_MARKER}"',
+            ],
         )
+
+    def test_every_result_line_the_compare_step_prints_is_one_of_three(self):
+        # The success guard rejects the prefix, so any new result line is safe
+        # for the match message; but the summary only has words for these.
+        found = set(re.findall(r"CE_REVALIDATE_RESULT=\w+", _compare_script()))
+        self.assertEqual(found, set(ALL_MARKERS))
 
     def test_a_missing_committed_measurement_is_not_listed_as_drift(self):
         code = _code_lines(_compare_script())
@@ -472,7 +668,7 @@ class TestCompareStepScript(unittest.TestCase):
     def test_the_summary_reads_the_lines_the_compare_step_prints(self):
         script = _compare_script()
         summary = _step(SUMMARY_STEP)["run"]
-        for marker in (DRIFT_MARKER, MISSING_MARKER):
+        for marker in ALL_MARKERS:
             self.assertIn(f'"{marker}"', script)
             self.assertIn(f'"{marker}"', summary)
         # The match line the summary requires is the compare step's final print.
@@ -483,14 +679,22 @@ class TestCompareStepMarker(unittest.TestCase):
     """Run the compare step's own Python (every platform).
 
     Only the fresh-measurement directory is substituted, so nothing is read
-    from or written to ``/tmp``.  The comparison itself runs as committed.
+    from or written to ``/tmp``.  The comparison itself runs as committed, and
+    ``requested`` is what ``steps.rerun.outputs.horizons`` resolved to (``None``
+    leaves the variable unset).
     """
 
     def _compare(
-        self, fresh: dict[str, str], committed: dict[str, dict] | None = None
+        self,
+        fresh: dict[str, str],
+        committed: dict[str, dict] | None = None,
+        requested: str | None = DEFAULT_HORIZONS,
     ) -> subprocess.CompletedProcess:
         script = _compare_script()
         self.assertEqual(script.count(f'"{RERUN_DIR}"'), 1, "the compare step moved its input")
+        env = {k: v for k, v in os.environ.items() if k != REQUESTED_ENV}
+        if requested is not None:
+            env[REQUESTED_ENV] = requested
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             rerun = _measurement_dirs(
@@ -501,6 +705,7 @@ class TestCompareStepMarker(unittest.TestCase):
             return subprocess.run(  # noqa: S603 -- fixed argv, script text from the repo
                 [sys.executable, str(program)],
                 cwd=root,
+                env=env,
                 capture_output=True,
                 text=True,
                 timeout=60,
@@ -510,12 +715,109 @@ class TestCompareStepMarker(unittest.TestCase):
     def _last_line(self, done: subprocess.CompletedProcess) -> str:
         return done.stdout.strip().splitlines()[-1]
 
+    def assertOnlyResult(self, done: subprocess.CompletedProcess, marker: str) -> None:  # noqa: N802
+        """Exit 1, ``marker`` as the last line, and no other result line."""
+        self.assertEqual(done.returncode, 1, done.stderr)
+        self.assertEqual(self._last_line(done), marker)
+        self.assertNotIn(OK_TEXT, done.stdout)
+        for other in ALL_MARKERS:
+            if other != marker:
+                self.assertNotIn(other, done.stdout)
+        self.assertEqual(done.stdout.count(RESULT_PREFIX), 1)
+
+    def assertNoResult(self, done: subprocess.CompletedProcess) -> None:  # noqa: N802
+        self.assertNotEqual(done.returncode, 0)
+        self.assertNotIn(RESULT_PREFIX, done.stdout)
+        self.assertNotIn(OK_TEXT, done.stdout)
+
     def test_matching_verdicts_exit_zero_with_the_match_line_last(self):
         done = self._compare({"h7": json.dumps(COMMITTED_H7), "h14": json.dumps(COMMITTED_H14)})
         self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertNotIn(DRIFT_MARKER, done.stdout)
-        self.assertNotIn(MISSING_MARKER, done.stdout)
+        self.assertNotIn(RESULT_PREFIX, done.stdout)
+        self.assertNotIn("NO FRESH MEASUREMENT:", done.stdout)
         self.assertEqual(self._last_line(done), OK_TEXT)
+
+    def test_zero_fresh_files_is_no_fresh_measurement(self):
+        # The false green: the study exited 0 for both horizons and wrote
+        # nothing, so there was nothing to compare -- and the match line used
+        # to be printed all the same.
+        done = self._compare({})
+        self.assertOnlyResult(done, NO_FRESH_MARKER)
+        self.assertIn("NO FRESH MEASUREMENT:", done.stdout)
+        self.assertIn("h7: the re-run wrote no fresh measurement", done.stdout)
+        self.assertIn("h14: the re-run wrote no fresh measurement", done.stdout)
+        self.assertNotIn("VERDICT DRIFT:", done.stdout)
+        self.assertNotIn("NO COMMITTED MEASUREMENT:", done.stdout)
+
+    def test_one_of_two_horizons_missing_is_no_fresh_measurement(self):
+        # h14 was measured and matches; h7 was asked for and never written.
+        done = self._compare({"h14": json.dumps(COMMITTED_H14)})
+        self.assertOnlyResult(done, NO_FRESH_MARKER)
+        self.assertIn("h14: fresh   'do not ship yet'", done.stdout)
+        self.assertIn("h7: the re-run wrote no fresh measurement", done.stdout)
+        self.assertNotIn("h14: the re-run wrote no fresh measurement", done.stdout)
+
+    def test_drift_wins_over_a_missing_fresh_measurement(self):
+        fresh = dict(COMMITTED_H7, decision={"recommendation": "ship"})
+        done = self._compare({"h7": json.dumps(fresh)})
+        self.assertOnlyResult(done, DRIFT_MARKER)
+        self.assertIn("VERDICT DRIFT:", done.stdout)
+        self.assertIn("NO FRESH MEASUREMENT:", done.stdout)
+        self.assertIn("h14: the re-run wrote no fresh measurement", done.stdout)
+
+    def test_no_fresh_wins_over_a_missing_committed_measurement(self):
+        # h14 is fresh with nothing committed; h7 is committed with nothing
+        # fresh.  Neither horizon was compared, and the missing fresh
+        # measurement is what this run could not do.
+        done = self._compare({"h14": json.dumps(COMMITTED_H14)}, committed={"h7": COMMITTED_H7})
+        self.assertOnlyResult(done, NO_FRESH_MARKER)
+        self.assertIn("NO FRESH MEASUREMENT:", done.stdout)
+        self.assertIn("h7: the re-run wrote no fresh measurement", done.stdout)
+        self.assertIn("NO COMMITTED MEASUREMENT:", done.stdout)
+        self.assertIn("h14: no committed measurement to compare against", done.stdout)
+
+    def test_drift_wins_over_both_kinds_of_missing_measurement(self):
+        drifted = dict(COMMITTED_H7, decision={"recommendation": "ship"})
+        h28 = dict(COMMITTED_H14, horizonDays=28)
+        done = self._compare(
+            {"h7": json.dumps(drifted), "h28": json.dumps(h28)}, requested="7 14 28"
+        )
+        self.assertOnlyResult(done, DRIFT_MARKER)
+        for section in ("VERDICT DRIFT:", "NO FRESH MEASUREMENT:", "NO COMMITTED MEASUREMENT:"):
+            self.assertIn(section, done.stdout)
+
+    def test_a_dispatch_of_one_horizon_needs_only_that_one(self):
+        done = self._compare({"h14": json.dumps(COMMITTED_H14)}, requested="14")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(self._last_line(done), OK_TEXT)
+        self.assertNotIn(RESULT_PREFIX, done.stdout)
+
+    def test_a_fresh_file_counts_for_the_horizon_it_measured(self):
+        # Keyed on the measurement's own ``horizonDays``, as the comparison is:
+        # an h14-named file that measured 7 days is not an h14 measurement.
+        done = self._compare({"h7": json.dumps(COMMITTED_H7), "h14": json.dumps(COMMITTED_H7)})
+        self.assertOnlyResult(done, NO_FRESH_MARKER)
+        self.assertIn("h14: the re-run wrote no fresh measurement", done.stdout)
+
+    def test_no_requested_horizon_is_no_fresh_measurement(self):
+        # A dispatch of only spaces runs the re-run's loop zero times.
+        for requested in ("", "   "):
+            with self.subTest(requested=requested):
+                done = self._compare({}, requested=requested)
+                self.assertOnlyResult(done, NO_FRESH_MARKER)
+                self.assertIn("no horizon was requested of the re-run", done.stdout)
+
+    def test_an_unset_horizon_list_is_a_crash_without_a_result_line(self):
+        # The env mapping is gone: the step cannot know what to require, so it
+        # neither matches nor names a result.
+        done = self._compare({"h7": json.dumps(COMMITTED_H7)}, requested=None)
+        self.assertNoResult(done)
+        self.assertIn("KeyError", done.stderr)
+
+    def test_a_non_integer_horizon_is_a_crash_without_a_result_line(self):
+        done = self._compare({"h7": json.dumps(COMMITTED_H7)}, requested="7 x")
+        self.assertNoResult(done)
+        self.assertIn("ValueError", done.stderr)
 
     def test_a_changed_verdict_exits_one_with_the_drift_line_last(self):
         fresh = dict(COMMITTED_H7, decision={"recommendation": "ship"})
@@ -598,17 +900,10 @@ class TestSummaryBehaviour(unittest.TestCase):
     def assertSays(self, text: str, expected: str) -> None:  # noqa: N802
         """The summary's message is ``expected`` and none of the others."""
         head = _head(text)
-        self.assertIn(expected, head)
-        for other in (
-            OK_TEXT,
-            INCONSISTENT_TEXT,
-            DRIFT_TEXT,
-            MISSING_TEXT,
-            CRASH_TEXT,
-            HARNESS_TEXT,
-        ):
+        self.assertIn(expected, _said(head))
+        for other in ALL_TEXTS:
             if other != expected:
-                self.assertNotIn(other, head)
+                self.assertNotIn(other, _said(head))
 
     MATCH_TXT = (
         "h7: fresh   'do not ship yet' (median -0.0101)\n"
@@ -645,9 +940,21 @@ class TestSummaryBehaviour(unittest.TestCase):
         )
         self.assertSays(text, INCONSISTENT_TEXT)
 
-    def test_a_result_line_beside_the_match_line_is_not_success(self):
-        text = self._summary("success", "success", f"{self.MATCH_TXT}{DRIFT_MARKER}\n")
+    def test_a_passing_step_with_the_no_fresh_line_is_not_success(self):
+        text = self._summary(
+            "success",
+            "success",
+            f"NO FRESH MEASUREMENT:\n  - h7: the re-run wrote no fresh measurement\n{NO_FRESH_MARKER}\n",
+        )
         self.assertSays(text, INCONSISTENT_TEXT)
+
+    def test_a_result_line_beside_the_match_line_is_not_success(self):
+        # Every result line, and one this summary has no words for yet: the
+        # success guard rejects the prefix, not a list.
+        for marker in (*ALL_MARKERS, f"{RESULT_PREFIX}something_new"):
+            with self.subTest(marker=marker):
+                text = self._summary("success", "success", f"{self.MATCH_TXT}{marker}\n")
+                self.assertSays(text, INCONSISTENT_TEXT)
 
     def test_a_passing_step_with_no_output_is_not_success(self):
         text = self._summary("success", "success", None)
@@ -722,6 +1029,55 @@ class TestSummaryBehaviour(unittest.TestCase):
         self.assertNotIn("flag", _said(text).lower())
         self.assertIn("commit the fresh measurement for each of those horizons", _said(text))
 
+    NO_FRESH_BOTH_TXT = (
+        "\nNO FRESH MEASUREMENT:\n"
+        "  - h7: the re-run wrote no fresh measurement\n"
+        "  - h14: the re-run wrote no fresh measurement\n"
+        f"{NO_FRESH_MARKER}\n"
+    )
+
+    def test_zero_fresh_measurements_reach_no_verdict(self):
+        text = self._summary("success", "failure", self.NO_FRESH_BOTH_TXT)
+        self.assertSays(text, NO_FRESH_TEXT)
+        self.assertIn("not verdict drift and not a match", _said(text))
+        self.assertNotIn("flag", _said(_head(text)).lower())
+        self.assertNotIn("ADR-023", text)
+        self.assertIn("h14: the re-run wrote no fresh measurement", text)
+
+    def test_one_horizon_without_a_fresh_measurement_reaches_no_verdict(self):
+        text = self._summary(
+            "success",
+            "failure",
+            "h14: fresh   'do not ship yet' (median -0.0203)\n"
+            "h14: consensus-edge-board-validation-2026-08-04-h14.json 'do not ship yet' (median -0.0203)\n"
+            "\nNO FRESH MEASUREMENT:\n  - h7: the re-run wrote no fresh measurement\n"
+            f"{NO_FRESH_MARKER}\n",
+        )
+        self.assertSays(text, NO_FRESH_TEXT)
+        self.assertNotIn("flag", _said(_head(text)).lower())
+
+    def test_drift_plus_a_missing_fresh_measurement_is_drift(self):
+        text = self._summary(
+            "success",
+            "failure",
+            "VERDICT DRIFT:\n  - h7 x.json: 'a' -> 'b'\n\n"
+            "NO FRESH MEASUREMENT:\n  - h14: the re-run wrote no fresh measurement\n"
+            f"{DRIFT_MARKER}\n",
+        )
+        self.assertSays(text, DRIFT_TEXT)
+
+    def test_no_fresh_plus_a_missing_committed_measurement_is_no_fresh(self):
+        text = self._summary(
+            "success",
+            "failure",
+            "h14: fresh   'do not ship yet' (median -0.0203)\n\n"
+            "NO FRESH MEASUREMENT:\n  - h7: the re-run wrote no fresh measurement\n\n"
+            "NO COMMITTED MEASUREMENT:\n  - h14: no committed measurement to compare against\n"
+            f"{NO_FRESH_MARKER}\n",
+        )
+        self.assertSays(text, NO_FRESH_TEXT)
+        self.assertNotIn("flag", _said(_head(text)).lower())
+
     def test_a_compare_failure_without_a_result_line_did_not_finish(self):
         # The compare step printed its fresh lines, then raised (bad JSON, a
         # KeyError) and exited 1: the outcome is "failure", no result line.
@@ -749,7 +1105,7 @@ class TestSummaryBehaviour(unittest.TestCase):
         self.assertIn(NO_OUTPUT_TEXT, text)
 
     def test_a_marker_counts_only_as_a_whole_line(self):
-        for marker in (DRIFT_MARKER, MISSING_MARKER):
+        for marker in ALL_MARKERS:
             with self.subTest(marker=marker):
                 text = self._summary("success", "failure", f"  - h7 {marker}.json: crashed here\n")
                 self.assertSays(text, CRASH_TEXT)
@@ -760,9 +1116,9 @@ class TestSummaryBehaviour(unittest.TestCase):
         self.assertIn("re-run step: failure, compare step: failure", text)
 
     def test_a_failed_rerun_is_not_drift_even_with_a_marker(self):
-        # Pins the RERUN_OUTCOME half of both marker guards: a marker and a
+        # Pins the RERUN_OUTCOME half of every marker guard: a marker and a
         # compare failure are not enough when the re-run itself failed.
-        for marker in (DRIFT_MARKER, MISSING_MARKER):
+        for marker in ALL_MARKERS:
             with self.subTest(marker=marker):
                 text = self._summary("failure", "failure", f"VERDICT DRIFT:\n{marker}\n")
                 self.assertSays(text, HARNESS_TEXT)
@@ -782,30 +1138,14 @@ class TestCompareStepThroughTheSummary(unittest.TestCase):
         fresh: dict[str, str],
         committed: dict[str, dict] | None = None,
         mutate=None,
+        requested: str = DEFAULT_HORIZONS,
     ) -> tuple[int, str, str]:
-        run = _step(COMPARE_STEP)["run"]
-        self.assertEqual(run.count(RERUN_DIR), 2, "the compare step moved its input or output")
-        self.assertEqual(run.count("python - <<'PY'"), 1)
-        if mutate is not None:
-            run = mutate(run)
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             rerun_dir = _measurement_dirs(
                 root, COMMITTED_BOTH if committed is None else committed, fresh
             )
-            self.assertNotRegex(rerun_dir.as_posix(), r"\s", "tee's path is unquoted")
-            script = run.replace(RERUN_DIR, rerun_dir.as_posix()).replace(
-                "python - <<'PY'", f"{shlex.quote(PYTHON)} - <<'PY'"
-            )
-            compare = subprocess.run(  # noqa: S603 -- fixed argv, script text from the repo
-                [BASH, "--noprofile", "--norc", "-c", script],
-                cwd=root,
-                env={k: os.environ[k] for k in ("PATH", "SYSTEMROOT") if k in os.environ},
-                capture_output=True,
-                text=True,
-                timeout=60,
-                check=False,
-            )
+            compare = _run_compare_step(root, rerun_dir, requested, mutate)
             outcome = "success" if compare.returncode == 0 else "failure"
             summary_path = root / "summary.md"
             done = _run_summary("success", outcome, rerun_dir, summary_path)
@@ -869,6 +1209,100 @@ class TestCompareStepThroughTheSummary(unittest.TestCase):
         self.assertIn(INCONSISTENT_TEXT, _head(text))
         self.assertNotIn(OK_TEXT, _head(text))
         self.assertIn(DRIFT_MARKER, text)
+
+    def test_zero_fresh_files_are_red_and_reach_no_verdict(self):
+        code, outcome, text = self._run({})
+        self.assertEqual((code, outcome), (1, "failure"))
+        self.assertIn(NO_FRESH_TEXT, _head(text))
+        self.assertNotIn(OK_TEXT, _head(text))
+        self.assertNotIn("flag", _said(_head(text)).lower())
+        self.assertIn(NO_FRESH_MARKER, text)
+
+    def test_one_of_two_horizons_missing_is_red_and_reaches_no_verdict(self):
+        code, outcome, text = self._run({"h14": json.dumps(COMMITTED_H14)})
+        self.assertEqual((code, outcome), (1, "failure"))
+        self.assertIn(NO_FRESH_TEXT, _head(text))
+        self.assertIn("h7: the re-run wrote no fresh measurement", text)
+
+    def test_drift_plus_a_missing_fresh_measurement_is_red_drift(self):
+        fresh = dict(COMMITTED_H7, decision={"recommendation": "ship"})
+        code, outcome, text = self._run({"h7": json.dumps(fresh)})
+        self.assertEqual((code, outcome), (1, "failure"))
+        self.assertIn(DRIFT_TEXT, _head(text))
+        self.assertNotIn(NO_FRESH_TEXT, _head(text))
+
+    def test_no_fresh_plus_a_missing_committed_measurement_is_red_no_fresh(self):
+        code, outcome, text = self._run(
+            {"h14": json.dumps(COMMITTED_H14)}, committed={"h7": COMMITTED_H7}
+        )
+        self.assertEqual((code, outcome), (1, "failure"))
+        self.assertIn(NO_FRESH_TEXT, _head(text))
+        self.assertNotIn(MISSING_TEXT, _head(text))
+
+
+@unittest.skipUnless(BASH, "needs a POSIX bash (CI runs ubuntu)")
+class TestRerunThroughTheSummary(unittest.TestCase):
+    """Re-run step -> its recorded horizons -> compare step -> summary.
+
+    The re-run step runs as committed, with only the study replaced by a stub
+    that exits 0 and writes ``--out`` for the horizons it is given a
+    measurement for, and ``${{ inputs.horizon_days }}`` replaced by the
+    dispatch input (empty on a schedule).  Its recorded ``horizons`` output is
+    handed to the compare step the way ``steps.rerun.outputs.horizons`` would.
+    """
+
+    def _chain(self, horizon_input: str, writes: dict[str, str]) -> tuple[str, int, str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rerun_dir = _measurement_dirs(root, COMMITTED_BOTH, {})
+            rerun, outputs = _run_rerun_step(root, rerun_dir, horizon_input, writes)
+            self.assertEqual(rerun.returncode, 0, rerun.stderr)
+            self.assertIn("horizons", outputs)
+            compare = _run_compare_step(root, rerun_dir, outputs.get("horizons", ""))
+            outcome = "success" if compare.returncode == 0 else "failure"
+            summary_path = root / "summary.md"
+            done = _run_summary("success", outcome, rerun_dir, summary_path)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            return outputs["horizons"], compare.returncode, summary_path.read_text(encoding="utf-8")
+
+    def test_a_scheduled_run_whose_study_writes_nothing_is_not_a_match(self):
+        recorded, code, text = self._chain("", {})
+        self.assertEqual(recorded, DEFAULT_HORIZONS)
+        self.assertEqual(code, 1)
+        self.assertIn(NO_FRESH_TEXT, _head(text))
+        self.assertNotIn(OK_TEXT, _head(text))
+        self.assertIn("h7: the re-run wrote no fresh measurement", text)
+        self.assertIn("h14: the re-run wrote no fresh measurement", text)
+
+    def test_a_scheduled_run_whose_study_writes_only_h14_is_not_a_match(self):
+        _recorded, code, text = self._chain("", {"h14": json.dumps(COMMITTED_H14)})
+        self.assertEqual(code, 1)
+        self.assertIn(NO_FRESH_TEXT, _head(text))
+        self.assertIn("h7: the re-run wrote no fresh measurement", text)
+        self.assertNotIn("h14: the re-run wrote no fresh measurement", text)
+
+    def test_a_dispatch_of_only_spaces_is_not_a_match(self):
+        # The loop runs zero times and the step still passes.
+        recorded, code, text = self._chain("   ", {"h7": json.dumps(COMMITTED_H7)})
+        self.assertEqual(recorded.split(), [])
+        self.assertEqual(code, 1)
+        self.assertIn(NO_FRESH_TEXT, _head(text))
+        self.assertIn("no horizon was requested of the re-run", text)
+
+    def test_a_scheduled_run_that_measures_both_horizons_is_a_match(self):
+        recorded, code, text = self._chain(
+            "", {"h7": json.dumps(COMMITTED_H7), "h14": json.dumps(COMMITTED_H14)}
+        )
+        self.assertEqual(recorded, DEFAULT_HORIZONS)
+        self.assertEqual(code, 0)
+        self.assertIn(OK_TEXT, _head(text))
+        self.assertNotIn(INCONSISTENT_TEXT, _head(text))
+
+    def test_a_dispatch_of_one_horizon_is_a_match_on_that_horizon(self):
+        recorded, code, text = self._chain("14", {"h14": json.dumps(COMMITTED_H14)})
+        self.assertEqual(recorded, "14")
+        self.assertEqual(code, 0)
+        self.assertIn(OK_TEXT, _head(text))
 
 
 if __name__ == "__main__":
