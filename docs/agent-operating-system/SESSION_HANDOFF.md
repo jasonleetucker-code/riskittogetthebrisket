@@ -3,35 +3,50 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-10-25 (coordinator session "Fantasy football website consolidation").** Agent-OS-Receipt `cb64f74c`.
+**As of 2026-10-26 overnight (BUILD MODE: no merges, no deploys).** Agent-OS-Receipt `cb64f74c`.
 
-## Merged this session
-#1922 forced-drop box replay evidence + analysis (do not activate yet) · #1923 E2E safety-net fix (#1918) ·
-#1924 RIT-001..088 reconciliation (`docs/owner/RIT_14DAY_AUDIT_RECONCILIATION_2026-10-25.md`) · #1927 LI-5 P3
-dormant + deploy-gate locks for `replacement_level_li5_consolidation` and `forced_drop_cheapest_legal` ·
-#1928 IDP directive + audit intake.
+## P0 — do first in the morning
+**#1939** pins `scheduled-refresh.yml` to `ubuntu-24.04`. Since 2026-10-25 ~12:00Z the runner image moved to
+ubuntu-26.04, where the pinned Python Playwright 1.58.0 cannot launch Chromium. KTC, IDPTC and DraftSharks have
+not refreshed while runs report success. Merging restores fresh market values. Other Playwright workflows
+(npm Playwright) are unaffected.
 
-## Open PRs (next action)
-| PR | what | state / next |
-|---|---|---|
-| #1925 | deploy D-3: skip push deploys for docs/tests-only | green; needs independent review, then merge |
-| #1926 | box units: depth charts endpoint (events shadow-only), ledger memory 2G + OOMScoreAdjust, game-day false refusal | fixes pushed `7c3f7b76f`, green; needs re-review, then merge; after deploy check `32/32 OK`, ledger `peakRssMiB` |
-| #1929 | D-2 conditional startup scrape (default OFF) | conflict resolved `90536f36c`; CI pending; needs review |
-| #1931 | IDP Lane A: manifest + scorer reconciliation (host-native 3,710/3,710; nflverse path 4 defects IDPA-DEFECT-01..04 xfail) | import-guard fix pushed; also blocked by the main-red test fixed in #1933; needs review |
-| #1933 | unblock CI: `test_pick_refinement` coverage shortfall from withheld sources | merge first; it unblocks every PR |
+## Merged before build mode
+#1922 forced-drop replay evidence · #1923 E2E fix · #1924 RIT reconciliation · #1925 docs/tests-only deploy skip ·
+#1926 box unit repairs · #1927 LI-5 P3 dormant + deploy-gate locks · #1928 IDP + audit intake.
 
-## Not finished (resume with at most two subagents, cheapest suitable model)
-- IDP program lanes C (market baseline), B (replacement shadow), D (best-ball), E (scoring sensitivity), prereg,
-  F/G (backtest), H. Workflow script: session dir `workflows/scripts/idp-valuation-accuracy-*.js` — do NOT relaunch
-  as a fan-out; run one lane at a time. Lane A is #1931.
-- Promotion-readiness audit: discovery + dedupe done, 19 of ~60 initiatives assessed (all lost to the usage limit);
-  resume as ONE agent per category, not 150.
-- Multi-team Lane E QA (4 test deliverables, spec `docs/trade/NTEAM_TRADE_ENGINE_SPEC.md` §7) — not started.
-- #1842: reconcile #1843 (local unpushed merge in worktree `wf_f91b6085-7b3-1`) + propagation matrix.
-- IDP source staleness (`idpShowCombined` withheld; 352 IDP rows freshness-low) — investigation started, no output.
-- LI-5 review follow-ups F-A/F-B/F-C (see #1927 review) — not started.
+## Integration queue (recommended order)
+| order | PR | what | state |
+|---|---|---|---|
+| 1 | #1939 | scheduled refresh runner pin (P0) + IDP staleness report | FEATURE_GREEN; needs review |
+| 2 | #1933 | unblock CI: pick-refinement withheld-source coverage | approved; CI pending |
+| 3 | #1934 | Agent OS usage-efficiency policy + this handoff | approved |
+| 4 | #1929 | conditional startup scrape (default OFF) | approved; CI re-run after flag-count fix |
+| 5 | #1931 | IDP Lane A scoring manifest + reconciliation | approved |
+| 6 | #1936 #1940 #1941 #1943 | IDP Lanes C, B, D, E (research) | FEATURE_GREEN; need review |
+| 7 | #1942 | preregistered backtest (stacked on #1940); no candidate advances | FEATURE_GREEN |
+| 8 | #1945 | IDP recommendations (Deliverable H) | FEATURE_GREEN |
+| 9 | #1935 → #1937 | multi-team invariant tests → defect fixes (stacked) | #1937 IMPLEMENTED_UNVALIDATED |
+| 10 | #1944 | LI-5 review follow-ups F-A/F-B/F-C | FEATURE_GREEN |
+| owner | #1938 | nflverse scorer fixes (changes BDVM in-season values) | needs owner decision |
 
 ## Owner decisions pending
-Public Waiver Wire scope (A promote unlisted page / B + factual activity / C public recommendations — no record
-authorizes any) · forced-drop activation (recommendation: not yet) · `SHARP_SMOKE_TOKEN` secret (#1727) · read-only
-lineage census box run (window 09:30–13:30 UTC) · backend memory canary (numbers corrected in #1926).
+- **Public Waiver Wire scope.** Nothing in the repo authorizes it. Options: (A) promote the unlisted page,
+  (B) A plus factual league waiver activity, (C) public recommendations, which crosses the public/private boundary.
+- **#1938 BDVM scorer fixes**, with or without the special-teams tackle de-duplication.
+- **Cut-ladder name tie-break** (costs up to 12.19 lineup pts/wk), which interacts with `forced_drop_cheapest_legal`.
+- **Forced-drop activation.** Recommendation: not yet.
+- **IDP Show board swap**, combined board → IDP-only board.
+- **2026 as a clean holdout** for `league_fair_value_v1`.
+- **17-game re-run.**
+- **`SHARP_SMOKE_TOKEN`** (#1727).
+- **Lineage census box run.**
+- **Backend memory canary** (numbers in `docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md`).
+
+## Not finished
+- **#1842:** propagation matrix + #1843 reconcile (agent running when this was written).
+- **Lane E parity/privacy tests:** agent running when this was written.
+- **Lane E measure script:** not started.
+- **Promotion-readiness audit.** Discovery + dedupe were done but lost to the usage limit. Resume as ONE agent per
+  category, never a fan-out.
+- **ChatGPT MCP (#1921):** owned by the Codex session; not touched here.
