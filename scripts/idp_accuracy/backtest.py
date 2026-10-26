@@ -4102,6 +4102,110 @@ def stage2(args: argparse.Namespace) -> int:
     return 0
 
 
+def supplement(args: argparse.Namespace) -> int:
+    """The comparator's own section 9.3 interval, from the SAME resamples as the main run.
+
+    Section 9.3 asks for each candidate's level diagnostic with a bootstrap interval from the
+    same resamples.  The stage 2 run carried the intervals for A, C and D but only the champion's
+    POINT value, so the claims rule "the served board overrated defenders in X% of the cross
+    pairs it got wrong" had no interval.  This recomputes LAMBC deterministically (same
+    inputs, same solver), checks that it reproduces the committed result's champion and
+    candidate numbers, and bootstraps the identical selections (``Generator(PCG64(20261026))``).
+    It tests nothing new and changes no verdict.  Declared deviation D7.
+    """
+    manifest, scores = load_stage1()
+    main_res = json.loads(RESULT_PATH.read_text(encoding="utf-8"))
+    if main_res.get("status") != "completed" or main_res.get("rehearsal"):
+        raise SystemExit("the supplement needs a completed, non-rehearsal stage 2 result")
+    arch = REPO / "exports" / "archive" / manifest["windows"]["W0"]["archive"]["name"]
+    raw = read_archive_payload(arch)
+    contract, _notes = rebuild_champion(raw, arch)
+    board = board_rows(contract)
+    universe = build_universe(raw, board)
+    info = universe["info"]
+    card = numeric_card(raw["sleeper"]["scoringSettings"])
+    fetch = Fetcher(blind=False, offline=args.offline)
+    out = load_outcomes(fetch, card)
+    port = SolverPort()
+    weeks = HOLD_OUT_WEEKS
+    y_all = realized_scores(out, list(info), weeks)
+    support = [pid for pid, i in info.items() if board.get(pid, {}).get("value") and stratum_ok(i)]
+    lam6 = lambc(port, universe, y_all, support, weeks)
+    vec = scores["vectors"]
+    table = {p["id"]: p for p in scores["players"]}
+    cohort = list(scores["cohort"])
+    cands = list(manifest["candidates"]["evaluableSet"])
+    qual = list(manifest["cohort"]["qualifyingPositions"])
+    data = make_cohort(cohort, table, lam6, build_arrays(vec, cohort))
+    names = ["champion", *cands]
+    point = metrics_on(data, data.identity_selection(), names, qual)
+    # the supplement must reproduce the committed numbers before it is believed
+    expect = main_res["byCandidate"]
+    checks = {
+        "championCrossConcordance": abs(
+            point["cc"]["champion"] - expect["champion"]["rawAbsolute"]["crossConcordance"]
+        )
+        < 5e-4,
+        "championOverShare": abs(
+            point["over"]["champion"]
+            - expect["champion"]["rawAbsolute"]["idpOverShareOfWrongPairs"]
+        )
+        < 5e-4,
+        **{
+            f"{c}OverShare": abs(point["over"][c] - expect[c]["idpOverShareOfWrongPairs"]["point"])
+            < 5e-4
+            for c in cands
+        },
+    }
+    if not all(checks.values()):
+        raise SystemExit(f"supplement does not reproduce the committed result: {checks}")
+    sels = draw_bootstrap_selections(data.n_by_position())
+    over: dict[str, list[float]] = {c: [] for c in names}
+    cc: dict[str, list[float]] = {c: [] for c in names}
+    for sel in sels:
+        m = metrics_on(data, sel, names, qual)
+        for c in names:
+            over[c].append(m["over"][c])
+            cc[c].append(m["cc"][c])
+    off = np.concatenate([data.members[p] for p in OFFENSE])
+    idp = np.concatenate([data.members[p] for p in IDP])
+    pairs = {
+        c: cross_pair_stats(data.scores[c][off], data.scores[c][idp], data.y[off], data.y[idp])
+        for c in names
+    }
+    result = {
+        "preregistration": "idp_accuracy_G_v1",
+        "promotes": False,
+        "label": LABEL,
+        "what": "section 9.3 level diagnostic for the champion, with an interval from the same resamples",
+        "deviation": "D7",
+        "reproducesCommittedResult": checks,
+        "idpOverShareOfWrongPairs": {
+            c: {"point": rnd(point["over"][c], 4), **interval(np.asarray(over[c]))} for c in names
+        },
+        "crossConcordance": {
+            c: {"point": rnd(point["cc"][c], 4), **interval(np.asarray(cc[c]))} for c in names
+        },
+        "pairCounts": {
+            c: {
+                "offenseVsIdpPairsWithADifferentOutcome": pairs[c]["pairs"],
+                "orderedWrongly": pairs[c]["wrong"],
+            }
+            for c in names
+        },
+        "note": (
+            "idpOverShareOfWrongPairs is the share of wrongly ordered offense-vs-IDP pairs in which "
+            "the candidate put the defender above the offensive player; 0.5 is no level bias, below "
+            "0.5 means it undervalued defenders relative to near-term lineup contribution"
+        ),
+    }
+    rs.assert_public_artifact(result, forbidden_values=[LEAGUE_ID])
+    target = EVIDENCE_DIR / "g_backtest_supplement_champion_level.json"
+    target.write_text(json.dumps(result, indent=1, default=str) + "\n", encoding="utf-8")
+    print(json.dumps({"supplement": str(target), "checks": checks}))
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="stage", required=True)
@@ -4124,6 +4228,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     s2.add_argument("--out", default=None, help="result path (default: the evidence file)")
     s2.set_defaults(fn=stage2)
+    s3 = sub.add_parser(
+        "supplement", help="champion section 9.3 interval from the same resamples (deviation D7)"
+    )
+    s3.add_argument("--offline", action="store_true")
+    s3.set_defaults(fn=supplement)
     args = ap.parse_args(argv)
     return int(args.fn(args))
 

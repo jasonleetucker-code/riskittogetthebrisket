@@ -562,6 +562,37 @@ def test_committed_stage1_names_no_team_manager_or_roster():
     assert all("team" not in r and "roster" not in {k.lower() for k in r} for r in rows)
 
 
+def test_committed_supplement_reproduces_the_committed_result_and_brackets_its_points():
+    path = bt.EVIDENCE_DIR / "g_backtest_supplement_champion_level.json"
+    if not path.exists():
+        pytest.skip("the supplement has not run in this checkout")
+    s = json.loads(path.read_text(encoding="utf-8"))
+    assert s["promotes"] is False
+    assert s["reproducesCommittedResult"] and all(s["reproducesCommittedResult"].values())
+    for block in ("idpOverShareOfWrongPairs", "crossConcordance"):
+        for name, cell in s[block].items():
+            assert cell["lo"] <= cell["point"] <= cell["hi"], (block, name)
+    bt.rs.assert_public_artifact(s, forbidden_values=[bt.LEAGUE_ID])
+
+
+def test_g_accuracy_doc_quotes_the_committed_numbers():
+    doc_path = REPO / "docs/valuation/idp_accuracy/G_ACCURACY.md"
+    if not (doc_path.exists() and bt.RESULT_PATH.exists()):
+        pytest.skip("results not committed in this checkout")
+    res = json.loads(bt.RESULT_PATH.read_text(encoding="utf-8"))
+    if res.get("status") != "completed":
+        pytest.skip("stage 2 did not complete")
+    doc = doc_path.read_text(encoding="utf-8")
+    for c in res["evaluableCandidates"]:
+        for key in ("delta1_withinSpearman", "delta2_crossConcordance"):
+            point = res["byCandidate"][c][key]["point"]
+            assert f"{point:+.3f}" in doc, (c, key, point)
+        for axis in ("within", "cross"):
+            assert res["verdicts"][c][axis]["verdict"] in doc, (c, axis)
+    assert "127149899c7a1658d092234a9001d92e75003dfd" in doc  # the blind-stage commit
+    assert "retrospective_point_in_time" in doc and "promotes: false" in doc
+
+
 def test_committed_result_is_labelled_and_never_promotes_when_present():
     if not bt.RESULT_PATH.exists():
         pytest.skip("stage 2 has not run in this checkout")
