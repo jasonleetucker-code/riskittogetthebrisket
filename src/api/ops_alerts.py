@@ -247,7 +247,9 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
     Two reasons are not build failures and say so: ``archive_unreadable`` (a
     file at the archive path that does not read back, which the collector never
     overwrites) and ``archive_directory_unflushed`` (the verified archive is in
-    place; only the directory flush that makes its rename durable is pending).
+    place; only making its rename durable is pending -- a directory flush,
+    preceded by a byte-identical rewrite of the archive unless the recorded
+    failure is the directory open).
     """
     alerts: list[OpsAlert] = []
     for row in rows or []:
@@ -267,12 +269,18 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
                 cause = (
                     "fsync reported an error"
                     if kind == "fsync"
-                    else "The failed step was not recorded, so it is treated as an fsync error"
+                    else (
+                        "The failed step is not on record (a marker written before it was "
+                        "recorded, or a byte-identical rewrite that could not complete), so it "
+                        "is treated as an fsync error"
+                    )
                 )
                 retry = (
                     f"{cause}, after which a later flush cannot prove the rename durable, so the "
-                    "Game Day collector's retry, at most hourly, rebuilds the archive from the "
-                    "retained raw log, verifies it, replaces the accepted copy and flushes again."
+                    "Game Day collector's retry, at most hourly, rewrites the accepted archive "
+                    "byte for byte -- its own bytes, read back and checked by size and sha256, "
+                    "never rebuilt from the raw log -- renames that copy over it and flushes the "
+                    "directory again."
                 )
             title = (
                 f"Pregame projections archive for {season} week {week} "
@@ -293,7 +301,7 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
             detail = (
                 f"The pregame weekly-projections archive for {league} {season} week {week} "
                 f"{failure}  A file is at the archive path but does not read back, and the Game "
-                "Day collector never overwrites an existing archive, so it is not rebuilt.  The "
+                "Day collector never overwrites an unreadable archive, so it is not rebuilt.  The "
                 "raw weekly-projection log is retained -- the prune keeps it rather than delete "
                 "evidence it has not archived -- and that week's pregame baseline is not "
                 "preserved for the projection scorecard until the archive reads back.  The "

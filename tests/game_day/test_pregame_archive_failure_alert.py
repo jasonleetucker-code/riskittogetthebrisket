@@ -445,9 +445,13 @@ def test_a_pending_directory_flush_alert_says_what_is_true(kind):
     if kind == "open":
         assert "retries only the flush" in alert.detail
         assert "does not rebuild the archive" in alert.detail
+        assert "byte for byte" not in alert.detail
     else:
-        assert "rebuilds the archive from the retained raw log" in alert.detail
-        assert ("not recorded" in alert.detail) is (kind is None)
+        # The retry copies the accepted archive's own bytes; it never rebuilds.
+        assert "rewrites the accepted archive byte for byte" in alert.detail
+        assert "checked by size and sha256, never rebuilt from the raw log" in alert.detail
+        assert "rebuilds the archive" not in alert.detail
+        assert ("not on record" in alert.detail) is (kind is None)
     assert alert.category == CATEGORY and alert.severity == "warning"
 
 
@@ -465,7 +469,10 @@ def test_an_unreadable_archive_alert_does_not_promise_a_build_retry():
     assert alert.title == f"Pregame projections archive for {SEASON} week {WEEK} unreadable"
     assert "retries hourly" not in alert.detail
     assert "resolves when a build succeeds" not in alert.detail
-    assert "never overwrites an existing archive" in alert.detail
+    # An EXISTING (readable) archive can be replaced by its byte-identical
+    # durability rewrite; an UNREADABLE one is never overwritten.
+    assert "never overwrites an unreadable archive" in alert.detail
+    assert "existing archive" not in alert.detail
     assert "archive_unreadable" in alert.detail and "raw weekly-projection log is retained" in (
         alert.detail
     )

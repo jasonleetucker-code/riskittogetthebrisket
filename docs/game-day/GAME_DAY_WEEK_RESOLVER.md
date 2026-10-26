@@ -261,7 +261,7 @@ and the games that have none.
 | `<leagueKey>/<season>/week_<n>/generations.jsonl` | one row per published generation, append-only: id, `supersedes`, `producer`, `inputFingerprint`, `leagueObservationSeq`, and per roster the AS-KNOWN win % / beat-median % / expected final / host score / `pointsBanked` / `scoreNow` (`load_generation_history`) |
 | `<leagueKey>/<season>/week_<n>/state.json` | last tick, `lastVerifiedAt`, cadence, timings, refresh-in-progress, `statCorrections` |
 | `_collector/state.json`, `_collector/ticks.jsonl`, `_collector/tick.lock` | next due time, source health/backoff, tick log (trimmed), lock |
-| `_nfl/<season>/week_<n>/pregame_projections.json.gz` | the pregame weekly-projection archive (below) — written once, never rewritten |
+| `_nfl/<season>/week_<n>/pregame_projections.json.gz` | the pregame weekly-projection archive (below) — written once; only a byte-identical durability rewrite (the same bytes, never a rebuild) may replace it |
 
 Observation logs are append-only keyed-delta JSONL (`keyframe` / `delta` /
 `unchanged` / `failure`; a keyframe every 100 records), with a `.head.json`
@@ -300,8 +300,9 @@ replays to nothing), the raw log is kept, a warning is logged, and
 `pregame_projections.retained.json` beside the week records when and why — the
 collector is a fresh process every minute, so that file is also what limits
 retries to hourly. An existing archive is never rewritten from
-later evidence (its one replacement is the durability retry below, rebuilt from
-the same retained raw log). The file at `pregame_projections.json.gz` is always a VERIFIED
+later evidence: its one replacement is the byte-identical durability rewrite
+below, which copies the archive's own bytes and never rebuilds it. The file at
+`pregame_projections.json.gz` is always a VERIFIED
 one: a build is written to `pregame_projections.json.gz.candidate`, read back and
 count-checked against the payload, and only then moved into place, because the
 retry trusts whatever sits at that path. One that fails the check is set aside as
@@ -320,17 +321,31 @@ is pending — with `flushFailure` naming the step that failed (`open`: the
 directory could not be opened, so no `fsync` ran; `fsync`: `fsync` reported an
 error) and `firstFailedAt` when the failure began (`failedAt` stays the latest
 attempt, which the hourly throttle reads; the ops alert shows the start). It is
-retried at most hourly; a pass inside the window touches nothing. After `open`
-only the flush is retried. After `fsync` (or an unrecorded step) a later flush
-cannot vouch for the rename — Linux reports a write error to one `fsync`, and one
-on a new handle may then succeed although the rename never reached disk — so the
-retry rebuilds a candidate from the retained raw log, verifies it, fsyncs it and
-renames it over the accepted archive (never deleting that first) before flushing
-again; until that succeeds the marker keeps that meaning. A platform with no
-directory flush is not a failure (`unsupported`): Windows refusing to open a
-directory, or `fsync` failing with `EINVAL` / `ENOTSUP` / `EOPNOTSUPP` (some
-FUSE, CIFS, 9p and drvfs mounts), logged at INFO once per process. Every other
-`fsync` error, `EIO` included, is a failure. An unreadable file at the archive
+retried at most hourly; a pass inside the window touches nothing. While the raw
+weekly log is retained, a bare re-flush of an accepted archive is trusted ONLY
+after a recorded `open` failure (no `fsync` ran, so no write error was consumed).
+After `fsync`, an unrecorded or unknown step, a `candidateFlow` mismatch or any
+other marker beside the archive, or no marker at all, a later flush cannot vouch
+for the rename — Linux reports a write error to one `fsync`, and one on a new
+handle may then succeed although the rename never reached disk; and the marker
+is best effort, so a crash or a failed marker write can lose it. The pass then
+re-establishes the rename by a **byte-identical rewrite**, never a rebuild: the
+accepted archive's bytes are read and hashed (sha256), written to a temp file
+that is fsynced and renamed to `pregame_projections.json.gz.candidate`, read
+back and required to match in size and sha256, renamed over the accepted archive
+(never deleting that first), and the directory is flushed. Nothing the builder
+reads — the cached schedule, the stored scoreboard, the clock — is consulted, so
+the content cannot change. A rewrite that cannot complete (an I/O error, or a
+copy that does not read back identical) leaves the accepted archive untouched,
+keeps the raw log and records `archive_directory_unflushed` (a prior unflushed
+marker's `flushFailure` and `firstFailedAt` kept, else `flushFailure: null`), so
+the next hourly retry rewrites again; on success the marker is cleared, and one
+that cannot be cleared only makes the next pass copy the same bytes again. A
+platform with no directory flush is not a failure (`unsupported`): Windows
+refusing to open a directory (logged at DEBUG), or `fsync` failing with `EINVAL`
+/ `ENOTSUP` / `EOPNOTSUPP` (some FUSE, CIFS, 9p and drvfs mounts; logged at INFO
+once per process, then DEBUG). Every other `fsync` error, `EIO` included, is a
+failure. An unreadable file at the archive
 path (`archive_unreadable`) is never overwritten, so it is not rebuilt; it
 resolves when the file reads back or is removed. Archives are kept `PREGAME_ARCHIVE_SEASONS` = 10 seasons back.
 Measured size: one real week (2,154 projected players) is 1.7 MB as JSON and

@@ -14,12 +14,22 @@ moved into place; one that fails is set aside as ``.mismatch``.  These tests
 drive the real prune with a controlled clock and a writer that corrupts the
 archive but leaves it readable (the failure that reads back as ``parses, but
 the counts are wrong``).
+
+Durability (rounds 2-4): the raw log goes only once the rename that put the
+verified archive in place is known to be on disk.  An accepted archive whose
+rename is unproven -- after an ``fsync`` error, with no marker, or beside any
+marker but a recorded ``open`` failure -- is re-established by a BYTE-IDENTICAL
+rewrite (its own bytes, copied, read back and checked by size and sha256,
+renamed over it, then flushed), never by a rebuild: a rebuild also reads the
+schedule, the stored scoreboard and the clock, and could replace the verified
+archive with a different one.
 """
 
 from __future__ import annotations
 
 import errno
 import gzip
+import hashlib
 import json
 import logging
 import os
@@ -187,6 +197,27 @@ def _count_file_flushes(monkeypatch, events: list[str] | None = None) -> list[st
     return flushed
 
 
+def _sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _record_archive_writes(monkeypatch, events: list[str] | None = None) -> list[tuple[str, str]]:
+    """Note (file name, sha256 of the bytes) for every archive file write
+    attempted from here on -- a build's and a byte-identical rewrite's alike (it
+    still writes); each is also noted as ``"write:<name>"`` in ``events``."""
+    writes: list[tuple[str, str]] = []
+    real = live._write_archive_bytes
+
+    def write(path, blob):
+        writes.append((pathlib.Path(path).name, _sha(blob)))
+        if events is not None:
+            events.append(f"write:{pathlib.Path(path).name}")
+        return real(path, blob)
+
+    monkeypatch.setattr(live, "_write_archive_bytes", write)
+    return writes
+
+
 def _watch_accepted_path(monkeypatch, events: list[str]) -> None:
     """Note every rename or unlink that touches the accepted archive path."""
     real_replace, real_unlink = pathlib.Path.replace, pathlib.Path.unlink
@@ -322,7 +353,7 @@ def test_a_good_existing_archive_is_still_accepted_and_the_raw_log_pruned(clock)
     removed = live.prune_retention(SEASON, PRUNE_WEEK)
 
     assert str(_obs_dir()) in removed and not _obs_dir().exists()
-    assert _accepted().read_bytes() == first  # never rewritten
+    assert _accepted().read_bytes() == first  # only ever copied onto itself, byte for byte
     assert live.pregame_archive_health() == []
 
 
@@ -739,9 +770,10 @@ def test_a_rename_whose_directory_flush_failed_keeps_the_raw_log(monkeypatch, cl
 
 
 def test_an_existing_archive_is_accepted_only_once_its_directory_is_flushed(monkeypatch):
-    """The accept branch flushes too: the pass that wrote this archive may have
-    crashed between the rename and the flush (or predates it), and the next pass
-    is the one whose True lets the raw log go."""
+    """The accept branch makes the rename durable too: the pass that wrote this
+    archive may have crashed between the rename and the flush (or predates it),
+    and the next pass is the one whose True lets the raw log go.  (Beside this
+    unrelated marker that means the byte-identical rewrite, then its flush.)"""
     _record(PRE_KICKOFF_FETCH, REAL_FETCH)
     live._write_pregame_archive(_accepted(), _good_payload())
     accepted_bytes = _accepted().read_bytes()
@@ -802,6 +834,7 @@ def test_a_pending_flush_is_not_retried_inside_the_throttle(monkeypatch, clock, 
     marker_bytes = marker.read_bytes()
     accepted_bytes = _accepted().read_bytes()
     builds = _count_builds(monkeypatch)
+    writes = _record_archive_writes(monkeypatch)
 
     for later in (NOW + 60, NOW + RETRY - 1):
         clock["now"] = later
@@ -809,7 +842,7 @@ def test_a_pending_flush_is_not_retried_inside_the_throttle(monkeypatch, clock, 
         with caplog.at_level(logging.DEBUG, logger=live.__name__):
             assert str(_obs_dir()) not in live.prune_retention(SEASON, PRUNE_WEEK)
         assert flush["calls"] == 1  # no flush attempted
-        assert builds == []
+        assert builds == [] and writes == []  # nothing rebuilt, nothing rewritten
         assert marker.read_bytes() == marker_bytes  # failedAt is still the real attempt
         assert _accepted().read_bytes() == accepted_bytes
         assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
@@ -818,16 +851,18 @@ def test_a_pending_flush_is_not_retried_inside_the_throttle(monkeypatch, clock, 
 
 def test_after_an_open_failure_only_the_flush_is_retried(monkeypatch, clock):
     """No fsync ran, so no write error was reported and consumed: re-flushing is
-    sound, and the archive is neither rebuilt nor replaced."""
+    sound, and the archive is neither rebuilt nor rewritten -- the one marker that
+    earns a bare re-flush."""
     flush = _fail_the_first_flush(monkeypatch, live._DIR_OPEN_FAILED)
     accepted_bytes = _accepted().read_bytes()
     builds = _count_builds(monkeypatch)
     file_flushes = _count_file_flushes(monkeypatch)
+    writes = _record_archive_writes(monkeypatch)
 
     clock["now"] = NOW + RETRY  # the window has lapsed (its boundary retries)
     assert str(_obs_dir()) not in live.prune_retention(SEASON, PRUNE_WEEK)  # still failing
 
-    assert flush["calls"] == 2 and builds == [] and file_flushes == []
+    assert flush["calls"] == 2 and builds == [] and file_flushes == [] and writes == []
     assert _accepted().read_bytes() == accepted_bytes  # re-flushed, not replaced
     # failedAt is this attempt (the throttle reads it); firstFailedAt is the start.
     assert _marker() == {
@@ -842,119 +877,424 @@ def test_after_an_open_failure_only_the_flush_is_retried(monkeypatch, clock):
     removed = live.prune_retention(SEASON, PRUNE_WEEK)
 
     assert str(_obs_dir()) in removed and not _obs_dir().exists()
-    assert flush["calls"] == 3 and builds == [] and file_flushes == []
+    assert flush["calls"] == 3 and builds == [] and file_flushes == [] and writes == []
     assert _accepted().read_bytes() == accepted_bytes
     assert not live._pregame_failure_path(SEASON, WEEK).exists()
     assert live.pregame_archive_health() == []
 
 
-def test_after_an_fsync_failure_the_retry_goes_through_a_verified_rebuild(monkeypatch, clock):
+def test_after_an_fsync_failure_the_retry_rewrites_the_same_bytes(monkeypatch, clock):
     """Linux reports a write error to ONE fsync; a later fsync on a new handle can
-    return 0 although the rename never reached disk.  So the retry does not trust
-    a re-flush: it rebuilds from the retained raw log, flushes the candidate's
-    bytes, renames it OVER the accepted archive (never deleting that first), and
-    only then flushes the directory."""
+    return 0 although the rename never reached disk.  So the retry trusts no bare
+    re-flush -- and it does not rebuild either.  It writes the accepted archive's
+    OWN bytes to a flushed copy, checks the copy, renames it OVER the accepted
+    archive (never deleting that first), and only then flushes the directory."""
     flush = _fail_the_first_flush(monkeypatch, live._DIR_FSYNC_FAILED)
-    good = _good_payload()
+    accepted_bytes = _accepted().read_bytes()
     first = live._read_pregame_archive(_accepted())
     events: list[str] = []
     builds = _count_builds(monkeypatch)
     file_flushes = _count_file_flushes(monkeypatch, events)
+    writes = _record_archive_writes(monkeypatch, events)
+    synced = _record_fsyncs(monkeypatch)
     _watch_accepted_path(monkeypatch, events)
+    flushed_at_replace: list[bool] = []
+    watched_replace = pathlib.Path.replace
+
+    def replace(self, target):
+        if self.name == CANDIDATE and pathlib.Path(target) == _accepted():
+            stat = os.stat(self)
+            flushed_at_replace.append((stat.st_ino, stat.st_size) in synced)
+        return watched_replace(self, target)
+
+    monkeypatch.setattr(pathlib.Path, "replace", replace)
     flush["events"] = events
     flush["outcome"] = live._DIR_FLUSHED  # this time the flush works
 
     clock["now"] = NOW + RETRY
     removed = live.prune_retention(SEASON, PRUNE_WEEK)
 
-    assert builds == [1] and file_flushes == [CANDIDATE]
-    assert events == [f"file-flush:{CANDIDATE}", "replace-over-accepted", "dir-flush"]
+    assert builds == [] and file_flushes == []  # never rebuilt
+    assert writes == [(CANDIDATE, _sha(accepted_bytes))]  # the accepted archive's own bytes
+    assert events == [f"write:{CANDIDATE}", "replace-over-accepted", "dir-flush"]
+    assert flushed_at_replace == [True]  # the copy was on disk before it replaced the original
     assert flush["calls"] == 2
-    archive = live._read_pregame_archive(_accepted())
-    assert archive is not None and len(archive["players"]) == len(good["players"])
-    assert archive["archivedAt"] == live._iso(NOW + RETRY) != first["archivedAt"]  # replaced
+    assert _accepted().read_bytes() == accepted_bytes
+    assert live._read_pregame_archive(_accepted())["archivedAt"] == first["archivedAt"]
+    assert not (_week_dir() / CANDIDATE).exists()
+    assert not (_week_dir() / (CANDIDATE + ".tmp")).exists()
     assert str(_obs_dir()) in removed and not _obs_dir().exists()
     assert live.pregame_archive_health() == []
 
 
-@pytest.mark.parametrize("fault", ["kickoffs_unknown", "readback_mismatch", "candidate_flush"])
-def test_a_verified_rebuild_that_fails_leaves_the_archive_and_the_fsync_marker(
-    monkeypatch, clock, fault
-):
-    """Whatever stops the rebuild, the accepted archive is untouched (still
-    verified, its rename still unproven) and the marker keeps saying so -- it does
-    not become a reason whose retry would merely re-flush."""
+def _counted_counts(archive: dict) -> list[int]:
+    return [len(archive[key]) for key in ("players", "timingUnverified")]
+
+
+@pytest.mark.parametrize("change", ["schedule_changed", "schedule_empty", "builder_differs"])
+def test_the_fsync_retry_never_replaces_the_archive_from_changed_inputs(monkeypatch, clock, change):
+    """The review's probe.  A rebuild reads more than the retained raw log -- the
+    cached schedule, the stored scoreboard, the clock -- so a durability retry
+    that rebuilt could swap the verified archive for a different, less complete
+    one (a reviewer saw 599 players become 564 plus 35 ``timingUnverified``) and
+    then prune the raw log.  The retry copies bytes instead: whatever those inputs
+    say now, the accepted archive stays byte-identical, and the raw log goes only
+    once a flush after the rewrite succeeds."""
     flush = _fail_the_first_flush(monkeypatch, live._DIR_FSYNC_FAILED)
     accepted_bytes = _accepted().read_bytes()
-    before = _weekly_log_bytes()
-    builds = _count_builds(monkeypatch)
-    if fault == "kickoffs_unknown":
-        monkeypatch.setattr(live, "_archive_schedule_rows", lambda season: [])
-    elif fault == "readback_mismatch":
-        _corrupt_every_write(monkeypatch)
+    first = live._read_pregame_archive(_accepted())
+    if change == "builder_differs":
+        real_build = live.build_pregame_projection_archive
+        monkeypatch.setattr(
+            live,
+            "build_pregame_projection_archive",
+            lambda *args, **kwargs: _truncated(real_build(*args, **kwargs)),
+        )
     else:
+        changed = [] if change == "schedule_empty" else list(SCHEDULE[: len(SCHEDULE) // 2])
+        monkeypatch.setattr(live, "_archive_schedule_rows", lambda season: list(changed))
 
-        def fsync_file(path):
-            raise OSError(5, "Input/output error")
+    # The probe has teeth: a rebuild now would NOT reproduce the accepted archive.
+    def rebuild():
+        return live.build_pregame_projection_archive(
+            SEASON, WEEK, schedule_rows=live._archive_schedule_rows(SEASON), now=NOW + RETRY
+        )
 
-        monkeypatch.setattr(live, "_fsync_file", fsync_file)
-    flush["outcome"] = live._DIR_FLUSHED  # a flush would work; the rebuild is what fails
+    if change == "schedule_empty":
+        with pytest.raises(live.PregameArchiveUnavailable):
+            rebuild()
+    else:
+        assert _counted_counts(rebuild()) != _counted_counts(first)
 
+    reads: list[str] = []
+    for name in ("_archive_schedule_rows", "_last_scoreboard"):
+        real = getattr(live, name)
+        monkeypatch.setattr(
+            live,
+            name,
+            lambda *a, _real=real, _name=name, **k: reads.append(_name) or _real(*a, **k),
+        )
+    builds = _count_builds(monkeypatch)
+    writes = _record_archive_writes(monkeypatch)
+
+    # The retry's own flush fails again: nothing is pruned, nothing changes.
     clock["now"] = NOW + RETRY
     assert str(_obs_dir()) not in live.prune_retention(SEASON, PRUNE_WEEK)
+    assert _accepted().read_bytes() == accepted_bytes and _obs_dir().is_dir()
+    assert _marker()["flushFailure"] == "fsync"
 
-    assert builds == [1]  # it was attempted ...
-    assert flush["calls"] == 1  # ... but never reached a rename to flush
+    # Once a flush succeeds the raw log goes -- and the archive is still the original.
+    flush["outcome"] = live._DIR_FLUSHED
+    clock["now"] = NOW + 2 * RETRY
+    removed = live.prune_retention(SEASON, PRUNE_WEEK)
+
+    assert str(_obs_dir()) in removed and not _obs_dir().exists()
     assert _accepted().read_bytes() == accepted_bytes
-    assert _marker() == {
-        "failedAt": live._iso(NOW + RETRY),
+    archive = live._read_pregame_archive(_accepted())
+    assert archive["archivedAt"] == first["archivedAt"]
+    assert _counted_counts(archive) == _counted_counts(first)
+    assert builds == [] and reads == []  # the builder, schedule and scoreboard: never consulted
+    assert writes == [(CANDIDATE, _sha(accepted_bytes))] * 2
+    assert flush["calls"] == 3
+
+
+def _unflushed_fsync_marker(failed_at: float) -> dict:
+    return {
+        "failedAt": live._iso(failed_at),
         "firstFailedAt": live._iso(NOW),
         "flushFailure": "fsync",
         "reason": "archive_directory_unflushed",
     }
+
+
+@pytest.mark.parametrize("damage", ["one_byte_changed", "one_byte_short"])
+def test_a_rewrite_that_does_not_read_back_identical_fails_closed(
+    monkeypatch, clock, caplog, damage
+):
+    """The copy must match the accepted archive in size AND sha256 before it may
+    replace it -- here one byte differs at the same size, or the copy is short.
+    It never does: the accepted archive, the marker's meaning and the raw log are
+    all kept, and the next retry overwrites the bad copy."""
+    flush = _fail_the_first_flush(monkeypatch, live._DIR_FSYNC_FAILED)
+    accepted_bytes = _accepted().read_bytes()
+    before = _weekly_log_bytes()
+    real_write = live._write_archive_bytes
+
+    def damaged_write(path, blob):
+        bad = blob[:-1] if damage == "one_byte_short" else blob[:-1] + bytes([blob[-1] ^ 0xFF])
+        assert len(bad) == len(blob) - (damage == "one_byte_short")
+        return real_write(path, bad)
+
+    monkeypatch.setattr(live, "_write_archive_bytes", damaged_write)
+    flush["outcome"] = live._DIR_FLUSHED  # a flush would succeed; the copy is what is wrong
+
+    clock["now"] = NOW + RETRY
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        assert str(_obs_dir()) not in live.prune_retention(SEASON, PRUNE_WEEK)
+
+    assert _accepted().read_bytes() == accepted_bytes  # never replaced by the bad copy
+    assert flush["calls"] == 1  # no rename, so no flush
+    assert _marker() == _unflushed_fsync_marker(NOW + RETRY)
     assert _obs_dir().is_dir() and _weekly_log_bytes() == before
+    assert any(
+        "byte-identical rewrite" in r.getMessage() and "readback_mismatch" in r.getMessage()
+        for r in caplog.records
+    )
+    assert (_week_dir() / CANDIDATE).read_bytes() != accepted_bytes  # left for the next attempt
+
+    monkeypatch.setattr(live, "_write_archive_bytes", real_write)  # the fault clears
+    clock["now"] = NOW + 2 * RETRY
+    assert str(_obs_dir()) in live.prune_retention(SEASON, PRUNE_WEEK)
+    assert _accepted().read_bytes() == accepted_bytes
+    assert not (_week_dir() / CANDIDATE).exists()  # overwritten, then moved into place
+
+
+@pytest.mark.parametrize(
+    "fault", ["temp_file_write", "temp_file_fsync", "rename_to_candidate", "rename_over_accepted"]
+)
+def test_a_rewrite_that_cannot_be_written_fails_closed(monkeypatch, clock, fault):
+    flush = _fail_the_first_flush(monkeypatch, live._DIR_FSYNC_FAILED)
+    accepted_bytes = _accepted().read_bytes()
+    before = _weekly_log_bytes()
+    if fault == "temp_file_write":
+        (_week_dir() / (CANDIDATE + ".tmp")).mkdir()  # the copy's temp file cannot be opened
+    elif fault == "temp_file_fsync":
+
+        def fsync(fd):
+            raise OSError(errno.EIO, "Input/output error")
+
+        monkeypatch.setattr(os, "fsync", fsync)
+    else:
+        real_replace = pathlib.Path.replace
+
+        def replace(self, target):
+            if fault == "rename_to_candidate":
+                hit = pathlib.Path(target).name == CANDIDATE
+            else:
+                hit = pathlib.Path(target) == _accepted()
+            if hit:
+                raise OSError(errno.EIO, "Input/output error", str(target))
+            return real_replace(self, target)
+
+        monkeypatch.setattr(pathlib.Path, "replace", replace)
+    flush["outcome"] = live._DIR_FLUSHED
+
+    clock["now"] = NOW + RETRY
+    assert str(_obs_dir()) not in live.prune_retention(SEASON, PRUNE_WEEK)
+
+    assert _accepted().read_bytes() == accepted_bytes
+    assert live._read_pregame_archive(_accepted()) is not None
+    assert flush["calls"] == 1
+    assert _marker() == _unflushed_fsync_marker(NOW + RETRY)
+    assert _obs_dir().is_dir() and _weekly_log_bytes() == before
+
+
+def test_a_rewrite_that_fails_with_no_failure_on_record_is_marked_throttled_and_retried(
+    monkeypatch, clock
+):
+    """With no prior failed flush on record there is no step to name, so the
+    marker records ``flushFailure: null`` (the alert says the step is not on
+    record); it is throttled like every reason, and retried by the rewrite."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    live._write_pregame_archive(_accepted(), _good_payload())  # accepted, no marker
+    accepted_bytes = _accepted().read_bytes()
+    flush = _stub_dir_flush(monkeypatch, live._DIR_FLUSHED)
+    writes = _record_archive_writes(monkeypatch)
+    squatter = _week_dir() / (CANDIDATE + ".tmp")
+    squatter.mkdir()  # the copy cannot be written
+
+    assert str(_obs_dir()) not in live.prune_retention(SEASON, PRUNE_WEEK)
+    assert _marker() == {
+        "failedAt": live._iso(NOW),
+        "firstFailedAt": live._iso(NOW),
+        "flushFailure": None,
+        "reason": "archive_directory_unflushed",
+    }
+    assert len(writes) == 1 and flush["calls"] == 0
+    rows = live.pregame_archive_health()
+    assert rows is not None and [(r["reason"], r["flushFailure"]) for r in rows] == [
+        ("archive_directory_unflushed", None)
+    ]
+    (alert,) = oa._check_pregame_archive(rows)
+    assert "not on record" in alert.detail and "byte for byte" in alert.detail
+
+    clock["now"] = NOW + 60  # throttled: nothing is rewritten
+    assert str(_obs_dir()) not in live.prune_retention(SEASON, PRUNE_WEEK)
+    assert len(writes) == 1 and flush["calls"] == 0
+
+    squatter.rmdir()
+    clock["now"] = NOW + RETRY
+    assert str(_obs_dir()) in live.prune_retention(SEASON, PRUNE_WEEK)
+    assert writes == [(CANDIDATE, _sha(accepted_bytes))] * 2 and flush["calls"] == 1
+    assert _accepted().read_bytes() == accepted_bytes
+    assert not live._pregame_failure_path(SEASON, WEEK).exists()
+
+
+@pytest.mark.parametrize(
+    "beside",
+    [
+        "no_marker",
+        "unrelated_marker",
+        "candidate_flow_mismatch",
+        "unflushed_unknown_kind",
+        "unflushed_null_kind",
+        "unflushed_no_kind",
+    ],
+)
+def test_an_accepted_archive_with_a_retained_raw_log_is_rewritten_unless_open_is_recorded(
+    monkeypatch, beside
+):
+    """A bare re-flush is trusted only after a recorded ``open`` failure.  With no
+    marker (one whose write failed after an fsync error, say) or any other marker,
+    the pass that lets the raw log go first rewrites the archive's own bytes, so
+    its flush covers a rename made after any consumed error."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    live._write_pregame_archive(_accepted(), _good_payload())
+    accepted_bytes = _accepted().read_bytes()
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    if beside == "unrelated_marker":
+        live._mark_pregame_failure(marker, NOW, "kickoffs_unknown")
+    elif beside == "candidate_flow_mismatch":
+        live._mark_pregame_failure(marker, NOW, "archive_readback_mismatch", candidate_flow=True)
+    elif beside != "no_marker":
+        fields = {
+            "unflushed_unknown_kind": {"flushFailure": "dir_sync"},
+            "unflushed_null_kind": {"flushFailure": None},
+            "unflushed_no_kind": {},
+        }[beside]
+        live._mark_pregame_failure(marker, NOW, "archive_directory_unflushed", fields=fields)
+    events: list[str] = []
+    flush = _stub_dir_flush(monkeypatch, live._DIR_FLUSHED)
+    flush["events"] = events
+    builds = _count_builds(monkeypatch)
+    writes = _record_archive_writes(monkeypatch, events)
+
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + RETRY) is True
+
+    assert builds == []
+    assert writes == [(CANDIDATE, _sha(accepted_bytes))]  # rewritten, not merely re-flushed
+    assert events == [f"write:{CANDIDATE}", "dir-flush"]
+    assert _accepted().read_bytes() == accepted_bytes
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("second_flush", [live._DIR_FLUSHED, live._DIR_FSYNC_FAILED])
+def test_an_fsync_error_whose_marker_was_lost_is_never_re_flushed_and_pruned(
+    monkeypatch, clock, second_flush
+):
+    """The correlated failure: the build's rename, the directory fsync fails with
+    EIO (reported once, so consumed), and the marker write then fails with ENOSPC
+    and is swallowed.  The next pass finds NO marker, and a fresh fsync would
+    return 0 for a rename that may never have reached disk.  It rewrites the
+    archive's bytes first, so the raw log is pruned only behind a flush of a
+    rename made after the error."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    flush = _stub_dir_flush(monkeypatch, live._DIR_FSYNC_FAILED)
+    deny = {"marker": True}
+    real_write = live._atomic_write_json
+
+    def write(path, payload):
+        if deny["marker"] and pathlib.Path(path).name == live.PREGAME_ARCHIVE_FAILURE_NAME:
+            raise OSError(errno.ENOSPC, "No space left on device", str(path))
+        return real_write(path, payload)
+
+    monkeypatch.setattr(live, "_atomic_write_json", write)
+
+    assert str(_obs_dir()) not in live.prune_retention(SEASON, PRUNE_WEEK)  # pass 1
+    assert flush["calls"] == 1
+    assert not live._pregame_failure_path(SEASON, WEEK).exists()  # the marker was lost
+    accepted_bytes = _accepted().read_bytes()
+    before = _weekly_log_bytes()
+
+    deny["marker"] = False
+    events: list[str] = []
+    flush["events"] = events
+    flush["outcome"] = second_flush
+    builds = _count_builds(monkeypatch)
+    writes = _record_archive_writes(monkeypatch, events)
+
+    clock["now"] = NOW + 60  # no marker, so no throttle either
+    removed = live.prune_retention(SEASON, PRUNE_WEEK)
+
+    assert builds == [] and writes == [(CANDIDATE, _sha(accepted_bytes))]
+    assert events == [f"write:{CANDIDATE}", "dir-flush"]  # the flush follows a NEW rename
+    assert _accepted().read_bytes() == accepted_bytes
+    if second_flush == live._DIR_FLUSHED:
+        assert str(_obs_dir()) in removed and not _obs_dir().exists()
+    else:
+        assert str(_obs_dir()) not in removed and _weekly_log_bytes() == before
+        assert _marker()["flushFailure"] == "fsync"
+
+
+@pytest.mark.parametrize("prior", ["fsync_failure", "no_marker"])
+def test_a_rewrite_on_a_platform_with_no_directory_flush_is_trusted(monkeypatch, clock, prior):
+    """``"unsupported"`` after the rewrite is the platform's own durability, as on
+    every other path: the raw log goes."""
+    if prior == "fsync_failure":
+        flush = _fail_the_first_flush(monkeypatch, live._DIR_FSYNC_FAILED)
+    else:
+        _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+        live._write_pregame_archive(_accepted(), _good_payload())
+        flush = _stub_dir_flush(monkeypatch, live._DIR_FLUSH_UNSUPPORTED)
+    accepted_bytes = _accepted().read_bytes()
+    writes = _record_archive_writes(monkeypatch)
+    flush["outcome"] = live._DIR_FLUSH_UNSUPPORTED
+
+    clock["now"] = NOW + RETRY
+    removed = live.prune_retention(SEASON, PRUNE_WEEK)
+
+    assert writes == [(CANDIDATE, _sha(accepted_bytes))]
+    assert str(_obs_dir()) in removed and not _obs_dir().exists()
+    assert _accepted().read_bytes() == accepted_bytes
+    assert not live._pregame_failure_path(SEASON, WEEK).exists()
 
 
 def test_an_unflushed_marker_with_no_recorded_step_is_retried_as_an_fsync_failure(
     monkeypatch, clock
 ):
     """A marker written before ``flushFailure`` existed cannot say a re-flush is
-    sound, so it takes the verified rebuild; its ``failedAt`` is the best start."""
+    sound, so it takes the byte-identical rewrite; its ``failedAt`` is the best
+    start."""
     _record(PRE_KICKOFF_FETCH, REAL_FETCH)
     assert live.ensure_pregame_archive(SEASON, WEEK) is True  # built + flushed (clock: NOW)
+    accepted_bytes = _accepted().read_bytes()
     marker = live._pregame_failure_path(SEASON, WEEK)
     live._mark_pregame_failure(marker, NOW, "archive_directory_unflushed")  # the old shape
     flush = _stub_dir_flush(monkeypatch, live._DIR_FSYNC_FAILED)
     builds = _count_builds(monkeypatch)
+    writes = _record_archive_writes(monkeypatch)
 
     clock["now"] = NOW + 60  # throttled by the old marker's failedAt too
     live.prune_retention(SEASON, PRUNE_WEEK)
-    assert flush["calls"] == 0 and builds == []
+    assert flush["calls"] == 0 and builds == [] and writes == []
 
     clock["now"] = NOW + RETRY
     live.prune_retention(SEASON, PRUNE_WEEK)
-    assert builds == [1] and flush["calls"] == 1
+    assert builds == [] and writes == [(CANDIDATE, _sha(accepted_bytes))]
+    assert flush["calls"] == 1
     assert _marker()["firstFailedAt"] == live._iso(NOW) and _marker()["flushFailure"] == "fsync"
+    assert _accepted().read_bytes() == accepted_bytes
 
 
 def test_the_next_retry_trusts_the_kind_of_the_latest_flush(monkeypatch, clock):
-    """The rebuild's rename is the newest write, so ITS flush outcome decides the
+    """The rewrite's rename is the newest write, so ITS flush outcome decides the
     next retry: an open failure after it is re-flushed only."""
     flush = _fail_the_first_flush(monkeypatch, live._DIR_FSYNC_FAILED)
+    accepted_bytes = _accepted().read_bytes()
     builds = _count_builds(monkeypatch)
+    writes = _record_archive_writes(monkeypatch)
 
     flush["outcome"] = live._DIR_OPEN_FAILED
     clock["now"] = NOW + RETRY
     live.prune_retention(SEASON, PRUNE_WEEK)
-    assert builds == [1]  # fsync -> rebuilt
+    assert builds == [] and len(writes) == 1  # fsync -> rewritten
     assert _marker()["flushFailure"] == "open" and _marker()["firstFailedAt"] == live._iso(NOW)
-    replaced = _accepted().read_bytes()
 
     flush["outcome"] = live._DIR_FLUSHED
     clock["now"] = NOW + 2 * RETRY
     removed = live.prune_retention(SEASON, PRUNE_WEEK)
-    assert builds == [1]  # open -> re-flushed only
-    assert _accepted().read_bytes() == replaced
+    assert builds == [] and len(writes) == 1  # open -> re-flushed only
+    assert _accepted().read_bytes() == accepted_bytes
     assert str(_obs_dir()) in removed and not _obs_dir().exists()
 
 
@@ -1077,6 +1417,24 @@ def test_fsync_dir_reports_any_other_open_failure_as_failed(
         if r.name == live.__name__ and r.levelno == logging.WARNING
     ]
     assert len(warnings) == 1 and "could not open directory" in warnings[0]
+
+
+def test_dir_flush_failure_maps_each_known_outcome():
+    assert live._dir_flush_failure(live._DIR_FLUSHED) is None
+    assert live._dir_flush_failure(live._DIR_FLUSH_UNSUPPORTED) is None
+    assert live._dir_flush_failure(live._DIR_OPEN_FAILED) == "open"
+    assert live._dir_flush_failure(live._DIR_FSYNC_FAILED) == "fsync"
+
+
+@pytest.mark.parametrize(
+    "outcome", ["", "failed", "open", "Open_failed", "open_failed ", "partial"]
+)
+def test_an_unknown_flush_outcome_is_the_least_trusting_kind(outcome):
+    """``"open"`` is the one kind whose retry trusts a bare re-flush, so only the
+    exact ``open_failed`` outcome may become it.  Anything this code does not
+    know -- including ``"failed"``, the outcome before the step was recorded, and
+    the KIND ``"open"`` passed as an outcome -- is ``"fsync"``."""
+    assert live._dir_flush_failure(outcome) == "fsync"
 
 
 def test_fsync_dir_closes_the_handle_and_warns_when_the_flush_fails(monkeypatch, tmp_path, caplog):
