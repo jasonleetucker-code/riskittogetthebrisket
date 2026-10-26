@@ -1,4 +1,5 @@
 """Read-only fixture tests for league scoring and roster fingerprint/drift."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -18,20 +19,31 @@ def fixture():
         "league_id": "1312006700437352448",
         "season": "2026",
         "settings": {
-            "num_teams": 12, "best_ball": 1, "taxi_slots": 0, "leg": 7,
-            "daily_waivers_last_ran": 20, "playoff_teams": 7,
+            "num_teams": 12,
+            "best_ball": 1,
+            "taxi_slots": 0,
+            "leg": 7,
+            "daily_waivers_last_ran": 20,
+            "playoff_teams": 7,
         },
         "roster_positions": ["QB", "TE", "SUPER_FLEX", "DL", "BN", "BN"],
         "scoring_settings": {"bonus_rec_te": 0, "idp_qb_hit": 2.13, "pass_td": 6},
     }
-    registry = {"leagues": [{
-        "key": "dynasty_main", "sleeperLeagueId": snapshot["league_id"],
-        "bestBall": True,
-        "rosterSettings": {
-            "teamCount": 12, "rosterSize": 6, "taxiSize": 0,
-            "starters": {"QB": 1, "TE": 1, "SFLEX": 1, "DL": 1},
-        },
-    }]}
+    registry = {
+        "leagues": [
+            {
+                "key": "dynasty_main",
+                "sleeperLeagueId": snapshot["league_id"],
+                "bestBall": True,
+                "rosterSettings": {
+                    "teamCount": 12,
+                    "rosterSize": 6,
+                    "taxiSize": 0,
+                    "starters": {"QB": 1, "TE": 1, "SFLEX": 1, "DL": 1},
+                },
+            }
+        ]
+    }
     return registry, snapshot
 
 

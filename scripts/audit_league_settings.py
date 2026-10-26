@@ -3,6 +3,7 @@
 Does not modify production configuration. Use --live for one Sleeper host GET
 or --snapshot for deterministic archived evidence, explicitly labelled.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -45,9 +46,7 @@ def _registry_league(registry: dict[str, Any], sleeper_id: str) -> dict[str, Any
 def _registry_shape(row: dict[str, Any]) -> dict[str, Any]:
     roster = row.get("rosterSettings") or {}
     starters = {
-        _normalized_slot(k): int(v)
-        for k, v in (roster.get("starters") or {}).items()
-        if int(v) > 0
+        _normalized_slot(k): int(v) for k, v in (roster.get("starters") or {}).items() if int(v) > 0
     }
     return {
         "teams": int(roster["teamCount"]),
@@ -100,7 +99,8 @@ def audit(registry: dict[str, Any], snapshot: dict[str, Any], league_id: str) ->
     observed = _host_shape(snapshot)
     drift = [
         {"setting": k, "registry": configured[k], "sleeper": observed[k]}
-        for k in configured if configured[k] != observed[k]
+        for k in configured
+        if configured[k] != observed[k]
     ]
     return {
         "league_id": league_id,
@@ -134,26 +134,37 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--league-id", default=DEFAULT_LEAGUE_ID)
     parser.add_argument("--registry", type=Path, default=DEFAULT_REGISTRY)
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--live", action="store_true",
-                        help="Fetch current Sleeper rules; never fall back silently")
-    source.add_argument("--snapshot", type=Path,
-                        help="Explicit archived JSON file; not a live check")
+    source.add_argument(
+        "--live", action="store_true", help="Fetch current Sleeper rules; never fall back silently"
+    )
+    source.add_argument(
+        "--snapshot", type=Path, help="Explicit archived JSON file; not a live check"
+    )
     parser.add_argument("--timeout", type=int, default=15)
-    parser.add_argument("--strict", action="store_true",
-                        help="Exit 1 if registry and host differ")
+    parser.add_argument("--strict", action="store_true", help="Exit 1 if registry and host differ")
     args = parser.parse_args(argv)
     try:
         registry = _read_json(args.registry)
         snapshot = _live(args.league_id, args.timeout) if args.live else _read_json(args.snapshot)
         report = audit(registry, snapshot, args.league_id)
-        report["evidence_source"] = "LIVE_SLEEPER_API" if args.live else "EXPLICIT_ARCHIVED_SNAPSHOT"
+        report["evidence_source"] = (
+            "LIVE_SLEEPER_API" if args.live else "EXPLICIT_ARCHIVED_SNAPSHOT"
+        )
         print(json.dumps(report, indent=2, sort_keys=True))
         return int(args.strict and bool(report["drift"]))
     except (OSError, URLError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        print(json.dumps({
-            "status": "UNVERIFIED", "reason": str(exc),
-            "evidence_source": "LIVE_SLEEPER_API" if args.live else "EXPLICIT_ARCHIVED_SNAPSHOT",
-        }), file=sys.stderr)
+        print(
+            json.dumps(
+                {
+                    "status": "UNVERIFIED",
+                    "reason": str(exc),
+                    "evidence_source": "LIVE_SLEEPER_API"
+                    if args.live
+                    else "EXPLICIT_ARCHIVED_SNAPSHOT",
+                }
+            ),
+            file=sys.stderr,
+        )
         return 2
 
 
