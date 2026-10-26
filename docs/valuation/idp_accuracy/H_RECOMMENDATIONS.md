@@ -12,7 +12,9 @@ Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
 
 **Evidence labels used below.** `VERIFIED-by-lane`: a lane measured it, with the stated n and interval, on pinned inputs, and
 this page found no conflict with another lane. `CONTESTED`: lanes point in different directions, or one lane's result is
-bracketed by another's caveat. `UNAVAILABLE`: no lane could test it, and the page says why. A label is not a verdict on the
+bracketed by another's caveat. `INCONCLUSIVE`: a lane measured it, but the interval that would settle it includes zero (or is wider
+than the gap it would explain), so the evidence neither supports nor contradicts the stated direction. `UNAVAILABLE`: no lane could
+test it, and the page says why. A label is not a verdict on the
 question's truth; it says how much weight the evidence can bear. Every result is in-sample or retrospective on 2026
 regular-season weeks 1-6 unless stated; **none of it is the long forward dynasty-horizon validation the fair-value
 preregistration requires, and none of it speaks about dynasty value directly.**
@@ -33,9 +35,11 @@ three IDP voters are stale or withheld; replacement is fragile (four of seven se
 player, and the best free agents realize about half their history out of sample); best ball does raise the value of spread for
 IDP slot classes (11.9% against 7.0% of ppg) but it follows slot economy and is not predictable per player ahead of time; and
 the cut ladder's name tie-break is a measured defect on all 12 rosters (a tied first cut everywhere, and on 9 of 12 the name-chosen cut
-costs replayed best-ball points while every tied set holds a legal cut that costs none). The two items that clear a mechanical bar and are
-ready for an owner decision are deterministic correctness repairs (the scorer fixes and the tie-break), not valuation
-changes. Five owner decisions are listed in section 3.
+costs replayed best-ball points while every tied set holds a legal cut that costs none). The two items that clear a mechanical bar are
+deterministic correctness repairs (the scorer fixes and, for the tie-break, a name-independent key), not valuation
+changes. The tie-break's measured lineup cost is a separate matter: a name-independent key is deterministic but still arbitrary and
+does not remove that cost, only a lineup-aware choice would, and that is not built, so the cost stays an owner decision. Five owner
+decisions are listed in section 3.
 
 ## 1. The ten questions (directive section 3)
 
@@ -43,7 +47,7 @@ changes. Five owner decisions are listed in section 3.
 |---|---|---|---|
 | 1 | Defenders over- or undervalued against offense? | Level unresolved. Near-term lineup evidence leans toward undervaluation by the market; the candidates that fix the level overshoot; nothing speaks to the dynasty horizon. **No value change warranted.** | CONTESTED |
 | 2 | Are elite defenders separated enough from mediocre ones? | The board compresses the top of the IDP population (an estimator property on a thin panel). Points separation is persistent for DL and not detectable for LB or DB at six games. **No change warranted; a 17-game re-run is the test.** | CONTESTED |
-| 3 | Are DL, LB and DB valued appropriately against one another? | The board's order LB, DL, DB matches the replacement evidence (DB wire flattest, LB steepest). **No change warranted.** | VERIFIED-by-lane (low power) |
+| 3 | Are DL, LB and DB valued appropriately against one another? | The board's order LB, DL, DB points the same way as the replacement point estimates (DB wire flattest, LB steepest), but the intervals that would separate the positions include zero. **No change warranted either way.** | INCONCLUSIVE |
 | 4 | Are interior DL and cornerbacks treated appropriately under our scoring? | The scoring does not achieve its stated aims as classes (TFL does not favour DT as a class; PD deepens the CB pool rather than creating elite CBs). Whether the market prices DT or CB appropriately could not be tested. | VERIFIED-by-lane (scoring effect); UNAVAILABLE (pricing) |
 | 5 | Does consensus undervalue certain defensive archetypes? | No lane could test archetype pricing. Utility differences exist but follow slot economy. | UNAVAILABLE |
 | 6 | Does best ball raise the value of volatile, big-play defenders? | Yes for slot classes, modestly; no usable per-player signal ahead of time; not a flat uplift. | VERIFIED-by-lane (class level); CONTESTED (use) |
@@ -112,8 +116,13 @@ settle it. No value change.
   0.15), LB minus DB +0.13 (-0.20 to 0.30), neither distinguishable from zero. On the rank-based gap LB beats DB by +0.08 (0.04 to
   0.20), which survives Bonferroni, and is not different from DL (-0.06, -0.15 to 0.00). (Lane E Q3.)
 
-**Answer:** VERIFIED-by-lane, with low power. The direction of the evidence (DB wire flattest, LB steepest) matches the board's
-order of LB, then DL, then DB. Nothing says that order is wrong. No change.
+**Answer:** INCONCLUSIVE (relabelled from "VERIFIED-by-lane, low power"; every number above is unchanged). The point estimates run in
+the direction of the board's order of LB, then DL, then DB (DB wire flattest, LB steepest), but the intervals that would have to
+separate the positions include zero: on the free-agent gap, LB minus DL is +0.01 (-0.29 to 0.15) and LB minus DB is +0.13 (-0.20 to
+0.30), and Lane B's single-player intervals are wider than the gaps they would explain (for example DB 1.0, CI -12.5 to 12.6). The one
+interval that excludes zero, LB over DB on the rank-based gap (+0.08, 0.04 to 0.20), says nothing about where DL sits (LB minus DL
+-0.06, -0.15 to 0.00). So the evidence neither supports nor contradicts the board's order; it was never shown to be wrong, and it was
+not shown to be right. No change is warranted either way.
 
 ### Q4. Interior DL and cornerbacks under our scoring
 
@@ -233,13 +242,15 @@ earlier lanes had looked at them before several candidates were defined, and A, 
 
 **Rule used.** ADVANCE means "enough evidence for an owner decision". It requires that the change met its own preregistered or
 mechanical acceptance criterion: a Lane G verdict of `advance`, or, for a deterministic correctness repair, a reconciliation or a
-strict pinned invariant. No predictive valuation candidate meets that bar. KEEP EXPERIMENTAL means useful and unproven; REJECT means the
+strict pinned invariant. ADVANCE covers only what that criterion covers: where a repair is advisable for its determinism but does not
+deliver a measured benefit, the table says so and that benefit stays an owner decision (X2). No predictive valuation candidate meets that
+bar. KEEP EXPERIMENTAL means useful and unproven; REJECT means the
 evidence argues against the change as proposed. **Nothing below is a promotion.**
 
 | id | candidate change | class | basis in one line |
 |---|---|---|---|
 | X1 | Repair the nflverse IDP scorer defects 01, 02 and 03 (#1938) | **ADVANCE** (owner approval: changes BDVM values) | reconciliation 91.5% to 96.2% of joined rostered player-weeks, 0 newly wrong in the wide sample |
-| X2 | Stop breaking the cut ladder's equal-cost ties by display name | **ADVANCE** (owner decision) | all 12 rosters have a tied first cut (median 28 tied); the name-chosen cut costs replayed lineup points on 9 of 12 while every tied set holds a legal cut that costs none |
+| X2 | Stop breaking the cut ladder's equal-cost ties by display name | **ADVANCE as a correctness repair only** (option a, a name-independent key: deterministic, not a fix for the lineup cost); **the measured lineup cost is an OWNER DECISION** that needs option (c), a lineup-aware choice, which is not built | all 12 rosters have a tied first cut (median 28 tied); the name-chosen cut costs replayed lineup points on 9 of 12 while every tied set holds a legal cut that costs none |
 | X3 | Candidate A (BDVM fundamentals) as a market substitute or blend input | **REJECT** | significantly worse than the market on both axes |
 | X4 | `league_fair_value_v1_shadow` as the fix for an IDP-versus-offense level | **REJECT** | structurally cannot move a scope's level |
 | X5 | A universal IDP multiplier, level shift or re-anchor of the shared market | **REJECT** | no independent level evidence; barred by directive section 13 |
@@ -272,10 +283,11 @@ board hash `4e6ba1f5...7d8712`) and, for the retrospective tests, the point-in-t
 | rollback | revert #1938; the in-season blend recomputes from rows and the actuals cache turns over within one UTC day |
 | owner approval | **required** (scoring-path changes move BDVM values) |
 
-### X2. Stop breaking the cut ladder's equal-cost ties by display name (ADVANCE)
+### X2. Stop breaking the cut ladder's equal-cost ties by display name (ADVANCE as a correctness repair only; the lineup cost is an owner decision)
 
 | field | value |
 |---|---|
+| classification | **Two separate claims.** (1) *Determinism, ADVANCE:* the choice among equal-cost players should not depend on display name; option (a), a name-independent key (player id), repairs that, is advisable as a correctness repair, and is the invariant pinned as `LANE-E-DEFECT-I9-TIEBREAK`. (2) *Lineup cost, OWNER DECISION:* option (a) does **not** fix the measured cost below (9 of 12 rosters, up to 12.19 lineup points a week), because a player id is as arbitrary as a name with respect to lineup points. Only option (c), a choice that also reads best-ball lineup points, would, and it is not built; whether to build it is the owner's call. Option (b) (`forced_drop_cheapest_legal`) selects on market value, which is not lineup points either |
 | effect | with the cheapest-legal flag OFF, `build_cut_ladder` sorts by `(effective cut cost, asset.name.lower())`, and cost is 0 for everyone at or below waiver level. On the pinned board **all 12 rosters (all at the 58-man limit) have a tied first cut**, tied set size median 28 (min 12, max 43) of 58; the chosen player is the alphabetically first lineup-legal tied player on all 12 (on the twelfth the guard skipped a kicker the lineup needs). The chosen player's release cost exceeds the cheapest tied player's on 11 of 12 rosters, **mean 1,126 value units, max 1,649**. **In replayed best-ball points the chosen cut costs lineup points on 9 of 12 rosters, mean 2.48 and max 12.19 points a week, while the tied set holds a slot-legal cut that costs nothing on 12 of 12** (the ladder guards the count of fillable slots, not points; the 12.19 is a DB averaging 19.5 ppg whose market value, 1,809, sits below the DB waiver level 1,917). Unpriced players are 14.7% of the tied set on average |
 | n | 12 rosters, one hypothetical incoming player each, nobody leaving; weeks 1-6 replay for the lineup cost |
 | uncertainty | an exact census of a deterministic rule; the release cost is the owner's own charge (base value times scarcity multiplier 1.0, with the waiver level as the ceiling for an unpriced player); the lineup cost is a six-week hindsight replay with no interval |
@@ -284,7 +296,7 @@ board hash `4e6ba1f5...7d8712`) and, for the retrospective tests, the point-in-t
 | risks | **a name-independent key (player id) is deterministic but still arbitrary**: it changes which tied player is cut without making the choice sensitive to market value or lineup points, and the census says that sensitivity is where the cost is. It also changes Perfect Draft's ladder (it shares `build_cut_ladder` and passes no `order_key`). The cheapest-legal flag path (default OFF) already ties on player id and selects on release cost (market value), which is not lineup points either; sequence, do not stack |
 | files | `src/draft/displacement.py::build_cut_ladder`; pinned as strict xfail `LANE-E-DEFECT-I9-TIEBREAK` in `tests/trade/test_multi_team_properties.py` (PR #1937); census in `scripts/idp_accuracy/trade_shadow_comparison.py` |
 | rollback | revert the key change; no persisted state |
-| owner approval | **required** (documented in #1937 as an owner decision) |
+| owner approval | **required** for both parts (documented in #1937 as an owner decision): approving option (a) as a determinism repair, and deciding whether option (c), the only route to the measured lineup saving, is built |
 
 ### X3. Candidate A as a market substitute or blend input (REJECT)
 
@@ -476,7 +488,10 @@ Each is a decision only the owner can make; none is made here, and none is neede
    enabled instead (selects the least market value), or (c) a choice that also looks at best-ball lineup points (not built)?* Every option changes
    which tied player a real roster releases, and (a) and (b) change Perfect Draft's ladder or the trade path respectively. Evidence: all 12 rosters tie
    (median 28 candidates); the name-chosen cut costs replayed lineup points on 9 of 12 (mean 2.48, max 12.19 a week) while each tied set holds a legal
-   cut that costs none; the chosen cut is a mean 1,126 value units dearer than the cheapest tied cut.
+   cut that costs none; the chosen cut is a mean 1,126 value units dearer than the cheapest tied cut. **Two parts, not one:** option (a) is advisable
+   as a correctness repair (the choice stops depending on a display name), but it is deterministic and still arbitrary, so it does **not** remove the
+   measured lineup cost; only option (c) would, and it is not built. Approving (a) therefore settles determinism and leaves the lineup cost open;
+   whether to build (c) is the part that is the owner's decision.
 5. **17-game re-run.** *Do you authorize re-running the elite-separation, scoring-sensitivity and best-ball-premium tests on a full 17-game 2026
    season after week 18, preregistered before the data is opened, to settle whether LB or CB elites separate persistently, and should its result be
    allowed to move any recommendation on this page?*

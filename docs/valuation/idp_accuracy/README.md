@@ -9,8 +9,8 @@ Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
 
 ## Lanes
 
-Status is as of 2026-10-26. "Validate PR" is the L2 CI job; PRs marked `pending` had not finished when this index was written. All PRs are
-research or shadow work, and none is deployed.
+Status is as of 2026-10-26, read from each PR's checks at the head shown. "Validate PR" is the L2 CI job. A head moves whenever its PR is
+updated, so the PR itself is authoritative. All PRs are research or shadow work, and none is deployed.
 
 | lane | what it did | PR | branch | head | state | docs on that branch |
 |---|---|---|---|---|---|---|
@@ -18,9 +18,9 @@ research or shadow work, and none is deployed.
 | **A fixes** | repair nflverse-path scorer defects 01, 02, 03 (**changes BDVM in-season values**) | [#1938](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1938) | `claude/idpa-scorer-defect-fixes` | `1edc29d45` | draft, stacked on #1931; L0 and Validate PR pass | same `A_SCORING_ACCURACY.md` (fix section), `evidence/scorer_fix_measure.json` |
 | **C** | cross-position market baseline, shared-market anchor verdict | [#1936](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1936) | `claude/idp-c-market-baseline` | `4484f5f7a` | open, ready; Validate PR passes | `docs/valuation/idp_accuracy/C_MARKET_CROSS_POSITION.md`, `evidence/c_market_baseline_2026-10-25.json` |
 | **B** | replacement methodology in shadow (D1 to D6, whole-roster evaluator) | [#1940](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1940) | `claude/idp-b-replacement-shadow-v2` | `0987b5bfd` | draft; L0 and Validate PR pass | `docs/valuation/idp_accuracy/B_REPLACEMENT.md`, `evidence/b_replacement_2026-10-25.json` |
-| **D** | best-ball volatility by archetype | [#1941](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1941) | `claude/idp-d-bestball-archetypes-v2` | `0f7eb4a2a` | draft; L0 passes, Validate PR pending | `docs/valuation/idp_accuracy/D_BESTBALL.md`, `evidence/bestball_archetypes.json` |
-| **E** | scoring sensitivity (TFL, PD, LB, best ball) | [#1943](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1943) | `claude/idp-e-scoring-sensitivity-v2` | `f31323b36` | draft; L0 passes, Validate PR pending | `docs/valuation/idp_accuracy/E_SCORING_SENSITIVITY.md`, `evidence/scoring_sensitivity.json` |
-| **F and G** | candidate set, candidate D, the fair-value structural finding, the preregistered near-term backtest | [#1942](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1942) | `claude/idp-g-backtest` | `0378868df` | draft, stacked on #1940; L0 passes, Validate PR pending | `docs/valuation/idp_accuracy/F_CANDIDATES.md`, `G_PREREGISTRATION.md`, `G_ACCURACY.md`, `evidence/g_*.json`, `evidence/f_structural_level_invariance.json` |
+| **D** | best-ball volatility by archetype | [#1941](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1941) | `claude/idp-d-bestball-archetypes-v2` | `0f7eb4a2a` | draft; L0 and Validate PR pass | `docs/valuation/idp_accuracy/D_BESTBALL.md`, `evidence/bestball_archetypes.json` |
+| **E** | scoring sensitivity (TFL, PD, LB, best ball) | [#1943](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1943) | `claude/idp-e-scoring-sensitivity-v2` | `f31323b36` | draft; L0 and Validate PR pass | `docs/valuation/idp_accuracy/E_SCORING_SENSITIVITY.md`, `evidence/scoring_sensitivity.json` |
+| **F and G** | candidate set, candidate D, the fair-value structural finding, the preregistered near-term backtest | [#1942](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1942) | `claude/idp-g-backtest` | `0378868df` | draft, stacked on #1940; L0 and Validate PR pass at this head (the PR head moves when #1940's head is merged into it) | `docs/valuation/idp_accuracy/F_CANDIDATES.md`, `G_PREREGISTRATION.md`, `G_ACCURACY.md`, `evidence/g_*.json`, `evidence/f_structural_level_invariance.json` |
 | **H** | recommendations, owner decisions, shadow trade comparison | [#1945](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1945) | `claude/idp-h-recommendations` | the PR's head | draft; based on `main` | `H_RECOMMENDATIONS.md`, `README.md`, `evidence/h_trade_shadow_comparison.json` |
 
 Read any lane's document from its branch before it merges: `git show origin/<branch>:docs/valuation/idp_accuracy/<file>`.
@@ -35,7 +35,7 @@ Read any lane's document from its branch before it merges: `git show origin/<bra
 | D | best-ball volatility premium IDP 11.9% against offense 7.0% of ppg; follows slot economy; not predictable per player |
 | E | TFL does not favour DT as a class; PD deepens the CB pool; LB stable but its elite separation not detectable at six games |
 | F and G | no candidate advances; A significantly worse, B not evaluable and structurally unable to fix a level, C no difference, D blocked by its guards |
-| H | no served value change warranted; two mechanical repairs ready for owner decisions; five owner decisions listed |
+| H | no served value change warranted; two mechanical repairs ready for owner decisions (the scorer fixes, and the cut tie-break as a determinism repair only: its measured lineup cost needs a lineup-aware rule that is not built); Q3 (DL, LB, DB against one another) is INCONCLUSIVE; five owner decisions listed |
 
 ## Related PRs (not lanes of this program)
 
