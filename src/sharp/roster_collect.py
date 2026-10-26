@@ -567,7 +567,7 @@ def collect_sleeper_rosters(
     result = CollectResult()
     if not manager_keys:
         result.leagues_queued = 0
-        _attach_sleeper_coverage(
+        _attach_sleeper_coverage_safely(
             result, call_budget=budget, budget_break=False, oldest_ms=None, never_visited=None
         )
         return result
@@ -698,7 +698,7 @@ def collect_sleeper_rosters(
     result.calls_used = b.used
     if not b.can_call(CALLS_PER_LEAGUE):
         result.budget_exhausted = True
-    _attach_sleeper_coverage(
+    _attach_sleeper_coverage_safely(
         result,
         call_budget=budget,
         budget_break=budget_break,
@@ -706,7 +706,8 @@ def collect_sleeper_rosters(
         never_visited=never_visited,
     )
     log.info("sharp.roster_collect.sleeper: %s", result.to_dict())
-    pass_coverage.log_pass_summary(log, result.pass_coverage or {})
+    if result.pass_coverage is not None:
+        pass_coverage.log_pass_summary(log, result.pass_coverage)
     return result
 
 
@@ -727,6 +728,20 @@ def _cohort_visit_age(by_league: dict[str, set[str]], *, conn) -> tuple[int | No
     seen = [last[league_id] for league_id in by_league if league_id in last]
     never = len(by_league) - len(seen)
     return (min(seen) if seen else None), never
+
+
+def _attach_sleeper_coverage_safely(result: CollectResult, **kwargs: Any) -> None:
+    """``_attach_sleeper_coverage`` that can never fail the pass.
+
+    The rosters are already stored when this runs; a coverage fault leaves the
+    coverage fields ``None`` and says so, rather than failing the run.
+    """
+    try:
+        _attach_sleeper_coverage(result, **kwargs)
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        log.warning("sharp.roster_collect.sleeper: could not build pass coverage", exc_info=True)
+        result.stopped_reason = ""
+        result.pass_coverage = None
 
 
 def _attach_sleeper_coverage(
@@ -932,14 +947,20 @@ def collect_ffpc_rosters(
     finally:
         conn.close()
 
-    _attach_ffpc_coverage(
-        result,
-        cohort_managers=len(ffpc_keys),
-        memberships_seen=len(rows),
-        rosters_lifted=recorded_rosters,
-    )
+    try:
+        _attach_ffpc_coverage(
+            result,
+            cohort_managers=len(ffpc_keys),
+            memberships_seen=len(rows),
+            rosters_lifted=recorded_rosters,
+        )
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        log.warning("sharp.roster_collect.ffpc: could not build pass coverage", exc_info=True)
+        result.stopped_reason = ""
+        result.pass_coverage = None
     log.info("sharp.roster_collect.ffpc: %s", result.to_dict())
-    pass_coverage.log_pass_summary(log, result.pass_coverage or {})
+    if result.pass_coverage is not None:
+        pass_coverage.log_pass_summary(log, result.pass_coverage)
     return result
 
 

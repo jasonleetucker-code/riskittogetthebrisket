@@ -64,6 +64,23 @@ class FakeSleeper:
         return self.responses.get(url)
 
 
+def _boom(*_args, **_kwargs):
+    """Stands in for a coverage helper that has a bug in it."""
+    raise RuntimeError("coverage helper exploded")
+
+
+#: The only fields a coverage fault may change.
+_COVERAGE_KEYS = ("stoppedReason", "passCoverage")
+
+
+def without_coverage(payload):
+    return {k: v for k, v in payload.items() if k not in _COVERAGE_KEYS}
+
+
+def coverage_failure_warnings(caplog):
+    return [r for r in caplog.records if "could not build pass coverage" in r.getMessage()]
+
+
 # ── the shared vocabulary ────────────────────────────────────────────
 
 
@@ -81,7 +98,7 @@ class TestSharedHelpers:
             ({"budget_stopped": True, "work_remains": True, "capped": True}, "budget_exhausted"),
             (
                 {"budget_stopped": True, "work_remains": True, "breaker_blocked": True},
-                "breaker_open",
+                "sleeper_breaker_open",
             ),
         ],
     )
@@ -125,7 +142,8 @@ class TestSharedHelpers:
         ("reason", "level"),
         [
             ("budget_exhausted", logging.WARNING),
-            ("breaker_open", logging.WARNING),
+            ("sleeper_breaker_open", logging.WARNING),
+            ("work_pending", logging.WARNING),
             ("cap_reached", logging.WARNING),
             ("upstream_data_missing", logging.WARNING),
             ("completed", logging.INFO),
@@ -157,6 +175,54 @@ class TestSharedHelpers:
         assert f"stoppedReason={reason}" in message
         assert "attempted=10" in message
         assert "remainingUnvisited=90" in message
+
+    def test_the_stop_vocabulary_is_the_transactions_pass_vocabulary(self):
+        """One ``stoppedReason`` value per cause across the Sharp passes.
+
+        ``transactions.py`` owns its constants; a drift here would make the same
+        breaker stop read as two different strings to whoever aggregates the
+        passes' output.
+        """
+        from src.sharp import transactions
+
+        assert pass_coverage.STOPPED_BREAKER_OPEN == transactions.STOPPED_BREAKER_OPEN
+        assert pass_coverage.STOPPED_BUDGET_EXHAUSTED == transactions.STOPPED_BUDGET_EXHAUSTED
+        assert pass_coverage.STOPPED_BREAKER_OPEN == "sleeper_breaker_open"
+
+    @pytest.mark.parametrize(
+        ("attempted", "succeeded", "level"),
+        [
+            # Every attempt failed: the queue may have drained, the run is not healthy.
+            (5, 0, logging.WARNING),
+            (5, 1, logging.INFO),
+            # Nothing attempted is not "everything failed".
+            (0, 0, logging.INFO),
+            # Unmeasured is not "everything failed" either.
+            (None, None, logging.INFO),
+            (5, None, logging.INFO),
+        ],
+    )
+    def test_a_completed_run_whose_every_attempt_failed_warns(
+        self, caplog, attempted, succeeded, level
+    ):
+        coverage = pass_coverage.build_pass_coverage(
+            pass_name="rosters",
+            unit="leagues",
+            attempted=attempted,
+            succeeded=succeeded,
+            failed=None if attempted is None else attempted - (succeeded or 0),
+            eligible_total=attempted,
+            remaining_unvisited=0,
+            stopped_reason="completed",
+            calls_used=10,
+            call_budget=100,
+        )
+        logger = logging.getLogger("test.pass_coverage.failed")
+        with caplog.at_level(logging.DEBUG, logger="test.pass_coverage.failed"):
+            assert pass_coverage.log_pass_summary(logger, coverage) == level
+        # The reason itself is not rewritten by the log level.
+        assert coverage["stoppedReason"] == "completed"
+        assert "stoppedReason=completed" in caplog.records[-1].getMessage()
 
     def test_the_summary_line_prints_null_as_na_never_zero(self, caplog):
         coverage = pass_coverage.build_pass_coverage(
@@ -313,7 +379,7 @@ class TestDiscoveryCoverage:
         assert res.capped is True
         assert res.pass_coverage["stoppedReason"] == "cap_reached"
 
-    def test_calls_the_breaker_refused_are_reported_as_breaker_open(self, db, monkeypatch):
+    def test_calls_the_breaker_refused_are_reported_as_sleeper_breaker_open(self, db, monkeypatch):
         readings = iter([0, 4])
         monkeypatch.setattr(
             pass_coverage, "sleeper_breaker_fast_fails", lambda: next(readings, None)
@@ -323,7 +389,7 @@ class TestDiscoveryCoverage:
             seeds=d_seeds(seed_leagues=["L0"], callBudgetPerRun=3),
             ledger_path=db,
         )
-        assert res.pass_coverage["stoppedReason"] == "breaker_open"
+        assert res.pass_coverage["stoppedReason"] == "sleeper_breaker_open"
         assert res.pass_coverage["breakerRefusedCalls"] == 4
 
     def test_the_oldest_observation_is_the_stalest_league_discovery_still_holds(self, db):
@@ -674,6 +740,24 @@ class TestRostersCoverage:
         # "remaining" reading would have been 1 here.
         assert res.leagues_examined == 2
 
+    def test_a_drained_queue_where_every_fetch_failed_is_completed_but_logged_at_warning(
+        self, rledger, caplog
+    ):
+        for i in range(1, 4):
+            seed_membership(rledger, "sleeper:u1", f"sleeper:L{i}")
+        with caplog.at_level(logging.INFO, logger=rc.log.name):
+            res = collect(rledger, budget=100, http=routed_http(broken={"L1", "L2", "L3"}))
+        cov = res.pass_coverage
+        # The queue really did drain, so the reason is unchanged...
+        assert cov["stoppedReason"] == "completed"
+        assert (cov["attempted"], cov["succeeded"], cov["failed"]) == (3, 0, 3)
+        assert cov["neverVisited"] == 3
+        # ...but a run that reached nothing is not an INFO line.
+        lines = [r for r in caplog.records if r.getMessage().startswith("sharp.coverage ")]
+        assert len(lines) == 1
+        assert lines[0].levelno == logging.WARNING
+        assert "stoppedReason=completed" in lines[0].getMessage()
+
     def test_a_league_with_no_cohort_roster_is_counted_because_it_stays_unvisited(self, rledger):
         seed_membership(rledger, "sleeper:u1", "sleeper:L1")
         seed_membership(rledger, "sleeper:u1", "sleeper:L2")
@@ -777,6 +861,21 @@ class TestFfpcLaneCoverage:
         assert (cov["attempted"], cov["succeeded"], cov["failed"]) == (1, 1, 0)
         assert cov["callsUsed"] == 0
 
+    def test_a_coverage_fault_does_not_fail_the_lane(self, rledger, monkeypatch, caplog):
+        self.seed(rledger, roster_assets=[{"canonicalAssetId": "4046"}])
+        monkeypatch.setattr(rc, "_attach_ffpc_coverage", _boom)
+        with caplog.at_level(logging.INFO, logger=rc.log.name):
+            res = rc.collect_ffpc_rosters(
+                manager_keys=["ffpc:league:F1:team:7"], ledger_path=rledger, now_ms=NOW
+            )
+        # The roster was stored and the lane reports what it always did.
+        assert res.status == rc.STATUS_OK
+        assert res.rosters_recorded == 1
+        assert res.to_dict()["stoppedReason"] is None
+        assert res.to_dict()["passCoverage"] is None
+        assert len(coverage_failure_warnings(caplog)) == 1
+        assert not [r for r in caplog.records if r.getMessage().startswith("sharp.coverage ")]
+
     def test_a_skipped_lane_is_reported_as_skipped_not_empty(self, rledger, monkeypatch):
         monkeypatch.setattr(rc.sharp_cohort, "cohort_members", lambda **kw: ([], {"note": "empty"}))
         summary = rc.collect_all(ledger_path=rledger, run_id="r1", skip_sleeper=True)
@@ -875,9 +974,80 @@ class TestActivityCoverage:
         assert cov["stoppedReason"] == "completed"
         assert cov["remainingUnvisited"] == 0
 
+    def test_pending_retry_leagues_are_never_completed(self):
+        """``budgetExhausted`` is False and ``completed`` is False: only leagues
+        whose fetch failed this run are queued for retry.  The old reading was
+        ``completed``; the crawler's own ``completed`` flag says otherwise."""
+        cov = activity_coverage(
+            eligible_managers=3,
+            refresh={
+                "callsUsed": 40,
+                "budgetExhausted": False,
+                "completed": False,
+                "failedMemberIds": [],
+            },
+            state=activity_state(cursor={"pendingMembers": [], "pendingLeagues": ["La", "Lb"]}),
+        )
+        assert cov["stoppedReason"] == "work_pending"
+        assert cov["leaguePhase"]["pendingLeagues"] == 2
+        assert cov["managers"]["pendingMembers"] == 0
+
+    def test_the_saved_cursor_alone_is_enough_to_see_pending_work(self):
+        # The summary says the budget did not stop the run and does not say it
+        # completed; the cursor the crawler persisted still lists pending leagues.
+        cov = activity_coverage(
+            eligible_managers=3,
+            refresh={"callsUsed": 40, "budgetExhausted": False, "failedMemberIds": []},
+            state=activity_state(cursor={"pendingMembers": [], "pendingLeagues": ["Lb"]}),
+        )
+        assert cov["stoppedReason"] == "work_pending"
+
+    def test_the_crawlers_completed_flag_is_enough_when_the_snapshot_is_unreadable(self):
+        pending = activity_coverage(
+            eligible_managers=3,
+            refresh={"callsUsed": 40, "budgetExhausted": False, "completed": False},
+            state=None,
+        )
+        assert pending["stoppedReason"] == "work_pending"
+        assert pending["remainingUnvisited"] is None  # still not guessed
+        done = activity_coverage(
+            eligible_managers=3,
+            refresh={"callsUsed": 40, "budgetExhausted": False, "completed": True},
+            state=None,
+        )
+        assert done["stoppedReason"] == "completed"
+
+    def test_completed_needs_positive_evidence_that_nothing_is_pending(self):
+        # Budget did not stop the run, and neither the summary nor a snapshot
+        # says whether anything is queued: that is unknown, not completed.
+        cov = activity_coverage(
+            eligible_managers=3,
+            refresh={"callsUsed": 40, "budgetExhausted": False},
+            state=None,
+        )
+        assert cov["stoppedReason"] == "unknown"
+
+    def test_a_budget_stop_is_still_a_budget_stop_when_the_crawler_says_not_completed(self):
+        cov = activity_coverage(
+            refresh={
+                "callsUsed": 2500,
+                "budgetExhausted": True,
+                "completed": False,
+                "failedMemberIds": ["2"],
+            }
+        )
+        assert cov["stoppedReason"] == "budget_exhausted"
+
+    def test_a_cap_still_wins_over_the_pending_label(self):
+        cov = activity_coverage(
+            refresh={"callsUsed": 40, "budgetExhausted": False, "completed": False},
+            state=activity_state(cursor={"pendingMembers": [], "pendingLeagues": ["Lb"]}),
+        )
+        assert cov["stoppedReason"] == "cap_reached"
+
     def test_refused_breaker_calls_win_over_every_other_reason(self):
         cov = activity_coverage(breaker_refused_calls=7)
-        assert cov["stoppedReason"] == "breaker_open"
+        assert cov["stoppedReason"] == "sleeper_breaker_open"
         assert cov["breakerRefusedCalls"] == 7
 
     def test_an_unreadable_snapshot_leaves_the_dependent_figures_null(self):
@@ -916,6 +1086,102 @@ class TestActivityCoverage:
         )
         assert cov["stoppedReason"] == "no_work"
         assert (cov["attempted"], cov["eligibleTotal"], cov["remainingUnvisited"]) == (0, 0, 0)
+
+
+class TestReportingNeverFailsACrawl:
+    """A fault in the coverage code costs the coverage fields, never the crawl."""
+
+    def test_discovery_finishes_unchanged_when_the_coverage_helper_raises(
+        self, db, tmp_path, monkeypatch, caplog
+    ):
+        seeds = d_seeds(seed_leagues=["L0"], callBudgetPerRun=3)
+        baseline = discovery.discover(http_get=wide_graph(), seeds=seeds, ledger_path=db)
+        monkeypatch.setattr(discovery, "_attach_pass_coverage", _boom)
+        caplog.clear()  # only the faulted run's log lines
+        with caplog.at_level(logging.INFO, logger=discovery.log.name):
+            res = discovery.discover(
+                http_get=wide_graph(), seeds=seeds, ledger_path=tmp_path / "second.sqlite3"
+            )
+        assert baseline.pass_coverage is not None
+        assert res.stopped_reason == ""
+        assert res.pass_coverage is None
+        assert res.to_dict()["stoppedReason"] is None
+        assert res.to_dict()["passCoverage"] is None
+        # Everything the walk reports besides the coverage fields is identical.
+        assert without_coverage(res.to_dict()) == without_coverage(baseline.to_dict())
+        assert res.budget_exhausted is True
+        warnings = coverage_failure_warnings(caplog)
+        assert len(warnings) == 1 and warnings[0].levelno == logging.WARNING
+        assert not [r for r in caplog.records if r.getMessage().startswith("sharp.coverage ")]
+
+    def test_a_non_numeric_oldest_observation_reads_as_unknown_not_a_crash(self, caplog):
+        from types import SimpleNamespace
+
+        class Conn:
+            def execute(self, _sql):
+                return SimpleNamespace(fetchone=lambda: {"oldest": "not-a-number"})
+
+        with caplog.at_level(logging.WARNING, logger=discovery.log.name):
+            assert discovery._oldest_league_seen_ms(Conn()) is None
+        assert [r for r in caplog.records if r.levelno == logging.WARNING]
+
+    def test_records_finishes_unchanged_when_the_coverage_helper_raises(
+        self, db, tmp_path, monkeypatch, caplog
+    ):
+        second = tmp_path / "second.sqlite3"
+        for path in (db, second):
+            seed_eligible_leagues(path, "L1", "L2", "L3")
+        kwargs = {"league_ids": ["L1", "L2", "L3"], "budget": 7, "sleep_s": 0}
+        baseline = records.crawl_records(
+            http_get=single_season_leagues("L1", "L2", "L3"), ledger_path=db, **kwargs
+        )
+        monkeypatch.setattr(records, "_attach_pass_coverage", _boom)
+        caplog.clear()
+        with caplog.at_level(logging.INFO, logger=records.log.name):
+            res = records.crawl_records(
+                http_get=single_season_leagues("L1", "L2", "L3"), ledger_path=second, **kwargs
+            )
+        assert baseline.pass_coverage is not None
+        assert res.pass_coverage is None and res.stopped_reason == ""
+        assert without_coverage(res.to_dict()) == without_coverage(baseline.to_dict())
+        assert res.budget_exhausted is True
+        assert len(coverage_failure_warnings(caplog)) == 1
+
+    def test_sleeper_rosters_finish_unchanged_when_the_coverage_helper_raises(
+        self, rledger, tmp_path, monkeypatch, caplog
+    ):
+        second = tmp_path / "second.sqlite3"
+        for path in (rledger, second):
+            for i in range(1, 4):
+                seed_membership(path, "sleeper:u1", f"sleeper:L{i}")
+        baseline = collect(rledger, budget=100, http=routed_http())
+        monkeypatch.setattr(rc, "_attach_sleeper_coverage", _boom)
+        caplog.clear()
+        with caplog.at_level(logging.INFO, logger=rc.log.name):
+            res = collect(second, budget=100, http=routed_http())
+        assert baseline.pass_coverage is not None
+        assert res.pass_coverage is None and res.stopped_reason == ""
+        assert res.rosters_recorded == baseline.rosters_recorded == 3
+        assert without_coverage(res.to_dict()) == without_coverage(baseline.to_dict())
+        assert len(coverage_failure_warnings(caplog)) == 1
+
+    def test_an_empty_cohort_survives_a_coverage_fault(self, rledger, monkeypatch, caplog):
+        monkeypatch.setattr(rc, "_attach_sleeper_coverage", _boom)
+        with caplog.at_level(logging.INFO, logger=rc.log.name):
+            res = rc.collect_sleeper_rosters(manager_keys=[], ledger_path=rledger)
+        assert res.leagues_queued == 0
+        assert res.pass_coverage is None
+        assert len(coverage_failure_warnings(caplog)) == 1
+
+    def test_a_failing_summary_logger_never_raises(self):
+        class BrokenLogger:
+            def log(self, *_a, **_k):
+                raise RuntimeError("handler exploded")
+
+            def warning(self, *_a, **_k):
+                pass
+
+        assert pass_coverage.log_pass_summary(BrokenLogger(), {"stoppedReason": "completed"})
 
 
 def _load_script(name):
@@ -982,6 +1248,105 @@ class TestScriptsKeepTheirExitCodes:
             assert script.main() == code
         printed = json.loads(capsys.readouterr().out)
         assert printed["sleeper"]["passCoverage"]["stoppedReason"] == "completed"
+
+    @pytest.mark.parametrize(
+        ("coverage", "says_rerun"),
+        [
+            # The last league was collected with the last call: nothing to continue.
+            ({"stoppedReason": "completed", "remainingUnvisited": 0}, False),
+            ({"stoppedReason": "budget_exhausted", "remainingUnvisited": 40}, True),
+            # No coverage block: the script cannot tell, so it keeps the old advice.
+            (None, True),
+        ],
+    )
+    def test_rosters_script_only_says_rerun_when_the_coverage_says_work_is_left(
+        self, monkeypatch, capsys, caplog, coverage, says_rerun
+    ):
+        script = _load_script("crawl_sharp_rosters")
+        summary = {"sleeper": {"budgetExhausted": True, "passCoverage": coverage}, "ffpc": {}}
+        monkeypatch.setattr(script.roster_collect, "collect_all", lambda **kw: summary)
+        monkeypatch.setattr(script.roster_collect, "record_collection_run", lambda *a, **k: None)
+        monkeypatch.setattr(sys, "argv", ["crawl_sharp_rosters.py"])
+        with caplog.at_level(logging.INFO, logger="crawl_sharp_rosters"):
+            # Same exit code whichever message is chosen.
+            assert script.main() == 2
+        capsys.readouterr()
+        records_ = [r for r in caplog.records if r.name == "crawl_sharp_rosters"]
+        rerun = [r for r in records_ if "re-run to continue" in r.getMessage()]
+        assert bool(rerun) is says_rerun
+        if says_rerun:
+            assert all(r.levelno == logging.WARNING for r in rerun)
+        else:
+            drained = [r for r in records_ if "queue drained" in r.getMessage()]
+            assert len(drained) == 1 and drained[0].levelno == logging.INFO
+
+    def _patch_activity_run(self, activity, monkeypatch):
+        monkeypatch.setattr(
+            activity,
+            "qualified_sleeper_ids",
+            lambda: (["1", "2", "3"], {"qualifiedSleeperManagers": 3}),
+        )
+        monkeypatch.setattr(activity.platform_ledger, "platform_coverage", lambda: {"sleeper": {}})
+        monkeypatch.setattr(
+            activity.intel_service,
+            "refresh_intel",
+            lambda **kw: {"callsUsed": 9, "budgetExhausted": True, "failedMemberIds": []},
+        )
+        monkeypatch.setattr(activity.intel_store, "load_state", lambda key: activity_state())
+        monkeypatch.setattr(sys, "argv", ["crawl_sharp_activity.py", "--max-managers", "2"])
+
+    def test_activity_script_still_succeeds_when_the_coverage_builder_raises(
+        self, monkeypatch, caplog, capsys
+    ):
+        activity = _load_script("crawl_sharp_activity")
+        self._patch_activity_run(activity, monkeypatch)
+        monkeypatch.setattr(pass_coverage, "build_activity_coverage", _boom)
+        with caplog.at_level(logging.INFO, logger="crawl_sharp_activity"):
+            result = activity.run_activity_crawl(max_managers=2)
+            code = activity.main([])
+        capsys.readouterr()
+        assert code == 0
+        assert result["status"] == "success"
+        # The refresh summary is still carried; only the coverage fields are null.
+        assert result["refresh"]["callsUsed"] == 9
+        assert result["stoppedReason"] is None
+        assert result["passCoverage"] is None
+        assert coverage_failure_warnings(caplog)
+
+    def test_activity_script_empty_cohort_survives_a_coverage_fault(self, monkeypatch, caplog):
+        activity = _load_script("crawl_sharp_activity")
+        monkeypatch.setattr(activity, "qualified_sleeper_ids", lambda: ([], {}))
+        monkeypatch.setattr(activity.platform_ledger, "platform_coverage", lambda: {"sleeper": {}})
+        monkeypatch.setattr(pass_coverage, "build_activity_coverage", _boom)
+        with caplog.at_level(logging.INFO, logger="crawl_sharp_activity"):
+            result = activity.run_activity_crawl()
+        assert result["status"] == "cohort_building"
+        assert result["stoppedReason"] is None and result["passCoverage"] is None
+        assert coverage_failure_warnings(caplog)
+
+    @pytest.mark.parametrize("fault", [False, True])
+    def test_discovery_script_exit_code_is_the_same_when_coverage_raises(
+        self, monkeypatch, capsys, db, fault
+    ):
+        script = _load_script("discover_sharp_graph")
+        real_discover = discovery.discover
+        http = wide_graph()
+        seeds = d_seeds(seed_leagues=["L0"], callBudgetPerRun=3)
+        monkeypatch.setattr(
+            script.discovery,
+            "discover",
+            lambda **kw: real_discover(http_get=http, seeds=seeds, ledger_path=db, **kw),
+        )
+        monkeypatch.setattr(script.discovery, "graph_stats", lambda: {})
+        if fault:
+            monkeypatch.setattr(discovery, "_attach_pass_coverage", _boom)
+        monkeypatch.setattr(sys, "argv", ["discover_sharp_graph.py"])
+        # The budget ended the walk with work queued: exit 2, as it always did.
+        assert script.main() == 2
+        printed = json.loads(capsys.readouterr().out)
+        assert printed["budgetExhausted"] is True
+        assert (printed["passCoverage"] is None) is fault
+        assert (printed["stoppedReason"] is None) is fault
 
     @pytest.mark.parametrize(("flag", "code"), [(True, 2), (False, 0)])
     def test_records_script_exit_code_and_payload(self, monkeypatch, capsys, flag, code):

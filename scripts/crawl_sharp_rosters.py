@@ -111,11 +111,19 @@ def main() -> int:
         # coverage block says whether leagues were actually left.  The exit
         # code is unchanged.
         coverage = summary["sleeper"].get("passCoverage") or {}
-        log.warning(
-            "budget exhausted (stoppedReason=%s remainingUnvisited=%s) — re-run to continue",
-            coverage.get("stoppedReason"),
-            coverage.get("remainingUnvisited"),
-        )
+        if coverage.get("stoppedReason") == "completed":
+            # The last league was collected with the last call: nothing is left
+            # to continue, so do not tell the operator to re-run.
+            log.info(
+                "budget spent, queue drained (stoppedReason=completed remainingUnvisited=%s)",
+                coverage.get("remainingUnvisited"),
+            )
+        else:
+            log.warning(
+                "budget exhausted (stoppedReason=%s remainingUnvisited=%s) — re-run to continue",
+                coverage.get("stoppedReason"),
+                coverage.get("remainingUnvisited"),
+            )
         return 2
     return 0
 

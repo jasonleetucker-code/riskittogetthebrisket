@@ -533,15 +533,23 @@ def discover(
     finally:
         conn.close()
 
-    _attach_pass_coverage(
-        result,
-        call_budget=call_budget,
-        budget_spent=not b.can_call(),
-        breaker_fast_fails_before=breaker_fast_fails_before,
-        oldest_seen_ms=oldest_seen_ms,
-    )
+    try:
+        _attach_pass_coverage(
+            result,
+            call_budget=call_budget,
+            budget_spent=not b.can_call(),
+            breaker_fast_fails_before=breaker_fast_fails_before,
+            oldest_seen_ms=oldest_seen_ms,
+        )
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        # The walk and its writes are done; a coverage fault must not turn them
+        # into a failed run.  The coverage fields stay unset (``null``).
+        log.warning("sharp.discovery: could not build pass coverage", exc_info=True)
+        result.stopped_reason = ""
+        result.pass_coverage = None
     log.info("sharp.discovery: %s", result.to_dict())
-    pass_coverage.log_pass_summary(log, result.pass_coverage or {})
+    if result.pass_coverage is not None:
+        pass_coverage.log_pass_summary(log, result.pass_coverage)
     return result
 
 
@@ -552,12 +560,12 @@ def _oldest_league_seen_ms(conn: Any) -> int | None:
     does not record -- so this is a lower bound on how stale expansion is."""
     try:
         row = conn.execute("SELECT MIN(last_crawled_ms) AS oldest FROM leagues").fetchone()
+        if row is None or row["oldest"] is None:
+            return None
+        return int(row["oldest"])
     except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
-        log.debug("could not read the oldest discovery observation", exc_info=True)
+        log.warning("could not read the oldest discovery observation", exc_info=True)
         return None
-    if row is None or row["oldest"] is None:
-        return None
-    return int(row["oldest"])
 
 
 def _attach_pass_coverage(

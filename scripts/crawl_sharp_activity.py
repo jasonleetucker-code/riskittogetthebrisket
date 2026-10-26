@@ -81,15 +81,19 @@ def run_activity_crawl(
     if not selected:
         # Nothing eligible: a measured zero, reported through the same block as
         # every other run so an empty cohort is not a missing report.
-        empty = pass_coverage.build_activity_coverage(
-            eligible_managers=0,
-            selected_managers=0,
-            call_budget=max(1, int(budget)),
-            refresh=None,
-            state=None,
-            breaker_refused_calls=None,
-        )
-        pass_coverage.log_pass_summary(log, empty)
+        try:
+            empty = pass_coverage.build_activity_coverage(
+                eligible_managers=0,
+                selected_managers=0,
+                call_budget=max(1, int(budget)),
+                refresh=None,
+                state=None,
+                breaker_refused_calls=None,
+            )
+            pass_coverage.log_pass_summary(log, empty)
+        except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+            log.warning("activity crawl: could not build pass coverage", exc_info=True)
+            empty = None
         return {
             "status": "cohort_building",
             "message": "No Sleeper manager has cleared Sharp Score v2 yet; no activity crawl ran.",
@@ -97,7 +101,7 @@ def run_activity_crawl(
             "selectedManagers": 0,
             "coverageBefore": before,
             "coverageAfter": before,
-            "stoppedReason": empty["stoppedReason"],
+            "stoppedReason": None if empty is None else empty["stoppedReason"],
             "passCoverage": empty,
         }
 
@@ -122,15 +126,20 @@ def run_activity_crawl(
     except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
         log.warning("activity crawl: could not read the intel snapshot", exc_info=True)
         state = None
-    coverage = pass_coverage.build_activity_coverage(
-        eligible_managers=len(manager_ids),
-        selected_managers=len(selected),
-        call_budget=call_budget,
-        refresh=refresh,
-        state=state,
-        breaker_refused_calls=breaker_refused,
-    )
-    pass_coverage.log_pass_summary(log, coverage)
+    try:
+        coverage = pass_coverage.build_activity_coverage(
+            eligible_managers=len(manager_ids),
+            selected_managers=len(selected),
+            call_budget=call_budget,
+            refresh=refresh,
+            state=state,
+            breaker_refused_calls=breaker_refused,
+        )
+        pass_coverage.log_pass_summary(log, coverage)
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        # The refresh already ran and persisted; the coverage fields stay ``null``.
+        log.warning("activity crawl: could not build pass coverage", exc_info=True)
+        coverage = None
     return {
         "status": "success",
         "cohort": cohort,
@@ -139,7 +148,7 @@ def run_activity_crawl(
         "coverageBefore": before,
         "coverageAfter": after,
         "refresh": refresh,
-        "stoppedReason": coverage["stoppedReason"],
+        "stoppedReason": None if coverage is None else coverage["stoppedReason"],
         "passCoverage": coverage,
     }
 

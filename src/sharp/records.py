@@ -385,9 +385,17 @@ def crawl_records(
     result.calls_used = b.used
     result.budget_exhausted = not b.can_call(CALLS_PER_SEASON)
     result.managers_touched = len(touched_managers)
-    _attach_pass_coverage(result, call_budget=budget, ledger_path=ledger_path)
+    try:
+        _attach_pass_coverage(result, call_budget=budget, ledger_path=ledger_path)
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        # Every season row is already committed; a coverage fault must not turn
+        # a finished crawl into a failed one.  The coverage fields stay ``null``.
+        log.warning("sharp.records: could not build pass coverage", exc_info=True)
+        result.stopped_reason = ""
+        result.pass_coverage = None
     log.info("sharp.records: %s", result.to_dict())
-    pass_coverage.log_pass_summary(log, result.pass_coverage or {})
+    if result.pass_coverage is not None:
+        pass_coverage.log_pass_summary(log, result.pass_coverage)
     return result
 
 

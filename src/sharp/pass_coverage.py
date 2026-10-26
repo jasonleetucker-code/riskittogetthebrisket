@@ -48,16 +48,29 @@ the opposite.
                       work actually done, NOT from the budget flag: a run that
                       finishes its queue with the budget spent is ``completed``.
 ``budget_exhausted``  the call budget ended the run while work remained.
-``breaker_open``      the shared ``sleeper_api`` circuit breaker refused calls
-                      (they were never sent to Sleeper).  Only the activity pass
-                      rides that breaker; the others use the pooled public
-                      client, which has none.
+``sleeper_breaker_open``  the shared ``sleeper_api`` circuit breaker refused
+                      calls (they were never sent to Sleeper).  Discovery and
+                      activity ride that breaker (``sleeper_overlay._http_get_json``);
+                      records and rosters use the pooled public client, which
+                      has none.  The value is the one the transactions pass
+                      already publishes (``transactions.STOPPED_BREAKER_OPEN``),
+                      so a consumer reading ``stoppedReason`` across these four
+                      passes and the transactions pass sees one vocabulary.
 ``cap_reached``       a configured selection or size cap left part of the
                       eligible population out of the work list.
+``work_pending``      entries were still queued for a later run and the budget
+                      was not what stopped this one (activity pass: leagues whose
+                      fetch failed and are carried in the retry cursor).  A run
+                      with pending work is never ``completed``.
 ``no_work``           the pass had nothing to do (empty cohort / empty queue).
 ``upstream_data_missing``  the pass's input was absent upstream, so part of the
                       population could not be visited at all (FFPC memberships
                       whose page carried no roster table).
+
+A run where work was attempted and EVERY attempt failed is logged at WARNING
+whatever its ``stoppedReason`` is -- a queue that drained because each fetch
+failed is ``completed`` (the queue really did drain) but is not a healthy run.
+Only the log level changes; ``stoppedReason`` and the exit code do not.
 
 Exit codes are deliberately NOT part of this change: ``2`` still means
 "budget exhausted" to the scripts, and the units still map it to success.
@@ -77,8 +90,9 @@ PASS_ACTIVITY = "activity"
 
 STOPPED_COMPLETED = "completed"
 STOPPED_BUDGET_EXHAUSTED = "budget_exhausted"
-STOPPED_BREAKER_OPEN = "breaker_open"
+STOPPED_BREAKER_OPEN = "sleeper_breaker_open"
 STOPPED_CAP_REACHED = "cap_reached"
+STOPPED_WORK_PENDING = "work_pending"
 STOPPED_NO_WORK = "no_work"
 STOPPED_UPSTREAM_MISSING = "upstream_data_missing"
 
@@ -89,6 +103,7 @@ STOPPED_SHORT = frozenset(
         STOPPED_BUDGET_EXHAUSTED,
         STOPPED_BREAKER_OPEN,
         STOPPED_CAP_REACHED,
+        STOPPED_WORK_PENDING,
         STOPPED_UPSTREAM_MISSING,
     }
 )
@@ -208,15 +223,39 @@ def format_summary(coverage: dict[str, Any]) -> str:
     )
 
 
+def every_attempt_failed(coverage: dict[str, Any]) -> bool:
+    """True when the run attempted work and not one attempt succeeded.
+
+    Both figures must be measured: ``None`` is "not measured", so it can never
+    read as "everything failed".
+    """
+    attempted = coverage.get("attempted")
+    succeeded = coverage.get("succeeded")
+    return (
+        isinstance(attempted, int)
+        and isinstance(succeeded, int)
+        and attempted > 0
+        and succeeded == 0
+    )
+
+
 def log_pass_summary(logger: logging.Logger, coverage: dict[str, Any]) -> int:
     """Log ONE summary line for the run; return the level used.
 
     ``WARNING`` when the run ended short of its population (budget exhausted
-    with work left, breaker open, or a selection cap), ``INFO`` otherwise.
+    with work left, breaker open, a selection cap, pending work) or when every
+    attempt it made failed (a queue can drain, and read ``completed``, because
+    each fetch failed); ``INFO`` otherwise.  Logging only: ``stoppedReason`` is
+    not altered.
     """
-    level = logging.WARNING if coverage.get("stoppedReason") in STOPPED_SHORT else logging.INFO
-    logger.log(level, "%s", format_summary(coverage))
-    return level
+    try:
+        short = coverage.get("stoppedReason") in STOPPED_SHORT or every_attempt_failed(coverage)
+        level = logging.WARNING if short else logging.INFO
+        logger.log(level, "%s", format_summary(coverage))
+        return level
+    except Exception:  # noqa: BLE001 -- observability must never fail a crawl
+        logger.warning("sharp.coverage: could not log the pass summary", exc_info=True)
+        return logging.WARNING
 
 
 def sleeper_breaker_fast_fails() -> int | None:
@@ -269,6 +308,47 @@ def _iso_to_ms(value: Any) -> int | None:
 def _count(value: Any) -> int | None:
     """``len`` of a list, ``None`` for anything else (absent is not empty)."""
     return len(value) if isinstance(value, list) else None
+
+
+def _activity_stopped_reason(
+    *,
+    summary: dict[str, Any],
+    pending_members: int | None,
+    pending_leagues: int | None,
+    breaker_refused_calls: int | None,
+    capped: bool,
+) -> str:
+    """Why an activity run ended, from the crawler's summary and its cursor.
+
+    ``budgetExhausted`` alone cannot decide this: the crawler sets it from the
+    pending MANAGERS and the pending leagues it did not reach, while
+    ``completed`` is also false when only RETRY leagues (fetches that failed
+    this run) are queued.  A run with any pending work therefore never reads
+    ``completed``: when the budget is not what stopped it, it reads
+    ``work_pending``.  ``pending_leagues`` is the cursor's league list, which
+    already includes the retry leagues.
+
+    ``completed`` is claimed only on positive evidence that nothing is pending
+    (the crawler said so, or the saved cursor is empty); a summary and snapshot
+    that say nothing about it leave the reason ``unknown``.
+    """
+    if breaker_refused_calls is not None and breaker_refused_calls > 0:
+        return STOPPED_BREAKER_OPEN
+    budget_flag = summary.get("budgetExhausted")
+    completed_flag = summary.get("completed")
+    if not isinstance(budget_flag, bool) and not isinstance(completed_flag, bool):
+        # The summary did not say whether the budget ended the run, nor whether
+        # it finished.
+        return STOPPED_UNKNOWN
+    cursor_pending = None if pending_members is None else bool(pending_members or pending_leagues)
+    pending_evidence = completed_flag is False or budget_flag is True or bool(cursor_pending)
+    no_pending_evidence = completed_flag is True or cursor_pending is False
+    if pending_evidence:
+        reason = classify_stop(budget_stopped=budget_flag is True, work_remains=True, capped=capped)
+        return STOPPED_WORK_PENDING if reason == STOPPED_COMPLETED else reason
+    if no_pending_evidence:
+        return classify_stop(budget_stopped=False, work_remains=False, capped=capped)
+    return STOPPED_UNKNOWN
 
 
 def build_activity_coverage(
@@ -342,16 +422,13 @@ def build_activity_coverage(
     oldest_ms = min(visited_ms) if visited_ms else None
     never_visited = None if snapshot is None else eligible_managers - len(visited_ms)
 
-    budget_flag = summary.get("budgetExhausted")
-    if breaker_refused_calls is not None and breaker_refused_calls > 0:
-        reason = STOPPED_BREAKER_OPEN
-    elif not isinstance(budget_flag, bool):
-        # The summary did not say whether the budget ended the run.
-        reason = STOPPED_UNKNOWN
-    else:
-        reason = classify_stop(
-            budget_stopped=budget_flag, work_remains=budget_flag, capped=not_selected > 0
-        )
+    reason = _activity_stopped_reason(
+        summary=summary,
+        pending_members=pending_members,
+        pending_leagues=pending_leagues,
+        breaker_refused_calls=breaker_refused_calls,
+        capped=not_selected > 0,
+    )
 
     league_phase: dict[str, Any] = {"trackedLeagues": None}
     if snapshot is not None:
