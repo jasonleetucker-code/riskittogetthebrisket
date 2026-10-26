@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -66,6 +67,75 @@ DEFAULT_BUDGET = 600
 # stopping below this leaves a league half-fetched.
 _MIN_CALLS_PER_LEAGUE = 2
 
+# A league whose ``/rosters`` answered 404 is GONE (deleted, or an id that never
+# existed) -- not "failed" and not "no trades".  It is recorded with a timestamp
+# in ``sharp_league_gone`` and left out of the queue for this long, then
+# re-checked LAST, behind every healthy league, so the re-check can never starve
+# them.  Weekly: the same re-check rule the format-capture pass uses
+# (``league_format_capture.DEFAULT_REFRESH_AFTER_HOURS``).
+GONE_RECHECK_AFTER_HOURS = 168.0
+
+STOPPED_BUDGET_EXHAUSTED = "budget_exhausted"
+STOPPED_BREAKER_OPEN = "sleeper_breaker_open"
+
+
+class _Outcome:
+    """A named, non-payload answer from the fetcher (compared by identity)."""
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    def __repr__(self) -> str:
+        return self._name
+
+
+#: The fetcher's answer for a resource Sleeper says does not exist (HTTP 404, or
+#: a 200 with a JSON ``null`` body).  ``None`` stays "the fetch failed" -- the two
+#: used to be indistinguishable, which is how deleted leagues read as an outage.
+NOT_FOUND = _Outcome("NOT_FOUND")
+#: The fetcher's answer when the shared ``sleeper_api`` circuit breaker refused
+#: the call: Sleeper was not contacted at all.
+BREAKER_OPEN = _Outcome("BREAKER_OPEN")
+
+_GONE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS sharp_league_gone (
+  league_id       TEXT PRIMARY KEY,
+  first_gone_ms   INTEGER NOT NULL,
+  last_checked_ms INTEGER NOT NULL,
+  not_found_count INTEGER NOT NULL,
+  endpoint        TEXT NOT NULL
+);
+"""
+
+
+def ensure_gone_schema(conn: sqlite3.Connection) -> None:
+    """Additive ``CREATE TABLE IF NOT EXISTS`` -- deliberately NOT wired to
+    ``ledger.SCHEMA_VERSION``: a version bump runs ``_migrate`` and clears the
+    movement tables and this crawl's fetch cursor on every deployed ledger.
+    (Same posture as ``league_format_capture.ensure_schema`` and
+    ``roster_store.ensure_roster_schema``.)  ``executescript`` commits, so call
+    it ONCE per run, before any transaction that must stay open."""
+    conn.executescript(_GONE_SCHEMA)
+
+
+def _default_http_get(url: str) -> Any:
+    """The crawl's fetcher: the payload on success, ``None`` on a failure,
+    :data:`NOT_FOUND` for a 404 / null body, :data:`BREAKER_OPEN` when the shared
+    ``sleeper_api`` breaker refused the call.
+
+    It still rides the breaker (a real Sleeper outage must still fast-fail), but
+    through the classifying variant, so the crawl can tell "this league is gone"
+    and "the breaker is open" apart from an ordinary failure.
+    """
+    from src.api import sleeper_overlay  # noqa: PLC0415
+
+    kind, payload = sleeper_overlay._http_get_json_classified(url)
+    if kind == sleeper_overlay.FETCH_NOT_FOUND:
+        return NOT_FOUND
+    if kind == sleeper_overlay.FETCH_BREAKER_OPEN:
+        return BREAKER_OPEN
+    return payload
+
 
 @dataclass
 class SharpCrawlResult:
@@ -73,10 +143,22 @@ class SharpCrawlResult:
     leagues_fetched: int = 0
     leagues_failed: int = 0
     leagues_pending: int = 0
+    # Leagues whose rosters answered 404 / null THIS run (newly marked gone, or
+    # re-confirmed after the re-check window).  Not failures; not "no trades".
+    leagues_gone: int = 0
+    # Leagues already known gone and still inside the re-check window: left out of
+    # the queue, so they cost no budget and are not "pending".
+    leagues_gone_skipped: int = 0
+    # Previously-gone leagues that answered with rosters again (mark cleared).
+    leagues_recovered: int = 0
     movements_ingested: int = 0
     transactions_seen: int = 0
     calls_used: int = 0
     week: int | None = None
+    # Why the pass ended before its queue did: ``budget_exhausted`` or
+    # ``sleeper_breaker_open`` (the shared breaker refused a call, so the rest of
+    # the queue was NOT attempted).  ``None`` = the queue was walked to the end.
+    stopped_reason: str | None = None
     errors: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -85,10 +167,14 @@ class SharpCrawlResult:
             "leaguesFetched": self.leagues_fetched,
             "leaguesFailed": self.leagues_failed,
             "leaguesPending": self.leagues_pending,
+            "leaguesGone": self.leagues_gone,
+            "leaguesGoneSkipped": self.leagues_gone_skipped,
+            "leaguesRecovered": self.leagues_recovered,
             "movementsIngested": self.movements_ingested,
             "transactionsSeen": self.transactions_seen,
             "callsUsed": self.calls_used,
             "week": self.week,
+            "stoppedReason": self.stopped_reason,
             "errors": dict(self.errors),
         }
 
@@ -139,16 +225,92 @@ def _save_fetch_state(conn, league_id: str, state: dict[str, Any], *, error: str
     )
 
 
-def _league_order(league_ids: Sequence[str], fetch_state: dict[str, dict[str, Any]]) -> list[str]:
-    """Never-fetched leagues first, then the stalest.
+def _load_gone_state(conn) -> dict[str, dict[str, Any]]:
+    """``{league_id: {...}}`` for every league last observed gone.  A ledger
+    without the table reads as "none observed", never as an error."""
+    try:
+        rows = conn.execute(
+            """
+            SELECT league_id, first_gone_ms, last_checked_ms, not_found_count, endpoint
+            FROM sharp_league_gone
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    return {
+        str(r["league_id"]): {
+            "firstGoneMs": int(r["first_gone_ms"] or 0),
+            "lastCheckedMs": int(r["last_checked_ms"] or 0),
+            "notFoundCount": int(r["not_found_count"] or 0),
+            "endpoint": str(r["endpoint"] or ""),
+        }
+        for r in rows
+    }
+
+
+def _record_gone(conn, league_id: str, *, now_ms: int, endpoint: str) -> None:
+    """Mark a league gone, or re-confirm it.  ``first_gone_ms`` survives a
+    re-confirmation, so the row says how long Sleeper has been refusing it."""
+    conn.execute(
+        """
+        INSERT INTO sharp_league_gone
+          (league_id, first_gone_ms, last_checked_ms, not_found_count, endpoint)
+        VALUES (?, ?, ?, 1, ?)
+        ON CONFLICT(league_id) DO UPDATE SET
+          last_checked_ms = excluded.last_checked_ms,
+          not_found_count = sharp_league_gone.not_found_count + 1,
+          endpoint        = excluded.endpoint
+        """,
+        (str(league_id), int(now_ms), int(now_ms), endpoint),
+    )
+
+
+def _clear_gone(conn, league_id: str) -> None:
+    conn.execute("DELETE FROM sharp_league_gone WHERE league_id = ?", (str(league_id),))
+
+
+def _split_gone(
+    league_ids: Sequence[str],
+    gone_state: dict[str, dict[str, Any]],
+    *,
+    now_ms: int,
+    recheck_after_hours: float = GONE_RECHECK_AFTER_HOURS,
+) -> tuple[list[str], list[str]]:
+    """``(queue, skipped)``.  A league last seen gone INSIDE the re-check window
+    is skipped (it would only 404 again and burn a budget slot); one past the
+    window stays in the queue, to be ordered last by :func:`_league_order`."""
+    window_ms = int(recheck_after_hours * 3600 * 1000)
+    queue: list[str] = []
+    skipped: list[str] = []
+    for lid in league_ids:
+        gone = gone_state.get(str(lid))
+        if gone is not None and (now_ms - int(gone.get("lastCheckedMs") or 0)) < window_ms:
+            skipped.append(lid)
+        else:
+            queue.append(lid)
+    return queue, skipped
+
+
+def _league_order(
+    league_ids: Sequence[str],
+    fetch_state: dict[str, dict[str, Any]],
+    gone_state: dict[str, dict[str, Any]] | None = None,
+) -> list[str]:
+    """Healthy leagues first -- never-fetched, then the stalest -- and any league
+    last observed gone LAST.
 
     A budget-capped run must make progress ACROSS the graph rather than
     re-walking whichever leagues happen to sort first — otherwise the
-    tail of the discovery graph never gets crawled at all.
+    tail of the discovery graph never gets crawled at all.  A gone league has
+    no fetch cursor, so it would otherwise sort as "never fetched" and sit at
+    the head of every run: its re-check goes behind everything that can
+    actually produce trades.
     """
+    gone = gone_state or {}
     return sorted(
         league_ids,
         key=lambda lid: (
+            1 if str(lid) in gone else 0,
             1 if fetch_state.get(str(lid), {}).get("backfilled") else 0,
             fetch_state.get(str(lid), {}).get("lastFetchedMs", 0),
             str(lid),
@@ -182,6 +344,7 @@ def crawl_transactions(
     now_ms: int | None = None,
     sleep_fn: Callable[[float], None] = time.sleep,
     ledger_path: Path | None = None,
+    skip_gone: bool = True,
 ) -> SharpCrawlResult:
     """One budgeted pass over the sharp-eligible leagues.
 
@@ -190,9 +353,24 @@ def crawl_transactions(
     failed roster fetch skips the league ENTIRELY rather than attributing
     movements with a stale owner map — same rule the intel crawler
     follows, and for the same reason.
+
+    ``http_get`` returns the payload, ``None`` for a failure, and may return
+    :data:`NOT_FOUND` / :data:`BREAKER_OPEN` (see :func:`_default_http_get`).
+
+    **A league whose rosters answer 404 is GONE, not failed.**  It is recorded
+    (``sharp_league_gone``, timestamped), skipped for
+    :data:`GONE_RECHECK_AFTER_HOURS`, then re-checked last.  It is not deleted,
+    and it is not "no trades".  ``skip_gone=False`` (an operator naming leagues
+    explicitly) puts a known-gone league back in the queue.
+
+    **A refused call stops the pass.**  When the shared ``sleeper_api`` breaker
+    refuses a call, Sleeper was not contacted; every remaining league would
+    fast-fail and burn a paced budget slot (and its sleep) on an instant
+    ``None``.  The pass stops, the cursor of the league in hand is left alone,
+    and ``stopped_reason`` says ``sleeper_breaker_open``.
     """
     now = now_ms if now_ms is not None else int(time.time() * 1000)
-    fetch = http_get or crawler._default_http_get
+    fetch = http_get or _default_http_get
     b = crawler._CallBudget(budget, sleep_s, fetch, sleep_fn)
     result = SharpCrawlResult()
 
@@ -211,23 +389,50 @@ def crawl_transactions(
         if not targets:
             return result
 
+        ensure_gone_schema(conn)
         fetch_state = _load_fetch_state(conn)
-        ordered = _league_order(targets, fetch_state)
+        gone_state = _load_gone_state(conn)
+        if skip_gone:
+            queue, skipped = _split_gone(targets, gone_state, now_ms=now)
+        else:
+            queue, skipped = list(targets), []
+        result.leagues_gone_skipped = len(skipped)
+        ordered = _league_order(queue, fetch_state, gone_state)
         week = _current_week(b)
         result.week = week
 
         for idx, lid in enumerate(ordered):
             if not b.can_call(_MIN_CALLS_PER_LEAGUE):
                 result.leagues_pending = len(ordered) - idx
+                result.stopped_reason = STOPPED_BUDGET_EXHAUSTED
                 break
 
             rosters = b.get(f"{crawler.SLEEPER_BASE}/league/{lid}/rosters")
+            if rosters is BREAKER_OPEN:
+                # Sleeper was not contacted.  This league was not attempted,
+                # so it (and everything after it) is still pending.
+                result.leagues_pending = len(ordered) - idx
+                result.stopped_reason = STOPPED_BREAKER_OPEN
+                break
+            if rosters is NOT_FOUND:
+                # An answer, not an outage: Sleeper says this league does not
+                # exist.  Record it (timestamped, not deleted) so it stops
+                # heading the queue; it is neither a failure nor "no trades".
+                _record_gone(conn, lid, now_ms=now, endpoint="rosters")
+                conn.commit()
+                result.leagues_gone += 1
+                continue
             if not isinstance(rosters, list):
                 # No CURRENT owner map means no safe attribution.  Skip
                 # the league whole and leave its cursor alone.
                 result.leagues_failed += 1
                 result.errors[lid] = "rosters_fetch_failed"
                 continue
+            if lid in gone_state:
+                # It answered with rosters again: the gone mark no longer holds.
+                _clear_gone(conn, lid)
+                conn.commit()  # never hold the writer lock across the next network call
+                result.leagues_recovered += 1
 
             # Pool = everyone on this league's rosters.  See the module
             # docstring: both sides are recorded, the cohort filter is
@@ -266,11 +471,16 @@ def crawl_transactions(
 
             fetched: list[tuple[int, dict[str, Any]]] = []
             weeks_clean = True
+            breaker_open = False
             for w in weeks:
                 if not b.can_call():
                     weeks_clean = False
                     break
                 txs = b.get(f"{crawler.SLEEPER_BASE}/league/{lid}/transactions/{w}")
+                if txs is BREAKER_OPEN:
+                    weeks_clean = False
+                    breaker_open = True
+                    break
                 if not isinstance(txs, list):
                     weeks_clean = False
                     continue
@@ -311,10 +521,15 @@ def crawl_transactions(
                 # Do NOT advance the cursor past a week we failed to
                 # fetch — that would filter its transactions out
                 # permanently.  Retry next run.
+                reason = STOPPED_BREAKER_OPEN if breaker_open else "transactions_fetch_failed"
                 result.leagues_failed += 1
-                result.errors[lid] = "transactions_fetch_failed"
-                _save_fetch_state(conn, lid, state, error="transactions_fetch_failed")
+                result.errors[lid] = reason
+                _save_fetch_state(conn, lid, state, error=reason)
                 conn.commit()
+                if breaker_open:
+                    result.leagues_pending = len(ordered) - idx - 1
+                    result.stopped_reason = STOPPED_BREAKER_OPEN
+                    break
                 continue
 
             new_boundary = {
@@ -354,7 +569,38 @@ def crawl_transactions(
         conn.close()
 
     result.calls_used = b.used
+    _log_summary(result)
     return result
+
+
+def _log_summary(result: SharpCrawlResult) -> None:
+    """One line saying what the pass did and why it ended, so a run that
+    fetched nothing explains itself in the journal (the exit code cannot:
+    2 means "leagues remain" however the pass ended)."""
+    line = (
+        "sharp transaction crawl: considered=%d fetched=%d failed=%d gone=%d "
+        "gone_skipped=%d recovered=%d pending=%d calls=%d stopped=%s"
+    )
+    args = (
+        result.leagues_considered,
+        result.leagues_fetched,
+        result.leagues_failed,
+        result.leagues_gone,
+        result.leagues_gone_skipped,
+        result.leagues_recovered,
+        result.leagues_pending,
+        result.calls_used,
+        result.stopped_reason or "none",
+    )
+    if result.stopped_reason == STOPPED_BREAKER_OPEN:
+        log.error(
+            line + " -- the shared sleeper_api circuit breaker REFUSED a call, so "
+            "%d league(s) were NOT attempted (Sleeper was not contacted for them)",
+            *args,
+            result.leagues_pending,
+        )
+    else:
+        log.info(line, *args)
 
 
 def crawl_coverage(*, ledger_path: Path | None = None) -> dict[str, Any]:
@@ -374,11 +620,24 @@ def crawl_coverage(*, ledger_path: Path | None = None) -> dict[str, Any]:
             "SELECT MIN(last_fetched_ms) AS oldest FROM sharp_league_fetch WHERE backfilled = 1"
         ).fetchone()
         oldest = int(stale["oldest"] or 0) if stale and stale["oldest"] else None
+        crawled_ids = {
+            str(r["league_id"])
+            for r in conn.execute(
+                "SELECT league_id FROM sharp_league_fetch WHERE backfilled = 1"
+            ).fetchall()
+        }
+        gone_ids = set(_load_gone_state(conn))
     finally:
         conn.close()
+    eligible_ids = {str(lid) for lid in eligible}
+    gone_eligible = eligible_ids & gone_ids
     return {
         "sharpEligibleLeagues": len(eligible),
         "leaguesCrawled": crawled,
         "leaguesUncrawled": max(0, len(eligible) - crawled),
+        # Sleeper says these do not exist: they are in "uncrawled" for good, so
+        # without this the uncrawled number reads as work still to do.
+        "leaguesGone": len(gone_eligible),
+        "leaguesUncrawledReachable": len(eligible_ids - crawled_ids - gone_ids),
         "oldestCrawlMs": oldest,
     }

@@ -447,3 +447,406 @@ class TestWriterLockWindows:
             "reader while the crawl performed its next network call — the "
             "writer transaction is still spanning network I/O (V1-59)"
         )
+
+
+# ---------------------------------------------------------------------------
+# 404 leagues and the shared Sleeper breaker
+#
+# 2026-10-26 box audit: ~598 sharp-eligible leagues answer HTTP 404 on
+# ``/league/{id}/rosters``.  They have no fetch cursor, so they sorted as
+# "never fetched" and headed the queue on every run; the first five 404s
+# opened the shared ``sleeper_api`` breaker and every healthy league behind
+# them fast-failed -- 0 of 6,092 leagues fetched in 13 of 28 runs, and the
+# unit's exit 2 is recorded as success.
+# ---------------------------------------------------------------------------
+
+DEFAULT_RECHECK_MS = int(transactions.GONE_RECHECK_AFTER_HOURS * 3600 * 1000)
+
+
+def _gone_rows(db):
+    conn = ledger.connect(db)
+    try:
+        return {
+            r["league_id"]: dict(r)
+            for r in conn.execute("SELECT * FROM sharp_league_gone").fetchall()
+        }
+    finally:
+        conn.close()
+
+
+def _fetch_rows(db):
+    conn = ledger.connect(db)
+    try:
+        return {
+            r["league_id"]: dict(r)
+            for r in conn.execute("SELECT * FROM sharp_league_fetch").fetchall()
+        }
+    finally:
+        conn.close()
+
+
+def _mixed(gone, healthy, week=2):
+    """Responses: every ``gone`` league 404s on rosters, every ``healthy`` one is
+    a normal league with one trade."""
+    resp = {f"{BASE}/state/nfl": {"week": week}}
+    for lid in gone:
+        resp[f"{BASE}/league/{lid}/rosters"] = transactions.NOT_FOUND
+    for lid in healthy:
+        resp.update(responses_for(lid, week=week))
+    return resp
+
+
+class TestGoneLeaguesAreAnObservedState:
+    def test_a_404_league_is_marked_gone_not_failed(self, db):
+        result, _ = _crawl(_mixed(["G1"], ["H1"]), league_ids=["G1", "H1"], ledger_path=db)
+        assert result.leagues_gone == 1
+        assert result.leagues_fetched == 1
+        assert result.leagues_failed == 0
+        assert "G1" not in result.errors
+        assert result.stopped_reason is None
+        row = _gone_rows(db)["G1"]
+        assert row["first_gone_ms"] == NOW
+        assert row["last_checked_ms"] == NOW
+        assert row["not_found_count"] == 1
+        assert row["endpoint"] == "rosters"
+
+    def test_a_gone_league_is_not_a_crawled_league(self, db):
+        """MISSING IS NEVER ZERO: gone is not "crawled, no trades".  It must not
+        gain a fetch cursor (``sharp_league_fetch`` rows are read as 'crawled' by
+        the completed-trade ledger) and it ingests nothing."""
+        _crawl(_mixed(["G1"], ["H1"]), league_ids=["G1", "H1"], ledger_path=db)
+        assert "G1" not in _fetch_rows(db)
+        assert "H1" in _fetch_rows(db)
+        conn = ledger.connect(db)
+        try:
+            n = conn.execute(
+                "SELECT COUNT(*) FROM asset_movements WHERE league_id='G1'"
+            ).fetchone()[0]
+        finally:
+            conn.close()
+        assert n == 0
+
+    def test_a_known_gone_league_inside_the_window_costs_nothing(self, db):
+        resp = _mixed(["G1"], ["H1"])
+        _crawl(resp, league_ids=["G1", "H1"], ledger_path=db)
+        result, http = _crawl(resp, league_ids=["G1", "H1"], ledger_path=db, now_ms=NOW + DAY_MS)
+        assert http.count(f"{BASE}/league/G1/rosters") == 0
+        assert result.leagues_gone_skipped == 1
+        assert result.leagues_gone == 0
+        assert result.leagues_considered == 2
+        assert result.leagues_pending == 0, "a skipped gone league is not pending work"
+
+    def test_past_the_window_it_is_rechecked_after_every_healthy_league(self, db):
+        resp = _mixed(["A-gone"], ["Z-healthy"])
+        _crawl(resp, league_ids=["A-gone", "Z-healthy"], ledger_path=db)
+        later = NOW + DEFAULT_RECHECK_MS + DAY_MS
+        result, http = _crawl(
+            resp, league_ids=["A-gone", "Z-healthy"], ledger_path=db, now_ms=later
+        )
+        order = [u for u in http.calls if u.endswith("/rosters")]
+        assert order == [
+            f"{BASE}/league/Z-healthy/rosters",
+            f"{BASE}/league/A-gone/rosters",
+        ], "ids sort A before Z, so only the gone-last rule puts the healthy league first"
+        row = _gone_rows(db)["A-gone"]
+        assert row["not_found_count"] == 2
+        assert row["first_gone_ms"] == NOW, "how long it has been gone must survive a re-check"
+        assert row["last_checked_ms"] == later
+        assert result.leagues_gone == 1 and result.leagues_gone_skipped == 0
+
+    def test_a_league_that_answers_again_is_no_longer_gone(self, db):
+        _crawl(_mixed(["L1"], []), league_ids=["L1"], ledger_path=db)
+        assert "L1" in _gone_rows(db)
+        later = NOW + DEFAULT_RECHECK_MS + DAY_MS
+        result, _ = _crawl(responses_for("L1"), league_ids=["L1"], ledger_path=db, now_ms=later)
+        assert result.leagues_recovered == 1
+        assert result.leagues_fetched == 1
+        assert _gone_rows(db) == {}
+        assert "L1" in _fetch_rows(db)
+
+    def test_naming_a_league_explicitly_bypasses_the_skip(self, db):
+        resp = _mixed(["G1"], [])
+        _crawl(resp, league_ids=["G1"], ledger_path=db)
+        http = FakeHttp(resp)
+        result = transactions.crawl_transactions(
+            league_ids=["G1"],
+            budget=100,
+            sleep_s=0.0,
+            http_get=http,
+            now_ms=NOW + DAY_MS,
+            ledger_path=db,
+            skip_gone=False,
+        )
+        assert http.count(f"{BASE}/league/G1/rosters") == 1
+        assert result.leagues_gone == 1 and result.leagues_gone_skipped == 0
+
+    def test_an_ordinary_failure_is_still_a_failure_not_gone(self, db):
+        """``None`` (timeout, 5xx, ...) is "we do not know" and must not be
+        recorded as an observation that the league does not exist."""
+        resp = {f"{BASE}/state/nfl": {"week": 2}, f"{BASE}/league/L1/rosters": None}
+        result, _ = _crawl(resp, league_ids=["L1"], ledger_path=db)
+        assert result.leagues_failed == 1
+        assert result.errors == {"L1": "rosters_fetch_failed"}
+        assert result.leagues_gone == 0
+        assert _gone_rows(db) == {}
+
+
+class TestFirstLeaguesAre404ButTheRestAreFetched:
+    GONE = [f"G{i:02d}" for i in range(8)]  # sort before the healthy ids
+    HEALTHY = [f"H{i:02d}" for i in range(5)]
+
+    def test_the_healthy_tail_is_fetched_behind_a_wall_of_404s(self, db):
+        result, _ = _crawl(
+            _mixed(self.GONE, self.HEALTHY),
+            league_ids=self.GONE + self.HEALTHY,
+            ledger_path=db,
+            budget=200,
+        )
+        assert result.leagues_gone == 8
+        assert result.leagues_fetched == 5
+        assert result.leagues_failed == 0
+        assert result.leagues_pending == 0
+        assert result.stopped_reason is None
+        assert result.transactions_seen == 5, "each healthy league contributed its trade"
+        assert set(_gone_rows(db)) == set(self.GONE)
+
+    def test_a_budget_spent_on_the_wall_resumes_past_it(self, db):
+        """Run 1 runs out of budget while still inside the 404 wall; run 2 must
+        not walk the wall again (it is recorded) and must reach the tail."""
+        resp = _mixed(self.GONE, self.HEALTHY)
+        everything = self.GONE + self.HEALTHY
+        first, _ = _crawl(resp, league_ids=everything, ledger_path=db, budget=10)
+        assert first.stopped_reason == transactions.STOPPED_BUDGET_EXHAUSTED
+        assert first.leagues_fetched == 0 and first.leagues_gone == 8
+        second, http = _crawl(resp, league_ids=everything, ledger_path=db, budget=200)
+        assert [u for u in http.calls if "/league/G" in u] == [], "the wall was walked again"
+        assert second.leagues_gone_skipped == 8
+        assert second.leagues_fetched == 5
+        assert second.leagues_pending == 0
+
+
+class TestBreakerStopIsExplicit:
+    def test_a_refused_call_stops_the_pass_and_says_so(self, db):
+        ids = [f"L{i}" for i in range(6)]
+        resp = {f"{BASE}/state/nfl": {"week": 2}}
+        for lid in ids[:2]:
+            resp.update(responses_for(lid))
+        for lid in ids[2:]:
+            resp[f"{BASE}/league/{lid}/rosters"] = transactions.BREAKER_OPEN
+        result, http = _crawl(resp, league_ids=ids, ledger_path=db)
+        assert result.stopped_reason == transactions.STOPPED_BREAKER_OPEN
+        assert result.leagues_fetched == 2
+        assert result.leagues_pending == 4, "the refused league and everything after it"
+        assert result.errors == {}, "no per-league error flood for leagues never attempted"
+        assert result.leagues_gone == 0
+        rosters_calls = [u for u in http.calls if u.endswith("/rosters")]
+        assert len(rosters_calls) == 3, "must stop at the first refused call, not walk the queue"
+        payload = result.to_dict()
+        assert payload["stoppedReason"] == "sleeper_breaker_open"
+        assert payload["leaguesFetched"] == 2
+
+    def test_a_refusal_mid_league_leaves_that_leagues_cursor_alone(self, db):
+        resp = responses_for("L1")
+        resp[f"{BASE}/league/L1/transactions/2"] = transactions.BREAKER_OPEN
+        resp.update(responses_for("L2"))
+        result, _ = _crawl(resp, league_ids=["L1", "L2"], ledger_path=db)
+        assert result.stopped_reason == transactions.STOPPED_BREAKER_OPEN
+        assert result.leagues_fetched == 0
+        assert result.leagues_pending == 1, "only L2 was never reached"
+        row = _fetch_rows(db)["L1"]
+        assert row["backfilled"] == 0
+        assert row["max_created_ms"] == 0, "the cursor must not advance past an unfetched week"
+        assert row["last_error"] == transactions.STOPPED_BREAKER_OPEN
+
+    def test_budget_exhaustion_is_named_as_such(self, db):
+        resp = responses_for("L1")
+        resp.update(responses_for("L2"))
+        result, _ = _crawl(resp, league_ids=["L1", "L2"], ledger_path=db, budget=5)
+        assert result.leagues_pending == 1
+        assert result.stopped_reason == transactions.STOPPED_BUDGET_EXHAUSTED
+
+    def test_a_completed_pass_has_no_stopped_reason(self, db):
+        result, _ = _crawl(responses_for(), ledger_path=db)
+        assert result.stopped_reason is None
+        assert result.to_dict()["stoppedReason"] is None
+
+    def test_the_log_line_says_the_breaker_refused_calls(self, db, caplog):
+        resp = {
+            f"{BASE}/state/nfl": {"week": 2},
+            f"{BASE}/league/L1/rosters": transactions.BREAKER_OPEN,
+        }
+        with caplog.at_level("INFO", logger=transactions.log.name):
+            _crawl(resp, league_ids=["L1"], ledger_path=db)
+        stops = [r for r in caplog.records if "REFUSED" in r.getMessage()]
+        assert stops and stops[0].levelname == "ERROR"
+        assert "stopped=sleeper_breaker_open" in stops[0].getMessage()
+        assert "fetched=0" in stops[0].getMessage()
+
+
+class TestDefaultFetcherClassifiesTheOutcome:
+    @pytest.mark.parametrize(
+        "kind, payload, expected",
+        [
+            ("ok", [1], [1]),
+            ("error", None, None),
+            ("not_found", None, "NOT_FOUND"),
+            ("breaker_open", None, "BREAKER_OPEN"),
+        ],
+    )
+    def test_kind_to_return(self, monkeypatch, kind, payload, expected):
+        from src.api import sleeper_overlay
+
+        monkeypatch.setattr(
+            sleeper_overlay, "_http_get_json_classified", lambda url: (kind, payload)
+        )
+        got = transactions._default_http_get("u")
+        if expected == "NOT_FOUND":
+            assert got is transactions.NOT_FOUND
+        elif expected == "BREAKER_OPEN":
+            assert got is transactions.BREAKER_OPEN
+        else:
+            assert got == expected
+
+
+class TestWithTheRealBreaker:
+    """The incident end to end: the production fetcher, the real shared breaker,
+    only the socket faked."""
+
+    @pytest.fixture()
+    def wire(self, monkeypatch):
+        import io
+        import urllib.error
+
+        from src.api import sleeper_overlay
+        from src.utils import circuit_breaker
+
+        circuit_breaker.reset_all_for_tests()
+        responses: dict = {}
+        calls: list[str] = []
+
+        class _Resp:
+            def __init__(self, body):
+                self._body = body
+
+            def read(self):
+                return self._body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def fake_urlopen(req, timeout=None):
+            url = req.full_url
+            calls.append(url)
+            outcome = responses.get(url)
+            if outcome is None and "/transactions/" in url:
+                outcome = []
+            if isinstance(outcome, int):
+                raise urllib.error.HTTPError(url, outcome, "status", {}, io.BytesIO(b""))
+            return _Resp(json.dumps(outcome).encode())
+
+        monkeypatch.setattr(sleeper_overlay.urllib.request, "urlopen", fake_urlopen)
+        yield responses, calls, circuit_breaker
+        circuit_breaker.reset_all_for_tests()
+
+    def _crawl(self, ids, db, budget=500):
+        return transactions.crawl_transactions(
+            league_ids=ids, budget=budget, sleep_s=0.0, now_ms=NOW, ledger_path=db
+        )
+
+    def test_eight_404_leagues_ahead_of_the_healthy_ones_do_not_stop_the_crawl(self, db, wire):
+        responses, _calls, circuit_breaker = wire
+        gone = [f"G{i:02d}" for i in range(8)]
+        healthy = [f"H{i:02d}" for i in range(3)]
+        responses[f"{BASE}/state/nfl"] = {"week": 2}
+        for lid in gone:
+            responses[f"{BASE}/league/{lid}/rosters"] = 404
+        for lid in healthy:
+            responses.update(responses_for(lid))
+        result = self._crawl(gone + healthy, db)
+        assert result.leagues_gone == 8
+        assert result.leagues_fetched == 3, "the healthy leagues behind the 404 wall were starved"
+        assert result.stopped_reason is None
+        snap = circuit_breaker.get_or_create("sleeper_api").snapshot()
+        assert snap["state"] == "closed" and snap["counters"]["opens"] == 0
+
+    def test_a_real_outage_still_opens_the_breaker_and_stops_early(self, db, wire):
+        responses, calls, circuit_breaker = wire
+        ids = [f"L{i:02d}" for i in range(40)]
+        responses[f"{BASE}/state/nfl"] = {"week": 2}
+        for lid in ids:
+            responses[f"{BASE}/league/{lid}/rosters"] = 503
+        result = self._crawl(ids, db)
+        snap = circuit_breaker.get_or_create("sleeper_api").snapshot()
+        assert snap["state"] == "open"
+        assert result.stopped_reason == transactions.STOPPED_BREAKER_OPEN
+        assert result.leagues_fetched == 0
+        assert result.leagues_failed == 5, "the five genuine failures that tripped it"
+        assert result.leagues_pending == 35
+        assert len(calls) == 1 + 5, "state + five 503s; the open breaker made no more calls"
+        assert result.leagues_gone == 0
+
+
+class TestOrderingAndCoverage:
+    def test_gone_sorts_behind_never_fetched_and_behind_crawled(self):
+        fetch = {"H-crawled": {"backfilled": True, "lastFetchedMs": NOW}}
+        gone = {"A-gone": {"lastCheckedMs": NOW}}
+        assert transactions._league_order(["A-gone", "H-crawled", "H-new"], fetch, gone) == [
+            "H-new",
+            "H-crawled",
+            "A-gone",
+        ]
+
+    def test_without_gone_state_the_order_is_unchanged(self):
+        fetch = {"L1": {"backfilled": True, "lastFetchedMs": NOW}}
+        assert transactions._league_order(["L1", "L2"], fetch) == ["L2", "L1"]
+        assert transactions._league_order(["L1", "L2"], fetch, {}) == ["L2", "L1"]
+
+    def test_split_gone_window_boundary(self):
+        gone = {"L1": {"lastCheckedMs": NOW}}
+        inside, past = NOW + DEFAULT_RECHECK_MS - 1, NOW + DEFAULT_RECHECK_MS
+        assert transactions._split_gone(["L1", "L2"], gone, now_ms=inside) == (["L2"], ["L1"])
+        assert transactions._split_gone(["L1", "L2"], gone, now_ms=past) == (["L1", "L2"], [])
+
+    def test_a_ledger_without_the_table_reads_as_none_gone(self):
+        import sqlite3
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        assert transactions._load_gone_state(conn) == {}
+
+    def test_ensure_gone_schema_is_additive_and_repeatable(self, db):
+        conn = ledger.connect(db)
+        try:
+            transactions.ensure_gone_schema(conn)
+            transactions.ensure_gone_schema(conn)
+            assert transactions._load_gone_state(conn) == {}
+        finally:
+            conn.close()
+        assert ledger.SCHEMA_VERSION == 2, "the gone table must not ride a ledger migration"
+
+    def test_coverage_separates_gone_from_work_still_to_do(self, db, monkeypatch):
+        monkeypatch.setattr(
+            transactions.discovery,
+            "sharp_eligible_league_ids",
+            lambda *, ledger_path=None: ["G1", "H1", "H2"],
+        )
+        _crawl(_mixed(["G1"], ["H1"]), league_ids=["G1", "H1"], ledger_path=db)
+        cov = transactions.crawl_coverage(ledger_path=db)
+        assert cov["sharpEligibleLeagues"] == 3
+        assert cov["leaguesCrawled"] == 1
+        assert cov["leaguesUncrawled"] == 2, "existing definition is unchanged"
+        assert cov["leaguesGone"] == 1
+        assert cov["leaguesUncrawledReachable"] == 1, "only H2 is real work"
+
+    def test_coverage_on_a_ledger_that_never_ran_the_crawl(self, db, monkeypatch):
+        monkeypatch.setattr(
+            transactions.discovery,
+            "sharp_eligible_league_ids",
+            lambda *, ledger_path=None: ["L1"],
+        )
+        cov = transactions.crawl_coverage(ledger_path=db)
+        assert cov["leaguesGone"] == 0
+        assert cov["leaguesUncrawledReachable"] == 1
