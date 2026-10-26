@@ -1961,11 +1961,19 @@ test-pinned (``tests/bdvm/``):
   adapter — else the §8.3 reconstructed baseline built by
   ``scripts/bdvm_build_baseline.py`` (realized nflverse PPG under the
   league's exact scoring + rookie draft-slot priors, all flagged
-  ``is_proxy``; carries real records forward on rebuild).  All real
+  ``is_proxy``; carries real records forward on rebuild).  Real
   sources merge via the shared ``supersede_merge_into_snapshot``
   policy: each replaces its own prior run wholesale and supersedes
   proxies per player while other real sources carry through, so a
-  defender covered by Clay AND IDP Show gets a two-source consensus.
+  defender covered by Clay AND IDP Show gets a two-source consensus
+  once the IDP Show merge is on.  **IDP Show records are SHADOWED by
+  default** (#1959, owner gate): the fetcher parses them to
+  ``data/bdvm/shadow/idpshow_projections/<season>/idpshow_<date>.json``
+  — a tree no BDVM reader opens — and touches no snapshot.  Merging
+  them into snapshots changes the fundamental values BDVM serves, so
+  it is owner-reserved behind ``BDVM_IDPSHOW_MERGE_INTO_SNAPSHOT=1``
+  (``--merge-idpshow`` on the refresh script, ``--merge-into-snapshot``
+  on the fetcher; ``src/bdvm/idpshow_switch.py``), default OFF.
   The consensus is **vocabulary-aware**: a stat-line record whose
   league-scored IDP categories are a strict subset of a peer's (Clay
   publishes no TFL/PD — categories this league pays 4.25/5.32 for) is
@@ -2015,10 +2023,19 @@ Operational surfaces (post-merge additions):
 - **Snapshot cadence**: ``scripts/refresh_bdvm_projections.py`` (weekly
   ``dynasty-bdvm-refresh`` systemd timer, Tue 06:10 UTC) rebuilds the
   reconstructed baseline, then merges Mike Clay's guide (self-skips
-  without poppler-utils or on a CDN 404), then The IDP Show real
-  projections (session jar shared with the rankings fetch timer; stage
-  self-skips without it). Exit codes 0/1/2 in the playerctx style; runs
-  on prod because the endpoints read local gitignored ``data/``.
+  without poppler-utils or on a CDN 404), then The IDP Show stage
+  (session jar shared with the rankings fetch timer; stage self-skips
+  without it), which writes the shadow tree and merges nothing unless
+  the owner switch above is on. Exit codes 0/1/2 in the playerctx
+  style; runs on prod because the endpoints read local gitignored
+  ``data/``. **Exit 0 means a snapshot was written, not that every
+  source landed** (#1959): the final summary line names every stage
+  that failed, hard-errored or could not run (with its exit code),
+  lists the real sources actually in the snapshot and any shadowed
+  stage, and the run writes ``data/bdvm/refresh_status.json`` (latest
+  run only, ``$BDVM_REFRESH_STATUS_PATH`` overrides; per-stage status
+  plus ``result`` ``ok`` / ``proxy_only`` / ``degraded`` / ``failed``;
+  nothing reads it yet).
 - **Rankings gap column**: /rankings grows a "Fund gap" column
   (fundamental balanced minus market, tinted by BDVM signal) joined
   onto board rows AT RENDER TIME from ``/api/bdvm/values`` —
@@ -2566,6 +2583,13 @@ around:
   league id meant a budget-capped run re-collected the same prefix
   forever and never reached the tail.
 
+**A Sleeper 404 is an answer, not an outage** (#1957). The shared
+`sleeper_api` breaker does not count a Sleeper 404 with an empty or `null`
+body (a 404 with any other body still counts), so deleted leagues cannot
+open it. The transaction crawl marks such a league in `sharp_league_gone`
+only when this run's `/state/nfl` answered, skips gone leagues for 168 h,
+then rechecks at most 20 per run.
+
 **League FORMAT captures for the completed-trade ledger** live in
 `src/sharp/league_format_capture.py` — the one owner of "what format was this
 Sharp league in, and when did we see it".  Append-only, dated, hashed rows
@@ -2947,6 +2971,12 @@ archives: `ktcSfTep` content changes on 164 of them; `idpTradeCalc` on 6, and it
 PICK rows have not moved since 2026-07-14 — while it is one of only two families
 that price picks. Budget in `config/source_staleness.json::contentStaleness`
 (observability only; it decides what gets reported, never what anything is worth).
+
+**A kept CSV is signalled, not silent** (#1953). `scheduled-refresh.yml` now
+warns (`Source not stamped` / `Browser sources preserved`) when a browser-scraped
+CSV is kept instead of rewritten; the stamp and exit status are unchanged. The
+job is pinned to `ubuntu-24.04` because Python Playwright 1.58.0 cannot run
+Chromium on 26.04 (#1939).
 
 ### Release discipline — HEAD FREEZE (2026-08-16)
 
