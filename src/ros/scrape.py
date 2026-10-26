@@ -19,11 +19,26 @@ Failure isolation:
     * If every adapter fails, we log the error count but still write
       ``data/ros/runs/index.json`` so the API can surface "all sources
       failed today; using yesterday's snapshot".
+
+Reporting honesty (REPORTING ONLY -- nothing here feeds a weight):
+
+    * ``status`` / ``completed_at`` are the FETCH clock: "did we retrieve
+      something".  They say nothing about whether the vendor published
+      anything new.
+    * A zero-row fetch leaves the previous CSV in place; the run status
+      now says so (``kept_previous: "zero_rows"``) instead of leaving the
+      reader to infer it from ``rows_written: 0``.
+    * A CONTENT clock sits beside the fetch clock: a hash of each source
+      CSV and ``last_content_change`` (when that hash was last observed to
+      change), persisted in ``data/ros/content_clock.json``.  A source whose
+      fetch succeeds every run while its content never moves reads
+      ``status: ok`` with a ``last_content_change`` that stays put.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib
 import json
 import logging
@@ -43,6 +58,7 @@ from src.ros.aggregate import RankedRow, SourceSnapshot, aggregate
 from src.ros.lineup import flatten_starter_slots
 from src.ros.mapping import resolve_player
 from src.ros.sources import enabled_ros_sources
+from src.sources.dataset_state import load_state, save_state
 
 LOG = logging.getLogger("ros.scrape")
 
@@ -101,19 +117,57 @@ def _has_valid_cache(source_key: str) -> bool:
         return False
 
 
-def _write_csv(source_key: str, rows: list[dict[str, Any]]) -> int:
-    """Write ROS rows to data/ros/sources/<key>.csv.
+#: ``kept_previous`` value: the adapter produced no usable rows, so the
+#: previous CSV was left untouched (the aggregate keeps reading it).
+KEPT_PREVIOUS_ZERO_ROWS = "zero_rows"
+
+#: Content-clock ledger (see :func:`advance_content_clock`).
+CONTENT_CLOCK_FILENAME = "content_clock.json"
+CONTENT_CLOCK_SCHEMA_VERSION = 1
+
+
+@dataclass(frozen=True)
+class CsvWriteOutcome:
+    """What :func:`_write_csv_outcome` did to ``data/ros/sources/<key>.csv``."""
+
+    rows_written: int
+    #: ``KEPT_PREVIOUS_ZERO_ROWS`` when an existing file was left untouched
+    #: because the adapter returned no rows; ``None`` when the file was written.
+    kept_previous: str | None = None
+    #: Data rows in the file that was kept (``0`` for a header-only file, so a
+    #: kept file with nothing in it cannot read as reassurance).
+    kept_previous_rows: int | None = None
+
+
+def _csv_data_rows(path: Path) -> int:
+    """Data rows (excluding the header) in an existing CSV; 0 if unreadable."""
+    try:
+        with path.open() as f:
+            return max(0, sum(1 for _ in f) - 1)
+    except OSError:
+        return 0
+
+
+def _write_csv_outcome(source_key: str, rows: list[dict[str, Any]]) -> CsvWriteOutcome:
+    """Write ROS rows to data/ros/sources/<key>.csv and say what happened.
 
     Schema: ``canonicalName,sourceName,position,team,rank,total_ranked,projection``
-    Returns the number of rows written.
+
+    No rows + an existing file = the file is kept untouched and the outcome
+    says so (``kept_previous``).  That is a different statement from "wrote
+    zero rows", which the bare row count (``0``) cannot distinguish.
     """
     path = _csv_path(source_key)
     keep_existing = (not rows) and path.exists()
     if keep_existing:
-        # Adapter returned no rows but we already have a valid file —
-        # leave it untouched so the aggregate keeps using yesterday's
-        # values.  Status will mark it stale on the next pass.
-        return 0
+        # Adapter returned no rows but we already have a file -- leave it
+        # untouched so the aggregate keeps using yesterday's values.  The
+        # caller records ``kept_previous`` in the run status and logs it.
+        return CsvWriteOutcome(
+            rows_written=0,
+            kept_previous=KEPT_PREVIOUS_ZERO_ROWS,
+            kept_previous_rows=_csv_data_rows(path),
+        )
     fieldnames = [
         "canonicalName",
         "sourceName",
@@ -130,10 +184,108 @@ def _write_csv(source_key: str, rows: list[dict[str, Any]]) -> int:
         w.writeheader()
         for row in rows:
             w.writerow({k: row.get(k, "") for k in fieldnames})
-    return len(rows)
+    return CsvWriteOutcome(rows_written=len(rows))
 
 
-def _write_run_json(result: ScrapeResult, src_meta: dict[str, Any]) -> Path:
+def _write_csv(source_key: str, rows: list[dict[str, Any]]) -> int:
+    """Write ROS rows to data/ros/sources/<key>.csv.
+
+    Returns the number of rows written (``0`` when the previous file was kept;
+    use :func:`_write_csv_outcome` to tell that apart from an empty write).
+    """
+    return _write_csv_outcome(source_key, rows).rows_written
+
+
+def _csv_content_hash(source_key: str) -> str | None:
+    """SHA-256 of the source CSV as it sits on disk, or ``None`` if absent.
+
+    Line endings are normalized first: the file is written with CRLF by the
+    csv module but may be checked out with either ending, and a hash that
+    moved on checkout alone would manufacture a content change.  The CSV
+    carries no timestamps, so identical vendor data is an identical hash.
+    """
+    try:
+        raw = _csv_path(source_key).read_bytes()
+    except OSError:
+        return None
+    return hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+
+
+def advance_content_clock(
+    prior: dict[str, Any] | None,
+    content_hash: str | None,
+    observed_at: str,
+) -> tuple[dict[str, Any] | None, str]:
+    """Fold one observation of a source CSV into its content clock.  Pure.
+
+    Returns ``(entry, state)``:
+
+    * ``"baseline"`` -- first hash ever seen for this source.  Observing a
+      file is not observing a change, so ``last_content_change`` stays
+      ``None`` (UNKNOWN -- never ``observed_at``, never zero); the entry
+      records ``first_observed_at`` so a reader can still bound the
+      unchanged period from below.
+    * ``"unchanged"`` -- same hash as before.  ``last_content_change`` is
+      carried untouched: a successful re-fetch of identical content moves
+      no content clock.
+    * ``"changed"`` -- a different hash.  ``last_content_change`` becomes
+      ``observed_at``.
+    * ``"no_file"`` -- there is no CSV to hash.  The prior entry is returned
+      as-is; a missing file is a failed observation, not a content change.
+
+    This is a REPORTING clock.  No weight, multiplier or threshold reads it.
+    """
+    if content_hash is None:
+        return prior, "no_file"
+    prior_hash = prior.get("content_hash") if isinstance(prior, dict) else None
+    if not prior_hash:
+        return (
+            {
+                "content_hash": content_hash,
+                "first_observed_at": observed_at,
+                "last_content_change": None,
+            },
+            "baseline",
+        )
+    if prior_hash == content_hash:
+        return prior, "unchanged"
+    return {**prior, "content_hash": content_hash, "last_content_change": observed_at}, "changed"
+
+
+def _content_clock_path() -> Path:
+    return ROS_DATA_DIR / CONTENT_CLOCK_FILENAME
+
+
+def _load_content_clock() -> dict[str, Any]:
+    """Read the persisted per-source content clocks (empty when absent/unreadable).
+
+    An unreadable ledger re-baselines every source -- the honest outcome, since
+    no prior hash is known -- rather than failing the scrape: this is reporting.
+    """
+    path = _content_clock_path()
+    raw = load_state(path)
+    if raw is None and path.exists():
+        LOG.warning("[ros] content clock %s unreadable; sources will re-baseline", path)
+    sources = raw.get("sources") if isinstance(raw, dict) else None
+    return {
+        "schema_version": CONTENT_CLOCK_SCHEMA_VERSION,
+        "sources": dict(sources) if isinstance(sources, dict) else {},
+    }
+
+
+def _save_content_clock(ledger: dict[str, Any]) -> None:
+    """Persist the ledger (write-if-changed, atomic).  Never raises."""
+    try:
+        save_state(_content_clock_path(), ledger)
+    except OSError as exc:
+        LOG.warning("[ros] failed to persist content clock: %s", exc)
+
+
+def _write_run_json(
+    result: ScrapeResult,
+    src_meta: dict[str, Any],
+    status_extra: dict[str, Any] | None = None,
+) -> Path:
     runs = _runs_dir()
     target = runs / f"{result.source_key}__{result.completed_at.replace(':', '-')}.json"
     payload = {
@@ -152,6 +304,11 @@ def _write_run_json(result: ScrapeResult, src_meta: dict[str, Any]) -> Path:
         "is_projection_source": bool(src_meta.get("is_projection_source")),
         "stale_after_hours": int(src_meta.get("stale_after_hours") or 168),
     }
+    # Additive reporting fields (kept_previous + content clock).  Merged last
+    # and never over an existing key, so they cannot rewrite what a reader
+    # already relies on.
+    for extra_key, extra_value in (status_extra or {}).items():
+        payload.setdefault(extra_key, extra_value)
     # Drop the heavy rows blob — it's already in the CSV; the run JSON
     # is for status / debugging only.
     payload.pop("rows", None)
@@ -788,6 +945,11 @@ def run_all(
 
     results_by_key: dict[str, dict[str, Any]] = {}
     snapshots: list[SourceSnapshot] = []
+    # Content clocks persist across runs (and across a source being disabled for
+    # one run), so they live in their own ledger rather than in the index, which
+    # is rebuilt from only the sources that ran.
+    content_clock = _load_content_clock()
+    content_clock_dirty = False
 
     for src in sources:
         key = str(src.get("key") or "")
@@ -819,14 +981,50 @@ def run_all(
 
         # Persist CSV + run JSON.
         try:
-            written = _write_csv(key, result.rows)
+            outcome = _write_csv_outcome(key, result.rows)
         except OSError as exc:
             LOG.error("[ros] failed to write CSV for %s: %s", key, exc)
-            written = 0
+            outcome = CsvWriteOutcome(rows_written=0)
             result.status = "failed"
             result.error = f"csv-write: {exc}"
+        written = outcome.rows_written
         result.completed_at = result.completed_at or _now()
-        run_path = _write_run_json(result, src)
+        if outcome.kept_previous:
+            # A zero-row fetch is not a successful one, and the previous file
+            # now standing in for it is not fresh data.  ``status`` is left as
+            # the existing rules set it (an "ok" with no rows is already
+            # demoted to "partial" above); this says what ELSE happened.
+            LOG.warning(
+                "[ros] %s: adapter returned no usable rows (status=%s, error=%s); "
+                "kept previous CSV (%d data rows), nothing written",
+                key,
+                result.status,
+                result.error,
+                outcome.kept_previous_rows or 0,
+            )
+
+        # Content clock: a different question from the fetch clock above.
+        # ``status`` / ``completed_at`` say we retrieved something; this says
+        # whether the stored content differs from last time.  Reporting only.
+        content_hash = _csv_content_hash(key)
+        prior_clock = content_clock["sources"].get(key)
+        clock_entry, clock_state = advance_content_clock(
+            prior_clock, content_hash, result.completed_at
+        )
+        if clock_entry is not None and clock_entry != prior_clock:
+            content_clock["sources"][key] = clock_entry
+            content_clock_dirty = True
+        if clock_state in ("baseline", "changed"):
+            LOG.info("[ros] %s: content %s (hash %s)", key, clock_state, (content_hash or "")[:12])
+        status_extra = {
+            "kept_previous": outcome.kept_previous,
+            "kept_previous_rows": outcome.kept_previous_rows,
+            "content_hash": content_hash,
+            "content_state": clock_state,
+            "content_first_observed_at": (clock_entry or {}).get("first_observed_at"),
+            "last_content_change": (clock_entry or {}).get("last_content_change"),
+        }
+        run_path = _write_run_json(result, src, status_extra)
 
         results_by_key[key] = {
             "status": result.status,
@@ -836,9 +1034,12 @@ def run_all(
             "completed_at": result.completed_at,
             "error": result.error,
             "run_path": str(run_path.relative_to(ROS_DATA_DIR)),
+            **status_extra,
         }
         snapshots.append(_build_snapshot(src, result))
 
+    if content_clock_dirty:
+        _save_content_clock(content_clock)
     _rebuild_index(results_by_key)
 
     league_ctx = league or {
