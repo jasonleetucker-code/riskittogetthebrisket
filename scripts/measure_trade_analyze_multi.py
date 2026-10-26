@@ -71,8 +71,9 @@ Exit codes: 0 measured, no budget breached; 1 measured, at least one budget
 breached; 2 refused (non-local target) or bad arguments; 3 the measurement
 could not complete (no board, an engine failure, a non-200 from the route).
 
-This script writes nothing in the repository and changes no flag default,
-config or production code.
+This script writes no tracked file and changes no flag default, config or
+production code.  (Importing ``server`` and starting its lifespan creates the
+usual gitignored ``data/*.sqlite`` stores, exactly as the route tests do.)
 """
 
 from __future__ import annotations
@@ -154,6 +155,11 @@ _ENV_GUARDS = {
     "UPTIME_CHECK_ENABLED": "0",
     "SCRAPE_SCHEDULER_ENABLED": "0",
     "SLEEPER_OVERLAY_WARM_ENABLED": "0",
+    # ``server``'s lifespan otherwise starts a background public-league rebuild
+    # that retries Sleeper in a loop for the whole run (measured: ~1,400 refused
+    # attempts in 11 minutes) -- background noise in a latency measurement.
+    "PUBLIC_LEAGUE_WARMUP_AT_STARTUP": "0",
+    "PUBLIC_LEAGUE_PERSIST_SNAPSHOT": "0",
     "RISKIT_FEATURE_GAME_DAY_LIVE_GAME_STATE": "0",
     "RISKIT_FEATURE_SLEEPER_WEEKLY_PROJECTIONS": "0",
 }
@@ -1841,9 +1847,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=TEAM_COUNTS,
         help="comma-separated team counts to measure (default 2,3,4)",
     )
-    p.add_argument("--cold-samples", type=int, default=10)
-    p.add_argument("--warm-samples", type=int, default=20)
-    p.add_argument("--memory-samples", type=int, default=3)
+    p.add_argument("--cold-samples", type=int, default=8)
+    p.add_argument("--warm-samples", type=int, default=16)
+    p.add_argument("--memory-samples", type=int, default=2)
     p.add_argument(
         "--ledgers", type=int, default=5, help="seeded representative ledgers per team count"
     )
