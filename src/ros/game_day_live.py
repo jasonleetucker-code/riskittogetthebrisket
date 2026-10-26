@@ -848,11 +848,10 @@ def load_players_meta(
 _players_db_cache: dict[str, tuple[tuple[int, int], dict[str, Any], float | None]] = {}
 
 
-def persisted_players_meta(rostered_ids: set[str], *, now: float | None = None) -> dict | None:
-    """The collector's persisted players DB, or ``None`` unless it is within
-    :data:`PLAYERS_DB_MAX_AGE_SECONDS` and holds every rostered id (the same
-    population rule :func:`load_players_meta` trims to).  Disk only; parsed
-    once per file version."""
+def _persisted_players_entry() -> tuple[dict[str, Any], float | None] | None:
+    """``(players, fetchedAt epoch)`` of the persisted players DB, or ``None``
+    when the file is absent or unparseable.  Disk only; parsed once per file
+    version (``mtime_ns`` + size)."""
     path = _players_db_path()
     try:
         st = path.stat()
@@ -867,7 +866,26 @@ def persisted_players_meta(rostered_ids: set[str], *, now: float | None = None) 
             return None
         hit = (stamp, players, _epoch(cached.get("fetchedAt")))
         _players_db_cache[str(path)] = hit
-    _, players, fetched_at = hit
+    return hit[1], hit[2]
+
+
+def persisted_players_db_fetched_at() -> float | None:
+    """Epoch ``fetchedAt`` of the persisted players DB, or ``None`` when there
+    is no readable DB or it states no parseable time.  Unknown, never "now".
+    Disk only, and shares :func:`persisted_players_meta`'s parse-once cache."""
+    entry = _persisted_players_entry()
+    return None if entry is None else entry[1]
+
+
+def persisted_players_meta(rostered_ids: set[str], *, now: float | None = None) -> dict | None:
+    """The collector's persisted players DB, or ``None`` unless it is within
+    :data:`PLAYERS_DB_MAX_AGE_SECONDS` and holds every rostered id (the same
+    population rule :func:`load_players_meta` trims to).  Disk only; parsed
+    once per file version."""
+    entry = _persisted_players_entry()
+    if entry is None:
+        return None
+    players, fetched_at = entry
     now = time.time() if now is None else now
     if fetched_at is None or now - fetched_at > PLAYERS_DB_MAX_AGE_SECONDS:
         return None
