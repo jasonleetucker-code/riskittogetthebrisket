@@ -3,82 +3,92 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-10-26 ~14:30Z.** Agent-OS-Receipt `cb64f74c`. Concurrency limit: four workers (owner 2026-10-26).
-No subagents are running.
+**As of 2026-10-26 ~18:50Z.** Agent-OS-Receipt `cb64f74c`. Concurrency limit: four workers (owner 2026-10-26).
 
-## Merged + live
-- **#1939** (squash `6eddc569f`, merged 11:33Z): the scheduled refresh is pinned to ubuntu-24.04.
-  - **Production:** `/api/status .build.commit` = `6eddc569f`, process started 13:07:59Z.
-  - **Verified:** refresh run 40325142841 (dispatched 12:46Z) ran on 24.04.
-    - The `_last_success` stamps for `ktc*` and `idpTradeCalc` moved to 12:50:16Z, and `draftSharks*` to 12:52:55Z.
-    - Content changed for KTC and DraftSharks IDP (12:53:33Z).
-    - IDPTC content stays at 2026-10-10. That is vendor staleness, not a fetch failure.
-    - The evidence is posted on #1939.
-- **Nightly E2E:** run 40329220180 (13:16Z) was green. Issue #1918 is closed.
+## Authorization in force
+The owner approved routine merges ("I approve these and all future merges", recorded in `docs/OWNER_REQUESTED_TODO.md`)
+and confirmed it after the overnight build mode.
 
-## Draft PRs from this session (none merged)
-Every PR in this table had an independent review, with findings fixed afterwards unless noted.
+A PR merges only when all of these hold:
+- its exact-head required checks are green;
+- an independent review is satisfied; the coordinator's own review does not count, and a REQUEST_CHANGES verdict needs a
+  re-review;
+- stacked dependencies have merged first.
 
-| PR | head | review | what |
-|---|---|---|---|
-| #1950 | `1e99a02c0` | APPROVE_WITH_NITS; 6 findings fixed | Auction Phase 2 + security follow-ups; supersedes #1533 |
-| #1951 | `7e6b0ef9f` (on #1948) | APPROVE_WITH_NITS; nits fixed | LI1842 defects 01/03/04/06/09/10/11 |
-| #1948 | `155f6d505` | APPROVE_WITH_NITS; nits fixed | config propagation matrix + metamorphic tests |
-| #1952 | `52f373b94` | APPROVE_WITH_NITS; hardened | ESPN injuries parse 274 of 800 (was 0); shadow events only |
-| #1953 | `8bd2cbbc5` | APPROVE_WITH_NITS | refresh browser-source signals; release-gate entry fixed |
-| #1954 | `1fd4a5770` | APPROVE_WITH_NITS | Settings value-basis truthful; waiver-compare charset |
-| #1955 | `2dbf1fd49` | APPROVE_WITH_NITS | aiohttp/certifi/pillow with lock refresh; prove-* green; supersedes #1855/#1895/#1896 |
-| #1956 | `f606ba310` | APPROVE_WITH_NITS | `/api/health` reads the real DLF session jar |
-| #1957 | `c0e535e2e` | APPROVE_WITH_NITS; hardened | Sharp 404s no longer trip the breaker |
-| #1958 | `c741ae050` | APPROVE_WITH_NITS | ROS kept-previous status + content clock; coercion fixed |
-| #1959 | `667274f26` | APPROVE_WITH_NITS; nits fixed | BDVM refresh honest status; IDP Show parser to shadow |
-| #1960 | `748d20a0a` | — | audit report + inventory (125 items, 39 defects) |
+Batch merges so each deploy finishes and production is verified. **#1938 is ON HOLD** until the owner approves it
+separately, because it changes BDVM scoring. Owner-held flags, activations and methodology changes still need an
+explicit owner decision.
 
-Reviews of pre-existing PRs, all posted on the PRs:
-- **APPROVE:** #1935, #1941, #1949.
-- **APPROVE_WITH_NITS:**
-  - #1936, #1940, #1942 (now merged with #1940's head), #1943, #1945 (X2/Q3 relabelled)
-  - #1944, #1946, #1947, #1843
-  - #1938, with an owner decision brief
-- **#1937:** REQUEST_CHANGES, then all five findings fixed at `7c418c4dd`. Replay: only roster 2 (Byron Murphy) differs, and 216 of 216 picks are identical.
+## Production
+- **Live:** `6dcb80df0`, deployed 18:25Z, carrying every merge through #1945.
+- **Verified after that deploy:**
+  - `/api/health` returns 200 and ok;
+  - the DLF session reads its true age (0 days, not 96.6), from #1956;
+  - waiver-compare returns `charset=utf-8`, from #1954;
+  - owner-held flags are OFF, and `conditional_startup_scrape` is OFF.
+- **#1939, the refresh pinned to ubuntu-24.04:** verified by run 40325142841. KTC, IDPTC and DraftSharks fetch again,
+  and KTC and DraftSharks IDP content changed. IDPTC content is still dated 2026-10-10, which is vendor staleness.
+- **Next deploy:** `fa3ee5ea7` was in progress at 18:42Z, carrying #1966 (the NFL Team filter) and later merges.
 
-## Merge order (when authorized)
-1. #1933 (CI unblock), #1934 (Agent OS + handoff)
-2. #1955, #1956, #1953, #1954, #1958, #1952, #1957, #1959, #1950, #1960
-3. #1931, then #1938 (owner decision)
-4. #1935, then #1937 / #1946 / #1949
-5. #1940, then #1942; #1936 / #1941 / #1943 / #1945
-6. #1948, then #1951; #1944, #1947, #1843, #1929
+## Merged on 2026-10-26 (40 PRs)
+- #1939, #1933, #1934, #1960, #1955, #1956, #1954, #1950, #1959
+- #1929, #1931, #1936, #1940, #1941, #1943, #1944, #1947, #1843, #1935, #1946, #1949
+- #1961, #1948, #1952, #1953, #1957, #1958, #1942, #1945
+- #1966, #1969, #1965, #1937, #1963, #1968, #1951, #1964, #1962
 
-Close #1533 after #1950 merges, and #1855 / #1895 / #1896 after #1955 merges.
+Superseded and closed: #1533 (by #1950), and #1855, #1895, #1896 (by #1955).
+
+## Open PRs (all independently reviewed and approved; waiting on CI)
+| PR | what |
+|---|---|
+| #1967 | alert when the pregame projections archive build fails (first build window Tue 10-27 to Thu 10-29) |
+| #1970 | `/api/health` backup_health reports the state-backup dir honestly; public payload is an allow-list |
+| #1971 | Sharp smoke says UNVERIFIABLE loudly; stops committing unchanged records; fixes a gate NameError (12 false reds) |
+| #1972 | sim calibration v2 challenger: research and shadow only; failed its gates; LF-safe hashing |
+| #1973 | behavioural tripwire: the forecast simulators never read the dynasty contract |
+| #1974 | Consensus Edge revalidation: the summary no longer misreports a crashed or skipped run as drift |
 
 ## Owner decisions pending
-- **#1938 nflverse scorer fixes.** Recommended: ship WITH the special-teams de-dup, after a box before/after of
-  `run_valuation` plus the alert sweep. There is no flag; rollback is a revert.
+- **#1938** (BDVM nflverse scorer fixes). The review recommends shipping it WITH the special-teams de-dup, after a box
+  before/after of `run_valuation` plus the alert sweep. There is no flag; it can only be reverted.
+- **Best-ball sim calibration.** The production fallback runs about 109 points low on team totals (#1963). Neither v1
+  nor v2 passes its gates (#1972), and the gates are near-unpassable at these sample sizes. Decide whether to caveat the
+  affected surfaces, authorize a v3 methodology change, and/or size-control the gates.
 - **Activations into BDVM:**
-  - injury events (#1952);
-  - IDP Show projections (#1959 switch);
+  - injury events (#1952 writes only to a shadow file);
+  - IDP Show projections (#1959 switch, default OFF);
   - a ROS content-clock freshness multiplier (#1958).
-- **LI1842 open defects:** 02 TE multiplier, 05, 07 roster cap, 08 POST leagueKey, 12 trade_deadline,
-  13 auction provenance.
-  - Defect 07 may be taxi accounting: 24 roster positions + 3 taxi = 27.
-  - Should `/api/intel/leads` return 503 for a league whose data isn't loaded, or just leave out the fit/value terms?
-- **Credentials and signals:**
-  - provide `SHARP_SMOKE_TOKEN` (the smoke check has never measured anything);
-  - run red after a browser source is preserved for N runs (#1953);
-  - Sharp crawl exit-code semantics (#1957).
-- **Housekeeping:** #804 capture cadence; DFS tick while DFS is paused; retire the Codex OneDrive orchestrator.
+- **Sharp smoke** (#1971):
+  - provision `SHARP_SMOKE_TOKEN` (repo secret plus prod `.env`, then restart);
+  - decide whether a missing or rejected token should turn the run red;
+  - disable the stale Temporary workflows listed in the PR.
+- **Consensus Edge** (#1974):
+  - commit a fresh measurement (the current one is from 2026-08-04);
+  - decide on alerting for red scheduled runs and missed snapshot days;
+  - decide whether to preserve the red-run artifacts. Run 36708000268 expires 10-30; run 37617836143 expires 11-06.
+- **LI1842 open defects:** 02 TE multiplier, 05, 07 roster cap (possibly taxi accounting: 24 + 3 = 27), 08 POST
+  leagueKey, 12 trade_deadline, 13 auction provenance.
+  - Also decide whether `/api/intel/leads` should return 503 for a non-loaded league, or abstain only on fit/value.
+- **Backups** (#1970):
+  - have the state-backup unit write a readable status file;
+  - set up an off-box mirror;
+  - run a restore proof that includes the temporal ledger;
+  - investigate why a dynasty-run process also writes `/home/dynasty/backups/riskit-state`.
 - **Earlier, still open:**
-  - cut-ladder tie-break (#1945 X2) and forced-drop activation (recommended: not yet)
-  - Public Waiver Wire scope
-  - IDP Show board swap
+  - cut-ladder tie-break (#1945 X2); forced-drop activation (not yet)
+  - Public Waiver Wire scope; IDP Show board swap
   - 2026 holdout; 17-game re-run
-  - lineage census box run
-  - backend memory canary
+  - lineage census box run; backend memory canary
+  - the DFS tick while DFS is paused; retiring the Codex OneDrive orchestrator
+
+## Follow-ups queued (after the parent PR merges)
+- **#1967:** orphan-marker alert text; wrap the two `unlink` calls; a behavioural wiring test.
+- **#1973:** trap every `latest_*` host attribute; match aliases by identity.
+- **#1962:** use the `STOPPED_COMPLETED` constant; decide whether `unknown` belongs in `STOPPED_SHORT`.
 
 ## Hazards
-- **Disk:** about 121 GB free after removing 48 clean, pushed worktrees and the regenerable folders. 44 dirty or
-  unpushed worktrees remain (some are Codex's). Inspect before deleting.
-- **Git:** never `git stash`; commit explicit paths only; never junction `node_modules`.
-- **Deploys:** only the newest pending run in the `production-deploy` group survives, so confirm what is live from
+- **Disk:** about 121 GB free. 44 dirty or unpushed worktrees remain, some of them Codex's. Inspect before deleting.
+- **Git:** never `git stash`. Commit explicit paths only. Never junction `node_modules`.
+- **Squash merges** break PR-branch commit pins. Pin blob ids, not commit SHAs (see #1964).
+- **Deploys:** only the newest pending run in the `production-deploy` group survives. Confirm what's live with
   `/api/status .build`.
