@@ -996,11 +996,12 @@ def run_all(
             # demoted to "partial" above); this says what ELSE happened.
             LOG.warning(
                 "[ros] %s: adapter returned no usable rows (status=%s, error=%s); "
-                "kept previous CSV (%d data rows), nothing written",
+                "kept previous CSV (%s data rows), nothing written",
                 key,
                 result.status,
                 result.error,
-                outcome.kept_previous_rows or 0,
+                # None (unreadable kept file) is logged as None, never as 0.
+                outcome.kept_previous_rows,
             )
 
         # Content clock: a different question from the fetch clock above.
