@@ -150,16 +150,30 @@ def test_archive_selection_is_strictly_before_the_kickoff():
 
 
 def _has_prereg_history() -> bool:
-    r = subprocess.run(
-        ["git", "cat-file", "-e", f"{bt.PREREG_COMMIT}^{{commit}}"], cwd=REPO, capture_output=True
-    )
-    return r.returncode == 0
+    # On main the file arrives in #1942's squash commit; on the PR branch, in
+    # the original prereg commit.  Either one being present is enough.
+    for commit in (bt.PREREG_SQUASH_COMMIT, bt.PREREG_COMMIT):
+        r = subprocess.run(
+            ["git", "cat-file", "-e", f"{commit}^{{commit}}"], cwd=REPO, capture_output=True
+        )
+        if r.returncode == 0:
+            return True
+    return False
+
+
+def test_stage1_code_hash_still_matches_the_committed_manifest_pin():
+    # Stage 2 refuses to run unless everything above the STAGE 2 marker is
+    # byte-identical to what the blind stage pinned; an edit there (even a
+    # well-meant fix) silently retires that invariant.
+    manifest = json.loads(bt.MANIFEST_PATH.read_text(encoding="utf-8"))
+    assert bt.stage1_code_hash() == manifest["pins"]["stage1CodeSha256"]
 
 
 @pytest.mark.skipif(not _has_prereg_history(), reason="shallow checkout without the prereg commit")
 def test_the_preregistration_blob_is_unchanged_since_its_first_commit():
-    info = bt.check_preregistration()
-    assert info["blob"] == bt.PREREG_BLOB and info["firstCommit"] == bt.PREREG_COMMIT
+    info = bt.check_preregistration_post_squash()
+    assert info["blob"] == bt.PREREG_BLOB
+    assert info["firstCommit"] in {bt.PREREG_COMMIT, bt.PREREG_SQUASH_COMMIT}
 
 
 # ── statistics ────────────────────────────────────────────────────────────────
