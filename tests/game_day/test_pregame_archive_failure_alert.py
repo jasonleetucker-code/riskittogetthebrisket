@@ -399,6 +399,152 @@ def test_an_unrecoverable_week_reaches_the_operator_with_the_true_text(kv):
     assert "cannot be rebuilt" in body and "retries hourly" not in body
 
 
+def _row(reason, *, retained=True, **extra) -> dict:
+    return {
+        "leagueKey": live.NFL_KEY,
+        "season": SEASON,
+        "week": WEEK,
+        "reason": reason,
+        "failedAt": live._iso(NOW + 7200),
+        "firstFailedAt": None,
+        "flushFailure": None,
+        "rawLogRetained": retained,
+        **extra,
+    }
+
+
+# A build failure's claims that are FALSE for a pending directory flush: the
+# verified archive exists, nothing is rebuilt for it (after an open failure), and
+# the alert resolves when the flush -- not a build -- succeeds.
+_BUILD_FAILURE_CLAIMS = ("not built", "until the archive exists", "resolves when a build succeeds")
+
+
+@pytest.mark.parametrize("kind", ["open", "fsync", None])
+def test_a_pending_directory_flush_alert_says_what_is_true(kind):
+    first = live._iso(NOW)
+    (alert,) = oa._check_pregame_archive(
+        [_row("archive_directory_unflushed", firstFailedAt=first, flushFailure=kind)]
+    )
+    text = alert.title + "\n" + alert.detail
+
+    for claim in _BUILD_FAILURE_CLAIMS:
+        assert claim not in text
+    assert "retries hourly" not in text
+    assert alert.title == (
+        f"Pregame projections archive for {SEASON} week {WEEK} awaiting a durable directory flush"
+    )
+    assert alert.detail.startswith(
+        f"The verified pregame weekly-projections archive for {live.NFL_KEY} {SEASON} week "
+        f"{WEEK} is in place, but the directory holding it could not be flushed to disk "
+        f"(archive_directory_unflushed; flush failure: {kind or 'unrecorded'}; "
+        f"failing since {first})."
+    )
+    assert "raw weekly-projection log is retained" in alert.detail
+    assert alert.detail.endswith("This resolves when the directory flush succeeds.")
+    assert live._iso(NOW + 7200) not in alert.detail  # the start, not the latest retry
+    if kind == "open":
+        assert "retries only the flush" in alert.detail
+        assert "does not rebuild the archive" in alert.detail
+    else:
+        assert "rebuilds the archive from the retained raw log" in alert.detail
+        assert ("not recorded" in alert.detail) is (kind is None)
+    assert alert.category == CATEGORY and alert.severity == "warning"
+
+
+def test_a_pending_flush_alert_without_a_start_falls_back_to_the_latest_attempt():
+    """A marker written before ``firstFailedAt`` existed still names a time."""
+    (alert,) = oa._check_pregame_archive([_row("archive_directory_unflushed")])
+    assert f"failing since {live._iso(NOW + 7200)}" in alert.detail
+
+
+def test_an_unreadable_archive_alert_does_not_promise_a_build_retry():
+    """``archive_unreadable`` was rendered as a build failure too, and that was
+    false: the unreadable file is never overwritten, so no hourly build runs."""
+    (alert,) = oa._check_pregame_archive([_row("archive_unreadable")])
+
+    assert alert.title == f"Pregame projections archive for {SEASON} week {WEEK} unreadable"
+    assert "retries hourly" not in alert.detail
+    assert "resolves when a build succeeds" not in alert.detail
+    assert "never overwrites an existing archive" in alert.detail
+    assert "archive_unreadable" in alert.detail and "raw weekly-projection log is retained" in (
+        alert.detail
+    )
+    assert "This resolves when the file at the archive path reads back" in alert.detail
+
+
+_RETAINED_TEXT = (
+    "The pregame weekly-projections archive for {league} {season} week {week} could not be "
+    "established ({reason}; failed {failed}).  The raw weekly-projection log is retained -- the "
+    "prune keeps it rather than delete evidence it has not archived -- but until the archive "
+    "exists that week's pregame baseline is not preserved for the projection scorecard, and its "
+    "raw observations stay on disk.  The Game Day collector retries hourly; see "
+    "pregame_projections.retained.json beside the week.  This resolves when a build succeeds."
+)
+_GONE_TEXT = (
+    "The pregame weekly-projections archive for {league} {season} week {week} could not be "
+    "established ({reason}; failed {failed}).  The raw weekly-projection log is gone and no "
+    "readable archive exists, so the week cannot be rebuilt: its pregame baseline is permanently "
+    "missing from the projection scorecard.  The Game Day collector does not retry a week that "
+    "has no raw log.  This alert keeps firing until the failure marker "
+    "(pregame_projections.retained.json beside the week) is removed."
+)
+
+
+@pytest.mark.parametrize(
+    ("reason", "retained"),
+    [
+        ("kickoffs_unknown", True),
+        ("weekly_log_unreadable", True),
+        ("archive_readback_mismatch", True),
+        ("PregameArchiveUnavailable: kickoffs_unknown", True),
+        ("failure_marker_unreadable", True),
+        (None, True),
+        ("archive_unreadable", False),
+        ("archive_directory_unflushed", False),
+        ("kickoffs_unknown", False),
+    ],
+)
+def test_every_other_reasons_alert_text_is_unchanged(reason, retained):
+    """Byte for byte what the alert said before the two corrected reasons got
+    their own text (the literals are the previous strings)."""
+    row = _row(reason, retained=retained)
+    (alert,) = oa._check_pregame_archive([row])
+    fmt = {
+        "league": live.NFL_KEY,
+        "season": SEASON,
+        "week": WEEK,
+        "reason": reason or "unknown",
+        "failed": row["failedAt"],
+    }
+
+    if retained:
+        assert alert.title == f"Pregame projections archive for {SEASON} week {WEEK} not built"
+        assert alert.detail == _RETAINED_TEXT.format(**fmt)
+    else:
+        assert alert.title == (
+            f"Pregame projections archive for {SEASON} week {WEEK} cannot be rebuilt"
+        )
+        assert alert.detail == _GONE_TEXT.format(**fmt)
+
+
+def test_a_real_pending_flush_reaches_the_operator_with_the_true_text(monkeypatch, kv):
+    """End to end: the real archive pass, the health reader, the sweep, the sink."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    monkeypatch.setattr(live, "_fsync_dir", lambda directory: live._DIR_OPEN_FAILED)
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW) is False
+    assert live._read_pregame_archive(live.pregame_archive_path(SEASON, WEEK)) is not None
+
+    sink = Sink()
+    summary = _sweep(kv, sink, live.pregame_archive_health())
+
+    assert summary["categories"] == [CATEGORY] and len(sink.sent) == 1
+    _to, _subject, body = sink.sent[0]
+    assert "awaiting a durable directory flush" in body and "archive_directory_unflushed" in body
+    assert f"failing since {live._iso(NOW)}" in body
+    for claim in _BUILD_FAILURE_CLAIMS:
+        assert claim not in body
+
+
 # --- a marker that cannot be removed must not abort the prune ---------------------------
 
 
