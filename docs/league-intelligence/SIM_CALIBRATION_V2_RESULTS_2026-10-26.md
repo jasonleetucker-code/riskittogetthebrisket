@@ -8,15 +8,15 @@
 
 | item | value |
 |---|---|
-| preregistration | `docs/league-intelligence/SIM_CALIBRATION_V2_PREREGISTRATION_2026-10-26.md`, commit `ad8ab042f`. It was committed alone and pushed at 2026-10-26T17:32:25Z, before the script existed. |
-| script | `scripts/sim_calibration_v2_study.py`, commit `8bd4e8b41` (17:39:42Z) |
+| preregistration | `docs/league-intelligence/SIM_CALIBRATION_V2_PREREGISTRATION_2026-10-26.md`, commit `ad8ab042f` (a commit that touches only that file), committed at 2026-10-26T17:32:25Z, before the script existed. Git blob `7a7296e018edc651b76972eed6673dcf63073f15`. |
+| script | `scripts/sim_calibration_v2_study.py`, commit `8bd4e8b41` (17:39:42Z). Git blob `e6fecd8b40887b130597f6fad3ac8f06f2ca26c4`. |
 | evidence run | code SHA `8bd4e8b41`, clean tree (`studyCodeDirty: false`). Generated at 17:50:58Z. The prereg commit is an ancestor (`isAncestorOfCodeSha: true`). |
 | card | `sf1:9e51824690d091f9` (live `dynasty_main`) |
 | inputs | v1's 49 cached bodies, sha256-identical to v1's evidence. 0 network calls. Same three rosValue snapshots. |
-| comparator V1 | v1's frozen candidate, sha256 `cee877c2…` (verified) |
-| challenger V2 | `evidence/sim_calibration_v2/challenger_v2_points_model.json`, sha256 `421b7eda23771276a16295a63e016756df9600560a3b735257e4f9e3363f65b9` |
-| evidence | `evidence/sim_calibration_v2/evaluation_v2.json` |
-| base | PR #1963 (v1), **not merged** at the time of writing |
+| comparator V1 | v1's frozen candidate, sha256 `15fe52f9434786f6ec62e1fb6362ee4cfdf192ea29697c0b36dee832303d051c` (LF-normalized; verified). v1's own evidence records `cee877c2…` for the same file, which is its CRLF working-tree digest. See "Review fixes". |
+| challenger V2 | `evidence/sim_calibration_v2/challenger_v2_points_model.json`, sha256 `b7826d44c73a1a974b10c5562822648879e97cec737f1b6792d016ba577ceceb` (LF-normalized; git blob `6f61aedd5db5ecdddbf2d1ee5de6f35a78584d9e`). The as-run record in `evaluation_v2.json` says `421b7eda…`, its CRLF working-tree digest. |
+| evidence | `evidence/sim_calibration_v2/evaluation_v2.json` (git blob `48f035ae8eeae028f0715c8c91d9f3a74f47450f`) |
+| base | PR #1963 (v1), **merged** to main as squash `b4e11f6ce` after this document was first written. This branch merges that main. |
 
 **Holdout used:** 2026 weeks 5–6, the same as v1. Week 7 was **not** used: at run time 13 of its 14 games were final
 in the schedule body. The run clock was 17:50Z, and DAL at PHI kicks off at 00:15Z on 2026-10-27. Per preregistration
@@ -123,10 +123,10 @@ Two descriptive analyses, both declared before looking, decompose the miss:
 
   A scale fitted on the preseason snapshot cannot follow this.
 
-The two compound. For LB, the fit-window ratio 0.888 divided by the drift of about 1.60 gives about 0.55. That matches
-the observed 0.546. The same arithmetic gives DL 0.81 / 1.28 ≈ 0.63 and DB 0.87 / 1.26 ≈ 0.69. Those land below the
-observed 0.76 and 0.86, so drift is not the whole IDP story for DL and DB. The direction is right and the size is
-approximate.
+The two compound. For LB, the fit-window ratio 0.888 divided by the drift of about 1.60 gives about 0.55, which is
+consistent with the observed 0.546. DL and DB do not fit the same product as cleanly: 0.81 / 1.28 ≈ 0.63 and
+0.87 / 1.26 ≈ 0.69 land below the observed 0.76 and 0.86, so drift is not the whole IDP story for them. The direction
+is right and the size is approximate.
 
 v1 had the same drift. What it hid there was a pooled `k` that happened to sit higher than the IDP families' own
 inverse-fit `k` (1.476 against 1.30 to 1.36). Per-family fitting removed that accidental cushion.
@@ -196,20 +196,126 @@ Promotion is owner-only, and **this study requests none**.
    **v2's own failures do not depend on it**: V2 fails the size-aware reading too.
 4. **Week 7.** Only matters for a request, and there is none. It needs a schedule body fetched after DAL at PHI is
    final. The cache is write-once and holds the 13-of-14 body. The run would be:
-   `--frozen-challenger …/challenger_v2_points_model.json --expect-sha256 421b7eda… --eval-weeks 7 --out-name evaluation_v2_week7.json`.
+   `--frozen-challenger …/challenger_v2_points_model.json --expect-sha256 b7826d44c73a1a974b10c5562822648879e97cec737f1b6792d016ba577ceceb --eval-weeks 7 --out-name evaluation_v2_week7.json`.
+   The pin is the LF-normalized digest (see "Review fixes"); the earlier `421b7eda…` is the same file's CRLF digest and
+   the script now refuses it.
 
 ## Reproduce
 
 ```
 python scripts/sim_calibration_v2_study.py --offline
-python -m pytest -p no:cacheprovider tests/league_intel/test_sim_calibration_v2_study.py tests/league_intel/test_sim_calibration_study.py
+python scripts/sim_calibration_gate_operating_characteristics.py
+python -m pytest -p no:cacheprovider tests/league_intel/test_sim_calibration_v2_study.py tests/league_intel/test_sim_calibration_study.py tests/league_intel/test_sim_calibration_gate_operating_characteristics.py
 ```
 
 `--offline` needs `data/idp_accuracy/cache/` populated with v1's bodies. The run takes about 11 minutes, almost all of
 it the 2,000-draw team-week sims for three models, with D4.
 
+## Review fixes (2026-10-26, after independent review)
+
+Corrections to this document and to how the study pins files. **No gate, split, seed, method or number changed.** The
+preregistration is frozen and is not edited.
+
+### 1. File hashes no longer depend on the checkout's line endings
+
+The study first pinned and recorded `sha256` of each file's raw working-tree bytes. On Windows (`core.autocrlf=true`)
+that is the CRLF rendering of an LF-committed file, which a Linux or CI checkout of the same commit cannot reproduce:
+the v1-candidate pin and the week-7 `--expect-sha256` would have refused the run there.
+
+`scripts/sim_calibration_v2_study.py` now hashes **LF-normalized bytes** (`sha256_file`, which folds `\r\n` to `\n`)
+everywhere it computes or checks a hash of a tracked text file. The receipts for v1's cached HTTP bodies are untouched,
+because those files are written with `write_bytes` and are byte-exact on every platform. A test shows the digest is
+identical for a CRLF and an LF copy of one file, and that the pinned v1 candidate verifies from either.
+
+`evaluation_v2.json` is the as-run record and is **not** edited, so it keeps the digests of the run machine's CRLF
+working tree. Map them like this:
+
+| file | as-run digest in the evidence (CRLF) | LF-normalized digest (pinned now) | git blob |
+|---|---|---|---|
+| v1 candidate `candidate_sim_points_model.json` | `cee877c2901a9f01…` | `15fe52f9434786f6ec62e1fb6362ee4cfdf192ea29697c0b36dee832303d051c` | `7412d32d719d1050ebd8572a35c8dbe123483dfd` |
+| V2 challenger `challenger_v2_points_model.json` | `421b7eda23771276…` | `b7826d44c73a1a974b10c5562822648879e97cec737f1b6792d016ba577ceceb` | `6f61aedd5db5ecdddbf2d1ee5de6f35a78584d9e` |
+| v1 script `sim_calibration_study.py` (`v1ScriptSha256`) | `5d29a7a6284450fa…` | `ed1651db90fc663d…` | `3bcd66e64c0eb6e5d26941448ca441ce5eec062f` |
+| v1 `evaluation.json` | `91dd42a029c4fec1…` | `31d7739da6d95db6…` | `73cfc425f7c633735bc66e66283fd56515cd4c76` |
+| rosValue snapshot, preseason (`2026-09-09T21-17-37…`) | `6585f7dcec86286d…` | `096b07d942dac03f…` | `f54aab6aa4a1fd1b7533bf8a5fe5daa8a48b00d5` |
+| rosValue snapshot, week 5 (`2026-10-08T20-15-39…`) | `538cd0566b3b507e…` | `8f13d1d75460029f…` | `6e351b0db803c989ed373c3ee579829c8069e68b` |
+| rosValue snapshot, week 6 (`2026-10-15T21-53-29…`) | `cc059ae846980afa…` | `51e085d0dddcf78a…` | `dbc28418531c142135b47f26ba9be0195f93fd77` |
+| v2 script at the run (`scriptSha256`) | `41793e25e53757a4…` | unchanged (the file was already LF) | `e6fecd8b40887b130597f6fad3ac8f06f2ca26c4` |
+
+Every LF-normalized digest equals the sha256 of the committed blob's content, so it is the same on any checkout. The
+sidecar `evidence/sim_calibration_v2/challenger.sha256` holds the challenger's pin in `sha256sum` format; it verifies on
+an LF checkout, and on a CRLF checkout the study's own `--expect-sha256` check is the one to use.
+
+The evidence run's `scriptSha256` is that of the script at `8bd4e8b41`. The review-fix commit changes only the hashing
+helper, the v1-candidate pin and its comments; the hash feeds provenance fields and the two pin checks, never a metric.
+
+**Replay with the fixed script.** The frozen challenger was re-evaluated on holdout weeks 5–6 with
+`--offline --frozen-challenger …/challenger_v2_points_model.json --expect-sha256 b7826d44…`. It ran from this
+checkout (CRLF working tree, 0 network calls, script sha256 `20c95a1c4a4f1dfdc933378cded5d6f0376a899fad0c8aacf417584cc6ef8801`),
+with its output in a scratch directory that is not committed. It exercised both pins end to end.
+
+- The verdict is unchanged: SC-G1, SC-G3, SC-G4 and SC-G5 fail, and SC-G2 passes.
+- Thirteen blocks were compared against `evaluation_v2.json`: `gates`, `verdict`, `failingGates`, `models`, `census`,
+  `playerLevel`, `V2-D2_sizeAwareReading`, `V2-D5_snapshotDrift`, `teamWeek`, `D4_teamWeekNoAvailabilityFilter`, `seeds`,
+  `card` and `split`. **Zero fields differ**, apart from `split.runClockUtc`.
+- The recorded digests are the LF-normalized ones in the table: the v1 candidate, the challenger, the three snapshots
+  and the v1 script. The v1 cache-body receipts equal the original run's.
+- `V2-D6_reproductionOfV1` is not produced in frozen mode, so it was not repeated. The committed 285-of-285 result
+  stands: the F and V1 numbers it compared are among the blocks above.
+
+### 2. Provenance that survives a squash merge
+
+A squash merge leaves `ad8ab042f` and `8bd4e8b41` unreachable from `main`, so the evidence's
+`isAncestorOfCodeSha: true` cannot be re-checked there (a re-run from post-squash main reports `false` or `null`,
+which is expected). These identities do not depend on those commits:
+
+| item | id |
+|---|---|
+| preregistration commit | `ad8ab042f3b5d1edbaf55f3ac34a28f0a3e8ba46`, committed 2026-10-26T13:32:25-04:00 (17:32:25Z) |
+| preregistration file | git blob `7a7296e018edc651b76972eed6673dcf63073f15` (sha256 of its bytes `387268f5c0430914554fd913bec054afd02383684743145db3ca2e23f6d3e9ae`; the file is LF already) |
+| script commit | `8bd4e8b414ce721921f8dac7728de66a9822c8eb`, 2026-10-26T13:39:42-04:00 (17:39:42Z) |
+| script at the run | git blob `e6fecd8b40887b130597f6fad3ac8f06f2ca26c4` |
+| tests at the run | git blob `068e9bfaaec986575ebac33fc94fa450ee4576bc` |
+| evidence commit | `f705b190be8f4f68d592da1522b1941ce0b0c62b`, 2026-10-26T13:53:11-04:00 |
+| challenger / evaluation | git blobs `6f61aedd5db5ecdddbf2d1ee5de6f35a78584d9e` / `48f035ae8eeae028f0715c8c91d9f3a74f47450f` |
+| v1 files used, on main | `scripts/sim_calibration_study.py` blob `3bcd66e64c0eb6e5d26941448ca441ce5eec062f` (squash `b4e11f6ce`) |
+
+Check any of them on any checkout with `git hash-object <path>`, which applies the same line-ending normalization git
+applies on commit. The preregistration's blob is the check that it was not edited after the run.
+
+### 3. Wording corrected
+
+- "committed alone and pushed at 17:32:25Z" now reads "committed at 17:32:25Z". The 17:32:25Z figure is the commit's
+  committer date. This document has no evidence of when it was pushed.
+- The LB product (0.888 / 1.60 ≈ 0.55) is now described as consistent with the observed 0.546, and DL and DB are said not
+  to fit the same product as cleanly.
+
+### 4. The §6.1 operating characteristics are committed code
+
+Preregistration §6.1's disclosure that these gates are close to unpassable came from an ad-hoc run that was not
+committed. `scripts/sim_calibration_gate_operating_characteristics.py` (output
+`evidence/sim_calibration_v2/gate_operating_characteristics.json`, test
+`tests/league_intel/test_sim_calibration_gate_operating_characteristics.py`) re-derives it with a fixed seed, using v1's
+gate constants. A perfectly calibrated model is iid Uniform(0, 1) PIT at the holdout family sizes. 20,000 replications,
+seed 20261026, against the exact result (a multinomial for SC-G1, the finite-n Kolmogorov distribution for SC-G4):
+
+| gate half | §6.1 as printed | committed script | exact |
+|---|---|---|---|
+| SC-G1, every gated family | 0.27 | 0.273 | 0.273 |
+| SC-G1, QB alone | 0.70 | 0.701 | 0.703 |
+| SC-G4, D ≤ 0.08 in every gated family | 0.019 | 0.0175 | 0.0178 |
+| SC-G4, QB / TE alone | 0.22 / 0.42 | 0.222 / 0.417 | 0.223 / 0.416 |
+| SC-G1 and SC-G4 together | 0.007 | 0.0067 | not computed |
+| SC-G5 coverage halves (n = 24) | 0.91 | 0.902 | 0.903 |
+
+The claim stands: a perfect model passes SC-G4 about 2% of the time, SC-G1 about 27% and both under 1%. Two printed
+figures were slightly off the exact values (SC-G4 0.019 against 0.0178, SC-G5 0.91 against 0.903). The preregistration
+is frozen and keeps them. Neither changes a conclusion, and the SC-G5 coverage halves are not the hard part. The numbers
+are lower bounds on difficulty, because each player appears in up to two holdout weeks.
+
 ## UNRESOLVED
 
+- **`evaluation_v2.json` carries CRLF digests**, mapped above rather than rewritten. A re-run from the fixed script
+  produces LF-normalized digests and a different `scriptSha256`.
 - **Two holdout weeks only**, as in v1. Team-week n = 24, with no season-level outcome.
 - **Positions come from today's Sleeper directory.** Team-week availability is the oracle filter. 2025 lines are
   rescored under the 2026 card. All three are inherited from v1.
