@@ -18,6 +18,7 @@ from collections import OrderedDict
 from collections.abc import Mapping
 from typing import Any
 
+from src.draft import waiver_population
 from src.draft.context import build_roster_context, list_draft_teams
 
 __all__ = ["get_draft_teams", "get_roster_context", "reset_cache"]
@@ -70,6 +71,10 @@ def get_roster_context(
         str(owner_id or ""),
         str(roster_id or ""),
         str(team_name or "").strip().lower(),
+        # The LI-5 waiver-level flag changes ``waiverValues`` / ``waiverLadder``
+        # / the cut ladder, so a flip must never be answered from a context
+        # built under the other state (design §7).
+        waiver_population.enabled(),
     )
     with _lock:
         hit = _context_cache.get(key)

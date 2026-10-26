@@ -1,5 +1,29 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## IDP valuation accuracy + platform research/promotion-readiness audit — owner directives, 2026-10-25
+
+**AUTHORIZED NOW (research, tests and shadow-only candidates; NOT activation).** IDP valuation accuracy,
+replacement methodology and cross-position fair value, verbatim in
+`docs/owner/IDP_VALUATION_ACCURACY_DIRECTIVE_2026-10-25.md`: a pinned research manifest; scorer verification against
+Sleeper awarded points; baseline diagnostics from the served canonical artifact; shadow replacement definitions;
+best-ball utility; cross-position multi-season utility candidates (reusing BDVM, `src/ros/lineup.py`, LI-5, the
+`league_fair_value_v1_shadow` package and the knowledge-cutoff replay rather than adding owners); a scoring-sensitivity
+experiment; a preregistered chronological backtest; and an evidence-backed recommendation package. New shadow code is
+unwired or behind default-OFF flags and isolated like `src/league_valuation/` (`tests/league_valuation/test_isolation.py`).
+It must not collide with LI-5 (#1927) or the forced-drop lane: their files are consumed, never edited here.
+
+**Also AUTHORIZED NOW (read-only):** the platform-wide research, data-collection and promotion-readiness audit
+(intake "Added 2026-10-25 — Platform-wide research…"): a dated report and machine-readable inventory under
+`docs/audits/`.
+
+**Owner-reserved (NOT authorized):** any live scoring, canonical value or rank, source voting or weight, IDP ceiling,
+Hill curve, package model (`geom_q078_v1`, q = 0.78), fairness methodology (`fairness_bands_v2`), trade verdict,
+public output or league-setting change; turning any flag ON in any registry, deploy, config or env surface;
+promoting any challenger; Sleeper writes; paid data. Changing live canonical methodology needs an independent
+evidence package and explicit owner approval. Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-25".
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel.
+
 ## Unlisted Waiver Wire Comparison page — owner directive, 2026-10-21
 
 **AUTHORIZED (build, review, merge and deploy in one pass).** A standalone, read-only page at the

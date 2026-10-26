@@ -864,8 +864,30 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # incumbent byte for byte (tests/trade/test_forced_drop_flag_off_identity.py).
     # OFF until the owner approves the measured production impact
     # (docs/trade/FORCED_DROP_FIX_2026-10-20.md §8).  Rollback if ever on:
-    # RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL=0 + restart.
+    # RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL=0 + restart.  HELD, DEFAULT OFF
+    # (owner decision 2026-10-21, LVA Package 1, item 3: "Keep
+    # forced_drop_cheapest_legal OFF"); deploy/verify-deploy.sh fails a deploy
+    # whose effective flag is ON (scripts/verify_owner_held_flags.py).
     "forced_drop_cheapest_legal": False,
+    # LI-5 replacement-level consolidation -- HELD, DEFAULT OFF (owner
+    # decision 2026-10-21, LVA Package 3, D2: "Implement behind a default-OFF
+    # flag. No served replacement-level ... changes are authorized";
+    # docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md; design
+    # docs/valuation/LI5_REPLACEMENT_CONSOLIDATION_DESIGN_2026-10-21.md §7).
+    # ON: the displacement consumers (roster capacity -> Trade Calculator /
+    # War Room / Finder / Best Offers / Angle / Suggestions, Perfect Draft
+    # roster context, droppability) read the per-position waiver level as
+    # LI-5's ``waiver_levels`` (mean of free-agent ranks 1-3) over the
+    # ``src/draft/waiver_population.py`` population (each consumer's own
+    # rostered / auction-rookie keys, the waiver add pool, the availability
+    # owner), with an additive ``replacementPopulation`` stamp.  OFF: the
+    # best-single-unrostered anchor, every payload byte-identical
+    # (tests/draft/test_li5_consumer_wiring.py).  Changes no board value,
+    # vote or scarcity (inert 1.0).  Activation is a separate owner decision
+    # (design P4/P5); deploy/verify-deploy.sh fails a deploy whose effective
+    # flag is ON (scripts/verify_owner_held_flags.py).  Rollback:
+    # RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION=0 + restart.
+    "replacement_level_li5_consolidation": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -1202,6 +1224,12 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # (``/api/trade/simulate``, ``/api/trade/analyze``, ``/api/trade/finder``,
     # ``/api/angle/*``, suggestions, best offers).  Defaults False.
     "forced_drop_cheapest_legal": LIVE,
+    # ``src/draft/waiver_population.enabled`` -- read by
+    # ``roster_capacity.build_capacity_context`` (every trade-capacity read),
+    # ``draft.context.build_roster_context`` (/api/draft/roster-context) and
+    # ``roster_intel.droppability.team_droppability``
+    # (/api/roster/intelligence).  Defaults False.
+    "replacement_level_li5_consolidation": LIVE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger

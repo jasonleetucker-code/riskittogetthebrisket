@@ -101,11 +101,19 @@ byte-identical output); census row A's unit is now "caller-selected value
 field". The free-agent *population* is a separate owner,
 `src/draft/waiver_population.py` (phase P2), composing the rostered set, each
 consumer's own auction-rookie exclusion, the waiver add pool and the
-availability owner. **Neither is wired yet:** `src/draft/` `waiverValue` above
-still answers with the best single unrostered player, and census row G stays
-DISTINCT until phase P3 wires it behind a default-OFF flag (after #1890). No
-served value changes in P1-P2, and the gameplan call still passes no free
-agents, so scarcity stays inert at 1.0 (D8).
+availability owner.
+
+**Wired behind a default-OFF, owner-held flag (phase P3, 2026-10-25).** With
+`replacement_level_li5_consolidation` ON, `src/draft/displacement.py` is an
+ADAPTER (census row G): roster capacity, the Perfect Draft roster context and
+droppability read `waiverValue` as `waiver_levels(value_key="rankDerivedValue")`
+over each consumer's own population (capacity keeps auction rookies, Perfect
+Draft and droppability exclude them — D6), and stamp `replacementPopulation`.
+With the flag OFF — the default, and what production serves — `waiverValue`
+above still answers with the best single unrostered player, byte for byte
+(`tests/draft/test_li5_consumer_wiring.py`). The unit split holds in both:
+displacement reads `rankDerivedValue`, the gameplan call keeps `rosValue` and
+still passes no free agents, so scarcity stays inert at 1.0 (D8).
 
 ---
 
