@@ -31,6 +31,7 @@ explicit owner decision.
 - **Next deploy:** `fa3ee5ea7` was in progress at 18:42Z, carrying #1966 (the NFL Team filter) and later merges.
 
 ## Merged on 2026-10-26 (40 PRs)
+- #1925, #1926 (merged ~01:31Z, before this session's integration train)
 - #1939, #1933, #1934, #1960, #1955, #1956, #1954, #1950, #1959
 - #1929, #1931, #1936, #1940, #1941, #1943, #1944, #1947, #1843, #1935, #1946, #1949
 - #1961, #1948, #1952, #1953, #1957, #1958, #1942, #1945
@@ -38,7 +39,10 @@ explicit owner decision.
 
 Superseded and closed: #1533 (by #1950), and #1855, #1895, #1896 (by #1955).
 
-## Open PRs (all independently reviewed and approved; waiting on CI)
+## Open PRs from this session's work (independently reviewed and approved; still drafts, so mark ready, then merge once CI is green)
+
+Other open PRs exist (for example #1921, #1884, #1873, #1852, #1755, #1513 and Dependabot); they are not covered here.
+
 | PR | what |
 |---|---|
 | #1967 | alert when the pregame projections archive build fails (first build window Tue 10-27 to Thu 10-29) |
@@ -81,10 +85,12 @@ Superseded and closed: #1533 (by #1950), and #1855, #1895, #1896 (by #1955).
   - lineage census box run; backend memory canary
   - the DFS tick while DFS is paused; retiring the Codex OneDrive orchestrator
 
-## Follow-ups queued (after the parent PR merges)
+## Follow-ups
+- **Actionable now (#1962 merged):** use the `STOPPED_COMPLETED` constant; decide whether `unknown` belongs in `STOPPED_SHORT`.
+
+Queued until the parent PR merges:
 - **#1967:** orphan-marker alert text; wrap the two `unlink` calls; a behavioural wiring test.
 - **#1973:** trap every `latest_*` host attribute; match aliases by identity.
-- **#1962:** use the `STOPPED_COMPLETED` constant; decide whether `unknown` belongs in `STOPPED_SHORT`.
 
 ## Hazards
 - **Disk:** about 121 GB free. 44 dirty or unpushed worktrees remain, some of them Codex's. Inspect before deleting.
