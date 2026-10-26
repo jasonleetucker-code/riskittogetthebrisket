@@ -743,8 +743,7 @@
   "bestballMarginal": {
    "path": "config/bestball/marginal_v1.json",
    "sha256": "a2e8d9307cfa44fb472de9781106a668cdfc0d9b32f1f0e2795bedc56ec0299c",
-   "modelVersion": "bestball_marginal_v1",
-   "paramSetId": "48a3a5cdd4fa884b"
+   "modelVersion": "bestball_marginal_v1"
   },
   "bridges": {
    "path": "config/bridges/bridges_v1.json",

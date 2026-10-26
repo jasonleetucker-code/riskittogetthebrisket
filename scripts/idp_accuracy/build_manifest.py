@@ -339,7 +339,6 @@ def projections_block() -> dict[str, Any]:
 
 def versions_block() -> dict[str, Any]:
     from src.bdvm.params import load_param_set  # noqa: PLC0415
-    from src.bestball.params import param_set_id as bb_id  # noqa: PLC0415
 
     def f(p: str) -> dict[str, str]:
         return {"path": p, "sha256": sha256_file(REPO / p)}
@@ -361,7 +360,6 @@ def versions_block() -> dict[str, Any]:
         "bestballMarginal": {
             **f("config/bestball/marginal_v1.json"),
             "modelVersion": bb.get("modelVersion"),
-            "paramSetId": bb_id(bb),
         },  # fmt: skip
         "bridges": {**f("config/bridges/bridges_v1.json"), "version": br.get("version")},
         "packageModel": {**f("config/trade/package_model.json"), "active": pm.get("active")},
