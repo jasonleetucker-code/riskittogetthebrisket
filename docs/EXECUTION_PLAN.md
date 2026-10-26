@@ -175,8 +175,8 @@ Each mathematical change ships behind its own flag. A change that fails validati
 
 **PROCESS ONLY, NOT NEW FEATURE AUTHORIZATION.** The authorized work in
 §0 should be built by independent workers in isolated branches/worktrees,
-within the Agent OS §3 "Usage efficiency" limit (at most two active subagents,
-owner 2026-10-25; supersedes the earlier 3–5 target), instead of
+within the Agent OS §3 "Usage efficiency" limit (at most four concurrent workers,
+owner 2026-10-26; supersedes the earlier 3–5 target), instead of
 serializing behind unrelated full CI. Keep L0/L1 checks during coding,
 full required L2 at each PR integration boundary, and strict L3 at the
 existing release boundary. The **exclusive Integration Authority** may

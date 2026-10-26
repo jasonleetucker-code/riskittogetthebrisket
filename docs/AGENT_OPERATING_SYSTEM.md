@@ -113,7 +113,9 @@ When that contract reaches 30/30, stop the launch-completion campaign and fall b
 Goal: the most verified progress per unit of model usage, not the most agents. Binding on every model.
 Product requirements, safety rules and owner gates are unchanged; mandatory verification is never skipped to save usage.
 
-1. **Concurrency:** one coordinator plus at most **two** active subagents. Never launch 10–20 simultaneous
+1. **Concurrency:** one coordinator plus at most **four** concurrent workers (owner 2026-10-26, raising the
+   2026-10-25 limit of two); coding work done by the coordinator counts toward the four. Four is a ceiling, not a
+   target: each worker must own a distinct, non-overlapping deliverable. Never launch 10–20 simultaneous
    research or engineering agents or large fan-out workflows. Delegate only a concrete, independently executable
    deliverable; release the agent when it delivers. Do not delegate what one deterministic command verifies.
    (Measured 2026-10-25: one fan-out audit workflow spent ~8.8M subagent tokens across 150 agents before a usage
@@ -147,8 +149,8 @@ launch, deployment, security, spending, access or destructive-action gates.
    current execution authority, `docs/WORK_CLAIMS.md`, active completion
    contracts, shared-file owners and dependency overlap. Run independent
    units concurrently within the usage limit in "Usage efficiency" above
-   (normally at most **two** active subagents; the earlier 3–5 target is
-   superseded), each
+   (at most **four** concurrent workers, owner 2026-10-26; the earlier 3–5
+   target is superseded), each
    on its own Git worktree/branch with disjoint file/defect claims. Coordinate
    shared canonical interfaces centrally; never invent agents, have multiple
    writers to one branch/file, or do unauthorized work to occupy a worker.
