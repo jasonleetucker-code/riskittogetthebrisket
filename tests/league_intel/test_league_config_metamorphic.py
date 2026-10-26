@@ -695,6 +695,7 @@ def test_e_a_zero_filled_card_is_not_an_identity():
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-01: POST /api/intel/leads for league B ranks B's members against the "
         "LOADED league A's rosters, owners and board values (server.py::_build_intel_leads reads "
@@ -724,6 +725,7 @@ def test_f01_intel_leads_do_not_borrow_another_leagues_rosters_or_values(world, 
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-02: a manual tep_multiplier in the POST /api/rankings/overrides body still "
         "changes rankDerivedValue (110 rows on the 2026-10-25 board) although the client comment "
@@ -752,6 +754,7 @@ def test_f02_a_manual_tep_multiplier_cannot_move_the_canonical_board():
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-03: GET /api/movers applies no scoring-identity gate. For a league whose "
         "scoring is not proven identical to the loaded board, /api/data is refused (503) but the "
@@ -783,6 +786,7 @@ def test_f03_movers_follow_the_same_scoring_gate_as_the_board(world, monkeypatch
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-04: gameplan._resolve_scoring_fit memoises the IDP scoring-fit by leagueKey "
         "for the process lifetime (invalidate_* has no production caller), so a commissioner "
@@ -826,6 +830,7 @@ def test_f04_the_scoring_fit_memo_notices_a_changed_card(monkeypatch):
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-05: consensus_edge.scoring_fit._scoring_cards reads the committed "
         "2026-07-26 dated snapshot (sf1:b7ad1575925091f6, 141 keys) via load_canonical_config and "
@@ -853,6 +858,7 @@ def test_f05_consensus_edge_fit_does_not_score_with_a_card_the_league_no_longer_
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-06: team_strength.compute_team_strength_live('<unknown key>') falls back to "
         "the DEFAULT league (`get_league_by_key(k) or get_default_league()`) and fetches its "
@@ -875,6 +881,7 @@ def test_f06_an_unknown_league_key_never_computes_another_leagues_team_strength(
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-07: the trade-side roster cap (roster_capacity.league_roster_limit) reads "
         "only the registry rosterSize; the live sleeper.rosterPositions that the lineup ladder "
@@ -905,12 +912,21 @@ def test_f07_roster_capacity_reports_a_disagreement_with_the_live_slot_list():
     ctx = rc.build_capacity_context(
         contract, "beta", team, roster_settings=registry_settings, scarcity_reading=(None, None)
     )
-    notes = " ".join(ctx.notes).lower()
-    assert ctx.roster_limit == len(live_slots) or "disagree" in notes or "live" in notes
+    # Asserted on the STRUCTURED field only.  ``roster_capacity`` defines no
+    # disagreement note yet, so there is no exact string a fix "would emit"; the
+    # earlier ``"disagree" in notes or "live" in notes`` disjunct was satisfied by
+    # any unrelated note that merely contained those letters (``alive``,
+    # ``delivered``, a future scarcity message) and could turn this xfail into a
+    # false XPASS.  The matrix's stated remediation is "cap equals the live
+    # count"; if the fix is instead a reported disagreement, that fix must define
+    # its note (or a structured field) and THIS assertion is then extended to pin
+    # it exactly -- never to a substring.
+    assert ctx.roster_limit == len(live_slots)
 
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-08: the client builds the rankings override POST body without a leagueKey "
         "(and the URL is only ?view=delta) while every other league-scoped fetch in "
@@ -926,6 +942,7 @@ def test_f08_the_overrides_request_carries_the_pages_league_key():
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-09: the public hub rosTeamStrength section (ros.api.build_section) reads the "
         "persisted team-strength file with load_team_strength_snapshot and no age or evidence "
@@ -952,6 +969,7 @@ def test_f09_public_ros_team_strength_does_not_serve_an_expired_file_as_current(
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-10: league_registry.get_default_league() returns an explicit "
         "defaultLeagueKey even when that league is inactive (membership test only), contradicting "
@@ -965,6 +983,7 @@ def test_f10_an_inactive_default_league_is_not_served_implicitly(world):
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-11: frontend/lib/perfect-draft.js FLEX_SLOTS omits the canonical flex slots "
         "WR_RB_FLEX, DL_LB, DB_LB, DL_DB that src/ros/lineup.py emits (flatten_starter_slots "
@@ -984,6 +1003,7 @@ def test_f11_the_perfect_draft_flex_vocabulary_covers_every_canonical_flex_slot(
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-12: ros.trade_deadline._load_playoff_odds_map/_load_championship_map are "
         "hard-wired to sims/latest_*.json, so build_team_directions(league_key=<non-default>) "
@@ -1013,6 +1033,7 @@ def test_f12_trade_deadline_reads_the_requested_leagues_simulation(tmp_path, mon
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "LI1842-DEFECT-13: auction.sources.join_budgets joins seats to draft-capital teamTotals by "
         "team NAME and its provenance does not name the league the dollars came from, so a room "
