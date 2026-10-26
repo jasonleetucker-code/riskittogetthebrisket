@@ -9,67 +9,95 @@ away. Nothing in `src/` imports the research script, and a test pins that.
 baseline). That directive authorizes research and shadow work only.
 
 **Evidence:** `docs/valuation/idp_accuracy/evidence/c_market_baseline_2026-10-25.json`. It holds aggregates and
-public NFL player names only: no manager or team names, no user, owner or roster ids, and no per-team roster
-listings (`assert_aggregate_only`).
+public NFL player names only: no manager or team names, no user, owner or roster ids, no raw Sleeper league id, and
+no per-team roster listings (`assert_aggregate_only`, pinned by a test over the committed file).
 
 **Reproduce:**
 
 ```bash
-python scripts/idp_accuracy/market_baseline.py            # ~3 min; Sleeper public API, cached under data/
-python scripts/idp_accuracy/market_baseline.py --offline  # re-run from the cache
-python -m pytest tests/scripts/test_idp_accuracy_market_baseline.py -q
+python scripts/idp_accuracy/market_baseline.py            # ~2 min; Sleeper + two public vendor pages, raw-cached
+python scripts/idp_accuracy/market_baseline.py --offline  # re-run from the cache, byte-identical output
+python -m pytest tests/idp_accuracy/test_market_baseline.py -q
 ```
 
-**Verdict on the shared-market anchor: NOT_JUSTIFIED.** Nothing independently justifies it for this league. The
-cross-position level comes from two external dynasty markets. One is a generic Superflex/TE-premium calculator
-that states no IDP scoring basis. The other is a vendor board synced to this league, but its IDP order does not
-track this league's scoring better than a tackle-heavy reference card does. The two markets roughly agree on the
-level, and agreement is consensus about **market price**. It is not evidence of **league utility**. This verdict
-does **not** say the level is wrong. Whether it is wrong is UNRESOLVED and belongs to Lanes B and D (replacement
-and lineup utility, and independent backtesting).
+The cache (`data/research_cache/idp_c_market_raw/`, gitignored) holds each response body byte for byte and the
+evidence records its sha256 (`inputs.sleeperReceipts`, `leagueFormatAlignment.statedFormat`). A re-run reuses the
+cache, so it reproduces the same inputs; `--refresh` refetches. Output does not depend on the Python hash seed
+(checked under two seeds).
+
+**Verdict on the shared-market anchor: NOT_JUSTIFIED.** Nothing independently shows that the anchor represents
+this league. The cross-position level comes from two external dynasty markets. One is a generic public calculator
+whose own page states a different basis from this league's card: Big 3 IDP scoring, 0.5 PPR, a TE premium, and no
+statement of IDP starters or best ball. The other is a vendor board synced to this league, but the sync cannot be
+verified from the data. The two markets agree on the median IDP level and disagree about who the elite defenders
+are, and agreement between markets is consensus about **market price**. It is not evidence of **league utility**.
+This verdict does **not** say the level is wrong. Whether it is wrong is UNRESOLVED and belongs to Lanes B and D
+(replacement and lineup utility, and independent backtesting).
 
 ---
 
-## 0. Pinned inputs
+## 0. Pinned inputs and the cross-check against Lane A
 
 | input | value |
 |---|---|
-| code | branch `claude/idp-c-market-baseline`. The evidence was regenerated at commit `f9e8d41d8`, which adds research files only |
+| code | branch `claude/idp-c-market-baseline`. `inputs.scriptSha256` identifies the script that produced the evidence |
 | repository tree read by the contract build (CSVs, scrape stamps, weights) | `bdbc83a1f` (main, 2026-10-25 16:55 UTC), content sha256 `80e5f8da…` |
-| served artifact | `exports/archive/dynasty_export_20261025_120337.zip`, sha256 `50fb251a…`, scrape 2026-10-25 12:03 UTC. Fields read: `rankDerivedValue`, `canonicalConsensusRank`, `canonicalSiteValues`, `confidenceBucket`, `quarantined` and `sourceRankMeta`. No `_composite` field is read |
-| league | `dynasty_main`. Live card fingerprint `sf1:9e51824690d091f9`, which matches the archived contract's card. 12 teams, 58 roster spots, 21 starters (QB 1, RB 2, WR 3, TE 2, FLEX 2, SUPER_FLEX 1, K 1, DL 3, LB 3, DB 3), best ball, roster-format sha256 `4d0914e7…` |
-| production | Sleeper weekly stats, 2026 regular season weeks 1–6, all games final. Week 7 was in progress (8 of 14 games final) and is **excluded**. Scored with the canonical `compute_weekly_points` |
-| scorer check | 3,299 of 3,299 player-weeks match Sleeper's own awarded points within 0.01 (max difference 0.0044). This reproduces Investigation B's check exactly |
-| pre-season (point-in-time) board | `dynasty_export_20260909_211525.zip`, the latest archive strictly before the week-1 kickoff (NE @ SEA, 2026-09-10 00:20 UTC, from nflverse `games.csv`). It was scraped 21:15 UTC. Its source tree is `bd7eda605`, that scrape's data-refresh commit (21:17 UTC), also before kickoff. Both orderings are pinned by tests |
-| control | The perturbation worker's baseline build is byte-identical to the in-process build (`controlBaselineMatchesInProcess: true`) |
+| served artifact | `exports/archive/dynasty_export_20261025_120337.zip`, sha256 `50fb251a…`, scrape 2026-10-25 12:03 UTC. Fields read: `rankDerivedValue`, `canonicalConsensusRank`, `canonicalSiteValues`, `confidenceBucket`, `quarantined` and `sourceRankMeta`. No scraper `_composite` field is read, and a test pins that |
+| league | `dynasty_main`. Scoring fingerprint `sf1:9e51824690d091f9` (live card equals the archived contract's card). Roster-format fingerprint `rf1:10f897578eea2fe4`. 12 teams, 58 roster spots, 21 starters (QB 1, RB 2, WR 3, TE 2, FLEX 2, SUPER_FLEX 1, K 1, DL 3, LB 3, DB 3), best ball |
+| production | Sleeper weekly stats, 2026 regular season weeks 1–6, all games final. Week 7 was in progress and is **excluded** |
+| pre-season (point-in-time) board | `dynasty_export_20260909_211525.zip`, the latest archive strictly before the week-1 kickoff (NE @ SEA, 2026-09-10 00:20 UTC, nflverse `games.csv`). Scraped 21:15 UTC. Its source tree is `bd7eda605`, that scrape's data-refresh commit (21:17 UTC), also before kickoff. Both orderings are pinned by tests |
 
-The archive and the tree come from different scrapes, and this was deliberate. The archive is the 12:03 UTC
-scrape. Tree `bdbc83a1f` carries the CSVs of the 16:50 UTC refresh. I used the tree the lane named. Rebuilding
-from the archive's own `site_raw/` files would move some numbers slightly. Every `site_raw` hash in the archive
-is recorded in `inputs.archiveSiteRawSha256`.
+**Cross-check against Lane A's manifest** (`MANIFEST.json`, sha256 `d0d9931d…`, PR #1931). The script compares its
+own inputs with the manifest and records the result in `inputs.laneAManifestCrosscheck`:
+
+| item | result |
+|---|---|
+| served-board hash (`servedBoardSha256`, `4e6ba1f5…`) | **match**. This lane's in-process build of the served board is the board Lane A pinned |
+| archive sha256 | match |
+| scoring fingerprint (live card and archived contract card) | match |
+| roster-format fingerprint | match |
+| Sleeper responses (league card, rosters, six matchup dumps, six weekly stat dumps) | **14 of 15 byte-identical** by sha256. The player directory (`/players/nfl`) differs, as expected for a daily-changing file; it supplies positions only |
+| host-native scorer | Lane A's 3,710 of 3,710 and Investigation B's 3,299 of 3,299 are the **same scorer** with and without the `gp > 0` filter. Reproduced here: 3,299 of 3,299 and 3,710 of 3,710, max difference 0.0044, and 461 rostered player-weeks have no stat line and were awarded 0. This lane uses B's filter for points per game and the unfiltered line set for best-ball replay |
+
+The archive and the tree come from different scrapes, and this was deliberate. The archive is the 12:03 UTC scrape.
+Tree `bdbc83a1f` carries the CSVs of the 16:50 UTC refresh. I used the tree the lane named. Rebuilding from the
+archive's own `site_raw/` files would move some numbers slightly. Every `site_raw` hash in the archive is recorded in
+`inputs.archiveSiteRawSha256`. The perturbation worker's baseline build is byte-identical to the in-process build
+(`controlBaselineMatchesInProcess: true`).
 
 ## 1. Baseline: where defenders sit on the served board
 
 **Top 100 overall (served rank):** QB 20, RB 21, WR 30, TE 12, LB 9, DL 3, DB 0, PICK 5.
-**Top 200 overall:** QB 29, RB 37, WR 52, TE 28, LB 24, DL 13, DB 6, PICK 11.
+**Top 200 overall:** QB 29, RB 37, WR 52, TE 28, LB 24, DL 13, DB 6, PICK 11. The full lists are in
+`baseline.top100` and `baseline.top200`.
 
 **Highest-ranked defenders:** Carson Schwesinger (LB, rank 34, value 6,287), Jack Campbell (LB, 50, 5,443), Arvell Reese
 (DL, 63, 5,071), Sonny Styles (LB, 66, 5,023) and Aidan Hutchinson (DL, 75, 4,642). The first defender appears at rank
 34. Ranks 1–25 hold no defender.
 
-| family | #1 (overall rank / value) | #10 | #25 |
-|---|---|---|---|
-| DL | Arvell Reese 63 / 5,071 | 182 / 2,950 | 264 / 2,301 |
-| LB | Carson Schwesinger 34 / 6,287 | 110 / 3,909 | 215 / 2,620 |
-| DB | Nick Emmanwori 106 / 3,989 | 299 / 2,154 | 382 / 1,835 |
+**Top 10 per family** (the top 25 with confidence buckets is in `baseline.top25ByPosition`):
 
-The full top 25 per family is in `baseline.top25ByPosition`.
+| # | DL | rank / value | LB | rank / value | DB | rank / value |
+|---|---|---|---|---|---|---|
+| 1 | Arvell Reese | 63 / 5,071 | Carson Schwesinger | 34 / 6,287 | Nick Emmanwori | 106 / 3,989 |
+| 2 | Aidan Hutchinson | 75 / 4,642 | Jack Campbell | 50 / 5,443 | Dillon Thieneman | 122 / 3,688 |
+| 3 | Will Anderson | 92 / 4,242 | Sonny Styles | 66 / 5,023 | Caleb Downs | 130 / 3,526 |
+| 4 | Dallas Turner | 119 / 3,725 | Jacob Rodriguez | 78 / 4,624 | Kevin Winston | 157 / 3,237 |
+| 5 | David Bailey | 131 / 3,500 | Cedric Gray | 84 / 4,444 | Cooper DeJean | 184 / 2,940 |
+| 6 | Abdul Carter | 132 / 3,480 | Nick Bolton | 86 / 4,356 | Kyle Hamilton | 191 / 2,803 |
+| 7 | Myles Garrett | 143 / 3,381 | Fred Warner | 88 / 4,313 | Brian Branch | 218 / 2,614 |
+| 8 | Micah Parsons | 158 / 3,231 | Jihaad Campbell | 89 / 4,306 | Tykee Smith | 220 / 2,604 |
+| 9 | Maxx Crosby | 175 / 3,006 | Edgerrin Cooper | 96 / 4,156 | Derwin James | 271 / 2,274 |
+| 10 | Greg Rousseau | 182 / 2,950 | Ernest Jones | 110 / 3,909 | Antoine Winfield | 299 / 2,154 |
 
 **Rank bands** (share of players that are IDP, in `baseline.rankBands`):
 
 | band | 1-25 | 26-50 | 51-100 | 101-150 | 151-200 | 201-300 | 301-400 | 401-500 | 501-800 |
 |---|---|---|---|---|---|---|---|---|---|
 | IDP share | 0.00 | 0.08 | 0.22 | 0.33 | 0.33 | 0.38 | 0.52 | 0.47 | 0.60 |
+
+**Value distributions** (priced rows, `baseline.valueQuantiles`): offense n 491, median 1,818, p90 5,416, max 9,983;
+IDP n 397, median 1,488, p90 2,786, max 6,287.
 
 **Value at equal depth.** The table compares the k-th best defender with the k-th best offense player. It
 measures level only and says nothing about whether the level is correct.
@@ -83,7 +111,7 @@ measures level only and says nothing about whether the level is correct.
 | 108 (last league-wide IDP starter) | 3,400 | 1,882 | 0.55 |
 
 **Starter pools.** The top 108 defenders have a median value of 2,545 (p10 1,921, p90 4,182). The top 132 offense
-players have a median of 4,734 (p10 3,224, p90 8,035).
+players have a median of 4,734 (p10 3,224, p90 8,035). Ratio of medians 0.54.
 
 **Coverage and confidence** (`baseline.coverageByPosition`). The evidence behind IDP values is thin, and that is a
 fact about the board, not a judgment:
@@ -97,23 +125,24 @@ fact about the board, not a judgment:
 **Evidence census** (`baseline.evidenceCensus`):
 
 - Of the IDP-capable markets, three vote:
-  - `idpTradeCalc`: content last changed 14 days ago, freshness 46%.
+  - `idpTradeCalc`: content last changed 14 days ago, freshness 46%. Its own page says "Updated: 10/10/2026".
   - `draftSharksIdp`: 1 day, 62%.
   - `fantasyProsIdp`: 51 days, 24%.
 - Four do not vote:
-  - `idpShowCombined`: stale for 66 days, freshness 0. It is excluded on 301 IDP rows.
+  - `idpShowCombined`: stale for 66 days, freshness 0. It is withheld on all 301 IDP rows it covers.
   - `dlfIdp`: status `testing`.
   - `signalsIdp{Dl,Lb,Db}`: `data_issue`.
 - Weight states: 359 of 397 IDP rows are `SEVERELY_DEGRADED` and the other 38 are `DEGRADED`.
-- 9 IDP rows are quarantined. 32 IDP rows are unpriced; they stay missing, never 0.
+- 9 IDP rows are quarantined (`no_valid_source_values`); 51 carry `suspicious_disagreement`. 32 IDP rows are unpriced;
+  they stay missing, never 0. Offense: 11 unpriced, 0 quarantined.
 
 ## 2. Starters vs bench by price band (live rosters, weekly best ball)
 
 Method:
 
-- The rosters are the 12 live `dynasty_main` rosters (696 players).
+- The rosters are the 12 live `dynasty_main` rosters (696 players), byte-identical to the rosters in Lane A's manifest.
 - For each team and each week (1–6), the lineup is the exact optimum (`solve_optimal_assignment`) under that week's
-  realized league-scored points.
+  realized league-scored points. Lane A verified that this solver reproduces Sleeper's own best-ball totals exactly.
 - A player with no stat line that week scored 0, which is a real realized zero in best ball.
 - Classes by start share: `regular` started in at least half of the weeks, `spot` started at least once, `never`
   did not start.
@@ -185,15 +214,41 @@ broadly agree among IDPs: Spearman between IDPTC's rank and the canonical rank i
 it is 0.86 (n 295). This is a property of the consensus estimator on a thin, disagreeing panel. It is neither a
 defect in a source nor evidence about league utility.
 
+### 3b. IDP value as a share of offense value, on each market's own scale
+
+`nativeLevelRatios` gives the k-th defender's value over the k-th offense player's value, each market on its own
+scale:
+
+| k | canonical | IDPTC | Draft Sharks `3D Value +` |
+|---|---|---|---|
+| 1 | 0.63 | 0.64 | 0.45 |
+| 3 | 0.51 | 0.57 | 0.45 |
+| 10 | 0.48 | 0.68 | 0.42 |
+| 25 | 0.50 | 0.56 | 0.44 |
+| 50 | 0.48 | 0.57 | 0.39 |
+| 108 | 0.55 | 0.55 | 0.31 |
+| top-108 IDP median / top-132 offense median | 0.54 | 0.61 | 0.48 |
+
+Read it with two caveats:
+
+- Draft Sharks' `3D Value +` is a vendor value-over-replacement number in whole units (its best offense player is
+  100). Its ratios are not the same kind of quantity as the other two columns, and deep-k ratios are coarse. The
+  2026-08-20 audit measured its best defender at 53% of its best offense player; today's file gives 45%.
+- The pipeline uses Draft Sharks' combined **order** (rank-signal), not this cardinal ratio, so the DS column
+  describes the vendor's statement, not an input to the board (§4).
+
+The canonical level sits below IDPTC's own at most depths and above Draft Sharks'. That is what a blend of the two
+looks like, and it is the only sense in which the board "agrees" with either.
+
 ## 4. How cross-position level enters consensus (code trace)
 
 Each step below is traced to its live code path and checked against `sourceRankMeta` on the pinned board
 (`bridgeTrace.votePoolCensus`).
 
 1. **Every IDP vote is priced in the shared-market pool on the GLOBAL Hill master** (`c` 0.112, `s` 0.725). No IDP
-   vote reaches the IDP master on this board. The pool is chosen by `src/canonical/rank_coordinates.py`:
-   "a translation moves a rank into the pool of the ladder it was translated through". The four IDP voters reach
-   that pool by different routes:
+   vote reaches the IDP master (`c` 0.083, `s` 1.11) on this board. The pool is chosen by
+   `src/canonical/rank_coordinates.py`: "a translation moves a rank into the pool of the ladder it was translated
+   through". The four IDP voters reach that pool by different routes:
    - `idpTradeCalc` (377 rows) is **value-signal**: raw / site max × 9,999 (`value_direct`). Its offense and IDP
      values sit on one native 0–9,999 scale.
    - `draftSharksIdp` (321 rows) is **rank-signal**. `ds_combined_cross_market` merges the vendor's offense and IDP
@@ -202,6 +257,10 @@ Each step below is traced to its live code path and checked against `sourceRankM
      board because it is stale.
    - `fantasyProsIdp` (271 rows) is **rank-signal and IDP-only**. It is crosswalked through the shared-market ladder
      (`needs_shared_market_translation`, `sharedMarketTranslated: true`).
+
+   On the offense side, most voters (KTC Crowd and Trades, DLF, Dynasty Daddy, FantasyCalc and others) are priced in
+   the offense pool. Only IDPTC, Draft Sharks and IDP Show offense rows share the shared-market pool with the IDP
+   rows. That shared pool is how an IDP value becomes comparable with an offense value at all.
 2. **The shared-market ladder is seeded by one bridge: `idpTradeCalc`.** `config/bridges/bridges_v1.json` declares
    three bridges:
    - `idpTradeCalc`: QUALIFIED and capable. Its ladder starts at combined rank 29 with depth 377.
@@ -225,14 +284,29 @@ Each step below is traced to its live code path and checked against `sourceRankM
    - `{draftSharksIdp}` alone: 1 row.
 
    The mean anchor weight is 0.903.
-4. **Which market sets the level** (`topIdpLevelAttribution`). Each vote's influence is attributed to the market
-   its cross-position level came from, and a translated vote is attributed to the ladder seed. Over the top 108
-   defenders this gives **Draft Sharks 0.51, IDPTC 0.49**. This is an influence share, not an exact derivative: the
-   blend is a weighted mean-median.
+4. **What anchors the top defender.** Carson Schwesinger (served rank 34, value 6,287):
 
-**Answer to "where does a single external market decide cross-position level?"** On this board, no single market
-decides it. Two cardinal bridges decide it about equally: IDPTC (a generic public calculator) and Draft Sharks (a
-league-synced vendor board). IDPTC alone does fix the ladder that sets the level of IDP-only expert boards.
+   | voter | pool / signal | effective rank | value contribution | applied weight |
+   |---|---|---|---|---|
+   | `draftSharksIdp` (anchor) | shared market, rank-signal | 18 | 7,032 | 0.624 |
+   | `idpTradeCalc` (anchor) | shared market, value-signal | 54 | 5,637 | 0.424 |
+   | `fantasyProsIdp` (subgroup) | shared market, translated | 68 | 4,671 | 0.241 |
+   | `idpShowCombined` | shared market, rank-signal | 90 | 4,164 | 0 (withheld, stale) |
+
+   Anchor value 6,468, subgroup value 4,671, and 0.9 × 6,468 + 0.1 × 4,671 = 6,288. Two anchors set the placement:
+   Draft Sharks (updated a day ago) and IDPTC (14 days since a content change). Draft Sharks' contribution lifts him
+   above IDPTC's, and the stale IDP Show vote is withheld.
+5. **Which market sets the level** (`topIdpLevelAttribution`). Each vote's influence is attributed to the market
+   its cross-position level came from, and a translated vote is attributed to the ladder seed. Over the top 108
+   defenders this gives **Draft Sharks 0.51, IDPTC 0.49**. This is an influence share by weight, not an exact
+   derivative: the blend is a weighted mean-median. §5 measures the response directly and it is **not** symmetric.
+
+**Answer to "where does a single external market decide cross-position level?"** Today the two cardinal bridges agree
+on the median IDP level, so removing either one leaves it unchanged (§5), and in that sense no single market decides
+it. If they disagreed, the board would follow **IDPTC's cardinal level about two to three times more closely than
+Draft Sharks'** (log-elasticity 0.43–0.46 against 0.13–0.23), because IDPTC alone passes an offense-relative
+**value** through, while Draft Sharks enters as an order. IDPTC alone also seeds the ladder that sets the level of the
+IDP-only boards (a ±1% lever today).
 
 ## 5. Perturbations (offline shadow builds, measurement only)
 
@@ -251,76 +325,171 @@ the offense median ratio stays between 0.999 and 1.0003, so these are IDP-relati
 | ladder seeded by Draft Sharks instead of IDPTC | 1.002 | 34 | 12 | 43 |
 | ladder from every usable bridge (`multi_bridge_ladder` on, worker only) | 0.989 | 34 | 12 | 42 |
 | ladder ranks ×0.80 / ×1.25 | 1.012 / 0.989 | 34 / 34 | 12 / 12 | 44 / 42 |
-| IDPTC IDP values ×0.80 / ×1.25 | **0.931 / 1.085** | 40 / 29 | 9 / 16 | 42 / 47 |
+| IDPTC IDP values ×0.80 / ×1.25 | **0.909 / 1.108** | 40 / 26 | 8 / 17 | 37 / 52 |
 | Draft Sharks IDP `3D Value +` ×0.80 / ×1.25 | **0.972 / 1.053** | 39 / 30 | 8 / 16 | 40 / 47 |
 
 How to read it:
 
-- **IDP placement responds to each bridge's IDP level, at less than full strength.**
-  - Moving IDPTC's IDP values by ±20–25% moves the median defender by −6.9% / +8.5%, an elasticity of about 0.32–0.37.
-  - Moving Draft Sharks' IDP values by the same amount moves it by −2.8% / +5.3%. That number counts the change in
-    its combined ORDER, not a value, which is why it is smaller and asymmetric.
-  - In both cases the top-100 IDP count swings between 8 and 16, and the top defender between rank 29 and 40.
+- **IDP placement responds to each bridge's IDP level, and much more to IDPTC's.**
+  - Moving IDPTC's IDP values by ×0.80 / ×1.25 moves the median defender by −9.1% / +10.8%, a log-elasticity of
+    0.43 / 0.46. The median defender's overall rank shifts by +23 / −21.5 places, and the top-100 IDP count swings
+    between 8 and 17.
+  - Moving Draft Sharks' IDP values by the same factors moves it by −2.8% / +5.3% (elasticity 0.13 / 0.23). That
+    number counts the change in its combined ORDER, not a value, which is why it is smaller and asymmetric.
 - **Removing either bridge entirely leaves the median IDP level unchanged** (±0.2%). The two markets agree on the
   level, so neither one alone carries it. They disagree on identity, though, so removing one reshuffles which
   defenders are elite: without Draft Sharks the top-200 IDP count rises from 43 to 54.
 - **The ladder seed matters little today** (±1.2%), because the only IDP-only voter (FantasyPros) sits in the 10% subgroup.
+- **The earlier single-source dependency is closed.** The 2026-08-20 audit
+  (`docs/sources/CROSS_POSITION_SOURCE_AND_IDP_CEILING_AUDIT_2026-08-20.md`, §6) found that losing `idpTradeCalc`
+  emptied the ladder and published IDP #1 at 9,999. With Draft Sharks now a qualified bridge, removing IDPTC leaves
+  the median level at 1.001 and the top defender at rank 30.
 - The perturbation sizes were chosen for scale, and they do not estimate how wrong either market is. **No variant
   is a candidate methodology**, and none should be read as a recommended level.
+- **Coverage is checked, not assumed.** Each level perturbation records how many served IDP rows moved by the factor
+  (`provenance.idpRowsMovedByTheFactor`) and the run refuses to continue below 99%. The IDPTC variant moves all 377 of
+  its served defenders; Draft Sharks' moves all 295.
 
 ## 6. Does the external shared-market anchor represent this league?
 
-Stated assumptions compared with the verified card (`leagueFormatAlignment`):
+### 6.1 What each bridge states about its own basis
 
-| assumption | IDP Trade Calculator | Draft Sharks | `dynasty_main` (verified) |
-|---|---|---|---|
-| Superflex | ON (the scraper sets the site toggle) | TE-premium Superflex page | SUPER_FLEX 1: match |
-| TE premium | ON (the scraper sets the site toggle) | TE-premium page | `bonus_rec_te` 0.0, `bonus_fd_te` 1.0, tiered reception (`rec` 0.1, `rec_0_4` 0.25 … `rec_40p` 2.0), 2 TE starters: **no conventional TE premium**. The canonical board's constant TE++ target basis shares this assumption (CLAUDE.md step 5a), so it is board-wide, not specific to IDPTC |
-| IDP scoring | **UNAVAILABLE**: the ingested payload (name, value, position, team) states none | league-synced, scored client-side by the vendor; whether this card's custom keys are reproduced is **UNVERIFIED** | solo 1.33, assist 0.80, TFL 4.24, sack 2.92, QB hit 2.12, PD 5.30, INT 5.30, FF 4.24 |
-| teams / roster / IDP starters | **UNAVAILABLE** | league-synced (presumably 12 teams; not observable in the CSV) | 12 teams, 58 spots, 9 IDP starters per team (108 league-wide, 45% of non-kicker starters) |
+**IDP Trade Calculator** (`idptradecalculator.com`, page title "The IDP Show Trade Calculator"). The raw home page
+(13,544 bytes, sha256 in `statedFormat.idpTradeCalc.page`) states:
 
-**Card alignment.** This measurement is descriptive and in-sample: these boards already know weeks 1–6. For each
-market it compares two correlations:
+- a header of "12-Team/.5 PPR" and an update date of 10/10/2026, which matches the 14 days since its last content
+  change in the source registry;
+- in its meta description, that it is the official calculator of The IDP Show, built for IDP leagues using **Big 3
+  scoring**;
+- Superflex and TEP toggles. The scraper reads the DOM checkbox state back, and the pinned archive's capture evidence
+  records both as **observed ON** (`basis: dom_checkbox_final_state`, 1,027 entries from the `value_sftep` column).
 
-- Spearman of the market's IDP values against 2026 weeks 1–6 **league-card** points per game;
-- Spearman against points per game under Investigation B's **tackle-heavy reference card** (an illustrative card,
-  not any provider's).
+The page does not state a TE-premium magnitude, IDP starter counts, lineup or roster rules, or best ball (the page's
+visible text is 193 characters and contains none of those words).
 
-Both use the same players. The 95% CI comes from a paired bootstrap, and p-values are Holm-adjusted over the
-12-cell family.
+**"Big 3"** is defined by The IDP Show (`theidpshow.com/p/big-3-scoring`, dated 2021-09-23). It publishes the point
+values (parsed into `statedFormat.theIdpShowBig3`), calls them its preferred IDP scoring, and says to assume them for
+its player evaluations and mock drafts. Whether the calculator's numbers are actually computed under that card is the
+vendor's claim, which this lane cannot verify.
 
-| market | IDP overall: league − reference [95% CI] (n) | DL | LB | DB |
+**Draft Sharks** is driven with its league selector set to this league's synced copy (`scripts/fetch_draftsharks.py`,
+a Draft Sharks league id, not the Sleeper id). The fetcher proves that the values **move** when the league is
+activated; it does not prove that the vendor reproduces this card's custom keys (tiered reception, TFL and PD
+prices). That is UNVERIFIED and cannot be observed from the CSV.
+
+### 6.2 Measured mismatches
+
+`leagueFormatAlignment.mismatches`. Points are 2026 weeks 1–6 league-scored (host-native) stat lines. Intervals are 95%
+percentile bootstraps over players; "market starters" means the top 108 defenders (top 132 offense players) the
+canonical board prices, so the pool is chosen by price and not by realized points.
+
+| item | IDPTC states | league (verified card) | measured difference | result |
 |---|---|---|---|---|
-| IDPTC | +0.014 [−0.023, +0.048] (333) | +0.002 | −0.006 | −0.045 |
-| Draft Sharks IDP | −0.041 [−0.090, +0.005] (290) | −0.037 | −0.080 [−0.151, −0.013] | −0.039 |
-| canonical | −0.015 [−0.050, +0.019] (352) | +0.001 | −0.023 | −0.059 |
+| teams | 12 | 12 | none | MATCH |
+| Superflex | ON (observed) | 1 SUPER_FLEX slot | none | MATCH |
+| reception scoring | ".5 PPR" | `rec` 0.10 + a catch-length tier (0.25 / 0.50 / 0.75 / 1.00 / 1.25 / 2.00) + 0.02 per WR catch | points attached to a catch: RB+WR+TE **0.72 [0.70, 0.74]** (n 379), WR 0.80, TE 0.68, RB 0.56, against 0.50 stated, so +44% per catch. Effect on points: offense market starters **×1.047 [1.038, 1.057]** (n 120); WR ×1.096, TE ×1.068, RB ×1.011, QB ×1.000 | MISMATCH, measured |
+| other offense rules (first-down bonuses of 1.0 for RB/WR/TE and 0.4 for QB, 6-point passing TD, pass completion and incompletion rules) | not stated | present | not measured, because the header states nothing to compare against | UNAVAILABLE |
+| TE premium | TEP toggle ON; magnitude not stated | `bonus_rec_te` 0.0, `bonus_fd_te` 1.0 (equal to WR and RB), 2 TE starter slots | direction only; the card pays a TE nothing extra per catch | MISMATCH (board-wide: the canonical TE++ target basis shares it) |
+| IDP scoring | "Big 3" | solo 1.33, assist 0.80, TFL 4.24, sack 2.92, QB hit 2.12, PD 5.30, INT 5.30, FF 4.24, fumble recovery 3.19, TD 6.36, safety and blocked kick 5.30, return yards 0.111 | per-stat table below. Effect on points: defenders market starters **×1.077 [1.067, 1.087]** (n 100); all defenders ×1.088 [1.083, 1.093] (n 767); DL ×1.056, LB ×1.075, DB ×1.123 (each CI half-width under 0.01) | MISMATCH, measured |
+| IDP starters, best ball, roster size | not stated | 9 per team (108), best ball, 58 spots | not measurable | UNAVAILABLE |
 
-After Holm adjustment, none of the 12 cells differs from zero; the smallest adjusted p-value is 0.28 (Draft Sharks
-LB). So:
+**Per-stat comparison** (`mismatches.idpScoring.perKey`). Big 3 is the first number in each pair:
 
-- **IDPTC's IDP order tracks league-card production and tackle-heavy production equally well.** There is no sign that
-  it reflects this league's TFL- and PD-heavy card, which is what a generic calculator would be expected to show.
-- **Draft Sharks' league sync is not visible in its IDP order either.** If anything it leans toward the
-  tackle-heavy card, though not significantly. One plausible reason, unverified: its `3D Value +` is a multi-year
-  value-over-replacement projection, so it should not track six weeks of production.
-- The canonical board inherits both of these properties.
+| stat | Big 3 | league | league / Big 3 |
+|---|---|---|---|
+| solo tackle | 1.25 | 1.33 | 1.06 |
+| assisted tackle | 0.75 | 0.80 | 1.07 |
+| tackle for loss | 3 | 4.24 | **1.41** |
+| sack | 5 | 2.92 | **0.58** |
+| QB hit | 2 | 2.12 | 1.06 |
+| pass defended | 4 | 5.30 | **1.33** |
+| interception | 6 | 5.30 | 0.88 |
+| forced fumble | 4 | 4.24 | 1.06 |
+| fumble recovery | 3 | 3.19 | 1.06 |
+| defensive TD | 6 | 6.36 | 1.06 |
+| safety / blocked kick | 5 | 5.30 | 1.06 |
+| sack / return yards | 0.1 | 0.111 | 1.11 |
+| sack + QB hit + TFL (one sack play) | 10.0 | 9.28 | 0.93 |
 
-Placement in context: IDP is 26.5% of IDPTC's top 200 players, 23.5% of the canonical top 200, and 45% of this
-league's non-kicker starting slots. A slot share is not a value share, because replacement depth differs by
-position. It is shown only to give the level a frame of reference.
+The league card is close to Big 3 scaled up by about 6%, with four deliberate departures: sacks are worth much less,
+and TFL, pass defended and (slightly) interceptions are priced differently. A full sack play (sack, QB hit and TFL)
+pays almost the same under both cards (9.28 against 10.0), so the departures move **who** earns points (TFL and PD
+plays without a sack) more than the total.
 
-**Conclusion (verdict NOT_JUSTIFIED).** The cross-position anchor is a market-price anchor built from two external
-dynasty markets:
+**How large is it?** Under the league card, a defender scores about 8% more than under Big 3 (market starters 7.7%).
+The points-per-game orders under the two cards are nearly identical (Spearman 0.991 for market starters, 0.998 for all
+defenders), and the shift favors DBs (+12.3%) over DL (+5.6%) by about 6.7 percentage points. Against the reception
+mismatch (offense starters +4.7%), the card lifts defenders slightly more than offense: about 3% for the starter
+pools, and about 1% for DL, 2.5% for LB and 7% for DB when each family's all-player ratio is set against the all-offense
+ratio of 1.049 (ratios of two estimated ratios, intervals not propagated). Those are small next to the unmeasured items
+in the table (IDP starter count, best ball, replacement depth) and next to the perturbations in §5. They say the
+generic basis is **close** to this league's card for IDP and **off** for TE and reception. They do not say the level
+is right.
 
-- IDPTC: generic, TE premium switched on against this card, IDP scoring basis unstated, and 14 days without a
-  content change;
-- Draft Sharks: league-synced in name, with no measurable league-card signature in its IDP order.
+### 6.3 Descriptive card alignment (in-sample)
 
-Their agreement on level (§5) is consensus about market price, and the repository's own rule is that it is not
-duplication. It still validates nothing about league utility. No non-market, league-specific evidence that would
-justify this level exists in this lane. The single quantitative hint is suggestive but not conclusive:
-defenders start in best ball about as often as offense players at half the price (§2). Turning that hint into a
-claim needs replacement-adjusted, out-of-sample evidence, which belongs to Lanes B and D.
+For each market this compares two Spearman correlations on the same players: the market's IDP values against
+league-card points per game, and against points per game under a reference card. The reference cards are
+Investigation B's illustrative tackle-heavy card and the Big 3 card the calculator names. Intervals are paired
+bootstraps on shared resamples; p-values are Holm-adjusted within each reference's 12-cell family. The boards
+already know weeks 1–6, so this is descriptive.
+
+`league − reference` Spearman (95% CI), IDP overall (n):
+
+| market | vs Big 3 | vs tackle-heavy |
+|---|---|---|
+| IDPTC | −0.009 [−0.021, +0.002] (333) | +0.014 [−0.023, +0.048] |
+| Draft Sharks IDP | −0.000 [−0.013, +0.013] (290) | −0.041 [−0.090, +0.005] |
+| canonical | −0.004 [−0.015, +0.007] (352) | −0.015 [−0.050, +0.019] |
+
+After Holm adjustment no cell differs from zero for Big 3 (smallest adjusted p 1.0) and none for the tackle-heavy card
+(smallest adjusted p 0.28, Draft Sharks LB, raw difference −0.080 [−0.151, −0.013]). What that does and does not mean:
+
+- **The test cannot separate Big 3 from the league card.** They rank the same players almost identically (Spearman
+  0.99+), so a market built on either looks the same by order, and the confidence interval half-width is only about
+  0.01. An IDPTC order consistent with its stated Big 3 basis is therefore also consistent with this league's card.
+- **It has little power against the tackle-heavy card either** (half-width about 0.04 to 0.05). Absence of a
+  significant difference is not evidence that a market's league sync works or fails.
+- Draft Sharks' LB order correlates better with tackle-heavy points than with league points (raw), which fits a
+  tackle-volume projection base, but it does not survive correction.
+- The canonical board inherits the properties of both inputs.
+
+### 6.4 Lineage context (recorded by the source registry, not re-measured here)
+
+`config/sources/source_lineage.json` records, and this lane did not re-test:
+
+- `idptc-idpshow-dependence`: the calculator's IDP order matches The IDP Show's IDP-only board (leave-pair-out
+  residual +0.992 on n 243, raw Spearman 0.998 on n 347, refreshed 2026-10-01), with lead-lag at 3 of 5 publications.
+  The page calls itself the official calculator of The IDP Show, and The IDP Show says Big 3 governs its evaluations.
+  Ancestry stays **suspected**: no vendor statement says the calculator's IDP order is derived from The IDP Show's.
+- `idptc-offense-ktc-value-identity`: at 2 of 4 broad offense batches its non-TE offense values equalled KTC's
+  base superflex crowd values from days earlier. The batch voting since 2026-10-10 is close but not identical.
+- Draft Sharks' basis is `model_projection`: a projection-driven value, not a market price.
+
+The owner directive of 2026-10-19 says similarity is not lineage and agreement between providers is consensus, so this
+report does not merge, cap or discount any vote on that basis. It records only that the **independence** of the IDP
+bridge from The IDP Show, and of IDPTC's offense level from KTC, is unverified, which bears on whether the anchor can be
+called independent evidence.
+
+### 6.5 Conclusion (verdict NOT_JUSTIFIED)
+
+1. The cardinal cross-position level comes from two external markets: the two anchors carry 0.90 of each top-108
+   defender's value (§4).
+2. Neither can be shown to represent this league. IDPTC states a basis that matches on teams and Superflex and
+   differs on reception scoring (+44% per catch), TE premium and IDP scoring (a measured, mostly level-only
+   difference), and says nothing about IDP starters, best ball or replacement. Draft Sharks' league sync cannot be
+   verified.
+3. The two agree on the median IDP level (removing either changes it by 0.2%) and disagree about who the elite
+   defenders are. Agreement on level is consensus about price. It does not validate utility.
+4. Both are stale or thin: IDPTC 14 days without a content change (weight 0.46), FantasyPros 51 days (0.24), IDP Show
+   withheld at 66 days, every priced IDP row `low` confidence.
+5. No non-market, league-specific evidence for the level exists in this lane. The one quantitative hint (§2:
+   defenders start in best ball as often as offense at about half the price) is suggestive, not conclusive.
+
+**What would change the verdict.** `JUSTIFIED` needs independent, league-scored evidence that supports the level out
+of sample, for example replacement-adjusted marginal best-ball utility with a pre-registered backtest (Lanes B and D),
+or a vendor-verifiable league-sync basis. A finding that the level is **wrong** needs the same evidence in the other
+direction. Until then the correctness of the level stays UNRESOLVED.
 
 ## 7. Reproducing Investigation B's correlation claims
 
@@ -336,7 +505,8 @@ and seed (20261020) are Investigation B's.
 | B recorded, served pre-season (2026-08-25) | out-of-sample | 0.670 [0.602, 0.728] (296) | 0.403 [0.299, 0.495] (277) | 0.27 |
 | **B's served 2026-08-25 board, re-scored** | out-of-sample | **0.670 [0.602, 0.728] (296)** | **0.403 [0.298, 0.495] (277)** | 0.267 [0.146, 0.380] |
 | **point-in-time pre-season 2026-09-09** (today's code, that day's sources) | out-of-sample for the 2026 data; methodology is today's | 0.669 [0.601, 0.722] (324) | 0.442 [0.348, 0.521] (343) | 0.227 [0.120, 0.329] |
-| same cohort: 2026-09-09 vs 2026-08-25 (players priced on both) | out-of-sample | 0.666 / 0.666 (293) | **0.412 / 0.403** (277) | 0.255 / 0.263 |
+| same cohort, 2026-09-09 board (players priced on both) | out-of-sample | 0.666 [0.596, 0.726] (293) | 0.412 [0.303, 0.505] (277) | 0.255 [0.149, 0.374] |
+| same cohort, B's 2026-08-25 board | out-of-sample | 0.666 [0.596, 0.726] (293) | 0.403 [0.288, 0.498] (277) | 0.263 [0.154, 0.383] |
 
 **Results:**
 
@@ -353,36 +523,38 @@ Limits of this reproduction:
 - Six weeks of production measure realized short-horizon output, not dynasty value. Correlation with points per game
   is not a test of dynasty pricing accuracy.
 - The point-in-time board uses today's methodology, so methodology drift since September is folded in.
+- The same-cohort intervals are deterministic only because the cohort is sorted before resampling; an earlier
+  revision resampled in hash-seed order, which moved CI endpoints by up to 0.02 between identical runs.
 
 ## 8. Limitations and UNAVAILABLE items
 
-- **IDPTC's IDP scoring basis, league size and IDP starter count are UNAVAILABLE.** The ingested payload does not
-  state them. No other site was fetched, because the lane authorizes only Sleeper and nflverse.
+- **IDPTC's IDP starter count, best-ball treatment, roster size and TE-premium magnitude are UNAVAILABLE.** The
+  calculator's page does not state them. Its scoring basis ("Big 3") and header ("12-Team/.5 PPR") are stated, and
+  are the vendor's claims about its own numbers.
+- **The vendor pages were read once** (2026-10-26 UTC) and are receipted by sha256. A page can change later; the
+  receipt shows whether it did. The Big 3 page is dated 2021, the calculator page 2026-10-10.
 - **Draft Sharks' reproduction of this card's custom keys is UNVERIFIED** (the vendor scores client-side).
-- **Lane A's scoring manifest was not available on any branch when this ran,** so the card and its fingerprint were
-  fetched here. Their fingerprint equals the archived contract's.
+- **The offense-side mismatch is only partly measured.** Only the reception rules are isolated, against a 0.5 PPR
+  counterfactual on the league's own stat lines. Other offense rules the header does not state are not compared.
 - **The perturbations are single-factor and do not interact.** The elasticities are local (±20–25%). The attribution
   shares in §4 are approximations of a weighted mean-median.
 - **The starter/bench table replays today's rosters over weeks 1–6.** It is realized, not expected, production.
-- **The card-alignment test is in-sample and descriptive.** The tackle-heavy card is illustrative.
-- **Windows L1 caveat.** `tests/scripts` has pre-existing failures on this Windows host:
-  - `test_probe_signals_native` (`os.getuid`);
-  - five `verify_signals_onbox*` path-separator or file-mode assertions.
-
-  None of them touch these files. Linux CI is authoritative.
+- **The card-alignment test is in-sample, descriptive and low-powered** (§6.3).
+- **Projections are UNAVAILABLE here.** `data/bdvm/projections/` is box-local, as Lane A recorded.
 - **Served values cannot move from this work.** The change adds a research script, its tests, this document and an
   evidence JSON, and touches no file under `src/`, `config/`, `frontend/`, `data/` or `CSVs/`. No served path can
-  reach it (a test asserts that nothing in `src/` references it). `board_diff --expect-no-value-change` would compare
-  two builds of byte-identical code and inputs. The in-process build is pinned equal to an independent worker build.
+  reach it (a test asserts that nothing in `src/` references it).
 
 ## 9. Next tasks this lane hands off
 
 1. **Lanes B and D:** test the §2 hint with replacement-adjusted marginal lineup utility, out-of-sample. That means
    asking whether the 108th defender's marginal best-ball contribution justifies a value of 0.55× the 132nd
-   offense player.
-2. **Lane D:** the consensus compression of elite defenders (§3) is an estimator property on a three-voter panel.
-   Any cross-position challenger should be evaluated against it explicitly.
+   offense player. The measured scoring differences (§6.2) are small enough that they do not need to be the focus.
+2. **Lane D:** the consensus compression of elite defenders (§3) is an estimator property on a thin, disagreeing
+   panel. Any cross-position challenger should be evaluated against it explicitly.
 3. **Owner decision, not research:** IDP evidence is thin. Every priced IDP row is low confidence, two of the three
    IDP voters are past their staleness budgets (IDPTC 14 days, FantasyPros 51 days), IDP Show has been stale for 66
    days, and DLF IDP is `testing`. Source restoration is the cheapest accuracy lever, and it changes source voting,
    which is owner-reserved.
+4. **Owner question worth asking the vendors:** whether the IDP Trade Calculator's numbers are computed under Big 3, and
+   at what starter counts. The answer would replace two UNAVAILABLE rows.

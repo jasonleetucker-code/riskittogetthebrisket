@@ -1,9 +1,10 @@
 {
  "purpose": "Lane C-market baseline (directive 2026-10-25 \u00a76C/\u00a79). RESEARCH ONLY: no served value, rank, weight, curve, bridge or flag changed.",
- "generatedAt": "2026-10-25T20:48:59.519705+00:00",
+ "generatedAt": "2026-10-26T02:08:28.417388+00:00",
  "generatedBy": "scripts/idp_accuracy/market_baseline.py",
  "inputs": {
-  "codeSha": "f9e8d41d8a19e3173138784dea1906778eea7bd8",
+  "codeSha": "2cfd70dbb9ad067147e03e59a7b3616a49579350",
+  "scriptSha256": "14a16c50e68fe892144c8380c0467fd930c8219bf0b3af6f968a4c1995d75e16",
   "pinnedMainSha": "bdbc83a1fba1b1278c7862362f9a18a2da69b970",
   "leagueKey": "dynasty_main",
   "archive": "exports/archive/dynasty_export_20261025_120337.zip",
@@ -43,17 +44,129 @@
   ],
   "week7": "EXCLUDED (in progress on 2026-10-25)",
   "kickoffUtc": "2026-09-10T00:20:00+00:00",
-  "sleeperCache": {
-   "dir": "data/research_cache/idp_c_market",
-   "files": 15,
-   "combinedSha256": "7798b1743bc470d2e7c4e9f66585d4beec872ce3f1bff019d4b220d16ec2475f"
+  "servedBoardSha256": "4e6ba1f5c1695f5968e33d69aa26d5776e9587872e438ea8ea179baeed7d8712",
+  "sleeperReceipts": {
+   "/league/{leagueId}": {
+    "sha256": "6e188d550e1fb26714d3ab12c6b84fd966ffcc2a2a62f1ed532ed64b3dde0ce9",
+    "bytes": 5107,
+    "fetchedAtUtc": "2026-10-26T01:49:13Z"
+   },
+   "/league/{leagueId}/matchups/1": {
+    "sha256": "9f4d2663ac8a4960d6299ec97199dccba070828e19e0ff0e15b875314b2221b2",
+    "bytes": 18649,
+    "fetchedAtUtc": "2026-10-26T01:49:17Z"
+   },
+   "/league/{leagueId}/matchups/2": {
+    "sha256": "ac8be4fffb6c0dc35df103295539a6d4843b75195596b77d7ade21a617e3df02",
+    "bytes": 18695,
+    "fetchedAtUtc": "2026-10-26T01:49:17Z"
+   },
+   "/league/{leagueId}/matchups/3": {
+    "sha256": "142ca76bb94e966dad28f699362bb7fd8d6ea71f658c06f82e958807ac1218e0",
+    "bytes": 18672,
+    "fetchedAtUtc": "2026-10-26T01:49:18Z"
+   },
+   "/league/{leagueId}/matchups/4": {
+    "sha256": "c1c28e4add27364429437778d172fdfa65d9894c4637ae12ab839cda77a913a7",
+    "bytes": 18735,
+    "fetchedAtUtc": "2026-10-26T01:49:18Z"
+   },
+   "/league/{leagueId}/matchups/5": {
+    "sha256": "b8c08a1546f9e2a5b68e3c7f62547b23f20b6ff1c4f7ca154ab697004799966e",
+    "bytes": 18732,
+    "fetchedAtUtc": "2026-10-26T01:49:19Z"
+   },
+   "/league/{leagueId}/matchups/6": {
+    "sha256": "3fec893d6fe76fa37901e9aad7f6d4d66bbad200b83a1754dd1b1a3e2b41cdf7",
+    "bytes": 18677,
+    "fetchedAtUtc": "2026-10-26T01:49:20Z"
+   },
+   "/league/{leagueId}/rosters": {
+    "sha256": "5454a5269885d5988fddeceda0acdd0185f087aa4f1f98b420f7ce83f9770604",
+    "bytes": 14759,
+    "fetchedAtUtc": "2026-10-26T01:49:14Z"
+   },
+   "/players/nfl": {
+    "sha256": "0798ad4900e31fab494c6ff5cb32dd4ad8c4fbe96521283fbaa35ddaa73a3bdc",
+    "bytes": 14663684,
+    "fetchedAtUtc": "2026-10-26T01:49:14Z"
+   },
+   "/stats/nfl/regular/2026/1": {
+    "sha256": "0e2453cc8cbb5315001d5f990f7f5a8e934d675ee0d809a9dde5d491f1d2d5ff",
+    "bytes": 569056,
+    "fetchedAtUtc": "2026-10-26T01:49:14Z"
+   },
+   "/stats/nfl/regular/2026/2": {
+    "sha256": "616ce95a9f34e975e12ab2ecba380c525e27bb104e84160c7a748c2e11f5bea1",
+    "bytes": 574480,
+    "fetchedAtUtc": "2026-10-26T01:49:15Z"
+   },
+   "/stats/nfl/regular/2026/3": {
+    "sha256": "255fb568b17433754fb1eaa8858fc2646cf667244c083ee44067f992655172d8",
+    "bytes": 573997,
+    "fetchedAtUtc": "2026-10-26T01:49:15Z"
+   },
+   "/stats/nfl/regular/2026/4": {
+    "sha256": "6a7e8256ed4e92a61b6a3d73233a54e281ba39c53667b8c61c22be6a43f393d5",
+    "bytes": 585518,
+    "fetchedAtUtc": "2026-10-26T01:49:15Z"
+   },
+   "/stats/nfl/regular/2026/5": {
+    "sha256": "11ae27fcc6872eb04f3972259fa63bdb510e22e51314198bd0ce962af4f82070",
+    "bytes": 555127,
+    "fetchedAtUtc": "2026-10-26T01:49:16Z"
+   },
+   "/stats/nfl/regular/2026/6": {
+    "sha256": "e9086612023efd3beea10174475c7010ae8401305d0b489923ddfeaeb1e7d77e",
+    "bytes": 513801,
+    "fetchedAtUtc": "2026-10-26T01:49:16Z"
+   }
+  },
+  "laneAManifestCrosscheck": {
+   "manifestSha256": "d0d9931d596ea26d893d2c37e8c0de2d727dd7a444dbea17dda24f323ba455e1",
+   "manifestVersion": "idp-accuracy-manifest/v1",
+   "pinnedMainSha": "bdbc83a1fba1b1278c7862362f9a18a2da69b970",
+   "servedBoardSha256": "match",
+   "archiveSha256": "match",
+   "scoringFingerprintLive": "match",
+   "scoringFingerprintArchived": "match",
+   "rosterFormatFingerprint": "match",
+   "sleeperEndpoints": {
+    "/league/{leagueId}": "match",
+    "/league/{leagueId}/matchups/1": "match",
+    "/league/{leagueId}/matchups/2": "match",
+    "/league/{leagueId}/matchups/3": "match",
+    "/league/{leagueId}/matchups/4": "match",
+    "/league/{leagueId}/matchups/5": "match",
+    "/league/{leagueId}/matchups/6": "match",
+    "/league/{leagueId}/rosters": "match",
+    "/players/nfl": "differs",
+    "/stats/nfl/regular/2026/1": "match",
+    "/stats/nfl/regular/2026/2": "match",
+    "/stats/nfl/regular/2026/3": "match",
+    "/stats/nfl/regular/2026/4": "match",
+    "/stats/nfl/regular/2026/5": "match",
+    "/stats/nfl/regular/2026/6": "match"
+   },
+   "sleeperEndpointCounts": {
+    "match": 14,
+    "differs": 1
+   }
   },
   "rosterCount": 12,
   "scorerCheck": {
    "playerWeeksCompared": 3299,
    "within0.01": 3299,
    "maxAbsDiff": 0.0044,
-   "nonzeroHostPointsWithNoScoredLine": 0
+   "nonzeroHostPointsWithNoScoredLine": 0,
+   "noScoredLineAwardedZero": 872
+  },
+  "scorerCheckNoGpFilter": {
+   "playerWeeksCompared": 3710,
+   "within0.01": 3710,
+   "maxAbsDiff": 0.0044,
+   "nonzeroHostPointsWithNoScoredLine": 0,
+   "noScoredLineAwardedZero": 461
   },
   "hillParamSet": "hill_scope_masters:b131caf5273d88b4",
   "packageModelUntouched": "geom_q078_v1 (not read or exercised by this script)"
@@ -63,7 +176,7 @@
   "season": "2026",
   "scoringFingerprintLive": "sf1:9e51824690d091f9",
   "scoringFingerprintArchived": "sf1:9e51824690d091f9",
-  "rosterFormatSha256": "4d0914e7e39b6696bcdd11a27198c430b18eab50a32fccb1dbaf4c9ae1605c33",
+  "rosterFormatFingerprint": "rf1:10f897578eea2fe4",
   "teams": 12,
   "rosterSpots": 58,
   "starterSlots": {
@@ -4182,7 +4295,7 @@
    "WR": 19.12
   },
   "slotSource": "sleeper_roster_positions",
-  "rostersFetchedAt": "live Sleeper /rosters (cached <=6h); see inputs.sleeperCache",
+  "rostersFetchedAt": "Sleeper /rosters, receipt in inputs.sleeperReceipts (reused from the raw cache)",
   "rosteredPlayers": 696,
   "priceBands": [
    "<500",
@@ -4521,6 +4634,159 @@
    "spearmanIdptcVsCanonicalAmongIdp": 0.863
   },
   "rankBasis": "player-only ranks (picks excluded) on both boards unless 'WithPicks'"
+ },
+ "nativeLevelRatios": {
+  "canonical": {
+   "offenseKey": "rankDerivedValue",
+   "idpKey": "rankDerivedValue",
+   "nOffense": 491,
+   "nIdp": 397,
+   "atEqualDepth": [
+    {
+     "k": 1,
+     "offense": 9983.0,
+     "idp": 6287.0,
+     "idpOverOffense": 0.63
+    },
+    {
+     "k": 3,
+     "offense": 9861.0,
+     "idp": 5071.0,
+     "idpOverOffense": 0.514
+    },
+    {
+     "k": 10,
+     "offense": 8959.0,
+     "idp": 4306.0,
+     "idpOverOffense": 0.481
+    },
+    {
+     "k": 25,
+     "offense": 6975.0,
+     "idp": 3480.0,
+     "idpOverOffense": 0.499
+    },
+    {
+     "k": 50,
+     "offense": 5416.0,
+     "idp": 2614.0,
+     "idpOverOffense": 0.483
+    },
+    {
+     "k": 108,
+     "offense": 3400.0,
+     "idp": 1882.0,
+     "idpOverOffense": 0.554
+    }
+   ],
+   "starterPools": {
+    "offenseTop": 132,
+    "idpTop": 108,
+    "medianRatio": 0.538,
+    "meanRatio": 0.541
+   }
+  },
+  "idpTradeCalc": {
+   "offenseKey": "idpTradeCalc",
+   "idpKey": "idpTradeCalc",
+   "nOffense": 432,
+   "nIdp": 377,
+   "atEqualDepth": [
+    {
+     "k": 1,
+     "offense": 9999.0,
+     "idp": 6444.0,
+     "idpOverOffense": 0.644
+    },
+    {
+     "k": 3,
+     "offense": 9991.0,
+     "idp": 5667.0,
+     "idpOverOffense": 0.567
+    },
+    {
+     "k": 10,
+     "offense": 7957.0,
+     "idp": 5399.0,
+     "idpOverOffense": 0.679
+    },
+    {
+     "k": 25,
+     "offense": 6439.0,
+     "idp": 3593.0,
+     "idpOverOffense": 0.558
+    },
+    {
+     "k": 50,
+     "offense": 5278.0,
+     "idp": 3020.0,
+     "idpOverOffense": 0.572
+    },
+    {
+     "k": 108,
+     "offense": 3494.0,
+     "idp": 1931.0,
+     "idpOverOffense": 0.553
+    }
+   ],
+   "starterPools": {
+    "offenseTop": 132,
+    "idpTop": 108,
+    "medianRatio": 0.611,
+    "meanRatio": 0.578
+   }
+  },
+  "draftSharks": {
+   "offenseKey": "draftSharks",
+   "idpKey": "draftSharksIdp",
+   "nOffense": 348,
+   "nIdp": 176,
+   "atEqualDepth": [
+    {
+     "k": 1,
+     "offense": 100.0,
+     "idp": 45.0,
+     "idpOverOffense": 0.45
+    },
+    {
+     "k": 3,
+     "offense": 82.0,
+     "idp": 37.0,
+     "idpOverOffense": 0.451
+    },
+    {
+     "k": 10,
+     "offense": 55.0,
+     "idp": 23.0,
+     "idpOverOffense": 0.418
+    },
+    {
+     "k": 25,
+     "offense": 39.0,
+     "idp": 17.0,
+     "idpOverOffense": 0.436
+    },
+    {
+     "k": 50,
+     "offense": 26.0,
+     "idp": 10.0,
+     "idpOverOffense": 0.385
+    },
+    {
+     "k": 108,
+     "offense": 16.0,
+     "idp": 5.0,
+     "idpOverOffense": 0.312
+    }
+   ],
+   "starterPools": {
+    "offenseTop": 132,
+    "idpTop": 108,
+    "medianRatio": 0.476,
+    "meanRatio": 0.435
+   }
+  },
+  "note": "IDP value / offense value at equal depth k on each market's OWN scale.  Draft Sharks' 3D Value + is a vendor value-over-replacement number in whole units (its best offense player is 100); deep-k ratios there are coarse and its scale is not the canonical one, so compare the markets by the direction and rough size of the ratio, not by value.  A level comparison, not a verdict on any level."
  },
  "bridgeTrace": {
   "anchorKeys": [
@@ -6086,24 +6352,29 @@
     "variant": "idptc_idp_values_x0.80",
     "archive": "exports/archive/dynasty_export_20261025_120337.zip",
     "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
-    "rowsScaledCsv": 280,
-    "rowsScaledRaw": 273,
-    "sourceOverrides": null
+    "rowsScaledCsv": 378,
+    "rowsScaledRaw": 377,
+    "sourceOverrides": null,
+    "idpRowsMovedByTheFactor": {
+     "scaled": 377,
+     "of": 377,
+     "share": 1.0
+    }
    },
    "idptcTopIdpSiteValue": 4510,
    "vsBaseline": {
-    "idpGeoMeanValueRatio": 0.941,
-    "offenseGeoMeanValueRatio": 0.9983,
-    "idpRelativeToOffense": 0.9426,
-    "idpMedianValueRatio": 0.9309,
+    "idpGeoMeanValueRatio": 0.905,
+    "offenseGeoMeanValueRatio": 1.0,
+    "idpRelativeToOffense": 0.905,
+    "idpMedianValueRatio": 0.9088,
     "offenseMedianValueRatio": 1.0,
-    "idpRelativeToOffenseMedian": 0.9309,
+    "idpRelativeToOffenseMedian": 0.9088,
     "idpRowsHalvedOrWorse": 0,
     "offenseRowsHalvedOrWorse": 0,
     "idpRowsUnpricedInVariant": 0,
     "offenseRowsUnpricedInVariant": 0,
-    "idpMedianOverallRankShift": 12.5,
-    "idpMeanAbsOverallRankShift": 21.4,
+    "idpMedianOverallRankShift": 23.0,
+    "idpMeanAbsOverallRankShift": 27.7,
     "topDefenderRank": {
      "baseline": 34,
      "variant": 40,
@@ -6111,11 +6382,11 @@
     },
     "idpInTop100": {
      "baseline": 12,
-     "variant": 9
+     "variant": 8
     },
     "idpInTop200": {
      "baseline": 43,
-     "variant": 42
+     "variant": 37
     }
    },
    "placement": {
@@ -6128,28 +6399,28 @@
     "idpInTopN": {
      "25": 0,
      "50": 1,
-     "100": 9,
-     "200": 42,
-     "300": 72
+     "100": 8,
+     "200": 37,
+     "300": 67
     },
     "familyKthOverallRank": {
      "DL": {
-      "1": 74,
-      "3": 88,
-      "10": 180,
-      "25": 265
+      "1": 75,
+      "3": 115,
+      "10": 202,
+      "25": 290
      },
      "LB": {
       "1": 40,
       "3": 71,
-      "10": 111,
-      "25": 230
+      "10": 110,
+      "25": 226
      },
      "DB": {
-      "1": 115,
-      "3": 149,
-      "10": 320,
-      "25": 433
+      "1": 113,
+      "3": 148,
+      "10": 318,
+      "25": 421
      }
     },
     "kth": [
@@ -6178,12 +6449,12 @@
        "rank": 10
       },
       "idp": {
-       "name": "Nick Bolton",
+       "name": "Fred Warner",
        "pos": "LB",
-       "value": 4009.0,
-       "rank": 102
+       "value": 3898.0,
+       "rank": 106
       },
-      "idpOverOffenseValue": 0.447
+      "idpOverOffenseValue": 0.435
      },
      {
       "k": 25,
@@ -6194,12 +6465,12 @@
        "rank": 25
       },
       "idp": {
-       "name": "Myles Garrett",
-       "pos": "DL",
-       "value": 3356.0,
-       "rank": 143
+       "name": "Zack Baun",
+       "pos": "LB",
+       "value": 3161.0,
+       "rank": 155
       },
-      "idpOverOffenseValue": 0.481
+      "idpOverOffenseValue": 0.453
      },
      {
       "k": 50,
@@ -6210,28 +6481,28 @@
        "rank": 51
       },
       "idp": {
-       "name": "Patrick Queen",
-       "pos": "LB",
-       "value": 2471.0,
-       "rank": 230
+       "name": "Tykee Smith",
+       "pos": "DB",
+       "value": 2349.0,
+       "rank": 243
       },
-      "idpOverOffenseValue": 0.456
+      "idpOverOffenseValue": 0.434
      },
      {
       "k": 108,
       "offense": {
-       "name": "Brian Thomas",
-       "pos": "WR",
-       "value": 3387.0,
-       "rank": 138
+       "name": "Eli Stowers",
+       "pos": "TE",
+       "value": 3400.0,
+       "rank": 135
       },
       "idp": {
-       "name": "Kyle Louis",
-       "pos": "LB",
-       "value": 1776.0,
-       "rank": 380
+       "name": "A.J. Haulcy",
+       "pos": "DB",
+       "value": 1718.0,
+       "rank": 404
       },
-      "idpOverOffenseValue": 0.524
+      "idpOverOffenseValue": 0.505
      }
     ]
    }
@@ -6242,70 +6513,75 @@
     "variant": "idptc_idp_values_x1.25",
     "archive": "exports/archive/dynasty_export_20261025_120337.zip",
     "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
-    "rowsScaledCsv": 280,
-    "rowsScaledRaw": 273,
-    "sourceOverrides": null
+    "rowsScaledCsv": 378,
+    "rowsScaledRaw": 377,
+    "sourceOverrides": null,
+    "idpRowsMovedByTheFactor": {
+     "scaled": 377,
+     "of": 377,
+     "share": 1.0
+    }
    },
    "idptcTopIdpSiteValue": 7046,
    "vsBaseline": {
-    "idpGeoMeanValueRatio": 1.0718,
-    "offenseGeoMeanValueRatio": 1.0017,
-    "idpRelativeToOffense": 1.07,
-    "idpMedianValueRatio": 1.0849,
+    "idpGeoMeanValueRatio": 1.1161,
+    "offenseGeoMeanValueRatio": 1.0,
+    "idpRelativeToOffense": 1.1161,
+    "idpMedianValueRatio": 1.1083,
     "offenseMedianValueRatio": 1.0,
-    "idpRelativeToOffenseMedian": 1.0849,
+    "idpRelativeToOffenseMedian": 1.1083,
     "idpRowsHalvedOrWorse": 0,
     "offenseRowsHalvedOrWorse": 0,
     "idpRowsUnpricedInVariant": 0,
     "offenseRowsUnpricedInVariant": 0,
-    "idpMedianOverallRankShift": -15.0,
-    "idpMeanAbsOverallRankShift": 20.0,
+    "idpMedianOverallRankShift": -21.5,
+    "idpMeanAbsOverallRankShift": 23.6,
     "topDefenderRank": {
      "baseline": 34,
-     "variant": 29,
+     "variant": 26,
      "variantName": "Carson Schwesinger"
     },
     "idpInTop100": {
      "baseline": 12,
-     "variant": 16
+     "variant": 17
     },
     "idpInTop200": {
      "baseline": 43,
-     "variant": 47
+     "variant": 52
     }
    },
    "placement": {
     "topDefender": {
      "name": "Carson Schwesinger",
      "pos": "LB",
-     "rank": 29,
-     "value": 6800.0
+     "rank": 26,
+     "value": 6933.0
     },
     "idpInTopN": {
      "25": 0,
      "50": 3,
-     "100": 16,
-     "200": 47,
-     "300": 85
+     "100": 17,
+     "200": 52,
+     "300": 91
     },
     "familyKthOverallRank": {
      "DL": {
       "1": 45,
-      "3": 91,
-      "10": 181,
-      "25": 262
+      "3": 70,
+      "10": 156,
+      "25": 227
      },
      "LB": {
-      "1": 29,
-      "3": 54,
-      "10": 95,
-      "25": 188
+      "1": 26,
+      "3": 52,
+      "10": 93,
+      "25": 197
      },
      "DB": {
-      "1": 92,
-      "3": 120,
-      "10": 233,
-      "25": 349
+      "1": 91,
+      "3": 122,
+      "10": 236,
+      "25": 347
      }
     },
     "kth": [
@@ -6320,10 +6596,10 @@
       "idp": {
        "name": "Carson Schwesinger",
        "pos": "LB",
-       "value": 6800.0,
-       "rank": 29
+       "value": 6933.0,
+       "rank": 26
       },
-      "idpOverOffenseValue": 0.681
+      "idpOverOffenseValue": 0.694
      },
      {
       "k": 10,
@@ -6336,10 +6612,10 @@
       "idp": {
        "name": "Jihaad Campbell",
        "pos": "LB",
-       "value": 4647.0,
-       "rank": 80
+       "value": 4682.0,
+       "rank": 78
       },
-      "idpOverOffenseValue": 0.519
+      "idpOverOffenseValue": 0.523
      },
      {
       "k": 25,
@@ -6350,12 +6626,12 @@
        "rank": 25
       },
       "idp": {
-       "name": "Dallas Turner",
-       "pos": "DL",
-       "value": 3730.0,
-       "rank": 124
+       "name": "Caleb Downs",
+       "pos": "DB",
+       "value": 3876.0,
+       "rank": 122
       },
-      "idpOverOffenseValue": 0.535
+      "idpOverOffenseValue": 0.556
      },
      {
       "k": 50,
@@ -6363,15 +6639,15 @@
        "name": "Carnell Tate",
        "pos": "WR",
        "value": 5416.0,
-       "rank": 53
+       "rank": 54
       },
       "idp": {
-       "name": "Laiatu Latu",
+       "name": "Jared Verse",
        "pos": "DL",
-       "value": 2764.0,
-       "rank": 205
+       "value": 2938.0,
+       "rank": 196
       },
-      "idpOverOffenseValue": 0.51
+      "idpOverOffenseValue": 0.542
      },
      {
       "k": 108,
@@ -6379,15 +6655,15 @@
        "name": "Eli Stowers",
        "pos": "TE",
        "value": 3400.0,
-       "rank": 146
+       "rank": 148
       },
       "idp": {
-       "name": "Emmanuel McNeil-Warren",
+       "name": "Talanoa Hufanga",
        "pos": "DB",
-       "value": 2017.0,
-       "rank": 344
+       "value": 2065.0,
+       "rank": 336
       },
-      "idpOverOffenseValue": 0.593
+      "idpOverOffenseValue": 0.607
      }
     ]
    }
@@ -6399,7 +6675,12 @@
     "archive": "exports/archive/dynasty_export_20261025_120337.zip",
     "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
     "rowsScaled": 409,
-    "sourceOverrides": null
+    "sourceOverrides": null,
+    "idpRowsMovedByTheFactor": {
+     "scaled": 295,
+     "of": 295,
+     "share": 1.0
+    }
    },
    "idptcTopIdpSiteValue": 5637,
    "vsBaseline": {
@@ -6554,7 +6835,12 @@
     "archive": "exports/archive/dynasty_export_20261025_120337.zip",
     "archiveRawSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
     "rowsScaled": 409,
-    "sourceOverrides": null
+    "sourceOverrides": null,
+    "idpRowsMovedByTheFactor": {
+     "scaled": 295,
+     "of": 295,
+     "share": 1.0
+    }
    },
    "idptcTopIdpSiteValue": 5637,
    "vsBaseline": {
@@ -6704,16 +6990,103 @@
   }
  },
  "leagueFormatAlignment": {
-  "statedAssumptions": {
+  "statedFormat": {
    "idpTradeCalc": {
-    "superflex": "ON (scraper sets the site's SF toggle; Dynasty Scraper.py ensure_toggles_on)",
-    "tePremium": "ON (scraper sets the site's TEP toggle)",
-    "idpScoring": "UNAVAILABLE: no IDP scoring basis is stated in the ingested payload (name, value, position, team); the calculator is a generic public board, not synced to this league",
-    "teams/roster/IDP starters": "UNAVAILABLE: not stated in the payload"
+    "archiveObserved": {
+     "toggles": {
+      "basis": "dom_checkbox_final_state",
+      "superflex": {
+       "observed": true,
+       "requested": true
+      },
+      "tePremium": {
+       "observed": true,
+       "requested": true
+      },
+      "valueKeys": {
+       "value_sftep": 1027
+      }
+     },
+     "boardSettings": {
+      "superflex": true,
+      "tep": true
+     }
+    },
+    "page": {
+     "url": "https://idptradecalculator.com/",
+     "sha256": "4dab7ff42a67cc64817312af93f908254f8b001145d143d324fe90c3531596ad",
+     "bytes": 13544,
+     "fetchedAtUtc": "2026-10-26T01:49:21Z",
+     "title": "The IDP Show Trade Calculator",
+     "statedIdpScoringBasis": "Big 3",
+     "headline": "12-Team/.5 PPR",
+     "teams": 12,
+     "ppr": 0.5,
+     "pageUpdated": "10/10/2026",
+     "toggleControls": {
+      "superflex": true,
+      "tePremium": true
+     },
+     "pageTextChars": 193,
+     "pageMentions": {
+      "starter": false,
+      "lineup": false,
+      "roster": false,
+      "best ?ball": false,
+      "te premium": false,
+      "tackle": false
+     }
+    }
    },
+   "theIdpShowBig3": {
+    "sleeperCard": {
+     "idp_tkl_solo": 1.25,
+     "idp_tkl_ast": 0.75,
+     "idp_pass_def": 4.0,
+     "idp_ff": 4.0,
+     "idp_fum_rec": 3.0,
+     "idp_sack": 5.0,
+     "idp_sack_yd": 0.1,
+     "idp_qb_hit": 2.0,
+     "idp_tkl_loss": 3.0,
+     "idp_int": 6.0,
+     "idp_def_td": 6.0,
+     "idp_safe": 5.0,
+     "idp_blk_kick": 5.0,
+     "idp_int_ret_yd": 0.1,
+     "idp_fum_ret_yd": 0.1
+    },
+    "page": {
+     "url": "https://www.theidpshow.com/p/big-3-scoring",
+     "sha256": "1d276e6e5da201731aa3b3fc1af0de927943b9a3e3bef4e9942486eca8acda29",
+     "bytes": 180372,
+     "fetchedAtUtc": "2026-10-26T01:49:21Z",
+     "publishedLabel": "Sep 23, 2021",
+     "statesPreferredSettings": true,
+     "parsedLabels": {
+      "Solo Tackles": 1.25,
+      "Assisted Tackles": 0.75,
+      "Passes Defended": 4.0,
+      "Force Fumble": 4.0,
+      "Fumble Recovery": 3.0,
+      "Sack": 5.0,
+      "Sack Yards": 0.1,
+      "QB Hit": 2.0,
+      "Tackle for Loss": 3.0,
+      "INT": 6.0,
+      "TD": 6.0,
+      "Safety": 5.0,
+      "Blocked Kick": 5.0,
+      "Return Yards (Defense)": 0.1
+     },
+     "labelsMissing": []
+    }
+   }
+  },
+  "statedAssumptions": {
    "draftSharks": {
-    "leagueSync": "the vendor page is driven with its league selector set to this league's synced copy (scripts/fetch_draftsharks.py LEAGUE_ID); the vendor applies scoring client-side",
-    "idpScoring": "UNVERIFIED: whether the vendor reproduces this card's custom keys (tiered reception, TFL, PD) is not observable from the CSV"
+    "leagueSync": "the vendor page is driven with its league selector set to this league's synced copy (scripts/fetch_draftsharks.py LEAGUE_ID, a Draft Sharks league id, not the Sleeper id); the vendor applies scoring client-side",
+    "idpScoring": "UNVERIFIED: the fetcher proves the values MOVE when the synced league is activated, not that the vendor reproduces this card's custom keys (tiered reception, TFL, PD); it is not observable from the CSV"
    }
   },
   "verifiedLeagueCard": {
@@ -6721,7 +7094,7 @@
    "season": "2026",
    "scoringFingerprintLive": "sf1:9e51824690d091f9",
    "scoringFingerprintArchived": "sf1:9e51824690d091f9",
-   "rosterFormatSha256": "4d0914e7e39b6696bcdd11a27198c430b18eab50a32fccb1dbaf4c9ae1605c33",
+   "rosterFormatFingerprint": "rf1:10f897578eea2fe4",
    "teams": 12,
    "rosterSpots": 58,
    "starterSlots": {
@@ -6784,10 +7157,326 @@
    },
    "passTd": 6.0
   },
-  "teMismatch": {
-   "leagueBonusRecTe": 0.0,
-   "idptcTepToggle": true,
-   "note": "the IDPTC board is read with TE premium ON while this card's bonus_rec_te is the value above; the same TE++ basis is the canonical board's constant target basis (CLAUDE.md step 5a), so this is a board-wide assumption, not an IDPTC-only one"
+  "mismatches": {
+   "idpScoring": {
+    "stated": "The IDP Show 'Big 3' (named by the calculator's own page; defined on The IDP Show's published page)",
+    "perKey": [
+     {
+      "stat": "Solo Tackles",
+      "sleeperKey": "idp_tkl_solo",
+      "league": 1.33,
+      "big3": 1.25,
+      "leagueOverBig3": 1.064
+     },
+     {
+      "stat": "Assisted Tackles",
+      "sleeperKey": "idp_tkl_ast",
+      "league": 0.8,
+      "big3": 0.75,
+      "leagueOverBig3": 1.067
+     },
+     {
+      "stat": "Passes Defended",
+      "sleeperKey": "idp_pass_def",
+      "league": 5.3,
+      "big3": 4.0,
+      "leagueOverBig3": 1.325
+     },
+     {
+      "stat": "Force Fumble",
+      "sleeperKey": "idp_ff",
+      "league": 4.24,
+      "big3": 4.0,
+      "leagueOverBig3": 1.06
+     },
+     {
+      "stat": "Fumble Recovery",
+      "sleeperKey": "idp_fum_rec",
+      "league": 3.19,
+      "big3": 3.0,
+      "leagueOverBig3": 1.063
+     },
+     {
+      "stat": "Sack",
+      "sleeperKey": "idp_sack",
+      "league": 2.92,
+      "big3": 5.0,
+      "leagueOverBig3": 0.584
+     },
+     {
+      "stat": "Sack Yards",
+      "sleeperKey": "idp_sack_yd",
+      "league": 0.1111111111111111,
+      "big3": 0.1,
+      "leagueOverBig3": 1.111
+     },
+     {
+      "stat": "QB Hit",
+      "sleeperKey": "idp_qb_hit",
+      "league": 2.12,
+      "big3": 2.0,
+      "leagueOverBig3": 1.06
+     },
+     {
+      "stat": "Tackle for Loss",
+      "sleeperKey": "idp_tkl_loss",
+      "league": 4.24,
+      "big3": 3.0,
+      "leagueOverBig3": 1.413
+     },
+     {
+      "stat": "INT",
+      "sleeperKey": "idp_int",
+      "league": 5.3,
+      "big3": 6.0,
+      "leagueOverBig3": 0.883
+     },
+     {
+      "stat": "TD",
+      "sleeperKey": "idp_def_td",
+      "league": 6.36,
+      "big3": 6.0,
+      "leagueOverBig3": 1.06
+     },
+     {
+      "stat": "Safety",
+      "sleeperKey": "idp_safe",
+      "league": 5.3,
+      "big3": 5.0,
+      "leagueOverBig3": 1.06
+     },
+     {
+      "stat": "Blocked Kick",
+      "sleeperKey": "idp_blk_kick",
+      "league": 5.3,
+      "big3": 5.0,
+      "leagueOverBig3": 1.06
+     },
+     {
+      "stat": "Return Yards (Defense)",
+      "sleeperKey": "idp_int_ret_yd",
+      "league": 0.1111111111111111,
+      "big3": 0.1,
+      "leagueOverBig3": 1.111
+     },
+     {
+      "stat": "Return Yards (Defense)",
+      "sleeperKey": "idp_fum_ret_yd",
+      "league": 0.1111111111111111,
+      "big3": 0.1,
+      "leagueOverBig3": 1.111
+     }
+    ],
+    "sackPlay": {
+     "keys": [
+      "idp_sack",
+      "idp_qb_hit",
+      "idp_tkl_loss"
+     ],
+     "league": 9.28,
+     "big3": 10.0,
+     "leagueOverBig3": 0.928
+    },
+    "leagueCardPointsOverBig3Points": {
+     "all": {
+      "n": 767,
+      "ratio": 1.0879,
+      "ci95": [
+       1.0826,
+       1.0929
+      ],
+      "spearmanPpg": 0.998,
+      "meanPpgA": 6.43,
+      "meanPpgB": 5.91
+     },
+     "marketStarters": {
+      "n": 100,
+      "ratio": 1.0768,
+      "ci95": [
+       1.0668,
+       1.0868
+      ],
+      "spearmanPpg": 0.991,
+      "meanPpgA": 12.56,
+      "meanPpgB": 11.66
+     },
+     "byPosition": {
+      "DL": {
+       "n": 272,
+       "ratio": 1.0559,
+       "ci95": [
+        1.048,
+        1.0637
+       ],
+       "spearmanPpg": 0.996,
+       "meanPpgA": 5.55,
+       "meanPpgB": 5.26
+      },
+      "LB": {
+       "n": 189,
+       "ratio": 1.075,
+       "ci95": [
+        1.0657,
+        1.0839
+       ],
+       "spearmanPpg": 0.998,
+       "meanPpgA": 7.21,
+       "meanPpgB": 6.71
+      },
+      "DB": {
+       "n": 306,
+       "ratio": 1.123,
+       "ci95": [
+        1.1166,
+        1.1294
+       ],
+       "spearmanPpg": 0.998,
+       "meanPpgA": 6.72,
+       "meanPpgB": 5.98
+      }
+     }
+    }
+   },
+   "receptionScoring": {
+    "stated": "0.5 PPR (page header '12-Team/.5 PPR')",
+    "leagueAttachedPointsPerCatch": {
+     "RB": {
+      "n": 102,
+      "ratio": 0.5631,
+      "ci95": [
+       0.5406,
+       0.5857
+      ]
+     },
+     "WR": {
+      "n": 176,
+      "ratio": 0.8025,
+      "ci95": [
+       0.7837,
+       0.821
+      ]
+     },
+     "TE": {
+      "n": 101,
+      "ratio": 0.676,
+      "ci95": [
+       0.6542,
+       0.6969
+      ]
+     },
+     "RB+WR+TE": {
+      "n": 379,
+      "ratio": 0.7212,
+      "ci95": [
+       0.7022,
+       0.7382
+      ]
+     }
+    },
+    "leagueCardPointsOverHalfPprCounterfactual": {
+     "all": {
+      "n": 437,
+      "ratio": 1.0491,
+      "ci95": [
+       1.0426,
+       1.0557
+      ],
+      "spearmanPpg": 0.999,
+      "meanPpgA": 7.84,
+      "meanPpgB": 7.48
+     },
+     "marketStarters": {
+      "n": 120,
+      "ratio": 1.0472,
+      "ci95": [
+       1.038,
+       1.057
+      ],
+      "spearmanPpg": 0.994,
+      "meanPpgA": 16.25,
+      "meanPpgB": 15.52
+     },
+     "byPosition": {
+      "QB": {
+       "n": 37,
+       "ratio": 0.9999,
+       "ci95": [
+        0.9996,
+        1.0001
+       ],
+       "spearmanPpg": 1.0,
+       "meanPpgA": 18.81,
+       "meanPpgB": 18.81
+      },
+      "RB": {
+       "n": 115,
+       "ratio": 1.0109,
+       "ci95": [
+        1.0072,
+        1.0148
+       ],
+       "spearmanPpg": 0.999,
+       "meanPpgA": 7.75,
+       "meanPpgB": 7.67
+      },
+      "WR": {
+       "n": 170,
+       "ratio": 1.0961,
+       "ci95": [
+        1.0904,
+        1.1011
+       ],
+       "spearmanPpg": 0.999,
+       "meanPpgA": 7.84,
+       "meanPpgB": 7.15
+      },
+      "TE": {
+       "n": 115,
+       "ratio": 1.0682,
+       "ci95": [
+        1.061,
+        1.0749
+       ],
+       "spearmanPpg": 0.999,
+       "meanPpgA": 4.4,
+       "meanPpgB": 4.12
+      }
+     }
+    },
+    "counterfactual": "same stat lines scored on the league card with ONLY the reception rules replaced (rec 0.5, no catch-length tiers, no position reception bonus); first-down, yardage, TD and passing rules unchanged, so the ratio isolates the reception-pricing mismatch and is not a full re-score under a '.5 PPR' card"
+   },
+   "tePremium": {
+    "stated": "TEP toggle ON (observed): {\"observed\": true, \"requested\": true}",
+    "magnitudeStated": null,
+    "leagueBonusRecTe": 0.0,
+    "leagueBonusFdTe": 1.0,
+    "leagueBonusFdWr": 1.0,
+    "verdict": "MISMATCH: the card pays TEs nothing extra per catch"
+   },
+   "teams": {
+    "stated": 12,
+    "league": 12,
+    "verdict": "MATCH"
+   },
+   "superflex": {
+    "stated": "Superflex toggle ON (observed): {\"observed\": true, \"requested\": true}",
+    "leagueSuperFlexSlots": 1,
+    "verdict": "MATCH"
+   },
+   "notStatedByTheCalculator": [
+    "IDP starter counts",
+    "best ball",
+    "roster size",
+    "lineup requirements beyond Superflex"
+   ],
+   "notStatedEvidence": {
+    "starter": false,
+    "lineup": false,
+    "roster": false,
+    "best ?ball": false,
+    "te premium": false,
+    "tackle": false
+   }
   },
   "implied": {
    "idptcIdpShareTop200Players": 0.265,
@@ -6796,160 +7485,339 @@
    "caveat": "a starting-slot share is not a value share (replacement depth differs by position); shown only to place the market's IDP share in context"
   },
   "cardAlignment2026wk": {
-   "method": "Spearman(market IDP value, 2026 wk1-N league-card ppg) minus Spearman(same, tackle-heavy reference card ppg), same players, paired bootstrap; DESCRIPTIVE (the boards already know these games: in-sample)",
+   "method": "Spearman(market IDP value, 2026 wk1-N league-card ppg) minus Spearman(same, ppg under a reference card), same players, paired bootstrap on shared resamples; DESCRIPTIVE (the boards already know these games: in-sample).  References: 'tackleHeavy' = Investigation B's illustrative card; 'big3' = the card the calculator itself names (absent when the vendor page was unavailable)",
+   "references": [
+    "big3",
+    "tackleHeavy"
+   ],
    "idpTradeCalc": {
     "IDP": {
      "n": 333,
      "rhoLeague": 0.498,
-     "rhoTackleHeavyRef": 0.485,
-     "leagueMinusRef": 0.014,
-     "ci95": [
-      -0.023,
-      0.048
-     ],
-     "pBoot": 0.4326
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.485,
+       "leagueMinusRef": 0.014,
+       "ci95": [
+        -0.023,
+        0.048
+       ],
+       "pBoot": 0.4326
+      },
+      "big3": {
+       "rho": 0.507,
+       "leagueMinusRef": -0.009,
+       "ci95": [
+        -0.021,
+        0.002
+       ],
+       "pBoot": 0.1169
+      }
+     }
     },
     "DL": {
      "n": 108,
      "rhoLeague": 0.351,
-     "rhoTackleHeavyRef": 0.349,
-     "leagueMinusRef": 0.002,
-     "ci95": [
-      -0.047,
-      0.045
-     ],
-     "pBoot": 0.9241
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.349,
+       "leagueMinusRef": 0.002,
+       "ci95": [
+        -0.047,
+        0.045
+       ],
+       "pBoot": 0.9241
+      },
+      "big3": {
+       "rho": 0.352,
+       "leagueMinusRef": -0.001,
+       "ci95": [
+        -0.025,
+        0.024
+       ],
+       "pBoot": 0.9201
+      }
+     }
     },
     "LB": {
      "n": 117,
      "rhoLeague": 0.708,
-     "rhoTackleHeavyRef": 0.713,
-     "leagueMinusRef": -0.006,
-     "ci95": [
-      -0.047,
-      0.037
-     ],
-     "pBoot": 0.8022
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.713,
+       "leagueMinusRef": -0.006,
+       "ci95": [
+        -0.047,
+        0.037
+       ],
+       "pBoot": 0.8022
+      },
+      "big3": {
+       "rho": 0.709,
+       "leagueMinusRef": -0.002,
+       "ci95": [
+        -0.017,
+        0.014
+       ],
+       "pBoot": 0.7642
+      }
+     }
     },
     "DB": {
      "n": 108,
      "rhoLeague": 0.427,
-     "rhoTackleHeavyRef": 0.472,
-     "leagueMinusRef": -0.045,
-     "ci95": [
-      -0.143,
-      0.039
-     ],
-     "pBoot": 0.3347
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.472,
+       "leagueMinusRef": -0.045,
+       "ci95": [
+        -0.143,
+        0.039
+       ],
+       "pBoot": 0.3347
+      },
+      "big3": {
+       "rho": 0.431,
+       "leagueMinusRef": -0.004,
+       "ci95": [
+        -0.032,
+        0.026
+       ],
+       "pBoot": 0.7562
+      }
+     }
     }
    },
    "draftSharksIdp": {
     "IDP": {
      "n": 290,
      "rhoLeague": 0.339,
-     "rhoTackleHeavyRef": 0.38,
-     "leagueMinusRef": -0.041,
-     "ci95": [
-      -0.09,
-      0.005
-     ],
-     "pBoot": 0.0869
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.38,
+       "leagueMinusRef": -0.041,
+       "ci95": [
+        -0.09,
+        0.005
+       ],
+       "pBoot": 0.0869
+      },
+      "big3": {
+       "rho": 0.339,
+       "leagueMinusRef": -0.0,
+       "ci95": [
+        -0.013,
+        0.013
+       ],
+       "pBoot": 0.95
+      }
+     }
     },
     "DL": {
      "n": 95,
      "rhoLeague": 0.363,
-     "rhoTackleHeavyRef": 0.4,
-     "leagueMinusRef": -0.037,
-     "ci95": [
-      -0.096,
-      0.019
-     ],
-     "pBoot": 0.2128
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.4,
+       "leagueMinusRef": -0.037,
+       "ci95": [
+        -0.096,
+        0.019
+       ],
+       "pBoot": 0.2128
+      },
+      "big3": {
+       "rho": 0.354,
+       "leagueMinusRef": 0.009,
+       "ci95": [
+        -0.02,
+        0.037
+       ],
+       "pBoot": 0.5165
+      }
+     }
     },
     "LB": {
      "n": 93,
      "rhoLeague": 0.447,
-     "rhoTackleHeavyRef": 0.527,
-     "leagueMinusRef": -0.08,
-     "ci95": [
-      -0.151,
-      -0.013
-     ],
-     "pBoot": 0.023
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.527,
+       "leagueMinusRef": -0.08,
+       "ci95": [
+        -0.151,
+        -0.013
+       ],
+       "pBoot": 0.023
+      },
+      "big3": {
+       "rho": 0.43,
+       "leagueMinusRef": 0.018,
+       "ci95": [
+        -0.004,
+        0.043
+       ],
+       "pBoot": 0.1588
+      }
+     }
     },
     "DB": {
      "n": 102,
      "rhoLeague": 0.218,
-     "rhoTackleHeavyRef": 0.257,
-     "leagueMinusRef": -0.039,
-     "ci95": [
-      -0.151,
-      0.071
-     ],
-     "pBoot": 0.5305
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.257,
+       "leagueMinusRef": -0.039,
+       "ci95": [
+        -0.151,
+        0.071
+       ],
+       "pBoot": 0.5305
+      },
+      "big3": {
+       "rho": 0.217,
+       "leagueMinusRef": 0.001,
+       "ci95": [
+        -0.026,
+        0.026
+       ],
+       "pBoot": 0.986
+      }
+     }
     }
    },
    "canonical": {
     "IDP": {
      "n": 352,
      "rhoLeague": 0.447,
-     "rhoTackleHeavyRef": 0.461,
-     "leagueMinusRef": -0.015,
-     "ci95": [
-      -0.05,
-      0.019
-     ],
-     "pBoot": 0.4426
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.461,
+       "leagueMinusRef": -0.015,
+       "ci95": [
+        -0.05,
+        0.019
+       ],
+       "pBoot": 0.4426
+      },
+      "big3": {
+       "rho": 0.451,
+       "leagueMinusRef": -0.004,
+       "ci95": [
+        -0.015,
+        0.007
+       ],
+       "pBoot": 0.4406
+      }
+     }
     },
     "DL": {
      "n": 113,
      "rhoLeague": 0.334,
-     "rhoTackleHeavyRef": 0.332,
-     "leagueMinusRef": 0.001,
-     "ci95": [
-      -0.049,
-      0.048
-     ],
-     "pBoot": 0.9081
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.332,
+       "leagueMinusRef": 0.001,
+       "ci95": [
+        -0.049,
+        0.048
+       ],
+       "pBoot": 0.9081
+      },
+      "big3": {
+       "rho": 0.335,
+       "leagueMinusRef": -0.001,
+       "ci95": [
+        -0.027,
+        0.024
+       ],
+       "pBoot": 0.9241
+      }
+     }
     },
     "LB": {
      "n": 117,
      "rhoLeague": 0.632,
-     "rhoTackleHeavyRef": 0.655,
-     "leagueMinusRef": -0.023,
-     "ci95": [
-      -0.064,
-      0.019
-     ],
-     "pBoot": 0.2967
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.655,
+       "leagueMinusRef": -0.023,
+       "ci95": [
+        -0.064,
+        0.019
+       ],
+       "pBoot": 0.2967
+      },
+      "big3": {
+       "rho": 0.627,
+       "leagueMinusRef": 0.005,
+       "ci95": [
+        -0.009,
+        0.019
+       ],
+       "pBoot": 0.5485
+      }
+     }
     },
     "DB": {
      "n": 122,
      "rhoLeague": 0.357,
-     "rhoTackleHeavyRef": 0.416,
-     "leagueMinusRef": -0.059,
-     "ci95": [
-      -0.147,
-      0.028
-     ],
-     "pBoot": 0.1968
+     "references": {
+      "tackleHeavy": {
+       "rho": 0.416,
+       "leagueMinusRef": -0.059,
+       "ci95": [
+        -0.147,
+        0.028
+       ],
+       "pBoot": 0.1968
+      },
+      "big3": {
+       "rho": 0.355,
+       "leagueMinusRef": 0.002,
+       "ci95": [
+        -0.027,
+        0.029
+       ],
+       "pBoot": 0.8901
+      }
+     }
     }
    },
    "holmAdjustedP": {
-    "draftSharksIdp:LB": 0.276,
-    "draftSharksIdp:IDP": 0.9559,
-    "canonical:DB": 1.0,
-    "draftSharksIdp:DL": 1.0,
-    "canonical:LB": 1.0,
-    "idpTradeCalc:DB": 1.0,
-    "idpTradeCalc:IDP": 1.0,
-    "canonical:IDP": 1.0,
-    "draftSharksIdp:DB": 1.0,
-    "idpTradeCalc:LB": 1.0,
-    "canonical:DL": 1.0,
-    "idpTradeCalc:DL": 1.0
+    "tackleHeavy": {
+     "draftSharksIdp:LB": 0.276,
+     "draftSharksIdp:IDP": 0.9559,
+     "canonical:DB": 1.0,
+     "draftSharksIdp:DL": 1.0,
+     "canonical:LB": 1.0,
+     "idpTradeCalc:DB": 1.0,
+     "idpTradeCalc:IDP": 1.0,
+     "canonical:IDP": 1.0,
+     "draftSharksIdp:DB": 1.0,
+     "idpTradeCalc:LB": 1.0,
+     "canonical:DL": 1.0,
+     "idpTradeCalc:DL": 1.0
+    },
+    "big3": {
+     "idpTradeCalc:IDP": 1.0,
+     "draftSharksIdp:LB": 1.0,
+     "canonical:IDP": 1.0,
+     "draftSharksIdp:DL": 1.0,
+     "canonical:LB": 1.0,
+     "idpTradeCalc:DB": 1.0,
+     "idpTradeCalc:LB": 1.0,
+     "canonical:DB": 1.0,
+     "idpTradeCalc:DL": 1.0,
+     "canonical:DL": 1.0,
+     "draftSharksIdp:IDP": 1.0,
+     "draftSharksIdp:DB": 1.0
+    }
    },
-   "familySize": 12
+   "familySize": {
+    "tackleHeavy": 12,
+    "big3": 12
+   }
   }
  },
  "correlationReproduction": {
@@ -7315,79 +8183,79 @@
      "n": 293,
      "rho": 0.666,
      "ci95": [
-      0.592,
-      0.727
+      0.596,
+      0.726
      ]
     },
     "idp": {
      "n": 277,
      "rho": 0.412,
      "ci95": [
-      0.301,
-      0.506
+      0.303,
+      0.505
      ]
     },
     "QB": {
      "n": 34,
      "rho": 0.5,
      "ci95": [
-      0.19,
-      0.723
+      0.176,
+      0.726
      ]
     },
     "RB": {
      "n": 80,
      "rho": 0.692,
      "ci95": [
-      0.567,
-      0.791
+      0.561,
+      0.786
      ]
     },
     "WR": {
      "n": 116,
      "rho": 0.706,
      "ci95": [
-      0.592,
-      0.79
+      0.596,
+      0.791
      ]
     },
     "TE": {
      "n": 63,
      "rho": 0.628,
      "ci95": [
-      0.466,
-      0.751
+      0.446,
+      0.756
      ]
     },
     "DL": {
      "n": 82,
      "rho": 0.315,
      "ci95": [
-      0.111,
-      0.496
+      0.104,
+      0.507
      ]
     },
     "LB": {
      "n": 101,
      "rho": 0.539,
      "ci95": [
-      0.384,
-      0.665
+      0.395,
+      0.668
      ]
     },
     "DB": {
      "n": 94,
      "rho": 0.336,
      "ci95": [
-      0.152,
-      0.518
+      0.149,
+      0.505
      ]
     },
     "offenseMinusIdp": {
      "diff": 0.255,
      "ci95": [
-      0.143,
-      0.365
+      0.149,
+      0.374
      ]
     }
    },
@@ -7396,79 +8264,79 @@
      "n": 293,
      "rho": 0.666,
      "ci95": [
-      0.592,
-      0.727
+      0.596,
+      0.726
      ]
     },
     "idp": {
      "n": 277,
      "rho": 0.403,
      "ci95": [
-      0.294,
-      0.497
+      0.288,
+      0.498
      ]
     },
     "QB": {
      "n": 34,
      "rho": 0.507,
      "ci95": [
-      0.189,
-      0.727
+      0.181,
+      0.729
      ]
     },
     "RB": {
      "n": 80,
      "rho": 0.707,
      "ci95": [
-      0.586,
-      0.798
+      0.584,
+      0.794
      ]
     },
     "WR": {
      "n": 116,
      "rho": 0.704,
      "ci95": [
-      0.592,
-      0.79
+      0.594,
+      0.791
      ]
     },
     "TE": {
      "n": 63,
      "rho": 0.617,
      "ci95": [
-      0.442,
-      0.744
+      0.436,
+      0.742
      ]
     },
     "DL": {
      "n": 82,
      "rho": 0.317,
      "ci95": [
-      0.114,
-      0.499
+      0.109,
+      0.502
      ]
     },
     "LB": {
      "n": 101,
      "rho": 0.532,
      "ci95": [
-      0.378,
-      0.656
+      0.385,
+      0.663
      ]
     },
     "DB": {
      "n": 94,
      "rho": 0.332,
      "ci95": [
-      0.146,
-      0.507
+      0.143,
+      0.502
      ]
     },
     "offenseMinusIdp": {
      "diff": 0.263,
      "ci95": [
-      0.149,
-      0.377
+      0.154,
+      0.383
      ]
     }
    }
@@ -7512,5 +8380,21 @@
    }
   }
  },
- "timingSec": 201.8
+ "verdict": {
+  "kind": "AUTHOR_JUDGEMENT (not computed)",
+  "question": "Is the shared-market cross-position anchor independently justified for dynasty_main?",
+  "answer": "NOT_JUSTIFIED",
+  "meaning": "No evidence in this lane shows the anchor represents THIS league.  The level comes from two external vendor boards.  One states a basis that differs from the verified card (Big 3 IDP scoring, .5 PPR, a TE premium, no IDP-starter or best-ball statement); the other is league-synced in name, but the sync cannot be verified.  They agree on the median IDP level and disagree about WHO the elite defenders are, and their agreement is consensus about market price rather than evidence of league utility.  It is NOT a finding that the level is wrong.",
+  "levelCorrectness": "UNRESOLVED",
+  "levelCorrectnessOwner": "Lanes B and D: replacement-adjusted marginal best-ball utility and an independent out-of-sample backtest",
+  "evidencePaths": [
+   "leagueFormatAlignment.mismatches",
+   "leagueFormatAlignment.cardAlignment2026wk",
+   "nativeLevelRatios",
+   "bridgeTrace.topIdpLevelAttribution",
+   "perturbations",
+   "correlationReproduction"
+  ]
+ },
+ "timingSec": 52.4
 }

@@ -13,7 +13,7 @@ What it produces (one JSON evidence file, aggregates and public NFL player names
 1. ``baseline`` — from the pinned served artifact: the top 100 / top 200 overall with
    positions, the top 25 DL / LB / DB with values, the highest-ranked defenders with their
    per-source contributions, offense-vs-IDP rank-band counts and value quantiles,
-   source coverage and confidence buckets per position, and a missing / stale /
+   source coverage and confidence buckets per position, a missing / stale /
    quarantined / withheld evidence census.
 2. ``starterBenchByTier`` — how the 12 live ``dynasty_main`` rosters' players split
    between weekly best-ball starters and bench, by canonical price band.  Each week's
@@ -22,27 +22,38 @@ What it produces (one JSON evidence file, aggregates and public NFL player names
    over teams; no team, manager or roster listing is emitted.
 3. ``idpTradeCalcNative`` — the raw IDP Trade Calculator distribution
    (``canonicalSiteValues.idpTradeCalc``): offense vs IDP, where its k-th defender sits on
-   its OWN combined board, against where the k-th defender sits on the canonical board.
+   its OWN combined board, against where the k-th defender sits on the canonical board;
+   plus ``nativeLevelRatios`` (IDP value / offense value at equal depth on the canonical
+   board and on each cross-position bridge's own scale).
 4. ``bridgeTrace`` + ``perturbations`` — how cross-position level enters consensus (which
    voters are anchors, which coordinate pool / Hill master each vote is priced on, which
    market seeds the shared-market ladder) and how far IDP-vs-offense placement moves when
    that anchor is removed, re-seeded or rescaled.  MEASUREMENT ONLY.
-5. ``leagueFormatAlignment`` — the external market's stated format assumptions against
-   the verified ``dynasty_main`` card, plus a descriptive card-alignment measurement of
-   each cross-position market's IDP ORDER against league-scored vs tackle-heavy production.
+5. ``leagueFormatAlignment`` — the external market's STATED format (observed in the pinned
+   archive's capture evidence and on the vendor's own pages) against the verified
+   ``dynasty_main`` card, with each measurable mismatch quantified (IDP scoring vs the
+   vendor-stated "Big 3" card, reception scoring vs ".5 PPR"), plus a descriptive
+   card-alignment measurement of each cross-position market's IDP ORDER against
+   league-scored, Big 3 and tackle-heavy production.
 6. ``correlationReproduction`` — Investigation B's value-vs-production Spearman claims
    (``docs/valuation/IDP_REPLACEMENT_AND_SCORING_2026-10-20.md`` §6) re-run under pinned
    inputs, on (a) the pinned in-season board (hindsight, in-sample), (b) a point-in-time
    pre-season board (latest archive strictly before the 2026 week-1 kickoff, rebuilt from
    that day's source tree), (c) Investigation B's own served 2026-08-25 board.
+7. ``verdict`` — the author's judgement on the shared-market anchor (see ``VERDICT``).
 
 Pinned inputs (recorded in the output): repository tree ``--csv-rev`` (default
 ``bdbc83a1f``) for the source CSVs / scrape stamps / weights the contract build reads;
 the archive ``--archive``; 2026 regular-season weeks 1..``--weeks`` (default 6).
 
 Network: the public Sleeper API (league card, rosters, player directory, weekly stats,
-matchups for the scorer check) and nothing else, cached under ``--cache-dir`` (gitignored
-``data/``).  ``--offline`` refuses any uncached request.
+matchups for the scorer check) plus two public vendor pages read once (the IDP Trade
+Calculator home page and The IDP Show's published "Big 3" scoring page), all cached as
+RAW response bytes under ``--cache-dir`` (gitignored ``data/``) and receipted by sha256.  A
+cached response is reused, so a re-run reproduces the same inputs; ``--refresh`` refetches.
+``--offline`` refuses any uncached request.  When a Lane A manifest is present
+(``--manifest``, default ``docs/valuation/idp_accuracy/MANIFEST.json``) the receipts, served
+board hash, archive hash and scoring fingerprint are cross-checked against it.
 
 Usage::
 
@@ -55,11 +66,13 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import html as htmllib
 import importlib.util
 import io
 import json
 import math
 import os
+import re
 import statistics
 import subprocess
 import sys
@@ -93,7 +106,81 @@ KICKOFF_UTC = "2026-09-10T00:20:00+00:00"
 B_INSEASON_ARCHIVE = "exports/archive/dynasty_export_20261020_052241.zip"
 B_INSEASON_CSV_REV = "21009b964c3791829613ad4f4a75ff27536f6d28"
 OUT_DEFAULT = "docs/valuation/idp_accuracy/evidence/c_market_baseline_2026-10-25.json"
-CACHE_DEFAULT = "data/research_cache/idp_c_market"
+#: Raw-bytes cache (a different directory from the earlier re-serialized JSON cache, so a
+#: stale cache from before receipts existed can never be mistaken for a receipted one).
+CACHE_DEFAULT = "data/research_cache/idp_c_market_raw"
+MANIFEST_DEFAULT = "docs/valuation/idp_accuracy/MANIFEST.json"
+
+IDPTC_URL = "https://idptradecalculator.com/"
+BIG3_URL = "https://www.theidpshow.com/p/big-3-scoring"
+#: The IDP Trade Calculator's own page states its IDP basis in the meta description
+#: ("... using Big 3 scoring"); The IDP Show publishes what "Big 3" means.  Each parsed
+#: label maps to the Sleeper scoring key(s) it prices, so the stated card can be scored on
+#: the same stat lines as the league card.  (Return yards price both defensive return keys.)
+BIG3_LABEL_TO_SLEEPER: dict[str, tuple[str, ...]] = {
+    "Solo Tackles": ("idp_tkl_solo",),
+    "Assisted Tackles": ("idp_tkl_ast",),
+    "Passes Defended": ("idp_pass_def",),
+    "Force Fumble": ("idp_ff",),
+    "Fumble Recovery": ("idp_fum_rec",),
+    "Sack": ("idp_sack",),
+    "Sack Yards": ("idp_sack_yd",),
+    "QB Hit": ("idp_qb_hit",),
+    "Tackle for Loss": ("idp_tkl_loss",),
+    "INT": ("idp_int",),
+    "TD": ("idp_def_td",),
+    "Safety": ("idp_safe",),
+    "Blocked Kick": ("idp_blk_kick",),
+    "Return Yards (Defense)": ("idp_int_ret_yd", "idp_fum_ret_yd"),
+}
+_NUM = r"([0-9]*\.?[0-9]+)"
+#: Regexes over the whitespace-collapsed text of the vendor page (tags stripped to a
+#: space, so a tag between a label and its colon still matches).
+_BIG3_PATTERNS: dict[str, str] = {
+    "Solo Tackles": rf"\bSolo Tackles\s*:\s*{_NUM}",
+    "Assisted Tackles": rf"\bAssisted Tackles\s*:\s*{_NUM}",
+    "Passes Defended": rf"\bPasses Defended\s*:\s*{_NUM}",
+    "Force Fumble": rf"\bForce Fumble\s*:\s*{_NUM}",
+    "Fumble Recovery": rf"\bFumble Recovery\s*:\s*{_NUM}",
+    "Sack": rf"\bSack\s*:\s*{_NUM}",
+    "Sack Yards": rf"\bSack Yards\s*\(if applicable\)\s*:\s*1 yard\s*=\s*{_NUM}",
+    "QB Hit": rf"\bQB Hit\s*:\s*{_NUM}",
+    "Tackle for Loss": rf"\bTackle for Loss\s*:\s*{_NUM}",
+    "INT": rf"\bINT\s*:\s*{_NUM}",
+    "TD": rf"\bTD\s*:\s*{_NUM}",
+    "Safety": rf"\bSafety\s*:\s*{_NUM}",
+    "Blocked Kick": rf"\bBlocked Kick\s*:\s*{_NUM}",
+    "Return Yards (Defense)": rf"\bReturn Yards\s*\(Defense\)\s*:\s*1 yard\s*=\s*{_NUM}",
+}
+VENDOR_UA = "Mozilla/5.0 (compatible; riskit-research/1.0; public page read, 1 GET)"
+#: The author's judgement, stamped into the evidence so a consumer can find it without
+#: reading prose.  It is NOT computed: the numbers it rests on are in ``evidencePaths`` and
+#: ``docs/valuation/idp_accuracy/C_MARKET_CROSS_POSITION.md`` argues it.  A test keeps the
+#: report and this block in agreement.
+VERDICT: dict[str, Any] = {
+    "kind": "AUTHOR_JUDGEMENT (not computed)",
+    "question": "Is the shared-market cross-position anchor independently justified for "
+    "dynasty_main?",
+    "answer": "NOT_JUSTIFIED",
+    "meaning": "No evidence in this lane shows the anchor represents THIS league.  The level "
+    "comes from two external vendor boards.  One states a basis that differs from the "
+    "verified card (Big 3 IDP scoring, .5 PPR, a TE premium, no IDP-starter or best-ball "
+    "statement); the other is league-synced in name, but the sync cannot be verified.  They "
+    "agree on the median IDP level and disagree about WHO the elite defenders are, and their "
+    "agreement is consensus about market price rather than evidence of league utility.  It "
+    "is NOT a finding that the level is wrong.",
+    "levelCorrectness": "UNRESOLVED",
+    "levelCorrectnessOwner": "Lanes B and D: replacement-adjusted marginal best-ball utility "
+    "and an independent out-of-sample backtest",
+    "evidencePaths": [
+        "leagueFormatAlignment.mismatches",
+        "leagueFormatAlignment.cardAlignment2026wk",
+        "nativeLevelRatios",
+        "bridgeTrace.topIdpLevelAttribution",
+        "perturbations",
+        "correlationReproduction",
+    ],
+}
 
 OFFENSE = ("QB", "RB", "WR", "TE")
 IDP = ("DL", "LB", "DB")
@@ -840,6 +927,405 @@ def starter_bench_by_tier(
     }
 
 
+# ── native level, served-board hash, receipts ───────────────────────────────
+
+
+def native_level_ratios(
+    rows,
+    *,
+    offense_key: str | None,
+    idp_key: str | None,
+    ks: Sequence[int] = (1, 3, 10, 25, 50, 108),
+    off_pool: int = OFFENSE_STARTERS_DEFAULT,
+    idp_pool: int = IDP_STARTERS_DEFAULT,
+) -> dict:
+    """IDP value / offense value at equal depth k, on one market's own scale.
+
+    ``offense_key`` / ``idp_key`` name ``canonicalSiteValues`` entries (None = the served
+    ``rankDerivedValue``).  A level comparison only: it says where a market puts the k-th
+    defender against its own k-th offense player and nothing about whether that is right.
+    Players with no value on the market are absent, never 0."""
+
+    def vals(group: str, key: str | None) -> list[float]:
+        out = []
+        for r in rows:
+            if r["group"] != group:
+                continue
+            v = r["value"] if key is None else _num(r["sites"].get(key))
+            if v is not None and v > 0:
+                out.append(float(v))
+        return sorted(out, reverse=True)
+
+    o, i = vals("offense", offense_key), vals("idp", idp_key)
+    at_k = [
+        {"k": k, "offense": o[k - 1], "idp": i[k - 1], "idpOverOffense": round(i[k - 1] / o[k - 1], 3)}
+        for k in ks
+        if len(o) >= k and len(i) >= k
+    ]  # fmt: skip
+    pools = None
+    if len(o) >= off_pool and len(i) >= idp_pool:
+        pools = {
+            "offenseTop": off_pool,
+            "idpTop": idp_pool,
+            "medianRatio": round(statistics.median(i[:idp_pool]) / statistics.median(o[:off_pool]), 3),
+            "meanRatio": round(statistics.fmean(i[:idp_pool]) / statistics.fmean(o[:off_pool]), 3),
+        }  # fmt: skip
+    return {"offenseKey": offense_key or "rankDerivedValue", "idpKey": idp_key or "rankDerivedValue",
+            "nOffense": len(o), "nIdp": len(i), "atEqualDepth": at_k, "starterPools": pools}  # fmt: skip
+
+
+def redact_endpoint(path: str) -> str:
+    """A Sleeper endpoint path with the league id replaced by a placeholder.  The evidence
+    names endpoints, never the raw league id (public artifacts carry no raw Sleeper id)."""
+    return path.replace(LEAGUE_ID, "{leagueId}")
+
+
+def served_board_sha256(players_array: Iterable[Mapping[str, Any]]) -> str:
+    """The served-board hash Lane A pins in ``MANIFEST.json`` (same fields, same canonical
+    JSON), so the two lanes can prove they analyze the same board."""
+    key = sorted(
+        (
+            str(r.get("displayName")),
+            str(r.get("playerId") or ""),
+            r.get("rankDerivedValue"),
+            r.get("canonicalConsensusRank"),
+            r.get("confidenceBucket"),
+            bool(r.get("quarantined")),
+        )
+        for r in players_array
+    )
+    return hashlib.sha256(
+        json.dumps(key, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+class RawFetcher:
+    """GET with a RAW-bytes cache and one sha256 receipt per URL.
+
+    Same call shape as Investigation B's ``Fetcher`` (``get(url, max_age_s=)`` returns parsed
+    JSON) but the cache holds the response BODY byte for byte, so a receipt hash is the
+    hash of what the server sent and can be compared with another lane's.  A cached body is
+    reused (``max_age_s`` is accepted for parity and ignored): a re-run reproduces the same
+    inputs.  ``refresh`` refetches; ``offline`` refuses any uncached request."""
+
+    MIN_INTERVAL_S = 0.25  # < 5 requests/second
+
+    def __init__(self, cache_dir: Path, *, offline: bool = False, refresh: bool = False) -> None:
+        self.cache_dir = cache_dir
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.offline, self.refresh = offline, refresh
+        self.receipts: dict[str, dict[str, Any]] = {}
+        self.calls = 0
+        self._last = 0.0
+        self._session = None
+
+    def _path(self, url: str) -> Path:
+        return self.cache_dir / f"{hashlib.sha256(url.encode()).hexdigest()[:24]}.bin"
+
+    def get_bytes(self, url: str, *, headers: Mapping[str, str] | None = None) -> bytes:
+        path = self._path(url)
+        if self.refresh and url not in self.receipts:
+            path.unlink(missing_ok=True)
+        if not path.exists():
+            if self.offline:
+                raise RuntimeError(f"offline and not cached: {url}")
+            import requests  # noqa: PLC0415
+
+            self._session = self._session or requests.Session()
+            wait = self.MIN_INTERVAL_S - (time.time() - self._last)
+            if wait > 0:
+                time.sleep(wait)
+            resp = self._session.get(url, timeout=60, headers=dict(headers or {}))
+            self._last = time.time()
+            resp.raise_for_status()
+            self.calls += 1
+            path.write_bytes(resp.content)
+        blob = path.read_bytes()
+        self.receipts[url] = {
+            "sha256": hashlib.sha256(blob).hexdigest(),
+            "bytes": len(blob),
+            "fetchedAtUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(path.stat().st_mtime)),
+        }
+        return blob
+
+    def get(self, url: str, *, max_age_s: float | None = None) -> Any:  # noqa: ARG002
+        return json.loads(self.get_bytes(url))
+
+    def get_text(self, url: str, *, headers: Mapping[str, str] | None = None) -> str:
+        return self.get_bytes(url, headers=headers).decode("utf-8", errors="replace")
+
+
+def crosscheck_manifest(
+    manifest: Mapping[str, Any],
+    *,
+    receipts: Mapping[str, Mapping[str, Any]],
+    served_sha: str,
+    archive_sha: str,
+    live_fingerprint: str | None,
+    archived_fingerprint: str | None,
+    roster_fingerprint: str | None = None,
+) -> dict:
+    """Compare this run's pinned inputs with Lane A's manifest.  Every item is reported as
+    ``match`` / ``differs`` / ``absent`` (an input one side does not have), never silently
+    skipped.  A Sleeper endpoint can legitimately differ (a roster moved after the
+    manifest was cut), which is why each is reported and none is asserted."""
+    api = ((manifest.get("datasets") or {}).get("sleeperPublicApi")) or {}
+    endpoints = {}
+    for url, rec in sorted(receipts.items()):
+        if not url.startswith(SLEEPER):
+            continue
+        path = url[len(SLEEPER) :]
+        theirs = (api.get(path) or {}).get("sha256")
+        endpoints[redact_endpoint(path)] = (
+            "absent" if theirs is None else "match" if theirs == rec.get("sha256") else "differs"
+        )  # fmt: skip
+
+    def cmp(a, b):
+        return "absent" if a is None or b is None else "match" if a == b else "differs"
+
+    card = manifest.get("scoringCard") or {}
+    return {
+        "manifestVersion": manifest.get("manifestVersion"),
+        "pinnedMainSha": (manifest.get("repo") or {}).get("pinnedSha"),
+        "servedBoardSha256": cmp((manifest.get("servedBoard") or {}).get("servedBoardSha256"), served_sha),
+        "archiveSha256": cmp((manifest.get("pinnedArchive") or {}).get("sha256"), archive_sha),
+        "scoringFingerprintLive": cmp(card.get("scoringFingerprint"), live_fingerprint),
+        "scoringFingerprintArchived": cmp(card.get("scoringFingerprint"), archived_fingerprint),
+        "rosterFormatFingerprint": cmp(
+            (manifest.get("rosterFormat") or {}).get("rosterFormatFingerprint"), roster_fingerprint
+        ),
+        "sleeperEndpoints": endpoints,
+        "sleeperEndpointCounts": dict(Counter(endpoints.values())),
+    }  # fmt: skip
+
+
+# ── vendor-stated format (pages) and the scoring mismatches it implies ─────────
+
+
+def _page_text(raw_html: str) -> str:
+    t = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", raw_html)
+    t = re.sub(r"(?s)<[^>]+>", " ", t)
+    return re.sub(r"\s+", " ", htmllib.unescape(t)).strip()
+
+
+def parse_big3_page(raw_html: str) -> dict[str, float]:
+    """The point values The IDP Show prints on its "Big 3 Scoring" page, by label.  A label
+    the page does not carry is ABSENT from the result (never defaulted)."""
+    text = _page_text(raw_html)
+    out: dict[str, float] = {}
+    for label, pat in _BIG3_PATTERNS.items():
+        m = re.search(pat, text)
+        if m:
+            out[label] = float(m.group(1))
+    return out
+
+
+def big3_sleeper_card(parsed: Mapping[str, float]) -> dict[str, float]:
+    """Parsed Big 3 labels -> Sleeper ``idp_*`` keys.  A page that did not yield EVERY label
+    returns ``{}``: a partial card must never be scored as if it were the whole of Big 3."""
+    if any(label not in parsed for label in BIG3_LABEL_TO_SLEEPER):
+        return {}
+    card: dict[str, float] = {}
+    for label, keys in BIG3_LABEL_TO_SLEEPER.items():
+        for k in keys:
+            card[k] = float(parsed[label])
+    return card
+
+
+def parse_idptc_page(raw_html: str) -> dict[str, Any]:
+    """What the IDP Trade Calculator home page states about its own basis."""
+    title = re.search(r"(?is)<title>(.*?)</title>", raw_html)
+    meta = re.search(r'(?is)<meta\s+name="description"\s+content="([^"]*)"', raw_html)
+    desc = htmllib.unescape(meta.group(1)).strip() if meta else None
+    basis = re.search(r"(?i)\busing\s+(.+?)\s+scoring\b", desc or "")
+    h5 = [
+        re.sub(r"\s+", " ", htmllib.unescape(re.sub(r"<[^>]+>", " ", m))).strip()
+        for m in re.findall(r"(?is)<h5[^>]*>(.*?)</h5>", raw_html)
+    ]
+    headline = next((x for x in h5 if re.search(r"(?i)\d+\s*-\s*Team", x)), None)
+    hm = re.search(r"(?i)(\d+)\s*-\s*Team\s*/\s*(\d*\.?\d+)\s*PPR", headline or "")
+    updated = next(
+        (m.group(1) for x in h5 if (m := re.search(r"(?i)Updated:\s*([0-9/]+)", x))), None
+    )
+    text = _page_text(raw_html)
+    return {
+        "title": htmllib.unescape(title.group(1)).strip() if title else None,
+        # only the basis the description names (the sentence itself is the vendor's text)
+        "statedIdpScoringBasis": basis.group(1).strip() if basis else None,
+        "headline": headline,
+        "teams": int(hm.group(1)) if hm else None,
+        "ppr": float(hm.group(2)) if hm else None,
+        "pageUpdated": updated,
+        "toggleControls": {
+            "superflex": 'id="toggleButton"' in raw_html,
+            "tePremium": 'id="toggleButtonTEP"' in raw_html,
+        },
+        "pageTextChars": len(text),
+        # absence on a ~13 kB home page: the page does not STATE these (the vendor may
+        # still apply a basis it does not print)
+        "pageMentions": {
+            term: bool(re.search(term, text, re.I))
+            for term in ("starter", "lineup", "roster", "best ?ball", "te premium", "tackle")
+        },
+    }
+
+
+def idp_card_comparison(card: Mapping[str, float], big3: Mapping[str, float]) -> list[dict]:
+    """The league's IDP rules beside the vendor-stated Big 3 card, key by key."""
+    rows = []
+    for label, keys in BIG3_LABEL_TO_SLEEPER.items():
+        for k in keys:
+            lg, b3 = card.get(k), big3.get(k)
+            rows.append(
+                {
+                    "stat": label,
+                    "sleeperKey": k,
+                    "league": lg,
+                    "big3": b3,
+                    "leagueOverBig3": round(lg / b3, 3) if lg is not None and b3 else None,
+                }
+            )
+    return rows
+
+
+def pooled_ratio_ci(
+    num: Mapping[str, float],
+    den: Mapping[str, float],
+    sids: Sequence[str],
+    *,
+    boot: int = BOOT,
+    seed: int = SEED,
+) -> dict:
+    """sum(num)/sum(den) over ``sids`` with a percentile bootstrap resampling PLAYERS (a
+    player's weeks are one cluster).  Below 12 players, or a zero denominator: unavailable."""
+    import numpy as np  # noqa: PLC0415
+
+    ids = [s for s in sids if s in num and s in den]
+    n = len(ids)
+    if n < 12 or sum(den[s] for s in ids) == 0:
+        return {"n": n, "ratio": None, "ci95": None}
+    a = np.asarray([num[s] for s in ids], float)
+    b = np.asarray([den[s] for s in ids], float)
+    idx = np.random.default_rng(seed).integers(0, n, (boot, n))
+    sa, sb = a[idx].sum(1), b[idx].sum(1)
+    ok = sb != 0
+    lo, hi = np.percentile(sa[ok] / sb[ok], [2.5, 97.5])
+    return {"n": n, "ratio": round(float(a.sum() / b.sum()), 4),
+            "ci95": [round(float(lo), 4), round(float(hi), 4)]}  # fmt: skip
+
+
+def season_totals(
+    table: Mapping[str, Mapping[int, float]],
+) -> tuple[dict[str, float], dict[str, int]]:
+    """Per player: points summed over scored weeks, and the number of those weeks."""
+    return ({s: float(sum(w.values())) for s, w in table.items()},
+            {s: len(w) for s, w in table.items()})  # fmt: skip
+
+
+def scoring_drift(
+    pts_a: Mapping[str, Mapping[int, float]],
+    pts_b: Mapping[str, Mapping[int, float]],
+    sids: Sequence[str],
+    *,
+    min_games: int = MIN_GAMES,
+) -> dict:
+    """How much one scoring card moves the SAME players' points relative to another:
+    pooled sum(a)/sum(b) with a cluster-bootstrap CI, and the Spearman between the two
+    points-per-game orders (1.0 = the card changes levels, not order)."""
+    ta, ga = season_totals(pts_a)
+    tb, _ = season_totals(pts_b)
+    ids = [s for s in sids if ga.get(s, 0) >= min_games and s in tb]
+    out = pooled_ratio_ci(ta, tb, ids)
+    out["spearmanPpg"] = _spearman([ta[s] / ga[s] for s in ids], [tb[s] / ga[s] for s in ids])
+    out["meanPpgA"] = round(statistics.fmean(ta[s] / ga[s] for s in ids), 2) if ids else None
+    out["meanPpgB"] = round(statistics.fmean(tb[s] / ga[s] for s in ids), 2) if ids else None
+    return out
+
+
+def _receipt(fetch: RawFetcher, url: str) -> dict:
+    return {"url": url, **fetch.receipts[url]}
+
+
+def stated_format(fetch: RawFetcher, archive_path: Path, *, vendor_pages: bool = True) -> dict:
+    """What the IDP Trade Calculator STATES about its basis, from two evidence kinds:
+
+    * the pinned archive's own capture evidence (the DOM checkbox state the scraper read
+      back, the value column it used) and the board settings it stamped;
+    * two public vendor pages, read once: the calculator's home page (header, meta
+      description) and The IDP Show's "Big 3 Scoring" page that defines the scoring the
+      home page names.
+
+    Anything a page does not print stays absent (never defaulted).  A page that cannot be
+    read is ``UNAVAILABLE`` with the reason, and the Big 3 card is then ``{}``."""
+    out: dict[str, Any] = {"idpTradeCalc": {}, "theIdpShowBig3": {"sleeperCard": {}}}
+    try:
+        with zipfile.ZipFile(archive_path) as zf:
+            cap = json.loads(zf.read("identity_capture_manifest.json"))
+            board = next(n for n in zf.namelist() if re.match(r"dynasty_data_.*\.json$", n))
+            settings = json.loads(zf.read(board)).get("settings") or {}
+        src = (cap.get("sources") or {}).get("idpTradeCalc") or {}
+        out["idpTradeCalc"]["archiveObserved"] = {
+            "toggles": src.get("toggles"),
+            "boardSettings": {"superflex": settings.get("superflex"), "tep": settings.get("tep")},
+        }
+    except (OSError, KeyError, StopIteration, ValueError) as exc:
+        out["idpTradeCalc"]["archiveObserved"] = {
+            "status": "UNAVAILABLE", "reason": f"{type(exc).__name__}: {exc}"}  # fmt: skip
+    if not vendor_pages:
+        for k, v in (("idpTradeCalc", IDPTC_URL), ("theIdpShowBig3", BIG3_URL)):
+            out[k]["page"] = {"url": v, "status": "UNAVAILABLE", "reason": "vendor pages skipped"}
+        return out
+    try:
+        html_ = fetch.get_text(IDPTC_URL, headers={"User-Agent": VENDOR_UA})
+        out["idpTradeCalc"]["page"] = {**_receipt(fetch, IDPTC_URL), **parse_idptc_page(html_)}
+    except Exception as exc:  # noqa: BLE001 - recorded, never fatal: this block is evidence
+        out["idpTradeCalc"]["page"] = {"url": IDPTC_URL, "status": "UNAVAILABLE",
+                                       "reason": f"{type(exc).__name__}: {exc}"}  # fmt: skip
+    try:
+        html_ = fetch.get_text(BIG3_URL, headers={"User-Agent": VENDOR_UA})
+        parsed = parse_big3_page(html_)
+        text = _page_text(html_)
+        date = re.search(
+            r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}, \d{4}\b", text
+        )
+        out["theIdpShowBig3"]["page"] = {
+            **_receipt(fetch, BIG3_URL),
+            "publishedLabel": date.group(0) if date else None,
+            "statesPreferredSettings": bool(re.search(r"our preferred IDP scoring settings", text)),
+            "parsedLabels": parsed,
+            "labelsMissing": [k for k in BIG3_LABEL_TO_SLEEPER if k not in parsed],
+        }
+        out["theIdpShowBig3"]["sleeperCard"] = big3_sleeper_card(parsed)
+    except Exception as exc:  # noqa: BLE001
+        out["theIdpShowBig3"]["page"] = {"url": BIG3_URL, "status": "UNAVAILABLE",
+                                         "reason": f"{type(exc).__name__}: {exc}"}  # fmt: skip
+    return out
+
+
+RECEPTION_KEYS = ("rec", "rec_0_4", "rec_5_9", "rec_10_19", "rec_20_29", "rec_30_39", "rec_40p")
+RECEPTION_POSITION_BONUS = {"WR": "bonus_rec_wr", "TE": "bonus_rec_te", "RB": "bonus_rec_rb"}
+
+
+def reception_points(
+    stats: Mapping[int, Mapping[str, Any]], card: Mapping[str, float], pos_of
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Per player (weeks with gp > 0): receptions, and the points the card attaches to
+    RECEIVING A CATCH (flat rate + the catch-length tier + the position's reception
+    bonus), excluding receiving yards, touchdowns and first downs."""
+    recs: dict[str, float] = defaultdict(float)
+    pts: dict[str, float] = defaultdict(float)
+    for dump in stats.values():
+        for sid, line in (dump or {}).items():
+            if float(line.get("gp") or 0) <= 0 or float(line.get("rec") or 0) <= 0:
+                continue
+            sid = str(sid)
+            bonus = RECEPTION_POSITION_BONUS.get(pos_of(sid))
+            keys = RECEPTION_KEYS + ((bonus,) if bonus else ())
+            recs[sid] += float(line["rec"])
+            pts[sid] += sum(float(line.get(k) or 0) * float(card.get(k) or 0) for k in keys)
+    return dict(recs), dict(pts)
+
+
 # ── privacy guard ──────────────────────────────────────────────────────────
 
 
@@ -863,7 +1349,7 @@ def assert_aggregate_only(payload: Any, forbidden_strings: Iterable[str]) -> Non
         elif isinstance(x, (list, tuple)):
             for i, v in enumerate(x):
                 walk(v, f"{path}[{i}]")
-        elif isinstance(x, str) and x in bad:
+        elif isinstance(x, str) and (x in bad or any(b in x for b in bad if len(b) >= 10)):
             raise AssertionError(f"forbidden string at {path}")
 
     walk(payload)
@@ -874,13 +1360,24 @@ def assert_aggregate_only(payload: Any, forbidden_strings: Iterable[str]) -> Non
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _scale_csv(path: Path, *, value_col: str, pos_col: str, positions: set[str], f: float) -> int:
+def _is_idp_position(pos: object) -> bool:
+    """True for any spelling of a defender's position, through the repo's one position
+    normalizer (``POSITION_ALIASES``).  The IDPTC CSV spells edge rushers ``ED`` and safeties
+    ``S``; a private spelling list that missed ``ED`` left all 98 edge rushers (including the
+    top defender) out of an earlier version of the IDPTC level perturbation."""
+    from src.utils.name_clean import normalize_position  # noqa: PLC0415
+
+    return normalize_position(pos) in IDP
+
+
+def _scale_csv(path: Path, *, value_col: str, pos_col: str, f: float) -> int:
+    """Multiply ``value_col`` by ``f`` on every defender row (any spelling) of a vendor CSV."""
     text = path.read_text(encoding="utf-8")
     rd = csv.DictReader(io.StringIO(text))
     fields = rd.fieldnames or []
     out_rows, n = [], 0
     for row in rd:
-        if str(row.get(pos_col) or "").strip().upper() in positions:
+        if _is_idp_position(row.get(pos_col)):
             try:
                 row[value_col] = repr(round(float(row[value_col]) * f, 3))
                 n += 1
@@ -913,7 +1410,15 @@ def _scale_raw_site(raw: dict, key: str, names: set[str], f: float) -> int:
     return n
 
 
-_IDP_CSV_POSITIONS = {"DL", "LB", "DB", "DE", "DT", "EDGE", "CB", "S", "ILB", "OLB", "SS", "FS"}
+def idp_raw_names(raw: Mapping[str, Any]) -> set[str]:
+    """Names of the raw payload's defenders, by the archive's own name-keyed Sleeper position
+    map (``sleeper.positions``).  The raw ``players`` dict is what the contract reads, and it
+    is keyed by display name, so this is the set a level perturbation has to move: it does
+    not depend on how a vendor CSV spells a name (``D.J.`` / ``DJ``) or a position, and a
+    name shared with an offense player (``Josh Allen``) resolves to the one entry the
+    contract actually prices."""
+    positions = (raw.get("sleeper") or {}).get("positions") or {}
+    return {n for n in (raw.get("players") or {}) if _is_idp_position(positions.get(n))}
 
 
 def build_contract(archive: str, csv_rev: str, variant: str = "baseline") -> tuple[dict, dict]:
@@ -939,22 +1444,18 @@ def build_contract(archive: str, csv_rev: str, variant: str = "baseline") -> tup
         elif variant.startswith("idptc_idp_values_x"):
             f = float(variant.rsplit("x", 1)[1])
             csv_path = root / "CSVs/site_raw/idpTradeCalc.csv"
-            idp_names = {
-                str(r.get("name") or "")
-                for r in csv.DictReader(io.StringIO(csv_path.read_text(encoding="utf-8")))
-                if str(r.get("position") or "").strip().upper() in _IDP_CSV_POSITIONS
-            }
             # The contract reads IDPTC values from the RAW payload (players[name]
             # .idpTradeCalc / ._canonicalSiteValues), not from the CSV; scale both so the
-            # perturbation is coherent wherever a consumer reads it.
-            prov["rowsScaledCsv"] = _scale_csv(csv_path, value_col="value", pos_col="position",
-                                               positions=_IDP_CSV_POSITIONS, f=f)  # fmt: skip
-            prov["rowsScaledRaw"] = _scale_raw_site(raw, "idpTradeCalc", idp_names, f)
+            # perturbation is coherent wherever a consumer reads it.  Defenders are chosen
+            # for the raw payload by its own Sleeper position map (see ``idp_raw_names``).
+            prov["rowsScaledCsv"] = _scale_csv(csv_path, value_col="value", pos_col="position", f=f)
+            names = idp_raw_names(raw)
+            prov["rowsScaledRaw"] = _scale_raw_site(raw, "idpTradeCalc", names, f)
         elif variant.startswith("ds_idp_values_x"):
             f = float(variant.rsplit("x", 1)[1])
             prov["rowsScaled"] = _scale_csv(root / "CSVs/site_raw/draftSharksIdp.csv",
                                             value_col="3D Value +", pos_col="Fantasy Position",
-                                            positions=_IDP_CSV_POSITIONS, f=f)  # fmt: skip
+                                            f=f)  # fmt: skip
         elif variant == "ladder_multi_bridge":
             os.environ["RISKIT_FEATURE_MULTI_BRIDGE_LADDER"] = "1"
             from src.api import feature_flags as ff  # noqa: PLC0415
@@ -994,14 +1495,38 @@ def _worker(args) -> int:
     bt = next(
         (b for b in ((contract.get("crossPositionBridges") or {}).get("bridges") or [])
          if b.get("bridgeKey") == "idpTradeCalc"), None)  # fmt: skip
+    # served IDP site values of the two perturbed markets, so the parent can PROVE how many
+    # rows a level perturbation actually moved (a partial perturbation must not pass silently)
+    idp_sites = {
+        key: {str(r["name"]): _num(r["sites"].get(key)) for r in rows
+              if r["group"] == "idp" and _num(r["sites"].get(key))}
+        for key in ("idpTradeCalc", "draftSharksIdp")
+    }  # fmt: skip
     Path(args.variant_out).write_text(
-        json.dumps({"provenance": prov, "rows": slim,
+        json.dumps({"provenance": prov, "rows": slim, "idpSites": idp_sites,
                     "idptcBridgeCapability": (bt or {}).get("capability"),
                     "idptcTopIdpSite": next((r["sites"].get("idpTradeCalc")
                                              for r in by_value(rows, "idp")), None)}),
         encoding="utf-8",
     )  # fmt: skip
     return 0
+
+
+def scaled_share(base: Mapping[str, float], var: Mapping[str, float], f: float,
+                 *, tol: float = 0.005) -> dict:  # fmt: skip
+    """How many of the baseline's served site values the variant moved by ``f`` (within
+    rounding: ``tol`` relative, never tighter than half a unit, because Draft Sharks values
+    are whole numbers).  ``share`` is scaled / baseline rows."""
+    scaled = sum(
+        1
+        for n, v in base.items()
+        if v and var.get(n) is not None and abs(var[n] - v * f) <= max(0.5, tol * v)
+    )
+    return {
+        "scaled": scaled,
+        "of": len(base),
+        "share": round(scaled / len(base), 4) if base else None,
+    }
 
 
 def run_variants(archive: str, csv_rev: str, names: Iterable[str], scratch: Path) -> dict:
@@ -1038,14 +1563,18 @@ def sleeper_inputs(fetch, weeks: Sequence[int]) -> dict:
 
 
 def weekly_points(stats: Mapping[int, Mapping[str, Any]], card: Mapping[str, float], pdb,
-                  pos_of) -> dict[str, dict[int, float]]:  # fmt: skip
+                  pos_of, *, require_gp: bool = True) -> dict[str, dict[int, float]]:  # fmt: skip
+    """Host-native player-week points (``compute_weekly_points(..., source="sleeper")`` over
+    Sleeper's own stat line).  ``require_gp`` is Investigation B's filter (a line with
+    ``gp > 0``, which is also what defines a game played for points per game); Lane A's
+    wider check drops it and covers every line the host scores."""
     from src.nfl_data.realized_points import compute_weekly_points  # noqa: PLC0415
 
     pts: dict[str, dict[int, float]] = defaultdict(dict)
     for w, dump in stats.items():
         for sid, line in (dump or {}).items():
             sid = str(sid)
-            if float(line.get("gp") or 0) <= 0:
+            if require_gp and float(line.get("gp") or 0) <= 0:
                 continue
             row = {**line, "player_id": sid, "season": SEASON, "week": w}
             res = compute_weekly_points(row, dict(card), position=pos_of(sid), source="sleeper")
@@ -1055,8 +1584,12 @@ def weekly_points(stats: Mapping[int, Mapping[str, Any]], card: Mapping[str, flo
 
 
 def scorer_check(pts, matchups) -> dict:
+    """Our host-native points against Sleeper's awarded ``players_points``.  A rostered
+    player-week we computed no points for is either awarded zero (no stat line: a real zero
+    in best ball) or a miss (``nonzeroHostPointsWithNoScoredLine``)."""
     diffs = []
     missing = 0
+    no_line_zero = 0
     for w, ms in matchups.items():
         for m in ms or []:
             for sid, hp in (m.get("players_points") or {}).items():
@@ -1064,6 +1597,8 @@ def scorer_check(pts, matchups) -> dict:
                 if got is None:
                     if abs(float(hp)) > 0.001:
                         missing += 1
+                    else:
+                        no_line_zero += 1
                     continue
                 diffs.append(abs(got - float(hp)))
     return {
@@ -1071,6 +1606,7 @@ def scorer_check(pts, matchups) -> dict:
         "within0.01": sum(1 for d in diffs if d <= 0.01),
         "maxAbsDiff": round(max(diffs), 4) if diffs else None,
         "nonzeroHostPointsWithNoScoredLine": missing,
+        "noScoredLineAwardedZero": no_line_zero,
     }
 
 
@@ -1117,9 +1653,13 @@ def correlation_block(vals: Mapping[str, float | None], ppg, pos_of) -> dict:
     return block
 
 
-def card_alignment(site_vals: Mapping[str, float], ppg_league, ppg_ref, pos_of) -> dict:
-    """Descriptive: does a market's IDP ORDER track league-card or tackle-heavy production
-    more closely?  Same players on both sides; paired bootstrap of the rho difference."""
+def card_alignment(site_vals: Mapping[str, float], ppg_league, refs: Mapping[str, Any],
+                   pos_of) -> dict:  # fmt: skip
+    """Descriptive: does a market's IDP ORDER track league-card production more closely than
+    production under each reference card (``refs``: name -> points-per-game function)?  Same
+    players on every side; one set of bootstrap resamples shared by all references, so the
+    references are compared on identical draws.  Each ref cell: rho under the reference,
+    ``leagueMinusRef`` with a paired-bootstrap 95% CI and a two-sided bootstrap p-value."""
     import numpy as np  # noqa: PLC0415
     from scipy import stats as sps  # noqa: PLC0415
 
@@ -1131,34 +1671,36 @@ def card_alignment(site_vals: Mapping[str, float], ppg_league, ppg_ref, pos_of) 
             if v is not None
             and pos_of(s) in positions
             and ppg_league(s) is not None
-            and ppg_ref(s) is not None
+            and all(f(s) is not None for f in refs.values())
         ]
         if len(sids) < 12:
-            out[grp] = {"n": len(sids), "rhoLeague": None, "rhoRef": None}
+            out[grp] = {"n": len(sids), "rhoLeague": None, "references": {}}
             continue
         x = np.asarray([site_vals[s] for s in sids], float)
         a = np.asarray([ppg_league(s) for s in sids], float)
-        b = np.asarray([ppg_ref(s) for s in sids], float)
+        bs = {name: np.asarray([f(s) for s in sids], float) for name, f in refs.items()}
 
         def rho(p, q):
             return float(np.corrcoef(sps.rankdata(p), sps.rankdata(q))[0, 1])
 
         rng = np.random.default_rng(SEED + 11)
-        d = []
+        draws: dict[str, list[float]] = {name: [] for name in refs}
         for _ in range(BOOT):
             i = rng.integers(0, len(sids), len(sids))
-            d.append(rho(x[i], a[i]) - rho(x[i], b[i]))
-        lo, hi = np.percentile(d, [2.5, 97.5])
-        arr = np.asarray(d, float)
-        tail = min(int((arr <= 0).sum()), int((arr >= 0).sum()))
-        out[grp] = {
-            "n": len(sids),
-            "rhoLeague": round(rho(x, a), 3),
-            "rhoTackleHeavyRef": round(rho(x, b), 3),
-            "leagueMinusRef": round(rho(x, a) - rho(x, b), 3),
-            "ci95": [round(float(lo), 3), round(float(hi), 3)],
-            "pBoot": round(min(1.0, (2 * tail + 1) / (len(arr) + 1)), 4),
-        }
+            for name, b in bs.items():
+                draws[name].append(rho(x[i], a[i]) - rho(x[i], b[i]))
+        cell: dict[str, Any] = {}
+        for name, b in bs.items():
+            arr = np.asarray(draws[name], float)
+            lo, hi = np.percentile(arr, [2.5, 97.5])
+            tail = min(int((arr <= 0).sum()), int((arr >= 0).sum()))
+            cell[name] = {
+                "rho": round(rho(x, b), 3),
+                "leagueMinusRef": round(rho(x, a) - rho(x, b), 3),
+                "ci95": [round(float(lo), 3), round(float(hi), 3)],
+                "pBoot": round(min(1.0, (2 * tail + 1) / (len(arr) + 1)), 4),
+            }
+        out[grp] = {"n": len(sids), "rhoLeague": round(rho(x, a), 3), "references": cell}
     return out
 
 
@@ -1176,6 +1718,23 @@ def holm(pvals: Mapping[str, float]) -> dict[str, float]:
 # ═══════════════════════════════════════════════════════════════════════════
 # main
 # ═══════════════════════════════════════════════════════════════════════════
+
+
+def roster_format_fingerprint(league: Mapping[str, Any]) -> str:
+    """``rf1:`` fingerprint of the roster format, defined exactly as Lane A's manifest
+    defines it (roster_positions, num_teams, taxi/reserve slots, best_ball, type), so the
+    two lanes can prove they read the same format."""
+    s = league.get("settings") or {}
+    body = {
+        "roster_positions": list(league.get("roster_positions") or []),
+        "num_teams": s.get("num_teams"),
+        "taxi_slots": s.get("taxi_slots"),
+        "reserve_slots": s.get("reserve_slots"),
+        "best_ball": s.get("best_ball"),
+        "type": s.get("type"),
+    }
+    blob = json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+    return "rf1:" + hashlib.sha256(blob).hexdigest()[:16]
 
 
 def league_format(league: Mapping[str, Any], contract: Mapping[str, Any]) -> dict:
@@ -1196,7 +1755,7 @@ def league_format(league: Mapping[str, Any], contract: Mapping[str, Any]) -> dic
         "season": league.get("season"),
         "scoringFingerprintLive": scoring_fingerprint(card),
         "scoringFingerprintArchived": scoring_fingerprint(archived),
-        "rosterFormatSha256": hashlib.sha256(json.dumps(rp).encode()).hexdigest(),
+        "rosterFormatFingerprint": roster_format_fingerprint(league),
         "teams": teams,
         "rosterSpots": len(rp),
         "starterSlots": dict(sc),
@@ -1224,6 +1783,11 @@ def main() -> int:
     ap.add_argument("--weeks", type=int, default=6)
     ap.add_argument("--cache-dir", type=Path, default=REPO / CACHE_DEFAULT)
     ap.add_argument("--offline", action="store_true")
+    ap.add_argument("--refresh", action="store_true", help="refetch cached responses")
+    ap.add_argument("--manifest", default=None, help="Lane A MANIFEST.json to cross-check "
+                    f"(default {MANIFEST_DEFAULT} when present)")  # fmt: skip
+    ap.add_argument("--no-vendor-pages", action="store_true",
+                    help="do not read the two public vendor pages (stated-format block UNAVAILABLE)")  # fmt: skip
     ap.add_argument("--out", default=OUT_DEFAULT)
     ap.add_argument("--skip-perturbations", action="store_true")
     ap.add_argument("--variant", help=argparse.SUPPRESS)
@@ -1242,7 +1806,7 @@ def run(args) -> int:  # noqa: PLR0915
     contract, prov = build_contract(args.archive, args.csv_rev)
     rows = board_rows(contract)
 
-    fetch = L.Fetcher(args.cache_dir, offline=args.offline)
+    fetch = RawFetcher(args.cache_dir, offline=args.offline, refresh=args.refresh)
     sl = sleeper_inputs(fetch, weeks)
     pdb = sl["pdb"]
 
@@ -1256,6 +1820,18 @@ def run(args) -> int:  # noqa: PLR0915
     pts = weekly_points(sl["stats"], card, pdb, pos_of)
     pts_ref = weekly_points(sl["stats"], ref_card, pdb, pos_of)
     scorer = scorer_check(pts, sl["matchups"])
+    # Lane A's wider check (no gp filter): every stat line the host scores.  Investigation B's
+    # 3,299 and Lane A's 3,710 are the same scorer with and without the gp > 0 filter.
+    scorer_all = scorer_check(weekly_points(sl["stats"], card, pdb, pos_of, require_gp=False),
+                              sl["matchups"])  # fmt: skip
+
+    # The league card beside the scoring the two cross-position bridges STATE.
+    stated = stated_format(fetch, REPO / args.archive, vendor_pages=not args.no_vendor_pages)
+    big3_card = stated["theIdpShowBig3"]["sleeperCard"]
+    pts_big3 = weekly_points(sl["stats"], {**card, **big3_card}, pdb, pos_of) if big3_card else None
+    half_ppr_card = {**card, **{k: 0.0 for k in RECEPTION_KEYS}, "rec": 0.5,
+                     **{b: 0.0 for b in RECEPTION_POSITION_BONUS.values()}}  # fmt: skip
+    pts_half = weekly_points(sl["stats"], half_ppr_card, pdb, pos_of)
 
     def ppg_of(table, min_g=MIN_GAMES):
         def f(sid):
@@ -1265,6 +1841,9 @@ def run(args) -> int:  # noqa: PLR0915
         return f
 
     ppg, ppg_ref = ppg_of(pts), ppg_of(pts_ref)
+    card_refs = {"tackleHeavy": ppg_ref}
+    if pts_big3 is not None:
+        card_refs["big3"] = ppg_of(pts_big3)
     idp_n = fmt["leagueWideIdpStarters"] or IDP_STARTERS_DEFAULT
     off_n = fmt["leagueWideOffenseStarters"] or OFFENSE_STARTERS_DEFAULT
 
@@ -1344,7 +1923,9 @@ def run(args) -> int:  # noqa: PLR0915
         team_pools.append(pool)
     sbt = starter_bench_by_tier(team_pools, pts, weeks, slots, L.band_of, L.BAND_ORDER)
     sbt["slotSource"] = slot_src
-    sbt["rostersFetchedAt"] = "live Sleeper /rosters (cached <=6h); see inputs.sleeperCache"
+    sbt["rostersFetchedAt"] = (
+        "Sleeper /rosters, receipt in inputs.sleeperReceipts (reused from the raw cache)"
+    )
     sbt["rosteredPlayers"] = sum(len(p) for p in team_pools)
     sbt["priceBands"] = [b[0] for b in L.BANDS] + [L.UNVALUED]
     sbt["note"] = (
@@ -1364,6 +1945,19 @@ def run(args) -> int:  # noqa: PLR0915
         if v is not None and r["group"] in ("offense", "idp"):
             ds_rows.append({**r, "sites": {**r["sites"], "dsCombined": v}})
     ds_native = idptc_native(ds_rows, key="dsCombined", same_scale=False)
+    level = {
+        "canonical": native_level_ratios(rows, offense_key=None, idp_key=None,
+                                         off_pool=off_n, idp_pool=idp_n),
+        "idpTradeCalc": native_level_ratios(rows, offense_key="idpTradeCalc",
+                                            idp_key="idpTradeCalc", off_pool=off_n, idp_pool=idp_n),
+        "draftSharks": native_level_ratios(rows, offense_key="draftSharks",
+                                           idp_key="draftSharksIdp", off_pool=off_n, idp_pool=idp_n),
+        "note": "IDP value / offense value at equal depth k on each market's OWN scale.  "
+        "Draft Sharks' 3D Value + is a vendor value-over-replacement number in whole units "
+        "(its best offense player is 100); deep-k ratios there are coarse and its scale is "
+        "not the canonical one, so compare the markets by the direction and rough size of the "
+        "ratio, not by value.  A level comparison, not a verdict on any level.",
+    }  # fmt: skip
 
     # ── 4. bridge trace + perturbations ──────────────────────────────────
     from src.api import data_contract as dc  # noqa: PLC0415
@@ -1391,9 +1985,18 @@ def run(args) -> int:  # noqa: PLR0915
             if "error" in r:
                 perturb[name] = {"description": desc, "error": r["error"]}
                 continue
+            prov_v = {k: v for k, v in r["provenance"].items() if k != "csvTree"}
+            for prefix, key in (("idptc_idp_values_x", "idpTradeCalc"),
+                                ("ds_idp_values_x", "draftSharksIdp")):  # fmt: skip
+                if name.startswith(prefix):
+                    cov = scaled_share(res["baseline"]["idpSites"][key], r["idpSites"][key],
+                                       float(name.rsplit("x", 1)[1]))  # fmt: skip
+                    prov_v["idpRowsMovedByTheFactor"] = cov
+                    if cov["share"] is None or cov["share"] < 0.99:
+                        raise SystemExit(f"{name}: only {cov} of the served IDP rows moved")
             perturb[name] = {
                 "description": desc,
-                "provenance": {k: v for k, v in r["provenance"].items() if k != "csvTree"},
+                "provenance": prov_v,
                 "idptcTopIdpSiteValue": r.get("idptcTopIdpSite"),
                 "vsBaseline": compare_placement(in_proc, r["rows"], idp_n=idp_n, off_n=off_n),
                 "placement": placement_metrics(r["rows"]),
@@ -1415,34 +2018,103 @@ def run(args) -> int:  # noqa: PLR0915
         if _num(r["sites"].get("draftSharksIdp")) is not None:
             ds_by_sid[sid] = float(r["sites"]["draftSharksIdp"])
     canon_idp = {s: v for s, v in vals.items() if pos_of(s) in IDP}
+
+    # Pools for the scoring-mismatch measurements.  "marketStarters" = the defenders (offense
+    # players) the CANONICAL board prices inside the league-wide starter count, chosen by price
+    # and not by realized points, so the pool is not selected on the outcome it is scored on.
+    def pool(positions, table, top_n=None):
+        ids = {s for s in table if pos_of(s) in positions}
+        if top_n is not None:
+            priced = sorted(
+                (x for x in vals if pos_of(x) in positions), key=lambda x: (-vals[x], x)
+            )
+            ids &= set(priced[:top_n])
+        return sorted(ids)
+
+    def drift_block(pts_a, pts_b, positions, top_n):
+        out = {"all": scoring_drift(pts_a, pts_b, pool(positions, pts_a)),
+               "marketStarters": scoring_drift(pts_a, pts_b, pool(positions, pts_a, top_n))}  # fmt: skip
+        out["byPosition"] = {p: scoring_drift(pts_a, pts_b, pool((p,), pts_a)) for p in positions}
+        return out
+
+    big3_play = None
+    if big3_card:
+        play = ("idp_sack", "idp_qb_hit", "idp_tkl_loss")
+        big3_play = {"keys": list(play),
+                     "league": round(sum(card[k] for k in play), 3),
+                     "big3": round(sum(big3_card[k] for k in play), 3)}  # fmt: skip
+        big3_play["leagueOverBig3"] = round(big3_play["league"] / big3_play["big3"], 3)
+    recs, rpts = reception_points(sl["stats"], card, pos_of)
+    per_catch = {p: pooled_ratio_ci(rpts, recs, sorted(s for s in recs if pos_of(s) == p))
+                 for p in ("RB", "WR", "TE")}  # fmt: skip
+    per_catch["RB+WR+TE"] = pooled_ratio_ci(
+        rpts, recs, sorted(s for s in recs if pos_of(s) in ("RB", "WR", "TE")))  # fmt: skip
+    idptc_page = stated["idpTradeCalc"].get("page") or {}
+    idptc_obs = (stated["idpTradeCalc"].get("archiveObserved") or {}).get("toggles") or {}
+    mismatches = {
+        "idpScoring": {
+            "stated": "The IDP Show 'Big 3' (named by the calculator's own page; defined on "
+            "The IDP Show's published page)"
+            if big3_card
+            else "UNAVAILABLE",
+            "perKey": idp_card_comparison(card, big3_card) if big3_card else None,
+            "sackPlay": big3_play,
+            "leagueCardPointsOverBig3Points": (
+                drift_block(pts, pts_big3, IDP, idp_n) if pts_big3 is not None else None
+            ),
+        },
+        "receptionScoring": {
+            "stated": f"{idptc_page.get('ppr')} PPR (page header {idptc_page.get('headline')!r})",
+            "leagueAttachedPointsPerCatch": per_catch,
+            "leagueCardPointsOverHalfPprCounterfactual": drift_block(pts, pts_half, OFFENSE, off_n),
+            "counterfactual": "same stat lines scored on the league card with ONLY the "
+            "reception rules replaced (rec 0.5, no catch-length tiers, no position reception "
+            "bonus); first-down, yardage, TD and passing rules unchanged, so the ratio isolates "
+            "the reception-pricing mismatch and is not a full re-score under a '.5 PPR' card",
+        },
+        "tePremium": {
+            "stated": "TEP toggle ON (observed): " + json.dumps(idptc_obs.get("tePremium")),
+            "magnitudeStated": None,
+            "leagueBonusRecTe": card.get("bonus_rec_te"),
+            "leagueBonusFdTe": card.get("bonus_fd_te"),
+            "leagueBonusFdWr": card.get("bonus_fd_wr"),
+            "verdict": "MISMATCH: the card pays TEs nothing extra per catch",
+        },
+        "teams": {
+            "stated": idptc_page.get("teams"),
+            "league": fmt["teams"],
+            "verdict": None
+            if idptc_page.get("teams") is None
+            else ("MATCH" if idptc_page.get("teams") == fmt["teams"] else "MISMATCH"),
+        },  # fmt: skip
+        "superflex": {
+            "stated": "Superflex toggle ON (observed): " + json.dumps(idptc_obs.get("superflex")),
+            "leagueSuperFlexSlots": fmt["starterSlots"].get("SUPER_FLEX", 0),
+            "verdict": "MATCH" if fmt["superflex"] else "MISMATCH",
+        },  # fmt: skip
+        "notStatedByTheCalculator": [
+            "IDP starter counts",
+            "best ball",
+            "roster size",
+            "lineup requirements beyond Superflex",
+        ],
+        "notStatedEvidence": idptc_page.get("pageMentions"),
+    }
     alignment = {
+        "statedFormat": stated,
         "statedAssumptions": {
-            "idpTradeCalc": {
-                "superflex": "ON (scraper sets the site's SF toggle; Dynasty Scraper.py "
-                "ensure_toggles_on)",
-                "tePremium": "ON (scraper sets the site's TEP toggle)",
-                "idpScoring": "UNAVAILABLE: no IDP scoring basis is stated in the ingested "
-                "payload (name, value, position, team); the calculator is a generic public "
-                "board, not synced to this league",
-                "teams/roster/IDP starters": "UNAVAILABLE: not stated in the payload",
-            },
             "draftSharks": {
                 "leagueSync": "the vendor page is driven with its league selector set to "
-                "this league's synced copy (scripts/fetch_draftsharks.py LEAGUE_ID); the "
-                "vendor applies scoring client-side",
-                "idpScoring": "UNVERIFIED: whether the vendor reproduces this card's custom "
-                "keys (tiered reception, TFL, PD) is not observable from the CSV",
+                "this league's synced copy (scripts/fetch_draftsharks.py LEAGUE_ID, a "
+                "Draft Sharks league id, not the Sleeper id); the vendor applies scoring "
+                "client-side",
+                "idpScoring": "UNVERIFIED: the fetcher proves the values MOVE when the synced "
+                "league is activated, not that the vendor reproduces this card's custom keys "
+                "(tiered reception, TFL, PD); it is not observable from the CSV",
             },
         },
         "verifiedLeagueCard": fmt,
-        "teMismatch": {
-            "leagueBonusRecTe": card.get("bonus_rec_te"),
-            "idptcTepToggle": True,
-            "note": "the IDPTC board is read with TE premium ON while this card's "
-            "bonus_rec_te is the value above; the same TE++ basis is the canonical "
-            "board's constant target basis (CLAUDE.md step 5a), so this is a "
-            "board-wide assumption, not an IDPTC-only one",
-        },
+        "mismatches": mismatches,
         "implied": {
             "idptcIdpShareTop200Players": round(
                 native["idpCountInTopNPlayers"]["200"]["idptcIdp"] / 200, 3
@@ -1456,21 +2128,28 @@ def run(args) -> int:  # noqa: PLR0915
         },
         "cardAlignment2026wk": {
             "method": "Spearman(market IDP value, 2026 wk1-N league-card ppg) minus "
-            "Spearman(same, tackle-heavy reference card ppg), same players, paired "
-            "bootstrap; DESCRIPTIVE (the boards already know these games: in-sample)",
-            "idpTradeCalc": card_alignment(idptc_by_sid, ppg, ppg_ref, pos_of),
-            "draftSharksIdp": card_alignment(ds_by_sid, ppg, ppg_ref, pos_of),
-            "canonical": card_alignment(canon_idp, ppg, ppg_ref, pos_of),
+            "Spearman(same, ppg under a reference card), same players, paired bootstrap on "
+            "shared resamples; DESCRIPTIVE (the boards already know these games: in-sample).  "
+            "References: 'tackleHeavy' = Investigation B's illustrative card; 'big3' = the "
+            "card the calculator itself names (absent when the vendor page was unavailable)",
+            "references": sorted(card_refs),
+            "idpTradeCalc": card_alignment(idptc_by_sid, ppg, card_refs, pos_of),
+            "draftSharksIdp": card_alignment(ds_by_sid, ppg, card_refs, pos_of),
+            "canonical": card_alignment(canon_idp, ppg, card_refs, pos_of),
         },
     }
-    fam = {
-        f"{m}:{g}": cell["pBoot"]
-        for m in ("idpTradeCalc", "draftSharksIdp", "canonical")
-        for g, cell in alignment["cardAlignment2026wk"][m].items()
-        if isinstance(cell, dict) and cell.get("pBoot") is not None
-    }
-    alignment["cardAlignment2026wk"]["holmAdjustedP"] = holm(fam)
-    alignment["cardAlignment2026wk"]["familySize"] = len(fam)
+    # Holm step-down over one family per reference card (3 markets x {IDP, DL, LB, DB}).
+    holm_by_ref, family_sizes = {}, {}
+    for ref in card_refs:
+        fam = {
+            f"{m}:{g}": cell["references"][ref]["pBoot"]
+            for m in ("idpTradeCalc", "draftSharksIdp", "canonical")
+            for g, cell in alignment["cardAlignment2026wk"][m].items()
+            if ref in (cell.get("references") or {})
+        }
+        holm_by_ref[ref], family_sizes[ref] = holm(fam), len(fam)
+    alignment["cardAlignment2026wk"]["holmAdjustedP"] = holm_by_ref
+    alignment["cardAlignment2026wk"]["familySize"] = family_sizes
 
     # ── 6. Investigation B correlation reproduction ──────────────────────
     print("building pre-season and B-repro boards ...", flush=True)
@@ -1482,7 +2161,9 @@ def run(args) -> int:  # noqa: PLR0915
         .read_text(encoding="utf-8")
     )["Q5_correlation"]  # fmt: skip
     pit_vals = values_by_sid(pre_contract)
-    common = set(pit_vals) & {k for k, v in b_served_pre.items() if v is not None}
+    # sorted: set iteration order varies with the per-process hash seed, which changed the
+    # bootstrap resamples (and so the CI endpoints) between otherwise identical runs
+    common = sorted(set(pit_vals) & {k for k, v in b_served_pre.items() if v is not None})
     same_cohort = {
         "sampleType": "OUT-OF-SAMPLE; the SAME players (priced on both pre-season boards), "
         "so a difference is board date + methodology, not cohort",
@@ -1532,11 +2213,32 @@ def run(args) -> int:  # noqa: PLR0915
     }
 
     # ── provenance + privacy ─────────────────────────────────────────────
-    cache_files = sorted(args.cache_dir.glob("*.json"))
     archive_path = REPO / args.archive
     with zipfile.ZipFile(archive_path) as zf:
         site_raw = {n: hashlib.sha256(zf.read(n)).hexdigest()
                     for n in zf.namelist() if n.startswith("site_raw/")}  # fmt: skip
+    served_sha = served_board_sha256(contract.get("playersArray") or [])
+    receipts = {
+        redact_endpoint(url[len(SLEEPER):]): rec
+        for url, rec in sorted(fetch.receipts.items())
+        if url.startswith(SLEEPER)
+    }  # fmt: skip
+    manifest_path = Path(args.manifest) if args.manifest else REPO / MANIFEST_DEFAULT
+    crosscheck: dict[str, Any] = {"status": "UNAVAILABLE", "reason": "no Lane A manifest found"}
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        crosscheck = {
+            "manifestSha256": sha256_file(manifest_path),
+            **crosscheck_manifest(
+                manifest,
+                receipts=fetch.receipts,
+                served_sha=served_sha,
+                archive_sha=sha256_file(archive_path),
+                live_fingerprint=fmt["scoringFingerprintLive"],
+                archived_fingerprint=fmt["scoringFingerprintArchived"],
+                roster_fingerprint=fmt["rosterFormatFingerprint"],
+            ),
+        }
     out = {
         "purpose": "Lane C-market baseline (directive 2026-10-25 §6C/§9). RESEARCH ONLY: "
         "no served value, rank, weight, curve, bridge or flag changed.",
@@ -1544,6 +2246,7 @@ def run(args) -> int:  # noqa: PLR0915
         "generatedBy": "scripts/idp_accuracy/market_baseline.py",
         "inputs": {
             "codeSha": git("rev-parse", "HEAD"),
+            "scriptSha256": sha256_file(Path(__file__).resolve()),
             "pinnedMainSha": git("rev-parse", PINNED_CSV_REV),
             "leagueKey": LEAGUE_KEY,
             "archive": args.archive,
@@ -1554,17 +2257,12 @@ def run(args) -> int:  # noqa: PLR0915
             "scoringWeeks": weeks,
             "week7": "EXCLUDED (in progress on 2026-10-25)",
             "kickoffUtc": KICKOFF_UTC,
-            "sleeperCache": {
-                "dir": args.cache_dir.relative_to(REPO).as_posix()
-                if args.cache_dir.is_relative_to(REPO)
-                else "(outside repo)",
-                "files": len(cache_files),
-                "combinedSha256": hashlib.sha256(
-                    b"".join(hashlib.sha256(f.read_bytes()).digest() for f in cache_files)
-                ).hexdigest(),
-            },
+            "servedBoardSha256": served_sha,
+            "sleeperReceipts": receipts,
+            "laneAManifestCrosscheck": crosscheck,
             "rosterCount": len(sl["rosters"]),
             "scorerCheck": scorer,
+            "scorerCheckNoGpFilter": scorer_all,
             "hillParamSet": ((contract.get("hillCurves") or {}).get("provenance") or {}).get(
                 "paramSetId"
             ),
@@ -1575,10 +2273,12 @@ def run(args) -> int:  # noqa: PLR0915
         "starterBenchByTier": sbt,
         "idpTradeCalcNative": native,
         "draftSharksCombinedNative": ds_native,
+        "nativeLevelRatios": level,
         "bridgeTrace": trace,
         "perturbations": perturb,
         "leagueFormatAlignment": alignment,
         "correlationReproduction": corr,
+        "verdict": VERDICT,
         "timingSec": round(time.time() - t0, 1),
     }
     teams = (contract.get("sleeper") or {}).get("teams") or []
