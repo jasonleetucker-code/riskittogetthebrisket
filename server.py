@@ -2513,15 +2513,19 @@ def _per_source_freshness() -> dict[str, dict]:
 
 
 def _backup_freshness() -> dict:
-    """Age + location of the newest SQLite backup.
+    """Backup health, with the two backups kept apart and named.
 
-    Mirrors deploy/backup_user_kv.sh: the primary dir ``/var/backups/
-    riskit`` needs root; the self-healing script falls back to
-    ``/home/dynasty/backups/riskit`` (owned by the service user).  This
-    surfaces ``newestBackupAgeHours`` so monitoring trips an alert
-    within a day of a silent backup failure — the exact gap that let
-    backups die unnoticed for ~2 weeks before the P0 fix.  Never raises;
-    returns null age when no backup is found.
+    ``stateBackup`` is the nightly state backup (``riskit-state-backup``,
+    written under the root-only ``/var/backups/riskit-state``): a root this
+    process cannot list is reported ``unverifiable`` / ``permission_denied``,
+    never healthy and never missing.  ``legacySqliteBackup`` is the older
+    ``backup_user_kv.sh`` job (``/var/backups/riskit`` or the dynasty-owned
+    ``/home/dynasty/backups/riskit``) under its own name.  The four original
+    top-level keys (``newestBackupAgeHours`` / ``newestBackupPath`` /
+    ``backupDirUsed`` / ``dbCount``) still describe the LEGACY backup only —
+    ``health-check.yml`` and the stale-backup alert in ``get_health`` read
+    them — and the payload says so (``legacyKeysDescribe``).  Unknown ages and
+    counts are ``None``.  Owner: ``src/api/backup_health.py``.  Never raises.
 
     Memoized 30s (see ``_DISK_PROBE_MEMO``) — treat as read-only.
     """
@@ -2529,47 +2533,20 @@ def _backup_freshness() -> dict:
 
 
 def _backup_freshness_uncached() -> dict:
-    result = {
-        "newestBackupAgeHours": None,
-        "newestBackupPath": None,
-        "backupDirUsed": "none",
-        "dbCount": 0,
-    }
     try:
-        now_epoch = time.time()
-        newest_epoch: float | None = None
-        for label, d in (
-            ("primary", Path("/var/backups/riskit/daily")),
-            ("fallback", Path("/home/dynasty/backups/riskit/daily")),
-        ):
-            try:
-                files = list(d.glob("*.sqlite.gz"))
-            except OSError:
-                continue
-            for f in files:
-                try:
-                    mt = f.stat().st_mtime
-                except OSError:
-                    continue
-                if newest_epoch is None or mt > newest_epoch:
-                    newest_epoch = mt
-                    result["newestBackupPath"] = str(f)
-                    result["backupDirUsed"] = label
-        if newest_epoch is not None:
-            result["newestBackupAgeHours"] = round(max(0.0, (now_epoch - newest_epoch) / 3600.0), 2)
-            try:
-                newest = Path(result["newestBackupPath"])
-                parts = newest.name.split(".")
-                stamp = parts[1] if len(parts) >= 3 else ""
-                if stamp:
-                    result["dbCount"] = len(
-                        {f.name.split(".")[0] for f in newest.parent.glob(f"*.{stamp}.sqlite.gz")}
-                    )
-            except OSError:
-                pass
+        from src.api.backup_health import build_backup_health
+
+        return build_backup_health()
     except Exception:  # noqa: BLE001 — monitoring helper must never raise
-        pass
-    return result
+        return {
+            "newestBackupAgeHours": None,
+            "newestBackupPath": None,
+            "backupDirUsed": "none",
+            "dbCount": None,
+            "legacyKeysDescribe": "legacySqliteBackup",
+            "legacySqliteBackup": {"state": "unverifiable", "reason": "probe_error"},
+            "stateBackup": {"state": "unverifiable", "reason": "probe_error"},
+        }
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
