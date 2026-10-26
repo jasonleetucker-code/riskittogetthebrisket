@@ -10,11 +10,17 @@ Pins, without network or a live board:
 * every identity field is present or ``None`` with a reason in
   ``nullReasons``; a sidecar that does not describe its forecast is never
   trusted;
-* the store lives outside every path the scheduled refresh force-adds to git.
+* the store lives outside every path the scheduled refresh force-adds to git;
+* the points model is identified three ways (artifact hash, the source actually
+  used, and -- for the fallback constants, which have no file -- their hash),
+  without a missing file ever becoming a hash of empty input, and without
+  moving ``inputsSha256`` or ``simParamsSha256`` for existing inputs.
 """
 
 from __future__ import annotations
 
+import ast
+import hashlib
 import importlib.util
 import json
 import logging
@@ -27,6 +33,7 @@ from unittest.mock import patch
 import pytest
 
 import src.ros as ros_pkg
+from src.league_intel import sim_calibration
 from src.ros import championship, forecast_archive, playoff_sim, scrape, team_strength
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -90,7 +97,11 @@ def ros_tmp(tmp_path, monkeypatch):
     monkeypatch.setattr(team_strength, "ROS_DATA_DIR", ros_dir)
     monkeypatch.setattr(forecast_archive, "DEFAULT_DIR", archive)
     monkeypatch.setattr(team_strength, "resolve_snapshot_league_key", lambda snap: None)
-    return SimpleNamespace(ros=ros_dir, archive=archive)
+    # No developer-local ``sim_points_model.json`` may leak into a test: the
+    # default is an ABSENT artifact (the fallback constants), as on the runner.
+    model_path = tmp_path / "league_intel" / "sim_points_model.json"
+    monkeypatch.setattr(sim_calibration, "MODEL_PATH", model_path)
+    return SimpleNamespace(ros=ros_dir, archive=archive, model_path=model_path)
 
 
 def _doc(payload):
@@ -322,6 +333,8 @@ INPUT_FIELDS = (
     "rosAggregateSha256",
     "rosAggregatedAt",
     "pointsModelFileSha256",
+    "pointsModelSource",
+    "pointsModelFallbackSha256",
     "contractGeneration",
 )
 
@@ -356,6 +369,245 @@ def test_identity_fields_present_on_a_complete_context(ros_tmp):
     # would fabricate an input.
     assert identity["inputs"]["contractGeneration"] is None
     assert identity["nullReasons"]["inputs.contractGeneration"]
+
+
+# ── points-model identity (RPA-COL-022) ─────────────────────────────
+
+#: The ``inputs`` keys that existed before the points-model identity fields.
+#: ``inputsSha256`` hashed exactly these (the ``*Sha256`` ones plus
+#: ``rosAggregatedAt``) and must keep doing so for the same inputs.
+LEGACY_FINGERPRINT_KEYS = (
+    "leagueSnapshotSha256",
+    "teamStrengthFileSha256",
+    "rosAggregateSha256",
+    "rosAggregatedAt",
+    "pointsModelFileSha256",
+)
+LEGACY_INPUT_KEYS = LEGACY_FINGERPRINT_KEYS + (
+    "leagueSnapshotScope",
+    "leagueSnapshotGeneratedAt",
+    "teamStrengthFileFresh",
+    "contractGeneration",
+    "inputsSha256",
+)
+SHA256_OF_EMPTY_INPUT = hashlib.sha256(b"").hexdigest()
+
+
+def _write_points_model(path, *, schema_version=sim_calibration.SCHEMA_VERSION, per_point=2.5):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schemaVersion": schema_version,
+                "generatedAt": "2026-09-20T00:00:00+00:00",
+                "sampleSize": 1415,
+                "scale": {"rosValuePerPoint": per_point},
+                "byPosition": {"QB": {"cv": 0.3}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_fallback_constants_are_named_and_hashed_never_an_empty_file_hash(ros_tmp):
+    """No artifact -> ``None`` file hash, ``fallback-constants``, a hash of the constants."""
+    assert not ros_tmp.model_path.exists()
+    context = forecast_archive.collect_context(_snapshot(), best_ball=True)
+    inputs = context["inputs"]
+    nulls = context["nullReasons"]
+
+    assert inputs["pointsModelFileSha256"] is None
+    assert inputs["pointsModelFileSha256"] != SHA256_OF_EMPTY_INPUT
+    assert inputs["pointsModelSource"] == "fallback-constants"
+    assert inputs["pointsModelSource"] == sim_calibration.DEFAULT_POINTS_MODEL.source
+    # The constants' identity is the hash of the very model simParams carries,
+    # so it is independently recomputable from the same record.
+    pinned = context["model"]["simParams"]["pointsModel"]
+    assert pinned["source"] == "fallback-constants"
+    assert inputs["pointsModelFallbackSha256"] == forecast_archive.canonical_sha256(pinned)
+    assert inputs["pointsModelFallbackSha256"] == forecast_archive.canonical_sha256(
+        sim_calibration.PointsModel().to_dict()
+    )
+    # The null is explained as the fallback being in use, not just "no file".
+    assert nulls["inputs.pointsModelFileSha256"] == "fallback_constants_in_use:file_absent"
+    assert "inputs.pointsModelFallbackSha256" not in nulls
+    assert "inputs.pointsModelSource" not in nulls
+
+
+def test_fallback_hash_changes_when_the_fallback_constants_change(ros_tmp, monkeypatch):
+    before = forecast_archive.collect_context(_snapshot(), best_ball=True)["inputs"]
+    monkeypatch.setitem(sim_calibration.FALLBACK_CV_BY_POSITION, "QB", 0.99)
+    # A fresh ``PointsModel`` copies the table when it is built, so it sees the
+    # patched constants.
+    after = forecast_archive.collect_context(_snapshot(), best_ball=True)["inputs"]
+    assert before["pointsModelFallbackSha256"] != after["pointsModelFallbackSha256"]
+
+
+def test_calibrated_artifact_is_hashed_and_named(ros_tmp):
+    _write_points_model(ros_tmp.model_path)
+    context = forecast_archive.collect_context(_snapshot(), best_ball=True)
+    inputs = context["inputs"]
+    nulls = context["nullReasons"]
+
+    assert (
+        inputs["pointsModelFileSha256"]
+        == hashlib.sha256(ros_tmp.model_path.read_bytes()).hexdigest()
+    )
+    assert inputs["pointsModelSource"] == "calibrated"
+    # A calibrated model's identity is the file; there is no fallback hash.
+    assert inputs["pointsModelFallbackSha256"] is None
+    assert nulls["inputs.pointsModelFallbackSha256"] == "points_model_is_not_the_fallback"
+    assert "inputs.pointsModelFileSha256" not in nulls
+    assert context["model"]["simParams"]["pointsModel"]["source"] == "calibrated"
+
+
+def test_a_present_but_rejected_artifact_records_both_facts(ros_tmp):
+    """The file exists but the loader refused it: the run used the constants."""
+    _write_points_model(ros_tmp.model_path, schema_version=99)
+    inputs = forecast_archive.collect_context(_snapshot(), best_ball=True)["inputs"]
+
+    assert (
+        inputs["pointsModelFileSha256"]
+        == hashlib.sha256(ros_tmp.model_path.read_bytes()).hexdigest()
+    )
+    assert inputs["pointsModelSource"] == "fallback-constants"
+    assert inputs["pointsModelFallbackSha256"] == forecast_archive.canonical_sha256(
+        sim_calibration.PointsModel().to_dict()
+    )
+
+
+def test_points_model_identity_describes_the_model_simparams_pinned(ros_tmp, monkeypatch):
+    """One load per context: the two descriptions of the model cannot disagree."""
+    calls = []
+    real = sim_calibration.load_points_model
+
+    def counting(path=None):
+        calls.append(path)
+        return real(path)
+
+    monkeypatch.setattr(sim_calibration, "load_points_model", counting)
+    context = forecast_archive.collect_context(_snapshot(), best_ball=True)
+    assert len(calls) == 1
+    assert (
+        context["inputs"]["pointsModelSource"]
+        == (context["model"]["simParams"]["pointsModel"]["source"])
+    )
+
+
+def test_a_new_record_carries_the_points_model_identity_end_to_end(ros_tmp):
+    doc = _doc(PLAYOFF_PAYLOAD)
+    sim = ros_tmp.ros / "sims" / "latest_playoff.json"
+    sim.parent.mkdir(parents=True)
+    sim.write_text(json.dumps(doc, indent=2))
+    context = forecast_archive.collect_context(_snapshot(), best_ball=True)
+    forecast_archive.archive_safely(
+        league_key="dynasty_main", kind="playoff", forecast=doc, context=context, sim_path=sim
+    )
+
+    (rec,) = forecast_archive.iter_records(ros_tmp.archive)
+    assert rec["inputs"]["pointsModelFileSha256"] is None
+    assert rec["inputs"]["pointsModelSource"] == "fallback-constants"
+    assert rec["inputs"]["pointsModelFallbackSha256"] == forecast_archive.canonical_sha256(
+        rec["model"]["simParams"]["pointsModel"]
+    )
+    reason = rec["nullReasons"]["inputs.pointsModelFileSha256"]
+    assert reason.startswith("fallback_constants_in_use")
+    # The sidecar (what the box joins) carries the same identity.
+    sidecar = json.loads((ros_tmp.ros / "sims" / "latest_playoff.identity.json").read_text())
+    assert sidecar["inputs"] == json.loads(json.dumps(rec["inputs"]))
+
+
+def test_existing_identity_is_unchanged_by_the_new_fields(ros_tmp):
+    """New records differ from old ones ONLY by the added keys."""
+    snapshot = _snapshot()
+    context = forecast_archive.collect_context(snapshot, best_ball=True)
+    inputs = context["inputs"]
+
+    assert set(inputs) == set(LEGACY_INPUT_KEYS) | {
+        "pointsModelSource",
+        "pointsModelFallbackSha256",
+    }
+    assert inputs["leagueSnapshotSha256"] == forecast_archive._league_snapshot_sha(snapshot, {})
+    assert (
+        inputs["teamStrengthFileSha256"]
+        == hashlib.sha256((ros_tmp.ros / "team_strength" / "latest.json").read_bytes()).hexdigest()
+    )
+    assert (
+        inputs["rosAggregateSha256"]
+        == hashlib.sha256((ros_tmp.ros / "aggregate" / "latest.json").read_bytes()).hexdigest()
+    )
+    assert inputs["rosAggregatedAt"] == "2026-10-01T11:00:00+00:00"
+    # The fingerprint is byte-for-byte what it was before the new fields: the
+    # hash of exactly the legacy keys.
+    assert inputs["inputsSha256"] == forecast_archive.canonical_sha256(
+        {k: inputs[k] for k in LEGACY_FINGERPRINT_KEYS}
+    )
+    # ``simParams`` carries the same five parameter groups as before, so
+    # ``simParamsSha256`` still pins exactly them.
+    params = context["model"]["simParams"]
+    assert set(params) == {
+        "bestBall",
+        "playoffSim",
+        "rosEvidenceMethod",
+        "championship",
+        "pointsModel",
+    }
+    assert context["model"]["simParamsSha256"] == forecast_archive.canonical_sha256(params)
+
+
+# ── contract generation: not an input of these simulators ───────────
+
+#: Every module the playoff / title simulation runs through to its inputs.
+SIMULATOR_INPUT_MODULES = (
+    "playoff_sim",
+    "championship",
+    "team_strength",
+    "lineup",
+    "availability",
+    "game_day_sim",
+)
+CONTRACT_READERS = ("latest_contract_data", "contract_generation")
+CONTRACT_VALUE_FIELDS = ("rankDerivedValue", "canonicalConsensusRank")
+CONTRACT_MODULES = ("data_contract", "trade_analyze_runtime")
+
+
+def _contract_reads(path):
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    hits = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            names = [a.name for a in node.names]
+            module = getattr(node, "module", None) or ""
+            if any(frag in text for text in [module, *names] for frag in CONTRACT_MODULES):
+                hits.append((node.lineno, "import", module or names))
+            hits += [(node.lineno, "import", n) for n in names if n in CONTRACT_READERS]
+        elif isinstance(node, ast.Name) and node.id in CONTRACT_READERS:
+            hits.append((node.lineno, "name", node.id))
+        elif isinstance(node, ast.Attribute) and node.attr in CONTRACT_READERS:
+            hits.append((node.lineno, "attribute", node.attr))
+        elif isinstance(node, ast.Constant) and node.value in CONTRACT_VALUE_FIELDS:
+            hits.append((node.lineno, "field", node.value))
+    return hits
+
+
+def test_simulators_do_not_read_the_dynasty_contract():
+    """Why ``inputs.contractGeneration`` is ``None``: it is not a simulator input.
+
+    The playoff / title Monte Carlo runs on the ROS aggregate (the seasonal
+    lane) and the persisted team strength, both pinned in ``inputs``. Stamping
+    the dynasty board's generation would claim an input the forecast never read
+    -- and the refresh runner has no contract loaded at all. If a simulator ever
+    starts reading the board, this fails: stamp
+    ``trade_analyze_runtime.contract_generation`` into ``contractGeneration``
+    (and drop the null reason) in the same change.
+    """
+    offenders = {}
+    for name in SIMULATOR_INPUT_MODULES:
+        hits = _contract_reads(REPO_ROOT / "src" / "ros" / f"{name}.py")
+        if hits:
+            offenders[name] = hits
+    assert not offenders, f"simulator input modules now read the dynasty contract: {offenders}"
 
 
 def test_missing_identity_is_none_with_a_reason_never_fabricated(ros_tmp, monkeypatch):
