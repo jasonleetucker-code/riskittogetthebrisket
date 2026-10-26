@@ -58,6 +58,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from src.intel import ledger, league_filter
+from src.sharp import pass_coverage, record_queue
 from src.sharp import score as sharp_score
 
 log = logging.getLogger(__name__)
@@ -96,6 +97,18 @@ class RecordsResult:
     calls_used: int = 0
     budget_exhausted: bool = False
     errors: list[str] = field(default_factory=list)
+    # ── per-run COVERAGE (reporting only; see ``src/sharp/pass_coverage.py``) ──
+    # The unit is the START league of a chain: ``leagues_examined`` above counts
+    # league-SEASONS fetched (a six-season chain is six), which is not the
+    # number of queue entries the run got through.
+    chains_queued: int = 0
+    chains_attempted: int = 0
+    chains_succeeded: int = 0
+    chains_failed: int = 0
+    # Chains the budget cut off mid-walk: their older seasons were not recorded.
+    chains_cut_by_budget: int = 0
+    stopped_reason: str = ""
+    pass_coverage: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -105,6 +118,8 @@ class RecordsResult:
             "managersTouched": self.managers_touched,
             "callsUsed": self.calls_used,
             "budgetExhausted": self.budget_exhausted,
+            "stoppedReason": self.stopped_reason or None,
+            "passCoverage": self.pass_coverage,
             "errors": self.errors[:20],
         }
 
@@ -288,17 +303,25 @@ def crawl_records(
 
     seen_leagues: set[str] = set()
     touched_managers: set[str] = set()
+    # Leagues whose season row was actually written this run.  Reporting only:
+    # it is how a chain is judged to have produced something.
+    stored_leagues: set[str] = set()
+    result.chains_queued = len(league_ids)
     conn = ledger.connect(ledger_path)
     try:
         for start_id in league_ids:
             if not b.can_call(CALLS_PER_SEASON):
                 break
+            result.chains_attempted += 1
             current = str(start_id)
             hops = 0
             while current and current != _CHAIN_TERMINATOR and hops < max_seasons:
                 if current in seen_leagues:
                     break  # loop guard — a chain must never revisit
                 if not b.can_call(CALLS_PER_SEASON):
+                    # The chain still had seasons to walk (it did not end on the
+                    # terminator, the loop guard or max_seasons): the budget cut it.
+                    result.chains_cut_by_budget += 1
                     break
                 seen_leagues.add(current)
                 hops += 1
@@ -335,6 +358,8 @@ def crawl_records(
                 for row in rows:
                     touched_managers.add(row["user_id"])
                 _store_rows(rows, conn=conn)
+                if rows:
+                    stored_leagues.add(current)
                 # Commit PER SEASON, not once for the whole crawl.  Every
                 # iteration of this loop does network I/O, so a single
                 # end-of-crawl commit held the SQLite writer lock across
@@ -346,6 +371,13 @@ def crawl_records(
                 conn.commit()
 
                 current = str(league.get("previous_league_id") or "")
+
+            # Judged on the START league alone: it is the queue entry, and its
+            # stored row is what moves its position in the next run's queue.
+            if str(start_id) in stored_leagues:
+                result.chains_succeeded += 1
+            else:
+                result.chains_failed += 1
         conn.commit()
     finally:
         conn.close()
@@ -353,8 +385,63 @@ def crawl_records(
     result.calls_used = b.used
     result.budget_exhausted = not b.can_call(CALLS_PER_SEASON)
     result.managers_touched = len(touched_managers)
+    _attach_pass_coverage(result, call_budget=budget, ledger_path=ledger_path)
     log.info("sharp.records: %s", result.to_dict())
+    pass_coverage.log_pass_summary(log, result.pass_coverage or {})
     return result
+
+
+def _attach_pass_coverage(result: RecordsResult, *, call_budget: int, ledger_path) -> None:
+    """Fill ``result.stopped_reason`` / ``result.pass_coverage``.
+
+    Reporting only.  The stop reason comes from what the loop did, not from
+    ``budget_exhausted``: that flag is "the budget is spent NOW", which is also
+    true of a run that drained its queue with its last call.  The outer loop's
+    only exit is the budget check, so an unreached queue entry (or a chain the
+    budget cut short) is exactly "the budget ended the run with work left".
+    """
+    unreached = result.chains_queued - result.chains_attempted
+    work_remains = unreached > 0 or result.chains_cut_by_budget > 0
+    if result.chains_queued == 0:
+        result.stopped_reason = pass_coverage.STOPPED_NO_WORK
+    else:
+        result.stopped_reason = pass_coverage.classify_stop(
+            budget_stopped=work_remains, work_remains=work_remains
+        )
+
+    # The ledger's own view of the whole graph, after this run's writes.
+    # ``oldestCrawlMs`` is the stalest league that HAS been crawled; the leagues
+    # never crawled at all (``neverVisited``) are staler than any of them.
+    oldest_ms: int | None = None
+    never_visited: int | None = None
+    ledger_view: dict[str, Any] = {}
+    try:
+        stats = record_queue.queue_stats(ledger_path=ledger_path)
+        oldest_ms = stats["oldestCrawlMs"]
+        never_visited = stats["uncrawledLeagues"]
+        ledger_view = {
+            "ledgerEligibleLeagues": stats["eligibleLeagues"],
+            "ledgerNewestCrawlMs": stats["newestCrawlMs"],
+        }
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        log.warning("sharp.records: could not read queue coverage", exc_info=True)
+
+    result.pass_coverage = pass_coverage.build_pass_coverage(
+        pass_name=pass_coverage.PASS_RECORDS,
+        unit="leagues",
+        attempted=result.chains_attempted,
+        succeeded=result.chains_succeeded,
+        failed=result.chains_failed,
+        eligible_total=result.chains_queued,
+        remaining_unvisited=unreached,
+        stopped_reason=result.stopped_reason,
+        calls_used=result.calls_used,
+        call_budget=call_budget,
+        oldest_crawl_ms=oldest_ms,
+        never_visited=never_visited,
+        oldest_basis="latest manager_seasons.crawled_ms per sharp-eligible league",
+        extra={"chainsCutByBudget": result.chains_cut_by_budget, **ledger_view},
+    )
 
 
 # ── records -> ManagerRecord ─────────────────────────────────────────

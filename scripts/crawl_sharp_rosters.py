@@ -106,7 +106,16 @@ def main() -> int:
 
     print(json.dumps(summary, indent=2))
     if summary.get("sleeper", {}).get("budgetExhausted"):
-        log.warning("budget exhausted with leagues still uncollected — re-run to continue")
+        # ``budgetExhausted`` only says the budget is spent NOW, which is also
+        # true of a pass that collected its last league with its last call; the
+        # coverage block says whether leagues were actually left.  The exit
+        # code is unchanged.
+        coverage = summary["sleeper"].get("passCoverage") or {}
+        log.warning(
+            "budget exhausted (stoppedReason=%s remainingUnvisited=%s) — re-run to continue",
+            coverage.get("stoppedReason"),
+            coverage.get("remainingUnvisited"),
+        )
         return 2
     return 0
 

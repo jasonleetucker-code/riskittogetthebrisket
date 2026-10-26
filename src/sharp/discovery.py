@@ -81,6 +81,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from src.intel import league_filter, ledger
+from src.sharp import pass_coverage
 
 log = logging.getLogger(__name__)
 
@@ -171,6 +172,19 @@ class DiscoveryResult:
     # Outcomes of the dated format capture (``league_format_capture``):
     # ``new`` / ``unchanged`` / ``incomplete``.
     market_format_captures: dict[str, int] = field(default_factory=dict)
+    # ── per-run COVERAGE (reporting only; see ``src/sharp/pass_coverage.py``) ──
+    # Graph nodes whose fetch this run actually issued, split by outcome, and
+    # the expandable nodes still queued when it ended.  ``users_expanded`` /
+    # ``leagues_expanded`` above are not these: they are counted when a node is
+    # popped, which includes one the maxLeaguesPerRun cap stopped before any
+    # fetch, and a queued node can sit on the frontier many times over.
+    nodes_attempted: int = 0
+    nodes_failed: int = 0
+    nodes_remaining: int = 0
+    # Set when a configured size cap ended the walk before its queue was empty.
+    capped: bool = False
+    stopped_reason: str = ""
+    pass_coverage: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -190,6 +204,8 @@ class DiscoveryResult:
             "frontierLeagues": len(self.frontier_leagues),
             "marketFormatCaptureFailures": self.market_format_capture_failures,
             "marketFormatCaptures": dict(self.market_format_captures),
+            "stoppedReason": self.stopped_reason or None,
+            "passCoverage": self.pass_coverage,
             "errors": self.errors,
         }
 
@@ -272,12 +288,18 @@ def discover(
     limits = seeds.get("limits") or {}
     http = http_get or _default_http_get
 
+    call_budget = budget if budget is not None else int(trav.get("callBudgetPerRun", 2500))
     b = _Budget(
-        budget if budget is not None else int(trav.get("callBudgetPerRun", 2500)),
+        call_budget,
         float(trav.get("sleepSecondsBetweenCalls", 0.12)),
         http,
         sleep_fn=sleep_fn,
     )
+    # Reporting only: the default fetch rides the shared ``sleeper_api`` circuit
+    # breaker, whose refusals come back as instant ``None``s that this loop
+    # cannot tell from a real failure.  The breaker's own fast-fail counter,
+    # read before and after, is the only honest witness.
+    breaker_fast_fails_before = pass_coverage.sleeper_breaker_fast_fails()
     max_gen = max_generations if max_generations is not None else int(trav.get("maxGenerations", 4))
     seasons = [str(s) for s in (trav.get("seasons") or ["2026"])]
     per_user_cap = int(trav.get("perUserLeagueCap", 40))
@@ -332,11 +354,14 @@ def discover(
             deepest = max(deepest, gen)
             if len(known_leagues) > max_leagues:
                 result.errors.append(f"maxLeaguesPerRun ({max_leagues}) reached — traversal capped")
+                result.capped = True
                 break
 
             members = b.get(f"{SLEEPER_BASE}/league/{lid}/users")
+            result.nodes_attempted += 1
             if not isinstance(members, list):
                 result.errors.append(f"league_users_fetch_failed:{lid}")
+                result.nodes_failed += 1
                 continue
 
             for m in members:
@@ -365,6 +390,8 @@ def discover(
             continue
         seen_users.add(uid)
         deepest = max(deepest, gen)
+        result.nodes_attempted += 1
+        user_fetch_failed = False
 
         for season in seasons:
             if not b.can_call():
@@ -372,6 +399,7 @@ def discover(
             raw = b.get(f"{SLEEPER_BASE}/user/{uid}/leagues/nfl/{season}")
             if not isinstance(raw, list):
                 result.errors.append(f"user_leagues_fetch_failed:{uid}:{season}")
+                user_fetch_failed = True
                 continue
             for lg in raw[:per_user_cap]:
                 if not isinstance(lg, dict):
@@ -465,6 +493,9 @@ def discover(
                 )
                 league_q.append((lid, gen + 1))
 
+        if user_fetch_failed:
+            result.nodes_failed += 1
+
     result.calls_used = b.used
     result.budget_exhausted = not b.can_call() and bool(league_q or user_q)
     result.generations_completed = deepest
@@ -474,6 +505,12 @@ def discover(
     result.leagues_expanded = len(seen_leagues)
     result.frontier_users = [u for u, _ in user_q]
     result.frontier_leagues = [lg for lg, _ in league_q]
+    # DISTINCT nodes the walk could still expand.  The raw frontier lists above
+    # hold a node once per referrer and keep nodes past ``maxGenerations`` that
+    # the walk will pop and skip; neither is work this run left undone.
+    result.nodes_remaining = len(
+        {u for u, g in user_q if u not in seen_users and g <= max_gen}
+    ) + len({lg for lg, g in league_q if lg not in seen_leagues and g <= max_gen})
 
     # Persist. Every write upserts on a primary key, so a re-run adds
     # nothing rather than duplicating.
@@ -492,11 +529,79 @@ def discover(
         else:
             result.market_format_capture_failures += len(format_observed)
         conn.commit()
+        oldest_seen_ms = _oldest_league_seen_ms(conn)
     finally:
         conn.close()
 
+    _attach_pass_coverage(
+        result,
+        call_budget=call_budget,
+        budget_spent=not b.can_call(),
+        breaker_fast_fails_before=breaker_fast_fails_before,
+        oldest_seen_ms=oldest_seen_ms,
+    )
     log.info("sharp.discovery: %s", result.to_dict())
+    pass_coverage.log_pass_summary(log, result.pass_coverage or {})
     return result
+
+
+def _oldest_league_seen_ms(conn: Any) -> int | None:
+    """When discovery last SAW its stalest league (``None`` if the table is empty
+    or unreadable).  ``leagues.last_crawled_ms`` is stamped whenever discovery
+    observes the league -- NOT when the walk last expanded it, which the ledger
+    does not record -- so this is a lower bound on how stale expansion is."""
+    try:
+        row = conn.execute("SELECT MIN(last_crawled_ms) AS oldest FROM leagues").fetchone()
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        log.debug("could not read the oldest discovery observation", exc_info=True)
+        return None
+    if row is None or row["oldest"] is None:
+        return None
+    return int(row["oldest"])
+
+
+def _attach_pass_coverage(
+    result: DiscoveryResult,
+    *,
+    call_budget: int,
+    budget_spent: bool,
+    breaker_fast_fails_before: int | None,
+    oldest_seen_ms: int | None,
+) -> None:
+    """Fill ``result.stopped_reason`` / ``result.pass_coverage`` from what the
+    loop observed.  Reporting only: nothing here feeds back into the walk."""
+    refused = pass_coverage.breaker_refusals(
+        breaker_fast_fails_before, pass_coverage.sleeper_breaker_fast_fails()
+    )
+    result.stopped_reason = pass_coverage.classify_stop(
+        # The cap ends the loop by ``break`` while budget remains, so a spent
+        # budget alongside it is coincidence, not the cause.
+        budget_stopped=budget_spent and not result.capped,
+        work_remains=result.nodes_remaining > 0,
+        breaker_blocked=refused is not None and refused > 0,
+        capped=result.capped,
+    )
+    result.pass_coverage = pass_coverage.build_pass_coverage(
+        pass_name=pass_coverage.PASS_DISCOVERY,
+        unit="graph_nodes",
+        attempted=result.nodes_attempted,
+        succeeded=result.nodes_attempted - result.nodes_failed,
+        failed=result.nodes_failed,
+        # Sleeper has no directory, so the walk only knows the nodes it has
+        # found: this is a floor on the population, never the population.
+        eligible_total=result.nodes_attempted + result.nodes_remaining,
+        remaining_unvisited=result.nodes_remaining,
+        stopped_reason=result.stopped_reason,
+        calls_used=result.calls_used,
+        call_budget=call_budget,
+        oldest_crawl_ms=oldest_seen_ms,
+        oldest_basis="leagues.last_crawled_ms: when discovery last SAW a league, not when it "
+        "last expanded it",
+        extra={
+            "eligibleTotalIsLowerBound": True,
+            "breakerRefusedCalls": refused,
+        },
+    )
 
 
 def _keep_first_seen_discovery(leagues_batch: list[dict[str, Any]], conn: Any) -> None:
