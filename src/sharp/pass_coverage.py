@@ -66,6 +66,10 @@ the opposite.
 ``upstream_data_missing``  the pass's input was absent upstream, so part of the
                       population could not be visited at all (FFPC memberships
                       whose page carried no roster table).
+``unknown``           nothing established whether the pass finished (activity
+                      pass: the crawler's summary and snapshot said neither that
+                      work was pending nor that none was).  Not ``completed``,
+                      and not proven healthy, so it logs at WARNING.
 
 A run where work was attempted and EVERY attempt failed is logged at WARNING
 whatever its ``stoppedReason`` is -- a queue that drained because each fetch
@@ -95,9 +99,13 @@ STOPPED_CAP_REACHED = "cap_reached"
 STOPPED_WORK_PENDING = "work_pending"
 STOPPED_NO_WORK = "no_work"
 STOPPED_UPSTREAM_MISSING = "upstream_data_missing"
+STOPPED_UNKNOWN = "unknown"
 
-#: Reasons that mean the run ended SHORT of the population it was meant to
-#: cover.  These (and only these) are logged at WARNING.
+#: Reasons that are NOT proven healthy: the run ended SHORT of the population
+#: it was meant to cover, or nothing established that it did not.  These (and
+#: only these, plus a run whose every attempt failed) are logged at WARNING.
+#: ``unknown`` belongs here because it means no evidence of completion, which
+#: is not evidence of health -- it must not log at INFO beside ``completed``.
 STOPPED_SHORT = frozenset(
     {
         STOPPED_BUDGET_EXHAUSTED,
@@ -105,6 +113,7 @@ STOPPED_SHORT = frozenset(
         STOPPED_CAP_REACHED,
         STOPPED_WORK_PENDING,
         STOPPED_UPSTREAM_MISSING,
+        STOPPED_UNKNOWN,
     }
 )
 
@@ -291,8 +300,6 @@ def breaker_refusals(before: int | None, after: int | None) -> int | None:
 # ``budgetExhausted`` and little else.  Everything else about where the crawl
 # stands lives in the snapshot the crawler persists (``members``, ``leagues``,
 # ``cursor``, ``lastRun``), which is what is read here -- read-only.
-
-STOPPED_UNKNOWN = "unknown"
 
 
 def _iso_to_ms(value: Any) -> int | None:
