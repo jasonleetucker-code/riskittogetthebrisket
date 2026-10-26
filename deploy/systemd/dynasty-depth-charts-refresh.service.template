@@ -7,9 +7,14 @@ Wants=network-online.target
 # (docs/faab-live-opportunity-model.md).  Fetches all 32 NFL teams'
 # ESPN depth charts, diffs against the prior run
 # (data/nfl_data/depth_charts_prior.json), and turns a scored slot
-# change into a DEPTH_CHART_PROMOTION/DEMOTION BDVM structured event
-# (data/bdvm/events/<season>.json) that src/trade/faab_opportunity.py
-# reads through the FAAB engine's shadow path.
+# change into a DEPTH_CHART_PROMOTION/DEMOTION event.
+#
+# SHADOW ONLY (2026-10-25): derived events go to
+# data/nfl_data/depth_chart_events_shadow.json, which nothing loads.
+# They are NOT merged into data/bdvm/events/<season>.json — that file
+# feeds every BDVM valuation, and the merge had never run (the ESPN path
+# returned {} until this date).  Activating it needs measured event
+# volume / false positives and owner approval.
 #
 # WHY A PROD-SIDE TIMER AND NOT CI: same reasoning as
 # dynasty-playerctx-refresh — the events file lives under gitignored
@@ -23,7 +28,8 @@ Wants=network-online.target
 #
 # Exit codes (scripts/refresh_depth_charts.py):
 #   0 - all 32 teams fetched (or flag off -> no-op)
-#   1 - more than 5 teams failed this run; prior snapshot untouched
+#   1 - more than 5 teams failed this run; a failed team keeps its last
+#       good chart in the prior snapshot
 
 [Service]
 Type=oneshot
