@@ -15,6 +15,11 @@ each under its own name; a state root that exists but cannot be listed is
 directory inspected, and why, is always stated; unknown ages and counts are
 ``None``; and the pre-existing top-level keys the ``health-check.yml`` monitor
 reads still describe the legacy backup unchanged.
+
+``/api/health`` and ``/api/status`` are anonymous, so the block they serve is
+the PUBLIC projection only: no optional-store names, ledger presence or sizes,
+generation date, artifact count or mirror age.  That detail is still computed
+(``build_backup_health_detail``) and is tested here, but nothing serves it.
 """
 
 from __future__ import annotations
@@ -22,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import errno
 import gzip
+import json
 import os
 import re
 from datetime import datetime, timezone
@@ -99,17 +105,26 @@ def state(tmp_path: Path, **kw):
     )
 
 
-def build(tmp_path: Path, **kw):
-    return bh.build_backup_health(
-        state_root=str(tmp_path / "state"),
-        state_fallback_root=str(tmp_path / "state_fb"),
-        legacy_dirs=(
+def _paths(tmp_path: Path) -> dict:
+    return {
+        "state_root": str(tmp_path / "state"),
+        "state_fallback_root": str(tmp_path / "state_fb"),
+        "legacy_dirs": (
             ("primary", str(tmp_path / "legacy_primary")),
             ("fallback", str(tmp_path / "legacy_fallback")),
         ),
-        now_epoch=NOW,
-        **kw,
-    )
+        "now_epoch": NOW,
+    }
+
+
+def build(tmp_path: Path, **kw):
+    """The PUBLIC block -- what /api/health and /api/status serve."""
+    return bh.build_backup_health(**_paths(tmp_path), **kw)
+
+
+def detail(tmp_path: Path, **kw):
+    """The private full report -- served by no endpoint."""
+    return bh.build_backup_health_detail(**_paths(tmp_path), **kw)
 
 
 # -- readable canonical directory: healthy or stale ---------------------------
@@ -349,26 +364,31 @@ def test_legacy_backup_is_reported_under_its_own_name_not_as_the_state_backup(
 
     assert out["stateBackup"]["state"] == "unverifiable"
     assert out["stateBackup"]["reason"] == "permission_denied"
-    legacy = out["legacySqliteBackup"]
-    assert legacy["name"] == "legacy_sqlite_backup"
-    assert legacy["state"] == "healthy"
-    assert legacy["backupDirUsed"] == "fallback"
-    assert legacy["newestBackupAgeHours"] == 10.24
-    assert legacy["dbCount"] == 4
-    assert "NOT the state backup" in legacy["describes"]
+    assert out["legacySqliteBackup"] == {
+        "state": "healthy",
+        "reason": "within_threshold",
+        "ageHours": 10.24,
+    }
+    assert out["backupDirUsed"] == "fallback"
+    assert out["newestBackupAgeHours"] == 10.24
+    assert out["dbCount"] == 4
     # The legacy directory never appears among the state backup's roots.
-    assert [r["path"] for r in out["stateBackup"]["roots"]] == [
+    assert [r["directoryInspected"] for r in out["stateBackup"]["roots"]] == [
         str(tmp_path / "state"),
         str(tmp_path / "state_fb"),
     ]
     assert out["legacyKeysDescribe"] == "legacySqliteBackup"
     assert out["schemaVersion"] == bh.SCHEMA_VERSION
+    # The private report still names it, and says it is NOT the state backup.
+    legacy = detail(tmp_path)["legacySqliteBackup"]
+    assert legacy["name"] == "legacy_sqlite_backup"
+    assert "NOT the state backup" in legacy["describes"]
 
 
 def test_legacy_directories_are_listed_with_their_own_states(tmp_path):
     make_legacy(tmp_path / "legacy_primary", mtime=NOW - 30 * HOUR, stamp="2026-10-25")
     make_legacy(tmp_path / "legacy_fallback", mtime=NOW - 4 * HOUR)
-    legacy = build(tmp_path)["legacySqliteBackup"]
+    legacy = detail(tmp_path)["legacySqliteBackup"]
     assert [(d["label"], d["state"], d["backupFileCount"]) for d in legacy["directories"]] == [
         ("primary", "readable", 4),
         ("fallback", "readable", 4),
@@ -379,18 +399,21 @@ def test_legacy_directories_are_listed_with_their_own_states(tmp_path):
 
 def test_stale_legacy_backup_is_stale(tmp_path):
     make_legacy(tmp_path / "legacy_primary", mtime=NOW - 48 * HOUR)
-    legacy = build(tmp_path)["legacySqliteBackup"]
+    out = build(tmp_path)
+    legacy = out["legacySqliteBackup"]
     assert (legacy["state"], legacy["reason"]) == ("stale", "older_than_threshold")
-    assert legacy["backupDirUsed"] == "primary"
+    assert out["backupDirUsed"] == "primary"
 
 
 def test_unreadable_legacy_directory_with_no_other_backup_is_unverifiable(tmp_path, monkeypatch):
     (tmp_path / "legacy_primary").mkdir()
     deny_listing(monkeypatch, tmp_path / "legacy_primary")
-    legacy = build(tmp_path)["legacySqliteBackup"]
+    out = build(tmp_path)
+    legacy = out["legacySqliteBackup"]
     assert (legacy["state"], legacy["reason"]) == ("unverifiable", "permission_denied")
-    assert legacy["newestBackupAgeHours"] is None
-    assert legacy["dbCount"] is None
+    assert legacy["ageHours"] is None
+    assert out["newestBackupAgeHours"] is None
+    assert out["dbCount"] is None
 
 
 def test_no_legacy_directory_is_missing_with_unknowns_null(tmp_path):
@@ -416,7 +439,7 @@ def test_top_level_keys_health_check_reads_are_unchanged_for_the_legacy_backup(t
     assert out["newestBackupPath"].startswith(str(tmp_path / "legacy_fallback"))
     assert out["newestBackupPath"].endswith("2026-10-25.sqlite.gz")
     # An unreadable state root does not touch what the legacy monitor sees.
-    assert out["newestBackupAgeHours"] == out["legacySqliteBackup"]["newestBackupAgeHours"]
+    assert out["newestBackupAgeHours"] == out["legacySqliteBackup"]["ageHours"]
 
 
 def test_health_check_workflow_reads_only_keys_that_are_still_published():
@@ -535,3 +558,267 @@ def test_stale_threshold_matches_the_health_endpoint_alert():
 def test_threshold_boundary(age, expected):
     assert bh._verdict(age)[0] == expected
     assert bh._verdict(None) == ("unverifiable", "age_unknown")
+
+
+# -- the public/private boundary ---------------------------------------------
+#: Every key the detail carries that an anonymous caller must never see: which
+#: stores a generation shed, which ledgers are in it and how big, when the
+#: generation was made, how many artifacts it held, how stale the mirror is.
+_DETAIL_ONLY_KEYS = frozenset(
+    {
+        "optionalStores",
+        "notInGeneration",
+        "manifest",
+        "ledgers",
+        "present",
+        "sizeBytes",
+        "artifactCount",
+        "newestGeneration",
+        "newestGenerationAgeHours",
+        "ageBasis",
+        "offboxMirror",
+        "mirroredAt",
+        "blockedAt",
+        "verdict",
+        "role",
+        "path",
+        "canonicalRoot",
+        "staleAfterHours",
+        "describes",
+        "directories",
+        "backupFileCount",
+    }
+)
+_DETAIL_MARKERS = (
+    "intel_ledger",
+    "temporal_ledger",
+    "skipped_low_space",
+    "storagebox",
+    "mirrored_at",
+)
+
+
+def _all_keys(node) -> set[str]:
+    if isinstance(node, dict):
+        return set(node) | {k for v in node.values() for k in _all_keys(v)}
+    if isinstance(node, list):
+        return {k for v in node for k in _all_keys(v)}
+    return set()
+
+
+def _rich_tree(tmp_path: Path) -> None:
+    """Every kind of detail the report can hold, so a leak has something to leak."""
+    root = tmp_path / "state"
+    make_generation(
+        root,
+        "2026-10-26",
+        mtime=NOW - 10 * HOUR,
+        pointer=True,
+        ledgers=("temporal_ledger.sqlite",),
+        manifest="intel_ledger.sqlite3\tskipped_low_space\t100 KiB free\n",
+    )
+    make_generation(root, "2026-10-25", mtime=NOW - 34 * HOUR)
+    (root / "last_mirror").write_text(
+        "schema=1\ndest=backup@storagebox.example:riskit-state/\ngenerations=3\n"
+        "mirrored_at=2026-10-26T06:00:00Z\n",
+        encoding="utf-8",
+    )
+    make_legacy(tmp_path / "legacy_fallback", mtime=NOW - 5 * HOUR)
+
+
+def test_the_detail_report_still_carries_the_coverage_it_always_computed(tmp_path):
+    """Trimming the public payload must not delete the evidence: it is still
+    computed, for an operator on the box."""
+    _rich_tree(tmp_path)
+    block = detail(tmp_path)["stateBackup"]
+    assert block["ledgers"]["temporal_ledger.sqlite"]["present"] is True
+    assert block["optionalStores"]["notInGeneration"] == [
+        {"name": "intel_ledger.sqlite3", "status": "skipped_low_space"}
+    ]
+    assert block["artifactCount"] == 14
+    assert block["newestGeneration"] == "2026-10-26"
+    assert block["offboxMirror"]["ageHours"] == 6.0
+    # ... and it is exactly what the public payload must not carry.
+    assert _all_keys(block) & _DETAIL_ONLY_KEYS
+
+
+def test_public_payload_carries_none_of_the_detail_keys(tmp_path):
+    _rich_tree(tmp_path)
+    public = build(tmp_path)
+
+    leaked = _all_keys(public) & _DETAIL_ONLY_KEYS
+    assert not leaked, f"anonymous backup_health leaks private detail keys: {sorted(leaked)}"
+    text = json.dumps(public)
+    for marker in _DETAIL_MARKERS:
+        assert marker not in text, marker
+    # The generation date is detail too (the pre-existing legacy file path keeps
+    # its own stamp, so look only at the new state block).
+    assert "2026-10-26" not in json.dumps(public["stateBackup"])
+
+
+def test_public_blocks_carry_exactly_the_allowed_keys(tmp_path):
+    _rich_tree(tmp_path)
+    public = build(tmp_path)
+    state_block = public["stateBackup"]
+
+    assert set(state_block) == set(bh.PUBLIC_STATE_KEYS) | {"roots"}
+    assert state_block["state"] == "healthy"
+    assert state_block["ageHours"] == 10.0
+    assert state_block["generationCount"] == 2  # a count, nothing more
+    assert state_block["evidenceSource"] == "directory_listing"
+    assert [set(r) for r in state_block["roots"]] == [set(bh.PUBLIC_STATE_KEYS)] * 2
+    assert set(public["legacySqliteBackup"]) == set(bh.PUBLIC_LEGACY_KEYS)
+    # The four keys health-check.yml reads, unchanged.
+    for key in ("newestBackupAgeHours", "newestBackupPath", "backupDirUsed", "dbCount"):
+        assert key in public
+
+
+def test_each_root_states_its_own_health_in_the_public_vocabulary(tmp_path, monkeypatch):
+    fb = tmp_path / "state_fb"
+    make_generation(fb, "2026-10-26", mtime=NOW - 2 * HOUR)
+    (tmp_path / "state").mkdir()
+    deny_listing(monkeypatch, tmp_path / "state")
+    roots = build(tmp_path)["stateBackup"]["roots"]
+
+    canonical, fallback = roots
+    assert (canonical["state"], canonical["reason"]) == ("unverifiable", "permission_denied")
+    assert canonical["directoryInspected"] == str(tmp_path / "state")
+    assert canonical["inspectionReason"] == "canonical_root"
+    assert canonical["ageHours"] is None and canonical["evidenceSource"] is None
+    assert (fallback["state"], fallback["reason"]) == ("healthy", "within_threshold")
+    assert fallback["inspectionReason"] == "writer_fallback_root"
+    assert fallback["ageHours"] == 2.0 and fallback["generationCount"] == 1
+
+
+def test_a_field_added_to_the_detail_later_is_private_until_allow_listed(tmp_path):
+    _rich_tree(tmp_path)
+    block = detail(tmp_path)["stateBackup"]
+    block["somethingNewAndInteresting"] = "x"
+    block["roots"][0]["somethingElse"] = "y"
+    projected = bh.public_state_backup(block)
+    assert "somethingNewAndInteresting" not in projected
+    assert "somethingElse" not in projected["roots"][0]
+
+
+def test_a_probe_failure_projects_to_the_same_public_shape(tmp_path, monkeypatch):
+    def boom(**_kw):
+        raise RuntimeError("probe exploded")
+
+    monkeypatch.setattr(bh, "state_backup_health", boom)
+    block = build(tmp_path)["stateBackup"]
+    assert set(block) == set(bh.PUBLIC_STATE_KEYS)
+    assert (block["state"], block["reason"]) == ("unverifiable", "probe_error")
+
+
+def _served(monkeypatch, tmp_path, handler):
+    """Drive a real handler with the REAL (public) builder over the rich tree."""
+    _rich_tree(tmp_path)
+    monkeypatch.setattr(server, "_backup_freshness", lambda: build(tmp_path))
+    monkeypatch.setattr(server, "send_alert", lambda *a, **k: None)
+    response = asyncio.run(handler())
+    return json.loads(response.body)
+
+
+@pytest.mark.parametrize("handler_name", ["get_health", "get_status"])
+def test_the_anonymous_endpoints_serve_no_coverage_detail(monkeypatch, tmp_path, handler_name):
+    body = _served(monkeypatch, tmp_path, getattr(server, handler_name))
+    served = body["backup_health"]
+    assert served["stateBackup"]["state"] == "healthy"  # it really is the rich tree
+    assert not (_all_keys(served) & _DETAIL_ONLY_KEYS)
+    text = json.dumps(served)
+    for marker in _DETAIL_MARKERS:
+        assert marker not in text, marker
+
+
+def test_server_helper_serves_the_public_projection_not_the_detail():
+    block = server._backup_freshness_uncached()
+    assert not (_all_keys(block) & _DETAIL_ONLY_KEYS)
+
+
+def test_no_endpoint_serves_the_detail_builder():
+    source = Path(server.__file__).read_text(encoding="utf-8")
+    assert "build_backup_health_detail" not in source
+    assert "state_backup_health" not in source
+
+
+def test_operator_cli_prints_the_full_report(capsys):
+    assert bh.main() == 0
+    report = json.loads(capsys.readouterr().out)
+    assert {"stateBackup", "legacySqliteBackup", "schemaVersion"} <= set(report)
+
+
+# -- clock skew: a future stamp is not a fresh backup ------------------------
+def _write_pointer(root: Path, gen: Path, date: str, promoted_at: str) -> None:
+    (root / "last_generation").write_text(
+        f"schema=1\neffective_root={root}\ngeneration={gen}\ndate_stamp={date}\n"
+        f"artifacts=14\npromoted_at={promoted_at}\n",
+        encoding="utf-8",
+    )
+
+
+def test_future_pointer_timestamp_is_clock_skew_not_age_zero(tmp_path):
+    root = tmp_path / "state"
+    gen = make_generation(root, "2026-10-26", mtime=NOW - HOUR)
+    _write_pointer(root, gen, "2026-10-26", "2026-10-27T12:00:00Z")  # a day ahead
+    out = state(tmp_path)
+    assert (out["state"], out["reason"]) == ("unverifiable", "generation_clock_skew")
+    assert out["inspectionReason"] == "newest_generation_untrustworthy"
+    assert out["newestGenerationAgeHours"] is None
+    public = build(tmp_path)["stateBackup"]
+    assert (public["state"], public["reason"], public["ageHours"]) == (
+        "unverifiable",
+        "generation_clock_skew",
+        None,
+    )
+    assert public["roots"][0]["state"] == "unverifiable"
+
+
+def test_future_directory_mtime_is_clock_skew_not_healthy(tmp_path):
+    make_generation(tmp_path / "state", "2026-10-26", mtime=NOW + 3 * HOUR)
+    out = state(tmp_path)
+    assert (out["state"], out["reason"]) == ("unverifiable", "generation_clock_skew")
+    assert out["newestGenerationAgeHours"] is None
+
+
+def test_a_stamp_a_moment_ahead_is_a_probe_race_not_skew(tmp_path):
+    make_generation(tmp_path / "state", "2026-10-26", mtime=NOW + 60)
+    out = state(tmp_path)
+    assert (out["state"], out["newestGenerationAgeHours"]) == ("healthy", 0.0)
+
+
+def test_future_mirror_timestamp_is_reported_as_skew(tmp_path):
+    root = tmp_path / "state"
+    make_generation(root, "2026-10-26", mtime=NOW - HOUR)
+    (root / "last_mirror").write_text(
+        "schema=1\nmirrored_at=2026-10-28T06:00:00Z\n", encoding="utf-8"
+    )
+    mirror = state(tmp_path)["offboxMirror"]
+    assert mirror["state"] == "clock_skew" and mirror["ageHours"] is None
+
+
+def test_future_legacy_file_is_skew_in_the_new_block_but_legacy_keys_are_unchanged(tmp_path):
+    make_legacy(tmp_path / "legacy_fallback", mtime=NOW + 5 * HOUR)
+    out = build(tmp_path)
+    # The legacy top-level keys keep their historical clamp: health-check.yml
+    # and the stale-backup alert are calibrated against it.
+    assert out["newestBackupAgeHours"] == 0.0
+    assert out["dbCount"] == 4
+    # The new block refuses to call it fresh.
+    legacy = out["legacySqliteBackup"]
+    assert (legacy["state"], legacy["reason"], legacy["ageHours"]) == (
+        "unverifiable",
+        "newest_backup_clock_skew",
+        None,
+    )
+
+
+def test_a_non_ascii_digit_artifact_count_is_unknown_not_a_crash(tmp_path):
+    root = tmp_path / "state"
+    gen = make_generation(root, "2026-10-26", mtime=NOW - HOUR)
+    (root / "last_generation").write_text(
+        f"schema=1\ngeneration={gen}\nartifacts=²\npromoted_at=2026-10-26T11:00:00Z\n",
+        encoding="utf-8",
+    )
+    out = state(tmp_path)
+    assert out["state"] == "healthy"
+    assert out["artifactCount"] is None

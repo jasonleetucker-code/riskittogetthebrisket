@@ -35,6 +35,18 @@ The four pre-existing top-level keys (``newestBackupAgeHours``,
 describe the LEGACY backup only and the payload says so
 (``legacyKeysDescribe``).
 
+**Public vs private.**  ``/api/health`` and ``/api/status`` are anonymous, and
+neither has an authenticated or detail mode, so the block they serve is the
+PUBLIC projection only (``build_backup_health``): per root and for the top-level
+``stateBackup``, just ``state`` / ``reason`` / ``ageHours`` / ``generationCount``
+/ ``directoryInspected`` / ``inspectionReason`` / ``evidenceSource``.  The
+coverage detail -- which optional stores a generation shed, whether each ledger
+is in it and how large, the generation date, the artifact count, the off-box
+mirror's age -- is operational intelligence about where the data is NOT
+protected.  It is still computed (``build_backup_health_detail`` /
+``python -m src.api.backup_health``, for an operator on the box) and is served by
+no endpoint; a future admin-gated surface may call the detail builder.
+
 Reporting only.  Nothing here changes ``/api/health``'s status code, ``is_ok``
 or the alert the endpoint sends.
 
@@ -67,6 +79,11 @@ STATE_BACKUP_FALLBACK_ROOT = "/home/dynasty/backups/riskit-state"
 #: A generation dated further ahead than this is a wrong clock, not a newer
 #: backup (``BACKUP_ROOT_FUTURE_TOLERANCE_DAYS``).
 FUTURE_TOLERANCE_DAYS = 1
+#: A stamp this far ahead of "now" is a probe race (the backup landed while we
+#: were reading), not a wrong clock; beyond it the age is unknowable and is
+#: reported as clock skew rather than clamped to a fresh-looking 0.  Precision
+#: slack, not policy.
+CLOCK_SKEW_TOLERANCE_SECONDS = 300.0
 POINTER_NAME = "last_generation"
 MIRROR_MARKER_NAME = "last_mirror"
 OPTIONAL_MANIFEST_NAME = "optional_stores.tsv"
@@ -171,7 +188,22 @@ def _parse_utc(stamp: str) -> float | None:
 
 
 def _age_hours(then_epoch: float, now_epoch: float) -> float:
+    """Age clamped at 0.  ONLY the legacy top-level keys use this (their
+    pre-existing behaviour, which ``health-check.yml`` and the stale-backup
+    alert are calibrated against); the new block uses ``_observed_age_hours``."""
     return round(max(0.0, (now_epoch - then_epoch) / 3600.0), 2)
+
+
+def _observed_age_hours(then_epoch: float, now_epoch: float) -> float | None:
+    """Age in hours, or ``None`` when the stamp is in the future.
+
+    A timestamp ahead of this process's clock is a wrong clock somewhere, not a
+    backup newer than now; clamping it to 0 would report it as freshly made.
+    """
+    delta = now_epoch - then_epoch
+    if delta < -CLOCK_SKEW_TOLERANCE_SECONDS:
+        return None
+    return round(max(0.0, delta / 3600.0), 2)
 
 
 def _verdict(age_hours: float | None) -> tuple[str, str]:
@@ -194,7 +226,7 @@ def _coverage(gen_path: str, pointer_matches: bool, pointer: dict | None) -> dic
     artifact_count: int | None = None
     if pointer_matches and pointer is not None:
         raw = pointer.get("artifacts", "")
-        artifact_count = int(raw) if raw.isdigit() else None
+        artifact_count = int(raw) if raw.isascii() and raw.isdigit() else None
 
     manifest_path = os.path.join(gen_path, OPTIONAL_MANIFEST_NAME)
     optional: dict[str, Any] = {"manifest": "unreadable", "notInGeneration": None}
@@ -243,10 +275,11 @@ def _offbox_mirror(root: str, now_epoch: float) -> dict[str, Any]:
         return {"state": "none_recorded", "mirroredAt": None, "ageHours": None}
     at = marker.get("mirrored_at")
     epoch = _parse_utc(at) if at else None
+    age = None if epoch is None else _observed_age_hours(epoch, now_epoch)
     return {
-        "state": "recorded",
+        "state": "clock_skew" if epoch is not None and age is None else "recorded",
         "mirroredAt": at if epoch is not None else None,
-        "ageHours": None if epoch is None else _age_hours(epoch, now_epoch),
+        "ageHours": age,
     }
 
 
@@ -329,11 +362,15 @@ def _inspect_state_root(path: str, role: str, now_epoch: float) -> dict[str, Any
     )
     promoted = _parse_utc(pointer.get("promoted_at", "")) if pointer_matches and pointer else None
     if promoted is not None:
-        rep["newestGenerationAgeHours"] = _age_hours(promoted, now_epoch)
-        rep["ageBasis"] = "pointer_promoted_at"
+        basis_epoch, rep["ageBasis"] = promoted, "pointer_promoted_at"
     else:
-        rep["newestGenerationAgeHours"] = _age_hours(gen_stat.st_mtime, now_epoch)
-        rep["ageBasis"] = "directory_mtime"
+        basis_epoch, rep["ageBasis"] = gen_stat.st_mtime, "directory_mtime"
+    age = _observed_age_hours(basis_epoch, now_epoch)
+    if age is None:
+        # Stamped in the future: a wrong clock, not a fresh backup.  Never 0.
+        rep.update(verdict="unverifiable", reason="generation_clock_skew")
+        return rep
+    rep["newestGenerationAgeHours"] = age
 
     rep["verdict"] = "generation"
     rep.update(_coverage(gen_path, pointer_matches, pointer))
@@ -496,9 +533,13 @@ def legacy_sqlite_backup_health(
                 newest_dir_entries = probe["entries"]
 
     age: float | None = None
+    observed_age: float | None = None
     db_count: int | None = None
     if newest_epoch is not None and newest_path is not None:
+        # ``age`` feeds the legacy top-level keys and keeps its clamp;
+        # ``observed_age`` is what the new block's verdict and ageHours say.
         age = _age_hours(newest_epoch, now)
+        observed_age = _observed_age_hours(newest_epoch, now)
         parts = os.path.basename(newest_path).split(".")
         stamp = parts[1] if len(parts) >= 3 else ""
         if stamp:
@@ -506,7 +547,10 @@ def legacy_sqlite_backup_health(
             db_count = len({n.split(".")[0] for n in newest_dir_entries if n.endswith(suffix)})
 
     if newest_epoch is not None:
-        state, reason = _verdict(age)
+        if observed_age is None:
+            state, reason = "unverifiable", "newest_backup_clock_skew"
+        else:
+            state, reason = _verdict(observed_age)
     else:
         unreadable = next((d for d in directories if d["state"] == "unreadable"), None)
         if unreadable is not None:
@@ -522,6 +566,7 @@ def legacy_sqlite_backup_health(
         "state": state,
         "reason": reason,
         "staleAfterHours": STALE_AFTER_HOURS,
+        "ageHours": observed_age,
         "newestBackupAgeHours": age,
         "newestBackupPath": newest_path,
         "backupDirUsed": newest_label,
@@ -531,6 +576,79 @@ def legacy_sqlite_backup_health(
 
 
 # -- the payload --------------------------------------------------------------
+#: The only keys the PUBLIC state-backup block (top level and each root) may
+#: carry.  Everything else ``state_backup_health`` computes is private detail.
+PUBLIC_STATE_KEYS = (
+    "state",
+    "reason",
+    "ageHours",
+    "generationCount",
+    "directoryInspected",
+    "inspectionReason",
+    "evidenceSource",
+)
+#: ... and the legacy block's (its detail -- per-directory states and file
+#: counts -- stays private too).
+PUBLIC_LEGACY_KEYS = ("state", "reason", "ageHours")
+
+_ROLE_INSPECTION_REASON = {
+    "canonical": "canonical_root",
+    "writer_fallback": "writer_fallback_root",
+}
+
+
+def _public_root(rep: dict[str, Any]) -> dict[str, Any]:
+    """One root's own health, in the same vocabulary as the top-level block."""
+    verdict = rep.get("verdict")
+    age: float | None = None
+    evidence: str | None = None
+    if verdict == "generation":
+        age = rep.get("newestGenerationAgeHours")
+        state, reason = _verdict(age)
+        evidence = "directory_listing"
+    elif verdict in ("unreadable", "unverifiable"):
+        state, reason = "unverifiable", rep.get("reason")
+    elif verdict == "none":
+        state, reason = "missing", "no_generations"
+    else:  # absent
+        state, reason = "missing", "directory_not_found"
+    return {
+        "state": state,
+        "reason": reason,
+        "ageHours": age,
+        "generationCount": rep.get("generationCount"),
+        "directoryInspected": rep.get("path"),
+        "inspectionReason": _ROLE_INSPECTION_REASON.get(rep.get("role")),
+        "evidenceSource": evidence,
+    }
+
+
+def public_state_backup(detail: dict[str, Any]) -> dict[str, Any]:
+    """The anonymous-safe projection of ``state_backup_health``.
+
+    An allow-list, not a deny-list: a field added to the detail later is
+    private until someone adds it here on purpose.
+    """
+    out = {
+        "state": detail.get("state"),
+        "reason": detail.get("reason"),
+        "ageHours": detail.get("newestGenerationAgeHours"),
+        "generationCount": detail.get("generationCount"),
+        "directoryInspected": detail.get("directoryInspected"),
+        "inspectionReason": detail.get("inspectionReason"),
+        "evidenceSource": detail.get("evidenceSource"),
+    }
+    roots = detail.get("roots")
+    if isinstance(roots, list):
+        out["roots"] = [_public_root(r) for r in roots if isinstance(r, dict)]
+    return out
+
+
+def public_legacy_backup(detail: dict[str, Any]) -> dict[str, Any]:
+    """The anonymous-safe projection of ``legacy_sqlite_backup_health``."""
+    return {key: detail.get(key) for key in PUBLIC_LEGACY_KEYS}
+
+
 def _probe_failed(name: str, describes: str) -> dict[str, Any]:
     return {"name": name, "describes": describes, "state": "unverifiable", "reason": "probe_error"}
 
@@ -543,14 +661,18 @@ def _guarded(builder: Callable[[], dict[str, Any]], name: str, describes: str) -
         return _probe_failed(name, describes)
 
 
-def build_backup_health(
+def build_backup_health_detail(
     *,
     state_root: str = STATE_BACKUP_ROOT,
     state_fallback_root: str = STATE_BACKUP_FALLBACK_ROOT,
     legacy_dirs: tuple[tuple[str, str], ...] | None = None,
     now_epoch: float | None = None,
 ) -> dict[str, Any]:
-    """The ``backup_health`` block served by ``/api/health`` and ``/api/status``."""
+    """The FULL backup-health report, coverage detail included.
+
+    PRIVATE: no anonymous endpoint may serve this (see the module docstring).
+    ``build_backup_health`` is the public projection of it.
+    """
     now = time.time() if now_epoch is None else now_epoch
     legacy_kwargs: dict[str, Any] = {"now_epoch": now}
     if legacy_dirs is not None:
@@ -579,3 +701,45 @@ def build_backup_health(
         "legacySqliteBackup": legacy,
         "stateBackup": state,
     }
+
+
+def build_backup_health(
+    *,
+    state_root: str = STATE_BACKUP_ROOT,
+    state_fallback_root: str = STATE_BACKUP_FALLBACK_ROOT,
+    legacy_dirs: tuple[tuple[str, str], ...] | None = None,
+    now_epoch: float | None = None,
+) -> dict[str, Any]:
+    """The ``backup_health`` block served by ``/api/health`` and ``/api/status``.
+
+    Anonymous-safe: the detail is projected away (``PUBLIC_*_KEYS``).
+    """
+    detail = build_backup_health_detail(
+        state_root=state_root,
+        state_fallback_root=state_fallback_root,
+        legacy_dirs=legacy_dirs,
+        now_epoch=now_epoch,
+    )
+    return {
+        "schemaVersion": detail["schemaVersion"],
+        "newestBackupAgeHours": detail["newestBackupAgeHours"],
+        "newestBackupPath": detail["newestBackupPath"],
+        "backupDirUsed": detail["backupDirUsed"],
+        "dbCount": detail["dbCount"],
+        "legacyKeysDescribe": detail["legacyKeysDescribe"],
+        "legacySqliteBackup": public_legacy_backup(detail["legacySqliteBackup"]),
+        "stateBackup": public_state_backup(detail["stateBackup"]),
+    }
+
+
+def main() -> int:
+    """Print the FULL report (operator on the box; run as root to see the
+    root-only state directory)."""
+    import json
+
+    print(json.dumps(build_backup_health_detail(), indent=2, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
