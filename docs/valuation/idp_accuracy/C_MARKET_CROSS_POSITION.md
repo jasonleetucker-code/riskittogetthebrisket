@@ -393,7 +393,7 @@ canonical board prices, so the pool is chosen by price and not by realized point
 | IDP scoring | "Big 3" | solo 1.33, assist 0.80, TFL 4.24, sack 2.92, QB hit 2.12, PD 5.30, INT 5.30, FF 4.24, fumble recovery 3.19, TD 6.36, safety and blocked kick 5.30, return yards 0.111 | per-stat table below. Effect on points: defenders market starters **×1.077 [1.067, 1.087]** (n 100); all defenders ×1.088 [1.083, 1.093] (n 767); DL ×1.056, LB ×1.075, DB ×1.123 (each CI half-width under 0.01) | MISMATCH, measured |
 | IDP starters, best ball, roster size | not stated | 9 per team (108), best ball, 58 spots | not measurable | UNAVAILABLE |
 
-**Per-stat comparison** (`mismatches.idpScoring.perKey`). Big 3 is the first number in each pair:
+**Per-stat comparison** (`mismatches.idpScoring.perKey`), points per event, ratio = league card over Big 3:
 
 | stat | Big 3 | league | league / Big 3 |
 |---|---|---|---|
@@ -408,7 +408,7 @@ canonical board prices, so the pool is chosen by price and not by realized point
 | fumble recovery | 3 | 3.19 | 1.06 |
 | defensive TD | 6 | 6.36 | 1.06 |
 | safety / blocked kick | 5 | 5.30 | 1.06 |
-| sack / return yards | 0.1 | 0.111 | 1.11 |
+| sack yards and defensive return yards (per yard) | 0.1 | 0.111 | 1.11 |
 | sack + QB hit + TFL (one sack play) | 10.0 | 9.28 | 0.93 |
 
 The league card is close to Big 3 scaled up by about 6%, with four deliberate departures: sacks are worth much less,
@@ -515,7 +515,8 @@ and seed (20261020) are Investigation B's.
 - **One discrepancy, and it is a cohort effect.** The latest pre-season board before kickoff, rebuilt point-in-time,
   shows IDP ρ 0.442 rather than 0.403. On the same 277 players it gives 0.412, against 0.403 for B's board. The extra
   66 defenders are priced because today's code prices players past the rank cap (#1101). Range restriction therefore
-  explains most of the gap, as B's own §6 already argued (0.682 over all IDPs vs 0.413 over priced IDPs).
+  explains most of the gap, as B's own §6 already argued (its 2025 to 2026 points-per-game correlation is 0.682 over
+  all IDPs but 0.413 over the priced ones).
 - **The offense − IDP gap is real out-of-sample:** 0.23–0.27, with every 95% CI above 0.12.
 
 Limits of this reproduction:
