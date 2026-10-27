@@ -871,6 +871,68 @@ def evaluate_panel(
     return result
 
 
+# ── exploratory (deviation D1: added after the held-out read; never a gate) ──
+
+JOIN_BANDS = ((1, 50), (51, 150), (151, 300), (301, 10**6))
+
+
+def vendor_join_coverage(
+    contract: Mapping[str, Any], csv_tables: Mapping[str, Sequence[Mapping[str, str]]]
+) -> dict[str, Any]:
+    """Share of each vendor's own list that joined NO board row, by vendor order band.
+
+    A coverage discontinuity -- a band whose unjoined share jumps -- is the
+    coverage analogue of a rank-basis break.  Vendor order is the vendor rank
+    column, else descending value, else file order.  Rows that look like picks
+    are skipped; for a vendor that publishes positions only IDP-family rows count."""
+    matched: dict[str, set[str]] = defaultdict(set)
+    for r in contract.get("playersArray") or []:
+        details = ((r.get("sourceAudit") or {}).get("matchedDetails")) or {}
+        for src, d in details.items():
+            if d.get("matchedName"):
+                matched[src].add(str(d["matchedName"]))
+    out: dict[str, Any] = {}
+    for src, table in sorted(csv_tables.items()):
+        if not table:
+            continue
+        idx = _vendor_index(table)
+        entries = [e for es in idx.values() for e in es]
+        has_pos = any(e["position"] for e in entries)
+        entries = [
+            e
+            for e in entries
+            if not e["rawName"][:4].isdigit() and (not has_pos or e["family"] in IDP_FAMILIES)
+        ]
+        if all(e["rank"] is not None for e in entries):
+            entries.sort(key=lambda e: (e["rank"], e["rawName"]))
+        elif all(e["value"] is not None for e in entries):
+            entries.sort(key=lambda e: (-e["value"], e["rawName"]))
+        bands = {}
+        for a, b in JOIN_BANDS:
+            seg = entries[a - 1 : min(b, len(entries))]
+            if not seg:
+                continue
+            miss = [e["rawName"] for e in seg if e["rawName"] not in matched[src]]
+            bands[f"{a}-{b if b < 10**6 else 'end'}"] = {
+                "rows": len(seg),
+                "unjoined": len(miss),
+                "unjoinedShare": round(len(miss) / len(seg), 4),
+                "examples": miss[:8],
+            }
+        out[src] = {
+            "vendorRowsConsidered": len(entries),
+            "positionFiltered": has_pos,
+            # a source the build never joined (held / non-voting) is not evaluable here
+            "evaluable": bool(matched[src]),
+            # matchedName can carry the BOARD alias of a vendor name (JT -> Jaylahn
+            # Tuimoloau), so "unjoined" over-counts aliased names; examples are
+            # verified one by one before any is called a defect.
+            "aliasCaveat": True,
+            "bands": bands if matched[src] else {},
+        }
+    return out
+
+
 # ── injections (evaluator-validity E-gates) ────────────────────────────
 
 

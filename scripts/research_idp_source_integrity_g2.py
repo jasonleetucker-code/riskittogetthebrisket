@@ -219,13 +219,53 @@ def run(board: str, role: str, out: Path, seed: int) -> dict:
     return record
 
 
+def exploratory(board: str, role: str, out: Path) -> dict:
+    """Deviation D1 (logged in DEVIATIONS.md): vendor join coverage by vendor
+    order band, served build only.  Added after the held-out read; never a gate.
+    Applies the same registration, hash and V2.1-seal guards as ``run``."""
+    from src.api import value_replay as vr  # noqa: PLC0415
+    from src.robust_filter_shadow import idp_source_integrity_g2 as g2  # noqa: PLC0415
+
+    manifest = json.loads(BOARDS.read_text(encoding="utf-8"))
+    entry = next((b for b in manifest["boards"] if b["board"] == board), None)
+    if entry is None or entry["role"] != role:
+        raise SystemExit(f"{board} is not registered with role {role!r} in {BOARDS.name}")
+    rel = f"exports/archive/{board}"
+    zpath, _member, _blob, raw = load_archive(rel)
+    if hashlib.sha256(zpath.read_bytes()).hexdigest() != entry["zipSha256"]:
+        raise SystemExit(f"{board}: zip sha256 mismatch")
+    rev, when = add_commit(rel)
+    if rev != entry["addCommit"] or in_v21_seal(when):
+        raise SystemExit(f"{board}: add commit mismatch or inside the V2.1 seal; refused")
+    with csv_tree(rev) as (root, _prov):
+        tables = g2.read_csv_tables(root / "CSVs" / "site_raw", IDP_SOURCES)
+        contract = vr.build(raw, {"csv_root": root, "flags": VARIANTS["served"]})
+        cov = g2.vendor_join_coverage(contract, tables)
+    record = {
+        "schema": g2.SCHEMA + "#exploratory-D1",
+        "board": board,
+        "role": role,
+        "evaluatorCommit": git("rev-parse", "HEAD"),
+        "vendorJoinCoverage": cov,
+    }
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps(record, indent=1, sort_keys=True, default=str) + "\n", encoding="utf-8"
+    )
+    return record
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--board", required=True)
     ap.add_argument("--role", required=True, choices=("dev", "heldout"))
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--seed", type=int, default=20261027)
+    ap.add_argument("--exploratory", action="store_true", help="deviation D1 coverage only")
     args = ap.parse_args(argv)
+    if args.exploratory:
+        exploratory(args.board, args.role, args.out)
+        return 0
     rec = run(args.board, args.role, args.out, args.seed)
     gates = rec["variants"]["served"]["eGates"]
     print(json.dumps({k: v.get("pass") for k, v in gates.items()}, indent=1))

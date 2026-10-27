@@ -426,6 +426,24 @@ def test_changed_rows_ignores_renames():
     assert run.changed_rows(old, new) == 1
 
 
+def test_vendor_join_coverage_bands_and_unjoined_sources():
+    contract = {
+        "playersArray": [
+            {"sourceAudit": {"matchedDetails": {"draftSharksIdp": {"matchedName": f"P{i}"}}}}
+            for i in range(1, 50)
+        ]
+    }
+    table = [{"Player": f"P{i}", "Rank": str(i), "Fantasy Position": "LB"} for i in range(1, 61)]
+    table.append({"Player": "2027 Early 1st", "Rank": "61", "Fantasy Position": ""})
+    cov = g2.vendor_join_coverage(
+        contract, {"draftSharksIdp": table, "dlfIdp": [{"name": "X", "rank": "1"}]}
+    )
+    ds = cov["draftSharksIdp"]
+    assert ds["vendorRowsConsidered"] == 60
+    assert ds["bands"]["1-50"]["unjoined"] == 1 and ds["bands"]["51-150"]["unjoined"] == 10
+    assert cov["dlfIdp"]["evaluable"] is False and cov["dlfIdp"]["bands"] == {}
+
+
 # ── isolation ──────────────────────────────────────────────────────────
 
 
