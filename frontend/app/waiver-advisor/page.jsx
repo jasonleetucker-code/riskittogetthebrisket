@@ -128,7 +128,7 @@ function Detail({ c, payload, leagueKey, ownerId, selectedTeam }) {
       <div className={styles.contextBlock}>
         <span className={styles.contextLabel}>Value</span>
         <span className={styles.contextValue}>
-          {fmtValue(c.value?.rankDerivedValue)} canonical dynasty value
+          {fmtValue(c.value?.canonicalValue)} canonical dynasty value
           {c.rank ? ` · rank ${c.rank}` : ""} · confidence{" "}
           {c.value?.confidenceLabel || c.value?.confidenceBucket || "unstated"}
         </span>
@@ -238,9 +238,9 @@ function buildColumns() {
       key: "value",
       header: "Value",
       numeric: true,
-      accessor: (c) => c.value?.rankDerivedValue ?? null,
+      accessor: (c) => c.value?.canonicalValue ?? null,
       render: (c) =>
-        fmtValue(c.value?.rankDerivedValue) ?? <Missing>Unpriced</Missing>,
+        fmtValue(c.value?.canonicalValue) ?? <Missing>Unpriced</Missing>,
     },
     {
       key: "confidence",

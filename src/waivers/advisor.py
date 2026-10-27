@@ -653,7 +653,9 @@ def assemble_waiver_advisor(
                 "rank": row.get("canonicalConsensusRank"),
                 "isRookie": bool(cand.get("isRookie")),
                 "value": {
-                    "rankDerivedValue": _round(value, 0),
+                    # the canonical dynasty value, READ from the contract row; named
+                    # apart from the canonical field so this composer never constructs it
+                    "canonicalValue": _round(value, 0),
                     "confidenceBucket": row.get("confidenceBucket"),
                     "confidenceLabel": row.get("confidenceLabel"),
                 },

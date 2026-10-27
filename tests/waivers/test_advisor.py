@@ -192,7 +192,7 @@ def test_candidates_are_the_canonical_board_order_and_serialisable():
     out = _assemble()
     names = [c["name"] for c in out["candidates"]]
     assert names == ["Free TE", "Free WR", "Free LB"]
-    values = [c["value"]["rankDerivedValue"] for c in out["candidates"]]
+    values = [c["value"]["canonicalValue"] for c in out["candidates"]]
     assert values == sorted(values, reverse=True)
     assert out["advisoryOnly"] is True and out["valueScale"] == "rankDerivedValue"
     assert out["flag"] == "waiver_advisor"
@@ -203,7 +203,7 @@ def test_unpriced_free_agent_is_never_a_candidate_and_never_zero():
     out = _assemble()
     assert "Nobody Knows" not in _by_name(out)
     for c in out["candidates"]:
-        assert c["value"]["rankDerivedValue"] > 0
+        assert c["value"]["canonicalValue"] > 0
 
 
 def test_ambiguous_name_is_counted_never_guessed():

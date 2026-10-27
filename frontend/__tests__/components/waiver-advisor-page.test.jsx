@@ -29,7 +29,7 @@ function candidate(overrides = {}) {
     positionFamily: "TE",
     age: 24.3,
     rank: 140,
-    value: { rankDerivedValue: 2600, confidenceBucket: "medium", confidenceLabel: "Medium" },
+    value: { canonicalValue: 2600, confidenceBucket: "medium", confidenceLabel: "Medium" },
     marketReference: { state: "available", value: 2700, source: "ktc_market_benchmark_non_voting" },
     replacement: { state: "available", waiverLevel: 1500, valueOverWaiverLevel: 1100, scarcityMultiplier: null },
     lineup: {
@@ -68,7 +68,7 @@ function payload(overrides = {}) {
         playerId: "fa4",
         name: "Free LB",
         position: "LB",
-        value: { rankDerivedValue: 1800, confidenceBucket: null },
+        value: { canonicalValue: 1800, confidenceBucket: null },
         marketReference: { state: "unavailable", reason: "no_ktc_coverage", value: null },
         lineup: { state: "unavailable", reason: "starter_slots_unknown" },
         plan: { status: "not_in_plan" },
