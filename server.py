@@ -82,7 +82,9 @@ from src.api.data_contract import (
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
+from src.api import chase_upside_mcp as _chase_upside_mcp
 from src.api.build_identity import PROCESS_BUILD, PROCESS_RELEASE
+from src.api import public_diagnostics as _public_diagnostics
 from src.api import matchup_intel as _matchup_intel
 from src.api import roster_intelligence as _roster_intelligence
 from src.api import guest_passes as _guest_passes
@@ -4444,6 +4446,7 @@ app = FastAPI(
     title="Dynasty Trade Calculator",
     lifespan=lifespan,
 )
+app.include_router(_chase_upside_mcp.router)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Global exception handler — catches ANY unhandled exception from
@@ -4631,6 +4634,7 @@ _PUBLIC_API_EXACT = frozenset(
 # check runs.
 _SELF_AUTHED_API_EXACT = frozenset(
     {
+        "/api/chase-upside/mcp",
         "/api/signal-alerts/run",
         # Same bearer-auth pattern as signal-alerts.  Bypass session
         # cookie gate so the systemd timer's curl call hits the
@@ -6427,7 +6431,26 @@ async def get_league_comparison(request: Request):
 
 @app.get("/api/status")
 async def get_status():
-    """Return scraper status info."""
+    """Return scraper status info -- the PUBLIC projection.
+
+    Anonymous (``_PUBLIC_API_EXACT``), so the content built by
+    ``_status_content`` is served through the one public-diagnostics
+    boundary (``src/api/public_diagnostics.py``): no filesystem path, raw
+    Sleeper id, env value or traceback.  The unredacted content is
+    ``GET /api/admin/diagnostics`` (admin-gated).
+    """
+    return JSONResponse(
+        content=_public_diagnostics.public_status_payload(_status_content(), base_dir=BASE_DIR),
+        # Observability payload — the disk-probe helpers behind it are
+        # memoized 30s server-side; let pollers (settings page, tools)
+        # reuse it browser-side for the same window.
+        headers={"Cache-Control": "private, max-age=15, stale-while-revalidate=30"},
+    )
+
+
+def _status_content() -> dict:
+    """The FULL ``/api/status`` content.  PRIVATE: served unredacted only by
+    ``/api/admin/diagnostics``; ``get_status`` serves its public projection."""
     status_payload = _scrape_status_payload()
     # Prefer full scrape payload for source-health truth (dlfImport/sourceRunSummary).
     # Contract payload is a compatibility fallback when full payload is unavailable.
@@ -6451,92 +6474,86 @@ async def get_status():
     startup_gzip_bytes = (
         len(latest_startup_data_gzip_bytes) if latest_startup_data_gzip_bytes else 0
     )
-    return JSONResponse(
-        content={
-            **status_payload,
-            # Which commit this process is running, read once at import. Deploy
-            # verification compares it with the commit the workflow shipped.
-            "build": {**PROCESS_BUILD, "release": dict(PROCESS_RELEASE)},
-            "contract": {
-                "version": API_DATA_CONTRACT_VERSION,
-                "health": contract_health,
-                "value_authority": (latest_contract_data or {}).get("valueAuthority"),
-            },
-            "data_runtime": {
-                # The name claims a REFRESH time, so it carries one: when
-                # the board was produced.  It used to carry ``loadedAt`` —
-                # when this process started holding it — which is a different
-                # fact and is published beside it under its own name
-                # (audit F-19).
-                "last_data_refresh_at": latest_data_source.get("producedAt") or None,
-                "last_payload_loaded_at": latest_data_source.get("loadedAt") or None,
-                "active_data_source": latest_data_source,
-                "payload_bytes_full": full_bytes,
-                "payload_bytes_runtime": runtime_bytes,
-                "payload_bytes_startup": startup_bytes,
-                "payload_gzip_bytes_full": full_gzip_bytes,
-                "payload_gzip_bytes_runtime": runtime_gzip_bytes,
-                "payload_gzip_bytes_startup": startup_gzip_bytes,
-                "runtime_payload_savings_bytes": max(0, full_bytes - runtime_bytes),
-                "runtime_payload_savings_gzip_bytes": max(0, full_gzip_bytes - runtime_gzip_bytes),
-                "startup_payload_savings_bytes": max(0, full_bytes - startup_bytes),
-                "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
-            },
-            "source_health": source_health,
-            "backup_health": _backup_freshness(),
-            "uptime": uptime_status,
-            "has_data": latest_contract_data is not None,
-            "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
-            "data_date": (latest_contract_data or {}).get("date"),
-            # Real per-source coverage of the served board (see the
-            # ``served_source_coverage`` global).  Monitoring asserts on
-            # this, and it is now also the INPUT ``source_health`` above
-            # counts from — so the two agree by construction rather than
-            # being two answers to one question.  Until 2026-08-18
-            # ``source_health`` took its population from the legacy
-            # ``sites`` list (2 anchor rows, not the 3 this comment
-            # claimed) and so could not detect a degraded board; F-7.
-            "served_source_coverage": served_source_coverage,
-            # The served board's own seasonal-inactive set (see the
-            # ``served_seasonal_inactive`` global): the coverage gate
-            # excuses exactly these, read from the board it is judging.
-            "served_seasonal_inactive": served_seasonal_inactive,
-            # Private sources the served board declares it carries no vote
-            # from by design (see ``served_private_absent_by_design``).
-            "served_private_absent_by_design": served_private_absent_by_design,
-            # R-4: Scrape success rate tracking
-            "scrape_success_rate_24h": _scrape_success_rate_24h(),
-            "last_n_scrapes": scrape_history[-20:],
-            "leagues": _league_status_snapshot(),
-            # 2026-04 upgrade observability — feature-flag state +
-            # unified-mapper coverage.  All flags default off so this
-            # is additive/informational; enabling a flag at runtime is
-            # the operator's decision.
-            "featureFlags": _feature_flag_snapshot_safe(),
-            # The rank-history log is the only record of what the board
-            # said on a past date, and its append is best-effort inside
-            # a try at the contract-rebuild site.  A stall is therefore
-            # silent; surfacing coverage here is what makes it visible
-            # before a study needs the history and finds it absent.
-            "rankHistoryCoverage": _rank_history_coverage_safe(),
-            # The same argument one directory over, and the same defect
-            # the line above exists to prevent.  `store.history_coverage`
-            # was written so a halted retention timer is "visible before
-            # a study needs the data rather than after it produces a
-            # wrong answer" — and was then wired to nothing.  That is
-            # what let the 2026-08-05 deploy install the producer, skip
-            # the pusher, and leave the only symptom in a deploy log
-            # nobody re-reads.
-            "playerctxHistoryCoverage": _playerctx_history_coverage_safe(),
-            "idMappingCoverage": _id_mapping_coverage_safe(),
-            "nflDataProvider": _nfl_data_provider_status_safe(),
-            "normalizationHealth": _normalization_health_safe(),
+    return {
+        **status_payload,
+        # Which commit this process is running, read once at import. Deploy
+        # verification compares it with the commit the workflow shipped.
+        "build": {**PROCESS_BUILD, "release": dict(PROCESS_RELEASE)},
+        "contract": {
+            "version": API_DATA_CONTRACT_VERSION,
+            "health": contract_health,
+            "value_authority": (latest_contract_data or {}).get("valueAuthority"),
         },
-        # Observability payload — the disk-probe helpers behind it are
-        # memoized 30s server-side; let pollers (settings page, tools)
-        # reuse it browser-side for the same window.
-        headers={"Cache-Control": "private, max-age=15, stale-while-revalidate=30"},
-    )
+        "data_runtime": {
+            # The name claims a REFRESH time, so it carries one: when
+            # the board was produced.  It used to carry ``loadedAt`` —
+            # when this process started holding it — which is a different
+            # fact and is published beside it under its own name
+            # (audit F-19).
+            "last_data_refresh_at": latest_data_source.get("producedAt") or None,
+            "last_payload_loaded_at": latest_data_source.get("loadedAt") or None,
+            "active_data_source": latest_data_source,
+            "payload_bytes_full": full_bytes,
+            "payload_bytes_runtime": runtime_bytes,
+            "payload_bytes_startup": startup_bytes,
+            "payload_gzip_bytes_full": full_gzip_bytes,
+            "payload_gzip_bytes_runtime": runtime_gzip_bytes,
+            "payload_gzip_bytes_startup": startup_gzip_bytes,
+            "runtime_payload_savings_bytes": max(0, full_bytes - runtime_bytes),
+            "runtime_payload_savings_gzip_bytes": max(0, full_gzip_bytes - runtime_gzip_bytes),
+            "startup_payload_savings_bytes": max(0, full_bytes - startup_bytes),
+            "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
+        },
+        "source_health": source_health,
+        "backup_health": _backup_freshness(),
+        "uptime": uptime_status,
+        "has_data": latest_contract_data is not None,
+        "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
+        "data_date": (latest_contract_data or {}).get("date"),
+        # Real per-source coverage of the served board (see the
+        # ``served_source_coverage`` global).  Monitoring asserts on
+        # this, and it is now also the INPUT ``source_health`` above
+        # counts from — so the two agree by construction rather than
+        # being two answers to one question.  Until 2026-08-18
+        # ``source_health`` took its population from the legacy
+        # ``sites`` list (2 anchor rows, not the 3 this comment
+        # claimed) and so could not detect a degraded board; F-7.
+        "served_source_coverage": served_source_coverage,
+        # The served board's own seasonal-inactive set (see the
+        # ``served_seasonal_inactive`` global): the coverage gate
+        # excuses exactly these, read from the board it is judging.
+        "served_seasonal_inactive": served_seasonal_inactive,
+        # Private sources the served board declares it carries no vote
+        # from by design (see ``served_private_absent_by_design``).
+        "served_private_absent_by_design": served_private_absent_by_design,
+        # R-4: Scrape success rate tracking
+        "scrape_success_rate_24h": _scrape_success_rate_24h(),
+        "last_n_scrapes": scrape_history[-20:],
+        "leagues": _league_status_snapshot(),
+        # 2026-04 upgrade observability — feature-flag state +
+        # unified-mapper coverage.  All flags default off so this
+        # is additive/informational; enabling a flag at runtime is
+        # the operator's decision.
+        "featureFlags": _feature_flag_snapshot_safe(),
+        # The rank-history log is the only record of what the board
+        # said on a past date, and its append is best-effort inside
+        # a try at the contract-rebuild site.  A stall is therefore
+        # silent; surfacing coverage here is what makes it visible
+        # before a study needs the history and finds it absent.
+        "rankHistoryCoverage": _rank_history_coverage_safe(),
+        # The same argument one directory over, and the same defect
+        # the line above exists to prevent.  `store.history_coverage`
+        # was written so a halted retention timer is "visible before
+        # a study needs the data rather than after it produces a
+        # wrong answer" — and was then wired to nothing.  That is
+        # what let the 2026-08-05 deploy install the producer, skip
+        # the pusher, and leave the only symptom in a deploy log
+        # nobody re-reads.
+        "playerctxHistoryCoverage": _playerctx_history_coverage_safe(),
+        "idMappingCoverage": _id_mapping_coverage_safe(),
+        "nflDataProvider": _nfl_data_provider_status_safe(),
+        "normalizationHealth": _normalization_health_safe(),
+    }
 
 
 def _feature_flag_snapshot_safe() -> dict:
@@ -6745,7 +6762,26 @@ def _league_status_snapshot() -> list[dict]:
 # ID" warning).  Same handler, same responses; deterministic, unique ids.
 @app.get("/api/health")
 async def get_health():
-    """Basic health endpoint for reverse proxy / uptime probes."""
+    """Basic health endpoint for reverse proxy / uptime probes.
+
+    Anonymous, so the content is served through the public-diagnostics
+    boundary (``src/api/public_diagnostics.py``); the status code and every
+    verdict are computed BEFORE projection and are unchanged by it.  The
+    unredacted content is ``GET /api/admin/diagnostics`` (admin-gated).
+    """
+    status_code, content = _health_content(send_alerts=True)
+    return JSONResponse(
+        status_code=status_code,
+        content=_public_diagnostics.public_health_payload(content, base_dir=BASE_DIR),
+    )
+
+
+def _health_content(*, send_alerts: bool) -> tuple[int, dict]:
+    """``(status code, FULL /api/health content)``.  PRIVATE: see ``get_health``.
+
+    ``send_alerts`` is False for the admin read so looking at the diagnostics
+    never sends the stale-backup e-mail.
+    """
     status_payload = _scrape_status_payload()
 
     # R-1: Data freshness check — flag stale if the BOARD is older than
@@ -6870,7 +6906,7 @@ async def get_health():
     # does NOT flip the uptime status (the site is still serving).
     backup_health = _backup_freshness()
     _bage = backup_health.get("newestBackupAgeHours")
-    if _bage is None or _bage > 36:
+    if send_alerts and (_bage is None or _bage > 36):
         # The public block carries no path.  The file is the private sidecar
         # memoized with THIS block, so age, dir, path and dbCount below all
         # describe one scan (no backup observed: the sidecar is None).
@@ -6884,9 +6920,9 @@ async def get_health():
             f"deploy/backup_user_kv.sh and /var/log/riskit-backup.log.",
         )
 
-    return JSONResponse(
-        status_code=200 if is_ok else 503,
-        content={
+    return (
+        200 if is_ok else 503,
+        {
             "status": status,
             "service": "dynasty-server",
             "time_utc": datetime.now(timezone.utc).isoformat(),
@@ -6931,8 +6967,13 @@ app.add_api_route("/api/health", get_health, methods=["HEAD"], name="head_health
 
 @app.get("/api/uptime")
 async def get_uptime_status():
-    """Detailed uptime watchdog state."""
-    return JSONResponse(content=uptime_status)
+    """Detailed uptime watchdog state -- the PUBLIC projection.
+
+    Anonymous (``_PUBLIC_API_EXACT``): the env-derived ``target_url`` becomes
+    ``targetKind`` and ``last_error`` passes the public-diagnostics backstop.
+    The raw global is in ``/api/admin/diagnostics`` (``status.uptime``).
+    """
+    return JSONResponse(content=_public_diagnostics.public_uptime_payload(uptime_status))
 
 
 @app.get("/api/metrics")
@@ -7683,6 +7724,97 @@ _PERFECT_WAIVERS_CACHE: dict[str, tuple[float, dict]] = {}
 _PERFECT_WAIVERS_CACHE_TTL_SEC = 120.0
 _PERFECT_WAIVERS_CACHE_MAX = 32
 _PERFECT_WAIVERS_CACHE_LOCK = threading.Lock()
+
+
+@app.post("/api/waiver/advisor")
+async def post_waiver_advisor(request: Request):
+    """Waiver Advisor (Workstream E) — default-OFF composer over existing owners.
+
+    Private and league-scoped, advice only.  The flag check runs FIRST: the
+    page's first request carries no team and is its gate probe.  Everything
+    else mirrors :func:`post_waiver_perfect`; ``src/waivers/advisor.py``
+    computes no value, bid, lineup or legality of its own.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.waivers import advisor as _advisor  # noqa: PLC0415
+
+    if not is_enabled("waiver_advisor"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": _advisor.FLAG}
+        )
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    req = _advisor.parse_advisor_request(body)
+    if not req["teamOwnerId"]:
+        return JSONResponse(
+            status_code=400, content={"error": "team_required", "leagueKey": league_cfg.key}
+        )
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    inputs = await _waiver_engine_inputs(league_cfg, req["teamOwnerId"])
+    if inputs["input_error"] is not None:
+        # The exception text stays in the server log; the response carries a
+        # stable code only.
+        logging.error(
+            "Waiver Advisor: league settings unreadable for %s: %r",
+            league_cfg.key,
+            inputs["input_error"],
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "waiver_advisor_unavailable",
+                "reason": "league_settings_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    base = contract if isinstance(contract, dict) else {}
+    sleeper_block = base.get("sleeper") if isinstance(base.get("sleeper"), dict) else {}
+    plan_contract = {**base, "sleeper": {**sleeper_block, "teams": inputs["teams"]}}
+    constraints = _constraints_for_request(
+        request, plan_contract, league_cfg, surface="perfect_waivers"
+    )
+    try:
+        payload = await run_in_threadpool(
+            lambda: _advisor.compute_waiver_advisor(
+                plan_contract,
+                league_key=league_cfg.key,
+                owner_id=req["teamOwnerId"],
+                inputs=inputs,
+                constraints=constraints,
+                position=req["position"],
+                limit=req["limit"],
+            )
+        )
+    except ValueError as exc:
+        code = str(exc) or "bad_request"
+        return JSONResponse(
+            status_code=503 if code == "no_rosters_loaded" else 400,
+            content={"error": code, "leagueKey": league_cfg.key},
+        )
+    except Exception:  # noqa: BLE001
+        logging.exception("Waiver Advisor failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "waiver_advisor_unavailable", "leagueKey": league_cfg.key},
+        )
+    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
+    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_valuation_mode(payload, valuation_mode, valuation_note)
+    return JSONResponse(content=payload)
 
 
 def _perfect_waivers_cache_key(
@@ -19262,6 +19394,33 @@ async def post_admin_nfl_data_flush(request: Request):
         deleted,
     )
     return JSONResponse(content={"ok": True, "evicted": deleted})
+
+
+@app.get("/api/admin/diagnostics")
+async def get_admin_diagnostics(request: Request):
+    """The UNREDACTED ``/api/status`` + ``/api/health`` content.
+
+    The anonymous endpoints serve the public projection
+    (``src/api/public_diagnostics.py``): no filesystem path, raw Sleeper id,
+    env-derived probe target or traceback.  This is where an operator reads
+    what they withheld, behind the same allowlist as every other
+    ``/api/admin/*`` route.  Read-only: it sends no alert (``send_alerts=False``)
+    and changes no state.  The backup COVERAGE detail is not here either -- it
+    stays on-box (``python -m src.api.backup_health``), per that module.
+    """
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    health_code, health = _health_content(send_alerts=False)
+    return JSONResponse(
+        content={
+            "schemaVersion": "private-diagnostics.v1",
+            "redaction": "none",
+            "status": _status_content(),
+            "health": {"httpStatus": health_code, **health},
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/api/admin/scrape-telemetry")

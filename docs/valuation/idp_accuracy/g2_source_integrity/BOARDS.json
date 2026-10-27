@@ -1,0 +1,75 @@
+{
+ "schema": "g2-idp-source-integrity-boards/v1",
+ "note": "heldout board metadata here was read from git object ids and commit times only (no content scan) before the preregistration commit",
+ "boards": [
+  {
+   "board": "dynasty_export_20261018_161125.zip",
+   "role": "dev",
+   "zipSha256": "344bb5286ee565272a39a962b8d6e637685975b5d5a5e0f85948da01110313e5",
+   "addCommit": "b3cb912791c54735e73b4a74cc5e2187666d8300",
+   "addCommitTime": "2026-10-18T16:14:50Z",
+   "priorUse": "V2 I_INDEPENDENT (SPENT for V2.1)"
+  },
+  {
+   "board": "dynasty_export_20261019_201546.zip",
+   "role": "dev",
+   "zipSha256": "40d2eb5697c63a5a242d30f8a94afed7f8baa28a2163fc7f962e2922ba774252",
+   "addCommit": "d9680440a586109130b739923470580571c75df2",
+   "addCommitTime": "2026-10-19T20:19:09Z",
+   "priorUse": "V2 R_REGRESSION_PIN pin2015 (V2.1 R_PIN)"
+  },
+  {
+   "board": "dynasty_export_20261020_052241.zip",
+   "role": "dev",
+   "zipSha256": "f660098f3c68eee3be24790d7674bd263616d4c97d330e92c24ed77d5dd6078e",
+   "addCommit": "d9c3a70209285c95fba645f8fa6e74aa22521e8f",
+   "addCommitTime": "2026-10-20T05:26:10Z",
+   "priorUse": "V2 I_INDEPENDENT (SPENT for V2.1); Theo Johnson case board"
+  },
+  {
+   "board": "dynasty_export_20261020_173527.zip",
+   "role": "heldout",
+   "zipSha256": "a4da7124a7809dd86bfd54ad4a0457ed58daa5f90bd59ef3b182cce7a4a9b105",
+   "addCommit": "c2b44022f0a62d8f0bd7c02f90dca57378c0532b",
+   "addCommitTime": "2026-10-20T17:38:56Z",
+   "priorUse": "none recorded: absent from every V2 manifest; listed by name only (hashes) in V2.1 POPULATIONS.json SPENT, which V2.1 never reads; referenced by no IDP-lane record",
+   "idpCsvBlobsAtAddCommit": {
+    "idpTradeCalc": {
+     "blob": "c11ad9a7b42a2d791496d24f8eb0f4ca7a011497",
+     "lastChange": "2026-10-16T07:38:08Z",
+     "novelVsDev": false
+    },
+    "draftSharksIdp": {
+     "blob": "ecb72a0f317dac65b846f03fb5902c6545945074",
+     "lastChange": "2026-10-20T17:38:56Z",
+     "novelVsDev": true
+    },
+    "fantasyProsIdp": {
+     "blob": "be35fe708fc084f07f831cc5563c49749656eb92",
+     "lastChange": "2026-10-14T23:33:51Z",
+     "novelVsDev": false
+    },
+    "dlfIdp": {
+     "blob": "6161e684d0a6681255f83b88704bd1bedc4f6e0c",
+     "lastChange": "2026-10-18T12:27:40Z",
+     "novelVsDev": false
+    },
+    "dlfRookieIdp": {
+     "blob": "85fb59c4057d64232d56f1537a183e0cec372d25",
+     "lastChange": "2026-10-18T12:27:40Z",
+     "novelVsDev": false
+    },
+    "idpShowCombined": {
+     "blob": "de1f191d7b3a4adf19a339b6978e610051acd381",
+     "lastChange": "2026-08-20T23:28:28Z",
+     "novelVsDev": false
+    },
+    "idpShow": {
+     "blob": "d7aa2473a68c91f01631398b23457da9b2cdf0e3",
+     "lastChange": "2026-10-17T20:32:13Z",
+     "novelVsDev": false
+    }
+   }
+  }
+ ]
+}

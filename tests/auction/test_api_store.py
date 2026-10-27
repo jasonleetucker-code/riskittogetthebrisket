@@ -67,7 +67,12 @@ def env(tmp_path, monkeypatch):
     fake.latest_contract_data = _contract()
 
     async def get_draft_capital(request):
-        return _draft_capital()
+        # Like the real handler: the payload names the league it resolved
+        # (explicit ``leagueKey`` query first, else the registry default).
+        return {
+            **_draft_capital(),
+            "leagueKey": request.query_params.get("leagueKey") or "dynasty_main",
+        }
 
     fake.get_draft_capital = get_draft_capital
     monkeypatch.setitem(sys.modules, "server", fake)

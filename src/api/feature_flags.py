@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 62 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 63 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -661,6 +661,14 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # multi_team_analysis_disabled; the 2-team routes are unchanged either way.
     # Rollback: RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0 + restart.
     "trade_multi_team_analysis": False,
+    # Waiver Advisor (Workstream E, build-only directive 2026-10-27).  ON:
+    # POST /api/waiver/advisor + the unlisted /waiver-advisor page answer for
+    # the selected team: a composer over the existing owners (Perfect
+    # Waivers, FAAB engine, lineup solver, roster capacity, posture) that
+    # changes no served value.  Off → the route 503s feature_disabled and the
+    # page renders "not available".  Activation is an owner decision.
+    # Rollback: RISKIT_FEATURE_WAIVER_ADVISOR=0 + restart.
+    "waiver_advisor": False,
     # Low-value depth disclosure SHADOW COUNTERS -- HELD, DEFAULT OFF (owner
     # decision 2026-10-21, LVA Package 4, V4 "approved for shadow measurement
     # only"; docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md).  ON: each private
@@ -1051,6 +1059,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # server.py: off → 503 multi_team_analysis_disabled, on → the per-team
     # analysis.  Default False (see its _DEFAULTS entry).
     "trade_multi_team_analysis": LIVE,
+    # waiver_advisor gates POST /api/waiver/advisor inline in server.py (and
+    # src/waivers/advisor.py::advisor_enabled): off → 503 feature_disabled.
+    # Default False (see its _DEFAULTS entry).
+    "waiver_advisor": LIVE,
     # low_value_depth_disclosure_shadow gates the depth-note shadow counters
     # inline in server.py (``_build_trade_simulation``, reached by
     # /api/trade/simulate and /api/trade/analyze) and the private read route

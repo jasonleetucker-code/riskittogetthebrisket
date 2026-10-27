@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import random
 import socket
 import sys
@@ -553,3 +554,111 @@ def test_a_failed_measurement_is_exit_three_not_a_pass(monkeypatch, capsys):
     monkeypatch.setattr(m, "run_measurement", boom)
     assert m.main(["--synthetic", "--quiet"]) == m.EXIT_MEASUREMENT_FAILED
     assert "no board" in capsys.readouterr().err
+
+
+# ── Public advisor route surface (opt-in --public-route) ──────────────────
+
+
+def test_public_route_flag_is_opt_in_and_parsed():
+    assert m.build_parser().parse_args([]).public_route is False
+    assert m.build_parser().parse_args(["--public-route"]).public_route is True
+
+
+def test_public_runner_sends_the_value_free_contract_body_and_resets_the_limiter(monkeypatch):
+    from src.api import public_trade_advisor_api as api
+
+    resets: list[int] = []
+
+    class _Limiter:
+        def reset(self):
+            resets.append(1)
+
+    monkeypatch.setattr(api, "_limiter", lambda: _Limiter())
+    from src.api import rate_limit
+
+    monkeypatch.setattr(rate_limit, "reset_for_tests", lambda: resets.append(2))
+    sent: list[tuple[str, dict]] = []
+
+    class _Res:
+        status_code = 200
+        content = b"{}"
+        text = "{}"
+
+        @staticmethod
+        def json():
+            return {"overall": {"result": "FAIR"}, "teams": [{"rosterId": 1, "result": "FAIR"}]}
+
+    class _Client:
+        def post(self, path, json):
+            sent.append((path, json))
+            return _Res()
+
+    scn = m.Scenario(
+        name="x",
+        shape="worst_case",
+        team_count=2,
+        teams=(1, 2),
+        legs=(("p:1", 1, 2), ("p:2", 2, 1)),
+    )
+    sample = m.make_public_route_runner(_Client(), None, "market_fairness")(scn, True)
+    assert sent == [
+        (
+            m.PUBLIC_ANALYZE_PATH,
+            {
+                "perspectiveRosterId": 1,
+                "teams": [1, 2],
+                "assets": [{"id": "p:1", "from": 1, "to": 2}, {"id": "p:2", "from": 2, "to": 1}],
+            },
+        )
+    ]
+    assert resets == [1, 2]
+    assert sample.info["overall"] == "FAIR"
+
+
+def test_public_runner_refuses_a_non_200_as_a_failed_measurement(monkeypatch):
+    from src.api import public_trade_advisor_api as api
+
+    monkeypatch.setattr(api, "_limiter", lambda: type("L", (), {"reset": lambda self: None})())
+    from src.api import rate_limit
+
+    monkeypatch.setattr(rate_limit, "reset_for_tests", lambda: None)
+
+    class _Res:
+        status_code = 503
+        content = b"{}"
+        text = '{"error":"advisor_unavailable"}'
+
+    class _Client:
+        def post(self, path, json):
+            return _Res()
+
+    scn = m.Scenario(
+        name="x", shape="worst_case", team_count=2, teams=(1, 2), legs=(("p:1", 1, 2),)
+    )
+    with pytest.raises(m.MeasurementFailed):
+        m.make_public_route_runner(_Client(), None, "market_fairness")(scn, False)
+
+
+def test_public_route_client_reloads_after_restoring_env_even_on_failure(monkeypatch, tmp_path):
+    """The registry and flag reloads on exit must run AFTER the env override is
+    restored (so they re-read the caller's values, not the override) and must
+    run even when the body raises."""
+    from src.api import feature_flags, league_registry
+
+    monkeypatch.delenv(m.PUBLIC_FLAG_ENV, raising=False)
+    calls: list[tuple[str, str | None]] = []
+    monkeypatch.setattr(
+        league_registry,
+        "reload_registry",
+        lambda: calls.append(("registry", os.environ.get(m.PUBLIC_FLAG_ENV))),
+    )
+    monkeypatch.setattr(
+        feature_flags, "reload", lambda: calls.append(("flags", os.environ.get(m.PUBLIC_FLAG_ENV)))
+    )
+    # Make the in-process server import fail inside the override.
+    monkeypatch.setitem(sys.modules, "server", None)
+    with pytest.raises(ImportError):
+        with m.public_route_client(None, "http://127.0.0.1:8000", tmp_path):
+            pass  # pragma: no cover - never reached
+    assert calls == [("registry", "1"), ("flags", "1"), ("registry", None), ("flags", None)]
+    assert m.PUBLIC_FLAG_ENV not in os.environ

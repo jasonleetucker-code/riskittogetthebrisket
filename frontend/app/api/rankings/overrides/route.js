@@ -17,6 +17,15 @@ const BACKEND_BASE = (process.env.BACKEND_API_URL || "http://127.0.0.1:8000")
   .replace(/\/api\/data\/?$/, "");
 const OVERRIDES_URL = `${BACKEND_BASE}/api/rankings/overrides`;
 
+function buildForwardedOverridesUrl(incomingUrl) {
+  const forwardedUrl = new URL(OVERRIDES_URL);
+  for (const name of ["view", "leagueKey"]) {
+    const value = incomingUrl.searchParams.get(name);
+    if (value) forwardedUrl.searchParams.set(name, value);
+  }
+  return forwardedUrl;
+}
+
 export async function POST(request) {
   let body;
   try {
@@ -26,12 +35,11 @@ export async function POST(request) {
   }
 
   // Forward the ``view`` query parameter so the frontend can opt in
-  // to the compact ``view=delta`` response shape.  Everything else
-  // is dropped on the floor — the backend ignores unknown params.
+  // to the compact ``view=delta`` response shape, and ``leagueKey`` so
+  // the backend resolves the page's league rather than the user's saved
+  // one (LI1842-DEFECT-08).  Everything else is dropped on the floor.
   const incomingUrl = new URL(request.url);
-  const forwardedUrl = new URL(OVERRIDES_URL);
-  const view = incomingUrl.searchParams.get("view");
-  if (view) forwardedUrl.searchParams.set("view", view);
+  const forwardedUrl = buildForwardedOverridesUrl(incomingUrl);
 
   const ctl = new AbortController();
   // Override responses rebuild the full canonical contract (~2-5MB

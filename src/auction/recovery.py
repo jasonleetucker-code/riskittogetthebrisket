@@ -239,6 +239,28 @@ def preflight(store: Store, room_id: str, now_real: float) -> dict:
         if missing
         else f"Budgets set — total ${total} ({prov.get('source', 'manual')}{', season ' + str(prov.get('season')) if prov.get('season') else ''})",
     )
+    # LI1842-DEFECT-13: whose dollars these are.  Rooms created since the fix
+    # refuse a mismatch outright; an older room's receipt can still carry one,
+    # or predate the league stamp entirely.
+    budget_league = prov.get("leagueKey")
+    room_league = state.get("league_key")
+    if prov.get("leagueMismatch") or (
+        budget_league and room_league and str(budget_league) != str(room_league)
+    ):
+        add(
+            "budget_league",
+            "fail",
+            f"Budgets are league {budget_league!r}'s dollars but the seats are league "
+            f"{room_league!r}'s — recreate the room",
+        )
+    elif room_league and str(prov.get("source") or "").startswith("/api/draft-capital"):
+        if not budget_league:
+            add(
+                "budget_league",
+                "warn",
+                "This room's budget receipt does not name the league of its dollars "
+                "(created before the receipt recorded it) — confirm they are this league's",
+            )
     if prov.get("totalBudget") and total != prov.get("totalBudget"):
         add(
             "pool_total",

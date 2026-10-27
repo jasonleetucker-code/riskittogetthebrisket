@@ -58,7 +58,9 @@ class TestHealthProbeToleratesDegraded:
         below is unnecessary — and this test says so rather than leaving
         a mysterious allowance behind."""
         src = SERVER.read_text(encoding="utf-8")
-        assert "status_code=200 if is_ok else 503" in src, (
+        # ``_health_content`` computes the code; ``get_health`` serves it
+        # unchanged (``status_code=status_code``) beside the public projection.
+        assert "200 if is_ok else 503" in src and "status_code=status_code" in src, (
             "/api/health no longer returns 503 when degraded — re-examine whether the "
             "deploy probe still needs to tolerate it"
         )

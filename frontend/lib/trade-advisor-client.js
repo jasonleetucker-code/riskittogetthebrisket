@@ -267,7 +267,32 @@ export function errorFromResponse(status, body) {
 
 const TRANSIENT = new Set([502, 504]);
 
-async function request(url, init, { retry = true } = {}) {
+// Client deadlines (E4-2).  The server bounds how long ONE analyze caller
+// waits for its computation (config/trade/analyze_admission.json
+// public_advisor_analyze.timeoutSeconds, 5 s) and answers a fixed 503
+// `timeout` itself; these deadlines exist only so a request the server never
+// answers (a dropped connection, a stalled proxy) cannot leave the page
+// "Analyzing…" forever.  They are DECLARED PRIORS, deliberately longer than
+// the server's own bound plus the response floor, so a server answer always
+// arrives first when there is one (pinned by
+// tests/trade/test_public_advisor_client_deadline_parity.py).  The whole
+// request — including the one transient 502/504 retry — shares one deadline.
+export const CLIENT_DEADLINE_MS = Object.freeze({
+  analyze: 15000,
+  list: 10000,
+});
+
+/** The error a client-side deadline produces: the same retryable `timeout`
+ * kind (and the server's fixed wording) as the server's own admission
+ * timeout, so the page renders the one banner it already has and Try again
+ * resubmits the trade as built. */
+export const CLIENT_TIMEOUT_ERROR = Object.freeze({
+  kind: "timeout",
+  retryable: true,
+  message: ADMISSION_COPY.timeout,
+});
+
+async function attempt(url, init) {
   let res;
   try {
     res = await fetch(url, { credentials: "omit", ...init });
@@ -275,47 +300,104 @@ async function request(url, init, { retry = true } = {}) {
     if (err?.name === "AbortError") throw err;
     return { ok: false, status: 0, body: null };
   }
-  if (retry && TRANSIENT.has(res.status)) return request(url, init, { retry: false });
   let body = null;
   try {
     body = await res.json();
-  } catch {
+  } catch (err) {
+    // An abort that lands after the headers but while the BODY is still
+    // downloading (the deadline, or the caller) must reach request()'s
+    // classifier, not be read as an unparseable body.
+    if (err?.name === "AbortError") throw err;
     body = null;
   }
-  return { ok: res.ok, status: res.status, body };
+  return { ok: res.ok, status: res.status, body, transient: TRANSIENT.has(res.status) };
+}
+
+/**
+ * One request with one deadline.  The caller's `signal` (a newer request
+ * superseding this one, the page unmounting) still throws `AbortError`
+ * exactly as before; only the DEADLINE firing resolves to
+ * `{ timedOut: true }`, so "nobody wants this answer any more" and "the
+ * answer never came" stay distinguishable.
+ */
+async function request(url, init = {}, { deadlineMs } = {}) {
+  const callerSignal = init.signal || null;
+  if (callerSignal?.aborted) throw new DOMException("Aborted", "AbortError");
+  const controller = new AbortController();
+  let timedOut = false;
+  const onCallerAbort = () => controller.abort();
+  callerSignal?.addEventListener?.("abort", onCallerAbort, { once: true });
+  const timer =
+    typeof deadlineMs === "number" && deadlineMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, deadlineMs)
+      : null;
+  const scoped = { ...init, signal: controller.signal };
+  try {
+    let r = await attempt(url, scoped);
+    if (r.transient) r = await attempt(url, scoped);
+    return { ok: r.ok, status: r.status, body: r.body };
+  } catch (err) {
+    if (err?.name === "AbortError" && timedOut && !callerSignal?.aborted) {
+      return { ok: false, status: 0, body: null, timedOut: true };
+    }
+    throw err;
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+    callerSignal?.removeEventListener?.("abort", onCallerAbort);
+  }
+}
+
+function failure(r) {
+  if (r.timedOut) return CLIENT_TIMEOUT_ERROR;
+  return errorFromResponse(r.ok ? 500 : r.status, r.body);
 }
 
 /** GET teams.  Resolves to the classified bootstrap, plus an error when not ready. */
 export async function fetchAdvisorTeams({ signal, reload = false } = {}) {
-  const r = await request(`${ADVISOR_API}/teams`, { method: "GET", signal, ...(reload ? { cache: "reload" } : {}) });
+  const r = await request(
+    `${ADVISOR_API}/teams`,
+    { method: "GET", signal, ...(reload ? { cache: "reload" } : {}) },
+    { deadlineMs: CLIENT_DEADLINE_MS.list },
+  );
   const boot = classifyTeamsResult({ status: r.status, data: r.body });
   if (boot.state === "ready") return { ok: true, ...boot };
-  return { ok: false, ...boot, error: errorFromResponse(r.status, r.body) };
+  return { ok: false, ...boot, error: r.timedOut ? CLIENT_TIMEOUT_ERROR : errorFromResponse(r.status, r.body) };
 }
 
 /** GET one team's assets in the server's one value-free order. */
 export async function fetchAdvisorAssets(rosterId, { signal, reload = false } = {}) {
   const url = `${ADVISOR_API}/teams/${encodeURIComponent(String(rosterId))}/assets?sort=${ASSET_SORT}`;
-  const r = await request(url, { method: "GET", signal, ...(reload ? { cache: "reload" } : {}) });
+  const r = await request(
+    url,
+    { method: "GET", signal, ...(reload ? { cache: "reload" } : {}) },
+    { deadlineMs: CLIENT_DEADLINE_MS.list },
+  );
   if (r.ok) {
     const data = sanitizeAssetsPayload(r.body);
     if (data) return { ok: true, data };
   }
-  return { ok: false, status: r.status, error: errorFromResponse(r.ok ? 500 : r.status, r.body) };
+  return { ok: false, status: r.status, error: failure(r) };
 }
 
 /** POST analyze.  Never cached by the browser. */
 export async function postAdvisorAnalyze(body, { signal } = {}) {
-  const r = await request(`${ADVISOR_API}/analyze`, {
-    method: "POST",
-    signal,
-    cache: "no-store",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const r = await request(
+    `${ADVISOR_API}/analyze`,
+    {
+      method: "POST",
+      signal,
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    { deadlineMs: CLIENT_DEADLINE_MS.analyze },
+  );
   if (r.ok) {
     const data = sanitizeAnalyzePayload(r.body);
     if (data) return { ok: true, data };
   }
-  return { ok: false, status: r.status, error: errorFromResponse(r.ok ? 500 : r.status, r.body) };
+  return { ok: false, status: r.status, error: failure(r) };
 }

@@ -233,7 +233,7 @@ def test_projection_survives_the_csv_round_trip(given, tmp_path):
         path = scrape._csv_path("a")
     with path.open(newline="") as f:
         assert next(csv.DictReader(f))["projection"] == ("" if given == "" else str(given))
-    reread = draftsharks_ros._read_ros_csv(path)
+    reread = draftsharks_ros._read_ros_csv(path, draftsharks_ros.BASIS_ROS_SF)
     reread[0]["canonicalName"] = "X"
     back = scrape._build_snapshot(
         {"key": "a"}, scrape.ScrapeResult(source_key="a", status="ok", rows=reread)

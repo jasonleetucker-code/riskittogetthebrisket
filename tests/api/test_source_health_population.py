@@ -218,6 +218,9 @@ class TestDeclaredAbsenceIsNotMissing:
         declarations; a correct helper nobody calls fixes nothing."""
         import inspect
 
-        src = inspect.getsource(srv.get_status)
+        # ``get_status`` serves the public projection of ``_status_content``,
+        # which is where the snapshot is built.
+        src = inspect.getsource(srv._status_content)
+        assert "_status_content()" in inspect.getsource(srv.get_status)
         assert "seasonal_inactive=served_seasonal_inactive" in src
         assert "private_absent_by_design=served_private_absent_by_design" in src
