@@ -2,8 +2,11 @@
 
 **Status:** RESEARCH_ONLY / TESTED. SHADOW: no served value, rank, vote, weight, flag, lineage entry or deployment
 changed. The preregistration is commit `0c81b7f77`. The evaluator is commit `9622ea48e`. The single held-out run and
-the development records were committed exactly as produced in `7ed123139`. Deviations D1–D3 are in
-[`DEVIATIONS.md`](DEVIATIONS.md).
+the development records were committed exactly as produced in `7ed123139`. Deviations D1–D5 are in
+[`DEVIATIONS.md`](DEVIATIONS.md). D4 (review cleanup: registered injection floors enforced, E1 with lineage, B-gates
+emitted by the evaluator, seal checked before any archive read) re-ran the held-out board once:
+`evidence/heldout_20261020_173527_rerun_D4.json`. **No verdict changed**, and the gate tables below quote that
+record's `eGates` / `bGates` verdicts.
 
 Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
 
@@ -11,13 +14,17 @@ Agent-OS-Receipt: cb64f74cf4d2763aa16d55ba0d6350f585a2a42f
 
 ```bash
 python scripts/research_idp_source_integrity_g2.py --board dynasty_export_20261020_173527.zip --role heldout --out OUT.json
-python scripts/research_idp_source_integrity_g2.py --exploratory --board dynasty_export_20261020_173527.zip --role heldout --out D1.json
+python scripts/research_idp_source_integrity_g2.py --exploratory --board dynasty_export_20261020_173527.zip --role heldout --out D1b.json
 python -m pytest tests/robust_filter_shadow/test_idp_source_integrity_g2.py -q
 ```
 
 * The served build is about 1.4 s and the evaluation about 0.07 s.
-* `evaluation.digest` is `4ac384fc298b…` and the served panel digest is `1188401bebdc…`. E1 shows both are
-  reproducible.
+* `evaluation.digest` is `4ac384fc298b…` and the served panel digest is `1188401bebdc…`.
+  * E1 covers the evaluation only: two evaluations of one panel, with voting status, content clocks and lineage,
+    give `4ac384fc298b…` (the original record's E1 omitted lineage and printed `ed3525f267bc…`, a different input;
+    fixed in D4).
+  * The panel's reproducibility is shown separately: the D4 rerun rebuilt the board in a new process and got the same
+    served and dlfRestored panel and evaluation digests as the original record.
 
 ## 0. Read this first
 
@@ -32,14 +39,14 @@ added on or after 2026-12-09) is registered and not yet run.
 
 | gate | result |
 |---|---|
-| E1 determinism | PASS (one digest over two runs) |
-| E2 vendor family | PASS 30 / 30 |
-| E3 Sleeper id | PASS 20 / 20 |
-| E4 shared vendor entry | PASS 20 / 20 |
+| E1 determinism | PASS (one digest over two evaluations, `4ac384fc298b…`) |
+| E2 vendor family | PASS 30 / 30 (registered count 30 met) |
+| E3 Sleeper id | PASS 20 / 20 (registered count 20 met) |
+| E4 shared vendor entry | PASS 20 / 20 (registered count 20 met) |
 | E5 segment scale ×5 / ×0.2 | PASS 18 / 18 (no clean segment shifted) |
-| E6 single-vote corruption ×8 | PASS recall 1.000 (200 votes); clean extreme rate 0.0015 (limit 0.05) |
-| E7 wrong-player swap (≥ 4× apart) | PASS recall 0.905, but on **21** swaps, just above the INSUFFICIENT floor of 20 |
-| E8 rank inversion | PASS 20 / 20 |
+| E6 single-vote corruption ×8 | PASS recall 1.000 (200 votes, registered count met); clean extreme rate 0.0015 (limit 0.05) |
+| E7 wrong-player swap (≥ 4× apart) | PASS on the registered point estimate: 19 / 21 = 0.905 ≥ 0.80. **21** swaps, just above the INSUFFICIENT floor of 20 (now enforced in code). Wilson 95 % lower bound **0.711**, below 0.80, so the pass is not established at 95 % confidence |
+| E8 rank inversion | PASS 20 / 20 (registered count 20 met) |
 | E9 stale stamp | PASS |
 | E10 runtime | PASS 0.065 s |
 | E11 rank-basis restart | PASS 5 / 5 sources |
@@ -55,6 +62,10 @@ added on or after 2026-12-09) is registered and not yet run.
 * That is the same blind spot that sank V2. G2 does not claim to close it; it reports it.
 
 ## 2. Board integrity (B-gates), served held-out build: 6 PASS / 2 FAIL
+
+Verdicts are the evaluator's `bGates` output in the D4 rerun (`summary`: passed 6, failed 2), scoped to the seven
+registered IDP sources. The offense source `fantasyNavigatorSf`, observed once on an IDP row and never voting, is
+outside every gate (`nonIdpSourcesObserved`; explained in DEVIATIONS).
 
 | gate | result | detail |
 |---|---|---|
@@ -88,7 +99,7 @@ Severity is the effect on today's served values. Inputs are the CSVs at refresh 
 
 | id | defect | evidence | served impact | status |
 |---|---|---|---|---|
-| **G2-D1** | **The IDP board universe is effectively gated on IDP Trade Calculator membership.** Players that both other voting IDP providers rank are absent from the board when IDPTC does not list them | **Absent from the board:** DS top-150: 3 · DS 151–300: 23 · FP combined top-150: 6 · FP 151–300: 17. That is 49 vendor entries (a player on both lists counts twice). **Only 1 of the 49 is in `idpTradeCalc.csv`.** Examples: D'Angelo Ponds (DS 99, FP 130), Maxwell Hairston (DS 87), Benjamin Morrison (DS 140), Jamel Dean (DS 299, FP 157), A.J. Terrell (DS 320, FP 164), Kenny Moore II (FP 151–300) | Those players have no row: not unpriced-and-listed, simply absent. A CB that two dynasty providers rank inside their top 150 cannot appear in rankings, rosters or trades | NEW. The universe-construction owner is outside this shadow lane |
+| **G2-D1** | **The IDP board universe appears gated on IDP Trade Calculator membership.** Vendor entries ranked by a voting IDP provider other than IDPTC are absent from the board when IDPTC does not list them. The counts are entries on EITHER list (Draft Sharks or FantasyPros), not players that both providers rank | D1b (`evidence/exploratory_D1b_heldout_20261020_173527.json`, rule in DEVIATIONS D5: vendor FILE order; an unjoined entry is `absent` unless an IDP board row of the same family carries its name as any source's match or has its name key). **Draft Sharks**, file positions 1–150: 3 absent; 151–300: 24 by the rule, 23 after one hand adjudication (JT Tuimoloau is on the board as "Jaylahn Tuimoloau" through a scraper-side alias, G2-D2). **FantasyPros**, 299 rows, all inside 1–300: 1–150: 2 absent; 151–299: 27 absent. Total **29**. Six more unjoined FP entries are rookies that ARE on the board through other sources' joins, so they are not counted. The FP bands are vendor file order (its `effectiveRank` order). They are not a "combined" rank: `originalRank` is per position on 180 of the 299 rows. **Reconciling 23 / 28 / 29.** The first write-up's FP 23 came from bands sorted by `originalRank`, followed by a hand recount. The reviewer's 28 is what a name-key-only rule gives: it puts the CB Byron Murphy Jr. on the DT Byron Murphy row (the G2-D4 collision). The family-aware rule keeps him absent, which gives 29. **IDPTC check:** of the 26 DS + 29 FP = 55 absent entries (a player on both lists counts twice), the key test finds one per vendor in `idpTradeCalc.csv`, and both are false hits: "Byron Murphy" / "Byron Murphy Jr." (CBs) match the DT's IDPTC key (IDPTC has no position column). **0 of 55** are listed by IDPTC. Examples: D'Angelo Ponds (DS 99; FP `effectiveRank` 130), Maxwell Hairston (DS 87), Benjamin Morrison (DS 140), Germaine Pratt (FP 99), Jamel Dean (DS 299; FP 157), Kenny Moore II (FP 156), A.J. Terrell Jr. (FP 164) | Those players have no row: not unpriced-and-listed, simply absent. A CB that a dynasty provider ranks inside its top 150 cannot appear in rankings, rosters or trades | NEW. The universe-construction owner is outside this shadow lane. A methodology question as much as a defect (M3) |
 | **G2-D2** | **Cross-source alias inconsistency.** The vendor name "JT Tuimoloau" joins the board row "Jaylahn Tuimoloau" for IDPTC but not for Draft Sharks | `draftSharksIdp.csv` line 287 (`JT Tuimoloau, DL`, rank 286); the board row's `matchedSources` are `["idpTradeCalc"]`, reason `structurally_single_source`, value 273 | One row is single-source (30 % haircut path) when two providers cover it | NEW |
 | **G2-D3** | **`excludes_rookies: True` contradicts the data** for `fantasyProsIdp` (and `dlfIdp`) | FantasyPros IDP matches **12 of 70** rookie IDP rows (Arvell Reese, Caleb Downs, CJ Allen, David Bailey, …). DLF IDP matches 18 when the hold is off (Jacob Rodriguez DLF IDP rank 9). Neither is ever an `expectedSource` on a rookie | Values: none. Coverage and confidence: FantasyPros' silence on the other 58 rookies is not counted as missing evidence (coverage denominator), and the structural-single-source logic treats it as ineligible. Every IDP row is `low` today, so no bucket moves | NEW |
 | **G2-D4** | **Same-name collision: a second player is missing.** CB Byron Murphy Jr. (MIN) has no board row. The board's only "Byron Murphy" is the DT (Sleeper 11668) | FP lists "Byron Murphy Jr., CB, MIN" at combined 162; DS lists "Byron Murphy, DB" at 254 beside "Byron Murphy II, DL" at 82. `idpShowCombined.csv` lists "Byron Murphy, DL" twice (rows 238 and 589). `sleeper.playerIds` holds one "Byron Murphy" | The CB is absent (G2-D1 class, plus a probable name-key collision). The DT's joins are correct: DS and FP chose the "II" entry. The IDP Show join is unresolvable but withheld (stale) | NEW. The cause needs the Sleeper directory (network) to confirm: UNRESOLVED |
@@ -131,14 +142,18 @@ Median voting providers / median own-level providers / single-provider rows, by 
 | LB | 3 / 2 / 0 of 22 | 3 / 2 / 0 of 25 | 3 / 2 / 0 of 17 | 1 / 1 / 25 of 46 |
 | DB | 3 / 2 / 0 of 5 | 3 / 2 / 2 of 17 | 3 / 2 / 0 of 37 | 2 / 2 / 24 of 78 |
 
-D1 exploratory: unjoined share of each vendor's own IDP list, by vendor-order band:
+D1b exploratory (deviation D5; supersedes the D1 table, whose FantasyPros bands were sorted by a per-position rank).
+Unjoined entries / absent from the board, by vendor FILE-order band:
 
 | source | 1–50 | 51–150 | 151–300 | 301+ |
 |---|---|---|---|---|
-| draftSharksIdp | 0.00 | 0.03 | 0.16 | 0.57 |
-| fantasyProsIdp | 0.00 | 0.06 | 0.19 | n/a |
-| idpTradeCalc | 0.00 | 0.00 | 0.00 | 0.02 (alias over-count) |
-| idpShowCombined | 0.00 | 0.00 | 0.01 | 0.13 |
+| draftSharksIdp | 0 / 0 of 50 | 3 / 3 of 100 | 24 / 24 of 150 (1 is the JT Tuimoloau alias) | 62 / 62 of 109 |
+| fantasyProsIdp | 0 / 0 of 50 | 2 / 2 of 100 | 33 / 27 of 149 | n/a |
+| idpTradeCalc | 1 / 1 of 50 (Bam Knight, non-IDP) | 0 / 0 of 100 | 3 / 2 of 150 | 5 / 5 of 516 (incl. offense names and JT Tuimoloau) |
+| idpShowCombined | 0 / 0 of 50 | 0 / 0 of 100 | 1 / 1 of 150 (JT Tuimoloau) | 1 / 1 of 8 |
+
+IDPTC publishes no position column, so its list includes offense players and the "absent" there is not an IDP
+universe statement.
 
 DLF IDP, DLF Rookie IDP and the IDP Show IDP-only board are not evaluable on the served build: they are held or
 non-voting, so they never join.

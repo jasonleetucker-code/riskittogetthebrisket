@@ -154,24 +154,32 @@ def content_clocks(rev: str, sources=IDP_SOURCES, depth: int = 160) -> dict[str,
     return out
 
 
-def run(board: str, role: str, out: Path, seed: int) -> dict:
-    from src.api import value_replay as vr  # noqa: PLC0415
-    from src.robust_filter_shadow import idp_source_integrity_g2 as g2  # noqa: PLC0415
-
+def admit(board: str, role: str) -> tuple[dict, str, str, datetime]:
+    """Registration, add commit and the V2.1 seal -- all decided from git
+    metadata BEFORE any archive byte is read (deviation D4: the seal check used
+    to run after ``load_archive``)."""
     manifest = json.loads(BOARDS.read_text(encoding="utf-8"))
     entry = next((b for b in manifest["boards"] if b["board"] == board), None)
     if entry is None or entry["role"] != role:
         raise SystemExit(f"{board} is not registered with role {role!r} in {BOARDS.name}")
     rel = f"exports/archive/{board}"
+    rev, when = add_commit(rel)
+    if in_v21_seal(when):
+        raise SystemExit(f"{board}: inside the Outlier Integrity V2.1 held-out seal; refused")
+    if rev != entry["addCommit"]:
+        raise SystemExit(f"{board}: add commit {rev} != registered {entry['addCommit']}")
+    return entry, rel, rev, when
+
+
+def run(board: str, role: str, out: Path, seed: int) -> dict:
+    from src.api import value_replay as vr  # noqa: PLC0415
+    from src.robust_filter_shadow import idp_source_integrity_g2 as g2  # noqa: PLC0415
+
+    entry, rel, rev, when = admit(board, role)
     zpath, member, blob, raw = load_archive(rel)
     zsha = hashlib.sha256(zpath.read_bytes()).hexdigest()
     if zsha != entry["zipSha256"]:
         raise SystemExit(f"{board}: zip sha256 {zsha} != registered {entry['zipSha256']}")
-    rev, when = add_commit(rel)
-    if rev != entry["addCommit"]:
-        raise SystemExit(f"{board}: add commit {rev} != registered {entry['addCommit']}")
-    if in_v21_seal(when):
-        raise SystemExit(f"{board}: inside the Outlier Integrity V2.1 held-out seal; refused")
     lineage = json.loads((REPO / "config/sources/source_lineage.json").read_text(encoding="utf-8"))
     clocks = content_clocks(rev)
     record: dict = {
@@ -209,8 +217,9 @@ def run(board: str, role: str, out: Path, seed: int) -> dict:
             }
             if name == "served":
                 rec["eGates"] = g2.run_e_gates(
-                    panel, seed=seed, voting_status=vs, content_clocks=clocks
+                    panel, seed=seed, voting_status=vs, content_clocks=clocks, lineage=lineage
                 )
+                rec["bGates"] = g2.b_gates(ev, tables)
             record["variants"][name] = rec
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
@@ -226,17 +235,10 @@ def exploratory(board: str, role: str, out: Path) -> dict:
     from src.api import value_replay as vr  # noqa: PLC0415
     from src.robust_filter_shadow import idp_source_integrity_g2 as g2  # noqa: PLC0415
 
-    manifest = json.loads(BOARDS.read_text(encoding="utf-8"))
-    entry = next((b for b in manifest["boards"] if b["board"] == board), None)
-    if entry is None or entry["role"] != role:
-        raise SystemExit(f"{board} is not registered with role {role!r} in {BOARDS.name}")
-    rel = f"exports/archive/{board}"
+    entry, rel, rev, _when = admit(board, role)
     zpath, _member, _blob, raw = load_archive(rel)
     if hashlib.sha256(zpath.read_bytes()).hexdigest() != entry["zipSha256"]:
         raise SystemExit(f"{board}: zip sha256 mismatch")
-    rev, when = add_commit(rel)
-    if rev != entry["addCommit"] or in_v21_seal(when):
-        raise SystemExit(f"{board}: add commit mismatch or inside the V2.1 seal; refused")
     with csv_tree(rev) as (root, _prov):
         tables = g2.read_csv_tables(root / "CSVs" / "site_raw", IDP_SOURCES)
         contract = vr.build(raw, {"csv_root": root, "flags": VARIANTS["served"]})
@@ -267,8 +269,12 @@ def main(argv=None) -> int:
         exploratory(args.board, args.role, args.out)
         return 0
     rec = run(args.board, args.role, args.out, args.seed)
-    gates = rec["variants"]["served"]["eGates"]
-    print(json.dumps({k: v.get("pass") for k, v in gates.items()}, indent=1))
+    served = rec["variants"]["served"]
+    verdicts = {k: v.get("verdict") for k, v in sorted(served["eGates"].items())}
+    verdicts.update(
+        {k: v.get("verdict") for k, v in sorted(served["bGates"].items()) if k != "summary"}
+    )
+    print(json.dumps(verdicts, indent=1))
     return 0
 
 

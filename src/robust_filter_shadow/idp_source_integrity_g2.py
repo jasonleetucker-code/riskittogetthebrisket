@@ -75,6 +75,21 @@ THRESHOLDS: dict[str, float | int] = {
     "e10RuntimeSecondsMax": 60.0,
 }
 
+#: Injection counts that the registered E-gate TEXT states
+#: (``PREREGISTRATION.json::eGates``; pinned by a test).  They are not in
+#: ``THRESHOLDS``, which is pinned equal to the registered ``thresholds`` block.
+#: Deviation D4: a gate whose injector built fewer than its registered count is
+#: ``INSUFFICIENT`` and cannot pass ("30/30 flagged" is not met by 25/25).
+REGISTERED_INJECTIONS: dict[str, int] = {
+    "E2_vendor_family": 30,
+    "E3_sleeper_id": 20,
+    "E4_shared_entry": 20,
+    "E6_row_corruption": 200,
+    "E8_rank_inversion": 20,
+}
+#: E7: "fewer than 20 swaps constructible = INSUFFICIENT, never pass" (registered text).
+E7_MIN_SWAPS = 20
+
 #: Vendor-published position columns, by CSV header.  The first present wins.
 VENDOR_POSITION_COLUMNS = ("family", "Fantasy Position", "position", "Position", "pos")
 #: Vendor rank columns, by CSV header.  The first present wins.
@@ -115,6 +130,24 @@ def _parse_time(value: Any) -> datetime | None:
 
 def _hours(a: datetime, b: datetime) -> float:
     return (a - b).total_seconds() / 3600.0
+
+
+def wilson_lower(successes: int, n: int, z: float = 1.959964) -> float | None:
+    """Wilson score 95 % lower bound of a binomial proportion (``None`` when n = 0)."""
+    if n <= 0:
+        return None
+    p = successes / n
+    den = 1 + z * z / n
+    centre = p + z * z / (2 * n)
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
+    return (centre - half) / den
+
+
+def _count_verdict(gate: str, injected: int, ok: bool) -> tuple[bool, str]:
+    """``(pass, verdict)`` for a gate with a registered injection count."""
+    if injected < REGISTERED_INJECTIONS[gate]:
+        return False, "INSUFFICIENT"
+    return ok, "PASS" if ok else "FAIL"
 
 
 def digest(obj: Any) -> str:
@@ -882,52 +915,115 @@ def vendor_join_coverage(
     """Share of each vendor's own list that joined NO board row, by vendor order band.
 
     A coverage discontinuity -- a band whose unjoined share jumps -- is the
-    coverage analogue of a rank-basis break.  Vendor order is the vendor rank
-    column, else descending value, else file order.  Rows that look like picks
-    are skipped; for a vendor that publishes positions only IDP-family rows count."""
+    coverage analogue of a rank-basis break.
+
+    **Vendor order is FILE order** (deviation D4; D1 sorted by the rank column).
+    ``fantasyProsIdp``'s ``originalRank`` is a combined rank only on its
+    ``direct_combined`` rows and a PER-POSITION rank on its
+    ``anchored_from_individual`` rows, so sorting by it interleaved positions.
+    The file is written in the vendor's combined order (FantasyPros:
+    ``effectiveRank``; Draft Sharks / IDP Show: rank; IDPTC: value); whether the
+    rank column agrees with file order is reported per source.  Rows that look
+    like picks are skipped; for a vendor that publishes positions only IDP-family
+    rows count.
+
+    Every unjoined entry is then classified by one exact rule:
+
+    * ``onBoardOtherName`` -- an IDP board row of the SAME family (any family
+      when the vendor publishes none) carries its raw name as the matched name of
+      ANY source, or has its canonical name key: a join miss for THIS source, not
+      a universe gap.  The family condition keeps a same-name collision (the CB
+      Byron Murphy vs the DT row, G2-D4) absent;
+    * ``absent`` -- otherwise.  ``absentInIdpTradeCalc`` lists the absent entries
+      whose canonical key is in ``idpTradeCalc.csv`` (which has no position
+      column, so an offense namesake also matches there).
+
+    An alias applied INSIDE the scraper leaves no trace in the contract (the
+    IDPTC row "Jaylahn Tuimoloau" records ``matchedName`` "Jaylahn Tuimoloau",
+    not the vendor's "JT Tuimoloau"), so such an entry is ``absent`` by this rule
+    and must be adjudicated by hand."""
     matched: dict[str, set[str]] = defaultdict(set)
+    any_name: set[tuple[str, str]] = set()
+    idp_keys: set[tuple[str, str]] = set()
     for r in contract.get("playersArray") or []:
         details = ((r.get("sourceAudit") or {}).get("matchedDetails")) or {}
         for src, d in details.items():
             if d.get("matchedName"):
                 matched[src].add(str(d["matchedName"]))
+        if r.get("assetClass") == "idp":
+            fam = _family(r.get("position"))
+            idp_keys.add((_name_key(r.get("displayName")), fam))
+            any_name.update(
+                (str(d["matchedName"]), fam) for d in details.values() if d.get("matchedName")
+            )
+    names_any = {n for n, _f in any_name}
+    keys_any = {k for k, _f in idp_keys}
+
+    def on_board(e: Mapping[str, Any]) -> bool:
+        if not e["family"]:
+            return e["rawName"] in names_any or _name_key(e["rawName"]) in keys_any
+        return (e["rawName"], e["family"]) in any_name or (
+            _name_key(e["rawName"]),
+            e["family"],
+        ) in idp_keys
+
+    idptc_keys = set(_vendor_index(csv_tables.get("idpTradeCalc") or []))
     out: dict[str, Any] = {}
     for src, table in sorted(csv_tables.items()):
         if not table:
             continue
-        idx = _vendor_index(table)
-        entries = [e for es in idx.values() for e in es]
-        has_pos = any(e["position"] for e in entries)
-        entries = [
-            e
-            for e in entries
-            if not e["rawName"][:4].isdigit() and (not has_pos or e["family"] in IDP_FAMILIES)
-        ]
-        if all(e["rank"] is not None for e in entries):
-            entries.sort(key=lambda e: (e["rank"], e["rawName"]))
-        elif all(e["value"] is not None for e in entries):
-            entries.sort(key=lambda e: (-e["value"], e["rawName"]))
+        cols = table[0].keys()
+        pcol = next((c for c in VENDOR_POSITION_COLUMNS if c in cols), None)
+        rcol = next((c for c in VENDOR_RANK_COLUMNS if c in cols), None)
+        entries = []
+        for r in table:  # file order
+            raw = (r.get("name") or r.get("Player") or r.get("player") or "").strip()
+            if not raw or raw[:4].isdigit():
+                continue
+            pos = (r.get(pcol) or "").strip() if pcol else ""
+            entries.append(
+                {
+                    "rawName": raw,
+                    "family": _family(pos),
+                    "rank": _maybe_float(r.get(rcol)) if rcol else None,
+                }
+            )
+        has_pos = any(e["family"] for e in entries)
+        if has_pos:
+            entries = [e for e in entries if e["family"] in IDP_FAMILIES]
+        ranks = [e["rank"] for e in entries]
+        rank_monotone = (
+            all(x is not None for x in ranks) and all(a <= b for a, b in zip(ranks, ranks[1:]))
+            if rcol
+            else None
+        )
         bands = {}
         for a, b in JOIN_BANDS:
             seg = entries[a - 1 : min(b, len(entries))]
             if not seg:
                 continue
-            miss = [e["rawName"] for e in seg if e["rawName"] not in matched[src]]
+            miss_e = [e for e in seg if e["rawName"] not in matched[src]]
+            miss = [e["rawName"] for e in miss_e]
+            other = [e["rawName"] for e in miss_e if on_board(e)]
+            absent = [e["rawName"] for e in miss_e if not on_board(e)]
             bands[f"{a}-{b if b < 10**6 else 'end'}"] = {
                 "rows": len(seg),
                 "unjoined": len(miss),
                 "unjoinedShare": round(len(miss) / len(seg), 4),
+                "onBoardOtherName": other,
+                "absent": absent,
+                "absentCount": len(absent),
+                "absentInIdpTradeCalc": sorted(m for m in absent if _name_key(m) in idptc_keys),
                 "examples": miss[:8],
             }
         out[src] = {
             "vendorRowsConsidered": len(entries),
             "positionFiltered": has_pos,
+            "orderBasis": "file_order",
+            "rankColumn": rcol,
+            "rankColumnMonotoneInFileOrder": rank_monotone,
             # a source the build never joined (held / non-voting) is not evaluable here
             "evaluable": bool(matched[src]),
-            # matchedName can carry the BOARD alias of a vendor name (JT -> Jaylahn
-            # Tuimoloau), so "unjoined" over-counts aliased names; examples are
-            # verified one by one before any is called a defect.
-            "aliasCaveat": True,
             "bands": bands if matched[src] else {},
         }
     return out
@@ -1116,18 +1212,33 @@ def inject_swaps(
     return p, labels
 
 
-def run_e_gates(panel, *, seed: int, voting_status=None, content_clocks=None) -> dict[str, Any]:
-    """The preregistered evaluator-validity gates over one (clean) panel."""
+def run_e_gates(
+    panel, *, seed: int, voting_status=None, content_clocks=None, lineage=None
+) -> dict[str, Any]:
+    """The preregistered evaluator-validity gates over one (clean) panel.
+
+    E1 evaluates with the SAME inputs as the reported evaluation (voting status,
+    content clocks AND lineage -- deviation D4), so its digest is the reported
+    ``evaluation.digest``.  E1 covers the evaluation given one panel; that the
+    PANEL itself rebuilds identically is a separate fact (``panelDigest`` across
+    independent builds)."""
     import time  # noqa: PLC0415
 
     t = THRESHOLDS
     gates: dict[str, Any] = {}
+    kw = {"voting_status": voting_status, "content_clocks": content_clocks, "lineage": lineage}
 
     t0 = time.perf_counter()
-    a = evaluate_panel(panel, voting_status=voting_status, content_clocks=content_clocks)
+    a = evaluate_panel(panel, **kw)
     runtime = time.perf_counter() - t0
-    b = evaluate_panel(panel, voting_status=voting_status, content_clocks=content_clocks)
-    gates["E1_determinism"] = {"pass": a["digest"] == b["digest"], "digest": a["digest"]}
+    b = evaluate_panel(_clone(panel), **kw)
+    ok = a["digest"] == b["digest"]
+    gates["E1_determinism"] = {
+        "pass": ok,
+        "verdict": "PASS" if ok else "FAIL",
+        "digest": a["digest"],
+        "covers": "evaluate_panel over one panel, with voting status, content clocks and lineage",
+    }
 
     inj, lab = inject_vendor_family(panel, 30, seed + 1)
     hits = {
@@ -1136,19 +1247,25 @@ def run_e_gates(panel, *, seed: int, voting_status=None, content_clocks=None) ->
         if f["code"] == "vendor_family_mismatch"
     }
     rec = sum(1 for x in lab if tuple(x) in hits)
+    ok, verdict = _count_verdict("E2_vendor_family", len(lab), bool(lab) and rec == len(lab))
     gates["E2_vendor_family"] = {
         "injected": len(lab),
+        "registeredInjections": REGISTERED_INJECTIONS["E2_vendor_family"],
         "detected": rec,
-        "pass": bool(lab) and rec == len(lab),
+        "pass": ok,
+        "verdict": verdict,
     }
 
     inj, lab = inject_sleeper_id(panel, 20, seed + 2)
     hits = {f["row"] for f in identity_findings(inj) if f["code"] == "sleeper_name_mismatch"}
     rec = sum(1 for x in lab if x in hits)
+    ok, verdict = _count_verdict("E3_sleeper_id", len(lab), bool(lab) and rec == len(lab))
     gates["E3_sleeper_id"] = {
         "injected": len(lab),
+        "registeredInjections": REGISTERED_INJECTIONS["E3_sleeper_id"],
         "detected": rec,
-        "pass": bool(lab) and rec == len(lab),
+        "pass": ok,
+        "verdict": verdict,
     }
 
     inj, lab = inject_shared_entry(panel, 20, seed + 3)
@@ -1158,10 +1275,13 @@ def run_e_gates(panel, *, seed: int, voting_status=None, content_clocks=None) ->
         if f["code"] == "shared_vendor_entry"
     }
     rec = sum(1 for x in lab if tuple(x) in hits)
+    ok, verdict = _count_verdict("E4_shared_entry", len(lab), bool(lab) and rec == len(lab))
     gates["E4_shared_entry"] = {
         "injected": len(lab),
+        "registeredInjections": REGISTERED_INJECTIONS["E4_shared_entry"],
         "detected": rec,
-        "pass": bool(lab) and rec == len(lab),
+        "pass": ok,
+        "verdict": verdict,
     }
 
     seg_res = []
@@ -1183,10 +1303,12 @@ def run_e_gates(panel, *, seed: int, voting_status=None, content_clocks=None) ->
                 }
             )
     det = sum(1 for x in seg_res if x["detected"])
+    ok = bool(seg_res) and det == len(seg_res)
     gates["E5_segment_scale"] = {
         "injected": len(seg_res),
         "detected": det,
-        "pass": bool(seg_res) and det == len(seg_res),
+        "pass": ok,
+        "verdict": "PASS" if ok else "FAIL",
         "cleanShiftedSegments": [k for k, s in sorted(clean_seg.items()) if s["shift"]],
     }
 
@@ -1196,26 +1318,41 @@ def run_e_gates(panel, *, seed: int, voting_status=None, content_clocks=None) ->
     clean = disagreement(panel)
     ev = [d for d in clean if d["u"] is not None]
     clean_rate = sum(1 for d in ev if d["class"] == "extreme") / len(ev) if ev else 0.0
-    gates["E6_row_corruption"] = {
-        "injected": len(lab),
-        "recall": round(rec, 4),
-        "cleanExtremeRate": round(clean_rate, 4),
-        "pass": bool(lab)
+    ok, verdict = _count_verdict(
+        "E6_row_corruption",
+        len(lab),
+        bool(lab)
         and rec >= t["e6RowCorruptionRecallMin"]
         and clean_rate <= t["e6CleanExtremeRateMax"],
+    )
+    gates["E6_row_corruption"] = {
+        "injected": len(lab),
+        "registeredInjections": REGISTERED_INJECTIONS["E6_row_corruption"],
+        "recall": round(rec, 4),
+        "cleanExtremeRate": round(clean_rate, 4),
+        "pass": ok,
+        "verdict": verdict,
     }
 
     inj, lab = inject_swaps(panel, 100, seed + 7)
     ext = {(d["row"], d["provider"]) for d in disagreement(inj) if d["class"] == "extreme"}
-    rec = (
-        sum(1 for a_, b_, pv in lab if (a_, pv) in ext or (b_, pv) in ext) / len(lab)
-        if lab
-        else 0.0
-    )
+    hit = sum(1 for a_, b_, pv in lab if (a_, pv) in ext or (b_, pv) in ext)
+    rec = hit / len(lab) if lab else 0.0
+    lower = wilson_lower(hit, len(lab))
+    if len(lab) < E7_MIN_SWAPS:  # registered floor (deviation D4): never a pass
+        ok, verdict = False, "INSUFFICIENT"
+    else:
+        ok = rec >= t["e7SwapRecallMin"]
+        verdict = "PASS" if ok else "FAIL"
     gates["E7_wrong_player_swap"] = {
         "injected": len(lab),
+        "minSwaps": E7_MIN_SWAPS,
+        "detected": hit,
         "recall": round(rec, 4),
-        "pass": bool(lab) and rec >= t["e7SwapRecallMin"],
+        # reported beside the point estimate; the registered gate is on the point estimate
+        "recallWilson95Lower": round(lower, 4) if lower is not None else None,
+        "pass": ok,
+        "verdict": verdict,
     }
 
     detected, lab_all = 0, []
@@ -1232,10 +1369,15 @@ def run_e_gates(panel, *, seed: int, voting_status=None, content_clocks=None) ->
             for r in d["rows"]
         }
         detected += int(a_ in flagged or b_ in flagged)
+    ok, verdict = _count_verdict(
+        "E8_rank_inversion", len(lab_all), bool(lab_all) and detected == len(lab_all)
+    )
     gates["E8_rank_inversion"] = {
         "injected": len(lab_all),
+        "registeredInjections": REGISTERED_INJECTIONS["E8_rank_inversion"],
         "detected": detected,
-        "pass": bool(lab_all) and detected == len(lab_all),
+        "pass": ok,
+        "verdict": verdict,
     }
 
     basis_res = []
@@ -1250,19 +1392,91 @@ def run_e_gates(panel, *, seed: int, voting_status=None, content_clocks=None) ->
         got = normalization_findings(inj)["perSource"][src]["rankBasis"]
         basis_res.append({"source": src, "family": fam, "detected": bool(got.get("mixed"))})
     det = sum(1 for x in basis_res if x["detected"])
+    ok = bool(basis_res) and det == len(basis_res)
     gates["E11_rank_basis_restart"] = {
         "injected": len(basis_res),
         "detected": det,
         "cases": basis_res,
-        "pass": bool(basis_res) and det == len(basis_res),
+        "pass": ok,
+        "verdict": "PASS" if ok else "FAIL",
     }
 
     gates["E9_stale_stamp"] = _stale_gate()
+    ok = runtime <= t["e10RuntimeSecondsMax"]
     gates["E10_runtime"] = {
         "seconds": round(runtime, 3),
-        "pass": runtime <= t["e10RuntimeSecondsMax"],
+        "pass": ok,
+        "verdict": "PASS" if ok else "FAIL",
     }
     return gates
+
+
+def b_gates(evaluation: Mapping[str, Any], idp_sources: Iterable[str]) -> dict[str, Any]:
+    """The preregistered B-gate verdicts, computed from one ``evaluate_panel`` result.
+
+    ``idp_sources`` is the registered IDP source set (the vendor CSVs the build
+    read).  A non-IDP source the panel observed on an IDP row (an offense source
+    whose player name collides with a defender's) is outside every B-gate and is
+    listed in ``summary.nonIdpSourcesObserved`` instead."""
+    idp = sorted(set(idp_sources))
+    normalization = evaluation.get("normalization") or {}
+    per = normalization.get("perSource") or {}
+    defects = normalization.get("defects") or []
+
+    def gate(ok: bool, **detail: Any) -> dict[str, Any]:
+        return {"pass": ok, "verdict": "PASS" if ok else "FAIL", **detail}
+
+    id_defects = (evaluation.get("identity") or {}).get("defects") or []
+    norm = {
+        k: sum(int((per.get(s) or {}).get(k) or 0) for s in idp)
+        for k in ("translationInversions", "valueInversions", "nonPositiveVotes")
+    }
+    mixed = sorted(
+        {d["source"] for d in defects if d["code"] == "rank_basis_mixed" and d["source"] in idp}
+    )
+    stale_bad = [
+        {"source": s["source"], "verdict": s["verdict"]}
+        for s in evaluation.get("stale") or []
+        if s["source"] in idp and s["verdict"] not in ("consistent", "not_evaluable")
+    ]
+    extreme = (evaluation.get("disagreement") or {}).get("extreme") or []
+    corroborated = [e for e in extreme if e["attribution"] == "data_error_corroborated"]
+    candidates = (evaluation.get("exclusions") or {}).get("falseExclusionCandidates") or []
+    shifted = [s for s in evaluation.get("segments") or [] if s["shift"]]
+    priced_no_vote = (evaluation.get("coverage") or {}).get("pricedRowsWithoutVote") or []
+    nonpos = (evaluation.get("deepTail") or {}).get("nonPositivePublishedValues") or []
+    unregistered = [
+        s for s in (evaluation.get("lineage") or {}).get("unregisteredSources") or [] if s in idp
+    ]
+    out: dict[str, Any] = {
+        "B1_identity": gate(
+            not id_defects,
+            defects=len(id_defects),
+            byCode=dict(sorted(Counter(f["code"] for f in id_defects).items())),
+        ),
+        "B2_normalization": gate(
+            not any(norm.values()) and not mixed, **norm, rankBasisMixed=mixed
+        ),
+        "B3_stale": gate(not stale_bad, failing=stale_bad),
+        "B4_attribution": gate(
+            not corroborated, extremeVotes=len(extreme), corroborated=len(corroborated)
+        ),
+        "B5_false_exclusions": gate(not candidates, candidates=len(candidates)),
+        "B6_segments": gate(not shifted, shiftedSegments=len(shifted)),
+        "B7_missing_never_zero": gate(
+            not priced_no_vote and not nonpos,
+            pricedRowsWithoutVote=len(priced_no_vote),
+            nonPositivePublishedValues=len(nonpos),
+        ),
+        "B8_lineage": gate(not unregistered, unregisteredIdpSources=unregistered),
+    }
+    out["summary"] = {
+        "passed": sum(1 for v in out.values() if v["pass"]),
+        "failed": sum(1 for v in out.values() if not v["pass"]),
+        "idpSources": idp,
+        "nonIdpSourcesObserved": [s for s in sorted(per) if s not in idp],
+    }
+    return out
 
 
 def _stale_gate() -> dict[str, Any]:
@@ -1280,4 +1494,4 @@ def _stale_gate() -> dict[str, Any]:
     }
     got = {r["source"]: r["verdict"] for r in stale_findings(vs, clocks, ["a", "b", "c"])}
     want = {"a": "stamp_after_content", "b": "stamp_older_than_broad_change", "c": "consistent"}
-    return {"verdicts": got, "pass": got == want}
+    return {"verdicts": got, "pass": got == want, "verdict": "PASS" if got == want else "FAIL"}

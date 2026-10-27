@@ -90,12 +90,36 @@ def _three_provider_panel(n=30):
     return {"rows": rows, "observations": obs}
 
 
+def _big_panel(n=300):
+    """Like ``_three_provider_panel`` but every value stays positive (geometric decay),
+    so the injectors can reach the registered counts (E6: 200 rows)."""
+    panel = _three_provider_panel(n)
+    for r in panel["rows"]:
+        i = int(r["name"].split()[-1])
+        r["value"] = 5000.0 * 0.985**i
+    for o in panel["observations"]:
+        i = int(o["row"].split()[-1])
+        scale = {"idpTradeCalc": 1.0, "draftSharksIdp": 1.05, "fantasyProsIdp": 0.95}[o["source"]]
+        o["value"] = 5000.0 * 0.985**i * scale
+        o["vendorFamily"] = ("DL", "LB", "DB")[i % 3]
+    return panel
+
+
 # ── preregistration lock ───────────────────────────────────────────────
 
 
 def test_thresholds_match_preregistration():
     prereg = json.loads(PREREG.read_text(encoding="utf-8"))
     assert prereg["thresholds"] == g2.THRESHOLDS
+
+
+def test_injection_floors_are_the_registered_counts():
+    """Deviation D4 enforces counts the registered E-gate text states; it adds none."""
+    egates = json.loads(PREREG.read_text(encoding="utf-8"))["eGates"]
+    for gate, n in g2.REGISTERED_INJECTIONS.items():
+        assert f"{n}" in egates[gate].split(":")[0] or egates[gate].startswith(f"{n} "), gate
+    assert f"fewer than {g2.E7_MIN_SWAPS} swaps" in egates["E7_wrong_player_swap"]
+    assert "INSUFFICIENT, never pass" in egates["E7_wrong_player_swap"]
 
 
 def test_broad_change_mirrors_dataset_state_config():
@@ -385,9 +409,7 @@ def test_injections_are_seeded_and_detected():
 
 
 def test_e_gates_on_synthetic_panel():
-    panel = _three_provider_panel(90)
-    for o in panel["observations"]:
-        o["vendorFamily"] = next(r["family"] for r in panel["rows"] if r["name"] == o["row"])
+    panel = _big_panel(300)
     gates = g2.run_e_gates(panel, seed=1)
     for name in (
         "E1_determinism",
@@ -400,9 +422,131 @@ def test_e_gates_on_synthetic_panel():
         "E11_rank_basis_restart",
     ):
         assert gates[name]["pass"], (name, gates[name])
+        assert gates[name]["verdict"] == "PASS"
+    assert gates["E6_row_corruption"]["injected"] == 200
+
+
+def test_e1_digest_is_the_reported_evaluation_digest_with_lineage():
+    panel = _three_provider_panel(30)
+    lineage = {"sources": {"idpTradeCalc": {"provider": "idpTradeCalculator"}}}
+    gates = g2.run_e_gates(panel, seed=1, lineage=lineage)
+    assert gates["E1_determinism"]["digest"] == g2.evaluate_panel(panel, lineage=lineage)["digest"]
+    assert gates["E1_determinism"]["digest"] != g2.evaluate_panel(panel)["digest"]
+
+
+def test_gates_below_their_registered_count_are_insufficient_never_pass():
+    # 50 positive rows: E6 can build only 50 of its registered 200 corruptions and
+    # E7 fewer than 20 swaps -- both are INSUFFICIENT even at perfect recall.
+    gates = g2.run_e_gates(_three_provider_panel(90), seed=1)
+    e6, e7 = gates["E6_row_corruption"], gates["E7_wrong_player_swap"]
+    assert e6["injected"] < 200 and e6["recall"] == 1.0
+    assert e6["verdict"] == "INSUFFICIENT" and e6["pass"] is False
+    assert 0 < e7["injected"] < 20
+    assert e7["verdict"] == "INSUFFICIENT" and e7["pass"] is False
+    assert e7["recallWilson95Lower"] is not None
+
+
+def test_e7_floor_is_enforced_even_at_full_recall(monkeypatch):
+    """5 swaps detected 5/5 is INSUFFICIENT (the reviewer's case), 20/20 passes."""
+    panel = _big_panel(300)
+
+    def swaps(k):
+        def fake(p, n, seed, min_ratio=4.0):
+            inj = json.loads(json.dumps(p))
+            labels = []
+            for i in range(k):
+                a, b = f"Player {i:02d}", f"Player {i + 150:02d}"
+                for o in inj["observations"]:
+                    if o["source"] == "idpTradeCalc" and o["row"] == a:
+                        o["value"] *= 20
+                labels.append((a, b, "idpTradeCalculator"))
+            return inj, labels
+
+        return fake
+
+    monkeypatch.setattr(g2, "inject_swaps", swaps(5))
+    e7 = g2.run_e_gates(panel, seed=1)["E7_wrong_player_swap"]
+    assert (e7["injected"], e7["recall"], e7["verdict"], e7["pass"]) == (
+        5,
+        1.0,
+        "INSUFFICIENT",
+        False,
+    )
+    monkeypatch.setattr(g2, "inject_swaps", swaps(20))
+    e7 = g2.run_e_gates(panel, seed=1)["E7_wrong_player_swap"]
+    assert (e7["injected"], e7["verdict"], e7["pass"]) == (20, "PASS", True)
+
+
+def test_wilson_lower_bound():
+    assert g2.wilson_lower(0, 0) is None
+    assert math.isclose(g2.wilson_lower(19, 21), 0.711, abs_tol=0.002)
+    assert math.isclose(g2.wilson_lower(5, 5), 0.566, abs_tol=0.002)
+
+
+def test_b_gates_are_emitted_and_scoped_to_idp_sources():
+    panel = _three_provider_panel(30)
+    panel["observations"].append(
+        _obs(
+            "Player 05",
+            "fantasyNavigatorSf",
+            "fantasyNavigator",
+            None,
+            voted=False,
+            exclusion="not_voting_by_registry_or_hold",
+        )
+    )
+    lineage = {
+        "sources": {
+            "idpTradeCalc": {"provider": "idpTradeCalculator"},
+            "draftSharksIdp": {"provider": "draftSharks"},
+            "fantasyProsIdp": {"provider": "fantasyPros"},
+        }
+    }
+    ev = g2.evaluate_panel(panel, lineage=lineage)
+    b = g2.b_gates(ev, ["idpTradeCalc", "draftSharksIdp", "fantasyProsIdp"])
+    assert all(b[k]["pass"] for k in b if k != "summary"), b
+    assert b["summary"] == {
+        "passed": 8,
+        "failed": 0,
+        "idpSources": ["draftSharksIdp", "fantasyProsIdp", "idpTradeCalc"],
+        "nonIdpSourcesObserved": ["fantasyNavigatorSf"],
+    }
+    # an IDP source with no lineage provider fails B8; the offense source never does
+    b = g2.b_gates(g2.evaluate_panel(panel, lineage={"sources": {}}), ["idpTradeCalc"])
+    assert b["B8_lineage"]["verdict"] == "FAIL"
+    assert b["B8_lineage"]["unregisteredIdpSources"] == ["idpTradeCalc"]
+    # a failing check flips its gate
+    bad = json.loads(json.dumps(ev))
+    bad["segments"][0]["shift"] = True
+    bad["exclusions"]["falseExclusionCandidates"] = [{"row": "x", "source": "y", "value": 1}]
+    b = g2.b_gates(bad, ["idpTradeCalc", "draftSharksIdp", "fantasyProsIdp"])
+    assert b["B5_false_exclusions"]["verdict"] == b["B6_segments"]["verdict"] == "FAIL"
+    assert b["summary"]["failed"] == 2
 
 
 # ── board refusal (the V2.1 seal) ──────────────────────────────────────
+
+
+def test_seal_is_checked_before_any_archive_byte_is_read(monkeypatch):
+    from scripts import research_idp_source_integrity_g2 as run  # noqa: PLC0415
+
+    board = json.loads(run.BOARDS.read_text(encoding="utf-8"))["boards"][0]
+
+    def never(*_a, **_k):
+        raise AssertionError("archive read before the seal check")
+
+    monkeypatch.setattr(run, "load_archive", never)
+    monkeypatch.setattr(
+        run,
+        "add_commit",
+        lambda rel: (board["addCommit"], datetime(2026, 11, 1, tzinfo=timezone.utc)),
+    )
+    for fn in (
+        lambda: run.run(board["board"], board["role"], Path("unused.json"), 1),
+        lambda: run.exploratory(board["board"], board["role"], Path("unused.json")),
+    ):
+        with pytest.raises(SystemExit, match="seal"):
+            fn()
 
 
 def test_script_refuses_boards_inside_the_v21_seal():
@@ -441,7 +585,48 @@ def test_vendor_join_coverage_bands_and_unjoined_sources():
     ds = cov["draftSharksIdp"]
     assert ds["vendorRowsConsidered"] == 60
     assert ds["bands"]["1-50"]["unjoined"] == 1 and ds["bands"]["51-150"]["unjoined"] == 10
+    assert ds["orderBasis"] == "file_order" and ds["rankColumnMonotoneInFileOrder"] is True
     assert cov["dlfIdp"]["evaluable"] is False and cov["dlfIdp"]["bands"] == {}
+
+
+def test_vendor_join_coverage_file_order_and_absence_rule():
+    """FantasyPros-style: per-position originalRank after the combined head must not
+    re-sort the list; an unjoined name carried by ANOTHER source's join (an alias) or
+    sharing an IDP row's key is on the board, everything else is absent."""
+    board = [
+        {
+            "displayName": "Jaylahn Tuimoloau",
+            "assetClass": "idp",
+            "position": "DL",
+            "sourceAudit": {"matchedDetails": {"idpTradeCalc": {"matchedName": "JT Tuimoloau"}}},
+        },
+        {
+            "displayName": "Kept Player",
+            "assetClass": "idp",
+            "position": "LB",
+            "sourceAudit": {"matchedDetails": {"fantasyProsIdp": {"matchedName": "Kept Player"}}},
+        },
+        {"displayName": "Other Key", "assetClass": "idp", "position": "CB", "sourceAudit": {}},
+        {"displayName": "Byron Murphy", "assetClass": "idp", "position": "DT", "sourceAudit": {}},
+    ]
+    fp = [{"name": "Kept Player", "originalRank": "1", "family": "LB"}]
+    fp += [{"name": f"Head {i}", "originalRank": str(i), "family": "LB"} for i in range(2, 52)]
+    # past the combined head the vendor rank restarts per position
+    fp.append({"name": "JT Tuimoloau", "originalRank": "3", "family": "DL"})
+    fp.append({"name": "Other Key", "originalRank": "4", "family": "DB"})
+    fp.append({"name": "Gone Player", "originalRank": "5", "family": "DB"})
+    # same name key as the DT row, different family: a collision, still absent
+    fp.append({"name": "Byron Murphy Jr.", "originalRank": "6", "family": "DB"})
+    idptc = [{"name": "Gone Player", "value": "100"}]
+    cov = g2.vendor_join_coverage(
+        {"playersArray": board}, {"fantasyProsIdp": fp, "idpTradeCalc": idptc}
+    )["fantasyProsIdp"]
+    assert cov["rankColumnMonotoneInFileOrder"] is False
+    band = cov["bands"]["51-150"]  # file order: positions 51..55
+    assert band["rows"] == 5
+    assert band["onBoardOtherName"] == ["JT Tuimoloau", "Other Key"]
+    assert band["absent"] == ["Head 51", "Gone Player", "Byron Murphy Jr."]
+    assert band["absentInIdpTradeCalc"] == ["Gone Player"]
 
 
 # ── isolation ──────────────────────────────────────────────────────────
