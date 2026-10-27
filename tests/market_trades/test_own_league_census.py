@@ -374,12 +374,52 @@ def _run_main(tmp_path, bundle, ledger=None):
     return C.main(argv), md, js, priv
 
 
-def test_committed_outputs_carry_no_ids_or_names(tmp_path, bundle, ledger):
+#: A head SHA a reviewer's branch actually carried (bedea2fab...c68f1362637166f):
+#: its decimal run 1362637166 made this test fail on that branch while PR CI,
+#: which tests the merge-ref SHA instead, passed.  The middle is filler.
+REVIEW_HEAD_SHA = "bedea2fab4d1e0a7bc39f5e28c68f1362637166f"
+
+
+def _committed_digest_values(agg):
+    """The digests the committed JSON itself carries -- ``inputs.codeSha`` and
+    each season's ``formatFingerprint`` / ``scoringCardHash`` -- read from the
+    written file, independently of the script's ``committed_digests``.  The
+    ONLY values this test exempts; never a token for looking like a digest."""
+    out = {(agg.get("inputs") or {}).get("codeSha")}
+    for c in (agg.get("chain") or {}).get("seasons") or []:
+        out |= {c.get("formatFingerprint"), c.get("scoringCardHash")}
+    return {str(d) for d in out if d}
+
+
+def _long_runs_outside_digests(text, digests):
+    """Every 9+ digit run not glued to a digit or a period, except a run lying
+    wholly INSIDE an occurrence of one of ``digests`` (an id glued to a digest
+    runs past its span and is still reported)."""
+    spans = [(m.start(), m.end()) for d in digests for m in re.finditer(re.escape(d), text)]
+    return {
+        m.group()
+        for m in re.finditer(r"(?<![\d.])\d{9,}(?!\d)", text)
+        if not any(lo <= m.start() and m.end() <= hi for lo, hi in spans)
+    }
+
+
+@pytest.mark.parametrize("head_sha", [None, REVIEW_HEAD_SHA], ids=["live_head", "review_head"])
+def test_committed_outputs_carry_no_ids_or_names(tmp_path, bundle, ledger, monkeypatch, head_sha):
+    if head_sha is not None:
+        monkeypatch.setattr(C, "_code_sha", lambda: head_sha)
     rc, md, js, priv = _run_main(tmp_path, bundle, ledger)
     assert rc == C.EXIT_FINDINGS  # the planted wrong-sender pick transfer
-    text = md.read_text(encoding="utf-8") + js.read_text(encoding="utf-8")
-    long_runs = set(re.findall(r"(?<![\d.])\d{9,}(?!\d)", text))
-    assert long_runs <= {L25, L26}
+    body_json = js.read_text(encoding="utf-8")
+    text = md.read_text(encoding="utf-8") + body_json
+    agg = json.loads(body_json)
+    if head_sha is not None:
+        assert agg["inputs"]["codeSha"] == head_sha
+    # The exemption is exactly the committed digests -- the same set the
+    # script's own write gate allowlisted -- so the scan cannot depend on
+    # whichever commit happens to be checked out.
+    digests = _committed_digest_values(agg)
+    assert digests == set(C.committed_digests(agg))
+    assert _long_runs_outside_digests(text, digests) <= {L25, L26}
     for s in bundle["seasons"].values():
         for u in s["users"]:
             assert u["user_id"] not in text
@@ -1105,3 +1145,14 @@ def test_pre_draft_league_draft_owns_its_picks():
     assert not idx["Q"]["candidate"]
     got = C.attribute_pick(list(idx.values()), 2027, 1, _ms(2026, 12, 1))
     assert got["key"] == "P" and got["kind"] == "rookie"
+
+
+def test_scan_helper_exempts_only_the_committed_digest_values():
+    """The test-side scan is not weakened by its exemption: a SHA it was not
+    handed is still flagged, and an id glued to a handed SHA runs past it."""
+    blob = f'"codeSha": "{REVIEW_HEAD_SHA}"'
+    assert _long_runs_outside_digests(blob, {REVIEW_HEAD_SHA}) == set()
+    assert _long_runs_outside_digests(blob, set()) == {"1362637166"}
+    assert _long_runs_outside_digests(blob, {CI_MERGE_SHA}) == {"1362637166"}
+    glued = f"{REVIEW_HEAD_SHA}{ID1}"
+    assert _long_runs_outside_digests(glued, {REVIEW_HEAD_SHA}) == {ID1}
