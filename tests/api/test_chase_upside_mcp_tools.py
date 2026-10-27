@@ -466,3 +466,133 @@ def test_non_ascii_credentials_are_rejected_not_crashed(monkeypatch):
         json={},
     )
     assert owner.status_code == 403
+
+
+# ── review cleanup (PR #1995 findings 1-5) ─────────────────────────────────
+
+
+def test_forbidden_keys_are_all_stripped_by_the_module():
+    assert set(FORBIDDEN_KEYS) <= mcp.SOURCE_EVIDENCE_KEYS
+
+
+def test_trade_detail_carries_no_source_values(monkeypatch, pinned_trade_inputs):
+    from src.trade import analyze_service
+
+    if not analyze_service.package_model_ready():
+        pytest.skip("active package model is not geom")
+    contract = _fresh_board()
+    a, b, assets = _two_team_trade(contract)
+    out = _call(
+        monkeypatch,
+        _stub_server(contract),
+        "analyze_trade",
+        {"leagueKey": "dynasty_main", "teams": [a, b], "assets": assets, "includeDetail": True},
+    )
+    assert out["status"] in {"ok", "partial"}, out
+    for team in out["teams"]:
+        assert isinstance(team["analysis"], dict) and team["analysis"]
+        assert isinstance(team["simulation"], dict) and team["simulation"]
+        assert team["detailRedactedKeys"] == [], "the engine emits none today"
+    _assert_no_source_values(out)
+
+
+def test_trade_detail_strips_per_source_evidence_at_any_depth():
+    entry = {
+        "rosterId": 1,
+        "analysis": {
+            "decision": {"label": "ACCEPT"},
+            "lenses": {"market": {"detail": [{"ktcMarket": 4000, "band": "fair"}]}},
+        },
+        "simulation": {
+            "sending": [{"name": "X", "value": 10, "sourceRanks": {"ktc": 3}}],
+            "canonicalSiteValues": {"ktc": 1},
+        },
+    }
+    out = mcp._trade_team_summary(entry, detail=True)
+    # Only the key NAMES survive, in detailRedactedKeys; no value does.
+    _assert_no_source_values({k: v for k, v in out.items() if k != "detailRedactedKeys"})
+    assert out["analysis"]["lenses"]["market"]["detail"] == [{"band": "fair"}]
+    assert out["simulation"]["sending"] == [{"name": "X", "value": 10}]
+    assert out["detailRedactedKeys"] == ["canonicalSiteValues", "ktcMarket", "sourceRanks"]
+    # The engine's own object is not mutated.
+    assert "ktcMarket" in entry["analysis"]["lenses"]["market"]["detail"][0]
+
+
+def test_trade_capacity_refusal_is_retryable_not_queued(monkeypatch, pinned_trade_inputs):
+    from src.api import compute_admission
+    from src.trade import analyze_service
+
+    if not analyze_service.package_model_ready():
+        pytest.skip("active package model is not geom")
+
+    class _Full:
+        async def admit(self, factory):
+            raise compute_admission.AdmissionRejected("trade_analyze_multi", "busy")
+
+    monkeypatch.setattr(compute_admission, "admission_for", lambda _route: _Full())
+    contract = _fresh_board()
+    a, b, assets = _two_team_trade(contract)
+    out = _call(
+        monkeypatch,
+        _stub_server(contract),
+        "analyze_trade",
+        {"leagueKey": "dynasty_main", "teams": [a, b], "assets": assets},
+    )
+    assert out["status"] == "unavailable"
+    assert out["reason"] == "analysis_busy"
+    assert out["retryable"] is True
+
+
+def test_incomplete_cross_league_config_is_an_explicit_missing_state(monkeypatch):
+    contract = _fresh_board()
+    other = next((lg for lg in league_registry.active_leagues() if lg.key != "dynasty_main"), None)
+    if other is None:
+        pytest.skip("registry has a single league")
+    teams = copy.deepcopy(contract["sleeper"]["teams"])
+    overlay = {
+        "teams": teams,
+        "rosterFetchedAt": contract["sleeper"]["rosterFetchedAt"],
+        "overlayFetchedAt": contract["sleeper"]["rosterFetchedAt"],
+        "leagueConfig": None,  # the requested league's config could not be fetched
+    }
+    out = _call(
+        monkeypatch,
+        _stub_server(contract, overlay=overlay),
+        "get_team_roster",
+        {"leagueKey": other.key, "rosterId": teams[0]["roster_id"]},
+    )
+    assert out["rosters"]["leagueConfigComplete"] is False
+    assert out["status"] == "partial"
+    assert {
+        "field": "leagueConfig",
+        "reason": "league_config_incomplete",
+        "leagueConfigComplete": False,
+    } in out["missingData"]
+
+
+def test_roster_provenance_missing_states():
+    assert mcp._roster_provenance_missing({"state": "current"}) == []
+    assert mcp._roster_provenance_missing({"state": "current", "leagueConfigComplete": True}) == []
+    both = mcp._roster_provenance_missing({"state": "stale", "leagueConfigComplete": False})
+    assert [m["field"] for m in both] == ["rosterFreshness", "leagueConfig"]
+
+
+def test_only_the_modules_own_validation_errors_are_echoed():
+    assert issubclass(mcp.ToolArgumentError, ValueError)
+    with pytest.raises(mcp.ToolArgumentError, match="unexpected_argument"):
+        mcp._validate_arguments("get_player_rankings", {"leak": "x"})
+    with pytest.raises(mcp.ToolArgumentError, match="unknown_tool"):
+        mcp._validate_arguments("nope", {})
+
+
+@pytest.mark.parametrize(
+    ("body", "deep"),
+    [
+        (b'{"a": [[[1]]]}', False),
+        (b'{"a": "' + b"[" * 100 + b'"}', False),  # brackets inside a string
+        (b'{"a": "\\"' + b"[" * 100 + b'"}', False),  # escaped quote, still in string
+        (b"[" * 40 + b"]" * 40, True),
+    ],
+)
+def test_json_depth_scan(body, deep):
+    assert mcp._json_depth_exceeds(body, 32) is deep

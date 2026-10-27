@@ -30,7 +30,23 @@ This setup is intentionally a later step. The current development branch and PR 
 fields. No per-source value or rank (`canonicalSiteValues`, `rawSourceValues`,
 `sourceNativeValues`, `sourceRanks`, `ktcMarket`, the `source_value` history
 lane) leaves the endpoint; source NAMES and freshness states do. Pinned by
-`tests/api/test_chase_upside_mcp_tools.py`.
+`tests/api/test_chase_upside_mcp_tools.py`. `analyze_trade` with
+`includeDetail: true` is the one subtree served whole (the engine's `analysis`
+and `simulation`, so the owner sees the full explanation); as defense in depth
+every per-source evidence key (`SOURCE_EVIDENCE_KEYS`) is removed from it at
+any depth and its name listed in `detailRedactedKeys` (empty today).
+
+**Errors and resource bounds.** Only the module's own argument validation
+(`ToolArgumentError`, stable reason codes) is echoed; any other engine
+exception answers `tool_request_rejected` / `tool_execution_failed`. A body is
+bounded at 64 KB and JSON nesting depth 32 (`json_too_deep`, 400). A tool call
+answers within 18 s (`tool_time_budget_exceeded`, retryable), under the
+Worker's 20 s abort, and trade computations share the private multi-team
+route's admission slots (`analysis_busy`, retryable). Work already running in
+a worker thread cannot be interrupted and finishes in the background.
+A cross-league roster read whose league config came back incomplete lists
+`{"field": "leagueConfig", "reason": "league_config_incomplete"}` in
+`missingData`.
 
 **Argument validation.** The published `inputSchema` is the validator
 (`_check`); a schema keyword the validator does not implement is refused at
@@ -51,8 +67,9 @@ Each reuses one existing owner and must keep the licensing boundary above.
   needs its route's input assembly factored out of `server.py` first so the
   MCP does not become a second assembler.
 - **League market context / trade-decision explanation** — the explanation is
-  already inside `analyze_trade` (`includeDetail: true` returns the full
-  `analysis` + `simulation`); a separate tool is not needed yet.
+  already inside `analyze_trade` (`includeDetail: true` returns the
+  `analysis` + `simulation`, per-source evidence removed); a separate tool is
+  not needed yet.
 
 ## Release gates (none are satisfied by a code PR)
 

@@ -26,6 +26,20 @@ Licensing boundary: no tool returns a third-party source's own values or
 ranks (``canonicalSiteValues``, ``rawSourceValues``, ``sourceNativeValues``,
 ``sourceRanks``, ``ktcMarket``, the ``source_value`` history lane).  Only the
 Chase Upside canonical quantities and source NAMES / freshness leave here.
+``analyze_trade``'s ``includeDetail`` returns the engine's ``analysis`` /
+``simulation`` whole EXCEPT that every per-source evidence key
+(``SOURCE_EVIDENCE_KEYS``) is removed at any depth and named in
+``detailRedactedKeys`` -- defense in depth, since that subtree is not
+allowlisted field by field.
+
+Error and resource bounds: only this module's own argument validation
+(``ToolArgumentError``) echoes a reason to the caller; any other exception
+from an engine answers a generic reason code.  The JSON body is bounded in
+bytes (``MAX_REQUEST_BYTES``) and nesting depth (``MAX_JSON_DEPTH``); a tool
+call answers within ``TOOL_TIME_BUDGET_SECONDS`` (below the Sites Worker's
+20 s abort), and trade computations take a slot of the private multi-team
+route's admission bound (``src.api.compute_admission``).  Work already in a
+worker thread cannot be interrupted: it finishes in the background.
 
 MISSING IS NEVER ZERO: an unpriced asset is ``value: null`` with a reason, an
 unranked row is excluded and counted, an unknown freshness is ``unknown``.
@@ -33,6 +47,7 @@ unranked row is excluded and counted, an unknown freshness is ``unknown``.
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import json
 import os
@@ -43,6 +58,15 @@ from fastapi.responses import JSONResponse
 
 router = APIRouter()
 MAX_REQUEST_BYTES = 64 * 1024
+#: Deepest JSON nesting a request may carry.  The deepest legitimate body is
+#: ~6 levels (message -> params -> arguments -> assets -> leg); 32 leaves room
+#: for client ``_meta`` capabilities while keeping ``json.loads`` far from
+#: Python's recursion limit.
+MAX_JSON_DEPTH = 32
+#: How long the caller waits for one tool call.  Below the Sites Worker's
+#: 20 s abort (``sites/chase-upside-mcp/worker/index.js``) so the owner gets a
+#: stable, retryable reason instead of a proxy abort.
+TOOL_TIME_BUDGET_SECONDS = 18.0
 PROTOCOL_VERSION = "2026-07-28"
 SERVER_INFO = {"name": "Chase Upside MCP", "version": "1.1.0"}
 SERVER_INFO_META = {"io.modelcontextprotocol/serverInfo": SERVER_INFO}
@@ -50,6 +74,38 @@ MAX_RANKINGS_PAGE = 100
 MAX_HISTORY_POINTS = 400
 _TEAM_GOALS = ["WIN_NOW", "BALANCED", "LONG_TERM"]
 _READ_ONLY = {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True}
+
+#: Per-source evidence keys that never leave this endpoint, at any depth.
+#: The allowlists below already exclude them from rankings / roster rows; this
+#: set is the second line of defense for subtrees served whole (trade detail).
+SOURCE_EVIDENCE_KEYS = frozenset(
+    {
+        "canonicalSiteValues",
+        "rawSourceValues",
+        "sourceNativeValues",
+        "sourceRanks",
+        "sourceOriginalRanks",
+        "effectiveSourceRanks",
+        "sourceRankMeta",
+        "sourceAudit",
+        "ktcMarket",
+        "ktcRank",
+        "ktcValueSources",
+        "marketGapDirection",
+        "marketGapMagnitude",
+        "marketGapValueRatio",
+    }
+)
+
+
+class ToolArgumentError(ValueError):
+    """A caller-input refusal raised by THIS module's validators.
+
+    Its message is a stable reason code that never echoes input, so it is
+    the only exception text returned to the caller.  Any other exception
+    (including a ``ValueError`` from an engine) answers a generic reason.
+    """
+
 
 #: Board fields a rankings / roster row may carry.  An ALLOWLIST: anything
 #: per-source (values, ranks, native numbers, KTC Market) never leaves.
@@ -366,7 +422,7 @@ _JSON_TYPES: dict[str, Any] = {
 def _check(schema: dict[str, Any], value: Any) -> None:
     """Validate ``value`` against the subset of JSON Schema TOOLS uses.
 
-    Raises ``ValueError`` with a stable reason code that never echoes the
+    Raises ``ToolArgumentError`` with a stable reason code that never echoes the
     caller's input.  Any keyword this validator does not implement is
     refused at import (``_assert_supported``), so the advertised schema and
     the enforced one cannot drift apart.
@@ -374,39 +430,39 @@ def _check(schema: dict[str, Any], value: Any) -> None:
     kind = schema.get("type")
     kinds = kind if isinstance(kind, list) else [kind]
     if not any(_JSON_TYPES[k](value) for k in kinds):
-        raise ValueError("invalid_argument_type")
+        raise ToolArgumentError("invalid_argument_type")
     if value is None:
         return
     if "enum" in schema and value not in schema["enum"]:
-        raise ValueError("invalid_argument_value")
+        raise ToolArgumentError("invalid_argument_value")
     if isinstance(value, str) and len(value) > schema.get("maxLength", 256):
-        raise ValueError("invalid_argument_range")
+        raise ToolArgumentError("invalid_argument_range")
     if _JSON_TYPES["integer"](value) and not (
         schema.get("minimum", -(2**31)) <= value <= schema.get("maximum", 2**31)
     ):
-        raise ValueError("invalid_argument_range")
+        raise ToolArgumentError("invalid_argument_range")
     if isinstance(value, list):
         if not schema.get("minItems", 0) <= len(value) <= schema.get("maxItems", 100):
-            raise ValueError("invalid_argument_range")
+            raise ToolArgumentError("invalid_argument_range")
         for item in value:
             _check(schema.get("items") or {"type": "string"}, item)
     if isinstance(value, dict):
         properties = schema.get("properties") or {}
         extra = schema.get("additionalProperties", False)
         if len(value) > 64:
-            raise ValueError("invalid_argument_range")
+            raise ToolArgumentError("invalid_argument_range")
         for key in schema.get("required", []):
             if key not in value:
-                raise ValueError("required_argument_missing")
+                raise ToolArgumentError("required_argument_missing")
         for key, item in value.items():
             if not isinstance(key, str) or len(key) > 64:
-                raise ValueError("unexpected_argument")
+                raise ToolArgumentError("unexpected_argument")
             if key in properties:
                 _check(properties[key], item)
             elif isinstance(extra, dict):
                 _check(extra, item)
             else:
-                raise ValueError("unexpected_argument")
+                raise ToolArgumentError("unexpected_argument")
 
 
 _SUPPORTED_KEYWORDS = frozenset(
@@ -445,21 +501,21 @@ for _tool in TOOLS:
 def _validate_arguments(name: str, arguments: dict[str, Any]) -> None:
     tool = _TOOLS_BY_NAME.get(name)
     if tool is None:
-        raise ValueError("unknown_tool")
+        raise ToolArgumentError("unknown_tool")
     _check(tool["inputSchema"], arguments)
     if name == "resolve_player_identity" and not any(
         arguments.get(key) for key in ("name", "sleeperId")
     ):
-        raise ValueError("player_identity_required")
+        raise ToolArgumentError("player_identity_required")
     if name == "get_team_roster" and not any(
         arguments.get(key) is not None for key in ("rosterId", "teamName")
     ):
-        raise ValueError("team_identifier_required")
+        raise ToolArgumentError("team_identifier_required")
     if name == "get_value_history":
         if bool(arguments.get("playerId")) == bool(arguments.get("pickName")):
-            raise ValueError("exactly_one_asset_required")
+            raise ToolArgumentError("exactly_one_asset_required")
         if arguments.get("asOfDate") and (arguments.get("start") or arguments.get("end")):
-            raise ValueError("as_of_or_range_not_both")
+            raise ToolArgumentError("as_of_or_range_not_both")
 
 
 # ── league / contract resolution ─────────────────────────────────────────
@@ -547,6 +603,27 @@ async def _contract_with_league_rosters(
         },
         None,
     )
+
+
+def _roster_provenance_missing(roster_provenance: dict[str, Any]) -> list[dict[str, Any]]:
+    """Explicit missing states a roster delivery carries: stale/unknown
+    freshness, and an overlay whose league config came back incomplete
+    (``merge_cross_league_sleeper_block`` withheld the league-specific
+    fields, so that league's roster / scoring context is not proven)."""
+    out: list[dict[str, Any]] = []
+    if roster_provenance.get("state") != "current":
+        out.append(
+            {"field": "rosterFreshness", "reason": f"rosters_{roster_provenance.get('state')}"}
+        )
+    if roster_provenance.get("leagueConfigComplete") is False:
+        out.append(
+            {
+                "field": "leagueConfig",
+                "reason": "league_config_incomplete",
+                "leagueConfigComplete": False,
+            }
+        )
+    return out
 
 
 def _ranking_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -805,10 +882,7 @@ async def _team_roster(server: Any, args: dict[str, Any]) -> dict[str, Any]:
             for p in picks or []
             if p["valueState"] == "unpriced"
         ]
-    if roster_provenance.get("state") != "current":
-        missing_data.append(
-            {"field": "rosterFreshness", "reason": f"rosters_{roster_provenance.get('state')}"}
-        )
+    missing_data += _roster_provenance_missing(roster_provenance)
     return {
         "status": "partial" if missing_data else "ok",
         "leagueKey": league.key,
@@ -852,12 +926,31 @@ def _trade_team_summary(entry: dict[str, Any], *, detail: bool) -> dict[str, Any
         "unverifiableAssetIds": entry.get("unverifiableAssetIds"),
     }
     if detail:
-        out["analysis"] = analysis
-        out["simulation"] = entry.get("simulation")
+        redacted: set[str] = set()
+        out["analysis"] = _without_source_evidence(analysis, redacted)
+        out["simulation"] = _without_source_evidence(entry.get("simulation"), redacted)
+        out["detailRedactedKeys"] = sorted(redacted)
     return out
 
 
+def _without_source_evidence(value: Any, redacted: set[str]) -> Any:
+    """A copy of ``value`` with every ``SOURCE_EVIDENCE_KEYS`` key removed at
+    any depth; removed key names are added to ``redacted``."""
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            if key in SOURCE_EVIDENCE_KEYS:
+                redacted.add(key)
+                continue
+            out[key] = _without_source_evidence(item, redacted)
+        return out
+    if isinstance(value, (list, tuple)):
+        return [_without_source_evidence(item, redacted) for item in value]
+    return value
+
+
 async def _trade_analysis(server: Any, args: dict[str, Any]) -> dict[str, Any]:
+    from src.api import compute_admission  # noqa: PLC0415
     from src.api.feature_flags import is_enabled  # noqa: PLC0415
     from src.trade import analyze_service  # noqa: PLC0415
     from src.trade import trade_ledger  # noqa: PLC0415
@@ -910,14 +1003,27 @@ async def _trade_analysis(server: Any, args: dict[str, Any]) -> dict[str, Any]:
     if perspective is not None and perspective not in ledger.teams:
         return _missing("perspective_not_in_trade", missing=["perspectiveRosterId"])
     goals = {rid: g for rid, g in parsed["teamGoals"].items() if rid in ledger.teams}
+    # The same engine as the private multi-team route, so the same process
+    # bound on concurrent (GIL-bound) computations: a full route refuses at
+    # once, retryably, instead of queueing.
+    admission = compute_admission.admission_for(compute_admission.ROUTE_ANALYZE_MULTI)
     try:
-        result = await server.run_in_threadpool(
-            analyze_service.analyze_trade_n,
-            snap,
-            ledger,
-            mode="team_context" if parsed["useTeamContext"] else "asset_only",
-            counterfactuals=False,
-            team_goals=goals,
+        result = await admission.admit(
+            lambda: server.run_in_threadpool(
+                analyze_service.analyze_trade_n,
+                snap,
+                ledger,
+                mode="team_context" if parsed["useTeamContext"] else "asset_only",
+                counterfactuals=False,
+                team_goals=goals,
+            )
+        )
+    except compute_admission.AdmissionRejected as exc:
+        return _missing(
+            f"analysis_{exc.reason}",
+            missing=["trade_analysis_capacity"],
+            retryable=True,
+            retryAfterSeconds=exc.retry_after_seconds,
         )
     except analyze_service.PackageModelUnavailable:
         return _missing("package_model_unavailable", missing=["active_package_model"])
@@ -942,10 +1048,7 @@ async def _trade_analysis(server: Any, args: dict[str, Any]) -> dict[str, Any]:
             missing_data.append(
                 {"rosterId": t["rosterId"], "assetId": aid, "reason": "ownership_unverifiable"}
             )
-    if roster_provenance.get("state") != "current":
-        missing_data.append(
-            {"field": "rosterFreshness", "reason": f"rosters_{roster_provenance.get('state')}"}
-        )
+    missing_data += _roster_provenance_missing(roster_provenance)
     return {
         "status": "partial" if missing_data else "ok",
         "leagueKey": league.key,
@@ -1062,7 +1165,61 @@ async def call_tool(name: str, arguments: dict[str, Any], request: Request) -> d
         return await _trade_analysis(server, arguments)
     if name == "get_value_history":
         return _value_history(server, arguments)
-    raise ValueError("unknown_tool")
+    raise ToolArgumentError("unknown_tool")
+
+
+class ToolTimeBudgetExceeded(Exception):
+    """The tool call did not answer within ``TOOL_TIME_BUDGET_SECONDS``."""
+
+
+def _retrieve_quietly(task: asyncio.Future) -> None:
+    # A call that outlived its caller still finishes; consume its outcome so
+    # it is never "exception was never retrieved" (class only, no content).
+    if not task.cancelled() and task.exception() is not None:
+        _server().log.warning(
+            "Chase Upside MCP tool finished after its time budget: %s",
+            type(task.exception()).__name__,
+        )
+
+
+async def _call_tool_within_budget(
+    name: str, arguments: dict[str, Any], request: Request
+) -> dict[str, Any]:
+    task = asyncio.ensure_future(call_tool(name, arguments, request))
+    try:
+        return await asyncio.wait_for(asyncio.shield(task), TOOL_TIME_BUDGET_SECONDS)
+    except TimeoutError:
+        task.add_done_callback(_retrieve_quietly)
+        raise ToolTimeBudgetExceeded from None
+
+
+def _json_depth_exceeds(raw: bytes | bytearray, limit: int) -> bool:
+    """True when ``raw`` nests arrays/objects deeper than ``limit``.
+
+    A linear byte scan (the body is already bounded by ``MAX_REQUEST_BYTES``)
+    that skips string contents, run BEFORE ``json.loads`` so a deeply nested
+    body is refused without recursing.  Malformed input is left to the parser.
+    """
+    depth = 0
+    in_string = False
+    escaped = False
+    for byte in raw:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif byte == 0x5C:  # backslash
+                escaped = True
+            elif byte == 0x22:  # quote
+                in_string = False
+        elif byte == 0x22:
+            in_string = True
+        elif byte in (0x5B, 0x7B):  # [ {
+            depth += 1
+            if depth > limit:
+                return True
+        elif byte in (0x5D, 0x7D):  # ] }
+            depth -= 1
+    return False
 
 
 def _secret_matches(supplied: str, expected: str) -> bool:
@@ -1089,8 +1246,12 @@ async def mcp_endpoint(request: Request):
         raw.extend(chunk)
         if len(raw) > MAX_REQUEST_BYTES:
             return _plain_error(413, "request_too_large")
+    if _json_depth_exceeds(raw, MAX_JSON_DEPTH):
+        return _plain_error(400, "json_too_deep")
     try:
         message = json.loads(raw)
+    except RecursionError:
+        return _plain_error(400, "json_too_deep")
     except (UnicodeDecodeError, json.JSONDecodeError):
         return _plain_error(400, "invalid_json")
     if not isinstance(message, dict):
@@ -1126,11 +1287,34 @@ async def mcp_endpoint(request: Request):
             arguments = {}
         try:
             if not isinstance(arguments, dict):
-                raise ValueError("invalid_argument_type")
-            result = _tool_result(await call_tool(str(name or ""), arguments, request))
-        except ValueError as exc:
+                raise ToolArgumentError("invalid_argument_type")
+            result = _tool_result(
+                await _call_tool_within_budget(str(name or ""), arguments, request)
+            )
+        except ToolArgumentError as exc:
             result = _tool_result(
                 {"status": "unavailable", "reason": str(exc), "missingData": [str(exc)]}
+            )
+            result["isError"] = True
+        except ToolTimeBudgetExceeded:
+            result = _tool_result(
+                {
+                    "status": "unavailable",
+                    "reason": "tool_time_budget_exceeded",
+                    "retryable": True,
+                    "missingData": ["tool_time_budget_exceeded"],
+                }
+            )
+            result["isError"] = True
+        except ValueError:
+            # An engine's own ValueError text is internal; never echo it.
+            _server().log.warning("Chase Upside MCP tool rejected its input", exc_info=True)
+            result = _tool_result(
+                {
+                    "status": "unavailable",
+                    "reason": "tool_request_rejected",
+                    "missingData": ["tool_request_rejected"],
+                }
             )
             result["isError"] = True
         except Exception:  # noqa: BLE001 — never return backend details or secrets

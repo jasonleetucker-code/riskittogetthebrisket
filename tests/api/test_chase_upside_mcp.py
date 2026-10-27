@@ -293,3 +293,61 @@ def test_protocol_rejects_unsupported_versions_and_mcp_name_mismatch(monkeypatch
     assert unsupported.json()["error"]["data"]["supported"] == ["2026-07-28"]
     assert name_mismatch.status_code == 400
     assert name_mismatch.json()["error"]["code"] == -32020
+
+
+def test_engine_value_errors_are_not_echoed(monkeypatch):
+    from src.api import chase_upside_mcp as mcp
+
+    async def _boom(name, arguments, request):
+        raise ValueError("internal detail C:/secret/path row 17")
+
+    monkeypatch.setattr(mcp, "call_tool", _boom)
+    with _mcp_client(monkeypatch) as client:
+        response = client.post(
+            "/api/chase-upside/mcp",
+            headers=_headers("tools/call", "get_player_rankings"),
+            json=_request("tools/call", 20, {"name": "get_player_rankings", "arguments": {}}),
+        )
+    result = response.json()["result"]
+    assert result["isError"] is True
+    assert result["structuredContent"]["reason"] == "tool_request_rejected"
+    assert "secret" not in response.text and "internal detail" not in response.text
+
+
+def test_deeply_nested_json_is_a_stable_400(monkeypatch):
+    from src.api import chase_upside_mcp as mcp
+
+    deep = b"[" * 60_000
+    with _mcp_client(monkeypatch) as client:
+        scanned = client.post("/api/chase-upside/mcp", headers=_headers(), content=deep)
+        # Belt and braces: with the pre-scan disabled, the parser's own
+        # RecursionError is still a 400, never a generic 500.
+        monkeypatch.setattr(mcp, "MAX_JSON_DEPTH", 10**9)
+        parsed = client.post("/api/chase-upside/mcp", headers=_headers(), content=deep)
+    for response in (scanned, parsed):
+        assert response.status_code == 400
+        assert response.json() == {"error": "json_too_deep"}
+
+
+def test_tool_call_answers_within_its_time_budget(monkeypatch):
+    import asyncio
+
+    from src.api import chase_upside_mcp as mcp
+
+    async def _slow(name, arguments, request):
+        await asyncio.sleep(2)
+        return {"status": "ok"}
+
+    monkeypatch.setattr(mcp, "call_tool", _slow)
+    monkeypatch.setattr(mcp, "TOOL_TIME_BUDGET_SECONDS", 0.05)
+    with _mcp_client(monkeypatch) as client:
+        response = client.post(
+            "/api/chase-upside/mcp",
+            headers=_headers("tools/call", "get_player_rankings"),
+            json=_request("tools/call", 21, {"name": "get_player_rankings", "arguments": {}}),
+        )
+    result = response.json()["result"]
+    assert result["isError"] is True
+    assert result["structuredContent"]["reason"] == "tool_time_budget_exceeded"
+    assert result["structuredContent"]["retryable"] is True
+    assert mcp.TOOL_TIME_BUDGET_SECONDS < 20  # under the Sites Worker's 20 s abort
