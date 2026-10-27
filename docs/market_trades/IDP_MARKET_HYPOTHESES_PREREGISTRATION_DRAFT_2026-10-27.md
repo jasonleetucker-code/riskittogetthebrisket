@@ -725,6 +725,8 @@ of aggregator. The directive also asks whether `geom_q078_v1` describes accepted
 
 Every IDPTC test also fails the G_min = 10 manager floor today (8 managers).
 
+**O7 result (2026-10-27, owner-approved read-only production run; `O7_PRODUCTION_CANONICAL_HISTORY_COVERAGE_2026-10-27.md`).** The canonical lane exists from 2026-07-20 (live recording from 2026-08-16). Under §2.4 (knowledge cutoff = the trade instant), 5 of the 8 structurally eligible H2 trades are priced in both lanes at age ≤ 7 days (<5 on one snapshot date). So H2 moves from `unavailable: no_canonical_lane` to **H7** (5 of 55); H6d stays `unavailable: discrepancy_undetermined`. No residual or premium was computed. The table above is unchanged until the freeze run.
+
 **Accrual arithmetic, not a forecast.**
 - **H3 (n_min 121).** The league produced 18 offense-for-IDP trades in the 2025 season (10 teams) and 7 in 2026 so far.
   Even if every future one were two-team, pure cross-family and fully priced (in Regime A at most 1 of 5 eligible
