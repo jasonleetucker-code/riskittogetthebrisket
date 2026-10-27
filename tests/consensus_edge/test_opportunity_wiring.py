@@ -26,6 +26,7 @@ value ever produces a buy-ward contribution again.
 
 from __future__ import annotations
 
+import contextlib
 import inspect
 import tempfile
 import unittest
@@ -229,7 +230,7 @@ class TestPlayerContextJoin(unittest.TestCase):
         # `playersArray` rows call it `playerId`; the legacy `players`
         # dict calls it `_sleeperId`. A join that knew only one spelling
         # matched every fixture and zero production rows.
-        source = (REPO / "src" / "api" / "data_contract.py").read_text()
+        source = (REPO / "src" / "api" / "data_contract.py").read_text(encoding="utf-8")
         self.assertIn(
             '"playerId": str(p_data.get("_sleeperId")',
             source,
@@ -356,7 +357,9 @@ class TestSharpMovementsAppliesTheFilterItClaims(unittest.TestCase):
         from src.intel import ledger
 
         path = Path(tmpdir) / "intel.db"
-        with ledger.connect(path) as conn:
+        # Close explicitly: ``with conn`` only commits, and an open handle
+        # makes the temp-dir cleanup fail on Windows.
+        with contextlib.closing(ledger.connect(path)) as conn:
             conn.executemany(
                 "INSERT INTO asset_movements (movement_id, tx_id, league_id, tx_type, "
                 "asset_id, asset_type, action, user_id, ts, ingested_ms) "
