@@ -251,11 +251,15 @@ def key_shape(obj: Any) -> Any:
 
 def write_fixture(name: str, body: Any) -> None:
     FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
-    (FIXTURE_DIR / name).write_text(json.dumps(body, indent=2, ensure_ascii=False) + "\n")
+    # UTF-8 + LF on every OS: the fixtures hold non-ASCII (em dashes) and are
+    # committed; a Windows default write would be cp1252 with CRLF.
+    (FIXTURE_DIR / name).write_text(
+        json.dumps(body, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n"
+    )
 
 
 def load_fixture(name: str) -> Any:
-    return json.loads((FIXTURE_DIR / name).read_text())
+    return json.loads((FIXTURE_DIR / name).read_text(encoding="utf-8"))
 
 
 POSTURE = {
