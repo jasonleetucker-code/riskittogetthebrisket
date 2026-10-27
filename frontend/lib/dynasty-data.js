@@ -378,7 +378,7 @@ export const RANKING_SOURCES = [
     isRetail: false,
     isTepPremium: false,
     needsSharedMarketTranslation: true,
-    excludesRookies: true,
+    excludesRookies: false,
     isRankSignal: true,
   },
   {
@@ -755,7 +755,7 @@ export const RANKING_SOURCES = [
     isTepPremium: false,
     isRankSignal: true,
     needsSharedMarketTranslation: true,
-    excludesRookies: true,
+    excludesRookies: false,
   },
   {
     // FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart —
