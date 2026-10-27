@@ -1,5 +1,33 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## IDP market pricing, acquisition intelligence, historical trade research and draft strategy — owner directive, 2026-10-26
+
+**AUTHORIZED NOW (read-only collection, additive diagnostics and shadow-only research; NOT activation).** The directive
+is verbatim in `docs/owner/IDP_MARKET_ACQUISITION_DIRECTIVE_2026-10-26.md`. Authorized in phase order:
+- **Phase 1:** the own-league trade and draft census over the full `previous_league_id` chain, from Sleeper's public
+  read-only API, priced only point-in-time through `src/history`, with private transaction-level evidence kept in
+  gitignored `data/research/`. A survey of historical price archives for trades before 2026-07-14; no ingestion before
+  the owner approves a source, and no paid data.
+- **Phase 2:** preregistered market-hypothesis research (H1–H7).
+- **Phases 3–4:** shadow acquisition, selling, draft and auction research.
+
+Rules for all of it:
+- **Reuse, never fork.** Reuse the existing owners: `src/trade/market_trade_*`, `comparable_trades.py`,
+  `own_league_format_capture.py`, `src/public_league/sleeper_client.py`, `src/identity/`, `src/history/`,
+  `analyze_trade.py`, `trade_decision.decide()` (the only verdict owner), `roster_capacity`, `competitive_posture`,
+  `src/ros/lineup.py`, `src/draft/` and `src/auction/`.
+- **Isolate.** New code is research or shadow only: unwired, or behind default-OFF flags, and isolated like
+  `src/league_valuation/` (`tests/league_valuation/test_isolation.py`).
+- **No second owner.** `chaseTradeMarket` stays non-voting; no second voting mechanism, no second ledger, no second
+  verdict owner.
+
+**Owner-reserved (NOT authorized):** the directive's §15 list: canonical IDP values, source voting or weights, the
+shared market anchor, replacement-level or fair-value promotion, public fairness, the package model, recommendation
+rule tables, turning any flag ON, scoring cards, and any model affecting live trade verdicts. Also: Sleeper writes and
+paid data. Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-26 — IDP market pricing…" (IDPM-1..11).
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel.
+
 ## IDP valuation accuracy + platform research/promotion-readiness audit — owner directives, 2026-10-25
 
 **AUTHORIZED NOW (research, tests and shadow-only candidates; NOT activation).** IDP valuation accuracy,

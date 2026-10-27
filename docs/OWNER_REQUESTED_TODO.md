@@ -15,6 +15,27 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-26 — IDP market pricing, acquisition intelligence, historical trade research and draft strategy
+
+Owner directive 2026-10-26 (chat), recorded verbatim in `docs/owner/IDP_MARKET_ACQUISITION_DIRECTIVE_2026-10-26.md`.
+It is authorized in `docs/EXECUTION_PLAN.md` (same date) as read-only collection, diagnostics and shadow-only research.
+Everything in directive §15 is owner-reserved. It extends, and must reconcile with, the 2026-10-25 IDP accuracy program
+(IDPV-1..10 below), the Chase Trade Market V2 source (non-voting) and the historical trade replay spec.
+
+| # | Owner instruction | Status |
+|---|---|---|
+| IDPM-1 | Phase 0 current-state reconciliation: deploy SHA, authoritative owners, open PRs and claims, research gaps, dependency graph, research plan | DONE — recorded in this intake section, the `docs/EXECUTION_PLAN.md` 2026-10-26 entry (owners to reuse) and the census work claim; the full plan is not committed |
+| IDPM-2 | Phase 1 own-league trade and draft census over the full `previous_league_id` chain (Deliverable A + the draft census). Point-in-time prices only, with structured missing reasons and anonymized aggregates. **Owner answer:** public Sleeper API, run locally | IN PROGRESS — market Lane A (own-league census) |
+| IDPM-3 | Trades before `HISTORY_FLOOR` (2026-07-14) have no at-the-time price. **Owner answer:** survey licensed or public historical archives of IDPTC, KTC and similar values, terms honored, no paid data, nothing ingested until the owner approves a specific source | IN PROGRESS — survey |
+| IDPM-4 | Market hypotheses H1–H7 (Deliverable B): preregistered before any model is fitted; H7 "insufficient" is an allowed outcome | PENDING — gated on IDPM-2 |
+| IDPM-5 | Non-voting league market price layer, shadow only, abstains on thin evidence; acquisition and sale ranges kept separate; never zero for missing (§5) | PENDING — gated on IDPM-4 |
+| IDPM-6 | Team-specific acquisition intelligence (Deliverable C): whole-roster opportunity cost; acquisition-price bands, not false-precision maxima; alternatives evaluated in the same team context; one verdict owner (`trade_decision.decide`) | PENDING — shadow |
+| IDPM-7 | Selling and negotiation intelligence, shadow only (§7) | PENDING — shadow |
+| IDPM-8 | Rookie, startup and auction research (Deliverable D): actual league draft evidence; The IDP Show combined rookie ADP as a candidate; no trade points used as auction dollars | PENDING — market Lane E (draft and auction) |
+| IDPM-9 | Continue the IDP accuracy questions (§9), including the 17-game re-run (preregistered first) and per-family correction methods | PENDING — owner items still open (IDPV/H §3) |
+| IDPM-10 | Calibration constraint (§10): championship-probability changes may not justify premiums while the sim is uncalibrated (sim v1/v2 both fail) | RECORDED — binding constraint |
+| IDPM-11 | Owner-reserved (§15): canonical IDP values, voting/weights, market anchor, replacement or fair-value promotion, public fairness, package math, rule table, flag activation, scoring cards, any model touching live verdicts | RECORDED — binding boundary |
+
 ## Added 2026-10-26 — standing merge authorization
 
 Owner instruction 2026-10-26 (chat), recorded here as relayed to the coordinator session. It extends the
@@ -38,15 +59,15 @@ must reconcile with, Investigation B (`docs/valuation/IDP_REPLACEMENT_AND_SCORIN
 
 | # | Owner instruction | Status |
 |---|---|---|
-| IDPV-1 | Pinned research manifest (commit, league `dynasty_main` / `1312006700437352448`, scoring + roster-format fingerprints, data cutoffs, source ids/timestamps, model/param versions, checksums); no private manager data in public artifacts | IN PROGRESS |
-| IDPV-2 | Scoring accuracy vs Sleeper awarded points, event-level (tackles, TFL, sacks/yards, QB hits, PD, INT/FF, returns/TDs, stacking, offense, multi-position eligibility), exceptions enumerated; no performance claims while discrepancies are unexplained (Deliverable A) | IN PROGRESS |
-| IDPV-3 | Baseline ranking diagnostics from the served canonical artifact + native IDPTC distribution + how cross-position bridge values enter consensus (Deliverable C baseline) | IN PROGRESS |
-| IDPV-4 | Shadow replacement definitions compared separately (starter threshold, viable FA, production-qualified FA pool, 3rd-best/median qualified, dynamic optimal-roster, team-specific post-transaction); health/availability/eligibility aware; whole-roster before/after for packages (Deliverable B) | IN PROGRESS |
-| IDPV-5 | Best-ball weekly-volatility utility by archetype and position (Deliverable D) | IN PROGRESS |
-| IDPV-6 | Cross-position multi-season utility; investigate the per-scope quantile-matching limitation of `league_fair_value_v1_shadow`; no IDP multiplier; no IDPTC price as both target and evidence; uncalibrated rather than invented scale (Deliverable F) | IN PROGRESS |
-| IDPV-7 | Scoring-sensitivity experiment (TFL, PD, tackles, sacks, QB hits, INT, FF/FR, TDs) with production scoring unchanged (Deliverable E) | IN PROGRESS |
-| IDPV-8 | Preregistered chronological backtest: champion vs BDVM vs fair-value shadow vs corrected replacement vs cross-position candidate; position-level, bootstrap CIs, multiple-testing correction, no hindsight leakage (Deliverable G) | IN PROGRESS |
-| IDPV-9 | Shadow market-price vs league-utility vs team-transaction comparison for private trade intelligence; public calculator unchanged; recommendations with effect size, n, dates, CIs, owner-approval need (Deliverable H) | IN PROGRESS |
+| IDPV-1 | Pinned research manifest (commit, league `dynasty_main` / `1312006700437352448`, scoring + roster-format fingerprints, data cutoffs, source ids/timestamps, model/param versions, checksums); no private manager data in public artifacts | DONE — manifest merged (#1931, build_manifest.py) |
+| IDPV-2 | Scoring accuracy vs Sleeper awarded points, event-level (tackles, TFL, sacks/yards, QB hits, PD, INT/FF, returns/TDs, stacking, offense, multi-position eligibility), exceptions enumerated; no performance claims while discrepancies are unexplained (Deliverable A) | DONE — Lane A merged (#1931); scorer fixes #1938 held for owner |
+| IDPV-3 | Baseline ranking diagnostics from the served canonical artifact + native IDPTC distribution + how cross-position bridge values enter consensus (Deliverable C baseline) | DONE — Lane C merged (#1936) |
+| IDPV-4 | Shadow replacement definitions compared separately (starter threshold, viable FA, production-qualified FA pool, 3rd-best/median qualified, dynamic optimal-roster, team-specific post-transaction); health/availability/eligibility aware; whole-roster before/after for packages (Deliverable B) | DONE — Lane B merged (#1940) |
+| IDPV-5 | Best-ball weekly-volatility utility by archetype and position (Deliverable D) | DONE — Lane D merged (#1941) |
+| IDPV-6 | Cross-position multi-season utility; investigate the per-scope quantile-matching limitation of `league_fair_value_v1_shadow`; no IDP multiplier; no IDPTC price as both target and evidence; uncalibrated rather than invented scale (Deliverable F) | DONE — Lane F merged (#1942); no candidate advanced |
+| IDPV-7 | Scoring-sensitivity experiment (TFL, PD, tackles, sacks, QB hits, INT, FF/FR, TDs) with production scoring unchanged (Deliverable E) | DONE — Lane E merged (#1943) |
+| IDPV-8 | Preregistered chronological backtest: champion vs BDVM vs fair-value shadow vs corrected replacement vs cross-position candidate; position-level, bootstrap CIs, multiple-testing correction, no hindsight leakage (Deliverable G) | DONE — Lane G merged (#1942, freeze check #1964) |
+| IDPV-9 | Shadow market-price vs league-utility vs team-transaction comparison for private trade intelligence; public calculator unchanged; recommendations with effect size, n, dates, CIs, owner-approval need (Deliverable H) | DONE — Lane H merged (#1945); owner decisions in H §3 remain open |
 | IDPV-10 | Production safety: no live scoring, canonical value, voting/weight, IDP ceiling, trade verdict, public fairness, deploy activation or Sleeper change; no duplicate owner; missing never zero; no self-promotion | RECORDED — binding boundary |
 
 ## Added 2026-10-25 — Platform-wide research, data-collection and promotion-readiness audit
