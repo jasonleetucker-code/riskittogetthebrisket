@@ -46,10 +46,14 @@ def test_advice_refuses_a_board_for_another_league(env, monkeypatch):  # noqa: F
         lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not be called")),
     )
     out = c.get(f"/api/auction/rooms/{room}/advice-context").json()
+    # Neither the other league's rosters NOR its board values (LATENT-06 /
+    # LI1842-DEFECT-13): the values used to be returned before this check.
     assert (
-        out["status"] == "values_only"
+        out["status"] == "unavailable"
         and out["reason"] == "board_is_for_another_league"
         and out["context"] is None
+        and out["boardValues"] == {}
+        and out["valuesAsOf"] is None
     )
 
 
@@ -100,3 +104,75 @@ def test_unstamped_board_is_treated_as_the_servers_own_league(env, monkeypatch):
     out = c.get(f"/api/auction/rooms/{room}/advice-context").json()
     assert out["status"] == "ok", out
     assert seen and seen[0][1] == "u1"
+
+
+def test_room_budgets_are_requested_for_the_seats_league(env):  # noqa: F811
+    """LI1842-DEFECT-13: budgets are asked for the SEATS' league explicitly,
+    and the room's provenance names whose dollars they are."""
+    st, app = env
+    _with_league("dynasty_main")
+    seen = []
+    srv = sys.modules["server"]
+    original = srv.get_draft_capital
+
+    async def spy(request):
+        seen.append(request.query_params.get("leagueKey"))
+        return await original(request)
+
+    srv.get_draft_capital = spy
+    c = _owner_client(app)
+    out = _make_room(c)
+    assert seen == ["dynasty_main"]
+    prov = out["budgetProvenance"]
+    assert prov["leagueKey"] == "dynasty_main" and prov["seatLeagueKey"] == "dynasty_main"
+    assert prov["leagueMismatch"] is None
+
+
+def test_room_refuses_budgets_from_another_league(env):  # noqa: F811
+    """A draft-capital answer for a different league than the seats is refused
+    (409), never joined -- not substituted, not silently mixed."""
+    st, app = env
+    _with_league("dynasty_main")
+    from tests.auction.test_api_store import _draft_capital
+
+    async def other_league(request):
+        return {**_draft_capital(), "leagueKey": "dynasty_new"}
+
+    sys.modules["server"].get_draft_capital = other_league
+    c = _owner_client(app)
+    from tests.auction.test_api_store import idem
+
+    r = c.post(
+        "/api/auction/rooms",
+        json={"preset": "fast", "seatSource": "league", "budgetSource": "draft_capital"},
+        headers=idem(),
+    )
+    assert r.status_code == 409, r.text
+    assert "budget_league_mismatch" in r.text
+
+
+def test_room_refuses_budgets_that_do_not_name_their_league(env):  # noqa: F811
+    st, app = env
+    _with_league("dynasty_main")
+    from tests.auction.test_api_store import _draft_capital, idem
+
+    async def unstamped(request):
+        return _draft_capital()  # no leagueKey
+
+    sys.modules["server"].get_draft_capital = unstamped
+    c = _owner_client(app)
+    r = c.post(
+        "/api/auction/rooms",
+        json={"preset": "fast", "seatSource": "league", "budgetSource": "draft_capital"},
+        headers=idem(),
+    )
+    assert r.status_code == 409 and "budget_league_unstated" in r.text
+
+
+def test_generic_seats_still_report_whose_budgets_they_read(env):  # noqa: F811
+    st, app = env
+    _with_league("dynasty_main")
+    c = _owner_client(app)
+    prov = _make_room(c, seatSource="generic")["budgetProvenance"]
+    assert prov["seatLeagueKey"] is None and prov["leagueMismatch"] is None
+    assert prov["leagueKey"] == "dynasty_main"
