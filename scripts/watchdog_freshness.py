@@ -81,19 +81,46 @@ def _read_freshness() -> dict[str, dict]:
                 last_epoch = float(stamp_text)
             except ValueError:
                 last_epoch = None
+        basis = "stamp"
         if last_epoch is None:
             try:
                 last_epoch = csv_path.stat().st_mtime
             except OSError:
                 continue
+            # A checkout resets file mtimes to "now", so on a runner this age
+            # is the checkout's, not the vendor fetch's.  Reported, so a
+            # fresh-looking age that measured nothing is named as such.
+            basis = "csv_mtime"
+        elif last_epoch - now_epoch > _FUTURE_STAMP_TOLERANCE_SECONDS:
+            # A stamp ahead of this clock is a wrong clock, not a fresh fetch.
+            basis = "stamp_clock_skew"
         age_hours = max(0.0, (now_epoch - last_epoch) / 3600.0)
         out[src_key] = {
             "lastFetched": datetime.fromtimestamp(last_epoch, tz=timezone.utc).isoformat(
                 timespec="seconds"
             ),
             "ageHours": round(age_hours, 2),
+            "basis": basis,
         }
     return out
+
+
+#: Precision slack for runner/box clock drift; beyond it a future stamp is skew.
+_FUTURE_STAMP_TOLERANCE_SECONDS = 600.0
+
+
+def unmeasured_age_sources(freshness: dict[str, dict]) -> dict[str, str]:
+    """``{source: basis}`` for rows whose age is NOT a measured fetch time.
+
+    ``classify_freshness`` still buckets them on that age (unchanged exit
+    behaviour); this only stops a fresh-looking age that measured nothing from
+    reading as verified.
+    """
+    return {
+        src: str(info.get("basis"))
+        for src, info in freshness.items()
+        if isinstance(info, dict) and info.get("basis") not in (None, "stamp")
+    }
 
 
 def unprovisioned_private_sources() -> list[str]:
@@ -603,6 +630,19 @@ def main() -> int:
             f"it is absent by design here: not fresh, not stale, not unmeasurable."
         )
 
+    unmeasured_age = unmeasured_age_sources(freshness)
+    for src, basis in sorted(unmeasured_age.items()):
+        why = (
+            "no parseable _last_success stamp; the age is the CSV file's mtime, which a "
+            "checkout resets"
+            if basis == "csv_mtime"
+            else "its _last_success stamp is dated in the future (clock skew)"
+        )
+        print(
+            f"::warning title=Source age NOT MEASURED: {src}::{why}.  Classified on that "
+            f"age, but it is not a measured fetch time -- treat its freshness as unverified."
+        )
+
     for src in unmeasurable:
         print(
             f"::error title=Unmeasurable source: {src}::Registered in the ranking "
@@ -622,6 +662,17 @@ def main() -> int:
             soft_note += (
                 f", {len(degraded)} DEGRADED (acknowledged fetch outage, withheld "
                 f"from voting): {', '.join(r[0] for r in degraded)}"
+            )
+        if unmeasured_age:
+            soft_note += (
+                f", {len(unmeasured_age)} with an UNMEASURED age: "
+                f"{', '.join(sorted(unmeasured_age))}"
+            )
+        not_provisioned = unprovisioned_private_sources()
+        if not_provisioned:
+            soft_note += (
+                f", {len(not_provisioned)} private source(s) NOT PROVISIONED here "
+                f"(not measured): {', '.join(not_provisioned)}"
             )
         print(f"ok: {len(fresh)} sources fresh, 0 hard-stale, 0 unmeasurable{soft_note}")
         return 0
