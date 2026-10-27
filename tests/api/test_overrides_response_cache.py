@@ -10,7 +10,8 @@ league, sleeper-match) and versioned on ``latest_data_etag``.
 Pinned here:
     1. Two identical POSTs → one pipeline build, byte-identical bodies.
     2. Distinct DERIVED inputs (tep knobs) → distinct slots (no
-       cross-body bleed).
+       cross-body bleed) -- on the rollback path; with the manual TEP
+       override withdrawn (DEFECT-02) TEP bodies share the canonical slot.
     3. A new contract generation (etag change) → rebuild.
     4. ``_prime_latest_payload`` clears the memo outright.
     5. leagueAdjusted requests bypass the cache (rebuilt every time).
@@ -121,6 +122,14 @@ def test_identical_posts_build_once_and_match_bytes(overrides_env, monkeypatch):
 
 
 def test_distinct_bodies_get_distinct_slots(overrides_env, monkeypatch):
+    # The manual TE-premium override is withdrawn (DEFECT-02), so with the
+    # gate CLOSED these two bodies normalize identically and share a slot
+    # (pinned below).  The memo-key property this test exists for --
+    # distinct DERIVED inputs never share a slot -- is exercised on the
+    # rollback path, where the tep knobs are honoured again.
+    from src.api import data_contract
+
+    monkeypatch.setattr(data_contract, "_TEP_OVERRIDES_DISABLED", False)
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_data(monkeypatch)
         calls = _count_builds(monkeypatch)
@@ -131,6 +140,43 @@ def test_distinct_bodies_get_distinct_slots(overrides_env, monkeypatch):
     assert r1.status_code == 200 and r2.status_code == 200
     assert calls["n"] == 2
     assert r1.content != r2.content
+    assert r1.json()["meta"]["tepMultiplierSource"] == "override"
+
+
+def test_withdrawn_tep_bodies_serve_the_canonical_board(overrides_env, monkeypatch):
+    """DEFECT-02: a posted manual TEP is accepted, IGNORED and explained.
+
+    Two different manual values build once and answer byte-identically; the
+    board they get is the one a body with no TEP key gets (same delta rows);
+    only the explanation differs, which is why the note rides ``warnings``
+    and therefore the memo key.
+    """
+    from src.api import data_contract
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_data(monkeypatch)
+        calls = _count_builds(monkeypatch)
+
+        r1 = c.post("/api/rankings/overrides?view=delta", json={"tep_multiplier": 1.15})
+        r2 = c.post(
+            "/api/rankings/overrides?view=delta",
+            json={"tep_multiplier": 1.45, "tep_native_multiplier": 1.3},
+        )
+        r0 = c.post("/api/rankings/overrides?view=delta", json={})
+
+    assert r1.status_code == r2.status_code == r0.status_code == 200
+    assert calls["n"] == 2, "the two TEP bodies must share one slot; the no-TEP body its own"
+    assert r1.content == r2.content
+    p1, p0 = r1.json(), r0.json()
+    note = data_contract.TEP_OVERRIDE_WITHDRAWN_NOTE
+    assert p1["meta"]["tepMultiplierSource"] == "canonical"
+    assert p1["meta"]["tepMultiplierNote"] == note
+    assert note in p1["warnings"]
+    assert p0["meta"]["tepMultiplierSource"] == "canonical"
+    assert "tepMultiplierNote" not in p0["meta"]
+    assert note not in p0["warnings"]
+    assert p1["rankingsDelta"] == p0["rankingsDelta"]
+    assert p1["rankingsOverride"]["tepMultiplierSource"] != "override"
 
 
 def test_new_contract_generation_invalidates(overrides_env, monkeypatch):

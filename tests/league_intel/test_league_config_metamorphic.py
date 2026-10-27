@@ -716,16 +716,7 @@ def test_f01_intel_leads_do_not_borrow_another_leagues_rosters_or_values(world, 
     assert captured["target_value"] is None  # league A's board value leaked in
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-02: a manual tep_multiplier in the POST /api/rankings/overrides body still "
-        "changes rankDerivedValue (110 rows on the 2026-10-25 board) although the client comment "
-        "and CLAUDE.md describe the user's manual override as withdrawn; only source weights are "
-        "(normalize_source_overrides)."
-    ),
-)
+# LI1842-DEFECT-02 -- REPAIRED (held for owner approval): the overrides route's TEP normalizers ignore a manual value (data_contract._TEP_OVERRIDES_DISABLED), so a posted tep_multiplier / tep_native_multiplier serves the canonical board; stamped meta.tepMultiplierNote.
 def test_f02_a_manual_tep_multiplier_cannot_move_the_canonical_board():
     from src.api import data_contract
     from tests.archive_fixtures import newest_complete_raw_payload
@@ -734,15 +725,31 @@ def test_f02_a_manual_tep_multiplier_cannot_move_the_canonical_board():
     if raw is None:
         pytest.skip("no complete archived scrape available")
 
-    def values(tep):
+    # Through the INGRESS normalizers, which is how POST /api/rankings/overrides
+    # (server.py, the only production caller) turns a body into build inputs.
+    # The library parameters of build_rankings_delta_payload stay a research
+    # knob (scripts/backtest_*.py pin tep_multiplier=1.0) and are not a
+    # request surface.
+    def values(body):
         out = data_contract.build_rankings_delta_payload(
-            raw, source_overrides={}, tep_multiplier=tep
+            raw,
+            source_overrides={},
+            tep_multiplier=data_contract.normalize_tep_multiplier(body),
+            tep_native_multiplier=data_contract.normalize_tep_native_multiplier(body),
         )
         return {r["id"]: r.get("rankDerivedValue") for r in out["rankingsDelta"]["players"]}
 
-    baseline = values(None)
+    baseline = values({})
     assert len(baseline) > 500  # a real board, not an empty delta
-    assert values(1.45) == baseline
+    for body in (
+        {"tep_multiplier": 1.45},
+        {"tep_multiplier": 1.15},
+        {"tep_native_multiplier": 1.3},
+    ):
+        assert values(body) == baseline, body
+        assert data_contract.withdrawn_tep_override_note(body) == (
+            data_contract.TEP_OVERRIDE_WITHDRAWN_NOTE
+        )
 
 
 # LI1842-DEFECT-03 -- REPAIRED: GET /api/movers follows the board's _scoring_identity_error gate.

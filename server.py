@@ -77,6 +77,7 @@ from src.api.data_contract import (
     normalize_source_overrides,
     normalize_tep_multiplier,
     normalize_tep_native_multiplier,
+    withdrawn_tep_override_note,
     stamp_optimal_lineups as _stamp_optimal_lineups_owner,
     capture_contract_roster_settings,
     validate_api_data_contract,
@@ -5952,6 +5953,21 @@ async def post_rankings_overrides(request: Request):
     overrides, warnings = normalize_source_overrides(body)
     tep_multiplier = normalize_tep_multiplier(body)
     tep_native_multiplier = normalize_tep_native_multiplier(body)
+    # The MANUAL TE-premium override is withdrawn (DEFECT-02; gate
+    # ``data_contract._TEP_OVERRIDES_DISABLED``): both normalizers answer
+    # ``None`` -- the canonical ADR-015 path -- and a body that still posts
+    # one is answered, never refused, with the reason in ``warnings`` and
+    # ``meta.tepMultiplierNote``.  Joining ``warnings`` also puts the note
+    # in the response-memo key below, so a body with and without the key
+    # cannot share a cached response that says the wrong thing.
+    tep_note = withdrawn_tep_override_note(body)
+    if tep_note:
+        warnings = [*warnings, tep_note]
+    tep_source = (
+        "override"
+        if tep_multiplier is not None or tep_native_multiplier is not None
+        else "canonical"
+    )
 
     view = (request.query_params.get("view") or "").strip().lower()
     delta_view = view in {"delta", "compact", "slim"}
@@ -6066,6 +6082,13 @@ async def post_rankings_overrides(request: Request):
             # Only one board is canonical now, so this is unconditional
             # rather than derived from whether factors were applied.
             meta["valuationMode"] = "market"
+            # Which TE premium produced this board: ``canonical`` (the
+            # league-derived / ADR-015 TE-basis path GET /api/data serves)
+            # unless the withdrawal gate is rolled back and a manual value
+            # was honoured.
+            meta["tepMultiplierSource"] = tep_source
+            if tep_note:
+                meta["tepMultiplierNote"] = tep_note
             if valuation_note:
                 meta["valuationNote"] = valuation_note
                 contract_payload.setdefault("warnings", []).append(valuation_note)
