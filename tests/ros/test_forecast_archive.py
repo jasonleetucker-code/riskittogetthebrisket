@@ -24,14 +24,21 @@ Pins, without network or a live board:
 from __future__ import annotations
 
 import ast
+import builtins
+import contextlib
+import fnmatch
+import functools
 import hashlib
 import importlib.util
+import io
 import json
 import logging
+import os
 import random
 import re
 import subprocess
 import sys
+import textwrap
 import types
 from pathlib import Path
 from types import SimpleNamespace
@@ -607,7 +614,10 @@ GUARD_EXCLUDED = {
     "src/ros/game_day_live.py": (
         "Game Day live collector: the current-week scoring lens, a different "
         "simulation from the playoff / title Monte Carlo; reads "
-        "``src.api.matchup_intel`` for its own lineup lens"
+        "``src.api.matchup_intel`` for its own lineup lens. ONE of its functions "
+        "is on the simulator path all the same: ``persisted_players_meta`` (a disk "
+        "read of the persisted Sleeper players DB) is reached from the best-ball "
+        "pre-sim -- see 'Where the stubs stop' below"
     ),
     "src/ros/pick_forecast_snapshot.py": (
         "dynasty-side pick-forecast CAPTURE (AL-P4): consumes "
@@ -638,7 +648,8 @@ CONTRACT_ADJACENT_IMPORTS = {
 }
 
 #: Names that mean "the loaded dynasty contract" (or its generation, or a
-#: helper that reads one handed to it).
+#: helper that reads one handed to it). Every other ``server.latest_*`` cache
+#: is added at scan time from ``_static_host_cache_names`` (below).
 CONTRACT_READERS = (
     "latest_contract_data",
     "latest_data",
@@ -660,10 +671,83 @@ CONTRACT_MODULES = (
     "matchup_intel",
 )
 
+#: In a string, the raw board's export file name: ``exports/latest/dynasty_data_<date>.json``
+#: and its ``data/`` and repo-root copies. A module that builds that path reads
+#: the board from disk, which no getter trap sees. (Today every reader is in
+#: ``server.py``, ``src/api``, ``src/sources``, ``src/history``,
+#: ``src/consensus_edge``, ``src/model_registry`` or ``scripts/``: none is in a
+#: guarded directory, and this keeps it that way.)
+BOARD_EXPORT_FRAGMENT = "dynasty_data_"
+
+#: Every ``server`` module global named ``latest_*`` is a cached copy of a
+#: served payload: the contract and ``latest_data``, the runtime / startup /
+#: array / compact projections, each one's encoded bytes, gzip bytes and ETag,
+#: and the data-source descriptor. The tripwire traps the PREFIX, so a cache
+#: added tomorrow is trapped with no edit here.
+HOST_CACHE_PREFIX = "latest_"
+
+
+def _host_cache_names_in(source):
+    """Every ``latest_*`` name ``source`` binds at module scope, read with ``ast``:
+    assignments (plain, annotated, unpacked, inside ``if`` / ``try``), imports,
+    ``def`` / ``class``, and ``global`` declarations inside functions."""
+    tree = ast.parse(source)
+    names = set()
+    stack = list(tree.body)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)  # a module-level ``def`` is a module attribute too
+            continue  # its body binds locals, not module globals
+        if isinstance(node, ast.Lambda):
+            continue
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            names.add(node.id)
+        elif isinstance(node, ast.alias):
+            names.add((node.asname or node.name).split(".")[0])
+        stack.extend(ast.iter_child_nodes(node))
+    # ``global latest_x`` in a function rebinds -- or creates -- a module global.
+    names.update(n for node in ast.walk(tree) if isinstance(node, ast.Global) for n in node.names)
+    return tuple(sorted(n for n in names if n.startswith(HOST_CACHE_PREFIX)))
+
+
+@functools.lru_cache(maxsize=1)
+def _static_host_cache_names():
+    """The host caches ``server.py`` declares, enumerated STATICALLY.
+
+    Deliberately not ``import server``. This file's pattern is to stand in for
+    the host (``_arm_contract_tripwire``) because the claim under test is that
+    the forecast path runs with NO host loaded -- the refresh runner has none.
+    Importing the real module would load the FastAPI app, its ~100 routes and
+    the scraper bridge into every run of this file (about 3 s), and it raises
+    at import unless the dev-login override is set (``tests/conftest.py`` sets
+    it; production refuses it). Where an earlier test in the session HAS loaded
+    ``server``, ``_host_cache_names`` adds its live globals, so a name created
+    at runtime is not missed.
+    """
+    return _host_cache_names_in((REPO_ROOT / "server.py").read_text(encoding="utf-8"))
+
+
+def _host_cache_names():
+    """The static host caches, plus -- where ``server`` is already loaded --
+    every ``latest_*`` name in its live globals (the dynamic enumeration)."""
+    names = set(_static_host_cache_names())
+    host = sys.modules.get("server")
+    if host is not None:
+        names.update(n for n in vars(host) if n.startswith(HOST_CACHE_PREFIX))
+    return sorted(names)
+
 
 def _contract_reads_in(source):
     """Every lexical form of a contract read in ``source``: ``(line, kind, detail)``."""
     tree = ast.parse(source)
+    readers = (*CONTRACT_READERS, *_static_host_cache_names())
+    # Bare string statements (docstrings) are prose, never a read.
+    prose = {
+        id(node.value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+    }
     hits = []
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -671,18 +755,17 @@ def _contract_reads_in(source):
             module = getattr(node, "module", None) or ""
             if any(frag in text for text in [module, *names] for frag in CONTRACT_MODULES):
                 hits.append((node.lineno, "import", f"{module}:{','.join(names)}"))
-            hits += [(node.lineno, "import", n) for n in names if n in CONTRACT_READERS]
-        elif isinstance(node, ast.Name) and node.id in CONTRACT_READERS:
+            hits += [(node.lineno, "import", n) for n in names if n in readers]
+        elif isinstance(node, ast.Name) and node.id in readers:
             hits.append((node.lineno, "name", node.id))
-        elif isinstance(node, ast.Attribute) and node.attr in CONTRACT_READERS:
+        elif isinstance(node, ast.Attribute) and node.attr in readers:
             hits.append((node.lineno, "attribute", node.attr))
-        elif (
-            isinstance(node, ast.Constant)
-            and isinstance(node.value, str)
-            and node.value in (*CONTRACT_VALUE_FIELDS, *CONTRACT_READERS)
-        ):
-            # ``getattr(server, "latest_contract_data")`` is a string, not a name.
-            hits.append((node.lineno, "string", node.value))
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if node.value in (*CONTRACT_VALUE_FIELDS, *readers):
+                # ``getattr(server, "latest_contract_data")`` is a string, not a name.
+                hits.append((node.lineno, "string", node.value))
+            elif BOARD_EXPORT_FRAGMENT in node.value and id(node) not in prose:
+                hits.append((node.lineno, "board export path", node.value))
     return hits
 
 
@@ -809,6 +892,13 @@ def test_contract_adjacent_exceptions_are_live_and_justified():
         "from src.api.matchup_intel import build_matchup_intel",
         "row['rankDerivedValue']",
         "row.get('canonicalConsensusRank')",
+        # Every host cache, not only the two the scan started with.
+        "import server\nserver.latest_runtime_data",
+        "from server import latest_startup_data_bytes as cached",
+        "x = getattr(srv, 'latest_compact_data_etag', None)",
+        # The board's export file, however the path is spelled.
+        "paths = sorted(root.glob('dynasty_data_*.json'))",
+        "p = root / 'exports' / 'latest' / f'dynasty_data_{day}.json'",
     ],
 )
 def test_contract_scan_flags_every_form_it_claims_to(source):
@@ -823,6 +913,9 @@ def test_contract_scan_flags_every_form_it_claims_to(source):
         "from src.ros import lineup\nfrom src.public_league import playoff_odds",
         "from src.roster_intel.core import build_meaningful_core",
         "value = row['rosValue']",
+        '"""Never opens exports/latest/dynasty_data_*.json."""',
+        # Exact host names, not the prefix: a local ``latest_*`` is no host cache.
+        "latest_playoff = sims / 'latest_playoff.json'",
     ],
 )
 def test_contract_scan_does_not_flag_prose_or_unrelated_imports(source):
@@ -856,8 +949,61 @@ CONTRACT_GETTERS = (
     ("src.api.team_assignment", ("build_section",)),
 )
 #: The host's module globals: ``server.latest_contract_data`` is how ``src/``
-#: reaches the served board (``getattr(server_module, "latest_contract_data")``).
-HOST_CONTRACT_ATTRS = ("latest_contract_data", "latest_data")
+#: reaches the served board (``getattr(server_module, "latest_contract_data")``),
+#: and every other ``latest_*`` global is a cached copy of a served payload.
+#: All are trapped by ``HOST_CACHE_PREFIX``; ``_host_cache_names`` lists them.
+#:
+#: The raw board on disk: any file named like this, wherever the copy lives
+#: (``exports/latest/``, ``data/``, the repo root), and anything in the
+#: published export directory (``dynasty_data.js``, ``dynasty_full.csv``, ...).
+BOARD_EXPORT_GLOB = "dynasty_data_*.json"
+BOARD_EXPORT_DIR = ("exports", "latest")
+
+# ── Where the stubs stop ────────────────────────────────────────────
+#
+# The tripwire only sees code the fixtures EXECUTE. These are the edges of that,
+# named so a passing run is not read as covering more than it does:
+#
+# * ``team_strength.load_or_compute_team_strength`` and
+#   ``sleeper_overlay.fetch_sleeper_overlay`` never run under the tripwire.
+#   ``sim_env`` stubs ``playoff_sim._load_ros_strength_map`` and
+#   ``_load_team_depth_ratios``, and the best-ball test stubs
+#   ``_load_team_rosters`` -- the three simulator callers of
+#   ``load_or_compute_team_strength``, whose cold path falls through to the
+#   (network) ``fetch_sleeper_overlay``. Only the LEXICAL scan holds them:
+#   ``team_strength.py`` is guarded; ``sleeper_overlay.py`` lives in
+#   ``src/api`` and is not scanned at all. (It takes the contract's NFL id map
+#   only when a caller passes ``id_to_player``; the forecast-path callers pass
+#   none.) ``build_public_snapshot`` is stubbed likewise: the snapshot is built
+#   in memory, never fetched.
+# * The ``game_day_live`` exclusion's disk read sits on the best-ball pre-sim
+#   path: ``playoff_sim._presim_availability`` -> ``matchup_intel._players_meta``
+#   -> ``game_day_live.persisted_players_meta``, which reads the persisted
+#   Sleeper players DB (``data/game_day/live/_nfl/nfl_players.json``). ``game_day_live.py``
+#   is excluded from the lexical scan (``GUARD_EXCLUDED``) and the best-ball
+#   test stubs that call, so NEITHER guard reads its body. It is player
+#   metadata, not the board; that rests on review, not on a test here.
+# * Direct disk reads of the board's export (``exports/latest/dynasty_data_*.json``
+#   and its ``data/`` copies) never touch a getter or a host attribute, so the
+#   getter and host traps cannot see them. Two guards cover that instead: the
+#   lexical scan flags any guarded module that spells ``BOARD_EXPORT_FRAGMENT``
+#   (no guarded module does today -- every reader is in ``server.py``,
+#   ``src/api``, ``src/sources``, ``src/history``, ``src/consensus_edge``,
+#   ``src/model_registry`` or ``scripts/``), and the tripwire wraps
+#   ``builtins.open`` / ``io.open`` (which ``Path.read_text``, ``read_bytes``,
+#   ``Path.open``, ``json.load(open(...))`` and ``gzip.open`` all reach) and
+#   trips on ``BOARD_EXPORT_GLOB`` or ``BOARD_EXPORT_DIR``. It does not see
+#   ``os.open``, ``_io.open`` / ``io.FileIO``, a name bound before arming
+#   (``from io import open``), or a subprocess (``git show`` of an export).
+# * A function DEFINED in ``server.py`` reads its own ``latest_*`` globals
+#   through the module dict, never the trapped attribute. No simulator path
+#   calls into ``server`` (``src/ros/api.py``'s ``_require_admin_session`` is
+#   the HTTP layer).
+# * The identity scan rebinds MODULE GLOBALS. A getter or a host cache held in
+#   a container, a class attribute, a closure, a default argument or a
+#   ``functools.partial`` is not rebound, so a call or a use through it is not
+#   seen. An alias bound while the host held ``None`` is not rebound either,
+#   and need not be: it holds ``None`` for good (see ``_identity_bearing``).
 
 SIM_OWNERS = [f"owner{i:02d}" for i in range(1, 7)]
 SIM_STRENGTH = dict(zip(SIM_OWNERS, [41.0, 77.0, 58.0, 90.0, 33.0, 66.0]))
@@ -878,7 +1024,10 @@ class _ContractRead(BaseException):
 class _Tripwire:
     def __init__(self):
         self.reads: list[str] = []
-        self.armed: list[tuple[str, str]] = []
+        #: ``(module, binding, getter)`` for every rebound getter binding.
+        self.armed: list[tuple[str, str, str]] = []
+        #: ``(module, binding, host cache)`` for every ``src`` alias of a host cache.
+        self.aliased: list[tuple[str, str, str]] = []
 
     def trip(self, what):
         self.reads.append(what)
@@ -889,46 +1038,151 @@ class _Tripwire:
             self.trip(what)
 
         _tripped.__name__ = what.rsplit(".", 1)[-1]
+        _tripped.target = what
         return _tripped
+
+
+class _TrippedValue:
+    """Stands in for a host cache wherever a ``src`` module holds the SAME object.
+
+    Reading a module global cannot be intercepted, so this trips on any USE of
+    it: attribute access (``.get``, ``.items``, and ``__class__``, so
+    ``isinstance`` too), indexing, iteration, ``len``, ``in``, truthiness,
+    comparison, hashing, ``str`` / ``format``, copying and calling. A bare
+    identity test (``x is None``) is the one use it cannot see. ``repr`` stays
+    safe so a failing assertion can still print it.
+    """
+
+    __slots__ = ("_tripwire", "_what")
+
+    def __init__(self, tripwire, what):
+        object.__setattr__(self, "_tripwire", tripwire)
+        object.__setattr__(self, "_what", what)
+
+    def _trip(self, *args, **kwargs):
+        object.__getattribute__(self, "_tripwire").trip(object.__getattribute__(self, "_what"))
+
+    def __getattribute__(self, attr):
+        object.__getattribute__(self, "_trip")()
+
+    def __repr__(self):
+        return f"<tripped {object.__getattribute__(self, '_what')}>"
+
+
+for _dunder in (
+    "__bool__ __len__ __iter__ __reversed__ __contains__ __getitem__ __setitem__ "
+    "__delitem__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __hash__ __str__ "
+    "__format__ __bytes__ __fspath__ __index__ __int__ __float__ __call__ "
+    "__setattr__ __delattr__ __or__ __ror__ __add__ __radd__ __copy__ "
+    "__deepcopy__ __reduce__ __reduce_ex__"
+).split():
+    setattr(_TrippedValue, _dunder, _TrippedValue._trip)
+
+
+def _identity_bearing(value):
+    """Whether ``value is x`` can only mean "``x`` IS that cached object".
+
+    ``None``, booleans and numbers are shared or interned, and an empty str /
+    bytes / tuple is one object process-wide, so the same identity in a ``src``
+    module says nothing about where it came from. Skipping them loses nothing:
+    such a value is immutable, so an alias bound to it holds that value for good
+    -- one bound while the host held ``None`` can never reach a later board
+    (``server`` REBINDS its ``latest_*`` globals; it cannot fill in ``None``).
+    """
+    if value is None or isinstance(value, (bool, int, float, complex)):
+        return False
+    return not (isinstance(value, (str, bytes, tuple, frozenset)) and not value)
+
+
+def _board_export_path(file):
+    """``file`` as a POSIX path when it names the dynasty board on disk, else ``None``."""
+    if isinstance(file, int):
+        return None  # an already-open descriptor
+    try:
+        path = os.fsdecode(os.fspath(file))
+    except TypeError:
+        return None
+    parts = Path(os.path.normcase(os.path.abspath(path))).parts
+    in_export_dir = any(
+        parts[i : i + len(BOARD_EXPORT_DIR)] == BOARD_EXPORT_DIR for i in range(len(parts))
+    )
+    if in_export_dir or fnmatch.fnmatch(os.path.basename(path), BOARD_EXPORT_GLOB):
+        return Path(path).as_posix()
+    return None
 
 
 def _arm_contract_tripwire(monkeypatch):
     """Make every way of reading the loaded dynasty contract raise and record.
 
-    Importing the getters' modules is not a read; calling a getter, or reading
-    the host's contract attribute, is.
+    Importing the getters' modules is not a read; calling a getter, touching a
+    host ``latest_*`` cache, or opening the board's export file is. Bindings are
+    matched by OBJECT IDENTITY, not by name, so ``from ... import
+    contract_roster_pools as pools``, ``_pools = contract_roster_pools`` and
+    ``from server import latest_contract_data as board`` are all trapped.
     """
     tripwire = _Tripwire()
-    resolved = []
+    getters = {}
     for module_name, names in CONTRACT_GETTERS:
         module = importlib.import_module(module_name)
-        # ``getattr`` (no default): a renamed getter fails here, loudly, rather
-        # than leaving a tripwire that guards a name nothing calls any more.
-        resolved += [(module_name, name, getattr(module, name)) for name in names]
-    for module_name, name, original in resolved:
-        replacement = tripwire.getter(f"{module_name}.{name}")
-        for holder_name, holder in list(sys.modules.items()):
-            if not isinstance(holder, types.ModuleType):
+        for name in names:
+            # ``getattr`` (no default): a renamed getter fails here, loudly, rather
+            # than leaving a tripwire that guards a name nothing calls any more.
+            original = getattr(module, name)
+            getters[id(original)] = (original, tripwire.getter(f"{module_name}.{name}"))
+
+    # ``server`` is heavy and usually not imported in a unit test: stand in for
+    # it. If it IS loaded, trap reads on the real module instead -- and find its
+    # cached objects wherever a ``src`` module aliased them.
+    host = sys.modules.get("server")
+    host_caches = {}
+    if host is not None:
+        for attr in _host_cache_names():
+            value = vars(host).get(attr)
+            if _identity_bearing(value):
+                host_caches[id(value)] = (value, attr)
+
+    for holder_name, holder in list(sys.modules.items()):
+        if not isinstance(holder, types.ModuleType):
+            continue
+        in_src = holder_name.startswith("src.")
+        if not (in_src or holder_name == "server"):
+            continue
+        for binding, value in list(vars(holder).items()):
+            getter = getters.get(id(value))
+            if getter is not None and getter[0] is value:
+                monkeypatch.setattr(holder, binding, getter[1])
+                tripwire.armed.append((holder_name, binding, getter[1].target))
                 continue
-            if not (holder_name.startswith("src.") or holder_name == "server"):
-                continue
-            if vars(holder).get(name) is original:
-                monkeypatch.setattr(holder, name, replacement)
-                tripwire.armed.append((holder_name, name))
+            cached = host_caches.get(id(value)) if in_src else None
+            if cached is not None and cached[0] is value:
+                what = f"server.{cached[1]} (bound as {holder_name}.{binding})"
+                # ``setitem`` on the module dict, not ``setattr``: ``setattr``
+                # type-checks the new value, and that check is itself a use.
+                monkeypatch.setitem(vars(holder), binding, _TrippedValue(tripwire, what))
+                tripwire.aliased.append((holder_name, binding, f"server.{cached[1]}"))
 
     class _TrippedHost(types.ModuleType):
         def __getattribute__(self, attr):
-            if attr in HOST_CONTRACT_ATTRS:
+            if attr.startswith(HOST_CACHE_PREFIX):
                 tripwire.trip(f"server.{attr}")
             return super().__getattribute__(attr)
 
-    # ``server`` is heavy and usually not imported in a unit test: stand in for
-    # it. If it IS loaded, trap reads on the real module instead.
-    real_host = sys.modules.get("server")
-    if real_host is None:
+    if host is None:
         monkeypatch.setitem(sys.modules, "server", _TrippedHost("server"))
     else:
-        monkeypatch.setattr(real_host, "__class__", _TrippedHost)
+        monkeypatch.setattr(host, "__class__", _TrippedHost)
+
+    real_open = builtins.open
+
+    def _guarded_open(file, *args, **kwargs):
+        board = _board_export_path(file)
+        if board is not None:
+            tripwire.trip(f"open:{board}")
+        return real_open(file, *args, **kwargs)
+
+    # ``io.open`` is what ``pathlib`` calls; ``builtins.open`` is everything else.
+    monkeypatch.setattr(builtins, "open", _guarded_open)
+    monkeypatch.setattr(io, "open", _guarded_open)
     return tripwire
 
 
@@ -1006,24 +1260,292 @@ def sim_env(ros_tmp, monkeypatch):
 def test_contract_tripwire_is_armed(contract_tripwire):
     """A tripwire that cannot trip would make every test below pass vacuously."""
     host = importlib.import_module("server")
-    for attr in HOST_CONTRACT_ATTRS:
+    caches = _host_cache_names()
+    for attr in caches:
         with pytest.raises(_ContractRead):
             getattr(host, attr, None)  # a default does not mask it
-    assert contract_tripwire.reads == [f"server.{a}" for a in HOST_CONTRACT_ATTRS]
+    assert contract_tripwire.reads == [f"server.{a}" for a in caches]
+    # The PREFIX is trapped, not a list: a cache added tomorrow trips unedited.
+    with pytest.raises(_ContractRead):
+        getattr(host, "latest_cache_added_tomorrow", None)
     assert getattr(host, "not_a_contract_name", None) is None  # nothing else is trapped
+    host_reads = len(contract_tripwire.reads)
 
     # Every binding of every getter, including the ``from ... import`` copies
     # that patching only the defining module would have missed.
     armed = contract_tripwire.armed
-    assert ("src.api.data_contract", "contract_roster_pools") in armed
-    assert ("src.api.roster_intelligence", "contract_roster_pools") in armed
-    assert ("src.api.team_assignment", "contract_roster_pools") in armed
-    assert ("src.api.trade_analyze_runtime", "contract_generation") in armed
-    assert len({name for _, name in armed}) == sum(len(names) for _, names in CONTRACT_GETTERS)
-    for module_name, name in armed:
+    bound = {(module_name, binding) for module_name, binding, _ in armed}
+    assert ("src.api.data_contract", "contract_roster_pools") in bound
+    assert ("src.api.roster_intelligence", "contract_roster_pools") in bound
+    assert ("src.api.team_assignment", "contract_roster_pools") in bound
+    assert ("src.api.trade_analyze_runtime", "contract_generation") in bound
+    assert {target for *_, target in armed} == {
+        f"{module_name}.{name}" for module_name, names in CONTRACT_GETTERS for name in names
+    }
+    for module_name, binding, _ in armed:
         with pytest.raises(_ContractRead):
-            getattr(sys.modules[module_name], name)()
-    assert len(contract_tripwire.reads) == len(HOST_CONTRACT_ATTRS) + len(armed)
+            getattr(sys.modules[module_name], binding)()
+    assert len(contract_tripwire.reads) == host_reads + len(armed)
+
+
+def test_every_host_cache_is_enumerated():
+    """Every ``server.latest_*`` cache, not only ``latest_contract_data`` / ``latest_data``."""
+    static = set(_static_host_cache_names())
+    for family in ("data", "runtime_data", "startup_data", "array_data", "compact_data"):
+        for suffix in ("", "_bytes", "_gzip_bytes", "_etag"):
+            assert f"latest_{family}{suffix}" in static
+    assert {"latest_contract_data", "latest_data_source"} <= static
+    # Where an earlier test loaded the real host, the static list must name
+    # nothing the live module lacks (the dynamic half is unioned in by
+    # ``_host_cache_names``). This file never imports it to check: see
+    # ``_static_host_cache_names``.
+    host = sys.modules.get("server")
+    if getattr(host, "__file__", None):
+        assert static <= set(vars(host)), "server.py no longer binds a name listed here"
+
+
+def test_static_host_enumeration_reads_every_module_scope_binding():
+    source = textwrap.dedent(
+        """
+        latest_plain = None
+        latest_annotated: dict | None = None
+        latest_left, latest_right = None, None
+        if True:
+            latest_in_if = {}
+        from cache import thing as latest_imported
+
+        def latest_function():
+            latest_local = 1
+
+        def _loader():
+            global latest_declared_in_function
+            latest_declared_in_function = {}
+
+        not_a_cache = None
+        """
+    )
+    assert _host_cache_names_in(source) == (
+        "latest_annotated",
+        "latest_declared_in_function",
+        "latest_function",
+        "latest_imported",
+        "latest_in_if",
+        "latest_left",
+        "latest_plain",
+        "latest_right",
+    )
+
+
+def _probe_module(monkeypatch, source):
+    """A stand-in ``src`` module whose top level runs BEFORE the tripwire arms --
+    exactly when a real module's ``from ... import`` runs. It lives only in
+    ``sys.modules`` for one test; nothing is written under ``src/``."""
+    probe = types.ModuleType("src._tripwire_probe")
+    monkeypatch.setitem(sys.modules, probe.__name__, probe)
+    exec(compile(textwrap.dedent(source), "<tripwire probe>", "exec"), vars(probe))
+    return probe
+
+
+def _loaded_host(monkeypatch, **caches):
+    """A host that has loaded a board, as ``server`` has in production."""
+    host = types.ModuleType("server")
+    vars(host).update(caches)
+    monkeypatch.setitem(sys.modules, "server", host)
+    return host
+
+
+def test_an_aliased_getter_binding_is_trapped_by_identity(monkeypatch):
+    """Matching by name missed ``as`` imports and module-level rebinding."""
+    probe = _probe_module(
+        monkeypatch,
+        """
+        from src.api.data_contract import contract_roster_pools as pools
+        from src.api import trade_analyze_runtime
+        _generation = trade_analyze_runtime.contract_generation
+
+        def read_pools():
+            return pools({})
+
+        def read_generation():
+            return _generation()
+        """,
+    )
+    tripwire = _arm_contract_tripwire(monkeypatch)
+
+    for read in (probe.read_pools, probe.read_generation):
+        with pytest.raises(_ContractRead):
+            read()
+    assert tripwire.reads == [
+        "src.api.data_contract.contract_roster_pools",
+        "src.api.trade_analyze_runtime.contract_generation",
+    ]
+    assert ("src._tripwire_probe", "pools", tripwire.reads[0]) in tripwire.armed
+    assert ("src._tripwire_probe", "_generation", tripwire.reads[1]) in tripwire.armed
+
+
+def test_an_aliased_host_cache_is_trapped_by_identity(monkeypatch):
+    """``from server import latest_contract_data as board`` is never a host
+    attribute read once bound; the cached OBJECT is what gives it away."""
+    _loaded_host(
+        monkeypatch,
+        latest_contract_data={"players": {"p1": {"rankDerivedValue": 9000.0}}},
+        latest_runtime_data={"players": {}},
+        latest_runtime_data_bytes=b'{"players": {}}',
+        latest_startup_data=None,
+    )
+    probe = _probe_module(
+        monkeypatch,
+        """
+        from server import latest_contract_data as board
+        import server as _host
+        _runtime = _host.latest_runtime_data
+        from server import latest_runtime_data_bytes as runtime_bytes
+        from server import latest_startup_data as startup
+        unrelated = None
+
+        def read_board():
+            return board.get("players")
+
+        def read_runtime():
+            return isinstance(_runtime, dict) and len(_runtime)
+
+        def read_bytes():
+            return runtime_bytes.decode()
+        """,
+    )
+    tripwire = _arm_contract_tripwire(monkeypatch)
+
+    for read in (probe.read_board, probe.read_runtime, probe.read_bytes):
+        with pytest.raises(_ContractRead):
+            read()
+    assert tripwire.reads == [
+        "server.latest_contract_data (bound as src._tripwire_probe.board)",
+        "server.latest_runtime_data (bound as src._tripwire_probe._runtime)",
+        "server.latest_runtime_data_bytes (bound as src._tripwire_probe.runtime_bytes)",
+    ]
+    # Identity, not equality or type: ``None`` is everyone's ``None``, so neither
+    # ``None`` binding is touched (and an alias of ``None`` holds no board).
+    assert probe.startup is None and probe.unrelated is None
+    assert {b for _, b, _ in tripwire.aliased} == {"board", "_runtime", "runtime_bytes"}
+
+
+@pytest.mark.parametrize("read", ["open", "read_text", "read_bytes", "path_open", "json_load"])
+def test_reading_the_board_export_from_disk_trips(tmp_path, monkeypatch, read):
+    board = tmp_path / "exports" / "latest" / "dynasty_data_2026-10-26.json"
+    board.parent.mkdir(parents=True)
+    board.write_text('{"players": {}}', encoding="utf-8")
+    tripwire = _arm_contract_tripwire(monkeypatch)
+
+    def _open():
+        with open(board, encoding="utf-8") as fh:
+            return fh.read()
+
+    def _path_open():
+        with board.open("rb") as fh:
+            return fh.read()
+
+    def _json_load():
+        with open(str(board), "rb") as fh:
+            return json.load(fh)
+
+    readers = {
+        "open": _open,
+        "read_text": board.read_text,
+        "read_bytes": board.read_bytes,
+        "path_open": _path_open,
+        "json_load": _json_load,
+    }
+    with pytest.raises(_ContractRead):
+        readers[read]()
+    assert tripwire.reads == [f"open:{board.as_posix()}"]
+
+
+@pytest.mark.parametrize(
+    "rel, is_board",
+    [
+        ("exports/latest/dynasty_data_2026-10-26.json", True),
+        ("data/dynasty_data_2026-10-26.json", True),
+        ("dynasty_data_2026-10-26.json", True),
+        ("exports/latest/dynasty_full.csv", True),
+        ("ros/aggregate/latest.json", False),
+        ("ros/sims/latest_playoff.json", False),
+        ("exports/narratives/week4.json", False),
+    ],
+)
+def test_the_board_export_guard_traps_the_board_and_nothing_else(
+    tmp_path, monkeypatch, rel, is_board
+):
+    target = tmp_path / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("{}", encoding="utf-8")
+    tripwire = _arm_contract_tripwire(monkeypatch)
+
+    if is_board:
+        with pytest.raises(_ContractRead):
+            target.read_text(encoding="utf-8")
+        assert tripwire.reads == [f"open:{target.as_posix()}"]
+    else:
+        assert target.read_text(encoding="utf-8") == "{}"
+        assert tripwire.reads == []
+
+
+@pytest.mark.parametrize(
+    "injected", ["host_cache", "aliased_host_cache", "aliased_getter", "board_export"]
+)
+def test_a_read_injected_into_the_forecast_path_is_caught(sim_env, tmp_path, monkeypatch, injected):
+    """The mutation check, kept: each trap fires on the REAL refresh path.
+
+    The read is injected into a stub (the team-strength loader ``sim_env``
+    already stubs), never into ``src``. The clean-path tests above assert
+    ``reads == []``, so a read of any of these forms appearing in a simulator
+    fails them.
+    """
+    if injected == "host_cache":
+        probe = SimpleNamespace(read=lambda: importlib.import_module("server").latest_startup_data)
+        expected = "server.latest_startup_data"
+    elif injected == "aliased_host_cache":
+        _loaded_host(monkeypatch, latest_contract_data={"players": {}})
+        probe = _probe_module(
+            monkeypatch,
+            """
+            from server import latest_contract_data as board
+
+            def read():
+                return board.get("players")
+            """,
+        )
+        expected = "server.latest_contract_data (bound as src._tripwire_probe.board)"
+    elif injected == "aliased_getter":
+        probe = _probe_module(
+            monkeypatch,
+            """
+            from src.api.data_contract import contract_roster_pools as pools
+
+            def read():
+                return pools({})
+            """,
+        )
+        expected = "src.api.data_contract.contract_roster_pools"
+    else:
+        board = tmp_path / "exports" / "latest" / "dynasty_data_2026-10-26.json"
+        board.parent.mkdir(parents=True)
+        board.write_text("{}", encoding="utf-8")
+        probe = SimpleNamespace(read=board.read_text)
+        expected = f"open:{board.as_posix()}"
+    tripwire = _arm_contract_tripwire(monkeypatch)
+
+    def _strength_that_reads(*args, **kwargs):
+        probe.read()
+        return dict(SIM_STRENGTH)
+
+    monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", _strength_that_reads)
+    cfg = SimpleNamespace(key="dynasty_tripwire", sleeper_league_id="LTRIPWIRE", best_ball=False)
+
+    with contextlib.suppress(_ContractRead):
+        scrape._refresh_sim_caches_for_league(cfg, "dynasty_main")
+
+    assert tripwire.reads, "the injected read never ran; this test proved nothing"
+    assert set(tripwire.reads) == {expected}
 
 
 def test_forecast_production_path_reads_no_contract(sim_env, contract_tripwire):

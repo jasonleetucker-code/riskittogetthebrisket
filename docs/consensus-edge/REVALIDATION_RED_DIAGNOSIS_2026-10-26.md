@@ -123,6 +123,60 @@ summary script for each outcome combination (POSIX bash only) and statically
 checks that the drift message is guarded on a compare failure (all platforms).
 Study, gate, thresholds and comparison logic are unchanged.
 
+A follow-up (PR #1980) closes the remaining gaps. The compare step also exits 1
+on an uncaught error, so a failing comparison now ends with exactly one result
+line, printed last, right before its `exit 1`:
+`CE_REVALIDATE_RESULT=verdict_drift` when at least one verdict differs from a
+committed one (even if another horizon also has no committed measurement), or
+`CE_REVALIDATE_RESULT=missing_committed_measurement` when no compared verdict
+differs but at least one fresh horizon has no committed measurement to compare
+against. Both keep the job red. The summary reads them as whole lines of
+`compare.txt`:
+
+* compare step passed, its closing match line present, neither result line
+  present: "Committed verdicts still describe the code.";
+* compare step passed in any other case (for example, a lost `pipefail` let
+  `tee` hide python's exit 1): a harness inconsistency, never success;
+* compare step failed after a successful re-run: drift with the drift line
+  (commit the fresh measurements, move the flag default per ADR-023); a missing
+  fresh measurement with that line (below); a missing committed measurement
+  with that line (commit the fresh measurement for each of those horizons, no
+  flag advice); with none of them, "**The comparison did not finish, so this
+  run reached no verdict.**";
+* anything else: "**The re-run or the comparison did not complete, so this run
+  reached no verdict.**"
+
+The compare step reads the fresh files in sorted order (`h14` before `h7`), so
+a crash or a cancellation can leave real per-horizon lines in `compare.txt`.
+No message says that nothing was compared; the non-result messages say those
+lines are partial and are not a result. The test file also pins that the
+compare step sets `pipefail` before its `| tee`.
+
+**No fresh measurement (a false green, closed in the same PR).** The compare
+step compared whatever fresh files it found in `/tmp/ce-rerun`. A re-run step
+that passed but wrote fewer `--out` files than the horizons it was asked for
+therefore left horizons uncompared, and one that wrote none compared nothing;
+either way the step printed its closing match line and the summary said
+"Committed verdicts still describe the code." Two ways in: the study has an
+exit-0 path that writes no `--out` file (`--dry-run`, which the workflow does
+not pass today), and a dispatch input of only spaces runs the re-run loop zero
+times. Re-running the pre-fix workflow with a stub study that exits 0 and
+writes nothing gave a passing compare step and the match message, both on a
+schedule and for an all-spaces dispatch. The compare step now reads the
+horizons the re-run step recorded (`steps.rerun.outputs.horizons`, `7 14`
+unless a dispatch named others, passed as `CE_REQUESTED_HORIZONS`) and needs a
+fresh measurement for every one, matched on the measurement's own
+`horizonDays`. Any missing, or none requested, gives a `NO FRESH MEASUREMENT`
+list and `CE_REVALIDATE_RESULT=no_fresh_measurement` (exit 1). An unset or
+non-integer horizon list is a crash with no result line. When several apply,
+exactly one result line is printed, in this order: `verdict_drift`, then
+`no_fresh_measurement`, then `missing_committed_measurement`. The summary
+reads it as "**The re-run produced no fresh measurement for the named
+horizons, so this run reached no verdict for them.**", says it is neither
+drift nor a match, and gives no flag advice. Its success branch now rejects
+any line that starts `CE_REVALIDATE_RESULT=`, not a fixed list. The study,
+gate, thresholds, verdict comparison and every step name are unchanged.
+
 ## 5. What a green run does and does not say
 
 (Carried over from the audit, verified against the workflow.)
