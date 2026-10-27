@@ -564,9 +564,23 @@ async def create_room(request: Request):
                 {"name": f"Team {i + 1}", "team": "", "sleeper_user_id": None, "roster_id": None}
                 for i in range(rules["seat_count"])
             ]
+        seat_league_key = _league_key_of(contract) if seat_source == "league" else None
         if budget_source == "draft_capital":
-            dc = await _draft_capital_payload(request)
-            seats, provenance = sources.join_budgets(seats, dc)
+            # Budgets for the SEATS' league, asked for explicitly: left to the
+            # resolver, the request fell back to the admin's saved league,
+            # which need not be the loaded board's (LI1842-DEFECT-13).
+            dc = await _draft_capital_payload(request, league_key=seat_league_key)
+            seats, provenance = sources.join_budgets(seats, dc, seat_league_key=seat_league_key)
+            if provenance.get("leagueMismatch"):
+                # Fail closed: never open a room on another league's dollars,
+                # nor on dollars whose league the payload does not state.
+                raise AuctionError(
+                    provenance["leagueMismatch"],
+                    "draft-capital budgets are for league "
+                    f"{provenance.get('leagueKey')!r} but the seats are league "
+                    f"{seat_league_key!r}; refusing to mix them",
+                    409,
+                )
         elif budget_source in ("equal", "zero"):
             amount = 0 if budget_source == "zero" else int(body.get("equalAmount") or 100)
             engine._require_dollars(amount, "equalAmount")
@@ -613,7 +627,7 @@ async def create_room(request: Request):
         state["budget_provenance"] = provenance
         # Which league's rosters these seats are, so Perfect Draft advice can
         # refuse a board loaded for a different league (never a chimera).
-        state["league_key"] = _league_key_of(contract) if seat_source == "league" else None
+        state["league_key"] = seat_league_key
         store = get_store()
         await run_in_threadpool(store.create_room, state, created_by=user.id, now_real=_now())
 
@@ -650,14 +664,31 @@ def _league_key_of(contract) -> str | None:
         return None
 
 
-async def _draft_capital_payload(request: Request) -> dict:
+def _request_for_league(request: Request, league_key: str | None) -> Request:
+    """``request`` with ``leagueKey`` set in its query string (else unchanged).
+
+    The draft-capital handler resolves its league from the query first, so
+    this pins the league explicitly; headers (the session cookie) are kept.
+    """
+    if not league_key:
+        return request
+    from urllib.parse import parse_qsl, urlencode
+
+    query = request.scope.get("query_string", b"").decode("latin-1")
+    pairs = [(k, v) for k, v in parse_qsl(query) if k != "leagueKey"]
+    pairs.append(("leagueKey", str(league_key)))
+    scope = {**request.scope, "query_string": urlencode(pairs).encode("latin-1")}
+    return Request(scope, request.receive)
+
+
+async def _draft_capital_payload(request: Request, *, league_key: str | None = None) -> dict:
     srv = sys.modules.get("server") or sys.modules.get("__main__")
     fn = getattr(srv, "get_draft_capital", None)
     if fn is None:
         raise AuctionError(
             "draft_capital_unavailable", "draft capital is unavailable in this process", 503
         )
-    resp = await fn(request)
+    resp = await fn(_request_for_league(request, league_key))
     if isinstance(resp, Response):
         if resp.status_code != 200:
             raise AuctionError(
@@ -1489,14 +1520,11 @@ async def room_advice_context(request: Request, room_id: str):
     meta = contract.get("meta") or {}
     # Current canonical values for this room's frozen pool (advice may refresh
     # values; accepted bids, budgets and the pool never change because of it).
-    wanted = set(state["pool"]["players"])
-    values = {}
-    for row in contract.get("playersArray") or []:
-        pid = str(row.get("playerId") or "")
-        if pid in wanted:
-            v = row.get("rankDerivedValue")
-            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
-                values[pid] = float(v)
+    # A board declared for another league yields NO values (LATENT-06).
+    values, withheld = sources.advice_board_values(contract, state)
+    if withheld:
+        out["reason"] = withheld
+        return out
     out["boardValues"] = values
     out["valuesAsOf"] = meta.get("generatedAt") or contract.get("scrapeTimestamp")
     if not seat or not seat.get("sleeper_user_id") or not state.get("league_key"):
