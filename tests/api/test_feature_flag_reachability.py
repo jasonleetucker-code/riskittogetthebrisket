@@ -164,7 +164,9 @@ def _gate_sites() -> dict[str, set[str]]:
                 continue
             arg = node.args[0]
             if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                sites.setdefault(arg.value, set()).add(str(path.relative_to(REPO_ROOT)))
+                # ``as_posix``: ``_measure`` matches ``scripts/`` prefixes and
+                # turns ``/`` into ``.``; ``str()`` would give ``\`` on Windows.
+                sites.setdefault(arg.value, set()).add(path.relative_to(REPO_ROOT).as_posix())
     return sites
 
 
