@@ -93,6 +93,38 @@ def test_backup_dir_used_is_a_label_not_a_path():
         assert pd.is_path_key(key), key
 
 
+@pytest.mark.parametrize(
+    "name,secret",
+    [
+        ("SMTP_PASSWORD", True),
+        ("SHARP_SMOKE_TOKEN", True),
+        ("OPENAI_API_KEY", True),
+        ("UPTIME_CHECK_URL", True),
+        ("SLEEPER_LEAGUE_ID", True),
+        ("PRIVATE_APP_ALLOWED_USERNAMES", True),
+        ("E2E_TEST_SECRET", True),
+        ("DEFAULT_LEAGUE_KEY", False),
+        ("RISKIT_LEAGUE_KEY", False),
+        ("SESSION_TTL_SECONDS", False),
+        ("RISKIT_FEATURE_PASSTHROUGH_MODE", False),
+        ("PATHEXT", False),
+        ("SCRAPE_INTERVAL_HOURS", False),
+    ],
+)
+def test_env_names_are_matched_on_curated_tokens(name, secret):
+    assert pd.is_secret_env_name(name) is secret
+
+
+def test_a_league_key_env_value_never_scrubs_league_keys_from_status():
+    env = {"DEFAULT_LEAGUE_KEY": "dynasty_main", "SMTP_PASSWORD": SECRET}
+    out = pd.public_status_payload(
+        {"leagues": [{"key": "dynasty_main"}], "error": f"login failed {SECRET}"},
+        environ=env,
+    )
+    assert out["leagues"][0]["key"] == "dynasty_main"
+    assert SECRET not in json.dumps(out)
+
+
 def test_short_and_ordinary_env_values_are_not_scrubbed():
     values = pd.secret_env_values(
         {"APP_HOST": "127.0.0.1", "SMTP_PORT_PASS": "1", "MY_TOKEN": SECRET, "PATHEXT": ".EXE;.BAT"}
@@ -230,7 +262,10 @@ def _served(handler) -> tuple[int, dict, str]:
     return response.status_code, json.loads(text), text
 
 
-@pytest.mark.parametrize("handler_name", ["get_status", "get_health"])
+_PUBLIC_HANDLERS = ["get_status", "get_health", "get_uptime_status", "get_metrics"]
+
+
+@pytest.mark.parametrize("handler_name", _PUBLIC_HANDLERS)
 def test_served_response_carries_no_internal_anywhere(planted, handler_name):
     _code, body, text = _served(getattr(server, handler_name))
     problems = pd.unsafe_public_values(body)
@@ -242,7 +277,33 @@ def test_served_response_carries_no_internal_anywhere(planted, handler_name):
     assert "Traceback" not in text
     assert "1312006700437352448" not in text
     assert "127.0.0.1:8000" not in text
-    assert body["publicDiagnostics"]["filesystemPaths"] == "withheld"
+    if handler_name != "get_metrics":  # all-numeric payload, no projection needed
+        assert body["publicDiagnostics"]["filesystemPaths"] == "withheld"
+
+
+def test_uptime_endpoint_keeps_its_counters_and_withholds_the_target(planted):
+    planted.setitem(
+        server.uptime_status,
+        "last_error",
+        f"<urlopen error [Errno 111] Connection refused> http://user:{SECRET}@10.0.0.5/x "
+        f"{HOST_ROOT}/sock",
+    )
+    _code, body, text = _served(server.get_uptime_status)
+    assert body["targetKind"] == "loopback"
+    assert "target_url" not in body
+    for key in ("enabled", "last_check", "last_ok", "last_http_status", "consecutive_failures"):
+        assert key in body, key
+    assert "Connection refused" in body["last_error"]
+    assert SECRET not in text and HOST_ROOT not in text
+    assert pd.unsafe_public_values(body) == []
+    # The raw global is untouched (the watchdog keeps writing it).
+    assert server.uptime_status["target_url"] == "http://127.0.0.1:8000/api/health"
+
+
+def test_uptime_route_serves_the_projection():
+    import inspect
+
+    assert "public_uptime_payload(uptime_status)" in inspect.getsource(server.get_uptime_status)
 
 
 def test_status_keeps_what_monitoring_reads(planted):
@@ -303,7 +364,7 @@ def test_startup_validation_crash_branch_is_safe(planted):
     assert body["startupChecks"]["failed"] == 1
 
 
-@pytest.mark.parametrize("handler_name", ["get_status", "get_health"])
+@pytest.mark.parametrize("handler_name", ["get_status", "get_health", "get_uptime_status"])
 def test_a_field_added_later_is_public_safe_without_anyone_remembering(planted, handler_name):
     """The guard for the future: a new diagnostic that leaks is scrubbed."""
     future = {
@@ -314,6 +375,8 @@ def test_a_field_added_later_is_public_safe_without_anyone_remembering(planted, 
         f"{HOST_ROOT}/keyed": 1,
     }
     planted.setattr(server, "_nfl_data_provider_status_safe", lambda: future)
+    for key, val in future.items():
+        planted.setitem(server.uptime_status, key, val)
     if handler_name == "get_health":
         from src.utils import circuit_breaker as cb
 
@@ -382,6 +445,14 @@ _CONSUMERS = [
     "frontend/components/admin/ServerStatusPanel.jsx",
     "frontend/components/StaleDataBanner.jsx",
     "frontend/components/SourceHealthStrip.jsx",
+    "frontend/app/admin/page.jsx",
+    "frontend/app/tools/source-health/page.jsx",
+    "frontend/app/rankings/page.jsx",
+    "frontend/app/api/status/route.js",
+    "src/sources/signals_health.py",
+    "scripts/watchdog_contract_coverage.py",
+    "deploy/systemd/dynasty-healthcheck.sh",
+    "deploy/monitoring/uptime_check.sh",
 ]
 
 

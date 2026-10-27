@@ -6964,8 +6964,13 @@ app.add_api_route("/api/health", get_health, methods=["HEAD"], name="head_health
 
 @app.get("/api/uptime")
 async def get_uptime_status():
-    """Detailed uptime watchdog state."""
-    return JSONResponse(content=uptime_status)
+    """Detailed uptime watchdog state -- the PUBLIC projection.
+
+    Anonymous (``_PUBLIC_API_EXACT``): the env-derived ``target_url`` becomes
+    ``targetKind`` and ``last_error`` passes the public-diagnostics backstop.
+    The raw global is in ``/api/admin/diagnostics`` (``status.uptime``).
+    """
+    return JSONResponse(content=_public_diagnostics.public_uptime_payload(uptime_status))
 
 
 @app.get("/api/metrics")

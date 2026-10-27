@@ -108,12 +108,58 @@ _WINDOWS_ABS_PATH = re.compile(
 )
 _TRACEBACK = re.compile(r"Traceback \(most recent call last\)|File \"[^\"]+\", line \d+")
 
-#: Env var NAMES whose values are secrets or deployment-specific identifiers.
-_SECRET_ENV_NAME = re.compile(
-    r"(KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASS|COOKIE|SESSION|CREDENTIAL|DSN|"
-    r"AUTH|PRIVATE|SMTP|WEBHOOK|URL|HOST|LEAGUE_ID|USERNAME|EMAIL)",
-    re.IGNORECASE,
+#: Env var NAMES whose values are secrets or deployment-specific identifiers,
+#: matched on whole ``_``-separated TOKENS (curated, not substrings), so a
+#: ``*_LEAGUE_KEY`` / ``*_SESSION_TTL`` / ``*_PASSTHROUGH`` name can never make
+#: a legitimate league key or number disappear from status text.
+_SECRET_ENV_TOKENS = frozenset(
+    {
+        "TOKEN",
+        "TOKENS",
+        "SECRET",
+        "SECRETS",
+        "PASSWORD",
+        "PASSWD",
+        "PASS",
+        "PASSPHRASE",
+        "COOKIE",
+        "COOKIES",
+        "CREDENTIAL",
+        "CREDENTIALS",
+        "DSN",
+        "WEBHOOK",
+        "APIKEY",
+        "URL",
+        "URI",
+        "HOST",
+        "USERNAME",
+        "USERNAMES",
+        "EMAIL",
+        "SMTP",
+    }
 )
+#: Two-token suffixes that are secrets although neither token alone is
+#: (``KEY`` alone is not: ``LEAGUE_KEY`` names a public league key).
+_SECRET_ENV_SUFFIXES = (
+    ("API", "KEY"),
+    ("PRIVATE", "KEY"),
+    ("SECRET", "KEY"),
+    ("ACCESS", "KEY"),
+    ("SIGNING", "KEY"),
+    ("DEPLOY", "KEY"),
+    ("LEAGUE", "ID"),
+)
+
+
+def is_secret_env_name(name: str) -> bool:
+    """Whether env var ``name`` names a value no public payload may echo."""
+    tokens = [t for t in re.split(r"[^A-Za-z0-9]+", name.upper()) if t]
+    if any(t in _SECRET_ENV_TOKENS for t in tokens):
+        return True
+    pairs = set(zip(tokens, tokens[1:]))
+    return any(suffix in pairs for suffix in _SECRET_ENV_SUFFIXES)
+
+
 #: Values shorter than this are too generic to scrub (``1``, ``true``, ``8000``).
 _MIN_ENV_VALUE_LEN = 6
 #: Values that are common words, not secrets, and would scrub real status text.
@@ -149,7 +195,7 @@ def secret_env_values(environ: Mapping[str, str] | None = None) -> tuple[str, ..
     values = {
         str(v)
         for k, v in env.items()
-        if _SECRET_ENV_NAME.search(k)
+        if is_secret_env_name(str(k))
         and isinstance(v, str)
         and len(v.strip()) >= _MIN_ENV_VALUE_LEN
         and v.strip().lower() not in _ENV_VALUE_ALLOWLIST
@@ -368,6 +414,15 @@ def public_health_payload(
     if "uptime_watchdog" in out:
         out["uptime_watchdog"] = _project_uptime(out["uptime_watchdog"])
     return _finish(out, environ)
+
+
+def public_uptime_payload(
+    payload: Mapping[str, Any], *, environ: Mapping[str, str] | None = None
+) -> dict[str, Any]:
+    """The anonymous-safe projection of ``/api/uptime`` (the ``uptime_status``
+    global): ``target_url`` becomes ``targetKind``; ``last_error`` (free-form
+    exception text that can carry the URL or a path) goes through the backstop."""
+    return _finish(_project_uptime(dict(payload)), environ)
 
 
 def unsafe_public_values(

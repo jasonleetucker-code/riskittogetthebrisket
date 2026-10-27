@@ -289,6 +289,13 @@ jobs:
                     f"({sb_reason}). The nightly riskit-state-backup.service has not "
                     f"produced a current generation -- every irreplaceable store is at risk.")
               sys.exit(1)
+          elif sb_state == "unverifiable" and sb_reason == "permission_denied":
+              # Expected on production today: the app user cannot list the
+              # root-only canonical root.  Still NOT MEASURED, never an error.
+              print(f"::warning title=State backup NOT MEASURED (permission_denied, expected)::"
+                    f"The app cannot list the root-only state-backup root, so this run "
+                    f"verified the LEGACY SQLite backup only. Confirm on the box with sudo "
+                    f"(read-only): see docs/ops/STATE_BACKUP_TRUTHFULNESS.md.")
           else:
               print(f"::warning title=State backup NOT MEASURED::stateBackup is "
                     f"{sb_state or 'absent'} ({sb_reason or 'no reason'}). The app cannot "

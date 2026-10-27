@@ -63,10 +63,19 @@ def test_unverifiable_state_backup_is_not_measured_not_ok(tmp_path):
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "Legacy SQLite backup freshness OK." in proc.stdout
-    assert "::warning title=State backup NOT MEASURED::" in proc.stdout
-    assert "permission_denied" in proc.stdout
+    assert (
+        "::warning title=State backup NOT MEASURED (permission_denied, expected)::" in proc.stdout
+    )
     # The bare, unqualified claim the step used to make is gone.
     assert "\nSQLite backup freshness OK." not in "\n" + proc.stdout
+
+
+@pytest.mark.parametrize("reason", ["io_error", "probe_error", "generation_clock_skew"])
+def test_other_unverifiable_reasons_are_named_not_expected(tmp_path, reason):
+    proc = _run_backup_step(tmp_path, {"state": "unverifiable", "reason": reason})
+    assert proc.returncode == 0
+    assert "::warning title=State backup NOT MEASURED::" in proc.stdout
+    assert reason in proc.stdout and "expected" not in proc.stdout
 
 
 def test_absent_state_backup_block_is_not_measured(tmp_path):
