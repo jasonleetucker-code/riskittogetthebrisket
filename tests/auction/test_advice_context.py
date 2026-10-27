@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sys
 
+import pytest
+
 from src.api import draft_optimizer_api
 from tests.auction.test_api_store import ORIGIN, _make_room, _owner_client, env  # noqa: F401 - fixture import
 
@@ -176,3 +178,81 @@ def test_generic_seats_still_report_whose_budgets_they_read(env):  # noqa: F811
     prov = _make_room(c, seatSource="generic")["budgetProvenance"]
     assert prov["seatLeagueKey"] is None and prov["leagueMismatch"] is None
     assert prov["leagueKey"] == "dynasty_main"
+
+
+@pytest.fixture()
+def main_registry(tmp_path):
+    """A registry whose default league is the real ``dynasty_main`` entry (the
+    suite points the registry at a nonexistent file).  Restored, then
+    reloaded, on teardown -- in that order."""
+    import json
+    import os
+    from pathlib import Path
+
+    from src.api import league_registry
+
+    repo = Path(__file__).resolve().parents[2]
+    registry = json.loads((repo / "config/leagues/registry.json").read_text(encoding="utf-8"))
+    main = next(lg for lg in registry["leagues"] if lg["key"] == "dynasty_main")
+    path = tmp_path / "registry-main.json"
+    path.write_text(
+        json.dumps({"schemaVersion": 1, "defaultLeagueKey": "dynasty_main", "leagues": [main]}),
+        encoding="utf-8",
+    )
+    previous = os.environ.get("LEAGUE_REGISTRY_PATH")
+    os.environ["LEAGUE_REGISTRY_PATH"] = str(path)
+    league_registry.reload_registry()
+    try:
+        yield "dynasty_main"
+    finally:
+        if previous is None:
+            os.environ.pop("LEAGUE_REGISTRY_PATH", None)
+        else:
+            os.environ["LEAGUE_REGISTRY_PATH"] = previous
+        league_registry.reload_registry()
+
+
+@pytest.fixture()
+def real_server(monkeypatch, main_registry):
+    """The REAL ``server`` module, imported before ``env`` installs its fake.
+
+    Only the workbook builder is stubbed (it parses ``CSVs/Draft Data.xlsx``
+    and calls Sleeper); the handler itself -- league resolution, the cache,
+    and the ``leagueKey`` stamp it puts on every 200 -- runs for real.
+    """
+    import server as real  # noqa: PLC0415
+
+    monkeypatch.setattr(real, "_DRAFT_CAPITAL_CACHE", {})
+    monkeypatch.setattr(real, "_DRAFT_CAPITAL_LAST_VALID", {})
+    monkeypatch.setattr(real, "_DRAFT_CAPITAL_LOCKS", {})
+    monkeypatch.setattr(real, "_is_authenticated", lambda request: True)
+    return real
+
+
+def test_room_creation_succeeds_against_the_real_draft_capital_handler(
+    real_server,
+    env,  # noqa: F811
+    monkeypatch,
+):
+    """The same-league path through the REAL ``get_draft_capital``: the
+    handler stamps the league it resolved, so the room opens -- no false
+    ``budget_league_unstated`` / ``budget_league_mismatch``."""
+    from tests.auction.test_api_store import _draft_capital
+
+    st, app = env
+    default_key = "dynasty_main"
+    _with_league(default_key)
+    built = []
+
+    def fake_workbook(league_key=None, *a, **k):
+        built.append(league_key)
+        return _draft_capital()  # deliberately unstamped: the handler must stamp it
+
+    monkeypatch.setattr(real_server, "_fetch_draft_capital", fake_workbook)
+    sys.modules["server"].get_draft_capital = real_server.get_draft_capital
+    c = _owner_client(app)
+    out = _make_room(c)
+    assert built == [default_key]
+    prov = out["budgetProvenance"]
+    assert prov["leagueKey"] == default_key and prov["seatLeagueKey"] == default_key
+    assert prov["leagueMismatch"] is None

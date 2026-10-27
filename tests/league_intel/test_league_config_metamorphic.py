@@ -1026,7 +1026,49 @@ def test_f12b_a_league_without_its_own_simulation_is_unmeasurable_not_the_defaul
     assert rows[0]["measurable"] is False
     assert rows[0]["playoffOdds"] is None  # not the default league's 0.95
     availability = trade_deadline.simulation_availability("beta")
-    assert availability == {"leagueKey": "beta", "playoff": "missing", "championship": "missing"}
+    assert availability == {
+        "leagueKey": "beta",
+        "leagueResolved": True,
+        "playoff": "missing",
+        "championship": "missing",
+    }
+
+
+def test_f12c_an_unresolved_league_reads_no_simulation_never_the_defaults(tmp_path, monkeypatch):
+    """A snapshot whose league cannot be resolved (unknown root id, registry
+    failure) must not be classified from the default league's
+    ``latest_*.json``: the simulation is missing and named unresolved."""
+    from types import SimpleNamespace
+
+    from src.api import league_registry
+    from src.ros import trade_deadline
+
+    sims = tmp_path / "sims"
+    sims.mkdir()
+    (sims / "latest_playoff.json").write_text(
+        json.dumps({"playoffOdds": [{"ownerId": "A", "playoffOdds": 0.95}]}), encoding="utf-8"
+    )
+    (sims / "latest_championship.json").write_text(
+        json.dumps({"championshipOdds": [{"ownerId": "A", "championshipOdds": 0.4}]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(trade_deadline, "ROS_DATA_DIR", tmp_path)
+    monkeypatch.setattr(league_registry, "league_key_for_sleeper_id", lambda _id: None)
+    monkeypatch.setattr(
+        trade_deadline,
+        "load_or_compute_team_strength",
+        lambda _key: [{"ownerId": "A", "rank": 1}],
+    )
+    section = trade_deadline.build_section(SimpleNamespace(root_league_id="unknown-root"))
+    assert section["simulation"] == {
+        "leagueKey": None,
+        "leagueResolved": False,
+        "playoff": "missing",
+        "championship": "missing",
+        "reason": "league_unresolved",
+    }
+    assert [r["playoffOdds"] for r in section["teams"]] == [None]  # not the default's 0.95
+    assert all(r["measurable"] is False for r in section["teams"])
 
 
 # LI1842-DEFECT-13 -- REPAIRED: budget provenance names the league of its dollars and of the seats, a mismatch is stated (room creation refuses it, 409), and advice-context withholds another league's board values (route tests: tests/auction/test_advice_context.py).
