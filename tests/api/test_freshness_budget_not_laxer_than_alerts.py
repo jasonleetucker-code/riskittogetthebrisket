@@ -121,7 +121,7 @@ def test_the_stamp_is_still_the_preferred_signal() -> None:
     import ast
     from pathlib import Path
 
-    src = (Path(__file__).resolve().parents[2] / "src/api/data_contract.py").read_text()
+    src = (Path(__file__).resolve().parents[2] / "src/api/data_contract.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     fn = next(
         (
