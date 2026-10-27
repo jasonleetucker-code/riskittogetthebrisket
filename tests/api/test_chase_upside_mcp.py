@@ -98,7 +98,7 @@ def test_mcp_discovery_and_tool_list_are_read_only(monkeypatch):
     assert discover_result["cacheScope"] == "private"
     assert discover_result["_meta"]["io.modelcontextprotocol/serverInfo"] == {
         "name": "Chase Upside MCP",
-        "version": "1.0.0",
+        "version": "1.1.0",
     }
     _validate_mcp_response("ListToolsResultResponse", tools.json())
     listed = tools.json()["result"]["tools"]
@@ -114,6 +114,7 @@ def test_mcp_discovery_and_tool_list_are_read_only(monkeypatch):
         "get_league_context",
         "get_team_roster",
         "analyze_trade",
+        "get_value_history",
     }
     assert all("write" not in tool["name"] for tool in listed)
     assert all(tool["annotations"]["readOnlyHint"] is True for tool in listed)
@@ -138,14 +139,17 @@ def test_rankings_tool_returns_canonical_rows_and_provenance(monkeypatch):
                 "playersArray": [
                     {
                         "playerId": "123",
-                        "name": "Player One",
+                        "displayName": "Player One",
                         "position": "QB",
+                        "canonicalConsensusRank": 1,
                         "rankDerivedValue": 8000,
+                        "rawSourceValues": {"ktcSfTep": 9999},
                     },
                     {
                         "playerId": "456",
-                        "name": "Player Two",
+                        "displayName": "Player Two",
                         "position": "RB",
+                        "canonicalConsensusRank": 2,
                         "rankDerivedValue": 7000,
                     },
                 ],
@@ -173,12 +177,14 @@ def test_rankings_tool_returns_canonical_rows_and_provenance(monkeypatch):
     assert result["players"] == [
         {
             "playerId": "123",
-            "name": "Player One",
+            "assetId": "p:123",
+            "displayName": "Player One",
             "position": "QB",
+            "canonicalConsensusRank": 1,
             "rankDerivedValue": 8000,
-            "confidence": None,
         }
     ]
+    assert "rawSourceValues" not in response.text
     assert result["rankingSources"] == ["ktcSfTep"]
     assert result["sourceFreshness"] == [{"source": "ktcSfTep", "status": "fresh", "ageHours": 2.0}]
 
@@ -189,7 +195,9 @@ def test_rankings_tool_reads_the_loaded_backend_contract(monkeypatch):
         contract = server.latest_contract_data
         if not isinstance(contract, dict) or not contract.get("playersArray"):
             pytest.skip("the local FastAPI startup did not load a rankings contract")
-        expected_player_id = contract["playersArray"][0].get("playerId")
+        ranked = [r for r in contract["playersArray"] if r.get("canonicalConsensusRank")]
+        first = min(ranked, key=lambda r: r["canonicalConsensusRank"])
+        expected_player_id = first.get("playerId")
         monkeypatch.setattr(server._league_registry, "get_league_by_key", lambda _key: league)
         monkeypatch.setattr(server, "_scoring_identity_error", lambda _contract, _league: None)
         response = client.post(
