@@ -3,149 +3,122 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-10-27 ~03:50Z.** Agent-OS-Receipt `47a8b19f`. Concurrency limit: four workers. The coordinator's own coding
-counts toward the four (`docs/EXECUTION_PLAN.md`, Agent OS §3 "Usage efficiency").
+**As of 2026-10-27 ~14:30Z.** Agent-OS-Receipt `cb64f74c`. Concurrency limit: four workers. The coordinator's own coding
+counts toward the four.
 
-## Authorization in force
-**Merges.** Routine merges are approved: "I approve these and all future merges" (`docs/OWNER_REQUESTED_TODO.md`). A PR
-merges only when all of these hold:
-- its exact-head required checks are green;
-- an independent review covers the exact head (the coordinator's own review does not count);
-- a commit pushed after a review gets a delta review, and a REQUEST_CHANGES gets a re-review;
-- stacked dependencies have merged first;
-- the change still holds on current `main` (when `main` gained class-B code since the PR's CI base, run the PR's tests
-  on a local merge).
-
-**Holds.** **#1938 is ON HOLD** (it changes BDVM scoring). Owner-held flags, activations and methodology changes still
-need an explicit owner decision.
-
-**IDP market directive (owner 2026-10-26).**
-- Recorded verbatim in `docs/owner/IDP_MARKET_ACQUISITION_DIRECTIVE_2026-10-26.md` and tracked as intake rows
-  IDPM-1..11.
-- Authorized in `EXECUTION_PLAN.md` for read-only collection, diagnostics and shadow research only; its §15 list is
-  owner-reserved.
-- Owner answers: the census comes from the public Sleeper API, and trades before 2026-07-14 get an archive survey only
-  (no ingestion without approval, no paid data).
+## Mode in force: BUILD_ONLY_MAX_THROUGHPUT (owner directive, 2026-10-27)
+- **Paused:** merges and production deploys. **Prohibited:** turning any flag ON, publishing the private MCP, and
+  changing production env, config or permissions.
+- **Allowed:** isolated branches, worktrees, draft PRs, tests and reviews.
+- **Unaffected:** the standing merge authorization. It resumes when the owner ends build mode, under the usual gates:
+  - exact-head green checks;
+  - an independent review (delta re-review after any later commit);
+  - stacked dependencies merged first;
+  - L2 on the merged tree.
+- **Holds:** #1938 is still ON HOLD. Owner-held flags and methodology need an explicit owner decision.
 
 ## Production
-- **Live:** `a9b0ac920`, carrying every merge through #1980; `/api/health` returns 200 and ok.
-- **In flight:** deploy run `bf8eb5ffc` (it includes #1983; running since 01:43Z, so check it is not stuck), with
-  `0c4a6f0aa` (#1978) queued behind it.
-- **To verify:**
-  - once `bf8eb5ffc` or later is live: `/api/health` and `/api/status` `backup_health` are `backup-health.v3`, with `filesystemPaths: "withheld"` and no
-    path-like value;
-  - once `0c4a6f0aa` or later is live: the pregame-archive alerts behave as #1978 describes.
-- **NFL Team filter (#1966):** in the live build, not yet seen in a signed-in browser.
+- **Live:** `44695ab61` (#1985); `/api/health` 200.
+- **Data deploys BLOCKED since 2026-10-27T08:29Z.** Deploy run 40473808525 failed only on the census SHA flake,
+  `tests/market_trades/test_own_league_census.py::test_committed_outputs_carry_no_ids_or_names`.
+  - **Fix:** #1988 (tests only, green, independently approved), held by the merge pause.
+  - **Until it merges**, data refreshes don't reach production, and about half of all PR CI runs fail on the same flake.
+  - **Owner decision** requested as a build-mode exception.
+- `test_pick_refinement` (Garrett / Hamilton rank bands) runs in the deploy run's ADVISORY lane; it did not block.
+  #2002 fixes it. The cause is IDP source authority, not a code defect: IDP anchors are SEVERELY_DEGRADED (~37% weight
+  retained):
+  - IDP Show content is from 2026-08-19 (weight 0);
+  - FantasyPros IDP's label reads 9/04;
+  - DLF IDP is held from voting.
 
-## Merged 2026-10-26..27 (56 PRs)
-- #1925, #1926 (~01:31Z, before this session's integration train)
-- #1939, #1933, #1934, #1960, #1955, #1956, #1954, #1950, #1959
-- #1929, #1931, #1936, #1940, #1941, #1943, #1944, #1947, #1843, #1935, #1946, #1949
-- #1961, #1948, #1952, #1953, #1957, #1958, #1942, #1945
-- #1966, #1969, #1965, #1937, #1963, #1968, #1951, #1964, #1962, #1967
-- #1975, #1970, #1971, #1973, #1974, #1977, #1972, #1981, #1976, #1980, #1979, #1983, #1984, #1986, #1978
+## O7 and #1985 (owner-authorized 2026-10-27)
+- **O7 COMPLETE** in #1989 (approved at `59e114a49`): one read-only, aggregate-only production run.
+  - Canonical lane from 2026-07-20 (live from 2026-08-16).
+  - Under the strict knowledge cutoff, 11 of 80 2026 trades are fully canonical-priced, all of them already
+    IDPTC-priced.
+  - **H2 → H7** (<5 of 55 under the full §2.4 rule). H6d stays unavailable.
+- **#1985 privacy: investigation complete; no action taken.**
+  - Only `refs/pull/1985/head` (plus GitHub's orphan test-merge commits) reaches `c95390a98`. Main, every branch and
+    tag, and the other PRs are clean; there are no forks.
+  - **Recommended:** GitHub Support dereferences PR #1985, garbage-collects and clears cached views. No main rewrite.
+  - The plan is kept outside the repo (pointing at the commit would increase exposure).
+  - Needs the owner's explicit approval to file a Support ticket from the owning account.
 
-Superseded and closed: #1533 (by #1950), and #1855, #1895, #1896 (by #1955).
+## Build-sprint draft PRs (all unmerged; reviewed at the head shown)
+| PR | head | content | review | CI | owner gate |
+|---|---|---|---|---|---|
+| #1988 | 4cac09d7f | census SHA-flake test fix | APPROVE | green | merge exception (unblocks deploys) |
+| #1989 | 59e114a49 | O7 evidence + scripts | APPROVE + delta | green | — |
+| #1990 | 44c4a7c49 | Trade Advisor launch-gate engineering, browser timeout, permission checklist, 59-test multi-team matrix | APPROVE + delta | flake | responseFloorMs (250 recommended), permission record, admission sizes, launch |
+| #1991 | d1bae4e28 | DEFECT-07 (report-only) / 08 / 12 / 13 league propagation | APPROVE + delta | pending | DEFECT-07 cap source; 02 and 05 decisions |
+| #1992 | 2f33fabd7 | sim V3 challenger (preregistered): V3_DOES_NOT_BEAT_FALLBACK | APPROVE | flake | C3 caveat design; whether to preregister v4 |
+| #1993 | fde8f1ce0 | dependency advisories, 10 of 11 (#1920 covers setuptools) | APPROVE | green | — |
+| #1994 | 3c5c52ee0 | Waiver Advisor (flag `waiver_advisor` default OFF, route private) | APPROVE + delta x2 | pending | activation; FAAB season-phase fix |
+| #1995 | c04adfff5 | private MCP remediation on top of #1921 (single composer, allowlist, redaction pinned) | APPROVE + delta x2 | flake | merge, publish, token, plugin install |
+| #1996 | 86a9d0078 | public diagnostics boundary (/api/status, /health, /uptime) + truthful monitoring | APPROVE + delta | flake | backup readability option (status file recommended) |
+| #1997 | 04185392d | DraftSharks ROS IDP rank-basis split + report-only guard | APPROVE + delta | pending | new `draftSharksRosIdp` voter (ROS lane) |
+| #1998 | 4e85c5cb2 | G2 IDP source-integrity shadow evaluation (6 of 8 B-gates pass, 7 defects) | APPROVE + delta | pending | FP freshness rule, IDP universe rule, V2.1-sealed boards |
+| #1999 | f0b5be7d8 | perf: presim eligibility reuse (~5x, byte-identical) + /league tab preload | APPROVE | pending | — |
+| #2001 | c720bf5b0 | G2-D2 Tuimoloau alias + G2-D3 excludes_rookies flags (served-value change) | APPROVE | pending | release of value changes |
+| #2002 | a353327af | pick-refinement live-rank gate (IDP-degraded rows, catastrophic floor) | APPROVE + delta | pending | — |
+| #2003 | 6f4ede95b | [HOLD] DEFECT-02 manual TEP override withdrawal | APPROVE | pending | withdraw the override (yes/no) |
 
-## Open PRs from this session's work
-| PR | state | next step |
-|---|---|---|
-| #1985 | draft; independently approved at `785bb4a9b` after REQUEST_CHANGES, re-review and delta review | Own-league trade and draft census (IDPM-2). Merge by **squash only** once Validate PR is green (see Hazards). |
-| #1982 | draft; this handoff | Delta check, then merge. |
+## Integration order (when merge mode resumes; do not run it before)
+1. **#1988:** census flake, which unblocks every other PR's CI and production deploys.
+2. **Independent, low-risk:** #1989, #2002, #1993 (high-risk class: both L2 suites run), #1999.
+3. **#1996, then #1994.** Both touch `server.py` in disjoint hunks; #1994 also edits `src/api/feature_flags.py`. Rebuild
+   #1994's merge base after #1996 lands and re-run its flag-count / reachability tests.
+4. **#1991, then #1990** (independent; both touch the trade surface lightly).
+5. **#1997** (ROS lane; owner approval for the new voter key).
+6. **#1995** (MCP; needs #1921 reconciliation first: decide whether #1995 supersedes it).
+7. **#1992, #1998:** research only, any time after #1988.
+8. **Owner-gated value changes:** #2001 and #2003, only after their owner decisions.
+- **Expected checks:** L0, Validate PR (path-aware L2; #1993 and anything high-risk runs both suites), and the release
+  candidate at L3.
+- **Rollback:** each PR is self-contained. Flags default OFF. #2003 rolls back with `_TEP_OVERRIDES_DISABLED = False`.
 
-Other open PRs exist (#1921 Codex MCP, #1884, #1873, #1852, #1755, #1513, Dependabot); this handoff does not cover them.
-
-## Census and survey results (IDP market directive, Phase 1)
-**#1985 census:**
-- **Seasons:** 3, all from public Sleeper: 2024 and 2025 with 10 teams, 2026 with 12. 2024 and 2025 differ from today's
-  format on 9 format axes.
-- **Trades:**
-  - 233 completed (29 / 124 / 80); 54 involve IDP (DL 23, LB 34, DB 24 — a trade can involve several);
-  - 26 offense-for-IDP and 8 IDP-for-IDP;
-  - 145 include picks; 11 are multi-team; 52 are one-for-one.
-- **Priced sample:**
-  - only **17** trades are fully priced at trade time by IDP Trade Calculator, and **0** by the canonical value (its
-    history is box-only);
-  - **0** IDP one-for-one swaps are priced;
-  - traded picks are unpriced, because Sleeper records them only by season and round.
-- **Reading:** H7 ("sample insufficient") is a real possibility.
-- **Drafts:** IDP share is 27.5% in the 2024 startup, 34% in the 2024 rookie draft, 28.6% in the 2025 rookie draft and
-  48.8% of picks in the 2026 auction (by dollars: $242 of the $1,131 spent, 21.4%; $1,129 excluding kickers).
-- **Pick mismatches:**
-  - 2024: 0 after the per-draft replay fix.
-  - 2025 round 2 and the round-6/7 pairs: "unexplained by the data fetched" (possibly draft-round or order edits).
-
-**#1986 archive survey (merged):**
-- The repo's own git history holds dated vendor snapshots from **2026-03-09**, four months before the floor. That
-  includes 19 days of IDPTC, which exists nowhere else.
-- Every price archive is blocked by its terms or by cost. The only open dataset (DynastyProcess, GPL-3.0) holds expert
-  ranks, not trade prices, and its upstream FantasyPros terms are unreviewed.
-- The survey's probes against no-automation terms (KTC, Dynasty Daddy, FantasyCalc) are disclosed in it.
-
-## Owner decisions pending
-- **Survey decisions D1–D6** (`docs/market_trades/HISTORICAL_PRICE_ARCHIVE_SURVEY_2026-10-27.md` §5):
-  - D1: backfill pre-floor vendor history from git history;
-  - D2: how to grade pre-floor trades;
-  - D3: whether to ask vendors for permission;
-  - D4: IDP before March;
-  - D5: the DynastyProcess id map;
-  - D6: Wayback as private research data.
-  - FantasyCalc's current terms bear on the live pipeline's posture; the survey takes no position on compliance. Decide
-    D1 alongside that question.
-- **#1985 history.** Commit `c95390a98` holds a re-identifiable per-team table and stays reachable through
-  `refs/pull/1985/head` in this public repo. Removing it needs an owner-approved history rewrite.
-- **Phase 2 (IDPM-4).** The preregistration for H1–H7 is to be drafted from the census numbers. No model is fitted
-  before it is frozen.
-- **The rest of W22-F005.** `/api/health` (`startupChecks`) and `/api/status` (`data_runtime`, `rankHistoryCoverage`,
-  `playerctxHistoryCoverage`) still serve host paths anonymously. Deploy verification reads those payloads.
-- **CI duration.** The hard suite took 57–95 min on most runs. One run (40382459009) took 117.6 min and was cancelled at
-  the 120-minute limit after passing; the deploy validate job peaked at 99.2 min. Options: parallelize the suite
-  (durable), or raise the timeout (headroom).
-- **Dependency vulnerabilities:** 11 on `main` (2 high); Dependabot PRs are open.
-- **#1938** (BDVM nflverse scorer fixes): the review recommends shipping it with the special-teams de-dup, after a box
-  before/after.
-- **Sim calibration (#1963, #1972):** the fallback runs about 109 points low, and neither v1 nor v2 passes. Decide on
-  caveat / v3 / gate sizing. Championship probability is uncalibrated, so it may not justify acquisition premiums
+## Owner decisions pending (complete list)
+- **Build-mode merge exception for #1988** (production data deploys blocked).
+- **#1985:** approve filing the GitHub Support request.
+- **Survey D1–D6; preregistration O1–O6 and O8.** O7 is done.
+- **Advisor launch gates (#1990):** response floor, permission record, admission and rate-limit sizes.
+- **Waiver Advisor (#1994):** activation; list bids ignore season phase (FAAB lane).
+- **Values:**
+  - DEFECT-02 (#2003);
+  - DEFECT-07 cap source;
+  - DEFECT-05 Consensus Edge card;
+  - #2001 release;
+  - #1997 new ROS voter.
+- **IDP source authority:**
+  - IDP Show stale since 08-19 (has its chart moved?);
+  - FantasyPros IDP clock rule;
+  - DLF IDP hold;
+  - IDP universe gated on IDPTC (G2-D1).
+- **Backups:** status-file option (#1996 / #1970). `SHARP_SMOKE_TOKEN`.
+- **Sim:** C3 calibration caveat design; whether to preregister v4. Championship probability stays uncalibrated
   (IDPM-10).
-- **Activations into BDVM:** injury events (#1952), IDP Show (#1959), ROS content clock (#1958).
-- **Sharp smoke (#1971):** provision `SHARP_SMOKE_TOKEN`; decide whether a missing token should turn the run red.
-- **Consensus Edge:** a fresh measurement, alerting, and red-run artifacts. Run 36708000268 **expires 2026-10-30T11:23Z**.
-- **LI1842 open defects** 02, 05, 07, 08, 12, 13, plus the `/api/intel/leads` 503 policy.
-- **Backups (#1970):**
-  - production reports `stateBackup` as unverifiable / permission_denied;
-  - decide on a readable status file, an off-box mirror, a restore proof, and who the unknown dynasty writer is.
-- **Earlier, still open:** cut-ladder tie-break; forced-drop activation; Public Waiver Wire scope; IDP Show board swap;
-  2026 holdout; 17-game re-run; lineage census; memory canary; DFS tick; retiring the Codex OneDrive orchestrator.
-
-## Follow-ups (low)
-- **#1978:**
-  - Out of season the stale alert ranks "marker not updating" ahead of "collector not running".
-  - Two guards are unpinned: the stamp unlink retried every pass, and the future-mtime guard.
-  - An EROFS or immutable stamp warns every tick and is not in the list of disclosed limits.
-- **#1985:**
-  - The disclosure refusal misses integer-keyed maps under non-participant keys (`rosterTrades: {"1": 3}`).
-  - It also misses the `o<rid>` pick grammar.
-- **#1980:**
-  - The §4 paragraph lists two result lines, not three.
-  - The drift message omits a no-fresh horizon.
-  - `continue-on-error` on the compare step is unpinned.
-- **#1979:** `_identity_bearing` treats interned strings as identity-bearing; this is latent and fails closed.
-- **#1981:** the `_Unlimited` docstring names only the advisor limiter.
+- **Still open from before:**
+  - CI duration (120 min limit);
+  - #1938;
+  - BDVM activations;
+  - Consensus Edge artifacts (run 36708000268 expires 2026-10-30T11:23Z);
+  - LI1842 defects (02 and 05 above);
+  - the rest of W22-F005, now addressed by #1996.
 
 ## Hazards
-- **GitHub API quota is shared.** Poll CI every 5 minutes with one batched `gh pr list`, never per-PR every minute.
-- **Reviewers who run tests need their own detached worktrees.** `git worktree remove` on Windows can leave an empty
-  directory; check that it is empty, then delete it.
-- **Usage limits and plan mode can stop an agent mid-edit.**
-  - Before reusing a worktree, back up `git diff` and read the agent's last tool calls.
-  - Check that no mutation revert is left behind.
-  - Commit the preserved work only after re-running the gates.
-- **Squash merges only for #1985.** The repo also allows merge-commit and rebase merges, either of which would put
-  `c95390a98` into `main`. The merge helper uses `--squash`.
-- **Flaky public-endpoint tests.** Any test making many public calls must patch `rate_limit.should_rate_limit`
-  (pattern in `tests/parity/surface_harness.py`).
-- **Disk:** about 93 GB free (81% of 476 GB), after the 2026-10-26 cleanup of merged, clean, pushed worktrees.
-- **Git:** never `git stash`; commit explicit paths only; never junction `node_modules`.
-- **Squash merges break PR-branch commit pins.** Pin blob ids, not commit SHAs (see #1964).
-- **Deploys:** only the newest pending run in the `production-deploy` group survives. Confirm what is live with
-  `/api/status .build`.
+- **GitHub API quota is shared.** Poll at most every 5 minutes with batched calls.
+- **Census SHA flake** hits any run whose merge SHA has a 9+ digit decimal run, until #1988 lands. Read the failing test
+  name before "fixing" a PR.
+- **Never pipe a PR body through a process that can fail mid-write.** `gh pr edit --body-file` with a truncated file
+  blanks the body. Recover from GraphQL `userContentEdits`.
+- **Agents sharing one scratchpad can overwrite each other's files.** Use unique file names per agent.
+- **Windows-only local failures** (not regressions; Linux CI decides):
+  - the `resource` module;
+  - symlinks and chmod;
+  - CRLF hashes and line-ending regexes;
+  - backslash paths, including `test_feature_flag_reachability` and `test_ui_parallel_governance`;
+  - timezone labels.
+- **Git:** never `git stash`; commit explicit paths only; never junction `node_modules`; reviewers use their own
+  detached worktrees and remove them afterwards.
+- **Deploys:** only the newest pending run in `production-deploy` survives. Confirm the live build with
+  `/api/status .build.commit`.
