@@ -4091,33 +4091,56 @@ _RESERVED_OVERRIDE_BODY_KEYS: frozenset[str] = frozenset(
 )
 
 
-def normalize_tep_multiplier(raw: Any) -> float | None:
-    """Extract + clamp a TEP multiplier from a POST override body.
+#: The user's MANUAL TE-premium override is withdrawn (held for owner
+#: approval as DEFECT-02, ``docs/audits/LEAGUE_CONFIG_PROPAGATION_MATRIX_2026-10-26.md``).
+#: Same reasoning, same mechanism and same shape as
+#: :data:`_SOURCE_OVERRIDES_DISABLED`: ``tepMultiplier`` /
+#: ``tepNativeMultiplier`` live in ``next_settings_v2`` in localStorage,
+#: are never server-synced, and a posted value re-ran the blend and came
+#: back under ``rankDerivedValue`` — so two devices held two canonical
+#: values for one TE.  An explicit ``tep_multiplier`` also switched OFF
+#: the ADR-015 TE-basis conversion (``tep_multiplier_is_override``), so
+#: even the stock 1.15 body was a different board from ``GET /api/data``.
+#:
+#: Accepted and IGNORED, never refused: a stale bundle or direct caller
+#: still posting one converges silently on the canonical board, and the
+#: response says why (:func:`withdrawn_tep_override_note`).  Closed at the
+#: HTTP ingress normalizers — the only production entry point — so the
+#: library parameters of ``build_api_data_contract`` /
+#: ``build_rankings_delta_payload`` stay available to research scripts
+#: and tests.  Rollback: set this to ``False`` (a code change and
+#: restart, deliberately not an env flag — it is a product decision).
+_TEP_OVERRIDES_DISABLED: bool = True
 
-    Accepts a raw request body dict.  Returns:
+#: Stamped on ``meta.tepMultiplierNote`` and appended to ``warnings``
+#: when a request carried a manual TE-premium key that was ignored.
+TEP_OVERRIDE_WITHDRAWN_NOTE: str = "tep_override_withdrawn: not_canonical"
 
-      * ``None`` when no ``tep_multiplier`` / ``tepMultiplier`` key is
-        present in the body — signals "user did not override, fall
-        back to the league-derived default".  ``build_api_data_contract``
-        and ``build_rankings_delta_payload`` both treat ``None`` as
-        "derive from Sleeper" via :func:`_derive_tep_multiplier_from_league`.
-      * A ``float`` clamped to ``[1.0, 1.5]`` (matching the slider's
-        UI bounds) when the key IS present and parses as a finite
-        number.  The clamped value is what the
-        pipeline applies verbatim (no derivation layered on top).
-      * ``None`` when the key is present but unparseable / infinite —
-        treated the same as "absent" so a garbled body falls back to
-        the league-derived default rather than silently becoming 1.0.
+_TEP_OVERRIDE_BODY_KEYS: tuple[str, ...] = (
+    "tep_multiplier",
+    "tepMultiplier",
+    "tep_native_multiplier",
+    "tepNativeMultiplier",
+)
 
-    The key lookup accepts both ``tep_multiplier`` (snake_case, the
-    canonical API spelling) and ``tepMultiplier`` (camelCase, the
-    JS-native spelling some callers may emit).
+
+def _parse_manual_tep(raw: Any, keys: tuple[str, str]) -> float | None:
+    """Parse + clamp one manual TE-premium knob from a POST body.
+
+    The parser behind both normalizers, retained (and still covered by
+    tests that patch :data:`_TEP_OVERRIDES_DISABLED` off) so a rollback
+    does not mean rebuilding and re-reviewing the validation.
+
+    ``None`` when no key is present, or the value is unparseable /
+    infinite (a garbled body falls back to the default rather than
+    silently becoming 1.0); otherwise a float clamped to ``[1.0, 1.5]``.
+    The snake_case key wins over the camelCase one.
     """
     import math
 
     if not isinstance(raw, dict):
         return None
-    for key in ("tep_multiplier", "tepMultiplier"):
+    for key in keys:
         if key in raw:
             try:
                 v = float(raw[key])
@@ -4129,28 +4152,50 @@ def normalize_tep_multiplier(raw: Any) -> float | None:
     return None
 
 
-def normalize_tep_native_multiplier(raw: Any) -> float | None:
-    """Extract + clamp the TEP-native multiplier from a POST override body.
+def normalize_tep_multiplier(raw: Any) -> float | None:
+    """The TE-premium override a POST override body may apply.
 
-    Mirrors :func:`normalize_tep_multiplier` but for the parallel knob
-    that controls the boost applied to TEP-native sources (DN SF-TEP,
-    Yahoo Boone, FP Fitzmaurice).  Returns ``None`` when the key is
-    absent / unparseable so the pipeline falls back to the hardcoded
-    default (``_TE_BLANKET_NATIVE_MULTIPLIER`` = 1.10).
+    **Always ``None`` while** :data:`_TEP_OVERRIDES_DISABLED` — the
+    manual override is withdrawn, and ``None`` is exactly what
+    ``build_api_data_contract`` / ``build_rankings_delta_payload`` read as
+    "no override": the canonical league-derived / ADR-015 TE-basis path,
+    byte-identical to a request that never posted the key.
+
+    With the gate off (rollback) it returns the clamped
+    ``tep_multiplier`` / ``tepMultiplier`` value via
+    :func:`_parse_manual_tep`.
     """
-    import math
-
-    if not isinstance(raw, dict):
+    if _TEP_OVERRIDES_DISABLED:
         return None
-    for key in ("tep_native_multiplier", "tepNativeMultiplier"):
-        if key in raw:
-            try:
-                v = float(raw[key])
-            except (TypeError, ValueError):
-                return None
-            if not math.isfinite(v):
-                return None
-            return max(1.0, min(1.5, v))
+    return _parse_manual_tep(raw, ("tep_multiplier", "tepMultiplier"))
+
+
+def normalize_tep_native_multiplier(raw: Any) -> float | None:
+    """The TEP-native override a POST override body may apply.
+
+    Mirrors :func:`normalize_tep_multiplier` for the parallel knob that
+    boosts TEP-native sources (DN SF-TEP, Yahoo Boone, FP Fitzmaurice).
+    **Always ``None`` while** :data:`_TEP_OVERRIDES_DISABLED`, so the
+    pipeline applies its default (``_TE_BLANKET_NATIVE_MULTIPLIER`` = 1.10).
+    """
+    if _TEP_OVERRIDES_DISABLED:
+        return None
+    return _parse_manual_tep(raw, ("tep_native_multiplier", "tepNativeMultiplier"))
+
+
+def withdrawn_tep_override_note(raw: Any) -> str | None:
+    """:data:`TEP_OVERRIDE_WITHDRAWN_NOTE` when ``raw`` carried a manual
+    TE-premium key that the withdrawal ignored, else ``None``.
+
+    Keyed on the PRESENCE of a key, not on whether it parsed: "you asked
+    for something and did not get it" must not read the same as "you
+    asked for nothing".  ``None`` with the gate off, because then the
+    value is honoured and there is nothing to explain.
+    """
+    if not _TEP_OVERRIDES_DISABLED or not isinstance(raw, dict):
+        return None
+    if any(key in raw for key in _TEP_OVERRIDE_BODY_KEYS):
+        return TEP_OVERRIDE_WITHDRAWN_NOTE
     return None
 
 
