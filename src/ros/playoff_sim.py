@@ -95,6 +95,7 @@ from src.ros.game_day_sim import median_threshold
 from src.ros.lineup import (
     RosterPlayer,
     load_league_starter_slots,
+    precompute_slot_eligibility,
     solve_optimal_assignment,
 )
 from src.public_league import luck, metrics, playoff_odds
@@ -461,6 +462,7 @@ def _bestball_weekly_score(
     starter_slots: list[str],
     rng: random.Random,
     points_model: PointsModel | None = None,
+    eligibility_cache: dict[tuple, Any] | None = None,
 ) -> float:
     """One simulated best-ball week.
 
@@ -484,6 +486,22 @@ def _bestball_weekly_score(
 
     Routing through ``solve_optimal_assignment`` fixes both, and the sim
     now shares ONE eligibility definition with team-strength.
+
+    ``eligibility_cache`` (performance only, 2026-10-27): the presim
+    re-solves ONE roster's pool up to ``BEST_BALL_PRESIM_MAX_WEEKS`` times
+    against freshly drawn points, and eligibility depends only on each
+    player's ``position`` / ``fantasyPositions`` — never on the draw.  Re-
+    deriving it on every solve was ~85% of the whole forecast's CPU time
+    (2.0 M ``_player_eligible_for_slot`` calls for one league).  A caller
+    may pass one dict per roster; the slot-eligibility map is computed
+    once per distinct pool SHAPE (ids + positions, in order) through the
+    canonical :func:`precompute_slot_eligibility` and handed to the
+    solver, which defines that as the identical computation.  A pool the
+    precompute cannot represent exactly (one id carried with two position
+    shapes — its map is left untagged) is solved the ordinary way.  The
+    RNG is never touched by this, so every draw — and therefore every
+    published number — is unchanged.  ``None`` (every other caller) keeps
+    the per-call derivation.
     """
     if not roster_players or not starter_slots:
         return 0.0
@@ -513,7 +531,20 @@ def _bestball_weekly_score(
         )
 
     # Step 2: exact assignment.
-    assignment = solve_optimal_assignment(pool, starter_slots)
+    precomputed = None
+    if eligibility_cache is not None:
+        shape = tuple((rp.player_id, rp.position, rp.fantasy_positions) for rp in pool)
+        precomputed = eligibility_cache.get(shape)
+        if precomputed is None:
+            derived = precompute_slot_eligibility(pool, starter_slots)
+            # Untagged == the map cannot stand in for a fresh derivation
+            # (duplicate id, conflicting shapes); remember that as False so
+            # the shape is not re-derived, and solve the ordinary way.
+            precomputed = derived if derived.derived_for is not None else False
+            eligibility_cache[shape] = precomputed
+    assignment = solve_optimal_assignment(
+        pool, starter_slots, precomputed_eligibility=precomputed or None
+    )
     return float(sum(player.ros_value for player in assignment.values()))
 
 
@@ -588,6 +619,10 @@ def _bestball_presim(
         if not roster:
             continue
         weekly: list[float] = []
+        # One per roster: at most one entry per distinct weekly pool (the
+        # calendar's availability removals), so it is bounded by the number
+        # of remaining weeks and dropped when this roster is done.
+        eligibility_cache: dict[tuple, Any] = {}
         for i in range(BEST_BALL_PRESIM_MAX_WEEKS):
             # With a calendar, draw i is remaining week weeks[i % n] and the
             # players unavailable that week leave the pool (removed, not
@@ -601,7 +636,9 @@ def _bestball_presim(
                 ]
             else:
                 pool = roster
-            weekly.append(_bestball_weekly_score(pool, starter_slots, rng, model))
+            weekly.append(
+                _bestball_weekly_score(pool, starter_slots, rng, model, eligibility_cache)
+            )
             # Check convergence on a cadence, never before a usable floor.
             if i + 1 >= BEST_BALL_PRESIM_MIN_WEEKS and (i + 1) % PRESIM_CHECK_EVERY == 0:
                 if _mean_is_converged(weekly, PRESIM_MEAN_TOLERANCE):
