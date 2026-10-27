@@ -1,0 +1,6 @@
+# Byte-pinned fixtures: tests compare a SHA-256 of the checked-out bytes against
+# a constant.  The committed blobs are LF; with core.autocrlf=true (the Git for
+# Windows default) a checkout rewrites them as CRLF and the hash no longer
+# matches.  "-text" checks the blob out byte-for-byte on every platform and
+# changes no committed bytes (each file below is already LF in the index).
+tests/fixtures/draft_valuation/package_goldens_2026_10_17.json -text
