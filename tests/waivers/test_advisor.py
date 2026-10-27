@@ -263,6 +263,20 @@ def test_lineup_impact_is_the_exact_solver_on_the_board_objective():
     assert _by_name(out)["Free LB"]["lineup"]["entersOptimalLineup"] is False
 
 
+def test_free_agent_eligibility_comes_from_the_lineup_owners_source():
+    """A free agent is seated by the SAME position / eligibility maps
+    ``contract_roster_pools`` builds the roster pool from (``sleeper.positions``
+    / ``sleeper.fantasyPositions``), not the board row's own ``position``."""
+    contract = _contract()
+    contract["sleeper"]["positions"]["Free LB"] = "TE"
+    contract["sleeper"]["fantasyPositions"] = {"Free LB": ["TE"]}
+    lb = _by_name(_assemble(contract))["Free LB"]["lineup"]
+    assert lb["state"] == "evaluated"
+    assert lb["entersOptimalLineup"] is True and lb["slot"] == "TE"
+    # The board row alone (no owner maps) keeps it out, as before.
+    assert _by_name(_assemble())["Free LB"]["lineup"]["entersOptimalLineup"] is False
+
+
 def test_lineup_unavailable_without_slots_is_stated():
     contract = _contract()
     contract["sleeper"]["rosterPositions"] = []

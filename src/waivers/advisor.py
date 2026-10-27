@@ -125,11 +125,14 @@ LIST_BID_COMPETITIVE_STATUS = "bubble"
 
 
 def advisor_enabled() -> bool:
-    """Is the advisor switched on?  Fails CLOSED while the flag is unregistered."""
+    """Is the advisor switched on?  Fails CLOSED if the flag cannot be read.
+
+    The flag name is a LITERAL (not ``FLAG``) so the reachability scan in
+    ``tests/api/test_feature_flag_reachability.py`` can see the gate."""
     from src.api import feature_flags  # noqa: PLC0415
 
     try:
-        return bool(feature_flags.is_enabled(FLAG))
+        return bool(feature_flags.is_enabled("waiver_advisor"))
     except KeyError:
         return False
 
@@ -320,6 +323,14 @@ class _LineupContext:
             return
         self.pool = list(pools[key])
         self.slots = list(slots)
+        # The SAME eligibility source ``contract_roster_pools`` builds the roster
+        # pool from (``sleeper.positions`` / ``sleeper.fantasyPositions``, keyed
+        # by name), so a free agent is seated by the owner's rule, not a second one.
+        sleeper = contract.get("sleeper") if isinstance(contract.get("sleeper"), Mapping) else {}
+        pos_map = sleeper.get("positions")
+        elig_map = sleeper.get("fantasyPositions")
+        self.positions = pos_map if isinstance(pos_map, Mapping) else {}
+        self.fantasy_positions = elig_map if isinstance(elig_map, Mapping) else {}
         self.eligibility = contract_slot_eligibility(dict(contract)) or None
         base = self._solve(self.pool, self.slots, slot_eligibility=self.eligibility)
         self.baseline_ids = {p.player_id for p in base.values()}
@@ -332,11 +343,13 @@ class _LineupContext:
         from src.ros.lineup import RosterPlayer, lineup_position  # noqa: PLC0415
 
         fa_id = f"fa:{name}"
-        fantasy = row.get("fantasyPositions")
+        fantasy = self.fantasy_positions.get(name)
+        if fantasy is None:
+            fantasy = row.get("fantasyPositions")
         cand = RosterPlayer(
             player_id=fa_id,
             canonical_name=name,
-            position=lineup_position(str(row.get("position") or "")),
+            position=lineup_position(str(self.positions.get(name) or row.get("position") or "")),
             ros_value=float(value),
             fantasy_positions=tuple(
                 lineup_position(str(fp))

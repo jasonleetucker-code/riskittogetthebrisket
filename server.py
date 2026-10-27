@@ -7685,6 +7685,90 @@ _PERFECT_WAIVERS_CACHE_MAX = 32
 _PERFECT_WAIVERS_CACHE_LOCK = threading.Lock()
 
 
+@app.post("/api/waiver/advisor")
+async def post_waiver_advisor(request: Request):
+    """Waiver Advisor (Workstream E) — default-OFF composer over existing owners.
+
+    Private and league-scoped, advice only.  The flag check runs FIRST: the
+    page's first request carries no team and is its gate probe.  Everything
+    else mirrors :func:`post_waiver_perfect`; ``src/waivers/advisor.py``
+    computes no value, bid, lineup or legality of its own.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.waivers import advisor as _advisor  # noqa: PLC0415
+
+    if not is_enabled("waiver_advisor"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": _advisor.FLAG}
+        )
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    req = _advisor.parse_advisor_request(body)
+    if not req["teamOwnerId"]:
+        return JSONResponse(
+            status_code=400, content={"error": "team_required", "leagueKey": league_cfg.key}
+        )
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    inputs = await _waiver_engine_inputs(league_cfg, req["teamOwnerId"])
+    if inputs["input_error"] is not None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "waiver_advisor_unavailable",
+                "message": f"league settings unreadable: {inputs['input_error']}",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    base = contract if isinstance(contract, dict) else {}
+    sleeper_block = base.get("sleeper") if isinstance(base.get("sleeper"), dict) else {}
+    plan_contract = {**base, "sleeper": {**sleeper_block, "teams": inputs["teams"]}}
+    constraints = _constraints_for_request(
+        request, plan_contract, league_cfg, surface="perfect_waivers"
+    )
+    try:
+        payload = await run_in_threadpool(
+            lambda: _advisor.compute_waiver_advisor(
+                plan_contract,
+                league_key=league_cfg.key,
+                owner_id=req["teamOwnerId"],
+                inputs=inputs,
+                constraints=constraints,
+                position=req["position"],
+                limit=req["limit"],
+            )
+        )
+    except ValueError as exc:
+        code = str(exc) or "bad_request"
+        return JSONResponse(
+            status_code=503 if code == "no_rosters_loaded" else 400,
+            content={"error": code, "leagueKey": league_cfg.key},
+        )
+    except Exception:  # noqa: BLE001
+        logging.exception("Waiver Advisor failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "waiver_advisor_unavailable", "leagueKey": league_cfg.key},
+        )
+    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
+    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_valuation_mode(payload, valuation_mode, valuation_note)
+    return JSONResponse(content=payload)
+
+
 def _perfect_waivers_cache_key(
     league_key: str, owner_id: str, contract: dict, teams: list, constraints: Any
 ) -> str:
