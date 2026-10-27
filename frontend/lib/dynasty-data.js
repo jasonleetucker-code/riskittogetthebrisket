@@ -379,6 +379,10 @@ export const RANKING_SOURCES = [
     isTepPremium: false,
     needsSharedMarketTranslation: true,
     excludesRookies: false,
+    // Deep-tail rookie VOTE rule (#134) — separate from the factual
+    // excludesRookies coverage claim.  Mirrors the backend registry;
+    // informational (no frontend code reads it).
+    dropsDeepTailRookies: true,
     isRankSignal: true,
   },
   {
@@ -756,6 +760,8 @@ export const RANKING_SOURCES = [
     isRankSignal: true,
     needsSharedMarketTranslation: true,
     excludesRookies: false,
+    // Deep-tail rookie VOTE rule (#134) — see dlfIdp above.
+    dropsDeepTailRookies: true,
   },
   {
     // FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart —
