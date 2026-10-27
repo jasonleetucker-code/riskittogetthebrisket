@@ -21,9 +21,11 @@ What is pinned:
 from __future__ import annotations
 
 import copy
+import itertools
 import json
 import re
 import shutil
+import statistics
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -582,6 +584,12 @@ def test_attribution_rule():
     assert C.attribute_pick(idx, 2024, 3, 250)["key"] == "R"
     assert C.attribute_pick(idx, 2024, 15, 250)["key"] == f"{C.AFTER_DRAFTS}:2024"
     assert C.attribute_pick(idx, 2024, 3, 500)["key"] == f"{C.AFTER_DRAFTS}:2024"
+    # ... and names the draft that consumed it: the latest-ending one with the round
+    assert C.attribute_pick(idx, 2024, 3, 500)["consumedBy"] == "R"
+    assert C.attribute_pick(idx, 2024, 15, 500)["consumedBy"] == "S"
+    # a finished draft that made picks outranks a later one that made none
+    idx[1]["picks"], idx[0]["picks"] = [], [{"round": 3}]
+    assert C.attribute_pick(idx, 2024, 3, 500)["consumedBy"] == "S"
     assert C.attribute_pick(idx, 2025, 1, 500) == {
         "key": f"{C.UNDRAFTED}:2025",
         "draftRef": None,
@@ -664,52 +672,6 @@ def test_faab_trade_is_never_fully_priced():
 
 # ── review fixes: privacy (linkage, small counts) ────────────────────────
 
-#: Keys that may describe a team / manager population, and what they may hold.
-_POPULATION_KEYS = {
-    "distinctTradingManagers",
-    "managersInFullyIdptcPricedTrades",
-    "teams",
-    "teamsInAnyTrade",
-}
-_BUCKETS = {"<=25%", "25-50%", ">50%", None}
-
-
-def _team_manager_disclosures(obj, path=""):
-    """Every committed value that could pin one manager: per-team rows, a
-    single team's / manager's count, or a population smaller than K_ANON."""
-    out = []
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            p = f"{path}.{k}"
-            low = k.lower()
-            if "perteam" in low and k != "tradesPerTeamDistribution":
-                out.append(f"per_team_key:{p}")
-            if k == "tradesPerTeamDistribution":
-                for season, row in v.items():
-                    allowed = {
-                        "teams",
-                        "teamsInAnyTrade",
-                        "mostActiveTeamShareOfTrades",
-                        "quantiles",
-                        "quantilesSuppressed",
-                    }
-                    if set(row) - allowed:
-                        out.append(f"per_team_row:{p}.{season}:{sorted(set(row) - allowed)}")
-                    if row["mostActiveTeamShareOfTrades"] not in _BUCKETS:
-                        out.append(f"unbucketed_share:{p}.{season}")
-            if "share" in low and ("team" in low or "manager" in low) and v not in _BUCKETS:
-                out.append(f"unbucketed_share:{p}")
-            if k in _POPULATION_KEYS and isinstance(v, int) and v < C.K_ANON:
-                out.append(f"small_population:{p}={v}")
-            if ("manager" in low or "perteam" in low) and k not in _POPULATION_KEYS:
-                if isinstance(v, int) and "median" not in low and "basis" not in low:
-                    out.append(f"single_manager_count:{p}={v}")
-            out += _team_manager_disclosures(v, p)
-    elif isinstance(obj, list):
-        for i, v in enumerate(obj):
-            out += _team_manager_disclosures(v, f"{path}[{i}]")
-    return out
-
 
 def _committed_census_outputs() -> list[Path]:
     """The committed census outputs as Git tracks them -- never a filesystem
@@ -732,23 +694,24 @@ def _committed_census_outputs() -> list[Path]:
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
-def test_committed_census_outputs_have_no_linkage_or_small_counts():
+def test_committed_census_outputs_pass_the_write_refusal():
+    """The committed files pass the SAME structural refusal ``main`` applies
+    before writing them."""
     files = _committed_census_outputs()
     assert {p.suffix for p in files} == {".md", ".json"}, files
-    agg = json.loads(next(p for p in files if p.suffix == ".json").read_text(encoding="utf-8"))
-    text = "".join(p.read_text(encoding="utf-8") for p in files)
-    allowed = list(agg["deliverableA"]["historicalLeagueIds"].values())
-    assert C.identifier_leaks(text, allowed_ids=allowed, names=[]) == []
-    assert C.linkage_leaks(agg, text) == []
-    assert _team_manager_disclosures(agg) == []
-    assert "tradesPerTeamLabel" not in text and not C._TEAM_LABEL.search(text)
+    js = next(p for p in files if p.suffix == ".json").read_text(encoding="utf-8")
+    md = next(p for p in files if p.suffix == ".md").read_text(encoding="utf-8")
+    agg = json.loads(js)
+    assert C.write_refusals(agg, js, md, names=[]) == []
+    assert C.disclosure_leaks(agg) == []
+    assert "tradesPerTeamLabel" not in js + md and not C._TEAM_LABEL.search(js + md)
 
 
-def test_synthetic_outputs_have_no_linkage_or_small_counts(tmp_path, bundle, ledger):
+def test_synthetic_outputs_pass_the_write_refusal(tmp_path, bundle, ledger):
     rc, md, js, _ = _run_main(tmp_path, bundle, ledger)
     assert rc == C.EXIT_FINDINGS
     agg = json.loads(js.read_text(encoding="utf-8"))
-    assert _team_manager_disclosures(agg) == []
+    assert C.disclosure_leaks(agg) == []
     assert C.linkage_leaks(agg, md.read_text(encoding="utf-8")) == []
 
 
@@ -757,14 +720,97 @@ def test_disclosure_check_catches_a_per_team_row_and_a_max():
         "deliverableA": {"tradesPerTeamLabel": {"2025": {"T01": 9}}},
         "effectiveSample": {"maxFullyIdptcPricedTradesPerManager": 11},
     }
-    got = _team_manager_disclosures(bad)
-    assert any(g.startswith("per_team_key") for g in got)
-    assert any(g.startswith("single_manager_count") for g in got)
-    assert C.linkage_leaks(bad, "T01 traded 9") == [
-        "team_label:T01",
-        "key:maxFullyIdptcPricedTradesPerManager",
-        "key:tradesPerTeamLabel",
-    ]
+    got = C.disclosure_leaks(bad)
+    assert "per_participant_key:.deliverableA.tradesPerTeamLabel" in got
+    assert "participant_label_key:.deliverableA.tradesPerTeamLabel.2025.T01" in got
+    assert "single_participant_count:.effectiveSample.maxFullyIdptcPricedTradesPerManager=11" in got
+    assert C.linkage_leaks(bad, "T01 traded 9")[0] == "team_label:T01"
+
+
+#: The second review's probes: each must be refused.
+TEXT_PROBES = [
+    "T1",
+    "T001",
+    "Team 3 made 19 of 29 trades; roster 1 sent the pick",
+    "origin 5",
+    "sender 9",
+    "owner 12",
+]
+JSON_PROBES = [
+    {"tradesByRoster": {"a": 3, "b": 1}},
+    {"perTeam": [9, 4, 1]},
+    {"topManagerTrades": 11},
+    {"managerTrades": 11},
+    {"mostActiveTeamShare": 0.61},
+    {"rosterIds": [1, 2]},
+    {"slotToRoster": {"1": 4}},
+    {"seasonSplit": {"T03": 5}},
+    {"distinctTradingManagers": 2},
+]
+
+
+@pytest.mark.parametrize("probe", TEXT_PROBES)
+def test_text_probe_is_refused(probe):
+    assert C.linkage_leaks({}, f"prose: {probe}.")
+
+
+@pytest.mark.parametrize("probe", JSON_PROBES, ids=lambda p: next(iter(p)))
+def test_json_probe_is_refused(probe):
+    assert C.disclosure_leaks({"deliverableA": probe})
+
+
+def test_reviewed_counts_are_not_refused():
+    """Integers that name a participant word but count trades, picks or
+    settings, and populations at or above K_ANON."""
+    ok = {
+        "teams": 12,
+        "teamsInAnyTrade": 12,
+        "teamCount": {"source": 10, "target": 12},
+        "senderMismatches": 1,
+        "topology": {"multi_team": 11, "two_team_1_for_1": 53},
+        "three_or_more_teams": 11,
+        "draftConsumption": [{"replayMatchesPicker": 100, "draftHostDiffersFromPicker": 0}],
+        "rosterSlots": 58,
+        "mostActiveTeamShareOfTrades": ">50%",
+        "text": "the slot's origin: 100 picks; 12 teams; a 12-team league",
+    }
+    assert C.disclosure_leaks(ok) == []
+    assert C.linkage_leaks(ok, json.dumps(ok)) == []
+
+
+def _inject_into_aggregate(monkeypatch, extra):
+    real = C.build_census
+
+    def patched(*a, **k):
+        agg, private = real(*a, **k)
+        agg["deliverableA"].update(copy.deepcopy(extra))
+        return agg, private
+
+    monkeypatch.setattr(C, "build_census", patched)
+
+
+@pytest.mark.parametrize("probe", JSON_PROBES, ids=lambda p: next(iter(p)))
+def test_main_refuses_a_json_probe_before_any_write(tmp_path, bundle, monkeypatch, probe):
+    _inject_into_aggregate(monkeypatch, probe)
+    rc, md, js, _ = _run_main(tmp_path, bundle)
+    assert rc == C.EXIT_BAD_INPUT
+    assert not md.exists() and not js.exists()
+
+
+@pytest.mark.parametrize("probe", TEXT_PROBES)
+def test_main_refuses_a_markdown_probe_before_any_write(tmp_path, bundle, monkeypatch, probe):
+    real = C.render_markdown
+    monkeypatch.setattr(C, "render_markdown", lambda agg: real(agg) + f"\n{probe}\n")
+    rc, md, js, _ = _run_main(tmp_path, bundle)
+    assert rc == C.EXIT_BAD_INPUT
+    assert not md.exists() and not js.exists()
+
+
+def test_main_refuses_a_text_probe_inside_the_json(tmp_path, bundle, monkeypatch):
+    _inject_into_aggregate(monkeypatch, {"note": TEXT_PROBES[2]})
+    rc, md, js, _ = _run_main(tmp_path, bundle)
+    assert rc == C.EXIT_BAD_INPUT
+    assert not md.exists() and not js.exists()
 
 
 def test_linkage_scan_refuses_a_team_label_write(tmp_path, bundle, monkeypatch):
@@ -775,17 +821,106 @@ def test_linkage_scan_refuses_a_team_label_write(tmp_path, bundle, monkeypatch):
     assert not md.exists() and not js.exists()
 
 
+# ── quantile publication rule: no published statistic set inverts the counts ─
+
+
+def test_count_quantiles_rule():
+    assert C.count_quantiles([1, 4, 9]) == (None, "fewer_than_5_teams")
+    assert C.count_quantiles([1, 2, 4, 9]) == (None, "fewer_than_5_teams")
+    assert C.count_quantiles([0, 1, 1, 2, 4]) == ({"median": 1}, None)
+    assert C.count_quantiles(list(range(7))) == ({"median": 3}, None)
+    q, why = C.count_quantiles(list(range(8)))
+    assert why is None and set(q) == {"p25", "median", "p75"}
+
+
 def test_per_team_distribution_has_no_single_team_count():
     d = C.per_team_distribution([0, 1, 1, 2, 4], trades=10)
     assert d == {
         "teams": 5,
         "teamsInAnyTrade": 4,
         "mostActiveTeamShareOfTrades": "25-50%",
-        "quantiles": {"p25": 1.0, "median": 1, "p75": 2.0},
+        "quantiles": {"median": 1},
     }
-    tiny = C.per_team_distribution([2, 5], trades=6)
-    assert tiny["quantiles"] is None and tiny["quantilesSuppressed"] == "fewer_than_3_teams"
+    tiny = C.per_team_distribution([2, 5, 7], trades=8)
+    assert tiny["quantiles"] is None and tiny["quantilesSuppressed"] == "fewer_than_5_teams"
+    eight = C.per_team_distribution([0, 1, 1, 2, 3, 4, 6, 9], trades=13)
+    assert set(eight["quantiles"]) == {"p25", "median", "p75"}
     assert C.share_bucket(11, 17) == ">50%" and C.share_bucket(0, 0) is None
+
+
+def _published(vec, publish):
+    """What a reader of the committed output sees for one season's sorted
+    per-team counts: the number of teams, how many traded at all, and the
+    published quantile block (min and max are never published)."""
+    q, _ = publish(vec)
+    return (len(vec), sum(1 for v in vec if v), tuple(sorted((q or {}).items())))
+
+
+def _old_publish(vec):
+    """The first-review rule: inclusive p25 / median / p75 at n >= 3."""
+    vals = sorted(vec)
+    if len(vals) < C.K_ANON:
+        return None, "suppressed"
+    q = statistics.quantiles(vals, n=4, method="inclusive")
+    return {"p25": q[0], "median": statistics.median(vals), "p75": q[2]}, None
+
+
+def _preimages(n, publish, top):
+    """Every sorted count vector over 0..top, grouped by what it publishes."""
+    out: dict = {}
+    for vec in itertools.combinations_with_replacement(range(top + 1), n):
+        out.setdefault(_published(list(vec), publish), set()).add(vec)
+    return out
+
+
+def test_old_rule_inverted_three_teams():
+    """The reviewer's example: [1, 4, 9] -> 2.5 / 4 / 6.5 solves for every
+    team's count, so the old rule published the whole season."""
+    assert _old_publish([1, 4, 9])[0] == {"p25": 2.5, "median": 4, "p75": 6.5}
+    pre = _preimages(3, _old_publish, 12)
+    assert pre[_published([1, 4, 9], _old_publish)] == {(1, 4, 9)}
+
+
+@pytest.mark.parametrize("n", range(3, 9))
+def test_no_published_statistic_set_inverts_any_season(n):
+    """For every season of n teams (3..8) whose counts lie in 0..6, at least
+    one OTHER count vector (searched over 0..7) publishes exactly the same
+    statistics.  So no published statistic set reveals every team's count.
+    (A season where no team traded is excluded: ``teamsInAnyTrade = 0`` says
+    so by itself, with or without quantiles.)"""
+    pre = _preimages(n, C.count_quantiles, 7)
+    for vec in itertools.combinations_with_replacement(range(7), n):
+        if not any(vec):
+            continue
+        assert len(pre[_published(list(vec), C.count_quantiles)]) >= 2, vec
+
+
+def test_manager_statistics_follow_the_publication_rule():
+    assert C.manager_statistics([3, 1], trades=4) == {
+        "managersInFullyIdptcPricedTrades": None,
+        "mostActiveManagerShareOfFullyIdptcPricedTrades": None,
+        "medianFullyIdptcPricedTradesPerManager": None,
+        "managerStatisticsSuppressed": "fewer_than_3_managers",
+    }
+    four = C.manager_statistics([4, 2, 1, 1], trades=5)
+    assert four["managersInFullyIdptcPricedTrades"] == 4
+    assert four["medianFullyIdptcPricedTradesPerManager"] is None  # median needs 5
+    five = C.manager_statistics([4, 2, 2, 1, 1], trades=6)
+    assert five["medianFullyIdptcPricedTradesPerManager"] == 2
+    assert five["mostActiveManagerShareOfFullyIdptcPricedTrades"] == ">50%"
+    assert C.disclosure_leaks(four) == [] and C.disclosure_leaks(five) == []
+
+
+def test_manager_median_is_suppressed_below_five_managers():
+    gated = {"managersInFullyIdptcPricedTrades": 4, "medianFullyIdptcPricedTradesPerManager": 2}
+    assert C.disclosure_leaks(gated) == [
+        "median_over_too_few:.medianFullyIdptcPricedTradesPerManager(n=4)"
+    ]
+    q = {"teams": 6, "teamsInAnyTrade": 6, "mostActiveTeamShareOfTrades": ">50%"}
+    bad = {"tradesPerTeamDistribution": {"2024": {**q, "quantiles": {"p25": 1, "median": 2}}}}
+    assert C.disclosure_leaks(bad)
+    good = {"tradesPerTeamDistribution": {"2024": {**q, "quantiles": {"median": 2}}}}
+    assert C.disclosure_leaks(good) == []
 
 
 # ── review fixes: the scan must not depend on the commit SHA ─────────────
@@ -794,19 +929,50 @@ def test_per_team_distribution_has_no_single_team_count():
 #: digit run 764357346 made the id scan refuse the write.  Platform had
 #: nothing to do with it; the SHA differs per commit.
 CI_MERGE_SHA = "9fcec1fa34d2918e55abb764357346ae5cd85279"
+ID1, ID2 = "200000000000000001", "200000000000000002"
 
 
-def test_scan_ignores_digit_runs_inside_a_hex_digest():
-    assert C.identifier_leaks(f'"codeSha": "{CI_MERGE_SHA}"', allowed_ids=[], names=[]) == []
-    # ... and still flags every id-shaped run outside a digest
-    text = "x123456789012 ab123456789cd 200000000000000001 z" + CI_MERGE_SHA
-    assert C.identifier_leaks(text, allowed_ids=[], names=[]) == [
-        "123456789",
-        "123456789012",
-        "200000000000000001",
-        "764357346",
-    ]
-    assert C.identifier_leaks("1" * 40, allowed_ids=[], names=[]) == ["1" * 40]
+def _ids(text, digests=()):
+    return C.identifier_leaks(text, allowed_ids=[], names=[], allowed_digests=digests)
+
+
+def test_scan_exempts_only_allowlisted_digests():
+    assert _ids(f'"codeSha": "{CI_MERGE_SHA}"', [CI_MERGE_SHA]) == []
+    # NOT exempt by shape: the same SHA, not passed in, is a leak
+    assert _ids(f'"codeSha": "{CI_MERGE_SHA}"') == ["764357346"]
+    other = "0123456789abcdef0123456789abcdef01234567"
+    assert _ids(f'"x": "{other}"', [CI_MERGE_SHA]) == ["0123456789"]
+    assert _ids("1" * 40) == ["1" * 40]
+    assert _ids("x123456789012 ab123456789cd z") == ["123456789", "123456789012"]
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        (f"{ID1}abcdef0123456789abcdef0123456789", ID1),  # an id glued to hex letters
+        (f"{CI_MERGE_SHA}{ID1}", "85279" + ID1),  # a sha glued to an id
+        (f"{ID1}e{ID2}", ID2),  # an id-e-id
+        (f"league.{ID1}", ID1),  # an id after a period
+        (f"0.{ID1}", ID1),  # an id spelled as a fraction
+    ],
+    ids=["id_glued_to_hex", "sha_glued_to_id", "id_e_id", "id_after_period", "id_as_fraction"],
+)
+def test_digest_probe_is_flagged(text, expected):
+    assert expected in _ids(text, [CI_MERGE_SHA])
+
+
+def test_float_fractions_are_not_ids():
+    assert _ids("0.1111111111111111, 0.03333333333333333, -2.0333333333333") == []
+
+
+def test_committed_digests_are_the_scripts_own(bundle):
+    agg, _ = C.build_census(bundle, ledger=None)
+    agg["inputs"]["codeSha"] = CI_MERGE_SHA
+    got = C.committed_digests(agg)
+    assert CI_MERGE_SHA in got
+    assert {c["formatFingerprint"] for c in agg["chain"]["seasons"]} <= set(got)
+    own = {c[k] for c in agg["chain"]["seasons"] for k in ("formatFingerprint", "scoringCardHash")}
+    assert set(got) == {CI_MERGE_SHA} | {d for d in own if d}
 
 
 def test_write_does_not_depend_on_the_commit_sha(tmp_path, bundle, monkeypatch):
@@ -838,3 +1004,104 @@ def test_consumption_round_past_identity_grammar_is_not_a_difference():
     got = C._consumption_check(d, host, lambda k, s, r, o: o)
     assert got["draftHostRoundNotCompared"] == 1 and got["replayMatchesPicker"] == 1
     assert "draftHostDiffersFromPicker" not in got and got["_detail"] == []
+
+
+# ── second review fixes: one draft-assignment rule, pre_draft league draft ──
+
+D26, D28 = "400000000000000026", "400000000000000028"
+
+
+@pytest.fixture()
+def draft_id_not_consumer(bundle) -> dict:
+    """2026, as live: the league's ``draft_id`` is a SECOND 2026 draft that
+    completed with 0 picks after the rookie draft, while the rookie draft (the
+    other draft object) consumed the class.  A 2026 round-2 pick moves 4 -> 5
+    DURING the rookie draft, and the league's ``/traded_picks`` shows it."""
+    b = copy.deepcopy(bundle)
+    s = b["seasons"][L26]
+    rookie = s["drafts"][0]
+    rookie["start_time"], rookie["last_picked"] = _ms(2026, 5, 1), _ms(2026, 5, 10)
+    phantom = copy.deepcopy(rookie)
+    phantom.update(draft_id=D28, start_time=_ms(2026, 6, 18), last_picked=_ms(2026, 6, 18))
+    s["drafts"].append(phantom)
+    s["league"]["draft_id"] = D28
+    s["draftPicks"][D28] = []
+    s["draftTradedPicks"][D28] = []
+    s["draftDetail"][D28] = {"draft_id": D28}
+    move = {"season": "2026", "round": 2, "roster_id": 4, "owner_id": 5, "previous_owner_id": 4}
+    earlier = {"season": "2026", "round": 1, "roster_id": 3, "owner_id": 4, "previous_owner_id": 3}
+    s["tradedPicks"] = s["tradedPicks"] + [earlier, move]
+    s["draftTradedPicks"][D26] = s["draftTradedPicks"][D26] + [move]
+    s["transactions"]["1"] = s["transactions"]["1"] + [
+        _pick_trade("300000000000000041", _ms(2026, 5, 5), [4, 5], [(2026, 2, 4, 4, 5)])
+    ]
+    return b
+
+
+def test_league_checkpoint_uses_the_consuming_draft_not_draft_id(draft_id_not_consumer):
+    agg, private = C.build_census(draft_id_not_consumer, ledger=None)
+    pr = agg["validation"]["pickReplay"]
+    (a,) = _by_tx(private)["300000000000000041"]["assets"]
+    assert a["draftKey"] == D26  # the transfer: the rookie draft running at the instant
+    cp26 = next(c for c in pr["checkpoints"] if c["season"] == "2026")
+    assert 2026 in cp26["pickSeasonsCompared"]
+    assert cp26["mismatches"] == 0  # the checkpoint: the SAME draft, not draft_id
+    by_ref = {c["draftRef"]: c for c in pr["draftCheckpoints"]}
+    assert by_ref["2026-D1"]["mismatches"] == 0 and by_ref["2026-D2"]["mismatches"] == 0
+    assert not any(f.startswith("pick_ownership_mismatch") for f in agg["validation"]["findings"])
+
+
+def test_draft_id_rule_would_miss_the_consumed_pick(draft_id_not_consumer, monkeypatch):
+    """The pre-fix checkpoint rule, reproduced: keyed to the league's
+    ``draft_id`` the 2026 row reads the 0-pick draft's untouched state and the
+    host's correct owner looks wrong."""
+    real = C.attribute_pick
+
+    def draft_id_rule(index, season, rnd, at_ms):
+        got = real(index, season, rnd, at_ms)
+        if got.get("consumedBy") and season == 2026:
+            return {**got, "consumedBy": D28}
+        return got
+
+    monkeypatch.setattr(C, "attribute_pick", draft_id_rule)
+    agg, _ = C.build_census(draft_id_not_consumer, ledger=None)
+    cp26 = next(c for c in agg["validation"]["pickReplay"]["checkpoints"] if c["season"] == "2026")
+    assert cp26["mismatches"] == 2  # both 2026 rows: r1 (origin 3) and r2 (origin 4)
+
+
+def _upcoming_league_draft_season():
+    return {
+        "season": "2026",
+        "league": {"draft_id": "P"},
+        "rosters": [{"roster_id": 1}, {"roster_id": 2}],
+        "drafts": [
+            {
+                "draft_id": "P",
+                "season": "2027",
+                "status": "pre_draft",
+                "type": "snake",
+                "settings": {"rounds": 4, "player_type": 1},
+            },
+            {
+                "draft_id": "Q",
+                "season": "2027",
+                "status": "pre_draft",
+                "type": "snake",
+                "settings": {"rounds": 4, "player_type": 1},
+            },
+        ],
+        "draftPicks": {"P": [], "Q": []},
+        "draftTradedPicks": {"P": [], "Q": []},
+        "draftDetail": {},
+    }
+
+
+def test_pre_draft_league_draft_owns_its_picks():
+    """A league draft that has not run yet and has no picks is still the
+    draft its season's picks belong to (``or is_league``); a non-league
+    ``pre_draft`` board (2024's abandoned one) owns none."""
+    idx = {d["draftId"]: d for d in C.draft_index([_upcoming_league_draft_season()])}
+    assert idx["P"]["candidate"] and idx["P"]["isLeagueDraft"]
+    assert not idx["Q"]["candidate"]
+    got = C.attribute_pick(list(idx.values()), 2027, 1, _ms(2026, 12, 1))
+    assert got["key"] == "P" and got["kind"] == "rookie"

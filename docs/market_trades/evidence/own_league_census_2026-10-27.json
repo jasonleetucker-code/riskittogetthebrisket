@@ -2060,10 +2060,10 @@
    "unknownAxes": []
   }
  },
- "generatedAt": "2026-10-27T02:33:56+00:00",
+ "generatedAt": "2026-10-27T03:00:10+00:00",
  "inputs": {
-  "codeSha": "c95390a9856fca7742320cfca42828619e285413",
-  "collectedAt": "2026-10-27T02:25:51.822145+00:00",
+  "codeSha": "4b632e54a476a2d7bb1e5c8b67d1299ffb2f29a0",
+  "collectedAt": "2026-10-27T03:00:09.577923+00:00",
   "historyFloor": "2026-07-14",
   "playersDirectory": "available",
   "priceInstant": "trade status_updated (completion); created when absent",
@@ -2345,7 +2345,8 @@
    "party_receives_nothing": 1
   },
   "pickReplay": {
-   "attributionRule": "Sleeper transaction draft_picks carry no draft id. A moved pick (season, round, origin) belongs to the first of that season's drafts (ran, or the league's draft_id; start order) not finished at the trade instant and having the round; no draft object yet = the season's future class. Replay state is per draft, so a pick consumed by a startup draft never carries into the same season's rookie draft. Verified against each draft's own /draft/{id}/traded_picks.",
+   "attributionResidualLimit": "A rookie-class pick traded during a same-season startup draft cannot be told apart from the startup pick of the same round and origin, because Sleeper's transaction draft_picks carry only season and round; the rule assigns it to the startup. The safeguards that would expose a misassignment are the draft-consumption check (the roster that actually made each pick vs the replayed owner), each draft's own /traded_picks check, and the sender check on every later transfer.",
+   "attributionRule": "Sleeper transaction draft_picks carry no draft id. A moved pick (season, round, origin) belongs to the first of that season's drafts (ran, or the league's draft_id; start order) not finished at the trade instant and having the round; no draft object yet = the season's future class. Replay state is per draft, so a pick consumed by a startup draft never carries into the same season's rookie draft. The league checkpoint attributes each /traded_picks row by the SAME rule at the checkpoint instant; a row whose season's drafts have all finished is compared with the draft that consumed it, never with the league's draft_id by default. Verified against each draft's own /draft/{id}/traded_picks.",
    "checkpoints": [
     {
      "mismatches": 0,

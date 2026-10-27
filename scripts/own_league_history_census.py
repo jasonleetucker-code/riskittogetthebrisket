@@ -47,12 +47,17 @@ What it does, in order:
    anonymized aggregates (JSON + Markdown).  No team appears in them, not even
    as a label: Sleeper ``roster_id`` s run 1..n and persist across the chain,
    so any label derived from roster order is re-identifiable from one public
-   ``/rosters`` + ``/users`` call.  Per-team counts are published only as
-   quantiles over at least ``K_ANON`` teams and the most active team's share
-   as a bucket.  The committed text is scanned before it is written: any digit
-   run of 9+ characters that is not one of the chain's league ids, any league
-   member's display / team name (:func:`identifier_leaks`), or any team label /
-   per-team field (:func:`linkage_leaks`) refuses the write.
+   ``/rosters`` + ``/users`` call.  Per-team / per-manager counts are
+   published only as a median over 5+ and quartiles over 8+ (never a min or
+   max, :func:`count_quantiles`), and the most active team's share as a
+   bucket.  The committed bytes are checked before either file is written
+   (:func:`write_refusals`): any 9+ digit run that is not one of the chain's
+   league ids or inside one of the digests this script writes, any league
+   member's display / team name (:func:`identifier_leaks`), any team label or
+   participant named by number in the text, and -- STRUCTURALLY, by shape --
+   any per-participant key, list or map, unbucketed share, single
+   participant's integer or under-populated statistic in the JSON
+   (:func:`linkage_leaks`, :func:`disclosure_leaks`) refuses the write.
 
 Exit codes: 0 census written, every validation clean; 1 census written with
 validation findings (named in the output); 2 collection incomplete (a fetch
@@ -477,8 +482,27 @@ def attribute_pick(
     Rule: the season's candidate drafts in start order; the first one not
     finished by ``at_ms`` that has the round.  No draft object yet -> the
     season's future class (``undrafted``); every draft finished ->
-    ``after_last_draft``.  The per-draft ``/draft/{id}/traded_picks`` check
-    verifies this attribution independently.
+    ``after_last_draft``, with ``consumedBy`` naming the draft that consumed
+    the pick: the latest-ending finished candidate having the round that made
+    picks (else the latest-ending one having the round).  A transfer keyed
+    ``after_last_draft`` is a finding; a host ``/traded_picks`` row read after
+    every draft finished describes the consumed pick, so the league checkpoint
+    compares it with ``consumedBy``.  ONE rule for both -- never the league's
+    ``draft_id``, which in 2026 is a 0-pick draft while the class was consumed
+    by the auction.  The per-draft ``/draft/{id}/traded_picks`` check verifies
+    this attribution independently.
+
+    **Residual limit.**  Sleeper's transaction ``draft_picks`` carry only
+    ``season`` and ``round`` (plus the origin roster).  A rookie-class pick
+    traded DURING a same-season startup draft (2024: the 24-round startup ran
+    before the 10-round rookie draft) is therefore indistinguishable from the
+    startup pick of the same round and origin: this rule assigns it to the
+    startup.  The safeguards that would expose such a misassignment are the
+    draft-consumption check (the roster that actually made each pick vs the
+    replayed owner), the per-draft ``/traded_picks`` check, and the sender
+    check on every later transfer; for 2024 they show 240/240 startup and
+    100/100 rookie picks made by the replayed owner, and no draft checkpoint
+    mismatch.
     """
     cands = sorted(
         (d for d in index if d["season"] == season and d["candidate"]),
@@ -492,7 +516,19 @@ def attribute_pick(
         if d["rounds"] is not None and rnd > d["rounds"]:
             continue
         return {"key": d["draftId"], "draftRef": d["draftRef"], "kind": d["kind"]}
-    return {"key": f"{AFTER_DRAFTS}:{season}", "draftRef": None, "kind": AFTER_DRAFTS}
+    having = [d for d in cands if d["rounds"] is None or rnd <= d["rounds"]]
+    ran = [d for d in having if d.get("picks")]
+    consumer = max(
+        ran or having,
+        key=lambda d: (d["endMs"] or 0, d["startMs"] or 0, d["draftId"]),
+        default=None,
+    )
+    return {
+        "key": f"{AFTER_DRAFTS}:{season}",
+        "draftRef": None,
+        "kind": AFTER_DRAFTS,
+        "consumedBy": consumer["draftId"] if consumer else None,
+    }
 
 
 def _instant_ms(t: Mapping[str, Any]) -> int | None:
@@ -595,20 +631,21 @@ def pick_replay(
 
     * **sender** -- each transfer's stated ``previous_owner_id`` vs the tracked owner;
     * **league checkpoint** -- each season league's ``/traded_picks`` vs the
-      replay at the end of that league's transactions.  A row of the league's
-      own season belongs to that league's ``draft_id`` draft; a later season's
-      row is attributed like a transfer at the checkpoint instant;
+      replay at the end of that league's transactions.  Every row is attributed
+      by :func:`attribute_pick` at the checkpoint instant, exactly like a
+      transfer; a row whose season's drafts have all finished is compared with
+      the draft that consumed it (``consumedBy``), never with the league's
+      ``draft_id`` by default;
     * **draft checkpoint** -- each candidate draft's ``/draft/{id}/traded_picks``
       vs the replay state of that draft;
     * **consumption** -- each non-auction draft's picks: the roster that made
       the pick vs the replayed owner of the slot's origin.
 
     ``ordered_seasons`` = ``[{"season", "leagueId", "transactions", "rosters",
-    "tradedPicks", "draftRounds", "leagueDraftId"}]`` oldest -> newest;
+    "tradedPicks", "draftRounds"}]`` oldest -> newest;
     ``drafts`` = :func:`draft_index` of the same chain.
     """
     index = list(drafts)
-    by_id = {d["draftId"]: d for d in index}
     state: dict[tuple[str, int, int, int], int] = {}
     transfers = 0
     inconsistent: list[dict[str, Any]] = []
@@ -670,13 +707,12 @@ def pick_replay(
                 }
             )
             continue
-        league_season = _int(s["season"])
-        own = by_id.get(str(s.get("leagueDraftId") or ""))
 
-        def checkpoint_key(se: int, r: int, _ls=league_season, _own=own, _t=last_ms) -> str:
-            if se == _ls and _own is not None and _own["season"] == se:
-                return _own["draftId"]
-            return attribute_pick(index, se, r, _t)["key"]
+        def checkpoint_key(se: int, r: int, _t=last_ms) -> str:
+            # The SAME rule as every transfer, at the checkpoint instant; a row
+            # read after every draft of its season finished is the consumed pick.
+            attr = attribute_pick(index, se, r, _t)
+            return attr.get("consumedBy") or attr["key"]
 
         seasons = sorted({_int(r.get("season")) for r in observed} - {None})
         rounds = max(
@@ -1297,7 +1333,6 @@ def build_census(
                 "rosters": s.get("rosters"),
                 "tradedPicks": s.get("tradedPicks"),
                 "draftRounds": s["draftRounds"],
-                "leagueDraftId": (s.get("league") or {}).get("draft_id"),
             }
             for s in seasons
         ],
@@ -1398,6 +1433,29 @@ def _assets_priced(r: Mapping[str, Any], lanes: Sequence[str]) -> bool:
 
 #: Smallest group a committed per-team / per-manager statistic may describe.
 K_ANON = 3
+#: Smallest group whose MEDIAN of per-team / per-manager counts is published.
+#: At n = 3 the median IS one team's count, and with the inclusive p25 / p75
+#: the three statistics solve for every count ([1, 4, 9] -> [2.5, 4, 6.5]).
+MEDIAN_MIN_N = 5
+#: Smallest group whose p25 / p75 are published beside the median.  At n = 5
+#: the inclusive p25 / median / p75 ARE the 2nd, 3rd and 4th counts, and up to
+#: 7 they sit on or between adjacent counts; from 8 on they leave room.
+QUARTILES_MIN_N = 8
+
+
+def count_quantiles(values: Sequence[float]) -> tuple[dict[str, Any] | None, str | None]:
+    """``(quantiles, suppressedReason)`` for per-team / per-manager COUNTS.
+
+    n < 5 -> nothing; 5 <= n <= 7 -> the median only; n >= 8 -> p25 / median /
+    p75 (inclusive method).  Never a min or max: those are one team's count."""
+    vals = sorted(values)
+    if len(vals) < MEDIAN_MIN_N:
+        return None, f"fewer_than_{MEDIAN_MIN_N}_teams"
+    out: dict[str, Any] = {"median": statistics.median(vals)}
+    if len(vals) >= QUARTILES_MIN_N:
+        q = statistics.quantiles(vals, n=4, method="inclusive")
+        out = {"p25": q[0], "median": out["median"], "p75": q[2]}
+    return out, None
 
 
 def share_bucket(top: int, total: int) -> str | None:
@@ -1411,7 +1469,7 @@ def share_bucket(top: int, total: int) -> str | None:
 
 def per_team_distribution(counts: Sequence[int], *, trades: int) -> dict[str, Any]:
     """Trades per team for one season with NO team label and no single-team
-    count: team totals, quantiles over at least ``K_ANON`` teams (no min / max),
+    count: team totals, quantiles under :func:`count_quantiles` (no min / max),
     and the most active team's share as a bucket.  ``counts`` covers every
     roster, zero-trade teams included."""
     vals = sorted(counts)
@@ -1420,12 +1478,29 @@ def per_team_distribution(counts: Sequence[int], *, trades: int) -> dict[str, An
         "teamsInAnyTrade": sum(1 for v in vals if v),
         "mostActiveTeamShareOfTrades": share_bucket(vals[-1], trades) if vals else None,
     }
-    if len(vals) >= K_ANON:
-        q = statistics.quantiles(vals, n=4, method="inclusive")
-        out["quantiles"] = {"p25": q[0], "median": statistics.median(vals), "p75": q[2]}
-    else:
-        out["quantiles"] = None
-        out["quantilesSuppressed"] = f"fewer_than_{K_ANON}_teams"
+    q, why = count_quantiles(vals)
+    out["quantiles"] = q
+    if why:
+        out["quantilesSuppressed"] = why
+    return out
+
+
+def manager_statistics(counts: Sequence[int], *, trades: int) -> dict[str, Any]:
+    """Per-manager statistics over the fully IDPTC-priced trades, with no single
+    manager's count: never the max ("one manager is in 11 of the 17" pinpoints
+    a manager).  Below ``K_ANON`` managers everything is suppressed; the
+    median follows :func:`count_quantiles` (5+ managers)."""
+    enough = len(counts) >= K_ANON
+    q, _ = count_quantiles(counts)
+    out: dict[str, Any] = {
+        "managersInFullyIdptcPricedTrades": len(counts) if enough else None,
+        "mostActiveManagerShareOfFullyIdptcPricedTrades": (
+            share_bucket(max(counts), trades) if enough else None
+        ),
+        "medianFullyIdptcPricedTradesPerManager": q["median"] if enough and q else None,
+    }
+    if not enough:
+        out["managerStatisticsSuppressed"] = f"fewer_than_{K_ANON}_managers"
     return out
 
 
@@ -1589,18 +1664,7 @@ def aggregate(
     managers = {m for r in records for m in r["managerIds"]}
     priced_idptc = [r for r in records if _assets_priced(r, ["idptc"])]
     per_mgr = Counter(m for r in priced_idptc for m in r["managerIds"])
-    # Never the max: "one manager is in 11 of the 17" pinpoints a manager.  Below
-    # K_ANON managers every statistic here describes one or two people: suppressed.
-    enough = len(per_mgr) >= K_ANON
-    effective["managersInFullyIdptcPricedTrades"] = len(per_mgr) if enough else None
-    effective["mostActiveManagerShareOfFullyIdptcPricedTrades"] = (
-        share_bucket(max(per_mgr.values()), len(priced_idptc)) if enough else None
-    )
-    effective["medianFullyIdptcPricedTradesPerManager"] = (
-        statistics.median(per_mgr.values()) if enough else None
-    )
-    if not enough:
-        effective["managerStatisticsSuppressed"] = f"fewer_than_{K_ANON}_managers"
+    effective.update(manager_statistics(list(per_mgr.values()), trades=len(priced_idptc)))
     distinct_players = {a["playerId"] for r in records for a in r["assets"] if a.get("playerId")}
     pick_assets = [a for r in records for a in r["assets"] if a["kind"] == "pick"]
     distinct_picks = {
@@ -1747,6 +1811,7 @@ def aggregate(
                 "draftCheckpoints": draft_cps_public,
                 "draftConsumption": consumption_public,
                 "attributionRule": ATTRIBUTION_RULE,
+                "attributionResidualLimit": ATTRIBUTION_RESIDUAL_LIMIT,
                 "notFetched": NOT_FETCHED,
             },
             "positionBasisForTradedPlayers": dict(sorted(pos_basis.items())),
@@ -1830,8 +1895,19 @@ ATTRIBUTION_RULE = (
     "belongs to the first of that season's drafts (ran, or the league's draft_id; start order) "
     "not finished at the trade instant and having the round; no draft object yet = the "
     "season's future class. Replay state is per draft, so a pick consumed by a startup draft "
-    "never carries into the same season's rookie draft. Verified against each draft's own "
-    "/draft/{id}/traded_picks."
+    "never carries into the same season's rookie draft. The league checkpoint attributes each "
+    "/traded_picks row by the SAME rule at the checkpoint instant; a row whose season's drafts "
+    "have all finished is compared with the draft that consumed it, never with the league's "
+    "draft_id by default. Verified against each draft's own /draft/{id}/traded_picks."
+)
+#: What the attribution cannot tell apart, and what would expose it.
+ATTRIBUTION_RESIDUAL_LIMIT = (
+    "A rookie-class pick traded during a same-season startup draft cannot be told apart from "
+    "the startup pick of the same round and origin, because Sleeper's transaction draft_picks "
+    "carry only season and round; the rule assigns it to the startup. The safeguards that would "
+    "expose a misassignment are the draft-consumption check (the roster that actually made each "
+    "pick vs the replayed owner), each draft's own /traded_picks check, and the sender check on "
+    "every later transfer."
 )
 #: Evidence the census did not fetch, named so "unexplained" is not read as
 #: "impossible".
@@ -1952,47 +2028,76 @@ def reconcile(
 
 # ── Anonymization guard ──────────────────────────────────────────────────
 
-#: 9+ digits not preceded by a digit or a decimal point (a scoring weight such as
-#: ``0.0333333333`` is a fraction, not an id).
-_LONG_DIGITS = re.compile(r"(?<![\d.])\d{9,}(?!\d)")
+#: 9+ digits not glued to another digit.  A run right after ``<digit>.`` is a
+#: decimal fraction candidate and is excused only when the whole number is how
+#: Python prints that float (:func:`_is_float_repr`); a run after any other
+#: period (``league.123456789012``) is a leak like any other.
+_LONG_DIGITS = re.compile(r"(?<!\d)\d{9,}(?!\d)")
+_NUMBER_AT_END = re.compile(r"-?\d+\.$")
+_FLOAT_TOKEN = re.compile(r"-?\d+\.\d+(?:[eE][+-]?\d+)?")
 
 
-_HEX = frozenset("0123456789abcdefABCDEF")
-#: Shortest hex digest exempted (md5 = 32; git / sha1 = 40; sha256 = 64).
-_MIN_DIGEST_LEN = 32
-
-
-def _inside_hex_digest(text: str, start: int, end: int) -> bool:
-    """True when ``text[start:end]`` sits inside a maximal hex token of 32+
-    characters that contains a letter: a digest such as ``codeSha`` or a
-    format fingerprint, never a Sleeper id (ids are pure decimal tokens).
-    Found on CI: merge commit ``9fcec1fa34d2918e55abb764357346ae5cd85279``
-    carries the run ``764357346``, so the scan refused depending on the
-    commit SHA, not the data.  Every other 9+ digit run is still a leak."""
-    lo, hi = start, end
-    while lo > 0 and text[lo - 1] in _HEX:
-        lo -= 1
-    while hi < len(text) and text[hi] in _HEX:
-        hi += 1
-    token = text[lo:hi]
-    if len(token) < _MIN_DIGEST_LEN or token.isdigit():
+def _is_float_repr(text: str, start: int) -> bool:
+    """True when the digit run at ``start`` is the fraction of a number the
+    JSON / f-string writer produced from a float: the run follows ``<digits>.``
+    and the whole token is ``repr(float(token))``.  Python's float repr carries
+    at most 17 significant digits, so an 18-19 digit Sleeper id spelled as a
+    fraction (``0.200000000000000001``) never round-trips and is flagged."""
+    head = _NUMBER_AT_END.search(text[max(0, start - 32) : start])
+    if not head:
         return False
-    # The token must be delimited by non-word characters on both sides, so an
-    # id glued to letters ("x123456789012abc...") is not excused as a digest.
-    before = text[lo - 1] if lo > 0 else " "
-    after = text[hi] if hi < len(text) else " "
-    return not (before.isalnum() or before == "_" or after.isalnum() or after == "_")
+    m = _FLOAT_TOKEN.match(text, start - len(head.group()))
+    if not m:
+        return False
+    tok = m.group()
+    try:
+        return repr(float(tok)) == tok
+    except ValueError:
+        return False
 
 
-def identifier_leaks(text: str, *, allowed_ids: Iterable[str], names: Iterable[str]) -> list[str]:
-    """Every Sleeper-id-shaped digit run (9+) not in ``allowed_ids`` and every
-    league member name found in ``text``."""
+def _digest_spans(text: str, digests: Iterable[str]) -> list[tuple[int, int]]:
+    """Every occurrence of an allowlisted digest.  A digit run is exempt only
+    when it lies wholly INSIDE one, so an id glued to a digest
+    (``<sha>200000000000000001``) runs past the span and is still flagged."""
+    return [
+        (m.start(), m.end())
+        for dg in sorted({str(d) for d in digests if d})
+        for m in re.finditer(re.escape(dg), text)
+    ]
+
+
+def committed_digests(agg: Mapping[str, Any]) -> list[str]:
+    """The digests this script itself writes into the committed output: the
+    code SHA and each season's format fingerprint and scoring-card hash.  The
+    ONLY values the id scan exempts -- never a token for looking like a hash
+    (found on CI: merge commit ``9fcec1fa34d2918e55abb764357346ae5cd85279``
+    carries the run ``764357346``)."""
+    out = [str((agg.get("inputs") or {}).get("codeSha") or "")]
+    for c in (agg.get("chain") or {}).get("seasons") or []:
+        out += [str(c.get("formatFingerprint") or ""), str(c.get("scoringCardHash") or "")]
+    return sorted({d for d in out if d})
+
+
+def identifier_leaks(
+    text: str,
+    *,
+    allowed_ids: Iterable[str],
+    names: Iterable[str],
+    allowed_digests: Iterable[str] = (),
+) -> list[str]:
+    """Every Sleeper-id-shaped digit run (9+) not in ``allowed_ids``, not inside
+    a delimited occurrence of an ``allowed_digests`` value and not a float's
+    printed fraction, and every league member name found in ``text``."""
     allowed = {str(a) for a in allowed_ids}
+    spans = _digest_spans(text, allowed_digests)
     leaks = sorted(
         {
             m.group()
             for m in _LONG_DIGITS.finditer(text)
-            if m.group() not in allowed and not _inside_hex_digest(text, m.start(), m.end())
+            if m.group() not in allowed
+            and not any(lo <= m.start() and m.end() <= hi for lo, hi in spans)
+            and not _is_float_repr(text, m.start())
         }
     )
     low = text.lower()
@@ -2002,42 +2107,184 @@ def identifier_leaks(text: str, *, allowed_ids: Iterable[str], names: Iterable[s
     return leaks
 
 
-#: A team label of the ``T01..Tnn`` shape (or any ``T`` + two digits token).
-_TEAM_LABEL = re.compile(r"(?<![A-Za-z0-9_])T\d{2}(?![A-Za-z0-9_])")
-#: Keys that carry a per-team row, a team label, a roster / manager id or a
-#: single manager's count.  None may appear in a committed output.
-LINKAGE_KEYS = frozenset(
+#: A team label: ``T`` + digits as a token (``T1``, ``T01``, ``T001``).
+_TEAM_LABEL = re.compile(r"(?<![A-Za-z0-9_])T\d+(?![A-Za-z0-9_])")
+#: Words that name one league participant.
+_ENTITY = "team|roster|manager|owner|sender|receiver|origin|picker|franchise|user"
+#: A participant named by number in prose or JSON text: ``Team 3``, ``roster 1``,
+#: ``origin #5``, ``owner_12``.  (A colon is not a separator: "the slot's
+#: origin: 100 picks" is a count.  JSON keys are refused structurally.)
+_ENTITY_NUMBER = re.compile(
+    rf"(?<![A-Za-z0-9])(?:{_ENTITY})s?[ \t_#-]*\d+(?![A-Za-z0-9_])", re.IGNORECASE
+)
+#: A key that indexes values BY / PER participant (``tradesByRoster``, ``perTeam``).
+_PER_ENTITY_KEY = re.compile(rf"(?:by|per)_?(?:{_ENTITY})", re.IGNORECASE)
+#: A key holding participant identifiers or labels (``rosterIds``,
+#: ``previousOwnerId``, ``teamLabels``, ``teamLabelMaps``).
+_ENTITY_ID_KEY = re.compile(rf"(?:{_ENTITY})(?:_?ids?|_?labels?|_?label_?maps?)$", re.IGNORECASE)
+#: The key's LAST word is a participant (``slotToRoster``, ``owners``): a map or
+#: list under it is a participant map or list.
+_ENTITY_LAST_WORD = re.compile(rf"(?:{_ENTITY})s?$", re.IGNORECASE)
+#: An extremum / singleton qualifier beside a participant word: one team's count.
+_SINGLE_QUALIFIER = re.compile(
+    r"top|most|max|min|highest|lowest|largest|smallest|leading|single|best|worst", re.IGNORECASE
+)
+_ENTITY_WORD = re.compile(_ENTITY, re.IGNORECASE)
+#: A singular participant word (``manager``, not ``managers``).
+_ENTITY_SINGULAR = re.compile(rf"(?:{_ENTITY})(?!s)", re.IGNORECASE)
+#: Integer keys that carry a participant word but count TRADES or SETTINGS, not
+#: one participant.  Reviewed and fail closed: a new one is refused until listed.
+APPROVED_ENTITY_WORD_INT_KEYS = frozenset(
     {
-        "tradesPerTeamLabel",
-        "teamLabels",
-        "teamLabelMaps",
-        "rosterIds",
-        "managerIds",
-        "maxFullyIdptcPricedTradesPerManager",
+        "senderMismatches",
+        "teamCount",
+        "multi_team",
+        # draft-consumption tallies: counts of PICKS, summed over every roster
+        "replayMatchesPicker",
+        "replayDiffersFromPicker",
+        "draftHostMatchesPicker",
+        "draftHostDiffersFromPicker",
     }
+)
+#: ``market_trade_eval.classify_topology`` class names (trade counts).
+_TOPOLOGY_INT_KEY = re.compile(r"^two_team_[a-z0-9_]+$")
+#: Population counts: integers over a set of participants, never below K_ANON.
+POPULATION_KEYS = frozenset(
+    {"teams", "teamsInAnyTrade", "distinctTradingManagers", "managersInFullyIdptcPricedTrades"}
+)
+#: Published statistics over participants, each validated by its own rule here.
+GATED_PARTICIPANT_STATS = frozenset(
+    {"tradesPerTeamDistribution", "medianFullyIdptcPricedTradesPerManager"}
+)
+SHARE_BUCKETS = frozenset({"<=25%", "25-50%", ">50%"})
+_DISTRIBUTION_ROW_KEYS = frozenset(
+    {"teams", "teamsInAnyTrade", "mostActiveTeamShareOfTrades", "quantiles", "quantilesSuppressed"}
 )
 
 
-def _walk_keys(obj: Any) -> Iterable[str]:
+def _quantile_keys_allowed(n: Any) -> set[str]:
+    if not isinstance(n, int) or isinstance(n, bool) or n < MEDIAN_MIN_N:
+        return set()
+    return {"p25", "median", "p75"} if n >= QUARTILES_MIN_N else {"median"}
+
+
+def disclosure_leaks(obj: Any, path: str = "") -> list[str]:
+    """STRUCTURAL refusal of anything in the committed JSON that could pin one
+    participant, by shape rather than by a list of known-bad names:
+
+    * a key that labels a participant (``T01``, ``Team 3``), holds participant
+      identifiers (``rosterIds``, ``teamLabels``), or names a map / list for a
+      participant (``slotToRoster``, ``owners``);
+    * a key that indexes values by / per participant (``tradesByRoster``,
+      ``perTeam``), unless it is one of :data:`GATED_PARTICIPANT_STATS`, each
+      validated here (row fields, bucketed share, a median only over 5+ and
+      quartiles only over 8+ participants);
+    * a participant share that is not a bucket;
+    * a single participant's integer (an extremum qualifier, or a singular
+      participant word on an integer not reviewed in
+      :data:`APPROVED_ENTITY_WORD_INT_KEYS`);
+    * a population count below ``K_ANON``."""
+    out: list[str] = []
     if isinstance(obj, Mapping):
         for k, v in obj.items():
-            yield str(k)
-            yield from _walk_keys(v)
+            k = str(k)
+            p = f"{path}.{k}"
+            if _TEAM_LABEL.fullmatch(k) or _ENTITY_NUMBER.fullmatch(k):
+                out.append(f"participant_label_key:{p}")
+            if _ENTITY_ID_KEY.search(k):
+                out.append(f"participant_id_key:{p}")
+            elif (
+                isinstance(v, (Mapping, list, tuple))
+                and _ENTITY_LAST_WORD.search(k)
+                and k not in GATED_PARTICIPANT_STATS
+            ):
+                out.append(f"participant_container:{p}")
+            if _PER_ENTITY_KEY.search(k) and k not in GATED_PARTICIPANT_STATS:
+                out.append(f"per_participant_key:{p}")
+            if (
+                "share" in k.lower()
+                and _ENTITY_WORD.search(k)
+                and v is not None
+                and v not in SHARE_BUCKETS
+            ):
+                out.append(f"unbucketed_share:{p}")
+            if isinstance(v, int) and not isinstance(v, bool) and _ENTITY_WORD.search(k):
+                if k in POPULATION_KEYS:
+                    if v < K_ANON:
+                        out.append(f"small_population:{p}={v}")
+                elif k in GATED_PARTICIPANT_STATS:
+                    pass  # validated by its own rule below
+                elif _SINGLE_QUALIFIER.search(k) or (
+                    _ENTITY_SINGULAR.search(k)
+                    and k not in APPROVED_ENTITY_WORD_INT_KEYS
+                    and not _TOPOLOGY_INT_KEY.match(k)
+                ):
+                    out.append(f"single_participant_count:{p}={v}")
+            if k == "medianFullyIdptcPricedTradesPerManager" and v is not None:
+                n = obj.get("managersInFullyIdptcPricedTrades")
+                if "median" not in _quantile_keys_allowed(n):
+                    out.append(f"median_over_too_few:{p}(n={n})")
+            if k == "tradesPerTeamDistribution":
+                out += _distribution_leaks(v, p)
+                continue  # validated as a whole; its rows are not walked again
+            out += disclosure_leaks(v, p)
     elif isinstance(obj, (list, tuple)):
-        for v in obj:
-            yield from _walk_keys(v)
+        for i, v in enumerate(obj):
+            out += disclosure_leaks(v, f"{path}[{i}]")
+    return out
+
+
+def _distribution_leaks(dist: Any, path: str) -> list[str]:
+    if not isinstance(dist, Mapping):
+        return [f"per_participant_shape:{path}"]
+    out: list[str] = []
+    for season, row in dist.items():
+        p = f"{path}.{season}"
+        if not isinstance(row, Mapping):
+            out.append(f"per_participant_shape:{p}")
+            continue
+        extra = set(row) - _DISTRIBUTION_ROW_KEYS
+        if extra:
+            out.append(f"per_participant_row:{p}:{sorted(extra)}")
+        share = row.get("mostActiveTeamShareOfTrades")
+        if share is not None and share not in SHARE_BUCKETS:
+            out.append(f"unbucketed_share:{p}")
+        n = row.get("teams")
+        if isinstance(n, int) and n < K_ANON:
+            out.append(f"small_population:{p}.teams={n}")
+        q = row.get("quantiles")
+        if q is not None:
+            got = set(q) if isinstance(q, Mapping) else {"<not a mapping>"}
+            if not got or got - _quantile_keys_allowed(n):
+                out.append(f"quantiles_over_too_few:{p}(n={n}):{sorted(got)}")
+    return out
 
 
 def linkage_leaks(agg: Mapping[str, Any], text: str) -> list[str]:
-    """Re-identification by LINKAGE rather than by id: any team label in the
-    committed text, and any per-team / per-manager key in the committed JSON.
+    """Re-identification by LINKAGE rather than by id: a team label or a
+    participant named by number anywhere in the committed JSON or Markdown
+    text, plus every :func:`disclosure_leaks` finding in the committed JSON.
 
     Sleeper ``roster_id`` s are 1..n and persist across the season chain, so a
     label assigned in roster order maps to a named manager through one public
     ``/rosters`` + ``/users`` call, and links that manager across seasons."""
     out = [f"team_label:{m}" for m in sorted(set(_TEAM_LABEL.findall(text)))]
-    out += [f"key:{k}" for k in sorted({k for k in _walk_keys(agg) if k in LINKAGE_KEYS})]
+    out += [f"participant_number:{m}" for m in sorted(set(_ENTITY_NUMBER.findall(text)))]
+    out += disclosure_leaks(agg)
     return out
+
+
+def write_refusals(
+    agg: Mapping[str, Any], body_json: str, body_md: str, *, names: Iterable[str]
+) -> list[str]:
+    """Every reason the committed outputs may not be written.  ``main`` calls
+    this on the exact bytes it is about to write, before writing either file."""
+    text = body_json + body_md
+    allowed = list(((agg.get("deliverableA") or {}).get("historicalLeagueIds") or {}).values())
+    leaks = identifier_leaks(
+        text, allowed_ids=allowed, names=names, allowed_digests=committed_digests(agg)
+    )
+    return leaks + linkage_leaks(agg, text)
 
 
 def member_names(bundle: Mapping[str, Any]) -> set[str]:
@@ -2113,10 +2360,14 @@ def render_markdown(agg: Mapping[str, Any]) -> str:
         "- **Privacy.** Transaction-level evidence with roster, user and transaction ids is "
         "written only to the gitignored `data/research/own_league_census/`. This file and its JSON "
         "carry counts only: no team label (roster order is public, so any order-derived label "
-        "re-identifies a manager), per-team counts only as quantiles over 3+ teams, and the most "
-        "active team's share as a bucket. The script refuses to write them if it finds a team label, "
-        "a per-team field, any "
-        "9+ digit run other than the three league ids, or any league member's name."
+        "re-identifies a manager), per-team counts only as a median over 5+ teams and quartiles over 8+ teams (never a min or "
+        "max), and the most "
+        "active team's share as a bucket. The script refuses to write them if it finds a team label "
+        "or a team / roster / origin / sender / owner named by number in the text; a "
+        "per-team or per-manager key, list or map, an unbucketed share, a single manager's count "
+        "or an under-populated statistic in the JSON (checked by shape, not by a list of names); "
+        "any 9+ digit run other than the three league ids and the digests this script writes; "
+        "or any league member's name."
     )
     w("")
     w("## 2. Seasons recovered")
@@ -2203,6 +2454,16 @@ def render_markdown(agg: Mapping[str, Any]) -> str:
         f"{pr['transfersAfterTheirDraftCompleted']} move a pick after its draft completed."
     )
     w(f"  - Attribution: {pr['attributionRule']}")
+    safeguard = [
+        f"{c['draftRef']} ({c['kind']}) {c.get('replayMatchesPicker', 0)}/{c.get('picks', 0)}"
+        for c in pr["draftConsumption"]
+        if c.get("state") == "compared"
+    ]
+    w(
+        f"  - Residual limit: {pr['attributionResidualLimit']} Picks made by the replayed owner: "
+        + ("; ".join(safeguard) if safeguard else "no non-auction draft to check")
+        + "."
+    )
     for cp in pr["checkpoints"]:
         if cp["state"] == "compared":
             w(
@@ -2313,7 +2574,13 @@ def render_markdown(agg: Mapping[str, Any]) -> str:
     w("|---|---:|---:|---|---|")
     for s, m in A["tradesPerTeamDistribution"].items():
         q = m["quantiles"]
-        qs = f"{q['p25']} / {q['median']} / {q['p75']}" if q else "suppressed"
+        qs = (
+            "suppressed (fewer than 5 teams)"
+            if not q
+            else f"{q['p25']} / {q['median']} / {q['p75']}"
+            if "p25" in q
+            else f"median {q['median']} (quartiles need 8+ teams)"
+        )
         w(
             f"| {s} | {m['teams']} | {m['teamsInAnyTrade']} | {qs} | "
             f"{m['mostActiveTeamShareOfTrades']} |"
@@ -2606,8 +2873,13 @@ def hypothesis_blockers(agg: Mapping[str, Any]) -> dict[str, str]:
         if E["managersInFullyIdptcPricedTrades"] is None
         else (
             f"{A['distinctTradingManagers']} distinct trading managers over all trades; "
-            f"{E['managersInFullyIdptcPricedTrades']} appear in a fully IDPTC-priced trade (median "
-            f"{E['medianFullyIdptcPricedTradesPerManager']} such trades each). The most active "
+            f"{E['managersInFullyIdptcPricedTrades']} appear in a fully IDPTC-priced trade ("
+            + (
+                f"median {E['medianFullyIdptcPricedTradesPerManager']} such trades each"
+                if E["medianFullyIdptcPricedTradesPerManager"] is not None
+                else f"median suppressed below {MEDIAN_MIN_N} managers"
+            )
+            + "). The most active "
             f"manager's share of those trades is {E['mostActiveManagerShareOfFullyIdptcPricedTrades']} "
             "(bucketed; no single manager's count is published)."
         ),
@@ -2698,10 +2970,9 @@ def main(argv: list[str] | None = None) -> int:
 
     body_json = json.dumps(agg, indent=1, sort_keys=True, default=str) + "\n"
     body_md = render_markdown(agg)
-    allowed = list(agg["deliverableA"]["historicalLeagueIds"].values())
-    names = member_names(bundle)
-    leaks = identifier_leaks(body_json + body_md, allowed_ids=allowed, names=names)
-    leaks += linkage_leaks(agg, body_json + body_md)
+    # The structural refusal runs on the exact bytes about to be written, and
+    # before either file is touched.
+    leaks = write_refusals(agg, body_json, body_md, names=member_names(bundle))
     if leaks:
         print(f"anonymization scan refused the write: {len(leaks)} leak(s)", file=sys.stderr)
         return EXIT_BAD_INPUT
