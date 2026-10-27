@@ -94,8 +94,25 @@ SOURCE_EVIDENCE_KEYS = frozenset(
         "marketGapDirection",
         "marketGapMagnitude",
         "marketGapValueRatio",
+        # Per-source keys the repo's public blocklist
+        # (``src.public_league.public_contract._PRIVATE_FIELD_BLOCKLIST``)
+        # already treats as per-source evidence; pinned against it by test so
+        # this list cannot drift behind it.
+        "siteValues",
+        "rawSources",
+        "sourceShadowMeta",
+        "sourceWithheldMeta",
+        "signalsPositionalRank",
+        "signalsSf",
+        "signalsIdp",
+        "signalsIdpDl",
+        "signalsIdpLb",
+        "signalsIdpDb",
     }
 )
+#: Case-folded view used for matching (payload keys are compared lowercased,
+#: so a snake_case or differently-cased spelling is stripped too).
+_SOURCE_EVIDENCE_KEYS_FOLDED = frozenset(k.lower().replace("_", "") for k in SOURCE_EVIDENCE_KEYS)
 
 
 class ToolArgumentError(ValueError):
@@ -939,7 +956,7 @@ def _without_source_evidence(value: Any, redacted: set[str]) -> Any:
     if isinstance(value, dict):
         out = {}
         for key, item in value.items():
-            if key in SOURCE_EVIDENCE_KEYS:
+            if str(key).lower().replace("_", "") in _SOURCE_EVIDENCE_KEYS_FOLDED:
                 redacted.add(key)
                 continue
             out[key] = _without_source_evidence(item, redacted)
@@ -1246,10 +1263,17 @@ async def mcp_endpoint(request: Request):
         raw.extend(chunk)
         if len(raw) > MAX_REQUEST_BYTES:
             return _plain_error(413, "request_too_large")
+    # JSON-RPC bodies are UTF-8.  Decoding strictly FIRST (and parsing the
+    # decoded text, not the bytes) means a UTF-16/32 body can't slip past the
+    # byte-level depth scan via ``json.loads``' encoding auto-detection.
+    try:
+        text = bytes(raw).decode("utf-8")
+    except UnicodeDecodeError:
+        return _plain_error(400, "invalid_json")
     if _json_depth_exceeds(raw, MAX_JSON_DEPTH):
         return _plain_error(400, "json_too_deep")
     try:
-        message = json.loads(raw)
+        message = json.loads(text)
     except RecursionError:
         return _plain_error(400, "json_too_deep")
     except (UnicodeDecodeError, json.JSONDecodeError):

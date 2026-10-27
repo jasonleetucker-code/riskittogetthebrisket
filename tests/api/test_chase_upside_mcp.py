@@ -329,6 +329,22 @@ def test_deeply_nested_json_is_a_stable_400(monkeypatch):
         assert response.json() == {"error": "json_too_deep"}
 
 
+def test_non_utf8_body_cannot_bypass_the_depth_scan(monkeypatch):
+    """A UTF-16 body would slip past a byte-level bracket scan if the parser
+    auto-detected its encoding; the body is decoded as UTF-8 first instead."""
+    # A VALID JSON-RPC request nesting deeper than MAX_JSON_DEPTH (but nowhere
+    # near the recursion limit): json.loads(bytes) would auto-detect UTF-16
+    # and accept it, past the byte scan, into the handler.
+    nested = "[" * 100 + "]" * 100
+    body = '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {"x": %s}}' % nested
+    with _mcp_client(monkeypatch) as client:
+        response = client.post(
+            "/api/chase-upside/mcp", headers=_headers(), content=body.encode("utf-16")
+        )
+    assert response.status_code == 400
+    assert response.json() == {"error": "invalid_json"}
+
+
 def test_tool_call_answers_within_its_time_budget(monkeypatch):
     import asyncio
 

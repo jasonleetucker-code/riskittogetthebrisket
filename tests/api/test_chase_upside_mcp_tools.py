@@ -475,6 +475,46 @@ def test_forbidden_keys_are_all_stripped_by_the_module():
     assert set(FORBIDDEN_KEYS) <= mcp.SOURCE_EVIDENCE_KEYS
 
 
+#: Fragments that mark a public-blocklist key as PER-SOURCE evidence (a
+#: vendor's own value / rank / translation), as opposed to private-but-owner-
+#: visible fields (canonical value, edges, weights) the owner's MCP may show.
+_PER_SOURCE_FRAGMENTS = (
+    "sitevalue",
+    "rawsource",
+    "signalssf",
+    "signalsidp",
+    "signalspositional",
+    "sourcerank",
+    "sourceaudit",
+    "sourcenative",
+    "sourceoriginal",
+    "sourceshadow",
+    "sourcewithheld",
+)
+
+
+def test_redaction_covers_every_per_source_key_in_the_public_blocklist():
+    from src.public_league.public_contract import _PRIVATE_FIELD_BLOCKLIST
+
+    folded = {k.lower().replace("_", "") for k in mcp.SOURCE_EVIDENCE_KEYS}
+    per_source = {
+        k.replace("_", "")
+        for k in _PRIVATE_FIELD_BLOCKLIST
+        if any(f in k.replace("_", "") for f in _PER_SOURCE_FRAGMENTS)
+    }
+    assert per_source, "the drift guard must actually select keys"
+    assert per_source <= folded, sorted(per_source - folded)
+
+
+def test_redaction_matches_keys_case_and_underscore_insensitively():
+    redacted: set[str] = set()
+    out = mcp._without_source_evidence(
+        {"a": {"site_values": {"x": 1}, "SourceShadowMeta": 2, "keep": 3}}, redacted
+    )
+    assert out == {"a": {"keep": 3}}
+    assert redacted == {"site_values", "SourceShadowMeta"}
+
+
 def test_trade_detail_carries_no_source_values(monkeypatch, pinned_trade_inputs):
     from src.trade import analyze_service
 
