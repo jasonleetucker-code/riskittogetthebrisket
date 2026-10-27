@@ -1,0 +1,914 @@
+{
+ "assets2026": {
+  "strict": {
+   "canonical": {
+    "ageBuckets": {
+     "0": 108,
+     "2-3": "<5"
+    },
+    "ageDaysQuantiles": {
+     "median": 0,
+     "n": 109,
+     "p25": 0.0,
+     "p75": 0.0
+    },
+    "byFamily": {
+     "IDP": {
+      "missing": 20,
+      "priced": 18,
+      "pricedWithinAgeGate": 18
+     },
+     "OFFENSE": {
+      "missing": 153,
+      "priced": 91,
+      "pricedWithinAgeGate": 91
+     },
+     "PICK": {
+      "missing": 97
+     }
+    },
+    "missingReasons": {
+     "before_history_boundary": 174,
+     "no_prior_observation": 43,
+     "pick_unpriced_by_construction": 53
+    },
+    "season2026Assets": {
+     "exact": 108,
+     "missing": 270,
+     "nearest-prior": "<5"
+    },
+    "selectedOrigin": {
+     "live:server": 108,
+     "migration:rank_history": "<5"
+    },
+    "selectedRecordedAfterTradeInstant": 0
+   },
+   "idptc": {
+    "ageBuckets": {
+     "0": 109
+    },
+    "ageDaysQuantiles": {
+     "median": 0,
+     "n": 109,
+     "p25": 0.0,
+     "p75": 0.0
+    },
+    "byFamily": {
+     "IDP": {
+      "missing": 20,
+      "priced": 18,
+      "pricedWithinAgeGate": 18
+     },
+     "OFFENSE": {
+      "missing": 153,
+      "priced": 91,
+      "pricedWithinAgeGate": 91
+     },
+     "PICK": {
+      "missing": 97
+     }
+    },
+    "missingReasons": {
+     "before_history_boundary": 174,
+     "no_prior_observation": 43,
+     "pick_unpriced_by_construction": 53
+    },
+    "season2026Assets": {
+     "exact": 109,
+     "missing": 270
+    },
+    "selectedOrigin": {
+     "live:server": 109
+    },
+    "selectedRecordedAfterTradeInstant": 0
+   },
+   "ktc": {
+    "ageBuckets": {
+     "0": 66,
+     "1": 15,
+     "2-3": "<5",
+     "4-7": 7
+    },
+    "ageDaysQuantiles": {
+     "median": 0,
+     "n": 91,
+     "p25": 0.0,
+     "p75": 1.0
+    },
+    "byFamily": {
+     "IDP": {
+      "missing": 38
+     },
+     "OFFENSE": {
+      "missing": 153,
+      "priced": 91,
+      "pricedWithinAgeGate": 91
+     },
+     "PICK": {
+      "missing": 97
+     }
+    },
+    "missingReasons": {
+     "before_history_boundary": 174,
+     "no_prior_observation": 61,
+     "pick_unpriced_by_construction": 53
+    },
+    "season2026Assets": {
+     "exact": 66,
+     "missing": 288,
+     "nearest-prior": 25
+    },
+    "selectedOrigin": {
+     "backfill:archive:zip=dynasty_export_20260914_193923.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260915_121145.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260922_120650.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260922_172152.zip": 7,
+     "backfill:archive:zip=dynasty_export_20260923_080125.zip": 6,
+     "backfill:archive:zip=dynasty_export_20260923_135506.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260928_090042.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260928_181859.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260930_130404.zip": 8,
+     "backfill:archive:zip=dynasty_export_20261009_212133.zip": 10,
+     "backfill:archive:zip=dynasty_export_20261015_172516.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20261017_185402.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20261018_002736.zip": 6,
+     "backfill:archive:zip=dynasty_export_20261021_141109.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20261021_185855.zip": 10,
+     "live:server": 24
+    },
+    "selectedRecordedAfterTradeInstant": 0
+   }
+  },
+  "validTime": {
+   "canonical": {
+    "ageBuckets": {
+     "0": 133,
+     "1": 17,
+     "2-3": "<5",
+     "4-7": "<5"
+    },
+    "ageDaysQuantiles": {
+     "median": 0.0,
+     "n": 152,
+     "p25": 0.0,
+     "p75": 0.0
+    },
+    "byFamily": {
+     "IDP": {
+      "missing": 9,
+      "priced": 29,
+      "pricedWithinAgeGate": 29
+     },
+     "OFFENSE": {
+      "missing": 121,
+      "priced": 123,
+      "pricedWithinAgeGate": 123
+     },
+     "PICK": {
+      "missing": 97
+     }
+    },
+    "missingReasons": {
+     "before_history_boundary": 174,
+     "pick_unpriced_by_construction": 53
+    },
+    "season2026Assets": {
+     "exact": 133,
+     "missing": 227,
+     "nearest-prior": 19
+    },
+    "selectedOrigin": {
+     "live:server": 108,
+     "migration:board_history": 38,
+     "migration:rank_history": 6
+    },
+    "selectedRecordedAfterTradeInstant": 43
+   },
+   "idptc": {
+    "ageBuckets": {
+     "0": 115,
+     "1": 36
+    },
+    "ageDaysQuantiles": {
+     "median": 0,
+     "n": 151,
+     "p25": 0.0,
+     "p75": 0.0
+    },
+    "byFamily": {
+     "IDP": {
+      "missing": 10,
+      "priced": 28,
+      "pricedWithinAgeGate": 28
+     },
+     "OFFENSE": {
+      "missing": 121,
+      "priced": 123,
+      "pricedWithinAgeGate": 123
+     },
+     "PICK": {
+      "missing": 97
+     }
+    },
+    "missingReasons": {
+     "before_history_boundary": 174,
+     "no_prior_observation": "<5",
+     "pick_unpriced_by_construction": 53
+    },
+    "season2026Assets": {
+     "exact": 115,
+     "missing": 228,
+     "nearest-prior": 36
+    },
+    "selectedOrigin": {
+     "backfill:archive:zip=dynasty_export_20260730_234456.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260810_232112.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260811_232600.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260812_232543.zip": 16,
+     "backfill:archive:zip=dynasty_export_20260813_232644.zip": 6,
+     "backfill:archive:zip=dynasty_export_20260814_230212.zip": 8,
+     "backfill:archive:zip=dynasty_export_20260824_191933.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20261015_215027.zip": "<5",
+     "live:server": 104
+    },
+    "selectedRecordedAfterTradeInstant": 47
+   },
+   "ktc": {
+    "ageBuckets": {
+     "0": 70,
+     "1": 53
+    },
+    "ageDaysQuantiles": {
+     "median": 0,
+     "n": 123,
+     "p25": 0.0,
+     "p75": 1.0
+    },
+    "byFamily": {
+     "IDP": {
+      "missing": 38
+     },
+     "OFFENSE": {
+      "missing": 121,
+      "priced": 123,
+      "pricedWithinAgeGate": 123
+     },
+     "PICK": {
+      "missing": 97
+     }
+    },
+    "missingReasons": {
+     "before_history_boundary": 174,
+     "no_prior_observation": 29,
+     "pick_unpriced_by_construction": 53
+    },
+    "season2026Assets": {
+     "exact": 70,
+     "missing": 256,
+     "nearest-prior": 53
+    },
+    "selectedOrigin": {
+     "backfill:archive:zip=dynasty_export_20260730_234456.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260810_232112.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260811_232600.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260812_232543.zip": 10,
+     "backfill:archive:zip=dynasty_export_20260813_232644.zip": 6,
+     "backfill:archive:zip=dynasty_export_20260814_230212.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260824_191933.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260914_193923.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260915_121145.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260922_120650.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260922_214329.zip": 7,
+     "backfill:archive:zip=dynasty_export_20260923_080125.zip": 6,
+     "backfill:archive:zip=dynasty_export_20260923_184131.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260928_090042.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260928_181859.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20260930_130404.zip": 8,
+     "backfill:archive:zip=dynasty_export_20261010_235341.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20261012_231649.zip": 7,
+     "backfill:archive:zip=dynasty_export_20261015_215027.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20261017_185402.zip": "<5",
+     "backfill:archive:zip=dynasty_export_20261018_002736.zip": 6,
+     "backfill:archive:zip=dynasty_export_20261021_185855.zip": 14,
+     "live:server": 20
+    },
+    "selectedRecordedAfterTradeInstant": 59
+   }
+  }
+ },
+ "boardHistory": {
+  "days": 82,
+  "firstDate": "2026-08-06",
+  "lastDate": "2026-10-27",
+  "rows": 89752
+ },
+ "inputs": {
+  "ageGateDays": 7,
+  "historyFloor": "2026-07-14",
+  "seasons": [
+   "2024",
+   "2025",
+   "2026"
+  ],
+  "smallCellSuppressionBelow": 5,
+  "trades": 233
+ },
+ "ledger": {
+  "canonicalBoard": {
+   "byOrigin": {
+    "live:server": {
+     "days": 72,
+     "firstDate": "2026-08-16",
+     "firstRecordedAt": "2026-08-16T16:45:58.076792+00:00",
+     "lastDate": "2026-10-27",
+     "lastRecordedAt": "2026-10-27T08:37:13.090944+00:00",
+     "rows": 1095952
+    },
+    "migration:board_history": {
+     "days": 82,
+     "firstDate": "2026-08-06",
+     "firstRecordedAt": "2026-08-16T16:41:59.402019+00:00",
+     "lastDate": "2026-10-27",
+     "lastRecordedAt": "2026-10-27T08:03:03.490128+00:00",
+     "rows": 79032
+    },
+    "migration:rank_history": {
+     "days": 99,
+     "firstDate": "2026-07-20",
+     "firstRecordedAt": "2026-08-16T16:42:01.679784+00:00",
+     "lastDate": "2026-10-27",
+     "lastRecordedAt": "2026-10-27T08:03:23.523027+00:00",
+     "rows": 74758
+    }
+   },
+   "distinctAssets": 1924,
+   "observedAtZone": {
+    "naive": 53794,
+    "none": 74758,
+    "utc": 1121190
+   },
+   "rowsPerDateByAssetClass": {
+    "idp": {
+     "median": 6139.0,
+     "n": 100,
+     "p25": 606.75,
+     "p75": 7324.25
+    },
+    "offense": {
+     "median": 7815.0,
+     "n": 100,
+     "p25": 821.0,
+     "p75": 9288.75
+    },
+    "pick": {
+     "median": 1332.0,
+     "n": 100,
+     "p25": 134.0,
+     "p75": 2483.0
+    }
+   }
+  },
+  "correctionsRows": 0,
+  "lanes": {
+   "canonical_board": {
+    "days": 100,
+    "firstDate": "2026-07-20",
+    "lastDate": "2026-10-27",
+    "rows": 1249742
+   },
+   "scraper_blend": {
+    "days": 105,
+    "firstDate": "2026-07-14",
+    "lastDate": "2026-10-27",
+    "rows": 816274
+   },
+   "source_value": {
+    "days": 106,
+    "firstDate": "2026-07-14",
+    "lastDate": "2026-10-27",
+    "rows": 3031531
+   }
+  },
+  "meta": {
+   "history_floor": "2026-07-14",
+   "schema_version": "1"
+  },
+  "rowsBelowHistoryFloor": 0,
+  "sourceLaneKeysCount": 10,
+  "sourceLanes": {
+   "idpTradeCalc": {
+    "days": 106,
+    "firstDate": "2026-07-14",
+    "lastDate": "2026-10-27",
+    "rows": 1339662
+   },
+   "ktc": {
+    "days": 105,
+    "firstDate": "2026-07-14",
+    "lastDate": "2026-10-27",
+    "rows": 205748
+   },
+   "ktcCrowdSfTep": {
+    "days": 33,
+    "firstDate": "2026-09-24",
+    "lastDate": "2026-10-27",
+    "rows": 238722
+   },
+   "ktcSfTep": {
+    "days": 105,
+    "firstDate": "2026-07-14",
+    "lastDate": "2026-10-27",
+    "rows": 432724
+   },
+   "ktcTradesSfTep": {
+    "days": 33,
+    "firstDate": "2026-09-24",
+    "lastDate": "2026-10-27",
+    "rows": 238723
+   }
+  }
+ },
+ "ledgerChangedDuringRead": false,
+ "ledgerOverrideUsed": false,
+ "postflight": {
+  "boardHistory": {
+   "side": {
+    "-journal": null,
+    "-shm": null,
+    "-wal": null
+   },
+   "stat": {
+    "mtimeNs": 1793085059176577763,
+    "size": 29683712
+   }
+  },
+  "ledger": {
+   "side": {
+    "-journal": null,
+    "-shm": null,
+    "-wal": null
+   },
+   "stat": {
+    "mtimeNs": 1793090247908389977,
+    "size": 2283311104
+   }
+  }
+ },
+ "preflight": {
+  "boardHistory": {
+   "journal": "wal",
+   "side": {
+    "-journal": null,
+    "-shm": null,
+    "-wal": null
+   },
+   "stat": {
+    "mtimeNs": 1793085059176577763,
+    "size": 29683712
+   }
+  },
+  "ledger": {
+   "journal": "wal",
+   "side": {
+    "-journal": null,
+    "-shm": null,
+    "-wal": null
+   },
+   "stat": {
+    "mtimeNs": 1793090247908389977,
+    "size": 2283311104
+   }
+  }
+ },
+ "pricingSeconds": 39.41,
+ "provenance": {
+  "authorization": "owner 2026-10-27: one strictly read-only, scoped production-server extraction, aggregates only, no writes or configuration changes",
+  "deployedSha": "44695ab61270fc6124c62190f895ec8171b0e239",
+  "postRunFilesNewerThanStartOutsideDataExportsLogs": 0,
+  "postRunPycNewerThanStart": 0,
+  "renderedScriptSha256": "394996c698bb010160e73bccbc743dff0386ca546a52d040414fdf317d1fe80f",
+  "runEndedAt": "2026-10-27T08:57:44Z",
+  "runStartedAt": "2026-10-27T08:55:48Z"
+ },
+ "readiness": {
+  "H2": {
+   "formatBracketConfirmation": "store_present_not_evaluated",
+   "nMin": 55,
+   "pricedCanonicalAndIdptcStrictAge7": 5,
+   "pricedCanonicalAndIdptcStrictAge7SameSnapshot": "<5",
+   "structurallyEligible2026": 8
+  },
+  "H6d": {
+   "idpAssetLegs2026": 38,
+   "idpAssetLegsCanonicalStrictAge7": 18,
+   "note": "the untraded comparison set needs the full canonical IDP board per trade date: see ledger.canonicalBoard.rowsPerDateByAssetClass"
+  }
+ },
+ "resources": {
+  "blockReads": 3560344,
+  "blockWrites": 0,
+  "elapsedSeconds": 115.39,
+  "loadAvgAfter": [
+   1.0263671875,
+   0.6318359375,
+   0.869140625
+  ],
+  "loadAvgBefore": [
+   0.3759765625,
+   0.39111328125,
+   0.83056640625
+  ],
+  "maxRssMb": 57.1,
+  "pythonDontWriteBytecode": true,
+  "sysCpuSeconds": 19.37,
+  "userCpuSeconds": 52.76
+ },
+ "schema": "o7_aggregate/v2",
+ "status": "COMPLETE",
+ "tradeCounts": {
+  "2024": {
+   "all": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 29
+   },
+   "containsIdp": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 5
+   },
+   "fitClean": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 11
+   },
+   "fitPackage": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 11
+   },
+   "idpForIdp": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": "<5"
+   },
+   "idpOneForOnePlayersOnly": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": "<5"
+   },
+   "noPicksTwoTeamNoFaab": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 9
+   },
+   "offenseForIdp": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": "<5"
+   },
+   "oneForOnePlayersOnly": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": "<5"
+   }
+  },
+  "2025": {
+   "all": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 124
+   },
+   "containsIdp": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 30
+   },
+   "fitClean": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 24
+   },
+   "fitPackage": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 84
+   },
+   "idpForIdp": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 5
+   },
+   "idpOneForOnePlayersOnly": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": "<5"
+   },
+   "noPicksTwoTeamNoFaab": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 42
+   },
+   "offenseForIdp": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 18
+   },
+   "oneForOnePlayersOnly": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 12
+   }
+  },
+  "2026": {
+   "all": {
+    "anyAssetCanonicalStrict": 29,
+    "fullCanonicalAndIdptcStrictAge7": 11,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 10,
+    "fullCanonicalStrict": 11,
+    "fullCanonicalStrictAge7": 11,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 17,
+    "fullIdptcStrict": 11,
+    "fullIdptcStrictAge7": 11,
+    "fullIdptcValidTime": 17,
+    "onOrAfterFloor": 43,
+    "trades": 80
+   },
+   "containsIdp": {
+    "anyAssetCanonicalStrict": 10,
+    "fullCanonicalAndIdptcStrictAge7": "<5",
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": "<5",
+    "fullCanonicalStrict": "<5",
+    "fullCanonicalStrictAge7": "<5",
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": "<5",
+    "fullIdptcStrict": "<5",
+    "fullIdptcStrictAge7": "<5",
+    "fullIdptcValidTime": "<5",
+    "onOrAfterFloor": 15,
+    "trades": 19
+   },
+   "fitClean": {
+    "anyAssetCanonicalStrict": 5,
+    "fullCanonicalAndIdptcStrictAge7": 5,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": "<5",
+    "fullCanonicalStrict": 5,
+    "fullCanonicalStrictAge7": 5,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 7,
+    "fullIdptcStrict": 5,
+    "fullIdptcStrictAge7": 5,
+    "fullIdptcValidTime": 7,
+    "onOrAfterFloor": 9,
+    "trades": 14
+   },
+   "fitPackage": {
+    "anyAssetCanonicalStrict": 21,
+    "fullCanonicalAndIdptcStrictAge7": 6,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 6,
+    "fullCanonicalStrict": 6,
+    "fullCanonicalStrictAge7": 6,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 10,
+    "fullIdptcStrict": 6,
+    "fullIdptcStrictAge7": 6,
+    "fullIdptcValidTime": 10,
+    "onOrAfterFloor": 30,
+    "trades": 61
+   },
+   "idpForIdp": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": "<5",
+    "trades": "<5"
+   },
+   "idpOneForOnePlayersOnly": {
+    "anyAssetCanonicalStrict": 0,
+    "fullCanonicalAndIdptcStrictAge7": 0,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 0,
+    "fullCanonicalStrict": 0,
+    "fullCanonicalStrictAge7": 0,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 0,
+    "fullIdptcStrict": 0,
+    "fullIdptcStrictAge7": 0,
+    "fullIdptcValidTime": 0,
+    "onOrAfterFloor": 0,
+    "trades": 0
+   },
+   "noPicksTwoTeamNoFaab": {
+    "anyAssetCanonicalStrict": 11,
+    "fullCanonicalAndIdptcStrictAge7": 11,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": 10,
+    "fullCanonicalStrict": 11,
+    "fullCanonicalStrictAge7": 11,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 17,
+    "fullIdptcStrict": 11,
+    "fullIdptcStrictAge7": 11,
+    "fullIdptcValidTime": 17,
+    "onOrAfterFloor": 17,
+    "trades": 31
+   },
+   "offenseForIdp": {
+    "anyAssetCanonicalStrict": 5,
+    "fullCanonicalAndIdptcStrictAge7": "<5",
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": "<5",
+    "fullCanonicalStrict": "<5",
+    "fullCanonicalStrictAge7": "<5",
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": "<5",
+    "fullIdptcStrict": "<5",
+    "fullIdptcStrictAge7": "<5",
+    "fullIdptcValidTime": "<5",
+    "onOrAfterFloor": 6,
+    "trades": 7
+   },
+   "oneForOnePlayersOnly": {
+    "anyAssetCanonicalStrict": 5,
+    "fullCanonicalAndIdptcStrictAge7": 5,
+    "fullCanonicalAndIdptcStrictAge7SameSnapshot": "<5",
+    "fullCanonicalStrict": 5,
+    "fullCanonicalStrictAge7": 5,
+    "fullCanonicalStrictNotFullIdptcStrict": 0,
+    "fullCanonicalValidTime": 7,
+    "fullIdptcStrict": 5,
+    "fullIdptcStrictAge7": 5,
+    "fullIdptcValidTime": 7,
+    "onOrAfterFloor": 7,
+    "trades": 8
+   }
+  }
+ }
+}
