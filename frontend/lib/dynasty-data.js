@@ -2380,7 +2380,8 @@ export async function fetchDynastyData(opts = {}) {
   // generation or league switch yields a different reference) and the
   // shared 30s TTL.  Only successful merges are cached — a
   // fallback-to-base result must stay retryable.
-  const overrideKey = `${JSON.stringify(body)}|${_readActiveLeagueKey()}`;
+  const overrideLeagueKey = _readActiveLeagueKey();
+  const overrideKey = `${JSON.stringify(body)}|${overrideLeagueKey}`;
   if (
     _cachedOverrideResult &&
     _cachedOverrideResult.key === overrideKey &&
@@ -2402,6 +2403,7 @@ export async function fetchDynastyData(opts = {}) {
     _fetchBaseContract(),
     body,
     overrideKey,
+    overrideLeagueKey,
   );
   _inflightOverrideResult = { key: overrideKey, promise };
   try {
@@ -2416,14 +2418,33 @@ export async function fetchDynastyData(opts = {}) {
   }
 }
 
-async function _postOverridesAndMerge(basePromise, body, overrideKey) {
+// The override URL carries the page's ``leagueKey`` in the QUERY STRING,
+// exactly as ``_fetchBaseContractNetwork`` does for the base contract
+// (LI1842-DEFECT-08).  Without it the server resolved the league from the
+// user's SAVED state, so a page whose localStorage league differed from the
+// saved one got a false 503 or the other league's TE context.  Query, not
+// body: the backend resolver reads the query first, and a body key would be
+// one more top-level field for the source-override parser to classify.
+export function rankingsOverridesUrl(leagueKey) {
+  const params = new URLSearchParams();
+  params.set("view", "delta");
+  if (leagueKey) params.set("leagueKey", leagueKey);
+  return `${RANKINGS_OVERRIDES_URL}?${params.toString()}`;
+}
+
+async function _postOverridesAndMerge(
+  basePromise,
+  body,
+  overrideKey,
+  leagueKey = _readActiveLeagueKey(),
+) {
   // Kick the POST off immediately (it never needed the base payload)
   // and hold its failure in-band so the two error semantics stay
   // exactly what they were on the serial path:
   //   * base fetch failure → THROWS out of fetchDynastyData (the page
   //     shows its error state);
   //   * overrides POST failure → falls back to the base contract.
-  const postPromise = fetch(`${RANKINGS_OVERRIDES_URL}?view=delta`, {
+  const postPromise = fetch(rankingsOverridesUrl(leagueKey), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
