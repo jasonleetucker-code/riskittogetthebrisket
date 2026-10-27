@@ -1016,6 +1016,7 @@ def run_all(
                 result.rows,
                 prior_rank_basis.get(key),
                 withheld=(result.diagnostics or {}).get("withheld"),
+                groups_served_by_other_key=(result.diagnostics or {}).get("groupsServedByOtherKey"),
             )
             if rank_basis_diag["issues"]:
                 LOG.warning("[ros] %s rank-basis issues: %s", key, rank_basis_diag["issues"])

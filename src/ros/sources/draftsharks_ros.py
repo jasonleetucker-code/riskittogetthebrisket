@@ -54,6 +54,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from src.ros.mapping import _load_overrides, resolve_player
 from src.ros.rank_basis import RANK_BASIS_MISMATCH
 from src.ros.scrape import ScrapeResult
 from src.utils.name_clean import POSITION_GROUP_IDP, canonical_position_group
@@ -84,6 +85,9 @@ BASIS_ROS_SF = "draftsharks:ros-superflex"
 BASIS_ROS_IDP = "draftsharks:ros-idp"
 BASIS_DYNASTY_SF_PROXY = "draftsharks:dynasty-superflex-proxy"
 BASIS_DYNASTY_IDP_PROXY = "draftsharks:dynasty-idp-proxy"
+
+#: The key that serves DraftSharks' IDP group (``scrape_idp``).
+IDP_SOURCE_KEY = "draftSharksRosIdp"
 
 #: Withheld-row reason: an idp-board IDP whose name the superflex board
 #: lists in ANOTHER position group (see :func:`scrape_idp`).
@@ -191,8 +195,20 @@ def _read_dynasty_proxy_csv(path: Path, basis: str) -> list[dict[str, Any]]:
     return rows
 
 
-def _name_key(row: dict[str, Any]) -> str:
-    return (row.get("sourceName") or "").strip().lower()
+def _name_key(row: dict[str, Any], overrides: dict[str, str] | None = None) -> str:
+    """The name a row will be aggregated under.
+
+    The aggregate keys players by the canonical name ``run_all`` resolves
+    through ``src.ros.mapping.resolve_player`` (overrides, aliases, the
+    normaliser).  Withholding matches on the same resolution, so two
+    spellings the aggregate folds together are also one player here.  The
+    adapter has no canonical universe, so the fuzzy rung (which only runs
+    against a universe) is not applied; an unresolvable name falls back to
+    its lower-cased raw form.
+    """
+    raw = (row.get("sourceName") or "").strip()
+    resolved = resolve_player(raw, canonical_universe=None, overrides=overrides)
+    return resolved.canonical_name or raw.lower()
 
 
 def _superflex_board() -> tuple[list[dict[str, Any]], str]:
@@ -237,7 +253,13 @@ def scrape(src_meta: dict[str, Any]) -> ScrapeResult:
             key,
         )
     LOG.info("[ros] DraftSharks SF: %d rows (mode=%s)", len(rows), source_mode)
-    diagnostics: dict[str, Any] = {"sourceMode": source_mode}
+    # The IDP group belongs to ``draftSharksRosIdp``.  Stated so the
+    # rank-basis guard reports (``cross_key_family_overlap:IDP``) IDP rows
+    # reappearing on this board -- served unchanged, on this board's basis.
+    diagnostics: dict[str, Any] = {
+        "sourceMode": source_mode,
+        "groupsServedByOtherKey": {POSITION_GROUP_IDP: IDP_SOURCE_KEY},
+    }
     if not rows:
         return _failed(
             key,
@@ -285,9 +307,12 @@ def scrape_idp(src_meta: dict[str, Any]) -> ScrapeResult:
         source_mode = "dynasty_proxy"
 
     sf_rows, _sf_mode = _superflex_board()
+    overrides = _load_overrides()  # read once, not per row
     sf_groups: dict[str, set[str]] = {}
     for r in sf_rows:
-        sf_groups.setdefault(_name_key(r), set()).add(canonical_position_group(r.get("position")))
+        sf_groups.setdefault(_name_key(r, overrides), set()).add(
+            canonical_position_group(r.get("position"))
+        )
     rows: list[dict[str, Any]] = []
     not_idp = 0
     withheld = 0
@@ -296,7 +321,7 @@ def scrape_idp(src_meta: dict[str, Any]) -> ScrapeResult:
         if canonical_position_group(row.get("position")) != POSITION_GROUP_IDP:
             not_idp += 1
             continue
-        groups_on_sf = sf_groups.get(_name_key(row))
+        groups_on_sf = sf_groups.get(_name_key(row, overrides))
         if groups_on_sf:
             # Same name on the superflex board.  As an IDP there it is the
             # same player ranked on the other basis (rank_basis_mismatch).

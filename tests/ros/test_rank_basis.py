@@ -29,6 +29,7 @@ from src.ros import rank_basis, scrape
 from src.ros.aggregate import RankedRow, SourceSnapshot, aggregate
 from src.ros.sources import draftsharks_ros as ds
 from src.ros.sources import draftsharks_ros_idp, get_ros_source
+from src.utils.name_clean import canonical_position_group
 
 _HEADER = ["canonicalName", "sourceName", "position", "team", "rank", "total_ranked", "projection"]
 
@@ -337,3 +338,66 @@ def test_run_status_carries_rank_basis_and_flags_the_transition(tmp_path):
     assert f"{rank_basis.GROUP_COVERAGE_VANISHED}:IDP" in second["rank_basis"]["issues"]
     # Reporting only: the run itself is not demoted.
     assert second["status"] == "ok"
+    # The adapter's positive rank_basis_mismatch withholding is an issue too.
+    assert (
+        f"{rank_basis.ROWS_WITHHELD}:{rank_basis.RANK_BASIS_MISMATCH}"
+        in (first["rank_basis"]["issues"])
+    )
+
+
+# ── 5. the pre-907dfee4d shape returning is REPORTED (never changes a row) ─
+
+
+def _diagnose_key(res):
+    return rank_basis.diagnose(
+        res.rows,
+        None,
+        withheld=res.diagnostics.get("withheld"),
+        groups_served_by_other_key=res.diagnostics.get("groupsServedByOtherKey"),
+    )
+
+
+def test_idps_reappearing_on_the_superflex_board_raise_cross_key_overlap(boards):
+    """If the vendor re-adds IDPs to its superflex board, the IDP group splits
+    across the two keys on two bases.  The SF key reports it; the IDP key's
+    withholding surfaces as an issue; and no row or rank is altered."""
+    sf_res, idp_res = _both(boards, PRE_SF, PRE_IDP)
+    sf_diag = _diagnose_key(sf_res)
+    assert f"{rank_basis.CROSS_KEY_FAMILY_OVERLAP}:IDP" in sf_diag["issues"]
+    assert sf_diag["groupsServedByOtherKey"] == {"IDP": "draftSharksRosIdp"}
+    idp_diag = _diagnose_key(idp_res)
+    assert f"{rank_basis.ROWS_WITHHELD}:{rank_basis.RANK_BASIS_MISMATCH}" in idp_diag["issues"]
+    # Report-only: the SF board still serves its IDP rows at their own ranks.
+    assert {(r["sourceName"], r["rank"]) for r in sf_res.rows if r["position"] in ("LB", "DL")} == {
+        ("Carson Schwesinger", 4),
+        ("Aidan Hutchinson", 5),
+    }
+
+
+def test_post_shape_raises_no_cross_key_or_withholding_issue(boards):
+    sf_res, idp_res = _both(boards, POST_SF, POST_IDP)
+    assert _diagnose_key(sf_res)["issues"] == []
+    assert _diagnose_key(idp_res)["issues"] == []
+
+
+def test_adapter_issue_counts_are_never_coerced():
+    report = rank_basis.rank_basis_report(_rows([("QB", 250, "b:sf")]))
+    for bad in (None, "3", True, 0, -1, 2.0):
+        assert (
+            rank_basis.adapter_issues(report, withheld={rank_basis.RANK_BASIS_MISMATCH: bad}) == []
+        )
+    group = canonical_position_group("QB")
+    assert rank_basis.adapter_issues(report, groups_served_by_other_key={group: "other"}) == [
+        f"{rank_basis.CROSS_KEY_FAMILY_OVERLAP}:{group}"
+    ]
+    # A group served elsewhere that this key does not carry is no overlap.
+    assert rank_basis.adapter_issues(report, groups_served_by_other_key={"IDP": "other"}) == []
+
+
+def test_withholding_matches_names_the_way_the_aggregate_resolves_them(boards):
+    """Two spellings the resolver folds to one canonical name are one player:
+    the idp board's copy is withheld, not voted a second time."""
+    sf = POST_SF + [("Carson Schwesinger Jr.", "LB", 7)]
+    _sf, idp_res = _both(boards, sf, POST_IDP)
+    assert "Carson Schwesinger" not in {r["sourceName"] for r in idp_res.rows}
+    assert idp_res.diagnostics["withheld"][rank_basis.RANK_BASIS_MISMATCH] == 1

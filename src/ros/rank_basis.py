@@ -27,6 +27,13 @@ Two questions, both answered per refresh and published in the source's
   907dfee4d signature, and it is invisible to a row count: the source's
   total IDP coverage barely moved; only the basis under it did.
 
+A third question is answered from what the ADAPTER states: does a key carry
+a position group another key of the same vendor serves
+(``cross_key_family_overlap:<G>``, from the adapter's
+``groupsServedByOtherKey``), and did the adapter withhold rows because they
+sat on another basis (``rows_withheld:rank_basis_mismatch``)?  Either is the
+pre-907dfee4d shape -- one vendor's group split across two keys -- returning.
+
 A row states its basis with ``rankBasis`` (an adapter-chosen board id).
 A row that states none is grouped by ``total_ranked`` — each adapter
 stamps one ``total_ranked`` per board, so that is the board identity the
@@ -50,8 +57,22 @@ GROUP_SPLIT_ACROSS_BASES = "group_split_across_rank_bases"
 GROUP_COVERAGE_VANISHED = "group_coverage_vanished"
 GROUP_RANK_BASIS_CHANGED = "group_rank_basis_changed"
 
+#: A position group appeared on a key while the adapter states another key
+#: of the same vendor serves that group (``groupsServedByOtherKey``), i.e.
+#: the vendor's group is split across two keys on two rank bases.
+CROSS_KEY_FAMILY_OVERLAP = "cross_key_family_overlap"
+#: An adapter withheld rows for a reason worth surfacing (see
+#: :data:`SURFACED_WITHHELD_REASONS`): ``rows_withheld:<reason>``.
+ROWS_WITHHELD = "rows_withheld"
+
 #: Reason an adapter withheld rows rather than mixing bases.
 RANK_BASIS_MISMATCH = "rank_basis_mismatch"
+
+#: Withheld reasons that raise an issue when their count is positive.  A
+#: ``rank_basis_mismatch`` withholding means another key of the same vendor
+#: is ranking this key's group on a different basis -- the signature of the
+#: pre-907dfee4d board shape returning.
+SURFACED_WITHHELD_REASONS: tuple[str, ...] = (RANK_BASIS_MISMATCH,)
 
 
 def _row_basis(row: Mapping[str, Any]) -> tuple[str, bool]:
@@ -158,21 +179,58 @@ def compare_to_previous(
     return issues
 
 
+def _positive_count(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def adapter_issues(
+    report: Mapping[str, Any],
+    *,
+    withheld: Mapping[str, Any] | None = None,
+    groups_served_by_other_key: Mapping[str, Any] | None = None,
+) -> list[str]:
+    """Issues from what the ADAPTER stated about this key.
+
+    * ``cross_key_family_overlap:<G>`` -- this key has rows in group ``G``
+      while the adapter says another key of the same vendor serves ``G``.
+    * ``rows_withheld:<reason>`` -- a positive withheld count for a reason in
+      :data:`SURFACED_WITHHELD_REASONS`.  A count that is absent or not a
+      positive int raises nothing (never coerced).
+    """
+    issues: list[str] = []
+    coverage = report.get("groupCoverage") or {}
+    for group in sorted(groups_served_by_other_key or {}):
+        if _positive_count(coverage.get(group)):
+            issues.append(f"{CROSS_KEY_FAMILY_OVERLAP}:{group}")
+    for reason in SURFACED_WITHHELD_REASONS:
+        if _positive_count((withheld or {}).get(reason)):
+            issues.append(f"{ROWS_WITHHELD}:{reason}")
+    return issues
+
+
 def diagnose(
     rows: Iterable[Mapping[str, Any]],
     previous: Mapping[str, Any] | None,
     *,
     withheld: Mapping[str, Any] | None = None,
+    groups_served_by_other_key: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Full per-refresh diagnostic: the report, the transition issues, and
-    whatever the adapter withheld (``withheld`` — counts by reason)."""
+    """Full per-refresh diagnostic: the report, the transition issues, the
+    adapter-stated issues, and whatever the adapter withheld (``withheld`` —
+    counts by reason)."""
     report = rank_basis_report(rows)
     transition = compare_to_previous(report, previous)
+    stated = adapter_issues(
+        report, withheld=withheld, groups_served_by_other_key=groups_served_by_other_key
+    )
     report["transitionIssues"] = transition
-    report["issues"] = list(report["issues"]) + transition
+    report["adapterIssues"] = stated
+    report["issues"] = list(report["issues"]) + transition + stated
     report["baseline"] = previous is None or not isinstance(
         (previous or {}).get("groupCoverage"), Mapping
     )
     if withheld:
         report["withheld"] = dict(withheld)
+    if groups_served_by_other_key:
+        report["groupsServedByOtherKey"] = dict(groups_served_by_other_key)
     return report
