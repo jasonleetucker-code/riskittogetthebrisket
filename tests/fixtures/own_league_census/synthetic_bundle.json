@@ -1,0 +1,926 @@
+{
+ "chainCoverage": {
+  "cap": 25,
+  "reason": null,
+  "seasonsWalked": 2,
+  "state": "complete",
+  "stoppedAtLeagueId": null
+ },
+ "chainOrder": [
+  "100000000000000026",
+  "100000000000000025"
+ ],
+ "collectedAt": "2026-10-27T00:00:00+00:00",
+ "fetch": {
+  "calls": {
+   "ok": 70
+  },
+  "failures": []
+ },
+ "players": {
+  "1001": {
+   "first_name": "Synth",
+   "full_name": "Synth Qb",
+   "last_name": "Qb",
+   "player_id": "1001",
+   "position": "QB",
+   "team": "AAA"
+  },
+  "1002": {
+   "first_name": "Synth",
+   "full_name": "Synth Wr",
+   "last_name": "Wr",
+   "player_id": "1002",
+   "position": "WR",
+   "team": "AAA"
+  },
+  "1003": {
+   "first_name": "Synth",
+   "full_name": "Synth Te",
+   "last_name": "Te",
+   "player_id": "1003",
+   "position": "TE",
+   "team": "AAA"
+  },
+  "1004": {
+   "first_name": "Synth",
+   "full_name": "Synth Rb",
+   "last_name": "Rb",
+   "player_id": "1004",
+   "position": "RB",
+   "team": "AAA"
+  },
+  "1005": {
+   "first_name": "Synth",
+   "full_name": "Synth Qbtwo",
+   "last_name": "Qbtwo",
+   "player_id": "1005",
+   "position": "QB",
+   "team": "AAA"
+  },
+  "2001": {
+   "first_name": "Synth",
+   "full_name": "Synth De",
+   "last_name": "De",
+   "player_id": "2001",
+   "position": "DE",
+   "team": "BBB"
+  },
+  "2002": {
+   "first_name": "Synth",
+   "full_name": "Synth Lb",
+   "last_name": "Lb",
+   "player_id": "2002",
+   "position": "LB",
+   "team": "BBB"
+  },
+  "2003": {
+   "first_name": "Synth",
+   "full_name": "Synth Cb",
+   "last_name": "Cb",
+   "player_id": "2003",
+   "position": "CB",
+   "team": "BBB"
+  },
+  "2004": {
+   "first_name": "Synth",
+   "full_name": "Synth Safety",
+   "last_name": "Safety",
+   "player_id": "2004",
+   "position": "S",
+   "team": "BBB"
+  },
+  "2005": {
+   "first_name": "Synth",
+   "full_name": "Synth Lbtwo",
+   "last_name": "Lbtwo",
+   "player_id": "2005",
+   "position": "LB",
+   "team": "BBB"
+  }
+ },
+ "playersDirectoryState": "available",
+ "schema": "own_league_census_raw/v1",
+ "seasons": {
+  "100000000000000025": {
+   "draftPicks": {
+    "400000000000000025": [
+     {
+      "draft_slot": 1,
+      "metadata": {
+       "amount": null,
+       "position": "WR",
+       "years_exp": "0"
+      },
+      "pick_no": 1,
+      "picked_by": "200000000000000001",
+      "player_id": "1002",
+      "roster_id": 1,
+      "round": 1
+     },
+     {
+      "draft_slot": 2,
+      "metadata": {
+       "amount": null,
+       "position": "DE",
+       "years_exp": "0"
+      },
+      "pick_no": 2,
+      "picked_by": "200000000000000002",
+      "player_id": "2001",
+      "roster_id": 2,
+      "round": 1
+     },
+     {
+      "draft_slot": 3,
+      "metadata": {
+       "amount": null,
+       "position": "LB",
+       "years_exp": "0"
+      },
+      "pick_no": 3,
+      "picked_by": "200000000000000003",
+      "player_id": "2004",
+      "roster_id": 3,
+      "round": 2
+     },
+     {
+      "draft_slot": 4,
+      "metadata": {
+       "amount": null,
+       "position": "RB",
+       "years_exp": "0"
+      },
+      "pick_no": 4,
+      "picked_by": "200000000000000004",
+      "player_id": "1004",
+      "roster_id": 4,
+      "round": 3
+     }
+    ]
+   },
+   "drafts": [
+    {
+     "draft_id": "400000000000000025",
+     "draft_order": {
+      "200000000000000001": 1
+     },
+     "season": "2025",
+     "settings": {
+      "player_type": 0,
+      "rounds": 3,
+      "teams": 10
+     },
+     "slot_to_roster_id": {
+      "1": 1
+     },
+     "status": "complete",
+     "type": "linear"
+    }
+   ],
+   "league": {
+    "league_id": "100000000000000025",
+    "name": "Synthetic League",
+    "previous_league_id": "0",
+    "roster_positions": [
+     "QB",
+     "RB",
+     "WR",
+     "TE",
+     "SUPER_FLEX",
+     "DL",
+     "LB",
+     "DB",
+     "BN",
+     "BN"
+    ],
+    "scoring_settings": {
+     "bonus_rec_te": 0.5,
+     "idp_tkl_solo": 1.0,
+     "pass_td": 4.0,
+     "rec": 1.0
+    },
+    "season": "2025",
+    "settings": {
+     "best_ball": 1,
+     "draft_rounds": 3,
+     "num_teams": 10,
+     "taxi_slots": 0,
+     "type": 2,
+     "waiver_budget": 100
+    },
+    "status": "complete",
+    "total_rosters": 10
+   },
+   "rosters": [
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000001",
+     "roster_id": 1
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000002",
+     "roster_id": 2
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000003",
+     "roster_id": 3
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000004",
+     "roster_id": 4
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000005",
+     "roster_id": 5
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000006",
+     "roster_id": 6
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000007",
+     "roster_id": 7
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000008",
+     "roster_id": 8
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000009",
+     "roster_id": 9
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000010",
+     "roster_id": 10
+    }
+   ],
+   "tradedPicks": [
+    {
+     "owner_id": 4,
+     "previous_owner_id": 3,
+     "roster_id": 3,
+     "round": 1,
+     "season": "2026"
+    }
+   ],
+   "transactions": {
+    "0": [
+     {
+      "adds": {
+       "1003": 5
+      },
+      "created": 1738368000000,
+      "draft_picks": [],
+      "drops": null,
+      "leg": 0,
+      "roster_ids": [
+       5
+      ],
+      "status": "complete",
+      "status_updated": 1738368000000,
+      "transaction_id": "300000000000000090",
+      "type": "waiver",
+      "waiver_budget": []
+     }
+    ],
+    "1": [
+     {
+      "adds": {
+       "1001": 2,
+       "2001": 1
+      },
+      "consenter_ids": [
+       1,
+       2
+      ],
+      "created": 1740841200000,
+      "creator": "200000000000000001",
+      "draft_picks": [],
+      "drops": {
+       "1001": 1,
+       "2001": 2
+      },
+      "leg": 1,
+      "metadata": null,
+      "roster_ids": [
+       1,
+       2
+      ],
+      "settings": null,
+      "status": "complete",
+      "status_updated": 1740841260000,
+      "transaction_id": "300000000000000001",
+      "type": "trade",
+      "waiver_budget": []
+     },
+     {
+      "adds": {
+       "1002": 4
+      },
+      "consenter_ids": [
+       3,
+       4
+      ],
+      "created": 1740927600000,
+      "creator": "200000000000000001",
+      "draft_picks": [],
+      "drops": {
+       "1002": 3
+      },
+      "leg": 1,
+      "metadata": null,
+      "roster_ids": [
+       3,
+       4
+      ],
+      "settings": null,
+      "status": "failed",
+      "status_updated": 1740927660000,
+      "transaction_id": "300000000000000002",
+      "type": "trade",
+      "waiver_budget": []
+     }
+    ],
+    "10": [],
+    "11": [],
+    "12": [],
+    "13": [],
+    "14": [],
+    "15": [],
+    "16": [],
+    "17": [],
+    "18": [],
+    "19": [],
+    "2": [],
+    "20": [],
+    "21": [],
+    "22": [],
+    "23": [],
+    "24": [],
+    "25": [],
+    "3": [
+     {
+      "adds": {
+       "2002": 3
+      },
+      "consenter_ids": [
+       3,
+       4
+      ],
+      "created": 1758380400000,
+      "creator": "200000000000000001",
+      "draft_picks": [
+       {
+        "league_id": null,
+        "owner_id": 4,
+        "previous_owner_id": 3,
+        "roster_id": 3,
+        "round": 1,
+        "season": "2026"
+       }
+      ],
+      "drops": {
+       "2002": 4
+      },
+      "leg": 3,
+      "metadata": null,
+      "roster_ids": [
+       3,
+       4
+      ],
+      "settings": null,
+      "status": "complete",
+      "status_updated": 1758380460000,
+      "transaction_id": "300000000000000003",
+      "type": "trade",
+      "waiver_budget": []
+     }
+    ],
+    "4": [],
+    "5": [],
+    "6": [],
+    "7": [],
+    "8": [],
+    "9": []
+   },
+   "users": [
+    {
+     "display_name": "SynthManager01",
+     "metadata": {
+      "team_name": "Synthetic Team 01"
+     },
+     "user_id": "200000000000000001"
+    },
+    {
+     "display_name": "SynthManager02",
+     "metadata": {
+      "team_name": "Synthetic Team 02"
+     },
+     "user_id": "200000000000000002"
+    },
+    {
+     "display_name": "SynthManager03",
+     "metadata": {
+      "team_name": "Synthetic Team 03"
+     },
+     "user_id": "200000000000000003"
+    },
+    {
+     "display_name": "SynthManager04",
+     "metadata": {
+      "team_name": "Synthetic Team 04"
+     },
+     "user_id": "200000000000000004"
+    },
+    {
+     "display_name": "SynthManager05",
+     "metadata": {
+      "team_name": "Synthetic Team 05"
+     },
+     "user_id": "200000000000000005"
+    },
+    {
+     "display_name": "SynthManager06",
+     "metadata": {
+      "team_name": "Synthetic Team 06"
+     },
+     "user_id": "200000000000000006"
+    },
+    {
+     "display_name": "SynthManager07",
+     "metadata": {
+      "team_name": "Synthetic Team 07"
+     },
+     "user_id": "200000000000000007"
+    },
+    {
+     "display_name": "SynthManager08",
+     "metadata": {
+      "team_name": "Synthetic Team 08"
+     },
+     "user_id": "200000000000000008"
+    },
+    {
+     "display_name": "SynthManager09",
+     "metadata": {
+      "team_name": "Synthetic Team 09"
+     },
+     "user_id": "200000000000000009"
+    },
+    {
+     "display_name": "SynthManager10",
+     "metadata": {
+      "team_name": "Synthetic Team 10"
+     },
+     "user_id": "200000000000000010"
+    }
+   ]
+  },
+  "100000000000000026": {
+   "draftPicks": {
+    "400000000000000026": [
+     {
+      "draft_slot": 1,
+      "metadata": {
+       "amount": "12",
+       "position": "CB",
+       "years_exp": "0"
+      },
+      "pick_no": 1,
+      "picked_by": "200000000000000005",
+      "player_id": "2003",
+      "roster_id": 5,
+      "round": 1
+     },
+     {
+      "draft_slot": 2,
+      "metadata": {
+       "amount": "40",
+       "position": "QB",
+       "years_exp": "0"
+      },
+      "pick_no": 2,
+      "picked_by": "200000000000000006",
+      "player_id": "1005",
+      "roster_id": 6,
+      "round": 1
+     },
+     {
+      "draft_slot": 3,
+      "metadata": {
+       "amount": null,
+       "position": "LB",
+       "years_exp": "0"
+      },
+      "pick_no": 3,
+      "picked_by": "200000000000000007",
+      "player_id": "2005",
+      "roster_id": 7,
+      "round": 2
+     }
+    ]
+   },
+   "drafts": [
+    {
+     "draft_id": "400000000000000026",
+     "draft_order": null,
+     "season": "2026",
+     "settings": {
+      "budget": 200,
+      "player_type": 1,
+      "rounds": 3,
+      "teams": 12
+     },
+     "slot_to_roster_id": null,
+     "status": "complete",
+     "type": "auction"
+    }
+   ],
+   "league": {
+    "league_id": "100000000000000026",
+    "name": "Synthetic League",
+    "previous_league_id": "100000000000000025",
+    "roster_positions": [
+     "QB",
+     "RB",
+     "WR",
+     "TE",
+     "TE",
+     "SUPER_FLEX",
+     "DL",
+     "DL",
+     "LB",
+     "LB",
+     "DB",
+     "DB",
+     "BN",
+     "BN"
+    ],
+    "scoring_settings": {
+     "bonus_rec_te": 0.5,
+     "idp_tkl_solo": 1.0,
+     "pass_td": 4.0,
+     "rec": 1.0
+    },
+    "season": "2026",
+    "settings": {
+     "best_ball": 1,
+     "draft_rounds": 3,
+     "num_teams": 12,
+     "taxi_slots": 0,
+     "type": 2,
+     "waiver_budget": 100
+    },
+    "status": "in_season",
+    "total_rosters": 12
+   },
+   "rosters": [
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000001",
+     "roster_id": 1
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000002",
+     "roster_id": 2
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000003",
+     "roster_id": 3
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000004",
+     "roster_id": 4
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000005",
+     "roster_id": 5
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000006",
+     "roster_id": 6
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000007",
+     "roster_id": 7
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000008",
+     "roster_id": 8
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000009",
+     "roster_id": 9
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000010",
+     "roster_id": 10
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000011",
+     "roster_id": 11
+    },
+    {
+     "co_owners": null,
+     "owner_id": "200000000000000012",
+     "roster_id": 12
+    }
+   ],
+   "tradedPicks": [
+    {
+     "owner_id": 7,
+     "previous_owner_id": 1,
+     "roster_id": 1,
+     "round": 2,
+     "season": "2027"
+    },
+    {
+     "owner_id": 10,
+     "previous_owner_id": 9,
+     "roster_id": 2,
+     "round": 3,
+     "season": "2027"
+    }
+   ],
+   "transactions": {
+    "0": [],
+    "1": [
+     {
+      "adds": {
+       "2003": 6,
+       "2004": 5
+      },
+      "consenter_ids": [
+       5,
+       6
+      ],
+      "created": 1785585600000,
+      "creator": "200000000000000001",
+      "draft_picks": [],
+      "drops": {
+       "2003": 5,
+       "2004": 6
+      },
+      "leg": 1,
+      "metadata": null,
+      "roster_ids": [
+       5,
+       6
+      ],
+      "settings": null,
+      "status": "complete",
+      "status_updated": 1785585660000,
+      "transaction_id": "300000000000000010",
+      "type": "trade",
+      "waiver_budget": []
+     }
+    ],
+    "10": [],
+    "11": [],
+    "12": [],
+    "13": [],
+    "14": [],
+    "15": [],
+    "16": [],
+    "17": [],
+    "18": [],
+    "19": [],
+    "2": [
+     {
+      "adds": {
+       "2003": 6,
+       "2004": 5
+      },
+      "consenter_ids": [
+       5,
+       6
+      ],
+      "created": 1785585600000,
+      "creator": "200000000000000001",
+      "draft_picks": [],
+      "drops": {
+       "2003": 5,
+       "2004": 6
+      },
+      "leg": 1,
+      "metadata": null,
+      "roster_ids": [
+       5,
+       6
+      ],
+      "settings": null,
+      "status": "complete",
+      "status_updated": 1785585660000,
+      "transaction_id": "300000000000000010",
+      "type": "trade",
+      "waiver_budget": []
+     }
+    ],
+    "20": [],
+    "21": [],
+    "22": [],
+    "23": [],
+    "24": [],
+    "25": [],
+    "3": [],
+    "4": [
+     {
+      "adds": {
+       "1002": 8,
+       "2001": 1
+      },
+      "consenter_ids": [
+       1,
+       7,
+       8
+      ],
+      "created": 1789041600000,
+      "creator": "200000000000000001",
+      "draft_picks": [
+       {
+        "league_id": null,
+        "owner_id": 7,
+        "previous_owner_id": 1,
+        "roster_id": 1,
+        "round": 2,
+        "season": "2027"
+       }
+      ],
+      "drops": {
+       "1002": 7,
+       "2001": 8
+      },
+      "leg": 4,
+      "metadata": null,
+      "roster_ids": [
+       1,
+       7,
+       8
+      ],
+      "settings": null,
+      "status": "complete",
+      "status_updated": 1789041660000,
+      "transaction_id": "300000000000000011",
+      "type": "trade",
+      "waiver_budget": [
+       {
+        "amount": 10,
+        "receiver": 1,
+        "sender": 8
+       }
+      ]
+     }
+    ],
+    "5": [
+     {
+      "adds": {
+       "1004": 9
+      },
+      "consenter_ids": [
+       9,
+       10
+      ],
+      "created": 1789905600000,
+      "creator": "200000000000000001",
+      "draft_picks": [
+       {
+        "league_id": null,
+        "owner_id": 10,
+        "previous_owner_id": 9,
+        "roster_id": 2,
+        "round": 3,
+        "season": "2027"
+       }
+      ],
+      "drops": {
+       "1004": 10
+      },
+      "leg": 5,
+      "metadata": null,
+      "roster_ids": [
+       9,
+       10
+      ],
+      "settings": null,
+      "status": "complete",
+      "status_updated": 1789905660000,
+      "transaction_id": "300000000000000012",
+      "type": "trade",
+      "waiver_budget": []
+     }
+    ],
+    "6": [],
+    "7": [],
+    "8": [],
+    "9": []
+   },
+   "users": [
+    {
+     "display_name": "SynthManager01",
+     "metadata": {
+      "team_name": "Synthetic Team 01"
+     },
+     "user_id": "200000000000000001"
+    },
+    {
+     "display_name": "SynthManager02",
+     "metadata": {
+      "team_name": "Synthetic Team 02"
+     },
+     "user_id": "200000000000000002"
+    },
+    {
+     "display_name": "SynthManager03",
+     "metadata": {
+      "team_name": "Synthetic Team 03"
+     },
+     "user_id": "200000000000000003"
+    },
+    {
+     "display_name": "SynthManager04",
+     "metadata": {
+      "team_name": "Synthetic Team 04"
+     },
+     "user_id": "200000000000000004"
+    },
+    {
+     "display_name": "SynthManager05",
+     "metadata": {
+      "team_name": "Synthetic Team 05"
+     },
+     "user_id": "200000000000000005"
+    },
+    {
+     "display_name": "SynthManager06",
+     "metadata": {
+      "team_name": "Synthetic Team 06"
+     },
+     "user_id": "200000000000000006"
+    },
+    {
+     "display_name": "SynthManager07",
+     "metadata": {
+      "team_name": "Synthetic Team 07"
+     },
+     "user_id": "200000000000000007"
+    },
+    {
+     "display_name": "SynthManager08",
+     "metadata": {
+      "team_name": "Synthetic Team 08"
+     },
+     "user_id": "200000000000000008"
+    },
+    {
+     "display_name": "SynthManager09",
+     "metadata": {
+      "team_name": "Synthetic Team 09"
+     },
+     "user_id": "200000000000000009"
+    },
+    {
+     "display_name": "SynthManager10",
+     "metadata": {
+      "team_name": "Synthetic Team 10"
+     },
+     "user_id": "200000000000000010"
+    },
+    {
+     "display_name": "SynthManager11",
+     "metadata": {
+      "team_name": "Synthetic Team 11"
+     },
+     "user_id": "200000000000000011"
+    },
+    {
+     "display_name": "SynthManager12",
+     "metadata": {
+      "team_name": "Synthetic Team 12"
+     },
+     "user_id": "200000000000000012"
+    }
+   ]
+  }
+ },
+ "startLeagueId": "100000000000000026"
+}
