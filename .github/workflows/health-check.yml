@@ -254,8 +254,11 @@ jobs:
                     "deploy/backup_user_kv.sh / riskit-backup.timer is broken — "
                     "user_kv, session_store and guest_passes are UNPROTECTED.")
               sys.exit(1)
-          print(f"Newest backup: {age}h old (dir={bh.get('backupDirUsed')}, "
-                f"dbCount={bh.get('dbCount')})")
+          # The top-level age/dir/dbCount keys describe the LEGACY SQLite
+          # backup only (backup_health.legacyKeysDescribe); the state backup
+          # is ``stateBackup`` and is judged separately below.
+          print(f"Legacy SQLite backup (riskit-backup.timer): {age}h old "
+                f"(dir={bh.get('backupDirUsed')}, dbCount={bh.get('dbCount')})")
           if age > MAX_AGE_HOURS:
               print(f"::error title=Stale SQLite backups::Newest backup is "
                     f"{age}h old (> {MAX_AGE_HOURS}h). The nightly backup has "
@@ -266,7 +269,39 @@ jobs:
           if isinstance(dbc, int) and dbc < 3:
               print(f"::warning title=Partial backup::Only {bh.get('dbCount')} "
                     f"of 3 SQLite DBs in the latest backup set.")
-          print("SQLite backup freshness OK.")
+          print("Legacy SQLite backup freshness OK.")
+
+          # State backup (riskit-state-backup.service, root-only directory).
+          # A check that measured nothing must never read as verified: only
+          # ``healthy`` WITH an evidence source is a measured pass.  On the
+          # production box the backend user cannot list the root-only
+          # canonical root, so the app reports ``unverifiable`` /
+          # ``permission_denied`` -- that is NOT MEASURED, stated as a warning
+          # rather than folded into the OK above (docs/ops/STATE_BACKUP_TRUTHFULNESS.md).
+          sb = bh.get("stateBackup")
+          sb = sb if isinstance(sb, dict) else {}
+          sb_state, sb_reason = sb.get("state"), sb.get("reason")
+          if sb_state == "healthy" and sb.get("evidenceSource"):
+              print(f"State backup: healthy, measured ({sb.get('ageHours')}h old, "
+                    f"{sb.get('generationCount')} generations, role={sb.get('directoryRole')}).")
+          elif sb_state in ("stale", "missing"):
+              print(f"::error title=State backup {sb_state}::stateBackup is {sb_state} "
+                    f"({sb_reason}). The nightly riskit-state-backup.service has not "
+                    f"produced a current generation -- every irreplaceable store is at risk.")
+              sys.exit(1)
+          elif sb_state == "unverifiable" and sb_reason == "permission_denied":
+              # Expected on production today: the app user cannot list the
+              # root-only canonical root.  Still NOT MEASURED, never an error.
+              print(f"::warning title=State backup NOT MEASURED (permission_denied, expected)::"
+                    f"The app cannot list the root-only state-backup root, so this run "
+                    f"verified the LEGACY SQLite backup only. Confirm on the box with sudo "
+                    f"(read-only): see docs/ops/STATE_BACKUP_TRUTHFULNESS.md.")
+          else:
+              print(f"::warning title=State backup NOT MEASURED::stateBackup is "
+                    f"{sb_state or 'absent'} ({sb_reason or 'no reason'}). The app cannot "
+                    f"see the state-backup root, so this run verified the LEGACY SQLite "
+                    f"backup only. Confirm on the box with sudo (read-only): "
+                    f"see docs/ops/STATE_BACKUP_TRUTHFULNESS.md.")
           PY
 
       - name: Open or update the tracking issue on failure
