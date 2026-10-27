@@ -489,6 +489,133 @@ def _assert_value_inside_contributing_votes(
     )
 
 
+#: Catastrophic floor for an IDP anchor on a DEGRADED / SEVERELY_DEGRADED row.
+#: Evidence: replaying 19 data-refresh boards 2026-10-14..10-27 (each commit's
+#: full tree), the worst any of the six IDP anchors reached was rank 213
+#: (Kyle Hamilton) and value 2627 (Hamilton) -- all on degraded panels.  300 /
+#: 1500 leave ~40% headroom on both sides of that range while still failing a
+#: calibration collapse that shrinks every vote together (which the hull check
+#: alone cannot see) or a blend that drops an elite defender off the
+#: meaningful board.
+_DEGRADED_IDP_MAX_RANK = 300
+_DEGRADED_IDP_MIN_VALUE = 1500
+
+
+def _source_reduced(meta: dict[str, Any]) -> bool:
+    """True when this vote reached the blend at less than its base weight."""
+    if meta.get("contributedToBlend") is False or meta.get("excludedReason"):
+        return True
+    base = float(meta.get("baseWeight") if meta.get("baseWeight") is not None else 1.0)
+    return float(meta.get("appliedWeight") or 0.0) < base
+
+
+def _assert_degradation_explained(
+    case: unittest.TestCase,
+    name: str,
+    row: dict[str, Any],
+    voting_status: dict[str, dict[str, Any]],
+) -> None:
+    """A degraded row must name WHY: every reduced / excluded / held source
+    carries a stated reason, so a freshness, dataset-state or family-cap
+    regression that degrades weights for no recorded cause still fails."""
+    meta = row.get("sourceRankMeta") or {}
+    reduced = [k for k, m in meta.items() if isinstance(m, dict) and _source_reduced(m)]
+    # Observed by the row but not in its vote panel: held from voting.
+    held = [k for k in (row.get("sourceOriginalRanks") or {}) if k not in meta]
+    case.assertTrue(
+        reduced or held,
+        f"{name}: sourceWeightState={row.get('sourceWeightState')!r} but no "
+        f"source is reduced, excluded or held -- unexplained degradation",
+    )
+    for key in reduced:
+        if (meta.get(key) or {}).get("excludedReason"):
+            continue
+        entry = voting_status.get(key) or {}
+        case.assertTrue(
+            str(entry.get("reason") or "").strip()
+            and (
+                entry.get("voting") is False
+                or float(entry.get("effectiveWeight") or 0.0)
+                < float(entry.get("baseWeight") or 1.0)
+            ),
+            f"{name}: source {key!r} votes below base weight with no stated "
+            f"reason in sourceVotingStatus ({entry!r})",
+        )
+    for key in held:
+        entry = voting_status.get(key) or {}
+        case.assertTrue(
+            entry.get("voting") is False and str(entry.get("reason") or "").strip(),
+            f"{name}: source {key!r} observed the row but is absent from its "
+            f"vote panel with no stated non-voting reason ({entry!r})",
+        )
+
+
+def _voting_status_by_key(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    block = contract.get("sourceVotingStatus") or {}
+    return {e["key"]: e for e in block.get("sources") or [] if isinstance(e, dict) and e.get("key")}
+
+
+def _assert_anchor_bands(
+    case: unittest.TestCase,
+    name: str,
+    row: dict[str, Any],
+    bounds: dict[str, Any],
+    voting_status: dict[str, dict[str, Any]],
+) -> None:
+    """The rank/value gate for one anchor (pinned by ``TestAnchorBandGate``)."""
+    cur_rank = int(row.get("canonicalConsensusRank") or 0)
+    cur_val = int(row.get("rankDerivedValue") or 0)
+    case.assertGreater(cur_rank, 0, f"{name} has no rank")
+    weight_state = str(row.get("sourceWeightState") or "")
+    case.assertNotEqual(
+        weight_state,
+        "INSUFFICIENT_DATA",
+        f"{name} has no voting evidence at all -- pipeline stopped pricing a top player?",
+    )
+    if weight_state in _DEGRADED_WEIGHT_STATES:
+        # Only IDP anchors may take the degraded path.  The IDP panel is
+        # thin (IDPTC, IDP Show, FantasyPros IDP, DraftSharks, DLF IDP) and
+        # measurably degrades with vendor staleness; the offense panel has
+        # ~14 families, so a degraded OFFENSE anchor is itself the signal of
+        # a freshness / dataset_state / family-cap regression.
+        case.assertTrue(
+            bounds.get("idp"),
+            f"{name}: offense anchor is {weight_state} (retainedAuthority="
+            f"{row.get('retainedAuthority')}, dominant={row.get('dominantSource')}) "
+            f"-- the offense panel should never degrade this far; suspect a "
+            f"freshness / dataset_state / family-cap regression",
+        )
+        case.assertLessEqual(
+            cur_rank,
+            _DEGRADED_IDP_MAX_RANK,
+            f"{name} canonicalConsensusRank={cur_rank} exceeds the degraded-panel "
+            f"catastrophic floor {_DEGRADED_IDP_MAX_RANK}",
+        )
+        case.assertGreaterEqual(
+            cur_val,
+            _DEGRADED_IDP_MIN_VALUE,
+            f"{name} rankDerivedValue={cur_val} below the degraded-panel "
+            f"catastrophic floor {_DEGRADED_IDP_MIN_VALUE} -- calibration collapse?",
+        )
+        _assert_value_inside_contributing_votes(case, name, row)
+        _assert_degradation_explained(case, name, row, voting_status)
+        return
+    case.assertLessEqual(
+        cur_rank,
+        int(bounds["max_rank"]),
+        f"{name} canonicalConsensusRank={cur_rank} exceeds invariant "
+        f"max_rank={bounds['max_rank']} on a NORMAL-weight panel -- likely "
+        f"pipeline regression",
+    )
+    case.assertGreaterEqual(
+        cur_val,
+        int(bounds["min_value"]),
+        f"{name} rankDerivedValue={cur_val} below invariant "
+        f"min_value={bounds['min_value']} on a NORMAL-weight panel -- likely "
+        f"calibration collapse",
+    )
+
+
 def _assert_bucket_explained_by_axes(
     case: unittest.TestCase, name: str, row: dict[str, Any]
 ) -> None:
@@ -669,16 +796,19 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         # 20261025_120337 board; a calibration collapse is still far below
         # this (the bands above name 2500-2800 as the regression signal).
         "Myles Garrett": {
+            "idp": True,
             "max_rank": 150,
             "min_value": 3200,
             "allowed_buckets": ("low", "medium", "high"),
         },
         "Will Anderson": {
+            "idp": True,
             "max_rank": 120,
             "min_value": 3400,
             "allowed_buckets": ("low", "medium", "high"),
         },
         "Micah Parsons": {
+            "idp": True,
             "max_rank": 210,
             "min_value": 2500,
             "allowed_buckets": ("low", "medium", "high"),
@@ -694,6 +824,7 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         # cratering past 165 or value collapsing below 2800) still
         # trips.
         "Fred Warner": {
+            "idp": True,
             "max_rank": 165,
             "min_value": 2800,
             "allowed_buckets": ("low", "medium", "high"),
@@ -717,11 +848,13 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         # nudges DS-IDP players ~1 rank; Roquan (borderline Hampel,
         # above) tipped 175 → 176.  Real headroom, not a chase.
         "Roquan Smith": {
+            "idp": True,
             "max_rank": 180,
             "min_value": 2300,
             "allowed_buckets": ("low", "medium", "high"),
         },
         "Kyle Hamilton": {
+            "idp": True,
             "max_rank": 200,
             "min_value": 1800,
             "allowed_buckets": ("low", "medium", "high"),
@@ -733,6 +866,7 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         if self.contract is None:
             self.skipTest("No live data")
         self.by_name = _by_name(self.contract)
+        self.voting_status = _voting_status_by_key(self.contract)
 
     def test_known_player_values_unchanged(self) -> None:
         """Top-player ranks, values, and buckets must stay within invariant bands."""
@@ -746,51 +880,10 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
                     f"stopped ranking a top player?",
                 )
                 seen += 1
-                cur_rank = int(row.get("canonicalConsensusRank") or 0)
-                cur_val = int(row.get("rankDerivedValue") or 0)
                 cur_bucket = str(row.get("confidenceBucket") or "")
-
-                max_rank = int(bounds["max_rank"])
-                min_value = int(bounds["min_value"])
                 allowed_buckets = tuple(bounds["allowed_buckets"])
 
-                self.assertGreater(cur_rank, 0, f"{name} has no rank")
-                weight_state = str(row.get("sourceWeightState") or "")
-                self.assertNotEqual(
-                    weight_state,
-                    "INSUFFICIENT_DATA",
-                    f"{name} has no voting evidence at all — pipeline stopped "
-                    f"pricing a top player?",
-                )
-                if weight_state in _DEGRADED_WEIGHT_STATES:
-                    # SOURCE HEALTH, not code: the row's own stamp says most
-                    # of its normal authority is gone (stale / withheld
-                    # vendors) or one source dominates.  The absolute bands
-                    # are statements about a HEALTHY panel; on a degraded
-                    # one they assert which vendors published lately
-                    # (CLAUDE.md "CI has two lanes").  Measured 2026-10-27:
-                    # Garrett / Hamilton fell to 180 / 210 because IDP Show
-                    # (68 d), FantasyPros IDP (53 d) and IDPTC (16 d) decayed
-                    # under freshness weighting while DLF IDP is owner-held,
-                    # leaving DraftSharks' combined ladder dominant.  What
-                    # must still hold, whichever sources answered: the
-                    # published value is inside its own contributing votes.
-                    _assert_value_inside_contributing_votes(self, name, row)
-                else:
-                    self.assertLessEqual(
-                        cur_rank,
-                        max_rank,
-                        f"{name} canonicalConsensusRank={cur_rank} exceeds "
-                        f"invariant max_rank={max_rank} on a NORMAL-weight panel "
-                        f"— likely pipeline regression",
-                    )
-                    self.assertGreaterEqual(
-                        cur_val,
-                        min_value,
-                        f"{name} rankDerivedValue={cur_val} below invariant "
-                        f"min_value={min_value} on a NORMAL-weight panel — likely "
-                        f"calibration collapse",
-                    )
+                _assert_anchor_bands(self, name, row, bounds, self.voting_status)
                 self.assertIn(
                     cur_bucket,
                     allowed_buckets,
@@ -891,6 +984,155 @@ class TestDegradedAnchorInvariant(unittest.TestCase):
         row["quarantined"] = True
         with self.assertRaises(AssertionError):
             _assert_value_inside_contributing_votes(self, "x", row)
+
+    def test_contributed_to_blend_false_does_not_widen_the_hull(self) -> None:
+        row = self._row(4100, (3600, 0.5), (2000, 0.9))
+        row["sourceRankMeta"]["s2"] = {
+            "valueContribution": 4184,
+            "appliedWeight": 0.7,
+            "contributedToBlend": False,
+        }
+        with self.assertRaises(AssertionError):
+            _assert_value_inside_contributing_votes(self, "x", row)
+
+
+class TestAnchorBandGate(unittest.TestCase):
+    """Pins the gate itself: an ``if True:`` exemption, an offense exemption or
+    a dropped catastrophic floor must fail one of these."""
+
+    _IDP = {"idp": True, "max_rank": 150, "min_value": 3200}
+    _OFF = {"max_rank": 20, "min_value": 6000}
+    _STATUS = {
+        "tc": {
+            "key": "tc",
+            "voting": True,
+            "baseWeight": 1.0,
+            "effectiveWeight": 0.34,
+            "reason": "Last genuine update 16 days ago: votes at 34%.",
+        },
+        "sh": {
+            "key": "sh",
+            "voting": False,
+            "baseWeight": 1.0,
+            "effectiveWeight": 0.0,
+            "reason": "Last genuinely updated 68 days ago.",
+        },
+        "ds": {
+            "key": "ds",
+            "voting": True,
+            "baseWeight": 1.0,
+            "effectiveWeight": 0.93,
+            "reason": "Last genuine update less than a day ago: votes at 93%.",
+        },
+        "dlf": {
+            "key": "dlf",
+            "voting": False,
+            "baseWeight": 1.0,
+            "effectiveWeight": 0.0,
+            "reason": "Held from voting by an owner decision.",
+        },
+    }
+
+    @staticmethod
+    def _row(rank: int, value: int, state: str, **meta_over: Any) -> dict[str, Any]:
+        meta = {
+            "tc": {"valueContribution": 5399, "appliedWeight": 0.34, "baseWeight": 1.0},
+            "sh": {
+                "valueContribution": 4184,
+                "appliedWeight": 0.0,
+                "baseWeight": 1.0,
+                "contributedToBlend": False,
+                "excludedReason": "freshness_or_health_zero_weight",
+            },
+            "ds": {"valueContribution": 1897, "appliedWeight": 0.93, "baseWeight": 1.0},
+        }
+        meta.update(meta_over)
+        return {
+            "canonicalConsensusRank": rank,
+            "rankDerivedValue": value,
+            "sourceWeightState": state,
+            "sourceRankMeta": meta,
+            "sourceOriginalRanks": {"tc": 68, "sh": 89, "ds": 92, "dlf": 26},
+            "quarantined": False,
+        }
+
+    def _gate(self, row: dict[str, Any], bounds: dict[str, Any], status=None) -> None:
+        _assert_anchor_bands(self, "x", row, bounds, self._STATUS if status is None else status)
+
+    def test_normal_row_inside_bands_passes(self) -> None:
+        self._gate(self._row(10, 7000, "NORMAL"), self._OFF)
+
+    def test_normal_row_past_max_rank_fails(self) -> None:
+        with self.assertRaises(AssertionError):
+            self._gate(self._row(180, 7000, "NORMAL"), self._OFF)
+
+    def test_normal_idp_row_past_max_rank_fails(self) -> None:
+        with self.assertRaises(AssertionError):
+            self._gate(self._row(180, 3300, "NORMAL"), self._IDP)
+
+    def test_normal_row_below_min_value_fails(self) -> None:
+        with self.assertRaises(AssertionError):
+            self._gate(self._row(10, 5000, "NORMAL"), self._OFF)
+
+    def test_degraded_offense_anchor_fails(self) -> None:
+        for state in ("DEGRADED", "SEVERELY_DEGRADED"):
+            with self.subTest(state=state), self.assertRaises(AssertionError):
+                self._gate(self._row(10, 2920, state), self._OFF)
+
+    def test_insufficient_data_fails(self) -> None:
+        with self.assertRaises(AssertionError):
+            self._gate(self._row(180, 2920, "INSUFFICIENT_DATA"), self._IDP)
+
+    def test_degraded_idp_today_passes(self) -> None:
+        # The 2026-10-27 Garrett row, abridged.
+        self._gate(self._row(180, 2920, "SEVERELY_DEGRADED"), self._IDP)
+
+    def test_degraded_idp_past_catastrophic_rank_fails(self) -> None:
+        with self.assertRaises(AssertionError):
+            self._gate(self._row(_DEGRADED_IDP_MAX_RANK + 1, 2920, "SEVERELY_DEGRADED"), self._IDP)
+
+    def test_degraded_idp_calibration_collapse_fails(self) -> None:
+        # Every vote shrank together: inside the hull, below the floor.
+        row = self._row(
+            200,
+            1100,
+            "SEVERELY_DEGRADED",
+            tc={"valueContribution": 1300, "appliedWeight": 0.34, "baseWeight": 1.0},
+            ds={"valueContribution": 1000, "appliedWeight": 0.93, "baseWeight": 1.0},
+        )
+        with self.assertRaises(AssertionError):
+            self._gate(row, self._IDP)
+
+    def test_reduced_source_without_stated_reason_fails(self) -> None:
+        status = dict(self._STATUS)
+        status["tc"] = {**status["tc"], "reason": ""}
+        with self.assertRaises(AssertionError):
+            self._gate(self._row(180, 2920, "SEVERELY_DEGRADED"), self._IDP, status)
+
+    def test_reduced_source_reported_at_full_weight_fails(self) -> None:
+        status = dict(self._STATUS)
+        status["tc"] = {**status["tc"], "effectiveWeight": 1.0}
+        with self.assertRaises(AssertionError):
+            self._gate(self._row(180, 2920, "SEVERELY_DEGRADED"), self._IDP, status)
+
+    def test_held_source_without_non_voting_reason_fails(self) -> None:
+        status = dict(self._STATUS)
+        status["dlf"] = {**status["dlf"], "voting": True}
+        with self.assertRaises(AssertionError):
+            self._gate(self._row(180, 2920, "SEVERELY_DEGRADED"), self._IDP, status)
+
+    def test_degraded_with_nothing_reduced_fails(self) -> None:
+        row = self._row(
+            180,
+            2920,
+            "SEVERELY_DEGRADED",
+            tc={"valueContribution": 5399, "appliedWeight": 1.0, "baseWeight": 1.0},
+            sh={"valueContribution": 4184, "appliedWeight": 1.0, "baseWeight": 1.0},
+            ds={"valueContribution": 1897, "appliedWeight": 1.0, "baseWeight": 1.0},
+        )
+        row["sourceOriginalRanks"] = {"tc": 68, "sh": 89, "ds": 92}
+        with self.assertRaises(AssertionError):
+            self._gate(row, self._IDP)
 
 
 if __name__ == "__main__":
