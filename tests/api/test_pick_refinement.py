@@ -439,6 +439,56 @@ class TestPickConfidenceUsesCV(unittest.TestCase):
         )
 
 
+#: ``sourceWeightState`` values (``data_contract._stamp_source_weight_state``)
+#: under which a row's absolute rank/value is a statement about SOURCE HEALTH
+#: — retained authority below the degraded threshold, or one source dominating
+#: — rather than about our code.
+_DEGRADED_WEIGHT_STATES = frozenset({"DEGRADED", "SEVERELY_DEGRADED"})
+
+#: Same numerical slack the blend-integrity detector uses
+#: (``_BLEND_HULL_QUANTIZATION_BELOW`` / ``…_ABOVE``): int-truncated value vs
+#: int-rounded contribution stamps.  Precision, not policy.
+_HULL_SLACK_BELOW = 1.5
+_HULL_SLACK_ABOVE = 0.5
+
+
+def _assert_value_inside_contributing_votes(
+    case: unittest.TestCase, name: str, row: dict[str, Any]
+) -> None:
+    """Source-independent anchor invariant for a degraded-evidence row.
+
+    Whatever subset of vendors answered the last scrape, a published value
+    must lie inside the range of the votes that actually carried weight — a
+    blend that leaves its own contributions' hull is a pipeline fault on any
+    board.  It must also not be quarantined (a blend-integrity violation
+    quarantines the row).
+    """
+    contributions = [
+        float(m["valueContribution"])
+        for m in (row.get("sourceRankMeta") or {}).values()
+        if isinstance(m, dict)
+        and m.get("valueContribution") is not None
+        and float(m.get("appliedWeight") or 0.0) > 0.0
+        and m.get("contributedToBlend") is not False
+    ]
+    case.assertTrue(
+        contributions,
+        f"{name}: sourceWeightState={row.get('sourceWeightState')!r} but no "
+        f"weighted contribution is stamped — evidence lost, not merely degraded",
+    )
+    value = float(row.get("rankDerivedValue") or 0)
+    lo, hi = min(contributions), max(contributions)
+    case.assertTrue(
+        lo - _HULL_SLACK_BELOW <= value <= hi + _HULL_SLACK_ABOVE,
+        f"{name}: rankDerivedValue={value:.0f} outside its weighted votes "
+        f"[{lo:.0f}, {hi:.0f}] — blend regression, not source health",
+    )
+    case.assertFalse(
+        row.get("quarantined"),
+        f"{name}: quarantined (anomalyFlags={row.get('anomalyFlags')})",
+    )
+
+
 def _assert_bucket_explained_by_axes(
     case: unittest.TestCase, name: str, row: dict[str, Any]
 ) -> None:
@@ -705,18 +755,42 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
                 allowed_buckets = tuple(bounds["allowed_buckets"])
 
                 self.assertGreater(cur_rank, 0, f"{name} has no rank")
-                self.assertLessEqual(
-                    cur_rank,
-                    max_rank,
-                    f"{name} canonicalConsensusRank={cur_rank} exceeds "
-                    f"invariant max_rank={max_rank} — likely pipeline regression",
+                weight_state = str(row.get("sourceWeightState") or "")
+                self.assertNotEqual(
+                    weight_state,
+                    "INSUFFICIENT_DATA",
+                    f"{name} has no voting evidence at all — pipeline stopped "
+                    f"pricing a top player?",
                 )
-                self.assertGreaterEqual(
-                    cur_val,
-                    min_value,
-                    f"{name} rankDerivedValue={cur_val} below invariant "
-                    f"min_value={min_value} — likely calibration collapse",
-                )
+                if weight_state in _DEGRADED_WEIGHT_STATES:
+                    # SOURCE HEALTH, not code: the row's own stamp says most
+                    # of its normal authority is gone (stale / withheld
+                    # vendors) or one source dominates.  The absolute bands
+                    # are statements about a HEALTHY panel; on a degraded
+                    # one they assert which vendors published lately
+                    # (CLAUDE.md "CI has two lanes").  Measured 2026-10-27:
+                    # Garrett / Hamilton fell to 180 / 210 because IDP Show
+                    # (68 d), FantasyPros IDP (53 d) and IDPTC (16 d) decayed
+                    # under freshness weighting while DLF IDP is owner-held,
+                    # leaving DraftSharks' combined ladder dominant.  What
+                    # must still hold, whichever sources answered: the
+                    # published value is inside its own contributing votes.
+                    _assert_value_inside_contributing_votes(self, name, row)
+                else:
+                    self.assertLessEqual(
+                        cur_rank,
+                        max_rank,
+                        f"{name} canonicalConsensusRank={cur_rank} exceeds "
+                        f"invariant max_rank={max_rank} on a NORMAL-weight panel "
+                        f"— likely pipeline regression",
+                    )
+                    self.assertGreaterEqual(
+                        cur_val,
+                        min_value,
+                        f"{name} rankDerivedValue={cur_val} below invariant "
+                        f"min_value={min_value} on a NORMAL-weight panel — likely "
+                        f"calibration collapse",
+                    )
                 self.assertIn(
                     cur_bucket,
                     allowed_buckets,
@@ -774,6 +848,49 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
             3,
             f"Fewer than 3 of {top_five_offense_targets} in top-10: {names}",
         )
+
+
+class TestDegradedAnchorInvariant(unittest.TestCase):
+    """Pins the source-independent half of the anchor check on synthetic rows."""
+
+    @staticmethod
+    def _row(value: int, *votes: tuple[int, float]) -> dict[str, Any]:
+        meta = {
+            f"s{i}": {"valueContribution": v, "appliedWeight": w} for i, (v, w) in enumerate(votes)
+        }
+        return {
+            "rankDerivedValue": value,
+            "sourceWeightState": "SEVERELY_DEGRADED",
+            "sourceRankMeta": meta,
+            "quarantined": False,
+        }
+
+    def test_value_inside_weighted_votes_passes(self) -> None:
+        _assert_value_inside_contributing_votes(
+            self, "x", self._row(2920, (5399, 0.34), (3677, 0.22), (1897, 0.93))
+        )
+
+    def test_zero_weight_vote_does_not_widen_the_hull(self) -> None:
+        with self.assertRaises(AssertionError):
+            _assert_value_inside_contributing_votes(
+                self, "x", self._row(4100, (3600, 0.5), (2000, 0.9), (4184, 0.0))
+            )
+
+    def test_value_outside_votes_fails(self) -> None:
+        with self.assertRaises(AssertionError):
+            _assert_value_inside_contributing_votes(
+                self, "x", self._row(1200, (5399, 0.34), (1897, 0.93))
+            )
+
+    def test_no_weighted_vote_fails(self) -> None:
+        with self.assertRaises(AssertionError):
+            _assert_value_inside_contributing_votes(self, "x", self._row(2000, (2000, 0.0)))
+
+    def test_quarantined_row_fails(self) -> None:
+        row = self._row(2920, (5399, 0.34), (1897, 0.93))
+        row["quarantined"] = True
+        with self.assertRaises(AssertionError):
+            _assert_value_inside_contributing_votes(self, "x", row)
 
 
 if __name__ == "__main__":
