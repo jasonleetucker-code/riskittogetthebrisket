@@ -1,0 +1,10 @@
+{
+  "name": "chase-upside-private-mcp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bash scripts/build.sh",
+    "validate": "node scripts/validate-artifact.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

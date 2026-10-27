@@ -1,0 +1,839 @@
+{
+  "schema": "sim-calibration-v3-downstream/1",
+  "promotes": false,
+  "status": "RESEARCH_EVIDENCE_NOT_FOR_PROMOTION",
+  "generatedAtUtc": "2026-10-27T09:42:35.768025+00:00",
+  "codeSha": "75c6206790da8bf171566e8c8cb9448f8f127cf1",
+  "studyCodeDirty": false,
+  "scriptSha256": "b55b29d7cef0dbbbd41e24d7134052526e823cd637b58b3667fb6b6ee876e278",
+  "preregistration": {
+    "path": "docs/league-intelligence/SIM_CALIBRATION_V3_PREREGISTRATION_2026-10-27.md",
+    "commit": "c52ff4d7f0b41e27a6422f25ad4b661d8d145f1f",
+    "committedAt": "2026-10-27T05:10:03-04:00",
+    "isAncestorOfCodeSha": true
+  },
+  "challengerWeek8": {
+    "path": "docs/league-intelligence/evidence/sim_calibration_v3/challenger_v3_week8.json",
+    "sha256": "8a5fd16a15240bcbd15dff70eeeac24b5aebaa30e8c1b0130d87997ad698facb"
+  },
+  "C2c_tradeMarginalUtility": {
+    "week": 7,
+    "rosters": 12,
+    "drawsPerEvaluation": 400,
+    "candidatesPerRoster": 12,
+    "configs": {
+      "A_commonMean_Fcv": "means = V3 week-7 mu, spread = F's CV (production BBLI shape: means from the ROS ensemble, only the points model's variance used)",
+      "B_commonMean_V3spread": "means = V3 week-7 mu, spread = V3",
+      "C_Fmean_Fcv": "means = rosValue / 2.7, spread = F's CV (what a rosValue-mean surface sees)"
+    },
+    "kendallTauVarianceOnly_AvsB": {
+      "mean": 0.8939,
+      "min": 0.7879
+    },
+    "kendallTauFullModel_CvsB": {
+      "mean": 0.572,
+      "min": 0.2424
+    },
+    "top3OverlapVarianceOnly": {
+      "mean": 2.9167,
+      "min": 2
+    },
+    "top3OverlapFullModel": {
+      "mean": 1.6667,
+      "min": 0
+    },
+    "perRoster": [
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.8484848484848485,
+        "tauCvsB_fullModel": 0.45454545454545453,
+        "top3OverlapAvsB": 3,
+        "top3OverlapCvsB": 2
+      },
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.8939393939393939,
+        "tauCvsB_fullModel": 0.4696969696969697,
+        "top3OverlapAvsB": 3,
+        "top3OverlapCvsB": 1
+      },
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.8484848484848485,
+        "tauCvsB_fullModel": 0.696969696969697,
+        "top3OverlapAvsB": 2,
+        "top3OverlapCvsB": 2
+      },
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.7878787878787878,
+        "tauCvsB_fullModel": 0.5757575757575758,
+        "top3OverlapAvsB": 3,
+        "top3OverlapCvsB": 3
+      },
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.8787878787878788,
+        "tauCvsB_fullModel": 0.48484848484848486,
+        "top3OverlapAvsB": 3,
+        "top3OverlapCvsB": 1
+      },
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.9393939393939394,
+        "tauCvsB_fullModel": 0.4696969696969697,
+        "top3OverlapAvsB": 3,
+        "top3OverlapCvsB": 1
+      },
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.9090909090909091,
+        "tauCvsB_fullModel": 0.8484848484848485,
+        "top3OverlapAvsB": 3,
+        "top3OverlapCvsB": 2
+      },
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.9090909090909091,
+        "tauCvsB_fullModel": 0.5757575757575758,
+        "top3OverlapAvsB": 3,
+        "top3OverlapCvsB": 3
+      },
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.8787878787878788,
+        "tauCvsB_fullModel": 0.24242424242424243,
+        "top3OverlapAvsB": 3,
+        "top3OverlapCvsB": 0
+      },
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.9090909090909091,
+        "tauCvsB_fullModel": 0.6666666666666666,
+        "top3OverlapAvsB": 3,
+        "top3OverlapCvsB": 2
+      },
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.9545454545454546,
+        "tauCvsB_fullModel": 0.6818181818181818,
+        "top3OverlapAvsB": 3,
+        "top3OverlapCvsB": 1
+      },
+      {
+        "candidates": 12,
+        "tauAvsB_varianceOnly": 0.9696969696969697,
+        "tauCvsB_fullModel": 0.696969696969697,
+        "top3OverlapAvsB": 3,
+        "top3OverlapCvsB": 2
+      }
+    ]
+  },
+  "C2b_playoffAndTitle": {
+    "models": [
+      "F",
+      "F*",
+      "V2",
+      "V3-marginal"
+    ],
+    "incumbent": {
+      "F": {
+        "teams": [
+          {
+            "team": 0,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.4353,
+            "weeklyMean": 498.62
+          },
+          {
+            "team": 1,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 350.4
+          },
+          {
+            "team": 2,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 248.8
+          },
+          {
+            "team": 3,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.5646,
+            "weeklyMean": 506.62
+          },
+          {
+            "team": 4,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 332.3
+          },
+          {
+            "team": 5,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 269.98
+          },
+          {
+            "team": 6,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0001,
+            "weeklyMean": 383.54
+          },
+          {
+            "team": 7,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 181.64
+          },
+          {
+            "team": 8,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 117.28
+          },
+          {
+            "team": 9,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 163.34
+          },
+          {
+            "team": 10,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 225.94
+          },
+          {
+            "team": 11,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 141.01
+          }
+        ],
+        "maxAbsDeltaPlayoffVsF": 0.0,
+        "meanAbsDeltaPlayoffVsF": 0.0,
+        "maxAbsDeltaTitleVsF": 0.0,
+        "kendallTauPlayoffVsF": 0.5303030303030303,
+        "kendallTauTitleVsF": 0.45454545454545453,
+        "kendallTauWeeklyMeanVsF": 1.0,
+        "nSimulations": 20000
+      },
+      "F*": {
+        "teams": [
+          {
+            "team": 0,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.4354,
+            "weeklyMean": 724.44
+          },
+          {
+            "team": 1,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 509.08
+          },
+          {
+            "team": 2,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 361.48
+          },
+          {
+            "team": 3,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.5645,
+            "weeklyMean": 736.06
+          },
+          {
+            "team": 4,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 482.79
+          },
+          {
+            "team": 5,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 392.24
+          },
+          {
+            "team": 6,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0001,
+            "weeklyMean": 557.23
+          },
+          {
+            "team": 7,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 263.9
+          },
+          {
+            "team": 8,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 170.39
+          },
+          {
+            "team": 9,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 237.3
+          },
+          {
+            "team": 10,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 328.26
+          },
+          {
+            "team": 11,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 204.87
+          }
+        ],
+        "maxAbsDeltaPlayoffVsF": 0.0,
+        "meanAbsDeltaPlayoffVsF": 0.0,
+        "maxAbsDeltaTitleVsF": 0.0001,
+        "kendallTauPlayoffVsF": 0.5303030303030303,
+        "kendallTauTitleVsF": 0.45454545454545453,
+        "kendallTauWeeklyMeanVsF": 1.0,
+        "nSimulations": 20000
+      },
+      "V2": {
+        "teams": [
+          {
+            "team": 0,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.4132,
+            "weeklyMean": 994.81
+          },
+          {
+            "team": 1,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 670.79
+          },
+          {
+            "team": 2,
+            "playoffOdds": 0.9989,
+            "championshipOdds": 0.0,
+            "weeklyMean": 487.61
+          },
+          {
+            "team": 3,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.5864,
+            "weeklyMean": 1021.05
+          },
+          {
+            "team": 4,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 640.82
+          },
+          {
+            "team": 5,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 538.78
+          },
+          {
+            "team": 6,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0004,
+            "weeklyMean": 753.82
+          },
+          {
+            "team": 7,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 366.83
+          },
+          {
+            "team": 8,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 240.21
+          },
+          {
+            "team": 9,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 331.57
+          },
+          {
+            "team": 10,
+            "playoffOdds": 0.0011,
+            "championshipOdds": 0.0,
+            "weeklyMean": 462.81
+          },
+          {
+            "team": 11,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 280.4
+          }
+        ],
+        "maxAbsDeltaPlayoffVsF": 0.0011,
+        "meanAbsDeltaPlayoffVsF": 0.0002,
+        "maxAbsDeltaTitleVsF": 0.0221,
+        "kendallTauPlayoffVsF": 0.5303030303030303,
+        "kendallTauTitleVsF": 0.45454545454545453,
+        "kendallTauWeeklyMeanVsF": 1.0,
+        "nSimulations": 20000
+      },
+      "V3-marginal": {
+        "teams": [
+          {
+            "team": 0,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.5321,
+            "weeklyMean": 650.69
+          },
+          {
+            "team": 1,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0023,
+            "weeklyMean": 510.82
+          },
+          {
+            "team": 2,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 380.98
+          },
+          {
+            "team": 3,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.4637,
+            "weeklyMean": 644.47
+          },
+          {
+            "team": 4,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 477.34
+          },
+          {
+            "team": 5,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 403.74
+          },
+          {
+            "team": 6,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0019,
+            "weeklyMean": 514.11
+          },
+          {
+            "team": 7,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 291.63
+          },
+          {
+            "team": 8,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 228.11
+          },
+          {
+            "team": 9,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 273.84
+          },
+          {
+            "team": 10,
+            "playoffOdds": 0.0001,
+            "championshipOdds": 0.0,
+            "weeklyMean": 345.04
+          },
+          {
+            "team": 11,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 264.17
+          }
+        ],
+        "maxAbsDeltaPlayoffVsF": 0.0001,
+        "meanAbsDeltaPlayoffVsF": 0.0,
+        "maxAbsDeltaTitleVsF": 0.1009,
+        "kendallTauPlayoffVsF": 0.5303030303030303,
+        "kendallTauTitleVsF": 0.3939393939393939,
+        "kendallTauWeeklyMeanVsF": 0.9696969696969697,
+        "nSimulations": 20000
+      }
+    },
+    "corrected": {
+      "F": {
+        "teams": [
+          {
+            "team": 0,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.518,
+            "weeklyMean": 383.22
+          },
+          {
+            "team": 1,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0042,
+            "weeklyMean": 308.3
+          },
+          {
+            "team": 2,
+            "playoffOdds": 0.9939,
+            "championshipOdds": 0.0,
+            "weeklyMean": 257.66
+          },
+          {
+            "team": 3,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.4545,
+            "weeklyMean": 380.27
+          },
+          {
+            "team": 4,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0019,
+            "weeklyMean": 299.32
+          },
+          {
+            "team": 5,
+            "playoffOdds": 0.9999,
+            "championshipOdds": 0.0,
+            "weeklyMean": 274.69
+          },
+          {
+            "team": 6,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0214,
+            "weeklyMean": 328.67
+          },
+          {
+            "team": 7,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 219.27
+          },
+          {
+            "team": 8,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 165.56
+          },
+          {
+            "team": 9,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 205.33
+          },
+          {
+            "team": 10,
+            "playoffOdds": 0.0063,
+            "championshipOdds": 0.0,
+            "weeklyMean": 250.46
+          },
+          {
+            "team": 11,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 183.12
+          }
+        ],
+        "maxAbsDeltaPlayoffVsF": 0.0,
+        "meanAbsDeltaPlayoffVsF": 0.0,
+        "maxAbsDeltaTitleVsF": 0.0,
+        "kendallTauPlayoffVsF": 0.7575757575757576,
+        "kendallTauTitleVsF": 0.6818181818181818,
+        "kendallTauWeeklyMeanVsF": 1.0,
+        "nSimulations": 20000
+      },
+      "F*": {
+        "teams": [
+          {
+            "team": 0,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.5185,
+            "weeklyMean": 556.77
+          },
+          {
+            "team": 1,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0042,
+            "weeklyMean": 447.92
+          },
+          {
+            "team": 2,
+            "playoffOdds": 0.9937,
+            "championshipOdds": 0.0,
+            "weeklyMean": 374.35
+          },
+          {
+            "team": 3,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.454,
+            "weeklyMean": 552.49
+          },
+          {
+            "team": 4,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0019,
+            "weeklyMean": 434.87
+          },
+          {
+            "team": 5,
+            "playoffOdds": 0.9998,
+            "championshipOdds": 0.0,
+            "weeklyMean": 399.09
+          },
+          {
+            "team": 6,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0214,
+            "weeklyMean": 477.51
+          },
+          {
+            "team": 7,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 318.57
+          },
+          {
+            "team": 8,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 240.54
+          },
+          {
+            "team": 9,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 298.31
+          },
+          {
+            "team": 10,
+            "playoffOdds": 0.0065,
+            "championshipOdds": 0.0,
+            "weeklyMean": 363.88
+          },
+          {
+            "team": 11,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 266.04
+          }
+        ],
+        "maxAbsDeltaPlayoffVsF": 0.0002,
+        "meanAbsDeltaPlayoffVsF": 0.0,
+        "maxAbsDeltaTitleVsF": 0.0005,
+        "kendallTauPlayoffVsF": 0.7575757575757576,
+        "kendallTauTitleVsF": 0.6818181818181818,
+        "kendallTauWeeklyMeanVsF": 1.0,
+        "nSimulations": 20000
+      },
+      "V2": {
+        "teams": [
+          {
+            "team": 0,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.4913,
+            "weeklyMean": 764.56
+          },
+          {
+            "team": 1,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0029,
+            "weeklyMean": 590.21
+          },
+          {
+            "team": 2,
+            "playoffOdds": 0.9571,
+            "championshipOdds": 0.0,
+            "weeklyMean": 504.97
+          },
+          {
+            "team": 3,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.4788,
+            "weeklyMean": 766.4
+          },
+          {
+            "team": 4,
+            "playoffOdds": 0.9997,
+            "championshipOdds": 0.0021,
+            "weeklyMean": 577.21
+          },
+          {
+            "team": 5,
+            "playoffOdds": 0.9996,
+            "championshipOdds": 0.0001,
+            "weeklyMean": 548.19
+          },
+          {
+            "team": 6,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0248,
+            "weeklyMean": 645.97
+          },
+          {
+            "team": 7,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 442.82
+          },
+          {
+            "team": 8,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 339.11
+          },
+          {
+            "team": 9,
+            "playoffOdds": 0.0003,
+            "championshipOdds": 0.0,
+            "weeklyMean": 416.82
+          },
+          {
+            "team": 10,
+            "playoffOdds": 0.0433,
+            "championshipOdds": 0.0,
+            "weeklyMean": 513.03
+          },
+          {
+            "team": 11,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 364.12
+          }
+        ],
+        "maxAbsDeltaPlayoffVsF": 0.037,
+        "meanAbsDeltaPlayoffVsF": 0.0062,
+        "maxAbsDeltaTitleVsF": 0.0267,
+        "kendallTauPlayoffVsF": 0.7575757575757576,
+        "kendallTauTitleVsF": 0.6818181818181818,
+        "kendallTauWeeklyMeanVsF": 0.9393939393939394,
+        "nSimulations": 20000
+      },
+      "V3-marginal": {
+        "teams": [
+          {
+            "team": 0,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.5301,
+            "weeklyMean": 500.09
+          },
+          {
+            "team": 1,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.07,
+            "weeklyMean": 449.45
+          },
+          {
+            "team": 2,
+            "playoffOdds": 0.9896,
+            "championshipOdds": 0.0024,
+            "weeklyMean": 394.54
+          },
+          {
+            "team": 3,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.3113,
+            "weeklyMean": 483.74
+          },
+          {
+            "team": 4,
+            "playoffOdds": 0.9999,
+            "championshipOdds": 0.0261,
+            "weeklyMean": 429.96
+          },
+          {
+            "team": 5,
+            "playoffOdds": 0.9986,
+            "championshipOdds": 0.0089,
+            "weeklyMean": 410.79
+          },
+          {
+            "team": 6,
+            "playoffOdds": 1.0,
+            "championshipOdds": 0.0513,
+            "weeklyMean": 440.56
+          },
+          {
+            "team": 7,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 352.04
+          },
+          {
+            "team": 8,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 322.03
+          },
+          {
+            "team": 9,
+            "playoffOdds": 0.0024,
+            "championshipOdds": 0.0,
+            "weeklyMean": 344.24
+          },
+          {
+            "team": 10,
+            "playoffOdds": 0.0096,
+            "championshipOdds": 0.0,
+            "weeklyMean": 382.48
+          },
+          {
+            "team": 11,
+            "playoffOdds": 0.0,
+            "championshipOdds": 0.0,
+            "weeklyMean": 343.05
+          }
+        ],
+        "maxAbsDeltaPlayoffVsF": 0.0043,
+        "meanAbsDeltaPlayoffVsF": 0.0009,
+        "maxAbsDeltaTitleVsF": 0.1432,
+        "kendallTauPlayoffVsF": 0.7575757575757576,
+        "kendallTauTitleVsF": 0.6515151515151515,
+        "kendallTauWeeklyMeanVsF": 0.9696969696969697,
+        "nSimulations": 20000
+      }
+    },
+    "availability": {
+      "currentWeek": 7,
+      "currentWeekSource": "league_leg",
+      "lastWeek": 17,
+      "lastWeekSource": "championship_week",
+      "weeks": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "schedule": "unavailable",
+      "returnEvidence": {
+        "state": "unavailable",
+        "asOf": null,
+        "players": 0,
+        "source": "espn_athlete_current_injury"
+      },
+      "overrides": 0,
+      "rules": "src/ros/availability.py (bye, override, host status, stated return date)",
+      "state": "applied",
+      "unavailablePlayerWeeks": 112
+    },
+    "servedArm": "incumbent (playoff_ros_counted_once defaults OFF)"
+  }
+}

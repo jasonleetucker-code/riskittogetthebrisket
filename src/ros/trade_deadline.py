@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from src.ros import ROS_DATA_DIR
@@ -25,29 +26,94 @@ from src.utils.unknown import Unknown, stamp
 LOG = logging.getLogger("ros.trade_deadline")
 
 
-def _load_playoff_odds_map() -> dict[str, dict[str, float]]:
-    """Read the latest cached ROS playoff-odds output, keyed by ownerId."""
-    path = ROS_DATA_DIR / "sims" / "latest_playoff.json"
+#: Availability states of one league's cached simulation file.
+SIM_LOADED = "loaded"
+SIM_MISSING = "missing"
+SIM_UNREADABLE = "unreadable"
+
+#: Why a section has no simulation at all: the snapshot's league could not be
+#: resolved to a registry key, so there is no league whose file to read.
+SIM_REASON_LEAGUE_UNRESOLVED = "league_unresolved"
+
+
+def _sim_file(kind: str, league_key: str | None) -> Path:
+    """This league's cached ``kind`` ("playoff" / "championship") sim file.
+
+    The filename rule is the WRITER's (``src.ros.scrape._sim_paths``): the
+    default league keeps the historical ``latest_*.json`` names, every other
+    league its own ``<leagueKey>_*.json``.  Reused, never restated -- the
+    same arrangement ``playoff_sim._cached_payload_path`` has -- and rooted
+    at this module's ``ROS_DATA_DIR`` so the reader and the writer agree.
+
+    LI1842-DEFECT-12: this used to read ``latest_*.json`` for EVERY league, so
+    a non-default league's teams were classified from the default league's
+    simulation.  A league with no file of its own now reads as missing.
+    """
+    from src.ros.scrape import _sim_paths  # noqa: PLC0415 - heavy module
+
+    try:
+        from src.api.league_registry import default_league_key  # noqa: PLC0415
+
+        default_key = default_league_key()
+    except Exception:  # noqa: BLE001 - registry trouble reads the default file
+        default_key = None
+    playoff, championship = _sim_paths(league_key, default_key)
+    name = playoff.name if kind == "playoff" else championship.name
+    return ROS_DATA_DIR / "sims" / name
+
+
+def _load_sim_map(
+    kind: str, rows_key: str, league_key: str | None
+) -> tuple[dict[str, dict[str, float]], str]:
+    """``(rows keyed by ownerId, availability state)`` for one league's sim."""
+    path = _sim_file(kind, league_key)
     if not path.exists():
-        return {}
+        return {}, SIM_MISSING
     try:
         payload = json.loads(path.read_text())
     except (json.JSONDecodeError, OSError):
-        return {}
-    rows = payload.get("playoffOdds") or []
-    return {str(r.get("ownerId") or ""): r for r in rows if r.get("ownerId")}
+        return {}, SIM_UNREADABLE
+    if not isinstance(payload, dict):
+        return {}, SIM_UNREADABLE
+    rows = payload.get(rows_key) or []
+    return {str(r.get("ownerId") or ""): r for r in rows if r.get("ownerId")}, SIM_LOADED
 
 
-def _load_championship_map() -> dict[str, dict[str, float]]:
-    path = ROS_DATA_DIR / "sims" / "latest_championship.json"
-    if not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return {}
-    rows = payload.get("championshipOdds") or []
-    return {str(r.get("ownerId") or ""): r for r in rows if r.get("ownerId")}
+def _load_playoff_odds_map(league_key: str | None = None) -> dict[str, dict[str, float]]:
+    """This league's cached ROS playoff-odds output, keyed by ownerId."""
+    return _load_sim_map("playoff", "playoffOdds", league_key)[0]
+
+
+def _load_championship_map(league_key: str | None = None) -> dict[str, dict[str, float]]:
+    """This league's cached ROS championship output, keyed by ownerId."""
+    return _load_sim_map("championship", "championshipOdds", league_key)[0]
+
+
+def simulation_availability(league_key: str | None, *, resolved: bool = True) -> dict[str, Any]:
+    """Which league's simulation the section read, and whether it exists.
+
+    Published beside the rows so "this league has no simulation" and "every
+    team is covered" cannot read alike; an empty row list alone says neither.
+
+    ``resolved=False`` means the caller could not resolve its league at all:
+    nothing is read (the default league's ``latest_*.json`` is NOT this
+    league's simulation), both kinds are ``missing`` and the reason names the
+    unresolved league.
+    """
+    if not resolved:
+        return {
+            "leagueKey": None,
+            "leagueResolved": False,
+            "playoff": SIM_MISSING,
+            "championship": SIM_MISSING,
+            "reason": SIM_REASON_LEAGUE_UNRESOLVED,
+        }
+    return {
+        "leagueKey": league_key,
+        "leagueResolved": True,
+        "playoff": _load_sim_map("playoff", "playoffOdds", league_key)[1],
+        "championship": _load_sim_map("championship", "championshipOdds", league_key)[1],
+    }
 
 
 def build_team_directions(
@@ -57,15 +123,24 @@ def build_team_directions(
     playoff_odds_map: dict[str, dict[str, float]] | None = None,
     championship_map: dict[str, dict[str, float]] | None = None,
     team_strength_map: dict[str, dict[str, Any]] | None = None,
+    read_simulations: bool = True,
 ) -> list[dict[str, Any]]:
     """Compose direction labels for every team that has any input data.
 
     All maps are keyed by ownerId.  When a map is empty (e.g. no
     cached sim yet), the missing dimension defaults to 0 — the
     classifier degrades cleanly.
+
+    ``read_simulations=False`` (the caller's league is unresolved) reads no
+    cached sim file: an unresolved league has no simulation of its own, and
+    the default league's is never substituted.
     """
-    playoffs = playoff_odds_map or _load_playoff_odds_map()
-    champs = championship_map or _load_championship_map()
+    if read_simulations:
+        playoffs = playoff_odds_map or _load_playoff_odds_map(league_key)
+        champs = championship_map or _load_championship_map(league_key)
+    else:
+        playoffs = playoff_odds_map or {}
+        champs = championship_map or {}
     strengths = team_strength_map or {}
     if not strengths:
         snap = load_or_compute_team_strength(league_key) or []
@@ -215,13 +290,16 @@ def build_section(snapshot: Any) -> dict[str, Any]:
     # persisted team-strength file happened to be the DEFAULT one,
     # regardless of which league this section was being built for.
     #
-    # NOTE: `_load_playoff_odds_map` / `_load_championship_map` above have
-    # the same class of gap (hardcoded to `data/ros/sims/latest_*.json`
-    # with no per-league path at all) — out of scope here; named as a
-    # follow-on, not fixed speculatively alongside an unrelated read path.
+    # The sim maps follow the same league (LI1842-DEFECT-12): they used to
+    # be hardcoded to `data/ros/sims/latest_*.json` whatever the league.
     from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
 
     league_key = resolve_snapshot_league_key(snapshot)
+    # An unresolved league (unknown root id, registry failure) has no
+    # simulation file of its own: it reads as missing, named unresolved,
+    # never as the default league's `latest_*.json`.
+    resolved = league_key is not None
     return {
-        "teams": build_team_directions(league_key=league_key),
+        "teams": build_team_directions(league_key=league_key, read_simulations=resolved),
+        "simulation": simulation_availability(league_key, resolved=resolved),
     }

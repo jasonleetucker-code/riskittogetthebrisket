@@ -2294,13 +2294,18 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "display_name": "Dynasty League Football IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
         "position_group": None,
-        # DLF's published IDP list is a top-185 NFL veteran cut.  It
-        # never carries first-year college prospects (Caleb Downs,
-        # Sonny Styles, Arvell Reese, etc.), so we declare it
-        # ``excludes_rookies`` and cap the structural depth at 185 so
-        # ``_expected_sources_for_position`` stops over-flagging
-        # rookies and deep-bench veterans as 1-src "matching failures"
-        # when DLF was never going to cover them in the first place.
+        # DLF's published IDP list is a ~150-185 row board; the depth cap
+        # stops ``_expected_sources_for_position`` over-flagging
+        # deep-bench veterans as 1-src "matching failures".
+        #
+        # ``excludes_rookies`` is False (G2-D3, PR #1998 RESULTS.md §3):
+        # the old claim that this board "never carries first-year
+        # prospects" is contradicted by its own CSV — it ranks Jacob
+        # Rodriguez 9th, Arvell Reese 16.5 and Caleb Downs 41.  A flag
+        # that says a source cannot cover rookies removes it from the
+        # rookies' coverage denominator, so its real silence on a rookie
+        # was not counted as missing evidence.  Pinned against the CSV
+        # by ``tests/sources/test_excludes_rookies_matches_csv.py``.
         "depth": 185,
         # Weight normalized to 1.0 so every registered source
         # contributes equally to the blended rank.  The previous 3.0
@@ -2310,7 +2315,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "weight": 1.0,
         "is_backbone": False,
         "needs_shared_market_translation": True,
-        "excludes_rookies": True,
+        "excludes_rookies": False,
         # IDP values have no TE-premium dimension — declared
         # explicitly False so the registry-completeness test can
         # enforce that every source states its TEP posture.
@@ -2880,14 +2885,15 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_backbone": False,
         "is_retail": False,
         "needs_shared_market_translation": True,
-        # The FantasyPros dynasty IDP board is a curated veteran
-        # list — like DLF IDP, it does not list first-year college
-        # prospects (Caleb Downs, Sonny Styles, Arvell Reese, etc.).
-        # Declare ``excludes_rookies`` so
-        # ``_expected_sources_for_position`` stops counting FP as an
-        # expected source for rookies and the structural-1-src
-        # detection still fires for DLF+FP-excluded rookies.
-        "excludes_rookies": True,
+        # ``excludes_rookies`` is False (G2-D3, PR #1998 RESULTS.md §3).
+        # This used to claim the board is a veteran list that does not
+        # carry first-year prospects; its own CSV ranks Sonny Styles 37,
+        # Arvell Reese 59, CJ Allen 62, David Bailey 66 and Caleb Downs
+        # 74.  The false flag dropped FP from every rookie's expected /
+        # eligible sources, so its silence on a rookie was never counted
+        # as missing evidence.  Pinned against the CSV by
+        # ``tests/sources/test_excludes_rookies_matches_csv.py``.
+        "excludes_rookies": False,
         # IDP values have no TE-premium dimension — declared
         # explicitly False so the registry-completeness test can
         # enforce that every source states its TEP posture.
@@ -6432,9 +6438,9 @@ def _expected_sources_for_position(
     structural reach.  This is finer-grained than pure scope eligibility:
 
     * Sources flagged ``excludes_rookies=True`` in the registry are
-      pruned for players whose ``is_rookie`` flag is set.  The
-      canonical example is DLF IDP, which is a 185-row NFL veteran
-      list and never carries first-year college prospects.
+      pruned for players whose ``is_rookie`` flag is set.  No source
+      carries it today: DLF IDP and FantasyPros IDP did until G2-D3
+      (PR #1998), when their own CSVs were shown to rank rookies.
 
     * Sources with a declared shallow ``depth`` are pruned when the
       player's already-matched rank is deeper than their cutoff plus
@@ -12448,8 +12454,9 @@ def _compute_unified_rankings(
             raw_rank = current_dense_rank
 
             # ── Self-correcting rookie exclusion ──
-            # Sources flagged ``excludes_rookies=True`` (DLF IDP,
-            # FantasyPros IDP today) are veteran-focused boards whose
+            # Sources flagged ``excludes_rookies=True`` (none today: DLF
+            # IDP and FantasyPros IDP carried it until G2-D3, PR #1998,
+            # because their own CSVs rank rookies) are veteran-focused boards whose
             # rookie entries historically live at the deep tail of
             # the pool — placeholder filler rather than real
             # evaluations.  Stamping those placeholder ranks onto

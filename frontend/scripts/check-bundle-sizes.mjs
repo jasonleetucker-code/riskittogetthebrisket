@@ -225,6 +225,10 @@ const BUDGETS_KB = {
   // tools-first layout, shared discovery controls and research section;
   // pinned at ~+15% for the stacked Package Builder Sending/Receiving batch.
   "/arbitrage/page": 82,
+  // /waiver-advisor (2026-10-27, Workstream E, flag `waiver_advisor` default
+  // OFF): 26.8 KB at introduction, pinned with ~15% headroom.  The per-pair
+  // bid desk (FaabRecommendation) is a React.lazy chunk and is not counted.
+  "/waiver-advisor/page": 31,
 };
 
 function fmtKb(bytes) {
