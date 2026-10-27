@@ -139,11 +139,15 @@ def compare_to_previous(
     cur_cov = current.get("groupCoverage") or {}
     issues: list[str] = []
     for group in sorted(prev_cov):
-        try:
-            had = int(prev_cov.get(group) or 0)
-        except (TypeError, ValueError):
+        had = prev_cov.get(group)
+        # Only a PROVEN positive previous count can vanish; an unreadable one
+        # says nothing (never coerced to 0).
+        if isinstance(had, bool) or not isinstance(had, int) or had <= 0:
             continue
-        if had > 0 and int(cur_cov.get(group) or 0) == 0:
+        now = cur_cov.get(group)
+        # A group absent from this run's coverage has no rows this run; an
+        # explicit 0 says the same.  Any other value is not a vanishing.
+        if now is None or (isinstance(now, int) and not isinstance(now, bool) and now == 0):
             issues.append(f"{GROUP_COVERAGE_VANISHED}:{group}")
     if previous.get("basisDeclared") and current.get("basisDeclared"):
         prev_bases = previous.get("groupBases") or {}
