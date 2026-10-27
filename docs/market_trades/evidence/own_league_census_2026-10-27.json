@@ -1,0 +1,2420 @@
+{
+ "chain": {
+  "coverage": {
+   "cap": 25,
+   "reason": null,
+   "seasonsWalked": 3,
+   "state": "complete",
+   "stoppedAtLeagueId": null
+  },
+  "seasons": [
+   {
+    "draftRounds": 10,
+    "formatFingerprint": "tmf1:b801530bf059790a",
+    "leagueId": "1090320428817592320",
+    "leagueType": 2,
+    "rosterSlots": 36,
+    "scoringCardHash": "sf1:105f5415a64de8f6",
+    "scoringKeys": 137,
+    "season": "2024",
+    "starterSlots": {
+     "DB": 1,
+     "DL": 1,
+     "FLEX": 3,
+     "IDP_FLEX": 1,
+     "K": 1,
+     "LB": 1,
+     "QB": 1,
+     "RB": 2,
+     "SUPER_FLEX": 1,
+     "TE": 1,
+     "WR": 3
+    },
+    "status": "complete",
+    "taxiSlots": 0,
+    "teams": 10,
+    "waiverBudget": 1000
+   },
+   {
+    "draftRounds": 6,
+    "formatFingerprint": "tmf1:f33eb05a3dbc65da",
+    "leagueId": "1180092661344120832",
+    "leagueType": 2,
+    "rosterSlots": 55,
+    "scoringCardHash": "sf1:f5fe9533b8885fcc",
+    "scoringKeys": 141,
+    "season": "2025",
+    "starterSlots": {
+     "DB": 2,
+     "DL": 2,
+     "FLEX": 2,
+     "K": 1,
+     "LB": 2,
+     "QB": 1,
+     "RB": 2,
+     "SUPER_FLEX": 1,
+     "TE": 1,
+     "WR": 3
+    },
+    "status": "complete",
+    "taxiSlots": 0,
+    "teams": 10,
+    "waiverBudget": 200
+   },
+   {
+    "draftRounds": 6,
+    "formatFingerprint": "tmf1:bd65483c263bafcf",
+    "leagueId": "1312006700437352448",
+    "leagueType": 2,
+    "rosterSlots": 58,
+    "scoringCardHash": "sf1:9e51824690d091f9",
+    "scoringKeys": 148,
+    "season": "2026",
+    "starterSlots": {
+     "DB": 3,
+     "DL": 3,
+     "FLEX": 2,
+     "K": 1,
+     "LB": 3,
+     "QB": 1,
+     "RB": 2,
+     "SUPER_FLEX": 1,
+     "TE": 2,
+     "WR": 3
+    },
+    "status": "in_season",
+    "taxiSlots": 0,
+    "teams": 12,
+    "waiverBudget": 100
+   }
+  ]
+ },
+ "definitions": {
+  "asOfPosition": "position at the latest chain draft (at or before the trade season) the player was taken in; otherwise the current Sleeper directory",
+  "completedTrade": "Sleeper transaction with type == 'trade' and status == 'complete', unique by transaction_id across every week and season league",
+  "fidelity": "exact = an observation on the trade's UTC date provably before the trade instant; nearest-prior = latest earlier observation (age stated); missing = none, with one reason",
+  "fullyPriced": "every non-FAAB asset priced in the lane and no FAAB component",
+  "idpForIdp": "IDP players received by at least two teams and no offense player in the trade",
+  "idpTrade": "at least one moving player whose as-of position family is DL, LB or DB",
+  "multiPlayerPackage": "some team receives two or more players",
+  "offenseForIdp": "some team receives an IDP player and a different team receives an offense (QB/RB/WR/TE) player",
+  "oneForOne": "two teams, each receives exactly one asset (player or pick), no FAAB",
+  "package": "two-team trade that is not one-for-one",
+  "structurallyUnpriceable": "contains an unresolved player id, FAAB money, or a pick beyond round 6 (outside the market pick grammar)"
+ },
+ "deliverableA": {
+  "completedTradesBySeason": {
+   "2024": 29,
+   "2025": 124,
+   "2026": 80
+  },
+  "completedTradesTotal": 233,
+  "coverageAfterFormatValidation": {
+   "idpOneForOneInMatchingSeasonsWithIdptc": 0,
+   "idpTradesInMatchingSeasons": 19,
+   "tradesInSeasonsMatchingTodayOnEveryAxis": 80,
+   "tradesInSeasonsWithDifferentAxes": {
+    "2024": {
+     "differentAxes": [
+      "idpStarterDepth",
+      "idpPositionalStructure",
+      "teRosterDemand",
+      "teamCount",
+      "offenseRosterDemand",
+      "teScoring",
+      "offenseScoring",
+      "idpScoring",
+      "rosterDepth"
+     ],
+     "trades": 29
+    },
+    "2025": {
+     "differentAxes": [
+      "idpStarterDepth",
+      "idpPositionalStructure",
+      "teRosterDemand",
+      "teamCount",
+      "offenseRosterDemand",
+      "teScoring",
+      "offenseScoring",
+      "idpScoring",
+      "rosterDepth"
+     ],
+     "trades": 124
+    }
+   }
+  },
+  "distinctLeaguePicks": 181,
+  "distinctPlayers": 276,
+  "distinctTradingManagers": 14,
+  "distinctTradingManagersBasis": "distinct roster owner user ids of trade parties, from each season league's rosters (final ownership of that season)",
+  "fitSuitabilityReasons": {
+   "consolidation_effects_require_package_model": 156,
+   "includes_faab": 8,
+   "includes_pick_beyond_round_6": 8,
+   "one_side_empty": 1,
+   "three_or_more_teams": 11
+  },
+  "historicalLeagueIds": {
+   "2024": "1090320428817592320",
+   "2025": "1180092661344120832",
+   "2026": "1312006700437352448"
+  },
+  "historicalValueCoverage": {
+   "canonical": {
+    "2024": {
+     "assets": 119,
+     "exact": 0,
+     "missing": 119,
+     "missingReasons": {
+      "before_history_boundary": 119
+     },
+     "nearestPrior": 0,
+     "nearestPriorAgeDays": null,
+     "picksWithAllThreeTierObservationsKnownBefore": 0,
+     "tradesFullyPriced": 0,
+     "tradesPartiallyPriced": 0,
+     "tradesUnpriced": 29
+    },
+    "2025": {
+     "assets": 554,
+     "exact": 0,
+     "missing": 554,
+     "missingReasons": {
+      "before_history_boundary": 554
+     },
+     "nearestPrior": 0,
+     "nearestPriorAgeDays": null,
+     "picksWithAllThreeTierObservationsKnownBefore": 0,
+     "tradesFullyPriced": 0,
+     "tradesPartiallyPriced": 0,
+     "tradesUnpriced": 124
+    },
+    "2026": {
+     "assets": 379,
+     "exact": 0,
+     "missing": 379,
+     "missingReasons": {
+      "before_history_boundary": 174,
+      "no_observation": 152,
+      "pick_unpriced": 53
+     },
+     "nearestPrior": 0,
+     "nearestPriorAgeDays": null,
+     "picksWithAllThreeTierObservationsKnownBefore": 0,
+     "tradesFullyPriced": 0,
+     "tradesPartiallyPriced": 0,
+     "tradesUnpriced": 80
+    }
+   },
+   "idptc": {
+    "2024": {
+     "assets": 119,
+     "exact": 0,
+     "missing": 119,
+     "missingReasons": {
+      "before_history_boundary": 119
+     },
+     "nearestPrior": 0,
+     "nearestPriorAgeDays": null,
+     "picksWithAllThreeTierObservationsKnownBefore": 0,
+     "tradesFullyPriced": 0,
+     "tradesPartiallyPriced": 0,
+     "tradesUnpriced": 29
+    },
+    "2025": {
+     "assets": 554,
+     "exact": 0,
+     "missing": 554,
+     "missingReasons": {
+      "before_history_boundary": 554
+     },
+     "nearestPrior": 0,
+     "nearestPriorAgeDays": null,
+     "picksWithAllThreeTierObservationsKnownBefore": 0,
+     "tradesFullyPriced": 0,
+     "tradesPartiallyPriced": 0,
+     "tradesUnpriced": 124
+    },
+    "2026": {
+     "assets": 379,
+     "exact": 7,
+     "missing": 228,
+     "missingReasons": {
+      "before_history_boundary": 174,
+      "no_observation": 1,
+      "pick_unpriced": 53
+     },
+     "nearestPrior": 144,
+     "nearestPriorAgeDays": {
+      "max": 1,
+      "median": 1.0,
+      "min": 1,
+      "n": 144,
+      "p25": 1.0,
+      "p75": 1.0
+     },
+     "picksWithAllThreeTierObservationsKnownBefore": 29,
+     "tradesFullyPriced": 17,
+     "tradesPartiallyPriced": 25,
+     "tradesUnpriced": 38
+    }
+   },
+   "ktc": {
+    "2024": {
+     "assets": 119,
+     "exact": 0,
+     "missing": 119,
+     "missingReasons": {
+      "before_history_boundary": 119
+     },
+     "nearestPrior": 0,
+     "nearestPriorAgeDays": null,
+     "picksWithAllThreeTierObservationsKnownBefore": 0,
+     "tradesFullyPriced": 0,
+     "tradesPartiallyPriced": 0,
+     "tradesUnpriced": 29
+    },
+    "2025": {
+     "assets": 554,
+     "exact": 0,
+     "missing": 554,
+     "missingReasons": {
+      "before_history_boundary": 554
+     },
+     "nearestPrior": 0,
+     "nearestPriorAgeDays": null,
+     "picksWithAllThreeTierObservationsKnownBefore": 0,
+     "tradesFullyPriced": 0,
+     "tradesPartiallyPriced": 0,
+     "tradesUnpriced": 124
+    },
+    "2026": {
+     "assets": 379,
+     "exact": 5,
+     "missing": 256,
+     "missingReasons": {
+      "before_history_boundary": 174,
+      "no_observation": 29,
+      "pick_unpriced": 53
+     },
+     "nearestPrior": 118,
+     "nearestPriorAgeDays": {
+      "max": 1,
+      "median": 1.0,
+      "min": 1,
+      "n": 118,
+      "p25": 1.0,
+      "p75": 1.0
+     },
+     "picksWithAllThreeTierObservationsKnownBefore": 0,
+     "tradesFullyPriced": 13,
+     "tradesPartiallyPriced": 27,
+     "tradesUnpriced": 40
+    }
+   }
+  },
+  "idpForIdpTrades": {
+   "bySeason": {
+    "2024": 1,
+    "2025": 5,
+    "2026": 2
+   },
+   "total": 8
+  },
+  "idpTradesAny": {
+   "bySeason": {
+    "2024": 5,
+    "2025": 30,
+    "2026": 19
+   },
+   "total": 54
+  },
+  "idpTradesByFamily": {
+   "DB": {
+    "bySeason": {
+     "2024": 3,
+     "2025": 13,
+     "2026": 8
+    },
+    "total": 24
+   },
+   "DL": {
+    "bySeason": {
+     "2024": 2,
+     "2025": 13,
+     "2026": 8
+    },
+    "total": 23
+   },
+   "LB": {
+    "bySeason": {
+     "2024": 1,
+     "2025": 22,
+     "2026": 11
+    },
+    "total": 34
+   }
+  },
+  "multiPlayerPackages": {
+   "bySeason": {
+    "2024": 9,
+    "2025": 71,
+    "2026": 55
+   },
+   "total": 135
+  },
+  "multiTeamTrades": {
+   "bySeason": {
+    "2024": 0,
+    "2025": 9,
+    "2026": 2
+   },
+   "total": 11
+  },
+  "offenseForIdpTrades": {
+   "bySeason": {
+    "2024": 1,
+    "2025": 18,
+    "2026": 7
+   },
+   "total": 26
+  },
+  "oneForOnePlayerForPlayer": {
+   "bySeason": {
+    "2024": 4,
+    "2025": 12,
+    "2026": 8
+   },
+   "total": 24
+  },
+  "oneForOneSwaps": {
+   "bySeason": {
+    "2024": 13,
+    "2025": 25,
+    "2026": 14
+   },
+   "total": 52
+  },
+  "packages": {
+   "bySeason": {
+    "2024": 16,
+    "2025": 90,
+    "2026": 64
+   },
+   "total": 170
+  },
+  "seasonsRecovered": [
+   "2024",
+   "2025",
+   "2026"
+  ],
+  "suitabilityByAnalysis": {
+   "idpPositionPremium": {
+    "fullyPricedCanonical": 0,
+    "fullyPricedCanonicalAndIdptc": 0,
+    "fullyPricedIdptc": 1,
+    "fullyPricedKtc": 0,
+    "onOrAfterHistoryFloor": 5,
+    "structurallyEligible": 24,
+    "structurallyEligibleBySeason": {
+     "2024": 1,
+     "2025": 17,
+     "2026": 6
+    }
+   },
+   "multiAssetPackageBenchmark": {
+    "fullyPricedCanonical": 0,
+    "fullyPricedCanonicalAndIdptc": 0,
+    "fullyPricedIdptc": 10,
+    "fullyPricedKtc": 6,
+    "onOrAfterHistoryFloor": 30,
+    "structurallyEligible": 156,
+    "structurallyEligibleBySeason": {
+     "2024": 11,
+     "2025": 84,
+     "2026": 61
+    }
+   },
+   "oneForOneSourceRelativeGap": {
+    "fullyPricedCanonical": 0,
+    "fullyPricedCanonicalAndIdptc": 0,
+    "fullyPricedIdptc": 7,
+    "fullyPricedKtc": 7,
+    "onOrAfterHistoryFloor": 9,
+    "structurallyEligible": 49,
+    "structurallyEligibleBySeason": {
+     "2024": 11,
+     "2025": 24,
+     "2026": 14
+    }
+   },
+   "tierPremium_idpUpperBound": {
+    "fullyPricedCanonical": 0,
+    "fullyPricedCanonicalAndIdptc": 0,
+    "fullyPricedIdptc": 4,
+    "fullyPricedKtc": 0,
+    "onOrAfterHistoryFloor": 14,
+    "structurallyEligible": 52,
+    "structurallyEligibleBySeason": {
+     "2024": 5,
+     "2025": 29,
+     "2026": 18
+    }
+   }
+  },
+  "topology": {
+   "multi_team": 11,
+   "two_team_1_for_1": 53,
+   "two_team_2_for_1": 36,
+   "two_team_multi_asset": 114,
+   "two_team_n_for_1": 18,
+   "two_team_one_sided": 1
+  },
+  "tradesPerTeamLabel": {
+   "2024": {
+    "T01": 25,
+    "T02": 3,
+    "T03": 6,
+    "T04": 1,
+    "T05": 7,
+    "T06": 8,
+    "T07": 2,
+    "T08": 1,
+    "T09": 3,
+    "T10": 2
+   },
+   "2025": {
+    "T01": 99,
+    "T02": 21,
+    "T03": 16,
+    "T04": 10,
+    "T05": 26,
+    "T06": 16,
+    "T07": 26,
+    "T08": 4,
+    "T09": 26,
+    "T10": 14
+   },
+   "2026": {
+    "T01": 63,
+    "T02": 25,
+    "T03": 6,
+    "T04": 5,
+    "T05": 15,
+    "T06": 11,
+    "T07": 12,
+    "T08": 1,
+    "T09": 11,
+    "T10": 2,
+    "T11": 4,
+    "T12": 7
+   }
+  },
+  "tradesWithAnyAssetUnpricedAtTradeTime": {
+   "canonical": {
+    "bySeason": {
+     "2024": 29,
+     "2025": 124,
+     "2026": 80
+    },
+    "total": 233
+   },
+   "idptc": {
+    "bySeason": {
+     "2024": 29,
+     "2025": 124,
+     "2026": 63
+    },
+    "total": 216
+   },
+   "ktc": {
+    "bySeason": {
+     "2024": 29,
+     "2025": 124,
+     "2026": 67
+    },
+    "total": 220
+   }
+  },
+  "tradesWithFaab": {
+   "bySeason": {
+    "2024": 1,
+    "2025": 4,
+    "2026": 3
+   },
+   "total": 8
+  },
+  "tradesWithPicks": {
+   "bySeason": {
+    "2024": 20,
+    "2025": 77,
+    "2026": 48
+   },
+   "total": 145
+  },
+  "tradesWithStructurallyUnpriceableAssets": {
+   "bySeason": {
+    "2024": 6,
+    "2025": 7,
+    "2026": 3
+   },
+   "total": 16
+  }
+ },
+ "draftCensus": {
+  "drafts": [
+   {
+    "auction": {
+     "amountStates": {
+      "not_applicable_non_auction": 100
+     }
+    },
+    "draftOrderPublished": true,
+    "draftRef": "2024-D1",
+    "draftedPositionDiffersFromCurrentDirectory": 0,
+    "idpSelectionOrder": {
+     "DB": {
+      "max": 100,
+      "median": 71,
+      "min": 34,
+      "n": 11,
+      "p25": 54.0,
+      "p75": 87.0
+     },
+     "DL": {
+      "max": 96,
+      "median": 65.5,
+      "min": 28,
+      "n": 10,
+      "p25": 44.0,
+      "p75": 85.75
+     },
+     "LB": {
+      "max": 99,
+      "median": 49,
+      "min": 15,
+      "n": 13,
+      "p25": 37.0,
+      "p75": 74.0
+     },
+     "allIdp": {
+      "max": 100,
+      "median": 62.5,
+      "min": 15,
+      "n": 34,
+      "p25": 44.25,
+      "p75": 82.75
+     },
+     "basis": "pick_no (overall selection order; in an auction, the order lots were won)",
+     "firstIdpPickNo": 15
+    },
+    "idpShare": 0.34,
+    "kind": "rookie",
+    "kindBasis": "player_type=0; 57% of picks years_exp=0",
+    "offenseVsIdpByRound": {
+     "1": {
+      "idp": 0,
+      "offense": 10,
+      "other": 0
+     },
+     "10": {
+      "idp": 6,
+      "offense": 3,
+      "other": 1
+     },
+     "2": {
+      "idp": 1,
+      "offense": 9,
+      "other": 0
+     },
+     "3": {
+      "idp": 3,
+      "offense": 7,
+      "other": 0
+     },
+     "4": {
+      "idp": 3,
+      "offense": 7,
+      "other": 0
+     },
+     "5": {
+      "idp": 7,
+      "offense": 3,
+      "other": 0
+     },
+     "6": {
+      "idp": 2,
+      "offense": 8,
+      "other": 0
+     },
+     "7": {
+      "idp": 4,
+      "offense": 5,
+      "other": 1
+     },
+     "8": {
+      "idp": 3,
+      "offense": 6,
+      "other": 1
+     },
+     "9": {
+      "idp": 5,
+      "offense": 3,
+      "other": 2
+     }
+    },
+    "picks": 100,
+    "picksByFamily": {
+     "DB": 11,
+     "DL": 10,
+     "K": 5,
+     "LB": 13,
+     "QB": 11,
+     "RB": 18,
+     "TE": 8,
+     "WR": 24
+    },
+    "picksByRoundAndFamily": {
+     "1": {
+      "QB": 3,
+      "RB": 1,
+      "TE": 1,
+      "WR": 5
+     },
+     "10": {
+      "DB": 3,
+      "DL": 2,
+      "K": 1,
+      "LB": 1,
+      "QB": 2,
+      "TE": 1
+     },
+     "2": {
+      "LB": 1,
+      "QB": 2,
+      "RB": 3,
+      "WR": 4
+     },
+     "3": {
+      "DL": 2,
+      "LB": 1,
+      "QB": 1,
+      "RB": 1,
+      "TE": 1,
+      "WR": 4
+     },
+     "4": {
+      "DB": 1,
+      "LB": 2,
+      "QB": 1,
+      "RB": 2,
+      "TE": 1,
+      "WR": 3
+     },
+     "5": {
+      "DB": 2,
+      "DL": 2,
+      "LB": 3,
+      "RB": 3
+     },
+     "6": {
+      "DB": 1,
+      "LB": 1,
+      "RB": 3,
+      "WR": 5
+     },
+     "7": {
+      "DB": 1,
+      "DL": 2,
+      "K": 1,
+      "LB": 1,
+      "RB": 3,
+      "TE": 2
+     },
+     "8": {
+      "DB": 1,
+      "DL": 1,
+      "K": 1,
+      "LB": 1,
+      "QB": 1,
+      "RB": 1,
+      "TE": 2,
+      "WR": 2
+     },
+     "9": {
+      "DB": 2,
+      "DL": 1,
+      "K": 2,
+      "LB": 2,
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     }
+    },
+    "picksState": "observed",
+    "playerType": "all_players",
+    "rounds": 10,
+    "season": "2024",
+    "slotToRosterPublished": false,
+    "status": "complete",
+    "teams": 10,
+    "type": "snake"
+   },
+   {
+    "auction": {
+     "amountStates": {
+      "not_applicable_non_auction": 240
+     }
+    },
+    "draftOrderPublished": true,
+    "draftRef": "2024-D2",
+    "draftedPositionDiffersFromCurrentDirectory": 2,
+    "idpSelectionOrder": {
+     "DB": {
+      "max": 231,
+      "median": 179.0,
+      "min": 94,
+      "n": 20,
+      "p25": 146.0,
+      "p75": 211.25
+     },
+     "DL": {
+      "max": 238,
+      "median": 133,
+      "min": 70,
+      "n": 17,
+      "p25": 87.0,
+      "p75": 151.0
+     },
+     "LB": {
+      "max": 237,
+      "median": 163,
+      "min": 67,
+      "n": 29,
+      "p25": 126.0,
+      "p75": 204.0
+     },
+     "allIdp": {
+      "max": 238,
+      "median": 159.0,
+      "min": 67,
+      "n": 66,
+      "p25": 117.25,
+      "p75": 201.75
+     },
+     "basis": "pick_no (overall selection order; in an auction, the order lots were won)",
+     "firstIdpPickNo": 67
+    },
+    "idpShare": 0.275,
+    "kind": "startup_veteran",
+    "kindBasis": "settings.player_type=2 (veterans only)",
+    "offenseVsIdpByRound": {
+     "1": {
+      "idp": 0,
+      "offense": 10,
+      "other": 0
+     },
+     "10": {
+      "idp": 5,
+      "offense": 5,
+      "other": 0
+     },
+     "11": {
+      "idp": 1,
+      "offense": 9,
+      "other": 0
+     },
+     "12": {
+      "idp": 4,
+      "offense": 6,
+      "other": 0
+     },
+     "13": {
+      "idp": 3,
+      "offense": 7,
+      "other": 0
+     },
+     "14": {
+      "idp": 2,
+      "offense": 8,
+      "other": 0
+     },
+     "15": {
+      "idp": 4,
+      "offense": 5,
+      "other": 1
+     },
+     "16": {
+      "idp": 6,
+      "offense": 3,
+      "other": 1
+     },
+     "17": {
+      "idp": 1,
+      "offense": 9,
+      "other": 0
+     },
+     "18": {
+      "idp": 6,
+      "offense": 4,
+      "other": 0
+     },
+     "19": {
+      "idp": 5,
+      "offense": 4,
+      "other": 1
+     },
+     "2": {
+      "idp": 0,
+      "offense": 10,
+      "other": 0
+     },
+     "20": {
+      "idp": 2,
+      "offense": 6,
+      "other": 2
+     },
+     "21": {
+      "idp": 4,
+      "offense": 5,
+      "other": 1
+     },
+     "22": {
+      "idp": 5,
+      "offense": 5,
+      "other": 0
+     },
+     "23": {
+      "idp": 3,
+      "offense": 6,
+      "other": 1
+     },
+     "24": {
+      "idp": 6,
+      "offense": 3,
+      "other": 1
+     },
+     "3": {
+      "idp": 0,
+      "offense": 10,
+      "other": 0
+     },
+     "4": {
+      "idp": 0,
+      "offense": 10,
+      "other": 0
+     },
+     "5": {
+      "idp": 0,
+      "offense": 10,
+      "other": 0
+     },
+     "6": {
+      "idp": 0,
+      "offense": 10,
+      "other": 0
+     },
+     "7": {
+      "idp": 2,
+      "offense": 8,
+      "other": 0
+     },
+     "8": {
+      "idp": 4,
+      "offense": 6,
+      "other": 0
+     },
+     "9": {
+      "idp": 3,
+      "offense": 7,
+      "other": 0
+     }
+    },
+    "picks": 240,
+    "picksByFamily": {
+     "DB": 20,
+     "DL": 17,
+     "K": 8,
+     "LB": 29,
+     "QB": 30,
+     "RB": 50,
+     "TE": 23,
+     "WR": 63
+    },
+    "picksByRoundAndFamily": {
+     "1": {
+      "QB": 6,
+      "RB": 2,
+      "WR": 2
+     },
+     "10": {
+      "DB": 2,
+      "DL": 2,
+      "LB": 1,
+      "RB": 3,
+      "WR": 2
+     },
+     "11": {
+      "DB": 1,
+      "QB": 1,
+      "RB": 3,
+      "TE": 2,
+      "WR": 3
+     },
+     "12": {
+      "DB": 1,
+      "DL": 1,
+      "LB": 2,
+      "QB": 2,
+      "RB": 2,
+      "TE": 1,
+      "WR": 1
+     },
+     "13": {
+      "DB": 1,
+      "LB": 2,
+      "QB": 1,
+      "RB": 2,
+      "TE": 1,
+      "WR": 3
+     },
+     "14": {
+      "DL": 2,
+      "RB": 6,
+      "WR": 2
+     },
+     "15": {
+      "DL": 2,
+      "K": 1,
+      "LB": 2,
+      "RB": 1,
+      "TE": 2,
+      "WR": 2
+     },
+     "16": {
+      "DB": 2,
+      "DL": 1,
+      "K": 1,
+      "LB": 3,
+      "RB": 3
+     },
+     "17": {
+      "LB": 1,
+      "RB": 2,
+      "TE": 1,
+      "WR": 6
+     },
+     "18": {
+      "DB": 4,
+      "LB": 2,
+      "TE": 2,
+      "WR": 2
+     },
+     "19": {
+      "DB": 2,
+      "DL": 1,
+      "K": 1,
+      "LB": 2,
+      "QB": 1,
+      "RB": 2,
+      "TE": 1
+     },
+     "2": {
+      "QB": 4,
+      "RB": 2,
+      "WR": 4
+     },
+     "20": {
+      "DL": 1,
+      "K": 2,
+      "LB": 1,
+      "QB": 2,
+      "RB": 1,
+      "WR": 3
+     },
+     "21": {
+      "DB": 1,
+      "K": 1,
+      "LB": 3,
+      "TE": 1,
+      "WR": 4
+     },
+     "22": {
+      "DB": 3,
+      "LB": 2,
+      "RB": 2,
+      "TE": 1,
+      "WR": 2
+     },
+     "23": {
+      "DB": 2,
+      "K": 1,
+      "LB": 1,
+      "QB": 1,
+      "RB": 4,
+      "WR": 1
+     },
+     "24": {
+      "DB": 1,
+      "DL": 2,
+      "K": 1,
+      "LB": 3,
+      "QB": 1,
+      "TE": 2
+     },
+     "3": {
+      "QB": 4,
+      "RB": 1,
+      "TE": 1,
+      "WR": 4
+     },
+     "4": {
+      "QB": 1,
+      "RB": 2,
+      "TE": 1,
+      "WR": 6
+     },
+     "5": {
+      "QB": 2,
+      "RB": 4,
+      "WR": 4
+     },
+     "6": {
+      "QB": 1,
+      "RB": 4,
+      "TE": 2,
+      "WR": 3
+     },
+     "7": {
+      "DL": 1,
+      "LB": 1,
+      "QB": 1,
+      "RB": 1,
+      "TE": 1,
+      "WR": 5
+     },
+     "8": {
+      "DL": 2,
+      "LB": 2,
+      "QB": 1,
+      "RB": 1,
+      "TE": 2,
+      "WR": 2
+     },
+     "9": {
+      "DL": 2,
+      "LB": 1,
+      "QB": 1,
+      "RB": 2,
+      "TE": 2,
+      "WR": 2
+     }
+    },
+    "picksState": "observed",
+    "playerType": "veterans_only",
+    "rounds": 24,
+    "season": "2024",
+    "slotToRosterPublished": false,
+    "status": "complete",
+    "teams": 10,
+    "type": "snake"
+   },
+   {
+    "auction": {
+     "amountStates": {}
+    },
+    "draftOrderPublished": false,
+    "draftRef": "2024-D3",
+    "draftedPositionDiffersFromCurrentDirectory": 0,
+    "idpSelectionOrder": {
+     "DB": null,
+     "DL": null,
+     "LB": null,
+     "allIdp": null,
+     "basis": "pick_no (overall selection order; in an auction, the order lots were won)",
+     "firstIdpPickNo": null
+    },
+    "idpShare": null,
+    "kind": "startup_veteran",
+    "kindBasis": "settings.player_type=2 (veterans only)",
+    "offenseVsIdpByRound": {},
+    "picks": 0,
+    "picksByFamily": {},
+    "picksByRoundAndFamily": {},
+    "picksState": "observed",
+    "playerType": "veterans_only",
+    "rounds": 10,
+    "season": "2024",
+    "slotToRosterPublished": false,
+    "status": "pre_draft",
+    "teams": 10,
+    "type": "snake"
+   },
+   {
+    "auction": {
+     "amountStates": {
+      "not_applicable_non_auction": 70
+     }
+    },
+    "draftOrderPublished": true,
+    "draftRef": "2025-D1",
+    "draftedPositionDiffersFromCurrentDirectory": 1,
+    "idpSelectionOrder": {
+     "DB": {
+      "max": 69,
+      "median": 61,
+      "min": 54,
+      "n": 5,
+      "p25": 55.0,
+      "p75": 65.0
+     },
+     "DL": {
+      "max": 70,
+      "median": 59.5,
+      "min": 32,
+      "n": 8,
+      "p25": 54.5,
+      "p75": 64.0
+     },
+     "LB": {
+      "max": 57,
+      "median": 49,
+      "min": 24,
+      "n": 7,
+      "p25": 40.0,
+      "p75": 51.5
+     },
+     "allIdp": {
+      "max": 70,
+      "median": 55.5,
+      "min": 24,
+      "n": 20,
+      "p25": 49.75,
+      "p75": 61.5
+     },
+     "basis": "pick_no (overall selection order; in an auction, the order lots were won)",
+     "firstIdpPickNo": 24
+    },
+    "idpShare": 0.2857,
+    "kind": "rookie",
+    "kindBasis": "player_type=0; 83% of picks years_exp=0",
+    "offenseVsIdpByRound": {
+     "1": {
+      "idp": 0,
+      "offense": 10,
+      "other": 0
+     },
+     "2": {
+      "idp": 0,
+      "offense": 10,
+      "other": 0
+     },
+     "3": {
+      "idp": 1,
+      "offense": 9,
+      "other": 0
+     },
+     "4": {
+      "idp": 2,
+      "offense": 8,
+      "other": 0
+     },
+     "5": {
+      "idp": 3,
+      "offense": 7,
+      "other": 0
+     },
+     "6": {
+      "idp": 8,
+      "offense": 2,
+      "other": 0
+     },
+     "7": {
+      "idp": 6,
+      "offense": 4,
+      "other": 0
+     }
+    },
+    "picks": 70,
+    "picksByFamily": {
+     "DB": 5,
+     "DL": 8,
+     "LB": 7,
+     "QB": 6,
+     "RB": 15,
+     "TE": 8,
+     "WR": 21
+    },
+    "picksByRoundAndFamily": {
+     "1": {
+      "QB": 1,
+      "RB": 5,
+      "TE": 1,
+      "WR": 3
+     },
+     "2": {
+      "QB": 3,
+      "RB": 2,
+      "TE": 2,
+      "WR": 3
+     },
+     "3": {
+      "LB": 1,
+      "RB": 3,
+      "TE": 1,
+      "WR": 5
+     },
+     "4": {
+      "DL": 1,
+      "LB": 1,
+      "QB": 2,
+      "TE": 1,
+      "WR": 5
+     },
+     "5": {
+      "DL": 1,
+      "LB": 2,
+      "RB": 2,
+      "TE": 2,
+      "WR": 3
+     },
+     "6": {
+      "DB": 2,
+      "DL": 3,
+      "LB": 3,
+      "TE": 1,
+      "WR": 1
+     },
+     "7": {
+      "DB": 3,
+      "DL": 3,
+      "RB": 3,
+      "WR": 1
+     }
+    },
+    "picksState": "observed",
+    "playerType": "all_players",
+    "rounds": 7,
+    "season": "2025",
+    "slotToRosterPublished": false,
+    "status": "complete",
+    "teams": 10,
+    "type": "linear"
+   },
+   {
+    "auction": {
+     "amountStates": {},
+     "budgetSetting": 1,
+     "byFamily": {},
+     "idpTotal": null,
+     "offenseTotal": null,
+     "totalSpent": null
+    },
+    "draftOrderPublished": true,
+    "draftRef": "2026-D1",
+    "draftedPositionDiffersFromCurrentDirectory": 0,
+    "idpSelectionOrder": {
+     "DB": null,
+     "DL": null,
+     "LB": null,
+     "allIdp": null,
+     "basis": "pick_no (overall selection order; in an auction, the order lots were won)",
+     "firstIdpPickNo": null
+    },
+    "idpShare": null,
+    "kind": "rookie",
+    "kindBasis": "settings.player_type=1 (rookies only)",
+    "offenseVsIdpByRound": {},
+    "picks": 0,
+    "picksByFamily": {},
+    "picksByRoundAndFamily": {},
+    "picksState": "observed",
+    "playerType": "rookies_only",
+    "rounds": 6,
+    "season": "2026",
+    "slotToRosterPublished": false,
+    "status": "complete",
+    "teams": 12,
+    "type": "auction"
+   },
+   {
+    "auction": {
+     "amountStates": {
+      "recorded": 84
+     },
+     "budgetSetting": 1,
+     "byFamily": {
+      "DB": {
+       "max": 42,
+       "median": 1.0,
+       "min": 1,
+       "n": 16,
+       "p25": 1.0,
+       "p75": 2.0,
+       "picks": 16,
+       "total": 83
+      },
+      "DL": {
+       "max": 29,
+       "median": 2.0,
+       "min": 1,
+       "n": 14,
+       "p25": 1.0,
+       "p75": 2.0,
+       "picks": 14,
+       "total": 52
+      },
+      "K": {
+       "max": 1,
+       "median": 1.0,
+       "min": 1,
+       "n": 2,
+       "picks": 2,
+       "total": 2
+      },
+      "LB": {
+       "max": 26,
+       "median": 6,
+       "min": 1,
+       "n": 11,
+       "p25": 2.0,
+       "p75": 17.5,
+       "picks": 11,
+       "total": 107
+      },
+      "QB": {
+       "max": 65,
+       "median": 11.0,
+       "min": 3,
+       "n": 6,
+       "p25": 5.0,
+       "p75": 14.0,
+       "picks": 6,
+       "total": 108
+      },
+      "RB": {
+       "max": 111,
+       "median": 20,
+       "min": 1,
+       "n": 9,
+       "p25": 4.0,
+       "p75": 27.0,
+       "picks": 9,
+       "total": 272
+      },
+      "TE": {
+       "max": 55,
+       "median": 3.0,
+       "min": 1,
+       "n": 8,
+       "p25": 3.0,
+       "p75": 12.75,
+       "picks": 8,
+       "total": 97
+      },
+      "WR": {
+       "max": 80,
+       "median": 17.5,
+       "min": 1,
+       "n": 18,
+       "p25": 6.5,
+       "p75": 33.25,
+       "picks": 18,
+       "total": 410
+      }
+     },
+     "idpTotal": 242,
+     "offenseTotal": 887,
+     "totalSpent": 1131
+    },
+    "draftOrderPublished": true,
+    "draftRef": "2026-D2",
+    "draftedPositionDiffersFromCurrentDirectory": 0,
+    "idpSelectionOrder": {
+     "DB": {
+      "max": 82,
+      "median": 53.5,
+      "min": 3,
+      "n": 16,
+      "p25": 31.75,
+      "p75": 72.5
+     },
+     "DL": {
+      "max": 81,
+      "median": 62.5,
+      "min": 15,
+      "n": 14,
+      "p25": 37.5,
+      "p75": 69.5
+     },
+     "LB": {
+      "max": 77,
+      "median": 19,
+      "min": 8,
+      "n": 11,
+      "p25": 15.5,
+      "p75": 62.0
+     },
+     "allIdp": {
+      "max": 82,
+      "median": 51,
+      "min": 3,
+      "n": 41,
+      "p25": 27.0,
+      "p75": 71.0
+     },
+     "basis": "pick_no (overall selection order; in an auction, the order lots were won)",
+     "firstIdpPickNo": 3
+    },
+    "idpShare": 0.4881,
+    "kind": "rookie",
+    "kindBasis": "settings.player_type=1 (rookies only)",
+    "offenseVsIdpByRound": {
+     "1": {
+      "idp": 2,
+      "offense": 10,
+      "other": 0
+     },
+     "2": {
+      "idp": 8,
+      "offense": 4,
+      "other": 0
+     },
+     "3": {
+      "idp": 6,
+      "offense": 6,
+      "other": 0
+     },
+     "4": {
+      "idp": 4,
+      "offense": 7,
+      "other": 1
+     },
+     "5": {
+      "idp": 4,
+      "offense": 8,
+      "other": 0
+     },
+     "6": {
+      "idp": 8,
+      "offense": 4,
+      "other": 0
+     },
+     "7": {
+      "idp": 9,
+      "offense": 2,
+      "other": 1
+     }
+    },
+    "picks": 84,
+    "picksByFamily": {
+     "DB": 16,
+     "DL": 14,
+     "K": 2,
+     "LB": 11,
+     "QB": 6,
+     "RB": 9,
+     "TE": 8,
+     "WR": 18
+    },
+    "picksByRoundAndFamily": {
+     "1": {
+      "DB": 1,
+      "LB": 1,
+      "QB": 3,
+      "RB": 2,
+      "TE": 1,
+      "WR": 4
+     },
+     "2": {
+      "DL": 2,
+      "LB": 6,
+      "QB": 1,
+      "WR": 3
+     },
+     "3": {
+      "DB": 4,
+      "DL": 2,
+      "RB": 1,
+      "TE": 1,
+      "WR": 4
+     },
+     "4": {
+      "DB": 3,
+      "DL": 1,
+      "K": 1,
+      "QB": 1,
+      "RB": 1,
+      "TE": 2,
+      "WR": 3
+     },
+     "5": {
+      "DB": 1,
+      "DL": 2,
+      "LB": 1,
+      "QB": 1,
+      "RB": 4,
+      "TE": 1,
+      "WR": 2
+     },
+     "6": {
+      "DB": 3,
+      "DL": 5,
+      "TE": 2,
+      "WR": 2
+     },
+     "7": {
+      "DB": 4,
+      "DL": 2,
+      "K": 1,
+      "LB": 3,
+      "RB": 1,
+      "TE": 1
+     }
+    },
+    "picksState": "observed",
+    "playerType": "rookies_only",
+    "rounds": 10,
+    "season": "2026",
+    "slotToRosterPublished": false,
+    "status": "complete",
+    "teams": 12,
+    "type": "auction"
+   }
+  ],
+  "rookieDraftChanges": [
+   {
+    "draftRef": "2024-D1",
+    "firstIdpPickNo": 15,
+    "idpMedianPickNo": 62.5,
+    "idpShare": 0.34,
+    "picks": 100,
+    "season": "2024",
+    "type": "snake"
+   },
+   {
+    "draftRef": "2025-D1",
+    "firstIdpPickNo": 24,
+    "idpMedianPickNo": 55.5,
+    "idpShare": 0.2857,
+    "picks": 70,
+    "season": "2025",
+    "type": "linear"
+   },
+   {
+    "draftRef": "2026-D2",
+    "firstIdpPickNo": 3,
+    "idpMedianPickNo": 51,
+    "idpShare": 0.4881,
+    "picks": 84,
+    "season": "2026",
+    "type": "auction"
+   }
+  ]
+ },
+ "effectiveSample": {
+  "allOneForOnePlayerSwapsWithIdptcBothAssets": 7,
+  "allTradesFullyPricedCanonical": 0,
+  "allTradesFullyPricedIdptc": 17,
+  "idpOneForOneOnOrAfterFloor": 0,
+  "idpOneForOnePlayerSwaps": 2,
+  "idpOneForOneWithCanonicalAndIdptcBothAssets": 0,
+  "idpOneForOneWithIdptcBothAssets": 0,
+  "managersInFullyIdptcPricedTrades": 8,
+  "maxFullyIdptcPricedTradesPerManager": 11,
+  "medianFullyIdptcPricedTradesPerManager": 2.0,
+  "tradesOnOrAfterFloor": 43
+ },
+ "formatValidation": {
+  "2024": {
+   "allAxesMatchToday": false,
+   "differences": {
+    "idpPositionalStructure": {
+     "source": {
+      "DB": [
+       1,
+       2
+      ],
+      "DL": [
+       1,
+       2
+      ],
+      "LB": [
+       1,
+       2
+      ]
+     },
+     "target": {
+      "DB": [
+       3,
+       3
+      ],
+      "DL": [
+       3,
+       3
+      ],
+      "LB": [
+       3,
+       3
+      ]
+     }
+    },
+    "idpScoring": {
+     "detail": {
+      "differingKeys": 15,
+      "examples": {
+       "idp_blk_kick": [
+        6.0,
+        5.3
+       ],
+       "idp_def_td": [
+        6.0,
+        6.36
+       ],
+       "idp_ff": [
+        5.0,
+        4.24
+       ],
+       "idp_fum_rec": [
+        4.0,
+        3.19
+       ],
+       "idp_fum_ret_yd": [
+        0.1,
+        0.1111111111111111
+       ],
+       "idp_int": [
+        12.0,
+        5.3
+       ],
+       "idp_int_ret_yd": [
+        0.1,
+        0.1111111111111111
+       ],
+       "idp_pass_def": [
+        6.0,
+        5.3
+       ]
+      },
+      "maxRelativeDifference": 0.5583
+     },
+     "source": 15,
+     "target": 15
+    },
+    "idpStarterDepth": {
+     "source": 4,
+     "target": 9
+    },
+    "offenseRosterDemand": {
+     "source": {
+      "RB": [
+       2,
+       6
+      ],
+      "WR": [
+       3,
+       7
+      ]
+     },
+     "target": {
+      "RB": [
+       2,
+       5
+      ],
+      "WR": [
+       3,
+       6
+      ]
+     }
+    },
+    "offenseScoring": {
+     "detail": {
+      "differingKeys": 33,
+      "examples": {
+       "bonus_fd_qb": [
+        0.0,
+        0.4
+       ],
+       "bonus_fd_rb": [
+        0.0,
+        1.0
+       ],
+       "bonus_fd_wr": [
+        0.0,
+        1.0
+       ],
+       "bonus_rec_wr": [
+        0.0,
+        0.02
+       ],
+       "fgm": [
+        3.0,
+        0.0
+       ],
+       "fgm_50p": [
+        1.0,
+        0.0
+       ],
+       "fgm_yds": [
+        0.0,
+        0.07
+       ],
+       "fgm_yds_over_30": [
+        0.1,
+        0.0
+       ]
+      },
+      "maxRelativeDifference": 1.0
+     },
+     "source": 69,
+     "target": 70
+    },
+    "rosterDepth": {
+     "source": [
+      36,
+      0
+     ],
+     "target": [
+      58,
+      0
+     ]
+    },
+    "teRosterDemand": {
+     "source": {
+      "TE": [
+       1,
+       5
+      ]
+     },
+     "target": {
+      "TE": [
+       2,
+       5
+      ]
+     }
+    },
+    "teScoring": {
+     "detail": {
+      "differingKeys": 2,
+      "examples": {
+       "bonus_fd_te": [
+        0.5,
+        1.0
+       ],
+       "bonus_rec_te": [
+        0.5,
+        0.0
+       ]
+      },
+      "maxRelativeDifference": 1.0
+     },
+     "source": 2,
+     "target": 1
+    },
+    "teamCount": {
+     "source": 10,
+     "target": 12
+    }
+   },
+   "differentAxes": [
+    "idpStarterDepth",
+    "idpPositionalStructure",
+    "teRosterDemand",
+    "teamCount",
+    "offenseRosterDemand",
+    "teScoring",
+    "offenseScoring",
+    "idpScoring",
+    "rosterDepth"
+   ],
+   "matchedAxes": [
+    "dynastyState",
+    "qbDemand",
+    "idpEnabled",
+    "bestBall"
+   ],
+   "timing": "season_final_settings",
+   "unknownAxes": []
+  },
+  "2025": {
+   "allAxesMatchToday": false,
+   "differences": {
+    "idpPositionalStructure": {
+     "source": {
+      "DB": [
+       2,
+       2
+      ],
+      "DL": [
+       2,
+       2
+      ],
+      "LB": [
+       2,
+       2
+      ]
+     },
+     "target": {
+      "DB": [
+       3,
+       3
+      ],
+      "DL": [
+       3,
+       3
+      ],
+      "LB": [
+       3,
+       3
+      ]
+     }
+    },
+    "idpScoring": {
+     "detail": {
+      "differingKeys": 12,
+      "examples": {
+       "idp_blk_kick": [
+        5.5,
+        5.3
+       ],
+       "idp_def_td": [
+        6.6,
+        6.36
+       ],
+       "idp_ff": [
+        4.4,
+        4.24
+       ],
+       "idp_fum_rec": [
+        3.3,
+        3.19
+       ],
+       "idp_int": [
+        6.6,
+        5.3
+       ],
+       "idp_pass_def": [
+        4.4,
+        5.3
+       ],
+       "idp_qb_hit": [
+        2.2,
+        2.12
+       ],
+       "idp_sack": [
+        3.03,
+        2.92
+       ]
+      },
+      "maxRelativeDifference": 0.197
+     },
+     "source": 15,
+     "target": 15
+    },
+    "idpStarterDepth": {
+     "source": 6,
+     "target": 9
+    },
+    "offenseRosterDemand": {
+     "source": {
+      "totalStarters": 17
+     },
+     "target": {
+      "totalStarters": 21
+     }
+    },
+    "offenseScoring": {
+     "detail": {
+      "differingKeys": 11,
+      "examples": {
+       "bonus_fd_qb": [
+        0.67,
+        0.4
+       ],
+       "bonus_rec_wr": [
+        0.0,
+        0.02
+       ],
+       "pass_cmp": [
+        0.0,
+        0.37
+       ],
+       "pass_inc": [
+        0.0,
+        -0.67
+       ],
+       "pass_yd": [
+        0.03333333333333333,
+        0.04
+       ],
+       "rec": [
+        0.0,
+        0.1
+       ],
+       "rec_30_39": [
+        1.5,
+        1.25
+       ],
+       "rush_att": [
+        0.0,
+        0.01
+       ]
+      },
+      "maxRelativeDifference": 1.0
+     },
+     "source": 65,
+     "target": 70
+    },
+    "rosterDepth": {
+     "source": [
+      55,
+      0
+     ],
+     "target": [
+      58,
+      0
+     ]
+    },
+    "teRosterDemand": {
+     "source": {
+      "TE": [
+       1,
+       4
+      ]
+     },
+     "target": {
+      "TE": [
+       2,
+       5
+      ]
+     }
+    },
+    "teScoring": {
+     "detail": {
+      "differingKeys": 2,
+      "examples": {
+       "bonus_fd_te": [
+        1.35,
+        1.0
+       ],
+       "bonus_rec_te": [
+        0.35,
+        0.0
+       ]
+      },
+      "maxRelativeDifference": 1.0
+     },
+     "source": 2,
+     "target": 1
+    },
+    "teamCount": {
+     "source": 10,
+     "target": 12
+    }
+   },
+   "differentAxes": [
+    "idpStarterDepth",
+    "idpPositionalStructure",
+    "teRosterDemand",
+    "teamCount",
+    "offenseRosterDemand",
+    "teScoring",
+    "offenseScoring",
+    "idpScoring",
+    "rosterDepth"
+   ],
+   "matchedAxes": [
+    "dynastyState",
+    "qbDemand",
+    "idpEnabled",
+    "bestBall"
+   ],
+   "timing": "season_final_settings",
+   "unknownAxes": []
+  },
+  "2026": {
+   "allAxesMatchToday": true,
+   "differences": {},
+   "differentAxes": [],
+   "matchedAxes": [
+    "dynastyState",
+    "qbDemand",
+    "idpEnabled",
+    "idpStarterDepth",
+    "idpPositionalStructure",
+    "teRosterDemand",
+    "teamCount",
+    "offenseRosterDemand",
+    "teScoring",
+    "offenseScoring",
+    "idpScoring",
+    "rosterDepth",
+    "bestBall"
+   ],
+   "timing": "current_league_settings_at_fetch",
+   "unknownAxes": []
+  }
+ },
+ "generatedAt": "2026-10-27T01:35:49+00:00",
+ "inputs": {
+  "codeSha": "3b645e0b9d0a15f270005ee41d0cacaf430a564c",
+  "collectedAt": "2026-10-27T01:29:06.386368+00:00",
+  "historyFloor": "2026-07-14",
+  "playersDirectory": "available",
+  "priceInstant": "trade status_updated (completion); created when absent",
+  "sleeperFetch": {
+   "calls": {
+    "ok": 99
+   },
+   "failures": 0
+  },
+  "temporalLedger": {
+   "canonicalBoardLane": "not present: the exports/archive backfill writes source_value and scraper_blend rows only (src/history/backfill.py; audit W04-F009); canonical board history lives in the box-only board_history.sqlite, not read here (owner: no box run)",
+   "exists": true,
+   "path": "temporal_ledger.sqlite",
+   "sourceValueLane": {
+    "idpTradeCalc": {
+     "distinctDates": 104,
+     "firstDate": "2026-07-14",
+     "lastDate": "2026-10-26",
+     "observations": 92479
+    },
+    "ktc": {
+     "distinctDates": 104,
+     "firstDate": "2026-07-14",
+     "lastDate": "2026-10-26",
+     "observations": 57901
+    },
+    "ktcSfTep": {
+     "distinctDates": 104,
+     "firstDate": "2026-07-14",
+     "lastDate": "2026-10-26",
+     "observations": 47521
+    }
+   }
+  }
+ },
+ "reconciliation": {
+  "archive": "dynasty_export_20261020_052241.zip",
+  "archiveTrades": 107,
+  "archiveTradesBySeasonLeague": {
+   "1180092661344120832": 30,
+   "1312006700437352448": 77
+  },
+  "archiveTradesMatchedToCensus": 107,
+  "archiveTradesNotInCensus": 0,
+  "censusTradesInsideArchiveWindow": 107,
+  "censusTradesInsideWindowMissingFromArchive": 0,
+  "censusTradesOutsideArchiveWindow": 126,
+  "explanation": "The 107 is the scraper's sleeper.trades block, a rolling window (SLEEPER_TRADE_HISTORY_DAYS, default 365 days before the scrape) over the first four chain leagues; the census has no window and walks the whole chain.",
+  "matchKey": "(season league id, transaction created ms, sorted roster ids)",
+  "scrapeTimestamp": "2026-10-20T05:22:41.050102+00:00",
+  "state": "compared",
+  "tradeWindowCutoff": "2025-10-20T05:20:17.018000+00:00"
+ },
+ "schema": "own_league_history_census/v1",
+ "transactions": {
+  "2024": {
+   "completedTradesByWeek": {
+    "1": 11,
+    "10": 2,
+    "11": 1,
+    "12": 3,
+    "13": 3,
+    "17": 1,
+    "2": 2,
+    "3": 1,
+    "4": 1,
+    "5": 1,
+    "6": 1,
+    "8": 2
+   },
+   "completedTradesCreatedBeforeSeptember": 9,
+   "duplicatesAcrossWeeks": 0,
+   "tradeStatuses": {
+    "complete": 29
+   },
+   "transactionsByType": {
+    "commissioner": 2,
+    "free_agent": 100,
+    "trade": 29,
+    "waiver": 181
+   },
+   "week0Transactions": 0,
+   "weekLegPairs": {
+    "week10:leg10": 2,
+    "week11:leg11": 1,
+    "week12:leg12": 3,
+    "week13:leg13": 3,
+    "week17:leg17": 1,
+    "week1:leg1": 11,
+    "week2:leg2": 2,
+    "week3:leg3": 1,
+    "week4:leg4": 1,
+    "week5:leg5": 1,
+    "week6:leg6": 1,
+    "week8:leg8": 2
+   },
+   "weeksBeyond18WithAnyTransaction": [],
+   "weeksFailed": [],
+   "weeksFetched": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25
+   ]
+  },
+  "2025": {
+   "completedTradesByWeek": {
+    "1": 64,
+    "10": 3,
+    "11": 6,
+    "12": 3,
+    "13": 4,
+    "2": 1,
+    "3": 3,
+    "4": 9,
+    "5": 6,
+    "6": 10,
+    "7": 3,
+    "8": 10,
+    "9": 2
+   },
+   "completedTradesCreatedBeforeSeptember": 61,
+   "duplicatesAcrossWeeks": 0,
+   "tradeStatuses": {
+    "complete": 124
+   },
+   "transactionsByType": {
+    "commissioner": 1,
+    "free_agent": 268,
+    "trade": 124,
+    "waiver": 616
+   },
+   "week0Transactions": 0,
+   "weekLegPairs": {
+    "week10:leg10": 3,
+    "week11:leg11": 6,
+    "week12:leg12": 3,
+    "week13:leg13": 4,
+    "week1:leg1": 64,
+    "week2:leg2": 1,
+    "week3:leg3": 3,
+    "week4:leg4": 9,
+    "week5:leg5": 6,
+    "week6:leg6": 10,
+    "week7:leg7": 3,
+    "week8:leg8": 10,
+    "week9:leg9": 2
+   },
+   "weeksBeyond18WithAnyTransaction": [],
+   "weeksFailed": [],
+   "weeksFetched": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25
+   ]
+  },
+  "2026": {
+   "completedTradesByWeek": {
+    "1": 62,
+    "2": 3,
+    "3": 4,
+    "4": 2,
+    "5": 3,
+    "6": 3,
+    "7": 3
+   },
+   "completedTradesCreatedBeforeSeptember": 59,
+   "duplicatesAcrossWeeks": 0,
+   "tradeStatuses": {
+    "complete": 80
+   },
+   "transactionsByType": {
+    "commissioner": 23,
+    "free_agent": 113,
+    "trade": 80,
+    "waiver": 462
+   },
+   "week0Transactions": 0,
+   "weekLegPairs": {
+    "week1:leg1": 62,
+    "week2:leg2": 3,
+    "week3:leg3": 4,
+    "week4:leg4": 2,
+    "week5:leg5": 3,
+    "week6:leg6": 3,
+    "week7:leg7": 3
+   },
+   "weeksBeyond18WithAnyTransaction": [],
+   "weeksFailed": [],
+   "weeksFetched": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25
+   ]
+  }
+ },
+ "validation": {
+  "duplicateTransactionIdsAcrossSeasons": 0,
+  "findings": [
+   "pick_transfer_sender_mismatch:3",
+   "pick_ownership_mismatch_season_2024:3",
+   "pick_ownership_mismatch_season_2025:9",
+   "pick_ownership_mismatch_season_2026:2"
+  ],
+  "groupingStates": {
+   "CONFIRMED_UNIQUE": 233
+  },
+  "legFindings": {
+   "party_receives_nothing": 1
+  },
+  "pickReplay": {
+   "checkpoints": [
+    {
+     "mismatches": 3,
+     "mismatchesByPickSeasonRound": {
+      "2024-r10": 1,
+      "2024-r3": 1,
+      "2024-r9": 1
+     },
+     "pickSeasonsCompared": [
+      2024,
+      2025,
+      2026,
+      2027
+     ],
+     "picksCompared": 400,
+     "rounds": 10,
+     "season": "2024",
+     "state": "compared"
+    },
+    {
+     "mismatches": 9,
+     "mismatchesByPickSeasonRound": {
+      "2025-r2": 5,
+      "2026-r6": 1,
+      "2026-r7": 1,
+      "2027-r6": 1,
+      "2027-r7": 1
+     },
+     "pickSeasonsCompared": [
+      2025,
+      2026,
+      2027,
+      2028
+     ],
+     "picksCompared": 280,
+     "rounds": 7,
+     "season": "2025",
+     "state": "compared"
+    },
+    {
+     "mismatches": 2,
+     "mismatchesByPickSeasonRound": {
+      "2027-r6": 1,
+      "2027-r7": 1
+     },
+     "pickSeasonsCompared": [
+      2027,
+      2028,
+      2029
+     ],
+     "picksCompared": 252,
+     "rounds": 7,
+     "season": "2026",
+     "state": "compared"
+    }
+   ],
+   "senderMismatches": 3,
+   "senderMismatchesByPickSeasonRound": {
+    "2024-r1": 1,
+    "2024-r10": 1,
+    "2024-r9": 1
+   },
+   "transfersByTransactionType": {
+    "trade": 285
+   },
+   "transfersReplayed": 285
+  },
+  "playerIds": {
+   "distinctInTrades": 276,
+   "unresolved": 0
+  },
+  "positionBasisForTradedPlayers": {
+   "chain_draft_metadata_2024": 525,
+   "chain_draft_metadata_2025": 122,
+   "chain_draft_metadata_2026": 23,
+   "current_sleeper_directory": 97
+  }
+ }
+}
