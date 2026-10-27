@@ -97,7 +97,7 @@ contract owner's surface, not this module's.  Recorded rather than reached for.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from collections import Counter
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
@@ -131,6 +131,7 @@ __all__ = [
     "forced_drop_cost",
     "league_roster_limit",
     "league_taxi_size",
+    "resolve_roster_limit",
     "outgoing_roster_names",
 ]
 
@@ -207,6 +208,155 @@ def league_taxi_size(
         return max(0, int(raw))
     except (TypeError, ValueError):
         return 0
+
+
+#: Sleeper ``roster_positions`` entries that are NOT active roster spots.
+#: Sleeper keeps taxi and IR in separate settings, so neither normally appears
+#: in the list; excluded anyway so a source that does list them cannot
+#: inflate the cap.  ``BN`` IS a roster spot -- it is not a lineup slot, which
+#: is a different question (``lineup.NON_LINEUP_SLOTS``).
+_NON_ROSTER_SPOT_SLOTS: frozenset[str] = frozenset({"IR", "TAXI"})
+
+#: ``rosterLimitSource`` values.
+LIMIT_FROM_LIVE = "sleeper_roster_positions"
+LIMIT_FROM_SETTINGS = "registry_roster_settings"
+
+
+def live_roster_positions(
+    contract: Mapping[str, Any] | None, league_key: str | None
+) -> list[str] | None:
+    """The host's live slot list for ``league_key``, or ``None``.
+
+    ``sleeper.rosterPositions`` of the contract, used only when that block can
+    be THIS league's: the contract is stamped for ``league_key`` (or carries
+    no league stamp at all, the server's own league).  A contract that
+    declares another league answers ``None`` -- its slot list is that league's.
+    An empty list is ``None`` too: ``[]`` means missing, never "no roster".
+    """
+    if not isinstance(contract, Mapping):
+        return None
+    meta = contract.get("meta") if isinstance(contract.get("meta"), Mapping) else {}
+    stamped = (meta or {}).get("leagueKey")
+    if stamped and league_key and str(stamped) != str(league_key):
+        return None
+    sleeper = contract.get("sleeper") if isinstance(contract.get("sleeper"), Mapping) else {}
+    positions = (sleeper or {}).get("rosterPositions")
+    if not isinstance(positions, (list, tuple)) or not positions:
+        return None
+    return [str(p) for p in positions if str(p or "").strip()]
+
+
+def live_roster_slot_count(positions: Sequence[str] | None) -> int | None:
+    """Active roster spots in a Sleeper ``roster_positions`` list (``None`` if absent)."""
+    if not positions:
+        return None
+    count = sum(1 for p in positions if str(p).strip().upper() not in _NON_ROSTER_SPOT_SLOTS)
+    return count if count > 0 else None
+
+
+@dataclass(frozen=True)
+class RosterLimitReading:
+    """Which roster cap applies, where it came from, and whether sources agree.
+
+    LI1842-DEFECT-07: the cap reads ONLY the configured ``rosterSize``
+    while the lineup ladder (``lineup.resolve_starter_slots``) prefers the
+    host's live slot list, so a host change (``dynasty_new``: registry 27,
+    live 24) was silent.  It is now REPORTED: both readings are kept and a
+    disagreement is published.  The APPLIED cap is unchanged (``limit`` is
+    still the settings' number): switching the cap's source to the live list
+    changes served forced drops for ``dynasty_new`` and for a league whose
+    configured cap is unknown, so it waits for an owner decision (the
+    measured ``dynasty_main`` live list agrees with the registry, 58 = 58).
+    """
+
+    limit: int | None
+    source: str | None
+    settings_limit: int | None
+    live_limit: int | None
+    #: ``None`` when the two agree or one is absent; else the published block.
+    disagreement: Mapping[str, Any] | None = None
+    #: Starter slots: the settings' flattened starters vs the live list's
+    #: lineup slots, as multisets.  Reported only -- the capacity cut ladder
+    #: keeps its slot source (see ``build_capacity_context``).
+    starter_disagreement: Mapping[str, Any] | None = None
+
+
+def resolve_roster_limit(
+    contract: Mapping[str, Any] | None,
+    league_key: str | None,
+    roster_settings: Mapping[str, Any] | None = None,
+) -> RosterLimitReading:
+    """The trade-side roster cap (configured settings) plus the live reading.
+
+    ``limit`` / ``source`` are the APPLIED cap -- the configured settings, as
+    before.  ``live_limit`` is the host's live slot count for THIS league,
+    reported beside it; ``disagreement`` is set only when both are known and
+    differ.
+    """
+    from src.ros.lineup import (  # noqa: PLC0415
+        flatten_starter_slots,
+        starter_slots_from_roster_positions,
+    )
+
+    settings_limit = league_roster_limit(league_key, roster_settings)
+    positions = live_roster_positions(contract, league_key)
+    live_limit = live_roster_slot_count(positions)
+    limit = settings_limit
+    source = LIMIT_FROM_SETTINGS if settings_limit is not None else None
+    disagreement = None
+    if live_limit is not None and settings_limit is not None and live_limit != settings_limit:
+        disagreement = {
+            "registryRosterSize": settings_limit,
+            "liveRosterSlots": live_limit,
+            "liveSource": LIMIT_FROM_LIVE,
+            "appliedFrom": source,
+        }
+
+    starter_disagreement = None
+    settings = roster_settings if isinstance(roster_settings, Mapping) else None
+    if settings is None:
+        settings = _roster_settings_for(league_key)
+    registry_starters = flatten_starter_slots((settings or {}).get("starters"))
+    live_starters = starter_slots_from_roster_positions(positions)
+    if registry_starters and live_starters:
+        reg_c, live_c = Counter(registry_starters), Counter(live_starters)
+        if reg_c != live_c:
+            starter_disagreement = {
+                "registryOnly": dict(sorted((reg_c - live_c).items())),
+                "liveOnly": dict(sorted((live_c - reg_c).items())),
+            }
+    return RosterLimitReading(
+        limit=limit,
+        source=source,
+        settings_limit=settings_limit,
+        live_limit=live_limit,
+        disagreement=disagreement,
+        starter_disagreement=starter_disagreement,
+    )
+
+
+def roster_limit_disagreement_note(reading: RosterLimitReading) -> str | None:
+    """The exact note published for a cap disagreement (``None`` if none)."""
+    d = reading.disagreement
+    if not d:
+        return None
+    return (
+        f"roster cap sources disagree: registry rosterSize {d['registryRosterSize']} vs "
+        f"live host slot list {d['liveRosterSlots']}; the registry cap is still applied "
+        "(switching the cap source awaits an owner decision)"
+    )
+
+
+def starter_slot_disagreement_note(reading: RosterLimitReading) -> str | None:
+    """The exact note published for a starter-slot disagreement (``None`` if none)."""
+    d = reading.starter_disagreement
+    if not d:
+        return None
+    return (
+        "starter slot sources disagree: registry-only "
+        f"{d['registryOnly']} vs live-only {d['liveOnly']}; the cut ladder's lineup "
+        "guard still uses the registry starters"
+    )
 
 
 # ── Result types ─────────────────────────────────────────────────────
@@ -390,6 +540,11 @@ class RosterCapacity:
     #: against (:func:`_li5_waiver_level`), so a reader can tell the banded
     #: LI-5 level from the incumbent best-free-agent anchor.
     waiver_level: Mapping[str, Any] | None = None
+    #: LI1842-DEFECT-07: set ONLY when the roster-cap or starter-slot sources
+    #: disagree (``{"rosterLimit": ..., "starterSlots": ...}``).  ``None`` --
+    #: and nothing published, so an agreeing league's payload is unchanged --
+    #: otherwise.
+    limit_disagreement: Mapping[str, Any] | None = None
 
     @property
     def requires_drops(self) -> bool | None:
@@ -461,7 +616,13 @@ class RosterCapacity:
     def _flagged_dict(self) -> dict[str, Any]:
         """Every flag-gated field; empty (so the payload is unchanged) when the
         flags are OFF."""
-        return self._selection_dict() | self._waiver_level_dict()
+        return self._selection_dict() | self._waiver_level_dict() | self._limit_dict()
+
+    def _limit_dict(self) -> dict[str, Any]:
+        """The source-disagreement block; empty when the sources agree."""
+        if not self.limit_disagreement:
+            return {}
+        return {"rosterLimitSourceDisagreement": dict(self.limit_disagreement)}
 
     def _waiver_level_dict(self) -> dict[str, Any]:
         """The LI-5 flag-ON stamp; empty (so the payload is unchanged) when OFF."""
@@ -547,6 +708,9 @@ class CapacityContext:
     #: use.  ``None`` means nothing configured, NOT nothing eligible.
     slot_eligibility: Mapping[str, Any] | None = None
     notes: tuple[str, ...] = ()
+    #: Where ``roster_limit`` came from and whether its sources agree
+    #: (:func:`resolve_roster_limit`).  ``None`` only for a hand-built context.
+    limit_reading: RosterLimitReading | None = None
     #: The roster settings this context was built under, kept so a context for
     #: ANOTHER team in the same league (the counterparty) resolves the same cap
     #: and slots instead of falling back to a different source.
@@ -697,10 +861,17 @@ def build_capacity_context(
     (the default) reads it here, exactly as before.
     """
     notes: list[str] = []
-    roster_limit = league_roster_limit(league_key, roster_settings)
+    limit_reading = resolve_roster_limit(contract, league_key, roster_settings)
+    roster_limit = limit_reading.limit
     taxi_size = league_taxi_size(league_key, roster_settings)
     if roster_limit is None:
         notes.append("league roster size is not configured — capacity is UNKNOWN, not unlimited")
+    for note in (
+        roster_limit_disagreement_note(limit_reading),
+        starter_slot_disagreement_note(limit_reading),
+    ):
+        if note:
+            notes.append(note)
     # Taxi membership: present only if the caller handed us a roster that
     # carries it.  The canonical contract's team block does not.
     taxi_members = team.get("taxi") if isinstance(team, Mapping) else None
@@ -799,6 +970,7 @@ def build_capacity_context(
         by_name=by_name,
         by_id=by_id,
         notes=tuple(notes),
+        limit_reading=limit_reading,
         roster_settings=roster_settings if isinstance(roster_settings, Mapping) else None,
         roster_player_ids=(
             tuple(str(a.player_id) for a in assets) if len(assets) == len(names) else ()
@@ -1723,6 +1895,36 @@ def _players_meta_for(player_ids: Sequence[str]) -> dict[str, Any]:
 
 
 def assess_roster_capacity(
+    context: CapacityContext,
+    *,
+    incoming_players: Sequence[str] = (),
+    outgoing_players: Sequence[str] = (),
+    package: fds.PackageSides | None = None,
+) -> RosterCapacity:
+    """What this trade does to this roster's legality (see :func:`_assess`).
+
+    Carries the context's cap-source disagreement onto the result, so the
+    published block states it (LI1842-DEFECT-07); an agreeing league's result
+    is exactly :func:`_assess`'s.
+    """
+    result = _assess(
+        context,
+        incoming_players=incoming_players,
+        outgoing_players=outgoing_players,
+        package=package,
+    )
+    reading = context.limit_reading
+    block: dict[str, Any] = {}
+    if reading is not None and reading.disagreement:
+        block["rosterLimit"] = dict(reading.disagreement)
+    if reading is not None and reading.starter_disagreement:
+        block["starterSlots"] = dict(reading.starter_disagreement)
+    if not block:
+        return result
+    return replace(result, limit_disagreement=block)
+
+
+def _assess(
     context: CapacityContext,
     *,
     incoming_players: Sequence[str] = (),
