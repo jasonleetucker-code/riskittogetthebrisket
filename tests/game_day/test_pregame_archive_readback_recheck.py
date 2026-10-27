@@ -2125,7 +2125,15 @@ def test_a_raw_log_prune_failure_with_no_archive_is_warned_but_not_marked(monkey
     assert removed == [] and other.is_dir() and _obs_dir().is_dir()
     assert not live._pregame_failure_path(SEASON, WEEK).exists()
     warned = [r.getMessage() for r in caplog.records if "could not remove raw" in r.getMessage()]
-    assert len(warned) == 2 and all("retried next tick" in m for m in warned)
+    assert len(warned) == 2
+    for message in warned:
+        assert "the removal is retried every pass" in message
+        assert f"recorded in {live.RAW_PRUNE_FAILURE_NAME}" in message
+    # Round 7: the WARNING is limited by a stamp beside each week -- not a
+    # pregame marker, and never read as one.
+    for week_dir in (other.parent, _week_dir()):
+        assert (week_dir / live.RAW_PRUNE_FAILURE_NAME).is_file()
+    assert live.pregame_archive_health() == []
 
 
 # --- round 6: an unreadable archive is re-checked every pass and recorded hourly ---------
@@ -2493,3 +2501,326 @@ def test_a_partial_prune_that_removed_the_weekly_log_alerts_the_true_state(monke
     assert live.prune_retention(SEASON, PRUNE_WEEK) == [str(_obs_dir())]
     assert writes == [] and _accepted().read_bytes() == accepted_bytes
     assert live.pregame_archive_health() == []
+
+
+# --- round 7: a surviving observations/ with no archive is warned once, then hourly -------
+
+
+_STAMP_REASON = "observations_prune_failed"
+
+
+def _unarchived_week(where: str) -> tuple[pathlib.Path, pathlib.Path]:
+    """An old week whose ``observations/`` has no weekly-projection log, so no
+    accepted pregame archive is ever written beside it: an NFL week with only
+    another source's log, or any other league's week.  Returns (week dir, obs)."""
+    if where == "nfl_no_weekly_log":
+        week_dir = _week_dir()
+    else:
+        week_dir = live.league_week_dir("lk", SEASON, WEEK)
+    obs = week_dir / "observations"
+    obs.mkdir(parents=True)
+    (obs / "espn_scoreboard.jsonl").write_text("{}\n", encoding="utf-8")
+    return week_dir, obs
+
+
+def _prune_warnings(caplog) -> list[str]:
+    return [r.getMessage() for r in caplog.records if "could not remove raw" in r.getMessage()]
+
+
+@pytest.mark.parametrize("where", ["nfl_no_weekly_log", "other_league"])
+def test_an_unarchived_prune_failure_warns_once_then_hourly(monkeypatch, clock, caplog, where):
+    """Round 7 blocking item.  ``rmtree`` keeps failing on a week with no accepted
+    pregame archive (every non-NFL league week, and an NFL week with no weekly
+    log).  Round 6 warned on EVERY one-minute tick and wrote nothing; ``main``
+    was silent.  Each tick is a fresh process, so the limit is a stamp on disk:
+    one WARNING when the state is entered, then at most one an hour -- while the
+    removal itself is retried on every pass."""
+    week_dir, obs = _unarchived_week(where)
+    stamp = week_dir / live.RAW_PRUNE_FAILURE_NAME
+    rm = _stub_rmtree(monkeypatch)
+
+    ticks = 0
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        for tick in range(0, 8):  # eight one-minute ticks: one WARNING
+            clock["now"] = NOW + 60 * tick
+            assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+            ticks += 1
+        assert len(_prune_warnings(caplog)) == 1
+        assert rm["calls"] == ticks  # the removal is retried on every pass
+        assert live._read_json(stamp) == {
+            "failedAt": live._iso(NOW),
+            "firstFailedAt": live._iso(NOW),
+            "reason": _STAMP_REASON,
+        }
+        for tick in range(0, 8):  # the hour lapses: one more, then quiet again
+            clock["now"] = NOW + RETRY + 60 * tick
+            assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+            ticks += 1
+        warned = _prune_warnings(caplog)
+
+    assert len(warned) == 2 and rm["calls"] == ticks == 16
+    assert live._read_json(stamp) == {
+        "failedAt": live._iso(NOW + RETRY),
+        "firstFailedAt": live._iso(NOW),  # the start is kept
+        "reason": _STAMP_REASON,
+    }
+    for message in warned:
+        assert str(obs) in message and "the removal is retried every pass" in message
+        assert f"recorded in {live.RAW_PRUNE_FAILURE_NAME}" in message
+        assert f"failing since {live._iso(NOW)}" in message
+        assert "repeats at most hourly" in message and "NOT recorded" not in message
+    # Not a pregame-archive failure: no marker, no health row, no alert.
+    assert not live._pregame_failure_path(SEASON, WEEK).exists()
+    assert not (week_dir / live.PREGAME_ARCHIVE_FAILURE_NAME).exists()
+    rows = live.pregame_archive_health()
+    assert rows in ([], None)
+    assert oa._check_pregame_archive(rows or []) == []
+
+    # The removal works again: the directory goes, and so does the stamp.
+    rm["fail"] = False
+    clock["now"] = NOW + RETRY + 600
+    assert live.prune_retention(SEASON, PRUNE_WEEK) == [str(obs)]
+    assert not obs.exists() and not stamp.exists()
+
+
+@pytest.mark.parametrize("where", ["nfl_no_weekly_log", "other_league"])
+def test_an_unarchived_prune_failure_whose_stamp_cannot_be_written_says_so(
+    monkeypatch, clock, caplog, where
+):
+    """Nowhere to persist the limit: every pass warns, and says why."""
+    week_dir, _obs = _unarchived_week(where)
+    _stub_rmtree(monkeypatch)
+    real = live._atomic_write_json
+
+    def write(path, payload):
+        if pathlib.Path(path).name == live.RAW_PRUNE_FAILURE_NAME:
+            raise OSError(errno.ENOSPC, "No space left on device", str(path))
+        return real(path, payload)
+
+    monkeypatch.setattr(live, "_atomic_write_json", write)
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        for tick in range(0, 5):
+            clock["now"] = NOW + 60 * tick
+            live.prune_retention(SEASON, PRUNE_WEEK)
+    warned = _prune_warnings(caplog)
+
+    assert len(warned) == 5
+    for message in warned:
+        assert (
+            f"the failure is NOT recorded ({live.RAW_PRUNE_FAILURE_NAME} could not be written)"
+        ) in message
+        assert "this warning repeats on every pass" in message
+    assert not (week_dir / live.RAW_PRUNE_FAILURE_NAME).exists()
+
+
+def test_a_stale_stamp_whose_directory_is_gone_is_removed(clock):
+    """A stamp left by a pass that removed the directory but could not clear it
+    (or a directory removed by hand) goes on the next pass."""
+    week_dir = live.league_week_dir("lk", SEASON, WEEK)
+    week_dir.mkdir(parents=True)
+    stamp = week_dir / live.RAW_PRUNE_FAILURE_NAME
+    live._atomic_write_json(stamp, {"failedAt": live._iso(NOW), "reason": _STAMP_REASON})
+
+    assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+    assert not stamp.exists()
+
+
+def test_a_prune_stamp_is_never_read_as_a_pregame_failure(clock):
+    """``pregame_archive_health`` reads only the pregame marker: a prune stamp
+    beside a week adds no row, and changes none."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    stamp = _week_dir() / live.RAW_PRUNE_FAILURE_NAME
+    live._atomic_write_json(stamp, {"failedAt": live._iso(NOW), "reason": _STAMP_REASON})
+    assert live.pregame_archive_health() == []
+
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    live._write_pregame_marker(marker, NOW, "kickoffs_unknown")
+    (with_stamp,) = live.pregame_archive_health()
+    stamp.unlink()
+    assert live.pregame_archive_health() == [with_stamp]
+
+
+def test_a_prune_stamp_with_other_content_does_not_suppress_the_warning(monkeypatch, clock, caplog):
+    """A stamp that does not record this state (unreadable here) neither limits
+    the WARNING nor lends a start."""
+    week_dir, _obs = _unarchived_week("other_league")
+    stamp = week_dir / live.RAW_PRUNE_FAILURE_NAME
+    stamp.write_text("not json", encoding="utf-8")
+    _stub_rmtree(monkeypatch)
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        live.prune_retention(SEASON, PRUNE_WEEK)
+    assert len(_prune_warnings(caplog)) == 1
+    assert live._read_json(stamp)["firstFailedAt"] == live._iso(NOW)
+
+
+# --- round 7: a leftover that cannot be set aside is recorded, retried hourly -------------
+
+
+def _deny_leftover_set_aside(monkeypatch) -> dict:
+    """Refuse every rename of the accepted archive while ``state["deny"]``;
+    ``state["calls"]`` counts the attempts."""
+    state = {"deny": True, "calls": 0}
+    real_replace = pathlib.Path.replace
+
+    def replace(self, target):
+        if self.name == live.PREGAME_ARCHIVE_NAME:
+            state["calls"] += 1
+            if state["deny"]:
+                raise PermissionError(13, "Permission denied", str(self))
+        return real_replace(self, target)
+
+    monkeypatch.setattr(pathlib.Path, "replace", replace)
+    return state
+
+
+def _set_aside_warnings(caplog) -> list[str]:
+    return [r.getMessage() for r in caplog.records if "could not set aside" in r.getMessage()]
+
+
+def _untrusted_warnings(caplog) -> list[str]:
+    return [
+        r.getMessage() for r in caplog.records if "stays at the accepted path" in r.getMessage()
+    ]
+
+
+def test_a_leftover_that_cannot_be_set_aside_is_recorded_and_retried_hourly(
+    monkeypatch, clock, caplog
+):
+    """Round 7 nit 2.  A persistently refused set-aside returned without writing
+    anything, so the legacy marker's old ``failedAt`` never throttled it: the
+    rename was re-attempted, and warned, on every tick while the alert said the
+    collector retries hourly.  It is now recorded on the marker -- which stays
+    legacy, so the leftover stays untrusted."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    players = len(_good_payload()["players"])
+    bad_bytes = _pre_fix_leftover()  # legacy marker, failedAt NOW
+    deny = _deny_leftover_set_aside(monkeypatch)
+    start = NOW + RETRY + 1
+
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        for tick in range(0, 6):  # six one-minute ticks: one attempt, one WARNING
+            clock["now"] = start + 60 * tick
+            assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+        assert deny["calls"] == 1 and len(_set_aside_warnings(caplog)) == 1
+        assert _marker() == {
+            "failedAt": live._iso(start),
+            "firstFailedAt": live._iso(NOW),  # the incident began with the legacy marker
+            "reason": "archive_readback_mismatch",
+            "setAsideFailed": True,
+        }
+        (recorded,) = _untrusted_warnings(caplog)
+        assert "untrusted (archive_readback_mismatch)" in recorded
+        assert "recorded in pregame_projections.retained.json and retried at most hourly" in (
+            recorded
+        )
+
+        (row,) = live.pregame_archive_health()
+        (alert,) = oa._check_pregame_archive([row])
+        assert "The Game Day collector retries hourly" in alert.detail  # now true
+        assert f"failed {live._iso(start)})" in alert.detail  # the latest attempt
+
+        for tick in range(0, 6):  # the hour lapses: one more attempt, then quiet
+            clock["now"] = start + RETRY + 60 * tick
+            assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+        assert deny["calls"] == 2 and len(_set_aside_warnings(caplog)) == 2
+
+    assert _marker()["failedAt"] == live._iso(start + RETRY)
+    assert _marker()["firstFailedAt"] == live._iso(NOW)  # the start is kept
+    assert "candidateFlow" not in _marker()  # still legacy: the leftover is not trusted
+    assert _accepted().read_bytes() == bad_bytes and _obs_dir().is_dir()
+
+    # The rename works again: set aside, rebuilt from the raw log, verified, pruned.
+    deny["deny"] = False
+    _stub_dir_flush(monkeypatch, live._DIR_FLUSHED)
+    clock["now"] = start + 2 * RETRY
+    assert live.prune_retention(SEASON, PRUNE_WEEK) == [str(_obs_dir())]
+    assert (_week_dir() / MISMATCH).read_bytes() == bad_bytes
+    archive = live._read_pregame_archive(_accepted())
+    assert archive is not None and len(archive["players"]) == players
+    assert not live._pregame_failure_path(SEASON, WEEK).exists()
+
+
+def test_the_adopted_marker_drops_the_set_aside_failure():
+    """Once the set-aside succeeds, the re-stamped marker must not keep saying it
+    failed (every other field kept)."""
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    prior = {
+        "failedAt": live._iso(NOW + 60),
+        "firstFailedAt": live._iso(NOW),
+        "reason": "archive_readback_mismatch",
+        "setAsideFailed": True,
+    }
+    live._adopt_legacy_mismatch_marker(marker, prior)
+    assert _marker() == {
+        "failedAt": live._iso(NOW + 60),
+        "firstFailedAt": live._iso(NOW),
+        "reason": "archive_readback_mismatch",
+        "candidateFlow": True,
+    }
+
+
+def test_a_leftover_set_aside_failure_whose_marker_cannot_be_written_says_so(
+    monkeypatch, clock, caplog
+):
+    """Nowhere to persist the throttle: every pass retries the set-aside, and says so."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    _pre_fix_leftover()
+    before = _marker()
+    deny = _deny_leftover_set_aside(monkeypatch)
+    _deny_marker_writes(monkeypatch)["deny"] = True
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        for tick in range(0, 5):
+            clock["now"] = NOW + RETRY + 1 + 60 * tick
+            assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+    assert deny["calls"] == 5 and len(_set_aside_warnings(caplog)) == 5
+    unrecorded = _untrusted_warnings(caplog)
+    assert len(unrecorded) == 5
+    for message in unrecorded:
+        assert "the failure is NOT recorded (pregame_projections.retained.json" in message
+        assert "not throttled and the next pass retries" in message
+    assert _marker() == before  # the legacy marker as it was
+
+
+# --- round 7: the weekly-gone build-failure text names what the next pass does -------------
+
+
+@pytest.mark.parametrize("state", ["no_file", "readable_flushed", "readable_unflushed", "garbage"])
+def test_the_weekly_gone_build_failure_text_matches_the_next_pass(monkeypatch, clock, state):
+    """Round 7 nit 4.  The text said the next pass "replaces" the marker if a file
+    is at the archive path; beside a readable archive it CLEARS it (after a
+    re-flush).  Each sub-state is driven through the real prune and checked
+    against the text."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    payload = _good_payload()
+    _drop_the_weekly_log()
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    live._write_pregame_marker(marker, NOW, "kickoffs_unknown")
+    if state.startswith("readable"):
+        live._write_pregame_archive(_accepted(), payload)
+    elif state == "garbage":
+        _accepted().write_bytes(b"garbage")
+    (row,) = live.pregame_archive_health()
+    (alert,) = oa._check_pregame_archive([row])
+    assert alert.title.endswith("not built; raw weekly log gone")
+    assert "or replaces it, if a file is at the archive path" not in alert.detail
+    assert "pass clears this marker: at once if no file is at the archive path" in alert.detail
+    assert "after re-flushing the directory holding a readable archive there" in alert.detail
+    assert "replaces it with archive_directory_unflushed instead" in alert.detail
+    assert "a file there that does not read back replaces it with archive_unreadable" in (
+        alert.detail
+    )
+
+    unflushed = state == "readable_unflushed"
+    _stub_dir_flush(monkeypatch, live._DIR_FSYNC_FAILED if unflushed else live._DIR_FLUSHED)
+    clock["now"] = NOW + 60  # the very next pass
+    live.prune_retention(SEASON, PRUNE_WEEK)
+    expected = {
+        "no_file": None,
+        "readable_flushed": None,
+        "readable_unflushed": "archive_directory_unflushed",
+        "garbage": "archive_unreadable",
+    }[state]
+    if expected is None:
+        assert not marker.exists() and not _obs_dir().exists()  # cleared, pruned
+    else:
+        assert _marker_reason() == expected and _obs_dir().is_dir()

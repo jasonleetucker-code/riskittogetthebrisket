@@ -767,7 +767,8 @@ def test_the_signal_alert_sweep_passes_not_checked_through_as_none(monkeypatch):
 
 _UNREADABLE_TEXT = (
     "The pregame weekly-projections archive for {league} {season} week {week} could not be "
-    "established (archive_unreadable; failed {failed}).  A file is at the archive path but does "
+    "established (archive_unreadable; failing since {since}).  A file is at the archive path but "
+    "does "
     "not read back, and the Game Day collector never overwrites an unreadable archive, so it is "
     "not rebuilt.  The raw weekly-projection log is retained -- the prune keeps it rather than "
     "delete evidence it has not archived -- and that week's pregame baseline is not preserved for "
@@ -779,15 +780,60 @@ _UNREADABLE_TEXT = (
 
 
 @pytest.mark.parametrize("first", [None, "2033-05-18T03:33:20+00:00"])
-def test_the_unreadable_alert_text_is_byte_identical_while_the_weekly_log_is_retained(first):
+def test_the_unreadable_alert_text_while_the_weekly_log_is_retained(first):
     """Round 6 changed what makes this text TRUE (the file is now re-checked, and
-    accepted, on every pass) -- not one byte of it."""
+    accepted, on every pass).  Round 7 changed one thing in it, deliberately: it
+    shows when the incident BEGAN ("failing since" ``firstFailedAt``, else
+    ``failedAt`` on a marker written before the start was recorded), not
+    ``failedAt``, which moves with every hourly re-record.  Every other byte is
+    round 6's."""
     row = _row("archive_unreadable", firstFailedAt=first)
     (alert,) = oa._check_pregame_archive([row])
     assert alert.title == f"Pregame projections archive for {SEASON} week {WEEK} unreadable"
     assert alert.detail == _UNREADABLE_TEXT.format(
-        league=live.NFL_KEY, season=SEASON, week=WEEK, failed=row["failedAt"]
+        league=live.NFL_KEY, season=SEASON, week=WEEK, since=first or row["failedAt"]
     )
+
+
+@pytest.mark.parametrize("retained", ["weekly", "observations-only"])
+def test_the_unreadable_alert_shows_the_start_not_the_latest_re_record(retained):
+    """``failedAt`` is the latest hourly re-record; the alert must not move with it."""
+    first, latest = live._iso(NOW), live._iso(NOW + 5 * 3600)
+    row = _row(
+        "archive_unreadable",
+        firstFailedAt=first,
+        failedAt=latest,
+        weeklyLogRetained=retained == "weekly",
+    )
+    (alert,) = oa._check_pregame_archive([row])
+    assert alert.title.endswith("unreadable")
+    assert f"(archive_unreadable; failing since {first})" in alert.detail
+    assert latest not in alert.detail
+
+
+def test_the_unreadable_alert_of_a_real_marker_keeps_its_start_across_re_records():
+    """End to end: the real marker writer re-records hourly; the alert's time stays put."""
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    live._mark_archive_unreadable(marker, NOW, None)
+    for hour in (1, 2, 3):
+        live._mark_archive_unreadable(marker, NOW + hour * 3600, live._read_json(marker))
+    stored = live._read_json(marker)
+    assert stored["failedAt"] == live._iso(NOW + 3 * 3600)
+    row = {
+        "leagueKey": live.NFL_KEY,
+        "season": SEASON,
+        "week": WEEK,
+        "reason": stored["reason"],
+        "failedAt": stored["failedAt"],
+        "firstFailedAt": stored["firstFailedAt"],
+        "flushFailure": None,
+        "rawLogRetained": True,
+        "weeklyLogRetained": True,
+    }
+    (alert,) = oa._check_pregame_archive([row])
+    assert f"failing since {live._iso(NOW)})" in alert.detail
+    assert live._iso(NOW + 3 * 3600) not in alert.detail
 
 
 def test_health_reports_the_weekly_log_separately_from_observations():

@@ -311,7 +311,11 @@ log is kept; a readable archive found beside an `archive_readback_mismatch`
 marker is treated the same way when the raw log still exists to rebuild it from.
 That set-aside is flushed (the week directory is fsynced) before the marker is
 re-stamped `candidateFlow`; if the flush fails the marker is left as it was and
-the raw log is kept.
+the raw log is kept. If the set-aside itself fails (the rename is refused), the
+marker records it and stays legacy, so the leftover stays untrusted: `failedAt`
+becomes that attempt, `firstFailedAt` keeps the start and `setAsideFailed: true`
+says why, so the set-aside and its WARNING are retried at most hourly, not on
+every tick (and the alert's "retries hourly" is true).
 
 The raw log is deleted the moment the archive is accepted, so acceptance also
 needs the rename that put it there to be durable: the week directory is fsynced
@@ -362,7 +366,20 @@ WARNING that says whether that marker was written (if it was not, the failure
 is NOT recorded and every pass retries). With no marker the first rewrite runs
 at once and every pass that does not end with the raw log gone records a
 retry-family marker, so no state rewrites the archive on every tick while its
-marker can be written. `pregame_archive_health` reports two separate facts:
+marker can be written. **Accepted, disclosed limit:** a week whose marker can be
+neither written nor replaced (a read-only marker file, say) has nowhere to
+persist the throttle — each tick is a fresh process, so an in-memory one would
+not survive — so every pass then repeats the byte-identical rewrite and the
+prune, and warns each time that the failure is NOT recorded. No health row or
+alert exists for it; the WARNING is the only signal. The rewrite cannot change
+content, so this costs I/O, not correctness. An `observations/` directory that
+survives the prune with NO accepted archive beside it — any non-NFL league's
+week, or an NFL week with no weekly-projection log — has no pregame marker to
+record it: its removal is retried on every pass, and its WARNING is limited to
+the first failure and at most hourly after that by
+`observations.prune_failed.json` beside the week (`failedAt` / `firstFailedAt`),
+which is removed once the directory is gone. That stamp is not a pregame-archive
+failure: `pregame_archive_health` and the ops alert never read it. `pregame_archive_health` reports two separate facts:
 `rawLogRetained` (the week's `observations/` directory exists — every source's
 raw logs, and what makes the prune revisit the week) and `weeklyLogRetained`
 (the raw weekly-projection log itself is still there — what the rewrite
@@ -379,7 +396,8 @@ path (`archive_unreadable`) is never overwritten, so it is not rebuilt. It is
 re-read on every pass, and resolves when the file reads back (accepted on the
 next pass) or is removed. Its marker (with `firstFailedAt`) is written, and a
 WARNING logged, when the state is first entered and at most hourly after that,
-not on every tick. Archives are kept `PREGAME_ARCHIVE_SEASONS` = 10 seasons back.
+not on every tick; its ops alert says when the incident began ("failing since"
+`firstFailedAt`), not the latest hourly re-record. Archives are kept `PREGAME_ARCHIVE_SEASONS` = 10 seasons back.
 Measured size: one real week (2,154 projected players) is 1.7 MB as JSON and
 ~0.2 MB gzipped, so ~3.7 MB per 18-week season and under 40 MB at the bound.
 Backup: `deploy/backup/riskit-state-backup.sh` already backs up the whole

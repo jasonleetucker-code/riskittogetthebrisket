@@ -271,7 +271,11 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
         league, season, week = row.get("leagueKey"), row.get("season"), row.get("week")
         reason = row.get("reason") or "unknown"
         failure = f"could not be established ({reason}; failed {row.get('failedAt')})."
+        # When the incident began: ``firstFailedAt``, or ``failedAt`` on a marker
+        # written before the start was recorded.  ``failedAt`` alone is the latest
+        # attempt (for ``archive_unreadable``, the latest hourly re-record).
         since = row.get("firstFailedAt") or row.get("failedAt")
+        unreadable = f"could not be established ({reason}; failing since {since})."
         weekly = row.get("weeklyLogRetained")
         if not isinstance(weekly, bool):
             weekly = bool(row.get("rawLogRetained"))
@@ -343,7 +347,7 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
             title = f"Pregame projections archive for {season} week {week} unreadable"
             detail = (
                 f"The pregame weekly-projections archive for {league} {season} week {week} "
-                f"{failure}  A file is at the archive path but does not read back, and the Game "
+                f"{unreadable}  A file is at the archive path but does not read back, and the Game "
                 "Day collector never overwrites an unreadable archive, so it is not rebuilt.  The "
                 "raw weekly-projection log is retained -- the prune keeps it rather than delete "
                 "evidence it has not archived -- and that week's pregame baseline is not "
@@ -422,7 +426,7 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
             title = f"Pregame projections archive for {season} week {week} unreadable"
             detail = (
                 f"The pregame weekly-projections archive for {league} {season} week {week} "
-                f"{failure}  A file is at the archive path but does not read back, and the Game "
+                f"{unreadable}  A file is at the archive path but does not read back, and the Game "
                 "Day collector never overwrites an unreadable archive.  The raw weekly-projection "
                 "log is no longer on disk either, so the archive cannot be rebuilt: unless that "
                 "file is repaired, the week's pregame baseline is lost from the projection "
@@ -443,7 +447,10 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
                 "so no build can run and none is retried: unless an archive is already in place, "
                 "the week's pregame baseline is not preserved for the projection scorecard.  The "
                 "week's other raw observations are still on disk.  The Game Day collector's next "
-                "pass clears this marker (or replaces it, if a file is at the archive path); see "
+                "pass clears this marker: at once if no file is at the archive path, or after "
+                "re-flushing the directory holding a readable archive there (a flush that fails "
+                "replaces it with archive_directory_unflushed instead); a file there that does not "
+                "read back replaces it with archive_unreadable.  See "
                 "pregame_projections.retained.json beside the week."
             )
         else:

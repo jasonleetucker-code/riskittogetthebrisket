@@ -2902,11 +2902,20 @@ _PREGAME_RETRY_REASONS = frozenset({_PREGAME_DIRECTORY_UNFLUSHED, _PREGAME_RAW_L
 #: A file is at the archive path but does not read back.  It is never
 #: overwritten, and it is re-read on every pass: not a retry-family reason.
 _PREGAME_ARCHIVE_UNREADABLE = "archive_unreadable"
-#: On a retry-family or ``archive_unreadable`` marker: when this run of
-#: failures began.  ``failedAt`` stays the LATEST attempt (for
-#: ``archive_unreadable``, the latest hourly re-record), which the hourly
-#: throttle reads; the ops alert shows this start instead.
+#: On a retry-family, ``archive_unreadable`` or legacy set-aside-failed marker
+#: (and on a :data:`RAW_PRUNE_FAILURE_NAME` stamp): when this run of failures
+#: began.  ``failedAt`` stays the LATEST attempt (for ``archive_unreadable``,
+#: the latest hourly re-record), which the hourly throttle reads.  The ops
+#: alert's retry-family and ``archive_unreadable`` texts show this start
+#: ("failing since"), falling back to ``failedAt`` on a marker written before
+#: the key existed.
 _PREGAME_FIRST_FAILED_KEY = "firstFailedAt"
+#: On a LEGACY read-back-mismatch marker (no ``candidateFlow``): the latest
+#: attempt to set its unverified leftover aside failed
+#: (:func:`_mark_legacy_set_aside_failed`).  While its ``failedAt`` is inside
+#: the hourly window the set-aside is not retried and its WARNING not repeated.
+#: The marker stays legacy, so the leftover stays untrusted.
+_PREGAME_SET_ASIDE_FAILED_KEY = "setAsideFailed"
 #: Stamped on a failure marker by the verify-before-accept flow.
 _PREGAME_CANDIDATE_FLOW_KEY = "candidateFlow"
 _PREGAME_COUNTED_KEYS = ("players", "timingUnverified")
@@ -2978,6 +2987,9 @@ def _adopt_legacy_mismatch_marker(marker: Path, prior: Mapping[str, Any]) -> Non
     """
     record = dict(prior)
     record[_PREGAME_CANDIDATE_FLOW_KEY] = True
+    # The set-aside has now succeeded: a failed attempt recorded before it no
+    # longer describes anything.
+    record.pop(_PREGAME_SET_ASIDE_FAILED_KEY, None)
     try:
         _atomic_write_json(marker, record)
     except OSError as exc:
@@ -2986,6 +2998,55 @@ def _adopt_legacy_mismatch_marker(marker: Path, prior: Mapping[str, Any]) -> Non
         logging.getLogger(__name__).warning(
             "game day: could not re-stamp pregame archive failure marker %s (%s)", marker, exc
         )
+
+
+def _legacy_set_aside_pending(prior: Mapping[str, Any], now: float) -> bool:
+    """Whether a legacy read-back-mismatch marker records a failed set-aside
+    (:data:`_PREGAME_SET_ASIDE_FAILED_KEY`) whose ``failedAt`` is inside the
+    hourly window, so the set-aside is not retried on this pass."""
+    return bool(prior.get(_PREGAME_SET_ASIDE_FAILED_KEY)) and _pregame_retry_throttled(prior, now)
+
+
+def _mark_legacy_set_aside_failed(marker: Path, now: float, prior: Mapping[str, Any]) -> bool:
+    """Record that a pre-fix leftover beside the LEGACY marker ``prior`` could
+    not be set aside, and log what happened; returns whether it was recorded.
+
+    The marker keeps every field and stays legacy (no ``candidateFlow``), so the
+    leftover at the accepted path stays untrusted.  ``failedAt`` becomes this
+    attempt, which the hourly throttle reads (:func:`_legacy_set_aside_pending`);
+    ``firstFailedAt`` keeps the incident's start (the earliest of the prior
+    marker's stamps); ``setAsideFailed`` says why the set-aside is throttled.
+    Without this, a rename that fails persistently was re-attempted, and
+    warned, on every one-minute tick while the alert said the collector
+    retries hourly.  A marker that cannot be written throttles nothing, and
+    the WARNING says so.  Never raises.
+    """
+    import logging
+
+    record = dict(prior)
+    record.pop(_PREGAME_CANDIDATE_FLOW_KEY, None)
+    record["failedAt"] = _iso(now)
+    record[_PREGAME_FIRST_FAILED_KEY] = _failure_start(
+        prior, frozenset({_PREGAME_READBACK_MISMATCH})
+    ) or _iso(now)
+    record[_PREGAME_SET_ASIDE_FAILED_KEY] = True
+    try:
+        _atomic_write_json(marker, record)
+    except OSError:
+        recorded = False
+    else:
+        recorded = True
+    logging.getLogger(__name__).warning(
+        "game day: keeping raw observations for %s -- the unverified pregame archive stays at "
+        "the accepted path, untrusted (%s)%s",
+        marker.parent,
+        _PREGAME_READBACK_MISMATCH,
+        f"; the failed set-aside is recorded in {marker.name} and retried at most hourly"
+        if recorded
+        else f"; the failure is NOT recorded ({marker.name} could not be written), so it is "
+        "not throttled and the next pass retries",
+    )
+    return recorded
 
 
 def _pregame_retry_throttled(prior: Any, now: float) -> bool:
@@ -3201,10 +3262,18 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
     not end with the raw log gone records a retry-family marker -- the rewrite
     or the flush failed (``archive_directory_unflushed``), or the prune did
     (``prune_retention`` records ``raw_log_prune_failed``) -- which throttles the
-    passes after it.  With no marker the first rewrite runs at once.  (A week
-    whose marker can be neither written nor replaced has nowhere to keep the
-    throttle; every pass then retries, and warns that the failure is not
-    recorded.)  A rewrite that cannot complete (an I/O error, or a copy whose
+    passes after it.  With no marker the first rewrite runs at once.
+
+    ACCEPTED, DISCLOSED LIMIT: a week whose marker can be neither written nor
+    replaced (a read-only marker file, say) has nowhere to persist the throttle
+    -- each tick is a fresh process, so an in-memory one would not survive --
+    and so EVERY pass then repeats the byte-identical rewrite (about 0.2 MB per
+    real week) and the prune, and warns each time that the failure is NOT
+    recorded.  No health row or alert exists for it; the WARNING is the only
+    signal.  The rewrite cannot change content, so this costs I/O, not
+    correctness.  It is not fixed here.
+
+    A rewrite that cannot complete (an I/O error, or a copy whose
     sha256 differs) leaves the accepted archive untouched, keeps the raw log,
     and records ``archive_directory_unflushed`` with ``flushFailure:
     "rewrite"`` (a prior retry-family marker's ``firstFailedAt`` kept), so the
@@ -3222,7 +3291,12 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
     is re-stamped ``candidateFlow``: a marker reaching disk without the rename
     would leave the unverified leftover at the accepted path beside a marker
     vouching for it.  If that flush fails the marker is left as it was (the
-    leftover rule stays in force) and the raw log is kept.
+    leftover rule stays in force) and the raw log is kept.  If the set-aside
+    itself fails (the rename is refused), the legacy marker records it
+    (:func:`_mark_legacy_set_aside_failed`: ``failedAt`` this attempt,
+    ``firstFailedAt`` kept, ``setAsideFailed``, still legacy) and the raw log is
+    kept; the set-aside, and its WARNING, are then retried at most hourly, not
+    on every tick.
     """
     import logging
 
@@ -3278,7 +3352,12 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
             # place produced: the archive never passed verification and nothing
             # re-checked it, so it is not trusted.  Set it aside and rebuild
             # from the raw log, which is still here.
+            if _legacy_set_aside_pending(prior, now):
+                # A set-aside that failed inside the hourly window: not retried,
+                # and not warned again, until the window lapses.
+                return False
             if not _set_aside_mismatched_archive(path):
+                _mark_legacy_set_aside_failed(marker, now, prior)
                 return False
             # Only once that rename is durable, with the leftover out of the
             # accepted path: from here on that path holds nothing but verified
@@ -3505,6 +3584,70 @@ def pregame_archive_health() -> list[dict[str, Any]] | None:
     return rows
 
 
+#: Beside ANY league-week (not only the NFL pseudo-league): its old
+#: ``observations/`` directory could not be removed and no accepted pregame
+#: archive is beside it -- a non-NFL league's week, or an NFL week that had no
+#: weekly-projection log to archive -- so no pregame marker carries the failure.
+#: ``failedAt`` (the latest WARNING) / ``firstFailedAt`` (when it began).  It
+#: only limits the prune's WARNING to the first failure and at most hourly after
+#: that (each tick is a fresh process, so the limit must be on disk); the removal
+#: itself is retried on every pass, which is cheap and lets the state clear
+#: itself.  It is removed once the directory is gone.  It is NOT a
+#: pregame-archive failure: :func:`pregame_archive_health` (and so the ops
+#: alert) never reads it.
+RAW_PRUNE_FAILURE_NAME = "observations.prune_failed.json"
+_RAW_PRUNE_FAILED = "observations_prune_failed"
+
+
+def _warn_unarchived_prune_failure(stamp: Path, obs: Path, now: float) -> None:
+    """The WARNING for an ``observations/`` directory that survived the prune
+    with no accepted pregame archive beside it, limited by the
+    :data:`RAW_PRUNE_FAILURE_NAME` ``stamp``: logged (and the stamp written)
+    when the state is first entered and at most hourly after that; a stamp
+    whose ``failedAt`` is inside the hourly window is left exactly as it is and
+    nothing is logged.  A stamp that cannot be written limits nothing, and the
+    WARNING says so.  Never raises."""
+    import logging
+
+    prior = _read_json(stamp)
+    reasons = frozenset({_RAW_PRUNE_FAILED})
+    if (
+        isinstance(prior, dict)
+        and prior.get("reason") == _RAW_PRUNE_FAILED
+        and _pregame_retry_throttled(prior, now)
+    ):
+        return
+    since = _failure_start(prior, reasons) or _iso(now)
+    try:
+        _atomic_write_json(
+            stamp,
+            {"failedAt": _iso(now), _PREGAME_FIRST_FAILED_KEY: since, "reason": _RAW_PRUNE_FAILED},
+        )
+    except OSError:
+        outcome = (
+            f"the failure is NOT recorded ({stamp.name} could not be written), so this "
+            "warning repeats on every pass"
+        )
+    else:
+        outcome = (
+            f"recorded in {stamp.name} (failing since {since}), so this warning repeats at "
+            "most hourly while it lasts"
+        )
+    logging.getLogger(__name__).warning(
+        "game day: could not remove raw observations %s; they stay on disk and the removal is "
+        "retried every pass -- %s",
+        obs,
+        outcome,
+    )
+
+
+def _clear_raw_prune_failure(stamp: Path) -> None:
+    """Remove a :data:`RAW_PRUNE_FAILURE_NAME` stamp once its directory is gone,
+    tolerating an I/O error (it stays, and is retried next tick)."""
+    if stamp.exists():
+        _unlink_tolerating_oserror(stamp, "clear raw observations prune-failure stamp")
+
+
 def prune_retention(season: int, week: int, *, now: float | None = None) -> list[str]:
     """Delete raw observation logs older than :data:`RAW_RETENTION_WEEKS`.
 
@@ -3526,7 +3669,16 @@ def prune_retention(season: int, week: int, *, now: float | None = None) -> list
     to hourly -- without it, every tick would rewrite the archive (see
     :func:`ensure_pregame_archive`) and delete again, unseen.  The WARNING says
     which happened: recorded and retried at most hourly, or -- when the marker
-    could not be written -- NOT recorded, so every pass retries.
+    could not be written -- NOT recorded, so every pass retries (an accepted,
+    disclosed limit: see :func:`ensure_pregame_archive`).
+
+    With no accepted pregame archive beside it (any non-NFL league's week, or
+    an NFL week with no weekly-projection log) there is no pregame marker to
+    record it in, and the removal is simply retried on every pass.  Its WARNING
+    is limited by a :data:`RAW_PRUNE_FAILURE_NAME` stamp beside the week to the
+    first failure and at most hourly after that
+    (:func:`_warn_unarchived_prune_failure`); the stamp is removed once the
+    directory is gone.
     """
     import logging
     import shutil
@@ -3549,7 +3701,12 @@ def prune_retention(season: int, week: int, *, now: float | None = None) -> list
                 w = int(name[5:])
                 old = s < season or (s == season and w < week - RAW_RETENTION_WEEKS)
                 obs = week_dir / "observations"
-                if old and obs.is_dir():
+                stamp = week_dir / RAW_PRUNE_FAILURE_NAME
+                if old and not obs.is_dir():
+                    # The directory is gone (removed by an earlier pass whose
+                    # stamp could not be cleared, or by hand): so is the failure.
+                    _clear_raw_prune_failure(stamp)
+                elif old:
                     nfl = key_dir.name == NFL_KEY
                     marker = _pregame_failure_path(s, w)
                     # Read BEFORE the archive pass, which clears the marker when
@@ -3561,13 +3718,15 @@ def prune_retention(season: int, week: int, *, now: float | None = None) -> list
                     shutil.rmtree(obs, ignore_errors=True)
                     if not obs.exists():
                         removed.append(str(obs))
+                        _clear_raw_prune_failure(stamp)
+                    elif not (nfl and pregame_archive_path(s, w).exists()):
+                        # No accepted archive to record it beside: retried every
+                        # pass, warned at most hourly (the stamp beside the week).
+                        _warn_unarchived_prune_failure(stamp, obs, now)
                     else:
-                        archived = nfl and pregame_archive_path(s, w).exists()
                         # Record first, then say what actually happened: a
                         # marker that could not be written throttles nothing.
-                        if not archived:
-                            outcome = " and the removal is retried next tick"
-                        elif _mark_raw_log_prune_failed(marker, now, prior):
+                        if _mark_raw_log_prune_failed(marker, now, prior):
                             outcome = (
                                 " beside the accepted pregame archive -- recorded as "
                                 f"{_PREGAME_RAW_LOG_PRUNE_FAILED}, retried at most hourly"
