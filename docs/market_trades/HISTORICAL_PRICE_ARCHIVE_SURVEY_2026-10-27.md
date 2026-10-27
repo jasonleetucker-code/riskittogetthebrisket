@@ -66,7 +66,7 @@ the upstream FantasyPros terms on republished ECR were not reviewed (UNKNOWN), s
 | V1 | KTC player-page value history | vendor | yes (daily from 2020) | yes | no | not found | probably; needs validation (§3.2) | ToS forbids automated collection and reuse; robots disallows `/dynasty-rankings/histories` | **NOT_USABLE** without a KTC licence |
 | V2 | KTC rankings page in the Wayback Machine | web archive | yes, sparse (4–19 days/month) | yes, sparse | no | yes (36 RDP rows) | yes | KTC ToS plus IA "scholarship and research purposes only" | **NOT_USABLE** for production; PARTIAL for private validation only, if the owner allows it (D6) |
 | V3 | Dynasty Daddy per-asset history `/api/v1/player/{name_id}` | vendor (aggregator) | yes (picks from 2024-08-31, players from 2021) | yes | no | **yes** | probably | ToS forbids "automated data scraping"; the endpoint is undocumented (only `/values/dynasty` and `/values/redraft` are documented); the KTC columns relay KTC data | **NOT_USABLE** without written permission |
-| V4 | FantasyCalc `/trades/historical/{id}` | vendor | **no**: the probe returned 2026-01-01 onward only | partly | no | unknown | the history ignores `numTeams` / `ppr`, so it is not our league's value | ToS: only `/values/current` without written permission; no "material substitute" for its trade calculator | **NOT_USABLE** without written permission |
+| V4 | FantasyCalc `/trades/historical/{id}` | vendor | **no**: the probe returned 2026-01-01 onward only | partly | no | unknown | the history ignores `numTeams` / `ppr`, so it is not our league's value | ToS: only `/values/current` without written permission; no "material substitute" for substantial portions of its content (for example its trade calculator) | **NOT_USABLE** without written permission |
 | V5 | IDP Trade Calculator | vendor | no | no (outside repo history) | n/a | n/a | n/a | generic ToS, no data clause; robots allows all | **NOT_USABLE**: no history exists to retrieve |
 | V6 | IDPTC in the Wayback Machine | web archive | 9 archived days in total, 2024-12 to 2026-02 | no | no values | no values | n/a | values are client-side, absent from snapshots | **NOT_USABLE** |
 | V7 | DLF, DraftSharks, The IDP Show archives | vendor | behind paid subscription | (repo history: yes) | yes | DLF values only | n/a | paid | **NOT_USABLE** (paid); their pre-floor history is reachable only through R1 |
@@ -278,7 +278,8 @@ collect.
   is prohibited."
 - Sites at or above 1,000 monthly active users need "express written permission".
 - Attribution is required on every page displaying the data.
-- The data may not be used to create a "material substitute" for FantasyCalc's trade calculator. Only that phrase
+- The data may not be used to create a "material substitute" for substantial portions of FantasyCalc's content (for example its
+  trade calculator). Only that phrase
   is quoted; the independent review of this survey confirmed the clause on the terms page.
 
 **Identity.** Easy: rows carry `sleeperId`.
@@ -346,7 +347,8 @@ FantasyCalc's terms (effective 2026-10-10) require:
 - prominent attribution with a link on every page that displays FantasyCalc data or derivatives;
 - 3-hour caching;
 - written permission at or above 1,000 monthly active users;
-- no use of the data to create a "material substitute" for FantasyCalc's trade calculator (only that phrase is
+- no use of the data to create a "material substitute" for substantial portions of FantasyCalc's content (for example
+  its trade calculator; only that phrase is
   quoted here; the independent review confirmed the clause on the terms page). The site serves its own trade
   calculator, so this clause bears on the live posture, not only on history.
 
