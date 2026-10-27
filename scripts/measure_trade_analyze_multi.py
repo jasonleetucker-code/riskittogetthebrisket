@@ -170,6 +170,8 @@ _ENV_TEMP_DIRS = (
     "RISKIT_TRADE_DECISION_LOG_DIR",
 )
 PRIVATE_FLAG_ENV = "RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS"
+PUBLIC_FLAG_ENV = "RISKIT_FEATURE_BRISKET_TRADE_ADVISOR"
+PUBLIC_ANALYZE_PATH = "/api/public/league/trade-advisor/analyze"
 
 
 class TargetRefused(ValueError):
@@ -945,6 +947,113 @@ def make_route_runner(client: Any, ctx: Context, mode: str) -> RunFn:
     return _run
 
 
+# ── Public route runner (opt-in: --public-route) ───────────────────────────
+
+
+@contextlib.contextmanager
+def public_route_client(ctx: Context, base_url: str, temp_root: Path) -> Iterator[Any]:
+    """``POST /api/public/league/trade-advisor/analyze`` through the in-process
+    ``TestClient``: the ``brisket_trade_advisor`` flag forced ON in THIS process
+    only and the launch gate opened IN-PROCESS ONLY (``_launch_gate_reason``
+    patched; ``config/trade/public_advisor.json`` is untouched, so its
+    ``responseFloorMs`` stays unset and NO floor is applied -- the raw route
+    latency the floor must cover is what gets measured).  The public limiter is
+    reset before every request, outside the timed window, so the samples
+    measure the analyze path rather than a 429."""
+    from src.api import feature_flags, league_registry  # noqa: PLC0415
+
+    registry = json.loads((REPO / "config/leagues/registry.json").read_text(encoding="utf-8"))
+    main = next(lg for lg in registry["leagues"] if lg["key"] == LEAGUE_KEY)
+    reg_path = temp_root / "registry-public.json"
+    reg_path.write_text(
+        json.dumps({"schemaVersion": 1, "defaultLeagueKey": LEAGUE_KEY, "leagues": [main]}),
+        encoding="utf-8",
+    )
+    patches = Patches()
+    quiet_loggers = [
+        logging.getLogger(n) for n in ("httpx", "httpcore", "uvicorn", "uvicorn.error")
+    ]
+    previous_levels = [lg.level for lg in quiet_loggers]
+    for lg in quiet_loggers:
+        lg.setLevel(logging.WARNING)
+    try:
+        with env_overrides({PUBLIC_FLAG_ENV: "1", "LEAGUE_REGISTRY_PATH": str(reg_path)}):
+            league_registry.reload_registry()
+            feature_flags.reload()
+            try:
+                import server  # noqa: PLC0415
+                from fastapi.testclient import TestClient  # noqa: PLC0415
+
+                from src.api import public_trade_advisor_api as api  # noqa: PLC0415
+
+                api.reset_for_tests()
+                patches.setattr(server, "latest_contract_data", ctx.contract)
+                patches.setattr(api, "_launch_gate_reason", lambda: None)
+                patches.setattr(api, "_public_league_key", lambda: ctx.league_key)
+                with TestClient(
+                    server.app, base_url=base_url, raise_server_exceptions=True
+                ) as client:
+                    server.latest_contract_data = ctx.contract
+                    if api.advisor_config().get("responseFloorMs") is not None:
+                        raise MeasurementFailed(
+                            "responseFloorMs is set: the public route would be held to it, so its "
+                            "raw latency cannot be measured"
+                        )
+                    yield client
+            finally:
+                patches.undo()
+    finally:
+        # Reload only AFTER env_overrides has restored the caller's
+        # environment, so the registry and flags re-read the ORIGINAL values
+        # rather than the temporary override, and do both even when the
+        # measurement raised.
+        try:
+            league_registry.reload_registry()
+        finally:
+            feature_flags.reload()
+            for lg, level in zip(quiet_loggers, previous_levels):
+                lg.setLevel(level)
+
+
+def make_public_route_runner(client: Any, ctx: Context, mode: str) -> RunFn:
+    from src.api import public_trade_advisor_api as api  # noqa: PLC0415
+    from src.api import rate_limit  # noqa: PLC0415
+
+    def _run(scn: Scenario, keep_info: bool) -> Sample:
+        body = {
+            "perspectiveRosterId": int(scn.teams[0]),
+            "teams": list(scn.teams),
+            "assets": scn.legs_payload(),
+        }
+        # Outside the timed window: the advisor's own limiter and the
+        # site-wide public limiter, so a long run measures analyze, not 429.
+        api._limiter().reset()
+        rate_limit.reset_for_tests()
+        t0 = time.perf_counter()
+        res = client.post(PUBLIC_ANALYZE_PATH, json=body)
+        total = (time.perf_counter() - t0) * 1000.0
+        if res.status_code != 200:
+            raise MeasurementFailed(
+                f"public route answered {res.status_code} for {scn.name}: {res.text[:240]}"
+            )
+        payload = res.json()
+        sample = Sample(
+            total_ms=total,
+            parts={},
+            stages={},
+            info={"responseBytes": len(res.content)},
+        )
+        if keep_info:
+            sample.info["overall"] = (payload.get("overall") or {}).get("result")
+            sample.info["teams"] = [
+                {"rosterId": t.get("rosterId"), "result": t.get("result")}
+                for t in payload.get("teams") or []
+            ]
+        return sample
+
+    return _run
+
+
 # ── Cell measurement (surface-agnostic) ────────────────────────────────────
 
 
@@ -1673,7 +1782,19 @@ def run_measurement(args: argparse.Namespace, temp_root: Path) -> dict[str, Any]
                     "route", ROUTE_MODES, lambda m: make_route_runner(client, ctx, m), route_cells
                 )
 
+        public_cells: list[dict[str, Any]] = []
+        if args.public_route and not args.synthetic:
+            with public_route_client(ctx, args.base_url, temp_root) as client:
+                run_cells(
+                    "public",
+                    ("market_fairness",),
+                    lambda m: make_public_route_runner(client, ctx, m),
+                    public_cells,
+                )
+
         results = {"engine": engine_cells, "route": route_cells}
+        if public_cells:
+            results["public"] = public_cells
         limits = derive_limits(args)
         budgets = evaluate_budgets(results, limits)
         breaches = [b["id"] for b in budgets if b["status"] == "breach"]
@@ -1718,6 +1839,15 @@ def run_measurement(args: argparse.Namespace, temp_root: Path) -> dict[str, Any]
                 "warm": "snapshot memo primed",
                 "engineIncludes": "snapshot_for + validate_ledger + analyze_trade_n",
                 "routeIncludes": "TestClient.post (JSON encode, ASGI, route, JSON response)",
+                "publicIncludes": (
+                    "TestClient.post to the public analyze route with the flag ON and the "
+                    "launch gate opened in-process only: gate, limiter charge, body cap, "
+                    "strict schema, ledger validation, admission + single-flight, "
+                    "public_advisor.evaluate (market_fairness + reducer + value-free "
+                    "assertions), Pydantic response; no response floor (unset)"
+                    if args.public_route
+                    else None
+                ),
                 "counterfactuals": {m: counterfactuals_for(m) for m in MODES},
                 "stubs": ctx.stubs,
                 "stubCaveat": "team_context excludes the real posture-bundle build and the real "
@@ -1755,7 +1885,7 @@ def findings_for(report: Mapping[str, Any]) -> list[str]:
         elif b["status"] == "not_exercised":
             out.append(f"NOT EXERCISED {b['id']}: {(b.get('detail') or {}).get('note')}")
     results = report["results"]
-    cells = [c for s in ("engine", "route") for c in results.get(s) or []]
+    cells = [c for s in ("engine", "route", "public") for c in results.get(s) or []]
     gated = [
         c for c in cells if (c.get("structural") or {}).get("outcome", {}).get("evidenceGated")
     ]
@@ -1787,7 +1917,7 @@ def render_table(report: Mapping[str, Any]) -> str:
     rows = [
         "surface mode             N shape          legs  cold p50 / p95 ms     warm p50 / p95 ms     peak MB (cold/warm)"
     ]
-    for surface in ("engine", "route"):
+    for surface in ("engine", "route", "public"):
         for c in report["results"].get(surface) or []:
             cold, warm = c["cold"]["totalMs"], c["warm"]["totalMs"]
             mem = c["memory"]
@@ -1829,6 +1959,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--skip-route", action="store_true", help="measure the engine only")
     p.add_argument("--skip-engine", action="store_true", help="measure the route only")
+    p.add_argument(
+        "--public-route",
+        action="store_true",
+        help="also measure the PUBLIC advisor analyze route end to end (flag ON and launch "
+        "gate opened in this process only; no response floor)",
+    )
     p.add_argument(
         "--base-url",
         default=DEFAULT_BASE_URL,
