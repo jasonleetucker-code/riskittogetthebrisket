@@ -553,3 +553,86 @@ def test_a_failed_measurement_is_exit_three_not_a_pass(monkeypatch, capsys):
     monkeypatch.setattr(m, "run_measurement", boom)
     assert m.main(["--synthetic", "--quiet"]) == m.EXIT_MEASUREMENT_FAILED
     assert "no board" in capsys.readouterr().err
+
+
+# ── Public advisor route surface (opt-in --public-route) ──────────────────
+
+
+def test_public_route_flag_is_opt_in_and_parsed():
+    assert m.build_parser().parse_args([]).public_route is False
+    assert m.build_parser().parse_args(["--public-route"]).public_route is True
+
+
+def test_public_runner_sends_the_value_free_contract_body_and_resets_the_limiter(monkeypatch):
+    from src.api import public_trade_advisor_api as api
+
+    resets: list[int] = []
+
+    class _Limiter:
+        def reset(self):
+            resets.append(1)
+
+    monkeypatch.setattr(api, "_limiter", lambda: _Limiter())
+    from src.api import rate_limit
+
+    monkeypatch.setattr(rate_limit, "reset_for_tests", lambda: resets.append(2))
+    sent: list[tuple[str, dict]] = []
+
+    class _Res:
+        status_code = 200
+        content = b"{}"
+        text = "{}"
+
+        @staticmethod
+        def json():
+            return {"overall": {"result": "FAIR"}, "teams": [{"rosterId": 1, "result": "FAIR"}]}
+
+    class _Client:
+        def post(self, path, json):
+            sent.append((path, json))
+            return _Res()
+
+    scn = m.Scenario(
+        name="x",
+        shape="worst_case",
+        team_count=2,
+        teams=(1, 2),
+        legs=(("p:1", 1, 2), ("p:2", 2, 1)),
+    )
+    sample = m.make_public_route_runner(_Client(), None, "market_fairness")(scn, True)
+    assert sent == [
+        (
+            m.PUBLIC_ANALYZE_PATH,
+            {
+                "perspectiveRosterId": 1,
+                "teams": [1, 2],
+                "assets": [{"id": "p:1", "from": 1, "to": 2}, {"id": "p:2", "from": 2, "to": 1}],
+            },
+        )
+    ]
+    assert resets == [1, 2]
+    assert sample.info["overall"] == "FAIR"
+
+
+def test_public_runner_refuses_a_non_200_as_a_failed_measurement(monkeypatch):
+    from src.api import public_trade_advisor_api as api
+
+    monkeypatch.setattr(api, "_limiter", lambda: type("L", (), {"reset": lambda self: None})())
+    from src.api import rate_limit
+
+    monkeypatch.setattr(rate_limit, "reset_for_tests", lambda: None)
+
+    class _Res:
+        status_code = 503
+        content = b"{}"
+        text = '{"error":"advisor_unavailable"}'
+
+    class _Client:
+        def post(self, path, json):
+            return _Res()
+
+    scn = m.Scenario(
+        name="x", shape="worst_case", team_count=2, teams=(1, 2), legs=(("p:1", 1, 2),)
+    )
+    with pytest.raises(m.MeasurementFailed):
+        m.make_public_route_runner(_Client(), None, "market_fairness")(scn, False)

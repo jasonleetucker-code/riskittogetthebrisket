@@ -15,6 +15,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ADMISSION_COPY,
   ADVISOR_API,
+  CLIENT_DEADLINE_MS,
+  CLIENT_TIMEOUT_ERROR,
   classifyTeamsResult,
   errorFromResponse,
   fetchAdvisorAssets,
@@ -283,5 +285,116 @@ describe("request hygiene", () => {
     stubFetch([[503, fixture("error.disabled")]]);
     const r = await fetchAdvisorTeams();
     expect(r).toMatchObject({ ok: false, state: "disabled" });
+  });
+});
+
+// E4-2: a request the server never answers must not leave the page waiting
+// forever.  The deadline produces the SAME retryable `timeout` kind (and the
+// server's fixed wording) the page already renders for the server's own
+// admission timeout; the caller's own abort still throws AbortError.
+describe("client deadlines", () => {
+  afterEach(() => vi.useRealTimers());
+
+  /** A fetch that never answers on its own; it rejects only when aborted. */
+  function hangingFetch() {
+    const calls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (url, init) =>
+          new Promise((_resolve, reject) => {
+            calls.push({ url, init });
+            init.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+          }),
+      ),
+    );
+    return calls;
+  }
+
+  it("declares deadlines longer than the server's own analyze bound", () => {
+    // The server answers a fixed 503 `timeout` after 5 s (analyze_admission.json);
+    // the Python parity test pins the exact relationship.
+    expect(CLIENT_DEADLINE_MS.analyze).toBeGreaterThan(5000);
+    expect(CLIENT_DEADLINE_MS.list).toBeGreaterThan(0);
+    expect(Object.isFrozen(CLIENT_DEADLINE_MS)).toBe(true);
+    expect(CLIENT_TIMEOUT_ERROR).toEqual({ kind: "timeout", retryable: true, message: ADMISSION_COPY.timeout });
+  });
+
+  it("an unanswered analyze resolves to the retryable timeout error at the deadline", async () => {
+    vi.useFakeTimers();
+    const calls = hangingFetch();
+    const pending = postAdvisorAnalyze({ perspectiveRosterId: 1, teams: [1, 2], assets: [] });
+    await vi.advanceTimersByTimeAsync(CLIENT_DEADLINE_MS.analyze - 1);
+    let settled = false;
+    pending.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    const r = await pending;
+    expect(r).toEqual({ ok: false, status: 0, error: CLIENT_TIMEOUT_ERROR });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].init.credentials).toBe("omit");
+  });
+
+  it.each([
+    ["teams", () => fetchAdvisorTeams()],
+    ["assets", () => fetchAdvisorAssets(1)],
+  ])("an unanswered %s list read times out at the list deadline", async (_name, call) => {
+    vi.useFakeTimers();
+    hangingFetch();
+    const pending = call();
+    await vi.advanceTimersByTimeAsync(CLIENT_DEADLINE_MS.list);
+    const r = await pending;
+    expect(r.ok).toBe(false);
+    expect(r.error).toEqual(CLIENT_TIMEOUT_ERROR);
+  });
+
+  it("the caller's own abort still throws AbortError, never a timeout", async () => {
+    vi.useFakeTimers();
+    hangingFetch();
+    const controller = new AbortController();
+    const pending = postAdvisorAnalyze({ teams: [1, 2] }, { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    // An already-aborted signal never starts a request.
+    const calls = hangingFetch();
+    await expect(postAdvisorAnalyze({}, { signal: controller.signal })).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("the transient retry shares the one deadline", async () => {
+    vi.useFakeTimers();
+    const calls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url, init) => {
+        calls.push(init);
+        if (calls.length === 1) {
+          return Promise.resolve(new Response("{}", { status: 504 }));
+        }
+        return new Promise((_resolve, reject) => {
+          init.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+        });
+      }),
+    );
+    const pending = postAdvisorAnalyze({ teams: [1, 2] });
+    await vi.advanceTimersByTimeAsync(CLIENT_DEADLINE_MS.analyze);
+    expect((await pending).error).toEqual(CLIENT_TIMEOUT_ERROR);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("a prompt answer clears the deadline (no stray timer, normal result)", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(fixture("analyze.not-fair-two-team")), { status: 200 })),
+    );
+    const r = await postAdvisorAnalyze({ teams: [1, 2] });
+    expect(r.ok).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
