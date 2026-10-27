@@ -24,14 +24,14 @@ Everything in directive §15 is owner-reserved. It extends, and must reconcile w
 
 | # | Owner instruction | Status |
 |---|---|---|
-| IDPM-1 | Phase 0 current-state reconciliation: deploy SHA, authoritative owners, open PRs and claims, research gaps, dependency graph, research plan | DONE — the coordinator's plan of 2026-10-26 (reuse map in the directive's §3/§6 owners) |
-| IDPM-2 | Phase 1 own-league trade and draft census over the full `previous_league_id` chain (Deliverable A + the draft census). Point-in-time prices only, with structured missing reasons and anonymized aggregates. **Owner answer:** public Sleeper API, run locally | IN PROGRESS — Lane A |
+| IDPM-1 | Phase 0 current-state reconciliation: deploy SHA, authoritative owners, open PRs and claims, research gaps, dependency graph, research plan | DONE — recorded in this intake section, the `docs/EXECUTION_PLAN.md` 2026-10-26 entry (owners to reuse) and the census work claim; the full plan is not committed |
+| IDPM-2 | Phase 1 own-league trade and draft census over the full `previous_league_id` chain (Deliverable A + the draft census). Point-in-time prices only, with structured missing reasons and anonymized aggregates. **Owner answer:** public Sleeper API, run locally | IN PROGRESS — market Lane A (own-league census) |
 | IDPM-3 | Trades before `HISTORY_FLOOR` (2026-07-14) have no at-the-time price. **Owner answer:** survey licensed or public historical archives of IDPTC, KTC and similar values, terms honored, no paid data, nothing ingested until the owner approves a specific source | IN PROGRESS — survey |
 | IDPM-4 | Market hypotheses H1–H7 (Deliverable B): preregistered before any model is fitted; H7 "insufficient" is an allowed outcome | PENDING — gated on IDPM-2 |
 | IDPM-5 | Non-voting league market price layer, shadow only, abstains on thin evidence; acquisition and sale ranges kept separate; never zero for missing (§5) | PENDING — gated on IDPM-4 |
 | IDPM-6 | Team-specific acquisition intelligence (Deliverable C): whole-roster opportunity cost; acquisition-price bands, not false-precision maxima; alternatives evaluated in the same team context; one verdict owner (`trade_decision.decide`) | PENDING — shadow |
 | IDPM-7 | Selling and negotiation intelligence, shadow only (§7) | PENDING — shadow |
-| IDPM-8 | Rookie, startup and auction research (Deliverable D): actual league draft evidence; The IDP Show combined rookie ADP as a candidate; no trade points used as auction dollars | PENDING — Lane E |
+| IDPM-8 | Rookie, startup and auction research (Deliverable D): actual league draft evidence; The IDP Show combined rookie ADP as a candidate; no trade points used as auction dollars | PENDING — market Lane E (draft and auction) |
 | IDPM-9 | Continue the IDP accuracy questions (§9), including the 17-game re-run (preregistered first) and per-family correction methods | PENDING — owner items still open (IDPV/H §3) |
 | IDPM-10 | Calibration constraint (§10): championship-probability changes may not justify premiums while the sim is uncalibrated (sim v1/v2 both fail) | RECORDED — binding constraint |
 | IDPM-11 | Owner-reserved (§15): canonical IDP values, voting/weights, market anchor, replacement or fair-value promotion, public fairness, package math, rule table, flag activation, scoring cards, any model touching live verdicts | RECORDED — binding boundary |
