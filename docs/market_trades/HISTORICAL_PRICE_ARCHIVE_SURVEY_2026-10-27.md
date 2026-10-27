@@ -4,10 +4,11 @@
 code, config, ledger, value, vote or flag changed. Every verdict below is a recommendation for the owner. None of
 it authorizes ingestion.
 
-Authority: owner directive IDPM-3 (`docs/OWNER_REQUESTED_TODO.md`, on branch `claude/idp-market-directive-intake`).
+Authority: owner directive IDPM-3 (`docs/OWNER_REQUESTED_TODO.md` on `main`, row IDPM-3).
 The owner's answer was: "survey licensed or public historical archives of IDPTC, KTC and similar values, terms
 honored, no paid data, nothing ingested until the owner approves a specific source". The work claim is in
-`docs/WORK_CLAIMS.md` (IDPM-2 / IDPM-3).
+`docs/WORK_CLAIMS.md` (IDPM-2 / IDPM-3). That claim row lists branch `claude/idp-market-census`; this survey is on
+`claude/price-archive-survey`. That is intended: the one claim covers both deliverables.
 
 Agent-OS-Receipt: 47a8b19fff9d06da9b1a651aab5fb92f1e16d5f6
 
@@ -15,8 +16,10 @@ Agent-OS-Receipt: 47a8b19fff9d06da9b1a651aab5fb92f1e16d5f6
 
 **The most important finding is in this repo, not on the web.** `HISTORY_FLOOR = 2026-07-14` was set because
 `exports/archive/` starts on that day. But **git history already holds dated vendor snapshots back to 2026-03-09**,
-which is about four months earlier. They are in `exports/latest/site_raw/*.csv`, which was renamed to
-`CSVs/site_raw/*.csv` around 2026-04-16, and in 112 dated `exports/latest/dynasty_data_YYYY-MM-DD.json` files.
+which is about four months earlier. They are in `exports/latest/site_raw/*.csv` (from 2026-03-09) and
+`CSVs/site_raw/*.csv` (from 2026-04-16). Since 2026-04-16 the two paths have been written in parallel, often in the
+same commit, and the old path still updates. They are also in 112 dated `exports/latest/dynasty_data_YYYY-MM-DD.json`
+files from 2026-03-25 to 2026-07-14: 111 before the floor, and one (2026-07-14) on it.
 
 - **What this contradicts.** `docs/history/C1_U4_TEMPORAL_LEDGER.md` §6 calls the floor "permanent", and says
   "a pre-boundary row could only be fabricated". For 2026-03-09 to 2026-07-13 that is not true.
@@ -47,7 +50,8 @@ Each one is blocked by the publisher's terms:
 
 None of these is usable without written permission.
 
-**The only terms-clean public historical dataset found** is DynastyProcess `dynastyprocess/data`, licensed GPL-3.0.
+**The only open public historical dataset found** is DynastyProcess `dynastyprocess/data`. It is GPL-3.0 licensed;
+the upstream FantasyPros terms on republished ECR were not reviewed (UNKNOWN), so it is not shown to be terms-clean.
 - It holds weekly offense and pick values plus weekly FantasyPros dynasty ECR ranks, including IDP, through 2024
   to 2026.
 - Those are FantasyPros-expert-derived ranks and values, **not trade-market prices**.
@@ -60,14 +64,14 @@ None of these is usable without written permission.
 |---|---|---|---|---|---|---|---|---|---|
 | R1 | Repo git history of vendor CSVs and dated JSON exports | repo history | no (repo starts 2026-03-09) | **yes** (KTC 114 d, IDPTC 19 d, FC 80 d, DD 89 d, DraftSharks IDP 79 d, ...) | **yes** (IDPTC, DLF IDP, DraftSharks IDP, IDP Show) | **yes** (KTC; IDPTC from 04-09) | **yes** | already collected under the same posture as live production (see §4) | **USABLE_PENDING_APPROVAL** |
 | V1 | KTC player-page value history | vendor | yes (daily from 2020) | yes | no | not found | probably; needs validation (§3.2) | ToS forbids automated collection and reuse; robots disallows `/dynasty-rankings/histories` | **NOT_USABLE** without a KTC licence |
-| V2 | KTC rankings page in the Wayback Machine | web archive | yes, sparse (4–19 days/month) | yes, sparse | no | yes (36 RDP rows) | yes | KTC ToS plus IA "scholarship and research purposes only" | **NOT_USABLE** for production; PARTIAL for private validation only, if the owner says so |
+| V2 | KTC rankings page in the Wayback Machine | web archive | yes, sparse (4–19 days/month) | yes, sparse | no | yes (36 RDP rows) | yes | KTC ToS plus IA "scholarship and research purposes only" | **NOT_USABLE** for production; PARTIAL for private validation only, if the owner allows it (D6) |
 | V3 | Dynasty Daddy per-asset history `/api/v1/player/{name_id}` | vendor (aggregator) | yes (picks from 2024-08-31, players from 2021) | yes | no | **yes** | probably | ToS forbids "automated data scraping"; the endpoint is undocumented (only `/values/dynasty` and `/values/redraft` are documented); the KTC columns relay KTC data | **NOT_USABLE** without written permission |
-| V4 | FantasyCalc `/trades/historical/{id}` | vendor | **no**: the probe returned 2026-01-01 onward only | partly | no | unknown | the history ignores `numTeams` / `ppr`, so it is not our league's value | ToS: only `/values/current` without written permission | **NOT_USABLE** without written permission |
+| V4 | FantasyCalc `/trades/historical/{id}` | vendor | **no**: the probe returned 2026-01-01 onward only | partly | no | unknown | the history ignores `numTeams` / `ppr`, so it is not our league's value | ToS: only `/values/current` without written permission; no "material substitute" for its trade calculator | **NOT_USABLE** without written permission |
 | V5 | IDP Trade Calculator | vendor | no | no (outside repo history) | n/a | n/a | n/a | generic ToS, no data clause; robots allows all | **NOT_USABLE**: no history exists to retrieve |
 | V6 | IDPTC in the Wayback Machine | web archive | 9 archived days in total, 2024-12 to 2026-02 | no | no values | no values | n/a | values are client-side, absent from snapshots | **NOT_USABLE** |
 | V7 | DLF, DraftSharks, The IDP Show archives | vendor | behind paid subscription | (repo history: yes) | yes | DLF values only | n/a | paid | **NOT_USABLE** (paid); their pre-floor history is reachable only through R1 |
-| O1 | DynastyProcess `values-players.csv` / `values-picks.csv` git history | open dataset | yes, weekly (52 / 50 / 36 commits in 2024 / 2025 / 2026) | yes, weekly | **no** | **yes** | yes (`scrape_date`) | GPL-3.0 repo; the FantasyPros upstream terms were not reviewed | **PARTIAL**: a different quantity (ECR-derived value), offense and picks only |
-| O2 | DynastyProcess `db_fpecr` (FantasyPros dynasty ECR, includes `dynasty-idp/dl/lb/db`) | open dataset | yes, weekly | yes | **yes (ranks)** | no | yes (`scrape_date`) | as O1 | **PARTIAL**: ranks, not prices; same lineage as `fantasyPros*` sources |
+| O1 | DynastyProcess `values-players.csv` / `values-picks.csv` git history | open dataset | yes, weekly (52 / 50 / 36 commits in 2024 / 2025 / 2026) | yes, weekly | **no** | **yes** | yes (`scrape_date`) | GPL-3.0 licensed; upstream FantasyPros terms on republished ECR not reviewed (UNKNOWN) | **PARTIAL**: a different quantity (ECR-derived value), offense and picks only |
+| O2 | DynastyProcess `db_fpecr` (FantasyPros dynasty ECR, includes `dynasty-idp/dl/lb/db`) | open dataset | yes, weekly | yes | **yes (ranks)** | no | yes (`scrape_date`) | as O1: GPL-3.0 licensed; upstream FantasyPros terms on republished ECR not reviewed (UNKNOWN) | **PARTIAL**: ranks, not prices; same lineage as `fantasyPros*` sources |
 | O3 | DynastyProcess `db_playerids.csv` | open dataset | n/a | n/a | yes | n/a | n/a | GPL-3.0 | **USABLE_PENDING_APPROVAL** as an identity bridge only (has `ktc_id`, `fantasypros_id`, `sleeper_id`) |
 | O4 | nflverse | open dataset | — | — | — | — | — | — | **NOT_USABLE**: no trade values; its ff tables are DynastyProcess mirrors (O2/O3) |
 | O5 | Kaggle and GitHub "KTC archive" repos | open dataset | none found | — | — | — | — | GitHub hits were single-snapshot scrapers with no licence (`hassanjavedxoxo/keeptradecut-player-data`, `ees4/KeepTradeCut-Scraper`, `seh363/...`); Kaggle search was not verifiable without login | **NOT_USABLE / UNKNOWN**: no archive found |
@@ -76,10 +80,12 @@ None of these is usable without written permission.
 
 ### 3.1 R1: this repo's own git history (the headline)
 
-**Paths.** Before about 2026-04-16 the vendor CSVs lived at `exports/latest/site_raw/<source>.csv`; after the
-rename they live at `CSVs/site_raw/<source>.csv`. Use `git log --follow`, or query both paths, to see the whole
-series. Separately, `exports/latest/dynasty_data_YYYY-MM-DD.json` exists for **112 dates from 2026-03-25 to
-2026-07-14**.
+**Paths.** From 2026-03-09 the vendor CSVs are at `exports/latest/site_raw/<source>.csv`. From 2026-04-16 they are
+also at `CSVs/site_raw/<source>.csv`. This is not a rename: the two paths have been written in parallel since
+2026-04-16, often in the same commit, and the old path is still updated today. Query both paths to see the whole
+series. The day counts below use the union of both paths, so the parallel writing does not change them.
+Separately, `exports/latest/dynasty_data_YYYY-MM-DD.json` exists for **112 dates from 2026-03-25 to 2026-07-14**:
+111 before the floor, and 2026-07-14 on it.
 - Each file carries per-player, per-source values and the joined `_sleeperId`.
 - Each carries the `sleeper` block, including `trades`.
 - Top-level keys are `version`, `date`, `scrapeTimestamp`, `sites`, `pickAnchors`, `players`, `sleeper`, and others.
@@ -121,6 +127,12 @@ force, which is the `nearest-prior` fidelity.
 **Lineage.** Lineage is the same as for the live sources: KTC base and TE++ are one provider; Dynasty Daddy
 relays others.
 
+**R1's KTC rows already have a fixed role.** R1's `ktc` and `ktcSfTep` are the keys `src/sources/ktc_market.py`
+names `KTC_HISTORICAL_MARKET_KEYS`. Its rule, quoted exactly: "Pre-2026-09-08 KTC boards. Both are Crowd-only
+captures. Readable ONLY as the historical stand-in for the market on as-of replays that predate the three-mode
+capture — never a live fallback, never a vote." So a backfill under D1 could carry them only in that role, and a
+KTC-only comparison under D2(c) would be a comparison against that Crowd-only stand-in for KTC Market, named as such.
+
 **What a backfill could and could not provide.**
 - It could provide the `source_value` lane: vendor-published numbers.
 - It could not provide `canonical_board` values. The pipeline never ran on those dates, and replaying today's
@@ -154,10 +166,18 @@ relays others.
 | 2026-07-13 | 5211 | 5223 | 0.2% |
 
 Josh Allen was 9997 against 9994 on 2026-04-16, but 9987 against 9999 on 2026-07-13. The residual is plausibly
-intraday or timezone, and is not proven. **Lineage trap:** before KTC Trades launched (about mid-2026),
-`vftValueHistory` and `blendValueHistory` equal `overallValue` exactly. KTC back-filled Trades history with Crowd
-values. Those pre-launch "Trades" points are not independent evidence and must never be counted as a second KTC
-vote.
+intraday or timezone, and is not proven. R1 itself holds several intraday versions per day (see D1).
+
+**Lineage traps.**
+- `blendValueHistory` is KTC Market: the quantity our registry carries as `ktcCrowdTradesSfTep` (that key is the
+  TE++ board; the page arrays seen are base SF). Its one owner is `src/sources/ktc_market.py`, and it is a
+  benchmark only, never a vote. A history of it is a history of the benchmark, not of a voting input.
+- In the earlier part of the histories checked, `vftValueHistory` and `blendValueHistory` equal `overallValue`
+  exactly, so KTC appears to have back-filled Trades history with Crowd values. Those points are not independent
+  evidence and must never be counted as a second KTC vote. The date where the series diverge was not recorded in
+  this survey. The only related date the repo records is our own three-mode capture start, 2026-09-08 (see
+  `KTC_HISTORICAL_MARKET_KEYS` in §3.1).
+- Both points bear directly on D1 and D2(c).
 
 **Terms.** Quoted from `https://keeptradecut.com/terms-and-conditions`:
 - "Prohibited Activities: ... Any form of automated data collection, including but not limited to: Web scraping
@@ -195,7 +215,7 @@ variants. **So one snapshot is a complete multi-format board**, and it is genuin
 **Verdict:**
 - NOT_USABLE for production values.
 - At most PARTIAL as a private, never-served validation set, for example to measure how well a reconstruction
-  matches, and only if the owner rules that this is research use.
+  matches, and only if the owner rules that this is research use (D6).
 
 ### 3.4 V3: Dynasty Daddy
 
@@ -248,14 +268,18 @@ columns.
 | 2026-06-01 | 3418 | 3639 |
 | 2026-07-13 | 3292 | 3330 |
 
-A public client library documents that trend and history requests ignore `numTeams` / `ppr`, so this is not the
-league-parameterised value we collect.
+An earlier draft of this survey said "a public client library" documents that trend and history requests ignore
+`numTeams` / `ppr`. The library is not named in this survey's evidence, so that explanation is
+**UNVERIFIED**. What is observed is the mismatch above: the history is not the league-parameterised value we
+collect.
 
 **Terms.** `https://fantasycalc.com/terms-of-usage` (effective 2026-10-10):
 - "Only GET /values/current may be called programmatically without separate written permission. Website scraping
   is prohibited."
 - Sites at or above 1,000 monthly active users need "express written permission".
 - Attribution is required on every page displaying the data.
+- The data may not be used to create a "material substitute" for FantasyCalc's trade calculator. Only that phrase
+  is quoted; the independent review of this survey confirmed the clause on the terms page.
 
 **Identity.** Easy: rows carry `sleeperId`.
 
@@ -321,7 +345,10 @@ and R1 is that same collection's history. KTC's terms read today forbid "any for
 FantasyCalc's terms (effective 2026-10-10) require:
 - prominent attribution with a link on every page that displays FantasyCalc data or derivatives;
 - 3-hour caching;
-- written permission at or above 1,000 monthly active users.
+- written permission at or above 1,000 monthly active users;
+- no use of the data to create a "material substitute" for FantasyCalc's trade calculator (only that phrase is
+  quoted here; the independent review confirmed the clause on the terms page). The site serves its own trade
+  calculator, so this clause bears on the live posture, not only on history.
 
 This survey takes no position on whether the live posture complies. It notes only that **approving R1 is not a new
 category of exposure, but it is not a cleaner one either**. The owner may want D1 decided together with that
@@ -329,11 +356,18 @@ broader question.
 
 ## 5. Owner decisions needed
 
-- **D1: approve R1 as a source.** May the repo's own git history of tracked vendor CSVs, and the dated
-  `dynasty_data_*.json` exports (2026-03-09 to 2026-07-13), be backfilled into `src/history` as `source_value`
-  observations? If yes, this needs:
+- **D1: approve R1 as a source.** May the repo's own git history of tracked vendor CSVs (from 2026-03-09) and the
+  dated `dynasty_data_*.json` exports (from 2026-03-25), both up to 2026-07-13, be backfilled into `src/history` as
+  `source_value` observations? If yes, this needs:
   - a change to the "permanent" `HISTORY_FLOOR` record, which a separate authorized unit would make;
-  - a rule for what timestamp counts as observation time (`scrapeTimestamp` where present, else commit time);
+  - a rule for what timestamp counts as observation time (`scrapeTimestamp` where present, else commit time).
+    One calendar day can hold several intraday versions, so the rule must also choose a version, for example the
+    last commit before a stated cutoff. Example: Rome Odunze in `ktc.csv` ranges 5509 to 5558 across the 10
+    commits dated 2026-04-16 UTC. The review measured 5493 to 5558, because it also counted a commit at
+    2026-04-17 03:59 UTC, which is still 2026-04-16 in US time zones. That gap is itself why the cutoff and its
+    time zone must be fixed;
+  - KTC rows only in the role `src/sources/ktc_market.py` already gives `KTC_HISTORICAL_MARKET_KEYS`: a Crowd-only
+    historical stand-in for the market on as-of replays, never a vote (§3.1);
   - for each source family, a statement of whether reusing that history is within the posture the owner already
     accepts for live collection. KTC and the paid DLF, DraftSharks and IDP Show subscriptions are the sensitive
     ones.
@@ -343,19 +377,26 @@ broader question.
   - (b) authorize designing a labelled `reconstructed` lane under the existing champion-versus-challenger and
     backtest gates;
   - (c) allow a per-source at-the-time comparison, for example KTC-only, clearly named as such. This is not the
-    canonical grade.
+    canonical grade. Before 2026-09-08 a KTC-only figure is the Crowd-only historical stand-in for KTC Market,
+    not KTC Market itself, and must be labelled that way (§3.1, §3.2).
 - **D3: permission requests.** Should anyone ask KTC, FantasyCalc or Dynasty Daddy for written permission to use
-  2024 to 2026 history (V1, V3, V4)? Without it, all three stay NOT_USABLE. The default is no, because the
-  directive says no paid data, and a licence may cost money.
+  2024 to 2026 history (V1, V3, V4)? Without it, all three stay NOT_USABLE.
+  - Default if the owner does not decide: no request is made.
+  - If a request is made and the publisher asks for payment, that is a separate decision, because the directive
+    excludes paid data.
 - **D4: IDP before March 2026.** Accept that no IDP trade-value history exists for 2024 to early 2026, which
   leaves IDP legs of those trades permanently `unavailable`. Or authorize evaluating DynastyProcess's FantasyPros
   dynasty-IDP ECR ranks (O2) as an explicitly named, rank-only, non-market fallback.
 - **D5: DynastyProcess identity bridge (O3).** Approve or decline use of `db_playerids.csv`, licensed GPL-3.0, for
   KTC-id or FantasyPros-id to Sleeper-id mapping, if any of the above is approved.
+- **D6: Wayback snapshots as a private research set (V2).** May archived KTC snapshots from the Internet Archive be
+  used as a private, never-served, research-only validation set, for example to measure a reconstruction under
+  D2(b)? V2's PARTIAL verdict assumes a yes that no other decision here asks for. Default if the owner does not
+  decide: not used.
 
 ## 6. Method and footprint
 
-Every network read was a single polite request made by hand, used only to judge feasibility.
+Every network read was an agent tool call making a single request, used only to judge feasibility.
 
 | Read | Requests |
 |---|---|
@@ -370,9 +411,19 @@ Every network read was a single polite request made by hand, used only to judge 
 | Wayback CDX queries | about 10 |
 | GitHub API, DynastyProcess metadata and file headers | metadata and headers only |
 
-- **The FantasyCalc probe came before its terms were read.** The FantasyCalc history probe was made before the
-  terms page (client-rendered) was read. That page restricts programmatic access to `/values/current`. **No further
-  FantasyCalc history calls were made after that.**
+- **Probes against terms that prohibit automated collection.** Agent tool calls are automated requests. These
+  probes were made against publishers whose terms forbid automated collection, and they sit in the same tension
+  as each other:
+
+  | probe | requests | terms clause | terms read before or after the probe |
+  |---|---|---|---|
+  | KTC player pages | 2 (plus 1 that returned 404) | KTC: "any form of automated data collection" | not recorded |
+  | archived KTC rankings snapshot (Wayback) | 1 | KTC, as above, applies to KTC data however obtained | not recorded |
+  | Dynasty Daddy per-asset history `/api/v1/player/{name_id}` (undocumented) | 1 | Dynasty Daddy: "automated data scraping" | not recorded |
+  | FantasyCalc `/trades/historical/{id}` | 1 | FantasyCalc: only `GET /values/current` programmatically without written permission | **after**: the terms page is client-rendered and was read later. No further FantasyCalc history calls were made after it was read |
+
+  Each was a single feasibility request, but that does not take it outside the clause. The owner should treat all
+  four the same way.
 - **Probe files never reached the repo.** Fetched bodies went only to the session's scratchpad, never to the repo
   or `data/`. Nothing is committed but this document.
 - **Not verified:**
