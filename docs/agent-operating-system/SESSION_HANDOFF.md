@@ -59,9 +59,9 @@ counts toward the four.
 | #1997 | 04185392d | DraftSharks ROS IDP rank-basis split + report-only guard | APPROVE + delta | pending | new `draftSharksRosIdp` voter (ROS lane) |
 | #1998 | 4e85c5cb2 | G2 IDP source-integrity shadow evaluation (6 of 8 B-gates pass, 7 defects) | APPROVE + delta | pending | FP freshness rule, IDP universe rule, V2.1-sealed boards |
 | #1999 | f0b5be7d8 | perf: presim eligibility reuse (~5x, byte-identical) + /league tab preload | APPROVE | pending | — |
-| #2001 | c720bf5b0 | G2-D2 Tuimoloau alias + G2-D3 excludes_rookies flags (served-value change) | in review | pending | release of value changes |
+| #2001 | c720bf5b0 | G2-D2 Tuimoloau alias + G2-D3 excludes_rookies flags (served-value change) | APPROVE | pending | release of value changes |
 | #2002 | a353327af | pick-refinement live-rank gate (IDP-degraded rows, catastrophic floor) | APPROVE + delta | pending | — |
-| #2003 | 6f4ede95b | [HOLD] DEFECT-02 manual TEP override withdrawal | in review | pending | withdraw the override (yes/no) |
+| #2003 | 6f4ede95b | [HOLD] DEFECT-02 manual TEP override withdrawal | APPROVE | pending | withdraw the override (yes/no) |
 
 ## Integration order (when merge mode resumes; do not run it before)
 1. **#1988:** census flake, which unblocks every other PR's CI and production deploys.
