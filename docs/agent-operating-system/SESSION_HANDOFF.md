@@ -29,11 +29,12 @@ need an explicit owner decision.
 
 ## Production
 - **Live:** `a9b0ac920`, carrying every merge through #1980; `/api/health` returns 200 and ok.
-- **In flight:** deploy run `bf8eb5ffc` (it includes #1983), with `0c4a6f0aa` (#1978) queued behind it.
-- **To verify once `0c4a6f0aa` or later is live:**
-  - `/api/health` and `/api/status` `backup_health` are `backup-health.v3`, with `filesystemPaths: "withheld"` and no
+- **In flight:** deploy run `bf8eb5ffc` (it includes #1983; running since 01:43Z, so check it is not stuck), with
+  `0c4a6f0aa` (#1978) queued behind it.
+- **To verify:**
+  - once `bf8eb5ffc` or later is live: `/api/health` and `/api/status` `backup_health` are `backup-health.v3`, with `filesystemPaths: "withheld"` and no
     path-like value;
-  - the pregame-archive alerts behave as #1978 describes.
+  - once `0c4a6f0aa` or later is live: the pregame-archive alerts behave as #1978 describes.
 - **NFL Team filter (#1966):** in the live build, not yet seen in a signed-in browser.
 
 ## Merged 2026-10-26..27 (56 PRs)
@@ -57,7 +58,7 @@ Other open PRs exist (#1921 Codex MCP, #1884, #1873, #1852, #1755, #1513, Depend
 ## Census and survey results (IDP market directive, Phase 1)
 **#1985 census:**
 - **Seasons:** 3, all from public Sleeper: 2024 and 2025 with 10 teams, 2026 with 12. 2024 and 2025 differ from today's
-  format on 9 settings.
+  format on 9 format axes.
 - **Trades:**
   - 233 completed (29 / 124 / 80); 54 involve IDP (DL 23, LB 34, DB 24 — a trade can involve several);
   - 26 offense-for-IDP and 8 IDP-for-IDP;
@@ -69,7 +70,7 @@ Other open PRs exist (#1921 Codex MCP, #1884, #1873, #1852, #1755, #1513, Depend
   - traded picks are unpriced, because Sleeper records them only by season and round.
 - **Reading:** H7 ("sample insufficient") is a real possibility.
 - **Drafts:** IDP share is 27.5% in the 2024 startup, 34% in the 2024 rookie draft, 28.6% in the 2025 rookie draft and
-  48.8% in the 2026 auction ($242 of the $1,129 total).
+  48.8% of picks in the 2026 auction (by dollars: $242 of the $1,131 spent, 21.4%; $1,129 excluding kickers).
 - **Pick mismatches:**
   - 2024: 0 after the per-draft replay fix.
   - 2025 round 2 and the round-6/7 pairs: "unexplained by the data fetched" (possibly draft-round or order edits).
@@ -77,7 +78,8 @@ Other open PRs exist (#1921 Codex MCP, #1884, #1873, #1852, #1755, #1513, Depend
 **#1986 archive survey (merged):**
 - The repo's own git history holds dated vendor snapshots from **2026-03-09**, four months before the floor. That
   includes 19 days of IDPTC, which exists nowhere else.
-- Every external archive is excluded by its terms or by cost.
+- Every price archive is blocked by its terms or by cost. The only open dataset (DynastyProcess, GPL-3.0) holds expert
+  ranks, not trade prices, and its upstream FantasyPros terms are unreviewed.
 - The survey's probes against no-automation terms (KTC, Dynasty Daddy, FantasyCalc) are disclosed in it.
 
 ## Owner decisions pending
@@ -88,8 +90,8 @@ Other open PRs exist (#1921 Codex MCP, #1884, #1873, #1852, #1755, #1513, Depend
   - D4: IDP before March;
   - D5: the DynastyProcess id map;
   - D6: Wayback as private research data.
-  - The live pipeline's KTC scraping and FantasyCalc use already conflict with those vendors' current terms; decide D1
-    alongside that.
+  - FantasyCalc's current terms bear on the live pipeline's posture; the survey takes no position on compliance. Decide
+    D1 alongside that question.
 - **#1985 history.** Commit `c95390a98` holds a re-identifiable per-team table and stays reachable through
   `refs/pull/1985/head` in this public repo. Removing it needs an owner-approved history rewrite.
 - **Phase 2 (IDPM-4).** The preregistration for H1–H7 is to be drafted from the census numbers. No model is fitted
@@ -142,7 +144,7 @@ Other open PRs exist (#1921 Codex MCP, #1884, #1873, #1852, #1755, #1513, Depend
   `c95390a98` into `main`. The merge helper uses `--squash`.
 - **Flaky public-endpoint tests.** Any test making many public calls must patch `rate_limit.should_rate_limit`
   (pattern in `tests/parity/surface_harness.py`).
-- **Disk:** about 93 GB free (81% of 476 GB), after removing 28 merged worktrees on 2026-10-26.
+- **Disk:** about 93 GB free (81% of 476 GB), after the 2026-10-26 cleanup of merged, clean, pushed worktrees.
 - **Git:** never `git stash`; commit explicit paths only; never junction `node_modules`.
 - **Squash merges break PR-branch commit pins.** Pin blob ids, not commit SHAs (see #1964).
 - **Deploys:** only the newest pending run in the `production-deploy` group survives. Confirm what is live with
