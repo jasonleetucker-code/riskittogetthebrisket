@@ -7725,11 +7725,18 @@ async def post_waiver_advisor(request: Request):
     )
     inputs = await _waiver_engine_inputs(league_cfg, req["teamOwnerId"])
     if inputs["input_error"] is not None:
+        # The exception text stays in the server log; the response carries a
+        # stable code only.
+        logging.error(
+            "Waiver Advisor: league settings unreadable for %s: %r",
+            league_cfg.key,
+            inputs["input_error"],
+        )
         return JSONResponse(
             status_code=503,
             content={
                 "error": "waiver_advisor_unavailable",
-                "message": f"league settings unreadable: {inputs['input_error']}",
+                "reason": "league_settings_unreadable",
                 "leagueKey": league_cfg.key,
             },
         )

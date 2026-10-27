@@ -48,6 +48,12 @@ _POSITIONS = {
     "Bench WR": "WR",
     "Deep WR": "WR",
     "Other QB": "QB",
+    # Free agents: the live position map carries free agents too (266 of 276
+    # on the 2026-10-25 board), and the advisor reads only it.
+    "Free TE": "TE",
+    "Free WR": "WR",
+    "Nobody Knows": "WR",
+    "Free LB": "LB",
 }
 
 
@@ -273,8 +279,24 @@ def test_free_agent_eligibility_comes_from_the_lineup_owners_source():
     lb = _by_name(_assemble(contract))["Free LB"]["lineup"]
     assert lb["state"] == "evaluated"
     assert lb["entersOptimalLineup"] is True and lb["slot"] == "TE"
-    # The board row alone (no owner maps) keeps it out, as before.
+    # The owner's LB position alone keeps it out, as before.
     assert _by_name(_assemble())["Free LB"]["lineup"]["entersOptimalLineup"] is False
+
+
+def test_free_agent_missing_from_the_position_map_is_unknown_not_the_board_rows():
+    """No board-row fallback: a free agent the owner's position map does not
+    carry has an unknown position, so its lineup impact is unavailable with a
+    reason -- even though its board row says ``TE`` and would start."""
+    contract = _contract()
+    del contract["sleeper"]["positions"]["Free TE"]
+    lineup = _by_name(_assemble(contract))["Free TE"]["lineup"]
+    assert lineup == {
+        "state": "unavailable",
+        "reason": "candidate_position_unknown",
+        "objective": lineup["objective"],
+    }
+    # Every other candidate is still evaluated.
+    assert _by_name(_assemble(contract))["Free WR"]["lineup"]["state"] == "evaluated"
 
 
 def test_lineup_unavailable_without_slots_is_stated():

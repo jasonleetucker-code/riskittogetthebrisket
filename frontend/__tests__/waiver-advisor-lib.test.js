@@ -100,6 +100,10 @@ describe("missing is never zero", () => {
       text: "Unknown — starter slots unknown",
       starts: null,
     });
+    expect(lineupText({ state: "unavailable", reason: "candidate_position_unknown" })).toEqual({
+      text: "Unknown — player's position unknown",
+      starts: null,
+    });
     expect(lineupText({ state: "evaluated", entersOptimalLineup: true, slot: "TE" }).text).toBe(
       "Starts (TE)",
     );

@@ -110,6 +110,7 @@ const REASON_LABEL = {
   no_team_context_rival_model_not_run: "no team context — rival model not run",
   starter_slots_unknown: "starter slots unknown",
   team_pool_not_found: "team roster pool not found",
+  candidate_position_unknown: "player's position unknown",
   capacity_context_unavailable: "roster capacity unavailable",
   league_bundle_not_warm: "posture bundle not built yet",
   team_not_in_posture_bundle: "team not in posture bundle",

@@ -343,13 +343,25 @@ class _LineupContext:
         from src.ros.lineup import RosterPlayer, lineup_position  # noqa: PLC0415
 
         fa_id = f"fa:{name}"
+        # The owner's rule, exactly (``contract_roster_pools``): position from
+        # ``sleeper.positions``, eligibility from ``sleeper.fantasyPositions``,
+        # both by name, and NO board-row fallback.  A name the position map
+        # does not carry is an UNKNOWN position: this candidate's lineup
+        # impact is unavailable, never seated by a second rule.  (Measured on
+        # the 2026-10-25 board: 266 of 276 free agents are in the map; the 10
+        # that are not are mostly unsigned / college rookies.)
+        position = str(self.positions.get(name) or "").strip()
+        if not position:
+            return {
+                "state": "unavailable",
+                "reason": "candidate_position_unknown",
+                "objective": LINEUP_OBJECTIVE,
+            }
         fantasy = self.fantasy_positions.get(name)
-        if fantasy is None:
-            fantasy = row.get("fantasyPositions")
         cand = RosterPlayer(
             player_id=fa_id,
             canonical_name=name,
-            position=lineup_position(str(self.positions.get(name) or row.get("position") or "")),
+            position=lineup_position(position),
             ros_value=float(value),
             fantasy_positions=tuple(
                 lineup_position(str(fp))
