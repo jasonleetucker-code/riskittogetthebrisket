@@ -10,7 +10,7 @@ chosen after seeing the data is not a threshold.
   statistical requirements), §11 (backtest safeguards) and §16 (validation and release conditions).
 - **Authorization:** `docs/EXECUTION_PLAN.md`, 2026-10-26 entry, Phase 2: "preregistered market-hypothesis research
   (H1–H7)". Research only.
-- **Product authority:** none. This file fits nothing, votes nothing and changes no served value, vote, weight,
+- **Product authority:** none. This file fits no valuation model, votes nothing and changes no served value, vote, weight,
   anchor, package model, fairness band, verdict or flag. Every §15 item of the directive stays owner-reserved. Every
   artifact this plan could ever produce carries `promotes: false`.
 - **Relation to `chaseTradeMarket`:** a separate, complementary preregistration (§11). It does not edit, contradict
@@ -275,7 +275,7 @@ Every n_min below is a **lower bound under manager clustering** (§4.4).
 | H3 per family DL / LB / DB (F3) | δ_prem | ±δ_prem | σ = 0.28 | — | — | **121 per family** |
 | H4 elite minus non-elite (§6.4) | δ_prem, two-sample | ±δ_prem | σ = 0.28 | 205.9 | 229.5 | **241 per group, 482 total** |
 | H5 manager component (§6.5) | τ = τ_min = 0.0836 | upper bound of τ below τ_min when τ = 0 | one-way random-effects F test, G managers × k appearances, ICC at the threshold ρ_min = 0.081 | (below) | (below) | **G = 12 managers × k = 44 appearances ≈ 264 trades**; G = 11 × 50 ≈ 275; G = 10 × 57 ≈ 285 (below) |
-| H6 components (§6.6) | inherit the triggering hypothesis | — | — | — | — | that hypothesis's n_min **within each compared group** |
+| H6 components (§6.6) | inherit the triggering hypothesis's margin and dispersion | same | same | — | — | re-sized at **F2's** strictest Holm step, 0.05 / 7 ≈ 0.0071 (§7): **129** per compared group for a T3 arm (H3's inputs: n_detect 109.9, n_equiv 122.7), **59** for a T2 arm (H2's inputs: 49.9, 55.7) |
 
 **H5 derivation.** Balanced one-way random effects, G groups (managers) of k appearances. Under ICC ρ,
 F ~ λ · F(G−1, G(k−1)) with λ = 1 + kρ/(1−ρ).
@@ -619,7 +619,9 @@ triggers).** Each recomputes median D on H2's clean 1-for-1 trades, with δ₂ a
 | unavailable | every applicable component unavailable (each reason named) |
 | not_applicable | as in the applicability table |
 
-Each arm must itself meet its trigger's n_min (H3's 121 for T3, H2's 55 for T2) **within each group it compares**.
+Each arm must itself meet its F2-sized floor **within each group it compares**: 129 for a T3 arm and 59 for a T2 arm.
+These are H3's and H2's inputs re-sized at F2's strictest Holm step, 0.05 / 7 ≈ 0.0071 (§4.2, Appendix A), not H3's
+121 and H2's 55, which were sized at F1's 0.01 step.
 
 **Can conclude.** Whether a named mechanism is sufficient to remove an established discrepancy in this sample.
 
@@ -644,7 +646,7 @@ contention timing and collusion are not tested.
 
 | directive §4 item | where it is handled | disposition |
 |---|---|---|
-| robust latent market values | not estimated here; this file fits nothing (§11) | DEFERRED to IDPM-5 and the `chaseTradeMarket` estimand, by design |
+| robust latent market values | not estimated here; this file fits no valuation model (§11) | DEFERRED to IDPM-5 and the `chaseTradeMarket` estimand, by design |
 | hierarchical partial pooling | the exploratory Bayesian arm (§5) | exploratory, never gating |
 | format-matched reference populations | §2.2 | covered |
 | historical price drift | point-in-time pricing (§2.4) and H6c staleness | covered |
@@ -682,7 +684,8 @@ of aggregator. The directive also asks whether `geom_q078_v1` describes accepted
   league's accepted trades.
 - *Cannot conclude.* A value of q. A nonzero slope can come from selection (which consolidation trades get accepted)
   as well as from the aggregator, and the power study showed q is not identified from accepted trades (its §4.4).
-- *Floor.* The same as H3's n_min (121) in independent-trade units, reported with its design effect. Regime A has 10
+- *Floor.* 121 trades, **borrowed from H3's n_min, not derived** for a slope regression. PKG-1 is exploratory and
+  never gating, so no power calculation was done for it. Reported in independent-trade units with its design effect. Regime A has 10
   such trades, so PKG-1 is `unavailable: insufficient_sample` today.
 
 ---
@@ -698,8 +701,9 @@ of aggregator. The directive also asks whether `geom_q078_v1` describes accepted
 - **Holm**, familywise α = 0.05, separately per family, on the bootstrap p-values (§5).
 - **TOST** equivalence uses the same Holm-adjusted α_j.
 - Each family's evaluable set and size **m are fixed by counts alone** in Stage 1 (§12), before any residual exists.
-  §4 sizes every floor at the strictest step, m = 5 for F1, so a smaller evaluable family only makes the floor
-  conservative.
+  §4 sizes every floor at the strictest step of its own family at its maximum size: m = 5 for F1 (α = 0.01) and
+  m = 7 for F2 (α ≈ 0.0071; the H6 floors 129 / 59). A smaller evaluable family only makes those floors conservative.
+  F3 is descriptive and borrows H3's F1-sized 121.
 - Sensitivity arms (§2, §3.3, §9) and the Bayesian arm are outside every family. They are reported, never gating.
 - **One look per hypothesis.** Each hypothesis is evaluated once: at the first scheduled look (§12.3) at which its
   count-only floor is met. Because only counts decide when a test runs, the sequential schedule spends no α.
@@ -944,7 +948,8 @@ coordinator's work claim for the evaluator code.
            "approxTrades": {"G10": 285, "G11": 275, "G12": 264},
            "iccAtThreshold": 0.081, "bindingBranch": "rejected (equivalence)",
            "note": "optimistic; replace by measured-activity simulation at freeze"},
-    "H6": "triggering hypothesis's n_min (H3 121 for T3, H2 55 for T2) within each compared group",
+    "H6": {"perComparedGroup": {"T3": 129, "T2": 59}, "sizedAt": "F2 strictest Holm step 0.05/7"},
+    "PKG1Basis": "borrowed from H3 n_min; not derived for a slope regression (exploratory)",
     "PKG1": 121,
     "planning": {"sigmaLog": 0.28, "sigmaLogDerived": 0.279, "sigmaNonManager": 0.270,
                  "managerEffectCountedTwice": true, "excludesSourcePricingError": true,
@@ -997,7 +1002,7 @@ SIG = 0.28                                             # rounded planning sigma
 
 delta = -math.log(1 - 0.09)                            # fairness_bands_v2 'unfair' cut -> 0.0943
 hl = math.pi / 3
-n_h3 = math.ceil(max(det(SIG, delta), eqv(SIG, delta)) * hl)             # 121 (103.0 / 114.7)
+n_h3 = math.ceil(max(det(SIG, delta), eqv(SIG, delta)) * hl)             # 121 (102.9 / 114.7)
 n_h4_group = math.ceil(2 * max(det(SIG, delta), eqv(SIG, delta)) * hl)   # 241
 # sensitivities: SIG 0.15 -> 35, 0.40 -> 246; the previous 0.27 -> 112
 
@@ -1031,6 +1036,14 @@ first_k = lambda pw, G, rho: next(k for k in range(2, 20000) if pw(G, k, rho) >=
 # rho_simple: detect k = 28 / 30 / 33 / 42, equiv k = 41 / 46 / 52 / 73
 k_h5 = {G: max(first_k(power_h5_detect, G, rho_min), first_k(power_h5_equiv, G, rho_min)) for G in (10, 11, 12)}
 # {10: 57, 11: 50, 12: 44}; approx trades G*k/2 = 285 / 275 / 264
+
+# H6 arms: family F2 holds up to 7 tests, so its strictest Holm step is 0.05 / 7
+a6 = 0.05 / 7                                          # 0.00714
+z2_6, z1_6 = norm.ppf(1 - a6 / 2), norm.ppf(1 - a6)    # 2.6901, 2.4500
+det6 = lambda sd, d: ((z2_6 + zp) * sd / d) ** 2
+eqv6 = lambda sd, d: ((z1_6 + zp2) * sd / d) ** 2
+n_h6_t3 = math.ceil(max(det6(SIG, delta), eqv6(SIG, delta)) * hl)        # 129 (109.9 / 122.7)
+n_h6_t2 = math.ceil(max(det6(1, 0.5), eqv6(1, 0.5)) * hl)                # 59 (49.9 / 55.7)
 ```
 
 ## Appendix B. Method references
