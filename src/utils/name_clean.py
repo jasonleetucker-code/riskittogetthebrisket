@@ -357,6 +357,12 @@ CANONICAL_NAME_ALIASES: dict[str, str] = {
     # pre-2024 name; player renamed Justin → Nnamdi (DL, BAL, 28)
     "robert henry": "rob henry",  # DS/FP "Robert Henry Jr." ↔ pool
     # "Rob Henry" (RB, UTSA UDFA → WAS, age 24 on both sides)
+    # ── 2026-10-27 G2-D2 (PR #1998 RESULTS.md §3) ──────────────────────
+    "jt tuimoloau": "jaylahn tuimoloau",  # IDPTC/DS/idpShow "JT" (his
+    # common name) ↔ Sleeper "Jaylahn" (DL/ED, IND, Sleeper 12594, the
+    # only Tuimoloau in the pool).  The scraper attached IDPTC through
+    # its (initial, last) rung; the contract CSV join is exact-key only,
+    # so Draft Sharks' identical "JT Tuimoloau" never reached the row.
 }
 
 
