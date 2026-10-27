@@ -22,6 +22,13 @@ from pathlib import Path
 
 import pytest
 
+# drives the production backup shell's GNU tar; tar reads C: paths as a remote host on Windows.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32", reason="Linux-only: drives the production backup shell's GNU tar"
+)
+
+
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "deploy" / "backup" / "riskit-state-backup.sh"
 
@@ -84,6 +91,7 @@ def _run_backup_dir(tmp_path: Path, src: Path, label: str = "") -> subprocess.Co
     return subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=60)
 
 
+@_LINUX_ONLY
 def test_a_relabelled_directory_is_still_archived(tmp_path):
     """THE production defect: the label was used as the tar MEMBER.
 
@@ -105,6 +113,7 @@ def test_a_relabelled_directory_is_still_archived(tmp_path):
     assert "history/snapshot_2026-08-11.json" in listing, listing
 
 
+@_LINUX_ONLY
 def test_an_unlabelled_directory_still_uses_its_basename(tmp_path):
     src = tmp_path / "data" / "faab"
     src.mkdir(parents=True)
@@ -116,6 +125,7 @@ def test_an_unlabelled_directory_still_uses_its_basename(tmp_path):
     assert (tmp_path / "dest" / "dirs" / "faab.tar.gz").exists()
 
 
+@_LINUX_ONLY
 def test_a_file_changing_mid_read_warns_but_keeps_the_generation(tmp_path):
     """GNU tar exits 1 for "file changed as we read it" and 2 for a fatal
     error; treating them alike discarded every OTHER artifact because one
@@ -299,6 +309,7 @@ def test_artifact_names_are_unique_within_a_generation():
         names[key] = src
 
 
+@_LINUX_ONLY
 def test_backup_dir_excludes_named_members(tmp_path):
     """The exclusion arguments keep the live database out of the tar and
     leave everything else in it."""

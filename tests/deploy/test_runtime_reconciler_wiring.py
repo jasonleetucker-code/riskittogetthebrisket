@@ -10,9 +10,20 @@ and that sourcing it cannot quietly disarm the caller.
 
 from __future__ import annotations
 
+import sys
 import re
 import subprocess
 from pathlib import Path
+
+import pytest
+
+# sources the production runtime reconciler by POSIX path; Git Bash on Windows mangles the Windows path.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: sources the production runtime reconciler by POSIX path",
+)
+
 
 REPO = Path(__file__).resolve().parents[2]
 DEPLOY = REPO / "deploy" / "deploy.sh"
@@ -148,6 +159,7 @@ class TestSourcingCannotDisarmTheCaller:
         top_level = [ln for ln in code.splitlines() if re.match(r"^set\s+[-+]", ln)]
         assert not top_level, f"global `set` at file scope: {top_level}"
 
+    @_LINUX_ONLY
     def test_the_callers_options_survive_sourcing_and_both_entry_points(self):
         # `[[ -o … ]]`, not `$(set +o | grep …)`: bash runs command
         # substitutions without errexit unless `inherit_errexit` is set,

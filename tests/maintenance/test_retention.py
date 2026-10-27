@@ -9,7 +9,10 @@ match a glob.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
+
+import pytest
 
 from src.maintenance import retention
 from src.maintenance.retention import prune_data_dir
@@ -217,6 +220,10 @@ def test_missing_dirs_are_noops(tmp_path):
     assert report.summary().endswith("nothing to prune")
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="creating a symlink needs SeCreateSymbolicLinkPrivilege on Windows",
+)
 def test_symlink_escape_is_refused(tmp_path):
     _build_tree(tmp_path)
     outside = tmp_path / "OUTSIDE_secret.txt"

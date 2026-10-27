@@ -20,6 +20,7 @@ are real, against a real child process.
 
 from __future__ import annotations
 
+import sys
 import os
 import signal
 import subprocess
@@ -27,6 +28,14 @@ import time
 from pathlib import Path
 
 import pytest
+
+# drives the production FD inventory shell script (systemctl, ss, /proc, POSIX signals); Git Bash on Windows cannot run it faithfully.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: drives the production FD inventory shell script (systemctl, ss, /proc, POSIX signals)",
+)
+
 
 REPO = Path(__file__).resolve().parents[2]
 INVENTORY = REPO / "deploy" / "diagnostics" / "fd_inventory.sh"
@@ -130,12 +139,14 @@ def probe(tmp_path):
 
 
 class TestRequiredEvidenceCannotDegrade:
+    @_LINUX_ONLY
     def test_a_healthy_run_exits_zero(self, probe):
         r = probe()
         assert r.returncode == 0, r.stdout + r.stderr
         assert "fd_inventory complete" in r.stdout
         assert "REQUIRED EVIDENCE MISSING" not in r.stderr
 
+    @_LINUX_ONLY
     def test_a_broken_required_command_fails_the_run(self, probe):
         """`systemctl show` errors — the section did not run."""
         r = probe(IDENTITY_MODE="fail")
@@ -148,6 +159,7 @@ class TestRequiredEvidenceCannotDegrade:
             "fd_inventory complete" not in r.stdout
         ), "the script claimed completion after a required section failed"
 
+    @_LINUX_ONLY
     def test_a_required_command_that_yields_nothing_also_fails(self, probe):
         """Exit status 0 is not evidence.  A probe that ran and printed
         nothing has answered nothing, and that must read the same as a
@@ -157,6 +169,7 @@ class TestRequiredEvidenceCannotDegrade:
         assert r.returncode == 5, r.stdout + r.stderr
         assert "service identity and limits" in r.stderr
 
+    @_LINUX_ONLY
     def test_later_sections_still_run_after_a_required_failure(self, probe):
         """One broken probe must not hide the rest of the evidence; the
         exit status carries the verdict instead of an early abort."""
@@ -189,6 +202,7 @@ class TestAnEmptyResultIsAnAnswerNotAFailure:
     pinned rather than left to the host's tooling.
     """
 
+    @_LINUX_ONLY
     def test_a_process_with_no_sockets_still_completes(self, probe):
         r = probe(SS_MODE="empty")
 
@@ -196,6 +210,7 @@ class TestAnEmptyResultIsAnAnswerNotAFailure:
         assert "no TCP sockets attributed to pid" in r.stdout
         assert "REQUIRED EVIDENCE MISSING" not in r.stderr
 
+    @_LINUX_ONLY
     def test_a_process_with_sockets_reports_their_states_and_peers(self, probe):
         r = probe(SS_MODE="rows")
 
@@ -203,6 +218,7 @@ class TestAnEmptyResultIsAnAnswerNotAFailure:
         assert "CLOSE-WAIT" in r.stdout
         assert "[2606:4700::1]:443" in r.stdout, "CLOSE-WAIT peer addresses are not reported"
 
+    @_LINUX_ONLY
     def test_ss_itself_failing_is_a_required_failure(self, probe):
         """The tool being broken IS 'could not look'."""
         r = probe(SS_MODE="fail")
@@ -210,6 +226,7 @@ class TestAnEmptyResultIsAnAnswerNotAFailure:
         assert r.returncode == 5, r.stdout + r.stderr
         assert "sockets owned by this process" in r.stderr
 
+    @_LINUX_ONLY
     def test_a_failure_reports_its_real_exit_code(self, probe):
         """`$?` read after an `if` compound is the compound's status — 0.
         Reporting every failure as '(exit 0)' is a diagnostic misreading
@@ -220,12 +237,14 @@ class TestAnEmptyResultIsAnAnswerNotAFailure:
 
 
 class TestOptionalEvidenceDegradesExplicitly:
+    @_LINUX_ONLY
     def test_a_failing_optional_probe_does_not_fail_the_run(self, probe):
         r = probe(JOURNAL_MODE="fail")
 
         assert r.returncode == 0, r.stdout + r.stderr
         assert "fd_inventory complete" in r.stdout
 
+    @_LINUX_ONLY
     def test_it_says_so_rather_than_passing_silently(self, probe):
         """'Degrades' means the reader is told, not that the gap is
         invisible."""

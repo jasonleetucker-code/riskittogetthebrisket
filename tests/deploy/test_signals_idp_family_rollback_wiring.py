@@ -9,6 +9,7 @@ and post-verification on the SERVED board.
 
 from __future__ import annotations
 
+import sys
 import json
 import re
 import shutil
@@ -17,6 +18,14 @@ from pathlib import Path
 
 import pytest
 import yaml
+
+# runs the production rollback shell with python3 on PATH; Windows has no python3 shim.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: runs the production rollback shell with python3 on PATH",
+)
+
 
 REPO = Path(__file__).resolve().parents[2]
 ROLLBACK_WF = REPO / ".github" / "workflows" / "signals-idp-family-rollback.yml"
@@ -152,6 +161,7 @@ def _status(enabled, absent, has_data=True):
         ("not json", "False", False),
     ],
 )
+@_LINUX_ONLY
 def test_served_state_verification(tmp_path, body, want, ok):
     status = tmp_path / "status.json"
     status.write_text(body)

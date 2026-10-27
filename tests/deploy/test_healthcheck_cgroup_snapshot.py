@@ -19,6 +19,7 @@ stubbed ``curl`` / ``systemctl`` / ``py-spy``, and pin:
 
 from __future__ import annotations
 
+import sys
 import os
 import stat
 import subprocess
@@ -69,6 +70,14 @@ def _write_exec(path: Path, body: str) -> None:
 @pytest.fixture
 def host(tmp_path):
     """A fake host: stub binaries, a cgroup tree, a /proc and a state dir."""
+    if sys.platform == "win32":
+        # Every test using this fixture runs the production healthcheck through
+        # bash against stub binaries addressed by POSIX path.  Git Bash on
+        # Windows strips the backslashes from those paths: the stubs are never
+        # found, some tests pass for the wrong reason, and the script writes
+        # stray ``C:Users...systemctl.calls`` files into the checkout.  Linux-only;
+        # never skipped on Linux/CI.
+        pytest.skip("Linux-only: drives the production healthcheck shell script")
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     calls = tmp_path / "systemctl.calls"
