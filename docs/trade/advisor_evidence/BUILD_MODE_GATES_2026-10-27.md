@@ -47,6 +47,10 @@ transport only. Every non-loopback connect was refused.
 - **No floor is applied** (it is unset), so the raw latency the floor must cover is what gets
   measured.
 - Both limiters are reset outside the timed window.
+- **Raw outputs are not committed.** The measurement JSON from these runs was not added to the
+  repository, so the tables below cannot be reproduced byte for byte from this PR. Re-run the
+  script with `--output <file>` on the same archived board to regenerate them; expect machine and
+  contention variance.
 
 ### Engine (`analyze_trade_n`, `market_fairness` mode)
 
@@ -60,6 +64,9 @@ concurrently for part of this run, so it reads high, not low.
 | 4 | worst | 128 | 74.8 / 114.3 | 60.7 / 90.0 |
 
 - **Worst-case cold p99 over N = 2–4: 134.7 ms.** The script's 50 ms-step candidate is **150 ms**.
+- **Sample-size caveat:** with 30 samples per cell, a "p99" is effectively the **maximum** of
+  the run, not a stable 99th percentile. Treat 134.7 ms as a worst observed value. The public-route
+  numbers below (150–200 samples per cell) are the better-founded tail estimate.
 - Structural budgets S1–S6 pass: one snapshot, at most one posture read, one scarcity read,
   `market_fairness` skips capacity / utility, and no comparables at N ≥ 3.
 

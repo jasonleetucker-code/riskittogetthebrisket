@@ -303,7 +303,11 @@ async function attempt(url, init) {
   let body = null;
   try {
     body = await res.json();
-  } catch {
+  } catch (err) {
+    // An abort that lands after the headers but while the BODY is still
+    // downloading (the deadline, or the caller) must reach request()'s
+    // classifier, not be read as an unparseable body.
+    if (err?.name === "AbortError") throw err;
     body = null;
   }
   return { ok: res.ok, status: res.status, body, transient: TRANSIENT.has(res.status) };

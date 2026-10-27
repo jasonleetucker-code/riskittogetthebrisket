@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import MultiTeamWarRoom, { MULTI_DEBOUNCE_MS } from "@/components/trade/MultiTeamWarRoom";
 import { builderFromFixture } from "../helpers/multi-team-fixture";
+import { decisionReasonSentences } from "@/lib/trade-war-room-copy";
 
 import THREE_CTX from "../fixtures/trade-multi/three-team-team-context.json";
 import FORCED from "../fixtures/trade-multi/three-team-forced-cut.json";
@@ -616,10 +617,15 @@ describe("multi-team War Room: numerically traceable explanation (D3)", () => {
       expect(note).toContain(signed(f.gap));
       expect(note).toContain(fmt(f.largerPackageUtility));
       expect(note).toContain(`${f.relativePct}%`);
-      // 6. Why accept or decline: one sentence per decision reason.
-      const reasons = team.analysis.decision.reasons || [];
-      if (reasons.length) {
-        expect(screen.getByTestId("multi-team-reasons").querySelectorAll("li").length).toBeGreaterThan(0);
+      // 6. Why accept or decline: exactly one list item per worded decision
+      //    reason, in order, each carrying that reason's sentence.
+      const sentences = decisionReasonSentences(team.analysis.decision, { analysis: team.analysis });
+      if (sentences.length) {
+        const items = [...screen.getByTestId("multi-team-reasons").querySelectorAll("li")];
+        expect(items).toHaveLength(sentences.length);
+        items.forEach((li, i) => expect(li.textContent).toBe(sentences[i].sentence));
+      } else {
+        expect(screen.queryByTestId("multi-team-reasons")).toBeNull();
       }
     },
   );

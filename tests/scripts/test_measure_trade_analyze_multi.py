@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import random
 import socket
 import sys
@@ -636,3 +637,28 @@ def test_public_runner_refuses_a_non_200_as_a_failed_measurement(monkeypatch):
     )
     with pytest.raises(m.MeasurementFailed):
         m.make_public_route_runner(_Client(), None, "market_fairness")(scn, False)
+
+
+def test_public_route_client_reloads_after_restoring_env_even_on_failure(monkeypatch, tmp_path):
+    """The registry and flag reloads on exit must run AFTER the env override is
+    restored (so they re-read the caller's values, not the override) and must
+    run even when the body raises."""
+    from src.api import feature_flags, league_registry
+
+    monkeypatch.delenv(m.PUBLIC_FLAG_ENV, raising=False)
+    calls: list[tuple[str, str | None]] = []
+    monkeypatch.setattr(
+        league_registry,
+        "reload_registry",
+        lambda: calls.append(("registry", os.environ.get(m.PUBLIC_FLAG_ENV))),
+    )
+    monkeypatch.setattr(
+        feature_flags, "reload", lambda: calls.append(("flags", os.environ.get(m.PUBLIC_FLAG_ENV)))
+    )
+    # Make the in-process server import fail inside the override.
+    monkeypatch.setitem(sys.modules, "server", None)
+    with pytest.raises(ImportError):
+        with m.public_route_client(None, "http://127.0.0.1:8000", tmp_path):
+            pass  # pragma: no cover - never reached
+    assert calls == [("registry", "1"), ("flags", "1"), ("registry", None), ("flags", None)]
+    assert m.PUBLIC_FLAG_ENV not in os.environ

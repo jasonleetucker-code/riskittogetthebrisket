@@ -62,8 +62,10 @@ def test_client_deadline_table_is_exactly_analyze_and_list():
 
 def test_client_analyze_deadline_outlasts_the_server_answer():
     deadlines = _client_deadlines()
-    server_ms = compute_admission.spec_for(compute_admission.ROUTE_PUBLIC_ADVISOR).timeout_seconds
-    bound = server_ms * 1000 + _max_floor_ms() + NETWORK_MARGIN_MS
+    server_seconds = compute_admission.spec_for(
+        compute_admission.ROUTE_PUBLIC_ADVISOR
+    ).timeout_seconds
+    bound = server_seconds * 1000 + _max_floor_ms() + NETWORK_MARGIN_MS
     assert deadlines["analyze"] > bound, (
         f"the client would give up at {deadlines['analyze']} ms, before the server's own "
         f"fixed answer (bounded at {bound:.0f} ms)"

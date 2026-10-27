@@ -976,33 +976,43 @@ def public_route_client(ctx: Context, base_url: str, temp_root: Path) -> Iterato
     previous_levels = [lg.level for lg in quiet_loggers]
     for lg in quiet_loggers:
         lg.setLevel(logging.WARNING)
-    with env_overrides({PUBLIC_FLAG_ENV: "1", "LEAGUE_REGISTRY_PATH": str(reg_path)}):
-        league_registry.reload_registry()
-        feature_flags.reload()
-        try:
-            import server  # noqa: PLC0415
-            from fastapi.testclient import TestClient  # noqa: PLC0415
-
-            from src.api import public_trade_advisor_api as api  # noqa: PLC0415
-
-            api.reset_for_tests()
-            patches.setattr(server, "latest_contract_data", ctx.contract)
-            patches.setattr(api, "_launch_gate_reason", lambda: None)
-            patches.setattr(api, "_public_league_key", lambda: ctx.league_key)
-            with TestClient(server.app, base_url=base_url, raise_server_exceptions=True) as client:
-                server.latest_contract_data = ctx.contract
-                if api.advisor_config().get("responseFloorMs") is not None:
-                    raise MeasurementFailed(
-                        "responseFloorMs is set: the public route would be held to it, so its "
-                        "raw latency cannot be measured"
-                    )
-                yield client
-        finally:
-            patches.undo()
+    try:
+        with env_overrides({PUBLIC_FLAG_ENV: "1", "LEAGUE_REGISTRY_PATH": str(reg_path)}):
             league_registry.reload_registry()
+            feature_flags.reload()
+            try:
+                import server  # noqa: PLC0415
+                from fastapi.testclient import TestClient  # noqa: PLC0415
+
+                from src.api import public_trade_advisor_api as api  # noqa: PLC0415
+
+                api.reset_for_tests()
+                patches.setattr(server, "latest_contract_data", ctx.contract)
+                patches.setattr(api, "_launch_gate_reason", lambda: None)
+                patches.setattr(api, "_public_league_key", lambda: ctx.league_key)
+                with TestClient(
+                    server.app, base_url=base_url, raise_server_exceptions=True
+                ) as client:
+                    server.latest_contract_data = ctx.contract
+                    if api.advisor_config().get("responseFloorMs") is not None:
+                        raise MeasurementFailed(
+                            "responseFloorMs is set: the public route would be held to it, so its "
+                            "raw latency cannot be measured"
+                        )
+                    yield client
+            finally:
+                patches.undo()
+    finally:
+        # Reload only AFTER env_overrides has restored the caller's
+        # environment, so the registry and flags re-read the ORIGINAL values
+        # rather than the temporary override, and do both even when the
+        # measurement raised.
+        try:
+            league_registry.reload_registry()
+        finally:
+            feature_flags.reload()
             for lg, level in zip(quiet_loggers, previous_levels):
                 lg.setLevel(level)
-    feature_flags.reload()
 
 
 def make_public_route_runner(client: Any, ctx: Context, mode: str) -> RunFn:

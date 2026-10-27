@@ -387,6 +387,41 @@ describe("client deadlines", () => {
     expect(calls).toHaveLength(2);
   });
 
+  /** Headers arrive at once; the body stalls until the request is aborted. */
+  function stalledBodyFetch() {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url, init) => ({
+        ok: true,
+        status: 200,
+        json: () =>
+          new Promise((_resolve, reject) => {
+            init.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+          }),
+      })),
+    );
+  }
+
+  it("a deadline during a stalled BODY is the retryable timeout, not a generic error", async () => {
+    vi.useFakeTimers();
+    stalledBodyFetch();
+    const pending = postAdvisorAnalyze({ teams: [1, 2] });
+    await vi.advanceTimersByTimeAsync(CLIENT_DEADLINE_MS.analyze);
+    const r = await pending;
+    expect(r).toEqual({ ok: false, status: 0, error: CLIENT_TIMEOUT_ERROR });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("the caller's abort during a stalled body still throws AbortError", async () => {
+    vi.useFakeTimers();
+    stalledBodyFetch();
+    const controller = new AbortController();
+    const pending = postAdvisorAnalyze({ teams: [1, 2] }, { signal: controller.signal });
+    await vi.advanceTimersByTimeAsync(1);
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+
   it("a prompt answer clears the deadline (no stray timer, normal result)", async () => {
     vi.useFakeTimers();
     vi.stubGlobal(
