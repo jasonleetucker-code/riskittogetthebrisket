@@ -20,8 +20,8 @@
 | Authoritative store | the production temporal ledger (`data/temporal_ledger.sqlite` under the app root; schema v1, WAL journal, 2.28 GB), lane `canonical_board`; `board_history.sqlite` read only for its date span (the ledger migrates it, origin `migration:board_history`) |
 | Query semantics | `src.history.asof.batch_known_before`, unchanged; only its connection opener was replaced (below) |
 | Run | 2026-10-27 08:55:48Z → 08:57:44Z, one SSH session, `nice -n 19 ionice -c3 timeout 900 python3 -I -B -`, script on stdin (sha256 `394996c6…1fe80f`) |
-| Inputs sent | per trade: season, completion instant, census classes and fit; per asset: kind, family, public Sleeper player key. No transaction, roster, manager, league or draft ids; trade order shuffled |
-| Output | one aggregate JSON on stdout: `evidence/o7_production_canonical_coverage_2026-10-27.json` |
+| Inputs sent | per trade: season, completion instant, census classes and fit; per asset: kind, family, draft kind, public Sleeper player key, and for picks season + round. No transaction, roster, manager, league or draft ids; trade order shuffled |
+| Output | one aggregate JSON on stdout, committed as `evidence/o7_production_canonical_coverage_2026-10-27.json`; its top-level `provenance` block (deployed SHA, script hash, run times, post-run file checks, authorization) was added by the operator afterwards from the session transcript, not by the script |
 | Code | `scripts/research_o7/` (the committed copy is the run script after Ruff formatting, with the input placeholder quoted) |
 | Reviews | independent pre-run review: APPROVE_WITH_FIXES (temp-file spill, deadlines, same-snapshot rule, value > 0); every fix applied; delta review: APPROVE_TO_RUN |
 
@@ -93,7 +93,7 @@ trade is invisible. The census's valid-time reading is shown for comparison.
 
 | hypothesis | gate | O7 evidence | status |
 |---|---|---|---|
-| H2 (canonical vs IDPTC on accepted 1-for-1 trades) | 55 trades plus the canonical lane | canonical lane now **available**. 8 structurally eligible 2026 trades; 5 priced in both lanes at age ≤ 7 d; <5 on one snapshot date. Format bracket not evaluated (the capture store is present on the box) | **H7: insufficient sample** (5 of 55); no longer `no_canonical_lane` |
+| H2 (canonical vs IDPTC on accepted 1-for-1 trades) | 55 trades plus the canonical lane | canonical lane now **available**. At most 8 structurally eligible 2026 trades (an upper bound: H1a's decoy and format-bracket rules were not applied; the capture store is on the box but was not read). Under the full §2.4 rule (knowledge cutoff, age ≤ 7 d, one snapshot date per lane) **<5** are priced; 5 without the same-snapshot rule | **H7: insufficient sample** (<5 of 55); no longer `no_canonical_lane` |
 | H6d (player selection) | an established discrepancy (T3 or T2) plus the canonical lane | lane available: 18 of 38 IDP legs priced; the daily canonical IDP board exists | **unavailable: discrepancy_undetermined** (H2 and H3 are H7) |
 | H7 (global) | — | — | **supported** |
 
@@ -106,8 +106,8 @@ trade is invisible. The census's valid-time reading is shown for comparison.
 
 ## Uncertainties
 
-- **Immutable reads skip uncommitted WAL frames.** None existed at the run; the pre/post comparison would have flagged
-  a concurrent write.
+- **Immutable mode ignores the WAL file entirely**, committed frames included; that is why the script aborts on a
+  non-empty `-wal`. None existed at the run, and the pre/post comparison would have flagged a concurrent write.
 - **The rendered script differs from the committed copy only by formatting.** The committed copy also adds the
   rendering placeholder. The executed bytes are pinned by their sha256 above.
 - **Complementary suppression is not applied.** A difference of two published cells can reveal a count of 1–4. That
