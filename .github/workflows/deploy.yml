@@ -6,9 +6,86 @@ on:
       - main
     # Skip deploy for data-only commits from scheduled-refresh.
     # Data flows to production via the server's own scrape loop, not via git deploy.
+    #
+    # Prose and tests that nothing on the production box reads (D-3,
+    # docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md §6.1).  A push whose EVERY
+    # changed file matches this list starts no deploy (and so no backend
+    # restart); a push mixing these with anything else deploys as before, and
+    # the next deploy validates and ships the WHOLE target tree, these files
+    # included -- skipping a deploy never skips validating what ships.
+    #
+    # NOT `docs/**` or `**/*.md`: the running server and the box timers READ
+    # four docs subtrees, so a change there must still deploy:
+    #   docs/valuation/evidence/**  model-lab API + shadow timers (JSON, and
+    #                               PREREGISTRATION.md mtime / sha256)
+    #   docs/measurements/**        model-lab API (consensus-edge JSON)
+    #   docs/sources/**             model-lab API (sha256 of
+    #                               SIGNALS_FANTASY_INTEGRATION.md)
+    #   docs/owner/*.json           public trade-advisor permission records
+    # tests/deploy/test_deploy_paths_ignore_runtime_reads.py scans server.py,
+    # "Dynasty Scraper.py" and src/ and fails if any path they read becomes
+    # ignored here.  A new docs/ subtree is NOT ignored until it is listed
+    # (fail-safe: it deploys).
     paths-ignore:
       - 'data/**'
       - 'exports/**'
+      - 'tests/**'
+      - 'frontend/__tests__/**'
+      - '*.md'
+      - 'docs/*.md'
+      - 'docs/owner/*.md'
+      - 'docs/valuation/*.md'
+      - 'docs/acquisition/**'
+      - 'docs/agent-operating-system/**'
+      - 'docs/analyst/**'
+      - 'docs/api/**'
+      - 'docs/architecture/**'
+      - 'docs/auction/**'
+      - 'docs/audit/**'
+      - 'docs/audits/**'
+      - 'docs/autonomy/**'
+      - 'docs/claude-dispatch/**'
+      - 'docs/collaborative-model-audit/**'
+      - 'docs/competitive/**'
+      - 'docs/completion/**'
+      - 'docs/confidence/**'
+      - 'docs/consensus-edge/**'
+      - 'docs/cseries-delivery/**'
+      - 'docs/dfs/**'
+      - 'docs/draft/**'
+      - 'docs/engineering/**'
+      - 'docs/game-day/**'
+      - 'docs/history/**'
+      - 'docs/identity/**'
+      - 'docs/intel/**'
+      - 'docs/lane4/**'
+      - 'docs/league-intelligence/**'
+      - 'docs/lineup/**'
+      - 'docs/market_trades/**'
+      - 'docs/master-site-audit/**'
+      - 'docs/ops/**'
+      - 'docs/performance/**'
+      - 'docs/picks/**'
+      - 'docs/playoffs/**'
+      - 'docs/power/**'
+      - 'docs/projections/**'
+      - 'docs/psi/**'
+      - 'docs/redesign/**'
+      - 'docs/research/**'
+      - 'docs/retention/**'
+      - 'docs/roster-intelligence/**'
+      - 'docs/roster-trade-intelligence/**'
+      - 'docs/rosters/**'
+      - 'docs/runbooks/**'
+      - 'docs/scoring/**'
+      - 'docs/season-launch/**'
+      - 'docs/sharp-roster-percentage/**'
+      - 'docs/signals/**'
+      - 'docs/status/**'
+      - 'docs/trade/**'
+      - 'docs/ui/**'
+      - 'docs/v1-123-browser-workflow-matrix/**'
+      - 'docs/v1/**'
   workflow_dispatch:
     inputs:
       deploy_ref:

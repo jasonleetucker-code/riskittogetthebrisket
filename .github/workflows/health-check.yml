@@ -262,7 +262,8 @@ jobs:
                     f"not run — investigate riskit-backup.timer and "
                     f"/var/log/riskit-backup.log.")
               sys.exit(1)
-          if bh.get("dbCount", 0) < 3:
+          dbc = bh.get("dbCount")
+          if isinstance(dbc, int) and dbc < 3:
               print(f"::warning title=Partial backup::Only {bh.get('dbCount')} "
                     f"of 3 SQLite DBs in the latest backup set.")
           print("SQLite backup freshness OK.")

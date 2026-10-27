@@ -61,6 +61,13 @@ from src.auction import schedule
 from src.auction.rules import MAX_DOLLARS, unconfirmed_rules, validate_rules, window_of
 
 STATE_SCHEMA = 1
+# Behaviour revision of the engine, stamped on every NEW room.  Rooms created
+# before a revision keep the behaviour they were played under, so replaying
+# their command log still reproduces their stored state exactly (the hourly
+# backup verifier replays every room).  Rev 2 (Phase 2 audit): lossless
+# max-history compression; budget credits in a pause / quiet hours re-resolve
+# at the next active moment.
+ENGINE_REV = 2
 _CASCADE_BOUND = 100_000
 
 SEAT_KINDS = frozenset(
@@ -86,6 +93,9 @@ COMMISSIONER_KINDS = frozenset(
         "adjust_budget",
         "confirm_rules",
         "verify_trade",
+        # Server-issued only (not in the HTTP command allow-list): announces
+        # that the commissioner changed WHO holds a seat.  Moves no money.
+        "note_member_change",
     }
 )
 SYSTEM_KINDS = frozenset({"advance"})
@@ -157,6 +167,7 @@ def new_room_state(
         raise AuctionError("bad_pool", "rookie pool is empty")
     state = {
         "schema": STATE_SCHEMA,
+        "engine_rev": ENGINE_REV,
         "room_id": room_id,
         "name": str(name)[:120],
         "room_type": room_type,
@@ -316,7 +327,13 @@ def priority_at(bid: dict, level: int) -> int:
     return best if best is not None else int(bid["seq"])
 
 
-def _set_max(a: dict, seat_id: str, new_max: int, seq: int, now: float) -> None:
+def _engine_rev(s: dict) -> int:
+    return int(s.get("engine_rev") or 1)
+
+
+def _set_max(
+    a: dict, seat_id: str, new_max: int, seq: int, now: float, *, legacy: bool = False
+) -> None:
     old = a["bids"].get(seat_id)
     hist = (
         list(old.get("hist") or [[int(old["max"]), int(old["seq"])]])
@@ -324,7 +341,37 @@ def _set_max(a: dict, seat_id: str, new_max: int, seq: int, now: float) -> None:
         else []
     )
     hist.append([new_max, seq])
-    a["bids"][seat_id] = {"max": new_max, "seq": seq, "active": True, "at": now, "hist": hist[-50:]}
+    if legacy:
+        hist = hist[-50:]  # rev-1 rooms: the behaviour they were played under
+    elif len(hist) > _HIST_COMPRESS_AT:
+        hist = _compress_hist(hist)
+    a["bids"][seat_id] = {"max": new_max, "seq": seq, "active": True, "at": now, "hist": hist}
+
+
+# A seat's max history is kept verbatim up to this length (the common case,
+# byte-identical to earlier versions), then compressed LOSSLESSLY.  Truncating
+# it (the old ``hist[-50:]``) dropped the entry that proved a seat's early
+# priority at a level, so an exact tie flipped after 50+ edits.
+_HIST_COMPRESS_AT = 50
+
+
+def _compress_hist(hist: list) -> list:
+    """Keep exactly what ``priority_at`` can observe: for each distinct
+    suffix-minimum level, the earliest entry at which it starts.  Entries are
+    rewritten as ``[suffix_min, seq]`` — increasing in both — which
+    ``priority_at`` reads identically, and which stays correct when raw
+    entries are appended later."""
+    suffix: list[tuple[int, int]] = []
+    low = None
+    for mx, sq in reversed(hist):
+        low = int(mx) if low is None else min(low, int(mx))
+        suffix.append((low, int(sq)))
+    suffix.reverse()
+    out: list[list[int]] = []
+    for level, sq in suffix:
+        if not out or level > out[-1][0]:
+            out.append([level, sq])
+    return out
 
 
 def _resolve_one(state: dict, auction: dict) -> tuple[str, int]:
@@ -571,9 +618,14 @@ def _due_events(state: dict) -> list[tuple[float, int, str, str]]:
     if state["status"] not in ("running", "draining") or state["paused"]:
         return []
     due: list[tuple[float, int, str, str]] = []
+    win = _window(state)
+    deferred = state.get("deferred_reresolve") or []
+    if deferred:
+        # Priority -1: re-resolve before a close due at the same instant.
+        at = max(float(i["at"]) for i in deferred)
+        due.append((schedule.next_active_start(win, at), -1, "reresolve", ""))
     for a in open_auctions(state):
         due.append((a["deadline"], 0, "close", a["id"]))
-    win = _window(state)
     if state["status"] == "running":
         for r in _window_rights(state):
             if r["window_at"] is None:
@@ -588,6 +640,8 @@ def _due_events(state: dict) -> list[tuple[float, int, str, str]]:
 
 
 def _id_order(state: dict, d: tuple) -> int:
+    if d[2] == "reresolve":
+        return 0
     if d[2] == "close":
         return state["auction_order"].index(d[3])
     return [r["id"] for r in state["rights"]].index(d[3])
@@ -606,7 +660,13 @@ def _advance(state: dict, now: float, events: list) -> bool:
             break
         t, _, kind, ident = due[0]
         progressed = True
-        if kind == "close":
+        if kind == "reresolve":
+            # Leadership can change here (unlike a close), so report it NET
+            # like any command does: the displaced leader is told.
+            before = {a["id"]: a["leader"] for a in open_auctions(state)}
+            _run_deferred_reresolve(state, t, events)
+            _emit_net_leadership(state, before, t, events)
+        elif kind == "close":
             _close_auction(state, state["auctions"][ident], t, events)
         elif kind == "timeout":
             r = _right(state, ident)
@@ -785,7 +845,18 @@ def _emit_net_leadership(s: dict, leaders_before: dict, now: float, events: list
                 player=a["player"],
                 price=a["price"],
             )
-        if after not in led_by:
+        else:
+            # First time this seat leads the lot through the resolver (its own
+            # bid, or its standing maximum after money freed).  The notifier
+            # tells the seat only when someone ELSE's action caused it.
+            _ev(
+                events,
+                "proxy_leading",
+                f"seat:{after}",
+                auction=aid,
+                player=a["player"],
+                price=a["price"],
+            )
             led_by.append(after)
 
 
@@ -1046,7 +1117,7 @@ def _cmd_bid(s: dict, cmd: dict, now: float, events: list) -> dict:
         # earlier maximum never raises your price").  Tie priority per level
         # is kept by ``priority_at``.
         seq = _next_seq(s)
-        _set_max(a, seat_id, new_max, seq, now)
+        _set_max(a, seat_id, new_max, seq, now, legacy=_engine_rev(s) < 2)
         s["bid_log"].append(
             {
                 "seq": seq,
@@ -1059,7 +1130,7 @@ def _cmd_bid(s: dict, cmd: dict, now: float, events: list) -> dict:
         )
     else:
         seq = _next_seq(s)
-        _set_max(a, seat_id, new_max, seq, now)
+        _set_max(a, seat_id, new_max, seq, now, legacy=_engine_rev(s) < 2)
         s["bid_log"].append(
             {"seq": seq, "at": now, "seat": seat_id, "auction": aid, "max": new_max, "kind": "max"}
         )
@@ -1110,6 +1181,18 @@ def _cmd_withdraw(s: dict, cmd: dict, now: float, events: list) -> dict:
         }
     )
     _ev(events, "proxy_disabled", f"seat:{seat_id}", auction=a["id"])
+    return {"ok": True}
+
+
+def _cmd_note_member_change(s: dict, cmd: dict, now: float, events: list) -> dict:
+    seat = cmd.get("seat")
+    if seat is not None:
+        _seat(s, seat)
+    change = str(cmd.get("change") or "removed")
+    if change not in ("removed",):
+        raise AuctionError("bad_change", "unknown membership change")
+    # Public and reason-free: the audit log keeps the reason.
+    _ev(events, "member_changed", "public", seat=seat, change=change)
     return {"ok": True}
 
 
@@ -1167,6 +1250,13 @@ def _cmd_resume(s: dict, cmd: dict, now: float, events: list) -> dict:
         paused_kind=was["kind"],
         min_remaining_active_seconds=floor,
     )
+    # Corrections credited during the pause take effect now (or at the next
+    # active moment, via the "reresolve" due event, if resumed in quiet hours).
+    if schedule.is_active(win, now):
+        _run_deferred_reresolve(s, now, events)
+    else:
+        for item in s.get("deferred_reresolve") or []:
+            item["at"] = max(float(item["at"]), now)
     return {"ok": True}
 
 
@@ -1214,13 +1304,35 @@ def _cmd_adjust_budget(s: dict, cmd: dict, now: float, events: list) -> dict:
         after=after,
         reason=reason[:300],
     )
-    if amount > 0 and s["status"] in ("running", "draining") and not s["paused"]:
-        start = [
-            a["id"] for a in open_auctions(s) if a["leader"] != seat_id and seat_id in a["bids"]
-        ]
-        changed = _cascade(s, start, now, events)
-        _publish_changes(s, changed, now, events)
+    if amount > 0 and s["status"] in ("running", "draining") and _engine_rev(s) < 2:
+        if not s["paused"]:  # rev-1 rooms: the behaviour they were played under
+            _reresolve_seat(s, seat_id, now, events)
+    elif amount > 0 and s["status"] in ("running", "draining"):
+        if s["paused"] or not schedule.is_active(_window(s), now):
+            # Nothing binding moves while the room is paused or inside quiet
+            # hours: the money is credited now, and the seat's capped proxies
+            # re-resolve at the next active moment (on resume, or 08:00 ET),
+            # ahead of any close due at that same instant.
+            s.setdefault("deferred_reresolve", []).append({"seat": seat_id, "at": now})
+        else:
+            _reresolve_seat(s, seat_id, now, events)
     return {"ok": True, "balance": after}
+
+
+def _reresolve_seat(s: dict, seat_id: str, now: float, events: list) -> None:
+    """Money freed or credited for ``seat_id``: its capped proxies respond."""
+    start = [a["id"] for a in open_auctions(s) if a["leader"] != seat_id and seat_id in a["bids"]]
+    changed = _cascade(s, start, now, events)
+    _publish_changes(s, changed, now, events)
+
+
+def _run_deferred_reresolve(s: dict, now: float, events: list) -> None:
+    items = s.get("deferred_reresolve") or []
+    if not items:
+        return
+    s["deferred_reresolve"] = []
+    for seat_id in dict.fromkeys(i["seat"] for i in items):
+        _reresolve_seat(s, seat_id, now, events)
 
 
 # ---------------------------------------------------------------------------
@@ -1447,7 +1559,8 @@ def _cmd_verify_trade(s: dict, cmd: dict, now: float, events: list) -> dict:
 
 def trades_for_seat(s: dict, seat: str, now: float) -> list[dict]:
     out = []
-    for t in _trades(s).values():
+    # Read-only: a view must never add keys to the state it is shown.
+    for t in (s.get("trades") or {}).values():
         if seat in (t["from"], t["to"]):
             view = dict(t)
             if view["status"] == "open" and now >= view["expires_at"]:
@@ -1469,6 +1582,7 @@ _HANDLERS = {
     "bid": _cmd_bid,
     "withdraw": _cmd_withdraw,
     "pause": _cmd_pause,
+    "note_member_change": _cmd_note_member_change,
     "resume": _cmd_resume,
     "adjust_budget": _cmd_adjust_budget,
     "offer_trade": _cmd_offer_trade,

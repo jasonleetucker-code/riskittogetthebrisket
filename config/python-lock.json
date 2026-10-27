@@ -2,9 +2,9 @@
   "generator": "uv==0.9.26",
   "python": "3.12",
   "sha256": {
-    "requirements-dev.lock.txt": "f7c2e1fa2bb5086af6819b7fc1015ec63fda9ea518b86e4265c9d164d6fce8ce",
+    "requirements-dev.lock.txt": "348f8ec54c84ed7a6f9e5c903622b332511ccc401ad340c17820549764962a8d",
     "requirements-dev.txt": "2d9f3a496a25c949222e5e63df0ffd0ab91901556de3c22d0f6a16d9253d0dca",
-    "requirements.lock.txt": "b95fbf6b053b0c64a7bafd58cae3a4b1052d1c7b38f0ad0cff853f8d7656fd40",
-    "requirements.txt": "d27ae47080fe3ca0ec215dcea47a24fe2321915f9d999f807db71382f61b48e4"
+    "requirements.lock.txt": "af7aa8acfe95dfc21c385dee340f777088c64384128894bf437e6bbeb9f2963d",
+    "requirements.txt": "b3ee4c768fb446b2e16866109b9fe8e156fd2d3431dcdd56793ebd4a1f833100"
   }
 }

@@ -206,13 +206,18 @@ describe("league FAAB context strip — response envelope", () => {
     expect(url).toContain("leagueKey=dynasty_main");
   });
 
-  it("stays silent when the section 404s — the strip is optional context", async () => {
+  it("states the section as unavailable (with the reason) when it 404s", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ error: "nope" }, 404)));
 
     renderPanel();
 
-    // Your-FAAB still renders from the team; no league numbers appear.
+    // Your-FAAB still renders from the team; no league numbers appear, and
+    // the absence is stated rather than silent (V1-56 / #1151; the no-team
+    // cases live in waiver-faab-context-no-team.test.jsx).
     await waitFor(() => expect(screen.getByText("$63")).toBeInTheDocument());
     expect(screen.queryByText("$17")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getAllByText("unavailable: HTTP 404")).toHaveLength(2),
+    );
   });
 });

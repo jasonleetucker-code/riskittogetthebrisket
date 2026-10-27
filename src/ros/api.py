@@ -30,6 +30,7 @@ from src.ros.sources import ROS_SOURCES, enabled_ros_sources
 from src.ros.team_strength import (
     load_or_compute_team_strength,
     load_team_strength_snapshot,
+    persisted_fast_path_rows,
 )
 
 LOG = logging.getLogger("ros.api")
@@ -175,6 +176,15 @@ async def get_team_strength(request: Request, leagueKey: str | None = None) -> J
             cfg = get_league_by_key(leagueKey)
             if cfg and cfg.key:
                 resolved_key = cfg.key
+            else:
+                # The same refusal every league-scoped route gives
+                # (``server.LeagueResolutionError``): an unknown key is a 400,
+                # never the default league's strength echoed under the bogus
+                # key (LI1842-DEFECT-06).
+                return JSONResponse(
+                    {"error": "unknown_league", "message": f"Unknown leagueKey {leagueKey!r}"},
+                    status_code=400,
+                )
         else:
             resolved_key = default_league_key()
     except Exception:  # noqa: BLE001
@@ -421,7 +431,14 @@ def build_section(snapshot: Any) -> dict[str, Any]:
                     break
     except Exception:  # noqa: BLE001
         pass
-    persisted = load_team_strength_snapshot(league_key)
+    # The persisted file is served as "snapshot" only under the read path's
+    # own rule (``persisted_fast_path_rows``: inside
+    # ``_TEAM_STRENGTH_SNAPSHOT_MAX_AGE_HOURS`` by file mtime AND carrying ROS
+    # evidence).  A bare ``load_team_strength_snapshot`` served a 30-day-old
+    # (or all-zero) file as current -- ``source=snapshot, stale=False``
+    # (LI1842-DEFECT-09).  An expired file is not served; the builder
+    # recomputes below and ``stale`` is True only when nothing could be.
+    persisted = persisted_fast_path_rows(league_key)
     if persisted is not None:
         payload: list[dict[str, Any]] | None = persisted
         source = "snapshot"

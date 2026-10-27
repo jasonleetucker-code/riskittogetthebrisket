@@ -163,6 +163,118 @@ def test_unresolvable_stays_unresolved_never_zero():
 
 
 @pytest.mark.usefixtures("clock")
+def test_an_unpriced_identity_row_stays_unpriced_whatever_the_label_names():
+    """LANE-E-DEFECT-I9-PICKLABEL / I13-PICKSTATE.  The board HOLDS the row the
+    pick's identity resolves to (``2028 Round 1``) but has not priced it.  A
+    label that names ANOTHER, priced grade must not price the pick: it is
+    UNPRICED - resolved to its own row with no positive value - never off-board,
+    never the other grade's number, never 0 presented as a price."""
+    c = _board()
+    for row in c["playersArray"]:
+        if row["canonicalName"] == "2028 Round 1":
+            row["rankDerivedValue"] = None
+            row["pickValueProvenance"] = {"state": "unavailable"}
+    aid = "pick:dynasty_main:2028:r1:o1"
+    for label in ("2028 Mid 1st (own)", "2028 Early 1st", "2028 1st", "anything at all"):
+        hit = _resolve(c, label, aid)
+        assert hit is not None, label  # on the board: not an off-board name
+        assert hit["name"] == "2028 Round 1", label
+        # Explicitly UNPRICED: no value at all (never 0 standing in for one).
+        assert hit["value"] is None, label
+        assert hit["valueState"] == "unpriced", label
+        assert hit["tier"] is None, label
+    # No identity: the label still prices (unchanged), so the fix is not a blanket refusal.
+    assert _resolve(c, "2028 Mid 1st")["value"] == 4635
+    # The server-side stamp agrees: no board row is named for an unpriced pick.
+    stamped = stamp_owned_pick_rows(c["sleeper"]["teams"], pick_rows_by_name(c), CDY)
+    own = next(d for d in stamped[0]["pickDetails"] if d["assetId"] == aid)
+    assert own["boardRowName"] is None
+
+
+def _board_with_unpriced_generic_row():
+    c = _board()
+    for row in c["playersArray"]:
+        if row["canonicalName"] == "2028 Round 1":
+            row["rankDerivedValue"] = None
+            row["pickValueProvenance"] = {"state": "unavailable"}
+    return c
+
+
+@pytest.mark.usefixtures("clock")
+def test_a_label_only_unpriced_pick_stays_unresolved_never_zero():
+    """The War Room calculator names its picks by LABEL (no ``asset_id``).  A
+    label whose board row is unpriced must stay UNRESOLVED exactly as before the
+    identity-first work -- ``None``, not ``('2028 Round 1', 0)`` -- because an
+    unpriced row reaching ``_row_value`` falls through to 0 and a label alone
+    never proves what the asset is.  MISSING IS NEVER ZERO."""
+    c = _board_with_unpriced_generic_row()
+    for label in ("2028 1st", "2028 Round 1"):
+        assert _resolve(c, label) is None, label
+    # A non-canonical id is a label too: it never marks a row unpriced.
+    assert _resolve(c, "2028 1st", "not-a-canonical-id") is None
+    assert _resolve(c, "2028 Round 1", "not-a-canonical-id") is None
+    # ...while the same label still prices where the board DOES price its grade.
+    assert _resolve(c, "2028 Mid 1st")["value"] == 4635
+
+
+@pytest.mark.usefixtures("clock")
+def test_an_id_resolved_unpriced_pick_is_marked_unpriced_not_zero():
+    c = _board_with_unpriced_generic_row()
+    hit = _resolve(c, "2028 1st", "pick:dynasty_main:2028:r1:o1")
+    assert hit is not None
+    assert hit["value"] is None and hit["value"] != 0
+    assert hit["valueState"] == "unpriced"
+    assert hit["name"] == "2028 Round 1" and hit["assetClass"] == "pick"
+    # A priced pick carries no extra key: its dict is what it always was.
+    priced = _resolve(_board(), "2028 1st", "pick:dynasty_main:2028:r1:o1")
+    assert priced["value"] == 4747 and "valueState" not in priced
+
+
+@pytest.mark.usefixtures("clock")
+def test_every_consumer_of_an_unpriced_pick_handles_the_missing_value():
+    """``simulate_trade`` sums, aggregates and gates over the resolved assets;
+    an unpriced one (value ``None``) must reach each of them without a crash,
+    without becoming a number, and be NAMED by the evidence gate."""
+    from src.trade.analyze_trade import analyze_trade
+
+    c = _board_with_unpriced_generic_row()
+    aid = "pick:dynasty_main:2028:r1:o1"
+    team = c["sleeper"]["teams"][0]
+    out = ts.simulate_trade(
+        c,
+        resolved_team=team,
+        picks_out=["2028 Mid 1st (own)"],
+        pick_asset_ids_out=[aid],
+        picks_in=["2028 Early 1st"],
+        pick_asset_ids_in=[None],
+    )
+    sent = out["sending"]
+    assert [(a["valueState"], a["value"]) for a in sent] == [("unpriced", None)]
+    assert out["unresolvedOut"] == []  # on the board: not an off-board name
+    # The sum treats it as no price (the gate says so), the received pick prices.
+    assert out["equity"] == 5100
+    # The unpriced pick is in no value tier, but it is still a pick on the roster.
+    assert out["before"]["byPosition"]["PICK"]["count"] == 2
+    assert sum(out["before"]["tiers"].values()) == 1
+    assert out["after"]["byPosition"]["PICK"]["count"] == 2  # sent one, got one
+    # The market lens withholds it from the package math and names it.
+    result = analyze_trade(out)
+    detail = next(d for d in result["dimensions"] if d["dimension"] == "equity")["detail"]
+    assert detail["unpricedOut"] == ["2028 Round 1"]
+
+
+@pytest.mark.usefixtures("clock")
+def test_identity_with_no_board_row_at_all_keeps_the_label_fallback():
+    """The documented exception: when the board publishes NO row for the
+    identity's grade (here the 2028 generic row is absent, tiers only), the
+    label's own stated grade still decides - the pre-identity behaviour."""
+    c = _board()
+    c["playersArray"] = [r for r in c["playersArray"] if r["canonicalName"] != "2028 Round 1"]
+    hit = _resolve(c, "2028 Mid 1st (own)", "pick:dynasty_main:2028:r1:o1")
+    assert hit is not None and hit["name"] == "2028 Mid 1st" and hit["value"] == 4635
+
+
+@pytest.mark.usefixtures("clock")
 def test_a_non_canonical_id_falls_back_to_the_label():
     c = _board()
     assert _resolve(c, "2028 Mid 1st", "pick:2028:1")["name"] == "2028 Mid 1st"

@@ -203,11 +203,12 @@ def persist_canonical_ledger(
         _write_ledger_db(tmp, groups, built_at=built_at, extra_meta=extra_meta)
         os.replace(tmp, target)
     finally:
-        if tmp.exists():
-            try:
-                tmp.unlink()
-            except OSError:  # pragma: no cover
-                pass
+        for leftover in (tmp, *(tmp.with_name(tmp.name + s) for s in ("-journal", "-wal", "-shm"))):
+            if leftover.exists():
+                try:
+                    leftover.unlink()
+                except OSError:  # pragma: no cover
+                    pass
     try:
         os.chmod(target, 0o600)
     except OSError:  # pragma: no cover
@@ -220,14 +221,24 @@ def persist_canonical_ledger(
 STALE_TEMP_AGE_SECONDS = 15 * 60
 
 
+#: A killed build leaves the temp database AND SQLite's companion files for it.
+#: The rollback journal outlived the cleanup on the box (2026-10-24's
+#: ``.underlying_trades.sqlite.<pid>.tmp-journal`` survived the next run),
+#: because only ``*.tmp`` was matched.
+_TEMP_SUFFIXES = (".tmp", ".tmp-journal", ".tmp-wal", ".tmp-shm")
+
+
 def remove_stale_temp_files(directory: Path, *, now: float | None = None) -> list[str]:
-    """Delete ``.underlying_trades.sqlite.<pid>.tmp`` files left by killed runs
-    (older than :data:`STALE_TEMP_AGE_SECONDS`).  Returns the names removed."""
+    """Delete ``.underlying_trades.sqlite.<pid>.tmp`` files -- and their SQLite
+    ``-journal`` / ``-wal`` / ``-shm`` companions -- left by killed runs (older
+    than :data:`STALE_TEMP_AGE_SECONDS`).  Returns the names removed."""
     import time  # noqa: PLC0415
 
     cutoff = (time.time() if now is None else now) - STALE_TEMP_AGE_SECONDS
     removed: list[str] = []
-    for p in Path(directory).glob(f".{LEDGER_FILENAME}.*.tmp"):
+    for p in sorted(Path(directory).glob(f".{LEDGER_FILENAME}.*.tmp*")):
+        if not p.name.endswith(_TEMP_SUFFIXES):
+            continue
         try:
             if p.stat().st_mtime < cutoff:
                 p.unlink()

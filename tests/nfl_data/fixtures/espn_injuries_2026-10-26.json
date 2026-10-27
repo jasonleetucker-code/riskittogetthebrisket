@@ -1,0 +1,935 @@
+{
+ "timestamp": "2026-10-26T11:24:54Z",
+ "status": "success",
+ "season": {
+  "year": 2026,
+  "type": 2,
+  "name": "Regular Season",
+  "displayName": "2026"
+ },
+ "injuries": [
+  {
+   "id": "22",
+   "displayName": "Arizona Cardinals",
+   "injuries": [
+    {
+     "id": "644435",
+     "longComment": "With Jeremiyah Love (ankle) sidelined for a second consecutive contest, Tyler Allgeier and Knight again were tasked with manning the Cardinals backfield. Allge…",
+     "shortComment": "Knight accrued seven carries for 48 yards and reeled in three of five targets for 15 yards during Sunday's 30-16 defeat to the Broncos.",
+     "status": "Active",
+     "date": "2026-10-26T01:31Z",
+     "athlete": {
+      "firstName": "Bam",
+      "lastName": "Knight",
+      "displayName": "Bam Knight",
+      "shortName": "B. Knight",
+      "links": [
+       {
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/_/id/4427728/bam-knight",
+        "text": "Player Card"
+       },
+       {
+        "rel": [
+         "stats",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/stats/_/id/4427728/bam-knight",
+        "text": "Stats"
+       },
+       {
+        "rel": [
+         "stats",
+         "sportscenter",
+         "app",
+         "athlete"
+        ],
+        "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:4427728&section=stats",
+        "text": "Stats"
+       }
+      ],
+      "headshot": {
+       "href": "https://a.espncdn.com/i/headshots/nfl/players/full/4427728.png",
+       "alt": "Bam Knight"
+      },
+      "position": {
+       "id": "9",
+       "name": "Running Back",
+       "displayName": "Running Back",
+       "abbreviation": "RB",
+       "leaf": true
+      },
+      "team": {
+       "id": "22",
+       "uid": "s:20~l:28~t:22",
+       "slug": "arizona-cardinals",
+       "name": "Cardinals",
+       "abbreviation": "ARI",
+       "displayName": "Arizona Cardinals"
+      },
+      "status": {
+       "id": "1",
+       "name": "Active",
+       "type": "active",
+       "abbreviation": "Active"
+      }
+     },
+     "source": {
+      "id": "1",
+      "description": "basic/manual",
+      "state": "basic"
+     },
+     "type": {
+      "id": "0",
+      "name": "INJURY_STATUS_ACTIVE",
+      "description": "active",
+      "abbreviation": "A"
+     }
+    },
+    {
+     "id": "644278",
+     "longComment": "There was optimism that Melton would be cleared to play, but the third-year defensive back will be sidelined by a knee issue and observe Sunday's game in stree…",
+     "shortComment": "Melton (knee) is inactive for Sunday's game against the Broncos, Darren Urban of the Cardinals' official site reports.",
+     "status": "Out",
+     "date": "2026-10-25T18:48Z",
+     "athlete": {
+      "firstName": "Max",
+      "lastName": "Melton",
+      "displayName": "Max Melton",
+      "shortName": "M. Melton",
+      "links": [
+       {
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/_/id/4698113/max-melton",
+        "text": "Player Card"
+       },
+       {
+        "rel": [
+         "stats",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/stats/_/id/4698113/max-melton",
+        "text": "Stats"
+       },
+       {
+        "rel": [
+         "stats",
+         "sportscenter",
+         "app",
+         "athlete"
+        ],
+        "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:4698113&section=stats",
+        "text": "Stats"
+       }
+      ],
+      "headshot": {
+       "href": "https://a.espncdn.com/i/headshots/nfl/players/full/4698113.png",
+       "alt": "Max Melton"
+      },
+      "position": {
+       "id": "29",
+       "name": "Cornerback",
+       "displayName": "Cornerback",
+       "abbreviation": "CB",
+       "leaf": true
+      },
+      "team": {
+       "id": "22",
+       "uid": "s:20~l:28~t:22",
+       "slug": "arizona-cardinals",
+       "name": "Cardinals",
+       "abbreviation": "ARI",
+       "displayName": "Arizona Cardinals"
+      },
+      "status": {
+       "id": "1",
+       "name": "Active",
+       "type": "active",
+       "abbreviation": "Active"
+      }
+     },
+     "source": {
+      "id": "1",
+      "description": "basic/manual",
+      "state": "basic"
+     },
+     "type": {
+      "id": "4",
+      "name": "INJURY_STATUS_OUT",
+      "description": "out",
+      "abbreviation": "O"
+     },
+     "details": {
+      "fantasyStatus": {
+       "description": "INACTIVE",
+       "abbreviation": "INACTIVE"
+      },
+      "type": "Knee",
+      "location": "Leg",
+      "detail": "Not Specified",
+      "side": "Not Specified",
+      "returnDate": "2026-11-01"
+     }
+    },
+    {
+     "id": "-2057967",
+     "longComment": "inactive",
+     "shortComment": "inactive",
+     "status": "Out",
+     "date": "2026-10-25T18:42Z",
+     "athlete": {
+      "firstName": "Jeremiyah",
+      "lastName": "Love",
+      "displayName": "Jeremiyah Love",
+      "shortName": "J. Love",
+      "links": [
+       {
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/_/id/4870808/jeremiyah-love",
+        "text": "Player Card"
+       },
+       {
+        "rel": [
+         "stats",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/stats/_/id/4870808/jeremiyah-love",
+        "text": "Stats"
+       },
+       {
+        "rel": [
+         "stats",
+         "sportscenter",
+         "app",
+         "athlete"
+        ],
+        "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:4870808&section=stats",
+        "text": "Stats"
+       }
+      ],
+      "headshot": {
+       "href": "https://a.espncdn.com/i/headshots/nfl/players/full/4870808.png",
+       "alt": "Jeremiyah Love"
+      },
+      "position": {
+       "id": "9",
+       "name": "Running Back",
+       "displayName": "Running Back",
+       "abbreviation": "RB",
+       "leaf": true
+      },
+      "team": {
+       "id": "22",
+       "uid": "s:20~l:28~t:22",
+       "slug": "arizona-cardinals",
+       "name": "Cardinals",
+       "abbreviation": "ARI",
+       "displayName": "Arizona Cardinals"
+      },
+      "status": {
+       "id": "1",
+       "name": "Active",
+       "type": "active",
+       "abbreviation": "Active"
+      }
+     },
+     "source": {
+      "id": "1",
+      "description": "basic/manual",
+      "state": "basic"
+     },
+     "type": {
+      "id": "4",
+      "name": "INJURY_STATUS_OUT",
+      "description": "out",
+      "abbreviation": "O"
+     },
+     "details": {
+      "fantasyStatus": {
+       "description": "INACTIVE",
+       "abbreviation": "INACTIVE"
+      },
+      "type": "Ankle",
+      "location": "Leg",
+      "detail": "Not Specified",
+      "side": "Not Specified",
+      "returnDate": "2026-11-01"
+     }
+    }
+   ]
+  },
+  {
+   "id": "1",
+   "displayName": "Atlanta Falcons",
+   "injuries": [
+    {
+     "id": "644240",
+     "longComment": "Strand is the emergency third option behind Michael Penix and Tua Tagovailoa, while Andy Dalton (coach's decision) is a healthy scratch as he continues to lear…",
+     "shortComment": "Strand (coach's decision) is inactive as the emergency third quarterback for Sunday's game against the 49ers, Tori McElhaney of the Falcons…",
+     "status": "Out",
+     "date": "2026-10-25T15:56Z",
+     "athlete": {
+      "firstName": "Jack",
+      "lastName": "Strand",
+      "displayName": "Jack Strand",
+      "shortName": "J. Strand",
+      "links": [
+       {
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/_/id/5344782/jack-strand",
+        "text": "Player Card"
+       },
+       {
+        "rel": [
+         "stats",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/stats/_/id/5344782/jack-strand",
+        "text": "Stats"
+       },
+       {
+        "rel": [
+         "stats",
+         "sportscenter",
+         "app",
+         "athlete"
+        ],
+        "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:5344782&section=stats",
+        "text": "Stats"
+       }
+      ],
+      "position": {
+       "id": "8",
+       "name": "Quarterback",
+       "displayName": "Quarterback",
+       "abbreviation": "QB",
+       "leaf": true
+      },
+      "team": {
+       "id": "1",
+       "uid": "s:20~l:28~t:1",
+       "slug": "atlanta-falcons",
+       "name": "Falcons",
+       "abbreviation": "ATL",
+       "displayName": "Atlanta Falcons"
+      },
+      "status": {
+       "id": "1",
+       "name": "Active",
+       "type": "active",
+       "abbreviation": "Active"
+      }
+     },
+     "source": {
+      "id": "1",
+      "description": "basic/manual",
+      "state": "basic"
+     },
+     "type": {
+      "id": "4",
+      "name": "INJURY_STATUS_OUT",
+      "description": "out",
+      "abbreviation": "O"
+     },
+     "details": {
+      "fantasyStatus": {
+       "description": "INACTIVE",
+       "abbreviation": "INACTIVE"
+      },
+      "type": "Coach's Decision",
+      "location": "Other",
+      "detail": "Not Specified",
+      "side": "Not Specified",
+      "returnDate": "2026-11-01"
+     }
+    },
+    {
+     "id": "644167",
+     "longComment": "Jerrell was already ruled out for Sunday's game against the 49ers due to a biceps injury. He's now required to miss at least four games, so the next time he's…",
+     "shortComment": "The Falcons placed Jerrell (biceps) on injured reserve Saturday, Tori McElhaney of the team's official site reports.",
+     "status": "Injured Reserve",
+     "date": "2026-10-24T23:44Z",
+     "athlete": {
+      "firstName": "Michael",
+      "lastName": "Jerrell",
+      "displayName": "Michael Jerrell",
+      "shortName": "M. Jerrell",
+      "links": [
+       {
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/_/id/5209093/michael-jerrell",
+        "text": "Player Card"
+       },
+       {
+        "rel": [
+         "stats",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/stats/_/id/5209093/michael-jerrell",
+        "text": "Stats"
+       },
+       {
+        "rel": [
+         "stats",
+         "sportscenter",
+         "app",
+         "athlete"
+        ],
+        "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:5209093&section=stats",
+        "text": "Stats"
+       }
+      ],
+      "headshot": {
+       "href": "https://a.espncdn.com/i/headshots/nfl/players/full/5209093.png",
+       "alt": "Michael Jerrell"
+      },
+      "position": {
+       "id": "46",
+       "name": "Offensive Tackle",
+       "displayName": "Offensive Tackle",
+       "abbreviation": "OT",
+       "leaf": true
+      },
+      "team": {
+       "id": "1",
+       "uid": "s:20~l:28~t:1",
+       "slug": "atlanta-falcons",
+       "name": "Falcons",
+       "abbreviation": "ATL",
+       "displayName": "Atlanta Falcons"
+      },
+      "status": {
+       "id": "13",
+       "name": "Day-To-Day",
+       "type": "day-to-day",
+       "abbreviation": "Day-To-Day"
+      }
+     },
+     "source": {
+      "id": "1",
+      "description": "basic/manual",
+      "state": "basic"
+     },
+     "type": {
+      "id": "5",
+      "name": "INJURY_STATUS_IR",
+      "description": "Injured Reserve",
+      "abbreviation": "IR"
+     },
+     "details": {
+      "fantasyStatus": {
+       "description": "IR",
+       "abbreviation": "IR"
+      },
+      "type": "Biceps",
+      "location": "Arm",
+      "detail": "Not Specified",
+      "side": "Not Specified",
+      "returnDate": "2026-11-29"
+     }
+    }
+   ]
+  },
+  {
+   "id": "33",
+   "displayName": "Baltimore Ravens",
+   "injuries": [
+    {
+     "id": "644276",
+     "longComment": "Ioane exited the first quarter of Sunday's game with a knee injury. The rookie right guard's injury has been deemed too severe for him to return to the divisio…",
+     "shortComment": "Ioane (knee) has been ruled out for the remainder of Sunday's game against the Bengals.",
+     "status": "Questionable",
+     "date": "2026-10-25T18:45Z",
+     "athlete": {
+      "firstName": "Olaivavega",
+      "lastName": "Ioane",
+      "displayName": "Olaivavega Ioane",
+      "shortName": "O. Ioane",
+      "links": [
+       {
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/_/id/4832793/olaivavega-ioane",
+        "text": "Player Card"
+       },
+       {
+        "rel": [
+         "stats",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/stats/_/id/4832793/olaivavega-ioane",
+        "text": "Stats"
+       },
+       {
+        "rel": [
+         "stats",
+         "sportscenter",
+         "app",
+         "athlete"
+        ],
+        "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:4832793&section=stats",
+        "text": "Stats"
+       }
+      ],
+      "headshot": {
+       "href": "https://a.espncdn.com/i/headshots/nfl/players/full/4832793.png",
+       "alt": "Olaivavega Ioane"
+      },
+      "position": {
+       "id": "73",
+       "name": "Guard",
+       "displayName": "Guard",
+       "abbreviation": "G",
+       "leaf": false
+      },
+      "team": {
+       "id": "33",
+       "uid": "s:20~l:28~t:33",
+       "slug": "baltimore-ravens",
+       "name": "Ravens",
+       "abbreviation": "BAL",
+       "displayName": "Baltimore Ravens"
+      },
+      "status": {
+       "id": "1",
+       "name": "Active",
+       "type": "active",
+       "abbreviation": "Active"
+      }
+     },
+     "source": {
+      "id": "1",
+      "description": "basic/manual",
+      "state": "basic"
+     },
+     "type": {
+      "id": "2",
+      "name": "INJURY_STATUS_QUESTIONABLE",
+      "description": "questionable",
+      "abbreviation": "Q"
+     },
+     "details": {
+      "fantasyStatus": {
+       "description": "QUESTIONABLE",
+       "abbreviation": "QUESTIONABLE"
+      },
+      "type": "Knee",
+      "location": "Leg",
+      "detail": "Not Specified",
+      "side": "Not Specified",
+      "returnDate": "2026-11-01"
+     }
+    }
+   ]
+  },
+  {
+   "id": "2",
+   "displayName": "Buffalo Bills",
+   "injuries": [
+    {
+     "id": "-2059015",
+     "longComment": "reserve-sus",
+     "shortComment": "reserve-sus",
+     "status": "Suspension",
+     "date": "2026-10-26T11:01Z",
+     "athlete": {
+      "firstName": "C.J.",
+      "lastName": "Gardner-Johnson",
+      "displayName": "C.J. Gardner-Johnson",
+      "shortName": "C.J. Gardner-Johnson",
+      "links": [
+       {
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/_/id/4034953/cj-gardner-johnson",
+        "text": "Player Card"
+       },
+       {
+        "rel": [
+         "stats",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/stats/_/id/4034953/cj-gardner-johnson",
+        "text": "Stats"
+       },
+       {
+        "rel": [
+         "stats",
+         "sportscenter",
+         "app",
+         "athlete"
+        ],
+        "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:4034953&section=stats",
+        "text": "Stats"
+       }
+      ],
+      "headshot": {
+       "href": "https://a.espncdn.com/i/headshots/nfl/players/full/4034953.png",
+       "alt": "C.J. Gardner-Johnson"
+      },
+      "position": {
+       "id": "36",
+       "name": "Safety",
+       "displayName": "Safety",
+       "abbreviation": "S",
+       "leaf": true
+      },
+      "team": {
+       "id": "2",
+       "uid": "s:20~l:28~t:2",
+       "slug": "buffalo-bills",
+       "name": "Bills",
+       "abbreviation": "BUF",
+       "displayName": "Buffalo Bills"
+      },
+      "status": {
+       "id": "1",
+       "name": "Active",
+       "type": "active",
+       "abbreviation": "Active"
+      }
+     },
+     "source": {
+      "id": "1",
+      "description": "basic/manual",
+      "state": "basic"
+     },
+     "type": {
+      "id": "17",
+      "name": "INJURY_STATUS_SUSPENSION",
+      "description": "Suspension",
+      "abbreviation": "SUSP"
+     },
+     "details": {
+      "fantasyStatus": {
+       "description": "RESERVE-SUS",
+       "abbreviation": "RESERVE-SUS"
+      },
+      "type": "Suspension",
+      "location": "Other",
+      "detail": "Not Specified",
+      "side": "Not Specified",
+      "returnDate": "2026-11-09"
+     }
+    }
+   ]
+  },
+  {
+   "id": "29",
+   "displayName": "Carolina Panthers",
+   "injuries": [
+    {
+     "id": "-2058590",
+     "longComment": "doubtful",
+     "shortComment": "doubtful",
+     "status": "Doubtful",
+     "date": "2026-10-25T22:30Z",
+     "athlete": {
+      "firstName": "Taylor",
+      "lastName": "Moton",
+      "displayName": "Taylor Moton",
+      "shortName": "T. Moton",
+      "links": [
+       {
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/_/id/2973051/taylor-moton",
+        "text": "Player Card"
+       },
+       {
+        "rel": [
+         "stats",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/stats/_/id/2973051/taylor-moton",
+        "text": "Stats"
+       },
+       {
+        "rel": [
+         "stats",
+         "sportscenter",
+         "app",
+         "athlete"
+        ],
+        "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:2973051&section=stats",
+        "text": "Stats"
+       }
+      ],
+      "headshot": {
+       "href": "https://a.espncdn.com/i/headshots/nfl/players/full/2973051.png",
+       "alt": "Taylor Moton"
+      },
+      "position": {
+       "id": "46",
+       "name": "Offensive Tackle",
+       "displayName": "Offensive Tackle",
+       "abbreviation": "OT",
+       "leaf": true
+      },
+      "team": {
+       "id": "29",
+       "uid": "s:20~l:28~t:29",
+       "slug": "carolina-panthers",
+       "name": "Panthers",
+       "abbreviation": "CAR",
+       "displayName": "Carolina Panthers"
+      },
+      "status": {
+       "id": "1",
+       "name": "Active",
+       "type": "active",
+       "abbreviation": "Active"
+      }
+     },
+     "source": {
+      "id": "1",
+      "description": "basic/manual",
+      "state": "basic"
+     },
+     "type": {
+      "id": "3",
+      "name": "INJURY_STATUS_DOUBTFUL",
+      "description": "doubtful",
+      "abbreviation": "D"
+     },
+     "details": {
+      "fantasyStatus": {
+       "description": "DOUBTFUL",
+       "abbreviation": "DOUBTFUL"
+      },
+      "type": "Leg",
+      "location": "Leg",
+      "detail": "Fracture",
+      "side": "Left",
+      "returnDate": "2027-01-03"
+     }
+    }
+   ]
+  },
+  {
+   "id": "3",
+   "displayName": "Chicago Bears",
+   "injuries": [
+    {
+     "id": "-2059016",
+     "longComment": "ir",
+     "shortComment": "ir",
+     "status": "Injured Reserve",
+     "date": "2026-10-26T11:01Z",
+     "athlete": {
+      "firstName": "Anthony",
+      "lastName": "Johnson Jr.",
+      "displayName": "Anthony Johnson Jr.",
+      "shortName": "A. Johnson Jr.",
+      "links": [
+       {
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/_/id/4361748/anthony-johnson-jr",
+        "text": "Player Card"
+       },
+       {
+        "rel": [
+         "stats",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/stats/_/id/4361748/anthony-johnson-jr",
+        "text": "Stats"
+       },
+       {
+        "rel": [
+         "stats",
+         "sportscenter",
+         "app",
+         "athlete"
+        ],
+        "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:4361748&section=stats",
+        "text": "Stats"
+       }
+      ],
+      "headshot": {
+       "href": "https://a.espncdn.com/i/headshots/nfl/players/full/4361748.png",
+       "alt": "Anthony Johnson Jr."
+      },
+      "position": {
+       "id": "36",
+       "name": "Safety",
+       "displayName": "Safety",
+       "abbreviation": "S",
+       "leaf": true
+      },
+      "team": {
+       "id": "3",
+       "uid": "s:20~l:28~t:3",
+       "slug": "chicago-bears",
+       "name": "Bears",
+       "abbreviation": "CHI",
+       "displayName": "Chicago Bears"
+      },
+      "status": {
+       "id": "29",
+       "name": "Practice Squad",
+       "type": "practice-squad",
+       "abbreviation": "Practice Squad"
+      }
+     },
+     "source": {
+      "id": "1",
+      "description": "basic/manual",
+      "state": "basic"
+     },
+     "type": {
+      "id": "5",
+      "name": "INJURY_STATUS_IR",
+      "description": "Injured Reserve",
+      "abbreviation": "IR"
+     },
+     "details": {
+      "fantasyStatus": {
+       "description": "IR",
+       "abbreviation": "IR"
+      },
+      "type": "Undisclosed",
+      "location": "Other",
+      "returnDate": "2026-10-18"
+     }
+    }
+   ]
+  },
+  {
+   "id": "21",
+   "displayName": "Philadelphia Eagles",
+   "injuries": [
+    {
+     "id": "644121",
+     "longComment": "Greenard is considered a game-time decision, meaning the strongside linebacker will have to prove he is set to suit up before Monday's contest. If Greenard is…",
+     "shortComment": "Greenard (ankle) is listed as questionable for Monday night's game against the Cowboys, Martin Frank of The Delaware News Journal reports.",
+     "status": "Questionable",
+     "date": "2026-10-24T18:21Z",
+     "athlete": {
+      "firstName": "Jonathan",
+      "lastName": "Greenard",
+      "displayName": "Jonathan Greenard",
+      "shortName": "J. Greenard",
+      "links": [
+       {
+        "rel": [
+         "playercard",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/_/id/3916409/jonathan-greenard",
+        "text": "Player Card"
+       },
+       {
+        "rel": [
+         "stats",
+         "desktop",
+         "athlete"
+        ],
+        "href": "https://www.espn.com/nfl/player/stats/_/id/3916409/jonathan-greenard",
+        "text": "Stats"
+       },
+       {
+        "rel": [
+         "stats",
+         "sportscenter",
+         "app",
+         "athlete"
+        ],
+        "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:3916409&section=stats",
+        "text": "Stats"
+       }
+      ],
+      "headshot": {
+       "href": "https://a.espncdn.com/i/headshots/nfl/players/full/3916409.png",
+       "alt": "Jonathan Greenard"
+      },
+      "position": {
+       "id": "30",
+       "name": "Linebacker",
+       "displayName": "Linebacker",
+       "abbreviation": "LB",
+       "leaf": true
+      },
+      "team": {
+       "id": "21",
+       "uid": "s:20~l:28~t:21",
+       "slug": "philadelphia-eagles",
+       "name": "Eagles",
+       "abbreviation": "PHI",
+       "displayName": "Philadelphia Eagles"
+      },
+      "status": {
+       "id": "1",
+       "name": "Active",
+       "type": "active",
+       "abbreviation": "Active"
+      }
+     },
+     "source": {
+      "id": "1",
+      "description": "basic/manual",
+      "state": "basic"
+     },
+     "type": {
+      "id": "2",
+      "name": "INJURY_STATUS_QUESTIONABLE",
+      "description": "questionable",
+      "abbreviation": "Q"
+     },
+     "details": {
+      "fantasyStatus": {
+       "description": "QUESTIONABLE",
+       "abbreviation": "QUESTIONABLE"
+      },
+      "type": "Ankle",
+      "location": "Leg",
+      "returnDate": "2026-10-26"
+     }
+    }
+   ]
+  }
+ ]
+}

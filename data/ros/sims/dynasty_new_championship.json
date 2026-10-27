@@ -1,54 +1,44 @@
 {
-  "computedAt": "2026-10-25T21:15:39.642629+00:00",
+  "computedAt": "2026-10-27T08:28:53.273131+00:00",
   "championshipOdds": [
     {
       "ownerId": "1002085133723299840",
       "displayName": "Brent",
-      "championshipOdds": 0.8463,
-      "finalsOdds": 0.9763,
+      "championshipOdds": 0.9015,
+      "finalsOdds": 0.99,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 1.18,
+      "expectedFinish": 1.11,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "861387883699879936",
       "displayName": "Bkesss",
-      "championshipOdds": 0.131,
-      "finalsOdds": 0.6923,
-      "semifinalOdds": 0.975,
+      "championshipOdds": 0.08,
+      "finalsOdds": 0.587,
+      "semifinalOdds": 0.9595,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.23,
-      "contenderTier": "Serious Contender"
+      "expectedFinish": 2.42,
+      "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "360184624380633088",
       "displayName": "DeCline",
-      "championshipOdds": 0.0207,
-      "finalsOdds": 0.292,
-      "semifinalOdds": 0.927,
+      "championshipOdds": 0.018,
+      "finalsOdds": 0.4,
+      "semifinalOdds": 0.989,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.83,
+      "expectedFinish": 2.6,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "640377779837296640",
       "displayName": "Kanyn",
-      "championshipOdds": 0.001,
-      "finalsOdds": 0.0197,
-      "semifinalOdds": 0.6377,
-      "playoffOdds": 0.9983,
-      "expectedFinish": 4.0,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "984270279268446208",
-      "displayName": "Comacho",
-      "championshipOdds": 0.001,
-      "finalsOdds": 0.0197,
-      "semifinalOdds": 0.3337,
-      "playoffOdds": 0.9587,
-      "expectedFinish": 4.56,
+      "championshipOdds": 0.0005,
+      "finalsOdds": 0.0115,
+      "semifinalOdds": 0.5205,
+      "playoffOdds": 1.0,
+      "expectedFinish": 4.34,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
@@ -56,20 +46,20 @@
       "displayName": "Jhall2002",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.1243,
-      "playoffOdds": 0.988,
-      "expectedFinish": 5.31,
+      "semifinalOdds": 0.0545,
+      "playoffOdds": 1.0,
+      "expectedFinish": 5.19,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
-      "ownerId": "1202064845743071232",
-      "displayName": "shayden18",
+      "ownerId": "984270279268446208",
+      "displayName": "Comacho",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0023,
-      "playoffOdds": 0.054,
-      "expectedFinish": 7.03,
-      "contenderTier": "Rebuilder / Seller"
+      "finalsOdds": 0.0115,
+      "semifinalOdds": 0.4765,
+      "playoffOdds": 1.0,
+      "expectedFinish": 4.34,
+      "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "1033502330853302272",
@@ -77,8 +67,18 @@
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "playoffOdds": 0.001,
-      "expectedFinish": 7.9,
+      "playoffOdds": 0.0,
+      "expectedFinish": 7.63,
+      "contenderTier": "Rebuilder / Seller"
+    },
+    {
+      "ownerId": "1202064845743071232",
+      "displayName": "shayden18",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.0,
+      "playoffOdds": 0.0,
+      "expectedFinish": 7.38,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -88,7 +88,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 9.01,
+      "expectedFinish": 9.05,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -98,11 +98,11 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 9.95,
+      "expectedFinish": 9.94,
       "contenderTier": "Rebuilder / Seller"
     }
   ],
-  "n_simulations": 3000,
+  "n_simulations": 2000,
   "playoffSeeds": 6,
   "byeSeeds": 2,
   "playoffStructure": {

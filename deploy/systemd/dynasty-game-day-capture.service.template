@@ -26,15 +26,23 @@ Wants=network-online.target
 # files with `git checkout --force` and never removes gitignored data/.
 #
 # Exit codes (scripts/capture_game_day_predictions.py):
-#   0 - every league captured, or already was (the append-only skip)
+#   0 - every league captured, or already was (the append-only skip) --
+#       including AFTER kickoff when every team's pregame snapshot was
+#       captured before it
 #   1 - hard error for at least one league
 #   2 - nothing to do (out of season, preseason, or no week resolved)
-#   3 - REFUSED: the pregame window has closed for a league
+#   3 - REFUSED: the pregame window has closed for a league and its pregame
+#       observation is missing (or its rosters could not be read to verify)
 #
 # Exit 3 is the one to page on. It means the timer fired after kickoff and
 # that week's pregame observation is permanently unrecoverable — the script
 # will not reconstruct one and label it pregame. Investigate the schedule,
 # do not re-run with a later capture_kind expecting the same evidence.
+#
+# Until 2026-10-25 a closed window exited 3 even when the week WAS captured,
+# so the unit sat `failed` from every Thursday kickoff until Sleeper rolled
+# the week (week 7: captured 2026-10-21T20:00Z, then REFUSED on every run from
+# 2026-10-23T04:00Z on), and a genuinely lost week looked identical.
 
 [Service]
 Type=oneshot

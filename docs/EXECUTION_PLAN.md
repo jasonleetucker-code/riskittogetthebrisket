@@ -4,6 +4,33 @@
 
 **AUTHORIZED: scoped implementation and PR only.** Build an owner-only, read-only MCP plugin using ChatGPT Sites hosting to support the user's ChatGPT Plus workflow. First tools: player rankings, canonical player identity resolution, league context, Sleeper rosters, and trade analysis. Reuse current API contracts and analytical owners; include IDs, data-as-of stamps, confidence, provenance, and explicit unavailable states. Respect private ranking permissions, source licensing, and feature flags. No write tools, public publication, production deployment, or merge is authorized in this lane. Review and required verification are prerequisites to any later publish/deploy/merge. Follow-on scope for projections, draft capital, waivers and FAAB remains intake-only until the first live path is verified. Intake: `docs/OWNER_REQUESTED_TODO.md` §"Added 2026-10-25 — Chase Upside private ChatGPT MCP plugin".
 
+## IDP market pricing, acquisition intelligence, historical trade research and draft strategy — owner directive, 2026-10-26
+
+**AUTHORIZED NOW (read-only collection, additive diagnostics and shadow-only research; NOT activation).** The directive
+is verbatim in `docs/owner/IDP_MARKET_ACQUISITION_DIRECTIVE_2026-10-26.md`. Authorized in phase order:
+- **Phase 1:** the own-league trade and draft census over the full `previous_league_id` chain, from Sleeper's public
+  read-only API, priced only point-in-time through `src/history`, with private transaction-level evidence kept in
+  gitignored `data/research/`. A survey of historical price archives for trades before 2026-07-14; no ingestion before
+  the owner approves a source, and no paid data.
+- **Phase 2:** preregistered market-hypothesis research (H1–H7).
+- **Phases 3–4:** shadow acquisition, selling, draft and auction research.
+
+Rules for all of it:
+- **Reuse, never fork.** Reuse the existing owners: `src/trade/market_trade_*`, `comparable_trades.py`,
+  `own_league_format_capture.py`, `src/public_league/sleeper_client.py`, `src/identity/`, `src/history/`,
+  `analyze_trade.py`, `trade_decision.decide()` (the only verdict owner), `roster_capacity`, `competitive_posture`,
+  `src/ros/lineup.py`, `src/draft/` and `src/auction/`.
+- **Isolate.** New code is research or shadow only: unwired, or behind default-OFF flags, and isolated like
+  `src/league_valuation/` (`tests/league_valuation/test_isolation.py`).
+- **No second owner.** `chaseTradeMarket` stays non-voting; no second voting mechanism, no second ledger, no second
+  verdict owner.
+
+**Owner-reserved (NOT authorized):** the directive's §15 list: canonical IDP values, source voting or weights, the
+shared market anchor, replacement-level or fair-value promotion, public fairness, the package model, recommendation
+rule tables, turning any flag ON, scoring cards, and any model affecting live trade verdicts. Also: Sleeper writes and
+paid data. Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-26 — IDP market pricing…" (IDPM-1..11).
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel.
 
 ## IDP valuation accuracy + platform research/promotion-readiness audit — owner directives, 2026-10-25
 
@@ -179,8 +206,9 @@ Each mathematical change ships behind its own flag. A change that fails validati
 ## Standing owner delivery method — 2026-10-19
 
 **PROCESS ONLY, NOT NEW FEATURE AUTHORIZATION.** The authorized work in
-§0 should be built by the maximum safe number of independent workers
-(target 3–5 isolated branches/worktrees when supported) instead of
+§0 should be built by independent workers in isolated branches/worktrees,
+within the Agent OS §3 "Usage efficiency" limit (at most four concurrent workers,
+owner 2026-10-26; supersedes the earlier 3–5 target), instead of
 serializing behind unrelated full CI. Keep L0/L1 checks during coding,
 full required L2 at each PR integration boundary, and strict L3 at the
 existing release boundary. The **exclusive Integration Authority** may
@@ -612,6 +640,16 @@ coordinate with the open awards claim), then the league-valid alternative-calend
 qualification/finish distributions (B remainder, separate model id; the finish sampler exists as
 library code and is not published), then D (valid slot swaps, retrospective playoff sensitivity);
 E stays behind `C5-WAR-01`.
+
+**Corrected 2026-10-26 by the RPA audit:** "WAR/WAB are absent on main" and "E stays behind `C5-WAR-01`" above were true on
+2026-10-03 and are stale. `C5-WAR-01`'s deterministic core (realized lineup VORP, Actual WAR, Wins
+Above Bench, Game Changer Points) merged as #1692 on 2026-10-08 (`src/public_league/player_impact.py`;
+private, read-only route `GET /api/league/player-impact`), so Milestone E's WAR/WAB dependency is met.
+Unchanged: xWAR is deliberately not computed (no archived no-lookahead league-week distribution
+exists); nothing consumes the player-impact contract yet, so no award or MVP formula uses it; B
+remainder, C and D keep their dependency order; an official MVP formula change stays shadow-only until
+the owner approves it. Evidence: `gh pr view 1692` (MERGED 2026-10-08);
+`docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md` (RPA-LGI-009).
 
 **Not authorized by this directive:** changing the official Power Rankings formula or the official
 League MVP formula (both stay behind the existing owner/methodology gates — candidates ship in
@@ -2144,6 +2182,15 @@ C10 Closure
 
 **Units 1–4 are CLOSED. Unit 5 of this list (`C1-U6`) is AUTHORIZED. Unit 4 of this list (`C1-U5`) is
 DEFERRED; unit 6 is NOT authorized.** Original rationale in `docs/POST_B_RECONCILIATION_2026-08-14.md` §30.
+
+> **Corrected 2026-10-26 by the RPA audit:** the header's "`C1-U5` is DEFERRED" (and item 4's "DEFERRED — NOT AUTHORIZED")
+> recorded the owner's 2026-08-16 checkpoint choice and was true then; it is stale. `C1-U5` /
+> `C1-CONF-01` was executed and merged as PR #876 on 2026-08-17 (merge `1bfa83699`,
+> `docs/confidence/C1_U5_CONFIDENCE_NAMING.md`) and is recorded as in production, checklist unexecuted,
+> in the §0.3 merge queue above (that status was not re-verified here). Likewise `C1-U6` (unit 5) is no
+> longer merely "AUTHORIZED": its own section above records it CLOSED. Unit 6 remains NOT authorized. The
+> 2026-08-16 deferral text is left as written. Evidence: `gh pr view 876` (MERGED 2026-08-17);
+> `docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md` (RPA-GOV-005).
 
 PR-sized units within C1A, in order:
 

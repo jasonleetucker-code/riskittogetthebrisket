@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 61 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 62 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -624,6 +624,21 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # public API terms apply.  Off → 503 feature_disabled and the nav item
     # disappears.  Rollback: RISKIT_FEATURE_MANAGER_INTELLIGENCE=0 + restart.
     "manager_intelligence": True,
+    # D-2 (docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md §6.1).  ON: a backend
+    # boot skips its 3 s startup scrape (and its Chromium launch) only when
+    # the board it just primed is healthy and was produced less than one
+    # SCRAPE_INTERVAL_HOURS ago; the first scheduled scrape then runs at
+    # produced + interval.  Any other boot scrapes immediately, so the maximum
+    # served-board age does not change.  Decision owner:
+    # ``server._startup_scrape_plan`` (lifespan).  OFF (the default) is
+    # today's behaviour byte for byte: every boot scrapes after 3 s.
+    # Default OFF because it is NOT a pure no-risk change: a deploy that ships
+    # scraper code no longer exercises it until the board comes due (up to one
+    # interval), boot no longer refreshes rosters at once, and it changes the
+    # per-restart memory profile the owner-reserved MemoryHigh canary
+    # (§5.2) measures.  Activation: RISKIT_FEATURE_CONDITIONAL_STARTUP_SCRAPE=1
+    # + restart; rollback =0 + restart.
+    "conditional_startup_scrape": False,
     # Brisket Trade Advisor (owner directive 2026-10-19; FAIRNESS-ONLY
     # amendment 2026-10-20): the public League Hub trade advisor,
     # ``/api/public/league/trade-advisor/*`` (src/api/public_trade_advisor_api.py).
@@ -727,6 +742,18 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # those consumers together — this flag is a temporary
     # champion/challenger gate and must NOT become a permanently
     # supported second scoring system.
+    #
+    # Production state (corrected 2026-10-26 by the RPA audit): the
+    # registry default stays OFF, but production runs this flag ON
+    # through an environment override
+    # (``RISKIT_FEATURE_HOST_NATIVE_SCORING=1``), a controlled
+    # activation made on 2026-08-29 under the owner's Packet C answer
+    # of 2026-08-25 (docs/VERSION_1_COMPLETION_CONTRACT.md, "PACKET C
+    # ANSWERED" and the V1-49 row).  So "OFF by default" above
+    # describes the registry, not production.  Whether ON becomes the
+    # standing state (promote the default) or the override is withdrawn
+    # is a decision that is still pending; do not change this default
+    # without it.
     #
     # Enable with ``RISKIT_FEATURE_HOST_NATIVE_SCORING=1`` **and a
     # restart** (flag reads are process-cached).  Evidence:
@@ -1013,6 +1040,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # manager_intelligence gates the /api/manager-intel router mounted in
     # server.py: off → 503 feature_disabled, on → the profile.
     "manager_intelligence": LIVE,
+    # conditional_startup_scrape gates the startup scrape in server.py's
+    # lifespan (``_startup_scrape_plan``): off → every boot scrapes after 3 s.
+    "conditional_startup_scrape": LIVE,
     # brisket_trade_advisor gates the /api/public/league/trade-advisor/*
     # router mounted in server.py: off → 503 advisor_unavailable, on → the
     # public advisor payloads.
@@ -1147,8 +1177,11 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # below is genuinely LIVE.  This does NOT mean toggling it changes
     # the response: it is a SHADOW gate by design (see its _DEFAULTS
     # comment) — reachable-and-wired is a different claim from
-    # response-changing, which is exactly why it defaults False rather
-    # than True despite measuring LIVE.
+    # response-changing.  Corrected 2026-10-26 by the RPA audit: this
+    # comment used to say the flag "defaults False rather than True".
+    # The registry default is True (Stage 1 activation, owner-directed:
+    # default ON only to accumulate shadow comparisons; the live
+    # response is unchanged either way) — see its _DEFAULTS entry.
     "waiver_live_opportunity": LIVE,
     # ``src/nfl_data/injury_feed.py`` is reachable since 2026-09-01 via
     # ``scripts/refresh_injury_feed.py``, a script-only entry point (no

@@ -21,17 +21,36 @@ Merge policy (documented): the reconstructed baseline is a stand-in
 for absent data (BDVM §8.3).  When a player gains a real projection
 record, that player's proxy records are dropped from the merged
 snapshot; players the real source doesn't cover keep their proxy.
+
+Owner gate (default OFF): merging these records into a snapshot changes
+the fundamental values BDVM serves, so ``scripts/fetch_idpshow_projections.py``
+only calls :func:`merge_into_snapshot` when the owner has switched it on
+(``src/bdvm/idpshow_switch.py``).  Otherwise the parsed records go to a
+SHADOW file via :func:`write_shadow_file` under ``data/bdvm/shadow/`` -
+a tree no BDVM reader opens (every loader reads ``projections_*.json``
+under ``data/bdvm/projections/<season>/`` only).
 """
 
 from __future__ import annotations
 
 import csv
 import io
+import json
+import os
 import re
+import tempfile
+from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from src.bdvm.context import TRUE_POSITION_MAP
-from src.bdvm.projections import ProjectionRecord, supersede_merge_into_snapshot
+from src.bdvm.idpshow_switch import MERGE_ENV_VAR
+from src.bdvm.projections import (
+    REPO_ROOT,
+    ProjectionRecord,
+    latest_snapshot_path,
+    load_snapshot,
+    supersede_merge_into_snapshot,
+)
 
 SOURCE_NAME = "idpShowProjections"
 
@@ -48,6 +67,16 @@ _HEADER_ALIASES: dict[str, str] = {
     "player name": "name",
     "pos": "position",
     "position": "position",
+    # The sheet's current layout may carry the position ONLY as a
+    # position-rank code (``ED1`` / ``S69`` / ``DT46`` - the code with the
+    # positional rank glued on), the same 2026-05 rename the rankings
+    # fetcher documents (scripts/fetch_idpshow.py::_parse_dataset).  It is
+    # its own semantic, NOT an alias of ``position``: the value needs its
+    # digits stripped before it is a position label, and an explicit
+    # ``position`` column always wins when both are present.
+    "position rank": "position_rank",
+    "pos rank": "position_rank",
+    "positional rank": "position_rank",
     "team": "team",
     "tm": "team",
     "gp": "games",
@@ -175,6 +204,19 @@ def _squeeze(header: str) -> str:
     return _PROJECTED_PREFIX.sub("", cleaned).strip()
 
 
+def _position_from_rank_code(value: Any) -> str | None:
+    """``"ED1"`` / ``"S69"`` / ``"DT46"`` -> a BDVM true position, else None.
+
+    The leading letters are the position; everything from the first digit on
+    is the positional rank and carries no position information.  Same rule as
+    the rankings fetcher's ``POSITION RANK`` handling.  A value with no
+    leading letters (a bare rank like ``"12"``) or an unrecognised label is
+    ``None`` - the row is then skipped and counted, never guessed.
+    """
+    m = re.match(r"[A-Z]+", str(value or "").strip().upper())
+    return _POSITION_ALIASES.get(m.group(0)) if m else None
+
+
 def _num(v: Any) -> float | None:
     s = str(v if v is not None else "").strip().replace(",", "")
     if not s or s in ("-", "--"):
@@ -188,9 +230,16 @@ def _num(v: Any) -> float | None:
 def parse_projection_csv(csv_text: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Parse one candidate table.  Returns (rows, report).
 
-    A usable projection table needs a name column, a position column,
-    and either >= 2 defensive stat columns or a direct points column.
-    Anything less → ``report["usable"] = False`` and zero rows.
+    A usable projection table needs a name column, a position source (a
+    ``Pos``/``Position`` column, or failing that a ``Position Rank`` code
+    column such as ``ED1``), and either >= 2 defensive stat columns or a
+    direct points column.  Anything less → ``report["usable"] = False``
+    and zero rows.
+
+    The report names what it saw: ``headerColumns`` (every raw header),
+    ``mappedColumns`` / ``unmappedColumns``, ``positionSource`` and, for a
+    rejected table, ``missingRoles`` - so "no usable data" is never again
+    indistinguishable from an expired cookie.
     """
     reader = csv.reader(io.StringIO(csv_text))
     try:
@@ -209,21 +258,37 @@ def parse_projection_csv(csv_text: str) -> tuple[list[dict[str, Any]], dict[str,
 
     mapped = set(mapping.values())
     stat_cols = mapped & _STAT_FIELDS
-    usable = (
-        "name" in mapped
-        and "position" in mapped
-        and (len(stat_cols) >= 2 or "fpts" in mapped or "fpg" in mapped)
-    )
+    has_name = "name" in mapped
+    has_position = "position" in mapped or "position_rank" in mapped
+    has_measure = len(stat_cols) >= 2 or "fpts" in mapped or "fpg" in mapped
+    usable = has_name and has_position and has_measure
+    if "position" in mapped:
+        position_source: str | None = "position_column"
+    elif "position_rank" in mapped:
+        position_source = "position_rank_code"
+    else:
+        position_source = None
     report: dict[str, Any] = {
         "usable": usable,
+        "headerColumns": [str(c) for c in raw_header],
         "mappedColumns": sorted(mapped),
         "unmappedColumns": unmapped,
         "statColumns": sorted(stat_cols),
+        "positionSource": position_source,
         "approximations": [],
         "skippedRows": 0,
     }
     if not usable:
         report["reason"] = "not_a_projection_table"
+        report["missingRoles"] = [
+            role
+            for role, present in (
+                ("name", has_name),
+                ("position", has_position),
+                ("stats_or_points", has_measure),
+            )
+            if not present
+        ]
         return [], report
 
     split_needed = "def_tackles" in mapped and "def_tackles_solo" not in mapped
@@ -241,12 +306,19 @@ def parse_projection_csv(csv_text: str) -> tuple[list[dict[str, Any]], dict[str,
                 entry[semantic] = str(value or "").strip()
             elif semantic == "position":
                 entry["position"] = _POSITION_ALIASES.get(str(value or "").strip().upper(), None)
+            elif semantic == "position_rank":
+                entry["position_from_rank"] = _position_from_rank_code(value)
             elif semantic in ("games", "fpts", "fpg"):
                 entry[semantic] = _num(value)
             else:
                 n = _num(value)
                 if n is not None:
                     entry["stats"][semantic] = n
+        # An explicit position column always wins; the rank code is only the
+        # position source when the sheet has no such column.
+        from_rank = entry.pop("position_from_rank", None)
+        if "position" not in mapped:
+            entry["position"] = from_rank
         name = entry.get("name") or ""
         # Datawrapper name cells sometimes carry rank prefixes ("1. Name")
         name = re.sub(r"^\s*\d+[.)]\s*", "", name).strip()
@@ -366,3 +438,143 @@ def merge_into_snapshot(
         as_of=as_of,
         label=label,
     )
+
+
+# ---------------------------------------------------------------------------
+# Shadow output - the default while the owner gate is closed
+# ---------------------------------------------------------------------------
+
+#: Where parsed-but-not-merged records go.  Deliberately OUTSIDE
+#: ``data/bdvm/projections/``: every BDVM reader (``latest_snapshot_path``,
+#: ``projection_scorecard``, ``projection_observations``, the service) opens
+#: ``projections_*.json`` under ``<SNAPSHOT_DIR>/<season>/`` and nothing else.
+#: ``data/`` is gitignored repo-wide, so this is box-local evidence.
+SHADOW_DIR = REPO_ROOT / "data" / "bdvm" / "shadow" / "idpshow_projections"
+
+SHADOW_SCHEMA_VERSION = 1
+
+
+def shadow_path(
+    season: int, as_of: str, base_dir: Path | None = None, status: str = "parsed"
+) -> Path:
+    """``<SHADOW_DIR>/<season>/idpshow_<YYYY-MM-DD>.json`` for parsed records.
+
+    A failed parse (``status != "parsed"``) is a DIAGNOSTIC and gets its own
+    name (``idpshow_<date>_<status>.json``) so a later failed rerun the same
+    day can never overwrite the day's good evidence.
+    """
+    suffix = "" if status == "parsed" else f"_{status}"
+    return (base_dir or SHADOW_DIR) / str(season) / f"idpshow_{str(as_of)[:10]}{suffix}.json"
+
+
+def _record_payload(r: ProjectionRecord) -> dict[str, Any]:
+    return {
+        "source": r.source,
+        "playerKey": r.player_key,
+        "position": r.position,
+        "season": r.season,
+        "asOf": r.as_of,
+        "games": r.games,
+        "statLine": dict(r.stat_line) if r.stat_line is not None else None,
+        "statBasis": r.stat_basis,
+        "fpg": r.fpg,
+        "fpts": r.fpts,
+        "scoringNative": r.scoring_native,
+        "isProxy": r.is_proxy,
+    }
+
+
+def merge_preview(
+    records: Iterable[ProjectionRecord],
+    *,
+    season: int,
+    snapshot_dir: Path | None = None,
+) -> dict[str, Any]:
+    """What switching the merge on would do to the latest snapshot.  READ ONLY.
+
+    Counts, not values: how many players the IDP Show would cover, how many
+    reconstructed-baseline proxies it would supersede, and how many of its
+    players another real source already covers (they would become a
+    two-source consensus).  The owner decision is about exactly these numbers.
+    """
+    covered = {r.player_key for r in records}
+    try:
+        prior = latest_snapshot_path(season, base_dir=snapshot_dir)
+        if prior is None:
+            return {
+                "priorSnapshot": None,
+                "idpShowPlayers": len(covered),
+                "note": "no prior snapshot: a merge would write IDP Show records only",
+            }
+        _prior_as_of, existing = load_snapshot(prior)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return {"unavailable": f"{type(exc).__name__}: {exc}"}
+    existing_keys = {r.player_key for r in existing}
+    other_real = sorted({r.source for r in existing if not r.is_proxy and r.source != SOURCE_NAME})
+    return {
+        "priorSnapshot": prior.name,
+        "priorRecords": len(existing),
+        "idpShowPlayers": len(covered),
+        "proxiesWouldSupersede": sum(1 for r in existing if r.is_proxy and r.player_key in covered),
+        "playersWithNoPriorRecord": len(covered - existing_keys),
+        "playersAlsoCoveredByRealSource": {
+            src: len(covered & {r.player_key for r in existing if r.source == src})
+            for src in other_real
+        },
+    }
+
+
+def write_shadow_file(
+    records: list[ProjectionRecord],
+    *,
+    season: int,
+    as_of: str,
+    mode: str,
+    status: str,
+    parse_summary: Mapping[str, Any],
+    base_dir: Path | None = None,
+    snapshot_dir: Path | None = None,
+) -> Path:
+    """Write the parse result where BDVM will not read it.  Atomic.
+
+    ``mode`` is ``"shadow"`` (merge switch OFF: these records were NOT merged
+    into any snapshot) or ``"merge"`` (switch ON; only used to leave a
+    diagnostic when the table was unusable).  ``status`` is ``"parsed"`` or
+    ``"no_usable_table"``.  A same-day rerun replaces that status's file for the
+    day: shadow output is evidence, not an immutable snapshot.
+    """
+    path = shadow_path(season, as_of, base_dir, status)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schemaVersion": SHADOW_SCHEMA_VERSION,
+        "kind": "idpshow_projections_shadow",
+        "notice": (
+            "SHADOW OUTPUT - BDVM does not read this file. Real IDP Show records "
+            "enter BDVM snapshots only when the owner switches the merge on "
+            f"({MERGE_ENV_VAR}=1 or --merge-into-snapshot)."
+        ),
+        "source": SOURCE_NAME,
+        "season": season,
+        "asOf": str(as_of)[:10],
+        "mode": mode,
+        "status": status,
+        "mergeSwitch": {"envVar": MERGE_ENV_VAR, "enabled": mode == "merge"},
+        "parseSummary": dict(parse_summary),
+        "recordCount": len(records),
+        "mergePreview": (
+            merge_preview(records, season=season, snapshot_dir=snapshot_dir) if records else None
+        ),
+        "records": [_record_payload(r) for r in records],
+    }
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=".idpshow_shadow.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=1)
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+    return path

@@ -108,6 +108,7 @@ from src.news import custom_alerts as _custom_alerts
 from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
 from src.diagnostics import proc_probe as _proc_probe
 from src.diagnostics import scrape_telemetry as _scrape_telemetry
+from src.sources import dlf_session as _dlf_session
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
@@ -2513,63 +2514,77 @@ def _per_source_freshness() -> dict[str, dict]:
 
 
 def _backup_freshness() -> dict:
-    """Age + location of the newest SQLite backup.
+    """Backup health, with the two backups kept apart and named.
 
-    Mirrors deploy/backup_user_kv.sh: the primary dir ``/var/backups/
-    riskit`` needs root; the self-healing script falls back to
-    ``/home/dynasty/backups/riskit`` (owned by the service user).  This
-    surfaces ``newestBackupAgeHours`` so monitoring trips an alert
-    within a day of a silent backup failure — the exact gap that let
-    backups die unnoticed for ~2 weeks before the P0 fix.  Never raises;
-    returns null age when no backup is found.
+    ``stateBackup`` is the nightly state backup (``riskit-state-backup``,
+    written under the root-only ``/var/backups/riskit-state``): a root this
+    process cannot list is reported ``unverifiable`` / ``permission_denied``,
+    never healthy and never missing.  ``legacySqliteBackup`` is the older
+    ``backup_user_kv.sh`` job (``/var/backups/riskit`` or the dynasty-owned
+    ``/home/dynasty/backups/riskit``) under its own name.  The original
+    top-level keys (``newestBackupAgeHours`` / ``backupDirUsed`` /
+    ``dbCount``) still describe the LEGACY backup only — ``health-check.yml``
+    and the stale-backup alert in ``get_health`` read them — and the payload
+    says so (``legacyKeysDescribe``).  Unknown ages and counts are ``None``.
+    The block is served anonymously, so it carries no filesystem path
+    (``filesystemPaths: "withheld"``); the alert e-mail reads the newest file
+    from the private sidecar memoized with it (``_backup_alert_path``).
+    Owner: ``src/api/backup_health.py``.  Never raises.
 
     Memoized 30s (see ``_DISK_PROBE_MEMO``) — treat as read-only.
     """
-    return _disk_probe_memo("backup_freshness", _backup_freshness_uncached)
+    return _backup_snapshot()[0]
 
 
-def _backup_freshness_uncached() -> dict:
-    result = {
-        "newestBackupAgeHours": None,
-        "newestBackupPath": None,
-        "backupDirUsed": "none",
-        "dbCount": 0,
-    }
+def _backup_snapshot() -> tuple[dict, str | None]:
+    """``(public block, private alert path)``: ONE memo entry, ONE timestamp.
+
+    Both halves come from the same uncached pass, so the stale-backup e-mail
+    can never pair one scan's age, directory and count with another scan's
+    file.  Only the block reaches a payload (``_backup_freshness``); the path
+    is read by ``_backup_alert_path`` alone and is never serialized.
+    """
+    return _disk_probe_memo("backup_freshness", _backup_snapshot_uncached)
+
+
+def _backup_snapshot_uncached() -> tuple[dict, str | None]:
     try:
-        now_epoch = time.time()
-        newest_epoch: float | None = None
-        for label, d in (
-            ("primary", Path("/var/backups/riskit/daily")),
-            ("fallback", Path("/home/dynasty/backups/riskit/daily")),
-        ):
-            try:
-                files = list(d.glob("*.sqlite.gz"))
-            except OSError:
-                continue
-            for f in files:
-                try:
-                    mt = f.stat().st_mtime
-                except OSError:
-                    continue
-                if newest_epoch is None or mt > newest_epoch:
-                    newest_epoch = mt
-                    result["newestBackupPath"] = str(f)
-                    result["backupDirUsed"] = label
-        if newest_epoch is not None:
-            result["newestBackupAgeHours"] = round(max(0.0, (now_epoch - newest_epoch) / 3600.0), 2)
-            try:
-                newest = Path(result["newestBackupPath"])
-                parts = newest.name.split(".")
-                stamp = parts[1] if len(parts) >= 3 else ""
-                if stamp:
-                    result["dbCount"] = len(
-                        {f.name.split(".")[0] for f in newest.parent.glob(f"*.{stamp}.sqlite.gz")}
-                    )
-            except OSError:
-                pass
+        from src.api.backup_health import build_backup_health_snapshot
+
+        return build_backup_health_snapshot()
+    except Exception:  # noqa: BLE001 — monitoring helper must never raise
+        return (
+            {
+                "newestBackupAgeHours": None,
+                "backupDirUsed": "none",
+                "dbCount": None,
+                "legacyKeysDescribe": "legacySqliteBackup",
+                "filesystemPaths": "withheld",
+                "legacySqliteBackup": {"state": "unverifiable", "reason": "probe_error"},
+                "stateBackup": {"state": "unverifiable", "reason": "probe_error"},
+            },
+            None,
+        )
+
+
+def _backup_alert_path(block: dict) -> str | None:
+    """The newest legacy backup FILE behind ``block``, for the operator's
+    stale-backup e-mail.
+
+    PRIVATE: never served.  It is the sidecar memoized WITH ``block`` (same
+    pass, same timestamp), so the e-mail's age, dir, dbCount and path describe
+    one scan.  It reads the memo only and makes no lookup of its own: when
+    ``block`` is not the memoized block (the memo was rebuilt since, or the
+    block came from elsewhere) the answer is ``None`` — unknown, never another
+    scan's file.  Never raises.
+    """
+    try:
+        hit = _DISK_PROBE_MEMO.get("backup_freshness")
+        if hit is not None and hit[1][0] is block:
+            return hit[1][1]
     except Exception:  # noqa: BLE001 — monitoring helper must never raise
         pass
-    return result
+    return None
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
@@ -4189,16 +4204,77 @@ async def scheduled_scrape():
     ).isoformat()
 
 
-async def schedule_loop():
-    """Simple async loop that runs the scraper on an interval."""
+async def schedule_loop(first_delay_seconds: float | None = None):
+    """Simple async loop that runs the scraper on an interval.
+
+    ``first_delay_seconds`` shortens (never lengthens) the FIRST wait, so a boot
+    that skipped its startup scrape (``_startup_scrape_plan``) scrapes when the
+    loaded board turns one interval old instead of one interval after boot.
+    """
     from datetime import timedelta
 
+    interval_s = SCRAPE_INTERVAL_HOURS * 3600
+    delay_s = interval_s
+    if first_delay_seconds is not None:
+        delay_s = min(interval_s, max(0.0, float(first_delay_seconds)))
     while True:
         scrape_status["next_scrape"] = (
-            datetime.now(timezone.utc) + timedelta(hours=SCRAPE_INTERVAL_HOURS)
+            datetime.now(timezone.utc) + timedelta(seconds=delay_s)
         ).isoformat()
-        await asyncio.sleep(SCRAPE_INTERVAL_HOURS * 3600)
+        await asyncio.sleep(delay_s)
         await scheduled_scrape()
+        delay_s = interval_s
+
+
+def _startup_scrape_plan(
+    board_age_hours: float | None,
+    *,
+    has_contract: bool,
+    contract_ok: bool,
+    enabled: bool,
+    interval_hours: float = SCRAPE_INTERVAL_HOURS,
+) -> dict:
+    """Should this boot scrape now, and when is the first scheduled scrape?
+
+    Every restart used to scrape 3 s after boot (Chromium included) whatever
+    the age of the board it had just loaded, and reset the scheduled loop to
+    ``boot + interval`` (docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md §6.1,
+    D-2).  A boot may now SKIP that scrape only when the board it serves was
+    produced less than ONE scrape interval ago -- a third of the
+    ``data_stale`` line (``3 x interval``, ``/api/health``) -- and then scrapes
+    at ``produced + interval``, exactly when an uninterrupted process would
+    have.  The age is ``_board_age_hours`` (the one owner, F-19): unknown, a
+    future stamp, no primed contract, a primed contract whose
+    ``contractHealth`` is not ok (a scrape is the recovery attempt), or the
+    flag off (``conditional_startup_scrape``, default OFF) all scrape at boot
+    as before.  So the maximum age of the served board is unchanged; what goes
+    is the redundant scrape of a board that is still within its interval.
+
+    Returns ``{"run_now", "first_delay_seconds", "reason", "board_age_hours"}``.
+    """
+    interval_s = float(interval_hours) * 3600.0
+    plan = {
+        "run_now": True,
+        "first_delay_seconds": interval_s,
+        "board_age_hours": board_age_hours,
+    }
+    if not enabled:
+        return {**plan, "reason": "flag_off"}
+    if not has_contract:
+        return {**plan, "reason": "no_primed_contract"}
+    if not contract_ok:
+        return {**plan, "reason": "contract_unhealthy"}
+    if board_age_hours is None:
+        return {**plan, "reason": "board_age_unknown"}
+    if board_age_hours < 0 or board_age_hours >= float(interval_hours):
+        return {**plan, "reason": "board_due"}
+    remaining = interval_s - board_age_hours * 3600.0
+    return {
+        **plan,
+        "run_now": False,
+        "first_delay_seconds": max(0.0, remaining),
+        "reason": "board_within_interval",
+    }
 
 
 # ── APP LIFECYCLE ───────────────────────────────────────────────────────
@@ -4257,15 +4333,51 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         log.warning("session_store hydrate on startup failed: %s", exc)
 
-    # 2. Start first scrape in background (don't block startup)
+    # 2. Start first scrape in background (don't block startup) -- unless the
+    # board just loaded is still within its scrape interval (D-2,
+    # ``_startup_scrape_plan``); then the schedule scrapes when it comes due.
     async def initial_scrape():
         await asyncio.sleep(3)  # small delay to let server finish booting
         await run_scraper(trigger="startup")
 
     # 3. Start the recurring schedule
     if SCRAPE_SCHEDULER_ENABLED:
-        scrape_task = asyncio.create_task(initial_scrape())
-        scheduler_task = asyncio.create_task(schedule_loop())
+        try:
+            from src.api import feature_flags as _ff  # noqa: PLC0415
+
+            _conditional = _ff.is_enabled("conditional_startup_scrape")
+        except Exception:  # noqa: BLE001 — an unreadable flag keeps the old behaviour
+            _conditional = False
+        plan = _startup_scrape_plan(
+            _board_age_hours(),
+            has_contract=latest_contract_data is not None,
+            contract_ok=bool((contract_health or {}).get("ok")),
+            enabled=_conditional,
+        )
+        if plan["run_now"]:
+            scrape_task = asyncio.create_task(initial_scrape())
+        else:
+            scrape_task = None
+            log.info(
+                "Startup scrape skipped: board is %.2fh old (< %sh interval); "
+                "first scheduled scrape in %.0fs",
+                plan["board_age_hours"],
+                SCRAPE_INTERVAL_HOURS,
+                plan["first_delay_seconds"],
+            )
+        if _conditional:
+            # Flag OFF records nothing new: the default boot is today's boot.
+            _record_scrape_event(
+                "startup_scrape_plan",
+                message="startup scrape " + ("started" if plan["run_now"] else "skipped"),
+                run_now=plan["run_now"],
+                reason=plan["reason"],
+                board_age_hours=plan["board_age_hours"],
+                first_delay_seconds=plan["first_delay_seconds"],
+            )
+        scheduler_task = asyncio.create_task(
+            schedule_loop(plan["first_delay_seconds"] if _conditional else None)
+        )
     else:
         scrape_task = scheduler_task = None
         log.info("Scrape scheduler disabled (SCRAPE_SCHEDULER_ENABLED=false)")
@@ -5377,7 +5489,24 @@ async def get_movers(request: Request):
     ``perSourceDelta`` for exactly this reason; this docstring lagged
     the rename and promised a breakdown of "which sources drove the
     move" that was never computed.
+
+    **League scoping (LI1842-DEFECT-03).**  The movers are the LOADED
+    board's rank movement (names, current values, source ranks), so they
+    follow the board's scoring rule exactly: a league whose scoring is not
+    proven identical to the loaded board's gets the same 503
+    ``data_not_ready`` ``/api/data`` returns
+    (``_scoring_identity_error``), not the board's movers under its name.
+    An unknown / inactive ``leagueKey`` is the usual 400.
     """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    if latest_contract_data:
+        _scoring_err = _scoring_identity_error(latest_contract_data, league_cfg)
+        if _scoring_err is not None:
+            return _scoring_err
+
     try:
         window = int(request.query_params.get("window", 14))
     except (TypeError, ValueError):
@@ -6645,6 +6774,8 @@ async def get_health():
     _session_configs = {
         # Scraper POSTs DLF_USERNAME/PASSWORD to wp-login on failure,
         # so this file auto-refreshes.  Tracked for visibility only.
+        # Read from the fetch timer's work dir via ``_dlf_session`` (below),
+        # NOT from BASE_DIR: that copy is a bootstrap seed nothing refreshes.
         "dlf_session.json": {"lifetimeDays": 14, "autoRefresh": True},
         # Scraper POSTs DRAFTSHARKS_EMAIL/PASSWORD on failure.
         "draftsharks_session.json": {"lifetimeDays": 30, "autoRefresh": True},
@@ -6656,9 +6787,12 @@ async def get_health():
     for fname, cfg in _session_configs.items():
         lifetime_days = cfg["lifetimeDays"]
         auto_refresh = cfg["autoRefresh"]
-        fpath = BASE_DIR / fname
+        # One resolver for "where is this session file": DLF resolves the way
+        # the fetch timer's script does; the others stay under BASE_DIR.
+        fpath = _dlf_session.health_session_path(fname, BASE_DIR)
         try:
             if not fpath.exists():
+                # Missing is reported as missing -- never as a zero-day-old file.
                 _session_ages[fname] = {"present": False, "autoRefresh": auto_refresh}
                 continue
             mtime_ts = fpath.stat().st_mtime
@@ -6740,10 +6874,14 @@ async def get_health():
     backup_health = _backup_freshness()
     _bage = backup_health.get("newestBackupAgeHours")
     if _bage is None or _bage > 36:
+        # The public block carries no path.  The file is the private sidecar
+        # memoized with THIS block, so age, dir, path and dbCount below all
+        # describe one scan (no backup observed: the sidecar is None).
+        _bpath = _backup_alert_path(backup_health)
         send_alert(
             "Risk It: SQLite backups stale",
             f"Newest backup age: {_bage}h (dir={backup_health.get('backupDirUsed')}, "
-            f"path={backup_health.get('newestBackupPath')}, dbCount="
+            f"path={_bpath}, dbCount="
             f"{backup_health.get('dbCount')}). Expected a fresh backup within 24h "
             f"from riskit-backup.timer (02:00 UTC). Check "
             f"deploy/backup_user_kv.sh and /var/log/riskit-backup.log.",
@@ -6874,9 +7012,15 @@ async def get_public_waiver_compare():
     status, body = await run_in_threadpool(
         _waiver_compare_service.payload, latest_contract_data, league
     )
+    # The body is UTF-8 (``Dynasty · Crowd+Trades`` goes out as C2 B7).  A bare
+    # ``application/json`` names no charset, and a client that defaults to
+    # ISO-8859-1 when none is declared (Windows PowerShell 5.1's
+    # Invoke-RestMethod / Invoke-WebRequest) renders those two bytes as
+    # ``Â·``.  Say what the body is.
     return JSONResponse(
         status_code=status,
         content=body,
+        media_type="application/json; charset=utf-8",
         headers={
             "Cache-Control": "public, max-age=30" if status == 200 else "no-store",
             "X-Robots-Tag": "noindex, nofollow",
@@ -13966,6 +14110,22 @@ def _draft_valuation_health() -> list[dict] | None:
         return None
 
 
+def _pregame_archive_health() -> list[dict] | None:
+    """Game Day weeks whose pregame-projections archive build failed (ops alerts).
+
+    Read from the failure markers the collector's prune leaves beside a week
+    whose raw log it is keeping (``game_day_live.pregame_archive_health``).
+    ``None`` -- "not checked", never "healthy" -- when the store is unreadable.
+    """
+    try:
+        from src.ros import game_day_live  # noqa: PLC0415
+
+        return game_day_live.pregame_archive_health()
+    except Exception as exc:  # noqa: BLE001 — the alert sweep never raises
+        logging.warning("pregame archive health check failed: %s", exc)
+        return None
+
+
 @app.get("/api/draft-capital")
 async def get_draft_capital(request: Request, refresh: str = ""):
     """Return draft capital breakdown per team using Sleeper pick ownership
@@ -19955,6 +20115,7 @@ async def run_signal_alerts(request: Request):
             data_age_hours=data_age_hours,
             scrape_interval_hours=float(SCRAPE_INTERVAL_HOURS),
             draft_valuation=await run_in_threadpool(_draft_valuation_health),
+            pregame_archive=await run_in_threadpool(_pregame_archive_health),
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,
         )
@@ -20285,15 +20446,28 @@ async def get_intel_summary(request: Request):
     return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
 
 
-def _intel_contract_context() -> dict:
+def _intel_contract_context(league_key: str | None = None) -> dict:
     """Position, value and team maps from the loaded contract.
 
     Every piece is optional: a missing contract yields empty maps, which
     makes the partner-fit and value-match terms abstain rather than
     taking the whole lead list down with them.
+
+    ``league_key`` is the league the leads are FOR.  The loaded contract
+    is ONE league's rosters and board (``meta.leagueKey``); when it was
+    built for a different league every map here would be that other
+    league's owners and values, so the context abstains instead
+    (LI1842-DEFECT-01).  ``POST /api/intel/leads`` already refuses such a
+    request with the standard 503 before it gets here
+    (``require_loaded_contract=True``); this is the second line so a
+    direct caller cannot reintroduce the leak.  An unstamped contract is
+    treated as "nothing proven to the contrary", as the resolver does.
     """
     try:
         contract = latest_contract_data or {}
+        loaded_key = (contract.get("meta") or {}).get("leagueKey")
+        if league_key and loaded_key and loaded_key != league_key:
+            return {"teams": [], "positions": {}, "values": {}}
         sleeper_block = contract.get("sleeper") or {}
         teams = sleeper_block.get("teams") or []
         positions = {}
@@ -20320,7 +20494,7 @@ def _build_intel_leads(league_cfg, asset_id: str, mode: str) -> dict:
     """Assemble one lead list.  Runs in a threadpool — pure sync."""
     from src.intel import lead_service, roster_shape
 
-    ctx = _intel_contract_context()
+    ctx = _intel_contract_context(league_cfg.key)
     teams = ctx["teams"]
     positions = ctx["positions"]
     values = ctx["values"]
@@ -20382,8 +20556,12 @@ async def post_intel_leads(request: Request):
 
     # Body parsed BEFORE the resolver so a body leagueKey reaches it —
     # the POST convention used by the other league-scoped endpoints.
+    # ``require_loaded_contract``: the roster-fit and value terms read the
+    # loaded contract, which is one league's.  Another league's request is
+    # a 503 ``data_not_ready`` (the ``/api/trade/*`` rule), never that
+    # league's owners and values served as this one's (LI1842-DEFECT-01).
     try:
-        league_cfg = _resolve_league_for_request(request, body=body)
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
     except LeagueResolutionError as err:
         return err.json_response()
 
