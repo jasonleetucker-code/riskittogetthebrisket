@@ -4,11 +4,14 @@ Sister of ``scripts/fetch_draftsharks.py`` — but instead of the
 dynasty Superflex page (a season-long valuation board used as a
 ROS proxy), this hits the actual ROS-specific pages:
 
-  * ``/ros-rankings/superflex`` — combined offense + IDP ROS list
-  * ``/ros-rankings/idp``       — despite the name, NOT an IDP-only
-                                  list: a second FULL board over the
-                                  same universe, ranked for a
-                                  1QB format
+  * ``/ros-rankings/superflex`` — the superflex ROS board (its
+                                  position mix is vendor-controlled:
+                                  it carried IDP players until
+                                  2026-09-16 and lists none since)
+  * ``/ros-rankings/idp``       — a SEPARATE board whose population is
+                                  also vendor-controlled: it has been
+                                  a full 1QB board and, since
+                                  2026-08-25, IDP-only
 
 These pages render ~25 rows server-side and lazy-load the rest via
 JS scroll, so we need a real browser to capture the full ranked
@@ -24,7 +27,8 @@ Output: writes per-asset CSVs into ``CSVs/site_raw/`` (see
 ``ROS_RAW_DIR`` below for why that path and not ``data/ros/sources/``),
 where the adapter ``src/ros/sources/draftsharks_ros.py`` reads them:
 
-  * ``CSVs/site_raw/draftSharksRosSf.csv``  (offense + IDP, position-tagged)
+  * ``CSVs/site_raw/draftSharksRosSf.csv``  (the superflex page verbatim,
+                                             position-tagged)
   * ``CSVs/site_raw/draftSharksRosIdp.csv`` (the ``/ros-rankings/idp``
                                              page verbatim)
 
@@ -48,19 +52,23 @@ So the durable statements, none of which depend on a count:
   populations, position mixes and ranking formats may differ at any
   time, and have differed in both directions;
 * ``_write_csv`` renumbers ``rank`` 1..N per file and stamps
-  ``total_ranked = N``, so each board carries its OWN scale.  That is
-  what makes unioning them safe without renormalising anything;
-* the adapter unions them name-first behind the SF board, so the idp
-  page contributes exactly the players the SF page did not list.  That
-  contribution may be zero, may be most of the file, and **must not be
-  assumed** either way;
+  ``total_ranked = N``, so each board carries its OWN scale (its own
+  rank basis);
+* the adapter serves them as TWO source keys, one basis each
+  (2026-10-27; they used to be unioned under one key, which mixed two
+  rank bases): ``draftSharksRosSf`` is the SF file alone, and
+  ``draftSharksRosIdp`` is the idp file's IDP-group rows minus any IDP
+  player the SF file already ranks (withheld, ``rank_basis_mismatch``).
+  How many rows each key carries may change with the vendor's page
+  shape and **must not be assumed** either way;
 * nothing here may be re-derived from a remembered row count.  If a
   decision needs the populations, measure them at the time.
 
 Do not restore an ``_IDP_FAMILIES`` filter to the success branch to
 "make the file match its name".  The file is what the vendor publishes
 at that URL; filtering it would renumber a subset onto a new scale and
-change what the union means.
+change the idp key's rank basis.  The adapter selects the IDP group
+itself and keeps the page's own ranks.
 
 The CSV schema matches the ROS orchestrator's existing format
 (``canonicalName,sourceName,position,team,rank,total_ranked,projection``).
@@ -378,10 +386,11 @@ async def main_async() -> int:
             sf_page_failed = True
             sf_rows = []
 
-        # The IDP-specific page mirrors SF for the IDP positions; we
-        # re-fetch it explicitly to pick up any IDPs the SF view paginated
-        # off (rare but possible in a deep IDP league).  Fall back to
-        # filtering the SF list on failure.
+        # The idp page is its own board (its population is vendor-
+        # controlled; see the module docstring) and feeds the
+        # ``draftSharksRosIdp`` key.  On failure the last-good CSV is
+        # preserved; only a genuine first run falls back to filtering the
+        # SF list.
         idp_only_rows: list[dict] = []
         idp_page_failed = False
         try:
@@ -422,10 +431,10 @@ async def main_async() -> int:
     else:
         n_sf = _write_csv(sf_csv, sf_rows)
 
-    # IDP CSV — written verbatim from ``/ros-rankings/idp``, which is a
-    # full 1QB board rather than an IDP subset (see the module
-    # docstring).  The adapter unions it behind the SF board name-first,
-    # so it only ever contributes players the SF page did not list.
+    # IDP CSV — written verbatim from ``/ros-rankings/idp`` (its
+    # population is vendor-controlled; see the module docstring).  The
+    # adapter serves its IDP-group rows under ``draftSharksRosIdp``, on
+    # this file's own basis, withholding any IDP the SF file ranks.
     #
     # The SF-filter fallback below is acceptable when the IDP page
     # merely loaded empty, but a FAILED IDP fetch must NOT silently

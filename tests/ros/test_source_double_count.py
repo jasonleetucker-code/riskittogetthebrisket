@@ -10,7 +10,11 @@ took 67.4% of the blend against an intended 50.8%, ``sourceCount`` read
 939 of 1084 players.
 
 Layer 1 (``src/ros/sources/draftsharks_ros.py``) is the specific fix:
-union name-first instead of concatenating.
+union name-first instead of concatenating — since 2026-10-27 superseded by
+one board per key (the superflex key serves the superflex board alone, the
+idp board votes under ``draftSharksRosIdp`` minus any IDP the superflex
+board ranks), so the vendor still gets one vote per player and each key
+keeps one rank basis (``tests/ros/test_rank_basis.py``).
 Layer 2 (``src/ros/aggregate.py``) is the durable one: the aggregator
 adds a source's weight once per ROW, so it now refuses a repeat
 regardless of which adapter emits it.
@@ -114,17 +118,23 @@ class TestAdapterUnion(unittest.TestCase):
         self.assertEqual(by_name["Josh Allen"], 1)
         self.assertEqual(by_name["Jahmyr Gibbs"], 2)
 
-    def test_idp_only_players_absent_from_sf_are_merged(self):
-        """The documented forward-compat case still works."""
+    def test_idp_board_is_not_merged_into_the_superflex_key(self):
+        """One key, one rank basis (2026-10-27).
+
+        This test used to assert the opposite — that idp-board players were
+        merged into ``draftSharksRosSf``.  That union is what published two
+        rank bases under one key; the idp board now votes under its own key
+        (``draftSharksRosIdp``, see ``tests/ros/test_rank_basis.py``).
+        """
         sf = [("Josh Allen", "QB", 1), ("Jahmyr Gibbs", "RB", 2)]
         idp = [("Micah Parsons", "LB", 1), ("Josh Allen", "QB", 2)]
 
         result = self._scrape_with(sf, idp)
 
         by_name = {r["sourceName"]: r["rank"] for r in result.rows}
-        self.assertIn("Micah Parsons", by_name, "genuinely new coverage was dropped")
-        self.assertEqual(by_name["Josh Allen"], 1, "SF board should win the collision")
-        self.assertEqual(len(result.rows), 3)
+        self.assertNotIn("Micah Parsons", by_name)
+        self.assertEqual(by_name, {"Josh Allen": 1, "Jahmyr Gibbs": 2})
+        self.assertEqual({r["total_ranked"] for r in result.rows}, {2})
 
     def test_empty_sf_board_does_not_promote_the_1qb_board(self):
         """An outage must not serve a 1QB board under a superflex key.

@@ -93,6 +93,37 @@ ROS_SOURCES: tuple[dict[str, Any], ...] = (
         "scraper": "src.ros.sources.draftsharks_ros",
         "enabled": True,
     },
+    # DraftSharks IDP ROS — the ``/ros-rankings/idp`` board on its OWN key
+    # (2026-10-27).  It used to be unioned into ``draftSharksRosSf``, which
+    # published two rank bases under one key: the superflex board ranks
+    # every position it lists together, the idp board ranks IDP players
+    # among themselves, and ``rank_to_score`` cannot tell those apart.
+    # Since the vendor's 2026-09-16 refresh the superflex board lists no
+    # IDP players, so every IDP DraftSharks vote was idp-board-basis under
+    # a superflex key.  Same pattern as ``fantasyProsRosIdp``: an IDP-only
+    # board, ``is_idp``, own key.  Weight is the user spec's "Draft Sharks
+    # IDP ROS: 1.25" (quoted on the entry above).  ``is_superflex`` is
+    # False: QB format is meaningless to an IDP-only board, and this entry
+    # must not collect the superflex format bonus.  Adapter:
+    # ``src/ros/sources/draftsharks_ros.py::scrape_idp``.
+    {
+        "key": "draftSharksRosIdp",
+        "display_name": "Draft Sharks ROS IDP",
+        "source_url": "https://www.draftsharks.com/ros-rankings/idp",
+        "source_type": "ros",
+        "scoring_format": "ppr",
+        "is_superflex": False,
+        "is_2qb": False,
+        "is_te_premium": False,
+        "is_idp": True,
+        "is_ros": True,
+        "is_dynasty": False,
+        "is_projection_source": False,
+        "base_weight": 1.25,
+        "stale_after_hours": 24,
+        "scraper": "src.ros.sources.draftsharks_ros_idp",
+        "enabled": True,
+    },
     # ── PR 5 adapters ────────────────────────────────────────────────
     {
         "key": "fantasyProsRosIdp",
