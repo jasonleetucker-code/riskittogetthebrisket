@@ -44,10 +44,15 @@ What it does, in order:
    against today's league.
 6. **Write** — (a) transaction-level PRIVATE evidence (roster / user /
    transaction ids) to ``data/research/own_league_census/`` only; (b) committed
-   anonymized aggregates (JSON + Markdown).  Teams appear as ``T01..Tnn``
-   (roster-id order, per season).  The committed text is scanned before it is
-   written: any digit run of 9+ characters that is not one of the chain's
-   league ids, or any league member's display / team name, refuses the write.
+   anonymized aggregates (JSON + Markdown).  No team appears in them, not even
+   as a label: Sleeper ``roster_id`` s run 1..n and persist across the chain,
+   so any label derived from roster order is re-identifiable from one public
+   ``/rosters`` + ``/users`` call.  Per-team counts are published only as
+   quantiles over at least ``K_ANON`` teams and the most active team's share
+   as a bucket.  The committed text is scanned before it is written: any digit
+   run of 9+ characters that is not one of the chain's league ids, any league
+   member's display / team name (:func:`identifier_leaks`), or any team label /
+   per-team field (:func:`linkage_leaks`) refuses the write.
 
 Exit codes: 0 census written, every validation clean; 1 census written with
 validation findings (named in the output); 2 collection incomplete (a fetch
@@ -118,6 +123,10 @@ REASON_BOUNDARY = "before_history_boundary"
 REASON_NO_OBS = "no_observation"
 REASON_UNRESOLVED = "unresolved_identity"
 REASON_PICK = "pick_unpriced"
+#: A pick of a startup draft (``draft_kind`` ``startup_veteran``): not a rookie
+#: pick, no market grammar, never priced.
+REASON_STARTUP_PICK = "startup_draft_pick"
+STARTUP_KIND = "startup_veteran"
 
 EXIT_OK = 0
 EXIT_FINDINGS = 1
@@ -161,6 +170,28 @@ class Fetcher:
         return None  # pragma: no cover - loop always returns
 
 
+def fetch_draft_traded_picks_classified(draft_id: str) -> tuple[str, Any]:
+    """``(kind, traded_picks)`` for ``/draft/{id}/traded_picks`` — the pick
+    trades Sleeper attributes to ONE draft.  ``sleeper_client`` has no fetcher
+    for it, so this goes through its public ``request_json_classified`` (same
+    kinds, same cache); a null / 404 body is ``not_found``, never "no trades"."""
+    kind, payload = sc.request_json_classified(
+        f"{sc.SLEEPER_BASE}/draft/{str(draft_id).strip()}/traded_picks"
+    )
+    if kind == sc.FETCH_OK and not isinstance(payload, list):
+        return sc.FETCH_ERROR, None
+    return kind, payload
+
+
+def fetch_draft_detail_classified(draft_id: str) -> tuple[str, Any]:
+    """``(kind, draft)`` for ``/draft/{id}`` — carries ``slot_to_roster_id``,
+    which the league's ``/drafts`` list omits."""
+    kind, payload = sc.request_json_classified(f"{sc.SLEEPER_BASE}/draft/{str(draft_id).strip()}")
+    if kind == sc.FETCH_OK and not isinstance(payload, dict):
+        return sc.FETCH_ERROR, None
+    return kind, payload
+
+
 def collect(start_league_id: str, fetch: Fetcher) -> dict[str, Any]:
     """Every raw response the census reads, keyed by season league id."""
 
@@ -182,9 +213,15 @@ def collect(start_league_id: str, fetch: Fetcher) -> dict[str, Any]:
             )
         drafts = fetch("drafts", sc.fetch_drafts_classified, lid)
         picks: dict[str, Any] = {}
+        draft_traded: dict[str, Any] = {}
+        draft_detail: dict[str, Any] = {}
         for d in drafts or []:
             did = str(d.get("draft_id"))
             picks[did] = fetch("draft_picks", sc.fetch_draft_picks_classified, did)
+            draft_traded[did] = fetch(
+                "draft_traded_picks", fetch_draft_traded_picks_classified, did
+            )
+            draft_detail[did] = fetch("draft_detail", fetch_draft_detail_classified, did)
         seasons[lid] = {
             "league": league,
             "users": fetch("users", sc.fetch_league_users_classified, lid),
@@ -193,9 +230,11 @@ def collect(start_league_id: str, fetch: Fetcher) -> dict[str, Any]:
             "transactions": tx,
             "drafts": drafts,
             "draftPicks": picks,
+            "draftTradedPicks": draft_traded,
+            "draftDetail": draft_detail,
         }
     return {
-        "schema": "own_league_census_raw/v1",
+        "schema": "own_league_census_raw/v2",
         "collectedAt": datetime.now(timezone.utc).isoformat(),
         "startLeagueId": start_league_id,
         "chainCoverage": coverage,
@@ -268,7 +307,9 @@ def _quantiles(values: Sequence[float]) -> dict[str, Any] | None:
 
 
 def team_labels(roster_ids: Iterable[Any]) -> dict[int, str]:
-    """``T01..Tnn`` by roster-id order — stable within one season, never an id."""
+    """``T01..Tnn`` by roster-id order — PRIVATE EVIDENCE ONLY.  Roster order is
+    public, so these labels are re-identifiable and never reach a committed file
+    (:func:`linkage_leaks` refuses the write)."""
     rids = sorted({r for r in (_int(x) for x in roster_ids) if r is not None})
     return {rid: f"T{i + 1:02d}" for i, rid in enumerate(rids)}
 
@@ -360,57 +401,262 @@ def leg_findings(t: Mapping[str, Any]) -> list[str]:
 
 # ── Pick-ownership replay ────────────────────────────────────────────────
 
+#: A season with no draft object anywhere in the chain yet: its picks belong to
+#: that season's (future) rookie draft.
+UNDRAFTED = "undrafted"
+#: A pick traded after every draft of its season had completed -- consumed
+#: picks cannot move, so this is a finding, never a silent carry.
+AFTER_DRAFTS = "after_last_draft"
+DRAFT_RAN_STATUSES = ("complete", "drafting", "paused")
+#: ``src.identity.picks.LeaguePickIdentity`` accepts rounds 1..20.
+MAX_IDENTITY_ROUND = 20
+
+
+def draft_index(seasons: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Every draft in the chain, with what the per-draft replay needs.
+
+    ``candidate`` = the draft actually ran (``complete`` / ``drafting`` /
+    ``paused``, or has picks) or is its league's ``draft_id``.  A draft that
+    never ran and is not the league's draft (2024's abandoned ``pre_draft``
+    board) owns no pick.  ``endMs`` is ``last_picked`` of a COMPLETE draft; a
+    complete draft with no ``last_picked`` has an unknown end and is never
+    treated as finished before a trade.
+    """
+    out: list[dict[str, Any]] = []
+    for s in seasons:
+        league = s.get("league") or {}
+        league_draft = str(league.get("draft_id") or "")
+        rids = sorted(
+            {r for r in (_int(x.get("roster_id")) for x in s.get("rosters") or []) if r is not None}
+        )
+        traded = s.get("draftTradedPicks")
+        detail = s.get("draftDetail")
+        for d_idx, d in enumerate(s.get("drafts") or [], start=1):
+            did = str(d.get("draft_id"))
+            picks = list((s.get("draftPicks") or {}).get(did) or [])
+            kind, _ = draft_kind(d, picks)
+            status = str(d.get("status") or "")
+            is_league = bool(league_draft) and did == league_draft
+            if not isinstance(traded, Mapping) or did not in traded:
+                tp_state = "not_collected"
+            else:
+                tp_state = "observed" if isinstance(traded[did], list) else "fetch_failed"
+            det = detail.get(did) if isinstance(detail, Mapping) else None
+            out.append(
+                {
+                    "draftId": did,
+                    "draftRef": f"{s['season']}-D{d_idx}",
+                    "season": _int(d.get("season")) or _int(s.get("season")),
+                    "rounds": _int((d.get("settings") or {}).get("rounds")),
+                    "type": str(d.get("type") or "unknown"),
+                    "status": status,
+                    "kind": kind,
+                    "startMs": _int(d.get("start_time")),
+                    "endMs": _int(d.get("last_picked")) if status == "complete" else None,
+                    "isLeagueDraft": is_league,
+                    "candidate": status in DRAFT_RAN_STATUSES or bool(picks) or is_league,
+                    "rosterIds": rids,
+                    "picks": picks,
+                    "tradedPicksState": tp_state,
+                    "tradedPicks": traded.get(did) if tp_state == "observed" else None,
+                    "slotToRoster": (
+                        det.get("slot_to_roster_id") if isinstance(det, Mapping) else None
+                    ),
+                }
+            )
+    return out
+
+
+def attribute_pick(
+    index: Sequence[Mapping[str, Any]], season: int, rnd: int, at_ms: int | None
+) -> dict[str, Any]:
+    """Which draft a ``(season, round, origin)`` pick moved at ``at_ms`` belongs to.
+
+    Sleeper's transaction ``draft_picks`` carry no draft id, and one season can
+    run two drafts (2024: a 24-round startup, then a 10-round rookie draft).
+    Rule: the season's candidate drafts in start order; the first one not
+    finished by ``at_ms`` that has the round.  No draft object yet -> the
+    season's future class (``undrafted``); every draft finished ->
+    ``after_last_draft``.  The per-draft ``/draft/{id}/traded_picks`` check
+    verifies this attribution independently.
+    """
+    cands = sorted(
+        (d for d in index if d["season"] == season and d["candidate"]),
+        key=lambda d: (d["startMs"] is None, d["startMs"] or 0, d["draftId"]),
+    )
+    if not cands:
+        return {"key": f"{UNDRAFTED}:{season}", "draftRef": None, "kind": "future_class"}
+    for d in cands:
+        if d["endMs"] is not None and at_ms is not None and at_ms > d["endMs"]:
+            continue
+        if d["rounds"] is not None and rnd > d["rounds"]:
+            continue
+        return {"key": d["draftId"], "draftRef": d["draftRef"], "kind": d["kind"]}
+    return {"key": f"{AFTER_DRAFTS}:{season}", "draftRef": None, "kind": AFTER_DRAFTS}
+
+
+def _instant_ms(t: Mapping[str, Any]) -> int | None:
+    return _int(t.get("status_updated")) or _int(t.get("created"))
+
+
+def _fold_compare(
+    league_key: str,
+    rids: Sequence[int],
+    observed: Sequence[Mapping[str, Any]],
+    seasons: Sequence[int],
+    rounds: int,
+    replayed_owner: Callable[[int, int, int], int],
+) -> tuple[int, list[dict[str, Any]], dict[tuple[int, int, int], int]]:
+    """Host rows folded by THE ownership owner vs the replay:
+    ``(picksCompared, mismatches, hostOwnerByPick)``."""
+    # ``LeaguePickIdentity`` stops at round 20; a 24-round startup's rounds
+    # 21-24 are outside the owner's grammar, so they are not compared (the
+    # caller reports how many host rows that leaves out).
+    owned = build_pick_ownership(
+        league_key, rids, observed, seasons=seasons, rounds=min(MAX_IDENTITY_ROUND, max(1, rounds))
+    )
+    mismatches: list[dict[str, Any]] = []
+    host: dict[tuple[int, int, int], int] = {}
+    for op in owned:
+        ident = op.identity
+        key = (ident.season, ident.round_num, ident.origin_roster_id)
+        host[key] = op.state.owner_roster_id
+        replayed = replayed_owner(*key)
+        if replayed != op.state.owner_roster_id:
+            mismatches.append(
+                {
+                    "pick": list(key),
+                    "hostOwner": op.state.owner_roster_id,
+                    "replayedOwner": replayed,
+                }
+            )
+    return len(owned), mismatches, host
+
+
+def _consumption_check(
+    d: Mapping[str, Any],
+    host: Mapping[tuple[int, int, int], int] | None,
+    owner: Callable[[str, int, int, int], int],
+) -> dict[str, Any]:
+    """Who actually made each pick of a non-auction draft, against the replayed
+    owner of the slot's origin (``slot_to_roster_id``) and the draft's own
+    ``/traded_picks`` fold.  A used pick cannot be traded, so the final replay
+    state of a draft's key is its state when each pick was made."""
+    base = {"draftRef": d["draftRef"], "kind": d["kind"], "type": d["type"]}
+    if d["type"] == "auction":
+        return {**base, "state": "not_applicable", "reason": "auction_has_no_slots"}
+    s2r = d["slotToRoster"]
+    if not isinstance(s2r, Mapping):
+        return {**base, "state": "unavailable", "reason": "slot_to_roster_not_fetched"}
+    tally: Counter[str] = Counter()
+    detail: list[dict[str, Any]] = []
+    for pk in d["picks"]:
+        origin = _int(s2r.get(str(pk.get("draft_slot"))))
+        picker, rnd = _int(pk.get("roster_id")), _int(pk.get("round"))
+        if origin is None or picker is None or rnd is None:
+            tally["unmapped"] += 1
+            continue
+        replayed = owner(d["draftId"], d["season"], rnd, origin)
+        host_owner = host.get((d["season"], rnd, origin)) if host is not None else None
+        tally["picks"] += 1
+        tally["replayMatchesPicker" if replayed == picker else "replayDiffersFromPicker"] += 1
+        comparable = host is not None and (d["season"], rnd, origin) in host
+        if host is not None and not comparable:
+            # rounds past the identity grammar (startup rounds 21-24)
+            tally["draftHostRoundNotCompared"] += 1
+        elif comparable:
+            hk = "draftHostMatchesPicker" if host_owner == picker else "draftHostDiffersFromPicker"
+            tally[hk] += 1
+        if replayed != picker or (comparable and host_owner != picker):
+            detail.append(
+                {
+                    "pick": [d["season"], rnd, origin],
+                    "picker": picker,
+                    "replayedOwner": replayed,
+                    "draftHostOwner": host_owner,
+                }
+            )
+    return {**base, "state": "compared", **dict(sorted(tally.items())), "_detail": detail}
+
 
 def pick_replay(
     ordered_seasons: Sequence[Mapping[str, Any]],
     *,
     league_key: str,
+    drafts: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
-    """Replay every pick transfer (trades AND commissioner moves) oldest-first
-    from default ownership; check each transfer's sender is the tracked owner,
-    and each season league's ``/traded_picks`` (folded by the ONE ownership
-    owner) against the replay state at the end of that league's transactions.
+    """Replay every COMPLETE pick transfer oldest-first from default ownership,
+    PER DRAFT: replay state is keyed ``(draft, season, round, origin)`` through
+    :func:`attribute_pick`, so a startup pick traded during the startup draft is
+    consumed by that draft and never carried into the same season's rookie draft.
+
+    Checks, each host side folded by the ONE ownership owner
+    (``build_pick_ownership``):
+
+    * **sender** -- each transfer's stated ``previous_owner_id`` vs the tracked owner;
+    * **league checkpoint** -- each season league's ``/traded_picks`` vs the
+      replay at the end of that league's transactions.  A row of the league's
+      own season belongs to that league's ``draft_id`` draft; a later season's
+      row is attributed like a transfer at the checkpoint instant;
+    * **draft checkpoint** -- each candidate draft's ``/draft/{id}/traded_picks``
+      vs the replay state of that draft;
+    * **consumption** -- each non-auction draft's picks: the roster that made
+      the pick vs the replayed owner of the slot's origin.
 
     ``ordered_seasons`` = ``[{"season", "leagueId", "transactions", "rosters",
-    "tradedPicks", "draftRounds"}]`` oldest -> newest.
+    "tradedPicks", "draftRounds", "leagueDraftId"}]`` oldest -> newest;
+    ``drafts`` = :func:`draft_index` of the same chain.
     """
-    state: dict[tuple[int, int, int], int] = {}
+    index = list(drafts)
+    by_id = {d["draftId"]: d for d in index}
+    state: dict[tuple[str, int, int, int], int] = {}
     transfers = 0
     inconsistent: list[dict[str, Any]] = []
     by_type: Counter[str] = Counter()
+    by_kind: Counter[str] = Counter()
+    after_drafts: list[dict[str, Any]] = []
     checkpoints: list[dict[str, Any]] = []
+
+    def owner(dkey: str, season: int, rnd: int, origin: int) -> int:
+        return state.get((dkey, season, rnd, origin), origin)
+
     for s in ordered_seasons:
-        rows = []
-        for t in s["transactions"]:
-            if t.get("status") != "complete" or not t.get("draft_picks"):
-                continue
-            rows.append(t)
+        complete = [t for t in s["transactions"] if t.get("status") == "complete"]
+        rows = [t for t in complete if t.get("draft_picks")]
         rows.sort(key=lambda t: (_int(t.get("status_updated")) or 0, _int(t.get("created")) or 0))
+        instants = [m for m in (_instant_ms(t) for t in complete) if m is not None]
+        last_ms = max(instants) if instants else None
         for t in rows:
+            at = _instant_ms(t)
             for p in t.get("draft_picks") or []:
                 season, rnd, origin = (
                     _int(p.get("season")),
                     _int(p.get("round")),
                     _int(p.get("roster_id")),
                 )
-                owner, prev = _int(p.get("owner_id")), _int(p.get("previous_owner_id"))
-                if None in (season, rnd, origin, owner):
+                new_owner, prev = _int(p.get("owner_id")), _int(p.get("previous_owner_id"))
+                if None in (season, rnd, origin, new_owner):
                     continue
-                key = (season, rnd, origin)
+                attr = attribute_pick(index, season, rnd, at)
+                key = (attr["key"], season, rnd, origin)
                 tracked = state.get(key, origin)
                 transfers += 1
                 by_type[str(t.get("type"))] += 1
+                by_kind[attr["kind"]] += 1
+                if attr["kind"] == AFTER_DRAFTS:
+                    after_drafts.append({"txid": t.get("_txid"), "pick": [season, rnd, origin]})
                 if prev is not None and prev != tracked:
                     inconsistent.append(
                         {
                             "txid": t.get("_txid") or t.get("transaction_id"),
                             "type": t.get("type"),
-                            "pick": list(key),
+                            "pick": [season, rnd, origin],
+                            "draft": attr["draftRef"] or attr["kind"],
                             "previousOwnerStated": prev,
                             "trackedOwner": tracked,
                         }
                     )
-                state[key] = owner
+                state[key] = new_owner
         observed = traded_picks_observation(s.get("tradedPicks"))
         rids = sorted(
             {r for r in (_int(x.get("roster_id")) for x in s.get("rosters") or []) if r is not None}
@@ -424,43 +670,94 @@ def pick_replay(
                 }
             )
             continue
+        league_season = _int(s["season"])
+        own = by_id.get(str(s.get("leagueDraftId") or ""))
+
+        def checkpoint_key(se: int, r: int, _ls=league_season, _own=own, _t=last_ms) -> str:
+            if se == _ls and _own is not None and _own["season"] == se:
+                return _own["draftId"]
+            return attribute_pick(index, se, r, _t)["key"]
+
         seasons = sorted({_int(r.get("season")) for r in observed} - {None})
         rounds = max(
             [_int(s.get("draftRounds")) or 0] + [_int(r.get("round")) or 0 for r in observed]
         )
-        owned = build_pick_ownership(
-            league_key, rids, observed, seasons=seasons, rounds=max(1, rounds)
+        n, mismatches, _ = _fold_compare(
+            league_key,
+            rids,
+            observed,
+            seasons,
+            rounds,
+            lambda se, r, o, _ck=checkpoint_key: owner(_ck(se, r), se, r, o),
         )
-        mismatches = []
-        for op in owned:
-            ident = op.identity
-            key = (ident.season, ident.round_num, ident.origin_roster_id)
-            replayed = state.get(key, ident.origin_roster_id)
-            if replayed != op.state.owner_roster_id:
-                mismatches.append(
-                    {
-                        "pick": list(key),
-                        "hostOwner": op.state.owner_roster_id,
-                        "replayedOwner": replayed,
-                    }
-                )
         checkpoints.append(
             {
                 "season": s["season"],
                 "state": "compared",
                 "pickSeasonsCompared": seasons,
                 "rounds": rounds,
-                "picksCompared": len(owned),
+                "picksCompared": n,
                 "mismatches": len(mismatches),
                 "_mismatchDetail": mismatches,
             }
         )
+
+    draft_checks: list[dict[str, Any]] = []
+    consumption: list[dict[str, Any]] = []
+    for d in index:
+        base = {"draftRef": d["draftRef"], "kind": d["kind"], "type": d["type"]}
+        host: dict[tuple[int, int, int], int] | None = None
+        rows = d["tradedPicks"] if isinstance(d["tradedPicks"], list) else None
+        if not d["candidate"]:
+            draft_checks.append(
+                {
+                    **base,
+                    "state": "skipped",
+                    "reason": "draft_never_ran_and_not_league_draft",
+                    "hostRows": len(rows) if rows is not None else None,
+                }
+            )
+        elif rows is None or not d["rosterIds"] or d["season"] is None:
+            reason = f"draft_traded_picks_{d['tradedPicksState']}" if rows is None else "no_rosters"
+            draft_checks.append({**base, "state": "unavailable", "reason": reason})
+        else:
+            own_rows = [r for r in rows if _int(r.get("season")) == d["season"]]
+            rounds = max([d["rounds"] or 0] + [_int(r.get("round")) or 0 for r in own_rows])
+            n, mismatches, host = _fold_compare(
+                league_key,
+                d["rosterIds"],
+                own_rows,
+                [d["season"]],
+                rounds,
+                lambda se, r, o, _k=d["draftId"]: owner(_k, se, r, o),
+            )
+            draft_checks.append(
+                {
+                    **base,
+                    "state": "compared",
+                    "hostRows": len(rows),
+                    "roundsCompared": min(MAX_IDENTITY_ROUND, max(1, rounds)),
+                    "hostRowsBeyondComparedRounds": sum(
+                        1 for r in own_rows if (_int(r.get("round")) or 0) > MAX_IDENTITY_ROUND
+                    ),
+                    "picksCompared": n,
+                    "mismatches": len(mismatches),
+                    "_mismatchDetail": mismatches,
+                }
+            )
+        if d["picks"] and d["candidate"]:
+            consumption.append(_consumption_check(d, host, owner))
     return {
         "transfersReplayed": transfers,
         "transfersByTransactionType": dict(sorted(by_type.items())),
+        "transfersByDraftKind": dict(sorted(by_kind.items())),
+        "transfersAfterTheirDraftCompleted": len(after_drafts),
+        "_afterDraftDetail": after_drafts,
         "inconsistentTransfers": len(inconsistent),
         "_inconsistentDetail": inconsistent,
         "checkpoints": checkpoints,
+        "draftCheckpoints": draft_checks,
+        "draftConsumption": consumption,
     }
 
 
@@ -754,6 +1051,7 @@ def build_census(
     today = seasons[-1]
     today_fmt = mtf.format_from_sleeper_league(today["league"])
     drafts, drafted = draft_census(seasons, players)
+    dindex = draft_index(seasons)
 
     # -- transactions, statuses, cross-season dedupe ------------------------
     seen_global: dict[str, str] = {}
@@ -844,10 +1142,18 @@ def build_census(
             )
         for p in t.get("draft_picks") or []:
             ps, rnd, origin = _int(p.get("season")), _int(p.get("round")), _int(p.get("roster_id"))
+            attr = (
+                attribute_pick(dindex, ps, rnd, ms)
+                if ps is not None and rnd is not None
+                else {"key": None, "draftRef": None, "kind": "unknown"}
+            )
             assets.append(
                 {
                     "kind": "pick",
                     "pick": {"season": ps, "round": rnd, "origin": origin},
+                    "draftKey": attr["key"],
+                    "draftRef": attr["draftRef"],
+                    "draftKind": attr["kind"],
                     "family": "PICK",
                     "to": _int(p.get("owner_id")),
                     "from": _int(p.get("previous_owner_id")),
@@ -867,6 +1173,17 @@ def build_census(
         for a in assets:
             if a["kind"] == "faab":
                 norm = {"kind": "faab", "canonicalId": None, "amount": a["amount"]}
+            elif a["kind"] == "pick" and a["draftKind"] == STARTUP_KIND:
+                # A startup-draft pick is not a rookie-draft LeaguePickIdentity
+                # and has no market grammar: named, never minted as one.
+                pk = a["pick"]
+                norm = mtn._pick_asset(
+                    None,
+                    vendor_ref="startup_draft_pick",
+                    label=f"startup:{pk['season']}:r{pk['round']}:o{pk['origin']}",
+                    vendor_grade=None,
+                    reason=REASON_STARTUP_PICK,
+                )
             elif a["kind"] == "pick":
                 pk = a["pick"]
                 try:
@@ -926,7 +1243,9 @@ def build_census(
             if a["kind"] == "pick":
                 pk = a["pick"]
                 key, tiers, detail = None, [], "generic_grade_has_no_history_series"
-                if pk["round"] is not None and pk["season"] is not None:
+                if a["draftKind"] == STARTUP_KIND:
+                    detail = REASON_STARTUP_PICK
+                elif pk["round"] is not None and pk["season"] is not None:
                     if 1 <= pk["round"] <= 6:
                         tiers = [
                             MarketPickRef(pk["season"], pk["round"], tier=tr_).canonical_id
@@ -978,10 +1297,12 @@ def build_census(
                 "rosters": s.get("rosters"),
                 "tradedPicks": s.get("tradedPicks"),
                 "draftRounds": s["draftRounds"],
+                "leagueDraftId": (s.get("league") or {}).get("draft_id"),
             }
             for s in seasons
         ],
         league_key=league_key,
+        drafts=dindex,
     )
 
     agg = aggregate(
@@ -1035,8 +1356,9 @@ def classify_trade(rec: Mapping[str, Any]) -> dict[str, Any]:
         teams == 2 and not faab and len(per_side) == 2 and all(n == 1 for n in per_side.values())
     )
     multi_player = any(n >= 2 for n in Counter(a["to"] for a in players).values())
+    startup_picks = [a for a in picks if a.get("draftKind") == STARTUP_KIND]
     structural_unpriceable = [a for a in assets if a["kind"] in ("unresolved", "faab")] + [
-        a for a in picks if (a["pick"].get("round") or 0) > 6
+        a for a in picks if (a["pick"].get("round") or 0) > 6 or a in startup_picks
     ]
     return {
         "teams": teams,
@@ -1045,6 +1367,7 @@ def classify_trade(rec: Mapping[str, Any]) -> dict[str, Any]:
         "package": teams == 2 and not one_for_one,
         "multiPlayerPackage": multi_player,
         "containsPicks": bool(picks),
+        "containsStartupDraftPicks": bool(startup_picks),
         "containsFaab": bool(faab),
         "containsIdp": bool(idp_fams),
         "idpFamilies": idp_fams,
@@ -1063,6 +1386,47 @@ def _trade_lane_state(rec: Mapping[str, Any], lane: str) -> str:
     if ok == len(priced) and not any(a["kind"] == "faab" for a in rec["assets"]):
         return "full"
     return "partial" if ok else "none"
+
+
+def _assets_priced(r: Mapping[str, Any], lanes: Sequence[str]) -> bool:
+    """Every non-FAAB asset priced in every lane, and no FAAB component."""
+    priced = [a for a in r["assets"] if "prices" in a]
+    if not priced or any(a["kind"] == "faab" for a in r["assets"]):
+        return False
+    return all(a["prices"][ln]["fidelity"] != "missing" for a in priced for ln in lanes)
+
+
+#: Smallest group a committed per-team / per-manager statistic may describe.
+K_ANON = 3
+
+
+def share_bucket(top: int, total: int) -> str | None:
+    """The most active team's / manager's share, coarsened so no single
+    manager's count is published: ``<=25%`` / ``25-50%`` / ``>50%``."""
+    if not total:
+        return None
+    share = top / total
+    return "<=25%" if share <= 0.25 else ("25-50%" if share <= 0.5 else ">50%")
+
+
+def per_team_distribution(counts: Sequence[int], *, trades: int) -> dict[str, Any]:
+    """Trades per team for one season with NO team label and no single-team
+    count: team totals, quantiles over at least ``K_ANON`` teams (no min / max),
+    and the most active team's share as a bucket.  ``counts`` covers every
+    roster, zero-trade teams included."""
+    vals = sorted(counts)
+    out: dict[str, Any] = {
+        "teams": len(vals),
+        "teamsInAnyTrade": sum(1 for v in vals if v),
+        "mostActiveTeamShareOfTrades": share_bucket(vals[-1], trades) if vals else None,
+    }
+    if len(vals) >= K_ANON:
+        q = statistics.quantiles(vals, n=4, method="inclusive")
+        out["quantiles"] = {"p25": q[0], "median": statistics.median(vals), "p75": q[2]}
+    else:
+        out["quantiles"] = None
+        out["quantilesSuppressed"] = f"fewer_than_{K_ANON}_teams"
+    return out
 
 
 def aggregate(
@@ -1173,12 +1537,6 @@ def aggregate(
     # -- suitability for each proposed analysis --------------------------------
     post_floor = lambda r: r["instant"][:10] >= HISTORY_FLOOR  # noqa: E731
 
-    def _assets_priced(r: Mapping[str, Any], lanes: Sequence[str]) -> bool:
-        priced = [a for a in r["assets"] if "prices" in a]
-        if not priced or any(a["kind"] == "faab" for a in r["assets"]):
-            return False
-        return all(a["prices"][ln]["fidelity"] != "missing" for a in priced for ln in lanes)
-
     one4one_players = lambda r: r["classes"]["oneForOne"] and all(  # noqa: E731
         a["kind"] == "player" for a in r["assets"]
     )
@@ -1231,26 +1589,45 @@ def aggregate(
     managers = {m for r in records for m in r["managerIds"]}
     priced_idptc = [r for r in records if _assets_priced(r, ["idptc"])]
     per_mgr = Counter(m for r in priced_idptc for m in r["managerIds"])
-    effective["managersInFullyIdptcPricedTrades"] = len(per_mgr)
-    effective["maxFullyIdptcPricedTradesPerManager"] = max(per_mgr.values()) if per_mgr else 0
-    effective["medianFullyIdptcPricedTradesPerManager"] = (
-        statistics.median(per_mgr.values()) if per_mgr else 0
+    # Never the max: "one manager is in 11 of the 17" pinpoints a manager.  Below
+    # K_ANON managers every statistic here describes one or two people: suppressed.
+    enough = len(per_mgr) >= K_ANON
+    effective["managersInFullyIdptcPricedTrades"] = len(per_mgr) if enough else None
+    effective["mostActiveManagerShareOfFullyIdptcPricedTrades"] = (
+        share_bucket(max(per_mgr.values()), len(priced_idptc)) if enough else None
     )
+    effective["medianFullyIdptcPricedTradesPerManager"] = (
+        statistics.median(per_mgr.values()) if enough else None
+    )
+    if not enough:
+        effective["managerStatisticsSuppressed"] = f"fewer_than_{K_ANON}_managers"
     distinct_players = {a["playerId"] for r in records for a in r["assets"] if a.get("playerId")}
+    pick_assets = [a for r in records for a in r["assets"] if a["kind"] == "pick"]
     distinct_picks = {
-        (a["pick"]["season"], a["pick"]["round"], a["pick"]["origin"])
-        for r in records
-        for a in r["assets"]
-        if a["kind"] == "pick"
+        (a["draftKey"], a["pick"]["season"], a["pick"]["round"], a["pick"]["origin"])
+        for a in pick_assets
+        if a.get("draftKind") != STARTUP_KIND
+    }
+    distinct_startup = {
+        (a["draftKey"], a["pick"]["season"], a["pick"]["round"], a["pick"]["origin"])
+        for a in pick_assets
+        if a.get("draftKind") == STARTUP_KIND
+    }
+    # The pre-fix identity (season, round, origin) merged startup and rookie picks.
+    distinct_unsplit = {
+        (a["pick"]["season"], a["pick"]["round"], a["pick"]["origin"]) for a in pick_assets
     }
     pos_basis = Counter(
         a["positionBasis"] for r in records for a in r["assets"] if a.get("positionBasis")
     )
     leg_counts = Counter(f for r in records for f in r["legFindings"])
-    per_team = {
-        s: dict(sorted(Counter(lbl for r in by_season[s] for lbl in r["teamLabels"]).items()))
-        for s in season_names
-    }
+    per_team = {}
+    for s in seasons:
+        rids = {r for r in (_int(x.get("roster_id")) for x in s.get("rosters") or []) if r}
+        c = Counter(rid for r in by_season[s["season"]] for rid in r["rosterIds"])
+        per_team[s["season"]] = per_team_distribution(
+            [c.get(rid, 0) for rid in sorted(rids | set(c))], trades=len(by_season[s["season"]])
+        )
 
     idp_family_counts = {
         fam: _count(lambda r, fam=fam: fam in r["classes"]["idpFamilies"]) for fam in IDP
@@ -1264,9 +1641,21 @@ def aggregate(
         findings.append(f"duplicate_transaction_ids_across_seasons:{dup_across_seasons}")
     if pick_check["inconsistentTransfers"]:
         findings.append(f"pick_transfer_sender_mismatch:{pick_check['inconsistentTransfers']}")
+    if pick_check["transfersAfterTheirDraftCompleted"]:
+        findings.append(
+            f"pick_transfer_after_its_draft:{pick_check['transfersAfterTheirDraftCompleted']}"
+        )
     for cp in pick_check["checkpoints"]:
         if cp.get("mismatches"):
             findings.append(f"pick_ownership_mismatch_season_{cp['season']}:{cp['mismatches']}")
+    for cp in pick_check["draftCheckpoints"]:
+        if cp.get("mismatches"):
+            findings.append(f"draft_traded_picks_mismatch_{cp['draftRef']}:{cp['mismatches']}")
+    for cp in pick_check["draftConsumption"]:
+        if cp.get("replayDiffersFromPicker"):
+            findings.append(
+                f"draft_picker_differs_from_replay_{cp['draftRef']}:{cp['replayDiffersFromPicker']}"
+            )
     if unresolved_ids:
         findings.append(f"unresolved_player_ids:{len(unresolved_ids)}")
     if grouping.volume["groupsByState"].get(grp.CONFIRMED_UNIQUE, 0) != len(records):
@@ -1299,10 +1688,27 @@ def aggregate(
     sender_mismatch = dict(
         sorted(
             Counter(
-                f"{m['pick'][0]}-r{m['pick'][1]}" for m in pick_check["_inconsistentDetail"]
+                f"{m['draft']}:{m['pick'][0]}-r{m['pick'][1]}"
+                for m in pick_check["_inconsistentDetail"]
             ).items()
         )
     )
+
+    def _by_class(detail: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+        return dict(sorted(Counter(f"{m['pick'][0]}-r{m['pick'][1]}" for m in detail).items()))
+
+    draft_cps_public = []
+    for cp in pick_check["draftCheckpoints"]:
+        pub = {k: v for k, v in cp.items() if not k.startswith("_")}
+        if cp.get("_mismatchDetail"):
+            pub["mismatchesByPickSeasonRound"] = _by_class(cp["_mismatchDetail"])
+        draft_cps_public.append(pub)
+    consumption_public = []
+    for cp in pick_check["draftConsumption"]:
+        pub = {k: v for k, v in cp.items() if not k.startswith("_")}
+        if cp.get("_detail"):
+            pub["differencesByPickSeasonRound"] = _by_class(cp["_detail"])
+        consumption_public.append(pub)
     return {
         "schema": SCHEMA,
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
@@ -1332,8 +1738,16 @@ def aggregate(
                 "transfersReplayed": pick_check["transfersReplayed"],
                 "transfersByTransactionType": pick_check["transfersByTransactionType"],
                 "senderMismatches": pick_check["inconsistentTransfers"],
-                "senderMismatchesByPickSeasonRound": sender_mismatch,
+                "senderMismatchesByDraftAndPickClass": sender_mismatch,
+                "transfersByDraftKind": pick_check["transfersByDraftKind"],
+                "transfersAfterTheirDraftCompleted": pick_check[
+                    "transfersAfterTheirDraftCompleted"
+                ],
                 "checkpoints": checkpoints_public,
+                "draftCheckpoints": draft_cps_public,
+                "draftConsumption": consumption_public,
+                "attributionRule": ATTRIBUTION_RULE,
+                "notFetched": NOT_FETCHED,
             },
             "positionBasisForTradedPlayers": dict(sorted(pos_basis.items())),
             "findings": findings,
@@ -1364,7 +1778,14 @@ def aggregate(
             "distinctTradingManagersBasis": "distinct roster owner user ids of trade parties, from each season league's rosters (final ownership of that season)",
             "distinctPlayers": len(distinct_players),
             "distinctLeaguePicks": len(distinct_picks),
-            "tradesPerTeamLabel": per_team,
+            "distinctLeaguePicksBasis": (
+                "rookie-draft and future-class picks, one per (draft, season, round, origin); "
+                "startup-draft picks counted separately"
+            ),
+            "distinctStartupDraftPicks": len(distinct_startup),
+            "distinctPickKeysBeforeDraftSplit": len(distinct_unsplit),
+            "tradesWithStartupDraftPicks": cls("containsStartupDraftPicks"),
+            "tradesPerTeamDistribution": per_team,
             "suitabilityByAnalysis": suit,
             "fitSuitabilityReasons": dict(sorted(fit_reasons.items())),
             "topology": dict(sorted(Counter(r["topology"]["topology"] for r in records).items())),
@@ -1403,6 +1824,23 @@ def aggregate(
         "definitions": DEFINITIONS,
     }
 
+
+ATTRIBUTION_RULE = (
+    "Sleeper transaction draft_picks carry no draft id. A moved pick (season, round, origin) "
+    "belongs to the first of that season's drafts (ran, or the league's draft_id; start order) "
+    "not finished at the trade instant and having the round; no draft object yet = the "
+    "season's future class. Replay state is per draft, so a pick consumed by a startup draft "
+    "never carries into the same season's rookie draft. Verified against each draft's own "
+    "/draft/{id}/traded_picks."
+)
+#: Evidence the census did not fetch, named so "unexplained" is not read as
+#: "impossible".
+NOT_FETCHED = [
+    "commissioner or draft-room edits that leave no transaction (Sleeper exposes no edit log)",
+    "draft-order history (each draft's draft_order / slot_to_roster_id is only its final state)",
+    "league settings history (draft_rounds at each trade; only final settings are fetched)",
+    "roster ownership history (only each season league's final roster owners)",
+]
 
 DEFINITIONS = {
     "completedTrade": "Sleeper transaction with type == 'trade' and status == 'complete', unique by transaction_id across every week and season league",
@@ -1519,16 +1957,87 @@ def reconcile(
 _LONG_DIGITS = re.compile(r"(?<![\d.])\d{9,}(?!\d)")
 
 
+_HEX = frozenset("0123456789abcdefABCDEF")
+#: Shortest hex digest exempted (md5 = 32; git / sha1 = 40; sha256 = 64).
+_MIN_DIGEST_LEN = 32
+
+
+def _inside_hex_digest(text: str, start: int, end: int) -> bool:
+    """True when ``text[start:end]`` sits inside a maximal hex token of 32+
+    characters that contains a letter: a digest such as ``codeSha`` or a
+    format fingerprint, never a Sleeper id (ids are pure decimal tokens).
+    Found on CI: merge commit ``9fcec1fa34d2918e55abb764357346ae5cd85279``
+    carries the run ``764357346``, so the scan refused depending on the
+    commit SHA, not the data.  Every other 9+ digit run is still a leak."""
+    lo, hi = start, end
+    while lo > 0 and text[lo - 1] in _HEX:
+        lo -= 1
+    while hi < len(text) and text[hi] in _HEX:
+        hi += 1
+    token = text[lo:hi]
+    if len(token) < _MIN_DIGEST_LEN or token.isdigit():
+        return False
+    # The token must be delimited by non-word characters on both sides, so an
+    # id glued to letters ("x123456789012abc...") is not excused as a digest.
+    before = text[lo - 1] if lo > 0 else " "
+    after = text[hi] if hi < len(text) else " "
+    return not (before.isalnum() or before == "_" or after.isalnum() or after == "_")
+
+
 def identifier_leaks(text: str, *, allowed_ids: Iterable[str], names: Iterable[str]) -> list[str]:
     """Every Sleeper-id-shaped digit run (9+) not in ``allowed_ids`` and every
     league member name found in ``text``."""
     allowed = {str(a) for a in allowed_ids}
-    leaks = sorted({m for m in _LONG_DIGITS.findall(text) if m not in allowed})
+    leaks = sorted(
+        {
+            m.group()
+            for m in _LONG_DIGITS.finditer(text)
+            if m.group() not in allowed and not _inside_hex_digest(text, m.start(), m.end())
+        }
+    )
     low = text.lower()
     for n in sorted({str(x).strip() for x in names if x and len(str(x).strip()) >= 3}):
         if re.search(rf"(?<![a-z0-9]){re.escape(n.lower())}(?![a-z0-9])", low):
             leaks.append(f"name:{n}")
     return leaks
+
+
+#: A team label of the ``T01..Tnn`` shape (or any ``T`` + two digits token).
+_TEAM_LABEL = re.compile(r"(?<![A-Za-z0-9_])T\d{2}(?![A-Za-z0-9_])")
+#: Keys that carry a per-team row, a team label, a roster / manager id or a
+#: single manager's count.  None may appear in a committed output.
+LINKAGE_KEYS = frozenset(
+    {
+        "tradesPerTeamLabel",
+        "teamLabels",
+        "teamLabelMaps",
+        "rosterIds",
+        "managerIds",
+        "maxFullyIdptcPricedTradesPerManager",
+    }
+)
+
+
+def _walk_keys(obj: Any) -> Iterable[str]:
+    if isinstance(obj, Mapping):
+        for k, v in obj.items():
+            yield str(k)
+            yield from _walk_keys(v)
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            yield from _walk_keys(v)
+
+
+def linkage_leaks(agg: Mapping[str, Any], text: str) -> list[str]:
+    """Re-identification by LINKAGE rather than by id: any team label in the
+    committed text, and any per-team / per-manager key in the committed JSON.
+
+    Sleeper ``roster_id`` s are 1..n and persist across the season chain, so a
+    label assigned in roster order maps to a named manager through one public
+    ``/rosters`` + ``/users`` call, and links that manager across seasons."""
+    out = [f"team_label:{m}" for m in sorted(set(_TEAM_LABEL.findall(text)))]
+    out += [f"key:{k}" for k in sorted({k for k in _walk_keys(agg) if k in LINKAGE_KEYS})]
+    return out
 
 
 def member_names(bundle: Mapping[str, Any]) -> set[str]:
@@ -1603,7 +2112,10 @@ def render_markdown(agg: Mapping[str, Any]) -> str:
     w(
         "- **Privacy.** Transaction-level evidence with roster, user and transaction ids is "
         "written only to the gitignored `data/research/own_league_census/`. This file and its JSON "
-        "carry counts and `T01..Tnn` labels only. The script refuses to write them if it finds any "
+        "carry counts only: no team label (roster order is public, so any order-derived label "
+        "re-identifies a manager), per-team counts only as quantiles over 3+ teams, and the most "
+        "active team's share as a bucket. The script refuses to write them if it finds a team label, "
+        "a per-team field, any "
         "9+ digit run other than the three league ids, or any league member's name."
     )
     w("")
@@ -1684,31 +2196,63 @@ def render_markdown(agg: Mapping[str, Any]) -> str:
         f"{V['playerIds']['unresolved']} unresolved."
     )
     w(
-        f"- **Pick transfers:** {pr['transfersReplayed']} replayed oldest-first "
-        f"(`{pr['transfersByTransactionType']}`), {pr['senderMismatches']} whose stated sender "
-        "differs from the tracked owner."
+        f"- **Pick transfers:** {pr['transfersReplayed']} replayed oldest-first, per draft "
+        f"(`{pr['transfersByTransactionType']}`; by draft kind `{pr['transfersByDraftKind']}`). "
+        f"{pr['senderMismatches']} have a stated sender that differs from the tracked owner "
+        f"(`{pr['senderMismatchesByDraftAndPickClass'] or 'none'}`); "
+        f"{pr['transfersAfterTheirDraftCompleted']} move a pick after its draft completed."
     )
+    w(f"  - Attribution: {pr['attributionRule']}")
     for cp in pr["checkpoints"]:
         if cp["state"] == "compared":
             w(
                 f"  - {cp['season']} league `/traded_picks` vs replay: {cp['picksCompared']} picks "
                 f"(seasons {cp['pickSeasonsCompared']}, rounds 1-{cp['rounds']}), "
-                f"**{cp['mismatches']} mismatches**."
+                f"**{cp['mismatches']} mismatches**"
+                + (f" (`{cp['mismatchesByPickSeasonRound']}`)." if cp.get("mismatches") else ".")
             )
         else:
-            w(f"  - {cp['season']}: {cp['state']} ({cp.get('reason')}).")
+            w(f"  - {cp['season']} league: {cp['state']} ({cp.get('reason')}).")
+    for cp in pr["draftCheckpoints"]:
+        if cp["state"] == "compared":
+            w(
+                f"  - {cp['draftRef']} ({cp['kind']}) `/draft/{{id}}/traded_picks` vs replay: "
+                f"{cp['picksCompared']} picks, **{cp['mismatches']} mismatches**"
+                + (f" (`{cp['mismatchesByPickSeasonRound']}`)." if cp.get("mismatches") else ".")
+            )
+        else:
+            w(
+                f"  - {cp['draftRef']} ({cp['kind']}): {cp['state']} ({cp.get('reason')}"
+                + (f"; {cp['hostRows']} host rows" if cp.get("hostRows") is not None else "")
+                + ")."
+            )
+    for cp in pr["draftConsumption"]:
+        if cp["state"] == "compared":
+            w(
+                f"  - {cp['draftRef']} picks made vs replayed owner of the slot's origin: "
+                f"{cp.get('picks', 0)} picks; replay agrees on {cp.get('replayMatchesPicker', 0)}, "
+                f"differs on {cp.get('replayDiffersFromPicker', 0)}; the draft's own "
+                f"`/traded_picks` agrees on {cp.get('draftHostMatchesPicker', 0)}, differs on "
+                f"{cp.get('draftHostDiffersFromPicker', 0)}"
+                + (
+                    f", {cp['draftHostRoundNotCompared']} in rounds past 20 not compared"
+                    if cp.get("draftHostRoundNotCompared")
+                    else ""
+                )
+                + (
+                    f" (`{cp['differencesByPickSeasonRound']}`)."
+                    if cp.get("differencesByPickSeasonRound")
+                    else "."
+                )
+            )
+        else:
+            w(f"  - {cp['draftRef']} picks made: {cp['state']} ({cp.get('reason')}).")
+    for line in mismatch_interpretation(agg):
+        w(f"  - {line}")
     w(
-        "  - The sender mismatches and checkpoint mismatches by pick class: "
-        f"`{pr['senderMismatchesByPickSeasonRound']}`; "
-        + "; ".join(
-            f"{cp['season']}: `{cp.get('mismatchesByPickSeasonRound')}`"
-            for cp in pr["checkpoints"]
-            if cp.get("mismatches")
-        )
-        + ". No transaction in the chain explains them: Sleeper exposes no commissioner pick move "
-        "here (every replayed transfer is a `trade`). They are consistent with host-side edits "
-        "that leave no transaction, such as a draft-board or round-count edit. The census reports "
-        "them and corrects neither side."
+        "  - Not fetched, so not ruled out: "
+        + "; ".join(pr["notFetched"])
+        + ". The census reports every difference and corrects neither side."
     )
     w(
         "- **Completeness.** Sleeper's `/transactions/{week}` has no cursor; each week answers in "
@@ -1750,13 +2294,30 @@ def render_markdown(agg: Mapping[str, Any]) -> str:
     w(
         f"| Distinct players / league picks traded | {A['distinctPlayers']} / {A['distinctLeaguePicks']} |"
     )
+    w(
+        f"| Distinct startup-draft picks traded (not league picks) | {A['distinctStartupDraftPicks']} "
+        f"(in {A['tradesWithStartupDraftPicks']['total']} trades; {A['distinctPickKeysBeforeDraftSplit']} "
+        "pick keys if startup and rookie picks were merged) |"
+    )
     w(f"| Topology (`classify_topology`) | `{A['topology']}` |")
     w(f"| Fit exclusions (`fit_suitability` reasons) | `{A['fitSuitabilityReasons']}` |")
     w("")
-    w("Trades per team label (`T01..Tnn` in roster-id order, per season):")
+    w(
+        "Trades per team, per season. No team is named or labelled; the quantiles run over every "
+        "team, and only the most active team's share is shown, as a bucket:"
+    )
     w("")
-    for s, m in A["tradesPerTeamLabel"].items():
-        w(f"- {s}: " + ", ".join(f"{k} {v}" for k, v in m.items()))
+    w(
+        "| season | teams | teams in any trade | p25 / median / p75 trades per team | most active team's share of trades |"
+    )
+    w("|---|---:|---:|---|---|")
+    for s, m in A["tradesPerTeamDistribution"].items():
+        q = m["quantiles"]
+        qs = f"{q['p25']} / {q['median']} / {q['p75']}" if q else "suppressed"
+        w(
+            f"| {s} | {m['teams']} | {m['teamsInAnyTrade']} | {qs} | "
+            f"{m['mostActiveTeamShareOfTrades']} |"
+        )
     w("")
     w("### 5.1 Historical-value coverage (per asset, at the trade instant)")
     w("")
@@ -1908,6 +2469,95 @@ def render_markdown(agg: Mapping[str, Any]) -> str:
     return "\n".join(L) + "\n"
 
 
+def mismatch_interpretation(agg: Mapping[str, Any]) -> list[str]:
+    """What the fetched evidence does and does not say about the differences.
+
+    Built from three independent sides per difference: the replayed
+    transactions, the host's ``/traded_picks`` (league and draft), and -- for
+    a completed non-auction draft -- the roster that actually made the pick."""
+    pr = agg["validation"]["pickReplay"]
+    out: list[str] = []
+    total = (
+        pr["senderMismatches"]
+        + sum(c.get("mismatches", 0) for c in pr["checkpoints"])
+        + sum(c.get("mismatches", 0) for c in pr["draftCheckpoints"])
+    )
+    if not total:
+        return [
+            "Every replayed transfer and every league and draft checkpoint agrees with the host."
+        ]
+    for cp in pr["draftConsumption"]:
+        diff = cp.get("replayDiffersFromPicker", 0)
+        if cp.get("state") != "compared":
+            continue
+        if not diff:
+            out.append(
+                f"{cp['draftRef']}: the replay names the roster that actually made all "
+                f"{cp.get('picks', 0)} picks."
+            )
+            continue
+        host_ok = cp.get("draftHostDiffersFromPicker", 0) == 0
+        out.append(
+            f"{cp['draftRef']}: on {diff} picks (`{cp.get('differencesByPickSeasonRound')}`) the "
+            "roster that actually made the pick is "
+            + ("the host's owner, not the replay's" if host_ok else "not the replay's owner")
+            + ": ownership moved with no transaction in the data fetched recording it."
+        )
+    chain_rounds = {c["season"]: c["draftRounds"] for c in agg["chain"]["seasons"]}
+    over = [
+        f"{d['draftRef']} ran {d['rounds']} rounds under a {chain_rounds.get(d['season'])}-round setting"
+        for d in agg["draftCensus"]["drafts"]
+        if d["picks"]
+        and d.get("rounds")
+        and chain_rounds.get(d["season"])
+        and d["rounds"] > chain_rounds[d["season"]]
+        and d["kind"] != STARTUP_KIND
+    ]
+    league_classes = {
+        k for c in pr["checkpoints"] for k in (c.get("mismatchesByPickSeasonRound") or {})
+    }
+    for cp in pr["draftCheckpoints"]:
+        only = sorted(set(cp.get("mismatchesByPickSeasonRound") or {}) - league_classes)
+        if only:
+            out.append(
+                f"{cp['draftRef']}: `{only}` differ on the draft's own `/traded_picks` only; every "
+                "league checkpoint agrees with the replay on those classes, so the host-side move "
+                "came after the last league checkpoint that covers them."
+            )
+    for cp in pr["checkpoints"]:
+        if not cp.get("mismatches"):
+            continue
+        dr = next(
+            (c["draftRounds"] for c in agg["chain"]["seasons"] if c["season"] == cp["season"]),
+            None,
+        )
+        above = sum(
+            n
+            for k, n in (cp.get("mismatchesByPickSeasonRound") or {}).items()
+            if dr is not None and int(k.split("-r")[1]) > dr
+        )
+        if above:
+            out.append(
+                f"{cp['season']} league: {above} of {cp['mismatches']} differences are in a round "
+                f"above that league's `draft_rounds` setting ({dr})"
+                + (f", and {'; '.join(over)}" if over else "")
+                + "; a host-side round-count change is one explanation. Unexplained by the data "
+                "fetched."
+            )
+    if pr["senderMismatches"]:
+        out.append(
+            f"{pr['senderMismatches']} transfer(s) state a sender the replay does not hold "
+            f"(`{pr['senderMismatchesByDraftAndPickClass']}`): the pick reached that sender with "
+            "no transaction in the data fetched."
+        )
+    out.append(
+        "Every replayed transfer is a `trade`; Sleeper exposes no commissioner pick move or edit "
+        "log, so the remaining differences are unexplained by the data fetched, not impossible "
+        "to explain."
+    )
+    return out
+
+
 LIMITATIONS = [
     "Every trade before 2026-07-14 has no point-in-time price in any lane (`before_history_boundary`). "
     "The external-archive survey (step 3b) is a separate deliverable; nothing from it is ingested.",
@@ -1950,10 +2600,16 @@ def hypothesis_blockers(agg: Mapping[str, Any]) -> dict[str, str]:
             "two-team IDP trades before any tier split. The tier definition is not set yet."
         ),
         "H5 (manager heterogeneity)": (
+            f"{A['distinctTradingManagers']} distinct trading managers over all trades; fewer than "
+            f"{K_ANON} appear in a fully IDPTC-priced trade, so no per-manager statistic is shown."
+        )
+        if E["managersInFullyIdptcPricedTrades"] is None
+        else (
             f"{A['distinctTradingManagers']} distinct trading managers over all trades; "
-            f"{E['managersInFullyIdptcPricedTrades']} appear in a fully IDPTC-priced trade, with at most "
-            f"{E['maxFullyIdptcPricedTradesPerManager']} such trades each (median "
-            f"{E['medianFullyIdptcPricedTradesPerManager']})."
+            f"{E['managersInFullyIdptcPricedTrades']} appear in a fully IDPTC-priced trade (median "
+            f"{E['medianFullyIdptcPricedTradesPerManager']} such trades each). The most active "
+            f"manager's share of those trades is {E['mostActiveManagerShareOfFullyIdptcPricedTrades']} "
+            "(bucketed; no single manager's count is published)."
         ),
         "H6 (packages, picks, staleness, selection)": (
             f"{suit['multiAssetPackageBenchmark']['structurallyEligible']} package trades are eligible; "
@@ -2045,6 +2701,7 @@ def main(argv: list[str] | None = None) -> int:
     allowed = list(agg["deliverableA"]["historicalLeagueIds"].values())
     names = member_names(bundle)
     leaks = identifier_leaks(body_json + body_md, allowed_ids=allowed, names=names)
+    leaks += linkage_leaks(agg, body_json + body_md)
     if leaks:
         print(f"anonymization scan refused the write: {len(leaks)} leak(s)", file=sys.stderr)
         return EXIT_BAD_INPUT

@@ -6,12 +6,12 @@ No hypothesis (H1-H7) is tested here. Phase 2 tests them after a preregistration
 
 ## 1. Method
 
-- **Source.** Sleeper's public read-only v1 API, walked locally across the whole `previous_league_id` chain (`sleeper_client.walk_league_chain_status`). Calls are paced 0.2 s apart, with a bounded retry on HTTP 429. Fetch outcomes: `{'ok': 99}`; failures: 0.
+- **Source.** Sleeper's public read-only v1 API, walked locally across the whole `previous_league_id` chain (`sleeper_client.walk_league_chain_status`). Calls are paced 0.2 s apart, with a bounded retry on HTTP 429. Fetch outcomes: `{'ok': 111}`; failures: 0.
 - **Weeks.** Every season league's `/transactions/{week}` for weeks 0-18, plus a probe of weeks 19-25.
 - **Trades.** Deduped by `transaction_id` across weeks and seasons. Only `type == trade` and `status == complete` are kept.
 - **Prices.** `src.history.asof.batch_known_before` on a scratch temporal ledger built from the tracked `exports/archive/` by `scripts/build_temporal_ledger.py --skip-migrations --ledger <scratch>`. The lookup is instant-strict at the trade's completion time, so a later observation is never selected. Today's value is never used. Missing is never 0.
 - **Reuse.** Grouping, topology and fit come from `market_trade_groups` / `market_trade_eval`; formats from `market_trade_format`; picks from `src.identity.picks`; players from `src.identity.resolution` via `market_trade_normalize.IdentityContext`.
-- **Privacy.** Transaction-level evidence with roster, user and transaction ids is written only to the gitignored `data/research/own_league_census/`. This file and its JSON carry counts and `T01..Tnn` labels only. The script refuses to write them if it finds any 9+ digit run other than the three league ids, or any league member's name.
+- **Privacy.** Transaction-level evidence with roster, user and transaction ids is written only to the gitignored `data/research/own_league_census/`. This file and its JSON carry counts only: no team label (roster order is public, so any order-derived label re-identifies a manager), per-team counts only as quantiles over 3+ teams, and the most active team's share as a bucket. The script refuses to write them if it finds a team label, a per-team field, any 9+ digit run other than the three league ids, or any league member's name.
 
 ## 2. Seasons recovered
 
@@ -48,14 +48,33 @@ Coverage after format validation: **80** trades sit in a season whose format mat
 - **Duplicate transaction ids across seasons:** 0. Grouping states: `{'CONFIRMED_UNIQUE': 233}`.
 - **Legs:** `{'party_receives_nothing': 1}`.
 - **Player ids:** 276 distinct in trades, 0 unresolved.
-- **Pick transfers:** 285 replayed oldest-first (`{'trade': 285}`), 3 whose stated sender differs from the tracked owner.
-  - 2024 league `/traded_picks` vs replay: 400 picks (seasons [2024, 2025, 2026, 2027], rounds 1-10), **3 mismatches**.
-  - 2025 league `/traded_picks` vs replay: 280 picks (seasons [2025, 2026, 2027, 2028], rounds 1-7), **9 mismatches**.
-  - 2026 league `/traded_picks` vs replay: 252 picks (seasons [2027, 2028, 2029], rounds 1-7), **2 mismatches**.
-  - The sender mismatches and checkpoint mismatches by pick class: `{'2024-r1': 1, '2024-r10': 1, '2024-r9': 1}`; 2024: `{'2024-r10': 1, '2024-r3': 1, '2024-r9': 1}`; 2025: `{'2025-r2': 5, '2026-r6': 1, '2026-r7': 1, '2027-r6': 1, '2027-r7': 1}`; 2026: `{'2027-r6': 1, '2027-r7': 1}`. No transaction in the chain explains them: Sleeper exposes no commissioner pick move here (every replayed transfer is a `trade`). They are consistent with host-side edits that leave no transaction, such as a draft-board or round-count edit. The census reports them and corrects neither side.
+- **Pick transfers:** 285 replayed oldest-first, per draft (`{'trade': 285}`; by draft kind `{'future_class': 128, 'rookie': 152, 'startup_veteran': 5}`). 1 have a stated sender that differs from the tracked owner (`{'2024-D1:2024-r1': 1}`); 0 move a pick after its draft completed.
+  - Attribution: Sleeper transaction draft_picks carry no draft id. A moved pick (season, round, origin) belongs to the first of that season's drafts (ran, or the league's draft_id; start order) not finished at the trade instant and having the round; no draft object yet = the season's future class. Replay state is per draft, so a pick consumed by a startup draft never carries into the same season's rookie draft. Verified against each draft's own /draft/{id}/traded_picks.
+  - 2024 league `/traded_picks` vs replay: 400 picks (seasons [2024, 2025, 2026, 2027], rounds 1-10), **0 mismatches**.
+  - 2025 league `/traded_picks` vs replay: 280 picks (seasons [2025, 2026, 2027, 2028], rounds 1-7), **9 mismatches** (`{'2025-r2': 5, '2026-r6': 1, '2026-r7': 1, '2027-r6': 1, '2027-r7': 1}`).
+  - 2026 league `/traded_picks` vs replay: 252 picks (seasons [2027, 2028, 2029], rounds 1-7), **2 mismatches** (`{'2027-r6': 1, '2027-r7': 1}`).
+  - 2024-D1 (rookie) `/draft/{id}/traded_picks` vs replay: 100 picks, **0 mismatches**.
+  - 2024-D2 (startup_veteran) `/draft/{id}/traded_picks` vs replay: 200 picks, **0 mismatches**.
+  - 2024-D3 (startup_veteran): skipped (draft_never_ran_and_not_league_draft; 18 host rows).
+  - 2025-D1 (rookie) `/draft/{id}/traded_picks` vs replay: 70 picks, **5 mismatches** (`{'2025-r2': 5}`).
+  - 2026-D1 (rookie) `/draft/{id}/traded_picks` vs replay: 72 picks, **0 mismatches**.
+  - 2026-D2 (rookie) `/draft/{id}/traded_picks` vs replay: 120 picks, **4 mismatches** (`{'2026-r2': 2, '2026-r6': 1, '2026-r7': 1}`).
+  - 2024-D1 picks made vs replayed owner of the slot's origin: 100 picks; replay agrees on 100, differs on 0; the draft's own `/traded_picks` agrees on 100, differs on 0.
+  - 2024-D2 picks made vs replayed owner of the slot's origin: 240 picks; replay agrees on 240, differs on 0; the draft's own `/traded_picks` agrees on 200, differs on 0, 40 in rounds past 20 not compared.
+  - 2025-D1 picks made vs replayed owner of the slot's origin: 70 picks; replay agrees on 65, differs on 5; the draft's own `/traded_picks` agrees on 70, differs on 0 (`{'2025-r2': 5}`).
+  - 2026-D2 picks made: not_applicable (auction_has_no_slots).
+  - 2024-D1: the replay names the roster that actually made all 100 picks.
+  - 2024-D2: the replay names the roster that actually made all 240 picks.
+  - 2025-D1: on 5 picks (`{'2025-r2': 5}`) the roster that actually made the pick is the host's owner, not the replay's: ownership moved with no transaction in the data fetched recording it.
+  - 2026-D2: `['2026-r2']` differ on the draft's own `/traded_picks` only; every league checkpoint agrees with the replay on those classes, so the host-side move came after the last league checkpoint that covers them.
+  - 2025 league: 2 of 9 differences are in a round above that league's `draft_rounds` setting (6), and 2025-D1 ran 7 rounds under a 6-round setting; 2026-D2 ran 10 rounds under a 6-round setting; a host-side round-count change is one explanation. Unexplained by the data fetched.
+  - 2026 league: 1 of 2 differences are in a round above that league's `draft_rounds` setting (6), and 2025-D1 ran 7 rounds under a 6-round setting; 2026-D2 ran 10 rounds under a 6-round setting; a host-side round-count change is one explanation. Unexplained by the data fetched.
+  - 1 transfer(s) state a sender the replay does not hold (`{'2024-D1:2024-r1': 1}`): the pick reached that sender with no transaction in the data fetched.
+  - Every replayed transfer is a `trade`; Sleeper exposes no commissioner pick move or edit log, so the remaining differences are unexplained by the data fetched, not impossible to explain.
+  - Not fetched, so not ruled out: commissioner or draft-room edits that leave no transaction (Sleeper exposes no edit log); draft-order history (each draft's draft_order / slot_to_roster_id is only its final state); league settings history (draft_rounds at each trade; only final settings are fetched); roster ownership history (only each season league's final roster owners). The census reports every difference and corrects neither side.
 - **Completeness.** Sleeper's `/transactions/{week}` has no cursor; each week answers in full. Two independent checks bound what could be missing: the pick replay above, and the 107-of-107 archive reconciliation in section 7.
 - **As-of position basis (player legs):** `{'chain_draft_metadata_2024': 525, 'chain_draft_metadata_2025': 122, 'chain_draft_metadata_2026': 23, 'current_sleeper_directory': 97}`.
-- **Findings:** `['pick_transfer_sender_mismatch:3', 'pick_ownership_mismatch_season_2024:3', 'pick_ownership_mismatch_season_2025:9', 'pick_ownership_mismatch_season_2026:2']`.
+- **Findings:** `['pick_transfer_sender_mismatch:1', 'pick_ownership_mismatch_season_2025:9', 'pick_ownership_mismatch_season_2026:2', 'draft_traded_picks_mismatch_2025-D1:5', 'draft_traded_picks_mismatch_2026-D2:4', 'draft_picker_differs_from_replay_2025-D1:5']`.
 
 ## 5. Deliverable A
 
@@ -73,7 +92,7 @@ Coverage after format validation: **80** trades sit in a season whose format mat
 | Trades with picks | **145** (2024: 20 / 2025: 77 / 2026: 48) |
 | Trades with FAAB | **8** (2024: 1 / 2025: 4 / 2026: 3) |
 | Multi-team trades | **11** (2024: 0 / 2025: 9 / 2026: 2) |
-| Trades with a structurally unpriceable asset | **16** (2024: 6 / 2025: 7 / 2026: 3) |
+| Trades with a structurally unpriceable asset | **17** (2024: 7 / 2025: 7 / 2026: 3) |
 | Trades not fully priced at trade time, canonical | **233** (2024: 29 / 2025: 124 / 2026: 80) |
 | Trades not fully priced at trade time, idptc | **216** (2024: 29 / 2025: 124 / 2026: 63) |
 | Trades not fully priced at trade time, ktc | **220** (2024: 29 / 2025: 124 / 2026: 67) |
@@ -82,15 +101,18 @@ Coverage after format validation: **80** trades sit in a season whose format mat
 | Packages (two-team, not one-for-one) | **170** (2024: 16 / 2025: 90 / 2026: 64) |
 | Multiple-player packages | **135** (2024: 9 / 2025: 71 / 2026: 55) |
 | Distinct trading managers | 14 |
-| Distinct players / league picks traded | 276 / 181 |
+| Distinct players / league picks traded | 276 / 178 |
+| Distinct startup-draft picks traded (not league picks) | 5 (in 2 trades; 181 pick keys if startup and rookie picks were merged) |
 | Topology (`classify_topology`) | `{'multi_team': 11, 'two_team_1_for_1': 53, 'two_team_2_for_1': 36, 'two_team_multi_asset': 114, 'two_team_n_for_1': 18, 'two_team_one_sided': 1}` |
-| Fit exclusions (`fit_suitability` reasons) | `{'consolidation_effects_require_package_model': 156, 'includes_faab': 8, 'includes_pick_beyond_round_6': 8, 'one_side_empty': 1, 'three_or_more_teams': 11}` |
+| Fit exclusions (`fit_suitability` reasons) | `{'consolidation_effects_require_package_model': 156, 'includes_faab': 8, 'includes_pick_beyond_round_6': 7, 'includes_unresolved': 2, 'one_side_empty': 1, 'three_or_more_teams': 11}` |
 
-Trades per team label (`T01..Tnn` in roster-id order, per season):
+Trades per team, per season. No team is named or labelled; the quantiles run over every team, and only the most active team's share is shown, as a bucket:
 
-- 2024: T01 25, T02 3, T03 6, T04 1, T05 7, T06 8, T07 2, T08 1, T09 3, T10 2
-- 2025: T01 99, T02 21, T03 16, T04 10, T05 26, T06 16, T07 26, T08 4, T09 26, T10 14
-- 2026: T01 63, T02 25, T03 6, T04 5, T05 15, T06 11, T07 12, T08 1, T09 11, T10 2, T11 4, T12 7
+| season | teams | teams in any trade | p25 / median / p75 trades per team | most active team's share of trades |
+|---|---:|---:|---|---|
+| 2024 | 10 | 10 | 2.0 / 3.0 / 6.75 | >50% |
+| 2025 | 10 | 10 | 14.5 / 18.5 / 26.0 | >50% |
+| 2026 | 12 | 12 | 4.75 / 9.0 / 12.75 | >50% |
 
 ### 5.1 Historical-value coverage (per asset, at the trade instant)
 
@@ -151,7 +173,7 @@ Picks are never priced here. Sleeper records a traded pick as season + round + o
 | allTradesFullyPricedCanonical | 0 |
 | tradesOnOrAfterFloor | 43 |
 | managersInFullyIdptcPricedTrades | 8 |
-| maxFullyIdptcPricedTradesPerManager | 11 |
+| mostActiveManagerShareOfFullyIdptcPricedTrades | >50% |
 | medianFullyIdptcPricedTradesPerManager | 2.0 |
 
 ## 7. Reconciliation with the 107-trade count
@@ -197,7 +219,7 @@ Rookie-draft changes between seasons:
 - **H2 (canonical values track behaviour better).** 0 trades carry a canonical at-the-time price locally (0). This needs the box-only canonical board history, or an approved reconstruction.
 - **H3 (position premiums).** 24 two-team offense-for-IDP trades exist; 1 are fully IDPTC-priced.
 - **H4 (tier premiums, elite IDP).** Upper bound 4 fully IDPTC-priced two-team IDP trades before any tier split. The tier definition is not set yet.
-- **H5 (manager heterogeneity).** 14 distinct trading managers over all trades; 8 appear in a fully IDPTC-priced trade, with at most 11 such trades each (median 2.0).
+- **H5 (manager heterogeneity).** 14 distinct trading managers over all trades; 8 appear in a fully IDPTC-priced trade (median 2.0 such trades each). The most active manager's share of those trades is >50% (bucketed; no single manager's count is published).
 - **H6 (packages, picks, staleness, selection).** 156 package trades are eligible; 10 are fully IDPTC-priced. Picks are unpriced (generic grade), so pick-bearing trades cannot be benchmarked yet.
 - **H7 (insufficient sample).** This census does not decide H7. On these counts it remains a live outcome, to be judged against the preregistered power analysis.
 

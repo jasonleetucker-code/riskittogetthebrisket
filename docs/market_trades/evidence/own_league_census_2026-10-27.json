@@ -144,14 +144,18 @@
     }
    }
   },
-  "distinctLeaguePicks": 181,
+  "distinctLeaguePicks": 178,
+  "distinctLeaguePicksBasis": "rookie-draft and future-class picks, one per (draft, season, round, origin); startup-draft picks counted separately",
+  "distinctPickKeysBeforeDraftSplit": 181,
   "distinctPlayers": 276,
+  "distinctStartupDraftPicks": 5,
   "distinctTradingManagers": 14,
   "distinctTradingManagersBasis": "distinct roster owner user ids of trade parties, from each season league's rosters (final ownership of that season)",
   "fitSuitabilityReasons": {
    "consolidation_effects_require_package_model": 156,
    "includes_faab": 8,
-   "includes_pick_beyond_round_6": 8,
+   "includes_pick_beyond_round_6": 7,
+   "includes_unresolved": 2,
    "one_side_empty": 1,
    "three_or_more_teams": 11
   },
@@ -471,44 +475,36 @@
    "two_team_n_for_1": 18,
    "two_team_one_sided": 1
   },
-  "tradesPerTeamLabel": {
+  "tradesPerTeamDistribution": {
    "2024": {
-    "T01": 25,
-    "T02": 3,
-    "T03": 6,
-    "T04": 1,
-    "T05": 7,
-    "T06": 8,
-    "T07": 2,
-    "T08": 1,
-    "T09": 3,
-    "T10": 2
+    "mostActiveTeamShareOfTrades": ">50%",
+    "quantiles": {
+     "median": 3.0,
+     "p25": 2.0,
+     "p75": 6.75
+    },
+    "teams": 10,
+    "teamsInAnyTrade": 10
    },
    "2025": {
-    "T01": 99,
-    "T02": 21,
-    "T03": 16,
-    "T04": 10,
-    "T05": 26,
-    "T06": 16,
-    "T07": 26,
-    "T08": 4,
-    "T09": 26,
-    "T10": 14
+    "mostActiveTeamShareOfTrades": ">50%",
+    "quantiles": {
+     "median": 18.5,
+     "p25": 14.5,
+     "p75": 26.0
+    },
+    "teams": 10,
+    "teamsInAnyTrade": 10
    },
    "2026": {
-    "T01": 63,
-    "T02": 25,
-    "T03": 6,
-    "T04": 5,
-    "T05": 15,
-    "T06": 11,
-    "T07": 12,
-    "T08": 1,
-    "T09": 11,
-    "T10": 2,
-    "T11": 4,
-    "T12": 7
+    "mostActiveTeamShareOfTrades": ">50%",
+    "quantiles": {
+     "median": 9.0,
+     "p25": 4.75,
+     "p75": 12.75
+    },
+    "teams": 12,
+    "teamsInAnyTrade": 12
    }
   },
   "tradesWithAnyAssetUnpricedAtTradeTime": {
@@ -553,13 +549,21 @@
    },
    "total": 145
   },
+  "tradesWithStartupDraftPicks": {
+   "bySeason": {
+    "2024": 2,
+    "2025": 0,
+    "2026": 0
+   },
+   "total": 2
+  },
   "tradesWithStructurallyUnpriceableAssets": {
    "bySeason": {
-    "2024": 6,
+    "2024": 7,
     "2025": 7,
     "2026": 3
    },
-   "total": 16
+   "total": 17
   }
  },
  "draftCensus": {
@@ -1622,8 +1626,8 @@
   "idpOneForOneWithCanonicalAndIdptcBothAssets": 0,
   "idpOneForOneWithIdptcBothAssets": 0,
   "managersInFullyIdptcPricedTrades": 8,
-  "maxFullyIdptcPricedTradesPerManager": 11,
   "medianFullyIdptcPricedTradesPerManager": 2.0,
+  "mostActiveManagerShareOfFullyIdptcPricedTrades": ">50%",
   "tradesOnOrAfterFloor": 43
  },
  "formatValidation": {
@@ -2056,16 +2060,16 @@
    "unknownAxes": []
   }
  },
- "generatedAt": "2026-10-27T01:35:49+00:00",
+ "generatedAt": "2026-10-27T02:33:56+00:00",
  "inputs": {
-  "codeSha": "3b645e0b9d0a15f270005ee41d0cacaf430a564c",
-  "collectedAt": "2026-10-27T01:29:06.386368+00:00",
+  "codeSha": "c95390a9856fca7742320cfca42828619e285413",
+  "collectedAt": "2026-10-27T02:25:51.822145+00:00",
   "historyFloor": "2026-07-14",
   "playersDirectory": "available",
   "priceInstant": "trade status_updated (completion); created when absent",
   "sleeperFetch": {
    "calls": {
-    "ok": 99
+    "ok": 111
    },
    "failures": 0
   },
@@ -2327,10 +2331,12 @@
  "validation": {
   "duplicateTransactionIdsAcrossSeasons": 0,
   "findings": [
-   "pick_transfer_sender_mismatch:3",
-   "pick_ownership_mismatch_season_2024:3",
+   "pick_transfer_sender_mismatch:1",
    "pick_ownership_mismatch_season_2025:9",
-   "pick_ownership_mismatch_season_2026:2"
+   "pick_ownership_mismatch_season_2026:2",
+   "draft_traded_picks_mismatch_2025-D1:5",
+   "draft_traded_picks_mismatch_2026-D2:4",
+   "draft_picker_differs_from_replay_2025-D1:5"
   ],
   "groupingStates": {
    "CONFIRMED_UNIQUE": 233
@@ -2339,14 +2345,11 @@
    "party_receives_nothing": 1
   },
   "pickReplay": {
+   "attributionRule": "Sleeper transaction draft_picks carry no draft id. A moved pick (season, round, origin) belongs to the first of that season's drafts (ran, or the league's draft_id; start order) not finished at the trade instant and having the round; no draft object yet = the season's future class. Replay state is per draft, so a pick consumed by a startup draft never carries into the same season's rookie draft. Verified against each draft's own /draft/{id}/traded_picks.",
    "checkpoints": [
     {
-     "mismatches": 3,
-     "mismatchesByPickSeasonRound": {
-      "2024-r10": 1,
-      "2024-r3": 1,
-      "2024-r9": 1
-     },
+     "mismatches": 0,
+     "mismatchesByPickSeasonRound": {},
      "pickSeasonsCompared": [
       2024,
       2025,
@@ -2395,11 +2398,135 @@
      "state": "compared"
     }
    ],
-   "senderMismatches": 3,
-   "senderMismatchesByPickSeasonRound": {
-    "2024-r1": 1,
-    "2024-r10": 1,
-    "2024-r9": 1
+   "draftCheckpoints": [
+    {
+     "draftRef": "2024-D1",
+     "hostRows": 18,
+     "hostRowsBeyondComparedRounds": 0,
+     "kind": "rookie",
+     "mismatches": 0,
+     "picksCompared": 100,
+     "roundsCompared": 10,
+     "state": "compared",
+     "type": "snake"
+    },
+    {
+     "draftRef": "2024-D2",
+     "hostRows": 5,
+     "hostRowsBeyondComparedRounds": 0,
+     "kind": "startup_veteran",
+     "mismatches": 0,
+     "picksCompared": 200,
+     "roundsCompared": 20,
+     "state": "compared",
+     "type": "snake"
+    },
+    {
+     "draftRef": "2024-D3",
+     "hostRows": 18,
+     "kind": "startup_veteran",
+     "reason": "draft_never_ran_and_not_league_draft",
+     "state": "skipped",
+     "type": "snake"
+    },
+    {
+     "draftRef": "2025-D1",
+     "hostRows": 28,
+     "hostRowsBeyondComparedRounds": 0,
+     "kind": "rookie",
+     "mismatches": 5,
+     "mismatchesByPickSeasonRound": {
+      "2025-r2": 5
+     },
+     "picksCompared": 70,
+     "roundsCompared": 7,
+     "state": "compared",
+     "type": "linear"
+    },
+    {
+     "draftRef": "2026-D1",
+     "hostRows": 0,
+     "hostRowsBeyondComparedRounds": 0,
+     "kind": "rookie",
+     "mismatches": 0,
+     "picksCompared": 72,
+     "roundsCompared": 6,
+     "state": "compared",
+     "type": "auction"
+    },
+    {
+     "draftRef": "2026-D2",
+     "hostRows": 45,
+     "hostRowsBeyondComparedRounds": 0,
+     "kind": "rookie",
+     "mismatches": 4,
+     "mismatchesByPickSeasonRound": {
+      "2026-r2": 2,
+      "2026-r6": 1,
+      "2026-r7": 1
+     },
+     "picksCompared": 120,
+     "roundsCompared": 10,
+     "state": "compared",
+     "type": "auction"
+    }
+   ],
+   "draftConsumption": [
+    {
+     "draftHostMatchesPicker": 100,
+     "draftRef": "2024-D1",
+     "kind": "rookie",
+     "picks": 100,
+     "replayMatchesPicker": 100,
+     "state": "compared",
+     "type": "snake"
+    },
+    {
+     "draftHostMatchesPicker": 200,
+     "draftHostRoundNotCompared": 40,
+     "draftRef": "2024-D2",
+     "kind": "startup_veteran",
+     "picks": 240,
+     "replayMatchesPicker": 240,
+     "state": "compared",
+     "type": "snake"
+    },
+    {
+     "differencesByPickSeasonRound": {
+      "2025-r2": 5
+     },
+     "draftHostMatchesPicker": 70,
+     "draftRef": "2025-D1",
+     "kind": "rookie",
+     "picks": 70,
+     "replayDiffersFromPicker": 5,
+     "replayMatchesPicker": 65,
+     "state": "compared",
+     "type": "linear"
+    },
+    {
+     "draftRef": "2026-D2",
+     "kind": "rookie",
+     "reason": "auction_has_no_slots",
+     "state": "not_applicable",
+     "type": "auction"
+    }
+   ],
+   "notFetched": [
+    "commissioner or draft-room edits that leave no transaction (Sleeper exposes no edit log)",
+    "draft-order history (each draft's draft_order / slot_to_roster_id is only its final state)",
+    "league settings history (draft_rounds at each trade; only final settings are fetched)",
+    "roster ownership history (only each season league's final roster owners)"
+   ],
+   "senderMismatches": 1,
+   "senderMismatchesByDraftAndPickClass": {
+    "2024-D1:2024-r1": 1
+   },
+   "transfersAfterTheirDraftCompleted": 0,
+   "transfersByDraftKind": {
+    "future_class": 128,
+    "rookie": 152,
+    "startup_veteran": 5
    },
    "transfersByTransactionType": {
     "trade": 285
