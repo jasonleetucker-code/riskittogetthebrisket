@@ -997,3 +997,142 @@ def test_a_real_partial_prune_reaches_the_operator_with_the_true_text(monkeypatc
     assert "raw observations not fully removed" in body
     assert "weekly-projection log itself is already gone" in body
     assert "the raw log simply stays on disk" not in body
+
+
+# --- round 8: a stale throttle and a refused legacy set-aside say what is true -------------
+
+# Every state whose text promises an hourly retry, and so can go stale.
+_THROTTLED_STATES = [
+    ("archive_directory_unflushed", {"flushFailure": kind}, weekly)
+    for kind in ("open", "fsync", "rewrite", None, "dir_sync")
+    for weekly in (True, False)
+] + [
+    ("raw_log_prune_failed", {}, True),
+    ("raw_log_prune_failed", {}, False),
+    ("archive_readback_mismatch", {"setAsideFailed": True}, True),
+]
+_THROTTLED_IDS = [
+    f"{reason}-{fields.get('flushFailure', fields and 'set_aside')}-{'weekly' if w else 'obs'}"
+    for reason, fields, w in _THROTTLED_STATES
+]
+
+
+def _throttled_row(reason, fields, weekly, **extra) -> dict:
+    return _row(
+        reason,
+        retained=True,
+        weeklyLogRetained=weekly,
+        firstFailedAt=live._iso(NOW),
+        **fields,
+        **extra,
+    )
+
+
+@pytest.mark.parametrize(("reason", "fields", "weekly"), _THROTTLED_STATES, ids=_THROTTLED_IDS)
+def test_a_stale_throttle_never_promises_an_hourly_retry(reason, fields, weekly):
+    """Round 8 blocking item.  A throttled row whose marker is no longer being
+    refreshed (``throttleStale``) must not say "at most hourly": it says the
+    marker could not be updated, so every pass retries, and that the time shown
+    is when it was last recorded.  A fresh row renders byte for byte as before."""
+    (before,) = oa._check_pregame_archive([_throttled_row(reason, fields, weekly)])
+    (fresh,) = oa._check_pregame_archive(
+        [_throttled_row(reason, fields, weekly, throttleStale=False)]
+    )
+    assert (fresh.title, fresh.detail) == (before.title, before.detail)
+    assert "at most hourly" in fresh.detail and "not updating" not in fresh.title
+
+    (stale,) = oa._check_pregame_archive(
+        [_throttled_row(reason, fields, weekly, throttleStale=True)]
+    )
+    last = live._iso(NOW + 7200)
+    assert stale.category == CATEGORY
+    assert stale.title == before.title + " (failure marker not updating)"
+    assert "at most hourly" not in stale.detail
+    assert "on every pass while its failure marker cannot be updated (see below)" in stale.detail
+    assert stale.detail == before.detail.replace(
+        "at most hourly", "on every pass while its failure marker cannot be updated (see below)"
+    ) + (
+        f"  The failure marker has not been updated since {last}, although every retry updates "
+        "it, so the hourly throttle is not holding: the marker most likely could not be updated "
+        "(it reads back but cannot be written or replaced -- a read-only file, say), so the "
+        "collector retries on every pass and warns each time that the failure is NOT recorded.  "
+        "If instead the collector has not run the retry at all (out of season, or stopped), "
+        f"nothing is retried.  {last} is when the marker was last recorded, not the latest "
+        "attempt."
+    )
+
+
+# The reasons with no hourly throttle: health never marks them stale.
+_UNTHROTTLED_REASONS = [
+    (reason, kind)
+    for reason, kind in _REASONS
+    if reason not in ("archive_directory_unflushed", "raw_log_prune_failed")
+]
+
+
+@pytest.mark.parametrize(("reason", "kind"), _UNTHROTTLED_REASONS, ids=lambda v: str(v))
+@pytest.mark.parametrize("weekly", [True, False])
+def test_staleness_changes_no_text_without_an_hourly_promise(reason, kind, weekly):
+    """``throttleStale`` reaches only the texts that promise a throttled retry.  On
+    any other row (health never marks one stale, but an alerter must not invent
+    a claim) the text is unchanged."""
+    row = _row(reason, weeklyLogRetained=weekly, flushFailure=kind)
+    (plain,) = oa._check_pregame_archive([row])
+    (marked,) = oa._check_pregame_archive([dict(row, throttleStale=True)])
+    assert (marked.title, marked.detail) == (plain.title, plain.detail)
+
+
+@pytest.mark.parametrize("first", [None, live._iso(NOW)])
+def test_the_legacy_set_aside_alert_names_the_refused_rename(first):
+    """Round 8 nit 2.  A legacy marker whose leftover could not be set aside got
+    the generic build-failure text with the latest hourly attempt's time.  It now
+    says the refused rename is the blocker and an untrusted file sits at the
+    archive path, shows when the incident began ("failing since", falling back
+    to ``failedAt``), and says how it resolves."""
+    row = _row("archive_readback_mismatch", firstFailedAt=first, setAsideFailed=True)
+    (alert,) = oa._check_pregame_archive([row])
+    since = first or row["failedAt"]
+    assert alert.title == (
+        f"Pregame projections archive for {SEASON} week {WEEK} not built; untrusted archive "
+        "could not be set aside"
+    )
+    assert alert.detail == (
+        f"The pregame weekly-projections archive for {live.NFL_KEY} {SEASON} week {WEEK} could "
+        f"not be established (archive_readback_mismatch; failing since {since}).  A file an "
+        "earlier version of the collector left at the archive path never passed verification, "
+        "so it is not trusted, and the rename that sets it aside (to "
+        "pregame_projections.json.gz.mismatch) was refused: that refused rename is what blocks "
+        "the rebuild.  The untrusted file stays at the archive path and is never accepted.  The "
+        "raw weekly-projection log is retained -- the prune keeps it rather than delete evidence "
+        "it has not archived -- but until a verified archive exists that week's pregame baseline "
+        "is not preserved for the projection scorecard.  The Game Day collector retries the "
+        "set-aside at most hourly; see pregame_projections.retained.json beside the week.  This "
+        "resolves when the set-aside rename succeeds and the rebuilt archive verifies."
+    )
+
+
+@pytest.mark.parametrize("weekly", [True, False])
+def test_a_mismatch_without_a_failed_set_aside_keeps_its_text(weekly):
+    """Only ``setAsideFailed`` selects the new text: a mismatch marker without it
+    (and every observations-only row, where no set-aside runs) is unchanged."""
+    row = _row("archive_readback_mismatch", weeklyLogRetained=weekly, firstFailedAt=live._iso(NOW))
+    (plain,) = oa._check_pregame_archive([row])
+    (flagged,) = oa._check_pregame_archive([dict(row, setAsideFailed=False)])
+    assert (flagged.title, flagged.detail) == (plain.title, plain.detail)
+    if not weekly:
+        (gone,) = oa._check_pregame_archive([dict(row, setAsideFailed=True)])
+        assert (gone.title, gone.detail) == (plain.title, plain.detail)
+
+
+def test_health_reports_a_failed_set_aside_only_on_a_legacy_marker():
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    stored = {"failedAt": live._iso(NOW), "reason": "archive_readback_mismatch"}
+    for extra, expected in (
+        ({"setAsideFailed": True}, True),
+        ({}, False),
+        ({"setAsideFailed": True, "candidateFlow": True}, False),
+    ):
+        live._atomic_write_json(marker, {**stored, **extra})
+        (row,) = live.pregame_archive_health(now=NOW)
+        assert row["setAsideFailed"] is expected

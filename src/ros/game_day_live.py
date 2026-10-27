@@ -2906,9 +2906,9 @@ _PREGAME_ARCHIVE_UNREADABLE = "archive_unreadable"
 #: (and on a :data:`RAW_PRUNE_FAILURE_NAME` stamp): when this run of failures
 #: began.  ``failedAt`` stays the LATEST attempt (for ``archive_unreadable``,
 #: the latest hourly re-record), which the hourly throttle reads.  The ops
-#: alert's retry-family and ``archive_unreadable`` texts show this start
-#: ("failing since"), falling back to ``failedAt`` on a marker written before
-#: the key existed.
+#: alert's retry-family, ``archive_unreadable`` and legacy set-aside texts show
+#: this start ("failing since"), falling back to ``failedAt`` on a marker
+#: written before the key existed.
 _PREGAME_FIRST_FAILED_KEY = "firstFailedAt"
 #: On a LEGACY read-back-mismatch marker (no ``candidateFlow``): the latest
 #: attempt to set its unverified leftover aside failed
@@ -2916,6 +2916,19 @@ _PREGAME_FIRST_FAILED_KEY = "firstFailedAt"
 #: the hourly window the set-aside is not retried and its WARNING not repeated.
 #: The marker stays legacy, so the leftover stays untrusted.
 _PREGAME_SET_ASIDE_FAILED_KEY = "setAsideFailed"
+#: A marker that throttles a retry -- a RETRY-family marker, or a legacy
+#: read-back-mismatch marker recording a failed set-aside -- is re-written by
+#: every retry, so while the collector runs it and the marker can be written,
+#: its ``failedAt`` is never much older than one window.  The retry falls due one
+#: window after ``failedAt`` but runs only on a collector tick (hourly when
+#: idle), so the first tick may land a moment inside the window and the retry one
+#: tick later: about two windows at most.  :func:`pregame_archive_health` reports
+#: a throttling marker whose ``failedAt`` is older than this as
+#: ``throttleStale``: it is no longer being refreshed, so the hourly throttle is
+#: not holding -- the marker most likely can be read but not written or replaced
+#: (a read-only file, say), so every pass retries; or the collector is not
+#: running the retry at all (out of season, or stopped).
+_PREGAME_THROTTLE_STALE_SECONDS = 3 * _PREGAME_ARCHIVE_RETRY_SECONDS
 #: Stamped on a failure marker by the verify-before-accept flow.
 _PREGAME_CANDIDATE_FLOW_KEY = "candidateFlow"
 _PREGAME_COUNTED_KEYS = ("players", "timingUnverified")
@@ -3269,9 +3282,18 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
     -- each tick is a fresh process, so an in-memory one would not survive --
     and so EVERY pass then repeats the byte-identical rewrite (about 0.2 MB per
     real week) and the prune, and warns each time that the failure is NOT
-    recorded.  No health row or alert exists for it; the WARNING is the only
-    signal.  The rewrite cannot change content, so this costs I/O, not
-    correctness.  It is not fixed here.
+    recorded.  The rewrite cannot change content, so this costs I/O, not
+    correctness.  It is not fixed here.  What the operator sees depends on what
+    the marker still holds.  A marker that can still be READ keeps its last
+    record, so :func:`pregame_archive_health` keeps reporting the week, and once
+    that record's ``failedAt`` is older than
+    :data:`_PREGAME_THROTTLE_STALE_SECONDS` the row says ``throttleStale`` and
+    the ops alert says the throttle is not holding (the marker could not be
+    updated, so the collector retries on every pass) instead of "at most
+    hourly".  A marker that exists but cannot be read is reported as
+    ``failure_marker_unreadable``, whose alert cannot say what the week's state
+    is.  Only a week with NO marker file, where none can be created, has no
+    health row or alert: the WARNING is then the only signal.
 
     A rewrite that cannot complete (an I/O error, or a copy whose
     sha256 differs) leaves the accepted archive untouched, keeps the raw log,
@@ -3490,7 +3512,7 @@ def _write_pregame_marker(
     return True
 
 
-def pregame_archive_health() -> list[dict[str, Any]] | None:
+def pregame_archive_health(*, now: float | None = None) -> list[dict[str, Any]] | None:
     """The NFL-wide weeks whose pregame archive could not be established.
 
     One row per week that carries a :data:`PREGAME_ARCHIVE_FAILURE_NAME`
@@ -3516,11 +3538,23 @@ def pregame_archive_health() -> list[dict[str, Any]] | None:
     archive is still reported (``rawLogRetained: False``): that week's pregame
     baseline is gone and cannot be rebuilt, which is the loss worth an alert.
 
+    ``throttleStale`` says whether the row's hourly throttle is still holding,
+    for a marker that has one -- a RETRY-family marker, or a legacy
+    read-back-mismatch marker recording a failed set-aside (``setAsideFailed``,
+    also on the row).  Every retry re-writes such a marker, so one whose
+    ``failedAt`` is older than :data:`_PREGAME_THROTTLE_STALE_SECONDS` (at
+    ``now``, default the current time) is no longer being refreshed: ``True``.
+    The marker most likely could not be updated (readable, but not writable or
+    replaceable), so the collector retries on every pass; or the collector is
+    not running the retry.  ``False`` while it is fresh; ``None`` for a marker
+    with no throttle, or whose ``failedAt`` cannot be read.
+
     ``[]`` means the store was read and no week is failing.  ``None`` means it
     could not be read (no store yet, or an I/O error) -- "not checked", which
     the alerter must never treat as healthy.  Read-only: it archives, prunes
     and rewrites nothing.
     """
+    now = time.time() if now is None else now
     root = LIVE_ROOT / NFL_KEY
     rows: list[dict[str, Any]] = []
     try:
@@ -3558,6 +3592,18 @@ def pregame_archive_health() -> list[dict[str, Any]] | None:
                 stored = _read_json(marker)
                 stored = stored if isinstance(stored, dict) else {}
                 reason = stored.get("reason")
+                set_aside_failed = (
+                    reason == _PREGAME_READBACK_MISMATCH
+                    and not stored.get(_PREGAME_CANDIDATE_FLOW_KEY)
+                    and bool(stored.get(_PREGAME_SET_ASIDE_FAILED_KEY))
+                )
+                failed_at = _epoch(stored.get("failedAt"))
+                throttle_stale = (
+                    now - failed_at > _PREGAME_THROTTLE_STALE_SECONDS
+                    if (reason in _PREGAME_RETRY_REASONS or set_aside_failed)
+                    and failed_at is not None
+                    else None
+                )
                 rows.append(
                     {
                         "leagueKey": NFL_KEY,
@@ -3577,6 +3623,11 @@ def pregame_archive_health() -> list[dict[str, Any]] | None:
                         "rawLogRetained": raw_log_retained,
                         # ... and, separately, the raw weekly-projection log.
                         "weeklyLogRetained": weekly_log_retained,
+                        # A legacy marker's leftover could not be set aside.
+                        "setAsideFailed": set_aside_failed,
+                        # A throttling marker no longer being refreshed (None:
+                        # no throttle, or no readable failedAt).
+                        "throttleStale": throttle_stale,
                     }
                 )
     except OSError:
@@ -3641,11 +3692,46 @@ def _warn_unarchived_prune_failure(stamp: Path, obs: Path, now: float) -> None:
     )
 
 
-def _clear_raw_prune_failure(stamp: Path) -> None:
+def _clear_raw_prune_failure(stamp: Path, now: float) -> None:
     """Remove a :data:`RAW_PRUNE_FAILURE_NAME` stamp once its directory is gone,
-    tolerating an I/O error (it stays, and is retried next tick)."""
-    if stamp.exists():
-        _unlink_tolerating_oserror(stamp, "clear raw observations prune-failure stamp")
+    tolerating an I/O error: it stays, and the removal is retried every pass.
+
+    Its WARNING is limited to at most hourly by the stamp's own mtime -- the
+    stamp is not rewritten (it could not be removed, so it most likely cannot be
+    replaced either), but its time is set to ``now`` each time the WARNING is
+    logged, and the WARNING is skipped while that time is inside the hourly
+    window.  The stamp's mtime starts as its last write, which was itself that
+    week's prune-failure WARNING, so the first one may wait up to an hour after
+    it.  A stamp whose time cannot be set limits nothing, and the WARNING says
+    so.  Never raises."""
+    import logging
+
+    if not stamp.exists():
+        return
+    try:
+        stamp.unlink(missing_ok=True)
+        return
+    except OSError as exc:
+        error = exc
+    try:
+        warned_at = stamp.stat().st_mtime
+    except OSError:
+        warned_at = None
+    if warned_at is not None and 0 <= now - warned_at < _PREGAME_ARCHIVE_RETRY_SECONDS:
+        return
+    try:
+        os.utime(stamp, (now, now))
+    except OSError:
+        outcome = "its time could not be set, so this warning repeats on every pass"
+    else:
+        outcome = "this warning repeats at most hourly while it lasts"
+    logging.getLogger(__name__).warning(
+        "game day: could not clear raw observations prune-failure stamp %s (%s); it stays and "
+        "its removal is retried every pass -- %s",
+        stamp,
+        error,
+        outcome,
+    )
 
 
 def prune_retention(season: int, week: int, *, now: float | None = None) -> list[str]:
@@ -3670,7 +3756,11 @@ def prune_retention(season: int, week: int, *, now: float | None = None) -> list
     :func:`ensure_pregame_archive`) and delete again, unseen.  The WARNING says
     which happened: recorded and retried at most hourly, or -- when the marker
     could not be written -- NOT recorded, so every pass retries (an accepted,
-    disclosed limit: see :func:`ensure_pregame_archive`).
+    disclosed limit: see :func:`ensure_pregame_archive`).  A marker that can
+    still be read keeps its last record, so the week stays in
+    :func:`pregame_archive_health`; once that record is older than
+    :data:`_PREGAME_THROTTLE_STALE_SECONDS` the row is ``throttleStale`` and the
+    ops alert says the marker could not be updated and every pass retries.
 
     With no accepted pregame archive beside it (any non-NFL league's week, or
     an NFL week with no weekly-projection log) there is no pregame marker to
@@ -3678,7 +3768,8 @@ def prune_retention(season: int, week: int, *, now: float | None = None) -> list
     is limited by a :data:`RAW_PRUNE_FAILURE_NAME` stamp beside the week to the
     first failure and at most hourly after that
     (:func:`_warn_unarchived_prune_failure`); the stamp is removed once the
-    directory is gone.
+    directory is gone (:func:`_clear_raw_prune_failure`: a stamp that cannot be
+    removed is warned about at most hourly too).
     """
     import logging
     import shutil
@@ -3705,7 +3796,7 @@ def prune_retention(season: int, week: int, *, now: float | None = None) -> list
                 if old and not obs.is_dir():
                     # The directory is gone (removed by an earlier pass whose
                     # stamp could not be cleared, or by hand): so is the failure.
-                    _clear_raw_prune_failure(stamp)
+                    _clear_raw_prune_failure(stamp, now)
                 elif old:
                     nfl = key_dir.name == NFL_KEY
                     marker = _pregame_failure_path(s, w)
@@ -3718,7 +3809,7 @@ def prune_retention(season: int, week: int, *, now: float | None = None) -> list
                     shutil.rmtree(obs, ignore_errors=True)
                     if not obs.exists():
                         removed.append(str(obs))
-                        _clear_raw_prune_failure(stamp)
+                        _clear_raw_prune_failure(stamp, now)
                     elif not (nfl and pregame_archive_path(s, w).exists()):
                         # No accepted archive to record it beside: retried every
                         # pass, warned at most hourly (the stamp beside the week).

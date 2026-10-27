@@ -315,7 +315,11 @@ the raw log is kept. If the set-aside itself fails (the rename is refused), the
 marker records it and stays legacy, so the leftover stays untrusted: `failedAt`
 becomes that attempt, `firstFailedAt` keeps the start and `setAsideFailed: true`
 says why, so the set-aside and its WARNING are retried at most hourly, not on
-every tick (and the alert's "retries hourly" is true).
+every tick. Its ops alert has its own text: the refused set-aside rename is the
+blocker, an untrusted file sits at the archive path, the incident is "failing
+since" `firstFailedAt` (falling back to `failedAt`), the set-aside is retried at
+most hourly, and it resolves when the rename succeeds and the rebuilt archive
+verifies.
 
 The raw log is deleted the moment the archive is accepted, so acceptance also
 needs the rename that put it there to be durable: the week directory is fsynced
@@ -370,15 +374,30 @@ marker can be written. **Accepted, disclosed limit:** a week whose marker can be
 neither written nor replaced (a read-only marker file, say) has nowhere to
 persist the throttle — each tick is a fresh process, so an in-memory one would
 not survive — so every pass then repeats the byte-identical rewrite and the
-prune, and warns each time that the failure is NOT recorded. No health row or
-alert exists for it; the WARNING is the only signal. The rewrite cannot change
-content, so this costs I/O, not correctness. An `observations/` directory that
+prune, and warns each time that the failure is NOT recorded. The rewrite cannot
+change content, so this costs I/O, not correctness. What the operator sees
+depends on what the marker still holds. A marker that can still be **read**
+keeps its last record, so `pregame_archive_health` keeps reporting the week;
+every retry re-writes a throttling marker (retry family, or a legacy marker with
+`setAsideFailed`), so once its `failedAt` is older than
+`_PREGAME_THROTTLE_STALE_SECONDS` (three retry windows: a retry can land a tick
+after its window, and idle ticks are hourly) the row says `throttleStale: true`
+and the ops alert drops "at most hourly" and says the failure marker could not
+be updated, so the collector retries on every pass, and that the time shown is
+when it was last recorded (or, if the collector is not running the retry at
+all, nothing is retried). A marker that exists but cannot be read is reported as
+`failure_marker_unreadable`, whose alert cannot say what the week's state is.
+Only a week with **no** marker file, where none can be created, has no health
+row or alert; the WARNING is then the only signal. An `observations/` directory that
 survives the prune with NO accepted archive beside it — any non-NFL league's
 week, or an NFL week with no weekly-projection log — has no pregame marker to
 record it: its removal is retried on every pass, and its WARNING is limited to
 the first failure and at most hourly after that by
 `observations.prune_failed.json` beside the week (`failedAt` / `firstFailedAt`),
-which is removed once the directory is gone. That stamp is not a pregame-archive
+which is removed once the directory is gone; a stamp that cannot be removed is
+warned about at most hourly too, limited by the stamp's own mtime (set to the
+time of each such WARNING, and starting as its last write, itself that week's
+prune-failure WARNING). That stamp is not a pregame-archive
 failure: `pregame_archive_health` and the ops alert never read it. `pregame_archive_health` reports two separate facts:
 `rawLogRetained` (the week's `observations/` directory exists — every source's
 raw logs, and what makes the prune revisit the week) and `weeklyLogRetained`

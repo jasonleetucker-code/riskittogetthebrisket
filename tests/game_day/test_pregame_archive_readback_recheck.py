@@ -38,6 +38,7 @@ import logging
 import os
 import pathlib
 import shutil
+import stat
 import types
 
 import pytest
@@ -2714,10 +2715,24 @@ def test_a_leftover_that_cannot_be_set_aside_is_recorded_and_retried_hourly(
             recorded
         )
 
-        (row,) = live.pregame_archive_health()
+        (row,) = live.pregame_archive_health(now=start + 60)
+        assert row["setAsideFailed"] is True and row["throttleStale"] is False
         (alert,) = oa._check_pregame_archive([row])
-        assert "The Game Day collector retries hourly" in alert.detail  # now true
-        assert f"failed {live._iso(start)})" in alert.detail  # the latest attempt
+        # Round 8 nit 2: its own text -- the refused rename is the blocker, the
+        # incident's start is shown (not the latest hourly attempt), and the retry
+        # is the set-aside, at most hourly (now true).
+        assert alert.title.endswith("not built; untrusted archive could not be set aside")
+        assert f"failing since {live._iso(NOW)})" in alert.detail
+        assert live._iso(start) not in alert.detail
+        assert "the rename that sets it aside (to pregame_projections.json.gz.mismatch) was " in (
+            alert.detail
+        )
+        assert "refused: that refused rename is what blocks the rebuild" in alert.detail
+        assert "The untrusted file stays at the archive path and is never accepted" in alert.detail
+        assert "The Game Day collector retries the set-aside at most hourly" in alert.detail
+        assert alert.detail.endswith(
+            "This resolves when the set-aside rename succeeds and the rebuilt archive verifies."
+        )
 
         for tick in range(0, 6):  # the hour lapses: one more attempt, then quiet
             clock["now"] = start + RETRY + 60 * tick
@@ -2824,3 +2839,255 @@ def test_the_weekly_gone_build_failure_text_matches_the_next_pass(monkeypatch, c
         assert not marker.exists() and not _obs_dir().exists()  # cleared, pruned
     else:
         assert _marker_reason() == expected and _obs_dir().is_dir()
+
+
+# --- round 8: a marker whose throttle cannot be refreshed is reported stale ---------------
+
+STALE = live._PREGAME_THROTTLE_STALE_SECONDS
+
+
+@pytest.mark.parametrize("how", ["writes_and_unlink_denied", "read_only_file"])
+def test_a_marker_that_cannot_be_re_stamped_turns_stale_and_the_alert_says_so(
+    monkeypatch, clock, caplog, how
+):
+    """Round 8 blocking item (the reviewer's probe, made permanent).
+    ``raw_log_prune_failed`` is recorded at ``NOW``; the marker then stays readable
+    but cannot be written, replaced or removed.  Every pass from ``NOW + RETRY``
+    rewrites the archive and retries the prune -- the disclosed limit -- while the
+    marker's ``failedAt`` stays ``NOW``.  Health kept reporting the row and the
+    alert kept saying "retries at most hourly", which was false.  Once the record
+    is older than the stale threshold the row is ``throttleStale`` and the alert
+    says the failure marker could not be updated and every pass retries."""
+    if how == "read_only_file" and os.name != "nt":
+        pytest.skip("POSIX lets a read-only file be replaced and unlinked; covered by the stub")
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    clock["now"] = NOW
+    assert live.ensure_pregame_archive(SEASON, WEEK) is True
+    rm = _stub_rmtree(monkeypatch)
+    assert live.prune_retention(SEASON, PRUNE_WEEK) == []  # records raw_log_prune_failed
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    assert _marker() == _prune_marker(NOW, NOW)
+    if how == "read_only_file":
+        os.chmod(marker, stat.S_IREAD)
+    else:
+        _deny_marker_writes(monkeypatch)["deny"] = True
+        _deny_marker_unlink(monkeypatch)
+    writes = _record_archive_writes(monkeypatch)
+    try:
+        with caplog.at_level(logging.WARNING, logger=live.__name__):
+            for tick in range(6):  # the disclosed limit: every pass rewrites and retries
+                clock["now"] = NOW + RETRY + 60 + 60 * tick
+                assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+        assert len(writes) == 6 and rm["calls"] == 7
+        unrecorded = [
+            r.getMessage()
+            for r in caplog.records
+            if "the failure is NOT recorded" in r.getMessage()
+        ]
+        assert len(unrecorded) == 6
+        assert _marker() == _prune_marker(NOW, NOW)  # never re-stamped
+
+        # Inside the threshold the row is not yet stale (a retry may still land).
+        (fresh,) = live.pregame_archive_health(now=NOW + STALE)
+        assert fresh["throttleStale"] is False
+        (fresh_alert,) = oa._check_pregame_archive([fresh])
+        assert "The Game Day collector retries at most hourly" in fresh_alert.detail
+
+        (row,) = live.pregame_archive_health(now=NOW + STALE + 1)
+    finally:
+        if how == "read_only_file":
+            os.chmod(marker, stat.S_IREAD | stat.S_IWRITE)
+    assert row["throttleStale"] is True and row["reason"] == "raw_log_prune_failed"
+    assert row["failedAt"] == live._iso(NOW)
+    (alert,) = oa._check_pregame_archive([row])
+    assert alert.title.endswith("in place; raw log not removed (failure marker not updating)")
+    assert "at most hourly" not in alert.detail
+    assert (
+        "The Game Day collector retries on every pass while its failure marker cannot be updated "
+        "(see below) -- each retry first makes the archive's rename durable again"
+    ) in alert.detail
+    assert (
+        f"The failure marker has not been updated since {live._iso(NOW)}, although every retry "
+        "updates it, so the hourly throttle is not holding"
+    ) in alert.detail
+    assert "so the collector retries on every pass and warns each time" in alert.detail
+    assert alert.detail.endswith(
+        f"{live._iso(NOW)} is when the marker was last recorded, not the latest attempt."
+    )
+    assert f"failing since {live._iso(NOW)}" in alert.detail  # the start is still the start
+
+
+@pytest.mark.parametrize(
+    ("reason", "fields"),
+    [
+        ("raw_log_prune_failed", {}),
+        ("archive_directory_unflushed", {"flushFailure": "fsync"}),
+        ("archive_directory_unflushed", {"flushFailure": "rewrite"}),
+        ("archive_readback_mismatch", {"setAsideFailed": True}),
+    ],
+    ids=["prune_failed", "unflushed_fsync", "unflushed_rewrite", "legacy_set_aside"],
+)
+def test_a_throttling_marker_turns_stale_only_past_the_threshold(reason, fields):
+    """The boundary: a throttling marker exactly at the threshold is fresh, and one
+    second past it is stale.  The threshold leaves room for a retry that lands a
+    tick after its window (idle ticks are hourly)."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    live._atomic_write_json(
+        marker, {"failedAt": live._iso(NOW), "reason": reason, "firstFailedAt": None, **fields}
+    )
+    assert STALE == 3 * RETRY
+
+    def stale(at):
+        (row,) = live.pregame_archive_health(now=at)
+        return row["throttleStale"]
+
+    assert stale(NOW) is False
+    assert stale(NOW + RETRY) is False
+    assert stale(NOW + 2 * RETRY + 600) is False  # a retry one idle tick late
+    assert stale(NOW + STALE) is False
+    assert stale(NOW + STALE + 1) is True
+    assert stale(NOW - 600) is False  # a record from the future (clock skew) is not stale
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        {"reason": "kickoffs_unknown"},
+        {"reason": "archive_unreadable", "firstFailedAt": None},
+        {"reason": "archive_readback_mismatch"},  # legacy, no failed set-aside
+        {"reason": "archive_readback_mismatch", "candidateFlow": True},
+        {"reason": "weekly_log_unreadable"},
+    ],
+    ids=["build_failure", "unreadable", "legacy_no_set_aside", "candidate_flow", "weekly_log"],
+)
+def test_a_marker_with_no_hourly_throttle_has_no_staleness(stored):
+    """Only a marker that throttles a retry can go stale: every other row says
+    ``None`` (not applicable), however old its record."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    live._atomic_write_json(marker, {"failedAt": live._iso(NOW), **stored})
+    (row,) = live.pregame_archive_health(now=NOW + 10 * STALE)
+    assert row["throttleStale"] is None
+    assert row["setAsideFailed"] is False
+
+
+@pytest.mark.parametrize("failed_at", [None, "not a time"])
+def test_a_throttling_marker_without_a_readable_time_has_unknown_staleness(failed_at):
+    """No readable ``failedAt``: staleness is unknown (``None``), never "fresh"."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    live._atomic_write_json(marker, {"failedAt": failed_at, "reason": "raw_log_prune_failed"})
+    (row,) = live.pregame_archive_health(now=NOW)
+    assert row["throttleStale"] is None
+
+
+def test_a_refreshed_marker_never_turns_stale(monkeypatch, clock):
+    """While the marker CAN be written, every retry re-stamps it: a prune that
+    keeps failing for many hours never reads as stale."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    _stub_rmtree(monkeypatch)
+    for hour in range(8):
+        clock["now"] = NOW + hour * (RETRY + 60)
+        assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+        (row,) = live.pregame_archive_health(now=clock["now"] + RETRY)
+        assert row["reason"] == "raw_log_prune_failed" and row["throttleStale"] is False
+    assert _marker()["failedAt"] == live._iso(NOW + 7 * (RETRY + 60))
+
+
+# --- round 8: a stamp that cannot be cleared is warned at most hourly ---------------------
+
+
+def _deny_stamp_unlink(monkeypatch) -> dict:
+    """Refuse every unlink of a prune-failure stamp while ``state["deny"]``."""
+    state = {"deny": True}
+    real_unlink = pathlib.Path.unlink
+
+    def unlink(self, *args, **kwargs):
+        if state["deny"] and self.name == live.RAW_PRUNE_FAILURE_NAME:
+            raise PermissionError(13, "Permission denied", str(self))
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(pathlib.Path, "unlink", unlink)
+    return state
+
+
+def _clear_warnings(caplog) -> list[str]:
+    return [
+        r.getMessage()
+        for r in caplog.records
+        if "could not clear raw observations prune-failure stamp" in r.getMessage()
+    ]
+
+
+def test_a_stamp_that_cannot_be_cleared_is_warned_at_most_hourly(monkeypatch, clock, caplog):
+    """Round 8 nit 3.  ``observations/`` is gone but its stamp cannot be unlinked:
+    the removal is retried on every pass, but the WARNING -- logged on every tick
+    before -- is limited by the stamp's own mtime to at most hourly."""
+    week_dir = live.league_week_dir("lk", SEASON, WEEK)
+    week_dir.mkdir(parents=True)
+    stamp = week_dir / live.RAW_PRUNE_FAILURE_NAME
+    live._atomic_write_json(stamp, {"failedAt": live._iso(NOW), "reason": _STAMP_REASON})
+    deny = _deny_stamp_unlink(monkeypatch)
+
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        for tick in range(8):  # the stamp's real mtime is long before NOW: one WARNING
+            clock["now"] = NOW + 60 * tick
+            assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+        assert len(_clear_warnings(caplog)) == 1
+        assert stamp.stat().st_mtime == pytest.approx(NOW)  # when it was warned
+        for tick in range(8):  # the hour lapses: one more, then quiet again
+            clock["now"] = NOW + RETRY + 60 * tick
+            assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+        warned = _clear_warnings(caplog)
+
+    assert len(warned) == 2 and stamp.exists()
+    assert live._read_json(stamp) == {"failedAt": live._iso(NOW), "reason": _STAMP_REASON}
+    for message in warned:
+        assert str(stamp) in message and "its removal is retried every pass" in message
+        assert "this warning repeats at most hourly while it lasts" in message
+    # The removal works again: the stamp goes.
+    deny["deny"] = False
+    clock["now"] = NOW + 2 * RETRY
+    live.prune_retention(SEASON, PRUNE_WEEK)
+    assert not stamp.exists()
+
+
+def test_a_stamp_written_inside_the_hour_is_not_warned_about_yet(monkeypatch, clock, caplog):
+    """The limit is measured from the stamp's mtime -- its last write, itself that
+    week's prune-failure WARNING -- so a stamp written a minute ago is quiet."""
+    week_dir = live.league_week_dir("lk", SEASON, WEEK)
+    week_dir.mkdir(parents=True)
+    stamp = week_dir / live.RAW_PRUNE_FAILURE_NAME
+    live._atomic_write_json(stamp, {"failedAt": live._iso(NOW), "reason": _STAMP_REASON})
+    os.utime(stamp, (NOW, NOW))
+    _deny_stamp_unlink(monkeypatch)
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        clock["now"] = NOW + RETRY - 1
+        live.prune_retention(SEASON, PRUNE_WEEK)
+        assert _clear_warnings(caplog) == []
+        clock["now"] = NOW + RETRY
+        live.prune_retention(SEASON, PRUNE_WEEK)
+    assert len(_clear_warnings(caplog)) == 1
+
+
+def test_a_stamp_whose_time_cannot_be_set_warns_every_pass_and_says_so(monkeypatch, clock, caplog):
+    """Nowhere to keep the limit: every pass warns, and says why."""
+    week_dir = live.league_week_dir("lk", SEASON, WEEK)
+    week_dir.mkdir(parents=True)
+    stamp = week_dir / live.RAW_PRUNE_FAILURE_NAME
+    live._atomic_write_json(stamp, {"failedAt": live._iso(NOW), "reason": _STAMP_REASON})
+    _deny_stamp_unlink(monkeypatch)
+
+    def utime(*args, **kwargs):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(live.os, "utime", utime)
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        for tick in range(4):
+            clock["now"] = NOW + 60 * tick
+            live.prune_retention(SEASON, PRUNE_WEEK)
+    warned = _clear_warnings(caplog)
+    assert len(warned) == 4
+    for message in warned:
+        assert "its time could not be set, so this warning repeats on every pass" in message
