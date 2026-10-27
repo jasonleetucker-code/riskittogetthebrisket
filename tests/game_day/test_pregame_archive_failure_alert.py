@@ -207,12 +207,10 @@ def test_a_stale_marker_is_cleared_once_the_archive_reads_back(kv):
 
     payload = live.build_pregame_projection_archive(SEASON, WEEK, schedule_rows=SCHEDULE, now=NOW)
     live._write_pregame_archive(path, payload)
-    # Like every marker, it throttles the accepted archive to hourly: inside the
-    # window the pass touches nothing and the alert keeps firing ...
-    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 60) is False
-    assert marker.exists()
-    # ... and the first pass after it accepts the archive.
-    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 3600) is True
+    # ``archive_unreadable`` is not retry work: the file is re-checked on every
+    # pass, as the alert says, so the very next pass -- a minute later, well
+    # inside that marker's hourly window -- accepts it.
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 60) is True
 
     assert not marker.exists()
     assert live.pregame_archive_health() == []
@@ -405,6 +403,8 @@ def test_an_unrecoverable_week_reaches_the_operator_with_the_true_text(kv):
 
 
 def _row(reason, *, retained=True, **extra) -> dict:
+    """A health row; ``retained`` is both the observations directory and the
+    weekly log unless ``weeklyLogRetained`` is passed separately."""
     return {
         "leagueKey": live.NFL_KEY,
         "season": SEASON,
@@ -414,6 +414,7 @@ def _row(reason, *, retained=True, **extra) -> dict:
         "firstFailedAt": None,
         "flushFailure": None,
         "rawLogRetained": retained,
+        "weeklyLogRetained": retained,
         **extra,
     }
 
@@ -680,8 +681,8 @@ def test_an_unremovable_marker_does_not_abort_the_prune(monkeypatch, caplog):
 
     _deny_marker_unlink(monkeypatch)
     with caplog.at_level(logging.WARNING, logger=live.__name__):
-        # Past the markers' hourly window, which throttles week A's accepted archive.
-        removed = live.prune_retention(SEASON, WEEK + live.RAW_RETENTION_WEEKS + 2, now=NOW + 3600)
+        # A minute later: neither marker is retry work, so neither throttles.
+        removed = live.prune_retention(SEASON, WEEK + live.RAW_RETENTION_WEEKS + 2, now=NOW + 60)
 
     # Both weeks were pruned whatever order they were visited in: the first
     # marker's permission error did not abort the walk.
@@ -759,3 +760,194 @@ def test_the_signal_alert_sweep_passes_not_checked_through_as_none(monkeypatch):
     seen = _run_sweep(monkeypatch)
 
     assert "pregame_archive" in seen and seen["pregame_archive"] is None
+
+
+# --- round 6: the weekly log and observations/ are two facts, and the text uses both -----
+
+
+_UNREADABLE_TEXT = (
+    "The pregame weekly-projections archive for {league} {season} week {week} could not be "
+    "established (archive_unreadable; failed {failed}).  A file is at the archive path but does "
+    "not read back, and the Game Day collector never overwrites an unreadable archive, so it is "
+    "not rebuilt.  The raw weekly-projection log is retained -- the prune keeps it rather than "
+    "delete evidence it has not archived -- and that week's pregame baseline is not preserved for "
+    "the projection scorecard until the archive reads back.  The collector re-checks the file on "
+    "every pass; see pregame_projections.retained.json beside the week.  This resolves when the "
+    "file at the archive path reads back, or once it is removed and the next hourly build "
+    "succeeds."
+)
+
+
+@pytest.mark.parametrize("first", [None, "2033-05-18T03:33:20+00:00"])
+def test_the_unreadable_alert_text_is_byte_identical_while_the_weekly_log_is_retained(first):
+    """Round 6 changed what makes this text TRUE (the file is now re-checked, and
+    accepted, on every pass) -- not one byte of it."""
+    row = _row("archive_unreadable", firstFailedAt=first)
+    (alert,) = oa._check_pregame_archive([row])
+    assert alert.title == f"Pregame projections archive for {SEASON} week {WEEK} unreadable"
+    assert alert.detail == _UNREADABLE_TEXT.format(
+        league=live.NFL_KEY, season=SEASON, week=WEEK, failed=row["failedAt"]
+    )
+
+
+def test_health_reports_the_weekly_log_separately_from_observations():
+    """``observations/`` holds every source's log; the weekly-projection log is one
+    of them.  Health reports both, and they can disagree."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    live._mark_pregame_failure(marker, NOW, "kickoffs_unknown")
+    (_obs_dir() / "espn_scoreboard.jsonl").write_text("{}\n", encoding="utf-8")
+    weekly = live.observation_log(live.NFL_KEY, SEASON, WEEK, live.SOURCE_WEEKLY).log_path
+
+    def facts():
+        (row,) = live.pregame_archive_health()
+        return row["rawLogRetained"], row["weeklyLogRetained"]
+
+    assert facts() == (True, True)
+    weekly.unlink()  # e.g. a partial rmtree: the weekly log went, another source's stayed
+    assert facts() == (True, False)
+    shutil.rmtree(_obs_dir())  # and no readable archive, so the row is still reported
+    assert facts() == (False, False)
+
+
+_REASONS = [
+    ("archive_directory_unflushed", "open"),
+    ("archive_directory_unflushed", "fsync"),
+    ("archive_directory_unflushed", "rewrite"),
+    ("archive_directory_unflushed", None),
+    ("archive_directory_unflushed", "dir_sync"),
+    ("raw_log_prune_failed", None),
+    ("archive_unreadable", None),
+    ("kickoffs_unknown", None),
+    ("weekly_log_unreadable", None),
+    ("archive_readback_mismatch", None),
+    ("PregameArchiveUnavailable: kickoffs_unknown", None),
+    ("failure_marker_unreadable", None),
+    (None, None),
+]
+# Claims that are only true while the raw weekly-projection log is on disk.
+_WEEKLY_LOG_CLAIMS = (
+    "The raw weekly-projection log is retained",
+    "the raw weekly-projection log is retained",
+    "rewrites the accepted archive byte for byte",
+    "no bare re-flush is trusted",
+    "the raw log simply stays on disk",
+    "byte-identical rewrite of its own bytes",
+    "retries hourly",
+    "resolves when a build succeeds",
+    "the next hourly build succeeds",
+)
+# Claims that are only true when NO raw observations remain.
+_NOTHING_LEFT_CLAIMS = (
+    "so the week cannot be rebuilt",
+    "permanently missing",
+    "does not retry a week that has no raw log",
+)
+
+
+@pytest.mark.parametrize(("reason", "kind"), _REASONS, ids=lambda v: str(v))
+@pytest.mark.parametrize(
+    ("weekly", "observations"),
+    [(True, True), (False, True), (False, False), (True, False)],
+    ids=["weekly+obs", "obs-only", "nothing", "weekly-without-obs"],
+)
+def test_every_alert_text_is_accurate_to_both_fields(reason, kind, weekly, observations):
+    """Every reason and kind, in every combination of the two facts.  The weekly
+    log lives inside ``observations/``, so a row claiming it is retained is read
+    as that (the contradictory row renders exactly like the consistent one)."""
+    first = live._iso(NOW)
+    row = _row(
+        reason,
+        retained=observations,
+        weeklyLogRetained=weekly,
+        flushFailure=kind,
+        firstFailedAt=first,
+    )
+    (alert,) = oa._check_pregame_archive([row])
+    text = alert.title + "\n" + alert.detail
+    assert alert.category == CATEGORY and alert.severity == "warning"
+    assert (reason or "unknown") in alert.detail
+
+    if weekly:
+        consistent = _row(
+            reason, retained=True, weeklyLogRetained=True, flushFailure=kind, firstFailedAt=first
+        )
+        (expected,) = oa._check_pregame_archive([consistent])
+        assert (alert.title, alert.detail) == (expected.title, expected.detail)
+        if reason == "raw_log_prune_failed":
+            assert "the raw log simply stays on disk" in alert.detail
+        else:
+            assert "raw weekly-projection log is retained" in alert.detail
+        for claim in ("no longer on disk", "already gone", *_NOTHING_LEFT_CLAIMS):
+            assert claim not in text
+    elif observations:
+        for claim in (*_WEEKLY_LOG_CLAIMS, *_NOTHING_LEFT_CLAIMS):
+            assert claim not in text, claim
+        assert "other raw observations" in alert.detail
+        if reason == "archive_directory_unflushed":
+            assert (
+                "The raw weekly-projection log is no longer on disk, so there is nothing left to "
+                "protect"
+            ) in alert.detail
+            assert "only re-flushes the directory -- it never rewrites or rebuilds" in alert.detail
+            assert alert.detail.endswith("This resolves when the directory flush succeeds.")
+            assert f"failing since {first}" in alert.detail
+            lead = "byte-identical rewrite" if kind == "rewrite" else "could not be flushed to disk"
+            assert lead in alert.detail
+            assert f"flush failure: {kind or 'unrecorded'}" in alert.detail
+        elif reason == "raw_log_prune_failed":
+            assert "raw observations not fully removed" in alert.title
+            assert "weekly-projection log itself is already gone" in alert.detail
+            assert "each retry only re-flushes the directory" in alert.detail
+            assert f"failing since {first}" in alert.detail
+        elif reason == "archive_unreadable":
+            assert alert.title.endswith("unreadable")
+            assert "The raw weekly-projection log is no longer on disk either" in alert.detail
+            assert "The collector re-checks the file on every pass" in alert.detail
+            assert "never overwrites an unreadable archive" in alert.detail
+        else:
+            assert alert.title.endswith("not built; raw weekly log gone")
+            assert "no build can run and none is retried" in alert.detail
+    else:
+        assert alert.title.endswith("cannot be rebuilt")
+        assert alert.detail == _GONE_TEXT.format(
+            league=live.NFL_KEY,
+            season=SEASON,
+            week=WEEK,
+            reason=reason or "unknown",
+            failed=row["failedAt"],
+        )
+
+
+@pytest.mark.parametrize("retained", [True, False])
+@pytest.mark.parametrize(("reason", "kind"), _REASONS, ids=lambda v: str(v))
+def test_a_row_without_the_weekly_field_reads_as_its_reader_meant_it(reason, kind, retained):
+    """A row built before ``weeklyLogRetained`` existed equated the two facts."""
+    legacy = _row(reason, retained=retained, flushFailure=kind)
+    del legacy["weeklyLogRetained"]
+    (got,) = oa._check_pregame_archive([legacy])
+    (expected,) = oa._check_pregame_archive([dict(legacy, weeklyLogRetained=retained)])
+    assert (got.title, got.detail) == (expected.title, expected.detail)
+
+
+def test_a_real_partial_prune_reaches_the_operator_with_the_true_text(monkeypatch, kv):
+    """End to end: the real prune with an rmtree that removes the weekly log but
+    leaves another file, the health reader, the sweep, the sink."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    (_obs_dir() / "keep.lock").write_text("x", encoding="utf-8")
+
+    def partial(path, *args, **kwargs):
+        for item in pathlib.Path(path).iterdir():
+            if item.name != "keep.lock":
+                item.unlink()
+
+    monkeypatch.setattr(shutil, "rmtree", partial)
+    assert live.prune_retention(SEASON, PRUNE_WEEK, now=NOW) == []
+    sink = Sink()
+    summary = _sweep(kv, sink, live.pregame_archive_health())
+
+    assert summary["categories"] == [CATEGORY] and len(sink.sent) == 1
+    _to, _subject, body = sink.sent[0]
+    assert "raw observations not fully removed" in body
+    assert "weekly-projection log itself is already gone" in body
+    assert "the raw log simply stays on disk" not in body

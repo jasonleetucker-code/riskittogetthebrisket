@@ -338,28 +338,48 @@ deleting that first), and the directory is flushed. Nothing the builder reads �
 the cached schedule, the stored scoreboard, the clock — is consulted, so the
 content cannot change. A rewrite that cannot complete (an I/O error, or a copy
 whose sha256 differs) leaves the accepted archive untouched, keeps the raw log
-and records `archive_directory_unflushed` with `flushFailure: rewrite` (a prior
-unflushed marker's `firstFailedAt` kept), so the next hourly retry rewrites
-again; on success the marker is cleared. With no raw weekly log left there is
-nothing to protect, and the accepted archive is re-flushed only, never
-rewritten. A failure marker of ANY reason whose `failedAt` is inside the hourly
-window stops every pass on the accepted archive: it flushes, rewrites and logs
-nothing. `shutil.rmtree` of `observations/` fails
-silently, so the prune checks the directory is gone before reporting it removed;
-one that survives is logged as a WARNING and, beside the week's archive,
-recorded as `raw_log_prune_failed` (`failedAt` / `firstFailedAt`), which the ops
-alert reports (the archive is in place, the raw log could not be removed, and it
-is retried) and which throttles the next attempt to hourly. With no marker the
-first rewrite runs at once and that marker throttles every pass after it, so no
-state rewrites the archive on every tick while its marker can be written. A
+and records `archive_directory_unflushed` with `flushFailure: rewrite`, so the
+next hourly retry rewrites again; on success the marker is cleared. With no raw
+weekly log left there is nothing to protect, and the accepted archive is
+re-flushed only, never rewritten. Only a **retry-family** marker —
+`archive_directory_unflushed` (any `flushFailure`) or `raw_log_prune_failed`,
+the two reasons that record work on the accepted archive still pending — whose
+`failedAt` is inside the hourly window stops a pass on the accepted archive: it
+flushes, rewrites and logs nothing. Any other marker beside a readable archive
+(a stale build failure, an `archive_unreadable` file that now reads back)
+records nothing pending, so it throttles nothing and the archive is accepted on
+that pass. One incident keeps one start: `firstFailedAt` is carried across
+consecutive retry-family markers (a prune failure, then a flush failure, then a
+prune failure again) until the week's marker is cleared. `shutil.rmtree` of
+`observations/` fails
+silently — wholly, or in part (it may remove the weekly log and leave another
+source's) — so the prune checks the directory is gone before reporting it
+removed; one that survives is recorded, beside the week's archive, as
+`raw_log_prune_failed` (`failedAt` / `firstFailedAt`), which the ops alert
+reports (the archive is in place, the raw log could not be removed, and it is
+retried) and which throttles the next attempt to hourly, and then logged as a
+WARNING that says whether that marker was written (if it was not, the failure
+is NOT recorded and every pass retries). With no marker the first rewrite runs
+at once and every pass that does not end with the raw log gone records a
+retry-family marker, so no state rewrites the archive on every tick while its
+marker can be written. `pregame_archive_health` reports two separate facts:
+`rawLogRetained` (the week's `observations/` directory exists — every source's
+raw logs, and what makes the prune revisit the week) and `weeklyLogRetained`
+(the raw weekly-projection log itself is still there — what the rewrite
+protects). Every ops alert text is chosen by both: weekly log retained; only
+other sources' observations left (nothing to protect or rebuild from — a
+pending flush is then retried by a re-flush only, and the alert says so); or
+neither. A
 platform with no directory flush is not a failure (`unsupported`): Windows
 refusing to open a directory (logged at DEBUG), or `fsync` failing with `EINVAL`
 / `ENOTSUP` / `EOPNOTSUPP` (some FUSE, CIFS, 9p and drvfs mounts; logged at INFO
 once per process, then DEBUG). Every other `fsync` error, `EIO` included, is a
 failure. An unreadable file at the archive
-path (`archive_unreadable`) is never overwritten, so it is not rebuilt; it
-resolves when the file reads back (accepted on the first pass after that
-marker's hourly window) or is removed. Archives are kept `PREGAME_ARCHIVE_SEASONS` = 10 seasons back.
+path (`archive_unreadable`) is never overwritten, so it is not rebuilt. It is
+re-read on every pass, and resolves when the file reads back (accepted on the
+next pass) or is removed. Its marker (with `firstFailedAt`) is written, and a
+WARNING logged, when the state is first entered and at most hourly after that,
+not on every tick. Archives are kept `PREGAME_ARCHIVE_SEASONS` = 10 seasons back.
 Measured size: one real week (2,154 projected players) is 1.7 MB as JSON and
 ~0.2 MB gzipped, so ~3.7 MB per 18-week season and under 40 MB at the bound.
 Backup: `deploy/backup/riskit-state-backup.sh` already backs up the whole

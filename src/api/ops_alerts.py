@@ -248,9 +248,21 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
     file at the archive path that does not read back, which the collector never
     overwrites), ``archive_directory_unflushed`` (the verified archive is in
     place; only making its rename durable is pending -- a byte-identical
-    rewrite of the archive followed by a directory flush, whatever step failed
-    last) and ``raw_log_prune_failed`` (the archive is in place; only removing
-    the raw log failed).
+    rewrite of the archive followed by a directory flush while the raw weekly
+    log remains, whatever step failed last; only a re-flush once it is gone)
+    and ``raw_log_prune_failed`` (the archive is in place; only removing the
+    raw log failed).
+
+    Every text is chosen by what is still on disk, which the row states in two
+    fields: ``weeklyLogRetained`` (the raw weekly-projection log itself) and
+    ``rawLogRetained`` (the week's ``observations/`` directory, which holds
+    every source's log).  Three states: the weekly log is retained (what the
+    byte-identical rewrite protects); only other sources' raw observations are
+    left (nothing to protect or rebuild from -- e.g. a prune that removed the
+    weekly log but not the rest); or nothing is.  The weekly log lives inside
+    ``observations/``, so it implies that directory.  A row without
+    ``weeklyLogRetained`` (built before the field existed) is read the way its
+    reader meant it: ``rawLogRetained`` for both.
     """
     alerts: list[OpsAlert] = []
     for row in rows or []:
@@ -260,7 +272,11 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
         reason = row.get("reason") or "unknown"
         failure = f"could not be established ({reason}; failed {row.get('failedAt')})."
         since = row.get("firstFailedAt") or row.get("failedAt")
-        if row.get("rawLogRetained") and reason == "archive_directory_unflushed":
+        weekly = row.get("weeklyLogRetained")
+        if not isinstance(weekly, bool):
+            weekly = bool(row.get("rawLogRetained"))
+        observations = weekly or bool(row.get("rawLogRetained"))
+        if weekly and reason == "archive_directory_unflushed":
             kind = row.get("flushFailure")
             if kind == "rewrite":
                 # The latest attempt never reached a flush: the rewrite itself
@@ -307,7 +323,7 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
                 "best effort.  See pregame_projections.retained.json beside the week.  "
                 f"{closing}"
             )
-        elif row.get("rawLogRetained") and reason == "raw_log_prune_failed":
+        elif weekly and reason == "raw_log_prune_failed":
             title = (
                 f"Pregame projections archive for {season} week {week} in place; "
                 "raw log not removed"
@@ -323,7 +339,7 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
                 "pregame_projections.retained.json beside the week.  This resolves when the raw "
                 "log is removed."
             )
-        elif row.get("rawLogRetained") and reason == "archive_unreadable":
+        elif weekly and reason == "archive_unreadable":
             title = f"Pregame projections archive for {season} week {week} unreadable"
             detail = (
                 f"The pregame weekly-projections archive for {league} {season} week {week} "
@@ -336,7 +352,7 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
                 "beside the week.  This resolves when the file at the archive path reads back, or "
                 "once it is removed and the next hourly build succeeds."
             )
-        elif row.get("rawLogRetained"):
+        elif weekly:
             title = f"Pregame projections archive for {season} week {week} not built"
             detail = (
                 f"The pregame weekly-projections archive for {league} {season} week {week} "
@@ -346,6 +362,89 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
                 "scorecard, and its raw observations stay on disk.  The Game Day collector "
                 "retries hourly; see pregame_projections.retained.json beside the week.  This "
                 "resolves when a build succeeds."
+            )
+        elif observations and reason == "archive_directory_unflushed":
+            # Only other sources' raw observations are left: the weekly log the
+            # byte-identical rewrite protects is gone, so the retry re-flushes only.
+            kind = row.get("flushFailure")
+            if kind == "rewrite":
+                lead = (
+                    f"The verified pregame weekly-projections archive for {league} {season} week "
+                    f"{week} is in place, but the byte-identical rewrite that re-establishes the "
+                    f"rename that put it there could not complete ({reason}; flush failure: "
+                    f"rewrite; failing since {since})"
+                )
+                cause = (
+                    "That rewrite stopped before any directory flush ran (an I/O error, or a copy "
+                    "whose sha256 did not match), and the accepted archive was left untouched."
+                )
+            else:
+                lead = (
+                    f"The verified pregame weekly-projections archive for {league} {season} week "
+                    f"{week} is in place, but the directory holding it could not be flushed to disk "
+                    f"({reason}; flush failure: {kind or 'unrecorded'}; failing since {since})"
+                )
+                cause = {
+                    "open": "The directory could not be opened, so no fsync ran.",
+                    "fsync": "fsync reported an error.",
+                }.get(kind, "The failed step is not on record.")
+            title = (
+                f"Pregame projections archive for {season} week {week} "
+                "awaiting a durable directory flush"
+            )
+            detail = (
+                f"{lead}.  {cause}  The raw weekly-projection log is no longer on disk, so there "
+                "is nothing left to protect: the archive is the only record of that week's pregame "
+                "projections, and the Game Day collector's retry, at most hourly, only re-flushes "
+                "the directory -- it never rewrites or rebuilds the archive.  The week's other raw "
+                "observations stay on disk until that flush succeeds.  See "
+                "pregame_projections.retained.json beside the week.  This resolves when the "
+                "directory flush succeeds."
+            )
+        elif observations and reason == "raw_log_prune_failed":
+            title = (
+                f"Pregame projections archive for {season} week {week} in place; "
+                "raw observations not fully removed"
+            )
+            detail = (
+                f"The verified pregame weekly-projections archive for {league} {season} week "
+                f"{week} is in place, but the week's raw observations could not be fully removed "
+                f"after it was established ({reason}; failing since {since}).  The raw "
+                "weekly-projection log itself is already gone, and the archive was established "
+                "before the prune ran, so nothing is lost; the week's other raw observations stay "
+                "on disk.  The Game Day collector retries at most hourly -- with no weekly log left "
+                "to protect, each retry only re-flushes the directory holding the archive (never a "
+                "rewrite or a rebuild), then removes the remaining observations again.  See "
+                "pregame_projections.retained.json beside the week.  This resolves when the "
+                "remaining raw observations are removed."
+            )
+        elif observations and reason == "archive_unreadable":
+            title = f"Pregame projections archive for {season} week {week} unreadable"
+            detail = (
+                f"The pregame weekly-projections archive for {league} {season} week {week} "
+                f"{failure}  A file is at the archive path but does not read back, and the Game "
+                "Day collector never overwrites an unreadable archive.  The raw weekly-projection "
+                "log is no longer on disk either, so the archive cannot be rebuilt: unless that "
+                "file is repaired, the week's pregame baseline is lost from the projection "
+                "scorecard.  The week's other raw observations are kept while the file is "
+                "unreadable.  The collector re-checks the file on every pass; see "
+                "pregame_projections.retained.json beside the week.  This resolves when the file "
+                "at the archive path reads back, or once it is removed -- the week is then left "
+                "with no archive and nothing to build one from."
+            )
+        elif observations:
+            title = (
+                f"Pregame projections archive for {season} week {week} not built; "
+                "raw weekly log gone"
+            )
+            detail = (
+                f"The pregame weekly-projections archive for {league} {season} week {week} "
+                f"{failure}  The raw weekly-projection log it is built from is no longer on disk, "
+                "so no build can run and none is retried: unless an archive is already in place, "
+                "the week's pregame baseline is not preserved for the projection scorecard.  The "
+                "week's other raw observations are still on disk.  The Game Day collector's next "
+                "pass clears this marker (or replaces it, if a file is at the archive path); see "
+                "pregame_projections.retained.json beside the week."
             )
         else:
             # No raw log and no readable archive: nothing is left to rebuild

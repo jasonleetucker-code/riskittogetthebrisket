@@ -369,18 +369,15 @@ def test_a_good_existing_archive_is_still_accepted_and_the_raw_log_pruned(clock)
 
 def test_a_good_archive_beside_an_unrelated_stale_marker_is_still_accepted():
     """Only a read-back-mismatch marker makes an existing archive suspect; the
-    other reasons keep the old "marker is stale once the archive reads back" --
-    once the marker's hourly window has lapsed (inside it, nothing is touched)."""
+    other reasons keep the old "marker is stale once the archive reads back".  A
+    build failure records nothing pending on an archive that exists, so it is not
+    a retry-family marker and throttles nothing: accepted on the very next pass."""
     _record(PRE_KICKOFF_FETCH, REAL_FETCH)
     live._write_pregame_archive(_accepted(), _good_payload())
     marker = live._pregame_failure_path(SEASON, WEEK)
     live._mark_pregame_failure(marker, NOW, "kickoffs_unknown")
-    marker_bytes = marker.read_bytes()
 
-    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 60) is False  # throttled
-    assert marker.read_bytes() == marker_bytes
-
-    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + RETRY) is True
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 60) is True
 
     assert not marker.exists()
     assert not (_week_dir() / MISMATCH).exists()
@@ -799,25 +796,26 @@ def test_an_existing_archive_is_accepted_only_once_its_directory_is_flushed(monk
     builds = _count_builds(monkeypatch)
     writes = _record_archive_writes(monkeypatch)
 
-    # Inside ANY marker's hourly window the accept branch touches nothing.
+    # The stale build failure is not a retry-family marker: it throttles nothing.
     assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 60) is False
-    assert flush["calls"] == 0 and builds == [] and writes == []
-
-    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + RETRY) is False
 
     assert flush["calls"] == 1 and builds == [] and writes == [(CANDIDATE, _sha(accepted_bytes))]
     assert _accepted().read_bytes() == accepted_bytes  # kept: not rebuilt, not set aside
     assert not (_week_dir() / MISMATCH).exists()
     # The marker now says why the raw log is kept -- not the stale reason, and
     # not cleared as though the archive were established.  Its start is this
-    # attempt: the stale marker was a different failure.
+    # attempt: the stale marker was a different, non-retry failure.
     stored = _marker()
     assert stored["reason"] == "archive_directory_unflushed" and "candidateFlow" not in stored
-    assert stored["firstFailedAt"] == live._iso(NOW + RETRY)
+    assert stored["firstFailedAt"] == live._iso(NOW + 60)
     assert _obs_dir().is_dir() and _weekly_log_bytes() == before
 
+    # The unflushed marker IS retry work: inside its window the pass touches nothing.
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 60 + RETRY - 1) is False
+    assert flush["calls"] == 1 and len(writes) == 1
+
     flush["outcome"] = live._DIR_FLUSHED
-    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 2 * RETRY) is True
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 60 + RETRY) is True
     assert flush["calls"] == 2 and builds == [] and len(writes) == 2
     assert not marker.exists()
 
@@ -1773,11 +1771,11 @@ def test_a_good_rebuild_whose_stale_mismatch_marker_cannot_be_cleared_is_kept(mo
 
     builds = _count_builds(monkeypatch)
     writes = _record_archive_writes(monkeypatch)
-    # The stale marker's failedAt is NOW, so NOW + 60 is inside the throttle
-    # window (as after a clock stepped back): that pass touches nothing.  The
-    # other two are past it, and each keeps the archive -- by the byte-identical
-    # rewrite, since the raw log is still here.
-    passes = [(NOW + 60, False, 0), (NOW + RETRY + 60, True, 1), (NOW + 3 * RETRY, True, 2)]
+    # The stale candidate-flow marker records nothing pending on this archive,
+    # so it throttles nothing -- not even at NOW + 60, inside its window (as
+    # after a clock stepped back).  Every pass keeps the archive by the
+    # byte-identical rewrite, since the raw log is still here.
+    passes = [(NOW + 60, True, 1), (NOW + RETRY + 60, True, 2), (NOW + 3 * RETRY, True, 3)]
     for later, accepted, rewrites in passes:
         assert live.ensure_pregame_archive(SEASON, WEEK, now=later) is accepted
         assert builds == []  # not rebuilt
@@ -1893,40 +1891,46 @@ def test_an_accepted_archive_with_no_raw_weekly_log_is_re_flushed_only(monkeypat
     assert not marker.exists()
 
 
-# --- any marker inside the window throttles every pass on the accepted archive ------------
+# --- only a RETRY-family marker inside the window throttles the accepted archive ---------
 
 
-@pytest.mark.parametrize(
-    ("reason", "fields"),
-    [
-        ("archive_directory_unflushed", {"flushFailure": "open"}),
-        ("archive_directory_unflushed", {"flushFailure": "fsync"}),
-        ("archive_directory_unflushed", {"flushFailure": "rewrite"}),
-        ("archive_directory_unflushed", {"flushFailure": None}),
-        ("raw_log_prune_failed", {}),
-        ("archive_readback_mismatch", {"candidateFlow": True}),
-        ("archive_unreadable", {}),
-        ("kickoffs_unknown", {}),
-    ],
-    ids=[
-        "unflushed-open",
-        "unflushed-fsync",
-        "unflushed-rewrite",
-        "unflushed-null",
-        "raw_log_prune_failed",
-        "candidate_flow_mismatch",
-        "archive_unreadable",
-        "kickoffs_unknown",
-    ],
-)
-@pytest.mark.parametrize("weekly_log", ["retained", "gone"])
-def test_any_marker_inside_the_window_throttles_the_accepted_archive(
-    monkeypatch, caplog, reason, fields, weekly_log
-):
-    """Every rewrite path -- and the re-flush-only path beside it -- respects the
-    hourly throttle whenever a marker with ``failedAt`` exists: inside the window
-    a pass flushes nothing, rewrites nothing, rebuilds nothing, logs nothing and
-    leaves the marker as it was."""
+_RETRY_FAMILY_MARKERS = [
+    ("archive_directory_unflushed", {"flushFailure": "open"}),
+    ("archive_directory_unflushed", {"flushFailure": "fsync"}),
+    ("archive_directory_unflushed", {"flushFailure": "rewrite"}),
+    ("archive_directory_unflushed", {"flushFailure": None}),
+    ("archive_directory_unflushed", {"flushFailure": "dir_sync"}),
+    ("archive_directory_unflushed", {}),
+    ("raw_log_prune_failed", {}),
+]
+_RETRY_FAMILY_IDS = [
+    "unflushed-open",
+    "unflushed-fsync",
+    "unflushed-rewrite",
+    "unflushed-null",
+    "unflushed-unknown-kind",
+    "unflushed-no-kind",
+    "raw_log_prune_failed",
+]
+# Markers that record nothing pending on a readable accepted archive.
+_NOT_RETRY_MARKERS = [
+    ("archive_unreadable", {}),
+    ("archive_readback_mismatch", {"candidateFlow": True}),
+    ("kickoffs_unknown", {}),
+    ("weekly_log_unreadable", {}),
+    ("OSError: [Errno 28] No space left on device", {}),
+]
+_NOT_RETRY_IDS = [
+    "archive_unreadable",
+    "candidate_flow_mismatch",
+    "kickoffs_unknown",
+    "weekly_log_unreadable",
+    "exception",
+]
+
+
+def _accepted_archive_beside(reason: str, fields: dict, weekly_log: str) -> pathlib.Path:
+    """A readable accepted archive with a ``reason`` marker written at ``NOW``."""
     _record(PRE_KICKOFF_FETCH, REAL_FETCH)
     live._write_pregame_archive(_accepted(), _good_payload())
     if weekly_log == "gone":
@@ -1935,6 +1939,23 @@ def test_any_marker_inside_the_window_throttles_the_accepted_archive(
     fields = dict(fields)
     candidate_flow = bool(fields.pop("candidateFlow", False))
     live._write_pregame_marker(marker, NOW, reason, candidate_flow=candidate_flow, fields=fields)
+    return marker
+
+
+def test_the_retry_family_is_exactly_the_pending_work_on_an_accepted_archive():
+    assert live._PREGAME_RETRY_REASONS == {"archive_directory_unflushed", "raw_log_prune_failed"}
+
+
+@pytest.mark.parametrize(("reason", "fields"), _RETRY_FAMILY_MARKERS, ids=_RETRY_FAMILY_IDS)
+@pytest.mark.parametrize("weekly_log", ["retained", "gone"])
+def test_a_retry_family_marker_inside_the_window_throttles_the_accepted_archive(
+    monkeypatch, caplog, reason, fields, weekly_log
+):
+    """Every rewrite path -- and the re-flush-only path beside it -- respects the
+    hourly throttle while a RETRY-family marker (pending work on this archive)
+    is inside its window: a pass flushes nothing, rewrites nothing, rebuilds
+    nothing, logs nothing and leaves the marker as it was."""
+    marker = _accepted_archive_beside(reason, fields, weekly_log)
     marker_bytes = marker.read_bytes()
     flush = _stub_dir_flush(monkeypatch, live._DIR_FLUSHED)
     builds = _count_builds(monkeypatch)
@@ -1949,6 +1970,31 @@ def test_any_marker_inside_the_window_throttles_the_accepted_archive(
 
     assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + RETRY) is True  # the boundary
     assert len(writes) == (1 if weekly_log == "retained" else 0) and flush["calls"] == 1
+
+
+@pytest.mark.parametrize(("reason", "fields"), _NOT_RETRY_MARKERS, ids=_NOT_RETRY_IDS)
+@pytest.mark.parametrize("weekly_log", ["retained", "gone"])
+def test_a_marker_with_no_pending_retry_does_not_throttle_the_accepted_archive(
+    monkeypatch, reason, fields, weekly_log
+):
+    """A marker that records no pending work on the readable archive beside it --
+    a repaired ``archive_unreadable`` file, a stale build failure, a candidate-flow
+    mismatch marker that could not be cleared -- throttles nothing: the very next
+    pass (here one second later) re-establishes the archive and accepts it, by
+    the byte-identical rewrite while the weekly log remains, by a re-flush once
+    it is gone."""
+    marker = _accepted_archive_beside(reason, fields, weekly_log)
+    accepted_bytes = _accepted().read_bytes()
+    flush = _stub_dir_flush(monkeypatch, live._DIR_FLUSHED)
+    builds = _count_builds(monkeypatch)
+    writes = _record_archive_writes(monkeypatch)
+
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 1) is True
+
+    expected = [(CANDIDATE, _sha(accepted_bytes))] if weekly_log == "retained" else []
+    assert writes == expected and flush["calls"] == 1 and builds == []
+    assert _accepted().read_bytes() == accepted_bytes
+    assert not marker.exists()
 
 
 # --- a raw log that survives the prune is recorded, throttled and alerted ----------------
@@ -2080,3 +2126,370 @@ def test_a_raw_log_prune_failure_with_no_archive_is_warned_but_not_marked(monkey
     assert not live._pregame_failure_path(SEASON, WEEK).exists()
     warned = [r.getMessage() for r in caplog.records if "could not remove raw" in r.getMessage()]
     assert len(warned) == 2 and all("retried next tick" in m for m in warned)
+
+
+# --- round 6: an unreadable archive is re-checked every pass and recorded hourly ---------
+
+
+def _unreadable_archive_through_the_prune(clock, ticks: int) -> pathlib.Path:
+    """Garbage at the archive path, then ``ticks`` one-minute prune passes from ``NOW``."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    _accepted().parent.mkdir(parents=True, exist_ok=True)
+    _accepted().write_bytes(b"garbage")
+    for tick in range(ticks):
+        clock["now"] = NOW + 60 * tick
+        assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+    return live._pregame_failure_path(SEASON, WEEK)
+
+
+def test_a_repaired_unreadable_archive_is_accepted_on_the_next_pass(monkeypatch, clock):
+    """The reviewers' round-6 probe T4.  Round 5 throttled the accepted archive on
+    ANY marker, and ``archive_unreadable`` was re-recorded every tick -- so a file
+    an operator repaired was accepted only at t+3840, while the alert said the
+    collector "re-checks the file on every pass".  ``archive_unreadable`` is not
+    retry work: the pass right after the repair accepts the archive, and the
+    alert resolves."""
+    flush = _stub_dir_flush(monkeypatch, live._DIR_FLUSHED)
+    marker = _unreadable_archive_through_the_prune(clock, ticks=5)
+    assert _marker()["reason"] == "archive_unreadable" and _obs_dir().is_dir()
+    assert flush["calls"] == 0
+    (alert,) = oa._check_pregame_archive(live.pregame_archive_health())
+    assert "The collector re-checks the file on every pass" in alert.detail
+
+    live._write_pregame_archive(_accepted(), _good_payload())  # the operator repairs the file
+    repaired = _accepted().read_bytes()
+    writes = _record_archive_writes(monkeypatch)
+    clock["now"] = NOW + 300  # the next one-minute pass, deep inside the marker's window
+    removed = live.prune_retention(SEASON, PRUNE_WEEK)
+
+    assert removed == [str(_obs_dir())] and not _obs_dir().exists()
+    assert writes == [(CANDIDATE, _sha(repaired))] and flush["calls"] == 1  # rewritten, flushed
+    assert _accepted().read_bytes() == repaired
+    assert not marker.exists()
+    assert live.pregame_archive_health() == []
+    assert oa._check_pregame_archive(live.pregame_archive_health()) == []
+
+
+def test_an_unreadable_archive_marker_is_not_rewritten_every_tick(monkeypatch, clock, caplog):
+    """While the file stays unreadable, the marker is written -- and the WARNING
+    logged -- once when the state is entered, then at most hourly; it keeps
+    ``firstFailedAt``.  Every pass still re-reads the file (it is never
+    overwritten)."""
+    reads: list[str] = []
+    real_read = live._read_pregame_archive
+
+    def read(path):
+        if pathlib.Path(path) == _accepted():
+            reads.append("read")
+        return real_read(path)
+
+    monkeypatch.setattr(live, "_read_pregame_archive", read)
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        marker = _unreadable_archive_through_the_prune(clock, ticks=1)
+        first_bytes = marker.read_bytes()
+        assert _marker() == {
+            "failedAt": live._iso(NOW),
+            "firstFailedAt": live._iso(NOW),
+            "reason": "archive_unreadable",
+        }
+        for tick in range(1, 60):  # 59 more one-minute ticks, all inside the hour
+            clock["now"] = NOW + 60 * tick
+            assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+            assert marker.read_bytes() == first_bytes  # not rewritten
+    warned = [r for r in caplog.records if "archive_unreadable" in r.getMessage()]
+    assert len(warned) == 1  # the state was entered once
+    assert len(reads) == 60  # ... but the file was re-checked on every pass
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        clock["now"] = NOW + RETRY  # an hour on: recorded again, the start kept
+        live.prune_retention(SEASON, PRUNE_WEEK)
+        assert _marker() == {
+            "failedAt": live._iso(NOW + RETRY),
+            "firstFailedAt": live._iso(NOW),
+            "reason": "archive_unreadable",
+        }
+        hourly_bytes = marker.read_bytes()
+        for tick in range(1, 6):
+            clock["now"] = NOW + RETRY + 60 * tick
+            live.prune_retention(SEASON, PRUNE_WEEK)
+            assert marker.read_bytes() == hourly_bytes
+    assert len([r for r in caplog.records if "archive_unreadable" in r.getMessage()]) == 1
+    assert _accepted().read_bytes() == b"garbage" and _obs_dir().is_dir()  # never overwritten
+
+
+@pytest.mark.parametrize(
+    "prior",
+    ["archive_directory_unflushed", "raw_log_prune_failed", "kickoffs_unknown", "old_unreadable"],
+)
+def test_entering_the_unreadable_state_is_recorded_at_once(prior):
+    """The no-churn rule only spares a REPEAT inside the hour: a file that stops
+    reading back beside any other marker, or beside an unreadable marker older
+    than the hour, is recorded on that pass.  Its start is this pass, unless the
+    prior marker recorded the same unreadable incident."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    if prior == "old_unreadable":
+        live._write_pregame_marker(
+            marker,
+            NOW - 2 * RETRY,
+            "archive_unreadable",
+            fields={"firstFailedAt": live._iso(NOW - 5 * RETRY)},
+        )
+    else:
+        live._write_pregame_marker(
+            marker, NOW - 60, prior, fields={"firstFailedAt": live._iso(NOW - 3 * RETRY)}
+        )
+    _accepted().write_bytes(b"garbage")
+
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW) is False
+
+    start = NOW - 5 * RETRY if prior == "old_unreadable" else NOW
+    assert _marker() == {
+        "failedAt": live._iso(NOW),
+        "firstFailedAt": live._iso(start),
+        "reason": "archive_unreadable",
+    }
+
+
+# --- round 6: one incident keeps one start across the retry family ------------------------
+
+
+def test_one_incident_keeps_its_start_across_retry_family_reasons(monkeypatch, clock):
+    """The reviewers' round-6 probe T1.  The raw log never goes (rmtree fails
+    silently) while the directory flush fails and recovers in turn, so the
+    marker moves prune-failed -> unflushed (fsync) -> prune-failed -> unflushed
+    (open) -> prune-failed.  That is ONE incident: ``firstFailedAt`` stays the
+    first failure throughout, ``failedAt`` is always the latest attempt, and the
+    alert keeps saying "failing since" the start."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    flush = _stub_dir_flush(monkeypatch, live._DIR_FLUSHED)
+    _stub_rmtree(monkeypatch)
+    outcomes = {
+        "flushed": live._DIR_FLUSHED,
+        "fsync": live._DIR_FSYNC_FAILED,
+        "open": live._DIR_OPEN_FAILED,
+    }
+    plan = [
+        (0, "flushed", "raw_log_prune_failed", None, 0),
+        (60, "flushed", "raw_log_prune_failed", None, 0),  # throttled
+        (RETRY, "fsync", "archive_directory_unflushed", "fsync", RETRY),
+        (RETRY + 60, "fsync", "archive_directory_unflushed", "fsync", RETRY),  # throttled
+        (2 * RETRY, "flushed", "raw_log_prune_failed", None, 2 * RETRY),
+        (3 * RETRY, "open", "archive_directory_unflushed", "open", 3 * RETRY),
+        (4 * RETRY, "flushed", "raw_log_prune_failed", None, 4 * RETRY),
+        (4 * RETRY + 300, "flushed", "raw_log_prune_failed", None, 4 * RETRY),  # throttled
+    ]
+    for offset, outcome, reason, kind, latest in plan:
+        clock["now"] = NOW + offset
+        flush["outcome"] = outcomes[outcome]
+        assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+        stored = _marker()
+        assert (stored["reason"], stored.get("flushFailure")) == (reason, kind), offset
+        assert stored["firstFailedAt"] == live._iso(NOW), offset  # the incident's start
+        assert stored["failedAt"] == live._iso(NOW + latest), offset  # the latest attempt
+        (alert,) = oa._check_pregame_archive(live.pregame_archive_health())
+        assert f"failing since {live._iso(NOW)}" in alert.detail, offset
+
+
+def test_a_cleared_marker_ends_the_incident(monkeypatch, clock):
+    """Once a pass establishes the archive and clears the marker, the next
+    failure is a new incident with its own start."""
+    flush = _fail_the_first_flush(monkeypatch, live._DIR_FSYNC_FAILED)  # incident 1 at NOW
+    flush["outcome"] = live._DIR_FLUSHED
+    clock["now"] = NOW + RETRY
+    assert live.ensure_pregame_archive(SEASON, WEEK) is True
+    assert not live._pregame_failure_path(SEASON, WEEK).exists()
+
+    flush["outcome"] = live._DIR_OPEN_FAILED  # no marker: the next pass rewrites at once
+    clock["now"] = NOW + RETRY + 60
+    assert live.ensure_pregame_archive(SEASON, WEEK) is False
+    assert _marker()["firstFailedAt"] == live._iso(NOW + RETRY + 60)
+
+
+@pytest.mark.parametrize(
+    ("fields", "expected"),
+    [
+        ({"failedAt": 3 * RETRY, "firstFailedAt": RETRY}, RETRY),
+        ({"failedAt": 3 * RETRY}, 3 * RETRY),  # written before firstFailedAt existed
+        ({"failedAt": RETRY, "firstFailedAt": 3 * RETRY}, RETRY),  # earliest, whichever key
+        ({"failedAt": 3 * RETRY, "firstFailedAt": "not a time"}, 3 * RETRY),
+        ({"failedAt": None}, None),
+    ],
+    ids=["both", "failedAt-only", "earliest-wins", "unparseable-start", "no-time"],
+)
+def test_failure_start_is_the_earliest_stamp_of_a_retry_family_marker(fields, expected):
+    stamps = {k: (live._iso(NOW + v) if isinstance(v, float) else v) for k, v in fields.items()}
+    for reason in sorted(live._PREGAME_RETRY_REASONS):
+        got = live._failure_start({"reason": reason, **stamps}, live._PREGAME_RETRY_REASONS)
+        assert got == (None if expected is None else live._iso(NOW + expected))
+    # Any other reason starts a new incident.
+    for reason in ("archive_unreadable", "kickoffs_unknown", None):
+        prior = {"reason": reason, **stamps}
+        assert live._failure_start(prior, live._PREGAME_RETRY_REASONS) is None
+    assert live._failure_start(None, live._PREGAME_RETRY_REASONS) is None
+
+
+# --- round 6: the prune warning says whether the failure was recorded ---------------------
+
+
+def test_a_recorded_prune_failure_warns_that_it_is_recorded(monkeypatch, clock, caplog):
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    _stub_dir_flush(monkeypatch, live._DIR_FLUSHED)
+    _stub_rmtree(monkeypatch)
+
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+
+    (message,) = [
+        r.getMessage() for r in caplog.records if "could not remove raw" in r.getMessage()
+    ]
+    assert message.endswith(
+        "beside the accepted pregame archive -- recorded as raw_log_prune_failed, retried at "
+        "most hourly"
+    )
+    assert "NOT recorded" not in message
+    assert _marker()["reason"] == "raw_log_prune_failed"
+
+
+def test_an_unrecorded_prune_failure_warns_that_it_is_not_recorded(monkeypatch, clock, caplog):
+    """The reviewers' round-6 probe T3.  The prune warning used to say "recorded as
+    raw_log_prune_failed, retried at most hourly" BEFORE the marker write -- which
+    is swallowed -- so with an unwritable marker it claimed a throttle that did
+    not exist while every pass rewrote and deleted again.  It now says the failure
+    is NOT recorded and every pass retries, which is what happens."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    flush = _stub_dir_flush(monkeypatch, live._DIR_FLUSHED)
+    rm = _stub_rmtree(monkeypatch)
+    live.prune_retention(SEASON, PRUNE_WEEK)  # built, verified; the prune failure is recorded
+    assert _marker()["reason"] == "raw_log_prune_failed"
+    writes = _record_archive_writes(monkeypatch)
+    _deny_marker_writes(monkeypatch)["deny"] = True
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        for tick in range(61, 67):  # past the recorded marker's window, then every minute
+            clock["now"] = NOW + 60 * tick
+            assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+
+    assert not live._pregame_failure_path(SEASON, WEEK).exists()  # cleared, never re-recorded
+    assert len(writes) == 6 and rm["calls"] == 7 and flush["calls"] == 7  # every pass retried
+    warned = [r.getMessage() for r in caplog.records if "could not remove raw" in r.getMessage()]
+    assert len(warned) == 6
+    for message in warned:
+        assert "the failure is NOT recorded" in message
+        assert "every pass retries the removal" in message
+        assert live.PREGAME_ARCHIVE_FAILURE_NAME in message
+        assert "retried at most hourly" not in message
+
+
+def test_the_marker_writer_reports_whether_it_wrote(monkeypatch):
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    assert live._write_pregame_marker(marker, NOW, "kickoffs_unknown") is True
+    assert _marker() == {"failedAt": live._iso(NOW), "reason": "kickoffs_unknown"}
+
+    _deny_marker_writes(monkeypatch)["deny"] = True
+    assert live._write_pregame_marker(marker, NOW + 60, "weekly_log_unreadable") is False
+    assert live._mark_raw_log_prune_failed(marker, NOW + 60, None) is False
+    assert _marker() == {"failedAt": live._iso(NOW), "reason": "kickoffs_unknown"}  # unchanged
+
+
+def test_a_failure_whose_marker_cannot_be_written_warns_that_it_is_not_recorded(
+    monkeypatch, caplog
+):
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        assert live._mark_pregame_failure(marker, NOW, "kickoffs_unknown") is True
+    (recorded,) = [r.getMessage() for r in caplog.records]
+    assert recorded.endswith("pregame projection archive not established (kickoffs_unknown)")
+
+    _deny_marker_writes(monkeypatch)["deny"] = True
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger=live.__name__):
+        assert live._mark_pregame_failure(marker, NOW + 60, "archive_unreadable") is False
+    (unrecorded,) = [r.getMessage() for r in caplog.records]
+    assert "(archive_unreadable); the failure is NOT recorded" in unrecorded
+    assert "not throttled and the next pass retries" in unrecorded
+
+
+# --- round 6: health and the alert tell the weekly log from observations/ -----------------
+
+
+def _partial_rmtree(monkeypatch) -> dict:
+    """``shutil.rmtree`` that removes everything in ``observations/`` except a
+    ``keep.lock`` (a held lock), and so leaves the directory; ``state["mode"]``
+    ``"ok"`` makes it real again."""
+    state = {"mode": "partial", "calls": 0}
+    real = shutil.rmtree
+
+    def rmtree(path, *args, **kwargs):
+        state["calls"] += 1
+        if state["mode"] == "ok":
+            return real(path, *args, **kwargs)
+        for item in pathlib.Path(path).iterdir():
+            if item.name != "keep.lock":
+                item.unlink()
+        return None
+
+    monkeypatch.setattr(shutil, "rmtree", rmtree)
+    return state
+
+
+def test_a_partial_prune_that_removed_the_weekly_log_alerts_the_true_state(monkeypatch, clock):
+    """The reviewers' round-6 probe T2.  A prune whose rmtree removed the weekly
+    log but left another file keeps ``observations/``.  The next retry correctly
+    re-flushes only (nothing left to protect); when that flush fails, the alert
+    used to say "the raw weekly-projection log is retained" and that the retry
+    "rewrites the accepted archive byte for byte ... no bare re-flush is trusted"
+    -- both false.  Health now reports the weekly log separately, and the alert
+    says the weekly log is gone and the retry only re-flushes."""
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    (_obs_dir() / "keep.lock").write_text("x", encoding="utf-8")
+    flush = _stub_dir_flush(monkeypatch, live._DIR_FLUSHED)
+    rm = _partial_rmtree(monkeypatch)
+    weekly = live.observation_log(live.NFL_KEY, SEASON, WEEK, live.SOURCE_WEEKLY).log_path
+
+    assert live.prune_retention(SEASON, PRUNE_WEEK) == []  # built, flushed; rmtree partial
+    assert not weekly.exists() and _obs_dir().is_dir()
+    (row,) = live.pregame_archive_health()
+    assert (row["reason"], row["rawLogRetained"], row["weeklyLogRetained"]) == (
+        "raw_log_prune_failed",
+        True,
+        False,
+    )
+    (alert,) = oa._check_pregame_archive([row])
+    assert "raw observations not fully removed" in alert.title
+    assert "weekly-projection log itself is already gone" in alert.detail
+    assert "only re-flushes the directory" in alert.detail
+    assert "the raw log simply stays on disk" not in alert.detail
+    assert "byte-identical rewrite of its own bytes" not in alert.detail
+    accepted_bytes = _accepted().read_bytes()
+    writes = _record_archive_writes(monkeypatch)
+
+    flush["outcome"] = live._DIR_FSYNC_FAILED  # the hourly retry's re-flush fails
+    clock["now"] = NOW + RETRY
+    assert live.prune_retention(SEASON, PRUNE_WEEK) == []
+    assert writes == [] and flush["calls"] == 2  # re-flushed only: nothing left to protect
+    (row,) = live.pregame_archive_health()
+    assert (row["reason"], row["flushFailure"]) == ("archive_directory_unflushed", "fsync")
+    assert (row["rawLogRetained"], row["weeklyLogRetained"]) == (True, False)
+    assert row["firstFailedAt"] == live._iso(NOW)  # one incident since the prune failed
+    (alert,) = oa._check_pregame_archive([row])
+    assert "awaiting a durable directory flush" in alert.title
+    assert "The raw weekly-projection log is no longer on disk" in alert.detail
+    assert "nothing left to protect" in alert.detail
+    assert "only re-flushes the directory -- it never rewrites or rebuilds" in alert.detail
+    for false_claim in (
+        "the raw weekly-projection log is retained",
+        "rewrites the accepted archive byte for byte",
+        "no bare re-flush is trusted",
+    ):
+        assert false_claim not in alert.detail
+    assert f"failing since {live._iso(NOW)}" in alert.detail
+
+    flush["outcome"] = live._DIR_FLUSHED
+    rm["mode"] = "ok"
+    clock["now"] = NOW + 2 * RETRY
+    assert live.prune_retention(SEASON, PRUNE_WEEK) == [str(_obs_dir())]
+    assert writes == [] and _accepted().read_bytes() == accepted_bytes
+    assert live.pregame_archive_health() == []
