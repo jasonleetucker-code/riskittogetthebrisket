@@ -30,7 +30,9 @@ def test_record_appends_parseable_jsonl(temp_telemetry):
     telemetry.record("scrape_start_marker", worker_id="run-1", trigger="test")
     telemetry.record("ktc_step", step="goto_start")
 
-    rows = [json.loads(line) for line in telemetry.EVENTS_PATH.read_text().splitlines()]
+    rows = [
+        json.loads(line) for line in telemetry.EVENTS_PATH.read_text(encoding="utf-8").splitlines()
+    ]
     assert [r["event"] for r in rows] == ["scrape_start_marker", "ktc_step"]
     assert rows[0]["worker_id"] == "run-1"
     assert rows[1]["step"] == "goto_start"
@@ -44,7 +46,7 @@ def test_written_lines_are_flushed_immediately(temp_telemetry):
     the bytes already left the writer.
     """
     telemetry.record("scrape_start_marker")
-    assert telemetry.EVENTS_PATH.read_text().strip() != ""
+    assert telemetry.EVENTS_PATH.read_text(encoding="utf-8").strip() != ""
 
 
 def test_kill_switch_suppresses_all_writes(temp_telemetry, monkeypatch):
@@ -82,7 +84,7 @@ def test_record_never_raises_when_path_is_unwritable(tmp_path, monkeypatch):
     and open against it fails.
     """
     blocker = tmp_path / "not-a-dir"
-    blocker.write_text("x")
+    blocker.write_text("x", encoding="utf-8")
     monkeypatch.setattr(telemetry, "DIAGNOSTICS_DIR", blocker / "nested")
     monkeypatch.setattr(telemetry, "EVENTS_PATH", blocker / "nested" / "events.jsonl")
     monkeypatch.setattr(telemetry, "PHASE_PATH", blocker / "nested" / "phase.json")
@@ -99,7 +101,9 @@ def test_record_never_raises_on_unserializable_payload(temp_telemetry):
             return "<exotic>"
 
     telemetry.record("weird", obj=Exotic())
-    rows = [json.loads(line) for line in telemetry.EVENTS_PATH.read_text().splitlines()]
+    rows = [
+        json.loads(line) for line in telemetry.EVENTS_PATH.read_text(encoding="utf-8").splitlines()
+    ]
     assert rows[0]["obj"] == "<exotic>"
 
 

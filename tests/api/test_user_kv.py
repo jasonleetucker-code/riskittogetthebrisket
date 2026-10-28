@@ -287,7 +287,8 @@ def test_legacy_json_migration_runs_on_first_boot(tmp_path, monkeypatch):
                 },
                 "bob": {"watchlist": ["Bijan Robinson"]},
             }
-        )
+        ),
+        encoding="utf-8",
     )
     user_kv._SETUP_DONE.clear()
     # First call triggers migration.

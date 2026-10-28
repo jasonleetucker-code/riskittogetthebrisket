@@ -103,10 +103,10 @@ def probe(tmp_path):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     sudo = bin_dir / "sudo"
-    sudo.write_text(FAKE_SUDO)
+    sudo.write_text(FAKE_SUDO, encoding="utf-8")
     sudo.chmod(0o755)
     ss = bin_dir / "ss"
-    ss.write_text(FAKE_SS)
+    ss.write_text(FAKE_SS, encoding="utf-8")
     ss.chmod(0o755)
 
     child = subprocess.Popen(["sleep", "120"])
@@ -182,7 +182,7 @@ class TestRequiredEvidenceCannotDegrade:
     def test_the_script_has_no_unconditional_final_exit_zero(self):
         """Read as code, not behaviour: an `exit 0` that is not guarded
         by the accumulator can override any failure above it."""
-        lines = [ln.strip() for ln in INVENTORY.read_text().splitlines()]
+        lines = [ln.strip() for ln in INVENTORY.read_text(encoding="utf-8").splitlines()]
         assert lines[-1] == "exit 0"
         tail = lines[-12:]
         assert any(
@@ -256,7 +256,7 @@ class TestOptionalEvidenceDegradesExplicitly:
 class TestItStaysReadOnly:
     def test_no_state_changing_systemctl_verb_appears(self):
         """The contract in the header, enforced."""
-        text = INVENTORY.read_text()
+        text = INVENTORY.read_text(encoding="utf-8")
         for verb in (
             "restart",
             "reload",
@@ -271,7 +271,7 @@ class TestItStaysReadOnly:
             assert f'SYSTEMCTL}}" {verb}' not in text
 
     def test_it_does_not_print_the_environment_or_command_lines(self):
-        text = INVENTORY.read_text()
+        text = INVENTORY.read_text(encoding="utf-8")
         assert "/proc/${PID}/environ" not in text
         assert "/proc/${PID}/cmdline" not in text
         assert "printenv" not in text

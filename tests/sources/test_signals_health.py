@@ -135,9 +135,12 @@ def test_a_stamp_without_verification_or_a_tampered_csv_is_caught(tmp_path):
     _collect(app, _idp(), at=t)
     state = app / "data" / "scrape_state"
     # a success stamp newer than any verification (a failed run refreshing a clock)
-    (state / "signalsIdpLb_last_success").write_text(f"{int(NOW.timestamp())}\n")
+    (state / "signalsIdpLb_last_success").write_text(f"{int(NOW.timestamp())}\n", encoding="utf-8")
     csv = S.board_csv_path(app / "data" / "sources" / "signals", "signalsIdpDb")
-    csv.write_text(csv.read_text() + "Synthetic Extra,99,1,9,DB,CB,SYN,NATIVE_VALUE,1,,idp\n")
+    csv.write_text(
+        csv.read_text(encoding="utf-8") + "Synthetic Extra,99,1,9,DB,CB,SYN,NATIVE_VALUE,1,,idp\n",
+        encoding="utf-8",
+    )
     rep = _report(app, tmp_path)
     assert rep["boards"]["signalsIdpLb"]["lastSuccessAgreesWithVerification"] is False
     assert rep["boards"]["signalsIdpDb"]["csvMatchesLatest"] is False

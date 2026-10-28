@@ -359,15 +359,15 @@ def build_boards(
         arch = days[d]
         cache = cache_dir / f"{arch.stem}.{tag}.json"
         if cache.exists():
-            entry = json.loads(cache.read_text())
+            entry = json.loads(cache.read_text(encoding="utf-8"))
         else:
             root = scratch / "trees" / arch.stem
             tree_meta = scratch / "trees" / f"{arch.stem}.tree.json"
             if tree_meta.exists():
-                tree = json.loads(tree_meta.read_text())
+                tree = json.loads(tree_meta.read_text(encoding="utf-8"))
             else:
                 tree = hist.build(root, archive_time(arch))
-                tree_meta.write_text(json.dumps(tree))
+                tree_meta.write_text(json.dumps(tree), encoding="utf-8")
             raw = load_raw(arch)
             t0 = time.time()
             contract = build_api_data_contract(raw, csv_root=root, source_overrides=overrides)
@@ -378,7 +378,7 @@ def build_boards(
             entry["csvFiles"] = tree["files"]
             entry["archive"] = arch.name
             entry["scrapeTimestamp"] = raw.get("scrapeTimestamp")
-            cache.write_text(json.dumps(entry))
+            cache.write_text(json.dumps(entry), encoding="utf-8")
         boards[d] = entry
         rows = entry["rows"]
         priced = sorted((r["v"] for r in rows.values() if r["v"]), reverse=True)
@@ -920,7 +920,7 @@ def run_ros_lane(boards: dict[date, dict], dates: list[date]) -> dict[str, Any]:
         snap = _ros_snapshot_for(d)
         if snap is None or d not in boards:
             continue
-        ros = json.loads(snap.read_text()).get("players") or []
+        ros = json.loads(snap.read_text(encoding="utf-8")).get("players") or []
         ros_idx: dict[tuple, dict] = {}
         for p in ros:
             pos = normalize_position(p.get("position"))
@@ -1229,7 +1229,7 @@ def main(argv: list[str] | None = None) -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     # one top-level key per line, compact inside: the lane blocks are large
     lines = [f" {json.dumps(k)}: {json.dumps(v, separators=(',', ':'))}" for k, v in result.items()]
-    args.out.write_text("{\n" + ",\n".join(lines) + "\n}\n")
+    args.out.write_text("{\n" + ",\n".join(lines) + "\n}\n", encoding="utf-8")
     print(f"wrote {args.out} in {result['runtimeSeconds']} s", flush=True)
     return 0
 

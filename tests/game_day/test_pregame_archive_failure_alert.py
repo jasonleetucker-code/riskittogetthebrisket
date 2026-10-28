@@ -232,7 +232,7 @@ def test_the_raw_log_is_still_retained_on_failure(monkeypatch, kv):
     assert _weekly_log_bytes() == before  # the evidence is byte-identical
     assert not live.pregame_archive_path(SEASON, WEEK).exists()
     marker = live._pregame_failure_path(SEASON, WEEK)
-    assert marker.exists() and "kickoffs_unknown" in marker.read_text()
+    assert marker.exists() and "kickoffs_unknown" in marker.read_text(encoding="utf-8")
     # Raising the alert does not change any of that.
     _sweep(kv, Sink(), live.pregame_archive_health())
     assert _obs_dir().is_dir() and _weekly_log_bytes() == before

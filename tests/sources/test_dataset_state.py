@@ -130,7 +130,7 @@ class TestFailuresNeverLookFresh:
     def test_failed_scrape_moves_neither_clock(self, tmp_path):
         state_dir = tmp_path / "state"
         csv = tmp_path / "board.csv"
-        csv.write_text(_board(BASE, PICKS))
+        csv.write_text(_board(BASE, PICKS), encoding="utf-8")
         before, _ = record_source_file(
             source_key="dlfSf", csv_path=csv, signal="value", state_dir=state_dir, observed_at=T0
         )
@@ -200,8 +200,10 @@ class TestIdpSubsetsAreIndependent:
         state_dir = tmp_path / "s"
         a = tmp_path / "a.csv"
         b = tmp_path / "b.csv"
-        a.write_text(_board(BASE))
-        b.write_text("name,rank\n" + "".join(f"P{i},{i + 1}\n" for i in range(100)))
+        a.write_text(_board(BASE), encoding="utf-8")
+        b.write_text(
+            "name,rank\n" + "".join(f"P{i},{i + 1}\n" for i in range(100)), encoding="utf-8"
+        )
         record_source_file(
             source_key="idpTradeCalc",
             csv_path=a,
@@ -216,7 +218,7 @@ class TestIdpSubsetsAreIndependent:
             state_dir=state_dir,
             observed_at=T0,
         )
-        a.write_text(_board({k: v + 1 for k, v in BASE.items()}))
+        a.write_text(_board({k: v + 1 for k, v in BASE.items()}), encoding="utf-8")
         idptc, _ = record_source_file(
             source_key="idpTradeCalc",
             csv_path=a,
@@ -240,7 +242,7 @@ class TestIdpSubsetsAreIndependent:
 class TestPersistenceIsQuiet:
     def test_unchanged_refetch_does_not_rewrite_the_file(self, tmp_path):
         csv = tmp_path / "b.csv"
-        csv.write_text(_board(BASE))
+        csv.write_text(_board(BASE), encoding="utf-8")
         _, first = record_source_file(
             source_key="k", csv_path=csv, signal="value", state_dir=tmp_path, observed_at=T0
         )

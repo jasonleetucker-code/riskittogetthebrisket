@@ -106,7 +106,7 @@ def test_a_deploy_landing_mid_run_makes_the_run_unusable(box, capsys, monkeypatc
 
 
 def test_the_workflow_does_not_share_the_deploy_queue():
-    text = (REPO / ".github/workflows/signals-onbox-verification.yml").read_text()
+    text = (REPO / ".github/workflows/signals-onbox-verification.yml").read_text(encoding="utf-8")
     assert "group: production-deploy" not in text
     assert "group: signals-onbox-verification" in text
 
@@ -186,10 +186,9 @@ def test_candidate_f_statistics_are_quarantined_unless_requested(box, capsys, mo
     assert seen["promote"] is False
     assert public["idpPromotedBuild"].startswith("quarantined_until_R1")
     assert "idp" not in public and "watchList_outcomes" not in public
-    assert (
-        "--candidate-f"
-        not in (REPO / ".github/workflows/signals-onbox-verification.yml").read_text()
-    )
+    assert "--candidate-f" not in (
+        REPO / ".github/workflows/signals-onbox-verification.yml"
+    ).read_text(encoding="utf-8")
 
 
 def test_the_guard_refuses_a_name_or_a_forbidden_key():

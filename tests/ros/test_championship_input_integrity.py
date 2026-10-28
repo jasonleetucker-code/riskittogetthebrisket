@@ -236,7 +236,7 @@ class TestRefreshKeepsLastGoodTeamStrength(_TmpRosDir):
         written, failures = self._run_one_league(nfl, agg)
         self.assertIsNotNone(written)
         self.assertEqual(failures, {})
-        rows = json.loads(Path(written).read_text())
+        rows = json.loads(Path(written).read_text(encoding="utf-8"))
         self.assertGreater(rows[0]["teamRosStrength"], 0)
 
 
@@ -312,7 +312,7 @@ class TestTeamStrengthReadPathRefusesEvidenceLessRows(_TmpRosDir):
         zero_rows = _strength_rows(["o1", "o2"], [0.0, 0.0])
         target = team_strength._team_strength_path(None)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(zero_rows))
+        target.write_text(json.dumps(zero_rows), encoding="utf-8")
         with patch.object(team_strength, "compute_team_strength_live", return_value=zero_rows):
             self.assertEqual(team_strength.load_or_compute_team_strength(None), [])
 
@@ -534,8 +534,12 @@ class TestPerLeagueIsolation(_TmpRosDir):
         championship file is no longer read by any section)."""
         sims = self.root / "sims"
         sims.mkdir(parents=True)
-        (sims / "latest_playoff.json").write_text(json.dumps({"computedAt": "main"}))
-        (sims / "dynasty_new_playoff.json").write_text(json.dumps({"computedAt": "new"}))
+        (sims / "latest_playoff.json").write_text(
+            json.dumps({"computedAt": "main"}), encoding="utf-8"
+        )
+        (sims / "dynasty_new_playoff.json").write_text(
+            json.dumps({"computedAt": "new"}), encoding="utf-8"
+        )
         with patch.object(league_registry, "default_league_key", return_value="dynasty_main"):
             new = championship.build_section(self.snaps["dynasty_new"])
             main = championship.build_section(self.snaps["dynasty_main"])

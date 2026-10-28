@@ -50,13 +50,18 @@ def test_corrupt_artifact_degrades_without_raising(tmp_path):
 
 def test_schema_mismatch_degrades(tmp_path):
     p = tmp_path / "model.json"
-    p.write_text(json.dumps({"schemaVersion": 999, "scale": {"rosValuePerPoint": 3}}))
+    p.write_text(
+        json.dumps({"schemaVersion": 999, "scale": {"rosValuePerPoint": 3}}), encoding="utf-8"
+    )
     assert load_points_model(p).source == "fallback-constants"
 
 
 def test_artifact_without_usable_scale_degrades(tmp_path):
     p = tmp_path / "model.json"
-    p.write_text(json.dumps({"schemaVersion": SCHEMA_VERSION, "scale": {"rosValuePerPoint": 0}}))
+    p.write_text(
+        json.dumps({"schemaVersion": SCHEMA_VERSION, "scale": {"rosValuePerPoint": 0}}),
+        encoding="utf-8",
+    )
     assert load_points_model(p).source == "fallback-constants"
 
 
@@ -71,7 +76,8 @@ def test_valid_artifact_loads_as_calibrated(tmp_path):
                 "scale": {"rosValuePerPoint": 3.1, "r2": 0.6, "n": 400},
                 "byPosition": {"QB": {"cv": 0.28, "n": 100, "measured": True}},
             }
-        )
+        ),
+        encoding="utf-8",
     )
     model = load_points_model(p)
     assert model.source == "calibrated"

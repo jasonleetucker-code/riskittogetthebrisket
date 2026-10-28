@@ -158,7 +158,7 @@ def render(snapshots, results) -> str:
 
 def write_csv(results, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="") as f:
+    with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["alpha", "lambda", "value_weighted_rank_change"])
         for r in results:
@@ -188,7 +188,7 @@ def main() -> int:
     results = sweep_2d(snapshots)
     report = render(snapshots, results)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(report)
+    args.out.write_text(report, encoding="utf-8")
     write_csv(results, args.csv)
     print(report)
     print(f"\nWrote report: {args.out}")

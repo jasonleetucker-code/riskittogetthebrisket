@@ -293,7 +293,7 @@ class TestRankDisplacementZeroSum:
         path = Path(__file__).resolve().parents[2] / "audit" / "baseline" / "api_data.json"
         if not path.exists():
             pytest.skip("baseline snapshot not present")
-        rows = json.loads(path.read_text())["playersArray"]
+        rows = json.loads(path.read_text(encoding="utf-8"))["playersArray"]
         d = measure_rank_displacement(rows, "ktc", "ktcSfTep")
         assert d.detected is True
         assert d.control_cohesion > 0.9  # controls kept their own order
@@ -367,7 +367,7 @@ class TestLiveBoard:
         path = Path(__file__).resolve().parents[2] / "audit" / "baseline" / "api_data.json"
         if not path.exists():
             pytest.skip("baseline contract snapshot not present")
-        return json.loads(path.read_text())["playersArray"]
+        return json.loads(path.read_text(encoding="utf-8"))["playersArray"]
 
     def test_ktc_pair_is_the_one_usable_calibration(self):
         result = measure_paired_te_premium(self._rows(), "ktc", "ktcSfTep")

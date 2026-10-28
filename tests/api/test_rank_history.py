@@ -122,7 +122,7 @@ class AppendSnapshot(unittest.TestCase):
                 _contract_with({"A": 1, "B": 2}), date="2026-04-20", path=path
             )
             self.assertTrue(ok)
-            entries = [json.loads(line) for line in path.read_text().splitlines()]
+            entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
             self.assertEqual(len(entries), 1)
             self.assertEqual(entries[0]["date"], "2026-04-20")
             self.assertEqual(entries[0]["ranks"], {_key("A"): 1, _key("B"): 2})
@@ -134,7 +134,7 @@ class AppendSnapshot(unittest.TestCase):
             path = Path(tmp) / "rank_history.jsonl"
             rank_history.append_snapshot(_contract_with({"A": 1}), date="2026-04-20", path=path)
             rank_history.append_snapshot(_contract_with({"A": 5}), date="2026-04-20", path=path)
-            entries = [json.loads(line) for line in path.read_text().splitlines()]
+            entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
             self.assertEqual(len(entries), 1)
             self.assertEqual(entries[0]["ranks"], {_key("A"): 5})
 
@@ -148,7 +148,7 @@ class AppendSnapshot(unittest.TestCase):
                     path=path,
                     max_snapshots=5,
                 )
-            entries = [json.loads(line) for line in path.read_text().splitlines()]
+            entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
             self.assertEqual(len(entries), 5)
             # Newest 5 retained, oldest dropped.
             dates = [e["date"] for e in entries]
@@ -222,7 +222,7 @@ class LoadHistory(unittest.TestCase):
                 date="2026-04-20",
                 path=path,
             )
-            entries = [json.loads(line) for line in path.read_text().splitlines()]
+            entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
             self.assertEqual(entries[0]["values"], {_key("Stud"): 9712})
             series = rank_history.load_history(days=30, path=path)
             self.assertEqual(series[_key("Stud")][-1]["val"], 9712)
@@ -234,7 +234,7 @@ class LoadHistory(unittest.TestCase):
         # see the same shape.
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "rank_history.jsonl"
-            with path.open("w") as f:
+            with path.open("w", encoding="utf-8") as f:
                 f.write(
                     json.dumps(
                         {
@@ -275,7 +275,7 @@ class LoadHistory(unittest.TestCase):
         # simulate by writing one good line + one bad manually.
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "rank_history.jsonl"
-            with path.open("w") as f:
+            with path.open("w", encoding="utf-8") as f:
                 f.write(json.dumps({"date": "2026-04-01", "ranks": {_key("A"): 1}}) + "\n")
                 f.write("{not valid json\n")
                 f.write(json.dumps({"date": "2026-04-02", "ranks": {_key("A"): 2}}) + "\n")

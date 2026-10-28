@@ -85,7 +85,7 @@ class TestLoadCanonicalConfig:
 
 
 def _minimal_snapshot() -> dict:
-    raw = json.loads(find_latest_snapshot().read_text())
+    raw = json.loads(find_latest_snapshot().read_text(encoding="utf-8"))
     return raw
 
 
@@ -142,7 +142,9 @@ class TestValidation:
 
 def _seed_dir(tmp_path: Path) -> Path:
     stored = _minimal_snapshot()
-    (tmp_path / "sleeper_league_snapshot_2026-07-01.json").write_text(json.dumps(stored))
+    (tmp_path / "sleeper_league_snapshot_2026-07-01.json").write_text(
+        json.dumps(stored), encoding="utf-8"
+    )
     return tmp_path
 
 
@@ -166,7 +168,9 @@ class TestRefreshSnapshot:
         assert drift.scoring_changed == {"rec": (0.08, 0.5)}
         assert drift.new_snapshot is not None and drift.new_snapshot.exists()
         # Old snapshot untouched (report, not mutation)
-        old = json.loads((d / "sleeper_league_snapshot_2026-07-01.json").read_text())
+        old = json.loads(
+            (d / "sleeper_league_snapshot_2026-07-01.json").read_text(encoding="utf-8")
+        )
         assert old["scoring_settings"]["rec"] == 0.08
         # New snapshot becomes the one load_canonical_config picks up
         assert find_latest_snapshot(d) == drift.new_snapshot

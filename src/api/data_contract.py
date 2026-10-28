@@ -1863,7 +1863,11 @@ def _build_source_timestamps(
             else:
                 last_epoch = st.st_mtime
                 try:
-                    stamp_text = (state_dir / f"{source_key}_last_success").read_text().strip()
+                    stamp_text = (
+                        (state_dir / f"{source_key}_last_success")
+                        .read_text(encoding="utf-8")
+                        .strip()
+                    )
                     if stamp_text:
                         last_epoch = float(stamp_text)
                 except (OSError, ValueError):

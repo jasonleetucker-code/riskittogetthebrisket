@@ -25,7 +25,9 @@ SECRET = "s%3AsuperSecretSessionValue0123456789abcdef"
 
 
 def _jar(tmp_path: Path, cookies: list[dict]) -> Path:
-    (tmp_path / "idpshow_session.json").write_text(json.dumps({"cookies": cookies}))
+    (tmp_path / "idpshow_session.json").write_text(
+        json.dumps({"cookies": cookies}), encoding="utf-8"
+    )
     return tmp_path
 
 
@@ -34,7 +36,7 @@ def test_absent_jar_is_absent_not_expired(tmp_path):
 
 
 def test_malformed_jar_is_named(tmp_path):
-    (tmp_path / "idpshow_session.json").write_text("{not json")
+    (tmp_path / "idpshow_session.json").write_text("{not json", encoding="utf-8")
     assert V.check_session(tmp_path)["state"] == "malformed"
 
 
@@ -86,7 +88,7 @@ def test_fingerprint_detects_content_not_order():
 
 def test_committed_csv_round_trips_the_fetcher_columns(tmp_path):
     p = tmp_path / "board.csv"
-    p.write_text("name,position,rank\nA,LB,1\nB,DE,2\n")
+    p.write_text("name,position,rank\nA,LB,1\nB,DE,2\n", encoding="utf-8")
     rows = V.committed_rows(p)
     assert V.content_fingerprint(rows) == V.content_fingerprint(
         [{"name": "A", "position": "LB", "rank": 1}, {"name": "B", "position": "DE", "rank": 2}]
@@ -95,7 +97,9 @@ def test_committed_csv_round_trips_the_fetcher_columns(tmp_path):
 
 
 def test_workflow_is_dispatch_only_and_prints_only_the_script_output():
-    wf = (REPO / ".github" / "workflows" / "idpshow-onbox-verification.yml").read_text()
+    wf = (REPO / ".github" / "workflows" / "idpshow-onbox-verification.yml").read_text(
+        encoding="utf-8"
+    )
     assert "workflow_dispatch" in wf
     assert "push:" not in wf and "schedule:" not in wf
     assert "verify_idpshow_onbox.py" in wf

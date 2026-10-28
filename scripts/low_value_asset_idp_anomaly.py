@@ -788,7 +788,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
     SR.P2.assert_aggregate_only({k: v for k, v in result.items() if k != "board"})
     SR.P2.assert_aggregate_only({k: v for k, v in result["board"].items() if k != "sha256"})
     out = REPO / args.out
-    out.write_text(json.dumps(result, indent=1, default=str) + "\n")
+    out.write_text(json.dumps(result, indent=1, default=str) + "\n", encoding="utf-8")
     print(json.dumps({"out": str(out), "timingsSec": result["timingsSec"]}))
     return 0
 

@@ -183,7 +183,8 @@ def main(argv: list[str] | None = None) -> int:
     os.environ.pop("RISKIT_FEATURE_SOURCE_FAMILY_CAP", None)
     feature_flags.reload()
     (args.out / "summary.json").write_text(
-        json.dumps({"window": [args.start, args.end], "days": per_day}, indent=1, sort_keys=True)
+        json.dumps({"window": [args.start, args.end], "days": per_day}, indent=1, sort_keys=True),
+        encoding="utf-8",
     )
     print(f"wrote {args.out / 'summary.json'}")
     return 0

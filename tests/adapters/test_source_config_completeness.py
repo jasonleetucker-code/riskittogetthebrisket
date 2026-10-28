@@ -53,12 +53,12 @@ RANK_SIGNAL_SOURCES = {
 
 @pytest.fixture
 def config():
-    return json.loads(CONFIG_PATH.read_text())
+    return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
 @pytest.fixture
 def weights():
-    return json.loads(WEIGHTS_PATH.read_text())
+    return json.loads(WEIGHTS_PATH.read_text(encoding="utf-8"))
 
 
 def _enabled_bridge_sources(cfg):

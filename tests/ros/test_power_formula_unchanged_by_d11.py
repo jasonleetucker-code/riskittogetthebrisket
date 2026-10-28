@@ -80,7 +80,7 @@ def _section(flag_value: str, monkeypatch) -> dict:
         root = Path(tmp)
         target = root / "team_strength" / "latest.json"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(rows))
+        target.write_text(json.dumps(rows), encoding="utf-8")
         with patch.object(team_strength, "ROS_DATA_DIR", root):
             section = power_v2.build_section(snapshot)
     section.pop("generatedAt", None)

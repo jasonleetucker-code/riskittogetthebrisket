@@ -163,7 +163,7 @@ def build_baseline(worktree: Path, payload: Path, root: Path, scratch: Path) -> 
         check=True,
         capture_output=True,
     )
-    rows = json.loads(out.read_text())
+    rows = json.loads(out.read_text(encoding="utf-8"))
     return {
         k: {"value": v[0], "rank": v[1], "assetClass": v[2], "position": v[3]}
         for k, v in rows.items()
@@ -284,7 +284,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 raw = json.loads(z.read(member))
             payload_path = root / "payload.json"
-            payload_path.write_text(json.dumps(raw))
+            payload_path.write_text(json.dumps(raw), encoding="utf-8")
             boards = {
                 "production": build_baseline(args.baseline_worktree, payload_path, root, root)
             }
@@ -326,7 +326,9 @@ def main(argv: list[str] | None = None) -> int:
             if k in ("production", "split", "fresh_C4")
         },
     }
-    (args.out / "summary.json").write_text(json.dumps(summary, indent=1, sort_keys=True))
+    (args.out / "summary.json").write_text(
+        json.dumps(summary, indent=1, sort_keys=True), encoding="utf-8"
+    )
     print(f"wrote {args.out / 'summary.json'}")
     return 0
 

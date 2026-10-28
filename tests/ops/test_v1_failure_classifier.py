@@ -788,12 +788,13 @@ def test_a_probe_that_errored_does_not_count_as_unauthenticated():
 
 def test_cli_classify_writes_a_public_safe_report_and_summary(tmp_path, monkeypatch):
     cookie_file = tmp_path / "cookie"
-    cookie_file.write_text(COOKIE)
+    cookie_file.write_text(COOKIE, encoding="utf-8")
     safe = tmp_path / "safe.json"
     safe.write_text(
         json.dumps(
             {"tests": [_t(f"Private {COOKIE}", ms=900), _t("ok", status="passed", cls=None, ms=10)]}
-        )
+        ),
+        encoding="utf-8",
     )
     out = tmp_path / "out.json"
     summary = tmp_path / "summary.md"
@@ -820,12 +821,12 @@ def test_cli_classify_writes_a_public_safe_report_and_summary(tmp_path, monkeypa
         ]
     )
     assert rc == 0
-    blob = out.read_text() + summary.read_text()
+    blob = out.read_text(encoding="utf-8") + summary.read_text(encoding="utf-8")
     assert COOKIE not in blob
-    report = json.loads(out.read_text())
+    report = json.loads(out.read_text(encoding="utf-8"))
     assert report["deployment"]["revision"] == "match"
     assert report["counts"] == {"product_assertion": 1}
-    assert "V1 failure classification" in summary.read_text()
+    assert "V1 failure classification" in summary.read_text(encoding="utf-8")
 
 
 def test_cli_classify_survives_a_missing_report_and_never_raises(tmp_path, monkeypatch):
@@ -833,7 +834,7 @@ def test_cli_classify_survives_a_missing_report_and_never_raises(tmp_path, monke
     out = tmp_path / "out.json"
     rc = vfc.main(["classify", "--safe-report", str(tmp_path / "nope.json"), "--out", str(out)])
     assert rc == 0
-    assert json.loads(out.read_text())["tests"]["total"] == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["tests"]["total"] == 0
 
 
 # ---------------------------------------------------------------------------

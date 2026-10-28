@@ -88,7 +88,7 @@ def main() -> int:
     args = ap.parse_args()
 
     try:
-        doc = json.loads(args.input.read_text())
+        doc = json.loads(args.input.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         print(f"ERROR: cannot read {args.input}: {exc}", file=sys.stderr)
         return 1

@@ -254,7 +254,7 @@ def test_cli_evaluate_uses_the_challengers_seed_and_preregistration(monkeypatch,
     assert set(seeds) == {17} and len(seeds) == 7
     import json
 
-    written = json.loads(out.read_text())
+    written = json.loads(out.read_text(encoding="utf-8"))
     assert written["bootstrapSeed"] == 17
     assert written["preregistration"].endswith("rank-space-hampel-2026-10-17/PREREGISTRATION.md")
 

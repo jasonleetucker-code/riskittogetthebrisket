@@ -40,7 +40,7 @@ def _write_run(root: Path, env=ENV, ts=TS) -> dict:
 
 
 def _ledger(root: Path) -> list[dict]:
-    return [json.loads(x) for x in (root / ce.UPLOADS_REL).read_text().splitlines()]
+    return [json.loads(x) for x in (root / ce.UPLOADS_REL).read_text(encoding="utf-8").splitlines()]
 
 
 # ── the workflow wiring ─────────────────────────────────────────────────
@@ -132,10 +132,10 @@ def test_status_is_unrecorded_for_unknown_boards_and_torn_lines(tmp_path):
     m = _write_run(tmp_path)
     ledger = tmp_path / ce.UPLOADS_REL
     assert ce.upload_status(ledger, m) == ce.UPLOAD_UNRECORDED
-    ledger.write_text('{"scrapeTimestamp": "' + TS + '", "evidenceSha2\n')
+    ledger.write_text('{"scrapeTimestamp": "' + TS + '", "evidenceSha2\n', encoding="utf-8")
     assert ce.upload_status(ledger, m) == ce.UPLOAD_UNRECORDED
     other = {"scrapeTimestamp": TS, "evidenceSha256": "0" * 64, "artifactUpload": "uploaded"}
-    ledger.write_text(json.dumps(other) + "\n")
+    ledger.write_text(json.dumps(other) + "\n", encoding="utf-8")
     assert ce.upload_status(ledger, m) == ce.UPLOAD_UNRECORDED  # same time, other evidence
 
 
@@ -158,7 +158,7 @@ def test_a_failed_upload_is_loud_and_exits_zero(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert out.startswith("::error title=Identity evidence NOT retained::")
     assert TS in out and m["evidence"]["sha256"] in out
-    text = summary.read_text()
+    text = summary.read_text(encoding="utf-8")
     assert "NOT retained" in text and TS in text and m["evidence"]["sha256"] in text
 
 

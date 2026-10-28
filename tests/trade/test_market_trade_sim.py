@@ -492,7 +492,8 @@ def test_cli_emits_strict_synthetic_json(tmp_path):
     )
     assert res.returncode == 0, res.stderr
     data = json.loads(
-        out.read_text(), parse_constant=lambda c: pytest.fail(f"non-strict JSON constant {c}")
+        out.read_text(encoding="utf-8"),
+        parse_constant=lambda c: pytest.fail(f"non-strict JSON constant {c}"),
     )
     assert data["synthetic"] is True and data["observed"] == {"train_trades": 50.0}
     assert len(data["points"]) == 2
@@ -516,7 +517,7 @@ def test_cli_emits_strict_synthetic_json(tmp_path):
         assert joint["required_train_trades"]["required"] == max(acc["required"], cov["required"])
     else:
         assert joint["required_train_trades"]["required"] is None
-    assert "## Requirements" in md.read_text()
+    assert "## Requirements" in md.read_text(encoding="utf-8")
     comp = subprocess.run(
         [
             sys.executable,
@@ -547,7 +548,8 @@ def test_config_json_takes_aggregates_and_refuses_ids_and_unknown_keys(tmp_path)
     good.write_text(
         json.dumps(
             {"topology": [[1, 1, 0.5], [2, 1, 0.5]], "maturity_probs": [0.5, 0.5], "n_leagues": 9}
-        )
+        ),
+        encoding="utf-8",
     )
     over = cli.load_config_overrides(good)
     cfg = replace(sim.SimConfig(), **over)
@@ -558,10 +560,10 @@ def test_config_json_takes_aggregates_and_refuses_ids_and_unknown_keys(tmp_path)
     )
     bad = tmp_path / "bad.json"
     fake_id = "9" * 18  # built at runtime: no id-shaped literal in a public repo
-    bad.write_text(json.dumps({"leagueIds": [fake_id]}))
+    bad.write_text(json.dumps({"leagueIds": [fake_id]}), encoding="utf-8")
     with pytest.raises(ValueError, match="unknown SimConfig keys"):
         cli.load_config_overrides(bad)
     sneaky = tmp_path / "sneaky.json"
-    sneaky.write_text(json.dumps({"_comment": f"from league {fake_id}"}))
+    sneaky.write_text(json.dumps({"_comment": f"from league {fake_id}"}), encoding="utf-8")
     with pytest.raises(ValueError, match="long numeric id"):
         cli.load_config_overrides(sneaky)

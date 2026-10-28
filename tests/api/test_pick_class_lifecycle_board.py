@@ -144,7 +144,8 @@ def boards(tmp_path_factory):
             card = dict(raw["sleeper"]["scoringSettings"])
             card["rec"] = float(card.get("rec") or 0) + 0.37  # a PROVEN difference
             (different / f"scoring_{cfg.sleeper_league_id}.json").write_text(
-                json.dumps({"sleeperLeagueId": cfg.sleeper_league_id, "scoringSettings": card})
+                json.dumps({"sleeperLeagueId": cfg.sleeper_league_id, "scoringSettings": card}),
+                encoding="utf-8",
             )
         out["retired"] = build_api_data_contract(copy.deepcopy(raw))
         # A LATER class retiring too (2027 evidence; 2026 follows by
@@ -165,7 +166,8 @@ def boards(tmp_path_factory):
                         "sleeperLeagueId": cfg.sleeper_league_id,
                         "scoringSettings": dict(raw["sleeper"]["scoringSettings"]),
                     }
-                )
+                ),
+                encoding="utf-8",
             )
         out["kept"] = build_api_data_contract(copy.deepcopy(raw))
     finally:

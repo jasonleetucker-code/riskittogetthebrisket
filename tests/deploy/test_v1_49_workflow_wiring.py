@@ -66,7 +66,7 @@ _EXPECTED_INPUT_NAMES = {
 
 
 def _load_workflow() -> dict:
-    return yaml.safe_load(_WORKFLOW_PATH.read_text())
+    return yaml.safe_load(_WORKFLOW_PATH.read_text(encoding="utf-8"))
 
 
 def _on_block(document: dict) -> dict:
@@ -134,7 +134,7 @@ def test_every_remote_ssh_invocation_pipes_the_one_fixed_script():
     """Every SSH call must end in `bash -s" < deploy/diagnostics/v1_49_host_native_activation.sh`
     — never a caller-constructed command string.
     """
-    text = _WORKFLOW_PATH.read_text()
+    text = _WORKFLOW_PATH.read_text(encoding="utf-8")
     ssh_invocations = re.findall(r'"\$DEPLOY_USER@\$DEPLOY_HOST"\s*\\\n(.*?)\n', text)
     assert ssh_invocations, "expected at least one SSH invocation in the workflow"
     fixed_script_pipes = re.findall(
@@ -151,7 +151,7 @@ def test_every_remote_ssh_invocation_pipes_the_one_fixed_script():
 
 
 def test_only_the_allowed_env_keys_are_threaded_into_the_remote_command():
-    text = _WORKFLOW_PATH.read_text()
+    text = _WORKFLOW_PATH.read_text(encoding="utf-8")
     keys = set(
         re.findall(r"([A-Z_][A-Z0-9_]*)=(?:preflight|activate|rollback|\$\(printf %q)", text)
     )
@@ -167,21 +167,21 @@ def test_reason_is_never_interpolated_directly_as_a_bash_or_python_expression():
     directly into a command string or Python source, which is exactly
     what would let it break out and execute as code.
     """
-    workflow_text = _WORKFLOW_PATH.read_text()
+    workflow_text = _WORKFLOW_PATH.read_text(encoding="utf-8")
     assert 'REASON=$(printf %q "${{ inputs.reason }}")' in workflow_text
     # No other raw appearance of the reason input outside the guarded
     # printf-%q assignment and the human-readable job-summary echo.
     raw_reason_uses = re.findall(r"\$\{\{\s*inputs\.reason\s*\}\}", workflow_text)
     assert len(raw_reason_uses) <= 3  # printf %q, safety-net synthetic reason text, job summary
 
-    script_text = _SCRIPT_PATH.read_text()
+    script_text = _SCRIPT_PATH.read_text(encoding="utf-8")
     assert "'''${REASON}'''" not in script_text
     assert "REPORT_REASON" in script_text
     assert "os.environ['REPORT_REASON']" in script_text
 
 
 def test_flag_key_is_a_hardcoded_constant_not_an_input():
-    script_text = _SCRIPT_PATH.read_text()
+    script_text = _SCRIPT_PATH.read_text(encoding="utf-8")
     assert 'FLAG_KEY="RISKIT_FEATURE_HOST_NATIVE_SCORING"' in script_text
 
     # The flag name may appear in the workflow's prose comments (it does,
@@ -197,13 +197,13 @@ def test_flag_key_is_a_hardcoded_constant_not_an_input():
 
 
 def test_exactly_one_rollback_implementation():
-    script_text = _SCRIPT_PATH.read_text()
+    script_text = _SCRIPT_PATH.read_text(encoding="utf-8")
     definitions = re.findall(r"^do_rollback\(\)\s*\{", script_text, flags=re.MULTILINE)
     assert len(definitions) == 1, "there must be exactly one do_rollback() implementation"
 
 
 def test_do_rollback_is_called_from_exactly_the_two_expected_sites():
-    script_text = _SCRIPT_PATH.read_text()
+    script_text = _SCRIPT_PATH.read_text(encoding="utf-8")
     calls = re.findall(r'do_rollback "\$\{state_dir\}"', script_text)
     # Once from the automatic ERR trap handler, once from the explicit
     # rollback action branch.
@@ -283,7 +283,8 @@ def test_env_file_is_never_sourced_as_bash(tmp_path):
         "BAZ=qux with spaces\n"
         "# a comment\n"
         "\n"
-        "EMPTY_VALUE=\n"
+        "EMPTY_VALUE=\n",
+        encoding="utf-8",
     )
     result = _source_script_and_run(
         app_dir,
@@ -304,7 +305,7 @@ def test_env_file_is_never_sourced_as_bash(tmp_path):
 def test_env_sourced_python_env_args_skips_malformed_lines_silently(tmp_path):
     app_dir = tmp_path / "app"
     app_dir.mkdir()
-    (app_dir / ".env").write_text("A=1\nnot a key value line\nB=2\n")
+    (app_dir / ".env").write_text("A=1\nnot a key value line\nB=2\n", encoding="utf-8")
     result = _source_script_and_run(app_dir, "env_sourced_python_env_args")
     assert result.returncode == 0, result.stderr
     lines = [line for line in result.stdout.splitlines() if line]
@@ -351,7 +352,7 @@ def test_validate_activation_id_rejects_path_traversal_and_empty_values():
 
 
 def test_do_activate_and_do_rollback_action_both_validate_activation_id():
-    script_text = _SCRIPT_PATH.read_text()
+    script_text = _SCRIPT_PATH.read_text(encoding="utf-8")
     do_activate_body = script_text.split("do_activate() {", 1)[1].split(
         "\ndo_rollback_action()", 1
     )[0]
@@ -372,9 +373,9 @@ def _run_wait_for_service_health(
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     counter_file = tmp_path / "attempts"
-    counter_file.write_text("0")
+    counter_file.write_text("0", encoding="utf-8")
     curl_stub = fake_bin / "curl"
-    curl_stub.write_text(f"#!/usr/bin/env bash\n{curl_body}\n")
+    curl_stub.write_text(f"#!/usr/bin/env bash\n{curl_body}\n", encoding="utf-8")
     curl_stub.chmod(0o755)
 
     script = f'source "{_SCRIPT_PATH}" >/dev/null 2>&1; wait_for_service_health'
@@ -417,7 +418,7 @@ exit 0
         {"HEALTH_CHECK_MAX_ATTEMPTS": "5", "HEALTH_CHECK_SLEEP_SECONDS": "0"},
     )
     assert result.returncode == 0, result.stderr
-    assert counter_file.read_text().strip() == "3"
+    assert counter_file.read_text(encoding="utf-8").strip() == "3"
 
 
 def test_wait_for_service_health_fails_after_exhausting_attempts(tmp_path):
@@ -433,7 +434,7 @@ exit 7
         {"HEALTH_CHECK_MAX_ATTEMPTS": "3", "HEALTH_CHECK_SLEEP_SECONDS": "0"},
     )
     assert result.returncode != 0
-    assert counter_file.read_text().strip() == "3"
+    assert counter_file.read_text(encoding="utf-8").strip() == "3"
 
 
 def test_both_health_checks_route_through_the_retry_helper():
@@ -443,7 +444,7 @@ def test_both_health_checks_route_through_the_retry_helper():
     call sites used before this fix, and the shape the false
     ROLLBACK_FAILED alarm on run 33192153602 was caused by).
     """
-    script_text = _SCRIPT_PATH.read_text()
+    script_text = _SCRIPT_PATH.read_text(encoding="utf-8")
     definitions = re.findall(r"^wait_for_service_health\(\)\s*\{", script_text, flags=re.MULTILINE)
     assert len(definitions) == 1
     # def + do_activate call + do_rollback call
@@ -452,7 +453,7 @@ def test_both_health_checks_route_through_the_retry_helper():
 
 
 def test_workflow_only_references_the_established_ssh_secrets():
-    text = _WORKFLOW_PATH.read_text()
+    text = _WORKFLOW_PATH.read_text(encoding="utf-8")
     expected_secrets = {
         "DEPLOY_SSH_PRIVATE_KEY",
         "DEPLOY_KNOWN_HOSTS",

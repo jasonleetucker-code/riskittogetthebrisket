@@ -1386,7 +1386,7 @@ def served_flags(status: Mapping[str, Any]) -> dict[str, bool]:
 
 def mem_available_mb() -> int | None:
     try:
-        for line in Path("/proc/meminfo").read_text().splitlines():
+        for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
             if line.startswith("MemAvailable:"):
                 return int(line.split()[1]) // 1024
     except (OSError, ValueError, IndexError):

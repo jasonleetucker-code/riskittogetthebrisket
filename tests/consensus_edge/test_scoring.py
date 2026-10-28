@@ -488,7 +488,7 @@ class TestVersionParity(unittest.TestCase):
             edited = json.loads(json.dumps(base))
             edited.pop("paramSetId", None)
             edited["composite"]["weights"]["mispricing"] = 0.99
-            path.write_text(json.dumps(edited))
+            path.write_text(json.dumps(edited), encoding="utf-8")
             self.assertNotEqual(params_mod.load(path)["paramSetId"], base["paramSetId"])
 
 

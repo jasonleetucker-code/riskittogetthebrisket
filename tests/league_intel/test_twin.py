@@ -177,7 +177,7 @@ class TestOnRealRosters:
         path = Path(__file__).resolve().parent / "fixtures" / "league_pool.json"
         if not path.exists():
             pytest.skip("league pool fixture not present")
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
 
     def test_a_real_trade_moves_both_sides_in_opposite_directions(self):
         pool = self._pool()

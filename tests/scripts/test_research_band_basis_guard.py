@@ -175,10 +175,16 @@ def test_the_detector_fires_on_a_decoy():
 
 def test_a_script_loading_a_legacy_module_is_caught(tmp_path):
     p = tmp_path / "decoy_script.py"
-    p.write_text('P1 = _load("package_model_hybrid_research")\nP1.level_v1_legacy(1, 2, 3)\n')
+    p.write_text(
+        'P1 = _load("package_model_hybrid_research")\nP1.level_v1_legacy(1, 2, 3)\n',
+        encoding="utf-8",
+    )
     assert _references_legacy(p)
     q = tmp_path / "clean_script.py"
-    q.write_text("from src.valuation_math import fairness_bands\nfairness_bands.receipt()\n")
+    q.write_text(
+        "from src.valuation_math import fairness_bands\nfairness_bands.receipt()\n",
+        encoding="utf-8",
+    )
     assert not _references_legacy(q)
 
 

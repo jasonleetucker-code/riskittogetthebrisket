@@ -102,9 +102,9 @@ def test_analysis_is_aggregate_only():
 
 def test_frozen_anchors_match_the_shadow_replay_evidence():
     ev = json.loads(
-        (
-            REPO / "docs/valuation/evidence/low_value_assets_2026-10-20/shadow_replay.json"
-        ).read_text()
+        (REPO / "docs/valuation/evidence/low_value_assets_2026-10-20/shadow_replay.json").read_text(
+            encoding="utf-8"
+        )
     )["S1_replacementAnchors"]
     assert {k: float(v) for k, v in ev["replacementAnchorDict"].items()} == B.ANCHORS
     for pos, line in B.STARTER_LINES.items():
@@ -122,7 +122,7 @@ def test_production_box_run_reading_is_pinned():
         (
             REPO
             / "docs/valuation/evidence/low_value_assets_2026-10-20/production_box_run_2026-10-20.json"
-        ).read_text()
+        ).read_text(encoding="utf-8")
     )
     B.P2.assert_aggregate_only(ev)
     guard = ev["readOnlyGuard"]

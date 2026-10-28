@@ -523,7 +523,7 @@ def _run_workers(
         for _ in range(n)
     ]
     time.sleep(1.0)  # let every interpreter start and block on the barrier
-    go.write_text("go")
+    go.write_text("go", encoding="utf-8")
     out = []
     for p in procs:
         stdout, stderr = p.communicate(timeout=120)

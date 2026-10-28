@@ -129,8 +129,8 @@ def main(argv: list[str] | None = None) -> int:
     from src.api import league_registry
     from src.league_comparison import service as svc
 
-    cfg = json.loads(CONFIG.read_text())
-    cards = json.loads(CARDS.read_text())
+    cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
+    cards = json.loads(CARDS.read_text(encoding="utf-8"))
     seasons = [int(s) for s in cfg["seasons"]]
 
     # "My league" is the registry's default league (W18-F005) — mirror

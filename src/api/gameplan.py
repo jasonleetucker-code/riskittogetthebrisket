@@ -428,7 +428,7 @@ def load_league_inputs(
     sim_path = _sim_playoff_path(league_key)
     try:
         if sim_path.exists():
-            payload = json.loads(sim_path.read_text())
+            payload = json.loads(sim_path.read_text(encoding="utf-8"))
             raw = payload.get("playoffOdds") if isinstance(payload, Mapping) else None
             if isinstance(raw, list) and raw:
                 playoff_odds = tuple(r for r in raw if isinstance(r, Mapping))

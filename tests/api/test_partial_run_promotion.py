@@ -161,9 +161,15 @@ def env(monkeypatch, tmp_path):
     (base / "exports" / "latest").mkdir(parents=True)
     (data / "exports" / "latest" / "site_raw").mkdir(parents=True)
     # The scraper's own output for this run, which the server may mirror.
-    (data / "exports" / "latest" / "site_raw" / "idpTradeCalc.csv").write_text("partial\n")
-    (data / "exports" / "latest" / "dynasty_data_2026-09-23.json").write_text("{}")
-    (base / "CSVs" / "site_raw" / "idpTradeCalc.csv").write_text("last-known-good\n")
+    (data / "exports" / "latest" / "site_raw" / "idpTradeCalc.csv").write_text(
+        "partial\n", encoding="utf-8"
+    )
+    (data / "exports" / "latest" / "dynasty_data_2026-09-23.json").write_text(
+        "{}", encoding="utf-8"
+    )
+    (base / "CSVs" / "site_raw" / "idpTradeCalc.csv").write_text(
+        "last-known-good\n", encoding="utf-8"
+    )
     monkeypatch.setattr(server, "BASE_DIR", base)
     monkeypatch.setattr(server, "DATA_DIR", data)
 
@@ -240,7 +246,7 @@ class TestPartialRunDoesNotReplaceHealthyBoard:
         _serve_healthy_lkg()
         _run(monkeypatch, PRODUCTION_PARTIAL)
         mirrored = env["base"] / "CSVs" / "site_raw" / "idpTradeCalc.csv"
-        assert mirrored.read_text() == "last-known-good\n"
+        assert mirrored.read_text(encoding="utf-8") == "last-known-good\n"
 
     def test_health_is_degraded_with_both_truths(self, env, monkeypatch) -> None:
         _serve_healthy_lkg()
@@ -269,7 +275,7 @@ class TestPartialRunDoesNotReplaceHealthyBoard:
         assert body["contract_ok"] is True
         # The complete run's own CSVs are mirrored again.
         mirrored = env["base"] / "CSVs" / "site_raw" / "idpTradeCalc.csv"
-        assert mirrored.read_text() == "partial\n"
+        assert mirrored.read_text(encoding="utf-8") == "partial\n"
 
 
 class TestColdStart:
@@ -322,7 +328,7 @@ class TestOtherRefusalsDoNotMirrorCsvs:
         _run(monkeypatch, result)
         assert env["primed"] == []
         mirrored = env["base"] / "CSVs" / "site_raw" / "idpTradeCalc.csv"
-        assert mirrored.read_text() == "last-known-good\n"
+        assert mirrored.read_text(encoding="utf-8") == "last-known-good\n"
         assert server.scrape_status["critical_source_failures"] == ["idpTradeCalc"]
 
 
@@ -335,9 +341,11 @@ class TestRestartKeepsTheVerdict:
         above the collapse floor), and startup recovery then serves the
         untouched ``exports/latest`` board, which has a valid contract.
         """
-        (env["data"] / "dynasty_data_2026-09-23.json").write_text(json.dumps(PRODUCTION_PARTIAL))
+        (env["data"] / "dynasty_data_2026-09-23.json").write_text(
+            json.dumps(PRODUCTION_PARTIAL), encoding="utf-8"
+        )
         (env["base"] / "exports" / "latest" / "dynasty_data_2026-09-23.json").write_text(
-            json.dumps(_scrape_result(players=LKG_PLAYERS))
+            json.dumps(_scrape_result(players=LKG_PLAYERS)), encoding="utf-8"
         )
         server.scrape_status["critical_source_failures"] = []  # a fresh process
         loaded = server.load_from_disk()
@@ -360,7 +368,9 @@ class TestRestartKeepsTheVerdict:
         """Same union the guard records: an empty anchor is a critical-source failure."""
         refused = _scrape_result(players=LKG_PLAYERS)
         refused["sites"][1]["playerCount"] = 0
-        (env["data"] / "dynasty_data_2026-09-23.json").write_text(json.dumps(refused))
+        (env["data"] / "dynasty_data_2026-09-23.json").write_text(
+            json.dumps(refused), encoding="utf-8"
+        )
         server.scrape_status["critical_source_failures"] = []
         loaded = server.load_from_disk()
         server._seed_ingestion_verdict_from_startup_payload(loaded)  # noqa: SLF001
@@ -368,7 +378,7 @@ class TestRestartKeepsTheVerdict:
 
     def test_a_complete_last_run_seeds_a_clean_verdict(self, env, monkeypatch) -> None:
         (env["data"] / "dynasty_data_2026-09-23.json").write_text(
-            json.dumps(_scrape_result(players=LKG_PLAYERS))
+            json.dumps(_scrape_result(players=LKG_PLAYERS)), encoding="utf-8"
         )
         server.scrape_status["critical_source_failures"] = ["stale"]
         loaded = server.load_from_disk()
@@ -377,7 +387,7 @@ class TestRestartKeepsTheVerdict:
 
     def test_a_checkout_load_leaves_the_verdict_alone(self, env, monkeypatch) -> None:
         (env["base"] / "exports" / "latest" / "dynasty_data_2026-09-23.json").write_text(
-            json.dumps(PRODUCTION_PARTIAL)
+            json.dumps(PRODUCTION_PARTIAL), encoding="utf-8"
         )
         server.scrape_status["critical_source_failures"] = []
         loaded = server.load_from_disk()

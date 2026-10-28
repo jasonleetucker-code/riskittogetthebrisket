@@ -142,7 +142,7 @@ def _load_env_dotfile(path: Path) -> None:
     already set.  Inline replacement for ``python-dotenv``."""
     if not path.exists():
         return
-    for raw in path.read_text().splitlines():
+    for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -159,7 +159,7 @@ def _load_session_cookies() -> list[dict]:
     if not SESSION_PATH.exists():
         return []
     try:
-        data = json.loads(SESSION_PATH.read_text())
+        data = json.loads(SESSION_PATH.read_text(encoding="utf-8"))
     except Exception:
         return []
     out: list[dict] = []
@@ -203,7 +203,7 @@ def _save_session_cookies(session) -> None:
         ),
         "cookies": cookies_out,
     }
-    SESSION_PATH.write_text(json.dumps(payload, indent=2) + "\n")
+    SESSION_PATH.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     try:
         SESSION_PATH.chmod(0o600)
     except Exception:

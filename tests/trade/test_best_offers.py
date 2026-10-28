@@ -330,8 +330,8 @@ def test_run_log_is_written_append_only_and_never_raises(tmp_path):
     run_id = bo.record_run(result, league_key="lg", board_stamp="t0", log_dir=tmp_path)
     assert run_id
     files = list(tmp_path.glob("runs-*.jsonl"))
-    assert len(files) == 1 and files[0].read_text().count("\n") == 1
+    assert len(files) == 1 and files[0].read_text(encoding="utf-8").count("\n") == 1
     # Unwritable target: returns None, never raises.
     blocker = tmp_path / "file"
-    blocker.write_text("x")
+    blocker.write_text("x", encoding="utf-8")
     assert bo.record_run(result, league_key="lg", board_stamp=None, log_dir=blocker / "sub") is None

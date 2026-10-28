@@ -75,7 +75,7 @@ def main() -> int:
     dc._stamp_rank_changes = lambda *a, **k: None  # noqa: ARG005
 
     payload_path = Path(args.payload)
-    contract = dc.build_api_data_contract(json.loads(payload_path.read_text()))
+    contract = dc.build_api_data_contract(json.loads(payload_path.read_text(encoding="utf-8")))
     rows = contract["playersArray"]
 
     params = load_param_set("params_v1")
@@ -164,7 +164,7 @@ def main() -> int:
         print(f"  {label:<32}{d['rows']:>6}{d['eligible']:>7} ({pct:5.1f}%)")
 
     if args.json:
-        Path(args.json).write_text(json.dumps(out, indent=2))
+        Path(args.json).write_text(json.dumps(out, indent=2), encoding="utf-8")
         print(f"\nwrote {args.json}")
     return 0
 

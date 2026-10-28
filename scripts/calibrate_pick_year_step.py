@@ -279,7 +279,7 @@ def main() -> int:
     print("\n=== derivedYearModel parameter block ===")
     print(json.dumps(block, indent=2))
     if args.json_out:
-        Path(args.json_out).write_text(json.dumps(block, indent=2) + "\n")
+        Path(args.json_out).write_text(json.dumps(block, indent=2) + "\n", encoding="utf-8")
         print(f"\nwritten: {args.json_out}")
     return 0
 

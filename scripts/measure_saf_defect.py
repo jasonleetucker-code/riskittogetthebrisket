@@ -48,7 +48,7 @@ CARD_FIXTURE = Path("tests/nfl_data/fixtures/live_scoring_cards_2026-07-28.json"
 
 
 def _load_card(root: Path, league_key: str) -> dict[str, Any]:
-    raw = json.loads((root / CARD_FIXTURE).read_text())[league_key]
+    raw = json.loads((root / CARD_FIXTURE).read_text(encoding="utf-8"))[league_key]
     return raw.get("scoring_settings", raw)
 
 
@@ -149,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"   players scored : {len(consumer['players']):,}")
     print(f"   total points   : {consumer['total']:>12,.2f}")
     if args.out:
-        Path(args.out).write_text(json.dumps(consumer, indent=1, sort_keys=True))
+        Path(args.out).write_text(json.dumps(consumer, indent=1, sort_keys=True), encoding="utf-8")
         print(f"   wrote {args.out} — diff it against the other tree's run")
 
     return 0

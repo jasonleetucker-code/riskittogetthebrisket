@@ -195,14 +195,14 @@ def test_isolation_moves_only_the_real_team_strength_directory():
 def test_the_guard_detects_added_modified_and_removed_files():
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
-        (base / ".gitkeep").write_text("")
-        (base / "kept.json").write_text("{}")
-        (base / "gone.json").write_text("{}")
+        (base / ".gitkeep").write_text("", encoding="utf-8")
+        (base / "kept.json").write_text("{}", encoding="utf-8")
+        (base / "gone.json").write_text("{}", encoding="utf-8")
         before = isolation.fingerprint([base])
         assert set(before) == {str(base / "kept.json"), str(base / "gone.json")}
 
         (base / "gone.json").unlink()
-        (base / "new.json").write_text("{}")
+        (base / "new.json").write_text("{}", encoding="utf-8")
         os.utime(base / "kept.json", ns=(1, 1))
         after = isolation.fingerprint([base])
 
@@ -225,7 +225,7 @@ def test_the_guard_watches_the_tracked_scraper_artifacts():
 def test_the_guard_fingerprints_a_file_entry_directly():
     with tempfile.TemporaryDirectory() as tmp:
         artifact = Path(tmp) / "sleeper_last_good.json"
-        artifact.write_text("{}")
+        artifact.write_text("{}", encoding="utf-8")
         before = isolation.fingerprint([artifact])
         assert set(before) == {str(artifact)}
         os.utime(artifact, ns=(1, 1))

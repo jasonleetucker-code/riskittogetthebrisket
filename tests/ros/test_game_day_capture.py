@@ -560,7 +560,7 @@ def test_week_one_pending_or_old_batch_never_proves_completion():
 def test_capture_cli_guard_precedes_every_write_and_ignore_window_cannot_bypass_kickoff():
     from pathlib import Path
 
-    text = Path("scripts/capture_game_day_predictions.py").read_text()
+    text = Path("scripts/capture_game_day_predictions.py").read_text(encoding="utf-8")
     assert text.index("allowed, reason = week_one_waiver_guard") < text.index("record_snapshot(")
     assert text.index('if state == "closed":') < text.index("if args.ignore_window:")
 
@@ -570,7 +570,9 @@ def test_capture_timer_has_a_timer_section():
     from pathlib import Path
 
     parser = configparser.ConfigParser(interpolation=None)
-    parser.read_string(Path("deploy/systemd/dynasty-game-day-capture.timer.template").read_text())
+    parser.read_string(
+        Path("deploy/systemd/dynasty-game-day-capture.timer.template").read_text(encoding="utf-8")
+    )
     assert parser["Timer"]["OnCalendar"]
     assert parser["Timer"]["Unit"] == "__SERVICE_NAME__-game-day-capture.service"
     assert "OnCalendar" not in parser["Unit"]

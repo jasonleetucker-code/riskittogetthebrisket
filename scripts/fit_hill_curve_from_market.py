@@ -54,7 +54,7 @@ _IDP_POSITIONS: frozenset[str] = frozenset(
 
 def _load_values(path: Path, col: str) -> list[float]:
     vs: list[float] = []
-    with open(path, newline="") as f:
+    with open(path, newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
             raw = r.get(col)
             try:

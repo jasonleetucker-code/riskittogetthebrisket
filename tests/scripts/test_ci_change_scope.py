@@ -30,7 +30,7 @@ def _init_repo(tmp_path: Path) -> Path:
     _git(repo, "init", "-q")
     _git(repo, "config", "user.email", "test@example.com")
     _git(repo, "config", "user.name", "Test")
-    (repo / "README.md").write_text("hello\n")
+    (repo / "README.md").write_text("hello\n", encoding="utf-8")
     _git(repo, "add", ".")
     _git(repo, "commit", "-q", "-m", "init")
     _git(repo, "branch", "-m", "main")
@@ -41,7 +41,7 @@ def _commit_files(repo: Path, files: dict[str, str], message: str) -> None:
     for rel_path, content in files.items():
         path = repo / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
     _git(repo, "add", ".")
     _git(repo, "commit", "-q", "-m", message)
 

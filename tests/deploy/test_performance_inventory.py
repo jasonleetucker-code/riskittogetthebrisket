@@ -187,13 +187,13 @@ def test_transport_failure_only_writes_fixed_failure(tmp_path, monkeypatch):
     output = tmp_path / "safe.json"
     monkeypatch.setattr(sys, "argv", ["probe", "--output", str(output)])
     assert probe.main() == 1
-    value = json.loads(output.read_text())
+    value = json.loads(output.read_text(encoding="utf-8"))
     assert value["state"] == "probe-failed"
-    assert "SECRET" not in output.read_text()
+    assert "SECRET" not in output.read_text(encoding="utf-8")
 
 
 def test_workflow_scope_is_separate_from_legacy_and_deploy():
-    workflow = (ROOT / ".github/workflows/c1a-closure-diagnostics.yml").read_text()
+    workflow = (ROOT / ".github/workflows/c1a-closure-diagnostics.yml").read_text(encoding="utf-8")
     assert 'default: "closure"' in workflow
     assert "inputs.scope == 'closure' || inputs.scope == ''" in workflow
     assert "group: c1a-closure-diagnostics" in workflow
@@ -264,7 +264,7 @@ def test_diagnostic_timestamp_rejects_non_integer_and_private_values(monkeypatch
 @pytest.mark.parametrize("body", ['["dlfSf","dlfIdp"]', "[]"])
 def test_manifest_fixed_keys_and_old_schema_compatible(tmp_path, body):
     path = tmp_path / "manifest.json"
-    path.write_text(body)
+    path.write_text(body, encoding="utf-8")
     observed = probe.dlf_manifest(path)
     assert observed["state"] == "observed"
     assert observed["assumedDefaultPath"] is True
@@ -278,7 +278,7 @@ def test_manifest_fixed_keys_and_old_schema_compatible(tmp_path, body):
 @pytest.mark.parametrize("body", ['["SECRET"]', '["dlfSf","dlfSf"]', "{}", "x" * 4097])
 def test_manifest_malformed_or_private_data_stays_unknown(tmp_path, body):
     path = tmp_path / "manifest.json"
-    path.write_text(body)
+    path.write_text(body, encoding="utf-8")
     value = probe.dlf_manifest(path)
     assert value["state"] == "unavailable"
     assert all(x is None for x in value["written"].values())
@@ -293,7 +293,7 @@ def test_manifest_rejects_fifo_and_symlink(tmp_path):
     os.mkfifo(fifo)
     assert probe.dlf_manifest(fifo)["state"] == "unavailable"
     target = tmp_path / "target"
-    target.write_text("[]")
+    target.write_text("[]", encoding="utf-8")
     link = tmp_path / "link"
     link.symlink_to(target)
     assert probe.dlf_manifest(link)["state"] == "unavailable"
@@ -447,13 +447,15 @@ def test_exact_additional_dlf_stages(message, stage):
 def receipt_fixture(tmp_path):
     state = tmp_path / "state"
     state.mkdir()
-    (state / "last_successful_rev").write_text("a" * 40 + "\n")
-    (state / "trade-calculator.last_successful_deploy_commit").write_text("a" * 40 + "\n")
-    (state / "last_successful_at_utc").write_text("2026-09-26T21:00:00Z\n")
+    (state / "last_successful_rev").write_text("a" * 40 + "\n", encoding="utf-8")
+    (state / "trade-calculator.last_successful_deploy_commit").write_text(
+        "a" * 40 + "\n", encoding="utf-8"
+    )
+    (state / "last_successful_at_utc").write_text("2026-09-26T21:00:00Z\n", encoding="utf-8")
     build = tmp_path / "frontend" / ".next"
     build.mkdir(parents=True)
-    (build / "BUILD_ID").write_text("build_test")
-    (build / "build-manifest.json").write_text('{"pages":{}}')
+    (build / "BUILD_ID").write_text("build_test", encoding="utf-8")
+    (build / "build-manifest.json").write_text('{"pages":{}}', encoding="utf-8")
     return state
 
 
@@ -471,12 +473,12 @@ def test_deployment_receipt_is_disk_provenance_not_loaded_identity(tmp_path):
 
 def test_missing_mismatched_and_private_receipt_content_refused(tmp_path):
     state = receipt_fixture(tmp_path)
-    (state / "last_successful_rev").write_text("SECRET_SENTINEL")
+    (state / "last_successful_rev").write_text("SECRET_SENTINEL", encoding="utf-8")
     result = probe.deployment_files(tmp_path, state)
     assert result["receiptState"] == "unavailable"
     assert result["targetRevision"] is None
     assert "SECRET_SENTINEL" not in json.dumps(result)
-    (state / "last_successful_rev").write_text("b" * 40)
+    (state / "last_successful_rev").write_text("b" * 40, encoding="utf-8")
     assert probe.deployment_files(tmp_path, state)["receiptState"] == "unavailable"
     (state / "last_successful_rev").unlink()
     assert probe.deployment_files(tmp_path, state)["receiptState"] == "unavailable"

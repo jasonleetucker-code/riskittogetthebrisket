@@ -64,20 +64,20 @@ class SleeperFallbackHelperTests(unittest.TestCase):
 
     def test_load_corrupt_returns_none(self) -> None:
         os.makedirs(os.path.dirname(self.cache), exist_ok=True)
-        with open(self.cache, "w") as f:
+        with open(self.cache, "w", encoding="utf-8") as f:
             f.write("{ not json")
         self.assertEqual(self.h["_load_sleeper_snapshot"](), (None, None))
 
     def test_load_empty_rosterdata_returns_none(self) -> None:
         os.makedirs(os.path.dirname(self.cache), exist_ok=True)
-        with open(self.cache, "w") as f:
+        with open(self.cache, "w", encoding="utf-8") as f:
             json.dump({"savedAt": time.time(), "rosterData": {}}, f)
         self.assertEqual(self.h["_load_sleeper_snapshot"](), (None, None))
 
     def test_stamp_writes_epoch(self) -> None:
         self.h["_stamp_sleeper_success"]()
         self.assertTrue(os.path.exists(self.stamp))
-        val = float(Path(self.stamp).read_text().strip())
+        val = float(Path(self.stamp).read_text(encoding="utf-8").strip())
         self.assertLess(abs(time.time() - val), 5.0)
 
     def test_save_is_best_effort_no_raise(self) -> None:

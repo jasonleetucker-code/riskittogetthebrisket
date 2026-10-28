@@ -101,10 +101,10 @@ def ros_tmp(tmp_path, monkeypatch):
     ros_dir = tmp_path / "ros"
     (ros_dir / "aggregate").mkdir(parents=True)
     (ros_dir / "aggregate" / "latest.json").write_text(
-        json.dumps({"aggregatedAt": "2026-10-01T11:00:00+00:00", "players": []})
+        json.dumps({"aggregatedAt": "2026-10-01T11:00:00+00:00", "players": []}), encoding="utf-8"
     )
     (ros_dir / "team_strength").mkdir()
-    (ros_dir / "team_strength" / "latest.json").write_text("[]")
+    (ros_dir / "team_strength" / "latest.json").write_text("[]", encoding="utf-8")
     archive = tmp_path / "forecast_archive"
     monkeypatch.setattr(ros_pkg, "ROS_DATA_DIR", ros_dir)
     monkeypatch.setattr(scrape, "ROS_DATA_DIR", ros_dir)
@@ -129,7 +129,7 @@ def test_archived_record_round_trips(ros_tmp):
     doc = _doc(PLAYOFF_PAYLOAD)
     sim = ros_tmp.ros / "sims" / "latest_playoff.json"
     sim.parent.mkdir(parents=True)
-    sim.write_text(json.dumps(doc, indent=2))
+    sim.write_text(json.dumps(doc, indent=2), encoding="utf-8")
     context = forecast_archive.collect_context(_snapshot(), best_ball=True)
 
     identity = forecast_archive.archive_safely(
@@ -161,7 +161,9 @@ def test_archived_record_round_trips(ros_tmp):
         ros_tmp.archive / "forecasts-2026-10.jsonl"
     ]
     # The sidecar carries the identity, never the forecast.
-    sidecar = json.loads((ros_tmp.ros / "sims" / "latest_playoff.identity.json").read_text())
+    sidecar = json.loads(
+        (ros_tmp.ros / "sims" / "latest_playoff.identity.json").read_text(encoding="utf-8")
+    )
     assert sidecar == json.loads(json.dumps(identity))
     assert "forecast" not in sidecar
 
@@ -170,7 +172,7 @@ def test_published_file_plus_sidecar_reproduces_the_producer_record(ros_tmp):
     doc = _doc(CHAMP_PAYLOAD)
     sim = ros_tmp.ros / "sims" / "latest_championship.json"
     sim.parent.mkdir(parents=True)
-    sim.write_text(json.dumps(doc, indent=2))
+    sim.write_text(json.dumps(doc, indent=2), encoding="utf-8")
     context = forecast_archive.collect_context(_snapshot(), best_ball=False)
     forecast_archive.archive_safely(
         league_key="dynasty_main",
@@ -180,10 +182,10 @@ def test_published_file_plus_sidecar_reproduces_the_producer_record(ros_tmp):
         sim_path=sim,
         base=ros_tmp.archive / "elsewhere",  # the runner's store, discarded
     )
-    side = forecast_archive.sidecar_path(sim).read_text()
+    side = forecast_archive.sidecar_path(sim).read_text(encoding="utf-8")
 
     status = forecast_archive.ingest_text(
-        sim.read_text(),
+        sim.read_text(encoding="utf-8"),
         side,
         league_key="dynasty_main",
         kind="championship",
@@ -221,7 +223,7 @@ def test_rearchiving_the_same_forecast_is_a_no_op(ros_tmp):
 
     # Nor may a crash between the ledger append and the index append.
     index = ros_tmp.archive / forecast_archive.INDEX_NAME
-    index.write_text("")
+    index.write_text("", encoding="utf-8")
     forecast_archive.archive_safely(
         league_key="dynasty_main", kind="playoff", forecast=doc, context=context
     )
@@ -305,8 +307,8 @@ def _expected_served_bytes():
 def test_served_sim_files_are_byte_identical_to_the_pre_archive_writer(ros_tmp, monkeypatch):
     out = _run_refresh(ros_tmp, monkeypatch)
     playoff, champ = _expected_served_bytes()
-    assert out["playoff"].read_text() == playoff
-    assert out["championship"].read_text() == champ
+    assert out["playoff"].read_text(encoding="utf-8") == playoff
+    assert out["championship"].read_text(encoding="utf-8") == champ
     assert len(list(forecast_archive.iter_records(ros_tmp.archive))) == 2
 
 
@@ -323,16 +325,16 @@ def test_archive_failure_does_not_break_the_refresh(ros_tmp, monkeypatch, target
 
     assert out is not None and set(out) == {"playoff", "championship"}
     playoff, champ = _expected_served_bytes()
-    assert out["playoff"].read_text() == playoff
-    assert out["championship"].read_text() == champ
+    assert out["playoff"].read_text(encoding="utf-8") == playoff
+    assert out["championship"].read_text(encoding="utf-8") == champ
 
 
 def test_unwritable_archive_directory_does_not_break_the_refresh(ros_tmp, monkeypatch):
     ros_tmp.archive.parent.mkdir(parents=True, exist_ok=True)
-    ros_tmp.archive.write_text("a file where the archive directory should be")
+    ros_tmp.archive.write_text("a file where the archive directory should be", encoding="utf-8")
     out = _run_refresh(ros_tmp, monkeypatch)
     assert set(out) == {"playoff", "championship"}
-    assert out["playoff"].read_text() == _expected_served_bytes()[0]
+    assert out["playoff"].read_text(encoding="utf-8") == _expected_served_bytes()[0]
 
 
 # ── identity: present, or None with a reason ────────────────────────
@@ -513,7 +515,7 @@ def test_a_new_record_carries_the_points_model_identity_end_to_end(ros_tmp):
     doc = _doc(PLAYOFF_PAYLOAD)
     sim = ros_tmp.ros / "sims" / "latest_playoff.json"
     sim.parent.mkdir(parents=True)
-    sim.write_text(json.dumps(doc, indent=2))
+    sim.write_text(json.dumps(doc, indent=2), encoding="utf-8")
     context = forecast_archive.collect_context(_snapshot(), best_ball=True)
     forecast_archive.archive_safely(
         league_key="dynasty_main", kind="playoff", forecast=doc, context=context, sim_path=sim
@@ -528,7 +530,9 @@ def test_a_new_record_carries_the_points_model_identity_end_to_end(ros_tmp):
     reason = rec["nullReasons"]["inputs.pointsModelFileSha256"]
     assert reason.startswith("fallback_constants_in_use")
     # The sidecar (what the box joins) carries the same identity.
-    sidecar = json.loads((ros_tmp.ros / "sims" / "latest_playoff.identity.json").read_text())
+    sidecar = json.loads(
+        (ros_tmp.ros / "sims" / "latest_playoff.identity.json").read_text(encoding="utf-8")
+    )
     assert sidecar["inputs"] == json.loads(json.dumps(rec["inputs"]))
 
 
@@ -1561,7 +1565,7 @@ def test_forecast_production_path_reads_no_contract(sim_env, contract_tripwire):
     out = scrape._refresh_sim_caches_for_league(cfg, "dynasty_main")
 
     assert out is not None and set(out) == {"playoff", "championship"}
-    playoff = json.loads(out["playoff"].read_text())
+    playoff = json.loads(out["playoff"].read_text(encoding="utf-8"))
     assert len(playoff["playoffOdds"]) == len(SIM_OWNERS)
     records = list(forecast_archive.iter_records(sim_env.archive))
     assert {r["kind"] for r in records} == {"playoff", "championship"}
@@ -1809,7 +1813,7 @@ def test_ingest_published_archives_what_the_deploy_shipped(ros_tmp, monkeypatch)
     sims.mkdir()
     sim = sims / "latest_playoff.json"
     doc = _doc(PLAYOFF_PAYLOAD)
-    sim.write_text(json.dumps(doc, indent=2))
+    sim.write_text(json.dumps(doc, indent=2), encoding="utf-8")
     context = forecast_archive.collect_context(_snapshot(), best_ball=True)
     forecast_archive.write_identity_sidecar_safely(
         sim,
@@ -1842,8 +1846,8 @@ def test_first_deploy_without_sidecars_archives_nothing(ros_tmp, monkeypatch):
     sims.mkdir()
     playoff = sims / "latest_playoff.json"
     champ = sims / "latest_championship.json"
-    playoff.write_text(json.dumps(_doc(PLAYOFF_PAYLOAD), indent=2))
-    champ.write_text(json.dumps(_doc(CHAMP_PAYLOAD), indent=2))
+    playoff.write_text(json.dumps(_doc(PLAYOFF_PAYLOAD), indent=2), encoding="utf-8")
+    champ.write_text(json.dumps(_doc(CHAMP_PAYLOAD), indent=2), encoding="utf-8")
     monkeypatch.setattr(
         forecast_archive,
         "published_paths",
@@ -1856,7 +1860,7 @@ def test_first_deploy_without_sidecars_archives_nothing(ros_tmp, monkeypatch):
     # Once the producer has written the sidecar, the same forecast archives
     # WITH its identity -- nothing identity-less is in the way.
     context = forecast_archive.collect_context(_snapshot(), best_ball=True)
-    doc = json.loads(playoff.read_text())
+    doc = json.loads(playoff.read_text(encoding="utf-8"))
     identity = forecast_archive.build_identity(
         league_key="dynasty_main", kind="playoff", forecast=doc, context=context
     )
@@ -1873,7 +1877,7 @@ def test_sidecar_temp_file_never_survives_a_failed_replace(ros_tmp, monkeypatch)
     sims = ros_tmp.ros / "sims"
     sims.mkdir()
     sim = sims / "latest_playoff.json"
-    sim.write_text("{}")
+    sim.write_text("{}", encoding="utf-8")
 
     def boom(src, dst):
         raise OSError("replace failed")

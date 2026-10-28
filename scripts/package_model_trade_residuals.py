@@ -118,7 +118,7 @@ def main() -> int:
     ap.add_argument("--max-lag-days", type=float, default=7.0)
     args = ap.parse_args()
 
-    trades = json.loads(TRADES.read_text())["rosterData"].get("trades") or []
+    trades = json.loads(TRADES.read_text(encoding="utf-8"))["rosterData"].get("trades") or []
     archives = _archives()
     models = [package_model.active_model_id(), *package_model.shadow_model_ids()]
     census = {"trades": len(trades), "notTwoTeam": 0, "noArchiveBefore": 0, "boardTooOld": 0}
@@ -209,7 +209,7 @@ def main() -> int:
     }
     path = REPO / args.out
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(out, indent=2) + "\n")
+    path.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
     print(
         json.dumps(
             {

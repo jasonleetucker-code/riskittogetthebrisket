@@ -41,7 +41,7 @@ def value_csv(tmp_path):
         2026 Early 1st,7000
     """)
     path = tmp_path / "ktc.csv"
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
     return path
 
 
@@ -55,7 +55,7 @@ def rank_csv(tmp_path):
         Ja'Marr Chase,3
     """)
     path = tmp_path / "idpTradeCalc.csv"
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
     return path
 
 
@@ -147,7 +147,7 @@ class TestEdgeCases:
 
     def test_empty_csv(self, value_adapter, tmp_path):
         path = tmp_path / "empty.csv"
-        path.write_text("name,value\n")
+        path.write_text("name,value\n", encoding="utf-8")
         result = value_adapter.load(path)
         assert len(result.records) == 0
         assert any("no usable rows" in w.lower() for w in result.warnings)
@@ -155,7 +155,7 @@ class TestEdgeCases:
     def test_skips_rows_without_value(self, value_adapter, tmp_path):
         content = "name,value\nJosh Allen,\nLamar Jackson,8000\n"
         path = tmp_path / "test.csv"
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
         result = value_adapter.load(path)
         assert len(result.records) == 1
         assert result.records[0].display_name == "Lamar Jackson"
@@ -163,7 +163,7 @@ class TestEdgeCases:
     def test_skips_rows_without_name(self, value_adapter, tmp_path):
         content = "name,value\n,9000\nJosh Allen,8000\n"
         path = tmp_path / "test.csv"
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
         result = value_adapter.load(path)
         assert len(result.records) == 1
 
@@ -178,7 +178,7 @@ class TestEdgeCases:
         adapter = ScraperBridgeAdapter("IDPTRADECALC", "idp_vet")
         content = "name,value\nMicah Parsons,5000\n"
         path = tmp_path / "test.csv"
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
         result = adapter.load(path)
         assert result.records[0].is_idp is True
         assert result.records[0].is_offense is False
@@ -186,7 +186,7 @@ class TestEdgeCases:
     def test_non_numeric_value_skipped(self, value_adapter, tmp_path):
         content = "name,value\nJosh Allen,N/A\nLamar Jackson,8000\n"
         path = tmp_path / "test.csv"
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
         result = value_adapter.load(path)
         assert len(result.records) == 1
 

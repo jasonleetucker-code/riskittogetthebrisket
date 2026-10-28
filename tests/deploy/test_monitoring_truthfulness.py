@@ -137,8 +137,12 @@ def test_watchdog_stamps_record_their_basis(tmp_path, monkeypatch):
     for name in ("stamped", "mtimeonly", "future"):
         (tmp_path / "CSVs" / f"{name}.csv").write_text("x\n", encoding="utf-8")
     now = datetime.now(timezone.utc).timestamp()
-    (tmp_path / "data" / "scrape_state" / "stamped_last_success").write_text(str(now - 3600))
-    (tmp_path / "data" / "scrape_state" / "future_last_success").write_text(str(now + 86400))
+    (tmp_path / "data" / "scrape_state" / "stamped_last_success").write_text(
+        str(now - 3600), encoding="utf-8"
+    )
+    (tmp_path / "data" / "scrape_state" / "future_last_success").write_text(
+        str(now + 86400), encoding="utf-8"
+    )
     monkeypatch.setattr(wf, "_REPO_ROOT", tmp_path)
     monkeypatch.setattr(wf, "unprovisioned_private_sources", lambda: [])
     monkeypatch.setattr(
