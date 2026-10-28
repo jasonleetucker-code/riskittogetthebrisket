@@ -26,12 +26,21 @@ flag/backup logic lives in ``tests/scripts/test_prod_env_flag_ops.py``,
 
 from __future__ import annotations
 
+import sys
 import os
 import re
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
+
+# runs workflow shell with python3 on PATH; Windows has no python3 shim.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32", reason="Linux-only: runs workflow shell with python3 on PATH"
+)
+
 
 _REPO = Path(__file__).resolve().parents[2]
 _WORKFLOW_PATH = _REPO / ".github" / "workflows" / "v1-49-host-native-scoring-activation.yml"
@@ -255,6 +264,7 @@ def _source_script_and_run(app_dir: Path, bash_code: str) -> subprocess.Complete
     )
 
 
+@_LINUX_ONLY
 def test_env_file_is_never_sourced_as_bash(tmp_path):
     """Regression pin for a real production incident (second live
     activation attempt, run 33176834694, 2026-08-28): production's real
@@ -301,6 +311,7 @@ def test_env_sourced_python_env_args_skips_malformed_lines_silently(tmp_path):
     assert lines == ["A=1", "B=2"]
 
 
+@_LINUX_ONLY
 def test_env_sourced_python_tolerates_a_missing_env_file(tmp_path):
     app_dir = tmp_path / "app"
     app_dir.mkdir()  # deliberately no .env written

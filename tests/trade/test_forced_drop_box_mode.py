@@ -23,6 +23,12 @@ from pathlib import Path
 
 import pytest
 
+if sys.platform == "win32":
+    # The box support module imports ``resource`` (POSIX rlimits) at module
+    # level and the box mode only runs on the Linux production host.
+    # Never skipped on Linux/CI.
+    pytest.skip("box mode imports the POSIX-only resource module", allow_module_level=True)
+
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "forced_drop_fix_replay.py"
 SUPPORT = REPO / "scripts" / "forced_drop_box_support.py"

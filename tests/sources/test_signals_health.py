@@ -7,6 +7,7 @@ and token is invented; no systemd, no network, no real session.
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 
 import pytest
@@ -224,4 +225,6 @@ def test_the_cli_never_prints_an_exception_message(tmp_path, monkeypatch, capsys
     assert json.loads(out) == {"error": "ValueError"}
     assert "Synthetic" not in out + err and "4321" not in out + err
     logs = list((app / "data" / "sources" / "signals" / "reports").glob("health-*.log"))
-    assert logs and (logs[0].stat().st_mode & 0o777) == 0o600
+    assert logs
+    if os.name == "posix":  # POSIX permission bits; Windows reports 0o666 (ACLs)
+        assert (logs[0].stat().st_mode & 0o777) == 0o600

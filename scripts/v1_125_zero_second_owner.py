@@ -12,6 +12,7 @@ Exit codes: 0 clean, 1 violation, 2 unmeasured.
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -160,6 +161,12 @@ def evaluate(*, run_commands: bool = True) -> tuple[int, list[str]]:
             family.command,
             cwd=REPO,
             text=True,
+            # The family commands print non-ASCII (box drawing, em dashes).
+            # Pin the children's stdout and our decoding to UTF-8; on Windows
+            # both default to cp1252 and the child dies on its first print.
+            # Linux is already UTF-8, so this is a no-op there.
+            encoding="utf-8",
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             capture_output=True,
             check=False,
         )

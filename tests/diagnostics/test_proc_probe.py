@@ -9,10 +9,18 @@ drive real synthetic fixtures rather than asserting "did not crash".
 from __future__ import annotations
 
 import os
+import sys
 
 import pytest
 
 from src.diagnostics import proc_probe
+
+# These read a LIVE process through ``/proc`` (Linux-only by design: the
+# box is Linux and there is deliberately no psutil).  Windows has no
+# ``/proc``, so they can only fail there.  Never skipped on Linux/CI.
+_LIVE_PROC = pytest.mark.skipif(
+    sys.platform == "win32", reason="reads a live process via /proc (Linux-only)"
+)
 
 
 class TestChromiumPredicate:
@@ -120,6 +128,7 @@ class TestCgroupMetrics:
 
 
 class TestProcessTree:
+    @_LIVE_PROC
     def test_reads_this_process(self):
         me = os.getpid()
         assert proc_probe.pid_alive(me)
@@ -132,6 +141,7 @@ class TestProcessTree:
         assert proc_probe.process_rss_kb(0) is None
         assert proc_probe.process_cpu_ticks(0) is None
 
+    @_LIVE_PROC
     def test_sample_process_tree_shape_and_self_inclusion(self):
         out = proc_probe.sample_process_tree(os.getpid())
         assert out["pid_alive"] is True
@@ -146,6 +156,7 @@ class TestProcessTree:
         assert out["pid_alive"] is False
         assert out["app_rss_kb"] == 0
 
+    @_LIVE_PROC
     def test_descendant_walk_finds_a_real_child(self):
         import subprocess
         import sys

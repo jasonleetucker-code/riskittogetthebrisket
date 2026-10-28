@@ -20,6 +20,7 @@ All fixtures are synthetic (``tests/trade/market_trade_fixtures.py``).
 
 from __future__ import annotations
 
+import sys
 import ast
 import hashlib
 import importlib.util
@@ -44,6 +45,14 @@ from src.trade import market_trade_report as R
 from tests.trade.market_trade_fixtures import KTC_INDEX, ctx, ktc_row, ktc_settings
 from tests.trade.test_market_trade_normalize import _ev, _trade_events
 from tests.trade.test_market_trade_report import _build, _seed, env  # noqa: F401 — fixture
+
+# POSIX permission bits (the secret must be mode 0600); Windows reports 0o666 and uses ACLs.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: POSIX permission bits (the secret must be mode 0600)",
+)
+
 
 REPO = Path(__file__).resolve().parents[2]
 IDENT = identity_from_rows(KTC_INDEX, source="synthetic")
@@ -876,6 +885,7 @@ def _cli():
     return mod
 
 
+@_LINUX_ONLY
 def test_cli_side_key_secret_must_be_owner_only_and_long(tmp_path):
     cli = _cli()
     f = tmp_path / "secret"

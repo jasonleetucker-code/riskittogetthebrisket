@@ -22,12 +22,21 @@ test a reproduction rather than an assertion.
 
 from __future__ import annotations
 
+import sys
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+
+# drives the production installer shell (sudo, systemd unit paths); Git Bash on Windows cannot run it faithfully.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: drives the production installer shell (sudo, systemd unit paths)",
+)
+
 
 REPO = Path(__file__).resolve().parents[2]
 INSTALLER = REPO / "deploy" / "backup" / "install_state_backup.sh"
@@ -115,6 +124,7 @@ def _log_lines(log: Path) -> list[str]:
 # ── the reproduction ──────────────────────────────────────────────────────
 
 
+@_LINUX_ONLY
 def test_full_hardening_installer_cannot_run_under_the_production_allowlist(tmp_path):
     """RED: `sudo bash apply_hardening.sh` is refused by production's sudoers.
 
@@ -178,6 +188,7 @@ def test_ownership_and_modes(tmp_path):
     assert "-o root -g root -m 0755" in writer, writer
 
 
+@_LINUX_ONLY
 def test_units_are_installed_and_the_service_is_rendered(tmp_path):
     app = _app_dir(tmp_path)
     bindir, log = _stub_bin(tmp_path)
@@ -194,6 +205,7 @@ def test_units_are_installed_and_the_service_is_rendered(tmp_path):
     assert str(tmp_path / "lib") in service.read_text()
 
 
+@_LINUX_ONLY
 def test_execstart_points_at_the_root_owned_copy_not_the_checkout(tmp_path):
     """The nightly must run the root-owned copy, never the deploy-user-writable
     checkout. A checkout ExecStart would mean anyone who can edit the checkout
@@ -350,7 +362,7 @@ def test_sourcing_defines_without_installing(tmp_path):
 def test_apply_hardening_delegates_instead_of_carrying_its_own_copy(tmp_path):
     """Two copies of "which files, in which order, with which modes" drift, and
     drift here installs a writer without its library."""
-    text = HARDENING.read_text()
+    text = HARDENING.read_text(encoding="utf-8")
     assert "install_state_backup.sh" in text, "apply_hardening.sh no longer sources the owner"
     assert "state_backup_install_scripts" in text
     assert "state_backup_install_units" in text

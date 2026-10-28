@@ -27,12 +27,21 @@ into deploy.sh/rollback.sh.
 
 from __future__ import annotations
 
+import sys
 import re
 import subprocess
 import textwrap
 from pathlib import Path
 
 import pytest
+
+# sources the production runtime reconciler (systemd units, sudo) by POSIX path; Git Bash on Windows cannot run it faithfully.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: sources the production runtime reconciler (systemd units, sudo) by POSIX path",
+)
+
 
 REPO = Path(__file__).resolve().parents[2]
 RECONCILER = REPO / "deploy" / "reconcile-runtime-controls.sh"
@@ -68,6 +77,7 @@ ENV = dict(
 )
 
 
+@_LINUX_ONLY
 class TestTheBackendUnitIsActuallyRendered:
     """Blocker 1. A non-default SERVICE_NAME is used throughout, so a
     renderer that only works for ``dynasty`` cannot pass."""
@@ -111,6 +121,7 @@ class TestTheWatchdogTargetAgreesWithItsUnit:
     """Blocker 3. Installed path and ExecStart must match by contract,
     not by both happening to say `dynasty`."""
 
+    @_LINUX_ONLY
     def test_execstart_path_is_what_the_reconciler_installs(self):
         svc = _render("hardening", SYSD / "dynasty-healthcheck.service", **ENV)
         m = re.search(r"^ExecStart=(\S+)", svc, re.M)
@@ -132,6 +143,7 @@ class TestTheWatchdogTargetAgreesWithItsUnit:
             "these agree only when SERVICE_NAME=dynasty"
         )
 
+    @_LINUX_ONLY
     def test_the_service_name_reaches_the_watchdog_config(self):
         """The watchdog must watch THIS backend, not a literal dynasty."""
         svc = _render("hardening", SYSD / "dynasty-healthcheck.service", **ENV)
@@ -159,6 +171,7 @@ class TestItStaysInsideTheAuthorizedPrivilege:
         assert m, "no _RC_SUDO_ALLOWED allowlist"
         assert set(m.group(1).split()) == AUTHORIZED_SUDO
 
+    @_LINUX_ONLY
     def test_an_unauthorized_binary_is_refused_before_sudo(self):
         """Runtime proof, not just a static read."""
         r = subprocess.run(

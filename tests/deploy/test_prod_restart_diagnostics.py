@@ -15,6 +15,7 @@ both through its filter entry points and through a full run against stubbed
 
 from __future__ import annotations
 
+import sys
 import os
 import re
 import stat
@@ -23,6 +24,11 @@ from pathlib import Path
 
 import pytest
 import yaml
+
+# POSIX executable bit; Windows does not record file modes.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(sys.platform == "win32", reason="Linux-only: POSIX executable bit")
+
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "deploy" / "diagnostics" / "prod_restart_diagnostics.sh"
@@ -114,6 +120,7 @@ def test_script_parses():
     subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
 
 
+@_LINUX_ONLY
 def test_script_is_executable():
     assert SCRIPT.stat().st_mode & stat.S_IXUSR
 

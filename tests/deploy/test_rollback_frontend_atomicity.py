@@ -40,6 +40,7 @@ invariant under test is the one the incident violated:
 
 from __future__ import annotations
 
+import sys
 import json
 import os
 import shlex
@@ -49,6 +50,14 @@ import textwrap
 from pathlib import Path
 
 import pytest
+
+# sources the production rollback shell script by POSIX path; Git Bash on Windows mangles the Windows path.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: sources the production rollback shell script by POSIX path",
+)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ROLLBACK_SH = REPO_ROOT / "deploy" / "rollback.sh"
@@ -232,6 +241,7 @@ class TestASuccessfulBuildStillSwaps:
     swaps anything — which would be a different outage.
     """
 
+    @_LINUX_ONLY
     def test_a_complete_build_replaces_the_live_directory(self, frontend, tmp_path):
         bin_dir = tmp_path / "bin"
         _stub_npm(bin_dir, build_exit=0, produce="complete")

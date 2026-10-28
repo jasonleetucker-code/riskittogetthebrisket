@@ -79,7 +79,9 @@ def enumerate_workflow_steps() -> dict[str, dict]:
     """
     steps: dict[str, dict] = {}
     for path in _workflow_files():
-        document = yaml.safe_load(path.read_text()) or {}
+        # Explicit UTF-8: workflow files contain non-ASCII, and the locale
+        # default is cp1252 on Windows (UTF-8 on the Linux runners).
+        document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         jobs = document.get("jobs", {}) or {}
         for job_id, job in jobs.items():
             job = job or {}

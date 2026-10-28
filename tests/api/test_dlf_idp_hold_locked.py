@@ -183,7 +183,7 @@ def test_no_tracked_deploy_config_or_env_surface_lifts_the_hold():
 
 
 def test_the_scan_reaches_src_server_and_frontend():
-    rels = {str(p.relative_to(scan.REPO)) for p in scan.tracked_surface_files()}
+    rels = {p.relative_to(scan.REPO).as_posix() for p in scan.tracked_surface_files()}
     assert "src/api/feature_flags.py" in rels
     assert "deploy/verify-deploy.sh" in rels
     assert not any(r.startswith(("tests/", "docs/")) for r in rels)

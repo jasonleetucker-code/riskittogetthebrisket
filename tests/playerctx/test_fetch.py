@@ -5,12 +5,28 @@ stale-cache degradation for failures at request start AND mid-stream,
 from __future__ import annotations
 
 import json
+import os
+import time
 
 import pytest
 import requests
 
 from src.playerctx import fetch as fetch_mod
 from src.playerctx.fetch import FetchResult, fetch_url
+
+
+def _write_cached(dest, data: bytes) -> None:
+    """A local copy written BEFORE the fetch under test.
+
+    Backdated an hour so ``max_age_hours=0.0`` reliably means "stale".  On
+    Windows a just-written file's mtime can be a few ms AHEAD of
+    ``time.time()``; the negative age then reads as fresh (``age < 0``) and
+    the fetch short-circuits to ``fresh-skip``.  Linux mtimes never lead the
+    clock, so this changes nothing there.
+    """
+    dest.write_bytes(data)
+    past = time.time() - 3600
+    os.utime(dest, (past, past))
 
 
 class _FakeResponse:
@@ -74,7 +90,7 @@ class TestDownload:
 
     def test_not_modified_touches_and_keeps_content(self, tmp_path):
         dest = tmp_path / "data.csv"
-        dest.write_bytes(b"cached")
+        _write_cached(dest, b"cached")
         session = _FakeSession(_FakeResponse(status_code=304))
         res = fetch_url("https://x.invalid/d", dest, key="d", max_age_hours=0.0, session=session)
         assert res.status == "not-modified"
@@ -92,7 +108,7 @@ class TestDownload:
         # would let the seasonal walk replace current-season data
         # with last year's.
         dest = tmp_path / "d.csv"
-        dest.write_bytes(b"cached-current")
+        _write_cached(dest, b"cached-current")
         session = _FakeSession(_FakeResponse(status_code=404))
         res = fetch_url("https://x.invalid/d", dest, key="d", max_age_hours=0.0, session=session)
         assert res.status == "error"  # NOT "missing" — the walk must stop here
@@ -103,7 +119,7 @@ class TestDownload:
 class TestStaleCacheDegradation:
     def test_request_start_failure_keeps_stale_copy(self, tmp_path):
         dest = tmp_path / "data.csv"
-        dest.write_bytes(b"stale")
+        _write_cached(dest, b"stale")
         session = _FakeSession(request_exc=requests.ConnectionError("refused"))
         res = fetch_url("https://x.invalid/d", dest, key="d", max_age_hours=0.0, session=session)
         assert res.status == "error"
@@ -116,7 +132,7 @@ class TestStaleCacheDegradation:
         # 35-55 MB depth-chart file — previously escaped the stale-
         # cache fallback and failed the whole refresh.
         dest = tmp_path / "depth.csv"
-        dest.write_bytes(b"stale-but-usable")
+        _write_cached(dest, b"stale-but-usable")
         session = _FakeSession(
             _FakeResponse(chunks=[b"partial"], stream_exc=requests.ConnectionError("reset"))
         )
@@ -142,7 +158,7 @@ class TestStaleCacheDegradation:
         # Only network-shaped failures degrade; programming errors must
         # stay loud.
         dest = tmp_path / "depth.csv"
-        dest.write_bytes(b"stale")
+        _write_cached(dest, b"stale")
         session = _FakeSession(_FakeResponse(chunks=[b"partial"], stream_exc=ValueError("bug")))
         with pytest.raises(ValueError):
             fetch_url("https://x.invalid/d", dest, key="d", max_age_hours=0.0, session=session)
@@ -212,7 +228,7 @@ class TestSeasonalTransientFailures:
 
     def test_500_with_local_current_season_copy_uses_stale(self, tmp_path):
         dest = tmp_path / self.FILE_TMPL.format(season=2026)
-        dest.write_bytes(b"stale-current-season")
+        _write_cached(dest, b"stale-current-season")
         session = _FakeSession(
             by_url={
                 self.URL_TMPL.format(season=2026): _FakeResponse(status_code=500),
@@ -230,7 +246,7 @@ class TestSeasonalTransientFailures:
         # must use the cached CURRENT season, never regress to the
         # prior season.
         dest = tmp_path / self.FILE_TMPL.format(season=2026)
-        dest.write_bytes(b"cached-2026")
+        _write_cached(dest, b"cached-2026")
         session = _FakeSession(
             by_url={
                 self.URL_TMPL.format(season=2026): _FakeResponse(status_code=404),
@@ -249,7 +265,7 @@ class TestSeasonalTransientFailures:
 class TestSeasonalFallbackUsesStaleCopy:
     def test_seasonal_stream_failure_degrades_with_warning(self, tmp_path):
         dest = tmp_path / "snap_counts_2025.csv"
-        dest.write_bytes(b"stale")
+        _write_cached(dest, b"stale")
         session = _FakeSession(
             _FakeResponse(chunks=[b"x"], stream_exc=requests.ConnectionError("reset"))
         )

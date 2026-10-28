@@ -9,8 +9,11 @@ same analysis).  Uses the synthetic league of ``tests/api/test_trade_nfl_exposur
 from __future__ import annotations
 
 import asyncio
+import itertools
 import json
 import threading
+import time
+import types
 
 import pytest
 from fastapi.testclient import TestClient
@@ -160,7 +163,17 @@ def test_failed_request_is_reported_failed_and_bad_ids_are_ignored(client, monke
     assert client.get("/api/trade/analyze/status", params={"requestId": "x y"}).status_code == 400
 
 
-def test_progress_registry_is_bounded_and_expires():
+def test_progress_registry_is_bounded_and_expires(monkeypatch):
+    # A clock that strictly advances on every read.  Windows' monotonic clock
+    # ticks every ~15.6 ms, so begin() and the next read can land in the same
+    # tick (zero elapsed) and a TTL of 0 has not expired yet; Linux's always
+    # advances.  Only this module's ``time`` is replaced.
+    ticks = itertools.count(1)
+    monkeypatch.setattr(
+        rt,
+        "time",
+        types.SimpleNamespace(monotonic=lambda: float(next(ticks)), perf_counter=time.perf_counter),
+    )
     reg = rt.ProgressRegistry(ttl_seconds=0.0, max_entries=2)
     reg.begin("u", "aaaaaaaa1")
     assert reg.snapshot("u", "aaaaaaaa1") is None  # TTL 0: gone on the next read

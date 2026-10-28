@@ -151,7 +151,7 @@ class TestOneMarketDefinition:
     def test_no_second_literal_market_definition(self):
         offenders = []
         for path in (REPO / "src").rglob("*.py"):
-            rel = str(path.relative_to(REPO))
+            rel = path.relative_to(REPO).as_posix()  # ``/`` on every OS, like ALLOWED
             if rel in self.ALLOWED:
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8"))
