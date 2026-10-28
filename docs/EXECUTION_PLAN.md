@@ -1,5 +1,27 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Next development cycle: IDP calibration, source authority, Trade Advisor readiness — owner directive, 2026-10-28
+
+**AUTHORIZED NOW (parallel build mode; research, shadow candidates, bug fixes, tests and evidence; NOT activation).**
+Verbatim: `docs/owner/NEXT_CYCLE_IDP_CALIBRATION_DIRECTIVE_2026-10-28.md`. Intake: `docs/OWNER_REQUESTED_TODO.md`
+"Added 2026-10-28" (NC-A … NC-E).
+- **NC-A:** ROS offense/IDP scale calibration as an isolated shadow package with a preregistered champion/challenger
+  evaluation and an owner recommendation. It consumes `src/ros/lineup.py`, BDVM scoring/actuals and LI-5 replacement;
+  it edits none of them.
+- **NC-B:** IDP source-authority diagnosis, ingestion and timestamp bug fixes with measured board diffs, and additive
+  per-source weight-reduction reasons.
+- **NC-C:** test reliability (live-data tier promotion, encoding regression test, E2E #2000, WebKit mobile, advisor
+  production network checks).
+- **NC-D:** Trade Advisor launch-gate recommendations and value-concept labelling (display and explanation only).
+- **NC-E:** Waiver Advisor readiness evidence; close #1921 once it is verified superseded by #1995.
+
+**Owner-reserved (NOT authorized):** promoting any ROS calibration into live team strength, lineups, simulations or
+trade verdicts; changing canonical dynasty values, TE++ basis, source weights, voting membership or freshness rules;
+releasing the DLF IDP hold; turning `source_freshness_schedule_v2`, the Trade Advisor launch flag, `waiver_advisor`
+or any flag ON; choosing the advisor response floor, permissions, admission or rate-limit values; #2006; the
+`dynasty_new` taxi cap; filing the #1985 GitHub Support request (owner account). Merges follow the standing merge
+authorization (2026-10-19 / 2026-10-26).
+
 ## Chase Upside private ChatGPT MCP plugin — owner directive, 2026-10-25
 
 **AUTHORIZED: scoped implementation and PR only.** Build an owner-only, read-only MCP plugin using ChatGPT Sites hosting to support the user's ChatGPT Plus workflow. First tools: player rankings, canonical player identity resolution, league context, Sleeper rosters, and trade analysis. Reuse current API contracts and analytical owners; include IDs, data-as-of stamps, confidence, provenance, and explicit unavailable states. Respect private ranking permissions, source licensing, and feature flags. No write tools, public publication, production deployment, or merge is authorized in this lane. Review and required verification are prerequisites to any later publish/deploy/merge. Follow-on scope for projections, draft capital, waivers and FAAB remains intake-only until the first live path is verified. Intake: `docs/OWNER_REQUESTED_TODO.md` §"Added 2026-10-25 — Chase Upside private ChatGPT MCP plugin".

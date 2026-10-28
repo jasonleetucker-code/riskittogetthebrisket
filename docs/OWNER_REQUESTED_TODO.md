@@ -15,6 +15,20 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-28 — Next development cycle: IDP calibration, source authority, Trade Advisor readiness
+
+Owner directive 2026-10-28 (chat), recorded verbatim in
+`docs/owner/NEXT_CYCLE_IDP_CALIBRATION_DIRECTIVE_2026-10-28.md`. Authorized in `docs/EXECUTION_PLAN.md` (same date)
+as research, shadow candidates, bug fixes, tests and evidence packages. Promotion and activation stay owner-reserved.
+
+| # | Owner instruction | Status |
+|---|---|---|
+| NC-A | IDP/offense ROS scale calibration: diagnose the incompatible 0-100 offense and IDP ROS scales; a shadow calibration to comparable team-performance contributions under the league's actual scoring and starters; preregistered champion/challenger with out-of-sample tests and declared acceptance criteria; owner recommendation. No automatic promotion | AUTHORIZED — research/shadow; promotion owner-reserved |
+| NC-B | IDP source authority: explain why elite IDP rows retain ~37% of source weight (IDP Show, FantasyPros IDP clock, DLF IDP hold, actual data age, provenance and licensing); restore legitimately available information; expose per-source reasons for reduced weight. No manufactured freshness, no weight raises for a preferred value | AUTHORIZED — bug fixes and diagnostics; rule changes and DLF release owner-reserved |
+| NC-C | Release completion and test reliability: confirm #2008 deployed; promote deterministic live-data tests into the required gate; explicit-file-encoding regression test; watch the scheduled E2E for #2000; remaining WebKit mobile tests; Trade Advisor production network checks | AUTHORIZED |
+| NC-D | Trade Advisor readiness: evidence-backed recommendations on the 250 ms response floor (what it protects, alternatives), source permissions, admission and rate limits; the advisor distinguishes market value, roster utility, expected points and playoff impact; Simulation V3 stays experimental and championship / playoff-impact estimates are labelled uncalibrated | AUTHORIZED — recommendations and labelling; launch flag and gate values owner-reserved |
+| NC-E | Keep #2006 held (recommended outcome: restore the original deep-tail rookie rule, evaluate it separately later); do not change the `dynasty_new` taxi cap; continue Waiver Advisor readiness, IDP source freshness, GitHub Support #1985, close superseded #1921 where safe | RECORDED — #2006 and the taxi cap owner-held; the rest AUTHORIZED |
+
 ## Added 2026-10-26 — IDP market pricing, acquisition intelligence, historical trade research and draft strategy
 
 Owner directive 2026-10-26 (chat), recorded verbatim in `docs/owner/IDP_MARKET_ACQUISITION_DIRECTIVE_2026-10-26.md`.
