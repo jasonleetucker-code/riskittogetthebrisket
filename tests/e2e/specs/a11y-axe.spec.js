@@ -130,6 +130,10 @@ const ROUTES = [
   // Unlisted Waiver Wire Comparison (owner request 2026-10-21): public by
   // exact link, never advertised (lib/public-routes.js isUnlistedPagePath).
   "/waiver-wire/r7k4q9m2",
+  // Waiver Advisor (release train 2026-10-27, #2005).  It shipped without a
+  // scan, which the coverage test below correctly refused: E2E Safety Net run
+  // 40694031431 failed on exactly this on desktop and mobile.
+  "/waiver-advisor",
 ];
 
 const enc = encodeURIComponent;
