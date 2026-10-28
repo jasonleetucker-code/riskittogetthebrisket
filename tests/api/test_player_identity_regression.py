@@ -536,8 +536,18 @@ class TestExpectedSourcesRefinement(unittest.TestCase):
     depth caps.
     """
 
-    def test_rookie_idp_player_does_not_expect_dlf(self):
+    def test_rookie_idp_player_inside_dlf_depth_expects_dlf(self):
+        # DLF IDP ranks rookies (G2-D3, PR #2001: ``excludes_rookies`` is
+        # False — the board lists 21 rookie-class names), so a rookie inside
+        # DLF's depth is EXPECTED to carry a DLF vote, exactly like a veteran.
+        # Whether deep-tail rookie ranks VOTE is a separate rule (PR #2006).
         off, idp = _expected_sources_for_position("LB", is_rookie=True, player_effective_rank=120)
+        self.assertIn("dlfIdp", off | idp)
+        self.assertIn("idpTradeCalc", off | idp)
+
+    def test_rookie_idp_player_beyond_dlf_depth_does_not_expect_dlf(self):
+        # Depth still bounds a rookie the same way it bounds a veteran.
+        off, idp = _expected_sources_for_position("LB", is_rookie=True, player_effective_rank=300)
         self.assertNotIn("dlfIdp", off | idp)
         self.assertIn("idpTradeCalc", off | idp)
 
