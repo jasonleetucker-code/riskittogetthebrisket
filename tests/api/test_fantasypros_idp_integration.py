@@ -3,6 +3,12 @@
 These tests pin down the contract-level wiring for the 6th ranking
 source so a future refactor cannot silently drop FP from the blend
 and cannot break the combined-authority + anchored-extension rules.
+
+The registry class is pure config and runs in the hard gate.  The CSV-shape,
+enrichment and live-payload classes read today's scraped
+``CSVs/site_raw/fantasyProsIdp.csv`` (or a live API snapshot), so they carry
+``@pytest.mark.livedata`` -- the non-blocking advisory lane (CLAUDE.md "CI has
+two lanes").
 """
 
 from __future__ import annotations
@@ -12,6 +18,8 @@ import json
 import os
 import unittest
 from pathlib import Path
+
+import pytest
 
 from src.api.data_contract import (
     _IDP_SIGNAL_KEYS,
@@ -96,6 +104,8 @@ class TestFantasyProsIdpRegistry(unittest.TestCase):
         self.assertTrue(src.get("needs_shared_market_translation", False))
 
 
+# Reads TODAY'S CSVs/site_raw/fantasyProsIdp.csv (or a live API snapshot): advisory tier.
+@pytest.mark.livedata
 class TestFantasyProsIdpCsvShape(unittest.TestCase):
     """Shape + algorithmic invariants of the scraped CSV file on disk."""
 
@@ -302,6 +312,8 @@ class TestFantasyProsIdpCsvShape(unittest.TestCase):
                 last_eff = eff
 
 
+# Reads TODAY'S CSVs/site_raw/fantasyProsIdp.csv (or a live API snapshot): advisory tier.
+@pytest.mark.livedata
 class TestFantasyProsIdpEnrichment(unittest.TestCase):
     """End-to-end: FP CSV rows surface on contract rows that match by name."""
 
@@ -403,6 +415,8 @@ class TestFantasyProsIdpEnrichment(unittest.TestCase):
         self.assertIn("fantasyProsIdp", ts)
 
 
+# Reads TODAY'S CSVs/site_raw/fantasyProsIdp.csv (or a live API snapshot): advisory tier.
+@pytest.mark.livedata
 class TestFantasyProsIdpLivePayload(unittest.TestCase):
     """Live payload assertions — skipped if snapshot not present."""
 

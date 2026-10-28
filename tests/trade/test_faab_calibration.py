@@ -1,8 +1,8 @@
 """Calibration tests — the FAAB model against real anchors.
 
 These are the tests that would catch a recalibration going wrong.  They
-run against the REAL exported board rather than a synthetic one, and
-they pin:
+run against a REAL board (the newest complete archived export, see the
+``board`` fixture) rather than a synthetic one, and they pin:
 
 * the four human calibration anchors reaching a 100% objective CEILING
   while their recommended BIDS stay well below the full budget
@@ -24,9 +24,6 @@ those players by itself — which is exactly what these tests check.
 """
 
 from __future__ import annotations
-
-import glob
-import json
 
 import pytest
 
@@ -53,20 +50,22 @@ ANCHOR_PLAYERS = {
 
 @pytest.fixture(scope="module")
 def board():
-    """Every rankable non-pick value from the freshest real export.
+    """Every rankable non-pick value from the newest COMPLETE archived export.
 
-    Skips rather than fails when no export is present — CI clones
-    without the data directory should not report a red calibration
-    suite for a missing fixture.
+    ``tests.archive_fixtures.newest_complete_contract`` is the repo's one rule
+    for "give me a real board": the newest archived scrape the contract's own
+    source-health definition calls complete.  Reading ``exports/latest``
+    instead made every test below a function of the last scrape's health --
+    measured during the 2026-08-16 KTC outage, a 1,000-value player priced at
+    2% of budget instead of 0% with ``faab_engine`` byte-identical.
+
+    Skips rather than fails when no complete archive is present.
     """
-    paths = sorted(glob.glob("exports/latest/dynasty_data_*.json"))
-    if not paths:
-        pytest.skip("no exported board available")
-    raw = json.loads(open(paths[-1], encoding="utf-8").read())
+    from tests.archive_fixtures import newest_complete_contract
 
-    from src.api.data_contract import build_api_data_contract
-
-    contract = build_api_data_contract(raw)
+    contract, _name = newest_complete_contract()
+    if contract is None:
+        pytest.skip("no complete archived board available")
     rows = [
         r
         for r in contract.get("playersArray") or []
@@ -75,7 +74,7 @@ def board():
         and str(r.get("position") or "").upper() not in EXCLUDED
     ]
     if not rows:
-        pytest.skip("exported board has no valued rows")
+        pytest.skip("archived board has no valued rows")
     return rows
 
 

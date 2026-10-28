@@ -21,9 +21,16 @@ These tests pin the behaviour added in the
   collisions and never resurrects the legacy
   ``near_name_value_mismatch`` noise rule.
 
-The tests are deterministic and run on the current
-``exports/latest/dynasty_data_*.json`` snapshot — they do not require
-network or a running scraper.
+Two tiers, decided per class (CLAUDE.md "CI has two lanes").  The
+normalization, canonical-key and expected-source tests are pure, and the two
+structural classes (canonical-key uniqueness, rebuild output sanity) build from
+``tests.archive_fixtures.newest_complete_contract`` -- the newest archived
+scrape the contract's own source-health definition calls complete -- so they
+run in the hard gate.  The classes that name specific PLAYERS on today's board
+(target-player audit, the top-board single-source allowlist) keep reading the
+current ``exports/latest/dynasty_data_*.json`` snapshot and carry
+``@pytest.mark.livedata``: a named player leaving the board is data, not a
+code defect.  Neither tier needs network or a running scraper.
 """
 
 from __future__ import annotations
@@ -31,6 +38,8 @@ from __future__ import annotations
 import json
 import unittest
 from pathlib import Path
+
+import pytest
 
 from src.api.data_contract import (
     _expected_sources_for_position,
@@ -43,6 +52,7 @@ from src.utils.name_clean import (
     normalize_player_name,
     resolve_canonical_name,
 )
+from tests.archive_fixtures import newest_complete_contract
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -234,6 +244,8 @@ TARGET_PLAYERS = [
 ]
 
 
+# Names specific players on TODAY'S board: advisory tier.
+@pytest.mark.livedata
 class TestTargetPlayerSourceAudit(unittest.TestCase):
     """Verify every target player has a sane sourceAudit block."""
 
@@ -380,6 +392,8 @@ KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
 }
 
 
+# Allowlist keyed to TODAY'S board: advisory tier.
+@pytest.mark.livedata
 class TestTopBoardSingleSourceAllowlist(unittest.TestCase):
     """Build-time assertion: high-profile top-board players cannot
     silently remain 1-src unless explicitly allow-listed.
@@ -472,8 +486,9 @@ class TestCanonicalIdentityUniqueness(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.payload = _latest_dynasty_payload()
-        cls.contract = build_api_data_contract(cls.payload)
+        cls.contract, _name = newest_complete_contract()
+        if cls.contract is None:
+            raise unittest.SkipTest("no complete archived board")
 
     def test_position_aware_canonical_keys_are_unique(self):
         seen: dict[str, str] = {}
@@ -571,8 +586,9 @@ class TestRebuildOutputSanity(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.payload = _latest_dynasty_payload()
-        cls.contract = build_api_data_contract(cls.payload)
+        cls.contract, _name = newest_complete_contract()
+        if cls.contract is None:
+            raise unittest.SkipTest("no complete archived board")
 
     def test_every_top_board_row_has_source_audit(self):
         missing = []
