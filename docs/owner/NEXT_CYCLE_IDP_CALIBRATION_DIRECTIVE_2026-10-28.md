@@ -4,6 +4,11 @@
 `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-28 — Next development cycle" (NC-A … NC-E). Authorization:
 `docs/EXECUTION_PLAN.md` (same date). Recording it here authorizes nothing beyond what the execution plan says.
 
+**Factual note (2026-10-28, not part of the verbatim text):** the verified `dynasty_main` lineup is QB, SUPER_FLEX,
+RB×2, WR×3, TE×2, FLEX×2 (RB/WR/TE), K, DL×3, LB×3, DB×3, best ball, 12 teams; the scoring card grants TEs no
+premium (`bonus_rec_te 0`). The directive's "2 QB / 2 WR flex" describes QB + SUPER_FLEX and two RB/WR/TE FLEX slots.
+Source: PR #2010, `docs/league-intelligence/ROS_SCALE_CALIBRATION_RESULTS_2026-10-28.md`.
+
 ---
 
 NEXT DEVELOPMENT CYCLE — IDP Calibration, Source Authority, and Trade Advisor Readiness
