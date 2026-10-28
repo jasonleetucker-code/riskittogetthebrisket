@@ -9,7 +9,7 @@ import math
 import os
 import re
 import statistics
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Collection, Iterable, Mapping, Sequence
 
@@ -5147,6 +5147,8 @@ _TRUST_MIRROR_FIELDS = (
     "dominantSource",
     "dominantSourceShare",
     "freshnessExcludedSources",
+    # Per-source reason codes behind ``retainedAuthority`` (diagnostic).
+    "sourceAuthorityReasons",
     # Which independent PROVIDERS stand behind a pick's market confidence
     # (owner 2026-10-07) — degraded pick evidence stays visible too.
     "pickEvidence",
@@ -11521,6 +11523,104 @@ def _stamp_source_weight_state(
     row["dominantSourceShare"] = round(share, 4)
 
 
+#: Per-row reason codes behind ``retainedAuthority`` (2026-10-28, IDP source
+#: authority).  One compact string per source that carries LESS than its base
+#: authority on the row, or that observed the row and was held from voting.
+#: Parts are joined with ``,`` when several apply.  Diagnostic only: built
+#: from stamps the blend already wrote, read back by nothing in the pipeline.
+SOURCE_AUTHORITY_STALE = "stale"  # ``stale=<factor>@<content date>``
+SOURCE_AUTHORITY_HEALTH = "health"  # ``health=<factor>``
+SOURCE_AUTHORITY_COVERAGE = "coverage"  # ``coverage=<factor>``
+SOURCE_AUTHORITY_WITHHELD_STALE = "withheld:stale"  # ``withheld:stale@<content date>``
+SOURCE_AUTHORITY_WITHHELD_HEALTH = "withheld:health"
+SOURCE_AUTHORITY_FAMILY_CAP = "family_cap"  # ``family_cap=<factor>``
+SOURCE_AUTHORITY_OUTLIER = "outlier_dropped"
+SOURCE_AUTHORITY_SUPERSEDED = "superseded"  # ``superseded:<winning key>``
+SOURCE_AUTHORITY_HELD_POLICY = "held:owner_policy"
+
+
+def _fmt_authority_factor(value: float) -> str:
+    return f"{round(float(value), 3):g}"
+
+
+def _content_date(as_of: datetime | None, age_hours: Any) -> str | None:
+    """The calendar date (UTC) of the content clock behind a row's freshness:
+    the board's as-of minus the row's stamped age.  ``None`` when either is
+    unknown — a date is never invented."""
+    if as_of is None or not isinstance(age_hours, (int, float)):
+        return None
+    return (as_of - timedelta(hours=float(age_hours))).astimezone(timezone.utc).date().isoformat()
+
+
+def _source_authority_reasons(
+    row_meta: Mapping[str, Mapping[str, Any]],
+    *,
+    is_pick: bool,
+    source_weighting: Mapping[str, Any] | None,
+    freshness_applied: bool,
+    held_observed: Iterable[str] = (),
+) -> dict[str, str]:
+    """``{source: reason code}`` for every source whose authority on this row
+    is below its base weight, plus every policy-held source that observed it.
+
+    Answers "why is this row's authority reduced, source by source" from the
+    stamps already on ``sourceRankMeta`` and the board's source weighting.  It
+    decides nothing and moves no value.  A source at full authority is
+    absent, so ``{}`` means nothing was reduced.
+
+    * a voting source below full freshness -> ``stale=<f>@<date>``, where
+      ``<date>`` is the content clock the factor was computed from (the
+      vendor's stated time for an upstream-timestamp source, else the last
+      observed content change);
+    * source-level health / coverage below 1 -> ``health=<f>`` / ``coverage=<f>``;
+    * a withheld (zero-weight) observation -> ``withheld:stale@<date>`` or
+      ``withheld:health``;
+    * a family-capped member -> ``family_cap=<f>``;
+    * a rejected / superseded observation -> ``outlier_dropped`` /
+      ``superseded:<key>``;
+    * a policy-held source with a value on the row -> ``held:owner_policy``
+      (``sourceVotingEligibility`` names the hold and its flag).
+    """
+    out: dict[str, str] = {}
+    for key, meta in row_meta.items():
+        if not isinstance(meta, Mapping):
+            continue
+        parts: list[str] = []
+        sw = (source_weighting or {}).get(key)
+        measured = sw is not None and bool(getattr(sw, "measured", False))
+        sub = sw.subset_for(is_pick) if measured else None
+        fresh = meta.get("freshness")
+        date_s = _content_date(getattr(sub, "as_of", None), meta.get("freshnessAgeHours"))
+        at = f"@{date_s}" if date_s else ""
+        excluded = meta.get("contributedToBlend") is False
+        if meta.get("hampelDropped"):
+            parts.append(SOURCE_AUTHORITY_OUTLIER)
+        elif meta.get("supersededBy"):
+            parts.append(f"{SOURCE_AUTHORITY_SUPERSEDED}:{meta['supersededBy']}")
+        elif excluded:
+            if isinstance(fresh, (int, float)) and fresh <= 0.0:
+                parts.append(SOURCE_AUTHORITY_WITHHELD_STALE + at)
+            else:
+                parts.append(SOURCE_AUTHORITY_WITHHELD_HEALTH)
+        elif freshness_applied:
+            if isinstance(fresh, (int, float)) and fresh < 1.0:
+                parts.append(f"{SOURCE_AUTHORITY_STALE}={_fmt_authority_factor(fresh)}{at}")
+            if measured and float(sw.health_factor) < 1.0:
+                parts.append(f"{SOURCE_AUTHORITY_HEALTH}={_fmt_authority_factor(sw.health_factor)}")
+            if measured and float(sw.coverage_factor) < 1.0:
+                parts.append(
+                    f"{SOURCE_AUTHORITY_COVERAGE}={_fmt_authority_factor(sw.coverage_factor)}"
+                )
+        fam = meta.get("familyAdjustment")
+        if isinstance(fam, (int, float)) and fam < 1.0 and not excluded:
+            parts.append(f"{SOURCE_AUTHORITY_FAMILY_CAP}={_fmt_authority_factor(fam)}")
+        if parts:
+            out[str(key)] = ",".join(parts)
+    for key in held_observed:
+        out.setdefault(str(key), SOURCE_AUTHORITY_HELD_POLICY)
+    return out
+
+
 # ── Rank-vote pricing + the Signals IDP family crosswalk (Candidate F) ──
 #: ``method`` stamped on a Candidate F family translation.
 TRANSLATION_COVERAGE_ALIGNED = "coverage_aligned"
@@ -13778,6 +13878,18 @@ def _compute_unified_rankings(
             players_array[row_idx],
             voting={k: row_weight.get(k, 0.0) for k, _v, _a in family_kept},
             base=base_weights,
+        )
+        _row_site_values = players_array[row_idx].get("canonicalSiteValues") or {}
+        players_array[row_idx]["sourceAuthorityReasons"] = _source_authority_reasons(
+            row_source_meta.get(row_idx) or {},
+            is_pick=row_is_pick,
+            source_weighting=source_weighting,
+            freshness_applied=_freshness_applied,
+            held_observed=sorted(
+                k
+                for k in _policy_held
+                if isinstance(_row_site_values, dict) and _row_site_values.get(k) is not None
+            ),
         )
 
         # Coverage diagnostic (2026-04-20 override): soft-fallback
@@ -16755,6 +16867,8 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "dominantSource",
     "dominantSourceShare",
     "freshnessExcludedSources",
+    # Per-source reason codes behind ``retainedAuthority`` (diagnostic).
+    "sourceAuthorityReasons",
     "pickEvidence",
     # Canonical KTC Market block — its ``normalizedValue`` is board-scale,
     # and the model-vs-market gap above is override-sensitive.
