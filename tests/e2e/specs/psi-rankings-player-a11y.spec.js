@@ -54,6 +54,7 @@ const {
   gotoRankingsBoard,
   boardRowCount,
   isMobileProject,
+  isNavigationAbortedFetch,
 } = require("../helpers/journey");
 
 const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
@@ -66,6 +67,28 @@ test.setTimeout(240_000);
 // The board's DataTable caption — its accessible name. Anchored on the
 // stable leading words so a copy tweak to the column list does not break it.
 const BOARD_TABLE_NAME = /^Unified dynasty value board/;
+
+/**
+ * Wait for every FINITE animation on the page to finish (an overlay's enter
+ * fade or slide).  Mid-transition, text sits on a partly transparent surface,
+ * so axe measures a contrast the settled UI never shows; WebKit's iPhone run
+ * caught exactly that on the quick-view and passed on retry.  Infinite
+ * animations are excluded (they never finish; reduced motion is tested
+ * separately below).  This waits for the final state, it does not relax the scan.
+ */
+async function settleFiniteAnimations(page) {
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => {
+          const timing = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : null;
+          return !!timing && Number.isFinite(timing.endTime);
+        })
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  );
+}
 
 async function scan(page, testInfo, name) {
   const results = await new AxeBuilder({ page }).withTags(WCAG).analyze();
@@ -206,7 +229,9 @@ async function expectPlayerFilePopulated(page, name) {
 test.describe("PSI reference a11y matrix: /rankings (populated)", () => {
   test("board table semantics, axe and viewport evidence", async ({ authedPage: page }, testInfo) => {
     const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("pageerror", (e) => {
+      if (!isNavigationAbortedFetch(e, page)) errors.push(e.message);
+    });
     await gotoRankingsBoard(page);
     await page.evaluate(() => document.fonts.ready);
 
@@ -307,6 +332,7 @@ test.describe("PSI reference a11y matrix: /rankings (populated)", () => {
         message: "focus must move into the quick-view",
       })
       .toBe(true);
+    await settleFiniteAnimations(page);
     await scan(page, testInfo, "rankings-quick-view");
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
@@ -321,7 +347,9 @@ test.describe("PSI reference a11y matrix: /players/[playerId] (populated)", () =
     authedPage: page,
   }, testInfo) => {
     const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("pageerror", (e) => {
+      if (!isNavigationAbortedFetch(e, page)) errors.push(e.message);
+    });
     const { name } = await openPlayerFileFromBoard(page);
 
     // A player the board ranks first is priced: the headline tile must show
