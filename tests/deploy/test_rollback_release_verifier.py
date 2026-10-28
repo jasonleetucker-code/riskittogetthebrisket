@@ -12,6 +12,7 @@ runtime reconciler.  These tests drive the REAL functions from rollback.sh.
 
 from __future__ import annotations
 
+import sys
 import ast
 import hashlib
 import json
@@ -23,6 +24,14 @@ from pathlib import Path
 import pytest
 
 from src.api.build_identity import _artifact_id, _frontend_tree_digest
+
+# runs the production rollback verifier through bash with python3 on PATH; Windows has no python3 shim.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: runs the production rollback verifier through bash with python3 on PATH",
+)
+
 
 REPO = Path(__file__).resolve().parents[2]
 ROLLBACK_SH = REPO / "deploy/rollback.sh"
@@ -202,6 +211,7 @@ def target(tmp_path: Path):
     return app_dir, manifest, artifact_id
 
 
+@_LINUX_ONLY
 def test_post_traffic_legacy_target_verifies_with_the_preserved_verifier(target, tmp_path):
     app_dir, manifest, artifact_id = target
     result = _run(app_dir, tmp_path, manifest, preserve=True)
@@ -219,6 +229,7 @@ def test_without_a_preserved_verifier_the_post_start_verify_fails_closed(target,
     assert TARGET_VERIFIER_MARKER not in result.stdout + result.stderr
 
 
+@_LINUX_ONLY
 def test_the_preserved_verifier_still_refuses_an_undeclared_route_cache_entry(target, tmp_path):
     app_dir, manifest, _ = target
     _serve_traffic(app_dir, name="evil.js")
@@ -227,6 +238,7 @@ def test_the_preserved_verifier_still_refuses_an_undeclared_route_cache_entry(ta
     assert "undeclared entry" in result.stderr
 
 
+@_LINUX_ONLY
 def test_a_hostile_python_environment_cannot_hijack_the_preserved_verifier(target, tmp_path):
     """-E -s -S: no PYTHON* variable, user site or .pth file reaches the verify."""
     app_dir, manifest, artifact_id = target

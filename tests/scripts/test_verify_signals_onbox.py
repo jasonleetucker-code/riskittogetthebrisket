@@ -156,7 +156,8 @@ def test_what_leaves_the_box_is_aggregates_only(box, capsys, monkeypatch):
 
     private = box / public["privateReport"]
     assert private.is_file()
-    assert oct(os.stat(private).st_mode & 0o777) == "0o600"
+    if os.name == "posix":  # POSIX permission bits; Windows reports 0o666 (ACLs)
+        assert oct(os.stat(private).st_mode & 0o777) == "0o600"
     full = json.loads(private.read_text(encoding="utf-8"))
     assert full["watchList"] and "player" in full["watchList"][0]
 

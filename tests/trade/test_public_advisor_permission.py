@@ -5,12 +5,21 @@ that is not a complete, current owner approval covering every voting source
 
 from __future__ import annotations
 
+import sys
 import datetime as dt
 import json
 
 import pytest
 
 from src.trade import public_advisor_permission as perm
+
+# creating a symlink needs SeCreateSymbolicLinkPrivilege on Windows.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: creating a symlink needs SeCreateSymbolicLinkPrivilege on Windows.",
+)
+
 
 TODAY = dt.date(2026, 10, 20)
 VOTING = ("ktcCrowdSfTep", "ktcTradesSfTep", "signalsSf", "idpTradeCalc")
@@ -173,6 +182,7 @@ def test_unparseable_and_oversized_files_fail_closed(tmp_path):
     assert _path_problem(tmp_path, big) == "too_large"
 
 
+@_LINUX_ONLY
 def test_symlink_escaping_the_record_dir_is_refused(tmp_path):
     outside = tmp_path / "elsewhere.json"
     outside.write_text(json.dumps(_record()), encoding="utf-8")

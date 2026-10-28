@@ -34,6 +34,7 @@ against reality, so the claim was moved somewhere that can be.
 from __future__ import annotations
 
 import ast
+import functools
 from pathlib import Path
 
 import pytest
@@ -118,6 +119,12 @@ def _src_imports(path: Path) -> set[str]:
     return found
 
 
+# Both walks parse every file under server.py / src / scripts.  They are
+# pure functions of the checked-out tree, which does not change during a
+# run, so they are computed once per session instead of once per
+# parametrized flag (~60 flags x a full-repo parse each).  Callers only read
+# the results; nothing here mutates them.
+@functools.cache
 def _reachable_from_server() -> set[str]:
     """Transitive closure of ``src.*`` modules imported from server.py."""
     seen: set[str] = set()
@@ -134,6 +141,7 @@ def _reachable_from_server() -> set[str]:
     return seen
 
 
+@functools.cache
 def _gate_sites() -> dict[str, set[str]]:
     """``{flag: {repo-relative file with an is_enabled call}}``.
 
@@ -164,7 +172,9 @@ def _gate_sites() -> dict[str, set[str]]:
                 continue
             arg = node.args[0]
             if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                sites.setdefault(arg.value, set()).add(str(path.relative_to(REPO_ROOT)))
+                # ``as_posix``: ``_measure`` matches ``scripts/`` prefixes and
+                # turns ``/`` into ``.``; ``str()`` would give ``\`` on Windows.
+                sites.setdefault(arg.value, set()).add(path.relative_to(REPO_ROOT).as_posix())
     return sites
 
 

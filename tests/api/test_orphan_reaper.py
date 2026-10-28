@@ -8,6 +8,7 @@ spawned child, and the finalize-path wiring + kill-switch.
 
 from __future__ import annotations
 
+import sys
 import os
 import subprocess
 import time
@@ -15,6 +16,13 @@ import time
 import pytest
 
 import server
+
+# walks a live process tree through /proc (Linux-only by design); Windows has no /proc.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: walks a live process tree through /proc (Linux-only by design)",
+)
 
 
 # ── cmdline predicate ────────────────────────────────────────────────
@@ -48,6 +56,7 @@ def test_predicate_rejects_unrelated(cmd):
 
 
 # ── descendant scoping ───────────────────────────────────────────────
+@_LINUX_ONLY
 def test_collect_descendants_includes_child_excludes_init():
     proc = subprocess.Popen(["sleep", "30"])
     try:
@@ -67,6 +76,7 @@ def test_collect_descendants_bogus_root_is_empty():
 
 
 # ── real kill path ───────────────────────────────────────────────────
+@_LINUX_ONLY
 def test_reaper_kills_matching_descendant():
     proc = subprocess.Popen(["sleep", "300"])
     try:

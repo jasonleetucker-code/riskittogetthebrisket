@@ -14,11 +14,19 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 
 import pytest
 
 from scripts import scrape_resource_sampler as sampler
 from src.diagnostics import scrape_telemetry as telemetry
+
+# These sample a LIVE process through ``/proc`` (Linux-only by design: the
+# box is Linux and there is deliberately no psutil).  Windows has no
+# ``/proc``, so they can only fail there.  Never skipped on Linux/CI.
+_LIVE_PROC = pytest.mark.skipif(
+    sys.platform == "win32", reason="reads a live process via /proc (Linux-only)"
+)
 
 
 @pytest.fixture
@@ -35,6 +43,7 @@ def _samples(path):
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
+@_LIVE_PROC
 def test_sample_carries_every_requested_dimension(temp_telemetry):
     telemetry.set_phase("source_start", source="KTC")
     sample = sampler.build_sample(
@@ -61,6 +70,7 @@ def test_sample_carries_every_requested_dimension(temp_telemetry):
     assert "cpu_total_ticks" in sample
 
 
+@_LIVE_PROC
 def test_cpu_utilization_needs_two_readings(temp_telemetry):
     """A single /proc/stat reading is cumulative; a rate needs a delta."""
     first = sampler.build_sample(os.getpid(), "r", prev_cpu=None, prev_tree=None, elapsed=0.0)

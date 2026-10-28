@@ -1560,8 +1560,12 @@ def build_freeze(
             src = app_dir / _board_rel(key)
             mtime = src.stat().st_mtime if src.is_file() else None
             _write_private(dst, S.render_board_csv(rows).encode("utf-8"), mtime)
+    # ``as_posix``: the keys (and so freezeManifestSha256) must not depend on
+    # the OS path separator; on POSIX this equals ``str()``.
     manifest = {
-        str(p.relative_to(tree)): _sha256_file(p) for p in sorted(tree.rglob("*")) if p.is_file()
+        p.relative_to(tree).as_posix(): _sha256_file(p)
+        for p in sorted(tree.rglob("*"))
+        if p.is_file()
     }
     info["manifest"] = manifest
     info["fileCount"] = len(manifest)
