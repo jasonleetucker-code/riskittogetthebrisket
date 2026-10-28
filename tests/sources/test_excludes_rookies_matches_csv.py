@@ -3,8 +3,11 @@
 ``excludes_rookies=True`` tells the pipeline a source structurally cannot
 rank rookies: ``_expected_sources_for_position`` stops expecting it for
 rookies, ``sparse_evidence`` refuses it (``board_excludes_rookies``), the
-source census reports ``population.rookies = False``, and the vote loop
-drops its rookie ranks in the bottom 20 % of its pool.
+and the source census reports ``population.rookies = False``.  The vote
+loop's deep-tail rookie skip (bottom 20 % of a source's pool) used to ride
+on this flag too; it now has its own field, ``drop_deep_tail_rookies``
+(``tests/api/test_deep_tail_rookie_rule.py``), so this flag stays purely
+factual.
 
 Until PR #1998's G2 audit both ``fantasyProsIdp`` and ``dlfIdp`` carried
 the flag on the stated premise that neither board lists first-year

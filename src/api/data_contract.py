@@ -2006,6 +2006,17 @@ _SIGNALS_IDP_GAME_TYPE_EVIDENCE = (
     "re-verified on every row of every release (src/sources/signals.py::normalize_idp_items)"
 )
 
+#: The deep-tail rookie VOTE rule (#134, April 2026).  A source registered
+#: with ``drop_deep_tail_rookies: True`` casts no vote for a rookie it ranks
+#: deeper than this fraction of its own ranked pool ("deep-tail rookie ranks
+#: are filler").  Deliberately a SEPARATE field from ``excludes_rookies``,
+#: which is a factual coverage claim (the board cannot list rookies) read by
+#: expected-sources, ``sparse_evidence`` and the source census.  Until the
+#: decoupling the vote rule rode on that flag, so correcting the flag in
+#: G2-D3 (#2001) silently switched the rule off.  Methodology status: the
+#: pre-#2001 behaviour, held pending an explicit owner decision.
+DEEP_TAIL_ROOKIE_POOL_FRACTION = 0.80
+
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
         # KeepTradeCut CROWDSOURCED Superflex + TE++ board — one of TWO KTC
@@ -2306,6 +2317,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # rookies' coverage denominator, so its real silence on a rookie
         # was not counted as missing evidence.  Pinned against the CSV
         # by ``tests/sources/test_excludes_rookies_matches_csv.py``.
+        #
+        # ``drop_deep_tail_rookies`` is the SEPARATE vote rule that used
+        # to ride on the false flag (#134): a rookie this board ranks past
+        # ``DEEP_TAIL_ROOKIE_POOL_FRACTION`` of its pool casts no vote.
+        # Restores the pre-G2-D3 voting methodology pending an explicit
+        # owner decision on the rule itself.  Latent while DLF IDP is
+        # policy-held from voting (``POLICY_SOURCE_VOTE_HOLDS``).
         "depth": 185,
         # Weight normalized to 1.0 so every registered source
         # contributes equally to the blended rank.  The previous 3.0
@@ -2316,6 +2334,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_backbone": False,
         "needs_shared_market_translation": True,
         "excludes_rookies": False,
+        "drop_deep_tail_rookies": True,
         # IDP values have no TE-premium dimension — declared
         # explicitly False so the registry-completeness test can
         # enforce that every source states its TEP posture.
@@ -2894,6 +2913,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # as missing evidence.  Pinned against the CSV by
         # ``tests/sources/test_excludes_rookies_matches_csv.py``.
         "excludes_rookies": False,
+        # The deep-tail rookie VOTE rule (#134), decoupled from the
+        # factual flag above: a rookie FP ranks past
+        # ``DEEP_TAIL_ROOKIE_POOL_FRACTION`` of its pool casts no FP vote.
+        # Restores the pre-G2-D3 voting methodology pending an explicit
+        # owner decision on the rule itself.
+        "drop_deep_tail_rookies": True,
         # IDP values have no TE-premium dimension — declared
         # explicitly False so the registry-completeness test can
         # enforce that every source states its TEP posture.
@@ -3221,8 +3246,9 @@ def rank_signal_source_keys() -> frozenset[str]:
 #                            the source simply doesn't list them.
 #   "depth_boundary:<source>" — the player's rank is just beyond <source>'s
 #                               declared depth.  Borderline, not a join failure.
-#   "rookie_exclusion:<source>" — the player is a rookie and the source
-#                                 excludes rookies.
+#   "rookie_exclusion:<source>" — the player is a rookie and <source>
+#                                 casts no vote on him (a vote hold, or the
+#                                 ``drop_deep_tail_rookies`` deep-tail skip).
 SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # ── Offense: DLF-SF-only (dropped by retail + IDPTC) ──
     # Veteran running backs / fringe players that both KTC and
@@ -3249,17 +3275,20 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "mike washington": "source_gap:idpTradeCalc+dlfSf — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
     "omar cooper": "source_gap:idpTradeCalc+dlfSf — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
     # ── IDP: IDPTradeCalc-only (DLF does not list these players) ──
-    # DLF publishes a curated 185-player IDP veteran board.  Rookies and
-    # players outside the top 185 are structurally excluded.
-    "arvell reese": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "sonny styles": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "caleb downs": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "david bailey": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "cj allen": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "dillon thieneman": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "dani dennis sutton": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "emmanuel mcneil warren": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "jake golday": "rookie_exclusion:dlfIdp — DLF excludes rookies",
+    # DLF publishes a curated ~150-185-player IDP board.  It DOES rank
+    # rookies (G2-D3, #2001 — the old "veteran board" premise was false);
+    # these rookies are single-source because DLF IDP is policy-held from
+    # voting, and when it votes the only rookie-specific rule is the
+    # deep-tail skip (``drop_deep_tail_rookies``).
+    "arvell reese": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "sonny styles": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "caleb downs": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "david bailey": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "cj allen": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "dillon thieneman": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "dani dennis sutton": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "emmanuel mcneil warren": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "jake golday": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
     "devin bush": "depth_boundary:dlfIdp — IDPTC rank 189, DLF depth 185; just outside DLF cutoff",
     # ── Offense: DynastyNerds-SF-TEP-only (dropped by retail + DLF SF) ──
     # Fringe offense players (deep rookies and retired/cut veterans) that
@@ -3636,6 +3665,9 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
             "isRankSignal": bool(src.get("is_rank_signal")),
             "needsSharedMarketTranslation": bool(src.get("needs_shared_market_translation")),
             "excludesRookies": bool(src.get("excludes_rookies")),
+            # The deep-tail rookie VOTE rule — separate from the factual
+            # ``excludesRookies`` coverage claim above.
+            "dropsDeepTailRookies": bool(src.get("drop_deep_tail_rookies")),
             # Undeclared groups resolve to the source's own key, so the
             # field is never null and consumers never have to encode the
             # "no group means independent" rule themselves.
@@ -4576,9 +4608,15 @@ def assert_ranking_source_registry_parity(
             # frontend that disagrees about correlation would show a
             # source count the backend considers inflated.
             "correlationGroup",
+            # The deep-tail rookie vote rule: the mirror declares it only
+            # where true, so both sides normalise to bool.
+            "dropsDeepTailRookies",
         ):
             py_val = py.get(field)
             js_val = js.get(field)
+            if field == "dropsDeepTailRookies":
+                py_val = bool(py_val)
+                js_val = bool(js_val)
             if field == "correlationGroup":
                 # Both sides may omit the field for an independent
                 # source; the singleton default is the source's own key.
@@ -6440,7 +6478,9 @@ def _expected_sources_for_position(
     * Sources flagged ``excludes_rookies=True`` in the registry are
       pruned for players whose ``is_rookie`` flag is set.  No source
       carries it today: DLF IDP and FantasyPros IDP did until G2-D3
-      (PR #1998), when their own CSVs were shown to rank rookies.
+      (PR #1998), when their own CSVs were shown to rank rookies.  The
+      deep-tail rookie VOTE skip is a separate field
+      (``drop_deep_tail_rookies``) and does not touch coverage.
 
     * Sources with a declared shallow ``depth`` are pruned when the
       player's already-matched rank is deeper than their cutoff plus
@@ -12453,10 +12493,16 @@ def _compute_unified_rankings(
                 observed_at_value += 1
             raw_rank = current_dense_rank
 
-            # ── Self-correcting rookie exclusion ──
-            # Sources flagged ``excludes_rookies=True`` (none today: DLF
-            # IDP and FantasyPros IDP carried it until G2-D3, PR #1998,
-            # because their own CSVs rank rookies) are veteran-focused boards whose
+            # ── Self-correcting deep-tail rookie skip (#134) ──
+            # Driven ONLY by ``drop_deep_tail_rookies`` (today DLF IDP and
+            # FantasyPros IDP).  It used to ride on ``excludes_rookies``,
+            # which is a FACTUAL coverage claim ("this board cannot list a
+            # rookie") — correcting that flag in G2-D3 (#2001) silently
+            # switched this methodology off.  The two are now separate
+            # registry fields so the factual one stays true to the CSV
+            # while the owner decides this rule on its own merits.
+            #
+            # These are veteran-focused boards whose
             # rookie entries historically live at the deep tail of
             # the pool — placeholder filler rather than real
             # evaluations.  Stamping those placeholder ranks onto
@@ -12472,9 +12518,9 @@ def _compute_unified_rankings(
             # when DLF or FP start covering rookies properly — the
             # gate lifts on its own.
             row = players_array[row_idx]
-            if src.get("excludes_rookies") and bool(row.get("rookie")):
+            if src.get("drop_deep_tail_rookies") and bool(row.get("rookie")):
                 _pool_size = source_pool_sizes.get(source_key, 0)
-                if _pool_size > 0 and raw_rank > _pool_size * 0.80:
+                if _pool_size > 0 and raw_rank > _pool_size * DEEP_TAIL_ROOKIE_POOL_FRACTION:
                     continue
 
             # Translate to effective overall-style rank based on scope.
