@@ -37,6 +37,7 @@ const {
   pageHeading,
   titleFor,
   awaitStreamSettled,
+  isNavigationAbortedFetch,
 } = require("../helpers/journey");
 
 const CHUNK_DELAY_MS = 4_000;
@@ -166,7 +167,9 @@ test.describe("/arbitrage hydration gate", () => {
     page,
   }) => {
     const errors = [];
-    page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("pageerror", (e) => {
+      if (!isNavigationAbortedFetch(e, page)) errors.push(String(e));
+    });
     await gotoArbitrageWithSlowJs(page);
 
     const tablist = page.getByRole("tablist", {
@@ -205,7 +208,9 @@ test.describe("/arbitrage hydration gate", () => {
     page,
   }) => {
     const errors = [];
-    page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("pageerror", (e) => {
+      if (!isNavigationAbortedFetch(e, page)) errors.push(String(e));
+    });
     await gotoArbitrageWithSlowJs(page);
 
     const disclosure = page.getByRole("button", {

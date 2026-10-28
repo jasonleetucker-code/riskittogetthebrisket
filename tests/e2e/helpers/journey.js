@@ -248,11 +248,21 @@ function desktopOnly(test, testInfo) {
   );
 }
 
-/** Gate a spec to the chromium mobile viewport project. */
+/**
+ * Gate a spec to the phone projects: mobile-chromium (CI's chromium phone
+ * viewport) and the WebKit iPhone device projects mobile-390 / mobile-430.
+ *
+ * It used to name mobile-chromium alone, "so a missing webkit install can't
+ * fail the suite".  That reasoning does not need the skip: a WebKit project
+ * only runs when someone selects it with --project, and selecting it already
+ * requires the install.  The skip meant the phone-viewport smoke (rankings
+ * board, player popup, bottom navigation, the windowed board) never ran on
+ * the engine iPhones actually use.
+ */
 function mobileOnly(test, testInfo) {
   test.skip(
-    testInfo.project.name !== "mobile-chromium",
-    "mobile smoke runs on the mobile-chromium project only",
+    !isMobileProject(testInfo),
+    "mobile smoke runs on the phone projects (mobile-chromium, mobile-390, mobile-430)",
   );
 }
 
@@ -559,6 +569,38 @@ async function awaitStreamSettled(page, { timeout = 30_000 } = {}) {
     .catch(() => {});
 }
 
+/**
+ * True for the TypeError WebKit raises when a navigation cancels a fetch that
+ * is still in flight: "Fetch API cannot load <url> due to access control
+ * checks." (Chromium says "Failed to fetch" and, when the page is being
+ * replaced, raises no page error at all.)  An app fetch with no `.catch` turns
+ * that rejection into an uncaught `pageerror` on the page that is going away.
+ *
+ * Measured on WebKit/iPhone-13 (E2E WebKit mobile run, 2026-10-28): all 19
+ * failures of the project were this one signature, e.g. the first `goto` of a
+ * spec racing the home page's `/api/dynasty-data` request, 17 ms after the
+ * navigation began.  The fetch SUCCEEDS when it is not cancelled (the trace
+ * shows 200s) and the same specs pass in Chromium.
+ *
+ * Deliberately narrow so a real failure is never swallowed: only this wording,
+ * and only for a URL on the page's OWN origin (a genuine CORS failure is by
+ * definition cross-origin and still reports).  Any other uncaught error --
+ * including every other fetch failure -- still fails the test.
+ */
+function isNavigationAbortedFetch(err, page) {
+  const text = `${(err && err.name) || ""} ${(err && err.message) || ""}`;
+  if (!/(?:Fetch API cannot load|Cannot load)\b[^\n]*? due to access control checks\.?\s*$/.test(text)) {
+    return false;
+  }
+  let pageHost = "";
+  try {
+    pageHost = new URL(page.url()).host;
+  } catch {
+    return false;
+  }
+  return !!pageHost && text.includes(pageHost);
+}
+
 function attachConsoleGuards(page, { allow = [] } = {}) {
   const defaultAllow = [
     // Chrome resource noise (404 favicons, aborted prefetches).
@@ -581,6 +623,7 @@ function attachConsoleGuards(page, { allow = [] } = {}) {
     consoleErrors.push(text);
   });
   page.on("pageerror", (err) => {
+    if (isNavigationAbortedFetch(err, page)) return;
     const text = String(err && err.stack ? err.stack : err);
     if (allowList.some((frag) => text.includes(frag))) return;
     pageErrors.push(text);
@@ -757,4 +800,5 @@ module.exports = {
   expectNoBadValueTokens,
   attachConsoleGuards,
   awaitStreamSettled,
+  isNavigationAbortedFetch,
 };

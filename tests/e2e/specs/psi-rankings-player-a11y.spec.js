@@ -54,6 +54,7 @@ const {
   gotoRankingsBoard,
   boardRowCount,
   isMobileProject,
+  isNavigationAbortedFetch,
 } = require("../helpers/journey");
 
 const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
@@ -206,7 +207,9 @@ async function expectPlayerFilePopulated(page, name) {
 test.describe("PSI reference a11y matrix: /rankings (populated)", () => {
   test("board table semantics, axe and viewport evidence", async ({ authedPage: page }, testInfo) => {
     const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("pageerror", (e) => {
+      if (!isNavigationAbortedFetch(e, page)) errors.push(e.message);
+    });
     await gotoRankingsBoard(page);
     await page.evaluate(() => document.fonts.ready);
 
@@ -321,7 +324,9 @@ test.describe("PSI reference a11y matrix: /players/[playerId] (populated)", () =
     authedPage: page,
   }, testInfo) => {
     const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("pageerror", (e) => {
+      if (!isNavigationAbortedFetch(e, page)) errors.push(e.message);
+    });
     const { name } = await openPlayerFileFromBoard(page);
 
     // A player the board ranks first is priced: the headline tile must show

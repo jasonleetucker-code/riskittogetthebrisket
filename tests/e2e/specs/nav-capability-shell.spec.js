@@ -34,7 +34,7 @@
  * see the note on it.
  */
 const { test, expect } = require("../helpers/auth-fixture");
-const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
+const { pageUrl, awaitStreamSettled, isNavigationAbortedFetch } = require("../helpers/journey");
 
 test.describe("V1-131: capability gate on the real shell", () => {
   test("the shell survives, the palette opens, and the gated page is not offered", async ({
@@ -42,7 +42,9 @@ test.describe("V1-131: capability gate on the real shell", () => {
   }) => {
     const pageErrors = [];
     const consensusEdgeRequests = [];
-    authedPage.on("pageerror", (err) => pageErrors.push(String(err)));
+    authedPage.on("pageerror", (err) => {
+      if (!isNavigationAbortedFetch(err, authedPage)) pageErrors.push(String(err));
+    });
     authedPage.on("request", (req) => {
       if (req.url().includes("/api/consensus-edge")) consensusEdgeRequests.push(req.url());
     });

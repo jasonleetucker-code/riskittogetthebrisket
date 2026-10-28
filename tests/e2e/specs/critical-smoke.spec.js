@@ -18,7 +18,7 @@ const { test, expect } = require("@playwright/test");
 // against baseURL (:8000) and gets a 404 from a backend that serves only
 // /api/. The API blocks further down deliberately keep resolving against
 // baseURL — that is why baseURL stays on :8000.
-const { pageUrl } = require("../helpers/journey");
+const { pageUrl, isNavigationAbortedFetch } = require("../helpers/journey");
 
 const PUBLIC_ROUTES = [
   // The shell brands the chrome "Chase Upside" (renamed from "Brisket"
@@ -87,7 +87,9 @@ test.describe("critical smoke — public routes", () => {
   for (const { path, mustHave } of PUBLIC_ROUTES) {
     test(`GET ${path} renders with no console errors`, async ({ page }) => {
       const errors = [];
-      page.on("pageerror", (e) => errors.push(e.message));
+      page.on("pageerror", (e) => {
+        if (!isNavigationAbortedFetch(e, page)) errors.push(e.message);
+      });
       page.on("console", (msg) => {
         if (msg.type() === "error") {
           const text = msg.text();

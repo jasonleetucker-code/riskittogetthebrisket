@@ -131,7 +131,10 @@ jobs:
   e2e:
     name: Boot stack + run journeys
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 45 -> 60 when the WebKit iPhone suite joined the job (+~10 min measured
+    # locally on 4 cores: install, boot-free, 145 tests).  The Chromium suite
+    # alone ran 16-20 min on the runner.
+    timeout-minutes: 60
     env:
       # Browsers for the TEST runner live in a dedicated path.  The
       # backend process is intentionally pointed elsewhere (see the
@@ -174,6 +177,17 @@ jobs:
         run: |
           set -Eeuo pipefail
           npx playwright install --with-deps chromium
+
+      - name: Install Playwright webkit (iPhone projects)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # WebKit is the engine every iPhone browser uses.  Chromium cannot
+          # stand in for it: a measured WebKit-only defect class (fetches that
+          # a navigation cancels are reported as uncaught page errors) and
+          # the phone smoke specs that used to skip off WebKit both lived
+          # here, unexercised, while the iPhone projects were "local only".
+          npx playwright install --with-deps webkit
 
       - name: Validate route measurement predicates
         shell: bash
@@ -374,13 +388,37 @@ jobs:
           E2E_JOURNEY_EVIDENCE: "1"
         run: |
           set -Eeuo pipefail
-          # Chromium desktop + chromium mobile viewport.  The webkit
-          # device projects (mobile-390/430) are local-only extras —
-          # same rationale as prod-e2e-smoke.yml.
+          # Chromium desktop + chromium mobile viewport.  The WebKit iPhone
+          # project (mobile-390) runs in the next step; prod-e2e-smoke.yml
+          # still runs Chromium only (it needs no WebKit install against
+          # production).
           npx playwright test \
             -c tests/e2e/playwright.config.js \
             --project=desktop-1366 \
             --project=mobile-chromium \
+            --ignore-snapshots
+
+      - name: Run Playwright WebKit mobile suite (iPhone 13)
+        # Runs even when the Chromium suite failed, so one red run reports both
+        # engines; the job still fails if either does.
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8000
+          E2E_PAGE_ORIGIN: http://127.0.0.1:3000
+          SKIP_VISUAL_REGRESSION: "1"
+          # The second run must not wipe the first run's artifacts: its own
+          # output and HTML report directories.
+          PLAYWRIGHT_HTML_REPORT: playwright-report-webkit
+        run: |
+          set -Eeuo pipefail
+          # mobile-390 only: mobile-430 (iPhone 14 Pro Max) is the same layout
+          # class and was green locally too, but a second project doubles the
+          # runtime and the suite's skip count past the reporter's ceiling.
+          npx playwright test \
+            -c tests/e2e/playwright.config.js \
+            --project=mobile-390 \
+            --output=test-results-webkit \
             --ignore-snapshots
 
       - name: Upload Playwright report
@@ -391,6 +429,8 @@ jobs:
           path: |
             tests/e2e/playwright-report/
             tests/e2e/test-results/
+            tests/e2e/playwright-report-webkit/
+            tests/e2e/test-results-webkit/
           retention-days: 14
 
       - name: Upload server logs on failure
