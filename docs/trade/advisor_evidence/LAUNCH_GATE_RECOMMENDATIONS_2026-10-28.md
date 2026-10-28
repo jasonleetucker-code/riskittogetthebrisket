@@ -135,7 +135,7 @@ Reading:
 
 - A typical successful analysis completes in about 53-104 ms of server time. A floor `F` makes
   every analysis take `F`: **+200 to +250 ms at F = 300**, +150 to +200 ms at F = 250. For
-  reference, the 20 production probes in §4 took 0.39-0.72 s each end to end from this host for
+  reference, the 20 timed production probes in §4 (of about 25 requests in total) took 0.39-0.72 s each end to end from this host for
   a trivial 503, so the floor roughly adds one more network round trip of delay.
 - The effect is one wait per Analyze click, not per keystroke (the public advisor is a submit
   flow). The two list GETs are unaffected.
@@ -393,12 +393,11 @@ odds are mentioned. Nothing in the advisor presents a playoff or title probabili
 **IDP / offense ROS caveat (Worker A's finding).** The lineup simulation scores offense and IDP
 players from different ROS projection families. The V3 preregistration records the IDP snapshot
 drift (as-of / preseason ROS value ratios of about 1.6 for LB, 1.28 for DL, 1.2-1.3 for DB) and
-a fit-window over-prediction that is largest where R-squared is lowest (IDP). When any DL/LB/DB player appears in the
-player-by-player lineup detail, the "Impact on your team" row now adds: "Defensive (IDP)
-projections come from different sources than offense, and their point scale has not been
-confirmed to match offense, so treat a lineup that mixes them as a rough estimate." Label only;
-no math, no weights and no fixture numbers changed. Worker A's calibration research should
-replace this wording with its measured statement when it lands.
+a fit-window over-prediction that is largest where R-squared is lowest (IDP). When any DL/LB/DB player appears among the affected players in the
+lineup detail, the "Impact on your team" row now adds: "Defensive (IDP) projections come from different sources than offense, and their accuracy against this league's results has not been confirmed, so treat a lineup that mixes them as a rough estimate." Label only;
+no math, no weights and no fixture numbers changed. Worker A's calibration research (PR #2010)
+measures the separate rank-index `rosValue` (IDP over-valued about 13% on one shared scale), not
+this projection ensemble, so the caveat states only what is established: IDP accuracy is unconfirmed.
 
 **Where it is still unlabelled (not changed here).**
 - Public `/league` pages that show playoff and championship odds (`ros-championship.jsx`,
@@ -490,8 +489,8 @@ UNRESOLVED:
   label. C3 design item 5 reserves the wording to the owner.
 - **WebKit mobile E2E** for the advisor and cross-generation differencing are still not runnable
   locally.
-- **Wording to revisit:** whether the IDP caveat wording should be replaced by Worker A's
-  measured ROS-scale statement when that research lands.
+- **Wording to revisit:** if a future study measures IDP accuracy of the projection ensemble
+  itself (PR #2010 measured `rosValue`, a different quantity), replace the caveat with that number.
 
 Owner decisions needed:
 1. `responseFloorMs` (recommend 300; 250 if the box measures quiet).

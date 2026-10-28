@@ -58,7 +58,7 @@ afterEach(() => {
 
 describe("lineup basis copy", () => {
   it("states what the impact number is and is not", () => {
-    expect(LINEUP_BASIS_NOTE).toMatch(/rest of this season/);
+    expect(LINEUP_BASIS_NOTE).toMatch(/Average weekly points over the rest of this season/);
     expect(LINEUP_BASIS_NOTE).toMatch(/not long-term dynasty value/);
     expect(LINEUP_BASIS_NOTE).toMatch(/does not include playoff or title odds/);
     expect(hasInternalIdentifier(LINEUP_BASIS_NOTE)).toBe(false);
@@ -71,7 +71,7 @@ describe("lineup basis copy", () => {
     for (const pos of ["DL", "LB", "DB", "edge", "CB", "S"]) {
       const withIdp = { players: [{ position: "QB" }, { position: pos }] };
       expect(idpProjectionCaveat(withIdp)).toMatch(
-        /point scale has not been confirmed/,
+        /accuracy against this league's results has not been confirmed/,
       );
       expect(lineupBasisNotes(withIdp)).toHaveLength(2);
     }

@@ -1380,20 +1380,22 @@ const IDP_POSITIONS = new Set([
  * Display copy only: it states the basis and never changes a number.
  */
 export const LINEUP_BASIS_NOTE =
-  "Expected points for the rest of this season, from projections. It is not long-term dynasty value, and it does not include playoff or title odds.";
+  "Average weekly points over the rest of this season, from projections. It is not long-term dynasty value, and it does not include playoff or title odds.";
 
 /**
- * A caveat when defensive (IDP) players are in the lineup simulation.
- * Offense and IDP projections come from different projection families and
- * their point scales have not been confirmed to match (a calibration study
- * is in progress), so a lineup that mixes them is an estimate.  Returns null
- * when no IDP player is listed.  Label only -- the math is unchanged.
+ * A caveat when defensive (IDP) players appear among the AFFECTED players
+ * listed in the lineup detail (an unaffected IDP starter does not trigger
+ * it).  Offense and IDP projections come from different projection families
+ * and IDP accuracy has not been confirmed against this league's results
+ * (see docs/league-intelligence/ROS_SCALE_CALIBRATION_RESULTS_2026-10-28.md,
+ * which measures the separate rank-index rosValue).  Returns null when no IDP
+ * player is listed.  Label only -- the math is unchanged.
  */
 export function idpProjectionCaveat(rosterDetail) {
   const players = Array.isArray(rosterDetail?.players) ? rosterDetail.players : [];
   const hasIdp = players.some((p) => IDP_POSITIONS.has(String(p?.position || "").toUpperCase()));
   return hasIdp
-    ? "Defensive (IDP) projections come from different sources than offense, and their point scale has not been confirmed to match offense, so treat a lineup that mixes them as a rough estimate."
+    ? "Defensive (IDP) projections come from different sources than offense, and their accuracy against this league's results has not been confirmed, so treat a lineup that mixes them as a rough estimate."
     : null;
 }
 
