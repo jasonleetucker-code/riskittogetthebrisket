@@ -220,8 +220,26 @@ async function addByKeyboard(page, testInfo, sideLabel, query, match, { shotName
   };
   let uiLabel;
   if (!phone) {
-    await tabTo(page, inline);
-    await page.keyboard.type(query);
+    // Type the query and PROVE it landed.  The input is controlled and the
+    // side panel re-renders right after the previous add (undo toast, team
+    // binding, refocus frame); keystrokes typed into the input that is being
+    // replaced are lost.  E2E Safety Net run 40503459412 (#2000): the box held
+    // only "a" -- the last character of "Andrew Mukuba" -- and the 15 s wait
+    // for a result for that name timed out; the retry (5.7 s) passed.  Not
+    // reproducible in 12 consecutive local runs, so this waits for the
+    // observable state (the typed value) and retypes ONLY when it did not
+    // land.  The result assertion below is unchanged.
+    await expect(async () => {
+      await tabTo(page, inline);
+      if ((await inline.inputValue()) !== "") {
+        await page.keyboard.press("ControlOrMeta+A");
+        await page.keyboard.press("Backspace");
+      }
+      await page.keyboard.type(query);
+      await expect(inline, `typed query "${query}" landed in the search box`).toHaveValue(query, {
+        timeout: 2_000,
+      });
+    }).toPass({ timeout: 20_000 });
     const list = page.locator(`#trade-search-${sideLabel}-listbox`);
     const row = rowFor(list);
     await expect(row, `search result for ${match.name || match.assetId}`).toBeVisible({

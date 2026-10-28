@@ -10,11 +10,13 @@ closes that gap: a committed, re-runnable command that rebuilds a real
 contract from the newest COMPLETE archive and reports EVIDENCE-L2, the
 same evidence class the hand-run produced.
 
-Marked ``livedata`` — like ``test_real_rosters.py`` — because it reads a
-real archived scrape and is excluded from the blocking hard gate
-(``-m "not livedata"``); the check LOGIC itself stays pinned by the
-synthetic-fixture suite in ``test_verification_pack.py``, which does run
-in the hard gate.
+NOT ``livedata`` (changed from the original marking).  It reads the newest
+COMPLETE archived scrape through ``tests.archive_fixtures`` -- the repo's one
+rule for "a real board" -- so it is a function of the tracked archive, not of
+whichever sources answered the last scrape, and a provider that did not answer
+cannot fail it.  Verified green on boards spanning August-October 2026.  The
+check LOGIC is additionally pinned by the synthetic-fixture suite in
+``test_verification_pack.py``.
 """
 
 from __future__ import annotations
@@ -30,8 +32,6 @@ from scripts.verify_roster_intelligence import (
     run_checks,
 )
 from tests.archive_fixtures import newest_complete_raw_payload
-
-pytestmark = pytest.mark.livedata
 
 
 def _skip_if_no_archive():
