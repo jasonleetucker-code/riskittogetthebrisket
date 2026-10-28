@@ -6,7 +6,7 @@
 Verbatim: `docs/owner/NEXT_CYCLE_IDP_CALIBRATION_DIRECTIVE_2026-10-28.md`. Intake: `docs/OWNER_REQUESTED_TODO.md`
 "Added 2026-10-28" (NC-A … NC-E).
 - **NC-A:** ROS offense/IDP scale calibration as an isolated shadow package with a preregistered champion/challenger
-  evaluation and an owner recommendation. It consumes `src/ros/lineup.py`, BDVM scoring/actuals and LI-5 replacement;
+  evaluation and an owner recommendation. It consumes `src/ros/lineup.py`, the existing host-native scorer and actuals loaders, and the replacement owner;
   it edits none of them.
 - **NC-B:** IDP source-authority diagnosis, ingestion and timestamp bug fixes with measured board diffs, and additive
   per-source weight-reduction reasons.
