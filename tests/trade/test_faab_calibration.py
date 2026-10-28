@@ -124,12 +124,22 @@ def _recommend(value, anchors, league, *, team=None, rivals=None, **player_kw):
 
 
 class TestAllInRegion:
+    # Advisory (livedata): bands a market measurement (the board value at rank 240,
+    # and named players measured on 2026-08-04) that drifts with every refresh, so
+    # a normal market move would fail it with no code defect.  The newest-archive
+    # fixture removes scrape health, not market drift.
+    @pytest.mark.livedata
     def test_the_allin_line_is_derived_from_league_format(self, anchors):
         """Not a hard-coded value: the board value at (teams x starter
         slots).  For dynasty_main that is rank 240."""
         assert anchors.starter_slots == 240
         assert 1800 < anchors.v_allin < 3200, anchors.v_allin
 
+    # Advisory (livedata): bands a market measurement (the board value at rank 240,
+    # and named players measured on 2026-08-04) that drifts with every refresh, so
+    # a normal market move would fail it with no code defect.  The newest-archive
+    # fixture removes scrape health, not market drift.
+    @pytest.mark.livedata
     def test_every_human_anchor_reaches_a_full_ceiling(self, board, anchors):
         """Both managers said they would spend their ENTIRE budget on
         these players.  The model must agree — without knowing their
@@ -149,6 +159,11 @@ class TestAllInRegion:
         assert FE.objective_ceiling(anchors.v_allin, anchors)[0] == pytest.approx(1.0)
         assert anchors.v_allin < 4000
 
+    # Advisory (livedata): bands a market measurement (the board value at rank 240,
+    # and named players measured on 2026-08-04) that drifts with every refresh, so
+    # a normal market move would fail it with no code defect.  The newest-archive
+    # fixture removes scrape health, not market drift.
+    @pytest.mark.livedata
     def test_a_full_ceiling_does_not_produce_a_full_bid(self, anchors, league):
         """A player can be worth $100 while the right bid is far less —
         the separation the brief demanded."""

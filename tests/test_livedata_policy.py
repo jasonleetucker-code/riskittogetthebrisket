@@ -152,7 +152,7 @@ _PROMOTED_MODULES = {
     "test_dlf_source.py": True,
     "test_fantasypros_idp_integration.py": False,
     "test_fetch_flock_fantasy_rookies.py": True,
-    "test_faab_calibration.py": True,
+    "test_faab_calibration.py": False,  # three market-banded tests stay livedata
 }
 
 
