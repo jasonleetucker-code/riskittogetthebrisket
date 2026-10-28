@@ -588,19 +588,33 @@ async function awaitStreamSettled(page, { timeout = 30_000 } = {}) {
  * including every other fetch failure -- still fails the test.
  */
 function isNavigationAbortedFetch(err, page) {
-  // The WHOLE message must be exactly this wording around one URL: anchored at
-  // both ends, so a longer message that merely ends with the same tail never
-  // matches.
+  // Playwright splits WebKit's exception text at its FIRST colon
+  // (playwright-core splitErrorMessage: name = text before ":", message = text
+  // after ":" plus one more character).  For this error the first colon is the
+  // one in "http:", so the URL arrives cut in two: name "Fetch API cannot load
+  // http", message "/127.0.0.1:3000/... due to access control checks."  Rebuild
+  // the original text from the candidate splits and require the WHOLE of it to
+  // be exactly this wording around one URL (anchored at both ends).
+  const name = String((err && err.name) || "").trim();
   const message = String((err && err.message) || "").trim();
-  const m = /^(?:Fetch API cannot load|Cannot load) (\S+) due to access control checks\.?$/.exec(
-    message,
-  );
-  if (!m) return false;
+  const candidates = [message];
+  if (name) candidates.push(`${name}:/${message}`, `${name}: ${message}`);
+  let url = null;
+  for (const candidate of candidates) {
+    const m = /^(?:TypeError:\s*)?(?:Fetch API cannot load|Cannot load) (\S+) due to access control checks\.?$/.exec(
+      candidate,
+    );
+    if (m) {
+      url = m[1];
+      break;
+    }
+  }
+  if (!url) return false;
   let pageHost = "";
   let fetchHost = "";
   try {
     pageHost = new URL(page.url()).host;
-    fetchHost = new URL(m[1]).host;
+    fetchHost = new URL(url).host;
   } catch {
     return false;
   }
