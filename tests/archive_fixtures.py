@@ -32,7 +32,7 @@ from __future__ import annotations
 import json
 import zipfile
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 REPO = Path(__file__).resolve().parents[1]
 ARCHIVE = REPO / "exports" / "archive"
@@ -132,3 +132,31 @@ def newest_complete_raw_payload(
             continue
         return payload, archive.name
     return None, None
+
+
+_CONTRACT_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def newest_complete_contract(
+    require: Callable[[dict], bool] | None = None,
+) -> tuple[dict | None, str | None]:
+    """``(contract, archive_name)``: ``build_api_data_contract`` over
+    :func:`newest_complete_raw_payload`.
+
+    The contract is built once per archive per process and the SAME object is
+    handed to every caller, so treat it as READ-ONLY (``copy.deepcopy`` before
+    mutating).  ``(None, None)`` degrades like the raw helper, and callers
+    skip.  This is the deterministic stand-in for ``exports/latest`` in a test
+    that checks an invariant of the build rather than the health of today's
+    scrape (CLAUDE.md "Rule for new tests").
+    """
+    payload, name = newest_complete_raw_payload(require)
+    if payload is None or name is None:
+        return None, None
+    contract = _CONTRACT_CACHE.get(name)
+    if contract is None:
+        from src.api.data_contract import build_api_data_contract
+
+        contract = build_api_data_contract(payload)
+        _CONTRACT_CACHE[name] = contract
+    return contract, name

@@ -13,6 +13,15 @@ April 2026 (see audit dated 2026-04-14):
   * Player rankings are unchanged for known top players (sanity check
     that nothing in the pick refinement leaks into player rows).
 
+Two tiers, decided per class (CLAUDE.md "CI has two lanes").  Properties of
+OUR pick passes -- slot monotonicity, tier suppression and aliasing, pick
+confidence phrasing, the anchor-band helpers -- build from
+``tests.archive_fixtures.newest_complete_contract`` (the newest archived scrape
+the contract's own source-health definition calls complete) and run in the hard
+gate.  Claims about what TODAY'S MARKETS say (year ordering, tracking the
+current KTC CSV, named-player rank bands) keep reading ``exports/latest`` /
+``CSVs/site_raw`` and carry ``@pytest.mark.livedata``.
+
 Run with:  python3 -m pytest tests/api/test_pick_refinement.py -v
 """
 
@@ -24,7 +33,10 @@ import unittest
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from src.api.data_contract import build_api_data_contract
+from tests.archive_fixtures import newest_complete_contract
 
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -48,6 +60,12 @@ def _get() -> dict[str, Any] | None:
     if _CACHED is None:
         _CACHED = _load_contract()
     return _CACHED
+
+
+def _get_pinned() -> dict[str, Any] | None:
+    """The newest COMPLETE archived board (read-only, shared across modules)."""
+    contract, _name = newest_complete_contract()
+    return contract
 
 
 def _by_name(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -99,9 +117,9 @@ class TestSlotMonotonic(unittest.TestCase):
     inside every (year, round) bucket."""
 
     def setUp(self) -> None:
-        self.contract = _get()
+        self.contract = _get_pinned()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.by_name = _by_name(self.contract)
 
     def _check_round(self, year: int, rnd: int, *, tolerance: int = 0) -> None:
@@ -177,6 +195,8 @@ class TestYearDiscount(unittest.TestCase):
             self.skipTest("No live data")
         self.by_name = _by_name(self.contract)
 
+    # A claim about what today's markets say: advisory tier.
+    @pytest.mark.livedata
     def test_2027_picks_discounted_below_2028(self) -> None:
         """2028 should always be lower than 2027 for matching tiers."""
         for tier in ("Early", "Mid", "Late"):
@@ -192,6 +212,8 @@ class TestYearDiscount(unittest.TestCase):
                     f">= 2027 {tier} {rnd_label} value {a['rankDerivedValue']}",
                 )
 
+    # A claim about what today's markets say: advisory tier.
+    @pytest.mark.livedata
     def test_future_tier_picks_track_the_market_that_prices_them(self) -> None:
         """Vendor-priced future tiers must not sit far below their market.
 
@@ -253,6 +275,8 @@ class TestYearDiscount(unittest.TestCase):
             )
         self.assertGreater(checked, 0, "no vendor-priced future tiers found to check")
 
+    # A claim about what today's markets say: advisory tier.
+    @pytest.mark.livedata
     def test_current_year_top_slots_still_outrank_far_future_tiers(self) -> None:
         """The part of the old ordering rule that survives, and should.
 
@@ -290,9 +314,9 @@ class TestSpecificSlotVsRoundBoundary(unittest.TestCase):
     """Slot 1.12 must outvalue slot 2.01 (round-1 floor > round-2 ceiling)."""
 
     def setUp(self) -> None:
-        self.contract = _get()
+        self.contract = _get_pinned()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.by_name = _by_name(self.contract)
 
     def test_current_class_slot_1_12_above_slot_2_01(self) -> None:
@@ -320,9 +344,9 @@ class TestGenericTierSuppression(unittest.TestCase):
     """Generic Early/Mid/Late rows must be suppressed for years with slots."""
 
     def setUp(self) -> None:
-        self.contract = _get()
+        self.contract = _get_pinned()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.by_name = _by_name(self.contract)
 
     def test_slotted_class_generic_tiers_suppressed(self) -> None:
@@ -398,9 +422,9 @@ class TestPickConfidenceUsesCV(unittest.TestCase):
     """Pick confidence must come from raw-value CV, not rank spread."""
 
     def setUp(self) -> None:
-        self.contract = _get()
+        self.contract = _get_pinned()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.by_name = _by_name(self.contract)
 
     def test_slotted_class_picks_have_pick_confidence(self) -> None:
@@ -654,6 +678,8 @@ def _assert_bucket_explained_by_axes(
         )
 
 
+# Named-player rank/value bands over TODAY'S board: advisory tier.
+@pytest.mark.livedata
 class TestPlayerRankingsUnchanged(unittest.TestCase):
     """Player ranks/values for known top players must not regress.
 

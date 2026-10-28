@@ -20,45 +20,32 @@ volatility compression + monotonicity-cap post-pass was removed
 outright.
 
 These tests are invariant-band style (PR #154): they assert the
-structural chain holds for today's snapshot, not specific values.
+structural chain holds for a board, not specific values.  Despite the file
+name they therefore read no live data: the board is the newest archived scrape
+the contract's own source-health definition calls complete
+(``tests.archive_fixtures.newest_complete_contract``), so they run in the hard
+gate and a provider that did not answer cannot fail them (CLAUDE.md "CI has two
+lanes").  They used to read ``exports/latest`` in the advisory tier, which left
+the single-curve guarantee unable to fail a PR.
 """
 
 from __future__ import annotations
 
-import json
 import unittest
-from pathlib import Path
 from typing import Any
 
-from src.api.data_contract import (
-    _DISPLAY_SCALE_MAX,
-    build_api_data_contract,
-)
+from src.api.data_contract import _DISPLAY_SCALE_MAX
+from tests.archive_fixtures import newest_complete_contract
 
 
-_REPO = Path(__file__).resolve().parents[2]
 _IDP_POSITIONS = {"DL", "LB", "DB"}
 _OFFENSE_POSITIONS = {"QB", "RB", "WR", "TE"}
 
 
-def _load_contract() -> dict[str, Any] | None:
-    data_dir = _REPO / "exports" / "latest"
-    json_files = sorted(data_dir.glob("dynasty_data_*.json"), reverse=True)
-    if not json_files:
-        return None
-    with json_files[0].open() as f:
-        raw = json.load(f)
-    return build_api_data_contract(raw)
-
-
-_CACHED: dict[str, Any] | None = None
-
-
 def _get() -> dict[str, Any] | None:
-    global _CACHED
-    if _CACHED is None:
-        _CACHED = _load_contract()
-    return _CACHED
+    """The newest COMPLETE archived board (read-only, shared across modules)."""
+    contract, _name = newest_complete_contract()
+    return contract
 
 
 def _ranked_rows(contract: dict[str, Any]) -> list[dict[str, Any]]:
@@ -82,7 +69,7 @@ class TestOffenseHasNoCalibrationLayer(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
 
     def test_offense_rows_have_no_offense_calibration_multiplier(self) -> None:
         offending: list[str] = []
@@ -116,7 +103,7 @@ class TestVolatilityPassIsRemoved(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
 
     def test_no_row_carries_prevolatility_stamp(self) -> None:
         offending = [
@@ -155,7 +142,7 @@ class TestValueChain(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.rows = _ranked_rows(self.contract)
 
     def test_no_calibration_stamps_remain_on_rows(self) -> None:
@@ -205,7 +192,7 @@ class TestHierarchicalAnchorChain(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.rows = _ranked_rows(self.contract)
 
     def test_every_ranked_row_has_baseline_contribution(self) -> None:
@@ -333,7 +320,7 @@ class TestMADPenaltyChain(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.rows = _ranked_rows(self.contract)
 
     def test_nonpick_rows_carry_source_spread_when_multi_source(self) -> None:
@@ -437,7 +424,7 @@ class TestSoftFallbackIsCoverageDiagnosticOnly(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.rows = _ranked_rows(self.contract)
 
     def test_soft_fallback_count_stamped(self) -> None:
@@ -501,7 +488,7 @@ class TestScopeMasterRouting(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.rows = _ranked_rows(self.contract)
 
     def test_anchor_top_rank_contribution_near_max(self) -> None:
@@ -558,7 +545,7 @@ class TestRookieScopeRouting(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.rows = _ranked_rows(self.contract)
 
     def test_rookie_source_rank_one_translated_via_reference_ladder(self) -> None:
@@ -669,7 +656,7 @@ class TestNoSecondHillCurve(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.rows = _ranked_rows(self.contract)
 
     def test_top_50_value_range_is_wide(self) -> None:
@@ -745,7 +732,7 @@ class TestValueBasedSourceDirectVote(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.rows = _ranked_rows(self.contract)
 
     def test_value_sources_use_value_direct_path(self) -> None:
@@ -879,7 +866,7 @@ class TestMADPenaltyNeutralized(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.rows = _ranked_rows(self.contract)
 
     def test_lambda_is_zero(self) -> None:
@@ -944,7 +931,7 @@ class TestDraftSharksCombinedCrossMarket(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = _get()
         if self.contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         self.rows = _ranked_rows(self.contract)
 
     def _ds_eff_ranks(self) -> list[tuple[int, str, str, str]]:
