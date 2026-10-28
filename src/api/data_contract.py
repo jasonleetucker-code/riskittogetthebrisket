@@ -11523,9 +11523,13 @@ def _stamp_source_weight_state(
     row["dominantSourceShare"] = round(share, 4)
 
 
-#: Per-row reason codes behind ``retainedAuthority`` (2026-10-28, IDP source
-#: authority).  One compact string per source that carries LESS than its base
-#: authority on the row, or that observed the row and was held from voting.
+#: Per-row reason codes for every source whose weight on the row is below its
+#: base weight (2026-10-28, IDP source authority).  Freshness, health and
+#: coverage reductions lower ``retainedAuthority``; ``family_cap`` and
+#: ``outlier_dropped`` do not (its denominator gets the same treatment), so the
+#: field is "per-source weight below base", a superset of what moved
+#: ``retainedAuthority``.  One compact string per source that carries LESS than
+#: its base weight on the row, or that observed the row and was held from voting.
 #: Parts are joined with ``,`` when several apply.  Diagnostic only: built
 #: from stamps the blend already wrote, read back by nothing in the pipeline.
 SOURCE_AUTHORITY_STALE = "stale"  # ``stale=<factor>@<content date>``
@@ -11537,6 +11541,10 @@ SOURCE_AUTHORITY_FAMILY_CAP = "family_cap"  # ``family_cap=<factor>``
 SOURCE_AUTHORITY_OUTLIER = "outlier_dropped"
 SOURCE_AUTHORITY_SUPERSEDED = "superseded"  # ``superseded:<winning key>``
 SOURCE_AUTHORITY_HELD_POLICY = "held:owner_policy"
+#: Date suffix used instead of a calendar date when the row's freshness clock is
+#: the source's FIRST-OBSERVATION baseline: a fetch time, not a vendor update, so
+#: no content date is known (``SubsetFreshness.clock_is_baseline``).
+SOURCE_AUTHORITY_UNVERIFIED_CLOCK = "unverified_clock"
 
 
 def _fmt_authority_factor(value: float) -> str:
@@ -11571,7 +11579,9 @@ def _source_authority_reasons(
     * a voting source below full freshness -> ``stale=<f>@<date>``, where
       ``<date>`` is the content clock the factor was computed from (the
       vendor's stated time for an upstream-timestamp source, else the last
-      observed content change);
+      observed content change), or ``@unverified_clock`` when that clock is
+      only our first observation of the board (a fetch time, never shown as a
+      content date);
     * source-level health / coverage below 1 -> ``health=<f>`` / ``coverage=<f>``;
     * a withheld (zero-weight) observation -> ``withheld:stale@<date>`` or
       ``withheld:health``;
@@ -11590,8 +11600,22 @@ def _source_authority_reasons(
         measured = sw is not None and bool(getattr(sw, "measured", False))
         sub = sw.subset_for(is_pick) if measured else None
         fresh = meta.get("freshness")
-        date_s = _content_date(getattr(sub, "as_of", None), meta.get("freshnessAgeHours"))
-        at = f"@{date_s}" if date_s else ""
+        age_h = meta.get("freshnessAgeHours")
+        date_s = _content_date(getattr(sub, "as_of", None), age_h)
+        # A clock that IS the first-observation baseline is a fetch time: never
+        # present it as the content's date.  The stamped age is rounded to 0.1 h,
+        # hence the 6-minute tolerance when matching the row clock to it.
+        base_at = getattr(sub, "clock_at", None) if sub is not None else None
+        unverified = bool(
+            date_s
+            and getattr(sub, "clock_is_baseline", False)
+            and base_at is not None
+            and abs(((sub.as_of - timedelta(hours=float(age_h))) - base_at).total_seconds()) <= 360
+        )
+        if unverified:
+            at = f"@{SOURCE_AUTHORITY_UNVERIFIED_CLOCK}"
+        else:
+            at = f"@{date_s}" if date_s else ""
         excluded = meta.get("contributedToBlend") is False
         if meta.get("hampelDropped"):
             parts.append(SOURCE_AUTHORITY_OUTLIER)

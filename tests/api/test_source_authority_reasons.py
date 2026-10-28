@@ -1,4 +1,4 @@
-"""Per-row reasons behind ``retainedAuthority`` (``sourceAuthorityReasons``).
+"""Per-source weight-below-base reasons (``sourceAuthorityReasons``).
 
 A row whose evidence is degraded must be able to say WHY, source by source:
 stale since a date, withheld, family-capped, rejected as an outlier, or held
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -33,6 +33,8 @@ AS_OF = datetime(2026, 10, 28, 9, 2, 26, tzinfo=timezone.utc)
 @dataclass
 class _Sub:
     as_of: datetime
+    clock_is_baseline: bool = False
+    clock_at: datetime | None = None
 
 
 @dataclass
@@ -100,6 +102,24 @@ class TestReasonCodes:
     def test_unmeasured_source_has_no_date(self):
         meta = {"x": {"freshness": 0.4, "freshnessAgeHours": 10.0}}
         assert _reasons(meta, {}) == {"x": "stale=0.4"}
+
+    def test_baseline_clock_is_never_shown_as_a_content_date(self):
+        # The source's only clock is our first fetch: no content date is known.
+        base = AS_OF - timedelta(hours=100.0)
+
+        class _BaselineSW(_SW):
+            def subset_for(self, is_pick):
+                return _Sub(AS_OF, clock_is_baseline=True, clock_at=base)
+
+        stale = {"n": {"freshness": 0.5, "freshnessAgeHours": 100.0}}
+        assert _reasons(stale, {"n": _BaselineSW()}) == {"n": "stale=0.5@unverified_clock"}
+        withheld = {
+            "n": {"freshness": 0.0, "freshnessAgeHours": 100.0, "contributedToBlend": False}
+        }
+        assert _reasons(withheld, {"n": _BaselineSW()}) == {"n": "withheld:stale@unverified_clock"}
+        # A row whose own clock moved past the baseline keeps its real date.
+        moved = {"n": {"freshness": 0.5, "freshnessAgeHours": 24.0}}
+        assert _reasons(moved, {"n": _BaselineSW()}) == {"n": "stale=0.5@2026-10-27"}
 
     def test_policy_held_source_is_named(self):
         assert _reasons({}, held=["dlfIdp"]) == {"dlfIdp": "held:owner_policy"}

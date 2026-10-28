@@ -192,7 +192,7 @@ That is a vendor methodology view, not a translation defect.
        **0 values, 0 ranks, 0 labels** (1,103 rows, 427 IDP, 138 picks).
      * The whole contract is byte-identical apart from the new field and
        `dataFreshness.generatedAt`.
-   * **Size.** About 150 KB raw over 979 stamped rows. The production payload ceiling test
+   * **Size.** About 340 KB raw (about 170 KB in `playersArray` and again in the legacy mirror) over 979 stamped rows. The production payload ceiling test
      passes.
    * **Tests.** Pinned by `tests/api/test_source_authority_reasons.py`:
      * unit tests for every code;
@@ -255,8 +255,8 @@ IDP — yes / no."
 **Question:** should IDP Trade Calculator's expected cadence be its learned 127.9 h
 (today's rule), or the configured `maxHours` 240 h?
 
-* At 240 h the factor would be 0.771 instead of 0.303, and IDP retention would roughly
-  double.
+* At 240 h the factor would be 0.771 instead of 0.303, and IDP median retention would rise
+  from 0.378 to about 0.495 (+31%).
 * This is the freshness-threshold question the 10-25 report already named.
 * It is a rule change, so it is owner-reserved.
 

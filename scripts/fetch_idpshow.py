@@ -397,6 +397,15 @@ def _persist_upstream(meta: dict, path: Path | None = None) -> None:
     target.write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _persist_plain_upstream_best_effort(meta: dict) -> None:
+    """Evidence-only write for the non-voting IDP-only board: a write error is
+    logged and swallowed so it can never block recording the acquisition."""
+    try:
+        _persist_upstream(meta, PLAIN_UPSTREAM_PATH)
+    except OSError as exc:
+        print(f"[idpshow] WARNING: upstream metadata not written: {exc}", file=sys.stderr)
+
+
 def _looks_paywalled(html: str) -> bool:
     """Detect the paywall state.  Authenticated fetches still include
     ``paywall`` in related UI chrome, so we key off the specific
@@ -812,7 +821,7 @@ def main(argv: list[str] | None = None) -> int:
     # Evidence only (see PLAIN_UPSTREAM_PATH): best-effort, never blocks the board.
     meta = _chart_metadata(session, chart_id, version)
     print(f"[idpshow] chart metadata: {meta}")
-    _persist_upstream(meta, PLAIN_UPSTREAM_PATH)
+    _persist_plain_upstream_best_effort(meta)
     return _persist_outcome(
         AcquisitionOutcome(
             source_key=source_key,
