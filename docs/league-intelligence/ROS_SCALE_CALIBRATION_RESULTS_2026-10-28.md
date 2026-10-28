@@ -25,8 +25,9 @@
    snapshot **53% of `rosRankOverall` top-100 are IDP**; by expected points 17–24%, by points above replacement
    33–36%.
 3. **Per-position verdict: a group (offense/IDP) conversion is not enough; QB needs its own.** Under the group model QB
-   is still under-predicted (realized/predicted 1.34); per-family models bring every gated family to 0.95–1.08
-   (DB 1.08 the widest).
+   is still under-predicted (realized/predicted 1.34); per-family models bring every gated family to within
+   CF 0.93–1.12 (LB 0.93 and K 0.93 low, RB 1.12 high) and CR 0.94–1.12 (K 0.94 low, RB 1.12 high), holdout
+   realized/predicted.
 4. **No challenger passes all preregistered gates**, so there is **no recommendation for a live change** under the
    preregistered rule. All three challengers pass scale coherence (G1), accuracy (G2), stability (G4) and team
    ordering (G6); all three fail cross-group pair ordering (G3: +0.010 concordance, CI lower bound just below 0),
@@ -228,7 +229,7 @@ user-visible ranks (team strength, overall tags), which is owner-reserved.
    average and its spread is about 2.5× too wide relative to offense; QB is under-valued ~46% (superflex). Every
    consumer in §2 marked "Yes" inherits it.
 2. **If a fix is wanted, the candidate is CR** (per-family rank → expected points curve): best MAE (+0.27 points per
-   player-week vs C0, CI excludes 0), scale coherence D 0.97, every family within 0.95–1.08 except DB 1.08 and RB 1.12,
+   player-week vs C0, CI excludes 0), scale coherence D 0.97, every gated family within 0.94–1.12 (K 0.94 the lowest, RB 1.12 the highest),
    invariant to the rank-basis steps that moved IDP levels this season. It failed G3 (single-week pair ordering,
    underpowered) and passed everything else.
 3. **Where it would go:** a new, separately named field (e.g. `rosPointsPerWeek`) computed beside `rosValue` by the
