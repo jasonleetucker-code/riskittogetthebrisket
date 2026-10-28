@@ -588,17 +588,25 @@ async function awaitStreamSettled(page, { timeout = 30_000 } = {}) {
  * including every other fetch failure -- still fails the test.
  */
 function isNavigationAbortedFetch(err, page) {
-  const text = `${(err && err.name) || ""} ${(err && err.message) || ""}`;
-  if (!/(?:Fetch API cannot load|Cannot load)\b[^\n]*? due to access control checks\.?\s*$/.test(text)) {
-    return false;
-  }
+  // The WHOLE message must be exactly this wording around one URL: anchored at
+  // both ends, so a longer message that merely ends with the same tail never
+  // matches.
+  const message = String((err && err.message) || "").trim();
+  const m = /^(?:Fetch API cannot load|Cannot load) (\S+) due to access control checks\.?$/.exec(
+    message,
+  );
+  if (!m) return false;
   let pageHost = "";
+  let fetchHost = "";
   try {
     pageHost = new URL(page.url()).host;
+    fetchHost = new URL(m[1]).host;
   } catch {
     return false;
   }
-  return !!pageHost && text.includes(pageHost);
+  // Exact host:port equality (a substring test would let 127.0.0.1:30001
+  // pass for a page on 127.0.0.1:3000).
+  return !!pageHost && fetchHost === pageHost;
 }
 
 function attachConsoleGuards(page, { allow = [] } = {}) {

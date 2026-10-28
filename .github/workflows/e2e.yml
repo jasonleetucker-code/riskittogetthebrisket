@@ -408,8 +408,11 @@ jobs:
           E2E_PAGE_ORIGIN: http://127.0.0.1:3000
           SKIP_VISUAL_REGRESSION: "1"
           # The second run must not wipe the first run's artifacts: its own
-          # output and HTML report directories.
-          PLAYWRIGHT_HTML_REPORT: playwright-report-webkit
+          # output and HTML report directories.  Playwright resolves both
+          # against the working directory (the repo root), not the config's
+          # directory, so they are spelled out under tests/e2e/ to match the
+          # upload step below.
+          PLAYWRIGHT_HTML_REPORT: tests/e2e/playwright-report-webkit
         run: |
           set -Eeuo pipefail
           # mobile-390 only: mobile-430 (iPhone 14 Pro Max) is the same layout
@@ -418,7 +421,7 @@ jobs:
           npx playwright test \
             -c tests/e2e/playwright.config.js \
             --project=mobile-390 \
-            --output=test-results-webkit \
+            --output=tests/e2e/test-results-webkit \
             --ignore-snapshots
 
       - name: Upload Playwright report
