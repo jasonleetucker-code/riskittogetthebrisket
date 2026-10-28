@@ -345,6 +345,15 @@ def _resolve_latest_version(session, chart_id: str) -> str | None:
 #: for ``src/sources/freshness.py`` (EXPLICIT_UPSTREAM_TIMESTAMP style).
 COMBINED_UPSTREAM_PATH = REPO / "data" / "scrape_state" / "idpShowCombined_upstream.json"
 
+#: The same vendor metadata for the IDP-only board (2026-10-28).  EVIDENCE
+#: ONLY: ``idpShow`` is unregistered, nothing reads this file, and it changes
+#: no weight.  It exists because the vendor republished the IDP-only dynasty
+#: board on 2026-10-08 while the voting combined chart stays at its
+#: 2026-08-19 version, and any owner decision about which IDP Show board
+#: votes needs the IDP-only board's own vendor-stated clock — a clock that is
+#: not recoverable later from our side (``docs/sources/IDP_SOURCE_AUTHORITY_2026-10-28.md``).
+PLAIN_UPSTREAM_PATH = REPO / "data" / "scrape_state" / "idpShow_upstream.json"
+
 
 def _chart_metadata(session, chart_id: str, version: str) -> dict:
     """Datawrapper's own timestamps for one published chart version.
@@ -380,11 +389,21 @@ def _chart_metadata(session, chart_id: str, version: str) -> dict:
     return out
 
 
-def _persist_upstream(meta: dict) -> None:
-    COMBINED_UPSTREAM_PATH.parent.mkdir(parents=True, exist_ok=True)
-    COMBINED_UPSTREAM_PATH.write_text(
-        json.dumps(meta, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+def _persist_upstream(meta: dict, path: Path | None = None) -> None:
+    """Write one board's vendor metadata.  ``path`` defaults to the combined
+    (voting) board's file, resolved at call time so tests can redirect it."""
+    target = COMBINED_UPSTREAM_PATH if path is None else path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _persist_plain_upstream_best_effort(meta: dict) -> None:
+    """Evidence-only write for the non-voting IDP-only board: a write error is
+    logged and swallowed so it can never block recording the acquisition."""
+    try:
+        _persist_upstream(meta, PLAIN_UPSTREAM_PATH)
+    except OSError as exc:
+        print(f"[idpshow] WARNING: upstream metadata not written: {exc}", file=sys.stderr)
 
 
 def _looks_paywalled(html: str) -> bool:
@@ -799,6 +818,10 @@ def main(argv: list[str] | None = None) -> int:
 
     count = _write_csv(out_path, rows)
     print(f"[idpshow] wrote {count} rows → {_rel(out_path)}")
+    # Evidence only (see PLAIN_UPSTREAM_PATH): best-effort, never blocks the board.
+    meta = _chart_metadata(session, chart_id, version)
+    print(f"[idpshow] chart metadata: {meta}")
+    _persist_plain_upstream_best_effort(meta)
     return _persist_outcome(
         AcquisitionOutcome(
             source_key=source_key,
