@@ -188,14 +188,49 @@ def _registry(tmp_path, monkeypatch):
     league_registry.reload_registry()
 
 
-def _assess(contract=None, tmp_path=None, **kw):
+_LEDGER: dict[str, Path] = {}
+_ABSENT_LEDGER = Path("/nonexistent/ledger.sqlite")
+
+
+def _write_flat_ledger(path, contract, day="2026-09-29"):
+    """A ledger holding every priced row at its CURRENT value ``day`` — a flat,
+    known 30-day trend (production has the real ledger)."""
+    store._reset_setup_cache_for_tests()
+    obs = []
+    for r in contract["playersArray"]:
+        v = r.get("rankDerivedValue")
+        pid = str(r.get("playerId") or "")
+        if isinstance(v, (int, float)) and v > 0 and pid:
+            obs.append(
+                {
+                    "asset_key": f"player:{pid}",
+                    "asset_class": r.get("assetClass") or "offense",
+                    "lane": store.LANE_CANONICAL,
+                    "source_key": "",
+                    "observed_date": day,
+                    "value": v,
+                    "origin": "test",
+                }
+            )
+    store.write_observations(obs, path=path)
+    return path
+
+
+@pytest.fixture(autouse=True)
+def _flat_ledger(tmp_path):
+    _LEDGER["path"] = _write_flat_ledger(tmp_path / "flat.sqlite", _contract())
+    yield
+    _LEDGER.clear()
+
+
+def _assess(contract=None, **kw):
+    contract = contract or _contract()
     kw.setdefault("player_context_snapshot", _snapshot())
     kw.setdefault("draft_rows", _DRAFT_ROWS)
-    kw.setdefault("history_path", Path("/nonexistent/ledger.sqlite"))
+    kw.setdefault("history_path", _LEDGER["path"])
     kw.setdefault("unavailable_keys", ())
-    return assess_team_drops(
-        contract or _contract(), league_key="pd_main", owner_id="owner-a", now=NOW, **kw
-    )
+    kw.setdefault("constraints", resolve_constraints(contract=contract, persistent=None))
+    return assess_team_drops(contract, league_key="pd_main", owner_id="owner-a", now=NOW, **kw)
 
 
 def _by_name(result):
@@ -510,7 +545,7 @@ def test_unknown_team_and_league_mismatch_refuse():
 
 
 def test_missing_inputs_are_stated_never_zero():
-    res = _assess(player_context_snapshot=None, draft_rows=None)
+    res = _assess(player_context_snapshot=None, draft_rows=None, history_path=_ABSENT_LEDGER)
     young = _by_name(res)["Young DL"]
     assert young.inputs["snapUsage"]["state"] == "unavailable"
     assert young.inputs["draftCapital"]["state"] == "unavailable"
@@ -534,6 +569,7 @@ def test_invariants_hold_on_the_archived_board(tmp_path):
         pytest.skip(f"{name} carries no rosters")
     cfg = load_protection_config()
     league_key = str((contract.get("meta") or {}).get("leagueKey") or "dynasty_main")
+    ledger = _write_flat_ledger(tmp_path / "archive_flat.sqlite", contract)
     for team in teams:
         owner = str(team.get("ownerId") or "")
         if not owner:
@@ -548,7 +584,7 @@ def test_invariants_hold_on_the_archived_board(tmp_path):
             now=NOW,
             player_context_snapshot=None,
             draft_rows=None,
-            history_path=tmp_path / "absent.sqlite",
+            history_path=ledger,
         )
         assert sum(res.summary["counts"].values()) == len(res.assessments)
         for a in res.assessments:
@@ -563,5 +599,82 @@ def test_invariants_hold_on_the_archived_board(tmp_path):
                 gap = da._gap(a.dynasty_value, a.replacement_value)
                 assert gap <= cfg.churn_gap_max_by_confidence[a.confidence] + 1e-9
                 assert not a.locks
+                assert a.inputs["valueTrend30d"]["state"] == "available"
             if first and a.name == first:
                 assert a.drop_class == CLASS_PROTECTED and a.locks
+
+
+# ══ Review fixes: unknown is never permissive ═══════════════════════
+
+
+def test_an_unknown_value_trend_blocks_churn():
+    vet = _by_name(_assess(history_path=_ABSENT_LEDGER))["Vet WR"]
+    assert vet.inputs["valueTrend30d"]["state"] == "unavailable"
+    assert "value_trend_unknown" in vet.development_flags
+    assert vet.drop_class == CLASS_CONDITIONAL
+    assert vet.reasons[0].code == "churn_blocked_by_signal"
+    # ...and the known, flat trend leaves him churn.
+    assert _by_name(_assess())["Vet WR"].drop_class == CLASS_CHURN
+
+
+def test_missing_years_exp_falls_back_to_the_joined_draft_year():
+    c = _contract()
+    for r in c["playersArray"]:
+        if r["displayName"] == "Bust DL":
+            r["yearsExp"] = None
+    snap = _snapshot()
+    del snap["players"]["G105"]["snaps"]  # usage unknown: the flag must protect
+    bust = _by_name(_assess(c, player_context_snapshot=snap))["Bust DL"]
+    assert bust.inputs["yearsExp"]["state"] == "unavailable"
+    assert bust.inputs["draftCapital"]["draftYear"] == 2025
+    assert "high_draft_capital_recent" in bust.development_flags
+    assert bust.drop_class == CLASS_PROTECTED
+
+
+def test_unknown_recency_blocks_churn():
+    c = _contract()
+    for r in c["playersArray"]:
+        if r["displayName"] == "Vet WR":
+            r["yearsExp"] = None
+    vet = _by_name(_assess(c, draft_rows=None))["Vet WR"]
+    assert "draft_recency_unknown" in vet.development_flags
+    assert vet.drop_class == CLASS_CONDITIONAL
+
+
+def test_constraints_not_supplied_means_no_churn():
+    res = _assess(constraints=None)
+    assert res.summary["locksState"] == "not_supplied"
+    assert all(a.drop_class != CLASS_CHURN for a in res.assessments)
+    vet = _by_name(res)["Vet WR"]
+    assert vet.reasons[0].code == "user_locks_not_supplied"
+
+
+def test_a_missing_pick_is_unknown_not_undrafted():
+    rows = [dict(_DRAFT_ROWS[0], draft_pick=None)]
+    bust = _by_name(_assess(draft_rows=rows))["Bust DL"]
+    assert bust.inputs["draftCapital"]["state"] == "unavailable"
+    assert bust.inputs["draftCapital"]["reason"] == "draft_pick_missing"
+    assert "recent_draft_capital_unknown" in bust.development_flags
+    rows = [dict(_DRAFT_ROWS[0], draft_pick=None, draft_year=None)]
+    bust = _by_name(_assess(draft_rows=rows))["Bust DL"]
+    assert bust.inputs["draftCapital"]["state"] == "available"
+    assert bust.inputs["draftCapital"]["undrafted"] is True
+
+
+def test_a_shared_name_in_the_id_map_is_refused():
+    rows = [
+        dict(_DRAFT_ROWS[0], gsis_id="X1"),
+        dict(_DRAFT_ROWS[0], gsis_id="X2", draft_pick=200),
+    ]
+    snap = _snapshot()
+    del snap["sleeperIndex"]["105"]  # force the name path
+    bust = _by_name(_assess(draft_rows=rows, player_context_snapshot=snap))["Bust DL"]
+    assert bust.inputs["draftCapital"]["reason"] == "identity_ambiguous_shared_name"
+
+
+def test_cut_ladder_input_is_labelled_and_never_false_past_the_cap():
+    for a in _assess().assessments:
+        inp = a.inputs["cutLadderUndroppable"]
+        assert inp["state"] in ("available", "unavailable")
+        if inp["state"] == "unavailable":
+            assert inp["value"] is None

@@ -3,19 +3,23 @@
   "version": "streaming_protection_v1",
   "parameters": {
     "churnGapMaxByConfidence": {
-      "value": {"high": 0.15, "medium": 0.15, "low": 0.0},
+      "value": {
+        "high": 0.15,
+        "medium": 0.15,
+        "low": 0.0
+      },
       "class": "PRIOR",
       "unit": "symmetricRelativeGap keyed by confidenceBucket",
       "rationale": "A player within the board's own agreement band of the best free agent at his position is indistinguishable from that free agent on the evidence. 0.15 is initialised from config/confidence/gate_v1.json AGREEMENT_VALUE_RATIO (the same symmetric-mean convention) and kept as its own entry so the two can diverge deliberately. A LOW-confidence value is itself less certain, so it must be at or below replacement (0.0), not merely within the band. A confidence bucket absent from this map (e.g. 'none', or a missing stamp) is never churn-eligible."
     },
     "protectGapMin": {
-      "value": 0.40,
+      "value": 0.4,
       "class": "PRIOR",
       "unit": "symmetricRelativeGap",
       "rationale": "A meaningful dynasty asset: worth roughly 1.5x the best free agent at his position (gap 0.40), i.e. well outside the 0.15 agreement band (about 2.7x it). Never auto-released; streaming is a weekly decision and should not spend clearly-above-replacement dynasty value. Not calibrated against outcomes."
     },
     "clearlyBelowGapMax": {
-      "value": -0.40,
+      "value": -0.4,
       "class": "PRIOR",
       "unit": "symmetricRelativeGap",
       "rationale": "Mirror of protectGapMin: worth roughly two-thirds of the best equivalent free agent or less. Used ONLY to stop a development flag from protecting a player who is clearly below replacement AND observed with no usage; such a player becomes conditional, never churn."
@@ -48,7 +52,7 @@
       "value": 10.0,
       "class": "PRIOR",
       "unit": "snap share, percent (season AND recent)",
-      "rationale": "Observed no-usage line. Only an OBSERVED snap record below this on both windows counts as 'no usage'; an absent record is unknown, never zero."
+      "rationale": "Observed no-usage line, inclusive: season AND recent snap share at or below this value. Only an OBSERVED snap record counts as 'no usage'; an absent record is unknown, never zero."
     },
     "highDraftCapitalMaxOverall": {
       "value": 64,
@@ -87,16 +91,27 @@
       "rationale": "The playerctx refresh is weekly; ten days allows one missed run. Older usage is STALE and is not used to grant or deny a flag (stale is not current)."
     },
     "protectingFlags": {
-      "value": ["young_rising_usage", "young_established_usage", "high_draft_capital_recent"],
+      "value": [
+        "young_rising_usage",
+        "young_established_usage",
+        "high_draft_capital_recent"
+      ],
       "class": "PRIOR",
       "unit": "developmentFlags codes",
       "rationale": "Flags strong enough to protect a player below the value margin: real, observed role growth in the youth band, or recent high draft capital. Overridden to conditional only when the player is clearly below replacement AND observed with no usage."
     },
     "churnBlockingFlags": {
-      "value": ["value_trending_up", "young_usage_unknown", "recent_draft_capital_unknown", "age_unknown"],
+      "value": [
+        "value_trending_up",
+        "value_trend_unknown",
+        "young_usage_unknown",
+        "recent_draft_capital_unknown",
+        "draft_recency_unknown",
+        "age_unknown"
+      ],
       "class": "PRIOR",
       "unit": "developmentFlags codes",
-      "rationale": "Signals that do not justify protection but make a zero-cost release claim unsafe: appreciating value, or a young / recently drafted player whose usage or draft capital we could not observe (missing is never zero). They move a churn candidate to conditional."
+      "rationale": "Signals that do not justify protection but make a zero-cost release claim unsafe: appreciating value, or an input we could not observe - the 30-day value trend (an unknown trend must not be more permissive than a known rise), a young player's usage, a recent draftee's draft capital, whether he is a recent draftee at all, or his age (missing is never zero). They move a churn candidate to conditional. Consequence: without the temporal ledger (production has it) no player is churn."
     }
   }
 }

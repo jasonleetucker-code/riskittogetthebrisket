@@ -109,6 +109,8 @@ FLAG_VALUE_TRENDING_UP = "value_trending_up"
 FLAG_YOUNG_USAGE_UNKNOWN = "young_usage_unknown"
 FLAG_RECENT_DRAFT_UNKNOWN = "recent_draft_capital_unknown"
 FLAG_AGE_UNKNOWN = "age_unknown"
+FLAG_VALUE_TREND_UNKNOWN = "value_trend_unknown"
+FLAG_DRAFT_RECENCY_UNKNOWN = "draft_recency_unknown"
 KNOWN_FLAGS = frozenset(
     {
         FLAG_YOUNG_RISING,
@@ -118,6 +120,8 @@ KNOWN_FLAGS = frozenset(
         FLAG_YOUNG_USAGE_UNKNOWN,
         FLAG_RECENT_DRAFT_UNKNOWN,
         FLAG_AGE_UNKNOWN,
+        FLAG_VALUE_TREND_UNKNOWN,
+        FLAG_DRAFT_RECENCY_UNKNOWN,
     }
 )
 
@@ -473,6 +477,14 @@ class _DraftIndex:
         self.available = bool(rows)
         self.by_gsis = {str(r.get("gsis_id")): r for r in rows if r.get("gsis_id")}
         self.by_name: Mapping[str, Any] = {}
+        # How many id-map rows share each normalised name.  The name map keeps
+        # one of them (last row wins), so a shared name is refused outright
+        # rather than trusted to the identity guard alone.
+        self.name_counts: dict[str, int] = {}
+        for r in rows:
+            key = normalize_player_name(str(r.get("display_name") or ""))
+            if key:
+                self.name_counts[key] = self.name_counts.get(key, 0) + 1
         if rows:
             from src.bdvm.context import build_player_context  # noqa: PLC0415
 
@@ -498,21 +510,35 @@ class _DraftIndex:
             join = "gsis"
         else:
             name = row.get("canonicalName") or row.get("displayName") or ""
-            ctx = self.by_name.get(normalize_player_name(str(name))) if name else None
+            key = normalize_player_name(str(name)) if name else ""
+            if key and self.name_counts.get(key, 0) > 1:
+                return _input(STATE_UNAVAILABLE, reason="identity_ambiguous_shared_name")
+            ctx = self.by_name.get(key) if key else None
             if ctx is None:
                 return _input(STATE_UNAVAILABLE, reason="no_draft_record")
             refusal = _name_identity_refusal(ctx, row, family, season_ref)
             if refusal:
                 return _input(STATE_UNAVAILABLE, reason=refusal)
-            overall = getattr(ctx, "draft_overall", None)
-            draft_year = getattr(ctx, "draft_year", None)
+            overall = _opt_pick(getattr(ctx, "draft_overall", None))
+            draft_year = _opt_pick(getattr(ctx, "draft_year", None))
             join = "name_guarded"
+        if overall is None and draft_year is not None:
+            # Drafted in a known year but the pick is missing: unknown capital,
+            # never "undrafted".
+            return _input(
+                STATE_UNAVAILABLE,
+                reason="draft_pick_missing",
+                draftYear=draft_year,
+                identityJoin=join,
+            )
         return _input(
             STATE_AVAILABLE,
             overall,
             draftYear=draft_year,
             draftCapitalScore=round(draft_capital_score(overall), 3),
-            undrafted=overall is None,
+            # Undrafted only when a successful join carries neither a draft
+            # year nor a pick.
+            undrafted=overall is None and draft_year is None,
             identityJoin=join,
             source="nflverse id map (cache only); score src/bdvm/context.py::draft_capital_score",
         )
@@ -641,7 +667,9 @@ def _assess_one(
     season_ref: int,
     weekly_starters: frozenset[str] | None,
     injury_status: Mapping[str, Any] | None,
-    lineup_required: frozenset[str],
+    ladder_undroppable: frozenset[str],
+    ladder_rungs: frozenset[str],
+    locks_known: bool,
     on: date,
     ledger_path: Path | None,
     ledger_present: bool,
@@ -735,10 +763,18 @@ def _assess_one(
         "valueTrend30d": trend30,
         "valueTrend60d": trend60,
         "weeklyRole": role_in,
-        "lineupRequiredAlone": _input(
-            STATE_AVAILABLE,
-            asset.player_id in lineup_required,
-            source="cut ladder undroppable (releasing him alone empties a starting slot)",
+        "cutLadderUndroppable": (
+            _input(
+                STATE_AVAILABLE,
+                asset.player_id in ladder_undroppable,
+                source=(
+                    "team_droppability cut ladder: True = excluded because releasing him "
+                    "after the cheaper rungs would empty a starting slot (cumulative, "
+                    "not 'alone')"
+                ),
+            )
+            if asset.player_id in ladder_undroppable or asset.player_id in ladder_rungs
+            else _input(STATE_UNAVAILABLE, reason="past_cut_ladder_cap_not_evaluated")
         ),
     }
 
@@ -764,16 +800,34 @@ def _assess_one(
                 flags.append(FLAG_YOUNG_RISING)
             if pct is not None and pct >= cfg.established_snap_pct_min:
                 flags.append(FLAG_YOUNG_ESTABLISHED)
-    if years_exp is not None and years_exp <= cfg.recent_draft_max_years_exp:
-        if draft_in["state"] != STATE_AVAILABLE:
+    # Recency: yearsExp first, else the joined draft year; neither known is
+    # unknown (a churn blocker), never "not recent".
+    draft_known = draft_in["state"] == STATE_AVAILABLE
+    if years_exp is not None:
+        recent: bool | None = years_exp <= cfg.recent_draft_max_years_exp
+    elif draft_known and isinstance(draft_in.get("draftYear"), int):
+        recent = season_ref - int(draft_in["draftYear"]) <= cfg.recent_draft_max_years_exp
+    elif draft_known and draft_in.get("undrafted"):
+        recent = None  # proven undrafted: no draft capital to protect either way
+    else:
+        recent = None
+        flags.append(FLAG_DRAFT_RECENCY_UNKNOWN)
+    if recent:
+        if not draft_known:
             flags.append(FLAG_RECENT_DRAFT_UNKNOWN)
         elif (
             isinstance(draft_in.get("value"), int)
             and draft_in["value"] <= cfg.high_draft_capital_max_overall
         ):
             flags.append(FLAG_HIGH_DRAFT_RECENT)
-    t30 = trend30.get("value") if trend30["state"] == STATE_AVAILABLE else None
-    if isinstance(t30, (int, float)) and t30 >= cfg.value_trend_up_min_ratio:
+    if trend30["state"] != STATE_AVAILABLE:
+        if value is not None:
+            # Unknown trend is never permissive: a known rise blocks churn, so
+            # an unknown one must too.
+            flags.append(FLAG_VALUE_TREND_UNKNOWN)
+    elif isinstance(trend30.get("value"), (int, float)) and (
+        trend30["value"] >= cfg.value_trend_up_min_ratio
+    ):
         flags.append(FLAG_VALUE_TRENDING_UP)
     flags = sorted(set(flags))
 
@@ -880,6 +934,15 @@ def _assess_one(
                     {**value_ev, "flags": blockers},
                 )
             )
+        elif not locks_known:
+            cls = CLASS_CONDITIONAL
+            reasons.append(
+                DropReason(
+                    "user_locks_not_supplied",
+                    "replaceable on value, but the user's protections were not supplied",
+                    value_ev,
+                )
+            )
         elif role == "weekly_starter":
             cls = CLASS_CONDITIONAL
             reasons.append(
@@ -942,8 +1005,9 @@ def assess_team_drops(
 
     ``constraints`` is a resolved :class:`src.trade.constraints.TradeConstraints`;
     a ``resolution_failed`` set protects EVERY player (fail closed).  ``None``
-    means the caller supplied none and is stamped ``not_supplied`` — a route
-    must pass the user's resolved constraints.
+    means the caller supplied none: it is stamped ``not_supplied`` and NO player
+    is churn (a lock the caller did not pass could exist).  A route must pass
+    the user's resolved constraints.
 
     ``player_context_snapshot`` / ``draft_rows`` default to the on-disk
     owners (playerctx snapshot; cached nflverse id map).  Passing ``None``
@@ -974,9 +1038,9 @@ def assess_team_drops(
         unavailable_keys=unavailable_keys,
     )
     waiver_values = {str(k): float(v) for k, v in (drop.get("waiverValues") or {}).items()}
-    lineup_required = frozenset(
-        str(u.get("playerId")) for u in (drop.get("cutLadder") or {}).get("undroppable") or []
-    )
+    ladder = drop.get("cutLadder") or {}
+    ladder_undroppable = frozenset(str(u.get("playerId")) for u in ladder.get("undroppable") or [])
+    ladder_rungs = frozenset(str(r.get("playerId")) for r in ladder.get("rungs") or [])
 
     by_id, by_name = index_contract_rows(contract)
     assets, unmatched = build_roster_assets(team, by_name, by_id)
@@ -1001,7 +1065,7 @@ def assess_team_drops(
     notes: list[str] = []
     resolution_failed = bool(getattr(constraints, "resolution_failed", False))
     if constraints is None:
-        notes.append("no user constraints supplied — locks state not_supplied")
+        notes.append("no user constraints supplied — locks state not_supplied; no player is churn")
     if resolution_failed:
         notes.append("user protections could not be resolved — every player is protected")
     if unmatched:
@@ -1039,7 +1103,9 @@ def assess_team_drops(
                 season_ref=season_ref,
                 weekly_starters=starters,
                 injury_status=injury_status,
-                lineup_required=lineup_required,
+                ladder_undroppable=ladder_undroppable,
+                ladder_rungs=ladder_rungs,
+                locks_known=constraints is not None,
                 on=now.date(),
                 ledger_path=ledger,
                 ledger_present=ledger_present,

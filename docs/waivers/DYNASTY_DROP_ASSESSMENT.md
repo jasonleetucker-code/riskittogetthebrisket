@@ -22,8 +22,13 @@ injury_status=None, unavailable_keys=None) -> TeamDropAssessment`
   differs from `league_key`).
 * `constraints` is a resolved `src.trade.constraints.TradeConstraints`. A
   `resolution_failed` set protects **every** player. `None` is stamped
-  `summary.locksState = "not_supplied"` — a route must pass the user's resolved
-  constraints.
+  `summary.locksState = "not_supplied"` and **no player is churn** (reason
+  `user_locks_not_supplied`) — a lock the caller did not pass could exist. A
+  route must pass the user's resolved constraints. The lock test is the trade
+  constraint owner's `block_reason`, reused as-is: a temporary
+  `excluded_temporary` refinement and NFL-team protection (including an unknown
+  team while a team rule is active) also protect. That is the trade surface's
+  semantics applied to drops — deliberately conservative.
 * `weekly_starter_ids` — Sleeper ids the caller's weekly lineup starts.
 
 `TeamDropAssessment.to_dict()`: `contractVersion`, `leagueKey`, `team`
@@ -78,17 +83,18 @@ cost no dynasty value. So the cost is the canonical cut-cost owner's
 | user locks | `src/trade/constraints.py::TradeConstraints.block_reason` | `not_supplied` stamped |
 | age, years of experience | contract row `age`, `yearsExp` | `age_unknown` blocks churn |
 | snap share / trend / depth | playerctx snapshot (`src/playerctx/service.py::load_playerctx`), joined by `sleeperIndex` | `unavailable` (absent is never zero usage); older than `usageSnapshotMaxAgeDays` → `stale`, not used |
-| draft capital | cached nflverse id map (`src/nfl_data/ingest.fetch_id_map(cache_only=True)`); score `src/bdvm/context.py::draft_capital_score` | `unavailable` |
-| value trend (30 / 60 d) | `src/history/asof.py::value_as_of` (`player:<id>`, canonical lane, `max_age_days` bounded) | `unavailable`; never a future observation |
+| draft capital | cached nflverse id map (`src/nfl_data/ingest.fetch_id_map(cache_only=True)`); score `src/bdvm/context.py::draft_capital_score` | `unavailable`; a known draft year with no pick is `draft_pick_missing` (unknown), and "undrafted" only when a successful join carries neither year nor pick |
+| value trend (30 / 60 d) | `src/history/asof.py::value_as_of` (`player:<id>`, canonical lane, `max_age_days` bounded) | `unavailable` → `value_trend_unknown` blocks churn; never a future observation |
 | weekly role | caller | `not_supplied`, `rosterRole: unknown` |
 | injury | caller (`injury_status`) — reported only | `not_supplied` |
-| lineup required alone | cut ladder `undroppable` — reported only | — |
+| cut-ladder undroppable | `team_droppability` cut ladder — reported only. `true` = excluded because releasing him after the cheaper rungs would empty a starting slot (cumulative, not "alone") | past the ladder's 30-rung cap: `unavailable`, never `false` |
 
 **Draft-capital identity.** The id map is joined exactly through the playerctx
 record's GSIS id. Without it the name-keyed `build_player_context` is used
-behind an identity guard (position family and career length must agree; a
-cross-family IDP listing — Sleeper DL vs nflverse LB — is accepted only when the
-career length agrees). Measured on the 2026-10-29 board, the name map alone
+behind an identity guard: a name shared by more than one id-map row is refused
+(`identity_ambiguous_shared_name`), and position family and career length must
+agree (a cross-family IDP listing — Sleeper DL vs nflverse LB — is accepted only
+when the career length agrees). Measured on the 2026-10-29 board, the name map alone
 returns a cornerback for one star wide receiver and a linebacker for another;
 the guard refuses both. 640 of 694 rostered players joined by GSIS, 45 by
 guarded name, 9 unavailable.
@@ -110,12 +116,14 @@ lineup input.
    (`replacement_level_unavailable`), charged full board value.
 5. **gap ≥ `protectGapMin`** → `protected` (`meaningful_dynasty_asset`).
 6. **A protecting development flag** → `protected` (`development_upside`) —
-   unless gap ≤ `clearlyBelowGapMax` AND an OBSERVED snap record shows no usage,
-   then `conditional` (`development_flag_overridden_no_usage`).
+   unless gap ≤ `clearlyBelowGapMax` AND an OBSERVED snap record shows season
+   and recent snap share both ≤ `noUsageSnapPctMax` (10%), then `conditional`
+   (`development_flag_overridden_no_usage`).
 7. Otherwise `churn` only if gap ≤ `churnGapMaxByConfidence[confidence]`, no
-   churn-blocking flag, and not a caller-supplied weekly starter; else
-   `conditional` (`confidence_not_churn_eligible` / `above_replacement_band` /
-   `churn_blocked_by_signal` / `weekly_starter`).
+   churn-blocking flag, user constraints were supplied, and not a
+   caller-supplied weekly starter; else `conditional`
+   (`confidence_not_churn_eligible` / `above_replacement_band` /
+   `churn_blocked_by_signal` / `user_locks_not_supplied` / `weekly_starter`).
 
 `gap = (V − W) / mean(V, W)` — the board's symmetric-mean convention
 (`marketGapValueRatio`, confidence `AGREEMENT_VALUE_RATIO`).
@@ -126,11 +134,16 @@ Development flags (which protect and which only block churn is config):
 |---|---|---|
 | `young_rising_usage` | age ≤ `youngAgeMax`, ≥ `minGamesForTrend` games, snap trend ≥ `risingSnapTrendMinPts` | protects |
 | `young_established_usage` | age ≤ `youngAgeMax`, season snap share ≥ `establishedSnapPctMin` | protects |
-| `high_draft_capital_recent` | yearsExp ≤ `recentDraftMaxYearsExp`, overall pick ≤ `highDraftCapitalMaxOverall` | protects |
+| `high_draft_capital_recent` | recent draftee, overall pick ≤ `highDraftCapitalMaxOverall` | protects |
 | `value_trending_up` | 30-day value change ≥ `valueTrendUpMinRatio` | blocks churn only (momentum is not evidence of value) |
+| `value_trend_unknown` | priced, 30-day trend unavailable for any reason | blocks churn (an unknown trend is never more permissive than a known rise) |
+| `draft_recency_unknown` | neither `yearsExp` nor a joined draft year (and not proven undrafted) | blocks churn |
 | `young_usage_unknown` | young, usage unavailable or stale | blocks churn |
 | `recent_draft_capital_unknown` | recent draftee, draft capital unavailable | blocks churn |
 | `age_unknown` | no age | blocks churn |
+
+"Recent draftee" is `yearsExp ≤ recentDraftMaxYearsExp`; when `yearsExp` is
+missing it falls back to the joined draft year (`season − draftYear`).
 
 Age alone grants nothing, and age alone condemns nothing: a young player with no
 usage and no draft capital can be churn; a veteran is churn only when the board
@@ -147,7 +160,7 @@ values him at replacement.
 | `risingSnapTrendMinPts` | 5.0 | a third of consensus_edge's 15-pt saturation |
 | `minGamesForTrend` | 3 | playerctx recent window is 3 games |
 | `establishedSnapPctMin` | 60 | |
-| `noUsageSnapPctMax` | 10 | season AND recent |
+| `noUsageSnapPctMax` | 10 | season AND recent, inclusive (≤) |
 | `highDraftCapitalMaxOverall` | 64 | rounds 1-2 |
 | `recentDraftMaxYearsExp` | 2 | |
 | `valueTrendWindowDays` | 30 | |
@@ -178,15 +191,44 @@ None is calibrated. Changing one is an owner-visible methodology change.
 * A low ranking alone does not prove low upside — hence the development flags —
   but the flags only see snaps, draft capital and value trend. Route
   participation, target share and coaching signals do not exist in this repo.
-* Locally, the temporal ledger is absent, so `valueTrend*` is `unavailable` for
-  every player in the evidence below; production has the ledger.
+* **Churn depends on the temporal ledger.** An unavailable 30-day trend blocks
+  churn, so without `data/temporal_ledger.sqlite` (absent locally; production
+  records it) no player is churn. A player new to the ledger (no observation
+  within `trendMaxObservationAgeDays` of 30 days ago) is likewise never churn
+  until he has one.
+* **Draft capital depends on the cached nflverse id map.** If that cache entry is
+  absent, every recent draftee carries `recent_draft_capital_unknown` (measured:
+  273 players) — safe, but churn shrinks.
 
 ## 6. Evidence — `dynasty_main`, live contract 2026-10-29
 
 Contract built from `exports/latest/dynasty_data_2026-10-29.json`; playerctx
 snaps from the retained 2026-10-27 snapshot (no depth block in the retained
-projection); nflverse id map from the cache; no constraints, no weekly lineup,
-no ledger. Teams by their index in `sleeper.teams`.
+projection); nflverse id map from the cache; constraints resolved with no
+protections; no weekly lineup. Teams by their index in `sleeper.teams`.
+
+**Real run — no temporal ledger locally.** Every priced player's 30-day trend is
+unavailable, so `value_trend_unknown` blocks every churn candidate:
+
+| team | roster | protected | conditional | churn | unpriced |
+|---|---|---|---|---|---|
+| T00 | 58 | 33 | 25 | 0 | 5 |
+| T01 | 58 | 28 | 30 | 0 | 3 |
+| T02 | 57 | 29 | 28 | 0 | 3 |
+| T03 | 57 | 37 | 20 | 0 | 8 |
+| T04 | 58 | 43 | 15 | 0 | 1 |
+| T05 | 58 | 36 | 22 | 0 | 1 |
+| T06 | 58 | 27 | 31 | 0 | 8 |
+| T07 | 58 | 24 | 34 | 0 | 8 |
+| T08 | 58 | 39 | 19 | 0 | 3 |
+| T09 | 58 | 21 | 37 | 0 | 4 |
+| T10 | 58 | 25 | 33 | 0 | 2 |
+| T11 | 58 | 23 | 35 | 0 | 5 |
+| **all** | **694** | **365** | **329** | **0** | **51** |
+
+**Sensitivity — the same run with a known, FLAT 30-day trend** (a ledger written
+from today's board at 2026-09-29 — an assumption, not an observation; it shows
+what the production ledger makes possible, not what production will answer):
 
 | team | roster | protected | conditional | churn | unpriced |
 |---|---|---|---|---|---|
@@ -204,14 +246,17 @@ no ledger. Teams by their index in `sleeper.teams`.
 | T11 | 58 | 23 | 12 | 23 | 5 |
 | **all** | **694** | **365** | **119** | **210** | **51** |
 
-Deciding reasons: churn `replaceable_by_free_agent` 210; conditional
-`above_replacement_band` 111, `churn_blocked_by_signal` 7,
+Deciding reasons (sensitivity run): churn `replaceable_by_free_agent` 210;
+conditional `above_replacement_band` 111, `churn_blocked_by_signal` 7,
 `development_flag_overridden_no_usage` 1; protected `meaningful_dynasty_asset`
 213, `development_upside` 95, `unpriced_never_auto_drop` 51,
-`value_quarantined_never_auto_drop` 6. Replacement levels: QB 1405, RB 1610,
-WR 1419, TE 2027, DL 2078, LB 2108, DB 1738 (no K).
+`value_quarantined_never_auto_drop` 6. In the real run the 210 churn become
+`churn_blocked_by_signal` (`value_trend_unknown`); protected is identical.
+Replacement levels: QB 1405, RB 1610, WR 1419, TE 2027, DL 2078, LB 2108,
+DB 1738 (no K).
 
-Representative examples (V = value, W = replacement, snaps season/recent %):
+Representative examples (churn rows from the sensitivity run; V = value,
+W = replacement, snaps season/recent %):
 
 | class | team | pos | age / yrsExp / pick | V / W / cost | conf | snaps | flags | reason |
 |---|---|---|---|---|---|---|---|---|
@@ -234,8 +279,8 @@ Representative examples (V = value, W = replacement, snaps season/recent %):
 (a) Young ascending defender → protected: T00's 23-year-old second-year DB
 (snaps 69 → 77, value just below the DB replacement level) and T09's 21-year-old
 second-round rookie DB (value 564, snaps 50 → 68) — a low board value alone does
-not condemn them. (b) Low-value veteran → churn: T00's 32-year-old DB (value
-1313 against a 1738 free agent). Every-down veterans are churn on DYNASTY value
-only; the caller's weekly lineup (`weekly_starter_ids`) moves a starter to
-`conditional`. The last churn row is a seventh-round rookie with no usage and no
-draft capital — youth alone does not protect.
+not condemn them. (b) Low-value veteran → churn (once his trend is known): T00's
+32-year-old DB (value 1313 against a 1738 free agent). Every-down veterans are
+churn on DYNASTY value only; the caller's weekly lineup (`weekly_starter_ids`)
+moves a starter to `conditional`. The last churn row is a seventh-round rookie
+with no usage and no draft capital — youth alone does not protect.
