@@ -13,14 +13,18 @@ name appears in any committed artifact.
 
 ## 1. Answer
 
-**Yes — manager B's defender streaming gained realized starting-lineup points, and the
-gain is not explained by the obvious confounds.**
+**Yes — manager B's defender streaming is associated with a measurable gain in realized
+starting-lineup points.  It is not explained by the offense he released to make room
+(baseline 1b, below), but two confounds remain unseparated: injury replacement (the hold
+baseline keeps 4.3 non-playing defenders a week in 2026 vs 3.3 in his actual roster) and
+extra depth (he carries ~5 more defenders than hold, 32.2 vs 27.0).  The estimate is
+"streaming as he practises it", not "churn alone".**
 
 | quantity (manager B, actual − hold, per decision week) | mean | 95% CI | n | verdict |
 |---|---|---|---|---|
 | **2026** (weeks 2–7; host-awarded best-ball points) | **+19.9** | [+10.1, +30.2] | 6 weeks | gains |
 | 2025 (weeks 2–13; optimal-lineup POTENTIAL points, see §3) | +11.5 | [+0.6, +23.5] | 12 weeks | gains |
-| pooled (preregistered primary endpoint) | +14.3 | [+6.1, +22.9] | 18 weeks | gains |
+| pooled (preregistered primary endpoint) — **mixes 2026 awarded points with 2025 potential points** (deviation 1, §7) | +14.3 | [+6.1, +22.9] | 18 weeks | gains |
 | pooled, hold that also restores the offense released to make room (baseline 1b) | +15.3 | [+6.7, +24.2] | 18 weeks | gains |
 
 For scale: manager B's 2026 hold lineup averages ~407 points a week, so +19.9 is roughly
@@ -49,6 +53,7 @@ B's actual behavior beats every preregistered simple rule (masked pool, S = 3) i
 | adds by group DL / LB / DB | 17 / 17 / 17 | 15 / 17 / 27 |
 | adds per effective week after week 1 | 5–8 | 2–6 |
 | FAAB on defender waiver wins | $64 over 48 wins, 44 of them at $0 | $18 over 49 wins, 43 at $0 |
+| ... of which on matchup-visible in-season adds (`moveOutcomes.faabSpent`) | $0 | $3 |
 | mean defenders carried, actual vs hold | 32.2 vs 27.0 | 22.8 vs 24.2 |
 | defender starter slots filled by a streamed player | 17 of 54 (31%) | 27 of 108 (25%) |
 | matchup-visible streaming adds | 37 | 33 |
@@ -57,6 +62,16 @@ B's actual behavior beats every preregistered simple rule (masked pool, S = 3) i
 | paired: added vs released points over next 3 weeks | 23.4 vs 10.6 | 25.5 vs 20.1 |
 | false-positive share (add scored less than its release over 3 weeks) | 13% of 23 (league 28% of 76) | 27% of 22 (league 38% of 76) |
 | point-in-time value released / acquired (IDP Trade Calculator, NOT canonical) | 17,334 over 15 valued (8 unvalued) / 14,658 over 14 valued | unavailable (before 2026-07-14) |
+
+**Why `moveOutcomes.faabSpent` ($0 / $3) differs from the activity FAAB ($64 / $18).**  Not a
+defect: `activity` counts every defender waiver win processed before the last scored week
+ended, while `moveOutcomes` counts only adds that appear as a week-over-week change on the
+matchup rosters (weeks 2+).  Traced in the private detail: all four non-zero 2026 claims
+($51, $11, $1, $1) were processed before the week-1 kickoff, so those players are part of
+the week-1 starting roster and never appear as an in-season change.  2025: $9 was
+pre-season (three $3 claims), $3 was matchup-visible ($1 + $2), and one $6 claim re-acquired
+a player already on the roster through an earlier add, so the visible change is attributed
+to that earlier transaction.
 
 Reading: he churns about three times the league's rate, almost entirely with $0 claims;
 most adds never start; but the adds he pairs with a release out-score the release
@@ -148,6 +163,15 @@ under rule 3: 23,355 released vs 6,890 acquired over the valued players).
 
 * **Small n.**  Manager B's 2026 cell is 6 weeks; it clears the preregistered minimum but the
   CI is wide.  The pooled endpoint mixes 2026 awarded points with 2025 potential points.
+* **Bootstrap coverage at n = 6.**  The percentile bootstrap over six weekly values tends
+  to under-cover, and weekly deltas are serially correlated (the same rostered defenders
+  carry over), which the week-resampling bootstrap ignores.  The 2026 "gains" verdict for
+  manager B rests on this interval; the pooled n = 18 cell and the league cluster bootstrap
+  are less exposed, but the same caveat applies in weaker form.
+* **Stat corrections.**  Every weekly stat line was fetched today, so earlier weeks include
+  corrections the provider published after the week-*w* cutoff.  For SCORING that is the
+  right number (the host awards corrected stats); for the DECISION inputs of rules 2 and 3
+  it is a small, unmeasured hindsight.
 * **Many cells.**  ~70 cells are reported; at 95% a few "gains"/"loses" verdicts outside the
   primary endpoint are expected by chance.  The primary endpoint is manager B's actual − hold.
 * **Hold includes injury replacement.**  Baseline 1 keeps injured / inactive defenders; part
@@ -157,6 +181,10 @@ under rule 3: 23,355 released vs 6,890 acquired over the valued players).
   they trail actual behavior.
 * **Others' behavior is fixed.**  Each team is replayed alone against the other teams'
   actual rosters; a held player may sit on another team's actual roster in the same week.
+* **Player dump coverage.**  A defender missing from today's dump would count as offense in
+  every scenario.  Measured: 0 of 833 (2026) and 0 of 716 (2025) rostered player ids are
+  missing, so the matchup-roster side is complete; an unrostered 2025 defender since removed
+  from the dump would be absent from the waiver pool (unmeasured).
 * **Positions** come from today's Sleeper player dump (a mid-season position change is an
   approximation).  Two-way players are treated as defenders for swap purposes but the exact
   solver may seat them anywhere they are eligible.

@@ -1219,6 +1219,20 @@ def load_season(
         "rosterOwners": {
             int(r["roster_id"]): owner_by_user.get(str(r.get("owner_id"))) for r in rosters_now
         },
+        # Every identifying string the committed evidence must never carry.
+        "sensitiveStrings": sorted(
+            {
+                str(v)
+                for u in users or []
+                for v in (
+                    u.get("display_name"),
+                    u.get("user_id"),
+                    (u.get("metadata") or {}).get("team_name"),
+                )
+                if v
+            }
+            | {lid}
+        ),
     }
     return data, private
 
@@ -1521,6 +1535,7 @@ def run_backtest(
         weeks = _season_weeks(league)
         data, priv = load_season(league, weeks, cache=cache, players_dump=dump)
         owners = priv["rosterOwners"]
+        private.setdefault("seasonsSensitive", []).append(priv["sensitiveStrings"])
         mgr_rid = next((rid for rid, name in owners.items() if name == manager_display_name), None)
         changes = classify_roster_changes(data)
         recon = reconstruct_rosters(
@@ -1891,6 +1906,16 @@ def _rounded(obj: Any, nd: int = 3) -> Any:
     return obj
 
 
+def privacy_violations(blob: str, sensitive: Iterable[str]) -> list[str]:
+    """Identifying strings (display / team names, user / league ids) found in
+    a would-be committed blob, plus any 12+ digit run (a Sleeper id shape)."""
+    import re
+
+    found = [s for s in sorted(set(sensitive)) if s and len(s) >= 3 and s in blob]
+    found += re.findall(r"\d{12,}", blob)
+    return found
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     import argparse
 
@@ -1908,8 +1933,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         ledger_path=args.ledger if args.ledger and args.ledger.exists() else None,
     )
     blob = json.dumps(_rounded(evidence), indent=1, sort_keys=True, default=str)
-    if args.manager in blob:
-        raise RuntimeError("privacy guard: manager name leaked into evidence")
+    sensitive = {args.manager} | {
+        v for season in private.get("seasonsSensitive", []) for v in season
+    }
+    leaks = privacy_violations(blob, sensitive)
+    if leaks:
+        raise RuntimeError(f"privacy guard: {len(leaks)} identifying string(s) in evidence")
     args.evidence_out.parent.mkdir(parents=True, exist_ok=True)
     args.evidence_out.write_text(blob + "\n", encoding="utf-8")
     RESEARCH_DIR.mkdir(parents=True, exist_ok=True)

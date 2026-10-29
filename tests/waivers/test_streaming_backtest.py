@@ -454,3 +454,10 @@ def test_committed_evidence_carries_no_platform_ids_or_names():
 
         walk(blob)
         assert not keys & {"owners", "rosterOwners", "display_name", "managerRosterId", "_rid"}
+
+
+def test_privacy_guard_flags_names_team_names_and_ids():
+    blob = '{"label": "manager B", "note": "Team Tacos", "x": 1312006700437352448}'
+    leaks = sb.privacy_violations(blob, {"Team Tacos", "someone", ""})
+    assert "Team Tacos" in leaks and "1312006700437352448" in leaks and "someone" not in leaks
+    assert sb.privacy_violations('{"label": "manager B", "v": 12.5}', {"someone"}) == []
