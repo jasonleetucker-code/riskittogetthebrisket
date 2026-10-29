@@ -473,6 +473,14 @@ def test_request_work_budget_leaves_curve_rows_unsearched_never_optimal(monkeypa
     assert again["solver"] == out["solver"] and again["plan"] == out["plan"]
 
 
+def test_a_search_stopped_by_its_work_budget_says_so_instead_of_no_move(monkeypatch):
+    _tight_config(monkeypatch, request_work_budget=1, min_solve_work=1)
+    out = _run(ROSTER, [("fa_lb", "LB", 11.0)], _base_assess())
+    assert out["solver"]["status"] == "bounded"
+    assert out["recommendMove"] is False
+    assert out["noMoveReason"] == "search_incomplete"
+
+
 def test_default_work_budget_searches_every_curve_row_on_a_small_case():
     out = _run(ROSTER, [("fa_lb", "LB", 11.0)], _base_assess())
     assert out["solver"]["unsearchedCapacities"] == []

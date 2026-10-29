@@ -284,3 +284,17 @@ not condemn them. (b) Low-value veteran → churn (once his trend is known): T00
 churn on DYNASTY value only; the caller's weekly lineup (`weekly_starter_ids`)
 moves a starter to `conditional`. The last churn row is a seventh-round rookie
 with no usage and no draft capital — youth alone does not protect.
+
+## How the streaming composer charges releases (2026-10-29)
+
+The composer (`src/waivers/streaming.py::_release_cost`) is the one place a
+release is priced against the dynasty budget:
+
+- **churn** — `max(dynastyCost, V − ladder[rung−1])`, with the rung equal to
+  the number of releases the plan makes in that lineup family (so a second
+  release is charged against a deeper free agent, never the same one twice);
+- **conditional** — the full `dynastyValue`;
+- **protected / unpriced** — never released;
+- adds credit nothing against the budget (the cost is already net of a
+  replacement).
+

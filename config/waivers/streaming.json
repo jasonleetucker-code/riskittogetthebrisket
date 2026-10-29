@@ -32,11 +32,11 @@
       "singleWeek": 40000,
       "multiweek": 20000,
       "capacityCurvePerRow": 15000,
-      "requestWorkBudget": 30000,
-      "minSolveNodes": 200
+      "requestWorkBudget": 200000,
+      "minSolveWork": 2000
     },
     "class": "PRIOR",
-    "rationale": "Search budgets. The composer solves once per capacity k = 1..max (each with its own rung-correct release costs, seeded with the previous capacity's plan); capacities up to the request use the singleWeek or multiweek per-solve limit, curve rows above it use capacityCurvePerRow. On top of that the whole REQUEST has a work budget in week-node evaluations (requestWorkBudget): a node costs about one lineup solve per horizon week, so a 4-week horizon gets a quarter of the nodes of a single week. Capacities up to the request are solved first and always get at least minSolveNodes; curve rows the budget cannot reach are reported as not searched. Measured on dynasty_main week 9 (2026-10-29) before the request budget: single-week requests 1-9 s; 2-4 week horizons with a positive dynasty budget and the curve on took 57-217 s, which is not interactive. At about 0.4-0.7 ms per week-node, 30000 bounds a request to roughly 12-20 s of search. A solve that reaches any limit is labelled 'bounded' with a proven gap where one exists, never presented as optimal; the answer at capacity k is the best over every k' <= k, so a bounded larger k can never make the answer worse."
+    "rationale": "Search budgets. The composer solves once per capacity k = 1..max (each with its own rung-correct release costs, seeded with the previous capacity's plan); capacities up to the request use the singleWeek or multiweek per-solve node limit, curve rows above it use capacityCurvePerRow. On top of that the whole REQUEST has a work budget counted in canonical lineup solves (requestWorkBudget), the measured cost driver: a search node can cost one lineup solve or, through the Lagrangian bound, hundreds, and every horizon week multiplies them. Capacities up to the request are solved first and always get at least minSolveWork; curve rows the budget cannot reach are reported as not searched. Measured on dynasty_main week 9 (2026-10-29): 11,000-18,000 lineup solves per second; complete single-week requests use 50,000-155,000; before this budget a 4-week horizon with a binding dynasty budget of 300 used 1.43 million (78 s). 200,000 bounds a request to roughly 11-18 s of search and leaves single-week requests unchanged. A solve that reaches any limit is labelled 'bounded' with a proven gap where one exists, never presented as optimal; the answer at capacity k is the best over every k' <= k, so a bounded larger k can never make the answer worse."
   },
   "idpFamilies": {
     "value": [
