@@ -1,0 +1,367 @@
+{
+  "advisoryOnly": true,
+  "alternatives": [],
+  "baselinePoints": [
+    49.0
+  ],
+  "capacityCurve": [
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 0,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 1,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 2,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 3,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 4,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 5,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 6,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 7,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    }
+  ],
+  "config": {
+    "defaultCapacity": 3,
+    "hash": "4d1c1077bb4ba7cf31f218476f1a01efab9cc6476d546de666b6f464e198bdc2",
+    "materialityPoints": 1.0,
+    "maxCapacity": 7,
+    "maxDynastyBudget": 100000,
+    "maxHorizonWeeks": 4,
+    "version": "idp_streaming_v1"
+  },
+  "contractVersion": "idp-streaming/2026-10-29.v1",
+  "currentWeek": 9,
+  "excludedFreeAgents": {},
+  "faab": {
+    "bidMethodology": "market_aware",
+    "remaining": 62,
+    "state": "known"
+  },
+  "largerBudget": {
+    "meaning": "the best plan at this capacity with the dynasty budget lifted: what a larger budget would buy",
+    "plan": null,
+    "status": "optimal"
+  },
+  "leagueKey": "dynasty_main",
+  "lineup": {
+    "slots": [
+      "DL",
+      "DL",
+      "LB",
+      "LB",
+      "DB",
+      "DB",
+      "IDP_FLEX"
+    ],
+    "source": "sleeper_roster_positions"
+  },
+  "noMoveReason": "no_move_improves_the_lineup",
+  "notes": [],
+  "openSpots": 0,
+  "plan": null,
+  "posture": {
+    "context": {
+      "confidence": 0.71,
+      "label": "PUSH"
+    },
+    "unavailableReason": null,
+    "use": "displayed for context only; it never raises the dynasty budget"
+  },
+  "recommendMove": false,
+  "recommendedCapacity": 0,
+  "request": {
+    "capacity": 1,
+    "capacityCurve": true,
+    "dynastyBudget": 0.0,
+    "horizonWeeks": 1,
+    "position": "DL",
+    "teamOwnerId": "owner-me",
+    "week": null,
+    "weekRule": "current_week"
+  },
+  "rosterSource": "live_overlay",
+  "rostersAsOf": "2026-10-29T06:00:00+00:00",
+  "safeToDrop": {
+    "players": [
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "conditional",
+        "dynastyCost": 700.0,
+        "dynastyValue": 1600.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Marcus Oyelaran",
+        "playerId": "9002",
+        "position": "DL",
+        "reasons": [
+          {
+            "code": "moderate_value_above_replacement",
+            "detail": "Holds value above the best free agent at DL.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": 1600.0,
+        "releaseCostBasis": "conditional_full_value",
+        "replacementValue": 900.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 700.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "MIA",
+            "points": 7.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          }
+        ]
+      },
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "protected",
+        "dynastyCost": 3100.0,
+        "dynastyValue": 4200.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Darius Hale",
+        "playerId": "9001",
+        "position": "DL",
+        "reasons": [
+          {
+            "code": "weekly_starter_high_value",
+            "detail": "Weekly starter worth far more than any free agent.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": null,
+        "releaseCostBasis": null,
+        "replacementValue": 1100.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 3100.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "DET",
+            "points": 9.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "counts": {
+        "churn": 2,
+        "conditional": 2,
+        "protected": 4
+      },
+      "rosterPlayers": 8
+    }
+  },
+  "season": 2026,
+  "solver": {
+    "boundGap": null,
+    "nodeLimit": 40000,
+    "nodes": 12,
+    "notes": [],
+    "requestWorkBudget": 200000,
+    "solvedCapacities": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "status": "optimal",
+    "unsearchedCapacities": [],
+    "version": "streaming-solver/2026-10-29.v1",
+    "workUsed": 230
+  },
+  "sources": [
+    {
+      "asOf": "2026-10-29T06:00:00+00:00",
+      "byeTeams": [],
+      "cacheKey": "fixture-9",
+      "counts": {
+        "DB": {
+          "projected": 3
+        },
+        "DL": {
+          "projected": 3
+        },
+        "LB": {
+          "projected": 4
+        }
+      },
+      "currentWeek": 9,
+      "leagueKey": "dynasty_main",
+      "refusal": null,
+      "scheduleState": "ok",
+      "scoringEvidenceState": "fresh",
+      "scoringFingerprint": "sf1:fixture",
+      "season": 2026,
+      "sourceStates": [],
+      "week": 9
+    }
+  ],
+  "streamingBoard": [
+    {
+      "bid": 0,
+      "bidBasis": "unpriced_by_engine_zero_claim_only",
+      "dynastyValue": 600.0,
+      "dynastyValueState": "priced",
+      "excluded": null,
+      "missingProjectionWeeks": 0,
+      "name": "Owen Pruitt",
+      "playerId": "9103",
+      "position": "DL",
+      "soloLineupGainPoints": 2.5,
+      "team": "DEN",
+      "weeks": [
+        {
+          "combineMethod": "single_source",
+          "coverageShare": 0.75,
+          "familyCount": 0,
+          "injuryStatus": null,
+          "opponent": "LV",
+          "points": 6.5,
+          "reason": "ok",
+          "sources": [
+            "sleeper_weekly"
+          ],
+          "state": "projected",
+          "uncoveredKeys": [
+            "idp_pass_def"
+          ],
+          "week": 9
+        }
+      ],
+      "weightedProjectedPoints": 6.5,
+      "weightedProjectedPointsKnown": 6.5
+    }
+  ],
+  "team": {
+    "name": "Risk It To Get The Brisket",
+    "ownerId": "owner-me"
+  },
+  "unprojectedRosterPlayers": [
+    {
+      "missingWeeks": [
+        9
+      ],
+      "name": "Sam Okafor",
+      "playerId": "9008",
+      "weeks": [
+        {
+          "reason": "not_in_projection_set",
+          "state": "unprojected",
+          "week": 9
+        }
+      ]
+    }
+  ],
+  "valuationMode": "market",
+  "weekWeights": [
+    1.0
+  ],
+  "weeks": [
+    9
+  ]
+}
