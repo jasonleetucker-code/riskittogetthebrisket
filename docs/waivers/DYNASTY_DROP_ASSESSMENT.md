@@ -290,9 +290,12 @@ with no usage and no draft capital — youth alone does not protect.
 The composer (`src/waivers/streaming.py::_release_cost`) is the one place a
 release is priced against the dynasty budget:
 
-- **churn** — `max(dynastyCost, V − ladder[rung−1])`, with the rung equal to
-  the number of releases the plan makes in that lineup family (so a second
-  release is charged against a deeper free agent, never the same one twice);
+- **churn** — `max(dynastyCost, V − ladder[rung−1])`.  Each capacity k′ is
+  solved with one cost table whose rung is `min(k′, droppable players in that
+  lineup family)` — the most releases a k′-add plan could make there — so a
+  second release is never charged against the same free agent as the first.
+  A plan whose drops fall in different families is therefore charged a
+  deeper rung than it strictly needs (conservative);
 - **conditional** — the full `dynastyValue`;
 - **protected / unpriced** — never released;
 - adds credit nothing against the budget (the cost is already net of a

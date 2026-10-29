@@ -700,7 +700,13 @@ def assemble_streaming(
             no_move_reason = "capacity_zero"
         elif _budget_binds(cap_row, cfg.materiality_points):
             no_move_reason = "dynasty_budget_binds"
-        elif best_plan is not None and best_plan.weekly_gain > 1e-9:
+        elif (best_plan is not None and best_plan.weekly_gain > 1e-9) or (
+            cap_row is not None
+            and cap_row["result"].best_unbudgeted is not None
+            and cap_row["result"].best_unbudgeted.weekly_gain > 1e-9
+        ):
+            # Some move gains points (within the budget, or only beyond it),
+            # but less than the materiality threshold.
             no_move_reason = "below_materiality"
         elif bounded:
             # The search stopped before proving there is no improving move.

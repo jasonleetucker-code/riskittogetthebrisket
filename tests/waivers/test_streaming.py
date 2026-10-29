@@ -481,6 +481,18 @@ def test_a_search_stopped_by_its_work_budget_says_so_instead_of_no_move(monkeypa
     assert out["noMoveReason"] == "search_incomplete"
 
 
+def test_a_sub_material_move_beyond_the_budget_is_below_materiality():
+    # Only a conditional LB can go (full value charged, budget 0); the move it
+    # allows gains 0.3 points: the budget binds nothing material.
+    assess = _base_assess(
+        lb2=_assess("lb2", "LB", "conditional", 300.0, 0.0),
+        lbx=_assess("lbx", "LB", "protected", 900.0, 400.0),
+    )
+    out = _run(ROSTER, [("fa_lb", "LB", 4.3)], assess)
+    assert out["recommendMove"] is False
+    assert out["noMoveReason"] == "below_materiality"
+
+
 def test_default_work_budget_searches_every_curve_row_on_a_small_case():
     out = _run(ROSTER, [("fa_lb", "LB", 11.0)], _base_assess())
     assert out["solver"]["unsearchedCapacities"] == []
