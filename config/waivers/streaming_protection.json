@@ -1,0 +1,102 @@
+{
+  "_comment": "Dynasty asset protection for weekly streaming (safe-to-drop assessment). Read by src/waivers/drop_assessment.py, which REFUSES to assess when this file or any required entry is missing or malformed - there is no code default. Every value here is a PRIOR: a declared, evidence-gated judgement, not a calibrated fit. Changing one is an owner-visible methodology change. Gaps use the board's symmetric-mean relative convention: gap = (V - W) / mean(V, W), where V is the player's rankDerivedValue and W the waiver level at his position from src/roster_intel/droppability.py::team_droppability (waiverValues).",
+  "version": "streaming_protection_v1",
+  "parameters": {
+    "churnGapMaxByConfidence": {
+      "value": {"high": 0.15, "medium": 0.15, "low": 0.0},
+      "class": "PRIOR",
+      "unit": "symmetricRelativeGap keyed by confidenceBucket",
+      "rationale": "A player within the board's own agreement band of the best free agent at his position is indistinguishable from that free agent on the evidence. 0.15 is initialised from config/confidence/gate_v1.json AGREEMENT_VALUE_RATIO (the same symmetric-mean convention) and kept as its own entry so the two can diverge deliberately. A LOW-confidence value is itself less certain, so it must be at or below replacement (0.0), not merely within the band. A confidence bucket absent from this map (e.g. 'none', or a missing stamp) is never churn-eligible."
+    },
+    "protectGapMin": {
+      "value": 0.40,
+      "class": "PRIOR",
+      "unit": "symmetricRelativeGap",
+      "rationale": "A meaningful dynasty asset: worth roughly 1.5x the best free agent at his position (gap 0.40), i.e. well outside the 0.15 agreement band (about 2.7x it). Never auto-released; streaming is a weekly decision and should not spend clearly-above-replacement dynasty value. Not calibrated against outcomes."
+    },
+    "clearlyBelowGapMax": {
+      "value": -0.40,
+      "class": "PRIOR",
+      "unit": "symmetricRelativeGap",
+      "rationale": "Mirror of protectGapMin: worth roughly two-thirds of the best equivalent free agent or less. Used ONLY to stop a development flag from protecting a player who is clearly below replacement AND observed with no usage; such a player becomes conditional, never churn."
+    },
+    "youngAgeMax": {
+      "value": 24,
+      "class": "PRIOR",
+      "unit": "years (contract row age)",
+      "rationale": "Age band in which a growing NFL role most plausibly reflects development rather than injury fill-in. Age alone grants nothing - it only qualifies the usage flags."
+    },
+    "risingSnapTrendMinPts": {
+      "value": 5.0,
+      "class": "PRIOR",
+      "unit": "snap-share percentage points, playerctx snaps.trend (recent 3 games minus season)",
+      "rationale": "A third of the 15-point saturation src/consensus_edge/opportunity.py uses for its snapTrend axis: a visible, not marginal, role increase."
+    },
+    "minGamesForTrend": {
+      "value": 3,
+      "class": "PRIOR",
+      "unit": "games",
+      "rationale": "playerctx recentPct is a last-three-games figure (aggregate_snaps recent_games=3); under three games the trend is an artifact of the window, the same rule consensus_edge's snapTrend axis applies."
+    },
+    "establishedSnapPctMin": {
+      "value": 60.0,
+      "class": "PRIOR",
+      "unit": "season snap share, percent",
+      "rationale": "A young player already playing most of his side's snaps has an established role (young_established_usage), the other half of 'young with real usage'."
+    },
+    "noUsageSnapPctMax": {
+      "value": 10.0,
+      "class": "PRIOR",
+      "unit": "snap share, percent (season AND recent)",
+      "rationale": "Observed no-usage line. Only an OBSERVED snap record below this on both windows counts as 'no usage'; an absent record is unknown, never zero."
+    },
+    "highDraftCapitalMaxOverall": {
+      "value": 64,
+      "class": "PRIOR",
+      "unit": "NFL draft overall pick",
+      "rationale": "Rounds 1-2 (src/bdvm/context.py::draft_capital_score >= ~0.76): NFL teams commit snaps to this capital, so a quiet early career is weak evidence of low upside."
+    },
+    "recentDraftMaxYearsExp": {
+      "value": 2,
+      "class": "PRIOR",
+      "unit": "contract row yearsExp",
+      "rationale": "Draft capital is an ascension signal for the first three seasons (yearsExp 0-2); after that the realised role is the better evidence."
+    },
+    "valueTrendWindowDays": {
+      "value": 30,
+      "class": "PRIOR",
+      "unit": "days",
+      "rationale": "Comparison window for value_trending_up, read from src/history (canonical_board lane, never a future observation). 60 days is reported as an input only."
+    },
+    "valueTrendUpMinRatio": {
+      "value": 0.15,
+      "class": "PRIOR",
+      "unit": "(current - past) / past rankDerivedValue",
+      "rationale": "A rise larger than the agreement band. Momentum is NOT evidence of value (consensus_edge treats it as risk), so this flag only BLOCKS churn; it never protects."
+    },
+    "trendMaxObservationAgeDays": {
+      "value": 7,
+      "class": "PRIOR",
+      "unit": "days between the requested date and the nearest prior ledger observation",
+      "rationale": "A 30-day comparison against an observation much older than 30 days measures a different window; beyond this the trend is unavailable rather than approximated."
+    },
+    "usageSnapshotMaxAgeDays": {
+      "value": 10,
+      "class": "PRIOR",
+      "unit": "days since the playerctx snapshot asOf/generatedAt",
+      "rationale": "The playerctx refresh is weekly; ten days allows one missed run. Older usage is STALE and is not used to grant or deny a flag (stale is not current)."
+    },
+    "protectingFlags": {
+      "value": ["young_rising_usage", "young_established_usage", "high_draft_capital_recent"],
+      "class": "PRIOR",
+      "unit": "developmentFlags codes",
+      "rationale": "Flags strong enough to protect a player below the value margin: real, observed role growth in the youth band, or recent high draft capital. Overridden to conditional only when the player is clearly below replacement AND observed with no usage."
+    },
+    "churnBlockingFlags": {
+      "value": ["value_trending_up", "young_usage_unknown", "recent_draft_capital_unknown", "age_unknown"],
+      "class": "PRIOR",
+      "unit": "developmentFlags codes",
+      "rationale": "Signals that do not justify protection but make a zero-cost release claim unsafe: appreciating value, or a young / recently drafted player whose usage or draft capital we could not observe (missing is never zero). They move a churn candidate to conditional."
+    }
+  }
+}
