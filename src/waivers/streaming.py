@@ -62,7 +62,7 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -82,6 +82,7 @@ FLAG = "idp_streaming"
 CONTRACT_VERSION = "idp-streaming/2026-10-29.v1"
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "waivers" / "streaming.json"
 MAX_HORIZON_WEEKS = 4
+MAX_DYNASTY_BUDGET = 100_000
 POSITION_FILTERS = ("ALL", "DL", "LB", "DB")
 _BOARD_LIMIT = 60
 
@@ -182,7 +183,7 @@ def parse_streaming_request(body: Mapping[str, Any] | None, cfg: StreamingConfig
         budget = float(budget_raw if budget_raw not in (None, "") else 0)
     except (TypeError, ValueError):
         raise ValueError("bad_dynastyBudget") from None
-    if isinstance(budget_raw, bool) or not 0 <= budget <= 100_000:
+    if isinstance(budget_raw, bool) or not 0 <= budget <= MAX_DYNASTY_BUDGET:
         raise ValueError("bad_dynastyBudget")
     curve = body.get("capacityCurve", True)
     if not isinstance(curve, bool):
@@ -219,7 +220,7 @@ def _week_points(proj_sets: Sequence[Any], pid: str) -> tuple[tuple[float | None
     pts: list[float | None] = []
     detail: list[dict] = []
     for ps in proj_sets:
-        row = ps.players.get(pid) if ps is not None else None
+        row = ps.players.get(pid)
         if row is None:
             pts.append(None)
             detail.append(
@@ -259,17 +260,59 @@ def _ladders(contract: Mapping[str, Any], rostered: set[str]) -> dict[str, list[
     return out
 
 
-def _drop_cost(
-    assessment: Any, rung: int, ladder: Sequence[float]
-) -> tuple[float | None, float | None]:
-    """``(cost, replacement used)``: the larger of the drop assessment's own
-    cost and the cost against the ``rung``-th best free agent at his position."""
-    value = assessment.dynasty_value
-    if value is None or assessment.dynasty_cost is None:
-        return None, None
+def _release_cost(assessment: Any, rung: int, ladder: Sequence[float]) -> dict[str, Any]:
+    """What releasing this player costs against the dynasty budget, and why.
+
+    * ``churn`` (the drop assessment found a free agent of equal dynasty value
+      and no signal against a release): the value the wire cannot give back,
+      ``max(dynastyCost, V − ladder[rung−1])`` — the ``rung``-th best free
+      agent at his position, so several releases at one position are never all
+      charged against one free agent.
+    * ``conditional`` (droppable "only within the user's explicit dynasty-loss
+      budget": an unknown or rising signal, a low-confidence value, or no locks
+      supplied): his FULL dynasty value.  No replacement credit, because the
+      assessment's own reason is that a free release is unsafe.  At the default
+      budget of 0 a conditional player is therefore never released.
+    """
+    value = float(assessment.dynasty_value)
+    if assessment.drop_class == "conditional":
+        return {
+            "cost": value,
+            "basis": "conditional_full_value",
+            "ladderReplacementValue": None,
+            "replacementRung": None,
+            "assessment": assessment,
+        }
     replacement = ladder[rung - 1] if 0 < rung <= len(ladder) else 0.0
-    deep = max(0.0, float(value) - replacement)
-    return max(float(assessment.dynasty_cost), deep), replacement
+    deep = max(0.0, value - replacement)
+    return {
+        "cost": max(float(assessment.dynasty_cost), deep),
+        "basis": "churn_value_above_replacement",
+        "ladderReplacementValue": replacement,
+        "replacementRung": rung,
+        "assessment": assessment,
+    }
+
+
+def _recost(plan: solver.StreamPlan | None, table: Mapping[str, Mapping[str, Any]]):
+    """A plan found under one cost table, re-priced under another (or None)."""
+    if plan is None or any(d not in table for d in plan.drops):
+        return None
+    return solver.StreamPlan(
+        adds=plan.adds,
+        drops=plan.drops,
+        weekly_gain=plan.weekly_gain,
+        gain_by_week=plan.gain_by_week,
+        net_dynasty_loss=sum(float(table[d]["cost"]) for d in plan.drops),
+        faab_total=plan.faab_total,
+    )
+
+
+def _raw_best(res: Any) -> solver.StreamPlan | None:
+    """The best plan a solve found, recommended or not."""
+    if res.best is not None:
+        return res.best
+    return res.alternatives[0] if res.alternatives else None
 
 
 # ── assembly (pure) ─────────────────────────────────────────────────────
@@ -334,45 +377,39 @@ def assemble_streaming(
             )
         )
         roster_meta[pid] = {"name": str(name), "position": str(position).upper(), "weeks": detail}
-        if all(p is None for p in pts) and _family(position) in set(cfg.idp_families):
-            unprojected_roster.append({"playerId": pid, "name": str(name), "weeks": detail})
+        if any(p is None for p in pts) and _family(position) in set(cfg.idp_families):
+            unprojected_roster.append(
+                {
+                    "playerId": pid,
+                    "name": str(name),
+                    "missingWeeks": [d["week"] for d, p in zip(detail, pts) if p is None],
+                    "weeks": detail,
+                }
+            )
 
     # ── who may go, and at what cost ─────────────────────────────────
     k = int(request["capacity"])
-    droppable: dict[str, dict[str, Any]] = {}
+    budget = float(request["dynastyBudget"])
     by_family: dict[str, list[Any]] = {}
     for pid in roster_ids:
         a = assessments.get(pid)
         if a is None or a.drop_class not in ("churn", "conditional"):
             continue
+        if a.dynasty_value is None or a.dynasty_cost is None:
+            continue  # unpriced: never released (the assessment protects them too)
         fam = _family(a.position)
-        if fam not in families:
-            continue
-        by_family.setdefault(fam, []).append(a)
-    for fam, members in by_family.items():
-        rung = max(1, min(k, len(members)))
-        for a in members:
-            cost, repl = _drop_cost(a, rung, ladders.get(fam, ()))
-            if cost is None:
-                continue
-            droppable[a.player_id] = {
-                "cost": cost,
-                "replacementUsed": repl,
-                "replacementRung": rung,
-                "assessment": a,
-            }
-    # Roster players carry their release cost as the solver's dynasty value.
-    roster = [
-        solver.StreamPlayer(
-            **{
-                **p.__dict__,
-                "dynasty_value": droppable[p.player_id]["cost"]
-                if p.player_id in droppable
-                else None,
-            }
-        )
-        for p in roster
-    ]
+        if fam in families:
+            by_family.setdefault(fam, []).append(a)
+
+    def cost_table(kk: int) -> dict[str, dict[str, Any]]:
+        # A plan with at most kk adds releases at most kk players, so charging
+        # every release at rung min(kk, n) never under-charges that plan.
+        table: dict[str, dict[str, Any]] = {}
+        for fam, members in by_family.items():
+            rung = max(1, min(kk, len(members)))
+            for a in members:
+                table[a.player_id] = _release_cost(a, rung, ladders.get(fam, ()))
+        return table
 
     # ── free agents ──────────────────────────────────────────────────
     free_agents: list[solver.StreamPlayer] = []
@@ -430,36 +467,139 @@ def assemble_streaming(
         }
 
     multiweek = len(projection_sets) > 1
-    node_limit = cfg.node_limit_multiweek if multiweek else cfg.node_limit_single_week
+    main_limit = cfg.node_limit_multiweek if multiweek else cfg.node_limit_single_week
     if open_spots is None:
         notes.append(
             open_spots_note or "roster limit unknown: every add is treated as forcing a drop"
         )
-    base_input = solver.SolverInput(
-        roster=tuple(roster),
-        free_agents=tuple(free_agents),
-        slots=tuple(slots),
-        droppable_ids=frozenset(droppable),
-        open_spots=max(0, int(open_spots or 0)),
-        max_adds=k,
-        faab_balance=faab_remaining,
-        dynasty_budget=float(request["dynastyBudget"]),
-        week_weights=weights,
-        materiality=cfg.materiality_points,
-        node_limit=node_limit,
-    )
-    result = solver.solve_streaming(base_input)
+    elif open_spots_note:
+        notes.append(open_spots_note)
+
+    def solver_input(kk: int, table: Mapping[str, Any], limit: int) -> solver.SolverInput:
+        return solver.SolverInput(
+            roster=tuple(
+                solver.StreamPlayer(
+                    **{
+                        **p.__dict__,
+                        "dynasty_value": table[p.player_id]["cost"]
+                        if p.player_id in table
+                        else None,
+                    }
+                )
+                for p in roster
+            ),
+            free_agents=tuple(free_agents),
+            slots=tuple(slots),
+            droppable_ids=frozenset(table),
+            open_spots=max(0, int(open_spots or 0)),
+            max_adds=kk,
+            faab_balance=faab_remaining,
+            dynasty_budget=budget,
+            week_weights=weights,
+            materiality=cfg.materiality_points,
+            node_limit=limit,
+        )
+
+    # One solve per capacity kk = 1..top, each with its own rung-correct cost
+    # table and seeded with the previous capacity's plan (re-priced).  The
+    # answer at capacity k is the best plan over every kk <= k, so a larger
+    # capacity can never return a worse plan, and the curve and the answer
+    # come from the same solves.
+    top = max(k, cfg.max_capacity) if request["capacityCurve"] else k
+    rows: list[dict[str, Any]] = []
+    seed: solver.StreamPlan | None = None
+    for kk in range(1, top + 1):
+        table = cost_table(kk)
+        inp = solver_input(kk, table, main_limit if kk <= k else cfg.node_limit_curve_row)
+        res = solver.solve_streaming(
+            inp,
+            alternatives=5 if kk <= k else 0,
+            unbudgeted=kk == k,
+            start=_recost(seed, table),
+        )
+        plan = _raw_best(res)
+        rows.append({"k": kk, "table": table, "input": inp, "result": res, "plan": plan})
+        if plan is not None:
+            seed = plan
+
+    def best_upto(limit: int) -> dict[str, Any] | None:
+        chosen = None
+        for row in rows[:limit]:
+            if row["plan"] is None:
+                continue
+            if chosen is None or row["plan"].key() < chosen["plan"].key():
+                chosen = row
+        return chosen
+
+    main_rows = rows[:k]
+    chosen = best_upto(k)
+    best_plan = chosen["plan"] if chosen else None
+    best_table = chosen["table"] if chosen else cost_table(max(1, k))
+    recommend = best_plan is not None and best_plan.weekly_gain >= max(cfg.materiality_points, 1e-9)
+    bounded = [r for r in main_rows if r["result"].status != solver.STATUS_OPTIMAL]
+    status = solver.STATUS_BOUNDED if bounded else solver.STATUS_OPTIMAL
+    gaps = [r["result"].bound_gap for r in bounded if r["result"].bound_gap is not None]
+    solver_notes: list[str] = []
+    for r in main_rows:
+        for n in r["result"].notes:
+            if n not in solver_notes:
+                solver_notes.append(n)
+    cap_row = rows[k - 1] if k >= 1 else None
+    alt_plans = []
+    if chosen is not None:
+        alt_plans = [p for p in chosen["result"].alternatives if p is not None and p != best_plan][
+            :5
+        ]
 
     curve = None
     recommended_k = None
     if request["capacityCurve"]:
-        curve = solver.capacity_curve(
-            solver.SolverInput(**{**base_input.__dict__, "node_limit": cfg.node_limit_curve_row}),
-            max_k=cfg.max_capacity,
-        )
-        recommended_k = solver.recommended_capacity(curve, materiality=cfg.materiality_points)
+        curve = [
+            {
+                "capacity": 0,
+                "bestGainPoints": 0.0,
+                "marginalGainPoints": 0.0,
+                "netDynastyLoss": 0.0,
+                "adds": [],
+                "drops": [],
+                "status": solver.STATUS_OPTIMAL,
+            }
+        ]
+        prev = 0.0
+        for kk in range(1, top + 1):
+            got = best_upto(kk)
+            gain = got["plan"].weekly_gain if got else 0.0
+            gain = max(gain, prev)
+            curve.append(
+                {
+                    "capacity": kk,
+                    "bestGainPoints": round(gain, 3),
+                    "marginalGainPoints": round(gain - prev, 3),
+                    "netDynastyLoss": round(got["plan"].net_dynasty_loss, 1) if got else 0.0,
+                    "adds": list(got["plan"].adds) if got else [],
+                    "drops": list(got["plan"].drops) if got else [],
+                    # Proven only if every solve up to this capacity was.
+                    "status": (
+                        solver.STATUS_OPTIMAL
+                        if all(r["result"].status == solver.STATUS_OPTIMAL for r in rows[:kk])
+                        else solver.STATUS_BOUNDED
+                    ),
+                }
+            )
+            prev = gain
+        g_max = prev
+        if g_max < cfg.materiality_points:
+            recommended_k = 0
+        else:
+            # The fewest spots whose gain is itself material and captures all
+            # but less than one material step of the best gain any capacity
+            # up to the maximum reaches.
+            floor = max(cfg.materiality_points, g_max - cfg.materiality_points)
+            recommended_k = next(r["capacity"] for r in curve if r["bestGainPoints"] >= floor)
 
-    def explain_plan(plan: solver.StreamPlan | None) -> dict[str, Any] | None:
+    def explain_plan(
+        plan: solver.StreamPlan | None, table: Mapping[str, Any]
+    ) -> dict[str, Any] | None:
         if plan is None:
             return None
         add_rows = []
@@ -475,7 +615,7 @@ def assemble_streaming(
         drop_rows = []
         raw_drop = 0.0
         for d in plan.drops:
-            info = droppable[d]
+            info = table[d]
             a = info["assessment"]
             raw_drop += float(a.dynasty_value or 0.0)
             drop_rows.append(
@@ -486,7 +626,9 @@ def assemble_streaming(
                     "dropClass": a.drop_class,
                     "dynastyValue": _round(a.dynasty_value, 0),
                     "releaseCost": _round(info["cost"], 0),
-                    "replacementValue": _round(info["replacementUsed"], 0),
+                    "releaseCostBasis": info["basis"],
+                    "ladderReplacementValue": _round(info["ladderReplacementValue"], 0),
+                    "assessmentReplacementValue": _round(a.replacement_value, 0),
                     "replacementRung": info["replacementRung"],
                     "reasons": [r.to_dict() for r in a.reasons][:3],
                     "weeks": roster_meta.get(d, {}).get("weeks", []),
@@ -497,27 +639,36 @@ def assemble_streaming(
             "addDetails": add_rows,
             "dropDetails": drop_rows,
             # The directive's quantity, reported only: Σ V(adds) − Σ V(drops).
+            # With an unknown add value the total is unknown, never a sum
+            # that counts him as 0; the known part is given separately.
             "dynastyValueChange": {
-                "value": round(raw_add - raw_drop, 1),
+                "value": round(raw_add - raw_drop, 1) if unknown_add == 0 else None,
+                "knownValue": round(raw_add - raw_drop, 1),
                 "state": "complete" if unknown_add == 0 else "partial_unknown_add_values",
                 "unknownAddValues": unknown_add,
             },
             "releaseCost": round(plan.net_dynasty_loss, 1),
         }
 
-    best = explain_plan(result.best)
+    best = explain_plan(best_plan if recommend else None, best_table)
     no_move_reason = None
-    if not result.recommend_move:
-        if not droppable and k > 0 and int(open_spots or 0) == 0:
+    if not recommend:
+        if not by_family and k > 0 and int(open_spots or 0) == 0:
             no_move_reason = "no_droppable_player"
         elif not free_agents:
             no_move_reason = "no_projected_free_agent"
-        elif result.alternatives:
+        elif k == 0:
+            no_move_reason = "capacity_zero"
+        elif best_plan is not None and best_plan.weekly_gain > 1e-9:
             no_move_reason = "below_materiality"
         else:
             no_move_reason = "no_move_improves_the_lineup"
 
-    board = _streaming_board(base_input, fa_meta, result)
+    board_input = (
+        chosen["input"] if chosen else (cap_row["input"] if cap_row else solver_input(0, {}, 1))
+    )
+    excluded = dict(cap_row["result"].excluded_free_agents) if cap_row else {}
+    board = _streaming_board(board_input, fa_meta, excluded, weights)
     return {
         "contractVersion": CONTRACT_VERSION,
         "leagueKey": league_key,
@@ -531,30 +682,45 @@ def assemble_streaming(
             "version": cfg.version,
             "hash": cfg.config_hash,
             "materialityPoints": cfg.materiality_points,
+            "maxCapacity": cfg.max_capacity,
+            "defaultCapacity": cfg.default_capacity,
+            "maxHorizonWeeks": len(cfg.horizon_week_weights),
+            "maxDynastyBudget": MAX_DYNASTY_BUDGET,
         },
         "lineup": {"slots": list(slots), "source": slots_source},
         "solver": {
             "version": solver.SOLVER_VERSION,
-            "status": result.status,
-            "boundGap": _round(result.bound_gap, 3),
-            "nodes": result.nodes,
-            "nodeLimit": node_limit,
-            "notes": list(result.notes),
+            "status": status,
+            "boundGap": _round(max(gaps), 3) if gaps else None,
+            "nodes": sum(r["result"].nodes for r in rows),
+            "nodeLimit": main_limit,
+            "solvedCapacities": [r["k"] for r in rows],
+            "notes": solver_notes,
         },
-        "baselinePoints": [_round(p) for p in result.baseline_points],
-        "recommendMove": result.recommend_move,
+        "baselinePoints": [_round(p) for p in (rows[0]["result"].baseline_points if rows else ())],
+        "recommendMove": recommend,
         "noMoveReason": no_move_reason,
         "plan": best,
-        "alternatives": [explain_plan(p) for p in result.alternatives],
+        "alternatives": (
+            (
+                [explain_plan(best_plan, best_table)]
+                if best_plan is not None and not recommend
+                else []
+            )
+            + [explain_plan(p, best_table) for p in alt_plans]
+        ),
         "largerBudget": {
-            "plan": explain_plan(result.best_unbudgeted),
-            "status": result.unbudgeted_status,
-            "meaning": "the best plan with the dynasty budget lifted: what a larger budget would buy",
+            "plan": explain_plan(cap_row["result"].best_unbudgeted, cap_row["table"])
+            if cap_row
+            else None,
+            "status": cap_row["result"].unbudgeted_status if cap_row else None,
+            "meaning": "the best plan at this capacity with the dynasty budget lifted: what a "
+            "larger budget would buy",
         },
         "capacityCurve": curve,
         "recommendedCapacity": recommended_k,
         "streamingBoard": board,
-        "safeToDrop": _drop_board(drop_assessment, droppable, families, roster_meta),
+        "safeToDrop": _drop_board(drop_assessment, cost_table(max(1, k)), families, roster_meta),
         "faab": {
             "remaining": faab_remaining,
             "state": "known" if faab_remaining is not None else "unknown_zero_claims_only",
@@ -567,29 +733,32 @@ def assemble_streaming(
             "use": "displayed for context only; it never raises the dynasty budget",
         },
         "unprojectedRosterPlayers": unprojected_roster,
-        "excludedFreeAgents": dict(sorted(result.excluded_free_agents.items())),
+        "excludedFreeAgents": dict(sorted(excluded.items())),
         "sources": [ps.to_dict(include_players=False) for ps in projection_sets],
         "notes": notes,
     }
 
 
 def _streaming_board(
-    inp: solver.SolverInput, fa_meta: Mapping[str, Mapping[str, Any]], result: Any
+    inp: solver.SolverInput,
+    fa_meta: Mapping[str, Mapping[str, Any]],
+    excluded: Mapping[str, str],
+    weights: Sequence[float],
 ) -> list[dict[str, Any]]:
     """Available defenders ranked by what ONE of them adds to this lineup
-    (no drop), not by dynasty value or raw points."""
-    ev = solver._Evaluator(inp)
-    roster_ids = frozenset(p.player_id for p in inp.roster)
-    base = ev.value(roster_ids)
+    (no drop), then by weighted projected points — not by dynasty value."""
+    gains = solver.solo_gains(inp)
     rows = []
     for p in inp.free_agents:
-        if all(v is None for v in p.weekly_points):
+        if p.player_id not in gains:
             continue
-        gain = ev.value(roster_ids | {p.player_id}) - base
-        rows.append((gain, p))
-    rows.sort(key=lambda t: (-t[0], t[1].player_id))
+        projected = sum(
+            w * float(v) for w, v in zip(weights, p.weekly_points, strict=False) if v is not None
+        )
+        rows.append((gains[p.player_id], projected, p))
+    rows.sort(key=lambda t: (-round(t[0], 6), -round(t[1], 6), t[2].player_id))
     out = []
-    for gain, p in rows[:_BOARD_LIMIT]:
+    for gain, projected, p in rows[:_BOARD_LIMIT]:
         m = fa_meta[p.player_id]
         out.append(
             {
@@ -598,12 +767,13 @@ def _streaming_board(
                 "position": m["position"],
                 "team": m["team"],
                 "soloLineupGainPoints": round(gain, 2),
+                "weightedProjectedPoints": round(projected, 2),
                 "weeks": m["weeks"],
                 "dynastyValue": m["dynastyValue"],
                 "dynastyValueState": m["dynastyValueState"],
                 "bid": m["bid"],
                 "bidBasis": m["bidBasis"],
-                "excluded": result.excluded_free_agents.get(p.player_id),
+                "excluded": excluded.get(p.player_id),
             }
         )
     return out
@@ -622,6 +792,7 @@ def _drop_board(
         d = a.to_dict()
         info = droppable.get(a.player_id)
         d["releaseCost"] = _round(info["cost"], 0) if info else None
+        d["releaseCostBasis"] = info["basis"] if info else None
         d["weeks"] = roster_meta.get(a.player_id, {}).get("weeks", [])
         rows.append(d)
     order = {"churn": 0, "conditional": 1, "protected": 2}
@@ -647,8 +818,16 @@ def compute_streaming(
 ) -> dict[str, Any]:
     """Run every owner once on one roster snapshot and assemble the payload.
 
-    Raises ``ValueError`` codes: ``no_rosters_loaded``, ``unknown_team``,
-    ``starter_slots_unknown``, ``not_in_season``, ``projections_refused``.
+    Raises ``ValueError`` with a stable code: ``no_rosters_loaded``,
+    ``unknown_team``, ``starter_slots_unknown``, ``not_in_season``,
+    ``projections_refused``, ``drop_policy_unreadable``, ``league_mismatch``.
+    ``StreamingConfigError`` when the streaming config is unreadable.
+
+    The default week is the one whose games are still to be played: on
+    Tuesday and Wednesday (the waiver days) ``current_nfl_week`` still names
+    the week that just finished, so the default is the next one.
+    ``assess_drops(plan_contract, league_key, owner_id, constraints)`` and
+    ``load_projections(week, season, current_week)`` are injectable for tests.
     """
     from src.bdvm.actuals import nfl_projection_season  # noqa: PLC0415
     from src.draft.context import contract_teams, index_contract_rows, league_rostered_keys  # noqa: PLC0415
@@ -677,32 +856,54 @@ def compute_streaming(
     if not slots:
         raise ValueError("starter_slots_unknown")
 
-    current_week, in_season = faab_engine.current_nfl_week(today)
-    week = request.get("week") or current_week
+    clock = today or datetime.now(timezone.utc).date()
+    current_week, in_season = faab_engine.current_nfl_week(clock)
+    week = request.get("week")
+    week_rule = "requested"
     if week is None:
-        raise ValueError("not_in_season")
-    season = nfl_projection_season(today)
+        if current_week is None:
+            raise ValueError("not_in_season")
+        # Tuesday = 1, Wednesday = 2: the week just played is still "current".
+        if clock.weekday() in (1, 2) and current_week < 18:
+            week, week_rule = current_week + 1, "next_week_on_waiver_days"
+        else:
+            week, week_rule = current_week, "current_week"
+    season = nfl_projection_season(clock)
     weeks = [w for w in range(int(week), int(week) + int(request["horizonWeeks"])) if w <= 18]
 
     if load_projections is None:
         from src.ros.weekly_league_projections import load_weekly_projections  # noqa: PLC0415
 
-        def load_projections(w: int) -> Any:
+        def load_projections(w: int, season: int, current_week: int | None) -> Any:
             return load_weekly_projections(league_key, season, w, current_week=current_week)
 
-    projection_sets = [load_projections(w) for w in weeks]
+    projection_sets = [load_projections(w, season, current_week) for w in weeks]
     if any(getattr(ps, "refusal", None) for ps in projection_sets):
         raise ValueError("projections_refused")
 
     if assess_drops is None:
         from src.waivers.drop_assessment import assess_team_drops  # noqa: PLC0415
 
-        def assess_drops() -> Any:
+        def assess_drops(contract: Any, league_key: str, owner_id: str, constraints: Any) -> Any:
             return assess_team_drops(
-                plan_contract, league_key=league_key, owner_id=owner_id, constraints=constraints
+                contract, league_key=league_key, owner_id=owner_id, constraints=constraints
             )
 
-    drops = assess_drops()
+    from src.waivers.drop_assessment import (  # noqa: PLC0415
+        DropAssessmentConfigError,
+        TeamNotInLeague,
+    )
+
+    try:
+        drops = assess_drops(plan_contract, league_key, owner_id, constraints)
+    except TeamNotInLeague as exc:
+        raise ValueError("unknown_team") from exc
+    except DropAssessmentConfigError as exc:
+        raise ValueError("drop_policy_unreadable") from exc
+    except ValueError as exc:
+        if str(exc).startswith("league_mismatch"):
+            raise ValueError("league_mismatch") from exc
+        raise
 
     targets = waiver_owner.find_waiver_targets(
         dict(plan_contract),
@@ -742,6 +943,10 @@ def compute_streaming(
         open_note = "roster limit unknown: every add is treated as forcing a drop"
     elif capacity.certainty != "exact":
         open_note = f"open roster spots are {capacity.certainty}: {open_spots} used"
+    if capacity.over_limit_before:
+        open_note = (
+            open_note + "; " if open_note else ""
+        ) + "the roster is already over its limit: every add forces a drop"
 
     posture = None
     posture_reason = None
@@ -749,12 +954,22 @@ def compute_streaming(
         from src.api.gameplan import league_competitive_postures  # noqa: PLC0415
         from src.api.league_registry import get_scoring_profile  # noqa: PLC0415
 
-        postures, _meta = league_competitive_postures(
-            league_key, get_scoring_profile(league_key) or "", plan_contract, build_if_missing=False
+        postures, posture_meta = league_competitive_postures(
+            league_key,
+            get_scoring_profile(league_key) or "",
+            plan_contract,
+            week=current_week,
+            in_season=bool(in_season),
+            build_if_missing=False,
         )
         posture = (postures or {}).get(owner_id)
         if posture is not None and hasattr(posture, "to_dict"):
             posture = posture.to_dict()
+        if posture is not None:
+            posture = {
+                **posture,
+                "bundleFreshness": (posture_meta or {}).get("bundleFreshness"),
+            }
         if posture is None:
             posture_reason = "team_not_in_posture_bundle"
     except Exception as exc:  # noqa: BLE001 — posture is context, never the answer
@@ -779,7 +994,7 @@ def compute_streaming(
         faab_remaining=faab_remaining,
         open_spots=open_spots,
         open_spots_note=open_note,
-        request=request,
+        request={**request, "weekRule": week_rule},
         cfg=cfg,
         posture=posture,
         posture_reason=posture_reason,

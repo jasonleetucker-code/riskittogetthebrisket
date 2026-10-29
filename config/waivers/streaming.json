@@ -15,20 +15,33 @@
   "defaultCapacity": {
     "value": 3,
     "class": "PRIOR",
-    "rationale": "Used only when the request names no capacity. Three is the low end of the 3-5 spots the league's most active streamer churns; the capacity curve shows whether more or fewer pay."
+    "rationale": "Used only when the request names no capacity. Three is the low end of the 3-5 spots the league's most active streamer churns; the capacity curve and recommendedCapacity show whether more or fewer pay."
   },
   "horizonWeekWeights": {
-    "value": [1.0, 0.85, 0.72, 0.61],
+    "value": [
+      1.0,
+      0.85,
+      0.72,
+      0.61
+    ],
     "class": "PRIOR",
     "rationale": "Weight of this week and the next three. Later weeks count less because the held player may be dropped again and future waiver pools are not guaranteed (rolling horizon). Roughly 15% per week."
   },
   "nodeLimits": {
-    "value": {"singleWeek": 40000, "multiweek": 20000, "capacityCurvePerRow": 15000},
+    "value": {
+      "singleWeek": 40000,
+      "multiweek": 20000,
+      "capacityCurvePerRow": 15000
+    },
     "class": "PRIOR",
-    "rationale": "Search budgets measured on the dynasty_main shape (58-man roster, ~300 IDP free agents): a single-week k<=5 solve proves optimality in well under these; multi-week bounds are looser, so a cap keeps the request interactive and the result is labelled 'bounded' with a proven gap when it is reached."
+    "rationale": "Search budgets per solve. The composer solves once per capacity k = 1..max (each with its own rung-correct release costs, seeded with the previous capacity's plan); capacities up to the request use the singleWeek or multiweek budget, the curve rows above it use capacityCurvePerRow. Measured on dynasty_main week 9 (2026-10-29): k<=2 proves optimality well inside these, larger k can hit them (larger droppable sets, many near-ties). A solve that reaches its budget is labelled 'bounded' with a proven gap, never presented as optimal; the answer at capacity k is the best over every k' <= k, so a bounded larger k can never make the answer worse."
   },
   "idpFamilies": {
-    "value": ["DL", "LB", "DB"],
+    "value": [
+      "DL",
+      "LB",
+      "DB"
+    ],
     "class": "PRIOR",
     "rationale": "Weekly streaming is scoped to individual defensive players (owner directive 2026-10-29). Offensive roster players stay in the lineup calculation but are never proposed as adds or drops."
   }
