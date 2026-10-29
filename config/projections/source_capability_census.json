@@ -371,6 +371,58 @@
       "notes": "Seasonal intelligence lane ONLY — never a dynasty value, rank or vote. Stat lines mapped field-by-field to Sleeper stat keys (src/ros/sportsdataio_weekly_projections.py::STAT_MAPPING) and rescored under the caller's exact card. Kicker: made by distance band, attempts and PATs (fgmiss/xpmiss derived linearly); NOT covered: made-FG total distance (fgm_yds) and misses by distance band. IDP: solo/assisted/total tackles, sacks, sack yards, TFL, QB hits, PD, FF, FR, INT, return yards, TDs, safeties, blocks. NOT covered: first downs, reception-length buckets, *_40p play bonuses, yardage/tackle thresholds (never derived from a projected mean). The published schema has no per-row update stamp; the payload Last-Modified header is used when sent, else ensemble dating refuses (fetch time is not data freshness). Identity: SportsDataIO PlayerID = Sleeper fantasy_data_id; the caller injects the identity-owner resolver."
     },
     {
+      "key": "fptrackWeeklyProjections",
+      "displayName": "FPTrack weekly projections (public catalog JSON, offense + IDP stat lines)",
+      "providerFamily": "fptrack",
+      "modelAncestry": {
+        "model": "fptrack",
+        "publisher": "fptrack",
+        "chain": [
+          "fptrack"
+        ],
+        "isAggregate": false,
+        "constituentFamilies": [
+          "rotowire"
+        ],
+        "evidence": "Measured 2026-10-29 on same-morning week-8 captures joined on name + team (583 IDP players): FPTrack 'tackles' vs RotoWire-via-Sleeper idp_tkl_solo median difference 0.04, 41% identical after rounding to one decimal, 65% within 0.15; 'assists' tracks idp_tkl_ast the same way. Near-identical raw values are credible shared-DATA-lineage evidence (CLAUDE.md source-voting rule), so rotowire is declared a constituent and an ensemble never counts this source and sleeperWeeklyProjections as two independent votes (src.ros.projection_source_census.ancestry_overlaps). FPTrack publishes no methodology naming its inputs; the declaration is conservative, from the measurement."
+      },
+      "gameType": "WEEKLY",
+      "valuationLane": "SEASONAL_INTELLIGENCE",
+      "evidenceClass": "PROJECTION_MODEL",
+      "targetPopulation": [
+        "OFFENSE",
+        "IDP"
+      ],
+      "positionsCovered": [
+        "QB",
+        "RB",
+        "WR",
+        "TE",
+        "K",
+        "DL",
+        "LB",
+        "DB"
+      ],
+      "horizons": [
+        "WEEKLY"
+      ],
+      "implementationStatus": "IMPLEMENTED_FLAG_OFF",
+      "existingModule": "src.ros.fptrack_weekly_projections",
+      "featureFlag": "fptrack_weekly_projections",
+      "existingRosRegistryKey": null,
+      "existingFetcher": "scripts/capture_weekly_projections.py",
+      "accessPosture": "OWNER_ATTESTED_AUTHORIZED",
+      "accessAttestation": "Owner scraping attestation 2026-10-29 (explicit, in writing) naming FPTrack among the sites the owner has permission to scrape for IDP projections. Record: docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md (decision 4). Constraints kept: no paywall bypass, no credentials, at least 1 s between requests.",
+      "accessEvidence": "GET https://fptrack.com/api/sports-v2/projections/football/week?v=5&week=<N> answers without authentication; it is the catalog the public /football/weekly-projection-rankings page loads (catalogUrl in the page's island props). robots.txt: 'User-agent: * / Allow: /' with 'Content-Signal: search=yes,ai-train=no,use=reference' (no AI-training use is made). Week 8 2026: 1,105 players (DL 231, LB 170, DB 248, WR 148, TE 101, RB 93, QB 57, K 29, DEF 28); an unpublished week (week=9 on 2026-10-29) answers with an EMPTY players list; availableWeeks lists only weeks up to the current one (no future weeks).",
+      "licensingStatus": "OWNER_ATTESTED_AUTHORIZED",
+      "licensingEvidence": "docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md (owner attestation 2026-10-29; FPTrack named).",
+      "responseSchemaStatus": "VERIFIED_FROM_CAPTURE",
+      "responseSchemaNote": "Fields from the 2026-10-29 week-8 capture (trimmed fixture tests/fixtures/weekly_projections/fptrack_week8_sample.json). IDP: tackles (SOLO), assists, tacklesForLoss (0 on every one of 649 rows: treated as an unpublished placeholder, uncovered, never 0), passesDefended, sacks, defInterceptions, forcedFumbles, fumbleRecoveries (null), interceptionTouchdowns + fumbleRecoveryTouchdowns (summed to idp_def_td), safeties (null). No QB hits, sack yards, return yards or blocked kicks: those league keys are reported uncovered. Payload asOf is the epoch placeholder and generatedAt is render time, so rows carry no provider update stamp.",
+      "sourceUrlEvidence": "src/ros/fptrack_weekly_projections.py::ENDPOINT",
+      "acquisitionOwnerLane": "IDP streaming W1",
+      "notes": "Seasonal intelligence lane ONLY — never a dynasty value, rank or vote. A COVERAGE FILLER, never a second vote beside RotoWire (see modelAncestry): src.ros.weekly_league_projections uses it only for players the Sleeper/RotoWire source did not project, as single_family_passthrough. Identity: exact-rung CANONICAL_V2 resolution corroborated by team, else refused and listed."
+    },
+    {
       "key": "brisketInternalModel",
       "displayName": "Brisket internal projection model (future, in-house)",
       "providerFamily": "brisketInternal",

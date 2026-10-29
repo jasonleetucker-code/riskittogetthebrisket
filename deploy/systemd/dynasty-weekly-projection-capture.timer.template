@@ -1,0 +1,22 @@
+[Unit]
+Description=Weekly projection pool capture schedule for __SERVICE_NAME__
+
+# WHEN, AND WHY THESE FOUR MOMENTS (all before the week's games):
+#   Tue 14:10 UTC  the week's first full projections after Monday Night and
+#                  ahead of the Wednesday waiver run — the baseline a FAAB /
+#                  streaming decision is actually made on;
+#   Thu 14:10 UTC  after the first practice reports, before Thursday Night;
+#   Sat 14:10 UTC  after Friday's final injury designations;
+#   Sun 14:10 UTC  Sunday morning, ~3 h before the 17:00/18:00 UTC kickoffs.
+# Each run also captures the next three weeks (future-week projections age
+# too). Unchanged content is not re-written, so extra firings cost one
+# polite request per source and nothing on disk. Times are UTC (and 10-11 am
+# ET across DST); a Wednesday season opener is covered by the Tuesday run.
+[Timer]
+OnCalendar=Tue,Thu,Sat,Sun *-*-* 14:10:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+Unit=__SERVICE_NAME__-weekly-projection-capture.service
+
+[Install]
+WantedBy=timers.target
