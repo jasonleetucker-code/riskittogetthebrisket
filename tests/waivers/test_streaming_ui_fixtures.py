@@ -60,3 +60,9 @@ def test_fixtures_cover_every_state_the_ui_renders():
     assert load["bounded"]["solver"]["status"] == "bounded"
     assert load["bounded"]["solver"]["boundGap"] is not None
     assert "bounded" in {r["status"] for r in load["bounded"]["capacityCurve"]}
+    assert False in {r["searched"] for r in load["bounded"]["capacityCurve"]}
+    assert load["bounded"]["solver"]["unsearchedCapacities"]
+    binds = load["budget-binds"]
+    assert binds["noMoveReason"] == "dynasty_budget_binds"
+    assert binds["largerBudget"]["plan"]["releaseCost"] > binds["request"]["dynastyBudget"]
+    assert any(r["weightedProjectedPoints"] is None for r in rec["streamingBoard"])

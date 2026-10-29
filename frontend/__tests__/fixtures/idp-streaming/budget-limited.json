@@ -142,6 +142,7 @@
       "drops": [],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -155,6 +156,7 @@
       ],
       "marginalGainPoints": 11.175,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -168,6 +170,7 @@
       ],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -181,6 +184,7 @@
       ],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -194,6 +198,7 @@
       ],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -207,6 +212,7 @@
       ],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -220,6 +226,7 @@
       ],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -233,12 +240,13 @@
       ],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     }
   ],
   "config": {
     "defaultCapacity": 3,
-    "hash": "93b38b280597689119e8202a389b79c15c0d873964365a81342606c7f4eaacf2",
+    "hash": "066968a547acf1d78a27fb222e30ccf293a7ffb7328b61cce61fc7cefa1368b5",
     "materialityPoints": 1.0,
     "maxCapacity": 7,
     "maxDynastyBudget": 100000,
@@ -1163,6 +1171,7 @@
     "nodeLimit": 20000,
     "nodes": 131,
     "notes": [],
+    "requestWorkBudget": 30000,
     "solvedCapacities": [
       1,
       2,
@@ -1173,7 +1182,9 @@
       7
     ],
     "status": "optimal",
-    "version": "streaming-solver/2026-10-29.v1"
+    "unsearchedCapacities": [],
+    "version": "streaming-solver/2026-10-29.v1",
+    "workUsed": 262
   },
   "sources": [
     {
@@ -1234,6 +1245,7 @@
       "dynastyValue": 1450.0,
       "dynastyValueState": "priced",
       "excluded": null,
+      "missingProjectionWeeks": 0,
       "name": "Nick Lambright",
       "playerId": "9101",
       "position": "LB",
@@ -1275,7 +1287,8 @@
           "week": 10
         }
       ],
-      "weightedProjectedPoints": 18.15
+      "weightedProjectedPoints": 18.15,
+      "weightedProjectedPointsKnown": 18.15
     },
     {
       "bid": 0,
@@ -1283,6 +1296,7 @@
       "dynastyValue": null,
       "dynastyValueState": "unknown_off_board",
       "excluded": null,
+      "missingProjectionWeeks": 0,
       "name": "Tyrell Gaines",
       "playerId": "9102",
       "position": "DB",
@@ -1324,7 +1338,8 @@
           "week": 10
         }
       ],
-      "weightedProjectedPoints": 16.23
+      "weightedProjectedPoints": 16.23,
+      "weightedProjectedPointsKnown": 16.23
     },
     {
       "bid": 0,
@@ -1332,6 +1347,7 @@
       "dynastyValue": 600.0,
       "dynastyValueState": "priced",
       "excluded": null,
+      "missingProjectionWeeks": 0,
       "name": "Owen Pruitt",
       "playerId": "9103",
       "position": "DL",
@@ -1373,7 +1389,8 @@
           "week": 10
         }
       ],
-      "weightedProjectedPoints": 11.6
+      "weightedProjectedPoints": 11.6,
+      "weightedProjectedPointsKnown": 11.6
     },
     {
       "bid": 0,
@@ -1381,6 +1398,7 @@
       "dynastyValue": null,
       "dynastyValueState": "unknown_off_board",
       "excluded": null,
+      "missingProjectionWeeks": 1,
       "name": "Bryce Mendel",
       "playerId": "9104",
       "position": "LB",
@@ -1410,7 +1428,8 @@
           "week": 10
         }
       ],
-      "weightedProjectedPoints": 5.95
+      "weightedProjectedPoints": null,
+      "weightedProjectedPointsKnown": 5.95
     }
   ],
   "team": {

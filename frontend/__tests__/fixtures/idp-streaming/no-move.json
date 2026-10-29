@@ -12,6 +12,7 @@
       "drops": [],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -21,6 +22,7 @@
       "drops": [],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -30,6 +32,7 @@
       "drops": [],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -39,6 +42,7 @@
       "drops": [],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -48,6 +52,7 @@
       "drops": [],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -57,6 +62,7 @@
       "drops": [],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -66,6 +72,7 @@
       "drops": [],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     },
     {
@@ -75,12 +82,13 @@
       "drops": [],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
+      "searched": true,
       "status": "optimal"
     }
   ],
   "config": {
     "defaultCapacity": 3,
-    "hash": "93b38b280597689119e8202a389b79c15c0d873964365a81342606c7f4eaacf2",
+    "hash": "066968a547acf1d78a27fb222e30ccf293a7ffb7328b61cce61fc7cefa1368b5",
     "materialityPoints": 1.0,
     "maxCapacity": 7,
     "maxDynastyBudget": 100000,
@@ -251,6 +259,7 @@
     "nodeLimit": 40000,
     "nodes": 12,
     "notes": [],
+    "requestWorkBudget": 30000,
     "solvedCapacities": [
       1,
       2,
@@ -261,7 +270,9 @@
       7
     ],
     "status": "optimal",
-    "version": "streaming-solver/2026-10-29.v1"
+    "unsearchedCapacities": [],
+    "version": "streaming-solver/2026-10-29.v1",
+    "workUsed": 12
   },
   "sources": [
     {
@@ -297,6 +308,7 @@
       "dynastyValue": 600.0,
       "dynastyValueState": "priced",
       "excluded": null,
+      "missingProjectionWeeks": 0,
       "name": "Owen Pruitt",
       "playerId": "9103",
       "position": "DL",
@@ -321,7 +333,8 @@
           "week": 9
         }
       ],
-      "weightedProjectedPoints": 6.5
+      "weightedProjectedPoints": 6.5,
+      "weightedProjectedPointsKnown": 6.5
     }
   ],
   "team": {

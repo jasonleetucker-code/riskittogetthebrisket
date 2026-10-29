@@ -15,6 +15,7 @@ import recommend from "../fixtures/idp-streaming/recommend.json";
 import budgetLimited from "../fixtures/idp-streaming/budget-limited.json";
 import noMove from "../fixtures/idp-streaming/no-move.json";
 import bounded from "../fixtures/idp-streaming/bounded.json";
+import budgetBinds from "../fixtures/idp-streaming/budget-binds.json";
 
 vi.mock("@/components/useLeague", () => ({
   useLeague: () => ({ selectedLeague: { key: "dynasty_main", idpEnabled: true } }),
@@ -106,8 +107,10 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
       dynastyBudget: 0,
     });
     // No capacity was sent; the control shows the one the backend applied.
-    expect(await screen.findByLabelText("Streaming capacity")).toHaveValue(
-      String(budgetLimited.request.capacity),
+    await waitFor(() =>
+      expect(screen.getByLabelText("Streaming capacity")).toHaveValue(
+        String(budgetLimited.request.capacity),
+      ),
     );
     // The advisor's own request is not re-run while streaming is showing.
     const advisorCalls = global.fetch.mock.calls.filter(([u]) => u === "/api/waiver/advisor").length;
@@ -126,7 +129,7 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
     ).toBeInTheDocument();
     // The release-cost basis travels with each drop, and the week rule is stated.
     expect(within(rec).getByTestId("streaming-moves")).toHaveTextContent(
-      "value above the best equivalent free agent",
+      "value above the replacement free agent",
     );
     expect(screen.getAllByText(/next week — waiver days/).length).toBeGreaterThan(0);
     expect(within(rec).getByText("dynasty value charged against your budget")).toBeInTheDocument();
@@ -165,6 +168,8 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
     // A player with no week-9 projection shows his state.
     const mendel = rows.find((r) => r.textContent.includes("Bryce Mendel"));
     expect(mendel).toHaveTextContent("— no projection");
+    // His weighted projection is unknown (one horizon week missing), with the known part.
+    expect(mendel).toHaveTextContent("Unknown (1 week unprojected · known part 6.0)");
     // Expanding a row shows the week-by-week sources and coverage.
     fireEvent.click(within(rows[0]).getByRole("button", { expanded: false }));
     expect(await screen.findAllByText(/sleeper_weekly · 75% of paid categories/)).not.toHaveLength(0);
@@ -213,6 +218,14 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
     expect(screen.queryByTestId("streaming-recommendation")).toBeNull();
   });
 
+  it("says when the dynasty budget is what stops the move", async () => {
+    mockFetch(() => respond(200, budgetBinds));
+    await openStreaming();
+    expect(await screen.findByTestId("streaming-no-move")).toHaveTextContent(
+      "Your dynasty budget is what stops a move. A budget of 250 would allow: Add Tyrell Gaines · Drop Andre Whitfield",
+    );
+  });
+
   it("states a bounded solve with its proven gap", async () => {
     mockFetch(() => respond(200, bounded));
     await openStreaming();
@@ -225,8 +238,13 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
     // Each capacity row carries its own search status; bounded rows are not "proven".
     const curve = screen.getByTestId("streaming-capacity-curve");
     expect(within(curve).getAllByText("Bounded — not proven").length).toBe(
-      bounded.capacityCurve.filter((r) => r.status === "bounded").length,
+      bounded.capacityCurve.filter((r) => r.status === "bounded" && r.searched !== false).length,
     );
+    // Rows the work budget never reached are lower bounds, labelled apart.
+    expect(within(curve).getAllByText("Not searched (lower bound)").length).toBe(
+      bounded.capacityCurve.filter((r) => r.searched === false).length,
+    );
+    expect(screen.getByText(/were not\s+searched \(the request's work budget ran out\)/)).toBeInTheDocument();
   });
 
   it("sends changed controls to the backend (it decides, the page does not)", async () => {

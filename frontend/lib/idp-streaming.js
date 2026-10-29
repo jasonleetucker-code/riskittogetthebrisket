@@ -247,6 +247,8 @@ const NO_MOVE_COPY = {
     "No roster player can be released under your protections and the drop assessment, and there is no open roster spot.",
   no_projected_free_agent:
     "No available defender at this filter has a weekly projection, so there is nothing to stream.",
+  dynasty_budget_binds:
+    "Your dynasty budget is what stops a move: a larger budget would allow one (see below).",
   capacity_zero:
     "Streaming capacity is set to 0, so no add is considered. Raise it to see moves.",
   no_move_improves_the_lineup:
@@ -342,7 +344,7 @@ export function dynastyChangeText(change) {
 const RELEASE_BASIS = {
   conditional_full_value:
     "conditional: full value — the drop assessment says a free release is unsafe",
-  churn_value_above_replacement: "value above the best equivalent free agent",
+  churn_value_above_replacement: "value above the replacement free agent",
 };
 
 /** Why a release costs what it does against the dynasty budget. */
@@ -365,6 +367,12 @@ export function weekRuleText(rule) {
 
 /** A capacity-curve row's search status — a bounded row is never "proven". */
 export function curveRowStatus(row) {
+  // Not searched: the request's work budget ran out before this capacity, so
+  // its gain is carried from smaller capacities — a lower bound, which is a
+  // different statement from a search that ran and was cut short.
+  if (row?.searched === false) {
+    return { label: "Not searched (lower bound)", tone: "outline" };
+  }
   if (row?.status === "optimal") return { label: "Proven", tone: "neutral" };
   if (row?.status === "bounded")
     return { label: "Bounded — not proven", tone: "warning" };
@@ -446,4 +454,36 @@ export function faabText(faab) {
     return { value: "Unknown", note: "balance unknown — $0 claims only" };
   }
   return { value: fmtDollars(faab.remaining) ?? "Unknown", note: "remaining" };
+}
+
+/**
+ * The no-move copy when the dynasty budget is what binds: names the budget
+ * the backend's own budget-lifted plan would need, and what it would buy.
+ */
+export function budgetBindsText(payload, names) {
+  const plan = payload?.largerBudget?.plan;
+  const need = fmtValue(plan?.releaseCost);
+  if (!plan || !need) return noMoveReasonText("dynasty_budget_binds");
+  const gain = fmtSignedPoints(plan.weeklyGainPoints);
+  return `Your dynasty budget is what stops a move. A budget of ${need} would allow: ${moveSummary(
+    plan,
+    names,
+  )}${gain ? ` (${gain} pts)` : ""}.`;
+}
+
+/**
+ * Weighted projected points across the horizon.  `null` from the backend
+ * when a horizon week is unprojected: stated as unknown with the known part,
+ * never summed as if the missing week were 0.
+ */
+export function weightedProjectionText(row) {
+  const full = fmtPoints(row?.weightedProjectedPoints);
+  if (full) return { text: full, known: null, complete: true };
+  const n = Number(row?.missingProjectionWeeks) || 0;
+  const known = fmtPoints(row?.weightedProjectedPointsKnown);
+  return {
+    text: "Unknown",
+    known: `${n || "some"} week${n === 1 ? "" : "s"} unprojected${known ? ` · known part ${known}` : ""}`,
+    complete: false,
+  };
 }

@@ -1,0 +1,494 @@
+{
+  "advisoryOnly": true,
+  "alternatives": [],
+  "baselinePoints": [
+    49.0
+  ],
+  "capacityCurve": [
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 0,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 1,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 2,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 3,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 4,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 5,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 6,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    },
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 7,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "searched": true,
+      "status": "optimal"
+    }
+  ],
+  "config": {
+    "defaultCapacity": 3,
+    "hash": "066968a547acf1d78a27fb222e30ccf293a7ffb7328b61cce61fc7cefa1368b5",
+    "materialityPoints": 1.0,
+    "maxCapacity": 7,
+    "maxDynastyBudget": 100000,
+    "maxHorizonWeeks": 4,
+    "version": "idp_streaming_v1"
+  },
+  "contractVersion": "idp-streaming/2026-10-29.v1",
+  "currentWeek": 9,
+  "excludedFreeAgents": {},
+  "faab": {
+    "bidMethodology": "market_aware",
+    "remaining": 62,
+    "state": "known"
+  },
+  "largerBudget": {
+    "meaning": "the best plan at this capacity with the dynasty budget lifted: what a larger budget would buy",
+    "plan": {
+      "addDetails": [
+        {
+          "bid": 0,
+          "bidBasis": "off_board_zero_claim_only",
+          "bidDetail": null,
+          "dynastyValue": null,
+          "dynastyValueState": "unknown_off_board",
+          "name": "Tyrell Gaines",
+          "playerId": "9102",
+          "position": "DB",
+          "team": "GB",
+          "weeks": [
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "MIN",
+              "points": 9.0,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 9
+            }
+          ]
+        }
+      ],
+      "adds": [
+        "9102"
+      ],
+      "dropDetails": [
+        {
+          "assessmentReplacementValue": 250.0,
+          "dropClass": "churn",
+          "dynastyValue": 250.0,
+          "ladderReplacementValue": 0.0,
+          "name": "Andre Whitfield",
+          "playerId": "9007",
+          "position": "DB",
+          "reasons": [
+            {
+              "code": "below_replacement_veteran",
+              "detail": "Age 30, below waiver level at DB.",
+              "evidence": {}
+            }
+          ],
+          "releaseCost": 250.0,
+          "releaseCostBasis": "churn_value_above_replacement",
+          "replacementRung": 1,
+          "weeks": [
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "KC",
+              "points": 3.0,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 9
+            }
+          ]
+        }
+      ],
+      "drops": [
+        "9007"
+      ],
+      "dynastyValueChange": {
+        "knownValue": -250.0,
+        "state": "partial_unknown_add_values",
+        "unknownAddValues": 1,
+        "value": null
+      },
+      "faabTotal": 0,
+      "gainByWeekPoints": [
+        6.0
+      ],
+      "netDynastyLoss": 250.0,
+      "releaseCost": 250.0,
+      "weeklyGainPoints": 6.0
+    },
+    "status": "optimal"
+  },
+  "leagueKey": "dynasty_main",
+  "lineup": {
+    "slots": [
+      "DL",
+      "DL",
+      "LB",
+      "LB",
+      "DB",
+      "DB",
+      "IDP_FLEX"
+    ],
+    "source": "sleeper_roster_positions"
+  },
+  "noMoveReason": "dynasty_budget_binds",
+  "notes": [],
+  "openSpots": 0,
+  "plan": null,
+  "posture": {
+    "context": {
+      "confidence": 0.71,
+      "label": "PUSH"
+    },
+    "unavailableReason": null,
+    "use": "displayed for context only; it never raises the dynasty budget"
+  },
+  "recommendMove": false,
+  "recommendedCapacity": 0,
+  "request": {
+    "capacity": 1,
+    "capacityCurve": true,
+    "dynastyBudget": 0.0,
+    "horizonWeeks": 1,
+    "position": "DB",
+    "teamOwnerId": "owner-me",
+    "week": null,
+    "weekRule": "current_week"
+  },
+  "rosterSource": "live_overlay",
+  "rostersAsOf": "2026-10-29T06:00:00+00:00",
+  "safeToDrop": {
+    "players": [
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "churn",
+        "dynastyCost": 0.0,
+        "dynastyValue": 250.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Andre Whitfield",
+        "playerId": "9007",
+        "position": "DB",
+        "reasons": [
+          {
+            "code": "below_replacement_veteran",
+            "detail": "Age 30, below waiver level at DB.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": 250.0,
+        "releaseCostBasis": "churn_value_above_replacement",
+        "replacementValue": 250.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 0.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "KC",
+            "points": 3.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          }
+        ]
+      },
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "conditional",
+        "dynastyCost": 200.0,
+        "dynastyValue": 800.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Sam Okafor",
+        "playerId": "9008",
+        "position": "DB",
+        "reasons": [
+          {
+            "code": "unprojected_this_week",
+            "detail": "No projection this week; small value above replacement.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": 800.0,
+        "releaseCostBasis": "conditional_full_value",
+        "replacementValue": 600.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 200.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "reason": "not_in_projection_set",
+            "state": "unprojected",
+            "week": 9
+          }
+        ]
+      },
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "protected",
+        "dynastyCost": 1500.0,
+        "dynastyValue": 2600.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Corey Vance",
+        "playerId": "9006",
+        "position": "DB",
+        "reasons": [
+          {
+            "code": "weekly_starter_high_value",
+            "detail": "Weekly starter worth far more than any free agent.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": null,
+        "releaseCostBasis": null,
+        "replacementValue": 1100.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 1500.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "PHI",
+            "points": 8.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "counts": {
+        "churn": 2,
+        "conditional": 2,
+        "protected": 4
+      },
+      "rosterPlayers": 8
+    }
+  },
+  "season": 2026,
+  "solver": {
+    "boundGap": null,
+    "nodeLimit": 40000,
+    "nodes": 19,
+    "notes": [],
+    "requestWorkBudget": 30000,
+    "solvedCapacities": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "status": "optimal",
+    "unsearchedCapacities": [],
+    "version": "streaming-solver/2026-10-29.v1",
+    "workUsed": 19
+  },
+  "sources": [
+    {
+      "asOf": "2026-10-29T06:00:00+00:00",
+      "byeTeams": [],
+      "cacheKey": "fixture-9",
+      "counts": {
+        "DB": {
+          "projected": 3
+        },
+        "DL": {
+          "projected": 3
+        },
+        "LB": {
+          "projected": 4
+        }
+      },
+      "currentWeek": 9,
+      "leagueKey": "dynasty_main",
+      "refusal": null,
+      "scheduleState": "ok",
+      "scoringEvidenceState": "fresh",
+      "scoringFingerprint": "sf1:fixture",
+      "season": 2026,
+      "sourceStates": [],
+      "week": 9
+    }
+  ],
+  "streamingBoard": [
+    {
+      "bid": 0,
+      "bidBasis": "off_board_zero_claim_only",
+      "dynastyValue": null,
+      "dynastyValueState": "unknown_off_board",
+      "excluded": null,
+      "missingProjectionWeeks": 0,
+      "name": "Tyrell Gaines",
+      "playerId": "9102",
+      "position": "DB",
+      "soloLineupGainPoints": 6.0,
+      "team": "GB",
+      "weeks": [
+        {
+          "combineMethod": "single_source",
+          "coverageShare": 0.75,
+          "familyCount": 0,
+          "injuryStatus": null,
+          "opponent": "MIN",
+          "points": 9.0,
+          "reason": "ok",
+          "sources": [
+            "sleeper_weekly"
+          ],
+          "state": "projected",
+          "uncoveredKeys": [
+            "idp_pass_def"
+          ],
+          "week": 9
+        }
+      ],
+      "weightedProjectedPoints": 9.0,
+      "weightedProjectedPointsKnown": 9.0
+    }
+  ],
+  "team": {
+    "name": "Risk It To Get The Brisket",
+    "ownerId": "owner-me"
+  },
+  "unprojectedRosterPlayers": [
+    {
+      "missingWeeks": [
+        9
+      ],
+      "name": "Sam Okafor",
+      "playerId": "9008",
+      "weeks": [
+        {
+          "reason": "not_in_projection_set",
+          "state": "unprojected",
+          "week": 9
+        }
+      ]
+    }
+  ],
+  "valuationMode": "market",
+  "weekWeights": [
+    1.0
+  ],
+  "weeks": [
+    9
+  ]
+}

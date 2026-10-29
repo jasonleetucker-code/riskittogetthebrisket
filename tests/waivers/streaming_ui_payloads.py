@@ -210,7 +210,12 @@ def _assessments():
 
 
 def _build(
-    request: dict[str, Any], *, weeks, cfg=None, week_rule: str = "current_week"
+    request: dict[str, Any],
+    *,
+    weeks,
+    cfg=None,
+    week_rule: str = "current_week",
+    ladders: dict[str, list[float]] | None = None,
 ) -> dict[str, Any]:
     cfg = cfg or st.load_streaming_config()
     req = st.parse_streaming_request({"teamOwnerId": "owner-me", **request}, cfg)
@@ -234,7 +239,7 @@ def _build(
         drop_assessment=_assessments(),
         fa_bids={"9101": _Bid("9101", 4)},
         fa_bid_methodology="market_aware",
-        ladders={"DL": [600.0, 300.0], "LB": [1450.0, 400.0], "DB": [300.0]},
+        ladders=ladders or {"DL": [600.0, 300.0], "LB": [1450.0, 400.0], "DB": [300.0]},
         faab_remaining=62,
         open_spots=0,
         open_spots_note=None,
@@ -255,7 +260,9 @@ def _bounded_cfg() -> st.StreamingConfig:
     # A node limit of 1 truncates the exact search: the solver reports
     # ``bounded`` with its proven gap instead of claiming optimality.
     base = st.load_streaming_config()
-    return dataclasses.replace(base, node_limit_single_week=1)
+    # A request work budget of 1 node also leaves the larger capacity-curve
+    # rows unsearched: their gain is a lower bound (``searched: false``).
+    return dataclasses.replace(base, node_limit_single_week=1, request_work_budget=1)
 
 
 SCENARIOS = {
@@ -278,6 +285,13 @@ SCENARIOS = {
     "no-move": lambda: _build({"position": "DL", "capacity": 1}, weeks=(9,)),
     # A truncated search: status ``bounded`` with its proven gap.
     "bounded": lambda: _build({"capacity": 3}, weeks=(9,), cfg=_bounded_cfg()),
+    # DB only, budget 0, and no priced DB on the wire: releasing the churn DB
+    # costs his full 250, so the dynasty budget is what stops the move.
+    "budget-binds": lambda: _build(
+        {"position": "DB", "capacity": 1},
+        weeks=(9,),
+        ladders={"DL": [600.0, 300.0], "LB": [1450.0, 400.0], "DB": []},
+    ),
 }
 
 

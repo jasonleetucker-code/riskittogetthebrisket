@@ -15,7 +15,7 @@
 //
 // Advice only.  Nothing here submits, schedules or drafts a waiver claim.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Banner,
@@ -39,6 +39,7 @@ import {
   STREAMING_WEEK_OPTIONS,
   bidBasisText,
   bidText,
+  budgetBindsText,
   capacityOptions,
   coverageText,
   curveRowStatus,
@@ -61,6 +62,7 @@ import {
   streamingLimits,
   weekCellText,
   weekRuleText,
+  weightedProjectionText,
 } from "@/lib/idp-streaming";
 import styles from "@/app/waivers/waivers.module.css";
 
@@ -283,7 +285,9 @@ function Decision({ payload }) {
       >
         <div data-testid="streaming-no-move">
           <p className={styles.note}>
-            {noMoveReasonText(payload.noMoveReason)}
+            {payload.noMoveReason === "dynasty_budget_binds"
+              ? budgetBindsText(payload, playerNameIndex(payload))
+              : noMoveReasonText(payload.noMoveReason)}
           </p>
           {bestFound && payload.noMoveReason === "below_materiality" ? (
             <p className={styles.note}>
@@ -494,9 +498,11 @@ function CapacityCurve({ payload, names }) {
             ? `0 spots recommended — no capacity gains at least ${
                 fmtPoints(payload.config?.materialityPoints) ?? "the threshold"
               } points`
-            : `${rec} spot${rec === 1 ? "" : "s"} recommended — the fewest that come within ${
+            : `${rec} spot${rec === 1 ? "" : "s"} recommended — the fewest spots whose gain is itself at least ${
                 fmtPoints(payload.config?.materialityPoints) ?? "the threshold"
-              } points of the best gain any capacity finds`
+              } points and within ${
+                fmtPoints(payload.config?.materialityPoints) ?? "the threshold"
+              } of the best gain`
           : "Diminishing returns by number of streaming spots"
       }
     >
@@ -567,8 +573,16 @@ function streamingBoardColumns(weekNumbers) {
       numeric: true,
       hideBelow: "md",
       accessor: (r) => r.weightedProjectedPoints,
-      render: (r) =>
-        fmtPoints(r.weightedProjectedPoints) ?? <Missing>—</Missing>,
+      render: (r) => {
+        const w = weightedProjectionText(r);
+        return w.complete ? (
+          w.text
+        ) : (
+          <span>
+            {w.text} <Missing>({w.known})</Missing>
+          </span>
+        );
+      },
     },
     ...weekNumbers.map((wk, i) => ({
       key: `wk${wk}`,
@@ -821,7 +835,17 @@ function HowComputed({ payload }) {
           {payload.solver?.nodes != null
             ? ` · ${payload.solver.nodes} nodes searched`
             : ""}
+          {payload.solver?.requestWorkBudget != null
+            ? ` · work ${payload.solver.workUsed ?? "?"} of ${payload.solver.requestWorkBudget}`
+            : ""}
         </li>
+        {(payload.solver?.unsearchedCapacities || []).length ? (
+          <li className={styles.note}>
+            Capacities {payload.solver.unsearchedCapacities.join(", ")} were not
+            searched (the request's work budget ran out); their curve rows are
+            lower bounds.
+          </li>
+        ) : null}
         <li className={styles.note}>
           Lineup slots: {(payload.lineup?.slots || []).length} from{" "}
           {reasonText(payload.lineup?.source)}
@@ -903,11 +927,12 @@ export default function IdpStreamingPanel({ leagueKey, ownerId }) {
     params,
   });
   const names = useMemo(() => playerNameIndex(payload), [payload]);
-  // The last answer's config and applied capacity keep the controls' bounds
+  // The last answer keeps the controls' bounds (config) and applied capacity
   // stable across a refresh or a failed request.
-  const lastRef = useRef(null);
-  if (payload) lastRef.current = payload;
-  const last = lastRef.current;
+  const [last, setLast] = useState(null);
+  useEffect(() => {
+    if (payload) setLast(payload);
+  }, [payload]);
 
   return (
     <div

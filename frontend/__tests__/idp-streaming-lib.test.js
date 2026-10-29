@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bidText,
+  budgetBindsText,
   buildStreamingRequest,
   capacityOptions,
   curveRowStatus,
@@ -15,6 +16,7 @@ import {
   releaseCostBasisText,
   streamingLimits,
   weekRuleText,
+  weightedProjectionText,
   classifyStreamingFailure,
   coverageText,
   dropClassBadge,
@@ -31,6 +33,7 @@ import {
   weekCellText,
 } from "@/lib/idp-streaming";
 import recommend from "./fixtures/idp-streaming/recommend.json";
+import budgetBinds from "./fixtures/idp-streaming/budget-binds.json";
 
 describe("buildStreamingRequest", () => {
   it("carries no team when none is selected (the gate probe)", () => {
@@ -214,7 +217,7 @@ describe("review rework: config-driven controls and new backend states", () => {
       "conditional: full value — the drop assessment says a free release is unsafe",
     );
     expect(releaseCostBasisText("churn_value_above_replacement")).toBe(
-      "value above the best equivalent free agent",
+      "value above the replacement free agent",
     );
   });
   it("a bounded curve row never reads as proven", () => {
@@ -223,5 +226,32 @@ describe("review rework: config-driven controls and new backend states", () => {
   });
   it("explains capacity zero", () => {
     expect(noMoveReasonText("capacity_zero")).toMatch(/capacity is set to 0/);
+  });
+});
+
+describe("composer d02cb554c4: budget binds, unsearched rows, partial projections", () => {
+  it("points a binding budget at the backend's budget-lifted plan", () => {
+    expect(budgetBindsText(budgetBinds, playerNameIndex(budgetBinds))).toBe(
+      "Your dynasty budget is what stops a move. A budget of 250 would allow: " +
+        "Add Tyrell Gaines · Drop Andre Whitfield (+6.0 pts).",
+    );
+    expect(budgetBindsText({ largerBudget: { plan: null } })).toBe(
+      noMoveReasonText("dynasty_budget_binds"),
+    );
+  });
+  it("an unsearched curve row is a lower bound, not a bounded search", () => {
+    expect(curveRowStatus({ status: "bounded", searched: false }).label).toBe(
+      "Not searched (lower bound)",
+    );
+    expect(curveRowStatus({ status: "bounded", searched: true }).label).toBe("Bounded — not proven");
+  });
+  it("a horizon with an unprojected week is unknown, never summed as 0", () => {
+    const mendel = recommend.streamingBoard.find((r) => r.name === "Bryce Mendel");
+    expect(weightedProjectionText(mendel)).toEqual({
+      text: "Unknown",
+      known: "1 week unprojected · known part 6.0",
+      complete: false,
+    });
+    expect(weightedProjectionText({ weightedProjectedPoints: 18.15 }).text).toBe("18.1");
   });
 });
