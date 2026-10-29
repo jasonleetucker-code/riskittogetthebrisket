@@ -596,6 +596,7 @@ def assemble_streaming(
             }
         ]
         prev = 0.0
+        raw_gains: dict[int, float] = {0: 0.0}
         for kk in range(1, top + 1):
             got = best_upto(kk)
             gain = got["plan"].weekly_gain if got else 0.0
@@ -625,6 +626,7 @@ def assemble_streaming(
                     "searched": kk not in unsearched,
                 }
             )
+            raw_gains[kk] = gain
             prev = gain
         g_max = prev
         if g_max < cfg.materiality_points:
@@ -634,7 +636,9 @@ def assemble_streaming(
             # but less than one material step of the best gain any capacity
             # up to the maximum reaches.
             floor = max(cfg.materiality_points, g_max - cfg.materiality_points)
-            recommended_k = next(r["capacity"] for r in curve if r["bestGainPoints"] >= floor)
+            # Compared on the unrounded gains (the curve shows them rounded):
+            # g_max itself always clears the floor, so this always finds one.
+            recommended_k = min(kk for kk, g in raw_gains.items() if g >= floor - 1e-12)
 
     def explain_plan(
         plan: solver.StreamPlan | None, table: Mapping[str, Any]
