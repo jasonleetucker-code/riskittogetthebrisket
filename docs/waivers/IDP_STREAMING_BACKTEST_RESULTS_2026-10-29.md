@@ -41,6 +41,7 @@ B's actual behavior beats every preregistered simple rule (masked pool, S = 3) i
 | 3 rolling recent production | +22.5 [+5.2, +44.0] (n 6) | +13.1 [−0.0, +26.3] no detectable effect (n 18) |
 | 4 single projection provider | +23.2 [+10.0, +37.5] (n 6) | +12.1 [+4.2, +20.4] (n 18) |
 | 6 release lowest dynasty value | +29.1 [+15.6, +41.9] (n 6) | 2026 only |
+| 7 dynasty-safe optimizer (W4 solver, Addendum A) | +19.5 [+10.1, +29.2] (n 6) | +14.1 [+6.0, +22.7] (n 18; the 2025 part is actual − hold, baseline 7 makes no move there) |
 
 (These paired comparisons were not preregistered; they are exploratory, see §5.)
 
@@ -144,7 +145,8 @@ floor: unavailable, never today's value.
 | 5 independent consensus | — | **N/A** — one weekly IDP projection family historically | | | | |
 | 6 release lowest dynasty value | 2026 | −9.2 [−18.8, +0.4] no detectable effect | −3.1 [−8.7, +2.9] (12) | 2.8 | 0.51 | 0.35 |
 | | 2025 | **N/A** (before history floor) | | | | |
-| 7 dynasty-safe optimizer | — | **NOT RUN** — awaiting W4 (§6) | | | | |
+| 7 dynasty-safe optimizer (Addendum A; §6b) | 2026 | +0.4 [+0.0, +1.2] no detectable effect | +0.9 [−1.9, +4.2] (12) | 0.64 | 0.41 | 0.30 |
+| | 2025 | N/A in substance: no value known before the history floor → nothing droppable → no move (Δ ≡ 0) | | 0 | — | — |
 | 8 actual behavior | 2026 | **+19.9 [+10.1, +30.2] gains** | +4.6 [+0.7, +8.6] gains (12) | — | — | — |
 | | 2025 | +11.5 [+0.6, +23.5] gains | +12.0 [+6.1, +17.3] gains (10) | — | — | — |
 
@@ -191,6 +193,49 @@ under rule 3: 23,355 released vs 6,890 acquired over the valued players).
 * **Not modelled:** waiver priority / FAAB contention for rules (masked pool sidesteps it),
   in-week lineup timing beyond the host's matchup roster, dynasty value in canonical terms.
 
+## 6b. Baseline 7 — W4's dynasty-safe optimizer (Addendum A; exploratory)
+
+Specified in preregistration Addendum A and committed before it was run.  W4's exact weekly
+solver (`src/waivers/streaming_solver.py`, PR #2022 head `199c5b5fa1`), fed from the
+`DecisionContext` only: projected points for week *w* (not point-in-time), droppable = known
+before-cutoff value at or below the group's best pool value (unknown value never
+droppable), the composer's release cost, $0 claims, capacity S, dynasty budget 0,
+materiality 1.0 projected point.  Value source: the IDP Trade Calculator vendor value (the
+canonical lane is production-only), so "dynasty-safe" here means safe in THAT named
+quantity.
+
+| variant | season | manager B Δ/week vs hold | league Δ/team-week (team-seasons) | adds / team-week | manager B adds | B actual − 7 (paired) |
+|---|---|---|---|---|---|---|
+| masked S=1 | 2026 | +0.4 [+0.0, +1.2] no detectable effect (6) | −0.3 [−1.8, +1.3] (12) | 0.39 | 1 | +19.5 [+10.1, +29.2] |
+| **masked S=3** | 2026 | +0.4 [+0.0, +1.2] no detectable effect (6) | +0.9 [−1.9, +4.2] (12) | 0.64 | 1 | +19.5 [+10.1, +29.2] |
+| masked S=5 | 2026 | +0.4 [+0.0, +1.2] no detectable effect (6) | +0.1 [−2.4, +2.9] (12) | 0.58 | 1 | +19.5 [+10.1, +29.2] |
+| unmasked S=1 | 2026 | +0.1 [−0.9, +1.2] no detectable effect (6) | −0.5 [−2.2, +1.4] (12) | 0.47 | 3 | +19.8 [+10.7, +29.2] |
+| unmasked S=3 | 2026 | +2.8 [−0.7, +8.7] no detectable effect (6) | +0.9 [−1.3, +3.4] (12) | 0.76 | 3 | +17.1 [+10.4, +25.3] |
+| unmasked S=5 | 2026 | +2.8 [−0.7, +8.7] no detectable effect (6) | +0.8 [−1.7, +3.8] (12) | 0.78 | 3 | +17.1 [+10.4, +25.3] |
+| every variant | 2025 | 0 by construction (120 of 120 decisions had no droppable defender) | 0 | 0 | 0 | +11.5 [+0.6, +23.5] (= actual − hold) |
+
+Reading:
+* **It barely moves.**  Under budget 0 and "droppable only at or below the replacement line",
+  the solver makes 28–56 swaps across the 72 league team-week decisions of 2026 depending
+  on the variant, and 1 swap (masked) or 3 (unmasked) for manager B in 6 weeks.  Its gain over holding
+  is indistinguishable from zero everywhere; manager B's actual behavior beats it by ~+17 to
+  +20 per week in 2026 (paired, exploratory).
+* **It never releases an unpriced defender** (`releasedUnvalued = 0` in every variant), as
+  specified.  Its swaps release more vendor value than the valued adds bring back (masked
+  S=3, league: 49,807 released over 46 valued vs 21,215 acquired over 17 valued, with 29 adds
+  unvalued); each release is still at or below the replacement line it was charged against,
+  so this is value the wire could give back, not value lost by the rule's own definition.
+* **Why it differs from manager B** — measured inputs, not a verdict on either: B's gain
+  comes partly from releasing defenders the rule may not release (unpriced, or above the
+  line), from injury replacement (the solver cannot count an unprojected rostered defender
+  as a starter, but also cannot release him unless he is priced at or below the line), and
+  from carrying extra defenders (the rule is strictly 1-for-1).
+* **Runtime / exactness.**  The full backtest took 1,248 s with baseline 7 (≈ 70 s without).
+  Solver time per 72-decision 2026 cell: S=1 16–18 s, S=3 55–95 s, S=5 454–490 s.  Every S=1
+  and S=3 decision was proven optimal; at S=5, 26 (masked) and 28 (unmasked) of 72 decisions
+  hit the default node limit and returned `bounded` plans (applied, counted, never presented
+  as optimal).  Per-cell counts are in the evidence JSON (`solverStats`).
+
 ## 6. Interface for baseline 7 (W4)
 
 `src/waivers/streaming_backtest.py` calls any policy through
@@ -202,9 +247,11 @@ itself (drop must be rostered, add must be in the pool and not already rostered,
 `eligibility` (fantasy positions), `idp_slots`, `realized_before` (weeks < w only),
 `projection` (week w, `projection_point_in_time_verified=False`), `dynasty_value` (known
 before the cutoff; `dynasty_value_source` names the quantity), `max_swaps`.
-`Swap(drop_id, add_id, faab_bid | None)`.  To run baseline 7: add
-`("7_full_dynasty_safe_optimizer", <factory returning W4's policy>)` to `RULE_POLICIES` and
-re-run; nothing else changes.
+`Swap(drop_id, add_id, faab_bid | None)`.  Baseline 7 is wired as
+`("7_full_dynasty_safe_optimizer", DynastySafeOptimizerPolicy)` in `RULE_POLICIES` (§6b);
+the one context addition it needed is `pool_dynasty_value` (pool players' values known
+before the cutoff), filled by `build_decision_context` only for a policy that declares
+`needs_pool_dynasty_values`, so the leakage boundary is unchanged.
 
 ## 7. Deviations from preregistration
 

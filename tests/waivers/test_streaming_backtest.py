@@ -397,6 +397,7 @@ ALLOWED_SRC_IMPORTS = {
     "src.nfl_data",
     "src.nfl_data.ingest",
     "src.ros.sleeper_weekly_projections",
+    "src.waivers.streaming_solver",
 }
 
 
@@ -476,3 +477,116 @@ def test_committed_docs_pass_the_guard_against_id_shapes():
     for doc in sb.COMMITTED_DOCS:
         if doc.exists():
             assert sb.privacy_violations(doc.read_text(encoding="utf-8"), set()) == [], doc.name
+
+
+# ── baseline 7: W4's solver through the DecisionContext ──
+
+
+def _hand_ctx(*, roster_values, pool_values, projection, max_swaps=1):
+    """A DecisionContext built by hand — no SeasonData at all — so the policy
+    provably reads nothing but the context."""
+    groups = {"r1": "DL", "r2": "DL", "r3": "DL", "f1": "DL", "f2": "DL", "f3": "DL"}
+    return sb.DecisionContext(
+        season=2026,
+        week=5,
+        cutoff_utc=T0,
+        team_index=0,
+        idp_roster=frozenset({"r1", "r2", "r3"}),
+        pool=frozenset({"f1", "f2", "f3"}),
+        positions=groups,
+        eligibility={p: ("DL",) for p in groups},
+        idp_slots=("DL", "DL"),
+        realized_before={},
+        projection=projection,
+        dynasty_value=roster_values,
+        max_swaps=max_swaps,
+        pool_dynasty_value=pool_values,
+    )
+
+
+def test_baseline7_policy_reads_only_the_context_and_drops_cheap_benchwarmers():
+    ctx = _hand_ctx(
+        roster_values={"r1": 900.0, "r2": 800.0, "r3": 100.0},
+        pool_values={"f1": 300.0, "f2": 50.0},
+        projection={"r1": 10.0, "r2": 8.0, "r3": 2.0, "f1": 12.0, "f2": 3.0, "f3": 1.0},
+    )
+    policy = sb.DynastySafeOptimizerPolicy()
+    swaps = policy.decide(ctx)
+    # r3 (100 <= line 300) is the only droppable; f1 (12) starts over r2 (8): +4 >= 1.0
+    assert swaps == [sb.Swap("r3", "f1", 0.0)]
+    inp = policy.build_input(ctx)
+    assert inp.droppable_ids == {"r3"}
+    assert inp.dynasty_budget == 0.0 and inp.faab_balance == 0 and inp.open_spots == 0
+    assert all(fa.dynasty_value is None and fa.bid == 0 for fa in inp.free_agents)
+    # release cost: max(0, 100 - ladder[rung-1]) with rung = 1 -> 0
+    assert {p.player_id: p.dynasty_value for p in inp.roster}["r3"] == 0.0
+
+
+def test_baseline7_never_drops_an_unpriced_defender():
+    ctx = _hand_ctx(
+        roster_values={"r1": 900.0, "r2": 800.0},  # r3 has NO known value
+        pool_values={"f1": 300.0},
+        projection={"r1": 10.0, "r2": 8.0, "r3": 0.5, "f1": 30.0},
+    )
+    policy = sb.DynastySafeOptimizerPolicy()
+    assert policy.decide(ctx) == []
+    assert policy.stats["noDroppable"] == 1
+    assert "r3" not in policy.build_input(ctx).droppable_ids
+
+
+def test_baseline7_no_replacement_line_means_nothing_droppable():
+    ctx = _hand_ctx(
+        roster_values={"r1": 900.0, "r2": 800.0, "r3": 1.0},
+        pool_values={},  # no pool value known before the cutoff
+        projection={"r1": 10.0, "r2": 8.0, "r3": 0.5, "f1": 30.0},
+    )
+    assert sb.DynastySafeOptimizerPolicy().decide(ctx) == []
+
+
+def test_baseline7_matches_the_solver_and_brute_force_on_a_tiny_case():
+    from itertools import combinations
+
+    from src.waivers.streaming_solver import solve_streaming
+
+    ctx = _hand_ctx(
+        roster_values={"r1": 900.0, "r2": 250.0, "r3": 100.0},
+        pool_values={"f1": 300.0, "f2": 280.0, "f3": 10.0},
+        projection={"r1": 10.0, "r2": 8.0, "r3": 2.0, "f1": 12.0, "f2": 11.0, "f3": 1.0},
+        max_swaps=2,
+    )
+    policy = sb.DynastySafeOptimizerPolicy()
+    inp = policy.build_input(ctx)
+    res = solve_streaming(inp, alternatives=0, unbudgeted=False)
+    swaps = policy.decide(ctx)
+    assert sorted(s.add_id for s in swaps) == sorted(res.best.adds)
+    assert sorted(s.drop_id for s in swaps) == sorted(res.best.drops)
+
+    # brute force: best 2-slot DL lineup over 1-for-1 swaps from droppable,
+    # zero release cost under budget 0 (rung = min(S, 2) = 2 -> line 280)
+    cost = {p.player_id: p.dynasty_value for p in inp.roster}
+    proj = ctx.projection
+
+    def lineup(ids):
+        return sum(sorted((proj[i] for i in ids), reverse=True)[:2])
+
+    base = lineup(ctx.idp_roster)
+    best = (0.0, (), ())
+    for k in (1, 2):
+        for drops in combinations(sorted(inp.droppable_ids), k):
+            if sum(cost[d] for d in drops) > 0:
+                continue
+            for adds in combinations(sorted(ctx.pool), k):
+                final = (set(ctx.idp_roster) - set(drops)) | set(adds)
+                gain = lineup(final) - base
+                if gain > best[0] + 1e-9:
+                    best = (gain, adds, drops)
+    assert res.best.weekly_gain == pytest.approx(best[0])
+    assert best[0] >= 1.0 and swaps
+
+
+def test_pair_plan_is_deterministic_and_groups_first():
+    groups = {"a1": "DL", "a2": "LB", "d1": "LB", "d2": "DL"}
+    assert sb.pair_plan(["a2", "a1"], ["d1", "d2"], groups) == [
+        sb.Swap("d2", "a1", 0.0),
+        sb.Swap("d1", "a2", 0.0),
+    ]
