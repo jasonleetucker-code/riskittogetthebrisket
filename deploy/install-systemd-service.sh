@@ -934,6 +934,9 @@ main() {
   install_simple_timer "injury-feed-refresh" "ESPN injury-status diff -> BDVM injury/return events"
   install_simple_timer "trending-history-refresh" "Sleeper trending adds+drops history snapshot"
   install_simple_timer "game-day-capture" "pre-kickoff Game Day prediction archive capture"
+  # IDP streaming (2026-10-29): perishable pre-kickoff weekly projection pools
+  # -> gitignored data/projections/weekly_archive/.  Public endpoints, no creds.
+  install_simple_timer "weekly-projection-capture" "weekly projection pool point-in-time capture"
   # Game Day U5 shared live collector: fires every minute, the tick decides
   # whether it is due (src/ros/game_day_live.py).  Public endpoints, no creds.
   install_simple_timer "game-day-live" "Game Day live collector (observations + generations)"
