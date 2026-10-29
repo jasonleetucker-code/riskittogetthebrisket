@@ -1,0 +1,6343 @@
+{
+ "baselines": {
+  "1_no_streaming_hold": "reference: every delta is scenario minus this",
+  "2_previous_week_points": {
+   "masked_S1": {
+    "2025": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": null,
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -6.323,
+       -1.045
+      ],
+      "mean": -3.347,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": -401.698,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -10.286,
+       6.17
+      ],
+      "mean": -1.446,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": -17.352,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 12,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.5,
+      "madeLineupFirstWeekShare": 0.167,
+      "meanAddPointsNext3": 21.739,
+      "meanReleasedPointsNext3": 22.274,
+      "pairedMeanAddMinusReleasedNext1": -0.665,
+      "pairedMeanAddPointsNext3": 21.739,
+      "pairedWithRelease": 12,
+      "releasedDynastyValue": null,
+      "streamingAdds": 12
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.475,
+      "madeLineupFirstWeekShare": 0.225,
+      "meanAddPointsNext3": 19.204,
+      "meanReleasedPointsNext3": 17.019,
+      "pairedMeanAddMinusReleasedNext1": -2.213,
+      "pairedMeanAddPointsNext3": 19.204,
+      "pairedWithRelease": 120,
+      "releasedDynastyValue": null,
+      "streamingAdds": 120
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 13953.0,
+      "acquiredUnvalued": 63,
+      "acquiredValued": 9,
+      "netValuedSum": -74792.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 88745.0,
+      "releasedUnvalued": 21,
+      "releasedValued": 51
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -3.324,
+       3.729
+      ],
+      "mean": 0.452,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 32.547,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -6.189,
+       23.457
+      ],
+      "mean": 6.609,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": 39.651,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 6,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 772.0,
+      "acquiredUnvalued": 5,
+      "acquiredValued": 1,
+      "netValuedSum": -10637.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 11409.0,
+      "releasedUnvalued": 1,
+      "releasedValued": 5
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.167,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 13.212,
+      "meanReleasedPointsNext3": 6.868,
+      "pairedMeanAddMinusReleasedNext1": 6.699,
+      "pairedMeanAddPointsNext3": 13.212,
+      "pairedWithRelease": 6,
+      "releasedDynastyValue": null,
+      "streamingAdds": 6
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.403,
+      "madeLineupFirstWeekShare": 0.194,
+      "meanAddPointsNext3": 11.892,
+      "meanReleasedPointsNext3": 14.103,
+      "pairedMeanAddMinusReleasedNext1": -0.308,
+      "pairedMeanAddPointsNext3": 11.892,
+      "pairedWithRelease": 72,
+      "releasedDynastyValue": null,
+      "streamingAdds": 72
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 13953.0,
+      "acquiredUnvalued": 63,
+      "acquiredValued": 9,
+      "netValuedSum": -74792.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 88745.0,
+      "releasedUnvalued": 21,
+      "releasedValued": 51
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -4.241,
+       0.225
+      ],
+      "mean": -1.923,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": -369.152,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -6.38,
+       9.185
+      ],
+      "mean": 1.239,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 22.299,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 18,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 772.0,
+      "acquiredUnvalued": 5,
+      "acquiredValued": 1,
+      "netValuedSum": -10637.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 11409.0,
+      "releasedUnvalued": 1,
+      "releasedValued": 5
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.389,
+      "madeLineupFirstWeekShare": 0.222,
+      "meanAddPointsNext3": 18.897,
+      "meanReleasedPointsNext3": 17.139,
+      "pairedMeanAddMinusReleasedNext1": 1.79,
+      "pairedMeanAddPointsNext3": 18.897,
+      "pairedWithRelease": 18,
+      "releasedDynastyValue": null,
+      "streamingAdds": 18
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.448,
+      "madeLineupFirstWeekShare": 0.214,
+      "meanAddPointsNext3": 16.462,
+      "meanReleasedPointsNext3": 15.925,
+      "pairedMeanAddMinusReleasedNext1": -1.499,
+      "pairedMeanAddPointsNext3": 16.462,
+      "pairedWithRelease": 192,
+      "releasedDynastyValue": null,
+      "streamingAdds": 192
+     }
+    }
+   },
+   "masked_S3": {
+    "2025": {
+     "addsPerTeamWeek": 3.0,
+     "dynastyValueFlow": null,
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -8.144,
+       -1.114
+      ],
+      "mean": -4.663,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": -559.565,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -19.036,
+       -2.987
+      ],
+      "mean": -11.48,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": -137.757,
+      "verdict": "loses"
+     },
+     "managerBAdds": 36,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.389,
+      "madeLineupFirstWeekShare": 0.25,
+      "meanAddPointsNext3": 21.895,
+      "meanReleasedPointsNext3": 19.522,
+      "pairedMeanAddMinusReleasedNext1": 0.449,
+      "pairedMeanAddPointsNext3": 21.895,
+      "pairedWithRelease": 36,
+      "releasedDynastyValue": null,
+      "streamingAdds": 36
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.472,
+      "madeLineupFirstWeekShare": 0.328,
+      "meanAddPointsNext3": 21.15,
+      "meanReleasedPointsNext3": 18.185,
+      "pairedMeanAddMinusReleasedNext1": -0.877,
+      "pairedMeanAddPointsNext3": 21.15,
+      "pairedWithRelease": 360,
+      "releasedDynastyValue": null,
+      "streamingAdds": 360
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 3.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 66989.0,
+      "acquiredUnvalued": 162,
+      "acquiredValued": 54,
+      "netValuedSum": -123662.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 190651.0,
+      "releasedUnvalued": 99,
+      "releasedValued": 117
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -5.809,
+       2.59
+      ],
+      "mean": -1.578,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -113.602,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -21.841,
+       2.221
+      ],
+      "mean": -8.838,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -53.029,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 18,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 9366.0,
+      "acquiredUnvalued": 13,
+      "acquiredValued": 5,
+      "netValuedSum": -10927.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 20293.0,
+      "releasedUnvalued": 10,
+      "releasedValued": 8
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.444,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 12.729,
+      "meanReleasedPointsNext3": 15.744,
+      "pairedMeanAddMinusReleasedNext1": 1.056,
+      "pairedMeanAddPointsNext3": 12.729,
+      "pairedWithRelease": 18,
+      "releasedDynastyValue": null,
+      "streamingAdds": 18
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.426,
+      "madeLineupFirstWeekShare": 0.269,
+      "meanAddPointsNext3": 14.142,
+      "meanReleasedPointsNext3": 16.09,
+      "pairedMeanAddMinusReleasedNext1": 0.768,
+      "pairedMeanAddPointsNext3": 14.142,
+      "pairedWithRelease": 216,
+      "releasedDynastyValue": null,
+      "streamingAdds": 216
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 3.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 66989.0,
+      "acquiredUnvalued": 162,
+      "acquiredValued": 54,
+      "netValuedSum": -123662.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 190651.0,
+      "releasedUnvalued": 99,
+      "releasedValued": 117
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -6.208,
+       -0.759
+      ],
+      "mean": -3.506,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": -673.167,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -17.388,
+       -3.729
+      ],
+      "mean": -10.599,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": -190.786,
+      "verdict": "loses"
+     },
+     "managerBAdds": 54,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 9366.0,
+      "acquiredUnvalued": 13,
+      "acquiredValued": 5,
+      "netValuedSum": -10927.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 20293.0,
+      "releasedUnvalued": 10,
+      "releasedValued": 8
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.407,
+      "madeLineupFirstWeekShare": 0.278,
+      "meanAddPointsNext3": 18.84,
+      "meanReleasedPointsNext3": 18.263,
+      "pairedMeanAddMinusReleasedNext1": 0.651,
+      "pairedMeanAddPointsNext3": 18.84,
+      "pairedWithRelease": 54,
+      "releasedDynastyValue": null,
+      "streamingAdds": 54
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.455,
+      "madeLineupFirstWeekShare": 0.306,
+      "meanAddPointsNext3": 18.522,
+      "meanReleasedPointsNext3": 17.4,
+      "pairedMeanAddMinusReleasedNext1": -0.26,
+      "pairedMeanAddPointsNext3": 18.522,
+      "pairedWithRelease": 576,
+      "releasedDynastyValue": null,
+      "streamingAdds": 576
+     }
+    }
+   },
+   "masked_S5": {
+    "2025": {
+     "addsPerTeamWeek": 5.0,
+     "dynastyValueFlow": null,
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -7.968,
+       3.107
+      ],
+      "mean": -2.578,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": -309.32,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -27.291,
+       -1.283
+      ],
+      "mean": -14.249,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": -170.988,
+      "verdict": "loses"
+     },
+     "managerBAdds": 60,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.5,
+      "madeLineupFirstWeekShare": 0.267,
+      "meanAddPointsNext3": 22.654,
+      "meanReleasedPointsNext3": 21.99,
+      "pairedMeanAddMinusReleasedNext1": -0.265,
+      "pairedMeanAddPointsNext3": 22.654,
+      "pairedWithRelease": 60,
+      "releasedDynastyValue": null,
+      "streamingAdds": 60
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.483,
+      "madeLineupFirstWeekShare": 0.352,
+      "meanAddPointsNext3": 21.647,
+      "meanReleasedPointsNext3": 18.993,
+      "pairedMeanAddMinusReleasedNext1": -0.876,
+      "pairedMeanAddPointsNext3": 21.647,
+      "pairedWithRelease": 600,
+      "releasedDynastyValue": null,
+      "streamingAdds": 600
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 5.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 133080.0,
+      "acquiredUnvalued": 250,
+      "acquiredValued": 110,
+      "netValuedSum": -178555.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 311635.0,
+      "releasedUnvalued": 166,
+      "releasedValued": 194
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -4.593,
+       6.298
+      ],
+      "mean": 0.672,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 48.374,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -17.534,
+       16.271
+      ],
+      "mean": 0.219,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": 1.313,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 30,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 14373.0,
+      "acquiredUnvalued": 21,
+      "acquiredValued": 9,
+      "netValuedSum": -26593.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 40966.0,
+      "releasedUnvalued": 14,
+      "releasedValued": 16
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.433,
+      "madeLineupFirstWeekShare": 0.4,
+      "meanAddPointsNext3": 16.177,
+      "meanReleasedPointsNext3": 16.415,
+      "pairedMeanAddMinusReleasedNext1": 3.812,
+      "pairedMeanAddPointsNext3": 16.177,
+      "pairedWithRelease": 30,
+      "releasedDynastyValue": null,
+      "streamingAdds": 30
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.433,
+      "madeLineupFirstWeekShare": 0.322,
+      "meanAddPointsNext3": 15.186,
+      "meanReleasedPointsNext3": 16.408,
+      "pairedMeanAddMinusReleasedNext1": 1.594,
+      "pairedMeanAddPointsNext3": 15.186,
+      "pairedWithRelease": 360,
+      "releasedDynastyValue": null,
+      "streamingAdds": 360
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 5.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 133080.0,
+      "acquiredUnvalued": 250,
+      "acquiredValued": 110,
+      "netValuedSum": -178555.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 311635.0,
+      "releasedUnvalued": 166,
+      "releasedValued": 194
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -5.289,
+       2.797
+      ],
+      "mean": -1.359,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": -260.946,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -20.127,
+       1.318
+      ],
+      "mean": -9.426,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": -169.674,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 90,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 14373.0,
+      "acquiredUnvalued": 21,
+      "acquiredValued": 9,
+      "netValuedSum": -26593.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 40966.0,
+      "releasedUnvalued": 14,
+      "releasedValued": 16
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.478,
+      "madeLineupFirstWeekShare": 0.311,
+      "meanAddPointsNext3": 20.495,
+      "meanReleasedPointsNext3": 20.132,
+      "pairedMeanAddMinusReleasedNext1": 1.094,
+      "pairedMeanAddPointsNext3": 20.495,
+      "pairedWithRelease": 90,
+      "releasedDynastyValue": null,
+      "streamingAdds": 90
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.465,
+      "madeLineupFirstWeekShare": 0.341,
+      "meanAddPointsNext3": 19.224,
+      "meanReleasedPointsNext3": 18.024,
+      "pairedMeanAddMinusReleasedNext1": 0.05,
+      "pairedMeanAddPointsNext3": 19.224,
+      "pairedWithRelease": 960,
+      "releasedDynastyValue": null,
+      "streamingAdds": 960
+     }
+    }
+   },
+   "unmasked_S1": {
+    "2025": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": null,
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -7.515,
+       -0.653
+      ],
+      "mean": -3.74,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": -448.754,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -10.703,
+       3.938
+      ],
+      "mean": -2.848,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": -34.181,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 12,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.5,
+      "madeLineupFirstWeekShare": 0.083,
+      "meanAddPointsNext3": 18.808,
+      "meanReleasedPointsNext3": 22.274,
+      "pairedMeanAddMinusReleasedNext1": -1.679,
+      "pairedMeanAddPointsNext3": 18.808,
+      "pairedWithRelease": 12,
+      "releasedDynastyValue": null,
+      "streamingAdds": 12
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.517,
+      "madeLineupFirstWeekShare": 0.233,
+      "meanAddPointsNext3": 17.436,
+      "meanReleasedPointsNext3": 17.917,
+      "pairedMeanAddMinusReleasedNext1": -2.221,
+      "pairedMeanAddPointsNext3": 17.436,
+      "pairedWithRelease": 120,
+      "releasedDynastyValue": null,
+      "streamingAdds": 120
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 15707.0,
+      "acquiredUnvalued": 59,
+      "acquiredValued": 13,
+      "netValuedSum": -78929.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 94636.0,
+      "releasedUnvalued": 14,
+      "releasedValued": 58
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       1.651,
+       7.482
+      ],
+      "mean": 4.361,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 314.024,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       -0.156,
+       8.121
+      ],
+      "mean": 3.944,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": 23.667,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 6,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 1269.0,
+      "acquiredUnvalued": 5,
+      "acquiredValued": 1,
+      "netValuedSum": -8643.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 9912.0,
+      "releasedUnvalued": 2,
+      "releasedValued": 4
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.5,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 25.022,
+      "meanReleasedPointsNext3": 11.839,
+      "pairedMeanAddMinusReleasedNext1": 1.576,
+      "pairedMeanAddPointsNext3": 25.022,
+      "pairedWithRelease": 6,
+      "releasedDynastyValue": null,
+      "streamingAdds": 6
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.333,
+      "madeLineupFirstWeekShare": 0.306,
+      "meanAddPointsNext3": 23.883,
+      "meanReleasedPointsNext3": 13.806,
+      "pairedMeanAddMinusReleasedNext1": 2.613,
+      "pairedMeanAddPointsNext3": 23.883,
+      "pairedWithRelease": 72,
+      "releasedDynastyValue": null,
+      "streamingAdds": 72
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 15707.0,
+      "acquiredUnvalued": 59,
+      "acquiredValued": 13,
+      "netValuedSum": -78929.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 94636.0,
+      "releasedUnvalued": 14,
+      "releasedValued": 58
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -3.672,
+       2.21
+      ],
+      "mean": -0.702,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": -134.73,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -6.201,
+       4.322
+      ],
+      "mean": -0.584,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": -10.514,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 18,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 1269.0,
+      "acquiredUnvalued": 5,
+      "acquiredValued": 1,
+      "netValuedSum": -8643.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 9912.0,
+      "releasedUnvalued": 2,
+      "releasedValued": 4
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.5,
+      "madeLineupFirstWeekShare": 0.167,
+      "meanAddPointsNext3": 20.879,
+      "meanReleasedPointsNext3": 18.796,
+      "pairedMeanAddMinusReleasedNext1": -0.594,
+      "pairedMeanAddPointsNext3": 20.879,
+      "pairedWithRelease": 18,
+      "releasedDynastyValue": null,
+      "streamingAdds": 18
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.448,
+      "madeLineupFirstWeekShare": 0.26,
+      "meanAddPointsNext3": 19.854,
+      "meanReleasedPointsNext3": 16.376,
+      "pairedMeanAddMinusReleasedNext1": -0.408,
+      "pairedMeanAddPointsNext3": 19.854,
+      "pairedWithRelease": 192,
+      "releasedDynastyValue": null,
+      "streamingAdds": 192
+     }
+    }
+   },
+   "unmasked_S3": {
+    "2025": {
+     "addsPerTeamWeek": 3.0,
+     "dynastyValueFlow": null,
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -6.301,
+       3.914
+      ],
+      "mean": -1.148,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": -137.744,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -18.323,
+       6.109
+      ],
+      "mean": -6.96,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": -83.522,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 36,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.444,
+      "madeLineupFirstWeekShare": 0.278,
+      "meanAddPointsNext3": 21.588,
+      "meanReleasedPointsNext3": 21.347,
+      "pairedMeanAddMinusReleasedNext1": -0.151,
+      "pairedMeanAddPointsNext3": 21.588,
+      "pairedWithRelease": 36,
+      "releasedDynastyValue": null,
+      "streamingAdds": 36
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.494,
+      "madeLineupFirstWeekShare": 0.344,
+      "meanAddPointsNext3": 21.455,
+      "meanReleasedPointsNext3": 19.401,
+      "pairedMeanAddMinusReleasedNext1": -1.646,
+      "pairedMeanAddPointsNext3": 21.455,
+      "pairedWithRelease": 360,
+      "releasedDynastyValue": null,
+      "streamingAdds": 360
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 3.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 91942.0,
+      "acquiredUnvalued": 129,
+      "acquiredValued": 87,
+      "netValuedSum": -138382.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 230324.0,
+      "releasedUnvalued": 63,
+      "releasedValued": 153
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       1.019,
+       11.991
+      ],
+      "mean": 6.259,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 450.634,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       -9.393,
+       14.771
+      ],
+      "mean": 1.383,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": 8.297,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 18,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 10261.0,
+      "acquiredUnvalued": 10,
+      "acquiredValued": 8,
+      "netValuedSum": -14387.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 24648.0,
+      "releasedUnvalued": 6,
+      "releasedValued": 12
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.5,
+      "madeLineupFirstWeekShare": 0.556,
+      "meanAddPointsNext3": 21.125,
+      "meanReleasedPointsNext3": 14.669,
+      "pairedMeanAddMinusReleasedNext1": 5.494,
+      "pairedMeanAddPointsNext3": 21.125,
+      "pairedWithRelease": 18,
+      "releasedDynastyValue": null,
+      "streamingAdds": 18
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.31,
+      "madeLineupFirstWeekShare": 0.509,
+      "meanAddPointsNext3": 20.965,
+      "meanReleasedPointsNext3": 13.309,
+      "pairedMeanAddMinusReleasedNext1": 6.728,
+      "pairedMeanAddPointsNext3": 20.965,
+      "pairedWithRelease": 216,
+      "releasedDynastyValue": null,
+      "streamingAdds": 216
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 3.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 91942.0,
+      "acquiredUnvalued": 129,
+      "acquiredValued": 87,
+      "netValuedSum": -138382.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 230324.0,
+      "releasedUnvalued": 63,
+      "releasedValued": 153
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -2.323,
+       5.76
+      ],
+      "mean": 1.63,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 312.891,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -13.088,
+       5.745
+      ],
+      "mean": -4.179,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": -75.225,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 54,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 10261.0,
+      "acquiredUnvalued": 10,
+      "acquiredValued": 8,
+      "netValuedSum": -14387.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 24648.0,
+      "releasedUnvalued": 6,
+      "releasedValued": 12
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.463,
+      "madeLineupFirstWeekShare": 0.37,
+      "meanAddPointsNext3": 21.434,
+      "meanReleasedPointsNext3": 19.121,
+      "pairedMeanAddMinusReleasedNext1": 1.731,
+      "pairedMeanAddPointsNext3": 21.434,
+      "pairedWithRelease": 54,
+      "releasedDynastyValue": null,
+      "streamingAdds": 54
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.425,
+      "madeLineupFirstWeekShare": 0.406,
+      "meanAddPointsNext3": 21.271,
+      "meanReleasedPointsNext3": 17.116,
+      "pairedMeanAddMinusReleasedNext1": 1.494,
+      "pairedMeanAddPointsNext3": 21.271,
+      "pairedWithRelease": 576,
+      "releasedDynastyValue": null,
+      "streamingAdds": 576
+     }
+    }
+   },
+   "unmasked_S5": {
+    "2025": {
+     "addsPerTeamWeek": 5.0,
+     "dynastyValueFlow": null,
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -5.679,
+       4.196
+      ],
+      "mean": -0.892,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": -107.015,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -23.031,
+       2.397
+      ],
+      "mean": -9.634,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": -115.608,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 60,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.45,
+      "madeLineupFirstWeekShare": 0.317,
+      "meanAddPointsNext3": 23.731,
+      "meanReleasedPointsNext3": 23.139,
+      "pairedMeanAddMinusReleasedNext1": -0.928,
+      "pairedMeanAddPointsNext3": 23.731,
+      "pairedWithRelease": 60,
+      "releasedDynastyValue": null,
+      "streamingAdds": 60
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.468,
+      "madeLineupFirstWeekShare": 0.38,
+      "meanAddPointsNext3": 22.113,
+      "meanReleasedPointsNext3": 19.935,
+      "pairedMeanAddMinusReleasedNext1": -1.443,
+      "pairedMeanAddPointsNext3": 22.113,
+      "pairedWithRelease": 600,
+      "releasedDynastyValue": null,
+      "streamingAdds": 600
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 5.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 183054.0,
+      "acquiredUnvalued": 195,
+      "acquiredValued": 165,
+      "netValuedSum": -180463.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 363517.0,
+      "releasedUnvalued": 122,
+      "releasedValued": 238
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       0.107,
+       14.111
+      ],
+      "mean": 6.592,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 474.623,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       -5.47,
+       17.109
+      ],
+      "mean": 5.101,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": 30.608,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 30,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 22698.0,
+      "acquiredUnvalued": 14,
+      "acquiredValued": 16,
+      "netValuedSum": -19936.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 42634.0,
+      "releasedUnvalued": 10,
+      "releasedValued": 20
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.533,
+      "madeLineupFirstWeekShare": 0.367,
+      "meanAddPointsNext3": 19.567,
+      "meanReleasedPointsNext3": 16.35,
+      "pairedMeanAddMinusReleasedNext1": 2.043,
+      "pairedMeanAddPointsNext3": 19.567,
+      "pairedWithRelease": 30,
+      "releasedDynastyValue": null,
+      "streamingAdds": 30
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.381,
+      "madeLineupFirstWeekShare": 0.408,
+      "meanAddPointsNext3": 18.947,
+      "meanReleasedPointsNext3": 14.81,
+      "pairedMeanAddMinusReleasedNext1": 4.507,
+      "pairedMeanAddPointsNext3": 18.947,
+      "pairedWithRelease": 360,
+      "releasedDynastyValue": null,
+      "streamingAdds": 360
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 5.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 183054.0,
+      "acquiredUnvalued": 195,
+      "acquiredValued": 165,
+      "netValuedSum": -180463.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 363517.0,
+      "releasedUnvalued": 122,
+      "releasedValued": 238
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -2.146,
+       6.489
+      ],
+      "mean": 1.915,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 367.608,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -14.85,
+       4.805
+      ],
+      "mean": -4.722,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": -85.0,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 90,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 22698.0,
+      "acquiredUnvalued": 14,
+      "acquiredValued": 16,
+      "netValuedSum": -19936.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 42634.0,
+      "releasedUnvalued": 10,
+      "releasedValued": 20
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.478,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 22.343,
+      "meanReleasedPointsNext3": 20.876,
+      "pairedMeanAddMinusReleasedNext1": 0.062,
+      "pairedMeanAddPointsNext3": 22.343,
+      "pairedWithRelease": 90,
+      "releasedDynastyValue": null,
+      "streamingAdds": 90
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.435,
+      "madeLineupFirstWeekShare": 0.391,
+      "meanAddPointsNext3": 20.926,
+      "meanReleasedPointsNext3": 18.013,
+      "pairedMeanAddMinusReleasedNext1": 0.789,
+      "pairedMeanAddPointsNext3": 20.926,
+      "pairedWithRelease": 960,
+      "releasedDynastyValue": null,
+      "streamingAdds": 960
+     }
+    }
+   }
+  },
+  "3_rolling_recent_production": {
+   "masked_S1": {
+    "2025": {
+     "addsPerTeamWeek": 0.917,
+     "dynastyValueFlow": null,
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -2.304,
+       4.534
+      ],
+      "mean": 1.19,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 142.79,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       3.517,
+       13.392
+      ],
+      "mean": 8.534,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 102.404,
+      "verdict": "gains"
+     },
+     "managerBAdds": 11,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.273,
+      "madeLineupFirstWeekShare": 0.364,
+      "meanAddPointsNext3": 22.707,
+      "meanReleasedPointsNext3": 12.921,
+      "pairedMeanAddMinusReleasedNext1": 6.22,
+      "pairedMeanAddPointsNext3": 22.707,
+      "pairedWithRelease": 11,
+      "releasedDynastyValue": null,
+      "streamingAdds": 11
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.4,
+      "madeLineupFirstWeekShare": 0.327,
+      "meanAddPointsNext3": 20.186,
+      "meanReleasedPointsNext3": 14.964,
+      "pairedMeanAddMinusReleasedNext1": 0.909,
+      "pairedMeanAddPointsNext3": 20.186,
+      "pairedWithRelease": 110,
+      "releasedDynastyValue": null,
+      "streamingAdds": 110
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 0.833,
+     "dynastyValueFlow": {
+      "acquiredSum": 20019.0,
+      "acquiredUnvalued": 42,
+      "acquiredValued": 18,
+      "netValuedSum": -54106.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 74125.0,
+      "releasedUnvalued": 16,
+      "releasedValued": 44
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       0.33,
+       5.019
+      ],
+      "mean": 2.688,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 193.502,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       -9.602,
+       3.19
+      ],
+      "mean": -3.688,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -22.129,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 5,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 5245.0,
+      "acquiredUnvalued": 2,
+      "acquiredValued": 3,
+      "netValuedSum": -8133.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 13378.0,
+      "releasedUnvalued": 0,
+      "releasedValued": 5
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.4,
+      "madeLineupFirstWeekShare": 0.6,
+      "meanAddPointsNext3": 15.246,
+      "meanReleasedPointsNext3": 17.544,
+      "pairedMeanAddMinusReleasedNext1": -0.222,
+      "pairedMeanAddPointsNext3": 15.246,
+      "pairedWithRelease": 5,
+      "releasedDynastyValue": null,
+      "streamingAdds": 5
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.233,
+      "madeLineupFirstWeekShare": 0.4,
+      "meanAddPointsNext3": 14.733,
+      "meanReleasedPointsNext3": 10.653,
+      "pairedMeanAddMinusReleasedNext1": 4.158,
+      "pairedMeanAddPointsNext3": 14.733,
+      "pairedWithRelease": 60,
+      "releasedDynastyValue": null,
+      "streamingAdds": 60
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 0.885,
+     "dynastyValueFlow": {
+      "acquiredSum": 20019.0,
+      "acquiredUnvalued": 42,
+      "acquiredValued": 18,
+      "netValuedSum": -54106.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 74125.0,
+      "releasedUnvalued": 16,
+      "releasedValued": 44
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -0.585,
+       4.029
+      ],
+      "mean": 1.752,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 336.292,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -0.306,
+       9.212
+      ],
+      "mean": 4.46,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 80.276,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 16,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 5245.0,
+      "acquiredUnvalued": 2,
+      "acquiredValued": 3,
+      "netValuedSum": -8133.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 13378.0,
+      "releasedUnvalued": 0,
+      "releasedValued": 5
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.312,
+      "madeLineupFirstWeekShare": 0.438,
+      "meanAddPointsNext3": 20.376,
+      "meanReleasedPointsNext3": 14.366,
+      "pairedMeanAddMinusReleasedNext1": 4.207,
+      "pairedMeanAddPointsNext3": 20.376,
+      "pairedWithRelease": 16,
+      "releasedDynastyValue": null,
+      "streamingAdds": 16
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.341,
+      "madeLineupFirstWeekShare": 0.353,
+      "meanAddPointsNext3": 18.262,
+      "meanReleasedPointsNext3": 13.443,
+      "pairedMeanAddMinusReleasedNext1": 2.056,
+      "pairedMeanAddPointsNext3": 18.262,
+      "pairedWithRelease": 170,
+      "releasedDynastyValue": null,
+      "streamingAdds": 170
+     }
+    }
+   },
+   "masked_S3": {
+    "2025": {
+     "addsPerTeamWeek": 2.75,
+     "dynastyValueFlow": null,
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -10.004,
+       0.021
+      ],
+      "mean": -4.879,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": -585.434,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -11.368,
+       15.915
+      ],
+      "mean": 3.133,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 37.595,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 33,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.485,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 23.463,
+      "meanReleasedPointsNext3": 22.428,
+      "pairedMeanAddMinusReleasedNext1": 1.264,
+      "pairedMeanAddPointsNext3": 23.463,
+      "pairedWithRelease": 33,
+      "releasedDynastyValue": null,
+      "streamingAdds": 33
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.533,
+      "madeLineupFirstWeekShare": 0.373,
+      "meanAddPointsNext3": 19.514,
+      "meanReleasedPointsNext3": 19.799,
+      "pairedMeanAddMinusReleasedNext1": -0.268,
+      "pairedMeanAddPointsNext3": 19.514,
+      "pairedWithRelease": 330,
+      "releasedDynastyValue": null,
+      "streamingAdds": 330
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 2.5,
+     "dynastyValueFlow": {
+      "acquiredSum": 56869.0,
+      "acquiredUnvalued": 128,
+      "acquiredValued": 52,
+      "netValuedSum": -156083.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 212952.0,
+      "releasedUnvalued": 44,
+      "releasedValued": 136
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -1.589,
+       7.822
+      ],
+      "mean": 3.141,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 226.179,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -16.941,
+       7.535
+      ],
+      "mean": -2.638,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -15.826,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 15,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 6890.0,
+      "acquiredUnvalued": 10,
+      "acquiredValued": 5,
+      "netValuedSum": -16465.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 23355.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 11
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.4,
+      "madeLineupFirstWeekShare": 0.4,
+      "meanAddPointsNext3": 14.696,
+      "meanReleasedPointsNext3": 16.361,
+      "pairedMeanAddMinusReleasedNext1": -1.637,
+      "pairedMeanAddPointsNext3": 14.696,
+      "pairedWithRelease": 15,
+      "releasedDynastyValue": null,
+      "streamingAdds": 15
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.35,
+      "madeLineupFirstWeekShare": 0.339,
+      "meanAddPointsNext3": 14.376,
+      "meanReleasedPointsNext3": 12.53,
+      "pairedMeanAddMinusReleasedNext1": 2.007,
+      "pairedMeanAddPointsNext3": 14.376,
+      "pairedWithRelease": 180,
+      "releasedDynastyValue": null,
+      "streamingAdds": 180
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 2.656,
+     "dynastyValueFlow": {
+      "acquiredSum": 56869.0,
+      "acquiredUnvalued": 128,
+      "acquiredValued": 52,
+      "netValuedSum": -156083.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 212952.0,
+      "releasedUnvalued": 44,
+      "releasedValued": 136
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -5.729,
+       2.076
+      ],
+      "mean": -1.871,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": -359.255,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -9.475,
+       11.019
+      ],
+      "mean": 1.209,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 21.769,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 48,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 6890.0,
+      "acquiredUnvalued": 10,
+      "acquiredValued": 5,
+      "netValuedSum": -16465.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 23355.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 11
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.458,
+      "madeLineupFirstWeekShare": 0.354,
+      "meanAddPointsNext3": 20.723,
+      "meanReleasedPointsNext3": 20.532,
+      "pairedMeanAddMinusReleasedNext1": 0.357,
+      "pairedMeanAddPointsNext3": 20.723,
+      "pairedWithRelease": 48,
+      "releasedDynastyValue": null,
+      "streamingAdds": 48
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.469,
+      "madeLineupFirstWeekShare": 0.361,
+      "meanAddPointsNext3": 17.701,
+      "meanReleasedPointsNext3": 17.234,
+      "pairedMeanAddMinusReleasedNext1": 0.535,
+      "pairedMeanAddPointsNext3": 17.701,
+      "pairedWithRelease": 510,
+      "releasedDynastyValue": null,
+      "streamingAdds": 510
+     }
+    }
+   },
+   "masked_S5": {
+    "2025": {
+     "addsPerTeamWeek": 4.525,
+     "dynastyValueFlow": null,
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -12.094,
+       -1.458
+      ],
+      "mean": -6.781,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": -813.691,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -12.208,
+       6.378
+      ],
+      "mean": -2.962,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": -35.541,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 55,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.527,
+      "madeLineupFirstWeekShare": 0.382,
+      "meanAddPointsNext3": 24.224,
+      "meanReleasedPointsNext3": 23.859,
+      "pairedMeanAddMinusReleasedNext1": 1.796,
+      "pairedMeanAddPointsNext3": 24.224,
+      "pairedWithRelease": 55,
+      "releasedDynastyValue": null,
+      "streamingAdds": 55
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.519,
+      "madeLineupFirstWeekShare": 0.429,
+      "meanAddPointsNext3": 20.825,
+      "meanReleasedPointsNext3": 21.421,
+      "pairedMeanAddMinusReleasedNext1": -0.169,
+      "pairedMeanAddPointsNext3": 20.825,
+      "pairedWithRelease": 543,
+      "releasedDynastyValue": null,
+      "streamingAdds": 543
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 4.167,
+     "dynastyValueFlow": {
+      "acquiredSum": 107799.0,
+      "acquiredUnvalued": 203,
+      "acquiredValued": 97,
+      "netValuedSum": -217347.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 325146.0,
+      "releasedUnvalued": 98,
+      "releasedValued": 202
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -6.091,
+       3.835
+      ],
+      "mean": -1.077,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -77.521,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -16.854,
+       13.675
+      ],
+      "mean": -0.78,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -4.681,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 25,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 10599.0,
+      "acquiredUnvalued": 17,
+      "acquiredValued": 8,
+      "netValuedSum": -27086.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 37685.0,
+      "releasedUnvalued": 9,
+      "releasedValued": 16
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.4,
+      "madeLineupFirstWeekShare": 0.36,
+      "meanAddPointsNext3": 15.392,
+      "meanReleasedPointsNext3": 14.231,
+      "pairedMeanAddMinusReleasedNext1": 2.478,
+      "pairedMeanAddPointsNext3": 15.392,
+      "pairedWithRelease": 25,
+      "releasedDynastyValue": null,
+      "streamingAdds": 25
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.403,
+      "madeLineupFirstWeekShare": 0.357,
+      "meanAddPointsNext3": 15.021,
+      "meanReleasedPointsNext3": 14.204,
+      "pairedMeanAddMinusReleasedNext1": 1.705,
+      "pairedMeanAddPointsNext3": 15.021,
+      "pairedWithRelease": 300,
+      "releasedDynastyValue": null,
+      "streamingAdds": 300
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 4.391,
+     "dynastyValueFlow": {
+      "acquiredSum": 107799.0,
+      "acquiredUnvalued": 203,
+      "acquiredValued": 97,
+      "netValuedSum": -217347.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 325146.0,
+      "releasedUnvalued": 98,
+      "releasedValued": 202
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -8.501,
+       -0.685
+      ],
+      "mean": -4.642,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": -891.212,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -10.508,
+       5.906
+      ],
+      "mean": -2.235,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": -40.222,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 80,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 10599.0,
+      "acquiredUnvalued": 17,
+      "acquiredValued": 8,
+      "netValuedSum": -27086.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 37685.0,
+      "releasedUnvalued": 9,
+      "releasedValued": 16
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.487,
+      "madeLineupFirstWeekShare": 0.375,
+      "meanAddPointsNext3": 21.464,
+      "meanReleasedPointsNext3": 20.85,
+      "pairedMeanAddMinusReleasedNext1": 2.009,
+      "pairedMeanAddPointsNext3": 21.464,
+      "pairedWithRelease": 80,
+      "releasedDynastyValue": null,
+      "streamingAdds": 80
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.478,
+      "madeLineupFirstWeekShare": 0.403,
+      "meanAddPointsNext3": 18.76,
+      "meanReleasedPointsNext3": 18.853,
+      "pairedMeanAddMinusReleasedNext1": 0.498,
+      "pairedMeanAddPointsNext3": 18.76,
+      "pairedWithRelease": 843,
+      "releasedDynastyValue": null,
+      "streamingAdds": 843
+     }
+    }
+   },
+   "unmasked_S1": {
+    "2025": {
+     "addsPerTeamWeek": 0.917,
+     "dynastyValueFlow": null,
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       0.07,
+       10.256
+      ],
+      "mean": 4.775,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 573.012,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       3.437,
+       13.348
+      ],
+      "mean": 8.471,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 101.651,
+      "verdict": "gains"
+     },
+     "managerBAdds": 11,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.273,
+      "madeLineupFirstWeekShare": 0.273,
+      "meanAddPointsNext3": 22.993,
+      "meanReleasedPointsNext3": 12.921,
+      "pairedMeanAddMinusReleasedNext1": 5.426,
+      "pairedMeanAddPointsNext3": 22.993,
+      "pairedWithRelease": 11,
+      "releasedDynastyValue": null,
+      "streamingAdds": 11
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.291,
+      "madeLineupFirstWeekShare": 0.464,
+      "meanAddPointsNext3": 23.985,
+      "meanReleasedPointsNext3": 14.778,
+      "pairedMeanAddMinusReleasedNext1": 4.556,
+      "pairedMeanAddPointsNext3": 23.985,
+      "pairedWithRelease": 110,
+      "releasedDynastyValue": null,
+      "streamingAdds": 110
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 0.833,
+     "dynastyValueFlow": {
+      "acquiredSum": 38632.0,
+      "acquiredUnvalued": 35,
+      "acquiredValued": 25,
+      "netValuedSum": -37403.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 76035.0,
+      "releasedUnvalued": 11,
+      "releasedValued": 49
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -0.891,
+       4.126
+      ],
+      "mean": 1.593,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 114.709,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -9.886,
+       0.267
+      ],
+      "mean": -4.12,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -24.718,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 5,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 4837.0,
+      "acquiredUnvalued": 3,
+      "acquiredValued": 2,
+      "netValuedSum": -8683.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 13520.0,
+      "releasedUnvalued": 0,
+      "releasedValued": 5
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.4,
+      "madeLineupFirstWeekShare": 0.4,
+      "meanAddPointsNext3": 19.556,
+      "meanReleasedPointsNext3": 17.442,
+      "pairedMeanAddMinusReleasedNext1": -3.192,
+      "pairedMeanAddPointsNext3": 19.556,
+      "pairedWithRelease": 5,
+      "releasedDynastyValue": null,
+      "streamingAdds": 5
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.2,
+      "madeLineupFirstWeekShare": 0.533,
+      "meanAddPointsNext3": 21.952,
+      "meanReleasedPointsNext3": 12.266,
+      "pairedMeanAddMinusReleasedNext1": 5.763,
+      "pairedMeanAddPointsNext3": 21.952,
+      "pairedWithRelease": 60,
+      "releasedDynastyValue": null,
+      "streamingAdds": 60
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 0.885,
+     "dynastyValueFlow": {
+      "acquiredSum": 38632.0,
+      "acquiredUnvalued": 35,
+      "acquiredValued": 25,
+      "netValuedSum": -37403.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 76035.0,
+      "releasedUnvalued": 11,
+      "releasedValued": 49
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       0.471,
+       7.102
+      ],
+      "mean": 3.582,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 687.721,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       -0.357,
+       8.956
+      ],
+      "mean": 4.274,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 76.933,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 16,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 4837.0,
+      "acquiredUnvalued": 3,
+      "acquiredValued": 2,
+      "netValuedSum": -8683.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 13520.0,
+      "releasedUnvalued": 0,
+      "releasedValued": 5
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.312,
+      "madeLineupFirstWeekShare": 0.312,
+      "meanAddPointsNext3": 21.919,
+      "meanReleasedPointsNext3": 14.334,
+      "pairedMeanAddMinusReleasedNext1": 2.733,
+      "pairedMeanAddPointsNext3": 21.919,
+      "pairedWithRelease": 16,
+      "releasedDynastyValue": null,
+      "streamingAdds": 16
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.259,
+      "madeLineupFirstWeekShare": 0.488,
+      "meanAddPointsNext3": 23.268,
+      "meanReleasedPointsNext3": 13.891,
+      "pairedMeanAddMinusReleasedNext1": 4.982,
+      "pairedMeanAddPointsNext3": 23.268,
+      "pairedWithRelease": 170,
+      "releasedDynastyValue": null,
+      "streamingAdds": 170
+     }
+    }
+   },
+   "unmasked_S3": {
+    "2025": {
+     "addsPerTeamWeek": 2.75,
+     "dynastyValueFlow": null,
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -3.209,
+       10.455
+      ],
+      "mean": 3.563,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 427.522,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -7.404,
+       15.096
+      ],
+      "mean": 3.814,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 45.764,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 33,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.394,
+      "madeLineupFirstWeekShare": 0.273,
+      "meanAddPointsNext3": 23.614,
+      "meanReleasedPointsNext3": 20.847,
+      "pairedMeanAddMinusReleasedNext1": 1.37,
+      "pairedMeanAddPointsNext3": 23.614,
+      "pairedWithRelease": 33,
+      "releasedDynastyValue": null,
+      "streamingAdds": 33
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.467,
+      "madeLineupFirstWeekShare": 0.412,
+      "meanAddPointsNext3": 22.424,
+      "meanReleasedPointsNext3": 19.486,
+      "pairedMeanAddMinusReleasedNext1": 1.765,
+      "pairedMeanAddPointsNext3": 22.424,
+      "pairedWithRelease": 330,
+      "releasedDynastyValue": null,
+      "streamingAdds": 330
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 2.5,
+     "dynastyValueFlow": {
+      "acquiredSum": 99239.0,
+      "acquiredUnvalued": 97,
+      "acquiredValued": 83,
+      "netValuedSum": -136621.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 235860.0,
+      "releasedUnvalued": 30,
+      "releasedValued": 150
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       0.193,
+       10.665
+      ],
+      "mean": 5.325,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 383.407,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       -5.372,
+       19.606
+      ],
+      "mean": 5.718,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": 34.307,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 15,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 10599.0,
+      "acquiredUnvalued": 7,
+      "acquiredValued": 8,
+      "netValuedSum": -17615.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 28214.0,
+      "releasedUnvalued": 1,
+      "releasedValued": 14
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.4,
+      "madeLineupFirstWeekShare": 0.467,
+      "meanAddPointsNext3": 22.352,
+      "meanReleasedPointsNext3": 16.385,
+      "pairedMeanAddMinusReleasedNext1": 1.941,
+      "pairedMeanAddPointsNext3": 22.352,
+      "pairedWithRelease": 15,
+      "releasedDynastyValue": null,
+      "streamingAdds": 15
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.339,
+      "madeLineupFirstWeekShare": 0.478,
+      "meanAddPointsNext3": 19.279,
+      "meanReleasedPointsNext3": 14.259,
+      "pairedMeanAddMinusReleasedNext1": 4.013,
+      "pairedMeanAddPointsNext3": 19.279,
+      "pairedWithRelease": 180,
+      "releasedDynastyValue": null,
+      "streamingAdds": 180
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 2.656,
+     "dynastyValueFlow": {
+      "acquiredSum": 99239.0,
+      "acquiredUnvalued": 97,
+      "acquiredValued": 83,
+      "netValuedSum": -136621.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 235860.0,
+      "releasedUnvalued": 30,
+      "releasedValued": 150
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -0.255,
+       8.787
+      ],
+      "mean": 4.224,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 810.928,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -3.951,
+       13.046
+      ],
+      "mean": 4.448,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 80.071,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 48,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 10599.0,
+      "acquiredUnvalued": 7,
+      "acquiredValued": 8,
+      "netValuedSum": -17615.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 28214.0,
+      "releasedUnvalued": 1,
+      "releasedValued": 14
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.396,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 23.219,
+      "meanReleasedPointsNext3": 19.453,
+      "pairedMeanAddMinusReleasedNext1": 1.548,
+      "pairedMeanAddPointsNext3": 23.219,
+      "pairedWithRelease": 48,
+      "releasedDynastyValue": null,
+      "streamingAdds": 48
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.422,
+      "madeLineupFirstWeekShare": 0.435,
+      "meanAddPointsNext3": 21.314,
+      "meanReleasedPointsNext3": 17.641,
+      "pairedMeanAddMinusReleasedNext1": 2.558,
+      "pairedMeanAddPointsNext3": 21.314,
+      "pairedWithRelease": 510,
+      "releasedDynastyValue": null,
+      "streamingAdds": 510
+     }
+    }
+   },
+   "unmasked_S5": {
+    "2025": {
+     "addsPerTeamWeek": 4.567,
+     "dynastyValueFlow": null,
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -4.562,
+       8.49
+      ],
+      "mean": 1.961,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 235.322,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -9.894,
+       9.969
+      ],
+      "mean": 0.008,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 0.095,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 55,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.436,
+      "madeLineupFirstWeekShare": 0.4,
+      "meanAddPointsNext3": 25.079,
+      "meanReleasedPointsNext3": 22.929,
+      "pairedMeanAddMinusReleasedNext1": 3.423,
+      "pairedMeanAddPointsNext3": 25.079,
+      "pairedWithRelease": 55,
+      "releasedDynastyValue": null,
+      "streamingAdds": 55
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.465,
+      "madeLineupFirstWeekShare": 0.462,
+      "meanAddPointsNext3": 22.512,
+      "meanReleasedPointsNext3": 21.176,
+      "pairedMeanAddMinusReleasedNext1": 1.379,
+      "pairedMeanAddPointsNext3": 22.512,
+      "pairedWithRelease": 548,
+      "releasedDynastyValue": null,
+      "streamingAdds": 548
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 4.167,
+     "dynastyValueFlow": {
+      "acquiredSum": 168170.0,
+      "acquiredUnvalued": 168,
+      "acquiredValued": 132,
+      "netValuedSum": -238543.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 406713.0,
+      "releasedUnvalued": 60,
+      "releasedValued": 240
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -1.798,
+       10.394
+      ],
+      "mean": 4.039,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 290.808,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -14.538,
+       16.461
+      ],
+      "mean": 0.776,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": 4.657,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 25,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 16437.0,
+      "acquiredUnvalued": 12,
+      "acquiredValued": 13,
+      "netValuedSum": -30417.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 46854.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 21
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.4,
+      "madeLineupFirstWeekShare": 0.48,
+      "meanAddPointsNext3": 19.889,
+      "meanReleasedPointsNext3": 16.389,
+      "pairedMeanAddMinusReleasedNext1": 2.171,
+      "pairedMeanAddPointsNext3": 19.889,
+      "pairedWithRelease": 25,
+      "releasedDynastyValue": null,
+      "streamingAdds": 25
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.393,
+      "madeLineupFirstWeekShare": 0.43,
+      "meanAddPointsNext3": 19.765,
+      "meanReleasedPointsNext3": 16.649,
+      "pairedMeanAddMinusReleasedNext1": 2.98,
+      "pairedMeanAddPointsNext3": 19.765,
+      "pairedWithRelease": 300,
+      "releasedDynastyValue": null,
+      "streamingAdds": 300
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 4.417,
+     "dynastyValueFlow": {
+      "acquiredSum": 168170.0,
+      "acquiredUnvalued": 168,
+      "acquiredValued": 132,
+      "netValuedSum": -238543.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 406713.0,
+      "releasedUnvalued": 60,
+      "releasedValued": 240
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -1.808,
+       7.397
+      ],
+      "mean": 2.74,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 526.13,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -8.053,
+       8.754
+      ],
+      "mean": 0.264,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 4.752,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 80,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 16437.0,
+      "acquiredUnvalued": 12,
+      "acquiredValued": 13,
+      "netValuedSum": -30417.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 46854.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 21
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.425,
+      "madeLineupFirstWeekShare": 0.425,
+      "meanAddPointsNext3": 23.457,
+      "meanReleasedPointsNext3": 20.886,
+      "pairedMeanAddMinusReleasedNext1": 3.032,
+      "pairedMeanAddPointsNext3": 23.457,
+      "pairedWithRelease": 80,
+      "releasedDynastyValue": null,
+      "streamingAdds": 80
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.44,
+      "madeLineupFirstWeekShare": 0.45,
+      "meanAddPointsNext3": 21.54,
+      "meanReleasedPointsNext3": 19.575,
+      "pairedMeanAddMinusReleasedNext1": 1.945,
+      "pairedMeanAddPointsNext3": 21.54,
+      "pairedWithRelease": 848,
+      "releasedDynastyValue": null,
+      "streamingAdds": 848
+     }
+    }
+   }
+  },
+  "4_single_projection_provider": {
+   "masked_S1": {
+    "2025": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": null,
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       3.094,
+       10.054
+      ],
+      "mean": 6.654,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 798.432,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       1.596,
+       16.479
+      ],
+      "mean": 8.339,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 100.07,
+      "verdict": "gains"
+     },
+     "managerBAdds": 12,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.167,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 31.076,
+      "meanReleasedPointsNext3": 20.059,
+      "pairedMeanAddMinusReleasedNext1": 5.731,
+      "pairedMeanAddPointsNext3": 31.076,
+      "pairedWithRelease": 12,
+      "releasedDynastyValue": null,
+      "streamingAdds": 12
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.375,
+      "madeLineupFirstWeekShare": 0.558,
+      "meanAddPointsNext3": 28.381,
+      "meanReleasedPointsNext3": 22.822,
+      "pairedMeanAddMinusReleasedNext1": 3.259,
+      "pairedMeanAddPointsNext3": 28.381,
+      "pairedWithRelease": 120,
+      "releasedDynastyValue": null,
+      "streamingAdds": 120
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 38928.0,
+      "acquiredUnvalued": 43,
+      "acquiredValued": 29,
+      "netValuedSum": -37713.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 76641.0,
+      "releasedUnvalued": 17,
+      "releasedValued": 55
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -3.864,
+       3.471
+      ],
+      "mean": -0.303,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -21.783,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -8.257,
+       2.64
+      ],
+      "mean": -3.113,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -18.676,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 6,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 2095.0,
+      "acquiredUnvalued": 4,
+      "acquiredValued": 2,
+      "netValuedSum": -6665.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 8760.0,
+      "releasedUnvalued": 2,
+      "releasedValued": 4
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.5,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 14.055,
+      "meanReleasedPointsNext3": 19.815,
+      "pairedMeanAddMinusReleasedNext1": 0.189,
+      "pairedMeanAddPointsNext3": 14.055,
+      "pairedWithRelease": 6,
+      "releasedDynastyValue": null,
+      "streamingAdds": 6
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.431,
+      "madeLineupFirstWeekShare": 0.431,
+      "meanAddPointsNext3": 15.389,
+      "meanReleasedPointsNext3": 16.792,
+      "pairedMeanAddMinusReleasedNext1": -0.761,
+      "pairedMeanAddPointsNext3": 15.389,
+      "pairedWithRelease": 72,
+      "releasedDynastyValue": null,
+      "streamingAdds": 72
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 38928.0,
+      "acquiredUnvalued": 43,
+      "acquiredValued": 29,
+      "netValuedSum": -37713.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 76641.0,
+      "releasedUnvalued": 17,
+      "releasedValued": 55
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       1.037,
+       6.925
+      ],
+      "mean": 4.045,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 776.648,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       -0.937,
+       10.71
+      ],
+      "mean": 4.522,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 81.394,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 18,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 2095.0,
+      "acquiredUnvalued": 4,
+      "acquiredValued": 2,
+      "netValuedSum": -6665.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 8760.0,
+      "releasedUnvalued": 2,
+      "releasedValued": 4
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.278,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 25.402,
+      "meanReleasedPointsNext3": 19.978,
+      "pairedMeanAddMinusReleasedNext1": 3.884,
+      "pairedMeanAddPointsNext3": 25.402,
+      "pairedWithRelease": 18,
+      "releasedDynastyValue": null,
+      "streamingAdds": 18
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.396,
+      "madeLineupFirstWeekShare": 0.51,
+      "meanAddPointsNext3": 23.509,
+      "meanReleasedPointsNext3": 20.561,
+      "pairedMeanAddMinusReleasedNext1": 1.752,
+      "pairedMeanAddPointsNext3": 23.509,
+      "pairedWithRelease": 192,
+      "releasedDynastyValue": null,
+      "streamingAdds": 192
+     }
+    }
+   },
+   "masked_S3": {
+    "2025": {
+     "addsPerTeamWeek": 2.867,
+     "dynastyValueFlow": null,
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       0.896,
+       6.947
+      ],
+      "mean": 3.882,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 465.842,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       -3.298,
+       14.414
+      ],
+      "mean": 4.895,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 58.738,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 36,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.472,
+      "madeLineupFirstWeekShare": 0.361,
+      "meanAddPointsNext3": 26.567,
+      "meanReleasedPointsNext3": 24.346,
+      "pairedMeanAddMinusReleasedNext1": 2.097,
+      "pairedMeanAddPointsNext3": 26.567,
+      "pairedWithRelease": 36,
+      "releasedDynastyValue": null,
+      "streamingAdds": 36
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.494,
+      "madeLineupFirstWeekShare": 0.581,
+      "meanAddPointsNext3": 25.5,
+      "meanReleasedPointsNext3": 24.165,
+      "pairedMeanAddMinusReleasedNext1": 1.472,
+      "pairedMeanAddPointsNext3": 25.5,
+      "pairedWithRelease": 344,
+      "releasedDynastyValue": null,
+      "streamingAdds": 344
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 2.625,
+     "dynastyValueFlow": {
+      "acquiredSum": 153122.0,
+      "acquiredUnvalued": 77,
+      "acquiredValued": 112,
+      "netValuedSum": -51090.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 204212.0,
+      "releasedUnvalued": 38,
+      "releasedValued": 151
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -8.25,
+       0.798
+      ],
+      "mean": -3.634,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -261.62,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -13.289,
+       6.956
+      ],
+      "mean": -3.284,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -19.707,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 18,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 16319.0,
+      "acquiredUnvalued": 6,
+      "acquiredValued": 12,
+      "netValuedSum": -9002.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 25321.0,
+      "releasedUnvalued": 2,
+      "releasedValued": 16
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.556,
+      "madeLineupFirstWeekShare": 0.444,
+      "meanAddPointsNext3": 18.072,
+      "meanReleasedPointsNext3": 18.133,
+      "pairedMeanAddMinusReleasedNext1": -0.931,
+      "pairedMeanAddPointsNext3": 18.072,
+      "pairedWithRelease": 18,
+      "releasedDynastyValue": null,
+      "streamingAdds": 18
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.54,
+      "madeLineupFirstWeekShare": 0.354,
+      "meanAddPointsNext3": 17.947,
+      "meanReleasedPointsNext3": 18.701,
+      "pairedMeanAddMinusReleasedNext1": -1.315,
+      "pairedMeanAddPointsNext3": 17.947,
+      "pairedWithRelease": 189,
+      "releasedDynastyValue": null,
+      "streamingAdds": 189
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 2.776,
+     "dynastyValueFlow": {
+      "acquiredSum": 153122.0,
+      "acquiredUnvalued": 77,
+      "acquiredValued": 112,
+      "netValuedSum": -51090.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 204212.0,
+      "releasedUnvalued": 38,
+      "releasedValued": 151
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -2.037,
+       3.904
+      ],
+      "mean": 1.064,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 204.222,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -4.747,
+       9.593
+      ],
+      "mean": 2.168,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 39.031,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 54,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 16319.0,
+      "acquiredUnvalued": 6,
+      "acquiredValued": 12,
+      "netValuedSum": -9002.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 25321.0,
+      "releasedUnvalued": 2,
+      "releasedValued": 16
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.5,
+      "madeLineupFirstWeekShare": 0.389,
+      "meanAddPointsNext3": 23.735,
+      "meanReleasedPointsNext3": 22.275,
+      "pairedMeanAddMinusReleasedNext1": 1.088,
+      "pairedMeanAddPointsNext3": 23.735,
+      "pairedWithRelease": 54,
+      "releasedDynastyValue": null,
+      "streamingAdds": 54
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.51,
+      "madeLineupFirstWeekShare": 0.501,
+      "meanAddPointsNext3": 22.822,
+      "meanReleasedPointsNext3": 22.227,
+      "pairedMeanAddMinusReleasedNext1": 0.484,
+      "pairedMeanAddPointsNext3": 22.822,
+      "pairedWithRelease": 533,
+      "releasedDynastyValue": null,
+      "streamingAdds": 533
+     }
+    }
+   },
+   "masked_S5": {
+    "2025": {
+     "addsPerTeamWeek": 3.867,
+     "dynastyValueFlow": null,
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       0.569,
+       6.203
+      ],
+      "mean": 3.526,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 423.124,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       -5.265,
+       24.045
+      ],
+      "mean": 7.91,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 94.921,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 52,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.423,
+      "madeLineupFirstWeekShare": 0.385,
+      "meanAddPointsNext3": 27.365,
+      "meanReleasedPointsNext3": 24.399,
+      "pairedMeanAddMinusReleasedNext1": 2.898,
+      "pairedMeanAddPointsNext3": 27.365,
+      "pairedWithRelease": 52,
+      "releasedDynastyValue": null,
+      "streamingAdds": 52
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.485,
+      "madeLineupFirstWeekShare": 0.584,
+      "meanAddPointsNext3": 25.092,
+      "meanReleasedPointsNext3": 23.873,
+      "pairedMeanAddMinusReleasedNext1": 1.793,
+      "pairedMeanAddPointsNext3": 25.092,
+      "pairedWithRelease": 464,
+      "releasedDynastyValue": null,
+      "streamingAdds": 464
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 3.306,
+     "dynastyValueFlow": {
+      "acquiredSum": 194857.0,
+      "acquiredUnvalued": 92,
+      "acquiredValued": 146,
+      "netValuedSum": -54655.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 249512.0,
+      "releasedUnvalued": 47,
+      "releasedValued": 191
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -9.281,
+       -1.919
+      ],
+      "mean": -5.634,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -405.664,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -19.8,
+       4.824
+      ],
+      "mean": -7.836,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -47.017,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 24,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 23218.0,
+      "acquiredUnvalued": 7,
+      "acquiredValued": 17,
+      "netValuedSum": -8197.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 31415.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 20
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.583,
+      "madeLineupFirstWeekShare": 0.375,
+      "meanAddPointsNext3": 16.256,
+      "meanReleasedPointsNext3": 17.704,
+      "pairedMeanAddMinusReleasedNext1": -2.831,
+      "pairedMeanAddPointsNext3": 16.256,
+      "pairedWithRelease": 24,
+      "releasedDynastyValue": null,
+      "streamingAdds": 24
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.538,
+      "madeLineupFirstWeekShare": 0.332,
+      "meanAddPointsNext3": 17.613,
+      "meanReleasedPointsNext3": 18.866,
+      "pairedMeanAddMinusReleasedNext1": -1.622,
+      "pairedMeanAddPointsNext3": 17.613,
+      "pairedWithRelease": 238,
+      "releasedDynastyValue": null,
+      "streamingAdds": 238
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 3.656,
+     "dynastyValueFlow": {
+      "acquiredSum": 194857.0,
+      "acquiredUnvalued": 92,
+      "acquiredValued": 146,
+      "netValuedSum": -54655.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 249512.0,
+      "releasedUnvalued": 47,
+      "releasedValued": 191
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -3.009,
+       2.777
+      ],
+      "mean": 0.091,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 17.46,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -7.815,
+       14.357
+      ],
+      "mean": 2.661,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 47.904,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 76,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 23218.0,
+      "acquiredUnvalued": 7,
+      "acquiredValued": 17,
+      "netValuedSum": -8197.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 31415.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 20
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.474,
+      "madeLineupFirstWeekShare": 0.382,
+      "meanAddPointsNext3": 23.857,
+      "meanReleasedPointsNext3": 22.285,
+      "pairedMeanAddMinusReleasedNext1": 1.089,
+      "pairedMeanAddPointsNext3": 23.857,
+      "pairedWithRelease": 76,
+      "releasedDynastyValue": null,
+      "streamingAdds": 76
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.503,
+      "madeLineupFirstWeekShare": 0.499,
+      "meanAddPointsNext3": 22.557,
+      "meanReleasedPointsNext3": 22.175,
+      "pairedMeanAddMinusReleasedNext1": 0.635,
+      "pairedMeanAddPointsNext3": 22.557,
+      "pairedWithRelease": 702,
+      "releasedDynastyValue": null,
+      "streamingAdds": 702
+     }
+    }
+   },
+   "unmasked_S1": {
+    "2025": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": null,
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       1.507,
+       11.099
+      ],
+      "mean": 6.5,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 780.046,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       -2.764,
+       14.408
+      ],
+      "mean": 5.487,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 65.839,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 12,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.25,
+      "madeLineupFirstWeekShare": 0.25,
+      "meanAddPointsNext3": 31.46,
+      "meanReleasedPointsNext3": 18.485,
+      "pairedMeanAddMinusReleasedNext1": 7.524,
+      "pairedMeanAddPointsNext3": 31.46,
+      "pairedWithRelease": 12,
+      "releasedDynastyValue": null,
+      "streamingAdds": 12
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.308,
+      "madeLineupFirstWeekShare": 0.592,
+      "meanAddPointsNext3": 29.442,
+      "meanReleasedPointsNext3": 23.256,
+      "pairedMeanAddMinusReleasedNext1": 2.756,
+      "pairedMeanAddPointsNext3": 29.442,
+      "pairedWithRelease": 120,
+      "releasedDynastyValue": null,
+      "streamingAdds": 120
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 56879.0,
+      "acquiredUnvalued": 42,
+      "acquiredValued": 30,
+      "netValuedSum": -26585.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 83464.0,
+      "releasedUnvalued": 15,
+      "releasedValued": 57
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -3.656,
+       1.976
+      ],
+      "mean": -0.853,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -61.446,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -8.479,
+       6.073
+      ],
+      "mean": -1.946,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -11.673,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 6,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 2516.0,
+      "acquiredUnvalued": 4,
+      "acquiredValued": 2,
+      "netValuedSum": -7471.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 9987.0,
+      "releasedUnvalued": 1,
+      "releasedValued": 5
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.5,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 16.36,
+      "meanReleasedPointsNext3": 24.591,
+      "pairedMeanAddMinusReleasedNext1": -6.163,
+      "pairedMeanAddPointsNext3": 16.36,
+      "pairedWithRelease": 6,
+      "releasedDynastyValue": null,
+      "streamingAdds": 6
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.528,
+      "madeLineupFirstWeekShare": 0.278,
+      "meanAddPointsNext3": 14.581,
+      "meanReleasedPointsNext3": 16.57,
+      "pairedMeanAddMinusReleasedNext1": -2.867,
+      "pairedMeanAddPointsNext3": 14.581,
+      "pairedWithRelease": 72,
+      "releasedDynastyValue": null,
+      "streamingAdds": 72
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 56879.0,
+      "acquiredUnvalued": 42,
+      "acquiredValued": 30,
+      "netValuedSum": -26585.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 83464.0,
+      "releasedUnvalued": 15,
+      "releasedValued": 57
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       0.191,
+       7.122
+      ],
+      "mean": 3.743,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 718.601,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       -3.218,
+       9.655
+      ],
+      "mean": 3.009,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 54.166,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 18,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 2516.0,
+      "acquiredUnvalued": 4,
+      "acquiredValued": 2,
+      "netValuedSum": -7471.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 9987.0,
+      "releasedUnvalued": 1,
+      "releasedValued": 5
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.333,
+      "madeLineupFirstWeekShare": 0.278,
+      "meanAddPointsNext3": 26.427,
+      "meanReleasedPointsNext3": 20.52,
+      "pairedMeanAddMinusReleasedNext1": 2.962,
+      "pairedMeanAddPointsNext3": 26.427,
+      "pairedWithRelease": 18,
+      "releasedDynastyValue": null,
+      "streamingAdds": 18
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.391,
+      "madeLineupFirstWeekShare": 0.474,
+      "meanAddPointsNext3": 23.869,
+      "meanReleasedPointsNext3": 20.749,
+      "pairedMeanAddMinusReleasedNext1": 0.647,
+      "pairedMeanAddPointsNext3": 23.869,
+      "pairedWithRelease": 192,
+      "releasedDynastyValue": null,
+      "streamingAdds": 192
+     }
+    }
+   },
+   "unmasked_S3": {
+    "2025": {
+     "addsPerTeamWeek": 2.8,
+     "dynastyValueFlow": null,
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -2.972,
+       10.347
+      ],
+      "mean": 3.582,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 429.864,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       0.618,
+       17.546
+      ],
+      "mean": 8.48,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 101.763,
+      "verdict": "gains"
+     },
+     "managerBAdds": 36,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.361,
+      "madeLineupFirstWeekShare": 0.389,
+      "meanAddPointsNext3": 29.983,
+      "meanReleasedPointsNext3": 24.643,
+      "pairedMeanAddMinusReleasedNext1": 2.646,
+      "pairedMeanAddPointsNext3": 29.983,
+      "pairedWithRelease": 36,
+      "releasedDynastyValue": null,
+      "streamingAdds": 36
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.438,
+      "madeLineupFirstWeekShare": 0.577,
+      "meanAddPointsNext3": 26.204,
+      "meanReleasedPointsNext3": 24.216,
+      "pairedMeanAddMinusReleasedNext1": 1.341,
+      "pairedMeanAddPointsNext3": 26.204,
+      "pairedWithRelease": 336,
+      "releasedDynastyValue": null,
+      "streamingAdds": 336
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 2.806,
+     "dynastyValueFlow": {
+      "acquiredSum": 190854.0,
+      "acquiredUnvalued": 69,
+      "acquiredValued": 133,
+      "netValuedSum": -31003.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 221857.0,
+      "releasedUnvalued": 40,
+      "releasedValued": 162
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -10.282,
+       -0.257
+      ],
+      "mean": -5.084,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -366.02,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -13.444,
+       7.739
+      ],
+      "mean": -3.096,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -18.573,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 17,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 14884.0,
+      "acquiredUnvalued": 6,
+      "acquiredValued": 11,
+      "netValuedSum": -7484.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 22368.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 13
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.647,
+      "madeLineupFirstWeekShare": 0.412,
+      "meanAddPointsNext3": 18.984,
+      "meanReleasedPointsNext3": 18.804,
+      "pairedMeanAddMinusReleasedNext1": -0.976,
+      "pairedMeanAddPointsNext3": 18.984,
+      "pairedWithRelease": 17,
+      "releasedDynastyValue": null,
+      "streamingAdds": 17
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.589,
+      "madeLineupFirstWeekShare": 0.342,
+      "meanAddPointsNext3": 17.196,
+      "meanReleasedPointsNext3": 18.291,
+      "pairedMeanAddMinusReleasedNext1": -1.496,
+      "pairedMeanAddPointsNext3": 17.196,
+      "pairedWithRelease": 202,
+      "releasedDynastyValue": null,
+      "streamingAdds": 202
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 2.802,
+     "dynastyValueFlow": {
+      "acquiredSum": 190854.0,
+      "acquiredUnvalued": 69,
+      "acquiredValued": 133,
+      "netValuedSum": -31003.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 221857.0,
+      "releasedUnvalued": 40,
+      "releasedValued": 162
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -4.473,
+       5.259
+      ],
+      "mean": 0.333,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 63.844,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -2.239,
+       11.993
+      ],
+      "mean": 4.622,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 83.19,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 53,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 14884.0,
+      "acquiredUnvalued": 6,
+      "acquiredValued": 11,
+      "netValuedSum": -7484.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 22368.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 13
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.453,
+      "madeLineupFirstWeekShare": 0.396,
+      "meanAddPointsNext3": 26.455,
+      "meanReleasedPointsNext3": 22.77,
+      "pairedMeanAddMinusReleasedNext1": 1.484,
+      "pairedMeanAddPointsNext3": 26.455,
+      "pairedWithRelease": 53,
+      "releasedDynastyValue": null,
+      "streamingAdds": 53
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.494,
+      "madeLineupFirstWeekShare": 0.489,
+      "meanAddPointsNext3": 22.822,
+      "meanReleasedPointsNext3": 21.991,
+      "pairedMeanAddMinusReleasedNext1": 0.276,
+      "pairedMeanAddPointsNext3": 22.822,
+      "pairedWithRelease": 538,
+      "releasedDynastyValue": null,
+      "streamingAdds": 538
+     }
+    }
+   },
+   "unmasked_S5": {
+    "2025": {
+     "addsPerTeamWeek": 3.883,
+     "dynastyValueFlow": null,
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -4.313,
+       7.989
+      ],
+      "mean": 1.663,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 199.586,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -3.302,
+       11.731
+      ],
+      "mean": 4.237,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 50.838,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 54,
+     "managerBDynastyValueFlow": null,
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.463,
+      "madeLineupFirstWeekShare": 0.407,
+      "meanAddPointsNext3": 26.288,
+      "meanReleasedPointsNext3": 23.374,
+      "pairedMeanAddMinusReleasedNext1": 2.267,
+      "pairedMeanAddPointsNext3": 26.288,
+      "pairedWithRelease": 54,
+      "releasedDynastyValue": null,
+      "streamingAdds": 54
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.464,
+      "madeLineupFirstWeekShare": 0.582,
+      "meanAddPointsNext3": 24.607,
+      "meanReleasedPointsNext3": 23.705,
+      "pairedMeanAddMinusReleasedNext1": 1.426,
+      "pairedMeanAddPointsNext3": 24.607,
+      "pairedWithRelease": 466,
+      "releasedDynastyValue": null,
+      "streamingAdds": 466
+     }
+    },
+    "2026": {
+     "addsPerTeamWeek": 3.625,
+     "dynastyValueFlow": {
+      "acquiredSum": 249523.0,
+      "acquiredUnvalued": 80,
+      "acquiredValued": 181,
+      "netValuedSum": -31762.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 281285.0,
+      "releasedUnvalued": 51,
+      "releasedValued": 210
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -11.163,
+       -0.384
+      ],
+      "mean": -5.665,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -407.858,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -19.223,
+       8.258
+      ],
+      "mean": -5.462,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -32.774,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 26,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 26972.0,
+      "acquiredUnvalued": 6,
+      "acquiredValued": 20,
+      "netValuedSum": -7488.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 34460.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 22
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.538,
+      "madeLineupFirstWeekShare": 0.308,
+      "meanAddPointsNext3": 19.092,
+      "meanReleasedPointsNext3": 20.084,
+      "pairedMeanAddMinusReleasedNext1": -2.509,
+      "pairedMeanAddPointsNext3": 19.092,
+      "pairedWithRelease": 26,
+      "releasedDynastyValue": null,
+      "streamingAdds": 26
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.548,
+      "madeLineupFirstWeekShare": 0.352,
+      "meanAddPointsNext3": 18.83,
+      "meanReleasedPointsNext3": 19.857,
+      "pairedMeanAddMinusReleasedNext1": -1.037,
+      "pairedMeanAddPointsNext3": 18.83,
+      "pairedWithRelease": 261,
+      "releasedDynastyValue": null,
+      "streamingAdds": 261
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 3.786,
+     "dynastyValueFlow": {
+      "acquiredSum": 249523.0,
+      "acquiredUnvalued": 80,
+      "acquiredValued": 181,
+      "netValuedSum": -31762.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 281285.0,
+      "releasedUnvalued": 51,
+      "releasedValued": 210
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -5.544,
+       3.416
+      ],
+      "mean": -1.085,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": -208.272,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -6.341,
+       8.223
+      ],
+      "mean": 1.004,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 18.064,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 80,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 26972.0,
+      "acquiredUnvalued": 6,
+      "acquiredValued": 20,
+      "netValuedSum": -7488.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 34460.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 22
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.487,
+      "madeLineupFirstWeekShare": 0.375,
+      "meanAddPointsNext3": 23.95,
+      "meanReleasedPointsNext3": 22.304,
+      "pairedMeanAddMinusReleasedNext1": 0.715,
+      "pairedMeanAddPointsNext3": 23.95,
+      "pairedWithRelease": 80,
+      "releasedDynastyValue": null,
+      "streamingAdds": 80
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.494,
+      "madeLineupFirstWeekShare": 0.499,
+      "meanAddPointsNext3": 22.533,
+      "meanReleasedPointsNext3": 22.324,
+      "pairedMeanAddMinusReleasedNext1": 0.542,
+      "pairedMeanAddPointsNext3": 22.533,
+      "pairedWithRelease": 727,
+      "releasedDynastyValue": null,
+      "streamingAdds": 727
+     }
+    }
+   }
+  },
+  "5_independent_source_consensus": "N/A: one weekly IDP projection family available historically (Sleeper/RotoWire)",
+  "6_release_lowest_dynasty_value": {
+   "masked_S1": {
+    "2026": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 42599.0,
+      "acquiredUnvalued": 39,
+      "acquiredValued": 33,
+      "netValuedSum": -11839.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 54438.0,
+      "releasedUnvalued": 26,
+      "releasedValued": 46
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -2.857,
+       2.041
+      ],
+      "mean": -0.444,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -31.997,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -7.791,
+       0.62
+      ],
+      "mean": -2.996,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -17.976,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 6,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 1288.0,
+      "acquiredUnvalued": 5,
+      "acquiredValued": 1,
+      "netValuedSum": -1802.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 3090.0,
+      "releasedUnvalued": 3,
+      "releasedValued": 3
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.667,
+      "madeLineupFirstWeekShare": 0.167,
+      "meanAddPointsNext3": 10.563,
+      "meanReleasedPointsNext3": 15.423,
+      "pairedMeanAddMinusReleasedNext1": -1.002,
+      "pairedMeanAddPointsNext3": 10.563,
+      "pairedWithRelease": 6,
+      "releasedDynastyValue": null,
+      "streamingAdds": 6
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.444,
+      "madeLineupFirstWeekShare": 0.347,
+      "meanAddPointsNext3": 13.84,
+      "meanReleasedPointsNext3": 16.055,
+      "pairedMeanAddMinusReleasedNext1": 0.121,
+      "pairedMeanAddPointsNext3": 13.84,
+      "pairedWithRelease": 72,
+      "releasedDynastyValue": null,
+      "streamingAdds": 72
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 42599.0,
+      "acquiredUnvalued": 39,
+      "acquiredValued": 33,
+      "netValuedSum": -11839.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 54438.0,
+      "releasedUnvalued": 26,
+      "releasedValued": 46
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -2.857,
+       2.041
+      ],
+      "mean": -0.444,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -31.997,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -7.791,
+       0.62
+      ],
+      "mean": -2.996,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -17.976,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 6,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 1288.0,
+      "acquiredUnvalued": 5,
+      "acquiredValued": 1,
+      "netValuedSum": -1802.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 3090.0,
+      "releasedUnvalued": 3,
+      "releasedValued": 3
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.667,
+      "madeLineupFirstWeekShare": 0.167,
+      "meanAddPointsNext3": 10.563,
+      "meanReleasedPointsNext3": 15.423,
+      "pairedMeanAddMinusReleasedNext1": -1.002,
+      "pairedMeanAddPointsNext3": 10.563,
+      "pairedWithRelease": 6,
+      "releasedDynastyValue": null,
+      "streamingAdds": 6
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.444,
+      "madeLineupFirstWeekShare": 0.347,
+      "meanAddPointsNext3": 13.84,
+      "meanReleasedPointsNext3": 16.055,
+      "pairedMeanAddMinusReleasedNext1": 0.121,
+      "pairedMeanAddPointsNext3": 13.84,
+      "pairedWithRelease": 72,
+      "releasedDynastyValue": null,
+      "streamingAdds": 72
+     }
+    }
+   },
+   "masked_S3": {
+    "2026": {
+     "addsPerTeamWeek": 2.778,
+     "dynastyValueFlow": {
+      "acquiredSum": 150261.0,
+      "acquiredUnvalued": 83,
+      "acquiredValued": 117,
+      "netValuedSum": -36449.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 186710.0,
+      "releasedUnvalued": 52,
+      "releasedValued": 148
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -8.722,
+       2.938
+      ],
+      "mean": -3.084,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -222.036,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -18.769,
+       0.415
+      ],
+      "mean": -9.221,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -55.327,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 18,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 17519.0,
+      "acquiredUnvalued": 5,
+      "acquiredValued": 13,
+      "netValuedSum": -1255.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 18774.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 14
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.611,
+      "madeLineupFirstWeekShare": 0.389,
+      "meanAddPointsNext3": 15.619,
+      "meanReleasedPointsNext3": 18.951,
+      "pairedMeanAddMinusReleasedNext1": -5.063,
+      "pairedMeanAddPointsNext3": 15.619,
+      "pairedWithRelease": 18,
+      "releasedDynastyValue": null,
+      "streamingAdds": 18
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.51,
+      "madeLineupFirstWeekShare": 0.355,
+      "meanAddPointsNext3": 17.123,
+      "meanReleasedPointsNext3": 18.727,
+      "pairedMeanAddMinusReleasedNext1": -0.776,
+      "pairedMeanAddPointsNext3": 17.123,
+      "pairedWithRelease": 200,
+      "releasedDynastyValue": null,
+      "streamingAdds": 200
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 2.778,
+     "dynastyValueFlow": {
+      "acquiredSum": 150261.0,
+      "acquiredUnvalued": 83,
+      "acquiredValued": 117,
+      "netValuedSum": -36449.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 186710.0,
+      "releasedUnvalued": 52,
+      "releasedValued": 148
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -8.722,
+       2.938
+      ],
+      "mean": -3.084,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -222.036,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -18.769,
+       0.415
+      ],
+      "mean": -9.221,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -55.327,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 18,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 17519.0,
+      "acquiredUnvalued": 5,
+      "acquiredValued": 13,
+      "netValuedSum": -1255.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 18774.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 14
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.611,
+      "madeLineupFirstWeekShare": 0.389,
+      "meanAddPointsNext3": 15.619,
+      "meanReleasedPointsNext3": 18.951,
+      "pairedMeanAddMinusReleasedNext1": -5.063,
+      "pairedMeanAddPointsNext3": 15.619,
+      "pairedWithRelease": 18,
+      "releasedDynastyValue": null,
+      "streamingAdds": 18
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.51,
+      "madeLineupFirstWeekShare": 0.355,
+      "meanAddPointsNext3": 17.123,
+      "meanReleasedPointsNext3": 18.727,
+      "pairedMeanAddMinusReleasedNext1": -0.776,
+      "pairedMeanAddPointsNext3": 17.123,
+      "pairedWithRelease": 200,
+      "releasedDynastyValue": null,
+      "streamingAdds": 200
+     }
+    }
+   },
+   "masked_S5": {
+    "2026": {
+     "addsPerTeamWeek": 3.847,
+     "dynastyValueFlow": {
+      "acquiredSum": 212324.0,
+      "acquiredUnvalued": 112,
+      "acquiredValued": 165,
+      "netValuedSum": -52497.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 264821.0,
+      "releasedUnvalued": 70,
+      "releasedValued": 207
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -10.895,
+       -1.537
+      ],
+      "mean": -5.923,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -426.474,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -20.781,
+       4.855
+      ],
+      "mean": -8.043,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -48.259,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 27,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 25321.0,
+      "acquiredUnvalued": 8,
+      "acquiredValued": 19,
+      "netValuedSum": -8018.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 33339.0,
+      "releasedUnvalued": 6,
+      "releasedValued": 21
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.593,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 15.364,
+      "meanReleasedPointsNext3": 18.147,
+      "pairedMeanAddMinusReleasedNext1": -2.792,
+      "pairedMeanAddPointsNext3": 15.364,
+      "pairedWithRelease": 27,
+      "releasedDynastyValue": null,
+      "streamingAdds": 27
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.531,
+      "madeLineupFirstWeekShare": 0.31,
+      "meanAddPointsNext3": 17.879,
+      "meanReleasedPointsNext3": 19.395,
+      "pairedMeanAddMinusReleasedNext1": -1.998,
+      "pairedMeanAddPointsNext3": 17.879,
+      "pairedWithRelease": 277,
+      "releasedDynastyValue": null,
+      "streamingAdds": 277
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 3.847,
+     "dynastyValueFlow": {
+      "acquiredSum": 212324.0,
+      "acquiredUnvalued": 112,
+      "acquiredValued": 165,
+      "netValuedSum": -52497.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 264821.0,
+      "releasedUnvalued": 70,
+      "releasedValued": 207
+     },
+     "faabCost": 0.0,
+     "league": {
+      "ci95": [
+       -10.895,
+       -1.537
+      ],
+      "mean": -5.923,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -426.474,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -20.781,
+       4.855
+      ],
+      "mean": -8.043,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -48.259,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 27,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 25321.0,
+      "acquiredUnvalued": 8,
+      "acquiredValued": 19,
+      "netValuedSum": -8018.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 33339.0,
+      "releasedUnvalued": 6,
+      "releasedValued": 21
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.593,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 15.364,
+      "meanReleasedPointsNext3": 18.147,
+      "pairedMeanAddMinusReleasedNext1": -2.792,
+      "pairedMeanAddPointsNext3": 15.364,
+      "pairedWithRelease": 27,
+      "releasedDynastyValue": null,
+      "streamingAdds": 27
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.531,
+      "madeLineupFirstWeekShare": 0.31,
+      "meanAddPointsNext3": 17.879,
+      "meanReleasedPointsNext3": 19.395,
+      "pairedMeanAddMinusReleasedNext1": -1.998,
+      "pairedMeanAddPointsNext3": 17.879,
+      "pairedWithRelease": 277,
+      "releasedDynastyValue": null,
+      "streamingAdds": 277
+     }
+    }
+   },
+   "unmasked_S1": {
+    "2026": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 58013.0,
+      "acquiredUnvalued": 38,
+      "acquiredValued": 34,
+      "netValuedSum": -10067.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 68080.0,
+      "releasedUnvalued": 19,
+      "releasedValued": 53
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -7.378,
+       0.585
+      ],
+      "mean": -3.038,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -218.718,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -9.009,
+       -0.134
+      ],
+      "mean": -4.259,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -25.553,
+      "verdict": "loses"
+     },
+     "managerBAdds": 6,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 4369.0,
+      "acquiredUnvalued": 3,
+      "acquiredValued": 3,
+      "netValuedSum": 19.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 4350.0,
+      "releasedUnvalued": 2,
+      "releasedValued": 4
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.667,
+      "madeLineupFirstWeekShare": 0.0,
+      "meanAddPointsNext3": 8.572,
+      "meanReleasedPointsNext3": 15.376,
+      "pairedMeanAddMinusReleasedNext1": -6.957,
+      "pairedMeanAddPointsNext3": 8.572,
+      "pairedWithRelease": 6,
+      "releasedDynastyValue": null,
+      "streamingAdds": 6
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.556,
+      "madeLineupFirstWeekShare": 0.292,
+      "meanAddPointsNext3": 12.691,
+      "meanReleasedPointsNext3": 17.875,
+      "pairedMeanAddMinusReleasedNext1": -3.183,
+      "pairedMeanAddPointsNext3": 12.691,
+      "pairedWithRelease": 72,
+      "releasedDynastyValue": null,
+      "streamingAdds": 72
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 1.0,
+     "dynastyValueFlow": {
+      "acquiredSum": 58013.0,
+      "acquiredUnvalued": 38,
+      "acquiredValued": 34,
+      "netValuedSum": -10067.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 68080.0,
+      "releasedUnvalued": 19,
+      "releasedValued": 53
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -7.378,
+       0.585
+      ],
+      "mean": -3.038,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -218.718,
+      "verdict": "no_detectable_effect"
+     },
+     "managerB": {
+      "ci95": [
+       -9.009,
+       -0.134
+      ],
+      "mean": -4.259,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -25.553,
+      "verdict": "loses"
+     },
+     "managerBAdds": 6,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 4369.0,
+      "acquiredUnvalued": 3,
+      "acquiredValued": 3,
+      "netValuedSum": 19.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 4350.0,
+      "releasedUnvalued": 2,
+      "releasedValued": 4
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.667,
+      "madeLineupFirstWeekShare": 0.0,
+      "meanAddPointsNext3": 8.572,
+      "meanReleasedPointsNext3": 15.376,
+      "pairedMeanAddMinusReleasedNext1": -6.957,
+      "pairedMeanAddPointsNext3": 8.572,
+      "pairedWithRelease": 6,
+      "releasedDynastyValue": null,
+      "streamingAdds": 6
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.556,
+      "madeLineupFirstWeekShare": 0.292,
+      "meanAddPointsNext3": 12.691,
+      "meanReleasedPointsNext3": 17.875,
+      "pairedMeanAddMinusReleasedNext1": -3.183,
+      "pairedMeanAddPointsNext3": 12.691,
+      "pairedWithRelease": 72,
+      "releasedDynastyValue": null,
+      "streamingAdds": 72
+     }
+    }
+   },
+   "unmasked_S3": {
+    "2026": {
+     "addsPerTeamWeek": 2.875,
+     "dynastyValueFlow": {
+      "acquiredSum": 181970.0,
+      "acquiredUnvalued": 79,
+      "acquiredValued": 128,
+      "netValuedSum": -16102.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 198072.0,
+      "releasedUnvalued": 53,
+      "releasedValued": 154
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -10.93,
+       -0.089
+      ],
+      "mean": -5.416,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -389.937,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -13.743,
+       5.824
+      ],
+      "mean": -4.551,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -27.303,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 18,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 15006.0,
+      "acquiredUnvalued": 7,
+      "acquiredValued": 11,
+      "netValuedSum": -3148.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 18154.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 14
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.611,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 17.904,
+      "meanReleasedPointsNext3": 17.897,
+      "pairedMeanAddMinusReleasedNext1": -2.339,
+      "pairedMeanAddPointsNext3": 17.904,
+      "pairedWithRelease": 18,
+      "releasedDynastyValue": null,
+      "streamingAdds": 18
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.56,
+      "madeLineupFirstWeekShare": 0.319,
+      "meanAddPointsNext3": 17.013,
+      "meanReleasedPointsNext3": 18.443,
+      "pairedMeanAddMinusReleasedNext1": -1.719,
+      "pairedMeanAddPointsNext3": 17.013,
+      "pairedWithRelease": 207,
+      "releasedDynastyValue": null,
+      "streamingAdds": 207
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 2.875,
+     "dynastyValueFlow": {
+      "acquiredSum": 181970.0,
+      "acquiredUnvalued": 79,
+      "acquiredValued": 128,
+      "netValuedSum": -16102.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 198072.0,
+      "releasedUnvalued": 53,
+      "releasedValued": 154
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -10.93,
+       -0.089
+      ],
+      "mean": -5.416,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -389.937,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -13.743,
+       5.824
+      ],
+      "mean": -4.551,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -27.303,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 18,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 15006.0,
+      "acquiredUnvalued": 7,
+      "acquiredValued": 11,
+      "netValuedSum": -3148.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 18154.0,
+      "releasedUnvalued": 4,
+      "releasedValued": 14
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.611,
+      "madeLineupFirstWeekShare": 0.333,
+      "meanAddPointsNext3": 17.904,
+      "meanReleasedPointsNext3": 17.897,
+      "pairedMeanAddMinusReleasedNext1": -2.339,
+      "pairedMeanAddPointsNext3": 17.904,
+      "pairedWithRelease": 18,
+      "releasedDynastyValue": null,
+      "streamingAdds": 18
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.56,
+      "madeLineupFirstWeekShare": 0.319,
+      "meanAddPointsNext3": 17.013,
+      "meanReleasedPointsNext3": 18.443,
+      "pairedMeanAddMinusReleasedNext1": -1.719,
+      "pairedMeanAddPointsNext3": 17.013,
+      "pairedWithRelease": 207,
+      "releasedDynastyValue": null,
+      "streamingAdds": 207
+     }
+    }
+   },
+   "unmasked_S5": {
+    "2026": {
+     "addsPerTeamWeek": 3.958,
+     "dynastyValueFlow": {
+      "acquiredSum": 255746.0,
+      "acquiredUnvalued": 98,
+      "acquiredValued": 187,
+      "netValuedSum": -29822.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 285568.0,
+      "releasedUnvalued": 68,
+      "releasedValued": 217
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -11.581,
+       -1.051
+      ],
+      "mean": -6.333,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -455.992,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -21.777,
+       6.54
+      ],
+      "mean": -7.515,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -45.088,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 28,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 27076.0,
+      "acquiredUnvalued": 8,
+      "acquiredValued": 20,
+      "netValuedSum": -8714.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 35790.0,
+      "releasedUnvalued": 5,
+      "releasedValued": 23
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.571,
+      "madeLineupFirstWeekShare": 0.286,
+      "meanAddPointsNext3": 16.149,
+      "meanReleasedPointsNext3": 18.552,
+      "pairedMeanAddMinusReleasedNext1": -2.079,
+      "pairedMeanAddPointsNext3": 16.149,
+      "pairedWithRelease": 28,
+      "releasedDynastyValue": null,
+      "streamingAdds": 28
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.537,
+      "madeLineupFirstWeekShare": 0.323,
+      "meanAddPointsNext3": 18.906,
+      "meanReleasedPointsNext3": 20.121,
+      "pairedMeanAddMinusReleasedNext1": -1.401,
+      "pairedMeanAddPointsNext3": 18.906,
+      "pairedWithRelease": 285,
+      "releasedDynastyValue": null,
+      "streamingAdds": 285
+     }
+    },
+    "pooled": {
+     "addsPerTeamWeek": 3.958,
+     "dynastyValueFlow": {
+      "acquiredSum": 255746.0,
+      "acquiredUnvalued": 98,
+      "acquiredValued": 187,
+      "netValuedSum": -29822.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 285568.0,
+      "releasedUnvalued": 68,
+      "releasedValued": 217
+     },
+     "faabCost": "unknown_contested_adds",
+     "league": {
+      "ci95": [
+       -11.581,
+       -1.051
+      ],
+      "mean": -6.333,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": -455.992,
+      "verdict": "loses"
+     },
+     "managerB": {
+      "ci95": [
+       -21.777,
+       6.54
+      ],
+      "mean": -7.515,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": -45.088,
+      "verdict": "no_detectable_effect"
+     },
+     "managerBAdds": 28,
+     "managerBDynastyValueFlow": {
+      "acquiredSum": 27076.0,
+      "acquiredUnvalued": 8,
+      "acquiredValued": 20,
+      "netValuedSum": -8714.0,
+      "note": "valued players only; unvalued counts are reported, never priced at 0",
+      "releasedSum": 35790.0,
+      "releasedUnvalued": 5,
+      "releasedValued": 23
+     },
+     "managerBSwapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.571,
+      "madeLineupFirstWeekShare": 0.286,
+      "meanAddPointsNext3": 16.149,
+      "meanReleasedPointsNext3": 18.552,
+      "pairedMeanAddMinusReleasedNext1": -2.079,
+      "pairedMeanAddPointsNext3": 16.149,
+      "pairedWithRelease": 28,
+      "releasedDynastyValue": null,
+      "streamingAdds": 28
+     },
+     "swapOutcomes": {
+      "faabSpent": 0.0,
+      "falsePositiveShare": 0.537,
+      "madeLineupFirstWeekShare": 0.323,
+      "meanAddPointsNext3": 18.906,
+      "meanReleasedPointsNext3": 20.121,
+      "pairedMeanAddMinusReleasedNext1": -1.401,
+      "pairedMeanAddPointsNext3": 18.906,
+      "pairedWithRelease": 285,
+      "releasedDynastyValue": null,
+      "streamingAdds": 285
+     }
+    }
+   }
+  },
+  "7_full_dynasty_safe_optimizer": "NOT RUN: awaiting W4 solver (src/waivers/streaming.py) via StreamingPolicy",
+  "8_manager_actual": {
+   "actual": {
+    "2025": {
+     "league": {
+      "ci95": [
+       6.054,
+       17.298
+      ],
+      "mean": 11.994,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 1439.247,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       0.609,
+       23.504
+      ],
+      "mean": 11.461,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 137.527,
+      "verdict": "gains"
+     }
+    },
+    "2026": {
+     "league": {
+      "ci95": [
+       0.728,
+       8.568
+      ],
+      "mean": 4.626,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 333.056,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       10.088,
+       30.158
+      ],
+      "mean": 19.888,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": 119.327,
+      "verdict": "gains"
+     }
+    },
+    "pooled": {
+     "league": {
+      "ci95": [
+       4.971,
+       13.13
+      ],
+      "mean": 9.231,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 1772.303,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       6.051,
+       22.925
+      ],
+      "mean": 14.27,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 256.854,
+      "verdict": "gains"
+     }
+    }
+   },
+   "actual_vs_1b_hold_incl_offense": {
+    "2025": {
+     "league": {
+      "ci95": [
+       6.102,
+       18.278
+      ],
+      "mean": 12.43,
+      "minimum": 6,
+      "n": 120,
+      "nClusters": 10,
+      "total": 1491.631,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       1.639,
+       25.393
+      ],
+      "mean": 12.936,
+      "minimum": 6,
+      "n": 12,
+      "nClusters": null,
+      "total": 155.227,
+      "verdict": "gains"
+     }
+    },
+    "2026": {
+     "league": {
+      "ci95": [
+       1.728,
+       9.023
+      ],
+      "mean": 5.206,
+      "minimum": 6,
+      "n": 72,
+      "nClusters": 12,
+      "total": 374.849,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       10.088,
+       30.158
+      ],
+      "mean": 19.888,
+      "minimum": 6,
+      "n": 6,
+      "nClusters": null,
+      "total": 119.327,
+      "verdict": "gains"
+     }
+    },
+    "pooled": {
+     "league": {
+      "ci95": [
+       5.316,
+       13.853
+      ],
+      "mean": 9.721,
+      "minimum": 6,
+      "n": 192,
+      "nClusters": 22,
+      "total": 1866.479,
+      "verdict": "gains"
+     },
+     "managerB": {
+      "ci95": [
+       6.695,
+       24.236
+      ],
+      "mean": 15.253,
+      "minimum": 6,
+      "n": 18,
+      "nClusters": null,
+      "total": 274.554,
+      "verdict": "gains"
+     }
+    }
+   }
+  }
+ },
+ "generatedAt": "2026-10-29T09:28:21+00:00",
+ "managerB": {
+  "2025": {
+   "activity": {
+    "addsByEffectiveWeek": {
+     "1": 18,
+     "2": 4,
+     "3": 6,
+     "4": 3,
+     "5": 3,
+     "6": 2,
+     "7": 3,
+     "8": 6,
+     "9": 5,
+     "10": 3,
+     "11": 3,
+     "12": 3
+    },
+    "addsByGroup": {
+     "DB": 27,
+     "DL": 15,
+     "LB": 17
+    },
+    "faabOnIdpWaiverWins": 18.0,
+    "idpAdds": 59,
+    "idpAddsBeforeWeek1Kickoff": 18,
+    "idpDrops": 48,
+    "idpWaiverWins": 49,
+    "idpWaiverWinsAtZero": 43
+   },
+   "leagueMeanIdpStreamingAdds": 26.0,
+   "leagueMoveOutcomes": {
+    "faabSpent": 95.0,
+    "falsePositiveShare": 0.382,
+    "madeLineupFirstWeekShare": 0.361,
+    "meanAddPointsNext3": 23.829,
+    "meanReleasedPointsNext3": 18.648,
+    "pairedMeanAddMinusReleasedNext1": 2.582,
+    "pairedMeanAddPointsNext3": 23.917,
+    "pairedWithRelease": 76,
+    "releasedDynastyValue": null,
+    "streamingAdds": 166
+   },
+   "moveOutcomes": {
+    "faabSpent": 3.0,
+    "falsePositiveShare": 0.273,
+    "madeLineupFirstWeekShare": 0.212,
+    "meanAddPointsNext3": 24.187,
+    "meanReleasedPointsNext3": 20.098,
+    "pairedMeanAddMinusReleasedNext1": 3.022,
+    "pairedMeanAddPointsNext3": 25.528,
+    "pairedWithRelease": 22,
+    "releasedDynastyValue": null,
+    "streamingAdds": 33
+   },
+   "streamedInLineupShare": {
+    "filledByStreamedPlayers": 27,
+    "share": 0.25,
+    "starterSlotsFilled": 108
+   }
+  },
+  "2026": {
+   "activity": {
+    "addsByEffectiveWeek": {
+     "1": 12,
+     "2": 6,
+     "3": 6,
+     "4": 8,
+     "5": 7,
+     "6": 7,
+     "7": 5
+    },
+    "addsByGroup": {
+     "DB": 17,
+     "DL": 17,
+     "LB": 17
+    },
+    "faabOnIdpWaiverWins": 64.0,
+    "idpAdds": 51,
+    "idpAddsBeforeWeek1Kickoff": 10,
+    "idpDrops": 35,
+    "idpWaiverWins": 48,
+    "idpWaiverWinsAtZero": 44
+   },
+   "leagueMeanIdpStreamingAdds": 16.667,
+   "leagueMoveOutcomes": {
+    "faabSpent": 123.0,
+    "falsePositiveShare": 0.276,
+    "madeLineupFirstWeekShare": 0.317,
+    "meanAddPointsNext3": 17.793,
+    "meanReleasedPointsNext3": 11.801,
+    "pairedMeanAddMinusReleasedNext1": 5.544,
+    "pairedMeanAddPointsNext3": 19.387,
+    "pairedWithRelease": 76,
+    "releasedDynastyValue": null,
+    "streamingAdds": 126
+   },
+   "moveOutcomes": {
+    "faabSpent": 0.0,
+    "falsePositiveShare": 0.13,
+    "madeLineupFirstWeekShare": 0.27,
+    "meanAddPointsNext3": 20.042,
+    "meanReleasedPointsNext3": 10.56,
+    "pairedMeanAddMinusReleasedNext1": 7.343,
+    "pairedMeanAddPointsNext3": 23.447,
+    "pairedWithRelease": 23,
+    "releasedDynastyValue": {
+     "acquiredSum": 14658.0,
+     "acquiredValued": 14,
+     "releasedSum": 17334.0,
+     "releasedUnvalued": 8,
+     "releasedValued": 15
+    },
+    "streamingAdds": 37
+   },
+   "streamedInLineupShare": {
+    "filledByStreamedPlayers": 17,
+    "share": 0.315,
+    "starterSlotsFilled": 54
+   }
+  }
+ },
+ "managerBActualMinusRule": {
+  "2_previous_week_points": {
+   "masked_S1": {
+    "2025": {
+     "ci95": [
+      -1.632,
+      29.18
+     ],
+     "mean": 12.907,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 154.879,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      1.637,
+      29.676
+     ],
+     "mean": 13.279,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 79.676,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      1.885,
+      24.778
+     ],
+     "mean": 13.031,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 234.555,
+     "verdict": "gains"
+    }
+   },
+   "masked_S3": {
+    "2025": {
+     "ci95": [
+      12.243,
+      33.853
+     ],
+     "mean": 22.94,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 275.284,
+     "verdict": "gains"
+    },
+    "2026": {
+     "ci95": [
+      11.732,
+      46.501
+     ],
+     "mean": 28.726,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 172.356,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      15.405,
+      34.27
+     ],
+     "mean": 24.869,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 447.64,
+     "verdict": "gains"
+    }
+   },
+   "masked_S5": {
+    "2025": {
+     "ci95": [
+      9.065,
+      44.797
+     ],
+     "mean": 25.71,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 308.515,
+     "verdict": "gains"
+    },
+    "2026": {
+     "ci95": [
+      -1.407,
+      39.278
+     ],
+     "mean": 19.669,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 118.013,
+     "verdict": "no_detectable_effect"
+    },
+    "pooled": {
+     "ci95": [
+      10.408,
+      37.851
+     ],
+     "mean": 23.696,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 426.528,
+     "verdict": "gains"
+    }
+   },
+   "unmasked_S1": {
+    "2025": {
+     "ci95": [
+      0.098,
+      30.051
+     ],
+     "mean": 14.309,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 171.708,
+     "verdict": "gains"
+    },
+    "2026": {
+     "ci95": [
+      7.013,
+      25.614
+     ],
+     "mean": 15.943,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 95.66,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      4.827,
+      25.71
+     ],
+     "mean": 14.854,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 267.368,
+     "verdict": "gains"
+    }
+   },
+   "unmasked_S3": {
+    "2025": {
+     "ci95": [
+      2.163,
+      35.111
+     ],
+     "mean": 18.421,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 221.049,
+     "verdict": "gains"
+    },
+    "2026": {
+     "ci95": [
+      9.514,
+      28.365
+     ],
+     "mean": 18.505,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 111.03,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      7.01,
+      29.743
+     ],
+     "mean": 18.449,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 332.079,
+     "verdict": "gains"
+    }
+   },
+   "unmasked_S5": {
+    "2025": {
+     "ci95": [
+      2.782,
+      42.084
+     ],
+     "mean": 21.095,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 253.135,
+     "verdict": "gains"
+    },
+    "2026": {
+     "ci95": [
+      7.337,
+      22.571
+     ],
+     "mean": 14.786,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 88.719,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      6.149,
+      32.994
+     ],
+     "mean": 18.992,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 341.854,
+     "verdict": "gains"
+    }
+   }
+  },
+  "3_rolling_recent_production": {
+   "masked_S1": {
+    "2025": {
+     "ci95": [
+      -7.058,
+      12.745
+     ],
+     "mean": 2.927,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 35.123,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      13.485,
+      34.789
+     ],
+     "mean": 23.576,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 141.456,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      0.923,
+      18.554
+     ],
+     "mean": 9.81,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 176.578,
+     "verdict": "gains"
+    }
+   },
+   "masked_S3": {
+    "2025": {
+     "ci95": [
+      -7.483,
+      24.926
+     ],
+     "mean": 8.328,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 99.932,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      5.159,
+      44.034
+     ],
+     "mean": 22.525,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 135.152,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      -0.014,
+      26.286
+     ],
+     "mean": 13.06,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 235.084,
+     "verdict": "no_detectable_effect"
+    }
+   },
+   "masked_S5": {
+    "2025": {
+     "ci95": [
+      -2.51,
+      33.243
+     ],
+     "mean": 14.422,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 173.068,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      2.525,
+      43.846
+     ],
+     "mean": 20.668,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 124.008,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      3.106,
+      30.592
+     ],
+     "mean": 16.504,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 297.076,
+     "verdict": "gains"
+    }
+   },
+   "unmasked_S1": {
+    "2025": {
+     "ci95": [
+      -6.978,
+      12.824
+     ],
+     "mean": 2.99,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 35.877,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      12.982,
+      35.591
+     ],
+     "mean": 24.007,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 144.044,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      0.994,
+      18.865
+     ],
+     "mean": 9.996,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 179.921,
+     "verdict": "gains"
+    }
+   },
+   "unmasked_S3": {
+    "2025": {
+     "ci95": [
+      -9.349,
+      24.36
+     ],
+     "mean": 7.647,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 91.763,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      3.926,
+      29.536
+     ],
+     "mean": 14.17,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 85.02,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      -2.591,
+      22.024
+     ],
+     "mean": 9.821,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 176.783,
+     "verdict": "no_detectable_effect"
+    }
+   },
+   "unmasked_S5": {
+    "2025": {
+     "ci95": [
+      -6.787,
+      30.065
+     ],
+     "mean": 11.453,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 137.432,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      3.646,
+      38.8
+     ],
+     "mean": 19.112,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 114.67,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      0.131,
+      27.846
+     ],
+     "mean": 14.006,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 252.102,
+     "verdict": "gains"
+    }
+   }
+  },
+  "4_single_projection_provider": {
+   "masked_S1": {
+    "2025": {
+     "ci95": [
+      -5.987,
+      13.638
+     ],
+     "mean": 3.121,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 37.457,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      10.844,
+      35.932
+     ],
+     "mean": 23.0,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 138.002,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      0.972,
+      18.913
+     ],
+     "mean": 9.748,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 175.459,
+     "verdict": "gains"
+    }
+   },
+   "masked_S3": {
+    "2025": {
+     "ci95": [
+      -1.293,
+      15.096
+     ],
+     "mean": 6.566,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 78.789,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      9.995,
+      37.475
+     ],
+     "mean": 23.172,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 139.033,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      4.247,
+      20.443
+     ],
+     "mean": 12.101,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 217.823,
+     "verdict": "gains"
+    }
+   },
+   "masked_S5": {
+    "2025": {
+     "ci95": [
+      -12.059,
+      18.766
+     ],
+     "mean": 3.551,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 42.606,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      15.068,
+      40.38
+     ],
+     "mean": 27.724,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 166.343,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      -1.125,
+      23.725
+     ],
+     "mean": 11.608,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 208.949,
+     "verdict": "no_detectable_effect"
+    }
+   },
+   "unmasked_S1": {
+    "2025": {
+     "ci95": [
+      -4.62,
+      18.976
+     ],
+     "mean": 5.974,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 71.688,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      12.499,
+      33.016
+     ],
+     "mean": 21.833,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 131.0,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      2.254,
+      21.202
+     ],
+     "mean": 11.26,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 202.688,
+     "verdict": "gains"
+    }
+   },
+   "unmasked_S3": {
+    "2025": {
+     "ci95": [
+      -4.747,
+      11.646
+     ],
+     "mean": 2.98,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 35.764,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      10.1,
+      37.615
+     ],
+     "mean": 22.983,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 137.9,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      1.639,
+      18.364
+     ],
+     "mean": 9.648,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 173.664,
+     "verdict": "gains"
+    }
+   },
+   "unmasked_S5": {
+    "2025": {
+     "ci95": [
+      -4.78,
+      19.722
+     ],
+     "mean": 7.224,
+     "minimum": 6,
+     "n": 12,
+     "nClusters": null,
+     "total": 86.689,
+     "verdict": "no_detectable_effect"
+    },
+    "2026": {
+     "ci95": [
+      9.266,
+      41.438
+     ],
+     "mean": 25.35,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 152.101,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      2.623,
+      24.085
+     ],
+     "mean": 13.266,
+     "minimum": 6,
+     "n": 18,
+     "nClusters": null,
+     "total": 238.79,
+     "verdict": "gains"
+    }
+   }
+  },
+  "6_release_lowest_dynasty_value": {
+   "masked_S1": {
+    "2026": {
+     "ci95": [
+      11.271,
+      35.694
+     ],
+     "mean": 22.884,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 137.302,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      11.271,
+      35.694
+     ],
+     "mean": 22.884,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 137.302,
+     "verdict": "gains"
+    }
+   },
+   "masked_S3": {
+    "2026": {
+     "ci95": [
+      15.629,
+      41.927
+     ],
+     "mean": 29.109,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 174.653,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      15.629,
+      41.927
+     ],
+     "mean": 29.109,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 174.653,
+     "verdict": "gains"
+    }
+   },
+   "masked_S5": {
+    "2026": {
+     "ci95": [
+      14.396,
+      41.69
+     ],
+     "mean": 27.931,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 167.586,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      14.396,
+      41.69
+     ],
+     "mean": 27.931,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 167.586,
+     "verdict": "gains"
+    }
+   },
+   "unmasked_S1": {
+    "2026": {
+     "ci95": [
+      12.884,
+      36.517
+     ],
+     "mean": 24.147,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 144.88,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      12.884,
+      36.517
+     ],
+     "mean": 24.147,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 144.88,
+     "verdict": "gains"
+    }
+   },
+   "unmasked_S3": {
+    "2026": {
+     "ci95": [
+      13.563,
+      37.954
+     ],
+     "mean": 24.438,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 146.63,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      13.563,
+      37.954
+     ],
+     "mean": 24.438,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 146.63,
+     "verdict": "gains"
+    }
+   },
+   "unmasked_S5": {
+    "2026": {
+     "ci95": [
+      12.875,
+      42.713
+     ],
+     "mean": 27.402,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 164.414,
+     "verdict": "gains"
+    },
+    "pooled": {
+     "ci95": [
+      12.875,
+      42.713
+     ],
+     "mean": 27.402,
+     "minimum": 6,
+     "n": 6,
+     "nClusters": null,
+     "total": 164.414,
+     "verdict": "gains"
+    }
+   }
+  }
+ },
+ "perTeam": [
+  {
+   "actualMeanDefenders": 27.083,
+   "actualMeanDefendersNotPlaying": 3.833,
+   "actualMinusHoldMean": 21.856,
+   "decisionWeeks": 12,
+   "faabOnIdpWaiverWins": 62.0,
+   "holdMeanDefenders": 23.333,
+   "holdMeanDefendersNotPlaying": 3.75,
+   "holdMeanLineupPoints": 312.998,
+   "idpStreamingAdds": 45,
+   "idpStreamingAddsPerScoredWeek": 3.462,
+   "isManagerB": false,
+   "label": "T01",
+   "season": 2025
+  },
+  {
+   "actualMeanDefenders": 14.833,
+   "actualMeanDefendersNotPlaying": 0.833,
+   "actualMinusHoldMean": 12.513,
+   "decisionWeeks": 12,
+   "faabOnIdpWaiverWins": 10.0,
+   "holdMeanDefenders": 14.0,
+   "holdMeanDefendersNotPlaying": 1.417,
+   "holdMeanLineupPoints": 351.804,
+   "idpStreamingAdds": 21,
+   "idpStreamingAddsPerScoredWeek": 1.615,
+   "isManagerB": false,
+   "label": "T02",
+   "season": 2025
+  },
+  {
+   "actualMeanDefenders": 24.5,
+   "actualMeanDefendersNotPlaying": 3.0,
+   "actualMinusHoldMean": 8.787,
+   "decisionWeeks": 12,
+   "faabOnIdpWaiverWins": 0.0,
+   "holdMeanDefenders": 24.0,
+   "holdMeanDefendersNotPlaying": 3.083,
+   "holdMeanLineupPoints": 354.321,
+   "idpStreamingAdds": 16,
+   "idpStreamingAddsPerScoredWeek": 1.231,
+   "isManagerB": false,
+   "label": "T03",
+   "season": 2025
+  },
+  {
+   "actualMeanDefenders": 21.167,
+   "actualMeanDefendersNotPlaying": 2.5,
+   "actualMinusHoldMean": 17.384,
+   "decisionWeeks": 12,
+   "faabOnIdpWaiverWins": 62.0,
+   "holdMeanDefenders": 19.0,
+   "holdMeanDefendersNotPlaying": 2.083,
+   "holdMeanLineupPoints": 358.502,
+   "idpStreamingAdds": 21,
+   "idpStreamingAddsPerScoredWeek": 1.615,
+   "isManagerB": false,
+   "label": "T04",
+   "season": 2025
+  },
+  {
+   "actualMeanDefenders": 17.583,
+   "actualMeanDefendersNotPlaying": 2.0,
+   "actualMinusHoldMean": 12.989,
+   "decisionWeeks": 12,
+   "faabOnIdpWaiverWins": 14.0,
+   "holdMeanDefenders": 14.0,
+   "holdMeanDefendersNotPlaying": 2.333,
+   "holdMeanLineupPoints": 365.595,
+   "idpStreamingAdds": 11,
+   "idpStreamingAddsPerScoredWeek": 0.846,
+   "isManagerB": false,
+   "label": "T05",
+   "season": 2025
+  },
+  {
+   "actualMeanDefenders": 18.75,
+   "actualMeanDefendersNotPlaying": 2.0,
+   "actualMinusHoldMean": 24.512,
+   "decisionWeeks": 12,
+   "faabOnIdpWaiverWins": 68.0,
+   "holdMeanDefenders": 16.5,
+   "holdMeanDefendersNotPlaying": 2.25,
+   "holdMeanLineupPoints": 365.713,
+   "idpStreamingAdds": 30,
+   "idpStreamingAddsPerScoredWeek": 2.308,
+   "isManagerB": false,
+   "label": "T06",
+   "season": 2025
+  },
+  {
+   "actualMeanDefenders": 21.083,
+   "actualMeanDefendersNotPlaying": 2.5,
+   "actualMinusHoldMean": 17.495,
+   "decisionWeeks": 12,
+   "faabOnIdpWaiverWins": 26.0,
+   "holdMeanDefenders": 15.833,
+   "holdMeanDefendersNotPlaying": 2.833,
+   "holdMeanLineupPoints": 378.348,
+   "idpStreamingAdds": 41,
+   "idpStreamingAddsPerScoredWeek": 3.154,
+   "isManagerB": false,
+   "label": "T07",
+   "season": 2025
+  },
+  {
+   "actualMeanDefenders": 17.0,
+   "actualMeanDefendersNotPlaying": 2.5,
+   "actualMinusHoldMean": -7.1,
+   "decisionWeeks": 12,
+   "faabOnIdpWaiverWins": 3.0,
+   "holdMeanDefenders": 17.333,
+   "holdMeanDefendersNotPlaying": 2.583,
+   "holdMeanLineupPoints": 378.661,
+   "idpStreamingAdds": 5,
+   "idpStreamingAddsPerScoredWeek": 0.385,
+   "isManagerB": false,
+   "label": "T08",
+   "season": 2025
+  },
+  {
+   "actualMeanDefenders": 21.667,
+   "actualMeanDefendersNotPlaying": 3.167,
+   "actualMinusHoldMean": 0.04,
+   "decisionWeeks": 12,
+   "faabOnIdpWaiverWins": 55.0,
+   "holdMeanDefenders": 19.333,
+   "holdMeanDefendersNotPlaying": 2.917,
+   "holdMeanLineupPoints": 388.007,
+   "idpStreamingAdds": 11,
+   "idpStreamingAddsPerScoredWeek": 0.846,
+   "isManagerB": false,
+   "label": "T09",
+   "season": 2025
+  },
+  {
+   "actualMeanDefenders": 22.833,
+   "actualMeanDefendersNotPlaying": 2.167,
+   "actualMinusHoldMean": 11.461,
+   "decisionWeeks": 12,
+   "faabOnIdpWaiverWins": 18.0,
+   "holdMeanDefenders": 24.167,
+   "holdMeanDefendersNotPlaying": 2.833,
+   "holdMeanLineupPoints": 429.801,
+   "idpStreamingAdds": 59,
+   "idpStreamingAddsPerScoredWeek": 4.538,
+   "isManagerB": true,
+   "label": "manager B",
+   "season": 2025
+  },
+  {
+   "actualMeanDefenders": 28.333,
+   "actualMeanDefendersNotPlaying": 3.833,
+   "actualMinusHoldMean": 1.454,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 2.0,
+   "holdMeanDefenders": 27.0,
+   "holdMeanDefendersNotPlaying": 3.667,
+   "holdMeanLineupPoints": 240.425,
+   "idpStreamingAdds": 8,
+   "idpStreamingAddsPerScoredWeek": 1.143,
+   "isManagerB": false,
+   "label": "T01",
+   "season": 2026
+  },
+  {
+   "actualMeanDefenders": 28.0,
+   "actualMeanDefendersNotPlaying": 2.667,
+   "actualMinusHoldMean": 6.013,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 34.0,
+   "holdMeanDefenders": 27.0,
+   "holdMeanDefendersNotPlaying": 3.667,
+   "holdMeanLineupPoints": 241.279,
+   "idpStreamingAdds": 18,
+   "idpStreamingAddsPerScoredWeek": 2.571,
+   "isManagerB": false,
+   "label": "T02",
+   "season": 2026
+  },
+  {
+   "actualMeanDefenders": 28.833,
+   "actualMeanDefendersNotPlaying": 3.833,
+   "actualMinusHoldMean": 4.0,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 23.0,
+   "holdMeanDefenders": 27.333,
+   "holdMeanDefendersNotPlaying": 3.833,
+   "holdMeanLineupPoints": 288.924,
+   "idpStreamingAdds": 26,
+   "idpStreamingAddsPerScoredWeek": 3.714,
+   "isManagerB": false,
+   "label": "T03",
+   "season": 2026
+  },
+  {
+   "actualMeanDefenders": 29.5,
+   "actualMeanDefendersNotPlaying": 3.333,
+   "actualMinusHoldMean": 8.149,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 13.0,
+   "holdMeanDefenders": 26.833,
+   "holdMeanDefendersNotPlaying": 3.167,
+   "holdMeanLineupPoints": 317.756,
+   "idpStreamingAdds": 31,
+   "idpStreamingAddsPerScoredWeek": 4.429,
+   "isManagerB": false,
+   "label": "T04",
+   "season": 2026
+  },
+  {
+   "actualMeanDefenders": 19.0,
+   "actualMeanDefendersNotPlaying": 2.5,
+   "actualMinusHoldMean": 0.0,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 0,
+   "holdMeanDefenders": 19.0,
+   "holdMeanDefendersNotPlaying": 2.5,
+   "holdMeanLineupPoints": 328.632,
+   "idpStreamingAdds": 0,
+   "idpStreamingAddsPerScoredWeek": 0.0,
+   "isManagerB": false,
+   "label": "T05",
+   "season": 2026
+  },
+  {
+   "actualMeanDefenders": 24.0,
+   "actualMeanDefendersNotPlaying": 2.833,
+   "actualMinusHoldMean": 3.979,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 19.0,
+   "holdMeanDefenders": 23.833,
+   "holdMeanDefendersNotPlaying": 2.833,
+   "holdMeanLineupPoints": 366.356,
+   "idpStreamingAdds": 9,
+   "idpStreamingAddsPerScoredWeek": 1.286,
+   "isManagerB": false,
+   "label": "T06",
+   "season": 2026
+  },
+  {
+   "actualMeanDefenders": 19.0,
+   "actualMeanDefendersNotPlaying": 2.167,
+   "actualMinusHoldMean": 5.401,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 0.0,
+   "holdMeanDefenders": 19.0,
+   "holdMeanDefendersNotPlaying": 2.333,
+   "holdMeanLineupPoints": 372.937,
+   "idpStreamingAdds": 3,
+   "idpStreamingAddsPerScoredWeek": 0.429,
+   "isManagerB": false,
+   "label": "T07",
+   "season": 2026
+  },
+  {
+   "actualMeanDefenders": 25.333,
+   "actualMeanDefendersNotPlaying": 2.167,
+   "actualMinusHoldMean": -10.06,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 46.0,
+   "holdMeanDefenders": 25.0,
+   "holdMeanDefendersNotPlaying": 3.0,
+   "holdMeanLineupPoints": 377.544,
+   "idpStreamingAdds": 25,
+   "idpStreamingAddsPerScoredWeek": 3.571,
+   "isManagerB": false,
+   "label": "T08",
+   "season": 2026
+  },
+  {
+   "actualMeanDefenders": 24.0,
+   "actualMeanDefendersNotPlaying": 2.833,
+   "actualMinusHoldMean": 13.188,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 30.0,
+   "holdMeanDefenders": 21.0,
+   "holdMeanDefendersNotPlaying": 3.5,
+   "holdMeanLineupPoints": 378.491,
+   "idpStreamingAdds": 12,
+   "idpStreamingAddsPerScoredWeek": 1.714,
+   "isManagerB": false,
+   "label": "T09",
+   "season": 2026
+  },
+  {
+   "actualMeanDefenders": 26.667,
+   "actualMeanDefendersNotPlaying": 2.0,
+   "actualMinusHoldMean": 2.352,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 13.0,
+   "holdMeanDefenders": 25.0,
+   "holdMeanDefendersNotPlaying": 1.833,
+   "holdMeanLineupPoints": 379.676,
+   "idpStreamingAdds": 3,
+   "idpStreamingAddsPerScoredWeek": 0.429,
+   "isManagerB": false,
+   "label": "T10",
+   "season": 2026
+  },
+  {
+   "actualMeanDefenders": 23.0,
+   "actualMeanDefendersNotPlaying": 1.5,
+   "actualMinusHoldMean": 1.146,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 15.0,
+   "holdMeanDefenders": 23.333,
+   "holdMeanDefendersNotPlaying": 1.833,
+   "holdMeanLineupPoints": 383.116,
+   "idpStreamingAdds": 14,
+   "idpStreamingAddsPerScoredWeek": 2.0,
+   "isManagerB": false,
+   "label": "T11",
+   "season": 2026
+  },
+  {
+   "actualMeanDefenders": 32.167,
+   "actualMeanDefendersNotPlaying": 3.333,
+   "actualMinusHoldMean": 19.888,
+   "decisionWeeks": 6,
+   "faabOnIdpWaiverWins": 64.0,
+   "holdMeanDefenders": 27.0,
+   "holdMeanDefendersNotPlaying": 4.333,
+   "holdMeanLineupPoints": 407.119,
+   "idpStreamingAdds": 51,
+   "idpStreamingAddsPerScoredWeek": 7.286,
+   "isManagerB": true,
+   "label": "manager B",
+   "season": 2026
+  }
+ ],
+ "preregistration": "docs/waivers/IDP_STREAMING_BACKTEST_PREREGISTRATION_2026-10-29.md",
+ "schema": "idp_streaming_backtest_v1",
+ "seasons": {
+  "2025": {
+   "bestBallVerified": false,
+   "cutoffSource": "nflverse_schedule",
+   "decisionWeeks": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "dynastyValueSource": "unavailable: before_history_boundary (2026-07-14)",
+   "idpScoringKeys": {
+    "idp_blk_kick": 5.5,
+    "idp_def_td": 6.6,
+    "idp_ff": 4.4,
+    "idp_fum_rec": 3.3,
+    "idp_fum_ret_yd": 0.111,
+    "idp_int": 6.6,
+    "idp_int_ret_yd": 0.111,
+    "idp_pass_def": 4.4,
+    "idp_pass_def_3p": 0.0,
+    "idp_qb_hit": 2.2,
+    "idp_sack": 3.03,
+    "idp_sack_yd": 0.111,
+    "idp_safe": 5.5,
+    "idp_tkl_ast": 0.83,
+    "idp_tkl_loss": 4.4,
+    "idp_tkl_solo": 1.38
+   },
+   "idpSlots": [
+    "DL",
+    "DL",
+    "IDP_FLEX",
+    "LB",
+    "LB",
+    "LB",
+    "DB",
+    "DB",
+    "DB"
+   ],
+   "lineupQuantity": "optimal_lineup_POTENTIAL_points (host lineups were manager-set)",
+   "managerBPresent": true,
+   "projectionAccuracy": {
+    "byPosition": {
+     "DB": {
+      "bias": -0.511,
+      "mae": 4.343,
+      "n": 3021,
+      "rmse": 6.209
+     },
+     "DL": {
+      "bias": -1.074,
+      "mae": 4.739,
+      "n": 2822,
+      "rmse": 7.031
+     },
+     "LB": {
+      "bias": -0.489,
+      "mae": 4.747,
+      "n": 2044,
+      "rmse": 6.853
+     }
+    },
+    "projectionRows": 7915,
+    "rowsUpdatedAfterCutoff": 7915,
+    "shareUpdatedAfterCutoff": 1.0
+   },
+   "projectionWeeksAvailable": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "scoredWeeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "slotSource": "inferred_from_host_starters(manager_set)",
+   "starterSlots": [
+    "QB",
+    "RB",
+    "RB",
+    "WR",
+    "WR",
+    "WR",
+    "TE",
+    "TE",
+    "FLEX",
+    "FLEX",
+    "FLEX",
+    "SUPER_FLEX",
+    "K",
+    "DL",
+    "DL",
+    "IDP_FLEX",
+    "LB",
+    "LB",
+    "LB",
+    "DB",
+    "DB",
+    "DB"
+   ],
+   "teams": 10,
+   "verification": {
+    "forwardReconstructionDefendersOnly": {
+     "exactMatches": 114,
+     "exactShare": 0.877,
+     "rosterWeeks": 130,
+     "totalPlayerMismatches": 22
+    },
+    "forwardTransactionReconstructionVsMatchupRosters": {
+     "exactMatches": 97,
+     "exactShare": 0.746,
+     "rosterWeeks": 130,
+     "totalPlayerMismatches": 82
+    },
+    "idpRosterChanges": 376,
+    "idpRosterChangesByKind": {
+     "free_agent": 119,
+     "trade": 53,
+     "unattributed": 17,
+     "waiver": 187
+    },
+    "idpRosterChangesUnattributed": 17,
+    "lineupReproductionVsHostTeamPoints": {
+     "agree": 14,
+     "maxAbsDiff": 23.32,
+     "teamWeeks": 130,
+     "tolerance": 0.02
+    },
+    "rescoringVsHostPlayerPoints": {
+     "agree": 7021,
+     "idpAgree": 2661,
+     "idpPlayerWeeks": 2661,
+     "maxAbsDiff": 0.005,
+     "playerWeeks": 7021,
+     "tolerance": 0.011
+    }
+   }
+  },
+  "2026": {
+   "bestBallVerified": true,
+   "cutoffSource": "nflverse_schedule",
+   "decisionWeeks": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "dynastyValueSource": "source_value:idpTradeCalc (vendor value, NOT canonical)",
+   "idpScoringKeys": {
+    "idp_blk_kick": 5.3,
+    "idp_def_td": 6.36,
+    "idp_ff": 4.24,
+    "idp_fum_rec": 3.19,
+    "idp_fum_ret_yd": 0.111,
+    "idp_int": 5.3,
+    "idp_int_ret_yd": 0.111,
+    "idp_pass_def": 5.3,
+    "idp_pass_def_3p": 0.0,
+    "idp_qb_hit": 2.12,
+    "idp_sack": 2.92,
+    "idp_sack_yd": 0.111,
+    "idp_safe": 5.3,
+    "idp_tkl": 0.0,
+    "idp_tkl_ast": 0.8,
+    "idp_tkl_loss": 4.24,
+    "idp_tkl_solo": 1.33
+   },
+   "idpSlots": [
+    "DL",
+    "DL",
+    "DL",
+    "LB",
+    "LB",
+    "LB",
+    "DB",
+    "DB",
+    "DB"
+   ],
+   "lineupQuantity": "host_awarded_best_ball_points",
+   "managerBPresent": true,
+   "projectionAccuracy": {
+    "byPosition": {
+     "DB": {
+      "bias": -1.573,
+      "mae": 4.649,
+      "n": 1609,
+      "rmse": 7.006
+     },
+     "DL": {
+      "bias": -1.093,
+      "mae": 4.472,
+      "n": 1575,
+      "rmse": 6.551
+     },
+     "LB": {
+      "bias": -1.346,
+      "mae": 4.839,
+      "n": 1096,
+      "rmse": 7.306
+     }
+    },
+    "projectionRows": 4315,
+    "rowsUpdatedAfterCutoff": 4315,
+    "shareUpdatedAfterCutoff": 1.0
+   },
+   "projectionWeeksAvailable": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "scoredWeeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "slotSource": "published_roster_positions(verified)",
+   "starterSlots": [
+    "QB",
+    "RB",
+    "RB",
+    "WR",
+    "WR",
+    "WR",
+    "TE",
+    "TE",
+    "FLEX",
+    "FLEX",
+    "SUPER_FLEX",
+    "K",
+    "DL",
+    "DL",
+    "DL",
+    "LB",
+    "LB",
+    "LB",
+    "DB",
+    "DB",
+    "DB"
+   ],
+   "teams": 12,
+   "verification": {
+    "forwardReconstructionDefendersOnly": {
+     "exactMatches": 82,
+     "exactShare": 0.976,
+     "rosterWeeks": 84,
+     "totalPlayerMismatches": 3
+    },
+    "forwardTransactionReconstructionVsMatchupRosters": {
+     "exactMatches": 68,
+     "exactShare": 0.81,
+     "rosterWeeks": 84,
+     "totalPlayerMismatches": 27
+    },
+    "idpRosterChanges": 247,
+    "idpRosterChangesByKind": {
+     "free_agent": 34,
+     "trade": 16,
+     "unattributed": 2,
+     "waiver": 195
+    },
+    "idpRosterChangesUnattributed": 2,
+    "lineupReproductionVsHostTeamPoints": {
+     "agree": 84,
+     "maxAbsDiff": 0.0,
+     "teamWeeks": 84,
+     "tolerance": 0.02
+    },
+    "rescoringVsHostPlayerPoints": {
+     "agree": 4867,
+     "idpAgree": 2138,
+     "idpPlayerWeeks": 2138,
+     "maxAbsDiff": 0.004,
+     "playerWeeks": 4867,
+     "tolerance": 0.011
+    }
+   }
+  }
+ }
+}
