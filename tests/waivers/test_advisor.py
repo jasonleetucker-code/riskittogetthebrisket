@@ -98,9 +98,22 @@ def _contract(*, faab=50, roster=None, extra_rows=()):
     }
 
 
-def _targets(contract, *, methodology="market_aware", bids=None):
+def _targets(contract, *, methodology="market_aware", bids=None, season_phase="current"):
     bids = bids or {}
     out = {"by_position": {}, "bidMethodology": methodology}
+    if season_phase == "current":
+        from src.trade import faab_engine as engine
+
+        week, in_season = engine.current_nfl_week()
+        out["seasonPhase"] = {
+            "owner": "src/trade/faab_engine.py::current_nfl_week",
+            "currentWeek": week,
+            "inSeason": in_season,
+            "playoffWeekStart": 15,
+            "playoffWeekStartSource": "default",
+        }
+    elif season_phase is not None:
+        out["seasonPhase"] = season_phase
     rostered = {n for t in contract["sleeper"]["teams"] for n in t["players"]}
     for row in contract["playersArray"]:
         if row["displayName"] in rostered or not row["rankDerivedValue"]:
@@ -148,10 +161,11 @@ def _assemble(
     position="ALL",
     limit=25,
     forced_on=False,
+    season_phase="current",
 ):
     contract = contract or _contract()
     roster_settings = {"rosterSize": 5} if roster_settings is None else roster_settings
-    targets = _targets(contract, methodology=methodology, bids=bids)
+    targets = _targets(contract, methodology=methodology, bids=bids, season_phase=season_phase)
     plan = build_perfect_waivers(
         contract,
         league_key="pw",
@@ -387,9 +401,12 @@ def test_team_faab_context_states_balance_option_value_and_history():
     assert faab["bidHistory"]["state"] == "missing"
     so = faab["seasonOption"]
     assert so["owner"].endswith("season_option_value")
-    # Since IST-7 the list bids run under the same season phase as the desk.
+    # Since IST-7 the list bids run under the same season phase as the desk;
+    # the list side is read from what find_waiver_targets REPORTED.
     assert so["listBids"]["reason"] == so["bidDesk"]["reason"]
     assert so["listBids"]["factor"] == so["bidDesk"]["factor"]
+    assert so["listBids"]["seasonPhase"]["owner"].endswith("current_nfl_week")
+    assert so["playoffWeekStartSource"] == "default"
     assert so["competitiveStatusUsed"] == "bubble"
     assert faab["crowdEvidence"]["state"] == "evaluated_per_pair_in_bid_desk"
 
@@ -546,3 +563,17 @@ def test_no_second_bid_formula_or_value_owner():
     assert "recommend_faab" not in called
     # No feature flag is ever set from here.
     assert "setenv" not in src and "_DEFAULTS[" not in src
+
+
+def test_list_bid_season_phase_is_read_not_rebuilt():
+    # A list path that ran under a different phase shows as a divergence.
+    offseason = {"currentWeek": None, "inSeason": False, "playoffWeekStart": 15}
+    so = _assemble(season_phase=offseason)["faab"]["seasonOption"]
+    assert so["listBids"]["seasonPhase"] == offseason
+    assert so["listBids"]["reason"].startswith("offseason")
+    missing = _assemble(season_phase=None)["faab"]["seasonOption"]
+    assert missing["listBids"] == {
+        "factor": None,
+        "reason": "season_phase_not_reported",
+        "seasonPhase": None,
+    }

@@ -330,6 +330,7 @@ class TestDegradedInputs:
                 "currentWeek": None,
                 "inSeason": False,
                 "playoffWeekStart": 15,
+                "playoffWeekStartSource": "default",
             },
         }
 
@@ -521,11 +522,9 @@ class TestListBidSeasonPhase:
             return ctx
 
         monkeypatch.setattr(engine, "LeagueContext", spy)
-        out = w.find_waiver_targets(
-            _contract(_player("Free LB", "LB", 2000)),
-            sleeper_teams=[{"playoffWeekStart": 14}],
-            today=date(2026, 10, 29),
-        )
+        contract = _contract(_player("Free LB", "LB", 2000))
+        contract["sleeper"] = {"leagueSettings": {"playoff_week_start": 14}}
+        out = w.find_waiver_targets(contract, sleeper_teams=[], today=date(2026, 10, 29))
         ctx = seen["ctx"]
         assert ctx.current_week == 8
         assert ctx.in_season is True
@@ -535,7 +534,43 @@ class TestListBidSeasonPhase:
             "currentWeek": 8,
             "inSeason": True,
             "playoffWeekStart": 14,
+            "playoffWeekStartSource": "league_settings",
         }
+
+    def test_playoff_start_is_never_read_from_team_rows(self):
+        # No producer puts a playoff week on a team row; the league's settings
+        # are the one source, and their absence is stamped as the default.
+        out = w.find_waiver_targets(
+            _contract(_player("Free LB", "LB", 2000)),
+            sleeper_teams=[{"playoffWeekStart": 14}],
+            today=date(2026, 10, 29),
+        )
+        assert out["seasonPhase"]["playoffWeekStart"] == 15
+        assert out["seasonPhase"]["playoffWeekStartSource"] == "default"
+
+    def test_non_list_players_array_still_reports_the_season_phase(self):
+        out = w.find_waiver_targets(
+            {"playersArray": "broken"}, sleeper_teams=[], today=date(2026, 10, 29)
+        )
+        assert out["seasonPhase"]["currentWeek"] == 8
+
+    @pytest.mark.parametrize(
+        "settings, expected",
+        [
+            ({"playoff_week_start": 16}, (16, "league_settings")),
+            ({"playoff_week_start": 0}, (15, "default")),
+            ({"playoff_week_start": True}, (15, "default")),
+            ({"playoff_week_start": "14"}, (15, "default")),
+            ({}, (15, "default")),
+            (None, (15, "default")),
+        ],
+    )
+    def test_league_playoff_week_start(self, settings, expected):
+        from src.trade import faab_engine as engine
+
+        contract = {"sleeper": {"leagueSettings": settings}}
+        assert engine.league_playoff_week_start(contract) == expected
+        assert engine.league_playoff_week_start(None) == (15, "default")
 
     def test_in_season_option_value_differs_from_the_offseason_one(self):
         from src.trade import faab_engine as engine

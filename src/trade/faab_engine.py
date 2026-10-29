@@ -85,7 +85,7 @@ import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from src.utils.config_loader import load_json, repo_root
 
@@ -137,6 +137,23 @@ def current_nfl_week(today: date | None = None) -> tuple[int | None, bool]:
     if week > 18:
         return None, False
     return int(week), True
+
+
+def league_playoff_week_start(contract: Mapping[str, Any] | None) -> tuple[int, str]:
+    """``(week, source)``: the league's first playoff week, and where it came from.
+
+    Read from the contract's own league settings
+    (``sleeper.leagueSettings.playoff_week_start``, Sleeper's field).  When the
+    contract does not state it the engine's default applies and ``source`` is
+    ``"default"``, so a caller can say so instead of presenting the default as
+    the league's setting.
+    """
+    sleeper = (contract or {}).get("sleeper") if isinstance(contract, Mapping) else None
+    settings = sleeper.get("leagueSettings") if isinstance(sleeper, Mapping) else None
+    value = settings.get("playoff_week_start") if isinstance(settings, Mapping) else None
+    if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 18:
+        return int(value), "league_settings"
+    return int(LeagueContext.playoff_week_start), "default"
 
 
 # ── Config ─────────────────────────────────────────────────────────

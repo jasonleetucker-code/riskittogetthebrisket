@@ -473,16 +473,19 @@ def _posture_block(
 
 def _season_option(
     *,
+    contract: Mapping[str, Any],
     league_budget: int,
     team_count: int,
     starters_per_team: int,
     balance: int | None,
+    list_phase: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     """The option value the LIST bids ran under, and the one the desk applies.
 
-    Since IST-7 (2026-10-29) ``find_waiver_targets`` passes the current week, so
-    both contexts are the same in-season context; they are still computed
-    separately so a future divergence shows instead of hiding.
+    The list side is read from the season phase ``find_waiver_targets``
+    REPORTS it ran under (``seasonPhase``), not rebuilt here, so a divergence
+    between the two paths shows instead of hiding.  The desk side is the
+    desk's own context: the current NFL week and the league's playoff week.
     """
     from src.trade import faab_engine as engine  # noqa: PLC0415
 
@@ -491,32 +494,44 @@ def _season_option(
         competitive_status=LIST_BID_COMPETITIVE_STATUS,
     )
     week, in_season = engine.current_nfl_week()
-    list_league = engine.LeagueContext(
-        original_budget=int(league_budget),
-        team_count=int(team_count),
-        starters_per_team=int(starters_per_team),
-        current_week=week,
-        in_season=bool(in_season),
-    )
-    list_factor, list_reason = engine.season_option_value(list_league, team)
+    playoff_week_start, playoff_source = engine.league_playoff_week_start(contract)
     desk_league = engine.LeagueContext(
         original_budget=int(league_budget),
         team_count=int(team_count),
         starters_per_team=int(starters_per_team),
         current_week=week,
         in_season=bool(in_season),
+        playoff_week_start=playoff_week_start,
     )
     desk_factor, desk_reason = engine.season_option_value(desk_league, team)
+    if isinstance(list_phase, Mapping):
+        list_league = engine.LeagueContext(
+            original_budget=int(league_budget),
+            team_count=int(team_count),
+            starters_per_team=int(starters_per_team),
+            current_week=list_phase.get("currentWeek"),
+            in_season=bool(list_phase.get("inSeason")),
+            playoff_week_start=int(list_phase.get("playoffWeekStart") or playoff_week_start),
+        )
+        list_factor, list_reason = engine.season_option_value(list_league, team)
+        list_bids: dict[str, Any] = {
+            "factor": round(list_factor, 3),
+            "reason": list_reason,
+            "seasonPhase": dict(list_phase),
+        }
+    else:
+        list_bids = {
+            "factor": None,
+            "reason": "season_phase_not_reported",
+            "seasonPhase": None,
+        }
     return {
         "owner": "src/trade/faab_engine.py::season_option_value",
         "currentWeek": week,
         "inSeason": bool(in_season),
-        "listBids": {
-            "factor": round(list_factor, 3),
-            "reason": list_reason,
-            "note": "find_waiver_targets passes the current NFL week (fixed 2026-10-29), "
-            "the same season phase the bid desk uses",
-        },
+        "playoffWeekStart": playoff_week_start,
+        "playoffWeekStartSource": playoff_source,
+        "listBids": list_bids,
         "bidDesk": {"factor": round(desk_factor, 3), "reason": desk_reason},
         "competitiveStatusUsed": LIST_BID_COMPETITIVE_STATUS,
     }
@@ -736,6 +751,8 @@ def assemble_waiver_advisor(
             "originalBudget": league_budget,
             "bidMethodology": methodology,
             "seasonOption": _season_option(
+                contract=contract,
+                list_phase=targets.get("seasonPhase"),
                 league_budget=league_budget,
                 team_count=int(faab_inputs.get("team_count") or 12),
                 starters_per_team=int(faab_inputs.get("starters_per_team") or 20),

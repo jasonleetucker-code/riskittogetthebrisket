@@ -341,9 +341,11 @@ def find_waiver_targets(
 
     Season phase (IST-7, owner directive 2026-10-29): the engine's
     ``LeagueContext`` carries the CURRENT NFL week and in-season state from
-    ``faab_engine.current_nfl_week(today)``, and the league's
-    ``playoffWeekStart`` when a team row states it -- the same context the
-    per-pair bid desk (``/api/waiver/faab-recommend``) builds.  Before this the
+    ``faab_engine.current_nfl_week(today)``, and the league's first playoff week
+    from its own settings (``faab_engine.league_playoff_week_start``; the
+    engine default, stamped ``"default"``, when the contract does not state it)
+    -- the same context the per-pair bid desk (``/api/waiver/faab-recommend``)
+    builds.  Before this the
     list bids ran with no week, so the engine priced every one of them with the
     OFFSEASON option value all season long.  ``seasonPhase`` on the response
     says which week the bids ran under.  ``today`` exists so tests are
@@ -373,9 +375,26 @@ def find_waiver_targets(
     estimate (no way to know which roster is "mine" to separate from
     rivals), stamped as such rather than presented as market-aware.
     """
+    from src.trade import faab_engine as _engine  # noqa: PLC0415
+
+    current_week, in_season = _engine.current_nfl_week(today)
+    playoff_week_start, playoff_source = _engine.league_playoff_week_start(contract)
+    season_phase = {
+        "owner": "src/trade/faab_engine.py::current_nfl_week",
+        "currentWeek": current_week,
+        "inSeason": bool(in_season),
+        "playoffWeekStart": playoff_week_start,
+        "playoffWeekStartSource": playoff_source,
+    }
     arr = contract.get("playersArray") or []
     if not isinstance(arr, list):
-        return {"by_position": {}, "by_family": {}, "total": 0, "rookies_excluded": False}
+        return {
+            "by_position": {},
+            "by_family": {},
+            "total": 0,
+            "rookies_excluded": False,
+            "seasonPhase": season_phase,
+        }
 
     rostered = rostered_name_set(sleeper_teams)
 
@@ -424,19 +443,11 @@ def find_waiver_targets(
     # manager had already spent — the same player was worth $21 in
     # week 1 and $4 in week 10 with no change in the player.  The
     # remaining balance is a CAP applied afterwards, not the scale.
-    from src.trade import faab_engine as _engine  # noqa: PLC0415
-
     budget = int(league_budget or 0)
     if budget <= 0:
         budget = _engine.FaabConfig().num("leagueRules", "defaultBudget", 100)
         budget = int(budget)
 
-    current_week, in_season = _engine.current_nfl_week(today)
-    playoff_week_start = 15
-    for team_row in sleeper_teams or []:
-        if isinstance(team_row, dict) and isinstance(team_row.get("playoffWeekStart"), int):
-            playoff_week_start = team_row["playoffWeekStart"]
-            break
     league_ctx = _engine.LeagueContext(
         original_budget=budget,
         team_count=int(team_count or 12),
@@ -621,10 +632,5 @@ def find_waiver_targets(
         "total": total,
         "rookies_excluded": not rookies_eligible,
         "bidMethodology": bid_methodology,
-        "seasonPhase": {
-            "owner": "src/trade/faab_engine.py::current_nfl_week",
-            "currentWeek": current_week,
-            "inSeason": bool(in_season),
-            "playoffWeekStart": playoff_week_start,
-        },
+        "seasonPhase": season_phase,
     }
