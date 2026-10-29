@@ -1,0 +1,35 @@
+{
+  "version": "idp_streaming_v1",
+  "owner": "src/waivers/streaming.py",
+  "note": "Every value here is a PRIOR: a declared starting point with its rationale, not a fitted constant. Changing one changes recommendations; it is owner-tunable and evidence-gated like every other PRIOR in this repository.",
+  "materialityPoints": {
+    "value": 1.0,
+    "class": "PRIOR",
+    "rationale": "A plan gaining less than one projected point over the horizon is reported as 'no move'. One point is below the week-to-week noise of a single IDP projection, so smaller gains are not actionable; the full plan is still listed as the best alternative."
+  },
+  "maxCapacity": {
+    "value": 7,
+    "class": "PRIOR",
+    "rationale": "The owner directive's dynamic streaming capacity spans 0..7 roster spots; the capacity curve is computed up to this many simultaneous adds."
+  },
+  "defaultCapacity": {
+    "value": 3,
+    "class": "PRIOR",
+    "rationale": "Used only when the request names no capacity. Three is the low end of the 3-5 spots the league's most active streamer churns; the capacity curve shows whether more or fewer pay."
+  },
+  "horizonWeekWeights": {
+    "value": [1.0, 0.85, 0.72, 0.61],
+    "class": "PRIOR",
+    "rationale": "Weight of this week and the next three. Later weeks count less because the held player may be dropped again and future waiver pools are not guaranteed (rolling horizon). Roughly 15% per week."
+  },
+  "nodeLimits": {
+    "value": {"singleWeek": 40000, "multiweek": 20000, "capacityCurvePerRow": 15000},
+    "class": "PRIOR",
+    "rationale": "Search budgets measured on the dynasty_main shape (58-man roster, ~300 IDP free agents): a single-week k<=5 solve proves optimality in well under these; multi-week bounds are looser, so a cap keeps the request interactive and the result is labelled 'bounded' with a proven gap when it is reached."
+  },
+  "idpFamilies": {
+    "value": ["DL", "LB", "DB"],
+    "class": "PRIOR",
+    "rationale": "Weekly streaming is scoped to individual defensive players (owner directive 2026-10-29). Offensive roster players stay in the lineup calculation but are never proposed as adds or drops."
+  }
+}
