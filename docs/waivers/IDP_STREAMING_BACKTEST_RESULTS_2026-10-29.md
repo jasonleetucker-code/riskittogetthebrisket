@@ -215,6 +215,9 @@ quantity.
 | every variant | 2025 | 0 by construction (120 of 120 decisions had no droppable defender) | 0 | 0 | 0 | +11.5 [+0.6, +23.5] (= actual − hold) |
 
 Reading:
+* **Almost every decision had something droppable.**  In 2026 the share of decisions with no
+  droppable defender was 1 of 72 for unmasked S=3 and S=5 and 0 of 72 in every other variant
+  (2025: 120 of 120, by construction).
 * **It barely moves.**  Under budget 0 and "droppable only at or below the replacement line",
   the solver makes 28–56 swaps across the 72 league team-week decisions of 2026 depending
   on the variant, and 1 swap (masked) or 3 (unmasked) for manager B in 6 weeks.  Its gain over holding
@@ -223,8 +226,10 @@ Reading:
 * **It never releases an unpriced defender** (`releasedUnvalued = 0` in every variant), as
   specified.  Its swaps release more vendor value than the valued adds bring back (masked
   S=3, league: 49,807 released over 46 valued vs 21,215 acquired over 17 valued, with 29 adds
-  unvalued); each release is still at or below the replacement line it was charged against,
-  so this is value the wire could give back, not value lost by the rule's own definition.
+  unvalued; net valued flow −28,592).  Each release is at or below the replacement line it
+  was charged against, but the REALIZED dynasty flow is strongly negative: adds are chosen
+  by projected points and most carry no known value, so the replacement the line assumes is
+  usually not the player actually added.
 * **Why it differs from manager B** — measured inputs, not a verdict on either: B's gain
   comes partly from releasing defenders the rule may not release (unpriced, or above the
   line), from injury replacement (the solver cannot count an unprojected rostered defender
@@ -234,7 +239,9 @@ Reading:
   Solver time per 72-decision 2026 cell: S=1 16–18 s, S=3 55–95 s, S=5 454–490 s.  Every S=1
   and S=3 decision was proven optimal; at S=5, 26 (masked) and 28 (unmasked) of 72 decisions
   hit the default node limit and returned `bounded` plans (applied, counted, never presented
-  as optimal).  Per-cell counts are in the evidence JSON (`solverStats`).
+  as optimal).  Per-cell counts are in the evidence JSON (`solverStats`).  `solverSeconds` there is
+  wall-clock time, so that one field is not byte-reproducible between runs; every other
+  number is deterministic.
 
 ## 6. Interface for baseline 7 (W4)
 
@@ -270,6 +277,9 @@ before the cutoff), filled by `build_decision_context` only for a policy that de
 5. **Added, not preregistered:** baseline 1b (hold that also restores the offense released
    in defender-involving streaming transactions) and the paired actual − rule comparisons.
    Both are labelled exploratory.
+6. **Baseline 7 replacement ladder** (Addendum A) — the addendum says "the best pool dynasty
+   value known before the cutoff"; the implementation builds the ladder from pool players
+   that ALSO have a week-*w* projection (the same set offered to the solver as free agents).
 
 ## 8. Reproduce
 
