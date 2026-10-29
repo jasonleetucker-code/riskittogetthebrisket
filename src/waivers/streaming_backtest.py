@@ -101,7 +101,7 @@ ROLLING_MIN_GAMES = 2
 
 REPO = Path(__file__).resolve().parents[2]
 RESEARCH_DIR = REPO / "data" / "research" / "idp_streaming"
-EVIDENCE_DIR = REPO / "docs" / "waivers" / "evidence" / "idp_streaming"
+EVIDENCE_DIR = REPO / "docs/waivers/evidence/idp_streaming"
 
 
 # ── Data model ────────────────────────────────────────────────────────
@@ -1908,8 +1908,8 @@ def _rounded(obj: Any, nd: int = 3) -> Any:
 
 #: Committed prose checked by the same guard as the evidence JSON.
 COMMITTED_DOCS: tuple[Path, ...] = (
-    REPO / "docs" / "waivers" / "IDP_STREAMING_BACKTEST_PREREGISTRATION_2026-10-29.md",
-    REPO / "docs" / "waivers" / "IDP_STREAMING_BACKTEST_RESULTS_2026-10-29.md",
+    REPO / "docs/waivers/IDP_STREAMING_BACKTEST_PREREGISTRATION_2026-10-29.md",
+    REPO / "docs/waivers/IDP_STREAMING_BACKTEST_RESULTS_2026-10-29.md",
 )
 #: Below this length a sensitive string is matched as a whole token only, so a
 #: two-letter display name cannot false-positive inside an ordinary word —
