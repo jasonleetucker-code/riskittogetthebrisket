@@ -227,3 +227,104 @@ def test_script_exit_1_when_nothing_usable(monkeypatch, tmp_path):
         monkeypatch.delenv("RISKIT_FEATURE_WEEKLY_PROJECTION_CAPTURE")
         feature_flags.reload()
     assert code == 1
+
+
+# ── review fixes (2026-10-29) ────────────────────────────────────────
+
+
+def test_truncated_latest_capture_never_blocks_a_new_one(tmp_path):
+    first = arc.record_capture(
+        source_key="sleeperWeeklyProjections",
+        season=2026,
+        week=8,
+        fetched_at=T0,
+        rows=_rows(),
+        base_dir=tmp_path,
+    )
+    # Simulate an interrupted legacy write: a later, truncated capture.
+    broken = first.path.with_name("sleeperWeeklyProjections_20261028T000000000Z.json.gz")
+    broken.write_bytes(first.path.read_bytes()[:40])
+    again = arc.record_capture(
+        source_key="sleeperWeeklyProjections",
+        season=2026,
+        week=8,
+        fetched_at=T0 + timedelta(days=2),
+        rows=_rows(),
+        base_dir=tmp_path,
+    )
+    assert again.status == "written" and again.path != first.path
+    caps = arc.list_captures(2026, 8, base_dir=tmp_path)
+    assert [c.readable for c in caps] == [True, False, True]
+    assert broken.exists()  # kept as evidence, never deleted
+    assert not list(tmp_path.rglob("*.tmp"))  # no temp file left behind
+
+
+def test_publish_is_no_replace(tmp_path, monkeypatch):
+    res = arc.record_capture(
+        source_key="sleeperWeeklyProjections", season=2026, week=8, fetched_at=T0,
+        rows=_rows(), base_dir=tmp_path,
+    )  # fmt: skip
+    before = res.path.read_bytes()
+    with pytest.raises(arc.WeeklyArchiveError):
+        arc.record_capture(
+            source_key="sleeperWeeklyProjections", season=2026, week=8, fetched_at=T0,
+            rows=[{"different": True}], base_dir=tmp_path,
+        )  # fmt: skip
+    assert res.path.read_bytes() == before
+    assert not list(tmp_path.rglob("*.tmp"))
+
+
+def test_script_isolates_a_failing_week_source(monkeypatch, tmp_path):
+    from src.api import feature_flags
+
+    mod = _script()
+    monkeypatch.setenv("RISKIT_FEATURE_WEEKLY_PROJECTION_CAPTURE", "1")
+    feature_flags.reload()
+    monkeypatch.setattr(mod.time, "sleep", lambda s: None)
+    card = json.loads(
+        (REPO / "config" / "league_intel" / "sleeper_league_snapshot_2026-07-26.json").read_text(
+            encoding="utf-8"
+        )
+    )["scoring_settings"]
+    monkeypatch.setattr(wlp, "_resolve_scoring", lambda key, s: (card, "fresh", None))
+
+    def fetch(key, season, week):
+        if key == wlp.SLEEPER_SOURCE and week == 8:
+            return FetchResult(
+                "ok", season, week, "u", "2026-10-29T09:05:00+00:00", rows=tuple(_rows())
+            )
+        raise RuntimeError(f"boom {key} w{week}")
+
+    monkeypatch.setattr(mod, "_fetch", fetch)
+    try:
+        code = mod.main(
+            ["--season", "2026", "--week", "8", "--weeks-ahead", "1", "--league-key",
+             "dynasty_main", "--base-dir", str(tmp_path)]
+        )  # fmt: skip
+    finally:
+        monkeypatch.delenv("RISKIT_FEATURE_WEEKLY_PROJECTION_CAPTURE")
+        feature_flags.reload()
+    assert code == 2  # errors are reported...
+    assert [c.source_key for c in arc.list_captures(2026, 8, base_dir=tmp_path)] == [
+        "sleeperWeeklyProjections"
+    ]  # ...but the healthy (week, source) was still captured
+
+
+def test_script_league_scored_points_exclude_all_zero_rows(monkeypatch):
+    mod = _script()
+    payload = json.loads((FIX / "fptrack_week8_sample.json").read_text(encoding="utf-8"))
+    golf = next(p for p in payload["players"] if p["fullName"] == "Golf Backer")
+    golf["stats"] = {k: (0 if v is not None else None) for k, v in golf["stats"].items()}
+    card = json.loads(
+        (REPO / "config" / "league_intel" / "sleeper_league_snapshot_2026-07-26.json").read_text(
+            encoding="utf-8"
+        )
+    )["scoring_settings"]
+    monkeypatch.setattr(wlp, "_resolve_scoring", lambda key, s: (card, "fresh", None))
+    from src.identity.resolution import build_sleeper_index
+
+    index = build_sleeper_index(wlp._directory_from_sleeper_rows(_rows()))
+    result = FPTrackFetchResult("ok", 2026, 8, "u", "2026-10-29T09:05:00+00:00", payload=payload)
+    scored = mod._league_scored(["dynasty_main"], wlp.FPTRACK_SOURCE, result, 2026, 8, index)
+    (entry,) = scored.values()
+    assert "90007" not in entry["points"]

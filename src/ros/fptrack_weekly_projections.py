@@ -63,8 +63,9 @@ import json
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
+from types import MappingProxyType
 from typing import Any
 
 from src.api.feature_flags import is_enabled
@@ -170,6 +171,43 @@ IGNORED_PROVIDER_FIELDS: frozenset[str] = frozenset(
 #: "everyone is projected for exactly zero" is not plausible.
 ZERO_PLACEHOLDER_MIN_ROWS = 25
 
+#: Fields that belong to each ``statScope``.  FPTrack sends every field on
+#: every row, with ``null`` for the other scopes' fields (an IDP row carries
+#: ``passYards: null``).  Only an IN-scope null is a statement "no number for
+#: this player"; an out-of-scope null is the envelope, not a gap.  An
+#: unrecognized scope keeps every null (fails toward reporting a gap).
+SCOPE_FIELDS: Mapping[str, frozenset[str]] = {
+    "OFF": frozenset(
+        {
+            "passAttempts", "passCompletions", "passYards", "passTouchdowns", "interceptions",
+            "carries", "rushYards", "rushTouchdowns", "targets", "receptions",
+            "receivingYards", "receivingTouchdowns", "twoPointConversions", "fumblesLost",
+        }
+    ),
+    "DEF": frozenset(
+        {
+            "tackles", "assists", "tacklesForLoss", "passesDefended", "sacks",
+            "defInterceptions", "forcedFumbles", "fumbleRecoveries",
+            "fumbleRecoveryTouchdowns", "interceptionTouchdowns", "defensiveTouchdowns",
+            "safeties", "pointsAllowed", "yardsAllowed",
+        }
+    ),
+    "ST": frozenset(
+        {"fieldGoalsAttempted", "fieldGoalsMade", "extraPointsAttempted", "extraPointsMade"}
+    ),
+}  # fmt: skip
+
+#: FPTrack team codes -> the Sleeper / nflverse spellings this repo uses.
+#: ``FA`` (free agent) is no team at all, so the mapper refuses the row.
+TEAM_ALIASES: Mapping[str, str | None] = {"WSH": "WAS", "JAC": "JAX", "LA": "LAR", "FA": None}
+
+
+def canonical_team(raw: Any) -> str | None:
+    team = str(raw or "").strip().upper()
+    if not team:
+        return None
+    return TEAM_ALIASES.get(team, team)
+
 
 # ── Acquisition ──────────────────────────────────────────────────────
 
@@ -268,6 +306,10 @@ class ParsedPayload:
     season: int | None
     week: int | None
     phase: str | None
+    #: Rows refused because every published number was exactly 0 — a row
+    #: with nothing projected, the FPTrack twin of Sleeper's
+    #: ``placeholder_no_projection``.  Never scored as a 0-point projection.
+    placeholder_all_zero: tuple[kw.ProviderPlayerRef, ...] = ()
 
 
 def _int_or_none(raw: Any) -> int | None:
@@ -324,36 +366,49 @@ def parse_rows(
     placeholders = _placeholder_fields(players, min_rows)
 
     rows = []
+    all_zero: list[kw.ProviderPlayerRef] = []
     for p in players:
         stats_raw = p.get("stats") if isinstance(p.get("stats"), Mapping) else {}
         scope = str(p.get("statScope") or "")
         zero_fields = placeholders.get(scope, frozenset())
-        stats = {k: v for k, v in stats_raw.items() if k not in zero_fields}
+        in_scope = SCOPE_FIELDS.get(scope)
+        stats = {
+            k: v
+            for k, v in stats_raw.items()
+            if k not in zero_fields
+            and not (v is None and in_scope is not None and k not in in_scope)
+        }
         splits = [stats.get(k) for k in _DEF_TD_SPLITS]
         if stats.get("defensiveTouchdowns") is None and all(
             isinstance(v, (int, float)) and not isinstance(v, bool) for v in splits
         ):
             stats[_DERIVED_DEF_TD] = float(sum(splits))
         position = str(p.get("position") or "")
+        ref = kw.ProviderPlayerRef(
+            provider_player_id=str(p.get("fptrackId") or p.get("entityId") or "").strip(),
+            name=(str(p["fullName"]) if p.get("fullName") else None),
+            team=canonical_team(p.get("team")),
+            position=position or None,
+        )
+        is_team_unit = position.upper() in {"DEF", "DST", "D/ST"}
+        numbers = kw.numeric_fields(stats)
+        if not is_team_unit and numbers and all(v == 0.0 for v in numbers.values()):
+            all_zero.append(ref)
+            continue
         rows.append(
             kw.ProviderRow(
-                ref=kw.ProviderPlayerRef(
-                    provider_player_id=str(p.get("fptrackId") or p.get("entityId") or "").strip(),
-                    name=(str(p["fullName"]) if p.get("fullName") else None),
-                    team=(str(p["team"]) if p.get("team") else None),
-                    position=position or None,
-                ),
+                ref=ref,
                 positions=tuple(x for x in (p.get("positions") or [position]) if x),
-                opponent=(str(p["opponent"]) if p.get("opponent") else None),
+                opponent=canonical_team(p.get("opponent")),
                 season=season,
                 week=week,
                 season_type=season_type,
-                provider_stats=kw.numeric_fields(stats),
+                provider_stats=numbers,
                 null_provider_fields=kw.null_fields(stats) | zero_fields,
                 provider_updated_at=None,
                 native_points_ppr=None,
                 # A team defense row (position DEF) is a D/ST unit.
-                is_team_unit=position.upper() in {"DEF", "DST", "D/ST"},
+                is_team_unit=is_team_unit,
             )
         )
     return ParsedPayload(
@@ -362,6 +417,7 @@ def parse_rows(
         season=season,
         week=week,
         phase=phase,
+        placeholder_all_zero=tuple(all_zero),
     )
 
 
@@ -382,7 +438,7 @@ def exact_identity_resolver(index: Any) -> Callable[[kw.ProviderPlayerRef], str 
         res = resolve_canonical_v2(index, name=ref.name, position=ref.position, team=ref.team)
         if not res.is_exact:
             return None
-        if not ref.team or str(res.team or "").upper() != str(ref.team).upper():
+        if not ref.team or canonical_team(res.team) != canonical_team(ref.team):
             return None
         return res.sleeper_id
 
@@ -440,4 +496,11 @@ def build_weekly_observations(
         derivations=DERIVATIONS,
         season_type=season_type,
     )
+    if parsed.placeholder_all_zero:
+        refused = dict(batch.batch.refused)
+        refused["placeholder_all_zero"] = len(parsed.placeholder_all_zero)
+        batch = replace(
+            batch,
+            batch=replace(batch.batch, refused=MappingProxyType(dict(sorted(refused.items())))),
+        )
     return batch, parsed

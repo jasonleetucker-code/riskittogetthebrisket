@@ -172,3 +172,54 @@ def test_fetch_parses_when_on(monkeypatch):
     assert r.ok and r.payload["week"] == 8 and "week=8" in seen[0]
     assert r.observed_at == "2026-10-29T09:00:00+00:00"
     assert bad.status == "bad_payload" and bad.payload is None
+
+
+# ── review fixes (2026-10-29) ────────────────────────────────────────
+
+
+def test_all_zero_row_is_refused_never_a_zero_projection():
+    payload = _payload()
+    alpha = next(p for p in payload["players"] if p["fullName"] == "Alpha Linebacker")
+    alpha["stats"] = {k: (0 if v is not None else None) for k, v in alpha["stats"].items()}
+    mapped, parsed = _build(payload=payload)
+    assert "90001" not in mapped.batch.by_player_id()
+    assert [r.name for r in parsed.placeholder_all_zero] == ["Alpha Linebacker"]
+    assert mapped.batch.refused["placeholder_all_zero"] == 1
+
+
+def test_out_of_scope_nulls_are_not_coverage_gaps():
+    """An IDP row carries passYards/receptions as null — the envelope, not a
+    statement about the defender.  In-scope nulls stay uncovered."""
+    payload = _payload()
+    # A passer, so the batch's own vocabulary says passing is not a defender's
+    # event (the per-provider rule); the nulls must not override that.
+    qb = json.loads(json.dumps(next(p for p in payload["players"] if p["position"] == "WR")))
+    qb.update(fullName="Kilo Passer", position="QB", positions=["QB"], fptrackId=70100)
+    qb["stats"].update(passAttempts=30, passCompletions=20, passYards=250, passTouchdowns=2,
+                       interceptions=1, carries=3, rushYards=10, rushTouchdowns=0.1)  # fmt: skip
+    payload["players"].append(qb)
+    directory = dict(DIRECTORY)
+    directory["90010"] = {"first_name": "Kilo", "last_name": "Passer", "position": "QB",
+                          "team": qb["team"], "active": True}  # fmt: skip
+    mapped, _ = _build(payload=payload, directory=directory, zero_placeholder_min_rows=3)
+    obs = mapped.batch.by_player_id()["90001"]
+    for offensive in ("pass_yd", "rec", "rec_yd", "rush_yd", "pass_td", "fum_lost"):
+        assert offensive not in obs.uncovered_scoring_keys, offensive
+    assert "idp_fum_rec" in obs.uncovered_scoring_keys
+    # Without the scope rule the explicit nulls would have forced them back in.
+    parsed = fpt.parse_rows(payload, zero_placeholder_min_rows=3)
+    alpha = next(r for r in parsed.rows if r.ref.name == "Alpha Linebacker")
+    assert "passYards" not in alpha.null_provider_fields
+    assert "fumbleRecoveries" in alpha.null_provider_fields
+
+
+def test_team_aliases_wsh_and_free_agent():
+    payload = _payload()
+    alpha = next(p for p in payload["players"] if p["fullName"] == "Alpha Linebacker")
+    alpha["team"] = "WSH"
+    directory = dict(DIRECTORY)
+    directory["90001"] = dict(directory["90001"], team="WAS")
+    mapped, _ = _build(payload=payload, directory=directory)
+    obs = mapped.batch.by_player_id()["90001"]
+    assert obs.team == "WAS"
+    assert fpt.canonical_team("FA") is None and fpt.canonical_team("wsh") == "WAS"

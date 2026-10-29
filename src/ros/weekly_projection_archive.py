@@ -27,7 +27,9 @@ as a whole and ``data/projections/`` is in no force-add list.
 
 Append-only, and idempotent on content
 --------------------------------------
-* a file is never overwritten (exclusive create);
+* a file is never overwritten, and is published complete or not at all
+  (temp file + fsync + no-replace ``os.link``); an unreadable capture never
+  blocks a later one;
 * a capture whose raw content hash equals the LATEST capture's for the same
   ``(season, week, source)`` is a no-op (``unchanged``) — an unchanged
   re-download is not a new observation, so it adds no file (the latest file's
@@ -45,6 +47,7 @@ import hashlib
 import json
 import os
 import re
+import tempfile
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -123,6 +126,9 @@ class CaptureRecord:
     week: int
     fetched_at: str
     content_sha256: str
+    #: ``False`` for a file that cannot be read (e.g. truncated by an
+    #: interrupted write before the atomic-publish fix); kept, never deleted.
+    readable: bool = True
 
 
 @dataclass(frozen=True)
@@ -147,6 +153,9 @@ def list_captures(
         if source_key is not None and src != source_key:
             continue
         head = _read_header(path)
+        if head is None:
+            out.append(CaptureRecord(path, src, int(season), int(week), "", "", readable=False))
+            continue
         out.append(
             CaptureRecord(
                 path=path,
@@ -160,9 +169,17 @@ def list_captures(
     return out
 
 
-def _read_header(path: Path) -> dict[str, Any]:
-    with gzip.open(path, "rt", encoding="utf-8") as fh:
-        data = json.load(fh)
+def _read_header(path: Path) -> dict[str, Any] | None:
+    """The capture minus its rows, or ``None`` when the file is unreadable
+    (truncated gzip, bad JSON, I/O error) — an unreadable capture proves
+    nothing about the current content, so it never short-circuits a write."""
+    try:
+        with gzip.open(path, "rt", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, EOFError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
     return {k: v for k, v in data.items() if k != "rows"}
 
 
@@ -208,7 +225,8 @@ def record_capture(
 
     week_dir = _week_dir(root, season, week)
     prior = sorted(week_dir.glob(f"{source_key}_*.json.gz")) if week_dir.is_dir() else []
-    if prior and str(_read_header(prior[-1]).get("contentSha256") or "") == digest:
+    latest = _read_header(prior[-1]) if prior else None
+    if latest is not None and str(latest.get("contentSha256") or "") == digest:
         return ArchiveWriteResult("unchanged", prior[-1], digest, row_count)
 
     stamps = sorted({s for s in provider_updated_at if s})
@@ -231,13 +249,29 @@ def record_capture(
     week_dir.mkdir(parents=True, exist_ok=True)
     path = week_dir / f"{source_key}_{_stamp(fetched)}.json.gz"
     payload = json.dumps(record, sort_keys=True, ensure_ascii=False).encode("utf-8")
-    # Exclusive create: an existing file is never overwritten.
-    try:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
-    except FileExistsError as exc:
+    if path.exists():
         raise WeeklyArchiveError(
             f"{path} already exists; captures are append-only and never overwritten"
-        ) from exc
-    with os.fdopen(fd, "wb") as raw, gzip.GzipFile(fileobj=raw, mode="wb", mtime=0) as gz:
-        gz.write(payload)
+        )
+    # Write a temp file in the same directory, fsync it, then publish it with
+    # os.link — atomic and NO-REPLACE (fails if the name exists).  A crash
+    # mid-write leaves only a dot-prefixed temp file, which the *.json.gz
+    # globs never see; a published capture is always complete.
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{source_key}_", suffix=".tmp", dir=week_dir)
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as raw:
+            with gzip.GzipFile(fileobj=raw, mode="wb", mtime=0) as gz:
+                gz.write(payload)
+            raw.flush()
+            os.fsync(raw.fileno())
+        os.chmod(tmp, 0o644)
+        try:
+            os.link(tmp, path)
+        except FileExistsError as exc:
+            raise WeeklyArchiveError(
+                f"{path} already exists; captures are append-only and never overwritten"
+            ) from exc
+    finally:
+        tmp.unlink(missing_ok=True)
     return ArchiveWriteResult("written", path, digest, row_count)

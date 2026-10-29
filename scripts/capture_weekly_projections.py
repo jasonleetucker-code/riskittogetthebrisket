@@ -23,7 +23,9 @@ Exit codes:
       week, or the gate is off;
   1 — no source produced usable data for the current week (every source
       unavailable / unpublished);
-  2 — error (bad arguments, unreadable registry, unexpected exception).
+  2 — error (bad arguments, unreadable registry), or an unexpected exception
+      for some (week, source).  Each (week, source) is isolated: the run
+      continues and captures everything else before exiting 2.
 
 Politeness: requests are sequential with at least ``--pause`` (default 1.5 s)
 between them, and every source keeps its own User-Agent.
@@ -192,49 +194,74 @@ def main(argv: list[str] | None = None) -> int:
     weeks = [w for w in weeks if 1 <= w <= 18]
     current_ok = False
     networked = False
-    try:
-        for wk in weeks:
-            identity_index = None
-            for source_key in wlp.SOURCE_PRECEDENCE:
-                if networked:
-                    time.sleep(args.pause)
+    errors: list[str] = []
+    for wk in weeks:
+        identity_index = None
+        for source_key in wlp.SOURCE_PRECEDENCE:
+            if networked:
+                time.sleep(args.pause)
+            # One (week, source) failing never costs the others their capture.
+            try:
                 result = _fetch(source_key, season, wk)
                 status = getattr(result, "status", None)
                 networked = status not in ("feature_disabled", None)
                 if source_key == wlp.SLEEPER_SOURCE and status == "ok":
                     identity_index = wlp._default_identity_index(list(result.rows))
-                if not _has_content(source_key, result):
-                    print(
-                        f"{source_key} w{wk}: {status} "
-                        f"{getattr(result, 'reason', '') or 'not published'}"
-                    )
-                    continue
-                raw, n, stamps = _raw_of(source_key, result)
-                scored = _league_scored(league_keys, source_key, result, season, wk, identity_index)
-                if args.dry_run:
-                    print(f"{source_key} w{wk}: would capture {n} rows ({len(scored)} cards)")
-                    current_ok = current_ok or wk == week
-                    continue
-                written = archive.record_capture(
-                    source_key=source_key,
-                    season=season,
-                    week=wk,
-                    fetched_at=result.observed_at,
-                    rows=raw,
-                    provider_updated_at=stamps,
-                    source_url=getattr(result, "url", None),
-                    model_company=_model_of(source_key),
-                    league_scored=scored,
-                    extra={"currentWeekAtCapture": week},
-                    hash_content=_stable_content(source_key, raw),
-                    base_dir=args.base_dir,
+                captured = _capture_one(
+                    args, source_key, result, season, wk, week, league_keys, identity_index
                 )
-                print(f"{source_key} w{wk}: {written.status} {n} rows -> {written.path}")
-                current_ok = current_ok or wk == week
-    except Exception as exc:  # noqa: BLE001
-        print(f"error: {type(exc).__name__}: {exc}", file=sys.stderr)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{source_key} w{wk}: {type(exc).__name__}: {exc}")
+                print(f"error: {errors[-1]}", file=sys.stderr)
+                continue
+            current_ok = current_ok or (captured and wk == week)
+    if errors:
         return 2
     return 0 if current_ok else 1
+
+
+def _capture_one(
+    args: argparse.Namespace,
+    source_key: str,
+    result: Any,
+    season: int,
+    wk: int,
+    current_week: int,
+    league_keys: list[str],
+    identity_index: Any,
+) -> bool:
+    """Archive one (week, source) fetch; ``True`` when it was captured."""
+    status = getattr(result, "status", None)
+    if not _has_content(source_key, result):
+        print(f"{source_key} w{wk}: {status} {getattr(result, 'reason', '') or 'not published'}")
+        return False
+    raw, n, stamps = _raw_of(source_key, result)
+    extra: dict[str, Any] = {"currentWeekAtCapture": current_week}
+    try:
+        scored = _league_scored(league_keys, source_key, result, season, wk, identity_index)
+    except Exception as exc:  # noqa: BLE001 — the raw pool is the perishable part
+        scored = {}
+        extra["leagueScoredError"] = f"{type(exc).__name__}: {exc}"
+        print(f"warn: {source_key} w{wk}: league scoring failed: {exc}", file=sys.stderr)
+    if args.dry_run:
+        print(f"{source_key} w{wk}: would capture {n} rows ({len(scored)} cards)")
+        return True
+    written = archive.record_capture(
+        source_key=source_key,
+        season=season,
+        week=wk,
+        fetched_at=result.observed_at,
+        rows=raw,
+        provider_updated_at=stamps,
+        source_url=getattr(result, "url", None),
+        model_company=_model_of(source_key),
+        league_scored=scored,
+        extra=extra,
+        hash_content=_stable_content(source_key, raw),
+        base_dir=args.base_dir,
+    )
+    print(f"{source_key} w{wk}: {written.status} {n} rows -> {written.path}")
+    return True
 
 
 if __name__ == "__main__":

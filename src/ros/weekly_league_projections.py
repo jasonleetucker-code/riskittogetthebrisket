@@ -651,6 +651,21 @@ def _coverage(
         uncovered |= set(obs.uncovered_scoring_keys)
     covered |= imputed_keys & paid
     uncovered -= covered
+    # Cross-source position statement: a key some live source projects ONLY
+    # for other positions (e.g. ``rec_40p`` for receivers) is that provider's
+    # statement the event is not expected at this position — the same rule
+    # the per-source mapper applies within one provider, extended across the
+    # run so a thin provider (FPTrack publishes no reception buckets at all)
+    # does not report receiver bonuses as a defender's coverage gap.
+    positions = {p for obs in chosen for p in (obs.fantasy_positions or (obs.position,))}
+    anywhere: set[str] = set()
+    here: set[str] = set()
+    for vocab in vocab_by_source.values():
+        for pos, keys in vocab.items():
+            anywhere |= set(keys)
+            if pos in positions:
+                here |= set(keys)
+    uncovered -= {k for k in uncovered if k in anywhere and k not in here}
     relevant = covered | uncovered
     share = (len(covered) / len(relevant)) if relevant else None
     return ProjectionCoverage(
@@ -757,6 +772,8 @@ def load_weekly_projections(
             current_week,
             tuple(sorted(wanted)) if wanted is not None else None,
             league_key,
+            evidence,
+            _identity_signature(identity_index),
         )
     )
     cache_key = hashlib.sha256(signature.encode("utf-8")).hexdigest()[:24]
@@ -1008,6 +1025,21 @@ def _build(
         current_week=current_week,
         cache_key=cache_key,
     )
+
+
+def _identity_signature(identity_index: Any) -> tuple[Any, ...]:
+    """What identity source resolved FPTrack rows, for the result cache key:
+    a caller-supplied index by object identity + size, else the cached
+    directory file's ``(path, mtime_ns, size)`` (the Sleeper-rows fallback is
+    already covered by the Sleeper fetch version)."""
+    if identity_index is not None:
+        return ("caller", id(identity_index), len(getattr(identity_index, "by_sleeper_id", {})))
+    try:
+        from src.identity import directory_cache  # noqa: PLC0415
+
+        return ("default", directory_cache._file_key(directory_cache.default_directory_path()))
+    except Exception:  # noqa: BLE001 — unknown directory state is its own key
+        return ("default", None)
 
 
 def _default_identity_index(sleeper_rows: Sequence[Any]) -> Any:

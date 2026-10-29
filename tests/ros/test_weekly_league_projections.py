@@ -286,3 +286,47 @@ def test_seasonal_lane_never_touches_dynasty_value():
     src = (REPO / "src" / "ros" / "weekly_league_projections.py").read_text(encoding="utf-8")
     code = "\n".join(line for line in src.splitlines() if not line.lstrip().startswith("#"))
     assert "rankDerivedValue =" not in code and '["rankDerivedValue"]' not in code
+
+
+# ── review fixes (2026-10-29) ────────────────────────────────────────
+
+
+def _golf_all_zero_payload() -> dict:
+    payload = _fptrack_payload()
+    golf = next(p for p in payload["players"] if p["fullName"] == "Golf Backer")
+    golf["stats"] = {k: (0 if v is not None else None) for k, v in golf["stats"].items()}
+    return payload
+
+
+def test_all_zero_fptrack_row_is_not_a_projection():
+    s = _load(fetch=_fetch(fptrack=_golf_all_zero_payload()))
+    p = s.get("90007")
+    assert p.state == wlp.STATE_UNPROJECTED and p.weekly_points is None
+    fpt_state = next(st for st in s.source_states if st.source_key == wlp.FPTRACK_SOURCE)
+    assert fpt_state.refused.get("placeholder_all_zero") == 1
+
+
+def test_all_zero_fptrack_row_does_not_mask_a_host_out():
+    rows = _sleeper_rows()
+    rows[6]["player"]["injury_status"] = "Out"  # Golf, BUF, Sleeper placeholder
+    s = _load(fetch=_fetch(sleeper=rows, fptrack=_golf_all_zero_payload()), current_week=8)
+    p = s.get("90007")
+    assert (p.state, p.weekly_points) == (wlp.STATE_INJURED_OUT, 0.0)
+
+
+def test_fptrack_idp_coverage_is_not_diluted_by_offensive_nulls():
+    """Receiving keys the RotoWire WR line projects are, by that statement,
+    not a defender's events — even though FPTrack's IDP row says nothing."""
+    p = _load().get("90007")
+    for key in ("rec", "rec_yd", "rec_td"):
+        assert key not in p.coverage.league_paid_keys, key
+    assert "idp_fum_rec" in p.coverage.uncovered_keys
+
+
+def test_cache_key_includes_scoring_evidence_and_identity_source():
+    fetch = _fetch()
+    a = _load(fetch=fetch, use_cache=True)
+    from src.identity.resolution import build_sleeper_index
+
+    b = _load(fetch=fetch, use_cache=True, identity_index=build_sleeper_index({}))
+    assert a.cache_key != b.cache_key
