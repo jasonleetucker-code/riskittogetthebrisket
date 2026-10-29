@@ -495,8 +495,8 @@ def test_gate_fails_closed_while_the_flag_is_unregistered(monkeypatch):
 
     if adv.FLAG not in feature_flags._DEFAULTS:
         assert adv.advisor_enabled() is False
-    else:  # once the coordinator registers it, its default must be OFF
-        assert feature_flags._DEFAULTS[adv.FLAG] is False
+    else:  # ON by owner decision 1 of 2026-10-29 (private, signed-in only)
+        assert feature_flags._DEFAULTS[adv.FLAG] is True
     monkeypatch.setitem(feature_flags._DEFAULTS, adv.FLAG, True)
     feature_flags.reload()
     try:
