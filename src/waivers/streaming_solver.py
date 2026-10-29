@@ -136,6 +136,7 @@ __all__ = [
     "StreamPlayer",
     "StreamPlan",
     "capacity_curve",
+    "solo_gains",
     "solve_streaming",
 ]
 
@@ -927,6 +928,23 @@ def _undominated(
             continue
         kept.append((pid, g))
     return kept
+
+
+def solo_gains(inp: SolverInput) -> dict[str, float]:
+    """Each projected free agent's gain in ``V`` from adding him alone, with no
+    drop: the ranking key of a streaming board.  Free agents unprojected in
+    every week are left out (unknown, never 0)."""
+    ev = _Evaluator(inp)
+    roster_ids = frozenset(p.player_id for p in inp.roster)
+    base = ev.value(roster_ids)
+    out: dict[str, float] = {}
+    for p in inp.free_agents:
+        if p.player_id in roster_ids:
+            continue
+        if all(_week(p, w) is None for w in range(len(inp.week_weights))):
+            continue
+        out[p.player_id] = ev.value(roster_ids | {p.player_id}) - base
+    return out
 
 
 def solve_streaming(

@@ -327,3 +327,205 @@ def test_payload_never_mixes_units():
     plan: dict[str, Any] = out["plan"]
     assert {"weeklyGainPoints", "releaseCost", "dynastyValueChange", "faabTotal"} <= set(plan)
     assert "score" not in plan and "total" not in plan
+
+
+# ── review regressions (composer review 2026-10-29) ──────────────────
+
+
+def test_a_zero_cost_conditional_player_is_never_released_at_budget_zero():
+    # The drop assessment calls a release of a conditional player unsafe
+    # (unknown/rising signal, low confidence, no locks supplied): no free release.
+    assess = _base_assess(
+        lb2=_assess("lb2", "LB", "conditional", 300.0, 0.0),
+        lbx=_assess("lbx", "LB", "conditional", 200.0, 0.0),
+    )
+    out = _run(ROSTER, [("fa_lb", "LB", 11.0)], assess)
+    assert out["recommendMove"] is False
+    board = {r["playerId"]: r for r in out["safeToDrop"]["players"]}
+    assert board["lbx"]["releaseCost"] == 200.0
+    assert board["lbx"]["releaseCostBasis"] == "conditional_full_value"
+    # The larger-budget answer shows what the release would buy, at full value.
+    bigger = out["largerBudget"]["plan"]
+    assert bigger is not None and bigger["releaseCost"] == 200.0
+    # An explicit budget that covers the full value allows it.
+    allowed = _run(ROSTER, [("fa_lb", "LB", 11.0)], assess, request={"dynastyBudget": 200})
+    assert allowed["recommendMove"] and allowed["plan"]["dropDetails"][0]["playerId"] == "lbx"
+
+
+def test_a_single_release_is_charged_at_the_first_rung_whatever_the_capacity():
+    # LB ladder [400, 100]; churn LBs worth 300 and 200.  One add needs one
+    # drop, charged against the best free agent (400) → free, at every capacity.
+    assess = _base_assess(
+        lb2=_assess("lb2", "LB", "churn", 300.0, 0.0),
+        lbx=_assess("lbx", "LB", "churn", 200.0, 0.0),
+    )
+    fas = [("fa_lb", "LB", 11.0), ("fa_lb2", "LB", 12.0)]
+    for cap in (1, 2, 3):
+        out = _run(ROSTER, fas, assess, request={"capacity": cap}, ladders={"LB": [400.0, 100.0]})
+        assert out["recommendMove"], cap
+        assert out["plan"]["releaseCost"] == 0.0
+        assert len(out["plan"]["drops"]) == 1
+
+
+def test_a_larger_capacity_is_never_worse_and_the_curve_matches_the_answers():
+    roster = [*ROSTER, ("dbx", "DB", 1.0), ("dlx", "DL", 0.5)]
+    assess = [
+        *_base_assess(),
+        _assess("dbx", "DB", "churn", 100.0, 0.0),
+        _assess("dlx", "DL", "churn", 90.0, 0.0),
+    ]
+    fas = [("fa_lb", "LB", 11.0), ("fa_db", "DB", 9.5), ("fa_dl", "DL", 9.6), ("fa_lb3", "LB", 4.6)]
+    gains = []
+    curve = None
+    for cap in range(0, 6):
+        out = _run(roster, fas, assess, request={"capacity": cap})
+        alt = out["alternatives"][0]["weeklyGainPoints"] if out["alternatives"] else 0.0
+        gains.append(out["plan"]["weeklyGainPoints"] if out["plan"] else alt)
+        curve = out["capacityCurve"]
+    assert gains == sorted(gains)
+    for cap, g in enumerate(gains):
+        assert curve[cap]["bestGainPoints"] == pytest.approx(g, abs=1e-3)
+
+
+def test_recommended_capacity_agrees_with_a_recommended_move():
+    # Step 1 alone is below materiality, step 2 crosses it: a recommended
+    # 2-add plan must not sit beside recommendedCapacity 0.
+    roster = [("lb1", "LB", 10.0), ("lb2", "LB", 4.0), ("db1", "DB", 4.0), ("dl1", "DL", 9.0)]
+    assess = [
+        _assess("lb1", "LB", "protected", 4000.0, 3000.0),
+        _assess("lb2", "LB", "churn", 100.0, 0.0),
+        _assess("db1", "DB", "churn", 100.0, 0.0),
+        _assess("dl1", "DL", "protected", 3000.0, 2000.0),
+    ]
+    out = _run(
+        roster, [("fa_lb", "LB", 4.6), ("fa_db", "DB", 4.6)], assess, request={"capacity": 2}
+    )
+    assert out["recommendMove"]
+    assert out["recommendedCapacity"] >= len(out["plan"]["adds"])
+
+
+def test_partial_dynasty_change_is_unknown_not_a_sum_with_zero():
+    out = _run(ROSTER, [("fa_lb", "LB", 11.0)], _base_assess())
+    change = out["plan"]["dynastyValueChange"]
+    assert change["state"] == "partial_unknown_add_values"
+    assert change["value"] is None
+    assert change["knownValue"] == pytest.approx(-300.0)
+
+
+def test_players_missing_some_weeks_are_listed():
+    roster = [*ROSTER, ("dl_bye", "DL", (6.0, None))]
+    assess = [*_base_assess(), _assess("dl_bye", "DL", "protected", 2000.0, 1000.0)]
+    out = _run(
+        roster, [("fa_lb", "LB", (11.0, 3.0))], assess, weeks=(9, 10), request={"horizonWeeks": 2}
+    )
+    listed = {p["playerId"]: p for p in out["unprojectedRosterPlayers"]}
+    assert listed["dl_bye"]["missingWeeks"] == [10]
+
+
+def test_board_ties_on_lineup_gain_break_by_projected_points():
+    fas = [("a_low", "LB", 1.0), ("b_high", "LB", 3.5)]  # neither beats a starter: gain 0
+    out = _run(ROSTER, fas, _base_assess())
+    names = [r["playerId"] for r in out["streamingBoard"]]
+    assert names.index("b_high") < names.index("a_low")
+
+
+# ── orchestration (compute_streaming) ────────────────────────────────
+
+
+def _contract():
+    rows = [
+        {"playerId": pid, "displayName": pid, "position": pos, "rankDerivedValue": 1000.0}
+        for pid, pos, _ in ROSTER
+    ]
+    return {
+        "playersArray": rows,
+        "sleeper": {
+            "teams": [{"ownerId": "me", "name": "Me", "playerIds": [p for p, _, _ in ROSTER]}],
+            "rosterPositions": list(SLOTS),
+            "leagueSettings": {"playoff_week_start": 15},
+        },
+    }
+
+
+def _compute(today, **request):
+    from datetime import date  # noqa: PLC0415
+
+    seen: dict[str, Any] = {}
+
+    def load(week, season, current_week):
+        seen.setdefault("weeks", []).append(week)
+        rows = [_proj(pid, pos, pts, week=week) for pid, pos, pts in ROSTER]
+        return _set([*rows, _proj("fa_lb", "LB", 11.0, week=week)], week=week)
+
+    def drops(contract, league_key, owner_id, constraints):
+        seen["constraints"] = constraints
+        return _Drops(tuple(_base_assess()))
+
+    cfg = st.load_streaming_config()
+    req = st.parse_streaming_request({"teamOwnerId": "me", "capacityCurve": False, **request}, cfg)
+    out = st.compute_streaming(
+        _contract(),
+        league_key="t",
+        owner_id="me",
+        inputs={"teams": _contract()["sleeper"]["teams"], "roster_settings": {"rosterSize": 5}},
+        constraints="CONSTRAINTS",
+        request=req,
+        cfg=cfg,
+        today=date.fromisoformat(today),
+        load_projections=load,
+        assess_drops=drops,
+    )
+    return out, seen
+
+
+def test_default_week_on_waiver_days_is_the_next_week():
+    out, seen = _compute("2026-10-27")  # Tuesday of week 7's wrap-up
+    assert seen["weeks"] == [8] and out["request"]["weekRule"] == "next_week_on_waiver_days"
+    out, seen = _compute("2026-10-29")  # Thursday: week 8 is being played
+    assert seen["weeks"] == [8] and out["request"]["weekRule"] == "current_week"
+    out, seen = _compute("2026-10-27", week=12)
+    assert seen["weeks"] == [12] and out["request"]["weekRule"] == "requested"
+
+
+def test_constraints_reach_the_drop_assessment():
+    _out, seen = _compute("2026-10-29")
+    assert seen["constraints"] == "CONSTRAINTS"
+
+
+def test_out_of_season_without_a_week_is_refused():
+    with pytest.raises(ValueError, match="not_in_season"):
+        _compute("2027-03-01")
+
+
+def test_drop_policy_errors_map_to_stable_codes(monkeypatch):
+    from datetime import date  # noqa: PLC0415
+
+    from src.waivers.drop_assessment import DropAssessmentConfigError, TeamNotInLeague
+
+    cfg = st.load_streaming_config()
+    req = st.parse_streaming_request({"teamOwnerId": "me", "capacityCurve": False}, cfg)
+
+    def run(exc):
+        def drops(*_a):
+            raise exc
+
+        return st.compute_streaming(
+            _contract(),
+            league_key="t",
+            owner_id="me",
+            inputs={"teams": _contract()["sleeper"]["teams"]},
+            constraints=None,
+            request=req,
+            cfg=cfg,
+            today=date(2026, 10, 29),
+            load_projections=lambda w, s, c: _set([], week=w),
+            assess_drops=drops,
+        )
+
+    for exc, code in (
+        (TeamNotInLeague("x"), "unknown_team"),
+        (DropAssessmentConfigError("x"), "drop_policy_unreadable"),
+        (ValueError("league_mismatch: a vs b"), "league_mismatch"),
+    ):
+        with pytest.raises(ValueError, match=code):
+            run(exc)
