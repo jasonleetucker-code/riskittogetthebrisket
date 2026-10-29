@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 63 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 65 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -858,6 +858,28 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # fetch.
     "fantasynerds_weekly_projections": False,
     "sportsdataio_weekly_projections": False,
+    # IDP streaming W1 (2026-10-29): FPTrack weekly projections
+    # (``src/ros/fptrack_weekly_projections.py``) — a public, owner-attested
+    # (docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md) weekly stat-line
+    # catalog, offense + IDP.  SEASONAL intelligence lane only.  Its IDP
+    # numbers share data lineage with RotoWire, so it is a COVERAGE FILLER in
+    # ``src/ros/weekly_league_projections.py`` and never a second vote.
+    # Default OFF: no consumer reads it on a served path yet.  Off → the fetch
+    # refuses ``feature_disabled`` with no network call.  Activate:
+    # RISKIT_FEATURE_FPTRACK_WEEKLY_PROJECTIONS=1 + restart.
+    "fptrack_weekly_projections": False,
+    # IDP streaming W1 (2026-10-29): the perishable point-in-time weekly
+    # projection archive collector (``scripts/capture_weekly_projections.py``
+    # → gitignored ``data/projections/weekly_archive/``).  Read-only public
+    # fetches of weekly sources whose own flags are ON.  Registry default OFF
+    # because a SCRIPT_ONLY gate may not default ON
+    # (tests/api/test_feature_flag_reachability.py); the production timer
+    # (deploy/systemd/dynasty-weekly-projection-capture.service.template)
+    # opts in with ``Environment=RISKIT_FEATURE_WEEKLY_PROJECTION_CAPTURE=1``.
+    # Rollback: put RISKIT_FEATURE_WEEKLY_PROJECTION_CAPTURE=0 in the app
+    # ``.env`` (EnvironmentFile= overrides Environment=) or disable
+    # ``<service>-weekly-projection-capture.timer``.
+    "weekly_projection_capture": False,
     # Owner Decision 11 (2026-10-18) — playoff / title odds count a team's ROS
     # evidence ONCE.  ``src/ros/playoff_sim._compose_team_distribution``: on a
     # best-ball pre-sim basis (itself drawn from each player's rosValue) the
@@ -1240,6 +1262,12 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # False, and they also need their credential env var.
     "fantasynerds_weekly_projections": UNREACHABLE,
     "sportsdataio_weekly_projections": UNREACHABLE,
+    # ``src/ros/fptrack_weekly_projections.py`` — gated inside the provider
+    # module, reached today only by ``src/ros/weekly_league_projections.py``
+    # and the capture script, neither on a served path yet.
+    "fptrack_weekly_projections": UNREACHABLE,
+    # Gated in ``scripts/capture_weekly_projections.py`` (the timer's script).
+    "weekly_projection_capture": SCRIPT_ONLY,
     # ``src/ros/playoff_sim.ros_counted_once_enabled`` — read by
     # ``_build_team_distributions`` on every canonical forecast, reached
     # through ``/api/public/league/rosPlayoffOdds`` / ``playoffOdds`` /
