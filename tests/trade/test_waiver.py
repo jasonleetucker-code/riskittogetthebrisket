@@ -18,6 +18,8 @@ The gates pinned here are the ones with real money consequences:
 
 from __future__ import annotations
 
+from datetime import date
+
 from typing import Any
 
 import pytest
@@ -316,13 +318,20 @@ class TestGroupingAndCaps:
 
 class TestDegradedInputs:
     def test_missing_players_array_returns_empty_shape(self):
-        out = w.find_waiver_targets({}, sleeper_teams=[])
+        out = w.find_waiver_targets({}, sleeper_teams=[], today=date(2026, 7, 1))
         assert out == {
             "by_position": {},
             "by_family": {},
             "total": 0,
             "rookies_excluded": False,
             "bidMethodology": "ceiling_only_estimate",
+            "seasonPhase": {
+                "owner": "src/trade/faab_engine.py::current_nfl_week",
+                "currentWeek": None,
+                "inSeason": False,
+                "playoffWeekStart": 15,
+                "playoffWeekStartSource": "default",
+            },
         }
 
     def test_non_list_players_array_returns_empty_shape(self):
@@ -488,3 +497,90 @@ class TestMarketAwareUnification:
             "confidence",
         ):
             assert candidate[key] is None
+
+
+# ── Season phase of the list bids (IST-7, 2026-10-29) ────────────────
+
+
+class TestListBidSeasonPhase:
+    """The list bids run under the current NFL week, like the bid desk.
+
+    Until 2026-10-29 ``find_waiver_targets`` built ``LeagueContext`` with no
+    week, so every list bid was priced with the OFFSEASON option value even in
+    week 9.
+    """
+
+    def test_in_season_week_and_playoff_start_reach_the_engine(self, monkeypatch):
+        seen = {}
+        from src.trade import faab_engine as engine
+
+        original = engine.LeagueContext
+
+        def spy(*args, **kwargs):
+            ctx = original(*args, **kwargs)
+            seen["ctx"] = ctx
+            return ctx
+
+        monkeypatch.setattr(engine, "LeagueContext", spy)
+        contract = _contract(_player("Free LB", "LB", 2000))
+        contract["sleeper"] = {"leagueSettings": {"playoff_week_start": 14}}
+        out = w.find_waiver_targets(contract, sleeper_teams=[], today=date(2026, 10, 29))
+        ctx = seen["ctx"]
+        assert ctx.current_week == 8
+        assert ctx.in_season is True
+        assert ctx.playoff_week_start == 14
+        assert out["seasonPhase"] == {
+            "owner": "src/trade/faab_engine.py::current_nfl_week",
+            "currentWeek": 8,
+            "inSeason": True,
+            "playoffWeekStart": 14,
+            "playoffWeekStartSource": "league_settings",
+        }
+
+    def test_playoff_start_is_never_read_from_team_rows(self):
+        # No producer puts a playoff week on a team row; the league's settings
+        # are the one source, and their absence is stamped as the default.
+        out = w.find_waiver_targets(
+            _contract(_player("Free LB", "LB", 2000)),
+            sleeper_teams=[{"playoffWeekStart": 14}],
+            today=date(2026, 10, 29),
+        )
+        assert out["seasonPhase"]["playoffWeekStart"] == 15
+        assert out["seasonPhase"]["playoffWeekStartSource"] == "default"
+
+    def test_non_list_players_array_still_reports_the_season_phase(self):
+        out = w.find_waiver_targets(
+            {"playersArray": "broken"}, sleeper_teams=[], today=date(2026, 10, 29)
+        )
+        assert out["seasonPhase"]["currentWeek"] == 8
+
+    @pytest.mark.parametrize(
+        "settings, expected",
+        [
+            ({"playoff_week_start": 16}, (16, "league_settings")),
+            ({"playoff_week_start": 0}, (15, "default")),
+            ({"playoff_week_start": True}, (15, "default")),
+            ({"playoff_week_start": "14"}, (15, "default")),
+            ({}, (15, "default")),
+            (None, (15, "default")),
+        ],
+    )
+    def test_league_playoff_week_start(self, settings, expected):
+        from src.trade import faab_engine as engine
+
+        contract = {"sleeper": {"leagueSettings": settings}}
+        assert engine.league_playoff_week_start(contract) == expected
+        assert engine.league_playoff_week_start(None) == (15, "default")
+
+    def test_in_season_option_value_differs_from_the_offseason_one(self):
+        from src.trade import faab_engine as engine
+
+        team = engine.TeamContext(faab_remaining=60, competitive_status="bubble")
+        week, in_season = engine.current_nfl_week(date(2026, 10, 29))
+        in_season_ctx = engine.LeagueContext(current_week=week, in_season=in_season)
+        offseason_ctx = engine.LeagueContext()
+        f_in, r_in = engine.season_option_value(in_season_ctx, team)
+        f_off, r_off = engine.season_option_value(offseason_ctx, team)
+        assert r_off.startswith("offseason")
+        assert not r_in.startswith("offseason")
+        assert f_in != f_off
