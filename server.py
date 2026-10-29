@@ -7848,6 +7848,8 @@ _STREAMING_ERROR_STATUS = {
     "starter_slots_unknown": 503,
     "not_in_season": 400,
     "projections_refused": 503,
+    "drop_policy_unreadable": 503,
+    "league_mismatch": 503,
 }
 
 
@@ -7870,7 +7872,7 @@ async def post_waiver_streaming(request: Request):
              / unknown_league / inactive_league
         503  feature_disabled (``flag`` names the switch that is off)
         503  data_not_ready / no_rosters_loaded / starter_slots_unknown
-             / projections_refused
+             / projections_refused / drop_policy_unreadable / league_mismatch
         503  idp_streaming_unavailable (``reason`` config_unreadable /
              league_settings_unreadable, or none when the build raised)
     """

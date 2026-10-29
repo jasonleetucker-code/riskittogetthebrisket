@@ -15,43 +15,31 @@
       "status": "optimal"
     },
     {
-      "adds": [
-        "9101"
-      ],
-      "bestGainPoints": 6.5,
+      "adds": [],
+      "bestGainPoints": 0.0,
       "capacity": 1,
-      "drops": [
-        "9004"
-      ],
-      "marginalGainPoints": 6.5,
+      "drops": [],
+      "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
-      "status": "optimal"
+      "status": "bounded"
     },
     {
-      "adds": [
-        "9101"
-      ],
-      "bestGainPoints": 6.5,
+      "adds": [],
+      "bestGainPoints": 0.0,
       "capacity": 2,
-      "drops": [
-        "9004"
-      ],
+      "drops": [],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
-      "status": "optimal"
+      "status": "bounded"
     },
     {
-      "adds": [
-        "9101"
-      ],
-      "bestGainPoints": 6.5,
+      "adds": [],
+      "bestGainPoints": 0.0,
       "capacity": 3,
-      "drops": [
-        "9004"
-      ],
+      "drops": [],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
-      "status": "optimal"
+      "status": "bounded"
     },
     {
       "adds": [
@@ -62,9 +50,9 @@
       "drops": [
         "9004"
       ],
-      "marginalGainPoints": 0.0,
+      "marginalGainPoints": 6.5,
       "netDynastyLoss": 0.0,
-      "status": "optimal"
+      "status": "bounded"
     },
     {
       "adds": [
@@ -77,7 +65,7 @@
       ],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
-      "status": "optimal"
+      "status": "bounded"
     },
     {
       "adds": [
@@ -90,7 +78,7 @@
       ],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
-      "status": "optimal"
+      "status": "bounded"
     },
     {
       "adds": [
@@ -103,12 +91,16 @@
       ],
       "marginalGainPoints": 0.0,
       "netDynastyLoss": 0.0,
-      "status": "optimal"
+      "status": "bounded"
     }
   ],
   "config": {
-    "hash": "deffbac31dd98dbd0205c22160f817be1a3f85d0cdf6aefdadeff7dd01ff3e94",
+    "defaultCapacity": 3,
+    "hash": "93b38b280597689119e8202a389b79c15c0d873964365a81342606c7f4eaacf2",
     "materialityPoints": 1.0,
+    "maxCapacity": 7,
+    "maxDynastyBudget": 100000,
+    "maxHorizonWeeks": 4,
     "version": "idp_streaming_v1"
   },
   "contractVersion": "idp-streaming/2026-10-29.v1",
@@ -120,7 +112,7 @@
     "state": "known"
   },
   "largerBudget": {
-    "meaning": "the best plan with the dynasty budget lifted: what a larger budget would buy",
+    "meaning": "the best plan at this capacity with the dynasty budget lifted: what a larger budget would buy",
     "plan": null,
     "status": "bounded"
   },
@@ -150,7 +142,7 @@
     "use": "displayed for context only; it never raises the dynasty budget"
   },
   "recommendMove": false,
-  "recommendedCapacity": 1,
+  "recommendedCapacity": 4,
   "request": {
     "capacity": 3,
     "capacityCurve": true,
@@ -158,7 +150,8 @@
     "horizonWeeks": 1,
     "position": "ALL",
     "teamOwnerId": "owner-me",
-    "week": null
+    "week": null,
+    "weekRule": "current_week"
   },
   "rosterSource": "live_overlay",
   "rostersAsOf": "2026-10-29T06:00:00+00:00",
@@ -186,6 +179,7 @@
           "state": "unmeasured"
         },
         "releaseCost": 250.0,
+        "releaseCostBasis": "churn_value_above_replacement",
         "replacementValue": 250.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 0.0,
@@ -232,6 +226,7 @@
           "state": "unmeasured"
         },
         "releaseCost": 0.0,
+        "releaseCostBasis": "churn_value_above_replacement",
         "replacementValue": 350.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 0.0,
@@ -278,6 +273,7 @@
           "state": "unmeasured"
         },
         "releaseCost": 800.0,
+        "releaseCostBasis": "conditional_full_value",
         "replacementValue": 600.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 200.0,
@@ -311,7 +307,8 @@
         "recoveryRisk": {
           "state": "unmeasured"
         },
-        "releaseCost": 1000.0,
+        "releaseCost": 1600.0,
+        "releaseCostBasis": "conditional_full_value",
         "replacementValue": 900.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 700.0,
@@ -360,6 +357,7 @@
           "state": "unmeasured"
         },
         "releaseCost": null,
+        "releaseCostBasis": null,
         "replacementValue": 1000.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 900.0,
@@ -406,6 +404,7 @@
           "state": "unmeasured"
         },
         "releaseCost": null,
+        "releaseCostBasis": null,
         "replacementValue": 1100.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 1500.0,
@@ -452,6 +451,7 @@
           "state": "unmeasured"
         },
         "releaseCost": null,
+        "releaseCostBasis": null,
         "replacementValue": 1100.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 3100.0,
@@ -498,6 +498,7 @@
           "state": "unmeasured"
         },
         "releaseCost": null,
+        "releaseCostBasis": null,
         "replacementValue": 1100.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 4000.0,
@@ -536,10 +537,19 @@
   "solver": {
     "boundGap": 6.5,
     "nodeLimit": 1,
-    "nodes": 2,
+    "nodes": 60,
     "notes": [
       "search stopped at node_limit=1; the plan shown is the best found, not proven optimal",
       "the larger-budget comparison stopped at its node limit: best found, not proven"
+    ],
+    "solvedCapacities": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
     ],
     "status": "bounded",
     "version": "streaming-solver/2026-10-29.v1"
@@ -601,7 +611,8 @@
           ],
           "week": 9
         }
-      ]
+      ],
+      "weightedProjectedPoints": 10.5
     },
     {
       "bid": 0,
@@ -632,7 +643,8 @@
           ],
           "week": 9
         }
-      ]
+      ],
+      "weightedProjectedPoints": 9.0
     },
     {
       "bid": 0,
@@ -663,7 +675,8 @@
           ],
           "week": 9
         }
-      ]
+      ],
+      "weightedProjectedPoints": 6.5
     }
   ],
   "team": {
@@ -672,6 +685,9 @@
   },
   "unprojectedRosterPlayers": [
     {
+      "missingWeeks": [
+        9
+      ],
       "name": "Sam Okafor",
       "playerId": "9008",
       "weeks": [

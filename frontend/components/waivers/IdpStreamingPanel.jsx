@@ -15,7 +15,7 @@
 //
 // Advice only.  Nothing here submits, schedules or drafts a waiver claim.
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Badge,
   Banner,
@@ -35,13 +35,13 @@ import {
 } from "@/components/ds";
 import { useIdpStreaming } from "@/components/waivers/useIdpStreaming";
 import {
-  STREAMING_CAPACITY_OPTIONS,
-  STREAMING_HORIZON_OPTIONS,
   STREAMING_POSITION_OPTIONS,
   STREAMING_WEEK_OPTIONS,
   bidBasisText,
   bidText,
+  capacityOptions,
   coverageText,
+  curveRowStatus,
   dropClassBadge,
   dynastyChangeText,
   dynastyValueText,
@@ -50,13 +50,17 @@ import {
   fmtPoints,
   fmtSignedPoints,
   fmtValue,
+  horizonOptions,
   moveSummary,
   noMoveReasonText,
   playerNameIndex,
   postureContextText,
   reasonText,
+  releaseCostBasisText,
   solverStatusText,
+  streamingLimits,
   weekCellText,
+  weekRuleText,
 } from "@/lib/idp-streaming";
 import styles from "@/app/waivers/waivers.module.css";
 
@@ -80,7 +84,13 @@ function PlayerCell({ row }) {
 
 // ── controls ───────────────────────────────────────────────────────────
 
-function Controls({ params, setParams }) {
+function Controls({ params, setParams, config, appliedCapacity }) {
+  // Bounds come from the backend's own config once a payload is in hand.
+  const limits = streamingLimits(config);
+  // Capacity is not sent until the user picks one: the backend default
+  // applies, and the control reflects the capacity the backend actually used.
+  const shownCapacity =
+    params.capacity ?? appliedCapacity ?? config?.defaultCapacity ?? null;
   const [budgetDraft, setBudgetDraft] = useState(String(params.dynastyBudget));
   const commitBudget = () => {
     const raw = budgetDraft.trim() === "" ? "0" : budgetDraft.trim();
@@ -107,7 +117,7 @@ function Controls({ params, setParams }) {
         label="Horizon"
         value={params.horizonWeeks}
         onChange={(v) => setParams((p) => ({ ...p, horizonWeeks: v }))}
-        options={STREAMING_HORIZON_OPTIONS}
+        options={horizonOptions(config)}
       />
       <SegmentedControl
         label="Position"
@@ -122,12 +132,13 @@ function Controls({ params, setParams }) {
       >
         <Select
           id="streaming-capacity"
-          value={String(params.capacity)}
+          value={shownCapacity == null ? "" : String(shownCapacity)}
           onChange={(e) =>
             setParams((p) => ({ ...p, capacity: Number(e.target.value) }))
           }
         >
-          {STREAMING_CAPACITY_OPTIONS.map((k) => (
+          {shownCapacity == null ? <option value="">Default</option> : null}
+          {capacityOptions(config).map((k) => (
             <option key={k} value={String(k)}>
               {k}
             </option>
@@ -144,6 +155,7 @@ function Controls({ params, setParams }) {
           type="number"
           inputMode="numeric"
           min={0}
+          max={limits.maxDynastyBudget}
           step={50}
           data-numeric
           value={budgetDraft}
@@ -177,14 +189,14 @@ function PlanFigures({ plan, weeks }) {
         <StatTile
           label="Release cost"
           value={fmtValue(plan.releaseCost) ?? "—"}
-          meta="dynasty board value given up"
+          meta="dynasty value charged against your budget"
         />
         <StatTile
           label="Dynasty value change"
           value={change.text}
           meta={
             change.partial
-              ? "partial — some values unknown"
+              ? "total unknown — reported only"
               : "Σ adds − Σ drops, reported only"
           }
         />
@@ -235,6 +247,9 @@ function MoveList({ plan }) {
                 {dropClassBadge(d.dropClass).label}
               </Badge>{" "}
               release cost {fmtValue(d.releaseCost) ?? "unknown"}
+              {releaseCostBasisText(d.releaseCostBasis)
+                ? ` (${releaseCostBasisText(d.releaseCostBasis)})`
+                : ""}
               {d.reasons?.[0]?.detail ? ` — ${d.reasons[0].detail}` : ""}
             </span>
           ))
@@ -251,11 +266,16 @@ function MoveList({ plan }) {
 function Decision({ payload }) {
   const solver = solverStatusText(payload.solver);
   const weeks = payload.weeks || [];
-  const weekLabel =
+  const rule = weekRuleText(payload.request?.weekRule);
+  const weekLabel = `${
     weeks.length > 1
       ? `Weeks ${weeks[0]}–${weeks[weeks.length - 1]}`
-      : `Week ${weeks[0] ?? "?"}`;
+      : `Week ${weeks[0] ?? "?"}`
+  }${rule ? ` (${rule})` : ""}`;
   if (!payload.recommendMove || !payload.plan) {
+    // Not recommended: the backend lists the best change it found as the
+    // first alternative (plan is null).
+    const bestFound = payload.plan || payload.alternatives?.[0] || null;
     return (
       <Panel
         title="No move — hold your roster"
@@ -265,13 +285,12 @@ function Decision({ payload }) {
           <p className={styles.note}>
             {noMoveReasonText(payload.noMoveReason)}
           </p>
-          {payload.plan ? (
+          {bestFound && payload.noMoveReason === "below_materiality" ? (
             <p className={styles.note}>
               Best change found:{" "}
-              {moveSummary(payload.plan, playerNameIndex(payload))} (
-              {fmtSignedPoints(payload.plan.weeklyGainPoints) ?? "—"} pts) —
-              below the{" "}
-              {fmtPoints(payload.config?.materialityPoints) ?? "configured"}
+              {moveSummary(bestFound, playerNameIndex(payload))} (
+              {fmtSignedPoints(bestFound.weeklyGainPoints) ?? "—"} pts) — below
+              the {fmtPoints(payload.config?.materialityPoints) ?? "configured"}
               -point threshold.
             </p>
           ) : null}
@@ -365,7 +384,7 @@ function LargerBudget({ payload, names }) {
   return (
     <Panel
       title="What a larger dynasty budget would buy"
-      subtitle={`The best plan with your ${fmtValue(budget) ?? "0"}-point budget lifted${
+      subtitle={`The best plan at this capacity with your ${fmtValue(budget) ?? "0"}-point budget lifted${
         lb.status === "bounded" ? " · bounded search" : ""
       }`}
     >
@@ -448,6 +467,17 @@ function CapacityCurve({ payload, names }) {
       render: (r) => fmtValue(r.netDynastyLoss) ?? "—",
     },
     {
+      key: "status",
+      header: "Search",
+      headerInfo:
+        "Proven: the search finished. Bounded: the search hit its limit, so this row is the best found, not proven best.",
+      accessor: (r) => curveRowStatus(r).label,
+      render: (r) => {
+        const st = curveRowStatus(r);
+        return <Badge tone={st.tone}>{st.label}</Badge>;
+      },
+    },
+    {
       key: "moves",
       header: "Moves",
       hideBelow: "lg",
@@ -460,9 +490,13 @@ function CapacityCurve({ payload, names }) {
       title="Streaming capacity"
       subtitle={
         rec != null
-          ? `${rec} spot${rec === 1 ? "" : "s"} recommended — the last spot that still adds at least ${
-              fmtPoints(payload.config?.materialityPoints) ?? "the threshold"
-            } points`
+          ? rec === 0
+            ? `0 spots recommended — no capacity gains at least ${
+                fmtPoints(payload.config?.materialityPoints) ?? "the threshold"
+              } points`
+            : `${rec} spot${rec === 1 ? "" : "s"} recommended — the fewest that come within ${
+                fmtPoints(payload.config?.materialityPoints) ?? "the threshold"
+              } points of the best gain any capacity finds`
           : "Diminishing returns by number of streaming spots"
       }
     >
@@ -524,6 +558,17 @@ function streamingBoardColumns(weekNumbers) {
       numeric: true,
       accessor: (r) => r.soloLineupGainPoints,
       render: (r) => fmtSignedPoints(r.soloLineupGainPoints) ?? "—",
+    },
+    {
+      key: "proj",
+      header: "Proj.",
+      headerInfo:
+        "Projected points across the horizon, weighted by week. The board's tiebreak after lineup gain.",
+      numeric: true,
+      hideBelow: "md",
+      accessor: (r) => r.weightedProjectedPoints,
+      render: (r) =>
+        fmtPoints(r.weightedProjectedPoints) ?? <Missing>—</Missing>,
     },
     ...weekNumbers.map((wk, i) => ({
       key: `wk${wk}`,
@@ -735,6 +780,12 @@ function SafeToDrop({ payload }) {
                           {r.developmentFlags.map(reasonText).join(", ")}
                         </span>
                       ) : null}
+                      {releaseCostBasisText(r.releaseCostBasis) ? (
+                        <span className={styles.contextValue}>
+                          Release cost basis:{" "}
+                          {releaseCostBasisText(r.releaseCostBasis)}
+                        </span>
+                      ) : null}
                       {(r.locks || []).length ? (
                         <span className={styles.contextValue}>
                           Your protections lock him ({r.locks.length})
@@ -834,11 +885,13 @@ function Context({ payload }) {
 
 // ── panel ──────────────────────────────────────────────────────────────
 
+// `capacity: null` is not sent: the backend's configured default applies and
+// the control then shows the capacity the backend used (`request.capacity`).
 export const DEFAULT_STREAMING_PARAMS = {
   week: "",
   horizonWeeks: 1,
   position: "ALL",
-  capacity: 2,
+  capacity: null,
   dynastyBudget: "0",
 };
 
@@ -850,6 +903,11 @@ export default function IdpStreamingPanel({ leagueKey, ownerId }) {
     params,
   });
   const names = useMemo(() => playerNameIndex(payload), [payload]);
+  // The last answer's config and applied capacity keep the controls' bounds
+  // stable across a refresh or a failed request.
+  const lastRef = useRef(null);
+  if (payload) lastRef.current = payload;
+  const last = lastRef.current;
 
   return (
     <div
@@ -858,7 +916,12 @@ export default function IdpStreamingPanel({ leagueKey, ownerId }) {
       aria-busy={loading ? "true" : "false"}
     >
       <Panel dense>
-        <Controls params={params} setParams={setParams} />
+        <Controls
+          params={params}
+          setParams={setParams}
+          config={last?.config}
+          appliedCapacity={last?.request?.capacity}
+        />
       </Panel>
 
       {failure ? (
@@ -883,9 +946,15 @@ export default function IdpStreamingPanel({ leagueKey, ownerId }) {
               tone="warning"
               title="Roster defenders without a projection"
             >
-              {payload.unprojectedRosterPlayers.map((p) => p.name).join(", ")} —
-              no weekly projection, so the lineup math cannot place them
-              (unknown, not a guessed number).
+              {payload.unprojectedRosterPlayers
+                .map((p) =>
+                  (p.missingWeeks || []).length
+                    ? `${p.name} (week ${p.missingWeeks.join(", ")})`
+                    : p.name,
+                )
+                .join("; ")}{" "}
+              — no weekly projection for those weeks, so the lineup math cannot
+              place them there (unknown, not a guessed number).
             </Banner>
           ) : null}
           <Decision payload={payload} />

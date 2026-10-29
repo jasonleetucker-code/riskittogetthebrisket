@@ -24,13 +24,44 @@ export const STREAMING_POSITION_OPTIONS = [
   { value: "DB", label: "DB" },
 ];
 
-export const STREAMING_HORIZON_OPTIONS = [1, 2, 3, 4].map((n) => ({
-  value: n,
-  label: `${n} wk`,
-}));
+/**
+ * Fallback bounds used ONLY before the first payload arrives.  Once a payload
+ * is in hand the controls read the backend's own `config.maxCapacity` /
+ * `config.maxHorizonWeeks` / `config.maxDynastyBudget` (config/waivers/streaming.json).
+ */
+export const STREAMING_FALLBACK_LIMITS = {
+  maxCapacity: 7,
+  maxHorizonWeeks: 4,
+  maxDynastyBudget: 100000,
+};
 
-/** Streaming capacity choices.  The backend bounds it (config `maxCapacity`). */
-export const STREAMING_CAPACITY_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7];
+/** The control bounds from the payload's config, else the fallback. */
+export function streamingLimits(config) {
+  const pick = (key) => {
+    const n = Number(config?.[key]);
+    return Number.isInteger(n) && n >= 0 ? n : STREAMING_FALLBACK_LIMITS[key];
+  };
+  return {
+    maxCapacity: pick("maxCapacity"),
+    maxHorizonWeeks: Math.max(1, pick("maxHorizonWeeks")),
+    maxDynastyBudget: pick("maxDynastyBudget"),
+  };
+}
+
+/** Horizon choices 1..maxHorizonWeeks. */
+export function horizonOptions(config) {
+  const { maxHorizonWeeks } = streamingLimits(config);
+  return Array.from({ length: maxHorizonWeeks }, (_, i) => ({
+    value: i + 1,
+    label: `${i + 1} wk`,
+  }));
+}
+
+/** Streaming-capacity choices 0..maxCapacity. */
+export function capacityOptions(config) {
+  const { maxCapacity } = streamingLimits(config);
+  return Array.from({ length: maxCapacity + 1 }, (_, i) => i);
+}
 
 /** Week choices: "current" lets the backend resolve the NFL week itself. */
 export const STREAMING_WEEK_OPTIONS = [
@@ -86,6 +117,10 @@ const FAILURE_COPY = {
     "This league's starting lineup slots are unknown, so lineup gains cannot be computed.",
   not_in_season:
     "It is not the NFL season, so there is no current week to stream. Pick a week.",
+  drop_policy_unreadable:
+    "The drop-protection policy could not be read, so no release can be judged safe.",
+  league_mismatch:
+    "The loaded rosters belong to a different league than the one requested.",
   projections_refused:
     "Weekly projections are unavailable for this league and week (scoring could not be verified or no source answered).",
   idp_streaming_unavailable:
@@ -212,6 +247,8 @@ const NO_MOVE_COPY = {
     "No roster player can be released under your protections and the drop assessment, and there is no open roster spot.",
   no_projected_free_agent:
     "No available defender at this filter has a weekly projection, so there is nothing to stream.",
+  capacity_zero:
+    "Streaming capacity is set to 0, so no add is considered. Raise it to see moves.",
   no_move_improves_the_lineup:
     "No legal add/drop improves your projected starting lineup this week.",
 };
@@ -285,14 +322,53 @@ export function dynastyValueText(value, state) {
 /** Dynasty value change of a plan, with its completeness state. */
 export function dynastyChangeText(change) {
   if (!change) return { text: "Unavailable", partial: false };
-  const v = fmtSignedValue(change.value);
-  if (change.state === "complete")
-    return { text: v ?? "Unavailable", partial: false };
+  if (change.state === "complete") {
+    return {
+      text: fmtSignedValue(change.value) ?? "Unavailable",
+      partial: false,
+    };
+  }
+  // Partial: the backend withholds the total (value: null) and states the
+  // known part separately.  Never present the known part as the total.
   const n = change.unknownAddValues;
+  const who = `${n ?? "some"} added player${n === 1 ? "" : "s"} unvalued`;
+  const known = fmtSignedValue(change.knownValue);
   return {
-    text: `${v ?? "?"} (partial — ${n ?? "some"} added player${n === 1 ? "" : "s"} unvalued)`,
+    text: `Unknown — ${who}${known ? ` (known part ${known})` : ""}`,
     partial: true,
   };
+}
+
+const RELEASE_BASIS = {
+  conditional_full_value:
+    "conditional: full value — the drop assessment says a free release is unsafe",
+  churn_value_above_replacement: "value above the best equivalent free agent",
+};
+
+/** Why a release costs what it does against the dynasty budget. */
+export function releaseCostBasisText(basis) {
+  if (!basis) return null;
+  return RELEASE_BASIS[basis] || reasonText(basis);
+}
+
+const WEEK_RULE = {
+  next_week_on_waiver_days: "next week — waiver days",
+  current_week: "current week",
+  requested: "the week you picked",
+};
+
+/** How the backend chose the week, in plain words. */
+export function weekRuleText(rule) {
+  if (!rule) return null;
+  return WEEK_RULE[rule] || reasonText(rule);
+}
+
+/** A capacity-curve row's search status — a bounded row is never "proven". */
+export function curveRowStatus(row) {
+  if (row?.status === "optimal") return { label: "Proven", tone: "neutral" };
+  if (row?.status === "bounded")
+    return { label: "Bounded — not proven", tone: "warning" };
+  return { label: reasonText(row?.status), tone: "outline" };
 }
 
 /** One week's projection cell for a player: points, or the stated state. */

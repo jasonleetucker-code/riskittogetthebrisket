@@ -126,7 +126,11 @@ test("weekly IDP streaming: gate, real team, controls reach the backend, boards,
   expect(calls.length).toBeGreaterThan(0);
   const first = calls[0];
   expect(first.teamOwnerId, "a team is always sent, never guessed").toBeTruthy();
-  expect(first).toMatchObject({ horizonWeeks: 1, position: "ALL", capacity: 2, dynastyBudget: 0 });
+  expect(first).toMatchObject({ horizonWeeks: 1, position: "ALL", dynastyBudget: 0 });
+  expect(first, "capacity is left to the backend default until the user picks one").not.toHaveProperty(
+    "capacity",
+  );
+  await expect(panel.getByLabel("Streaming capacity")).toHaveValue(String(LIMITED.request.capacity));
 
   // Budget 0: one move, and the larger-budget plan names the second.
   await expect(page.getByTestId("streaming-larger-budget")).toContainText("Tyrell Gaines");
@@ -137,7 +141,7 @@ test("weekly IDP streaming: gate, real team, controls reach the backend, boards,
   await budget.press("Enter");
   await expect(rec.getByTestId("streaming-moves")).toContainText("Andre Whitfield", { timeout: 30_000 });
   expect(calls.at(-1).dynastyBudget).toBe(300);
-  await expect(rec).toContainText(/partial/);
+  await expect(rec).toContainText("Unknown — 1 added player unvalued");
   await expect(page.getByTestId("streaming-capacity-curve")).toContainText("Recommended");
 
   // The streaming board follows the backend's order and states unknowns.

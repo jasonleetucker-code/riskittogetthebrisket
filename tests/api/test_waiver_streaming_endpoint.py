@@ -134,6 +134,8 @@ def test_unreadable_league_settings_503_carries_no_exception_text(
         ("starter_slots_unknown", 503),
         ("not_in_season", 400),
         ("projections_refused", 503),
+        ("drop_policy_unreadable", 503),
+        ("league_mismatch", 503),
     ],
 )
 def test_composer_codes_map_to_stable_statuses(env, flags_on, monkeypatch, code, status):  # noqa: F811

@@ -209,7 +209,9 @@ def _assessments():
     return _Drops(tuple(rows), summary={"counts": counts, "rosterPlayers": len(rows)})
 
 
-def _build(request: dict[str, Any], *, weeks, cfg=None) -> dict[str, Any]:
+def _build(
+    request: dict[str, Any], *, weeks, cfg=None, week_rule: str = "current_week"
+) -> dict[str, Any]:
     cfg = cfg or st.load_streaming_config()
     req = st.parse_streaming_request({"teamOwnerId": "owner-me", **request}, cfg)
     team = {
@@ -236,7 +238,8 @@ def _build(request: dict[str, Any], *, weeks, cfg=None) -> dict[str, Any]:
         faab_remaining=62,
         open_spots=0,
         open_spots_note=None,
-        request=req,
+        # compute_streaming stamps how the week was chosen; assemble passes it through.
+        request={**req, "weekRule": week_rule},
         cfg=cfg,
         posture={"label": "PUSH", "confidence": 0.71},
     )
@@ -260,11 +263,17 @@ SCENARIOS = {
     # change (one add is off the board), an alternative single move,
     # protections and an unprojected roster defender.
     "recommend": lambda: _build(
-        {"horizonWeeks": 2, "capacity": 2, "dynastyBudget": 300}, weeks=(9, 10)
+        {"horizonWeeks": 2, "capacity": 2, "dynastyBudget": 300},
+        weeks=(9, 10),
+        week_rule="next_week_on_waiver_days",
     ),
     # The same roster at the default budget of 0: one move, and the second
     # (releasing a DB worth 250 over replacement) is what a larger budget buys.
-    "budget-limited": lambda: _build({"horizonWeeks": 2, "capacity": 2}, weeks=(9, 10)),
+    "budget-limited": lambda: _build(
+        {"horizonWeeks": 2, "capacity": 2},
+        weeks=(9, 10),
+        week_rule="next_week_on_waiver_days",
+    ),
     # DL only: no legal DL move improves the lineup — the explicit no-move state.
     "no-move": lambda: _build({"position": "DL", "capacity": 1}, weeks=(9,)),
     # A truncated search: status ``bounded`` with its proven gap.

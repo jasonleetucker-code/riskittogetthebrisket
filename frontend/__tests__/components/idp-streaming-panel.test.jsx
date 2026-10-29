@@ -103,9 +103,12 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
       teamOwnerId: "owner-me",
       horizonWeeks: 1,
       position: "ALL",
-      capacity: 2,
       dynastyBudget: 0,
     });
+    // No capacity was sent; the control shows the one the backend applied.
+    expect(await screen.findByLabelText("Streaming capacity")).toHaveValue(
+      String(budgetLimited.request.capacity),
+    );
     // The advisor's own request is not re-run while streaming is showing.
     const advisorCalls = global.fetch.mock.calls.filter(([u]) => u === "/api/waiver/advisor").length;
     expect(advisorCalls).toBe(1);
@@ -118,7 +121,15 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
     expect(within(rec).getByText(/Weekly lineup gain/)).toBeInTheDocument();
     expect(within(rec).getByText(`+${recommend.plan.weeklyGainPoints.toFixed(1)} pts`)).toBeInTheDocument();
     // Partial dynasty change is stated, never presented as complete.
-    expect(within(rec).getByText(/partial — 1 added player unvalued/)).toBeInTheDocument();
+    expect(
+      within(rec).getByText("Unknown — 1 added player unvalued (known part +850)"),
+    ).toBeInTheDocument();
+    // The release-cost basis travels with each drop, and the week rule is stated.
+    expect(within(rec).getByTestId("streaming-moves")).toHaveTextContent(
+      "value above the best equivalent free agent",
+    );
+    expect(screen.getAllByText(/next week — waiver days/).length).toBeGreaterThan(0);
+    expect(within(rec).getByText("dynasty value charged against your budget")).toBeInTheDocument();
     expect(within(rec).getByTestId("streaming-gain-by-week")).toHaveTextContent("Week 9");
     const moves = within(rec).getByTestId("streaming-moves");
     expect(moves).toHaveTextContent("Nick Lambright");
@@ -127,7 +138,7 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
     expect(screen.getAllByText(/Optimal — proven best/).length).toBeGreaterThan(0);
     // Unprojected roster defender is warned about, not zeroed.
     expect(screen.getByText("Roster defenders without a projection").parentElement).toHaveTextContent(
-      /Sam Okafor — no weekly projection/,
+      /Sam Okafor \(week 9, 10\) — no weekly projection/,
     );
     // Alternatives and capacity curve.
     expect(screen.getByRole("table", { name: /Alternative add\/drop/ })).toHaveTextContent(
@@ -173,6 +184,16 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
     expect(await screen.findByText("Why he is protected")).toBeInTheDocument();
     expect(screen.getAllByText(/developmental asset/).length).toBeGreaterThan(1);
     expect(screen.getByText(/Development: rising snap share/)).toBeInTheDocument();
+    // A conditional player's release is charged at full value, and says why.
+    const okafor = within(table)
+      .getAllByRole("row")
+      .find((r) => r.textContent.includes("Sam Okafor"));
+    fireEvent.click(within(okafor).getByRole("button", { expanded: false }));
+    expect(
+      await screen.findByText(
+        /Release cost basis: conditional: full value — the drop assessment says a free release is unsafe/,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows what a larger dynasty budget would buy", async () => {
@@ -201,6 +222,11 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
         { exact: false },
       ),
     ).not.toHaveLength(0);
+    // Each capacity row carries its own search status; bounded rows are not "proven".
+    const curve = screen.getByTestId("streaming-capacity-curve");
+    expect(within(curve).getAllByText("Bounded — not proven").length).toBe(
+      bounded.capacityCurve.filter((r) => r.status === "bounded").length,
+    );
   });
 
   it("sends changed controls to the backend (it decides, the page does not)", async () => {

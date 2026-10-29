@@ -9,6 +9,12 @@ import { describe, expect, it } from "vitest";
 import {
   bidText,
   buildStreamingRequest,
+  capacityOptions,
+  curveRowStatus,
+  horizonOptions,
+  releaseCostBasisText,
+  streamingLimits,
+  weekRuleText,
   classifyStreamingFailure,
   coverageText,
   dropClassBadge,
@@ -108,7 +114,8 @@ describe("formatting — missing is never zero", () => {
   it("marks a partial dynasty change as partial", () => {
     const c = dynastyChangeText(recommend.plan.dynastyValueChange);
     expect(c.partial).toBe(true);
-    expect(c.text).toMatch(/partial/);
+    // The backend withholds the total; the known part is labelled as such.
+    expect(c.text).toBe("Unknown — 1 added player unvalued (known part +850)");
     expect(dynastyChangeText({ value: -250, state: "complete" })).toEqual({ text: "-250", partial: false });
   });
   it("renders unprojected weeks as their state, not a number", () => {
@@ -180,5 +187,41 @@ describe("gate probe endpoint", () => {
     const { IDP_STREAMING_GATE_ENDPOINT } = await import("@/components/waivers/useIdpStreamingGate");
     const { IDP_STREAMING_ENDPOINT } = await import("@/lib/idp-streaming");
     expect(IDP_STREAMING_GATE_ENDPOINT).toBe(IDP_STREAMING_ENDPOINT);
+  });
+});
+
+describe("review rework: config-driven controls and new backend states", () => {
+  it("reads control bounds from the payload config, with a safe fallback", () => {
+    expect(capacityOptions(recommend.config)).toEqual(
+      Array.from({ length: recommend.config.maxCapacity + 1 }, (_, i) => i),
+    );
+    expect(horizonOptions({ maxHorizonWeeks: 2 }).map((o) => o.value)).toEqual([1, 2]);
+    expect(streamingLimits({ maxDynastyBudget: 500 }).maxDynastyBudget).toBe(500);
+    expect(streamingLimits(undefined)).toEqual({
+      maxCapacity: 7,
+      maxHorizonWeeks: 4,
+      maxDynastyBudget: 100000,
+    });
+  });
+  it("does not send capacity until the user picks one", () => {
+    expect(buildStreamingRequest({ ownerId: "x", capacity: null })).not.toHaveProperty("capacity");
+    expect(buildStreamingRequest({ ownerId: "x", capacity: 0 }).capacity).toBe(0);
+  });
+  it("states the week rule and release-cost basis in words", () => {
+    expect(weekRuleText("next_week_on_waiver_days")).toBe("next week — waiver days");
+    expect(weekRuleText(undefined)).toBe(null);
+    expect(releaseCostBasisText("conditional_full_value")).toBe(
+      "conditional: full value — the drop assessment says a free release is unsafe",
+    );
+    expect(releaseCostBasisText("churn_value_above_replacement")).toBe(
+      "value above the best equivalent free agent",
+    );
+  });
+  it("a bounded curve row never reads as proven", () => {
+    expect(curveRowStatus({ status: "bounded" }).label).toBe("Bounded — not proven");
+    expect(curveRowStatus({ status: "optimal" }).label).toBe("Proven");
+  });
+  it("explains capacity zero", () => {
+    expect(noMoveReasonText("capacity_zero")).toMatch(/capacity is set to 0/);
   });
 });

@@ -1,6 +1,135 @@
 {
   "advisoryOnly": true,
-  "alternatives": [],
+  "alternatives": [
+    {
+      "addDetails": [
+        {
+          "bid": 4,
+          "bidBasis": "faab_engine",
+          "bidDetail": {},
+          "dynastyValue": 1450.0,
+          "dynastyValueState": "priced",
+          "name": "Nick Lambright",
+          "playerId": "9101",
+          "position": "LB",
+          "team": "CIN",
+          "weeks": [
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "CLE",
+              "points": 10.5,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 9
+            },
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "CLE",
+              "points": 9.0,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 10
+            }
+          ]
+        }
+      ],
+      "adds": [
+        "9101"
+      ],
+      "dropDetails": [
+        {
+          "assessmentReplacementValue": 250.0,
+          "dropClass": "churn",
+          "dynastyValue": 250.0,
+          "ladderReplacementValue": 300.0,
+          "name": "Andre Whitfield",
+          "playerId": "9007",
+          "position": "DB",
+          "reasons": [
+            {
+              "code": "below_replacement_veteran",
+              "detail": "Age 30, below waiver level at DB.",
+              "evidence": {}
+            }
+          ],
+          "releaseCost": 0.0,
+          "releaseCostBasis": "churn_value_above_replacement",
+          "replacementRung": 1,
+          "weeks": [
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "KC",
+              "points": 3.0,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 9
+            },
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "KC",
+              "points": 2.5,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 10
+            }
+          ]
+        }
+      ],
+      "drops": [
+        "9007"
+      ],
+      "dynastyValueChange": {
+        "knownValue": 1200.0,
+        "state": "complete",
+        "unknownAddValues": 0,
+        "value": 1200.0
+      },
+      "faabTotal": 4,
+      "gainByWeekPoints": [
+        3.5,
+        3.0
+      ],
+      "netDynastyLoss": 0.0,
+      "releaseCost": 0.0,
+      "weeklyGainPoints": 6.05
+    }
+  ],
   "baselinePoints": [
     49.0,
     46.5
@@ -108,8 +237,12 @@
     }
   ],
   "config": {
-    "hash": "deffbac31dd98dbd0205c22160f817be1a3f85d0cdf6aefdadeff7dd01ff3e94",
+    "defaultCapacity": 3,
+    "hash": "93b38b280597689119e8202a389b79c15c0d873964365a81342606c7f4eaacf2",
     "materialityPoints": 1.0,
+    "maxCapacity": 7,
+    "maxDynastyBudget": 100000,
+    "maxHorizonWeeks": 4,
     "version": "idp_streaming_v1"
   },
   "contractVersion": "idp-streaming/2026-10-29.v1",
@@ -121,7 +254,7 @@
     "state": "known"
   },
   "largerBudget": {
-    "meaning": "the best plan with the dynasty budget lifted: what a larger budget would buy",
+    "meaning": "the best plan at this capacity with the dynasty budget lifted: what a larger budget would buy",
     "plan": {
       "addDetails": [
         {
@@ -225,8 +358,10 @@
       ],
       "dropDetails": [
         {
+          "assessmentReplacementValue": 350.0,
           "dropClass": "churn",
           "dynastyValue": 350.0,
+          "ladderReplacementValue": 1450.0,
           "name": "Elijah Banks",
           "playerId": "9004",
           "position": "LB",
@@ -238,8 +373,8 @@
             }
           ],
           "releaseCost": 0.0,
+          "releaseCostBasis": "churn_value_above_replacement",
           "replacementRung": 1,
-          "replacementValue": 1450.0,
           "weeks": [
             {
               "combineMethod": "single_source",
@@ -278,8 +413,10 @@
           ]
         },
         {
+          "assessmentReplacementValue": 250.0,
           "dropClass": "churn",
           "dynastyValue": 250.0,
+          "ladderReplacementValue": 0.0,
           "name": "Andre Whitfield",
           "playerId": "9007",
           "position": "DB",
@@ -291,8 +428,8 @@
             }
           ],
           "releaseCost": 250.0,
+          "releaseCostBasis": "churn_value_above_replacement",
           "replacementRung": 2,
-          "replacementValue": 0.0,
           "weeks": [
             {
               "combineMethod": "single_source",
@@ -336,9 +473,10 @@
         "9007"
       ],
       "dynastyValueChange": {
+        "knownValue": 850.0,
         "state": "partial_unknown_add_values",
         "unknownAddValues": 1,
-        "value": 850.0
+        "value": null
       },
       "faabTotal": 4,
       "gainByWeekPoints": [
@@ -422,8 +560,10 @@
     ],
     "dropDetails": [
       {
+        "assessmentReplacementValue": 350.0,
         "dropClass": "churn",
         "dynastyValue": 350.0,
+        "ladderReplacementValue": 1450.0,
         "name": "Elijah Banks",
         "playerId": "9004",
         "position": "LB",
@@ -435,8 +575,8 @@
           }
         ],
         "releaseCost": 0.0,
+        "releaseCostBasis": "churn_value_above_replacement",
         "replacementRung": 1,
-        "replacementValue": 1450.0,
         "weeks": [
           {
             "combineMethod": "single_source",
@@ -479,6 +619,7 @@
       "9004"
     ],
     "dynastyValueChange": {
+      "knownValue": 1100.0,
       "state": "complete",
       "unknownAddValues": 0,
       "value": 1100.0
@@ -509,7 +650,8 @@
     "horizonWeeks": 2,
     "position": "ALL",
     "teamOwnerId": "owner-me",
-    "week": null
+    "week": null,
+    "weekRule": "next_week_on_waiver_days"
   },
   "rosterSource": "live_overlay",
   "rostersAsOf": "2026-10-29T06:00:00+00:00",
@@ -537,6 +679,7 @@
           "state": "unmeasured"
         },
         "releaseCost": 250.0,
+        "releaseCostBasis": "churn_value_above_replacement",
         "replacementValue": 250.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 0.0,
@@ -600,6 +743,7 @@
           "state": "unmeasured"
         },
         "releaseCost": 0.0,
+        "releaseCostBasis": "churn_value_above_replacement",
         "replacementValue": 350.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 0.0,
@@ -663,6 +807,7 @@
           "state": "unmeasured"
         },
         "releaseCost": 800.0,
+        "releaseCostBasis": "conditional_full_value",
         "replacementValue": 600.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 200.0,
@@ -701,7 +846,8 @@
         "recoveryRisk": {
           "state": "unmeasured"
         },
-        "releaseCost": 1000.0,
+        "releaseCost": 1600.0,
+        "releaseCostBasis": "conditional_full_value",
         "replacementValue": 900.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 700.0,
@@ -767,6 +913,7 @@
           "state": "unmeasured"
         },
         "releaseCost": null,
+        "releaseCostBasis": null,
         "replacementValue": 1000.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 900.0,
@@ -830,6 +977,7 @@
           "state": "unmeasured"
         },
         "releaseCost": null,
+        "releaseCostBasis": null,
         "replacementValue": 1100.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 1500.0,
@@ -893,6 +1041,7 @@
           "state": "unmeasured"
         },
         "releaseCost": null,
+        "releaseCostBasis": null,
         "replacementValue": 1100.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 3100.0,
@@ -956,6 +1105,7 @@
           "state": "unmeasured"
         },
         "releaseCost": null,
+        "releaseCostBasis": null,
         "replacementValue": 1100.0,
         "rosterRole": "unknown",
         "valueAboveReplacement": 4000.0,
@@ -1011,8 +1161,17 @@
   "solver": {
     "boundGap": null,
     "nodeLimit": 20000,
-    "nodes": 40,
+    "nodes": 131,
     "notes": [],
+    "solvedCapacities": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
     "status": "optimal",
     "version": "streaming-solver/2026-10-29.v1"
   },
@@ -1115,7 +1274,8 @@
           ],
           "week": 10
         }
-      ]
+      ],
+      "weightedProjectedPoints": 18.15
     },
     {
       "bid": 0,
@@ -1163,7 +1323,8 @@
           ],
           "week": 10
         }
-      ]
+      ],
+      "weightedProjectedPoints": 16.23
     },
     {
       "bid": 0,
@@ -1211,7 +1372,8 @@
           ],
           "week": 10
         }
-      ]
+      ],
+      "weightedProjectedPoints": 11.6
     },
     {
       "bid": 0,
@@ -1247,7 +1409,8 @@
           ],
           "week": 10
         }
-      ]
+      ],
+      "weightedProjectedPoints": 5.95
     }
   ],
   "team": {
@@ -1256,6 +1419,10 @@
   },
   "unprojectedRosterPlayers": [
     {
+      "missingWeeks": [
+        9,
+        10
+      ],
       "name": "Sam Okafor",
       "playerId": "9008",
       "weeks": [

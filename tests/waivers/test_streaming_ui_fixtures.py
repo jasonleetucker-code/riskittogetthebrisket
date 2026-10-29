@@ -34,6 +34,13 @@ def test_fixtures_cover_every_state_the_ui_renders():
     rec = load["recommend"]
     assert rec["recommendMove"] is True and len(rec["plan"]["adds"]) == 2
     assert rec["plan"]["dynastyValueChange"]["state"] == "partial_unknown_add_values"
+    assert rec["plan"]["dynastyValueChange"]["value"] is None
+    assert rec["request"]["weekRule"] == "next_week_on_waiver_days"
+    assert {d["releaseCostBasis"] for d in rec["plan"]["dropDetails"]} == {
+        "churn_value_above_replacement"
+    }
+    assert "conditional_full_value" in {r["releaseCostBasis"] for r in rec["safeToDrop"]["players"]}
+    assert {"maxCapacity", "maxHorizonWeeks", "maxDynastyBudget"} <= set(rec["config"])
     assert rec["alternatives"], "the UI compares individual and multiple transactions"
     assert len(rec["weeks"]) == 2 and len(rec["plan"]["gainByWeekPoints"]) == 2
     assert rec["unprojectedRosterPlayers"]
@@ -52,3 +59,4 @@ def test_fixtures_cover_every_state_the_ui_renders():
     assert load["no-move"]["recommendMove"] is False and load["no-move"]["noMoveReason"]
     assert load["bounded"]["solver"]["status"] == "bounded"
     assert load["bounded"]["solver"]["boundGap"] is not None
+    assert "bounded" in {r["status"] for r in load["bounded"]["capacityCurve"]}
