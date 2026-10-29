@@ -55,11 +55,12 @@ Declared dependencies on unresolved methodology
   ``find_waiver_targets``, which runs the engine at
   ``competitive_status="bubble"`` for every team; the posture is shown beside
   them and changes no number here.
-* **The list bids are season-phase blind** (finding, not fixed here):
-  ``find_waiver_targets`` builds its ``LeagueContext`` without ``current_week``,
-  so the engine prices every list bid with the OFFSEASON option value.  The
-  per-pair bid desk (``/api/waiver/faab-recommend``) passes the real week.  The
-  payload states which option value each number ran under.
+* **The list bids are season-phase aware** (fixed 2026-10-29, IST-7):
+  ``find_waiver_targets`` builds its ``LeagueContext`` with the current NFL
+  week, in-season state and playoff start, the same context the per-pair bid
+  desk (``/api/waiver/faab-recommend``) uses.  Until then every list bid ran
+  with the OFFSEASON option value.  The payload still states which option value
+  each number ran under.
 * **No championship-probability premium.**  Sim calibration is unverified; no
   playoff or title probability enters anything here.
 * **Lineup impact is on the canonical dynasty board** (``rankDerivedValue``),
@@ -479,9 +480,9 @@ def _season_option(
 ) -> dict[str, Any]:
     """The option value the LIST bids ran under, and the one the desk applies.
 
-    ``find_waiver_targets`` builds ``LeagueContext`` with no ``current_week``;
-    reproducing that exact context (not a corrected one) is what states the
-    number honestly.  The desk's context passes the real week.
+    Since IST-7 (2026-10-29) ``find_waiver_targets`` passes the current week, so
+    both contexts are the same in-season context; they are still computed
+    separately so a future divergence shows instead of hiding.
     """
     from src.trade import faab_engine as engine  # noqa: PLC0415
 
@@ -489,13 +490,15 @@ def _season_option(
         faab_remaining=max(0, int(balance or 0)),
         competitive_status=LIST_BID_COMPETITIVE_STATUS,
     )
+    week, in_season = engine.current_nfl_week()
     list_league = engine.LeagueContext(
         original_budget=int(league_budget),
         team_count=int(team_count),
         starters_per_team=int(starters_per_team),
+        current_week=week,
+        in_season=bool(in_season),
     )
     list_factor, list_reason = engine.season_option_value(list_league, team)
-    week, in_season = engine.current_nfl_week()
     desk_league = engine.LeagueContext(
         original_budget=int(league_budget),
         team_count=int(team_count),
@@ -511,8 +514,8 @@ def _season_option(
         "listBids": {
             "factor": round(list_factor, 3),
             "reason": list_reason,
-            "note": "find_waiver_targets passes no current week, so the engine prices "
-            "every list bid with the offseason option value (finding; not changed here)",
+            "note": "find_waiver_targets passes the current NFL week (fixed 2026-10-29), "
+            "the same season phase the bid desk uses",
         },
         "bidDesk": {"factor": round(desk_factor, 3), "reason": desk_reason},
         "competitiveStatusUsed": LIST_BID_COMPETITIVE_STATUS,
@@ -774,7 +777,7 @@ def assemble_waiver_advisor(
         "methodologyDependencies": [
             {"id": "forced_drop_activation", "state": "owner_held_off"},
             {"id": "posture_in_faab_engine", "state": "not_wired_context_only"},
-            {"id": "list_bid_season_phase", "state": "offseason_option_value_finding"},
+            {"id": "list_bid_season_phase", "state": "current_week_applied"},
             {"id": "championship_probability_premium", "state": "not_used_sim_uncalibrated"},
             {"id": "lineup_objective", "state": "dynasty_board_value_not_weekly_projection"},
         ],

@@ -387,8 +387,9 @@ def test_team_faab_context_states_balance_option_value_and_history():
     assert faab["bidHistory"]["state"] == "missing"
     so = faab["seasonOption"]
     assert so["owner"].endswith("season_option_value")
-    # The list bids ran with no week: the engine's offseason branch.
-    assert so["listBids"]["reason"].startswith("offseason")
+    # Since IST-7 the list bids run under the same season phase as the desk.
+    assert so["listBids"]["reason"] == so["bidDesk"]["reason"]
+    assert so["listBids"]["factor"] == so["bidDesk"]["factor"]
     assert so["competitiveStatusUsed"] == "bubble"
     assert faab["crowdEvidence"]["state"] == "evaluated_per_pair_in_bid_desk"
 

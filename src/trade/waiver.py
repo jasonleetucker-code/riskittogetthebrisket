@@ -335,8 +335,19 @@ def find_waiver_targets(
     starters: dict[str, Any] | None = None,
     roster_size: int | None = 0,
     market_priors: Any = None,
+    today: Any = None,
 ) -> dict[str, Any]:
     """Return waiver-wire suggestions grouped by position.
+
+    Season phase (IST-7, owner directive 2026-10-29): the engine's
+    ``LeagueContext`` carries the CURRENT NFL week and in-season state from
+    ``faab_engine.current_nfl_week(today)``, and the league's
+    ``playoffWeekStart`` when a team row states it -- the same context the
+    per-pair bid desk (``/api/waiver/faab-recommend``) builds.  Before this the
+    list bids ran with no week, so the engine priced every one of them with the
+    OFFSEASON option value all season long.  ``seasonPhase`` on the response
+    says which week the bids ran under.  ``today`` exists so tests are
+    deterministic; production passes nothing.
 
     ``league_budget`` is the league's ORIGINAL full-season FAAB
     allowance and sets the scale every bid is expressed against.
@@ -420,10 +431,19 @@ def find_waiver_targets(
         budget = _engine.FaabConfig().num("leagueRules", "defaultBudget", 100)
         budget = int(budget)
 
+    current_week, in_season = _engine.current_nfl_week(today)
+    playoff_week_start = 15
+    for team_row in sleeper_teams or []:
+        if isinstance(team_row, dict) and isinstance(team_row.get("playoffWeekStart"), int):
+            playoff_week_start = team_row["playoffWeekStart"]
+            break
     league_ctx = _engine.LeagueContext(
         original_budget=budget,
         team_count=int(team_count or 12),
         starters_per_team=int(starters_per_team or 20),
+        current_week=current_week,
+        in_season=bool(in_season),
+        playoff_week_start=playoff_week_start,
     )
     board_values = [
         row.get("rankDerivedValue")
@@ -601,4 +621,10 @@ def find_waiver_targets(
         "total": total,
         "rookies_excluded": not rookies_eligible,
         "bidMethodology": bid_methodology,
+        "seasonPhase": {
+            "owner": "src/trade/faab_engine.py::current_nfl_week",
+            "currentWeek": current_week,
+            "inSeason": bool(in_season),
+            "playoffWeekStart": playoff_week_start,
+        },
     }
