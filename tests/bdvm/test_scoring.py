@@ -59,9 +59,17 @@ class TestHandScoredExamples(unittest.TestCase):
         self.assertAlmostEqual(score_stat_line_per_game(QB_LINE, SIX_PT_PASS, position="QB"), 20.0)
 
     def test_idp_scoring_and_position_gate(self):
-        # 6*1.5 + 3*0.75 + 0.5*4 = 13.25 for an LB; 0 for a WR (keys gated)
+        # 6*1.5 + 3*0.75 + 0.5*4 = 13.25 for an LB.
         self.assertAlmostEqual(score_stat_line_per_game(LB_LINE, IDP, position="LB"), 13.25)
-        self.assertAlmostEqual(score_stat_line_per_game(LB_LINE, IDP, position="WR"), 0.0)
+        # IDPA-DEFECT-01: the host pays idp_* to whoever records the stat, so the
+        # listed position no longer zeroes a defensive line (it used to give 0.0
+        # for a WR).  Assisted tackles stay IDP-only -- nflverse lumps special-teams
+        # assists into that column, which the host pays nothing -- so a WR gets
+        # 6*1.5 + 0.5*4 = 11.0, not 13.25.
+        self.assertAlmostEqual(score_stat_line_per_game(LB_LINE, IDP, position="WR"), 11.0)
+        # and a zeroed defensive block is still nothing, for any position
+        zeroed = {"def_tackles_solo": 0, "def_tackle_assists": 0, "def_sacks": 0}
+        self.assertAlmostEqual(score_stat_line_per_game(zeroed, IDP, position="WR"), 0.0)
 
     def test_idp_true_positions_score(self):
         for pos in ("DT", "EDGE", "CB", "S", "DL", "DB"):

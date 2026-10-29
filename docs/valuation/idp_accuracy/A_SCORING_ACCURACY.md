@@ -151,6 +151,80 @@ Public Sleeper GETs are cached once under the gitignored `data/idp_accuracy/cach
 re-run scored the same rows. **Sleeper stat corrections or a re-published nflverse file
 can change a re-run**; the pinned checksums are the reference.
 
+## Fix lane — IDPA-DEFECT-01/02/03 repaired in `realized_points.py` (stacked PR)
+
+**Status:** the nflverse path now fixes the three scorer defects above; this section
+supersedes the "pinned as `xfail`" wording for them. It CHANGES BDVM in-season
+values and needs owner / integration review. Evidence:
+`evidence/scorer_fix_measure.json`, produced by
+`python scripts/idp_accuracy/scorer_fix_measure.py` (same pinned rows, cache and pbp
+artifact; the "before" is this document's committed reconciliation, reproduced
+exactly). Everything here is the nflverse path only; the host-native path is untouched.
+
+| defect | verdict | what changed |
+|---|---|---|
+| 01 `def_*` dropped for non-IDP-listed | **fixed**, with one deliberate residual | defensive stats are read for every row. Solo tackles are nflverse's solo count **less the play-by-play special-teams count** (nflverse charts special-teams tackles too; Sleeper pays them as `st_tkl_solo`). `idp_blk_kick` is also un-gated (both 2026 blocked punts by non-IDP players were paid by the host). **Residual:** tackle *assists* stay IDP-only, because special-teams assists cannot be separated (5 rostered player-weeks still unpaid) |
+| 02 blocked FG / PAT | **fixed** | a blocked kick is a miss: `xpmiss`, `fgmiss` and the distance band from `fg_blocked_list` (23 yd -> 20-29 ... 62 yd -> 60+, plus `fgmiss_50p`) |
+| 03 defensive fumble-return TD | **fixed** | `fumble_recovery_tds`, capped at defensive recoveries and `max`-ed with `def_tds`, pays `idp_def_td` |
+| 04 Sleeper-FB / nflverse-RB first downs | **not a scorer defect; not changed** | the scorer is faithful to the position it is handed (`"FB"` pays no `bonus_fd_*`, `"RB"` pays the RB rate). nflverse lists Hunter Luepke RB, Sleeper lists him FB, and Sleeper's listing is not an input on the in-season path. Repair means joining Sleeper's position into `weekly_points_from_rows`: a new cross-provider input, not a scorer repair. Related, pre-existing and separate: `TRUE_POSITION_MAP` maps an nflverse-listed FB to RB (documented in `realized_points.py`, 6 more player-weeks in the wide sample) |
+
+### Found while fixing: special-teams tackles were double-paid to IDP-listed players
+
+Un-gating 01 exposed that nflverse's tackle columns include special-teams tackles. Over
+the 6,387 player-weeks that join to a Sleeper stat line (rostered or not), the
+play-by-play special-teams count equals Sleeper's `st_tkl_solo` on 2,719 / 2,721
+IDP-listed player-weeks, and nflverse's solo count equals Sleeper's `idp_tkl_solo`
+**only after** removing it on 440 more. The base scorer paid those tackles twice
+(`idp_tkl_solo` from the weekly column, `st_tkl_solo` from the supplement). The
+rostered reconciliation above filed ~60 of them under "stat-provider disagreement";
+they were ours. The same one-line rule that makes 01 correct (subtract the
+special-teams count) is therefore applied to every position, not only to non-IDP
+players. This is the part of the change most worth reviewing: it moves IDP-listed
+players, not just receivers (see impact below). Withholding it from IDP-listed
+players restores the 01/02/03-only behaviour (`stage1` in the evidence).
+
+**Remaining residual (unfixed, measured):** nflverse's `def_tackle_assists` also lumps
+in special-teams assists that Sleeper pays nothing for. nflverse exceeds Sleeper's
+`idp_tkl_ast` on 411 of 1,823 IDP-listed player-weeks with special-teams snaps (16 of
+732 without) and on 161 of 169 non-IDP player-weeks with them. The supplement carries
+only `st_tkl_solo`; closing this needs a `st_tkl_ast` key (schema bump + artifact
+rebuild), so it is left as a follow-up rather than guessed at.
+
+### Before -> after, rostered reconciliation (3,095 joined player-weeks within 0.01)
+
+| position | before | stage 1 (01/02/03, IDP tackles untouched) | after |
+|---|---|---|---|
+| QB | 190 / 199 | 198 | 198 |
+| RB | 396 / 407 | 406 | 406 |
+| WR | 577 / 619 | 616 | 616 |
+| TE | 260 / 279 | 278 | 278 |
+| K | 114 / 122 | 121 | 121 |
+| DL | 396 / 422 | 396 | 402 |
+| LB | 431 / 510 | 432 | 462 |
+| DB | 467 / 533 | 468 | 492 |
+| FB | 1 / 4 | 1 | 1 |
+| **all** | **2,832 (91.5%)** | **2,916 (94.2%)** | **2,976 (96.2%)** |
+
+Census after: 111 stat-provider disagreements (was 171), 8 scorer-attributed (5 = the
+deliberate non-IDP assists, 3 = defect 04), 25 + 28 identity. The wide sample
+(6,387 player-weeks, host-native scorer as truth): 5,416 -> 5,865 within 0.01 (84.8% ->
+91.8%), **0 player-weeks newly wrong**.
+
+### Served impact
+
+BDVM blends realized PPG into its posterior as
+`mu_post = w * mu_prior + (1 - w) * mu_recent` (`src/bdvm/ros.py`), so a change in a
+player's weekly points moves `mu_post` by `(1 - w) * dPPG` whatever his projection is.
+`/api/data` and `rankDerivedValue` do not read this path and do not change. The
+projection snapshot is box-local, so BDVM `run_valuation` outputs on a pinned snapshot
+are **UNAVAILABLE** here; the evidence reports the part that does not need it. On the
+pinned week 1-6 rows, 373 of 1,642 players with samples change (116 from 01/02/03 alone):
+LB 115, S 86, CB 45, EDGE 12, DT 4 (almost all **down**, mean |d mu_post| about 0.2-0.25
+points/game: removed special-teams double-count) and WR 42, TE 21, RB 13, QB 7 (all
+**up**, about 0.13-0.21: defensive events now paid) and K 9 (down 0.24: blocked kicks now
+charged). 117 of the changed players are ranked on the served board. Value-level movement (replacement levels, z-stats, Fund gap, signal
+alerts) follows from these `mu` shifts and needs the box snapshot to quantify.
+
 ## Limitations
 
 * In-sample by construction: this verifies scoring arithmetic on realized weeks; it
