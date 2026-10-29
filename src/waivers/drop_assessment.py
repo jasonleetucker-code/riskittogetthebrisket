@@ -35,7 +35,10 @@ Three classes:
   with no development flag, no churn-blocking unknown, and not a weekly
   starter the caller said it needs.
 * ``conditional`` — everything else; droppable only within the user's
-  explicit dynasty-loss budget, charged ``dynastyCost``.
+  explicit dynasty-loss budget.  The streaming composer
+  (``src/waivers/streaming.py::_release_cost``) charges a conditional
+  release his FULL ``dynastyValue``, not ``dynastyCost``: the class exists
+  because the cheap replacement estimate is not trusted for him.
 
 ``dynastyCost`` is the value above replacement (``max(0, V - W)``), not the
 board value, because a release at or below the best free agent at the same

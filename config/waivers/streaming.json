@@ -1,0 +1,55 @@
+{
+  "version": "idp_streaming_v1",
+  "owner": "src/waivers/streaming.py",
+  "note": "Every value here is a PRIOR: a declared starting point with its rationale, not a fitted constant. Changing one changes recommendations; it is owner-tunable and evidence-gated like every other PRIOR in this repository.",
+  "materialityPoints": {
+    "value": 1.0,
+    "class": "PRIOR",
+    "rationale": "A plan gaining less than one projected point over the horizon is reported as 'no move'. One point is below the week-to-week noise of a single IDP projection, so smaller gains are not actionable; the full plan is still listed as the best alternative."
+  },
+  "maxCapacity": {
+    "value": 7,
+    "class": "PRIOR",
+    "rationale": "The owner directive's dynamic streaming capacity spans 0..7 roster spots; the capacity curve is computed up to this many simultaneous adds."
+  },
+  "defaultCapacity": {
+    "value": 3,
+    "class": "PRIOR",
+    "rationale": "Used only when the request names no capacity. Three is the low end of the 3-5 spots the league's most active streamer churns; the capacity curve and recommendedCapacity show whether more or fewer pay."
+  },
+  "horizonWeekWeights": {
+    "value": [
+      1.0,
+      0.85,
+      0.72,
+      0.61
+    ],
+    "class": "PRIOR",
+    "rationale": "Weight of this week and the next three. Later weeks count less because the held player may be dropped again and future waiver pools are not guaranteed (rolling horizon). Roughly 15% per week."
+  },
+  "nodeLimits": {
+    "value": {
+      "singleWeek": 40000,
+      "multiweek": 20000,
+      "capacityCurvePerRow": 15000,
+      "requestWorkBudget": 200000,
+      "minSolveWork": 2000
+    },
+    "class": "PRIOR",
+    "rationale": "Search budgets. The composer solves once per capacity k = 1..max (each with its own rung-correct release costs, seeded with the previous capacity's plan); capacities up to the request use the singleWeek or multiweek per-solve node limit, curve rows above it use capacityCurvePerRow. On top of that the whole REQUEST has a work budget counted in canonical lineup solves (requestWorkBudget), the measured cost driver: a search node can cost one lineup solve or, through the Lagrangian bound, hundreds, and every horizon week multiplies them. Capacities up to the request are solved first and always get at least minSolveWork; curve rows the budget cannot reach are reported as not searched. Measured on dynasty_main week 9 (2026-10-29): 11,000-18,000 lineup solves per second; complete single-week requests use 50,000-155,000; before this budget a 4-week horizon with a binding dynasty budget of 300 used 1.43 million (78 s). 200,000 bounds a request to roughly 11-18 s of search, plus about 0.2-0.5 s of unmetered set-up per capacity solved (independent review measured 3-20 s end to end across 12 binding multi-week cases), and leaves single-week requests unchanged. A solve that reaches any limit is labelled 'bounded' with a proven gap where one exists, never presented as optimal; the answer at capacity k is the best over every k' <= k, so a bounded larger k can never make the answer worse."
+  },
+  "idpFamilies": {
+    "value": [
+      "DL",
+      "LB",
+      "DB"
+    ],
+    "class": "PRIOR",
+    "rationale": "Weekly streaming is scoped to individual defensive players (owner directive 2026-10-29). Offensive roster players stay in the lineup calculation but are never proposed as adds or drops."
+  },
+  "recommendedCapacityRule": {
+    "value": "fewest_within_one_materiality_step",
+    "class": "PRIOR",
+    "rationale": "recommendedCapacity is the fewest spots whose best gain is itself at least materialityPoints AND within one materiality step of the best gain any capacity up to maxCapacity reaches (floor = max(materiality, gMax - materiality)); 0 when even gMax is below materiality. One materiality step is the smallest gain the composer calls actionable, so spots beyond that point buy less than one actionable step."
+  }
+}
