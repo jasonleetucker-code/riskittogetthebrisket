@@ -493,6 +493,17 @@ def test_a_sub_material_move_beyond_the_budget_is_below_materiality():
     assert out["noMoveReason"] == "below_materiality"
 
 
+def test_recommended_capacity_survives_a_zero_or_fine_grained_materiality(monkeypatch):
+    # Regression (final review): the curve rounds gains to 0.001, and comparing
+    # those against an unrounded floor could find no row (StopIteration).
+    _tight_config(monkeypatch, materiality_points=0.0)
+    out = _run(ROSTER, [("fa_lb", "LB", 4.123456)], _base_assess())
+    assert out["recommendedCapacity"] == 1
+    _tight_config(monkeypatch, materiality_points=0.0001234)
+    out = _run(ROSTER, [("fa_lb", "LB", 4.123456)], _base_assess())
+    assert out["recommendedCapacity"] == 1
+
+
 def test_default_work_budget_searches_every_curve_row_on_a_small_case():
     out = _run(ROSTER, [("fa_lb", "LB", 11.0)], _base_assess())
     assert out["solver"]["unsearchedCapacities"] == []

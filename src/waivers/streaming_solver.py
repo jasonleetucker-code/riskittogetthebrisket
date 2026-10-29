@@ -11,7 +11,7 @@ nothing?*
 It is the weekly-points objective.  The DYNASTY objective (additive board value
 of the held set) is Perfect Waivers' (``src/trade/perfect_waivers.py``) and is
 not touched here.  Pure: no I/O, no contract reads, no clock.  The composer
-(``src/waivers/streaming.py``, a later PR) assembles the inputs from the
+(``src/waivers/streaming.py``) assembles the inputs from the
 canonical owners.
 
 Nothing here is a second owner
