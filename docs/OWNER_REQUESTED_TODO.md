@@ -15,6 +15,27 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-29 — IDP streaming, dynasty-safe roster churning, weekly waiver optimization
+
+Owner directive 2026-10-29 (chat). It is recorded verbatim in `docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md`, together
+with the owner's decisions and the IDP projection scraping attestation. It is authorized in `docs/EXECUTION_PLAN.md`
+(same date).
+
+| # | Owner instruction | Status |
+|---|---|---|
+| IST-1 | Weekly IDP stat-line projections from authorized sources, scored under the league's exact card, with coverage and lineage. Point-in-time archive of the full pool | AUTHORIZED |
+| IST-2 | Scraping attestation (owner, 2026-10-29) for IDP projections from FantasyPros, FPTrack, IDP Start/Sit, RotoWire, LineupExperts, NBC Sports/Rotoworld, Fleaflicker, Sleeper, MyFantasyLeague, Footballguys, Razzball, FantasyData, Draft Sharks, DataForce, Every-Down IDP, FantasyNerds, SportsDataIO, IDP Guru, FFToday, The IDP Show. No paywall bypass, no unheld credentials, polite rates, seasonal lane only | RECORDED — owner attestation |
+| IST-3 | Opportunity forecasting (snaps, roles, matchups); variables are kept only if tests show they predict | AUTHORIZED — research/challenger; promotion owner-gated |
+| IST-4 | Dynasty asset protection: protected / conditional / churn assessment with reasons; user locks absolute; unpriced never auto-dropped | AUTHORIZED |
+| IST-5 | Weekly add/drop optimizer on league-scored points via the exact lineup solver; constrained by legality, FAAB, protections and an explicit dynasty-loss budget (default 0); recommends no move when that is best | AUTHORIZED |
+| IST-6 | Dynamic streaming capacity, 0–7 slots, with diminishing returns | AUTHORIZED |
+| IST-7 | FAAB `current_week` fix for list bids; multiweek and playoff rolling horizon; posture-aware presentation; Sim V3 stays experimental | AUTHORIZED |
+| IST-8 | Waiver Advisor "Weekly IDP Streaming" UI, private and authenticated; backend decides, frontend renders | AUTHORIZED |
+| IST-9 | Backtest and the "Brent" (Sleeper "Brenthany") reconstruction, baselines 1–8, point-in-time only, anonymized evidence | AUTHORIZED |
+| IST-10 | Production activation of `waiver_advisor` and the streaming flag for signed-in users after acceptance, green CI and review | DECIDED — owner, 2026-10-29 |
+| IST-11 | No paid API keys (SportsDataIO / Fantasy Nerds); Sleeper/RotoWire is the base source | DECIDED — owner, 2026-10-29 |
+| IST-12 | Acceptance scenarios 1–10 and the final report A–I | AUTHORIZED |
+
 ## Added 2026-10-28 — Next development cycle: IDP calibration, source authority, Trade Advisor readiness
 
 Owner directive 2026-10-28 (chat), recorded verbatim in

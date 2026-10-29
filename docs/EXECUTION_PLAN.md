@@ -1,5 +1,31 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## IDP streaming and dynasty-safe roster churning (Waiver Advisor) — owner directive, 2026-10-29
+
+**AUTHORIZED NOW: build, merge and deploy under the standing merge authorization.** Verbatim directive and owner
+decisions: `docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md`. Intake rows: IST-1 … IST-12.
+
+Owners (one per concern):
+- `src/ros/weekly_league_projections.py`: league-scored weekly projections, the archive and the attested scrapers.
+  Seasonal lane only.
+- `src/waivers/drop_assessment.py`: protection classes.
+- `src/waivers/streaming.py`: the weekly add/drop solver, capacity and multiweek. It consumes `src/ros/lineup.py`,
+  `waiver.find_waiver_targets`, constraints, roster capacity and droppability; it re-implements none of them.
+- `src/waivers/streaming_backtest.py`: research, kept isolated.
+- `POST /api/waiver/streaming` behind `waiver_advisor` + `idp_streaming`, and the Waiver Advisor UI.
+- The FAAB `current_week` fix in `find_waiver_targets` is authorized (IST-7). It changes live list bids.
+- Production activation of `waiver_advisor` and `idp_streaming` for signed-in users is owner-approved (IST-10), once the
+  acceptance scenarios, exact-head green CI and independent review are in place.
+
+**Unchanged and owner-reserved:**
+- canonical dynasty values, TE++, source voting and weights;
+- `forced_drop_cheapest_legal`;
+- #2006 and the `dynasty_new` taxi cap;
+- any Sim V3 promotion;
+- any Sleeper write or claim submission;
+- paid data;
+- promoting any learned projection weighting.
+
 ## Next development cycle: IDP calibration, source authority, Trade Advisor readiness — owner directive, 2026-10-28
 
 **AUTHORIZED NOW (parallel build mode; research, shadow candidates, bug fixes, tests and evidence; NOT activation).**
