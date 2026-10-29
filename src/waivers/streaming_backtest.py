@@ -1906,12 +1906,32 @@ def _rounded(obj: Any, nd: int = 3) -> Any:
     return obj
 
 
+#: Committed prose checked by the same guard as the evidence JSON.
+COMMITTED_DOCS: tuple[Path, ...] = (
+    REPO / "docs" / "waivers" / "IDP_STREAMING_BACKTEST_PREREGISTRATION_2026-10-29.md",
+    REPO / "docs" / "waivers" / "IDP_STREAMING_BACKTEST_RESULTS_2026-10-29.md",
+)
+#: Below this length a sensitive string is matched as a whole token only, so a
+#: two-letter display name cannot false-positive inside an ordinary word —
+#: but it is never skipped.
+_TOKEN_MATCH_BELOW = 3
+
+
 def privacy_violations(blob: str, sensitive: Iterable[str]) -> list[str]:
     """Identifying strings (display / team names, user / league ids) found in
-    a would-be committed blob, plus any 12+ digit run (a Sleeper id shape)."""
+    a would-be committed text, case-insensitively, plus any 12+ digit run (a
+    Sleeper id shape).  Nothing non-empty is skipped: short strings match as
+    whole tokens, longer ones anywhere."""
     import re
 
-    found = [s for s in sorted(set(sensitive)) if s and len(s) >= 3 and s in blob]
+    found: list[str] = []
+    for s in sorted({str(x).strip() for x in sensitive if x and str(x).strip()}):
+        if len(s) < _TOKEN_MATCH_BELOW:
+            pattern = rf"(?<![0-9A-Za-z]){re.escape(s)}(?![0-9A-Za-z])"
+        else:
+            pattern = re.escape(s)
+        if re.search(pattern, blob, flags=re.IGNORECASE):
+            found.append(s)
     found += re.findall(r"\d{12,}", blob)
     return found
 
@@ -1939,6 +1959,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     leaks = privacy_violations(blob, sensitive)
     if leaks:
         raise RuntimeError(f"privacy guard: {len(leaks)} identifying string(s) in evidence")
+    for doc in COMMITTED_DOCS:
+        if doc.exists() and privacy_violations(doc.read_text(encoding="utf-8"), sensitive):
+            raise RuntimeError(f"privacy guard: identifying string(s) in {doc.name}")
     args.evidence_out.parent.mkdir(parents=True, exist_ok=True)
     args.evidence_out.write_text(blob + "\n", encoding="utf-8")
     RESEARCH_DIR.mkdir(parents=True, exist_ok=True)

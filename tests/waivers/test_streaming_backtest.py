@@ -461,3 +461,18 @@ def test_privacy_guard_flags_names_team_names_and_ids():
     leaks = sb.privacy_violations(blob, {"Team Tacos", "someone", ""})
     assert "Team Tacos" in leaks and "1312006700437352448" in leaks and "someone" not in leaks
     assert sb.privacy_violations('{"label": "manager B", "v": 12.5}', {"someone"}) == []
+
+
+def test_privacy_guard_is_case_insensitive_and_never_skips_short_names():
+    assert sb.privacy_violations("written by TEAM TACOS", {"Team Tacos"}) == ["Team Tacos"]
+    # a two-letter display name is caught as a whole token, case-insensitively ...
+    assert sb.privacy_violations("traded with jd last week", {"JD"}) == ["JD"]
+    # ... but not inside an ordinary word
+    assert sb.privacy_violations("adjdusted roster", {"JD"}) == []
+    assert sb.privacy_violations("anything", {"", "  "}) == []
+
+
+def test_committed_docs_pass_the_guard_against_id_shapes():
+    for doc in sb.COMMITTED_DOCS:
+        if doc.exists():
+            assert sb.privacy_violations(doc.read_text(encoding="utf-8"), set()) == [], doc.name
