@@ -459,6 +459,9 @@ class DecisionContext:
     max_swaps: int
     projection_point_in_time_verified: bool = False
     dynasty_value_source: str | None = None
+    #: Pool players' values known before the cutoff — filled only for a policy
+    #: that asks (``needs_pool_dynasty_values``), for projected pool players.
+    pool_dynasty_value: Mapping[str, float] = field(default_factory=dict)
 
 
 class StreamingPolicy(Protocol):
@@ -483,6 +486,7 @@ def build_decision_context(
     max_swaps: int,
     dynasty_lookup: DynastyLookup | None = None,
     dynasty_value_source: str | None = None,
+    pool_dynasty_values: bool = False,
 ) -> DecisionContext:
     """The ONE place a decision's timed inputs are assembled and filtered.
 
@@ -512,6 +516,12 @@ def build_decision_context(
             val = dynasty_lookup(pid, cutoff)
             if val is not None:
                 dyn[pid] = val
+    pool_dyn: dict[str, float] = {}
+    if dynasty_lookup is not None and pool_dynasty_values:
+        for pid in sorted(pool_set & projection.keys()):
+            val = dynasty_lookup(pid, cutoff)
+            if val is not None:
+                pool_dyn[pid] = val
     # The SWAP GROUP (DL / LB / DB), never the dump's raw sub-position: a
     # DE / DT / CB / S would otherwise match no group and silently never move.
     positions = {pid: data.players[pid].group or "" for pid in relevant if pid in data.players}
@@ -533,6 +543,7 @@ def build_decision_context(
         dynasty_value=dyn,
         max_swaps=max_swaps,
         dynasty_value_source=dynasty_value_source,
+        pool_dynasty_value=pool_dyn,
     )
 
 
@@ -666,6 +677,125 @@ class DynastyReleasePolicy:
             ),
             drop_score=lambda p: proj[p],
         )
+
+
+@dataclass
+class DynastySafeOptimizerPolicy:
+    """Baseline 7: W4's exact weekly streaming solver, fed from the
+    :class:`DecisionContext` only (preregistration Addendum A).
+
+    Droppable = a rostered defender whose known-before-cutoff value is at or
+    below his group's replacement line (best pool value known before the
+    cutoff); unknown value is never droppable.  Release cost (the solver's
+    dynasty value for a roster player) is the composer's rule,
+    ``max(0, V − ladder[rung − 1])`` with ``rung = max(1, min(S, droppable in
+    group))``; adds credit nothing; budget 0; $0 claims; materiality 1.0.
+    """
+
+    name: str = "7_full_dynasty_safe_optimizer"
+    materiality: float = 1.0
+    needs_pool_dynasty_values: bool = True
+    stats: dict[str, Any] = field(
+        default_factory=lambda: {
+            "decisions": 0,
+            "optimal": 0,
+            "bounded": 0,
+            "noDroppable": 0,
+            "moves": 0,
+            "solverSeconds": 0.0,
+        }
+    )
+
+    def build_input(self, ctx: DecisionContext) -> Any:
+        from src.waivers.streaming_solver import SolverInput, StreamPlayer
+
+        ladders: dict[str, list[float]] = {}
+        for pid, val in ctx.pool_dynasty_value.items():
+            group = ctx.positions.get(pid)
+            if group:
+                ladders.setdefault(group, []).append(float(val))
+        for vals in ladders.values():
+            vals.sort(reverse=True)
+        members: dict[str, list[str]] = {}
+        for pid in sorted(ctx.idp_roster):
+            group = ctx.positions.get(pid)
+            val = ctx.dynasty_value.get(pid)
+            line = ladders.get(group or "", [])
+            if group and val is not None and line and val <= line[0]:
+                members.setdefault(group, []).append(pid)
+        cost: dict[str, float] = {}
+        for group, pids in members.items():
+            ladder = ladders[group]
+            rung = max(1, min(ctx.max_swaps, len(pids)))
+            repl = ladder[rung - 1] if rung <= len(ladder) else 0.0
+            for pid in pids:
+                cost[pid] = max(0.0, float(ctx.dynasty_value[pid]) - repl)
+
+        def player(pid: str, *, dyn: float | None) -> Any:
+            return StreamPlayer(
+                player_id=pid,
+                name=pid,
+                position=ctx.positions.get(pid, ""),
+                weekly_points=(ctx.projection.get(pid),),
+                dynasty_value=dyn,
+                fantasy_positions=tuple(ctx.eligibility.get(pid, ())),
+                bid=0,
+            )
+
+        roster = tuple(player(p, dyn=cost.get(p)) for p in sorted(ctx.idp_roster))
+        free_agents = tuple(
+            player(p, dyn=None) for p in sorted(ctx.pool) if ctx.projection.get(p) is not None
+        )
+        return SolverInput(
+            roster=roster,
+            free_agents=free_agents,
+            slots=tuple(ctx.idp_slots),
+            droppable_ids=frozenset(cost),
+            open_spots=0,
+            max_adds=ctx.max_swaps,
+            faab_balance=0,
+            dynasty_budget=0.0,
+            week_weights=(1.0,),
+            materiality=self.materiality,
+        )
+
+    def decide(self, ctx: DecisionContext) -> list[Swap]:
+        import time
+
+        from src.waivers.streaming_solver import solve_streaming
+
+        inp = self.build_input(ctx)
+        self.stats["decisions"] += 1
+        if not inp.droppable_ids:
+            self.stats["noDroppable"] += 1
+            return []
+        t0 = time.perf_counter()
+        res = solve_streaming(inp, alternatives=0, unbudgeted=False)
+        self.stats["solverSeconds"] += time.perf_counter() - t0
+        self.stats[res.status] = self.stats.get(res.status, 0) + 1
+        if not res.recommend_move or res.best is None:
+            return []
+        swaps = pair_plan(res.best.adds, res.best.drops, ctx.positions)
+        self.stats["moves"] += len(swaps)
+        return swaps
+
+
+def pair_plan(adds: Sequence[str], drops: Sequence[str], groups: Mapping[str, str]) -> list[Swap]:
+    """Deterministic (drop, add) pairing: within each swap group by id, then
+    the remainder across groups by id."""
+    left_adds = sorted(adds)
+    left_drops = sorted(drops)
+    swaps: list[Swap] = []
+    for group in IDP_GROUPS:
+        ga = [a for a in left_adds if groups.get(a) == group]
+        gd = [d for d in left_drops if groups.get(d) == group]
+        for a, d in zip(ga, gd):
+            swaps.append(Swap(d, a, 0.0))
+            left_adds.remove(a)
+            left_drops.remove(d)
+    for a, d in zip(left_adds, left_drops):
+        swaps.append(Swap(d, a, 0.0))
+    return swaps
 
 
 # ── Scenarios ─────────────────────────────────────────────────────────
@@ -821,6 +951,7 @@ def simulate_policy(
             max_swaps=max_swaps,
             dynasty_lookup=dynasty_lookup,
             dynasty_value_source=dynasty_value_source,
+            pool_dynasty_values=bool(getattr(policy, "needs_pool_dynasty_values", False)),
         )
         adds: list[str] = []
         drops: list[str] = []
@@ -1460,6 +1591,7 @@ RULE_POLICIES: tuple[tuple[str, Callable[[], StreamingPolicy]], ...] = (
         lambda: MetricSwapPolicy("4_single_projection_provider", metric_projection),
     ),
     ("6_release_lowest_dynasty_value", DynastyReleasePolicy),
+    ("7_full_dynasty_safe_optimizer", DynastySafeOptimizerPolicy),
 )
 SWAP_CAPS: tuple[int, ...] = (1, 3, 5)
 PRIMARY_SWAP_CAP = 3
@@ -1526,6 +1658,7 @@ def run_backtest(
     # per baseline/variant: lists of (season, rid, deltas)
     collected: dict[str, dict[str, list[tuple[int, int, list[float], int, float | None]]]] = {}
     mgr_rows: list[tuple[int, int]] = []
+    solver_stats: dict[str, dict[str, dict[str, float]]] = {}
     team_rows: list[dict[str, Any]] = []
 
     for league in chain:
@@ -1646,18 +1779,26 @@ def run_backtest(
                     continue
                 for masked in (True, False):
                     for cap in SWAP_CAPS:
+                        policy = factory()
                         res = simulate_policy(
                             data,
                             rid,
                             rids.index(rid),
-                            factory(),
+                            policy,
                             changes,
                             max_swaps=cap,
                             masked=masked,
-                            dynasty_lookup=dyn_lookup if name.startswith("6_") else None,
+                            dynasty_lookup=dyn_lookup if name[:2] in ("6_", "7_") else None,
                             dynasty_value_source=dyn_source,
                         )
                         variant = f"{'masked' if masked else 'unmasked'}_S{cap}"
+                        stats = getattr(policy, "stats", None)
+                        if stats:
+                            agg = solver_stats.setdefault(name, {}).setdefault(
+                                f"{season}:{variant}", {}
+                            )
+                            for k, v in stats.items():
+                                agg[k] = agg.get(k, 0) + v
                         collected.setdefault(name, {}).setdefault(variant, []).append(
                             {
                                 "season": season,
@@ -1742,12 +1883,10 @@ def run_backtest(
                         diffs, minimum=MIN_WEEKS_MANAGER
                     )
     evidence["managerBActualMinusRule"] = paired
+    evidence["solverStats"] = solver_stats
     evidence["baselines"]["1_no_streaming_hold"] = "reference: every delta is scenario minus this"
     evidence["baselines"]["5_independent_source_consensus"] = (
         "N/A: one weekly IDP projection family available historically (Sleeper/RotoWire)"
-    )
-    evidence["baselines"]["7_full_dynasty_safe_optimizer"] = (
-        "NOT RUN: awaiting W4 solver (src/waivers/streaming.py) via StreamingPolicy"
     )
     team_rows.sort(key=lambda r: (r["season"], r["holdMeanLineupPoints"] or 0.0))
     counters: dict[int, int] = {}
