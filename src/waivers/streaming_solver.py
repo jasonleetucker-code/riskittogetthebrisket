@@ -11,7 +11,8 @@ nothing?*
 It is the weekly-points objective.  The DYNASTY objective (additive board value
 of the held set) is Perfect Waivers' (``src/trade/perfect_waivers.py``) and is
 not touched here.  Pure: no I/O, no contract reads, no clock.  The composer
-(``src/waivers/streaming.py``) assembles the inputs from the canonical owners.
+(``src/waivers/streaming.py``, a later PR) assembles the inputs from the
+canonical owners.
 
 Nothing here is a second owner
 ==============================
@@ -23,7 +24,7 @@ Nothing here is a second owner
   final roster may not fill fewer starting slots than today's.  "Fill" is the
   same solver run with every weight 1.
 * **Who may be dropped** is decided upstream by the drop assessment
-  (``src/waivers/drop_assessment.py``): only its ``churn`` / ``conditional``
+  (``src/waivers/drop_assessment.py``, PR #2020): only its ``churn`` / ``conditional``
   players reach :attr:`SolverInput.droppable_ids`.  Protected, locked and
   unpriced players can never be released here.
 * **Bids** are the FAAB engine's, supplied per free agent.  Dollars are a
@@ -42,8 +43,9 @@ week ``w``; ``V(S) = Σ_w weight_w · L_w(S)``.  For roster ``R``, open spots
                Σ dyn(D) − Σ dyn(A) ≤ β            (β ≥ 0; unknown dyn(a) credits 0)
                every add starts: V(final) > V(final − a) for each a ∈ A
 
-Exactly the forced number of drops is made: releasing a player the roster
-does not need to release never raises the lineup.  Negative weekly
+Exactly the forced number of drops is made, by definition: an unforced
+release never raises the lineup's points, and a plan is not offered a release
+it does not need even when that would lower its net dynasty loss on a tie.  Negative weekly
 projections are counted as 0 (see :func:`_week`).
 
 Ties: smaller net dynasty loss, then fewer moves, then less FAAB, then id
@@ -518,9 +520,11 @@ class _Evaluator:
         # nothing in validity.  Without a cap, a constraint that is exactly
         # tight leaves the dual flat along a ray and Polyak steps run the
         # multipliers off to ~1e16, where the sum loses all precision to
-        # cancellation and stops being an upper bound (found by review).  No
-        # multiplier above the total positive points in play can lower the
-        # bound further, so that total is the cap.
+        # cancellation and stops being an upper bound (found by review).  Any
+        # cap is valid; this one (the total positive points in play) keeps
+        # every term small enough that rounding stays far inside ``_EPS``.  A
+        # tight budget can then leave the bound looser than the true dual
+        # optimum, which costs nodes, never correctness.
         cap_multiplier = 1.0 + sum(
             weight * sum(floored[w].values()) for w, weight in enumerate(weights)
         )
