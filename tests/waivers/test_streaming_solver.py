@@ -355,3 +355,146 @@ def test_capacity_curve_rows_equal_fresh_solves():
 def test_negative_week_weight_refused():
     with pytest.raises(ValueError):
         ss.solve_streaming(_inp(_base_roster(), [], droppable=[], weights=(1.0, -0.5)))
+
+
+# ── regions found by independent review ──────────────────────────────
+
+
+def _wide_instance(rng: random.Random):
+    """Ties, tight budgets, IDP flex, two-group players, zero-weight weeks,
+    negative points, several open spots: the regions review fuzzed."""
+    weeks = rng.choice([1, 1, 2, 3])
+    slots = rng.choice(
+        [SLOTS, ("DB",), ("DB", "IDP_FLEX"), ("LB", "LB", "IDP_FLEX"), ("DL", "LB", "DB")]
+    )
+
+    def pts():
+        return tuple(
+            None if rng.random() < 0.15 else float(rng.choice([-1, 0, 2, 3, 3, 5, 7, 9]))
+            for _ in range(weeks)
+        )
+
+    def fp(pos):
+        return rng.choice([(), (), (pos, "LB")]) if pos == "DL" else ()
+
+    roster = []
+    for i in range(rng.randint(2, 5)):
+        pos = rng.choice(POSITIONS)
+        roster.append(
+            _p(f"r{i}", pos, pts(), dyn=float(rng.choice([0, 10, 50, 100, 500])), fp=fp(pos))
+        )
+    fas = []
+    for i in range(rng.randint(1, 4)):
+        pos = rng.choice(POSITIONS)
+        fas.append(
+            _p(
+                f"f{i}",
+                pos,
+                pts(),
+                dyn=rng.choice([None, 0.0, 10.0, 100.0]),
+                bid=rng.choice([0, 0, 5, 10]),
+                fp=fp(pos),
+            )
+        )
+    droppable = [p.player_id for p in roster if rng.random() < 0.7]
+    dyn_values = sorted({p.dynasty_value for p in roster if p.player_id in droppable})
+    return ss.SolverInput(
+        roster=tuple(roster),
+        free_agents=tuple(fas),
+        slots=slots,
+        droppable_ids=frozenset(droppable),
+        open_spots=rng.choice([0, 0, 1, 2, 3]),
+        max_adds=rng.randint(1, 3),
+        faab_balance=rng.choice([None, 0, 5, 100]),
+        dynasty_budget=rng.choice([0.0, *dyn_values, 1e9]),
+        week_weights=tuple(rng.choice([1.0, 0.5, 0.0]) for _ in range(weeks)),
+    )
+
+
+@pytest.mark.parametrize("seed", range(400))
+def test_matches_brute_force_oracle_in_review_regions(seed):
+    _assert_matches_oracle(_wide_instance(random.Random(90_000 + seed)))
+
+
+def test_tight_budget_does_not_break_the_bound():
+    # The Lagrangian multipliers ran away on an exactly tight budget and the
+    # bound lost precision, pruning the optimum while reporting "optimal".
+    roster = [_p("r0", "DL", (None,), dyn=50.0), _p("r3", "LB", (3.7,), dyn=500.0)]
+    fas = [_p("f3", "DB", (9.3,), dyn=0.0)]
+    inp = ss.SolverInput(
+        roster=tuple(roster),
+        free_agents=tuple(fas),
+        slots=("DB",),
+        droppable_ids=frozenset({"r0", "r3"}),
+        open_spots=0,
+        max_adds=1,
+        faab_balance=0,
+        dynasty_budget=50.0,
+    )
+    res = ss.solve_streaming(inp)
+    assert res.recommend_move and res.best.adds == ("f3",) and res.best.drops == ("r0",)
+    two = ss.SolverInput(
+        roster=(_p("r0", "DL", (2.0, None), dyn=10.0), _p("r1", "DB", (2.0, 0.0), dyn=100.0)),
+        free_agents=(_p("f1", "DB", (3.0, 3.0), dyn=0.0),),
+        slots=("DB", "IDP_FLEX"),
+        droppable_ids=frozenset({"r0", "r1"}),
+        open_spots=0,
+        max_adds=1,
+        faab_balance=5,
+        dynasty_budget=10.0,
+        week_weights=(1.0, 1.0),
+    )
+    _assert_matches_oracle(two)
+    assert ss.solve_streaming(two).best.drops == ("r0",)
+
+
+def test_multiweek_does_not_drop_a_dominated_twin_that_matters():
+    # b looks dominated by a1/a2, but {b, x} is the plan with the smaller
+    # dynasty loss: x starts in week 2 only when b, not a twin, holds week 1.
+    inp = ss.SolverInput(
+        roster=(),
+        free_agents=(
+            _p("x", "LB", (None, 5.0), dyn=500.0),
+            _p("b", "LB", (3.0, 2.0), dyn=10.0),
+            _p("a1", "LB", (3.0, 5.0), dyn=10.0),
+            _p("a2", "LB", (3.0, 5.0), dyn=10.0),
+        ),
+        slots=("LB",),
+        droppable_ids=frozenset(),
+        open_spots=2,
+        max_adds=2,
+        faab_balance=100,
+        week_weights=(1.0, 1.0),
+    )
+    _assert_matches_oracle(inp)
+    assert ss.solve_streaming(inp).best.adds == ("b", "x")
+
+
+def test_negative_projections_are_floored_and_said():
+    inp = ss.SolverInput(
+        roster=(_p("r1", "LB", (3.0, -1.0, 3.0), dyn=0.0),),
+        free_agents=(_p("f2", "LB", (3.0, None, 4.0), dyn=0.0),),
+        slots=("LB",),
+        droppable_ids=frozenset({"r1"}),
+        open_spots=0,
+        max_adds=1,
+        faab_balance=0,
+        week_weights=(0.5, 1.0, 0.0),
+    )
+    _assert_matches_oracle(inp)
+    assert any("negative weekly projection" in n for n in ss.solve_streaming(inp).notes)
+
+
+def test_equal_plans_prefer_the_cheaper_claim():
+    inp = ss.SolverInput(
+        roster=(),
+        free_agents=(_p("f0", "DL", 2.0, dyn=100.0, bid=10), _p("f3", "DL", 2.0, dyn=100.0, bid=0)),
+        slots=("IDP_FLEX",),
+        droppable_ids=frozenset(),
+        open_spots=2,
+        max_adds=1,
+        faab_balance=100,
+        dynasty_budget=50.0,
+    )
+    _assert_matches_oracle(inp)
+    assert ss.solve_streaming(inp).best.adds == ("f3",)

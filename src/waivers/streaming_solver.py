@@ -36,13 +36,18 @@ week ``w``; ``V(S) = Σ_w weight_w · L_w(S)``.  For roster ``R``, open spots
 ``o``, free agents ``F``, droppable set ``E ⊆ R``::
 
     maximize   V(R ∪ A \\ D) − V(R)
-    subject to A ⊆ F, D ⊆ E, |A| ≤ k, |A| − |D| ≤ o,
+    subject to A ⊆ F, D ⊆ E, |A| ≤ k, |D| = max(0, |A| − o),
                Σ bid(A) ≤ FAAB balance,
                fill(R ∪ A \\ D) ≥ fill(R),
                Σ dyn(D) − Σ dyn(A) ≤ β            (β ≥ 0; unknown dyn(a) credits 0)
                every add starts: V(final) > V(final − a) for each a ∈ A
 
-Ties: smaller net dynasty loss, then fewer moves, then id order.  A plan whose
+Exactly the forced number of drops is made: releasing a player the roster
+does not need to release never raises the lineup.  Negative weekly
+projections are counted as 0 (see :func:`_week`).
+
+Ties: smaller net dynasty loss, then fewer moves, then less FAAB, then id
+order.  A plan whose
 gain is below ``materiality`` is not recommended: the answer is "no move".
 
 Why it is exact (and when it says it is not)
@@ -86,13 +91,17 @@ more cheaply than) the incumbent:
   keeps the plan inside the budget (found by the oracle, not assumed).  So no
   candidate is dropped for a zero solo gain.  Instead a free agent is skipped
   only when at least ``k`` others with the same slot eligibility are at least
-  as good on every week's points, on dynasty value and on bid (and strictly
-  better on one, or equal with a smaller id): a plan uses at most ``k`` adds,
-  so one dominator is always free to take its place without loss.
+  as good on points, on dynasty value and on bid (and strictly better on one,
+  or equal with a smaller id): a plan uses at most ``k`` adds, so one
+  dominator is always free to take its place without loss.  ONE WEEK ONLY:
+  over several weeks a swap can bench a different add in the week it starts,
+  so the filter is off there (found by review).
 
 Exactness is checked against a brute-force oracle over every add and drop
-subset (``tests/waivers/test_streaming_solver.py``, and 3,000 further random
-instances, one and two weeks, budgeted and not, in development).
+subset (``tests/waivers/test_streaming_solver.py``: random one- and
+multi-week instances, budgeted and not, including IDP flex slots, players
+eligible in two groups, integer ties on points and dynasty value, exactly
+tight budgets, zero-weight weeks and several open spots).
 
 The search is bounded by ``node_limit`` (add-set nodes plus drop-search
 nodes).  If it is reached the result is ``status="bounded"`` with
@@ -195,6 +204,7 @@ class StreamPlan:
             -round(self.weekly_gain, 6),
             round(self.net_dynasty_loss, 6),
             len(self.adds) + len(self.drops),
+            self.faab_total,
             self.adds,
             self.drops,
         )
@@ -504,7 +514,18 @@ class _Evaluator:
             g_lam = room - len(kept & pool_set)
             return value, (g_nu, float(g_mu), float(g_lam))
 
+        # Every multiplier triple is a valid bound, so capping them costs
+        # nothing in validity.  Without a cap, a constraint that is exactly
+        # tight leaves the dual flat along a ray and Polyak steps run the
+        # multipliers off to ~1e16, where the sum loses all precision to
+        # cancellation and stops being an upper bound (found by review).  No
+        # multiplier above the total positive points in play can lower the
+        # bound further, so that total is the cap.
+        cap_multiplier = 1.0 + sum(
+            weight * sum(floored[w].values()) for w, weight in enumerate(weights)
+        )
         nu, mu, lam = start if start is not None else (0.0, 0.0, 0.0)
+        nu, mu, lam = (min(cap_multiplier, x) for x in (nu, mu, lam))
         if beta is None:
             nu = 0.0
         best = float("inf")
@@ -520,9 +541,9 @@ class _Evaluator:
             if norm <= 0:
                 break  # the relaxed optimum is feasible and complementary: exact
             step = (value - target) / norm
-            nu = max(0.0, nu - step * g_nu)
-            mu = max(0.0, mu - step * g_mu)
-            lam = max(0.0, lam - step * g_lam)
+            nu = min(cap_multiplier, max(0.0, nu - step * g_nu))
+            mu = min(cap_multiplier, max(0.0, mu - step * g_mu))
+            lam = min(cap_multiplier, max(0.0, lam - step * g_lam))
         return best, best_at
 
 
@@ -537,10 +558,24 @@ def _with_points(p: RosterPlayer, value: float) -> RosterPlayer:
 
 
 def _week(p: StreamPlayer, w: int) -> float | None:
+    """Projected points that week; ``None`` = unknown.  A NEGATIVE projection
+    is floored at 0 here: every cut in the search rests on the lineup value
+    being monotone, which a forced negative starter breaks (the canonical
+    solver fills every fillable slot, so a lone negative player would be
+    started).  :func:`solve_streaming` reports how many were floored."""
     if w >= len(p.weekly_points):
         return None
     v = p.weekly_points[w]
-    return None if v is None else float(v)
+    return None if v is None else max(0.0, float(v))
+
+
+def _negative_projections(inp: SolverInput) -> int:
+    return sum(
+        1
+        for p in (*inp.roster, *inp.free_agents)
+        for v in p.weekly_points[: len(inp.week_weights)]
+        if v is not None and float(v) < 0
+    )
 
 
 def _dyn(p: StreamPlayer) -> float:
@@ -871,6 +906,11 @@ def _undominated(
 ) -> list[tuple[str, float]]:
     k = max(0, int(inp.max_adds))
     weeks = len(inp.week_weights)
+    if weeks != 1:
+        # Over several weeks a "dominated" free agent can still be the better
+        # pick: swapping him for his twin can bench a different add in the
+        # week that add starts.  The exchange argument holds for one week only.
+        return list(cands)
     players = ev.players
     kept: list[tuple[str, float]] = []
     for pid, g in cands:
@@ -946,6 +986,12 @@ def solve_streaming(
         notes.append(
             f"search stopped at node_limit={inp.node_limit}; the plan shown is the best found, "
             "not proven optimal"
+        )
+    negatives = _negative_projections(inp)
+    if negatives:
+        notes.append(
+            f"{negatives} negative weekly projection(s) were counted as 0 (the search's "
+            "cuts need a monotone lineup value)"
         )
     if free_status == STATUS_BOUNDED:
         notes.append(
