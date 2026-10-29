@@ -29,7 +29,9 @@ def temp_telemetry(tmp_path, monkeypatch):
 def test_scrape_events_reach_the_durable_sink(temp_telemetry):
     server._record_scrape_event("scrape_started", message="trigger=test", trigger="test")
 
-    rows = [json.loads(line) for line in telemetry.EVENTS_PATH.read_text().splitlines()]
+    rows = [
+        json.loads(line) for line in telemetry.EVENTS_PATH.read_text(encoding="utf-8").splitlines()
+    ]
     assert rows[-1]["event"] == "scrape_started"
     assert rows[-1]["message"] == "trigger=test"
     assert rows[-1]["meta"]["trigger"] == "test"
@@ -48,7 +50,7 @@ def test_in_memory_run_events_still_populated(temp_telemetry):
 def test_record_scrape_event_survives_a_broken_sink(tmp_path, monkeypatch):
     """Instrumentation must never be able to break a scrape."""
     blocker = tmp_path / "file-not-dir"
-    blocker.write_text("x")
+    blocker.write_text("x", encoding="utf-8")
     monkeypatch.setattr(telemetry, "DIAGNOSTICS_DIR", blocker / "nested")
     monkeypatch.setattr(telemetry, "EVENTS_PATH", blocker / "nested" / "events.jsonl")
     monkeypatch.setattr(telemetry, "PHASE_PATH", blocker / "nested" / "phase.json")

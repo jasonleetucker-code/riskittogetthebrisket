@@ -237,7 +237,8 @@ def test_backfill_from_exports_merges_with_existing(tmp_path, path):
                     }
                 },
             }
-        )
+        ),
+        encoding="utf-8",
     )
 
     written = source_history.backfill_from_exports([export], path=path)
@@ -255,7 +256,7 @@ def test_append_returns_false_for_empty_contract(path):
         source_history.append_snapshot({"date": "2026-04-23", "playersArray": []}, path=path)
         is False
     )
-    assert not path.exists() or path.read_text() == ""
+    assert not path.exists() or path.read_text(encoding="utf-8") == ""
 
 
 # ── _derive_source_ranks ──────────────────────────────────────────────
@@ -346,11 +347,12 @@ def test_backfill_derives_ranks_for_legacy_dict_export(tmp_path, path):
                     },
                 },
             }
-        )
+        ),
+        encoding="utf-8",
     )
     source_history.backfill_from_exports([export], path=path)
     # Verify the JSONL stamps sourceRanks for the legacy export.
-    raw = path.read_text().strip().splitlines()
+    raw = path.read_text(encoding="utf-8").strip().splitlines()
     assert len(raw) == 1
     snap = json.loads(raw[0])
     # Keys are ``"<displayName>::<assetClass>"`` per ``_player_key``;
@@ -400,7 +402,7 @@ def test_scope_filter_drops_idp_source_for_offense_player(path):
 
     # Snapshot on disk is also clean — write-time filter prevents the
     # IDP-scope contribution from ever landing in the JSONL.
-    raw = path.read_text().strip().splitlines()
+    raw = path.read_text(encoding="utf-8").strip().splitlines()
     snap = json.loads(raw[0])
     chase_entry = next(v for k, v in snap["players"].items() if k.startswith("Ja'Marr Chase"))
     assert "draftSharksIdp" not in chase_entry["sources"]
@@ -451,7 +453,7 @@ def test_scope_filter_read_time_strips_legacy_polluted_snapshot(path):
             }
         },
     }
-    path.write_text(json.dumps(polluted) + "\n")
+    path.write_text(json.dumps(polluted) + "\n", encoding="utf-8")
     hist = source_history.load_player_history("Ja'Marr Chase", path=path)
     assert "ktcCrowdTradesSfTep" in hist["sources"]
     assert "draftSharksIdp" not in hist["sources"]
@@ -475,7 +477,7 @@ def test_scope_filter_preserves_unknown_source_keys(path):
             }
         },
     }
-    path.write_text(json.dumps(polluted) + "\n")
+    path.write_text(json.dumps(polluted) + "\n", encoding="utf-8")
     hist = source_history.load_player_history("Ja'Marr Chase", path=path)
     # Unknown key survives — preserves legacy data we can't classify.
     assert "someRetiredKey" in hist["sources"]
@@ -557,7 +559,7 @@ def test_retired_ktc_filtered_from_chart_at_write_and_read(path):
     source_history.append_snapshot(contract, date="2026-05-05", path=path)
 
     # On disk: ``ktc`` is gone from both sources and sourceRanks.
-    snap = json.loads(path.read_text().strip().splitlines()[0])
+    snap = json.loads(path.read_text(encoding="utf-8").strip().splitlines()[0])
     bowers_entry = next(v for k, v in snap["players"].items() if k.startswith("Brock Bowers"))
     assert "ktc" not in bowers_entry["sources"]
     assert "ktc" not in bowers_entry.get("sourceRanks", {})
@@ -586,7 +588,7 @@ def test_retired_ktc_masked_from_legacy_snapshot_at_read_time(path):
             }
         },
     }
-    path.write_text(json.dumps(legacy) + "\n")
+    path.write_text(json.dumps(legacy) + "\n", encoding="utf-8")
     hist = source_history.load_player_history("Brock Bowers", path=path)
     assert "ktc" not in hist["sources"]
     assert "ktc" not in hist["sourceRanks"]

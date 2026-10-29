@@ -603,7 +603,9 @@ class TestLaunchReadinessStillPasses(unittest.TestCase):
 
         loader = unittest.TestLoader()
         suite = loader.loadTestsFromName("tests.api.test_launch_readiness")
-        runner = unittest.TextTestRunner(verbosity=0, stream=open("/dev/null", "w"))
+        runner = unittest.TextTestRunner(
+            verbosity=0, stream=open("/dev/null", "w", encoding="utf-8")
+        )
         result_obj = runner.run(suite)
         self.assertTrue(
             result_obj.wasSuccessful(),

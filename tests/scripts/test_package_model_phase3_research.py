@@ -210,7 +210,9 @@ def test_guard_precedes_app_imports_and_bytecode_is_off():
 
 
 def test_reference_numbers_are_the_committed_production_report():
-    rep = json.loads((EVIDENCE / "production_ledger_run_2026-10-20.json").read_text())
+    rep = json.loads(
+        (EVIDENCE / "production_ledger_run_2026-10-20.json").read_text(encoding="utf-8")
+    )
     cal = rep["marketLedgerCalibration"]
     assert cal["audit"]["graded"] == P3.PHASE2_REFERENCE["graded"]
     for m in ("GEOM_78", "LP_150"):
@@ -223,7 +225,9 @@ def test_reference_numbers_are_the_committed_production_report():
 
 
 def test_committed_phase3_run_is_aggregate_only_and_supports_the_memo():
-    rep = json.loads((EVIDENCE / "production_phase3_run_2026-10-20.json").read_text())
+    rep = json.loads(
+        (EVIDENCE / "production_phase3_run_2026-10-20.json").read_text(encoding="utf-8")
+    )
     P3.P2.assert_aggregate_only(rep)
     assert rep["readOnlyGuard"]["refusedWriteOrProcessAttempts"] == 0
     conf = rep["analysis"]["confirmationLeagueDisjoint"]

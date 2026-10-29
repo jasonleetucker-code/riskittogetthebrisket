@@ -216,17 +216,19 @@ class Host:
     # ── fixture plumbing ────────────────────────────────────────────
     @staticmethod
     def _write_exe(path: Path, body: str) -> None:
-        path.write_text(body)
+        path.write_text(body, encoding="utf-8")
         path.chmod(0o755)
 
     def set_unit_state(self, unit: str, **props: str) -> None:
         for prop, value in props.items():
-            (self.state / "units" / f"{unit}.{prop}").write_text(value + "\n")
+            (self.state / "units" / f"{unit}.{prop}").write_text(value + "\n", encoding="utf-8")
 
     def queue_unit_state(self, unit: str, **props: str) -> None:
         """Value the NEXT read of this property switches to."""
         for prop, value in props.items():
-            (self.state / "units" / f"{unit}.{prop}.next").write_text(value + "\n")
+            (self.state / "units" / f"{unit}.{prop}.next").write_text(
+                value + "\n", encoding="utf-8"
+            )
 
     def set_limits(
         self, *, soft: str, hard: str, proc_soft: str | None = None, proc_hard: str | None = None
@@ -236,7 +238,7 @@ class Host:
         pid_dir = self.proc / self.MAIN_PID
         pid_dir.mkdir(parents=True, exist_ok=True)
         (pid_dir / "limits").write_text(
-            LIMITS_TEMPLATE.format(soft=proc_soft or soft, hard=proc_hard or hard)
+            LIMITS_TEMPLATE.format(soft=proc_soft or soft, hard=proc_hard or hard), encoding="utf-8"
         )
 
     @property
@@ -291,7 +293,7 @@ class Host:
     @property
     def calls(self) -> list[str]:
         log = self.state / "calls.log"
-        return log.read_text().splitlines() if log.exists() else []
+        return log.read_text(encoding="utf-8").splitlines() if log.exists() else []
 
     def converge(self):
         """Bring the host to a fully reconciled state (the happy path)."""
@@ -318,9 +320,9 @@ class TestItConvergesTheHost:
 
         assert host.backend_unit.exists()
         assert host.watchdog.exists()
-        assert "LimitNOFILE=8192:524288" in host.backend_unit.read_text()
-        assert "__APP_DIR__" not in host.backend_unit.read_text()
-        assert f"User={APP_USER}" in host.backend_unit.read_text()
+        assert "LimitNOFILE=8192:524288" in host.backend_unit.read_text(encoding="utf-8")
+        assert "__APP_DIR__" not in host.backend_unit.read_text(encoding="utf-8")
+        assert f"User={APP_USER}" in host.backend_unit.read_text(encoding="utf-8")
         assert (host.unit_dir / "dynasty-healthcheck.service").exists()
         assert (host.unit_dir / "dynasty-healthcheck.timer").exists()
         assert "reconciled" in r.stdout
@@ -330,23 +332,26 @@ class TestItConvergesTheHost:
         returned — while it still carried the 1024 default that EMFILE
         was raised against."""
         host.backend_unit.write_text(
-            "[Unit]\nDescription=old\n[Service]\n" f"User={APP_USER}\nExecStart=/bin/true\n"
+            "[Unit]\nDescription=old\n[Service]\n" f"User={APP_USER}\nExecStart=/bin/true\n",
+            encoding="utf-8",
         )
-        stale = host.backend_unit.read_text()
+        stale = host.backend_unit.read_text(encoding="utf-8")
 
         host.converge()
 
-        assert host.backend_unit.read_text() != stale
-        assert "LimitNOFILE=8192:524288" in host.backend_unit.read_text()
+        assert host.backend_unit.read_text(encoding="utf-8") != stale
+        assert "LimitNOFILE=8192:524288" in host.backend_unit.read_text(encoding="utf-8")
 
     def test_a_stale_watchdog_converges(self, host):
         """An installed watchdog from before the FD watch existed."""
-        host.watchdog.write_text("#!/bin/sh\n# old watchdog, no fd_watch\nexit 0\n")
+        host.watchdog.write_text(
+            "#!/bin/sh\n# old watchdog, no fd_watch\nexit 0\n", encoding="utf-8"
+        )
         host.watchdog.chmod(0o755)
 
         host.converge()
 
-        text = host.watchdog.read_text()
+        text = host.watchdog.read_text(encoding="utf-8")
         assert "fd_watch" in text
         for threshold in ("FD_WARN:-256", "FD_CRIT:-512", "FD_EMERG:-768"):
             assert threshold in text
@@ -358,7 +363,7 @@ class TestItConvergesTheHost:
     def test_absent_healthcheck_units_converge(self, host):
         host.converge()
 
-        svc = (host.unit_dir / "dynasty-healthcheck.service").read_text()
+        svc = (host.unit_dir / "dynasty-healthcheck.service").read_text(encoding="utf-8")
         assert f"HEALTH_SERVICE={SERVICE_NAME}" in svc, "watchdog targets the wrong backend"
         assert svc.count(f"ExecStart={host.lib_dir}/dynasty-healthcheck.sh") == 1
 
@@ -401,7 +406,7 @@ class TestItConvergesTheHost:
 
         # ...and it comes BACK when something drifts again.
         (host.state / "calls.log").unlink()
-        host.backend_unit.write_text("[Unit]\nDescription=drifted\n")
+        host.backend_unit.write_text("[Unit]\nDescription=drifted\n", encoding="utf-8")
         host.run("reconcile_runtime_controls")
         reload_at = host.calls.index("daemon-reload")
         enable_at = next(i for i, c in enumerate(host.calls) if c.startswith("enable"))
@@ -454,7 +459,8 @@ class TestVerificationReadsLiveStateNotRepositoryIntent:
         template — that conflation is the whole defect."""
         host.converge()
         host.watchdog.write_text(
-            host.watchdog.read_text().replace("FD_EMERG:-768", "FD_EMERG:-99999")
+            host.watchdog.read_text(encoding="utf-8").replace("FD_EMERG:-768", "FD_EMERG:-99999"),
+            encoding="utf-8",
         )
 
         r = host.run("verify_runtime_controls")
@@ -484,9 +490,12 @@ class TestVerificationReadsLiveStateNotRepositoryIntent:
         template = host.sysd / "dynasty.service.template"
         template.write_text(
             "\n".join(
-                ln for ln in template.read_text().splitlines() if not ln.startswith("LimitNOFILE=")
+                ln
+                for ln in template.read_text(encoding="utf-8").splitlines()
+                if not ln.startswith("LimitNOFILE=")
             )
-            + "\n"
+            + "\n",
+            encoding="utf-8",
         )
 
         r = host.run("verify_runtime_controls")
@@ -499,7 +508,10 @@ class TestVerificationReadsLiveStateNotRepositoryIntent:
         host.converge()
         template = host.sysd / "dynasty.service.template"
         template.write_text(
-            template.read_text().replace("LimitNOFILE=8192:524288", "LimitNOFILE=infinity")
+            template.read_text(encoding="utf-8").replace(
+                "LimitNOFILE=8192:524288", "LimitNOFILE=infinity"
+            ),
+            encoding="utf-8",
         )
 
         r = host.run("verify_runtime_controls")
@@ -557,7 +569,7 @@ class TestAFailedRenderIsNeverInstalled:
         """Fail closed means the host keeps working, not that it is left
         holding two lines of truncated unit file."""
         broken_sed.backend_unit.write_text(
-            "[Unit]\nDescription=good\n[Service]\nExecStart=/bin/true\n"
+            "[Unit]\nDescription=good\n[Service]\nExecStart=/bin/true\n", encoding="utf-8"
         )
         good = broken_sed.backend_unit.read_bytes()
 
@@ -698,7 +710,7 @@ class TestTheTimerGateReadsTheRightNextElapseProperty:
 
     def test_the_verifier_never_gates_on_the_realtime_property(self):
         """Read as code: the realtime value may be logged, never tested."""
-        code = re.sub(r"#.*", "", RECONCILER.read_text())
+        code = re.sub(r"#.*", "", RECONCILER.read_text(encoding="utf-8"))
         gating = [
             ln
             for ln in code.splitlines()

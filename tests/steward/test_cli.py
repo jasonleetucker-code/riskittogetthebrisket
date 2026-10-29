@@ -99,7 +99,9 @@ def test_launch_checkpoint_cannot_skip_literal_rows(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "inventory", incomplete_inventory)
     path = tmp_path / "state.db"
     update = tmp_path / "update.json"
-    update.write_text(json.dumps({"task_states": {"P0": {"state": "SUPERSEDED"}}}))
+    update.write_text(
+        json.dumps({"task_states": {"P0": {"state": "SUPERSEDED"}}}), encoding="utf-8"
+    )
     with pytest.raises(ValueError, match="literal launch"):
         cli.main(
             [
@@ -124,16 +126,16 @@ def test_generated_data_conflict_detected_in_real_git_history(tmp_path):
     git("config", "user.name", "Steward test")
     (tmp_path / "data").mkdir()
     artifact = tmp_path / "data" / "generated.json"
-    artifact.write_text('{"value": 1}\n')
+    artifact.write_text('{"value": 1}\n', encoding="utf-8")
     git("add", ".")
     git("commit", "-m", "base")
     base = git("rev-parse", "HEAD")
     git("switch", "-c", "candidate")
-    artifact.write_text('{"value": 2}\n')
+    artifact.write_text('{"value": 2}\n', encoding="utf-8")
     git("commit", "-am", "candidate")
     candidate = git("rev-parse", "HEAD")
     git("switch", "main")
-    artifact.write_text('{"value": 3}\n')
+    artifact.write_text('{"value": 3}\n', encoding="utf-8")
     git("commit", "-am", "new source")
     assert generated_conflicts(tmp_path, base, candidate, "main") == ["data/generated.json"]
 

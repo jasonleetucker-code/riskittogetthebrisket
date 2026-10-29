@@ -699,7 +699,7 @@ class TestGenerationWrites:
         assert not live.write_generation(self._gen(100.0, "old"))
         assert not live.write_generation(self._gen(200.0, "same-seq"))
         assert live.load_generation("lk", 2026, 1)["generationId"] == "g-200.0-new"
-        index = live._generation_index_path("lk", 2026, 1).read_text().splitlines()
+        index = live._generation_index_path("lk", 2026, 1).read_text(encoding="utf-8").splitlines()
         assert len(index) == 1
 
     def test_a_failed_publication_keeps_the_previous_generation_and_no_tempfile(self):
@@ -1145,8 +1145,8 @@ def test_retention_prunes_raw_observations_but_keeps_generations():
     keep = live.league_week_dir("lk", 2026, 8)
     for d in (old, keep):
         (d / "observations").mkdir(parents=True)
-        (d / "observations" / "x.jsonl").write_text("{}\n")
-        (d / "generation.json").write_text("{}")
+        (d / "observations" / "x.jsonl").write_text("{}\n", encoding="utf-8")
+        (d / "generation.json").write_text("{}", encoding="utf-8")
     live.prune_retention(2026, 8)
     assert not (old / "observations").exists()
     assert (old / "generation.json").exists()

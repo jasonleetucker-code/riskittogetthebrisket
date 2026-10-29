@@ -228,8 +228,8 @@ def test_pin_mismatches_fail_closed():
 def test_tree_digest_is_content_pinned_and_order_independent(tmp_path):
     (tmp_path / "CSVs").mkdir()
     (tmp_path / "config" / "weights").mkdir(parents=True)
-    (tmp_path / "CSVs" / "a.csv").write_text("1,2\n")
-    (tmp_path / "config" / "weights" / "w.json").write_text("{}")
+    (tmp_path / "CSVs" / "a.csv").write_text("1,2\n", encoding="utf-8")
+    (tmp_path / "config" / "weights" / "w.json").write_text("{}", encoding="utf-8")
     paths = ("CSVs", "data/scrape_state", "config/weights")
     d1 = SUP.tree_content_sha256(tmp_path, paths)
 
@@ -242,12 +242,12 @@ def test_tree_digest_is_content_pinned_and_order_independent(tmp_path):
                 h.update(p.relative_to(tmp_path).as_posix().encode() + b"\0")
                 h.update(hashlib.sha256(p.read_bytes()).digest())
     assert d1 == h.hexdigest()
-    (tmp_path / "CSVs" / "a.csv").write_text("1,3\n")
+    (tmp_path / "CSVs" / "a.csv").write_text("1,3\n", encoding="utf-8")
     assert SUP.tree_content_sha256(tmp_path, paths) != d1
 
 
 def test_config_hashes_record_a_missing_file_instead_of_guessing(tmp_path):
-    (tmp_path / "a.json").write_text("{}")
+    (tmp_path / "a.json").write_text("{}", encoding="utf-8")
     out = SUP.config_hashes(tmp_path, ["a.json", "b.json"])
     assert out["a.json"] == hashlib.sha256(b"{}").hexdigest()
     assert out["b.json"] == "NOT_PROVIDED"

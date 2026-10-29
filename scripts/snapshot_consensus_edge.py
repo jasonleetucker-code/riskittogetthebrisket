@@ -62,7 +62,7 @@ def _load_contract() -> dict | None:
         # same fix, stated rather than implied.
         for candidate in sorted(directory.glob("dynasty_data_*.json"), reverse=True):
             try:
-                raw = json.loads(candidate.read_text())
+                raw = json.loads(candidate.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 continue
             return build_api_data_contract(raw)

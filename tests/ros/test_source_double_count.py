@@ -57,7 +57,7 @@ _ROS_HEADER = [
 
 
 def _write_ros_csv(path: Path, rows: list[tuple[str, str, int]], total: int) -> None:
-    with path.open("w", newline="") as fh:
+    with path.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(_ROS_HEADER)
         for name, pos, rank in rows:

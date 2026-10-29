@@ -93,7 +93,9 @@ class TestFlagDefault(_Base):
             "no committed board-validation measurement to read a verdict from",
         )
         verdicts = {
-            path.name: (json.loads(path.read_text()).get("decision") or {}).get("recommendation")
+            path.name: (json.loads(path.read_text(encoding="utf-8")).get("decision") or {}).get(
+                "recommendation"
+            )
             for path in measurements
         }
         # `_decide` emits "ship it (flag ON)", "do not ship yet", or an

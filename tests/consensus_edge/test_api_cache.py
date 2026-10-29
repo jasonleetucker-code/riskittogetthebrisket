@@ -116,7 +116,7 @@ class TestLeagueKeyIsNotAcceptedAndIgnored(unittest.TestCase):
     """
 
     def test_the_backend_still_does_not_read_it(self):
-        source = (REPO / "src" / "consensus_edge" / "api.py").read_text()
+        source = (REPO / "src" / "consensus_edge" / "api.py").read_text(encoding="utf-8")
         self.assertNotIn("leagueKey", source)
         self.assertNotIn("league_key", source)
 
@@ -124,14 +124,16 @@ class TestLeagueKeyIsNotAcceptedAndIgnored(unittest.TestCase):
         routes = sorted((REPO / "frontend" / "app" / "api" / "consensus-edge").glob("*/route.js"))
         self.assertTrue(routes, "no bridge routes found — has the directory moved?")
         for route in routes:
-            body = route.read_text()
+            body = route.read_text(encoding="utf-8")
             code = "\n".join(
                 line for line in body.splitlines() if not line.strip().startswith("//")
             )
             self.assertNotIn("leagueKey", code, route.name)
 
     def test_the_hook_does_not_send_it(self):
-        body = (REPO / "frontend" / "components" / "useConsensusEdge.js").read_text()
+        body = (REPO / "frontend" / "components" / "useConsensusEdge.js").read_text(
+            encoding="utf-8"
+        )
         code = "\n".join(line for line in body.splitlines() if not line.strip().startswith("//"))
         self.assertNotIn('set("leagueKey"', code)
 
@@ -139,7 +141,9 @@ class TestLeagueKeyIsNotAcceptedAndIgnored(unittest.TestCase):
         # Not sending the parameter must not become "ignore the league
         # entirely": a league switch changes which rosters a user cares
         # about even when the board itself is shared.
-        body = (REPO / "frontend" / "components" / "useConsensusEdge.js").read_text()
+        body = (REPO / "frontend" / "components" / "useConsensusEdge.js").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("league:changed", body)
         self.assertIn("${league}", body)
 

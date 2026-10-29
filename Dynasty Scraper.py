@@ -276,7 +276,7 @@ def get_cached(site_key):
     if age_hours > CACHE_TTL_HOURS:
         return None
     try:
-        with open(cache_file, "r") as f:
+        with open(cache_file, "r", encoding="utf-8") as f:
             data = json.load(f)
         print(f"  [{site_key}] Using cached data ({age_hours:.1f}h old, {len(data)} players)")
         return data
@@ -291,7 +291,7 @@ def set_cache(site_key, name_map):
     os.makedirs(CACHE_DIR, exist_ok=True)
     cache_file = os.path.join(CACHE_DIR, f"{site_key}.json")
     try:
-        with open(cache_file, "w") as f:
+        with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(name_map, f)
     except Exception:
         pass
@@ -3963,7 +3963,7 @@ async def run(progress_callback=None):
     # never created on new server deploys, blocking every scrape run.
     fname = os.path.join(SCRIPT_DIR, "CSVs", "dynasty_values.csv")
     os.makedirs(os.path.dirname(fname), exist_ok=True)
-    with open(fname, "w", newline="") as f:
+    with open(fname, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["Player"] + active_sites)
         for player in PLAYERS:
@@ -7422,7 +7422,7 @@ def check_value_alerts(current_json):
     prev_values = {}
     try:
         if os.path.exists(prev_file):
-            with open(prev_file, "r") as f:
+            with open(prev_file, "r", encoding="utf-8") as f:
                 prev_values = json.load(f)
     except Exception:
         pass
@@ -7445,7 +7445,7 @@ def check_value_alerts(current_json):
     # Save current for next time
     try:
         os.makedirs(os.path.dirname(prev_file), exist_ok=True)
-        with open(prev_file, "w") as f:
+        with open(prev_file, "w", encoding="utf-8") as f:
             json.dump(current_values, f)
     except Exception:
         pass
@@ -7532,7 +7532,7 @@ def check_value_alerts(current_json):
     # Save alert to file (server can pick this up)
     alert_file = os.path.join(SCRIPT_DIR, "data", "_latest_alert.txt")
     try:
-        with open(alert_file, "w") as f:
+        with open(alert_file, "w", encoding="utf-8") as f:
             f.write(body)
         print(f"  [Alerts] Saved alert to {alert_file}")
     except Exception:

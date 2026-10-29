@@ -103,7 +103,9 @@ def create_backup(actuals_dir: Path, seasons: list[int], backup_dir: Path) -> di
         "tarPath": str(tar_path),
         "seasons": seasons_info,
     }
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     return {"manifestPath": str(manifest_path), **manifest}
 
 
@@ -117,7 +119,7 @@ def restore_backup(manifest_path: Path, actuals_dir: Path | None = None) -> dict
     """
     if not manifest_path.is_file():
         raise PbpBackupError(f"manifest not found: {manifest_path}")
-    manifest = json.loads(manifest_path.read_text())
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     target_dir = actuals_dir if actuals_dir is not None else Path(manifest["actualsDir"])
     tar_path = Path(manifest["tarPath"])
     seasons_info: dict[str, dict] = manifest["seasons"]

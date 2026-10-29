@@ -1044,7 +1044,7 @@ def main(argv: list[str] | None = None) -> int:
 
     payload_path = resolve_payload(args.payload)
     prov = build_provenance(payload_path)
-    raw = json.loads(payload_path.read_text())
+    raw = json.loads(payload_path.read_text(encoding="utf-8"))
     wanted = [c.strip().upper() for c in args.candidates.split(",") if c.strip()]
     scenarios = ["live", "backbone-lost"] if args.scenario == "both" else [args.scenario]
 
@@ -1137,7 +1137,7 @@ def main(argv: list[str] | None = None) -> int:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     out = args.out_dir / "policy_simulation.json"
-    out.write_text(json.dumps(results, indent=2, sort_keys=True))
+    out.write_text(json.dumps(results, indent=2, sort_keys=True), encoding="utf-8")
     print(f"\nwrote {out.relative_to(REPO_ROOT)}")
     return 0
 

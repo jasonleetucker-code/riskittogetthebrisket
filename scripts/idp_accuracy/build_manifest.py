@@ -343,10 +343,12 @@ def versions_block() -> dict[str, Any]:
     def f(p: str) -> dict[str, str]:
         return {"path": p, "sha256": sha256_file(REPO / p)}
 
-    fv = json.loads((REPO / "config/league_valuation/fair_value_v1.json").read_text())
-    bb = json.loads((REPO / "config/bestball/marginal_v1.json").read_text())
-    br = json.loads((REPO / "config/bridges/bridges_v1.json").read_text())
-    pm = json.loads((REPO / "config/trade/package_model.json").read_text())
+    fv = json.loads(
+        (REPO / "config/league_valuation/fair_value_v1.json").read_text(encoding="utf-8")
+    )
+    bb = json.loads((REPO / "config/bestball/marginal_v1.json").read_text(encoding="utf-8"))
+    br = json.loads((REPO / "config/bridges/bridges_v1.json").read_text(encoding="utf-8"))
+    pm = json.loads((REPO / "config/trade/package_model.json").read_text(encoding="utf-8"))
     return {
         "bdvmParams": {
             **f("config/bdvm/params_v1.json"),
@@ -392,7 +394,7 @@ def main() -> int:
     reg_id = league_registry.get_sleeper_league_id(LEAGUE_KEY)
     cfg = league_registry.get_league_by_key(LEAGUE_KEY)
     arch, raw = archive_block(PINNED_ARCHIVE)
-    recon = json.loads(RECON.read_text()) if RECON.exists() else {}
+    recon = json.loads(RECON.read_text(encoding="utf-8")) if RECON.exists() else {}
     nfl = recon.get("nflverse") or {}
 
     manifest = {
@@ -467,7 +469,7 @@ def main() -> int:
         "manager/team names, user ids or per-team roster listings.",
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(manifest, indent=1, default=str) + "\n")
+    args.out.write_text(json.dumps(manifest, indent=1, default=str) + "\n", encoding="utf-8")
     print(json.dumps({"scoringFingerprint": manifest["scoringCard"]["scoringFingerprint"],
                       "rosterFormatFingerprint": fmt["rosterFormatFingerprint"],
                       "discrepancies": manifest["ownerChecklist"]["discrepancies"],

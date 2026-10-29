@@ -251,7 +251,7 @@ class TestFamilyScopedQuarantine:
         good = _idp()
         _idp_run(tmp_path, good)
         db_csv = _csv(tmp_path, "signalsIdpDb")
-        db_stamp = (tmp_path / "state" / "signalsIdpDb_last_success").read_text()
+        db_stamp = (tmp_path / "state" / "signalsIdpDb_last_success").read_text(encoding="utf-8")
         db_upstream = _ds(tmp_path, "signalsIdpDb")["upstream"]["publishedAt"]
         dl_before = _csv(tmp_path, "signalsIdpDl")
 
@@ -263,14 +263,16 @@ class TestFamilyScopedQuarantine:
         assert ds["outcome"] == "partially_quarantined"
         # failed family: same bytes, same stamp, same upstream clock
         assert _csv(tmp_path, "signalsIdpDb") == db_csv
-        assert (tmp_path / "state" / "signalsIdpDb_last_success").read_text() == db_stamp
+        assert (tmp_path / "state" / "signalsIdpDb_last_success").read_text(
+            encoding="utf-8"
+        ) == db_stamp
         assert _ds(tmp_path, "signalsIdpDb")["upstream"]["publishedAt"] == db_upstream
         assert ds["boardStatus"]["signalsIdpDb"]["rows"] == 28  # carried last good count
         # passing families moved on, with their own clock
         assert _csv(tmp_path, "signalsIdpDl") != dl_before
-        assert (tmp_path / "state" / "signalsIdpDl_last_success").read_text().strip() == str(
-            int(T1.timestamp())
-        )
+        assert (tmp_path / "state" / "signalsIdpDl_last_success").read_text(
+            encoding="utf-8"
+        ).strip() == str(int(T1.timestamp()))
         latest = json.loads(
             (tmp_path / "store" / "values" / "idp" / "latest.json").read_text("utf-8")
         )
@@ -311,7 +313,9 @@ class TestFamilyScopedQuarantine:
             family_flag(on)
             root = tmp_path / ("on" if on else "off")
             out = _idp_run(root, _idp())
-            latest = json.loads((root / "store" / "values" / "idp" / "latest.json").read_text())
+            latest = json.loads(
+                (root / "store" / "values" / "idp" / "latest.json").read_text(encoding="utf-8")
+            )
             results[on] = (
                 out["datasets"]["idp"]["outcome"],
                 {k: _csv(root, k) for k in IDP_KEYS},

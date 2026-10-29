@@ -32,14 +32,14 @@ RECONCILER = REPO / "deploy" / "reconcile-runtime-controls.sh"
 
 
 def _main_body(script: Path) -> str:
-    text = script.read_text()
+    text = script.read_text(encoding="utf-8")
     start = text.index("\nmain() {")
     return text[start:]
 
 
 class TestTheForwardDeployReconcilesAndThenProves:
     def test_deploy_sources_the_shared_reconciler(self):
-        assert "reconcile-runtime-controls.sh" in DEPLOY.read_text()
+        assert "reconcile-runtime-controls.sh" in DEPLOY.read_text(encoding="utf-8")
 
     def test_it_reconciles_before_restarting(self):
         """A unit installed after the restart is a unit the running
@@ -61,7 +61,7 @@ class TestTheForwardDeployReconcilesAndThenProves:
     def test_both_steps_are_fatal(self):
         """A warning would reproduce the original defect exactly: a
         deploy that reports success while the controls are absent."""
-        text = DEPLOY.read_text()
+        text = DEPLOY.read_text(encoding="utf-8")
         for fn in ("reconcile_runtime_state", "verify_runtime_state"):
             block = text[text.index(f"{fn}() {{") :]
             block = block[: block.index("\n}\n")]
@@ -70,7 +70,7 @@ class TestTheForwardDeployReconcilesAndThenProves:
 
     def test_a_missing_reconciler_is_fatal_not_skipped(self):
         """Forward deploys always come from a revision that has it."""
-        text = DEPLOY.read_text()
+        text = DEPLOY.read_text(encoding="utf-8")
         block = text[text.index("reconcile_runtime_state() {") :]
         block = block[: block.index("\n}\n")]
         assert "Missing runtime reconciler" in block
@@ -79,13 +79,13 @@ class TestTheForwardDeployReconcilesAndThenProves:
 
 class TestRollbackUsesTheSameImplementation:
     def test_rollback_sources_the_shared_reconciler(self):
-        assert "reconcile-runtime-controls.sh" in ROLLBACK.read_text()
+        assert "reconcile-runtime-controls.sh" in ROLLBACK.read_text(encoding="utf-8")
 
     def test_neither_script_reimplements_the_renderer(self):
         """One renderer.  Two copies is how the forward and backward
         paths drift apart."""
         for script in (DEPLOY, ROLLBACK):
-            text = script.read_text()
+            text = script.read_text(encoding="utf-8")
             assert (
                 "__SERVICE_NAME__/" not in text
             ), f"{script.name} renders the backend template itself"
@@ -107,7 +107,7 @@ class TestRollbackUsesTheSameImplementation:
         assert body.index("preserve_runtime_reconciler") < body.index("git checkout --force")
 
     def test_a_failed_reconciliation_stops_the_rollback(self):
-        text = ROLLBACK.read_text()
+        text = ROLLBACK.read_text(encoding="utf-8")
         block = text[text.index("reconcile_runtime_state_for_rollback() {") :]
         block = block[: block.index("\n}\n")]
         assert "exit 1" in block
@@ -117,7 +117,7 @@ class TestRollbackUsesTheSameImplementation:
         missing the runtime artifacts cannot be converged by anything
         here, and restarting onto controls belonging to the revision
         being rolled back FROM is the failure being fixed."""
-        text = ROLLBACK.read_text()
+        text = ROLLBACK.read_text(encoding="utf-8")
         block = text[text.index("reconcile_runtime_state_for_rollback() {") :]
         block = block[: block.index("\n}\n")]
         assert "missing runtime artifacts" in block
@@ -129,7 +129,7 @@ class TestRollbackUsesTheSameImplementation:
         installs can be inconsistent with the target, and refusing would
         break last-known-good for revisions that never had the contract.
         It must still not claim convergence."""
-        text = ROLLBACK.read_text()
+        text = ROLLBACK.read_text(encoding="utf-8")
         block = text[text.index("reconcile_runtime_state_for_rollback() {") :]
         block = block[: block.index("\n}\n")]
         assert "No runtime reconciler in either the current or the target revision" in block
@@ -142,7 +142,7 @@ class TestRollbackUsesTheSameImplementation:
         assert "Runtime controls were NOT reconciled or verified" in body
 
     def test_the_preserved_copy_is_cleaned_up(self):
-        text = ROLLBACK.read_text()
+        text = ROLLBACK.read_text(encoding="utf-8")
         assert "trap cleanup_runtime_reconciler EXIT" in text
         assert "rm -rf" in text[text.index("cleanup_runtime_reconciler() {") :][:300]
 
@@ -155,7 +155,7 @@ class TestSourcingCannotDisarmTheCaller:
     version of the defect this file exists to fix, and invisible."""
 
     def test_the_reconciler_sets_no_global_shell_options(self):
-        code = re.sub(r"#.*", "", RECONCILER.read_text())
+        code = re.sub(r"#.*", "", RECONCILER.read_text(encoding="utf-8"))
         top_level = [ln for ln in code.splitlines() if re.match(r"^set\s+[-+]", ln)]
         assert not top_level, f"global `set` at file scope: {top_level}"
 
@@ -191,7 +191,7 @@ class TestSourcingCannotDisarmTheCaller:
         """If either script ever drops it, the property above stops
         mattering and this test should be the thing that notices."""
         for script in (DEPLOY, ROLLBACK):
-            assert "set -Eeuo pipefail" in script.read_text().splitlines()[1]
+            assert "set -Eeuo pipefail" in script.read_text(encoding="utf-8").splitlines()[1]
 
 
 class TestScopeIsHeld:
@@ -220,7 +220,7 @@ class TestBothPathsUseTheCorrectedVerifier:
 
     def test_neither_script_checks_a_timer_property_itself(self):
         for script in (DEPLOY, ROLLBACK):
-            text = script.read_text()
+            text = script.read_text(encoding="utf-8")
             for prop in (
                 "NextElapseUSecMonotonic",
                 "NextElapseUSecRealtime",
@@ -230,13 +230,13 @@ class TestBothPathsUseTheCorrectedVerifier:
                 assert prop not in text, f"{script.name} inspects {prop} itself"
 
     def test_the_monotonic_predicate_is_defined_once(self):
-        code = RECONCILER.read_text()
+        code = RECONCILER.read_text(encoding="utf-8")
         assert code.count("_rc_monotonic_elapse_is_scheduled()") == 1
 
     def test_the_infinity_transition_helpers_are_defined_once(self):
         """The `infinity` excuse is the narrowest part of the contract.
         Two copies is how one of them stays permissive."""
-        code = RECONCILER.read_text()
+        code = RECONCILER.read_text(encoding="utf-8")
         assert code.count("_rc_timer_has_recurring_monotonic_schedule()") == 1
         assert code.count("_rc_service_is_executing()") == 1
 
@@ -245,6 +245,6 @@ class TestBothPathsUseTheCorrectedVerifier:
         place.  A script that pattern-matched them itself would be a
         second contract with no tests behind it."""
         for script in (DEPLOY, ROLLBACK):
-            text = script.read_text()
+            text = script.read_text(encoding="utf-8")
             for token in ("infinity", "activating", "SubState"):
                 assert token not in text, f"{script.name} decides {token!r} itself"

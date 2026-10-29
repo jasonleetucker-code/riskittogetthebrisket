@@ -664,7 +664,8 @@ class TestBackfillAndMigration(_LedgerCase):
                     "values": {"A.J. Brown::offense": 4990},
                 }
             )
-            + "\n"
+            + "\n",
+            encoding="utf-8",
         )
         result = migrate.migrate_rank_history(log, path=self.ledger)
         self.assertFalse(result.get("skipped"))
@@ -694,7 +695,8 @@ class TestBackfillAndMigration(_LedgerCase):
         after better identity evidence arrives."""
         log = Path(self._td.name) / "rank_history.jsonl"
         log.write_text(
-            json.dumps({"date": "2026-07-20", "ranks": {"Jalen Carter::idp": 40}}) + "\n"
+            json.dumps({"date": "2026-07-20", "ranks": {"Jalen Carter::idp": 40}}) + "\n",
+            encoding="utf-8",
         )
         # Run 1: no identity evidence — migrates name-keyed.
         r1 = migrate.migrate_rank_history(log, path=self.ledger)
@@ -738,12 +740,14 @@ class TestBackfillAndMigration(_LedgerCase):
         content conflict on every deploy."""
         log = Path(self._td.name) / "rank_history.jsonl"
         log.write_text(
-            json.dumps({"date": "2026-07-20", "ranks": {"Jalen Carter::idp": 40}}) + "\n"
+            json.dumps({"date": "2026-07-20", "ranks": {"Jalen Carter::idp": 40}}) + "\n",
+            encoding="utf-8",
         )
         migrate.migrate_rank_history(log, path=self.ledger)
         # The log's 2026-07-20 entry is later rewritten in place.
         log.write_text(
-            json.dumps({"date": "2026-07-20", "ranks": {"Jalen Carter::idp": 44}}) + "\n"
+            json.dumps({"date": "2026-07-20", "ranks": {"Jalen Carter::idp": 44}}) + "\n",
+            encoding="utf-8",
         )
         r = migrate.migrate_rank_history(log, path=self.ledger)
         self.assertEqual((r["written"], len(r["contentConflicts"])), (0, 0))

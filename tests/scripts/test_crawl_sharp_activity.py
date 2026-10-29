@@ -115,9 +115,13 @@ def test_activity_crawl_uses_only_bounded_qualified_manager_pool(monkeypatch):
 
 def test_systemd_wiring_installs_daily_activity_collector():
     repo = SCRIPT.parents[1]
-    service = (repo / "deploy/systemd/dynasty-sharp-activity.service.template").read_text()
-    timer = (repo / "deploy/systemd/dynasty-sharp-activity.timer.template").read_text()
-    bootstrap = (repo / "deploy/bootstrap-sharp-records.sh").read_text()
+    service = (repo / "deploy/systemd/dynasty-sharp-activity.service.template").read_text(
+        encoding="utf-8"
+    )
+    timer = (repo / "deploy/systemd/dynasty-sharp-activity.timer.template").read_text(
+        encoding="utf-8"
+    )
+    bootstrap = (repo / "deploy/bootstrap-sharp-records.sh").read_text(encoding="utf-8")
 
     assert "scripts/crawl_sharp_activity.py" in service
     assert "OnCalendar=*-*-* 06:30:00 UTC" in timer

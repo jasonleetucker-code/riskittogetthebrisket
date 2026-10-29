@@ -47,7 +47,7 @@ _WORKFLOW = Path(__file__).resolve().parents[2] / ".github/workflows/health-chec
 
 
 def _text() -> str:
-    return _WORKFLOW.read_text()
+    return _WORKFLOW.read_text(encoding="utf-8")
 
 
 def _code_only() -> str:

@@ -239,7 +239,7 @@ def main(argv: list[str] | None = None) -> int:
         OUT_DIR / f"consensus-edge-backtest-{date.today().isoformat()}-h{args.horizon_days}.json"
     )
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(summary, indent=2) + "\n")
+    out.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     log(f"wrote {out.relative_to(REPO)}")
     return 0
 

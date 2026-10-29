@@ -182,11 +182,11 @@ def main() -> int:
     )
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
-    committed = json.loads(Path(args.committed).read_text())
+    committed = json.loads(Path(args.committed).read_text(encoding="utf-8"))
     runs = {}
     for item in args.run:
         label, _, path = item.partition("=")
-        runs[label] = json.loads(Path(path).read_text())
+        runs[label] = json.loads(Path(path).read_text(encoding="utf-8"))
     out: dict = {
         "purpose": "RESEARCH ONLY.  Comparison of the recorded (fairness_bands_v1) shadow replay "
         "with re-runs on the pinned board; reads run files, computes no band.",
@@ -205,7 +205,7 @@ def main() -> int:
         }
     dest = Path(args.out)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(json.dumps(out, indent=1, sort_keys=False) + "\n")
+    dest.write_text(json.dumps(out, indent=1, sort_keys=False) + "\n", encoding="utf-8")
     print(json.dumps({"out": str(dest), "runs": list(runs)}))
     return 0
 

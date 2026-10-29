@@ -69,7 +69,7 @@ def read_env_lines(path: Path) -> list[str]:
     """
     if not path.exists():
         return []
-    return path.read_text().splitlines(keepends=True)
+    return path.read_text(encoding="utf-8").splitlines(keepends=True)
 
 
 def read_current_value(lines: list[str], key: str) -> str:
@@ -119,7 +119,7 @@ def remove_line(lines: list[str], key: str) -> list[str]:
 def atomic_write_env_lines(path: Path, lines: list[str]) -> None:
     """Write ``lines`` to ``path`` atomically (temp file + rename)."""
     tmp_path = path.with_name(f"{path.name}.tmp.{os.getpid()}")
-    tmp_path.write_text("".join(lines))
+    tmp_path.write_text("".join(lines), encoding="utf-8")
     tmp_path.replace(path)
 
 

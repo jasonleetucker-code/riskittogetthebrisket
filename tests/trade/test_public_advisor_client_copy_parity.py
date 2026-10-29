@@ -79,7 +79,8 @@ def test_admission_copy_matches_python_owner() -> None:
 def test_client_handles_exactly_the_admission_reasons_python_raises() -> None:
     raised = set(
         re.findall(
-            r'AdmissionRejected\(\s*self\.route\s*,\s*"([a-z_]+)"\s*\)', ADMISSION_PY.read_text()
+            r'AdmissionRejected\(\s*self\.route\s*,\s*"([a-z_]+)"\s*\)',
+            ADMISSION_PY.read_text(encoding="utf-8"),
         )
     )
     assert raised == {"busy", "timeout"}, raised

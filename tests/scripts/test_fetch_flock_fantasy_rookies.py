@@ -456,7 +456,7 @@ class TestSeasonalStateIsolation:
         assert verdict.expected, verdict.reason
         seasonal_policy.record_inactive_observation(state_dir, policy, verdict, observed)
         state_file = seasonal_policy.state_path(state_dir, ffr.SOURCE_KEY)
-        assert json.loads(state_file.read_text())["state"] == "seasonally_inactive"
+        assert json.loads(state_file.read_text(encoding="utf-8"))["state"] == "seasonally_inactive"
 
         json_path = tmp_path / "flock_rookies.json"
         json_path.write_text(
@@ -487,4 +487,4 @@ class TestSeasonalStateIsolation:
         assert rc == 0
         # The transition landed in the redirected default, not data/scrape_state;
         # the conftest runtime-data guard fails this test if the real file moved.
-        assert json.loads(state_file.read_text())["state"] == "active"
+        assert json.loads(state_file.read_text(encoding="utf-8"))["state"] == "active"

@@ -63,7 +63,7 @@ CGROUP_FILES = {
 
 
 def _write_exec(path: Path, body: str) -> None:
-    path.write_text("#!/usr/bin/env bash\n" + body)
+    path.write_text("#!/usr/bin/env bash\n" + body, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
@@ -82,7 +82,7 @@ def host(tmp_path):
     bin_dir.mkdir()
     calls = tmp_path / "systemctl.calls"
     curl_rc = tmp_path / "curl.rc"
-    curl_rc.write_text("28")
+    curl_rc.write_text("28", encoding="utf-8")
     _write_exec(
         bin_dir / "curl",
         f'rc="$(cat {curl_rc})"\n' 'if [[ "$rc" == "0" ]]; then printf 200; fi\n' 'exit "$rc"\n',
@@ -100,15 +100,17 @@ def host(tmp_path):
     cg = cg_root / "system.slice" / "dynasty.service"
     cg.mkdir(parents=True)
     for name, text in CGROUP_FILES.items():
-        (cg / name).write_text(text)
+        (cg / name).write_text(text, encoding="utf-8")
     proc = tmp_path / "proc"
     (proc / "pressure").mkdir(parents=True)
     (proc / "meminfo").write_text(
-        "MemTotal:        8131764 kB\nMemFree:         6059952 kB\nMemAvailable:    4710000 kB\n"
+        "MemTotal:        8131764 kB\nMemFree:         6059952 kB\nMemAvailable:    4710000 kB\n",
+        encoding="utf-8",
     )
     (proc / "pressure" / "memory").write_text(
         "some avg10=60.00 avg60=58.00 avg300=70.00 total=800000000\n"
-        "full avg10=55.00 avg60=54.89 avg300=71.23 total=793685741\n"
+        "full avg10=55.00 avg60=54.89 avg300=71.23 total=793685741\n",
+        encoding="utf-8",
     )
     state = tmp_path / "state"
 
@@ -146,7 +148,9 @@ def host(tmp_path):
             if not self.calls.exists():
                 return []
             return [
-                line for line in self.calls.read_text().splitlines() if not line.startswith("show ")
+                line
+                for line in self.calls.read_text(encoding="utf-8").splitlines()
+                if not line.startswith("show ")
             ]
 
     return Host()
@@ -165,7 +169,7 @@ def test_script_parses():
 
 
 def test_alive_probe_logs_no_snapshot(host):
-    host.curl_rc.write_text("0")
+    host.curl_rc.write_text("0", encoding="utf-8")
     res = host.run()
     assert res.returncode == 0, res.stderr
     assert _snapshot_lines(res.stdout) == []
@@ -227,7 +231,7 @@ def test_snapshot_precedes_the_restart_and_the_restart_is_unchanged(host):
         "reset-failed dynasty.service",
         "restart dynasty.service",
     ]
-    assert (host.state / "consecutive-failures").read_text().strip() == "0"
+    assert (host.state / "consecutive-failures").read_text(encoding="utf-8").strip() == "0"
 
 
 def test_missing_cgroup_files_degrade_to_na_and_never_block_the_restart(host):
@@ -251,9 +255,9 @@ def test_missing_cgroup_files_degrade_to_na_and_never_block_the_restart(host):
 
 
 def test_unexpected_file_content_is_never_echoed(host):
-    (host.cg / "memory.current").write_text("SECRETMARK=1 cookie\n")
-    (host.cg / "memory.events").write_text("high SECRETMARK\nmax 1;rm\n")
-    (host.cg / "memory.pressure").write_text("some avg10=$(id) total=x\n")
+    (host.cg / "memory.current").write_text("SECRETMARK=1 cookie\n", encoding="utf-8")
+    (host.cg / "memory.events").write_text("high SECRETMARK\nmax 1;rm\n", encoding="utf-8")
+    (host.cg / "memory.pressure").write_text("some avg10=$(id) total=x\n", encoding="utf-8")
     res = host.run()
     assert res.returncode == 0, res.stderr
     out = res.stdout
@@ -263,7 +267,7 @@ def test_unexpected_file_content_is_never_echoed(host):
 
 
 def test_unlimited_cgroup_knob_logs_max(host):
-    (host.cg / "memory.high").write_text("max\n")
+    (host.cg / "memory.high").write_text("max\n", encoding="utf-8")
     res = host.run()
     mem = _kv(next(line for line in _snapshot_lines(res.stdout) if " mem " in line))
     assert mem["high"] == "max"
@@ -281,7 +285,7 @@ def test_pyspy_dump_only_when_installed_and_only_before_restart(host):
     assert res.returncode == 0, res.stderr
     dumps = list(host.state.glob("pyspy-*.txt"))
     assert len(dumps) == 1
-    assert "MainThread" in dumps[0].read_text()
+    assert "MainThread" in dumps[0].read_text(encoding="utf-8")
     receipt = [line for line in _snapshot_lines(res.stdout) if " pyspy " in line]
     assert len(receipt) == 1 and _kv(receipt[0])["rc"] == "0"
     # Stack frames stay in the state dir, out of the journal.
@@ -335,18 +339,21 @@ def _diag_filter(text: str) -> list[str]:
 def test_snapshot_lines_pass_the_public_diagnostics_allowlist_whole(host):
     # Worst-case widths: 13-digit counters and 100.00 averages.
     big = "9" * 13
-    (host.cg / "memory.current").write_text(big + "\n")
-    (host.cg / "memory.peak").write_text(big + "\n")
-    (host.cg / "memory.events").write_text(f"high {big}\nmax {big}\noom {big}\noom_kill {big}\n")
+    (host.cg / "memory.current").write_text(big + "\n", encoding="utf-8")
+    (host.cg / "memory.peak").write_text(big + "\n", encoding="utf-8")
+    (host.cg / "memory.events").write_text(
+        f"high {big}\nmax {big}\noom {big}\noom_kill {big}\n", encoding="utf-8"
+    )
     (host.cg / "memory.stat").write_text(
-        "".join(f"{k} {big}\n" for k in ("anon", "file", "shmem", "kernel", "sock"))
+        "".join(f"{k} {big}\n" for k in ("anon", "file", "shmem", "kernel", "sock")),
+        encoding="utf-8",
     )
     psi = f"some avg10=100.00 avg60=100.00 avg300=100.00 total={big}\n" * 1 + (
         f"full avg10=100.00 avg60=100.00 avg300=100.00 total={big}\n"
     )
     for f in ("memory.pressure", "cpu.pressure", "io.pressure"):
-        (host.cg / f).write_text(psi)
-    (host.proc / "pressure" / "memory").write_text(psi)
+        (host.cg / f).write_text(psi, encoding="utf-8")
+    (host.proc / "pressure" / "memory").write_text(psi, encoding="utf-8")
     _write_exec(host.bin / "py-spy", "echo frame\n")
     for _ in range(3):
         res = host.run()

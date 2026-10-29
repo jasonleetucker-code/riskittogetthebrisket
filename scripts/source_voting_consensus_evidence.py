@@ -210,7 +210,8 @@ def _worker(tree: Path, spec: Mapping[str, Any], out: Path) -> None:
                 },
             },
             default=str,
-        )
+        ),
+        encoding="utf-8",
     )
 
 
@@ -259,7 +260,7 @@ class Builder:
         )
         if proc.returncode != 0:
             raise RuntimeError(f"build failed ({tree.name} {spec}):\n{proc.stderr[-3000:]}")
-        data = json.loads(out.read_text())
+        data = json.loads(out.read_text(encoding="utf-8"))
         out.unlink()
         return data
 
@@ -866,7 +867,7 @@ def idptc_ktc_lineage_check() -> dict[str, Any]:
         p = state / f"{key}_dataset.json"
         if not p.exists():
             return []
-        d = json.loads(p.read_text())
+        d = json.loads(p.read_text(encoding="utf-8"))
         subs = d.get("subsets") or {}
         ev = (subs.get("players") or {}).get("changeHistory") or d.get("changeHistory") or []
         return sorted(e.get("at") for e in ev if e.get("broad"))
@@ -900,7 +901,9 @@ def family_audit(board: Mapping[str, Any]) -> list[dict[str, Any]]:
     sys.path.insert(0, str(REPO))
     from src.sources.source_census import provider_of  # noqa: PLC0415
 
-    lineage = json.loads((REPO / "config" / "sources" / "source_lineage.json").read_text())
+    lineage = json.loads(
+        (REPO / "config" / "sources" / "source_lineage.json").read_text(encoding="utf-8")
+    )
     rel_by_pair: dict[str, list[dict]] = {}
     for rel in lineage["relations"]:
         for s in rel["sources"]:
@@ -1105,7 +1108,9 @@ def run_custom(payload: Path, scenarios: list[str], baseline: str | None, out: P
             },
         }
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(report, indent=1, sort_keys=True, default=str) + "\n")
+        out.write_text(
+            json.dumps(report, indent=1, sort_keys=True, default=str) + "\n", encoding="utf-8"
+        )
     print(f"wrote {out}")
     return 0
 
@@ -1319,7 +1324,9 @@ def main(argv: list[str] | None = None) -> int:
                 ),
             }
         args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(json.dumps(report, indent=1, sort_keys=True, default=str) + "\n")
+        args.out.write_text(
+            json.dumps(report, indent=1, sort_keys=True, default=str) + "\n", encoding="utf-8"
+        )
     print(f"wrote {args.out}")
     return 0
 

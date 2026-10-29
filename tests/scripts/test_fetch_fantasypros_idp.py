@@ -180,10 +180,10 @@ class TestBuildRowsFromFixture(unittest.TestCase):
                     )
                 }
             )
-            (tmp / "combined.html").write_text(combined_html)
-            (tmp / "dl.html").write_text(dl_html)
-            (tmp / "lb.html").write_text(lb_html)
-            (tmp / "db.html").write_text(db_html)
+            (tmp / "combined.html").write_text(combined_html, encoding="utf-8")
+            (tmp / "dl.html").write_text(dl_html, encoding="utf-8")
+            (tmp / "lb.html").write_text(lb_html, encoding="utf-8")
+            (tmp / "db.html").write_text(db_html, encoding="utf-8")
 
             dest = tmp / "out.csv"
             # Bypass row-count floors on the tiny test fixture
@@ -233,7 +233,7 @@ class TestMainExitCodes(unittest.TestCase):
             tmp = Path(tmpdir)
             bad = _wrap_html({"count": 0})  # no 'players' key
             for fname in ("combined.html", "dl.html", "lb.html", "db.html"):
-                (tmp / fname).write_text(bad)
+                (tmp / fname).write_text(bad, encoding="utf-8")
             dest = tmp / "out.csv"
             rc = fp.main(["--from-dir", str(tmp), "--dest", str(dest)])
             self.assertEqual(rc, 2)
@@ -245,10 +245,10 @@ class TestMainExitCodes(unittest.TestCase):
             # 1 player on combined — below the 50-row floor.
             combined = _wrap_html({"players": _make_players((1, "Solo", "DE1", "DE"))})
             fam = _wrap_html({"players": _make_players((1, "Solo", "DE1", "DE"))})
-            (tmp / "combined.html").write_text(combined)
-            (tmp / "dl.html").write_text(fam)
-            (tmp / "lb.html").write_text(fam)
-            (tmp / "db.html").write_text(fam)
+            (tmp / "combined.html").write_text(combined, encoding="utf-8")
+            (tmp / "dl.html").write_text(fam, encoding="utf-8")
+            (tmp / "lb.html").write_text(fam, encoding="utf-8")
+            (tmp / "db.html").write_text(fam, encoding="utf-8")
             dest = tmp / "out.csv"
             # Use default floors (combined=50, individual=25) so this trips.
             rc = fp.main(["--from-dir", str(tmp), "--dest", str(dest)])
@@ -373,7 +373,7 @@ class TestUpstreamClockEvidence(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             (tmp / "fantasyProsIdp_upstream.json").write_text(
-                _json.dumps({"publishedAt": "2026-09-04T02:34:24Z"})
+                _json.dumps({"publishedAt": "2026-09-04T02:34:24Z"}), encoding="utf-8"
             )
             self.assertEqual(
                 _upstream_sidecar(tmp, "fantasyProsIdp"), ("2026-09-04T02:34:24Z", None)

@@ -179,7 +179,7 @@ def _load_cookies() -> list[dict]:
     if not SESSION_PATH.exists():
         return []
     try:
-        data = json.loads(SESSION_PATH.read_text())
+        data = json.loads(SESSION_PATH.read_text(encoding="utf-8"))
     except Exception:
         return []
     out: list[dict] = []

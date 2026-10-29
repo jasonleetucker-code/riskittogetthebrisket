@@ -60,10 +60,13 @@ class TestMeminfo:
             "Buffers:           31280 kB\n"
             "SwapTotal:       2097148 kB\n"
             "SwapFree:        1048576 kB\n"
-            "Hugepagesize:       2048 kB\n"
+            "Hugepagesize:       2048 kB\n",
+            encoding="utf-8",
         )
         monkeypatch.setattr(
-            proc_probe, "_read_text", lambda p: meminfo.read_text() if "meminfo" in str(p) else None
+            proc_probe,
+            "_read_text",
+            lambda p: meminfo.read_text(encoding="utf-8") if "meminfo" in str(p) else None,
         )
         out = proc_probe.read_meminfo()
         assert out["MemTotal"] == 4030164
@@ -101,12 +104,15 @@ class TestCgroupMetrics:
     def test_reads_limits_and_the_decisive_oom_counters(self, tmp_path):
         cg = tmp_path / "dynasty.service"
         cg.mkdir()
-        (cg / "memory.current").write_text("2684354560\n")
-        (cg / "memory.max").write_text("3221225472\n")
-        (cg / "memory.peak").write_text("3221225472\n")
-        (cg / "memory.events").write_text("low 0\nhigh 4211\nmax 97\noom 3\noom_kill 2\n")
+        (cg / "memory.current").write_text("2684354560\n", encoding="utf-8")
+        (cg / "memory.max").write_text("3221225472\n", encoding="utf-8")
+        (cg / "memory.peak").write_text("3221225472\n", encoding="utf-8")
+        (cg / "memory.events").write_text(
+            "low 0\nhigh 4211\nmax 97\noom 3\noom_kill 2\n", encoding="utf-8"
+        )
         (cg / "cpu.stat").write_text(
-            "usage_usec 12345\nnr_periods 10\nnr_throttled 4\nthrottled_usec 999\n"
+            "usage_usec 12345\nnr_periods 10\nnr_throttled 4\nthrottled_usec 999\n",
+            encoding="utf-8",
         )
 
         out = proc_probe.read_cgroup_metrics(cg)
@@ -120,7 +126,7 @@ class TestCgroupMetrics:
     def test_unlimited_memory_max_stays_distinguishable_from_a_number(self, tmp_path):
         cg = tmp_path / "unlimited"
         cg.mkdir()
-        (cg / "memory.max").write_text("max\n")
+        (cg / "memory.max").write_text("max\n", encoding="utf-8")
         assert proc_probe.read_cgroup_metrics(cg)["memory.max"] == "max"
 
     def test_no_cgroup_yields_empty(self):

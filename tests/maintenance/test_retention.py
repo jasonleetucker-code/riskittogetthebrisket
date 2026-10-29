@@ -34,7 +34,7 @@ def _build_tree(base: Path) -> None:
     _touch(data / "canonical" / "canonical_snapshot_old.json", age_days=1)
     _touch(data / "canonical" / "nested" / "blob.json", age_days=1)
     (data / "canonical" / ".gitkeep").parent.mkdir(parents=True, exist_ok=True)
-    (data / "canonical" / ".gitkeep").write_text("")
+    (data / "canonical" / ".gitkeep").write_text("", encoding="utf-8")
     # exports archive (both roots) — every zip for 14d, then one per
     # day out to a year, nothing beyond.
     _touch(data / "exports" / "archive" / "dynasty_export_old.zip", age_days=30)
@@ -227,7 +227,7 @@ def test_missing_dirs_are_noops(tmp_path):
 def test_symlink_escape_is_refused(tmp_path):
     _build_tree(tmp_path)
     outside = tmp_path / "OUTSIDE_secret.txt"
-    outside.write_text("must survive")
+    outside.write_text("must survive", encoding="utf-8")
     # An attacker-ish symlink inside a pruned leaf pointing out of root.
     leaf = tmp_path / "data" / "raw" / "ktc" / "2026"
     link = leaf / "ktc_2026_999_link"
@@ -235,7 +235,7 @@ def test_symlink_escape_is_refused(tmp_path):
     os.utime(link, (NOW - 999 * 86_400, NOW - 999 * 86_400), follow_symlinks=False)
     prune_data_dir(tmp_path, now=NOW)
     assert outside.exists()
-    assert outside.read_text() == "must survive"
+    assert outside.read_text(encoding="utf-8") == "must survive"
 
 
 def test_containment_guard_blocks_protected_root(tmp_path):

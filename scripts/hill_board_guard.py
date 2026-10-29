@@ -37,9 +37,9 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
 
-    before = json.loads(args.before.read_text())
-    after = json.loads(args.after.read_text())
-    policy = json.loads(args.policy.read_text())["boardImpact"]
+    before = json.loads(args.before.read_text(encoding="utf-8"))
+    after = json.loads(args.after.read_text(encoding="utf-8"))
+    policy = json.loads(args.policy.read_text(encoding="utf-8"))["boardImpact"]
 
     for key in ("inputSha256", "sourceCsvSha256", "freshnessSha256"):
         if before.get(key) != after.get(key):
@@ -104,7 +104,7 @@ def main() -> int:
             "top100Overlap": top100_overlap,
         },
     }
-    args.out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    args.out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(report["metrics"], sort_keys=True))
     if report["pass"]:
         print("Hill board-impact gate: PASS")

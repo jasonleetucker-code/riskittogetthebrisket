@@ -70,7 +70,8 @@ def load_sleeper(sleeper_dir: str | None):
     if sleeper_dir:
         d = Path(sleeper_dir)
         return tuple(
-            json.loads((d / f"{n}.json").read_text()) for n in ("league", "rosters", "traded_picks")
+            json.loads((d / f"{n}.json").read_text(encoding="utf-8"))
+            for n in ("league", "rosters", "traded_picks")
         )
     base = f"{SLEEPER}/league/{SLEEPER_LEAGUE_ID}"
     return _get(base), _get(f"{base}/rosters"), _get(f"{base}/traded_picks")
@@ -181,7 +182,7 @@ def main(argv=None) -> int:
     ap.add_argument("--before", help="an earlier payload, for the before/after table")
     args = ap.parse_args(argv)
     repo = Path(args.repo)
-    payload = json.loads(Path(args.payload).read_text())
+    payload = json.loads(Path(args.payload).read_text(encoding="utf-8"))
     league, rosters, traded = load_sleeper(args.sleeper_dir)
 
     upcoming = int(payload["upcomingDraftYear"])
@@ -290,7 +291,9 @@ def main(argv=None) -> int:
 
     # 6. the curve, re-derived here.
     cfg = repo / "config" / "draft_valuation"
-    frozen = json.loads((cfg / "frozen_inputs" / "2026_spreadsheet_baseline.json").read_text())
+    frozen = json.loads(
+        (cfg / "frozen_inputs" / "2026_spreadsheet_baseline.json").read_text(encoding="utf-8")
+    )
     check("frozen inputs checksum", checksum_ok(frozen))
     b = read_values(frozen["values"], "value")
     curve_dir = cfg / "historical_curves" / LEAGUE_KEY
@@ -299,7 +302,7 @@ def main(argv=None) -> int:
         spine = [y for y in completed if y < season][-3:]
         curves = []
         for y in spine:
-            c = json.loads((curve_dir / f"{y}.json").read_text())
+            c = json.loads((curve_dir / f"{y}.json").read_text(encoding="utf-8"))
             check(f"{y} spine curve checksum", checksum_ok(c))
             curves.append(read_values(c["referenceDollars"], "dollars"))
         ref = evaluate_formula(b, curves)
@@ -320,7 +323,7 @@ def main(argv=None) -> int:
             continue
         recs = sorted((cfg / "published_allocations" / LEAGUE_KEY / str(season)).glob("*.json"))
         if recs:
-            rec = json.loads(recs[-1].read_text())
+            rec = json.loads(recs[-1].read_text(encoding="utf-8"))
             check(f"{season} stored record checksum", checksum_ok(rec))
             check(
                 f"{season} stored record = re-derived whole dollars",
@@ -365,7 +368,7 @@ def main(argv=None) -> int:
 
     # Before / after (report only).
     if args.before:
-        before = json.loads(Path(args.before).read_text())
+        before = json.loads(Path(args.before).read_text(encoding="utf-8"))
         print("\nBefore / after — later-class dollars per pick by round (min-max) and team totals")
         for season in classes[1:]:
             for label, pl in (("before", before), ("after", payload)):

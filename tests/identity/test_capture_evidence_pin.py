@@ -46,7 +46,7 @@ def board(tmp_path):
     archive = tmp_path / "dynasty_export_20261104_020000.zip"
     with zipfile.ZipFile(archive, "w") as zf:
         zf.writestr("dynasty_data_2026-11-04.json", "{}")
-        zf.writestr(ce.MANIFEST_FILENAME, (root / ce.MANIFEST_REL).read_text())
+        zf.writestr(ce.MANIFEST_FILENAME, (root / ce.MANIFEST_REL).read_text(encoding="utf-8"))
     evidence = root / ce.EVIDENCE_DIR_REL / manifest["evidence"]["filename"]
     return archive, evidence, manifest, tmp_path / "pins"
 
@@ -74,7 +74,7 @@ def test_a_verified_board_is_pinned_and_reverifies_from_the_repo_alone(board):
     assert sorted(p.name for p in target.iterdir()) == sorted(
         [cli.PIN_RECORD, ce.MANIFEST_FILENAME, manifest["evidence"]["filename"]]
     )
-    record = json.loads((target / cli.PIN_RECORD).read_text())
+    record = json.loads((target / cli.PIN_RECORD).read_text(encoding="utf-8"))
     assert record["schema"] == cli.PIN_SCHEMA and record["label"] == "G1"
     assert record["decision"] == "owner 2026-10-21: Artifacts + pin held-out (Recommended)"
     assert record["archiveSha256"] == hashlib.sha256(archive.read_bytes()).hexdigest()
@@ -121,7 +121,7 @@ def test_a_different_existing_pin_is_never_overwritten(board):
     archive, evidence, _m, pins = board
     target = pins / archive.stem
     target.mkdir(parents=True)
-    (target / cli.PIN_RECORD).write_text(json.dumps({"evidenceSha256": "0" * 64}))
+    (target / cli.PIN_RECORD).write_text(json.dumps({"evidenceSha256": "0" * 64}), encoding="utf-8")
     assert _pin(archive, evidence, pins) == 1
     assert sorted(p.name for p in target.iterdir()) == [cli.PIN_RECORD]
 

@@ -154,14 +154,14 @@ class Fetcher:
         key = hashlib.sha256(url.encode()).hexdigest()[:24]
         path = self.cache_dir / f"{key}.json"
         if path.exists() and (max_age_s is None or time.time() - path.stat().st_mtime < max_age_s):
-            return json.loads(path.read_text())
+            return json.loads(path.read_text(encoding="utf-8"))
         if self.offline:
             raise RuntimeError(f"offline and not cached: {url.split('/v1/')[-1][:40]}")
         resp = self.session.get(url, timeout=60)
         resp.raise_for_status()
         self.calls += 1
         data = resp.json()
-        path.write_text(json.dumps(data))
+        path.write_text(json.dumps(data), encoding="utf-8")
         return data
 
 
@@ -178,8 +178,8 @@ def _read_zip_json(zip_path: Path) -> dict[str, Any]:
 
 def preseason_values() -> tuple[dict[str, float | None], dict[str, Any]]:
     """Sleeper id → 2026-08-25 served ``rankDerivedValue`` (None = unpriced row)."""
-    board = json.loads(GOLDEN_LIVE.read_text())
-    manifest = json.loads(GOLDEN_MANIFEST.read_text())
+    board = json.loads(GOLDEN_LIVE.read_text(encoding="utf-8"))
+    manifest = json.loads(GOLDEN_MANIFEST.read_text(encoding="utf-8"))
     raw = _read_zip_json(ARCHIVE_DIR / PRESEASON_ARCHIVE)
     name_to_id: dict[str, str] = {}
     for name, row in (raw.get("players") or {}).items():
@@ -830,7 +830,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         "networkCalls": fetch.calls,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(out, indent=1, sort_keys=False) + "\n")
+    args.out.write_text(json.dumps(out, indent=1, sort_keys=False) + "\n", encoding="utf-8")
     print(f"wrote {args.out.relative_to(REPO_ROOT)} in {out['runtimeSeconds']}s")
     return 0
 

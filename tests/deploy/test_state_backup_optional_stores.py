@@ -275,7 +275,7 @@ def test_staging_whose_lock_is_held_is_left_alone(tmp_path):
     held = daily / f".staging-{TODAY}-99999998"
     held.mkdir(parents=True)
     lock = Path(f"{held}.lock")
-    with lock.open("w") as fh:
+    with lock.open("w", encoding="utf-8") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
         result = _run(tmp_path, data)
     out = result.stdout + result.stderr
@@ -295,7 +295,9 @@ def test_a_terminated_run_removes_its_own_staging(tmp_path):
     data = _data(tmp_path)
     slow = tmp_path / "slow_python"
     # Stalls inside the first online backup, as a wedged copy would.
-    slow.write_text(f'#!/usr/bin/env bash\nsleep 60\nexec "{sys.executable}" "$@"\n')
+    slow.write_text(
+        f'#!/usr/bin/env bash\nsleep 60\nexec "{sys.executable}" "$@"\n', encoding="utf-8"
+    )
     slow.chmod(0o755)
     env = {
         k: v

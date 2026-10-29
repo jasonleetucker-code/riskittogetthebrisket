@@ -389,9 +389,11 @@ class TestPersistence(unittest.TestCase):
                     as_of="2026-07-27T10:00:00+00:00",
                 )
                 self.assertNotEqual(p1, p2)  # same stamp → new file, no overwrite
-                latest = json.loads((Path(td) / "dynasty_main" / "latest.json").read_text())
+                latest = json.loads(
+                    (Path(td) / "dynasty_main" / "latest.json").read_text(encoding="utf-8")
+                )
                 self.assertEqual(latest["n"], 2)
-                self.assertEqual(json.loads(p1.read_text())["n"], 1)
+                self.assertEqual(json.loads(p1.read_text(encoding="utf-8"))["n"], 1)
 
 
 if __name__ == "__main__":

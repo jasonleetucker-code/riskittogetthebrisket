@@ -387,7 +387,7 @@ class TestHistoricalReconstruction:
 
     @staticmethod
     def _cases():
-        return json.loads((FIXTURES / "golden_bestball_lineups.json").read_text())
+        return json.loads((FIXTURES / "golden_bestball_lineups.json").read_text(encoding="utf-8"))
 
     def _host_filled(self, case) -> list[str]:
         return [s for s in case["hostStarters"] if s != self.EMPTY]

@@ -42,7 +42,7 @@ def archive():
     contract["sleeper"]["rosterFetchedAt"] = (
         datetime.now(timezone.utc) - timedelta(hours=1)
     ).isoformat()
-    reg = json.loads((S.REPO / "config" / "leagues" / "registry.json").read_text())
+    reg = json.loads((S.REPO / "config" / "leagues" / "registry.json").read_text(encoding="utf-8"))
     entry = next(lg for lg in reg["leagues"] if lg["key"] == LEAGUE)
     settings = entry.get("rosterSettings") or {}
     trade_ledger.clear_snapshot_memo()

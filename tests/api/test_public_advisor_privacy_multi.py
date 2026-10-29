@@ -1374,8 +1374,8 @@ def recorded_persistence(monkeypatch):
 def test_the_recorder_sees_every_way_to_persist(monkeypatch, tmp_path):
     """Control for the control: each mutator class is detected."""
     with recorded_persistence(monkeypatch) as events:
-        (tmp_path / "a.txt").write_text("x")
-        with open(tmp_path / "b.txt", "w") as fh:
+        (tmp_path / "a.txt").write_text("x", encoding="utf-8")
+        with open(tmp_path / "b.txt", "w", encoding="utf-8") as fh:
             fh.write("y")
         os.makedirs(tmp_path / "d", exist_ok=True)
         shutil.copyfile(tmp_path / "a.txt", tmp_path / "c.txt")
@@ -1386,7 +1386,7 @@ def test_the_recorder_sees_every_way_to_persist(monkeypatch, tmp_path):
     for needle in ("open[w]", "makedirs", "copyfile", "replace", "sqlite3.connect", "unlink"):
         assert needle in kinds, (needle, events)
     with recorded_persistence(monkeypatch) as quiet:
-        (tmp_path / "a.txt").read_text()
+        (tmp_path / "a.txt").read_text(encoding="utf-8")
     assert quiet == []
 
 

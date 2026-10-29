@@ -434,7 +434,7 @@ class TestDatedRetention:
             history_dir=history,
             history_as_of="2026-08-05",
         )
-        payload = json.loads((history / "snapshot_2026-08-05.json").read_text())
+        payload = json.loads((history / "snapshot_2026-08-05.json").read_text(encoding="utf-8"))
         assert payload["projection"] == "snapsOnly"
         for record in payload["players"].values():
             assert "snaps" in record
@@ -453,7 +453,7 @@ class TestDatedRetention:
             history_dir=history,
             history_as_of="2026-08-05",
         )
-        payload = json.loads((history / "snapshot_2026-08-05.json").read_text())
+        payload = json.loads((history / "snapshot_2026-08-05.json").read_text(encoding="utf-8"))
         # Micah Parsons has a contract and a depth row but no snaps.
         assert "00-0036933" not in payload["players"]
         assert "00-0033280" in payload["players"]
@@ -507,19 +507,19 @@ class TestHistoryCoverage:
         # The reason missingDays exists: a raw count cannot tell 3
         # consecutive days from 3 days spread over a fortnight.
         for day in ("2026-08-01", "2026-08-02", "2026-08-10"):
-            (tmp_path / f"snapshot_{day}.json").write_text("{}")
+            (tmp_path / f"snapshot_{day}.json").write_text("{}", encoding="utf-8")
         cov = store.history_coverage(tmp_path)
         assert cov["snapshots"] == 3
         assert cov["spanDays"] == 10
         assert cov["missingDays"] == 7
 
     def test_staleness_is_measured_from_the_newest_file(self, tmp_path):
-        (tmp_path / "snapshot_2026-01-01.json").write_text("{}")
+        (tmp_path / "snapshot_2026-01-01.json").write_text("{}", encoding="utf-8")
         cov = store.history_coverage(tmp_path)
         assert cov["staleDays"] > 100
 
     def test_undated_files_are_ignored_rather_than_crashing(self, tmp_path):
-        (tmp_path / "snapshot_2026-08-01.json").write_text("{}")
-        (tmp_path / "snapshot_notadate.json").write_text("{}")
-        (tmp_path / "README.md").write_text("x")
+        (tmp_path / "snapshot_2026-08-01.json").write_text("{}", encoding="utf-8")
+        (tmp_path / "snapshot_notadate.json").write_text("{}", encoding="utf-8")
+        (tmp_path / "README.md").write_text("x", encoding="utf-8")
         assert store.history_coverage(tmp_path)["snapshots"] == 1

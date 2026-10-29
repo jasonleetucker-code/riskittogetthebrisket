@@ -370,7 +370,11 @@ def process_rss_mb() -> dict[str, float | None]:
         current = None
         statm = Path("/proc/self/statm")
         if statm.exists():
-            current = int(statm.read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 1048576
+            current = (
+                int(statm.read_text(encoding="utf-8").split()[1])
+                * os.sysconf("SC_PAGE_SIZE")
+                / 1048576
+            )
         return {"current": current, "peak": round(peak / scale, 1)}
     except ImportError:
         pass

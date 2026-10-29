@@ -75,7 +75,7 @@ RUN_LOG = REPO / "config" / "model_registry" / "hill_autopilot_runs.jsonl"
 
 
 def _policy() -> tuple[AutopilotPolicy, dict[str, Any]]:
-    raw = json.loads(POLICY_PATH.read_text())
+    raw = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
     return (
         AutopilotPolicy(
             min_current_improvement_points=float(raw["minCurrentImprovementPoints"]),
@@ -392,7 +392,9 @@ def main() -> int:
     winner = next((c for c in scores if c.version == decision.winner_version), None)
     params = compose_offense_only(champ.params, winner) if winner else dict(champ.params)
     args.params_out.parent.mkdir(parents=True, exist_ok=True)
-    args.params_out.write_text(json.dumps(params, indent=2, sort_keys=True) + "\n")
+    args.params_out.write_text(
+        json.dumps(params, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
     now = datetime.now(timezone.utc).isoformat()
     plan = {
@@ -489,7 +491,7 @@ def main() -> int:
         "policy": raw_policy,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(plan, indent=2, sort_keys=True) + "\n")
+    args.out.write_text(json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if args.record:
         _append_log(plan)
 
