@@ -157,3 +157,40 @@ Committed artifacts carry no Sleeper league / user / roster ids and no manager o
 names; teams are anonymous indexes and the studied manager is "manager B".  Named
 detail and per-transaction lists go to the gitignored `data/research/idp_streaming/`.
 Raw Sleeper responses are cached there too (read-only public API).
+
+---
+
+## Addendum A — baseline 7 specification (2026-10-29, committed before it was run)
+
+Appended, not edited: §1–§8 above are unchanged.  Baseline 7 is W4's exact weekly
+streaming solver (`src/waivers/streaming_solver.py::solve_streaming`, PR #2022, head
+`199c5b5fa1`) called through the §6 interface.  The policy builds one single-week
+`SolverInput` from the `DecisionContext` ONLY (the leakage boundary is unchanged):
+
+| input | value |
+|---|---|
+| roster | the scenario's defenders (`idp_roster`); IDP slots only (`idp_slots`), as the harness scores IDP slots and offense is identical across scenarios |
+| free agents | the §4 pool, restricted to players with a week-*w* projection (an unprojected add cannot start, and every solver add must start) |
+| weekly points | `ctx.projection` (Sleeper/RotoWire, NOT point-in-time verified); a rostered defender with no projection is unassignable that week, never 0 |
+| dynasty value | the value known before the week-*w* cutoff (§1: canonical lane when present, else the named IDP Trade Calculator vendor value) for roster AND pool players, through `build_decision_context` |
+| replacement line | per swap group, the best pool dynasty value known before the cutoff; the `j`-th rung is the `j`-th best |
+| droppable | a rostered defender whose known value is ≤ his group's replacement line.  Unknown value ⇒ NOT droppable (never auto-drop the unpriced).  No known line in his group ⇒ not droppable |
+| release cost (solver dynasty value of a roster player) | `max(0, V(drop) − ladder[rung − 1])`, `rung = max(1, min(S, droppable players in the group))` — the composer's rule (`src/waivers/streaming.py`, W4) |
+| adds | dynasty value `None` (credit 0), bid $0 |
+| FAAB | balance 0: $0 claims only (consistent with the masked pool) |
+| capacity | `max_adds = S`; `open_spots = 0` (every add forces one release: the harness is 1-for-1) |
+| dynasty budget | 0 |
+| materiality | 1.0 projected point (below it: no move) |
+| node limit | the solver default; a `bounded` result is still applied but counted and reported |
+
+Swaps are formed from the plan deterministically: within each swap group, adds and drops
+sorted by id are paired; any remainder is paired across groups by id.
+
+Run over every variant, team and season exactly like baselines 2–6, with the same
+statistics and minimums.  **Expected degeneracy, declared now:** every 2025 decision is
+before the 2026-07-14 history floor, so no dynasty value is known, nothing is droppable,
+and baseline 7 makes no move in 2025 (Δ = 0 by construction); the 2025 cell is reported
+as N/A-in-substance, not as evidence.  Also reported: solver status counts (optimal /
+bounded), runtime, and the share of decisions with no droppable defender.  Labelled
+exploratory where it is compared with manager B (paired comparisons were exploratory in
+the main run).
