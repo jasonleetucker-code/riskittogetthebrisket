@@ -7840,6 +7840,160 @@ async def post_waiver_advisor(request: Request):
     return JSONResponse(content=payload)
 
 
+# Stable error codes the streaming composer raises, and the status each maps
+# to.  Anything else is ``idp_streaming_unavailable`` — never exception text.
+_STREAMING_ERROR_STATUS = {
+    "no_rosters_loaded": 503,
+    "unknown_team": 400,
+    "starter_slots_unknown": 503,
+    "not_in_season": 400,
+    "projections_refused": 503,
+}
+
+
+@app.post("/api/waiver/streaming")
+async def post_waiver_streaming(request: Request):
+    """Weekly IDP Streaming (owner directive 2026-10-29) — default-OFF composer.
+
+    Private (the default-deny API auth gate) and league-scoped, advice only:
+    nothing here submits, schedules or drafts a waiver claim.  BOTH flags
+    are checked FIRST — ``waiver_advisor`` (the page this mode lives in) and
+    ``idp_streaming`` — because the page's first request is its gate probe.
+    Everything else mirrors :func:`post_waiver_advisor`;
+    ``src/waivers/streaming.py`` composes the existing owners and this
+    handler only resolves inputs and maps its stable error codes.
+
+    Responses::
+
+        200  the streaming payload (``compute_streaming``)
+        400  team_required / unknown_team / not_in_season / bad_<field>
+             / unknown_league / inactive_league
+        503  feature_disabled (``flag`` names the switch that is off)
+        503  data_not_ready / no_rosters_loaded / starter_slots_unknown
+             / projections_refused
+        503  idp_streaming_unavailable (``reason`` config_unreadable /
+             league_settings_unreadable, or none when the build raised)
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.waivers import streaming as _streaming  # noqa: PLC0415
+
+    # Literal flag names: the reachability guard reads gates by their literal.
+    if not is_enabled("waiver_advisor"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": "waiver_advisor"}
+        )
+    if not is_enabled("idp_streaming"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": _streaming.FLAG}
+        )
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    try:
+        cfg = _streaming.load_streaming_config()
+    except _streaming.StreamingConfigError:
+        logging.exception("IDP Streaming: config unreadable")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "config_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    try:
+        req = _streaming.parse_streaming_request(body, cfg)
+    except ValueError as exc:
+        code = str(exc)
+        if not code.startswith("bad_"):
+            code = "bad_request"
+        return JSONResponse(status_code=400, content={"error": code, "leagueKey": league_cfg.key})
+    if not req["teamOwnerId"]:
+        return JSONResponse(
+            status_code=400, content={"error": "team_required", "leagueKey": league_cfg.key}
+        )
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    inputs = await _waiver_engine_inputs(league_cfg, req["teamOwnerId"])
+    if inputs["input_error"] is not None:
+        logging.error(
+            "IDP Streaming: league settings unreadable for %s: %r",
+            league_cfg.key,
+            inputs["input_error"],
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "league_settings_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    base = contract if isinstance(contract, dict) else {}
+    sleeper_block = base.get("sleeper") if isinstance(base.get("sleeper"), dict) else {}
+    plan_contract = {**base, "sleeper": {**sleeper_block, "teams": inputs["teams"]}}
+    constraints = _constraints_for_request(
+        request, plan_contract, league_cfg, surface="perfect_waivers"
+    )
+    try:
+        payload = await run_in_threadpool(
+            lambda: _streaming.compute_streaming(
+                plan_contract,
+                league_key=league_cfg.key,
+                owner_id=req["teamOwnerId"],
+                inputs=inputs,
+                constraints=constraints,
+                request=req,
+                cfg=cfg,
+            )
+        )
+    except _streaming.StreamingConfigError:
+        logging.exception("IDP Streaming: config unreadable")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "config_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    except ValueError as exc:
+        code = str(exc)
+        if code not in _STREAMING_ERROR_STATUS:
+            logging.exception("IDP Streaming failed")
+            return JSONResponse(
+                status_code=503,
+                content={"error": "idp_streaming_unavailable", "leagueKey": league_cfg.key},
+            )
+        return JSONResponse(
+            status_code=_STREAMING_ERROR_STATUS[code],
+            content={"error": code, "leagueKey": league_cfg.key},
+        )
+    except Exception:  # noqa: BLE001 — surface, never 500-crash the page
+        logging.exception("IDP Streaming failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "idp_streaming_unavailable", "leagueKey": league_cfg.key},
+        )
+    payload["advisoryOnly"] = True
+    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
+    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_valuation_mode(payload, valuation_mode, valuation_note)
+    return JSONResponse(content=payload)
+
+
 def _perfect_waivers_cache_key(
     league_key: str, owner_id: str, contract: dict, teams: list, constraints: Any
 ) -> str:
