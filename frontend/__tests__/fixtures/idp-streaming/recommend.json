@@ -1,0 +1,1423 @@
+{
+  "advisoryOnly": true,
+  "alternatives": [
+    {
+      "addDetails": [
+        {
+          "bid": 4,
+          "bidBasis": "faab_engine",
+          "bidDetail": {},
+          "dynastyValue": 1450.0,
+          "dynastyValueState": "priced",
+          "name": "Nick Lambright",
+          "playerId": "9101",
+          "position": "LB",
+          "team": "CIN",
+          "weeks": [
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "CLE",
+              "points": 10.5,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 9
+            },
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "CLE",
+              "points": 9.0,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 10
+            }
+          ]
+        }
+      ],
+      "adds": [
+        "9101"
+      ],
+      "dropDetails": [
+        {
+          "dropClass": "churn",
+          "dynastyValue": 350.0,
+          "name": "Elijah Banks",
+          "playerId": "9004",
+          "position": "LB",
+          "reasons": [
+            {
+              "code": "below_replacement_veteran",
+              "detail": "Age 31 with declining snaps; below waiver level.",
+              "evidence": {}
+            }
+          ],
+          "releaseCost": 0.0,
+          "replacementRung": 1,
+          "replacementValue": 1450.0,
+          "weeks": [
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "TB",
+              "points": 4.0,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 9
+            },
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "TB",
+              "points": 3.5,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 10
+            }
+          ]
+        }
+      ],
+      "drops": [
+        "9004"
+      ],
+      "dynastyValueChange": {
+        "state": "complete",
+        "unknownAddValues": 0,
+        "value": 1100.0
+      },
+      "faabTotal": 4,
+      "gainByWeekPoints": [
+        6.5,
+        5.5
+      ],
+      "netDynastyLoss": 0.0,
+      "releaseCost": 0.0,
+      "weeklyGainPoints": 11.175
+    },
+    {
+      "addDetails": [
+        {
+          "bid": 4,
+          "bidBasis": "faab_engine",
+          "bidDetail": {},
+          "dynastyValue": 1450.0,
+          "dynastyValueState": "priced",
+          "name": "Nick Lambright",
+          "playerId": "9101",
+          "position": "LB",
+          "team": "CIN",
+          "weeks": [
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "CLE",
+              "points": 10.5,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 9
+            },
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "CLE",
+              "points": 9.0,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 10
+            }
+          ]
+        }
+      ],
+      "adds": [
+        "9101"
+      ],
+      "dropDetails": [
+        {
+          "dropClass": "churn",
+          "dynastyValue": 250.0,
+          "name": "Andre Whitfield",
+          "playerId": "9007",
+          "position": "DB",
+          "reasons": [
+            {
+              "code": "below_replacement_veteran",
+              "detail": "Age 30, below waiver level at DB.",
+              "evidence": {}
+            }
+          ],
+          "releaseCost": 250.0,
+          "replacementRung": 2,
+          "replacementValue": 0.0,
+          "weeks": [
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "KC",
+              "points": 3.0,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 9
+            },
+            {
+              "combineMethod": "single_source",
+              "coverageShare": 0.75,
+              "familyCount": 0,
+              "injuryStatus": null,
+              "opponent": "KC",
+              "points": 2.5,
+              "reason": "ok",
+              "sources": [
+                "sleeper_weekly"
+              ],
+              "state": "projected",
+              "uncoveredKeys": [
+                "idp_pass_def"
+              ],
+              "week": 10
+            }
+          ]
+        }
+      ],
+      "drops": [
+        "9007"
+      ],
+      "dynastyValueChange": {
+        "state": "complete",
+        "unknownAddValues": 0,
+        "value": 1200.0
+      },
+      "faabTotal": 4,
+      "gainByWeekPoints": [
+        3.5,
+        3.0
+      ],
+      "netDynastyLoss": 250.0,
+      "releaseCost": 250.0,
+      "weeklyGainPoints": 6.05
+    }
+  ],
+  "baselinePoints": [
+    49.0,
+    46.5
+  ],
+  "capacityCurve": [
+    {
+      "adds": [],
+      "bestGainPoints": 0.0,
+      "capacity": 0,
+      "drops": [],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 0.0,
+      "status": "optimal"
+    },
+    {
+      "adds": [
+        "9101"
+      ],
+      "bestGainPoints": 11.175,
+      "capacity": 1,
+      "drops": [
+        "9004"
+      ],
+      "marginalGainPoints": 11.175,
+      "netDynastyLoss": 0.0,
+      "status": "optimal"
+    },
+    {
+      "adds": [
+        "9101",
+        "9102"
+      ],
+      "bestGainPoints": 22.275,
+      "capacity": 2,
+      "drops": [
+        "9004",
+        "9007"
+      ],
+      "marginalGainPoints": 11.1,
+      "netDynastyLoss": 250.0,
+      "status": "optimal"
+    },
+    {
+      "adds": [
+        "9101",
+        "9102"
+      ],
+      "bestGainPoints": 22.275,
+      "capacity": 3,
+      "drops": [
+        "9004",
+        "9007"
+      ],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 250.0,
+      "status": "optimal"
+    },
+    {
+      "adds": [
+        "9101",
+        "9102"
+      ],
+      "bestGainPoints": 22.275,
+      "capacity": 4,
+      "drops": [
+        "9004",
+        "9007"
+      ],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 250.0,
+      "status": "optimal"
+    },
+    {
+      "adds": [
+        "9101",
+        "9102"
+      ],
+      "bestGainPoints": 22.275,
+      "capacity": 5,
+      "drops": [
+        "9004",
+        "9007"
+      ],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 250.0,
+      "status": "optimal"
+    },
+    {
+      "adds": [
+        "9101",
+        "9102"
+      ],
+      "bestGainPoints": 22.275,
+      "capacity": 6,
+      "drops": [
+        "9004",
+        "9007"
+      ],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 250.0,
+      "status": "optimal"
+    },
+    {
+      "adds": [
+        "9101",
+        "9102"
+      ],
+      "bestGainPoints": 22.275,
+      "capacity": 7,
+      "drops": [
+        "9004",
+        "9007"
+      ],
+      "marginalGainPoints": 0.0,
+      "netDynastyLoss": 250.0,
+      "status": "optimal"
+    }
+  ],
+  "config": {
+    "hash": "deffbac31dd98dbd0205c22160f817be1a3f85d0cdf6aefdadeff7dd01ff3e94",
+    "materialityPoints": 1.0,
+    "version": "idp_streaming_v1"
+  },
+  "contractVersion": "idp-streaming/2026-10-29.v1",
+  "currentWeek": 9,
+  "excludedFreeAgents": {},
+  "faab": {
+    "bidMethodology": "market_aware",
+    "remaining": 62,
+    "state": "known"
+  },
+  "largerBudget": {
+    "meaning": "the best plan with the dynasty budget lifted: what a larger budget would buy",
+    "plan": null,
+    "status": "optimal"
+  },
+  "leagueKey": "dynasty_main",
+  "lineup": {
+    "slots": [
+      "DL",
+      "DL",
+      "LB",
+      "LB",
+      "DB",
+      "DB",
+      "IDP_FLEX"
+    ],
+    "source": "sleeper_roster_positions"
+  },
+  "noMoveReason": null,
+  "notes": [],
+  "openSpots": 0,
+  "plan": {
+    "addDetails": [
+      {
+        "bid": 4,
+        "bidBasis": "faab_engine",
+        "bidDetail": {},
+        "dynastyValue": 1450.0,
+        "dynastyValueState": "priced",
+        "name": "Nick Lambright",
+        "playerId": "9101",
+        "position": "LB",
+        "team": "CIN",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "CLE",
+            "points": 10.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          },
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "CLE",
+            "points": 9.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 10
+          }
+        ]
+      },
+      {
+        "bid": 0,
+        "bidBasis": "off_board_zero_claim_only",
+        "bidDetail": null,
+        "dynastyValue": null,
+        "dynastyValueState": "unknown_off_board",
+        "name": "Tyrell Gaines",
+        "playerId": "9102",
+        "position": "DB",
+        "team": "GB",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "MIN",
+            "points": 9.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          },
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "MIN",
+            "points": 8.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 10
+          }
+        ]
+      }
+    ],
+    "adds": [
+      "9101",
+      "9102"
+    ],
+    "dropDetails": [
+      {
+        "dropClass": "churn",
+        "dynastyValue": 350.0,
+        "name": "Elijah Banks",
+        "playerId": "9004",
+        "position": "LB",
+        "reasons": [
+          {
+            "code": "below_replacement_veteran",
+            "detail": "Age 31 with declining snaps; below waiver level.",
+            "evidence": {}
+          }
+        ],
+        "releaseCost": 0.0,
+        "replacementRung": 1,
+        "replacementValue": 1450.0,
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "TB",
+            "points": 4.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          },
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "TB",
+            "points": 3.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 10
+          }
+        ]
+      },
+      {
+        "dropClass": "churn",
+        "dynastyValue": 250.0,
+        "name": "Andre Whitfield",
+        "playerId": "9007",
+        "position": "DB",
+        "reasons": [
+          {
+            "code": "below_replacement_veteran",
+            "detail": "Age 30, below waiver level at DB.",
+            "evidence": {}
+          }
+        ],
+        "releaseCost": 250.0,
+        "replacementRung": 2,
+        "replacementValue": 0.0,
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "KC",
+            "points": 3.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          },
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "KC",
+            "points": 2.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 10
+          }
+        ]
+      }
+    ],
+    "drops": [
+      "9004",
+      "9007"
+    ],
+    "dynastyValueChange": {
+      "state": "partial_unknown_add_values",
+      "unknownAddValues": 1,
+      "value": 850.0
+    },
+    "faabTotal": 4,
+    "gainByWeekPoints": [
+      12.5,
+      11.5
+    ],
+    "netDynastyLoss": 250.0,
+    "releaseCost": 250.0,
+    "weeklyGainPoints": 22.275
+  },
+  "posture": {
+    "context": {
+      "confidence": 0.71,
+      "label": "PUSH"
+    },
+    "unavailableReason": null,
+    "use": "displayed for context only; it never raises the dynasty budget"
+  },
+  "recommendMove": true,
+  "recommendedCapacity": 2,
+  "request": {
+    "capacity": 2,
+    "capacityCurve": true,
+    "dynastyBudget": 300.0,
+    "horizonWeeks": 2,
+    "position": "ALL",
+    "teamOwnerId": "owner-me",
+    "week": null
+  },
+  "rosterSource": "live_overlay",
+  "rostersAsOf": "2026-10-29T06:00:00+00:00",
+  "safeToDrop": {
+    "players": [
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "churn",
+        "dynastyCost": 0.0,
+        "dynastyValue": 250.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Andre Whitfield",
+        "playerId": "9007",
+        "position": "DB",
+        "reasons": [
+          {
+            "code": "below_replacement_veteran",
+            "detail": "Age 30, below waiver level at DB.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": 250.0,
+        "replacementValue": 250.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 0.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "KC",
+            "points": 3.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          },
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "KC",
+            "points": 2.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 10
+          }
+        ]
+      },
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "churn",
+        "dynastyCost": 0.0,
+        "dynastyValue": 350.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Elijah Banks",
+        "playerId": "9004",
+        "position": "LB",
+        "reasons": [
+          {
+            "code": "below_replacement_veteran",
+            "detail": "Age 31 with declining snaps; below waiver level.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": 0.0,
+        "replacementValue": 350.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 0.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "TB",
+            "points": 4.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          },
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "TB",
+            "points": 3.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 10
+          }
+        ]
+      },
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "conditional",
+        "dynastyCost": 200.0,
+        "dynastyValue": 800.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Sam Okafor",
+        "playerId": "9008",
+        "position": "DB",
+        "reasons": [
+          {
+            "code": "unprojected_this_week",
+            "detail": "No projection this week; small value above replacement.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": 800.0,
+        "replacementValue": 600.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 200.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "reason": "not_in_projection_set",
+            "state": "unprojected",
+            "week": 9
+          },
+          {
+            "reason": "not_in_projection_set",
+            "state": "unprojected",
+            "week": 10
+          }
+        ]
+      },
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "conditional",
+        "dynastyCost": 700.0,
+        "dynastyValue": 1600.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Marcus Oyelaran",
+        "playerId": "9002",
+        "position": "DL",
+        "reasons": [
+          {
+            "code": "moderate_value_above_replacement",
+            "detail": "Holds value above the best free agent at DL.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": 1000.0,
+        "replacementValue": 900.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 700.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "MIA",
+            "points": 7.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          },
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "MIA",
+            "points": 7.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 10
+          }
+        ]
+      },
+      {
+        "confidence": "high",
+        "developmentFlags": [
+          "rising_snap_share"
+        ],
+        "dropClass": "protected",
+        "dynastyCost": 900.0,
+        "dynastyValue": 1900.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Jaylen Ross",
+        "playerId": "9005",
+        "position": "LB",
+        "reasons": [
+          {
+            "code": "ascending_young_defender",
+            "detail": "Age 22 with rising defensive snap share: developmental asset.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": null,
+        "replacementValue": 1000.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 900.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "SF",
+            "points": 5.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          },
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "SF",
+            "points": 6.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 10
+          }
+        ]
+      },
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "protected",
+        "dynastyCost": 1500.0,
+        "dynastyValue": 2600.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Corey Vance",
+        "playerId": "9006",
+        "position": "DB",
+        "reasons": [
+          {
+            "code": "weekly_starter_high_value",
+            "detail": "Weekly starter worth far more than any free agent.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": null,
+        "replacementValue": 1100.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 1500.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "PHI",
+            "points": 8.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          },
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "PHI",
+            "points": 7.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 10
+          }
+        ]
+      },
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "protected",
+        "dynastyCost": 3100.0,
+        "dynastyValue": 4200.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Darius Hale",
+        "playerId": "9001",
+        "position": "DL",
+        "reasons": [
+          {
+            "code": "weekly_starter_high_value",
+            "detail": "Weekly starter worth far more than any free agent.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": null,
+        "replacementValue": 1100.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 3100.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "DET",
+            "points": 9.5,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          },
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "DET",
+            "points": 8.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 10
+          }
+        ]
+      },
+      {
+        "confidence": "high",
+        "developmentFlags": [],
+        "dropClass": "protected",
+        "dynastyCost": 4000.0,
+        "dynastyValue": 5100.0,
+        "inputs": {},
+        "locks": [],
+        "name": "Trent Kowalski",
+        "playerId": "9003",
+        "position": "LB",
+        "reasons": [
+          {
+            "code": "weekly_starter_high_value",
+            "detail": "Weekly starter worth far more than any free agent.",
+            "evidence": {}
+          }
+        ],
+        "recoveryRisk": {
+          "state": "unmeasured"
+        },
+        "releaseCost": null,
+        "replacementValue": 1100.0,
+        "rosterRole": "unknown",
+        "valueAboveReplacement": 4000.0,
+        "valueScale": "rankDerivedValue",
+        "weeks": [
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "BAL",
+            "points": 12.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 9
+          },
+          {
+            "combineMethod": "single_source",
+            "coverageShare": 0.75,
+            "familyCount": 0,
+            "injuryStatus": null,
+            "opponent": "BAL",
+            "points": 11.0,
+            "reason": "ok",
+            "sources": [
+              "sleeper_weekly"
+            ],
+            "state": "projected",
+            "uncoveredKeys": [
+              "idp_pass_def"
+            ],
+            "week": 10
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "counts": {
+        "churn": 2,
+        "conditional": 2,
+        "protected": 4
+      },
+      "rosterPlayers": 8
+    }
+  },
+  "season": 2026,
+  "solver": {
+    "boundGap": null,
+    "nodeLimit": 20000,
+    "nodes": 42,
+    "notes": [],
+    "status": "optimal",
+    "version": "streaming-solver/2026-10-29.v1"
+  },
+  "sources": [
+    {
+      "asOf": "2026-10-29T06:00:00+00:00",
+      "byeTeams": [],
+      "cacheKey": "fixture-9",
+      "counts": {
+        "DB": {
+          "projected": 3
+        },
+        "DL": {
+          "projected": 3
+        },
+        "LB": {
+          "projected": 4
+        }
+      },
+      "currentWeek": 9,
+      "leagueKey": "dynasty_main",
+      "refusal": null,
+      "scheduleState": "ok",
+      "scoringEvidenceState": "fresh",
+      "scoringFingerprint": "sf1:fixture",
+      "season": 2026,
+      "sourceStates": [],
+      "week": 9
+    },
+    {
+      "asOf": "2026-10-29T06:00:00+00:00",
+      "byeTeams": [],
+      "cacheKey": "fixture-10",
+      "counts": {
+        "DB": {
+          "projected": 3
+        },
+        "DL": {
+          "projected": 3
+        },
+        "LB": {
+          "projected": 5
+        }
+      },
+      "currentWeek": 9,
+      "leagueKey": "dynasty_main",
+      "refusal": null,
+      "scheduleState": "ok",
+      "scoringEvidenceState": "fresh",
+      "scoringFingerprint": "sf1:fixture",
+      "season": 2026,
+      "sourceStates": [],
+      "week": 10
+    }
+  ],
+  "streamingBoard": [
+    {
+      "bid": 4,
+      "bidBasis": "faab_engine",
+      "dynastyValue": 1450.0,
+      "dynastyValueState": "priced",
+      "excluded": null,
+      "name": "Nick Lambright",
+      "playerId": "9101",
+      "position": "LB",
+      "soloLineupGainPoints": 11.17,
+      "team": "CIN",
+      "weeks": [
+        {
+          "combineMethod": "single_source",
+          "coverageShare": 0.75,
+          "familyCount": 0,
+          "injuryStatus": null,
+          "opponent": "CLE",
+          "points": 10.5,
+          "reason": "ok",
+          "sources": [
+            "sleeper_weekly"
+          ],
+          "state": "projected",
+          "uncoveredKeys": [
+            "idp_pass_def"
+          ],
+          "week": 9
+        },
+        {
+          "combineMethod": "single_source",
+          "coverageShare": 0.75,
+          "familyCount": 0,
+          "injuryStatus": null,
+          "opponent": "CLE",
+          "points": 9.0,
+          "reason": "ok",
+          "sources": [
+            "sleeper_weekly"
+          ],
+          "state": "projected",
+          "uncoveredKeys": [
+            "idp_pass_def"
+          ],
+          "week": 10
+        }
+      ]
+    },
+    {
+      "bid": 0,
+      "bidBasis": "off_board_zero_claim_only",
+      "dynastyValue": null,
+      "dynastyValueState": "unknown_off_board",
+      "excluded": null,
+      "name": "Tyrell Gaines",
+      "playerId": "9102",
+      "position": "DB",
+      "soloLineupGainPoints": 11.1,
+      "team": "GB",
+      "weeks": [
+        {
+          "combineMethod": "single_source",
+          "coverageShare": 0.75,
+          "familyCount": 0,
+          "injuryStatus": null,
+          "opponent": "MIN",
+          "points": 9.0,
+          "reason": "ok",
+          "sources": [
+            "sleeper_weekly"
+          ],
+          "state": "projected",
+          "uncoveredKeys": [
+            "idp_pass_def"
+          ],
+          "week": 9
+        },
+        {
+          "combineMethod": "single_source",
+          "coverageShare": 0.75,
+          "familyCount": 0,
+          "injuryStatus": null,
+          "opponent": "MIN",
+          "points": 8.5,
+          "reason": "ok",
+          "sources": [
+            "sleeper_weekly"
+          ],
+          "state": "projected",
+          "uncoveredKeys": [
+            "idp_pass_def"
+          ],
+          "week": 10
+        }
+      ]
+    },
+    {
+      "bid": 0,
+      "bidBasis": "unpriced_by_engine_zero_claim_only",
+      "dynastyValue": 600.0,
+      "dynastyValueState": "priced",
+      "excluded": null,
+      "name": "Owen Pruitt",
+      "playerId": "9103",
+      "position": "DL",
+      "soloLineupGainPoints": 4.62,
+      "team": "DEN",
+      "weeks": [
+        {
+          "combineMethod": "single_source",
+          "coverageShare": 0.75,
+          "familyCount": 0,
+          "injuryStatus": null,
+          "opponent": "LV",
+          "points": 6.5,
+          "reason": "ok",
+          "sources": [
+            "sleeper_weekly"
+          ],
+          "state": "projected",
+          "uncoveredKeys": [
+            "idp_pass_def"
+          ],
+          "week": 9
+        },
+        {
+          "combineMethod": "single_source",
+          "coverageShare": 0.75,
+          "familyCount": 0,
+          "injuryStatus": null,
+          "opponent": "LV",
+          "points": 6.0,
+          "reason": "ok",
+          "sources": [
+            "sleeper_weekly"
+          ],
+          "state": "projected",
+          "uncoveredKeys": [
+            "idp_pass_def"
+          ],
+          "week": 10
+        }
+      ]
+    },
+    {
+      "bid": 0,
+      "bidBasis": "off_board_zero_claim_only",
+      "dynastyValue": null,
+      "dynastyValueState": "unknown_off_board",
+      "excluded": null,
+      "name": "Bryce Mendel",
+      "playerId": "9104",
+      "position": "LB",
+      "soloLineupGainPoints": 2.97,
+      "team": "NO",
+      "weeks": [
+        {
+          "reason": "not_in_projection_set",
+          "state": "unprojected",
+          "week": 9
+        },
+        {
+          "combineMethod": "single_source",
+          "coverageShare": 0.75,
+          "familyCount": 0,
+          "injuryStatus": null,
+          "opponent": "CAR",
+          "points": 7.0,
+          "reason": "ok",
+          "sources": [
+            "sleeper_weekly"
+          ],
+          "state": "projected",
+          "uncoveredKeys": [
+            "idp_pass_def"
+          ],
+          "week": 10
+        }
+      ]
+    }
+  ],
+  "team": {
+    "name": "Risk It To Get The Brisket",
+    "ownerId": "owner-me"
+  },
+  "unprojectedRosterPlayers": [
+    {
+      "name": "Sam Okafor",
+      "playerId": "9008",
+      "weeks": [
+        {
+          "reason": "not_in_projection_set",
+          "state": "unprojected",
+          "week": 9
+        },
+        {
+          "reason": "not_in_projection_set",
+          "state": "unprojected",
+          "week": 10
+        }
+      ]
+    }
+  ],
+  "valuationMode": "market",
+  "weekWeights": [
+    1.0,
+    0.85
+  ],
+  "weeks": [
+    9,
+    10
+  ]
+}
