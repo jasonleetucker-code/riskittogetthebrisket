@@ -349,8 +349,13 @@ def _cached_fetch(source_key: str, season: int, week: int, now_ts: float) -> Any
 
 
 def _rate(scoring: Mapping[str, Any], key: str) -> float:
+    """The card's rate for ``key``.  An absent or non-numeric rule pays
+    nothing, which is what the exact scorer does with it too."""
+    raw = scoring.get(key)
+    if raw is None or isinstance(raw, bool):
+        return 0.0
     try:
-        return float(scoring.get(key) or 0.0)
+        return float(raw)
     except (TypeError, ValueError):
         return 0.0
 
@@ -473,7 +478,8 @@ def _directory_from_sleeper_rows(rows: Iterable[Any]) -> dict[str, dict[str, Any
             "fantasy_positions": player.get("fantasy_positions"),
             "team": row.get("team") or player.get("team"),
             "active": bool(row.get("team") or player.get("team")),
-            "years_exp": player.get("years_exp") or 0,
+            # Absent stays absent; the index treats a missing value itself.
+            "years_exp": player.get("years_exp"),
         }
     return directory
 
