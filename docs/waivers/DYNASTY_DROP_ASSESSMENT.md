@@ -83,7 +83,7 @@ cost no dynasty value. So the cost is the canonical cut-cost owner's
 | user locks | `src/trade/constraints.py::TradeConstraints.block_reason` | `not_supplied` stamped |
 | age, years of experience | contract row `age`, `yearsExp` | `age_unknown` blocks churn |
 | snap share / trend / depth | playerctx snapshot (`src/playerctx/service.py::load_playerctx`), joined by `sleeperIndex` | `unavailable` (absent is never zero usage); older than `usageSnapshotMaxAgeDays` → `stale`, not used |
-| draft capital | cached nflverse id map (`src/nfl_data/ingest.fetch_id_map(cache_only=True)`); score `src/bdvm/context.py::draft_capital_score` | `unavailable`; a known draft year with no pick is `draft_pick_missing` (unknown), and "undrafted" only when a successful join carries neither year nor pick |
+| draft capital | cached nflverse id map (`src/nfl_data/ingest.fetch_id_map(cache_only=True)`); score `src/bdvm/context.py::draft_capital_score` | `unavailable`; a known draft year with no pick is `draft_pick_missing` (unknown), and "undrafted" only when a successful join carries the `draft_year` / `draft_pick` columns and both are null — a source missing those columns is `draft_columns_absent` (unknown) |
 | value trend (30 / 60 d) | `src/history/asof.py::value_as_of` (`player:<id>`, canonical lane, `max_age_days` bounded) | `unavailable` → `value_trend_unknown` blocks churn; never a future observation |
 | weekly role | caller | `not_supplied`, `rosterRole: unknown` |
 | injury | caller (`injury_status`) — reported only | `not_supplied` |

@@ -476,6 +476,10 @@ class _DraftIndex:
         rows = [r for r in (rows or []) if isinstance(r, Mapping)]
         self.available = bool(rows)
         self.by_gsis = {str(r.get("gsis_id")): r for r in rows if r.get("gsis_id")}
+        # Whether the source actually carries the draft columns.  "Undrafted"
+        # is a claim about two NULL values; a schema that dropped the columns
+        # would otherwise read every player as undrafted.
+        self.draft_columns = bool(rows) and all(_has_draft_columns(r) for r in rows)
         self.by_name: Mapping[str, Any] = {}
         # How many id-map rows share each normalised name.  The name map keeps
         # one of them (last row wins), so a shared name is refused outright
@@ -508,6 +512,7 @@ class _DraftIndex:
             overall = _opt_pick(exact.get("draft_pick"))
             draft_year = _opt_pick(exact.get("draft_year"))
             join = "gsis"
+            columns_present = _has_draft_columns(exact)
         else:
             name = row.get("canonicalName") or row.get("displayName") or ""
             key = normalize_player_name(str(name)) if name else ""
@@ -522,6 +527,9 @@ class _DraftIndex:
             overall = _opt_pick(getattr(ctx, "draft_overall", None))
             draft_year = _opt_pick(getattr(ctx, "draft_year", None))
             join = "name_guarded"
+            columns_present = self.draft_columns
+        if overall is None and draft_year is None and not columns_present:
+            return _input(STATE_UNAVAILABLE, reason="draft_columns_absent", identityJoin=join)
         if overall is None and draft_year is not None:
             # Drafted in a known year but the pick is missing: unknown capital,
             # never "undrafted".
@@ -542,6 +550,10 @@ class _DraftIndex:
             identityJoin=join,
             source="nflverse id map (cache only); score src/bdvm/context.py::draft_capital_score",
         )
+
+
+def _has_draft_columns(row: Mapping[str, Any]) -> bool:
+    return "draft_year" in row and "draft_pick" in row
 
 
 def _name_identity_refusal(

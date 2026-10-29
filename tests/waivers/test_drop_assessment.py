@@ -678,3 +678,24 @@ def test_cut_ladder_input_is_labelled_and_never_false_past_the_cap():
         assert inp["state"] in ("available", "unavailable")
         if inp["state"] == "unavailable":
             assert inp["value"] is None
+
+
+def test_absent_draft_columns_are_unknown_not_undrafted():
+    rows = [
+        {k: v for k, v in r.items() if k not in ("draft_year", "draft_pick")} for r in _DRAFT_ROWS
+    ]
+    res = _assess(draft_rows=rows)
+    bust = _by_name(res)["Bust DL"]
+    assert bust.inputs["draftCapital"]["state"] == "unavailable"
+    assert bust.inputs["draftCapital"]["reason"] == "draft_columns_absent"
+    assert "recent_draft_capital_unknown" in bust.development_flags
+    # The name path refuses the same way when the source lacks the columns.
+    snap = _snapshot()
+    del snap["sleeperIndex"]["105"]
+    bust = _by_name(_assess(draft_rows=rows, player_context_snapshot=snap))["Bust DL"]
+    assert bust.inputs["draftCapital"]["reason"] == "draft_columns_absent"
+    assert all(
+        a.drop_class != CLASS_CHURN
+        for a in res.assessments
+        if "recent_draft_capital_unknown" in a.development_flags
+    )
