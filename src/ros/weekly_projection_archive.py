@@ -274,4 +274,20 @@ def record_capture(
             ) from exc
     finally:
         tmp.unlink(missing_ok=True)
+    _fsync_dir(week_dir)
     return ArchiveWriteResult("written", path, digest, row_count)
+
+
+def _fsync_dir(directory: Path) -> None:
+    """Persist the new directory entry (best effort; not every platform
+    allows opening a directory)."""
+    try:
+        fd = os.open(directory, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)

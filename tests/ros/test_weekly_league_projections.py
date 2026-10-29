@@ -330,3 +330,35 @@ def test_cache_key_includes_scoring_evidence_and_identity_source():
 
     b = _load(fetch=fetch, use_cache=True, identity_index=build_sleeper_index({}))
     assert a.cache_key != b.cache_key
+
+
+def test_idp_key_another_source_publishes_only_for_dl_stays_uncovered_for_a_filled_db():
+    """Coverage exemptions are a STATIC family map, never another provider's
+    (sparse, week-to-week) vocabulary: RotoWire publishing ``idp_safe`` only
+    for a DL says nothing about whether a DB can record a safety."""
+    rows = _sleeper_rows()
+    rows[2]["stats"]["idp_safe"] = 0.01  # the DL row; no other row has it
+    assert not any("idp_safe" in r["stats"] for i, r in enumerate(rows) if i != 2)
+    rows[6]["player"]["fantasy_positions"] = ["DB"]  # Golf -> a DB
+    rows[6]["player"]["position"] = "S"
+    payload = _fptrack_payload()
+    golf = next(p for p in payload["players"] if p["fullName"] == "Golf Backer")
+    golf.update(position="DB", positions=["DB"])
+    p = _load(fetch=_fetch(sleeper=rows, fptrack=payload)).get("90007")
+    assert p.state == wlp.STATE_PROJECTED and p.position == "DB"
+    assert [c.source_key for c in p.sources] == [wlp.FPTRACK_SOURCE]
+    assert "idp_safe" in p.coverage.uncovered_keys
+    # ...while a different FAMILY (receiving) is still not a defender's gap.
+    assert "rec_yd" not in p.coverage.league_paid_keys
+
+
+def test_static_family_map():
+    assert not wlp._key_can_apply("rec_40p", {"DB"})
+    assert wlp._key_can_apply("rec_40p", {"QB"})
+    assert wlp._key_can_apply("pass_yd", {"WR"})
+    assert not wlp._key_can_apply("idp_tkl_solo", {"WR"})
+    assert wlp._key_can_apply("idp_safe", {"DB"})
+    assert not wlp._key_can_apply("fgm_50p", {"LB"})
+    assert wlp._key_can_apply("pass_int_td", {"DL"})
+    assert wlp._key_can_apply("pr_yd", {"DB"})
+    assert not wlp._key_can_apply("bonus_fd_wr", {"LB"})

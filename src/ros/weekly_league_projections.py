@@ -636,6 +636,34 @@ def _ensemble(pid: str, chosen: Sequence[tuple[Any, float, float]]) -> tuple[flo
     return combined.combined_league_scored_fpg, combined.disagreement_spread
 
 
+_OFFENSE = frozenset({"QB", "RB", "WR", "TE"})
+_KICKING_PREFIXES = ("fgm", "fga", "fgmiss", "xpm", "xpa", "xpmiss")
+_OFFENSE_PREFIXES = ("pass_", "rush_", "rec", "bonus_pass", "bonus_rush", "bonus_rec", "bonus_fd")
+#: Offense-spelled keys a provider publishes on DEFENDERS (RotoWire puts a
+#: pick-six under ``pass_int_td``): kept relevant to every position.
+_CROSS_FAMILY_KEYS = frozenset({"pass_int_td"})
+
+
+def _key_can_apply(key: str, positions: set[str]) -> bool:
+    """Whether a player at ``positions`` can earn ``key`` at all — a static
+    family map, never a provider's vocabulary.  Unknown keys apply (a noisy
+    gap report is recoverable; a hidden gap is not)."""
+    from src.ros.sleeper_weekly_projections import _BONUS_POSITION_SUFFIX  # noqa: PLC0415
+
+    match = _BONUS_POSITION_SUFFIX.match(key)
+    if match:
+        return match.group(1).upper() in positions
+    if key.startswith("idp_"):
+        return bool(positions & _IDP)
+    if key.startswith(_KICKING_PREFIXES):
+        return "K" in positions
+    if key in _CROSS_FAMILY_KEYS:
+        return True
+    if key.startswith(_OFFENSE_PREFIXES):
+        return bool(positions & _OFFENSE)
+    return True
+
+
 def _coverage(
     chosen: Sequence[Any],
     vocab_by_source: Mapping[str, Mapping[str, Sequence[str]]],
@@ -651,21 +679,14 @@ def _coverage(
         uncovered |= set(obs.uncovered_scoring_keys)
     covered |= imputed_keys & paid
     uncovered -= covered
-    # Cross-source position statement: a key some live source projects ONLY
-    # for other positions (e.g. ``rec_40p`` for receivers) is that provider's
-    # statement the event is not expected at this position — the same rule
-    # the per-source mapper applies within one provider, extended across the
-    # run so a thin provider (FPTrack publishes no reception buckets at all)
-    # does not report receiver bonuses as a defender's coverage gap.
+    # STATIC position-family exemption: a key from another family (passing /
+    # rushing / receiving for a defender, an ``idp_*`` key for an offensive
+    # player, kicking for a non-kicker, a ``bonus_*_<pos>`` for another
+    # position) is not a coverage gap.  Deliberately NOT inferred from any
+    # provider's vocabulary: RotoWire omits zero-projected stats, so its
+    # per-position vocabulary is sparse and changes week to week.
     positions = {p for obs in chosen for p in (obs.fantasy_positions or (obs.position,))}
-    anywhere: set[str] = set()
-    here: set[str] = set()
-    for vocab in vocab_by_source.values():
-        for pos, keys in vocab.items():
-            anywhere |= set(keys)
-            if pos in positions:
-                here |= set(keys)
-    uncovered -= {k for k in uncovered if k in anywhere and k not in here}
+    uncovered = {k for k in uncovered if _key_can_apply(k, positions)}
     relevant = covered | uncovered
     share = (len(covered) / len(relevant)) if relevant else None
     return ProjectionCoverage(

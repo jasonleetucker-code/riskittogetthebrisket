@@ -201,6 +201,9 @@ def main(argv: list[str] | None = None) -> int:
             if networked:
                 time.sleep(args.pause)
             # One (week, source) failing never costs the others their capture.
+            # Assume a request went out until the result says otherwise, so a
+            # raising fetch still earns the next request its pause.
+            networked = True
             try:
                 result = _fetch(source_key, season, wk)
                 status = getattr(result, "status", None)
