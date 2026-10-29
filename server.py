@@ -8340,11 +8340,14 @@ async def post_waiver_faab_recommend(request: Request):
             available_values.append(float(value))
 
     current_week, in_season = _faab_engine.current_nfl_week()
-    playoff_week_start = 15
-    for team_row in sleeper_teams:
-        if isinstance(team_row, dict) and isinstance(team_row.get("playoffWeekStart"), int):
-            playoff_week_start = team_row["playoffWeekStart"]
-            break
+    # The loaded contract's league settings are this league's only when the
+    # contract was built for it; otherwise the engine default applies.
+    _desk_contract = (
+        latest_contract_data
+        if (latest_contract_data.get("meta") or {}).get("leagueKey") == league_cfg.key
+        else None
+    )
+    playoff_week_start, _playoff_source = _faab_engine.league_playoff_week_start(_desk_contract)
 
     # Market priors fitted from THIS league's real bid history, when a
     # snapshot exists (scripts/fetch_faab_history.py writes it).
