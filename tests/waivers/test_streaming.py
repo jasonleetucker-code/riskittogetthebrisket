@@ -429,6 +429,94 @@ def test_board_ties_on_lineup_gain_break_by_projected_points():
     assert names.index("b_high") < names.index("a_low")
 
 
+def test_no_move_reason_names_the_dynasty_budget_when_it_is_what_binds():
+    # The only droppable LB is conditional (full value charged): at budget 0
+    # nothing can be released, though the lifted search gains 7 points.
+    assess = _base_assess(
+        lb2=_assess("lb2", "LB", "conditional", 300.0, 0.0),
+        lbx=_assess("lbx", "LB", "protected", 900.0, 400.0),
+    )
+    out = _run(ROSTER, [("fa_lb", "LB", 11.0)], assess)
+    assert out["recommendMove"] is False
+    assert out["noMoveReason"] == "dynasty_budget_binds"
+    assert out["largerBudget"]["plan"]["weeklyGainPoints"] == pytest.approx(7.0)
+    # Lift the budget and the same move is recommended.
+    out = _run(ROSTER, [("fa_lb", "LB", 11.0)], assess, request={"dynastyBudget": 300})
+    assert out["recommendMove"] is True
+
+
+def _tight_config(monkeypatch, **over):
+    import dataclasses
+
+    real = st.load_streaming_config()
+    monkeypatch.setattr(
+        st, "load_streaming_config", lambda *a, **k: dataclasses.replace(real, **over)
+    )
+
+
+def test_request_work_budget_leaves_curve_rows_unsearched_never_optimal(monkeypatch):
+    _tight_config(monkeypatch, request_work_budget=1)
+    roster = [*ROSTER, ("dbx", "DB", 1.0)]
+    assess = [*_base_assess(), _assess("dbx", "DB", "churn", 100.0, 0.0)]
+    fas = [("fa_lb", "LB", 11.0), ("fa_db", "DB", 9.5)]
+    out = _run(roster, fas, assess, request={"capacity": 1})
+    # The requested capacity is always searched; rows past the budget are not.
+    assert out["plan"] is not None and out["solver"]["solvedCapacities"][0] == 1
+    unsearched = out["solver"]["unsearchedCapacities"]
+    assert unsearched and min(unsearched) > 1
+    rows = {r["capacity"]: r for r in out["capacityCurve"]}
+    for kk in unsearched:
+        assert rows[kk]["searched"] is False
+        assert rows[kk]["status"] == "bounded"
+    assert any("not searched" in n for n in out["solver"]["notes"])
+    again = _run(roster, fas, assess, request={"capacity": 1})
+    assert again["solver"] == out["solver"] and again["plan"] == out["plan"]
+
+
+def test_default_work_budget_searches_every_curve_row_on_a_small_case():
+    out = _run(ROSTER, [("fa_lb", "LB", 11.0)], _base_assess())
+    assert out["solver"]["unsearchedCapacities"] == []
+    assert all(r["searched"] for r in out["capacityCurve"])
+    assert 0 < out["solver"]["workUsed"] <= out["solver"]["requestWorkBudget"]
+
+
+def test_baseline_points_are_reported_at_capacity_zero_without_a_curve():
+    out = _run(
+        ROSTER,
+        [("fa_lb", "LB", 11.0)],
+        _base_assess(),
+        request={"capacity": 0, "capacityCurve": False},
+    )
+    assert out["noMoveReason"] == "capacity_zero"
+    assert out["baselinePoints"] == [pytest.approx(31.0)]
+
+
+def test_board_projection_total_is_unknown_when_a_week_is_missing():
+    out = _run(
+        ROSTER,
+        [("fa_lb", "LB", (11.0, None)), ("fa_db", "DB", (9.0, 9.0))],
+        _base_assess(),
+        weeks=(9, 10),
+        request={"horizonWeeks": 2},
+    )
+    board = {r["playerId"]: r for r in out["streamingBoard"]}
+    assert board["fa_lb"]["weightedProjectedPoints"] is None
+    assert board["fa_lb"]["weightedProjectedPointsKnown"] == pytest.approx(11.0)
+    assert board["fa_lb"]["missingProjectionWeeks"] == 1
+    assert board["fa_db"]["weightedProjectedPoints"] == pytest.approx(9.0 + 0.85 * 9.0)
+
+
+def test_config_refuses_an_unknown_recommended_capacity_rule(tmp_path):
+    import json
+
+    raw = json.loads(st.CONFIG_PATH.read_text(encoding="utf-8"))
+    raw["recommendedCapacityRule"]["value"] = "largest_positive_marginal"
+    bad = tmp_path / "rule.json"
+    bad.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(st.StreamingConfigError):
+        st.load_streaming_config(bad)
+
+
 # ── orchestration (compute_streaming) ────────────────────────────────
 
 

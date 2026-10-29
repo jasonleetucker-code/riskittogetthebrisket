@@ -83,6 +83,9 @@ CONTRACT_VERSION = "idp-streaming/2026-10-29.v1"
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "waivers" / "streaming.json"
 MAX_HORIZON_WEEKS = 4
 MAX_DYNASTY_BUDGET = 100_000
+#: The one recommended-capacity rule this composer implements; the config
+#: declares it (a PRIOR) and a config naming another rule is refused.
+RECOMMENDED_CAPACITY_RULE = "fewest_within_one_materiality_step"
 POSITION_FILTERS = ("ALL", "DL", "LB", "DB")
 _BOARD_LIMIT = 60
 
@@ -101,6 +104,8 @@ class StreamingConfig:
     node_limit_single_week: int
     node_limit_multiweek: int
     node_limit_curve_row: int
+    request_work_budget: int
+    min_solve_nodes: int
     idp_families: tuple[str, ...]
     config_hash: str
 
@@ -130,6 +135,9 @@ def load_streaming_config(path: Path | str | None = None) -> StreamingConfig:
         single = int(limits["singleWeek"])
         multi = int(limits["multiweek"])
         row = int(limits["capacityCurvePerRow"])
+        work = int(limits["requestWorkBudget"])
+        min_solve = int(limits["minSolveNodes"])
+        rec_rule = str(entry("recommendedCapacityRule"))
     except (TypeError, ValueError, KeyError) as exc:
         raise StreamingConfigError("streaming config entry has the wrong shape") from exc
     if (
@@ -138,7 +146,8 @@ def load_streaming_config(path: Path | str | None = None) -> StreamingConfig:
         or not weights
         or len(weights) > MAX_HORIZON_WEEKS
         or any(w < 0 for w in weights)
-        or min(single, multi, row) < 1
+        or min(single, multi, row, work, min_solve) < 1
+        or rec_rule != RECOMMENDED_CAPACITY_RULE
         or not families
     ):
         raise StreamingConfigError("streaming config value out of range")
@@ -151,6 +160,8 @@ def load_streaming_config(path: Path | str | None = None) -> StreamingConfig:
         node_limit_single_week=single,
         node_limit_multiweek=multi,
         node_limit_curve_row=row,
+        request_work_budget=work,
+        min_solve_nodes=min_solve,
         idp_families=families,
         config_hash=hashlib.sha256(raw_text.encode("utf-8")).hexdigest(),
     )
@@ -505,18 +516,36 @@ def assemble_streaming(
     # answer at capacity k is the best plan over every kk <= k, so a larger
     # capacity can never return a worse plan, and the curve and the answer
     # come from the same solves.
+    #
+    # Work is budgeted per REQUEST in week-node evaluations (a node costs
+    # about one lineup solve per horizon week), so a four-week horizon gets a
+    # quarter of the nodes of a single week and the request stays bounded in
+    # time.  Deterministic: the same inputs spend the same nodes.  Capacities
+    # up to the request are solved first and always get at least
+    # ``minSolveNodes``; curve rows above it take what is left, and a row the
+    # budget cannot reach is reported as not searched, never as optimal.
     top = max(k, cfg.max_capacity) if request["capacityCurve"] else k
+    n_weeks = max(1, len(weights))
+    work_left = cfg.request_work_budget
     rows: list[dict[str, Any]] = []
+    unsearched: list[int] = []
     seed: solver.StreamPlan | None = None
     for kk in range(1, top + 1):
         table = cost_table(kk)
-        inp = solver_input(kk, table, main_limit if kk <= k else cfg.node_limit_curve_row)
+        cap_limit = main_limit if kk <= k else cfg.node_limit_curve_row
+        allowed = work_left // n_weeks
+        if kk > k and allowed < cfg.min_solve_nodes:
+            unsearched.append(kk)
+            continue
+        limit = min(cap_limit, max(cfg.min_solve_nodes, allowed))
+        inp = solver_input(kk, table, limit)
         res = solver.solve_streaming(
             inp,
             alternatives=5 if kk <= k else 0,
             unbudgeted=kk == k,
             start=_recost(seed, table),
         )
+        work_left -= res.nodes * n_weeks
         plan = _raw_best(res)
         rows.append({"k": kk, "table": table, "input": inp, "result": res, "plan": plan})
         if plan is not None:
@@ -524,14 +553,14 @@ def assemble_streaming(
 
     def best_upto(limit: int) -> dict[str, Any] | None:
         chosen = None
-        for row in rows[:limit]:
-            if row["plan"] is None:
+        for row in rows:
+            if row["k"] > limit or row["plan"] is None:
                 continue
             if chosen is None or row["plan"].key() < chosen["plan"].key():
                 chosen = row
         return chosen
 
-    main_rows = rows[:k]
+    main_rows = [r for r in rows if r["k"] <= k]
     chosen = best_upto(k)
     best_plan = chosen["plan"] if chosen else None
     best_table = chosen["table"] if chosen else cost_table(max(1, k))
@@ -563,6 +592,7 @@ def assemble_streaming(
                 "adds": [],
                 "drops": [],
                 "status": solver.STATUS_OPTIMAL,
+                "searched": True,
             }
         ]
         prev = 0.0
@@ -581,9 +611,18 @@ def assemble_streaming(
                     # Proven only if every solve up to this capacity was.
                     "status": (
                         solver.STATUS_OPTIMAL
-                        if all(r["result"].status == solver.STATUS_OPTIMAL for r in rows[:kk])
+                        if kk not in unsearched
+                        and all(
+                            r["result"].status == solver.STATUS_OPTIMAL
+                            for r in rows
+                            if r["k"] <= kk
+                        )
                         else solver.STATUS_BOUNDED
                     ),
+                    # False when the request's work budget ran out before
+                    # this capacity: its gain carries the smaller
+                    # capacities' best, a lower bound.
+                    "searched": kk not in unsearched,
                 }
             )
             prev = gain
@@ -659,11 +698,25 @@ def assemble_streaming(
             no_move_reason = "no_projected_free_agent"
         elif k == 0:
             no_move_reason = "capacity_zero"
+        elif _budget_binds(cap_row, cfg.materiality_points):
+            no_move_reason = "dynasty_budget_binds"
         elif best_plan is not None and best_plan.weekly_gain > 1e-9:
             no_move_reason = "below_materiality"
         else:
             no_move_reason = "no_move_improves_the_lineup"
 
+    if rows:
+        baseline_points = rows[0]["result"].baseline_points
+    else:
+        baseline_points = solver.solve_streaming(
+            solver_input(0, {}, 1), alternatives=0, unbudgeted=False
+        ).baseline_points
+    if unsearched:
+        solver_notes.append(
+            f"capacity curve rows {unsearched[0]}..{unsearched[-1]} were not searched: the "
+            "request's work budget was spent; they show the best plan of a smaller capacity, "
+            "a lower bound"
+        )
     board_input = (
         chosen["input"] if chosen else (cap_row["input"] if cap_row else solver_input(0, {}, 1))
     )
@@ -694,10 +747,13 @@ def assemble_streaming(
             "boundGap": _round(max(gaps), 3) if gaps else None,
             "nodes": sum(r["result"].nodes for r in rows),
             "nodeLimit": main_limit,
+            "requestWorkBudget": cfg.request_work_budget,
+            "workUsed": cfg.request_work_budget - work_left,
+            "unsearchedCapacities": unsearched,
             "solvedCapacities": [r["k"] for r in rows],
             "notes": solver_notes,
         },
-        "baselinePoints": [_round(p) for p in (rows[0]["result"].baseline_points if rows else ())],
+        "baselinePoints": [_round(p) for p in baseline_points],
         "recommendMove": recommend,
         "noMoveReason": no_move_reason,
         "plan": best,
@@ -739,6 +795,18 @@ def assemble_streaming(
     }
 
 
+def _budget_binds(cap_row: Mapping[str, Any] | None, materiality: float) -> bool:
+    """True when the dynasty budget is what stops a material move: the
+    budget-lifted search at the requested capacity found a plan gaining at
+    least ``materiality``.  (A droppable set whose every release cost exceeds
+    the budget is not enough on its own: the lineup may gain nothing from any
+    add, and then the budget is not what stops the move.)"""
+    if cap_row is None:
+        return False
+    lifted = cap_row["result"].best_unbudgeted
+    return lifted is not None and lifted.weekly_gain >= max(materiality, 1e-9)
+
+
 def _streaming_board(
     inp: solver.SolverInput,
     fa_meta: Mapping[str, Mapping[str, Any]],
@@ -755,10 +823,13 @@ def _streaming_board(
         projected = sum(
             w * float(v) for w, v in zip(weights, p.weekly_points, strict=False) if v is not None
         )
-        rows.append((gains[p.player_id], projected, p))
+        missing = sum(1 for v in p.weekly_points[: len(weights)] if v is None)
+        rows.append((gains[p.player_id], projected, p, missing))
+    # The projection tiebreak uses the known weeks only, which ranks a
+    # player missing a week below an equal one who is not (the cautious way).
     rows.sort(key=lambda t: (-round(t[0], 6), -round(t[1], 6), t[2].player_id))
     out = []
-    for gain, projected, p in rows[:_BOARD_LIMIT]:
+    for gain, projected, p, missing in rows[:_BOARD_LIMIT]:
         m = fa_meta[p.player_id]
         out.append(
             {
@@ -767,7 +838,10 @@ def _streaming_board(
                 "position": m["position"],
                 "team": m["team"],
                 "soloLineupGainPoints": round(gain, 2),
-                "weightedProjectedPoints": round(projected, 2),
+                # Unknown, never a sum counting the missing week as 0.
+                "weightedProjectedPoints": round(projected, 2) if missing == 0 else None,
+                "weightedProjectedPointsKnown": round(projected, 2),
+                "missingProjectionWeeks": missing,
                 "weeks": m["weeks"],
                 "dynastyValue": m["dynastyValue"],
                 "dynastyValueState": m["dynastyValueState"],

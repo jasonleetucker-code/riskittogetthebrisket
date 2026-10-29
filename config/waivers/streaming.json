@@ -31,10 +31,12 @@
     "value": {
       "singleWeek": 40000,
       "multiweek": 20000,
-      "capacityCurvePerRow": 15000
+      "capacityCurvePerRow": 15000,
+      "requestWorkBudget": 30000,
+      "minSolveNodes": 200
     },
     "class": "PRIOR",
-    "rationale": "Search budgets per solve. The composer solves once per capacity k = 1..max (each with its own rung-correct release costs, seeded with the previous capacity's plan); capacities up to the request use the singleWeek or multiweek budget, the curve rows above it use capacityCurvePerRow. Measured on dynasty_main week 9 (2026-10-29): k<=2 proves optimality well inside these, larger k can hit them (larger droppable sets, many near-ties). A solve that reaches its budget is labelled 'bounded' with a proven gap, never presented as optimal; the answer at capacity k is the best over every k' <= k, so a bounded larger k can never make the answer worse."
+    "rationale": "Search budgets. The composer solves once per capacity k = 1..max (each with its own rung-correct release costs, seeded with the previous capacity's plan); capacities up to the request use the singleWeek or multiweek per-solve limit, curve rows above it use capacityCurvePerRow. On top of that the whole REQUEST has a work budget in week-node evaluations (requestWorkBudget): a node costs about one lineup solve per horizon week, so a 4-week horizon gets a quarter of the nodes of a single week. Capacities up to the request are solved first and always get at least minSolveNodes; curve rows the budget cannot reach are reported as not searched. Measured on dynasty_main week 9 (2026-10-29) before the request budget: single-week requests 1-9 s; 2-4 week horizons with a positive dynasty budget and the curve on took 57-217 s, which is not interactive. At about 0.4-0.7 ms per week-node, 30000 bounds a request to roughly 12-20 s of search. A solve that reaches any limit is labelled 'bounded' with a proven gap where one exists, never presented as optimal; the answer at capacity k is the best over every k' <= k, so a bounded larger k can never make the answer worse."
   },
   "idpFamilies": {
     "value": [
@@ -44,5 +46,10 @@
     ],
     "class": "PRIOR",
     "rationale": "Weekly streaming is scoped to individual defensive players (owner directive 2026-10-29). Offensive roster players stay in the lineup calculation but are never proposed as adds or drops."
+  },
+  "recommendedCapacityRule": {
+    "value": "fewest_within_one_materiality_step",
+    "class": "PRIOR",
+    "rationale": "recommendedCapacity is the fewest spots whose best gain is itself at least materialityPoints AND within one materiality step of the best gain any capacity up to maxCapacity reaches (floor = max(materiality, gMax - materiality)); 0 when even gMax is below materiality. One materiality step is the smallest gain the composer calls actionable, so spots beyond that point buy less than one actionable step."
   }
 }
