@@ -134,7 +134,8 @@ describe("/waiver-advisor", () => {
     global.fetch = vi.fn(async () => respond(200, payload()));
     render(<WaiverAdvisorPage />);
     await screen.findByTestId("waiver-advisor");
-    const [url, init] = global.fetch.mock.calls[0];
+    // The streaming-mode gate probe (/api/waiver/streaming) also fires.
+    const [url, init] = global.fetch.mock.calls.find(([u]) => u === "/api/waiver/advisor");
     expect(url).toBe("/api/waiver/advisor");
     expect(JSON.parse(init.body)).toMatchObject({
       leagueKey: "dynasty_main",
