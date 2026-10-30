@@ -169,15 +169,17 @@ describe("panel — best-ball golden fixture", () => {
     renderPanel(BEST_BALL, 1);
     const prod = await screen.findByRole("table", { name: /optimal starter points by position/ });
     const headers = within(prod).getAllByRole("columnheader").map((h) => h.textContent);
-    for (const h of ["Optimal starter pts", "Rank", "Percentile", "League avg", "League median", "Players", "Top contributors", "Weekly"]) {
+    for (const h of ["Optimal starter pts", "Pts / wk", "Rank", "Percentile", "League avg / wk", "League median / wk", "Players", "Top contributors", "Weekly"]) {
       expect(headers.some((t) => t.includes(h)), h).toBe(true);
     }
-    // QB: 624.0 points, rank 1 of 6, 100th percentile, league mean 302.1 / median 245.2.
+    // QB: 624.0 points, 78.0 per counted week, rank 1 of 6 (on points per
+    // week), 100th percentile, league mean 37.8 / median 30.6 per week.
     const qb = rowFor(prod, "QB").textContent;
     expect(qb).toContain("624.0");
+    expect(qb).toContain("78.0");
     expect(qb).toContain("100th");
-    expect(qb).toContain("302.1");
-    expect(qb).toContain("245.2");
+    expect(qb).toContain("37.8");
+    expect(qb).toContain("30.6");
     // Top contributors resolve through the player list (the payload sends ids).
     expect(qb).toContain("t1-qb1");
   });
@@ -344,6 +346,42 @@ describe("panel — manual-lineup (managed) golden fixture", () => {
     const d3 = (await screen.findAllByTestId("rc-diagnosis")).find((e) => e.dataset.rule === "RC-D3");
     expect(d3.textContent).toContain("Not evaluated:");
     expect(d3.textContent).toContain("not a pass");
+  });
+});
+
+describe("panel — partial weeks, partial pricing, unverified basis", () => {
+  function variant() {
+    const p = structuredClone(BEST_BALL);
+    const te = p.positions.find((r) => r.position === "TE");
+    te.production = {
+      ...te.production,
+      weekCountsDiffer: true,
+      leagueValidWeekCounts: { min: 5, max: 8 },
+      totalRank: 6,
+    };
+    te.value = { ...te.value, rankPartial: true };
+    p.lineupBasis = "unverified_assumed_optimal";
+    p.rules = { ...p.rules, lineupBasis: "unverified_assumed_optimal", lineupMode: "unverified" };
+    return p;
+  }
+
+  it("says when teams were measured over different week counts", async () => {
+    renderPanel(variant(), 1);
+    const prod = await screen.findByRole("table", { name: /optimal starter points by position/ });
+    fireEvent.click(rowFor(prod, "TE"));
+    const note = await screen.findByTestId("rc-week-counts-differ");
+    expect(note.textContent).toContain("5 to 8");
+    expect(note.textContent).toContain("points per counted week");
+  });
+
+  it("marks a partially priced value rank and labels an unverified basis", async () => {
+    renderPanel(variant(), 1);
+    const value = await screen.findByRole("table", { name: /Dynasty value held at each position/ });
+    expect(rowFor(value, "TE").textContent).toContain("(partial)");
+    expect(rowFor(value, "QB").textContent).not.toContain("(partial)");
+    expect(screen.getByText("Lineup mode not verified")).toBeTruthy();
+    expect(screen.getAllByText("Assumed optimal").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Hypothetical optimal lineups")).toBeNull();
   });
 });
 

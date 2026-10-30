@@ -73,6 +73,9 @@ const REASON_COPY = {
   requires_forward_projection: "it needs a forward projection (a later version)",
   trade_desk_dependency: "it depends on the Trade Desk (a later version)",
   league_snapshot_mismatch: "the loaded league snapshot is for a different league",
+  posture_lookup_failed: "the competitive posture lookup failed",
+  position_value_partially_priced:
+    "some of this team's players at the position have no board value, so its total is a lower bound",
   contract_not_loaded: "the canonical board has not loaded",
 };
 
@@ -233,6 +236,15 @@ export function lineupBasisText(payload) {
       detail:
         "This league submits lineups. Ranks are the optimal legal lineup each roster could have started, not the lineups that were submitted.",
       hypothetical: true,
+    };
+  }
+  if (key === "unverified_assumed_optimal" || key === "unverified") {
+    return {
+      label: "Assumed optimal",
+      detail:
+        "Whether this league is best ball could not be verified from its settings. Ranks assume the optimal legal lineup each week; they are not checked against the host.",
+      hypothetical: false,
+      unverified: true,
     };
   }
   return {

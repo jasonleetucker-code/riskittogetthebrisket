@@ -80,6 +80,35 @@ LINEUP_UNVERIFIED = "unverified"
 #: What the production numbers measure, per lineup mode.
 BASIS_HOST_BEST_BALL = "host_best_ball_optimal"
 BASIS_HYPOTHETICAL = "hypothetical_optimal"
+#: Best-ball status could not be verified from the league settings: the
+#: optimal lineup is ASSUMED, and it is neither host-verified nor a manual
+#: league's hypothetical.
+BASIS_UNVERIFIED = "unverified_assumed_optimal"
+
+#: What the headline production rank compares.
+RANK_BASIS_PER_WEEK = "points_per_valid_week"
+
+
+def lineup_basis(lineup_mode: str) -> str:
+    """The one mapping from lineup mode to the label of what production measures."""
+    if lineup_mode == LINEUP_BEST_BALL:
+        return BASIS_HOST_BEST_BALL
+    if lineup_mode == LINEUP_MANAGED:
+        return BASIS_HYPOTHETICAL
+    return BASIS_UNVERIFIED
+
+
+def is_startable(pts: float, threshold: float | None) -> bool:
+    """A player-week clears the league starter standard.
+
+    Ties at the threshold all count, so more than N players can clear it in a
+    week.  A 0-point week never counts, even when the threshold is <= 0 (the
+    host records a bye, an inactive week and a scoreless game the same way).
+    """
+    if threshold is None:
+        return False
+    return float(pts) >= threshold and (threshold > 0 or float(pts) > 0)
+
 
 # Team-week exclusion reasons.
 X_CONTRADICTED = "contradicted_settings"
@@ -391,6 +420,9 @@ def compute_league_season(si: SeasonInput, priors: Mapping[str, Any]) -> LeagueS
                         league_points[pid][wk] = float(pts)
 
     # Empirical league starter standard, per week and group (same-week data only).
+    # The threshold is the N-th best rostered score, N = starters actually used;
+    # ties at that score all clear it (see ``is_startable``), so more than N
+    # players can be "startable" in one week.
     thresholds: dict[int, dict[str, dict[str, Any]]] = {}
     for wk in included:
         valid = [s for s in solutions[wk].values() if s.valid]
@@ -646,17 +678,24 @@ def player_ledger(ls: LeagueSeason, rid: int, pid: str) -> dict[str, Any]:
         else:
             marg_sum += float(rec["value"])
             marg_known += 1
-    # League-relative startability over every week the player had known points.
+    # League-relative startability over every week the player had known points,
+    # and separately over the weeks THIS team owned him (RC-D3 reads the latter).
     stw = 0
     stw_of = 0
+    own_stw = 0
+    own_stw_of = 0
+    owned_set = set(owned)
     for wk, pts in sorted(ls.league_points.get(pid, {}).items()):
         g = group_of(si.players.get(pid))
         t = ls.thresholds.get(wk, {}).get(g, {}).get("threshold")
         if t is None:
             continue
+        ok = is_startable(pts, t)
         stw_of += 1
-        if pts >= t:
-            stw += 1
+        stw += int(ok)
+        if wk in owned_set:
+            own_stw_of += 1
+            own_stw += int(ok)
     return {
         "ownedWeeks": len(owned),
         "ownershipSpells": _spells(owned, ls.included_weeks),
@@ -674,6 +713,11 @@ def player_ledger(ls: LeagueSeason, rid: int, pid: str) -> dict[str, Any]:
             "source": "player_impact.gameChangerPoints",
         },
         "leagueStartable": {"value": stw, "of": stw_of, "poolScope": "rostered"},
+        "leagueStartableWhileOwned": {
+            "value": own_stw,
+            "of": own_stw_of,
+            "poolScope": "rostered",
+        },
     }
 
 
@@ -792,6 +836,9 @@ def positional_value(vi: ValueInput, groups: Sequence[str]) -> dict[str, Any]:
             total = sum(vals)
             rows[g] = {
                 "total": _r(total) if priced else (0.0 if not members else None),
+                # Unpriced players are excluded, never zero: a total with any
+                # of them is a LOWER BOUND, so it is not ranked as complete.
+                "partial": bool(priced) and len(priced) < len(members),
                 "pricedCount": len(priced),
                 "unpricedCount": len(members) - len(priced),
                 "unpricedIds": sorted(p.player_id for p in members if p.value is None),
@@ -799,7 +846,15 @@ def positional_value(vi: ValueInput, groups: Sequence[str]) -> dict[str, Any]:
                 "hhi": round(sum((v / total) ** 2 for v in vals), 4) if total > 0 else None,
             }
         per_team[rid] = rows
-    ranks = {g: rank_table({rid: per_team[rid][g]["total"] for rid in per_team}) for g in groups}
+    ranks = {}
+    for g in groups:
+        tbl = rank_table({rid: per_team[rid][g]["total"] for rid in per_team})
+        partial_ids = sorted(rid for rid in per_team if per_team[rid][g]["partial"])
+        for rid, row in tbl["byTeam"].items():
+            # Every rank at g leans on the partial totals, its own or a rival's.
+            row["rankPartial"] = bool(partial_ids) and row["rank"] is not None
+        tbl["summary"]["teamsPartiallyPriced"] = partial_ids
+        ranks[g] = tbl
     return {"available": True, "asOf": vi.as_of, "perTeam": per_team, "ranks": ranks}
 
 
@@ -835,6 +890,43 @@ def _q(n: int, priors: Mapping[str, Any]) -> int:
     return max(1, math.ceil(n * float(priors.get("quartileFraction", 0.25))))
 
 
+def production_ranks(ls: LeagueSeason) -> dict[str, dict[str, Any]]:
+    """Per group: the headline rank on points per VALID week, the total-points
+    rank beside it, and whether the compared teams were measured over different
+    numbers of weeks.
+
+    A team with excluded weeks (host-parity mismatch, incomplete points, no
+    playoff matchup) would otherwise lose a total-points comparison it wins
+    week for week.
+    """
+    compared = [t for t in ls.team_ids if ls.team_stats[t]["validWeeks"]]
+    counts = {t: len(ls.team_stats[t]["validWeeks"]) for t in compared}
+    differ = len(set(counts.values())) > 1
+    out: dict[str, dict[str, Any]] = {}
+    for g in ls.groups:
+        out[g] = {
+            "rate": rank_table({t: ls.production[t][g]["ppg"] for t in compared}),
+            "total": rank_table({t: ls.production[t][g]["points"] for t in compared}),
+            "validWeekCounts": {
+                "min": min(counts.values()) if counts else None,
+                "max": max(counts.values()) if counts else None,
+            },
+            "weekCountsDiffer": differ,
+        }
+    return out
+
+
+def _rank_evidence(pr_all: Mapping[str, Any], rid: int, ls: LeagueSeason) -> dict[str, Any]:
+    tot = pr_all["total"]["byTeam"].get(rid, {})
+    return {
+        "productionRankBasis": RANK_BASIS_PER_WEEK,
+        "productionTotalRank": [tot.get("rank"), tot.get("of")],
+        "validWeeks": len(ls.team_stats.get(rid, {}).get("validWeeks", [])),
+        "leagueValidWeekCounts": pr_all["validWeekCounts"],
+        "weekCountsDiffer": pr_all["weekCountsDiffer"],
+    }
+
+
 def diagnose(
     ls: LeagueSeason,
     rid: int,
@@ -844,16 +936,8 @@ def diagnose(
 ) -> dict[str, Any]:
     """Evidence-backed construction diagnoses.  Never a transaction."""
     priors = ls.priors
-    prod_ranks = {
-        g: rank_table(
-            {
-                t: ls.production[t][g]["points"]
-                for t in ls.production
-                if ls.team_stats[t]["validWeeks"]
-            }
-        )
-        for g in ls.groups
-    }
+    prod_all = production_ranks(ls)
+    prod_ranks = {g: prod_all[g]["rate"] for g in ls.groups}
     out: list[dict[str, Any]] = []
     by_group_players: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     for p in players:
@@ -884,6 +968,9 @@ def diagnose(
             n_p, n_v = pr["of"], vr["of"]
             if vr.get("rank") is None:
                 _d("RC-D1", g, STATUS_NOT_EVALUATED, reason="position_value_unknown")
+            elif value["perTeam"][rid][g]["partial"]:
+                # This team's total is a lower bound; its rank is not a claim.
+                _d("RC-D1", g, STATUS_NOT_EVALUATED, reason="position_value_partially_priced")
             elif vr["rank"] <= _q(n_v, priors) and pr["rank"] >= n_p - _q(n_p, priors) + 1:
                 holders = sorted(
                     (p for p in by_group_players[g] if p.get("dynastyValue") is not None),
@@ -901,7 +988,9 @@ def diagnose(
                         explained.append("owned_too_briefly_to_judge")
                 ev = {
                     "valueRank": [vr["rank"], n_v],
+                    "valueRankPartial": vr.get("rankPartial", False),
                     "productionRank": [pr["rank"], n_p],
+                    **_rank_evidence(prod_all[g], rid, ls),
                     "explainedBy": explained,
                     "holders": [
                         {
@@ -921,7 +1010,7 @@ def diagnose(
                         VERDICT_NO_ACTION,
                         ev,
                         f"{g} value rank {vr['rank']}/{n_v} but production rank "
-                        f"{pr['rank']}/{n_p}: the top {g} value holder is "
+                        f"{pr['rank']}/{n_p} (points per counted week): the top {g} value holder is "
                         f"{' and '.join(e.replace('_', ' ') for e in explained)}. "
                         "This gap is expected and needs no action.",
                     )
@@ -933,14 +1022,19 @@ def diagnose(
                         VERDICT_REVIEW,
                         ev,
                         f"{g} value rank {vr['rank']}/{n_v} but production rank "
-                        f"{pr['rank']}/{n_p}: value held at {g} is not reaching the lineup.",
+                        f"{pr['rank']}/{n_p} (points per counted week): value held at {g} is not reaching the lineup.",
                     )
             else:
                 _d(
                     "RC-D1",
                     g,
                     STATUS_NOT_FIRED,
-                    evidence={"valueRank": [vr["rank"], n_v], "productionRank": [pr["rank"], n_p]},
+                    evidence={
+                        "valueRank": [vr["rank"], n_v],
+                        "valueRankPartial": vr.get("rankPartial", False),
+                        "productionRank": [pr["rank"], n_p],
+                        **_rank_evidence(prod_all[g], rid, ls),
+                    },
                 )
 
         # RC-D2 strong starters, thin coverage.
@@ -958,6 +1052,7 @@ def diagnose(
             holes = mine["holes"]["dedicated"]
             ev = {
                 "productionRank": [pr["rank"], pr["of"]],
+                **_rank_evidence(prod_all[g], rid, ls),
                 "depthInsuranceRatio": ratio,
                 "leagueP25": None if p25 is None else round(p25, 4),
                 "dedicatedHoles": holes,
@@ -977,7 +1072,8 @@ def diagnose(
                     STATUS_FIRED,
                     VERDICT_REVIEW,
                     ev,
-                    f"{g} starters rank {pr['rank']}/{pr['of']} but backups replace little "
+                    f"{g} starters rank {pr['rank']}/{pr['of']} (points per counted week) "
+                    "but backups replace little "
                     f"of a lost starter (ratio {ratio} vs league P25 {round(p25, 4)}) and "
                     f"{holes} starter-slot weeks went empty or scoreless. Cheaper depth may "
                     "help; the Waiver Advisor decides whether any move is worth its "
@@ -1051,7 +1147,8 @@ def diagnose(
             for p in players
             if p["eligibleOwnedWeeks"] >= int(priors.get("minOwnedWeeks", 4))
             and (p.get("starts") or {}).get("value") == 0
-            and (p.get("leagueStartable") or {}).get("value") == 0
+            and (p.get("leagueStartableWhileOwned") or {}).get("of", 0) > 0
+            and (p.get("leagueStartableWhileOwned") or {}).get("value") == 0
         ]
         ev = {"posture": posture.get("label"), "idleOwnedPlayers": idle}
         if posture["label"] == "PUSH" and len(idle) >= int(priors.get("contenderBenchMinCount", 5)):
@@ -1062,7 +1159,7 @@ def diagnose(
                 VERDICT_REVIEW,
                 ev,
                 f"A PUSH team holds {len(idle)} players who never entered the lineup and never "
-                "cleared the league starter standard while owned.",
+                "cleared the league starter standard in the weeks this team owned them.",
             )
         else:
             _d("RC-D3", None, STATUS_NOT_FIRED, evidence=ev)
@@ -1158,7 +1255,7 @@ def build_team_view(
             if pts is None or pid in sol.assigned_ids:
                 continue
             t = ls.thresholds[wk].get(group_of(si.players.get(pid)), {}).get("threshold")
-            if t is not None and float(pts) >= t:
+            if is_startable(float(pts), t):
                 redundant_sw[pid] += 1
 
     players: list[dict[str, Any]] = []
@@ -1183,33 +1280,30 @@ def build_team_view(
         row["tags"] = player_tags(led, vp, g, ls.priors)
         players.append(row)
 
-    prod_ranks = {
-        g: rank_table(
-            {
-                t: ls.production[t][g]["points"]
-                for t in ls.team_ids
-                if ls.team_stats[t]["validWeeks"]
-            }
-        )
-        for g in groups
-    }
-    ppg_ranks = {
-        g: rank_table({t: ls.production[t][g]["ppg"] for t in ls.team_ids}) for g in groups
-    }
+    prod_all = production_ranks(ls)
     diag = diagnose(ls, rid, value, players, posture)
     positions = []
     for g in groups:
-        pr = prod_ranks[g]
+        pr = prod_all[g]["rate"]
+        tot = prod_all[g]["total"]
         prod = dict(ls.production[rid][g])
         prod.update(
             {
+                # Headline: points per valid week, so teams with excluded weeks
+                # are compared like for like.  The total is kept, labelled.
+                "rankBasis": RANK_BASIS_PER_WEEK,
                 "rank": pr["byTeam"].get(rid, {}).get("rank"),
                 "of": pr["summary"]["teamsCompared"],
                 "percentile": pr["byTeam"].get(rid, {}).get("percentile"),
                 "tiedWith": pr["byTeam"].get(rid, {}).get("tiedWith"),
-                "ppgRank": ppg_ranks[g]["byTeam"].get(rid, {}).get("rank"),
                 "leagueMean": pr["summary"]["leagueMean"],
                 "leagueMedian": pr["summary"]["leagueMedian"],
+                "validWeeks": len(ls.team_stats[rid]["validWeeks"]),
+                "totalRank": tot["byTeam"].get(rid, {}).get("rank"),
+                "totalLeagueMean": tot["summary"]["leagueMean"],
+                "totalLeagueMedian": tot["summary"]["leagueMedian"],
+                "leagueValidWeekCounts": prod_all[g]["validWeekCounts"],
+                "weekCountsDiffer": prod_all[g]["weekCountsDiffer"],
             }
         )
         if value["available"] and rid in value["perTeam"]:
@@ -1217,6 +1311,7 @@ def build_team_view(
             val = {
                 **value["perTeam"][rid][g],
                 "rank": vr.get("rank"),
+                "rankPartial": vr.get("rankPartial", False),
                 "of": vr.get("of"),
                 "percentile": vr.get("percentile"),
                 "leagueMean": value["ranks"][g]["summary"]["leagueMean"],
@@ -1241,9 +1336,7 @@ def build_team_view(
         positions.append({"position": g, "production": prod, "value": val, "depth": depth})
 
     stats = ls.team_stats[rid]
-    lineup_basis = (
-        BASIS_HOST_BEST_BALL if si.lineup_mode == LINEUP_BEST_BALL else BASIS_HYPOTHETICAL
-    )
+    basis = lineup_basis(si.lineup_mode)
     return {
         "team": {
             "rosterId": rid,
@@ -1256,7 +1349,7 @@ def build_team_view(
             "observedSubmittedWeeks": stats["observedSubmittedWeeks"],
             "posture": posture,
         },
-        "lineupBasis": lineup_basis,
+        "lineupBasis": basis,
         "positions": positions,
         "players": players,
         "hypotheticalScenario": hypo_meta,
@@ -1274,6 +1367,7 @@ def league_overview(ls: LeagueSeason) -> dict[str, Any]:
                 "label": ls.si.team_labels.get(t, f"Team {t}"),
                 "validWeeks": len(ls.team_stats[t]["validWeeks"]),
                 "points": {g: ls.production[t][g]["points"] for g in ls.groups},
+                "ppg": {g: ls.production[t][g]["ppg"] for g in ls.groups},
             }
         )
     return {"teams": teams}
@@ -1294,15 +1388,23 @@ def assumptions(si: SeasonInput) -> list[str]:
         "Positional dynasty value counts players only (no picks) and never includes an "
         "unpriced player as zero.",
     ]
-    if si.lineup_mode != LINEUP_BEST_BALL:
+    if si.lineup_mode == LINEUP_MANAGED:
         out.append(
             "This league sets lineups manually: production figures are the HYPOTHETICAL "
             "optimal lineup, and observedSubmittedPoints shows what the submitted lineups "
             "actually scored. The two are never mixed."
         )
-    if si.include_playoffs:
+    elif si.lineup_mode != LINEUP_BEST_BALL:
         out.append(
-            "Playoff weeks are included; teams without a playoff matchup have fewer weeks, "
-            "so compare ppgRank as well as rank."
+            "Whether this league is best ball could not be verified from its settings: "
+            "production figures ASSUME the optimal legal lineup each week. They are not "
+            "host-verified, and observedSubmittedPoints, where shown, is kept separate."
         )
+    out.append(
+        "Production ranks compare points per valid week; total points are shown beside "
+        "them with each team's valid-week count. Teams can have different counts "
+        "(excluded weeks, playoff weeks), and the payload says when they do."
+    )
+    if si.include_playoffs:
+        out.append("Playoff weeks are included; teams without a playoff matchup have fewer weeks.")
     return out

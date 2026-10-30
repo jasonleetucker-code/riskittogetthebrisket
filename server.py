@@ -16453,13 +16453,21 @@ def _roster_construction_posture(league_cfg, snapshot, target, owner_by_roster):
             league_cfg.key, league_cfg.scoring_profile, contract, build_if_missing=False
         )
     except Exception as exc:  # noqa: BLE001 — degrade to a named unavailable
-        return {}, f"posture_unavailable:{getattr(exc, 'code', type(exc).__name__)}"
+        # A stable code; the exception detail goes to the log, never the payload.
+        logging.warning("Roster construction: posture lookup failed: %s", exc)
+        if isinstance(exc, _gameplan.GameplanUnavailable) and str(exc.reason).isidentifier():
+            return {}, f"posture_unavailable:{exc.reason}"  # the owner's own stable code
+        return {}, "posture_lookup_failed"
     out = {}
     for rid, oid in owner_by_roster.items():
         p = postures.get(oid)
         if p is not None:
             out[rid] = {"label": p.label, "source": "competitive_posture", "asOf": "current"}
     return out, None
+
+
+#: Every answer of the private route, error or not, is per-user and uncacheable.
+_RC_NO_STORE = {"Cache-Control": "private, no-store"}
 
 
 @app.get("/api/roster-construction")
@@ -16475,14 +16483,20 @@ async def get_roster_construction(
 
     if not is_enabled("roster_construction"):
         return JSONResponse(
-            status_code=503, content={"error": "feature_disabled", "flag": _rc.FLAG}
+            status_code=503,
+            content={"error": "feature_disabled", "flag": _rc.FLAG},
+            headers=_RC_NO_STORE,
         )
     if not _get_auth_session(request):
-        return JSONResponse(status_code=401, content={"error": "auth_required"})
+        return JSONResponse(
+            status_code=401, content={"error": "auth_required"}, headers=_RC_NO_STORE
+        )
     try:
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:
-        return err.json_response()
+        resp = err.json_response()
+        resp.headers.update(_RC_NO_STORE)
+        return resp
     include_playoffs = str(includePlayoffs).strip().lower() in {"1", "true", "yes"}
     roster_id: int | None = None
     if str(rosterId).strip():
@@ -16490,7 +16504,9 @@ async def get_roster_construction(
             roster_id = int(str(rosterId).strip())
         except ValueError:
             return JSONResponse(
-                status_code=400, content={"error": "invalid_roster_id", "rosterId": rosterId}
+                status_code=400,
+                content={"error": "invalid_roster_id", "rosterId": rosterId},
+                headers=_RC_NO_STORE,
             )
 
     def _build() -> tuple[int, dict]:
@@ -16578,12 +16594,12 @@ async def get_roster_construction(
         status, content = await run_in_threadpool(_build)
     except Exception as exc:  # noqa: BLE001
         logging.error("Roster construction build failed: %s", exc)
-        return JSONResponse(status_code=503, content={"error": "roster_construction_unavailable"})
-    return JSONResponse(
-        status_code=status,
-        content=content,
-        headers={"Cache-Control": "private, no-store"},
-    )
+        return JSONResponse(
+            status_code=503,
+            content={"error": "roster_construction_unavailable"},
+            headers=_RC_NO_STORE,
+        )
+    return JSONResponse(status_code=status, content=content, headers=_RC_NO_STORE)
 
 
 def _public_csv_headers(filename: str, league_key: str | None) -> dict[str, str]:

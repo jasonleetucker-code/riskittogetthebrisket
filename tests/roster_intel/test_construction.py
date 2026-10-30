@@ -422,3 +422,110 @@ def test_construction_module_is_pure_and_never_writes_canonical_value():
             sl = node.slice
             assert not (isinstance(sl, ast.Constant) and sl.value == "rankDerivedValue")
     assert "solve_optimal_assignment" in src and "optimize_lineup" not in src
+
+
+# ── Independent-validator findings (PR #2028) ────────────────────────────
+def _partial_league():
+    """Team 1 scores 20 TE points a week against team 2's 18, but team 1's
+    week 1 host score cannot be reproduced, so that week is excluded."""
+    from src.api.roster_construction_api import load_priors
+
+    pos = {"Q1": "QB", "Q2": "QB", "T1": "TE", "T2": "TE"}
+    players = {k: rc.PlayerMeta(position=v, name=k) for k, v in pos.items()}
+    weeks = {}
+    for w in range(1, 7):
+        weeks[w] = [
+            rc.TeamWeekIn(
+                1, ("Q1", "T1"), {"Q1": 10.0, "T1": 20.0}, score=30.0 if w != 1 else 999.0
+            ),
+            rc.TeamWeekIn(2, ("Q2", "T2"), {"Q2": 10.0, "T2": 18.0}, score=28.0),
+        ]
+    si = rc.SeasonInput(
+        season="2025",
+        slots=("QB", "TE"),
+        slot_source="x",
+        lineup_mode=rc.LINEUP_BEST_BALL,
+        weeks=weeks,
+        players=players,
+    )
+    ls = rc.compute_league_season(si, load_priors())
+    vi = rc.ValueInput(
+        available=True,
+        teams={
+            1: [rc.ValuePlayer("Q1", "Q1", "QB", 100.0), rc.ValuePlayer("T1", "T1", "TE", 9000.0)],
+            2: [rc.ValuePlayer("Q2", "Q2", "QB", 100.0), rc.ValuePlayer("T2", "T2", "TE", 1000.0)],
+        },
+    )
+    return ls, vi
+
+
+def test_partial_week_exclusion_ranks_per_valid_week_not_total():
+    ls, vi = _partial_league()
+    assert len(ls.team_stats[1]["validWeeks"]) == 5
+    assert len(ls.team_stats[2]["validWeeks"]) == 6
+    v = rc.build_team_view(ls, 1, vi)
+    te = _position(v, "TE")["production"]
+    assert te["rankBasis"] == rc.RANK_BASIS_PER_WEEK
+    assert (te["rank"], te["of"], te["ppg"]) == (1, 2, 20.0)
+    # The total is kept and labelled, with its own rank and week count.
+    assert (te["points"], te["totalRank"], te["validWeeks"]) == (100.0, 2, 5)
+    assert te["weekCountsDiffer"] is True
+    assert te["leagueValidWeekCounts"] == {"min": 5, "max": 6}
+    d1 = _diag(v, "RC-D1", "TE")
+    assert d1["status"] == rc.STATUS_NOT_FIRED  # no false REVIEW
+    assert d1["evidence"]["productionRank"] == [1, 2]
+    assert d1["evidence"]["productionTotalRank"] == [2, 2]
+    assert d1["evidence"]["weekCountsDiffer"] is True
+    d2 = _diag(v, "RC-D2", "TE")
+    assert d2["evidence"]["weekCountsDiffer"] is True
+    assert d2["evidence"]["productionRankBasis"] == rc.RANK_BASIS_PER_WEEK
+
+
+def test_equal_week_counts_are_stated_as_equal():
+    teams = league_of(4)
+    payload, _ = compute(build_snapshot(teams))
+    for pos in payload["positions"]:
+        assert pos["production"]["weekCountsDiffer"] is False
+
+
+def test_startability_counts_ties_but_never_a_zero_week():
+    assert rc.is_startable(10.0, 10.0)  # ties at the threshold all count
+    assert not rc.is_startable(0.0, 0.0)  # a 0-point week is never startable
+    assert not rc.is_startable(0.0, -1.0)
+    assert rc.is_startable(0.5, 0.0)
+    assert not rc.is_startable(5.0, None)
+
+
+def test_rc_d3_counts_startability_only_while_owned():
+    teams = league_of(4)
+    own = {"t2-wr1": {w: (2 if w <= 4 else 1) for w in WEEKS}}
+    payload, _ = compute(build_snapshot(teams, ownership=own))
+    row = _player(payload, "t2-wr1")
+    assert row["leagueStartableWhileOwned"]["of"] <= row["ownedWeeks"]
+    assert row["leagueStartable"]["of"] == 8
+
+
+def test_unverified_lineup_mode_has_its_own_basis():
+    assert rc.lineup_basis(rc.LINEUP_UNVERIFIED) == rc.BASIS_UNVERIFIED
+    assert rc.lineup_basis(rc.LINEUP_MANAGED) == rc.BASIS_HYPOTHETICAL
+    teams = league_of(4)
+    payload, _ = compute(build_snapshot(teams, best_ball=None))
+    assert payload["rules"]["lineupMode"] == rc.LINEUP_UNVERIFIED
+    assert payload["lineupBasis"] == rc.BASIS_UNVERIFIED
+    assert payload["rules"]["lineupBasis"] == rc.BASIS_UNVERIFIED
+    assert any("could not be verified" in a for a in payload["assumptions"])
+
+
+def test_partially_priced_position_is_flagged_and_not_diagnosed():
+    teams = league_of(4)
+    tes = [p for p, s in teams[1].items() if s[0] == "TE"]
+    vals = {tes[0]: None}
+    payload, _ = compute(build_snapshot(teams), contract=_contract_for(teams, vals))
+    te = _position(payload, "TE")["value"]
+    assert te["partial"] is True and te["rankPartial"] is True
+    assert te["unpricedIds"] == [tes[0]]
+    d = _diag(payload, "RC-D1", "TE")
+    assert d["status"] == rc.STATUS_NOT_EVALUATED
+    assert d["notEvaluatedReason"] == "position_value_partially_priced"
+    qb = _position(payload, "QB")["value"]
+    assert qb["partial"] is False and qb["rankPartial"] is False

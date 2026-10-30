@@ -182,6 +182,14 @@ describe("labelled concepts", () => {
     expect(manual.detail).toContain("not the lineups that were submitted");
     expect(lineupBasisText({ lineupBasis: "hypothetical_optimal" }).hypothetical).toBe(true);
     expect(lineupBasisText({})).toMatchObject({ label: "Unknown", hypothetical: false });
+    // Best-ball status unverified: its own label, neither host-verified nor manual.
+    const unverified = lineupBasisText({ lineupBasis: "unverified_assumed_optimal" });
+    expect(unverified).toMatchObject({
+      label: "Assumed optimal",
+      hypothetical: false,
+      unverified: true,
+    });
+    expect(lineupBasisText({ rules: { lineupMode: "unverified" } }).unverified).toBe(true);
   });
 
   it("states the hypothetical scenario's assumptions", () => {

@@ -4,7 +4,8 @@
     "Each starter's points count once, at his own position: a WR in FLEX is WR production. FLEX is an allocation, not a position.",
     "The league starter standard for a position-week is the score of the N-th best rostered player at that position, where N is how many players at that position the league's optimal lineups actually started that week. Free agents are not in the pool.",
     "The host records a bye, an inactive week and a scoreless game as the same 0.0.",
-    "Positional dynasty value counts players only (no picks) and never includes an unpriced player as zero."
+    "Positional dynasty value counts players only (no picks) and never includes an unpriced player as zero.",
+    "Production ranks compare points per valid week; total points are shown beside them with each team's valid-week count. Teams can have different counts (excluded weeks, playoff weeks), and the payload says when they do."
   ],
   "coverage": {
     "contradictedWeeks": [],
@@ -24,14 +25,26 @@
   "diagnoses": [
     {
       "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
         ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
         "valueRank": [
           2,
           6
-        ]
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -46,10 +59,21 @@
         "depthInsuranceRatio": 0.9,
         "holeWeeks": [],
         "leagueP25": 0.6563,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
-        ]
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -79,14 +103,26 @@
     },
     {
       "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
         ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
         "valueRank": [
           6,
           6
-        ]
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -106,12 +142,23 @@
           6
         ],
         "leagueP25": 0.5035,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
-        ]
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
       },
-      "explanation": "RB starters rank 1/6 but backups replace little of a lost starter (ratio 0.0 vs league P25 0.5035) and 4 starter-slot weeks went empty or scoreless. Cheaper depth may help; the Waiver Advisor decides whether any move is worth its dynasty cost.",
+      "explanation": "RB starters rank 1/6 (points per counted week) but backups replace little of a lost starter (ratio 0.0 vs league P25 0.5035) and 4 starter-slot weeks went empty or scoreless. Cheaper depth may help; the Waiver Advisor decides whether any move is worth its dynasty cost.",
       "notEvaluatedReason": null,
       "position": "RB",
       "rule": "RC-D2",
@@ -131,14 +178,26 @@
     },
     {
       "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
         ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
         "valueRank": [
           4,
           6
-        ]
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -153,10 +212,21 @@
         "depthInsuranceRatio": 0.3242,
         "holeWeeks": [],
         "leagueP25": 0.5072,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
-        ]
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -217,16 +287,28 @@
             "tags": []
           }
         ],
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           6,
           6
         ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          6,
+          6
+        ],
+        "validWeeks": 8,
         "valueRank": [
           1,
           6
-        ]
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
       },
-      "explanation": "TE value rank 1/6 but production rank 6/6: the top TE value holder is injured and developmental. This gap is expected and needs no action.",
+      "explanation": "TE value rank 1/6 but production rank 6/6 (points per counted week): the top TE value holder is injured and developmental. This gap is expected and needs no action.",
       "notEvaluatedReason": null,
       "position": "TE",
       "rule": "RC-D1",
@@ -239,10 +321,21 @@
         "depthInsuranceRatio": 1.0,
         "holeWeeks": [],
         "leagueP25": 0.6515,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           6,
           6
-        ]
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          6,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -264,14 +357,26 @@
     },
     {
       "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
         ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
         "valueRank": [
           5,
           5
-        ]
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -286,10 +391,21 @@
         "depthInsuranceRatio": 0.0,
         "holeWeeks": [],
         "leagueP25": 0.0,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
-        ]
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -311,14 +427,26 @@
     },
     {
       "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
         ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
         "valueRank": [
           6,
           6
-        ]
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -333,10 +461,21 @@
         "depthInsuranceRatio": 0.5294,
         "holeWeeks": [],
         "leagueP25": 0.5294,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
-        ]
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -358,14 +497,26 @@
     },
     {
       "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
         ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
         "valueRank": [
           6,
           6
-        ]
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -380,10 +531,21 @@
         "depthInsuranceRatio": 0.5296,
         "holeWeeks": [],
         "leagueP25": 0.5295,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
-        ]
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -405,14 +567,26 @@
     },
     {
       "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
         ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
         "valueRank": [
           6,
           6
-        ]
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -427,10 +601,21 @@
         "depthInsuranceRatio": 0.5294,
         "holeWeeks": [],
         "leagueP25": 0.5294,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "productionRank": [
           1,
           6
-        ]
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
       },
       "explanation": "",
       "notEvaluatedReason": null,
@@ -548,6 +733,11 @@
         "poolScope": "rostered",
         "value": 8
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -595,6 +785,11 @@
         "poolScope": "rostered",
         "value": 8
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -638,6 +833,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 8
@@ -691,6 +891,11 @@
         "poolScope": "rostered",
         "value": 3
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -734,6 +939,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 8
@@ -787,6 +997,11 @@
         "poolScope": "rostered",
         "value": 8
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -830,6 +1045,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 8
@@ -881,6 +1101,11 @@
         "poolScope": "rostered",
         "value": 3
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -924,6 +1149,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 8
@@ -977,6 +1207,11 @@
         "poolScope": "rostered",
         "value": 8
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -1022,6 +1257,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 8
@@ -1073,6 +1313,11 @@
         "poolScope": "rostered",
         "value": 8
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -1116,6 +1361,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 3
@@ -1167,6 +1417,11 @@
         "poolScope": "rostered",
         "value": 8
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -1214,6 +1469,11 @@
         "poolScope": "rostered",
         "value": 8
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -1257,6 +1517,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 8
@@ -1311,6 +1576,11 @@
         "poolScope": "rostered",
         "value": 8
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -1360,6 +1630,11 @@
         "poolScope": "rostered",
         "value": 6
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 6
+      },
       "marginalPoints": {
         "knownWeeks": 0,
         "source": "player_impact.gameChangerPoints",
@@ -1405,6 +1680,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 6
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 6
@@ -1460,6 +1740,11 @@
         "poolScope": "rostered",
         "value": 1
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 1
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -1505,6 +1790,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 1
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 1
@@ -1556,6 +1846,11 @@
         "poolScope": "rostered",
         "value": 1
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 1
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -1601,6 +1896,11 @@
       },
       "injuryStatus": "IR",
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 0
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 0
@@ -1656,6 +1956,11 @@
         "poolScope": "rostered",
         "value": 8
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -1699,6 +2004,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 8
@@ -1750,6 +2060,11 @@
         "poolScope": "rostered",
         "value": 8
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -1793,6 +2108,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 8
@@ -1846,6 +2166,11 @@
         "poolScope": "rostered",
         "value": 3
       },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
       "marginalPoints": {
         "knownWeeks": 8,
         "source": "player_impact.gameChangerPoints",
@@ -1889,6 +2214,11 @@
       },
       "injuryStatus": null,
       "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 0
+      },
+      "leagueStartableWhileOwned": {
         "of": 8,
         "poolScope": "rostered",
         "value": 0
@@ -1942,6 +2272,11 @@
         "poolScope": "rostered",
         "value": 8
       },
+      "leagueStartableWhileOwned": {
+        "of": 4,
+        "poolScope": "rostered",
+        "value": 4
+      },
       "marginalPoints": {
         "knownWeeks": 4,
         "source": "player_impact.gameChangerPoints",
@@ -1994,15 +2329,19 @@
       "production": {
         "appearances": 16,
         "distinctContributors": 2,
-        "leagueMean": 302.14,
-        "leagueMedian": 245.19,
+        "leagueMean": 37.77,
+        "leagueMedian": 30.65,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "observedSubmittedPoints": null,
         "of": 6,
         "percentile": 1.0,
         "points": 624.0,
         "ppg": 78.0,
-        "ppgRank": 1,
         "rank": 1,
+        "rankBasis": "points_per_valid_week",
         "slotAllocation": {
           "QB": {
             "points": 320.0,
@@ -2026,6 +2365,11 @@
             "starts": 8
           }
         ],
+        "totalLeagueMean": 302.14,
+        "totalLeagueMedian": 245.19,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
         "weekly": [
           {
             "points": 78.0,
@@ -2067,9 +2411,11 @@
         "leagueMean": 10127.33,
         "leagueMedian": 10098.0,
         "of": 6,
+        "partial": false,
         "percentile": 0.8,
         "pricedCount": 4,
         "rank": 2,
+        "rankPartial": false,
         "top1Share": 0.754,
         "total": 12599.0,
         "unpricedCount": 0,
@@ -2102,15 +2448,19 @@
       "production": {
         "appearances": 16,
         "distinctContributors": 2,
-        "leagueMean": 274.28,
-        "leagueMedian": 240.43,
+        "leagueMean": 34.29,
+        "leagueMedian": 30.05,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "observedSubmittedPoints": null,
         "of": 6,
         "percentile": 1.0,
         "points": 480.0,
         "ppg": 60.0,
-        "ppgRank": 1,
         "rank": 1,
+        "rankBasis": "points_per_valid_week",
         "slotAllocation": {
           "RB": {
             "points": 480.0,
@@ -2130,6 +2480,11 @@
             "starts": 8
           }
         ],
+        "totalLeagueMean": 274.28,
+        "totalLeagueMedian": 240.43,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
         "weekly": [
           {
             "points": 80.0,
@@ -2171,9 +2526,11 @@
         "leagueMean": 13878.33,
         "leagueMedian": 14795.0,
         "of": 6,
+        "partial": false,
         "percentile": 0.0,
         "pricedCount": 2,
         "rank": 6,
+        "rankPartial": false,
         "top1Share": 0.5056,
         "total": 3295.0,
         "unpricedCount": 0,
@@ -2201,15 +2558,19 @@
       "production": {
         "appearances": 40,
         "distinctContributors": 6,
-        "leagueMean": 216.75,
-        "leagueMedian": 198.72,
+        "leagueMean": 27.09,
+        "leagueMedian": 24.84,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "observedSubmittedPoints": null,
         "of": 6,
         "percentile": 1.0,
         "points": 340.68,
         "ppg": 42.58,
-        "ppgRank": 1,
         "rank": 1,
+        "rankBasis": "points_per_valid_week",
         "slotAllocation": {
           "FLEX": {
             "points": 99.33,
@@ -2238,6 +2599,11 @@
             "starts": 8
           }
         ],
+        "totalLeagueMean": 216.75,
+        "totalLeagueMedian": 198.72,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
         "weekly": [
           {
             "points": 40.76,
@@ -2279,9 +2645,11 @@
         "leagueMean": 16311.0,
         "leagueMedian": 14991.0,
         "of": 6,
+        "partial": false,
         "percentile": 0.4,
         "pricedCount": 7,
         "rank": 4,
+        "rankPartial": false,
         "top1Share": 0.2025,
         "total": 14622.0,
         "unpricedCount": 0,
@@ -2309,15 +2677,19 @@
       "production": {
         "appearances": 16,
         "distinctContributors": 2,
-        "leagueMean": 88.32,
-        "leagueMedian": 96.47,
+        "leagueMean": 11.04,
+        "leagueMedian": 12.06,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "observedSubmittedPoints": null,
         "of": 6,
         "percentile": 0.0,
         "points": 32.0,
         "ppg": 4.0,
-        "ppgRank": 6,
         "rank": 6,
+        "rankBasis": "points_per_valid_week",
         "slotAllocation": {
           "TE": {
             "points": 32.0,
@@ -2337,6 +2709,11 @@
             "starts": 8
           }
         ],
+        "totalLeagueMean": 88.32,
+        "totalLeagueMedian": 96.47,
+        "totalRank": 6,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
         "weekly": [
           {
             "points": 4.0,
@@ -2378,9 +2755,11 @@
         "leagueMean": 9137.5,
         "leagueMedian": 9321.0,
         "of": 6,
+        "partial": false,
         "percentile": 1.0,
         "pricedCount": 4,
         "rank": 1,
+        "rankPartial": false,
         "top1Share": 0.6329,
         "total": 14220.0,
         "unpricedCount": 0,
@@ -2408,15 +2787,19 @@
       "production": {
         "appearances": 8,
         "distinctContributors": 1,
-        "leagueMean": 52.8,
-        "leagueMedian": 52.8,
+        "leagueMean": 6.6,
+        "leagueMedian": 6.6,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "observedSubmittedPoints": null,
         "of": 6,
         "percentile": 1.0,
         "points": 60.8,
         "ppg": 7.6,
-        "ppgRank": 1,
         "rank": 1,
+        "rankBasis": "points_per_valid_week",
         "slotAllocation": {
           "K": {
             "points": 60.8,
@@ -2431,6 +2814,11 @@
             "starts": 8
           }
         ],
+        "totalLeagueMean": 52.8,
+        "totalLeagueMedian": 52.8,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
         "weekly": [
           {
             "points": 6.08,
@@ -2472,9 +2860,11 @@
         "leagueMean": 2686.4,
         "leagueMedian": 2369.0,
         "of": 5,
+        "partial": false,
         "percentile": 0.0,
         "pricedCount": 1,
         "rank": 5,
+        "rankPartial": false,
         "top1Share": 1.0,
         "total": 1296.0,
         "unpricedCount": 0,
@@ -2502,15 +2892,19 @@
       "production": {
         "appearances": 24,
         "distinctContributors": 4,
-        "leagueMean": 134.47,
-        "leagueMedian": 134.48,
+        "leagueMean": 16.81,
+        "leagueMedian": 16.81,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "observedSubmittedPoints": null,
         "of": 6,
         "percentile": 1.0,
         "points": 154.85,
         "ppg": 19.36,
-        "ppgRank": 1,
         "rank": 1,
+        "rankBasis": "points_per_valid_week",
         "slotAllocation": {
           "DL": {
             "points": 154.85,
@@ -2535,6 +2929,11 @@
             "starts": 5
           }
         ],
+        "totalLeagueMean": 134.47,
+        "totalLeagueMedian": 134.48,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
         "weekly": [
           {
             "points": 20.55,
@@ -2576,9 +2975,11 @@
         "leagueMean": 10457.33,
         "leagueMedian": 9986.0,
         "of": 6,
+        "partial": false,
         "percentile": 0.0,
         "pricedCount": 4,
         "rank": 6,
+        "rankPartial": false,
         "top1Share": 0.2615,
         "total": 4814.0,
         "unpricedCount": 0,
@@ -2606,15 +3007,19 @@
       "production": {
         "appearances": 24,
         "distinctContributors": 4,
-        "leagueMean": 151.27,
-        "leagueMedian": 151.28,
+        "leagueMean": 18.91,
+        "leagueMedian": 18.91,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "observedSubmittedPoints": null,
         "of": 6,
         "percentile": 1.0,
         "points": 174.15,
         "ppg": 21.77,
-        "ppgRank": 1,
         "rank": 1,
+        "rankBasis": "points_per_valid_week",
         "slotAllocation": {
           "LB": {
             "points": 174.15,
@@ -2639,6 +3044,11 @@
             "starts": 5
           }
         ],
+        "totalLeagueMean": 151.27,
+        "totalLeagueMedian": 151.28,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
         "weekly": [
           {
             "points": 23.12,
@@ -2680,9 +3090,11 @@
         "leagueMean": 11197.33,
         "leagueMedian": 10726.0,
         "of": 6,
+        "partial": false,
         "percentile": 0.0,
         "pricedCount": 4,
         "rank": 6,
+        "rankPartial": false,
         "top1Share": 0.26,
         "total": 5554.0,
         "unpricedCount": 0,
@@ -2710,15 +3122,19 @@
       "production": {
         "appearances": 24,
         "distinctContributors": 4,
-        "leagueMean": 117.67,
-        "leagueMedian": 117.68,
+        "leagueMean": 14.71,
+        "leagueMedian": 14.71,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
         "observedSubmittedPoints": null,
         "of": 6,
         "percentile": 1.0,
         "points": 135.5,
         "ppg": 16.94,
-        "ppgRank": 1,
         "rank": 1,
+        "rankBasis": "points_per_valid_week",
         "slotAllocation": {
           "DB": {
             "points": 135.5,
@@ -2743,6 +3159,11 @@
             "starts": 5
           }
         ],
+        "totalLeagueMean": 117.67,
+        "totalLeagueMedian": 117.68,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
         "weekly": [
           {
             "points": 18.0,
@@ -2784,9 +3205,11 @@
         "leagueMean": 9865.33,
         "leagueMedian": 9394.0,
         "of": 6,
+        "partial": false,
         "percentile": 0.0,
         "pricedCount": 4,
         "rank": 6,
+        "rankPartial": false,
         "top1Share": 0.2631,
         "total": 4222.0,
         "unpricedCount": 0,
@@ -2919,6 +3342,16 @@
         "TE": 32.0,
         "WR": 340.68
       },
+      "ppg": {
+        "DB": 16.94,
+        "DL": 19.36,
+        "K": 7.6,
+        "LB": 21.77,
+        "QB": 78.0,
+        "RB": 60.0,
+        "TE": 4.0,
+        "WR": 42.58
+      },
       "rosterId": 1,
       "validWeeks": 8
     },
@@ -2933,6 +3366,16 @@
         "RB": 262.28,
         "TE": 112.02,
         "WR": 201.85
+      },
+      "ppg": {
+        "DB": 16.04,
+        "DL": 18.34,
+        "K": 7.2,
+        "LB": 20.63,
+        "QB": 33.44,
+        "RB": 32.79,
+        "TE": 14.0,
+        "WR": 25.23
       },
       "rosterId": 2,
       "validWeeks": 8
@@ -2949,6 +3392,16 @@
         "TE": 105.82,
         "WR": 207.82
       },
+      "ppg": {
+        "DB": 15.16,
+        "DL": 17.32,
+        "K": 6.8,
+        "LB": 19.48,
+        "QB": 31.58,
+        "RB": 30.96,
+        "TE": 13.23,
+        "WR": 25.98
+      },
       "rosterId": 3,
       "validWeeks": 8
     },
@@ -2963,6 +3416,16 @@
         "RB": 233.14,
         "TE": 99.59,
         "WR": 195.6
+      },
+      "ppg": {
+        "DB": 14.26,
+        "DL": 16.3,
+        "K": 6.4,
+        "LB": 18.34,
+        "QB": 29.72,
+        "RB": 29.14,
+        "TE": 12.45,
+        "WR": 24.45
       },
       "rosterId": 4,
       "validWeeks": 8
@@ -2979,6 +3442,16 @@
         "TE": 93.36,
         "WR": 183.38
       },
+      "ppg": {
+        "DB": 13.37,
+        "DL": 15.28,
+        "K": 6.0,
+        "LB": 17.19,
+        "QB": 27.86,
+        "RB": 27.32,
+        "TE": 11.67,
+        "WR": 22.92
+      },
       "rosterId": 5,
       "validWeeks": 8
     },
@@ -2993,6 +3466,16 @@
         "RB": 203.99,
         "TE": 87.13,
         "WR": 171.15
+      },
+      "ppg": {
+        "DB": 12.48,
+        "DL": 14.26,
+        "K": 5.6,
+        "LB": 16.04,
+        "QB": 26.0,
+        "RB": 25.5,
+        "TE": 10.89,
+        "WR": 21.39
       },
       "rosterId": 6,
       "validWeeks": 8

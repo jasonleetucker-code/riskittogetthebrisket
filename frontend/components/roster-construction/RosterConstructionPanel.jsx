@@ -185,6 +185,11 @@ function Summary({ payload, validWeeks }) {
           {basis.detail}
         </Banner>
       ) : null}
+      {basis.unverified ? (
+        <Banner tone="warning" title="Lineup mode not verified">
+          {basis.detail}
+        </Banner>
+      ) : null}
       <Banner tone="info" title="Two independent measures">
         Production is realized fantasy points from the {payload.season} season&rsquo;s
         rosters. Value is today&rsquo;s canonical dynasty value on today&rsquo;s
@@ -241,18 +246,27 @@ function ProductionDetail({ row, names, hypothetical }) {
       </DetailBlock>
       <DetailBlock label="Comparison">
         <span className={styles.detailValue}>
-          League mean <span className={styles.detailNum}>{fmtPoints(p.leagueMean) ?? "—"}</span> ·
-          median <span className={styles.detailNum}>{fmtPoints(p.leagueMedian) ?? "—"}</span>
-        </span>
-        <span className={styles.detailValue}>
-          Points-per-week rank{" "}
-          <span className={styles.detailNum}>{fmtRank(p.ppgRank, p.of) ?? "—"}</span>
-          {p.partialWeeks ? " — this team has fewer counted weeks than the league maximum" : ""}
+          Rank on points per counted week{" "}
+          <span className={styles.detailNum}>{fmtRank(p.rank, p.of) ?? "—"}</span>
           {p.tiedWith ? ` — tied with ${p.tiedWith} other team${p.tiedWith === 1 ? "" : "s"}` : ""}
         </span>
         {p.ppg != null ? (
           <span className={styles.detailValue}>
-            <span className={styles.detailNum}>{fmtPoints(p.ppg)}</span> pts per counted week
+            <span className={styles.detailNum}>{fmtPoints(p.ppg)}</span> pts per counted week ·
+            league mean <span className={styles.detailNum}>{fmtPoints(p.leagueMean) ?? "—"}</span>{" "}
+            · median <span className={styles.detailNum}>{fmtPoints(p.leagueMedian) ?? "—"}</span>
+          </span>
+        ) : null}
+        <span className={styles.detailValue}>
+          Total <span className={styles.detailNum}>{fmtPoints(p.points) ?? "—"}</span> pts over{" "}
+          {p.validWeeks ?? "—"} counted weeks · total rank{" "}
+          <span className={styles.detailNum}>{fmtRank(p.totalRank, p.of) ?? "—"}</span>
+        </span>
+        {p.weekCountsDiffer ? (
+          <span className={styles.meta} data-testid="rc-week-counts-differ">
+            Teams were measured over different numbers of weeks (
+            {p.leagueValidWeekCounts?.min ?? "—"} to {p.leagueValidWeekCounts?.max ?? "—"}), so
+            the rank compares points per counted week, not totals.
           </span>
         ) : null}
         {hypothetical ? (
@@ -299,6 +313,17 @@ function ProductionPanel({ payload }) {
         accessor: (r) => r.production.points ?? null,
         render: (r) => fmtPoints(r.production.points) ?? <Missing />,
       },
+      {
+        key: "ppg",
+        header: "Pts / wk",
+        headerInfo:
+          "Points per counted week. Teams can have different numbers of counted weeks, so this is what the rank compares.",
+        numeric: true,
+        sortable: true,
+        hideBelow: "sm",
+        accessor: (r) => r.production.ppg ?? null,
+        render: (r) => fmtPoints(r.production.ppg) ?? <Missing />,
+      },
       ...(hypothetical
         ? [
             {
@@ -316,7 +341,8 @@ function ProductionPanel({ payload }) {
       {
         key: "rank",
         header: "Rank",
-        headerInfo: "Rank among the teams in this league's season. Ties share a rank.",
+        headerInfo:
+          "Rank among the teams in this league's season on points per counted week. Ties share a rank.",
         numeric: true,
         sortable: true,
         firstDirection: "asc",
@@ -334,7 +360,7 @@ function ProductionPanel({ payload }) {
       },
       {
         key: "mean",
-        header: "League avg",
+        header: "League avg / wk",
         numeric: true,
         hideBelow: "md",
         accessor: (r) => r.production.leagueMean ?? null,
@@ -342,7 +368,7 @@ function ProductionPanel({ payload }) {
       },
       {
         key: "median",
-        header: "League median",
+        header: "League median / wk",
         numeric: true,
         hideBelow: "md",
         accessor: (r) => r.production.leagueMedian ?? null,
@@ -470,7 +496,20 @@ function ValuePanel({ payload }) {
         sortable: true,
         firstDirection: "asc",
         accessor: (r) => r.value.rank ?? null,
-        render: (r) => fmtRank(r.value.rank, r.value.of) ?? <Missing>Unranked</Missing>,
+        render: (r) =>
+          r.value.rank != null ? (
+            <span>
+              {fmtRank(r.value.rank, r.value.of)}
+              {r.value.rankPartial ? (
+                <span className={styles.meta} title="At least one team's total at this position leaves out unpriced players">
+                  {" "}
+                  (partial)
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            <Missing>Unranked</Missing>
+          ),
       },
       {
         key: "percentile",
@@ -802,7 +841,8 @@ function PlayerDetail({ p, scenario }) {
         {Array.isArray(scenario?.weeksWithUnknownTeammates) &&
         scenario.weeksWithUnknownTeammates.length ? (
           <span className={styles.meta}>
-            Teammate scores unknown in {fmtWeeks(scenario.weeksWithUnknownTeammates)}.
+            Teammate scores unknown in{" "}
+            {fmtWeeks(scenario.weeksWithUnknownTeammates.map((r) => r?.week ?? r))}.
           </span>
         ) : null}
       </DetailBlock>
@@ -811,6 +851,9 @@ function PlayerDetail({ p, scenario }) {
           <span className={styles.detailValue}>
             <span className={styles.detailNum}>{fmtCountOf(ls)}</span> weeks at or above the
             league&rsquo;s empirical starter line for his position
+            {p.leagueStartableWhileOwned?.of != null
+              ? ` (${fmtCountOf(p.leagueStartableWhileOwned)} while on this team)`
+              : ""}
           </span>
         ) : (
           <span className={styles.detailValue}>Not computed for this player</span>

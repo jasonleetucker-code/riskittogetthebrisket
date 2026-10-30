@@ -155,3 +155,44 @@ def test_errors_are_named(env):
 def test_include_playoffs_parameter(env):
     r = env.client.get(URL, params={"leagueKey": "main", "includePlayoffs": "1"}, headers=AS)
     assert r.status_code == 200 and r.json()["rules"]["includePlayoffs"] is True
+
+
+def test_error_responses_are_not_cacheable(env):
+    cases = [
+        ({}, AS),  # flag off below
+        ({"leagueKey": "nope"}, AS),
+        ({"leagueKey": "main", "rosterId": "x"}, AS),
+        ({"leagueKey": "main", "season": "1999"}, AS),
+        ({"leagueKey": "main"}, {}),
+    ]
+    for params, headers in cases:
+        r = env.client.get(URL, params=params, headers=headers)
+        assert "no-store" in (r.headers.get("cache-control") or ""), (params, r.status_code)
+    env.state["on"] = False
+    r = env.client.get(URL, headers=AS)
+    assert r.status_code == 503 and r.headers["cache-control"] == "private, no-store"
+
+
+def test_posture_failure_is_a_stable_code(env, monkeypatch):
+    from src.api import gameplan
+
+    def boom(*a, **k):
+        raise RuntimeError("secret detail")
+
+    monkeypatch.setattr(gameplan, "league_competitive_postures", boom)
+    r = env.client.get(URL, params={"leagueKey": "main", "rosterId": "1"}, headers=AS)
+    assert r.status_code == 200
+    assert r.json()["team"]["posture"] == {"label": None, "reason": "posture_lookup_failed"}
+    assert "RuntimeError" not in r.text and "secret detail" not in r.text
+
+
+def test_posture_unavailable_carries_the_owner_reason_code(env, monkeypatch):
+    from src.api import gameplan
+
+    def unavailable(*a, **k):
+        raise gameplan.GameplanUnavailable("bundle_not_built", "long prose")
+
+    monkeypatch.setattr(gameplan, "league_competitive_postures", unavailable)
+    r = env.client.get(URL, params={"leagueKey": "main", "rosterId": "1"}, headers=AS)
+    assert r.json()["team"]["posture"]["reason"] == "posture_unavailable:bundle_not_built"
+    assert "GameplanUnavailable" not in r.text

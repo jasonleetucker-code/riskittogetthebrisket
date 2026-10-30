@@ -217,11 +217,7 @@ def build_payload(
             "starterSlots": list(si.slots),
             "slotSource": si.slot_source,
             "lineupMode": si.lineup_mode,
-            "lineupBasis": (
-                rc.BASIS_HOST_BEST_BALL
-                if si.lineup_mode == rc.LINEUP_BEST_BALL
-                else rc.BASIS_HYPOTHETICAL
-            ),
+            "lineupBasis": rc.lineup_basis(si.lineup_mode),
             "positionGroups": list(ls.groups),
             "teamCount": len(ls.team_ids),
             "rosterLimit": si.roster_limit,
