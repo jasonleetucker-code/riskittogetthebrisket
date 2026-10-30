@@ -886,8 +886,8 @@ def diagnose(
                 _d("RC-D1", g, STATUS_NOT_EVALUATED, reason="position_value_unknown")
             elif vr["rank"] <= _q(n_v, priors) and pr["rank"] >= n_p - _q(n_p, priors) + 1:
                 holders = sorted(
-                    (p for p in by_group_players[g] if p.get("rankDerivedValue") is not None),
-                    key=lambda p: -float(p["rankDerivedValue"]),
+                    (p for p in by_group_players[g] if p.get("dynastyValue") is not None),
+                    key=lambda p: -float(p["dynastyValue"]),
                 )[:3]
                 explained: list[str] = []
                 if holders:
@@ -906,7 +906,7 @@ def diagnose(
                     "holders": [
                         {
                             "playerId": p["playerId"],
-                            "rankDerivedValue": p["rankDerivedValue"],
+                            "dynastyValue": p["dynastyValue"],
                             "starts": p.get("starts"),
                             "tags": p.get("tags", []),
                         }
@@ -1002,7 +1002,7 @@ def diagnose(
             cut = league_vals[_q(len(league_vals), priors) - 1] if league_vals else None
             flagged = []
             for p in by_group_players[g]:
-                v = p.get("rankDerivedValue")
+                v = p.get("dynastyValue")
                 m = p.get("marginalPoints", {}).get("value")
                 kw = p["marginalPoints"]["knownWeeks"]
                 if v is None or cut is None or float(v) < cut or m is None:
@@ -1018,7 +1018,7 @@ def diagnose(
                     flagged.append(
                         {
                             "playerId": p["playerId"],
-                            "rankDerivedValue": v,
+                            "dynastyValue": v,
                             "marginalPerOwnedWeek": _r(per_wk),
                             "benchedStartableWeeks": p.get("redundantStartableWeeks", 0),
                         }
@@ -1173,7 +1173,7 @@ def build_team_view(
             "position": g,
             "onCurrentRoster": vp is not None,
             "onSeasonRoster": pid in hist,
-            "rankDerivedValue": None if vp is None else vp.value,
+            "dynastyValue": None if vp is None else vp.value,
             "age": None if vp is None else vp.age,
             "injuryStatus": None if vp is None else vp.injury,
             **led,

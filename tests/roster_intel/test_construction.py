@@ -270,7 +270,7 @@ def test_scenario_9_valuable_but_redundant_is_review_and_value_untouched():
     assert d["status"] == rc.STATUS_FIRED and d["verdict"] == rc.VERDICT_REVIEW
     assert [p["playerId"] for p in d["evidence"]["players"]] == ["t1-qb4"]
     assert "valuable in trade" in d["explanation"].lower()
-    assert qb4["rankDerivedValue"] == 9500.0
+    assert qb4["dynastyValue"] == 9500.0
     assert contract == before  # no value write-back
 
 

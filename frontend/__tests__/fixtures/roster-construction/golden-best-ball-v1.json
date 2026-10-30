@@ -64,9 +64,9 @@
         "players": [
           {
             "benchedStartableWeeks": 8,
+            "dynastyValue": 9500.0,
             "marginalPerOwnedWeek": 0.0,
-            "playerId": "t1-qb4",
-            "rankDerivedValue": 9500.0
+            "playerId": "t1-qb4"
           }
         ]
       },
@@ -184,8 +184,8 @@
         ],
         "holders": [
           {
+            "dynastyValue": 9000.0,
             "playerId": "t1-te9",
-            "rankDerivedValue": 9000.0,
             "starts": {
               "of": 8,
               "value": 0
@@ -197,8 +197,8 @@
             ]
           },
           {
+            "dynastyValue": 1777.0,
             "playerId": "t1-te3",
-            "rankDerivedValue": 1777.0,
             "starts": {
               "of": 8,
               "value": 0
@@ -208,8 +208,8 @@
             ]
           },
           {
+            "dynastyValue": 1740.0,
             "playerId": "t1-te2",
-            "rankDerivedValue": 1740.0,
             "starts": {
               "of": 8,
               "value": 8
@@ -532,6 +532,7 @@
   "players": [
     {
       "age": 22.0,
+      "dynastyValue": 1000.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -565,7 +566,6 @@
       ],
       "playerId": "t1-db1",
       "position": "DB",
-      "rankDerivedValue": 1000.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 52.54,
@@ -579,6 +579,7 @@
     },
     {
       "age": 27.0,
+      "dynastyValue": 1037.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -612,7 +613,6 @@
       ],
       "playerId": "t1-db2",
       "position": "DB",
-      "rankDerivedValue": 1037.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 44.09,
@@ -626,6 +626,7 @@
     },
     {
       "age": 32.0,
+      "dynastyValue": 1074.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -659,7 +660,6 @@
       ],
       "playerId": "t1-db3",
       "position": "DB",
-      "rankDerivedValue": 1074.0,
       "redundantStartableWeeks": 3,
       "startRate": 0.625,
       "startedPoints": 26.07,
@@ -675,6 +675,7 @@
     },
     {
       "age": 25.0,
+      "dynastyValue": 1111.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -708,7 +709,6 @@
       ],
       "playerId": "t1-db4",
       "position": "DB",
-      "rankDerivedValue": 1111.0,
       "redundantStartableWeeks": 0,
       "startRate": 0.375,
       "startedPoints": 12.8,
@@ -722,6 +722,7 @@
     },
     {
       "age": 30.0,
+      "dynastyValue": 1148.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -755,7 +756,6 @@
       ],
       "playerId": "t1-dl1",
       "position": "DL",
-      "rankDerivedValue": 1148.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 60.04,
@@ -771,6 +771,7 @@
     },
     {
       "age": 23.0,
+      "dynastyValue": 1185.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -804,7 +805,6 @@
       ],
       "playerId": "t1-dl2",
       "position": "DL",
-      "rankDerivedValue": 1185.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 50.39,
@@ -818,6 +818,7 @@
     },
     {
       "age": 28.0,
+      "dynastyValue": 1222.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -851,7 +852,6 @@
       ],
       "playerId": "t1-dl3",
       "position": "DL",
-      "rankDerivedValue": 1222.0,
       "redundantStartableWeeks": 3,
       "startRate": 0.625,
       "startedPoints": 29.78,
@@ -865,6 +865,7 @@
     },
     {
       "age": 33.0,
+      "dynastyValue": 1259.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -898,7 +899,6 @@
       ],
       "playerId": "t1-dl4",
       "position": "DL",
-      "rankDerivedValue": 1259.0,
       "redundantStartableWeeks": 0,
       "startRate": 0.375,
       "startedPoints": 14.64,
@@ -912,6 +912,7 @@
     },
     {
       "age": 26.0,
+      "dynastyValue": 1296.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -947,7 +948,6 @@
       ],
       "playerId": "t1-k1",
       "position": "K",
-      "rankDerivedValue": 1296.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 60.8,
@@ -961,6 +961,7 @@
     },
     {
       "age": 31.0,
+      "dynastyValue": 1333.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -994,7 +995,6 @@
       ],
       "playerId": "t1-lb1",
       "position": "LB",
-      "rankDerivedValue": 1333.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 67.53,
@@ -1010,6 +1010,7 @@
     },
     {
       "age": 24.0,
+      "dynastyValue": 1370.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1043,7 +1044,6 @@
       ],
       "playerId": "t1-lb2",
       "position": "LB",
-      "rankDerivedValue": 1370.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 56.67,
@@ -1057,6 +1057,7 @@
     },
     {
       "age": 29.0,
+      "dynastyValue": 1407.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1090,7 +1091,6 @@
       ],
       "playerId": "t1-lb3",
       "position": "LB",
-      "rankDerivedValue": 1407.0,
       "redundantStartableWeeks": 3,
       "startRate": 0.625,
       "startedPoints": 33.5,
@@ -1104,6 +1104,7 @@
     },
     {
       "age": 22.0,
+      "dynastyValue": 1444.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1137,7 +1138,6 @@
       ],
       "playerId": "t1-lb4",
       "position": "LB",
-      "rankDerivedValue": 1444.0,
       "redundantStartableWeeks": 0,
       "startRate": 0.375,
       "startedPoints": 16.45,
@@ -1151,6 +1151,7 @@
     },
     {
       "age": 27.0,
+      "dynastyValue": 1481.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1184,7 +1185,6 @@
       ],
       "playerId": "t1-qb1",
       "position": "QB",
-      "rankDerivedValue": 1481.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 320.0,
@@ -1198,6 +1198,7 @@
     },
     {
       "age": 32.0,
+      "dynastyValue": 1518.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1231,7 +1232,6 @@
       ],
       "playerId": "t1-qb2",
       "position": "QB",
-      "rankDerivedValue": 1518.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 304.0,
@@ -1245,6 +1245,7 @@
     },
     {
       "age": 25.0,
+      "dynastyValue": 100.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1278,7 +1279,6 @@
       ],
       "playerId": "t1-qb3",
       "position": "QB",
-      "rankDerivedValue": 100.0,
       "redundantStartableWeeks": 8,
       "startRate": 0.0,
       "startedPoints": 0.0,
@@ -1295,6 +1295,7 @@
     },
     {
       "age": 30.0,
+      "dynastyValue": 9500.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1328,7 +1329,6 @@
       ],
       "playerId": "t1-qb4",
       "position": "QB",
-      "rankDerivedValue": 9500.0,
       "redundantStartableWeeks": 8,
       "startRate": 0.0,
       "startedPoints": 0.0,
@@ -1344,6 +1344,7 @@
     },
     {
       "age": 23.0,
+      "dynastyValue": 1629.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1379,7 +1380,6 @@
       ],
       "playerId": "t1-rbx",
       "position": "RB",
-      "rankDerivedValue": 1629.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 240.0,
@@ -1393,6 +1393,7 @@
     },
     {
       "age": 28.0,
+      "dynastyValue": 1666.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1428,7 +1429,6 @@
       ],
       "playerId": "t1-rby",
       "position": "RB",
-      "rankDerivedValue": 1666.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 240.0,
@@ -1444,6 +1444,7 @@
     },
     {
       "age": 33.0,
+      "dynastyValue": 1703.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1477,7 +1478,6 @@
       ],
       "playerId": "t1-te1",
       "position": "TE",
-      "rankDerivedValue": 1703.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 16.0,
@@ -1493,6 +1493,7 @@
     },
     {
       "age": 26.0,
+      "dynastyValue": 1740.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1526,7 +1527,6 @@
       ],
       "playerId": "t1-te2",
       "position": "TE",
-      "rankDerivedValue": 1740.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 16.0,
@@ -1540,6 +1540,7 @@
     },
     {
       "age": 31.0,
+      "dynastyValue": 1777.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1573,7 +1574,6 @@
       ],
       "playerId": "t1-te3",
       "position": "TE",
-      "rankDerivedValue": 1777.0,
       "redundantStartableWeeks": 1,
       "startRate": 0.0,
       "startedPoints": 0.0,
@@ -1589,6 +1589,7 @@
     },
     {
       "age": 24.0,
+      "dynastyValue": 9000.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1622,7 +1623,6 @@
       ],
       "playerId": "t1-te9",
       "position": "TE",
-      "rankDerivedValue": 9000.0,
       "redundantStartableWeeks": 0,
       "startRate": 0.0,
       "startedPoints": 0.0,
@@ -1640,6 +1640,7 @@
     },
     {
       "age": 29.0,
+      "dynastyValue": 1851.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1673,7 +1674,6 @@
       ],
       "playerId": "t1-wr1",
       "position": "WR",
-      "rankDerivedValue": 1851.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 90.06,
@@ -1687,6 +1687,7 @@
     },
     {
       "age": 22.0,
+      "dynastyValue": 1888.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1720,7 +1721,6 @@
       ],
       "playerId": "t1-wr2",
       "position": "WR",
-      "rankDerivedValue": 1888.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 75.58,
@@ -1734,6 +1734,7 @@
     },
     {
       "age": 27.0,
+      "dynastyValue": 1925.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1767,7 +1768,6 @@
       ],
       "playerId": "t1-wr3",
       "position": "WR",
-      "rankDerivedValue": 1925.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 65.44,
@@ -1781,6 +1781,7 @@
     },
     {
       "age": 32.0,
+      "dynastyValue": 1962.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1814,7 +1815,6 @@
       ],
       "playerId": "t1-wr4",
       "position": "WR",
-      "rankDerivedValue": 1962.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 50.78,
@@ -1830,6 +1830,7 @@
     },
     {
       "age": 25.0,
+      "dynastyValue": 1999.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1863,7 +1864,6 @@
       ],
       "playerId": "t1-wr5",
       "position": "WR",
-      "rankDerivedValue": 1999.0,
       "redundantStartableWeeks": 2,
       "startRate": 0.5,
       "startedPoints": 17.78,
@@ -1877,6 +1877,7 @@
     },
     {
       "age": 30.0,
+      "dynastyValue": 2036.0,
       "eligibleOwnedWeeks": 8,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1910,7 +1911,6 @@
       ],
       "playerId": "t1-wr6",
       "position": "WR",
-      "rankDerivedValue": 2036.0,
       "redundantStartableWeeks": 0,
       "startRate": 0.0,
       "startedPoints": 0.0,
@@ -1926,6 +1926,7 @@
     },
     {
       "age": 23.0,
+      "dynastyValue": 2961.0,
       "eligibleOwnedWeeks": 4,
       "excludedTeamWeeks": 0,
       "hypotheticalStarts": {
@@ -1959,7 +1960,6 @@
       ],
       "playerId": "t2-wr1",
       "position": "WR",
-      "rankDerivedValue": 2961.0,
       "redundantStartableWeeks": 0,
       "startRate": 1.0,
       "startedPoints": 41.04,

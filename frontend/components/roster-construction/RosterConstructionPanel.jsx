@@ -853,7 +853,7 @@ function PlayerDetail({ p, scenario }) {
       ) : null}
       <DetailBlock label="Dynasty value and tags">
         <span className={styles.detailValue}>
-          Board value {fmtValue(p.rankDerivedValue) ?? "unpriced"}
+          Board value {fmtValue(p.dynastyValue) ?? "unpriced"}
           {p.age != null ? ` · age ${Math.round(p.age)}` : ""}
           {p.injuryStatus ? ` · ${humanizeCode(p.injuryStatus)}` : ""}
         </span>
@@ -966,8 +966,8 @@ function PlayersPanel({ payload }) {
         header: "Value",
         numeric: true,
         hideBelow: "md",
-        accessor: (p) => p.rankDerivedValue ?? null,
-        render: (p) => fmtValue(p.rankDerivedValue) ?? <Missing>Unpriced</Missing>,
+        accessor: (p) => p.dynastyValue ?? null,
+        render: (p) => fmtValue(p.dynastyValue) ?? <Missing>Unpriced</Missing>,
       },
     ],
     [],
