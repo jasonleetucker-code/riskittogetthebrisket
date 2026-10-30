@@ -15,6 +15,27 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-30 — Release completion, integration recovery, Roster Construction Intelligence V1
+
+Owner directive 2026-10-30 (chat, "MASTER EXECUTION DIRECTIVE"). Recorded verbatim in
+`docs/owner/RELEASE_COMPLETION_ROSTER_CONSTRUCTION_DIRECTIVE_2026-10-30.md`. Authorized in `docs/EXECUTION_PLAN.md`
+(same date). Detailed Roster Construction contract: `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md`
+§§9–20 and `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` FC-01, FC-02, FC-06 (both arrive with PR #2026).
+
+| # | Owner instruction | Status |
+|---|---|---|
+| RCV-1 | Integration priority register: refresh open PRs (#2024, #2025, #2026, #2006, #1938, #1884, #1873, #1852, #1755) with purpose, necessity, conflicts, exact-head tests, review, owner authorization and next action; no blind closes or merges | AUTHORIZED |
+| RCV-2 | Reconcile and integrate PR #2026 (72 recovered clusters + 88 RIT tracks, Future First specs) with original detail preserved; League Tycoon stays parked | AUTHORIZED — standing routine-merge gates |
+| RCV-3 | Complete #2024 then #2025 (IDP Waiver Advisor), repairing CI by fixing causes, never by weakening tests or moving values; signed-in activation per IST-10 | AUTHORIZED — owner decision 1, 2026-10-29 |
+| RCV-4 | Private Roster Construction V1: per-team positional production ranks (optimal legal best-ball starters, attributed to real position once), separate positional dynasty-value ranks, actual vs hypothetical vs league-relative starts with ownership tenure, roster utility/depth analytics, evidence-backed construction diagnosis where NO ACTION is valid | AUTHORIZED — build behind a default-OFF flag |
+| RCV-5 | Shared-system rule: Roster Construction reuses the canonical lineup, replacement, value, scoring and history owners; never feeds team utility back into canonical value | DECIDED — architecture |
+| RCV-6 | Acceptance scenarios 1–10 (directive Phase 5), deterministic fixtures first, then real historical snapshots; no future leakage | AUTHORIZED |
+| RCV-7 | Production activation of Roster Construction V1 | OWNER-GATED — not authorized by this directive |
+| RCV-8 | One coordinated delivery summary A–G with SPECIFIED → … → PRODUCTION VERIFIED per item | AUTHORIZED |
+
+Not authorized: live dynasty values, source voting, held model promotions or flags, public exposure, Sleeper writes,
+League Tycoon.
+
 ## Added 2026-10-30 — Three-month conversation-to-repository completeness audit (3MA-1…6)
 
 **Owner instruction:** Audit **all recoverable Chase Upside / `riskittogetthebrisket` discussions July 30–Oct 30, 2026**; preserve every durable product idea, feature behavior, bug report, implementation direction, unresolved action and research-only/deferred concept in **sufficient original detail** for agents to implement from the master hierarchy without needing the chat. Do not mistake an unmerged PR, partial code, a broad category or an assistant promise for an integrated requirement. Cross-check actual GitHub status and existing canonical owners. Document inaccessible raw chats honestly. **Full recovered source audit:** `docs/owner/CHASE_UPSIDE_90_DAY_CONVERSATION_AUDIT_2026-10-30.md` (§2 indexes all **72** earlier recovery clusters plus the **88** RIT tracks, §3 restores detailed behavior); **League Tycoon full deferred capture** from unmerged PR #1755: `docs/owner/LEAGUE_TYCOON_DEFERRED_IDEAS_PRESERVED_2026-10-16.md`. Canonical routing: `docs/MASTER_PRODUCT_PLAN.md` §13, `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §23, `docs/BRISKET_IDEAS.md` §§17–18.
