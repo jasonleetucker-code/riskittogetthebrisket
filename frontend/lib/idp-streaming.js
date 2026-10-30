@@ -481,11 +481,13 @@ export function budgetBindsText(payload, names) {
 export function weightedProjectionText(row) {
   const full = fmtPoints(row?.weightedProjectedPoints);
   if (full) return { text: full, known: null, complete: true };
-  const n = Number(row?.missingProjectionWeeks) || 0;
+  // A missing count is stated as "some", never coerced to a number.
+  const raw = Number(row?.missingProjectionWeeks);
+  const n = Number.isFinite(raw) && raw > 0 ? raw : null;
   const known = fmtPoints(row?.weightedProjectedPointsKnown);
   return {
     text: "Unknown",
-    known: `${n || "some"} week${n === 1 ? "" : "s"} unprojected${known ? ` · known part ${known}` : ""}`,
+    known: `${n ?? "some"} week${n === 1 ? "" : "s"} unprojected${known ? ` · known part ${known}` : ""}`,
     complete: false,
   };
 }
