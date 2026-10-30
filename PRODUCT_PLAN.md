@@ -12,6 +12,10 @@ The canonical product/roadmap front door for **Risk It To Get The Brisket** is:
 
 **[`docs/MASTER_PRODUCT_PLAN.md`](docs/MASTER_PRODUCT_PLAN.md)**
 
+**Three-month retroactive audit (July 30–Oct 30, 2026):** `docs/MASTER_PRODUCT_PLAN.md` §13 and `docs/owner/CHASE_UPSIDE_90_DAY_CONVERSATION_AUDIT_2026-10-30.md` preserve 72 previously recovered requirements, 88 October RIT tracks, recovered dated interim owner directives, and specific no-detail-loss checks. `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §23 is the agent-ready implementation nuance crosswalk; `docs/BRISKET_IDEAS.md` §18 defines ongoing capture. Unmerged League Tycoon research has been rescued separately but remains parked. This is a high-coverage **recoverable evidence** audit, not literal proof of every raw chat.
+
+**Owner clarification, 2026-10-30 — buildable specificity and coordinated work:** read [`docs/MASTER_PRODUCT_PLAN.md` §12](docs/MASTER_PRODUCT_PLAN.md) for the Oct 9–30 family-to-owner map and dependency/parallel-lane graph, [`docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §§21–22](docs/OWNER_PRODUCT_BACKLOG_SPEC.md) for explicit behaviors, inputs, outputs, acceptance cases and outstanding evidence, and [`docs/BRISKET_IDEAS.md` §§15–16](docs/BRISKET_IDEAS.md) for mandatory detailed owner-intake and shared-foundation orchestration. The original 88-trace October 11–25 recovery is in [`docs/owner/RIT_14DAY_AUDIT_RECONCILIATION_2026-10-25.md`](docs/owner/RIT_14DAY_AUDIT_RECONCILIATION_2026-10-25.md). These are pointers **within the existing planning hierarchy**, not independent roadmaps or implementation permissions.
+
 For current authorized execution order — **the only record that says what may be built right now** — read:
 
 **[`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md)**

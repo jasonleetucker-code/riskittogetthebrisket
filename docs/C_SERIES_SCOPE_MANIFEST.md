@@ -225,6 +225,10 @@ are collecting evidence that cannot be recovered later at any price.
 
 ## C2 — Canonical roster, lineup, replacement and impact foundations
 
+**Three-week coordination addendum (2026-10-30, MP3W-1…8):** One exact input/output/acceptance contract per requested capability is in `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §§21–22; the shared dependency graph and safe parallel waves are in `docs/MASTER_PRODUCT_PLAN.md` §12. This overlays existing C1/C2/C3/C4/C5/C7/C8/IST IDs and statuses **without adding phantom denominator rows, authorizing new implementation, or reclassifying held flags**. Before promotion to executable work, verify live current-HEAD status, claim ownership, upstream stable contracts, actual UI completeness, acceptance and governing `docs/EXECUTION_PLAN.md` authority.
+
+**Unscheduled owner-intake overlay (2026-10-30; FFBB-1–8, not a new C-Series row/denominator):** The Future First Dynasty Best Ball research creates a private Roster Construction diagnostic (selected team, QB/RB/WR/TE/DL/LB/DB realized starter-scoring vs independent dynasty-value league ranks, actual/hypothetical optimized starts, forward readiness) and dependent roster opportunity, market meta, trade/waiver, contention and rebuild research. Detailed mapping and acceptance: `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` §§9–20; product plan §4.1; inventory 1.8; intake FFBB-1–8. This is a **planning pointer to existing C2 lineup/strength/replacement/simulation, C3 trade, C4 market/FAAB, C5 projections, C7 decision products and current IST waiver work**, not a claim that these capabilities are presently missing or a new implementation authorization. Before scheduling, reconcile each requirement against live existing rows and exact-HEAD code, then update fixed scope/acceptance denominators through normal replan. This overlay changes no listed C-Series row's status, no official launch gate and no `docs/EXECUTION_PLAN.md` authorization.
+
 *Owner-facing outcome: one answer to "how good is this roster, where is it weak, and what changes if I do X" —
 the same answer on every surface.*
 

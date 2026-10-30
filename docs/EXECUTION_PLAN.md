@@ -1,5 +1,45 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Roster Construction Intelligence V1 (private) and release completion — owner directive, 2026-10-30
+
+**AUTHORIZED NOW: build and merge Roster Construction V1 behind a new default-OFF flag; finish #2024 → #2025; reconcile
+#2026.** Verbatim directive: `docs/owner/RELEASE_COMPLETION_ROSTER_CONSTRUCTION_DIRECTIVE_2026-10-30.md`. Intake rows:
+RCV-1 … RCV-8. Feature contract: `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` §§9–20 and
+`docs/OWNER_PRODUCT_BACKLOG_SPEC.md` FC-01 / FC-02 / FC-06. Both arrive with PR #2026; until it merges, read them from
+its branch.
+
+Lanes (one owner per concern):
+- **Lane A (coordinator):** #2024 → #2025 under the 2026-10-29 section below; signed-in activation per IST-10 only.
+- **Lane B:** planning reconciliation and #2026 integration. Docs only.
+- **Lane C — mathematics:** new `src/roster_intel/construction*.py` (name chosen by the lane) adding only the missing
+  calculation layer; one private route in `server.py` behind flag `roster_construction` (default OFF), versioned
+  response contract.
+- **Lane D — frontend:** private, mobile-first page under `frontend/app/roster-construction/` (path may change),
+  PSI Direction A, fixtures until the API lands. The backend decides, the frontend renders.
+- **Lane E — independent validation:** acceptance scenarios 1–10 (directive Phase 5), FLEX attribution, ownership
+  history, chronology, mobile/WebKit/accessibility. Never certifies its own code.
+
+Canonical owners to reuse, never re-implement:
+- `src/ros/lineup.py` — slot rules and exact lineup assignment.
+- `src/roster_intel/best_ball_utility.py`, `marginal.py` — conditional marginal lineup utility (#1173).
+- `src/roster_intel/strength.py`, `weakness.py`, `window.py` (Competitive Posture), `age_portfolio.py`, `core.py`.
+- `src/league_intel/replacement.py` — replacement levels; `src/draft/displacement.py` — cut ladder and waiver levels.
+- `src/nfl_data/realized_points.py` — weekly points under the league's exact scoring.
+- `src/public_league/ownership.py` — who held a roster in week N; `src/history/asof.py` — as-of values, never future.
+- `src/trade/roster_capacity.py` — roster limits and forced drops.
+
+Invariants: positional production and positional dynasty value are computed and labelled separately; team utility never
+feeds `rankDerivedValue`; missing ownership or weekly actuals stay missing, never 0; historical numbers respect
+ownership tenure and as-of data; a weak position never auto-generates a transaction; NO ACTION is valid.
+
+**Unchanged and owner-reserved:**
+- canonical dynasty values, curves, source voting and weights;
+- every held flag and model promotion (#2006, #1938, #1884, #1873, #1852, freshness v2, DLF holds, Sim V3);
+- public exposure of any advisor or of Roster Construction;
+- any Sleeper write;
+- League Tycoon (OWNER-PARKED);
+- **production activation of `roster_construction`** (not authorized by this directive).
+
 ## IDP streaming and dynasty-safe roster churning (Waiver Advisor) — owner directive, 2026-10-29
 
 **AUTHORIZED NOW: build, merge and deploy under the standing merge authorization.** Verbatim directive and owner

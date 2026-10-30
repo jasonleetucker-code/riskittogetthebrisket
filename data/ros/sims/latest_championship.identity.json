@@ -1,10 +1,10 @@
 {
-  "computedAt": "2026-10-29T13:50:14.078862+00:00",
-  "forecastSha256": "ae92171e132337bfd8ac44642b4ffa596b823ad1a5fc0239ac5c16f921029dc7",
+  "computedAt": "2026-10-30T13:42:07.966440+00:00",
+  "forecastSha256": "88def7da07ea884ac9f8328009f4aafe1fdaf75a3daaa359b0e6a1a046c299fa",
   "inputs": {
     "contractGeneration": null,
-    "inputsSha256": "245fd0f3c2247c2f66220df1cf9fca0bbbf49b6b6da6edc8041a615b9197d2fc",
-    "leagueSnapshotGeneratedAt": "2026-10-29T13:50:12+00:00",
+    "inputsSha256": "f286009d0eae848c5867f0a771bdae1b2f05a489fc240f0a80e8399951a6a693",
+    "leagueSnapshotGeneratedAt": "2026-10-30T13:42:06+00:00",
     "leagueSnapshotScope": [
       "season",
       "league_id",
@@ -14,21 +14,21 @@
       "winners_bracket",
       "losers_bracket"
     ],
-    "leagueSnapshotSha256": "0160dbbc0a2875a141382462fa6c1efa6529b58b38861dc6196495595aef5682",
+    "leagueSnapshotSha256": "bcccda7b5914a154e187b3b4328afba9367557372af47f5005f0e04845fbed0c",
     "pointsModelFallbackSha256": "67ee9153fce3166a2b8568add3a0af51479077d117b210fd90fa1bd03dc98f96",
     "pointsModelFileSha256": null,
     "pointsModelSource": "fallback-constants",
-    "rosAggregateSha256": "88b9ca8efa78003f07f278be021b097452b6bf95b83e968d82ac781c31e8ad04",
-    "rosAggregatedAt": "2026-10-29T13:50:07.547616+00:00",
+    "rosAggregateSha256": "9f229f43c38d8976f0f03fe59a3ebd796297a88117c96bdfe6d331f77196e0d5",
+    "rosAggregatedAt": "2026-10-30T13:42:01.596497+00:00",
     "teamStrengthFileFresh": true,
-    "teamStrengthFileSha256": "13e39641d44a6c4d2ad4d19e8fb596a367e38cf43c3c667f9b37e0c7a0e5e16f"
+    "teamStrengthFileSha256": "7ae205da664586aec949f67f3415b592c836c6e99daeba9da149fa9c3787cdf9"
   },
   "kind": "championship",
   "lastScoredWeek": 7,
   "leagueKey": "dynasty_main",
   "model": {
-    "codeSha": "0ad58db4eb21f5dd34d90e33bd4566cfa688045e",
-    "codeShaCapturedAt": "2026-10-29T13:50:05.116095+00:00",
+    "codeSha": "31d832fc67aa738a5aa3e90bb2c3780da40e51a6",
+    "codeShaCapturedAt": "2026-10-30T13:41:58.637225+00:00",
     "codeShaSource": "refs/heads/main",
     "simParams": {
       "bestBall": true,
