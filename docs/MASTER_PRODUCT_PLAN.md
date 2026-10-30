@@ -13,7 +13,7 @@ Every substantial batch includes UI or names its adequately staffed active claim
 Use `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` and `docs/ui/UI_PARALLEL_LEDGER.md`; implementation authority remains EXECUTION_PLAN.md.
 
 **Status:** CANONICAL FRONT DOOR FOR PRODUCT DIRECTION  
-**Owner direction reconciled through:** 2026-09-24 for owner-intake/parallel-work process; product-direction body retains its existing dated decisions  
+**Owner direction reconciled through:** 2026-10-30 for MP3W-1…8 planning/parallel-work and Future First FFBB-1…8 intake, with detailed older owner decisions preserved by their own dates. Product status and implementation authorization remain separate; live evidence and `docs/EXECUTION_PLAN.md` control.  
 **Purpose:** Give every future Claude/ChatGPT/Codex session one place to answer: *What are we building? What are we not building? What does each feature mean? What is private vs public? What comes next? Which document wins if records disagree?*
 
 > **Start here for every material product, roadmap, architecture, or implementation-planning task.**
