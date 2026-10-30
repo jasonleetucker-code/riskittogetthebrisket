@@ -293,6 +293,22 @@ def test_node_limit_is_reported_never_passed_off_as_optimal():
     assert any("node_limit" in n for n in res.notes)
 
 
+def test_work_limit_counts_lineup_solves_and_bounds_the_search():
+    rng = random.Random(3)
+    roster = [_p(f"r{i}", rng.choice(POSITIONS), rng.uniform(0, 10)) for i in range(8)]
+    fas = [_p(f"f{i}", rng.choice(POSITIONS), rng.uniform(5, 15), dyn=1000) for i in range(12)]
+    args = dict(droppable=[p.player_id for p in roster], k=4, beta=1500.0, weights=(1.0, 0.85))
+    free = ss.solve_streaming(_inp(roster, fas, **args))
+    assert free.status == ss.STATUS_OPTIMAL and free.work > 0
+    capped = ss.solve_streaming(_inp(roster, fas, work_limit=free.work // 10, **args))
+    assert capped.status == ss.STATUS_BOUNDED
+    assert capped.work < free.work
+    assert any("work_limit" in n for n in capped.notes)
+    # A cap the search never reaches changes nothing.
+    roomy = ss.solve_streaming(_inp(roster, fas, work_limit=free.work * 2, **args))
+    assert roomy.to_dict() == free.to_dict()
+
+
 def test_negative_budget_refused():
     with pytest.raises(ValueError):
         ss.solve_streaming(_inp(_base_roster(), [], droppable=[], beta=-1.0))

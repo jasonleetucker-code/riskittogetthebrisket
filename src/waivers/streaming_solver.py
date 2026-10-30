@@ -11,7 +11,7 @@ nothing?*
 It is the weekly-points objective.  The DYNASTY objective (additive board value
 of the held set) is Perfect Waivers' (``src/trade/perfect_waivers.py``) and is
 not touched here.  Pure: no I/O, no contract reads, no clock.  The composer
-(``src/waivers/streaming.py``, a later PR) assembles the inputs from the
+(``src/waivers/streaming.py``) assembles the inputs from the
 canonical owners.
 
 Nothing here is a second owner
@@ -136,6 +136,7 @@ __all__ = [
     "StreamPlayer",
     "StreamPlan",
     "capacity_curve",
+    "solo_gains",
     "solve_streaming",
 ]
 
@@ -187,6 +188,11 @@ class SolverInput:
     materiality: float = 0.0
     slot_eligibility: Mapping[str, Collection[str]] | None = None
     node_limit: int = DEFAULT_NODE_LIMIT
+    #: Cap on canonical lineup solves (one per lineup component per week,
+    #: inside the Lagrangian bound included), the measured cost driver: a
+    #: node can cost one solve or hundreds.  ``None`` = no cap.  Reaching it
+    #: ends the search as ``bounded``, exactly like ``node_limit``.
+    work_limit: int | None = None
 
 
 @dataclass(frozen=True)
@@ -238,6 +244,9 @@ class SolverResult:
     #: ``optimal`` / ``bounded`` for :attr:`best_unbudgeted`; ``None`` when
     #: it was not computed.  Separate from :attr:`status` (the budgeted answer).
     unbudgeted_status: str | None = None
+    #: Canonical lineup solves this call made (both searches): the unit
+    #: ``work_limit`` is counted in.
+    work: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -252,6 +261,7 @@ class SolverResult:
             "excludedFreeAgents": dict(sorted(self.excluded_free_agents.items())),
             "boundGap": None if self.bound_gap is None else round(self.bound_gap, 3),
             "nodes": self.nodes,
+            "work": self.work,
             "notes": list(self.notes),
         }
 
@@ -396,6 +406,7 @@ class _Evaluator:
             hit = self._fill_cache.get(key)
             if hit is None:
                 hit = len(self._solve(c, [self._fill_players[i] for i in sorted(g)]))
+                self.calls += 1
                 self._fill_cache[key] = hit
             total += hit
         return total
@@ -598,10 +609,13 @@ class _Search:
         budget: float | None,
         start: StreamPlan | None = None,
         node_limit: int | None = None,
+        work_limit: int | None = None,
     ) -> None:
         self.inp = inp
         self.node_limit = int(inp.node_limit if node_limit is None else node_limit)
+        self.work_limit = work_limit
         self.ev = ev
+        self._calls_at_start = ev.calls
         self.budget = budget
         self.roster_ids = frozenset(p.player_id for p in inp.roster)
         self.base_value = ev.value(self.roster_ids)
@@ -617,7 +631,9 @@ class _Search:
         self._drop_warm: tuple[float, float, float] | None = None
 
     def _over_limit(self) -> bool:
-        if self.nodes >= self.node_limit:
+        if self.nodes >= self.node_limit or (
+            self.work_limit is not None and self.ev.calls - self._calls_at_start >= self.work_limit
+        ):
             self.truncated = True
             return True
         return False
@@ -929,6 +945,23 @@ def _undominated(
     return kept
 
 
+def solo_gains(inp: SolverInput) -> dict[str, float]:
+    """Each projected free agent's gain in ``V`` from adding him alone, with no
+    drop: the ranking key of a streaming board.  Free agents unprojected in
+    every week are left out (unknown, never 0)."""
+    ev = _Evaluator(inp)
+    roster_ids = frozenset(p.player_id for p in inp.roster)
+    base = ev.value(roster_ids)
+    out: dict[str, float] = {}
+    for p in inp.free_agents:
+        if p.player_id in roster_ids:
+            continue
+        if all(_week(p, w) is None for w in range(len(inp.week_weights))):
+            continue
+        out[p.player_id] = ev.value(roster_ids | {p.player_id}) - base
+    return out
+
+
 def solve_streaming(
     inp: SolverInput,
     *,
@@ -958,7 +991,7 @@ def solve_streaming(
 
     budget = float(inp.dynasty_budget)
     seed = start if start is not None and start.net_dynasty_loss <= budget + _EPS else None
-    search = _Search(inp, ev, budget=budget, start=seed)
+    search = _Search(inp, ev, budget=budget, start=seed, work_limit=inp.work_limit)
     gap = search.run(candidates, k) if k > 0 else None
     best = search.best
     status = STATUS_BOUNDED if search.truncated else STATUS_OPTIMAL
@@ -974,6 +1007,11 @@ def solve_streaming(
             budget=None,
             start=best,
             node_limit=max(1, int(inp.node_limit * UNBUDGETED_NODE_SHARE)),
+            work_limit=(
+                None
+                if inp.work_limit is None
+                else max(1, int(inp.work_limit * UNBUDGETED_NODE_SHARE))
+            ),
         )
         free.run(candidates, k)
         free_best = free.best
@@ -988,8 +1026,8 @@ def solve_streaming(
     notes = []
     if status == STATUS_BOUNDED:
         notes.append(
-            f"search stopped at node_limit={inp.node_limit}; the plan shown is the best found, "
-            "not proven optimal"
+            f"search stopped at node_limit={inp.node_limit} or work_limit={inp.work_limit} "
+            "lineup solves; the plan shown is the best found, not proven optimal"
         )
     negatives = _negative_projections(inp)
     if negatives:
@@ -1024,6 +1062,7 @@ def solve_streaming(
         nodes=search.nodes + free_nodes,
         notes=notes,
         unbudgeted_status=free_status,
+        work=ev.calls,
     )
 
 
