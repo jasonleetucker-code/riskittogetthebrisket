@@ -12,7 +12,7 @@ Lanes (one owner per concern):
 - **Lane A (coordinator):** #2024 → #2025 under the 2026-10-29 section below; signed-in activation per IST-10 only.
 - **Lane B:** planning reconciliation and #2026 integration. Docs only.
 - **Lane C — mathematics:** new `src/roster_intel/construction*.py` (name chosen by the lane) adding only the missing
-  calculation layer; one private route in `server.py` behind flag `roster_construction_v1` (default OFF), versioned
+  calculation layer; one private route in `server.py` behind flag `roster_construction` (default OFF), versioned
   response contract.
 - **Lane D — frontend:** private, mobile-first page under `frontend/app/roster-construction/` (path may change),
   PSI Direction A, fixtures until the API lands. The backend decides, the frontend renders.
@@ -38,7 +38,7 @@ ownership tenure and as-of data; a weak position never auto-generates a transact
 - public exposure of any advisor or of Roster Construction;
 - any Sleeper write;
 - League Tycoon (OWNER-PARKED);
-- **production activation of `roster_construction_v1`** (not authorized by this directive).
+- **production activation of `roster_construction`** (not authorized by this directive).
 
 ## IDP streaming and dynasty-safe roster churning (Waiver Advisor) — owner directive, 2026-10-29
 
