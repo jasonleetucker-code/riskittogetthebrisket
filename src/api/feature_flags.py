@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 65 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 66 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -669,6 +669,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # page renders "not available".  Activation is an owner decision.
     # Rollback: RISKIT_FEATURE_WAIVER_ADVISOR=0 + restart.
     "waiver_advisor": False,
+    # Roster Construction V1 (owner directive 2026-10-30, PHASE 3).  ON: the
+    # private GET /api/roster-construction answers — per league-season,
+    # positional optimal-lineup production and ranks, current positional
+    # dynasty value (rankDerivedValue, read only), per-player starts while
+    # owned / counterfactual / league startability, depth and coverage, and
+    # evidence-backed diagnoses that may say NO_ACTION.  It changes no served
+    # value, rank, lineup or flag.  Off -> the route 503s feature_disabled.
+    # Rollback: RISKIT_FEATURE_ROSTER_CONSTRUCTION=0 + restart.
+    "roster_construction": False,
     # Low-value depth disclosure SHADOW COUNTERS -- HELD, DEFAULT OFF (owner
     # decision 2026-10-21, LVA Package 4, V4 "approved for shadow measurement
     # only"; docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md).  ON: each private
@@ -1085,6 +1094,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # src/waivers/advisor.py::advisor_enabled): off → 503 feature_disabled.
     # Default False (see its _DEFAULTS entry).
     "waiver_advisor": LIVE,
+    # roster_construction gates GET /api/roster-construction inline in
+    # server.py: off -> 503 feature_disabled, on -> the private payload.
+    "roster_construction": LIVE,
     # low_value_depth_disclosure_shadow gates the depth-note shadow counters
     # inline in server.py (``_build_trade_simulation``, reached by
     # /api/trade/simulate and /api/trade/analyze) and the private read route

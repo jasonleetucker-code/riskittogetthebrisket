@@ -1,0 +1,25 @@
+{
+  "version": "rc_priors_v1",
+  "status": "labelled PRIORS, not calibrated. Every threshold below decides only whether a diagnosis is shown for review. None of them changes a value, a rank, a lineup or a recommendation to transact.",
+  "hostScoreTolerance": 0.011,
+  "quartileFraction": 0.25,
+  "minOwnedWeeks": 4,
+  "lowContributionStartRate": 0.25,
+  "productiveStartRate": 0.5,
+  "developmentalMaxAge": {"QB": 25, "RB": 23, "WR": 24, "TE": 25, "K": 26, "DL": 24, "LB": 24, "DB": 24},
+  "veteranMinAge": {"QB": 33, "RB": 28, "WR": 30, "TE": 30, "K": 35, "DL": 30, "LB": 30, "DB": 30},
+  "thinCoverageMinHoles": 2,
+  "contenderBenchMinCount": 5,
+  "redundantMarginalPerOwnedWeekMax": 1.0,
+  "topContributors": 3,
+  "why": {
+    "quartileFraction": "A 'top' or 'bottom' position rank is the league's top or bottom quarter, ceil(n x 0.25), so it scales with team count instead of a fixed rank.",
+    "minOwnedWeeks": "Fewer owned weeks is too small a sample to call a player low-contribution.",
+    "lowContributionStartRate": "Below this share of eligible owned weeks in the optimal lineup a player is tagged low_contribution (descriptive only).",
+    "developmentalMaxAge": "Age at or below which a low-start player is read as developmental rather than redundant. Per-position prior, not an age cliff.",
+    "veteranMinAge": "Age at or above which a starting player is tagged productive_veteran. Per-position prior, not an age cliff.",
+    "thinCoverageMinHoles": "Dedicated-slot holes (unfilled or 0-point starter weeks) at or above which thin coverage is considered.",
+    "contenderBenchMinCount": "Count of never-started, never-league-startable owned players at or above which a PUSH team's bench is flagged for review.",
+    "redundantMarginalPerOwnedWeekMax": "Marginal optimal-lineup points per eligible owned week at or below which a top-quartile-value player is called lineup-redundant on THIS roster."
+  }
+}
