@@ -72,6 +72,8 @@ has no destination in the Scope Manifest or the traceability document.
 
 Detailed owner-approved behaviour. Binding within their subject; they do not authorize implementation.
 
+**Agent-ready multi-week reconciliation (2026-10-30):** `docs/MASTER_PRODUCT_PLAN.md` §12 now maps Oct 9–30 initiative families into canonical owners and a dependency/parallel execution graph; `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §§21–22 are the detailed contract and historical status crosswalk; `docs/BRISKET_IDEAS.md` §§15–16 is the mandatory intake and synchronized work policy; intake MP3W-1…8 is in `docs/OWNER_REQUESTED_TODO.md`. None constitutes authorization; `docs/EXECUTION_PLAN.md` still governs. The Oct 25 RIT 88-item audit remains independently indexed below and authoritative for its historical evidence, not current production status.
+
 ### Trade
 **2026-10-30 owner planning intake:** The previously registered best-ball utility addendum now also includes §§9–20, documenting the six Future First podcasts, user-requested Roster Construction tab, 44 discussion concepts consolidated into FFBB-1–8, explicit existing-engine reuse, acceptance, and research-only status. Intake `docs/OWNER_REQUESTED_TODO.md` FFBB-1–8; product plan §4.1; inventory 1.8; C-Series manifest C2 overlay. This is **not** an additional roadmap/spec or implementation authorization; its older #1173 authority and prior dated execution claims continue to apply only to their existing scope.
 - `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` — **owner-approved scope, issue #1173,
