@@ -73,6 +73,7 @@ has no destination in the Scope Manifest or the traceability document.
 Detailed owner-approved behaviour. Binding within their subject; they do not authorize implementation.
 
 ### Trade
+**2026-10-30 owner planning intake:** The previously registered best-ball utility addendum now also includes §§9–20, documenting the six Future First podcasts, user-requested Roster Construction tab, 44 discussion concepts consolidated into FFBB-1–8, explicit existing-engine reuse, acceptance, and research-only status. Intake `docs/OWNER_REQUESTED_TODO.md` FFBB-1–8; product plan §4.1; inventory 1.8; C-Series manifest C2 overlay. This is **not** an additional roadmap/spec or implementation authorization; its older #1173 authority and prior dated execution claims continue to apply only to their existing scope.
 - `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` — **owner-approved scope, issue #1173,
   owner decision 2026-08-29.** A roster-conditional dynasty best-ball utility layer for Analyze Trade
   (`F(R) = E[optimal legal weekly lineup score | R, exact league rules]`; Best-Ball Lineup Impact, Lineup Entry
