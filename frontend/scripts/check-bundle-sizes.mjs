@@ -229,6 +229,12 @@ const BUDGETS_KB = {
   // OFF): 26.8 KB at introduction, pinned with ~15% headroom.  The per-pair
   // bid desk (FaabRecommendation) is a React.lazy chunk and is not counted.
   "/waiver-advisor/page": 31,
+  // /roster-construction (2026-10-30, Roster Construction V1, flag
+  // `roster_construction` default OFF): 16.6 KB at introduction (gate probe +
+  // selectors), pinned with ~15% headroom.  The analysis body
+  // (RosterConstructionPanel + lib/roster-construction.js) is a React.lazy
+  // chunk and is not counted.
+  "/roster-construction/page": 19,
 };
 
 function fmtKb(bytes) {
