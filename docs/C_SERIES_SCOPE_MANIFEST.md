@@ -225,6 +225,8 @@ are collecting evidence that cannot be recovered later at any price.
 
 ## C2 — Canonical roster, lineup, replacement and impact foundations
 
+**Unscheduled owner-intake overlay (2026-10-30; FFBB-1–8, not a new C-Series row/denominator):** The Future First Dynasty Best Ball research creates a private Roster Construction diagnostic (selected team, QB/RB/WR/TE/DL/LB/DB realized starter-scoring vs independent dynasty-value league ranks, actual/hypothetical optimized starts, forward readiness) and dependent roster opportunity, market meta, trade/waiver, contention and rebuild research. Detailed mapping and acceptance: `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` §§9–20; product plan §4.1; inventory 1.8; intake FFBB-1–8. This is a **planning pointer to existing C2 lineup/strength/replacement/simulation, C3 trade, C4 market/FAAB, C5 projections, C7 decision products and current IST waiver work**, not a claim that these capabilities are presently missing or a new implementation authorization. Before scheduling, reconcile each requirement against live existing rows and exact-HEAD code, then update fixed scope/acceptance denominators through normal replan. This overlay changes no listed C-Series row's status, no official launch gate and no `docs/EXECUTION_PLAN.md` authorization.
+
 *Owner-facing outcome: one answer to "how good is this roster, where is it weak, and what changes if I do X" —
 the same answer on every surface.*
 
