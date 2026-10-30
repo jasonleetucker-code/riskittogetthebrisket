@@ -553,3 +553,15 @@ The agent coordinator must start from `docs/MASTER_PRODUCT_PLAN.md` §12 and `do
 
 **Release and owner-only gates:** Existing cross-model Agent OS and standing green/reviewed routine merge policy still apply. This process is a way to plan and coordinate safely, **not blanket authorization** to implement new speculative features, merge a feature with active claim collisions, promote learned source/model weights, activate DLF IDP/outlier/freshness/public-advisor hold flags, resume paused DFS/League Tycoon or spend money.
 
+
+---
+
+## 17. Deferred League Tycoon — full owner-detail rescue (2026-10-30)
+
+**The original owner's Oct 16 instruction is still binding: ideas only, finish the current app, wait for an explicit "implement League Tycoon" direction.** A proposed `docs/BRISKET_IDEAS.md` §15 in **open, unmerged PR #1755** contained the **100-mechanism index, 44 future candidate tools**, contract/cap/migration rules, requirements and seven-stage future roadmap. It conflicts by section number with our later **§15 mandatory agent-ready planning template** and cannot safely be merged unexamined. The exact original proposed catalogue is now fully preserved as a standalone historical specification, `docs/owner/LEAGUE_TYCOON_DEFERRED_IDEAS_PRESERVED_2026-10-16.md`. Related merged research is #1764. This link **rescues ideas**, not authorization, code scope, implementation denominator, or live host migration. The future agent must reconcile #1755 and use this specific source instead of generic "League Tycoon" labels.
+
+## 18. Rolling 90-day conversation-to-master audit — user directive (2026-10-30)
+
+Three-month retroactive coverage is in `docs/owner/CHASE_UPSIDE_90_DAY_CONVERSATION_AUDIT_2026-10-30.md` (72 recovered R clusters from a July 10–Sept 10 audit, 88 individually indexed Oct 11–25 RIT tracks, dated September/October owner directives, high-detail recovered decisions and uncovered gaps). Master direction §13 and product spec §23 are the **entrypoints**, not duplicate owner ledgers. The source audit explicitly marks portions of the window that were recoverable only as summarized earlier context; **all raw conversations are not browsable** and no perfect transcript audit is claimed.
+
+**Permanent capture quality:** for each definite product instruction, before claiming it is “in the master plan,” verify all of: (1) live `docs/OWNER_REQUESTED_TODO.md` row, (2) exact agent-ready spec or full owner-directive pointer with user workflow, calculations/fields, examples and negative scenarios, (3) shared canonical owner and safe parallel integration plan, (4) permission and current state, (5) historic source/date/provenance and later supersession, (6) whether a PR actually merged to main (open PR ≠ durable merged work). **No release/promotion authorization arises from capture.** When an old proposal exists only in an open PR, rescue the substantive unique detail into a nonconflicting canonical historical file or reconcile/merge it using normal review/claims, not by overwriting a newer idea/spec.
