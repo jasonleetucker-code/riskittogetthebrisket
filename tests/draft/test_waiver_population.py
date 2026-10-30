@@ -139,12 +139,16 @@ def _production_files():
 #: legacy free-agent selection (``base_free_agent_rows``) unconditionally —
 #: that function IS the incumbent selection, folded here so it has one
 #: definition.  Adding an importer is a new consumer and needs its own review.
+#: The IDP streaming composer (src/waivers/streaming.py, reviewed in #2024) is
+#: one: like displacement it imports only ``base_free_agent_rows``, for its
+#: per-family free-agent replacement ladder, never the flag-gated population.
 P3_IMPORTERS = {
     "src/api/draft_optimizer_api.py",
     "src/draft/context.py",
     "src/draft/displacement.py",
     "src/roster_intel/droppability.py",
     "src/trade/roster_capacity.py",
+    "src/waivers/streaming.py",
 }
 
 
