@@ -23,6 +23,10 @@ approval. Owner-only consequential gates are unchanged.
 8. For engineering-system improvements, read `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.
 9. **Only for unattended/recurrent site-steward design or operation**, read `docs/AUTONOMOUS_SITE_STEWARD_VISION.md`. Do not preload that long-term vision into ordinary feature sessions.
 
+## Owner product specificity / multi-agent coordination — 2026-10-30
+
+When the owner gives one or many product ideas, **do not mistake a one-line umbrella name for a complete specification**. Alongside the existing owner-intake ledger, follow `docs/BRISKET_IDEAS.md` §§15–16 (mandatory `SPEC_READY` fields, zero-loss source gaps, and coordinated parallel lanes), `docs/MASTER_PRODUCT_PLAN.md` §12 (shared dependency graph and dated initiative routing), and `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §§21–22 (exact user-facing input/output/test contracts and Oct 9–30 reconciliation). Reuse the RIT-001…088 audit and subsequent dated directive IDs instead of creating redundant features. Keep uncertain ideas labeled uncertain and active claims respected. This documentation rule is NOT permission to implement ideas outside `docs/EXECUTION_PLAN.md`.
+
 ## Durable owner-intake capture rule
 
 When the owner says anything that a reasonable product/engineering lead would interpret as **durable future work**, do not leave that intent only in chat. This includes informal wording such as “add this,” “we need to fix/change this,” “make this better,” “remember/revisit this,” “do this later,” “put this on the list,” and equivalent statements that create, refine, pause, reject, or supersede product/process work.
