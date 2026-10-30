@@ -800,3 +800,26 @@ A missing dependency blocks only the affected unit; reassign independent workers
 
 The mandatory input template, status machine, reconciliation / dedup procedure and 3-lane evidence test are in `docs/BRISKET_IDEAS.md` §§15–16. For exact product-level behavior and negative acceptance examples, use `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §§21–22 and subordinate owner specs. A new owner idea must be **logged in the live intake ledger AND resolved to one detailed canonical specification** in the same capture; if the exact behavior remains ambiguous, record `SPEC_GAP` and keep it owner-review pending. An idea is never “done” because someone mentioned it in chat, wrote a single descriptive line, or produced code that has not been acceptance-verified.
 
+
+---
+
+# 13. THREE-MONTH OWNER CONVERSATION AUDIT — JUL 30–OCT 30, 2026
+
+**Owner instruction 3MA-1…6; source-level reconciliation:** [`docs/owner/CHASE_UPSIDE_90_DAY_CONVERSATION_AUDIT_2026-10-30.md`](owner/CHASE_UPSIDE_90_DAY_CONVERSATION_AUDIT_2026-10-30.md). This is the cross-reference for every *recoverable* Chase Upside conversation-derived idea from the three-month window, including **72 previously recovered July–September clusters** (some older than July 30), **88 October 11–25 RIT items**, September 11–October 10 dated directives, and October 26–30 IDP/Future First owner work. The individual source records and original detail are authoritative. **It is not proof that every raw chat message was retrievable.** The residual gap is explicitly marked.
+
+### 13.1 What was actually added or restored
+
+- **Unmerged, high-risk missed details:** the complete Oct 16 League Tycoon **100 mechanisms and 44 candidate ideas**, previously only proposed in open PR #1755, are now preserved in [`docs/owner/LEAGUE_TYCOON_DEFERRED_IDEAS_PRESERVED_2026-10-16.md`](owner/LEAGUE_TYCOON_DEFERRED_IDEAS_PRESERVED_2026-10-16.md). Research companion PR #1764 was merged. This is **PARKED**, not an active feature or a site-migration authorization. Current `docs/BRISKET_IDEAS.md` §15 is the agent-ready format, so reconcile #1755 without allowing its old §15 to replace that format.
+- **Old behavioral nuance restored to discoverability:** proper Chase Upside name, PSI Direction A, one-click public League access, roster-filtered SELL ticker, 10–20-minute roster podcast with five takeaways, canonical media/analyst freshness, weekly Upside Report, exact player special-team scoring, duplicate generic pick quantities, source-normalized hybrid Second Opinions (without false voting), source/BDVM independence, and global team-selected Game Day.
+- **Time-specific implementation rules preserved:** Sep 29 AUC-001 `$50 remaining – $45 leading = $5 spendable`, AUC-002 native push/inbox without paid SMS or extra apps, Oct 1 adaptive source-quality evaluation and shadow gates, Oct 17 **headline roster-neutral trade valuation** distinct from marginal roster benefit, October 18 DFS pause, Oct 25–30 IDP/waiver/roster research with exact league settings and held activation boundaries.
+- **Previously untracked reported symptom:** Oct 29 **saved credentials unexpectedly rejected**. This is an **UNREPRODUCED LOGIN REPORT**, not a proved authentication defect or permission to change credentials.
+- **Separate program boundary:** September sportsbook/odds/Kalshi/Market Edge Lab research belongs to its **own repository/authorization**. Capture its adjacent lineage, not as a silent Chase Upside wagering feature; Fantrax contingency remains exploratory.
+
+### 13.2 Agent read order and precision
+
+1. Start with existing `AI_INSTRUCTIONS.md` and `docs/EXECUTION_PLAN.md` (authority), work claims and current GitHub main/PRs.
+2. Use `docs/OWNER_REQUESTED_TODO.md` 3MA-1…6 for the instruction; this §13 for navigation; `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §23 for exact no-detail-loss checks; and the **dated full audit** above for all 72 recovered and 88 RIT source pointers.
+3. For any proposed executable unit, read the detailed *original* dated owner spec, not a single headline. Apply later explicit supersessions: private YES/NO vs public fairness-only, owner-approved `geom_q078_v1` but held source/model promotions, no automatic TE premium, DFS/League Tycoon pauses, correct draft order.
+4. Distinguish **captured, specified, implemented, merged, flag-enabled, production-verified, owner-accepted**. A missing raw chat stays `RAW_CHAT_NOT_RETRIEVED`; a reported defect stays `UNREPRODUCED` until measured. `SPEC_READY` requires input/output/method/UX/dependency/test/hold cases, as in Ideas §15. No model or code change is authorized by this source audit.
+
+**Primary implementation graph:** §12 remains the one shared foundation and multi-agent map. The 90-day audit **extends the historical idea coverage**; it does **not** redefine canonical owners, reopen finished units or add 72+88 competing implementation rows. Proposed future workers use safe parallel research/UI only when the existing execution plan allows it, with one writer per scoring, identity, trade, auction, historical model or roster engine.
