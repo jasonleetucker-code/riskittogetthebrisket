@@ -494,3 +494,62 @@ internal (plan §33).
 ---
 
 **Related:** issue #1412 · `docs/OWNER_REQUESTED_TODO.md` · `docs/PLANNING_DOCUMENT_STATUS.md` · `docs/MASTER_PRODUCT_PLAN.md` · `docs/EXECUTION_PLAN.md` · `docs/WORK_CLAIMS.md`.
+
+
+---
+
+## 15. Mandatory agent-ready feature contract — owner 2026-10-30 (MP3W)
+
+**Permanent requirement** for **every definite owner idea**, whether spoken informally, written in a conversation, pasted as research, or expressed as a future enhancement. "Add it to the master plan" = **record it in the live ledger, then link an adequate detailed specification through the canonical planning hierarchy**. The master roadmap must expose an obvious link and implementation disposition, not store a competing duplicate long-form formula. No owner needs to supply a formal ticket or say “save this.” Do not wait for a separate request to make the description buildable.
+
+**Definition of `SPEC_READY`** — an agent with no conversation history can answer all of the following from canonical repository-owned materials, without guessing:
+
+| Key | Required contract field / failure to avoid |
+|---|---|
+| ID / intent | Stable owner intake ID and original intent, user/problem statement, what counts as in-scope vs out-of-scope |
+| Observable behavior | Exact user workflow, settings, commands, screens and output, not a generic feature title |
+| Data input | Required schema, ID/ownership mapping, league scoring/starting rules, source rights, coverage and as-of timestamps |
+| Calculation | Canonical algorithm owner/module, precise math already decided, examples, numerical definitions, fallback/unknown behavior |
+| Integration | Named existing backends, read and write boundaries, public/private permission and every downstream consumer; **no second owner** |
+| Lifecycle | Product decision (requested, research, approved, paused, rejected) vs implementation (absent, partial, merged, flag off, prod verified), with as-of evidence |
+| Dependencies | Hard prerequisite, parallel-safe tasks, serial claimed files, scope/owners, integration order, conflicting work |
+| UX / copy | Layout and key messages (incl. negative/error/no-action), mobile/accessibility requirements, explanation and labels |
+| Acceptance | Minimum synthetic and real/anonymized scenarios, invariants, measurable performance/reliability, regression tests, privacy and release proof |
+| Control | Decision requiring user or owner, source/model promotion gate, external actions, costs, safe stop condition, no implied authorization |
+| History | Superseded wording, earlier issue/PR, compatible prior owner rules; provenance of new user instruction and research-only hypotheses |
+
+**Fail-safe state machine for a new idea:**
+`CAPTURED` (exact wording/intent in owner ledger) → `SPEC_GAP` (missing contract details, still durable) → `SPEC_READY` (fields above adequately grounded) → `RECONCILED` (existing code/PRs, dependency owners, scope and duplicates checked) → `AUTHORIZED` **only with a matching `docs/EXECUTION_PLAN.md` owner authority** → `CLAIMED` → `IMPLEMENTED_TESTED` → `INTEGRATED` → `DEPLOYED` → `USER_VERIFIED`/evidence-complete. Multiple dimensions may coexist: production activation and model promotion each have separate gates. A historical `DONE` in an intake table is not proof of live acceptance. When owner intent is ambiguous, label `OWNER_REVIEW_NEEDED` in the existing ledger rather than inventing a binding rule. **The correct answer may be NO CODE NEEDED** if live behavior already satisfies it.
+
+**Examples of insufficient vs adequate descriptions:**
+- Insufficient: “Roster Intelligence.” Adequate: exact seven-position point-ranked vs dynasty-value-ranked selected-team comparison, per-week legal optimal starter attribution, LEP/historical/counterfactual semantics, scored vs market time basis, as specified in `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` FC-01.
+- Insufficient: “Better IDP.” Adequate: selected league's actual 3 DL/3 LB/3 DB, verify Sleeper scoring, compare point-in-time empirical replacement gap with independent market observation, produce a shadow cross-position fairness experiment without changing served player values (FC-04).
+- Insufficient: “Stream waivers.” Adequate: exact weekly IDP stat projections + roster-legal 0–7 slot constrained optimizer, user-protected dynasty-loss budget zero, multiweek playoff outcomes, true FAAB availability, no-transaction option, private UI and fixed acceptance matrix from IST (FC-05).
+
+**Handoff:** a planning/implementation agent must cite the exact intake row, complete spec §, canonical code owner, relevant work claim, existing tests, and the `EXECUTION_PLAN.md` line authorizing *its actual next action*. If the owner requested only planning, create the integrated specs and stop. Subsequent model, voting, release, source access, purchase and external action permissions remain separate.
+
+## 16. Shared foundations, parallel lanes and integration contract (MP3W)
+
+The agent coordinator must start from `docs/MASTER_PRODUCT_PLAN.md` §12 and `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §§21–22. For any proposed batch (especially the “next ten” / full completion program), reconcile last three weeks' ideas, current PRs, historical RIT statuses, current branch HEAD, active file claims and deployed evidence **before** classifying work as a feature or defect.
+
+**One graph, not one giant worker:** shared **identity → actual league/scoring → historical/projection evidence → exact optimal legal lineup → replacement and roster marginal utility** are serial canonical owners. Trade, waiver, draft, posture, market and private UI are consumers; their isolated research sources/UI fixtures can proceed in parallel, but final wiring waits for a versioned shared interface. A DLF-vote research lane must not edit weekly IDP streaming source ownership; the same raw provider may feed separate legally permitted use cases but never gain unauthorized dynasty-vote power. Preserve source-lineage and non-duplicative evidence. A blocked contract obstructs only dependent integration units, not independent UI/research/operations work.
+
+**For each wave produce this compact register:**
+
+| Unit column | Required evidence |
+|---|---|
+| Feature ID(s) and user scenario | Intake + complete spec, before/after example and negative scenario |
+| Canonical owner / shared contract version | One module/service and schema version; upstream status |
+| Dependencies / blockers | Named work claim/PR/feature flag, owner decision, prior acceptance |
+| Parallel classification | `SAFE_PARALLEL`, `SERIAL_CANONICAL_OWNER`, `INTEGRATION_ONLY`, `DEPENDENCY_BLOCKED` |
+| Ordered lane | Foundation/backend, independent research, UI, integration, validation; no duplicate writer |
+| Plan status | `NOW` only if already authorized; `NEXT`, `LATER`, `BLOCKED`, `PAUSED`, `DONE_VERIFIED` otherwise |
+| Completion gate | L0/L1 worker tests, L2 integrated, L3/independent review & live auth/path verification where applicable |
+| Final user promise | What a real user sees/does, with no unproved statement that backend-complete = UX-complete |
+
+**Safe concurrency example (do not dispatch without authorization):** A) existing IST worker completes exact weekly stat projections; B) another existing IST worker completes dynasty-protected droppability; C) isolated historical data/calibration worker benchmarks opportunity and cross-position values; D) Lane 6 drafts mobile Roster Construction from a frozen mock server contract; E) a single Integration owner connects the shared optimizers to the API/UI after A+B pass their contracted gates; F) independent reviewer tests real league scenarios and reports blocked owner decisions. Do not start a second IST projections implementation, a second roster-utility engine, or a newly authorized production valuation change merely because a master plan names the broader family.
+
+**Rolling audit practice:** for every substantial owner request, reconcile the **last 21 days** of available owner-intake/connected evidence with current ledger + detailed specs + issue/PR/claims + tested production behavior. For large transcript or multi-week bundles, group related concepts under shared canonical units and retain each individual idea's source/rationale in a detailed spec section rather than turning all brainstorm labels into implementation tickets. The 2026-10-25 audit of RIT-001…088 is **already durable** and should be reused rather than recopied; for Oct 26–30 use dated IDPM/NC/IST/FFBB/MP3W. If the original conversation is not fully retrievable, mark `UNKNOWN_SOURCE_NOT_RETRIEVED` and report the missing coverage; never claim a perfect historical sweep on incomplete evidence. Do not create a separate permanent master backlog.
+
+**Release and owner-only gates:** Existing cross-model Agent OS and standing green/reviewed routine merge policy still apply. This process is a way to plan and coordinate safely, **not blanket authorization** to implement new speculative features, merge a feature with active claim collisions, promote learned source/model weights, activate DLF IDP/outlier/freshness/public-advisor hold flags, resume paused DFS/League Tycoon or spend money.
+
