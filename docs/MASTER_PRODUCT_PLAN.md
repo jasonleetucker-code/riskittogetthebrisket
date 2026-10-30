@@ -13,7 +13,7 @@ Every substantial batch includes UI or names its adequately staffed active claim
 Use `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` and `docs/ui/UI_PARALLEL_LEDGER.md`; implementation authority remains EXECUTION_PLAN.md.
 
 **Status:** CANONICAL FRONT DOOR FOR PRODUCT DIRECTION  
-**Owner direction reconciled through:** 2026-09-24 for owner-intake/parallel-work process; product-direction body retains its existing dated decisions  
+**Owner direction reconciled through:** 2026-10-30 for MP3W-1…8 planning/parallel-work and Future First FFBB-1…8 intake, with detailed older owner decisions preserved by their own dates. Product status and implementation authorization remain separate; live evidence and `docs/EXECUTION_PLAN.md` control.  
 **Purpose:** Give every future Claude/ChatGPT/Codex session one place to answer: *What are we building? What are we not building? What does each feature mean? What is private vs public? What comes next? Which document wins if records disagree?*
 
 > **Start here for every material product, roadmap, architecture, or implementation-planning task.**
@@ -188,6 +188,11 @@ are not authorized. Plan Part III (§26–§38).
 `OWNER_FEATURE_INVENTORY.md` remains the exhaustive row-level ledger. This section defines the unified product families so isolated ideas cannot drift into parallel systems.
 
 ## 4.1 Canonical roster intelligence
+
+**Owner planning extension — Future First Dynasty Best Ball six-episode research (2026-10-30, FFBB-1–8).**
+A private **Roster Construction** team-selection tab should compare each team's *realized optimized starter points and league ranking by QB/RB/WR/TE/DL/LB/DB* against separate *canonical dynasty-value rankings* and position-by-position forward scoring readiness. Add player historical optimal appearances while owned, explicitly labeled counterfactual would-have-started weeks, empirical league-average starter qualification, marginal lineup points, false-depth/insurance metrics and transparent position/flex attribution. Apply exact league rules (including two TE, Superflex and nine IDP starters where configured), not podcast benchmark point thresholds. Offense and IDP positions share the canonical exact lineup, replacement, roster value and projection owners. FLEX is assigned globally, not an additional sortable ranking.
+
+The extension connects a **league-meta/market-supply**, **transaction/roster repair**, **contender readiness**, **rebuild exit / asset flywheel**, and explanatory **The Next Move (including NO ACTION)** experience. New analytical models, contingent assets, market/liquidity/sell windows, draft/auction, waiver calendars, future picks, portfolio aging, role projections, and decision-quality audit are researched as dependent capabilities rather than competing product engines. Preserve canonical player market values as distinct from roster-specific weekly lineup utility and playoff probabilities; keep historical as-of and uncertainty explicit. The binding existing #1173 best-ball utility contract is extended for planning detail in `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` §§9–20. Intake `docs/OWNER_REQUESTED_TODO.md` FFBB-1–8; inventory 1.8; planning overlay on C2/C3/C4/C5/C7 and current IDP waiver work. **Intake is not implementation authorization:** `docs/EXECUTION_PLAN.md` remains unchanged; user has not yet requested the final Claude implementation prompt.
 
 ### Team Strength
 
@@ -714,3 +719,107 @@ This master pass intentionally reconciles the previously competing planning stre
 The canonical future direction is now **Master Plan → Feature Inventory + Detailed Backlog Spec → Architecture → Execution authorization**.
 
 Do not create another “master list” beside this one. Extend this hierarchy instead.
+
+---
+
+# 12. OWNER THREE-WEEK IDEA RECONCILIATION AND COORDINATED BUILD MAP — 2026-10-30
+
+**Direct owner instruction MP3W-1…8.** This section is the **authoritative roadmap routing and dependency graph** for the Oct 9–30 intake audit, **not** a competing detailed specification, implementation authorization or completion denominator. The exact build contract for a capability is the corresponding `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §21 plus the named dated feature-specific spec/owner directive and the live canonical implementation owner. All new product ideas must be recorded in `docs/OWNER_REQUESTED_TODO.md`. **Never ask the user to remember which roadmap to update.**
+
+## 12.1 What an agent must be able to determine
+
+For any item, an independent agent without access to chat must discover: **(1)** the exact user-visible question and user/persona; **(2)** the selected league and exact scoring/position/waiver rules; **(3)** required input fields and source-of-truth/staleness/permission semantics; **(4)** canonical module/API owner and whether the change is new, repair, extension, or already implemented; **(5)** calculations and expected output fields, including examples and negative/no-action cases; **(6)** UI state and public/private boundary; **(7)** lifecycle stage and active flags; **(8)** dependencies and shared contracts; **(9)** representative acceptance scenarios and measurable benchmarks; **(10)** authorized vs deferred/owner-only changes and the next smallest safe work unit. If any are missing, complete the **specification** or label the gap; do not invent methodology to close it.
+
+A label such as “roster intelligence”, “IDP pricing” or “better trades” **fails** the feature-definition standard. For example, the Roster Construction tab is specifically: select a league and team; compute **realized points from that team's legal weekly optimized starters by actual QB/RB/WR/TE/DL/LB/DB position**; rank that position against other league teams; independently rank the same position's **canonical dynasty market/model value**; drill into weekly historical actual start count, counterfactual starts, empirical league-relative starter threshold, optimal lineup point contribution, injury insurance, redundant points, and what-if trade/waiver impact; do not count a FLEX-assigned player twice. Its complete formulas, UI, missingness and acceptance are in the original #1173 addendum **§§9–20**.
+
+## 12.2 Three-week canonical project routing (Oct 9–30, 2026)
+
+| Family / user-facing promise | Detailed existing owner record | Shared foundations, downstream consumers | Working disposition / proof needed |
+|---|---|---|---|
+| **Roster Construction & best-ball contribution:** actual positional lineup points vs separate dynasty values; start rates and counterfactuals; false depth, 2TE/SF/9-IDP when configured | #1173 `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` §§9–20; intake FFBB-1…8; inventory 1.8 | league scorer + as-of rosters + C2 exact lineup, C2 replacement, C5 projections → private roster tab, Trade/War Room, Waiver Advisor | New selected-team UX; underlying capabilities partial. Plan P1, **not implementation-authorized by this intake** |
+| **Trade Finder / Best Offers / Package Builder:** identify *attainable* meaningful trades with ownership, manager needs, untouchable/LOCK, honest roster capacity and draft-pick constraints | `docs/owner/RIT_14DAY_AUDIT_RECONCILIATION_2026-10-25.md` RIT-001…014; original Oct 14–18 trade-discovery directives; C3/C7 specs | canonical identity/picks, roster simulation, market comps and posture → suggestion products, Trade Desk, Manager Scout | Many code/test-verified Oct 25, **not automatically production-verified**; remaining coverage and forced-drop gates as RIT details |
+| **Private Trade Calculator and War Room:** YES/NO/TOO CLOSE/INSUFFICIENT EVIDENCE, per-side context, explain 3 major reasons, Chase/KTC Value Adjustment side by side, screenshot import, readable mobile performance | RIT-015 onward; `docs/owner/LEAGUE_INTELLIGENCE_TRADE_DECISION_ENGINE_2026-10-19.md`, trade completion/War Room directives; `docs/OWNER_REQUESTED_TODO.md` 2026-10-19…21 | one `trade_decision.decide()` owner, #1173 roster utility, KTC **advisory**, historical comps, privacy/performance gates | Existing mixed stages; determine exact remaining test/review/prod evidence, don't claim all complete |
+| **2–4-team trades & public Brisket Trade Advisor:** one server calculation, per-team fairness, public FAIR TRADE/NOT FAIR/UNABLE TO DETERMINE **without exposing proprietary numeric values** | `docs/owner/TRADE_ADVISOR_MULTITEAM_DIRECTIVE_2026-10-20.md`, `docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`, OD-F family | same private engine, roster legality, admission/rate limiting and private-public projection | Partly merged/held; public flag and consequential release gates owner-reserved; no alternate public math |
+| **IDP independent values / cross-position utility:** tell whether DL/LB/DB players are underpriced relative to offense without forcing agreement with IDPTC; league-scored replacement, best-ball usefulness and multi-season demand | `docs/owner/IDP_VALUATION_ACCURACY_DIRECTIVE_2026-10-25.md`, IDPV family, LI-5, NC-A, #1173 | canonical scoring, point-in-time history, source truth → separately calibrated shadow benchmarks → trade/strength/advisory use only after approval | Shadow/research; **not** permission to change canonical IDP values or absolute ceilings |
+| **IDP acquisition, selling, drafts & market:** as-of true trade prices, league maturity/format, IDPTC comparison, maximum reasonable offer, role alternatives and rookie/auction demand | `docs/owner/IDP_MARKET_ACQUISITION_DIRECTIVE_2026-10-26.md`, IDPM-1…11 | Sleeper league-history chain, time-stamped value archive, canonical trade ledger, replacement & roster simulation → Trade Desk/draft/auction | Read-only history and shadow proposals authorized per execution plan; market source is **non-voting** |
+| **Weekly IDP projections, dynasty-protected churn and Waiver Advisor:** exact weekly stat categories, safe drops, 0–7 stream slots, legal lineup gains, FAAB, multiweek/playoffs, explicit no-transaction | `docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md`, IST-1…12, `docs/EXECUTION_PLAN.md` 2026-10-29 | existing projections + canonical lineup → streaming composer & dynastic protections → private UI and pinned backtest | **Authorized implementation** with active parallel workers; activation only upon mandated review/CI/acceptance |
+| **Valuation sources/freshness/lineage:** usable independent votes, source integrity, DLF / Signals gates, corrected timestamps, no false confidence or missing-as-zero | 2026-10-19 universal votes, `docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md`, V2.1, NC-B; source/voting records | source adapters → lineage, identity, normalization, outlier policy → canonical board; must not silently alter source votes | DLF IDP, D4, V2/V2.1, freshness schedule and Signals IDP activation still owner-held unless new decision |
+| **Source/calibration/model learning:** weekly and dynasty separation, independent holdouts, off/IDP ROS comparability, no double counting, champion vs challenger | `docs/owner/NEXT_CYCLE_IDP_CALIBRATION_DIRECTIVE_2026-10-28.md`, `docs/owner/RIT_14DAY_AUDIT_RECONCILIATION_2026-10-25.md` RIT-035…039, adaptive learning/spec governance | exact scorer + archived actuals + model registry → shadow evaluations → owner decision package | Some shadow infrastructure merged, activation and model promotion blocked pending evidence/decision |
+| **League scoring, schedule, Power and pick intelligence:** accurate Sleeper league fingerprints, future draft slots from the **recorded actual league rule**, $1,200 per dynasty_main rookie draft-year dollar allocation, rollover | `docs/picks/DRAFT_ORDER_RULE.md`, `docs/EXECUTION_PLAN.md` 2026-10-17/18, RIT league-model/draft rows, Schedule Intelligence owner directive | league config/snapshots → exact scoring/lineup, valuation/pick/auction and projections → dashboards | Mix of live, partial and owner questions; `dynasty_new` excluded where owner said; **do not silently replace rule with Max PF** |
+| **UX, evidence, privacy and operational completion:** PSI visual design, faster War Room, authenticated survival, deployment freshness, scheduled E2E, no secret exposure and source licensing | RIT-073/078 and RPA, NC-C/D/E, Oct 18–21 release directives; `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` | every model/product lane → coherent Lane 6 UI + exact-head tests, independent review, production verification | Some Oct 25 production defects reported; **reverify current** evidence, do not assume old failing unit still broken |
+| **Owner-only read-only ChatGPT MCP surface:** tools for rankings, identity, selected league, rosters and trade analysis; no chat API duplication | `docs/EXECUTION_PLAN.md` 2026-10-25, `docs/OWNER_REQUESTED_TODO.md` MCP entry, PR #1921 successor | reuse same identity, auth, provenance and private analytics owners, no write gateway | Initial scoped PR, no automatic publishing/credentials/merge/activation authority |
+| **Paused or rejected** | Oct 18 DFS / League Tycoon pause and owner dispositions; RIT-085/086/088; product §6 | keep preservation/documentation of prior work, do not schedule workers | **PAUSED / PROPOSAL ONLY**, not implementation tasks |
+
+**Audit truth note:** The 88-item RIT reconciliation is a **historical verified as-of 2026-10-25** classification, not proof of current production state. It includes 56 code/test verified, 3 merged-production-unverified, 9 dormant behind flags, 7 partial, 2 awaiting review, 4 dependency blocked, 2 paused, 1 superseded, 2 broken, 1 unverifiable and 1 unstarted proposal. The actual detailed per-ID source-to-code-to-status map remains in that record; **do not recopy 88 descriptions into multiple conflicting roadmaps**. Recoverable conversation evidence and dated directives extend the review to Oct 9–30, but the entire original chat corpus for Oct 9–10 was not independently replayed. Unknown missing conversation evidence remains a gap, never an assertion that no other ideas existed.
+
+## 12.3 Dependency graph and shared foundations
+
+```text
+       Source rights + identity + provenance + point-in-time archival
+                         |
+            League-config identity / exact scoring
+                         |
+     +-------------------+----------------------+
+     |                   |                      |
+ Canonical market    Weekly/ROS projections   Realized actuals + as-of rosters
+ value & picks       (offense + IDP)          and transaction ledger
+     |                   |                      |
+     +-------------------+----------------------+
+                         |
+       EXACT global legal lineup / availability / FLEX solver
+                         |
+         Replacement, roster marginal utility, insurance
+                         |
+     +---------------+-------------+---------------+
+     |               |             |               |
+  Trade &          Waiver/FAAB    Draft/auction   Team window/
+  market analysis  IDP streaming  & pick assets   future portfolio
+     +---------------+-------------+---------------+
+                         |
+             Single aligned private decision outputs
+                         |
+     Roster Construction / Trade Desk / Waiver UI / Next Move
+                         |
+              independent acceptance + release gates
+```
+
+**Contract rules:** market value ≠ weekly expected points ≠ roster-conditional marginal utility ≠ public fairness ≠ playoff/title odds. They may be presented side-by-side but must not be averaged or counted as independent votes when they share inputs. Reuse existing owners, never establish a parallel scoring, valuation, trade-decision, lineup, waiver or provenance engine. Optional chart, coaching, or podcast insights may consume results; they do not own calculations. Preserve the existing `dynasty_main` draft-order rule, all actual league scoring settings and private/public boundaries.
+
+## 12.4 Coordinated multi-agent execution, only after checking authorization
+
+1. **Evidence / current-state pass (small coordinator unit):** pull latest main, check open PRs, claims, approved/held flags, source freshness, tests and released versions. Mark each row `CODE_PRESENT`, `MERGED`, `FLAG_OFF`, `PROD_VERIFIED`, `PARTIAL`, `BLOCKED`, `RESEARCH`, `PAUSED` or `UNKNOWN`; keep code and UX statuses separate.
+2. **One shared contract-owner lane (SERIAL):** canonical schema/league identity, exact scoring, historical attribution, lineup and player-identity interoperability. Freeze versioned input/output contracts; other agents may write consumers against those contracts but cannot redefine the underlying semantics or edit the same files concurrently.
+3. **Parallel independent research lanes (SAFE):** (A) position-specific RB/WR/TE/QB/IDP opportunity and weekly projection backtests; (B) transaction/market/as-of trade-history evidence; (C) dynasty/age/availability/model-calibration challengers; (D) pick/draft/auction/FAAB market analysis. Each has isolated outputs and no automatic live influence. Existing IST W1/W2/W3 and NC/IDPM claims win over new assignments; do not duplicate them.
+4. **Parallel presentation lane (SAFE when contract-stable):** PSI-consistent private Roster Construction diagnostics and readable Trade/Waiver cards using server-provided results. Mock contract fixtures may support early UI work; route wiring happens only once the relevant backend contract is verified. Keep accessibility, mobile and WebKit parity.
+5. **Decision integration lane (SERIAL at shared owners):** integrate *independent evidence* through existing one Trade verdict owner, exact before/after simulation, one waiver optimizer and competitive posture; preserve legal moves, dynasty locks, budget, 2–4 team trade support, no-action and public fairness-only boundary.
+6. **Independent validation / Integration Authority:** controlled synthetic cases first, chronological historical holdouts, exact scoring parity and user-facing league examples, L0/L1 in worker branches, L2 at integration, L3 at release, role-qualified independent review, version/flags/provenance, rollback and staged production checks. Routine reviewed/green **authorized** PRs follow existing standing integration policy. Owner-only activation, spending, security, model/source promotion, product-scope changes and paused areas are **not** auto-approved.
+
+A missing dependency blocks only the affected unit; reassign independent workers to other ready components. A plan does not assign extra resources, override `docs/WORK_CLAIMS.md`, edit open workstreams, or authorize implementation. Every coherent wave produces exactly one shared foundation and *consumers* of it, not multiple competing substitutes.
+
+## 12.5 Agent-ready feature-definition and zero-loss guarantee
+
+The mandatory input template, status machine, reconciliation / dedup procedure and 3-lane evidence test are in `docs/BRISKET_IDEAS.md` §§15–16. For exact product-level behavior and negative acceptance examples, use `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §§21–22 and subordinate owner specs. A new owner idea must be **logged in the live intake ledger AND resolved to one detailed canonical specification** in the same capture; if the exact behavior remains ambiguous, record `SPEC_GAP` and keep it owner-review pending. An idea is never “done” because someone mentioned it in chat, wrote a single descriptive line, or produced code that has not been acceptance-verified.
+
+
+---
+
+# 13. THREE-MONTH OWNER CONVERSATION AUDIT — JUL 30–OCT 30, 2026
+
+**Owner instruction 3MA-1…6; source-level reconciliation:** [`docs/owner/CHASE_UPSIDE_90_DAY_CONVERSATION_AUDIT_2026-10-30.md`](owner/CHASE_UPSIDE_90_DAY_CONVERSATION_AUDIT_2026-10-30.md). This is the cross-reference for every *recoverable* Chase Upside conversation-derived idea from the three-month window, including **72 previously recovered July–September clusters** (some older than July 30), **88 October 11–25 RIT items**, September 11–October 10 dated directives, and October 26–30 IDP/Future First owner work. The individual source records and original detail are authoritative. **It is not proof that every raw chat message was retrievable.** The residual gap is explicitly marked.
+
+### 13.1 What was actually added or restored
+
+- **Unmerged, high-risk missed details:** the complete Oct 16 League Tycoon **100 mechanisms and 44 candidate ideas**, previously only proposed in open PR #1755, are now preserved in [`docs/owner/LEAGUE_TYCOON_DEFERRED_IDEAS_PRESERVED_2026-10-16.md`](owner/LEAGUE_TYCOON_DEFERRED_IDEAS_PRESERVED_2026-10-16.md). Research companion PR #1764 was merged. This is **PARKED**, not an active feature or a site-migration authorization. Current `docs/BRISKET_IDEAS.md` §15 is the agent-ready format, so reconcile #1755 without allowing its old §15 to replace that format.
+- **Old behavioral nuance restored to discoverability:** proper Chase Upside name, PSI Direction A, one-click public League access, roster-filtered SELL ticker, 10–20-minute roster podcast with five takeaways, canonical media/analyst freshness, weekly Upside Report, exact player special-team scoring, duplicate generic pick quantities, source-normalized hybrid Second Opinions (without false voting), source/BDVM independence, and global team-selected Game Day.
+- **Time-specific implementation rules preserved:** Sep 29 AUC-001 `$50 remaining – $45 leading = $5 spendable`, AUC-002 native push/inbox without paid SMS or extra apps, Oct 1 adaptive source-quality evaluation and shadow gates, Oct 17 **headline roster-neutral trade valuation** distinct from marginal roster benefit, October 18 DFS pause, Oct 25–30 IDP/waiver/roster research with exact league settings and held activation boundaries.
+- **Previously untracked reported symptom:** Oct 29 **saved credentials unexpectedly rejected**. This is an **UNREPRODUCED LOGIN REPORT**, not a proved authentication defect or permission to change credentials.
+- **Separate program boundary:** September sportsbook/odds/Kalshi/Market Edge Lab research belongs to its **own repository/authorization**. Capture its adjacent lineage, not as a silent Chase Upside wagering feature; Fantrax contingency remains exploratory.
+
+### 13.2 Agent read order and precision
+
+1. Start with existing `AI_INSTRUCTIONS.md` and `docs/EXECUTION_PLAN.md` (authority), work claims and current GitHub main/PRs.
+2. Use `docs/OWNER_REQUESTED_TODO.md` 3MA-1…6 for the instruction; this §13 for navigation; `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §23 for exact no-detail-loss checks; and the **dated full audit** above for all 72 recovered and 88 RIT source pointers.
+3. For any proposed executable unit, read the detailed *original* dated owner spec, not a single headline. Apply later explicit supersessions: private YES/NO vs public fairness-only, owner-approved `geom_q078_v1` but held source/model promotions, no automatic TE premium, DFS/League Tycoon pauses, correct draft order.
+4. Distinguish **captured, specified, implemented, merged, flag-enabled, production-verified, owner-accepted**. A missing raw chat stays `RAW_CHAT_NOT_RETRIEVED`; a reported defect stays `UNREPRODUCED` until measured. `SPEC_READY` requires input/output/method/UX/dependency/test/hold cases, as in Ideas §15. No model or code change is authorized by this source audit.
+
+**Primary implementation graph:** §12 remains the one shared foundation and multi-agent map. The 90-day audit **extends the historical idea coverage**; it does **not** redefine canonical owners, reopen finished units or add 72+88 competing implementation rows. Proposed future workers use safe parallel research/UI only when the existing execution plan allows it, with one writer per scoring, identity, trade, auction, historical model or roster engine.
