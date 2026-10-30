@@ -189,6 +189,11 @@ are not authorized. Plan Part III (§26–§38).
 
 ## 4.1 Canonical roster intelligence
 
+**Owner planning extension — Future First Dynasty Best Ball six-episode research (2026-10-30, FFBB-1–8).**
+A private **Roster Construction** team-selection tab should compare each team's *realized optimized starter points and league ranking by QB/RB/WR/TE/DL/LB/DB* against separate *canonical dynasty-value rankings* and position-by-position forward scoring readiness. Add player historical optimal appearances while owned, explicitly labeled counterfactual would-have-started weeks, empirical league-average starter qualification, marginal lineup points, false-depth/insurance metrics and transparent position/flex attribution. Apply exact league rules (including two TE, Superflex and nine IDP starters where configured), not podcast benchmark point thresholds. Offense and IDP positions share the canonical exact lineup, replacement, roster value and projection owners. FLEX is assigned globally, not an additional sortable ranking.
+
+The extension connects a **league-meta/market-supply**, **transaction/roster repair**, **contender readiness**, **rebuild exit / asset flywheel**, and explanatory **The Next Move (including NO ACTION)** experience. New analytical models, contingent assets, market/liquidity/sell windows, draft/auction, waiver calendars, future picks, portfolio aging, role projections, and decision-quality audit are researched as dependent capabilities rather than competing product engines. Preserve canonical player market values as distinct from roster-specific weekly lineup utility and playoff probabilities; keep historical as-of and uncertainty explicit. The binding existing #1173 best-ball utility contract is extended for planning detail in `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` §§9–20. Intake `docs/OWNER_REQUESTED_TODO.md` FFBB-1–8; inventory 1.8; planning overlay on C2/C3/C4/C5/C7 and current IDP waiver work. **Intake is not implementation authorization:** `docs/EXECUTION_PLAN.md` remains unchanged; user has not yet requested the final Claude implementation prompt.
+
 ### Team Strength
 
 **Goal:** one canonical answer to “How strong is this dynasty roster?” based on the meaningful upper roster, not a raw sum of every bench asset.
