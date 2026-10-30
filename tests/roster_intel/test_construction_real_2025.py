@@ -25,13 +25,13 @@ FIX = Path(__file__).resolve().parents[1] / "league_intel" / "fixtures" / "match
 
 @pytest.fixture(scope="module")
 def season():
-    meta = json.loads((FIX / "players_meta.json").read_text())
+    meta = json.loads((FIX / "players_meta.json").read_text(encoding="utf-8"))
     weeks = {
         w: [
             rc.TeamWeekIn(
                 roster_id=e["roster_id"], roster=tuple(e["players"]), points=e["players_points"]
             )
-            for e in json.loads((FIX / f"w{w}.json").read_text())
+            for e in json.loads((FIX / f"w{w}.json").read_text(encoding="utf-8"))
         ]
         for w in range(1, 18)
     }
