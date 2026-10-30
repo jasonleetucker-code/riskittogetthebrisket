@@ -10,6 +10,8 @@
 
 ## 0. HOW CLAUDE MUST USE THIS DOCUMENT
 
+**2026-10-30 owner-intake extension — Future First episodes 50–55:** The proposed private Roster Construction tab, selected-team positional league rankings (realized starter points separately from dynasty-value rank), player weekly start/average-starter/counterfactual history, roster efficiency, league meta, offensive/IDP role opportunity, contender/rebuilder roadmaps, draft/auction/waiver planning and Next Move recommendations are detailed in the **existing** canonical `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` §§9–20. Intake: `docs/OWNER_REQUESTED_TODO.md` FFBB-1–8; inventory row 1.8; Master Product Plan §4.1. That extension **adds research/planning ideas**, not automatic model promotion or production implementation authority. Current standalone player value, exact lineup, trade verdict, waiver/FAAB and draft-order owners retain precedence, and the owner has not authorized the final Claude prompt.
+
 Before implementing any material product/backlog item, Claude must read the relevant section here plus the current canonical architecture/audit documents and inspect the live repository.
 
 For every material feature, preserve these fields:
