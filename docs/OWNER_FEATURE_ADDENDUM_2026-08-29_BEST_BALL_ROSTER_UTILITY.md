@@ -232,3 +232,5 @@ Do not use these ranges as delivery-denominator increments. Reconcile against pr
 | PSI UI treatment | Existing always-parallel UI lane where scope ready | UI implementation contract and active claims | Accessible/mobile usable, backend/UI parity, UI acceptance |
 
 **Implementation authority:** none from this research intake. Remains solely in docs/EXECUTION_PLAN.md; do not amend current execution authorization or intersect open IST/NC file claims. Preserve existing work and owner-reserved gates. The user also explicitly withheld authorization to create the **single final Claude master implementation prompt** until a later instruction.
+
+**Superseded for V1 scope (2026-10-30):** `docs/EXECUTION_PLAN.md` RCV-4 now AUTHORIZES building the private Roster Construction V1 (FFBB-1, plus the minimal FFBB-2 layer it needs) behind default-OFF flag `roster_construction`; production activation stays owner-gated (RCV-7); FFBB-3…8 research items remain unauthorized. Owner record: `docs/owner/RELEASE_COMPLETION_ROSTER_CONSTRUCTION_DIRECTIVE_2026-10-30.md`.
