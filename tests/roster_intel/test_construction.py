@@ -516,6 +516,19 @@ def test_unverified_lineup_mode_has_its_own_basis():
     assert any("could not be verified" in a for a in payload["assumptions"])
 
 
+def test_a_rivals_partial_value_also_withholds_rc_d1():
+    # Only a RIVAL's TE total is a lower bound: this team's value rank may be
+    # optimistic, so RC-D1 is not evaluated either (validator note 1, #2028).
+    teams = league_of(4)
+    rival_tes = [p for p, s in teams[2].items() if s[0] == "TE"]
+    payload, _ = compute(build_snapshot(teams), contract=_contract_for(teams, {rival_tes[0]: None}))
+    te = _position(payload, "TE")["value"]
+    assert te["partial"] is False and te["rankPartial"] is True
+    d = _diag(payload, "RC-D1", "TE")
+    assert d["status"] == rc.STATUS_NOT_EVALUATED
+    assert d["notEvaluatedReason"] == "league_value_partially_priced"
+
+
 def test_partially_priced_position_is_flagged_and_not_diagnosed():
     teams = league_of(4)
     tes = [p for p, s in teams[1].items() if s[0] == "TE"]

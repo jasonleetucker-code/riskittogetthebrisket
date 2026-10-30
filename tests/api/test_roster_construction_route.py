@@ -196,3 +196,18 @@ def test_posture_unavailable_carries_the_owner_reason_code(env, monkeypatch):
     r = env.client.get(URL, params={"leagueKey": "main", "rosterId": "1"}, headers=AS)
     assert r.json()["team"]["posture"]["reason"] == "posture_unavailable:bundle_not_built"
     assert "GameplanUnavailable" not in r.text
+
+
+def test_posture_owner_import_failure_degrades_instead_of_503(env, monkeypatch):
+    # Validator note 2 (#2028): a failing import of the posture owner must
+    # degrade to a named unavailable, not break the whole page.
+    import sys
+
+    import src.api
+
+    # ``from src.api import gameplan`` reads the package attribute first.
+    monkeypatch.delattr(src.api, "gameplan", raising=False)
+    monkeypatch.setitem(sys.modules, "src.api.gameplan", None)
+    r = env.client.get(URL, params={"leagueKey": "main", "rosterId": "1"}, headers=AS)
+    assert r.status_code == 200
+    assert r.json()["team"]["posture"] == {"label": None, "reason": "posture_lookup_failed"}

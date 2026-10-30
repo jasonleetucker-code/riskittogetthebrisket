@@ -971,6 +971,10 @@ def diagnose(
             elif value["perTeam"][rid][g]["partial"]:
                 # This team's total is a lower bound; its rank is not a claim.
                 _d("RC-D1", g, STATUS_NOT_EVALUATED, reason="position_value_partially_priced")
+            elif vr.get("rankPartial"):
+                # A rival's total is a lower bound, so this team's value rank
+                # may be optimistic: not a claim either.
+                _d("RC-D1", g, STATUS_NOT_EVALUATED, reason="league_value_partially_priced")
             elif vr["rank"] <= _q(n_v, priors) and pr["rank"] >= n_p - _q(n_p, priors) + 1:
                 holders = sorted(
                     (p for p in by_group_players[g] if p.get("dynastyValue") is not None),

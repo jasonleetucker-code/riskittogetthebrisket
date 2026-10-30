@@ -16448,7 +16448,10 @@ def _roster_construction_posture(league_cfg, snapshot, target, owner_by_roster):
         return {}, "contract_league_mismatch"
     try:
         from src.api import gameplan as _gameplan  # noqa: PLC0415
-
+    except Exception as exc:  # noqa: BLE001 — an import failure degrades, never 503s
+        logging.warning("Roster construction: posture owner unavailable: %s", exc)
+        return {}, "posture_lookup_failed"
+    try:
         postures, _meta = _gameplan.league_competitive_postures(
             league_cfg.key, league_cfg.scoring_profile, contract, build_if_missing=False
         )
