@@ -50,12 +50,13 @@ import {
  * on one guard.
  */
 const CONSENSUS_EDGE = "/consensus-edge";
+const WAIVER_ADVISOR = "/waiver-advisor";
 
 /** Every item in the shipped model that declares a capability. */
 const GATED = flattenNav(NAV_MODEL).filter((i) => i.capability);
 
 /** The gated hrefs we assert on: the derived set plus the named route. */
-const MUST_BE_GATED = [...new Set([...GATED.map((i) => i.href), CONSENSUS_EDGE])];
+const MUST_BE_GATED = [...new Set([...GATED.map((i) => i.href), CONSENSUS_EDGE, WAIVER_ADVISOR])];
 
 /** Capability map with every declared capability switched ON. */
 const ALL_ON = Object.fromEntries(GATED.map((i) => [i.capability, { available: true }]));
