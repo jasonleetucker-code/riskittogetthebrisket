@@ -39,8 +39,10 @@ def flags_on(monkeypatch):
     _flags(monkeypatch, waiver_advisor=True, idp_streaming=True)
 
 
-def test_flag_is_declared_default_off():
-    assert feature_flags._DEFAULTS["idp_streaming"] is False
+def test_flag_is_on_by_owner_decision():
+    # Owner decision 1 (2026-10-29): ON for the private, signed-in Waiver
+    # Advisor; the route stays auth-gated (see test_anonymous_is_401).
+    assert feature_flags._DEFAULTS["idp_streaming"] is True
 
 
 def test_anonymous_is_401(env, flags_on):  # noqa: F811

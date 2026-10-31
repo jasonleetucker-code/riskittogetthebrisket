@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 67 entries in ``_DEFAULTS`` below are ``True`` —
+26 of the 67 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -20,7 +20,8 @@ end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``fantasypros_idp_upstream_clock``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
 ``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates``,
-``trade_screenshot_import`` and ``manager_intelligence`` — several with comments
+``trade_screenshot_import``, ``manager_intelligence``, ``waiver_advisor`` and
+``idp_streaming`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -666,9 +667,12 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # the selected team: a composer over the existing owners (Perfect
     # Waivers, FAAB engine, lineup solver, roster capacity, posture) that
     # changes no served value.  Off → the route 503s feature_disabled and the
-    # page renders "not available".  Activation is an owner decision.
-    # Rollback: RISKIT_FEATURE_WAIVER_ADVISOR=0 + restart.
-    "waiver_advisor": False,
+    # page renders "not available".  ON by owner decision 1 of 2026-10-29
+    # (docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md): enabled for the
+    # private, signed-in Waiver Advisor once acceptance, exact-head green CI
+    # and independent review passed (#2024 / #2025).  The page and route stay
+    # auth-gated.  Rollback: RISKIT_FEATURE_WAIVER_ADVISOR=0 + restart.
+    "waiver_advisor": True,
     # Roster Construction V1 (owner directive 2026-10-30, PHASE 3).  ON: the
     # private GET /api/roster-construction answers — per league-season,
     # positional optimal-lineup production and ranks, current positional
@@ -686,9 +690,10 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # league-scored projections, the drop assessment, the exact lineup solver,
     # the FAAB engine and roster capacity.  Advice only; it changes no served
     # value and writes nothing to Sleeper.  Off → the route 503s
-    # feature_disabled and the page hides the mode.  Activation is an owner
-    # decision.  Rollback: RISKIT_FEATURE_IDP_STREAMING=0 + restart.
-    "idp_streaming": False,
+    # feature_disabled and the page hides the mode.  ON by owner decision 1 of
+    # 2026-10-29 (same record and gates as ``waiver_advisor``).
+    # Rollback: RISKIT_FEATURE_IDP_STREAMING=0 + restart.
+    "idp_streaming": True,
     # Low-value depth disclosure SHADOW COUNTERS -- HELD, DEFAULT OFF (owner
     # decision 2026-10-21, LVA Package 4, V4 "approved for shadow measurement
     # only"; docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md).  ON: each private

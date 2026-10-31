@@ -26,7 +26,7 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-10-25, 24 of the 67 entries in
+   **Defaults are per-flag.** As of 2026-10-29, 26 of the 67 entries in
    `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
    F-24: the ledger-derived `rankChange` derivation, previously an
    invisible direct env read), `bdvm_engine`, `te_basis_conversion`
@@ -57,7 +57,9 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    (automatic DFS slates; writes only `data/dfs/`), `trade_screenshot_import`
    (Import Trade from Screenshot; local OCR, identities only, retains
    nothing), `manager_intelligence` (private Sleeper-username portfolio
-   lookup; reads only, owner-confirmed non-commercial use) — several
+   lookup; reads only, owner-confirmed non-commercial use), `waiver_advisor`
+   and `idp_streaming` (the private signed-in Waiver Advisor and its Weekly
+   IDP Streaming mode; advice only, owner decision 2026-10-29) — several
    with comments
    recording that the enabled default is deliberate. For those, the env
    var is a rollback lever rather than an opt-in.
