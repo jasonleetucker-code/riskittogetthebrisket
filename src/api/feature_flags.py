@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-26 of the 66 entries in ``_DEFAULTS`` below are ``True`` —
+26 of the 67 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -673,6 +673,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # and independent review passed (#2024 / #2025).  The page and route stay
     # auth-gated.  Rollback: RISKIT_FEATURE_WAIVER_ADVISOR=0 + restart.
     "waiver_advisor": True,
+    # Roster Construction V1 (owner directive 2026-10-30, PHASE 3).  ON: the
+    # private GET /api/roster-construction answers — per league-season,
+    # positional optimal-lineup production and ranks, current positional
+    # dynasty value (rankDerivedValue, read only), per-player starts while
+    # owned / counterfactual / league startability, depth and coverage, and
+    # evidence-backed diagnoses that may say NO_ACTION.  It changes no served
+    # value, rank, lineup or flag.  Off -> the route 503s feature_disabled.
+    # Rollback: RISKIT_FEATURE_ROSTER_CONSTRUCTION=0 + restart.
+    "roster_construction": False,
     # Weekly IDP Streaming (owner directive 2026-10-29,
     # docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md).  ON (together with
     # ``waiver_advisor``): POST /api/waiver/streaming + the "Weekly IDP
@@ -1101,6 +1110,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # src/waivers/advisor.py::advisor_enabled): off → 503 feature_disabled.
     # Default False (see its _DEFAULTS entry).
     "waiver_advisor": LIVE,
+    # roster_construction gates GET /api/roster-construction inline in
+    # server.py: off -> 503 feature_disabled, on -> the private payload.
+    "roster_construction": LIVE,
     # idp_streaming gates POST /api/waiver/streaming inline in server.py
     # (checked after ``waiver_advisor``): off → 503 feature_disabled.
     # Default False (see its _DEFAULTS entry).

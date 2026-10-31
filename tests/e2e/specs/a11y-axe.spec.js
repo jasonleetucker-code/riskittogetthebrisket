@@ -134,6 +134,10 @@ const ROUTES = [
   // scan, which the coverage test below correctly refused: E2E Safety Net run
   // 40694031431 failed on exactly this on desktop and mobile.
   "/waiver-advisor",
+  // Roster Construction V1 (owner directive 2026-10-30; flag default OFF, so
+  // the live stack scans its "not available" state — the populated state is
+  // scanned by roster-construction.spec.js on the route-mocked fixture).
+  "/roster-construction",
 ];
 
 const enc = encodeURIComponent;
