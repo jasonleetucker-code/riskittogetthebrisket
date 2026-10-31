@@ -16999,12 +16999,27 @@ def _manager_intelligence_available() -> bool:
     return is_enabled("manager_intelligence")
 
 
+def _waiver_advisor_available() -> bool:
+    """Offer the private advisor only when its flag and live board are ready.
+
+    The advisor POST refuses feature_disabled first and data_not_ready second.
+    Keep this nav capability aligned with those gates; the IDP mode's own
+    idp_streaming flag remains checked by its dedicated page probe.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return is_enabled("waiver_advisor") and bool(
+        latest_contract_data and latest_contract_data.get("playersArray")
+    )
+
+
 _NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
     # consensus_edge defaults OFF (ADR-023), so the DEFAULT state is a
     # nav entry to a page whose every board endpoint refuses — the same
     # thing the adminOnly Ops filter exists to prevent.
     "consensusEdge": _consensus_edge_available,
     "managerIntelligence": _manager_intelligence_available,
+    "waiverAdvisor": _waiver_advisor_available,
 }
 
 

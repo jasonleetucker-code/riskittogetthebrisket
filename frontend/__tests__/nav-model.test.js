@@ -36,6 +36,7 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/angle",
   "/draft",
   "/waivers",
+  "/waiver-advisor",
   "/rosters",
   "/phases",
   "/edge",
@@ -60,7 +61,7 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
 ];
 
 // Admin view: reachability covers the admin-only Ops surfaces too.
-const allTargets = paletteTargets({ isAdmin: true });
+const allTargets = paletteTargets({ isAdmin: true, capabilities: { waiverAdvisor: { available: true } } });
 
 describe("IA coverage", () => {
   it("every route is reachable from the palette targets (nav + system + extras)", () => {
