@@ -52,6 +52,7 @@ export const CANON = {
   "/trades": "Trade History",
   "/rosters": "Team Strength",
   "/waivers": "Waivers",
+  "/waiver-advisor": "Waiver Advisor",
   "/draft": "Draft Board",
   "/phases": "Win-now vs Rebuild",
   "/edge": "Source Disagreement",
