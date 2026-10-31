@@ -172,6 +172,15 @@ export const NAV_MODEL = [
         hint: "Add/drop analysis against your roster",
         keywords: ["faab", "free agents", "claims"],
       },
+      // The live private advisor's weekly IDP mode must be discoverable,
+      // but never offered while its backend is disabled or has no board.
+      {
+        href: "/waiver-advisor",
+        label: "Waiver Advisor",
+        hint: "Weekly IDP streaming, safe drops, and FAAB recommendations",
+        keywords: ["weekly idp", "idp streaming", "stream", "waiver advisor", "safe to drop"],
+        capability: "waiverAdvisor",
+      },
       {
         href: "/draft",
         label: "Draft Board",
