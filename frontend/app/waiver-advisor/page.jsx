@@ -56,6 +56,9 @@ import {
   releaseText,
 } from "@/lib/waiver-advisor";
 import styles from "@/app/waivers/waivers.module.css";
+// Paints the .psi-editorial canvas (cream surface, full-bleed); scoping the
+// tokens alone leaves editorial ink on the dark app background.
+import advisorStyles from "./waiver-advisor.module.css";
 
 // The per-pair bid desk is the existing FAAB v2 desk (/api/waiver/faab-recommend),
 // loaded only when a user asks for it so it costs this page's chunk nothing.
@@ -384,7 +387,7 @@ export default function WaiverAdvisorPage() {
   const candidates = payload?.candidates || [];
   return (
     <div
-      className={`main-shell ${styles.page} psi-editorial`}
+      className={`${styles.page} ${advisorStyles.page} psi-editorial`}
       data-testid="waiver-advisor"
     >
       <PageHeader
