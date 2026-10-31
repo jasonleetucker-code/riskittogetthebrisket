@@ -1,15 +1,15 @@
 {
- "generatedAt": "2026-10-31T06:20:53.226178+00:00",
+ "generatedAt": "2026-10-31T13:08:13.525956+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2014,
+ "calls": 2016,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1992,
+ "v2Same": 1994,
  "v2WouldChange": 22,
  "v2Examples": [
   {
