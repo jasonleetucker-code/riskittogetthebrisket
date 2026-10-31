@@ -742,7 +742,7 @@ function SafeToDrop({ payload }) {
       title="Safe-to-drop board"
       subtitle={
         counts
-          ? `${counts.churn ?? 0} churn · ${counts.conditional ?? 0} conditional · ${counts.protected ?? 0} protected`
+          ? `${counts.churn ?? "—"} churn · ${counts.conditional ?? "—"} conditional · ${counts.protected ?? "—"} protected`
           : "Rostered defenders by expendability and developmental protection"
       }
     >
