@@ -17,8 +17,20 @@
  * Sharp People had no inbound link a signed-in user could reach.
  */
 import Link from "next/link";
+import { useRef } from "react";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { relatedNavItems } from "@/lib/nav-model";
+
+/**
+ * Is the capability answer still outstanding?  Not just "auth unknown":
+ * with a cached session useAuth paints `authenticated: true` immediately
+ * while `features` stays null until /api/auth/status answers
+ * (useAuth.js, stale-while-revalidate).  Only a confirmed sign-out
+ * (`false`) settles the question without a capability map.
+ */
+export function relatedLinksPending({ authenticated, features }) {
+  return authenticated !== false && features == null;
+}
 
 export default function RelatedLinks({ hrefs, label = "Related" }) {
   const { authenticated, isAdmin, features } = useAuthContext();
@@ -26,17 +38,22 @@ export default function RelatedLinks({ hrefs, label = "Related" }) {
     capabilities: features,
     isAdmin: authenticated === true && isAdmin === true,
   });
+  const pending = relatedLinksPending({ authenticated, features });
+  // Once this row has held space, it keeps holding it: if the
+  // capabilities then resolve as unavailable, collapsing the row would be
+  // the very layout shift the placeholder exists to prevent.  A page
+  // entered with the answer already known never reserves anything.
+  const heldSpace = useRef(false);
   if (items.length === 0) {
-    // While the auth probe (which carries the capability map) is still
-    // resolving, hold the row's height instead of rendering nothing:
-    // gated links appear on resolve, and popping a row in above the page
-    // body is a layout shift on every visit.  Empty, and hidden from
-    // assistive tech — it offers nothing until we know what is offered.
-    if (authenticated === null || authenticated === undefined) {
+    // Empty and hidden from assistive tech: it offers nothing until we
+    // know what is offered.
+    if (pending || heldSpace.current) {
+      heldSpace.current = true;
       return <div className="shell-related shell-related--pending" aria-hidden="true" />;
     }
     return null;
   }
+  if (pending) heldSpace.current = true;
   return (
     <nav className="shell-related" aria-label={`${label} pages`}>
       <span className="shell-related-label">{label}:</span>

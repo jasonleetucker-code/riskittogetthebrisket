@@ -30,7 +30,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "Installed PWA opened signed-out is sent to /auction (owner choice, HomeClient.jsx).",
-      "file": "app\\page.jsx",
+      "file": "app/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -55,7 +55,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "Admin-only in nav (systemItemsFor); server enforces 403.",
-      "file": "app\\admin\\page.jsx",
+      "file": "app/admin/page.jsx",
       "nav": {
         "menuGroup": "System",
         "menuLabels": [
@@ -82,7 +82,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "Admin-only twice (nav + 403).",
-      "file": "app\\admin\\model-lab\\page.jsx",
+      "file": "app/admin/model-lab/page.jsx",
       "nav": {
         "menuGroup": "System",
         "menuLabels": [
@@ -111,7 +111,7 @@
         "app/market/sharp-people/page.jsx"
       ],
       "notes": "Reached only from Sharp People. Not in the admin Ops menu: listed as owner proposal UX-P07.",
-      "file": "app\\admin\\sharp-identities\\page.jsx",
+      "file": "app/admin/sharp-identities/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -136,7 +136,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "",
-      "file": "app\\angle\\page.jsx",
+      "file": "app/angle/page.jsx",
       "nav": {
         "menuGroup": "Trades",
         "menuLabels": [
@@ -166,7 +166,7 @@
         "lib/manager-trade-tools.js"
       ],
       "notes": "Overlaps conceptually with Source Disagreement / Consensus Edge (all answer 'who is mispriced').",
-      "file": "app\\arbitrage\\page.jsx",
+      "file": "app/arbitrage/page.jsx",
       "nav": {
         "menuGroup": "Trades",
         "menuLabels": [
@@ -196,7 +196,7 @@
         "app/auction/[roomId]/page.jsx"
       ],
       "notes": "Not in nav by design: official rooms are owner-gated. Installed PWA signed-out lands here.",
-      "file": "app\\auction\\page.jsx",
+      "file": "app/auction/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -223,7 +223,7 @@
         "app/auction/page.jsx"
       ],
       "notes": "",
-      "file": "app\\auction\\[roomId]\\page.jsx",
+      "file": "app/auction/[roomId]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -248,7 +248,7 @@
       "status": "intentionally_hidden",
       "contextualFrom": [],
       "notes": "Reached only by an emailed/issued token link.",
-      "file": "app\\auction\\join\\page.jsx",
+      "file": "app/auction/join/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -276,7 +276,7 @@
         "app/auction/[roomId]/page.jsx"
       ],
       "notes": "",
-      "file": "app\\auction\\notifications\\page.jsx",
+      "file": "app/auction/notifications/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -301,7 +301,7 @@
       "status": "intentionally_hidden",
       "contextualFrom": [],
       "notes": "Reached only by a reset token link.",
-      "file": "app\\auction\\reset\\page.jsx",
+      "file": "app/auction/reset/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -326,7 +326,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "BDVM flag default ON.",
-      "file": "app\\bdvm\\page.jsx",
+      "file": "app/bdvm/page.jsx",
       "nav": {
         "menuGroup": "Rankings",
         "menuLabels": [
@@ -353,7 +353,7 @@
       "status": "disabled_by_flag",
       "contextualFrom": [],
       "notes": "Capability consensusEdge; flag default OFF so not offered.",
-      "file": "app\\consensus-edge\\page.jsx",
+      "file": "app/consensus-edge/page.jsx",
       "nav": {
         "menuGroup": "Market",
         "menuLabels": [
@@ -380,7 +380,7 @@
       "status": "dev_reference",
       "contextualFrom": [],
       "notes": "Deliberately linked from no navigation; noindexed.",
-      "file": "app\\design\\page.jsx",
+      "file": "app/design/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -405,7 +405,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "Owner-paused workstream; nav entry pre-existing, unchanged.",
-      "file": "app\\dfs\\page.jsx",
+      "file": "app/dfs/page.jsx",
       "nav": {
         "menuGroup": "DFS",
         "menuLabels": [
@@ -434,7 +434,7 @@
         "app/idptc-rookies/page.jsx"
       ],
       "notes": "h1 comes from DRAFT_PAGE_TITLE (canon-pinned). Linked from Rookie Board (NAV-08).",
-      "file": "app\\draft\\page.jsx",
+      "file": "app/draft/page.jsx",
       "nav": {
         "menuGroup": "My Team",
         "menuLabels": [
@@ -461,7 +461,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "",
-      "file": "app\\edge\\page.jsx",
+      "file": "app/edge/page.jsx",
       "nav": {
         "menuGroup": "Market",
         "menuLabels": [
@@ -488,7 +488,7 @@
       "status": "redirect",
       "contextualFrom": [],
       "notes": "Redirects to /rankings.",
-      "file": "app\\finder\\page.jsx",
+      "file": "app/finder/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -515,7 +515,7 @@
         "components/terminal/QuickActions.jsx"
       ],
       "notes": "Nav label 'Game Day' is the PageHeader eyebrow; the h1 reads \"This week's matchup\" (UX-D09).",
-      "file": "app\\game-day\\page.jsx",
+      "file": "app/game-day/page.jsx",
       "nav": {
         "menuGroup": "My Team",
         "menuLabels": [
@@ -542,7 +542,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "Sits in Rankings; a draft-prep user looks under My Team > Draft (UX-P03).",
-      "file": "app\\idptc-rookies\\page.jsx",
+      "file": "app/idptc-rookies/page.jsx",
       "nav": {
         "menuGroup": "Rankings",
         "menuLabels": [
@@ -569,7 +569,7 @@
       "status": "redirect",
       "contextualFrom": [],
       "notes": "",
-      "file": "app\\intel\\page.jsx",
+      "file": "app/intel/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -596,7 +596,7 @@
         "app/HomeClient.jsx"
       ],
       "notes": "h1 is the league name (data-derived). Tab strip is long on mobile (UX-D07).",
-      "file": "app\\league\\page.jsx",
+      "file": "app/league/page.jsx",
       "nav": {
         "menuGroup": "League",
         "menuLabels": [
@@ -623,7 +623,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "Private despite the /league prefix-like name (exact prefix rule).",
-      "file": "app\\league-comparison\\page.jsx",
+      "file": "app/league-comparison/page.jsx",
       "nav": {
         "menuGroup": "League",
         "menuLabels": [
@@ -650,7 +650,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "",
-      "file": "app\\league\\activity\\page.jsx",
+      "file": "app/league/activity/page.jsx",
       "nav": {
         "menuGroup": "League",
         "menuLabels": [
@@ -679,7 +679,7 @@
         "app/league/sections/articles.jsx"
       ],
       "notes": "",
-      "file": "app\\league\\articles\\[season]\\[week]\\page.jsx",
+      "file": "app/league/articles/[season]/[week]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -707,7 +707,7 @@
         "app/league/sections/articles.jsx"
       ],
       "notes": "",
-      "file": "app\\league\\articles\\[season]\\[week]\\[matchupId]\\[mode]\\page.jsx",
+      "file": "app/league/articles/[season]/[week]/[matchupId]/[mode]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -735,7 +735,7 @@
         "components/TeamPhasePanel.jsx"
       ],
       "notes": "",
-      "file": "app\\league\\franchise\\[owner]\\page.jsx",
+      "file": "app/league/franchise/[owner]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -762,7 +762,7 @@
         "app/intel/page.jsx"
       ],
       "notes": "Private exception inside public /league prefix; filtered from signed-out nav.",
-      "file": "app\\league\\insider-trading\\page.jsx",
+      "file": "app/league/insider-trading/page.jsx",
       "nav": {
         "menuGroup": "League",
         "menuLabels": [
@@ -792,7 +792,7 @@
         "app/league/sections/award-standings.jsx"
       ],
       "notes": "",
-      "file": "app\\league\\player\\[playerId]\\page.jsx",
+      "file": "app/league/player/[playerId]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -819,7 +819,7 @@
         "app/sitemap.js"
       ],
       "notes": "Reached from the sitemap and share links; the Rivalries tab renders inline (UX-D10).",
-      "file": "app\\league\\rivalry\\[pair]\\page.jsx",
+      "file": "app/league/rivalry/[pair]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -846,7 +846,7 @@
         "app/sitemap.js"
       ],
       "notes": "No in-app link; reached from sitemap/share/OG (UX-D10).",
-      "file": "app\\league\\week\\[season]\\[week]\\page.jsx",
+      "file": "app/league/week/[season]/[week]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -873,7 +873,7 @@
         "app/league/sections/weekly.jsx"
       ],
       "notes": "",
-      "file": "app\\league\\weekly\\[season]\\[week]\\[matchup]\\page.jsx",
+      "file": "app/league/weekly/[season]/[week]/[matchup]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -901,7 +901,7 @@
         "components/shell/TopBar.jsx"
       ],
       "notes": "Mobile signed-out tab bar carries Sign in.",
-      "file": "app\\login\\page.jsx",
+      "file": "app/login/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -928,7 +928,7 @@
         "lib/trade-next-actions.js"
       ],
       "notes": "Capability managerIntelligence.",
-      "file": "app\\managers\\page.jsx",
+      "file": "app/managers/page.jsx",
       "nav": {
         "menuGroup": "Market",
         "menuLabels": [
@@ -957,7 +957,7 @@
         "lib/manager-intel.js"
       ],
       "notes": "Contextual from Manager Intelligence.",
-      "file": "app\\managers\\compare\\page.jsx",
+      "file": "app/managers/compare/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -984,7 +984,7 @@
         "lib/manager-saved.js"
       ],
       "notes": "Contextual from Saved managers.",
-      "file": "app\\managers\\leaderboards\\page.jsx",
+      "file": "app/managers/leaderboards/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -1011,7 +1011,7 @@
         "lib/manager-intel.js"
       ],
       "notes": "Contextual from a manager's league list.",
-      "file": "app\\managers\\league\\[leagueId]\\page.jsx",
+      "file": "app/managers/league/[leagueId]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -1039,7 +1039,7 @@
         "app/market/sharp-people/[personId]/page.jsx"
       ],
       "notes": "Was orphaned (only the admin page linked it). Now: palette + contextual from Sharp Tracker (NAV-01).",
-      "file": "app\\market\\sharp-people\\page.jsx",
+      "file": "app/market/sharp-people/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -1066,7 +1066,7 @@
         "app/market/sharp-people/page.jsx"
       ],
       "notes": "",
-      "file": "app\\market\\sharp-people\\[personId]\\page.jsx",
+      "file": "app/market/sharp-people/[personId]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -1093,7 +1093,7 @@
         "app/market/sharp-tracker/page.jsx"
       ],
       "notes": "",
-      "file": "app\\market\\sharp-roster-percentage\\page.jsx",
+      "file": "app/market/sharp-roster-percentage/page.jsx",
       "nav": {
         "menuGroup": "Market",
         "menuLabels": [
@@ -1122,7 +1122,7 @@
         "app/market/sharp-people/page.jsx"
       ],
       "notes": "",
-      "file": "app\\market\\sharp-tracker\\page.jsx",
+      "file": "app/market/sharp-tracker/page.jsx",
       "nav": {
         "menuGroup": "Market",
         "menuLabels": [
@@ -1151,7 +1151,7 @@
         "lib/trade-next-actions.js"
       ],
       "notes": "Sits in Market; a trade evaluator looks under Trades (UX-P04).",
-      "file": "app\\market\\trade-database\\page.jsx",
+      "file": "app/market/trade-database/page.jsx",
       "nav": {
         "menuGroup": "Market",
         "menuLabels": [
@@ -1178,7 +1178,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "",
-      "file": "app\\more\\page.jsx",
+      "file": "app/more/page.jsx",
       "nav": {
         "menuGroup": "System",
         "menuLabels": [
@@ -1205,7 +1205,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "",
-      "file": "app\\news\\page.jsx",
+      "file": "app/news/page.jsx",
       "nav": {
         "menuGroup": "News",
         "menuLabels": [
@@ -1232,7 +1232,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "League-wide view placed under My Team (UX-P05).",
-      "file": "app\\phases\\page.jsx",
+      "file": "app/phases/page.jsx",
       "nav": {
         "menuGroup": "My Team",
         "menuLabels": [
@@ -1262,7 +1262,7 @@
         "components/PlayerPopup.jsx"
       ],
       "notes": "Reached by clicking any player name and from search; no nav entry by design.",
-      "file": "app\\players\\[playerId]\\page.jsx",
+      "file": "app/players/[playerId]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -1290,7 +1290,7 @@
         "components/PlayerPopup.jsx"
       ],
       "notes": "",
-      "file": "app\\players\\compare\\page.jsx",
+      "file": "app/players/compare/page.jsx",
       "nav": {
         "menuGroup": "Rankings",
         "menuLabels": [
@@ -1319,7 +1319,7 @@
         "components/terminal/QuickActions.jsx"
       ],
       "notes": "",
-      "file": "app\\rankings\\page.jsx",
+      "file": "app/rankings/page.jsx",
       "nav": {
         "menuGroup": "Rankings",
         "menuLabels": [
@@ -1346,7 +1346,7 @@
       "status": "redirect",
       "contextualFrom": [],
       "notes": "Client-side redirect.",
-      "file": "app\\rankings\\[position]\\page.jsx",
+      "file": "app/rankings/[position]/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -1371,7 +1371,7 @@
       "status": "disabled_by_flag",
       "contextualFrom": [],
       "notes": "Flag roster_construction default OFF. Nav entry lands with PR #2044 (capability rosterConstruction) after production verification; deliberately not added here.",
-      "file": "app\\roster-construction\\page.jsx",
+      "file": "app/roster-construction/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -1400,7 +1400,7 @@
         "components/terminal/QuickActions.jsx"
       ],
       "notes": "My Team's primary destination is league-wide (UX-P01).",
-      "file": "app\\rosters\\page.jsx",
+      "file": "app/rosters/page.jsx",
       "nav": {
         "menuGroup": "My Team",
         "menuLabels": [
@@ -1429,7 +1429,7 @@
         "components/StaleDataBanner.jsx"
       ],
       "notes": "League/team change lives in the top-bar switchers, not here (UX-D08).",
-      "file": "app\\settings\\page.jsx",
+      "file": "app/settings/page.jsx",
       "nav": {
         "menuGroup": "System",
         "menuLabels": [
@@ -1458,7 +1458,7 @@
         "app/settings/page.jsx"
       ],
       "notes": "",
-      "file": "app\\tools\\ros-data-health\\page.jsx",
+      "file": "app/tools/ros-data-health/page.jsx",
       "nav": {
         "menuGroup": "System",
         "menuLabels": [
@@ -1487,7 +1487,7 @@
         "app/settings/page.jsx"
       ],
       "notes": "",
-      "file": "app\\tools\\source-health\\page.jsx",
+      "file": "app/tools/source-health/page.jsx",
       "nav": {
         "menuGroup": "System",
         "menuLabels": [
@@ -1514,7 +1514,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "h1 reads 'Trade Coverage Audit' (UX-D11, admin-only).",
-      "file": "app\\tools\\trade-coverage\\page.jsx",
+      "file": "app/tools/trade-coverage/page.jsx",
       "nav": {
         "menuGroup": "System",
         "menuLabels": [
@@ -1544,7 +1544,7 @@
         "app/trades/page.jsx"
       ],
       "notes": "",
-      "file": "app\\trade\\page.jsx",
+      "file": "app/trade/page.jsx",
       "nav": {
         "menuGroup": "Trades",
         "menuLabels": [
@@ -1571,7 +1571,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "",
-      "file": "app\\trades\\page.jsx",
+      "file": "app/trades/page.jsx",
       "nav": {
         "menuGroup": "Trades",
         "menuLabels": [
@@ -1598,7 +1598,7 @@
       "status": "working",
       "contextualFrom": [],
       "notes": "",
-      "file": "app\\trending\\page.jsx",
+      "file": "app/trending/page.jsx",
       "nav": {
         "menuGroup": "Rankings",
         "menuLabels": [
@@ -1627,7 +1627,7 @@
         "app/waivers/page.jsx"
       ],
       "notes": "Capabilities waiverAdvisor + idpStreaming (mode).",
-      "file": "app\\waiver-advisor\\page.jsx",
+      "file": "app/waiver-advisor/page.jsx",
       "nav": {
         "menuGroup": "My Team",
         "menuLabels": [
@@ -1655,7 +1655,7 @@
       "status": "intentionally_hidden",
       "contextualFrom": [],
       "notes": "Unlisted by owner request; linked from nowhere.",
-      "file": "app\\waiver-wire\\r7k4q9m2\\page.jsx",
+      "file": "app/waiver-wire/r7k4q9m2/page.jsx",
       "nav": {
         "menuGroup": null,
         "menuLabels": [],
@@ -1683,7 +1683,7 @@
         "app/waiver-advisor/page.jsx"
       ],
       "notes": "Overlaps Waiver Advisor (UX-P02).",
-      "file": "app\\waivers\\page.jsx",
+      "file": "app/waivers/page.jsx",
       "nav": {
         "menuGroup": "My Team",
         "menuLabels": [

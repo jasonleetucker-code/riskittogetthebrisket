@@ -64,7 +64,10 @@ function pageRoutes() {
         walk(full);
       } else if (entry.name === "page.jsx" || entry.name === "page.js") {
         const rel = path.relative(APP, dir).split(path.sep).join("/");
-        out.push({ route: rel ? `/${rel}` : "/", file: path.relative(FRONTEND, full) });
+        // POSIX separators always, so the committed JSON (and regeneration)
+        // is identical on Windows and Linux CI.
+        const file = path.relative(FRONTEND, full).split(path.sep).join("/");
+        out.push({ route: rel ? `/${rel}` : "/", file });
       }
     }
   };
@@ -163,9 +166,14 @@ describe("route inventory covers every page route", () => {
   });
 
   it("every row names its page file, and the file exists", () => {
+    const fileByRoute = new Map(pages.map((p) => [p.route, p.file]));
     for (const row of rows) {
       expect(row.file, row.route).toBeTruthy();
-      expect(fs.existsSync(path.join(FRONTEND, row.file)), row.file).toBe(true);
+      // Stored as POSIX on every OS: a backslash here means the JSON was
+      // regenerated with OS separators and would fail on Linux CI.
+      expect(row.file.includes("\\"), `${row.route} file path must be POSIX`).toBe(false);
+      expect(row.file, row.route).toBe(fileByRoute.get(row.route));
+      expect(fs.existsSync(path.join(FRONTEND, ...row.file.split("/"))), row.file).toBe(true);
     }
   });
 

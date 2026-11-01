@@ -192,6 +192,40 @@ describe("relatedNavItems / RelatedLinks", () => {
     expect(placeholder).toHaveAttribute("aria-hidden", "true");
   });
 
+  it("cached session (authenticated true, features still null) holds the row, then fills it", () => {
+    // useAuth paints `authenticated: true` from its cache before the probe
+    // returns the capability map — the path that used to pop the row in.
+    authValue = { authenticated: true, isAdmin: false, features: null };
+    const hrefs = ["/waiver-advisor", "/waiver-advisor?mode=streaming"];
+    const { container, rerender } = render(<RelatedLinks hrefs={hrefs} />);
+    expect(container.querySelectorAll("a")).toHaveLength(0);
+    expect(container.querySelector(".shell-related--pending")).toHaveAttribute("aria-hidden", "true");
+
+    authValue = { authenticated: true, isAdmin: false, features: ALL_ON };
+    rerender(<RelatedLinks hrefs={hrefs} />);
+    expect(screen.getAllByRole("link").map((a) => a.textContent)).toEqual([
+      "Waiver Advisor",
+      "Weekly IDP Streaming",
+    ]);
+  });
+
+  it("keeps the held height when capabilities resolve as unavailable (no collapse shift)", () => {
+    authValue = { authenticated: true, isAdmin: false, features: null };
+    const { container, rerender } = render(<RelatedLinks hrefs={["/waiver-advisor"]} />);
+    expect(container.querySelector(".shell-related--pending")).not.toBeNull();
+
+    authValue = { authenticated: true, isAdmin: false, features: {} };
+    rerender(<RelatedLinks hrefs={["/waiver-advisor"]} />);
+    expect(container.querySelectorAll("a")).toHaveLength(0);
+    expect(container.querySelector(".shell-related--pending")).not.toBeNull();
+  });
+
+  it("a confirmed sign-out reserves nothing", () => {
+    authValue = { authenticated: false, isAdmin: false, features: null };
+    const { container } = render(<RelatedLinks hrefs={["/waiver-advisor"]} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("renders nothing once resolved with nothing to offer", () => {
     authValue = { authenticated: true, isAdmin: false, features: {} };
     const { container } = render(<RelatedLinks hrefs={["/waiver-advisor"]} />);
