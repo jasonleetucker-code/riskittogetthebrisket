@@ -108,3 +108,17 @@ def test_projection_error_rows_keep_did_not_play_separate_from_zero():
     assert d1[0].timestamp_class == pit.POST_KICKOFF  # revised after week 1 kicked off
     assert d1[-1].timestamp_class == pit.PRE_KICKOFF
     assert pit.error_summary([1.0, -1.0])["bias"] == 0.0
+
+
+def test_actual_move_profile_reports_a_missing_bid_as_unknown_not_zero():
+    data = _data()
+    changes = [
+        sb.RosterChange(2, 1, "d3", "add", "free_agent", "t1", None),
+        sb.RosterChange(2, 1, "l2", "add", "waiver", "t2", 0.0),
+        sb.RosterChange(3, 1, "b2", "add", "waiver", "t3", 7.0),
+    ]
+    adds = ga.actual_move_profile(data, 1, changes, dynasty_lookup=None)["adds"]
+    assert adds["n"] == 3
+    assert adds["paidClaims"] == 1
+    assert adds["zeroBidClaims"] == 1
+    assert adds["bidUnknown"] == 1

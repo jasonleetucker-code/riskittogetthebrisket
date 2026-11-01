@@ -411,6 +411,10 @@ def actual_move_profile(
                 [dict(r, _ok=r["inMaskedPool"] and r["projected"]) for r in adds], "_ok"
             ),
             "paidClaims": sum(1 for r in adds if (r.get("waiverBid") or 0) > 0),
+            # A free-agent add (or a claim with no recorded bid) has no bid: unknown,
+            # never counted as a $0 claim.
+            "zeroBidClaims": sum(1 for r in adds if r.get("waiverBid") == 0),
+            "bidUnknown": sum(1 for r in adds if r.get("waiverBid") is None),
         },
         "drops": {
             "n": len(drops),
