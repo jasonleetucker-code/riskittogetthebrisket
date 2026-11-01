@@ -619,17 +619,19 @@ def test_the_committed_config_keeps_the_launch_gate_closed():
     api.advisor_config.cache_clear()
     try:
         cfg = api.advisor_config()
-        assert cfg["responseFloorMs"] is None
+        # Owner decision 6 (2026-11-01): provisional floor 300 ms.
+        assert cfg["responseFloorMs"] == 300
         # The owner approved fairness_bands_v2 (2026-10-20, OD-F1/F2/F3/F5):
         # the committed config names it, and it is the owner's live version.
         assert cfg["approvedFairnessVersion"] == "fairness_bands_v2"
         assert cfg["approvedFairnessVersion"] == fairness_bands.receipt()["version"]
         assert fairness_bands.receipt()["status"] != "PROVISIONAL"
-        # Still owner-open: the response floor (RF-1) and the source-permission
-        # record (OD-3), so the gate stays CLOSED.
+        # Still owner-open: the source-permission record (OD-3), so the gate
+        # stays CLOSED -- and it is closed for the PERMISSION reason, now that
+        # the floor is set (owner decision 6 keeps public launch OFF).
         assert cfg["approvedSourcePermissionRecord"] is None
         assert "multiTeamRecommendations" not in cfg
-        assert _REAL_LAUNCH_GATE() == "response_floor_unset"
+        assert _REAL_LAUNCH_GATE() == "source_permission_unrecorded"
     finally:
         api.advisor_config.cache_clear()
 

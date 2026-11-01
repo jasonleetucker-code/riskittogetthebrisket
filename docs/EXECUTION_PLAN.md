@@ -1,5 +1,67 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Second master directive: production security, Roster Construction, IDP accuracy, frontend UX audit — owner directive, 2026-11-01
+
+**AUTHORIZED NOW (expands the section below; replaces no decision).** Verbatim: `docs/owner/CHASE_UPSIDE_NEXT_MASTER_DIRECTIVE_2026-11-01.md`. Intake MD-26 … MD-34.
+- **P0 security:** pipeline PR binding the backend and frontend to loopback by default; box-operator root step
+  `deploy/apply_hardening.sh` (dry-run first) for nginx headers and banners. The deploy user's scoped sudo is never
+  used to bypass it. No addresses or secrets in public artifacts. `brisket_trade_advisor` stays OFF.
+- **P1:** #2040 → #2041 → owner's authenticated production check → #2044.
+- **P2/P3:** IDP Show findings into the existing lanes; prospective, pre-kickoff champion-vs-challenger evaluation
+  from Week 9 with a preregistration and frozen fits pushed before kickoff. Shadow only.
+- **P4:** frontend IA / navigation / usability / accessibility audit and justified fixes. Owner: `frontend/lib/nav-model.js`,
+  `frontend/components/shell/*`, page titles, the naming canons, PSI / Direction A. No second nav or design system.
+  Consequential redesigns (renaming or reorganizing top-level sections) are listed for the owner, not shipped
+  unilaterally.
+- **P5/P6:** research under existing gates; roadmap traceability.
+
+**Unchanged and owner-reserved:** everything reserved in the section below, plus public exposure of any private
+route, proprietary-data ingestion without rights, and root-only box changes.
+
+## Master development directive: production validation, model accuracy, decision quality — owner directive, 2026-11-01
+
+**AUTHORIZED NOW: finish, validate, merge, deploy and verify existing work; research and shadow work as listed; the
+conditional private activation of Roster Construction.** Verbatim directive and decisions 1–10:
+`docs/owner/CHASE_UPSIDE_MASTER_DIRECTIVE_DECISIONS_2026-11-01.md`. Intake rows: MD-1 … MD-16. This section settles,
+for its exact subjects only, the items the 2026-10-28 / 10-29 / 10-30 sections below list as owner-reserved
+(`roster_construction` activation, #2006, the ROS diagnosis, the advisor response floor, the odds wording); everything
+else they reserve stays reserved.
+
+Workstreams (one owner per file; planning records are the coordinator's alone):
+- **A — release and usability:** #2031 and #2032 through ordinary gates; Decision 9 wording on uncalibrated
+  playoff / championship odds (`frontend/app/league/sections/ros-*.jsx`, `PlayoffOddsChart`), copy only.
+- **B — Roster Construction readiness:** 2026 host-score parity census over every finalized team-week
+  (`src/roster_intel/construction.py`, tolerance `config/roster_construction/v1.json`); attribution / ownership /
+  slot integrity tests; 2025 served as an explicit unavailable state unless authoritative evidence proves its slots
+  (decision 2); timing, auth, desktop + WebKit mobile. **Activation** = `roster_construction` default ON; the
+  capability-gated My Team nav follows only after production verification (`frontend/lib/nav-model.js`, `server.py::_NAV_GATED_CAPABILITIES`), only when every
+  decision-1 condition is evidenced; otherwise it stays OFF with the failing gate named.
+- **C — streaming accuracy:** gap decomposition and weekly IDP source census in `src/waivers/streaming_backtest.py`
+  (research); optimizer changes in `src/waivers/streaming*.py` only where that evidence supports them; default
+  budget 0; search exhaustion never reported as optimal.
+- **D — ROS calibration:** merge #2035 (research runner) once reviewed; run the frozen Week 8 confirmation;
+  preregister prospective weeks and a ROS-horizon ordering gate; `rosPointsPerWeek` only as a separate field behind
+  a new default-OFF flag, and only if justified. G3 stays FAILED.
+- **E — source integrity:** #2006 restoration (decision 3 gates); read-only outlier-integrity V2 four-arm and IDP
+  Show board comparisons with an owner-ready recommendation.
+- **F — Trade Advisor and security:** `responseFloorMs` 300; admission and limiter values unchanged and confirmed;
+  read-only production network audit (headers, direct port, CORS, error leakage); permission checklist reviewed,
+  never attested.
+
+Merges follow the standing authorization (2026-10-19): exact-head green, independent review, Integration merges.
+
+**Unchanged and owner-reserved:**
+- canonical dynasty values, curves, TE++, package model, source weights, voting membership and freshness rules;
+- promoting CR / `rosPointsPerWeek` or any ROS calibration into `rosValue`, team strength, lineups, simulations or
+  trade verdicts;
+- the DLF IDP hold, `source_freshness_schedule_v2`, swapping the IDP Show voting board;
+- `brisket_trade_advisor` (public launch), per-source public-use permission records;
+- box-operator production changes outside the deploy pipeline (nginx headers, app bind address);
+- inferring the 2025 lineup configuration for production;
+- public exposure of Roster Construction, the Waiver Advisor or streaming;
+- #1884, #1938, #1873, #1852; Sim V3 promotion; the `dynasty_new` taxi cap; any Sleeper write; paid data;
+  League Tycoon (OWNER-PARKED).
+
 ## Roster Construction Intelligence V1 (private) and release completion — owner directive, 2026-10-30
 
 **AUTHORIZED NOW: build and merge Roster Construction V1 behind a new default-OFF flag; finish #2024 → #2025; reconcile
@@ -38,7 +100,8 @@ ownership tenure and as-of data; a weak position never auto-generates a transact
 - public exposure of any advisor or of Roster Construction;
 - any Sleeper write;
 - League Tycoon (OWNER-PARKED);
-- **production activation of `roster_construction`** (not authorized by this directive).
+- **production activation of `roster_construction`** (not authorized by this directive). *Superseded 2026-11-01:*
+  conditional private activation is authorized by the master directive section above (decision 1).
 
 ## IDP streaming and dynasty-safe roster churning (Waiver Advisor) — owner directive, 2026-10-29
 
@@ -60,7 +123,7 @@ Owners (one per concern):
 **Unchanged and owner-reserved:**
 - canonical dynasty values, TE++, source voting and weights;
 - `forced_drop_cheapest_legal`;
-- #2006 and the `dynasty_new` taxi cap;
+- #2006 (*superseded 2026-11-01: restore authorized, decision 3*) and the `dynasty_new` taxi cap;
 - any Sim V3 promotion;
 - any Sleeper write or claim submission;
 - paid data;
@@ -85,7 +148,9 @@ Verbatim: `docs/owner/NEXT_CYCLE_IDP_CALIBRATION_DIRECTIVE_2026-10-28.md`. Intak
 trade verdicts; changing canonical dynasty values, TE++ basis, source weights, voting membership or freshness rules;
 releasing the DLF IDP hold; turning `source_freshness_schedule_v2`, the Trade Advisor launch flag, `waiver_advisor`
 or any flag ON; choosing the advisor response floor, permissions, admission or rate-limit values; #2006; the
-`dynasty_new` taxi cap; filing the #1985 GitHub Support request (owner account). Merges follow the standing merge
+`dynasty_new` taxi cap; filing the #1985 GitHub Support request (owner account). *2026-11-01: the response floor
+(300 ms), #2006 (restore) and the ROS diagnosis (accepted, no promotion) are settled by the master directive section
+above; everything else here stays reserved.* Merges follow the standing merge
 authorization (2026-10-19 / 2026-10-26).
 
 ## Chase Upside private ChatGPT MCP plugin — owner directive, 2026-10-25

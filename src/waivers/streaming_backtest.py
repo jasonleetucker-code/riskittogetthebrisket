@@ -930,7 +930,13 @@ def simulate_policy(
     masked: bool,
     dynasty_lookup: DynastyLookup | None = None,
     dynasty_value_source: str | None = None,
+    open_spots: int = 0,
 ) -> list[WeekResult]:
+    """Replay one policy for one team.  ``open_spots`` (default 0 = strictly
+    1-for-1, every preregistered baseline) lets a swap with an empty
+    ``drop_id`` add a defender without a release, at most that many per week
+    -- used ONLY by the gap-attribution diagnostics
+    (``src/waivers/streaming_gap_attribution.py``)."""
     deltas = _non_streaming_deltas(changes, data, rid)
     state = set(_idp_set(data, data.rosters[min(data.weeks)].get(rid, frozenset())))
     out = []
@@ -958,9 +964,23 @@ def simulate_policy(
         rejected = 0
         faab: float | None = 0.0
         avail = set(pool)
+        spots = max(0, int(open_spots))
         for sw in list(policy.decide(ctx))[:max_swaps]:
-            if sw.drop_id not in state or sw.add_id not in avail or sw.add_id in state:
+            pure_add = sw.drop_id == "" and spots > 0
+            if (
+                (sw.drop_id not in state and not pure_add)
+                or sw.add_id not in avail
+                or sw.add_id in state
+            ):
                 rejected += 1
+                continue
+            if pure_add:
+                spots -= 1
+                state.add(sw.add_id)
+                avail.discard(sw.add_id)
+                adds.append(sw.add_id)
+                if sw.add_id in others_now:
+                    faab = None
                 continue
             state.discard(sw.drop_id)
             state.add(sw.add_id)

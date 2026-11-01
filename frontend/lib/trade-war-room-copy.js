@@ -34,6 +34,7 @@ import {
   unavailableWords,
 } from "./trade-war-room";
 import { FAIRNESS_LABELS } from "./fairness-bands";
+import { ODDS_EXPERIMENTAL_DISCLOSURE } from "./odds-disclosure";
 import { ACTIVE_METHOD_LABEL, COMPARATOR_METHOD_LABEL } from "./va-comparison";
 
 // ── Small helpers ─────────────────────────────────────────────────────────
@@ -1404,9 +1405,9 @@ export function lineupBasisNotes(rosterDetail) {
   return [LINEUP_BASIS_NOTE, idpProjectionCaveat(rosterDetail)].filter(Boolean);
 }
 
-/** Season playoff / title odds are experimental wherever they appear. */
-export const SEASON_ODDS_CAVEAT =
-  "Playoff and title odds come from the season simulator, which is experimental and uncalibrated: it has not been validated against this league's results, so treat them as rough.";
+/** Season playoff / title odds are experimental wherever they appear.
+ *  Leads with the owner-approved disclosure (owner decision 9, 2026-11-01). */
+export const SEASON_ODDS_CAVEAT = `${ODDS_EXPERIMENTAL_DISCLOSURE} Playoff and title odds come from the season simulator, which is experimental and uncalibrated, so treat them as rough.`;
 
 /** The player-by-player detail's note under partial projection coverage,
  *  counted from the roster lens; null when coverage is not partial. */
