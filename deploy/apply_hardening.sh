@@ -136,7 +136,23 @@ apply_nginx() {
         warn "nginx not installed — skipping nginx step"
         return 0
     fi
-    [[ -f "${src}" ]] || { err "missing ${src}"; exit 1; }
+    if [[ ! -f "${src}" ]]; then
+        # The live site is certbot-managed and pins its :443 listeners to
+        # specific addresses (Tailscale Serve holds :443 on the tailnet
+        # address).  There is no repo copy of it to install; the repo's
+        # deploy/nginx/chaseupside.com.conf is a placeholder TEMPLATE.  So the
+        # live file is patched in place instead: headers only, listeners and
+        # certificates untouched.  See deploy/nginx_live_harden.sh.
+        log "no ${src}; nginx hardening is the live-preserving patcher"
+        if [[ "${DRY_RUN}" == "true" ]]; then
+            LIVE_SITE="${dest}" bash "${APP_DIR}/deploy/nginx_live_harden.sh" --dry-run
+        else
+            warn "nginx step NOT applied here: run it on its own after reviewing its dry-run:"
+            warn "  bash ${APP_DIR}/deploy/nginx_live_harden.sh            # dry-run, prints the sha"
+            warn "  sudo bash ${APP_DIR}/deploy/nginx_live_harden.sh --apply --expect-sha256 <sha>"
+        fi
+        return 0
+    fi
 
     if [[ -f "${dest}" ]] && cmp -s "${src}" "${dest}"; then
         log "nginx config up-to-date: ${dest}"
