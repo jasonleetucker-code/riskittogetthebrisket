@@ -43,10 +43,11 @@ from src.ros.idp_opportunity.positions import (  # noqa: E402
 
 DYNASTY_MAIN_LEAGUE_ID = "1312006700437352448"
 DYNASTY_MAIN_LEAGUE_KEY = "dynasty_main"
-#: The preregistered top-N per family (preregistration §4).  NOT a demand table:
-#: the run derives top-N from the canonical lineup owner
-#: (``src.ros.lineup.resolve_league_slot_demand``) and REFUSES if the derivation
-#: disagrees with these numbers, because changing them would be a deviation.
+#: The top-N values WRITTEN in the preregistration (§4).  Historical record only, NOT
+#: a demand table: the DL value (24) came from a wrong slot comment ("DL DL IDP_FLEX
+#: ..."); dynasty_main starts DL x3 / LB x3 / DB x3 with no IDP_FLEX.  The run derives
+#: top-N from the canonical lineup owner and reports the preregistered value beside
+#: it as a labelled deviation wherever they differ.
 PREREGISTERED_TOP_N = (("DL", 24), ("LB", 36), ("DB", 36))
 TOP_N_SUBGROUP = 12
 FIRST_EVAL_WEEK = 3
@@ -69,8 +70,8 @@ def _load_card(args: argparse.Namespace) -> tuple[dict[str, Any], str]:
 
 
 class DemandRefused(RuntimeError):
-    """Top-N could not be derived from the canonical lineup owner, or disagrees
-    with the preregistration.  The run stops (exit 2); nothing is defaulted."""
+    """Top-N could not be derived from the canonical lineup owner.  The run stops
+    (exit 2); nothing is defaulted."""
 
 
 def _resolve_top_n(args: argparse.Namespace, cache: Path) -> tuple[dict[str, int], dict[str, Any]]:
@@ -103,11 +104,6 @@ def _resolve_top_n(args: argparse.Namespace, cache: Path) -> tuple[dict[str, int
             raise DemandRefused(f"no dedicated {fam} demand resolved")
         top_n[fam] = int(per_team) * team_count
     expected = dict(PREREGISTERED_TOP_N)
-    if top_n != expected:
-        raise DemandRefused(
-            f"derived top-N {top_n} != preregistered {expected}: the league's lineup "
-            "changed; re-preregister rather than silently changing the metric"
-        )
     record = {
         "source": demand.source,
         "slots": list(demand.slots),
@@ -115,7 +111,8 @@ def _resolve_top_n(args: argparse.Namespace, cache: Path) -> tuple[dict[str, int
         "teamCount": team_count,
         "topN": top_n,
         "leagueSha256": h,
-        "matchesPreregistration": True,
+        "preregisteredTopN": expected,
+        "deviationFamilies": sorted(f for f in FAMILIES if top_n[f] != expected[f]),
     }
     return top_n, record
 
@@ -164,11 +161,25 @@ def _evaluate(preds: list, season: int, resamples: int, top_n: dict[str, int]) -
     by_model: dict[str, list] = defaultdict(list)
     for p in preds:
         by_model[p.model].append(p)
-    out: dict[str, Any] = {"families": {}, "subgroups": {}, "challengers": {}}
+    out: dict[str, Any] = {
+        "families": {},
+        "familiesAtPreregisteredTopN": {},
+        "subgroups": {},
+        "challengers": {},
+    }
+    prereg = dict(PREREGISTERED_TOP_N)
     for fam in FAMILIES:
-        out["families"][fam] = {
-            m: metrics([p for p in by_model[m] if p.family == fam], top_n[fam]) for m in MODELS
-        }
+        fam_rows = {m: [p for p in by_model[m] if p.family == fam] for m in MODELS}
+        out["families"][fam] = {m: metrics(fam_rows[m], top_n[fam]) for m in MODELS}
+        if prereg[fam] != top_n[fam]:
+            # DEVIATION record: the top-N hit rate at the (wrong) preregistered N
+            out["familiesAtPreregisteredTopN"][fam] = {
+                m: {
+                    "topN": prereg[fam],
+                    "topNHitMeanWeekly": metrics(fam_rows[m], prereg[fam])["topNHitMeanWeekly"],
+                }
+                for m in MODELS
+            }
     for sg in SUBGROUPS:
         out["subgroups"][sg] = {
             m: metrics([p for p in by_model[m] if p.subgroup == sg], TOP_N_SUBGROUP) for m in MODELS
