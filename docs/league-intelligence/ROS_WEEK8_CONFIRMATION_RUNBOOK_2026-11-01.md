@@ -38,3 +38,13 @@ Before merging: require independent code review; Python formatter/linter; target
 **No deployment activation is part of this PR.** This is a read-only research runner and reproducibility test, not confirmation that Week 8 has been evaluated.
 
 Traceability: NC-A in docs/OWNER_REQUESTED_TODO.md, docs/EXECUTION_PLAN.md §0; PR #2010; results §7.
+
+## Execution log
+
+**2026-11-01 ~15:40Z — REFUSED (correctly). No result exists yet.**
+
+- Command: `python scripts/ros_scale_week8_confirmation.py` (online). Output: `REFUSED: week 8 is not final; no partial-week evaluation`, exit 2. No evidence file was written.
+- Independent check of the same fact: the nflverse 2026 REG schedule has 14 Week 8 games (2026-10-29, 2026-11-01 and 2026-11-02). Only 1 game, Thursday's, had a final score. Sleeper reports `last_scored_leg: 7` for `dynasty_main`.
+- Freeze proof, checked against real history: the fits sit in `0726dbd09`, committed 2026-10-28T15:34Z. Week 8's first kickoff was 2026-10-30T00:15Z, so the fits were frozen before kickoff.
+- **Earliest valid run:** after Monday Night Football on 2026-11-02, once nflverse marks every Week 8 game final and Sleeper scores the week (`last_scored_leg` ≥ 8). The run must use this exact runner and the pinned blob. Results then go in `ROS_WEEK8_CONFIRMATION_RESULTS_<run date>.md`. That file must report all five models and state that **G3 (2026-10-28) remains FAILED**.
+- The prospective weeks 9+ and the ROS-horizon gate H1 are preregistered separately, in `ROS_HORIZON_ORDERING_PREREGISTRATION_2026-11-01.md`. That file was committed before any Week 8 outcome existed.
