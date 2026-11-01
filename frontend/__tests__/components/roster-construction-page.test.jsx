@@ -150,8 +150,18 @@ describe("gate", () => {
     expect(seasonSelect.value).toBe("2026");
     expect(within(seasonSelect).getByRole("option", { name: "2025 (unavailable)" })).toBeTruthy();
     expect(screen.getByLabelText("Team")).toBeTruthy();
+    const root = screen.getByTestId("roster-construction");
     fireEvent.change(seasonSelect, { target: { value: "2025" } });
+    // In flight: the page stays mounted (no remount to a bare skeleton) and
+    // offers no team from the previous season's list.
+    expect(screen.getByTestId("roster-construction")).toBe(root);
+    expect(root.getAttribute("aria-busy")).toBe("true");
+    expect(screen.queryByLabelText("Team")).toBeNull();
     const notice = await screen.findByTestId("roster-construction-season-unavailable");
+    // The control the user just changed is the SAME element (focus survives).
+    expect(screen.getByLabelText("Season")).toBe(seasonSelect);
+    expect(screen.getByTestId("roster-construction")).toBe(root);
+    expect(root.getAttribute("aria-busy")).toBeNull();
     expect(notice.textContent).toMatch(/No verified lineup rules for 2025/);
     expect(notice.textContent).toMatch(/contradict/);
     expect(screen.queryByLabelText("Team")).toBeNull();
