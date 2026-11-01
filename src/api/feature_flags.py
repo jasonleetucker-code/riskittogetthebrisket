@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-26 of the 67 entries in ``_DEFAULTS`` below are ``True`` —
+27 of the 67 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -20,8 +20,8 @@ end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``fantasypros_idp_upstream_clock``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
 ``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates``,
-``trade_screenshot_import``, ``manager_intelligence``, ``waiver_advisor`` and
-``idp_streaming`` — several with comments
+``trade_screenshot_import``, ``manager_intelligence``, ``waiver_advisor``,
+``idp_streaming`` and ``roster_construction`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -680,8 +680,16 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # owned / counterfactual / league startability, depth and coverage, and
     # evidence-backed diagnoses that may say NO_ACTION.  It changes no served
     # value, rank, lineup or flag.  Off -> the route 503s feature_disabled.
+    # ON for the PRIVATE, signed-in page by owner decision D1 of 2026-11-01,
+    # conditional on host parity (dynasty_main 2026: 84/84 finalized
+    # team-weeks reproduce Sleeper's awarded points;
+    # docs/roster_construction/evidence/PARITY_CENSUS_2026-11-01.md), seasons
+    # with host-contradicted lineup rules served as unavailable (D2), auth /
+    # privacy / performance / mobile checks, exact-head CI and independent
+    # review.  Never public.  The My Team nav entry is added separately, only
+    # after production verification (docs/EXECUTION_PLAN.md, owner decision 1).
     # Rollback: RISKIT_FEATURE_ROSTER_CONSTRUCTION=0 + restart.
-    "roster_construction": False,
+    "roster_construction": True,
     # Weekly IDP Streaming (owner directive 2026-10-29,
     # docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md).  ON (together with
     # ``waiver_advisor``): POST /api/waiver/streaming + the "Weekly IDP

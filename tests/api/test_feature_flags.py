@@ -45,6 +45,10 @@ def test_every_flag_defaults_off_except_safe_additive():
         # Manager Intelligence: own private endpoint + page; reads Sleeper and the
         # canonical board, writes nothing, never changes a canonical value.
         "manager_intelligence",
+        # Roster Construction V1: private signed-in page + route; reads the league
+        # snapshot and the canonical board, writes nothing, changes no value.
+        # ON by owner decision D1 of 2026-11-01 (conditional private activation).
+        "roster_construction",
         # Private signed-in Waiver Advisor + its Weekly IDP Streaming mode:
         # advice only, no served value changes, no Sleeper writes.  ON by
         # owner decision 1 of 2026-10-29
