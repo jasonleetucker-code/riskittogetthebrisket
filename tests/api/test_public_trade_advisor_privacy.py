@@ -714,6 +714,103 @@ def test_an_over_floor_response_is_logged(advisor_client, monkeypatch, caplog):
     assert any("exceeded the floor" in r.getMessage() for r in caplog.records)
 
 
+# ── The committed 300 ms floor (owner decision 6, 2026-11-01) ──────────────
+
+
+def _committed_floor_recorder(monkeypatch):
+    """Record the floor waits under the COMMITTED floor (the module's autouse
+    fixture copies the real config and widens only the rate limits)."""
+    slept: list[float] = []
+
+    async def fake_sleep(seconds):
+        slept.append(seconds)
+
+    monkeypatch.setattr(api, "_sleep", fake_sleep)
+    return slept
+
+
+def test_committed_floor_is_the_provisional_300_ms():
+    raw = json.loads(api._CONFIG_PATH.read_text(encoding="utf-8"))
+    assert raw["responseFloorMs"] == 300
+    assert api.advisor_config()["responseFloorMs"] == 300
+    # A single value applies to every team count, parsed or not.
+    assert {api._floor_ms(n) for n in (2, 3, 4, None)} == {300}
+
+
+@pytest.mark.parametrize(
+    ("kind", "status"),
+    [("success", 200), ("schema", 400), ("invalid_trade", 400), ("engine", 503)],
+)
+def test_committed_floor_holds_success_and_error_paths(advisor_client, monkeypatch, kind, status):
+    slept = _committed_floor_recorder(monkeypatch)
+    clock = iter([100.0, 100.05])  # 50 ms of work -> 250 ms of floor
+    monkeypatch.setattr(api, "_clock", lambda: next(clock))
+    body: Any = S.trade_body(*S.NOT_FAIR_TWO)
+    if kind == "schema":
+        body = {"perspectiveRosterId": "x"}
+    elif kind == "invalid_trade":
+        body = S.trade_body(("p:101", 1, 2))
+    elif kind == "engine":
+        from src.trade import analyze_service
+
+        monkeypatch.setattr(
+            analyze_service, "analyze_trade_n", lambda *a, **k: (_ for _ in ()).throw(KeyError())
+        )
+    res = advisor_client.post(S.ANALYZE, json=body)
+    assert res.status_code == status, res.text
+    assert slept == [pytest.approx(0.25)], kind
+
+
+def test_committed_floor_on_a_cold_path(advisor_client, monkeypatch):
+    """The first analysis after a reset (cold snapshot / memo) is held to the
+    same floor: it waits only the REMAINDER, never more than 300 ms, and never
+    a negative amount."""
+    slept = _committed_floor_recorder(monkeypatch)
+    api.reset_for_tests()
+    public_advisor.reset_memos_for_tests()
+    res = advisor_client.post(S.ANALYZE, json=S.trade_body(*S.NOT_FAIR_TWO))
+    assert res.status_code == 200, res.text
+    assert len(slept) <= 1
+    if slept:  # a cold run slower than the floor is logged instead (pinned above)
+        assert 0 < slept[0] <= 0.3
+
+
+def test_committed_floor_real_wall_clock_and_concurrency(advisor_client, monkeypatch):
+    """Real sleep, real clock: every concurrent answer -- success and error --
+    takes at least the floor, and the floor waits do not serialise behind one
+    another (they are ``await``-ed, not blocking)."""
+    import asyncio
+    import threading
+    import time
+
+    async def real_sleep(seconds):
+        await asyncio.sleep(seconds)
+
+    monkeypatch.setattr(api, "_sleep", real_sleep)
+    bodies = [S.trade_body(*S.NOT_FAIR_TWO), {"perspectiveRosterId": "x"}] * 2
+    out: list[tuple[int, float]] = []
+    lock = threading.Lock()
+
+    def one(body):
+        t0 = time.monotonic()
+        res = advisor_client.post(S.ANALYZE, json=body)
+        with lock:
+            out.append((res.status_code, time.monotonic() - t0))
+
+    threads = [threading.Thread(target=one, args=(b,)) for b in bodies]
+    t0 = time.monotonic()
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+    wall = time.monotonic() - t0
+    assert sorted(code for code, _ in out) == [200, 200, 400, 400]
+    assert all(elapsed >= 0.3 - 0.005 for _, elapsed in out), out
+    # Four floors in series would be >= 1.2 s; overlapping waits finish well
+    # under that even on a loaded box.
+    assert wall < 1.2, (wall, out)
+
+
 # ── Single-flight ──────────────────────────────────────────────────────────
 
 
