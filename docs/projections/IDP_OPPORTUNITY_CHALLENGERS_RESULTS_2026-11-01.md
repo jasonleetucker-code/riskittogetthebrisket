@@ -9,6 +9,12 @@ Evidence type: `weekly_opportunity` only.
 * Harness: `src/ros/idp_opportunity/` + `scripts/idp_opportunity_backtest.py`
 * Evidence: `docs/projections/evidence/idp_opportunity/backtest_2026-11-01.json` (input SHA-256s,
   per-week fitted parameters, fallback counts, every metric below)
+* Provenance: evidence produced at code `978c6521bb3fdaf6ae1adf593f10b84ad96f98e8` on a clean
+  tree (`codeSha` / `codeDirty: false` in the JSON), with SHA-256 for every input. That covers the
+  scoring card (`card.settingsSha256`), the nflverse players and games files, the Sleeper player
+  dump, each season's nflverse files (`availability`), and every Sleeper weekly stat and team file
+  (`sleeperStats.hashes`, `sleeperTeamStats.hashes`). Re-running at that SHA reproduced every metric, parameter and
+  diagnostic of the earlier run identically; nothing changed.
 * Card: `dynasty_main` 2026, fingerprint `sf1:9e51824690d091f9` (TFL 4.24, PD 5.3, solo 1.33,
   assist 0.8, sack 2.92, QB hit 2.12, …), scored only by `src.league_intel.scorer.score_stat_line`.
 
@@ -56,6 +62,10 @@ Evidence type: `weekly_opportunity` only.
 ## Primary endpoint (2026, weeks 3–7, preregistered)
 
 ΔMAE = MAE(M5) − MAE(C0), player-clustered bootstrap, 2,000 resamples, seed 20261101.
+Every ΔMAE and MAE in this document is POOLED over player-weeks, so each player counts in
+proportion to the number of evaluation weeks he played. Every-week starters weigh more than
+part-timers. The bootstrap resamples players (clusters), so the CIs account for that
+within-player correlation, but the point estimates are not per-player averages.
 
 | challenger | player-weeks | players | ΔMAE | 95% CI | 98.33% CI | bias not worse | Spearman not lower | verdict |
 |---|---|---|---|---|---|---|---|---|
@@ -157,8 +167,11 @@ DL C0 4.72 → M5 4.60, LB 5.41 → 5.18, DB 5.30 → 5.07 MAE.
    opponent per player-week from Sleeper's team-bearing stats endpoint instead of nflverse player
    rows; team codes normalized by `src.playerctx.normalize.normalize_team_code` (LA → LAR).  The
    preregistered sub-group rules, models, grids, weeks, metrics and acceptance bar were NOT changed.
-   Disclosure: the broken-join run's and the repaired run's 2026 numbers were seen before the final
-   run; nothing tunable was changed between them.
+   Disclosure on timing: the preregistration was committed (`e8f140e36`) BEFORE any code ran. The
+   broken-join development run happened AFTER that commit, as did the repaired-join run that
+   preceded the reported one. Both runs' 2026 numbers were seen before the final run. Nothing
+   tunable (grids, weeks, metrics, acceptance bar, model definitions) changed between them; only
+   the identity / team joins were repaired.
 2. **CB pass-volume factor** = geometric mean of the dropback and WR-target ratios (the
    preregistration wrote "×"; the two are correlated, so a plain product would count pass volume
    twice).  Per-game and per-dropback shrinkage uses κ_opp converted from snaps by the league's own

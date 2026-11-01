@@ -66,10 +66,13 @@
    "idp_tkl_loss": 4.24,
    "idp_tkl_solo": 1.33
   },
+  "settingsSha256": "3e428edba6be8f263ef5929d223902ba0f4e49e416b4e8f549aee0909017ea16",
   "source": "file:scoring_1312006700437352448.json"
  },
+ "codeDirty": false,
+ "codeSha": "978c6521bb3fdaf6ae1adf593f10b84ad96f98e8",
  "evidenceType": "weekly_opportunity",
- "generatedAtUtc": "2026-11-01T16:27:40+00:00",
+ "generatedAtUtc": "2026-11-01T16:31:05+00:00",
  "inputs": {
   "nflverse_games": "316870c6500299d84dc2a387da5b804ae9aa75af8c3b0f30198efe2613e77e4a",
   "nflverse_players": "4b1e03631bbbd4341088efd2618a89916a9486623f4b022b8c0b077a1d451c02",
