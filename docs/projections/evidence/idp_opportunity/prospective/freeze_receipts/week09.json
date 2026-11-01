@@ -1,0 +1,34 @@
+{
+ "cardFingerprint": "sf1:9e51824690d091f9",
+ "code": {
+  "baseCommit": "3802d29f7608a2ae328a94e864c820b6dcb90df7",
+  "scripts/idp_opportunity_prospective.py": "beb7640f1a58e961f5a0949b007feb589a6df221",
+  "src/ros/idp_opportunity/model.py": "6369d50a237f0cdd2957e27bff8fe27101fcc9d7",
+  "src/ros/idp_opportunity/prospective.py": "92d2e397e11e7adada8981ab50b226615bfdc8fc"
+ },
+ "evidenceOfTime": "push time on GitHub (and PR timeline) must precede the week's first kickoff; committer date alone is not proof",
+ "fitWeeks": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+ ],
+ "frozenParams": {
+  "blob": "cca42c839e18c167fe1c273fd4bb35e33ac84085",
+  "freezeCommit": "3802d29f7608a2ae328a94e864c820b6dcb90df7",
+  "path": "docs/projections/evidence/idp_opportunity/prospective/frozen_params_2026.json"
+ },
+ "lineupTopN": {
+  "DB": 36,
+  "DL": 36,
+  "LB": 36
+ },
+ "preregistration": "docs/projections/IDP_OPPORTUNITY_PROSPECTIVE_PREREGISTRATION_2026-11-01.md",
+ "providerChampionRule": "latest data/projections/weekly_archive capture strictly before each player's own game kickoff; no such row -> excluded and counted, never 0",
+ "receipt": "idp_opportunity_prospective_freeze",
+ "refit": false,
+ "season": 2026,
+ "week": 9
+}
