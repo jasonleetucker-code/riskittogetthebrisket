@@ -35,13 +35,20 @@ from src.ros.idp_opportunity.evaluate import (  # noqa: E402
     run_season,
 )
 from src.ros.idp_opportunity.model import MODELS, Card  # noqa: E402
-from src.ros.idp_opportunity.positions import FAMILIES, SUBGROUPS  # noqa: E402
+from src.ros.idp_opportunity.positions import (  # noqa: E402
+    CHALLENGER_SUBGROUPS,
+    FAMILIES,
+    SUBGROUPS,
+)
 
 DYNASTY_MAIN_LEAGUE_ID = "1312006700437352448"
-#: Starter demand of the live slots DL DL IDP_FLEX LB LB LB DB DB DB x 12 teams.
-TOP_N = {"DL": 24, "LB": 36, "DB": 36}
+DYNASTY_MAIN_LEAGUE_KEY = "dynasty_main"
+#: The preregistered top-N per family (preregistration §4).  NOT a demand table:
+#: the run derives top-N from the canonical lineup owner
+#: (``src.ros.lineup.resolve_league_slot_demand``) and REFUSES if the derivation
+#: disagrees with these numbers, because changing them would be a deviation.
+PREREGISTERED_TOP_N = (("DL", 24), ("LB", 36), ("DB", 36))
 TOP_N_SUBGROUP = 12
-CHALLENGERS = {"CB": ("CB",), "LB_S": ("LB", "S"), "EDGE_DT": ("EDGE", "DT")}
 FIRST_EVAL_WEEK = 3
 LAST_REG_WEEK_2025 = 17
 
@@ -59,6 +66,58 @@ def _load_card(args: argparse.Namespace) -> tuple[dict[str, Any], str]:
     with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310
         league = json.loads(resp.read().decode("utf-8"))
     return dict(league.get("scoring_settings") or {}), f"sleeper_api:league/{args.league_id}"
+
+
+class DemandRefused(RuntimeError):
+    """Top-N could not be derived from the canonical lineup owner, or disagrees
+    with the preregistration.  The run stops (exit 2); nothing is defaulted."""
+
+
+def _resolve_top_n(args: argparse.Namespace, cache: Path) -> tuple[dict[str, int], dict[str, Any]]:
+    """Top-N per family = dedicated starter slots x team count, through the canonical
+    owner, using the LIVE Sleeper ``roster_positions`` (first rung of the ladder)."""
+    from src.api.league_registry import get_league_roster_settings
+    from src.ros.lineup import resolve_league_slot_demand
+
+    path, h = S.cached_download(
+        f"https://api.sleeper.app/v1/league/{args.league_id}",
+        cache,
+        f"sleeper_league_{args.league_id}.json",
+        refresh=True,  # live, never a stale cached copy
+    )
+    if path is None:
+        raise DemandRefused(f"live league fetch failed: {h}")
+    league = json.loads(path.read_text(encoding="utf-8"))
+    roster_positions = league.get("roster_positions")
+    settings = get_league_roster_settings(DYNASTY_MAIN_LEAGUE_KEY)
+    demand = resolve_league_slot_demand(roster_positions=roster_positions, roster_settings=settings)
+    if not demand.resolved:
+        raise DemandRefused("lineup demand unresolved by src.ros.lineup")
+    team_count = settings.get("teamCount") if isinstance(settings, dict) else None
+    if not isinstance(team_count, int) or team_count <= 0:
+        raise DemandRefused(f"team count unavailable: {team_count!r}")
+    top_n: dict[str, int] = {}
+    for fam in FAMILIES:
+        per_team = demand.demand.dedicated.get(fam)
+        if per_team is None:
+            raise DemandRefused(f"no dedicated {fam} demand resolved")
+        top_n[fam] = int(per_team) * team_count
+    expected = dict(PREREGISTERED_TOP_N)
+    if top_n != expected:
+        raise DemandRefused(
+            f"derived top-N {top_n} != preregistered {expected}: the league's lineup "
+            "changed; re-preregister rather than silently changing the metric"
+        )
+    record = {
+        "source": demand.source,
+        "slots": list(demand.slots),
+        "dedicated": {f: demand.demand.dedicated.get(f) for f in FAMILIES},
+        "teamCount": team_count,
+        "topN": top_n,
+        "leagueSha256": h,
+        "matchesPreregistration": True,
+    }
+    return top_n, record
 
 
 def _code_provenance() -> dict[str, Any]:
@@ -101,20 +160,20 @@ def _r(x: Any) -> Any:
     return x
 
 
-def _evaluate(preds: list, season: int, resamples: int) -> dict[str, Any]:
+def _evaluate(preds: list, season: int, resamples: int, top_n: dict[str, int]) -> dict[str, Any]:
     by_model: dict[str, list] = defaultdict(list)
     for p in preds:
         by_model[p.model].append(p)
     out: dict[str, Any] = {"families": {}, "subgroups": {}, "challengers": {}}
     for fam in FAMILIES:
         out["families"][fam] = {
-            m: metrics([p for p in by_model[m] if p.family == fam], TOP_N[fam]) for m in MODELS
+            m: metrics([p for p in by_model[m] if p.family == fam], top_n[fam]) for m in MODELS
         }
     for sg in SUBGROUPS:
         out["subgroups"][sg] = {
             m: metrics([p for p in by_model[m] if p.subgroup == sg], TOP_N_SUBGROUP) for m in MODELS
         }
-    for name, sgs in CHALLENGERS.items():
+    for name, sgs in CHALLENGER_SUBGROUPS:
         rows = {m: [p for p in by_model[m] if p.subgroup in sgs] for m in MODELS}
         boot = {
             m: bootstrap_delta_mae(rows[m], rows["C0"], resamples=resamples)
@@ -180,6 +239,11 @@ def main(argv: list[str] | None = None) -> int:
     from src.ros.weekly_projection_archive import ARCHIVE_ROOT
 
     cache = Path(args.cache_dir)
+    try:
+        top_n, demand_record = _resolve_top_n(args, cache)
+    except DemandRefused as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return 2
     settings, card_source = _load_card(args)
     card = Card.from_settings(settings)
     evidence: dict[str, Any] = {
@@ -196,6 +260,7 @@ def main(argv: list[str] | None = None) -> int:
             ).hexdigest(),
             "idpRates": {k: card.rates[k] for k in card.idp_keys},
         },
+        "lineupDemand": demand_record,
         "inputs": {},
         "availability": {},
         "seasons": {},
@@ -284,7 +349,7 @@ def main(argv: list[str] | None = None) -> int:
         eval_weeks = [w for w in finals if w in sleeper_weeks]
         preds, diag = run_season(data, card, eval_weeks)
         sinfo["diagnostics"] = diag
-        sinfo["results"] = _evaluate(preds, season, args.resamples)
+        sinfo["results"] = _evaluate(preds, season, args.resamples, top_n)
         sinfo["status"] = "evaluated"
         any_eval = any_eval or bool(preds)
         evidence["seasons"][str(season)] = {

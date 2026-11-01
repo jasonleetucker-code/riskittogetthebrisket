@@ -8,7 +8,16 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-__all__ = ["FAMILIES", "SUBGROUPS", "UNKNOWN", "challenger_family", "family_of", "subgroup_of"]
+__all__ = [
+    "CHALLENGER_FAMILIES",
+    "CHALLENGER_SUBGROUPS",
+    "FAMILIES",
+    "SUBGROUPS",
+    "UNKNOWN",
+    "challenger_family",
+    "family_of",
+    "subgroup_of",
+]
 
 FAMILIES = ("DL", "LB", "DB")
 SUBGROUPS = ("CB", "S", "LB", "EDGE", "DT")
@@ -32,6 +41,17 @@ _NFLVERSE = {
 
 #: Which preregistered challenger family a sub-group belongs to.
 _CHALLENGER = {"CB": "CB", "LB": "LB_S", "S": "LB_S", "EDGE": "EDGE_DT", "DT": "EDGE_DT"}
+
+#: The preregistered challenger families, in order.
+CHALLENGER_FAMILIES = ("CB", "LB_S", "EDGE_DT")
+
+#: ``((challenger family, (sub-groups...)), ...)`` derived from :data:`SUBGROUPS`.
+#: This package's own EVALUATION taxonomy (which true-position sub-groups each
+#: challenger is scored on).  It is NOT a lineup slot -> eligible-positions map and
+#: decides nothing about who may fill a slot; lineup rules live in ``src.ros.lineup``.
+CHALLENGER_SUBGROUPS = tuple(
+    (fam, tuple(sg for sg in SUBGROUPS if _CHALLENGER[sg] == fam)) for fam in CHALLENGER_FAMILIES
+)
 
 
 def family_of(sleeper_position: str | None, fantasy_positions: Iterable[str] | None) -> str | None:
