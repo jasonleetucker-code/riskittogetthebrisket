@@ -42,7 +42,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from fastapi import FastAPI, BackgroundTasks, Request
@@ -115,7 +115,30 @@ from src.sources import dlf_session as _dlf_session
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
 PORT = 8000
-HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
+# Bind address.  LOOPBACK BY DEFAULT (owner directive 2026-11-01, P0): in
+# production nginx is the only legitimate client and it proxies to
+# ``127.0.0.1:8000`` (deploy/nginx/*.conf ``upstream dynasty_backend``), so a
+# wildcard bind only exposed the raw app port to the internet, bypassing the
+# proxy's TLS, headers and path blocks.  LAN / phone testing in dev opts in
+# explicitly with ``RISKIT_BIND_HOST=0.0.0.0`` (see .env.example).  Pinned by
+# tests/deploy/test_loopback_bind.py.
+DEFAULT_BIND_HOST = "127.0.0.1"
+BIND_HOST_ENV = "RISKIT_BIND_HOST"
+
+
+def _resolve_bind_host(environ: Mapping[str, str] | None = None) -> str:
+    """The address uvicorn binds: ``RISKIT_BIND_HOST`` if set, else loopback.
+
+    A blank or whitespace-only value is treated as unset — an empty
+    ``RISKIT_BIND_HOST=`` line in .env must not become uvicorn's
+    "all interfaces" default by accident.
+    """
+    env = os.environ if environ is None else environ
+    value = (env.get(BIND_HOST_ENV) or "").strip()
+    return value or DEFAULT_BIND_HOST
+
+
+HOST = _resolve_bind_host()
 SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
 SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
 # A single market/source outage must not halve the player universe and become
