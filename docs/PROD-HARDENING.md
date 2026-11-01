@@ -24,6 +24,13 @@ Let's Encrypt in front of `dynasty.service` (FastAPI :8000) and
 > unchanged. Dry-run (no root, changes nothing): `bash deploy/nginx_live_harden.sh`; apply (root, after review):
 > `sudo bash deploy/nginx_live_harden.sh --apply --expect-sha256 <sha printed by the dry-run>`. `apply_hardening.sh`
 > delegates its nginx step to it.
+>
+> **Applied in production 2026-11-01** by the owner (live sha before apply `7fe78aad…8118`): `nginx -t` passed, reload
+> succeeded, and an independent `curl --noproxy '*' --resolve` against the pinned listener returned 200 with all six
+> headers, `Server: nginx` (no version) and no `X-Powered-By`. The installer's immediate post-reload probe reported
+> false warnings because `systemctl reload` is asynchronous (old workers still answered); the probe now retries,
+> bypasses proxies and checks all six headers. Re-check any time, read-only and without root:
+> `bash deploy/nginx_live_harden.sh --verify`. The `housing` site was not touched; its version banner is out of scope.
 
 
 | Change | Rationale |

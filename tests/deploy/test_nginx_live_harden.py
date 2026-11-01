@@ -216,3 +216,75 @@ def test_file_ending_is_preserved_byte_for_byte(tmp_path, trailing_newline):
         ln for ln in patched.split(b"\n") if b"chaseupside-security-headers.conf" not in ln
     )
     assert stripped == raw
+
+
+_GOOD_HEADERS = (
+    "HTTP/1.1 200 OK\r\nServer: nginx\r\n"
+    "Strict-Transport-Security: max-age=31536000\r\nX-Content-Type-Options: nosniff\r\n"
+    "Content-Security-Policy: frame-ancestors 'self'\r\nX-Frame-Options: SAMEORIGIN\r\n"
+    "Referrer-Policy: strict-origin-when-cross-origin\r\n"
+    "Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()\r\n\r\n"
+)
+_STALE_HEADERS = "HTTP/1.1 200 OK\r\nServer: nginx/1.24.0 (Ubuntu)\r\nX-Powered-By: Next.js\r\n\r\n"
+
+
+def _fake_curl(tmp_path: Path, responses: list[str]) -> Path:
+    """A curl stand-in that prints responses[i] on its i-th call (last one repeats)."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir(exist_ok=True)
+    for i, body in enumerate(responses):
+        (bindir / f"resp{i}").write_text(body, encoding="utf-8", newline="")
+    script = bindir / "curl"
+    script.write_text(
+        "#!/usr/bin/env bash\n"
+        f'd="{bindir.as_posix()}"; n=$(cat "$d/count" 2>/dev/null || echo 0)\n'
+        f"last={len(responses) - 1}; i=$(( n < last ? n : last ))\n"
+        'echo $((n + 1)) > "$d/count"; cat "$d/resp$i"\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    script.chmod(0o755)
+    return bindir
+
+
+def _with_path(bindir: Path) -> str:
+    import os
+
+    return bindir.as_posix() + os.pathsep + os.environ["PATH"]
+
+
+def test_verify_passes_on_a_hardened_server(tmp_path):
+    bindir = _fake_curl(tmp_path, [_GOOD_HEADERS])
+    r = _run(tmp_path, "--verify", PATH=_with_path(bindir), PROBE_SLEEP="0")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "all 6 headers present" in r.stdout
+
+
+def test_verify_fails_on_an_unhardened_server(tmp_path):
+    bindir = _fake_curl(tmp_path, [_STALE_HEADERS])
+    r = _run(tmp_path, "--verify", PATH=_with_path(bindir), PROBE_SLEEP="0")
+    assert r.returncode == 1
+    assert "server-version-banner" in r.stdout and "x-powered-by" in r.stdout
+
+
+def test_apply_probe_retries_past_old_workers(tmp_path):
+    """reload is asynchronous: the first answers may still come from old workers."""
+    live = tmp_path / "dynasty"
+    live.write_bytes(_FIXTURE.read_bytes())
+    ok = _fake_bin(tmp_path, "nginx", 0)
+    bindir = _fake_curl(tmp_path, [_STALE_HEADERS, _STALE_HEADERS, _GOOD_HEADERS])
+    r = _run(
+        tmp_path,
+        "--apply",
+        "--expect-sha256",
+        _sha(live),
+        live=live,
+        NGINX_BIN=ok,
+        SYSTEMCTL_BIN=ok,
+        SKIP_PROBE="0",
+        PROBE_SLEEP="0",
+        PATH=_with_path(bindir),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "attempt 3" in r.stdout
+    assert "WARNING" not in r.stdout

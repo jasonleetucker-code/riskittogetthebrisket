@@ -26,6 +26,7 @@
 # Usage:
 #   bash deploy/nginx_live_harden.sh                 # dry-run (default; no root)
 #   sudo bash deploy/nginx_live_harden.sh --apply --expect-sha256 <sha from dry-run>
+#   bash deploy/nginx_live_harden.sh --verify        # read-only live check (no root)
 #
 # Env overrides (tests): LIVE_SITE, SNIPPET_DEST, SNIPPET_SRC, NGINX_BIN,
 # SYSTEMCTL_BIN, SKIP_PROBE=1, ALLOW_NON_ROOT_APPLY=1.
@@ -47,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --apply) MODE="apply"; shift ;;
         --dry-run) MODE="dry-run"; shift ;;
+        --verify) MODE="verify"; shift ;;
         --expect-sha256) EXPECT_SHA="${2:-}"; shift 2 ;;
         *) echo "unknown argument: $1" >&2; exit 2 ;;
     esac
@@ -54,6 +56,59 @@ done
 
 log() { printf '[nginx-live-harden] %s\n' "$*"; }
 die() { printf '[nginx-live-harden][ERROR] %s\n' "$*" >&2; exit 1; }
+
+EXPECTED_HEADERS=(
+    strict-transport-security x-content-type-options content-security-policy
+    x-frame-options referrer-policy permissions-policy
+)
+
+# probe_live <attempts> — fetch https://DOMAIN/ through the live file's own
+# pinned :443 IPv4 listener, bypassing any proxy, and check the hardening.
+# `systemctl reload nginx` is asynchronous: old workers keep answering for a
+# moment, so a single immediate request can report the PRE-reload headers.
+# Retries (1 s apart) until every expected header is present and the version
+# banner is gone.  Sets PROBE_STATUS to ok / incomplete / unreachable.
+probe_live() {
+    local attempts="${1:-15}" i hdrs status v4 missing h
+    local resolve=()
+    v4="$(grep -oE 'listen[[:space:]]+([0-9]{1,3}\.){3}[0-9]{1,3}:443' "${LIVE_SITE}" | head -1 | awk '{print $2}' | cut -d: -f1 || true)"
+    [[ -n "${v4}" ]] && resolve=(--resolve "${DOMAIN}:443:${v4}")
+    PROBE_STATUS="unreachable"
+    for ((i = 1; i <= attempts; i++)); do
+        hdrs="$(curl --noproxy '*' -sS -o /dev/null -D - -m 10 "${resolve[@]}" "https://${DOMAIN}/" 2>/dev/null | tr -d '\r' || true)"
+        status="$(printf '%s\n' "${hdrs}" | awk 'NR==1{print $2}')"
+        if [[ -z "${hdrs}" || "${status}" =~ ^5 ]]; then
+            PROBE_STATUS="unreachable"
+        else
+            missing=()
+            for h in "${EXPECTED_HEADERS[@]}"; do
+                printf '%s\n' "${hdrs}" | grep -qi "^${h}:" || missing+=("${h}")
+            done
+            printf '%s\n' "${hdrs}" | grep -qiE '^server: nginx/[0-9]' && missing+=("server-version-banner")
+            printf '%s\n' "${hdrs}" | grep -qi '^x-powered-by:' && missing+=("x-powered-by")
+            if [[ "${#missing[@]}" -eq 0 ]]; then
+                PROBE_STATUS="ok"
+                log "probe: HTTP ${status}; all ${#EXPECTED_HEADERS[@]} headers present; no version banner; no X-Powered-By (attempt ${i})"
+                return 0
+            fi
+            PROBE_STATUS="incomplete"
+        fi
+        sleep "${PROBE_SLEEP:-1}"
+    done
+    if [[ "${PROBE_STATUS}" == "incomplete" ]]; then
+        log "probe: HTTP ${status}; still missing / present-when-it-should-not: ${missing[*]}"
+    else
+        log "probe: no healthy answer after ${attempts} attempts (status '${status:-none}')"
+    fi
+    return 1
+}
+
+if [[ "${MODE}" == "verify" ]]; then
+    # Read-only check of the LIVE server; needs no root and changes nothing.
+    [[ -r "${LIVE_SITE}" ]] || die "cannot read live site ${LIVE_SITE}"
+    probe_live "${PROBE_ATTEMPTS:-3}" && exit 0
+    exit 1
+fi
 
 [[ -r "${LIVE_SITE}" ]] || die "cannot read live site ${LIVE_SITE}"
 [[ -r "${SNIPPET_SRC}" ]] || die "missing snippet source ${SNIPPET_SRC}"
@@ -203,16 +258,12 @@ fi
 log "nginx reloaded"
 
 if [[ "${SKIP_PROBE:-0}" == 1 ]]; then exit 0; fi
-# Probe through a pinned :443 listener of the live file itself.
-V4="$(grep -oE 'listen[[:space:]]+([0-9]{1,3}\.){3}[0-9]{1,3}:443' "${LIVE_SITE}" | head -1 | awk '{print $2}' | cut -d: -f1 || true)"
-RESOLVE=(); [[ -n "${V4}" ]] && RESOLVE=(--resolve "${DOMAIN}:443:${V4}")
-HDRS="$(curl -sS -o /dev/null -D - -m 15 "${RESOLVE[@]}" "https://${DOMAIN}/" || true)"
-STATUS="$(printf '%s\n' "${HDRS}" | awk 'NR==1{print $2}')"
-if [[ -z "${HDRS}" || "${STATUS}" =~ ^5 ]]; then
-    log "probe: site answered '${STATUS:-nothing}' after reload — rolling back"
-    restore
-    die "rolled back"
+if ! probe_live 15; then
+    if [[ "${PROBE_STATUS}" == "unreachable" ]]; then
+        log "probe: site did not answer correctly after reload — rolling back"
+        restore
+        die "rolled back"
+    fi
+    log "probe WARNING: headers incomplete after retries; verify by hand: bash $0 --verify"
 fi
-echo "${HDRS}" | grep -qi '^strict-transport-security:' && log "probe: HSTS present" || log "probe WARNING: HSTS missing"
-echo "${HDRS}" | grep -qiE '^server: nginx/[0-9]' && log "probe WARNING: version banner still present" || log "probe: no nginx version banner"
 log "done.  rollback: sudo cp -p ${BACKUP} ${LIVE_SITE} && sudo rm -f ${SNIPPET_DEST} && sudo nginx -t && sudo systemctl reload nginx"
