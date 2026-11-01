@@ -107,19 +107,21 @@ RUNTIME_ARTIFACTS = (
 def _write_dist(dist: Path, marker: str) -> None:
     dist.mkdir(parents=True, exist_ok=True)
     (dist / "static").mkdir(exist_ok=True)
-    (dist / "static" / "app.js").write_text("//js\n")
-    (dist / "MARKER").write_text(marker)
+    (dist / "static" / "app.js").write_text("//js\n", encoding="utf-8")
+    (dist / "MARKER").write_text(marker, encoding="utf-8")
     for name in RUNTIME_ARTIFACTS:
         if name == "BUILD_ID":
-            (dist / name).write_text("build-id\n")
+            (dist / name).write_text("build-id\n", encoding="utf-8")
         elif name == "build-manifest.json":
-            (dist / name).write_text(json.dumps({"pages": {"/": ["static/app.js"]}}))
+            (dist / name).write_text(
+                json.dumps({"pages": {"/": ["static/app.js"]}}), encoding="utf-8"
+            )
         else:
-            (dist / name).write_text("{}")
+            (dist / name).write_text("{}", encoding="utf-8")
 
 
 def _write_stub(path: Path, body: str) -> None:
-    path.write_text("#!/usr/bin/env bash\n" + textwrap.dedent(body), newline="\n")
+    path.write_text("#!/usr/bin/env bash\n" + textwrap.dedent(body), newline="\n", encoding="utf-8")
     path.chmod(0o755)
 
 
@@ -132,14 +134,18 @@ def _artifact_rollback_fixture(tmp_path: Path, *, npm_exit: int = 0, stamp: str 
     app_dir = tmp_path / "app"
     frontend = app_dir / "frontend"
     frontend.mkdir(parents=True)
-    (frontend / "package.json").write_text(json.dumps({"name": "fixture"}))
-    (frontend / "package-lock.json").write_text(TARGET_LOCK, newline="\n")
+    (frontend / "package.json").write_text(json.dumps({"name": "fixture"}), encoding="utf-8")
+    (frontend / "package-lock.json").write_text(TARGET_LOCK, newline="\n", encoding="utf-8")
     node_modules = frontend / "node_modules"
     node_modules.mkdir()
     if stamp == "match":
-        (node_modules / STAMP).write_text(hashlib.sha256(TARGET_LOCK.encode()).hexdigest())
+        (node_modules / STAMP).write_text(
+            hashlib.sha256(TARGET_LOCK.encode()).hexdigest(), encoding="utf-8"
+        )
     elif stamp == "mismatch":
-        (node_modules / STAMP).write_text(hashlib.sha256(b"failed deploy lock").hexdigest())
+        (node_modules / STAMP).write_text(
+            hashlib.sha256(b"failed deploy lock").hexdigest(), encoding="utf-8"
+        )
     _write_dist(frontend / ".next", "live-build-of-the-failed-deploy")
     state = tmp_path / "state"
     state.mkdir()
@@ -214,7 +220,7 @@ def test_mismatched_install_is_reinstalled_before_staging(tmp_path, stamp):
     result = _run_artifact_rollback(app_dir, state, archive, bin_dir)
 
     assert "FUNC_RC=0" in result.stdout, result.stdout + result.stderr
-    calls = log.read_text().splitlines()
+    calls = log.read_text(encoding="utf-8").splitlines()
     npm_ci = [i for i, line in enumerate(calls) if line.startswith("npm ci ")]
     stage = [i for i, line in enumerate(calls) if "scripts.stage_release_artifact" in line]
     assert npm_ci, (
@@ -224,8 +230,8 @@ def test_mismatched_install_is_reinstalled_before_staging(tmp_path, stamp):
     assert "--prefer-offline" in calls[npm_ci[0]]
     assert calls[npm_ci[0]].endswith("--prefix " + _bash_path(app_dir / "frontend"))
     assert stage and npm_ci[0] < stage[0], f"npm ci must precede staging: {calls}"
-    assert (app_dir / "frontend" / ".next" / "MARKER").read_text().strip() == marker
-    recorded = (app_dir / "frontend" / "node_modules" / STAMP).read_text().strip()
+    assert (app_dir / "frontend" / ".next" / "MARKER").read_text(encoding="utf-8").strip() == marker
+    recorded = (app_dir / "frontend" / "node_modules" / STAMP).read_text(encoding="utf-8").strip()
     assert recorded == hashlib.sha256(TARGET_LOCK.encode()).hexdigest()
 
 
@@ -239,8 +245,8 @@ def test_consistent_install_restores_without_npm(tmp_path):
     result = _run_artifact_rollback(app_dir, state, archive, bin_dir)
 
     assert "FUNC_RC=0" in result.stdout, result.stdout + result.stderr
-    assert not any(line.startswith("npm ") for line in log.read_text().splitlines())
-    assert (app_dir / "frontend" / ".next" / "MARKER").read_text().strip() == marker
+    assert not any(line.startswith("npm ") for line in log.read_text(encoding="utf-8").splitlines())
+    assert (app_dir / "frontend" / ".next" / "MARKER").read_text(encoding="utf-8").strip() == marker
 
 
 @requires_bash
@@ -252,8 +258,8 @@ def test_impossible_reinstall_fails_before_the_live_next_is_touched(tmp_path):
     result = _run_artifact_rollback(app_dir, state, archive, bin_dir)
 
     assert "FUNC_RC=1" in result.stdout, result.stdout + result.stderr
-    assert "scripts.stage_release_artifact" not in log.read_text()
-    live = (app_dir / "frontend" / ".next" / "MARKER").read_text().strip()
+    assert "scripts.stage_release_artifact" not in log.read_text(encoding="utf-8")
+    live = (app_dir / "frontend" / ".next" / "MARKER").read_text(encoding="utf-8").strip()
     assert live == "live-build-of-the-failed-deploy"
     assert not (
         app_dir / "frontend" / "node_modules" / STAMP

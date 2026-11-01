@@ -102,7 +102,7 @@ def test_freshness_prefers_stamp_over_csv_mtime(monkeypatch, tmp_path):
         "CSVs/site_raw/fantasyProsFitzmaurice.csv",
     )
     # CSV mtime: 4 days old
-    csv_path.write_text("name,rank\nfoo,1\n")
+    csv_path.write_text("name,rank\nfoo,1\n", encoding="utf-8")
     old = time.time() - 4 * 86400
     import os as _os
 
@@ -110,7 +110,7 @@ def test_freshness_prefers_stamp_over_csv_mtime(monkeypatch, tmp_path):
     # Stamp: 30 minutes old
     fresh_epoch = int(time.time() - 1800)
     stamp_path.parent.mkdir(parents=True, exist_ok=True)
-    stamp_path.write_text(f"{fresh_epoch}\n")
+    stamp_path.write_text(f"{fresh_epoch}\n", encoding="utf-8")
 
     out = srv._per_source_freshness()
     entry = out["fantasyProsFitzmaurice"]
@@ -129,7 +129,7 @@ def test_freshness_falls_back_to_csv_when_stamp_missing(monkeypatch, tmp_path):
         "ktc",
         "CSVs/site_raw/ktc.csv",
     )
-    csv_path.write_text("name,rank\n")
+    csv_path.write_text("name,rank\n", encoding="utf-8")
     # No stamp file written.
     out = srv._per_source_freshness()
     assert "ktc" in out
@@ -145,9 +145,9 @@ def test_freshness_falls_back_to_csv_when_stamp_unparseable(monkeypatch, tmp_pat
         "ktc",
         "CSVs/site_raw/ktc.csv",
     )
-    csv_path.write_text("name,rank\n")
+    csv_path.write_text("name,rank\n", encoding="utf-8")
     stamp_path.parent.mkdir(parents=True, exist_ok=True)
-    stamp_path.write_text("not-a-number\n")
+    stamp_path.write_text("not-a-number\n", encoding="utf-8")
     out = srv._per_source_freshness()
     assert "ktc" in out
 

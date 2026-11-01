@@ -81,7 +81,8 @@ class TestLoadTeamStrength(unittest.TestCase):
                         {"ownerId": "beta", "teamRosStrength": 60.0, "startingLineupScore": 60.0},
                         {"ownerId": "gamma", "teamRosStrength": 30.0, "startingLineupScore": 30.0},
                     ]
-                )
+                ),
+                encoding="utf-8",
             )
             with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 result = power_v2._load_team_strength_percentiles()
@@ -450,7 +451,7 @@ class TestBuildSectionPreseason(unittest.TestCase):
             tmp_root = Path(tmp)
             target = tmp_root / "team_strength" / "latest.json"
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps(ts_rows))
+            target.write_text(json.dumps(ts_rows), encoding="utf-8")
             with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 section = power_v2.build_section(snapshot)
 
@@ -513,7 +514,8 @@ class TestBuildSectionPreseason(unittest.TestCase):
                         }
                         for i in range(1, 5)
                     ]
-                )
+                ),
+                encoding="utf-8",
             )
             with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 section = power_v2.build_section(snapshot)

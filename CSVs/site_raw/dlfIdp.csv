@@ -1,151 +1,176 @@
 name,rank,value,position,team
-Will Anderson Jr,1,,DE (DL1),HOU
-Aidan Hutchinson,2,,DE (DL2),DET
-Carson Schwesinger,3,,LB1,CLE
-Jack Campbell,4,,LB2,DET
+Aidan Hutchinson,1.50,,DE (DL1),DET
+Will Anderson Jr,1.50,,DE (DL2),HOU
+Jack Campbell,3.50,,LB1,DET
+Carson Schwesinger,3.50,,LB2,CLE
 Jacob Rodriguez,5,,LB3,MIA
 Sonny Styles,6,,LB4,WAS
-Arvell Reese,7,,LB5,NYG
-Abdul Carter,8,,DE (DL3),NYG
-Dallas Turner,9,,DE (DL4),MIN
-David Bailey,10,,DE (DL5),NYJ
-Micah Parsons,11,,DE (DL6),GB
-Josiah Trotter,12,,LB6,TB
-Ernest Jones,13,,LB7,SEA
-Anthony Hill Jr,14,,LB8,TEN
-Gregory Rousseau,15,,DE (DL7),BUF
-Nik Bonitto,16,,DE (DL8),DEN
-Nick Bolton,17,,LB9,KC
-Fred Warner,18,,LB10,SF
-Nick Bosa,19,,DE (DL9),SF
-Jamien Sherwood,20,,LB11,NYJ
-Nakobe Dean,21,,LB12,LV
-Devin Lloyd,22,,LB13,CAR
-Roquan Smith,23,,LB14,BAL
-Payton Wilson,24,,LB15,PIT
-Jared Verse,25,,DE (DL10),CLE
-Myles Garrett,26,,DE (DL11),LAR
-Maxx Crosby,27,,DE (DL12),LV
-Edgerrin Cooper,28,,LB16,GB
-Jihaad Campbell,29,,LB17,PHI
-Brian Burns,30,,DE (DL13),NYG
-Zack Baun,31,,LB18,PHI
-Jordyn Brooks,32,,LB19,MIA
-Byron Murphy II,33,,DT (DL14),SEA
-Jeffery Simmons,34,,DT (DL15),TEN
-Jalen Carter,35,,DT (DL16),PHI
-Nick Emmanwori,36,,S (DB1),SEA
-Kyle Hamilton,37,,S (DB2),BAL
-TJ Watt,38,,DE (DL17),PIT
-Jaishawn Barham,39,,LB20,DAL
-Tuli Tuipulotu,40,,DE (DL18),LAC
-Quay Walker,41,,LB21,LV
-Caleb Downs,42,,S (DB3),DAL
-Dillon Thieneman,43,,S (DB4),CHI
-Daiyan Henley,44,,LB22,LAC
-Byron Young,45,,DE (DL19),LAR
-Nate Landman,46,,LB23,LAR
-Laiatu Latu,47,,DE (DL20),IND
-Foye Oluokun,48,,LB24,JAC
-Azeez Al-Shaair,49,,LB25,HOU
-Alex Highsmith,50,,DE (DL21),PIT
-Josh Hines-Allen,51,,DE (DL22),JAC
-Danielle Hunter,52,,DE (DL23),HOU
-Barrett Carter,53,,LB26,CIN
-Demetrius Knight Jr,54,,LB27,CIN
-Donovan Ezeiruaku,55,,DE (DL24),DAL
-Dexter Lawrence,56,,DT (DL25),CIN
-Tremaine Edmunds,57,,LB28,NYG
-CJ Allen,58,,LB29,IND
-Blake Cashman,59,,LB30,MIN
-Kaden Elliss,60,,LB31,NO
-Mason Graham,61,,DT (DL26),CLE
-Zach Allen,62,,DT (DL27),DEN
-George Karlaftis,63,,DE (DL28),KC
-Jaelan Phillips,64,,DE (DL29),CAR
-Lukas Van Ness,65,,DE (DL30),GB
-Chase Young,66,,DE (DL31),NO
-Cooper DeJean,67,,CB (DB5),PHI
-Akheem Mesidor,68,,DE (DL32),LAC
-Devin Bush,69,,LB32,CHI
-Kaleb Elarms-Orr,70,,LB33,BUF
-Cedric Gray,71,,LB34,TEN
-DeMarvion Overshown,72,,LB35,DAL
-Quinnen Williams,73,,DT (DL33),DAL
-Jake Golday,74,,LB36,MIN
-Leonard Williams,75,,DT (DL34),SEA
-Brian Branch,76,,S (DB6),DET
-Ventrell Miller,77,,LB37,JAC
-Nick Cross,78,,S (DB7),WAS
-Derwin James,79,,S (DB8),LAC
-Alex Singleton,80,,LB38,DEN
-Kobie Turner,81,,DT (DL35),LAR
-DeForest Buckner,82,,DT (DL36),IND
-Drake Thomas,83,,LB39,SEA
-Danny Stutsman,84,,LB40,NO
-Terrel Bernard,85,,LB41,BUF
-Travon Walker,86,,DE (DL37),JAC
-Nick Herbig,87,,DE (DL38),PIT
-Quentin Lake,88,,S (DB9),LAR
-Jalen Pitre,89,,S (DB10),HOU
-Rueben Bain Jr,90,,DE (DL39),TB
-Andrew Van Ginkel,91,,DE (DL40),MIN
-James Pearce Jr,92,,DE (DL41),ATL
-Quincy Williams,93,,LB42,CLE
-Travis Hunter,94,,WR1,JAC
-Kendal Daniels,95,,LB43,ATL
-Gabe Jacas,96,,DE (DL42),NE
-Jonathan Greenard,97,,DE (DL43),PHI
-Malachi Lawrence,98,,DE (DL44),DAL
-Tykee Smith,99,,S (DB11),TB
-Zaire Franklin,100,,LB44,GB
-Tre'von Moehrig,101,,S (DB12),CAR
-Budda Baker,102,,S (DB13),ARI
-Patrick Queen,103,,LB45,PIT
-Jalon Walker,104,,DE (DL45),ATL
-Eric Wilson,105,,LB46,MIN
-Henry To'oTo'o,106,,LB47,HOU
-Walter Nolen,107,,DT (DL46),ARI
-Teddye Buchanan,108,,LB48,BAL
-Xavier Watts,109,,S (DB14),ATL
-Jonas Sanker,110,,S (DB15),NO
-Devon Witherspoon,111,,CB (DB16),SEA
-AJ Haulcy,112,,S (DB17),IND
-Robert Spillane,113,,LB49,NE
-Mack Wilson,114,,LB50,ARI
-Julian Love,115,,S (DB18),SEA
-Gervon Dexter,116,,DL47,ATL
-Demario Davis,117,,LB51,NYJ
-Dre Greenlaw,118,,LB52,SF
-Evan Williams,119,,S (DB19),GB
-Jordan Battle,120,,S (DB20),CIN
-Talanoa Hufanga,121,,S (DB21),DEN
-Brandon Jones,122,,S (DB22),DEN
-Divine Deablo,123,,LB53,ATL
-Kevin Winston Jr,124,,S (DB23),TEN
-Derrick Harmon,125,,DT (DL48),PIT
-Austin Booker,126,,DE (DL49),CHI
-Trenton Simpson,127,,LB54,BAL
-R Mason Thomas,128,,DE (DL50),KC
-Dee Winters,129,,LB55,DAL
-Emmanuel McNeil-Warren,130,,S (DB24),CLE
-Boye Mafe,131,,DE (DL51),CIN
-Jalyx Hunt,132,,DE (DL52),PHI
-Zach Sieler,133,,DT (DL53),MIA
-Ed Oliver,134,,DT (DL54),BUF
-Antoine Winfield,135,,S (DB25),TB
-Jeremy Chinn,136,,S (DB26),LV
-Xavier McKinney,137,,S (DB27),GB
-Cashius Howell,138,,DE (DL55),CIN
-Jermaine Johnson,139,,DE (DL56),TEN
-Cole Bishop,140,,S (DB28),BUF
-Derrick Brown,141,,DT (DL57),CAR
-Jordan Davis,142,,DT (DL58),PHI
-TJ Edwards,143,,LB56,CHI
-Kamren Curl,144,,S (DB29),LAR
-Will McDonald IV,145,,DE (DL59),NYJ
-Akeem Davis-Gaither,146,,LB57,IND
-Frankie Luvu,147,,LB58,WAS
-Trey Hendrickson,148,,DE (DL60),BAL
-YaYa Diaby,149,,DE (DL61),TB
-Jessie Bates,150,,S (DB30),ATL
+Abdul Carter,7.50,,DE (DL3),NYG
+Micah Parsons,9.50,,DE (DL4),GB
+Dallas Turner,11,,DE (DL5),MIN
+Arvell Reese,11,,LB5,NYG
+Nik Bonitto,12.50,,DE (DL6),DEN
+Josiah Trotter,13,,LB6,TB
+Nick Bosa,14.50,,DE (DL7),SF
+Myles Garrett,17.50,,DE (DL8),LAR
+Ernest Jones,17.50,,LB7,SEA
+David Bailey,19,,DE (DL9),NYJ
+Nick Bolton,19.50,,LB8,KC
+Fred Warner,20.50,,LB9,SF
+Roquan Smith,21,,LB10,BAL
+Maxx Crosby,21,,DE (DL10),LV
+Gregory Rousseau,22,,DE (DL11),BUF
+Jamien Sherwood,22.50,,LB11,NYJ
+Edgerrin Cooper,23,,LB12,GB
+Brian Burns,23.50,,DE (DL12),NYG
+TJ Watt,24.50,,DE (DL13),PIT
+Nakobe Dean,26,,LB13,LV
+Jordyn Brooks,27.50,,LB14,MIA
+Zack Baun,30,,LB15,PHI
+Anthony Hill Jr,30,,LB16,TEN
+Jihaad Campbell,30.50,,LB17,PHI
+Jared Verse,31.50,,DE (DL14),CLE
+Tuli Tuipulotu,32,,DE (DL15),LAC
+Kyle Hamilton,34.50,,S (DB1),BAL
+Payton Wilson,34.50,,LB18,PIT
+Nick Emmanwori,34.50,,S (DB2),SEA
+Quay Walker,35.50,,LB19,LV
+Jalen Carter,37.50,,DT (DL16),PHI
+Laiatu Latu,37.50,,DE (DL17),IND
+Devin Lloyd,38,,LB20,CAR
+Jeffery Simmons,39,,DT (DL18),CHI
+Caleb Downs,39,,S (DB3),DAL
+Byron Murphy II,42.50,,DT (DL19),SEA
+Alex Highsmith,44,,DE (DL20),PIT
+Josh Hines-Allen,45,,DE (DL21),JAC
+Foye Oluokun,46.50,,LB21,JAC
+Danielle Hunter,47,,DE (DL22),HOU
+Daiyan Henley,47.50,,LB22,LAC
+Nate Landman,47.50,,LB23,LAR
+Azeez Al-Shaair,51,,LB24,HOU
+CJ Allen,53,,LB25,IND
+Cedric Gray,57,,LB26,TEN
+Dexter Lawrence,57.50,,DT (DL23),CIN
+Kaden Elliss,57.50,,LB27,NO
+Dillon Thieneman,58,,S (DB4),CHI
+Byron Young,59,,DE (DL24),LAR
+Brian Branch,59.50,,S (DB5),DET
+George Karlaftis,63.50,,DE (DL25),KC
+Blake Cashman,64,,LB28,MIN
+Quinnen Williams,67,,DT (DL26),DAL
+Travis Hunter,67.50,,WR1,JAC
+Jaelan Phillips,68.50,,DE (DL27),CAR
+Terrel Bernard,68.50,,LB29,BUF
+Nick Cross,72.50,,S (DB6),WAS
+Devin Bush,73,,LB30,CHI
+Travon Walker,73,,DE (DL28),JAC
+Kobie Turner,77.50,,DT (DL29),LAR
+Jake Golday,77.50,,LB31,MIN
+Zaire Franklin,78.50,,LB32,GB
+Zach Allen,79.50,,DT (DL30),DEN
+Patrick Queen,82.50,,LB33,PIT
+Nick Herbig,82.50,,DE (DL31),PIT
+Rueben Bain Jr,82.50,,DE (DL32),TB
+Tremaine Edmunds,83,,LB34,NYG
+Jalon Walker,84,,DE (DL33),ATL
+Quincy Williams,84.50,,LB35,CLE
+Barrett Carter,86.50,,LB36,CIN
+DeForest Buckner,88,,DT (DL34),SF
+Devon Witherspoon,88,,CB (DB7),SEA
+Mason Graham,88,,DT (DL35),CLE
+Alex Singleton,90,,LB37,DEN
+Derwin James,90.50,,S (DB8),LAC
+Tykee Smith,91,,S (DB9),TB
+Robert Spillane,91.50,,LB38,NE
+Budda Baker,93,,S (DB10),ARI
+Cooper DeJean,93,,CB (DB11),PHI
+James Pearce Jr,93.50,,DE (DL36),ATL
+Jonathan Greenard,94,,DE (DL37),PHI
+Chop Robinson,95,,DE (DL38),MIA
+Demetrius Knight Jr,95.50,,LB39,CIN
+Chase Young,96,,DE (DL39),NO
+Kendal Daniels,96.50,,LB40,ATL
+Jaishawn Barham,97,,LB41,DAL
+Andrew Van Ginkel,97.50,,DE (DL40),MIN
+TJ Edwards,100,,LB42,CHI
+Antoine Winfield,100.50,,S (DB12),TB
+Kaleb Elarms-Orr,102.50,,LB43,BUF
+Donovan Ezeiruaku,103,,DE (DL41),DAL
+Quentin Lake,103.50,,S (DB13),LAR
+DeMarvion Overshown,104,,LB44,DAL
+Dre Greenlaw,107,,LB45,SF
+Leonard Williams,108.50,,DT (DL42),SEA
+Lukas Van Ness,109,,DE (DL43),GB
+Trey Hendrickson,109.50,,DE (DL44),BAL
+Drake Thomas,109.50,,LB46,SEA
+Akheem Mesidor,110,,DE (DL45),LAC
+Jermaine Johnson,112.50,,DE (DL46),TEN
+Xavier McKinney,113,,S (DB14),GB
+Will McDonald IV,114,,DE (DL47),NYJ
+Ventrell Miller,114.50,,LB47,JAC
+Walter Nolen,114.50,,DT (DL48),ARI
+AJ Haulcy,115,,S (DB15),IND
+YaYa Diaby,115.50,,DE (DL49),TB
+Calijah Kancey,116,,DT (DL50),TB
+Dee Winters,117.50,,LB48,DAL
+Jalen Pitre,118,,S (DB16),HOU
+Tre'von Moehrig,119,,S (DB17),CAR
+Frankie Luvu,119.50,,LB49,WAS
+Danny Stutsman,120,,LB50,NO
+Derrick Brown,120.50,,DT (DL51),CAR
+Tyler Nubin,120.50,,S (DB18),NYG
+Julian Love,121,,S (DB19),SEA
+Boye Mafe,121,,DE (DL52),CIN
+Nolan Smith,121,,DE (DL53),PHI
+Kayvon Thibodeaux,122,,DE (DL54),NYG
+Montez Sweat,122.50,,DE (DL55),CHI
+Gabe Jacas,124,,DE (DL56),NE
+Braden Fiske,124.50,,DT (DL57),LAR
+Malachi Lawrence,124.50,,DE (DL58),DAL
+Zach Sieler,126,,DT (DL59),MIA
+Teddye Buchanan,126,,LB51,BAL
+Carl Granderson,127.50,,DE (DL60),NO
+Eric Wilson,127.50,,LB52,MIN
+Chris Jones,128,,DT (DL61),KC
+Jessie Bates,128,,S (DB20),ATL
+Talanoa Hufanga,128,,S (DB21),DEN
+Henry To'oTo'o,128,,LB53,HOU
+Ed Oliver,128.50,,DT (DL62),BUF
+Jalen Thompson,129,,S (DB22),DAL
+Xavier Watts,129,,S (DB23),ATL
+Jalyx Hunt,129.50,,DE (DL63),PHI
+Mike Green,129.50,,DE (DL64),BAL
+Jonas Sanker,129.50,,S (DB24),NO
+Mykel Williams,130,,DE (DL65),SF
+Rashan Gary,130.50,,DE (DL66),DAL
+Justin Madubuike,131,,DT (DL67),BAL
+Jonathon Cooper,132,,DE (DL68),DEN
+Mack Wilson,132.50,,LB54,ARI
+Divine Deablo,132.50,,LB55,ATL
+Jer'Zhan Newton,132.50,,DT (DL69),WAS
+Jaquan Brisker,133.50,,S (DB25),PIT
+Gervon Dexter,133.50,,DL70,ATL
+Demario Davis,134,,LB56,NYJ
+Jeremy Chinn,134,,S (DB26),LV
+Jordan Battle,134,,S (DB27),CIN
+Derrick Harmon,134,,DT (DL71),PIT
+Evan Williams,135,,S (DB28),GB
+Kevin Winston Jr,135.50,,S (DB29),TEN
+Emmanuel McNeil-Warren,136.50,,S (DB30),CLE
+Bradley Chubb,137.50,,DE (DL72),BUF
+Austin Booker,137.50,,DE (DL73),CHI
+Trenton Simpson,138,,LB57,BAL
+Brandon Jones,138.50,,S (DB31),DEN
+Malaki Starks,138.50,,S (DB32),BAL
+R Mason Thomas,139.50,,DE (DL74),KC
+Trevin Wallace,140,,LB58,NYJ
+Leo Chenal,140.50,,LB59,WAS
+Uchenna Nwosu,141.50,,DE (DL75),SEA
+Bobby Okereke,141.50,,LB60,CAR
+Josh Sweat,143,,DE (DL76),ARI
+Kamren Curl,143,,S (DB33),LAR
+Cashius Howell,145.50,,DE (DL77),CIN
+Cole Bishop,148.50,,S (DB34),BUF
+Akeem Davis-Gaither,149.50,,LB61,IND
+Andrew Mukuba,149.50,,S (DB35),PHI
+Dadrion Taylor-Demerson,150,,S (DB36),ARI

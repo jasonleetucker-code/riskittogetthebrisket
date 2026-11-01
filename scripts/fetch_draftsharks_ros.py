@@ -225,7 +225,7 @@ CSV_HEADER = [
 def _load_env_dotfile(path: Path) -> None:
     if not path.exists():
         return
-    for raw in path.read_text().splitlines():
+    for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -240,7 +240,7 @@ def _load_cookies() -> list[dict]:
     if not SESSION_PATH.exists():
         return []
     try:
-        data = json.loads(SESSION_PATH.read_text())
+        data = json.loads(SESSION_PATH.read_text(encoding="utf-8"))
     except Exception:
         return []
     out: list[dict] = []
@@ -323,7 +323,7 @@ def _classify_position(raw_pos: str) -> str:
 def _write_csv(path: Path, rows: list[dict]) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     n = len(rows)
-    with path.open("w", newline="") as f:
+    with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=CSV_HEADER)
         w.writeheader()
         for i, r in enumerate(rows, start=1):

@@ -40,9 +40,13 @@ from src.ros.lineup import (
 )
 
 REPO = Path(__file__).resolve().parents[2]
-MANIFEST = json.loads((REPO / "docs/valuation/idp_accuracy/MANIFEST.json").read_text())
+MANIFEST = json.loads(
+    (REPO / "docs/valuation/idp_accuracy/MANIFEST.json").read_text(encoding="utf-8")
+)
 EVIDENCE = json.loads(
-    (REPO / "docs/valuation/idp_accuracy/evidence/scorer_reconciliation.json").read_text()
+    (REPO / "docs/valuation/idp_accuracy/evidence/scorer_reconciliation.json").read_text(
+        encoding="utf-8"
+    )
 )
 CARD: dict[str, float] = MANIFEST["scoringCard"]["nonZeroRules"]
 SLOTS: list[str] = MANIFEST["rosterFormat"]["starterSlots"]

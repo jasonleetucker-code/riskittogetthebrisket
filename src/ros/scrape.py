@@ -183,7 +183,7 @@ def _write_csv_outcome(source_key: str, rows: list[dict[str, Any]]) -> CsvWriteO
     ]
     import csv
 
-    with path.open("w", newline="") as f:
+    with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
         for row in rows:
@@ -316,7 +316,7 @@ def _write_run_json(
     # Drop the heavy rows blob — it's already in the CSV; the run JSON
     # is for status / debugging only.
     payload.pop("rows", None)
-    target.write_text(json.dumps(payload, indent=2))
+    target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return target
 
 
@@ -328,7 +328,7 @@ def _load_prior_rank_basis() -> dict[str, dict[str, Any]]:
     """
     path = _runs_dir() / "index.json"
     try:
-        index = json.loads(path.read_text())
+        index = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
     out: dict[str, dict[str, Any]] = {}
@@ -348,7 +348,8 @@ def _rebuild_index(latest_runs: dict[str, dict[str, Any]]) -> Path:
                 "sources": latest_runs,
             },
             indent=2,
-        )
+        ),
+        encoding="utf-8",
     )
     return index_path
 
@@ -759,7 +760,7 @@ def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[st
         # before this seam existed: the served bytes must not change.
         playoff_payload = playoff_sim.simulate_playoff_odds(snap, best_ball=bb)
         playoff_doc = {"computedAt": _now(), **playoff_payload}
-        playoff_path.write_text(json.dumps(playoff_doc, indent=2))
+        playoff_path.write_text(json.dumps(playoff_doc, indent=2), encoding="utf-8")
         out["playoff"] = playoff_path
         # AL-P6: archive each forecast, as written, with its model identity --
         # only AFTER the served file is on disk, and never able to fail this
@@ -772,7 +773,7 @@ def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[st
         # were produced.
         championship_payload = championship.championship_from_forecast(playoff_payload)
         champ_doc = {"computedAt": playoff_doc["computedAt"], **championship_payload}
-        champ_path.write_text(json.dumps(champ_doc, indent=2))
+        champ_path.write_text(json.dumps(champ_doc, indent=2), encoding="utf-8")
         out["championship"] = champ_path
         _archive_forecast(cfg.key, snap, bb, "championship", champ_doc, champ_path)
 
@@ -1111,11 +1112,12 @@ def run_all(
                 "players": aggregated,
             },
             indent=2,
-        )
+        ),
+        encoding="utf-8",
     )
     # Archive history copy keyed by completion timestamp.
     archive = agg_dir / "history" / f"{_now().replace(':', '-')}.json"
-    archive.write_text(json.dumps({"players": aggregated}, indent=2))
+    archive.write_text(json.dumps({"players": aggregated}, indent=2), encoding="utf-8")
 
     # Warm derived caches per active league.  Both helpers are best-
     # effort and never raise — a network blip during sim cache refresh

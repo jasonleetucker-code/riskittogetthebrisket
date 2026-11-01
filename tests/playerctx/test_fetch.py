@@ -83,7 +83,7 @@ class TestDownload:
         res = fetch_url("https://x.invalid/d", dest, key="d", session=session)
         assert res.status == "downloaded"
         assert dest.read_bytes() == b"abcdef"
-        meta = json.loads((tmp_path / "data.csv.meta.json").read_text())
+        meta = json.loads((tmp_path / "data.csv.meta.json").read_text(encoding="utf-8"))
         assert meta["etag"] == '"e1"'
         assert meta["size"] == 6
         assert list(tmp_path.glob("*.tmp-*")) == []

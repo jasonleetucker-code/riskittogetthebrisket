@@ -139,10 +139,12 @@ def test_missing_or_ambiguous_vote_evidence_fails_closed(census_map, reason):
 
 def test_loader_reads_only_the_named_block(tmp_path):
     cfg = tmp_path / "s.json"
-    cfg.write_text(json.dumps({"acknowledgedFetchOutages": {"_c": "x", "a": ACK}}))
+    cfg.write_text(
+        json.dumps({"acknowledgedFetchOutages": {"_c": "x", "a": ACK}}), encoding="utf-8"
+    )
     assert wf.load_acknowledged_fetch_outages(cfg) == {"a": ACK}
     assert wf.load_acknowledged_fetch_outages(tmp_path / "missing.json") == {}
-    (tmp_path / "bad.json").write_text("{not json")
+    (tmp_path / "bad.json").write_text("{not json", encoding="utf-8")
     assert wf.load_acknowledged_fetch_outages(tmp_path / "bad.json") == {}
 
 

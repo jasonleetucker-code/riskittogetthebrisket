@@ -717,7 +717,7 @@ def main() -> int:
     P2.assert_aggregate_only({k: v for k, v in result["board"].items() if k != "sha256"})
     out = REPO / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(result, indent=1, default=str) + "\n")
+    out.write_text(json.dumps(result, indent=1, default=str) + "\n", encoding="utf-8")
     print(json.dumps({"out": str(out), "timingsSec": result["timingsSec"]}))
     return 0
 

@@ -52,7 +52,7 @@ POST_IDP = PRE_IDP
 
 
 def _write(path: Path, rows: list[tuple[str, str, int]]) -> None:
-    with path.open("w", newline="") as fh:
+    with path.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(_HEADER)
         for name, pos, rank in rows:
@@ -165,7 +165,7 @@ def test_idp_key_fails_closed_without_any_idp_board(boards):
 
 def test_idp_key_falls_back_to_the_dynasty_idp_proxy(boards, tmp_path):
     proxy = tmp_path / "dyn_idp.csv"
-    with proxy.open("w", newline="") as fh:
+    with proxy.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["Player", "Fantasy Position", "Team", "Rank"])
         w.writerow(["Jack Campbell", "LB", "DET", "1"])
@@ -312,7 +312,9 @@ def _run(tmp_path: Path, rows: list[dict], key: str = "demo") -> dict:
         mock.patch.object(scrape, "_refresh_sim_caches", return_value={}),
     ):
         scrape.run_all(canonical_universe={"alpha", "beta"})
-    return json.loads((tmp_path / "runs" / "index.json").read_text())["sources"][key]
+    return json.loads((tmp_path / "runs" / "index.json").read_text(encoding="utf-8"))["sources"][
+        key
+    ]
 
 
 def _row(name, pos, total, basis):

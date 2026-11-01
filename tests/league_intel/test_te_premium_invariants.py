@@ -122,7 +122,9 @@ class TestLeagueHasNoTeScoringPremium:
         from pathlib import Path
 
         rates = json.loads(
-            (Path(__file__).parent / "fixtures" / "scoring_settings_2025.json").read_text()
+            (Path(__file__).parent / "fixtures" / "scoring_settings_2025.json").read_text(
+                encoding="utf-8"
+            )
         )
         te = dict(self.RECEIVING, bonus_fd_te=4, bonus_rec_te=6)
         wr = dict(self.RECEIVING, bonus_fd_wr=4)

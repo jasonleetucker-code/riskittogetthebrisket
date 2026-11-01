@@ -329,6 +329,11 @@ clock.
   * `freshnessExcludedSources`
   * `sourceRankMeta[k].freshness` / `freshnessAgeHours` /
     `dynamicWeightFactor`, stamped only when reduced
+  * `sourceAuthorityReasons` (2026-10-28): one compact code per source
+    below full authority (`stale=<f>@<content date>`,
+    `withheld:stale@<date>`, `family_cap=<f>`, `outlier_dropped`, …) or
+    held from voting (`held:owner_policy`); `{}` when nothing was reduced.
+    Diagnostic only — `docs/sources/IDP_SOURCE_AUTHORITY_2026-10-28.md`
 * **Board level**: the `sourceWeighting` block (sources × subsets, curve,
   formula, row-state census) and the `ktcMarket` summary.
 * **Single-source haircut**: this counts freshness-excluded families, so

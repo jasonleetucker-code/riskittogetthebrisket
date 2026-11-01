@@ -32,11 +32,11 @@ TOL = 0.011  # host displays 2-decimal scores; see SCORING_VALIDATION.md
 
 @pytest.fixture(scope="module")
 def scoring_2025():
-    return json.loads((FIXTURES / "scoring_settings_2025.json").read_text())
+    return json.loads((FIXTURES / "scoring_settings_2025.json").read_text(encoding="utf-8"))
 
 
 def _player_cases():
-    cases = json.loads((FIXTURES / "golden_player_weeks.json").read_text())
+    cases = json.loads((FIXTURES / "golden_player_weeks.json").read_text(encoding="utf-8"))
     return [pytest.param(c, id=f"{c['archetype'].replace(' ', '-')}-{c['name']}") for c in cases]
 
 
@@ -52,7 +52,7 @@ def test_golden_player_week_matches_host_awarded_points(case, scoring_2025):
 def test_archetype_coverage_matches_spec():
     """The golden set must keep covering the spec's representative
     archetypes — shrinking it silently would weaken the validation."""
-    cases = json.loads((FIXTURES / "golden_player_weeks.json").read_text())
+    cases = json.loads((FIXTURES / "golden_player_weeks.json").read_text(encoding="utf-8"))
     archetypes = {c["archetype"] for c in cases}
     required = {
         "pocket QB",
@@ -78,7 +78,7 @@ def test_archetype_coverage_matches_spec():
 def test_pick_six_fixture_confirms_stacking(scoring_2025):
     """The frozen pick-six week must actually carry both keys and
     reconcile only when BOTH pass_int and pass_int_td are charged."""
-    cases = json.loads((FIXTURES / "golden_player_weeks.json").read_text())
+    cases = json.loads((FIXTURES / "golden_player_weeks.json").read_text(encoding="utf-8"))
     case = next(c for c in cases if c["archetype"] == "pick-six QB")
     line = case["statLine"]
     assert line["pass_int"] >= 1 and line["pass_int_td"] >= 1
@@ -95,7 +95,7 @@ def test_golden_team_week_total(idx, scoring_2025):
     """Full-team validation: score every starter's raw stat line and
     sum → must equal the host's matchup ``points`` (best-ball optimal
     lineup as awarded by Sleeper)."""
-    teams = json.loads((FIXTURES / "golden_team_weeks.json").read_text())
+    teams = json.loads((FIXTURES / "golden_team_weeks.json").read_text(encoding="utf-8"))
     team = teams[idx]
     computed = 0.0
     for pid in team["starters"]:

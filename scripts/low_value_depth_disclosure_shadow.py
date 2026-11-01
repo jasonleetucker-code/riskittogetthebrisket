@@ -277,7 +277,7 @@ def anchor_sets(ctx: dict) -> dict[str, dict[str, float]]:
     '*' (picks, unknown positions) is FAAB V_repl in all three.
     """
     cur = dict(ctx["rep"])
-    idp = json.loads((LVA_EVIDENCE / "idp_anomaly.json").read_text())
+    idp = json.loads((LVA_EVIDENCE / "idp_anomaly.json").read_text(encoding="utf-8"))
     healthy = {
         p: float(v["value"]) for p, v in idp["H1_dataDefect"]["healthyWaiverBestByPosition"].items()
     }
@@ -548,7 +548,9 @@ def flip_population(rows, rep, lvd_by_variant: dict, per_cell: int) -> dict:
         o_a = _ord_v1_reproduction(*sides(b, c), rep)  # A's point of view
         flip_v1.append(_sgn(s * o_a) != _sgn(s * base_ord_v1[c["base"]]))
         naive_v1.append(_ord_v1_reproduction(*sides(b, c), rep, NAIVE) != o_a)
-    committed = json.loads((LVA_EVIDENCE / "shadow_replay.json").read_text())["S3_fillerFlipStudy"]
+    committed = json.loads((LVA_EVIDENCE / "shadow_replay.json").read_text(encoding="utf-8"))[
+        "S3_fillerFlipStudy"
+    ]
 
     def by_class(flags, cats=("filler", "depth")):
         return {
@@ -1136,7 +1138,7 @@ def main() -> int:
     P2.assert_aggregate_only({**board, "csvTree": csv_meta})
     out = REPO / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(result, indent=1, default=str) + "\n")
+    out.write_text(json.dumps(result, indent=1, default=str) + "\n", encoding="utf-8")
     print(json.dumps({"out": str(out), "timingsSec": result["timingsSec"]}))
     return 0
 

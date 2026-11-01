@@ -176,7 +176,7 @@ def render_report(snapshots: list[tuple[str, dict]], results: list[dict]) -> str
 
 def write_csv(results: list[dict], out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with out_path.open("w", newline="") as f:
+    with out_path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["alpha", "mean_abs_rank_change", "value_weighted_rank_change"])
         for r in results:
@@ -212,7 +212,7 @@ def main() -> int:
     results = sweep_alpha(snapshots)
     report = render_report(snapshots, results)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(report)
+    args.out.write_text(report, encoding="utf-8")
     write_csv(results, args.csv)
     print(report)
     print(f"\nWrote report: {args.out}")

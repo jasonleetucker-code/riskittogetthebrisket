@@ -22,14 +22,18 @@ SCRIPT = REPO / "scripts/challenge_core_multiplier.py"
 def test_the_champion_is_still_one_point_five_and_still_labelled_prior():
     """Evaluation is not activation. Whatever the pass printed, the
     served multiplier is unchanged and its status is unchanged."""
-    cfg = json.loads((REPO / "config/roster_intel/meaningful_core.json").read_text())
+    cfg = json.loads(
+        (REPO / "config/roster_intel/meaningful_core.json").read_text(encoding="utf-8")
+    )
     assert cfg["reserveMultiplier"] == 1.5
     assert cfg["reserveMultiplierStatus"] == "PRIOR"
     assert load_core_config()["reserveMultiplier"] == 1.5
 
 
 def test_the_config_records_that_the_pass_ran_without_claiming_it_froze_anything():
-    cfg = json.loads((REPO / "config/roster_intel/meaningful_core.json").read_text())
+    cfg = json.loads(
+        (REPO / "config/roster_intel/meaningful_core.json").read_text(encoding="utf-8")
+    )
     note = cfg["reserveMultiplierChallengerPass"]
     assert "run_" in note
     assert "not_frozen" in note

@@ -615,7 +615,7 @@ class TestInputsAreResolvedOnce(unittest.TestCase):
             REPO / "src" / "consensus_edge" / "api.py",
             REPO / "scripts" / "snapshot_consensus_edge.py",
         ):
-            source = path.read_text()
+            source = path.read_text(encoding="utf-8")
             self.assertIn(
                 "inputs_mod.resolve(contract)",
                 source,

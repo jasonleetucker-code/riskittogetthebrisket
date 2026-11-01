@@ -252,11 +252,11 @@ def stub_env(tmp_path):
         ("systemctl", _FAKE_SYSTEMCTL),
     ):
         path = bindir / name
-        path.write_text(body)
+        path.write_text(body, encoding="utf-8")
         path.chmod(0o755)
-    (fixtures / "service.txt").write_text(SERVICE_JOURNAL)
-    (fixtures / "healthcheck.txt").write_text(HEALTHCHECK_JOURNAL)
-    (fixtures / "kernel.txt").write_text(KERNEL_JOURNAL)
+    (fixtures / "service.txt").write_text(SERVICE_JOURNAL, encoding="utf-8")
+    (fixtures / "healthcheck.txt").write_text(HEALTHCHECK_JOURNAL, encoding="utf-8")
+    (fixtures / "kernel.txt").write_text(KERNEL_JOURNAL, encoding="utf-8")
     env = {
         **os.environ,
         "PATH": f"{bindir}:{os.environ['PATH']}",
@@ -396,7 +396,7 @@ def test_full_run_surfaces_the_watchdogs_cgroup_snapshots(stub_env, tmp_path):
         f"snapshot mem reason=pre-restart cur={SECRET}9\n"
     )
     fixtures = Path(stub_env["FIXTURES"])
-    (fixtures / "healthcheck.txt").write_text(HEALTHCHECK_JOURNAL + snap)
+    (fixtures / "healthcheck.txt").write_text(HEALTHCHECK_JOURNAL + snap, encoding="utf-8")
     res = _full_run(stub_env)
     assert res.returncode == 0, res.stderr
     assert SECRET not in res.stdout + res.stderr

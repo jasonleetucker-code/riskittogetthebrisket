@@ -372,7 +372,7 @@ def load_ros_aggregate_players() -> list[dict[str, Any]]:
     if not path.exists():
         return []
     try:
-        payload = json.loads(path.read_text())
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return []
     players = payload.get("players") if isinstance(payload, dict) else None
@@ -803,7 +803,7 @@ def write_team_strength_snapshot(
     target = _team_strength_path(league_key)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(target.suffix + f".tmp-{int(time.time() * 1000)}")
-    tmp.write_text(json.dumps(rows, indent=2))
+    tmp.write_text(json.dumps(rows, indent=2), encoding="utf-8")
     tmp.replace(target)
     return target
 
@@ -815,6 +815,6 @@ def load_team_strength_snapshot(
     if not target.exists():
         return None
     try:
-        return json.loads(target.read_text())
+        return json.loads(target.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None

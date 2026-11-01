@@ -171,7 +171,10 @@ _CHAIN = ("core.py", "strength.py", "weakness.py", "age_portfolio.py", "simulati
 #: the canonical solver answers under ``OBJECTIVE_REALIZED_POINTS``.  That is
 #: not "who starts on value" — the core's question — so it cannot be a second
 #: answer to it, and the check below keeps it that way.
-_REALIZED_POINTS_ONLY = {"best_ball_utility.py"}
+#: Roster Construction V1 (owner directive 2026-10-30) asks the same
+#: realized-points question of HISTORICAL weeks: which legal lineup the host's
+#: recorded scores produce.  Same objective, same check.
+_REALIZED_POINTS_ONLY = {"best_ball_utility.py", "construction.py"}
 
 
 def test_only_the_core_owner_solves_a_lineup():
@@ -206,11 +209,17 @@ def test_the_trade_utility_solves_only_realized_points_lineups():
             assert objective.id == "OBJECTIVE_REALIZED_POINTS", name
 
 
+#: ``math.ceil`` users that are NOT reserve demand.  construction.py uses it for a
+#: league quartile of team ranks (``_q``) and quantile interpolation; it never
+#: selects a roster population or a reserve count.
+_CEIL_NOT_RESERVE_DEMAND = {"construction.py"}
+
+
 def test_the_chain_derives_reserve_demand_in_exactly_one_place():
     hits = [
         p.name
         for p in sorted((REPO / "src/roster_intel").glob("*.py"))
-        if "math.ceil" in p.read_text(encoding="utf-8")
+        if "math.ceil" in p.read_text(encoding="utf-8") and p.name not in _CEIL_NOT_RESERVE_DEMAND
     ]
     assert hits == ["core.py"], hits
 

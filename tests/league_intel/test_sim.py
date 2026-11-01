@@ -187,7 +187,7 @@ class TestVariesAcrossRealRosters:
         )
         if not path.exists():
             pytest.skip("league pool fixture not present")
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
 
     def test_mean_and_sd_vary_across_teams(self):
         import statistics

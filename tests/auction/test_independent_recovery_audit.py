@@ -697,8 +697,12 @@ def test_B_rpo_is_pinned_by_the_hourly_timer():
     synchronous=FULL — area A).  RPO for DISK/HOST loss is the last OFF-host
     copy (the nightly jobs, ~24 h per §4): the hourly copies live on the same
     disk."""
-    timer = (REPO / "deploy/systemd/dynasty-auction-backup.timer.template").read_text()
-    service = (REPO / "deploy/systemd/dynasty-auction-backup.service.template").read_text()
+    timer = (REPO / "deploy/systemd/dynasty-auction-backup.timer.template").read_text(
+        encoding="utf-8"
+    )
+    service = (REPO / "deploy/systemd/dynasty-auction-backup.service.template").read_text(
+        encoding="utf-8"
+    )
     assert "OnCalendar=*-*-* *:17:00 UTC" in timer
     assert "RandomizedDelaySec=120" in timer and "Persistent=true" in timer
     assert "TimeoutStartSec=600" in service

@@ -23,6 +23,14 @@ approval. Owner-only consequential gates are unchanged.
 8. For engineering-system improvements, read `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.
 9. **Only for unattended/recurrent site-steward design or operation**, read `docs/AUTONOMOUS_SITE_STEWARD_VISION.md`. Do not preload that long-term vision into ordinary feature sessions.
 
+## Three-month owner conversation-detail audit — 2026-10-30
+
+**Mandatory pre-implementation lookup when an idea may derive from July 30–October 30 discussions:** `docs/MASTER_PRODUCT_PLAN.md` §13 → `docs/owner/CHASE_UPSIDE_90_DAY_CONVERSATION_AUDIT_2026-10-30.md` → original historical records: `docs/OWNER_TODO_RECOVERY_AUDIT_2026-09-10.md` R-01…72, `docs/owner/RIT_14DAY_AUDIT_RECONCILIATION_2026-10-25.md` RIT-001…088, dated owner directives and `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §23. **Never assume a chat-derived promise or an unmerged PR has been integrated into main**. Specifically, the unmerged #1755's 100-mechanism/44-candidate League Tycoon research was rescued to `docs/owner/LEAGUE_TYCOON_DEFERRED_IDEAS_PRESERVED_2026-10-16.md`; it remains PARKED and old #1755 heading collisions must be reconciled before merge. The three-month search has **no exhaustive raw-chat export**; all unobserved original messages remain `RAW_CHAT_NOT_RETRIEVED`, not “nothing else existed.” Owner intake = 3MA-1…6; `docs/EXECUTION_PLAN.md` controls what may actually be built.
+
+## Owner product specificity / multi-agent coordination — 2026-10-30
+
+When the owner gives one or many product ideas, **do not mistake a one-line umbrella name for a complete specification**. Alongside the existing owner-intake ledger, follow `docs/BRISKET_IDEAS.md` §§15–16 (mandatory `SPEC_READY` fields, zero-loss source gaps, and coordinated parallel lanes), `docs/MASTER_PRODUCT_PLAN.md` §12 (shared dependency graph and dated initiative routing), and `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §§21–22 (exact user-facing input/output/test contracts and Oct 9–30 reconciliation). Reuse the RIT-001…088 audit and subsequent dated directive IDs instead of creating redundant features. Keep uncertain ideas labeled uncertain and active claims respected. This documentation rule is NOT permission to implement ideas outside `docs/EXECUTION_PLAN.md`.
+
 ## Durable owner-intake capture rule
 
 When the owner says anything that a reasonable product/engineering lead would interpret as **durable future work**, do not leave that intent only in chat. This includes informal wording such as “add this,” “we need to fix/change this,” “make this better,” “remember/revisit this,” “do this later,” “put this on the list,” and equivalent statements that create, refine, pause, reject, or supersede product/process work.

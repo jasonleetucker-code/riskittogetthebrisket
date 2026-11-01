@@ -105,7 +105,7 @@ def main() -> int:
 
     from src.api.data_contract import _RANKING_SOURCES, build_api_data_contract  # noqa: PLC0415
 
-    payload = json.loads(payload_path.read_text())
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
 
     affected: list[dict[str, Any]] = []
     overrides: dict[str, dict[str, float]] = {}
@@ -187,7 +187,7 @@ def main() -> int:
 
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(json.dumps(summary, indent=2) + "\n")
+        args.out.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         print(f"\nWrote {args.out}")
     return 0
 

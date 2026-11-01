@@ -1915,7 +1915,7 @@ def _load_cached_payload(league_key: str | None = None) -> dict[str, Any] | None
         LOG.info("[ros] playoff cache stale (>%ds); rerunning sim", _SIM_CACHE_TTL_SEC)
         return None
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         LOG.warning("[ros] playoff cache unreadable (%s); rerunning sim", exc)
         return None

@@ -130,7 +130,7 @@ class TestTheWatchdogTargetAgreesWithItsUnit:
 
         installed = re.search(
             r'_rc_install_if_different "\$\{sysd\}/dynasty-healthcheck\.sh" \\\s*\n\s*"([^"]+)"',
-            RECONCILER.read_text(),
+            RECONCILER.read_text(encoding="utf-8"),
         )
         assert installed, "could not find the watchdog install target in the reconciler"
         target = (
@@ -161,13 +161,13 @@ class TestItStaysInsideTheAuthorizedPrivilege:
         which binary ran. One helper makes the property both enforceable
         at runtime and readable statically.
         """
-        code = re.sub(r"#.*", "", RECONCILER.read_text())
+        code = re.sub(r"#.*", "", RECONCILER.read_text(encoding="utf-8"))
         bare = re.findall(r"(?<!_rc_)\bsudo -n\b", code)
         # exactly one: the call inside _rc_sudo itself
         assert len(bare) == 1, f"{len(bare)} bare sudo call(s) bypass _rc_sudo"
 
     def test_the_allowlist_is_the_verified_nopasswd_surface(self):
-        m = re.search(r"_RC_SUDO_ALLOWED=\(([^)]*)\)", RECONCILER.read_text())
+        m = re.search(r"_RC_SUDO_ALLOWED=\(([^)]*)\)", RECONCILER.read_text(encoding="utf-8"))
         assert m, "no _RC_SUDO_ALLOWED allowlist"
         assert set(m.group(1).split()) == AUTHORIZED_SUDO
 
@@ -190,19 +190,19 @@ class TestItStaysInsideTheAuthorizedPrivilege:
     def test_unreadable_state_fails_rather_than_escalating(self):
         """If the installed artifact cannot be read, say so — do not try
         to reach it with privilege we do not have."""
-        text = RECONCILER.read_text()
+        text = RECONCILER.read_text(encoding="utf-8")
         assert "cannot prove convergence" in text
         assert "cannot verify the watchdog that actually runs" in text
 
 
 class TestScopeIsHeld:
     def test_it_does_not_run_the_full_hardening_installer(self):
-        text = RECONCILER.read_text()
+        text = RECONCILER.read_text(encoding="utf-8")
         assert "apply_hardening.sh" not in re.sub(
             r"#.*", "", text
         ), "reconciler invokes the full hardening installer"
 
     def test_it_touches_no_unrelated_hardening(self):
-        code = re.sub(r"#.*", "", RECONCILER.read_text())
+        code = re.sub(r"#.*", "", RECONCILER.read_text(encoding="utf-8"))
         for unrelated in ("nginx", "riskit-backup", "riskit-uptime", "certbot"):
             assert unrelated not in code, f"reconciler touches unrelated {unrelated}"

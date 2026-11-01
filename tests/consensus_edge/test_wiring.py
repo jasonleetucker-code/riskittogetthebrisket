@@ -664,7 +664,7 @@ class TestServiceSignature(unittest.TestCase):
     def test_no_vestigial_raw_payload_lookup(self):
         # Checks for the LOOKUP, not the string: the comment explaining
         # why the lookup was removed legitimately names the key.
-        source = (REPO / "src" / "consensus_edge" / "service.py").read_text()
+        source = (REPO / "src" / "consensus_edge" / "service.py").read_text(encoding="utf-8")
         self.assertNotIn(
             'get("_rawPayload")',
             source,

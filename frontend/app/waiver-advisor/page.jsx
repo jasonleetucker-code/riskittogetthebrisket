@@ -29,6 +29,7 @@ import {
   PageHeader,
   Panel,
   PlayerNameButton,
+  SegmentedControl,
   Select,
   SkeletonTable,
   StatTile,
@@ -37,6 +38,7 @@ import TeamSwitcher from "@/components/TeamSwitcher";
 import { useLeague } from "@/components/useLeague";
 import { useTeam } from "@/components/useTeam";
 import { useWaiverAdvisor } from "@/components/waivers/useWaiverAdvisor";
+import { useIdpStreamingGate } from "@/components/waivers/useIdpStreamingGate";
 import {
   ADVISOR_POSITION_OPTIONS,
   confidenceTone,
@@ -54,12 +56,26 @@ import {
   releaseText,
 } from "@/lib/waiver-advisor";
 import styles from "@/app/waivers/waivers.module.css";
+// Paints the .psi-editorial canvas (cream surface, full-bleed); scoping the
+// tokens alone leaves editorial ink on the dark app background.
+import advisorStyles from "./waiver-advisor.module.css";
 
 // The per-pair bid desk is the existing FAAB v2 desk (/api/waiver/faab-recommend),
 // loaded only when a user asks for it so it costs this page's chunk nothing.
 const FaabRecommendation = lazy(
   () => import("@/components/waivers/FaabRecommendation"),
 );
+// Weekly IDP Streaming (owner directive 2026-10-29, flag `idp_streaming`,
+// default OFF): a second mode of this page.  The mode switch appears only when
+// the backend's gate probe answers; the panel is its own lazy chunk.
+const IdpStreamingPanel = lazy(
+  () => import("@/components/waivers/IdpStreamingPanel"),
+);
+
+const MODE_OPTIONS = [
+  { value: "advisor", label: "Best available" },
+  { value: "streaming", label: "Weekly IDP streaming" },
+];
 
 function Missing({ children }) {
   return <span className={styles.playerMeta}>{children}</span>;
@@ -335,12 +351,18 @@ export default function WaiverAdvisorPage() {
   const { selectedTeam } = useTeam();
   const [position, setPosition] = useState("ALL");
   const [expanded, setExpanded] = useState("");
+  const [mode, setMode] = useState("advisor");
   const leagueKey = selectedLeague?.key;
   const ownerId = selectedTeam?.ownerId ? String(selectedTeam.ownerId) : null;
+  const streamingGate = useIdpStreamingGate({ leagueKey });
+  const streaming = streamingGate === "open" && mode === "streaming";
+  // The advisor's own (Perfect Waivers-backed) request is not run while the
+  // streaming mode is showing; it re-runs when the user switches back.
   const { payload, failure, loading } = useWaiverAdvisor({
     leagueKey,
     ownerId,
     position,
+    enabled: !streaming,
   });
   // The gate latches on the first answer: "closed" (flag off / no route) shows
   // nothing but "not available"; "open" keeps the controls mounted across
@@ -365,7 +387,7 @@ export default function WaiverAdvisorPage() {
   const candidates = payload?.candidates || [];
   return (
     <div
-      className={`main-shell ${styles.page} psi-editorial`}
+      className={`${styles.page} ${advisorStyles.page} psi-editorial`}
       data-testid="waiver-advisor"
     >
       <PageHeader
@@ -377,23 +399,39 @@ export default function WaiverAdvisorPage() {
       <Panel dense>
         <div className={styles.controls}>
           <TeamSwitcher variant="desktop" />
-          <Field label="Position" id="advisor-pos">
-            <Select
-              id="advisor-pos"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-            >
-              {ADVISOR_POSITION_OPTIONS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {streamingGate === "open" ? (
+            <SegmentedControl
+              label="Mode"
+              value={mode}
+              onChange={setMode}
+              options={MODE_OPTIONS}
+            />
+          ) : null}
+          {!streaming ? (
+            <Field label="Position" id="advisor-pos">
+              <Select
+                id="advisor-pos"
+                value={position}
+                onChange={(e) => setPosition(e.target.value)}
+              >
+                {ADVISOR_POSITION_OPTIONS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
         </div>
       </Panel>
 
-      {failure ? (
+      {streaming ? (
+        <Suspense fallback={<SkeletonTable rows={8} columns={6} />}>
+          <IdpStreamingPanel leagueKey={leagueKey} ownerId={ownerId} />
+        </Suspense>
+      ) : null}
+
+      {!streaming && failure ? (
         failure.code === "team_required" ? (
           <EmptyState
             title="Pick your team"
@@ -404,9 +442,11 @@ export default function WaiverAdvisorPage() {
         )
       ) : null}
 
-      {loading && !payload ? <SkeletonTable rows={8} columns={5} /> : null}
+      {!streaming && loading && !payload ? (
+        <SkeletonTable rows={8} columns={5} />
+      ) : null}
 
-      {payload ? (
+      {!streaming && payload ? (
         <>
           <TeamContext payload={payload} />
           {payload.faab?.bidMethodology !== "market_aware" ? (

@@ -222,7 +222,8 @@ class TestRed4ReconstructionIndistinguishableFromObservation(unittest.TestCase):
                         "values": {"A.J. Brown::offense": 4947},
                     }
                 )
-                + "\n"
+                + "\n",
+                encoding="utf-8",
             )
             series = rank_history.load_history(days=30, path=log)["A.J. Brown::offense"]
 

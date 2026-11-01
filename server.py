@@ -2489,7 +2489,7 @@ def _per_source_freshness() -> dict[str, dict]:
             stamp_path = state_dir / f"{src_key}_last_success"
             last_epoch: float | None = None
             try:
-                stamp_text = stamp_path.read_text().strip()
+                stamp_text = stamp_path.read_text(encoding="utf-8").strip()
             except OSError:
                 stamp_text = ""
             if stamp_text:
@@ -7840,6 +7840,162 @@ async def post_waiver_advisor(request: Request):
     return JSONResponse(content=payload)
 
 
+# Stable error codes the streaming composer raises, and the status each maps
+# to.  Anything else is ``idp_streaming_unavailable`` — never exception text.
+_STREAMING_ERROR_STATUS = {
+    "no_rosters_loaded": 503,
+    "unknown_team": 400,
+    "starter_slots_unknown": 503,
+    "not_in_season": 400,
+    "projections_refused": 503,
+    "drop_policy_unreadable": 503,
+    "league_mismatch": 503,
+}
+
+
+@app.post("/api/waiver/streaming")
+async def post_waiver_streaming(request: Request):
+    """Weekly IDP Streaming (owner directive 2026-10-29) — default-OFF composer.
+
+    Private (the default-deny API auth gate) and league-scoped, advice only:
+    nothing here submits, schedules or drafts a waiver claim.  BOTH flags
+    are checked FIRST — ``waiver_advisor`` (the page this mode lives in) and
+    ``idp_streaming`` — because the page's first request is its gate probe.
+    Everything else mirrors :func:`post_waiver_advisor`;
+    ``src/waivers/streaming.py`` composes the existing owners and this
+    handler only resolves inputs and maps its stable error codes.
+
+    Responses::
+
+        200  the streaming payload (``compute_streaming``)
+        400  team_required / unknown_team / not_in_season / bad_<field>
+             / unknown_league / inactive_league
+        503  feature_disabled (``flag`` names the switch that is off)
+        503  data_not_ready / no_rosters_loaded / starter_slots_unknown
+             / projections_refused / drop_policy_unreadable / league_mismatch
+        503  idp_streaming_unavailable (``reason`` config_unreadable /
+             league_settings_unreadable, or none when the build raised)
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.waivers import streaming as _streaming  # noqa: PLC0415
+
+    # Literal flag names: the reachability guard reads gates by their literal.
+    if not is_enabled("waiver_advisor"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": "waiver_advisor"}
+        )
+    if not is_enabled("idp_streaming"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": _streaming.FLAG}
+        )
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    try:
+        cfg = _streaming.load_streaming_config()
+    except _streaming.StreamingConfigError:
+        logging.exception("IDP Streaming: config unreadable")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "config_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    try:
+        req = _streaming.parse_streaming_request(body, cfg)
+    except ValueError as exc:
+        code = str(exc)
+        if not code.startswith("bad_"):
+            code = "bad_request"
+        return JSONResponse(status_code=400, content={"error": code, "leagueKey": league_cfg.key})
+    if not req["teamOwnerId"]:
+        return JSONResponse(
+            status_code=400, content={"error": "team_required", "leagueKey": league_cfg.key}
+        )
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    inputs = await _waiver_engine_inputs(league_cfg, req["teamOwnerId"])
+    if inputs["input_error"] is not None:
+        logging.error(
+            "IDP Streaming: league settings unreadable for %s: %r",
+            league_cfg.key,
+            inputs["input_error"],
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "league_settings_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    base = contract if isinstance(contract, dict) else {}
+    sleeper_block = base.get("sleeper") if isinstance(base.get("sleeper"), dict) else {}
+    plan_contract = {**base, "sleeper": {**sleeper_block, "teams": inputs["teams"]}}
+    constraints = _constraints_for_request(
+        request, plan_contract, league_cfg, surface="perfect_waivers"
+    )
+    try:
+        payload = await run_in_threadpool(
+            lambda: _streaming.compute_streaming(
+                plan_contract,
+                league_key=league_cfg.key,
+                owner_id=req["teamOwnerId"],
+                inputs=inputs,
+                constraints=constraints,
+                request=req,
+                cfg=cfg,
+            )
+        )
+    except _streaming.StreamingConfigError:
+        logging.exception("IDP Streaming: config unreadable")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "config_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    except ValueError as exc:
+        code = str(exc)
+        if code not in _STREAMING_ERROR_STATUS:
+            logging.exception("IDP Streaming failed")
+            return JSONResponse(
+                status_code=503,
+                content={"error": "idp_streaming_unavailable", "leagueKey": league_cfg.key},
+            )
+        return JSONResponse(
+            status_code=_STREAMING_ERROR_STATUS[code],
+            content={"error": code, "leagueKey": league_cfg.key},
+        )
+    except Exception:  # noqa: BLE001 — surface, never 500-crash the page
+        logging.exception("IDP Streaming failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "idp_streaming_unavailable", "leagueKey": league_cfg.key},
+        )
+    payload["advisoryOnly"] = True
+    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
+    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_valuation_mode(payload, valuation_mode, valuation_note)
+    return JSONResponse(content=payload)
+
+
 def _perfect_waivers_cache_key(
     league_key: str, owner_id: str, contract: dict, teams: list, constraints: Any
 ) -> str:
@@ -8340,11 +8496,14 @@ async def post_waiver_faab_recommend(request: Request):
             available_values.append(float(value))
 
     current_week, in_season = _faab_engine.current_nfl_week()
-    playoff_week_start = 15
-    for team_row in sleeper_teams:
-        if isinstance(team_row, dict) and isinstance(team_row.get("playoffWeekStart"), int):
-            playoff_week_start = team_row["playoffWeekStart"]
-            break
+    # The loaded contract's league settings are this league's only when the
+    # contract was built for it; otherwise the engine default applies.
+    _desk_contract = (
+        latest_contract_data
+        if (latest_contract_data.get("meta") or {}).get("leagueKey") == league_cfg.key
+        else None
+    )
+    playoff_week_start, _playoff_source = _faab_engine.league_playoff_week_start(_desk_contract)
 
     # Market priors fitted from THIS league's real bid history, when a
     # snapshot exists (scripts/fetch_faab_history.py writes it).
@@ -16333,6 +16492,31 @@ _player_impact_cache: dict[tuple[str, str, str], dict] = {}
 _PLAYER_IMPACT_CACHE_MAX = 4
 
 
+def _player_impact_computed(snapshot, target) -> dict:
+    """``player_impact.compute_season`` for one snapshot season, memoized.
+
+    Shared by ``/api/league/player-impact`` and ``/api/roster-construction``
+    (which consumes its ``gameChangerPoints`` as marginal contribution), so the
+    two never compute the same season twice.
+    """
+    from src.public_league import player_impact as _player_impact  # noqa: PLC0415
+
+    key = (snapshot.root_league_id, str(snapshot.generated_at), target.league_id)
+    computed = _player_impact_cache.get(key)
+    if computed is None:
+        computed = _player_impact.compute_season(snapshot, target)
+        # A snapshot refresh moves ``generated_at``, so this league's
+        # entries from an older generation can never be looked up again;
+        # drop them instead of letting them occupy the cap (~8.7 MB each,
+        # memory follow-up 2026-10-20).  Other leagues' entries stay.
+        for stale in [k for k in list(_player_impact_cache) if k[0] == key[0] and k[1] != key[1]]:
+            _player_impact_cache.pop(stale, None)
+        while len(_player_impact_cache) >= _PLAYER_IMPACT_CACHE_MAX:
+            _player_impact_cache.pop(next(iter(_player_impact_cache)))
+        _player_impact_cache[key] = computed
+    return computed
+
+
 @app.get("/api/league/player-impact")
 async def get_league_player_impact(request: Request, season: str = "", playerId: str = ""):
     """Deterministic player-impact contract for one finished-weeks season."""
@@ -16358,21 +16542,7 @@ async def get_league_player_impact(request: Request, season: str = "", playerId:
         target = snapshot.season_by_year(season) if season else snapshot.current_season
         if target is None:
             return 404, {"error": "unknown_season", "season": season}
-        key = (snapshot.root_league_id, str(snapshot.generated_at), target.league_id)
-        computed = _player_impact_cache.get(key)
-        if computed is None:
-            computed = _player_impact.compute_season(snapshot, target)
-            # A snapshot refresh moves ``generated_at``, so this league's
-            # entries from an older generation can never be looked up again;
-            # drop them instead of letting them occupy the cap (~8.7 MB each,
-            # memory follow-up 2026-10-20).  Other leagues' entries stay.
-            for stale in [
-                k for k in list(_player_impact_cache) if k[0] == key[0] and k[1] != key[1]
-            ]:
-                _player_impact_cache.pop(stale, None)
-            while len(_player_impact_cache) >= _PLAYER_IMPACT_CACHE_MAX:
-                _player_impact_cache.pop(next(iter(_player_impact_cache)))
-            _player_impact_cache[key] = computed
+        computed = _player_impact_computed(snapshot, target)
         payload = _player_impact.build_payload(
             snapshot, target, player_id=playerId or None, computed=computed
         )
@@ -16391,6 +16561,204 @@ async def get_league_player_impact(request: Request, season: str = "", playerId:
         content=content,
         headers={"Cache-Control": "private, no-store"},
     )
+
+
+# ── Roster Construction V1 (owner directive 2026-10-30) — PRIVATE ──────────
+# Positional optimal-lineup production vs positional dynasty value, per-player
+# starts while owned / counterfactual / league startability, depth, and
+# evidence-backed diagnoses.  Calculation: ``src/roster_intel/construction.py``;
+# assembly: ``src/api/roster_construction_api.py``.  Reads the league snapshot,
+# the player-impact season (marginal contribution) and the live contract
+# (``rankDerivedValue``, read only).  Changes nothing it reads.
+_roster_construction_cache: dict[tuple, dict] = {}
+_ROSTER_CONSTRUCTION_CACHE_MAX = 6
+_rc_league_cache: dict[tuple, object] = {}
+_RC_LEAGUE_CACHE_MAX = 4
+_rc_snapshot_cache: dict[str, tuple[float, object]] = {}
+_RC_SNAPSHOT_TTL_SECONDS = 1800.0
+_rc_snapshot_lock = threading.Lock()
+
+
+def _roster_construction_snapshot(league_cfg):
+    """The league's snapshot: the public one when it is this league, else a
+    private in-memory build of this league's chain (never persisted, never
+    served publicly)."""
+    league_id = str(league_cfg.sleeper_league_id or "")
+    if league_id and league_id == str(_public_league_id() or ""):
+        return _get_public_snapshot()
+    with _rc_snapshot_lock:
+        hit = _rc_snapshot_cache.get(league_id)
+        if hit is not None and (time.time() - hit[0]) < _RC_SNAPSHOT_TTL_SECONDS:
+            return hit[1]
+        snapshot = build_public_snapshot(league_id)
+        _rc_snapshot_cache[league_id] = (time.time(), snapshot)
+        return snapshot
+
+
+def _roster_construction_posture(league_cfg, snapshot, target, owner_by_roster):
+    """Current competitive posture per roster, warm-only; ``{}`` when unavailable."""
+    if target is not snapshot.current_season:
+        return {}, "posture_is_current_season_only"
+    contract = latest_contract_data
+    if not contract or str((contract.get("meta") or {}).get("leagueKey") or "") != league_cfg.key:
+        return {}, "contract_league_mismatch"
+    try:
+        from src.api import gameplan as _gameplan  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001 — an import failure degrades, never 503s
+        logging.warning("Roster construction: posture owner unavailable: %s", exc)
+        return {}, "posture_lookup_failed"
+    try:
+        postures, _meta = _gameplan.league_competitive_postures(
+            league_cfg.key, league_cfg.scoring_profile, contract, build_if_missing=False
+        )
+    except Exception as exc:  # noqa: BLE001 — degrade to a named unavailable
+        # A stable code; the exception detail goes to the log, never the payload.
+        logging.warning("Roster construction: posture lookup failed: %s", exc)
+        if isinstance(exc, _gameplan.GameplanUnavailable) and str(exc.reason).isidentifier():
+            return {}, f"posture_unavailable:{exc.reason}"  # the owner's own stable code
+        return {}, "posture_lookup_failed"
+    out = {}
+    for rid, oid in owner_by_roster.items():
+        p = postures.get(oid)
+        if p is not None:
+            out[rid] = {"label": p.label, "source": "competitive_posture", "asOf": "current"}
+    return out, None
+
+
+#: Every answer of the private route, error or not, is per-user and uncacheable.
+_RC_NO_STORE = {"Cache-Control": "private, no-store"}
+
+
+@app.get("/api/roster-construction")
+async def get_roster_construction(
+    request: Request, season: str = "", rosterId: str = "", includePlayoffs: str = ""
+):
+    """Roster Construction V1 for one league-season (and, with ``rosterId``,
+    one team).  Private, read-only, default-OFF behind ``roster_construction``."""
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
+    from src.roster_intel import construction as _rc  # noqa: PLC0415
+    from src.trade.roster_capacity import league_roster_limit  # noqa: PLC0415
+
+    if not is_enabled("roster_construction"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "feature_disabled", "flag": _rc.FLAG},
+            headers=_RC_NO_STORE,
+        )
+    if not _get_auth_session(request):
+        return JSONResponse(
+            status_code=401, content={"error": "auth_required"}, headers=_RC_NO_STORE
+        )
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        resp = err.json_response()
+        resp.headers.update(_RC_NO_STORE)
+        return resp
+    include_playoffs = str(includePlayoffs).strip().lower() in {"1", "true", "yes"}
+    roster_id: int | None = None
+    if str(rosterId).strip():
+        try:
+            roster_id = int(str(rosterId).strip())
+        except ValueError:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_roster_id", "rosterId": rosterId},
+                headers=_RC_NO_STORE,
+            )
+
+    def _build() -> tuple[int, dict]:
+        snapshot = _roster_construction_snapshot(league_cfg)
+        if snapshot is None or not snapshot.seasons:
+            return 503, {"error": "data_not_ready", "reason": "league_snapshot_unavailable"}
+        if str(league_cfg.sleeper_league_id or "") != str(snapshot.root_league_id or ""):
+            return 503, {
+                "error": "data_not_ready",
+                "reason": "league_snapshot_mismatch",
+                "leagueKey": league_cfg.key,
+            }
+        target = snapshot.season_by_year(season) if season else snapshot.current_season
+        if target is None:
+            return 404, {"error": "unknown_season", "season": season}
+        contract = latest_contract_data
+        contract_gen = str((contract or {}).get("generatedAt") or "")
+        key = (
+            snapshot.root_league_id,
+            str(snapshot.generated_at),
+            target.league_id,
+            include_playoffs,
+            contract_gen,
+            roster_id,
+        )
+        cached = _roster_construction_cache.get(key)
+        if cached is not None:
+            return 200, cached
+        league_key_ = key[:4]
+        ls = _rc_league_cache.get(league_key_)
+        if ls is None:
+            try:
+                impact = _player_impact_computed(snapshot, target)
+            except Exception as exc:  # noqa: BLE001 — marginal degrades, never the page
+                logging.error("Roster construction: player impact unavailable: %s", exc)
+                impact = None
+            limit = (
+                league_roster_limit(league_cfg.key) if target is snapshot.current_season else None
+            )
+            si_ = _rc_api.season_input_from_snapshot(
+                snapshot,
+                target,
+                include_playoffs=include_playoffs,
+                impact=impact,
+                roster_limit=limit,
+            )
+            ls = _rc.compute_league_season(si_, _rc_api.load_priors())
+            for stale in [k for k in list(_rc_league_cache) if k[0] == key[0] and k[1] != key[1]]:
+                _rc_league_cache.pop(stale, None)
+            while len(_rc_league_cache) >= _RC_LEAGUE_CACHE_MAX:
+                _rc_league_cache.pop(next(iter(_rc_league_cache)))
+            _rc_league_cache[league_key_] = ls
+        si = ls.si
+        if roster_id is not None and roster_id not in ls.team_ids:
+            return 404, {"error": "unknown_team", "rosterId": roster_id, "season": target.season}
+        owners = {
+            t.roster_id: t.owner_id for wk in sorted(si.weeks) for t in si.weeks[wk] if t.owner_id
+        }
+        postures, posture_reason = _roster_construction_posture(
+            league_cfg, snapshot, target, owners
+        )
+        posture = None
+        if roster_id is not None:
+            posture = postures.get(roster_id) or {
+                "label": None,
+                "reason": posture_reason or "posture_not_found_for_roster",
+            }
+        value = _rc_api.value_input_from_contract(contract, league_cfg.key, snapshot)
+        payload = _rc_api.build_payload(
+            ls, league_key=league_cfg.key, roster_id=roster_id, value=value, posture=posture
+        )
+        payload["generatedAt"] = snapshot.generated_at
+        for stale in [
+            k
+            for k in list(_roster_construction_cache)
+            if k[0] == key[0] and (k[1] != key[1] or k[4] != key[4])
+        ]:
+            _roster_construction_cache.pop(stale, None)
+        while len(_roster_construction_cache) >= _ROSTER_CONSTRUCTION_CACHE_MAX:
+            _roster_construction_cache.pop(next(iter(_roster_construction_cache)))
+        _roster_construction_cache[key] = payload
+        return 200, payload
+
+    try:
+        status, content = await run_in_threadpool(_build)
+    except Exception as exc:  # noqa: BLE001
+        logging.error("Roster construction build failed: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"error": "roster_construction_unavailable"},
+            headers=_RC_NO_STORE,
+        )
+    return JSONResponse(status_code=status, content=content, headers=_RC_NO_STORE)
 
 
 def _public_csv_headers(filename: str, league_key: str | None) -> dict[str, str]:

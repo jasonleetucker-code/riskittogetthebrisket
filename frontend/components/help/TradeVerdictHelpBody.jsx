@@ -126,7 +126,9 @@ export default function TradeVerdictHelpBody() {
           comparable real trades are shown for reference when the trade ledger
           has some — they never change the recommendation. Not included yet:
           the change in this season&apos;s playoff and title odds, and measured
-          value-uncertainty ranges. The War Room lists what is left out under
+          value-uncertainty ranges. Playoff and title odds come from an
+          experimental, uncalibrated season simulator, so they are shown as
+          rough estimates wherever they appear. The War Room lists what is left out under
           &quot;Sources, simulations and methodology&quot;.
         </li>
         <li>

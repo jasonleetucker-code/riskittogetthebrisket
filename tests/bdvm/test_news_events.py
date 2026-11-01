@@ -180,7 +180,9 @@ class TestMerge(unittest.TestCase):
             base = Path(td)
             human = self._event("manual-1", date="2025-01-01", confidence=0.9)
             edited = self._event("news:x:elite backer", confidence=0.9)  # human-raised
-            (base / "2026.json").write_text(json.dumps({"events": [human, edited]}))
+            (base / "2026.json").write_text(
+                json.dumps({"events": [human, edited]}), encoding="utf-8"
+            )
             summary = ne.merge_events_file(
                 [
                     self._event("news:x:elite backer"),
@@ -195,7 +197,7 @@ class TestMerge(unittest.TestCase):
             )
             self.assertTrue(summary["ok"])
             self.assertEqual(summary["added"], 1)  # only news:y is new
-            stored = json.loads((base / "2026.json").read_text())["events"]
+            stored = json.loads((base / "2026.json").read_text(encoding="utf-8"))["events"]
             by_id = {e["eventId"]: e for e in stored}
             # collision kept the HUMAN-EDITED confidence
             self.assertEqual(by_id["news:x:elite backer"]["confidence"], 0.9)
@@ -209,7 +211,10 @@ class TestMerge(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
             (base / "2026.json").write_text(
-                json.dumps({"events": [self._event("news:espn-1:elite backer", date="2026-07-25")]})
+                json.dumps(
+                    {"events": [self._event("news:espn-1:elite backer", date="2026-07-25")]}
+                ),
+                encoding="utf-8",
             )
             summary = ne.merge_events_file(
                 [self._event("news:pfp-9:elite backer")],
@@ -230,12 +235,14 @@ class TestMerge(unittest.TestCase):
             base = Path(td)
             raised = self._event("news:old:elite backer", date="2026-01-01", confidence=0.95)
             still_auto = self._event("news:old2:other guy", date="2026-01-01", player="other guy")
-            (base / "2026.json").write_text(json.dumps({"events": [raised, still_auto]}))
+            (base / "2026.json").write_text(
+                json.dumps({"events": [raised, still_auto]}), encoding="utf-8"
+            )
             summary = ne.merge_events_file(
                 [], season=2026, base_dir=base, now=datetime(2026, 7, 28, tzinfo=timezone.utc)
             )
             self.assertEqual(summary["pruned"], 1)  # only the untouched auto event
-            stored = json.loads((base / "2026.json").read_text())["events"]
+            stored = json.loads((base / "2026.json").read_text(encoding="utf-8"))["events"]
             self.assertEqual([e["eventId"] for e in stored], ["news:old:elite backer"])
 
     def test_valid_json_wrong_shape_refuses(self):
@@ -245,11 +252,11 @@ class TestMerge(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
             original = json.dumps({"events": {"eventId": "manual-1"}})
-            (base / "2026.json").write_text(original)
+            (base / "2026.json").write_text(original, encoding="utf-8")
             summary = ne.merge_events_file([self._event("news:x:a")], season=2026, base_dir=base)
             self.assertFalse(summary["ok"])
             self.assertEqual(summary["reason"], "events_file_invalid_shape")
-            self.assertEqual((base / "2026.json").read_text(), original)
+            self.assertEqual((base / "2026.json").read_text(encoding="utf-8"), original)
 
     def test_extra_top_level_keys_survive_rewrite(self):
         # A human _comment block (the config/bdvm convention) must not
@@ -257,7 +264,7 @@ class TestMerge(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
             (base / "2026.json").write_text(
-                json.dumps({"_comment": ["operator notes"], "events": []})
+                json.dumps({"_comment": ["operator notes"], "events": []}), encoding="utf-8"
             )
             summary = ne.merge_events_file(
                 [self._event("news:x:elite backer")],
@@ -266,7 +273,7 @@ class TestMerge(unittest.TestCase):
                 now=datetime(2026, 7, 28, tzinfo=timezone.utc),
             )
             self.assertTrue(summary["ok"])
-            stored = json.loads((base / "2026.json").read_text())
+            stored = json.loads((base / "2026.json").read_text(encoding="utf-8"))
             self.assertEqual(stored["_comment"], ["operator notes"])
             self.assertEqual(len(stored["events"]), 1)
 
@@ -274,7 +281,7 @@ class TestMerge(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
             old_auto = self._event("news:old:someone", date="2026-01-01")
-            (base / "2026.json").write_text(json.dumps({"events": [old_auto]}))
+            (base / "2026.json").write_text(json.dumps({"events": [old_auto]}), encoding="utf-8")
             summary = ne.merge_events_file(
                 [],
                 season=2026,
@@ -282,7 +289,7 @@ class TestMerge(unittest.TestCase):
                 now=datetime(2026, 7, 28, tzinfo=timezone.utc),
             )
             self.assertEqual(summary["pruned"], 1)
-            stored = json.loads((base / "2026.json").read_text())["events"]
+            stored = json.loads((base / "2026.json").read_text(encoding="utf-8"))["events"]
             self.assertEqual(stored, [])
 
     def test_no_change_writes_nothing(self):
@@ -295,11 +302,11 @@ class TestMerge(unittest.TestCase):
     def test_corrupt_file_refuses_rather_than_discarding(self):
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
-            (base / "2026.json").write_text("{not json")
+            (base / "2026.json").write_text("{not json", encoding="utf-8")
             summary = ne.merge_events_file([self._event("news:x:a")], season=2026, base_dir=base)
             self.assertFalse(summary["ok"])
             self.assertEqual(summary["reason"], "events_file_unreadable")
-            self.assertEqual((base / "2026.json").read_text(), "{not json")
+            self.assertEqual((base / "2026.json").read_text(encoding="utf-8"), "{not json")
 
 
 class TestCacheFingerprint(unittest.TestCase):
@@ -329,7 +336,7 @@ class TestCacheFingerprint(unittest.TestCase):
                 bdvm_api.get_bdvm_values(contract, "dynasty_main")
                 bdvm_api.get_bdvm_values(contract, "dynasty_main")
                 self.assertEqual(rv.call_count, 1)  # cached
-                (base / "2026.json").write_text('{"events": []}')
+                (base / "2026.json").write_text('{"events": []}', encoding="utf-8")
                 bdvm_api.get_bdvm_values(contract, "dynasty_main")
                 self.assertEqual(rv.call_count, 2)  # fingerprint change → recompute
 

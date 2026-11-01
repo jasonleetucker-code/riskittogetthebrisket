@@ -42,7 +42,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { test, expect } = require("@playwright/test");
 const AxeBuilder = require("@axe-core/playwright").default;
-const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
+const { pageUrl, awaitStreamSettled, isNavigationAbortedFetch } = require("../helpers/journey");
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const RESULTS = ["FAIR TRADE", "NOT FAIR", "UNABLE TO DETERMINE"];
@@ -95,7 +95,9 @@ async function noHorizontalScroll(page) {
 // Hydration + runtime guards for the whole test.
 function guard(page) {
   const problems = [];
-  page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
+  page.on("pageerror", (e) => {
+    if (!isNavigationAbortedFetch(e, page)) problems.push(`pageerror: ${e.message}`);
+  });
   page.on("console", (m) => {
     if (m.type() !== "error") return;
     const t = m.text();

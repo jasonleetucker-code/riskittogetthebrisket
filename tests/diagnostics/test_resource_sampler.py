@@ -40,7 +40,9 @@ def temp_telemetry(tmp_path, monkeypatch):
 
 
 def _samples(path):
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 @_LIVE_PROC
@@ -99,7 +101,9 @@ def test_run_exits_and_marks_the_moment_the_target_vanished(temp_telemetry):
     )
     assert rc == 0
 
-    events = [json.loads(line) for line in telemetry.EVENTS_PATH.read_text().splitlines()]
+    events = [
+        json.loads(line) for line in telemetry.EVENTS_PATH.read_text(encoding="utf-8").splitlines()
+    ]
     names = [e["event"] for e in events]
     assert "sampler_started" in names
     assert "target_pid_vanished" in names, "must flag the exact sample where the target died"
@@ -122,7 +126,9 @@ def test_run_is_bounded_by_max_duration(temp_telemetry):
         gone_samples_before_exit=1000,
     )
     assert rc == 0
-    events = [json.loads(line) for line in telemetry.EVENTS_PATH.read_text().splitlines()]
+    events = [
+        json.loads(line) for line in telemetry.EVENTS_PATH.read_text(encoding="utf-8").splitlines()
+    ]
     stop = [e for e in events if e["event"] == "sampler_stopped"]
     assert stop and stop[-1]["reason"] == "max_duration"
 

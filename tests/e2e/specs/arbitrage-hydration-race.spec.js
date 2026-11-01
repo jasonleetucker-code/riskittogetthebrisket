@@ -28,7 +28,7 @@
  *     npx playwright test --config tests/e2e/playwright.config.js arbitrage-hydration-race
  */
 const { test, expect } = require("@playwright/test");
-const { pageUrl, pageHeading, titleFor, awaitStreamSettled } = require("../helpers/journey");
+const { pageUrl, pageHeading, titleFor, awaitStreamSettled, isNavigationAbortedFetch } = require("../helpers/journey");
 const {
   ARBITRAGE_TOOL_TABS,
   openPackageScan,
@@ -145,7 +145,9 @@ async function gotoArbitrageBeforeHydration(page) {
 test.describe("/arbitrage survives a slow hydration", () => {
   test("Package Scan tab opens when clicked before hydration finished", async ({ page }) => {
     const errors = [];
-    page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("pageerror", (e) => {
+      if (!isNavigationAbortedFetch(e, page)) errors.push(String(e));
+    });
     await gotoArbitrageBeforeHydration(page);
 
     await openPackageScan(page);
@@ -160,7 +162,9 @@ test.describe("/arbitrage survives a slow hydration", () => {
     page,
   }) => {
     const errors = [];
-    page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("pageerror", (e) => {
+      if (!isNavigationAbortedFetch(e, page)) errors.push(String(e));
+    });
     await gotoArbitrageBeforeHydration(page);
 
     const research = await openPlayerResearch(page);

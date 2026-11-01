@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 63 entries in ``_DEFAULTS`` below are ``True`` —
+26 of the 67 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -20,7 +20,8 @@ end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``fantasypros_idp_upstream_clock``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
 ``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates``,
-``trade_screenshot_import`` and ``manager_intelligence`` — several with comments
+``trade_screenshot_import``, ``manager_intelligence``, ``waiver_advisor`` and
+``idp_streaming`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -666,9 +667,33 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # the selected team: a composer over the existing owners (Perfect
     # Waivers, FAAB engine, lineup solver, roster capacity, posture) that
     # changes no served value.  Off → the route 503s feature_disabled and the
-    # page renders "not available".  Activation is an owner decision.
-    # Rollback: RISKIT_FEATURE_WAIVER_ADVISOR=0 + restart.
-    "waiver_advisor": False,
+    # page renders "not available".  ON by owner decision 1 of 2026-10-29
+    # (docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md): enabled for the
+    # private, signed-in Waiver Advisor once acceptance, exact-head green CI
+    # and independent review passed (#2024 / #2025).  The page and route stay
+    # auth-gated.  Rollback: RISKIT_FEATURE_WAIVER_ADVISOR=0 + restart.
+    "waiver_advisor": True,
+    # Roster Construction V1 (owner directive 2026-10-30, PHASE 3).  ON: the
+    # private GET /api/roster-construction answers — per league-season,
+    # positional optimal-lineup production and ranks, current positional
+    # dynasty value (rankDerivedValue, read only), per-player starts while
+    # owned / counterfactual / league startability, depth and coverage, and
+    # evidence-backed diagnoses that may say NO_ACTION.  It changes no served
+    # value, rank, lineup or flag.  Off -> the route 503s feature_disabled.
+    # Rollback: RISKIT_FEATURE_ROSTER_CONSTRUCTION=0 + restart.
+    "roster_construction": False,
+    # Weekly IDP Streaming (owner directive 2026-10-29,
+    # docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md).  ON (together with
+    # ``waiver_advisor``): POST /api/waiver/streaming + the "Weekly IDP
+    # Streaming" mode of the private /waiver-advisor page answer for the
+    # selected team — a composer (src/waivers/streaming.py) over the weekly
+    # league-scored projections, the drop assessment, the exact lineup solver,
+    # the FAAB engine and roster capacity.  Advice only; it changes no served
+    # value and writes nothing to Sleeper.  Off → the route 503s
+    # feature_disabled and the page hides the mode.  ON by owner decision 1 of
+    # 2026-10-29 (same record and gates as ``waiver_advisor``).
+    # Rollback: RISKIT_FEATURE_IDP_STREAMING=0 + restart.
+    "idp_streaming": True,
     # Low-value depth disclosure SHADOW COUNTERS -- HELD, DEFAULT OFF (owner
     # decision 2026-10-21, LVA Package 4, V4 "approved for shadow measurement
     # only"; docs/owner/LVA_OWNER_DECISIONS_2026-10-21.md).  ON: each private
@@ -858,6 +883,28 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # fetch.
     "fantasynerds_weekly_projections": False,
     "sportsdataio_weekly_projections": False,
+    # IDP streaming W1 (2026-10-29): FPTrack weekly projections
+    # (``src/ros/fptrack_weekly_projections.py``) — a public, owner-attested
+    # (docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md) weekly stat-line
+    # catalog, offense + IDP.  SEASONAL intelligence lane only.  Its IDP
+    # numbers share data lineage with RotoWire, so it is a COVERAGE FILLER in
+    # ``src/ros/weekly_league_projections.py`` and never a second vote.
+    # Default OFF: no consumer reads it on a served path yet.  Off → the fetch
+    # refuses ``feature_disabled`` with no network call.  Activate:
+    # RISKIT_FEATURE_FPTRACK_WEEKLY_PROJECTIONS=1 + restart.
+    "fptrack_weekly_projections": False,
+    # IDP streaming W1 (2026-10-29): the perishable point-in-time weekly
+    # projection archive collector (``scripts/capture_weekly_projections.py``
+    # → gitignored ``data/projections/weekly_archive/``).  Read-only public
+    # fetches of weekly sources whose own flags are ON.  Registry default OFF
+    # because a SCRIPT_ONLY gate may not default ON
+    # (tests/api/test_feature_flag_reachability.py); the production timer
+    # (deploy/systemd/dynasty-weekly-projection-capture.service.template)
+    # opts in with ``Environment=RISKIT_FEATURE_WEEKLY_PROJECTION_CAPTURE=1``.
+    # Rollback: put RISKIT_FEATURE_WEEKLY_PROJECTION_CAPTURE=0 in the app
+    # ``.env`` (EnvironmentFile= overrides Environment=) or disable
+    # ``<service>-weekly-projection-capture.timer``.
+    "weekly_projection_capture": False,
     # Owner Decision 11 (2026-10-18) — playoff / title odds count a team's ROS
     # evidence ONCE.  ``src/ros/playoff_sim._compose_team_distribution``: on a
     # best-ball pre-sim basis (itself drawn from each player's rosValue) the
@@ -1063,6 +1110,13 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # src/waivers/advisor.py::advisor_enabled): off → 503 feature_disabled.
     # Default False (see its _DEFAULTS entry).
     "waiver_advisor": LIVE,
+    # roster_construction gates GET /api/roster-construction inline in
+    # server.py: off -> 503 feature_disabled, on -> the private payload.
+    "roster_construction": LIVE,
+    # idp_streaming gates POST /api/waiver/streaming inline in server.py
+    # (checked after ``waiver_advisor``): off → 503 feature_disabled.
+    # Default False (see its _DEFAULTS entry).
+    "idp_streaming": LIVE,
     # low_value_depth_disclosure_shadow gates the depth-note shadow counters
     # inline in server.py (``_build_trade_simulation``, reached by
     # /api/trade/simulate and /api/trade/analyze) and the private read route
@@ -1240,6 +1294,14 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # False, and they also need their credential env var.
     "fantasynerds_weekly_projections": UNREACHABLE,
     "sportsdataio_weekly_projections": UNREACHABLE,
+    # ``src/ros/fptrack_weekly_projections.py`` — gated inside the provider
+    # module, reached by ``src/ros/weekly_league_projections.py`` (and the
+    # capture script).  LIVE since POST /api/waiver/streaming (itself behind
+    # ``waiver_advisor`` + ``idp_streaming``, default OFF) composes the weekly
+    # projections; the flag still refuses the fetch while it is off.
+    "fptrack_weekly_projections": LIVE,
+    # Gated in ``scripts/capture_weekly_projections.py`` (the timer's script).
+    "weekly_projection_capture": SCRIPT_ONLY,
     # ``src/ros/playoff_sim.ros_counted_once_enabled`` — read by
     # ``_build_team_distributions`` on every canonical forecast, reached
     # through ``/api/public/league/rosPlayoffOdds`` / ``playoffOdds`` /

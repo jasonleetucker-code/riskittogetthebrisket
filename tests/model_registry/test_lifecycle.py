@@ -145,7 +145,6 @@ def test_an_unevaluated_champion_blocks_the_whole_pipeline(world):
     assert "unmeasured incumbent" in decision.reason
 
 
-@pytest.mark.livedata
 def test_the_shipped_registry_is_coherent():
     """The committed registry must load, have exactly one champion, and
     state its own confidence."""

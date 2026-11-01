@@ -206,7 +206,7 @@ def test_load_directory_provenance(tmp_path):
 
 def test_capture_safely_never_raises(tmp_path):
     blocker = tmp_path / "file"
-    blocker.write_text("not a dir")
+    blocker.write_text("not a dir", encoding="utf-8")
     assert ih.capture_safely([_entry("1", "x", "OUT")], fetched_at=T0, base=blocker / "sub") is None
 
 

@@ -45,6 +45,12 @@ def test_every_flag_defaults_off_except_safe_additive():
         # Manager Intelligence: own private endpoint + page; reads Sleeper and the
         # canonical board, writes nothing, never changes a canonical value.
         "manager_intelligence",
+        # Private signed-in Waiver Advisor + its Weekly IDP Streaming mode:
+        # advice only, no served value changes, no Sleeper writes.  ON by
+        # owner decision 1 of 2026-10-29
+        # (docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md).
+        "waiver_advisor",
+        "idp_streaming",
         "value_confidence_intervals",  # additive valueBand field
         "positional_tiers",  # additive tierId field
         "usage_signals",  # freshness + starter-guarded

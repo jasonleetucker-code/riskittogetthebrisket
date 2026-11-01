@@ -286,7 +286,7 @@ def _run_stamp(
 def test_a_rewritten_csv_is_stamped_without_any_warning(tmp_path):
     proc, stamp = _run_stamp(tmp_path, csv_mtime=_AFTER, rows=150)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert stamp.exists() and stamp.read_text().strip().isdigit()
+    assert stamp.exists() and stamp.read_text(encoding="utf-8").strip().isdigit()
     assert "::warning" not in proc.stdout
 
 

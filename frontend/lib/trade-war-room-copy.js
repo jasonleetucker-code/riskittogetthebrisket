@@ -1350,6 +1350,64 @@ export function weeklyImpact(lens) {
   return { sentence: lineupPointsSentence(d.ppg), note: notes.join(" ") || null, partial };
 }
 
+/** Defensive (IDP) position codes: the lineup simulation's projections for
+ *  these players come from a separate projection family from offense. */
+const IDP_POSITIONS = new Set([
+  "DL",
+  "DE",
+  "DT",
+  "EDGE",
+  "LB",
+  "ILB",
+  "OLB",
+  "MLB",
+  "DB",
+  "CB",
+  "S",
+  "FS",
+  "SS",
+]);
+
+/**
+ * What the "Impact on your team" number MEANS, in one sentence.  Four
+ * different quantities appear around a trade and they are not
+ * interchangeable (owner request 2026-10-28):
+ *   * trade value  = long-term dynasty market value (the board's value);
+ *   * this number  = expected points for the rest of THIS season, from
+ *                    projections, for your best legal lineup;
+ *   * roster fit   = roster spots and forced cuts (a separate row);
+ *   * playoff / title odds = NOT part of this analysis at all.
+ * Display copy only: it states the basis and never changes a number.
+ */
+export const LINEUP_BASIS_NOTE =
+  "Average weekly points over the rest of this season, from projections. It is not long-term dynasty value, and it does not include playoff or title odds.";
+
+/**
+ * A caveat when defensive (IDP) players appear among the AFFECTED players
+ * listed in the lineup detail (an unaffected IDP starter does not trigger
+ * it).  Offense and IDP projections come from different projection families
+ * and IDP accuracy has not been confirmed against this league's results
+ * (see docs/league-intelligence/ROS_SCALE_CALIBRATION_RESULTS_2026-10-28.md,
+ * which measures the separate rank-index rosValue).  Returns null when no IDP
+ * player is listed.  Label only -- the math is unchanged.
+ */
+export function idpProjectionCaveat(rosterDetail) {
+  const players = Array.isArray(rosterDetail?.players) ? rosterDetail.players : [];
+  const hasIdp = players.some((p) => IDP_POSITIONS.has(String(p?.position || "").toUpperCase()));
+  return hasIdp
+    ? "Defensive (IDP) projections come from different sources than offense, and their accuracy against this league's results has not been confirmed, so treat a lineup that mixes them as a rough estimate."
+    : null;
+}
+
+/** The notes that go under the "Impact on your team" answer, in order. */
+export function lineupBasisNotes(rosterDetail) {
+  return [LINEUP_BASIS_NOTE, idpProjectionCaveat(rosterDetail)].filter(Boolean);
+}
+
+/** Season playoff / title odds are experimental wherever they appear. */
+export const SEASON_ODDS_CAVEAT =
+  "Playoff and title odds come from the season simulator, which is experimental and uncalibrated: it has not been validated against this league's results, so treat them as rough.";
+
 /** The player-by-player detail's note under partial projection coverage,
  *  counted from the roster lens; null when coverage is not partial. */
 export function partialCoverageNote(lens) {

@@ -36,7 +36,7 @@ _mod = _load_module()
 def _write_season_file(actuals_dir: Path, season: int, content: str) -> Path:
     actuals_dir.mkdir(parents=True, exist_ok=True)
     path = actuals_dir / _mod.pbp_weekly_filename(season)
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
     return path
 
 
@@ -56,12 +56,14 @@ def test_restore_puts_back_a_file_that_existed(tmp_path):
     manifest = _mod.create_backup(actuals_dir, [2024], tmp_path / "backups")
 
     # Simulate a rebuild overwriting the file with new content.
-    (actuals_dir / _mod.pbp_weekly_filename(2024)).write_text('{"schemaVersion": "new"}\n')
+    (actuals_dir / _mod.pbp_weekly_filename(2024)).write_text(
+        '{"schemaVersion": "new"}\n', encoding="utf-8"
+    )
 
     result = _mod.restore_backup(Path(manifest["manifestPath"]))
     assert result["restored"] == [_mod.pbp_weekly_filename(2024)]
     assert result["deleted"] == []
-    assert (actuals_dir / _mod.pbp_weekly_filename(2024)).read_text() == original
+    assert (actuals_dir / _mod.pbp_weekly_filename(2024)).read_text(encoding="utf-8") == original
 
 
 def test_restore_deletes_a_file_the_rebuild_created_from_nothing(tmp_path):
@@ -71,7 +73,9 @@ def test_restore_deletes_a_file_the_rebuild_created_from_nothing(tmp_path):
     manifest = _mod.create_backup(actuals_dir, [2024, 2025], tmp_path / "backups")
 
     # Simulate a rebuild that creates 2025 from nothing.
-    (actuals_dir / _mod.pbp_weekly_filename(2025)).write_text('{"schemaVersion": "brand-new"}\n')
+    (actuals_dir / _mod.pbp_weekly_filename(2025)).write_text(
+        '{"schemaVersion": "brand-new"}\n', encoding="utf-8"
+    )
     assert (actuals_dir / _mod.pbp_weekly_filename(2025)).exists()
 
     result = _mod.restore_backup(Path(manifest["manifestPath"]))
@@ -120,7 +124,7 @@ def test_manifest_is_valid_json_on_disk(tmp_path):
     actuals_dir = tmp_path / "actuals"
     _write_season_file(actuals_dir, 2024, "{}\n")
     manifest = _mod.create_backup(actuals_dir, [2024], tmp_path / "backups")
-    on_disk = json.loads(Path(manifest["manifestPath"]).read_text())
+    on_disk = json.loads(Path(manifest["manifestPath"]).read_text(encoding="utf-8"))
     assert on_disk["seasons"]["2024"]["existedBefore"] is True
 
 
@@ -153,10 +157,10 @@ def test_cli_backup_then_restore_round_trip(tmp_path, capsys):
     out = json.loads(capsys.readouterr().out)
     manifest_path = out["manifestPath"]
 
-    (actuals_dir / _mod.pbp_weekly_filename(2024)).write_text("clobbered")
-    (actuals_dir / _mod.pbp_weekly_filename(2025)).write_text("clobbered")
+    (actuals_dir / _mod.pbp_weekly_filename(2024)).write_text("clobbered", encoding="utf-8")
+    (actuals_dir / _mod.pbp_weekly_filename(2025)).write_text("clobbered", encoding="utf-8")
 
     rc = _mod.main(["restore", "--manifest", manifest_path])
     assert rc == 0
-    assert (actuals_dir / _mod.pbp_weekly_filename(2024)).read_text() == original
+    assert (actuals_dir / _mod.pbp_weekly_filename(2024)).read_text(encoding="utf-8") == original
     assert not (actuals_dir / _mod.pbp_weekly_filename(2025)).exists()

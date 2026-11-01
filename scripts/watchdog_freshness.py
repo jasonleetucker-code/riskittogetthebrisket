@@ -73,7 +73,7 @@ def _read_freshness() -> dict[str, dict]:
         stamp_path = state_dir / f"{src_key}_last_success"
         last_epoch: float | None = None
         try:
-            stamp_text = stamp_path.read_text().strip()
+            stamp_text = stamp_path.read_text(encoding="utf-8").strip()
         except OSError:
             stamp_text = ""
         if stamp_text:

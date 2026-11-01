@@ -88,7 +88,7 @@ class TestFitSourceCoverage:
         coverage tests above on the day it is written and rot silently
         afterwards, which is the failure this whole file exists for.
         """
-        src = EVIDENCE.read_text()
+        src = EVIDENCE.read_text(encoding="utf-8")
         assert "fitter.OFFENSE_SOURCES" in src
         assert "fitter.GLOBAL_SOURCES" in src
         assert "fitter.IDP_CSV_SOURCES" in src
@@ -113,7 +113,7 @@ class TestSnapshotIsPinned:
         train on different data than the champion it is compared with.
         """
         forced = tmp_path / "dynasty_data_9999-01-01.json"
-        forced.write_text("{}")
+        forced.write_text("{}", encoding="utf-8")
         monkeypatch.setenv(fitter.SNAPSHOT_ENV_VAR, str(forced))
         assert fitter._latest_snapshot() == forced
 
@@ -143,7 +143,7 @@ class TestFitTopNParity:
         )
 
     def test_the_measurement_imports_the_constant(self):
-        src = EVIDENCE.read_text()
+        src = EVIDENCE.read_text(encoding="utf-8")
         assert "from src.model_registry.holdout import FIT_TOP_N" in src
         assert "fit_top_n = 400" not in src, "the measurement hardcodes 400 again"
 

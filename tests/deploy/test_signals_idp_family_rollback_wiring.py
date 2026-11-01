@@ -51,7 +51,7 @@ BASH = shutil.which("bash")
 
 
 def _wf(path: Path) -> dict:
-    return yaml.safe_load(path.read_text())
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def _inputs(doc: dict) -> dict:
@@ -74,7 +74,7 @@ def test_rollback_workflow_shape():
 
 
 def test_inputs_reach_the_shell_only_through_env():
-    text = ROLLBACK_WF.read_text()
+    text = ROLLBACK_WF.read_text(encoding="utf-8")
     run_blocks = [
         step.get("run", "") for job in _wf(ROLLBACK_WF)["jobs"].values() for step in job["steps"]
     ]
@@ -85,7 +85,7 @@ def test_inputs_reach_the_shell_only_through_env():
 
 
 def test_every_ssh_call_pipes_the_one_fixed_script():
-    text = ROLLBACK_WF.read_text()
+    text = ROLLBACK_WF.read_text(encoding="utf-8")
     pipes = re.findall(r"< deploy/diagnostics/(\S+\.sh)", text)
     assert pipes and set(pipes) == {"signals_idp_family_rollback.sh"}
     keys = set(re.findall(r"([A-Z_][A-Z0-9_]*)=(?:rollback |restore |\$\(printf %q)", text))
@@ -101,7 +101,7 @@ def test_every_ssh_call_pipes_the_one_fixed_script():
 
 
 def test_the_script_only_ever_writes_off_and_restores_captured_state():
-    text = ROLLBACK_SH.read_text()
+    text = ROLLBACK_SH.read_text(encoding="utf-8")
     assert re.findall(r'--value "([^"]*)"', text) == ["0"]
     assert text.count('prod_env_flag_ops.py" set') == 1
     assert text.count('prod_env_flag_ops.py" restore') == 1
@@ -164,7 +164,7 @@ def _status(enabled, absent, has_data=True):
 @_LINUX_ONLY
 def test_served_state_verification(tmp_path, body, want, ok):
     status = tmp_path / "status.json"
-    status.write_text(body)
+    status.write_text(body, encoding="utf-8")
     py = shutil.which("python3") or "python3"
     cp = _source(
         f'resolve_family; PYTHON_BIN={py}; curl() {{ cat "{status}"; }}; '
@@ -190,7 +190,7 @@ def test_probe_workflow_runs_deployed_scripts_from_main_only():
     assert names.index("Refuse unless dispatched from main") < names.index(
         "Configure production SSH"
     )
-    text = PROBE_WF.read_text()
+    text = PROBE_WF.read_text(encoding="utf-8")
     # the deployed copy runs; no runner copy is uploaded to the host
     assert "$APP_DIR/scripts/verify_signals_health.py" in text
     assert "$APP_DIR/scripts/probe_signals_native.py" in text

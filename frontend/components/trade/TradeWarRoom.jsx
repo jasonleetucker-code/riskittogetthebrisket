@@ -89,6 +89,8 @@ import {
   bandStatusWords,
   bandBasisWords,
   weeklyImpact,
+  lineupBasisNotes,
+  SEASON_ODDS_CAVEAT,
 } from "@/lib/trade-war-room-copy";
 import { RECOMMENDATION_ONLY_TEXT } from "@/components/help/TradeHelp";
 import styles from "./war-room.module.css";
@@ -434,7 +436,8 @@ export function Methodology({ analysis, raw }) {
         <p>
           Package Value Adjustment: {packageModelLabel(market.packageModel)}. Adjusted totals: you
           receive {formatValue(market.receivingAdjusted) ?? "—"} and send{" "}
-          {formatValue(market.sendingAdjusted) ?? "—"}. Every asset is priced at its board value, so
+          {formatValue(market.sendingAdjusted) ?? "—"}. Trade value is long-term dynasty market
+          value, not this season&apos;s expected points. Every asset is priced at its board value, so
           value overrides typed in the builder are not applied here, and fit with your roster never
           changes an asset&apos;s value.
         </p>
@@ -499,7 +502,7 @@ export function Methodology({ analysis, raw }) {
           <p>
             Read from the same playoff odds, roster strength and age evidence the rest of the
             analysis uses, so it explains the recommendation but is never counted in it. Its
-            parameters are declared priors, not fitted.
+            parameters are declared priors, not fitted. {SEASON_ODDS_CAVEAT}
           </p>
         </section>
       ) : null}
@@ -543,6 +546,7 @@ export function Methodology({ analysis, raw }) {
             <li key={d.dimension}>
               <strong>{DIMENSION_WORDS[d.dimension] || humanizeKey(d.dimension)}</strong> —{" "}
               {DIMENSION_REASON_WORDS[d.reason] || "not included yet"}
+              {d.dimension === "currentSeasonEquity" ? ` (${SEASON_ODDS_CAVEAT})` : ""}
             </li>
           ))}
         </ul>
@@ -1034,6 +1038,11 @@ export default function TradeWarRoom({
                   {impact.sentence}
                 </p>
                 {impact.note ? <p className={styles.note}>{impact.note}</p> : null}
+                {lineupBasisNotes(rosterDetail).map((n) => (
+                  <p key={n} className={styles.note} data-testid="war-room-impact-basis">
+                    {n}
+                  </p>
+                ))}
               </>
             ) : (
               <p className={styles.muted}>{impact?.unavailable || pendingWord || "Calculating…"}</p>

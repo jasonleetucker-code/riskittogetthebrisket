@@ -438,7 +438,7 @@ the value chain.
 | Prod-only data | `data/rank_history.jsonl` accrual, board-snapshot timer, sharp platform ledger, `data/bdvm/`, `data/intel/` — invisible from this container. 9 findings stay BLOCKED, never "passed". |
 | C01–C43 / U01–U06 trackers | Live and CI-enforced (`scripts/audit_status.py`), still unmapped to W-ids. |
 | Multi-team trade E2E coverage | **No E2E spec exercises a 3+-team trade** — `journey-trade.spec.js` and the mobile specs are two-team only, which is why the crash above survived. Closing it is E2E-track work, not a hotfix. |
-| Mobile/WebKit verification | WebKit is not installable here (`/opt/pw-browsers` is Chromium-only; `mobile-390`/`mobile-430` are local-only projects CI never runs). The trade crash was verified RED→GREEN in Chromium at the mobile viewport; the owner's exact browser path stays **unverified, not claimed**. |
+| Mobile/WebKit verification | WebKit was not installed here (`/opt/pw-browsers` is Chromium-only) and `mobile-390`/`mobile-430` were local-only projects CI never ran.  *(Updated 2026-10-28: WebKit installs and launches in this container with `npx playwright install webkit` plus `install-deps webkit`; E2E Safety Net now runs `mobile-390`.  This W08 row's trade-crash verification was not re-done on WebKit.)* The trade crash was verified RED→GREEN in Chromium at the mobile viewport; the owner's exact browser path stays **unverified, not claimed**. |
 | Refit snapshot pinning | `RISKIT_FIT_SNAPSHOT` unset in `.github/workflows/refit-hill-curves.yml`. One-line fix, deliberately not made — the execution order stopped at evidence. |
 | Model registry provenance | 6 of ≥10 inputs pinned; one scope scored while four are promoted; `measuredAt` null everywhere; `appliedAt` null on an applied champion. |
 

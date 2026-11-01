@@ -120,7 +120,7 @@ def test_the_live_tree_has_no_unmeasurable_source() -> None:
 
 
 def _watchdog_ast() -> ast.Module:
-    return ast.parse(_WATCHDOG.read_text())
+    return ast.parse(_WATCHDOG.read_text(encoding="utf-8"))
 
 
 def _main_fn() -> ast.FunctionDef:
@@ -174,7 +174,7 @@ def test_main_gates_its_success_exit_on_the_result() -> None:
 def test_check_source_health_reports_it_too() -> None:
     """``check_source_health`` reuses the watchdog rule verbatim ("no second
     freshness rule"), so it inherited the hole and must inherit the repair."""
-    src = (_REPO / "scripts" / "check_source_health.py").read_text()
+    src = (_REPO / "scripts" / "check_source_health.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     imported = {
         alias.name

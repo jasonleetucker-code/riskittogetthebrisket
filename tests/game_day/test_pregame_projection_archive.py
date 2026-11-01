@@ -150,7 +150,7 @@ def test_an_existing_archive_is_never_rebuilt_from_later_evidence():
 def test_a_week_without_weekly_projections_prunes_as_before():
     obs = _obs_dir()
     obs.mkdir(parents=True)
-    (obs / "espn_scoreboard.jsonl").write_text("{}\n")
+    (obs / "espn_scoreboard.jsonl").write_text("{}\n", encoding="utf-8")
 
     live.prune_retention(SEASON, WEEK + live.RAW_RETENTION_WEEKS + 1)
 
@@ -161,7 +161,7 @@ def test_a_week_without_weekly_projections_prunes_as_before():
 def test_league_logs_prune_unchanged_and_archives_are_bounded_by_season():
     league_obs = live.league_week_dir("lk", SEASON, WEEK) / "observations"
     league_obs.mkdir(parents=True)
-    (league_obs / "x.jsonl").write_text("{}\n")
+    (league_obs / "x.jsonl").write_text("{}\n", encoding="utf-8")
     _record(PRE_KICKOFF_FETCH, REAL_FETCH)
     live.prune_retention(SEASON, WEEK + live.RAW_RETENTION_WEEKS + 1)
     assert not league_obs.exists()
@@ -199,7 +199,7 @@ def test_a_failure_is_persisted_and_throttled_across_processes(monkeypatch):
     monkeypatch.setattr(live, "_archive_schedule_rows", no_schedule)
     assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW) is False
     marker = live._pregame_failure_path(SEASON, WEEK)
-    stored = json.loads(marker.read_text())
+    stored = json.loads(marker.read_text(encoding="utf-8"))
     assert "kickoffs_unknown" in stored["reason"]
 
     live._weekly_history_cache.clear()  # a fresh collector process
@@ -214,7 +214,7 @@ def test_a_failure_is_persisted_and_throttled_across_processes(monkeypatch):
 def test_a_damaged_weekly_log_is_kept_not_treated_as_empty():
     log = live.observation_log(live.NFL_KEY, SEASON, WEEK, live.SOURCE_WEEKLY)
     log.log_path.parent.mkdir(parents=True, exist_ok=True)
-    log.log_path.write_text("not json\n")
+    log.log_path.write_text("not json\n", encoding="utf-8")
 
     live.prune_retention(SEASON, WEEK + live.RAW_RETENTION_WEEKS + 1)
 

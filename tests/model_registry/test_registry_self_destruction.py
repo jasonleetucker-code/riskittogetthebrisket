@@ -80,7 +80,8 @@ class TestAnUnreadableRegistryIsNotAnAbsentOne:
                     "championVersion": 1,
                     "versions": [dict(version, version=1), dict(version, version=2)],
                 }
-            )
+            ),
+            encoding="utf-8",
         )
         before = path.read_text(encoding="utf-8")
 

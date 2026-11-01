@@ -722,7 +722,9 @@ def main(argv: list[str] | None = None) -> int:
             "unautomatable": [{"item": i, "why": w} for i, w in UNAUTOMATABLE],
         }
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
-        args.json_out.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n")
+        args.json_out.write_text(
+            json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         print(f"{TAG} evidence written to {args.json_out}")
     return code
 

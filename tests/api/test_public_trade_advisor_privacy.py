@@ -878,7 +878,7 @@ def test_private_routes_still_401_anonymously(advisor_client):
 def test_the_router_serializes_only_validated_models():
     """Every JSONResponse in the API module is built from ``_safe_dump`` of a
     model (or the fixed error helper) — never from an engine object."""
-    src = (REPO / "src" / "api" / "public_trade_advisor_api.py").read_text()
+    src = (REPO / "src" / "api" / "public_trade_advisor_api.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "JSONResponse":
@@ -897,8 +897,8 @@ def test_no_business_logic_or_second_owner_in_the_public_layer():
     """Spec §0.1 / §10: the public layer computes no value, applies no package
     model, classifies no band and keeps no private ledger, freshness or
     valuation routine."""
-    src = (REPO / "src" / "trade" / "public_advisor.py").read_text()
-    src += (REPO / "src" / "api" / "public_trade_advisor_api.py").read_text()
+    src = (REPO / "src" / "trade" / "public_advisor.py").read_text(encoding="utf-8")
+    src += (REPO / "src" / "api" / "public_trade_advisor_api.py").read_text(encoding="utf-8")
     for forbidden in (
         "fairness_bands.classify",
         "adjusted_pair_totals",
@@ -925,6 +925,6 @@ def test_fixtures_carry_no_number_outside_the_allowlist():
     for path in S.FIXTURE_DIR.glob("*.json"):
         if path.name == "index.json":
             continue
-        body = json.loads(path.read_text())
+        body = json.loads(path.read_text(encoding="utf-8"))
         for key, _value, where in _walk_numbers(body):
             assert key in ALLOWED_INT_KEYS, (path.name, where)

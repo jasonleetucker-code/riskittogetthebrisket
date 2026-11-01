@@ -3,122 +3,98 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-10-27 ~14:30Z.** Agent-OS-Receipt `cb64f74c`. Concurrency limit: four workers. The coordinator's own coding
+**As of 2026-10-28 ~17:15Z.** Agent-OS-Receipt `47a8b19f`. Concurrency limit: four workers. The coordinator's own coding
 counts toward the four.
 
-## Mode in force: BUILD_ONLY_MAX_THROUGHPUT (owner directive, 2026-10-27)
-- **Paused:** merges and production deploys. **Prohibited:** turning any flag ON, publishing the private MCP, and
-  changing production env, config or permissions.
-- **Allowed:** isolated branches, worktrees, draft PRs, tests and reviews.
-- **Unaffected:** the standing merge authorization. It resumes when the owner ends build mode, under the usual gates:
-  - exact-head green checks;
-  - an independent review (delta re-review after any later commit);
-  - stacked dependencies merged first;
-  - L2 on the merged tree.
-- **Holds:** #1938 is still ON HOLD. Owner-held flags and methodology need an explicit owner decision.
+## Mode
+- Owner directive 2026-10-28 ("next development cycle"): parallel build mode. The verbatim text is in
+  `docs/owner/NEXT_CYCLE_IDP_CALIBRATION_DIRECTIVE_2026-10-28.md`; intake rows NC-A … NC-E; the execution-plan section
+  is at the top of `docs/EXECUTION_PLAN.md`.
+- The standing merge authorization applies: exact-head green, independent review (delta re-review after any later
+  commit), stacked dependencies first.
+- Owner-reserved: everything listed in that execution-plan section, including any ROS-calibration promotion, values,
+  weights, voting, freshness rules, the DLF IDP hold, flags, advisor gate values, #2006, the `dynasty_new` taxi cap,
+  and filing #1985 with GitHub Support.
+
+## Merged this cycle (squash SHAs on main)
+| PR | content | merge |
+|---|---|---|
+| #2009 | directive intake, claims | f64183d4b |
+| #2011 | Trade Advisor launch-gate recommendations; War Room value-concept labels (copy only) | f45a27863 |
+| #2010 | ROS offense/IDP scale calibration: shadow package, preregistration, results (research only) | 0726dbd09 |
+| #2013 | E2E #2000: `/waiver-advisor` a11y route; keyboard typing helper | 0b6316472 |
+| #2014 | `sourceAuthorityReasons` per-row diagnostic; IDP Show IDP-only vendor clock (no value change) | cd76ddac5 |
+| #2012 | 235 deterministic live-data tests promoted into the hard gate | 099e0dead |
+
+Closed: #1921, superseded by #1995 (per-file comment on the PR).
+
+## Open
+- **#2015** WebKit iPhone (mobile-390) suite in the E2E Safety Net. Review fixes:
+  - artifact paths;
+  - the navigation-abort filter, which rebuilds the text Playwright splits at its first colon, with exact host
+    matching;
+  - the quick-view scan, which now waits for finite animations to settle.
+
+  The last CI run had one WebKit contrast retry. Re-run pending at `58852aae7`.
+- **#2016** Explicit-encoding guard. The 838 offenders are fixed by codemod, with no baseline. Main was merged twice
+  and the guard is green on the merged tree. CI is pending at `93c916515`.
+- **#2017** Coordinator docs: the #2009 nits and this handoff.
+- **#2006** HOLD (owner); unchanged.
 
 ## Production
-- **Live:** `44695ab61` (#1985); `/api/health` 200.
-- **Data deploys BLOCKED since 2026-10-27T08:29Z.** Deploy run 40473808525 failed only on the census SHA flake,
-  `tests/market_trades/test_own_league_census.py::test_committed_outputs_carry_no_ids_or_names`.
-  - **Fix:** #1988 (tests only, green, independently approved), held by the merge pause.
-  - **Until it merges**, data refreshes don't reach production, and about half of all PR CI runs fail on the same flake.
-  - **Owner decision** requested as a build-mode exception.
-- `test_pick_refinement` (Garrett / Hamilton rank bands) runs in the deploy run's ADVISORY lane; it did not block.
-  #2002 fixes it. The cause is IDP source authority, not a code defect: IDP anchors are SEVERELY_DEGRADED (~37% weight
-  retained):
-  - IDP Show content is from 2026-08-19 (weight 0);
-  - FantasyPros IDP's label reads 9/04;
-  - DLF IDP is held from voting.
+- Serving `f45a27863` (#2011) at 17:05Z.
+- Pending deploys carry #2010 (code is inert research), #2013 (tests only) and #2014 (the new contract field).
+- Verify with `/api/status .build.commit`.
+- **P-1:** the live nginx sends none of the security headers declared in `deploy/nginx/chaseupside.com.conf`
+  (HSTS, nosniff, X-Frame-Options, frame-ancestors CSP, Referrer-Policy, Permissions-Policy). The config is applied
+  only by hand (`deploy/apply_hardening.sh`), so this needs the box operator.
 
-## O7 and #1985 (owner-authorized 2026-10-27)
-- **O7 COMPLETE** in #1989 (approved at `59e114a49`): one read-only, aggregate-only production run.
-  - Canonical lane from 2026-07-20 (live from 2026-08-16).
-  - Under the strict knowledge cutoff, 11 of 80 2026 trades are fully canonical-priced, all of them already
-    IDPTC-priced.
-  - **H2 → H7** (<5 of 55 under the full §2.4 rule). H6d stays unavailable.
-- **#1985 privacy: investigation complete; no action taken.**
-  - Only `refs/pull/1985/head` (plus GitHub's orphan test-merge commits) reaches `c95390a98`. Main, every branch and
-    tag, and the other PRs are clean; there are no forks.
-  - **Recommended:** GitHub Support dereferences PR #1985, garbage-collects and clears cached views. No main rewrite.
-  - The plan is kept outside the repo (pointing at the commit would increase exposure).
-  - Needs the owner's explicit approval to file a Support ticket from the owning account.
+## Key findings (detail in the linked docs)
+- **NC-A, `docs/league-intelligence/ROS_SCALE_CALIBRATION_RESULTS_2026-10-28.md`:**
+  - `rosValue` is not a cross-position currency. On one shared scale, IDP is over-valued about 13%
+    (D 0.870 [0.797, 0.952]), IDP spread is about 2.5× too wide, and QB is under-valued about 46%.
+  - IDP starters carry 48.5% of the live lineup score but earned 44.5% of awarded points.
+  - CR, the per-family rank→points curve, is the best challenger (ΔMAE +0.266 [+0.126, +0.404]). Every challenger
+    fails G3, single-week offense×IDP pair ordering, by a CI bound just below 0. So under the preregistered rule there
+    is no recommendation.
+  - The week-8 confirmation fit is frozen (`fits_week8_frozen.json`).
+- **NC-B, `docs/sources/IDP_SOURCE_AUTHORITY_2026-10-28.md`:**
+  - Retention is 0.378 = (IDPTC 0.303 + IDP Show 0 + FP IDP 0.21 + DraftSharks IDP 1.0) / 4.
+  - Every clock is truthful; the vendors themselves are stale. No ingestion bug exists.
+- **NC-D, `docs/trade/advisor_evidence/LAUNCH_GATE_RECOMMENDATIONS_2026-10-28.md`:**
+  - Response floor: 300 ms, or 250 if the box measures quiet.
+  - Keep the admission (2 slots) and all six rate buckets.
+  - Write no source-permission record until each source is asked.
+  - Waiver Advisor is not ready: list bids use the offseason option value (FAAB-lane fix, unassigned).
 
-## Build-sprint draft PRs (all unmerged; reviewed at the head shown)
-| PR | head | content | review | CI | owner gate |
-|---|---|---|---|---|---|
-| #1988 | 4cac09d7f | census SHA-flake test fix | APPROVE | green | merge exception (unblocks deploys) |
-| #1989 | 59e114a49 | O7 evidence + scripts | APPROVE + delta | green | — |
-| #1990 | 44c4a7c49 | Trade Advisor launch-gate engineering, browser timeout, permission checklist, 59-test multi-team matrix | APPROVE + delta | flake | responseFloorMs (250 recommended), permission record, admission sizes, launch |
-| #1991 | d1bae4e28 | DEFECT-07 (report-only) / 08 / 12 / 13 league propagation | APPROVE + delta | pending | DEFECT-07 cap source; 02 and 05 decisions |
-| #1992 | 2f33fabd7 | sim V3 challenger (preregistered): V3_DOES_NOT_BEAT_FALLBACK | APPROVE | flake | C3 caveat design; whether to preregister v4 |
-| #1993 | fde8f1ce0 | dependency advisories, 10 of 11 (#1920 covers setuptools) | APPROVE | green | — |
-| #1994 | 3c5c52ee0 | Waiver Advisor (flag `waiver_advisor` default OFF, route private) | APPROVE + delta x2 | pending | activation; FAAB season-phase fix |
-| #1995 | c04adfff5 | private MCP remediation on top of #1921 (single composer, allowlist, redaction pinned) | APPROVE + delta x2 | flake | merge, publish, token, plugin install |
-| #1996 | 86a9d0078 | public diagnostics boundary (/api/status, /health, /uptime) + truthful monitoring | APPROVE + delta | flake | backup readability option (status file recommended) |
-| #1997 | 04185392d | DraftSharks ROS IDP rank-basis split + report-only guard | APPROVE + delta | pending | new `draftSharksRosIdp` voter (ROS lane) |
-| #1998 | 4e85c5cb2 | G2 IDP source-integrity shadow evaluation (6 of 8 B-gates pass, 7 defects) | APPROVE + delta | pending | FP freshness rule, IDP universe rule, V2.1-sealed boards |
-| #1999 | f0b5be7d8 | perf: presim eligibility reuse (~5x, byte-identical) + /league tab preload | APPROVE | pending | — |
-| #2001 | c720bf5b0 | G2-D2 Tuimoloau alias + G2-D3 excludes_rookies flags (served-value change) | APPROVE | pending | release of value changes |
-| #2002 | a353327af | pick-refinement live-rank gate (IDP-degraded rows, catastrophic floor) | APPROVE + delta | pending | — |
-| #2003 | 6f4ede95b | [HOLD] DEFECT-02 manual TEP override withdrawal | APPROVE | pending | withdraw the override (yes/no) |
-
-## Integration order (when merge mode resumes; do not run it before)
-1. **#1988:** census flake, which unblocks every other PR's CI and production deploys.
-2. **Independent, low-risk:** #1989, #2002, #1993 (high-risk class: both L2 suites run), #1999.
-3. **#1996, then #1994.** Both touch `server.py` in disjoint hunks; #1994 also edits `src/api/feature_flags.py`. Rebuild
-   #1994's merge base after #1996 lands and re-run its flag-count / reachability tests.
-4. **#1991, then #1990** (independent; both touch the trade surface lightly).
-5. **#1997** (ROS lane; owner approval for the new voter key).
-6. **#1995** (MCP; needs #1921 reconciliation first: decide whether #1995 supersedes it).
-7. **#1992, #1998:** research only, any time after #1988.
-8. **Owner-gated value changes:** #2001 and #2003, only after their owner decisions.
-- **Expected checks:** L0, Validate PR (path-aware L2; #1993 and anything high-risk runs both suites), and the release
-  candidate at L3.
-- **Rollback:** each PR is self-contained. Flags default OFF. #2003 rolls back with `_TEP_OVERRIDES_DISABLED = False`.
-
-## Owner decisions pending (complete list)
-- **Build-mode merge exception for #1988** (production data deploys blocked).
-- **#1985:** approve filing the GitHub Support request.
-- **Survey D1–D6; preregistration O1–O6 and O8.** O7 is done.
-- **Advisor launch gates (#1990):** response floor, permission record, admission and rate-limit sizes.
-- **Waiver Advisor (#1994):** activation; list bids ignore season phase (FAAB lane).
-- **Values:**
-  - DEFECT-02 (#2003);
-  - DEFECT-07 cap source;
-  - DEFECT-05 Consensus Edge card;
-  - #2001 release;
-  - #1997 new ROS voter.
-- **IDP source authority:**
-  - IDP Show stale since 08-19 (has its chart moved?);
-  - FantasyPros IDP clock rule;
-  - DLF IDP hold;
-  - IDP universe gated on IDPTC (G2-D1).
-- **Backups:** status-file option (#1996 / #1970). `SHARP_SMOKE_TOKEN`.
-- **Sim:** C3 calibration caveat design; whether to preregister v4. Championship probability stays uncalibrated
-  (IDPM-10).
-- **Still open from before:**
-  - CI duration (120 min limit);
-  - #1938;
-  - BDVM activations;
-  - Consensus Edge artifacts (run 36708000268 expires 2026-10-30T11:23Z);
-  - LI1842 defects (02 and 05 above);
-  - the rest of W22-F005, now addressed by #1996.
+## Owner decisions pending (new this cycle)
+- **NC-A:** accept the ROS diagnosis; whether to build CR as a separate `rosPointsPerWeek` field behind a
+  default-OFF flag after week-8 confirmation; whether G3 is gated on a single week or on the ROS horizon.
+- **NC-B D-A:** let IDP Show's IDP-only board (republished 10-08) vote. Gate it on outlier-integrity V2 like DLF?
+  Measured effect: median retention 0.378 → 0.565, and 402 rows move.
+- **NC-B D-B:** IDPTC cadence, learned 127.9 h vs configured 240 h. This is a freshness-rule change: factor
+  0.303 → 0.771, retention → about 0.495.
+- **NC-D:**
+  - `responseFloorMs` (300 recommended);
+  - OD-3 source permissions per group;
+  - admission and limiter priors (keep);
+  - `/league` odds-page uncalibrated wording;
+  - authorizing the FAAB-lane season-phase fix before any Waiver Advisor activation.
+- **Carried over:**
+  - #2006: the recommended outcome is to restore the rule;
+  - #1985: GitHub Support filing, owner account;
+  - P-1 nginx headers, box operator.
+- Everything in the previous handoff's list that is not resolved above remains open.
 
 ## Hazards
-- **GitHub API quota is shared.** Poll at most every 5 minutes with batched calls.
-- **Census SHA flake** hits any run whose merge SHA has a 9+ digit decimal run, until #1988 lands. Read the failing test
-  name before "fixing" a PR.
-- **Never pipe a PR body through a process that can fail mid-write.** `gh pr edit --body-file` with a truncated file
-  blanks the body. Recover from GraphQL `userContentEdits`.
-- **Agents sharing one scratchpad can overwrite each other's files.** Use unique file names per agent.
-- **Windows-only local failures** (not regressions; Linux CI decides):
-  - the `resource` module;
-  - symlinks and chmod;
-  - CRLF hashes and line-ending regexes;
-  - backslash paths, including `test_feature_flag_reachability` and `test_ui_parallel_governance`;
-  - timezone labels.
-- **Git:** never `git stash`; commit explicit paths only; never junction `node_modules`; reviewers use their own
-  detached worktrees and remove them afterwards.
-- **Deploys:** only the newest pending run in `production-deploy` survives. Confirm the live build with
-  `/api/status .build.commit`.
+- **The encoding guard is in the hard gate once #2016 lands.** New Python must pass `encoding="utf-8"` to text-mode
+  `open` / `read_text` / `write_text`.
+- **Disk:** the session allowance is tight. Remove merged worktrees: `wt-b`, `wt-c` and `wt-c-nodata` (which has
+  uncommitted scratch files and needs `--force`).
+- **Playwright on WebKit:** `splitErrorMessage` splits error text at the first `:`. Match on name + message, never
+  the message alone.
+- **Unchanged from before:**
+  - GitHub API quota is shared;
+  - never `git stash`;
+  - commit explicit paths;
+  - only the newest pending `production-deploy` run survives.

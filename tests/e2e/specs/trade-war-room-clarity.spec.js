@@ -24,7 +24,7 @@
 const fs = require("fs");
 const path = require("path");
 const { test, expect } = require("../helpers/auth-fixture");
-const { pageUrl, awaitStreamSettled, contractFixture } = require("../helpers/journey");
+const { pageUrl, awaitStreamSettled, contractFixture, isNavigationAbortedFetch } = require("../helpers/journey");
 const AxeBuilder = require("@axe-core/playwright").default;
 const { closeTradeSheet, openTradeSearch } = require("../helpers/trade-builder");
 
@@ -140,7 +140,9 @@ test("war room clarity: value at once while loading, plain answer, detail, axe, 
   authedPage: page,
 }, testInfo) => {
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (e) => {
+    if (!isNavigationAbortedFetch(e, page)) errors.push(e.message);
+  });
   // Hold every analysis until the test releases it, so the loading state is
   // observed deterministically rather than raced.
   let release;
@@ -259,7 +261,9 @@ test("war room clarity: a failed analysis keeps the trade value and recovers thr
   authedPage: page,
 }) => {
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (e) => {
+    if (!isNavigationAbortedFetch(e, page)) errors.push(e.message);
+  });
   let calls = 0;
   await page.route(
     (url) => url.pathname === "/api/trade/analyze",

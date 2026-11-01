@@ -216,7 +216,8 @@ class TestLoadOrComputeTeamStrengthPrecedence(unittest.TestCase):
                             "startingLineupScore": 42.0,
                         }
                     ]
-                )
+                ),
+                encoding="utf-8",
             )
             with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 rows = team_strength.load_or_compute_team_strength()
@@ -296,7 +297,8 @@ class TestLoadOrComputeTeamStrengthPrecedence(unittest.TestCase):
                             "startingLineupScore": 99.0,
                         }
                     ]
-                )
+                ),
+                encoding="utf-8",
             )
             # 7 hours old -- past the 6-hour freshness budget.
             stale_time = time.time() - 7 * 3600
@@ -328,7 +330,8 @@ class TestLoadOrComputeTeamStrengthPrecedence(unittest.TestCase):
                             "startingLineupScore": 88.0,
                         }
                     ]
-                )
+                ),
+                encoding="utf-8",
             )
             # 1 hour old -- comfortably within the 6-hour budget.
             fresh_time = time.time() - 1 * 3600
@@ -502,7 +505,7 @@ class TestThePublicSectionServesOnlyEvidenceTheReadPathWouldServe(unittest.TestC
             tmp_root = Path(tmp)
             target = tmp_root / "team_strength" / "latest.json"
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps(rows))
+            target.write_text(json.dumps(rows), encoding="utf-8")
             then = time.time() - age_hours * 3600
             os.utime(target, (then, then))
             with (

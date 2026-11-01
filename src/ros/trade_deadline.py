@@ -70,7 +70,7 @@ def _load_sim_map(
     if not path.exists():
         return {}, SIM_MISSING
     try:
-        payload = json.loads(path.read_text())
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}, SIM_UNREADABLE
     if not isinstance(payload, dict):

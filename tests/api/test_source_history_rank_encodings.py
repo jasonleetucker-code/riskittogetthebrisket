@@ -212,7 +212,7 @@ class TestReadTimeMask(unittest.TestCase):
                 }
             },
         }
-        path.write_text(json.dumps(line) + "\n")
+        path.write_text(json.dumps(line) + "\n", encoding="utf-8")
         return sh.load_player_history("Test Player", path=path, days=400)
 
     def test_a_stored_encoding_is_masked(self) -> None:
