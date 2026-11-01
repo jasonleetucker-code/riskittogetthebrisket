@@ -1,5 +1,23 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Second master directive: production security, Roster Construction, IDP accuracy, frontend UX audit — owner directive, 2026-11-01
+
+**AUTHORIZED NOW (expands the section below; replaces no decision).** Verbatim: `docs/owner/CHASE_UPSIDE_NEXT_MASTER_DIRECTIVE_2026-11-01.md`. Intake MD-26 … MD-34.
+- **P0 security:** pipeline PR binding the backend and frontend to loopback by default; box-operator root step
+  `deploy/apply_hardening.sh` (dry-run first) for nginx headers and banners. The deploy user's scoped sudo is never
+  used to bypass it. No addresses or secrets in public artifacts. `brisket_trade_advisor` stays OFF.
+- **P1:** #2040 → #2041 → owner's authenticated production check → #2044.
+- **P2/P3:** IDP Show findings into the existing lanes; prospective, pre-kickoff champion-vs-challenger evaluation
+  from Week 9 with a preregistration and frozen fits pushed before kickoff. Shadow only.
+- **P4:** frontend IA / navigation / usability / accessibility audit and justified fixes. Owner: `frontend/lib/nav-model.js`,
+  `frontend/components/shell/*`, page titles, the naming canons, PSI / Direction A. No second nav or design system.
+  Consequential redesigns (renaming or reorganizing top-level sections) are listed for the owner, not shipped
+  unilaterally.
+- **P5/P6:** research under existing gates; roadmap traceability.
+
+**Unchanged and owner-reserved:** everything reserved in the section below, plus public exposure of any private
+route, proprietary-data ingestion without rights, and root-only box changes.
+
 ## Master development directive: production validation, model accuracy, decision quality — owner directive, 2026-11-01
 
 **AUTHORIZED NOW: finish, validate, merge, deploy and verify existing work; research and shadow work as listed; the
