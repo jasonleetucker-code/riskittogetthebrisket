@@ -16,6 +16,23 @@ Let's Encrypt in front of `dynasty.service` (FastAPI :8000) and
 
 ## 1. nginx — `deploy/nginx/chaseupside.com.conf`
 
+> **Live-preserving procedure (2026-11-01).** The production site file is certbot-managed and pins its :443
+> listeners to specific addresses (Tailscale Serve holds :443 on the tailnet address), and `deploy/nginx/dynasty.conf`
+> does not exist — `chaseupside.com.conf` below is a placeholder TEMPLATE, never installed over the live file. Headers
+> are applied with `deploy/nginx_live_harden.sh`: it installs `deploy/nginx/snippets/chaseupside-security-headers.conf`
+> and adds one `include` line per chaseupside server block, proving every listen / certificate / location line is
+> unchanged. Dry-run (no root, changes nothing): `bash deploy/nginx_live_harden.sh`; apply (root, after review):
+> `sudo bash deploy/nginx_live_harden.sh --apply --expect-sha256 <sha printed by the dry-run>`. `apply_hardening.sh`
+> delegates its nginx step to it.
+>
+> **Applied in production 2026-11-01** by the owner (live sha before apply `7fe78aad…8118`): `nginx -t` passed, reload
+> succeeded, and an independent `curl --noproxy '*' --resolve` against the pinned listener returned 200 with all six
+> headers, `Server: nginx` (no version) and no `X-Powered-By`. The installer's immediate post-reload probe reported
+> false warnings because `systemctl reload` is asynchronous (old workers still answered); the probe now retries,
+> bypasses proxies and checks all six headers. Re-check any time, read-only and without root:
+> `bash deploy/nginx_live_harden.sh --verify`. The `housing` site was not touched; its version banner is out of scope.
+
+
 | Change | Rationale |
 |---|---|
 | `listen 443 ssl http2` (+ IPv6 listeners) | HTTP/2 multiplexing removes head-of-line blocking for the asset-heavy Next.js pages.  The combined `listen ... http2` spelling works on the nginx 1.24.x that Ubuntu LTS ships; on nginx ≥ 1.25.1 it still works but logs a deprecation warning — switch to `http2 on;` there. |
