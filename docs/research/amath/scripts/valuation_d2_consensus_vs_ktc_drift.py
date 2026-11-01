@@ -40,15 +40,21 @@ def main() -> None:
             g.append(c0 - k0)
             rk.append(k1 - k0)
             rc.append(c1 - c0)
-        out.append({
-            "t0": t0.isoformat(),
-            "n": len(g),
-            "spearman_gap_vs_ktc_revision": round(m.spearman(g, rk), 3),
-            "spearman_neg_gap_vs_consensus_revision": round(m.spearman([-x for x in g], rc), 3),
-        })
+        out.append(
+            {
+                "t0": t0.isoformat(),
+                "n": len(g),
+                "spearman_gap_vs_ktc_revision": round(m.spearman(g, rk), 3),
+                "spearman_neg_gap_vs_consensus_revision": round(m.spearman([-x for x in g], rc), 3),
+            }
+        )
     s = {
-        "median_ktc_toward_consensus": statistics.median(o["spearman_gap_vs_ktc_revision"] for o in out),
-        "median_consensus_toward_ktc": statistics.median(o["spearman_neg_gap_vs_consensus_revision"] for o in out),
+        "median_ktc_toward_consensus": statistics.median(
+            o["spearman_gap_vs_ktc_revision"] for o in out
+        ),
+        "median_consensus_toward_ktc": statistics.median(
+            o["spearman_neg_gap_vs_consensus_revision"] for o in out
+        ),
     }
     json.dump({"windows": out, "summary": s}, sys.stdout, indent=1)
 

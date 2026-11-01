@@ -69,9 +69,24 @@ def posmap() -> dict[str, str]:
 
 
 def board(key: str, when: date) -> dict[str, float] | None:
-    sha = git("log", "-1", f"--before={when.isoformat()}T23:59:59Z", "--format=%H", "origin/main", "--", f"CSVs/site_raw/{key}.csv").strip()
+    sha = git(
+        "log",
+        "-1",
+        f"--before={when.isoformat()}T23:59:59Z",
+        "--format=%H",
+        "origin/main",
+        "--",
+        f"CSVs/site_raw/{key}.csv",
+    ).strip()
     if not sha:
-        sha = git("log", "-1", f"--before={when.isoformat()}T23:59:59Z", "--format=%H", "--", f"CSVs/site_raw/{key}.csv").strip()
+        sha = git(
+            "log",
+            "-1",
+            f"--before={when.isoformat()}T23:59:59Z",
+            "--format=%H",
+            "--",
+            f"CSVs/site_raw/{key}.csv",
+        ).strip()
     if not sha:
         return None
     txt = git("show", f"{sha}:CSVs/site_raw/{key}.csv")
@@ -118,6 +133,7 @@ def spearman(x: list[float], y: list[float]) -> float:
                 r[o[t]] = (i + j) / 2 + 1
             i = j + 1
         return r
+
     a, b = rk(x), rk(y)
     ma, mb = statistics.mean(a), statistics.mean(b)
     num = sum((p - ma) * (q - mb) for p, q in zip(a, b))
@@ -145,7 +161,13 @@ def main() -> None:
             if not c0 or not c1:
                 continue
             rows.append((math.exp(c0[0]), c0[1], abs(c1[0] - c0[0])))
-        rec = {"t0": t0.isoformat(), "t1": t1.isoformat(), "sources": keys, "n": len(rows), "bands": {}}
+        rec = {
+            "t0": t0.isoformat(),
+            "t1": t1.isoformat(),
+            "sources": keys,
+            "n": len(rows),
+            "bands": {},
+        }
         for band, lo, hi in (("top50", 0, 50), ("51-150", 50, 150), ("151-300", 150, 300)):
             sub = [r for r in rows if lo < r[0] <= hi]
             if len(sub) < 20:
