@@ -1,8 +1,8 @@
-# Advanced mathematics applications: research feasibility audit (2026-11-01)
+# Secondary pure-mathematics applicability screening — Chase Upside fantasy (2026-11-01)
 
-**Status:** RESEARCH / PLANNING ONLY. No implementation authority, no champion promotion, no live-value, source-weight, flag, route, FAAB, DFS or production changes. This is a subordinate research specification indexed by docs/OWNER_REQUESTED_TODO.md and docs/MASTER_PRODUCT_PLAN.md; docs/EXECUTION_PLAN.md remains the sole implementation authorization. Numerical rankings below are **expert feasibility judgments, not observed model performance**.
+**Status:** SECONDARY SCREENING ONLY; the owner clarified that the primary Chase Upside research is the [ten advanced statistical approaches](ADVANCED_STATISTICAL_METHODS_CHASE_UPSIDE_2026-11-01.md). **Market Edge is out of scope**. RESEARCH / PLANNING ONLY. No implementation authority, no champion promotion, no live-value, source-weight, flag, route, FAAB, DFS or production changes. This is a subordinate research specification indexed by docs/OWNER_REQUESTED_TODO.md and docs/MASTER_PRODUCT_PLAN.md; docs/EXECUTION_PLAN.md remains the sole implementation authorization. Numerical rankings below are **expert feasibility judgments, not observed model performance**.
 
-**Repo inspected:** jasonleetucker-code/riskittogetthebrisket, main as observed 2026-11-01 (consult live main before any future work). Related but distinct repository: jasonleetucker-code/market-edge-lab, a prediction-market research lab. Do not treat it as a second version of the dynasty application.
+**Repo inspected:** jasonleetucker-code/riskittogetthebrisket, main as observed 2026-11-01 (consult live main before any future work). No other application is in scope.
 
 ## I. Architecture and verified mathematical starting point
 
@@ -107,7 +107,6 @@ Hierarchical models are established in NFL research and are not novel by themsel
 - CANONICAL FRONT DOOR: docs/MASTER_PRODUCT_PLAN.md, one pointer to this audit from the current plan, while respecting existing roadmap hierarchy.
 - RESEARCH OWNER: src/ros/idp_opportunity for IDP forecasts; src/waivers/streaming_solver for weekly optimizer; src/ros/projection_ensemble for PIT ensemble; src/ros_calibration for ROS scale; src/ros/lineup and rule validation for formal invariants. Existing domain teams own all proposals; no new global mathematical engine.
 - STATUS: feasibility review + PROPOSED POCs, not authorized implementation. Existing proof requirements govern promotion. No change to docs/EXECUTION_PLAN.md, feature flags, production weights, release gates, or frozen protocols.
-- Related Market Edge questions belong in that repository's docs/OWNER_IDEAS.md / docs/strategy/DELIVERY_ROADMAP.md, under its distinct, protected experimental gates.
 - Roadmap acceptance: each future selected POC must have dataset/source permissions, independent PIT receipts, preregistered baseline and metrics, CI/coverage and independent review, evidence-to-decision trace, and a separate owner-approved promotion.
 
 ## X. Executive verdict
