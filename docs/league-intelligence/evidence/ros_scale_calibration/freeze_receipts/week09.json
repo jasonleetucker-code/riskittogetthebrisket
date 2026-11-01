@@ -1,0 +1,24 @@
+{
+  "receipt": "ros_horizon_prospective_freeze",
+  "week": 9,
+  "season": 2026,
+  "preregistration": "docs/league-intelligence/ROS_HORIZON_ORDERING_PREREGISTRATION_2026-11-01.md",
+  "frozenFits": {
+    "path": "docs/league-intelligence/evidence/ros_scale_calibration/fits_week8_frozen.json",
+    "blob": "cbed086e21deca852f8db9abf3ef1de26656158d",
+    "freezeCommit": "0726dbd0967a266da68ef73b20ab80dbcfc18d33"
+  },
+  "cardFingerprint": "sf1:9e51824690d091f9",
+  "cardFingerprintSource": "docs/league-intelligence/evidence/ros_scale_calibration/evaluation.json cardFingerprint (the card the frozen fits were evaluated under)",
+  "code": {
+    "baseCommit": "2060fa78a6590b828c3e704266b387e556b6ec5d",
+    "scripts/ros_scale_calibration_study.py": "69c22d037d2c73a1e27fb66807abd8ef749457f1",
+    "scripts/ros_scale_week8_confirmation.py": "28d1e04a4b7a1358a7f91d6768746e9dc8f4d5e6"
+  },
+  "asOfSnapshot": {
+    "selected": null,
+    "rule": "scripts/sim_calibration_study.py::snapshot_before(first_kickoff(9)): latest data/ros/aggregate/history/*.json strictly before the first Week 9 kickoff (2026-11-05 TNF); not yet on disk at receipt time"
+  },
+  "refit": false,
+  "evidenceOfTime": "commit push time on GitHub (and PR timeline), which must precede the first Week 9 kickoff; committer date alone is not proof"
+}
