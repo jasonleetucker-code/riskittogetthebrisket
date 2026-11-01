@@ -355,6 +355,11 @@ def advisor_app_fixture(tmp_path_factory):
         teardown_league()
 
 
+async def _no_floor_sleep(seconds: float) -> None:
+    """Fixture default for ``public_trade_advisor_api._sleep``: no wall-clock wait."""
+    return None
+
+
 @pytest.fixture(name="advisor_client")
 def advisor_client_fixture(_advisor_app, monkeypatch):
     """The module's client with a fresh synthetic contract, flag ON, and the
@@ -372,6 +377,12 @@ def advisor_client_fixture(_advisor_app, monkeypatch):
     # A launched box has a measured response floor; the launch gate itself is
     # pinned in test_public_trade_advisor_validation.
     monkeypatch.setattr(api, "_launch_gate_reason", lambda: None)
+    # The committed responseFloorMs is a real 300 ms (owner decision 6,
+    # 2026-11-01).  Route tests do not pay it in wall-clock time -- that would
+    # add ~0.3 s per analyze POST and skew the admission timing tests.  The
+    # floor's ARITHMETIC still runs (``_floor_ms`` / ``_apply_floor``); tests
+    # that pin the floor install their own recording or real sleep.
+    monkeypatch.setattr(api, "_sleep", _no_floor_sleep)
     yield client
     feature_flags.reload()
     api.reset_for_tests()

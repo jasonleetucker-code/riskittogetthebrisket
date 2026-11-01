@@ -517,7 +517,8 @@ def test_labelled_utility_runs_the_real_monte_carlo_and_reuses_the_before_roster
 def test_the_report_states_what_spec_2_11_does_and_does_not_budget(synthetic_report):
     _code, report = synthetic_report
     assert any("no numeric latency or memory budget" in f for f in report["findings"])
-    assert report["limits"]["admissionStatus"] == "PENDING_OWNER_CONFIRMATION"
+    assert report["limits"]["admissionStatus"] == "OWNER_CONFIRMED"
+    assert report["limits"]["responseFloorMs"] == 300
     table = m.render_table(report)
     for mode in m.MODES:
         assert mode in table
