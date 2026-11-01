@@ -69,6 +69,8 @@ build, blocker, backlog item or future feature.
 
 ## 1. Roster intelligence
 
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** row 1.2 Team Weakness → AMATH-S11 (fragility and points-at-risk); row 1.4 droppability → AMATH-S09 (drop-regret curve); row 1.1 Team Strength → AMATH-S33 (points-unit strength). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
+
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
 | 1.1 | **Team Strength** | One canonical answer to "how strong is this roster" — the meaningful upper roster: QB3 / RB3 / WR5 / TE3 / DL5 / LB5 / DB5 by canonical league-adjusted value | New (as canon) | **Does not exist as a single owner.** Multiple partial notions exist and disagree: terminal roster strength is a raw sum of `rankDerivedValue` with no lineup solve (W20-F003), `src/ros/` carries an ROS 0-100 strength, `roster_intel` computes marginal values. No module implements the spec's Top-N table | C1 | B9 (value-scale semantics) | **L** | KEEP — NEW BUILD |
@@ -90,6 +92,8 @@ build, blocker, backlog item or future feature.
 ---
 
 ## 2. Trade products
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** row 2.1 trade calculator → AMATH-S12 (synthetic-band win rate; OD-AM-2), AMATH-S14 / S08 (band validation, clearing percentile; OD-AM-3); row 2.3 Trade Finder → AMATH-S10 (convergence test; OD-AM-4), AMATH-S45; row 2.12 Competitive Posture → AMATH-S41; row 2.14 forced drops → AMATH-S54 (exact solvers KEEP). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
@@ -113,6 +117,8 @@ build, blocker, backlog item or future feature.
 ---
 
 ## 3. Waivers, FAAB and draft
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** row 3.1 FAAB → AMATH-S05 (point-in-time refit, winner-censored likelihood), AMATH-S27 (fail-closed config, P0), AMATH-S46; rows 3.5–3.6 Perfect Draft → AMATH-S13 (pre-auction snapshot; OD-AM-7); row 3.9 Weekly IDP Streaming → AMATH-S06, S16, S26, S51 (DRO BLOCKED). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
@@ -216,6 +222,8 @@ elsewhere.
 
 ## 7. Value model and identity (foundations)
 
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S02 (single-source haircut; OD-AM-1), AMATH-S07 (value band), AMATH-S21, S22, S28, S42 (identity record-linkage challenger), AMATH-S50 (Hill gate 7 target, BLOCKED), AMATH-S56 (Hill curve family KEEP). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
+
 Not product surfaces, but every product above reads them, so a defect here is a defect everywhere.
 
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
@@ -236,6 +244,8 @@ Not product surfaces, but every product above reads them, so a defect here is a 
 ---
 
 ## 8. BDVM, news, notifications
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S19 (n_prior), AMATH-S20 (rookie hit-rate priors), AMATH-S39 (hazards and aging). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
@@ -430,6 +440,8 @@ These are not optional ideas merely because they arrived after the first invento
 | #792 / CE-05 | **Analyze Trade canonical recommendation** | After assets are entered, one deliberate Analyze Trade action returns MAKE THE TRADE / LEAN MAKE / TOO CLOSE-DEPENDS / LEAN PASS / PASS from selected-team perspective, with confidence, strongest reasons for/against, material uncertainty/disagreement and optionally "what would change the answer." Must synthesize unique-information dimensions and lineage rather than averaging visible panels | Dependency-gated until canonical value/package/Team Strength/Weakness/roster-impact foundations and MC audit are trustworthy; `/trade` and CE-05 must consume the same decision contract | **KEEP — NEW BUILD / PLANNED DECISION PRODUCT** |
 
 ### 13.2 Game Day prediction methodology is part of the product, not an implementation detail
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S01 (calibration ledger), AMATH-S04 (measured marginals), AMATH-S03 (correlation and season-level uncertainty, which also covers playoff odds), AMATH-S55 (Game Day state machine KEEP). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 
 CE-20/#789 must model the actual league rather than inherit Sleeper's assumptions:
 

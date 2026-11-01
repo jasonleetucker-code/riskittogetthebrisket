@@ -69,6 +69,8 @@ Do not invent a proprietary scalar package adjustment merely to have one. Any pr
 
 ## 1.3 Analyze Trade
 
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S23 (No-Action / regret shadow), AMATH-S29 (trade robustness stamp), AMATH-S41 (posture validation). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
+
 **Goal:** Add assets → press **ANALYZE TRADE** → receive an explainable final decision layer.
 
 Potential result states: **MAKE THE TRADE**, **DECLINE**, or a clearly defined close/uncertain state when evidence is genuinely mixed.
@@ -86,6 +88,8 @@ Explain the conclusion in concrete terms, e.g. package-adjusted equity, Team Str
 Keep detailed provider/source results but add a compact summary such as **Side A wins 6–2**. This supplements rather than replaces source detail. Missing providers are unavailable, not losses/ties.
 
 ## 1.5 Monte Carlo audit
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S12 (hide or relabel the synthetic ±15% win rate; owner decision OD-AM-2) and AMATH-S07 (real per-asset value band). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 
 Before changing the simulation, define the exact probabilistic quantity it is intended to estimate. Audit current inputs and whether it simply favors raw-value/point totals. Determine whether package adjustment, roster context or new scoring/value architecture belong in the simulation *only if they are part of the quantity being simulated*. Do not inject every trade signal and create a circular vote.
 
@@ -197,6 +201,8 @@ This feature recommends/drafts an offer only. It must never silently send trades
 
 # 3. PICK IDENTITY & PICK FORECAST (CE-02)
 
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S24 (fix sim overconfidence before calibrating pick-market c), AMATH-S31 (pick year-step natural experiment), AMATH-S03 (season-level team-strength uncertainty). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
+
 Future draft picks are first-class assets with stable season + round + original owner + current owner identity.
 
 Separate:
@@ -291,6 +297,8 @@ Missing transcript/source coverage = unavailable/insufficient coverage, never ne
 
 # 5. CONSENSUS EDGE / BUY-SELL
 
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S60 (consensus-vs-KTC inefficiency map REJECTED), AMATH-S22 (exact leave-one-family-out explainer), AMATH-S28 (agreement-axis self-inclusion). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
+
 Consensus Edge is the explainable synthesis layer, not permission to double-count every available number.
 
 For every candidate component ask:
@@ -312,6 +320,8 @@ Homepage ticker owner rule:
 
 # 6. MARKET TRADE LEDGER / REAL TRADE MARKET VALUE (CE-01)
 
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S08 (Market Clearing Percentile), AMATH-S14 (OD-F4 band validation protocol), AMATH-S48 (moment-inequality identified set for q). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
+
 Build a normalized broad-market database of real completed dynasty trades, separate from the curated Sharp ledger.
 
 Use it for historical comps, player/pick trade history, Most Traded, Market Pulse, acquisition pricing and eventually an independent Real Trade Market Value signal.
@@ -323,6 +333,8 @@ Any Real Trade Market Value model must be backtested, confidence/sample aware, s
 ---
 
 # 7. MANAGER SCOUT / INSIDER (CE-03)
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S17 (empirical-Bayes pooling of small-sample tendencies), AMATH-S44 (private offer ledger; owner decision OD-AM-5). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 
 Analyze fantasy behavior only — never real-world personal profiling.
 
@@ -583,6 +595,8 @@ Awards require sufficient player scoring, starter attribution, position resoluti
 
 # 11. GAME DAY HUB / GAME DAY CONSOLE
 
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S01 (calibration ledger and state), AMATH-S04 (measured weekly marginals, sqrt(f) remainder), AMATH-S03 (game/team correlation), AMATH-S53 (live usage nowcast, BLOCKED). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
+
 Approved future product concept for mobile + desktop, designed to be worth leaving open while watching NFL games.
 
 Public-safe Game Day may include current matchup score, projected final, public win probability, live player scoring, relevant play-by-play, roster-player events, injury/news alerts, current best-ball lineup, players threatening to enter it, scoring-event explanations, remaining-player leverage, swing players, playoff implications, league scoreboard and public fantasy alerts.
@@ -792,6 +806,8 @@ An implementation agent must produce **an evidence-linked current-state diff bef
 **Acceptance:** protected outgoing player never proposed; multi-team 3-/4-way pick routes conserved; final roster legal after drops; the same input produces consistent private verdicts across calculators; public private-value leak tests; no counterfeit comps; package gain passes genuine minimum-impact and fairness policy without conflating them. **Stage:** many RIT items merged but partial/held production verification. Detailed owners: Oct 14/18 trade directives, Oct 19 league decision engine, Oct 20 Advisor/n-team, Oct 21 LVA, Oct 26 IDPM, `docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`.
 
 ### FC-04 — Cross-position IDP valuation vs opportunity (Oct 25/28, IDPV/NC-A/FFBB)
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S30 (ROS rank censoring), AMATH-S47 (ROS multiplier ablation), #2053 AMATH-4 retained (G3 stays FAILED). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 **Question:** Are top IDPs fairly valued *relative to offensive players* in this exact league, or is a discrepancy explained by supply, scarcity, scoring, best-ball usage, or market convention?
 **Inputs:** actual 12-team/21-start composition where applicable; all defensive scoring categories (including TFL, pass defense, sack and first-down nuances), historical point distributions, weekly IDP stats, healthy/available status, selected scoring fingerprint, IDPTC and other independent sources with lineage/freshness.
 **Outputs:** served-board baseline, verified empirical replacement distribution, league-relative shortage, per-position marginal ROS point potential, independent market trade-price evidence, calibrated **shadow** cross-position fair-value hypotheses, uncertainty, offense/IDP over-/under-valuation scenarios and action recommendation *only when authorized*. Show position class and temporal basis.
@@ -799,6 +815,8 @@ An implementation agent must produce **an evidence-linked current-state diff bef
 **2026-11-01 (decision 4, #2039):** ROS diagnosis accepted, G3 stays FAILED, CR is the preferred research challenger; the Week 8 frozen confirmation (#2035) and the H1 ROS-horizon ordering preregistration are the next evidence. IDP Show dynasty / IDPTC boards share vendor-stated lineage (MD-21) and are never independent votes. Dynasty value, ROS production and one-week opportunity stay separately named.
 
 ### FC-05 — Weekly IDP Streaming / Waiver Advisor (Oct 28–29 IST)
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S06 (SD-scaled no-action threshold), AMATH-S09 (drop-regret curve), AMATH-S16 (projection blind-spot map), AMATH-S26 (exceedance board), AMATH-S51 (DRO streaming BLOCKED). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 **Question:** Given a selected Sleeper team, **what legal adds/drops improve this and next weeks' optimized roster points** without unnecessarily discarding valuable dynasty assets?
 **Inputs:** league ID and user-owned roster, weekly offense/IDP stat projections, source date/licensing/coverage, exact scoring, waivers and FAAB, injury/role/contingent snaps, roster locks, user dynasty-loss budget default zero, schedule and playoff weeks.
 **Outputs:** legal ranked add/drop *packages* (not merely name rankings), projected lineup gain, multiweek and playoff risk, protected/conditional/churn classes with explicit reasons, affordable recommended FAAB/bid uncertainty, **0–7 streaming slots only when optimal**, explicit **NO TRANSACTION**.
@@ -807,6 +825,8 @@ An implementation agent must produce **an evidence-linked current-state diff bef
 **2026-11-01 evidence update (issue #2039; intake MD-17…MD-22):** The +0.40 vs +19.9 pts/decision-week gap is weekly *projection quality*, not optimizer constraints. Relaxing every point-in-time constraint reaches only +3.71; realized points as a hindsight bound reach +52.7 (#2045, `docs/waivers/IDP_STREAMING_GAP_DECOMPOSITION_2026-11-01.md`). The next accuracy gain must therefore come from the forecast: shadow opportunity challengers (#2043) show shrunk snap-weighted rates beat a rolling average (ΔMAE −0.36…−0.50), while opportunity, matchup and injury-replacement terms add ~nothing. **Acceptance additions:** the champion is evaluated only on genuine pre-kickoff archived snapshots (MD-22); CB / S / EDGE / DT subtypes are reported where identity allows; role-change detection is evaluated before any promotion; the IDP Show is a research benchmark only, with no vote and no automated paid ingestion without permission (MD-23); default budget 0 and no Sleeper writes, unchanged.
 
 ### FC-06 — Contender, rebuild, franchise portfolio and next move (FFBB-5/6/7)
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S11 (roster fragility), AMATH-S35 (title-equity exchange rate), AMATH-S43 (future roster paths). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 **Question:** Should this team push, retool, hold or rebuild, and which *realistic* transaction improves its championship odds or future viable coverage?
 **Inputs:** record and median-game context, weekly optimized points and variance, projected remaining strength, calibrated postseason odds where genuinely available, age/availability profile, liquid youth/picks, pick-origin forecast under actual written draft-order rules, season timing, realistic trade-market activity and waivers.
 **Outputs:** roster health vs luck/record, injury fragility, projected contribution by year, transparent competitive posture, target year to field legal productive starters, conditional sell/buy/tier-up/tier-down candidates, affordable backup QB/RB contingent stashes, waiver-to-trade value flywheel, held 2027/2028+ draft-capital reserve, NO ACTION and honest uncertainty.
@@ -814,6 +834,8 @@ An implementation agent must produce **an evidence-linked current-state diff bef
 **Acceptance:** compare before/after independent value, attainable weekly production and playoff probabilities **separately**, preserve future dynasty market opportunity cost and pick origin; no claim of a precise championship percentage from an uncalibrated model, no automatic tanking, no unapproved assumption that `dynasty_main` uses Max PF. **Stage:** planning/shadow, depends on FC-02/03 and calibrated existing postseason simulation. Reference: #1173 §§15–17, `docs/picks/DRAFT_ORDER_RULE.md`.
 
 ### FC-07 — Source identity, freshness, weighted voting, and independent validation (Oct 19–29)
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S02 (single-source haircut; owner decision OD-AM-1), AMATH-S21 (predictive target for constants), AMATH-S36 (no-filter arm), AMATH-S50 (independent Hill validation target, BLOCKED), AMATH-S59 (learned source weighting REJECTED). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 **Question:** Which sources are independently valid, fresh, properly matched, authorized and worthy of their calibrated vote without an outlier filter silencing legitimate disagreement?
 **Inputs:** source permissions, raw feeds, identity and canonical IDs, source lineage, dates, rank-to-value conversions, dynasty vs redraft, source family/coverage and time-varying thresholds, recorded historic truth.
 **Outputs:** per-source explanation `used / stale / held / quarantined / unavailable`, reason and timestamp, lineage confidence, approval gates, corresponding source contribution and board delta if authoritatively applicable; provenance and no zero for absent feeds.
@@ -821,6 +843,8 @@ An implementation agent must produce **an evidence-linked current-state diff bef
 **Acceptance:** adversarial wrong-player/rookie/rank-direction tests, disjoint source lineage and true data corruption tests, reinstating valid independent votes only behind authorized flags, proof of no silent source exclusion from agreement/disagreement, source/board snapshots before/after, chronological validation. **Stage:** multiple shadow gates held, NC-B bugs authorized; not automatic live changes. References: Oct 19 voting, Oct 20 IV2/IV21 owner directives, Oct 28 NC-B, `docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`.
 
 ### FC-08 — Exact league/draft/auction correctness (Oct 17–18 and related)
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S13 (pre-auction snapshot; owner decision OD-AM-7), AMATH-S15 (property-based invariants), AMATH-S58 (owner-protected rookie-auction curve KEEP). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 **Question:** Do lineups, scoring, rules, rookie draft dollar ledger and picks reflect the *same actual specific league* at the correct time, including rollover, auction and dual TE/IDP constraints?
 **Inputs:** current/season-linked Sleeper settings, league-ID chain, scoring fingerprint, draft-year/round/slot/pick owner, annual cash budget; start lineup requirements and rule effective dates.
 **Outputs:** season-stamped settings profile; reconciled and legally ordered draft selections; `dynasty_main` rookie value/dollar allocation summing to exactly **$1,200 per draft year** where binding; as-of draft capital, resolved/unknown draft slot, rookie auction cap and explicit incomplete statuses.
