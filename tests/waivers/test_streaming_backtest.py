@@ -411,19 +411,33 @@ def _imports(path: Path):
                 yield alias.name, set()
 
 
+#: Research-only modules allowed to import the backtest (2026-11-01 gap
+#: attribution, #2039).  They are themselves held to the same rule below:
+#: nothing live may import THEM either.
+RESEARCH_IMPORTERS = {
+    "src/waivers/streaming_gap_attribution.py": "src.waivers.streaming_gap_attribution",
+    "src/waivers/streaming_point_in_time.py": "src.waivers.streaming_point_in_time",
+    "scripts/research_weekly_idp_projection_census.py": None,
+}
+
+
 def test_nothing_live_imports_the_backtest():
-    target = "src.waivers.streaming_backtest"
+    targets = {"src.waivers.streaming_backtest"} | {m for m in RESEARCH_IMPORTERS.values() if m}
+    research = {REPO / rel for rel in RESEARCH_IMPORTERS}
     offenders = []
     roots = [REPO / "src", REPO / "scripts", REPO / "deploy"]
     files = [p for root in roots if root.exists() for p in root.rglob("*.py")]
     files.append(REPO / "server.py")
     for path in files:
-        if path == MODULE:
+        if path == MODULE or path in research:
             continue
         for module, names in _imports(path):
-            if module == target or (module == "src.waivers" and "streaming_backtest" in names):
+            leaf = {f"src.waivers.{n}" for n in names} if module == "src.waivers" else set()
+            if module in targets or leaf & targets:
                 offenders.append(str(path.relative_to(REPO)))
     assert offenders == []
+    for rel in RESEARCH_IMPORTERS:
+        assert (REPO / rel).exists(), rel
 
 
 def test_backtest_imports_only_allowlisted_owners():
