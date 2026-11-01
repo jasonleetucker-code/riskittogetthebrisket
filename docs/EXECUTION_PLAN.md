@@ -15,8 +15,8 @@ Workstreams (one owner per file; planning records are the coordinator's alone):
 - **B — Roster Construction readiness:** 2026 host-score parity census over every finalized team-week
   (`src/roster_intel/construction.py`, tolerance `config/roster_construction/v1.json`); attribution / ownership /
   slot integrity tests; 2025 served as an explicit unavailable state unless authoritative evidence proves its slots
-  (decision 2); timing, auth, desktop + WebKit mobile. **Activation** = `roster_construction` default ON plus
-  capability-gated My Team nav (`frontend/lib/nav-model.js`, `server.py::_NAV_GATED_CAPABILITIES`), only when every
+  (decision 2); timing, auth, desktop + WebKit mobile. **Activation** = `roster_construction` default ON; the
+  capability-gated My Team nav follows only after production verification (`frontend/lib/nav-model.js`, `server.py::_NAV_GATED_CAPABILITIES`), only when every
   decision-1 condition is evidenced; otherwise it stays OFF with the failing gate named.
 - **C — streaming accuracy:** gap decomposition and weekly IDP source census in `src/waivers/streaming_backtest.py`
   (research); optimizer changes in `src/waivers/streaming*.py` only where that evidence supports them; default
