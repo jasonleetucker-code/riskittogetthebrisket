@@ -192,7 +192,7 @@ export default function RosterConstructionPage() {
       {!failure && seasonUnavailable ? (
         <div data-testid="roster-construction-season-unavailable">
           <EmptyState
-            title={`${overview?.season || "This"} season is unavailable`}
+            title={`No verified lineup rules for ${overview?.season || "this season"}`}
             description={
               overview?.unavailableReason === "historical_lineup_config_unverified"
                 ? `The host's own ${overview?.season || ""} matchups contradict that season's recorded starting-lineup settings, so its lineup rules are not verified. Roster Construction shows nothing for it rather than guess the rules. Pick a verified season above.`

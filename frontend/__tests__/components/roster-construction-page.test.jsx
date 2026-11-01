@@ -152,7 +152,7 @@ describe("gate", () => {
     expect(screen.getByLabelText("Team")).toBeTruthy();
     fireEvent.change(seasonSelect, { target: { value: "2025" } });
     const notice = await screen.findByTestId("roster-construction-season-unavailable");
-    expect(notice.textContent).toMatch(/2025 season is unavailable/);
+    expect(notice.textContent).toMatch(/No verified lineup rules for 2025/);
     expect(notice.textContent).toMatch(/contradict/);
     expect(screen.queryByLabelText("Team")).toBeNull();
     expect(screen.queryByText("No teams to choose from")).toBeNull();

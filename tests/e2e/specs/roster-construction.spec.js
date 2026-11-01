@@ -282,7 +282,7 @@ test("roster construction: verified 2026 first, an unverified 2025 is a stated u
   await season.selectOption("2025");
   const notice = page.getByTestId("roster-construction-season-unavailable");
   await expect(notice).toBeVisible({ timeout: 30_000 });
-  await expect(notice).toContainText("2025 season is unavailable");
+  await expect(notice).toContainText("No verified lineup rules for 2025");
   await expect(page.locator("#rc-team")).toHaveCount(0);
   await expect(page.getByTestId("roster-construction-panel")).toHaveCount(0);
   await noPageOverflow(page);
