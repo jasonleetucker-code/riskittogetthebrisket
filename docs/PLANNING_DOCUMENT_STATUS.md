@@ -186,6 +186,8 @@ not replace the intake ledger (`docs/OWNER_REQUESTED_TODO.md`).
 - `docs/owner/OWNER_DECISION_REGISTER.md` — consolidated register of every previously open or stale owner
   decision, one row each, with live status (DECIDED / DEPLOYED / EVIDENCE_PENDING / HUMAN_ACTION_REQUIRED /
   OWNER_PAUSED …).
+- `docs/owner/CHASE_UPSIDE_MASTER_DIRECTIVE_DECISIONS_2026-11-01.md` — the owner's 2026-11-01 master development
+  directive and decisions 1–10, verbatim (register section "Master development directive (2026-11-01)").
 - `docs/owner/RESIDUAL_BLOCKERS_2026-10-18.md` — what stays genuinely blocked (draft; refreshed at campaign close).
 - `docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md` — administrator-only procedures (D18 / D19 / D20).
 
