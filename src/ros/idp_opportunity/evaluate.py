@@ -26,6 +26,7 @@ from src.ros.idp_opportunity.model import (
     build_rows,
     effective_model,
     fit_params,
+    opt_float,
     played,
     project_points,
     residual_quantiles,
@@ -87,8 +88,7 @@ def _fit_rows(
         outcomes = view_w.stats_week(w)  # guarded: w < W
         for r in rows_by_week[w]:
             line = outcomes.get(r.pid) or {}
-            snaps = float(line.get("def_snp") or 0.0)
-            out.append(FitRow(r, card.points(line), snaps))
+            out.append(FitRow(r, card.points(line), opt_float(line, "def_snp")))
     return out
 
 

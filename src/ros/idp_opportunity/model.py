@@ -42,6 +42,7 @@ __all__ = [
     "build_rows",
     "fast_points",
     "fit_params",
+    "opt_float",
     "played",
     "project_points",
     "project_stat_line",
@@ -66,17 +67,31 @@ def key_class(key: str) -> str:
     return "oth"
 
 
-def played(line: Mapping[str, Any] | None) -> bool:
-    """A defender PLAYED a week when the payload carries ``def_snp > 0``."""
+def opt_float(line: Mapping[str, Any] | None, key: str) -> float | None:
+    """A numeric field, or ``None`` when it is absent or not numeric (MISSING, not 0)."""
     if not line:
-        return False
+        return None
+    v = line.get(key)
+    if v is None or isinstance(v, bool):
+        return None
     try:
-        return float(line.get("def_snp") or 0.0) > 0.0
+        return float(v)
     except (TypeError, ValueError):
-        return False
+        return None
+
+
+def played(line: Mapping[str, Any] | None) -> bool:
+    """A defender PLAYED a week when the payload carries ``def_snp`` and it is > 0.
+    A missing ``def_snp`` is not "played 0 snaps": it is simply not evidence of play."""
+    snp = opt_float(line, "def_snp")
+    return snp is not None and snp > 0.0
 
 
 def _f(line: Mapping[str, Any], key: str) -> float:
+    """A SCORED STAT count.  An absent stat key in a complete Sleeper payload is the
+    host's own zero (it awards nothing for it; verified by the streaming backtest's
+    rescoring check), so it reads as 0.0.  Never use this for snaps or volumes:
+    those go through :func:`opt_float` and stay missing."""
     v = line.get(key)
     if v is None:
         return 0.0
@@ -154,9 +169,10 @@ class Context:
     tackles_allowed: dict[tuple[str, str], float]
     pressure_allowed: dict[str, float]
     off_games: dict[str, int]
+    off_games_wr: dict[str, int]
     off_dropbacks: dict[str, float]
     off_wr_targets: dict[str, float]
-    league: dict[str, float]
+    league: dict[str, float | None]
     diagnostics: dict[str, int]
 
 
@@ -180,6 +196,7 @@ def build_context(view: AsOfView, card: Card) -> Context:
     tackles_allowed: dict[tuple[str, str], float] = defaultdict(float)
     pressure_allowed: dict[str, float] = defaultdict(float)
     off_games: dict[str, int] = defaultdict(int)
+    off_games_wr: dict[str, int] = defaultdict(int)
     off_db: dict[str, float] = defaultdict(float)
     off_wr: dict[str, float] = defaultdict(float)
     diag = {"statRowsUnattributedToTeam": 0}
@@ -212,8 +229,8 @@ def build_context(view: AsOfView, card: Card) -> Context:
             last_team[pid] = team
             team_week_players[(w, team)].append(pid)
             last_week_of_team[team] = max(last_week_of_team.get(team, 0), w)
-            tm = _f(line, "tm_def_snp")
-            if tm > 0:
+            tm = opt_float(line, "tm_def_snp")
+            if tm is not None and tm > 0:
                 tm_snaps[(team)] = max(tm_snaps.get(team, 0.0), tm)
             if subgroup != UNKNOWN:
                 vol = sum(
@@ -235,9 +252,16 @@ def build_context(view: AsOfView, card: Card) -> Context:
             snaps_faced[opp] += tm
             team_game_snaps.append(tm)
         for off_team, vol in sorted(view.offense_week(w).items()):
-            off_games[off_team] += 1
-            off_db[off_team] += float(vol.get("dropbacks") or 0.0)
-            off_wr[off_team] += float(vol.get("wr_targets") or 0.0)
+            # each volume counts only the games where it was observed: a missing value
+            # is left out of BOTH numerator and denominator, never added as 0
+            db = opt_float(vol, "dropbacks")
+            if db is not None:
+                off_games[off_team] += 1
+                off_db[off_team] += db
+            wr = opt_float(vol, "wr_targets")
+            if wr is not None:
+                off_games_wr[off_team] += 1
+                off_wr[off_team] += wr
 
     # recent snaps (last RECENT_WEEKS played) and recent team membership
     recent_snaps: dict[str, float] = {}
@@ -254,19 +278,18 @@ def build_context(view: AsOfView, card: Card) -> Context:
             if subgroup != UNKNOWN and pid not in team_members[key]:
                 team_members[key].append(pid)
 
+    # league rates are None (unavailable) when nothing was observed, never 0.0
     n_tg = len(team_game_snaps)
-    snaps_pg = sum(team_game_snaps) / n_tg if n_tg else 0.0
-    games_total = sum(off_games.values())
-    db_pg = sum(off_db.values()) / games_total if games_total else 0.0
+    games_db = sum(off_games.values())
+    games_wr = sum(off_games_wr.values())
+    total_db = sum(off_db.values())
     total_faced = sum(snaps_faced.values())
-    league: dict[str, float] = {
-        "snapsPerGame": snaps_pg,
-        "dropbacksPerGame": db_pg,
-        "wrTargetsPerGame": sum(off_wr.values()) / games_total if games_total else 0.0,
-        "pressurePerDropback": (
-            sum(pressure_allowed.values()) / sum(off_db.values()) if sum(off_db.values()) else 0.0
-        ),
-        "snapsFaced": total_faced,
+    league: dict[str, float | None] = {
+        "snapsPerGame": sum(team_game_snaps) / n_tg if n_tg else None,
+        "dropbacksPerGame": total_db / games_db if games_db else None,
+        "wrTargetsPerGame": sum(off_wr.values()) / games_wr if games_wr else None,
+        "pressurePerDropback": sum(pressure_allowed.values()) / total_db if total_db > 0 else None,
+        "snapsFaced": total_faced if total_faced > 0 else None,
     }
     for (opp, sg, c), v in allowed_pts.items():
         league[f"pts:{sg}:{c}"] = league.get(f"pts:{sg}:{c}", 0.0) + v
@@ -286,6 +309,7 @@ def build_context(view: AsOfView, card: Card) -> Context:
         tackles_allowed=dict(tackles_allowed),
         pressure_allowed=dict(pressure_allowed),
         off_games=dict(off_games),
+        off_games_wr=dict(off_games_wr),
         off_dropbacks=dict(off_db),
         off_wr_targets=dict(off_wr),
         league=league,
@@ -341,7 +365,7 @@ def build_rows(view: AsOfView, ctx: Context, card: Card, candidates: Iterable[st
         raise ValueError("context and view disagree on the cutoff week")
     rows: list[Row] = []
     lg = ctx.league
-    snaps_pg = lg.get("snapsPerGame") or 0.0
+    snaps_pg = lg.get("snapsPerGame")
     for pid in sorted(set(candidates)):
         hist = ctx.history.get(pid)
         family, subgroup, rate_group = _group_of(view, pid)
@@ -358,11 +382,12 @@ def build_rows(view: AsOfView, ctx: Context, card: Card, candidates: Iterable[st
         grate = {k: (gsum.get(k, 0.0) / gsn if gsn > 0 else 0.0) for k in card.idp_keys}
         if subgroup == UNKNOWN:
             reasons.append("subgroup_unknown")
-        tail = hist[-RECENT_WEEKS:]
+        # a week with no team-snap count is left out (missing), never a 0 share
+        tms = [(r, opt_float(r, "tm_def_snp")) for _, r in hist]
         shares = [
-            _f(r, "def_snp") / _f(r, "tm_def_snp") for _, r in tail if _f(r, "tm_def_snp") > 0
+            _f(r, "def_snp") / tm for r, tm in tms[-RECENT_WEEKS:] if tm is not None and tm > 0
         ]
-        team_snaps = [_f(r, "tm_def_snp") for _, r in hist if _f(r, "tm_def_snp") > 0]
+        team_snaps = [tm for _, tm in tms if tm is not None and tm > 0]
         exp_snaps = (
             (sum(shares) / len(shares)) * (sum(team_snaps) / len(team_snaps))
             if shares and team_snaps
@@ -378,10 +403,14 @@ def build_rows(view: AsOfView, ctx: Context, card: Card, candidates: Iterable[st
             reasons.append("opponent_unknown")
         x_vac = _vacated(ctx, view, pid, team, subgroup) if team else 0.0
         factors: dict[str, Factor] = {}
-        if opponent is not None and snaps_pg > 0:
+        if opponent is not None and snaps_pg is None:
+            reasons.append("league_snaps_unavailable")
+        if opponent is not None and snaps_pg is not None and snaps_pg > 0:
+            # an opponent with no prior games has num = den = 0: its factor is then
+            # exactly the league prior (shrinkage), not a fabricated zero rate
             faced = ctx.snaps_faced.get(opponent, 0.0)
-            tot_faced = lg.get("snapsFaced") or 0.0
-            if subgroup != UNKNOWN and tot_faced > 0:
+            tot_faced = lg.get("snapsFaced")
+            if subgroup != UNKNOWN and tot_faced is not None:
                 for c in ("vol", "spl"):
                     mean = lg.get(f"pts:{subgroup}:{c}", 0.0) / tot_faced
                     num = ctx.allowed_pts.get((opponent, subgroup, c), 0.0)
@@ -392,25 +421,30 @@ def build_rows(view: AsOfView, ctx: Context, card: Card, candidates: Iterable[st
                     lg.get(f"tkl:{subgroup}", 0.0) / tot_faced,
                     1.0,
                 )
-            games = float(ctx.off_games.get(opponent, 0))
-            factors["dropbacks"] = (
-                ctx.off_dropbacks.get(opponent, 0.0),
-                games,
-                lg.get("dropbacksPerGame", 0.0),
-                1.0 / snaps_pg,
-            )
-            factors["wr"] = (
-                ctx.off_wr_targets.get(opponent, 0.0),
-                games,
-                lg.get("wrTargetsPerGame", 0.0),
-                1.0 / snaps_pg,
-            )
-            factors["pressure"] = (
-                ctx.pressure_allowed.get(opponent, 0.0),
-                ctx.off_dropbacks.get(opponent, 0.0),
-                lg.get("pressurePerDropback", 0.0),
-                (lg.get("dropbacksPerGame", 0.0) / snaps_pg),
-            )
+            db_pg = lg.get("dropbacksPerGame")
+            wr_pg = lg.get("wrTargetsPerGame")
+            pr_db = lg.get("pressurePerDropback")
+            if db_pg is not None:
+                factors["dropbacks"] = (
+                    ctx.off_dropbacks.get(opponent, 0.0),
+                    float(ctx.off_games.get(opponent, 0)),
+                    db_pg,
+                    1.0 / snaps_pg,
+                )
+                if pr_db is not None:
+                    factors["pressure"] = (
+                        ctx.pressure_allowed.get(opponent, 0.0),
+                        ctx.off_dropbacks.get(opponent, 0.0),
+                        pr_db,
+                        db_pg / snaps_pg,
+                    )
+            if wr_pg is not None:
+                factors["wr"] = (
+                    ctx.off_wr_targets.get(opponent, 0.0),
+                    float(ctx.off_games_wr.get(opponent, 0)),
+                    wr_pg,
+                    1.0 / snaps_pg,
+                )
         row = Row(
             pid=pid,
             week=view.cutoff,
@@ -487,7 +521,10 @@ def effective_model(row: Row, model: str) -> str:
 
 
 def _snaps(row: Row, model: str, p: Params) -> float:
-    es = float(row.exp_snaps or 0.0)
+    if row.exp_snaps is None:
+        # effective_model() routes these rows to C0; reaching here is a bug
+        raise ValueError(f"{model} needs expected snaps; row {row.pid} has none")
+    es = float(row.exp_snaps)
     if model in ("M3", "M5") and row.x_vac:
         es += p.beta.get(row.subgroup, 0.0) * row.x_vac
     return max(es, 0.0)
@@ -545,7 +582,8 @@ def fast_points(row: Row, model: str, p: Params) -> float:
 class FitRow:
     row: Row
     actual: float
-    actual_snaps: float
+    #: ``None`` when the outcome payload carries no ``def_snp`` (missing, not 0)
+    actual_snaps: float | None
 
 
 def _mae(rows: Sequence[FitRow], model: str, p: Params) -> float:
@@ -581,7 +619,7 @@ def fit_params(rows: Sequence[FitRow]) -> dict[str, Params]:
     num: dict[str, float] = defaultdict(float)
     den: dict[str, float] = defaultdict(float)
     for r in rows:
-        if r.row.x_vac > 0 and r.row.exp_snaps is not None:
+        if r.row.x_vac > 0 and r.row.exp_snaps is not None and r.actual_snaps is not None:
             num[r.row.subgroup] += r.row.x_vac * (r.actual_snaps - r.row.exp_snaps)
             den[r.row.subgroup] += r.row.x_vac**2
     beta = {g: num[g] / den[g] for g in sorted(den) if den[g] > 0}

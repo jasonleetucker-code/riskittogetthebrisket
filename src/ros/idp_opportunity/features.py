@@ -15,19 +15,18 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.ros.idp_opportunity.leakage import AsOfView
+from src.ros.idp_opportunity.model import opt_float
 
 __all__ = ["RoleChange", "role_change"]
 
 
 def _share(line: Any) -> float | None:
-    if not line:
+    """Snap share, or ``None`` when either count is missing or the player did not play."""
+    snp = opt_float(line, "def_snp")
+    tm = opt_float(line, "tm_def_snp")
+    if snp is None or tm is None or snp <= 0 or tm <= 0:
         return None
-    try:
-        snp = float(line.get("def_snp") or 0.0)
-        tm = float(line.get("tm_def_snp") or 0.0)
-    except (TypeError, ValueError):
-        return None
-    return snp / tm if snp > 0 and tm > 0 else None
+    return snp / tm
 
 
 @dataclass(frozen=True)

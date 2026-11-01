@@ -293,3 +293,39 @@ def test_role_change_reads_only_prior_weeks_and_names_missing():
         data.season, poisoned, data.team_of, data.offense, data.schedule, {}, data.positions
     )
     assert role_change(d2.view(4), "1") == rc
+
+
+# ── missing snaps / volumes stay missing (decision-path coercion gate) ───────
+
+
+def test_played_requires_an_observed_positive_snap_count():
+    from src.ros.idp_opportunity.model import opt_float, played
+
+    assert played({"def_snp": 12}) is True
+    assert played({"def_snp": 0}) is False
+    assert played({"def_snp": None}) is False
+    assert played({}) is False
+    assert opt_float({"x": None}, "x") is None and opt_float({"x": "0"}, "x") == 0.0
+
+
+def test_missing_offense_volume_is_excluded_not_zero():
+    data = season()
+    offense = copy.deepcopy(dict(data.offense))
+    for w in offense:
+        offense[w]["AAA"] = {"wr_targets": 20.0}  # dropbacks missing for AAA
+    d2 = SeasonData(
+        data.season, data.stats, data.team_of, offense, data.schedule, {}, data.positions
+    )
+    ctx = build_context(d2.view(4), card())
+    assert ctx.off_games.get("AAA", 0) == 0 and ctx.off_games_wr["AAA"] == 3
+    assert ctx.league["dropbacksPerGame"] == pytest.approx(sum(40.0 - w for w in (1, 2, 3)) / 3)
+
+
+def test_league_rates_are_unavailable_without_observations():
+    data = season()
+    d2 = SeasonData(data.season, data.stats, {}, {}, data.schedule, {}, data.positions)
+    c = card()
+    v = d2.view(4)
+    ctx = build_context(v, c)
+    assert ctx.league["snapsPerGame"] is None and ctx.league["dropbacksPerGame"] is None
+    assert build_rows(v, ctx, c, ["1"])[0].factors == {}
