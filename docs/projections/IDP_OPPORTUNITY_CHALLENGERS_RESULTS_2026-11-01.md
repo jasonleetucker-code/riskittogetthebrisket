@@ -9,15 +9,17 @@ Evidence type: `weekly_opportunity` only.
 * Harness: `src/ros/idp_opportunity/` + `scripts/idp_opportunity_backtest.py`
 * Evidence: `docs/projections/evidence/idp_opportunity/backtest_2026-11-01.json` (input SHA-256s,
   per-week fitted parameters, fallback counts, every metric below)
-* Provenance: evidence produced at code `1f3f2864e63e780dd33b9bc04daafdd43d6345ad` on a clean
+* Provenance: evidence produced at code `654282bbc322cebcaeeafabe5ca11a1ee32659da` on a clean
   tree (`codeSha` / `codeDirty: false` in the JSON), with SHA-256 for every input. That covers the
   scoring card (`card.settingsSha256`), the nflverse players and games files, the Sleeper player
   dump, each season's nflverse files (`availability`), and every Sleeper weekly stat and team file
   (`sleeperStats.hashes`, `sleeperTeamStats.hashes`). That SHA includes the decision-path coercion
   fix (missing snaps, dropbacks, WR targets and league rates stay `None` instead of `or 0.0`). Re-running
   at `978c6521b` (provenance stamp only) and again at `1f3f2864e` (coercion fix) reproduced every
-  metric, fitted parameter and diagnostic of the original run identically. No reported number changed;
-  no real input in this run was missing, so the explicit missing paths never fired.
+  metric, fitted parameter and diagnostic of the original run identically; no real input in this run
+  was missing, so the explicit missing paths never fired.  The final run at `654282bbc` derives
+  top-N from the canonical lineup owner (`lineupDemand` in the JSON); that changed ONLY the DL top-N
+  hit rate (deviation 5).  Every other number is unchanged.
 * Card: `dynasty_main` 2026, fingerprint `sf1:9e51824690d091f9` (TFL 4.24, PD 5.3, solo 1.33,
   assist 0.8, sack 2.92, QB hit 2.12, …), scored only by `src.league_intel.scorer.score_stat_line`.
 
@@ -117,8 +119,8 @@ Post-hoc increments over M2 (descriptive, NOT preregistered; ΔMAE [95% CI]):
 
 | family | model | n | players | MAE | RMSE | bias | cov80 | Spearman | top-N hit (N) |
 |---|---|---|---|---|---|---|---|---|---|
-| DL | C0 | 1,124 | 285 | 4.79 | 6.73 | −0.23 | 0.83 | 0.35 | 0.30 (24) |
-| DL | M2 | 1,124 | 285 | 4.47 | 6.16 | −0.14 | 0.81 | 0.43 | 0.38 |
+| DL | C0 | 1,124 | 285 | 4.79 | 6.73 | −0.23 | 0.83 | 0.35 | 0.36 (36) |
+| DL | M2 | 1,124 | 285 | 4.47 | 6.16 | −0.14 | 0.81 | 0.43 | 0.34 |
 | DL | M5 | 1,124 | 285 | 4.48 | 6.17 | −0.06 | 0.80 | 0.43 | 0.35 |
 | LB | C0 | 615 | 165 | 5.98 | 8.52 | −0.08 | 0.82 | 0.48 | 0.46 (36) |
 | LB | M2 | 615 | 165 | 5.47 | 7.50 | −0.21 | 0.78 | 0.54 | 0.48 |
@@ -140,8 +142,8 @@ DL C0 4.72 → M5 4.60, LB 5.41 → 5.18, DB 5.30 → 5.07 MAE.
   the equal-split allocation of vacated snaps are both crude).  Matchup-only (M1) ≈ nothing.
 * **Intervals are slightly narrow:** 80% intervals cover 0.76–0.81 for the M2–M5 family, and
   EDGE 0.70 (2026); C0 over-covers (0.82–0.85) because its residuals are wider.
-* **Top-N hit rate does not improve consistently** (CB M2 0.08 vs C0 0.22 in 2026; the
-  shrinkage compresses the top of a 12-player cut).  Lower average error is not the same as
+* **Top-N hit rate does not improve consistently** (CB M2 0.08 vs C0 0.22 in 2026; DL at the
+  correct N = 36, M5 0.35 vs C0 0.36; the shrinkage compresses the top of the cut).  Lower average error is not the same as
   better start/sit ranking at the top.
 * **EDGE over-projection persists** (bias +0.65 C0, +0.75 M5 on EDGE; within the +0.5 tolerance
   only because the bar compares with C0's own bias).
@@ -184,6 +186,30 @@ DL C0 4.72 → M5 4.60, LB 5.41 → 5.18, DB 5.30 → 5.07 MAE.
    yards and QB-hit keys only.
 4. **Post-hoc** M3/M4/M5-vs-M2 bootstraps were added after the primary results were seen; they are
    descriptive and claim nothing.
+5. **(2026-11-01) Wrong DL starter count in the preregistration (secondary metric only).**  The
+   preregistration's §4 set the DL top-N to 24 (2 DL × 12 teams), taken from an incorrect slot
+   comment ("`DL DL IDP_FLEX LB LB LB DB DB DB`").  `dynasty_main` actually starts **DL ×3, LB ×3,
+   DB ×3 with no IDP_FLEX**.  The owner confirmed this, the live Sleeper `roster_positions`
+   (league `1312006700437352448`) shows it, and so does the canonical resolver
+   `src.ros.lineup.resolve_league_slot_demand` (source `sleeper_roster_positions`).  So the
+   correct N is **36**.  The harness now derives top-N from that resolver × `teamCount` (12) and
+   refuses (exit 2) if demand is unresolved; the resolved demand and its source are stamped as
+   `lineupDemand`.  The preregistration file is left unedited as the historical record.  Affected:
+   only the DL family top-N starter hit rate.  The primary ΔMAE, every MAE / RMSE / bias / coverage /
+   Spearman value, the LB and DB top-N (36 in both) and the sub-group top-N (12, not derived from DL
+   starters) are unchanged.  No other code in the package assumed 2 DL or an IDP_FLEX slot.  DL
+   top-N hit rate (weekly mean) under both values:
+
+   | season | N | C0 | M1 | M2 | M3 | M4 | M5 |
+   |---|---|---|---|---|---|---|---|
+   | 2026 | 24 (preregistered, wrong) | 0.300 | 0.325 | 0.375 | 0.358 | 0.350 | 0.350 |
+   | 2026 | **36 (corrected)** | 0.356 | 0.361 | 0.339 | 0.333 | 0.339 | 0.350 |
+   | 2025 | 24 (preregistered, wrong) | 0.328 | 0.347 | 0.386 | 0.383 | 0.383 | 0.389 |
+   | 2025 | **36 (corrected)** | 0.389 | 0.393 | 0.424 | 0.420 | 0.422 | 0.428 |
+
+   At the correct N the 2026 DL advantage over C0 on this metric disappears (M5 0.350 vs C0 0.356).
+   In 2025 the challengers stay ahead (0.428 vs 0.389).  Both values are in the evidence JSON
+   (`families` at N = 36, `familiesAtPreregisteredTopN` at N = 24).
 
 ## Reconciliation with the IDP Show library audit (PR #2042)
 

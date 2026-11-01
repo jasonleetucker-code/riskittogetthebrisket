@@ -70,13 +70,59 @@
   "source": "file:scoring_1312006700437352448.json"
  },
  "codeDirty": false,
- "codeSha": "1f3f2864e63e780dd33b9bc04daafdd43d6345ad",
+ "codeSha": "654282bbc322cebcaeeafabe5ca11a1ee32659da",
  "evidenceType": "weekly_opportunity",
- "generatedAtUtc": "2026-11-01T16:35:41+00:00",
+ "generatedAtUtc": "2026-11-01T17:29:11+00:00",
  "inputs": {
   "nflverse_games": "316870c6500299d84dc2a387da5b804ae9aa75af8c3b0f30198efe2613e77e4a",
   "nflverse_players": "4b1e03631bbbd4341088efd2618a89916a9486623f4b022b8c0b077a1d451c02",
   "sleeper_players": "cc578a8bac7b235211ec45f20be48e4081e9a2893fba07aaabfb94c11598dcd0"
+ },
+ "lineupDemand": {
+  "dedicated": {
+   "DB": 3.0,
+   "DL": 3.0,
+   "LB": 3.0
+  },
+  "deviationFamilies": [
+   "DL"
+  ],
+  "leagueSha256": "8bcf670dca50180b463d7cdf370b0d66de0dedd5dea82108fb4d6647777a4699",
+  "preregisteredTopN": {
+   "DB": 36,
+   "DL": 24,
+   "LB": 36
+  },
+  "slots": [
+   "QB",
+   "RB",
+   "RB",
+   "WR",
+   "WR",
+   "WR",
+   "TE",
+   "TE",
+   "FLEX",
+   "FLEX",
+   "SUPER_FLEX",
+   "K",
+   "DL",
+   "DL",
+   "DL",
+   "LB",
+   "LB",
+   "LB",
+   "DB",
+   "DB",
+   "DB"
+  ],
+  "source": "sleeper_roster_positions",
+  "teamCount": 12,
+  "topN": {
+   "DB": 36,
+   "DL": 36,
+   "LB": 36
+  }
  },
  "preregistration": "docs/projections/IDP_OPPORTUNITY_CHALLENGERS_PREREGISTRATION_2026-11-01.md",
  "seasons": {
@@ -1814,8 +1860,8 @@
        }
       },
       "subgroups": [
-       "LB",
-       "S"
+       "S",
+       "LB"
       ]
      }
     },
@@ -1917,8 +1963,8 @@
        "players": 342,
        "rmse": 6.81,
        "spearmanMeanWeekly": 0.4242,
-       "topN": 24,
-       "topNHitMeanWeekly": 0.3278,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.3889,
        "weeks": 15
       },
       "M1": {
@@ -1931,8 +1977,8 @@
        "players": 342,
        "rmse": 6.8082,
        "spearmanMeanWeekly": 0.4257,
-       "topN": 24,
-       "topNHitMeanWeekly": 0.3472,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.3926,
        "weeks": 15
       },
       "M2": {
@@ -1945,8 +1991,8 @@
        "players": 342,
        "rmse": 6.4784,
        "spearmanMeanWeekly": 0.4711,
-       "topN": 24,
-       "topNHitMeanWeekly": 0.3861,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4241,
        "weeks": 15
       },
       "M3": {
@@ -1959,8 +2005,8 @@
        "players": 342,
        "rmse": 6.4714,
        "spearmanMeanWeekly": 0.4714,
-       "topN": 24,
-       "topNHitMeanWeekly": 0.3833,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4204,
        "weeks": 15
       },
       "M4": {
@@ -1973,8 +2019,8 @@
        "players": 342,
        "rmse": 6.4522,
        "spearmanMeanWeekly": 0.475,
-       "topN": 24,
-       "topNHitMeanWeekly": 0.3833,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4222,
        "weeks": 15
       },
       "M5": {
@@ -1987,8 +2033,8 @@
        "players": 342,
        "rmse": 6.4456,
        "spearmanMeanWeekly": 0.4752,
-       "topN": 24,
-       "topNHitMeanWeekly": 0.3889,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4278,
        "weeks": 15
       }
      },
@@ -2076,6 +2122,34 @@
        "topN": 36,
        "topNHitMeanWeekly": 0.4889,
        "weeks": 15
+      }
+     }
+    },
+    "familiesAtPreregisteredTopN": {
+     "DL": {
+      "C0": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3278
+      },
+      "M1": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3472
+      },
+      "M2": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3861
+      },
+      "M3": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3833
+      },
+      "M4": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3833
+      },
+      "M5": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3889
       }
      }
     },
@@ -3614,8 +3688,8 @@
        }
       },
       "subgroups": [
-       "LB",
-       "S"
+       "S",
+       "LB"
       ]
      }
     },
@@ -3717,8 +3791,8 @@
        "players": 285,
        "rmse": 6.7264,
        "spearmanMeanWeekly": 0.3464,
-       "topN": 24,
-       "topNHitMeanWeekly": 0.3,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.3556,
        "weeks": 5
       },
       "M1": {
@@ -3731,8 +3805,8 @@
        "players": 285,
        "rmse": 6.7378,
        "spearmanMeanWeekly": 0.344,
-       "topN": 24,
-       "topNHitMeanWeekly": 0.325,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.3611,
        "weeks": 5
       },
       "M2": {
@@ -3745,8 +3819,8 @@
        "players": 285,
        "rmse": 6.1647,
        "spearmanMeanWeekly": 0.4322,
-       "topN": 24,
-       "topNHitMeanWeekly": 0.375,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.3389,
        "weeks": 5
       },
       "M3": {
@@ -3759,8 +3833,8 @@
        "players": 285,
        "rmse": 6.1859,
        "spearmanMeanWeekly": 0.4279,
-       "topN": 24,
-       "topNHitMeanWeekly": 0.3583,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.3333,
        "weeks": 5
       },
       "M4": {
@@ -3773,8 +3847,8 @@
        "players": 285,
        "rmse": 6.1543,
        "spearmanMeanWeekly": 0.438,
-       "topN": 24,
-       "topNHitMeanWeekly": 0.35,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.3389,
        "weeks": 5
       },
       "M5": {
@@ -3787,7 +3861,7 @@
        "players": 285,
        "rmse": 6.1724,
        "spearmanMeanWeekly": 0.4346,
-       "topN": 24,
+       "topN": 36,
        "topNHitMeanWeekly": 0.35,
        "weeks": 5
       }
@@ -3876,6 +3950,34 @@
        "topN": 36,
        "topNHitMeanWeekly": 0.4944,
        "weeks": 5
+      }
+     }
+    },
+    "familiesAtPreregisteredTopN": {
+     "DL": {
+      "C0": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3
+      },
+      "M1": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.325
+      },
+      "M2": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.375
+      },
+      "M3": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3583
+      },
+      "M4": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.35
+      },
+      "M5": {
+       "topN": 24,
+       "topNHitMeanWeekly": 0.35
       }
      }
     },
