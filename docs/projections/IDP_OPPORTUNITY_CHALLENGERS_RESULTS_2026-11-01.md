@@ -9,12 +9,15 @@ Evidence type: `weekly_opportunity` only.
 * Harness: `src/ros/idp_opportunity/` + `scripts/idp_opportunity_backtest.py`
 * Evidence: `docs/projections/evidence/idp_opportunity/backtest_2026-11-01.json` (input SHA-256s,
   per-week fitted parameters, fallback counts, every metric below)
-* Provenance: evidence produced at code `978c6521bb3fdaf6ae1adf593f10b84ad96f98e8` on a clean
+* Provenance: evidence produced at code `1f3f2864e63e780dd33b9bc04daafdd43d6345ad` on a clean
   tree (`codeSha` / `codeDirty: false` in the JSON), with SHA-256 for every input. That covers the
   scoring card (`card.settingsSha256`), the nflverse players and games files, the Sleeper player
   dump, each season's nflverse files (`availability`), and every Sleeper weekly stat and team file
-  (`sleeperStats.hashes`, `sleeperTeamStats.hashes`). Re-running at that SHA reproduced every metric, parameter and
-  diagnostic of the earlier run identically; nothing changed.
+  (`sleeperStats.hashes`, `sleeperTeamStats.hashes`). That SHA includes the decision-path coercion
+  fix (missing snaps, dropbacks, WR targets and league rates stay `None` instead of `or 0.0`). Re-running
+  at `978c6521b` (provenance stamp only) and again at `1f3f2864e` (coercion fix) reproduced every
+  metric, fitted parameter and diagnostic of the original run identically. No reported number changed;
+  no real input in this run was missing, so the explicit missing paths never fired.
 * Card: `dynasty_main` 2026, fingerprint `sf1:9e51824690d091f9` (TFL 4.24, PD 5.3, solo 1.33,
   assist 0.8, sack 2.92, QB hit 2.12, …), scored only by `src.league_intel.scorer.score_stat_line`.
 
