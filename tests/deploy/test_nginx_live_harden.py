@@ -184,3 +184,35 @@ def test_snippet_matches_the_declared_template_headers():
     ]
     for line in set(declared):
         assert line in snippet, f"snippet is missing a header the template declares: {line}"
+
+
+@pytest.mark.parametrize("trailing_newline", [True, False])
+def test_file_ending_is_preserved_byte_for_byte(tmp_path, trailing_newline):
+    raw = _FIXTURE.read_bytes().replace(b"\r\n", b"\n").rstrip(b"\n")
+    if trailing_newline:
+        raw += b"\n"
+    live = tmp_path / "dynasty"
+    live.write_bytes(raw)
+    dry = _run(tmp_path, live=live)
+    assert dry.returncode == 0, dry.stderr
+    assert "lines to insert: 2" in dry.stdout
+    assert "No newline at end of file" not in dry.stdout
+    ok = _fake_bin(tmp_path, "nginx", 0)
+    r = _run(
+        tmp_path,
+        "--apply",
+        "--expect-sha256",
+        _sha(live),
+        live=live,
+        NGINX_BIN=ok,
+        SYSTEMCTL_BIN=ok,
+    )
+    assert r.returncode == 0, r.stderr
+    patched = live.read_bytes()
+    assert patched.endswith(b"\n") is trailing_newline
+    inserted = [ln for ln in patched.split(b"\n") if b"chaseupside-security-headers.conf" in ln]
+    assert len(inserted) == 2
+    stripped = b"\n".join(
+        ln for ln in patched.split(b"\n") if b"chaseupside-security-headers.conf" not in ln
+    )
+    assert stripped == raw

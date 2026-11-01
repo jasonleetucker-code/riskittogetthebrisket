@@ -98,29 +98,52 @@ if grep -qF "include ${SNIPPET_DEST};" "${SNAPSHOT}"; then
     cp "${SNAPSHOT}" "${CANDIDATE}"
     ALREADY=1
 else
-    awk -v domain="${DOMAIN}" -v inc="${INCLUDE_LINE}" '
+    # Line numbers (in the live file) of each chaseupside server_name.  The
+    # candidate is then built by sed `a` (append-after-line), which copies
+    # every original byte — including a missing final newline — untouched.
+    mapfile -t INSERT_AFTER < <(awk -v domain="${DOMAIN}" '
         function strip(s) { sub(/#.*/, "", s); return s }
         {
-            print
             line = strip($0)
-            if (depth == 1 && line ~ /^[ \t]*server_name[ \t]/ && index(line, domain)) print inc
+            if (depth == 1 && line ~ /^[ \t]*server_name[ \t]/ && index(line, domain)) print NR
             o = gsub(/\{/, "{", line); c = gsub(/\}/, "}", line)
             depth += o - c
         }
-    ' "${SNAPSHOT}" > "${CANDIDATE}"
+    ' "${SNAPSHOT}")
+    [[ "${#INSERT_AFTER[@]}" -gt 0 ]] || die "no insertion point found"
+    SED_SCRIPT="${WORK}/insert.sed"
+    : > "${SED_SCRIPT}"
+    for n in "${INSERT_AFTER[@]}"; do
+        printf '%sa\\\n%s\n' "${n}" "${INCLUDE_LINE}" >> "${SED_SCRIPT}"
+    done
+    sed -f "${SED_SCRIPT}" "${SNAPSHOT}" > "${CANDIDATE}"
     ALREADY=0
 fi
 
-# --- proof: the only difference is the inserted include lines ----------
-if ! diff -q <(grep -vF "include ${SNIPPET_DEST};" "${CANDIDATE}") <(grep -vF "include ${SNIPPET_DEST};" "${SNAPSHOT}") >/dev/null; then
-    die "candidate differs from the live file by more than the include lines; refusing"
+# --- proof: byte-exact — the candidate minus the inserted lines IS the live file
+if [[ "${ALREADY}" == 0 ]]; then
+    # Inserted line k (0-based) lands at candidate line INSERT_AFTER[k] + k + 1.
+    DEL_SCRIPT="${WORK}/delete.sed"
+    : > "${DEL_SCRIPT}"
+    k=0
+    for n in "${INSERT_AFTER[@]}"; do
+        printf '%sd\n' "$((n + k + 1))" >> "${DEL_SCRIPT}"
+        k=$((k + 1))
+    done
+    sed -f "${DEL_SCRIPT}" "${CANDIDATE}" > "${WORK}/candidate.minus"
+    cmp -s "${WORK}/candidate.minus" "${SNAPSHOT}" \
+        || die "candidate is not byte-identical to the live file apart from the inserted lines; refusing"
+    if [[ "$(grep -cF "include ${SNIPPET_DEST};" "${CANDIDATE}")" != "${#INSERT_AFTER[@]}" ]]; then
+        die "inserted-line count mismatch; refusing"
+    fi
 fi
 for pat in 'listen ' 'ssl_certificate' 'letsencrypt' 'server_name ' 'location ' 'return ' 'proxy_pass '; do
     if [[ "$(grep -cF "${pat}" "${CANDIDATE}")" != "$(grep -cF "${pat}" "${SNAPSHOT}")" ]]; then
         die "line count for '${pat}' changed; refusing"
     fi
 done
-ADDED="$(diff "${SNAPSHOT}" "${CANDIDATE}" | grep -c '^>' || true)"
+ADDED=0
+[[ "${ALREADY}" == 0 ]] && ADDED="${#INSERT_AFTER[@]}"
 
 log "mode: ${MODE}"
 log "live site: ${LIVE_SITE}"
