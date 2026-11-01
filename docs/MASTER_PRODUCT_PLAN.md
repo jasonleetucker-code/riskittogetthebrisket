@@ -829,3 +829,14 @@ The mandatory input template, status machine, reconciliation / dedup procedure a
 ## 14. Advanced statistical methods for Chase Upside fantasy — 2026-11-01 (AMATH-01)
 
 **OWNER SCOPE CORRECTION:** Chase Upside fantasy football ONLY; Market Edge prediction-market application explicitly excluded. The **primary research specification** is [Ten Advanced Statistical Methods for Chase Upside](research/ADVANCED_STATISTICAL_METHODS_CHASE_UPSIDE_2026-11-01.md), with ten method-to-product mappings: Bayesian model averaging/HMC, hierarchical GP/partial pooling, causal DML/TMLE, latent state-space/particle methods, sparse/horseshoe inference, copulas/flows, extreme value modeling, rolling/adaptive conformal calibration, informative missing-data sensitivity analysis, and Wasserstein decision robustness. Rank practical **principles**, not mathematical prestige; begin with strong low-cost baselines and demand forward decision-value evidence before heavy modeling. The prior [seven-pure-math applicability screen](research/ADVANCED_MATHEMATICS_FEASIBILITY_2026-11-01.md) is retained as a secondary negative-control appendix, not an implementation directive. Canonical owner intake: AMATH-01 in docs/OWNER_REQUESTED_TODO.md. Reuse existing C5, ROS/IDP #2039 protected prospective forecasts, waiver, BDVM, league scoring, source lineage and adaptive-learning owners. **No new implementation authorization, DFS restart, paid-source rights expansion, live model/rank/value/weight/flag change or promotion.** docs/EXECUTION_PLAN.md and explicit owner gates remain controlling.
+
+**Sitewide scope (2026-11-01, owner "MASTER CLAUDE RESEARCH DIRECTIVE").** AMATH-01 now covers the **whole Chase Upside fantasy site**, not only IDP/ROS. That means valuation and confidence, trades, market and managers, projections, IDP and Game Day, waivers/FAAB, roster, draft, league intelligence and uncertainty UX. **Start at the [AMATH sitewide master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md)** (deliverables 1–15). The full ranked matrix of 63 items, AMATH-S01…S63, is [`sitewide_opportunities_merged.json`](research/amath/evidence/sitewide_opportunities_merged.json). The intake routing is the "AMATH sitewide audit (2026-11-01)" block under AMATH-01 in `docs/OWNER_REQUESTED_TODO.md`.
+
+The synthesis extends #2053 and does not duplicate it:
+- AMATH-2/S4 DRO streaming is resequenced to BLOCKED.
+- AMATH-3/S3 is realized as the calibration ledger (S01) and measured marginals (S04).
+- AMATH-5's SMT method is superseded by property tests (S15).
+
+Correctness and measurement come first: the calibration ledger and size-controlled gates (S01), the single-source haircut outcome test (S02), and hiding the synthetic-band trade win rate (S12).
+
+The frozen IDP and ROS H1 preregistrations are untouched, and G3, D11/G4 and V3 remain FAILED. This is research priority only. **No implementation authorization**, and `docs/EXECUTION_PLAN.md` is unchanged.
