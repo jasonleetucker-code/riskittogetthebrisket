@@ -1,0 +1,671 @@
+{
+ "schemaVersion": "idp-show-library-inventory/2026-11-01.v1",
+ "asOf": "2026-11-01",
+ "contract": "GitHub issue #2039 (research/intake only)",
+ "narrative": "docs/sources/IDP_SHOW_LIBRARY_AUDIT_2026-11-01.md",
+ "publisher": "The IDP Show (theidpshow.com, Substack)",
+ "accessUsed": "paid subscription (not Founding/S-Tier); signed-in built-in browser; no credential read or stored",
+ "dataPolicy": "schema only: headers, row counts, version counts, dates; no proprietary rows; paid-product chart ids redacted (public repo)",
+ "census": {
+  "posts2026": 161,
+  "free": 96,
+  "paid": 50,
+  "foundingInaccessible": 15,
+  "podcastPosts": 12,
+  "postsReadInFull": "about 30",
+  "chartsInspected": "about 79 (25 from 2026, 54 from the 2025 weekly-projection series)"
+ },
+ "scoringBasis": {
+  "big3": {
+   "tkl_solo": 1.25,
+   "tkl_ast": 0.75,
+   "tfl": 3,
+   "sack": 5,
+   "sack_yd": 0.1,
+   "qb_hit": 2,
+   "pd": 4,
+   "ff": 4,
+   "fr": 3,
+   "int": 6,
+   "td": 6,
+   "safety": 5,
+   "blk_kick": 5,
+   "ret_yd": 0.1,
+   "source": "theidpshow.com/p/big-3-scoring"
+  },
+  "dynasty_main": {
+   "source": "config/league_intel/sleeper_league_snapshot_2026-07-26.json",
+   "idp_tkl_solo": 1.33,
+   "idp_tkl_ast": 0.8,
+   "idp_tkl_loss": 4.25,
+   "idp_sack": 2.92,
+   "idp_sack_yd": 0.111,
+   "idp_qb_hit": 2.13,
+   "idp_pass_def": 5.32,
+   "idp_ff": 4.25,
+   "idp_fum_rec": 3.19,
+   "idp_int": 5.32,
+   "lineupIdpSlots": "DL x3, LB x3, DB x3 (Sleeper eligibility)"
+  }
+ },
+ "products": [
+  {
+   "id": "tackles_allowed",
+   "slug": "2026-tackles-allowed-data-nfl-idp",
+   "access": "free",
+   "horizon": "weekly",
+   "kind": "raw",
+   "dataLineage": [
+    "PFF"
+   ],
+   "basis": "true_position",
+   "author": "Jon Macri",
+   "cadence": "weekly (Tue)",
+   "charts": [
+    {
+     "id": "CoZmA",
+     "pos": "LB",
+     "rows": 32,
+     "versions": 11
+    },
+    {
+     "id": "dSJWY",
+     "pos": "S",
+     "rows": 32,
+     "versions": 12
+    },
+    {
+     "id": "4P0Kf",
+     "pos": "CB",
+     "rows": 32,
+     "versions": 9
+    },
+    {
+     "id": "2HxrV",
+     "pos": "EDGE",
+     "rows": 32,
+     "versions": 9
+    },
+    {
+     "id": "aCfr1",
+     "pos": "DT",
+     "rows": 32,
+     "versions": 10
+    }
+   ],
+   "columns": [
+    "(blank)",
+    "(Optimal Opponent) <POS> TO TARGET",
+    "<POS> TKLs Allowed/Game",
+    "<POS> TKL EFF. Allowed",
+    "Total <POS> TKLs Allowed",
+    "Last 3 Games (Average)",
+    "(blank)",
+    "(blank)",
+    "SORTING COLUMN",
+    "TOTAL TEAM SNAPS",
+    "(blank)",
+    "Week",
+    "Team",
+    "Team Long"
+   ],
+   "definitions": {
+    "TKL EFF. Allowed": "total tackles allowed to the position / offense total offensive snaps x 100 (verified +-0.2% on all 32 week-7 LB rows)",
+    "Week": "target week k; dataset holds k-1 games (verified on every version of LB, CB, DT)"
+   },
+   "pointInTime": "content_provable",
+   "permissionForIngestion": "not_granted_unverified"
+  },
+  {
+   "id": "snap_shares",
+   "slug": "2026-idp-snap-shares-nfl",
+   "access": "free",
+   "horizon": "weekly_history",
+   "kind": "raw",
+   "basis": "true_position",
+   "charts": [
+    {
+     "id": "16i1M",
+     "rows": 841,
+     "versions": 8
+    }
+   ],
+   "columns": [
+    "PLAYER_ID (5-digit, PFF-style)",
+    "POSITION (CB/S/LB/ED/DI)",
+    "TEAM",
+    "PLAYER",
+    "AVERAGE SNAP SHARE",
+    "WEEK 1..18 SNAP SHARE"
+   ],
+   "pointInTime": "maskable_by_week_column",
+   "freeEquivalent": "nflverse snap_counts (src/playerctx/fetch.py)",
+   "permissionForIngestion": "not_granted_unverified"
+  },
+  {
+   "id": "weekly_rankings_tiers",
+   "slugPattern": "week-N-idp-rankings-and-tiers-*",
+   "weeksSeen": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "access": "paid",
+   "horizon": "weekly",
+   "kind": "judgement",
+   "basis": "house Big 3 assumed (not stated per post); Sleeper-style LB/DL/DB groups",
+   "charts": [
+    {
+     "id": "paid-chart-redacted",
+     "pos": "LB",
+     "rows": 60,
+     "versions": 26
+    },
+    {
+     "id": "paid-chart-redacted",
+     "pos": "DL",
+     "rows": 84,
+     "versions": 29
+    },
+    {
+     "id": "paid-chart-redacted",
+     "pos": "DB",
+     "rows": 84,
+     "versions": 26
+    }
+   ],
+   "columns": [
+    "TIER",
+    "POS. RANK",
+    "<POSITION>",
+    "TEAM",
+    "WEEK k (opponent)",
+    "NOTES"
+   ],
+   "chartReuse": "one persistent chart per position all season; header renamed each week",
+   "pointInTime": "not_certifiable_historically (multiple undated versions per week, edits through Sat/Sun)",
+   "permissionForIngestion": "not_granted_unverified"
+  },
+  {
+   "id": "weekly_fantasy_report",
+   "slugPattern": "week-N-idp-fantasy-report-*",
+   "weeksSeen": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "access": "paid",
+   "horizon": "weekly_and_ros",
+   "kind": "mixed",
+   "dataLineage": [
+    "PFF"
+   ],
+   "charts": [
+    {
+     "id": "paid-chart-redacted",
+     "title": "FULL SEASON IDP ALIGNMENT DATA",
+     "rows": 841,
+     "columnsCount": 61,
+     "versions": 6
+    }
+   ],
+   "columnGroups": [
+    "identity (PLAYER, player_id, POSITION, TEAM, GAMES PLAYED)",
+    "counting stats (tackles, assists, TFL, sacks, hits, hurries, pressures, PBU, INT, FF, FR, stops, missed tackles)",
+    "PFF grades (defense, coverage, pass rush, run defense, tackle)",
+    "alignment snap counts (box, corner, slot, fs, offball, dl gaps, pass rush, run defense, coverage)",
+    "derived rates (TACKLE RATE, BOX RATE, SLOT RATE, DEEP RATE, DL RATE, WIDE CB RATE)"
+   ],
+   "proseOnly": [
+    "green dot",
+    "team zone/man coverage rates",
+    "waiver priority",
+    "injury-replacement reasoning"
+   ],
+   "pointInTime": "text: none (no revision history); chart: undated versions",
+   "permissionForIngestion": "not_granted_unverified; PFF licence question"
+  },
+  {
+   "id": "cornerback_corner",
+   "slugPattern": "johny-the-greeks-cornerback-corner-*",
+   "weeksSeen": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "access": "free",
+   "horizon": "weekly",
+   "kind": "judgement_with_self_ledger",
+   "author": "Johny the Greek",
+   "labels": [
+    "IDEAL",
+    "SOLID",
+    "SIT"
+   ],
+   "depthQualifiers": [
+    "leagues of all sizes",
+    "medium to deeper leagues",
+    "deeper leagues only"
+   ],
+   "accuracyRubric": {
+    "yardstick": "Yahoo/MFL player projection",
+    "correct": "matched, beat, or within an undefined slim margin of projection",
+    "denominatorExclusions": "players inactive or injured during play",
+    "sitCallsGraded": false,
+    "baseline": "none"
+   },
+   "pointInTime": "prospective_only (posts edited after kickoff; no revision history)",
+   "permissionForIngestion": "not_granted_unverified",
+   "ledgerSeasonTotals": {
+    "resultsWeeks": "1-7",
+    "calls": 569,
+    "excluded": 64,
+    "adjusted": 505,
+    "correct": 374,
+    "statedSeasonAccuracy": 0.73,
+    "recomputed": 0.741
+   }
+  },
+  {
+   "id": "dl_streaming_101",
+   "slugPattern": "dl-streaming-101-week-N-idp",
+   "weeksSeen": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "access": "free",
+   "horizon": "weekly",
+   "kind": "mixed",
+   "author": "ProfessorIDP",
+   "basis": "Big 3; true position (MFL designation)",
+   "dataLineage": [
+    "PFF"
+   ],
+   "charts": [
+    {
+     "id": "uTq5b",
+     "rows": "20-31",
+     "versions": 11
+    }
+   ],
+   "columns": [
+    "Player",
+    "True Pos",
+    "Sleeper Pos",
+    "Team",
+    "Opponent",
+    "2025 PFF Pass Rush",
+    "2025 PFF Run Def",
+    "Pts Allowed (from v4)",
+    "Snap %",
+    "Rating"
+   ],
+   "tiers": [
+    "Ideal",
+    "Solid (16-24 starters)",
+    "Solid-deeper (28+ starters / best ball)",
+    "Dart throw"
+   ],
+   "modelWeightsStated": [
+    "snaps (heaviest)",
+    "PFF pass-rush grade",
+    "PFF run-defense grade",
+    "opponent points allowed to DT/DE"
+   ],
+   "poolRule": "rostered in <20% of IDP leagues",
+   "seasonScorecard": "image only",
+   "pointInTime": "prospective_only (undated versions; week mapping inferential)",
+   "permissionForIngestion": "not_granted_unverified"
+  },
+  {
+   "id": "ros_rankings",
+   "slugPattern": "2026-rest-of-season-idp-rankings[-week-N]",
+   "weeksSeen": [
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "access": "paid",
+   "horizon": "ros",
+   "kind": "judgement",
+   "charts": [
+    {
+     "id": "paid-chart-redacted",
+     "pos": "LB",
+     "rows": 100,
+     "versions": 8
+    },
+    {
+     "id": "paid-chart-redacted",
+     "pos": "DL",
+     "rows": 100,
+     "versions": 6
+    },
+    {
+     "id": "paid-chart-redacted",
+     "pos": "DB",
+     "rows": 100,
+     "versions": 8
+    }
+   ],
+   "columns": [
+    "POSITION RANK",
+    "<POSITION>",
+    "TEAM",
+    "DIFF.",
+    "CURRENT RANK",
+    "PREV RANK"
+   ],
+   "lane": "seasonal only",
+   "pointInTime": "not_certifiable",
+   "permissionForIngestion": "not_granted_unverified"
+  },
+  {
+   "id": "dynasty_consensus",
+   "slug": "idp-dynasty-rankings",
+   "updated": "2026-10-08",
+   "access": "paid",
+   "horizon": "dynasty",
+   "kind": "judgement_two_ranker_consensus",
+   "authors": [
+    "Adamidp",
+    "Jon Macri"
+   ],
+   "basis": "Big 3",
+   "charts": [
+    {
+     "id": "paid-chart-redacted",
+     "rows": 350,
+     "versions": 17
+    }
+   ],
+   "columns": [
+    "OVERALL",
+    "PLAYER",
+    "POSITION RANK",
+    "TEAM",
+    "JON MACRI",
+    "ADAM MARCUM",
+    "AGE"
+   ],
+   "statedDownstream": "feeds the IDP Trade Calculator",
+   "repoKey": "idpShow (fetched, unregistered, non-voting)",
+   "pointInTime": "versions undated; repo archive is the dated record"
+  },
+  {
+   "id": "dynasty_single_analyst",
+   "slug": "2026-idp-dynasty-rankings-and-tiers-fantasyfootball",
+   "access": "paid",
+   "horizon": "dynasty",
+   "kind": "judgement",
+   "basis": "Big 3, true position",
+   "charts": [
+    {
+     "id": "paid-chart-redacted",
+     "rows": 350,
+     "latestVersion": 6
+    }
+   ],
+   "columns": [
+    "OVERALL",
+    "PLAYER",
+    "POSITION RANK",
+    "TEAM",
+    "AGE",
+    "POSITION RANK"
+   ]
+  },
+  {
+   "id": "dynasty_combined_offense_idp",
+   "slug": "combined-idp-offense-dynasty-rankings-fantasy-football",
+   "access": "paid",
+   "horizon": "dynasty",
+   "kind": "vendor_declared_aggregate",
+   "charts": [
+    {
+     "id": "paid-chart-redacted",
+     "rows": 665,
+     "terminalVersion": 4,
+     "lastModifiedAt": "2026-08-19"
+    },
+    {
+     "id": "paid-chart-redacted",
+     "rows": 250
+    }
+   ],
+   "repoKey": "idpShowCombined (voter; withheld as stale)"
+  },
+  {
+   "id": "season_projections",
+   "slug": "2026-idp-fantasy-football-projections-rankings",
+   "access": "paid",
+   "horizon": "season",
+   "kind": "model_stat_lines",
+   "charts": [
+    {
+     "id": "paid-chart-redacted",
+     "rows": 911,
+     "versions": 17
+    }
+   ],
+   "columns": [
+    "Team",
+    "Player",
+    "Position Rank",
+    "Projected Fantasy Points",
+    "Projected Total Snaps",
+    "Projected Total Tackles",
+    "Projected Sacks",
+    "Projected QB Hits",
+    "Projected TFL",
+    "Projected INT",
+    "Projected FR",
+    "Projected FF",
+    "Projected PD"
+   ],
+   "notes": "no solo/assisted split; customizable Google Sheet linked (not opened)",
+   "pointInTime": "not_certifiable",
+   "lane": "seasonal only"
+  },
+  {
+   "id": "weekly_projections_2025",
+   "slugPattern": "2025-idp-projections-week-N-fantasy-football-rankings",
+   "weeks": "1-18",
+   "access": "paid",
+   "horizon": "weekly",
+   "kind": "model_stat_lines",
+   "chartsCount": 54,
+   "columnsLB": [
+    "Player",
+    "Team",
+    "Snaps",
+    "Solo Tkl",
+    "Ast. Tkl",
+    "Comb.Tkl",
+    "TFL",
+    "QB Hits",
+    "PD",
+    "FF",
+    "FR",
+    "INT",
+    "SACK",
+    "Big3 FFPTS",
+    "FantPros FFPTS",
+    "D-UP FFPTS",
+    "FBGuys FFPTS",
+    "ESPN FFPTS (later weeks)",
+    "Sleeper FFPTS (later weeks)",
+    "Big3 FFPTS/SNAP"
+   ],
+   "pointInTime": {
+    "latestVersionModifiedBeforeSundayKickoff": 50,
+    "latestVersionModifiedBeforeThursdayKickoff": 0,
+    "excludedPostKickoff": [
+     "2025 wk3 LB",
+     "2025 wk6 DB",
+     "2025 wk7 LB",
+     "2025 wk18 LB"
+    ],
+    "verdict": "partial: Sunday/Monday games only"
+   },
+   "permissionForIngestion": "not_granted_unverified"
+  },
+  {
+   "id": "weekly_projections_2026",
+   "status": "none_published"
+  },
+  {
+   "id": "depth_charts_scheme",
+   "slug": "2026-projected-idp-depth-charts-defensive-schemes",
+   "access": "free",
+   "horizon": "season",
+   "kind": "mixed",
+   "charts": "32 team charts (Position, Starter, Backup 1, Backup 2)",
+   "proseFields": [
+    "expected zone coverage rate",
+    "expected man coverage rate",
+    "projected two-linebacker usage"
+   ]
+  },
+  {
+   "id": "injury_tracker",
+   "slug": "2026-weekly-injury-report-nfl-idp-fantasy-football",
+   "access": "free",
+   "horizon": "weekly",
+   "kind": "raw_official_reports",
+   "charts": [
+    {
+     "id": "0i4XK",
+     "versions": 26,
+     "rowsReset": "weekly"
+    }
+   ],
+   "columns": [
+    "Season",
+    "Week",
+    "Team",
+    "Player",
+    "Position",
+    "Injury",
+    "Day 1 Status",
+    "Day 2 Status",
+    "Day 3 Status",
+    "Game Status",
+    "Last Checked (ISO timestamp)",
+    "Still Listed"
+   ],
+   "pointInTime": "row_timestamped",
+   "freeEquivalent": "nflverse injuries"
+  },
+  {
+   "id": "production_vs_expected",
+   "slug": "idp-production-vs-expected-database",
+   "access": "paid",
+   "horizon": "season/dynasty",
+   "kind": "model",
+   "dataLineage": [
+    "PFF"
+   ],
+   "chartsCount": 31,
+   "seasons": "2021-2025",
+   "exampleColumns": {
+    "expectedSacks": [
+     "EXP. SACK PERCENTILE",
+     "EDGE DEFENDER",
+     "EXPECTED SACKS",
+     "ACTUAL SACKS",
+     "SACKS vs EXP.",
+     "SACKS vs EXP. PERCENTILE"
+    ],
+    "tacklesVsExpected": [
+     "PERCENTILE",
+     "<POSITION>",
+     "TKLs vs EXP.",
+     "TOTAL EXP. TACKLES",
+     "ACTUAL TACKLES"
+    ]
+   },
+   "definition": "expected sacks = pass-rush snaps x three-year averages of PFF pass-rush grade, win rate, pressure rate"
+  },
+  {
+   "id": "big3_scoring_leaders",
+   "slug": "big-3-idp-scoring-leaders",
+   "access": "free",
+   "kind": "raw_history",
+   "seasons": "2016-2026",
+   "exampleChart": {
+    "id": "dblCp",
+    "rows": 990
+   }
+  },
+  {
+   "id": "green_dot_tracker_2025",
+   "slug": "2025-full-time-and-green-dot-linebackers-week-18-idp-fantasy-football",
+   "access": "free",
+   "horizon": "weekly",
+   "charts": [
+    {
+     "id": "LF7AH",
+     "rows": 56
+    }
+   ],
+   "status2026": "no 2026 series found; green dot reported in prose in the weekly fantasy report"
+  },
+  {
+   "id": "idp_bets",
+   "access": "founding",
+   "status": "inaccessible (preview only)"
+  },
+  {
+   "id": "s_tier_podcasts_and_prospect_models",
+   "access": "founding",
+   "status": "inaccessible (preview only)"
+  },
+  {
+   "id": "idp_trade_calculator",
+   "url": "https://idptradecalculator.com/",
+   "relationship": "vendor-stated: sourced from The IDP Show dynasty IDP rankings plus market-based offensive values",
+   "statementSources": [
+    "the-idp-show-pricing-and-tiers-breakdown-2026 (2026-04-26)",
+    "idp-dynasty-rankings (2026-10-08)",
+    "the-idp-trade-show-february-2026-fantasy-football (2026-02-27)"
+   ],
+   "repoRelation": "config/sources/source_lineage.json idptc-idpshow-suspected-ancestry (recorded as suspected; premise 'no vendor statement' now false)",
+   "siteOpened": false
+  }
+ ],
+ "datawrapperCaveat": "older published versions remain retrievable but carry no timestamps; chart-level publishedAt observed earlier than the visible 'Updated' line, so lastModifiedAt is used only as an upper bound for the latest version",
+ "unresolved": [
+  "founding-tier products not examined",
+  "image-only scorecards and correlation charts not read",
+  "linked Google Sheets and the IDPTC site not opened",
+  "LB/S tackles-allowed latest-version dataset fetch failed in browser",
+  "nflverse participation availability for 2026 unverified",
+  "DL streaming version-to-week mapping unverified",
+  "weekly rank scoring basis not stated per post",
+  "live dynasty_main card not re-read (snapshot 2026-07-26 cited)"
+ ]
+}
