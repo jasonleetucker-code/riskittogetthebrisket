@@ -1,0 +1,4340 @@
+{
+ "availability": {
+  "2025": {
+   "ftn_charting": {
+    "available": true,
+    "error": null,
+    "sha256": "62a66416043ff08d43303bf5f3af5390e3fe0f29461a1fc6e295a15cac6ea994"
+   },
+   "injuries": {
+    "available": true,
+    "error": null,
+    "sha256": "873ca1606dd575bd01152508a243ef6b3a0f8f97b90b707217e62ee8c7ceb735"
+   },
+   "pbp_participation": "http_200",
+   "roster": {
+    "available": true,
+    "error": null,
+    "sha256": "531ee5de386037bb17de3e3e3d50f7b4ed08789526bbaae9876fdd3dfb4d04ad"
+   },
+   "stats_player_week": {
+    "available": true,
+    "error": null,
+    "sha256": "e5e0615b3d96a3eaebfaee91e55afb4a4e7fe0caf057454177bcd7d6ad4bcfc2"
+   }
+  },
+  "2026": {
+   "ftn_charting": {
+    "available": true,
+    "error": null,
+    "sha256": "6355f94e6be7c70c162adb6e631fcfc85c9d139bf80db7befea3073dd9e9e7ac"
+   },
+   "injuries": {
+    "available": true,
+    "error": null,
+    "sha256": "16d5a88e806dc6427c49b6f2de442426fc7d1bbaa018e5cb19d3185ce20e4b03"
+   },
+   "pbp_participation": "unavailable:HTTP Error 404: Not Found",
+   "roster": {
+    "available": true,
+    "error": null,
+    "sha256": "b634177ae776fecfdaefc499e5a3a77cd3ae86c25d04179ae62995ca37e1e684"
+   },
+   "stats_player_week": {
+    "available": true,
+    "error": null,
+    "sha256": "501eb74105287596fdf138f3bdc7d0786af71dccc386f811563359ffff203b97"
+   }
+  }
+ },
+ "card": {
+  "fingerprint": "sf1:9e51824690d091f9",
+  "idpRates": {
+   "idp_blk_kick": 5.3,
+   "idp_def_td": 6.36,
+   "idp_ff": 4.24,
+   "idp_fum_rec": 3.19,
+   "idp_fum_ret_yd": 0.1111,
+   "idp_int": 5.3,
+   "idp_int_ret_yd": 0.1111,
+   "idp_pass_def": 5.3,
+   "idp_qb_hit": 2.12,
+   "idp_sack": 2.92,
+   "idp_sack_yd": 0.1111,
+   "idp_safe": 5.3,
+   "idp_tkl_ast": 0.8,
+   "idp_tkl_loss": 4.24,
+   "idp_tkl_solo": 1.33
+  },
+  "source": "file:scoring_1312006700437352448.json"
+ },
+ "evidenceType": "weekly_opportunity",
+ "generatedAtUtc": "2026-11-01T16:27:40+00:00",
+ "inputs": {
+  "nflverse_games": "316870c6500299d84dc2a387da5b804ae9aa75af8c3b0f30198efe2613e77e4a",
+  "nflverse_players": "4b1e03631bbbd4341088efd2618a89916a9486623f4b022b8c0b077a1d451c02",
+  "sleeper_players": "cc578a8bac7b235211ec45f20be48e4081e9a2893fba07aaabfb94c11598dcd0"
+ },
+ "preregistration": "docs/projections/IDP_OPPORTUNITY_CHALLENGERS_PREREGISTRATION_2026-11-01.md",
+ "seasons": {
+  "2025": {
+   "diagnostics": {
+    "weeks": {
+     "10": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 522,
+      "fallbackReasons": {
+       "opponent_unknown": 2,
+       "subgroup_unknown": 4
+      },
+      "fitRows": 4339,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3486,
+         "DT": 0.2061,
+         "EDGE": 0.4454,
+         "LB": 0.5536,
+         "S": 0.479
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3486,
+         "DT": 0.2061,
+         "EDGE": 0.4454,
+         "LB": 0.5536,
+         "S": 0.479
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       }
+      },
+      "rowsWithVacatedSnaps": 82
+     },
+     "11": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 559,
+      "fallbackReasons": {
+       "subgroup_unknown": 6
+      },
+      "fitRows": 4861,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3778,
+         "DT": 0.2338,
+         "EDGE": 0.4642,
+         "LB": 0.6036,
+         "S": 0.4347
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3778,
+         "DT": 0.2338,
+         "EDGE": 0.4642,
+         "LB": 0.6036,
+         "S": 0.4347
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       }
+      },
+      "rowsWithVacatedSnaps": 98
+     },
+     "12": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 529,
+      "fallbackReasons": {
+       "subgroup_unknown": 3
+      },
+      "fitRows": 5420,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3944,
+         "DT": 0.196,
+         "EDGE": 0.4562,
+         "LB": 0.5957,
+         "S": 0.4354
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3944,
+         "DT": 0.196,
+         "EDGE": 0.4562,
+         "LB": 0.5957,
+         "S": 0.4354
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       }
+      },
+      "rowsWithVacatedSnaps": 66
+     },
+     "13": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 596,
+      "fallbackReasons": {
+       "subgroup_unknown": 3
+      },
+      "fitRows": 5949,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3874,
+         "DT": 0.1941,
+         "EDGE": 0.4814,
+         "LB": 0.4398,
+         "S": 0.4344
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3874,
+         "DT": 0.1941,
+         "EDGE": 0.4814,
+         "LB": 0.4398,
+         "S": 0.4344
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       }
+      },
+      "rowsWithVacatedSnaps": 82
+     },
+     "14": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 534,
+      "fallbackReasons": {
+       "opponent_unknown": 1,
+       "subgroup_unknown": 5
+      },
+      "fitRows": 6545,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3753,
+         "DT": 0.2484,
+         "EDGE": 0.4829,
+         "LB": 0.4033,
+         "S": 0.4363
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3753,
+         "DT": 0.2484,
+         "EDGE": 0.4829,
+         "LB": 0.4033,
+         "S": 0.4363
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       }
+      },
+      "rowsWithVacatedSnaps": 98
+     },
+     "15": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 609,
+      "fallbackReasons": {
+       "subgroup_unknown": 8
+      },
+      "fitRows": 7079,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3646,
+         "DT": 0.2916,
+         "EDGE": 0.4848,
+         "LB": 0.3971,
+         "S": 0.3877
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3646,
+         "DT": 0.2916,
+         "EDGE": 0.4848,
+         "LB": 0.3971,
+         "S": 0.3877
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       }
+      },
+      "rowsWithVacatedSnaps": 63
+     },
+     "16": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 601,
+      "fallbackReasons": {
+       "subgroup_unknown": 7
+      },
+      "fitRows": 7688,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3765,
+         "DT": 0.2244,
+         "EDGE": 0.4411,
+         "LB": 0.4061,
+         "S": 0.387
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3765,
+         "DT": 0.2244,
+         "EDGE": 0.4411,
+         "LB": 0.4061,
+         "S": 0.387
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       }
+      },
+      "rowsWithVacatedSnaps": 80
+     },
+     "17": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 605,
+      "fallbackReasons": {
+       "subgroup_unknown": 6
+      },
+      "fitRows": 8289,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3642,
+         "DT": 0.2475,
+         "EDGE": 0.4626,
+         "LB": 0.404,
+         "S": 0.3894
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3642,
+         "DT": 0.2475,
+         "EDGE": 0.4626,
+         "LB": 0.404,
+         "S": 0.3894
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       }
+      },
+      "rowsWithVacatedSnaps": 134
+     },
+     "3": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 569,
+      "fallbackReasons": {
+       "subgroup_unknown": 2
+      },
+      "fitRows": 540,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 100.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.2722,
+         "DT": 0.2865,
+         "EDGE": 0.4048,
+         "LB": 2.875,
+         "S": 0.8194
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 100.0
+       },
+       "M4": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 800.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 100.0
+       },
+       "M5": {
+        "alpha": 0.0,
+        "beta": {
+         "CB": 0.2722,
+         "DT": 0.2865,
+         "EDGE": 0.4048,
+         "LB": 2.875,
+         "S": 0.8194
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 100.0
+       }
+      },
+      "rowsWithVacatedSnaps": 99
+     },
+     "4": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 583,
+      "fallbackReasons": {
+       "subgroup_unknown": 5
+      },
+      "fitRows": 1109,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3049,
+         "DT": 0.237,
+         "EDGE": 0.5322,
+         "LB": 1.2618,
+         "S": 0.5841
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M4": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M5": {
+        "alpha": 0.25,
+        "beta": {
+         "CB": 0.3049,
+         "DT": 0.237,
+         "EDGE": 0.5322,
+         "LB": 1.2618,
+         "S": 0.5841
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       }
+      },
+      "rowsWithVacatedSnaps": 61
+     },
+     "5": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 511,
+      "fallbackReasons": {
+       "subgroup_unknown": 5
+      },
+      "fitRows": 1692,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3198,
+         "DT": 0.2771,
+         "EDGE": 0.3876,
+         "LB": 0.7895,
+         "S": 0.6219
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3198,
+         "DT": 0.2771,
+         "EDGE": 0.3876,
+         "LB": 0.7895,
+         "S": 0.6219
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 200.0
+       }
+      },
+      "rowsWithVacatedSnaps": 75
+     },
+     "6": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 555,
+      "fallbackReasons": {
+       "subgroup_unknown": 5
+      },
+      "fitRows": 2203,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 100.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.2958,
+         "DT": 0.2178,
+         "EDGE": 0.4211,
+         "LB": 0.8425,
+         "S": 0.64
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 100.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 100.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.2958,
+         "DT": 0.2178,
+         "EDGE": 0.4211,
+         "LB": 0.8425,
+         "S": 0.64
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 100.0
+       }
+      },
+      "rowsWithVacatedSnaps": 96
+     },
+     "7": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 561,
+      "fallbackReasons": {
+       "subgroup_unknown": 5
+      },
+      "fitRows": 2758,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.2902,
+         "DT": 0.2461,
+         "EDGE": 0.3397,
+         "LB": 0.6098,
+         "S": 0.7002
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.2902,
+         "DT": 0.2461,
+         "EDGE": 0.3397,
+         "LB": 0.6098,
+         "S": 0.7002
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       }
+      },
+      "rowsWithVacatedSnaps": 62
+     },
+     "8": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 496,
+      "fallbackReasons": {
+       "subgroup_unknown": 7
+      },
+      "fitRows": 3319,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3336,
+         "DT": 0.252,
+         "EDGE": 0.411,
+         "LB": 0.6605,
+         "S": 0.7913
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3336,
+         "DT": 0.252,
+         "EDGE": 0.411,
+         "LB": 0.6605,
+         "S": 0.7913
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       }
+      },
+      "rowsWithVacatedSnaps": 69
+     },
+     "9": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 524,
+      "fallbackReasons": {
+       "opponent_unknown": 1,
+       "subgroup_unknown": 4
+      },
+      "fitRows": 3815,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3448,
+         "DT": 0.1634,
+         "EDGE": 0.4879,
+         "LB": 0.7141,
+         "S": 0.8001
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.3448,
+         "DT": 0.1634,
+         "EDGE": 0.4879,
+         "LB": 0.7141,
+         "S": 0.8001
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 800.0,
+        "kappaVol": 100.0
+       }
+      },
+      "rowsWithVacatedSnaps": 77
+     }
+    }
+   },
+   "evalWeeks": [
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "ftnLagDays": {
+    "1": 378.87,
+    "2": 371.87,
+    "3": 364.87,
+    "4": 357.87,
+    "5": 350.87,
+    "6": 343.87,
+    "7": 336.96,
+    "8": 329.96,
+    "9": 322.96,
+    "10": 315.96,
+    "11": 308.96,
+    "12": 301.96,
+    "13": 294.96,
+    "14": 288.13,
+    "15": 281.13,
+    "16": 274.13,
+    "17": 267.13,
+    "18": 261.13
+   },
+   "identityCensus": {
+    "disagreeByPair": {
+     "CB->LB": 1,
+     "CB->S": 12,
+     "DT->EDGE": 98,
+     "DT->LB": 1,
+     "EDGE->DT": 6,
+     "EDGE->LB": 223,
+     "EDGE->S": 1,
+     "LB->S": 2,
+     "S->CB": 42,
+     "S->LB": 4
+    },
+    "gsisCollisions": 8,
+    "idpPlayers": 5508,
+    "noGsis": 2824,
+    "pffVsOtherDisagree": 390,
+    "subgroupFromPff": 2225,
+    "subgroupUnknown": 614
+   },
+   "label": "retrospective_2025_with_2026_card",
+   "preKickoffArchive": {
+    "byWeek": {},
+    "captures": 0,
+    "genuinePreKickoff": 0,
+    "roots": [
+     {
+      "exists": false,
+      "path": "data/projections/weekly_archive"
+     },
+     {
+      "exists": false,
+      "path": "data/projections/weekly_archive"
+     }
+    ]
+   },
+   "results": {
+    "challengers": {
+     "CB": {
+      "acceptance": "not_applicable_retrospective",
+      "bootstrapVsC0": {
+       "M1": {
+        "ci95.0": [
+         -0.0431,
+         0.0083
+        ],
+        "ci98.33": [
+         -0.0481,
+         0.0159
+        ],
+        "deltaMae": -0.0165,
+        "nPlayers": 183,
+        "nRows": 1559,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M2": {
+        "ci95.0": [
+         -0.3953,
+         -0.1163
+        ],
+        "ci98.33": [
+         -0.4319,
+         -0.0781
+        ],
+        "deltaMae": -0.2576,
+        "nPlayers": 183,
+        "nRows": 1559,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M3": {
+        "ci95.0": [
+         -0.3663,
+         -0.0864
+        ],
+        "ci98.33": [
+         -0.3996,
+         -0.0538
+        ],
+        "deltaMae": -0.2298,
+        "nPlayers": 183,
+        "nRows": 1559,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.3987,
+         -0.1052
+        ],
+        "ci98.33": [
+         -0.4335,
+         -0.0658
+        ],
+        "deltaMae": -0.2558,
+        "nPlayers": 183,
+        "nRows": 1559,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         -0.3708,
+         -0.0798
+        ],
+        "ci98.33": [
+         -0.3997,
+         -0.0476
+        ],
+        "deltaMae": -0.2294,
+        "nPlayers": 183,
+        "nRows": 1559,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "metrics": {
+       "C0": {
+        "bias": 0.0087,
+        "coverage80": 0.8044,
+        "coverageN": 1559,
+        "fallbackRows": 0,
+        "mae": 5.544,
+        "n": 1559,
+        "players": 183,
+        "rmse": 7.3858,
+        "spearmanMeanWeekly": 0.3111,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.1944,
+        "weeks": 15
+       },
+       "M1": {
+        "bias": -0.0376,
+        "coverage80": 0.8031,
+        "coverageN": 1559,
+        "fallbackRows": 0,
+        "mae": 5.5275,
+        "n": 1559,
+        "players": 183,
+        "rmse": 7.378,
+        "spearmanMeanWeekly": 0.3129,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.2,
+        "weeks": 15
+       },
+       "M2": {
+        "bias": -0.0302,
+        "coverage80": 0.7826,
+        "coverageN": 1559,
+        "fallbackRows": 0,
+        "mae": 5.2864,
+        "n": 1559,
+        "players": 183,
+        "rmse": 6.9883,
+        "spearmanMeanWeekly": 0.3564,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.2167,
+        "weeks": 15
+       },
+       "M3": {
+        "bias": 0.1362,
+        "coverage80": 0.78,
+        "coverageN": 1559,
+        "fallbackRows": 0,
+        "mae": 5.3143,
+        "n": 1559,
+        "players": 183,
+        "rmse": 6.9789,
+        "spearmanMeanWeekly": 0.3602,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.2167,
+        "weeks": 15
+       },
+       "M4": {
+        "bias": -0.0473,
+        "coverage80": 0.7806,
+        "coverageN": 1559,
+        "fallbackRows": 0,
+        "mae": 5.2882,
+        "n": 1559,
+        "players": 183,
+        "rmse": 6.9868,
+        "spearmanMeanWeekly": 0.3561,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.2056,
+        "weeks": 15
+       },
+       "M5": {
+        "bias": 0.119,
+        "coverage80": 0.7819,
+        "coverageN": 1559,
+        "fallbackRows": 0,
+        "mae": 5.3146,
+        "n": 1559,
+        "players": 183,
+        "rmse": 6.977,
+        "spearmanMeanWeekly": 0.3584,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.2,
+        "weeks": 15
+       }
+      },
+      "posthocIncrementVsM2": {
+       "M3": {
+        "ci95.0": [
+         0.0065,
+         0.0493
+        ],
+        "ci98.33": [
+         0.0028,
+         0.0558
+        ],
+        "deltaMae": 0.0279,
+        "nPlayers": 183,
+        "nRows": 1559,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.0184,
+         0.0218
+        ],
+        "ci98.33": [
+         -0.0232,
+         0.0279
+        ],
+        "deltaMae": 0.0018,
+        "nPlayers": 183,
+        "nRows": 1559,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         0.0026,
+         0.0539
+        ],
+        "ci98.33": [
+         -0.0047,
+         0.0614
+        ],
+        "deltaMae": 0.0282,
+        "nPlayers": 183,
+        "nRows": 1559,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "subgroups": [
+       "CB"
+      ]
+     },
+     "EDGE_DT": {
+      "acceptance": "not_applicable_retrospective",
+      "bootstrapVsC0": {
+       "M1": {
+        "ci95.0": [
+         -0.036,
+         0.0039
+        ],
+        "ci98.33": [
+         -0.0415,
+         0.0077
+        ],
+        "deltaMae": -0.0154,
+        "nPlayers": 394,
+        "nRows": 3826,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M2": {
+        "ci95.0": [
+         -0.2157,
+         -0.0514
+        ],
+        "ci98.33": [
+         -0.2339,
+         -0.0333
+        ],
+        "deltaMae": -0.1356,
+        "nPlayers": 394,
+        "nRows": 3826,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M3": {
+        "ci95.0": [
+         -0.1987,
+         -0.029
+        ],
+        "ci98.33": [
+         -0.2186,
+         -0.01
+        ],
+        "deltaMae": -0.1156,
+        "nPlayers": 394,
+        "nRows": 3826,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.2437,
+         -0.0781
+        ],
+        "ci98.33": [
+         -0.262,
+         -0.06
+        ],
+        "deltaMae": -0.1618,
+        "nPlayers": 394,
+        "nRows": 3826,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         -0.2263,
+         -0.0534
+        ],
+        "ci98.33": [
+         -0.2429,
+         -0.0358
+        ],
+        "deltaMae": -0.1413,
+        "nPlayers": 394,
+        "nRows": 3826,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "metrics": {
+       "C0": {
+        "bias": -0.1238,
+        "coverage80": 0.8429,
+        "coverageN": 3826,
+        "fallbackRows": 0,
+        "mae": 4.869,
+        "n": 3826,
+        "players": 394,
+        "rmse": 6.9646,
+        "spearmanMeanWeekly": 0.4314,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.325,
+        "weeks": 15
+       },
+       "M1": {
+        "bias": -0.1586,
+        "coverage80": 0.8372,
+        "coverageN": 3826,
+        "fallbackRows": 0,
+        "mae": 4.8536,
+        "n": 3826,
+        "players": 394,
+        "rmse": 6.9657,
+        "spearmanMeanWeekly": 0.4335,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.3222,
+        "weeks": 15
+       },
+       "M2": {
+        "bias": 0.002,
+        "coverage80": 0.816,
+        "coverageN": 3826,
+        "fallbackRows": 0,
+        "mae": 4.7334,
+        "n": 3826,
+        "players": 394,
+        "rmse": 6.6137,
+        "spearmanMeanWeekly": 0.4741,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.3556,
+        "weeks": 15
+       },
+       "M3": {
+        "bias": 0.0967,
+        "coverage80": 0.8144,
+        "coverageN": 3826,
+        "fallbackRows": 0,
+        "mae": 4.7534,
+        "n": 3826,
+        "players": 394,
+        "rmse": 6.602,
+        "spearmanMeanWeekly": 0.4747,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.3556,
+        "weeks": 15
+       },
+       "M4": {
+        "bias": -0.0138,
+        "coverage80": 0.816,
+        "coverageN": 3826,
+        "fallbackRows": 0,
+        "mae": 4.7072,
+        "n": 3826,
+        "players": 394,
+        "rmse": 6.5872,
+        "spearmanMeanWeekly": 0.4782,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.3556,
+        "weeks": 15
+       },
+       "M5": {
+        "bias": 0.081,
+        "coverage80": 0.8163,
+        "coverageN": 3826,
+        "fallbackRows": 0,
+        "mae": 4.7277,
+        "n": 3826,
+        "players": 394,
+        "rmse": 6.5756,
+        "spearmanMeanWeekly": 0.4786,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.3556,
+        "weeks": 15
+       }
+      },
+      "posthocIncrementVsM2": {
+       "M3": {
+        "ci95.0": [
+         0.0096,
+         0.0299
+        ],
+        "ci98.33": [
+         0.0066,
+         0.033
+        ],
+        "deltaMae": 0.0199,
+        "nPlayers": 394,
+        "nRows": 3826,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.0354,
+         -0.0177
+        ],
+        "ci98.33": [
+         -0.0374,
+         -0.0153
+        ],
+        "deltaMae": -0.0262,
+        "nPlayers": 394,
+        "nRows": 3826,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         -0.0204,
+         0.0078
+        ],
+        "ci98.33": [
+         -0.0235,
+         0.0113
+        ],
+        "deltaMae": -0.0057,
+        "nPlayers": 394,
+        "nRows": 3826,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "subgroups": [
+       "EDGE",
+       "DT"
+      ]
+     },
+     "LB_S": {
+      "acceptance": "not_applicable_retrospective",
+      "bootstrapVsC0": {
+       "M1": {
+        "ci95.0": [
+         -0.0245,
+         0.0082
+        ],
+        "ci98.33": [
+         -0.0276,
+         0.0111
+        ],
+        "deltaMae": -0.0084,
+        "nPlayers": 313,
+        "nRows": 2894,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M2": {
+        "ci95.0": [
+         -0.354,
+         -0.1762
+        ],
+        "ci98.33": [
+         -0.3755,
+         -0.1574
+        ],
+        "deltaMae": -0.2642,
+        "nPlayers": 313,
+        "nRows": 2894,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M3": {
+        "ci95.0": [
+         -0.3283,
+         -0.1313
+        ],
+        "ci98.33": [
+         -0.3484,
+         -0.1122
+        ],
+        "deltaMae": -0.2305,
+        "nPlayers": 313,
+        "nRows": 2894,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.3513,
+         -0.1731
+        ],
+        "ci98.33": [
+         -0.3725,
+         -0.1539
+        ],
+        "deltaMae": -0.261,
+        "nPlayers": 313,
+        "nRows": 2894,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         -0.3235,
+         -0.1286
+        ],
+        "ci98.33": [
+         -0.3435,
+         -0.1067
+        ],
+        "deltaMae": -0.2274,
+        "nPlayers": 313,
+        "nRows": 2894,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "metrics": {
+       "C0": {
+        "bias": -0.1438,
+        "coverage80": 0.8321,
+        "coverageN": 2894,
+        "fallbackRows": 0,
+        "mae": 5.2249,
+        "n": 2894,
+        "players": 313,
+        "rmse": 7.0714,
+        "spearmanMeanWeekly": 0.4957,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.25,
+        "weeks": 15
+       },
+       "M1": {
+        "bias": -0.177,
+        "coverage80": 0.8262,
+        "coverageN": 2894,
+        "fallbackRows": 0,
+        "mae": 5.2166,
+        "n": 2894,
+        "players": 313,
+        "rmse": 7.0738,
+        "spearmanMeanWeekly": 0.4956,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.2528,
+        "weeks": 15
+       },
+       "M2": {
+        "bias": -0.0593,
+        "coverage80": 0.8017,
+        "coverageN": 2894,
+        "fallbackRows": 0,
+        "mae": 4.9607,
+        "n": 2894,
+        "players": 313,
+        "rmse": 6.704,
+        "spearmanMeanWeekly": 0.5342,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.2333,
+        "weeks": 15
+       },
+       "M3": {
+        "bias": 0.1651,
+        "coverage80": 0.7944,
+        "coverageN": 2894,
+        "fallbackRows": 0,
+        "mae": 4.9944,
+        "n": 2894,
+        "players": 313,
+        "rmse": 6.7006,
+        "spearmanMeanWeekly": 0.5368,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.2444,
+        "weeks": 15
+       },
+       "M4": {
+        "bias": -0.0648,
+        "coverage80": 0.7996,
+        "coverageN": 2894,
+        "fallbackRows": 0,
+        "mae": 4.9639,
+        "n": 2894,
+        "players": 313,
+        "rmse": 6.7093,
+        "spearmanMeanWeekly": 0.5341,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.2361,
+        "weeks": 15
+       },
+       "M5": {
+        "bias": 0.1596,
+        "coverage80": 0.7941,
+        "coverageN": 2894,
+        "fallbackRows": 0,
+        "mae": 4.9975,
+        "n": 2894,
+        "players": 313,
+        "rmse": 6.7048,
+        "spearmanMeanWeekly": 0.5362,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.2444,
+        "weeks": 15
+       }
+      },
+      "posthocIncrementVsM2": {
+       "M3": {
+        "ci95.0": [
+         0.0002,
+         0.0709
+        ],
+        "ci98.33": [
+         -0.009,
+         0.0798
+        ],
+        "deltaMae": 0.0337,
+        "nPlayers": 313,
+        "nRows": 2894,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.0068,
+         0.0128
+        ],
+        "ci98.33": [
+         -0.0089,
+         0.0144
+        ],
+        "deltaMae": 0.0032,
+        "nPlayers": 313,
+        "nRows": 2894,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         0.0024,
+         0.0743
+        ],
+        "ci98.33": [
+         -0.0074,
+         0.0827
+        ],
+        "deltaMae": 0.0369,
+        "nPlayers": 313,
+        "nRows": 2894,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "subgroups": [
+       "LB",
+       "S"
+      ]
+     }
+    },
+    "families": {
+     "DB": {
+      "C0": {
+       "bias": -0.1367,
+       "coverage80": 0.8198,
+       "coverageN": 3085,
+       "fallbackRows": 0,
+       "mae": 5.297,
+       "n": 3085,
+       "players": 351,
+       "rmse": 7.1609,
+       "spearmanMeanWeekly": 0.3762,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.25,
+       "weeks": 15
+      },
+      "M1": {
+       "bias": -0.1797,
+       "coverage80": 0.8156,
+       "coverageN": 3085,
+       "fallbackRows": 0,
+       "mae": 5.2805,
+       "n": 3085,
+       "players": 351,
+       "rmse": 7.158,
+       "spearmanMeanWeekly": 0.3773,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.25,
+       "weeks": 15
+      },
+      "M2": {
+       "bias": -0.1177,
+       "coverage80": 0.7961,
+       "coverageN": 3085,
+       "fallbackRows": 0,
+       "mae": 5.0444,
+       "n": 3085,
+       "players": 351,
+       "rmse": 6.7815,
+       "spearmanMeanWeekly": 0.423,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.2981,
+       "weeks": 15
+      },
+      "M3": {
+       "bias": 0.0576,
+       "coverage80": 0.7925,
+       "coverageN": 3085,
+       "fallbackRows": 0,
+       "mae": 5.0733,
+       "n": 3085,
+       "players": 351,
+       "rmse": 6.7788,
+       "spearmanMeanWeekly": 0.4254,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.2926,
+       "weeks": 15
+      },
+      "M4": {
+       "bias": -0.132,
+       "coverage80": 0.7938,
+       "coverageN": 3085,
+       "fallbackRows": 0,
+       "mae": 5.0423,
+       "n": 3085,
+       "players": 351,
+       "rmse": 6.7789,
+       "spearmanMeanWeekly": 0.4234,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.3,
+       "weeks": 15
+      },
+      "M5": {
+       "bias": 0.0434,
+       "coverage80": 0.7938,
+       "coverageN": 3085,
+       "fallbackRows": 0,
+       "mae": 5.0716,
+       "n": 3085,
+       "players": 351,
+       "rmse": 6.7754,
+       "spearmanMeanWeekly": 0.425,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.2963,
+       "weeks": 15
+      }
+     },
+     "DL": {
+      "C0": {
+       "bias": -0.1998,
+       "coverage80": 0.8446,
+       "coverageN": 3302,
+       "fallbackRows": 0,
+       "mae": 4.7221,
+       "n": 3302,
+       "players": 342,
+       "rmse": 6.81,
+       "spearmanMeanWeekly": 0.4242,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3278,
+       "weeks": 15
+      },
+      "M1": {
+       "bias": -0.2368,
+       "coverage80": 0.8404,
+       "coverageN": 3302,
+       "fallbackRows": 0,
+       "mae": 4.7014,
+       "n": 3302,
+       "players": 342,
+       "rmse": 6.8082,
+       "spearmanMeanWeekly": 0.4257,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3472,
+       "weeks": 15
+      },
+      "M2": {
+       "bias": -0.0283,
+       "coverage80": 0.8177,
+       "coverageN": 3302,
+       "fallbackRows": 0,
+       "mae": 4.6031,
+       "n": 3302,
+       "players": 342,
+       "rmse": 6.4784,
+       "spearmanMeanWeekly": 0.4711,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3861,
+       "weeks": 15
+      },
+      "M3": {
+       "bias": 0.054,
+       "coverage80": 0.8159,
+       "coverageN": 3302,
+       "fallbackRows": 0,
+       "mae": 4.625,
+       "n": 3302,
+       "players": 342,
+       "rmse": 6.4714,
+       "spearmanMeanWeekly": 0.4714,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3833,
+       "weeks": 15
+      },
+      "M4": {
+       "bias": -0.0447,
+       "coverage80": 0.8174,
+       "coverageN": 3302,
+       "fallbackRows": 0,
+       "mae": 4.5782,
+       "n": 3302,
+       "players": 342,
+       "rmse": 6.4522,
+       "spearmanMeanWeekly": 0.475,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3833,
+       "weeks": 15
+      },
+      "M5": {
+       "bias": 0.0379,
+       "coverage80": 0.818,
+       "coverageN": 3302,
+       "fallbackRows": 0,
+       "mae": 4.6003,
+       "n": 3302,
+       "players": 342,
+       "rmse": 6.4456,
+       "spearmanMeanWeekly": 0.4752,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3889,
+       "weeks": 15
+      }
+     },
+     "LB": {
+      "C0": {
+       "bias": 0.0885,
+       "coverage80": 0.8353,
+       "coverageN": 1967,
+       "fallbackRows": 0,
+       "mae": 5.4143,
+       "n": 1967,
+       "players": 212,
+       "rmse": 7.3017,
+       "spearmanMeanWeekly": 0.5298,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4833,
+       "weeks": 15
+      },
+      "M1": {
+       "bias": 0.0648,
+       "coverage80": 0.8282,
+       "coverageN": 1967,
+       "fallbackRows": 0,
+       "mae": 5.4194,
+       "n": 1967,
+       "players": 212,
+       "rmse": 7.3081,
+       "spearmanMeanWeekly": 0.5294,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4759,
+       "weeks": 15
+      },
+      "M2": {
+       "bias": 0.1097,
+       "coverage80": 0.8027,
+       "coverageN": 1967,
+       "fallbackRows": 0,
+       "mae": 5.1486,
+       "n": 1967,
+       "players": 212,
+       "rmse": 6.9091,
+       "spearmanMeanWeekly": 0.5669,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4796,
+       "weeks": 15
+      },
+      "M3": {
+       "bias": 0.3428,
+       "coverage80": 0.7956,
+       "coverageN": 1967,
+       "fallbackRows": 0,
+       "mae": 5.177,
+       "n": 1967,
+       "players": 212,
+       "rmse": 6.8901,
+       "spearmanMeanWeekly": 0.5708,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4778,
+       "weeks": 15
+      },
+      "M4": {
+       "bias": 0.1073,
+       "coverage80": 0.8022,
+       "coverageN": 1967,
+       "fallbackRows": 0,
+       "mae": 5.1489,
+       "n": 1967,
+       "players": 212,
+       "rmse": 6.9114,
+       "spearmanMeanWeekly": 0.5668,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4796,
+       "weeks": 15
+      },
+      "M5": {
+       "bias": 0.3398,
+       "coverage80": 0.7946,
+       "coverageN": 1967,
+       "fallbackRows": 0,
+       "mae": 5.176,
+       "n": 1967,
+       "players": 212,
+       "rmse": 6.8913,
+       "spearmanMeanWeekly": 0.5697,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4889,
+       "weeks": 15
+      }
+     }
+    },
+    "subgroups": {
+     "CB": {
+      "C0": {
+       "bias": 0.0087,
+       "coverage80": 0.8044,
+       "coverageN": 1559,
+       "fallbackRows": 0,
+       "mae": 5.544,
+       "n": 1559,
+       "players": 183,
+       "rmse": 7.3858,
+       "spearmanMeanWeekly": 0.3111,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.1944,
+       "weeks": 15
+      },
+      "M1": {
+       "bias": -0.0376,
+       "coverage80": 0.8031,
+       "coverageN": 1559,
+       "fallbackRows": 0,
+       "mae": 5.5275,
+       "n": 1559,
+       "players": 183,
+       "rmse": 7.378,
+       "spearmanMeanWeekly": 0.3129,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2,
+       "weeks": 15
+      },
+      "M2": {
+       "bias": -0.0302,
+       "coverage80": 0.7826,
+       "coverageN": 1559,
+       "fallbackRows": 0,
+       "mae": 5.2864,
+       "n": 1559,
+       "players": 183,
+       "rmse": 6.9883,
+       "spearmanMeanWeekly": 0.3564,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2167,
+       "weeks": 15
+      },
+      "M3": {
+       "bias": 0.1362,
+       "coverage80": 0.78,
+       "coverageN": 1559,
+       "fallbackRows": 0,
+       "mae": 5.3143,
+       "n": 1559,
+       "players": 183,
+       "rmse": 6.9789,
+       "spearmanMeanWeekly": 0.3602,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2167,
+       "weeks": 15
+      },
+      "M4": {
+       "bias": -0.0473,
+       "coverage80": 0.7806,
+       "coverageN": 1559,
+       "fallbackRows": 0,
+       "mae": 5.2882,
+       "n": 1559,
+       "players": 183,
+       "rmse": 6.9868,
+       "spearmanMeanWeekly": 0.3561,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2056,
+       "weeks": 15
+      },
+      "M5": {
+       "bias": 0.119,
+       "coverage80": 0.7819,
+       "coverageN": 1559,
+       "fallbackRows": 0,
+       "mae": 5.3146,
+       "n": 1559,
+       "players": 183,
+       "rmse": 6.977,
+       "spearmanMeanWeekly": 0.3584,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2,
+       "weeks": 15
+      }
+     },
+     "DT": {
+      "C0": {
+       "bias": -0.1161,
+       "coverage80": 0.8938,
+       "coverageN": 2025,
+       "fallbackRows": 0,
+       "mae": 3.9929,
+       "n": 2025,
+       "players": 205,
+       "rmse": 5.6126,
+       "spearmanMeanWeekly": 0.3916,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2389,
+       "weeks": 15
+      },
+      "M1": {
+       "bias": -0.1551,
+       "coverage80": 0.8928,
+       "coverageN": 2025,
+       "fallbackRows": 0,
+       "mae": 3.9768,
+       "n": 2025,
+       "players": 205,
+       "rmse": 5.5985,
+       "spearmanMeanWeekly": 0.3905,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2444,
+       "weeks": 15
+      },
+      "M2": {
+       "bias": -0.006,
+       "coverage80": 0.883,
+       "coverageN": 2025,
+       "fallbackRows": 0,
+       "mae": 3.8907,
+       "n": 2025,
+       "players": 205,
+       "rmse": 5.2964,
+       "spearmanMeanWeekly": 0.4348,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2722,
+       "weeks": 15
+      },
+      "M3": {
+       "bias": 0.0303,
+       "coverage80": 0.884,
+       "coverageN": 2025,
+       "fallbackRows": 0,
+       "mae": 3.8996,
+       "n": 2025,
+       "players": 205,
+       "rmse": 5.2924,
+       "spearmanMeanWeekly": 0.4359,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2778,
+       "weeks": 15
+      },
+      "M4": {
+       "bias": -0.0189,
+       "coverage80": 0.883,
+       "coverageN": 2025,
+       "fallbackRows": 0,
+       "mae": 3.8699,
+       "n": 2025,
+       "players": 205,
+       "rmse": 5.2773,
+       "spearmanMeanWeekly": 0.4384,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2667,
+       "weeks": 15
+      },
+      "M5": {
+       "bias": 0.0177,
+       "coverage80": 0.884,
+       "coverageN": 2025,
+       "fallbackRows": 0,
+       "mae": 3.879,
+       "n": 2025,
+       "players": 205,
+       "rmse": 5.2734,
+       "spearmanMeanWeekly": 0.4398,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2778,
+       "weeks": 15
+      }
+     },
+     "EDGE": {
+      "C0": {
+       "bias": -0.1324,
+       "coverage80": 0.7857,
+       "coverageN": 1801,
+       "fallbackRows": 0,
+       "mae": 5.854,
+       "n": 1801,
+       "players": 189,
+       "rmse": 8.2235,
+       "spearmanMeanWeekly": 0.4386,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2944,
+       "weeks": 15
+      },
+      "M1": {
+       "bias": -0.1625,
+       "coverage80": 0.7746,
+       "coverageN": 1801,
+       "fallbackRows": 0,
+       "mae": 5.8394,
+       "n": 1801,
+       "players": 189,
+       "rmse": 8.2362,
+       "spearmanMeanWeekly": 0.444,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3111,
+       "weeks": 15
+      },
+      "M2": {
+       "bias": 0.0111,
+       "coverage80": 0.7407,
+       "coverageN": 1801,
+       "fallbackRows": 0,
+       "mae": 5.6809,
+       "n": 1801,
+       "players": 189,
+       "rmse": 7.8346,
+       "spearmanMeanWeekly": 0.4802,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3222,
+       "weeks": 15
+      },
+      "M3": {
+       "bias": 0.1714,
+       "coverage80": 0.7363,
+       "coverageN": 1801,
+       "fallbackRows": 0,
+       "mae": 5.7133,
+       "n": 1801,
+       "players": 189,
+       "rmse": 7.8166,
+       "spearmanMeanWeekly": 0.4827,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3389,
+       "weeks": 15
+      },
+      "M4": {
+       "bias": -0.0081,
+       "coverage80": 0.7407,
+       "coverageN": 1801,
+       "fallbackRows": 0,
+       "mae": 5.6486,
+       "n": 1801,
+       "players": 189,
+       "rmse": 7.8016,
+       "spearmanMeanWeekly": 0.4862,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3333,
+       "weeks": 15
+      },
+      "M5": {
+       "bias": 0.1522,
+       "coverage80": 0.7401,
+       "coverageN": 1801,
+       "fallbackRows": 0,
+       "mae": 5.6819,
+       "n": 1801,
+       "players": 189,
+       "rmse": 7.7839,
+       "spearmanMeanWeekly": 0.4879,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3222,
+       "weeks": 15
+      }
+     },
+     "LB": {
+      "C0": {
+       "bias": -0.0243,
+       "coverage80": 0.8266,
+       "coverageN": 1407,
+       "fallbackRows": 0,
+       "mae": 5.4412,
+       "n": 1407,
+       "players": 156,
+       "rmse": 7.2478,
+       "spearmanMeanWeekly": 0.519,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2167,
+       "weeks": 15
+      },
+      "M1": {
+       "bias": -0.0497,
+       "coverage80": 0.8223,
+       "coverageN": 1407,
+       "fallbackRows": 0,
+       "mae": 5.4423,
+       "n": 1407,
+       "players": 156,
+       "rmse": 7.251,
+       "spearmanMeanWeekly": 0.5176,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2056,
+       "weeks": 15
+      },
+      "M2": {
+       "bias": 0.0283,
+       "coverage80": 0.7932,
+       "coverageN": 1407,
+       "fallbackRows": 0,
+       "mae": 5.1428,
+       "n": 1407,
+       "players": 156,
+       "rmse": 6.8755,
+       "spearmanMeanWeekly": 0.5507,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2278,
+       "weeks": 15
+      },
+      "M3": {
+       "bias": 0.2911,
+       "coverage80": 0.7832,
+       "coverageN": 1407,
+       "fallbackRows": 0,
+       "mae": 5.1783,
+       "n": 1407,
+       "players": 156,
+       "rmse": 6.8576,
+       "spearmanMeanWeekly": 0.5528,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2222,
+       "weeks": 15
+      },
+      "M4": {
+       "bias": 0.0295,
+       "coverage80": 0.7918,
+       "coverageN": 1407,
+       "fallbackRows": 0,
+       "mae": 5.1563,
+       "n": 1407,
+       "players": 156,
+       "rmse": 6.8906,
+       "spearmanMeanWeekly": 0.5468,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.1944,
+       "weeks": 15
+      },
+      "M5": {
+       "bias": 0.2919,
+       "coverage80": 0.7818,
+       "coverageN": 1407,
+       "fallbackRows": 0,
+       "mae": 5.1892,
+       "n": 1407,
+       "players": 156,
+       "rmse": 6.8715,
+       "spearmanMeanWeekly": 0.5489,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.1944,
+       "weeks": 15
+      }
+     },
+     "S": {
+      "C0": {
+       "bias": -0.2568,
+       "coverage80": 0.8373,
+       "coverageN": 1487,
+       "fallbackRows": 0,
+       "mae": 5.0203,
+       "n": 1487,
+       "players": 157,
+       "rmse": 6.9003,
+       "spearmanMeanWeekly": 0.4468,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2,
+       "weeks": 15
+      },
+      "M1": {
+       "bias": -0.2974,
+       "coverage80": 0.8299,
+       "coverageN": 1487,
+       "fallbackRows": 0,
+       "mae": 5.003,
+       "n": 1487,
+       "players": 157,
+       "rmse": 6.902,
+       "spearmanMeanWeekly": 0.4475,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2,
+       "weeks": 15
+      },
+      "M2": {
+       "bias": -0.1423,
+       "coverage80": 0.8097,
+       "coverageN": 1487,
+       "fallbackRows": 0,
+       "mae": 4.7883,
+       "n": 1487,
+       "players": 157,
+       "rmse": 6.5375,
+       "spearmanMeanWeekly": 0.4778,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2056,
+       "weeks": 15
+      },
+      "M3": {
+       "bias": 0.0458,
+       "coverage80": 0.805,
+       "coverageN": 1487,
+       "fallbackRows": 0,
+       "mae": 4.8204,
+       "n": 1487,
+       "players": 157,
+       "rmse": 6.5486,
+       "spearmanMeanWeekly": 0.4801,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2167,
+       "weeks": 15
+      },
+      "M4": {
+       "bias": -0.1541,
+       "coverage80": 0.807,
+       "coverageN": 1487,
+       "fallbackRows": 0,
+       "mae": 4.7818,
+       "n": 1487,
+       "players": 157,
+       "rmse": 6.5332,
+       "spearmanMeanWeekly": 0.4802,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2,
+       "weeks": 15
+      },
+      "M5": {
+       "bias": 0.0345,
+       "coverage80": 0.8056,
+       "coverageN": 1487,
+       "fallbackRows": 0,
+       "mae": 4.8162,
+       "n": 1487,
+       "players": 157,
+       "rmse": 6.5431,
+       "spearmanMeanWeekly": 0.4814,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2167,
+       "weeks": 15
+      }
+     }
+    }
+   },
+   "sleeperStats": {
+    "hashes": {
+     "1": "900b11fee44112db3867afa140a3f41b9538b2b1edc0156dffe0bd4dc1759656",
+     "10": "a1f61594bc4d50f7e691f6271fffeb38726d91f5496944da6b64ecb3e9c8681c",
+     "11": "ccc0a27b09ee913e3a8676cf50efdb4ac1094d099ce7a39f98cfd10b04a14d7e",
+     "12": "42a8c456be8957a04357e987acdd1e6a45705151e744ff75f994f5e30332e287",
+     "13": "fcbf943917eb7ad9ace5708f755eb55a144234326f2b0b8cc3a5505ce7348b78",
+     "14": "3166be50b451257ab2458ccc8dc6155256900fed119e954cf034c6571320a96b",
+     "15": "1c0e6abc7533b7879452f4953184be73eaced969d4f224adae86847458099def",
+     "16": "20dfcf5207a59cb45e0238336030c8683d91340f1ed28ba9d7c7427013af0eaf",
+     "17": "86044c58065a5f3fb8a2a394b804bcb81062ccd8aab61feccbcab45293b39952",
+     "2": "7c7679c630a8a9fb32bae790c22278b0ae97fc89a8bcb89eec92614e46f7c386",
+     "3": "1edc980b8651cb4912007330629ab8e31ac9f462af052272392066e72d61ac1a",
+     "4": "b9941feee068d599fb05cd0f54feb1780d26c98b4cd7135571345eb16a7a2a7c",
+     "5": "151759f60ed2b5b113da66505d85c63bb583347f56c8807c34870a2ea20de15b",
+     "6": "991243833672c09ad26891f7822072b08845f510df4bdd94c911ad062aa9db79",
+     "7": "8e9834659b6254124d0a07523441acff876039f415fb7dd7c8daad47e0d5fbdd",
+     "8": "cce81bc834a190a985ca0d0ebd7cbc8211817387d92351de862813a24f7af805",
+     "9": "7c0c2260ea2b9798b6fafbb16a1bc24e7efd97a4c8ab42e3fa3c8c0bb400c64a"
+    },
+    "missing": {}
+   },
+   "sleeperTeamStats": {
+    "hashes": {
+     "1": "b3eb739dc666d1eeb4aa993a07b8e6dbb81f70cf0c652782cc34f8f6f3147a90",
+     "10": "c4ce05fab02fc18b75ec78aa650c9b80e74c135bca196dbeae85e5c24745ee2e",
+     "11": "f58a962d237e3602f9e70f2ee07634bdffac3060f720c97e1368a1a1caf51ca2",
+     "12": "e8f49a28f9acce77f6616e61d375ede9a41bdcbfd5f07d965a66b9af0beabb87",
+     "13": "fb928eec07210ca868aaa8caa2e6e4a9c8f15d3b89734f02b0ea4a6f69220d90",
+     "14": "5edec9bd3cdd35e4ff27c7addb32cc4ba10619aa13edb6a4fc2648b65cf794f7",
+     "15": "eefda4af2d4f4e19d667d5eb771c30d526a9a50abced04be90e553ba812814ed",
+     "16": "826404c52571bad2f22b3f06c4d7be9121b0371ccfcd38991b8a1e418e366e1a",
+     "17": "7d7e01f318f1922407d32a03339614fc82ed22f5a89fd2e73d4ae9993df0de0c",
+     "2": "90b921fd22d843cfe713ccb502c3de2598d218c4c41d0750b823e47ae70aec9f",
+     "3": "7e4ca4a9a5c1a2c2bbd157b14d44c0f2d4120b62a071c8aa517ba3ebc625efac",
+     "4": "d7c2f768f103406e30f59b5057c485252c9ec553459dec7b917e84efbcca06e1",
+     "5": "3cd49eabe302792449abfd5ffcef4033a7b854eac4fcf70cdd85d4ddaaf33462",
+     "6": "9f736eedfdc71687148d7ff9fe93d032e9281cc020f98a89dac2c1c05b346793",
+     "7": "9f93f00bec07c180cff5ef3109a9a90a1538113b8dfba4c0da5d255a2d0752ff",
+     "8": "57ba6bdf02fb1f88b785f5b5f8249bf5a0fbbf1072e2ba210950d3e542106bac",
+     "9": "3124160c5804d9f1052c16035e21ea93a354eca6c891c772ef05225298ff0ee5"
+    },
+    "missing": {}
+   },
+   "status": "evaluated"
+  },
+  "2026": {
+   "diagnostics": {
+    "weeks": {
+     "3": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 561,
+      "fallbackReasons": {
+       "subgroup_unknown": 28
+      },
+      "fitRows": 546,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 200.0,
+        "kappaVol": 800.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 1.8747,
+         "DT": 0.2953,
+         "EDGE": 0.3337,
+         "LB": 1.25,
+         "S": -0.1109
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 200.0,
+        "kappaVol": 800.0
+       },
+       "M4": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 200.0,
+        "kappaVol": 800.0
+       },
+       "M5": {
+        "alpha": 0.25,
+        "beta": {
+         "CB": 1.8747,
+         "DT": 0.2953,
+         "EDGE": 0.3337,
+         "LB": 1.25,
+         "S": -0.1109
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 200.0,
+        "kappaVol": 800.0
+       }
+      },
+      "rowsWithVacatedSnaps": 64
+     },
+     "4": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 579,
+      "fallbackReasons": {
+       "subgroup_unknown": 33
+      },
+      "fitRows": 1107,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.0,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 1600.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 1.3998,
+         "DT": 0.3301,
+         "EDGE": 0.8728,
+         "LB": 0.5721,
+         "S": 0.4519
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 1600.0
+       },
+       "M4": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 1600.0
+       },
+       "M5": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 1.3998,
+         "DT": 0.3301,
+         "EDGE": 0.8728,
+         "LB": 0.5721,
+         "S": 0.4519
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 1600.0
+       }
+      },
+      "rowsWithVacatedSnaps": 64
+     },
+     "5": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 548,
+      "fallbackReasons": {
+       "subgroup_unknown": 32
+      },
+      "fitRows": 1686,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 400.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 1.0731,
+         "DT": 0.3882,
+         "EDGE": 0.442,
+         "LB": 0.7212,
+         "S": 0.5223
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 400.0
+       },
+       "M4": {
+        "alpha": 0.75,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 400.0
+       },
+       "M5": {
+        "alpha": 0.75,
+        "beta": {
+         "CB": 1.0731,
+         "DT": 0.3882,
+         "EDGE": 0.442,
+         "LB": 0.7212,
+         "S": 0.5223
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 400.0
+       }
+      },
+      "rowsWithVacatedSnaps": 81
+     },
+     "6": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 515,
+      "fallbackReasons": {
+       "subgroup_unknown": 33
+      },
+      "fitRows": 2234,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 200.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.6579,
+         "DT": 0.3006,
+         "EDGE": 0.4638,
+         "LB": 0.7111,
+         "S": 0.6672
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 200.0
+       },
+       "M4": {
+        "alpha": 0.75,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 200.0
+       },
+       "M5": {
+        "alpha": 0.75,
+        "beta": {
+         "CB": 0.6579,
+         "DT": 0.3006,
+         "EDGE": 0.4638,
+         "LB": 0.7111,
+         "S": 0.6672
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 200.0
+       }
+      },
+      "rowsWithVacatedSnaps": 87
+     },
+     "7": {
+      "contextDiagnostics": {
+       "statRowsUnattributedToTeam": 0
+      },
+      "evalRows": 524,
+      "fallbackReasons": {
+       "subgroup_unknown": 39
+      },
+      "fitRows": 2749,
+      "params": {
+       "C0": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M1": {
+        "alpha": 0.25,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 400.0,
+        "kappaVol": 100.0
+       },
+       "M2": {
+        "alpha": 0.5,
+        "beta": {},
+        "kappaOpp": 200.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 400.0
+       },
+       "M3": {
+        "alpha": 0.5,
+        "beta": {
+         "CB": 0.5575,
+         "DT": 0.3587,
+         "EDGE": 0.4479,
+         "LB": 0.6499,
+         "S": 0.5721
+        },
+        "kappaOpp": 200.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 400.0
+       },
+       "M4": {
+        "alpha": 0.75,
+        "beta": {},
+        "kappaOpp": 50.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 400.0
+       },
+       "M5": {
+        "alpha": 0.75,
+        "beta": {
+         "CB": 0.5575,
+         "DT": 0.3587,
+         "EDGE": 0.4479,
+         "LB": 0.6499,
+         "S": 0.5721
+        },
+        "kappaOpp": 50.0,
+        "kappaSplash": 1600.0,
+        "kappaVol": 400.0
+       }
+      },
+      "rowsWithVacatedSnaps": 76
+     }
+    }
+   },
+   "evalWeeks": [
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "ftnLagDays": {
+    "1": 47.5,
+    "2": 13.71,
+    "3": 29.71,
+    "4": 22.71,
+    "5": 15.71,
+    "6": 2.13,
+    "7": 2.51,
+    "8": -2.54
+   },
+   "identityCensus": {
+    "disagreeByPair": {
+     "CB->LB": 1,
+     "CB->S": 10,
+     "DT->EDGE": 95,
+     "DT->LB": 1,
+     "EDGE->DT": 6,
+     "EDGE->LB": 218,
+     "EDGE->S": 1,
+     "LB->S": 2,
+     "S->CB": 41,
+     "S->LB": 5
+    },
+    "gsisCollisions": 8,
+    "idpPlayers": 5508,
+    "noGsis": 2836,
+    "pffVsOtherDisagree": 380,
+    "subgroupFromPff": 2173,
+    "subgroupUnknown": 652
+   },
+   "label": "primary_2026",
+   "preKickoffArchive": {
+    "byWeek": {},
+    "captures": 0,
+    "genuinePreKickoff": 0,
+    "roots": [
+     {
+      "exists": false,
+      "path": "data/projections/weekly_archive"
+     },
+     {
+      "exists": false,
+      "path": "data/projections/weekly_archive"
+     }
+    ]
+   },
+   "results": {
+    "challengers": {
+     "CB": {
+      "acceptance": {
+       "biasNotWorse": true,
+       "ciUpperBelowZero": true,
+       "spearmanNotLower": true,
+       "verdict": "detectable_lift"
+      },
+      "bootstrapVsC0": {
+       "M1": {
+        "ci95.0": [
+         -0.0513,
+         0.0194
+        ],
+        "ci98.33": [
+         -0.0589,
+         0.0259
+        ],
+        "deltaMae": -0.0148,
+        "nPlayers": 134,
+        "nRows": 488,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M2": {
+        "ci95.0": [
+         -0.7648,
+         -0.2184
+        ],
+        "ci98.33": [
+         -0.8266,
+         -0.1517
+        ],
+        "deltaMae": -0.4903,
+        "nPlayers": 134,
+        "nRows": 488,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M3": {
+        "ci95.0": [
+         -0.7498,
+         -0.192
+        ],
+        "ci98.33": [
+         -0.8136,
+         -0.1296
+        ],
+        "deltaMae": -0.4698,
+        "nPlayers": 134,
+        "nRows": 488,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.7734,
+         -0.2608
+        ],
+        "ci98.33": [
+         -0.8406,
+         -0.2033
+        ],
+        "deltaMae": -0.5137,
+        "nPlayers": 134,
+        "nRows": 488,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         -0.7681,
+         -0.2259
+        ],
+        "ci98.33": [
+         -0.8382,
+         -0.181
+        ],
+        "deltaMae": -0.4973,
+        "nPlayers": 134,
+        "nRows": 488,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "metrics": {
+       "C0": {
+        "bias": -0.248,
+        "coverage80": 0.8238,
+        "coverageN": 488,
+        "fallbackRows": 0,
+        "mae": 6.3212,
+        "n": 488,
+        "players": 134,
+        "rmse": 8.4416,
+        "spearmanMeanWeekly": 0.245,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.2167,
+        "weeks": 5
+       },
+       "M1": {
+        "bias": -0.2856,
+        "coverage80": 0.8279,
+        "coverageN": 488,
+        "fallbackRows": 0,
+        "mae": 6.3064,
+        "n": 488,
+        "players": 134,
+        "rmse": 8.4338,
+        "spearmanMeanWeekly": 0.2523,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.2167,
+        "weeks": 5
+       },
+       "M2": {
+        "bias": -0.4233,
+        "coverage80": 0.7705,
+        "coverageN": 488,
+        "fallbackRows": 0,
+        "mae": 5.8309,
+        "n": 488,
+        "players": 134,
+        "rmse": 7.9622,
+        "spearmanMeanWeekly": 0.2648,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.0833,
+        "weeks": 5
+       },
+       "M3": {
+        "bias": -0.0526,
+        "coverage80": 0.7705,
+        "coverageN": 488,
+        "fallbackRows": 0,
+        "mae": 5.8514,
+        "n": 488,
+        "players": 134,
+        "rmse": 7.9023,
+        "spearmanMeanWeekly": 0.2932,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.1667,
+        "weeks": 5
+       },
+       "M4": {
+        "bias": -0.4436,
+        "coverage80": 0.7725,
+        "coverageN": 488,
+        "fallbackRows": 0,
+        "mae": 5.8075,
+        "n": 488,
+        "players": 134,
+        "rmse": 7.9257,
+        "spearmanMeanWeekly": 0.2682,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.1667,
+        "weeks": 5
+       },
+       "M5": {
+        "bias": -0.0771,
+        "coverage80": 0.7787,
+        "coverageN": 488,
+        "fallbackRows": 0,
+        "mae": 5.8239,
+        "n": 488,
+        "players": 134,
+        "rmse": 7.8607,
+        "spearmanMeanWeekly": 0.2927,
+        "topN": 12,
+        "topNHitMeanWeekly": 0.2167,
+        "weeks": 5
+       }
+      },
+      "posthocIncrementVsM2": {
+       "M3": {
+        "ci95.0": [
+         -0.0896,
+         0.1226
+        ],
+        "ci98.33": [
+         -0.1072,
+         0.1401
+        ],
+        "deltaMae": 0.0205,
+        "nPlayers": 134,
+        "nRows": 488,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.0809,
+         0.0355
+        ],
+        "ci98.33": [
+         -0.0961,
+         0.0493
+        ],
+        "deltaMae": -0.0234,
+        "nPlayers": 134,
+        "nRows": 488,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         -0.1311,
+         0.1131
+        ],
+        "ci98.33": [
+         -0.1578,
+         0.1332
+        ],
+        "deltaMae": -0.007,
+        "nPlayers": 134,
+        "nRows": 488,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "subgroups": [
+       "CB"
+      ]
+     },
+     "EDGE_DT": {
+      "acceptance": {
+       "biasNotWorse": true,
+       "ciUpperBelowZero": true,
+       "spearmanNotLower": true,
+       "verdict": "detectable_lift"
+      },
+      "bootstrapVsC0": {
+       "M1": {
+        "ci95.0": [
+         -0.0208,
+         0.0224
+        ],
+        "ci98.33": [
+         -0.0265,
+         0.028
+        ],
+        "deltaMae": 0.0011,
+        "nPlayers": 297,
+        "nRows": 1196,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M2": {
+        "ci95.0": [
+         -0.53,
+         -0.2233
+        ],
+        "ci98.33": [
+         -0.5625,
+         -0.1858
+        ],
+        "deltaMae": -0.3762,
+        "nPlayers": 297,
+        "nRows": 1196,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M3": {
+        "ci95.0": [
+         -0.4975,
+         -0.188
+        ],
+        "ci98.33": [
+         -0.5349,
+         -0.1559
+        ],
+        "deltaMae": -0.3436,
+        "nPlayers": 297,
+        "nRows": 1196,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.5495,
+         -0.239
+        ],
+        "ci98.33": [
+         -0.5857,
+         -0.2066
+        ],
+        "deltaMae": -0.3942,
+        "nPlayers": 297,
+        "nRows": 1196,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         -0.5176,
+         -0.2018
+        ],
+        "ci98.33": [
+         -0.5542,
+         -0.1717
+        ],
+        "deltaMae": -0.3622,
+        "nPlayers": 297,
+        "nRows": 1196,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "metrics": {
+       "C0": {
+        "bias": -0.0057,
+        "coverage80": 0.8169,
+        "coverageN": 1196,
+        "fallbackRows": 0,
+        "mae": 5.1242,
+        "n": 1196,
+        "players": 297,
+        "rmse": 7.215,
+        "spearmanMeanWeekly": 0.3512,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.275,
+        "weeks": 5
+       },
+       "M1": {
+        "bias": -0.0462,
+        "coverage80": 0.8194,
+        "coverageN": 1196,
+        "fallbackRows": 0,
+        "mae": 5.1253,
+        "n": 1196,
+        "players": 297,
+        "rmse": 7.2339,
+        "spearmanMeanWeekly": 0.3498,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.275,
+        "weeks": 5
+       },
+       "M2": {
+        "bias": -0.0235,
+        "coverage80": 0.7952,
+        "coverageN": 1196,
+        "fallbackRows": 0,
+        "mae": 4.748,
+        "n": 1196,
+        "players": 297,
+        "rmse": 6.4674,
+        "spearmanMeanWeekly": 0.4188,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.35,
+        "weeks": 5
+       },
+       "M3": {
+        "bias": 0.0803,
+        "coverage80": 0.7901,
+        "coverageN": 1196,
+        "fallbackRows": 0,
+        "mae": 4.7806,
+        "n": 1196,
+        "players": 297,
+        "rmse": 6.4823,
+        "spearmanMeanWeekly": 0.4164,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.325,
+        "weeks": 5
+       },
+       "M4": {
+        "bias": -0.0362,
+        "coverage80": 0.7885,
+        "coverageN": 1196,
+        "fallbackRows": 0,
+        "mae": 4.73,
+        "n": 1196,
+        "players": 297,
+        "rmse": 6.4603,
+        "spearmanMeanWeekly": 0.4245,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.3333,
+        "weeks": 5
+       },
+       "M5": {
+        "bias": 0.0656,
+        "coverage80": 0.7885,
+        "coverageN": 1196,
+        "fallbackRows": 0,
+        "mae": 4.762,
+        "n": 1196,
+        "players": 297,
+        "rmse": 6.4721,
+        "spearmanMeanWeekly": 0.4228,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.3333,
+        "weeks": 5
+       }
+      },
+      "posthocIncrementVsM2": {
+       "M3": {
+        "ci95.0": [
+         0.0091,
+         0.0557
+        ],
+        "ci98.33": [
+         0.0057,
+         0.0604
+        ],
+        "deltaMae": 0.0326,
+        "nPlayers": 297,
+        "nRows": 1196,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.0351,
+         -0.0016
+        ],
+        "ci98.33": [
+         -0.0392,
+         0.0021
+        ],
+        "deltaMae": -0.018,
+        "nPlayers": 297,
+        "nRows": 1196,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         -0.0126,
+         0.0384
+        ],
+        "ci98.33": [
+         -0.019,
+         0.0436
+        ],
+        "deltaMae": 0.014,
+        "nPlayers": 297,
+        "nRows": 1196,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "subgroups": [
+       "EDGE",
+       "DT"
+      ]
+     },
+     "LB_S": {
+      "acceptance": {
+       "biasNotWorse": true,
+       "ciUpperBelowZero": true,
+       "spearmanNotLower": true,
+       "verdict": "detectable_lift"
+      },
+      "bootstrapVsC0": {
+       "M1": {
+        "ci95.0": [
+         -0.0748,
+         0.0072
+        ],
+        "ci98.33": [
+         -0.0863,
+         0.0173
+        ],
+        "deltaMae": -0.033,
+        "nPlayers": 250,
+        "nRows": 878,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M2": {
+        "ci95.0": [
+         -0.6792,
+         -0.2565
+        ],
+        "ci98.33": [
+         -0.7389,
+         -0.2169
+        ],
+        "deltaMae": -0.4573,
+        "nPlayers": 250,
+        "nRows": 878,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M3": {
+        "ci95.0": [
+         -0.637,
+         -0.1901
+        ],
+        "ci98.33": [
+         -0.6961,
+         -0.1422
+        ],
+        "deltaMae": -0.4067,
+        "nPlayers": 250,
+        "nRows": 878,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.705,
+         -0.2815
+        ],
+        "ci98.33": [
+         -0.7811,
+         -0.2364
+        ],
+        "deltaMae": -0.4854,
+        "nPlayers": 250,
+        "nRows": 878,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         -0.682,
+         -0.2137
+        ],
+        "ci98.33": [
+         -0.7293,
+         -0.165
+        ],
+        "deltaMae": -0.4395,
+        "nPlayers": 250,
+        "nRows": 878,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "metrics": {
+       "C0": {
+        "bias": -0.6606,
+        "coverage80": 0.8485,
+        "coverageN": 878,
+        "fallbackRows": 0,
+        "mae": 5.6193,
+        "n": 878,
+        "players": 250,
+        "rmse": 7.9856,
+        "spearmanMeanWeekly": 0.5044,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.25,
+        "weeks": 5
+       },
+       "M1": {
+        "bias": -0.715,
+        "coverage80": 0.8451,
+        "coverageN": 878,
+        "fallbackRows": 0,
+        "mae": 5.5863,
+        "n": 878,
+        "players": 250,
+        "rmse": 7.9604,
+        "spearmanMeanWeekly": 0.509,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.2583,
+        "weeks": 5
+       },
+       "M2": {
+        "bias": -0.5782,
+        "coverage80": 0.8064,
+        "coverageN": 878,
+        "fallbackRows": 0,
+        "mae": 5.162,
+        "n": 878,
+        "players": 250,
+        "rmse": 7.2569,
+        "spearmanMeanWeekly": 0.5439,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.2417,
+        "weeks": 5
+       },
+       "M3": {
+        "bias": -0.2249,
+        "coverage80": 0.8041,
+        "coverageN": 878,
+        "fallbackRows": 0,
+        "mae": 5.2126,
+        "n": 878,
+        "players": 250,
+        "rmse": 7.2326,
+        "spearmanMeanWeekly": 0.553,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.2417,
+        "weeks": 5
+       },
+       "M4": {
+        "bias": -0.5927,
+        "coverage80": 0.8041,
+        "coverageN": 878,
+        "fallbackRows": 0,
+        "mae": 5.1339,
+        "n": 878,
+        "players": 250,
+        "rmse": 7.2288,
+        "spearmanMeanWeekly": 0.5488,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.25,
+        "weeks": 5
+       },
+       "M5": {
+        "bias": -0.2391,
+        "coverage80": 0.8007,
+        "coverageN": 878,
+        "fallbackRows": 0,
+        "mae": 5.1798,
+        "n": 878,
+        "players": 250,
+        "rmse": 7.2054,
+        "spearmanMeanWeekly": 0.5584,
+        "topN": 24,
+        "topNHitMeanWeekly": 0.2667,
+        "weeks": 5
+       }
+      },
+      "posthocIncrementVsM2": {
+       "M3": {
+        "ci95.0": [
+         -0.024,
+         0.1315
+        ],
+        "ci98.33": [
+         -0.0414,
+         0.15
+        ],
+        "deltaMae": 0.0506,
+        "nPlayers": 250,
+        "nRows": 878,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M4": {
+        "ci95.0": [
+         -0.0583,
+         0.0007
+        ],
+        "ci98.33": [
+         -0.0652,
+         0.0084
+        ],
+        "deltaMae": -0.0281,
+        "nPlayers": 250,
+        "nRows": 878,
+        "resamples": 2000,
+        "seed": 20261101
+       },
+       "M5": {
+        "ci95.0": [
+         -0.0615,
+         0.1019
+        ],
+        "ci98.33": [
+         -0.0782,
+         0.1243
+        ],
+        "deltaMae": 0.0178,
+        "nPlayers": 250,
+        "nRows": 878,
+        "resamples": 2000,
+        "seed": 20261101
+       }
+      },
+      "subgroups": [
+       "LB",
+       "S"
+      ]
+     }
+    },
+    "families": {
+     "DB": {
+      "C0": {
+       "bias": -0.4758,
+       "coverage80": 0.8421,
+       "coverageN": 988,
+       "fallbackRows": 0,
+       "mae": 5.9074,
+       "n": 988,
+       "players": 279,
+       "rmse": 8.0629,
+       "spearmanMeanWeekly": 0.3243,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.2833,
+       "weeks": 5
+      },
+      "M1": {
+       "bias": -0.5291,
+       "coverage80": 0.8441,
+       "coverageN": 988,
+       "fallbackRows": 0,
+       "mae": 5.8733,
+       "n": 988,
+       "players": 279,
+       "rmse": 8.0275,
+       "spearmanMeanWeekly": 0.3298,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.2778,
+       "weeks": 5
+      },
+      "M2": {
+       "bias": -0.563,
+       "coverage80": 0.8016,
+       "coverageN": 988,
+       "fallbackRows": 0,
+       "mae": 5.4298,
+       "n": 988,
+       "players": 279,
+       "rmse": 7.516,
+       "spearmanMeanWeekly": 0.3613,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.2611,
+       "weeks": 5
+      },
+      "M3": {
+       "bias": -0.2438,
+       "coverage80": 0.8006,
+       "coverageN": 988,
+       "fallbackRows": 0,
+       "mae": 5.4299,
+       "n": 988,
+       "players": 279,
+       "rmse": 7.4607,
+       "spearmanMeanWeekly": 0.3752,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.2722,
+       "weeks": 5
+      },
+      "M4": {
+       "bias": -0.5754,
+       "coverage80": 0.8047,
+       "coverageN": 988,
+       "fallbackRows": 0,
+       "mae": 5.4107,
+       "n": 988,
+       "players": 279,
+       "rmse": 7.4886,
+       "spearmanMeanWeekly": 0.3679,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.2944,
+       "weeks": 5
+      },
+      "M5": {
+       "bias": -0.2581,
+       "coverage80": 0.8047,
+       "coverageN": 988,
+       "fallbackRows": 0,
+       "mae": 5.407,
+       "n": 988,
+       "players": 279,
+       "rmse": 7.4296,
+       "spearmanMeanWeekly": 0.3799,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.2889,
+       "weeks": 5
+      }
+     },
+     "DL": {
+      "C0": {
+       "bias": -0.234,
+       "coverage80": 0.831,
+       "coverageN": 1124,
+       "fallbackRows": 0,
+       "mae": 4.7935,
+       "n": 1124,
+       "players": 285,
+       "rmse": 6.7264,
+       "spearmanMeanWeekly": 0.3464,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3,
+       "weeks": 5
+      },
+      "M1": {
+       "bias": -0.269,
+       "coverage80": 0.8327,
+       "coverageN": 1124,
+       "fallbackRows": 0,
+       "mae": 4.7965,
+       "n": 1124,
+       "players": 285,
+       "rmse": 6.7378,
+       "spearmanMeanWeekly": 0.344,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.325,
+       "weeks": 5
+      },
+      "M2": {
+       "bias": -0.1385,
+       "coverage80": 0.8069,
+       "coverageN": 1124,
+       "fallbackRows": 0,
+       "mae": 4.4657,
+       "n": 1124,
+       "players": 285,
+       "rmse": 6.1647,
+       "spearmanMeanWeekly": 0.4322,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.375,
+       "weeks": 5
+      },
+      "M3": {
+       "bias": -0.0453,
+       "coverage80": 0.8025,
+       "coverageN": 1124,
+       "fallbackRows": 0,
+       "mae": 4.5012,
+       "n": 1124,
+       "players": 285,
+       "rmse": 6.1859,
+       "spearmanMeanWeekly": 0.4279,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.3583,
+       "weeks": 5
+      },
+      "M4": {
+       "bias": -0.1543,
+       "coverage80": 0.8025,
+       "coverageN": 1124,
+       "fallbackRows": 0,
+       "mae": 4.4488,
+       "n": 1124,
+       "players": 285,
+       "rmse": 6.1543,
+       "spearmanMeanWeekly": 0.438,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.35,
+       "weeks": 5
+      },
+      "M5": {
+       "bias": -0.0629,
+       "coverage80": 0.8016,
+       "coverageN": 1124,
+       "fallbackRows": 0,
+       "mae": 4.484,
+       "n": 1124,
+       "players": 285,
+       "rmse": 6.1724,
+       "spearmanMeanWeekly": 0.4346,
+       "topN": 24,
+       "topNHitMeanWeekly": 0.35,
+       "weeks": 5
+      }
+     },
+     "LB": {
+      "C0": {
+       "bias": -0.0813,
+       "coverage80": 0.8163,
+       "coverageN": 615,
+       "fallbackRows": 0,
+       "mae": 5.9844,
+       "n": 615,
+       "players": 165,
+       "rmse": 8.5237,
+       "spearmanMeanWeekly": 0.4806,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4556,
+       "weeks": 5
+      },
+      "M1": {
+       "bias": -0.1178,
+       "coverage80": 0.813,
+       "coverageN": 615,
+       "fallbackRows": 0,
+       "mae": 5.977,
+       "n": 615,
+       "players": 165,
+       "rmse": 8.5522,
+       "spearmanMeanWeekly": 0.4852,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4556,
+       "weeks": 5
+      },
+      "M2": {
+       "bias": -0.2073,
+       "coverage80": 0.7756,
+       "coverageN": 615,
+       "fallbackRows": 0,
+       "mae": 5.4741,
+       "n": 615,
+       "players": 165,
+       "rmse": 7.5042,
+       "spearmanMeanWeekly": 0.5438,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4833,
+       "weeks": 5
+      },
+      "M3": {
+       "bias": 0.1101,
+       "coverage80": 0.7675,
+       "coverageN": 615,
+       "fallbackRows": 0,
+       "mae": 5.5607,
+       "n": 615,
+       "players": 165,
+       "rmse": 7.5021,
+       "spearmanMeanWeekly": 0.5546,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4722,
+       "weeks": 5
+      },
+      "M4": {
+       "bias": -0.2198,
+       "coverage80": 0.7642,
+       "coverageN": 615,
+       "fallbackRows": 0,
+       "mae": 5.4418,
+       "n": 615,
+       "players": 165,
+       "rmse": 7.4824,
+       "spearmanMeanWeekly": 0.5457,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4833,
+       "weeks": 5
+      },
+      "M5": {
+       "bias": 0.0967,
+       "coverage80": 0.7626,
+       "coverageN": 615,
+       "fallbackRows": 0,
+       "mae": 5.5242,
+       "n": 615,
+       "players": 165,
+       "rmse": 7.483,
+       "spearmanMeanWeekly": 0.5578,
+       "topN": 36,
+       "topNHitMeanWeekly": 0.4944,
+       "weeks": 5
+      }
+     }
+    },
+    "subgroups": {
+     "CB": {
+      "C0": {
+       "bias": -0.248,
+       "coverage80": 0.8238,
+       "coverageN": 488,
+       "fallbackRows": 0,
+       "mae": 6.3212,
+       "n": 488,
+       "players": 134,
+       "rmse": 8.4416,
+       "spearmanMeanWeekly": 0.245,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2167,
+       "weeks": 5
+      },
+      "M1": {
+       "bias": -0.2856,
+       "coverage80": 0.8279,
+       "coverageN": 488,
+       "fallbackRows": 0,
+       "mae": 6.3064,
+       "n": 488,
+       "players": 134,
+       "rmse": 8.4338,
+       "spearmanMeanWeekly": 0.2523,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2167,
+       "weeks": 5
+      },
+      "M2": {
+       "bias": -0.4233,
+       "coverage80": 0.7705,
+       "coverageN": 488,
+       "fallbackRows": 0,
+       "mae": 5.8309,
+       "n": 488,
+       "players": 134,
+       "rmse": 7.9622,
+       "spearmanMeanWeekly": 0.2648,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.0833,
+       "weeks": 5
+      },
+      "M3": {
+       "bias": -0.0526,
+       "coverage80": 0.7705,
+       "coverageN": 488,
+       "fallbackRows": 0,
+       "mae": 5.8514,
+       "n": 488,
+       "players": 134,
+       "rmse": 7.9023,
+       "spearmanMeanWeekly": 0.2932,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.1667,
+       "weeks": 5
+      },
+      "M4": {
+       "bias": -0.4436,
+       "coverage80": 0.7725,
+       "coverageN": 488,
+       "fallbackRows": 0,
+       "mae": 5.8075,
+       "n": 488,
+       "players": 134,
+       "rmse": 7.9257,
+       "spearmanMeanWeekly": 0.2682,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.1667,
+       "weeks": 5
+      },
+      "M5": {
+       "bias": -0.0771,
+       "coverage80": 0.7787,
+       "coverageN": 488,
+       "fallbackRows": 0,
+       "mae": 5.8239,
+       "n": 488,
+       "players": 134,
+       "rmse": 7.8607,
+       "spearmanMeanWeekly": 0.2927,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2167,
+       "weeks": 5
+      }
+     },
+     "DT": {
+      "C0": {
+       "bias": -0.5623,
+       "coverage80": 0.8651,
+       "coverageN": 645,
+       "fallbackRows": 0,
+       "mae": 4.3612,
+       "n": 645,
+       "players": 161,
+       "rmse": 6.2757,
+       "spearmanMeanWeekly": 0.3002,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2333,
+       "weeks": 5
+      },
+      "M1": {
+       "bias": -0.6053,
+       "coverage80": 0.8713,
+       "coverageN": 645,
+       "fallbackRows": 0,
+       "mae": 4.3511,
+       "n": 645,
+       "players": 161,
+       "rmse": 6.2608,
+       "spearmanMeanWeekly": 0.3013,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.25,
+       "weeks": 5
+      },
+      "M2": {
+       "bias": -0.5522,
+       "coverage80": 0.8729,
+       "coverageN": 645,
+       "fallbackRows": 0,
+       "mae": 3.996,
+       "n": 645,
+       "players": 161,
+       "rmse": 5.7516,
+       "spearmanMeanWeekly": 0.4112,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2667,
+       "weeks": 5
+      },
+      "M3": {
+       "bias": -0.5054,
+       "coverage80": 0.8729,
+       "coverageN": 645,
+       "fallbackRows": 0,
+       "mae": 3.9966,
+       "n": 645,
+       "players": 161,
+       "rmse": 5.736,
+       "spearmanMeanWeekly": 0.4097,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2667,
+       "weeks": 5
+      },
+      "M4": {
+       "bias": -0.5649,
+       "coverage80": 0.8682,
+       "coverageN": 645,
+       "fallbackRows": 0,
+       "mae": 3.9871,
+       "n": 645,
+       "players": 161,
+       "rmse": 5.7506,
+       "spearmanMeanWeekly": 0.4179,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3,
+       "weeks": 5
+      },
+      "M5": {
+       "bias": -0.5185,
+       "coverage80": 0.8682,
+       "coverageN": 645,
+       "fallbackRows": 0,
+       "mae": 3.9876,
+       "n": 645,
+       "players": 161,
+       "rmse": 5.7344,
+       "spearmanMeanWeekly": 0.4176,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3,
+       "weeks": 5
+      }
+     },
+     "EDGE": {
+      "C0": {
+       "bias": 0.6458,
+       "coverage80": 0.7604,
+       "coverageN": 551,
+       "fallbackRows": 0,
+       "mae": 6.0174,
+       "n": 551,
+       "players": 136,
+       "rmse": 8.1787,
+       "spearmanMeanWeekly": 0.3658,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3,
+       "weeks": 5
+      },
+      "M1": {
+       "bias": 0.6084,
+       "coverage80": 0.7586,
+       "coverageN": 551,
+       "fallbackRows": 0,
+       "mae": 6.0316,
+       "n": 551,
+       "players": 136,
+       "rmse": 8.2281,
+       "spearmanMeanWeekly": 0.3614,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3,
+       "weeks": 5
+      },
+      "M2": {
+       "bias": 0.5954,
+       "coverage80": 0.7042,
+       "coverageN": 551,
+       "fallbackRows": 0,
+       "mae": 5.6284,
+       "n": 551,
+       "players": 136,
+       "rmse": 7.2157,
+       "spearmanMeanWeekly": 0.4332,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2833,
+       "weeks": 5
+      },
+      "M3": {
+       "bias": 0.7659,
+       "coverage80": 0.6933,
+       "coverageN": 551,
+       "fallbackRows": 0,
+       "mae": 5.6984,
+       "n": 551,
+       "players": 136,
+       "rmse": 7.259,
+       "spearmanMeanWeekly": 0.4319,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.25,
+       "weeks": 5
+      },
+      "M4": {
+       "bias": 0.5827,
+       "coverage80": 0.6951,
+       "coverageN": 551,
+       "fallbackRows": 0,
+       "mae": 5.5996,
+       "n": 551,
+       "players": 136,
+       "rmse": 7.2028,
+       "spearmanMeanWeekly": 0.4446,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3167,
+       "weeks": 5
+      },
+      "M5": {
+       "bias": 0.7493,
+       "coverage80": 0.6951,
+       "coverageN": 551,
+       "fallbackRows": 0,
+       "mae": 5.6687,
+       "n": 551,
+       "players": 136,
+       "rmse": 7.2408,
+       "spearmanMeanWeekly": 0.4457,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2833,
+       "weeks": 5
+      }
+     },
+     "LB": {
+      "C0": {
+       "bias": -0.575,
+       "coverage80": 0.8308,
+       "coverageN": 455,
+       "fallbackRows": 0,
+       "mae": 5.7889,
+       "n": 455,
+       "players": 127,
+       "rmse": 8.2406,
+       "spearmanMeanWeekly": 0.5432,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.1833,
+       "weeks": 5
+      },
+      "M1": {
+       "bias": -0.6022,
+       "coverage80": 0.8242,
+       "coverageN": 455,
+       "fallbackRows": 0,
+       "mae": 5.7849,
+       "n": 455,
+       "players": 127,
+       "rmse": 8.2603,
+       "spearmanMeanWeekly": 0.5462,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2167,
+       "weeks": 5
+      },
+      "M2": {
+       "bias": -0.4452,
+       "coverage80": 0.778,
+       "coverageN": 455,
+       "fallbackRows": 0,
+       "mae": 5.3392,
+       "n": 455,
+       "players": 127,
+       "rmse": 7.4487,
+       "spearmanMeanWeekly": 0.5665,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2667,
+       "weeks": 5
+      },
+      "M3": {
+       "bias": -0.0562,
+       "coverage80": 0.7692,
+       "coverageN": 455,
+       "fallbackRows": 0,
+       "mae": 5.4611,
+       "n": 455,
+       "players": 127,
+       "rmse": 7.4573,
+       "spearmanMeanWeekly": 0.5737,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2333,
+       "weeks": 5
+      },
+      "M4": {
+       "bias": -0.4675,
+       "coverage80": 0.7692,
+       "coverageN": 455,
+       "fallbackRows": 0,
+       "mae": 5.3008,
+       "n": 455,
+       "players": 127,
+       "rmse": 7.4119,
+       "spearmanMeanWeekly": 0.5742,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3,
+       "weeks": 5
+      },
+      "M5": {
+       "bias": -0.0784,
+       "coverage80": 0.7648,
+       "coverageN": 455,
+       "fallbackRows": 0,
+       "mae": 5.4177,
+       "n": 455,
+       "players": 127,
+       "rmse": 7.425,
+       "spearmanMeanWeekly": 0.5843,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2667,
+       "weeks": 5
+      }
+     },
+     "S": {
+      "C0": {
+       "bias": -0.7526,
+       "coverage80": 0.8676,
+       "coverageN": 423,
+       "fallbackRows": 0,
+       "mae": 5.4368,
+       "n": 423,
+       "players": 123,
+       "rmse": 7.7019,
+       "spearmanMeanWeekly": 0.4184,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2833,
+       "weeks": 5
+      },
+      "M1": {
+       "bias": -0.8363,
+       "coverage80": 0.8676,
+       "coverageN": 423,
+       "fallbackRows": 0,
+       "mae": 5.3726,
+       "n": 423,
+       "players": 123,
+       "rmse": 7.6246,
+       "spearmanMeanWeekly": 0.4215,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.3,
+       "weeks": 5
+      },
+      "M2": {
+       "bias": -0.7212,
+       "coverage80": 0.8369,
+       "coverageN": 423,
+       "fallbackRows": 0,
+       "mae": 4.9714,
+       "n": 423,
+       "players": 123,
+       "rmse": 7.0447,
+       "spearmanMeanWeekly": 0.4664,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.25,
+       "weeks": 5
+      },
+      "M3": {
+       "bias": -0.4064,
+       "coverage80": 0.8416,
+       "coverageN": 423,
+       "fallbackRows": 0,
+       "mae": 4.9452,
+       "n": 423,
+       "players": 123,
+       "rmse": 6.9827,
+       "spearmanMeanWeekly": 0.4757,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2833,
+       "weeks": 5
+      },
+      "M4": {
+       "bias": -0.7272,
+       "coverage80": 0.8416,
+       "coverageN": 423,
+       "fallbackRows": 0,
+       "mae": 4.9543,
+       "n": 423,
+       "players": 123,
+       "rmse": 7.0265,
+       "spearmanMeanWeekly": 0.4732,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2333,
+       "weeks": 5
+      },
+      "M5": {
+       "bias": -0.4119,
+       "coverage80": 0.8392,
+       "coverageN": 423,
+       "fallbackRows": 0,
+       "mae": 4.9238,
+       "n": 423,
+       "players": 123,
+       "rmse": 6.9614,
+       "spearmanMeanWeekly": 0.481,
+       "topN": 12,
+       "topNHitMeanWeekly": 0.2667,
+       "weeks": 5
+      }
+     }
+    }
+   },
+   "sleeperStats": {
+    "hashes": {
+     "1": "1641657808b09593dbb00df392482e86de5b6422d48d3775a0fe2a2e6d92a625",
+     "2": "ae3041997081ea0a26aa8dac5cee91f7f47f4d3c88d0b5da9b28430a75fe0a25",
+     "3": "a75987a8b46cef694e7331c9476bea173109b6e1df2c0120e864943e437ab7dd",
+     "4": "caf6bcda8e33c969cb5dc70c69085816dda6af63e35cf511916615d27a38d06a",
+     "5": "3aaba0dbb1d234cab8cf5eb6f8036d39cf7aae7a0e24d99583a9135b249b8ba3",
+     "6": "d0aa16931860f0adc4279f5665aeeee551f8505de822943a0ddd3d4e9ff389e6",
+     "7": "601a81420ec72cc08c2bd1dcfc2e9e546b2a53f41d263f0e866c78a7749b113d"
+    },
+    "missing": {}
+   },
+   "sleeperTeamStats": {
+    "hashes": {
+     "1": "131db2c4037f8b4e3bd1ff6b19bad6ced5b71d6f3bda59996ab0f83f911aeb9a",
+     "2": "daa16c2be465ac693007cd453ff04efd9f653fa174e5f0ea5aad6a6a6cc66790",
+     "3": "98aaf49698b129aeee7a3724cb776e7936eee9527aee3931c4e4951e19c85cc9",
+     "4": "b5defece06828b6e0c092f4e3c6f44805c90645ec16fdd720a1834665432ac1b",
+     "5": "1735e41d3c3e4e8c72224cfeebdecc135862dc8556978acc31c3b22f16ea3390",
+     "6": "59fee52bca1debf704fbded2af3de7ea5909e513079bd98cfac642b344fae03a",
+     "7": "be422c6e0f2dbe5ac4324669b7bb8e81e41f05d6bf702836d526c8f85c055897"
+    },
+    "missing": {}
+   },
+   "status": "evaluated"
+  }
+ },
+ "shadowOnly": true
+}
