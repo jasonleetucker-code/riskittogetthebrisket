@@ -17222,6 +17222,19 @@ def _waiver_advisor_available() -> bool:
     )
 
 
+def _idp_streaming_available() -> bool:
+    """Offer the advisor's Weekly IDP Streaming mode only when it can answer.
+
+    ``POST /api/waiver/streaming`` refuses ``feature_disabled`` unless BOTH
+    ``waiver_advisor`` and ``idp_streaming`` are on, and the mode needs the
+    same live board the advisor does.  Fails closed through
+    ``_nav_gated_features`` like every other capability.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return _waiver_advisor_available() and is_enabled("idp_streaming")
+
+
 _NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
     # consensus_edge defaults OFF (ADR-023), so the DEFAULT state is a
     # nav entry to a page whose every board endpoint refuses — the same
@@ -17229,6 +17242,7 @@ _NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
     "consensusEdge": _consensus_edge_available,
     "managerIntelligence": _manager_intelligence_available,
     "waiverAdvisor": _waiver_advisor_available,
+    "idpStreaming": _idp_streaming_available,
 }
 
 
