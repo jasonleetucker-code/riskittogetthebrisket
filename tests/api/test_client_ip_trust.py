@@ -17,7 +17,8 @@ socket peer.
 
 B0-h (2026-10-19): both headers are statements BY THE PROXY, so they are
 believed only from a trusted peer (loopback, or ``RATE_LIMIT_TRUSTED_PROXIES``)
-and only when they parse as an address — the backend binds 0.0.0.0, and a
+and only when they parse as an address — the backend may be bound off
+loopback (``RISKIT_BIND_HOST``; it bound 0.0.0.0 until 2026-11-01), and a
 client reaching it directly could otherwise name any address it liked.  The
 owner is ``src/api/client_ip.py``; ``server._client_ip_from_request``
 delegates to it.

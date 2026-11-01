@@ -18,6 +18,13 @@ WorkingDirectory=__APP_DIR__/frontend
 # /usr/bin/npm does not exist.  This avoids the outage where a
 # hardcoded /usr/bin/npm path caused systemctl start to fail on an
 # nvm-based production box.
+#
+# The BIND ADDRESS lives in frontend/package.json's `start` script
+# (`next start -H 127.0.0.1`, owner directive 2026-11-01), not here.  That
+# is deliberate: deploy.sh only installs this unit when it is missing, so an
+# edit to this file does not reach an existing box, while package.json ships
+# with every deploy.  Keep ExecStart as `npm start`
+# (tests/deploy/test_loopback_bind.py).
 ExecStart=__NPM_BIN__ start
 Restart=always
 RestartSec=5
