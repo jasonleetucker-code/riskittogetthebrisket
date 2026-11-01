@@ -833,7 +833,11 @@ export default function RosPowerSection({ managers } = {}) {
           title="Playoff odds"
           subtitle="Monte Carlo over remaining regular-season weeks; samples each owner's score from their actual weekly history."
         >
-          <OddsExperimentalNote />
+          {/* Only beside actual probabilities: a preseason / refused chart
+              shows none, and a refusal is not a projection. */}
+          {oddsData.owners.some((o) => o?.playoffProbability != null) ? (
+            <OddsExperimentalNote />
+          ) : null}
           <PlayoffOddsChart data={oddsData} />
         </Card>
       ) : null}

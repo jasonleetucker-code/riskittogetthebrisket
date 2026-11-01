@@ -107,6 +107,77 @@ describe("uncalibrated odds disclosure (owner decision 9)", () => {
     expect(screen.getByText(EXACT)).toBeTruthy();
   });
 
+  describe("Power Rankings 'Playoff odds' card", () => {
+    const POWER = {
+      currentRanking: [
+        { ownerId: "o1", displayName: "Alice", teamName: "A Team", rank: 1, powerScore: 92.1 },
+      ],
+      unrankable: null,
+      lens: "canonical",
+      weights: {},
+      effectiveWeights: {},
+      blend: { forwardWeight: 0.75, resultsWeight: 0.25 },
+      missingInputs: [],
+      rosTeamStrengthAvailable: true,
+      preseason: false,
+      asOfSeason: "2026",
+      asOfWeek: 5,
+      shareSnapshot: null,
+      officialSnapshot: null,
+      officialHistory: [],
+    };
+
+    function servePower(odds) {
+      vi.resetModules();
+      global.fetch = vi.fn((url) =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(String(url).includes("playoffOdds") ? odds : POWER),
+        }),
+      );
+    }
+
+    async function renderPower() {
+      const mod = await import("../../app/league/sections/ros-power.jsx");
+      const Section = mod.default;
+      return render(<Section />);
+    }
+
+    it("shows the note in the card when playoff probabilities render", async () => {
+      servePower({
+        season: "2026",
+        numSims: 10000,
+        playoffSpots: 6,
+        weeksPlayed: 5,
+        weeksRemaining: 9,
+        scheduleCertainty: "posted",
+        owners: [
+          { ownerId: "o1", displayName: "Alice", currentWins: 4, playoffProbability: 0.81 },
+          { ownerId: "o2", displayName: "Bob", currentWins: 2, playoffProbability: 0.33 },
+        ],
+      });
+      await renderPower();
+      const heading = await screen.findByRole("heading", { name: "Playoff odds" });
+      const card = heading.closest("section");
+      expect(card.textContent).toContain(EXACT);
+    });
+
+    it("omits the note when the chart has no probabilities (preseason)", async () => {
+      servePower({
+        season: "2026",
+        numSims: 0,
+        playoffSpots: 6,
+        weeksPlayed: 0,
+        weeksRemaining: 14,
+        scheduleCertainty: "preseason",
+        owners: [{ ownerId: "o1", displayName: "Alice", currentWins: 0, playoffProbability: null }],
+      });
+      await renderPower();
+      const heading = await screen.findByRole("heading", { name: "Playoff odds" });
+      expect(heading.closest("section").textContent).not.toContain(EXACT);
+    });
+  });
+
   it("leads the Trade War Room's season-odds caveat", () => {
     expect(SEASON_ODDS_CAVEAT.startsWith(EXACT)).toBe(true);
   });

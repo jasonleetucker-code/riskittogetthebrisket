@@ -546,7 +546,11 @@ export function Methodology({ analysis, raw }) {
             <li key={d.dimension}>
               <strong>{DIMENSION_WORDS[d.dimension] || humanizeKey(d.dimension)}</strong> —{" "}
               {DIMENSION_REASON_WORDS[d.reason] || "not included yet"}
-              {d.dimension === "currentSeasonEquity" ? ` (${SEASON_ODDS_CAVEAT})` : ""}
+              {d.dimension === "currentSeasonEquity" ? (
+                // Its own line in the existing note style: the caveat is two
+                // sentences and does not belong inside the reason's clause.
+                <div className={styles.note}>{SEASON_ODDS_CAVEAT}</div>
+              ) : null}
             </li>
           ))}
         </ul>

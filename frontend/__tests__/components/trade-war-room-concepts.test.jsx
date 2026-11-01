@@ -124,6 +124,8 @@ describe("TradeWarRoom keeps value, expected points and odds apart", () => {
       .getByText("Change in this season's playoff and title odds")
       .closest("li");
     expect(li).toHaveTextContent(/experimental and uncalibrated/);
+    // On its own line, not stuffed into a parenthetical on the reason.
+    expect(li.textContent).not.toContain(`(${SEASON_ODDS_CAVEAT})`);
     // Team direction is read from those odds and says the same.
     expect(document.body.textContent).toContain(SEASON_ODDS_CAVEAT);
   });
