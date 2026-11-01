@@ -50,12 +50,16 @@ import {
  * on one guard.
  */
 const CONSENSUS_EDGE = "/consensus-edge";
+const WAIVER_ADVISOR = "/waiver-advisor";
+const IDP_STREAMING = "/waiver-advisor?mode=streaming";
 
 /** Every item in the shipped model that declares a capability. */
 const GATED = flattenNav(NAV_MODEL).filter((i) => i.capability);
 
-/** The gated hrefs we assert on: the derived set plus the named route. */
-const MUST_BE_GATED = [...new Set([...GATED.map((i) => i.href), CONSENSUS_EDGE])];
+/** The gated hrefs we assert on: the derived set plus the named routes. */
+const MUST_BE_GATED = [
+  ...new Set([...GATED.map((i) => i.href), CONSENSUS_EDGE, WAIVER_ADVISOR, IDP_STREAMING]),
+];
 
 /** Capability map with every declared capability switched ON. */
 const ALL_ON = Object.fromEntries(GATED.map((i) => [i.capability, { available: true }]));
@@ -117,6 +121,26 @@ describe("V1-131 — capability-gated nav destinations", () => {
     for (const href of MUST_BE_GATED) {
       expect(offered.has(href)).toBe(true);
     }
+  });
+
+  it("Weekly IDP Streaming has its own gate: the advisor alone does not offer it", () => {
+    const item = GATED.find((i) => i.href === IDP_STREAMING);
+    expect(item?.label).toBe("Weekly IDP Streaming");
+    expect(item?.capability).toBe("idpStreaming");
+    const advisorOnly = offeredHrefs({ waiverAdvisor: { available: true } });
+    expect(advisorOnly.has(WAIVER_ADVISOR)).toBe(true);
+    expect(advisorOnly.has(IDP_STREAMING)).toBe(false);
+    const both = offeredHrefs({
+      waiverAdvisor: { available: true },
+      idpStreaming: { available: true },
+    });
+    expect(both.has(IDP_STREAMING)).toBe(true);
+  });
+
+  it("the plain Waiver Advisor entry no longer advertises streaming", () => {
+    const item = GATED.find((i) => i.href === WAIVER_ADVISOR);
+    const text = [item.label, item.hint, ...(item.keywords || [])].join(" ").toLowerCase();
+    expect(text).not.toMatch(/stream/);
   });
 
   it("gating removes ONLY the gated items — every other destination is untouched", () => {

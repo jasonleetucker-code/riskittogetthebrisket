@@ -36,6 +36,7 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/angle",
   "/draft",
   "/waivers",
+  "/waiver-advisor",
   "/rosters",
   "/phases",
   "/edge",
@@ -59,8 +60,15 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/tools/trade-coverage",
 ];
 
-// Admin view: reachability covers the admin-only Ops surfaces too.
-const allTargets = paletteTargets({ isAdmin: true });
+// Admin view with EVERY gated capability available, derived from the model
+// so a newly gated destination is covered without editing this file:
+// reachability covers the admin-only Ops surfaces and every gated entry.
+const ALL_CAPABILITIES_ON = Object.fromEntries(
+  flattenNav(NAV_MODEL)
+    .filter((i) => i.capability)
+    .map((i) => [i.capability, { available: true }]),
+);
+const allTargets = paletteTargets({ isAdmin: true, capabilities: ALL_CAPABILITIES_ON });
 
 describe("IA coverage", () => {
   it("every route is reachable from the palette targets (nav + system + extras)", () => {

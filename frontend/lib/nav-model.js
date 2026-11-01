@@ -172,6 +172,29 @@ export const NAV_MODEL = [
         hint: "Add/drop analysis against your roster",
         keywords: ["faab", "free agents", "claims"],
       },
+      // The live private advisor must be discoverable, but never offered
+      // while its backend is disabled or has no board.
+      {
+        href: "/waiver-advisor",
+        label: "Waiver Advisor",
+        hint: "Best available adds, the drop each costs, and what to bid",
+        keywords: ["waiver advisor", "best available", "add drop", "faab bid"],
+        capability: "waiverAdvisor",
+      },
+      // The advisor's Weekly IDP Streaming MODE, named and routed on its own
+      // (owner requirement: a clearly named route to the streaming mode).
+      // A query on the same page, not a second route: the route canon
+      // (naming-canon.js / journey.js TITLE) keys on PATHNAMES, and this
+      // page's h1 is "Waiver Advisor" in both modes.  Gated separately —
+      // the mode also needs `idp_streaming` — so it is never offered while
+      // only the plain advisor works.
+      {
+        href: "/waiver-advisor?mode=streaming",
+        label: "Weekly IDP Streaming",
+        hint: "This week's IDP streaming adds and safe drops for your lineup",
+        keywords: ["weekly idp", "idp streaming", "stream", "streamer", "safe to drop"],
+        capability: "idpStreaming",
+      },
       {
         href: "/draft",
         label: "Draft Board",

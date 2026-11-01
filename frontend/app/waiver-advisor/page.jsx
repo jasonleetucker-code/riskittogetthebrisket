@@ -10,9 +10,15 @@
 // or legality (the no-frontend-engine rule).
 //
 // GATED: the page renders nothing but "not available" unless the backend
-// serves the advisor (flag `waiver_advisor`, default OFF).  It is linked from
-// nowhere (not in lib/nav-model.js) and is a private page (lib/public-routes.js
-// default-deny), so it is also behind the site login.
+// serves the advisor (flag `waiver_advisor`).  It is a private page
+// (lib/public-routes.js default-deny), so it is also behind the site login.
+// lib/nav-model.js offers it under My Team twice — "Waiver Advisor"
+// (/waiver-advisor) and "Weekly IDP Streaming" (/waiver-advisor?mode=streaming)
+// — each only when its own server capability (`waiverAdvisor` /
+// `idpStreaming`, via /api/auth/status) is explicitly available.
+//
+// `?mode=streaming` opens the streaming mode directly; when that mode is
+// unavailable (its gate probe answers closed) the page shows the advisor.
 //
 // Advice only.  Nothing here submits, schedules or drafts a waiver claim.
 
@@ -76,6 +82,32 @@ const MODE_OPTIONS = [
   { value: "advisor", label: "Best available" },
   { value: "streaming", label: "Weekly IDP streaming" },
 ];
+
+/** The mode the URL asks for: `?mode=streaming`, else the advisor.  Read once
+ *  on the client; the first render is a skeleton either way, so this cannot
+ *  change server-rendered markup. */
+function modeFromLocation() {
+  if (typeof window === "undefined") return "advisor";
+  try {
+    const m = new URLSearchParams(window.location.search).get("mode");
+    return m === "streaming" ? "streaming" : "advisor";
+  } catch {
+    return "advisor";
+  }
+}
+
+/** Keep `?mode=` honest after an in-page switch (no navigation, no refetch). */
+function writeModeToLocation(mode) {
+  if (typeof window === "undefined") return;
+  try {
+    const url = new URL(window.location.href);
+    if (mode === "streaming") url.searchParams.set("mode", "streaming");
+    else url.searchParams.delete("mode");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  } catch {
+    // A URL we cannot rewrite leaves the mode correct on screen; nothing else.
+  }
+}
 
 function Missing({ children }) {
   return <span className={styles.playerMeta}>{children}</span>;
@@ -351,7 +383,11 @@ export default function WaiverAdvisorPage() {
   const { selectedTeam } = useTeam();
   const [position, setPosition] = useState("ALL");
   const [expanded, setExpanded] = useState("");
-  const [mode, setMode] = useState("advisor");
+  const [mode, setModeState] = useState(modeFromLocation);
+  const setMode = (next) => {
+    setModeState(next);
+    writeModeToLocation(next);
+  };
   const leagueKey = selectedLeague?.key;
   const ownerId = selectedTeam?.ownerId ? String(selectedTeam.ownerId) : null;
   const streamingGate = useIdpStreamingGate({ leagueKey });
@@ -368,10 +404,14 @@ export default function WaiverAdvisorPage() {
   // nothing but "not available"; "open" keeps the controls mounted across
   // team / position changes instead of flashing back to a skeleton.
   const [gate, setGate] = useState("unknown");
+  // An open streaming probe also opens the page: the streaming route refuses
+  // feature_disabled unless `waiver_advisor` is on too, and on a
+  // `?mode=streaming` deep link the advisor request never runs (so it can
+  // never be the first answer).
   useEffect(() => {
     if (failure?.kind === "disabled") setGate("closed");
-    else if (payload || failure) setGate("open");
-  }, [payload, failure]);
+    else if (payload || failure || streaming) setGate("open");
+  }, [payload, failure, streaming]);
 
   if (gate === "closed" || failure?.kind === "disabled")
     return <NotAvailable />;

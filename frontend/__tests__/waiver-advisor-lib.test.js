@@ -147,8 +147,14 @@ describe("no frontend engine", () => {
     }
   });
 
-  it("is not linked from the navigation model", () => {
+  // Superseded 2026-11-01 (owner directive, PR #2032): the page IS in the
+  // nav now, but only behind server capabilities that fail closed — every
+  // nav entry pointing at it must declare one.  Behaviour is pinned in
+  // nav-capability-gating.test.js; this keeps the source-level guard.
+  it("is linked from the navigation model only behind a capability", () => {
     const nav = readFileSync(path.join(process.cwd(), "lib/nav-model.js"), "utf8");
-    expect(nav).not.toContain("/waiver-advisor");
+    const entries = nav.match(/\{\s*href:\s*"\/waiver-advisor[^"]*"[^}]*\}/g) || [];
+    expect(entries.length).toBe(2);
+    for (const entry of entries) expect(entry).toMatch(/capability:\s*"(waiverAdvisor|idpStreaming)"/);
   });
 });

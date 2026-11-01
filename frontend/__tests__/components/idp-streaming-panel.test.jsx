@@ -295,3 +295,50 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
     expect(screen.queryByTestId("streaming-recommendation")).toBeNull();
   });
 });
+
+describe("/waiver-advisor?mode=streaming — the named route to the streaming mode", () => {
+  let originalFetch;
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    window.history.replaceState(null, "", "/waiver-advisor?mode=streaming");
+  });
+  afterEach(() => {
+    global.fetch = originalFetch;
+    window.history.replaceState(null, "", "/");
+    vi.restoreAllMocks();
+  });
+
+  it("opens straight into the streaming mode", async () => {
+    mockFetch(() => respond(200, budgetLimited));
+    render(<WaiverAdvisorPage />);
+    expect(await screen.findByTestId("idp-streaming")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Weekly IDP streaming" })).toBeChecked();
+    await waitFor(() => expect(streamingCalls().length).toBeGreaterThan(0));
+  });
+
+  it("falls back to the advisor when the streaming mode is unavailable", async () => {
+    global.fetch = vi.fn(async (url) =>
+      url === "/api/waiver/streaming"
+        ? respond(503, { error: "feature_disabled", flag: "idp_streaming" })
+        : respond(200, ADVISOR),
+    );
+    render(<WaiverAdvisorPage />);
+    expect(await screen.findByTestId("waiver-advisor")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(global.fetch.mock.calls.some(([u]) => u === "/api/waiver/streaming")).toBe(true),
+    );
+    expect(screen.queryByTestId("idp-streaming")).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Weekly IDP streaming" })).toBeNull();
+    expect(screen.getByLabelText("Position")).toBeInTheDocument();
+  });
+
+  it("keeps the URL in step when the user switches mode", async () => {
+    mockFetch(() => respond(200, budgetLimited));
+    render(<WaiverAdvisorPage />);
+    await screen.findByTestId("idp-streaming");
+    fireEvent.click(screen.getByRole("radio", { name: "Best available" }));
+    expect(window.location.search).toBe("");
+    fireEvent.click(screen.getByRole("radio", { name: "Weekly IDP streaming" }));
+    expect(window.location.search).toBe("?mode=streaming");
+  });
+});
