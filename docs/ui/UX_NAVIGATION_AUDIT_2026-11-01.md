@@ -168,7 +168,7 @@ Interactions are counted from the signed-in dashboard. D = desktop clicks, M = m
 | 11 | What changed in my league | League ▾ → Activity (2 / 2); dashboard movers (0); News (1) | L | same | — | yes |
 | 12 | Settings / change league | System ▾ → Settings (2 / 2); league change = top-bar switcher (1 + choose) | M: Settings has no league control (dead end if the user looks there) | unchanged | UX-D08 | — |
 
-## 7. Implemented changes (this PR)
+## 7. Implemented changes (PR #2051, branch `claude/ux-nav-audit`)
 
 | Change | Files | Test |
 |---|---|---|
