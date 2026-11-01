@@ -122,3 +122,79 @@ Hierarchical models are established in NFL research and are not novel by themsel
 8. First unblock prospective, genuinely pre-kickoff IDP capture/evaluation; do not contaminate the frozen Week 9+ prospective study.
 9. Avoid promotion after a weak naive baseline, duplicate ownership, postgame-as-forecast, correlated-source double counting, unauthorized paid data, paused DFS and unsupported causal claims.
 10. Production needs predeclared decisive forward lift against strong incumbent, calibration/ranking/decision noninferiority, exact-card tests, source and privacy permission, robust deployment/rollback and explicit owner authorization. No such authorization is granted here.
+
+
+## XI. Top-five implementation-ready *research* specification (not deployment authorization)
+
+The following are **design hypotheses** for subsequent separately preregistered POCs. The “expected improvements” are *test gates*, not empirically measured forecasts; cost ranges are rough planning estimates excluding data licensing, infrastructure migration and reviewer time. For each: preserve existing owners, canonical scorer and value distinction; no new live routes until permissions and approval.
+
+### AMATH-1 — Hierarchical IDP opportunity counts (92/100)
+
+- **Specific method:** negative-binomial or overdispersed Poisson/Gamma partial-pooling counts with a separately forecast exposure/snap process; only add mixture/hurdle events if residual checks justify them.
+- **User problem:** rank DL/LB/DB and predict volatile solo/assist/sack/TFL/PD lines under custom scoring without wild estimates after a small sample.
+- **Evidence/baseline:** M2 snap-weighted shrinkage already drives most 2026 retrospective lift; competitor is strongest of frozen S0/SNAP/PROV, not weak C0. Formalize current model first as a probabilistic regression; added complexity only if reproducibly useful.
+- **Equation:** Y_{itk} | E_{it},lambda_{itk},phi_k ~ NegBin(mu=E_{it}lambda_{itk}, dispersion=phi_k); log lambda_{itk} = alpha_{p(i),k} + b_{i,k} + beta_k^T X_{it} + c_{team(i),k}, where b_{i,k} ~ N(0,tau_{p(i),k}^2). Project E_{it} = planned team defensive snaps * availability_prob_{it} * conditional_snap_share_{it}; DO NOT substitute actual week-W snaps. Score simulated stat lines through canonical league scorer.
+- **Input/capability:** Sleeper historical keyed IDP lines, team defensive snaps, injury status with **as-of** dates, true position, player/team identifiers, game times and card; verify legal data rights; per-defender pressure/alignment absent so exclude those covariates rather than fabricate.
+- **Libraries/architecture:** optional research Python statsmodels/scipy with empirical Bayes and scipy special/optimize; PyMC/Bambi only if incremental accuracy justifies compile/MCMC overhead; own module under existing src/ros/idp_opportunity/, research runner mirrors existing leakage guards, output typed as weekly_opportunity SHADOW. No new point/scorer owner.
+- **Evaluation:** walk-forward fit per week, nested hyperparameter selection on past games, 2025/2026 regime strata, player/team/week clustered uncertainty, proper log/CRPS score, MAE, bias, 80% interval coverage, top-36/position rankings and realized marginal lineup points. Pre-register minimum -0.25 fantasy points per player-week vs **strongest** baseline as an illustrative hurdle, not inherited protocol; require no degrading top-N.
+- **Failure:** no clean PIT covariates, provider-source non-comparability, variance model degeneracy, simple SNAP equivalent, rank top-tail regression, overfit, inadequate out-of-season replication.
+- **POC effort:** 2–5 research engineering days with verified input receipts, plus review and prospective outcome collection. Low/medium CPU for empirical Bayes; high/avoidable for full HMC.
+- **Roadmap:** owner existing C5/IDP; further independent experiment only after frozen current prospective experiment completes/its scope is protected. No promotion.
+
+### AMATH-2 — Multiweek risk-aware IDP streaming optimizer (89/100)
+
+- **Specific method:** scenario-sampled stochastic mixed integer/matroid-like roster constraints with CVaR or robust lower-confidence objective, optimized using the **existing** roster/lineup owners and add/drop solver.
+- **User problem:** manager's +19.9/week observed gains have not been matched by deterministic dynasty-safe optimizer; must decide add/drop or NO ACTION without losing valuable young defenders.
+- **Baselines:** no action, legal best current deterministic streaming solver, greedy last-week, current projections with conservative protected releases; causal confounds require separate depth and replacement controls.
+- **Equation:** a=(adds,drops), R_a= legal resulting roster; omega indexes jointly sampled future results. J(a)=Σ_w δ^(w−1) E_omega[L_w(R_a,omega)−L_w(R_0,omega)] − λ CVaR_q(negative utility across omega) − μ D_loss(a) − C_FAAB(a). Constraints: roster cardinality/cap, player exclusivity, candidate availability, waiver deadlines, owners' immutable-protection list, budget, positional slots incl QB superflex/TE2/IDP3/3/3, permitted dynasty-loss budget (zero default), and explicit no-transaction a=∅.
+- **Inputs:** genuine pre-kickoff projected stat distributions by player and week, roster/scheduled games, user-specific protected players, positional rules/scoring, availability, FAAB history and remaining cap, marginal dynasty values separated from lineup points, ownership/transaction PIT.
+- **Architecture/libs:** keep src/waivers/streaming_solver.py as only solver; import canonical lineup owner. Research-only scenario evaluation in isolated module; numpy/scipy (already dependency), existing MILP HiGHS for small exact models; OR-Tools CP-SAT could be challenger only if solver complexity merits new dependency. Use seed, scenario count, solve time and infeasibility receipts.
+- **Evaluation:** forward decision replay with **same available transaction snapshot and predictions** across alternatives, not realized hindsight; compare realized lineup-point lift, false churn, no-action rate, protection violations, FAAB spent, portfolio deterioration, dynasty hold/release cost, runtime and convergence. Exploratory minimum +1.0 true lineup point/decision-week versus current solver, zero hard-rule violations and no increase in material avoidable drops.
+- **Failure:** gain disappears when matched for defensive depth/injury replacements; solver not better than a simple safe policy; transaction history reconstruction non-PIT; infeasibility/performance; penalization overwhelms scores; insufficient sample.
+- **POC effort:** 3–7 research engineering days after validated weekly distributions, plus season-long prospective testing. Medium bounded CPU; output explanations via primary contributor and why NO ACTION won.
+- **Roadmap:** MD-7/8, existing streaming owner; not a second Perfect Waivers or global trade valuation.
+
+### AMATH-3 — Source-independent distributional ensemble and calibration (88/100)
+
+- **Method:** family-aware weighted probabilistic pooling, isotonic/logistic calibration where sufficient sample, regularized dependence-aware convex weights; quantile aggregation or mixture distributions explicitly, separate WEEKLY/ROS/DYNASTY horizons.
+- **Problem:** multiple provider inputs may be stale/correlated (one vendor relays another), so simple consensus may double count and intervals may be too narrow.
+- **Baselines:** latest permitted source alone; simple median/equal-family mean; existing src/ros/projection_ensemble.py; compare across distinct horizons, never pool IDP Show dynasty votes as weekly projections.
+- **Equation:** F_hat(y|X)=Σ_f w_f F_f(y|X), w_f≥0, Σ_f w_f=1; optimize w over PIT historical folds using proper loss Σ_t CRPS(F_hat_t,y_t)+ηΣ_f(w_f−1/F)^2, grouping sources by proven dependence lineage; estimate calibrated 80% interval separately by family/time. Missing source ≠ zero; absent jointly point-in-time source means explicitly unavailable row.
+- **Inputs:** signed/timestamped actual pre-kickoff provider stat distributions or statistical fields, source capability/terms, source ancestry graph, scorer card and game results, roster/league cutoffs; provider historical snapshots absent from local audit.
+- **Architecture/libs:** existing source/lineage owners, src/ros/projection_ensemble.py, src/ros/projection_observations.py, scoring and leakage guards. Python numpy/scipy, optional scikit-learn for isotonic/regression only in new research dependency; do not silently install packages on production.
+- **Evaluation:** 2025/2026 grouped walk-forward out-of-sample, point MAE, CRPS, log score, nominal interval coverage, top-IDP start selection, downstream waiver utility, source-family ablations and source outages; hypothesis better proper score with no >0.5-point player-week loss to strongest provider on major positional strata. Define a preregistered family and effective sample threshold first.
+- **Failure:** true independent sources unavailable or entitlements disallow re-use; correlated vendors overwhelm effective sample; uncalibrated source forecasts; no improvement over median/single provider; drift.
+- **POC effort:** 3–6 days once historic capture exists, plus long-running forward window. Low/medium CPU; high explainability via evidence family/version/weight table.
+- **Roadmap:** existing C5 source and projection contracts; no new source vote or canonical value change.
+
+### AMATH-4 — ROS position-scale / points distributions (84/100)
+
+- **Method:** regularized hierarchical position calibration for predicted fantasy points per week and uncertainty conditioned on source horizon, distinct from canonical dynasty market price; calibration slope/offset and probabilistic residuals constrained against overfitting.
+- **Problem:** top IDP ROS ranks carry incompatible scale relative to offense; study reports 2026 empirical disagreement, but failed preregistered cross-position and lineup gates.
+- **Baselines:** current ROS fallback, no-conversion C0 and existing CR/CF preregistered studies; treat **G3 failed** and V3 not-for-promotion as real negative evidence.
+- **Equation:** E[Y_{it}|r_{it},position p] = a_p + b_p r_{it}, with (a_p,b_p) partially pooled across positions; r_{it} is pre-week ROS signal, calibrated to league-card points; use suitable nonlinear monotone mapping only after heldout residual/ordering tests. Forecast S_it=Σ_j points_{ijt} with exact lineup solver, not raw sum of 0–100 ROS ranks.
+- **Inputs:** PIT ROS board snapshots, actual player-week stat lines, scoring profile, exact 21-slot league roster, availability and season horizon; point-in-time 2025 league topology unresolved by prior report, so prioritize 2026 and fail closed on nonverified historical rules.
+- **Architecture/libs:** reuse src/ros_calibration, src/league_intel/sim_calibration, src/ros/lineup; statsmodels/scipy optional, avoid new "global cross-position valuation" owner. Output shadow rosPointsPerWeek field only under existing owner-gated permission.
+- **Evaluation:** preserve existing preregistered fail as immutable, any new test must use new held-out future games and independent preregistration; cross-position pair concordance, PIT calibration, lineup noninferiority, team ordering, family mean residuals and playoff simulation Brier/CRPS. **All** relevant noninferiority gates must pass; no owner promotion from a good mean alone.
+- **Failure:** new candidate passes MAE but fails ordering, misattributes IDP slots or affects dynasty market values; insufficient prospective label count.
+- **POC effort:** 3–8 days depending on missing PIT snapshots and heldout repeat; low/medium CPU, high explanation.
+- **Roadmap:** MD-4 and existing ROS study; do not promote or re-run protected holdouts until approved.
+
+### AMATH-5 — Formal logic, invariant tests and constraint counterexamples (82/100)
+
+- **Method:** SAT/SMT or CP-SAT for small synthetic counterexamples, independent constraint proof fixtures; a *test-only checker*, not a new lineup optimizer.
+- **Problem:** invalid recommended trades/waivers/lineups and scoring inconsistency under 21 unusual starters, positional flex, source-missing and roster/FAAB requirements.
+- **Baselines:** existing independent pure-Python validator, existing exact DFS HiGHS ILP and small exhaustive-enumeration tests, canonical lineup and roster solver; add formal method only when it finds a missing class of counterexample.
+- **Equation:** binary z_{i,s}∈{0,1} indicates player i occupies eligible starter slot s; Σ_i z_{i,s}≤1; Σ_s z_{i,s}≤1; z_{i,s}=0 if player not eligible; x_i owned-after, z_{i,s}≤x_i; Σ_i x_i≤roster cap; Σ_i FAAB_i ≤ B; score = Σ_{i,s} points_i z_{i,s}. For superflex enforce allowed QB/RB/WR/TE; for FLEX RB/WR/TE; for DL/LB/DB 3 each; no IDP FLEX or imaginary TE bonus. Separate manual versus best-ball semantics.
+- **Inputs:** literal canonical scoring profile and roster eligibility cards, contract schemas and synthetic player pool; no NFL vendor data, no paid sources needed.
+- **Architecture/libs:** tests only under tests/ with property-based Hypothesis (if approved), z3-solver or OR-Tools CP-SAT as OPTIONAL dev-only deps; compare brute-force enumeration on 2–10 player toy rosters and existing solver. Never replace scipy.optimize.milp/owner paths from a mere test.
+- **Evaluation:** discover at least one new lawful counterexample vs prior validator or establish that all synthetic cases match; test contradictory ownership, missing scores vs zero, ineligible flex, multiple positions, remaining budget, unique assignment, transfer atomicity, no transaction, scoring cross-family leakage and infeasibility diagnostics. **Accept** test harness only when CI stable and it demonstrably strengthens coverage; no performance-lift claim.
+- **Failure:** no additional bugs/invariants uncovered for added dependency complexity, solver too slow/flaky, conflict with current owners or mistaken interpretation of SAT feasibility as user benefit.
+- **POC effort:** 1–4 days research/tests only, low/medium CPU; transparent counterexample report. Existing DFS pause respected.
+- **Roadmap:** canonical rule owner and CI engineering; isolated tests under ordinary review, zero production behavior changes.
+
+### Complete per-candidate matrix column coverage
+
+For AMATH-1 through AMATH-5, the preceding five specifications explicitly record discipline/method, application, current implementation, mechanism, necessary inputs, simpler baseline, proposed minimum improvement (not achieved), external and internal evidence, complexity, computation, explainability, library/stack fit, evaluation, and verdict. For #6–#10, the top-ten table records feasibility and baseline while their **prototype-level designs remain unapproved research**; collecting full architecture details before source-data readiness would give false specificity.
+
+**As-of and data-evidence caveat:** GitHub document/code inspection is **not** a production VPS audit; this review did not inspect authenticated caches or locally run packages/scripts, verify live source permission, execute forecasting experiments, or independently reproduce reported archived results. All quoted October/November performance is from the repository's existing study docs, not a new test by this audit. No citation/PR approval substitutes for new label-safe validation.
